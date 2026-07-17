@@ -1,7 +1,8 @@
 # ADR-0005: AI niet in de eerste MVP
 
-- **Status:** Accepted
+- **Status:** Accepted (Fase 6-slice later alsnog gebouwd)
 - **Datum:** 2026-07-17
+- **Bijgewerkt:** 2026-07-17 — minimale summarize-slice in Fase 6
 
 ## Context
 
@@ -10,9 +11,9 @@ AI kan samenvattingen en aandachtspunten voorstellen, maar mag validatie en afro
 ## Beslissing
 
 - **Fase 2–5 zonder AI.** Eerst deterministische engine, uploads, compleetheid, HTML-rapport, review.
-- Domeinmap `app/Domains/AI/` blijft scaffold; env-placeholders blijven staan.
-- Concrete AI-slice pas in Fase 6 volgens `docs/ai.md`.
-- Geen prompts in controllers/views wanneer AI komt; wel interface + `ai_runs`.
+- **Fase 6:** optionele `SummarizeIntake` via queue + `ai_runs`; soft-fail t.o.v. kernintake.
+- Providers: `null` / `fake` / `heuristic` eerst; externe LLM pas na DPIA.
+- Geen prompts in controllers/views; wel `AiClientInterface` + versioned prompts.
 
 ## Alternatieven
 

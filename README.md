@@ -109,4 +109,4 @@ deploy/          # activate.sh
 
 ## Huidige status
 
-**Fase 5 (compleetheid, rapport, beoordeling) afgerond.** Volgende: optioneel Fase 6 AI. Demo-versie staat op de backlog ([issue #5](https://github.com/JorisPaarde/intake-engine/issues/5)).
+**Fase 6 (AI-samenvatting) afgerond** op branch `cursor/fase-6-ai`. Demo-versie blijft op de backlog ([issue #5](https://github.com/JorisPaarde/intake-engine/issues/5)).

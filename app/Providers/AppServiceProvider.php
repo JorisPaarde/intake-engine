@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Domains\AI\Clients\FakeAiClient;
+use App\Domains\AI\Clients\HeuristicAiClient;
+use App\Domains\AI\Clients\NullAiClient;
+use App\Domains\AI\Contracts\AiClientInterface;
 use App\Domains\Intake\Models\Intake;
 use App\Policies\IntakePolicy;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -19,7 +23,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(AiClientInterface::class, function (): AiClientInterface {
+            return match ((string) config('ai.provider', 'null')) {
+                'fake' => new FakeAiClient,
+                'heuristic' => new HeuristicAiClient,
+                default => new NullAiClient,
+            };
+        });
     }
 
     /**

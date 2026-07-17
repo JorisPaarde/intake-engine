@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Actions;
 
+use App\Domains\AI\Jobs\SummarizeIntakeJob;
 use App\Domains\Intake\Models\GeneratedReport;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
@@ -42,7 +43,7 @@ final class CompleteIntake
             ]);
         }
 
-        return DB::transaction(function () use ($intake, $version, $check): Intake {
+        $completed = DB::transaction(function () use ($intake, $version, $check): Intake {
             $snapshot = [
                 'is_complete' => true,
                 'missing' => [],
@@ -105,5 +106,9 @@ final class CompleteIntake
 
             return $intake->fresh(['report', 'attentionPoints']) ?? $intake;
         });
+
+        SummarizeIntakeJob::dispatch($completed->id);
+
+        return $completed;
     }
 }

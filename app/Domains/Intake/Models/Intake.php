@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Models;
 
+use App\Domains\AI\Models\AiRun;
 use App\Enums\IntakeStatus;
 use App\Models\User;
 use Database\Factories\IntakeFactory;
@@ -134,6 +135,12 @@ class Intake extends Model
     public function report(): HasOne
     {
         return $this->hasOne(GeneratedReport::class);
+    }
+
+    /** @return HasMany<AiRun, $this> */
+    public function aiRuns(): HasMany
+    {
+        return $this->hasMany(AiRun::class);
     }
 
     /** @return HasMany<IntakeActivityEvent, $this> */

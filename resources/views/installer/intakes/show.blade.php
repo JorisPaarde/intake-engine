@@ -155,6 +155,27 @@
                             Gegenereerd {{ $intake->report->generated_at?->timezone(config('app.timezone'))->format('d-m-Y H:i') }}
                         </p>
                     </div>
+
+                    @php
+                        $aiSummary = is_array($intake->report->meta['ai_summary'] ?? null)
+                            ? $intake->report->meta['ai_summary']
+                            : null;
+                    @endphp
+
+                    @if ($aiSummary)
+                        <div class="rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">
+                            <p class="font-semibold">AI-voorstel (niet bindend)</p>
+                            <p class="mt-1">{{ $aiSummary['summary'] ?? '' }}</p>
+                            @if (! empty($aiSummary['highlights']) && is_array($aiSummary['highlights']))
+                                <ul class="mt-2 list-disc space-y-1 pl-5">
+                                    @foreach ($aiSummary['highlights'] as $highlight)
+                                        <li>{{ $highlight }}</li>
+                                    @endforeach
+                                </ul>
+                            @endif
+                        </div>
+                    @endif
+
                     <iframe
                         title="Opnamerapport"
                         srcdoc="{{ $intake->report->html }}"

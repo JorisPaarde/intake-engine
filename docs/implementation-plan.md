@@ -26,9 +26,11 @@ Geïmplementeerd: `StoreIntakeUpload` / `DeleteIntakeUpload`, private media disk
 
 Geïmplementeerd: `CompletenessChecker`, `CompleteIntake`, system attention points, `generated_reports` HTML, klant-afronden + bedankt, installer rapport + `SubmitIntakeReview` / `ReviewDecision`, feature tests. PDF bewust later (cPanel shared hosting).
 
-## Fase 6 — AI (optioneel)
+## Fase 6 — AI ✅
 
-Alleen na stabiele Fase 5. Zie `docs/ai.md`.
+**Doel:** optionele AI-samenvatting na afronding, soft-fail t.o.v. kernintake.
+
+Geïmplementeerd: `ai_runs`, `AiClientInterface` (null/fake/heuristic), `SummarizeIntake` + job na `CompleteIntake`, AI-voorstelblok in HTML-rapport, feature tests. Externe LLM-provider later.
 
 ## Kwaliteitspoort per fase
 
