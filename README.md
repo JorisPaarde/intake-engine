@@ -18,8 +18,10 @@ composer setup
 ```bash
 # .env: DB_* aanpassen
 mysql -u root -e "CREATE DATABASE intake_engine"
-php artisan migrate
+php artisan migrate --seed
 ```
+
+Demo-login na seed: `installateur@example.com` / `password` (fictief).
 
 **Uploadlimieten:** verhoog lokaal `upload_max_filesize` / `post_max_size` (zie `docs/uploads.md`). Standaard PHP CLI kan op 2M staan.
 
@@ -97,4 +99,4 @@ deploy/          # activate.sh
 
 ## Huidige status
 
-**Fase 1 (audit & ontwerp) afgerond.** Auth (Breeze) en infra werken; domeinfeatures (dashboard, intake-engine, uploads, rapport) volgen in Fase 2+.
+**Fase 2 (interne basis) afgerond.** Installateur kan opnames aanmaken, dashboard bekijken en klantlinks beheren. Volgende: Fase 3 klantintake-flow.

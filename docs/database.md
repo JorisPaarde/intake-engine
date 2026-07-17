@@ -1,6 +1,6 @@
 # Databaseschema — Digitale Opname
 
-Status: **ontwerp (Fase 1)**. Nog geen domeinmigraties geïmplementeerd. Bestaande tabellen: `users`, `password_reset_tokens`, `sessions`, `cache`, `cache_locks`, `jobs`, `job_batches`, `failed_jobs`.
+Status: **geïmplementeerd (Fase 2 migraties)**. Bestaande Laravel-tabellen plus intake-engine-schema via `2026_07_17_120000_create_intake_engine_tables`.
 
 ## Ontwerpprincipes
 

@@ -2,59 +2,13 @@
 
 Gebaseerd op repository-audit (2026-07-17). Infrastructuur (Laravel, CI, cPanel-deploy) blijft intact.
 
-## Fase 1 — Audit & ontwerp ✅ (deze fase)
+## Fase 1 — Audit & ontwerp ✅
 
-- Stack en infra vastgelegd
-- Schema, versionering, tokens, uploads ontworpen
-- Documentatie + ADRs
-
-Geen functionele featurecode in deze fase.
-
-## Fase 2 — Interne basis
+## Fase 2 — Interne basis ✅
 
 **Doel:** installateur kan inloggen, opnames aanmaken/beheren, klantlink kopiëren.
 
-1. Enums + migrations (schema uit `docs/database.md`)
-2. Eloquent models in `app/Domains/Intake/Models`
-3. Policies (`IntakePolicy`)
-4. Actions: `CreateIntake`, `RevokeIntakeToken`, `RegenerateIntakeToken` (indien nodig)
-5. Dashboard (Blade): lijst met status, voortgang, datums
-6. Create-formulier (alleen template Airco)
-7. Detailpagina: klantgegevens, kopieerbare link, status
-8. Seeders: user + airco template v1 + voorbeeldintakes
-9. Wire `MEDIA_DISK` in config (voorbereiding; uploads in Fase 4)
-10. Tests: create, authorize, token uniqueness/revoke
-11. Docs + CHANGELOG bijwerken
-
-### Bestanden Fase 2 (voorgenomen toevoegen/wijzigen)
-
-**Nieuw**
-
-- `app/Enums/IntakeStatus.php`, `QuestionType.php`, `TemplateVersionStatus.php`, `ReviewDecision.php`, `RuleOperator.php`, `RuleEffect.php`, `AttentionPointSource.php`
-- `database/migrations/*_create_intake_templates_table.php` (+ versions, sections, questions, options, rules, intakes, answers, uploads, attention_points, notes, reviews, generated_reports, activity_events)
-- `app/Domains/Intake/Models/*` (IntakeTemplate, IntakeTemplateVersion, IntakeSection, IntakeQuestion, …, Intake, …)
-- `app/Domains/Intake/Actions/CreateIntake.php`, `RevokeIntakeAccess.php`
-- `app/Domains/Intake/Services/IntakeAccessTokenGenerator.php`
-- `app/Policies/IntakePolicy.php` (+ registratie)
-- `app/Http/Controllers/Installer/DashboardController.php`, `IntakeController.php`
-- `app/Http/Requests/Installer/StoreIntakeRequest.php`
-- `resources/views/installer/dashboard.blade.php`, `intakes/create.blade.php`, `intakes/show.blade.php`
-- `database/data/templates/airco/v1.php` (of `.json`)
-- `database/seeders/IntakeTemplateSeeder.php`, `DemoIntakeSeeder.php`
-- `tests/Feature/Installer/CreateIntakeTest.php`, `DashboardTest.php`, `IntakeAccessTokenTest.php`
-- `routes` uitbreiding in `routes/web.php` (installer group)
-
-**Wijzigen**
-
-- `routes/web.php` — dashboard → echte opnamelijst
-- `resources/views/dashboard.blade.php` / layouts navigation
-- `database/seeders/DatabaseSeeder.php`
-- `config/filesystems.php` — `media` key (voorbereiding)
-- `config/app.php` — timezone via `env('APP_TIMEZONE')`
-- `README.md`, `CHANGELOG.md`, `docs/*` waar implementatie afwijkt van ontwerp
-- Eventueel `bootstrap/app.php` voor policies/rate limiters
-
-**Mail:** staging = `log` → geen auto-mail; alleen kopieerbare link. Documenteer latere mail in CHANGELOG.
+Geïmplementeerd: enums, migrations, models, policies, Create/Revoke/Regenerate actions, dashboard, create/show UI, airco template v1 + seeders, `MEDIA_DISK` config, timezone fix, feature tests.
 
 ## Fase 3 — Klantintake
 
