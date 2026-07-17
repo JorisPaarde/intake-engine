@@ -103,6 +103,7 @@ deploy/          # activate.sh
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | cPanel / CI deploy |
 | [docs/implementation-plan.md](docs/implementation-plan.md) | Fasering |
 | [docs/backlog.md](docs/backlog.md) | Backlog (o.a. demo-versie) |
+| [docs/functional-test-status.md](docs/functional-test-status.md) | Functionele teststatus (handmatig) |
 | [docs/decisions/](docs/decisions/) | ADRs |
 | [CHANGELOG.md](CHANGELOG.md) | Wijzigingslog |
 
