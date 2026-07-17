@@ -6,6 +6,8 @@ De **enige backlog** van dit project: al het werk dat bewust niet in de afgerond
 
 Status: `backlog` · `ready` · `in_progress` · `done` · `dropped` — prioriteit: `high` · `medium` · `low`
 
+**Leeswijzer:** scan de overzichtstabel hieronder; open daarna alleen de detailsectie van het item waaraan je werkt.
+
 ## Overzicht
 
 | ID | Item | Status | Prioriteit |

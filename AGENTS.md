@@ -6,9 +6,33 @@ Dit bestand is de **centrale ingang** voor iedere agent (of mens) die aan dit pr
 
 ## Wat is dit project?
 
-**Intake Engine (Digitale Opname)** — een Laravel-applicatie waarmee installatiebedrijven aanvragen op afstand beoordelen via een begeleide digitale intake (eerste template: airco). De kern is een herbruikbare, data-gedreven intake-engine; airco is configuratie, geen aparte codebase. Stack en installatie: zie [README.md](README.md).
+**Intake Engine (Digitale Opname)** — een Laravel-applicatie waarmee installatiebedrijven aanvragen op afstand beoordelen via een begeleide digitale intake (eerste template: airco). De kern is een herbruikbare, data-gedreven intake-engine; airco is configuratie, geen aparte codebase. Stack en installatie: zie [README.md](README.md). Actuele projectstand: [README § Huidige status](README.md#huidige-status).
 
-**Huidige stand:** MVP-fasen 1 t/m 6 zijn afgerond en gemerged naar `main` (zie [docs/implementation-plan.md](docs/implementation-plan.md)). Nieuw werk komt uit [docs/backlog.md](docs/backlog.md).
+## Snelstart: zo lees je dit geheugen (gericht, niet alles)
+
+Lees in deze volgorde en **stop zodra je genoeg weet** voor je taak:
+
+1. **Dit bestand** — de geheugenkaart en de taakroutingtabel hieronder.
+2. **[README § Huidige status](README.md#huidige-status)** — waar het project staat (paar regels).
+3. **[docs/backlog.md](docs/backlog.md)** — alleen de **overzichtstabel** bovenaan; open daarna alleen het/de BL-item(s) dat je taak raakt.
+4. **Alleen de documenten uit de taakroutingtabel** voor jouw taaktype — en daarbinnen gericht op sectie (elke doc heeft een inhoudsopgave via de koppen).
+
+Lees **níet** standaard alle docs integraal door. De geheugenkaart, versieheaders en statusregels bovenaan elk document bestaan juist zodat je in enkele regels kunt bepalen of een document relevant is en gericht kunt springen. Diepgang haal je pas op als je taak dat vereist — gefundeerd werken betekent de *juiste* bron raadplegen, niet *alle* bronnen.
+
+### Taakrouting: wat lees je bij welk taaktype
+
+| Taaktype | Lees (gericht) | Meestal niet nodig |
+|----------|----------------|--------------------|
+| Intake-flow, vragen, regels, compleetheid | `docs/intake-engine.md` (+ relevante tabellen in `docs/database.md`) | uploads, AI, deploy |
+| Datamodel / migraties | `docs/database.md` + ADR-0001 | intake-engine details, deploy |
+| Foto's / uploads / media | `docs/uploads.md` (+ `docs/DEPLOYMENT.md` § PHP upload-limieten) | AI, database-details |
+| AI-functionaliteit | `docs/ai.md` + ADR-0005 | uploads, deploy |
+| Deploy, staging, CI, server | `docs/DEPLOYMENT.md` | engine-, AI- en database-docs |
+| Functioneel testen op staging | `docs/functional-test-status.md` + BL-002 in de backlog | architectuur-docs |
+| Architectuurbrede keuze / nieuw domein | `docs/ARCHITECTURE.md` + relevante ADRs | — |
+| Docs/geheugen zelf onderhouden | dit bestand volledig | — |
+
+Twijfel je onder welk taaktype je werk valt, gebruik dan de geheugenkaart hieronder als vangnet.
 
 ## Geheugenkaart: welk document is waarvoor de bron van waarheid
 
@@ -63,9 +87,7 @@ Elk beheerd document (alle `docs/*.md` behalve ADRs, plus README en dit bestand)
 
 ### Bij de start van elke taak
 
-1. Lees dit bestand.
-2. Lees [docs/backlog.md](docs/backlog.md) en check of je taak daar al staat (status, afhankelijkheden, eerdere notities).
-3. Lees de docs die volgens de geheugenkaart je werkgebied dekken.
+Volg de [Snelstart](#snelstart-zo-lees-je-dit-geheugen-gericht-niet-alles): dit bestand → README-status → backlog-overzichtstabel → alleen de docs uit de taakroutingtabel. Check daarbij of je taak al als BL-item bestaat (status, afhankelijkheden, eerdere notities).
 
 ### Tijdens het werk
 
@@ -83,6 +105,15 @@ Loop deze checklist na; sla niets over:
 4. **README.md** — alleen bijwerken als stack, installatie, omgevingen of de sectie "Huidige status" wijzigt.
 5. **docs/functional-test-status.md** — **niet** invullen op basis van geautomatiseerde tests of aannames; alleen de daadwerkelijk testende agent/tester werkt dit bij. Introduceer je nieuwe functionaliteit, voeg dan wél een `todo`-regel toe.
 6. **Kwaliteitspoort** — `composer check` (Pint + PHPStan + Pest) groen.
+
+### Houd het geheugen scanbaar
+
+Deze regels zorgen dat de snelstart-routine blijft werken en agents niet alles hoeven te herlezen:
+
+- **Eerste regels dragen de kern.** Elk beheerd document opent met titel, versieheader en (waar zinvol) één statusregel. Wie alleen die regels leest, weet of het document relevant en actueel is.
+- **Stabiele koppen.** Sectiekoppen (en dus anchors) niet hernoemen zonder de verwijzingen in de geheugenkaart, taakroutingtabel en andere docs mee te wijzigen.
+- **Nieuwe informatie op de verwachte plek.** Voeg feiten toe in het document (en de sectie) waar de geheugenkaart ze verwacht; maak geen parallelle plekken.
+- **Overzichtstabellen actueel houden.** De backlog-overzichtstabel en de README-documentatietabel zijn de snelle indexen; wijzig je items of documenten, werk die tabellen in dezelfde PR bij.
 
 ### Wat je níet doet
 
