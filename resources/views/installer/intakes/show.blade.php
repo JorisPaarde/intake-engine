@@ -130,6 +130,108 @@
                     </div>
                 @endif
             </div>
+
+            @if ($intake->attentionPoints->isNotEmpty())
+                <div class="bg-white shadow-sm sm:rounded-lg p-6 space-y-3">
+                    <h3 class="text-base font-semibold text-gray-900">Aandachtspunten</h3>
+                    <ul class="list-disc space-y-1 pl-5 text-sm text-gray-800">
+                        @foreach ($intake->attentionPoints as $point)
+                            <li>
+                                {{ $point->label }}
+                                @if ($point->is_resolved)
+                                    <span class="text-gray-500">(opgelost)</span>
+                                @endif
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+
+            @if ($intake->report)
+                <div class="bg-white shadow-sm sm:rounded-lg p-6 space-y-4">
+                    <div class="flex items-center justify-between gap-3">
+                        <h3 class="text-base font-semibold text-gray-900">Rapport</h3>
+                        <p class="text-xs text-gray-500">
+                            Gegenereerd {{ $intake->report->generated_at?->timezone(config('app.timezone'))->format('d-m-Y H:i') }}
+                        </p>
+                    </div>
+                    <iframe
+                        title="Opnamerapport"
+                        srcdoc="{{ $intake->report->html }}"
+                        class="h-[32rem] w-full rounded-md border border-gray-200 bg-white"
+                    ></iframe>
+                </div>
+            @endif
+
+            @if (in_array($intake->status, [\App\Enums\IntakeStatus::Completed, \App\Enums\IntakeStatus::Reviewed], true))
+                <div class="bg-white shadow-sm sm:rounded-lg p-6 space-y-4">
+                    <h3 class="text-base font-semibold text-gray-900">Beoordeling</h3>
+
+                    @if ($intake->review)
+                        <dl class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                            <div>
+                                <dt class="text-gray-500">Beslissing</dt>
+                                <dd class="text-gray-900">{{ $intake->review->decision->label() }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-gray-500">Beoordeeld</dt>
+                                <dd class="text-gray-900">{{ $intake->review->reviewed_at?->timezone(config('app.timezone'))->format('d-m-Y H:i') ?? '—' }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-gray-500">Locatiebezoek nodig</dt>
+                                <dd class="text-gray-900">{{ $intake->review->site_visit_needed ? 'Ja' : 'Nee' }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-gray-500">Voldoende informatie</dt>
+                                <dd class="text-gray-900">{{ $intake->review->enough_information ? 'Ja' : 'Nee' }}</dd>
+                            </div>
+                            @if ($intake->review->summary)
+                                <div class="sm:col-span-2">
+                                    <dt class="text-gray-500">Samenvatting</dt>
+                                    <dd class="whitespace-pre-wrap text-gray-900">{{ $intake->review->summary }}</dd>
+                                </div>
+                            @endif
+                        </dl>
+                    @endif
+
+                    <form method="POST" action="{{ route('intakes.review', $intake) }}" class="space-y-4 border-t border-gray-100 pt-4">
+                        @csrf
+                        <div>
+                            <x-input-label for="decision" value="Beslissing" />
+                            <select id="decision" name="decision" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
+                                <option value="">Kies een beoordeling…</option>
+                                @foreach ($reviewDecisions as $decision)
+                                    <option value="{{ $decision->value }}" @selected(old('decision', $intake->review?->decision?->value) === $decision->value)>
+                                        {{ $decision->label() }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <x-input-error :messages="$errors->get('decision')" class="mt-2" />
+                        </div>
+
+                        <div class="flex flex-wrap gap-6 text-sm">
+                            <label class="inline-flex items-center gap-2">
+                                <input type="checkbox" name="site_visit_needed" value="1" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" @checked(old('site_visit_needed', $intake->review?->site_visit_needed))>
+                                <span>Locatiebezoek nodig</span>
+                            </label>
+                            <label class="inline-flex items-center gap-2">
+                                <input type="checkbox" name="enough_information" value="1" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" @checked(old('enough_information', $intake->review?->enough_information ?? true))>
+                                <span>Voldoende informatie</span>
+                            </label>
+                        </div>
+
+                        <div>
+                            <x-input-label for="summary" value="Samenvatting (optioneel)" />
+                            <textarea id="summary" name="summary" rows="4" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">{{ old('summary', $intake->review?->summary) }}</textarea>
+                            <x-input-error :messages="$errors->get('summary')" class="mt-2" />
+                        </div>
+
+                        <x-primary-button>
+                            {{ $intake->review ? 'Beoordeling bijwerken' : 'Beoordeling opslaan' }}
+                        </x-primary-button>
+                    </form>
+                </div>
+            @endif
         </div>
     </div>
 </x-app-layout>

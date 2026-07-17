@@ -20,7 +20,15 @@
         @endif
     </header>
 
-    @if ($step === null)
+    @if ($completed)
+        <div class="flex flex-1 flex-col justify-center rounded-lg bg-white p-6 shadow-sm">
+            <h1 class="font-display text-2xl font-semibold tracking-tight text-brand-ink">Bedankt</h1>
+            <p class="mt-3 text-sm leading-relaxed text-brand-ink/70">
+                Je opname is volledig ingevuld en doorgestuurd. De installateur neemt de gegevens verder in behandeling.
+                Je kunt dit venster sluiten.
+            </p>
+        </div>
+    @elseif ($step === null)
         <p class="rounded-md bg-white p-4 text-sm text-brand-ink/80 shadow-sm">
             Er zijn nog geen stappen beschikbaar. Vul eerst het aantal binnenunits in bij Aanvraag.
         </p>
@@ -39,9 +47,32 @@
 
         @if ($showMissing)
             <div class="mb-4 rounded-md border border-brand-ember/30 bg-white px-4 py-3 text-sm text-brand-ember" role="alert">
-                Beantwoord eerst de verplichte vragen op deze stap.
+                @if ($completionMissing !== [])
+                    <p class="font-medium">Nog niet alles is ingevuld.</p>
+                    <ul class="mt-2 list-disc space-y-1 pl-5 text-brand-ink/80">
+                        @foreach ($completionMissing as $item)
+                            <li>
+                                {{ $item['label'] ?? $item['question_key'] }}
+                                @if ($item['section_instance_key'])
+                                    ({{ $item['section_instance_key'] }})
+                                @endif
+                                @if (($item['reason'] ?? '') === 'required_photo')
+                                    — foto verplicht
+                                @endif
+                            </li>
+                        @endforeach
+                    </ul>
+                @else
+                    Beantwoord eerst de verplichte vragen op deze stap.
+                @endif
             </div>
         @endif
+
+        @error('completeness')
+            <div class="mb-4 rounded-md border border-brand-ember/30 bg-white px-4 py-3 text-sm text-brand-ember" role="alert">
+                {{ $message }}
+            </div>
+        @enderror
 
         <div class="flex-1 space-y-6">
             @foreach ($questions as $question)
@@ -209,37 +240,41 @@
         </div>
     @endif
 
-    <footer class="sticky bottom-0 -mx-4 mt-8 border-t border-brand-fog/70 bg-brand-sand/95 px-4 py-4 backdrop-blur sm:-mx-6 sm:px-6">
-        <div class="flex gap-3">
-            <button
-                type="button"
-                wire:click="previous"
-                @disabled($stepIndex === 0)
-                class="min-h-12 flex-1 rounded-md border border-brand-fog bg-white px-4 text-sm font-semibold text-brand-ink disabled:opacity-40"
-            >
-                Vorige
-            </button>
+    @unless ($completed)
+        <footer class="sticky bottom-0 -mx-4 mt-8 border-t border-brand-fog/70 bg-brand-sand/95 px-4 py-4 backdrop-blur sm:-mx-6 sm:px-6">
+            <div class="flex gap-3">
+                <button
+                    type="button"
+                    wire:click="previous"
+                    @disabled($stepIndex === 0)
+                    class="min-h-12 flex-1 rounded-md border border-brand-fog bg-white px-4 text-sm font-semibold text-brand-ink disabled:opacity-40"
+                >
+                    Vorige
+                </button>
 
-            @if ($isLastStep)
-                <button
-                    type="button"
-                    wire:click="saveCurrentStep"
-                    class="min-h-12 flex-[1.4] rounded-md bg-brand-sea px-4 text-sm font-semibold text-white"
-                >
-                    Opslaan
-                </button>
-            @else
-                <button
-                    type="button"
-                    wire:click="next"
-                    class="min-h-12 flex-[1.4] rounded-md bg-brand-sea px-4 text-sm font-semibold text-white"
-                >
-                    Volgende
-                </button>
-            @endif
-        </div>
-        <p class="mt-3 text-center text-xs text-brand-ink/50">
-            Afronden met controle volgt later. Je voortgang blijft bewaard via deze link.
-        </p>
-    </footer>
+                @if ($isLastStep)
+                    <button
+                        type="button"
+                        wire:click="complete"
+                        wire:loading.attr="disabled"
+                        class="min-h-12 flex-[1.4] rounded-md bg-brand-sea px-4 text-sm font-semibold text-white disabled:opacity-60"
+                    >
+                        <span wire:loading.remove wire:target="complete">Afronden</span>
+                        <span wire:loading wire:target="complete">Bezig…</span>
+                    </button>
+                @else
+                    <button
+                        type="button"
+                        wire:click="next"
+                        class="min-h-12 flex-[1.4] rounded-md bg-brand-sea px-4 text-sm font-semibold text-white"
+                    >
+                        Volgende
+                    </button>
+                @endif
+            </div>
+            <p class="mt-3 text-center text-xs text-brand-ink/50">
+                Je voortgang blijft bewaard via deze link tot je afrondt.
+            </p>
+        </footer>
+    @endunless
 </div>

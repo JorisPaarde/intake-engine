@@ -1,6 +1,6 @@
 # Intake-engine
 
-Status: **klantflow + foto-uploads geïmplementeerd (Fase 3–4)**. Afronden/rapport volgt in Fase 5.
+Status: **compleetheid, rapport en beoordeling geïmplementeerd (Fase 5)**. AI volgt optioneel in Fase 6.
 
 ## Doel
 

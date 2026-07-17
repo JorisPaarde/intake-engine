@@ -7,10 +7,13 @@ namespace App\Http\Controllers\Installer;
 use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Actions\RegenerateIntakeAccessToken;
 use App\Domains\Intake\Actions\RevokeIntakeAccess;
+use App\Domains\Intake\Actions\SubmitIntakeReview;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplate;
+use App\Enums\ReviewDecision;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Installer\StoreIntakeRequest;
+use App\Http\Requests\Installer\StoreIntakeReviewRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -44,11 +47,34 @@ class IntakeController extends Controller
     {
         $this->authorize('view', $intake);
 
-        $intake->load(['templateVersion.template', 'creator', 'uploads']);
+        $intake->load([
+            'templateVersion.template',
+            'creator',
+            'uploads',
+            'answers',
+            'attentionPoints',
+            'report',
+            'review.reviewer',
+        ]);
 
         return view('installer.intakes.show', [
             'intake' => $intake,
+            'reviewDecisions' => collect(ReviewDecision::cases())
+                ->reject(static fn (ReviewDecision $decision): bool => $decision === ReviewDecision::Pending)
+                ->values(),
         ]);
+    }
+
+    public function review(
+        StoreIntakeReviewRequest $request,
+        Intake $intake,
+        SubmitIntakeReview $submitIntakeReview,
+    ): RedirectResponse {
+        $submitIntakeReview->handle($intake, $request->user(), $request->validated());
+
+        return redirect()
+            ->route('intakes.show', $intake)
+            ->with('status', 'Beoordeling opgeslagen.');
     }
 
     public function revoke(Request $request, Intake $intake, RevokeIntakeAccess $revokeIntakeAccess): RedirectResponse

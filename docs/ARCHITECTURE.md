@@ -13,7 +13,7 @@ Zie `docs/intake-engine.md` en ADR-0001.
 | PHP | `^8.3` (composer); staging CI/server **8.4**; lokaal gemeten 8.5.7 |
 | Laravel | **13.20.0** (`^13.8`) |
 | Auth | Laravel Breeze (Blade), session guard |
-| UI | Blade + Alpine.js; **Livewire 4.3 geïnstalleerd, nog niet gebruikt** |
+| UI | Blade + Alpine.js; **Livewire 4.3** (klantwizard) |
 | CSS/JS | Tailwind 3.4 + Vite 8 |
 | DB | MySQL (env); sqlite in-memory in tests |
 | Queue/cache/session | `database` |
