@@ -19,6 +19,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Media disk
+    |--------------------------------------------------------------------------
+    |
+    | Disk used for intake photo uploads. Prefer a private disk (local) so
+    | files are only reachable through authorised application routes.
+    |
+    */
+
+    'media' => env('MEDIA_DISK', 'local'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Filesystem Disks
     |--------------------------------------------------------------------------
     |

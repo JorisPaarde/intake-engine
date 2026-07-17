@@ -1,6 +1,6 @@
 # Intake-engine
 
-Status: **ontwerp (Fase 1)**. Nog geen engine-code. Dit document is de bron van waarheid voor hoe templates en uitvoering zich moeten gedragen.
+Status: **templateconfig + seeder geïmplementeerd (Fase 2)**. Runtime klantflow volgt in Fase 3.
 
 ## Doel
 

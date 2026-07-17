@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\HealthController;
+use App\Http\Controllers\Installer\DashboardController;
+use App\Http\Controllers\Installer\IntakeController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
@@ -10,12 +12,17 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-// Tijdelijke smoke-test na deploy. Verwijderen zodra echte features live zijn.
 Route::get('/health', HealthController::class)->name('health');
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/dashboard', DashboardController::class)->name('dashboard');
+
+    Route::get('/intakes/create', [IntakeController::class, 'create'])->name('intakes.create');
+    Route::post('/intakes', [IntakeController::class, 'store'])->name('intakes.store');
+    Route::get('/intakes/{intake}', [IntakeController::class, 'show'])->name('intakes.show');
+    Route::post('/intakes/{intake}/revoke', [IntakeController::class, 'revoke'])->name('intakes.revoke');
+    Route::post('/intakes/{intake}/regenerate-token', [IntakeController::class, 'regenerateToken'])->name('intakes.regenerate-token');
+});
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
