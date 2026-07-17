@@ -21,11 +21,13 @@ final class GenerateIntakeReportHtml
 
     /**
      * @param  list<array{code: string, label: string}>  $attentionPoints
+     * @param  array{summary: string, highlights: list<string>}|null  $aiSummary
      */
     public function handle(
         Intake $intake,
         IntakeTemplateVersion $version,
         array $attentionPoints = [],
+        ?array $aiSummary = null,
     ): string {
         $version->loadMissing(['sections.questions.options', 'sections.questions.rules', 'template']);
         $intake->loadMissing(['answers', 'uploads']);
@@ -37,6 +39,7 @@ final class GenerateIntakeReportHtml
             'version' => $version,
             'sections' => $sections,
             'attentionPoints' => $attentionPoints,
+            'aiSummary' => $aiSummary,
             'generatedAt' => now(),
         ])->render();
     }

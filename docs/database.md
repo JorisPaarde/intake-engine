@@ -277,9 +277,25 @@ Index: `(intake_id, created_at)`.
 | Concept | Reden |
 |---------|--------|
 | `companies` | Geen multi-tenancy nodig |
-| `ai_runs` | AI uitgesteld (ADR-0005); schema volgt in Fase 6 |
 | `intake_participants` | Klantgegevens op `intakes` volstaan |
 | Volledige event-sourcing | Te zwaar |
+
+### `ai_runs` (Fase 6)
+
+| Kolom | Type | Toelichting |
+|-------|------|-------------|
+| `id` | bigint PK | |
+| `intake_id` | FK, cascade | |
+| `type` | string | `summary` / `attention_points` / `photo_quality` |
+| `provider` | string | |
+| `model` | string nullable | |
+| `prompt_version` | string | |
+| `input_hash` | string(64) | |
+| `output` | json nullable | |
+| `status` | string | `pending` / `succeeded` / `failed` |
+| `error_message` | text nullable | |
+| `started_at` / `finished_at` | timestamp nullable | |
+| `timestamps` | | |
 
 ## Cascadegedrag
 
@@ -329,6 +345,7 @@ erDiagram
     intakes ||--o| intake_reviews : has
     intakes ||--o| generated_reports : has
     intakes ||--o{ intake_activity_events : logs
+    intakes ||--o{ ai_runs : has
 
     intake_templates {
         bigint id PK

@@ -35,6 +35,20 @@
         </div>
     @endif
 
+    @if (! empty($aiSummary))
+        <div class="ai-advice" style="background:#f0f6fb;border:1px solid #b9d0e4;padding:0.75rem 1rem;margin:1rem 0;">
+            <strong>AI-voorstel (niet bindend)</strong>
+            <p style="margin:0.5rem 0 0;">{{ $aiSummary['summary'] }}</p>
+            @if (! empty($aiSummary['highlights']))
+                <ul style="margin:0.5rem 0 0;padding-left:1.25rem;">
+                    @foreach ($aiSummary['highlights'] as $highlight)
+                        <li>{{ $highlight }}</li>
+                    @endforeach
+                </ul>
+            @endif
+        </div>
+    @endif
+
     @foreach ($sections as $section)
         <h2>
             {{ $section['title'] }}

@@ -1,15 +1,15 @@
 # AI — Digitale Opname
 
-Status: **nog niet geïmplementeerd**. Bewust uitgesteld tot na de deterministische MVP (Fase 6). Zie ADR-0005.
+Status: **minimale Fase 6-slice geïmplementeerd** (samenvatting na afronding). Zie ADR-0005.
 
-## Wat AI wél mag (later)
+## Wat AI wél mag
 
 Ondersteunende adviezen, nooit bron van waarheid:
 
-- Samenvatting van antwoorden voor het interne rapport
-- Voorstel voor aandachtspunten
-- Signaleren van mogelijk ontbrekende informatie (aanvulling op, niet vervanging van, CompletenessChecker)
-- Indicatie of een foto waarschijnlijk bruikbaar is (scherpte/relevantie — advisory)
+- Samenvatting van antwoorden voor het interne rapport ✅
+- Voorstel voor aandachtspunten (later)
+- Signaleren van mogelijk ontbrekende informatie (aanvulling op CompletenessChecker; later)
+- Indicatie of een foto waarschijnlijk bruikbaar is (later)
 
 ## Wat AI níet mag
 
@@ -19,85 +19,76 @@ Ondersteunende adviezen, nooit bron van waarheid:
 - Autonome chat die de flow overneemt zonder menselijke controle
 - Persoonsgegevens naar een provider sturen zonder DPIA/akkoord en redactiestrategie
 
-## Voorgestelde servicearchitectuur
+## Architectuur (geïmplementeerd)
 
 ```
 App\Domains\AI\
   Contracts\AiClientInterface
-  Services\AiGateway          # logging, timeout, structured output
-  DTOs\...
-  Prompts\PromptVersionRepository   # geen prompts in controllers/views
+  Clients\NullAiClient | FakeAiClient | HeuristicAiClient
+  Services\AiGateway
+  Services\PromptVersionRepository
+  Prompts\summary\          # versioned prompt + meta
   Actions\SummarizeIntake
-  Actions\SuggestAttentionPoints
-  Actions\AssessPhotoUsability
+  Jobs\SummarizeIntakeJob
   Models\AiRun
 ```
 
-Providerkeuze via `.env`: `AI_PROVIDER`, `AI_API_KEY` (placeholders bestaan al).
+Provider via `.env`: `AI_PROVIDER`, `AI_API_KEY`, `AI_TIMEOUT_SECONDS`.
 
-Kernintake (`Intake`-domein) hangt **niet** van AI af. Actions in Reports/Intake roepen AI optioneel aan; falen van AI = soft-fail + log.
+| Provider | Gedrag |
+|----------|--------|
+| `null` (default) | Soft-fail; afronding/rapport blijven intact |
+| `fake` | Vaste testdata (Pest) |
+| `heuristic` | Lokale deterministische samenvatting, geen externe API |
 
-## Datastructuur `ai_runs` (Fase 6)
+Kernintake hangt **niet** van AI af. `CompleteIntake` dispatcht `SummarizeIntakeJob` ná commit; falen = `ai_runs.status=failed` + log.
+
+## Datastructuur `ai_runs`
 
 | Kolom | Doel |
 |-------|------|
 | `intake_id` | Koppeling |
 | `type` | `summary` / `attention_points` / `photo_quality` |
-| `provider` | bv. `openai` |
+| `provider` | bv. `heuristic` / `fake` / `null` |
 | `model` | modelidentifier |
-| `prompt_version` | versiestring |
-| `input_hash` | reproduceerbaarheid zonder raw PII in logs |
+| `prompt_version` | versiestring (`summary-v1`) |
+| `input_hash` | sha256 van gereduceerde input (geen raw PII in logs) |
 | `output` | json (gestructureerd, gevalideerd) |
 | `status` | `pending` / `succeeded` / `failed` |
 | `error_message` | nullable |
 | `started_at` / `finished_at` | |
 
-## Logging & foutafhandeling
+## Flow
 
-- Elke run = `ai_runs`-rij
-- Geen API-keys in logs; minimale PII in prompt-logs (liever gehashte/geselecteerde velden)
-- Timeouts en providerfouten: status `failed`, intake blijft bruikbaar
-- Queue: AI-jobs asynchroon (`QUEUE_CONNECTION=database`)
+1. Klant rondt af → `CompleteIntake` schrijft snapshot + HTML-rapport.
+2. `SummarizeIntakeJob` (queue) → `SummarizeIntake`.
+3. Bij succes: `generated_reports.meta.ai_summary` + HTML-blok **“AI-voorstel (niet bindend)”**.
+4. Bij falen: rapport ongewijzigd; intake blijft `completed`.
 
 ## Promptversionering
 
-- Prompts in versioned files (`app/Domains/AI/Prompts/v1/summary.md` + meta)
+- Prompts in `app/Domains/AI/Prompts/{name}/prompt.md` + `meta.php`
 - `prompt_version` opgeslagen per run
-- Wijziging prompt = bump version, geen stille overwrite van historische betekenis
+- Wijziging = bump version in meta
 
 ## Structured output
 
-- Provider JSON-schema / strict mode waar beschikbaar
-- Server-side validatie (Form Request-achtige DTO + rules) vóór opslaan
-- Ongeldige output = `failed`, geen partial write naar attention points zonder markering “AI-voorstel”
+Samenvatting vereist:
 
-## Menselijke controle
+```json
+{ "summary": "…", "highlights": ["…"] }
+```
 
-- AI-aandachtspunten krijgen `source = system` of aparte flag `suggested_by_ai`
-- Installateur vinkt af / verwijdert
-- Rapport toont AI-tekst duidelijk als “voorstel”
+Server-side validatie vóór opslaan. Ongeldige output = `failed`.
 
-## Privacyrisico’s
+## Privacy
 
-| Risico | Mitigatie |
-|--------|-----------|
-| Foto’s/PII naar externe API | Opt-in, redactie, minimale velden, verwerkersovereenkomst |
-| Retentie bij provider | Zero-retention mode waar mogelijk; documenteer |
-| Prompt injection via vrije tekst | Structured output; geen tool-calling dat data mutates |
-| Logging van antwoorden | input_hash i.p.v. full dump in standaard logs |
+- Input voor AI: antwoorden + attention-point codes + template-meta — geen e-mail/telefoon in de payload
+- Geen API-keys in logs
+- Externe LLM-providers bewust nog niet aangesloten (eerst DPIA)
 
-## Implementatiestatus
+## Volgende uitbreidingen
 
-| Onderdeel | Status |
-|-----------|--------|
-| Env placeholders `AI_PROVIDER` / `AI_API_KEY` | Aanwezig |
-| `app/Domains/AI/` map | Leeg scaffold |
-| Interface / jobs / `ai_runs` | Toekomstig (Fase 6) |
-| Deterministische intake | Verplicht vóór AI |
-
-## Fase 6 — minimale eerste slice
-
-1. `AiClientInterface` + null/fake provider voor tests
-2. `SummarizeIntake` job na afronding
-3. Resultaat als adviesblok in HTML-rapport
-4. Tests: AI-fout blokkeert afronding/rapportbasis niet
+- `SuggestAttentionPoints` / `AssessPhotoUsability`
+- Optionele OpenAI (of andere) client achter `AiClientInterface`
+- Installateur: AI-voorstellen accepteren/verwijderen

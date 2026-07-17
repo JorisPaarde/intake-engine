@@ -6,6 +6,7 @@ Alle noemenswaardige wijzigingen aan dit project.
 
 ### Added
 
+- Fase 6 AI-slice: `ai_runs`, null/fake/heuristic clients, `SummarizeIntake` job na afronding, AI-voorstel in HTML-rapport (soft-fail).
 - Fase 5: `CompletenessChecker`, `CompleteIntake`, HTML-rapport (`generated_reports`), system attention points, klant-afronden + bedankt-scherm, installer review (`SubmitIntakeReview` / `ReviewDecision`).
 - `docs/backlog.md` + GitHub issue #5: demo-versie van de app (backlog).
 - Fase 4 foto-uploads: private storage, Livewire upload/preview/verwijderen, beveiligde serve-routes, validatie, installer-galerij.
@@ -16,11 +17,13 @@ Alle noemenswaardige wijzigingen aan dit project.
 
 ### Config
 
+- `AI_PROVIDER`, `AI_API_KEY`, `AI_TIMEOUT_SECONDS`, `config/ai.php`
 - `INTAKE_UPLOAD_MAX_KB`, `INTAKE_UPLOAD_MAX_FILES`
 - `config/intake.php` uploads-sectie
 
 ### Known limitations
 
+- Geen externe LLM-provider nog (alleen null/fake/heuristic); OpenAI e.d. later na DPIA.
 - PDF-export van rapporten bewust later (HTML eerst; shared cPanel is geen betrouwbare PDF-host).
 - HEIC niet in allowlist (alleen jpeg/png/webp).
 - Staging PHP upload-limieten nog te verifiëren op cPanel.

@@ -72,7 +72,7 @@ Media via `config('filesystems.media')` → env `MEDIA_DISK`. Default **private 
 
 ## AI
 
-Uitgesteld (ADR-0005). Contracten/logging: `docs/ai.md`.
+Minimale Fase 6-slice: samenvatting na afronding (ADR-0005 / `docs/ai.md`). Externe LLM later.
 
 ## Testen
 
