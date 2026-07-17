@@ -33,9 +33,11 @@ ln -sfn "$SHARED/storage" "$RELEASE_PATH/storage"
 
 cd "$RELEASE_PATH"
 
-echo "==> storage:link + migraties"
+echo "==> storage:link + migraties + template-reference"
 "$PHP_BIN" artisan storage:link --force
 "$PHP_BIN" artisan migrate --force
+# Alleen idempotente reference-data (airco-template). Geen demo-users/intakes.
+"$PHP_BIN" artisan db:seed --class=IntakeTemplateSeeder --force
 
 echo "==> Caches verversen"
 "$PHP_BIN" artisan config:cache

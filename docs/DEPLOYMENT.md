@@ -12,7 +12,7 @@ Afgestemd op de huidige host:
 
 ## Hoe het werkt
 
-Push naar `main` → GitHub Actions bouwt (composer `--no-dev` + Vite-assets) → rsync naar `releases/<sha>` op de server → `deploy/activate.sh` koppelt shared `.env`/`storage`, draait `migrate --force`, cachet config/routes/views en wisselt de `current`-symlink. Rollback = symlink naar de vorige release terugzetten.
+Push naar `main` → GitHub Actions bouwt (composer `--no-dev` + Vite-assets) → rsync naar `releases/<sha>` op de server → `deploy/activate.sh` koppelt shared `.env`/`storage`, draait `migrate --force`, seedt de **IntakeTemplateSeeder** (idempotente reference-data), cachet config/routes/views en wisselt de `current`-symlink. Rollback = symlink naar de vorige release terugzetten.
 
 ```
 /home/intakeengine/apps/intake-engine-staging/
@@ -115,6 +115,17 @@ cPanel → **Cron Jobs**, twee entries (pas `PHP_BIN` aan):
 ```
 
 Geen supervisor op cPanel; `--stop-when-empty --max-time=50` per minuut is de pragmatische variant. `queue:restart` in de deploy zorgt dat workers na een release verse code draaien.
+
+## Database bij deploy
+
+`activate.sh` draait altijd:
+
+1. `migrate --force`
+2. `db:seed --class=IntakeTemplateSeeder --force` — publiceert/bevestigt de airco-template (idempotent; bestaande gepubliceerde versie wordt niet overschreven)
+
+**Niet** in deploy: `DatabaseSeeder` / `DemoIntakeSeeder` (demo-users en demo-intakes blijven handmatig of alleen lokaal).
+
+Templatewijzigingen: bump de versie in `database/data/templates/airco/` en laat de seeder een nieuwe published version aanmaken — in-place edits van een gepubliceerde versie gebeuren niet.
 
 ## Eerste deploy
 

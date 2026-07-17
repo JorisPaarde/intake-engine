@@ -1,6 +1,6 @@
 # Intake-engine
 
-Status: **templateconfig + seeder geïmplementeerd (Fase 2)**. Runtime klantflow volgt in Fase 3.
+Status: **klantflow Fase 3 geïmplementeerd** (stappen, autosave, conditionals, voortgang). Foto-upload UI volgt in Fase 4; afronden in Fase 5.
 
 ## Doel
 

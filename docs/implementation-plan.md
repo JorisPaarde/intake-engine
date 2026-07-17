@@ -10,17 +10,11 @@ Gebaseerd op repository-audit (2026-07-17). Infrastructuur (Laravel, CI, cPanel-
 
 Geïmplementeerd: enums, migrations, models, policies, Create/Revoke/Regenerate actions, dashboard, create/show UI, airco template v1 + seeders, `MEDIA_DISK` config, timezone fix, feature tests.
 
-## Fase 3 — Klantintake
+## Fase 3 — Klantintake ✅
 
 **Doel:** mobiele stappenflow met autosave en hervatten.
 
-1. Customer middleware (token lookup + expiry/revoke)
-2. Livewire (of dunne controller + Livewire children) stappen-UI
-3. `SaveIntakeAnswer`, visibility/completeness services (basis)
-4. Conditionele regels
-5. Voortgangsindicator + “opgeslagen”-feedback
-6. Tests: access isolation, save, resume, conditional, validation
-
+Geïmplementeerd: customer middleware + `/o/{token}`, Livewire wizard, SaveIntakeAnswer, VisibilityResolver, ProgressCalculator, conditionele regels, voortgang/autosave, feature tests. Foto-upload is placeholder tot Fase 4.
 ## Fase 4 — Foto’s
 
 1. Upload Action + private disk

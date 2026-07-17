@@ -7,6 +7,11 @@ namespace App\Domains\Intake\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property string $question_key
+ * @property string|null $section_instance_key
+ * @property array<string, mixed>|null $value
+ */
 class IntakeAnswer extends Model
 {
     protected $fillable = [

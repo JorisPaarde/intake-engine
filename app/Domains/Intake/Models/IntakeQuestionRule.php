@@ -9,6 +9,12 @@ use App\Enums\RuleOperator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property string $source_question_key
+ * @property RuleOperator $operator
+ * @property array<string, mixed>|null $value
+ * @property RuleEffect $effect
+ */
 class IntakeQuestionRule extends Model
 {
     protected $fillable = [

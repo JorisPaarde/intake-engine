@@ -6,6 +6,7 @@ use App\Http\Controllers\HealthController;
 use App\Http\Controllers\Installer\DashboardController;
 use App\Http\Controllers\Installer\IntakeController;
 use App\Http\Controllers\ProfileController;
+use App\Livewire\Customer\IntakeWizard;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -13,6 +14,11 @@ Route::get('/', function () {
 });
 
 Route::get('/health', HealthController::class)->name('health');
+
+Route::get('/o/{token}', IntakeWizard::class)
+    ->middleware(['customer.intake', 'throttle:customer-intake'])
+    ->where('token', '[A-Za-z0-9]{64}')
+    ->name('customer.intake.show');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
