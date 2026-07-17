@@ -4,6 +4,14 @@ Helpt installatiebedrijven om aanvragen op afstand te beoordelen via een begelei
 
 **Stack (feitelijk):** Laravel **13.20** · PHP **^8.3** (staging/CI **8.4**) · MySQL · Blade · Livewire **4.3** (package aanwezig) · Alpine.js · Tailwind CSS 3 · Breeze (auth) · Pest 4 · Pint · PHPStan/Larastan 6 · Vite 8
 
+## Omgevingen (live)
+
+| Omgeving | URL |
+|----------|-----|
+| Staging  | https://sociable-navy-raccoon.45-152-250-86.cpanel.site |
+
+Inloggen op `/login`, dashboard op `/dashboard`, health-check op `/health`. Dit is een tijdelijk `.cpanel.site`-testdomein met self-signed SSL: de browser toont een waarschuwing en een "Technical Domain"-tussenscherm (klik *Continue*). Vervangen zodra er een eigen domein aan het account hangt.
+
 ## Installatie (macOS)
 
 Vereisten: PHP 8.3+, Composer 2, Node 20+, MySQL 8 (bijv. [Laravel Herd](https://herd.laravel.com) of Homebrew).
