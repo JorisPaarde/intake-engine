@@ -4,10 +4,17 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Models;
 
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property string $key
+ * @property bool $is_repeatable
+ * @property string|null $repeat_count_question_key
+ * @property EloquentCollection<int, IntakeQuestion> $questions
+ */
 class IntakeSection extends Model
 {
     protected $fillable = [

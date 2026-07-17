@@ -99,4 +99,4 @@ deploy/          # activate.sh
 
 ## Huidige status
 
-**Fase 2 (interne basis) afgerond.** Installateur kan opnames aanmaken, dashboard bekijken en klantlinks beheren. Volgende: Fase 3 klantintake-flow.
+**Fase 3 (klantintake) afgerond.** Volgende: Fase 4 foto-uploads.

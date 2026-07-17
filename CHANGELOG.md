@@ -6,6 +6,8 @@ Alle noemenswaardige wijzigingen aan dit project.
 
 ### Added
 
+- Deploy activeert na migraties ook `IntakeTemplateSeeder` (idempotente template-reference-data).
+- Fase 3 klantintake: beveiligde link `/o/{token}`, Livewire-stappenflow, autosave, hervatten, conditionele vragen, voortgang (foto-upload UI volgt in Fase 4).
 - Producthomepage op `/` met korte uitleg, navigatie naar login/register en dashboard voor ingelogde gebruikers.
 - Fase 2 interne basis: intake-schema, airco-template v1, dashboard, opname aanmaken, klantlink kopiëren/intrekken/herniewen, seeddata, feature tests.
 
@@ -22,9 +24,9 @@ Alle noemenswaardige wijzigingen aan dit project.
 
 ### Known limitations
 
-- Klantintake-UI (Fase 3) nog niet gebouwd; link `/o/{token}` bestaat nog niet als route.
+- Foto-upload UI is placeholder; echte uploads komen in Fase 4.
+- Afronden / strikte compleetheidsblokkade / rapport / review volgen in Fase 5.
 - Geen automatische e-mail (staging mail = log); alleen kopieerbare link.
-- Uploads/rapport/review UI volgen in latere fasen.
 - Multi-tenancy bewust afwezig.
 
 ## [0.1.0] — infrastructuur + Fase 1 docs

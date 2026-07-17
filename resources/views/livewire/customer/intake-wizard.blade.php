@@ -1,0 +1,197 @@
+<div class="mx-auto flex min-h-[100svh] max-w-lg flex-col px-4 pb-8 pt-4 sm:px-6">
+    <header class="mb-6">
+        <p class="font-display text-lg font-semibold text-brand-deep">Digitale Opname</p>
+        <p class="mt-1 text-sm text-brand-ink/60">{{ $intake->customer_name }} · {{ $intake->fullAddress() }}</p>
+
+        <div class="mt-4">
+            <div class="flex items-center justify-between text-sm text-brand-ink/70">
+                <span>Voortgang</span>
+                <span class="font-medium text-brand-ink">{{ $progressPercent }}%</span>
+            </div>
+            <div class="mt-2 h-2 overflow-hidden rounded-full bg-brand-fog/60" role="progressbar" aria-valuenow="{{ $progressPercent }}" aria-valuemin="0" aria-valuemax="100">
+                <div class="h-full rounded-full bg-brand-sea transition-all duration-300" style="width: {{ $progressPercent }}%"></div>
+            </div>
+        </div>
+
+        @if ($saveMessage !== '')
+            <p class="mt-3 text-sm font-medium text-brand-sea" wire:key="save-{{ $saveMessage }}-{{ now()->timestamp }}" aria-live="polite">
+                {{ $saveMessage }}
+            </p>
+        @endif
+    </header>
+
+    @if ($step === null)
+        <p class="rounded-md bg-white p-4 text-sm text-brand-ink/80 shadow-sm">
+            Er zijn nog geen stappen beschikbaar. Vul eerst het aantal binnenunits in bij Aanvraag.
+        </p>
+    @else
+        <div class="mb-4">
+            <p class="text-xs font-medium uppercase tracking-wide text-brand-ink/50">
+                Stap {{ $stepIndex + 1 }} van {{ count($steps) }}
+            </p>
+            <h1 class="mt-1 font-display text-2xl font-semibold tracking-tight text-brand-ink">
+                {{ $step['title'] }}
+            </h1>
+            @if ($step['description'])
+                <p class="mt-2 text-sm leading-relaxed text-brand-ink/70">{{ $step['description'] }}</p>
+            @endif
+        </div>
+
+        @if ($showMissing)
+            <div class="mb-4 rounded-md border border-brand-ember/30 bg-white px-4 py-3 text-sm text-brand-ember" role="alert">
+                Beantwoord eerst de verplichte vragen op deze stap.
+            </div>
+        @endif
+
+        <div class="flex-1 space-y-6">
+            @foreach ($questions as $question)
+                @php
+                    $composite = \App\Domains\Intake\Services\VisibilityResolver::compositeKey($question->key, $step['section_instance_key']);
+                    $state = $visibility[$composite] ?? ['visible' => false, 'required' => false];
+                @endphp
+
+                @if ($state['visible'])
+                    <div class="rounded-lg bg-white p-4 shadow-sm" wire:key="q-{{ $composite }}">
+                        <label class="block text-base font-semibold text-brand-ink" for="field-{{ $composite }}">
+                            {{ $question->label }}
+                            @if ($state['required'])
+                                <span class="text-brand-ember">*</span>
+                            @endif
+                        </label>
+
+                        @if ($question->help_text)
+                            <p class="mt-1 text-sm text-brand-ink/60">{{ $question->help_text }}</p>
+                        @endif
+
+                        <div class="mt-3">
+                            @switch ($question->type->value)
+                                @case('short_text')
+                                    <input
+                                        id="field-{{ $composite }}"
+                                        type="text"
+                                        wire:model.blur="form.{{ $composite }}.text"
+                                        class="block w-full rounded-md border-brand-fog shadow-sm focus:border-brand-sea focus:ring-brand-sea"
+                                        @if ($state['required']) required @endif
+                                    >
+                                    @break
+
+                                @case('long_text')
+                                    <textarea
+                                        id="field-{{ $composite }}"
+                                        rows="4"
+                                        wire:model.blur="form.{{ $composite }}.text"
+                                        class="block w-full rounded-md border-brand-fog shadow-sm focus:border-brand-sea focus:ring-brand-sea"
+                                        @if ($state['required']) required @endif
+                                    ></textarea>
+                                    @break
+
+                                @case('number')
+                                    <input
+                                        id="field-{{ $composite }}"
+                                        type="number"
+                                        inputmode="decimal"
+                                        wire:model.blur="form.{{ $composite }}.number"
+                                        class="block w-full rounded-md border-brand-fog shadow-sm focus:border-brand-sea focus:ring-brand-sea"
+                                        @if ($state['required']) required @endif
+                                    >
+                                    @break
+
+                                @case('single_choice')
+                                    <div class="space-y-2" role="radiogroup" aria-labelledby="field-{{ $composite }}">
+                                        @foreach ($question->options as $option)
+                                            <label class="flex min-h-12 cursor-pointer items-center gap-3 rounded-md border border-brand-fog px-3 py-2 has-[:checked]:border-brand-sea has-[:checked]:bg-brand-mist/50">
+                                                <input
+                                                    type="radio"
+                                                    wire:model.live="form.{{ $composite }}.value"
+                                                    value="{{ $option->value }}"
+                                                    class="border-brand-fog text-brand-sea focus:ring-brand-sea"
+                                                >
+                                                <span class="text-sm font-medium">{{ $option->label }}</span>
+                                            </label>
+                                        @endforeach
+                                    </div>
+                                    @break
+
+                                @case('multi_choice')
+                                    <div class="space-y-2">
+                                        @foreach ($question->options as $option)
+                                            <label class="flex min-h-12 cursor-pointer items-center gap-3 rounded-md border border-brand-fog px-3 py-2 has-[:checked]:border-brand-sea has-[:checked]:bg-brand-mist/50">
+                                                <input
+                                                    type="checkbox"
+                                                    wire:model.live="form.{{ $composite }}.values"
+                                                    value="{{ $option->value }}"
+                                                    class="rounded border-brand-fog text-brand-sea focus:ring-brand-sea"
+                                                >
+                                                <span class="text-sm font-medium">{{ $option->label }}</span>
+                                            </label>
+                                        @endforeach
+                                    </div>
+                                    @break
+
+                                @case('boolean')
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <label class="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-md border border-brand-fog px-3 py-2 has-[:checked]:border-brand-sea has-[:checked]:bg-brand-mist/50">
+                                            <input type="radio" wire:model.live="form.{{ $composite }}.bool" value="1" class="border-brand-fog text-brand-sea focus:ring-brand-sea">
+                                            <span class="text-sm font-semibold">Ja</span>
+                                        </label>
+                                        <label class="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-md border border-brand-fog px-3 py-2 has-[:checked]:border-brand-sea has-[:checked]:bg-brand-mist/50">
+                                            <input type="radio" wire:model.live="form.{{ $composite }}.bool" value="0" class="border-brand-fog text-brand-sea focus:ring-brand-sea">
+                                            <span class="text-sm font-semibold">Nee</span>
+                                        </label>
+                                    </div>
+                                    @break
+
+                                @case('photo')
+                                    <div class="rounded-md border border-dashed border-brand-fog bg-brand-mist/40 px-4 py-5 text-sm text-brand-ink/70">
+                                        @if ($question->photo_instructions)
+                                            <p class="font-medium text-brand-ink">{{ $question->photo_instructions }}</p>
+                                        @endif
+                                        <p class="mt-2">Foto’s uploaden volgt binnenkort. Je kunt deze stap nu overslaan en later terugkomen.</p>
+                                    </div>
+                                    @break
+                            @endswitch
+                        </div>
+
+                        @error('value')
+                            <p class="mt-2 text-sm text-brand-ember">{{ $message }}</p>
+                        @enderror
+                    </div>
+                @endif
+            @endforeach
+        </div>
+    @endif
+
+    <footer class="sticky bottom-0 -mx-4 mt-8 border-t border-brand-fog/70 bg-brand-sand/95 px-4 py-4 backdrop-blur sm:-mx-6 sm:px-6">
+        <div class="flex gap-3">
+            <button
+                type="button"
+                wire:click="previous"
+                @disabled($stepIndex === 0)
+                class="min-h-12 flex-1 rounded-md border border-brand-fog bg-white px-4 text-sm font-semibold text-brand-ink disabled:opacity-40"
+            >
+                Vorige
+            </button>
+
+            @if ($isLastStep)
+                <button
+                    type="button"
+                    wire:click="saveCurrentStep"
+                    class="min-h-12 flex-[1.4] rounded-md bg-brand-sea px-4 text-sm font-semibold text-white"
+                >
+                    Opslaan
+                </button>
+            @else
+                <button
+                    type="button"
+                    wire:click="next"
+                    class="min-h-12 flex-[1.4] rounded-md bg-brand-sea px-4 text-sm font-semibold text-white"
+                >
+                    Volgende
+                </button>
+            @endif
+        </div>
+        <p class="mt-3 text-center text-xs text-brand-ink/50">
+            Afronden met controle volgt later. Je voortgang blijft bewaard via deze link.
+        </p>
+    </footer>
+</div>
