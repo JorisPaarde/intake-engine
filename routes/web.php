@@ -31,6 +31,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/intakes/create', [IntakeController::class, 'create'])->name('intakes.create');
     Route::post('/intakes', [IntakeController::class, 'store'])->name('intakes.store');
     Route::get('/intakes/{intake}', [IntakeController::class, 'show'])->name('intakes.show');
+    Route::post('/intakes/{intake}/review', [IntakeController::class, 'review'])->name('intakes.review');
     Route::post('/intakes/{intake}/revoke', [IntakeController::class, 'revoke'])->name('intakes.revoke');
     Route::post('/intakes/{intake}/regenerate-token', [IntakeController::class, 'regenerateToken'])->name('intakes.regenerate-token');
     Route::get('/intakes/{intake}/uploads/{upload}', [InstallerIntakeUploadController::class, 'show'])

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Customer;
 
+use App\Domains\Intake\Actions\CompleteIntake;
 use App\Domains\Intake\Actions\DeleteIntakeUpload;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
@@ -12,6 +13,7 @@ use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\AnswerValueReader;
+use App\Domains\Intake\Services\CompletenessChecker;
 use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Domains\Intake\Services\ProgressCalculator;
 use App\Domains\Intake\Services\ResolveIntakeByAccessToken;
@@ -49,6 +51,11 @@ class IntakeWizard extends Component
 
     public bool $showMissing = false;
 
+    public bool $completed = false;
+
+    /** @var list<array{question_key: string, section_instance_key: string|null, reason: string, label?: string}> */
+    public array $completionMissing = [];
+
     public function mount(string $token): void
     {
         $this->token = $token;
@@ -82,7 +89,7 @@ class IntakeWizard extends Component
         $visibility = [];
         $uploadsByQuestion = [];
 
-        if ($step !== null) {
+        if ($step !== null && ! $this->completed) {
             $questions = app(IntakeStepBuilder::class)
                 ->questionsForStep($version, $step['section_key']);
 
@@ -97,8 +104,10 @@ class IntakeWizard extends Component
             'questions' => $questions,
             'visibility' => $visibility,
             'uploadsByQuestion' => $uploadsByQuestion,
-            'progressPercent' => $progress['percent'],
-            'missingRequired' => $progress['missing_required'],
+            'progressPercent' => $this->completed ? 100 : $progress['percent'],
+            'missingRequired' => $this->completionMissing !== []
+                ? $this->completionMissing
+                : $progress['missing_required'],
             'isLastStep' => $this->stepIndex >= count($steps) - 1,
             'maxUploadKb' => (int) config('intake.uploads.max_kilobytes', 5120),
         ]);
@@ -220,6 +229,10 @@ class IntakeWizard extends Component
 
     public function saveCurrentStep(): void
     {
+        if ($this->completed) {
+            return;
+        }
+
         $step = $this->steps()[$this->stepIndex] ?? null;
         if ($step === null) {
             return;
@@ -237,8 +250,50 @@ class IntakeWizard extends Component
         $this->saveMessage = 'Opgeslagen';
     }
 
+    public function complete(): void
+    {
+        if ($this->completed) {
+            return;
+        }
+
+        $this->saveCurrentStep();
+
+        if (! $this->currentStepRequiredSatisfied()) {
+            $this->showMissing = true;
+            $this->saveMessage = '';
+
+            return;
+        }
+
+        $intake = $this->intake();
+        $version = $this->version();
+        $check = app(CompletenessChecker::class)->check($intake, $version);
+
+        if (! $check['is_complete']) {
+            $this->completionMissing = $check['missing'];
+            $this->showMissing = true;
+            $this->saveMessage = '';
+
+            return;
+        }
+
+        try {
+            app(CompleteIntake::class)->handle($intake);
+            $this->completed = true;
+            $this->completionMissing = [];
+            $this->showMissing = false;
+            $this->saveMessage = '';
+        } catch (ValidationException $e) {
+            $this->addError('completeness', $e->errors()['completeness'][0] ?? 'Afronden mislukt.');
+        }
+    }
+
     public function next(): void
     {
+        if ($this->completed) {
+            return;
+        }
+
         $this->saveCurrentStep();
 
         if (! $this->currentStepRequiredSatisfied()) {
@@ -249,6 +304,7 @@ class IntakeWizard extends Component
         }
 
         $this->showMissing = false;
+        $this->completionMissing = [];
         $steps = $this->steps();
 
         if ($this->stepIndex < count($steps) - 1) {

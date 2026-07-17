@@ -33,4 +33,9 @@ class IntakePolicy
     {
         return true;
     }
+
+    public function review(User $user, Intake $intake): bool
+    {
+        return true;
+    }
 }

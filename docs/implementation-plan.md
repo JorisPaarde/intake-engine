@@ -20,14 +20,11 @@ Geïmplementeerd: customer middleware + `/o/{token}`, Livewire wizard, SaveIntak
 
 Geïmplementeerd: `StoreIntakeUpload` / `DeleteIntakeUpload`, private media disk, Livewire camera/galerij UI, beveiligde serve-routes (klant + installateur), validatie, voortgang telt foto’s mee, tests.
 
-## Fase 5 — Compleetheid, rapport, beoordeling
+## Fase 5 — Compleetheid, rapport, beoordeling ✅
 
-1. Strikte `CompletenessChecker` + afronden
-2. Snapshot + attention points
-3. HTML-rapportweergave
-4. Review UI + `ReviewDecision`
-5. Tests: incomplete kan niet afronden; rapportinhoud; templatewijziging raakt oude intake niet
-6. PDF alleen als cPanel-proof; anders documenteren als later
+**Doel:** strikte afronding, momentopname, HTML-rapport, installateur-beoordeling.
+
+Geïmplementeerd: `CompletenessChecker`, `CompleteIntake`, system attention points, `generated_reports` HTML, klant-afronden + bedankt, installer rapport + `SubmitIntakeReview` / `ReviewDecision`, feature tests. PDF bewust later (cPanel shared hosting).
 
 ## Fase 6 — AI (optioneel)
 

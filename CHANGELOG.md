@@ -6,6 +6,7 @@ Alle noemenswaardige wijzigingen aan dit project.
 
 ### Added
 
+- Fase 5: `CompletenessChecker`, `CompleteIntake`, HTML-rapport (`generated_reports`), system attention points, klant-afronden + bedankt-scherm, installer review (`SubmitIntakeReview` / `ReviewDecision`).
 - `docs/backlog.md` + GitHub issue #5: demo-versie van de app (backlog).
 - Fase 4 foto-uploads: private storage, Livewire upload/preview/verwijderen, beveiligde serve-routes, validatie, installer-galerij.
 - Deploy activeert na migraties ook `IntakeTemplateSeeder` (idempotente template-reference-data).
@@ -20,7 +21,7 @@ Alle noemenswaardige wijzigingen aan dit project.
 
 ### Known limitations
 
-- Afronden / strikte compleetheidsblokkade / rapport / review volgen in Fase 5.
+- PDF-export van rapporten bewust later (HTML eerst; shared cPanel is geen betrouwbare PDF-host).
 - HEIC niet in allowlist (alleen jpeg/png/webp).
 - Staging PHP upload-limieten nog te verifiëren op cPanel.
 - Geen automatische e-mail (staging mail = log); alleen kopieerbare link.

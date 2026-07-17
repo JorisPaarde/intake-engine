@@ -177,3 +177,4 @@ Documenteer gemeten waarden in `docs/uploads.md`. Lokaal stond CLI op `upload_ma
 - Geen production-deployworkflow nog
 - Workflow-staplabel kan “PHP 8.3” noemen terwijl `php-version` 8.4 is
 - `MEDIA_DISK` moet private `local` zijn voor intake-foto’s (niet `public`)
+- Rapporten zijn HTML (`generated_reports`); PDF-export bewust later (geen zware PDF-deps op shared cPanel)
