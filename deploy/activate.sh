@@ -44,7 +44,7 @@ echo "==> Caches verversen"
 "$PHP_BIN" artisan event:cache
 
 echo "==> Release activeren"
-ln -sfn "$RELEASE_PATH" "$DEPLOY_PATH/current"
+ln -sfn "$RELEASE_PATH" "$DEPLOY_PATH/current.tmp" && mv -Tf "$DEPLOY_PATH/current.tmp" "$DEPLOY_PATH/current"
 
 echo "==> Queue herstarten"
 "$PHP_BIN" artisan queue:restart
