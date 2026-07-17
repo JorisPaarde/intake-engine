@@ -1,97 +1,100 @@
-# Intake Engine
+# Intake Engine (Digitale Opname)
 
-Generieke, AI-gestuurde intake-engine. Eerste toepassing: intakes voor airco-installateurs. De architectuur is domeingericht zodat nieuwe intaketypes (warmtepompen, zonnepanelen, laadpalen) later zonder grote refactors toegevoegd kunnen worden.
+Helpt installatiebedrijven om aanvragen op afstand te beoordelen via een begeleide digitale intake. Eerste template: **airco-opname**. De kern is een herbruikbare intake-engine, geen hardcoded airco-app.
 
-**Stack:** Laravel 12 · PHP 8.3+ · MySQL · Blade · Livewire · Alpine.js · Tailwind CSS · Breeze (auth) · Pest · Pint · PHPStan/Larastan
+**Stack (feitelijk):** Laravel **13.20** · PHP **^8.3** (staging/CI **8.4**) · MySQL · Blade · Livewire **4.3** (package aanwezig) · Alpine.js · Tailwind CSS 3 · Breeze (auth) · Pest 4 · Pint · PHPStan/Larastan 6 · Vite 8
 
 ## Installatie (macOS)
 
-Vereisten: PHP 8.3+, Composer 2, Node 20+, MySQL 8 (bijv. via [Laravel Herd](https://herd.laravel.com) of Homebrew).
+Vereisten: PHP 8.3+, Composer 2, Node 20+, MySQL 8 (bijv. [Laravel Herd](https://herd.laravel.com) of Homebrew).
 
 ```bash
-git clone git@github.com:<org>/intake-engine.git
-cd intake-engine
-./bin/setup.sh
+git clone git@github.com:JorisPaarde/intake-engine.git
+cd intake_engine
+composer setup
+# of: composer install && cp .env.example .env && php artisan key:generate && npm install && npm run build
 ```
 
-Het script installeert het Laravel-skelet, Livewire, Breeze (Blade + Pest-variant), Pint, PHPStan en Pest, zet `.env` op en bouwt de frontend. Daarna:
-
 ```bash
-# .env: DB_DATABASE / DB_USERNAME / DB_PASSWORD aanpassen
+# .env: DB_* aanpassen
 mysql -u root -e "CREATE DATABASE intake_engine"
 php artisan migrate
 ```
 
-## Development workflow
+**Uploadlimieten:** verhoog lokaal `upload_max_filesize` / `post_max_size` (zie `docs/uploads.md`). Standaard PHP CLI kan op 2M staan.
+
+## Development
 
 ```bash
-php artisan serve     # app op http://localhost:8000
-npm run dev           # Vite met hot reload (tweede terminal)
-php artisan queue:work  # alleen nodig als je queued jobs test
+composer dev          # serve + queue + logs + vite
+# of apart:
+php artisan serve
+npm run dev
+php artisan queue:work
 ```
 
-Kwaliteitschecks (dezelfde als CI):
+Kwaliteit (zelfde als CI):
 
 ```bash
-composer lint      # Pint, alleen controleren
-composer fix       # Pint, automatisch fixen
+composer lint      # Pint --test
+composer fix       # Pint
 composer analyse   # PHPStan level 6
 composer test      # Pest
-composer check     # alles achter elkaar
+composer check     # lint + analyse + test
 ```
 
-**Branching:** `main` is altijd deploybaar. Werk in feature branches (`feature/...`), open een PR; CI (Pint + PHPStan + Pest) moet groen zijn vóór merge. Merge naar `main` deployt automatisch naar staging.
+**Branching:** `main` is deploybaar. Feature branches + PR; CI groen vóór merge. Merge naar `main` → staging deploy.
 
-## Omgevingen & .env-strategie
+## Omgevingen & .env
 
-| Omgeving   | Bestand op machine | Voorbeeld in repo         |
-|------------|--------------------|---------------------------|
-| local      | `.env`             | `.env.example`            |
-| staging    | `shared/.env` op server | `.env.staging.example`  |
-| production | `shared/.env` op server | `.env.production.example` |
+| Omgeving   | Bestand              | Voorbeeld                 |
+|------------|----------------------|---------------------------|
+| local      | `.env`               | `.env.example`            |
+| staging    | `shared/.env` server | `.env.staging.example`    |
+| production | `shared/.env` server | `.env.production.example` |
 
-Secrets staan **nooit** in git. Server-`.env`-bestanden worden éénmalig handmatig aangemaakt en overleven elke deploy (shared-map). CI-secrets staan in GitHub repository secrets.
+Secrets nooit in git. Belangrijke vars: `APP_*`, `DB_*`, `QUEUE_CONNECTION`, `CACHE_STORE`, `SESSION_*`, `FILESYSTEM_DISK`, `MEDIA_DISK` (private media: `local`), `MAIL_*`, `AI_*` (placeholders).
 
 ## Storage
 
-`FILESYSTEM_DISK`/`MEDIA_DISK` bepalen waar bestanden (o.a. foto's) landen. Lokaal en op cPanel is dat `public` (lokale disk); overstappen naar S3 is een kwestie van `MEDIA_DISK=s3` + AWS-credentials in `.env` — geen codewijzigingen, mits alle code via `Storage::disk(config('filesystems.media'))`-achtige abstractie werkt (afspraak: nooit hardcoded disknamen).
+Intake-foto’s via `MEDIA_DISK` (private `local`, later `s3`). Geen hardcoded disknamen. Zie `docs/uploads.md`.
 
 ## Queues
 
-`QUEUE_CONNECTION=database` vanaf dag één. AI-verwerking en PDF-generatie worden later als queued jobs gebouwd. Op cPanel draait de worker via cron (zie `docs/DEPLOYMENT.md`); elke deploy doet `queue:restart`.
+`QUEUE_CONNECTION=database`. Kernintake is sync; AI/PDF later als jobs. cPanel: cron worker — `docs/DEPLOYMENT.md`.
 
 ## Logging
 
-`daily`-kanaal met retentie; lokaal `debug`, staging `info`, productie `warning`. Logs op de server: `shared/storage/logs/laravel-*.log` (overleven deploys).
+Daily stack; lokaal `debug`, staging `info`, productie `warning`. Server: `shared/storage/logs/`.
 
 ## Deployment
 
-Push naar `main` → GitHub Actions bouwt (composer + assets) → rsync naar de cPanel-server → `deploy/activate.sh` migreert, cachet en wisselt de `current`-symlink atomisch. Server heeft alleen SSH, rsync en PHP-CLI 8.3 nodig. Volledige server-setup: **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
+Push `main` → GitHub Actions → rsync → `deploy/activate.sh` (migrate, cache, atomic symlink). **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
 
 ## Projectstructuur
 
 ```
-app/
-  Domains/            # domeinlogica, per bounded context
-    Intake/           #   het generieke intakeproces (flows, stappen, antwoorden)
-    Chat/             #   conversatie-UI/logica
-    Photos/           #   foto-upload en -verwerking
-    Reports/          #   rapport/PDF-generatie
-    AI/               #   AI-provider-abstractie
-    Users/            #   gebruikers, rollen
-      Actions/        #   één klasse = één use-case (bv. StartIntake)
-      Services/       #   domeinservices, integraties
-      Models/         #   Eloquent-modellen van dit domein
-  Http/               # dunne controllers, requests, middleware (framework-laag)
-  Support/            # gedeelde helpers/waardeobjecten zonder domein
-bin/setup.sh          # eenmalige lokale setup
-deploy/activate.sh    # server-side release-activatie
-docs/                 # architectuur- en deploymentdocumentatie
-.github/workflows/    # ci.yml + deploy-staging.yml
+app/Domains/     # Intake, Photos, Reports, AI, Users, Chat (scaffolds)
+app/Http/        # dunne framework-laag + Breeze auth
+docs/            # architectuur, schema, engine, uploads, AI, ADRs
+deploy/          # activate.sh
+.github/workflows/
 ```
 
-Architectuurkeuzes en conventies: **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
+## Documentatie
 
-## Eerste feature branch (voorstel)
+| Document | Inhoud |
+|----------|--------|
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architectuur & trade-offs |
+| [docs/database.md](docs/database.md) | Schema + ER-diagram |
+| [docs/intake-engine.md](docs/intake-engine.md) | Templates, regels, compleetheid |
+| [docs/uploads.md](docs/uploads.md) | Media & limieten |
+| [docs/ai.md](docs/ai.md) | AI-roadmap (nog niet gebouwd) |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | cPanel / CI deploy |
+| [docs/implementation-plan.md](docs/implementation-plan.md) | Fasering |
+| [docs/decisions/](docs/decisions/) | ADRs |
+| [CHANGELOG.md](CHANGELOG.md) | Wijzigingslog |
 
-`feature/intake-flow-domain-model` — het generieke datamodel van de engine: `IntakeFlow` (definitie van een intaketype), `IntakeStep`, `Intake` (een sessie/aanvraag) en `IntakeAnswer`, met migraties, factories en Pest-tests. Bewust nog géén UI en géén AI: dit model bepaalt of de engine echt generiek is, dus dat verdient de eerste, best doordachte PR. Airco wordt daarna slechts de eerste geconfigureerde `IntakeFlow`.
+## Huidige status
+
+**Fase 1 (audit & ontwerp) afgerond.** Auth (Breeze) en infra werken; domeinfeatures (dashboard, intake-engine, uploads, rapport) volgen in Fase 2+.
