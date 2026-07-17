@@ -4,7 +4,7 @@
 
 **Werk je als agent aan dit project? Lees eerst [AGENTS.md](AGENTS.md)** — het projectgeheugen, de documentkaart en het onderhoudsprotocol.
 
-Helpt installatiebedrijven om aanvragen op afstand te beoordelen via een begeleide digitale intake. Eerste template: **airco-opname**. De kern is een herbruikbare intake-engine, geen hardcoded airco-app.
+Helpt installatiebedrijven om aanvragen op afstand te beoordelen via een begeleide digitale intake. Eerste template: **airco-opname**. De kern is een herbruikbare intake-engine, geen hardcoded airco-app. Het vaste hoofddoel van het product staat in [AGENTS.md § Hoofddoel](AGENTS.md#hoofddoel-vast--niet-door-agents-aan-te-passen).
 
 **Stack (feitelijk):** Laravel **13.20** · PHP **^8.3** (staging/CI **8.4**) · MySQL · Blade · Livewire **4.3** (package aanwezig) · Alpine.js · Tailwind CSS 3 · Breeze (auth) · Pest 4 · Pint · PHPStan/Larastan 6 · Vite 8
 

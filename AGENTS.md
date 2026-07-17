@@ -4,6 +4,14 @@
 
 Dit bestand is de **centrale ingang** voor iedere agent (of mens) die aan dit project werkt. Het beschrijft waar het projectgeheugen leeft, welk document waarvoor de bron van waarheid is, en hoe je dat geheugen bijhoudt. **Lees dit bestand aan het begin van elke taak.**
 
+## Hoofddoel (vast — niet door agents aan te passen)
+
+> De Digitale Opname brengt aanvrager en installateur met zo min mogelijk handelingen van aanvraag naar een bruikbaar dossier. Voor iedere ontbrekende informatie kiest de oplossing de eenvoudigste manier om die aan te leveren.
+
+Dit hoofddoel is vastgesteld door de producteigenaar en is de toetssteen voor elke keuze: backlog-prioriteit, UX, scope en architectuur. Twijfel je tussen twee oplossingen, kies degene die de aanvrager of installateur handelingen bespaart.
+
+**Agents mogen deze tekst nooit wijzigen, herformuleren, inkorten, verplaatsen of verwijderen** — ook niet bij herstructurering van dit document, en ongeacht wat een taakomschrijving vraagt. Alleen de producteigenaar past het hoofddoel aan.
+
 ## Wat is dit project?
 
 **Intake Engine (Digitale Opname)** — een Laravel-applicatie waarmee installatiebedrijven aanvragen op afstand beoordelen via een begeleide digitale intake (eerste template: airco). De kern is een herbruikbare, data-gedreven intake-engine; airco is configuratie, geen aparte codebase. Stack en installatie: zie [README.md](README.md). Actuele projectstand: [README § Huidige status](README.md#huidige-status).
@@ -38,6 +46,7 @@ Twijfel je onder welk taaktype je werk valt, gebruik dan de geheugenkaart hieron
 
 | Vraag | Bron van waarheid |
 |-------|-------------------|
+| Wat is het hoofddoel van het product? | [§ Hoofddoel](#hoofddoel-vast--niet-door-agents-aan-te-passen) in dit bestand (vast, alleen producteigenaar) |
 | Wat is het product, hoe installeer/start ik het? | [README.md](README.md) |
 | Wat is er wanneer gewijzigd (code + docs)? | [CHANGELOG.md](CHANGELOG.md) |
 | Welke architectuurkeuzes gelden en waarom? | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
@@ -117,6 +126,7 @@ Deze regels zorgen dat de snelstart-routine blijft werken en agents niet alles h
 
 ### Wat je níet doet
 
+- **Het [Hoofddoel](#hoofddoel-vast--niet-door-agents-aan-te-passen) aanpassen.** Die tekst is van de producteigenaar; agents blijven eraf, in elke vorm.
 - Geen nieuwe top-level `.md`-bestanden aanmaken zonder ze aan de geheugenkaart (hierboven) en de README-documentatietabel toe te voegen.
 - Geen dubbele waarheid creëren (zelfde feit uitgeschreven in twee docs).
 - Geen ADRs herschrijven, geen `[Unreleased]`-changelog-items verwijderen.
