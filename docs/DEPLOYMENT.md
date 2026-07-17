@@ -137,3 +137,32 @@ Let op: database-migraties worden niet automatisch teruggedraaid — vandaar de 
 ## Production later
 
 Kopieer `deploy-staging.yml` naar `deploy-production.yml`, trigger op tags (`v*`) i.p.v. push, gebruik `PRODUCTION_*`-secrets en een eigen `apps/intake-engine-production`-boom plus eigen database. De server-setup is identiek.
+
+## Mail
+
+Staging `.env` gebruikt `MAIL_MAILER=log`. Automatische klantmails zijn **niet** betrouwbaar tot SMTP is geconfigureerd. MVP stuurt daarom geen intake-link per mail; de installateur kopieert de link. Productievoorbeeld bevat SMTP-placeholders.
+
+## PHP upload-limieten (cPanel)
+
+Foto-uploads (Fase 4) vereisen limieten ≥ applicatielimiet (voorstel 5–10M per bestand).
+
+Op de server meten:
+
+```bash
+php -i | grep -E 'upload_max_filesize|post_max_size|max_file_uploads'
+```
+
+Via cPanel MultiPHP INI Editor minimaal:
+
+- `upload_max_filesize = 10M`
+- `post_max_size = 12M`
+
+Documenteer gemeten waarden in `docs/uploads.md`. Lokaal stond CLI op `upload_max_filesize=2M` (te laag voor mobiele foto’s).
+
+## Bekende beperkingen
+
+- Geen Supervisor — queue via cron
+- Rollback zet alleen de code-symlink terug, niet de database
+- Geen production-deployworkflow nog
+- Workflow-staplabel kan “PHP 8.3” noemen terwijl `php-version` 8.4 is
+- `MEDIA_DISK` moet private `local` zijn voor intake-foto’s (niet `public`)
