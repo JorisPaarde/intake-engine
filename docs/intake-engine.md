@@ -1,6 +1,8 @@
 # Intake-engine
 
-Status: **compleetheid, rapport en beoordeling geïmplementeerd (Fase 5)**. AI volgt optioneel in Fase 6.
+> **Documentversie:** 1.1 · **Laatste update:** 2026-07-17 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+
+Status: **geïmplementeerd t/m Fase 6** (compleetheid, rapport, beoordeling en AI-samenvatting).
 
 ## Doel
 

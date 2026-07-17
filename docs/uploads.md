@@ -1,5 +1,7 @@
 # Uploads & mediastorage
 
+> **Documentversie:** 1.1 · **Laatste update:** 2026-07-17 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+
 Status: **geïmplementeerd (Fase 4)**.
 
 ## Doelen

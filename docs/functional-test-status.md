@@ -1,10 +1,12 @@
 # Functionele teststatus
 
+> **Documentversie:** 1.1 · **Laatste update:** 2026-07-17 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
-**Niet** invullen via geautomatiseerde agent-implementatie; bijwerken door de testende agent of tester.
+**Niet** invullen via geautomatiseerde agent-implementatie; bijwerken door de testende agent of tester. Implementerende agents voegen alleen nieuwe `todo`-regels toe voor functionaliteit die zij introduceren.
 
-Laatste update: 2026-07-17 (getest op staging via de browser)
+Laatste testsessie: 2026-07-17 (getest op staging via de browser)
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
@@ -23,7 +25,10 @@ Laatste update: 2026-07-17 (getest op staging via de browser)
 | Registratie /register | todo | - | Niet getest; e-mailverificatie vereist (mail=log op staging) |
 | E-mailverificatie flow | todo | - | mail=log op staging; verificatielink alleen via log |
 | Klant-intakepagina /o/{token} (Fase 3) | todo | - | Gaf 404 bij test want Fase 3 was nog niet gedeployd; opnieuw testen |
-| Foto-uploads (Fase 4) | todo | - | Nog niet getest |
+| Foto-uploads (Fase 4) | todo | - | Nog niet getest; eerst PHP-limieten verifiëren (BL-003) |
+| Afronden + bedankt-scherm (Fase 5) | todo | - | Nog niet getest |
+| HTML-rapport + installateur-review (Fase 5) | todo | - | Nog niet getest |
+| AI-samenvatting in rapport (Fase 6) | todo | - | Nog niet getest; vereist werkende queue-worker |
 | Queue-worker (cron) | todo | - | Cron draait queue:work; nog geen job end-to-end getest |
 
 ## Legenda
@@ -45,6 +50,5 @@ Scope: getest tegen de op dat moment gedeployde staging (Fase 2 interne basis). 
 Bevindingen:
 
 - Airco-template werd niet automatisch geseed bij deploy; handmatig gedraaid met IntakeTemplateSeeder. Inmiddels opgelost in Fase 3 (template-seeding bij deploy).
-- - Klantlink /o/{token} gaf 404 omdat de klant-facing route toen nog niet bestond; met Fase 3 hoort dit nu te werken en moet opnieuw getest worden.
-  - - Nog te testen na Fase 3/4: producthomepage, klantintake via /o/{token}, foto-uploads, registratie + e-mailverificatie, en een end-to-end queue-job.
-    - 
+- Klantlink /o/{token} gaf 404 omdat de klant-facing route toen nog niet bestond; met Fase 3 hoort dit nu te werken en moet opnieuw getest worden.
+- Nog te testen na Fase 3–6: producthomepage, klantintake via /o/{token}, foto-uploads, afronden + rapport + review, AI-samenvatting, registratie + e-mailverificatie, en een end-to-end queue-job. Zie BL-002 in `docs/backlog.md`.

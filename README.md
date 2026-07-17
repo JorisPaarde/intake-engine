@@ -1,5 +1,9 @@
 # Intake Engine (Digitale Opname)
 
+> **Documentversie:** 1.1 · **Laatste update:** 2026-07-17 · Onderhoud: zie [AGENTS.md](AGENTS.md)
+
+**Werk je als agent aan dit project? Lees eerst [AGENTS.md](AGENTS.md)** — het projectgeheugen, de documentkaart en het onderhoudsprotocol.
+
 Helpt installatiebedrijven om aanvragen op afstand te beoordelen via een begeleide digitale intake. Eerste template: **airco-opname**. De kern is een herbruikbare intake-engine, geen hardcoded airco-app.
 
 **Stack (feitelijk):** Laravel **13.20** · PHP **^8.3** (staging/CI **8.4**) · MySQL · Blade · Livewire **4.3** (package aanwezig) · Alpine.js · Tailwind CSS 3 · Breeze (auth) · Pest 4 · Pint · PHPStan/Larastan 6 · Vite 8
@@ -95,6 +99,7 @@ deploy/          # activate.sh
 
 | Document | Inhoud |
 |----------|--------|
+| [AGENTS.md](AGENTS.md) | Projectgeheugen: documentkaart, versionering, onderhoudsprotocol voor agents |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architectuur & trade-offs |
 | [docs/database.md](docs/database.md) | Schema + ER-diagram |
 | [docs/intake-engine.md](docs/intake-engine.md) | Templates, regels, compleetheid |
@@ -102,11 +107,11 @@ deploy/          # activate.sh
 | [docs/ai.md](docs/ai.md) | AI-roadmap (nog niet gebouwd) |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | cPanel / CI deploy |
 | [docs/implementation-plan.md](docs/implementation-plan.md) | Fasering |
-| [docs/backlog.md](docs/backlog.md) | Backlog (o.a. demo-versie) |
+| [docs/backlog.md](docs/backlog.md) | Backlog (enige bron voor open/uitgesteld werk) |
 | [docs/functional-test-status.md](docs/functional-test-status.md) | Functionele teststatus (handmatig) |
 | [docs/decisions/](docs/decisions/) | ADRs |
 | [CHANGELOG.md](CHANGELOG.md) | Wijzigingslog |
 
 ## Huidige status
 
-**Fase 6 (AI-samenvatting) afgerond** op branch `cursor/fase-6-ai`. Demo-versie blijft op de backlog ([issue #5](https://github.com/JorisPaarde/intake-engine/issues/5)).
+**MVP-fasen 1–6 afgerond en gemerged naar `main`** (t/m AI-samenvatting). Open werk staat in [docs/backlog.md](docs/backlog.md); hoogste prioriteit is de functionele hertest van Fase 3–6 op staging (BL-002) en de PHP-uploadlimieten op cPanel (BL-003). Handmatige teststatus: [docs/functional-test-status.md](docs/functional-test-status.md).

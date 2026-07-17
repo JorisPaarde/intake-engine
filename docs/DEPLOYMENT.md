@@ -1,5 +1,7 @@
 # Deployment naar cPanel (staging)
 
+> **Documentversie:** 1.1 · **Laatste update:** 2026-07-17 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+
 Afgestemd op de huidige host:
 
 | Gegeven | Waarde |
