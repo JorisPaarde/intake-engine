@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Customer\IntakeUploadController as CustomerIntakeUploadController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\Installer\DashboardController;
 use App\Http\Controllers\Installer\IntakeController;
+use App\Http\Controllers\Installer\IntakeUploadController as InstallerIntakeUploadController;
 use App\Http\Controllers\ProfileController;
 use App\Livewire\Customer\IntakeWizard;
 use Illuminate\Support\Facades\Route;
@@ -15,10 +17,13 @@ Route::get('/', function () {
 
 Route::get('/health', HealthController::class)->name('health');
 
-Route::get('/o/{token}', IntakeWizard::class)
-    ->middleware(['customer.intake', 'throttle:customer-intake'])
-    ->where('token', '[A-Za-z0-9]{64}')
-    ->name('customer.intake.show');
+Route::middleware(['customer.intake', 'throttle:customer-intake'])
+    ->where(['token' => '[A-Za-z0-9]{64}'])
+    ->group(function () {
+        Route::get('/o/{token}', IntakeWizard::class)->name('customer.intake.show');
+        Route::get('/o/{token}/uploads/{upload}', [CustomerIntakeUploadController::class, 'show'])
+            ->name('customer.uploads.show');
+    });
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
@@ -28,6 +33,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/intakes/{intake}', [IntakeController::class, 'show'])->name('intakes.show');
     Route::post('/intakes/{intake}/revoke', [IntakeController::class, 'revoke'])->name('intakes.revoke');
     Route::post('/intakes/{intake}/regenerate-token', [IntakeController::class, 'regenerateToken'])->name('intakes.regenerate-token');
+    Route::get('/intakes/{intake}/uploads/{upload}', [InstallerIntakeUploadController::class, 'show'])
+        ->name('installer.uploads.show');
 });
 
 Route::middleware('auth')->group(function () {

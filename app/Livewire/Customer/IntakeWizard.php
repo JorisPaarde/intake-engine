@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Livewire\Customer;
 
+use App\Domains\Intake\Actions\DeleteIntakeUpload;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
+use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
+use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\AnswerValueReader;
 use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Domains\Intake\Services\ProgressCalculator;
@@ -16,13 +19,18 @@ use App\Domains\Intake\Services\VisibilityResolver;
 use App\Enums\QuestionType;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Livewire\WithFileUploads;
 
 #[Layout('layouts.customer')]
 class IntakeWizard extends Component
 {
+    use WithFileUploads;
+
     #[Locked]
     public int $intakeId;
 
@@ -33,6 +41,9 @@ class IntakeWizard extends Component
 
     /** @var array<string, mixed> */
     public array $form = [];
+
+    /** @var array<string, TemporaryUploadedFile|null> */
+    public array $photoFiles = [];
 
     public string $saveMessage = '';
 
@@ -69,12 +80,14 @@ class IntakeWizard extends Component
 
         $questions = collect();
         $visibility = [];
+        $uploadsByQuestion = [];
 
         if ($step !== null) {
             $questions = app(IntakeStepBuilder::class)
                 ->questionsForStep($version, $step['section_key']);
 
             $visibility = $this->visibilityForQuestions($questions, $step['section_instance_key']);
+            $uploadsByQuestion = $this->uploadsForStep($step['section_instance_key']);
         }
 
         return view('livewire.customer.intake-wizard', [
@@ -83,10 +96,35 @@ class IntakeWizard extends Component
             'step' => $step,
             'questions' => $questions,
             'visibility' => $visibility,
+            'uploadsByQuestion' => $uploadsByQuestion,
             'progressPercent' => $progress['percent'],
             'missingRequired' => $progress['missing_required'],
             'isLastStep' => $this->stepIndex >= count($steps) - 1,
+            'maxUploadKb' => (int) config('intake.uploads.max_kilobytes', 5120),
         ]);
+    }
+
+    public function updatedPhotoFiles(mixed $value, ?string $key): void
+    {
+        if ($key === null || $key === '' || ! $value instanceof TemporaryUploadedFile) {
+            return;
+        }
+
+        $this->uploadPhotoForComposite($key);
+    }
+
+    public function removePhoto(int $uploadId): void
+    {
+        $upload = IntakeUpload::query()->findOrFail($uploadId);
+
+        try {
+            app(DeleteIntakeUpload::class)->handle($this->intake(), $upload);
+            $this->hydrateFormFromAnswers();
+            $this->saveMessage = 'Foto verwijderd';
+            $this->showMissing = false;
+        } catch (ValidationException $e) {
+            $this->addError('photo', $e->errors()['photo'][0] ?? 'Verwijderen mislukt.');
+        }
     }
 
     public function updated(string $property): void
@@ -110,6 +148,74 @@ class IntakeWizard extends Component
             $this->saveMessage = 'Opgeslagen';
             $this->showMissing = false;
         }
+    }
+
+    private function uploadPhotoForComposite(string $composite): void
+    {
+        $maxKb = (int) config('intake.uploads.max_kilobytes', 5120);
+
+        $this->validate([
+            'photoFiles.'.$composite => [
+                'required',
+                'image',
+                'max:'.$maxKb,
+                'mimetypes:image/jpeg,image/png,image/webp',
+            ],
+        ], [], [
+            'photoFiles.'.$composite => 'foto',
+        ]);
+
+        $file = $this->photoFiles[$composite] ?? null;
+
+        if (! $file instanceof TemporaryUploadedFile) {
+            return;
+        }
+
+        [$questionKey, $instanceKey] = $this->splitComposite($composite);
+
+        try {
+            app(StoreIntakeUpload::class)->handle(
+                $this->intake(),
+                $questionKey,
+                $instanceKey,
+                $file,
+            );
+            $this->photoFiles[$composite] = null;
+            $this->hydrateFormFromAnswers();
+            $this->saveMessage = 'Foto opgeslagen';
+            $this->showMissing = false;
+            $this->resetErrorBag('photoFiles.'.$composite);
+        } catch (ValidationException $e) {
+            $this->photoFiles[$composite] = null;
+            throw $e;
+        }
+    }
+
+    /**
+     * @return array<string, Collection<int, IntakeUpload>>
+     */
+    private function uploadsForStep(?string $sectionInstanceKey): array
+    {
+        $intake = $this->intake();
+        $intake->loadMissing('uploads');
+
+        $grouped = [];
+
+        foreach ($intake->uploads as $upload) {
+            if ($upload->section_instance_key !== $sectionInstanceKey) {
+                continue;
+            }
+
+            $grouped[$upload->question_key][] = $upload;
+        }
+
+        $result = [];
+
+        foreach ($grouped as $questionKey => $items) {
+            $result[$questionKey] = collect($items)->sortBy('sort_order')->values();
+        }
+
+        return $result;
     }
 
     public function saveCurrentStep(): void
@@ -326,14 +432,19 @@ class IntakeWizard extends Component
         $reader = app(AnswerValueReader::class);
 
         foreach ($questions as $question) {
-            if ($question->type === QuestionType::Photo) {
-                continue;
-            }
-
             $key = VisibilityResolver::compositeKey($question->key, $step['section_instance_key']);
             $state = $visibility[$key] ?? ['visible' => false, 'required' => false];
 
             if (! $state['visible'] || ! $state['required']) {
+                continue;
+            }
+
+            if ($question->type === QuestionType::Photo) {
+                $value = is_array($this->form[$key] ?? null) ? $this->form[$key] : null;
+                if (! $reader->isFilled($value, QuestionType::Photo)) {
+                    return false;
+                }
+
                 continue;
             }
 

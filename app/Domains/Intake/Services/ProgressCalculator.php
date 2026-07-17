@@ -80,10 +80,6 @@ final class ProgressCalculator
                 ];
             }
 
-            if ($question->type === QuestionType::Photo) {
-                continue;
-            }
-
             $totalVisible++;
             if ($filled) {
                 $answeredVisible++;
@@ -105,7 +101,7 @@ final class ProgressCalculator
      */
     private function buildAnswerMap(Intake $intake): array
     {
-        $intake->loadMissing('answers');
+        $intake->loadMissing(['answers', 'uploads']);
 
         $answers = [];
 
@@ -115,6 +111,20 @@ final class ProgressCalculator
                 $answer->section_instance_key,
             );
             $answers[$key] = $answer->value;
+        }
+
+        $uploadIdsByKey = [];
+
+        foreach ($intake->uploads as $upload) {
+            $key = VisibilityResolver::compositeKey(
+                $upload->question_key,
+                $upload->section_instance_key,
+            );
+            $uploadIdsByKey[$key][] = $upload->id;
+        }
+
+        foreach ($uploadIdsByKey as $key => $ids) {
+            $answers[$key] = ['upload_ids' => $ids];
         }
 
         return $answers;

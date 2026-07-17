@@ -142,11 +142,59 @@
                                     @break
 
                                 @case('photo')
-                                    <div class="rounded-md border border-dashed border-brand-fog bg-brand-mist/40 px-4 py-5 text-sm text-brand-ink/70">
+                                    <div class="space-y-3">
                                         @if ($question->photo_instructions)
-                                            <p class="font-medium text-brand-ink">{{ $question->photo_instructions }}</p>
+                                            <p class="text-sm text-brand-ink/70">{{ $question->photo_instructions }}</p>
                                         @endif
-                                        <p class="mt-2">Foto’s uploaden volgt binnenkort. Je kunt deze stap nu overslaan en later terugkomen.</p>
+
+                                        @php
+                                            $existingUploads = $uploadsByQuestion[$question->key] ?? collect();
+                                        @endphp
+
+                                        @if ($existingUploads->isNotEmpty())
+                                            <ul class="grid grid-cols-2 gap-3">
+                                                @foreach ($existingUploads as $upload)
+                                                    <li class="relative overflow-hidden rounded-md border border-brand-fog bg-brand-mist/30">
+                                                        <img
+                                                            src="{{ route('customer.uploads.show', ['token' => $token, 'upload' => $upload]) }}"
+                                                            alt="{{ $upload->original_filename }}"
+                                                            class="aspect-square w-full object-cover"
+                                                        >
+                                                        <button
+                                                            type="button"
+                                                            wire:click="removePhoto({{ $upload->id }})"
+                                                            wire:loading.attr="disabled"
+                                                            class="absolute inset-x-0 bottom-0 bg-brand-ink/75 px-2 py-1.5 text-xs font-semibold text-white"
+                                                        >
+                                                            Verwijderen
+                                                        </button>
+                                                    </li>
+                                                @endforeach
+                                            </ul>
+                                        @endif
+
+                                        <div>
+                                            <label class="flex min-h-12 cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed border-brand-fog bg-brand-mist/40 px-4 py-5 text-center">
+                                                <span class="text-sm font-semibold text-brand-ink">Foto maken of kiezen</span>
+                                                <span class="text-xs text-brand-ink/55">JPEG, PNG of WebP · max {{ number_format($maxUploadKb / 1024, 0) }} MB</span>
+                                                <input
+                                                    type="file"
+                                                    accept="image/jpeg,image/png,image/webp,image/*"
+                                                    capture="environment"
+                                                    class="sr-only"
+                                                    wire:model="photoFiles.{{ $composite }}"
+                                                >
+                                            </label>
+                                            <div wire:loading wire:target="photoFiles.{{ $composite }}" class="mt-2 text-sm font-medium text-brand-sea">
+                                                Bezig met uploaden…
+                                            </div>
+                                            @error('photoFiles.'.$composite)
+                                                <p class="mt-2 text-sm text-brand-ember">{{ $message }}</p>
+                                            @enderror
+                                            @error('photo')
+                                                <p class="mt-2 text-sm text-brand-ember">{{ $message }}</p>
+                                            @enderror
+                                        </div>
                                     </div>
                                     @break
                             @endswitch
