@@ -102,9 +102,10 @@ deploy/          # activate.sh
 | [docs/ai.md](docs/ai.md) | AI-roadmap (nog niet gebouwd) |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | cPanel / CI deploy |
 | [docs/implementation-plan.md](docs/implementation-plan.md) | Fasering |
+| [docs/backlog.md](docs/backlog.md) | Backlog (o.a. demo-versie) |
 | [docs/decisions/](docs/decisions/) | ADRs |
 | [CHANGELOG.md](CHANGELOG.md) | Wijzigingslog |
 
 ## Huidige status
 
-**Fase 3 (klantintake) afgerond.** Volgende: Fase 4 foto-uploads.
+**Fase 4 (foto-uploads) afgerond.** Volgende: Fase 5 compleetheid, rapport en beoordeling. Demo-versie staat op de backlog ([issue #5](https://github.com/JorisPaarde/intake-engine/issues/5)).

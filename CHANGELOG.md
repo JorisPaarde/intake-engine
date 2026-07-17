@@ -6,28 +6,26 @@ Alle noemenswaardige wijzigingen aan dit project.
 
 ### Added
 
+- `docs/backlog.md` + GitHub issue #5: demo-versie van de app (backlog).
+- Fase 4 foto-uploads: private storage, Livewire upload/preview/verwijderen, beveiligde serve-routes, validatie, installer-galerij.
 - Deploy activeert na migraties ook `IntakeTemplateSeeder` (idempotente template-reference-data).
-- Fase 3 klantintake: beveiligde link `/o/{token}`, Livewire-stappenflow, autosave, hervatten, conditionele vragen, voortgang (foto-upload UI volgt in Fase 4).
+- Fase 3 klantintake: beveiligde link `/o/{token}`, Livewire-stappenflow, autosave, hervatten, conditionele vragen, voortgang.
 - Producthomepage op `/` met korte uitleg, navigatie naar login/register en dashboard voor ingelogde gebruikers.
 - Fase 2 interne basis: intake-schema, airco-template v1, dashboard, opname aanmaken, klantlink kopiëren/intrekken/herniewen, seeddata, feature tests.
 
-### Migrations
-
-- `2026_07_17_120000_create_intake_engine_tables` — templates, versions, sections, questions, options, rules, intakes, answers, uploads, attention points, notes, reviews, reports, activity events.
-
 ### Config
 
-- `config/intake.php` — `INTAKE_TOKEN_TTL_DAYS` (default 60)
-- `config/filesystems.php` — `media` disk key
-- `config/app.php` — `APP_TIMEZONE` wordt gelezen
-- `.env.example` — `MEDIA_DISK=local`, `INTAKE_TOKEN_TTL_DAYS`
+- `INTAKE_UPLOAD_MAX_KB`, `INTAKE_UPLOAD_MAX_FILES`
+- `config/intake.php` uploads-sectie
 
 ### Known limitations
 
-- Foto-upload UI is placeholder; echte uploads komen in Fase 4.
 - Afronden / strikte compleetheidsblokkade / rapport / review volgen in Fase 5.
+- HEIC niet in allowlist (alleen jpeg/png/webp).
+- Staging PHP upload-limieten nog te verifiëren op cPanel.
 - Geen automatische e-mail (staging mail = log); alleen kopieerbare link.
 - Multi-tenancy bewust afwezig.
+- Demo-versie: backlog (issue #5), nog niet gebouwd.
 
 ## [0.1.0] — infrastructuur + Fase 1 docs
 

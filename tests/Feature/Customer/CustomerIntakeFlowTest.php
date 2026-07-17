@@ -147,7 +147,7 @@ test('conditional show rules hide questions until matched', function () {
     expect($resolvedVisible['visible'])->toBeTrue();
 });
 
-test('progress calculator ignores photo questions in the percentage', function () {
+test('progress calculator includes answered questions in the percentage', function () {
     $intake = makeAccessibleIntake();
     $version = $intake->templateVersion()->with(['sections.questions.rules'])->firstOrFail();
 

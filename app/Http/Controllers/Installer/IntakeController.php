@@ -44,7 +44,7 @@ class IntakeController extends Controller
     {
         $this->authorize('view', $intake);
 
-        $intake->load(['templateVersion.template', 'creator']);
+        $intake->load(['templateVersion.template', 'creator', 'uploads']);
 
         return view('installer.intakes.show', [
             'intake' => $intake,

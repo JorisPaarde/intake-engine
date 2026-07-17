@@ -14,15 +14,11 @@ Geïmplementeerd: enums, migrations, models, policies, Create/Revoke/Regenerate 
 
 **Doel:** mobiele stappenflow met autosave en hervatten.
 
-Geïmplementeerd: customer middleware + `/o/{token}`, Livewire wizard, SaveIntakeAnswer, VisibilityResolver, ProgressCalculator, conditionele regels, voortgang/autosave, feature tests. Foto-upload is placeholder tot Fase 4.
-## Fase 4 — Foto’s
+Geïmplementeerd: customer middleware + `/o/{token}`, Livewire wizard, SaveIntakeAnswer, VisibilityResolver, ProgressCalculator, conditionele regels, voortgang/autosave, feature tests.
 
-1. Upload Action + private disk
-2. Preview/delete UI (mobiel)
-3. Beveiligde serve-routes
-4. Server validatie + documenteer cPanel PHP-limieten (meten op staging)
-5. Corrigeer `.env*.example`: `MEDIA_DISK=local`
-6. Tests: mime/size, unauthorized access denied
+## Fase 4 — Foto’s ✅
+
+Geïmplementeerd: `StoreIntakeUpload` / `DeleteIntakeUpload`, private media disk, Livewire camera/galerij UI, beveiligde serve-routes (klant + installateur), validatie, voortgang telt foto’s mee, tests.
 
 ## Fase 5 — Compleetheid, rapport, beoordeling
 

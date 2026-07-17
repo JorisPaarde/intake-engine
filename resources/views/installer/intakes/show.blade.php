@@ -103,6 +103,33 @@
                     </form>
                 </div>
             </div>
+
+            <div class="bg-white shadow-sm sm:rounded-lg p-6 space-y-4">
+                <h3 class="text-base font-semibold text-gray-900">Foto’s</h3>
+                @if ($intake->uploads->isEmpty())
+                    <p class="text-sm text-gray-500">Nog geen foto’s geüpload.</p>
+                @else
+                    <div class="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                        @foreach ($intake->uploads->sortBy('sort_order') as $upload)
+                            <figure class="space-y-2">
+                                <a href="{{ route('installer.uploads.show', [$intake, $upload]) }}" target="_blank" rel="noopener" class="block overflow-hidden rounded-md border border-gray-200">
+                                    <img
+                                        src="{{ route('installer.uploads.show', [$intake, $upload]) }}"
+                                        alt="{{ $upload->original_filename }}"
+                                        class="aspect-square w-full object-cover"
+                                    >
+                                </a>
+                                <figcaption class="text-xs text-gray-500">
+                                    {{ $upload->question_key }}
+                                    @if ($upload->section_instance_key)
+                                        · {{ $upload->section_instance_key }}
+                                    @endif
+                                </figcaption>
+                            </figure>
+                        @endforeach
+                    </div>
+                @endif
+            </div>
         </div>
     </div>
 </x-app-layout>

@@ -1,6 +1,6 @@
 # Intake-engine
 
-Status: **klantflow Fase 3 geïmplementeerd** (stappen, autosave, conditionals, voortgang). Foto-upload UI volgt in Fase 4; afronden in Fase 5.
+Status: **klantflow + foto-uploads geïmplementeerd (Fase 3–4)**. Afronden/rapport volgt in Fase 5.
 
 ## Doel
 
