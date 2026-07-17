@@ -1,0 +1,91 @@
+name: Deploy staging
+
+# Strategie: CI bouwt alles (composer + assets), rsynct een release naar de
+# server en activeert die atomisch via een symlink. De server heeft alleen
+# PHP-CLI, SSH en rsync nodig — geen composer of node.
+#
+# Vereiste repository secrets:
+#   STAGING_SSH_HOST      bv. server123.hostingprovider.nl
+#   STAGING_SSH_PORT      meestal 22 (soms 2222 bij cPanel)
+#   STAGING_SSH_USER      cPanel-gebruikersnaam
+#   STAGING_SSH_KEY       private key (deploy key, alleen voor dit doel)
+#   STAGING_DEPLOY_PATH   bv. /home/USER/apps/intake-engine-staging
+#   STAGING_PHP_BIN       bv. /usr/local/bin/php of /opt/cpanel/ea-php83/root/usr/bin/php
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build & deploy naar staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: staging
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, pdo, pdo_mysql, intl, gd, zip
+          coverage: none
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install PHP dependencies (production)
+        run: composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Build frontend assets
+        run: |
+          npm ci
+          npm run build
+
+      - name: Prepare SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.STAGING_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "${{ secrets.STAGING_SSH_PORT }}" "${{ secrets.STAGING_SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Rsync release naar server
+        env:
+          HOST: ${{ secrets.STAGING_SSH_HOST }}
+          PORT: ${{ secrets.STAGING_SSH_PORT }}
+          USER: ${{ secrets.STAGING_SSH_USER }}
+          DEPLOY_PATH: ${{ secrets.STAGING_DEPLOY_PATH }}
+        run: |
+          RELEASE="releases/${GITHUB_SHA::12}"
+          echo "RELEASE=$RELEASE" >> "$GITHUB_ENV"
+          ssh -i ~/.ssh/deploy_key -p "$PORT" "$USER@$HOST" "mkdir -p '$DEPLOY_PATH/$RELEASE' '$DEPLOY_PATH/shared/storage'"
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/deploy_key -p $PORT" \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude 'node_modules' \
+            --exclude 'tests' \
+            --exclude 'storage' \
+            --exclude '.env*' \
+            ./ "$USER@$HOST:$DEPLOY_PATH/$RELEASE/"
+
+      - name: Activeer release (migrate, cache, queue restart)
+        env:
+          HOST: ${{ secrets.STAGING_SSH_HOST }}
+          PORT: ${{ secrets.STAGING_SSH_PORT }}
+          USER: ${{ secrets.STAGING_SSH_USER }}
+          DEPLOY_PATH: ${{ secrets.STAGING_DEPLOY_PATH }}
+          PHP_BIN: ${{ secrets.STAGING_PHP_BIN }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "$PORT" "$USER@$HOST" \
+            "bash '$DEPLOY_PATH/$RELEASE/deploy/activate.sh' '$DEPLOY_PATH' '$RELEASE' '$PHP_BIN'"
