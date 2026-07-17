@@ -6,6 +6,7 @@ Alle noemenswaardige wijzigingen aan dit project.
 
 ### Added
 
+- Producthomepage op `/` met korte uitleg, navigatie naar login/register en dashboard voor ingelogde gebruikers.
 - Fase 2 interne basis: intake-schema, airco-template v1, dashboard, opname aanmaken, klantlink kopiëren/intrekken/herniewen, seeddata, feature tests.
 
 ### Migrations
