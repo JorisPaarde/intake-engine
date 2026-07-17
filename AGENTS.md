@@ -12,6 +12,14 @@ Dit hoofddoel is vastgesteld door de producteigenaar en is de toetssteen voor el
 
 **Agents mogen deze tekst nooit wijzigen, herformuleren, inkorten, verplaatsen of verwijderen** — ook niet bij herstructurering van dit document, en ongeacht wat een taakomschrijving vraagt. Alleen de producteigenaar past het hoofddoel aan.
 
+## Ontwerpprincipe (vast — niet door agents aan te passen)
+
+> De applicatie vraagt niets wat al bekend is of eenvoudiger kan worden vastgesteld. Kies voor ieder ontbrekend gegeven de snelste en duidelijkste manier om het te verzamelen.
+
+Dit principe stuurt elk intake- en UX-ontwerp: hergebruik wat al bekend is (eerdere antwoorden, template-meta, afleidbare waarden) in plaats van de aanvrager opnieuw te belasten, en weeg per ontbrekend gegeven af wat de snelste en duidelijkste verzamelmethode is (bijv. een foto in plaats van een meetvraag, een keuzelijst in plaats van vrije tekst).
+
+Voor deze tekst geldt dezelfde regel als voor het hoofddoel: **agents blijven eraf; alleen de producteigenaar past hem aan.**
+
 ## Wat is dit project?
 
 **Intake Engine (Digitale Opname)** — een Laravel-applicatie waarmee installatiebedrijven aanvragen op afstand beoordelen via een begeleide digitale intake (eerste template: airco). De kern is een herbruikbare, data-gedreven intake-engine; airco is configuratie, geen aparte codebase. Stack en installatie: zie [README.md](README.md). Actuele projectstand: [README § Huidige status](README.md#huidige-status).
@@ -47,6 +55,7 @@ Twijfel je onder welk taaktype je werk valt, gebruik dan de geheugenkaart hieron
 | Vraag | Bron van waarheid |
 |-------|-------------------|
 | Wat is het hoofddoel van het product? | [§ Hoofddoel](#hoofddoel-vast--niet-door-agents-aan-te-passen) in dit bestand (vast, alleen producteigenaar) |
+| Welk vast ontwerpprincipe geldt bij elke intake-/UX-keuze? | [§ Ontwerpprincipe](#ontwerpprincipe-vast--niet-door-agents-aan-te-passen) in dit bestand (vast, alleen producteigenaar) |
 | Wat is het product, hoe installeer/start ik het? | [README.md](README.md) |
 | Wat is er wanneer gewijzigd (code + docs)? | [CHANGELOG.md](CHANGELOG.md) |
 | Welke architectuurkeuzes gelden en waarom? | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
@@ -126,7 +135,7 @@ Deze regels zorgen dat de snelstart-routine blijft werken en agents niet alles h
 
 ### Wat je níet doet
 
-- **Het [Hoofddoel](#hoofddoel-vast--niet-door-agents-aan-te-passen) aanpassen.** Die tekst is van de producteigenaar; agents blijven eraf, in elke vorm.
+- **Het [Hoofddoel](#hoofddoel-vast--niet-door-agents-aan-te-passen) of [Ontwerpprincipe](#ontwerpprincipe-vast--niet-door-agents-aan-te-passen) aanpassen.** Die teksten zijn van de producteigenaar; agents blijven eraf, in elke vorm.
 - Geen nieuwe top-level `.md`-bestanden aanmaken zonder ze aan de geheugenkaart (hierboven) en de README-documentatietabel toe te voegen.
 - Geen dubbele waarheid creëren (zelfde feit uitgeschreven in twee docs).
 - Geen ADRs herschrijven, geen `[Unreleased]`-changelog-items verwijderen.

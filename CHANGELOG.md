@@ -6,7 +6,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Added
 
-- `AGENTS.md`: projectgeheugen met vast hoofddoel (alleen door producteigenaar aan te passen), snelstart-leesroutine en taakrouting (gericht lezen i.p.v. alles doorzoeken), documentkaart (bron van waarheid per onderwerp), versioneringsregels en verplicht onderhoudsprotocol voor agents.
+- `AGENTS.md`: projectgeheugen met vast hoofddoel en vast ontwerpprincipe (alleen door producteigenaar aan te passen), snelstart-leesroutine en taakrouting (gericht lezen i.p.v. alles doorzoeken), documentkaart (bron van waarheid per onderwerp), versioneringsregels en verplicht onderhoudsprotocol voor agents.
 - Documentversieheaders (`Documentversie` + `Laatste update`) op alle beheerde docs, README en AGENTS.md.
 - Fase 6 AI-slice: `ai_runs`, null/fake/heuristic clients, `SummarizeIntake` job na afronding, AI-voorstel in HTML-rapport (soft-fail).
 - Fase 5: `CompletenessChecker`, `CompleteIntake`, HTML-rapport (`generated_reports`), system attention points, klant-afronden + bedankt-scherm, installer review (`SubmitIntakeReview` / `ReviewDecision`).
