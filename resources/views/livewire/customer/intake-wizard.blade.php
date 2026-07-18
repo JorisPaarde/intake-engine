@@ -115,6 +115,7 @@
                                     id="field-{{ $composite }}"
                                     type="text"
                                     wire:model.blur="form.{{ $composite }}.text"
+                                    wire:keydown.enter.prevent="advanceFromEnter('{{ $composite }}', 'text', $event.target.value)"
                                     class="block w-full rounded-md border-brand-fog shadow-sm focus:border-brand-sea focus:ring-brand-sea"
                                     @if ($state['required']) required @endif
                                 >
@@ -136,6 +137,7 @@
                                     type="number"
                                     inputmode="decimal"
                                     wire:model.blur="form.{{ $composite }}.number"
+                                    wire:keydown.enter.prevent="advanceFromEnter('{{ $composite }}', 'number', $event.target.value)"
                                     class="block w-full rounded-md border-brand-fog shadow-sm focus:border-brand-sea focus:ring-brand-sea"
                                     @if ($state['required']) required @endif
                                 >
