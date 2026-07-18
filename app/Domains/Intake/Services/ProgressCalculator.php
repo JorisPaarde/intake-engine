@@ -45,8 +45,9 @@ final class ProgressCalculator
             $targets,
         );
 
-        $totalVisible = 0;
-        $answeredVisible = 0;
+        // BL-022: percentage over required visible questions only, so 100% ≈ afronden kan.
+        $totalRequired = 0;
+        $answeredRequired = 0;
         $missingRequired = [];
 
         foreach ($targets as $target) {
@@ -62,7 +63,7 @@ final class ProgressCalculator
             );
             $state = $visibility[$compositeKey] ?? ['visible' => false, 'required' => false];
 
-            if (! $state['visible']) {
+            if (! $state['visible'] || ! $state['required']) {
                 continue;
             }
 
@@ -73,22 +74,21 @@ final class ProgressCalculator
             $answerValue = $answers[$answerKey] ?? null;
             $filled = $this->answerValueReader->isFilled($answerValue, $question->type);
 
-            if ($state['required'] && ! $filled) {
+            $totalRequired++;
+
+            if ($filled) {
+                $answeredRequired++;
+            } else {
                 $missingRequired[] = [
                     'question_key' => $target['question_key'],
                     'section_instance_key' => $target['section_instance_key'],
                 ];
             }
-
-            $totalVisible++;
-            if ($filled) {
-                $answeredVisible++;
-            }
         }
 
-        $percent = $totalVisible === 0
+        $percent = $totalRequired === 0
             ? 100
-            : (int) round(($answeredVisible / $totalVisible) * 100);
+            : (int) round(($answeredRequired / $totalRequired) * 100);
 
         return [
             'percent' => max(0, min(100, $percent)),

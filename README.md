@@ -1,6 +1,6 @@
 # Intake Engine (Digitale Opname)
 
-> **Documentversie:** 1.18 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](AGENTS.md)
+> **Documentversie:** 1.19 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](AGENTS.md)
 
 **Werk je als agent aan dit project? Lees eerst [AGENTS.md](AGENTS.md)** — het projectgeheugen, de documentkaart en het onderhoudsprotocol.
 
@@ -99,4 +99,4 @@ De volledige documentkaart — welk document waarvoor de bron van waarheid is �
 
 ## Huidige status
 
-**MVP-fasen 1–6 afgerond en gemerged naar `main`** (t/m AI-samenvatting). Open werk: [docs/backlog.md](docs/backlog.md). Recent code: BL-023 auto-doorgaan na keuze, BL-021 foto multiselect, BL-024 installateursgalerij, BL-014/015 mail, BL-005 PDF, BL-009 purge. BL-001 demo: code klaar — open **host/env-acties** (SMTP, `DEMO_ENABLED`, domein/SSL) in [docs/DEPLOYMENT.md § Handmatige acties](docs/DEPLOYMENT.md#handmatige-acties-producteigenaar). Volgende high: BL-011 (eigen domein/SSL); band J vervolg BL-022. Handmatige teststatus: [docs/functional-test-status.md](docs/functional-test-status.md).
+**MVP-fasen 1–6 afgerond en gemerged naar `main`** (t/m AI-samenvatting). Open werk: [docs/backlog.md](docs/backlog.md). Recent code: BL-022 voortgang/ontbreekt-lijst, BL-023 auto-doorgaan, BL-021 foto multiselect, BL-024 installateursgalerij. BL-001 demo: code klaar — open **host/env-acties** (SMTP, `DEMO_ENABLED`, domein/SSL) in [docs/DEPLOYMENT.md § Handmatige acties](docs/DEPLOYMENT.md#handmatige-acties-producteigenaar). Volgende high: BL-011 (eigen domein/SSL); band J rest BL-025. Handmatige teststatus: [docs/functional-test-status.md](docs/functional-test-status.md).

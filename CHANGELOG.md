@@ -6,6 +6,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Added
 
+- BL-022 voortgang en ontbreekt-lijst: percentage alleen over verplichte zichtbare vragen (100% ≈ afronden kan); ontbrekende items klikbaar (`goToMissing`) met leesbare instantielabels (“Ruimtes 2”).
 - BL-023 wizard-navigatie: na `single_choice`/`boolean` automatisch door naar de volgende vraag (bevestiging “Opgeslagen”); Enter op `short_text`/`number` = Volgende; geen auto-doorgaan bij multi_choice/foto/long_text of op de laatste stap; Vorige blijft werken.
 - BL-021 foto-upload in de klantwizard: `multiple` selectie (tot `meta.max_files`), geen `capture`-force zodat camera én galerij open blijven, en per-bestand upload zodat één mislukte foto de rest van de selectie niet blokkeert.
 - BL-024 leesbare installateursgalerij: opname-detail groepeert foto’s per sectie/instantie (`InstallerPhotoGalleryBuilder`) en toont vraaglabels uit de gepinde templateversie i.p.v. rauwe `question_key` / `section_instance_key`.
@@ -43,6 +44,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
+- `docs/backlog.md` v3.21 + `docs/intake-engine.md` v1.7 + `docs/functional-test-status.md` v1.14 + README v1.19: BL-022 → `done` (voortgang op verplichte vragen + klikbare ontbreekt-lijst); band J rest BL-025; staging-smoketest als `todo`.
 - `docs/backlog.md` v3.20 + `docs/intake-engine.md` v1.6 + `docs/functional-test-status.md` v1.13 + README v1.18: BL-023 → `done` (auto-doorgaan + Enter); band J-keten bijgewerkt (volgende: BL-022); staging-smoketest als `todo`.
 - `docs/backlog.md` v3.19 + `docs/uploads.md` v1.6 + `docs/functional-test-status.md` v1.12 + README v1.17: BL-021 → `done` (multiselect + galerijkeuze); band J-keten bijgewerkt (volgende: BL-023); staging-smoketest als `todo`.
 - `docs/backlog.md` v3.18 + `docs/uploads.md` v1.5 + `docs/functional-test-status.md` v1.11: BL-024 → `done` (vraaglabels + groepering foto-galerij installateur); staging-smoketest als `todo`.
