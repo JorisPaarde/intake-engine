@@ -32,6 +32,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
+- `AGENTS.md` v1.3: onderhoudsplicht voor **Tips voor cloud-agents** in het protocol + DoD-checklist; tips uitgebreid met staging/Playwright-lessen (cPanel 428-cookie, token-charset, Livewire blur/live, demo/AI-valkuilen).
 - `AGENTS.md` v1.2: sectie **Tips voor cloud-agents** (PHP 8.4, Composer, Vite-build, sqlite-tests, repo-shortcuts) zodat volgende agents sneller kunnen bootstrapen.
 - `docs/backlog.md` v3.8: BL-018 → `done` (vraag-voor-vraag klantflow, PR #18); overzichtstabel met uitvoeringsvolgorde behouden.
 - `docs/intake-engine.md` v1.3 + `docs/database.md` v1.2: klantflow één vraag per scherm; wizard-cursor-kolommen.

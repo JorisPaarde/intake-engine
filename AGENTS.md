@@ -1,6 +1,6 @@
 # AGENTS.md — Projectgeheugen & werkinstructies
 
-> **Documentversie:** 1.2 · **Laatste update:** 2026-07-18 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
+> **Documentversie:** 1.3 · **Laatste update:** 2026-07-18 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
 
 Dit bestand is de **centrale ingang** voor iedere agent (of mens) die aan dit project werkt. Het beschrijft waar het projectgeheugen leeft, welk document waarvoor de bron van waarheid is, en hoe je dat geheugen bijhoudt. **Lees dit bestand aan het begin van elke taak.**
 
@@ -114,6 +114,7 @@ Volg de [Snelstart](#snelstart-zo-lees-je-dit-geheugen-gericht-niet-alles): dit 
 - Ontdek je dat een document niet klopt met de werkelijkheid (code, server, gedrag)? **Corrigeer het document in dezelfde PR** en bump de documentversie.
 - Neem je een onomkeerbare beslissing (architectuur, security, datamodel)? Schrijf een ADR (volgend nummer) in `docs/decisions/`.
 - Stel je werk uit of scope je iets bewust weg? Voeg het toe aan `docs/backlog.md` (met status `backlog`), niet alleen aan een PR-omschrijving of changelog-notitie.
+- Ontdek je een **herbruikbare les** over werken aan deze repo (setup, staging, Livewire, cloud-run valkuilen, handige paden)? Werk [§ Tips voor cloud-agents](#tips-voor-cloud-agents-snelle-setup) bij in dezelfde PR. Kort, scannbaar, geen essay — alleen wat de volgende agent tijd bespaart.
 
 ### Vóór het afronden van elke PR (docs-definition-of-done)
 
@@ -124,7 +125,8 @@ Loop deze checklist na; sla niets over:
 3. **Inhoudelijke docs** — werk de docs bij die je werkgebied dekken (geheugenkaart) en bump hun documentversie.
 4. **README.md** — alleen bijwerken als stack, installatie, omgevingen of de sectie "Huidige status" wijzigt.
 5. **docs/functional-test-status.md** — **niet** invullen op basis van geautomatiseerde tests of aannames; alleen de daadwerkelijk testende agent/tester werkt dit bij. Introduceer je nieuwe functionaliteit, voeg dan wél een `todo`-regel toe.
-6. **Kwaliteitspoort** — `composer check` (Pint + PHPStan + Pest) groen.
+6. **[§ Tips voor cloud-agents](#tips-voor-cloud-agents-snelle-setup)** — bijgewerkt als je iets nieuws leerde dat de volgende agent helpt; anders overslaan. Verwijder verouderde tips die niet meer kloppen.
+7. **Kwaliteitspoort** — `composer check` (Pint + PHPStan + Pest) groen.
 
 ### Houd het geheugen scanbaar
 
@@ -164,7 +166,7 @@ Dit is de bron van waarheid voor deze afspraken; andere documenten (waaronder de
 
 ## Tips voor cloud-agents (snelle setup)
 
-Praktische lessen uit cloud-runs zonder voorgeconfigureerde environment. Doel: sneller groen krijgen zonder opnieuw te ontdekken wat ontbreekt.
+Praktische lessen uit cloud-runs. Doel: sneller groen zonder opnieuw te ontdekken wat ontbreekt. **Onderhoud verplicht:** zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents) — nieuwe lessen horen hier in dezelfde PR.
 
 ### Omgeving (vaak leeg bij start)
 
@@ -177,9 +179,22 @@ Praktische lessen uit cloud-runs zonder voorgeconfigureerde environment. Doel: s
 
 ### Werken in deze repo
 
-- Taak → backlog-ID: vage wensen (“stap voor stap vragen”) mappen op de overzichtstabel in `docs/backlog.md` (vaak high-items zoals BL-018). Zet status `in_progress` / `done` in dezelfde PR.
-- Klantflow zit in `app/Livewire/Customer/IntakeWizard.php` + `IntakeStepBuilder` + `resources/views/livewire/customer/intake-wizard.blade.php`; engine-regels in `VisibilityResolver` / `CompletenessChecker`.
-- Kwaliteitspoort is één commando: `composer check` (= Pint + PHPStan level 6 + Pest). Draai dat vóór je “klaar” claimt.
+- Taak → backlog-ID: vage wensen mappen op de **overzichtstabel** in `docs/backlog.md` (kolom `#` = aanbevolen volgorde). Lopend werk (`in_progress`) afronden vóór nieuw high-item starten. Zet status in dezelfde PR.
+- Klantflow: `app/Livewire/Customer/IntakeWizard.php` + `IntakeStepBuilder` + `resources/views/livewire/customer/intake-wizard.blade.php`; engine: `VisibilityResolver` / `CompletenessChecker` / `AnswerValueReader`.
+- Airco-templatebron: `database/data/templates/airco/v1.php` (wijziging = nieuwe templateversie, ADR-0001).
+- Kwaliteitspoort: `composer check` (= Pint + PHPStan level 6 + Pest) vóór je “klaar” claimt.
 - Featuretests met `Livewire::test(...)` hebben geen Vite-build nodig; `$this->get(...)` die een layout met `@vite` raakt wél.
-- Docs-DoD niet vergeten: CHANGELOG `[Unreleased]`, geraakte docs + documentversie, backlog-status, eventueel `todo`-regel in `docs/functional-test-status.md` (geen pass claimen zonder echte handmatige test).
-- Branchnaam cloud-agents: template `cursor/<korte-naam>-<suffix>` zoals de run voorschrijft; base branch `main`; PR via de cloud-PR-tool, niet handmatig met `gh pr create` tenzij dat de enige optie is.
+- Docs-DoD: CHANGELOG `[Unreleased]`, geraakte docs + versiebump, backlog-status, eventueel `todo` in `docs/functional-test-status.md`, en deze tipsectie als je iets nieuws leerde.
+- Branchnaam: `cursor/<korte-naam>-<suffix>` zoals de run voorschrijft; base `main`; PR via de cloud-PR-tool (niet `gh pr create` tenzij dat de enige optie is).
+
+### Staging-testen (browser / Playwright)
+
+- Staging-URL: zie README § Omgevingen. Self-signed SSL → `ignoreHTTPSErrors: true`.
+- **cPanel 428 “Technical Domain”:** eerste response is vaak 428. Cookie `cpanel_tech_domain=1` (domain = staging-host, path `/`) **vóór** navigatie zetten, of op “Continue” klikken. Zonder die cookie falen ook latere Livewire-POSTs stil.
+- Klanttokens zijn `Str::random(64)` → charset `[A-Za-z0-9]`, niet hex. Lees de link via `#customer-link` (`inputValue`), niet via een te strakke regex op page HTML.
+- Wizard (BL-018): één vraag per scherm; markering `Vraag X van Y`. Velden: `wire:model.blur` (text/number) → na `fill` een echte `Tab`/blur en wacht op “Opgeslagen”; radios/booleans: `wire:model.live` → wacht op “Opgeslagen” vóór “Volgende”. Foto’s: wacht op preview/`Foto opgeslagen`.
+- “Afronden” faalt zonder zichtbare alert als Livewire de 428-interstitial krijgt i.p.v. de component — tech-domain-cookie eerst fixen, daarna pas debuggen op compleetheid.
+- Progress-% telt ook optionele lege vragen mee; 98% ≠ “één verplicht veld mist”. Bij blokkade: let op de rode alert “Nog niet alles is ingevuld” / “Beantwoord eerst…”.
+- Demo-user `installateur@example.com` ontbreekt op staging (deploy seedt alleen templates) → registreren als fallback. **Start demo** alleen zichtbaar als `DEMO_ENABLED=true` in staging `shared/.env` (niet in git).
+- AI-samenvatting op staging is vaak `blocked` bij `AI_PROVIDER=null` (soft-fail by design) — geen fail, wel zo noteren in `docs/functional-test-status.md`.
+- Screenshots/resultaten: `/opt/cursor/artifacts/…` (blijft buiten git).
