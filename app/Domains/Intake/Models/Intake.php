@@ -52,6 +52,8 @@ class Intake extends Model
         'token_revoked_at',
         'internal_note',
         'current_section_key',
+        'current_question_key',
+        'current_section_instance_key',
         'progress_percent',
         'is_demo',
         'started_at',

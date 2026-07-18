@@ -41,6 +41,9 @@ class IntakeWizard extends Component
 
     public int $stepIndex = 0;
 
+    /** Stable step identity while visibility/step list may shift after an answer. */
+    public string $activeStepKey = '';
+
     /** @var array<string, mixed> */
     public array $form = [];
 
@@ -70,11 +73,14 @@ class IntakeWizard extends Component
         $this->hydrateFormFromAnswers();
 
         $steps = $this->steps();
-        $this->stepIndex = app(IntakeStepBuilder::class)->indexForSectionKey(
+        $this->stepIndex = app(IntakeStepBuilder::class)->indexForCursor(
             $steps,
             $intake->current_section_key,
+            $intake->current_question_key,
+            $intake->current_section_instance_key,
         );
-        $this->stepIndex = min($this->stepIndex, max(0, count($steps) - 1));
+        $this->clampStepIndex($steps);
+        $this->syncActiveStepKey($steps);
     }
 
     public function render(): View
@@ -82,26 +88,35 @@ class IntakeWizard extends Component
         $intake = $this->intake();
         $version = $this->version();
         $steps = $this->steps();
+        $this->clampStepIndex($steps);
         $step = $steps[$this->stepIndex] ?? null;
         $progress = app(ProgressCalculator::class)->calculate($intake, $version);
 
-        $questions = collect();
+        $question = null;
         $visibility = [];
         $uploadsByQuestion = [];
 
         if ($step !== null && ! $this->completed) {
-            $questions = app(IntakeStepBuilder::class)
-                ->questionsForStep($version, $step['section_key']);
+            $question = app(IntakeStepBuilder::class)->questionForStep(
+                $version,
+                $step['section_key'],
+                $step['question_key'],
+            );
 
-            $visibility = $this->visibilityForQuestions($questions, $step['section_instance_key']);
-            $uploadsByQuestion = $this->uploadsForStep($step['section_instance_key']);
+            if ($question instanceof IntakeQuestion) {
+                $visibility = $this->visibilityForQuestions(
+                    collect([$question]),
+                    $step['section_instance_key'],
+                );
+                $uploadsByQuestion = $this->uploadsForStep($step['section_instance_key']);
+            }
         }
 
         return view('livewire.customer.intake-wizard', [
             'intake' => $intake,
             'steps' => $steps,
             'step' => $step,
-            'questions' => $questions,
+            'question' => $question,
             'visibility' => $visibility,
             'uploadsByQuestion' => $uploadsByQuestion,
             'progressPercent' => $this->completed ? 100 : $progress['percent'],
@@ -152,6 +167,7 @@ class IntakeWizard extends Component
             $this->persistComposite($matches[1]);
             $this->saveMessage = 'Opgeslagen';
             $this->showMissing = false;
+            $this->realignToActiveStep();
 
             return;
         }
@@ -160,6 +176,7 @@ class IntakeWizard extends Component
             $this->persistComposite($matches[1]);
             $this->saveMessage = 'Opgeslagen';
             $this->showMissing = false;
+            $this->realignToActiveStep();
         }
     }
 
@@ -238,20 +255,23 @@ class IntakeWizard extends Component
             return;
         }
 
-        $step = $this->steps()[$this->stepIndex] ?? null;
+        $step = $this->currentStep();
         if ($step === null) {
             return;
         }
 
-        foreach ($this->visibleQuestionsOnStep($step) as $question) {
-            if ($question->type === QuestionType::Photo) {
-                continue;
-            }
+        $question = app(IntakeStepBuilder::class)->questionForStep(
+            $this->version(),
+            $step['section_key'],
+            $step['question_key'],
+        );
 
-            $composite = VisibilityResolver::compositeKey($question->key, $step['section_instance_key']);
-            $this->persistComposite($composite);
+        if (! $question instanceof IntakeQuestion || $question->type === QuestionType::Photo) {
+            return;
         }
 
+        $composite = VisibilityResolver::compositeKey($question->key, $step['section_instance_key']);
+        $this->persistComposite($composite);
         $this->saveMessage = 'Opgeslagen';
     }
 
@@ -299,6 +319,9 @@ class IntakeWizard extends Component
             return;
         }
 
+        $currentKey = $this->activeStepKey !== ''
+            ? $this->activeStepKey
+            : ($this->steps()[$this->stepIndex]['key'] ?? null);
         $this->saveCurrentStep();
 
         if (! $this->currentStepRequiredSatisfied()) {
@@ -310,11 +333,14 @@ class IntakeWizard extends Component
 
         $this->showMissing = false;
         $this->completionMissing = [];
-        $steps = $this->steps();
 
-        if ($this->stepIndex < count($steps) - 1) {
-            $this->stepIndex++;
-            $this->rememberCurrentSection();
+        $steps = $this->steps();
+        $currentIndex = app(IntakeStepBuilder::class)->indexForStepKey($steps, $currentKey) ?? $this->stepIndex;
+
+        if ($currentIndex < count($steps) - 1) {
+            $this->stepIndex = $currentIndex + 1;
+            $this->syncActiveStepKey($steps);
+            $this->rememberCurrentCursor();
             $this->hydrateFormFromAnswers();
             $this->saveMessage = '';
         }
@@ -322,14 +348,23 @@ class IntakeWizard extends Component
 
     public function previous(): void
     {
-        if ($this->stepIndex > 0) {
-            $this->saveCurrentStep();
-            $this->stepIndex--;
-            $this->rememberCurrentSection();
-            $this->hydrateFormFromAnswers();
-            $this->saveMessage = '';
-            $this->showMissing = false;
+        if ($this->stepIndex <= 0) {
+            return;
         }
+
+        $currentKey = $this->activeStepKey !== ''
+            ? $this->activeStepKey
+            : ($this->steps()[$this->stepIndex]['key'] ?? null);
+        $this->saveCurrentStep();
+
+        $steps = $this->steps();
+        $currentIndex = app(IntakeStepBuilder::class)->indexForStepKey($steps, $currentKey) ?? $this->stepIndex;
+        $this->stepIndex = max(0, $currentIndex - 1);
+        $this->syncActiveStepKey($steps);
+        $this->rememberCurrentCursor();
+        $this->hydrateFormFromAnswers();
+        $this->saveMessage = '';
+        $this->showMissing = false;
     }
 
     public function goToStep(int $index): void
@@ -341,7 +376,8 @@ class IntakeWizard extends Component
 
         $this->saveCurrentStep();
         $this->stepIndex = $index;
-        $this->rememberCurrentSection();
+        $this->syncActiveStepKey($steps);
+        $this->rememberCurrentCursor();
         $this->hydrateFormFromAnswers();
         $this->saveMessage = '';
         $this->showMissing = false;
@@ -361,11 +397,42 @@ class IntakeWizard extends Component
     }
 
     /**
-     * @return list<array{key: string, section_key: string, section_instance_key: string|null, title: string, description: string|null, is_repeatable: bool}>
+     * @return list<array{
+     *     key: string,
+     *     section_key: string,
+     *     section_instance_key: string|null,
+     *     question_key: string,
+     *     title: string,
+     *     section_title: string,
+     *     description: string|null,
+     *     help_text: string|null,
+     *     is_repeatable: bool,
+     *     is_required: bool
+     * }>
      */
     private function steps(): array
     {
-        return app(IntakeStepBuilder::class)->build($this->intake(), $this->version());
+        return app(IntakeStepBuilder::class)->build(
+            $this->intake(),
+            $this->version(),
+            $this->liveAnswers(),
+        );
+    }
+
+    /**
+     * @return array<string, array<string, mixed>|null>
+     */
+    private function liveAnswers(): array
+    {
+        $answers = [];
+
+        foreach ($this->form as $key => $value) {
+            if (is_array($value)) {
+                $answers[$key] = $value;
+            }
+        }
+
+        return $answers;
     }
 
     private function hydrateFormFromAnswers(): void
@@ -453,11 +520,13 @@ class IntakeWizard extends Component
 
         $questionTypes = [];
         $sectionsByQuestionKey = [];
+        $allQuestions = collect();
         foreach ($version->sections as $section) {
             foreach ($section->questions as $question) {
                 $questionTypes[$question->key] = $question->type;
                 $sectionsByQuestionKey[$question->key] = $section;
                 $question->setRelation('section', $section);
+                $allQuestions->push($question);
             }
         }
 
@@ -470,7 +539,7 @@ class IntakeWizard extends Component
         }
 
         return app(VisibilityResolver::class)->resolve(
-            $questions,
+            $allQuestions,
             $answers,
             $questionTypes,
             $sectionsByQuestionKey,
@@ -478,73 +547,125 @@ class IntakeWizard extends Component
         );
     }
 
-    /**
-     * @param  array{section_key: string, section_instance_key: string|null}  $step
-     * @return Collection<int, IntakeQuestion>
-     */
-    private function visibleQuestionsOnStep(array $step): Collection
-    {
-        $questions = app(IntakeStepBuilder::class)
-            ->questionsForStep($this->version(), $step['section_key']);
-
-        $visibility = $this->visibilityForQuestions($questions, $step['section_instance_key']);
-
-        return $questions->filter(function (IntakeQuestion $question) use ($visibility, $step): bool {
-            $key = VisibilityResolver::compositeKey($question->key, $step['section_instance_key']);
-
-            return ($visibility[$key]['visible'] ?? false) === true;
-        })->values();
-    }
-
     private function currentStepRequiredSatisfied(): bool
     {
-        $step = $this->steps()[$this->stepIndex] ?? null;
+        $step = $this->currentStep();
         if ($step === null) {
             return true;
         }
 
-        $questions = app(IntakeStepBuilder::class)
-            ->questionsForStep($this->version(), $step['section_key']);
+        $question = app(IntakeStepBuilder::class)->questionForStep(
+            $this->version(),
+            $step['section_key'],
+            $step['question_key'],
+        );
 
-        $visibility = $this->visibilityForQuestions($questions, $step['section_instance_key']);
+        if (! $question instanceof IntakeQuestion) {
+            return true;
+        }
+
+        $visibility = $this->visibilityForQuestions(
+            collect([$question]),
+            $step['section_instance_key'],
+        );
+        $key = VisibilityResolver::compositeKey($question->key, $step['section_instance_key']);
+        $state = $visibility[$key] ?? ['visible' => false, 'required' => false];
+
+        if (! $state['visible'] || ! $state['required']) {
+            return true;
+        }
+
         $reader = app(AnswerValueReader::class);
+        $value = is_array($this->form[$key] ?? null) ? $this->form[$key] : null;
 
-        foreach ($questions as $question) {
-            $key = VisibilityResolver::compositeKey($question->key, $step['section_instance_key']);
-            $state = $visibility[$key] ?? ['visible' => false, 'required' => false];
+        return $reader->isFilled($value, $question->type);
+    }
 
-            if (! $state['visible'] || ! $state['required']) {
-                continue;
-            }
+    /**
+     * @return array{
+     *     key: string,
+     *     section_key: string,
+     *     section_instance_key: string|null,
+     *     question_key: string,
+     *     title: string,
+     *     section_title: string,
+     *     description: string|null,
+     *     help_text: string|null,
+     *     is_repeatable: bool,
+     *     is_required: bool
+     * }|null
+     */
+    private function currentStep(): ?array
+    {
+        $steps = $this->steps();
 
-            if ($question->type === QuestionType::Photo) {
-                $value = is_array($this->form[$key] ?? null) ? $this->form[$key] : null;
-                if (! $reader->isFilled($value, QuestionType::Photo)) {
-                    return false;
-                }
-
-                continue;
-            }
-
-            $value = is_array($this->form[$key] ?? null) ? $this->form[$key] : null;
-
-            if (! $reader->isFilled($value, $question->type)) {
-                return false;
+        if ($this->activeStepKey !== '') {
+            $index = app(IntakeStepBuilder::class)->indexForStepKey($steps, $this->activeStepKey);
+            if ($index !== null) {
+                return $steps[$index];
             }
         }
 
-        return true;
+        return $steps[$this->stepIndex] ?? null;
     }
 
-    private function rememberCurrentSection(): void
+    private function rememberCurrentCursor(): void
     {
-        $step = $this->steps()[$this->stepIndex] ?? null;
+        $step = $this->currentStep();
         if ($step === null) {
             return;
         }
 
         $this->intake()->update([
             'current_section_key' => $step['section_key'],
+            'current_question_key' => $step['question_key'],
+            'current_section_instance_key' => $step['section_instance_key'],
         ]);
+    }
+
+    /**
+     * After an answer changes visibility, keep the wizard on the same question when possible.
+     */
+    private function realignToActiveStep(): void
+    {
+        $steps = $this->steps();
+        if ($steps === []) {
+            $this->stepIndex = 0;
+            $this->activeStepKey = '';
+
+            return;
+        }
+
+        $preferredKey = $this->activeStepKey !== ''
+            ? $this->activeStepKey
+            : ($steps[$this->stepIndex]['key'] ?? null);
+
+        $this->stepIndex = app(IntakeStepBuilder::class)->indexForStepKey($steps, $preferredKey)
+            ?? min($this->stepIndex, count($steps) - 1);
+        $this->clampStepIndex($steps);
+        $this->syncActiveStepKey($steps);
+        $this->rememberCurrentCursor();
+    }
+
+    /**
+     * @param  list<array{key: string}>  $steps
+     */
+    private function syncActiveStepKey(array $steps): void
+    {
+        $this->activeStepKey = $steps[$this->stepIndex]['key'] ?? '';
+    }
+
+    /**
+     * @param  list<array{key: string}>  $steps
+     */
+    private function clampStepIndex(array $steps): void
+    {
+        if ($steps === []) {
+            $this->stepIndex = 0;
+
+            return;
+        }
+
+        $this->stepIndex = min(max(0, $this->stepIndex), count($steps) - 1);
     }
 }

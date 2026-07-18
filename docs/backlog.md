@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 3.6 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.7 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -31,7 +31,7 @@ Geprioriteerd op het hoofddoel (herprioritering 2026-07-18): hoeveel handelingen
 | 1 | BL-002 | Functionele hertest staging (Fase 3–6) | E1 | in_progress | high |
 | 2 | BL-001 | Demo-versie van de app | E5 | in_progress | medium |
 | 3 | BL-017 | Airco-template v2: vraag-voor-vraag audit op het ontwerpprincipe | E3 | backlog | high |
-| 4 | BL-018 | Vraag-voor-vraag klantflow (één vraag per scherm) | E3 | backlog | high |
+| 4 | BL-018 | Vraag-voor-vraag klantflow (één vraag per scherm) | E3 | in_progress | high |
 | 5 | BL-016 | Hergebruik bekende gegevens (prefill) | E3 | backlog | high |
 | 6 | BL-008 | HEIC-ondersteuning bij foto-uploads | E1 | backlog | high |
 | 7 | BL-011 | Eigen domein + geldig SSL voor staging | E1 | backlog | high |
@@ -132,10 +132,11 @@ De meest directe toepassing van het ontwerpprincipe: *de applicatie vraagt niets
 
 ### BL-018 — Vraag-voor-vraag klantflow (één vraag per scherm)
 
-- **Status:** backlog · **Prioriteit:** high
+- **Status:** in_progress · **Prioriteit:** high
 - **Doel:** de klantwizard toont nu een hele sectie per scherm; de producteigenaar wil vragen **stap voor stap** stellen: één vraag (of één logisch mini-cluster, zoals een foto-opdracht met bijbehorende controle­vraag) per scherm, met autosave per antwoord en duidelijke voortgang.
 - **Waarom (hoofddoel):** één vraag per scherm voelt lichter, werkt beter op mobiel en maakt conditionele logica direct zichtbaar (vervolgvraag verschijnt pas als die relevant is) — minder scrollen en minder afhaken.
 - **Kaders:** de datastructuur (secties → vragen) blijft ongewijzigd; dit is een presentatielaag bovenop de bestaande engine. Sectietitels blijven als hoofdstukmarkering zichtbaar. Regels (`show`/`require`) evalueren per antwoord, zodat overgeslagen vragen nooit getoond worden.
+- **Voortgang:** `IntakeStepBuilder` bouwt één stap per zichtbare vraag; wizard toont sectietitel + “Vraag X van Y”; hervatten via `current_question_key` / `current_section_instance_key`; conditionele vragen verschijnen/verdwijnen live uit de stappenlijst.
 - **Afhankelijkheden:** geen harde; combineert goed met BL-017 (minder vragen) en BL-016 (prefill).
 
 ### BL-019 — Afleiden uit adres en openbare bronnen (satellietbeeld, BAG)

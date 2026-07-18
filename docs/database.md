@@ -1,6 +1,6 @@
 # Databaseschema — Digitale Opname
 
-> **Documentversie:** 1.1 · **Laatste update:** 2026-07-17 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.2 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **geïmplementeerd (Fase 2 migraties)**. Bestaande Laravel-tabellen plus intake-engine-schema via `2026_07_17_120000_create_intake_engine_tables`.
 
@@ -154,7 +154,9 @@ Eén digitale opname / klanttraject.
 | `token_expires_at` | timestamp nullable | |
 | `token_revoked_at` | timestamp nullable | |
 | `internal_note` | text nullable | Alleen intern |
-| `current_section_key` | string nullable | Voortgang-UX |
+| `current_section_key` | string nullable | Wizard-cursor: huidige sectie |
+| `current_question_key` | string nullable | Wizard-cursor: huidige vraag (BL-018) |
+| `current_section_instance_key` | string nullable | Wizard-cursor: repeatable-instantie (`room-1`, …) |
 | `progress_percent` | unsigned tinyint default 0 | Gecached |
 | `started_at` | timestamp nullable | Eerste klantactiviteit |
 | `completed_at` | timestamp nullable | |

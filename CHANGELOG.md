@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Added
+
+- BL-018 vraag-voor-vraag klantflow: één zichtbare vraag per scherm (sectietitel als hoofdstukmarkering), autosave per antwoord, hervatten op vraag-cursor (`current_question_key` / `current_section_instance_key`), conditionele vragen worden overgeslagen tot ze relevant zijn.
+
 ### Fixed
 
 - Klantintake: verplichte Ja/Nee-vragen (Livewire `"1"`/`"0"`) werden niet als beantwoord gezien → “Volgende”/afronden geblokkeerd (`AnswerValueReader`).
