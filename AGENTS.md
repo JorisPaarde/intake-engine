@@ -1,6 +1,6 @@
 # AGENTS.md — Projectgeheugen & werkinstructies
 
-> **Documentversie:** 1.3 · **Laatste update:** 2026-07-18 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
+> **Documentversie:** 1.4 · **Laatste update:** 2026-07-18 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
 
 Dit bestand is de **centrale ingang** voor iedere agent (of mens) die aan dit project werkt. Het beschrijft waar het projectgeheugen leeft, welk document waarvoor de bron van waarheid is, en hoe je dat geheugen bijhoudt. **Lees dit bestand aan het begin van elke taak.**
 
@@ -174,6 +174,7 @@ Praktische lessen uit cloud-runs. Doel: sneller groen zonder opnieuw te ontdekke
 - Op Ubuntu 24.04: `ppa:ondrej/php`, daarna o.a. `php8.4-cli php8.4-sqlite3 php8.4-mbstring php8.4-xml php8.4-curl php8.4-zip php8.4-gd php8.4-intl`. Zet `php` via `update-alternatives` op 8.4.
 - **Composer** staat vaak niet in PATH. Installeer naar `~/bin/composer` (`mkdir -p ~/bin` eerst) en zet `PATH="$HOME/bin:$PATH"`.
 - **Node/npm** is meestal wél aanwezig (nvm). Voor HTTP-featuretests die layouts renderen: `npm ci && npm run build` — anders faalt Vite op ontbrekend `public/build/manifest.json`.
+- **Imagick HEIC/HEIF** is nodig voor BL-008. Snel checken: `php -r 'var_dump(class_exists("Imagick"), Imagick::queryFormats("HEIC"), Imagick::queryFormats("HEIF"));'`.
 - Lokaal/.env voor tests: `cp .env.example .env && php artisan key:generate`. Tests draaien op **sqlite `:memory:`** (zie CI); geen MySQL nodig voor `composer check`.
 - Check of er al een async install loopt (`/tmp/cursor/async-install/`); in JIT-omgevingen kan die map leeg zijn — zelf bootstrapen is dan sneller dan wachten.
 

@@ -200,9 +200,8 @@ class IntakeWizard extends Component
         $this->validate([
             'photoFiles.'.$composite => [
                 'required',
-                'image',
+                'file',
                 'max:'.$maxKb,
-                'mimetypes:image/jpeg,image/png,image/webp',
             ],
         ], [], [
             'photoFiles.'.$composite => 'foto',
@@ -231,7 +230,10 @@ class IntakeWizard extends Component
             $this->resetErrorBag('photoFiles.'.$composite);
         } catch (ValidationException $e) {
             $this->photoFiles[$composite] = null;
-            throw $e;
+            $this->addError(
+                'photoFiles.'.$composite,
+                $e->errors()['photo'][0] ?? $e->errors()['photoFiles.'.$composite][0] ?? 'Upload mislukt. Probeer het opnieuw.',
+            );
         }
     }
 

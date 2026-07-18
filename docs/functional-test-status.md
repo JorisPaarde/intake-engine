@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.7 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.8 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -30,6 +30,7 @@ Laatste testsessie: 2026-07-18 (staging via headless Chromium/Playwright; BL-002
 | Installateur-prefill bij aanmaken (BL-016) | todo | - | Na deploy: "alvast invullen" op opname-aanmaken (airco v3 request-vragen); klant ziet ze met "alvast ingevuld — controleer"; intake blijft `sent` tot klant start |
 | Repeatable-prefill ruimtes (BL-016) | todo | - | Na deploy: bij ≥2 binnenunits neemt ruimte 2 `floor_level` over van ruimte 1 als bewerkbare voorzet ("Overgenomen van Ruimtes 1"); pas bij Volgende opgeslagen; ruimte 1 nooit voorgevuld |
 | Foto-uploads (Fase 4) | pass | 2026-07-18 | JPEG-upload + preview + “Foto opgeslagen” op ruimtestap |
+| HEIC/HEIF foto-upload (BL-008) | todo | - | Na deploy op staging met echte iPhone-foto: HEIC kiezen/maken, upload slaat op als JPEG, preview werkt, geen handmatige conversie nodig |
 | Afronden + bedankt-scherm (Fase 5) | pass | 2026-07-18 | Na boolean-fix #14: volledige flow (incl. Ja/Nee) → **Bedankt** |
 | HTML-rapport + installateur-review (Fase 5) | pass | 2026-07-18 | Rapport-iframe + review `prepare_quote` opgeslagen |
 | AI-samenvatting in rapport (Fase 6) | blocked | 2026-07-18 | Geen “AI-voorstel” — staging `AI_PROVIDER=null` (soft-fail by design) |

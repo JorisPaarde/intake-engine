@@ -39,7 +39,25 @@ final class HealthController extends Controller
                 'max_file_uploads' => (int) ini_get('max_file_uploads'),
                 'app_max_kilobytes' => (int) config('intake.uploads.max_kilobytes'),
             ],
+            'image_conversion' => [
+                'imagick_loaded' => class_exists(\Imagick::class),
+                'heic_read' => $this->imagickSupportsHeicRead(),
+            ],
             'time' => now()->toIso8601String(),
         ], 200, [], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+    }
+
+    private function imagickSupportsHeicRead(): bool
+    {
+        if (! class_exists(\Imagick::class)) {
+            return false;
+        }
+
+        try {
+            return \Imagick::queryFormats('HEIC') !== []
+                || \Imagick::queryFormats('HEIF') !== [];
+        } catch (Throwable) {
+            return false;
+        }
     }
 }

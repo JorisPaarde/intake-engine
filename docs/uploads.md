@@ -1,6 +1,6 @@
 # Uploads & mediastorage
 
-> **Documentversie:** 1.3 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.4 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **geïmplementeerd (Fase 4)**.
 
@@ -17,7 +17,8 @@ Status: **geïmplementeerd (Fase 4)**.
 2. `wire:model` + `WithFileUploads` → `StoreIntakeUpload`.
 3. Action:
    - authz via token-middleware / intake-koppeling
-   - MIME + size + max aantal
+   - max aantal + server-side MIME-detectie + size
+   - HEIC/HEIF → JPEG-normalisatie (Imagick: auto-orient, metadata strippen, resize/kwaliteit binnen limiet)
    - veilige bestandsnaam (`ulid` + extensie)
    - schrijf naar `Storage::disk(config('filesystems.media'))`
    - rij in `intake_uploads` + sync `intake_answers.value.upload_ids`
@@ -48,7 +49,8 @@ Status: **geïmplementeerd (Fase 4)**.
 |-----------|-----------|
 | Private disk | `MEDIA_DISK=local` |
 | Serve-routes | customer-token of installer `auth` + intake-match |
-| MIME allowlist | jpeg, png, webp |
+| Inputtypes | jpeg, png, webp, heic/heif |
+| Opgeslagen types | jpeg, png, webp (HEIC/HEIF wordt JPEG) |
 | Max size | `INTAKE_UPLOAD_MAX_KB` (default 5120 = 5 MB) |
 | Max files | vraag-`meta.max_files` of `INTAKE_UPLOAD_MAX_FILES` |
 
@@ -58,7 +60,21 @@ Status: **geïmplementeerd (Fase 4)**.
 |-------|--------|
 | Max per bestand | 5 MB (configureerbaar) |
 | Max per vraag | default 5 |
-| Types | jpeg, png, webp |
+| Inputtypes | jpeg, png, webp, heic/heif |
+| Opgeslagen types | jpeg, png, webp |
+
+## HEIC/HEIF-normalisatie (BL-008)
+
+iPhone-foto's in HEIC/HEIF worden server-side verwerkt; de aanvrager hoeft geen instellingen te wijzigen of zelf te converteren. `UploadMimeDetector` gebruikt server-side MIME-detectie en sniffed ISO BMFF-brands wanneer PHP/host alleen `application/octet-stream` ziet. Client-MIME of extensie alleen is niet genoeg om een bestand te accepteren.
+
+`PhotoUploadNormalizer` zet HEIC/HEIF via Imagick om naar JPEG:
+
+- auto-orient op basis van EXIF/oriëntatie;
+- metadata strippen;
+- lange zijde maximaal `config('intake.uploads.conversion.max_long_edge')` (default 3000px);
+- JPEG-kwaliteit start op `config('intake.uploads.conversion.heic_to_jpeg_quality')` (default 82) en wordt stap voor stap verlaagd tot het resultaat binnen `INTAKE_UPLOAD_MAX_KB` past.
+
+De database bewaart de metadata van het opgeslagen bestand (`mime_type=image/jpeg`, `.jpg`-pad, JPEG-size en checksum). `/health` exposeert `image_conversion.imagick_loaded` en `image_conversion.heic_read` zodat staging snel kan worden gecontroleerd.
 
 ## PHP- en cPanel-limieten
 

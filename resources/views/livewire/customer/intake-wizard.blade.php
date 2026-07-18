@@ -221,10 +221,10 @@
                                     <div>
                                         <label class="flex min-h-12 cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed border-brand-fog bg-brand-mist/40 px-4 py-5 text-center">
                                             <span class="text-sm font-semibold text-brand-ink">Foto maken of kiezen</span>
-                                            <span class="text-xs text-brand-ink/55">JPEG, PNG of WebP · max {{ number_format($maxUploadKb / 1024, 0) }} MB</span>
+                                            <span class="text-xs text-brand-ink/55">JPEG, PNG, WebP of HEIC · max {{ number_format($maxUploadKb / 1024, 0) }} MB</span>
                                             <input
                                                 type="file"
-                                                accept="image/jpeg,image/png,image/webp,image/*"
+                                                accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,image/*"
                                                 capture="environment"
                                                 class="sr-only"
                                                 wire:model="photoFiles.{{ $composite }}"
