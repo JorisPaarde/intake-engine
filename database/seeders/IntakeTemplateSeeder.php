@@ -11,9 +11,18 @@ class IntakeTemplateSeeder extends Seeder
 {
     public function run(): void
     {
-        /** @var array<string, mixed> $config */
-        $config = require database_path('data/templates/airco/v1.php');
+        $publisher = app(PublishIntakeTemplateFromConfig::class);
 
-        app(PublishIntakeTemplateFromConfig::class)->handle($config);
+        /** @var list<string> $configs */
+        $configs = [
+            database_path('data/templates/airco/v1.php'),
+            database_path('data/templates/airco/v2.php'),
+        ];
+
+        foreach ($configs as $path) {
+            /** @var array<string, mixed> $config */
+            $config = require $path;
+            $publisher->handle($config);
+        }
     }
 }

@@ -1,6 +1,6 @@
 # Databaseschema — Digitale Opname
 
-> **Documentversie:** 1.2 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.3 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **geïmplementeerd (Fase 2 migraties)**. Bestaande Laravel-tabellen plus intake-engine-schema via `2026_07_17_120000_create_intake_engine_tables`.
 
@@ -428,7 +428,7 @@ erDiagram
 ## Seeddata (gepland)
 
 - 1 installateur (`test@example.com` of dedicated seeder-user)
-- 1 gepubliceerde airco-templateversie
+- gepubliceerde airco-templateversies (v1 historisch, v2 latest — BL-017)
 - 1 open intake (`sent`)
 - 1 gedeeltelijk ingevulde intake (`in_progress`)
 - 1 afgeronde intake (`completed`) met veilige placeholder-uploads

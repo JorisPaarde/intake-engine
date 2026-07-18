@@ -1,8 +1,8 @@
 # Intake-engine
 
-> **Documentversie:** 1.3 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.4 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: **geïmplementeerd t/m Fase 6** (compleetheid, rapport, beoordeling en AI-samenvatting).
+Status: **geïmplementeerd t/m Fase 6** (compleetheid, rapport, beoordeling en AI-samenvatting). Airco-template **v2** gepubliceerd (BL-017).
 
 ## Doel
 
@@ -12,7 +12,7 @@ Een herbruikbare intake-engine: vragen, validatie, conditionele logica, voortgan
 
 ```
 Template (key: airco)
-  └── Version (v1, published)   ← intakes pinnen hierop
+  └── Version (v1, v2, … published)   ← nieuwe intakes pinnen op latest published
         └── Sections (ordered)
               └── Questions (typed)
                     ├── Options (keuzevragen)
@@ -21,8 +21,8 @@ Template (key: airco)
 
 Bron van template-inhoud in MVP:
 
-1. **PHP/array- of YAML/JSON-config** in repo (`database/data/templates/airco/v1.php` of vergelijkbaar)
-2. **Seeder** die een gepubliceerde `intake_template_version` + children schrijft
+1. **PHP/array-config** in repo (`database/data/templates/airco/v1.php`, `v2.php`, …)
+2. **Seeder** die gepubliceerde `intake_template_version`s + children schrijft (idempotent per versienummer)
 3. Geen visuele formulierbouwer
 
 Runtime leest altijd uit de database (de gepinde versie), nooit rechtstreeks uit views/controllers.
@@ -114,9 +114,9 @@ Zie ADR-0001 en `docs/database.md`.
 - Zelfde klantlink hervat op `current_section_key` + `current_question_key` (+ `current_section_instance_key` bij repeatables)
 - Duidelijke “opgeslagen”-feedback in UI
 
-## Airco-template (MVP-inhoud)
+## Airco-template
 
-Minimale secties (keys voorstel):
+Secties (stabiele keys over versies):
 
 1. `request` — aanvraag (reden, koelen/verwarmen, units, merk, planning)
 2. `building` — woning/pand
@@ -127,7 +127,20 @@ Minimale secties (keys voorstel):
 7. `condensate` — condensafvoer
 8. `closing` — opmerkingen, waarheidsverklaring, toestemming
 
-Exacte labels/opties blijven configureerbaar na installateurs-feedback; keys stabiel houden binnen een versie.
+### v1 → v2 (BL-017, ontwerpprincipe)
+
+Nieuwe intakes gebruiken **v2**; lopende/afgeronde opnames blijven op hun gepinde versie (ADR-0001). Config: `database/data/templates/airco/v2.php`.
+
+| Wijziging | Was (v1) | Wordt (v2) |
+|-----------|----------|------------|
+| Kamermaten | 3 verplichte getallen (`room_length_m`, `room_width_m`, `ceiling_height_m`) | 1 keuze `room_size_indication` (klein/gemiddeld/groot); exacte maten later uit foto’s (BL-020) |
+| Verdieping | vrije tekst `floor_level` | keuzelijst |
+| Buitenlocatie / bereikbaarheid / route / condens | vrije tekst | keuzelijsten |
+| Afstanden | 3 losse vragen (`distance_to_indoor`, `pipe_distance_indication`, `fusebox_distance`) | 1 optionele bandkeuze `pipe_distance_indication` |
+| Geveloverzicht | verplichte `facade_overview_photo` | optioneel (satellietbeeld: BL-019) |
+| Vrije groep | verplichte `free_group_known` | optioneel; meterkastfoto is leidend (afleiding: BL-020) |
+
+Keys van geschrapte v1-vragen bestaan niet in v2; hergebruikte keys behouden hun betekenis binnen de versie.
 
 ## Nieuwe intaketemplate toevoegen
 
@@ -143,10 +156,11 @@ Geen nieuwe controllers per intaketype.
 
 Gepland werk staat in [docs/backlog.md](backlog.md); relevante items voor de engine:
 
-- Minder vragen: template-audit op het ontwerpprincipe (BL-017)
+- Prefill van bekende/afleidbare gegevens (BL-016)
 - Afleiden uit adres/openbare bronnen: satellietbeeld, BAG-bouwjaar (BL-019)
 - Foto-gedreven afleiding en adaptieve vervolgvragen, bv. meterkastfoto → vrije groep (BL-020)
-- Prefill van bekende/afleidbare gegevens (BL-016)
+
+Afgerond: airco-template v2-audit (BL-017).
 
 Verder buiten scope tot er vraag naar is:
 

@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 3.8 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.9 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -20,7 +20,7 @@ Status: `backlog` · `ready` · `in_progress` · `done` · `dropped` — priorit
 | E4 | AI bespaart beoordeelwerk | Samenvatting, aandachtspunten en fotokwaliteitscheck besparen de installateur leeswerk en de aanvrager een extra aanleverronde. AI blijft ondersteunend (docs/ai.md). |
 | E5 | Bruikbaar dossier & klaar voor groei | Het dossier moet buiten de browser bruikbaar zijn en het product moet zonder extra handelingen te ervaren, beheren en opschalen zijn. |
 
-Volgorde-advies: volg kolom **#** in de overzichtstabel hieronder. De rode draad: eerst lopend werk afronden (BL-002, BL-001), dan de kern van het hoofddoel — minder en slimmere vragen (BL-017, BL-016; BL-018 done) en betrouwbare, drempelloze aanlevering (BL-008, BL-011) — daarna installateurshandelingen wegnemen (E2), vervolgens slimme afleiding (BL-019, BL-006, BL-020) en tot slot groei-/beheeritems.
+Volgorde-advies: volg kolom **#** in de overzichtstabel hieronder. De rode draad: eerst lopend werk afronden (BL-002, BL-001), dan de kern van het hoofddoel — slimmere vragen (BL-016; BL-017/BL-018 done) en betrouwbare, drempelloze aanlevering (BL-008, BL-011) — daarna installateurshandelingen wegnemen (E2), vervolgens slimme afleiding (BL-019, BL-006, BL-020) en tot slot groei-/beheeritems.
 
 ## Overzicht
 
@@ -30,22 +30,22 @@ Geprioriteerd op het hoofddoel (herprioritering 2026-07-18): hoeveel handelingen
 |---|----|------|------|--------|------------|
 | 1 | BL-002 | Functionele hertest staging (Fase 3–6) | E1 | in_progress | high |
 | 2 | BL-001 | Demo-versie van de app | E5 | in_progress | medium |
-| 3 | BL-017 | Airco-template v2: vraag-voor-vraag audit op het ontwerpprincipe | E3 | backlog | high |
-| 4 | BL-016 | Hergebruik bekende gegevens (prefill) | E3 | backlog | high |
-| 5 | BL-008 | HEIC-ondersteuning bij foto-uploads | E1 | backlog | high |
-| 6 | BL-011 | Eigen domein + geldig SSL voor staging | E1 | backlog | high |
-| 7 | BL-004 | Automatische e-mail van klantlink (SMTP) | E2 | backlog | medium |
-| 8 | BL-014 | Afrondingsnotificatie voor de installateur | E2 | backlog | medium |
-| 9 | BL-015 | Herinnering bij stilliggende intake | E2 | backlog | medium |
-| 10 | BL-019 | Afleiden uit adres en openbare bronnen (satellietbeeld, BAG) | E3 | backlog | medium |
-| 11 | BL-005 | PDF-export van rapporten | E5 | backlog | medium |
-| 12 | BL-006 | Externe LLM-provider (na DPIA) | E4 | backlog | medium |
-| 13 | BL-020 | Foto-gedreven afleiding en adaptieve vervolgvragen | E4 | backlog | medium |
-| 14 | BL-007 | AI-uitbreidingen: attention points, fotokwaliteit, accepteren/verwijderen | E4 | backlog | low |
-| 15 | BL-009 | Purge-job voor soft-deleted intakes (bewaartermijn) | E5 | backlog | low |
-| 16 | BL-010 | Production-deployworkflow (tags + eigen omgeving) | E5 | backlog | low |
-| 17 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low |
-| 18 | BL-013 | S3 als mediadisk | E5 | backlog | low |
+| 3 | BL-016 | Hergebruik bekende gegevens (prefill) | E3 | backlog | high |
+| 4 | BL-008 | HEIC-ondersteuning bij foto-uploads | E1 | backlog | high |
+| 5 | BL-011 | Eigen domein + geldig SSL voor staging | E1 | backlog | high |
+| 6 | BL-004 | Automatische e-mail van klantlink (SMTP) | E2 | backlog | medium |
+| 7 | BL-014 | Afrondingsnotificatie voor de installateur | E2 | backlog | medium |
+| 8 | BL-015 | Herinnering bij stilliggende intake | E2 | backlog | medium |
+| 9 | BL-019 | Afleiden uit adres en openbare bronnen (satellietbeeld, BAG) | E3 | backlog | medium |
+| 10 | BL-005 | PDF-export van rapporten | E5 | backlog | medium |
+| 11 | BL-006 | Externe LLM-provider (na DPIA) | E4 | backlog | medium |
+| 12 | BL-020 | Foto-gedreven afleiding en adaptieve vervolgvragen | E4 | backlog | medium |
+| 13 | BL-007 | AI-uitbreidingen: attention points, fotokwaliteit, accepteren/verwijderen | E4 | backlog | low |
+| 14 | BL-009 | Purge-job voor soft-deleted intakes (bewaartermijn) | E5 | backlog | low |
+| 15 | BL-010 | Production-deployworkflow (tags + eigen omgeving) | E5 | backlog | low |
+| 16 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low |
+| 17 | BL-013 | S3 als mediadisk | E5 | backlog | low |
+| — | BL-017 | Airco-template v2: vraag-voor-vraag audit op het ontwerpprincipe | E3 | done | high |
 | — | BL-018 | Vraag-voor-vraag klantflow (één vraag per scherm) | E3 | done | high |
 | — | BL-003 | Staging PHP-uploadlimieten verifiëren/verhogen | E1 | done | high |
 
@@ -119,16 +119,10 @@ De meest directe toepassing van het ontwerpprincipe: *de applicatie vraagt niets
 
 ### BL-017 — Airco-template v2: vraag-voor-vraag audit op het ontwerpprincipe
 
-- **Status:** backlog · **Prioriteit:** high *(opgehoogd 2026-07-18: producteigenaar signaleert dat de intake nu veel te veel vragen bevat)*
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-18 · **PR:** #21
 - **Doel:** elke vraag in de airco-template toetsen aan het ontwerpprincipe: is dit al bekend of afleidbaar (schrappen)? Is er een snellere/duidelijkere verzamelmethode (foto i.p.v. meetvraag, keuzelijst i.p.v. vrije tekst, boolean i.p.v. open vraag)? Feedback van installateurs meenemen.
-- **Richting (feedback producteigenaar 2026-07-18):** het totaal aantal vragen moet fors omlaag. Kandidaten om te schrappen of te vervangen door een foto/afleiding:
-  - kamermaten (`room_length_m`, `room_width_m`, `ceiling_height_m`) → op termijn inschatten uit `room_photos` (BL-020); tot die tijd op zijn minst optioneel of samengevoegd tot één indicatieve keuzevraag (klein/gemiddeld/groot);
-  - `free_group_known` → afleidbaar uit `fusebox_photo` (BL-020): vraag alleen stellen als de foto ontbreekt of geen uitsluitsel geeft;
-  - gevel/omgeving (`facade_overview_photo`, deels `outdoor_location`) → deels afleidbaar uit satellietbeeld op basis van adres (BL-019);
-  - vrije-tekstvragen (`outdoor_accessibility`, `pipe_route_description`, `drain_location`) → waar mogelijk keuzelijst of foto-opdracht;
-  - dubbele afstandsvragen (`distance_to_indoor`, `pipe_distance_indication`, `fusebox_distance`) → ontdubbelen of afleiden uit route-foto's.
-- **Uitvoering:** nieuwe templateversie publiceren volgens ADR-0001; lopende/afgeronde intakes blijven op v1; keys stabiel houden.
-- **Afhankelijkheden:** installateurs-feedback (kan uit BL-002/demo-gebruik komen). Verwijderen van vragen hoeft níet te wachten op BL-019/BL-020; schrappen kan direct, afleiden komt daarna.
+- **Resultaat:** `database/data/templates/airco/v2.php` + seeder publiceert v1 én v2 (nieuwe intakes → latest = v2; ADR-0001). Concrete wijzigingen: kamermaten → `room_size_indication`; vrije tekst → keuzelijsten (`outdoor_location`, `outdoor_accessibility`, `pipe_route_description`, `drain_location`, `floor_level`); afstanden ontdubbeld (alleen optionele `pipe_distance_indication`); `facade_overview_photo` en `free_group_known` optioneel; `distance_to_indoor` / `fusebox_distance` / exacte maten geschrapt. Verdere afleiding volgt in BL-019/BL-020.
+- **Afhankelijkheden:** geen harde; installateurs-feedback kan later tot v3 leiden.
 
 ### BL-018 — Vraag-voor-vraag klantflow (één vraag per scherm)
 
@@ -220,5 +214,6 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 
 | ID | Afgerond | PR |
 |----|----------|-----|
+| BL-017 | 2026-07-18 | (deze PR) |
 | BL-018 | 2026-07-18 | #18 |
 | BL-003 | 2026-07-18 | #12 (+ staging-verificatie via `/health`, docs #13) |
