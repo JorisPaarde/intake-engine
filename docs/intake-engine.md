@@ -1,8 +1,8 @@
 # Intake-engine
 
-> **Documentversie:** 1.4 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.5 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: **geïmplementeerd t/m Fase 6** (compleetheid, rapport, beoordeling en AI-samenvatting). Airco-template **v2** gepubliceerd (BL-017).
+Status: **geïmplementeerd t/m Fase 6** (compleetheid, rapport, beoordeling en AI-samenvatting). Airco-template **v3** gepubliceerd — v2-vragenset + prefill-vlaggen (BL-016; audit BL-017 zit in v2).
 
 ## Doel
 
@@ -142,6 +142,21 @@ Nieuwe intakes gebruiken **v2**; lopende/afgeronde opnames blijven op hun gepind
 
 Keys van geschrapte v1-vragen bestaan niet in v2; hergebruikte keys behouden hun betekenis binnen de versie.
 
+## Prefill van bekende gegevens (BL-016)
+
+Toepassing van het ontwerpprincipe *"vraag niets wat al bekend is"*: de engine biedt een antwoord dat al bekend is aan als **voorzet**. Een prefill is altijd zichtbaar en bewerkbaar — nooit een verborgen aanname. De aanvrager bevestigt het door het te laten staan en verder te gaan. Deterministisch, **geen LLM** in deze keten.
+
+Twee bronnen, gestuurd door vraag-`meta` (dus template-data, geen code):
+
+| `meta`-vlag | Bron | Gedrag |
+|-------------|------|--------|
+| `installer_prefillable: true` | De installateur vult de vraag bij het aanmaken alvast in (`CreateIntake`, formulier `installer/intakes/create`). | Opgeslagen als antwoord met `intake_answers.prefill_source = 'installer'`. De klantwizard toont het gemarkeerd als "alvast ingevuld — controleer". Prefill bij het aanmaken zet de intake **niet** op `in_progress`. |
+| `prefill_from_previous: true` | Binnen een repeatable sectie: het antwoord van de dichtstbijzijnde vorige instantie. | `IntakePrefillResolver` levert een voorzet voor de actieve stap zolang die instantie nog leeg is. Pas bij "Volgende" wordt het als eigen antwoord opgeslagen (`prefill_source` blijft `null`). |
+
+Zodra de aanvrager het veld zelf wijzigt of eroverheen navigeert, vervalt `prefill_source` (bevestigd). De deterministische `show`/`require`-regels blijven de enige poort voor verplichte velden — een voorzet vult alleen een waarde in, het ontgrendelt niets.
+
+Airco: v3 vlagt `request`-vragen als `installer_prefillable` en `rooms.floor_level` als `prefill_from_previous`. Verdere afleiding (uit adres/openbare bronnen, uit foto's) staat los in BL-019/BL-020.
+
 ## Nieuwe intaketemplate toevoegen
 
 1. Configbestand onder `database/data/templates/{key}/v1.php`
@@ -156,11 +171,10 @@ Geen nieuwe controllers per intaketype.
 
 Gepland werk staat in [docs/backlog.md](backlog.md); relevante items voor de engine:
 
-- Prefill van bekende/afleidbare gegevens (BL-016)
 - Afleiden uit adres/openbare bronnen: satellietbeeld, BAG-bouwjaar (BL-019)
 - Foto-gedreven afleiding en adaptieve vervolgvragen, bv. meterkastfoto → vrije groep (BL-020)
 
-Afgerond: airco-template v2-audit (BL-017).
+Afgerond: airco-template v2-audit (BL-017); prefill van bekende gegevens (BL-016, zie [§ Prefill](#prefill-van-bekende-gegevens-bl-016)).
 
 Verder buiten scope tot er vraag naar is:
 

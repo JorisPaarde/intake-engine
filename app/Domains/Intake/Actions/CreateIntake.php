@@ -10,6 +10,7 @@ use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Domains\Intake\Services\IntakeAccessTokenGenerator;
 use App\Enums\IntakeStatus;
+use App\Enums\QuestionType;
 use App\Enums\TemplateVersionStatus;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -20,6 +21,7 @@ final class CreateIntake
 {
     public function __construct(
         private readonly IntakeAccessTokenGenerator $tokenGenerator,
+        private readonly SaveIntakeAnswer $saveIntakeAnswer,
     ) {}
 
     /**
@@ -33,7 +35,8 @@ final class CreateIntake
      *     internal_note?: string|null,
      *     template_key?: string,
      *     is_demo?: bool,
-     *     token_ttl_hours?: int
+     *     token_ttl_hours?: int,
+     *     prefill?: array<string, mixed>
      * }  $data
      */
     public function handle(User $creator, array $data): Intake
@@ -78,8 +81,89 @@ final class CreateIntake
                 'created_at' => now(),
             ]);
 
+            $prefilledKeys = $this->applyInstallerPrefill($intake, $version, $data['prefill'] ?? []);
+
+            if ($prefilledKeys !== []) {
+                IntakeActivityEvent::query()->create([
+                    'intake_id' => $intake->id,
+                    'actor_type' => 'user',
+                    'actor_id' => $creator->id,
+                    'event' => 'installer_prefilled',
+                    // Keys only — never answer values in logs (ADR-0002).
+                    'properties' => ['question_keys' => $prefilledKeys],
+                    'created_at' => now(),
+                ]);
+            }
+
             return $intake->fresh(['templateVersion.template']) ?? $intake;
         });
+    }
+
+    /**
+     * Persist the installer's optional pre-answers as unconfirmed voorzetten (BL-016).
+     * Only questions flagged `meta.installer_prefillable` in the pinned version are accepted.
+     *
+     * @param  array<string, mixed>  $prefill  question_key => raw scalar/array from the create form
+     * @return list<string> the question keys that were actually stored
+     */
+    private function applyInstallerPrefill(Intake $intake, IntakeTemplateVersion $version, array $prefill): array
+    {
+        if ($prefill === []) {
+            return [];
+        }
+
+        $version->loadMissing('sections.questions');
+        $intake->setRelation('templateVersion', $version);
+
+        /** @var array<string, QuestionType> $prefillable */
+        $prefillable = [];
+        foreach ($version->sections as $section) {
+            foreach ($section->questions as $question) {
+                if (($question->meta['installer_prefillable'] ?? false) === true) {
+                    $prefillable[$question->key] = $question->type;
+                }
+            }
+        }
+
+        $stored = [];
+
+        foreach ($prefill as $questionKey => $raw) {
+            // Non-prefillable (or numeric) keys never match a template question key.
+            if (! isset($prefillable[$questionKey])) {
+                continue;
+            }
+
+            $value = $this->wrapPrefillValue($prefillable[$questionKey], $raw);
+
+            if ($value === null) {
+                continue;
+            }
+
+            $this->saveIntakeAnswer->handle($intake, $questionKey, null, $value, 'installer');
+            $stored[] = $questionKey;
+        }
+
+        return $stored;
+    }
+
+    /**
+     * Wrap a raw form value into the engine's typed answer shape; null when empty/unsupported.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function wrapPrefillValue(QuestionType $type, mixed $raw): ?array
+    {
+        return match ($type) {
+            QuestionType::ShortText, QuestionType::LongText => is_scalar($raw) && trim((string) $raw) !== ''
+                ? ['text' => (string) $raw]
+                : null,
+            QuestionType::Number => is_numeric($raw) ? ['number' => $raw] : null,
+            QuestionType::SingleChoice => is_scalar($raw) && (string) $raw !== '' ? ['value' => (string) $raw] : null,
+            QuestionType::MultiChoice => is_array($raw) && $raw !== [] ? ['values' => array_values($raw)] : null,
+            QuestionType::Boolean => $raw === '' || $raw === null ? null : ['bool' => $raw],
+            // Photos cannot be pre-filled by the installer.
+            QuestionType::Photo => null,
+        };
     }
 
     private function resolvePublishedVersion(string $templateKey): IntakeTemplateVersion

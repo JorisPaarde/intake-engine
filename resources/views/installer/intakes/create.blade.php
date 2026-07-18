@@ -66,6 +66,26 @@
                         <x-input-error :messages="$errors->get('internal_note')" class="mt-2" />
                     </div>
 
+                    @if (! empty($prefillQuestionsByTemplate))
+                        <div class="rounded-md border border-gray-200 bg-gray-50 p-4">
+                            <p class="text-sm font-semibold text-gray-800">Alvast invullen (optioneel)</p>
+                            <p class="mt-1 text-xs text-gray-500">
+                                Wat u hier invult, ziet de klant als voorzet en bevestigt hij zelf — zo hoeft hij het niet opnieuw op te geven.
+                            </p>
+
+                            @foreach ($prefillQuestionsByTemplate as $templateKey => $questions)
+                                <div
+                                    data-prefill-block="{{ $templateKey }}"
+                                    class="mt-4 space-y-4 {{ old('template_key', 'airco') === $templateKey ? '' : 'hidden' }}"
+                                >
+                                    @foreach ($questions as $question)
+                                        @include('installer.intakes._prefill-field', ['question' => $question])
+                                    @endforeach
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+
                     <div class="flex items-center justify-end gap-3">
                         <a href="{{ route('dashboard') }}" class="text-sm text-gray-600 hover:text-gray-900">Annuleren</a>
                         <x-primary-button>Opslaan en link genereren</x-primary-button>
@@ -74,4 +94,28 @@
             </div>
         </div>
     </div>
+
+    @if (! empty($prefillQuestionsByTemplate))
+        <script>
+            (function () {
+                const select = document.getElementById('template_key');
+                const blocks = document.querySelectorAll('[data-prefill-block]');
+                if (!select || blocks.length === 0) return;
+
+                function sync() {
+                    blocks.forEach(function (block) {
+                        const active = block.getAttribute('data-prefill-block') === select.value;
+                        block.classList.toggle('hidden', !active);
+                        // Disabled inputs are not submitted — keeps hidden templates' answers out.
+                        block.querySelectorAll('input, select, textarea').forEach(function (field) {
+                            field.disabled = !active;
+                        });
+                    });
+                }
+
+                select.addEventListener('change', sync);
+                sync();
+            })();
+        </script>
+    @endif
 </x-app-layout>

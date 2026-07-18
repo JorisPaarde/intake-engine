@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 3.9 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.11 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -20,7 +20,7 @@ Status: `backlog` · `ready` · `in_progress` · `done` · `dropped` — priorit
 | E4 | AI bespaart beoordeelwerk | Samenvatting, aandachtspunten en fotokwaliteitscheck besparen de installateur leeswerk en de aanvrager een extra aanleverronde. AI blijft ondersteunend (docs/ai.md). |
 | E5 | Bruikbaar dossier & klaar voor groei | Het dossier moet buiten de browser bruikbaar zijn en het product moet zonder extra handelingen te ervaren, beheren en opschalen zijn. |
 
-Volgorde-advies: volg kolom **#** in de overzichtstabel hieronder. De rode draad: eerst lopend werk afronden (BL-002, BL-001), dan de kern van het hoofddoel — slimmere vragen (BL-016; BL-017/BL-018 done) en betrouwbare, drempelloze aanlevering (BL-008, BL-011) — daarna installateurshandelingen wegnemen (E2), vervolgens slimme afleiding (BL-019, BL-006, BL-020) en tot slot groei-/beheeritems.
+Volgorde-advies: volg kolom **#** in de overzichtstabel hieronder. De rode draad: eerst lopend werk afronden (BL-001; BL-002 done), dan de kern van het hoofddoel — slimmere vragen (BL-016/BL-017/BL-018 done) en betrouwbare, drempelloze aanlevering (BL-008, BL-011) — daarna installateurshandelingen wegnemen (E2), vervolgens slimme afleiding (BL-019, BL-006, BL-020) en tot slot groei-/beheeritems.
 
 ## Overzicht
 
@@ -28,23 +28,23 @@ Geprioriteerd op het hoofddoel (herprioritering 2026-07-18): hoeveel handelingen
 
 | # | ID | Item | Epic | Status | Prioriteit |
 |---|----|------|------|--------|------------|
-| 1 | BL-002 | Functionele hertest staging (Fase 3–6) | E1 | in_progress | high |
-| 2 | BL-001 | Demo-versie van de app | E5 | in_progress | medium |
-| 3 | BL-016 | Hergebruik bekende gegevens (prefill) | E3 | backlog | high |
-| 4 | BL-008 | HEIC-ondersteuning bij foto-uploads | E1 | backlog | high |
-| 5 | BL-011 | Eigen domein + geldig SSL voor staging | E1 | backlog | high |
-| 6 | BL-004 | Automatische e-mail van klantlink (SMTP) | E2 | backlog | medium |
-| 7 | BL-014 | Afrondingsnotificatie voor de installateur | E2 | backlog | medium |
-| 8 | BL-015 | Herinnering bij stilliggende intake | E2 | backlog | medium |
-| 9 | BL-019 | Afleiden uit adres en openbare bronnen (satellietbeeld, BAG) | E3 | backlog | medium |
-| 10 | BL-005 | PDF-export van rapporten | E5 | backlog | medium |
-| 11 | BL-006 | Externe LLM-provider (na DPIA) | E4 | backlog | medium |
-| 12 | BL-020 | Foto-gedreven afleiding en adaptieve vervolgvragen | E4 | backlog | medium |
-| 13 | BL-007 | AI-uitbreidingen: attention points, fotokwaliteit, accepteren/verwijderen | E4 | backlog | low |
-| 14 | BL-009 | Purge-job voor soft-deleted intakes (bewaartermijn) | E5 | backlog | low |
-| 15 | BL-010 | Production-deployworkflow (tags + eigen omgeving) | E5 | backlog | low |
-| 16 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low |
-| 17 | BL-013 | S3 als mediadisk | E5 | backlog | low |
+| 1 | BL-001 | Demo-versie van de app | E5 | in_progress | medium |
+| 2 | BL-008 | HEIC-ondersteuning bij foto-uploads | E1 | backlog | high |
+| 3 | BL-011 | Eigen domein + geldig SSL voor staging | E1 | backlog | high |
+| 4 | BL-004 | Automatische e-mail van klantlink (SMTP) | E2 | backlog | medium |
+| 5 | BL-014 | Afrondingsnotificatie voor de installateur | E2 | backlog | medium |
+| 6 | BL-015 | Herinnering bij stilliggende intake | E2 | backlog | medium |
+| 7 | BL-019 | Afleiden uit adres en openbare bronnen (satellietbeeld, BAG) | E3 | backlog | medium |
+| 8 | BL-005 | PDF-export van rapporten | E5 | backlog | medium |
+| 9 | BL-006 | Externe LLM-provider (na DPIA) | E4 | backlog | medium |
+| 10 | BL-020 | Foto-gedreven afleiding en adaptieve vervolgvragen | E4 | backlog | medium |
+| 11 | BL-007 | AI-uitbreidingen: attention points, fotokwaliteit, accepteren/verwijderen | E4 | backlog | low |
+| 12 | BL-009 | Purge-job voor soft-deleted intakes (bewaartermijn) | E5 | backlog | low |
+| 13 | BL-010 | Production-deployworkflow (tags + eigen omgeving) | E5 | backlog | low |
+| 14 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low |
+| 15 | BL-013 | S3 als mediadisk | E5 | backlog | low |
+| — | BL-016 | Hergebruik bekende gegevens (prefill) | E3 | done | high |
+| — | BL-002 | Functionele hertest staging (Fase 3–6) | E1 | done | high |
 | — | BL-017 | Airco-template v2: vraag-voor-vraag audit op het ontwerpprincipe | E3 | done | high |
 | — | BL-018 | Vraag-voor-vraag klantflow (één vraag per scherm) | E3 | done | high |
 | — | BL-003 | Staging PHP-uploadlimieten verifiëren/verhogen | E1 | done | high |
@@ -55,11 +55,10 @@ De flow van Fase 1–6 belooft "zo min mogelijk handelingen", maar dat geldt all
 
 ### BL-002 — Functionele hertest staging (Fase 3–6)
 
-- **Status:** in_progress · **Prioriteit:** high · **Ref:** `docs/functional-test-status.md`
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-18 · **PR:** #14 (fixes) + docs-afronding · **Ref:** `docs/functional-test-status.md`
 - **Doel:** de sinds de testsessie van 2026-07-17 gedeployde functionaliteit handmatig verifiëren op staging: producthomepage `/`, klantintake `/o/{token}`, foto-uploads, afronden + rapport + review, AI-samenvatting via queue, registratie + e-mailverificatie, end-to-end queue-job.
-- **Voortgang (2026-07-18):** homepage, health, auth, registratie, opname+klantlink, klantwizard, foto-upload → **pass**. Geblokkeerd op afronden door boolean-validatiebug + regenerate-knop die niet POSTte; fixes in dezelfde PR. **Resterend na deploy:** hergenereren, volledige afronding → bedankt → rapport/review → AI/queue hertesten.
+- **Resultaat:** kernflow Fase 3–5 **pass** (incl. hergenereren, intrekken, foto's, afronden → bedankt, HTML-rapport, installateur-review). Tijdens de test bugs gevonden en gefixt (#14: boolean-validatie, regenerate-knop, foto-hydrate). AI-samenvatting **blocked** (`AI_PROVIDER=null`, soft-fail by design). Queue-worker niet los end-to-end bewezen; demo-user niet geseeded op staging. **Let op:** deze hertest liep vóór de deploy van BL-018/BL-017 — die flow-/template-wijzigingen hebben nog een eigen hertest nodig (zie `todo`-regels in `docs/functional-test-status.md`).
 - **Afhankelijkheden:** geen meer — BL-003 is done (uploadlimieten op staging ok).
-- **Let op:** resultaten alleen vastleggen in `docs/functional-test-status.md`, door de daadwerkelijk testende agent/tester.
 
 ### BL-003 — Staging PHP-uploadlimieten verifiëren/verhogen
 
@@ -110,11 +109,16 @@ De meest directe toepassing van het ontwerpprincipe: *de applicatie vraagt niets
 
 ### BL-016 — Hergebruik bekende gegevens (prefill)
 
-- **Status:** backlog · **Prioriteit:** high *(opgehoogd 2026-07-18 bij hoofddoel-herprioritering: de meest directe toepassing van het ontwerpprincipe — deterministisch, zonder externe afhankelijkheden, en pakt logisch mee met BL-017/BL-018)*
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-18 · **Ref:** [intake-engine.md § Prefill](../docs/intake-engine.md#prefill-van-bekende-gegevens-bl-016)
 - **Doel:** gegevens die al bekend zijn nooit opnieuw aan de aanvrager vragen:
   - wat de installateur bij het aanmaken al invulde (bijv. aanleiding/klantcontext) vooraf tonen of overslaan;
   - afleidbare waarden berekenen i.p.v. uitvragen;
   - binnen repeatable secties (ruimtes) zinvolle antwoorden van de vorige instantie als voorzet aanbieden.
+- **Resultaat:** deterministische prefill via vraag-`meta`, altijd als bewerkbare, gemarkeerde voorzet die de aanvrager bevestigt (geen LLM):
+  - **Installateur-prefill** (`installer_prefillable`): de installateur beantwoordt bekende `request`-vragen bij het aanmaken; opgeslagen met `intake_answers.prefill_source = 'installer'` en in de wizard getoond als "alvast ingevuld — controleer". Zet de intake niet op `in_progress`.
+  - **Repeatable-prefill** (`prefill_from_previous`): `IntakePrefillResolver` biedt in ruimte 2..n het antwoord van de vorige ruimte aan (airco: `floor_level`); pas bij "Volgende" opgeslagen als eigen antwoord.
+  - Airco **v3** gepubliceerd (v2-vragenset + vlaggen; ADR-0001). Nieuwe migratie `prefill_source`.
+- **Bewust nog niet (was derde deeldoel):** afleidbare/berekende waarden (bouwjaar, gebouwtype, geometrie) vergen externe bronnen (adres/BAG/foto's) en vallen onder **BL-019** en **BL-020** — daar opgepakt, met dezelfde voorzet-kaders.
 - **Kaders:** prefill is een voorzet, geen verborgen aanname — de aanvrager ziet en bevestigt wat is overgenomen. Deterministisch, geen LLM in deze keten (`docs/intake-engine.md`).
 
 ### BL-017 — Airco-template v2: vraag-voor-vraag audit op het ontwerpprincipe
@@ -214,6 +218,8 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 
 | ID | Afgerond | PR |
 |----|----------|-----|
-| BL-017 | 2026-07-18 | (deze PR) |
+| BL-016 | 2026-07-18 | (deze PR) — prefill (installateur + repeatable), airco v3 |
+| BL-002 | 2026-07-18 | #14 (fixes) + hertest na deploy |
+| BL-017 | 2026-07-18 | #21 |
 | BL-018 | 2026-07-18 | #18 |
 | BL-003 | 2026-07-18 | #12 (+ staging-verificatie via `/health`, docs #13) |

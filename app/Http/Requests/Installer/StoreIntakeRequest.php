@@ -29,6 +29,10 @@ class StoreIntakeRequest extends FormRequest
             'address_city' => ['nullable', 'string', 'max:120'],
             'internal_note' => ['nullable', 'string', 'max:5000'],
             'template_key' => ['required', 'string', Rule::exists('intake_templates', 'key')->where('is_active', true)],
+            // BL-016: optional installer pre-answers (question_key => value). CreateIntake
+            // whitelists these against the pinned version's installer_prefillable questions.
+            'prefill' => ['nullable', 'array'],
+            'prefill.*' => ['nullable'],
         ];
     }
 
