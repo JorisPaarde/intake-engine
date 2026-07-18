@@ -1,6 +1,6 @@
 # Intake-engine
 
-> **Documentversie:** 1.1 · **Laatste update:** 2026-07-17 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.2 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **geïmplementeerd t/m Fase 6** (compleetheid, rapport, beoordeling en AI-samenvatting).
 
@@ -42,7 +42,7 @@ Runtime leest altijd uit de database (de gepinde versie), nooit rechtstreeks uit
 ## Secties
 
 - Geordend (`sort_order`)
-- Klantflow: **één sectie (of substap) per scherm** op mobiel
+- Klantflow: **één sectie (of substap) per scherm** op mobiel *(gepland: één vraag per scherm — BL-018 in [docs/backlog.md](backlog.md))*
 - `is_repeatable`: bv. “Ruimtes” herhaalt zich N keer op basis van `repeat_count_question_key` (aantal binnenunits)
 
 `section_instance_key` op antwoorden/uploads: `null` voor normale secties, `room-1` … `room-n` voor herhalingen.
@@ -141,7 +141,16 @@ Geen nieuwe controllers per intaketype.
 
 ## Uitbreidingspunten (niet MVP)
 
+Gepland werk staat in [docs/backlog.md](backlog.md); relevante items voor de engine:
+
+- Vraag-voor-vraag klantflow, één vraag per scherm (BL-018)
+- Minder vragen: template-audit op het ontwerpprincipe (BL-017)
+- Afleiden uit adres/openbare bronnen: satellietbeeld, BAG-bouwjaar (BL-019)
+- Foto-gedreven afleiding en adaptieve vervolgvragen, bv. meterkastfoto → vrije groep (BL-020)
+- Prefill van bekende/afleidbare gegevens (BL-016)
+
+Verder buiten scope tot er vraag naar is:
+
 - Visuele templatebouwer
 - Per-bedrijf template-overrides
 - Branching naar volledig andere flows mid-intake
-- AI follow-up vragen (alleen ná deterministische basis)

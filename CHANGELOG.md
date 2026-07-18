@@ -28,6 +28,8 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
+- `docs/backlog.md` v3.5: feedback producteigenaar verwerkt — te veel intakevragen en slimmer verzamelen. Nieuwe items BL-018 (vraag-voor-vraag klantflow), BL-019 (afleiden uit adres/openbare bronnen: satellietbeeld, BAG) en BL-020 (foto-gedreven afleiding en adaptieve vervolgvragen, bv. meterkastfoto → vrije groep); BL-017 (template-audit) prioriteit medium → high met concrete schrap-/vervangkandidaten; volgorde-advies bijgewerkt.
+- `docs/intake-engine.md` v1.2: uitbreidingspunten verwijzen naar backlog-items (BL-016 t/m BL-020); geplande vraag-voor-vraag flow (BL-018) genoemd bij de sectieweergave.
 - `docs/backlog.md` v3.4: BL-001 → `in_progress` (Start demo-pad).
 - `docs/functional-test-status.md` v1.3: todo-regels voor publieke demo + purge (BL-001).
 - `docs/DEPLOYMENT.md` v1.4 + `.env.staging.example` / `.env.production.example`: `DEMO_*`-flags.

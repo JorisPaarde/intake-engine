@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 3.4 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.5 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -20,7 +20,7 @@ Status: `backlog` · `ready` · `in_progress` · `done` · `dropped` — priorit
 | E4 | AI bespaart beoordeelwerk | Samenvatting, aandachtspunten en fotokwaliteitscheck besparen de installateur leeswerk en de aanvrager een extra aanleverronde. AI blijft ondersteunend (docs/ai.md). |
 | E5 | Bruikbaar dossier & klaar voor groei | Het dossier moet buiten de browser bruikbaar zijn en het product moet zonder extra handelingen te ervaren, beheren en opschalen zijn. |
 
-Volgorde-advies: E1 eerst (bevat de `ready`/`high` items), daarna E2 en E3; E4 en E5 op basis van klantvraag en DPIA.
+Volgorde-advies: E1 eerst (bevat de lopende `high` items), direct gevolgd door de `high` items in E3 (BL-017 minder vragen + BL-018 vraag-voor-vraag flow — expliciete wens producteigenaar 2026-07-18); daarna E2 en de rest van E3; E4 en E5 op basis van klantvraag en DPIA.
 
 ## Overzicht
 
@@ -34,9 +34,12 @@ Volgorde-advies: E1 eerst (bevat de `ready`/`high` items), daarna E2 en E3; E4 e
 | BL-014 | Afrondingsnotificatie voor de installateur | E2 | backlog | medium |
 | BL-015 | Herinnering bij stilliggende intake | E2 | backlog | medium |
 | BL-016 | Hergebruik bekende gegevens (prefill) | E3 | backlog | medium |
-| BL-017 | Airco-template v2: vraag-voor-vraag audit op het ontwerpprincipe | E3 | backlog | medium |
+| BL-017 | Airco-template v2: vraag-voor-vraag audit op het ontwerpprincipe | E3 | backlog | high |
+| BL-018 | Vraag-voor-vraag klantflow (één vraag per scherm) | E3 | backlog | high |
+| BL-019 | Afleiden uit adres en openbare bronnen (satellietbeeld, BAG) | E3 | backlog | medium |
 | BL-006 | Externe LLM-provider (na DPIA) | E4 | backlog | medium |
 | BL-007 | AI-uitbreidingen: attention points, fotokwaliteit, accepteren/verwijderen | E4 | backlog | low |
+| BL-020 | Foto-gedreven afleiding en adaptieve vervolgvragen | E4 | backlog | medium |
 | BL-005 | PDF-export van rapporten | E5 | backlog | medium |
 | BL-001 | Demo-versie van de app | E5 | in_progress | medium |
 | BL-009 | Purge-job voor soft-deleted intakes (bewaartermijn) | E5 | backlog | medium |
@@ -113,10 +116,33 @@ De meest directe toepassing van het ontwerpprincipe: *de applicatie vraagt niets
 
 ### BL-017 — Airco-template v2: vraag-voor-vraag audit op het ontwerpprincipe
 
-- **Status:** backlog · **Prioriteit:** medium
+- **Status:** backlog · **Prioriteit:** high *(opgehoogd 2026-07-18: producteigenaar signaleert dat de intake nu veel te veel vragen bevat)*
 - **Doel:** elke vraag in de airco-template toetsen aan het ontwerpprincipe: is dit al bekend of afleidbaar (schrappen)? Is er een snellere/duidelijkere verzamelmethode (foto i.p.v. meetvraag, keuzelijst i.p.v. vrije tekst, boolean i.p.v. open vraag)? Feedback van installateurs meenemen.
+- **Richting (feedback producteigenaar 2026-07-18):** het totaal aantal vragen moet fors omlaag. Kandidaten om te schrappen of te vervangen door een foto/afleiding:
+  - kamermaten (`room_length_m`, `room_width_m`, `ceiling_height_m`) → op termijn inschatten uit `room_photos` (BL-020); tot die tijd op zijn minst optioneel of samengevoegd tot één indicatieve keuzevraag (klein/gemiddeld/groot);
+  - `free_group_known` → afleidbaar uit `fusebox_photo` (BL-020): vraag alleen stellen als de foto ontbreekt of geen uitsluitsel geeft;
+  - gevel/omgeving (`facade_overview_photo`, deels `outdoor_location`) → deels afleidbaar uit satellietbeeld op basis van adres (BL-019);
+  - vrije-tekstvragen (`outdoor_accessibility`, `pipe_route_description`, `drain_location`) → waar mogelijk keuzelijst of foto-opdracht;
+  - dubbele afstandsvragen (`distance_to_indoor`, `pipe_distance_indication`, `fusebox_distance`) → ontdubbelen of afleiden uit route-foto's.
 - **Uitvoering:** nieuwe templateversie publiceren volgens ADR-0001; lopende/afgeronde intakes blijven op v1; keys stabiel houden.
-- **Afhankelijkheden:** installateurs-feedback (kan uit BL-002/demo-gebruik komen).
+- **Afhankelijkheden:** installateurs-feedback (kan uit BL-002/demo-gebruik komen). Verwijderen van vragen hoeft níet te wachten op BL-019/BL-020; schrappen kan direct, afleiden komt daarna.
+
+### BL-018 — Vraag-voor-vraag klantflow (één vraag per scherm)
+
+- **Status:** backlog · **Prioriteit:** high
+- **Doel:** de klantwizard toont nu een hele sectie per scherm; de producteigenaar wil vragen **stap voor stap** stellen: één vraag (of één logisch mini-cluster, zoals een foto-opdracht met bijbehorende controle­vraag) per scherm, met autosave per antwoord en duidelijke voortgang.
+- **Waarom (hoofddoel):** één vraag per scherm voelt lichter, werkt beter op mobiel en maakt conditionele logica direct zichtbaar (vervolgvraag verschijnt pas als die relevant is) — minder scrollen en minder afhaken.
+- **Kaders:** de datastructuur (secties → vragen) blijft ongewijzigd; dit is een presentatielaag bovenop de bestaande engine. Sectietitels blijven als hoofdstukmarkering zichtbaar. Regels (`show`/`require`) evalueren per antwoord, zodat overgeslagen vragen nooit getoond worden.
+- **Afhankelijkheden:** geen harde; combineert goed met BL-017 (minder vragen) en BL-016 (prefill).
+
+### BL-019 — Afleiden uit adres en openbare bronnen (satellietbeeld, BAG)
+
+- **Status:** backlog · **Prioriteit:** medium
+- **Doel:** het adres is al bekend bij het aanmaken van de opname (`intakes.address_*`); gebruik dat om vragen te schrappen of te verifiëren i.p.v. ze te stellen:
+  - **Satelliet-/luchtfoto** (bijv. Google Maps Static API of PDOK-luchtfoto) tonen in het installateursrapport en als context bij de buitenunit-/gevelvragen — kan `facade_overview_photo` deels vervangen of de aanvrager alleen om bevestiging vragen ("klopt dit beeld van uw woning?");
+  - **BAG/open data:** bouwjaar (`build_year`) en gebouwtype (`building_type`) zijn vaak uit openbare registers af te leiden; toon als voorzet die de aanvrager alleen bevestigt (kader BL-016: prefill is een voorzet, geen verborgen aanname).
+- **Kaders:** afgeleide waarden zijn deterministisch of door de aanvrager bevestigd; API-keys via `.env`, nooit in git; kosten/quota van externe API's afwegen (PDOK/BAG is gratis en Nederlands, Google Maps betaald). Privacy: adres alleen naar externe API sturen als daar een verwerkingsgrondslag voor is — meenemen in dezelfde DPIA-lijn als BL-006.
+- **Afhankelijkheden:** geen harde; rapportintegratie kan los van de klantflow. Bij externe API's: DPIA-afweging (zie BL-006).
 
 ## Epic E4 — AI bespaart beoordeelwerk
 
@@ -134,6 +160,17 @@ AI mag nooit bron van waarheid zijn (docs/ai.md, ADR-0005), maar kan wél handel
 - **Doel:** `SuggestAttentionPoints`, `AssessPhotoUsability`, en UI waarmee de installateur AI-voorstellen accepteert of verwijdert. AI blijft ondersteunend, nooit bron van waarheid; niets blokkeert de kernflow.
 - **Waarom (hoofddoel):** `AssessPhotoUsability` geeft de aanvrager direct feedback ("foto te donker — maak er nog één") zolang die tóch al bezig is — dat is één handeling nu i.p.v. een hele extra ronde later.
 - **Afhankelijkheden:** BL-006 voor zinvolle kwaliteit (heuristic kan als tussenstap).
+
+### BL-020 — Foto-gedreven afleiding en adaptieve vervolgvragen
+
+- **Status:** backlog · **Prioriteit:** medium
+- **Doel:** foto's niet alleen opslaan maar er informatie uit **afleiden**, zodat vragen vervallen of juist gericht gesteld worden. Voorbeelden (richting, geen letterlijke scope):
+  - **Meterkastfoto:** herken of er een vrije groep is; zit de kast vol → stel gericht de vervolgvragen die daarbij horen (uitbreiding groepenkast, 1-fase/3-fase) en sla `free_group_known` als vraag over;
+  - **Ruimtefoto's:** schat afmetingen/volume van de kamer in → kamermaatvragen (BL-017) vervallen of worden een te bevestigen voorzet;
+  - **Route-/gevelfoto's:** schat leidinglengte en boringen in als voorzet voor de installateur.
+- **Kaders (ADR-0005, docs/ai.md):** AI-uitkomsten zijn altijd een **voorzet** — de aanvrager of installateur bevestigt; deterministische regels (`show`/`require`) blijven de enige poort voor verplichte velden. Een AI-afleiding mag een vraag *invullen als voorzet* of een *conditionele vervolgvraag activeren via een bevestigd antwoord*, maar nooit stil een verplicht veld wegnemen. Foto-analyse loopt async (ADR-0004) en mag de flow nooit blokkeren: geen of trage analyse = gewoon de vraag stellen.
+- **Uitvoering (gefaseerd):** eerst de template-kant (vragen conditioneel maken op een bevestigbaar afleidingsantwoord, via BL-017-versie), dan `AssessPhoto*`-acties achter `AiClientInterface`, dan de klantflow-integratie ("wij zien op uw foto X — klopt dat?").
+- **Afhankelijkheden:** BL-006 (externe multimodale LLM + DPIA) voor betrouwbare beeldherkenning; BL-007 legt de `AssessPhotoUsability`-basis; BL-017/BL-018 voor de template- en flowkant.
 
 ## Epic E5 — Bruikbaar dossier & klaar voor groei
 
