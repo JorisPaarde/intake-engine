@@ -12,6 +12,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Added
 
+- BL-001 publieke demo: homepage **Start demo** (`POST /demo/start`) maakt een tijdelijke airco-intake + klantlink (`is_demo`, TTL, watermerk, geen AI-job); hourly purge via `intakes:purge-demos`. Feature-flag `DEMO_ENABLED` (default uit).
 - `public/.user.ini` met PHP upload-limieten (`upload_max_filesize=10M`, `post_max_size=12M`) voor cPanel/LiteSpeed web-requests (BL-003).
 - `/health` exposeert `php_upload` (ini + app-limiet) zodat staging-limieten remote te meten zijn zonder SSH.
 - `AGENTS.md`: projectgeheugen met vast hoofddoel en vast ontwerpprincipe (alleen door producteigenaar aan te passen), snelstart-leesroutine en taakrouting (gericht lezen i.p.v. alles doorzoeken), documentkaart (bron van waarheid per onderwerp), versioneringsregels en verplicht onderhoudsprotocol voor agents.
@@ -27,6 +28,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
+- `docs/backlog.md` v3.4: BL-001 → `in_progress` (Start demo-pad).
+- `docs/functional-test-status.md` v1.3: todo-regels voor publieke demo + purge (BL-001).
+- `docs/DEPLOYMENT.md` v1.4 + `.env.staging.example` / `.env.production.example`: `DEMO_*`-flags.
+- README → v1.6: BL-001 demo-pad genoemd.
 - `docs/uploads.md` v1.3 + `docs/DEPLOYMENT.md` v1.3: staging-meting 2026-07-18 via `/health` (`512M`/`512M`); BL-003 afgerond (PR #13).
 - `docs/functional-test-status.md` v1.2: sessie 2026-07-18 (BL-002 browserhertest) met bevindingen.
 - `docs/backlog.md` v3.3: BL-003 → `done`, BL-002 → `in_progress` (merge PR #13 + BL-002-fixes).

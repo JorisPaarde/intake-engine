@@ -107,7 +107,9 @@ final class CompleteIntake
             return $intake->fresh(['report', 'attentionPoints']) ?? $intake;
         });
 
-        SummarizeIntakeJob::dispatch($completed->id);
+        if (! $completed->is_demo) {
+            SummarizeIntakeJob::dispatch($completed->id);
+        }
 
         return $completed;
     }

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Customer\IntakeUploadController as CustomerIntakeUploadController;
+use App\Http\Controllers\Demo\StartDemoController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\Installer\DashboardController;
 use App\Http\Controllers\Installer\IntakeController;
@@ -16,6 +17,10 @@ Route::get('/', function () {
 });
 
 Route::get('/health', HealthController::class)->name('health');
+
+Route::post('/demo/start', StartDemoController::class)
+    ->middleware('throttle:demo-start')
+    ->name('demo.start');
 
 Route::middleware(['customer.intake', 'throttle:customer-intake'])
     ->where(['token' => '[A-Za-z0-9]{64}'])
