@@ -26,6 +26,7 @@ use Illuminate\Support\Str;
  * @property Carbon|null $started_at
  * @property Carbon|null $completed_at
  * @property Carbon|null $reviewed_at
+ * @property Carbon|null $reminder_sent_at
  * @property int $progress_percent
  * @property bool $is_demo
  */
@@ -59,6 +60,7 @@ class Intake extends Model
         'started_at',
         'completed_at',
         'reviewed_at',
+        'reminder_sent_at',
         'completeness_snapshot',
     ];
 
@@ -74,10 +76,16 @@ class Intake extends Model
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
             'reviewed_at' => 'datetime',
+            'reminder_sent_at' => 'datetime',
             'progress_percent' => 'integer',
             'is_demo' => 'boolean',
             'completeness_snapshot' => 'array',
         ];
+    }
+
+    public function isAwaitingReview(): bool
+    {
+        return $this->status === IntakeStatus::Completed && $this->reviewed_at === null;
     }
 
     protected static function booted(): void

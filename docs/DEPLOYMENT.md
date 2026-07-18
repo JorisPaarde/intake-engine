@@ -1,6 +1,6 @@
 # Deployment naar cPanel (staging)
 
-> **Documentversie:** 1.6 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.7 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 **Statusregel:** open handmatige acties (env/host) staan in [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
 
@@ -120,6 +120,8 @@ cPanel → **Cron Jobs**, twee entries (pas `PHP_BIN` aan):
 
 Geen supervisor op cPanel; `--stop-when-empty --max-time=50` per minuut is de pragmatische variant. `queue:restart` in de deploy zorgt dat workers na een release verse code draaien.
 
+`schedule:run` dekt o.a. hourly `intakes:purge-demos`, daily `intakes:send-reminders` (BL-015) en daily `intakes:purge-deleted` (BL-009). De queue-worker verwerkt AI-samenvatting en PDF-export (BL-005).
+
 ## Database bij deploy
 
 `activate.sh` draait altijd:
@@ -163,10 +165,10 @@ Sjabloon: [`.env.staging.example`](../.env.staging.example). Na elke `.env`-wijz
 
 | # | Actie | Waar | Vars / stappen | Ontgrendelt |
 |---|--------|------|----------------|-------------|
-| 1 | **SMTP voor klantlink-mail** (BL-004) | `shared/.env` | Zie [§ Mail](#mail-bl-004). Zonder dit blijft de app bij `MAIL_MAILER=log` en **stuurt geen** klantlink-mail (bewust, ADR-0002). | Echte bezorging + smoke-test BL-004; later BL-014/BL-015-mail |
+| 1 | **SMTP voor mails** (BL-004/014/015) | `shared/.env` | Zie [§ Mail](#mail-bl-004). Zonder dit blijft de app bij `MAIL_MAILER=log` en **stuurt geen** klant-/installateursmails met tokens of notificaties (bewust, ADR-0002). | Echte bezorging + smoke-tests BL-004/014/015 |
 | 2 | **Publieke demo aanzetten** (BL-001) | `shared/.env` | `DEMO_ENABLED=true` (optioneel `DEMO_TTL_HOURS=12`). Zie [§ Publieke demo](#publieke-demo-bl-001). | Knop **Start demo** op `/`; daarna BL-001 → `done` na smoke |
 | 3 | **Eigen (sub)domein + Let’s Encrypt** (BL-011) | cPanel → Domains / SSL | Vervang `.cpanel.site` + self-signed. Zet daarna `APP_URL=https://…` in `shared/.env` en werk de README-omgevingstabel bij. | Geen Technical Domain-tussenscherm / browserwaarschuwing voor aanvragers |
-| 4 | **Cron controleren** (scheduler + queue) | cPanel → Cron Jobs | Twee jobs uit [§ Cron](#7-cron-scheduler--queue-worker) moeten actief zijn (`schedule:run` + `queue:work`). | Demo-purge, AI-jobs, latere herinneringen |
+| 4 | **Cron controleren** (scheduler + queue) | cPanel → Cron Jobs | Twee jobs uit [§ Cron](#7-cron-scheduler--queue-worker) moeten actief zijn (`schedule:run` + `queue:work`). | Demo-purge, herinneringen, soft-delete-purge, AI/PDF-jobs |
 
 ### Optioneel / later (niet blokkerend voor de kernflow)
 
@@ -194,11 +196,17 @@ DEMO_TTL_HOURS=12
 
 Daarna `php artisan config:cache` (of wacht op de volgende deploy-activate). Homepage toont **Start demo**; verlopen demo-intakes worden hourly gepurged (`intakes:purge-demos`). Productie: `DEMO_ENABLED=false` houden.
 
-## Mail (BL-004)
+## Mail (BL-004 / BL-014 / BL-015)
 
-Na het aanmaken van een opname (en na “Nieuwe link genereren” / “Opnieuw mailen”) stuurt de app een klantlink-mail naar `customer_email`. De kopieerbare link op de detailpagina blijft de fallback.
+De app stuurt (bij werkende SMTP):
 
-**Belangrijk (ADR-0002):** bij `MAIL_MAILER=log` wordt de klantlink-mail **niet** verstuurd — anders belandt het access-token in `storage/logs`. Zet op staging/productie echte SMTP:
+- **Klantlink** na aanmaken / hergenereren / “Opnieuw mailen” (BL-004)
+- **Afrondingsmail** naar de installateur na klant-afronden (BL-014)
+- **Herinnering** naar de klant na `INTAKE_REMINDER_DAYS` zonder afronding (BL-015; max. één)
+
+De kopieerbare klantlink op de detailpagina blijft de fallback. Dashboard-markering **Nieuw afgerond** (BL-014) werkt ook zonder SMTP.
+
+**Belangrijk (ADR-0002):** bij `MAIL_MAILER=log` worden mails met access-tokens **niet** verstuurd — anders belandt het token in `storage/logs`. Installateurs-afrondingsmail bevat geen token maar wordt om dezelfde staging-reden overgeslagen. Zet op staging/productie echte SMTP:
 
 ```env
 MAIL_MAILER=smtp
@@ -238,4 +246,4 @@ Minima via `.user.ini`: `upload_max_filesize=10M`, `post_max_size=12M`. Staging 
 - Geen production-deployworkflow nog
 - Workflow-staplabel kan “PHP 8.3” noemen terwijl `php-version` 8.4 is
 - `MEDIA_DISK` moet private `local` zijn voor intake-foto’s (niet `public`)
-- Rapporten zijn HTML (`generated_reports`); PDF-export bewust later (geen zware PDF-deps op shared cPanel)
+- Rapporten zijn HTML (`generated_reports`); PDF via lichte Dompdf-job (BL-005) — queue-worker nodig voor generatie

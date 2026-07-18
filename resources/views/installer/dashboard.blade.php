@@ -35,12 +35,26 @@
                         </thead>
                         <tbody class="divide-y divide-gray-100">
                             @forelse ($intakes as $intake)
-                                <tr class="hover:bg-gray-50">
-                                    <td class="px-4 py-3 text-gray-900">{{ $intake->customer_name }}</td>
+                                <tr @class([
+                                    'hover:bg-gray-50',
+                                    'bg-amber-50/70' => $intake->isAwaitingReview(),
+                                ])>
+                                    <td class="px-4 py-3 text-gray-900">
+                                        {{ $intake->customer_name }}
+                                        @if ($intake->isAwaitingReview())
+                                            <span class="ml-2 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">
+                                                Nieuw afgerond
+                                            </span>
+                                        @endif
+                                    </td>
                                     <td class="px-4 py-3 text-gray-600">{{ $intake->customer_email }}</td>
                                     <td class="px-4 py-3 text-gray-600">{{ $intake->templateVersion?->template?->name ?? '—' }}</td>
                                     <td class="px-4 py-3">
-                                        <span class="inline-flex rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800">
+                                        <span @class([
+                                            'inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium',
+                                            'bg-amber-100 text-amber-900' => $intake->isAwaitingReview(),
+                                            'bg-gray-100 text-gray-800' => ! $intake->isAwaitingReview(),
+                                        ])>
                                             {{ $intake->status->label() }}
                                         </span>
                                     </td>

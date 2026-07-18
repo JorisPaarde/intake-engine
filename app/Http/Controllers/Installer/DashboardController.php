@@ -18,6 +18,8 @@ class DashboardController extends Controller
         $intakes = Intake::query()
             ->with(['templateVersion.template'])
             ->where('is_demo', false)
+            // "Nieuw afgerond" (completed, nog niet beoordeeld) bovenaan — BL-014.
+            ->orderByRaw("CASE WHEN status = 'completed' AND reviewed_at IS NULL THEN 0 ELSE 1 END")
             ->latest()
             ->paginate(20);
 

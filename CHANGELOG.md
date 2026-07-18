@@ -6,6 +6,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Added
 
+- BL-014 afrondingsnotificatie: na afronden mailt `SendInstallerIntakeCompleted` de installateur (soft-fail / skip bij `MAIL_MAILER=log`); dashboard markeert en sorteert **Nieuw afgerond** (completed + nog niet beoordeeld).
+- BL-015 herinnering stilliggende intake: daily `intakes:send-reminders` stuurt max. één herinneringsmail met hervat-link na `INTAKE_REMINDER_DAYS` (default 3); kolom `reminder_sent_at`; stopt bij demo/ingetrokken/verlopen/afgerond; geen tokens in logs (ADR-0002).
+- BL-009 hard purge soft-deleted intakes: daily `intakes:purge-deleted` na `INTAKE_SOFT_DELETE_RETENTION_DAYS` (default 30) verwijdert dossier + foto’s + PDF via `HardDeleteIntake` (ook hergebruikt door demo-purge).
+- BL-005 PDF-export: async `GenerateIntakePdfJob` (Dompdf) na afronden; kolommen `pdf_disk`/`pdf_path`/`pdf_generated_at` op `generated_reports`; download + opnieuw genereren op de detailpagina; HTML blijft bron.
 - BL-004 automatische klantlink-mail: na aanmaken (en na token-hergenereren) stuurt `SendCustomerIntakeLink` een Nederlandse mailable; detailpagina heeft **Opnieuw mailen**. Kopieerbare link blijft fallback. Bij `MAIL_MAILER=log` wordt mail overgeslagen (geen tokens in logs, ADR-0002); soft-fail bij SMTP-fouten; demo-intakes mailen nooit. Activity-event `customer_link_mailed` zonder token/URL.
 - BL-008 HEIC/HEIF-ondersteuning bij foto-uploads: server-side MIME-detectie met ISO BMFF-brand-sniffing, automatische Imagick-conversie naar JPEG (auto-orient, metadata strippen, resize/kwaliteit binnen uploadlimiet), opslagmetadata op het genormaliseerde bestand en previews via de bestaande routes. CI voegt `imagick` toe; tests gebruiken `tests/Fixtures/sample.heic`.
 - BL-016 prefill van bekende gegevens (deterministisch, altijd als bewerkbare voorzet — geen LLM). Twee bronnen via vraag-`meta`: `installer_prefillable` (installateur vult `request`-vragen alvast in bij het aanmaken → `intake_answers.prefill_source='installer'`, in de wizard getoond als "alvast ingevuld — controleer") en `prefill_from_previous` (ruimte 2..n neemt `floor_level` over van de vorige ruimte via `IntakePrefillResolver`, pas opgeslagen bij "Volgende"). Airco **v3** gepubliceerd (v2-vragenset + vlaggen; ADR-0001). Nieuwe kolom `intake_answers.prefill_source`. Afleidbare waarden uit externe bronnen blijven BL-019/BL-020.
@@ -36,6 +40,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
+- `docs/backlog.md` v3.16 + `docs/database.md` v1.5 + `docs/DEPLOYMENT.md` v1.7 + `docs/functional-test-status.md` v1.10 + `docs/ARCHITECTURE.md` v1.2 + README v1.15: BL-014/015/005/009 → `done`; scheduler/mail/PDF/retention gedocumenteerd.
 - `docs/DEPLOYMENT.md` v1.6 + AGENTS.md v1.4 + README v1.14 + `docs/backlog.md` v3.15: checklist **Handmatige acties producteigenaar** (SMTP, `DEMO_ENABLED`, domein/SSL, cron; optioneel AI/productie/S3).
 - `docs/backlog.md` v3.14 + `docs/DEPLOYMENT.md` v1.5 + `docs/functional-test-status.md` v1.9 + README v1.13: BL-004 → `done` (code); SMTP-smoke op staging als todo.
 - `docs/backlog.md` v3.13: parallelisatie — bands A–I (herberekend na BL-002/BL-008/BL-016 done), kolom **Band** in overzichtstabel, **Parallel**-regels per open item; concrete parallel-startsets.
@@ -73,6 +78,8 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Config
 
+- `INTAKE_REMINDER_DAYS`, `INTAKE_SOFT_DELETE_RETENTION_DAYS` in `.env*.example` + `config/intake.php` (`reminder`, `retention`).
+- Dependency `barryvdh/laravel-dompdf` voor PDF-export (BL-005).
 - `.env*.example` + `docs/DEPLOYMENT.md` § Mail: SMTP-placeholders voor BL-004; bij `MAIL_MAILER=log` geen klantlink-mail (ADR-0002).
 - `config/intake.php` splitst upload-input (`accepted_mimes`/`accepted_extensions`, incl. HEIC/HEIF) van opgeslagen types (`stored_mimes`/`stored_extensions`) en voegt `uploads.conversion` toe.
 - `AI_PROVIDER`, `AI_API_KEY`, `AI_TIMEOUT_SECONDS`, `config/ai.php`
@@ -82,8 +89,8 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 ### Known limitations
 
 - Geen externe LLM-provider nog (alleen null/fake/heuristic); OpenAI e.d. later na DPIA.
-- PDF-export van rapporten bewust later (HTML eerst; shared cPanel is geen betrouwbare PDF-host).
-- Staging klantlink-mail wacht op echte SMTP in `shared/.env` (bij `MAIL_MAILER=log` skip + kopieerbare link).
+- Staging-mails (klantlink, afrondingsnotificatie, herinnering) wachten op echte SMTP in `shared/.env` (bij `MAIL_MAILER=log` skip).
+- Soft-delete-UI voor intakes ontbreekt nog; BL-009-purge is klaar zodra dossiers soft-deleted worden.
 - Demo-user `installateur@example.com` ontbreekt op staging (deploy seedt alleen templates).
 - Multi-tenancy bewust afwezig.
 - Demo-versie: code geleverd (BL-001); staging-flag + smoke nog open.

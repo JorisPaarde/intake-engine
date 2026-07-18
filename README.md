@@ -1,6 +1,6 @@
 # Intake Engine (Digitale Opname)
 
-> **Documentversie:** 1.14 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](AGENTS.md)
+> **Documentversie:** 1.15 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](AGENTS.md)
 
 **Werk je als agent aan dit project? Lees eerst [AGENTS.md](AGENTS.md)** — het projectgeheugen, de documentkaart en het onderhoudsprotocol.
 
@@ -99,4 +99,4 @@ De volledige documentkaart — welk document waarvoor de bron van waarheid is �
 
 ## Huidige status
 
-**MVP-fasen 1–6 afgerond en gemerged naar `main`** (t/m AI-samenvatting). Open werk: [docs/backlog.md](docs/backlog.md). PHP-uploadlimieten op staging ok (BL-003 done). Staging kernflow Fase 3–5 hertest → **BL-002 done** (AI-samenvatting blocked bij `AI_PROVIDER=null`). BL-018 vraag-voor-vraag + BL-017 airco-template v2 (minder vragen) + BL-016 prefill (airco v3). BL-008 HEIC/HEIF-uploadconversie geïmplementeerd; staging iPhone-smoketest staat nog als todo. BL-004 klantlink-mail + BL-001 demo: code klaar — open **host/env-acties** (SMTP, `DEMO_ENABLED`, domein/SSL) in [docs/DEPLOYMENT.md § Handmatige acties](docs/DEPLOYMENT.md#handmatige-acties-producteigenaar). Volgende high: BL-011 (eigen domein/SSL). Handmatige teststatus: [docs/functional-test-status.md](docs/functional-test-status.md).
+**MVP-fasen 1–6 afgerond en gemerged naar `main`** (t/m AI-samenvatting). Open werk: [docs/backlog.md](docs/backlog.md). Recent code: BL-014 afrondingsnotificatie, BL-015 herinneringsmail, BL-005 PDF-export (Dompdf), BL-009 soft-delete-purge. BL-001 demo: code klaar — open **host/env-acties** (SMTP, `DEMO_ENABLED`, domein/SSL) in [docs/DEPLOYMENT.md § Handmatige acties](docs/DEPLOYMENT.md#handmatige-acties-producteigenaar). Volgende high: BL-011 (eigen domein/SSL). Handmatige teststatus: [docs/functional-test-status.md](docs/functional-test-status.md).

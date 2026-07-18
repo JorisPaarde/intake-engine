@@ -1,6 +1,6 @@
 # Architectuurkeuzes
 
-> **Documentversie:** 1.1 · **Laatste update:** 2026-07-17 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.2 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 ## Uitgangspunt: engine, geen airco-app
 
@@ -60,7 +60,7 @@ Bestaande Breeze-componenten hergebruiken; geen nieuw designsysteem.
 
 ## Queues
 
-`QUEUE_CONNECTION=database` blijft. Kernintake is **synchronisch** (ADR-0004). AI/PDF later as jobs. cPanel-cron worker: zie `docs/DEPLOYMENT.md`.
+`QUEUE_CONNECTION=database` blijft. Kernintake is **synchronisch** (ADR-0004). AI-samenvatting en PDF-export (BL-005, Dompdf) lopen as jobs. cPanel-cron worker: zie `docs/DEPLOYMENT.md`.
 
 ## Storage
 
@@ -95,7 +95,7 @@ Build in GitHub Actions, rsync release, `deploy/activate.sh` (migrate, cache, at
 1. **cPanel** — cron-queue i.p.v. Supervisor; gedeelde PHP-limieten (uploads! zie BL-003 in `docs/backlog.md`).
 2. **Token plaintext in DB** — hertoonbare link vs. hash-only (ADR-0002).
 3. **Geen companies-tabel** — sneller MVP; later tenant-scope toevoegen (BL-012).
-4. **HTML-rapport eerst** — PDF alleen als hosting het betrouwbaar aankan (BL-005).
+4. **HTML-rapport eerst** — PDF is een afgeleid async artefact (BL-005 done; Dompdf).
 
 ## Gerelateerde documentatie
 

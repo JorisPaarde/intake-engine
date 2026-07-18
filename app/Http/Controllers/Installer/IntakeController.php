@@ -9,6 +9,7 @@ use App\Domains\Intake\Actions\RegenerateIntakeAccessToken;
 use App\Domains\Intake\Actions\RevokeIntakeAccess;
 use App\Domains\Intake\Actions\SendCustomerIntakeLink;
 use App\Domains\Intake\Actions\SubmitIntakeReview;
+use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeTemplate;
@@ -19,7 +20,10 @@ use App\Http\Requests\Installer\StoreIntakeReviewRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class IntakeController extends Controller
 {
@@ -156,5 +160,49 @@ class IntakeController extends Controller
         return redirect()
             ->route('intakes.show', $intake)
             ->with('status', $mailResult->flashMessage('resend'));
+    }
+
+    public function downloadPdf(Intake $intake): StreamedResponse
+    {
+        $this->authorize('view', $intake);
+
+        $intake->loadMissing('report');
+        $report = $intake->report;
+
+        if ($report === null || ! $report->hasPdf()) {
+            throw new NotFoundHttpException('PDF is nog niet beschikbaar.');
+        }
+
+        $disk = (string) $report->pdf_disk;
+        $path = (string) $report->pdf_path;
+
+        if (! Storage::disk($disk)->exists($path)) {
+            throw new NotFoundHttpException('PDF-bestand ontbreekt.');
+        }
+
+        $filename = 'opname-'.$intake->uuid.'.pdf';
+
+        return Storage::disk($disk)->download($path, $filename, [
+            'Content-Type' => 'application/pdf',
+        ]);
+    }
+
+    public function regeneratePdf(Intake $intake): RedirectResponse
+    {
+        $this->authorize('view', $intake);
+
+        $intake->loadMissing('report');
+
+        if ($intake->report === null) {
+            return redirect()
+                ->route('intakes.show', $intake)
+                ->with('status', 'Er is nog geen rapport om als PDF te exporteren.');
+        }
+
+        GenerateIntakePdfJob::dispatch($intake->id);
+
+        return redirect()
+            ->route('intakes.show', $intake)
+            ->with('status', 'PDF-export is in de wachtrij gezet. Vernieuw deze pagina over een moment.');
     }
 }

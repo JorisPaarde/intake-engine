@@ -12,6 +12,9 @@ class GeneratedReport extends Model
     protected $fillable = [
         'intake_id',
         'html',
+        'pdf_disk',
+        'pdf_path',
+        'pdf_generated_at',
         'meta',
         'generated_at',
     ];
@@ -24,6 +27,7 @@ class GeneratedReport extends Model
         return [
             'meta' => 'array',
             'generated_at' => 'datetime',
+            'pdf_generated_at' => 'datetime',
         ];
     }
 
@@ -31,5 +35,10 @@ class GeneratedReport extends Model
     public function intake(): BelongsTo
     {
         return $this->belongsTo(Intake::class);
+    }
+
+    public function hasPdf(): bool
+    {
+        return filled($this->pdf_disk) && filled($this->pdf_path);
     }
 }

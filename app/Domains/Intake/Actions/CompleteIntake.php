@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domains\Intake\Actions;
 
 use App\Domains\AI\Jobs\SummarizeIntakeJob;
+use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
 use App\Domains\Intake\Models\GeneratedReport;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
@@ -109,6 +110,8 @@ final class CompleteIntake
 
         if (! $completed->is_demo) {
             SummarizeIntakeJob::dispatch($completed->id);
+            GenerateIntakePdfJob::dispatch($completed->id);
+            app(SendInstallerIntakeCompleted::class)->handle($completed);
         }
 
         return $completed;
