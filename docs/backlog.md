@@ -256,10 +256,10 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 
 | ID | Afgerond | PR |
 |----|----------|-----|
-| BL-014 | 2026-07-18 | afrondingsmail + dashboard “Nieuw afgerond” |
-| BL-015 | 2026-07-18 | `intakes:send-reminders` + `reminder_sent_at` |
-| BL-005 | 2026-07-18 | Dompdf PDF-export + download |
-| BL-009 | 2026-07-18 | `intakes:purge-deleted` + `HardDeleteIntake` |
+| BL-014 | 2026-07-18 | #26 — afrondingsmail + dashboard “Nieuw afgerond” |
+| BL-015 | 2026-07-18 | #26 — `intakes:send-reminders` + `reminder_sent_at` |
+| BL-005 | 2026-07-18 | #26 — Dompdf PDF-export + download |
+| BL-009 | 2026-07-18 | #26 — `intakes:purge-deleted` + `HardDeleteIntake` |
 | BL-004 | 2026-07-18 | #25 — klantlink-mail + Opnieuw mailen; SMTP op staging nog te zetten |
 | BL-008 | 2026-07-18 | #24 — HEIC/HEIF → JPEG (Imagick) |
 | BL-016 | 2026-07-18 | #22 — prefill (installateur + repeatable), airco v3 |
