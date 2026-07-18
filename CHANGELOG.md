@@ -19,6 +19,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
+- Documentstructuur ontdubbeld ("één bron per feit"): de geheugenkaart in AGENTS.md is nu de enige volledige documentkaart — de README-documentatietabel is vervangen door een verwijzing plus drie snelle ingangen; werkafspraken (branching, kwaliteit) hebben AGENTS.md § Werkafspraken als enige bron; README-secties Storage/Queues/Logging samengevoegd tot één verwijzende "Runtime"-sectie. README → v1.3, AGENTS.md → v1.1.
 - `docs/backlog.md` v3.0: alle items gegroepeerd in vijf epics (E1 frictieloze basisflow, E2 communicatie zonder handwerk, E3 vraag minder/verzamel slimmer, E4 AI bespaart beoordeelwerk, E5 bruikbaar dossier & groei), elk expliciet herleid naar het vaste hoofddoel en ontwerpprincipe in AGENTS.md; nieuwe items BL-014 (afrondingsnotificatie), BL-015 (herinnering stilliggende intake), BL-016 (prefill/hergebruik bekende gegevens), BL-017 (airco-template v2 audit); BL-008 (HEIC) prioriteit low → medium.
 - `docs/backlog.md` v2.0: geherstructureerd tot de enige projectbacklog met stabiele ID's (BL-001 t/m BL-013), status, prioriteit en afhankelijkheden; alle bekende uitgestelde items (demo, hertest, uploadlimieten, SMTP, PDF, externe LLM, HEIC, purge-job, production deploy, domein/SSL, multi-tenancy, S3) opgenomen.
 - `docs/implementation-plan.md` gemarkeerd als afgeronde historie (Fase 1–6 klaar); nieuw werk hoort in de backlog.

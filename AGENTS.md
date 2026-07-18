@@ -1,6 +1,6 @@
 # AGENTS.md — Projectgeheugen & werkinstructies
 
-> **Documentversie:** 1.0 · **Laatste update:** 2026-07-17 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
+> **Documentversie:** 1.1 · **Laatste update:** 2026-07-18 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
 
 Dit bestand is de **centrale ingang** voor iedere agent (of mens) die aan dit project werkt. Het beschrijft waar het projectgeheugen leeft, welk document waarvoor de bron van waarheid is, en hoe je dat geheugen bijhoudt. **Lees dit bestand aan het begin van elke taak.**
 
@@ -68,6 +68,7 @@ Twijfel je onder welk taaktype je werk valt, gebruik dan de geheugenkaart hieron
 | Welke fasen zijn (op)geleverd? | [docs/implementation-plan.md](docs/implementation-plan.md) (historie, afgerond) |
 | Wat is het nog te bouwen werk? | [docs/backlog.md](docs/backlog.md) (**enige** backlog) |
 | Wat is functioneel getest (handmatig)? | [docs/functional-test-status.md](docs/functional-test-status.md) |
+| Welke werkafspraken gelden (branching, taal, kwaliteit, privacy)? | [§ Werkafspraken](#werkafspraken) in dit bestand |
 | Hoe werk ik als agent, hoe onderhoud ik dit geheugen? | dit bestand (AGENTS.md) |
 
 Regels bij de kaart:
@@ -131,12 +132,12 @@ Deze regels zorgen dat de snelstart-routine blijft werken en agents niet alles h
 - **Eerste regels dragen de kern.** Elk beheerd document opent met titel, versieheader en (waar zinvol) één statusregel. Wie alleen die regels leest, weet of het document relevant en actueel is.
 - **Stabiele koppen.** Sectiekoppen (en dus anchors) niet hernoemen zonder de verwijzingen in de geheugenkaart, taakroutingtabel en andere docs mee te wijzigen.
 - **Nieuwe informatie op de verwachte plek.** Voeg feiten toe in het document (en de sectie) waar de geheugenkaart ze verwacht; maak geen parallelle plekken.
-- **Overzichtstabellen actueel houden.** De backlog-overzichtstabel en de README-documentatietabel zijn de snelle indexen; wijzig je items of documenten, werk die tabellen in dezelfde PR bij.
+- **Overzichtstabellen actueel houden.** De backlog-overzichtstabel en de geheugenkaart hierboven zijn de snelle indexen; wijzig je items of documenten, werk die tabellen in dezelfde PR bij. (De README bevat bewust géén eigen documentatietabel meer — alleen een verwijzing naar de geheugenkaart.)
 
 ### Wat je níet doet
 
 - **Het [Hoofddoel](#hoofddoel-vast--niet-door-agents-aan-te-passen) of [Ontwerpprincipe](#ontwerpprincipe-vast--niet-door-agents-aan-te-passen) aanpassen.** Die teksten zijn van de producteigenaar; agents blijven eraf, in elke vorm.
-- Geen nieuwe top-level `.md`-bestanden aanmaken zonder ze aan de geheugenkaart (hierboven) en de README-documentatietabel toe te voegen.
+- Geen nieuwe top-level `.md`-bestanden aanmaken zonder ze aan de geheugenkaart (hierboven) toe te voegen.
 - Geen dubbele waarheid creëren (zelfde feit uitgeschreven in twee docs).
 - Geen ADRs herschrijven, geen `[Unreleased]`-changelog-items verwijderen.
 - Geen statusclaims ("werkt op staging") zonder dat `docs/functional-test-status.md` dat dekt.
@@ -151,7 +152,9 @@ Deze regels zorgen dat de snelstart-routine blijft werken en agents niet alles h
 - Klaar: status `done` + datum + PR-nummer. Verwijder `done`-items niet; ze zijn geheugen.
 - Vervalt een item: status `dropped` + één regel waarom.
 
-## Werkafspraken (samenvatting)
+## Werkafspraken
+
+Dit is de bron van waarheid voor deze afspraken; andere documenten (waaronder de README) verwijzen hierheen en herhalen ze niet.
 
 - **Branching:** `main` is deploybaar; feature branches + PR, CI groen vóór merge. Merge naar `main` deployt automatisch naar staging.
 - **Taal:** documentatie en UI in het Nederlands; code, keys en identifiers in het Engels.
