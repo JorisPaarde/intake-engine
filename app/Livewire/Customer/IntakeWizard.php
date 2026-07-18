@@ -186,11 +186,15 @@ class IntakeWizard extends Component
         $remainder = substr($property, strlen('form.'));
 
         if (preg_match('/^(.*)\.(text|value|number|bool)$/', $remainder, $matches) === 1) {
-            unset($this->prefillNotice[$matches[1]]);
-            $this->persistComposite($matches[1]);
+            $composite = $matches[1];
+            $field = $matches[2];
+
+            unset($this->prefillNotice[$composite]);
+            $this->persistComposite($composite);
             $this->saveMessage = 'Opgeslagen';
             $this->showMissing = false;
             $this->realignToActiveStep();
+            $this->maybeAutoAdvanceAfterChoice($composite, $field);
 
             return;
         }
@@ -202,6 +206,30 @@ class IntakeWizard extends Component
             $this->showMissing = false;
             $this->realignToActiveStep();
         }
+    }
+
+    /**
+     * Commit a short_text/number value from Enter, then advance (BL-023).
+     * Needed because wire:model.blur has not synced yet when Enter is pressed.
+     */
+    public function advanceFromEnter(string $composite, string $field, mixed $value): void
+    {
+        if ($this->completed || ! in_array($field, ['text', 'number'], true)) {
+            return;
+        }
+
+        if (! is_array($this->form[$composite] ?? null)) {
+            $this->form[$composite] = [];
+        }
+
+        $this->form[$composite][$field] = $value;
+
+        unset($this->prefillNotice[$composite]);
+        $this->persistComposite($composite);
+        $this->saveMessage = 'Opgeslagen';
+        $this->showMissing = false;
+        $this->realignToActiveStep();
+        $this->next();
     }
 
     /**
@@ -408,6 +436,60 @@ class IntakeWizard extends Component
             $this->applyPrefillForActiveStep();
             $this->saveMessage = '';
         }
+    }
+
+    /**
+     * After a single_choice/boolean save: advance one step when still on that question (BL-023).
+     * Skips multi_choice / text / photo. Does not auto-complete the last step.
+     * realignToActiveStep() must run first so a newly visible follow-up is never skipped.
+     */
+    private function maybeAutoAdvanceAfterChoice(string $composite, string $field): void
+    {
+        if (! in_array($field, ['value', 'bool'], true)) {
+            return;
+        }
+
+        $step = $this->currentStep();
+        if ($step === null) {
+            return;
+        }
+
+        $stepComposite = VisibilityResolver::compositeKey(
+            $step['question_key'],
+            $step['section_instance_key'],
+        );
+
+        // realign moved us off this question — stay put (e.g. current became hidden).
+        if ($stepComposite !== $composite) {
+            return;
+        }
+
+        $question = app(IntakeStepBuilder::class)->questionForStep(
+            $this->version(),
+            $step['section_key'],
+            $step['question_key'],
+        );
+
+        if (! $question instanceof IntakeQuestion) {
+            return;
+        }
+
+        if (! in_array($question->type, [QuestionType::SingleChoice, QuestionType::Boolean], true)) {
+            return;
+        }
+
+        if (! $this->currentStepRequiredSatisfied()) {
+            return;
+        }
+
+        $steps = $this->steps();
+        if ($this->stepIndex >= count($steps) - 1) {
+            return;
+        }
+
+        $this->next();
+        // Brief confirmation on the following screen.
+        $this->saveMessage = 'Opgeslagen';
     }
 
     public function previous(): void

@@ -201,6 +201,86 @@ test('livewire string booleans satisfy required checks and allow next', function
         ->assertSet('activeStepKey', 'outdoor_unit::outdoor_location_photos');
 });
 
+test('single choice auto-advances after selecting an option', function () {
+    $intake = makeAccessibleIntake();
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('form.request_reason.text', 'Te warm')
+        ->call('next')
+        ->assertSet('activeStepKey', 'request::cooling_heating')
+        ->set('form.cooling_heating.value', 'cooling')
+        ->assertSet('activeStepKey', 'request::indoor_unit_count')
+        ->assertSet('saveMessage', 'Opgeslagen')
+        ->assertSee('Hoeveel binnenunits wilt u ongeveer?');
+});
+
+test('boolean auto-advances after choosing ja or nee', function () {
+    $intake = makeAccessibleIntake();
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('activeStepKey', 'outdoor_unit::noise_sensitive')
+        ->set('form.noise_sensitive.bool', '0')
+        ->assertSet('showMissing', false)
+        ->assertSet('activeStepKey', 'outdoor_unit::outdoor_location_photos')
+        ->assertSet('saveMessage', 'Opgeslagen');
+});
+
+test('short text blur save does not auto-advance', function () {
+    $intake = makeAccessibleIntake();
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('form.request_reason.text', 'Te warm')
+        ->assertSet('activeStepKey', 'request::request_reason')
+        ->assertSet('saveMessage', 'Opgeslagen')
+        ->assertSee('Wat is de reden van uw aanvraag?');
+});
+
+test('multi choice values update does not auto-advance', function () {
+    $intake = makeAccessibleIntake();
+
+    // Geen multi_choice in airco-template; wel het .values-pad van updated() afdekken.
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('form.request_reason.values', ['a'])
+        ->assertSet('activeStepKey', 'request::request_reason')
+        ->assertSet('saveMessage', 'Opgeslagen');
+});
+
+test('previous still works after an auto-advanced choice', function () {
+    $intake = makeAccessibleIntake();
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('form.request_reason.text', 'Te warm')
+        ->call('next')
+        ->set('form.cooling_heating.value', 'cooling')
+        ->assertSet('activeStepKey', 'request::indoor_unit_count')
+        ->call('previous')
+        ->assertSet('activeStepKey', 'request::cooling_heating')
+        ->assertSee('Wilt u koelen, verwarmen of beide?');
+});
+
+test('enter on short text advances to the next step', function () {
+    $intake = makeAccessibleIntake();
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->assertSet('activeStepKey', 'request::request_reason')
+        ->call('advanceFromEnter', 'request_reason', 'text', 'Te warm op zolder')
+        ->assertSet('showMissing', false)
+        ->assertSet('activeStepKey', 'request::cooling_heating')
+        ->assertSee('Wilt u koelen, verwarmen of beide?');
+});
+
+test('enter on number advances to the next step', function () {
+    $intake = makeAccessibleIntake();
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('form.request_reason.text', 'Te warm')
+        ->call('next')
+        ->set('form.cooling_heating.value', 'cooling')
+        ->assertSet('activeStepKey', 'request::indoor_unit_count')
+        ->call('advanceFromEnter', 'indoor_unit_count', 'number', '1')
+        ->assertSet('activeStepKey', 'request::brand_preference');
+});
+
 test('wizard resumes on the stored question cursor', function () {
     $intake = makeAccessibleIntake();
     $intake->update([
