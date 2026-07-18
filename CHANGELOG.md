@@ -33,6 +33,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
+- `docs/backlog.md` v3.10: parallelisatie — bands A–I, kolom **Band** in overzichtstabel, **Parallel**-regels per open item; concrete parallel-startsets.
 - `docs/backlog.md` v3.9: BL-017 → `done` (airco-template v2).
 - `docs/intake-engine.md` v1.4 + `docs/database.md` v1.3: airco v2-documentatie en seeddata.
 - README → v1.9: status BL-017.
