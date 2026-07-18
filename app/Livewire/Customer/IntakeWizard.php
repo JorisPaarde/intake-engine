@@ -128,7 +128,11 @@ class IntakeWizard extends Component
 
         try {
             app(DeleteIntakeUpload::class)->handle($this->intake(), $upload);
-            $this->hydrateFormFromAnswers();
+            $composite = VisibilityResolver::compositeKey(
+                $upload->question_key,
+                $upload->section_instance_key,
+            );
+            $this->refreshAnswerInForm($composite);
             $this->saveMessage = 'Foto verwijderd';
             $this->showMissing = false;
         } catch (ValidationException $e) {
@@ -190,7 +194,8 @@ class IntakeWizard extends Component
                 $file,
             );
             $this->photoFiles[$composite] = null;
-            $this->hydrateFormFromAnswers();
+            // Alleen deze foto-composite verversen — volledige hydrate wist niet-opgeslagen velden.
+            $this->refreshAnswerInForm($composite);
             $this->saveMessage = 'Foto opgeslagen';
             $this->showMissing = false;
             $this->resetErrorBag('photoFiles.'.$composite);
@@ -375,6 +380,23 @@ class IntakeWizard extends Component
         }
 
         $this->form = $form;
+    }
+
+    private function refreshAnswerInForm(string $composite): void
+    {
+        [$questionKey, $instanceKey] = $this->splitComposite($composite);
+
+        $query = $this->intake()->answers()
+            ->where('question_key', $questionKey);
+
+        if ($instanceKey === null) {
+            $query->whereNull('section_instance_key');
+        } else {
+            $query->where('section_instance_key', $instanceKey);
+        }
+
+        $answer = $query->first();
+        $this->form[$composite] = $answer === null ? [] : ($answer->value ?? []);
     }
 
     private function persistComposite(string $composite): void

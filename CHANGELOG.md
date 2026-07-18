@@ -4,6 +4,12 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Fixed
+
+- Klantintake: verplichte Ja/Nee-vragen (Livewire `"1"`/`"0"`) werden niet als beantwoord gezien → “Volgende”/afronden geblokkeerd (`AnswerValueReader`).
+- Foto-upload ververste alleen nog de betreffende form-composite i.p.v. de hele form-state te wissen.
+- “Nieuwe link genereren” diende het formulier niet in (`x-secondary-button` default `type=button` → nu `type=submit`).
+
 ### Added
 
 - `public/.user.ini` met PHP upload-limieten (`upload_max_filesize=10M`, `post_max_size=12M`) voor cPanel/LiteSpeed web-requests (BL-003).
@@ -21,9 +27,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
-- `docs/uploads.md` v1.3 + `docs/DEPLOYMENT.md` v1.3: staging-meting 2026-07-18 via `/health` (`512M`/`512M`); BL-003 afgerond.
-- `docs/backlog.md` v3.2: BL-003 → `done` (PR #12 + staging-verificatie).
-- README → v1.5: statusregel — BL-003 done, hoogste prioriteit BL-002.
+- `docs/uploads.md` v1.3 + `docs/DEPLOYMENT.md` v1.3: staging-meting 2026-07-18 via `/health` (`512M`/`512M`); BL-003 afgerond (PR #13).
+- `docs/functional-test-status.md` v1.2: sessie 2026-07-18 (BL-002 browserhertest) met bevindingen.
+- `docs/backlog.md` v3.3: BL-003 → `done`, BL-002 → `in_progress` (merge PR #13 + BL-002-fixes).
+- README → v1.5: BL-003 done; BL-002 browserhertest bezig.
 - `docs/uploads.md` v1.2 + `docs/DEPLOYMENT.md` v1.2: upload-limieten via `.user.ini` als voorkeur; meetinstructie via `/health`.
 - `docs/backlog.md` v3.1: BL-003 → `in_progress`.
 - README → v1.4: statusregel BL-003 bijgewerkt.
@@ -47,6 +54,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 - PDF-export van rapporten bewust later (HTML eerst; shared cPanel is geen betrouwbare PDF-host).
 - HEIC niet in allowlist (alleen jpeg/png/webp).
 - Geen automatische e-mail (staging mail = log); alleen kopieerbare link.
+- Demo-user `installateur@example.com` ontbreekt op staging (deploy seedt alleen templates).
 - Multi-tenancy bewust afwezig.
 - Demo-versie: backlog (issue #5), nog niet gebouwd.
 

@@ -1,35 +1,36 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.1 · **Laatste update:** 2026-07-17 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.2 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
 **Niet** invullen via geautomatiseerde agent-implementatie; bijwerken door de testende agent of tester. Implementerende agents voegen alleen nieuwe `todo`-regels toe voor functionaliteit die zij introduceren.
 
-Laatste testsessie: 2026-07-17 (getest op staging via de browser)
+Laatste testsessie: 2026-07-18 (staging via headless Chromium/Playwright; cPanel 428 Technical Domain dismissed)
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
 | Deploy-pipeline (push -> Actions -> rsync -> activate -> live) | pass | 2026-07-17 | Atomische symlink-swap werkt; release schoon geserveerd |
-| /health (app boot + DB-verbinding) | pass | 2026-07-17 | JSON ok, environment=staging, database=ok |
-| /login rendert | pass | 2026-07-17 | Toont loginformulier |
-| Auth-beveiliging dashboard/intakes | pass | 2026-07-17 | Middleware auth+verified aanwezig; ingelogd toegang werkt. Uitgelogde redirect niet los getest (browser was ingelogd) - gedekt door CI-tests |
-| Dashboard weergave | pass | 2026-07-17 | Lege staat en met opname |
-| Opname aanmaken (Airco) | pass | 2026-07-17 | Opgeslagen, verschijnt op dashboard |
-| Beveiligde klantlink genereren | pass | 2026-07-17 | Token + geldig tot-datum |
-| Klantlink hergenereren | pass | 2026-07-17 | Nieuw token gegenereerd |
-| Klantlink intrekken | pass | 2026-07-17 | Opname naar status Geannuleerd |
+| /health (app boot + DB-verbinding) | pass | 2026-07-18 | JSON ok; `php_upload` 512M/512M (BL-003) |
+| /login rendert | pass | 2026-07-18 | Toont loginformulier |
+| Auth-beveiliging dashboard/intakes | pass | 2026-07-18 | Uitgelogd → redirect `/login` (na dismiss 428-interstitial) |
+| Dashboard weergave | pass | 2026-07-18 | Bereikbaar na registratie |
+| Opname aanmaken (Airco) | pass | 2026-07-18 | Opgeslagen, detail + klantlink |
+| Beveiligde klantlink genereren | pass | 2026-07-18 | Token-URL `/o/{64}` |
+| Klantlink hergenereren | fail | 2026-07-18 | Knop diende niet in (secondary-button default `type=button`). Fix in PR |
+| Klantlink intrekken | todo | - | Niet opnieuw gedaan in 2026-07-18-sessie (destructief); eerder pass 2026-07-17 |
 | Migraties + logs op server | pass | 2026-07-17 | Alle migraties Ran; geen errors in logs |
-| Airco-template beschikbaar | pass | 2026-07-17 | Ontbrak eerst (deploy seedde niet); handmatig geseed. Fase 3 voegt template-seeding aan deploy toe |
-| Homepage / (producthomepage Fase 3) | todo | - | Bij test nog Laravel-welcome; producthomepage nog niet visueel geverifieerd |
-| Registratie /register | todo | - | Niet getest; e-mailverificatie vereist (mail=log op staging) |
-| E-mailverificatie flow | todo | - | mail=log op staging; verificatielink alleen via log |
-| Klant-intakepagina /o/{token} (Fase 3) | todo | - | Gaf 404 bij test want Fase 3 was nog niet gedeployd; opnieuw testen |
-| Foto-uploads (Fase 4) | todo | - | Nog niet getest; eerst PHP-limieten verifiëren (BL-003) |
-| Afronden + bedankt-scherm (Fase 5) | todo | - | Nog niet getest |
-| HTML-rapport + installateur-review (Fase 5) | todo | - | Nog niet getest |
-| AI-samenvatting in rapport (Fase 6) | todo | - | Nog niet getest; vereist werkende queue-worker |
-| Queue-worker (cron) | todo | - | Cron draait queue:work; nog geen job end-to-end getest |
+| Airco-template beschikbaar | pass | 2026-07-18 | Selecteerbaar bij aanmaken |
+| Homepage / (producthomepage Fase 3) | pass | 2026-07-18 | “Digitale Opname” producthomepage (geen Laravel-welcome) |
+| Registratie /register | pass | 2026-07-18 | Formulier werkt; landt op `/dashboard` |
+| E-mailverificatie flow | pass | 2026-07-18 | Geen `/verify-email`-blokkade op staging na register (of niet afgedwongen) |
+| Klant-intakepagina /o/{token} (Fase 3) | pass | 2026-07-18 | Wizard laadt (8 stappen bij 1 binnenunit) |
+| Foto-uploads (Fase 4) | pass | 2026-07-18 | JPEG-upload + preview + “Foto opgeslagen” op ruimtestap |
+| Afronden + bedankt-scherm (Fase 5) | fail | 2026-07-18 | Geblokkeerd: verplichte **boolean**-vragen (Ja/Nee) worden niet als beantwoord gezien → “Volgende” blijft hangen vanaf buitenunit-stap. Fix in PR |
+| HTML-rapport + installateur-review (Fase 5) | todo | - | Niet bereikt door boolean-blokkade |
+| AI-samenvatting in rapport (Fase 6) | todo | - | Niet bereikt; verwacht `blocked` bij `AI_PROVIDER=null` |
+| Queue-worker (cron) | todo | - | Niet end-to-end bevestigd (geen AI-resultaat om te zien) |
+| Demo-login `installateur@example.com` | fail | 2026-07-18 | Credentials matchen niet — `DatabaseSeeder` draait niet bij deploy (alleen IntakeTemplateSeeder) |
 
 ## Legenda
 
@@ -42,6 +43,26 @@ Laatste testsessie: 2026-07-17 (getest op staging via de browser)
 | `n/a` | Niet van toepassing voor deze omgeving |
 
 ## Ruimte voor details
+
+### Sessie 2026-07-18 (staging) — BL-002
+
+Scope: functionele hertest Fase 3–6 via browser (Playwright/Chromium, `ignoreHTTPSErrors`, cPanel “428 Technical Domain” → Continue).
+
+Werkend:
+
+- Producthomepage, health (incl. uploadlimieten), login-formulier, auth-guard, registratie → dashboard
+- Opname aanmaken (airco), klantlink, klantwizard `/o/{token}`, foto-upload op ruimtestap
+
+Bugs / blokkades:
+
+1. **Boolean-validatie (blokkerend voor afronden)** — `AnswerValueReader` eiste `is_bool()` terwijl Livewire-radio’s `"1"`/`"0"` sturen. `next()`/`complete()` blijven op stappen met verplichte Ja/Nee (o.a. buitenunit `noise_sensitive`). Reproduceerbaar: buitenunit-stap invullen inclusief Nee → Volgende → alert “Beantwoord eerst de verplichte vragen”.
+2. **Klantlink hergenereren** — `<x-secondary-button>` in het regenerate-formulier had implicit `type="button"`, dus de POST firede niet.
+3. **Foto-hydrate wist draft-velden** — na upload deed `hydrateFormFromAnswers()` een volledige form-reset; niet-geblurde antwoorden verdwenen uit Livewire-state (workaround: eerst foto’s, dan velden). Verholpen door alleen de foto-composite te verversen.
+4. **Demo-user ontbreekt op staging** — `installateur@example.com` / `password` werkt niet; deploy seedt alleen templates. Registratie als fallback werkte.
+
+Nog te hertesten na deploy van de fixes: hergenereren, volledige klantflow t/m bedankt, rapport + review, AI/queue.
+
+Screenshots: `/opt/cursor/artifacts/bl002-screenshots/` (agent-run).
 
 ### Sessie 2026-07-17 (staging)
 

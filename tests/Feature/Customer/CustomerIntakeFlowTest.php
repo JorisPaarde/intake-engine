@@ -147,6 +147,22 @@ test('conditional show rules hide questions until matched', function () {
     expect($resolvedVisible['visible'])->toBeTrue();
 });
 
+test('livewire string booleans satisfy required checks and allow next', function () {
+    $intake = makeAccessibleIntake();
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('stepIndex', 2) // outdoor_unit (geen ruimtes zonder indoor_unit_count)
+        ->set('form.outdoor_location', ['text' => 'Achtergevel'])
+        ->set('form.outdoor_mount_type', ['value' => 'wall'])
+        ->set('form.outdoor_accessibility', ['text' => 'Via tuin'])
+        ->set('form.noise_sensitive', ['bool' => '0'])
+        ->set('form.outdoor_location_photos', ['upload_ids' => [1]])
+        ->set('form.facade_overview_photo', ['upload_ids' => [2]])
+        ->call('next')
+        ->assertSet('showMissing', false)
+        ->assertSet('stepIndex', 3);
+});
+
 test('progress calculator includes answered questions in the percentage', function () {
     $intake = makeAccessibleIntake();
     $version = $intake->templateVersion()->with(['sections.questions.rules'])->firstOrFail();

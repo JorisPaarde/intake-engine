@@ -99,4 +99,4 @@ De volledige documentkaart — welk document waarvoor de bron van waarheid is �
 
 ## Huidige status
 
-**MVP-fasen 1–6 afgerond en gemerged naar `main`** (t/m AI-samenvatting). Open werk staat in [docs/backlog.md](docs/backlog.md); hoogste prioriteit is de functionele hertest van Fase 3–6 op staging (BL-002). PHP-uploadlimieten op staging zijn ok (BL-003 done). Handmatige teststatus: [docs/functional-test-status.md](docs/functional-test-status.md).
+**MVP-fasen 1–6 afgerond en gemerged naar `main`** (t/m AI-samenvatting). Open werk: [docs/backlog.md](docs/backlog.md). PHP-uploadlimieten op staging ok (BL-003 done). Hoogste prioriteit: BL-002 browserhertest (bugs gevonden + gefixt; hertest na deploy). Handmatige teststatus: [docs/functional-test-status.md](docs/functional-test-status.md).

@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 3.2 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.3 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -26,7 +26,7 @@ Volgorde-advies: E1 eerst (bevat de `ready`/`high` items), daarna E2 en E3; E4 e
 
 | ID | Item | Epic | Status | Prioriteit |
 |----|------|------|--------|------------|
-| BL-002 | Functionele hertest staging (Fase 3–6) | E1 | ready | high |
+| BL-002 | Functionele hertest staging (Fase 3–6) | E1 | in_progress | high |
 | BL-003 | Staging PHP-uploadlimieten verifiëren/verhogen | E1 | done | high |
 | BL-008 | HEIC-ondersteuning bij foto-uploads | E1 | backlog | medium |
 | BL-011 | Eigen domein + geldig SSL voor staging | E1 | backlog | medium |
@@ -50,16 +50,18 @@ De flow van Fase 1–6 belooft "zo min mogelijk handelingen", maar dat geldt all
 
 ### BL-002 — Functionele hertest staging (Fase 3–6)
 
-- **Status:** ready · **Prioriteit:** high · **Ref:** `docs/functional-test-status.md`
+- **Status:** in_progress · **Prioriteit:** high · **Ref:** `docs/functional-test-status.md`
 - **Doel:** de sinds de testsessie van 2026-07-17 gedeployde functionaliteit handmatig verifiëren op staging: producthomepage `/`, klantintake `/o/{token}`, foto-uploads, afronden + rapport + review, AI-samenvatting via queue, registratie + e-mailverificatie, end-to-end queue-job.
+- **Voortgang (2026-07-18):** homepage, health, auth, registratie, opname+klantlink, klantwizard, foto-upload → **pass**. Geblokkeerd op afronden door boolean-validatiebug + regenerate-knop die niet POSTte; fixes in dezelfde PR. **Resterend na deploy:** hergenereren, volledige afronding → bedankt → rapport/review → AI/queue hertesten.
 - **Afhankelijkheden:** geen meer — BL-003 is done (uploadlimieten op staging ok).
 - **Let op:** resultaten alleen vastleggen in `docs/functional-test-status.md`, door de daadwerkelijk testende agent/tester.
 
 ### BL-003 — Staging PHP-uploadlimieten verifiëren/verhogen
 
-- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-18 · **PR:** #12 (limieten + `/health`), follow-up docs deze PR
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-18 · **PR:** #12 (limieten + `/health`), docs-afronding #13
 - **Doel:** PHP-limieten ≥ app-limiet (5 MB): minimaal `upload_max_filesize=10M`, `post_max_size=12M`; gemeten waarden documenteren in `docs/uploads.md`.
 - **Resultaat:** staging web-SAPI via `GET /health` → `php_upload`: `upload_max_filesize=512M`, `post_max_size=512M`, `max_file_uploads=20` (ruim boven minimum). `public/.user.ini` (10M/12M) blijft in git als vangnet; host staat hoger. Gemeten waarden in `docs/uploads.md`.
+- **Waarom:** te lage PHP-limieten breken mobiele foto-uploads stil — en een mislukte upload is voor de aanvrager de duurste handeling die er is.
 
 ### BL-008 — HEIC-ondersteuning bij foto-uploads
 
@@ -180,4 +182,4 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 
 | ID | Afgerond | PR |
 |----|----------|-----|
-| BL-003 | 2026-07-18 | #12 (+ staging-verificatie via `/health`) |
+| BL-003 | 2026-07-18 | #12 (+ staging-verificatie via `/health`, docs #13) |
