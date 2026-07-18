@@ -20,7 +20,7 @@ Status: `backlog` · `ready` · `in_progress` · `done` · `dropped` — priorit
 | E4 | AI bespaart beoordeelwerk | Samenvatting, aandachtspunten en fotokwaliteitscheck besparen de installateur leeswerk en de aanvrager een extra aanleverronde. AI blijft ondersteunend (docs/ai.md). |
 | E5 | Bruikbaar dossier & klaar voor groei | Het dossier moet buiten de browser bruikbaar zijn en het product moet zonder extra handelingen te ervaren, beheren en opschalen zijn. |
 
-Volgorde-advies: volg kolom **#** in de overzichtstabel hieronder. De rode draad: eerst lopend werk afronden (BL-001; BL-002 done), dan de kern van het hoofddoel — slimmere vragen (BL-016/BL-017/BL-018 done) en betrouwbare, drempelloze aanlevering (BL-008, BL-011) — daarna installateurshandelingen wegnemen (E2), vervolgens slimme afleiding (BL-019, BL-006, BL-020) en tot slot groei-/beheeritems.
+Volgorde-advies: volg kolom **#** in de overzichtstabel hieronder. De rode draad: eerst lopend werk afronden (BL-001; BL-002/BL-008 done), dan de kern van het hoofddoel — slimmere vragen (BL-016/BL-017/BL-018 done) en drempelloze aanlevering (BL-011 domein/SSL) — daarna installateurshandelingen wegnemen (E2), vervolgens slimme afleiding (BL-019, BL-006, BL-020) en tot slot groei-/beheeritems.
 
 ## Overzicht
 
@@ -219,7 +219,8 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 
 | ID | Afgerond | PR |
 |----|----------|-----|
-| BL-016 | 2026-07-18 | (deze PR) — prefill (installateur + repeatable), airco v3 |
+| BL-008 | 2026-07-18 | #24 — HEIC/HEIF → JPEG (Imagick) |
+| BL-016 | 2026-07-18 | #22 — prefill (installateur + repeatable), airco v3 |
 | BL-002 | 2026-07-18 | #14 (fixes) + hertest na deploy |
 | BL-017 | 2026-07-18 | #21 |
 | BL-018 | 2026-07-18 | #18 |
