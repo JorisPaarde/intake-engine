@@ -1,6 +1,6 @@
 # Intake Engine (Digitale Opname)
 
-> **Documentversie:** 1.2 · **Laatste update:** 2026-07-17 · Onderhoud: zie [AGENTS.md](AGENTS.md)
+> **Documentversie:** 1.3 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](AGENTS.md)
 
 **Werk je als agent aan dit project? Lees eerst [AGENTS.md](AGENTS.md)** — het projectgeheugen, de documentkaart en het onderhoudsprotocol.
 
@@ -57,7 +57,7 @@ composer test      # Pest
 composer check     # lint + analyse + test
 ```
 
-**Branching:** `main` is deploybaar. Feature branches + PR; CI groen vóór merge. Merge naar `main` → staging deploy.
+Branching, kwaliteitspoort en overige werkafspraken: [AGENTS.md § Werkafspraken](AGENTS.md#werkafspraken).
 
 ## Omgevingen & .env
 
@@ -69,17 +69,11 @@ composer check     # lint + analyse + test
 
 Secrets nooit in git. Belangrijke vars: `APP_*`, `DB_*`, `QUEUE_CONNECTION`, `CACHE_STORE`, `SESSION_*`, `FILESYSTEM_DISK`, `MEDIA_DISK` (private media: `local`), `MAIL_*`, `AI_*` (placeholders).
 
-## Storage
+## Runtime: storage, queues & logging
 
-Intake-foto’s via `MEDIA_DISK` (private `local`, later `s3`). Geen hardcoded disknamen. Zie `docs/uploads.md`.
-
-## Queues
-
-`QUEUE_CONNECTION=database`. Kernintake is sync; AI/PDF later als jobs. cPanel: cron worker — `docs/DEPLOYMENT.md`.
-
-## Logging
-
-Daily stack; lokaal `debug`, staging `info`, productie `warning`. Server: `shared/storage/logs/`.
+- **Storage:** intake-foto's via `MEDIA_DISK` (privé, geen hardcoded disknamen) — [docs/uploads.md](docs/uploads.md)
+- **Queues:** `QUEUE_CONNECTION=database`; cron-worker op cPanel — [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md); sync/async-keuzes: ADR-0004
+- **Logging:** daily stack; lokaal `debug`, staging `info`, productie `warning`; server: `shared/storage/logs/`
 
 ## Deployment
 
@@ -97,20 +91,11 @@ deploy/          # activate.sh
 
 ## Documentatie
 
-| Document | Inhoud |
-|----------|--------|
-| [AGENTS.md](AGENTS.md) | Projectgeheugen: documentkaart, versionering, onderhoudsprotocol voor agents |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Architectuur & trade-offs |
-| [docs/database.md](docs/database.md) | Schema + ER-diagram |
-| [docs/intake-engine.md](docs/intake-engine.md) | Templates, regels, compleetheid |
-| [docs/uploads.md](docs/uploads.md) | Media & limieten |
-| [docs/ai.md](docs/ai.md) | AI-roadmap (nog niet gebouwd) |
-| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | cPanel / CI deploy |
-| [docs/implementation-plan.md](docs/implementation-plan.md) | Fasering |
-| [docs/backlog.md](docs/backlog.md) | Backlog (enige bron voor open/uitgesteld werk, geordend in 5 epics) |
-| [docs/functional-test-status.md](docs/functional-test-status.md) | Functionele teststatus (handmatig) |
-| [docs/decisions/](docs/decisions/) | ADRs |
-| [CHANGELOG.md](CHANGELOG.md) | Wijzigingslog |
+De volledige documentkaart — welk document waarvoor de bron van waarheid is — staat in [AGENTS.md § Geheugenkaart](AGENTS.md#geheugenkaart-welk-document-is-waarvoor-de-bron-van-waarheid). Snelle ingangen:
+
+- [docs/backlog.md](docs/backlog.md) — al het open werk, geordend in 5 epics
+- [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — deploy naar staging/cPanel
+- [CHANGELOG.md](CHANGELOG.md) — wijzigingslog
 
 ## Huidige status
 
