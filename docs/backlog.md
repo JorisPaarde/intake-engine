@@ -112,7 +112,7 @@ Tussen "installateur maakt opname aan" en "installateur beoordeelt dossier" zitt
 
 ### BL-004 — Automatische e-mail van klantlink (SMTP)
 
-- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-07-18 · **PR:** (deze PR)
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-07-18 · **PR:** #25
 - **Doel:** klantlink automatisch mailen i.p.v. alleen kopieerbaar maken. Vereist werkende SMTP-configuratie (staging heeft nu `MAIL_MAILER=log`); daarna ook registratie/e-mailverificatie betrouwbaar.
 - **Resultaat:** na aanmaken (en na token-hergenereren) stuurt `SendCustomerIntakeLink` een Nederlandse mailable naar `customer_email`; detailpagina heeft **Opnieuw mailen**. Kopieerbare `#customer-link` blijft fallback. Bij `MAIL_MAILER=log` wordt mail **overslagen** (geen tokens in logs, ADR-0002); soft-fail bij SMTP-fouten. Demo-intakes mailen nooit. Activity-event `customer_link_mailed` zonder token/URL.
 - **Nog te doen op staging:** SMTP zetten in `shared/.env` (zie `docs/DEPLOYMENT.md` § Mail) + smoke-test; zie `todo` in `docs/functional-test-status.md`.
@@ -259,7 +259,7 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 
 | ID | Afgerond | PR |
 |----|----------|-----|
-| BL-004 | 2026-07-18 | (deze PR) — klantlink-mail + Opnieuw mailen; SMTP op staging nog te zetten |
+| BL-004 | 2026-07-18 | #25 — klantlink-mail + Opnieuw mailen; SMTP op staging nog te zetten |
 | BL-008 | 2026-07-18 | #24 — HEIC/HEIF → JPEG (Imagick) |
 | BL-016 | 2026-07-18 | #22 — prefill (installateur + repeatable), airco v3 |
 | BL-002 | 2026-07-18 | #14 (fixes) + hertest na deploy |
