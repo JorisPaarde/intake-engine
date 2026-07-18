@@ -6,6 +6,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Added
 
+- BL-016 prefill van bekende gegevens (deterministisch, altijd als bewerkbare voorzet — geen LLM). Twee bronnen via vraag-`meta`: `installer_prefillable` (installateur vult `request`-vragen alvast in bij het aanmaken → `intake_answers.prefill_source='installer'`, in de wizard getoond als "alvast ingevuld — controleer") en `prefill_from_previous` (ruimte 2..n neemt `floor_level` over van de vorige ruimte via `IntakePrefillResolver`, pas opgeslagen bij "Volgende"). Airco **v3** gepubliceerd (v2-vragenset + vlaggen; ADR-0001). Nieuwe kolom `intake_answers.prefill_source`. Afleidbare waarden uit externe bronnen blijven BL-019/BL-020.
 - BL-017 airco-template **v2**: audit op het ontwerpprincipe — minder verplichte schermen (kamermaten → één groottekeuze, vrije tekst → keuzelijsten, afstanden ontdubbeld, gevel-/groepenvragen optioneel). Seeder publiceert v1+v2; nieuwe intakes pinnen op v2 (ADR-0001).
 - BL-018 vraag-voor-vraag klantflow: één zichtbare vraag per scherm (sectietitel als hoofdstukmarkering), autosave per antwoord, hervatten op vraag-cursor (`current_question_key` / `current_section_instance_key`), conditionele vragen worden overgeslagen tot ze relevant zijn.
 
@@ -33,6 +34,8 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
+- `docs/backlog.md` v3.11 + `docs/intake-engine.md` v1.5 + `docs/database.md` v1.4 + README v1.11: BL-016 → `done` (prefill + airco v3 + `prefill_source`-kolom); nieuwe `todo`-regels in `docs/functional-test-status.md`.
+- `docs/backlog.md` v3.10 + `docs/functional-test-status.md` v1.6 + README v1.10: BL-002 → `done` — staging kernflow Fase 3–5 hertest groen na deploy #14 (hergenereren/intrekken/afronden/rapport/review pass; AI-samenvatting blocked bij `AI_PROVIDER=null`). BL-018/BL-017-flow nog los te hertesten.
 - `docs/backlog.md` v3.9: BL-017 → `done` (airco-template v2).
 - `docs/intake-engine.md` v1.4 + `docs/database.md` v1.3: airco v2-documentatie en seeddata.
 - README → v1.9: status BL-017.

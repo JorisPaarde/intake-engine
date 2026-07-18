@@ -14,6 +14,7 @@ use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\AnswerValueReader;
 use App\Domains\Intake\Services\CompletenessChecker;
+use App\Domains\Intake\Services\IntakePrefillResolver;
 use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Domains\Intake\Services\ProgressCalculator;
 use App\Domains\Intake\Services\ResolveIntakeByAccessToken;
@@ -50,6 +51,15 @@ class IntakeWizard extends Component
     /** @var array<string, TemporaryUploadedFile|null> */
     public array $photoFiles = [];
 
+    /**
+     * Composite key → labelled prefill notice for the applicant (BL-016).
+     * A prefill is a *voorzet*: the value sits editable in the form and is only
+     * persisted once the applicant advances.
+     *
+     * @var array<string, string>
+     */
+    public array $prefillNotice = [];
+
     public string $saveMessage = '';
 
     public bool $showMissing = false;
@@ -81,6 +91,7 @@ class IntakeWizard extends Component
         );
         $this->clampStepIndex($steps);
         $this->syncActiveStepKey($steps);
+        $this->applyPrefillForActiveStep();
     }
 
     public function render(): View
@@ -164,6 +175,7 @@ class IntakeWizard extends Component
         $remainder = substr($property, strlen('form.'));
 
         if (preg_match('/^(.*)\.(text|value|number|bool)$/', $remainder, $matches) === 1) {
+            unset($this->prefillNotice[$matches[1]]);
             $this->persistComposite($matches[1]);
             $this->saveMessage = 'Opgeslagen';
             $this->showMissing = false;
@@ -173,6 +185,7 @@ class IntakeWizard extends Component
         }
 
         if (preg_match('/^(.*)\.values(?:\.\d+)?$/', $remainder, $matches) === 1) {
+            unset($this->prefillNotice[$matches[1]]);
             $this->persistComposite($matches[1]);
             $this->saveMessage = 'Opgeslagen';
             $this->showMissing = false;
@@ -342,6 +355,7 @@ class IntakeWizard extends Component
             $this->syncActiveStepKey($steps);
             $this->rememberCurrentCursor();
             $this->hydrateFormFromAnswers();
+            $this->applyPrefillForActiveStep();
             $this->saveMessage = '';
         }
     }
@@ -363,6 +377,7 @@ class IntakeWizard extends Component
         $this->syncActiveStepKey($steps);
         $this->rememberCurrentCursor();
         $this->hydrateFormFromAnswers();
+        $this->applyPrefillForActiveStep();
         $this->saveMessage = '';
         $this->showMissing = false;
     }
@@ -379,6 +394,7 @@ class IntakeWizard extends Component
         $this->syncActiveStepKey($steps);
         $this->rememberCurrentCursor();
         $this->hydrateFormFromAnswers();
+        $this->applyPrefillForActiveStep();
         $this->saveMessage = '';
         $this->showMissing = false;
     }
@@ -440,13 +456,54 @@ class IntakeWizard extends Component
         $intake = $this->intake();
         $intake->loadMissing('answers');
         $form = [];
+        $notices = [];
 
         foreach ($intake->answers as $answer) {
             $composite = VisibilityResolver::compositeKey($answer->question_key, $answer->section_instance_key);
             $form[$composite] = $answer->value ?? [];
+
+            // BL-016: an installer pre-fill the applicant has not confirmed yet.
+            if ($answer->prefill_source === 'installer') {
+                $notices[$composite] = 'Alvast ingevuld door uw installateur — controleer en pas aan indien nodig';
+            }
         }
 
         $this->form = $form;
+        $this->prefillNotice = $notices;
+    }
+
+    /**
+     * Offer a repeatable-instance prefill for the active step as an editable voorzet (BL-016).
+     * Only fills when the step has no value yet; the value is persisted when the applicant advances.
+     */
+    private function applyPrefillForActiveStep(): void
+    {
+        $step = $this->currentStep();
+
+        if ($step === null) {
+            return;
+        }
+
+        $composite = VisibilityResolver::compositeKey($step['question_key'], $step['section_instance_key']);
+
+        $existing = $this->form[$composite] ?? null;
+        if (is_array($existing) && $existing !== []) {
+            return;
+        }
+
+        $suggestion = app(IntakePrefillResolver::class)->suggestionFor(
+            $this->intake(),
+            $this->version(),
+            $step['question_key'],
+            $step['section_instance_key'],
+        );
+
+        if ($suggestion === null) {
+            return;
+        }
+
+        $this->form[$composite] = $suggestion['value'];
+        $this->prefillNotice[$composite] = 'Overgenomen van '.$suggestion['source_label'].' — controleer en pas aan indien nodig';
     }
 
     private function refreshAnswerInForm(string $composite): void

@@ -9,6 +9,7 @@ use App\Domains\Intake\Actions\RegenerateIntakeAccessToken;
 use App\Domains\Intake\Actions\RevokeIntakeAccess;
 use App\Domains\Intake\Actions\SubmitIntakeReview;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Enums\ReviewDecision;
 use App\Http\Controllers\Controller;
@@ -16,6 +17,7 @@ use App\Http\Requests\Installer\StoreIntakeRequest;
 use App\Http\Requests\Installer\StoreIntakeReviewRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 class IntakeController extends Controller
@@ -31,7 +33,40 @@ class IntakeController extends Controller
 
         return view('installer.intakes.create', [
             'templates' => $templates,
+            // BL-016: questions the installer may optionally pre-answer, per template.
+            'prefillQuestionsByTemplate' => $this->prefillQuestionsByTemplate($templates),
         ]);
+    }
+
+    /**
+     * @param  Collection<int, IntakeTemplate>  $templates
+     * @return array<string, Collection<int, IntakeQuestion>>
+     */
+    private function prefillQuestionsByTemplate($templates): array
+    {
+        $byTemplate = [];
+
+        foreach ($templates as $template) {
+            $version = $template->latestPublishedVersion();
+
+            if ($version === null) {
+                continue;
+            }
+
+            $version->loadMissing('sections.questions.options');
+
+            $questions = $version->sections
+                ->sortBy('sort_order')
+                ->flatMap(fn ($section) => $section->questions->sortBy('sort_order'))
+                ->filter(fn ($question) => ($question->meta['installer_prefillable'] ?? false) === true)
+                ->values();
+
+            if ($questions->isNotEmpty()) {
+                $byTemplate[$template->key] = $questions;
+            }
+        }
+
+        return $byTemplate;
     }
 
     public function store(StoreIntakeRequest $request, CreateIntake $createIntake): RedirectResponse

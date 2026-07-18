@@ -99,6 +99,14 @@
 
         <div class="flex-1" wire:key="q-{{ $composite }}">
             @if ($state['visible'])
+                @if (! empty($prefillNotice[$composite]))
+                    <div class="mb-3 flex items-start gap-2 rounded-md border border-brand-sea/30 bg-brand-mist/50 px-3 py-2 text-sm text-brand-ink/80" role="status">
+                        <svg class="mt-0.5 h-4 w-4 shrink-0 text-brand-sea" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                        </svg>
+                        <span>{{ $prefillNotice[$composite] }}</span>
+                    </div>
+                @endif
                 <div class="rounded-lg bg-white p-4 shadow-sm">
                     <div>
                         @switch ($question->type->value)

@@ -23,12 +23,16 @@ final class SaveIntakeAnswer
 
     /**
      * @param  array<string, mixed>|null  $value
+     * @param  string|null  $prefillSource  BL-016: 'installer' when the installer pre-fills at
+     *                                      creation; null for a normal answer, which also clears
+     *                                      any prior prefill flag (the applicant confirmed/edited).
      */
     public function handle(
         Intake $intake,
         string $questionKey,
         ?string $sectionInstanceKey,
         ?array $value,
+        ?string $prefillSource = null,
     ): IntakeAnswer {
         $question = $this->findQuestion($intake, $questionKey);
 
@@ -45,7 +49,7 @@ final class SaveIntakeAnswer
             // For required fields, still persist partial drafts if user typed then cleared — progress will reflect.
         }
 
-        return DB::transaction(function () use ($intake, $questionKey, $sectionInstanceKey, $normalized): IntakeAnswer {
+        return DB::transaction(function () use ($intake, $questionKey, $sectionInstanceKey, $normalized, $prefillSource): IntakeAnswer {
             $query = IntakeAnswer::query()
                 ->where('intake_id', $intake->id)
                 ->where('question_key', $questionKey);
@@ -64,22 +68,25 @@ final class SaveIntakeAnswer
                     'question_key' => $questionKey,
                     'section_instance_key' => $sectionInstanceKey,
                     'value' => $normalized,
+                    'prefill_source' => $prefillSource,
                     'answered_at' => now(),
                 ]);
             } else {
                 $answer->update([
                     'value' => $normalized,
+                    'prefill_source' => $prefillSource,
                     'answered_at' => now(),
                 ]);
             }
 
-            $this->touchProgress($intake);
+            // An installer prefill at creation must not "start" the intake for the customer.
+            $this->touchProgress($intake, $prefillSource === null);
 
             return $answer;
         });
     }
 
-    private function touchProgress(Intake $intake): void
+    private function touchProgress(Intake $intake, bool $allowStatusStart = true): void
     {
         $intake->refresh();
         $version = $intake->templateVersion()->with(['sections.questions.rules'])->firstOrFail();
@@ -89,12 +96,12 @@ final class SaveIntakeAnswer
             'progress_percent' => $progress['percent'],
         ];
 
-        if ($intake->status === IntakeStatus::Sent) {
+        if ($allowStatusStart && $intake->status === IntakeStatus::Sent) {
             $updates['status'] = IntakeStatus::InProgress;
             $updates['started_at'] = $intake->started_at ?? now();
         }
 
-        if ($intake->status === IntakeStatus::InProgress && $intake->started_at === null) {
+        if ($allowStatusStart && $intake->status === IntakeStatus::InProgress && $intake->started_at === null) {
             $updates['started_at'] = now();
         }
 
