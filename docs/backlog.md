@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 3.5 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.6 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -20,32 +20,34 @@ Status: `backlog` · `ready` · `in_progress` · `done` · `dropped` — priorit
 | E4 | AI bespaart beoordeelwerk | Samenvatting, aandachtspunten en fotokwaliteitscheck besparen de installateur leeswerk en de aanvrager een extra aanleverronde. AI blijft ondersteunend (docs/ai.md). |
 | E5 | Bruikbaar dossier & klaar voor groei | Het dossier moet buiten de browser bruikbaar zijn en het product moet zonder extra handelingen te ervaren, beheren en opschalen zijn. |
 
-Volgorde-advies: E1 eerst (bevat de lopende `high` items), direct gevolgd door de `high` items in E3 (BL-017 minder vragen + BL-018 vraag-voor-vraag flow — expliciete wens producteigenaar 2026-07-18); daarna E2 en de rest van E3; E4 en E5 op basis van klantvraag en DPIA.
+Volgorde-advies: volg kolom **#** in de overzichtstabel hieronder. De rode draad: eerst lopend werk afronden (BL-002, BL-001), dan de kern van het hoofddoel — minder en slimmere vragen (BL-017, BL-018, BL-016) en betrouwbare, drempelloze aanlevering (BL-008, BL-011) — daarna installateurshandelingen wegnemen (E2), vervolgens slimme afleiding (BL-019, BL-006, BL-020) en tot slot groei-/beheeritems.
 
 ## Overzicht
 
-| ID | Item | Epic | Status | Prioriteit |
-|----|------|------|--------|------------|
-| BL-002 | Functionele hertest staging (Fase 3–6) | E1 | in_progress | high |
-| BL-003 | Staging PHP-uploadlimieten verifiëren/verhogen | E1 | done | high |
-| BL-008 | HEIC-ondersteuning bij foto-uploads | E1 | backlog | medium |
-| BL-011 | Eigen domein + geldig SSL voor staging | E1 | backlog | medium |
-| BL-004 | Automatische e-mail van klantlink (SMTP) | E2 | backlog | medium |
-| BL-014 | Afrondingsnotificatie voor de installateur | E2 | backlog | medium |
-| BL-015 | Herinnering bij stilliggende intake | E2 | backlog | medium |
-| BL-016 | Hergebruik bekende gegevens (prefill) | E3 | backlog | medium |
-| BL-017 | Airco-template v2: vraag-voor-vraag audit op het ontwerpprincipe | E3 | backlog | high |
-| BL-018 | Vraag-voor-vraag klantflow (één vraag per scherm) | E3 | backlog | high |
-| BL-019 | Afleiden uit adres en openbare bronnen (satellietbeeld, BAG) | E3 | backlog | medium |
-| BL-006 | Externe LLM-provider (na DPIA) | E4 | backlog | medium |
-| BL-007 | AI-uitbreidingen: attention points, fotokwaliteit, accepteren/verwijderen | E4 | backlog | low |
-| BL-020 | Foto-gedreven afleiding en adaptieve vervolgvragen | E4 | backlog | medium |
-| BL-005 | PDF-export van rapporten | E5 | backlog | medium |
-| BL-001 | Demo-versie van de app | E5 | in_progress | medium |
-| BL-009 | Purge-job voor soft-deleted intakes (bewaartermijn) | E5 | backlog | medium |
-| BL-010 | Production-deployworkflow (tags + eigen omgeving) | E5 | backlog | medium |
-| BL-012 | Multi-tenancy (companies) | E5 | backlog | low |
-| BL-013 | S3 als mediadisk | E5 | backlog | low |
+Geprioriteerd op het hoofddoel (herprioritering 2026-07-18): hoeveel handelingen bespaart of repareert een item in de kernflow van aanvrager en installateur, hoe direct, en voor hoeveel intakes? Kolom **#** is de aanbevolen uitvoeringsvolgorde (afhankelijkheden meegewogen); `done`/`dropped` staan onderaan zonder volgnummer.
+
+| # | ID | Item | Epic | Status | Prioriteit |
+|---|----|------|------|--------|------------|
+| 1 | BL-002 | Functionele hertest staging (Fase 3–6) | E1 | in_progress | high |
+| 2 | BL-001 | Demo-versie van de app | E5 | in_progress | medium |
+| 3 | BL-017 | Airco-template v2: vraag-voor-vraag audit op het ontwerpprincipe | E3 | backlog | high |
+| 4 | BL-018 | Vraag-voor-vraag klantflow (één vraag per scherm) | E3 | backlog | high |
+| 5 | BL-016 | Hergebruik bekende gegevens (prefill) | E3 | backlog | high |
+| 6 | BL-008 | HEIC-ondersteuning bij foto-uploads | E1 | backlog | high |
+| 7 | BL-011 | Eigen domein + geldig SSL voor staging | E1 | backlog | high |
+| 8 | BL-004 | Automatische e-mail van klantlink (SMTP) | E2 | backlog | medium |
+| 9 | BL-014 | Afrondingsnotificatie voor de installateur | E2 | backlog | medium |
+| 10 | BL-015 | Herinnering bij stilliggende intake | E2 | backlog | medium |
+| 11 | BL-019 | Afleiden uit adres en openbare bronnen (satellietbeeld, BAG) | E3 | backlog | medium |
+| 12 | BL-005 | PDF-export van rapporten | E5 | backlog | medium |
+| 13 | BL-006 | Externe LLM-provider (na DPIA) | E4 | backlog | medium |
+| 14 | BL-020 | Foto-gedreven afleiding en adaptieve vervolgvragen | E4 | backlog | medium |
+| 15 | BL-007 | AI-uitbreidingen: attention points, fotokwaliteit, accepteren/verwijderen | E4 | backlog | low |
+| 16 | BL-009 | Purge-job voor soft-deleted intakes (bewaartermijn) | E5 | backlog | low |
+| 17 | BL-010 | Production-deployworkflow (tags + eigen omgeving) | E5 | backlog | low |
+| 18 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low |
+| 19 | BL-013 | S3 als mediadisk | E5 | backlog | low |
+| — | BL-003 | Staging PHP-uploadlimieten verifiëren/verhogen | E1 | done | high |
 
 ## Epic E1 — Frictieloze basisflow
 
@@ -68,14 +70,15 @@ De flow van Fase 1–6 belooft "zo min mogelijk handelingen", maar dat geldt all
 
 ### BL-008 — HEIC-ondersteuning bij foto-uploads
 
-- **Status:** backlog · **Prioriteit:** medium *(opgehoogd van low: foto is onze snelste verzamelmethode en iPhones zijn een groot deel van de aanvragers)*
+- **Status:** backlog · **Prioriteit:** high *(opgehoogd 2026-07-18 bij hoofddoel-herprioritering: een stil mislukkende iPhone-foto is voor de aanvrager de duurste handeling die er is, en foto is onze snelste verzamelmethode — dit raakt een groot deel van álle intakes)*
 - **Doel:** iPhones maken standaard HEIC-foto's; de allowlist is nu jpeg/png/webp. Onderzoek server-side conversie (Imagick op cPanel?) of client-side conversie vóór upload. De aanvrager mag nooit zelf hoeven converteren of instellingen omzetten.
 
 ### BL-011 — Eigen domein + geldig SSL voor staging
 
-- **Status:** backlog · **Prioriteit:** medium
+- **Status:** backlog · **Prioriteit:** high *(opgehoogd 2026-07-18 bij hoofddoel-herprioritering: dit kost élke aanvrager twee handelingen vóór de eerste vraag)*
 - **Doel:** het tijdelijke `.cpanel.site`-domein (self-signed, "Technical Domain"-tussenscherm) vervangen door een eigen (sub)domein met Let's Encrypt. Daarna README-omgevingstabel bijwerken.
 - **Waarom:** het tussenscherm en de browserwaarschuwing zijn twee extra handelingen (en een vertrouwensbreuk) vóór de aanvrager ook maar één vraag heeft gezien.
+- **Afhankelijkheden:** extern — er moet een eigen (sub)domein aan het hostingaccount gekoppeld worden; actie producteigenaar/host.
 
 ## Epic E2 — Communicatie zonder handwerk
 
@@ -107,7 +110,7 @@ De meest directe toepassing van het ontwerpprincipe: *de applicatie vraagt niets
 
 ### BL-016 — Hergebruik bekende gegevens (prefill)
 
-- **Status:** backlog · **Prioriteit:** medium
+- **Status:** backlog · **Prioriteit:** high *(opgehoogd 2026-07-18 bij hoofddoel-herprioritering: de meest directe toepassing van het ontwerpprincipe — deterministisch, zonder externe afhankelijkheden, en pakt logisch mee met BL-017/BL-018)*
 - **Doel:** gegevens die al bekend zijn nooit opnieuw aan de aanvrager vragen:
   - wat de installateur bij het aanmaken al invulde (bijv. aanleiding/klantcontext) vooraf tonen of overslaan;
   - afleidbare waarden berekenen i.p.v. uitvragen;
@@ -183,7 +186,7 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 
 ### BL-001 — Demo-versie van de app
 
-- **Status:** in_progress · **Prioriteit:** medium · **Ref:** [issue #5](https://github.com/JorisPaarde/intake-engine/issues/5)
+- **Status:** in_progress · **Prioriteit:** medium *(staat desondanks op #2 in de uitvoeringsvolgorde: het restwerk is klein — staging-flag + smoke-test — en lopend werk afronden gaat vóór nieuw werk starten)* · **Ref:** [issue #5](https://github.com/JorisPaarde/intake-engine/issues/5)
 - **Doel:** publiek of semi-publiek demopad zodat prospects/installateurs het product kunnen ervaren zonder eigen accountsetup of echte klantdata — het hoofddoel ("zo min mogelijk handelingen") toegepast op de allereerste kennismaking.
 - **Invulling (deze PR):** homepage **"Start demo"** → tijdelijke airco-intake + klantlink (`is_demo`, TTL via `DEMO_TTL_HOURS`, watermerk, geen AI-job, hourly `intakes:purge-demos`). Geen account nodig; fictieve `@demo.invalid`-e-mail. Feature-flag `DEMO_ENABLED` (default uit; aanzetten op staging).
 - **Nog te doen na deploy:** `DEMO_ENABLED=true` in staging `shared/.env`, smoke-test Start demo → wizard → watermerk; daarna status → `done`.
@@ -192,12 +195,12 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 
 ### BL-009 — Purge-job voor soft-deleted intakes
 
-- **Status:** backlog · **Prioriteit:** medium · **Ref:** `docs/database.md` (bewaartermijn-voorstel)
+- **Status:** backlog · **Prioriteit:** low *(verlaagd 2026-07-18 bij hoofddoel-herprioritering: bespaart geen handelingen in de kernflow; weer ophogen zodra er echte klantdata in productie staat — dan is de bewaartermijn een verplichting, koppel aan BL-010)* · **Ref:** `docs/database.md` (bewaartermijn-voorstel)
 - **Doel:** voorgestelde bewaartermijn bekrachtigen en implementeren: 30 dagen na soft delete hard purge van dossier inclusief storage (foto's). Scheduled job + tests.
 
 ### BL-010 — Production-deployworkflow
 
-- **Status:** backlog · **Prioriteit:** medium · **Ref:** `docs/DEPLOYMENT.md`
+- **Status:** backlog · **Prioriteit:** low *(verlaagd 2026-07-18 bij hoofddoel-herprioritering: bespaart nu geen handelingen; oppakken zodra een eerste echte klant/productiegang concreet is — zelfde trigger als BL-012. Neem BL-009 dan mee.)* · **Ref:** `docs/DEPLOYMENT.md`
 - **Doel:** `deploy-production.yml` getriggerd op tags (`v*`), `PRODUCTION_*`-secrets, eigen `apps/intake-engine-production`-boom en database. Eerste release taggen als `v0.x` en CHANGELOG `[Unreleased]` afsluiten.
 
 ### BL-012 — Multi-tenancy (companies)
