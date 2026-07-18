@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Installer;
 use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Actions\RegenerateIntakeAccessToken;
 use App\Domains\Intake\Actions\RevokeIntakeAccess;
+use App\Domains\Intake\Actions\SendCustomerIntakeLink;
 use App\Domains\Intake\Actions\SubmitIntakeReview;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeQuestion;
@@ -69,13 +70,17 @@ class IntakeController extends Controller
         return $byTemplate;
     }
 
-    public function store(StoreIntakeRequest $request, CreateIntake $createIntake): RedirectResponse
-    {
+    public function store(
+        StoreIntakeRequest $request,
+        CreateIntake $createIntake,
+        SendCustomerIntakeLink $sendCustomerIntakeLink,
+    ): RedirectResponse {
         $intake = $createIntake->handle($request->user(), $request->validated());
+        $mailResult = $sendCustomerIntakeLink->handle($intake, $request->user());
 
         return redirect()
             ->route('intakes.show', $intake)
-            ->with('status', 'Opname aangemaakt. De klantlink staat klaar om te kopiëren.');
+            ->with('status', $mailResult->flashMessage('created'));
     }
 
     public function show(Intake $intake): View
@@ -123,14 +128,33 @@ class IntakeController extends Controller
             ->with('status', 'Klantlink ingetrokken en opname geannuleerd.');
     }
 
-    public function regenerateToken(Request $request, Intake $intake, RegenerateIntakeAccessToken $regenerate): RedirectResponse
-    {
+    public function regenerateToken(
+        Request $request,
+        Intake $intake,
+        RegenerateIntakeAccessToken $regenerate,
+        SendCustomerIntakeLink $sendCustomerIntakeLink,
+    ): RedirectResponse {
         $this->authorize('update', $intake);
 
-        $regenerate->handle($intake, $request->user());
+        $intake = $regenerate->handle($intake, $request->user());
+        $mailResult = $sendCustomerIntakeLink->handle($intake, $request->user());
 
         return redirect()
             ->route('intakes.show', $intake)
-            ->with('status', 'Nieuwe klantlink gegenereerd.');
+            ->with('status', $mailResult->flashMessage('regenerated'));
+    }
+
+    public function sendLink(
+        Request $request,
+        Intake $intake,
+        SendCustomerIntakeLink $sendCustomerIntakeLink,
+    ): RedirectResponse {
+        $this->authorize('update', $intake);
+
+        $mailResult = $sendCustomerIntakeLink->handle($intake, $request->user());
+
+        return redirect()
+            ->route('intakes.show', $intake)
+            ->with('status', $mailResult->flashMessage('resend'));
     }
 }

@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.8 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.9 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -19,6 +19,7 @@ Laatste testsessie: 2026-07-18 (staging via headless Chromium/Playwright; BL-002
 | Beveiligde klantlink genereren | pass | 2026-07-18 | Token-URL `/o/{64}` |
 | Klantlink hergenereren | pass | 2026-07-18 | Na fix #14 (`type=submit`) — nieuw token gegenereerd |
 | Klantlink intrekken | pass | 2026-07-18 | Status Geannuleerd + flash “Klantlink ingetrokken…” |
+| Automatische klantlink-mail (BL-004) | todo | - | Na SMTP in staging `shared/.env`: opname aanmaken → mail bij klant; “Opnieuw mailen”; hergenereren mailt nieuwe link; bij `MAIL_MAILER=log` flash over config + geen mail |
 | Migraties + logs op server | pass | 2026-07-17 | Alle migraties Ran; geen errors in logs |
 | Airco-template beschikbaar | pass | 2026-07-18 | Selecteerbaar bij aanmaken |
 | Airco-template v2 (BL-017) | todo | - | Na deploy: nieuwe opname pin’t v2; geen kamermaten-vragen; keuzelijsten i.p.v. vrije tekst buiten/route/condens; `free_group_known` / gevel optioneel; oude intakes blijven op v1 |

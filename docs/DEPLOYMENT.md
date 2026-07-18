@@ -1,6 +1,6 @@
 # Deployment naar cPanel (staging)
 
-> **Documentversie:** 1.4 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.5 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Afgestemd op de huidige host:
 
@@ -162,9 +162,24 @@ DEMO_TTL_HOURS=12
 
 Daarna `php artisan config:cache` (of wacht op de volgende deploy-activate). Homepage toont **Start demo**; verlopen demo-intakes worden hourly gepurged (`intakes:purge-demos`). Productie: `DEMO_ENABLED=false` houden.
 
-## Mail
+## Mail (BL-004)
 
-Staging `.env` gebruikt `MAIL_MAILER=log`. Automatische klantmails zijn **niet** betrouwbaar tot SMTP is geconfigureerd. MVP stuurt daarom geen intake-link per mail; de installateur kopieert de link. Productievoorbeeld bevat SMTP-placeholders.
+Na het aanmaken van een opname (en na “Nieuwe link genereren” / “Opnieuw mailen”) stuurt de app een klantlink-mail naar `customer_email`. De kopieerbare link op de detailpagina blijft de fallback.
+
+**Belangrijk (ADR-0002):** bij `MAIL_MAILER=log` wordt de klantlink-mail **niet** verstuurd — anders belandt het access-token in `storage/logs`. Zet op staging/productie echte SMTP:
+
+```env
+MAIL_MAILER=smtp
+MAIL_HOST=               # bijv. mail van de host of externe provider
+MAIL_PORT=587
+MAIL_USERNAME=
+MAIL_PASSWORD=
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS="no-reply@jouwdomein.nl"
+MAIL_FROM_NAME="${APP_NAME}"
+```
+
+Daarna `php artisan config:cache` (of wacht op de volgende deploy-activate). Demo-intakes (`is_demo`) mailen nooit. Lokaal: Mailpit/`array`, of bewust `log` (dan alleen kopiëren). Zie `.env.staging.example` / `.env.production.example`.
 
 ## PHP upload-limieten (cPanel)
 
