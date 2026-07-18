@@ -27,6 +27,7 @@ use Illuminate\Support\Str;
  * @property Carbon|null $completed_at
  * @property Carbon|null $reviewed_at
  * @property int $progress_percent
+ * @property bool $is_demo
  */
 class Intake extends Model
 {
@@ -52,6 +53,7 @@ class Intake extends Model
         'internal_note',
         'current_section_key',
         'progress_percent',
+        'is_demo',
         'started_at',
         'completed_at',
         'reviewed_at',
@@ -71,6 +73,7 @@ class Intake extends Model
             'completed_at' => 'datetime',
             'reviewed_at' => 'datetime',
             'progress_percent' => 'integer',
+            'is_demo' => 'boolean',
             'completeness_snapshot' => 'array',
         ];
     }

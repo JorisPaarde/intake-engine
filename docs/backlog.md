@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 3.3 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.4 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,7 +38,7 @@ Volgorde-advies: E1 eerst (bevat de `ready`/`high` items), daarna E2 en E3; E4 e
 | BL-006 | Externe LLM-provider (na DPIA) | E4 | backlog | medium |
 | BL-007 | AI-uitbreidingen: attention points, fotokwaliteit, accepteren/verwijderen | E4 | backlog | low |
 | BL-005 | PDF-export van rapporten | E5 | backlog | medium |
-| BL-001 | Demo-versie van de app | E5 | backlog | medium |
+| BL-001 | Demo-versie van de app | E5 | in_progress | medium |
 | BL-009 | Purge-job voor soft-deleted intakes (bewaartermijn) | E5 | backlog | medium |
 | BL-010 | Production-deployworkflow (tags + eigen omgeving) | E5 | backlog | medium |
 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low |
@@ -146,14 +146,11 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 
 ### BL-001 — Demo-versie van de app
 
-- **Status:** backlog · **Prioriteit:** medium · **Ref:** [issue #5](https://github.com/JorisPaarde/intake-engine/issues/5)
+- **Status:** in_progress · **Prioriteit:** medium · **Ref:** [issue #5](https://github.com/JorisPaarde/intake-engine/issues/5)
 - **Doel:** publiek of semi-publiek demopad zodat prospects/installateurs het product kunnen ervaren zonder eigen accountsetup of echte klantdata — het hoofddoel ("zo min mogelijk handelingen") toegepast op de allereerste kennismaking.
-- **Mogelijke invulling:**
-  - Vaste demo-installateur + vooraf gevulde airco-intake (read-only of resetbaar)
-  - Of: "Start demo"-knop die een tijdelijke intake + klantlink aanmaakt en na X uur opruimt
-  - Duidelijke watermerken: "Demo — geen echte offerte"
-  - Geen productiegegevens; seed/fixtures alleen fictief
-- **Afhankelijkheden:** geen — klantflow (Fase 3), uploads (Fase 4) en rapport (Fase 5) zijn af, dus de demo kan het eindproduct tonen.
+- **Invulling (deze PR):** homepage **"Start demo"** → tijdelijke airco-intake + klantlink (`is_demo`, TTL via `DEMO_TTL_HOURS`, watermerk, geen AI-job, hourly `intakes:purge-demos`). Geen account nodig; fictieve `@demo.invalid`-e-mail. Feature-flag `DEMO_ENABLED` (default uit; aanzetten op staging).
+- **Nog te doen na deploy:** `DEMO_ENABLED=true` in staging `shared/.env`, smoke-test Start demo → wizard → watermerk; daarna status → `done`.
+- **Afhankelijkheden:** geen — klantflow (Fase 3), uploads (Fase 4) en rapport (Fase 5) zijn af.
 - **Niet doen in demo:** echte mail naar willekeurige adressen, persistente PII van bezoekers zonder TTL.
 
 ### BL-009 — Purge-job voor soft-deleted intakes

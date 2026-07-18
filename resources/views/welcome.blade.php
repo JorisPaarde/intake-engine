@@ -100,28 +100,46 @@
                         Stuur de klant een persoonlijke link. Zij doorlopen een begeleide intake met gerichte vragen en foto’s. Jij krijgt een helder dossier om te bepalen of een locatiebezoek nog nodig is.
                     </p>
 
-                    <div class="home-reveal home-reveal-delay-2 mt-10 flex flex-wrap items-center gap-4">
-                        @auth
+                    <div class="home-reveal home-reveal-delay-2 mt-10 flex flex-col gap-4">
+                        <div class="flex flex-wrap items-center gap-4">
+                            @if (config('intake.demo.enabled'))
+                                <form method="POST" action="{{ route('demo.start') }}">
+                                    @csrf
+                                    <button
+                                        type="submit"
+                                        class="inline-flex min-h-12 items-center justify-center rounded-md bg-brand-ember px-6 text-base font-semibold text-white transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                                    >
+                                        Start demo
+                                    </button>
+                                </form>
+                            @endif
+                            @auth
+                                <a
+                                    href="{{ route('dashboard') }}"
+                                    class="inline-flex min-h-12 items-center justify-center rounded-md {{ config('intake.demo.enabled') ? 'border border-white/35 px-5 font-medium' : 'bg-brand-ember px-6 font-semibold' }} text-base text-white transition hover:border-white/70 hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                                >
+                                    Open dashboard
+                                </a>
+                            @else
+                                <a
+                                    href="{{ route('login') }}"
+                                    class="inline-flex min-h-12 items-center justify-center rounded-md {{ config('intake.demo.enabled') ? 'border border-white/35 px-5 font-medium' : 'bg-brand-ember px-6 font-semibold' }} text-base text-white transition hover:border-white/70 hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                                >
+                                    Inloggen
+                                </a>
+                            @endauth
                             <a
-                                href="{{ route('dashboard') }}"
-                                class="inline-flex min-h-12 items-center justify-center rounded-md bg-brand-ember px-6 text-base font-semibold text-white transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                                href="#hoe-het-werkt"
+                                class="inline-flex min-h-12 items-center justify-center rounded-md border border-white/35 px-5 text-base font-medium text-white transition hover:border-white/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                             >
-                                Open dashboard
+                                Hoe het werkt
                             </a>
-                        @else
-                            <a
-                                href="{{ route('login') }}"
-                                class="inline-flex min-h-12 items-center justify-center rounded-md bg-brand-ember px-6 text-base font-semibold text-white transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                            >
-                                Inloggen
-                            </a>
-                        @endauth
-                        <a
-                            href="#hoe-het-werkt"
-                            class="inline-flex min-h-12 items-center justify-center rounded-md border border-white/35 px-5 text-base font-medium text-white transition hover:border-white/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-                        >
-                            Hoe het werkt
-                        </a>
+                        </div>
+                        @if (config('intake.demo.enabled'))
+                            <p class="max-w-md text-sm text-white/60">
+                                Demo — geen echte offerte · verdwijnt na {{ (int) config('intake.demo.ttl_hours', 12) }} uur · geen account nodig
+                            </p>
+                        @endif
                     </div>
                 </div>
             </section>

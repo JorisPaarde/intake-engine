@@ -42,5 +42,11 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('customer-intake', function (Request $request) {
             return Limit::perMinute(60)->by((string) $request->ip());
         });
+
+        RateLimiter::for('demo-start', function (Request $request) {
+            $perHour = max(1, (int) config('intake.demo.throttle_per_hour', 5));
+
+            return Limit::perHour($perHour)->by((string) $request->ip());
+        });
     }
 }

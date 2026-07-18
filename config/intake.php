@@ -14,6 +14,23 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Public demo ("Start demo" on homepage)
+    |--------------------------------------------------------------------------
+    |
+    | Creates a temporary airco-intake + customer link without account signup.
+    | Default on for local/staging; keep off in production until intentional.
+    |
+    */
+
+    'demo' => [
+        'enabled' => (bool) env('DEMO_ENABLED', false),
+        'ttl_hours' => (int) env('DEMO_TTL_HOURS', 12),
+        'user_email' => env('DEMO_USER_EMAIL', 'demo@intake-engine.invalid'),
+        'throttle_per_hour' => (int) env('DEMO_THROTTLE_PER_HOUR', 5),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Photo uploads
     |--------------------------------------------------------------------------
     */

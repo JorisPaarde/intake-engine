@@ -17,6 +17,7 @@ class DashboardController extends Controller
 
         $intakes = Intake::query()
             ->with(['templateVersion.template'])
+            ->where('is_demo', false)
             ->latest()
             ->paginate(20);
 

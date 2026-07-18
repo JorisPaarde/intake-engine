@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.2 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.3 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -31,6 +31,8 @@ Laatste testsessie: 2026-07-18 (staging via headless Chromium/Playwright; cPanel
 | AI-samenvatting in rapport (Fase 6) | todo | - | Niet bereikt; verwacht `blocked` bij `AI_PROVIDER=null` |
 | Queue-worker (cron) | todo | - | Niet end-to-end bevestigd (geen AI-resultaat om te zien) |
 | Demo-login `installateur@example.com` | fail | 2026-07-18 | Credentials matchen niet — `DatabaseSeeder` draait niet bij deploy (alleen IntakeTemplateSeeder) |
+| Publieke demo “Start demo” (BL-001) | todo | - | Na deploy + `DEMO_ENABLED=true`: knop op `/`, redirect `/o/{token}`, watermerk, bedankt-copy |
+| Demo-intake purge (`intakes:purge-demos`) | todo | - | Scheduler/hourly; expired demo-intakes verdwijnen (incl. uploads) |
 
 ## Legenda
 

@@ -1,6 +1,6 @@
 # Deployment naar cPanel (staging)
 
-> **Documentversie:** 1.3 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.4 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Afgestemd op de huidige host:
 
@@ -150,6 +150,17 @@ Let op: database-migraties worden niet automatisch teruggedraaid — vandaar de 
 ## Production later
 
 Kopieer `deploy-staging.yml` naar `deploy-production.yml`, trigger op tags (`v*`) i.p.v. push, gebruik `PRODUCTION_*`-secrets en een eigen `apps/intake-engine-production`-boom plus eigen database. De server-setup is identiek.
+
+## Publieke demo (BL-001)
+
+Zet in staging `shared/.env` (zie `.env.staging.example`):
+
+```env
+DEMO_ENABLED=true
+DEMO_TTL_HOURS=12
+```
+
+Daarna `php artisan config:cache` (of wacht op de volgende deploy-activate). Homepage toont **Start demo**; verlopen demo-intakes worden hourly gepurged (`intakes:purge-demos`). Productie: `DEMO_ENABLED=false` houden.
 
 ## Mail
 

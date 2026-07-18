@@ -31,16 +31,24 @@ final class CreateIntake
      *     address_postal_code?: string|null,
      *     address_city?: string|null,
      *     internal_note?: string|null,
-     *     template_key?: string
+     *     template_key?: string,
+     *     is_demo?: bool,
+     *     token_ttl_hours?: int
      * }  $data
      */
     public function handle(User $creator, array $data): Intake
     {
         $templateKey = $data['template_key'] ?? 'airco';
+        $isDemo = (bool) ($data['is_demo'] ?? false);
 
         $version = $this->resolvePublishedVersion($templateKey);
 
-        return DB::transaction(function () use ($creator, $data, $version): Intake {
+        return DB::transaction(function () use ($creator, $data, $version, $isDemo): Intake {
+            $ttlHours = isset($data['token_ttl_hours']) ? (int) $data['token_ttl_hours'] : null;
+            $expiresAt = $ttlHours !== null
+                ? now()->addHours(max(1, $ttlHours))
+                : now()->addDays((int) config('intake.token_ttl_days', 60));
+
             $intake = Intake::query()->create([
                 'intake_template_version_id' => $version->id,
                 'created_by' => $creator->id,
@@ -52,9 +60,10 @@ final class CreateIntake
                 'address_postal_code' => $data['address_postal_code'] ?? null,
                 'address_city' => $data['address_city'] ?? null,
                 'access_token' => $this->tokenGenerator->generate(),
-                'token_expires_at' => now()->addDays((int) config('intake.token_ttl_days', 60)),
+                'token_expires_at' => $expiresAt,
                 'internal_note' => $data['internal_note'] ?? null,
                 'progress_percent' => 0,
+                'is_demo' => $isDemo,
             ]);
 
             IntakeActivityEvent::query()->create([
