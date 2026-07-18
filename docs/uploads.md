@@ -1,6 +1,6 @@
 # Uploads & mediastorage
 
-> **Documentversie:** 1.4 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.5 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **geïmplementeerd (Fase 4)**.
 
@@ -24,6 +24,7 @@ Status: **geïmplementeerd (Fase 4)**.
    - rij in `intake_uploads` + sync `intake_answers.value.upload_ids`
 4. Preview via `customer.uploads.show` / `installer.uploads.show`.
 5. Verwijderen: `DeleteIntakeUpload` (soft delete + file delete + sync).
+6. Installateursgalerij (detailpagina): `InstallerPhotoGalleryBuilder` groepeert foto’s per sectie/instantie en toont vraaglabels uit de gepinde templateversie (geen rauwe `question_key` / `section_instance_key`) — BL-024.
 
 ## Storage disks
 
