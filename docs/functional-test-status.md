@@ -4,7 +4,7 @@
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
-**Niet** invullen via geautomatiseerde agent-implementatie; bijwerken door de testende agent of tester. Implementerende agents voegen alleen nieuwe `todo`-regels toe voor functionaliteit die zij introduceren.
+Bijwerken door wie de test daadwerkelijk heeft uitgevoerd: een menselijke tester **of** een testende agent (bijv. een agent die de app via een browser bedient). Niet invullen op basis van alleen implementatie — er moet echt functioneel getest zijn. Implementerende agents voegen alleen nieuwe `todo`-regels toe voor functionaliteit die zij introduceren.
 
 Laatste testsessie: 2026-07-18 (staging via headless Chromium/Playwright; cPanel 428 Technical Domain dismissed)
 
