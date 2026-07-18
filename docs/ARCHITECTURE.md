@@ -1,5 +1,7 @@
 # Architectuurkeuzes
 
+> **Documentversie:** 1.1 · **Laatste update:** 2026-07-17 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+
 ## Uitgangspunt: engine, geen airco-app
 
 Airco is een *configuratie* van de engine, geen aparte codebase. Intaketype-specifieke vragen, validaties en rapportindeling leven in templateversies (data), niet in “airco”-controllers. Nieuwe intaketypes = nieuwe template + versie.
@@ -90,13 +92,10 @@ Build in GitHub Actions, rsync release, `deploy/activate.sh` (migrate, cache, at
 
 ## Trade-offs
 
-1. **cPanel** — cron-queue i.p.v. Supervisor; gedeelde PHP-limieten (uploads!).
+1. **cPanel** — cron-queue i.p.v. Supervisor; gedeelde PHP-limieten (uploads! zie BL-003 in `docs/backlog.md`).
 2. **Token plaintext in DB** — hertoonbare link vs. hash-only (ADR-0002).
-3. **Geen companies-tabel** — sneller MVP; later tenant-scope toevoegen.
-4. **HTML-rapport eerst** — PDF alleen als hosting het betrouwbaar aankan.
-5. **Livewire nog ongebruikt** — package blijft; Fase 3 introduceert components.
-6. **`APP_TIMEZONE` in env** wordt nog niet gelezen door `config/app.php` (staat op UTC) — fixen in Fase 2.
-7. **`MEDIA_DISK` nog niet in filesystems-config** — Fase 4 (of vroeg in Fase 2 als voorbereiding).
+3. **Geen companies-tabel** — sneller MVP; later tenant-scope toevoegen (BL-012).
+4. **HTML-rapport eerst** — PDF alleen als hosting het betrouwbaar aankan (BL-005).
 
 ## Gerelateerde documentatie
 

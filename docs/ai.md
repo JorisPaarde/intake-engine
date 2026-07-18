@@ -1,6 +1,8 @@
 # AI — Digitale Opname
 
-Status: **minimale Fase 6-slice geïmplementeerd** (samenvatting na afronding). Zie ADR-0005.
+> **Documentversie:** 1.1 · **Laatste update:** 2026-07-17 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+
+Status: **minimale Fase 6-slice geïmplementeerd** (samenvatting na afronding). Zie ADR-0005. Vervolgstappen: BL-006/BL-007 in [docs/backlog.md](backlog.md).
 
 ## Wat AI wél mag
 

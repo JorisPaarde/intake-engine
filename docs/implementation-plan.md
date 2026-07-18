@@ -1,6 +1,10 @@
 # Gefaseerd implementatieplan
 
+> **Documentversie:** 1.1 · **Laatste update:** 2026-07-17 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+
 Gebaseerd op repository-audit (2026-07-17). Infrastructuur (Laravel, CI, cPanel-deploy) blijft intact.
+
+**Status: alle fasen (1–6) zijn afgerond en gemerged naar `main`.** Dit document is historie/geheugen van het MVP-traject; voeg hier geen nieuw werk toe. Nieuw en uitgesteld werk staat in [docs/backlog.md](backlog.md).
 
 ## Fase 1 — Audit & ontwerp ✅
 
