@@ -118,14 +118,14 @@ Tussen "installateur maakt opname aan" en "installateur beoordeelt dossier" zitt
 
 ### BL-014 — Afrondingsnotificatie voor de installateur
 
-- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-07-18
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-07-18 · **PR:** #26
 - **Doel:** zodra de klant afrondt, krijgt de installateur een signaal (mail en/of dashboard-markering) zodat de beoordeling direct kan starten. Bespaart het periodiek handmatig checken van het dashboard.
 - **Resultaat:** dashboard markeert en sorteert **Nieuw afgerond** (`status=completed` + `reviewed_at` null). Na afronden stuurt `SendInstallerIntakeCompleted` een mailable naar de creator; skip bij demo/`MAIL_MAILER=log`; activity-event `installer_completion_mailed` zonder PII. Staging-smoke wacht op SMTP (zelfde als BL-004).
 - **Afhankelijkheden:** mailvariant vereist SMTP (BL-004-kaders); dashboard-deel werkt zonder.
 
 ### BL-015 — Herinnering bij stilliggende intake
 
-- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-07-18
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-07-18 · **PR:** #26
 - **Doel:** scheduled command: klant kreeg een link maar rondde niet af binnen N dagen → één automatische herinnering met dezelfde hervat-link. Bespaart de installateur het nabellen en de aanvrager het terugzoeken van de link.
 - **Resultaat:** daily `intakes:send-reminders`; `INTAKE_REMINDER_DAYS` (default 3); kolom `reminder_sent_at`; max. één mail; stopt bij demo/ingetrokken/verlopen/niet-klanttoegankelijk; skip bij `MAIL_MAILER=log` (ADR-0002); activity-event `customer_reminder_mailed`.
 - **Afhankelijkheden:** SMTP voor echte bezorging (zelfde als BL-004).
@@ -212,7 +212,7 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 
 ### BL-005 — PDF-export van rapporten
 
-- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-07-18
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-07-18 · **PR:** #26
 - **Doel:** naast het HTML-rapport (`generated_reports`) een PDF-pad, zodat het dossier direct in de offerte-/archiefflow van de installateur past zonder knip- en plakwerk. **Async** job (ADR-0004); HTML blijft bron.
 - **Resultaat:** lichte Dompdf-export via `GenerateIntakePdfJob` na afronden; opslag op `MEDIA_DISK` (`pdf_disk`/`pdf_path`/`pdf_generated_at`); detailpagina **Download PDF** + opnieuw genereren; demo’s skippen PDF; hard purge ruimt PDF-bestanden op.
 
@@ -228,13 +228,13 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 
 ### BL-009 — Purge-job voor soft-deleted intakes
 
-- **Status:** done · **Prioriteit:** low · **Datum:** 2026-07-18 · **Ref:** `docs/database.md` (bewaartermijn)
+- **Status:** done · **Prioriteit:** low · **Datum:** 2026-07-18 · **PR:** #26 · **Ref:** `docs/database.md` (bewaartermijn)
 - **Doel:** bewaartermijn bekrachtigen en implementeren: 30 dagen na soft delete hard purge van dossier inclusief storage (foto's). Scheduled job + tests.
 - **Resultaat:** daily `intakes:purge-deleted`; `INTAKE_SOFT_DELETE_RETENTION_DAYS` (default 30); `HardDeleteIntake` verwijdert uploads (incl. soft-deleted) + PDF + `forceDelete`. Soft-delete-UI voor intakes ontbreekt nog (purge is klaar voor wanneer die er is).
 
 ### BL-010 — Production-deployworkflow
 
-- **Status:** backlog · **Prioriteit:** low *(verlaagd 2026-07-18 bij hoofddoel-herprioritering: bespaart nu geen handelingen; oppakken zodra een eerste echte klant/productiegang concreet is — zelfde trigger als BL-012. Neem BL-009 dan mee.)* · **Ref:** `docs/DEPLOYMENT.md`
+- **Status:** backlog · **Prioriteit:** low *(verlaagd 2026-07-18 bij hoofddoel-herprioritering: bespaart nu geen handelingen; oppakken zodra een eerste echte klant/productiegang concreet is — zelfde trigger als BL-012. BL-009 purge is al done.)* · **Ref:** `docs/DEPLOYMENT.md`
 - **Parallel:** band **I** — parallel met productwerk; afstemmen met BL-011/BL-013 bij gedeelde deploy-/hostingkeuzes.
 - **Doel:** `deploy-production.yml` getriggerd op tags (`v*`), `PRODUCTION_*`-secrets, eigen `apps/intake-engine-production`-boom en database. Eerste release taggen als `v0.x` en CHANGELOG `[Unreleased]` afsluiten.
 
