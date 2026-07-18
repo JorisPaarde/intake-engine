@@ -112,7 +112,7 @@ De flow van Fase 1–6 belooft "zo min mogelijk handelingen", maar dat geldt all
 
 ### BL-021 — Foto's: meerdere tegelijk uploaden en galerijkeuze niet blokkeren
 
-- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-18 · **Ref:** `docs/uploads.md`, `docs/functional-test-status.md`
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-18 · **PR:** #29 · **Ref:** `docs/uploads.md`, `docs/functional-test-status.md`
 - **Parallel:** band **J** (done) — kettingkop; vervolg is BL-023 → BL-022 → BL-025.
 - **Doel:** twee verbeteringen op de bestaande foto-upload in de klantwizard:
   - **Meerdere foto's in één keer selecteren:** de file-input heeft nu geen `multiple`, terwijl vragen tot `meta.max_files = 5` foto's toestaan — de aanvrager tikt nu per foto opnieuw "Foto maken of kiezen". Multiselect + upload per bestand (één mislukte foto blokkeert de rest niet).
