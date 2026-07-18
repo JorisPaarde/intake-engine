@@ -69,7 +69,7 @@ De flow van Fase 1–6 belooft "zo min mogelijk handelingen", maar dat geldt all
 
 ### BL-008 — HEIC-ondersteuning bij foto-uploads
 
-- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-18 · **Ref:** deze PR + `docs/functional-test-status.md`
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-18 · **PR:** #24 · **Ref:** `docs/functional-test-status.md`
 - **Doel:** iPhones maken standaard HEIC-foto's; de allowlist is nu jpeg/png/webp. Onderzoek server-side conversie (Imagick op cPanel?) of client-side conversie vóór upload. De aanvrager mag nooit zelf hoeven converteren of instellingen omzetten.
 - **Resultaat:** upload-input accepteert jpeg/png/webp/heic/heif; server-side MIME-detectie blijft leidend (incl. ISO BMFF-brand-sniffing voor HEIC/HEIF bij `application/octet-stream`). HEIC/HEIF wordt met Imagick automatisch naar JPEG omgezet (auto-orient, metadata strippen, max lange zijde, kwaliteitsstappen binnen app-limiet). Opgeslagen bestanden blijven jpeg/png/webp; preview-routes blijven ongewijzigd. Staging iPhone-smoketest staat als `todo` in `docs/functional-test-status.md`.
 
