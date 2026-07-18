@@ -65,6 +65,7 @@ Twijfel je onder welk taaktype je werk valt, gebruik dan de geheugenkaart hieron
 | Hoe werken uploads/media en limieten? | [docs/uploads.md](docs/uploads.md) |
 | Wat doet AI wel/niet, en hoe? | [docs/ai.md](docs/ai.md) |
 | Hoe deployt het naar staging/cPanel? | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
+| Welke env/host-instellingen moet de producteigenaar nog zetten? | [docs/DEPLOYMENT.md § Handmatige acties](docs/DEPLOYMENT.md#handmatige-acties-producteigenaar) |
 | Welke fasen zijn (op)geleverd? | [docs/implementation-plan.md](docs/implementation-plan.md) (historie, afgerond) |
 | Wat is het nog te bouwen werk? | [docs/backlog.md](docs/backlog.md) (**enige** backlog) |
 | Wat is functioneel getest (handmatig)? | [docs/functional-test-status.md](docs/functional-test-status.md) |

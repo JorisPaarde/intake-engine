@@ -1,6 +1,8 @@
 # Deployment naar cPanel (staging)
 
-> **Documentversie:** 1.5 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.6 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+
+**Statusregel:** open handmatige acties (env/host) staan in [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
 
 Afgestemd op de huidige host:
 
@@ -151,6 +153,36 @@ Let op: database-migraties worden niet automatisch teruggedraaid — vandaar de 
 
 Kopieer `deploy-staging.yml` naar `deploy-production.yml`, trigger op tags (`v*`) i.p.v. push, gebruik `PRODUCTION_*`-secrets en een eigen `apps/intake-engine-production`-boom plus eigen database. De server-setup is identiek.
 
+## Handmatige acties (producteigenaar)
+
+Alles hieronder staat **niet** in git en moet jij (of de host) zetten. Bestand op staging:  
+`/home/intakeengine/apps/intake-engine-staging/shared/.env`  
+Sjabloon: [`.env.staging.example`](../.env.staging.example). Na elke `.env`-wijziging: `cd …/current && php artisan config:cache` (of wacht op de volgende deploy).
+
+### Nu open op staging
+
+| # | Actie | Waar | Vars / stappen | Ontgrendelt |
+|---|--------|------|----------------|-------------|
+| 1 | **SMTP voor klantlink-mail** (BL-004) | `shared/.env` | Zie [§ Mail](#mail-bl-004). Zonder dit blijft de app bij `MAIL_MAILER=log` en **stuurt geen** klantlink-mail (bewust, ADR-0002). | Echte bezorging + smoke-test BL-004; later BL-014/BL-015-mail |
+| 2 | **Publieke demo aanzetten** (BL-001) | `shared/.env` | `DEMO_ENABLED=true` (optioneel `DEMO_TTL_HOURS=12`). Zie [§ Publieke demo](#publieke-demo-bl-001). | Knop **Start demo** op `/`; daarna BL-001 → `done` na smoke |
+| 3 | **Eigen (sub)domein + Let’s Encrypt** (BL-011) | cPanel → Domains / SSL | Vervang `.cpanel.site` + self-signed. Zet daarna `APP_URL=https://…` in `shared/.env` en werk de README-omgevingstabel bij. | Geen Technical Domain-tussenscherm / browserwaarschuwing voor aanvragers |
+| 4 | **Cron controleren** (scheduler + queue) | cPanel → Cron Jobs | Twee jobs uit [§ Cron](#7-cron-scheduler--queue-worker) moeten actief zijn (`schedule:run` + `queue:work`). | Demo-purge, AI-jobs, latere herinneringen |
+
+### Optioneel / later (niet blokkerend voor de kernflow)
+
+| Actie | Wanneer | Vars / stappen |
+|--------|---------|----------------|
+| `AI_PROVIDER` + `AI_API_KEY` | Na DPIA / akkoord (BL-006) | Nu bewust `null` (soft-fail). Nooit keys in git. |
+| Productie-`.env` | Bij eerste echte productiegang (BL-010) | Sjabloon [`.env.production.example`](../.env.production.example): SMTP verplicht, `DEMO_ENABLED=false`, eigen DB + `APP_URL`. |
+| `MEDIA_DISK=s3` + AWS-vars | Bij storagegroei / vertrek cPanel (BL-013) | Bestaande rijen behouden `disk`+`path`. |
+| Demo-login seeden | Alleen als je `installateur@example.com` wilt | Deploy seedt **geen** users — registreer zelf, of lokaal `DatabaseSeeder`. |
+
+### Bewust niet handmatig doen
+
+- Geen handmatige staging-DB-edits (migraties + `IntakeTemplateSeeder` via deploy).
+- Secrets (`APP_KEY`, DB-wachtwoord, `MAIL_PASSWORD`, API-keys) nooit committen.
+- PHP-uploadlimieten: al ok op staging (BL-003); `.user.ini` in git is vangnet.
+
 ## Publieke demo (BL-001)
 
 Zet in staging `shared/.env` (zie `.env.staging.example`):
@@ -180,6 +212,8 @@ MAIL_FROM_NAME="${APP_NAME}"
 ```
 
 Daarna `php artisan config:cache` (of wacht op de volgende deploy-activate). Demo-intakes (`is_demo`) mailen nooit. Lokaal: Mailpit/`array`, of bewust `log` (dan alleen kopiëren). Zie `.env.staging.example` / `.env.production.example`.
+
+Volledige checklist van open host-/env-acties: [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
 
 ## PHP upload-limieten (cPanel)
 

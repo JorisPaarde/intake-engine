@@ -36,6 +36,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
+- `docs/DEPLOYMENT.md` v1.6 + AGENTS.md v1.4 + README v1.14 + `docs/backlog.md` v3.15: checklist **Handmatige acties producteigenaar** (SMTP, `DEMO_ENABLED`, domein/SSL, cron; optioneel AI/productie/S3).
 - `docs/backlog.md` v3.14 + `docs/DEPLOYMENT.md` v1.5 + `docs/functional-test-status.md` v1.9 + README v1.13: BL-004 → `done` (code); SMTP-smoke op staging als todo.
 - `docs/backlog.md` v3.13: parallelisatie — bands A–I (herberekend na BL-002/BL-008/BL-016 done), kolom **Band** in overzichtstabel, **Parallel**-regels per open item; concrete parallel-startsets.
 - `docs/backlog.md` v3.12 + `docs/uploads.md` v1.4 + `docs/functional-test-status.md` v1.8 + README v1.12: BL-008 → `done` voor code delivery; staging iPhone-smoketest toegevoegd als functionele test-todo.

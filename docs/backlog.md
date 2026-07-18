@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 3.14 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.15 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -115,7 +115,7 @@ Tussen "installateur maakt opname aan" en "installateur beoordeelt dossier" zitt
 - **Status:** done · **Prioriteit:** medium · **Datum:** 2026-07-18 · **PR:** #25
 - **Doel:** klantlink automatisch mailen i.p.v. alleen kopieerbaar maken. Vereist werkende SMTP-configuratie (staging heeft nu `MAIL_MAILER=log`); daarna ook registratie/e-mailverificatie betrouwbaar.
 - **Resultaat:** na aanmaken (en na token-hergenereren) stuurt `SendCustomerIntakeLink` een Nederlandse mailable naar `customer_email`; detailpagina heeft **Opnieuw mailen**. Kopieerbare `#customer-link` blijft fallback. Bij `MAIL_MAILER=log` wordt mail **overslagen** (geen tokens in logs, ADR-0002); soft-fail bij SMTP-fouten. Demo-intakes mailen nooit. Activity-event `customer_link_mailed` zonder token/URL.
-- **Nog te doen op staging:** SMTP zetten in `shared/.env` (zie `docs/DEPLOYMENT.md` § Mail) + smoke-test; zie `todo` in `docs/functional-test-status.md`.
+- **Nog te doen op staging:** SMTP zetten in `shared/.env` (zie [DEPLOYMENT § Handmatige acties](DEPLOYMENT.md#handmatige-acties-producteigenaar) / § Mail) + smoke-test; zie `todo` in `docs/functional-test-status.md`.
 - **Afhankelijkheden:** SMTP-account op host of externe mailprovider (voor echte bezorging).
 - **Let op:** tokens nooit in logs (ADR-0002); kopieerbare link blijft bestaan als fallback.
 
@@ -225,7 +225,7 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 - **Parallel:** band **A** (afronden) — restwerk is staging-config + smoke-test; parallel met code-sporen D–I.
 - **Doel:** publiek of semi-publiek demopad zodat prospects/installateurs het product kunnen ervaren zonder eigen accountsetup of echte klantdata — het hoofddoel ("zo min mogelijk handelingen") toegepast op de allereerste kennismaking.
 - **Invulling (deze PR):** homepage **"Start demo"** → tijdelijke airco-intake + klantlink (`is_demo`, TTL via `DEMO_TTL_HOURS`, watermerk, geen AI-job, hourly `intakes:purge-demos`). Geen account nodig; fictieve `@demo.invalid`-e-mail. Feature-flag `DEMO_ENABLED` (default uit; aanzetten op staging).
-- **Nog te doen na deploy:** `DEMO_ENABLED=true` in staging `shared/.env`, smoke-test Start demo → wizard → watermerk; daarna status → `done`.
+- **Nog te doen na deploy:** `DEMO_ENABLED=true` in staging `shared/.env` (zie [DEPLOYMENT § Handmatige acties](DEPLOYMENT.md#handmatige-acties-producteigenaar)), smoke-test Start demo → wizard → watermerk; daarna status → `done`.
 - **Afhankelijkheden:** geen — klantflow (Fase 3), uploads (Fase 4) en rapport (Fase 5) zijn af.
 - **Niet doen in demo:** echte mail naar willekeurige adressen, persistente PII van bezoekers zonder TTL.
 
