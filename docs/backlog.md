@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 3.10 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.13 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -20,29 +20,29 @@ Status: `backlog` · `ready` · `in_progress` · `done` · `dropped` — priorit
 | E4 | AI bespaart beoordeelwerk | Samenvatting, aandachtspunten en fotokwaliteitscheck besparen de installateur leeswerk en de aanvrager een extra aanleverronde. AI blijft ondersteunend (docs/ai.md). |
 | E5 | Bruikbaar dossier & klaar voor groei | Het dossier moet buiten de browser bruikbaar zijn en het product moet zonder extra handelingen te ervaren, beheren en opschalen zijn. |
 
-Volgorde-advies: volg kolom **#** in de overzichtstabel hieronder. De rode draad: eerst lopend werk afronden (BL-002, BL-001), dan de kern van het hoofddoel — slimmere vragen (BL-016; BL-017/BL-018 done) en betrouwbare, drempelloze aanlevering (BL-008, BL-011) — daarna installateurshandelingen wegnemen (E2), vervolgens slimme afleiding (BL-019, BL-006, BL-020) en tot slot groei-/beheeritems. Parallelisatie: zie [§ Parallelisatie](#parallelisatie) en kolom **Band**.
+Volgorde-advies: volg kolom **#** in de overzichtstabel hieronder. De rode draad: eerst lopend werk afronden (BL-001; BL-002/BL-008/BL-016 done), dan drempelloze aanlevering (BL-011 domein/SSL) — daarna installateurshandelingen wegnemen (E2), vervolgens slimme afleiding (BL-019, BL-006, BL-020) en tot slot groei-/beheeritems. Parallelisatie: zie [§ Parallelisatie](#parallelisatie) en kolom **Band**.
 
 ## Parallelisatie
 
-Items in **verschillende parallel-bands** kunnen tegelijk door aparte agents/mensen worden gebouwd (andere codepaden of externe acties). Items in dezelfde **keten** zijn sequentieel. Kolom **Band** in de overzichtstabel verwijst hiernaar.
+Items in **verschillende parallel-bands** kunnen tegelijk door aparte agents/mensen worden gebouwd (andere codepaden of externe acties). Items in dezelfde **keten** zijn sequentieel. Kolom **Band** in de overzichtstabel verwijst hiernaar. (Bands van afgeronde items blijven in de tabel als geheugen.)
 
-| Band | Type | Items | Mag parallel met |
-|------|------|-------|------------------|
-| **A** | Afronden (lopend) | BL-002, BL-001 | Alles behalve zware wizard-wijzigingen tijdens BL-002-hertest van die flow |
-| **B** | Intake-engine | BL-016 | C, D, E, F, G, H, I — **niet** gelijktijdig met BL-019-BAG-prefill zonder afstemming |
-| **C** | Uploads | BL-008 | A–I behalve overlap op upload-pipeline met BL-013 |
-| **D** | Infra (extern) | BL-011 | Alles (vooral producteigenaar/host; weinig codeconflict) |
-| **E** | Mail-keten | BL-004 → daarna BL-014 + BL-015 | B, C, D, F, G, H, I. Binnen E: BL-014 (dashboard-deel) mag vóór BL-004; mail-deel en BL-015 **ná** BL-004, onderling parallel |
-| **F** | Open data / adres | BL-019 | C, D, E, G, H, I; rapport-/satellietdeel parallel met B; BAG-prefill afstemmen met BL-016 |
-| **G** | Rapport | BL-005 | A–F, H, I (eigen PDF-pad; HTML blijft bron) |
-| **H** | AI-keten | BL-006 → daarna BL-007 + BL-020 | B–G, I. Binnen H: BL-007 en BL-020 parallel **ná** BL-006 (+ DPIA) |
+| Band | Type | Items (open) | Mag parallel met |
+|------|------|--------------|------------------|
+| **A** | Afronden (lopend) | BL-001 | D–I (staging-config/smoke; weinig codeconflict) |
+| **D** | Infra (extern) | BL-011 | Alles (vooral producteigenaar/host) |
+| **E** | Mail-keten | BL-004 → daarna BL-014 + BL-015 | A, D, F, G, H, I. Binnen E: BL-014 (dashboard-deel) mag vóór BL-004; mail-deel en BL-015 **ná** BL-004, onderling parallel |
+| **F** | Open data / adres | BL-019 | A, D, E, G, H, I; BAG-prefill bouwt voort op afgeronde BL-016-kaders |
+| **G** | Rapport | BL-005 | A, D–F, H, I (eigen PDF-pad; HTML blijft bron) |
+| **H** | AI-keten | BL-006 → daarna BL-007 + BL-020 | A, D–G, I. Binnen H: BL-007 en BL-020 parallel **ná** BL-006 (+ DPIA) |
 | **I** | Beheer / schaal | BL-009, BL-010, BL-013 (BL-012 later) | Onderling parallel; met A–H zolang geen gedeelde deploy-/storage-wijziging botst |
 
-**Concrete parallel-startsets** (zodra BL-002/BL-001 zijn afgerond of niet in de weg zitten):
+Afgeronde bands (niet meer te plannen): **B** = BL-016 (prefill), **C** = BL-008 (HEIC).
 
-1. **Nu parallel bouwbaar:** BL-016 · BL-008 · BL-011 (extern) · BL-004 · BL-005 · BL-009 — zes onafhankelijke sporen.
+**Concrete parallel-startsets:**
+
+1. **Nu parallel bouwbaar:** BL-011 (extern) · BL-004 · BL-005 · BL-009 · BL-019 — naast afronden van BL-001.
 2. **Na BL-004:** BL-014 en BL-015 parallel.
-3. **Na DPIA + BL-006:** BL-007 en BL-020 parallel; BL-019 kan eerder al starten (deterministisch/open data).
+3. **Na DPIA + BL-006:** BL-007 en BL-020 parallel.
 4. **Laag-prioriteit parallel:** BL-010 · BL-013 · (BL-012 bij tweede klant).
 
 ## Overzicht
@@ -51,28 +51,27 @@ Geprioriteerd op het hoofddoel (herprioritering 2026-07-18): hoeveel handelingen
 
 | # | ID | Item | Epic | Status | Prioriteit | Band |
 |---|----|------|------|--------|------------|------|
-| 1 | BL-002 | Functionele hertest staging (Fase 3–6) | E1 | in_progress | high | A |
-| 2 | BL-001 | Demo-versie van de app | E5 | in_progress | medium | A |
-| 3 | BL-016 | Hergebruik bekende gegevens (prefill) | E3 | backlog | high | B · parallel |
-| 4 | BL-008 | HEIC-ondersteuning bij foto-uploads | E1 | backlog | high | C · parallel |
-| 5 | BL-011 | Eigen domein + geldig SSL voor staging | E1 | backlog | high | D · parallel |
-| 6 | BL-004 | Automatische e-mail van klantlink (SMTP) | E2 | backlog | medium | E · parallel |
-| 7 | BL-014 | Afrondingsnotificatie voor de installateur | E2 | backlog | medium | E · na BL-004 |
-| 8 | BL-015 | Herinnering bij stilliggende intake | E2 | backlog | medium | E · na BL-004 |
-| 9 | BL-019 | Afleiden uit adres en openbare bronnen (satellietbeeld, BAG) | E3 | backlog | medium | F · parallel* |
-| 10 | BL-005 | PDF-export van rapporten | E5 | backlog | medium | G · parallel |
-| 11 | BL-006 | Externe LLM-provider (na DPIA) | E4 | backlog | medium | H · parallel† |
-| 12 | BL-020 | Foto-gedreven afleiding en adaptieve vervolgvragen | E4 | backlog | medium | H · na BL-006 |
-| 13 | BL-007 | AI-uitbreidingen: attention points, fotokwaliteit, accepteren/verwijderen | E4 | backlog | low | H · na BL-006 |
-| 14 | BL-009 | Purge-job voor soft-deleted intakes (bewaartermijn) | E5 | backlog | low | I · parallel |
-| 15 | BL-010 | Production-deployworkflow (tags + eigen omgeving) | E5 | backlog | low | I · parallel |
-| 16 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low | I · later |
-| 17 | BL-013 | S3 als mediadisk | E5 | backlog | low | I · parallel |
+| 1 | BL-001 | Demo-versie van de app | E5 | in_progress | medium | A |
+| 2 | BL-011 | Eigen domein + geldig SSL voor staging | E1 | backlog | high | D · parallel |
+| 3 | BL-004 | Automatische e-mail van klantlink (SMTP) | E2 | backlog | medium | E · parallel |
+| 4 | BL-014 | Afrondingsnotificatie voor de installateur | E2 | backlog | medium | E · na BL-004 |
+| 5 | BL-015 | Herinnering bij stilliggende intake | E2 | backlog | medium | E · na BL-004 |
+| 6 | BL-019 | Afleiden uit adres en openbare bronnen (satellietbeeld, BAG) | E3 | backlog | medium | F · parallel |
+| 7 | BL-005 | PDF-export van rapporten | E5 | backlog | medium | G · parallel |
+| 8 | BL-006 | Externe LLM-provider (na DPIA) | E4 | backlog | medium | H · parallel† |
+| 9 | BL-020 | Foto-gedreven afleiding en adaptieve vervolgvragen | E4 | backlog | medium | H · na BL-006 |
+| 10 | BL-007 | AI-uitbreidingen: attention points, fotokwaliteit, accepteren/verwijderen | E4 | backlog | low | H · na BL-006 |
+| 11 | BL-009 | Purge-job voor soft-deleted intakes (bewaartermijn) | E5 | backlog | low | I · parallel |
+| 12 | BL-010 | Production-deployworkflow (tags + eigen omgeving) | E5 | backlog | low | I · parallel |
+| 13 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low | I · later |
+| 14 | BL-013 | S3 als mediadisk | E5 | backlog | low | I · parallel |
+| — | BL-016 | Hergebruik bekende gegevens (prefill) | E3 | done | high | B (done) |
+| — | BL-008 | HEIC-ondersteuning bij foto-uploads | E1 | done | high | C (done) |
+| — | BL-002 | Functionele hertest staging (Fase 3–6) | E1 | done | high | A (done) |
 | — | BL-017 | Airco-template v2: vraag-voor-vraag audit op het ontwerpprincipe | E3 | done | high | — |
 | — | BL-018 | Vraag-voor-vraag klantflow (één vraag per scherm) | E3 | done | high | — |
 | — | BL-003 | Staging PHP-uploadlimieten verifiëren/verhogen | E1 | done | high | — |
 
-\* BL-019 parallel op rapport-/satellietkant; BAG-prefill afstemmen met band B (BL-016).  
 † BL-006 parallel met productwerk, maar geblokkeerd tot DPIA/akkoord.
 
 ## Epic E1 — Frictieloze basisflow
@@ -81,12 +80,10 @@ De flow van Fase 1–6 belooft "zo min mogelijk handelingen", maar dat geldt all
 
 ### BL-002 — Functionele hertest staging (Fase 3–6)
 
-- **Status:** in_progress · **Prioriteit:** high · **Ref:** `docs/functional-test-status.md`
-- **Parallel:** band **A** (afronden) — mag naast infra/mail/PDF/beheer; vermijd gelijktijdige zware wizard-wijzigingen (band B) tijdens hertest van die flow.
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-18 · **PR:** #14 (fixes) + docs-afronding · **Ref:** `docs/functional-test-status.md`
 - **Doel:** de sinds de testsessie van 2026-07-17 gedeployde functionaliteit handmatig verifiëren op staging: producthomepage `/`, klantintake `/o/{token}`, foto-uploads, afronden + rapport + review, AI-samenvatting via queue, registratie + e-mailverificatie, end-to-end queue-job.
-- **Voortgang (2026-07-18):** homepage, health, auth, registratie, opname+klantlink, klantwizard, foto-upload → **pass**. Geblokkeerd op afronden door boolean-validatiebug + regenerate-knop die niet POSTte; fixes in dezelfde PR. **Resterend na deploy:** hergenereren, volledige afronding → bedankt → rapport/review → AI/queue hertesten.
+- **Resultaat:** kernflow Fase 3–5 **pass** (incl. hergenereren, intrekken, foto's, afronden → bedankt, HTML-rapport, installateur-review). Tijdens de test bugs gevonden en gefixt (#14: boolean-validatie, regenerate-knop, foto-hydrate). AI-samenvatting **blocked** (`AI_PROVIDER=null`, soft-fail by design). Queue-worker niet los end-to-end bewezen; demo-user niet geseeded op staging. **Let op:** deze hertest liep vóór de deploy van BL-018/BL-017 — die flow-/template-wijzigingen hebben nog een eigen hertest nodig (zie `todo`-regels in `docs/functional-test-status.md`).
 - **Afhankelijkheden:** geen meer — BL-003 is done (uploadlimieten op staging ok).
-- **Let op:** resultaten alleen vastleggen in `docs/functional-test-status.md`, door de daadwerkelijk testende agent/tester.
 
 ### BL-003 — Staging PHP-uploadlimieten verifiëren/verhogen
 
@@ -97,9 +94,9 @@ De flow van Fase 1–6 belooft "zo min mogelijk handelingen", maar dat geldt all
 
 ### BL-008 — HEIC-ondersteuning bij foto-uploads
 
-- **Status:** backlog · **Prioriteit:** high *(opgehoogd 2026-07-18 bij hoofddoel-herprioritering: een stil mislukkende iPhone-foto is voor de aanvrager de duurste handeling die er is, en foto is onze snelste verzamelmethode — dit raakt een groot deel van álle intakes)*
-- **Parallel:** band **C** — parallel met B/D/E/F/G/H/I; niet tegelijk met BL-013 als die dezelfde mediapipeline raakt.
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-18 · **PR:** #24 · **Ref:** `docs/functional-test-status.md`
 - **Doel:** iPhones maken standaard HEIC-foto's; de allowlist is nu jpeg/png/webp. Onderzoek server-side conversie (Imagick op cPanel?) of client-side conversie vóór upload. De aanvrager mag nooit zelf hoeven converteren of instellingen omzetten.
+- **Resultaat:** upload-input accepteert jpeg/png/webp/heic/heif; server-side MIME-detectie blijft leidend (incl. ISO BMFF-brand-sniffing voor HEIC/HEIF bij `application/octet-stream`). HEIC/HEIF wordt met Imagick automatisch naar JPEG omgezet (auto-orient, metadata strippen, max lange zijde, kwaliteitsstappen binnen app-limiet). Opgeslagen bestanden blijven jpeg/png/webp; preview-routes blijven ongewijzigd. Staging iPhone-smoketest staat als `todo` in `docs/functional-test-status.md`.
 
 ### BL-011 — Eigen domein + geldig SSL voor staging
 
@@ -116,7 +113,7 @@ Tussen "installateur maakt opname aan" en "installateur beoordeelt dossier" zitt
 ### BL-004 — Automatische e-mail van klantlink (SMTP)
 
 - **Status:** backlog · **Prioriteit:** medium
-- **Parallel:** band **E** (ketenkop) — parallel met B/C/D/F/G/H/I; ontgrendelt daarna BL-014 (mail) + BL-015.
+- **Parallel:** band **E** (ketenkop) — parallel met A/D/F/G/H/I; ontgrendelt daarna BL-014 (mail) + BL-015.
 - **Doel:** klantlink automatisch mailen i.p.v. alleen kopieerbaar maken. Vereist werkende SMTP-configuratie (staging heeft nu `MAIL_MAILER=log`); daarna ook registratie/e-mailverificatie betrouwbaar.
 - **Afhankelijkheden:** SMTP-account op host of externe mailprovider.
 - **Let op:** tokens nooit in logs (ADR-0002); kopieerbare link blijft bestaan als fallback.
@@ -142,12 +139,16 @@ De meest directe toepassing van het ontwerpprincipe: *de applicatie vraagt niets
 
 ### BL-016 — Hergebruik bekende gegevens (prefill)
 
-- **Status:** backlog · **Prioriteit:** high *(opgehoogd 2026-07-18 bij hoofddoel-herprioritering: de meest directe toepassing van het ontwerpprincipe — deterministisch, zonder externe afhankelijkheden, en pakt logisch mee met BL-017/BL-018)*
-- **Parallel:** band **B** — parallel met C–I; BAG-prefill in BL-019 afstemmen (niet blind parallel op dezelfde velden).
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-18 · **Ref:** [intake-engine.md § Prefill](../docs/intake-engine.md#prefill-van-bekende-gegevens-bl-016)
 - **Doel:** gegevens die al bekend zijn nooit opnieuw aan de aanvrager vragen:
   - wat de installateur bij het aanmaken al invulde (bijv. aanleiding/klantcontext) vooraf tonen of overslaan;
   - afleidbare waarden berekenen i.p.v. uitvragen;
   - binnen repeatable secties (ruimtes) zinvolle antwoorden van de vorige instantie als voorzet aanbieden.
+- **Resultaat:** deterministische prefill via vraag-`meta`, altijd als bewerkbare, gemarkeerde voorzet die de aanvrager bevestigt (geen LLM):
+  - **Installateur-prefill** (`installer_prefillable`): de installateur beantwoordt bekende `request`-vragen bij het aanmaken; opgeslagen met `intake_answers.prefill_source = 'installer'` en in de wizard getoond als "alvast ingevuld — controleer". Zet de intake niet op `in_progress`.
+  - **Repeatable-prefill** (`prefill_from_previous`): `IntakePrefillResolver` biedt in ruimte 2..n het antwoord van de vorige ruimte aan (airco: `floor_level`); pas bij "Volgende" opgeslagen als eigen antwoord.
+  - Airco **v3** gepubliceerd (v2-vragenset + vlaggen; ADR-0001). Nieuwe migratie `prefill_source`.
+- **Bewust nog niet (was derde deeldoel):** afleidbare/berekende waarden (bouwjaar, gebouwtype, geometrie) vergen externe bronnen (adres/BAG/foto's) en vallen onder **BL-019** en **BL-020** — daar opgepakt, met dezelfde voorzet-kaders.
 - **Kaders:** prefill is een voorzet, geen verborgen aanname — de aanvrager ziet en bevestigt wat is overgenomen. Deterministisch, geen LLM in deze keten (`docs/intake-engine.md`).
 
 ### BL-017 — Airco-template v2: vraag-voor-vraag audit op het ontwerpprincipe
@@ -169,7 +170,7 @@ De meest directe toepassing van het ontwerpprincipe: *de applicatie vraagt niets
 ### BL-019 — Afleiden uit adres en openbare bronnen (satellietbeeld, BAG)
 
 - **Status:** backlog · **Prioriteit:** medium
-- **Parallel:** band **F** — satelliet/rapport parallel met B–E/G–I; BAG-prefill afstemmen met BL-016 (band B).
+- **Parallel:** band **F** — parallel met A/D/E/G/H/I; gebruikt BL-016-kaders (voorzet, geen verborgen aanname).
 - **Doel:** het adres is al bekend bij het aanmaken van de opname (`intakes.address_*`); gebruik dat om vragen te schrappen of te verifiëren i.p.v. ze te stellen:
   - **Satelliet-/luchtfoto** (bijv. Google Maps Static API of PDOK-luchtfoto) tonen in het installateursrapport en als context bij de buitenunit-/gevelvragen — kan `facade_overview_photo` deels vervangen of de aanvrager alleen om bevestiging vragen ("klopt dit beeld van uw woning?");
   - **BAG/open data:** bouwjaar (`build_year`) en gebouwtype (`building_type`) zijn vaak uit openbare registers af te leiden; toon als voorzet die de aanvrager alleen bevestigt (kader BL-016: prefill is een voorzet, geen verborgen aanname).
@@ -183,7 +184,7 @@ AI mag nooit bron van waarheid zijn (docs/ai.md, ADR-0005), maar kan wél handel
 ### BL-006 — Externe LLM-provider (na DPIA)
 
 - **Status:** backlog · **Prioriteit:** medium · **Ref:** ADR-0005, `docs/ai.md`
-- **Parallel:** band **H** (ketenkop) — parallel met B–G/I qua codepad; **geblokkeerd** tot DPIA/akkoord. Ontgrendelt daarna BL-007 + BL-020 parallel.
+- **Parallel:** band **H** (ketenkop) — parallel met A/D–G/I qua codepad; **geblokkeerd** tot DPIA/akkoord. Ontgrendelt daarna BL-007 + BL-020 parallel.
 - **Doel:** OpenAI (of vergelijkbaar) client achter `AiClientInterface` naast null/fake/heuristic.
 - **Blokkerend:** DPIA/akkoord en redactiestrategie voor persoonsgegevens — géén PII naar een provider vóór die er zijn.
 
@@ -198,7 +199,7 @@ AI mag nooit bron van waarheid zijn (docs/ai.md, ADR-0005), maar kan wél handel
 ### BL-020 — Foto-gedreven afleiding en adaptieve vervolgvragen
 
 - **Status:** backlog · **Prioriteit:** medium
-- **Parallel:** band **H** — **ná** BL-006, parallel met BL-007; template-kant (conditionele vragen) mag eerder aansluiten op BL-016/v2.
+- **Parallel:** band **H** — **ná** BL-006, parallel met BL-007; template-kant mag aansluiten op afgeronde BL-016/v2/v3.
 - **Doel:** foto's niet alleen opslaan maar er informatie uit **afleiden**, zodat vragen vervallen of juist gericht gesteld worden. Voorbeelden (richting, geen letterlijke scope):
   - **Meterkastfoto:** herken of er een vrije groep is; zit de kast vol → stel gericht de vervolgvragen die daarbij horen (uitbreiding groepenkast, 1-fase/3-fase) en sla `free_group_known` als vraag over;
   - **Ruimtefoto's:** schat afmetingen/volume van de kamer in → kamermaatvragen (BL-017) vervallen of worden een te bevestigen voorzet;
@@ -214,13 +215,13 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 ### BL-005 — PDF-export van rapporten
 
 - **Status:** backlog · **Prioriteit:** medium
-- **Parallel:** band **G** — parallel met A–F/H/I (eigen PDF-pad; HTML blijft bron).
+- **Parallel:** band **G** — parallel met A/D–F/H/I (eigen PDF-pad; HTML blijft bron).
 - **Doel:** naast het HTML-rapport (`generated_reports`) een PDF-pad, zodat het dossier direct in de offerte-/archiefflow van de installateur past zonder knip- en plakwerk. Bewust uitgesteld: shared cPanel is geen betrouwbare host voor zware PDF-generatie. Opties: lichte lib, externe render-service, of pas na hosting-upgrade. **Async** job (ADR-0004); HTML blijft bron.
 
 ### BL-001 — Demo-versie van de app
 
-- **Status:** in_progress · **Prioriteit:** medium *(staat desondanks op #2 in de uitvoeringsvolgorde: het restwerk is klein — staging-flag + smoke-test — en lopend werk afronden gaat vóór nieuw werk starten)* · **Ref:** [issue #5](https://github.com/JorisPaarde/intake-engine/issues/5)
-- **Parallel:** band **A** (afronden) — restwerk is staging-config + smoke-test; parallel met code-sporen B–I.
+- **Status:** in_progress · **Prioriteit:** medium *(#1 in de uitvoeringsvolgorde: restwerk is klein — staging-flag + smoke-test — en lopend werk afronden gaat vóór nieuw werk starten)* · **Ref:** [issue #5](https://github.com/JorisPaarde/intake-engine/issues/5)
+- **Parallel:** band **A** (afronden) — restwerk is staging-config + smoke-test; parallel met code-sporen D–I.
 - **Doel:** publiek of semi-publiek demopad zodat prospects/installateurs het product kunnen ervaren zonder eigen accountsetup of echte klantdata — het hoofddoel ("zo min mogelijk handelingen") toegepast op de allereerste kennismaking.
 - **Invulling (deze PR):** homepage **"Start demo"** → tijdelijke airco-intake + klantlink (`is_demo`, TTL via `DEMO_TTL_HOURS`, watermerk, geen AI-job, hourly `intakes:purge-demos`). Geen account nodig; fictieve `@demo.invalid`-e-mail. Feature-flag `DEMO_ENABLED` (default uit; aanzetten op staging).
 - **Nog te doen na deploy:** `DEMO_ENABLED=true` in staging `shared/.env`, smoke-test Start demo → wizard → watermerk; daarna status → `done`.
@@ -230,7 +231,7 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 ### BL-009 — Purge-job voor soft-deleted intakes
 
 - **Status:** backlog · **Prioriteit:** low *(verlaagd 2026-07-18 bij hoofddoel-herprioritering: bespaart geen handelingen in de kernflow; weer ophogen zodra er echte klantdata in productie staat — dan is de bewaartermijn een verplichting, koppel aan BL-010)* · **Ref:** `docs/database.md` (bewaartermijn-voorstel)
-- **Parallel:** band **I** — parallel met A–H en met BL-010/BL-013.
+- **Parallel:** band **I** — parallel met A/D–H en met BL-010/BL-013.
 - **Doel:** voorgestelde bewaartermijn bekrachtigen en implementeren: 30 dagen na soft delete hard purge van dossier inclusief storage (foto's). Scheduled job + tests.
 
 ### BL-010 — Production-deployworkflow
@@ -248,7 +249,7 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 ### BL-013 — S3 als mediadisk
 
 - **Status:** backlog · **Prioriteit:** low · **Ref:** `docs/uploads.md`
-- **Parallel:** band **I** — parallel met A–H; niet tegelijk met BL-008 als die dezelfde mediapipeline raakt.
+- **Parallel:** band **I** — parallel met A/D–H; afstemmen met afgeronde BL-008 als dezelfde mediapipeline geraakt wordt.
 - **Doel:** `MEDIA_DISK=s3` + AWS-vars; bestaande rijen behouden `disk`+`path`. Pas nodig bij storagegroei of vertrek van cPanel.
 
 ## Afgerond / vervallen
@@ -257,6 +258,9 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 
 | ID | Afgerond | PR |
 |----|----------|-----|
-| BL-017 | 2026-07-18 | (deze PR) |
+| BL-008 | 2026-07-18 | #24 — HEIC/HEIF → JPEG (Imagick) |
+| BL-016 | 2026-07-18 | #22 — prefill (installateur + repeatable), airco v3 |
+| BL-002 | 2026-07-18 | #14 (fixes) + hertest na deploy |
+| BL-017 | 2026-07-18 | #21 |
 | BL-018 | 2026-07-18 | #18 |
 | BL-003 | 2026-07-18 | #12 (+ staging-verificatie via `/health`, docs #13) |

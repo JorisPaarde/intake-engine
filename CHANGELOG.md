@@ -6,6 +6,8 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Added
 
+- BL-008 HEIC/HEIF-ondersteuning bij foto-uploads: server-side MIME-detectie met ISO BMFF-brand-sniffing, automatische Imagick-conversie naar JPEG (auto-orient, metadata strippen, resize/kwaliteit binnen uploadlimiet), opslagmetadata op het genormaliseerde bestand en previews via de bestaande routes. CI voegt `imagick` toe; tests gebruiken `tests/Fixtures/sample.heic`.
+- BL-016 prefill van bekende gegevens (deterministisch, altijd als bewerkbare voorzet — geen LLM). Twee bronnen via vraag-`meta`: `installer_prefillable` (installateur vult `request`-vragen alvast in bij het aanmaken → `intake_answers.prefill_source='installer'`, in de wizard getoond als "alvast ingevuld — controleer") en `prefill_from_previous` (ruimte 2..n neemt `floor_level` over van de vorige ruimte via `IntakePrefillResolver`, pas opgeslagen bij "Volgende"). Airco **v3** gepubliceerd (v2-vragenset + vlaggen; ADR-0001). Nieuwe kolom `intake_answers.prefill_source`. Afleidbare waarden uit externe bronnen blijven BL-019/BL-020.
 - BL-017 airco-template **v2**: audit op het ontwerpprincipe — minder verplichte schermen (kamermaten → één groottekeuze, vrije tekst → keuzelijsten, afstanden ontdubbeld, gevel-/groepenvragen optioneel). Seeder publiceert v1+v2; nieuwe intakes pinnen op v2 (ADR-0001).
 - BL-018 vraag-voor-vraag klantflow: één zichtbare vraag per scherm (sectietitel als hoofdstukmarkering), autosave per antwoord, hervatten op vraag-cursor (`current_question_key` / `current_section_instance_key`), conditionele vragen worden overgeslagen tot ze relevant zijn.
 
@@ -33,7 +35,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
-- `docs/backlog.md` v3.10: parallelisatie — bands A–I, kolom **Band** in overzichtstabel, **Parallel**-regels per open item; concrete parallel-startsets.
+- `docs/backlog.md` v3.13: parallelisatie — bands A–I (herberekend na BL-002/BL-008/BL-016 done), kolom **Band** in overzichtstabel, **Parallel**-regels per open item; concrete parallel-startsets.
+- `docs/backlog.md` v3.12 + `docs/uploads.md` v1.4 + `docs/functional-test-status.md` v1.8 + README v1.12: BL-008 → `done` voor code delivery; staging iPhone-smoketest toegevoegd als functionele test-todo.
+- `docs/backlog.md` v3.11 + `docs/intake-engine.md` v1.5 + `docs/database.md` v1.4 + README v1.11: BL-016 → `done` (prefill + airco v3 + `prefill_source`-kolom); nieuwe `todo`-regels in `docs/functional-test-status.md`.
+- `docs/backlog.md` v3.10 + `docs/functional-test-status.md` v1.6 + README v1.10: BL-002 → `done` — staging kernflow Fase 3–5 hertest groen na deploy #14 (hergenereren/intrekken/afronden/rapport/review pass; AI-samenvatting blocked bij `AI_PROVIDER=null`). BL-018/BL-017-flow nog los te hertesten.
 - `docs/backlog.md` v3.9: BL-017 → `done` (airco-template v2).
 - `docs/intake-engine.md` v1.4 + `docs/database.md` v1.3: airco v2-documentatie en seeddata.
 - README → v1.9: status BL-017.
@@ -65,6 +70,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Config
 
+- `config/intake.php` splitst upload-input (`accepted_mimes`/`accepted_extensions`, incl. HEIC/HEIF) van opgeslagen types (`stored_mimes`/`stored_extensions`) en voegt `uploads.conversion` toe.
 - `AI_PROVIDER`, `AI_API_KEY`, `AI_TIMEOUT_SECONDS`, `config/ai.php`
 - `INTAKE_UPLOAD_MAX_KB`, `INTAKE_UPLOAD_MAX_FILES`
 - `config/intake.php` uploads-sectie
@@ -73,7 +79,6 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 - Geen externe LLM-provider nog (alleen null/fake/heuristic); OpenAI e.d. later na DPIA.
 - PDF-export van rapporten bewust later (HTML eerst; shared cPanel is geen betrouwbare PDF-host).
-- HEIC niet in allowlist (alleen jpeg/png/webp).
 - Geen automatische e-mail (staging mail = log); alleen kopieerbare link.
 - Demo-user `installateur@example.com` ontbreekt op staging (deploy seedt alleen templates).
 - Multi-tenancy bewust afwezig.

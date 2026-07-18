@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $question_key
  * @property string|null $section_instance_key
  * @property array<string, mixed>|null $value
+ * @property string|null $prefill_source
  */
 class IntakeAnswer extends Model
 {
@@ -19,6 +20,7 @@ class IntakeAnswer extends Model
         'question_key',
         'section_instance_key',
         'value',
+        'prefill_source',
         'answered_at',
     ];
 

@@ -1,6 +1,6 @@
 # Databaseschema — Digitale Opname
 
-> **Documentversie:** 1.3 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.4 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **geïmplementeerd (Fase 2 migraties)**. Bestaande Laravel-tabellen plus intake-engine-schema via `2026_07_17_120000_create_intake_engine_tables`.
 
@@ -178,6 +178,7 @@ Indexes: `status`, `created_by`, `customer_email`, `(status, created_at)`.
 | `question_key` | string | Verwijst naar key in gepinde versie |
 | `section_instance_key` | string nullable | Bij repeatables: `room-1` |
 | `value` | json | Genormaliseerde waarde |
+| `prefill_source` | string nullable | BL-016: `installer` als de installateur dit antwoord bij het aanmaken invulde en de aanvrager het nog niet bevestigde; `null` bij een normaal (of bevestigd) antwoord. Zie [intake-engine.md § Prefill](intake-engine.md#prefill-van-bekende-gegevens-bl-016). Migratie `2026_07_18_160000_add_prefill_source_to_intake_answers_table`. |
 | `answered_at` | timestamp | |
 
 Unique: `(intake_id, question_key, section_instance_key)`.  
@@ -428,7 +429,7 @@ erDiagram
 ## Seeddata (gepland)
 
 - 1 installateur (`test@example.com` of dedicated seeder-user)
-- gepubliceerde airco-templateversies (v1 historisch, v2 latest — BL-017)
+- gepubliceerde airco-templateversies (v1/v2 historisch, v3 latest — v2-audit BL-017 + prefill-vlaggen BL-016)
 - 1 open intake (`sent`)
 - 1 gedeeltelijk ingevulde intake (`in_progress`)
 - 1 afgeronde intake (`completed`) met veilige placeholder-uploads

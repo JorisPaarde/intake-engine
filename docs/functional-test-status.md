@@ -1,37 +1,40 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.5 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.8 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
 Bijwerken door wie de test daadwerkelijk heeft uitgevoerd: een menselijke tester **of** een testende agent (bijv. een agent die de app via een browser bedient). Niet invullen op basis van alleen implementatie — er moet echt functioneel getest zijn. Implementerende agents voegen alleen nieuwe `todo`-regels toe voor functionaliteit die zij introduceren.
 
-Laatste testsessie: 2026-07-18 (staging via headless Chromium/Playwright; cPanel 428 Technical Domain dismissed)
+Laatste testsessie: 2026-07-18 (staging via headless Chromium/Playwright; BL-002 hertest na deploy PR #14)
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
-| Deploy-pipeline (push -> Actions -> rsync -> activate -> live) | pass | 2026-07-17 | Atomische symlink-swap werkt; release schoon geserveerd |
+| Deploy-pipeline (push -> Actions -> rsync -> activate -> live) | pass | 2026-07-18 | Atomische symlink-swap werkt; PR #14 deploy success |
 | /health (app boot + DB-verbinding) | pass | 2026-07-18 | JSON ok; `php_upload` 512M/512M (BL-003) |
 | /login rendert | pass | 2026-07-18 | Toont loginformulier |
 | Auth-beveiliging dashboard/intakes | pass | 2026-07-18 | Uitgelogd → redirect `/login` (na dismiss 428-interstitial) |
 | Dashboard weergave | pass | 2026-07-18 | Bereikbaar na registratie |
 | Opname aanmaken (Airco) | pass | 2026-07-18 | Opgeslagen, detail + klantlink |
 | Beveiligde klantlink genereren | pass | 2026-07-18 | Token-URL `/o/{64}` |
-| Klantlink hergenereren | fail | 2026-07-18 | Knop diende niet in (secondary-button default `type=button`). Fix in PR |
-| Klantlink intrekken | todo | - | Niet opnieuw gedaan in 2026-07-18-sessie (destructief); eerder pass 2026-07-17 |
+| Klantlink hergenereren | pass | 2026-07-18 | Na fix #14 (`type=submit`) — nieuw token gegenereerd |
+| Klantlink intrekken | pass | 2026-07-18 | Status Geannuleerd + flash “Klantlink ingetrokken…” |
 | Migraties + logs op server | pass | 2026-07-17 | Alle migraties Ran; geen errors in logs |
 | Airco-template beschikbaar | pass | 2026-07-18 | Selecteerbaar bij aanmaken |
 | Airco-template v2 (BL-017) | todo | - | Na deploy: nieuwe opname pin’t v2; geen kamermaten-vragen; keuzelijsten i.p.v. vrije tekst buiten/route/condens; `free_group_known` / gevel optioneel; oude intakes blijven op v1 |
 | Homepage / (producthomepage Fase 3) | pass | 2026-07-18 | “Digitale Opname” producthomepage (geen Laravel-welcome) |
 | Registratie /register | pass | 2026-07-18 | Formulier werkt; landt op `/dashboard` |
 | E-mailverificatie flow | pass | 2026-07-18 | Geen `/verify-email`-blokkade op staging na register (of niet afgedwongen) |
-| Klant-intakepagina /o/{token} (Fase 3) | pass | 2026-07-18 | Wizard laadt (8 stappen bij 1 binnenunit) — *vóór BL-018; hertest nodig* |
+| Klant-intakepagina /o/{token} (Fase 3) | pass | 2026-07-18 | Wizard end-to-end (8 stappen, 1 binnenunit) — *retest was vóór deploy BL-018; hertest nodig* |
 | Vraag-voor-vraag klantflow (BL-018) | todo | - | Na deploy: één vraag per scherm, sectietitel als markering, Volgende/Vorige, conditionele vraag verschijnt pas na relevant antwoord, hervatten op juiste vraag |
+| Installateur-prefill bij aanmaken (BL-016) | todo | - | Na deploy: "alvast invullen" op opname-aanmaken (airco v3 request-vragen); klant ziet ze met "alvast ingevuld — controleer"; intake blijft `sent` tot klant start |
+| Repeatable-prefill ruimtes (BL-016) | todo | - | Na deploy: bij ≥2 binnenunits neemt ruimte 2 `floor_level` over van ruimte 1 als bewerkbare voorzet ("Overgenomen van Ruimtes 1"); pas bij Volgende opgeslagen; ruimte 1 nooit voorgevuld |
 | Foto-uploads (Fase 4) | pass | 2026-07-18 | JPEG-upload + preview + “Foto opgeslagen” op ruimtestap |
-| Afronden + bedankt-scherm (Fase 5) | fail | 2026-07-18 | Geblokkeerd: verplichte **boolean**-vragen (Ja/Nee) worden niet als beantwoord gezien → “Volgende” blijft hangen vanaf buitenunit-stap. Fix in PR |
-| HTML-rapport + installateur-review (Fase 5) | todo | - | Niet bereikt door boolean-blokkade |
-| AI-samenvatting in rapport (Fase 6) | todo | - | Niet bereikt; verwacht `blocked` bij `AI_PROVIDER=null` |
-| Queue-worker (cron) | todo | - | Niet end-to-end bevestigd (geen AI-resultaat om te zien) |
+| HEIC/HEIF foto-upload (BL-008) | todo | - | Na deploy op staging met echte iPhone-foto: HEIC kiezen/maken, upload slaat op als JPEG, preview werkt, geen handmatige conversie nodig |
+| Afronden + bedankt-scherm (Fase 5) | pass | 2026-07-18 | Na boolean-fix #14: volledige flow (incl. Ja/Nee) → **Bedankt** |
+| HTML-rapport + installateur-review (Fase 5) | pass | 2026-07-18 | Rapport-iframe + review `prepare_quote` opgeslagen |
+| AI-samenvatting in rapport (Fase 6) | blocked | 2026-07-18 | Geen “AI-voorstel” — staging `AI_PROVIDER=null` (soft-fail by design) |
+| Queue-worker (cron) | todo | - | Niet end-to-end bevestigd (geen zichtbaar AI-resultaat) |
 | Demo-login `installateur@example.com` | fail | 2026-07-18 | Credentials matchen niet — `DatabaseSeeder` draait niet bij deploy (alleen IntakeTemplateSeeder) |
 | Publieke demo “Start demo” (BL-001) | todo | - | Na deploy + `DEMO_ENABLED=true`: knop op `/`, redirect `/o/{token}`, watermerk, bedankt-copy |
 | Demo-intake purge (`intakes:purge-demos`) | todo | - | Scheduler/hourly; expired demo-intakes verdwijnen (incl. uploads) |
@@ -48,25 +51,25 @@ Laatste testsessie: 2026-07-18 (staging via headless Chromium/Playwright; cPanel
 
 ## Ruimte voor details
 
-### Sessie 2026-07-18 (staging) — BL-002
+### Sessie 2026-07-18 (staging) — BL-002 hertest na PR #14
 
-Scope: functionele hertest Fase 3–6 via browser (Playwright/Chromium, `ignoreHTTPSErrors`, cPanel “428 Technical Domain” → Continue).
+Scope: volledige hertest Fase 3–5 na deploy van de boolean-/regenerate-fixes (#14). Uitgevoerd door testende agent (Cursor/Playwright-Chromium), zie PR #15. *Deze hertest liep vóór de deploy van BL-018 (#18) en BL-017 (#21); die flow-/template-wijzigingen hebben nog een eigen hertest nodig (aparte `todo`-regels hierboven).*
 
-Werkend:
+**Pass:** homepage, health, auth, registratie, opname aanmaken, klantlink genereren/hergenereren/intrekken, klantwizard end-to-end (incl. foto’s + Ja/Nee), afronden → Bedankt, HTML-rapport, installateur-review (`prepare_quote`).
 
-- Producthomepage, health (incl. uploadlimieten), login-formulier, auth-guard, registratie → dashboard
-- Opname aanmaken (airco), klantlink, klantwizard `/o/{token}`, foto-upload op ruimtestap
+**Blocked:** AI-samenvatting — verwacht bij `AI_PROVIDER=null` (soft-fail by design).
 
-Bugs / blokkades:
+**Open/bekend:** demo-user niet geseeded op staging (deploy seedt alleen templates; registratie als fallback); queue-worker niet los end-to-end bewezen zonder zichtbaar AI-resultaat.
 
-1. **Boolean-validatie (blokkerend voor afronden)** — `AnswerValueReader` eiste `is_bool()` terwijl Livewire-radio’s `"1"`/`"0"` sturen. `next()`/`complete()` blijven op stappen met verplichte Ja/Nee (o.a. buitenunit `noise_sensitive`). Reproduceerbaar: buitenunit-stap invullen inclusief Nee → Volgende → alert “Beantwoord eerst de verplichte vragen”.
-2. **Klantlink hergenereren** — `<x-secondary-button>` in het regenerate-formulier had implicit `type="button"`, dus de POST firede niet.
-3. **Foto-hydrate wist draft-velden** — na upload deed `hydrateFormFromAnswers()` een volledige form-reset; niet-geblurde antwoorden verdwenen uit Livewire-state (workaround: eerst foto’s, dan velden). Verholpen door alleen de foto-composite te verversen.
-4. **Demo-user ontbreekt op staging** — `installateur@example.com` / `password` werkt niet; deploy seedt alleen templates. Registratie als fallback werkte.
+BL-002 → **done**.
 
-Nog te hertesten na deploy van de fixes: hergenereren, volledige klantflow t/m bedankt, rapport + review, AI/queue.
+### Sessie 2026-07-18 (staging) — eerste BL-002 ronde (vóór fixes)
 
-Screenshots: `/opt/cursor/artifacts/bl002-screenshots/` (agent-run).
+Bugs gevonden en gefixt in PR #14:
+
+1. **Boolean-validatie (blokkerend voor afronden)** — `AnswerValueReader` eiste `is_bool()` terwijl Livewire-radio’s `"1"`/`"0"` sturen; `next()`/`complete()` bleven hangen op verplichte Ja/Nee-stappen.
+2. **Klantlink hergenereren** — `<x-secondary-button>` had implicit `type="button"`, dus de POST firede niet.
+3. **Foto-hydrate wist draft-velden** — `hydrateFormFromAnswers()` deed een volledige form-reset; verholpen door alleen de foto-composite te verversen.
 
 ### Sessie 2026-07-17 (staging)
 
