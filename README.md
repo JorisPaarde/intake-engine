@@ -1,6 +1,6 @@
 # Intake Engine (Digitale Opname)
 
-> **Documentversie:** 1.1 · **Laatste update:** 2026-07-17 · Onderhoud: zie [AGENTS.md](AGENTS.md)
+> **Documentversie:** 1.2 · **Laatste update:** 2026-07-17 · Onderhoud: zie [AGENTS.md](AGENTS.md)
 
 **Werk je als agent aan dit project? Lees eerst [AGENTS.md](AGENTS.md)** — het projectgeheugen, de documentkaart en het onderhoudsprotocol.
 
@@ -107,7 +107,7 @@ deploy/          # activate.sh
 | [docs/ai.md](docs/ai.md) | AI-roadmap (nog niet gebouwd) |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | cPanel / CI deploy |
 | [docs/implementation-plan.md](docs/implementation-plan.md) | Fasering |
-| [docs/backlog.md](docs/backlog.md) | Backlog (enige bron voor open/uitgesteld werk) |
+| [docs/backlog.md](docs/backlog.md) | Backlog (enige bron voor open/uitgesteld werk, geordend in 5 epics) |
 | [docs/functional-test-status.md](docs/functional-test-status.md) | Functionele teststatus (handmatig) |
 | [docs/decisions/](docs/decisions/) | ADRs |
 | [CHANGELOG.md](CHANGELOG.md) | Wijzigingslog |
