@@ -285,7 +285,7 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 
 ### BL-024 — Leesbaar dossier: vraaglabels i.p.v. keys in installateursweergave
 
-- **Status:** done · **Prioriteit:** low · **Datum:** 2026-07-18 · **PR:** TBD
+- **Status:** done · **Prioriteit:** low · **Datum:** 2026-07-18 · **PR:** #28
 - **Parallel:** band **K** (done) — raakte alleen installer-views + lichte presentatiebouwsteen.
 - **Doel:** de foto-galerij op de intake-detailpagina toont als bijschrift nu de rauwe `question_key` en `section_instance_key` (bv. `room_photos · room-2`). Toon het vraaglabel uit de templateversie plus een leesbare instantienaam ("Foto's van de ruimte · Ruimte 2") en groepeer foto's per sectie/ruimte, zoals het HTML-rapport dat al doet.
 - **Resultaat:** `InstallerPhotoGalleryBuilder` groepeert uploads per sectie/instantie (koppen zoals `Ruimtes 2`, zelfde patroon als de wizard) en toont vraaglabels uit de gepinde templateversie als bijschrift; geen datamodelwijziging.
@@ -317,7 +317,7 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 
 | ID | Afgerond | PR |
 |----|----------|-----|
-| BL-024 | 2026-07-18 | TBD — vraaglabels + groepering foto-galerij installateur |
+| BL-024 | 2026-07-18 | #28 — vraaglabels + groepering foto-galerij installateur |
 | BL-014 | 2026-07-18 | #26 — afrondingsmail + dashboard “Nieuw afgerond” |
 | BL-015 | 2026-07-18 | #26 — `intakes:send-reminders` + `reminder_sent_at` |
 | BL-005 | 2026-07-18 | #26 — Dompdf PDF-export + download |

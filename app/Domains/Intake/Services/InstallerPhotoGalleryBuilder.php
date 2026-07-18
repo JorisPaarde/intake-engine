@@ -53,7 +53,7 @@ final class InstallerPhotoGalleryBuilder
             }
         }
 
-        /** @var array<string, array{heading: string, sort: array{0: int, 1: int}, uploads: list<array{upload: IntakeUpload, caption: string, question_sort: int}}}> $groups */
+        /** @var array<string, mixed> $groups */
         $groups = [];
 
         foreach ($uploads as $upload) {
