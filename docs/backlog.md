@@ -207,7 +207,7 @@ De meest directe toepassing van het ontwerpprincipe: *de applicatie vraagt niets
 
 ### BL-023 — Eén tik minder per vraag: automatisch door na eenduidige keuze
 
-- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-07-18 · **Ref:** `docs/intake-engine.md`, `docs/functional-test-status.md`
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-07-18 · **PR:** #30 · **Ref:** `docs/intake-engine.md`, `docs/functional-test-status.md`
 - **Parallel:** band **J** (done) — na BL-021; vervolg is BL-022 → BL-025.
 - **Doel:** de bestaande vraag-voor-vraag-flow (BL-018) één handeling per vraag lichter maken:
   - **Auto-doorgaan bij eenduidige keuzes:** `single_choice` en `boolean` saven al direct (`wire:model.live`), maar de aanvrager moet daarna alsnog "Volgende" tikken. Ga na de keuze automatisch door (met korte visuele bevestiging); "Vorige" blijft altijd werken om te corrigeren.
