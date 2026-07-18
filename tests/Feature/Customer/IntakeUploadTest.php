@@ -196,6 +196,55 @@ test('livewire wizard accepts a photo upload', function () {
     expect(IntakeUpload::query()->where('intake_id', $intake->id)->count())->toBe(1);
 });
 
+test('livewire wizard accepts multiple photos in one selection', function () {
+    $intake = makeUploadIntake();
+    $files = [
+        UploadedFile::fake()->image('meterkast-1.jpg'),
+        UploadedFile::fake()->image('meterkast-2.jpg'),
+    ];
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('photoFiles.fusebox_photo', $files)
+        ->assertHasNoErrors()
+        ->assertSet('saveMessage', "2 foto's opgeslagen");
+
+    expect(IntakeUpload::query()->where('intake_id', $intake->id)->count())->toBe(2)
+        ->and($intake->fresh()->answers()->where('question_key', 'fusebox_photo')->value('value'))
+        ->toHaveKey('upload_ids')
+        ->and($intake->fresh()->answers()->where('question_key', 'fusebox_photo')->value('value')['upload_ids'])
+        ->toHaveCount(2);
+});
+
+test('livewire wizard keeps successful photos when one file in a batch fails', function () {
+    $intake = makeUploadIntake();
+    $files = [
+        UploadedFile::fake()->image('goed.jpg'),
+        UploadedFile::fake()->create('notes.pdf', 100, 'application/pdf'),
+    ];
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('photoFiles.fusebox_photo', $files)
+        ->assertHasErrors(['photoFiles.fusebox_photo'])
+        ->assertSet('saveMessage', 'Foto opgeslagen');
+
+    expect(IntakeUpload::query()->where('intake_id', $intake->id)->count())->toBe(1);
+});
+
+test('livewire wizard photo input allows gallery without capture attribute', function () {
+    $intake = makeUploadIntake();
+    $intake->update([
+        'current_section_key' => 'electrical',
+        'current_question_key' => 'fusebox_photo',
+        'current_section_instance_key' => null,
+    ]);
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->assertSee('Foto\'s maken of kiezen', false)
+        ->assertSee('camera of galerij', false)
+        ->assertDontSee('capture="environment"', false)
+        ->assertSee('multiple', false);
+});
+
 test('livewire wizard accepts a heic photo upload', function () {
     try {
         $file = makeHeicUploadedFile('kamer.heic');

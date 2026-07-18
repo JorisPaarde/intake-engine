@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.11 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.12 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -35,6 +35,7 @@ Laatste testsessie: 2026-07-18 (staging via headless Chromium/Playwright; BL-002
 | Installateur-prefill bij aanmaken (BL-016) | todo | - | Na deploy: "alvast invullen" op opname-aanmaken (airco v3 request-vragen); klant ziet ze met "alvast ingevuld — controleer"; intake blijft `sent` tot klant start |
 | Repeatable-prefill ruimtes (BL-016) | todo | - | Na deploy: bij ≥2 binnenunits neemt ruimte 2 `floor_level` over van ruimte 1 als bewerkbare voorzet ("Overgenomen van Ruimtes 1"); pas bij Volgende opgeslagen; ruimte 1 nooit voorgevuld |
 | Foto-uploads (Fase 4) | pass | 2026-07-18 | JPEG-upload + preview + “Foto opgeslagen” op ruimtestap |
+| Foto multiselect + galerij (BL-021) | todo | - | Na deploy: meerdere foto's in één keer kiezen; op mobiel camera én galerij (geen geforceerde camera); één mislukte foto blokkeert de rest niet; max_files wordt gehandhaafd |
 | HEIC/HEIF foto-upload (BL-008) | todo | - | Na deploy op staging met echte iPhone-foto: HEIC kiezen/maken, upload slaat op als JPEG, preview werkt, geen handmatige conversie nodig |
 | Leesbare foto-galerij installateur (BL-024) | todo | - | Na deploy: opname-detail toont vraaglabels + groepen (bv. “Ruimtes 2” / “Foto’s van de ruimte”), geen rauwe `question_key`/`room-2` |
 | Afronden + bedankt-scherm (Fase 5) | pass | 2026-07-18 | Na boolean-fix #14: volledige flow (incl. Ja/Nee) → **Bedankt** |

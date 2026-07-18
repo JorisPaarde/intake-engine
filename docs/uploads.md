@@ -1,12 +1,13 @@
 # Uploads & mediastorage
 
-> **Documentversie:** 1.5 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.6 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: **geïmplementeerd (Fase 4)**.
+Status: **geïmplementeerd (Fase 4)** · BL-021 multiselect + galerijkeuze.
 
 ## Doelen
 
-- Mobielvriendelijk: camera + galerij
+- Mobielvriendelijk: camera + galerij (geen `capture`-force; beide paden open)
+- Meerdere foto's in één selectie (`multiple`), tot `meta.max_files`
 - Privé: geen voorspelbare publieke paden
 - Disk-agnostisch: local cPanel → S3 zonder domeinlogica te wijzigen
 - Server-side validatie is leidend
@@ -14,7 +15,7 @@ Status: **geïmplementeerd (Fase 4)**.
 ## Uploadflow
 
 1. Klant opent foto-vraag in Livewire-intake (`/o/{token}`).
-2. `wire:model` + `WithFileUploads` → `StoreIntakeUpload`.
+2. File-input met `multiple` (zonder `capture`) → `wire:model` + `WithFileUploads` → `IntakeWizard::uploadPhotosForComposite` verwerkt elk bestand apart → `StoreIntakeUpload`.
 3. Action:
    - authz via token-middleware / intake-koppeling
    - max aantal + server-side MIME-detectie + size
@@ -63,6 +64,15 @@ Status: **geïmplementeerd (Fase 4)**.
 | Max per vraag | default 5 |
 | Inputtypes | jpeg, png, webp, heic/heif |
 | Opgeslagen types | jpeg, png, webp |
+
+## Multiselect & galerijkeuze (BL-021)
+
+De klantwizard-input voor foto-vragen:
+
+- heeft `multiple`, zodat de aanvrager tot `meta.max_files` (of `INTAKE_UPLOAD_MAX_FILES`) in één keer kan kiezen;
+- **geen** `capture="environment"` — op mobiel blijven camera én galerij bereikbaar;
+- toont hoeveel slots nog over zijn en verbergt de input bij het maximum;
+- uploadt per bestand via de bestaande pijplijn (MIME, size, HEIC→JPEG); één mislukte foto blokkeert de rest van de selectie niet — succesvolle uploads blijven staan, fouten worden als samengevoegde melding getoond.
 
 ## HEIC/HEIF-normalisatie (BL-008)
 

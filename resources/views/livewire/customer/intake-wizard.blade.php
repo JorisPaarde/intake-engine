@@ -194,6 +194,8 @@
 
                                     @php
                                         $existingUploads = $uploadsByQuestion[$question->key] ?? collect();
+                                        $maxFiles = (int) ($question->meta['max_files'] ?? config('intake.uploads.max_files_per_question', 5));
+                                        $remainingSlots = max(0, $maxFiles - $existingUploads->count());
                                     @endphp
 
                                     @if ($existingUploads->isNotEmpty())
@@ -218,28 +220,42 @@
                                         </ul>
                                     @endif
 
-                                    <div>
-                                        <label class="flex min-h-12 cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed border-brand-fog bg-brand-mist/40 px-4 py-5 text-center">
-                                            <span class="text-sm font-semibold text-brand-ink">Foto maken of kiezen</span>
-                                            <span class="text-xs text-brand-ink/55">JPEG, PNG, WebP of HEIC · max {{ number_format($maxUploadKb / 1024, 0) }} MB</span>
-                                            <input
-                                                type="file"
-                                                accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,image/*"
-                                                capture="environment"
-                                                class="sr-only"
-                                                wire:model="photoFiles.{{ $composite }}"
-                                            >
-                                        </label>
-                                        <div wire:loading wire:target="photoFiles.{{ $composite }}" class="mt-2 text-sm font-medium text-brand-sea">
-                                            Bezig met uploaden…
+                                    @if ($remainingSlots > 0)
+                                        <div>
+                                            <label class="flex min-h-12 cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed border-brand-fog bg-brand-mist/40 px-4 py-5 text-center">
+                                                <span class="text-sm font-semibold text-brand-ink">Foto's maken of kiezen</span>
+                                                <span class="text-xs text-brand-ink/55">
+                                                    JPEG, PNG, WebP of HEIC · max {{ number_format($maxUploadKb / 1024, 0) }} MB
+                                                    · tot {{ $remainingSlots }} {{ $remainingSlots === 1 ? 'foto' : "foto's" }}
+                                                    · camera of galerij
+                                                </span>
+                                                <input
+                                                    type="file"
+                                                    accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,image/*"
+                                                    multiple
+                                                    class="sr-only"
+                                                    wire:model="photoFiles.{{ $composite }}"
+                                                >
+                                            </label>
+                                            <div wire:loading wire:target="photoFiles.{{ $composite }}" class="mt-2 text-sm font-medium text-brand-sea">
+                                                Bezig met uploaden…
+                                            </div>
+                                            @error('photoFiles.'.$composite)
+                                                <p class="mt-2 text-sm text-brand-ember">{{ $message }}</p>
+                                            @enderror
+                                            @error('photo')
+                                                <p class="mt-2 text-sm text-brand-ember">{{ $message }}</p>
+                                            @enderror
                                         </div>
+                                    @else
+                                        <p class="text-sm text-brand-ink/60">Maximum van {{ $maxFiles }} foto's bereikt.</p>
                                         @error('photoFiles.'.$composite)
                                             <p class="mt-2 text-sm text-brand-ember">{{ $message }}</p>
                                         @enderror
                                         @error('photo')
                                             <p class="mt-2 text-sm text-brand-ember">{{ $message }}</p>
                                         @enderror
-                                    </div>
+                                    @endif
                                 </div>
                                 @break
                         @endswitch
