@@ -40,6 +40,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
+- `docs/backlog.md` v3.17 + README v1.16: verbeterronde op bestaande functionaliteit, getoetst aan het hoofddoel (geen nieuwe features) — vijf nieuwe items: BL-021 (foto's multiselect + galerijkeuze niet blokkeren), BL-022 (voortgang op verplichte vragen + klikbare "ontbreekt nog"-lijst + leesbare ruimtenamen), BL-023 (auto-doorgaan na eenduidige keuze, Enter = Volgende), BL-024 (vraaglabels i.p.v. keys in installateursweergave), BL-025 (wizard-responstijd: dubbele queries per Livewire-request). Nieuwe parallel-bands J (klantwizard-keten) en K (installateursweergave); uitvoeringsvolgorde bijgewerkt.
 - `docs/backlog.md` v3.16 + `docs/database.md` v1.5 + `docs/DEPLOYMENT.md` v1.7 + `docs/functional-test-status.md` v1.10 + `docs/ARCHITECTURE.md` v1.2 + README v1.15: BL-014/015/005/009 → `done`; scheduler/mail/PDF/retention gedocumenteerd.
 - `docs/DEPLOYMENT.md` v1.6 + AGENTS.md v1.4 + README v1.14 + `docs/backlog.md` v3.15: checklist **Handmatige acties producteigenaar** (SMTP, `DEMO_ENABLED`, domein/SSL, cron; optioneel AI/productie/S3).
 - `docs/backlog.md` v3.14 + `docs/DEPLOYMENT.md` v1.5 + `docs/functional-test-status.md` v1.9 + README v1.13: BL-004 → `done` (code); SMTP-smoke op staging als todo.
