@@ -6,6 +6,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Added
 
+- BL-017 airco-template **v2**: audit op het ontwerpprincipe — minder verplichte schermen (kamermaten → één groottekeuze, vrije tekst → keuzelijsten, afstanden ontdubbeld, gevel-/groepenvragen optioneel). Seeder publiceert v1+v2; nieuwe intakes pinnen op v2 (ADR-0001).
 - BL-018 vraag-voor-vraag klantflow: één zichtbare vraag per scherm (sectietitel als hoofdstukmarkering), autosave per antwoord, hervatten op vraag-cursor (`current_question_key` / `current_section_instance_key`), conditionele vragen worden overgeslagen tot ze relevant zijn.
 
 ### Fixed
@@ -32,6 +33,9 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
+- `docs/backlog.md` v3.9: BL-017 → `done` (airco-template v2).
+- `docs/intake-engine.md` v1.4 + `docs/database.md` v1.3: airco v2-documentatie en seeddata.
+- README → v1.9: status BL-017.
 - `AGENTS.md` v1.3: onderhoudsplicht voor **Tips voor cloud-agents** in het protocol + DoD-checklist; tips uitgebreid met staging/Playwright-lessen (cPanel 428-cookie, token-charset, Livewire blur/live, demo/AI-valkuilen).
 - `AGENTS.md` v1.2: sectie **Tips voor cloud-agents** (PHP 8.4, Composer, Vite-build, sqlite-tests, repo-shortcuts) zodat volgende agents sneller kunnen bootstrapen.
 - `docs/backlog.md` v3.8: BL-018 → `done` (vraag-voor-vraag klantflow, PR #18); overzichtstabel met uitvoeringsvolgorde behouden.

@@ -178,14 +178,14 @@ test('template republish does not change pinned completed intake report', functi
     app(CompleteIntake::class)->handle($intake->fresh());
     $reportHtml = $intake->fresh()->report->html;
 
-    $config = require database_path('data/templates/airco/v1.php');
-    $config['version'] = 2;
+    $config = require database_path('data/templates/airco/v2.php');
+    $config['version'] = 3;
     $config['change_notes'] = 'Fase 5 pin-test versie';
     $config['sections'][0]['questions'][0]['label'] = 'GEWIJZIGDE VRAAGLABEL';
 
-    $v2 = app(PublishIntakeTemplateFromConfig::class)->handle($config);
+    $v3 = app(PublishIntakeTemplateFromConfig::class)->handle($config);
 
-    expect($v2->version)->toBe(2)
+    expect($v3->version)->toBe(3)
         ->and($intake->fresh()->intake_template_version_id)->toBe($pinnedVersionId)
         ->and($intake->fresh()->report->html)->toBe($reportHtml)
         ->and($intake->fresh()->report->html)->not->toContain('GEWIJZIGDE VRAAGLABEL');
