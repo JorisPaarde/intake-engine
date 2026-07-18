@@ -6,6 +6,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Added
 
+- BL-004 automatische klantlink-mail: na aanmaken (en na token-hergenereren) stuurt `SendCustomerIntakeLink` een Nederlandse mailable; detailpagina heeft **Opnieuw mailen**. Kopieerbare link blijft fallback. Bij `MAIL_MAILER=log` wordt mail overgeslagen (geen tokens in logs, ADR-0002); soft-fail bij SMTP-fouten; demo-intakes mailen nooit. Activity-event `customer_link_mailed` zonder token/URL.
 - BL-008 HEIC/HEIF-ondersteuning bij foto-uploads: server-side MIME-detectie met ISO BMFF-brand-sniffing, automatische Imagick-conversie naar JPEG (auto-orient, metadata strippen, resize/kwaliteit binnen uploadlimiet), opslagmetadata op het genormaliseerde bestand en previews via de bestaande routes. CI voegt `imagick` toe; tests gebruiken `tests/Fixtures/sample.heic`.
 - BL-016 prefill van bekende gegevens (deterministisch, altijd als bewerkbare voorzet — geen LLM). Twee bronnen via vraag-`meta`: `installer_prefillable` (installateur vult `request`-vragen alvast in bij het aanmaken → `intake_answers.prefill_source='installer'`, in de wizard getoond als "alvast ingevuld — controleer") en `prefill_from_previous` (ruimte 2..n neemt `floor_level` over van de vorige ruimte via `IntakePrefillResolver`, pas opgeslagen bij "Volgende"). Airco **v3** gepubliceerd (v2-vragenset + vlaggen; ADR-0001). Nieuwe kolom `intake_answers.prefill_source`. Afleidbare waarden uit externe bronnen blijven BL-019/BL-020.
 - BL-017 airco-template **v2**: audit op het ontwerpprincipe — minder verplichte schermen (kamermaten → één groottekeuze, vrije tekst → keuzelijsten, afstanden ontdubbeld, gevel-/groepenvragen optioneel). Seeder publiceert v1+v2; nieuwe intakes pinnen op v2 (ADR-0001).
@@ -35,6 +36,8 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
+- `docs/DEPLOYMENT.md` v1.6 + AGENTS.md v1.4 + README v1.14 + `docs/backlog.md` v3.15: checklist **Handmatige acties producteigenaar** (SMTP, `DEMO_ENABLED`, domein/SSL, cron; optioneel AI/productie/S3).
+- `docs/backlog.md` v3.14 + `docs/DEPLOYMENT.md` v1.5 + `docs/functional-test-status.md` v1.9 + README v1.13: BL-004 → `done` (code); SMTP-smoke op staging als todo.
 - `docs/backlog.md` v3.13: parallelisatie — bands A–I (herberekend na BL-002/BL-008/BL-016 done), kolom **Band** in overzichtstabel, **Parallel**-regels per open item; concrete parallel-startsets.
 - `docs/backlog.md` v3.12 + `docs/uploads.md` v1.4 + `docs/functional-test-status.md` v1.8 + README v1.12: BL-008 → `done` voor code delivery; staging iPhone-smoketest toegevoegd als functionele test-todo.
 - `docs/backlog.md` v3.11 + `docs/intake-engine.md` v1.5 + `docs/database.md` v1.4 + README v1.11: BL-016 → `done` (prefill + airco v3 + `prefill_source`-kolom); nieuwe `todo`-regels in `docs/functional-test-status.md`.
@@ -70,6 +73,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Config
 
+- `.env*.example` + `docs/DEPLOYMENT.md` § Mail: SMTP-placeholders voor BL-004; bij `MAIL_MAILER=log` geen klantlink-mail (ADR-0002).
 - `config/intake.php` splitst upload-input (`accepted_mimes`/`accepted_extensions`, incl. HEIC/HEIF) van opgeslagen types (`stored_mimes`/`stored_extensions`) en voegt `uploads.conversion` toe.
 - `AI_PROVIDER`, `AI_API_KEY`, `AI_TIMEOUT_SECONDS`, `config/ai.php`
 - `INTAKE_UPLOAD_MAX_KB`, `INTAKE_UPLOAD_MAX_FILES`
@@ -79,10 +83,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 - Geen externe LLM-provider nog (alleen null/fake/heuristic); OpenAI e.d. later na DPIA.
 - PDF-export van rapporten bewust later (HTML eerst; shared cPanel is geen betrouwbare PDF-host).
-- Geen automatische e-mail (staging mail = log); alleen kopieerbare link.
+- Staging klantlink-mail wacht op echte SMTP in `shared/.env` (bij `MAIL_MAILER=log` skip + kopieerbare link).
 - Demo-user `installateur@example.com` ontbreekt op staging (deploy seedt alleen templates).
 - Multi-tenancy bewust afwezig.
-- Demo-versie: backlog (issue #5), nog niet gebouwd.
+- Demo-versie: code geleverd (BL-001); staging-flag + smoke nog open.
 
 ## [0.1.0] — infrastructuur + Fase 1 docs
 

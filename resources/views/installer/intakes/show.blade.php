@@ -58,7 +58,8 @@
             <div class="bg-white shadow-sm sm:rounded-lg p-6 space-y-4" x-data="{ copied: false }">
                 <h3 class="text-base font-semibold text-gray-900">Klantlink</h3>
                 <p class="text-sm text-gray-600">
-                    Deel deze link met de klant. Automatische e-mail volgt later; kopieer de link voor nu handmatig.
+                    Bij het aanmaken (en bij een nieuwe link) mailen we de klant automatisch.
+                    De kopieerbare link blijft beschikbaar als fallback.
                     @if ($intake->token_expires_at)
                         Geldig tot {{ $intake->token_expires_at->timezone(config('app.timezone'))->format('d-m-Y') }}.
                     @endif
@@ -90,6 +91,13 @@
                 </div>
 
                 <div class="flex flex-wrap gap-3 pt-2">
+                    @if ($intake->token_revoked_at === null && $intake->status !== \App\Enums\IntakeStatus::Cancelled && ! $intake->is_demo)
+                        <form method="POST" action="{{ route('intakes.send-link', $intake) }}">
+                            @csrf
+                            <x-primary-button type="submit">Opnieuw mailen</x-primary-button>
+                        </form>
+                    @endif
+
                     @if ($intake->token_revoked_at === null && $intake->status !== \App\Enums\IntakeStatus::Cancelled)
                         <form method="POST" action="{{ route('intakes.revoke', $intake) }}" onsubmit="return confirm('Klantlink intrekken en opname annuleren?')">
                             @csrf
@@ -103,6 +111,7 @@
                     </form>
                 </div>
             </div>
+
 
             <div class="bg-white shadow-sm sm:rounded-lg p-6 space-y-4">
                 <h3 class="text-base font-semibold text-gray-900">Foto’s</h3>

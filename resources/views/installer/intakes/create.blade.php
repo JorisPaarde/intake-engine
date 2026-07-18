@@ -32,8 +32,10 @@
                     <div>
                         <x-input-label for="customer_email" value="E-mailadres" />
                         <x-text-input id="customer_email" name="customer_email" class="mt-1 block w-full" type="email" :value="old('customer_email')" required />
+                        <p class="mt-1 text-sm text-gray-500">Hiernaar sturen we de klantlink automatisch (kopieerbare link blijft beschikbaar).</p>
                         <x-input-error :messages="$errors->get('customer_email')" class="mt-2" />
                     </div>
+
 
                     <div>
                         <x-input-label for="customer_phone" value="Telefoonnummer (optioneel)" />
@@ -88,7 +90,8 @@
 
                     <div class="flex items-center justify-end gap-3">
                         <a href="{{ route('dashboard') }}" class="text-sm text-gray-600 hover:text-gray-900">Annuleren</a>
-                        <x-primary-button>Opslaan en link genereren</x-primary-button>
+                        <x-primary-button>Opslaan en klantlink mailen</x-primary-button>
+
                     </div>
                 </form>
             </div>
