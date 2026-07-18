@@ -137,7 +137,7 @@ De flow van Fase 1–6 belooft "zo min mogelijk handelingen", maar dat geldt all
 
 ### BL-025 — Wizard-responstijd: dubbele queries per Livewire-request terugdringen
 
-- **Status:** done · **Prioriteit:** low · **Datum:** 2026-07-18 · **Ref:** `docs/intake-engine.md`
+- **Status:** done · **Prioriteit:** low · **Datum:** 2026-07-18 · **PR:** #32 · **Ref:** `docs/intake-engine.md`
 - **Parallel:** band **J** (done) — sluit de wizard-verbeterketen.
 - **Doel:** `IntakeWizard` haalt per Livewire-request meerdere keren dezelfde data op: `intake()` doet telkens een verse `findOrFail` en `version()` laadt telkens de volledige sections/questions/options/rules-graaf, terwijl `steps()`, `render()`, `currentStep()` en de visibility-checks elkaar per request herhaaldelijk aanroepen. Memoizeer per request (met bewuste invalidatie na saves) en meet de responstijd van autosave/"Volgende" vóór en na.
 - **Resultaat:** request-lokale caches op `intake()` (met `answers`/`uploads`), `version()` en `steps()` (gesigneerd op live form); `forgetIntakeDerivedCaches()` na answer-save, upload/verwijderen en afronden — templateversie blijft gecached. Gedrag ongewijzigd; featuretests + memoization-tests groen.
