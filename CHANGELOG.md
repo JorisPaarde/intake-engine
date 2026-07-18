@@ -78,10 +78,6 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 - `INTAKE_UPLOAD_MAX_KB`, `INTAKE_UPLOAD_MAX_FILES`
 - `config/intake.php` uploads-sectie
 
-### Changed
-
-- `docs/backlog.md` v3.14 + `docs/DEPLOYMENT.md` v1.5 + `docs/functional-test-status.md` v1.9 + README v1.13: BL-004 → `done` (code); SMTP-smoke op staging als todo.
-
 ### Known limitations
 
 - Geen externe LLM-provider nog (alleen null/fake/heuristic); OpenAI e.d. later na DPIA.
