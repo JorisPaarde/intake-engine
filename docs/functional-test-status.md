@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.3 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.4 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -24,7 +24,8 @@ Laatste testsessie: 2026-07-18 (staging via headless Chromium/Playwright; cPanel
 | Homepage / (producthomepage Fase 3) | pass | 2026-07-18 | “Digitale Opname” producthomepage (geen Laravel-welcome) |
 | Registratie /register | pass | 2026-07-18 | Formulier werkt; landt op `/dashboard` |
 | E-mailverificatie flow | pass | 2026-07-18 | Geen `/verify-email`-blokkade op staging na register (of niet afgedwongen) |
-| Klant-intakepagina /o/{token} (Fase 3) | pass | 2026-07-18 | Wizard laadt (8 stappen bij 1 binnenunit) |
+| Klant-intakepagina /o/{token} (Fase 3) | pass | 2026-07-18 | Wizard laadt (8 stappen bij 1 binnenunit) — *vóór BL-018; hertest nodig* |
+| Vraag-voor-vraag klantflow (BL-018) | todo | - | Na deploy: één vraag per scherm, sectietitel als markering, Volgende/Vorige, conditionele vraag verschijnt pas na relevant antwoord, hervatten op juiste vraag |
 | Foto-uploads (Fase 4) | pass | 2026-07-18 | JPEG-upload + preview + “Foto opgeslagen” op ruimtestap |
 | Afronden + bedankt-scherm (Fase 5) | fail | 2026-07-18 | Geblokkeerd: verplichte **boolean**-vragen (Ja/Nee) worden niet als beantwoord gezien → “Volgende” blijft hangen vanaf buitenunit-stap. Fix in PR |
 | HTML-rapport + installateur-review (Fase 5) | todo | - | Niet bereikt door boolean-blokkade |

@@ -39,19 +39,31 @@
                 @endif
             </p>
         </div>
-    @elseif ($step === null)
+    @elseif ($step === null || $question === null)
         <p class="rounded-md bg-white p-4 text-sm text-brand-ink/80 shadow-sm">
-            Er zijn nog geen stappen beschikbaar. Vul eerst het aantal binnenunits in bij Aanvraag.
+            Er zijn nog geen vragen beschikbaar. Vul eerst het aantal binnenunits in bij Aanvraag.
         </p>
     @else
+        @php
+            $composite = \App\Domains\Intake\Services\VisibilityResolver::compositeKey($question->key, $step['section_instance_key']);
+            $state = $visibility[$composite] ?? ['visible' => false, 'required' => false];
+        @endphp
+
         <div class="mb-4">
             <p class="text-xs font-medium uppercase tracking-wide text-brand-ink/50">
-                Stap {{ $stepIndex + 1 }} van {{ count($steps) }}
+                {{ $step['section_title'] }}
+                <span class="mx-1.5 text-brand-ink/30">·</span>
+                Vraag {{ $stepIndex + 1 }} van {{ count($steps) }}
             </p>
             <h1 class="mt-1 font-display text-2xl font-semibold tracking-tight text-brand-ink">
-                {{ $step['title'] }}
+                {{ $question->label }}
+                @if ($state['required'])
+                    <span class="text-brand-ember">*</span>
+                @endif
             </h1>
-            @if ($step['description'])
+            @if ($question->help_text)
+                <p class="mt-2 text-sm leading-relaxed text-brand-ink/70">{{ $question->help_text }}</p>
+            @elseif ($step['description'])
                 <p class="mt-2 text-sm leading-relaxed text-brand-ink/70">{{ $step['description'] }}</p>
             @endif
         </div>
@@ -74,7 +86,7 @@
                         @endforeach
                     </ul>
                 @else
-                    Beantwoord eerst de verplichte vragen op deze stap.
+                    Beantwoord eerst deze verplichte vraag.
                 @endif
             </div>
         @endif
@@ -85,169 +97,151 @@
             </div>
         @enderror
 
-        <div class="flex-1 space-y-6">
-            @foreach ($questions as $question)
-                @php
-                    $composite = \App\Domains\Intake\Services\VisibilityResolver::compositeKey($question->key, $step['section_instance_key']);
-                    $state = $visibility[$composite] ?? ['visible' => false, 'required' => false];
-                @endphp
+        <div class="flex-1" wire:key="q-{{ $composite }}">
+            @if ($state['visible'])
+                <div class="rounded-lg bg-white p-4 shadow-sm">
+                    <div>
+                        @switch ($question->type->value)
+                            @case('short_text')
+                                <input
+                                    id="field-{{ $composite }}"
+                                    type="text"
+                                    wire:model.blur="form.{{ $composite }}.text"
+                                    class="block w-full rounded-md border-brand-fog shadow-sm focus:border-brand-sea focus:ring-brand-sea"
+                                    @if ($state['required']) required @endif
+                                >
+                                @break
 
-                @if ($state['visible'])
-                    <div class="rounded-lg bg-white p-4 shadow-sm" wire:key="q-{{ $composite }}">
-                        <label class="block text-base font-semibold text-brand-ink" for="field-{{ $composite }}">
-                            {{ $question->label }}
-                            @if ($state['required'])
-                                <span class="text-brand-ember">*</span>
-                            @endif
-                        </label>
+                            @case('long_text')
+                                <textarea
+                                    id="field-{{ $composite }}"
+                                    rows="4"
+                                    wire:model.blur="form.{{ $composite }}.text"
+                                    class="block w-full rounded-md border-brand-fog shadow-sm focus:border-brand-sea focus:ring-brand-sea"
+                                    @if ($state['required']) required @endif
+                                ></textarea>
+                                @break
 
-                        @if ($question->help_text)
-                            <p class="mt-1 text-sm text-brand-ink/60">{{ $question->help_text }}</p>
-                        @endif
+                            @case('number')
+                                <input
+                                    id="field-{{ $composite }}"
+                                    type="number"
+                                    inputmode="decimal"
+                                    wire:model.blur="form.{{ $composite }}.number"
+                                    class="block w-full rounded-md border-brand-fog shadow-sm focus:border-brand-sea focus:ring-brand-sea"
+                                    @if ($state['required']) required @endif
+                                >
+                                @break
 
-                        <div class="mt-3">
-                            @switch ($question->type->value)
-                                @case('short_text')
-                                    <input
-                                        id="field-{{ $composite }}"
-                                        type="text"
-                                        wire:model.blur="form.{{ $composite }}.text"
-                                        class="block w-full rounded-md border-brand-fog shadow-sm focus:border-brand-sea focus:ring-brand-sea"
-                                        @if ($state['required']) required @endif
-                                    >
-                                    @break
-
-                                @case('long_text')
-                                    <textarea
-                                        id="field-{{ $composite }}"
-                                        rows="4"
-                                        wire:model.blur="form.{{ $composite }}.text"
-                                        class="block w-full rounded-md border-brand-fog shadow-sm focus:border-brand-sea focus:ring-brand-sea"
-                                        @if ($state['required']) required @endif
-                                    ></textarea>
-                                    @break
-
-                                @case('number')
-                                    <input
-                                        id="field-{{ $composite }}"
-                                        type="number"
-                                        inputmode="decimal"
-                                        wire:model.blur="form.{{ $composite }}.number"
-                                        class="block w-full rounded-md border-brand-fog shadow-sm focus:border-brand-sea focus:ring-brand-sea"
-                                        @if ($state['required']) required @endif
-                                    >
-                                    @break
-
-                                @case('single_choice')
-                                    <div class="space-y-2" role="radiogroup" aria-labelledby="field-{{ $composite }}">
-                                        @foreach ($question->options as $option)
-                                            <label class="flex min-h-12 cursor-pointer items-center gap-3 rounded-md border border-brand-fog px-3 py-2 has-[:checked]:border-brand-sea has-[:checked]:bg-brand-mist/50">
-                                                <input
-                                                    type="radio"
-                                                    wire:model.live="form.{{ $composite }}.value"
-                                                    value="{{ $option->value }}"
-                                                    class="border-brand-fog text-brand-sea focus:ring-brand-sea"
-                                                >
-                                                <span class="text-sm font-medium">{{ $option->label }}</span>
-                                            </label>
-                                        @endforeach
-                                    </div>
-                                    @break
-
-                                @case('multi_choice')
-                                    <div class="space-y-2">
-                                        @foreach ($question->options as $option)
-                                            <label class="flex min-h-12 cursor-pointer items-center gap-3 rounded-md border border-brand-fog px-3 py-2 has-[:checked]:border-brand-sea has-[:checked]:bg-brand-mist/50">
-                                                <input
-                                                    type="checkbox"
-                                                    wire:model.live="form.{{ $composite }}.values"
-                                                    value="{{ $option->value }}"
-                                                    class="rounded border-brand-fog text-brand-sea focus:ring-brand-sea"
-                                                >
-                                                <span class="text-sm font-medium">{{ $option->label }}</span>
-                                            </label>
-                                        @endforeach
-                                    </div>
-                                    @break
-
-                                @case('boolean')
-                                    <div class="grid grid-cols-2 gap-2">
-                                        <label class="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-md border border-brand-fog px-3 py-2 has-[:checked]:border-brand-sea has-[:checked]:bg-brand-mist/50">
-                                            <input type="radio" wire:model.live="form.{{ $composite }}.bool" value="1" class="border-brand-fog text-brand-sea focus:ring-brand-sea">
-                                            <span class="text-sm font-semibold">Ja</span>
+                            @case('single_choice')
+                                <div class="space-y-2" role="radiogroup" aria-labelledby="field-{{ $composite }}">
+                                    @foreach ($question->options as $option)
+                                        <label class="flex min-h-12 cursor-pointer items-center gap-3 rounded-md border border-brand-fog px-3 py-2 has-[:checked]:border-brand-sea has-[:checked]:bg-brand-mist/50">
+                                            <input
+                                                type="radio"
+                                                wire:model.live="form.{{ $composite }}.value"
+                                                value="{{ $option->value }}"
+                                                class="border-brand-fog text-brand-sea focus:ring-brand-sea"
+                                            >
+                                            <span class="text-sm font-medium">{{ $option->label }}</span>
                                         </label>
-                                        <label class="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-md border border-brand-fog px-3 py-2 has-[:checked]:border-brand-sea has-[:checked]:bg-brand-mist/50">
-                                            <input type="radio" wire:model.live="form.{{ $composite }}.bool" value="0" class="border-brand-fog text-brand-sea focus:ring-brand-sea">
-                                            <span class="text-sm font-semibold">Nee</span>
+                                    @endforeach
+                                </div>
+                                @break
+
+                            @case('multi_choice')
+                                <div class="space-y-2">
+                                    @foreach ($question->options as $option)
+                                        <label class="flex min-h-12 cursor-pointer items-center gap-3 rounded-md border border-brand-fog px-3 py-2 has-[:checked]:border-brand-sea has-[:checked]:bg-brand-mist/50">
+                                            <input
+                                                type="checkbox"
+                                                wire:model.live="form.{{ $composite }}.values"
+                                                value="{{ $option->value }}"
+                                                class="rounded border-brand-fog text-brand-sea focus:ring-brand-sea"
+                                            >
+                                            <span class="text-sm font-medium">{{ $option->label }}</span>
                                         </label>
-                                    </div>
-                                    @break
+                                    @endforeach
+                                </div>
+                                @break
 
-                                @case('photo')
-                                    <div class="space-y-3">
-                                        @if ($question->photo_instructions)
-                                            <p class="text-sm text-brand-ink/70">{{ $question->photo_instructions }}</p>
-                                        @endif
+                            @case('boolean')
+                                <div class="grid grid-cols-2 gap-2">
+                                    <label class="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-md border border-brand-fog px-3 py-2 has-[:checked]:border-brand-sea has-[:checked]:bg-brand-mist/50">
+                                        <input type="radio" wire:model.live="form.{{ $composite }}.bool" value="1" class="border-brand-fog text-brand-sea focus:ring-brand-sea">
+                                        <span class="text-sm font-semibold">Ja</span>
+                                    </label>
+                                    <label class="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-md border border-brand-fog px-3 py-2 has-[:checked]:border-brand-sea has-[:checked]:bg-brand-mist/50">
+                                        <input type="radio" wire:model.live="form.{{ $composite }}.bool" value="0" class="border-brand-fog text-brand-sea focus:ring-brand-sea">
+                                        <span class="text-sm font-semibold">Nee</span>
+                                    </label>
+                                </div>
+                                @break
 
-                                        @php
-                                            $existingUploads = $uploadsByQuestion[$question->key] ?? collect();
-                                        @endphp
+                            @case('photo')
+                                <div class="space-y-3">
+                                    @if ($question->photo_instructions)
+                                        <p class="text-sm text-brand-ink/70">{{ $question->photo_instructions }}</p>
+                                    @endif
 
-                                        @if ($existingUploads->isNotEmpty())
-                                            <ul class="grid grid-cols-2 gap-3">
-                                                @foreach ($existingUploads as $upload)
-                                                    <li class="relative overflow-hidden rounded-md border border-brand-fog bg-brand-mist/30">
-                                                        <img
-                                                            src="{{ route('customer.uploads.show', ['token' => $token, 'upload' => $upload]) }}"
-                                                            alt="{{ $upload->original_filename }}"
-                                                            class="aspect-square w-full object-cover"
-                                                        >
-                                                        <button
-                                                            type="button"
-                                                            wire:click="removePhoto({{ $upload->id }})"
-                                                            wire:loading.attr="disabled"
-                                                            class="absolute inset-x-0 bottom-0 bg-brand-ink/75 px-2 py-1.5 text-xs font-semibold text-white"
-                                                        >
-                                                            Verwijderen
-                                                        </button>
-                                                    </li>
-                                                @endforeach
-                                            </ul>
-                                        @endif
+                                    @php
+                                        $existingUploads = $uploadsByQuestion[$question->key] ?? collect();
+                                    @endphp
 
-                                        <div>
-                                            <label class="flex min-h-12 cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed border-brand-fog bg-brand-mist/40 px-4 py-5 text-center">
-                                                <span class="text-sm font-semibold text-brand-ink">Foto maken of kiezen</span>
-                                                <span class="text-xs text-brand-ink/55">JPEG, PNG of WebP · max {{ number_format($maxUploadKb / 1024, 0) }} MB</span>
-                                                <input
-                                                    type="file"
-                                                    accept="image/jpeg,image/png,image/webp,image/*"
-                                                    capture="environment"
-                                                    class="sr-only"
-                                                    wire:model="photoFiles.{{ $composite }}"
-                                                >
-                                            </label>
-                                            <div wire:loading wire:target="photoFiles.{{ $composite }}" class="mt-2 text-sm font-medium text-brand-sea">
-                                                Bezig met uploaden…
-                                            </div>
-                                            @error('photoFiles.'.$composite)
-                                                <p class="mt-2 text-sm text-brand-ember">{{ $message }}</p>
-                                            @enderror
-                                            @error('photo')
-                                                <p class="mt-2 text-sm text-brand-ember">{{ $message }}</p>
-                                            @enderror
+                                    @if ($existingUploads->isNotEmpty())
+                                        <ul class="grid grid-cols-2 gap-3">
+                                            @foreach ($existingUploads as $upload)
+                                                <li class="relative overflow-hidden rounded-md border border-brand-fog bg-brand-mist/30">
+                                                    <img
+                                                        src="{{ route('customer.uploads.show', ['token' => $token, 'upload' => $upload]) }}"
+                                                        alt="{{ $upload->original_filename }}"
+                                                        class="aspect-square w-full object-cover"
+                                                    >
+                                                    <button
+                                                        type="button"
+                                                        wire:click="removePhoto({{ $upload->id }})"
+                                                        wire:loading.attr="disabled"
+                                                        class="absolute inset-x-0 bottom-0 bg-brand-ink/75 px-2 py-1.5 text-xs font-semibold text-white"
+                                                    >
+                                                        Verwijderen
+                                                    </button>
+                                                </li>
+                                            @endforeach
+                                        </ul>
+                                    @endif
+
+                                    <div>
+                                        <label class="flex min-h-12 cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed border-brand-fog bg-brand-mist/40 px-4 py-5 text-center">
+                                            <span class="text-sm font-semibold text-brand-ink">Foto maken of kiezen</span>
+                                            <span class="text-xs text-brand-ink/55">JPEG, PNG of WebP · max {{ number_format($maxUploadKb / 1024, 0) }} MB</span>
+                                            <input
+                                                type="file"
+                                                accept="image/jpeg,image/png,image/webp,image/*"
+                                                capture="environment"
+                                                class="sr-only"
+                                                wire:model="photoFiles.{{ $composite }}"
+                                            >
+                                        </label>
+                                        <div wire:loading wire:target="photoFiles.{{ $composite }}" class="mt-2 text-sm font-medium text-brand-sea">
+                                            Bezig met uploaden…
                                         </div>
+                                        @error('photoFiles.'.$composite)
+                                            <p class="mt-2 text-sm text-brand-ember">{{ $message }}</p>
+                                        @enderror
+                                        @error('photo')
+                                            <p class="mt-2 text-sm text-brand-ember">{{ $message }}</p>
+                                        @enderror
                                     </div>
-                                    @break
-                            @endswitch
-                        </div>
-
-                        @error('value')
-                            <p class="mt-2 text-sm text-brand-ember">{{ $message }}</p>
-                        @enderror
+                                </div>
+                                @break
+                        @endswitch
                     </div>
-                @endif
-            @endforeach
+
+                    @error('value')
+                        <p class="mt-2 text-sm text-brand-ember">{{ $message }}</p>
+                    @enderror
+                </div>
+            @endif
         </div>
     @endif
 

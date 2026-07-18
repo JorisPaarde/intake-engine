@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Added
+
+- BL-018 vraag-voor-vraag klantflow: één zichtbare vraag per scherm (sectietitel als hoofdstukmarkering), autosave per antwoord, hervatten op vraag-cursor (`current_question_key` / `current_section_instance_key`), conditionele vragen worden overgeslagen tot ze relevant zijn.
+
 ### Fixed
 
 - Klantintake: verplichte Ja/Nee-vragen (Livewire `"1"`/`"0"`) werden niet als beantwoord gezien → “Volgende”/afronden geblokkeerd (`AnswerValueReader`).
@@ -28,6 +32,9 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
+- `AGENTS.md` v1.2: sectie **Tips voor cloud-agents** (PHP 8.4, Composer, Vite-build, sqlite-tests, repo-shortcuts) zodat volgende agents sneller kunnen bootstrapen.
+- `docs/backlog.md` v3.8: BL-018 → `done` (vraag-voor-vraag klantflow, PR #18); overzichtstabel met uitvoeringsvolgorde behouden.
+- `docs/intake-engine.md` v1.3 + `docs/database.md` v1.2: klantflow één vraag per scherm; wizard-cursor-kolommen.
 - `docs/backlog.md` v3.6: volledige herprioritering van alle open items getoetst aan het hoofddoel (handelingen besparen/repareren in de kernflow). Overzichtstabel heeft nu een expliciete uitvoeringsvolgorde (kolom #). Opgehoogd naar high: BL-008 (HEIC), BL-011 (eigen domein/SSL), BL-016 (prefill). Verlaagd naar low: BL-009 (purge-job) en BL-010 (production-deploy), beide met her-ophoogtrigger zodra echte klantdata/productiegang concreet is.
 - `docs/backlog.md` v3.5: feedback producteigenaar verwerkt — te veel intakevragen en slimmer verzamelen. Nieuwe items BL-018 (vraag-voor-vraag klantflow), BL-019 (afleiden uit adres/openbare bronnen: satellietbeeld, BAG) en BL-020 (foto-gedreven afleiding en adaptieve vervolgvragen, bv. meterkastfoto → vrije groep); BL-017 (template-audit) prioriteit medium → high met concrete schrap-/vervangkandidaten; volgorde-advies bijgewerkt.
 - `docs/intake-engine.md` v1.2: uitbreidingspunten verwijzen naar backlog-items (BL-016 t/m BL-020); geplande vraag-voor-vraag flow (BL-018) genoemd bij de sectieweergave.

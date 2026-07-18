@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplate;
+use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Domains\Intake\Services\ProgressCalculator;
 use App\Domains\Intake\Services\VisibilityResolver;
 use App\Enums\IntakeStatus;
@@ -37,7 +38,9 @@ test('valid customer token opens the intake wizard', function () {
     $this->get(route('customer.intake.show', $intake->access_token))
         ->assertOk()
         ->assertSee('Digitale Opname')
-        ->assertSee('Aanvraag');
+        ->assertSee('Aanvraag')
+        ->assertSee('Wat is de reden van uw aanvraag?')
+        ->assertSee('Vraag 1 van');
 });
 
 test('invalid or revoked customer token is refused', function () {
@@ -94,7 +97,21 @@ test('required questions block advancing to the next step', function () {
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->call('next')
         ->assertSet('showMissing', true)
-        ->assertSet('stepIndex', 0);
+        ->assertSet('stepIndex', 0)
+        ->assertSet('activeStepKey', 'request::request_reason');
+});
+
+test('wizard advances one visible question at a time', function () {
+    $intake = makeAccessibleIntake();
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('form.request_reason', ['text' => 'Te warm'])
+        ->call('next')
+        ->assertSet('showMissing', false)
+        ->assertSet('stepIndex', 1)
+        ->assertSet('activeStepKey', 'request::cooling_heating')
+        ->assertSee('Wilt u koelen, verwarmen of beide?')
+        ->assertDontSee('Hoeveel binnenunits wilt u ongeveer?');
 });
 
 test('conditional show rules hide questions until matched', function () {
@@ -147,20 +164,54 @@ test('conditional show rules hide questions until matched', function () {
     expect($resolvedVisible['visible'])->toBeTrue();
 });
 
+test('hidden conditional questions are skipped in the question-per-step list', function () {
+    $intake = makeAccessibleIntake();
+    $version = $intake->templateVersion()->with(['sections.questions.rules'])->firstOrFail();
+
+    app(SaveIntakeAnswer::class)->handle($intake, 'natural_fall_possible', null, [
+        'bool' => false,
+    ]);
+    $intake->refresh();
+
+    $steps = app(IntakeStepBuilder::class)->build($intake, $version);
+    $questionKeys = array_column($steps, 'question_key');
+
+    expect($questionKeys)->not->toContain('drain_photo');
+
+    app(SaveIntakeAnswer::class)->handle($intake, 'natural_fall_possible', null, [
+        'bool' => true,
+    ]);
+    $intake->refresh();
+
+    $stepsVisible = app(IntakeStepBuilder::class)->build($intake, $version);
+    $visibleKeys = array_column($stepsVisible, 'question_key');
+
+    expect($visibleKeys)->toContain('drain_photo');
+});
+
 test('livewire string booleans satisfy required checks and allow next', function () {
     $intake = makeAccessibleIntake();
 
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
-        ->set('stepIndex', 2) // outdoor_unit (geen ruimtes zonder indoor_unit_count)
-        ->set('form.outdoor_location', ['text' => 'Achtergevel'])
-        ->set('form.outdoor_mount_type', ['value' => 'wall'])
-        ->set('form.outdoor_accessibility', ['text' => 'Via tuin'])
+        ->set('activeStepKey', 'outdoor_unit::noise_sensitive')
+        ->set('stepIndex', 0) // index wordt via activeStepKey herberekend bij next
         ->set('form.noise_sensitive', ['bool' => '0'])
-        ->set('form.outdoor_location_photos', ['upload_ids' => [1]])
-        ->set('form.facade_overview_photo', ['upload_ids' => [2]])
         ->call('next')
         ->assertSet('showMissing', false)
-        ->assertSet('stepIndex', 3);
+        ->assertSet('activeStepKey', 'outdoor_unit::outdoor_location_photos');
+});
+
+test('wizard resumes on the stored question cursor', function () {
+    $intake = makeAccessibleIntake();
+    $intake->update([
+        'current_section_key' => 'building',
+        'current_question_key' => 'ownership',
+        'current_section_instance_key' => null,
+    ]);
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->assertSet('activeStepKey', 'building::ownership')
+        ->assertSee('Is het een koop- of huurwoning?');
 });
 
 test('progress calculator includes answered questions in the percentage', function () {
@@ -179,4 +230,23 @@ test('progress calculator includes answered questions in the percentage', functi
     $after = app(ProgressCalculator::class)->calculate($intake, $version);
 
     expect($after['percent'])->toBeGreaterThan($before['percent']);
+});
+
+test('repeatable room questions become separate steps after unit count', function () {
+    $intake = makeAccessibleIntake();
+    $version = $intake->templateVersion()->with(['sections.questions'])->firstOrFail();
+
+    app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 2]);
+    $intake->refresh();
+
+    $steps = app(IntakeStepBuilder::class)->build($intake, $version);
+    $roomSteps = array_values(array_filter(
+        $steps,
+        static fn (array $step): bool => $step['section_key'] === 'rooms',
+    ));
+
+    expect($roomSteps)->not->toBeEmpty()
+        ->and($roomSteps[0]['section_instance_key'])->toBe('room-1')
+        ->and(collect($roomSteps)->pluck('section_instance_key')->unique()->values()->all())
+        ->toBe(['room-1', 'room-2']);
 });

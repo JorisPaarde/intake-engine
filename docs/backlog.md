@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 3.6 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.8 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -20,7 +20,7 @@ Status: `backlog` · `ready` · `in_progress` · `done` · `dropped` — priorit
 | E4 | AI bespaart beoordeelwerk | Samenvatting, aandachtspunten en fotokwaliteitscheck besparen de installateur leeswerk en de aanvrager een extra aanleverronde. AI blijft ondersteunend (docs/ai.md). |
 | E5 | Bruikbaar dossier & klaar voor groei | Het dossier moet buiten de browser bruikbaar zijn en het product moet zonder extra handelingen te ervaren, beheren en opschalen zijn. |
 
-Volgorde-advies: volg kolom **#** in de overzichtstabel hieronder. De rode draad: eerst lopend werk afronden (BL-002, BL-001), dan de kern van het hoofddoel — minder en slimmere vragen (BL-017, BL-018, BL-016) en betrouwbare, drempelloze aanlevering (BL-008, BL-011) — daarna installateurshandelingen wegnemen (E2), vervolgens slimme afleiding (BL-019, BL-006, BL-020) en tot slot groei-/beheeritems.
+Volgorde-advies: volg kolom **#** in de overzichtstabel hieronder. De rode draad: eerst lopend werk afronden (BL-002, BL-001), dan de kern van het hoofddoel — minder en slimmere vragen (BL-017, BL-016; BL-018 done) en betrouwbare, drempelloze aanlevering (BL-008, BL-011) — daarna installateurshandelingen wegnemen (E2), vervolgens slimme afleiding (BL-019, BL-006, BL-020) en tot slot groei-/beheeritems.
 
 ## Overzicht
 
@@ -31,22 +31,22 @@ Geprioriteerd op het hoofddoel (herprioritering 2026-07-18): hoeveel handelingen
 | 1 | BL-002 | Functionele hertest staging (Fase 3–6) | E1 | in_progress | high |
 | 2 | BL-001 | Demo-versie van de app | E5 | in_progress | medium |
 | 3 | BL-017 | Airco-template v2: vraag-voor-vraag audit op het ontwerpprincipe | E3 | backlog | high |
-| 4 | BL-018 | Vraag-voor-vraag klantflow (één vraag per scherm) | E3 | backlog | high |
-| 5 | BL-016 | Hergebruik bekende gegevens (prefill) | E3 | backlog | high |
-| 6 | BL-008 | HEIC-ondersteuning bij foto-uploads | E1 | backlog | high |
-| 7 | BL-011 | Eigen domein + geldig SSL voor staging | E1 | backlog | high |
-| 8 | BL-004 | Automatische e-mail van klantlink (SMTP) | E2 | backlog | medium |
-| 9 | BL-014 | Afrondingsnotificatie voor de installateur | E2 | backlog | medium |
-| 10 | BL-015 | Herinnering bij stilliggende intake | E2 | backlog | medium |
-| 11 | BL-019 | Afleiden uit adres en openbare bronnen (satellietbeeld, BAG) | E3 | backlog | medium |
-| 12 | BL-005 | PDF-export van rapporten | E5 | backlog | medium |
-| 13 | BL-006 | Externe LLM-provider (na DPIA) | E4 | backlog | medium |
-| 14 | BL-020 | Foto-gedreven afleiding en adaptieve vervolgvragen | E4 | backlog | medium |
-| 15 | BL-007 | AI-uitbreidingen: attention points, fotokwaliteit, accepteren/verwijderen | E4 | backlog | low |
-| 16 | BL-009 | Purge-job voor soft-deleted intakes (bewaartermijn) | E5 | backlog | low |
-| 17 | BL-010 | Production-deployworkflow (tags + eigen omgeving) | E5 | backlog | low |
-| 18 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low |
-| 19 | BL-013 | S3 als mediadisk | E5 | backlog | low |
+| 4 | BL-016 | Hergebruik bekende gegevens (prefill) | E3 | backlog | high |
+| 5 | BL-008 | HEIC-ondersteuning bij foto-uploads | E1 | backlog | high |
+| 6 | BL-011 | Eigen domein + geldig SSL voor staging | E1 | backlog | high |
+| 7 | BL-004 | Automatische e-mail van klantlink (SMTP) | E2 | backlog | medium |
+| 8 | BL-014 | Afrondingsnotificatie voor de installateur | E2 | backlog | medium |
+| 9 | BL-015 | Herinnering bij stilliggende intake | E2 | backlog | medium |
+| 10 | BL-019 | Afleiden uit adres en openbare bronnen (satellietbeeld, BAG) | E3 | backlog | medium |
+| 11 | BL-005 | PDF-export van rapporten | E5 | backlog | medium |
+| 12 | BL-006 | Externe LLM-provider (na DPIA) | E4 | backlog | medium |
+| 13 | BL-020 | Foto-gedreven afleiding en adaptieve vervolgvragen | E4 | backlog | medium |
+| 14 | BL-007 | AI-uitbreidingen: attention points, fotokwaliteit, accepteren/verwijderen | E4 | backlog | low |
+| 15 | BL-009 | Purge-job voor soft-deleted intakes (bewaartermijn) | E5 | backlog | low |
+| 16 | BL-010 | Production-deployworkflow (tags + eigen omgeving) | E5 | backlog | low |
+| 17 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low |
+| 18 | BL-013 | S3 als mediadisk | E5 | backlog | low |
+| — | BL-018 | Vraag-voor-vraag klantflow (één vraag per scherm) | E3 | done | high |
 | — | BL-003 | Staging PHP-uploadlimieten verifiëren/verhogen | E1 | done | high |
 
 ## Epic E1 — Frictieloze basisflow
@@ -132,10 +132,11 @@ De meest directe toepassing van het ontwerpprincipe: *de applicatie vraagt niets
 
 ### BL-018 — Vraag-voor-vraag klantflow (één vraag per scherm)
 
-- **Status:** backlog · **Prioriteit:** high
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-18 · **PR:** #18
 - **Doel:** de klantwizard toont nu een hele sectie per scherm; de producteigenaar wil vragen **stap voor stap** stellen: één vraag (of één logisch mini-cluster, zoals een foto-opdracht met bijbehorende controle­vraag) per scherm, met autosave per antwoord en duidelijke voortgang.
 - **Waarom (hoofddoel):** één vraag per scherm voelt lichter, werkt beter op mobiel en maakt conditionele logica direct zichtbaar (vervolgvraag verschijnt pas als die relevant is) — minder scrollen en minder afhaken.
 - **Kaders:** de datastructuur (secties → vragen) blijft ongewijzigd; dit is een presentatielaag bovenop de bestaande engine. Sectietitels blijven als hoofdstukmarkering zichtbaar. Regels (`show`/`require`) evalueren per antwoord, zodat overgeslagen vragen nooit getoond worden.
+- **Resultaat:** `IntakeStepBuilder` bouwt één stap per zichtbare vraag; wizard toont sectietitel + “Vraag X van Y”; hervatten via `current_question_key` / `current_section_instance_key`; conditionele vragen verschijnen/verdwijnen live uit de stappenlijst. Mini-clusters (foto + controlevraag) nog niet als apart meta-mechanisme — elke vraag is nu één scherm.
 - **Afhankelijkheden:** geen harde; combineert goed met BL-017 (minder vragen) en BL-016 (prefill).
 
 ### BL-019 — Afleiden uit adres en openbare bronnen (satellietbeeld, BAG)
@@ -219,4 +220,5 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 
 | ID | Afgerond | PR |
 |----|----------|-----|
+| BL-018 | 2026-07-18 | #18 |
 | BL-003 | 2026-07-18 | #12 (+ staging-verificatie via `/health`, docs #13) |

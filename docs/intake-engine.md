@@ -1,6 +1,6 @@
 # Intake-engine
 
-> **Documentversie:** 1.2 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.3 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **geïmplementeerd t/m Fase 6** (compleetheid, rapport, beoordeling en AI-samenvatting).
 
@@ -42,7 +42,7 @@ Runtime leest altijd uit de database (de gepinde versie), nooit rechtstreeks uit
 ## Secties
 
 - Geordend (`sort_order`)
-- Klantflow: **één sectie (of substap) per scherm** op mobiel *(gepland: één vraag per scherm — BL-018 in [docs/backlog.md](backlog.md))*
+- Klantflow: **één zichtbare vraag per scherm** (BL-018); sectietitel blijft als hoofdstukmarkering zichtbaar
 - `is_repeatable`: bv. “Ruimtes” herhaalt zich N keer op basis van `repeat_count_question_key` (aantal binnenunits)
 
 `section_instance_key` op antwoorden/uploads: `null` voor normale secties, `room-1` … `room-n` voor herhalingen.
@@ -111,7 +111,7 @@ Zie ADR-0001 en `docs/database.md`.
 
 - Elke stap/antwoord-save is idempotent upsert op `intake_answers`
 - Upload en antwoord zijn aparte requests; mislukte upload mag eerdere antwoorden niet wissen
-- Zelfde klantlink hervat op `current_section_key`
+- Zelfde klantlink hervat op `current_section_key` + `current_question_key` (+ `current_section_instance_key` bij repeatables)
 - Duidelijke “opgeslagen”-feedback in UI
 
 ## Airco-template (MVP-inhoud)
@@ -143,7 +143,6 @@ Geen nieuwe controllers per intaketype.
 
 Gepland werk staat in [docs/backlog.md](backlog.md); relevante items voor de engine:
 
-- Vraag-voor-vraag klantflow, één vraag per scherm (BL-018)
 - Minder vragen: template-audit op het ontwerpprincipe (BL-017)
 - Afleiden uit adres/openbare bronnen: satellietbeeld, BAG-bouwjaar (BL-019)
 - Foto-gedreven afleiding en adaptieve vervolgvragen, bv. meterkastfoto → vrije groep (BL-020)
