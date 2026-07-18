@@ -119,7 +119,7 @@ De meest directe toepassing van het ontwerpprincipe: *de applicatie vraagt niets
 
 ### BL-017 — Airco-template v2: vraag-voor-vraag audit op het ontwerpprincipe
 
-- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-18 · **PR:** (deze PR)
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-18 · **PR:** #21
 - **Doel:** elke vraag in de airco-template toetsen aan het ontwerpprincipe: is dit al bekend of afleidbaar (schrappen)? Is er een snellere/duidelijkere verzamelmethode (foto i.p.v. meetvraag, keuzelijst i.p.v. vrije tekst, boolean i.p.v. open vraag)? Feedback van installateurs meenemen.
 - **Resultaat:** `database/data/templates/airco/v2.php` + seeder publiceert v1 én v2 (nieuwe intakes → latest = v2; ADR-0001). Concrete wijzigingen: kamermaten → `room_size_indication`; vrije tekst → keuzelijsten (`outdoor_location`, `outdoor_accessibility`, `pipe_route_description`, `drain_location`, `floor_level`); afstanden ontdubbeld (alleen optionele `pipe_distance_indication`); `facade_overview_photo` en `free_group_known` optioneel; `distance_to_indoor` / `fusebox_distance` / exacte maten geschrapt. Verdere afleiding volgt in BL-019/BL-020.
 - **Afhankelijkheden:** geen harde; installateurs-feedback kan later tot v3 leiden.
