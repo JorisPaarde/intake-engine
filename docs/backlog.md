@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 3.17 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.18 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -34,13 +34,13 @@ Items in **verschillende parallel-bands** kunnen tegelijk door aparte agents/men
 | **H** | AI-keten | BL-006 → daarna BL-007 + BL-020 | A, D, F, I. Binnen H: BL-007 en BL-020 parallel **ná** BL-006 (+ DPIA) |
 | **I** | Beheer / schaal | BL-010, BL-013 (BL-012 later) | Onderling parallel; met A–H zolang geen gedeelde deploy-/storage-wijziging botst |
 | **J** | Klantwizard-verbeteringen | BL-021 → BL-023 → BL-022 → BL-025 | A, D, F, H, I, K. Binnen J sequentieel: alle vier raken `IntakeWizard` + wizard-view |
-| **K** | Installateursweergave | BL-024 | Alles (raakt alleen installer-views) |
+| **K** | Installateursweergave | — (BL-024 done) | — |
 
-Afgeronde bands (niet meer te plannen): **B** = BL-016 (prefill), **C** = BL-008 (HEIC), **E** = BL-004/BL-014/BL-015 (mail-keten), **G** = BL-005 (PDF); BL-009 purge done.
+Afgeronde bands (niet meer te plannen): **B** = BL-016 (prefill), **C** = BL-008 (HEIC), **E** = BL-004/BL-014/BL-015 (mail-keten), **G** = BL-005 (PDF), **K** = BL-024 (installateursgalerij); BL-009 purge done.
 
 **Concrete parallel-startsets:**
 
-1. **Nu parallel bouwbaar:** BL-011 (extern) · BL-021 (start band J) · BL-019 · BL-024 — naast afronden van BL-001; SMTP op staging aanzetten voor mail-smoketests (BL-004/014/015).
+1. **Nu parallel bouwbaar:** BL-011 (extern) · BL-021 (start band J) · BL-019 — naast afronden van BL-001; SMTP op staging aanzetten voor mail-smoketests (BL-004/014/015).
 2. **Na DPIA + BL-006:** BL-007 en BL-020 parallel.
 3. **Laag-prioriteit parallel:** BL-010 · BL-013 · BL-025 (na band-J-voorgangers) · (BL-012 bij tweede klant).
 
@@ -59,11 +59,11 @@ Geprioriteerd op het hoofddoel (herprioritering 2026-07-18): hoeveel handelingen
 | 7 | BL-006 | Externe LLM-provider (na DPIA) | E4 | backlog | medium | H · parallel† |
 | 8 | BL-020 | Foto-gedreven afleiding en adaptieve vervolgvragen | E4 | backlog | medium | H · na BL-006 |
 | 9 | BL-007 | AI-uitbreidingen: attention points, fotokwaliteit, accepteren/verwijderen | E4 | backlog | low | H · na BL-006 |
-| 10 | BL-024 | Leesbaar dossier: vraaglabels i.p.v. keys in installateursweergave | E5 | backlog | low | K · parallel |
-| 11 | BL-025 | Wizard-responstijd: dubbele queries per Livewire-request terugdringen | E1 | backlog | low | J · laatste |
-| 12 | BL-010 | Production-deployworkflow (tags + eigen omgeving) | E5 | backlog | low | I · parallel |
-| 13 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low | I · later |
-| 14 | BL-013 | S3 als mediadisk | E5 | backlog | low | I · parallel |
+| 10 | BL-025 | Wizard-responstijd: dubbele queries per Livewire-request terugdringen | E1 | backlog | low | J · laatste |
+| 11 | BL-010 | Production-deployworkflow (tags + eigen omgeving) | E5 | backlog | low | I · parallel |
+| 12 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low | I · later |
+| 13 | BL-013 | S3 als mediadisk | E5 | backlog | low | I · parallel |
+| — | BL-024 | Leesbaar dossier: vraaglabels i.p.v. keys in installateursweergave | E5 | done | low | K (done) |
 | — | BL-014 | Afrondingsnotificatie voor de installateur | E2 | done | medium | E (done) |
 | — | BL-015 | Herinnering bij stilliggende intake | E2 | done | medium | E (done) |
 | — | BL-005 | PDF-export van rapporten | E5 | done | medium | G (done) |
@@ -285,12 +285,13 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 
 ### BL-024 — Leesbaar dossier: vraaglabels i.p.v. keys in installateursweergave
 
-- **Status:** backlog · **Prioriteit:** low *(verbeterronde 2026-07-18)*
-- **Parallel:** band **K** — parallel met alles (raakt alleen installer-views).
+- **Status:** done · **Prioriteit:** low · **Datum:** 2026-07-18 · **PR:** #28
+- **Parallel:** band **K** (done) — raakte alleen installer-views + lichte presentatiebouwsteen.
 - **Doel:** de foto-galerij op de intake-detailpagina toont als bijschrift nu de rauwe `question_key` en `section_instance_key` (bv. `room_photos · room-2`). Toon het vraaglabel uit de templateversie plus een leesbare instantienaam ("Foto's van de ruimte · Ruimte 2") en groepeer foto's per sectie/ruimte, zoals het HTML-rapport dat al doet.
+- **Resultaat:** `InstallerPhotoGalleryBuilder` groepeert uploads per sectie/instantie (koppen zoals `Ruimtes 2`, zelfde patroon als de wizard) en toont vraaglabels uit de gepinde templateversie als bijschrift; geen datamodelwijziging.
 - **Waarom (hoofddoel):** het dossier is pas bruikbaar als de installateur het zonder vertaalslag leest; nu decodeert hij bij elke beoordeling zelf keys naar betekenis — leeswerk dat het dossier zelf kan wegnemen.
 - **Kaders:** labels komen uit de gepinde templateversie van de intake (geen hardcoded airco-teksten — de engine blijft data-gedreven); geen datamodelwijziging.
-- **Afhankelijkheden:** geen — puur presentatie in `resources/views/installer/intakes/show.blade.php`.
+- **Afhankelijkheden:** geen — presentatie in `resources/views/installer/intakes/show.blade.php` + `InstallerPhotoGalleryBuilder`.
 
 ### BL-010 — Production-deployworkflow
 
@@ -316,6 +317,7 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 
 | ID | Afgerond | PR |
 |----|----------|-----|
+| BL-024 | 2026-07-18 | #28 — vraaglabels + groepering foto-galerij installateur |
 | BL-014 | 2026-07-18 | #26 — afrondingsmail + dashboard “Nieuw afgerond” |
 | BL-015 | 2026-07-18 | #26 — `intakes:send-reminders` + `reminder_sent_at` |
 | BL-005 | 2026-07-18 | #26 — Dompdf PDF-export + download |

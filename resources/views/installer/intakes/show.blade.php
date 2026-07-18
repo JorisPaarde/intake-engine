@@ -115,26 +115,30 @@
 
             <div class="bg-white shadow-sm sm:rounded-lg p-6 space-y-4">
                 <h3 class="text-base font-semibold text-gray-900">Foto’s</h3>
-                @if ($intake->uploads->isEmpty())
+                @if ($photoGroups === [])
                     <p class="text-sm text-gray-500">Nog geen foto’s geüpload.</p>
                 @else
-                    <div class="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                        @foreach ($intake->uploads->sortBy('sort_order') as $upload)
-                            <figure class="space-y-2">
-                                <a href="{{ route('installer.uploads.show', [$intake, $upload]) }}" target="_blank" rel="noopener" class="block overflow-hidden rounded-md border border-gray-200">
-                                    <img
-                                        src="{{ route('installer.uploads.show', [$intake, $upload]) }}"
-                                        alt="{{ $upload->original_filename }}"
-                                        class="aspect-square w-full object-cover"
-                                    >
-                                </a>
-                                <figcaption class="text-xs text-gray-500">
-                                    {{ $upload->question_key }}
-                                    @if ($upload->section_instance_key)
-                                        · {{ $upload->section_instance_key }}
-                                    @endif
-                                </figcaption>
-                            </figure>
+                    <div class="space-y-6">
+                        @foreach ($photoGroups as $group)
+                            <div class="space-y-3">
+                                <h4 class="text-sm font-medium text-gray-800">{{ $group['heading'] }}</h4>
+                                <div class="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                                    @foreach ($group['uploads'] as $item)
+                                        <figure class="space-y-2">
+                                            <a href="{{ route('installer.uploads.show', [$intake, $item['upload']]) }}" target="_blank" rel="noopener" class="block overflow-hidden rounded-md border border-gray-200">
+                                                <img
+                                                    src="{{ route('installer.uploads.show', [$intake, $item['upload']]) }}"
+                                                    alt="{{ $item['caption'] }}"
+                                                    class="aspect-square w-full object-cover"
+                                                >
+                                            </a>
+                                            <figcaption class="text-xs text-gray-500">
+                                                {{ $item['caption'] }}
+                                            </figcaption>
+                                        </figure>
+                                    @endforeach
+                                </div>
+                            </div>
                         @endforeach
                     </div>
                 @endif

@@ -13,6 +13,7 @@ use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeTemplate;
+use App\Domains\Intake\Services\InstallerPhotoGalleryBuilder;
 use App\Enums\ReviewDecision;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Installer\StoreIntakeRequest;
@@ -87,12 +88,13 @@ class IntakeController extends Controller
             ->with('status', $mailResult->flashMessage('created'));
     }
 
-    public function show(Intake $intake): View
+    public function show(Intake $intake, InstallerPhotoGalleryBuilder $photoGalleryBuilder): View
     {
         $this->authorize('view', $intake);
 
         $intake->load([
             'templateVersion.template',
+            'templateVersion.sections.questions',
             'creator',
             'uploads',
             'answers',
@@ -103,6 +105,7 @@ class IntakeController extends Controller
 
         return view('installer.intakes.show', [
             'intake' => $intake,
+            'photoGroups' => $photoGalleryBuilder->handle($intake),
             'reviewDecisions' => collect(ReviewDecision::cases())
                 ->reject(static fn (ReviewDecision $decision): bool => $decision === ReviewDecision::Pending)
                 ->values(),
