@@ -6,6 +6,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Added
 
+- BL-021 foto-upload in de klantwizard: `multiple` selectie (tot `meta.max_files`), geen `capture`-force zodat camera én galerij open blijven, en per-bestand upload zodat één mislukte foto de rest van de selectie niet blokkeert.
 - BL-024 leesbare installateursgalerij: opname-detail groepeert foto’s per sectie/instantie (`InstallerPhotoGalleryBuilder`) en toont vraaglabels uit de gepinde templateversie i.p.v. rauwe `question_key` / `section_instance_key`.
 - BL-014 afrondingsnotificatie: na afronden mailt `SendInstallerIntakeCompleted` de installateur (soft-fail / skip bij `MAIL_MAILER=log`); dashboard markeert en sorteert **Nieuw afgerond** (completed + nog niet beoordeeld).
 - BL-015 herinnering stilliggende intake: daily `intakes:send-reminders` stuurt max. één herinneringsmail met hervat-link na `INTAKE_REMINDER_DAYS` (default 3); kolom `reminder_sent_at`; stopt bij demo/ingetrokken/verlopen/afgerond; geen tokens in logs (ADR-0002).
@@ -41,6 +42,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
+- `docs/backlog.md` v3.19 + `docs/uploads.md` v1.6 + `docs/functional-test-status.md` v1.12 + README v1.17: BL-021 → `done` (multiselect + galerijkeuze); band J-keten bijgewerkt (volgende: BL-023); staging-smoketest als `todo`.
 - `docs/backlog.md` v3.18 + `docs/uploads.md` v1.5 + `docs/functional-test-status.md` v1.11: BL-024 → `done` (vraaglabels + groepering foto-galerij installateur); staging-smoketest als `todo`.
 - `docs/backlog.md` v3.17 + README v1.16: verbeterronde op bestaande functionaliteit, getoetst aan het hoofddoel (geen nieuwe features) — vijf nieuwe items: BL-021 (foto's multiselect + galerijkeuze niet blokkeren), BL-022 (voortgang op verplichte vragen + klikbare "ontbreekt nog"-lijst + leesbare ruimtenamen), BL-023 (auto-doorgaan na eenduidige keuze, Enter = Volgende), BL-024 (vraaglabels i.p.v. keys in installateursweergave), BL-025 (wizard-responstijd: dubbele queries per Livewire-request). Nieuwe parallel-bands J (klantwizard-keten) en K (installateursweergave); uitvoeringsvolgorde bijgewerkt.
 - `docs/backlog.md` v3.16 + `docs/database.md` v1.5 + `docs/DEPLOYMENT.md` v1.7 + `docs/functional-test-status.md` v1.10 + `docs/ARCHITECTURE.md` v1.2 + README v1.15: BL-014/015/005/009 → `done`; scheduler/mail/PDF/retention gedocumenteerd.

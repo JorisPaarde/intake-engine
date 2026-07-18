@@ -22,6 +22,7 @@ use App\Domains\Intake\Services\VisibilityResolver;
 use App\Enums\QuestionType;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -48,7 +49,11 @@ class IntakeWizard extends Component
     /** @var array<string, mixed> */
     public array $form = [];
 
-    /** @var array<string, TemporaryUploadedFile|null> */
+    /**
+     * Composite key → one file or a list (multiselect, BL-021).
+     *
+     * @var array<string, TemporaryUploadedFile|array<int, TemporaryUploadedFile>|null>
+     */
     public array $photoFiles = [];
 
     /**
@@ -141,11 +146,17 @@ class IntakeWizard extends Component
 
     public function updatedPhotoFiles(mixed $value, ?string $key): void
     {
-        if ($key === null || $key === '' || ! $value instanceof TemporaryUploadedFile) {
+        if ($key === null || $key === '') {
             return;
         }
 
-        $this->uploadPhotoForComposite($key);
+        $files = $this->normalizePhotoFiles($this->photoFiles[$key] ?? $value);
+
+        if ($files === []) {
+            return;
+        }
+
+        $this->uploadPhotosForComposite($key, $files);
     }
 
     public function removePhoto(int $uploadId): void
@@ -193,47 +204,84 @@ class IntakeWizard extends Component
         }
     }
 
-    private function uploadPhotoForComposite(string $composite): void
+    /**
+     * @return list<TemporaryUploadedFile>
+     */
+    private function normalizePhotoFiles(mixed $raw): array
     {
-        $maxKb = (int) config('intake.uploads.max_kilobytes', 5120);
-
-        $this->validate([
-            'photoFiles.'.$composite => [
-                'required',
-                'file',
-                'max:'.$maxKb,
-            ],
-        ], [], [
-            'photoFiles.'.$composite => 'foto',
-        ]);
-
-        $file = $this->photoFiles[$composite] ?? null;
-
-        if (! $file instanceof TemporaryUploadedFile) {
-            return;
+        if ($raw instanceof TemporaryUploadedFile) {
+            return [$raw];
         }
 
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        $files = [];
+
+        foreach ($raw as $file) {
+            if ($file instanceof TemporaryUploadedFile) {
+                $files[] = $file;
+            }
+        }
+
+        return $files;
+    }
+
+    /**
+     * Upload each selected file independently so one failure does not block the rest (BL-021).
+     *
+     * @param  list<TemporaryUploadedFile>  $files
+     */
+    private function uploadPhotosForComposite(string $composite, array $files): void
+    {
+        $maxKb = (int) config('intake.uploads.max_kilobytes', 5120);
         [$questionKey, $instanceKey] = $this->splitComposite($composite);
 
-        try {
-            app(StoreIntakeUpload::class)->handle(
-                $this->intake(),
-                $questionKey,
-                $instanceKey,
-                $file,
-            );
-            $this->photoFiles[$composite] = null;
-            // Alleen deze foto-composite verversen — volledige hydrate wist niet-opgeslagen velden.
-            $this->refreshAnswerInForm($composite);
+        $stored = 0;
+        /** @var list<string> $errors */
+        $errors = [];
+
+        foreach ($files as $file) {
+            try {
+                Validator::make(
+                    ['photo' => $file],
+                    ['photo' => ['required', 'file', 'max:'.$maxKb]],
+                    [],
+                    ['photo' => 'foto'],
+                )->validate();
+
+                app(StoreIntakeUpload::class)->handle(
+                    $this->intake(),
+                    $questionKey,
+                    $instanceKey,
+                    $file,
+                );
+                $stored++;
+            } catch (ValidationException $e) {
+                $errors[] = $e->errors()['photo'][0]
+                    ?? $e->errors()['photoFiles.'.$composite][0]
+                    ?? 'Upload mislukt. Probeer het opnieuw.';
+            }
+        }
+
+        // Alleen deze foto-composite verversen — volledige hydrate wist niet-opgeslagen velden.
+        $this->photoFiles[$composite] = [];
+        $this->refreshAnswerInForm($composite);
+        $this->showMissing = false;
+        $this->resetErrorBag('photoFiles.'.$composite);
+
+        if ($stored === 1) {
             $this->saveMessage = 'Foto opgeslagen';
-            $this->showMissing = false;
-            $this->resetErrorBag('photoFiles.'.$composite);
-        } catch (ValidationException $e) {
-            $this->photoFiles[$composite] = null;
-            $this->addError(
-                'photoFiles.'.$composite,
-                $e->errors()['photo'][0] ?? $e->errors()['photoFiles.'.$composite][0] ?? 'Upload mislukt. Probeer het opnieuw.',
-            );
+        } elseif ($stored > 1) {
+            $this->saveMessage = $stored." foto's opgeslagen";
+        } else {
+            $this->saveMessage = '';
+        }
+
+        if ($errors !== []) {
+            $unique = array_values(array_unique($errors));
+            $this->addError('photoFiles.'.$composite, implode(' ', $unique));
         }
     }
 

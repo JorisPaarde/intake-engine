@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 3.18 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.19 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -20,7 +20,7 @@ Status: `backlog` · `ready` · `in_progress` · `done` · `dropped` — priorit
 | E4 | AI bespaart beoordeelwerk | Samenvatting, aandachtspunten en fotokwaliteitscheck besparen de installateur leeswerk en de aanvrager een extra aanleverronde. AI blijft ondersteunend (docs/ai.md). |
 | E5 | Bruikbaar dossier & klaar voor groei | Het dossier moet buiten de browser bruikbaar zijn en het product moet zonder extra handelingen te ervaren, beheren en opschalen zijn. |
 
-Volgorde-advies: volg kolom **#** in de overzichtstabel hieronder. De rode draad: eerst lopend werk afronden (BL-001; BL-002/BL-004/BL-005/BL-008/BL-009/BL-014/BL-015/BL-016 done), dan drempelloze aanlevering (BL-011 domein/SSL) en het gladstrijken van de bestaande flow (BL-021/BL-023/BL-022 — verbeterronde 2026-07-18, geen nieuwe functionaliteit) — daarna slimme afleiding (BL-019, BL-006, BL-020) en tot slot groei-/beheeritems. Parallelisatie: zie [§ Parallelisatie](#parallelisatie) en kolom **Band**.
+Volgorde-advies: volg kolom **#** in de overzichtstabel hieronder. De rode draad: eerst lopend werk afronden (BL-001; BL-002/BL-004/BL-005/BL-008/BL-009/BL-014/BL-015/BL-016/BL-021/BL-024 done), dan drempelloze aanlevering (BL-011 domein/SSL) en het verder gladstrijken van de bestaande flow (BL-023/BL-022 — verbeterronde 2026-07-18, geen nieuwe functionaliteit) — daarna slimme afleiding (BL-019, BL-006, BL-020) en tot slot groei-/beheeritems. Parallelisatie: zie [§ Parallelisatie](#parallelisatie) en kolom **Band**.
 
 ## Parallelisatie
 
@@ -33,14 +33,14 @@ Items in **verschillende parallel-bands** kunnen tegelijk door aparte agents/men
 | **F** | Open data / adres | BL-019 | A, D, H, I; BAG-prefill bouwt voort op afgeronde BL-016-kaders |
 | **H** | AI-keten | BL-006 → daarna BL-007 + BL-020 | A, D, F, I. Binnen H: BL-007 en BL-020 parallel **ná** BL-006 (+ DPIA) |
 | **I** | Beheer / schaal | BL-010, BL-013 (BL-012 later) | Onderling parallel; met A–H zolang geen gedeelde deploy-/storage-wijziging botst |
-| **J** | Klantwizard-verbeteringen | BL-021 → BL-023 → BL-022 → BL-025 | A, D, F, H, I, K. Binnen J sequentieel: alle vier raken `IntakeWizard` + wizard-view |
+| **J** | Klantwizard-verbeteringen | BL-023 → BL-022 → BL-025 | A, D, F, H, I. Binnen J sequentieel: raken `IntakeWizard` + wizard-view; BL-021 done |
 | **K** | Installateursweergave | — (BL-024 done) | — |
 
-Afgeronde bands (niet meer te plannen): **B** = BL-016 (prefill), **C** = BL-008 (HEIC), **E** = BL-004/BL-014/BL-015 (mail-keten), **G** = BL-005 (PDF), **K** = BL-024 (installateursgalerij); BL-009 purge done.
+Afgeronde bands (niet meer te plannen): **B** = BL-016 (prefill), **C** = BL-008 (HEIC), **E** = BL-004/BL-014/BL-015 (mail-keten), **G** = BL-005 (PDF), **K** = BL-024 (installateursgalerij); BL-021 (multiselect/galerij) done als start van band J; BL-009 purge done.
 
 **Concrete parallel-startsets:**
 
-1. **Nu parallel bouwbaar:** BL-011 (extern) · BL-021 (start band J) · BL-019 — naast afronden van BL-001; SMTP op staging aanzetten voor mail-smoketests (BL-004/014/015).
+1. **Nu parallel bouwbaar:** BL-011 (extern) · BL-023 (vervolg band J) · BL-019 — naast afronden van BL-001; SMTP op staging aanzetten voor mail-smoketests (BL-004/014/015).
 2. **Na DPIA + BL-006:** BL-007 en BL-020 parallel.
 3. **Laag-prioriteit parallel:** BL-010 · BL-013 · BL-025 (na band-J-voorgangers) · (BL-012 bij tweede klant).
 
@@ -52,17 +52,17 @@ Geprioriteerd op het hoofddoel (herprioritering 2026-07-18): hoeveel handelingen
 |---|----|------|------|--------|------------|------|
 | 1 | BL-001 | Demo-versie van de app | E5 | in_progress | medium | A |
 | 2 | BL-011 | Eigen domein + geldig SSL voor staging | E1 | backlog | high | D · parallel |
-| 3 | BL-021 | Foto's: meerdere tegelijk uploaden en galerijkeuze niet blokkeren | E1 | backlog | high | J · parallel |
-| 4 | BL-023 | Eén tik minder per vraag: automatisch door na eenduidige keuze | E3 | backlog | medium | J · na BL-021 |
-| 5 | BL-022 | Voortgang en "ontbreekt nog" kloppend en klikbaar maken | E1 | backlog | medium | J · na BL-023 |
-| 6 | BL-019 | Afleiden uit adres en openbare bronnen (satellietbeeld, BAG) | E3 | backlog | medium | F · parallel |
-| 7 | BL-006 | Externe LLM-provider (na DPIA) | E4 | backlog | medium | H · parallel† |
-| 8 | BL-020 | Foto-gedreven afleiding en adaptieve vervolgvragen | E4 | backlog | medium | H · na BL-006 |
-| 9 | BL-007 | AI-uitbreidingen: attention points, fotokwaliteit, accepteren/verwijderen | E4 | backlog | low | H · na BL-006 |
-| 10 | BL-025 | Wizard-responstijd: dubbele queries per Livewire-request terugdringen | E1 | backlog | low | J · laatste |
-| 11 | BL-010 | Production-deployworkflow (tags + eigen omgeving) | E5 | backlog | low | I · parallel |
-| 12 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low | I · later |
-| 13 | BL-013 | S3 als mediadisk | E5 | backlog | low | I · parallel |
+| 3 | BL-023 | Eén tik minder per vraag: automatisch door na eenduidige keuze | E3 | backlog | medium | J · parallel |
+| 4 | BL-022 | Voortgang en "ontbreekt nog" kloppend en klikbaar maken | E1 | backlog | medium | J · na BL-023 |
+| 5 | BL-019 | Afleiden uit adres en openbare bronnen (satellietbeeld, BAG) | E3 | backlog | medium | F · parallel |
+| 6 | BL-006 | Externe LLM-provider (na DPIA) | E4 | backlog | medium | H · parallel† |
+| 7 | BL-020 | Foto-gedreven afleiding en adaptieve vervolgvragen | E4 | backlog | medium | H · na BL-006 |
+| 8 | BL-007 | AI-uitbreidingen: attention points, fotokwaliteit, accepteren/verwijderen | E4 | backlog | low | H · na BL-006 |
+| 9 | BL-025 | Wizard-responstijd: dubbele queries per Livewire-request terugdringen | E1 | backlog | low | J · laatste |
+| 10 | BL-010 | Production-deployworkflow (tags + eigen omgeving) | E5 | backlog | low | I · parallel |
+| 11 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low | I · later |
+| 12 | BL-013 | S3 als mediadisk | E5 | backlog | low | I · parallel |
+| — | BL-021 | Foto's: meerdere tegelijk uploaden en galerijkeuze niet blokkeren | E1 | done | high | J (done) |
 | — | BL-024 | Leesbaar dossier: vraaglabels i.p.v. keys in installateursweergave | E5 | done | low | K (done) |
 | — | BL-014 | Afrondingsnotificatie voor de installateur | E2 | done | medium | E (done) |
 | — | BL-015 | Herinnering bij stilliggende intake | E2 | done | medium | E (done) |
@@ -112,11 +112,12 @@ De flow van Fase 1–6 belooft "zo min mogelijk handelingen", maar dat geldt all
 
 ### BL-021 — Foto's: meerdere tegelijk uploaden en galerijkeuze niet blokkeren
 
-- **Status:** backlog · **Prioriteit:** high *(verbeterronde 2026-07-18: bestaande functionaliteit, geen nieuwe features — foto's zijn onze snelste verzamelmethode, dus dáár tellen handelingen dubbel)*
-- **Parallel:** band **J** (ketenkop) — parallel met A/D/F/H/I/K; binnen J vóór BL-023/BL-022/BL-025 (zelfde wizard-bestanden).
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-18 · **PR:** #29 · **Ref:** `docs/uploads.md`, `docs/functional-test-status.md`
+- **Parallel:** band **J** (done) — kettingkop; vervolg is BL-023 → BL-022 → BL-025.
 - **Doel:** twee verbeteringen op de bestaande foto-upload in de klantwizard:
   - **Meerdere foto's in één keer selecteren:** de file-input heeft nu geen `multiple`, terwijl vragen tot `meta.max_files = 5` foto's toestaan — de aanvrager tikt nu per foto opnieuw "Foto maken of kiezen". Multiselect + upload per bestand (één mislukte foto blokkeert de rest niet).
   - **Galerijkeuze niet blokkeren:** de input hardcodet `capture="environment"`, wat op veel mobiele browsers direct de camera afdwingt. Wie de foto's al gemaakt heeft (of even rondloopt en daarna uploadt) kan er nu niet bij — beide paden (camera én galerij) moeten open staan.
+- **Resultaat:** file-input heeft `multiple` en geen `capture`; `IntakeWizard::uploadPhotosForComposite` verwerkt elk bestand apart (succes blijft staan bij gedeeltelijke fout); UI toont resterende slots / “maximum bereikt”; `max_files` blijft server-side in `StoreIntakeUpload`. Staging-smoketest als `todo` in `docs/functional-test-status.md`.
 - **Waarom (hoofddoel):** airco v2/v3 vraagt tot ~20 foto's per intake (ruimtes 5+3 per unit, buiten 5+3, route 5, meterkast 3, afvoer 3). Elke foto is nu een aparte tik-cyclus; multiselect en galerijkeuze halveren de duurste handelingenreeks van de hele intake.
 - **Kaders:** bestaande server-side pijplijn per bestand blijft leidend (validatie, MIME-detectie, HEIC→JPEG-normalisatie uit BL-008); `max_files` server-side handhaven; per-bestand-foutmelding zodat de aanvrager alleen de mislukte foto opnieuw doet.
 - **Afhankelijkheden:** geen — puur klantwizard (`IntakeWizard::updatedPhotoFiles` + upload-blok in de wizard-view).
@@ -131,7 +132,7 @@ De flow van Fase 1–6 belooft "zo min mogelijk handelingen", maar dat geldt all
   - **Leesbare instantienamen:** toon "Ruimte 2" in plaats van de rauwe `section_instance_key` (`room-2`) in de ontbrekend-lijst.
 - **Waarom (hoofddoel):** de laatste meters vóór afronden kosten nu zoekwerk: een misleidend percentage en een niet-navigeerbare foutlijst zijn extra handelingen op het moment dat de aanvrager al bijna klaar was — precies waar afhakers vallen.
 - **Kaders:** `CompletenessChecker` blijft de enige poort voor afronden; dit is presentatie/navigatie, geen wijziging van compleetheidsregels.
-- **Afhankelijkheden:** geen harde; na BL-021/BL-023 in band J plannen wegens gedeelde bestanden.
+- **Afhankelijkheden:** geen harde; na BL-023 in band J plannen wegens gedeelde bestanden.
 
 ### BL-025 — Wizard-responstijd: dubbele queries per Livewire-request terugdringen
 
@@ -207,7 +208,7 @@ De meest directe toepassing van het ontwerpprincipe: *de applicatie vraagt niets
 ### BL-023 — Eén tik minder per vraag: automatisch door na eenduidige keuze
 
 - **Status:** backlog · **Prioriteit:** medium *(verbeterronde 2026-07-18: bestaande wizard verbeteren, geen nieuwe functionaliteit)*
-- **Parallel:** band **J** — na BL-021 (zelfde wizard-bestanden), vóór BL-022.
+- **Parallel:** band **J** (ketenkop na BL-021) — parallel met A/D/F/H/I; binnen J vóór BL-022/BL-025.
 - **Doel:** de bestaande vraag-voor-vraag-flow (BL-018) één handeling per vraag lichter maken:
   - **Auto-doorgaan bij eenduidige keuzes:** `single_choice` en `boolean` saven al direct (`wire:model.live`), maar de aanvrager moet daarna alsnog "Volgende" tikken. Ga na de keuze automatisch door (met korte visuele bevestiging); "Vorige" blijft altijd werken om te corrigeren.
   - **Enter = Volgende** bij tekst-/nummervelden, zodat het toetsenbord niet dicht hoeft voor de knop.
