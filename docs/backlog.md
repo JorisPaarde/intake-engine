@@ -124,7 +124,7 @@ De flow van Fase 1–6 belooft "zo min mogelijk handelingen", maar dat geldt all
 
 ### BL-022 — Voortgang en "ontbreekt nog" kloppend en klikbaar maken
 
-- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-07-18 · **Ref:** `docs/intake-engine.md`, `docs/functional-test-status.md`
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-07-18 · **PR:** #31 · **Ref:** `docs/intake-engine.md`, `docs/functional-test-status.md`
 - **Parallel:** band **J** (done) — na BL-023; vervolg is BL-025.
 - **Doel:** drie verbeteringen op de bestaande voortgangs- en compleetheidsweergave:
   - **Percentage dat klopt met "klaar":** `ProgressCalculator` telt ook optionele onbeantwoorde vragen mee, waardoor een intake die klaar is om af te ronden op bv. 98% blijft hangen. Baseer het getoonde percentage op verplichte zichtbare vragen (of toon verplicht/optioneel gescheiden) zodat 100% = afronden kan.
