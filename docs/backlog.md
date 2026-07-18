@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 3.0 · **Laatste update:** 2026-07-17 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.1 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -27,7 +27,7 @@ Volgorde-advies: E1 eerst (bevat de `ready`/`high` items), daarna E2 en E3; E4 e
 | ID | Item | Epic | Status | Prioriteit |
 |----|------|------|--------|------------|
 | BL-002 | Functionele hertest staging (Fase 3–6) | E1 | ready | high |
-| BL-003 | Staging PHP-uploadlimieten verifiëren/verhogen | E1 | ready | high |
+| BL-003 | Staging PHP-uploadlimieten verifiëren/verhogen | E1 | in_progress | high |
 | BL-008 | HEIC-ondersteuning bij foto-uploads | E1 | backlog | medium |
 | BL-011 | Eigen domein + geldig SSL voor staging | E1 | backlog | medium |
 | BL-004 | Automatische e-mail van klantlink (SMTP) | E2 | backlog | medium |
@@ -57,9 +57,11 @@ De flow van Fase 1–6 belooft "zo min mogelijk handelingen", maar dat geldt all
 
 ### BL-003 — Staging PHP-uploadlimieten verifiëren/verhogen
 
-- **Status:** ready · **Prioriteit:** high
-- **Doel:** op cPanel meten (`php -i | grep -E 'upload_max_filesize|post_max_size'`) en via MultiPHP INI Editor minimaal `upload_max_filesize=10M`, `post_max_size=12M` instellen; gemeten waarden documenteren in `docs/uploads.md`.
-- **Waarom:** de applicatielimiet is 5 MB per foto; te lage PHP-limieten breken mobiele foto-uploads stil — en een mislukte upload is voor de aanvrager de duurste handeling die er is.
+- **Status:** in_progress · **Prioriteit:** high
+- **Doel:** PHP-limieten ≥ app-limiet (5 MB): minimaal `upload_max_filesize=10M`, `post_max_size=12M`; gemeten waarden documenteren in `docs/uploads.md`.
+- **Aanpak:** `public/.user.ini` in git (overleeft deploys) i.p.v. een eenmalige MultiPHP INI-edit; `/health` exposeert `php_upload` voor remote meting zonder SSH.
+- **Resterend na merge naar `main`:** op staging `GET /health` → `php_upload` bevestigen (10M/12M). Zo niet: MultiPHP INI Editor als fallback (`docs/DEPLOYMENT.md`). Daarna status → `done`.
+- **Waarom:** te lage PHP-limieten breken mobiele foto-uploads stil — en een mislukte upload is voor de aanvrager de duurste handeling die er is.
 
 ### BL-008 — HEIC-ondersteuning bij foto-uploads
 

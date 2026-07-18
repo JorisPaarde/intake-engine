@@ -1,6 +1,6 @@
 # Deployment naar cPanel (staging)
 
-> **Documentversie:** 1.1 · **Laatste update:** 2026-07-17 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.2 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Afgestemd op de huidige host:
 
@@ -157,20 +157,19 @@ Staging `.env` gebruikt `MAIL_MAILER=log`. Automatische klantmails zijn **niet**
 
 ## PHP upload-limieten (cPanel)
 
-Foto-uploads (Fase 4) vereisen limieten ≥ applicatielimiet (voorstel 5–10M per bestand).
+Foto-uploads (Fase 4) vereisen limieten ≥ applicatielimiet (5 MB per bestand).
 
-Op de server meten:
+**Voorkeur (in git):** `public/.user.ini` zet `upload_max_filesize=10M`, `post_max_size=12M`, `max_file_uploads=20`. Die file gaat mee met elke release naar de document root.
+
+**Meten na deploy (geen SSH):**
 
 ```bash
-php -i | grep -E 'upload_max_filesize|post_max_size|max_file_uploads'
+curl -sk https://<staging-domein>/health | jq .php_upload
 ```
 
-Via cPanel MultiPHP INI Editor minimaal:
+Verwacht na actieve `.user.ini`: `upload_max_filesize=10M`, `post_max_size=12M`. Bron van waarheid voor documentatie: [docs/uploads.md](uploads.md).
 
-- `upload_max_filesize = 10M`
-- `post_max_size = 12M`
-
-Documenteer gemeten waarden in `docs/uploads.md`. Lokaal stond CLI op `upload_max_filesize=2M` (te laag voor mobiele foto’s).
+**Alternatief / fallback:** cPanel → MultiPHP INI Editor met dezelfde minima. CLI (`php -i`) leest `.user.ini` niet; voor uploads telt de web-SAPI.
 
 ## Bekende beperkingen
 
