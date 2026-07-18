@@ -14,6 +14,34 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Stalled intake reminder (BL-015)
+    |--------------------------------------------------------------------------
+    |
+    | After N days without completion, send at most one reminder with the
+    | same customer resume link. Skipped for demos, revoked/expired tokens,
+    | and when MAIL_MAILER=log (ADR-0002).
+    |
+    */
+
+    'reminder' => [
+        'days' => (int) env('INTAKE_REMINDER_DAYS', 3),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Soft-delete retention (BL-009)
+    |--------------------------------------------------------------------------
+    |
+    | Days after soft delete before hard purge (DB cascade + media files).
+    |
+    */
+
+    'retention' => [
+        'soft_delete_days' => (int) env('INTAKE_SOFT_DELETE_RETENTION_DAYS', 30),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Public demo ("Start demo" on homepage)
     |--------------------------------------------------------------------------
     |

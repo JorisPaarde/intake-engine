@@ -1,6 +1,6 @@
 # Databaseschema — Digitale Opname
 
-> **Documentversie:** 1.4 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.5 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **geïmplementeerd (Fase 2 migraties)**. Bestaande Laravel-tabellen plus intake-engine-schema via `2026_07_17_120000_create_intake_engine_tables`.
 
@@ -161,6 +161,7 @@ Eén digitale opname / klanttraject.
 | `started_at` | timestamp nullable | Eerste klantactiviteit |
 | `completed_at` | timestamp nullable | |
 | `reviewed_at` | timestamp nullable | |
+| `reminder_sent_at` | timestamp nullable | BL-015: tijdstip van de (max. één) herinneringsmail |
 | `completeness_snapshot` | json nullable | Momentopname bij afronding |
 | `timestamps` | | |
 | `deleted_at` | soft delete | |
@@ -256,12 +257,15 @@ Beoordeling na afronding (één actuele review per intake in MVP).
 |-------|------|-------------|
 | `id` | bigint PK | |
 | `intake_id` | FK unique, cascade | |
-| `html` | longtext | HTML-rapportmomentopname |
+| `html` | longtext | HTML-rapportmomentopname (bron van waarheid) |
+| `pdf_disk` | string nullable | BL-005: disk van de PDF (`MEDIA_DISK` bij generatie) |
+| `pdf_path` | string nullable | BL-005: pad op disk (`intakes/{uuid}/reports/rapport.pdf`) |
+| `pdf_generated_at` | timestamp nullable | |
 | `meta` | json nullable | Compleetheidssamenvatting e.d. |
 | `generated_at` | timestamp | |
 | `timestamps` | |
 
-PDF later optioneel als apart pad/kolom; HTML heeft voorrang.
+PDF is een afgeleid artefact (Dompdf, async); HTML heeft voorrang.
 
 ### `intake_activity_events` (lichtgewicht audit)
 
@@ -314,7 +318,7 @@ Index: `(intake_id, created_at)`.
 | intake | answers/uploads/notes/attention/reviews/reports/events | cascade |
 | user (created_by) | intakes | **restrict** |
 
-Soft-deleted intakes: bestanden blijven tot purge-job/actie.
+Soft-deleted intakes: bestanden blijven tot daily `intakes:purge-deleted` (BL-009; default 30 dagen via `INTAKE_SOFT_DELETE_RETENTION_DAYS`).
 
 ## Privacygevoelige velden
 
@@ -326,7 +330,7 @@ Soft-deleted intakes: bestanden blijven tot purge-job/actie.
 | Interne notities | `intake_notes`, `intakes.internal_note` |
 | Rapport-HTML | `generated_reports.html` |
 
-**Bewaartermijn (voorstel, nog te bekrachtigen):** actieve dossiers onbeperkt zolang account bestaat; na soft delete 30 dagen hard purge inclusief storage. Geen echte klantdata in seeders/tests.
+**Bewaartermijn:** actieve dossiers onbeperkt zolang account bestaat; na soft delete **30 dagen** hard purge inclusief storage en PDF (`intakes:purge-deleted`, configureerbaar via `INTAKE_SOFT_DELETE_RETENTION_DAYS`). Soft-delete-UI voor intakes volgt later; de purge-job is al actief. Geen echte klantdata in seeders/tests.
 
 ## Mermaid ER-diagram
 
@@ -392,6 +396,7 @@ erDiagram
         string customer_name
         string customer_email
         string access_token UK
+        timestamp reminder_sent_at
         json completeness_snapshot
     }
 
@@ -423,6 +428,9 @@ erDiagram
         bigint id PK
         bigint intake_id FK
         longtext html
+        string pdf_disk
+        string pdf_path
+        timestamp pdf_generated_at
     }
 ```
 

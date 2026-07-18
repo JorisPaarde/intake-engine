@@ -11,3 +11,5 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('intakes:purge-demos')->hourly();
+Schedule::command('intakes:send-reminders')->daily();
+Schedule::command('intakes:purge-deleted')->daily();

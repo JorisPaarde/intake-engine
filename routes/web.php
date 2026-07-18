@@ -40,6 +40,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/intakes/{intake}/revoke', [IntakeController::class, 'revoke'])->name('intakes.revoke');
     Route::post('/intakes/{intake}/regenerate-token', [IntakeController::class, 'regenerateToken'])->name('intakes.regenerate-token');
     Route::post('/intakes/{intake}/send-link', [IntakeController::class, 'sendLink'])->name('intakes.send-link');
+    Route::get('/intakes/{intake}/rapport.pdf', [IntakeController::class, 'downloadPdf'])->name('intakes.pdf');
+    Route::post('/intakes/{intake}/pdf', [IntakeController::class, 'regeneratePdf'])->name('intakes.pdf.regenerate');
     Route::get('/intakes/{intake}/uploads/{upload}', [InstallerIntakeUploadController::class, 'show'])
         ->name('installer.uploads.show');
 });

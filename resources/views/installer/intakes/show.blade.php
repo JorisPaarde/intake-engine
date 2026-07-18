@@ -158,11 +158,33 @@
 
             @if ($intake->report)
                 <div class="bg-white shadow-sm sm:rounded-lg p-6 space-y-4">
-                    <div class="flex items-center justify-between gap-3">
-                        <h3 class="text-base font-semibold text-gray-900">Rapport</h3>
-                        <p class="text-xs text-gray-500">
-                            Gegenereerd {{ $intake->report->generated_at?->timezone(config('app.timezone'))->format('d-m-Y H:i') }}
-                        </p>
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h3 class="text-base font-semibold text-gray-900">Rapport</h3>
+                            <p class="text-xs text-gray-500">
+                                Gegenereerd {{ $intake->report->generated_at?->timezone(config('app.timezone'))->format('d-m-Y H:i') }}
+                            </p>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            @if ($intake->report->hasPdf())
+                                <a
+                                    href="{{ route('intakes.pdf', $intake) }}"
+                                    class="inline-flex items-center rounded-md bg-gray-800 px-3 py-2 text-xs font-semibold uppercase tracking-widest text-white hover:bg-gray-700"
+                                >
+                                    Download PDF
+                                </a>
+                            @else
+                                <span class="inline-flex items-center rounded-md bg-gray-100 px-3 py-2 text-xs font-medium text-gray-600">
+                                    PDF wordt voorbereid…
+                                </span>
+                            @endif
+                            <form method="POST" action="{{ route('intakes.pdf.regenerate', $intake) }}">
+                                @csrf
+                                <x-secondary-button type="submit">
+                                    {{ $intake->report->hasPdf() ? 'PDF opnieuw genereren' : 'PDF genereren' }}
+                                </x-secondary-button>
+                            </form>
+                        </div>
                     </div>
 
                     @php

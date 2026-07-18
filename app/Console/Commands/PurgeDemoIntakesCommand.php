@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Domains\Intake\Actions\HardDeleteIntake;
 use App\Domains\Intake\Models\Intake;
-use App\Domains\Intake\Models\IntakeUpload;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\Storage;
 
 final class PurgeDemoIntakesCommand extends Command
 {
@@ -16,13 +15,12 @@ final class PurgeDemoIntakesCommand extends Command
 
     protected $description = 'Hard-purge verlopen demo-intakes inclusief mediabestanden';
 
-    public function handle(): int
+    public function handle(HardDeleteIntake $hardDeleteIntake): int
     {
         $cutoff = now()->subHours(max(1, (int) config('intake.demo.ttl_hours', 12)));
 
         $query = Intake::query()
             ->withTrashed()
-            ->with('uploads')
             ->where('is_demo', true)
             ->where(function ($builder) use ($cutoff): void {
                 $builder
@@ -35,13 +33,9 @@ final class PurgeDemoIntakesCommand extends Command
 
         $purged = 0;
 
-        $query->chunkById(50, function (Collection $intakes) use (&$purged): void {
+        $query->chunkById(50, function (Collection $intakes) use ($hardDeleteIntake, &$purged): void {
             foreach ($intakes as $intake) {
-                foreach ($intake->uploads as $upload) {
-                    $this->deleteUploadFile($upload);
-                }
-
-                $intake->forceDelete();
+                $hardDeleteIntake->handle($intake);
                 $purged++;
             }
         });
@@ -49,18 +43,5 @@ final class PurgeDemoIntakesCommand extends Command
         $this->info("Purged {$purged} demo intake(s).");
 
         return self::SUCCESS;
-    }
-
-    private function deleteUploadFile(IntakeUpload $upload): void
-    {
-        if ($upload->disk === '' || $upload->path === '') {
-            return;
-        }
-
-        try {
-            Storage::disk($upload->disk)->delete($upload->path);
-        } catch (\Throwable) {
-            // Best-effort: DB-rij verdwijnt via cascade/forceDelete; orphan files zijn acceptabel.
-        }
     }
 }
