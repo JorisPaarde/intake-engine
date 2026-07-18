@@ -27,9 +27,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
+- `docs/uploads.md` v1.3 + `docs/DEPLOYMENT.md` v1.3: staging-meting 2026-07-18 via `/health` (`512M`/`512M`); BL-003 afgerond (PR #13).
 - `docs/functional-test-status.md` v1.2: sessie 2026-07-18 (BL-002 browserhertest) met bevindingen.
-- `docs/backlog.md` v3.2: BL-002 → `in_progress`, BL-003 → `done`.
-- README → v1.5: statusregel BL-002/BL-003.
+- `docs/backlog.md` v3.3: BL-003 → `done`, BL-002 → `in_progress` (merge PR #13 + BL-002-fixes).
+- README → v1.5: BL-003 done; BL-002 browserhertest bezig.
 - `docs/uploads.md` v1.2 + `docs/DEPLOYMENT.md` v1.2: upload-limieten via `.user.ini` als voorkeur; meetinstructie via `/health`.
 - `docs/backlog.md` v3.1: BL-003 → `in_progress`.
 - README → v1.4: statusregel BL-003 bijgewerkt.

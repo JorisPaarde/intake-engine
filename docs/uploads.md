@@ -1,6 +1,6 @@
 # Uploads & mediastorage
 
-> **Documentversie:** 1.2 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.3 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **geïmplementeerd (Fase 4)**.
 
@@ -78,6 +78,17 @@ Applicatielimiet: **5 MB** per foto (`INTAKE_UPLOAD_MAX_KB`). PHP moet daarboven
 
 - **Remote (staging):** `GET /health` → veld `php_upload` (geen SSH nodig).
 - **Op de server (CLI):** `php -i | grep -E 'upload_max_filesize|post_max_size|max_file_uploads'` — CLI leest `.user.ini` niet; voor uploads telt de web-SAPI.
+
+### Staging gemeten (web-SAPI via `/health`, 2026-07-18)
+
+| Setting | Waarde |
+|---------|--------|
+| `upload_max_filesize` | **512M** |
+| `post_max_size` | **512M** |
+| `max_file_uploads` | **20** |
+| App-limiet | **5120 KB** (5 MB) |
+
+Hostlimieten liggen ruim boven het minimum; `public/.user.ini` blijft als vangnet voor omgevingen met lage defaults. BL-003: done.
 
 ### Lokaal gemeten (dev CLI, juli 2026)
 
