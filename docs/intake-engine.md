@@ -1,6 +1,6 @@
 # Intake-engine
 
-> **Documentversie:** 1.7 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.8 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **geïmplementeerd t/m Fase 6** (compleetheid, rapport, beoordeling en AI-samenvatting). Airco-template **v3** gepubliceerd — v2-vragenset + prefill-vlaggen (BL-016; audit BL-017 zit in v2).
 
@@ -47,13 +47,14 @@ Runtime leest altijd uit de database (de gepinde versie), nooit rechtstreeks uit
 
 `section_instance_key` op antwoorden/uploads: `null` voor normale secties, `room-1` … `room-n` voor herhalingen.
 
-## Navigatie in de klantwizard (BL-018 / BL-023)
+## Navigatie in de klantwizard (BL-018 / BL-023 / BL-025)
 
 - **Autosave** per antwoord; hervatten via cursor (`current_question_key` / `current_section_instance_key`).
 - **Auto-doorgaan (BL-023):** na een keuze op `single_choice` of `boolean` gaat de wizard automatisch door naar de volgende zichtbare vraag (korte bevestiging “Opgeslagen”). Niet op de laatste stap (daar blijft **Afronden** handmatig). **Vorige** blijft altijd beschikbaar.
 - **Enter = Volgende** op `short_text` en `number` (niet op `long_text` — daar is Enter een nieuwe regel).
 - **Geen** auto-doorgaan bij `multi_choice`, foto’s of `long_text`.
 - Conditionele vragen: eerst `realignToActiveStep()` (live visibility), daarna pas eventueel auto-doorgaan — een nét verschenen vervolgvraag wordt niet overgeslagen. `next()` blijft de poort voor verplichte-veldcontrole.
+- **Request-caching (BL-025):** `IntakeWizard` memoizeert per Livewire-request `intake()` (incl. answers/uploads), `version()` en `steps()` (signature op live form). Na answer-save, upload/verwijderen of afronden: `forgetIntakeDerivedCaches()` — templateversie blijft staan. Private properties, dus niet meegenomen in Livewire-dehydration.
 
 ## Regels (conditioneel)
 

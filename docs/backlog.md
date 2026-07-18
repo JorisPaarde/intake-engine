@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 3.21 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.22 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -20,7 +20,7 @@ Status: `backlog` · `ready` · `in_progress` · `done` · `dropped` — priorit
 | E4 | AI bespaart beoordeelwerk | Samenvatting, aandachtspunten en fotokwaliteitscheck besparen de installateur leeswerk en de aanvrager een extra aanleverronde. AI blijft ondersteunend (docs/ai.md). |
 | E5 | Bruikbaar dossier & klaar voor groei | Het dossier moet buiten de browser bruikbaar zijn en het product moet zonder extra handelingen te ervaren, beheren en opschalen zijn. |
 
-Volgorde-advies: volg kolom **#** in de overzichtstabel hieronder. De rode draad: eerst lopend werk afronden (BL-001; BL-002/BL-004/BL-005/BL-008/BL-009/BL-014/BL-015/BL-016/BL-021/BL-022/BL-023/BL-024 done), dan drempelloze aanlevering (BL-011 domein/SSL) — daarna slimme afleiding (BL-019, BL-006, BL-020) en tot slot groei-/beheeritems (incl. BL-025 wizard-perf). Parallelisatie: zie [§ Parallelisatie](#parallelisatie) en kolom **Band**.
+Volgorde-advies: volg kolom **#** in de overzichtstabel hieronder. De rode draad: eerst lopend werk afronden (BL-001; BL-002/BL-004/BL-005/BL-008/BL-009/BL-014/BL-015/BL-016/BL-021–BL-025 done), dan drempelloze aanlevering (BL-011 domein/SSL) — daarna slimme afleiding (BL-019, BL-006, BL-020) en tot slot groei-/beheeritems. Parallelisatie: zie [§ Parallelisatie](#parallelisatie) en kolom **Band**.
 
 ## Parallelisatie
 
@@ -33,14 +33,14 @@ Items in **verschillende parallel-bands** kunnen tegelijk door aparte agents/men
 | **F** | Open data / adres | BL-019 | A, D, H, I; BAG-prefill bouwt voort op afgeronde BL-016-kaders |
 | **H** | AI-keten | BL-006 → daarna BL-007 + BL-020 | A, D, F, I. Binnen H: BL-007 en BL-020 parallel **ná** BL-006 (+ DPIA) |
 | **I** | Beheer / schaal | BL-010, BL-013 (BL-012 later) | Onderling parallel; met A–H zolang geen gedeelde deploy-/storage-wijziging botst |
-| **J** | Klantwizard-verbeteringen | BL-025 | A, D, F, H, I. Laatste in keten; BL-021/BL-022/BL-023 done |
+| **J** | Klantwizard-verbeteringen | — (BL-021–BL-025 done) | — |
 | **K** | Installateursweergave | — (BL-024 done) | — |
 
-Afgeronde bands (niet meer te plannen): **B** = BL-016 (prefill), **C** = BL-008 (HEIC), **E** = BL-004/BL-014/BL-015 (mail-keten), **G** = BL-005 (PDF), **K** = BL-024 (installateursgalerij); band J bijna: BL-021/BL-022/BL-023 done (rest BL-025); BL-009 purge done.
+Afgeronde bands (niet meer te plannen): **B** = BL-016 (prefill), **C** = BL-008 (HEIC), **E** = BL-004/BL-014/BL-015 (mail-keten), **G** = BL-005 (PDF), **J** = BL-021–BL-025 (wizard-verbeteringen), **K** = BL-024 (installateursgalerij); BL-009 purge done.
 
 **Concrete parallel-startsets:**
 
-1. **Nu parallel bouwbaar:** BL-011 (extern) · BL-025 (laatste band J) · BL-019 — naast afronden van BL-001; SMTP op staging aanzetten voor mail-smoketests (BL-004/014/015).
+1. **Nu parallel bouwbaar:** BL-011 (extern) · BL-019 — naast afronden van BL-001; SMTP op staging aanzetten voor mail-smoketests (BL-004/014/015).
 2. **Na DPIA + BL-006:** BL-007 en BL-020 parallel.
 3. **Laag-prioriteit parallel:** BL-010 · BL-013 · (BL-012 bij tweede klant).
 
@@ -56,10 +56,10 @@ Geprioriteerd op het hoofddoel (herprioritering 2026-07-18): hoeveel handelingen
 | 4 | BL-006 | Externe LLM-provider (na DPIA) | E4 | backlog | medium | H · parallel† |
 | 5 | BL-020 | Foto-gedreven afleiding en adaptieve vervolgvragen | E4 | backlog | medium | H · na BL-006 |
 | 6 | BL-007 | AI-uitbreidingen: attention points, fotokwaliteit, accepteren/verwijderen | E4 | backlog | low | H · na BL-006 |
-| 7 | BL-025 | Wizard-responstijd: dubbele queries per Livewire-request terugdringen | E1 | backlog | low | J · parallel |
-| 8 | BL-010 | Production-deployworkflow (tags + eigen omgeving) | E5 | backlog | low | I · parallel |
-| 9 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low | I · later |
-| 10 | BL-013 | S3 als mediadisk | E5 | backlog | low | I · parallel |
+| 7 | BL-010 | Production-deployworkflow (tags + eigen omgeving) | E5 | backlog | low | I · parallel |
+| 8 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low | I · later |
+| 9 | BL-013 | S3 als mediadisk | E5 | backlog | low | I · parallel |
+| — | BL-025 | Wizard-responstijd: dubbele queries per Livewire-request terugdringen | E1 | done | low | J (done) |
 | — | BL-022 | Voortgang en "ontbreekt nog" kloppend en klikbaar maken | E1 | done | medium | J (done) |
 | — | BL-023 | Eén tik minder per vraag: automatisch door na eenduidige keuze | E3 | done | medium | J (done) |
 | — | BL-021 | Foto's: meerdere tegelijk uploaden en galerijkeuze niet blokkeren | E1 | done | high | J (done) |
@@ -125,7 +125,7 @@ De flow van Fase 1–6 belooft "zo min mogelijk handelingen", maar dat geldt all
 ### BL-022 — Voortgang en "ontbreekt nog" kloppend en klikbaar maken
 
 - **Status:** done · **Prioriteit:** medium · **Datum:** 2026-07-18 · **PR:** #31 · **Ref:** `docs/intake-engine.md`, `docs/functional-test-status.md`
-- **Parallel:** band **J** (done) — na BL-023; vervolg is BL-025.
+- **Parallel:** band **J** (done) — na BL-023; daarna BL-025 (ook done).
 - **Doel:** drie verbeteringen op de bestaande voortgangs- en compleetheidsweergave:
   - **Percentage dat klopt met "klaar":** `ProgressCalculator` telt ook optionele onbeantwoorde vragen mee, waardoor een intake die klaar is om af te ronden op bv. 98% blijft hangen. Baseer het getoonde percentage op verplichte zichtbare vragen (of toon verplicht/optioneel gescheiden) zodat 100% = afronden kan.
   - **Ontbrekende vragen klikbaar:** de lijst "Nog niet alles is ingevuld" toont nu alleen labels; laat elk item naar de betreffende stap springen (`goToStep` bestaat al) in plaats van de aanvrager te laten terugbladeren.
@@ -137,9 +137,10 @@ De flow van Fase 1–6 belooft "zo min mogelijk handelingen", maar dat geldt all
 
 ### BL-025 — Wizard-responstijd: dubbele queries per Livewire-request terugdringen
 
-- **Status:** backlog · **Prioriteit:** low *(verbeterronde 2026-07-18)*
-- **Parallel:** band **J** (laatste) — parallel met A/D/F/H/I; raakt `IntakeWizard` (puur intern).
+- **Status:** done · **Prioriteit:** low · **Datum:** 2026-07-18 · **Ref:** `docs/intake-engine.md`
+- **Parallel:** band **J** (done) — sluit de wizard-verbeterketen.
 - **Doel:** `IntakeWizard` haalt per Livewire-request meerdere keren dezelfde data op: `intake()` doet telkens een verse `findOrFail` en `version()` laadt telkens de volledige sections/questions/options/rules-graaf, terwijl `steps()`, `render()`, `currentStep()` en de visibility-checks elkaar per request herhaaldelijk aanroepen. Memoizeer per request (met bewuste invalidatie na saves) en meet de responstijd van autosave/"Volgende" vóór en na.
+- **Resultaat:** request-lokale caches op `intake()` (met `answers`/`uploads`), `version()` en `steps()` (gesigneerd op live form); `forgetIntakeDerivedCaches()` na answer-save, upload/verwijderen en afronden — templateversie blijft gecached. Gedrag ongewijzigd; featuretests + memoization-tests groen.
 - **Waarom (hoofddoel):** elke vraag is een server-roundtrip (autosave + stapnavigatie); onnodig trage responses voelen op mobiel als wachten per vraag — frictie op precies het pad dat we het lichtst willen maken.
 - **Kaders:** gedrag ongewijzigd (pure performance); let op Livewire-hydration en stale state na `SaveIntakeAnswer`/uploads; bestaande featuretests blijven de poort.
 - **Afhankelijkheden:** geen harde; na de andere band-J-items zodat er niet in hetzelfde bestand geparallelliseerd wordt.
