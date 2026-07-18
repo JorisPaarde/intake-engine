@@ -9,9 +9,8 @@ use Illuminate\Support\Facades\DB;
 use Throwable;
 
 /**
- * Tijdelijke health-check om te verifiëren dat een deploy werkt.
- * Bewijst: app boot, juiste omgeving, DB-verbinding en queue-driver.
- * Verwijder of vervang zodra de eerste echte feature live is.
+ * Health-check om te verifiëren dat een deploy werkt.
+ * Bewijst: app boot, omgeving, DB-verbinding, queue-driver en PHP upload-limieten.
  */
 final class HealthController extends Controller
 {
@@ -34,6 +33,12 @@ final class HealthController extends Controller
             'laravel' => app()->version(),
             'database' => $database,
             'queue' => config('queue.default'),
+            'php_upload' => [
+                'upload_max_filesize' => (string) ini_get('upload_max_filesize'),
+                'post_max_size' => (string) ini_get('post_max_size'),
+                'max_file_uploads' => (int) ini_get('max_file_uploads'),
+                'app_max_kilobytes' => (int) config('intake.uploads.max_kilobytes'),
+            ],
             'time' => now()->toIso8601String(),
         ], 200, [], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
     }

@@ -1,6 +1,6 @@
 # Uploads & mediastorage
 
-> **Documentversie:** 1.1 · **Laatste update:** 2026-07-17 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.2 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **geïmplementeerd (Fase 4)**.
 
@@ -62,14 +62,31 @@ Status: **geïmplementeerd (Fase 4)**.
 
 ## PHP- en cPanel-limieten
 
-### Lokaal gemeten (dev machine, juli 2026)
+Applicatielimiet: **5 MB** per foto (`INTAKE_UPLOAD_MAX_KB`). PHP moet daarboven zitten.
+
+### Gewenste waarden (in git)
+
+`public/.user.ini` zet voor web-requests (cPanel/LiteSpeed):
 
 | Setting | Waarde |
 |---------|--------|
-| `upload_max_filesize` | **2M** (te laag — verhogen) |
+| `upload_max_filesize` | **10M** |
+| `post_max_size` | **12M** |
+| `max_file_uploads` | **20** |
+
+### Meten
+
+- **Remote (staging):** `GET /health` → veld `php_upload` (geen SSH nodig).
+- **Op de server (CLI):** `php -i | grep -E 'upload_max_filesize|post_max_size|max_file_uploads'` — CLI leest `.user.ini` niet; voor uploads telt de web-SAPI.
+
+### Lokaal gemeten (dev CLI, juli 2026)
+
+| Setting | Waarde |
+|---------|--------|
+| `upload_max_filesize` | **2M** (CLI-default; lokaal verhogen of via `public/.user.ini` bij `php artisan serve` afhankelijk van SAPI) |
 | `post_max_size` | **8M** |
 
-Aanbevolen: `upload_max_filesize=10M`, `post_max_size=12M`. Staging-waarden: nog meten op cPanel (zie `docs/DEPLOYMENT.md`).
+Alternatief op cPanel: MultiPHP INI Editor met dezelfde minima — zie [docs/DEPLOYMENT.md](DEPLOYMENT.md). Voorkeur: `.user.ini` in git zodat limieten deploys overleven.
 
 ## Migratie naar S3
 

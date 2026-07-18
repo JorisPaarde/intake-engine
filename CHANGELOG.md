@@ -6,6 +6,8 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Added
 
+- `public/.user.ini` met PHP upload-limieten (`upload_max_filesize=10M`, `post_max_size=12M`) voor cPanel/LiteSpeed web-requests (BL-003).
+- `/health` exposeert `php_upload` (ini + app-limiet) zodat staging-limieten remote te meten zijn zonder SSH.
 - `AGENTS.md`: projectgeheugen met vast hoofddoel en vast ontwerpprincipe (alleen door producteigenaar aan te passen), snelstart-leesroutine en taakrouting (gericht lezen i.p.v. alles doorzoeken), documentkaart (bron van waarheid per onderwerp), versioneringsregels en verplicht onderhoudsprotocol voor agents.
 - Documentversieheaders (`Documentversie` + `Laatste update`) op alle beheerde docs, README en AGENTS.md.
 - Fase 6 AI-slice: `ai_runs`, null/fake/heuristic clients, `SummarizeIntake` job na afronding, AI-voorstel in HTML-rapport (soft-fail).
@@ -19,6 +21,9 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
+- `docs/uploads.md` v1.2 + `docs/DEPLOYMENT.md` v1.2: upload-limieten via `.user.ini` als voorkeur; meetinstructie via `/health`.
+- `docs/backlog.md` v3.1: BL-003 → `in_progress`.
+- README → v1.4: statusregel BL-003 bijgewerkt.
 - Documentstructuur ontdubbeld ("één bron per feit"): de geheugenkaart in AGENTS.md is nu de enige volledige documentkaart — de README-documentatietabel is vervangen door een verwijzing plus drie snelle ingangen; werkafspraken (branching, kwaliteit) hebben AGENTS.md § Werkafspraken als enige bron; README-secties Storage/Queues/Logging samengevoegd tot één verwijzende "Runtime"-sectie. README → v1.3, AGENTS.md → v1.1.
 - `docs/backlog.md` v3.0: alle items gegroepeerd in vijf epics (E1 frictieloze basisflow, E2 communicatie zonder handwerk, E3 vraag minder/verzamel slimmer, E4 AI bespaart beoordeelwerk, E5 bruikbaar dossier & groei), elk expliciet herleid naar het vaste hoofddoel en ontwerpprincipe in AGENTS.md; nieuwe items BL-014 (afrondingsnotificatie), BL-015 (herinnering stilliggende intake), BL-016 (prefill/hergebruik bekende gegevens), BL-017 (airco-template v2 audit); BL-008 (HEIC) prioriteit low → medium.
 - `docs/backlog.md` v2.0: geherstructureerd tot de enige projectbacklog met stabiele ID's (BL-001 t/m BL-013), status, prioriteit en afhankelijkheden; alle bekende uitgestelde items (demo, hertest, uploadlimieten, SMTP, PDF, externe LLM, HEIC, purge-job, production deploy, domein/SSL, multi-tenancy, S3) opgenomen.
@@ -38,7 +43,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 - Geen externe LLM-provider nog (alleen null/fake/heuristic); OpenAI e.d. later na DPIA.
 - PDF-export van rapporten bewust later (HTML eerst; shared cPanel is geen betrouwbare PDF-host).
 - HEIC niet in allowlist (alleen jpeg/png/webp).
-- Staging PHP upload-limieten nog te verifiëren op cPanel.
+- Staging PHP upload-limieten: `.user.ini` in git; na deploy nog bevestigen via `/health` → `php_upload` (BL-003).
 - Geen automatische e-mail (staging mail = log); alleen kopieerbare link.
 - Multi-tenancy bewust afwezig.
 - Demo-versie: backlog (issue #5), nog niet gebouwd.
