@@ -4,6 +4,12 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Fixed
+
+- Klantintake: verplichte Ja/Nee-vragen (Livewire `"1"`/`"0"`) werden niet als beantwoord gezien → “Volgende”/afronden geblokkeerd (`AnswerValueReader`).
+- Foto-upload ververste alleen nog de betreffende form-composite i.p.v. de hele form-state te wissen.
+- “Nieuwe link genereren” diende het formulier niet in (`x-secondary-button` default `type=button` → nu `type=submit`).
+
 ### Added
 
 - `public/.user.ini` met PHP upload-limieten (`upload_max_filesize=10M`, `post_max_size=12M`) voor cPanel/LiteSpeed web-requests (BL-003).
@@ -21,6 +27,9 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
+- `docs/functional-test-status.md` v1.2: sessie 2026-07-18 (BL-002 browserhertest) met bevindingen.
+- `docs/backlog.md` v3.2: BL-002 → `in_progress`, BL-003 → `done`.
+- README → v1.5: statusregel BL-002/BL-003.
 - `docs/uploads.md` v1.2 + `docs/DEPLOYMENT.md` v1.2: upload-limieten via `.user.ini` als voorkeur; meetinstructie via `/health`.
 - `docs/backlog.md` v3.1: BL-003 → `in_progress`.
 - README → v1.4: statusregel BL-003 bijgewerkt.
@@ -43,8 +52,8 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 - Geen externe LLM-provider nog (alleen null/fake/heuristic); OpenAI e.d. later na DPIA.
 - PDF-export van rapporten bewust later (HTML eerst; shared cPanel is geen betrouwbare PDF-host).
 - HEIC niet in allowlist (alleen jpeg/png/webp).
-- Staging PHP upload-limieten: `.user.ini` in git; na deploy nog bevestigen via `/health` → `php_upload` (BL-003).
 - Geen automatische e-mail (staging mail = log); alleen kopieerbare link.
+- Demo-user `installateur@example.com` ontbreekt op staging (deploy seedt alleen templates).
 - Multi-tenancy bewust afwezig.
 - Demo-versie: backlog (issue #5), nog niet gebouwd.
 

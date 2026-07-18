@@ -1,6 +1,6 @@
 # Intake Engine (Digitale Opname)
 
-> **Documentversie:** 1.4 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](AGENTS.md)
+> **Documentversie:** 1.5 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](AGENTS.md)
 
 **Werk je als agent aan dit project? Lees eerst [AGENTS.md](AGENTS.md)** — het projectgeheugen, de documentkaart en het onderhoudsprotocol.
 
@@ -99,4 +99,4 @@ De volledige documentkaart — welk document waarvoor de bron van waarheid is �
 
 ## Huidige status
 
-**MVP-fasen 1–6 afgerond en gemerged naar `main`** (t/m AI-samenvatting). Open werk staat in [docs/backlog.md](docs/backlog.md); hoogste prioriteit is de functionele hertest van Fase 3–6 op staging (BL-002) en afronden van PHP-uploadlimieten op staging (BL-003: `.user.ini` + bevestigen via `/health`). Handmatige teststatus: [docs/functional-test-status.md](docs/functional-test-status.md).
+**MVP-fasen 1–6 afgerond en gemerged naar `main`** (t/m AI-samenvatting). Open werk: [docs/backlog.md](docs/backlog.md). BL-003 done; BL-002 browserhertest bezig (bugs gevonden + gefixt, hertest na deploy). Handmatige teststatus: [docs/functional-test-status.md](docs/functional-test-status.md).

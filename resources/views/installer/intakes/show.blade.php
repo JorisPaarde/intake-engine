@@ -99,7 +99,7 @@
 
                     <form method="POST" action="{{ route('intakes.regenerate-token', $intake) }}" onsubmit="return confirm('Nieuwe link genereren? De oude link werkt daarna niet meer.')">
                         @csrf
-                        <x-secondary-button>Nieuwe link genereren</x-secondary-button>
+                        <x-secondary-button type="submit">Nieuwe link genereren</x-secondary-button>
                     </form>
                 </div>
             </div>
