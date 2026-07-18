@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 3.3 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.4 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -26,7 +26,7 @@ Volgorde-advies: E1 eerst (bevat de `ready`/`high` items), daarna E2 en E3; E4 e
 
 | ID | Item | Epic | Status | Prioriteit |
 |----|------|------|--------|------------|
-| BL-002 | Functionele hertest staging (Fase 3–6) | E1 | in_progress | high |
+| BL-002 | Functionele hertest staging (Fase 3–6) | E1 | done | high |
 | BL-003 | Staging PHP-uploadlimieten verifiëren/verhogen | E1 | done | high |
 | BL-008 | HEIC-ondersteuning bij foto-uploads | E1 | backlog | medium |
 | BL-011 | Eigen domein + geldig SSL voor staging | E1 | backlog | medium |
@@ -50,11 +50,10 @@ De flow van Fase 1–6 belooft "zo min mogelijk handelingen", maar dat geldt all
 
 ### BL-002 — Functionele hertest staging (Fase 3–6)
 
-- **Status:** in_progress · **Prioriteit:** high · **Ref:** `docs/functional-test-status.md`
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-18 · **PR:** #14 (fixes) + deze docs-PR · **Ref:** `docs/functional-test-status.md`
 - **Doel:** de sinds de testsessie van 2026-07-17 gedeployde functionaliteit handmatig verifiëren op staging: producthomepage `/`, klantintake `/o/{token}`, foto-uploads, afronden + rapport + review, AI-samenvatting via queue, registratie + e-mailverificatie, end-to-end queue-job.
-- **Voortgang (2026-07-18):** homepage, health, auth, registratie, opname+klantlink, klantwizard, foto-upload → **pass**. Geblokkeerd op afronden door boolean-validatiebug + regenerate-knop die niet POSTte; fixes in dezelfde PR. **Resterend na deploy:** hergenereren, volledige afronding → bedankt → rapport/review → AI/queue hertesten.
+- **Resultaat:** kernflow Fase 3–5 **pass** (incl. hergenereren, intrekken, foto’s, afronden, rapport, review). Tijdens test bugs gevonden en gefixt (#14). AI-samenvatting **blocked** (`AI_PROVIDER=null` soft-fail). Queue-worker niet los bewezen. Demo-user ontbreekt op staging.
 - **Afhankelijkheden:** geen meer — BL-003 is done (uploadlimieten op staging ok).
-- **Let op:** resultaten alleen vastleggen in `docs/functional-test-status.md`, door de daadwerkelijk testende agent/tester.
 
 ### BL-003 — Staging PHP-uploadlimieten verifiëren/verhogen
 
@@ -183,3 +182,4 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 | ID | Afgerond | PR |
 |----|----------|-----|
 | BL-003 | 2026-07-18 | #12 (+ staging-verificatie via `/health`, docs #13) |
+| BL-002 | 2026-07-18 | #14 (+ hertest na deploy) |

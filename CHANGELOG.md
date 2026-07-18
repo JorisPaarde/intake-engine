@@ -27,6 +27,9 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
+- `docs/functional-test-status.md` v1.3: BL-002 hertest na PR #14 — kernflow pass; AI blocked.
+- `docs/backlog.md` v3.4: BL-002 → `done`.
+- README → v1.6: BL-002/BL-003 done.
 - `docs/uploads.md` v1.3 + `docs/DEPLOYMENT.md` v1.3: staging-meting 2026-07-18 via `/health` (`512M`/`512M`); BL-003 afgerond (PR #13).
 - `docs/functional-test-status.md` v1.2: sessie 2026-07-18 (BL-002 browserhertest) met bevindingen.
 - `docs/backlog.md` v3.3: BL-003 → `done`, BL-002 → `in_progress` (merge PR #13 + BL-002-fixes).
