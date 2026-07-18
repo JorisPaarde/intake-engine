@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 3.11 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.12 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -29,21 +29,21 @@ Geprioriteerd op het hoofddoel (herprioritering 2026-07-18): hoeveel handelingen
 | # | ID | Item | Epic | Status | Prioriteit |
 |---|----|------|------|--------|------------|
 | 1 | BL-001 | Demo-versie van de app | E5 | in_progress | medium |
-| 2 | BL-008 | HEIC-ondersteuning bij foto-uploads | E1 | backlog | high |
-| 3 | BL-011 | Eigen domein + geldig SSL voor staging | E1 | backlog | high |
-| 4 | BL-004 | Automatische e-mail van klantlink (SMTP) | E2 | backlog | medium |
-| 5 | BL-014 | Afrondingsnotificatie voor de installateur | E2 | backlog | medium |
-| 6 | BL-015 | Herinnering bij stilliggende intake | E2 | backlog | medium |
-| 7 | BL-019 | Afleiden uit adres en openbare bronnen (satellietbeeld, BAG) | E3 | backlog | medium |
-| 8 | BL-005 | PDF-export van rapporten | E5 | backlog | medium |
-| 9 | BL-006 | Externe LLM-provider (na DPIA) | E4 | backlog | medium |
-| 10 | BL-020 | Foto-gedreven afleiding en adaptieve vervolgvragen | E4 | backlog | medium |
-| 11 | BL-007 | AI-uitbreidingen: attention points, fotokwaliteit, accepteren/verwijderen | E4 | backlog | low |
-| 12 | BL-009 | Purge-job voor soft-deleted intakes (bewaartermijn) | E5 | backlog | low |
-| 13 | BL-010 | Production-deployworkflow (tags + eigen omgeving) | E5 | backlog | low |
-| 14 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low |
-| 15 | BL-013 | S3 als mediadisk | E5 | backlog | low |
+| 2 | BL-011 | Eigen domein + geldig SSL voor staging | E1 | backlog | high |
+| 3 | BL-004 | Automatische e-mail van klantlink (SMTP) | E2 | backlog | medium |
+| 4 | BL-014 | Afrondingsnotificatie voor de installateur | E2 | backlog | medium |
+| 5 | BL-015 | Herinnering bij stilliggende intake | E2 | backlog | medium |
+| 6 | BL-019 | Afleiden uit adres en openbare bronnen (satellietbeeld, BAG) | E3 | backlog | medium |
+| 7 | BL-005 | PDF-export van rapporten | E5 | backlog | medium |
+| 8 | BL-006 | Externe LLM-provider (na DPIA) | E4 | backlog | medium |
+| 9 | BL-020 | Foto-gedreven afleiding en adaptieve vervolgvragen | E4 | backlog | medium |
+| 10 | BL-007 | AI-uitbreidingen: attention points, fotokwaliteit, accepteren/verwijderen | E4 | backlog | low |
+| 11 | BL-009 | Purge-job voor soft-deleted intakes (bewaartermijn) | E5 | backlog | low |
+| 12 | BL-010 | Production-deployworkflow (tags + eigen omgeving) | E5 | backlog | low |
+| 13 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low |
+| 14 | BL-013 | S3 als mediadisk | E5 | backlog | low |
 | — | BL-016 | Hergebruik bekende gegevens (prefill) | E3 | done | high |
+| — | BL-008 | HEIC-ondersteuning bij foto-uploads | E1 | done | high |
 | — | BL-002 | Functionele hertest staging (Fase 3–6) | E1 | done | high |
 | — | BL-017 | Airco-template v2: vraag-voor-vraag audit op het ontwerpprincipe | E3 | done | high |
 | — | BL-018 | Vraag-voor-vraag klantflow (één vraag per scherm) | E3 | done | high |
@@ -69,8 +69,9 @@ De flow van Fase 1–6 belooft "zo min mogelijk handelingen", maar dat geldt all
 
 ### BL-008 — HEIC-ondersteuning bij foto-uploads
 
-- **Status:** backlog · **Prioriteit:** high *(opgehoogd 2026-07-18 bij hoofddoel-herprioritering: een stil mislukkende iPhone-foto is voor de aanvrager de duurste handeling die er is, en foto is onze snelste verzamelmethode — dit raakt een groot deel van álle intakes)*
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-18 · **Ref:** deze PR + `docs/functional-test-status.md`
 - **Doel:** iPhones maken standaard HEIC-foto's; de allowlist is nu jpeg/png/webp. Onderzoek server-side conversie (Imagick op cPanel?) of client-side conversie vóór upload. De aanvrager mag nooit zelf hoeven converteren of instellingen omzetten.
+- **Resultaat:** upload-input accepteert jpeg/png/webp/heic/heif; server-side MIME-detectie blijft leidend (incl. ISO BMFF-brand-sniffing voor HEIC/HEIF bij `application/octet-stream`). HEIC/HEIF wordt met Imagick automatisch naar JPEG omgezet (auto-orient, metadata strippen, max lange zijde, kwaliteitsstappen binnen app-limiet). Opgeslagen bestanden blijven jpeg/png/webp; preview-routes blijven ongewijzigd. Staging iPhone-smoketest staat als `todo` in `docs/functional-test-status.md`.
 
 ### BL-011 — Eigen domein + geldig SSL voor staging
 

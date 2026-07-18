@@ -9,12 +9,15 @@ use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Domains\Intake\Services\PhotoUploadNormalizer;
 use App\Domains\Intake\Services\ProgressCalculator;
 use App\Enums\IntakeStatus;
 use App\Enums\QuestionType;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -22,6 +25,7 @@ final class StoreIntakeUpload
 {
     public function __construct(
         private readonly ProgressCalculator $progressCalculator,
+        private readonly PhotoUploadNormalizer $photoUploadNormalizer,
     ) {}
 
     public function handle(
@@ -48,61 +52,56 @@ final class StoreIntakeUpload
             ]);
         }
 
-        $allowedMimes = config('intake.uploads.allowed_mimes', ['image/jpeg', 'image/png', 'image/webp']);
-        $mime = $file->getMimeType() ?: (string) $file->getClientMimeType();
+        $normalized = $this->photoUploadNormalizer->normalize($file);
 
-        if (! in_array($mime, $allowedMimes, true)) {
-            throw ValidationException::withMessages([
-                'photo' => 'Alleen JPEG, PNG of WebP-foto’s zijn toegestaan.',
-            ]);
-        }
+        try {
+            $disk = (string) config('filesystems.media', 'local');
+            $directory = $this->directory($intake, $questionKey, $sectionInstanceKey);
+            $filename = Str::ulid()->toBase32().'.'.$normalized->extension;
+            $path = $directory.'/'.$filename;
 
-        $extension = $this->extensionForMime($mime);
-        $disk = (string) config('filesystems.media', 'local');
-        $directory = $this->directory($intake, $questionKey, $sectionInstanceKey);
-        $filename = Str::ulid()->toBase32().'.'.$extension;
-        $checksum = hash_file('sha256', $file->getRealPath() ?: $file->getPathname()) ?: null;
-        $originalName = Str::limit((string) $file->getClientOriginalName(), 240, '');
-        $sizeBytes = (int) ($file->getSize() ?: 0);
-        $path = $file->storeAs($directory, $filename, $disk);
+            if (! Storage::disk($disk)->put($path, File::get($normalized->absolutePath))) {
+                throw ValidationException::withMessages([
+                    'photo' => 'Upload mislukt. Probeer het opnieuw.',
+                ]);
+            }
 
-        if ($path === false) {
-            throw ValidationException::withMessages([
-                'photo' => 'Upload mislukt. Probeer het opnieuw.',
-            ]);
-        }
-
-        return DB::transaction(function () use ($intake, $questionKey, $sectionInstanceKey, $disk, $path, $originalName, $mime, $sizeBytes, $checksum, $existingCount): IntakeUpload {
-            $upload = IntakeUpload::query()->create([
-                'intake_id' => $intake->id,
-                'question_key' => $questionKey,
-                'section_instance_key' => $sectionInstanceKey,
-                'disk' => $disk,
-                'path' => $path,
-                'original_filename' => $originalName,
-                'mime_type' => $mime,
-                'size_bytes' => $sizeBytes,
-                'checksum' => $checksum,
-                'sort_order' => $existingCount + 1,
-            ]);
-
-            $this->syncAnswerUploadIds($intake, $questionKey, $sectionInstanceKey);
-            $this->touchProgress($intake);
-
-            IntakeActivityEvent::query()->create([
-                'intake_id' => $intake->id,
-                'actor_type' => 'customer',
-                'actor_id' => null,
-                'event' => 'upload_stored',
-                'properties' => [
-                    'upload_id' => $upload->id,
+            return DB::transaction(function () use ($intake, $questionKey, $sectionInstanceKey, $disk, $path, $normalized, $existingCount): IntakeUpload {
+                $upload = IntakeUpload::query()->create([
+                    'intake_id' => $intake->id,
                     'question_key' => $questionKey,
-                ],
-                'created_at' => now(),
-            ]);
+                    'section_instance_key' => $sectionInstanceKey,
+                    'disk' => $disk,
+                    'path' => $path,
+                    'original_filename' => $normalized->originalFilename,
+                    'mime_type' => $normalized->mime,
+                    'size_bytes' => $normalized->sizeBytes,
+                    'checksum' => $normalized->checksum,
+                    'sort_order' => $existingCount + 1,
+                ]);
 
-            return $upload;
-        });
+                $this->syncAnswerUploadIds($intake, $questionKey, $sectionInstanceKey);
+                $this->touchProgress($intake);
+
+                IntakeActivityEvent::query()->create([
+                    'intake_id' => $intake->id,
+                    'actor_type' => 'customer',
+                    'actor_id' => null,
+                    'event' => 'upload_stored',
+                    'properties' => [
+                        'upload_id' => $upload->id,
+                        'question_key' => $questionKey,
+                    ],
+                    'created_at' => now(),
+                ]);
+
+                return $upload;
+            });
+        } finally {
+            foreach ($normalized->cleanupPaths as $cleanupPath) {
+                @unlink($cleanupPath);
+            }
+        }
     }
 
     private function findPhotoQuestion(Intake $intake, string $questionKey): IntakeQuestion
@@ -149,16 +148,6 @@ final class StoreIntakeUpload
         }
 
         return implode('/', $parts);
-    }
-
-    private function extensionForMime(string $mime): string
-    {
-        return match ($mime) {
-            'image/jpeg' => 'jpg',
-            'image/png' => 'png',
-            'image/webp' => 'webp',
-            default => 'bin',
-        };
     }
 
     private function syncAnswerUploadIds(Intake $intake, string $questionKey, ?string $sectionInstanceKey): void
