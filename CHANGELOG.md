@@ -35,6 +35,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
+- `docs/backlog.md` v3.13: parallelisatie — bands A–I (herberekend na BL-002/BL-008/BL-016 done), kolom **Band** in overzichtstabel, **Parallel**-regels per open item; concrete parallel-startsets.
 - `docs/backlog.md` v3.12 + `docs/uploads.md` v1.4 + `docs/functional-test-status.md` v1.8 + README v1.12: BL-008 → `done` voor code delivery; staging iPhone-smoketest toegevoegd als functionele test-todo.
 - `docs/backlog.md` v3.11 + `docs/intake-engine.md` v1.5 + `docs/database.md` v1.4 + README v1.11: BL-016 → `done` (prefill + airco v3 + `prefill_source`-kolom); nieuwe `todo`-regels in `docs/functional-test-status.md`.
 - `docs/backlog.md` v3.10 + `docs/functional-test-status.md` v1.6 + README v1.10: BL-002 → `done` — staging kernflow Fase 3–5 hertest groen na deploy #14 (hergenereren/intrekken/afronden/rapport/review pass; AI-samenvatting blocked bij `AI_PROVIDER=null`). BL-018/BL-017-flow nog los te hertesten.

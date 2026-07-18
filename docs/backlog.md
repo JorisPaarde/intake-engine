@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 3.12 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.13 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -20,34 +20,59 @@ Status: `backlog` · `ready` · `in_progress` · `done` · `dropped` — priorit
 | E4 | AI bespaart beoordeelwerk | Samenvatting, aandachtspunten en fotokwaliteitscheck besparen de installateur leeswerk en de aanvrager een extra aanleverronde. AI blijft ondersteunend (docs/ai.md). |
 | E5 | Bruikbaar dossier & klaar voor groei | Het dossier moet buiten de browser bruikbaar zijn en het product moet zonder extra handelingen te ervaren, beheren en opschalen zijn. |
 
-Volgorde-advies: volg kolom **#** in de overzichtstabel hieronder. De rode draad: eerst lopend werk afronden (BL-001; BL-002/BL-008 done), dan de kern van het hoofddoel — slimmere vragen (BL-016/BL-017/BL-018 done) en drempelloze aanlevering (BL-011 domein/SSL) — daarna installateurshandelingen wegnemen (E2), vervolgens slimme afleiding (BL-019, BL-006, BL-020) en tot slot groei-/beheeritems.
+Volgorde-advies: volg kolom **#** in de overzichtstabel hieronder. De rode draad: eerst lopend werk afronden (BL-001; BL-002/BL-008/BL-016 done), dan drempelloze aanlevering (BL-011 domein/SSL) — daarna installateurshandelingen wegnemen (E2), vervolgens slimme afleiding (BL-019, BL-006, BL-020) en tot slot groei-/beheeritems. Parallelisatie: zie [§ Parallelisatie](#parallelisatie) en kolom **Band**.
+
+## Parallelisatie
+
+Items in **verschillende parallel-bands** kunnen tegelijk door aparte agents/mensen worden gebouwd (andere codepaden of externe acties). Items in dezelfde **keten** zijn sequentieel. Kolom **Band** in de overzichtstabel verwijst hiernaar. (Bands van afgeronde items blijven in de tabel als geheugen.)
+
+| Band | Type | Items (open) | Mag parallel met |
+|------|------|--------------|------------------|
+| **A** | Afronden (lopend) | BL-001 | D–I (staging-config/smoke; weinig codeconflict) |
+| **D** | Infra (extern) | BL-011 | Alles (vooral producteigenaar/host) |
+| **E** | Mail-keten | BL-004 → daarna BL-014 + BL-015 | A, D, F, G, H, I. Binnen E: BL-014 (dashboard-deel) mag vóór BL-004; mail-deel en BL-015 **ná** BL-004, onderling parallel |
+| **F** | Open data / adres | BL-019 | A, D, E, G, H, I; BAG-prefill bouwt voort op afgeronde BL-016-kaders |
+| **G** | Rapport | BL-005 | A, D–F, H, I (eigen PDF-pad; HTML blijft bron) |
+| **H** | AI-keten | BL-006 → daarna BL-007 + BL-020 | A, D–G, I. Binnen H: BL-007 en BL-020 parallel **ná** BL-006 (+ DPIA) |
+| **I** | Beheer / schaal | BL-009, BL-010, BL-013 (BL-012 later) | Onderling parallel; met A–H zolang geen gedeelde deploy-/storage-wijziging botst |
+
+Afgeronde bands (niet meer te plannen): **B** = BL-016 (prefill), **C** = BL-008 (HEIC).
+
+**Concrete parallel-startsets:**
+
+1. **Nu parallel bouwbaar:** BL-011 (extern) · BL-004 · BL-005 · BL-009 · BL-019 — naast afronden van BL-001.
+2. **Na BL-004:** BL-014 en BL-015 parallel.
+3. **Na DPIA + BL-006:** BL-007 en BL-020 parallel.
+4. **Laag-prioriteit parallel:** BL-010 · BL-013 · (BL-012 bij tweede klant).
 
 ## Overzicht
 
-Geprioriteerd op het hoofddoel (herprioritering 2026-07-18): hoeveel handelingen bespaart of repareert een item in de kernflow van aanvrager en installateur, hoe direct, en voor hoeveel intakes? Kolom **#** is de aanbevolen uitvoeringsvolgorde (afhankelijkheden meegewogen); `done`/`dropped` staan onderaan zonder volgnummer.
+Geprioriteerd op het hoofddoel (herprioritering 2026-07-18): hoeveel handelingen bespaart of repareert een item in de kernflow van aanvrager en installateur, hoe direct, en voor hoeveel intakes? Kolom **#** is de aanbevolen uitvoeringsvolgorde (afhankelijkheden meegewogen); kolom **Band** = parallelgroep (zie [§ Parallelisatie](#parallelisatie)); `done`/`dropped` staan onderaan zonder volgnummer.
 
-| # | ID | Item | Epic | Status | Prioriteit |
-|---|----|------|------|--------|------------|
-| 1 | BL-001 | Demo-versie van de app | E5 | in_progress | medium |
-| 2 | BL-011 | Eigen domein + geldig SSL voor staging | E1 | backlog | high |
-| 3 | BL-004 | Automatische e-mail van klantlink (SMTP) | E2 | backlog | medium |
-| 4 | BL-014 | Afrondingsnotificatie voor de installateur | E2 | backlog | medium |
-| 5 | BL-015 | Herinnering bij stilliggende intake | E2 | backlog | medium |
-| 6 | BL-019 | Afleiden uit adres en openbare bronnen (satellietbeeld, BAG) | E3 | backlog | medium |
-| 7 | BL-005 | PDF-export van rapporten | E5 | backlog | medium |
-| 8 | BL-006 | Externe LLM-provider (na DPIA) | E4 | backlog | medium |
-| 9 | BL-020 | Foto-gedreven afleiding en adaptieve vervolgvragen | E4 | backlog | medium |
-| 10 | BL-007 | AI-uitbreidingen: attention points, fotokwaliteit, accepteren/verwijderen | E4 | backlog | low |
-| 11 | BL-009 | Purge-job voor soft-deleted intakes (bewaartermijn) | E5 | backlog | low |
-| 12 | BL-010 | Production-deployworkflow (tags + eigen omgeving) | E5 | backlog | low |
-| 13 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low |
-| 14 | BL-013 | S3 als mediadisk | E5 | backlog | low |
-| — | BL-016 | Hergebruik bekende gegevens (prefill) | E3 | done | high |
-| — | BL-008 | HEIC-ondersteuning bij foto-uploads | E1 | done | high |
-| — | BL-002 | Functionele hertest staging (Fase 3–6) | E1 | done | high |
-| — | BL-017 | Airco-template v2: vraag-voor-vraag audit op het ontwerpprincipe | E3 | done | high |
-| — | BL-018 | Vraag-voor-vraag klantflow (één vraag per scherm) | E3 | done | high |
-| — | BL-003 | Staging PHP-uploadlimieten verifiëren/verhogen | E1 | done | high |
+| # | ID | Item | Epic | Status | Prioriteit | Band |
+|---|----|------|------|--------|------------|------|
+| 1 | BL-001 | Demo-versie van de app | E5 | in_progress | medium | A |
+| 2 | BL-011 | Eigen domein + geldig SSL voor staging | E1 | backlog | high | D · parallel |
+| 3 | BL-004 | Automatische e-mail van klantlink (SMTP) | E2 | backlog | medium | E · parallel |
+| 4 | BL-014 | Afrondingsnotificatie voor de installateur | E2 | backlog | medium | E · na BL-004 |
+| 5 | BL-015 | Herinnering bij stilliggende intake | E2 | backlog | medium | E · na BL-004 |
+| 6 | BL-019 | Afleiden uit adres en openbare bronnen (satellietbeeld, BAG) | E3 | backlog | medium | F · parallel |
+| 7 | BL-005 | PDF-export van rapporten | E5 | backlog | medium | G · parallel |
+| 8 | BL-006 | Externe LLM-provider (na DPIA) | E4 | backlog | medium | H · parallel† |
+| 9 | BL-020 | Foto-gedreven afleiding en adaptieve vervolgvragen | E4 | backlog | medium | H · na BL-006 |
+| 10 | BL-007 | AI-uitbreidingen: attention points, fotokwaliteit, accepteren/verwijderen | E4 | backlog | low | H · na BL-006 |
+| 11 | BL-009 | Purge-job voor soft-deleted intakes (bewaartermijn) | E5 | backlog | low | I · parallel |
+| 12 | BL-010 | Production-deployworkflow (tags + eigen omgeving) | E5 | backlog | low | I · parallel |
+| 13 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low | I · later |
+| 14 | BL-013 | S3 als mediadisk | E5 | backlog | low | I · parallel |
+| — | BL-016 | Hergebruik bekende gegevens (prefill) | E3 | done | high | B (done) |
+| — | BL-008 | HEIC-ondersteuning bij foto-uploads | E1 | done | high | C (done) |
+| — | BL-002 | Functionele hertest staging (Fase 3–6) | E1 | done | high | A (done) |
+| — | BL-017 | Airco-template v2: vraag-voor-vraag audit op het ontwerpprincipe | E3 | done | high | — |
+| — | BL-018 | Vraag-voor-vraag klantflow (één vraag per scherm) | E3 | done | high | — |
+| — | BL-003 | Staging PHP-uploadlimieten verifiëren/verhogen | E1 | done | high | — |
+
+† BL-006 parallel met productwerk, maar geblokkeerd tot DPIA/akkoord.
 
 ## Epic E1 — Frictieloze basisflow
 
@@ -76,6 +101,7 @@ De flow van Fase 1–6 belooft "zo min mogelijk handelingen", maar dat geldt all
 ### BL-011 — Eigen domein + geldig SSL voor staging
 
 - **Status:** backlog · **Prioriteit:** high *(opgehoogd 2026-07-18 bij hoofddoel-herprioritering: dit kost élke aanvrager twee handelingen vóór de eerste vraag)*
+- **Parallel:** band **D** — parallel met alle code-items (extern: producteigenaar/host).
 - **Doel:** het tijdelijke `.cpanel.site`-domein (self-signed, "Technical Domain"-tussenscherm) vervangen door een eigen (sub)domein met Let's Encrypt. Daarna README-omgevingstabel bijwerken.
 - **Waarom:** het tussenscherm en de browserwaarschuwing zijn twee extra handelingen (en een vertrouwensbreuk) vóór de aanvrager ook maar één vraag heeft gezien.
 - **Afhankelijkheden:** extern — er moet een eigen (sub)domein aan het hostingaccount gekoppeld worden; actie producteigenaar/host.
@@ -87,6 +113,7 @@ Tussen "installateur maakt opname aan" en "installateur beoordeelt dossier" zitt
 ### BL-004 — Automatische e-mail van klantlink (SMTP)
 
 - **Status:** backlog · **Prioriteit:** medium
+- **Parallel:** band **E** (ketenkop) — parallel met A/D/F/G/H/I; ontgrendelt daarna BL-014 (mail) + BL-015.
 - **Doel:** klantlink automatisch mailen i.p.v. alleen kopieerbaar maken. Vereist werkende SMTP-configuratie (staging heeft nu `MAIL_MAILER=log`); daarna ook registratie/e-mailverificatie betrouwbaar.
 - **Afhankelijkheden:** SMTP-account op host of externe mailprovider.
 - **Let op:** tokens nooit in logs (ADR-0002); kopieerbare link blijft bestaan als fallback.
@@ -94,12 +121,14 @@ Tussen "installateur maakt opname aan" en "installateur beoordeelt dossier" zitt
 ### BL-014 — Afrondingsnotificatie voor de installateur
 
 - **Status:** backlog · **Prioriteit:** medium
+- **Parallel:** band **E** — dashboard-markering parallel met BL-004; mailvariant **ná** BL-004, dan parallel met BL-015.
 - **Doel:** zodra de klant afrondt, krijgt de installateur een signaal (mail en/of dashboard-markering) zodat de beoordeling direct kan starten. Bespaart het periodiek handmatig checken van het dashboard.
 - **Afhankelijkheden:** mailvariant vereist BL-004 (SMTP); een dashboard-markering ("nieuw afgerond") kan eerder.
 
 ### BL-015 — Herinnering bij stilliggende intake
 
 - **Status:** backlog · **Prioriteit:** medium
+- **Parallel:** band **E** — **ná** BL-004, parallel met BL-014.
 - **Doel:** scheduled command: klant kreeg een link maar rondde niet af binnen N dagen → één automatische herinnering met dezelfde hervat-link. Bespaart de installateur het nabellen en de aanvrager het terugzoeken van de link.
 - **Afhankelijkheden:** BL-004 (SMTP).
 - **Niet doen:** herhaald mailen; maximaal één herinnering per intake, en stoppen bij ingetrokken/verlopen token.
@@ -141,6 +170,7 @@ De meest directe toepassing van het ontwerpprincipe: *de applicatie vraagt niets
 ### BL-019 — Afleiden uit adres en openbare bronnen (satellietbeeld, BAG)
 
 - **Status:** backlog · **Prioriteit:** medium
+- **Parallel:** band **F** — parallel met A/D/E/G/H/I; gebruikt BL-016-kaders (voorzet, geen verborgen aanname).
 - **Doel:** het adres is al bekend bij het aanmaken van de opname (`intakes.address_*`); gebruik dat om vragen te schrappen of te verifiëren i.p.v. ze te stellen:
   - **Satelliet-/luchtfoto** (bijv. Google Maps Static API of PDOK-luchtfoto) tonen in het installateursrapport en als context bij de buitenunit-/gevelvragen — kan `facade_overview_photo` deels vervangen of de aanvrager alleen om bevestiging vragen ("klopt dit beeld van uw woning?");
   - **BAG/open data:** bouwjaar (`build_year`) en gebouwtype (`building_type`) zijn vaak uit openbare registers af te leiden; toon als voorzet die de aanvrager alleen bevestigt (kader BL-016: prefill is een voorzet, geen verborgen aanname).
@@ -154,12 +184,14 @@ AI mag nooit bron van waarheid zijn (docs/ai.md, ADR-0005), maar kan wél handel
 ### BL-006 — Externe LLM-provider (na DPIA)
 
 - **Status:** backlog · **Prioriteit:** medium · **Ref:** ADR-0005, `docs/ai.md`
+- **Parallel:** band **H** (ketenkop) — parallel met A/D–G/I qua codepad; **geblokkeerd** tot DPIA/akkoord. Ontgrendelt daarna BL-007 + BL-020 parallel.
 - **Doel:** OpenAI (of vergelijkbaar) client achter `AiClientInterface` naast null/fake/heuristic.
 - **Blokkerend:** DPIA/akkoord en redactiestrategie voor persoonsgegevens — géén PII naar een provider vóór die er zijn.
 
 ### BL-007 — AI-uitbreidingen
 
 - **Status:** backlog · **Prioriteit:** low · **Ref:** `docs/ai.md`
+- **Parallel:** band **H** — **ná** BL-006, parallel met BL-020 (heuristic-prototype mag eerder).
 - **Doel:** `SuggestAttentionPoints`, `AssessPhotoUsability`, en UI waarmee de installateur AI-voorstellen accepteert of verwijdert. AI blijft ondersteunend, nooit bron van waarheid; niets blokkeert de kernflow.
 - **Waarom (hoofddoel):** `AssessPhotoUsability` geeft de aanvrager direct feedback ("foto te donker — maak er nog één") zolang die tóch al bezig is — dat is één handeling nu i.p.v. een hele extra ronde later.
 - **Afhankelijkheden:** BL-006 voor zinvolle kwaliteit (heuristic kan als tussenstap).
@@ -167,6 +199,7 @@ AI mag nooit bron van waarheid zijn (docs/ai.md, ADR-0005), maar kan wél handel
 ### BL-020 — Foto-gedreven afleiding en adaptieve vervolgvragen
 
 - **Status:** backlog · **Prioriteit:** medium
+- **Parallel:** band **H** — **ná** BL-006, parallel met BL-007; template-kant mag aansluiten op afgeronde BL-016/v2/v3.
 - **Doel:** foto's niet alleen opslaan maar er informatie uit **afleiden**, zodat vragen vervallen of juist gericht gesteld worden. Voorbeelden (richting, geen letterlijke scope):
   - **Meterkastfoto:** herken of er een vrije groep is; zit de kast vol → stel gericht de vervolgvragen die daarbij horen (uitbreiding groepenkast, 1-fase/3-fase) en sla `free_group_known` als vraag over;
   - **Ruimtefoto's:** schat afmetingen/volume van de kamer in → kamermaatvragen (BL-017) vervallen of worden een te bevestigen voorzet;
@@ -182,11 +215,13 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 ### BL-005 — PDF-export van rapporten
 
 - **Status:** backlog · **Prioriteit:** medium
+- **Parallel:** band **G** — parallel met A/D–F/H/I (eigen PDF-pad; HTML blijft bron).
 - **Doel:** naast het HTML-rapport (`generated_reports`) een PDF-pad, zodat het dossier direct in de offerte-/archiefflow van de installateur past zonder knip- en plakwerk. Bewust uitgesteld: shared cPanel is geen betrouwbare host voor zware PDF-generatie. Opties: lichte lib, externe render-service, of pas na hosting-upgrade. **Async** job (ADR-0004); HTML blijft bron.
 
 ### BL-001 — Demo-versie van de app
 
-- **Status:** in_progress · **Prioriteit:** medium *(staat desondanks op #2 in de uitvoeringsvolgorde: het restwerk is klein — staging-flag + smoke-test — en lopend werk afronden gaat vóór nieuw werk starten)* · **Ref:** [issue #5](https://github.com/JorisPaarde/intake-engine/issues/5)
+- **Status:** in_progress · **Prioriteit:** medium *(#1 in de uitvoeringsvolgorde: restwerk is klein — staging-flag + smoke-test — en lopend werk afronden gaat vóór nieuw werk starten)* · **Ref:** [issue #5](https://github.com/JorisPaarde/intake-engine/issues/5)
+- **Parallel:** band **A** (afronden) — restwerk is staging-config + smoke-test; parallel met code-sporen D–I.
 - **Doel:** publiek of semi-publiek demopad zodat prospects/installateurs het product kunnen ervaren zonder eigen accountsetup of echte klantdata — het hoofddoel ("zo min mogelijk handelingen") toegepast op de allereerste kennismaking.
 - **Invulling (deze PR):** homepage **"Start demo"** → tijdelijke airco-intake + klantlink (`is_demo`, TTL via `DEMO_TTL_HOURS`, watermerk, geen AI-job, hourly `intakes:purge-demos`). Geen account nodig; fictieve `@demo.invalid`-e-mail. Feature-flag `DEMO_ENABLED` (default uit; aanzetten op staging).
 - **Nog te doen na deploy:** `DEMO_ENABLED=true` in staging `shared/.env`, smoke-test Start demo → wizard → watermerk; daarna status → `done`.
@@ -196,21 +231,25 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 ### BL-009 — Purge-job voor soft-deleted intakes
 
 - **Status:** backlog · **Prioriteit:** low *(verlaagd 2026-07-18 bij hoofddoel-herprioritering: bespaart geen handelingen in de kernflow; weer ophogen zodra er echte klantdata in productie staat — dan is de bewaartermijn een verplichting, koppel aan BL-010)* · **Ref:** `docs/database.md` (bewaartermijn-voorstel)
+- **Parallel:** band **I** — parallel met A/D–H en met BL-010/BL-013.
 - **Doel:** voorgestelde bewaartermijn bekrachtigen en implementeren: 30 dagen na soft delete hard purge van dossier inclusief storage (foto's). Scheduled job + tests.
 
 ### BL-010 — Production-deployworkflow
 
 - **Status:** backlog · **Prioriteit:** low *(verlaagd 2026-07-18 bij hoofddoel-herprioritering: bespaart nu geen handelingen; oppakken zodra een eerste echte klant/productiegang concreet is — zelfde trigger als BL-012. Neem BL-009 dan mee.)* · **Ref:** `docs/DEPLOYMENT.md`
+- **Parallel:** band **I** — parallel met productwerk; afstemmen met BL-011/BL-013 bij gedeelde deploy-/hostingkeuzes.
 - **Doel:** `deploy-production.yml` getriggerd op tags (`v*`), `PRODUCTION_*`-secrets, eigen `apps/intake-engine-production`-boom en database. Eerste release taggen als `v0.x` en CHANGELOG `[Unreleased]` afsluiten.
 
 ### BL-012 — Multi-tenancy (companies)
 
 - **Status:** backlog · **Prioriteit:** low · **Ref:** ADR-0006
+- **Parallel:** band **I** · later — niet parallel starten vóór concrete tweede klant; raakt breed (users/intakes).
 - **Doel:** bewust afwezig in MVP. Pas oppakken bij een concrete tweede klant/bedrijf: `companies`-tabel + tenant-scope op intakes en users.
 
 ### BL-013 — S3 als mediadisk
 
 - **Status:** backlog · **Prioriteit:** low · **Ref:** `docs/uploads.md`
+- **Parallel:** band **I** — parallel met A/D–H; afstemmen met afgeronde BL-008 als dezelfde mediapipeline geraakt wordt.
 - **Doel:** `MEDIA_DISK=s3` + AWS-vars; bestaande rijen behouden `disk`+`path`. Pas nodig bij storagegroei of vertrek van cPanel.
 
 ## Afgerond / vervallen
