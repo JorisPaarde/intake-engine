@@ -1,6 +1,6 @@
 # AGENTS.md — Projectgeheugen & werkinstructies
 
-> **Documentversie:** 1.1 · **Laatste update:** 2026-07-18 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
+> **Documentversie:** 1.2 · **Laatste update:** 2026-07-18 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
 
 Dit bestand is de **centrale ingang** voor iedere agent (of mens) die aan dit project werkt. Het beschrijft waar het projectgeheugen leeft, welk document waarvoor de bron van waarheid is, en hoe je dat geheugen bijhoudt. **Lees dit bestand aan het begin van elke taak.**
 
@@ -70,6 +70,7 @@ Twijfel je onder welk taaktype je werk valt, gebruik dan de geheugenkaart hieron
 | Wat is functioneel getest (handmatig)? | [docs/functional-test-status.md](docs/functional-test-status.md) |
 | Welke werkafspraken gelden (branching, taal, kwaliteit, privacy)? | [§ Werkafspraken](#werkafspraken) in dit bestand |
 | Hoe werk ik als agent, hoe onderhoud ik dit geheugen? | dit bestand (AGENTS.md) |
+| Welke cloud-agent setup/tips besparen tijd? | [§ Tips voor cloud-agents](#tips-voor-cloud-agents-snelle-setup) in dit bestand |
 
 Regels bij de kaart:
 
@@ -160,3 +161,25 @@ Dit is de bron van waarheid voor deze afspraken; andere documenten (waaronder de
 - **Taal:** documentatie en UI in het Nederlands; code, keys en identifiers in het Engels.
 - **Kwaliteit:** `composer check` per PR; migrations reproduceerbaar; geen handmatige staging-DB-edits.
 - **Privacy:** geen echte klantdata in seeders/tests/docs; tokens en API-keys nooit in logs of git.
+
+## Tips voor cloud-agents (snelle setup)
+
+Praktische lessen uit cloud-runs zonder voorgeconfigureerde environment. Doel: sneller groen krijgen zonder opnieuw te ontdekken wat ontbreekt.
+
+### Omgeving (vaak leeg bij start)
+
+- **PHP 8.4 vereist** voor `composer install` met de huidige lockfile (Symfony 8 vraagt `>=8.4.1`). PHP 8.3 uit Ubuntu-default is te oud.
+- Op Ubuntu 24.04: `ppa:ondrej/php`, daarna o.a. `php8.4-cli php8.4-sqlite3 php8.4-mbstring php8.4-xml php8.4-curl php8.4-zip php8.4-gd php8.4-intl`. Zet `php` via `update-alternatives` op 8.4.
+- **Composer** staat vaak niet in PATH. Installeer naar `~/bin/composer` (`mkdir -p ~/bin` eerst) en zet `PATH="$HOME/bin:$PATH"`.
+- **Node/npm** is meestal wél aanwezig (nvm). Voor HTTP-featuretests die layouts renderen: `npm ci && npm run build` — anders faalt Vite op ontbrekend `public/build/manifest.json`.
+- Lokaal/.env voor tests: `cp .env.example .env && php artisan key:generate`. Tests draaien op **sqlite `:memory:`** (zie CI); geen MySQL nodig voor `composer check`.
+- Check of er al een async install loopt (`/tmp/cursor/async-install/`); in JIT-omgevingen kan die map leeg zijn — zelf bootstrapen is dan sneller dan wachten.
+
+### Werken in deze repo
+
+- Taak → backlog-ID: vage wensen (“stap voor stap vragen”) mappen op de overzichtstabel in `docs/backlog.md` (vaak high-items zoals BL-018). Zet status `in_progress` / `done` in dezelfde PR.
+- Klantflow zit in `app/Livewire/Customer/IntakeWizard.php` + `IntakeStepBuilder` + `resources/views/livewire/customer/intake-wizard.blade.php`; engine-regels in `VisibilityResolver` / `CompletenessChecker`.
+- Kwaliteitspoort is één commando: `composer check` (= Pint + PHPStan level 6 + Pest). Draai dat vóór je “klaar” claimt.
+- Featuretests met `Livewire::test(...)` hebben geen Vite-build nodig; `$this->get(...)` die een layout met `@vite` raakt wél.
+- Docs-DoD niet vergeten: CHANGELOG `[Unreleased]`, geraakte docs + documentversie, backlog-status, eventueel `todo`-regel in `docs/functional-test-status.md` (geen pass claimen zonder echte handmatige test).
+- Branchnaam cloud-agents: template `cursor/<korte-naam>-<suffix>` zoals de run voorschrijft; base branch `main`; PR via de cloud-PR-tool, niet handmatig met `gh pr create` tenzij dat de enige optie is.

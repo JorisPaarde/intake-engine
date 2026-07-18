@@ -32,6 +32,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
+- `AGENTS.md` v1.2: sectie **Tips voor cloud-agents** (PHP 8.4, Composer, Vite-build, sqlite-tests, repo-shortcuts) zodat volgende agents sneller kunnen bootstrapen.
 - `docs/backlog.md` v3.8: BL-018 → `done` (vraag-voor-vraag klantflow, PR #18); overzichtstabel met uitvoeringsvolgorde behouden.
 - `docs/intake-engine.md` v1.3 + `docs/database.md` v1.2: klantflow één vraag per scherm; wizard-cursor-kolommen.
 - `docs/backlog.md` v3.6: volledige herprioritering van alle open items getoetst aan het hoofddoel (handelingen besparen/repareren in de kernflow). Overzichtstabel heeft nu een expliciete uitvoeringsvolgorde (kolom #). Opgehoogd naar high: BL-008 (HEIC), BL-011 (eigen domein/SSL), BL-016 (prefill). Verlaagd naar low: BL-009 (purge-job) en BL-010 (production-deploy), beide met her-ophoogtrigger zodra echte klantdata/productiegang concreet is.
