@@ -21,6 +21,9 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
+- `docs/uploads.md` v1.3 + `docs/DEPLOYMENT.md` v1.3: staging-meting 2026-07-18 via `/health` (`512M`/`512M`); BL-003 afgerond.
+- `docs/backlog.md` v3.2: BL-003 → `done` (PR #12 + staging-verificatie).
+- README → v1.5: statusregel — BL-003 done, hoogste prioriteit BL-002.
 - `docs/uploads.md` v1.2 + `docs/DEPLOYMENT.md` v1.2: upload-limieten via `.user.ini` als voorkeur; meetinstructie via `/health`.
 - `docs/backlog.md` v3.1: BL-003 → `in_progress`.
 - README → v1.4: statusregel BL-003 bijgewerkt.
@@ -43,7 +46,6 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 - Geen externe LLM-provider nog (alleen null/fake/heuristic); OpenAI e.d. later na DPIA.
 - PDF-export van rapporten bewust later (HTML eerst; shared cPanel is geen betrouwbare PDF-host).
 - HEIC niet in allowlist (alleen jpeg/png/webp).
-- Staging PHP upload-limieten: `.user.ini` in git; na deploy nog bevestigen via `/health` → `php_upload` (BL-003).
 - Geen automatische e-mail (staging mail = log); alleen kopieerbare link.
 - Multi-tenancy bewust afwezig.
 - Demo-versie: backlog (issue #5), nog niet gebouwd.

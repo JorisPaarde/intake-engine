@@ -1,6 +1,6 @@
 # Deployment naar cPanel (staging)
 
-> **Documentversie:** 1.2 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.3 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Afgestemd op de huidige host:
 
@@ -167,7 +167,7 @@ Foto-uploads (Fase 4) vereisen limieten ≥ applicatielimiet (5 MB per bestand).
 curl -sk https://<staging-domein>/health | jq .php_upload
 ```
 
-Verwacht na actieve `.user.ini`: `upload_max_filesize=10M`, `post_max_size=12M`. Bron van waarheid voor documentatie: [docs/uploads.md](uploads.md).
+Minima via `.user.ini`: `upload_max_filesize=10M`, `post_max_size=12M`. Staging gemeten 2026-07-18 via `/health`: **512M / 512M** (host hoger dan minimum) — zie [docs/uploads.md](uploads.md).
 
 **Alternatief / fallback:** cPanel → MultiPHP INI Editor met dezelfde minima. CLI (`php -i`) leest `.user.ini` niet; voor uploads telt de web-SAPI.
 
