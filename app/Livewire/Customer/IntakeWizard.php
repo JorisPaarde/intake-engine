@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Customer;
 
+use App\Domains\AI\Actions\AssessPhotoUsability;
 use App\Domains\Intake\Actions\CompleteIntake;
 use App\Domains\Intake\Actions\DeleteIntakeUpload;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
@@ -64,6 +65,13 @@ class IntakeWizard extends Component
      * @var array<string, string>
      */
     public array $prefillNotice = [];
+
+    /**
+     * Composite key → non-blocking photo-usability hint after upload (BL-007).
+     *
+     * @var array<string, string|null>
+     */
+    public array $photoHint = [];
 
     public string $saveMessage = '';
 
@@ -269,6 +277,8 @@ class IntakeWizard extends Component
         $stored = 0;
         /** @var list<string> $errors */
         $errors = [];
+        /** @var list<string> $hints */
+        $hints = [];
 
         foreach ($files as $file) {
             try {
@@ -279,13 +289,19 @@ class IntakeWizard extends Component
                     ['photo' => 'foto'],
                 )->validate();
 
-                app(StoreIntakeUpload::class)->handle(
+                $upload = app(StoreIntakeUpload::class)->handle(
                     $this->intake(),
                     $questionKey,
                     $instanceKey,
                     $file,
                 );
                 $stored++;
+
+                // BL-007: non-blocking local usability check — a hint, never a block.
+                $verdict = app(AssessPhotoUsability::class)->handle($upload);
+                if (! $verdict->isUsable() && $verdict->customerHint() !== null) {
+                    $hints[] = $verdict->customerHint();
+                }
             } catch (ValidationException $e) {
                 $errors[] = $e->errors()['photo'][0]
                     ?? $e->errors()['photoFiles.'.$composite][0]
@@ -298,6 +314,8 @@ class IntakeWizard extends Component
         $this->refreshAnswerInForm($composite);
         $this->showMissing = false;
         $this->resetErrorBag('photoFiles.'.$composite);
+
+        $this->photoHint[$composite] = $hints === [] ? null : implode(' ', array_values(array_unique($hints)));
 
         if ($stored === 1) {
             $this->saveMessage = 'Foto opgeslagen';

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Models;
 
+use App\Enums\PhotoUsabilityVerdict;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -23,6 +24,7 @@ class IntakeUpload extends Model
         'size_bytes',
         'checksum',
         'sort_order',
+        'usability_verdict',
     ];
 
     /**
@@ -33,6 +35,7 @@ class IntakeUpload extends Model
         return [
             'size_bytes' => 'integer',
             'sort_order' => 'integer',
+            'usability_verdict' => PhotoUsabilityVerdict::class,
         ];
     }
 

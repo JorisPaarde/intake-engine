@@ -7,6 +7,7 @@ namespace App\Providers;
 use App\Domains\AI\Clients\FakeAiClient;
 use App\Domains\AI\Clients\HeuristicAiClient;
 use App\Domains\AI\Clients\NullAiClient;
+use App\Domains\AI\Clients\OpenAiClient;
 use App\Domains\AI\Contracts\AiClientInterface;
 use App\Domains\Intake\Models\Intake;
 use App\Policies\IntakePolicy;
@@ -27,6 +28,7 @@ class AppServiceProvider extends ServiceProvider
             return match ((string) config('ai.provider', 'null')) {
                 'fake' => new FakeAiClient,
                 'heuristic' => new HeuristicAiClient,
+                'openai' => app(OpenAiClient::class),
                 default => new NullAiClient,
             };
         });

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Installer;
 
+use App\Domains\AI\Actions\SuggestAttentionPoints;
 use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Actions\RegenerateIntakeAccessToken;
 use App\Domains\Intake\Actions\RevokeIntakeAccess;
@@ -11,9 +12,13 @@ use App\Domains\Intake\Actions\SendCustomerIntakeLink;
 use App\Domains\Intake\Actions\SubmitIntakeReview;
 use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeAttentionPoint;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Services\InstallerPhotoGalleryBuilder;
+use App\Domains\Intake\Services\RebuildIntakeReportHtml;
+use App\Enums\AttentionPointSource;
+use App\Enums\AttentionPointStatus;
 use App\Enums\ReviewDecision;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Installer\StoreIntakeRequest;
@@ -122,6 +127,54 @@ class IntakeController extends Controller
         return redirect()
             ->route('intakes.show', $intake)
             ->with('status', 'Beoordeling opgeslagen.');
+    }
+
+    public function suggestAttention(Intake $intake, SuggestAttentionPoints $suggestAttentionPoints): RedirectResponse
+    {
+        $this->authorize('update', $intake);
+
+        $suggestAttentionPoints->handle($intake);
+
+        return redirect()
+            ->route('intakes.show', $intake)
+            ->with('status', 'AI-aandachtspunten voorgesteld. Beoordeel ze hieronder.');
+    }
+
+    public function acceptAttention(
+        Intake $intake,
+        IntakeAttentionPoint $point,
+        RebuildIntakeReportHtml $rebuildIntakeReportHtml,
+    ): RedirectResponse {
+        $this->authorize('update', $intake);
+        $this->guardAiProposal($intake, $point);
+
+        $point->update(['status' => AttentionPointStatus::Accepted]);
+        $rebuildIntakeReportHtml->handle($intake->fresh() ?? $intake);
+
+        return redirect()
+            ->route('intakes.show', $intake)
+            ->with('status', 'Aandachtspunt overgenomen.');
+    }
+
+    public function dismissAttention(Intake $intake, IntakeAttentionPoint $point): RedirectResponse
+    {
+        $this->authorize('update', $intake);
+        $this->guardAiProposal($intake, $point);
+
+        $point->update(['status' => AttentionPointStatus::Dismissed]);
+
+        return redirect()
+            ->route('intakes.show', $intake)
+            ->with('status', 'AI-voorstel verwijderd.');
+    }
+
+    private function guardAiProposal(Intake $intake, IntakeAttentionPoint $point): void
+    {
+        if ($point->intake_id !== $intake->id
+            || $point->source !== AttentionPointSource::Ai
+            || $point->status !== AttentionPointStatus::Proposed) {
+            throw new NotFoundHttpException('Aandachtspunt niet gevonden.');
+        }
     }
 
     public function revoke(Request $request, Intake $intake, RevokeIntakeAccess $revokeIntakeAccess): RedirectResponse

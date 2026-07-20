@@ -1,8 +1,8 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 1.1 · **Laatste update:** 2026-07-17 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.2 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: **minimale Fase 6-slice geïmplementeerd** (samenvatting na afronding). Zie ADR-0005. Vervolgstappen: BL-006/BL-007 in [docs/backlog.md](backlog.md).
+Status: **Fase 6 + BL-007 geïmplementeerd** — samenvatting, aandachtspunten-voorstellen (installateur accepteert/verwijdert) en lokale fotokwaliteit-check. Externe provider-client (BL-006) aanwezig maar **standaard uit** (DPIA + key vereist). Zie ADR-0005. Multimodale foto-afleiding: BL-020 in [docs/backlog.md](backlog.md).
 
 ## Wat AI wél mag
 
@@ -41,7 +41,8 @@ Provider via `.env`: `AI_PROVIDER`, `AI_API_KEY`, `AI_TIMEOUT_SECONDS`.
 |----------|--------|
 | `null` (default) | Soft-fail; afronding/rapport blijven intact |
 | `fake` | Vaste testdata (Pest) |
-| `heuristic` | Lokale deterministische samenvatting, geen externe API |
+| `heuristic` | Lokale deterministische samenvatting + aandachtspunten, geen externe API |
+| `openai` | Externe OpenAI-compatibele provider (BL-006). **Standaard uit**; vereist `AI_API_KEY` (+ `AI_BASE_URL`/`AI_MODEL`) én DPIA/akkoord. PII wordt vóór verzending geredigeerd (`AiInputRedactor`); bij fout/timeout → soft-fail |
 
 Kernintake hangt **niet** van AI af. `CompleteIntake` dispatcht `SummarizeIntakeJob` ná commit; falen = `ai_runs.status=failed` + log.
 
@@ -85,12 +86,23 @@ Server-side validatie vóór opslaan. Ongeldige output = `failed`.
 
 ## Privacy
 
-- Input voor AI: antwoorden + attention-point codes + template-meta — geen e-mail/telefoon in de payload
-- Geen API-keys in logs
-- Externe LLM-providers bewust nog niet aangesloten (eerst DPIA)
+- Input voor AI: antwoorden + attention-point codes + template-meta — geen e-mail/telefoon als apart veld in de payload
+- Extra redactielaag (`AiInputRedactor`) verwijdert e-mail/telefoon uit vrije tekst vóór verzending naar een externe provider. Restrisico (willekeurige NAW in vrije tekst) wordt in de DPIA afgewogen.
+- Geen API-keys in logs of git (`.env`)
+- De externe `openai`-provider staat standaard uit en wordt pas geactiveerd ná DPIA/akkoord (key in `.env`). Tests draaien met gemockte HTTP.
+
+## Aandachtspunten-voorstellen (BL-007)
+
+- `SuggestAttentionPoints` (mirror van `SummarizeIntake`) leidt via de gekozen provider aandachtspunten af; `HeuristicAiClient` doet dit deterministisch en lokaal. Prompt: `attention_points` (versioned).
+- Voorstellen landen als `intake_attention_points` met `source=ai`, `status=proposed`. De installateur **accepteert** (→ `accepted`, komt in het rapport) of **verwijdert** (→ `dismissed`) ze op de opnamepagina. Alleen `accepted` (en system/reviewer) punten staan in het rapport.
+- Idempotent op `(intake, code)`: opnieuw voorstellen dupliceert niet en respecteert een eerdere accept/dismiss-beslissing. Async na afronding (`SuggestAttentionPointsJob`) + on-demand knop. Provider `null` = soft-fail (geen voorstellen).
+
+## Fotokwaliteit (BL-007)
+
+- `AssessPhotoUsability` beoordeelt elke geüploade foto **lokaal met GD** (`PhotoUsabilityHeuristic`): te donker of te lage resolutie → verdict op `intake_uploads.usability_verdict`. Geen externe API.
+- Klantflow: niet-blokkerende hint bij de fotostap ("foto lijkt te donker — maak er eventueel nog één"); blokkeert afronden **nooit** (ADR-0004/0005). Installateur: subtiel kwaliteitslabel in de galerij. `AiRun` type `photo_quality` per beoordeling.
 
 ## Volgende uitbreidingen
 
-- `SuggestAttentionPoints` / `AssessPhotoUsability`
-- Optionele OpenAI (of andere) client achter `AiClientInterface`
-- Installateur: AI-voorstellen accepteren/verwijderen
+- BL-020: multimodale foto-afleiding tot bevestigbare voorzet (vereist externe multimodale LLM productief + DPIA).
+- Activeren van de `openai`-provider ná DPIA/akkoord (key in `.env`).

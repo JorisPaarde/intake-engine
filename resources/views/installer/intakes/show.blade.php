@@ -134,6 +134,11 @@
                                             </a>
                                             <figcaption class="text-xs text-gray-500">
                                                 {{ $item['caption'] }}
+                                                @if ($item['upload']->usability_verdict && $item['upload']->usability_verdict->installerLabel())
+                                                    <span class="mt-0.5 inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800" title="Automatische indicatie — niet bindend">
+                                                        ⚠ {{ $item['upload']->usability_verdict->installerLabel() }}
+                                                    </span>
+                                                @endif
                                             </figcaption>
                                         </figure>
                                     @endforeach
@@ -144,13 +149,26 @@
                 @endif
             </div>
 
-            @if ($intake->attentionPoints->isNotEmpty())
+            @php
+                $authoritativePoints = $intake->attentionPoints->filter(
+                    fn ($p) => $p->status === null || $p->status === \App\Enums\AttentionPointStatus::Accepted
+                );
+                $proposedPoints = $intake->attentionPoints->filter(
+                    fn ($p) => $p->source === \App\Enums\AttentionPointSource::Ai
+                        && $p->status === \App\Enums\AttentionPointStatus::Proposed
+                );
+            @endphp
+
+            @if ($authoritativePoints->isNotEmpty())
                 <div class="bg-white shadow-sm sm:rounded-lg p-6 space-y-3">
                     <h3 class="text-base font-semibold text-gray-900">Aandachtspunten</h3>
                     <ul class="list-disc space-y-1 pl-5 text-sm text-gray-800">
-                        @foreach ($intake->attentionPoints as $point)
+                        @foreach ($authoritativePoints as $point)
                             <li>
                                 {{ $point->label }}
+                                @if ($point->source === \App\Enums\AttentionPointSource::Ai)
+                                    <span class="text-gray-400">· overgenomen AI-voorstel</span>
+                                @endif
                                 @if ($point->is_resolved)
                                     <span class="text-gray-500">(opgelost)</span>
                                 @endif
@@ -159,6 +177,43 @@
                     </ul>
                 </div>
             @endif
+
+            <div class="bg-white shadow-sm sm:rounded-lg p-6 space-y-3">
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h3 class="text-base font-semibold text-gray-900">AI-voorgestelde aandachtspunten</h3>
+                        <p class="text-xs text-gray-500">Niet bindend — u beslist wat u overneemt.</p>
+                    </div>
+                    <form method="POST" action="{{ route('intakes.attention.suggest', $intake) }}">
+                        @csrf
+                        <button type="submit" class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-widest text-gray-700 hover:bg-gray-50">
+                            {{ $proposedPoints->isEmpty() ? 'AI-aandachtspunten voorstellen' : 'Opnieuw voorstellen' }}
+                        </button>
+                    </form>
+                </div>
+
+                @if ($proposedPoints->isNotEmpty())
+                    <ul class="divide-y divide-gray-100">
+                        @foreach ($proposedPoints as $point)
+                            <li class="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
+                                <span class="text-sm text-gray-800">{{ $point->label }}</span>
+                                <span class="flex shrink-0 gap-2">
+                                    <form method="POST" action="{{ route('intakes.attention.accept', [$intake, $point]) }}">
+                                        @csrf
+                                        <button type="submit" class="inline-flex items-center rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">Accepteren</button>
+                                    </form>
+                                    <form method="POST" action="{{ route('intakes.attention.dismiss', [$intake, $point]) }}">
+                                        @csrf
+                                        <button type="submit" class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50">Verwijderen</button>
+                                    </form>
+                                </span>
+                            </li>
+                        @endforeach
+                    </ul>
+                @else
+                    <p class="text-sm text-gray-500">Geen openstaande AI-voorstellen.</p>
+                @endif
+            </div>
 
             @if ($intake->report)
                 <div class="bg-white shadow-sm sm:rounded-lg p-6 space-y-4">

@@ -1,6 +1,6 @@
 # Databaseschema — Digitale Opname
 
-> **Documentversie:** 1.5 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.6 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **geïmplementeerd (Fase 2 migraties)**. Bestaande Laravel-tabellen plus intake-engine-schema via `2026_07_17_120000_create_intake_engine_tables`.
 
@@ -201,6 +201,7 @@ Index: `(intake_id)`.
 | `mime_type` | string | Server-side gecontroleerd |
 | `size_bytes` | unsigned bigint | |
 | `checksum` | string nullable | Optioneel SHA-256 |
+| `usability_verdict` | string nullable | BL-007: lokale fotokwaliteit-indicatie (`ok`/`too_dark`/`too_small`), `PhotoUsabilityVerdict`. Nooit blokkerend. |
 | `sort_order` | unsigned int | |
 | `timestamps` | | |
 | `deleted_at` | soft delete | |
@@ -215,9 +216,10 @@ Bestanden: privé disk, pad `intakes/{uuid}/…/{ulid}.ext`. Geen publieke URL.
 |-------|------|
 | `id` | bigint PK |
 | `intake_id` | FK, cascade |
-| `source` | AttentionPointSource |
+| `source` | AttentionPointSource (`system`/`reviewer`/`ai`) |
 | `code` | string nullable |
 | `label` | string |
+| `status` | string nullable — BL-007: AI-voorstellevenscyclus (`proposed`/`accepted`/`dismissed`), `AttentionPointStatus`. `null` voor system/reviewer (altijd gezaghebbend) |
 | `is_resolved` | boolean |
 | `resolved_at` | timestamp nullable |
 | `resolved_by` | FK users nullable |
