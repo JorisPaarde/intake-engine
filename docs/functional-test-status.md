@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.13 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.14 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -33,6 +33,7 @@ Laatste testsessie: 2026-07-18 (staging via headless Chromium/Playwright; BL-002
 | Klant-intakepagina /o/{token} (Fase 3) | pass | 2026-07-18 | Wizard end-to-end (8 stappen, 1 binnenunit) — *retest was vóór deploy BL-018; hertest nodig* |
 | Vraag-voor-vraag klantflow (BL-018) | todo | - | Na deploy: één vraag per scherm, sectietitel als markering, Volgende/Vorige, conditionele vraag verschijnt pas na relevant antwoord, hervatten op juiste vraag |
 | Auto-doorgaan na keuze + Enter (BL-023) | todo | - | Na deploy: single_choice/boolean gaat automatisch door na keuze (Opgeslagen-bevestiging); Enter op tekst/nummer = Volgende; multi_choice/foto/long_text niet; Vorige blijft werken; laatste stap geen auto-afronden |
+| Voortgang + ontbreekt-lijst (BL-022) | todo | - | Na deploy: % bereikt 100 bij alleen verplichte vragen klaar (optioneel leeg mag); bij geblokkeerd afronden zijn ontbrekende items klikbaar en tonen “Ruimtes 2” i.p.v. `room-2` |
 | Installateur-prefill bij aanmaken (BL-016) | todo | - | Na deploy: "alvast invullen" op opname-aanmaken (airco v3 request-vragen); klant ziet ze met "alvast ingevuld — controleer"; intake blijft `sent` tot klant start |
 | Repeatable-prefill ruimtes (BL-016) | todo | - | Na deploy: bij ≥2 binnenunits neemt ruimte 2 `floor_level` over van ruimte 1 als bewerkbare voorzet ("Overgenomen van Ruimtes 1"); pas bij Volgende opgeslagen; ruimte 1 nooit voorgevuld |
 | Foto-uploads (Fase 4) | pass | 2026-07-18 | JPEG-upload + preview + “Foto opgeslagen” op ruimtestap |

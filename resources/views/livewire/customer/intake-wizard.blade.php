@@ -72,16 +72,22 @@
             <div class="mb-4 rounded-md border border-brand-ember/30 bg-white px-4 py-3 text-sm text-brand-ember" role="alert">
                 @if ($completionMissing !== [])
                     <p class="font-medium">Nog niet alles is ingevuld.</p>
-                    <ul class="mt-2 list-disc space-y-1 pl-5 text-brand-ink/80">
+                    <ul class="mt-2 list-none space-y-1.5 pl-0 text-brand-ink/80">
                         @foreach ($completionMissing as $item)
                             <li>
-                                {{ $item['label'] ?? $item['question_key'] }}
-                                @if ($item['section_instance_key'])
-                                    ({{ $item['section_instance_key'] }})
-                                @endif
-                                @if (($item['reason'] ?? '') === 'required_photo')
-                                    — foto verplicht
-                                @endif
+                                <button
+                                    type="button"
+                                    wire:click="goToMissing({{ \Illuminate\Support\Js::from($item['question_key']) }}, {{ \Illuminate\Support\Js::from($item['section_instance_key'] ?? null) }})"
+                                    class="text-left text-sm font-medium text-brand-sea underline decoration-brand-sea/40 underline-offset-2 hover:decoration-brand-sea"
+                                >
+                                    {{ $item['label'] ?? $item['question_key'] }}
+                                    @if (! empty($item['instance_label']))
+                                        <span class="font-normal text-brand-ink/65">({{ $item['instance_label'] }})</span>
+                                    @endif
+                                    @if (($item['reason'] ?? '') === 'required_photo')
+                                        <span class="font-normal text-brand-ink/65"> — foto verplicht</span>
+                                    @endif
+                                </button>
                             </li>
                         @endforeach
                     </ul>

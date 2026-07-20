@@ -3,15 +3,20 @@
 declare(strict_types=1);
 
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
+use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplate;
+use App\Domains\Intake\Services\CompletenessChecker;
 use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Domains\Intake\Services\ProgressCalculator;
 use App\Domains\Intake\Services\VisibilityResolver;
 use App\Enums\IntakeStatus;
+use App\Enums\QuestionType;
 use App\Livewire\Customer\IntakeWizard;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -310,6 +315,101 @@ test('progress calculator includes answered questions in the percentage', functi
     $after = app(ProgressCalculator::class)->calculate($intake, $version);
 
     expect($after['percent'])->toBeGreaterThan($before['percent']);
+});
+
+test('progress percent reaches 100 when all required questions are answered even if optionals are empty', function () {
+    $intake = makeAccessibleIntake();
+    $version = $intake->templateVersion()->with(['sections.questions.options', 'sections.questions.rules'])->firstOrFail();
+
+    // Vul alle verplichte vragen; laat optionele (bijv. build_year) leeg.
+    $save = app(SaveIntakeAnswer::class);
+    $checker = app(CompletenessChecker::class);
+    $store = app(StoreIntakeUpload::class);
+    Storage::fake((string) config('filesystems.media', 'local'));
+
+    $save->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
+
+    for ($attempt = 0; $attempt < 40; $attempt++) {
+        $intake->refresh();
+        $check = $checker->check($intake, $version->fresh(['sections.questions.options', 'sections.questions.rules']));
+
+        if ($check['is_complete']) {
+            break;
+        }
+
+        foreach ($check['missing'] as $item) {
+            $question = $version->sections->flatMap->questions->firstWhere('key', $item['question_key']);
+            if ($question === null) {
+                continue;
+            }
+
+            if ($question->type === QuestionType::Photo) {
+                $store->handle(
+                    $intake,
+                    $item['question_key'],
+                    $item['section_instance_key'],
+                    UploadedFile::fake()->image($item['question_key'].'.jpg'),
+                );
+            } elseif ($question->type === QuestionType::Boolean) {
+                $save->handle($intake, $item['question_key'], $item['section_instance_key'], ['bool' => false]);
+            } elseif ($question->type === QuestionType::Number) {
+                $save->handle($intake, $item['question_key'], $item['section_instance_key'], ['number' => 1]);
+            } elseif ($question->type === QuestionType::SingleChoice) {
+                $value = $question->options->first()?->value ?? 'unknown';
+                $save->handle($intake, $item['question_key'], $item['section_instance_key'], ['value' => $value]);
+            } else {
+                $save->handle($intake, $item['question_key'], $item['section_instance_key'], ['text' => 'ingevuld']);
+            }
+        }
+    }
+
+    $intake->refresh();
+    $progress = app(ProgressCalculator::class)->calculate(
+        $intake,
+        $version->fresh(['sections.questions.rules']),
+    );
+
+    expect($progress['percent'])->toBe(100)
+        ->and($progress['missing_required'])->toBe([])
+        ->and($intake->answers()->where('question_key', 'build_year')->exists())->toBeFalse();
+});
+
+test('completion missing list uses readable instance labels', function () {
+    $intake = makeAccessibleIntake();
+    $version = $intake->templateVersion()->with(['sections.questions.options', 'sections.questions.rules'])->firstOrFail();
+
+    app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 2]);
+    $intake->refresh();
+
+    $check = app(CompletenessChecker::class)->check($intake, $version);
+    $roomMissing = collect($check['missing'])
+        ->first(fn (array $item): bool => ($item['section_instance_key'] ?? null) === 'room-2');
+
+    expect($roomMissing)->not->toBeNull()
+        ->and($roomMissing['instance_label'])->toBe('Ruimtes 2')
+        ->and($roomMissing['instance_label'])->not->toBe('room-2');
+});
+
+test('clicking a missing item jumps to that wizard step', function () {
+    $intake = makeAccessibleIntake();
+    $version = $intake->templateVersion()->with(['sections.questions.options', 'sections.questions.rules'])->firstOrFail();
+
+    app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
+    $intake->refresh();
+
+    $check = app(CompletenessChecker::class)->check($intake, $version);
+    expect($check['missing'])->not->toBeEmpty();
+
+    $target = $check['missing'][0];
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('completionMissing', $check['missing'])
+        ->set('showMissing', true)
+        ->call('goToMissing', $target['question_key'], $target['section_instance_key'])
+        ->assertSet('showMissing', false)
+        ->assertSet('activeStepKey', function (string $key) use ($target): bool {
+            return str_contains($key, $target['question_key']);
+        });
 });
 
 test('repeatable room questions become separate steps after unit count', function () {

@@ -1,6 +1,6 @@
 # Intake-engine
 
-> **Documentversie:** 1.6 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.7 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **geïmplementeerd t/m Fase 6** (compleetheid, rapport, beoordeling en AI-samenvatting). Airco-template **v3** gepubliceerd — v2-vragenset + prefill-vlaggen (BL-016; audit BL-017 zit in v2).
 
@@ -74,9 +74,9 @@ Geen LLM in deze keten.
 
 ## Voortgang
 
-- Berekend over zichtbare, relevante vragen/foto-opdrachten in de gepinde versie
+- `ProgressCalculator` (BL-022): percentage over **verplichte** zichtbare vragen/foto’s in de gepinde versie — optionele onbeantwoorde vragen tellen niet mee, zodat 100% ≈ klaar om af te ronden
 - `progress_percent` op `intakes` wordt bij elke save bijgewerkt (cache)
-- UI toont: huidige stap, percentage, ontbrekende verplichte onderdelen
+- UI toont: huidige stap, percentage; bij geblokkeerd afronden een klikbare “Nog niet alles is ingevuld”-lijst
 
 ## Compleetheidsberekening
 
@@ -95,13 +95,21 @@ Resultaat:
 {
   "is_complete": false,
   "missing": [
-    {"question_key": "fusebox_photo", "section_instance_key": null, "reason": "required_photo"}
+    {
+      "question_key": "room_photos",
+      "section_instance_key": "room-2",
+      "reason": "required_photo",
+      "label": "Foto's van de ruimte",
+      "instance_label": "Ruimtes 2"
+    }
   ],
   "attention_points": [
     {"code": "no_free_group", "label": "Geen vrije groep bekend"}
   ]
 }
 ```
+
+In de klantwizard (BL-022) zijn ontbrekende items klikbaar (`goToMissing` → `goToStep`); `instance_label` gebruikt hetzelfde leesbare patroon als de wizard-sectietitel (“Ruimtes 2”), niet de rauwe key.
 
 Afronden (`CompleteIntake`) weigert als `is_complete === false`, tenzij een expliciete template-flag later “afronden met open punten” toestaat (standaard: **niet**).
 

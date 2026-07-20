@@ -71,7 +71,7 @@ class IntakeWizard extends Component
 
     public bool $completed = false;
 
-    /** @var list<array{question_key: string, section_instance_key: string|null, reason: string, label?: string}> */
+    /** @var list<array{question_key: string, section_instance_key: string|null, reason: string, label?: string, instance_label?: string|null}> */
     public array $completionMissing = [];
 
     public function mount(string $token): void
@@ -529,6 +529,28 @@ class IntakeWizard extends Component
         $this->applyPrefillForActiveStep();
         $this->saveMessage = '';
         $this->showMissing = false;
+    }
+
+    /**
+     * Jump to a missing required question from the completion alert (BL-022).
+     */
+    public function goToMissing(string $questionKey, ?string $sectionInstanceKey = null): void
+    {
+        $steps = $this->steps();
+
+        foreach ($steps as $index => $step) {
+            if ($step['question_key'] !== $questionKey) {
+                continue;
+            }
+
+            if ($step['section_instance_key'] !== $sectionInstanceKey) {
+                continue;
+            }
+
+            $this->goToStep($index);
+
+            return;
+        }
     }
 
     private function intake(): Intake
