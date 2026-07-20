@@ -82,6 +82,32 @@ class IntakeWizard extends Component
     /** @var list<array{question_key: string, section_instance_key: string|null, reason: string, label?: string, instance_label?: string|null}> */
     public array $completionMissing = [];
 
+    /**
+     * Request-local caches (BL-025). Not public — Livewire does not dehydrate these
+     * across requests; they only collapse duplicate queries within one lifecycle.
+     */
+    private ?Intake $resolvedIntake = null;
+
+    private ?IntakeTemplateVersion $resolvedVersion = null;
+
+    /**
+     * @var list<array{
+     *     key: string,
+     *     section_key: string,
+     *     section_instance_key: string|null,
+     *     question_key: string,
+     *     title: string,
+     *     section_title: string,
+     *     description: string|null,
+     *     help_text: string|null,
+     *     is_repeatable: bool,
+     *     is_required: bool
+     * }>|null
+     */
+    private ?array $resolvedSteps = null;
+
+    private ?string $resolvedStepsFormSignature = null;
+
     public function mount(string $token): void
     {
         $this->token = $token;
@@ -173,6 +199,7 @@ class IntakeWizard extends Component
 
         try {
             app(DeleteIntakeUpload::class)->handle($this->intake(), $upload);
+            $this->forgetIntakeDerivedCaches();
             $composite = VisibilityResolver::compositeKey(
                 $upload->question_key,
                 $upload->section_instance_key,
@@ -302,6 +329,9 @@ class IntakeWizard extends Component
                 if (! $verdict->isUsable() && $verdict->customerHint() !== null) {
                     $hints[] = $verdict->customerHint();
                 }
+
+                // BL-025: invalidate request-cache after the upload changed intake state.
+                $this->forgetIntakeDerivedCaches();
             } catch (ValidationException $e) {
                 $errors[] = $e->errors()['photo'][0]
                     ?? $e->errors()['photoFiles.'.$composite][0]
@@ -413,6 +443,7 @@ class IntakeWizard extends Component
 
         try {
             app(CompleteIntake::class)->handle($intake);
+            $this->forgetIntakeDerivedCaches();
             $this->completed = true;
             $this->completionMissing = [];
             $this->showMissing = false;
@@ -573,15 +604,25 @@ class IntakeWizard extends Component
 
     private function intake(): Intake
     {
-        return Intake::query()->findOrFail($this->intakeId);
+        if ($this->resolvedIntake === null) {
+            $this->resolvedIntake = Intake::query()
+                ->with(['answers', 'uploads'])
+                ->findOrFail($this->intakeId);
+        }
+
+        return $this->resolvedIntake;
     }
 
     private function version(): IntakeTemplateVersion
     {
-        return $this->intake()
-            ->templateVersion()
-            ->with(['sections.questions.options', 'sections.questions.rules'])
-            ->firstOrFail();
+        if ($this->resolvedVersion === null) {
+            $this->resolvedVersion = $this->intake()
+                ->templateVersion()
+                ->with(['sections.questions.options', 'sections.questions.rules'])
+                ->firstOrFail();
+        }
+
+        return $this->resolvedVersion;
     }
 
     /**
@@ -600,11 +641,39 @@ class IntakeWizard extends Component
      */
     private function steps(): array
     {
-        return app(IntakeStepBuilder::class)->build(
+        $signature = $this->liveAnswersSignature();
+
+        if ($this->resolvedSteps !== null && $this->resolvedStepsFormSignature === $signature) {
+            return $this->resolvedSteps;
+        }
+
+        $this->resolvedSteps = app(IntakeStepBuilder::class)->build(
             $this->intake(),
             $this->version(),
             $this->liveAnswers(),
         );
+        $this->resolvedStepsFormSignature = $signature;
+
+        return $this->resolvedSteps;
+    }
+
+    /**
+     * Drop caches that depend on intake row / answers / uploads (BL-025).
+     * Template version graph stays cached — it does not change mid-request.
+     */
+    private function forgetIntakeDerivedCaches(): void
+    {
+        $this->resolvedIntake = null;
+        $this->resolvedSteps = null;
+        $this->resolvedStepsFormSignature = null;
+    }
+
+    private function liveAnswersSignature(): string
+    {
+        return hash('xxh3', (string) json_encode(
+            $this->liveAnswers(),
+            JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE,
+        ));
     }
 
     /**
@@ -710,6 +779,7 @@ class IntakeWizard extends Component
             $instanceKey,
             $payload,
         );
+        $this->forgetIntakeDerivedCaches();
     }
 
     /**

@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 3.22 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.23 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -20,7 +20,7 @@ Status: `backlog` · `ready` · `in_progress` · `done` · `dropped` — priorit
 | E4 | AI bespaart beoordeelwerk | Samenvatting, aandachtspunten en fotokwaliteitscheck besparen de installateur leeswerk en de aanvrager een extra aanleverronde. AI blijft ondersteunend (docs/ai.md). |
 | E5 | Bruikbaar dossier & klaar voor groei | Het dossier moet buiten de browser bruikbaar zijn en het product moet zonder extra handelingen te ervaren, beheren en opschalen zijn. |
 
-Volgorde-advies: volg kolom **#** in de overzichtstabel hieronder. De rode draad: eerst lopend werk afronden (BL-001; BL-002/BL-004/BL-005/BL-006/BL-007/BL-008/BL-009/BL-014/BL-015/BL-016/BL-021/BL-022/BL-023/BL-024 done), dan drempelloze aanlevering (BL-011 domein/SSL) — daarna slimme afleiding (BL-019, BL-020) en tot slot groei-/beheeritems (incl. BL-025 wizard-perf). Parallelisatie: zie [§ Parallelisatie](#parallelisatie) en kolom **Band**.
+Volgorde-advies: volg kolom **#** in de overzichtstabel hieronder. De rode draad: eerst lopend werk afronden (BL-001; BL-002/BL-004/BL-005/BL-006/BL-007/BL-008/BL-009/BL-014/BL-015/BL-016/BL-021/BL-022/BL-023/BL-024/BL-025 done), dan drempelloze aanlevering (BL-011 domein/SSL) — daarna slimme afleiding (BL-019, BL-020) en tot slot groei-/beheeritems. Parallelisatie: zie [§ Parallelisatie](#parallelisatie) en kolom **Band**.
 
 ## Parallelisatie
 
@@ -33,14 +33,14 @@ Items in **verschillende parallel-bands** kunnen tegelijk door aparte agents/men
 | **F** | Open data / adres | BL-019 | A, D, H, I; BAG-prefill bouwt voort op afgeronde BL-016-kaders |
 | **H** | AI-keten | BL-020 (multimodaal) | A, D, F, I. BL-006-clientlaag + BL-007 done; BL-020 wacht op een **multimodale** LLM productief (+ DPIA) |
 | **I** | Beheer / schaal | BL-010, BL-013 (BL-012 later) | Onderling parallel; met A–H zolang geen gedeelde deploy-/storage-wijziging botst |
-| **J** | Klantwizard-verbeteringen | BL-025 | A, D, F, H, I. Laatste in keten; BL-021/BL-022/BL-023 done |
+| **J** | Klantwizard-verbeteringen | — (BL-021–BL-025 done) | — |
 | **K** | Installateursweergave | — (BL-024 done) | — |
 
-Afgeronde bands (niet meer te plannen): **B** = BL-016 (prefill), **C** = BL-008 (HEIC), **E** = BL-004/BL-014/BL-015 (mail-keten), **G** = BL-005 (PDF), **K** = BL-024 (installateursgalerij); band H deels: BL-006 (externe-clientlaag) + BL-007 (aandachtspunten + fotokwaliteit); band J bijna: BL-021/BL-022/BL-023 done (rest BL-025); BL-009 purge done.
+Afgeronde bands (niet meer te plannen): **B** = BL-016 (prefill), **C** = BL-008 (HEIC), **E** = BL-004/BL-014/BL-015 (mail-keten), **G** = BL-005 (PDF), **K** = BL-024 (installateursgalerij); band H deels: BL-006 (externe-clientlaag) + BL-007 (aandachtspunten + fotokwaliteit); band J af: BL-021/BL-022/BL-023/BL-025 (wizard-keten) done; BL-009 purge done.
 
 **Concrete parallel-startsets:**
 
-1. **Nu parallel bouwbaar:** BL-011 (extern) · BL-025 (laatste band J) · BL-019 — naast afronden van BL-001; SMTP op staging aanzetten voor mail-smoketests (BL-004/014/015).
+1. **Nu parallel bouwbaar:** BL-011 (extern) · BL-019 — naast afronden van BL-001; SMTP op staging aanzetten voor mail-smoketests (BL-004/014/015).
 2. **BL-020** (multimodale foto-afleiding): zodra een multimodale LLM productief is (DPIA + key); bouwt voort op de afgeronde BL-006-clientlaag en BL-007-basis.
 3. **Laag-prioriteit parallel:** BL-010 · BL-013 · (BL-012 bij tweede klant).
 
@@ -54,10 +54,10 @@ Geprioriteerd op het hoofddoel (herprioritering 2026-07-18): hoeveel handelingen
 | 2 | BL-011 | Eigen domein + geldig SSL voor staging | E1 | backlog | high | D · parallel |
 | 3 | BL-019 | Afleiden uit adres en openbare bronnen (satellietbeeld, BAG) | E3 | backlog | medium | F · parallel |
 | 4 | BL-020 | Foto-gedreven afleiding en adaptieve vervolgvragen | E4 | backlog | medium | H · na multimodale LLM |
-| 5 | BL-025 | Wizard-responstijd: dubbele queries per Livewire-request terugdringen | E1 | backlog | low | J · laatste |
-| 6 | BL-010 | Production-deployworkflow (tags + eigen omgeving) | E5 | backlog | low | I · parallel |
-| 7 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low | I · later |
-| 8 | BL-013 | S3 als mediadisk | E5 | backlog | low | I · parallel |
+| 5 | BL-010 | Production-deployworkflow (tags + eigen omgeving) | E5 | backlog | low | I · parallel |
+| 6 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low | I · later |
+| 7 | BL-013 | S3 als mediadisk | E5 | backlog | low | I · parallel |
+| — | BL-025 | Wizard-responstijd: dubbele queries per Livewire-request terugdringen | E1 | done | low | J (done) |
 | — | BL-006 | Externe LLM-provider (clientlaag; activering na DPIA + key) | E4 | done | medium | H (done) |
 | — | BL-007 | AI-uitbreidingen: attention points, fotokwaliteit, accepteren/verwijderen | E4 | done | low | H (done) |
 | — | BL-022 | Voortgang en "ontbreekt nog" kloppend en klikbaar maken | E1 | done | medium | J (done) |
@@ -135,9 +135,10 @@ De flow van Fase 1–6 belooft "zo min mogelijk handelingen", maar dat geldt all
 
 ### BL-025 — Wizard-responstijd: dubbele queries per Livewire-request terugdringen
 
-- **Status:** backlog · **Prioriteit:** low *(verbeterronde 2026-07-18)*
-- **Parallel:** band **J** (laatste) — parallel met A/D/F/H/I; raakt `IntakeWizard` (puur intern).
+- **Status:** done · **Prioriteit:** low · **Datum:** 2026-07-18 *(verbeterronde 2026-07-18)*
+- **Parallel:** band **J** (done) — raakt `IntakeWizard` (puur intern).
 - **Doel:** `IntakeWizard` haalt per Livewire-request meerdere keren dezelfde data op: `intake()` doet telkens een verse `findOrFail` en `version()` laadt telkens de volledige sections/questions/options/rules-graaf, terwijl `steps()`, `render()`, `currentStep()` en de visibility-checks elkaar per request herhaaldelijk aanroepen. Memoizeer per request (met bewuste invalidatie na saves) en meet de responstijd van autosave/"Volgende" vóór en na.
+- **Resultaat:** request-lokale memoization van `intake()` / `version()` / `steps()` in `IntakeWizard`, met invalidatie (`forgetIntakeDerivedCaches()`) na antwoord-saves en uploads. Gedrag ongewijzigd; bestaande featuretests groen.
 - **Waarom (hoofddoel):** elke vraag is een server-roundtrip (autosave + stapnavigatie); onnodig trage responses voelen op mobiel als wachten per vraag — frictie op precies het pad dat we het lichtst willen maken.
 - **Kaders:** gedrag ongewijzigd (pure performance); let op Livewire-hydration en stale state na `SaveIntakeAnswer`/uploads; bestaande featuretests blijven de poort.
 - **Afhankelijkheden:** geen harde; na de andere band-J-items zodat er niet in hetzelfde bestand geparallelliseerd wordt.
@@ -317,6 +318,7 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 
 | ID | Afgerond | PR |
 |----|----------|-----|
+| BL-025 | 2026-07-18 | #34 — wizard request-caching (herstel van gesloten #32) |
 | BL-007 | 2026-07-18 | (deze PR) — heuristische aandachtspunten + accept/verwijder + fotokwaliteit |
 | BL-006 | 2026-07-18 | (deze PR) — `OpenAiClient` + redactie achter `AiClientInterface` (activering na DPIA + key) |
 | BL-024 | 2026-07-18 | #28 — vraaglabels + groepering foto-galerij installateur |
