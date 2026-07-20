@@ -1,12 +1,12 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.14 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.21 · **Laatste update:** 2026-07-20 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
 Bijwerken door wie de test daadwerkelijk heeft uitgevoerd: een menselijke tester **of** een testende agent (bijv. een agent die de app via een browser bedient). Niet invullen op basis van alleen implementatie — er moet echt functioneel getest zijn. Implementerende agents voegen alleen nieuwe `todo`-regels toe voor functionaliteit die zij introduceren.
 
-Laatste testsessie: 2026-07-18 (staging via headless Chromium/Playwright; BL-002 hertest na deploy PR #14)
+Laatste testsessie: 2026-07-20 (lokaal via browser; BL-027 documentopdracht op desktop en 390 px)
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
@@ -15,7 +15,11 @@ Laatste testsessie: 2026-07-18 (staging via headless Chromium/Playwright; BL-002
 | /login rendert | pass | 2026-07-18 | Toont loginformulier |
 | Auth-beveiliging dashboard/intakes | pass | 2026-07-18 | Uitgelogd → redirect `/login` (na dismiss 428-interstitial) |
 | Dashboard weergave | pass | 2026-07-18 | Bereikbaar na registratie |
+| Productmetrics `/metrics` (BL-026) | pass | lokaal 2026-07-20; staging nog todo | Authenticated weergave met periodefilter, zes kerncijfers, uitvalpunten en per-opname-links gecontroleerd; eerste beoordeling met `need_more_info` telt als 0,0% direct genoeg. Desktop en 390 px zonder pagina-overflow; tabel scrolt intern; geen nieuwe browserwarnings/-errors. Na deploy dezelfde smoke volgens `docs/metrics.md`. |
 | Opname aanmaken (Airco) | pass | 2026-07-18 | Opgeslagen, detail + klantlink |
+| Adres-autocomplete + BAG-verrijking (BL-019) | todo | - | Na deploy: typ adres → selecteer PDOK-suggestie → postcode/plaats gevuld; detail toont bouwjaar/gebruiksdoel/oppervlakte/locatie/perceel met bron; handmatige invoer blijft werken bij PDOK-storing |
+| Airco v4: BAG-bouwjaar vervangt vraag (BL-019) | todo | - | Met eenduidig pand: klantwizard toont geen `build_year`-vraag en rapport bevat BAG-bouwjaar; zonder match/meerdere panden/storing blijft de vraag zichtbaar en dossier toont onzekerheid |
+| PDOK-luchtfoto in dossier/PDF (BL-019) | todo | lokaal live pass 2026-07-20; staging nog todo | Lokaal met echte PDOK-services: Damrak 1 → 900×600 beeld, marker/bron/maat/BAG-feiten, desktop + 390 px zonder overflow of consolefouten. Na deploy dezelfde detail/PDF-, WMS-fallback- en purgecheck op staging. |
 | Beveiligde klantlink genereren | pass | 2026-07-18 | Token-URL `/o/{64}` |
 | Klantlink hergenereren | pass | 2026-07-18 | Na fix #14 (`type=submit`) — nieuw token gegenereerd |
 | Klantlink intrekken | pass | 2026-07-18 | Status Geannuleerd + flash “Klantlink ingetrokken…” |
@@ -42,10 +46,14 @@ Laatste testsessie: 2026-07-18 (staging via headless Chromium/Playwright; BL-002
 | Leesbare foto-galerij installateur (BL-024) | todo | - | Na deploy: opname-detail toont vraaglabels + groepen (bv. “Ruimtes 2” / “Foto’s van de ruimte”), geen rauwe `question_key`/`room-2` |
 | Afronden + bedankt-scherm (Fase 5) | pass | 2026-07-18 | Na boolean-fix #14: volledige flow (incl. Ja/Nee) → **Bedankt** |
 | HTML-rapport + installateur-review (Fase 5) | pass | 2026-07-18 | Rapport-iframe + review `prepare_quote` opgeslagen |
+| Dossierbronnen + onzekerheden + volgende stap (BL-019) | todo | - | HTML/PDF toont klant/contact, automatisch verzamelde feiten met PDOK/BAG-bron en zekerheid, open onzekerheden en voorstel volgende stap |
+| Gerichte aanvullende informatieronde (BL-027) | todo | - | Review `need_more_info` met tekst + foto-opdracht → klantmail/dezelfde link → klant ziet alleen vervolgitems, rondt af → dossier toont ronde/bron/antwoord/foto en dashboard markeert opnieuw als te beoordelen; test ook handmatige linkfallback bij mailconfig |
+| Gericht PDF-document opvragen (BL-027) | pass | lokaal 2026-07-20; staging nog todo | Featuretest: documentopdracht, herstel na ongeldige PDF, upload, afronden, auth-link, forced download en HTML/PDF-dossier groen. Gegenereerde 5-pagina-PDF visueel gecontroleerd: documentkaart met prompt, bestandsnaam, bron en ronde zonder clipping. Live documentstap desktop + 390 px zonder overflow of browserwarnings/-errors; route geeft `application/pdf`, attachment en `nosniff`. Na deploy dezelfde smoke met een echte PDF. |
 | AI-samenvatting in rapport (Fase 6) | blocked | 2026-07-18 | Geen “AI-voorstel” — staging `AI_PROVIDER=null` (soft-fail by design) |
 | AI-aandachtspunten voorstellen + accept/verwijder (BL-007) | todo | - | Met `AI_PROVIDER=heuristic`: opnamepagina → "AI-aandachtspunten voorstellen" → accepteren (komt in rapport) / verwijderen (blijft weg); `null` = geen voorstellen |
 | Fotokwaliteit-hint klant + label installateur (BL-007) | todo | - | Donkere/kleine foto in klantflow → niet-blokkerende hint, afronden blijft mogelijk; installateursgalerij toont kwaliteitslabel |
 | Externe LLM-provider (BL-006) | todo | - | Alleen ná DPIA + `AI_API_KEY`: `AI_PROVIDER=openai` levert samenvatting/aandachtspunten; controleer dat geen e-mail/telefoon in de payload staat |
+| Airco v5 meterkastfoto-afleiding (BL-020) | todo | - | Eerst lokaal met `AI_PROVIDER=fake` + flag: meterkastfoto → `free_group_known` staat als foto-inschatting klaar en blijft corrigeerbaar; dossier toont fase/vrije groep, bron `AI-fotoanalyse` en onzekerheid; foto verwijderen wist voorzet/fact. Daarna alleen ná DPIA met fictieve stagingbeelden en multimodaal model: hoge zekerheid, onduidelijk beeld met concrete herhaalinstructie, providerfout soft-fail en geen beeldbytes/data-URL in logs/DB. |
 | Queue-worker (cron) | todo | - | Niet end-to-end bevestigd (geen zichtbaar AI-resultaat) |
 | Demo-login `installateur@example.com` | fail | 2026-07-18 | Credentials matchen niet — `DatabaseSeeder` draait niet bij deploy (alleen IntakeTemplateSeeder) |
 | Publieke demo “Start demo” (BL-001) | todo | - | Na deploy + `DEMO_ENABLED=true`: knop op `/`, redirect `/o/{token}`, watermerk, bedankt-copy |
@@ -62,6 +70,14 @@ Laatste testsessie: 2026-07-18 (staging via headless Chromium/Playwright; BL-002
 | `n/a` | Niet van toepassing voor deze omgeving |
 
 ## Ruimte voor details
+
+### Sessie 2026-07-20 (lokaal) — BL-027 documentopdracht
+
+Een open vervolgrond is omgezet naar antwoordvorm **Document (PDF)** met een synthetisch document op private storage. De klantweergave toont prompt, bestandsnaam, resterende slots en verwijderactie op desktop en 390 px zonder horizontale pagina-overflow of nieuwe browserwarnings/-errors. De documentroute retourneert `200`, `Content-Type: application/pdf`, `Content-Disposition: attachment` en `X-Content-Type-Options: nosniff`. Het opnieuw gegenereerde dossier telt 5 A4-pagina's; alle pagina's zijn visueel gecontroleerd en de documentkaart met prompt, bestandsnaam, bron en ronde blijft bij elkaar zonder clipping. Staging blijft `todo` tot deploy.
+
+### Sessie 2026-07-20 (lokaal) — BL-026 metrics
+
+`/metrics?period=all` gecontroleerd als installateur met vier privacyveilige testintakes. De eerste beoordeling van opname #4 was `need_more_info`; de kaart **Direct genoeg informatie** en de rij tonen daarom 0,0% / **Nee**, ook na latere dossiermutaties. Desktop en 390 px renderen zonder pagina-overflow; alleen de brede per-opnametabel scrolt horizontaal binnen zijn eigen container. Er kwamen geen nieuwe browserwarnings of -errors bij. Staging blijft `todo` tot deploy.
 
 ### Sessie 2026-07-18 (staging) — BL-002 hertest na PR #14
 

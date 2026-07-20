@@ -9,4 +9,5 @@ enum AiRunType: string
     case Summary = 'summary';
     case AttentionPoints = 'attention_points';
     case PhotoQuality = 'photo_quality';
+    case PhotoAssessment = 'photo_assessment';
 }

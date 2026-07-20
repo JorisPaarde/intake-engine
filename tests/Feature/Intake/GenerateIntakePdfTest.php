@@ -13,6 +13,7 @@ use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Domains\Intake\Services\CompletenessChecker;
+use App\Domains\Intake\Services\EmbedPrivateReportMedia;
 use App\Enums\IntakeStatus;
 use App\Enums\QuestionType;
 use App\Models\User;
@@ -137,6 +138,20 @@ test('generate intake pdf stores a downloadable file from HTML report', function
 
     app(CompleteIntake::class)->handle($intake->fresh());
     $intake->refresh();
+
+    $firstUpload = $intake->uploads()->firstOrFail();
+
+    expect($intake->report->html)
+        ->toContain('Aangeleverde foto’s en bestanden')
+        ->toContain('data-intake-upload-id="'.$firstUpload->id.'"')
+        ->toContain(route('installer.uploads.show', [$intake, $firstUpload], false))
+        ->not->toContain('data:'.$firstUpload->mime_type.';base64,');
+
+    $embeddedHtml = app(EmbedPrivateReportMedia::class)->handle($intake, $intake->report->html);
+
+    expect($embeddedHtml)
+        ->toContain('data:'.$firstUpload->mime_type.';base64,')
+        ->not->toContain('data-intake-upload-id="'.$firstUpload->id.'"');
 
     $report = app(GenerateIntakePdf::class)->handle($intake);
 

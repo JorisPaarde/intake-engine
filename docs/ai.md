@@ -1,17 +1,20 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 1.2 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.6 · **Laatste update:** 2026-07-20 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: **Fase 6 + BL-007 geïmplementeerd** — samenvatting, aandachtspunten-voorstellen (installateur accepteert/verwijdert) en lokale fotokwaliteit-check. Externe provider-client (BL-006) aanwezig maar **standaard uit** (DPIA + key vereist). Zie ADR-0005. Multimodale foto-afleiding: BL-020 in [docs/backlog.md](backlog.md).
+Status: **Fase 6 + BL-007 + BL-020 geïmplementeerd** — samenvatting, aandachtspunten, lokale fotokwaliteit en een bevestigbare multimodale meterkastvoorzet. Externe provider en foto-inferentie staan **standaard uit** (DPIA + key vereist). Zie ADR-0005.
+
+De verplichte korte dossiersamenvatting is deterministisch en staat los van deze AI-laag. AI kan daarbovenop alleen een herkenbaar niet-bindend voorstel toevoegen.
 
 ## Wat AI wél mag
 
 Ondersteunende adviezen, nooit bron van waarheid:
 
-- Samenvatting van antwoorden voor het interne rapport ✅
-- Voorstel voor aandachtspunten (later)
-- Signaleren van mogelijk ontbrekende informatie (aanvulling op CompletenessChecker; later)
-- Indicatie of een foto waarschijnlijk bruikbaar is (later)
+- Samenvatting van antwoorden voor het interne rapport
+- Voorstel voor aandachtspunten dat de installateur accepteert of verwijdert
+- Signaleren van een onduidelijke meterkastfoto met een concrete nieuwe foto-opdracht
+- Indicatie of een foto waarschijnlijk bruikbaar is
+- Bevestigbare voorzet voor vrije groep en fase uit meterkastfoto's
 
 ## Wat AI níet mag
 
@@ -27,15 +30,18 @@ Ondersteunende adviezen, nooit bron van waarheid:
 App\Domains\AI\
   Contracts\AiClientInterface
   Clients\NullAiClient | FakeAiClient | HeuristicAiClient
+  Clients\OpenAiClient
+  DTOs\AiImageInput
   Services\AiGateway
   Services\PromptVersionRepository
-  Prompts\summary\          # versioned prompt + meta
+  Prompts\summary\ | attention_points\ | fusebox_assessment\
   Actions\SummarizeIntake
+  Actions\AssessFuseboxPhotos
   Jobs\SummarizeIntakeJob
   Models\AiRun
 ```
 
-Provider via `.env`: `AI_PROVIDER`, `AI_API_KEY`, `AI_TIMEOUT_SECONDS`.
+Provider via `.env`: `AI_PROVIDER`, `AI_API_KEY`, `AI_TIMEOUT_SECONDS`. Multimodale verzending vereist daarnaast `AI_PHOTO_INFERENCE_ENABLED=true`; standaard `false`, maximaal twee recente meterkastfoto's per beoordeling.
 
 | Provider | Gedrag |
 |----------|--------|
@@ -51,7 +57,7 @@ Kernintake hangt **niet** van AI af. `CompleteIntake` dispatcht `SummarizeIntake
 | Kolom | Doel |
 |-------|------|
 | `intake_id` | Koppeling |
-| `type` | `summary` / `attention_points` / `photo_quality` |
+| `type` | `summary` / `attention_points` / `photo_quality` / `photo_assessment` |
 | `provider` | bv. `heuristic` / `fake` / `null` |
 | `model` | modelidentifier |
 | `prompt_version` | versiestring (`summary-v1`) |
@@ -67,6 +73,15 @@ Kernintake hangt **niet** van AI af. `CompleteIntake` dispatcht `SummarizeIntake
 2. `SummarizeIntakeJob` (queue) → `SummarizeIntake`.
 3. Bij succes: `generated_reports.meta.ai_summary` + HTML-blok **“AI-voorstel (niet bindend)”**.
 4. Bij falen: rapport ongewijzigd; intake blijft `completed`.
+
+Foto-afleiding loopt tijdens de meterkastupload, zodat de voorzet op de eerstvolgende vraag beschikbaar is:
+
+1. Lokale bruikbaarheidscheck blijft altijd beschikbaar en stuurt niets extern.
+2. Alleen bij `AI_PHOTO_INFERENCE_ENABLED=true` stuurt `AssessFuseboxPhotos` maximaal twee private afbeeldingen als base64 data-URL naar de gekozen multimodale provider.
+3. Server-side validatie accepteert alleen `yes|no|unknown`, `one_phase|three_phase|unknown`, zekerheid, zichtbaar bewijs en een optionele concrete herhaalinstructie.
+4. Alleen `confidence=high` en `free_group=yes|no` schrijft een antwoordvoorzet met `prefill_source=ai`; een bestaand klantantwoord wordt nooit overschreven.
+5. De klant ziet "ingeschat op basis van uw meterkastfoto — klopt deze keuze?". Zelf kiezen bevestigt of corrigeert de voorzet en wist de AI-prefillmarkering.
+6. De waarneming staat apart in `intake_external_facts` met `AI-fotoanalyse`, runreferentie, provider/model, gebruikte upload-id's en altijd "te controleren". Verwijderen van de bronfoto maakt de afleiding ongeldig en verwijdert de AI-voorzet.
 
 ## Promptversionering
 
@@ -86,8 +101,9 @@ Server-side validatie vóór opslaan. Ongeldige output = `failed`.
 
 ## Privacy
 
-- Input voor AI: antwoorden + attention-point codes + template-meta — geen e-mail/telefoon als apart veld in de payload
+- Input voor AI: antwoorden + automatisch verzamelde feiten (waarde, bron, zekerheid) + gerichte vervolgrondes (`round_number`, type, prompt, antwoord, foto-aantal) + attention-point codes + template-meta — geen e-mail/telefoon als apart veld in de payload. Externe feiten uit BL-019 en aanvullingen uit BL-027 worden zo met de oorspronkelijke intake gecombineerd zonder herkomstverlies.
 - Extra redactielaag (`AiInputRedactor`) verwijdert e-mail/telefoon uit vrije tekst vóór verzending naar een externe provider. Restrisico (willekeurige NAW in vrije tekst) wordt in de DPIA afgewogen.
+- Foto-inferentie verstuurt de beeldbytes alleen in het uitgaande providerrequest. `ai_runs` bewaart een hash van promptversie + uploadchecksums; database, activity-events en logs bevatten geen beeldbytes of data-URL. Het afgeleide feit bevat alleen gecontroleerde enums, korte bewijsomschrijving, provider/model en upload-id's.
 - Geen API-keys in logs of git (`.env`)
 - De externe `openai`-provider staat standaard uit en wordt pas geactiveerd ná DPIA/akkoord (key in `.env`). Tests draaien met gemockte HTTP.
 
@@ -104,5 +120,5 @@ Server-side validatie vóór opslaan. Ongeldige output = `failed`.
 
 ## Volgende uitbreidingen
 
-- BL-020: multimodale foto-afleiding tot bevestigbare voorzet (vereist externe multimodale LLM productief + DPIA).
-- Activeren van de `openai`-provider ná DPIA/akkoord (key in `.env`).
+- Externe foto-inferentie activeren en op staging met representatieve, fictieve meterkastfoto's valideren ná DPIA/akkoord (`AI_PROVIDER=openai`, key en `AI_PHOTO_INFERENCE_ENABLED=true`).
+- Alleen na gemeten winst dezelfde veilige voorzetstructuur uitbreiden naar ruimte- of routefoto's; geen brede beeldherkenning zonder concrete geschrapte vraag.

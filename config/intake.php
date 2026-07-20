@@ -27,6 +27,13 @@ return [
         'days' => (int) env('INTAKE_REMINDER_DAYS', 3),
     ],
 
+    'follow_up' => [
+        'max_rounds' => (int) env('INTAKE_FOLLOW_UP_MAX_ROUNDS', 3),
+        'max_items_per_round' => (int) env('INTAKE_FOLLOW_UP_MAX_ITEMS', 5),
+        'max_photos_per_item' => (int) env('INTAKE_FOLLOW_UP_MAX_PHOTOS', 5),
+        'max_documents_per_item' => (int) env('INTAKE_FOLLOW_UP_MAX_DOCUMENTS', 3),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Soft-delete retention (BL-009)
@@ -86,6 +93,7 @@ return [
             'image/webp',
         ],
         'stored_extensions' => ['jpg', 'jpeg', 'png', 'webp'],
+        'document_mimes' => ['application/pdf'],
     ],
 
 ];

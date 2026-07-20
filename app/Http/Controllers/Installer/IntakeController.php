@@ -6,8 +6,10 @@ namespace App\Http\Controllers\Installer;
 
 use App\Domains\AI\Actions\SuggestAttentionPoints;
 use App\Domains\Intake\Actions\CreateIntake;
+use App\Domains\Intake\Actions\EnrichIntakeAddress;
 use App\Domains\Intake\Actions\RegenerateIntakeAccessToken;
 use App\Domains\Intake\Actions\RevokeIntakeAccess;
+use App\Domains\Intake\Actions\SendCustomerFollowUpRequest;
 use App\Domains\Intake\Actions\SendCustomerIntakeLink;
 use App\Domains\Intake\Actions\SubmitIntakeReview;
 use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
@@ -15,16 +17,20 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeAttentionPoint;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeTemplate;
+use App\Domains\Intake\Services\ExternalFactPresenter;
 use App\Domains\Intake\Services\InstallerPhotoGalleryBuilder;
+use App\Domains\Intake\Services\IntakeDossierSummaryBuilder;
 use App\Domains\Intake\Services\RebuildIntakeReportHtml;
 use App\Enums\AttentionPointSource;
 use App\Enums\AttentionPointStatus;
+use App\Enums\CustomerLinkMailResult;
 use App\Enums\ReviewDecision;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Installer\StoreIntakeRequest;
 use App\Http\Requests\Installer\StoreIntakeReviewRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
@@ -83,9 +89,11 @@ class IntakeController extends Controller
     public function store(
         StoreIntakeRequest $request,
         CreateIntake $createIntake,
+        EnrichIntakeAddress $enrichIntakeAddress,
         SendCustomerIntakeLink $sendCustomerIntakeLink,
     ): RedirectResponse {
         $intake = $createIntake->handle($request->user(), $request->validated());
+        $enrichIntakeAddress->handle($intake, $request->validated('address_lookup_id'));
         $mailResult = $sendCustomerIntakeLink->handle($intake, $request->user());
 
         return redirect()
@@ -93,8 +101,12 @@ class IntakeController extends Controller
             ->with('status', $mailResult->flashMessage('created'));
     }
 
-    public function show(Intake $intake, InstallerPhotoGalleryBuilder $photoGalleryBuilder): View
-    {
+    public function show(
+        Intake $intake,
+        InstallerPhotoGalleryBuilder $photoGalleryBuilder,
+        ExternalFactPresenter $externalFactPresenter,
+        IntakeDossierSummaryBuilder $summaryBuilder,
+    ): View {
         $this->authorize('view', $intake);
 
         $intake->load([
@@ -104,6 +116,8 @@ class IntakeController extends Controller
             'uploads',
             'answers',
             'attentionPoints',
+            'externalFacts',
+            'followUpRounds.items.uploads',
             'report',
             'review.reviewer',
         ]);
@@ -111,6 +125,8 @@ class IntakeController extends Controller
         return view('installer.intakes.show', [
             'intake' => $intake,
             'photoGroups' => $photoGalleryBuilder->handle($intake),
+            'externalData' => $externalFactPresenter->present($intake),
+            'dossierSummary' => $summaryBuilder->build($intake, $intake->templateVersion),
             'reviewDecisions' => collect(ReviewDecision::cases())
                 ->reject(static fn (ReviewDecision $decision): bool => $decision === ReviewDecision::Pending)
                 ->values(),
@@ -121,12 +137,26 @@ class IntakeController extends Controller
         StoreIntakeReviewRequest $request,
         Intake $intake,
         SubmitIntakeReview $submitIntakeReview,
+        SendCustomerFollowUpRequest $sendCustomerFollowUpRequest,
     ): RedirectResponse {
-        $submitIntakeReview->handle($intake, $request->user(), $request->validated());
+        $review = $submitIntakeReview->handle($intake, $request->user(), $request->validated());
+
+        $message = 'Beoordeling opgeslagen.';
+
+        if ($review->decision === ReviewDecision::NeedMoreInfo) {
+            $round = $intake->followUpRounds()->latest('round_number')->firstOrFail();
+            $mailResult = $sendCustomerFollowUpRequest->handle($intake->fresh() ?? $intake, $round, $request->user());
+            $message = match ($mailResult) {
+                CustomerLinkMailResult::Sent => 'Aanvullende vragen opgeslagen en naar de klant gemaild.',
+                CustomerLinkMailResult::SkippedLogMailer => 'Aanvullende vragen opgeslagen. Mail is nog niet geconfigureerd; deel de bestaande klantlink handmatig.',
+                CustomerLinkMailResult::Failed => 'Aanvullende vragen opgeslagen, maar de e-mail kon niet worden verstuurd. Deel de bestaande klantlink handmatig.',
+                default => 'Aanvullende vragen opgeslagen. Deel de bestaande klantlink met de klant.',
+            };
+        }
 
         return redirect()
             ->route('intakes.show', $intake)
-            ->with('status', 'Beoordeling opgeslagen.');
+            ->with('status', $message);
     }
 
     public function suggestAttention(Intake $intake, SuggestAttentionPoints $suggestAttentionPoints): RedirectResponse
@@ -241,6 +271,25 @@ class IntakeController extends Controller
         return Storage::disk($disk)->download($path, $filename, [
             'Content-Type' => 'application/pdf',
         ]);
+    }
+
+    public function previewReport(Intake $intake): Response
+    {
+        $this->authorize('view', $intake);
+
+        $intake->loadMissing('report');
+        $report = $intake->report;
+
+        if ($report === null) {
+            throw new NotFoundHttpException('Rapport is nog niet beschikbaar.');
+        }
+
+        return response($report->html)
+            ->header('Content-Type', 'text/html; charset=UTF-8')
+            ->header(
+                'Content-Security-Policy',
+                "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; frame-ancestors 'self'; base-uri 'none'; form-action 'none'",
+            );
     }
 
     public function regeneratePdf(Intake $intake): RedirectResponse

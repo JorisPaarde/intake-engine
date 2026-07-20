@@ -43,10 +43,27 @@
                         <x-input-error :messages="$errors->get('customer_phone')" class="mt-2" />
                     </div>
 
-                    <div>
+                    <div class="relative" data-address-autocomplete data-endpoint="{{ route('address-suggestions') }}">
                         <x-input-label for="address_line" value="Adres" />
-                        <x-text-input id="address_line" name="address_line" class="mt-1 block w-full" type="text" :value="old('address_line')" required />
+                        <x-text-input
+                            id="address_line"
+                            name="address_line"
+                            class="mt-1 block w-full"
+                            type="text"
+                            :value="old('address_line')"
+                            autocomplete="street-address"
+                            aria-autocomplete="list"
+                            aria-controls="address-suggestions"
+                            required
+                        />
+                        <input id="address_lookup_id" name="address_lookup_id" type="hidden" value="{{ old('address_lookup_id') }}">
+                        <ul
+                            id="address-suggestions"
+                            class="absolute z-20 mt-1 hidden max-h-64 w-full overflow-y-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+                            role="listbox"
+                        ></ul>
                         <x-input-error :messages="$errors->get('address_line')" class="mt-2" />
+                        <x-input-error :messages="$errors->get('address_lookup_id')" class="mt-2" />
                     </div>
 
                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -121,4 +138,90 @@
             })();
         </script>
     @endif
+
+    <script>
+        (function () {
+            const root = document.querySelector('[data-address-autocomplete]');
+            const input = document.getElementById('address_line');
+            const lookupId = document.getElementById('address_lookup_id');
+            const postalCode = document.getElementById('address_postal_code');
+            const city = document.getElementById('address_city');
+            const list = document.getElementById('address-suggestions');
+
+            if (!root || !input || !lookupId || !postalCode || !city || !list) return;
+
+            let timer = null;
+            let request = null;
+
+            function close() {
+                list.replaceChildren();
+                list.classList.add('hidden');
+            }
+
+            function selectSuggestion(suggestion) {
+                input.value = suggestion.address_line;
+                postalCode.value = suggestion.postal_code;
+                city.value = suggestion.city;
+                lookupId.value = suggestion.id;
+                close();
+                input.focus();
+            }
+
+            function show(suggestions) {
+                close();
+
+                suggestions.forEach(function (suggestion) {
+                    const item = document.createElement('li');
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'block w-full px-3 py-2 text-left text-sm text-gray-800 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none';
+                    button.setAttribute('role', 'option');
+                    button.textContent = suggestion.label;
+                    button.addEventListener('click', function () { selectSuggestion(suggestion); });
+                    item.appendChild(button);
+                    list.appendChild(item);
+                });
+
+                list.classList.toggle('hidden', suggestions.length === 0);
+            }
+
+            input.addEventListener('input', function () {
+                lookupId.value = '';
+                window.clearTimeout(timer);
+                if (request) request.abort();
+
+                const query = input.value.trim();
+                if (query.length < 3) {
+                    close();
+                    return;
+                }
+
+                timer = window.setTimeout(async function () {
+                    request = new AbortController();
+
+                    try {
+                        const url = new URL(root.dataset.endpoint, window.location.origin);
+                        url.searchParams.set('q', query);
+                        const response = await fetch(url, {
+                            headers: { 'Accept': 'application/json' },
+                            signal: request.signal,
+                        });
+                        if (!response.ok) return close();
+                        const payload = await response.json();
+                        show(Array.isArray(payload.data) ? payload.data : []);
+                    } catch (error) {
+                        if (error.name !== 'AbortError') close();
+                    }
+                }, 250);
+            });
+
+            input.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape') close();
+            });
+
+            document.addEventListener('click', function (event) {
+                if (!root.contains(event.target)) close();
+            });
+        })();
+    </script>
 </x-app-layout>

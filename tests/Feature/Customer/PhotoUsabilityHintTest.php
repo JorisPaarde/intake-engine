@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Enums\IntakeStatus;
@@ -39,6 +40,12 @@ test('a dark photo shows a non-blocking hint and does not block the flow', funct
         'customer_name' => 'Foto Klant',
         'customer_email' => 'foto@example.com',
     ]);
+    app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
+    $intake->update([
+        'current_section_key' => 'rooms',
+        'current_question_key' => 'room_photos',
+        'current_section_instance_key' => 'room-1',
+    ]);
 
     $composite = 'room-1__room_photos';
 
@@ -48,10 +55,18 @@ test('a dark photo shows a non-blocking hint and does not block the flow', funct
     $hint = $component->get('photoHint');
 
     expect($hint[$composite] ?? null)->toContain('donker')
+        ->toContain('nieuwe foto met meer licht')
+        ->toContain('vanuit de deuropening')
+        ->toContain('muren waar de unit zou kunnen hangen')
         ->and($component->get('showMissing'))->toBeFalse();
 
     $component->assertHasNoErrors('photoFiles.'.$composite);
 
     // The photo was still stored — the hint never blocks the upload.
     expect($intake->uploads()->where('question_key', 'room_photos')->count())->toBe(1);
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->assertSee('Maak een nieuwe foto met meer licht.')
+        ->assertSee('vanuit de deuropening')
+        ->assertSee('muren waar de unit zou kunnen hangen');
 });

@@ -14,6 +14,7 @@ use App\Enums\QuestionType;
 use App\Enums\TemplateVersionStatus;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
@@ -53,6 +54,7 @@ final class CreateIntake
                 : now()->addDays((int) config('intake.token_ttl_days', 60));
 
             $intake = Intake::query()->create([
+                'uuid' => (string) Str::uuid(),
                 'intake_template_version_id' => $version->id,
                 'created_by' => $creator->id,
                 'status' => IntakeStatus::Sent,

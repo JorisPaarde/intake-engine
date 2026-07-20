@@ -138,6 +138,18 @@ class Intake extends Model
         return $this->hasMany(IntakeAttentionPoint::class);
     }
 
+    /** @return HasMany<IntakeExternalFact, $this> */
+    public function externalFacts(): HasMany
+    {
+        return $this->hasMany(IntakeExternalFact::class);
+    }
+
+    /** @return HasMany<IntakeFollowUpRound, $this> */
+    public function followUpRounds(): HasMany
+    {
+        return $this->hasMany(IntakeFollowUpRound::class)->orderBy('round_number');
+    }
+
     /** @return HasOne<IntakeReview, $this> */
     public function review(): HasOne
     {

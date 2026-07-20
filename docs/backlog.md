@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 3.23 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.30 · **Laatste update:** 2026-07-20 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -14,13 +14,13 @@ Status: `backlog` · `ready` · `in_progress` · `done` · `dropped` — priorit
 
 | Epic | Naam | Koppeling met hoofddoel / ontwerpprincipe |
 |------|------|-------------------------------------------|
-| E1 | Frictieloze basisflow | Elke haperende stap (mislukte foto-upload, SSL-waarschuwing, onbevestigde werking) kost de aanvrager extra handelingen of breekt het pad naar een bruikbaar dossier. |
-| E2 | Communicatie zonder handwerk | Link doorsturen, afronding signaleren en nabellen zijn nu handmatige installateurshandelingen; die moeten verdwijnen. |
+| E1 | Frictieloze basisflow | Elke haperende stap (mislukte foto-upload, SSL-waarschuwing, onbevestigde werking) kost de aanvrager extra handelingen of breekt het pad naar een bruikbaar dossier; kernmetrics moeten die frictie zichtbaar maken. |
+| E2 | Communicatie zonder handwerk | Link doorsturen, afronding signaleren, nabellen en ongestructureerd om extra informatie vragen zijn handmatige installateurshandelingen; die moeten verdwijnen. |
 | E3 | Vraag minder, verzamel slimmer | Directe toepassing van het ontwerpprincipe op de intake zelf: hergebruik wat bekend is, kies per gegeven de snelste en duidelijkste verzamelmethode. |
 | E4 | AI bespaart beoordeelwerk | Samenvatting, aandachtspunten en fotokwaliteitscheck besparen de installateur leeswerk en de aanvrager een extra aanleverronde. AI blijft ondersteunend (docs/ai.md). |
 | E5 | Bruikbaar dossier & klaar voor groei | Het dossier moet buiten de browser bruikbaar zijn en het product moet zonder extra handelingen te ervaren, beheren en opschalen zijn. |
 
-Volgorde-advies: volg kolom **#** in de overzichtstabel hieronder. De rode draad: eerst lopend werk afronden (BL-001; BL-002/BL-004/BL-005/BL-006/BL-007/BL-008/BL-009/BL-014/BL-015/BL-016/BL-021/BL-022/BL-023/BL-024/BL-025 done), dan drempelloze aanlevering (BL-011 domein/SSL) — daarna slimme afleiding (BL-019, BL-020) en tot slot groei-/beheeritems. Parallelisatie: zie [§ Parallelisatie](#parallelisatie) en kolom **Band**.
+Volgorde-advies: volg kolom **#** in de overzichtstabel hieronder. De rode draad: demo/staging afronden (BL-001), parallel de externe drempel BL-011 oplossen en tot slot groei-/beheeritems. Externe activering van de code-complete foto-afleiding blijft een DPIA/env-actie. Parallelisatie: zie [§ Parallelisatie](#parallelisatie) en kolom **Band**.
 
 ## Parallelisatie
 
@@ -30,18 +30,20 @@ Items in **verschillende parallel-bands** kunnen tegelijk door aparte agents/men
 |------|------|--------------|------------------|
 | **A** | Afronden (lopend) | BL-001 | D–I (staging-config/smoke; weinig codeconflict) |
 | **D** | Infra (extern) | BL-011 | Alles (vooral producteigenaar/host) |
-| **F** | Open data / adres | BL-019 | A, D, H, I; BAG-prefill bouwt voort op afgeronde BL-016-kaders |
-| **H** | AI-keten | BL-020 (multimodaal) | A, D, F, I. BL-006-clientlaag + BL-007 done; BL-020 wacht op een **multimodale** LLM productief (+ DPIA) |
+| **F** | Open data / adres | — (BL-019 done) | — |
+| **H** | AI-keten | — (BL-006/007/020 done) | — |
 | **I** | Beheer / schaal | BL-010, BL-013 (BL-012 later) | Onderling parallel; met A–H zolang geen gedeelde deploy-/storage-wijziging botst |
 | **J** | Klantwizard-verbeteringen | — (BL-021–BL-025 done) | — |
 | **K** | Installateursweergave | — (BL-024 done) | — |
+| **L** | Gerichte vervolgflow | — (BL-027 done) | — |
+| **M** | Productmetrics | — (BL-026 done) | — |
 
-Afgeronde bands (niet meer te plannen): **B** = BL-016 (prefill), **C** = BL-008 (HEIC), **E** = BL-004/BL-014/BL-015 (mail-keten), **G** = BL-005 (PDF), **K** = BL-024 (installateursgalerij); band H deels: BL-006 (externe-clientlaag) + BL-007 (aandachtspunten + fotokwaliteit); band J af: BL-021/BL-022/BL-023/BL-025 (wizard-keten) done; BL-009 purge done.
+Afgeronde bands (niet meer te plannen): **B** = BL-016 (prefill), **C** = BL-008 (HEIC), **E** = BL-004/BL-014/BL-015 (mail-keten), **G** = BL-005 (PDF), **H** = BL-006/BL-007/BL-020 (AI-keten), **K** = BL-024 (installateursgalerij); band J af: BL-021/BL-022/BL-023/BL-025 (wizard-keten) done; BL-009 purge done.
 
 **Concrete parallel-startsets:**
 
-1. **Nu parallel bouwbaar:** BL-011 (extern) · BL-019 — naast afronden van BL-001; SMTP op staging aanzetten voor mail-smoketests (BL-004/014/015).
-2. **BL-020** (multimodale foto-afleiding): zodra een multimodale LLM productief is (DPIA + key); bouwt voort op de afgeronde BL-006-clientlaag en BL-007-basis.
+1. **Nu parallel uitvoerbaar:** BL-011 (extern) naast afronden van BL-001; SMTP/PDOK op staging aanzetten voor smoketests (BL-004/014/015/019/027).
+2. **Na DPIA parallel activeren:** externe AI + foto-inferentie via staging-env en smoketest; geen resterend code-item.
 3. **Laag-prioriteit parallel:** BL-010 · BL-013 · (BL-012 bij tweede klant).
 
 ## Overzicht
@@ -52,11 +54,13 @@ Geprioriteerd op het hoofddoel (herprioritering 2026-07-18): hoeveel handelingen
 |---|----|------|------|--------|------------|------|
 | 1 | BL-001 | Demo-versie van de app | E5 | in_progress | medium | A |
 | 2 | BL-011 | Eigen domein + geldig SSL voor staging | E1 | backlog | high | D · parallel |
-| 3 | BL-019 | Afleiden uit adres en openbare bronnen (satellietbeeld, BAG) | E3 | backlog | medium | F · parallel |
-| 4 | BL-020 | Foto-gedreven afleiding en adaptieve vervolgvragen | E4 | backlog | medium | H · na multimodale LLM |
-| 5 | BL-010 | Production-deployworkflow (tags + eigen omgeving) | E5 | backlog | low | I · parallel |
-| 6 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low | I · later |
-| 7 | BL-013 | S3 als mediadisk | E5 | backlog | low | I · parallel |
+| 3 | BL-010 | Production-deployworkflow (tags + eigen omgeving) | E5 | backlog | low | I · parallel |
+| 4 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low | I · later |
+| 5 | BL-013 | S3 als mediadisk | E5 | backlog | low | I · parallel |
+| — | BL-020 | Foto-gedreven afleiding en adaptieve vervolgvragen | E4 | done | medium | H (done) |
+| — | BL-019 | Afleiden uit adres en openbare bronnen (luchtfoto, BAG) | E3 | done | medium | F (done) |
+| — | BL-026 | Kernmetrics voor frictie en dossierbruikbaarheid | E1 | done | medium | M (done) |
+| — | BL-027 | Gerichte aanvullende-informatieronde na beoordeling | E2 | done | high | L (done) |
 | — | BL-025 | Wizard-responstijd: dubbele queries per Livewire-request terugdringen | E1 | done | low | J (done) |
 | — | BL-006 | Externe LLM-provider (clientlaag; activering na DPIA + key) | E4 | done | medium | H (done) |
 | — | BL-007 | AI-uitbreidingen: attention points, fotokwaliteit, accepteren/verwijderen | E4 | done | low | H (done) |
@@ -143,6 +147,17 @@ De flow van Fase 1–6 belooft "zo min mogelijk handelingen", maar dat geldt all
 - **Kaders:** gedrag ongewijzigd (pure performance); let op Livewire-hydration en stale state na `SaveIntakeAnswer`/uploads; bestaande featuretests blijven de poort.
 - **Afhankelijkheden:** geen harde; na de andere band-J-items zodat er niet in hetzelfde bestand geparallelliseerd wordt.
 
+### BL-026 — Kernmetrics voor frictie en dossierbruikbaarheid
+
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-07-20 · **Ref:** `docs/metrics.md`
+- **Parallel:** band **M** — parallel met productwerk; raakt vooral privacyveilige events en een interne meetweergave.
+- **Doel:** meet per intake de uitkomsten waarop het product wordt gestuurd: afrondingspercentage, doorlooptijd, aantal klantacties, uitvalpunt, aantal aanvullende contact-/informatierondes, oordeel `enough_info`, en tijd van aanvraag tot installateursbesluit.
+- **Waarom:** zonder deze metingen is niet aantoonbaar of een wijziging werkelijk minder werk oplevert. De bestaande activity events dekken losse gebeurtenissen, maar nog geen samenhangende funnel of beslissnelheid.
+- **Kaders:** geen tokens, vrije klanttekst of foto-inhoud in analytics; gebruik bestaande identifiers/timestamps en expliciete gebeurtenistypen; definieer elke metric in documentatie zodat cijfers reproduceerbaar blijven; interne toegang voor installateurs/beheerders.
+- **Acceptatie:** een testbare metrics-service levert de definities per intake en geaggregeerd; een interne weergave toont ten minste completion, mediane doorlooptijd, acties, aanvullende rondes, `enough_info` en beslissnelheid; nulmeting en staging-smoke zijn vastgelegd.
+- **Afhankelijkheden:** BL-027 levert het expliciete aantal aanvullende informatierondes; zonder dat item mag de metric als `0/onbekend` worden weergegeven.
+- **Resultaat:** `IntakeMetricsService` leidt zonder extra analytics-opslag per intake en geaggregeerd completion, mediane klanttijd/-acties, uitvalpunt, rondes, `enough_information` bij de **eerste** beoordeling en tijd tot eerste beoordeling af. `/metrics` is auth+verified, filtert 30/90/alles, sluit demo's uit en toont geen PII/vrije tekst/tokens. `answer_saved` registreert vanaf nu alleen de veilige vraag-/instantiekey; historische intakes gebruiken een antwoordrecord-fallback. Exacte definities, lokale nulmeting en staging-smokechecklist staan in `docs/metrics.md`; staging-smoke blijft `todo` tot deploy.
+
 ## Epic E2 — Communicatie zonder handwerk
 
 Tussen "installateur maakt opname aan" en "installateur beoordeelt dossier" zitten nu drie handmatige handelingen: de link zelf versturen, het dashboard checken op afgeronde intakes, en stilgevallen aanvragers nabellen. Elk daarvan kan het systeem overnemen.
@@ -170,6 +185,17 @@ Tussen "installateur maakt opname aan" en "installateur beoordeelt dossier" zitt
 - **Resultaat:** daily `intakes:send-reminders`; `INTAKE_REMINDER_DAYS` (default 3); kolom `reminder_sent_at`; max. één mail; stopt bij demo/ingetrokken/verlopen/niet-klanttoegankelijk; skip bij `MAIL_MAILER=log` (ADR-0002); activity-event `customer_reminder_mailed`.
 - **Afhankelijkheden:** SMTP voor echte bezorging (zelfde als BL-004).
 - **Niet doen:** herhaald mailen; maximaal één herinnering per intake, en stoppen bij ingetrokken/verlopen token.
+
+### BL-027 — Gerichte aanvullende-informatieronde na beoordeling
+
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-20
+- **Parallel:** band **L** (done).
+- **Doel:** als het dossier nog niet genoeg informatie bevat, formuleert de installateur één of meer concrete vervolgvragen, foto- of documentopdrachten, verstuurt het systeem die in één klantvriendelijke ronde, en opent de klant alleen de ontbrekende stappen. Na aanvullen wordt hetzelfde dossier opnieuw ter beoordeling aangeboden.
+- **Waarom:** `need_more_info` registreert nu alleen een besluit. De installateur moet daarna buiten het systeem achterhalen wat ontbreekt, contact opnemen en losse antwoorden terugplaatsen; dat is precies het nawerk dat het productdoel wil verwijderen.
+- **Kaders:** installateur blijft beslisser; vragen zijn expliciet en bewerkbaar; bestaande klanttoken en privacyregels hergebruiken; geen volledige intake opnieuw doorlopen; elke ronde en doorlooptijd wordt als privacyveilig activity event vastgelegd voor BL-026.
+- **Acceptatie:** installateur kan gerichte vervolgitems toevoegen en versturen; klant ziet uitsluitend die items, kan tekst/foto's/documenten aanleveren en afronden; status en notificatie doorlopen opnieuw de reviewketen; rapport behoudt eerdere antwoorden en markeert de nieuwe bron/ronde; featuretests dekken tekst, foto, PDF, verlopen token en maximaal toegestane rondes.
+- **Afhankelijkheden:** SMTP voor echte bezorging; de flow moet ook met de bestaande kopieerbare link bruikbaar blijven.
+- **Resultaat:** `need_more_info` vereist 1–5 concrete tekst-, foto- of PDF-documentitems en zet de intake op `awaiting_customer`; dezelfde geldige token opent een aparte vervolgmodus met alleen die items. Tekst autosavet; foto's gebruiken dezelfde normalisatie/private storage; PDF's worden op server-MIME én `%PDF-`-signatuur gecontroleerd en eveneens privé bewaard. Na complete aanvulling wordt ronde + privacyveilig event vastgelegd, rapport/PDF herbouwd en de intake opnieuw `completed` met installateursnotificatie. Installateurdetail toont alle rondes, antwoorden, foto's en documenten. Standaard max. 3 rondes, 5 foto's of 3 documenten per item; SMTP blijft fail-soft met de kopieerbare klantlink als fallback. Featuretests dekken tekst, foto, PDF, ongeldige documentinhoud, mail, rapport, gesloten token na afronding, verlopen token en rondelimiet; staging-smoke staat als `todo`.
 
 ## Epic E3 — Vraag minder, verzamel slimmer
 
@@ -220,12 +246,14 @@ De meest directe toepassing van het ontwerpprincipe: *de applicatie vraagt niets
 
 ### BL-019 — Afleiden uit adres en openbare bronnen (satellietbeeld, BAG)
 
-- **Status:** backlog · **Prioriteit:** medium
+- **Status:** done *(code; staging/privacy-gate open)* · **Prioriteit:** medium · **Datum:** 2026-07-20 · **Ref:** ADR-0007, `docs/intake-engine.md`, `docs/database.md`
 - **Parallel:** band **F** — parallel met A/D/E/G/H/I; gebruikt BL-016-kaders (voorzet, geen verborgen aanname).
 - **Doel:** het adres is al bekend bij het aanmaken van de opname (`intakes.address_*`); gebruik dat om vragen te schrappen of te verifiëren i.p.v. ze te stellen:
   - **Satelliet-/luchtfoto** (bijv. Google Maps Static API of PDOK-luchtfoto) tonen in het installateursrapport en als context bij de buitenunit-/gevelvragen — kan `facade_overview_photo` deels vervangen of de aanvrager alleen om bevestiging vragen ("klopt dit beeld van uw woning?");
   - **BAG/open data:** bouwjaar (`build_year`) en gebouwtype (`building_type`) zijn vaak uit openbare registers af te leiden; toon als voorzet die de aanvrager alleen bevestigt (kader BL-016: prefill is een voorzet, geen verborgen aanname).
 - **Kaders:** afgeleide waarden zijn deterministisch of door de aanvrager bevestigd; API-keys via `.env`, nooit in git; kosten/quota van externe API's afwegen (PDOK/BAG is gratis en Nederlands, Google Maps betaald). Privacy: adres alleen naar externe API sturen als daar een verwerkingsgrondslag voor is — meenemen in dezelfde DPIA-lijn als BL-006.
+- **Resultaat:** authenticated adres-autocomplete via PDOK Locatieserver vult straat, postcode en plaats in één selectie. Na aanmaken haalt een fail-soft verrijkingsactie BAG-verblijfsobject/pand op en bewaart bouwjaar, gebruiksdoel, gebruiksoppervlakte, coördinaten en perceelreferentie met bron/zekerheid. Airco **v4** slaat `build_year` alleen over bij een eenduidig BAG-antwoord. Bij coördinaten haalt de server ook `Actueel_orthoHR` via PDOK WMS op als gevalideerde private JPEG; installateursdetail, HTML en PDF tonen die met centrumstip, schaalcontext, bron en onzekerheid. WMS-falen laat BAG intact; purge verwijdert media. De optionele gevelfoto vervalt bewust niet: bovenaanzicht bewijst gevel, route, obstakels en montageplek niet.
+- **Resterende gate (niet-code):** staging-smoke + privacy/grondslag formeel accorderen vóór echte klantdata; zo nodig `PDOK_ENABLED=false` of alleen `PDOK_AERIAL_ENABLED=false`.
 - **Afhankelijkheden:** geen harde; rapportintegratie kan los van de klantflow. Bij externe API's: DPIA-afweging (zie BL-006).
 
 ## Epic E4 — AI bespaart beoordeelwerk
@@ -248,7 +276,7 @@ AI mag nooit bron van waarheid zijn (docs/ai.md, ADR-0005), maar kan wél handel
 
 ### BL-020 — Foto-gedreven afleiding en adaptieve vervolgvragen
 
-- **Status:** backlog · **Prioriteit:** medium
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-07-20 · **PR:** (deze PR)
 - **Parallel:** band **H** — **ná** BL-006, parallel met BL-007; template-kant mag aansluiten op afgeronde BL-016/v2/v3.
 - **Doel:** foto's niet alleen opslaan maar er informatie uit **afleiden**, zodat vragen vervallen of juist gericht gesteld worden. Voorbeelden (richting, geen letterlijke scope):
   - **Meterkastfoto:** herken of er een vrije groep is; zit de kast vol → stel gericht de vervolgvragen die daarbij horen (uitbreiding groepenkast, 1-fase/3-fase) en sla `free_group_known` als vraag over;
@@ -257,6 +285,7 @@ AI mag nooit bron van waarheid zijn (docs/ai.md, ADR-0005), maar kan wél handel
 - **Kaders (ADR-0005, docs/ai.md):** AI-uitkomsten zijn altijd een **voorzet** — de aanvrager of installateur bevestigt; deterministische regels (`show`/`require`) blijven de enige poort voor verplichte velden. Een AI-afleiding mag een vraag *invullen als voorzet* of een *conditionele vervolgvraag activeren via een bevestigd antwoord*, maar nooit stil een verplicht veld wegnemen. Foto-analyse loopt async (ADR-0004) en mag de flow nooit blokkeren: geen of trage analyse = gewoon de vraag stellen.
 - **Uitvoering (gefaseerd):** eerst de template-kant (vragen conditioneel maken op een bevestigbaar afleidingsantwoord, via BL-017-versie), dan `AssessPhoto*`-acties achter `AiClientInterface`, dan de klantflow-integratie ("wij zien op uw foto X — klopt dat?").
 - **Afhankelijkheden:** BL-006-clientlaag is er (activering wacht op DPIA + key); een **multimodale** LLM productief is nog nodig voor betrouwbare beeldherkenning. BL-007 legde de `AssessPhotoUsability`-basis (done); BL-017/BL-018 voor de template- en flowkant.
+- **Resultaat:** airco v5 markeert `fusebox_photo` voor multimodale beoordeling. `AssessFuseboxPhotos` verstuurt na expliciete privacyflag maximaal twee private meterkastfoto's via de bestaande providerinterface, valideert een beperkte vrije-groep-/fase-uitkomst en vult alleen een hoge-zekerheidswaarde als zichtbare, door de klant te bevestigen voorzet in. Onzekere output levert een concrete herhaalfoto-instructie; klantantwoorden worden nooit overschreven. Dossier/HTML/PDF tonen het afgeleide feit met provider, runreferentie, bron en verplichte installateurscontrole. Dezelfde afbeeldingshash is idempotent; verwijderen van bewijs wist afleiding. OpenAI-beeldinput gebruikt data-URL's alleen in transit, nooit in DB/logs. Runtime blijft standaard uit; DPIA, key, env-activatie en staging-smoke staan in deployment/teststatus.
 
 ## Epic E5 — Bruikbaar dossier & klaar voor groei
 
@@ -318,6 +347,7 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 
 | ID | Afgerond | PR |
 |----|----------|-----|
+| BL-020 | 2026-07-20 | (deze PR) — bevestigbare meterkastfoto-afleiding + airco v5; externe activering na DPIA |
 | BL-025 | 2026-07-18 | #34 — wizard request-caching (herstel van gesloten #32) |
 | BL-007 | 2026-07-18 | (deze PR) — heuristische aandachtspunten + accept/verwijder + fotokwaliteit |
 | BL-006 | 2026-07-18 | (deze PR) — `OpenAiClient` + redactie achter `AiClientInterface` (activering na DPIA + key) |

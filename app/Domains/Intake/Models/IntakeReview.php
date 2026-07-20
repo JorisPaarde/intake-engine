@@ -8,7 +8,18 @@ use App\Enums\ReviewDecision;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property int $id
+ * @property int $intake_id
+ * @property int $reviewer_id
+ * @property ReviewDecision $decision
+ * @property bool $site_visit_needed
+ * @property bool $enough_information
+ * @property string|null $summary
+ * @property Carbon|null $reviewed_at
+ */
 class IntakeReview extends Model
 {
     protected $fillable = [

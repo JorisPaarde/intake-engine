@@ -10,6 +10,11 @@ use App\Enums\AiRunType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property AiRunType $type
+ * @property AiRunStatus $status
+ * @property array<string, mixed>|null $output
+ */
 class AiRun extends Model
 {
     protected $fillable = [

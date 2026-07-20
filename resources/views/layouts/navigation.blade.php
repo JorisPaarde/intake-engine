@@ -18,6 +18,9 @@
                     <x-nav-link :href="route('intakes.create')" :active="request()->routeIs('intakes.create')">
                         {{ __('Nieuwe opname') }}
                     </x-nav-link>
+                    <x-nav-link :href="route('metrics')" :active="request()->routeIs('metrics')">
+                        {{ __('Resultaten') }}
+                    </x-nav-link>
                 </div>
             </div>
 
@@ -75,6 +78,9 @@
             </x-responsive-nav-link>
             <x-responsive-nav-link :href="route('intakes.create')" :active="request()->routeIs('intakes.create')">
                 {{ __('Nieuwe opname') }}
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('metrics')" :active="request()->routeIs('metrics')">
+                {{ __('Resultaten') }}
             </x-responsive-nav-link>
         </div>
 

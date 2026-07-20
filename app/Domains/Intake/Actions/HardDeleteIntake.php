@@ -14,10 +14,19 @@ final class HardDeleteIntake
 {
     public function handle(Intake $intake): void
     {
-        $intake->loadMissing('report');
+        $intake->loadMissing(['report', 'externalFacts']);
 
         foreach ($intake->uploads()->withTrashed()->get() as $upload) {
             $this->deleteStorageFile($upload->disk, $upload->path);
+        }
+
+        foreach ($intake->externalFacts as $fact) {
+            $disk = $fact->value['media_disk'] ?? null;
+            $path = $fact->value['media_path'] ?? null;
+            $this->deleteStorageFile(
+                is_string($disk) ? $disk : null,
+                is_string($path) ? $path : null,
+            );
         }
 
         $report = $intake->report;

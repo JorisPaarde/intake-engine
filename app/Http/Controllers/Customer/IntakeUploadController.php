@@ -32,13 +32,16 @@ class IntakeUploadController extends Controller
             abort(404);
         }
 
-        return $disk->response(
-            $upload->path,
-            $upload->original_filename,
-            [
-                'Content-Type' => $upload->mime_type,
-                'Cache-Control' => 'private, max-age=3600',
-            ],
-        );
+        $headers = [
+            'Content-Type' => $upload->mime_type,
+            'Cache-Control' => 'private, max-age=3600',
+            'X-Content-Type-Options' => 'nosniff',
+        ];
+
+        if (! str_starts_with($upload->mime_type, 'image/')) {
+            return $disk->download($upload->path, $upload->original_filename, $headers);
+        }
+
+        return $disk->response($upload->path, $upload->original_filename, $headers);
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Domains\AI\Clients\OpenAiClient;
 use App\Domains\AI\DTOs\AiCompletionRequest;
+use App\Domains\AI\DTOs\AiImageInput;
 use App\Domains\AI\Exceptions\AiClientException;
 use App\Domains\AI\Services\AiInputRedactor;
 use Illuminate\Support\Facades\Http;
@@ -64,6 +65,38 @@ test('openai client redacts PII in the outgoing payload', function () {
         $body = json_encode($request->data());
 
         return ! str_contains($body, 'jan@example.com') && ! str_contains($body, '12345678');
+    });
+});
+
+test('openai client sends private image bytes as a data url only in the request', function () {
+    config(['ai.provider' => 'openai', 'ai.api_key' => 'test-key']);
+
+    Http::fake([
+        '*/chat/completions' => Http::response([
+            'choices' => [['message' => ['content' => json_encode([
+                'free_group' => 'yes',
+                'phase' => 'three_phase',
+                'confidence' => 'high',
+                'evidence' => 'Vrije positie zichtbaar.',
+                'retake_instruction' => null,
+            ])]]],
+        ], 200),
+    ]);
+
+    app(OpenAiClient::class)->complete(new AiCompletionRequest(
+        prompt: 'Beoordeel als JSON.',
+        input: ['task' => 'fusebox'],
+        promptVersion: 'fusebox-assessment-v1',
+        images: [new AiImageInput('image/jpeg', 'private-image-bytes')],
+    ));
+
+    Http::assertSent(function ($request): bool {
+        $content = $request->data()['messages'][1]['content'] ?? [];
+
+        return ($content[0]['type'] ?? null) === 'text'
+            && ($content[1]['type'] ?? null) === 'image_url'
+            && ($content[1]['image_url']['detail'] ?? null) === 'high'
+            && ($content[1]['image_url']['url'] ?? null) === 'data:image/jpeg;base64,'.base64_encode('private-image-bytes');
     });
 });
 

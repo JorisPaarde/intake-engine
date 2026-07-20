@@ -37,6 +37,22 @@ final class OpenAiClient implements AiClientInterface
 
         $system = trim($request->prompt."\n\n".($request->system ?? ''));
         $redactedInput = $this->redactor->redact($request->input);
+        $userContent = [
+            [
+                'type' => 'text',
+                'text' => (string) json_encode($redactedInput, JSON_THROW_ON_ERROR),
+            ],
+        ];
+
+        foreach ($request->images as $image) {
+            $userContent[] = [
+                'type' => 'image_url',
+                'image_url' => [
+                    'url' => 'data:'.$image->mimeType.';base64,'.base64_encode($image->binary),
+                    'detail' => $image->detail,
+                ],
+            ];
+        }
 
         try {
             $response = Http::baseUrl($baseUrl)
@@ -49,7 +65,7 @@ final class OpenAiClient implements AiClientInterface
                     'response_format' => ['type' => 'json_object'],
                     'messages' => [
                         ['role' => 'system', 'content' => $system],
-                        ['role' => 'user', 'content' => (string) json_encode($redactedInput, JSON_THROW_ON_ERROR)],
+                        ['role' => 'user', 'content' => $userContent],
                     ],
                 ]);
         } catch (\Throwable $e) {

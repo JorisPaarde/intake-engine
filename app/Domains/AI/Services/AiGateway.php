@@ -7,6 +7,7 @@ namespace App\Domains\AI\Services;
 use App\Domains\AI\Contracts\AiClientInterface;
 use App\Domains\AI\DTOs\AiCompletionRequest;
 use App\Domains\AI\DTOs\AiCompletionResult;
+use App\Domains\AI\DTOs\AiImageInput;
 use App\Domains\AI\Exceptions\AiClientException;
 
 final class AiGateway
@@ -17,15 +18,22 @@ final class AiGateway
 
     /**
      * @param  array<string, mixed>  $input
+     * @param  list<AiImageInput>  $images
      */
-    public function complete(string $prompt, array $input, string $promptVersion, ?string $system = null): AiCompletionResult
-    {
+    public function complete(
+        string $prompt,
+        array $input,
+        string $promptVersion,
+        ?string $system = null,
+        array $images = [],
+    ): AiCompletionResult {
         try {
             return $this->client->complete(new AiCompletionRequest(
                 prompt: $prompt,
                 input: $input,
                 promptVersion: $promptVersion,
                 system: $system,
+                images: $images,
             ));
         } catch (AiClientException $e) {
             throw $e;
