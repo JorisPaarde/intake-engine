@@ -8,28 +8,34 @@ use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\AiGateway;
 use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\Intake\Models\Intake;
-use App\Domains\Intake\Services\GenerateIntakeReportHtml;
+use App\Domains\Intake\Models\IntakeAttentionPoint;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
+use App\Enums\AttentionPointSource;
 use App\Enums\AttentionPointStatus;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
-final class SummarizeIntake
+/**
+ * Proposes non-binding attention points for an intake (BL-007). AI is supporting,
+ * never source of truth (ADR-0005): points land as `proposed` and the installer
+ * accepts or dismisses them. Soft-fail: any failure records a failed AiRun and
+ * leaves existing points untouched.
+ */
+final class SuggestAttentionPoints
 {
     public function __construct(
         private readonly AiGateway $aiGateway,
         private readonly PromptVersionRepository $promptVersions,
-        private readonly GenerateIntakeReportHtml $generateIntakeReportHtml,
     ) {}
 
     public function handle(Intake $intake): AiRun
     {
-        $intake->loadMissing(['answers', 'uploads', 'attentionPoints', 'report', 'templateVersion.template']);
+        $intake->loadMissing(['answers', 'templateVersion.template']);
 
-        $promptName = (string) config('ai.summary_prompt', 'summary');
+        $promptName = (string) config('ai.attention_points_prompt', 'attention_points');
         $promptVersion = $this->promptVersions->version($promptName);
         $promptBody = $this->promptVersions->body($promptName);
         $provider = (string) config('ai.provider', 'null');
@@ -39,7 +45,7 @@ final class SummarizeIntake
 
         $run = AiRun::query()->create([
             'intake_id' => $intake->id,
-            'type' => AiRunType::Summary,
+            'type' => AiRunType::AttentionPoints,
             'provider' => $provider,
             'model' => null,
             'prompt_version' => $promptVersion,
@@ -56,22 +62,21 @@ final class SummarizeIntake
                 promptVersion: $promptVersion,
             );
 
-            $validated = $this->validateOutput($result->output);
+            $points = $this->validateOutput($result->output);
+            $this->persistProposals($intake, $points);
 
             $run->update([
                 'status' => AiRunStatus::Succeeded,
                 'provider' => $result->provider,
                 'model' => $result->model,
-                'output' => $validated,
+                'output' => ['points' => $points],
                 'finished_at' => now(),
                 'error_message' => null,
             ]);
 
-            $this->attachSummaryToReport($intake, $validated, $run->fresh() ?? $run);
-
             return $run->fresh() ?? $run;
         } catch (\Throwable $e) {
-            Log::warning('AI summarize failed', [
+            Log::warning('AI attention points failed', [
                 'intake_id' => $intake->id,
                 'ai_run_id' => $run->id,
                 'message' => $e->getMessage(),
@@ -88,7 +93,7 @@ final class SummarizeIntake
     }
 
     /**
-     * @return array{answers: array<string, mixed>, attention_point_codes: list<string>, template_key: string|null, template_version: int|null}
+     * @return array{answers: array<string, mixed>, template_key: string|null, template_version: int|null}
      */
     private function buildPayload(Intake $intake): array
     {
@@ -104,11 +109,6 @@ final class SummarizeIntake
 
         return [
             'answers' => $answers,
-            'attention_point_codes' => $intake->attentionPoints
-                ->pluck('code')
-                ->filter()
-                ->values()
-                ->all(),
             'template_key' => $intake->templateVersion?->template?->key,
             'template_version' => $intake->templateVersion?->version,
         ];
@@ -116,78 +116,76 @@ final class SummarizeIntake
 
     /**
      * @param  array<string, mixed>  $output
-     * @return array{summary: string, highlights: list<string>}
+     * @return list<array{code: string, label: string}>
      */
     private function validateOutput(array $output): array
     {
         $validator = Validator::make($output, [
-            'summary' => ['required', 'string', 'min:10', 'max:4000'],
-            'highlights' => ['required', 'array', 'min:1', 'max:12'],
-            'highlights.*' => ['required', 'string', 'max:500'],
+            'points' => ['present', 'array', 'max:20'],
+            'points.*.code' => ['required', 'string', 'max:100', 'regex:/^[a-z0-9_]+$/'],
+            'points.*.label' => ['required', 'string', 'max:500'],
         ]);
 
         if ($validator->fails()) {
             throw ValidationException::withMessages($validator->errors()->toArray());
         }
 
-        /** @var array{summary: string, highlights: list<string>} $validated */
+        /** @var array{points: list<array{code: string, label: string}>} $validated */
         $validated = $validator->validated();
 
-        $highlights = [];
-        foreach ($validated['highlights'] as $item) {
-            $highlights[] = trim($item);
+        $points = [];
+        $seen = [];
+        foreach ($validated['points'] as $point) {
+            $code = $point['code'];
+            if (isset($seen[$code])) {
+                continue;
+            }
+            $seen[$code] = true;
+            $points[] = ['code' => $code, 'label' => trim($point['label'])];
         }
 
-        return [
-            'summary' => trim($validated['summary']),
-            'highlights' => $highlights,
-        ];
+        return $points;
     }
 
     /**
-     * @param  array{summary: string, highlights: list<string>}  $summary
+     * Idempotent on (intake, code): never duplicates, and respects a prior
+     * accept/dismiss decision. Stale still-proposed points that no longer apply
+     * are removed; accepted/dismissed ones are kept.
+     *
+     * @param  list<array{code: string, label: string}>  $points
      */
-    private function attachSummaryToReport(Intake $intake, array $summary, AiRun $run): void
+    private function persistProposals(Intake $intake, array $points): void
     {
-        $report = $intake->report;
+        $codes = array_column($points, 'code');
 
-        if ($report === null) {
-            return;
+        $intake->attentionPoints()
+            ->where('source', AttentionPointSource::Ai)
+            ->where('status', AttentionPointStatus::Proposed)
+            ->when($codes !== [], fn ($query) => $query->whereNotIn('code', $codes))
+            ->delete();
+
+        foreach ($points as $point) {
+            $existing = $intake->attentionPoints()
+                ->where('source', AttentionPointSource::Ai)
+                ->where('code', $point['code'])
+                ->first();
+
+            if ($existing === null) {
+                IntakeAttentionPoint::query()->create([
+                    'intake_id' => $intake->id,
+                    'source' => AttentionPointSource::Ai,
+                    'code' => $point['code'],
+                    'label' => $point['label'],
+                    'status' => AttentionPointStatus::Proposed,
+                ]);
+
+                continue;
+            }
+
+            // Keep an accepted/dismissed decision; only refresh a still-proposed label.
+            if ($existing->status === AttentionPointStatus::Proposed && $existing->label !== $point['label']) {
+                $existing->update(['label' => $point['label']]);
+            }
         }
-
-        $version = $intake->templateVersion()
-            ->with(['sections.questions.options', 'sections.questions.rules', 'template'])
-            ->firstOrFail();
-
-        // Only authoritative points in the report — never still-proposed/dismissed AI ones (BL-007).
-        $attentionPoints = $intake->attentionPoints
-            ->filter(static fn ($point): bool => $point->status === null
-                || $point->status === AttentionPointStatus::Accepted)
-            ->map(static fn ($point): array => [
-                'code' => (string) ($point->code ?? ''),
-                'label' => $point->label,
-            ])
-            ->values()
-            ->all();
-
-        $html = $this->generateIntakeReportHtml->handle(
-            $intake,
-            $version,
-            $attentionPoints,
-            $summary,
-        );
-
-        $rawMeta = $report->getAttribute('meta');
-        $meta = is_array($rawMeta) ? $rawMeta : [];
-        $meta['ai_summary'] = $summary;
-        $meta['ai_run_id'] = $run->id;
-        $meta['ai_provider'] = $run->provider;
-        $meta['ai_prompt_version'] = $run->prompt_version;
-
-        $report->update([
-            'html' => $html,
-            'meta' => $meta,
-            'generated_at' => now(),
-        ]);
     }
 }

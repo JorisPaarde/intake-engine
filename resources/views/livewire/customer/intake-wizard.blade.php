@@ -258,6 +258,13 @@
                                             <p class="mt-2 text-sm text-brand-ember">{{ $message }}</p>
                                         @enderror
                                     @endif
+
+                                    @if (! empty($photoHint[$composite]))
+                                        <p class="mt-3 flex items-start gap-2 rounded-md border border-brand-ember/30 bg-brand-ember/5 px-3 py-2 text-sm text-brand-ink/80" role="status" wire:key="hint-{{ $composite }}">
+                                            <span aria-hidden="true">💡</span>
+                                            <span>{{ $photoHint[$composite] }}</span>
+                                        </p>
+                                    @endif
                                 </div>
                                 @break
                         @endswitch

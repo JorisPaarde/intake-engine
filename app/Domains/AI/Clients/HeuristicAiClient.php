@@ -16,6 +16,15 @@ final class HeuristicAiClient implements AiClientInterface
 {
     public function complete(AiCompletionRequest $request): AiCompletionResult
     {
+        if (str_starts_with($request->promptVersion, 'attention_points')) {
+            return $this->attentionPoints($request);
+        }
+
+        return $this->summary($request);
+    }
+
+    private function summary(AiCompletionRequest $request): AiCompletionResult
+    {
         /** @var array<string, mixed> $answers */
         $answers = is_array($request->input['answers'] ?? null) ? $request->input['answers'] : [];
 
@@ -51,6 +60,55 @@ final class HeuristicAiClient implements AiClientInterface
                 'summary' => $summary,
                 'highlights' => $highlights,
             ],
+            provider: 'heuristic',
+            model: 'heuristic-v1',
+        );
+    }
+
+    /**
+     * Deterministic attention points derived from the answers (BL-007). Each is a
+     * *voorstel* the installer confirms; codes are stable so re-runs stay idempotent.
+     */
+    private function attentionPoints(AiCompletionRequest $request): AiCompletionResult
+    {
+        /** @var array<string, mixed> $answers */
+        $answers = is_array($request->input['answers'] ?? null) ? $request->input['answers'] : [];
+
+        $points = [];
+
+        $freeGroup = $this->choice($answers, 'free_group_known');
+        if ($freeGroup === 'no') {
+            $points[] = ['code' => 'no_free_group', 'label' => 'Geen vrije groep bekend — controleer de meterkast/voeding.'];
+        } elseif ($freeGroup === null || $freeGroup === 'unknown') {
+            $points[] = ['code' => 'free_group_unknown', 'label' => 'Onbekend of er een vrije groep is — beoordeel de meterkastfoto.'];
+        }
+
+        if ($this->bool($answers, 'natural_fall_possible') === false) {
+            $points[] = ['code' => 'condensate_pump_maybe', 'label' => 'Natuurlijk afschot lijkt niet mogelijk — mogelijk condenspomp nodig.'];
+        }
+
+        if (in_array($this->choice($answers, 'outdoor_accessibility'), ['scaffolding', 'restricted'], true)) {
+            $points[] = ['code' => 'outdoor_access_difficult', 'label' => 'Buitenunitlocatie lijkt moeilijk bereikbaar — plan mogelijk hoogwerker/steiger.'];
+        }
+
+        if ($this->bool($answers, 'noise_sensitive') === true) {
+            $points[] = ['code' => 'noise_sensitive_env', 'label' => 'Geluidsgevoelige omgeving (buren dichtbij) — let op plaatsing en geluid van de buitenunit.'];
+        }
+
+        if ($this->bool($answers, 'drillings_needed') === true) {
+            $points[] = ['code' => 'drillings_needed', 'label' => 'Boringen door muren of vloeren zijn waarschijnlijk nodig.'];
+        }
+
+        if ($this->choice($answers, 'pipe_distance_indication') === 'long') {
+            $points[] = ['code' => 'long_pipe_run', 'label' => 'Lange leidingafstand ingeschat — controleer capaciteit en materiaalkosten.'];
+        }
+
+        if ($this->choice($answers, 'building_type') === 'apartment' && $this->choice($answers, 'ownership') === 'rented') {
+            $points[] = ['code' => 'permission_needed', 'label' => 'Huurappartement — mogelijk toestemming van VvE of verhuurder nodig.'];
+        }
+
+        return new AiCompletionResult(
+            output: ['points' => $points],
             provider: 'heuristic',
             model: 'heuristic-v1',
         );

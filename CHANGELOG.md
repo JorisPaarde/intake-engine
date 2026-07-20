@@ -6,6 +6,8 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Added
 
+- BL-007 AI-uitbreidingen (ondersteunend, nooit bron van waarheid — ADR-0005): `SuggestAttentionPoints` (heuristisch, mirror van `SummarizeIntake`) stelt aandachtspunten voor (`intake_attention_points.status` = `proposed`/`accepted`/`dismissed`, bron `ai`); de installateur accepteert (→ in rapport) of verwijdert ze op de opnamepagina, idempotent en soft-fail; async na afronding + on-demand knop. `AssessPhotoUsability` beoordeelt elke foto **lokaal met GD** (`intake_uploads.usability_verdict`) → niet-blokkerende "te donker/te klein"-hint voor de klant + kwaliteitslabel voor de installateur.
+- BL-006 externe LLM-provider: `OpenAiClient` (OpenAI-compatibel, Laravel `Http`, JSON-mode) achter `AiClientInterface`, gekozen via `AI_PROVIDER=openai`; `AiInputRedactor` verwijdert e-mail/telefoon vóór verzending; config `AI_BASE_URL`/`AI_MODEL`. **Standaard uit**; activering vereist key in `.env` + DPIA/akkoord. Getest met `Http::fake()` (geen echte calls).
 - BL-023 wizard-navigatie: na `single_choice`/`boolean` automatisch door naar de volgende vraag (bevestiging “Opgeslagen”); Enter op `short_text`/`number` = Volgende; geen auto-doorgaan bij multi_choice/foto/long_text of op de laatste stap; Vorige blijft werken.
 - BL-021 foto-upload in de klantwizard: `multiple` selectie (tot `meta.max_files`), geen `capture`-force zodat camera én galerij open blijven, en per-bestand upload zodat één mislukte foto de rest van de selectie niet blokkeert.
 - BL-024 leesbare installateursgalerij: opname-detail groepeert foto’s per sectie/instantie (`InstallerPhotoGalleryBuilder`) en toont vraaglabels uit de gepinde templateversie i.p.v. rauwe `question_key` / `section_instance_key`.

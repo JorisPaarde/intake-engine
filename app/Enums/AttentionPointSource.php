@@ -8,4 +8,5 @@ enum AttentionPointSource: string
 {
     case System = 'system';
     case Reviewer = 'reviewer';
+    case Ai = 'ai';
 }

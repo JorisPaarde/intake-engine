@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 3.20 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.21 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -20,7 +20,7 @@ Status: `backlog` · `ready` · `in_progress` · `done` · `dropped` — priorit
 | E4 | AI bespaart beoordeelwerk | Samenvatting, aandachtspunten en fotokwaliteitscheck besparen de installateur leeswerk en de aanvrager een extra aanleverronde. AI blijft ondersteunend (docs/ai.md). |
 | E5 | Bruikbaar dossier & klaar voor groei | Het dossier moet buiten de browser bruikbaar zijn en het product moet zonder extra handelingen te ervaren, beheren en opschalen zijn. |
 
-Volgorde-advies: volg kolom **#** in de overzichtstabel hieronder. De rode draad: eerst lopend werk afronden (BL-001; BL-002/BL-004/BL-005/BL-008/BL-009/BL-014/BL-015/BL-016/BL-021/BL-023/BL-024 done), dan drempelloze aanlevering (BL-011 domein/SSL) en het verder gladstrijken van de bestaande flow (BL-022 — verbeterronde 2026-07-18) — daarna slimme afleiding (BL-019, BL-006, BL-020) en tot slot groei-/beheeritems. Parallelisatie: zie [§ Parallelisatie](#parallelisatie) en kolom **Band**.
+Volgorde-advies: volg kolom **#** in de overzichtstabel hieronder. De rode draad: eerst lopend werk afronden (BL-001; BL-002/BL-004/BL-005/BL-006/BL-007/BL-008/BL-009/BL-014/BL-015/BL-016/BL-021/BL-023/BL-024 done), dan drempelloze aanlevering (BL-011 domein/SSL) en het verder gladstrijken van de bestaande flow (BL-022 — verbeterronde 2026-07-18) — daarna slimme afleiding (BL-019, BL-020) en tot slot groei-/beheeritems. Parallelisatie: zie [§ Parallelisatie](#parallelisatie) en kolom **Band**.
 
 ## Parallelisatie
 
@@ -31,17 +31,17 @@ Items in **verschillende parallel-bands** kunnen tegelijk door aparte agents/men
 | **A** | Afronden (lopend) | BL-001 | D–I (staging-config/smoke; weinig codeconflict) |
 | **D** | Infra (extern) | BL-011 | Alles (vooral producteigenaar/host) |
 | **F** | Open data / adres | BL-019 | A, D, H, I; BAG-prefill bouwt voort op afgeronde BL-016-kaders |
-| **H** | AI-keten | BL-006 → daarna BL-007 + BL-020 | A, D, F, I. Binnen H: BL-007 en BL-020 parallel **ná** BL-006 (+ DPIA) |
+| **H** | AI-keten | BL-020 (multimodaal) | A, D, F, I. BL-006-clientlaag + BL-007 done; BL-020 wacht op een **multimodale** LLM productief (+ DPIA) |
 | **I** | Beheer / schaal | BL-010, BL-013 (BL-012 later) | Onderling parallel; met A–H zolang geen gedeelde deploy-/storage-wijziging botst |
 | **J** | Klantwizard-verbeteringen | BL-022 → BL-025 | A, D, F, H, I. Binnen J sequentieel: raken `IntakeWizard` + wizard-view; BL-021/BL-023 done |
 | **K** | Installateursweergave | — (BL-024 done) | — |
 
-Afgeronde bands (niet meer te plannen): **B** = BL-016 (prefill), **C** = BL-008 (HEIC), **E** = BL-004/BL-014/BL-015 (mail-keten), **G** = BL-005 (PDF), **K** = BL-024 (installateursgalerij); band J deels: BL-021 (multiselect) + BL-023 (auto-doorgaan); BL-009 purge done.
+Afgeronde bands (niet meer te plannen): **B** = BL-016 (prefill), **C** = BL-008 (HEIC), **E** = BL-004/BL-014/BL-015 (mail-keten), **G** = BL-005 (PDF), **K** = BL-024 (installateursgalerij); band H deels: BL-006 (externe-clientlaag) + BL-007 (aandachtspunten + fotokwaliteit); band J deels: BL-021 (multiselect) + BL-023 (auto-doorgaan); BL-009 purge done.
 
 **Concrete parallel-startsets:**
 
 1. **Nu parallel bouwbaar:** BL-011 (extern) · BL-022 (vervolg band J) · BL-019 — naast afronden van BL-001; SMTP op staging aanzetten voor mail-smoketests (BL-004/014/015).
-2. **Na DPIA + BL-006:** BL-007 en BL-020 parallel.
+2. **BL-020** (multimodale foto-afleiding): zodra een multimodale LLM productief is (DPIA + key); bouwt voort op de afgeronde BL-006-clientlaag en BL-007-basis.
 3. **Laag-prioriteit parallel:** BL-010 · BL-013 · BL-025 (na band-J-voorgangers) · (BL-012 bij tweede klant).
 
 ## Overzicht
@@ -54,13 +54,13 @@ Geprioriteerd op het hoofddoel (herprioritering 2026-07-18): hoeveel handelingen
 | 2 | BL-011 | Eigen domein + geldig SSL voor staging | E1 | backlog | high | D · parallel |
 | 3 | BL-022 | Voortgang en "ontbreekt nog" kloppend en klikbaar maken | E1 | backlog | medium | J · parallel |
 | 4 | BL-019 | Afleiden uit adres en openbare bronnen (satellietbeeld, BAG) | E3 | backlog | medium | F · parallel |
-| 5 | BL-006 | Externe LLM-provider (na DPIA) | E4 | backlog | medium | H · parallel† |
-| 6 | BL-020 | Foto-gedreven afleiding en adaptieve vervolgvragen | E4 | backlog | medium | H · na BL-006 |
-| 7 | BL-007 | AI-uitbreidingen: attention points, fotokwaliteit, accepteren/verwijderen | E4 | backlog | low | H · na BL-006 |
-| 8 | BL-025 | Wizard-responstijd: dubbele queries per Livewire-request terugdringen | E1 | backlog | low | J · na BL-022 |
-| 9 | BL-010 | Production-deployworkflow (tags + eigen omgeving) | E5 | backlog | low | I · parallel |
-| 10 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low | I · later |
-| 11 | BL-013 | S3 als mediadisk | E5 | backlog | low | I · parallel |
+| 5 | BL-020 | Foto-gedreven afleiding en adaptieve vervolgvragen | E4 | backlog | medium | H · na multimodale LLM |
+| 6 | BL-025 | Wizard-responstijd: dubbele queries per Livewire-request terugdringen | E1 | backlog | low | J · na BL-022 |
+| 7 | BL-010 | Production-deployworkflow (tags + eigen omgeving) | E5 | backlog | low | I · parallel |
+| 8 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low | I · later |
+| 9 | BL-013 | S3 als mediadisk | E5 | backlog | low | I · parallel |
+| — | BL-006 | Externe LLM-provider (clientlaag; activering na DPIA + key) | E4 | done | medium | H (done) |
+| — | BL-007 | AI-uitbreidingen: attention points, fotokwaliteit, accepteren/verwijderen | E4 | done | low | H (done) |
 | — | BL-023 | Eén tik minder per vraag: automatisch door na eenduidige keuze | E3 | done | medium | J (done) |
 | — | BL-021 | Foto's: meerdere tegelijk uploaden en galerijkeuze niet blokkeren | E1 | done | high | J (done) |
 | — | BL-024 | Leesbaar dossier: vraaglabels i.p.v. keys in installateursweergave | E5 | done | low | K (done) |
@@ -75,8 +75,6 @@ Geprioriteerd op het hoofddoel (herprioritering 2026-07-18): hoeveel handelingen
 | — | BL-017 | Airco-template v2: vraag-voor-vraag audit op het ontwerpprincipe | E3 | done | high | — |
 | — | BL-018 | Vraag-voor-vraag klantflow (één vraag per scherm) | E3 | done | high | — |
 | — | BL-003 | Staging PHP-uploadlimieten verifiëren/verhogen | E1 | done | high | — |
-
-† BL-006 parallel met productwerk, maar geblokkeerd tot DPIA/akkoord.
 
 ## Epic E1 — Frictieloze basisflow
 
@@ -234,18 +232,17 @@ AI mag nooit bron van waarheid zijn (docs/ai.md, ADR-0005), maar kan wél handel
 
 ### BL-006 — Externe LLM-provider (na DPIA)
 
-- **Status:** backlog · **Prioriteit:** medium · **Ref:** ADR-0005, `docs/ai.md`
-- **Parallel:** band **H** (ketenkop) — parallel met A/D–G/I qua codepad; **geblokkeerd** tot DPIA/akkoord. Ontgrendelt daarna BL-007 + BL-020 parallel.
+- **Status:** done *(clientlaag; activering geblokkeerd op DPIA + key)* · **Prioriteit:** medium · **Datum:** 2026-07-18 · **Ref:** ADR-0005, `docs/ai.md`
 - **Doel:** OpenAI (of vergelijkbaar) client achter `AiClientInterface` naast null/fake/heuristic.
-- **Blokkerend:** DPIA/akkoord en redactiestrategie voor persoonsgegevens — géén PII naar een provider vóór die er zijn.
+- **Resultaat:** `OpenAiClient` (OpenAI-compatibel, Laravel `Http`, JSON-mode) achter `AiClientInterface`; provider-keuze op `AI_PROVIDER`; `AiInputRedactor` verwijdert e-mail/telefoon vóór verzending; config `AI_BASE_URL`/`AI_MODEL`/`AI_API_KEY`/`AI_TIMEOUT_SECONDS`. Standaard `null`; getest met `Http::fake()`.
+- **Resterende gate (niet-code):** DPIA/akkoord + key in `.env` door producteigenaar. Géén echte PII naar de provider vóór die er zijn.
 
 ### BL-007 — AI-uitbreidingen
 
-- **Status:** backlog · **Prioriteit:** low · **Ref:** `docs/ai.md`
-- **Parallel:** band **H** — **ná** BL-006, parallel met BL-020 (heuristic-prototype mag eerder).
+- **Status:** done · **Prioriteit:** low · **Datum:** 2026-07-18 · **Ref:** [ai.md § Aandachtspunten](../docs/ai.md#aandachtspunten-voorstellen-bl-007) + § Fotokwaliteit
 - **Doel:** `SuggestAttentionPoints`, `AssessPhotoUsability`, en UI waarmee de installateur AI-voorstellen accepteert of verwijdert. AI blijft ondersteunend, nooit bron van waarheid; niets blokkeert de kernflow.
-- **Waarom (hoofddoel):** `AssessPhotoUsability` geeft de aanvrager direct feedback ("foto te donker — maak er nog één") zolang die tóch al bezig is — dat is één handeling nu i.p.v. een hele extra ronde later.
-- **Afhankelijkheden:** BL-006 voor zinvolle kwaliteit (heuristic kan als tussenstap).
+- **Resultaat:** `SuggestAttentionPoints` (heuristisch, mirror van `SummarizeIntake`) → aandachtspunten met `source=ai`/`status=proposed`; installateur accepteert (→ in rapport) of verwijdert; idempotent, soft-fail. `AssessPhotoUsability` (lokaal, GD) → niet-blokkerende "foto te donker/klein"-hint voor de klant + kwaliteitslabel voor de installateur (`intake_uploads.usability_verdict`). Werkt met `heuristic` (of straks `openai`); provider `null` = geen voorstellen.
+- **Waarom (hoofddoel):** `AssessPhotoUsability` geeft de aanvrager direct feedback zolang die tóch al bezig is — één handeling nu i.p.v. een extra ronde later.
 
 ### BL-020 — Foto-gedreven afleiding en adaptieve vervolgvragen
 
@@ -257,7 +254,7 @@ AI mag nooit bron van waarheid zijn (docs/ai.md, ADR-0005), maar kan wél handel
   - **Route-/gevelfoto's:** schat leidinglengte en boringen in als voorzet voor de installateur.
 - **Kaders (ADR-0005, docs/ai.md):** AI-uitkomsten zijn altijd een **voorzet** — de aanvrager of installateur bevestigt; deterministische regels (`show`/`require`) blijven de enige poort voor verplichte velden. Een AI-afleiding mag een vraag *invullen als voorzet* of een *conditionele vervolgvraag activeren via een bevestigd antwoord*, maar nooit stil een verplicht veld wegnemen. Foto-analyse loopt async (ADR-0004) en mag de flow nooit blokkeren: geen of trage analyse = gewoon de vraag stellen.
 - **Uitvoering (gefaseerd):** eerst de template-kant (vragen conditioneel maken op een bevestigbaar afleidingsantwoord, via BL-017-versie), dan `AssessPhoto*`-acties achter `AiClientInterface`, dan de klantflow-integratie ("wij zien op uw foto X — klopt dat?").
-- **Afhankelijkheden:** BL-006 (externe multimodale LLM + DPIA) voor betrouwbare beeldherkenning; BL-007 legt de `AssessPhotoUsability`-basis; BL-017/BL-018 voor de template- en flowkant.
+- **Afhankelijkheden:** BL-006-clientlaag is er (activering wacht op DPIA + key); een **multimodale** LLM productief is nog nodig voor betrouwbare beeldherkenning. BL-007 legde de `AssessPhotoUsability`-basis (done); BL-017/BL-018 voor de template- en flowkant.
 
 ## Epic E5 — Bruikbaar dossier & klaar voor groei
 
@@ -319,6 +316,8 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 
 | ID | Afgerond | PR |
 |----|----------|-----|
+| BL-007 | 2026-07-18 | (deze PR) — heuristische aandachtspunten + accept/verwijder + fotokwaliteit |
+| BL-006 | 2026-07-18 | (deze PR) — `OpenAiClient` + redactie achter `AiClientInterface` (activering na DPIA + key) |
 | BL-024 | 2026-07-18 | #28 — vraaglabels + groepering foto-galerij installateur |
 | BL-014 | 2026-07-18 | #26 — afrondingsmail + dashboard “Nieuw afgerond” |
 | BL-015 | 2026-07-18 | #26 — `intakes:send-reminders` + `reminder_sent_at` |
