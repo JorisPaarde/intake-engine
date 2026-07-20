@@ -412,6 +412,56 @@ test('clicking a missing item jumps to that wizard step', function () {
         });
 });
 
+test('wizard memoizes intake and version within one request lifecycle', function () {
+    $intake = makeAccessibleIntake();
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+    $wizard = $component->instance();
+
+    $intakeMethod = new ReflectionMethod(IntakeWizard::class, 'intake');
+    $versionMethod = new ReflectionMethod(IntakeWizard::class, 'version');
+    $stepsMethod = new ReflectionMethod(IntakeWizard::class, 'steps');
+
+    $firstIntake = $intakeMethod->invoke($wizard);
+    $secondIntake = $intakeMethod->invoke($wizard);
+    $firstVersion = $versionMethod->invoke($wizard);
+    $secondVersion = $versionMethod->invoke($wizard);
+    $firstSteps = $stepsMethod->invoke($wizard);
+    $secondSteps = $stepsMethod->invoke($wizard);
+
+    expect($firstIntake)->toBe($secondIntake)
+        ->and($firstVersion)->toBe($secondVersion)
+        ->and($firstSteps)->toBe($secondSteps);
+});
+
+test('wizard refreshes intake cache after saving an answer', function () {
+    $intake = makeAccessibleIntake();
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+    $wizard = $component->instance();
+
+    $intakeMethod = new ReflectionMethod(IntakeWizard::class, 'intake');
+    $before = $intakeMethod->invoke($wizard);
+
+    $component->set('form.request_reason.text', 'Te warm');
+
+    $wizard = $component->instance();
+    $after = $intakeMethod->invoke($wizard);
+
+    expect($after)->not->toBe($before)
+        ->and($after->answers()->where('question_key', 'request_reason')->exists())->toBeTrue();
+});
+
+test('wizard next still advances after request-local caching', function () {
+    $intake = makeAccessibleIntake();
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('form.request_reason.text', 'Te warm')
+        ->call('next')
+        ->assertSet('activeStepKey', 'request::cooling_heating')
+        ->assertSee('Wilt u koelen, verwarmen of beide?');
+});
+
 test('repeatable room questions become separate steps after unit count', function () {
     $intake = makeAccessibleIntake();
     $version = $intake->templateVersion()->with(['sections.questions'])->firstOrFail();
