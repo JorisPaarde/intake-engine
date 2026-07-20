@@ -29,6 +29,7 @@ test('installer can create an intake with a unique customer link', function () {
 
     expect($intake)->not->toBeNull()
         ->and($intake->status)->toBe(IntakeStatus::Sent)
+        ->and($intake->uuid)->toHaveLength(36)
         ->and($intake->access_token)->toHaveLength(64)
         ->and($intake->created_by)->toBe($user->id)
         ->and($intake->templateVersion->template->key)->toBe('airco')

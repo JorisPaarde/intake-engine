@@ -27,7 +27,7 @@ final class SummarizeIntake
 
     public function handle(Intake $intake): AiRun
     {
-        $intake->loadMissing(['answers', 'uploads', 'attentionPoints', 'report', 'templateVersion.template']);
+        $intake->loadMissing(['answers', 'uploads', 'attentionPoints', 'externalFacts', 'followUpRounds.items.uploads', 'report', 'templateVersion.template']);
 
         $promptName = (string) config('ai.summary_prompt', 'summary');
         $promptVersion = $this->promptVersions->version($promptName);
@@ -88,7 +88,7 @@ final class SummarizeIntake
     }
 
     /**
-     * @return array{answers: array<string, mixed>, attention_point_codes: list<string>, template_key: string|null, template_version: int|null}
+     * @return array{answers: array<string, mixed>, external_facts: array<string, array{value: array<string, mixed>, source: string, confidence: string}>, follow_up: list<array{round_number: int, items: list<array{type: string, prompt: string, response_text: string|null, upload_count: int}>}>, attention_point_codes: list<string>, template_key: string|null, template_version: int|null}
      */
     private function buildPayload(Intake $intake): array
     {
@@ -102,8 +102,19 @@ final class SummarizeIntake
             $answers[$key] = $answer->value;
         }
 
+        $externalFacts = [];
+        foreach ($intake->externalFacts as $fact) {
+            $externalFacts[$fact->fact_key] = [
+                'value' => $fact->value,
+                'source' => $fact->source,
+                'confidence' => $fact->confidence,
+            ];
+        }
+
         return [
             'answers' => $answers,
+            'external_facts' => $externalFacts,
+            'follow_up' => $this->followUpPayload($intake),
             'attention_point_codes' => $intake->attentionPoints
                 ->pluck('code')
                 ->filter()
@@ -112,6 +123,32 @@ final class SummarizeIntake
             'template_key' => $intake->templateVersion?->template?->key,
             'template_version' => $intake->templateVersion?->version,
         ];
+    }
+
+    /** @return list<array{round_number: int, items: list<array{type: string, prompt: string, response_text: string|null, upload_count: int}>}> */
+    private function followUpPayload(Intake $intake): array
+    {
+        $payload = [];
+
+        foreach ($intake->followUpRounds as $round) {
+            $items = [];
+
+            foreach ($round->items as $item) {
+                $items[] = [
+                    'type' => $item->type->value,
+                    'prompt' => $item->prompt,
+                    'response_text' => $item->response_text,
+                    'upload_count' => $item->uploads->count(),
+                ];
+            }
+
+            $payload[] = [
+                'round_number' => $round->round_number,
+                'items' => $items,
+            ];
+        }
+
+        return $payload;
     }
 
     /**

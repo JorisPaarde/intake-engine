@@ -37,4 +37,18 @@ return [
         ],
     ],
 
+    'pdok' => [
+        'enabled' => (bool) env('PDOK_ENABLED', true),
+        'search_base_url' => env('PDOK_SEARCH_BASE_URL', 'https://api.pdok.nl/bzk/locatieserver/search/v3_1'),
+        'bag_base_url' => env('PDOK_BAG_BASE_URL', 'https://api.pdok.nl/kadaster/bag/ogc/v2'),
+        'timeout_seconds' => (int) env('PDOK_TIMEOUT_SECONDS', 5),
+        'aerial_enabled' => (bool) env('PDOK_AERIAL_ENABLED', true),
+        'aerial_wms_url' => env('PDOK_AERIAL_WMS_URL', 'https://service.pdok.nl/hwh/luchtfotorgb/wms/v1_0'),
+        'aerial_layer' => env('PDOK_AERIAL_LAYER', 'Actueel_orthoHR'),
+        'aerial_timeout_seconds' => (int) env('PDOK_AERIAL_TIMEOUT_SECONDS', 4),
+        'aerial_width' => (int) env('PDOK_AERIAL_WIDTH', 900),
+        'aerial_height' => (int) env('PDOK_AERIAL_HEIGHT', 600),
+        'aerial_ground_width_meters' => (int) env('PDOK_AERIAL_GROUND_WIDTH_METERS', 180),
+    ],
+
 ];

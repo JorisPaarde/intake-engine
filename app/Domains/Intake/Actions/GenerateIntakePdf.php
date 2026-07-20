@@ -7,6 +7,7 @@ namespace App\Domains\Intake\Actions;
 use App\Domains\Intake\Models\GeneratedReport;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
+use App\Domains\Intake\Services\EmbedPrivateReportMedia;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -14,6 +15,10 @@ use Throwable;
 
 final class GenerateIntakePdf
 {
+    public function __construct(
+        private readonly EmbedPrivateReportMedia $embedPrivateReportMedia,
+    ) {}
+
     public function handle(Intake $intake): ?GeneratedReport
     {
         $intake->loadMissing('report');
@@ -27,7 +32,8 @@ final class GenerateIntakePdf
         $path = 'intakes/'.$intake->uuid.'/reports/rapport.pdf';
 
         try {
-            $binary = Pdf::loadHTML($report->html)
+            $html = $this->embedPrivateReportMedia->handle($intake, $report->html);
+            $binary = Pdf::loadHTML($html)
                 ->setPaper('a4')
                 ->output();
         } catch (Throwable $exception) {

@@ -24,8 +24,8 @@ enum PhotoUsabilityVerdict: string
     {
         return match ($this) {
             self::Ok => null,
-            self::TooDark => 'Deze foto lijkt erg donker — maak er eventueel nog één met meer licht.',
-            self::TooSmall => 'Deze foto heeft een lage resolutie — een grotere/scherpere foto helpt de installateur.',
+            self::TooDark => 'Deze foto lijkt erg donker. Maak een nieuwe foto met meer licht.',
+            self::TooSmall => 'Deze foto heeft een lage resolutie. Maak een nieuwe, scherpere foto van dichterbij.',
         };
     }
 

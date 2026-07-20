@@ -12,7 +12,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 /**
- * Builds a labeled, section-grouped photo gallery for the installer detail page (BL-024).
+ * Builds a labeled, section-grouped media gallery for the installer detail page (BL-024).
  *
  * Labels come from the intake's pinned template version — no hardcoded airco copy.
  */
@@ -26,7 +26,7 @@ final class InstallerPhotoGalleryBuilder
      */
     public function handle(Intake $intake): array
     {
-        $intake->loadMissing(['uploads', 'templateVersion.sections.questions']);
+        $intake->loadMissing(['uploads.followUpItem.round', 'templateVersion.sections.questions']);
 
         /** @var Collection<int, IntakeUpload> $uploads */
         $uploads = $intake->uploads->sortBy('sort_order')->values();
@@ -57,6 +57,27 @@ final class InstallerPhotoGalleryBuilder
         $groups = [];
 
         foreach ($uploads as $upload) {
+            if ($upload->followUpItem !== null) {
+                $round = $upload->followUpItem->round;
+                $bucketKey = 'follow-up|'.$round->round_number;
+
+                if (! isset($groups[$bucketKey])) {
+                    $groups[$bucketKey] = [
+                        'heading' => 'Aanvulling ronde '.$round->round_number,
+                        'sort' => [PHP_INT_MAX - 1, $round->round_number],
+                        'uploads' => [],
+                    ];
+                }
+
+                $groups[$bucketKey]['uploads'][] = [
+                    'upload' => $upload,
+                    'caption' => $upload->followUpItem->prompt,
+                    'question_sort' => $upload->followUpItem->id,
+                ];
+
+                continue;
+            }
+
             $meta = $byQuestionKey[$upload->question_key] ?? null;
             $instanceKey = $upload->section_instance_key;
 
@@ -165,7 +186,7 @@ final class InstallerPhotoGalleryBuilder
     private function ungroupedFallback(Collection $uploads): array
     {
         return [[
-            'heading' => 'Foto’s',
+            'heading' => 'Bestanden',
             'uploads' => $uploads->map(fn (IntakeUpload $upload): array => [
                 'upload' => $upload,
                 'caption' => $this->captionForUnknown($upload),

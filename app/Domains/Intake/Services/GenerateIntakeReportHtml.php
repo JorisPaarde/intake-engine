@@ -17,6 +17,9 @@ final class GenerateIntakeReportHtml
     public function __construct(
         private readonly AnswerValueReader $answerValueReader,
         private readonly VisibilityResolver $visibilityResolver,
+        private readonly ExternalFactPresenter $externalFactPresenter,
+        private readonly IntakeDossierSummaryBuilder $summaryBuilder,
+        private readonly InstallerPhotoGalleryBuilder $photoGalleryBuilder,
     ) {}
 
     /**
@@ -30,16 +33,34 @@ final class GenerateIntakeReportHtml
         ?array $aiSummary = null,
     ): string {
         $version->loadMissing(['sections.questions.options', 'sections.questions.rules', 'template']);
-        $intake->loadMissing(['answers', 'uploads']);
+        $intake->loadMissing(['answers', 'uploads', 'externalFacts', 'followUpRounds.items.uploads']);
 
         $sections = $this->buildReportSections($intake, $version);
+        $externalData = $this->externalFactPresenter->present($intake);
+        $followUpRounds = $intake->followUpRounds
+            ->filter(static fn ($round): bool => $round->completed_at !== null)
+            ->values();
+        $nextStep = $followUpRounds->isNotEmpty()
+            ? ($externalData['uncertainties'] !== []
+                ? 'Beoordeel de aangeleverde aanvulling, controleer de gemarkeerde onzekerheden en bepaal daarna de offerte of volgende stap.'
+                : 'Beoordeel de aangeleverde aanvulling en bepaal daarna de offerte of volgende stap.')
+            : ($externalData['uncertainties'] !== []
+                ? 'Controleer eerst de gemarkeerde onzekerheden en bepaal daarna of een gerichte vraag of locatiebezoek nodig is.'
+            : ($attentionPoints !== []
+                ? 'Beoordeel de aandachtspunten en bereid daarna de offerte of een gerichte vervolgvraag voor.'
+                : 'De aanvraag is compleet; bereid de offerte voor.'));
 
         return view('reports.intake-html', [
             'intake' => $intake,
             'version' => $version,
             'sections' => $sections,
             'attentionPoints' => $attentionPoints,
+            'dossierSummary' => $this->summaryBuilder->build($intake, $version),
             'aiSummary' => $aiSummary,
+            'externalData' => $externalData,
+            'photoGroups' => $this->photoGalleryBuilder->handle($intake),
+            'followUpRounds' => $followUpRounds,
+            'nextStep' => $nextStep,
             'generatedAt' => now(),
         ])->render();
     }

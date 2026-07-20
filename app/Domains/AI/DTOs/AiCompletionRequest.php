@@ -8,11 +8,13 @@ final readonly class AiCompletionRequest
 {
     /**
      * @param  array<string, mixed>  $input
+     * @param  list<AiImageInput>  $images
      */
     public function __construct(
         public string $prompt,
         public array $input,
         public string $promptVersion,
         public ?string $system = null,
+        public array $images = [],
     ) {}
 }

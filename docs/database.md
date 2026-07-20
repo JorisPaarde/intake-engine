@@ -1,26 +1,29 @@
 # Databaseschema — Digitale Opname
 
-> **Documentversie:** 1.6 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.11 · **Laatste update:** 2026-07-20 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: **geïmplementeerd (Fase 2 migraties)**. Bestaande Laravel-tabellen plus intake-engine-schema via `2026_07_17_120000_create_intake_engine_tables`.
+Status: **geïmplementeerd**. Basisschema via `2026_07_17_120000_create_intake_engine_tables`; externe feiten via `2026_07_20_140000_create_intake_external_facts_table` (BL-019, ADR-0007); gerichte vervolgrondes via `2026_07_20_150000_create_intake_follow_up_tables` (BL-027).
 
 ## Ontwerpprincipes
 
 1. **Template ≠ uitvoering.** Definities (templateversies, secties, vragen) zijn los van antwoorden van een concrete opname.
 2. **Immutabele gepubliceerde versies.** Een intake pin’t een `intake_template_version_id`. Afronden wijzigt die versie nooit.
 3. **Geen multi-company in MVP.** Eén installatiebedrijf per installatie. Geen `companies`-tabel tot multi-tenancy echt nodig is.
-4. **Privacy.** Persoonsgegevens en foto’s zitten in `intakes`, `intake_answers`, `intake_uploads`. Soft delete + expliciete purge-actie voor dossierverwijdering.
+4. **Privacy.** Persoonsgegevens, foto’s en documenten zitten in `intakes`, `intake_answers`, `intake_uploads`. Soft delete + expliciete purge-actie voor dossierverwijdering.
 5. **JSON alleen waar zinvol.** Antwoordwaarden, validatieregels, compleetheidsnapshots. Geen volledige template-JSON als primaire bron — relationeel blijft leidend.
+6. **Automatische feiten houden hun herkomst.** Externe gegevens staan los van klantantwoorden en bewaren bron, referentie, zekerheid en ophaaltijdstip (ADR-0007).
 
 ## Enums (PHP backed enums, centrale bron)
 
 | Enum | Waarden |
 |------|---------|
-| `IntakeStatus` | `draft`, `sent`, `in_progress`, `completed`, `reviewed`, `cancelled` |
+| `IntakeStatus` | `draft`, `sent`, `in_progress`, `completed`, `reviewed`, `awaiting_customer`, `cancelled` |
 | `QuestionType` | `short_text`, `long_text`, `number`, `single_choice`, `multi_choice`, `boolean`, `photo` |
 | `TemplateVersionStatus` | `draft`, `published`, `archived` |
 | `ReviewDecision` | `pending`, `prepare_quote`, `need_more_info`, `site_visit_needed`, `not_suitable` |
-| `AttentionPointSource` | `system`, `reviewer` |
+| `FollowUpItemType` | `text`, `photo`, `document` |
+| `FollowUpRoundStatus` | `open`, `completed` |
+| `AttentionPointSource` | `system`, `reviewer`, `ai` |
 | `RuleOperator` | `equals`, `not_equals`, `in`, `not_in`, `gt`, `gte`, `lt`, `lte`, `filled` |
 | `RuleEffect` | `show`, `require` |
 
@@ -179,13 +182,35 @@ Indexes: `status`, `created_by`, `customer_email`, `(status, created_at)`.
 | `question_key` | string | Verwijst naar key in gepinde versie |
 | `section_instance_key` | string nullable | Bij repeatables: `room-1` |
 | `value` | json | Genormaliseerde waarde |
-| `prefill_source` | string nullable | BL-016: `installer` als de installateur dit antwoord bij het aanmaken invulde en de aanvrager het nog niet bevestigde; `null` bij een normaal (of bevestigd) antwoord. Zie [intake-engine.md § Prefill](intake-engine.md#prefill-van-bekende-gegevens-bl-016). Migratie `2026_07_18_160000_add_prefill_source_to_intake_answers_table`. |
+| `prefill_source` | string nullable | Herkomst van een nog niet door de klant getypt antwoord: `installer` = zichtbare, te bevestigen voorzet (BL-016); `pdok` = eenduidig BAG-feit dat een template expliciet mag overslaan (BL-019). `null` bij een normaal of door de klant bevestigd antwoord. Zie [intake-engine.md § Prefill](intake-engine.md#prefill-van-bekende-gegevens-bl-016). |
 | `answered_at` | timestamp | |
 
 Unique: `(intake_id, question_key, section_instance_key)`.  
 Index: `(intake_id)`.
 
 **Bewust niet genormaliseerd naar `question_id`:** keys blijven leesbaar in snapshots/rapporten; de versie is al gepind.
+
+### `intake_external_facts`
+
+Automatisch verzamelde feiten blijven gescheiden van klantantwoorden, zodat het dossier altijd laat zien waar een gegeven vandaan komt en wat nog gecontroleerd moet worden (ADR-0007).
+
+| Kolom | Type | Toelichting |
+|-------|------|-------------|
+| `id` | bigint PK | |
+| `intake_id` | FK, cascade | |
+| `fact_key` | string | Stabiele machinekey, bv. `building_year` |
+| `label` | string | Momentopname van leesbaar label |
+| `value` | json | Gestructureerde waarde; mediafeiten bewaren ook `media_disk`/`media_path`/MIME/afmetingen, nooit bestandsbytes |
+| `source` | string | Bronlabel, bv. `PDOK / BAG` of `PDOK Luchtfoto RGB` |
+| `source_reference` | string nullable | BAG-identificatie of providerreferentie |
+| `source_url` | text nullable | Controleerbare bron-URL |
+| `confidence` | string | `high` of `unknown`; uitbreidbaar zonder conclusie in code te verbergen |
+| `captured_at` | timestamp | Tijdstip waarop het feit is opgehaald |
+| `timestamps` | | |
+
+Unique: `(intake_id, fact_key, source)`. Index: `(intake_id, confidence)`.
+
+BL-019 bewaart de WMS-luchtfoto als privaat bestand onder `intakes/{uuid}/external/pdok-aerial.jpg`; `aerial_image` bevat alleen opslagmetadata, WMS-laag, bbox en centrumcoördinaten. `HardDeleteIntake` verwijdert media uit externe feiten vóór de cascade-delete.
 
 ### `intake_uploads`
 
@@ -195,6 +220,7 @@ Index: `(intake_id)`.
 | `intake_id` | FK, cascade | |
 | `question_key` | string | |
 | `section_instance_key` | string nullable | |
+| `intake_follow_up_item_id` | FK nullable, cascade | BL-027: foto of PDF bij een gerichte vervolgopdracht; `null` voor templatefoto's |
 | `disk` | string | Waarde van `MEDIA_DISK` bij upload |
 | `path` | string | Pad op disk (niet publiek voorspelbaar) |
 | `original_filename` | string | Alleen weergave |
@@ -253,6 +279,37 @@ Beoordeling na afronding (één actuele review per intake in MVP).
 | `reviewed_at` | timestamp nullable |
 | `timestamps` | |
 
+### `intake_follow_up_rounds` (BL-027)
+
+Genummerde aanvullende informatieronde na `need_more_info`.
+
+| Kolom | Type | Toelichting |
+|-------|------|-------------|
+| `id` | bigint PK | |
+| `intake_id` | FK, cascade | |
+| `requested_by` | FK users, restrict | Installateur |
+| `round_number` | unsigned tinyint | Monotoon per intake; standaard maximaal 3 |
+| `status` | FollowUpRoundStatus | `open` / `completed` |
+| `sent_at` | timestamp | Beschikbaar via dezelfde klantlink |
+| `completed_at` | timestamp nullable | |
+| `timestamps` | | |
+
+Unique: `(intake_id, round_number)`. Index: `(intake_id, status)`.
+
+### `intake_follow_up_items` (BL-027)
+
+| Kolom | Type | Toelichting |
+|-------|------|-------------|
+| `id` | bigint PK | |
+| `intake_follow_up_round_id` | FK, cascade | |
+| `type` | FollowUpItemType | `text`, `photo` of `document` |
+| `prompt` | text | Concrete vraag, foto- of documentopdracht; privacygevoelig |
+| `response_text` | text nullable | Klantantwoord bij type `text`; privacygevoelig |
+| `answered_at` | timestamp nullable | |
+| `timestamps` | | |
+
+Foto- en PDF-antwoorden staan in `intake_uploads` met `intake_follow_up_item_id`. Rapport en galerij tonen ronde en prompt als herkomst; `usability_verdict` blijft voor documenten `null`.
+
 ### `generated_reports`
 
 | Kolom | Type | Toelichting |
@@ -282,6 +339,8 @@ PDF is een afgeleid artefact (Dompdf, async); HTML heeft voorrang.
 | `created_at` | timestamp |
 
 Index: `(intake_id, created_at)`.
+
+BL-026 gebruikt deze tabel samen met bestaande intake-timestamps en relaties voor afgeleide productmetrics; er is bewust geen tweede analytics-tabel. `answer_saved` bewaart alleen `question_key` en `section_instance_key`, nooit de antwoordwaarde. De overige getelde klant-events zijn upload opslaan/verwijderen, vervolgtekst/-foto opslaan/verwijderen en hoofd-/vervolgronde afronden. Volledige definities: [metrics.md](metrics.md).
 
 ### Bewust niet in MVP
 
@@ -317,7 +376,9 @@ Index: `(intake_id, created_at)`.
 | section | questions | cascade |
 | question | options/rules | cascade |
 | version | intakes | **restrict** (versie met opnames niet hard verwijderen) |
-| intake | answers/uploads/notes/attention/reviews/reports/events | cascade |
+| intake | answers/external facts/follow-up rounds/uploads/notes/attention/reviews/reports/events | cascade |
+| follow-up round | follow-up items | cascade |
+| follow-up item | gekoppelde uploads | cascade |
 | user (created_by) | intakes | **restrict** |
 
 Soft-deleted intakes: bestanden blijven tot daily `intakes:purge-deleted` (BL-009; default 30 dagen via `INTAKE_SOFT_DELETE_RETENTION_DAYS`).
@@ -327,12 +388,15 @@ Soft-deleted intakes: bestanden blijven tot daily `intakes:purge-deleted` (BL-00
 | Gegeven | Locatie |
 |---------|---------|
 | Naam, e-mail, telefoon, adres | `intakes` |
+| Afgeleide locatie-/gebouwgegevens, coördinaten, perceelreferentie | `intake_external_facts` |
 | Vrije tekstantwoorden | `intake_answers.value` |
+| Vervolgvragen en klantantwoorden | `intake_follow_up_items.prompt`, `response_text` |
 | Foto’s (EXIF kan locatie bevatten) | `intake_uploads` + storage |
+| Aangeleverde PDF-documenten | `intake_uploads` + storage |
 | Interne notities | `intake_notes`, `intakes.internal_note` |
 | Rapport-HTML | `generated_reports.html` |
 
-**Bewaartermijn:** actieve dossiers onbeperkt zolang account bestaat; na soft delete **30 dagen** hard purge inclusief storage en PDF (`intakes:purge-deleted`, configureerbaar via `INTAKE_SOFT_DELETE_RETENTION_DAYS`). Soft-delete-UI voor intakes volgt later; de purge-job is al actief. Geen echte klantdata in seeders/tests.
+**Bewaartermijn:** actieve dossiers onbeperkt zolang account bestaat; na soft delete **30 dagen** hard purge inclusief foto's, aangeleverde documenten en rapport-PDF (`intakes:purge-deleted`, configureerbaar via `INTAKE_SOFT_DELETE_RETENTION_DAYS`). Soft-delete-UI voor intakes volgt later; de purge-job is al actief. Geen echte klantdata in seeders/tests.
 
 ## Mermaid ER-diagram
 
@@ -350,6 +414,10 @@ erDiagram
 
     intake_template_versions ||--o{ intakes : pins
     intakes ||--o{ intake_answers : has
+    intakes ||--o{ intake_external_facts : enriches
+    intakes ||--o{ intake_follow_up_rounds : requests
+    intake_follow_up_rounds ||--o{ intake_follow_up_items : contains
+    intake_follow_up_items ||--o{ intake_uploads : receives
     intakes ||--o{ intake_uploads : has
     intakes ||--o{ intake_attention_points : has
     intakes ||--o{ intake_notes : has
@@ -410,6 +478,16 @@ erDiagram
         json value
     }
 
+    intake_external_facts {
+        bigint id PK
+        bigint intake_id FK
+        string fact_key
+        json value
+        string source
+        string confidence
+        timestamp captured_at
+    }
+
     intake_uploads {
         bigint id PK
         bigint intake_id FK
@@ -436,10 +514,10 @@ erDiagram
     }
 ```
 
-## Seeddata (gepland)
+## Seeddata
 
 - 1 installateur (`test@example.com` of dedicated seeder-user)
-- gepubliceerde airco-templateversies (v1/v2 historisch, v3 latest — v2-audit BL-017 + prefill-vlaggen BL-016)
+- gepubliceerde airco-templateversies (v1–v3 historisch, v4 latest — BAG-bouwjaar overslaan bij eenduidige bron, BL-019)
 - 1 open intake (`sent`)
 - 1 gedeeltelijk ingevulde intake (`in_progress`)
 - 1 afgeronde intake (`completed`) met veilige placeholder-uploads

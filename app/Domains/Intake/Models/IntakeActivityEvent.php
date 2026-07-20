@@ -6,7 +6,14 @@ namespace App\Domains\Intake\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property string $actor_type
+ * @property string $event
+ * @property array<string, mixed> $properties
+ * @property Carbon $created_at
+ */
 class IntakeActivityEvent extends Model
 {
     public $timestamps = false;

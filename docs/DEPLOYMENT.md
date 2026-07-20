@@ -1,6 +1,6 @@
 # Deployment naar cPanel (staging)
 
-> **Documentversie:** 1.7 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.12 · **Laatste update:** 2026-07-20 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 **Statusregel:** open handmatige acties (env/host) staan in [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
 
@@ -165,7 +165,7 @@ Sjabloon: [`.env.staging.example`](../.env.staging.example). Na elke `.env`-wijz
 
 | # | Actie | Waar | Vars / stappen | Ontgrendelt |
 |---|--------|------|----------------|-------------|
-| 1 | **SMTP voor mails** (BL-004/014/015) | `shared/.env` | Zie [§ Mail](#mail-bl-004). Zonder dit blijft de app bij `MAIL_MAILER=log` en **stuurt geen** klant-/installateursmails met tokens of notificaties (bewust, ADR-0002). | Echte bezorging + smoke-tests BL-004/014/015 |
+| 1 | **SMTP voor mails** (BL-004/014/015/027) | `shared/.env` | Zie [§ Mail](#mail-bl-004). Zonder dit blijft de app bij `MAIL_MAILER=log` en **stuurt geen** klant-/installateursmails met tokens of notificaties (bewust, ADR-0002). | Echte bezorging + smoke-tests BL-004/014/015/027 |
 | 2 | **Publieke demo aanzetten** (BL-001) | `shared/.env` | `DEMO_ENABLED=true` (optioneel `DEMO_TTL_HOURS=12`). Zie [§ Publieke demo](#publieke-demo-bl-001). | Knop **Start demo** op `/`; daarna BL-001 → `done` na smoke |
 | 3 | **Eigen (sub)domein + Let’s Encrypt** (BL-011) | cPanel → Domains / SSL | Vervang `.cpanel.site` + self-signed. Zet daarna `APP_URL=https://…` in `shared/.env` en werk de README-omgevingstabel bij. | Geen Technical Domain-tussenscherm / browserwaarschuwing voor aanvragers |
 | 4 | **Cron controleren** (scheduler + queue) | cPanel → Cron Jobs | Twee jobs uit [§ Cron](#7-cron-scheduler--queue-worker) moeten actief zijn (`schedule:run` + `queue:work`). | Demo-purge, herinneringen, soft-delete-purge, AI/PDF-jobs |
@@ -174,9 +174,11 @@ Sjabloon: [`.env.staging.example`](../.env.staging.example). Na elke `.env`-wijz
 
 | Actie | Wanneer | Vars / stappen |
 |--------|---------|----------------|
-| `AI_PROVIDER` + `AI_API_KEY` | Na DPIA / akkoord (BL-006) | Nu bewust `null` (soft-fail). Nooit keys in git. |
+| Externe AI + foto-inferentie | Na DPIA / akkoord (BL-006/020) | `AI_PROVIDER=openai`, `AI_API_KEY=…`, geschikt multimodaal `AI_MODEL` en pas daarna `AI_PHOTO_INFERENCE_ENABLED=true`. Nu bewust `null`/`false` (soft-fail). Nooit keys in git. |
 | Productie-`.env` | Bij eerste echte productiegang (BL-010) | Sjabloon [`.env.production.example`](../.env.production.example): SMTP verplicht, `DEMO_ENABLED=false`, eigen DB + `APP_URL`. |
 | `MEDIA_DISK=s3` + AWS-vars | Bij storagegroei / vertrek cPanel (BL-013) | Bestaande rijen behouden `disk`+`path`. |
+| `PDOK_ENABLED=false` | Alleen als uitgaande adres-/locatiebevraging juridisch of technisch nog niet mag | Adres-autocomplete, BAG-verrijking en luchtfoto uit; handmatig adres/bouwjaar en klantfoto’s blijven werken. Geen API-key nodig. |
+| `PDOK_AERIAL_ENABLED=false` | BAG mag wel, luchtfoto nog niet of WMS-verkeer ongewenst | Alleen server-side luchtfotocapture uit; BAG-feiten blijven werken. |
 | Demo-login seeden | Alleen als je `installateur@example.com` wilt | Deploy seedt **geen** users — registreer zelf, of lokaal `DatabaseSeeder`. |
 
 ### Bewust niet handmatig doen
@@ -184,6 +186,40 @@ Sjabloon: [`.env.staging.example`](../.env.staging.example). Na elke `.env`-wijz
 - Geen handmatige staging-DB-edits (migraties + `IntakeTemplateSeeder` via deploy).
 - Secrets (`APP_KEY`, DB-wachtwoord, `MAIL_PASSWORD`, API-keys) nooit committen.
 - PHP-uploadlimieten: al ok op staging (BL-003); `.user.ini` in git is vangnet.
+
+## PDOK adres/BAG/luchtfoto (BL-019)
+
+Standaard staan `PDOK_ENABLED=true` en `PDOK_AERIAL_ENABLED=true`. De app gebruikt alleen openbare HTTPS-endpoints van PDOK Locatieserver, BAG OGC API en Luchtfoto RGB WMS; er is geen API-key. Per nieuw dossier wordt het ingevoerde adres naar PDOK gestuurd om een exact BAG-object te vinden. Bij een BAG-coördinaat haalt de server een actuele luchtfoto rond die locatie op. Uitkomsten en private luchtfoto vallen onder dezelfde dossierbewaartermijn/purge; de browser benadert WMS niet rechtstreeks.
+
+```env
+PDOK_ENABLED=true
+PDOK_SEARCH_BASE_URL=https://api.pdok.nl/bzk/locatieserver/search/v3_1
+PDOK_BAG_BASE_URL=https://api.pdok.nl/kadaster/bag/ogc/v2
+PDOK_TIMEOUT_SECONDS=5
+PDOK_AERIAL_ENABLED=true
+PDOK_AERIAL_WMS_URL=https://service.pdok.nl/hwh/luchtfotorgb/wms/v1_0
+PDOK_AERIAL_LAYER=Actueel_orthoHR
+PDOK_AERIAL_TIMEOUT_SECONDS=4
+PDOK_AERIAL_WIDTH=900
+PDOK_AERIAL_HEIGHT=600
+PDOK_AERIAL_GROUND_WIDTH_METERS=180
+```
+
+Vereisten: uitgaand HTTPS naar `api.pdok.nl` én `service.pdok.nl`, schrijfrechten op `MEDIA_DISK`, bronvermelding (de UI/PDF noemt PDOK Luchtfoto RGB) en een passende grondslag/privacytekst voor adres-/locatiebevraging met echte klantdata. Bij time-out of storing gaat aanmaken gewoon door; een WMS-storing wist geen BAG-feiten. Staging-smoke staat in `docs/functional-test-status.md`.
+
+## Multimodale meterkastbeoordeling (BL-020)
+
+Standaard wordt geen foto extern verstuurd. Activeer pas na DPIA/akkoord en met een model dat beeldinput ondersteunt:
+
+```env
+AI_PROVIDER=openai
+AI_API_KEY=...
+AI_MODEL=...
+AI_PHOTO_INFERENCE_ENABLED=true
+AI_PHOTO_INFERENCE_MAX_IMAGES=2
+```
+
+De server leest maximaal twee recente private meterkastfoto's van `MEDIA_DISK` en verstuurt ze als base64 data-URL in het providerrequest. Data-URL's/beeldbytes komen niet in database, events of logs; alleen uploadchecksums vormen de inputhash. Fout, timeout of ongeldige output blokkeert upload of intake nooit. Zet de flag bij twijfel terug op `false`; lokale fotokwaliteit, handmatige vrije-groepvraag en installateurscontrole blijven werken. Voer vóór echte klantdata de BL-020-smoke uit `docs/functional-test-status.md` uit met fictieve beelden.
 
 ## Publieke demo (BL-001)
 
@@ -196,13 +232,16 @@ DEMO_TTL_HOURS=12
 
 Daarna `php artisan config:cache` (of wacht op de volgende deploy-activate). Homepage toont **Start demo**; verlopen demo-intakes worden hourly gepurged (`intakes:purge-demos`). Productie: `DEMO_ENABLED=false` houden.
 
-## Mail (BL-004 / BL-014 / BL-015)
+## Mail (BL-004)
+
+Deze configuratie geldt ook voor BL-014, BL-015 en BL-027.
 
 De app stuurt (bij werkende SMTP):
 
 - **Klantlink** na aanmaken / hergenereren / “Opnieuw mailen” (BL-004)
 - **Afrondingsmail** naar de installateur na klant-afronden (BL-014)
 - **Herinnering** naar de klant na `INTAKE_REMINDER_DAYS` zonder afronding (BL-015; max. één)
+- **Gerichte aanvulling** naar de klant na `need_more_info`, daarna opnieuw een afrondingsnotificatie naar de installateur (BL-027)
 
 De kopieerbare klantlink op de detailpagina blijft de fallback. Dashboard-markering **Nieuw afgerond** (BL-014) werkt ook zonder SMTP.
 
@@ -220,6 +259,16 @@ MAIL_FROM_NAME="${APP_NAME}"
 ```
 
 Daarna `php artisan config:cache` (of wacht op de volgende deploy-activate). Demo-intakes (`is_demo`) mailen nooit. Lokaal: Mailpit/`array`, of bewust `log` (dan alleen kopiëren). Zie `.env.staging.example` / `.env.production.example`.
+
+BL-027-limieten staan in dezelfde `shared/.env`:
+
+```env
+INTAKE_FOLLOW_UP_MAX_ROUNDS=3
+INTAKE_FOLLOW_UP_MAX_ITEMS=5
+INTAKE_FOLLOW_UP_MAX_PHOTOS=5
+```
+
+Bij `MAIL_MAILER=log` blijft de ronde bruikbaar via de bestaande kopieerbare klantlink; er wordt bewust geen token naar logs geschreven.
 
 Volledige checklist van open host-/env-acties: [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
 
@@ -245,5 +294,5 @@ Minima via `.user.ini`: `upload_max_filesize=10M`, `post_max_size=12M`. Staging 
 - Rollback zet alleen de code-symlink terug, niet de database
 - Geen production-deployworkflow nog
 - Workflow-staplabel kan “PHP 8.3” noemen terwijl `php-version` 8.4 is
-- `MEDIA_DISK` moet private `local` zijn voor intake-foto’s (niet `public`)
+- `MEDIA_DISK` moet private `local` zijn voor intakefoto’s en aangeleverde documenten (niet `public`)
 - Rapporten zijn HTML (`generated_reports`); PDF via lichte Dompdf-job (BL-005) — queue-worker nodig voor generatie

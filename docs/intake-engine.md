@@ -1,8 +1,8 @@
 # Intake-engine
 
-> **Documentversie:** 1.7 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.14 · **Laatste update:** 2026-07-20 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: **geïmplementeerd t/m Fase 6** (compleetheid, rapport, beoordeling en AI-samenvatting). Airco-template **v3** gepubliceerd — v2-vragenset + prefill-vlaggen (BL-016; audit BL-017 zit in v2).
+Status: **geïmplementeerd t/m Fase 6 + BL-019 openbare data + BL-020 foto-afleiding + BL-027 gerichte vervolgrondes**. Airco-template **v5** gepubliceerd — v4 + bevestigbare meterkastfoto-voorzet.
 
 ## Doel
 
@@ -26,6 +26,10 @@ Bron van template-inhoud in MVP:
 3. Geen visuele formulierbouwer
 
 Runtime leest altijd uit de database (de gepinde versie), nooit rechtstreeks uit views/controllers.
+
+Het interne dossier en HTML/PDF-rapport bevatten altijd een korte deterministische samenvatting van bekende kernantwoorden. Deze gebruikt labels uit de gepinde templateversie en heeft geen AI-provider nodig; een eventuele AI-samenvatting blijft een apart, niet-bindend voorstel.
+
+De rapportpreview toont daarnaast alle werkelijk aangeleverde intake- en vervolgfoto's en gerichte PDF-documenten met vraaglabel, oorspronkelijke bestandsnaam, bron en eventuele aanvullingsronde. De opgeslagen HTML verwijst naar geautoriseerde private-media-routes; de PDF-generator embedt alleen beelden tijdens rendering en vermeldt documenten als beveiligde dossierlink, zodat bestandsbytes niet dubbel in de database belanden.
 
 ## Vraagtypen
 
@@ -145,7 +149,7 @@ Secties (stabiele keys over versies):
 
 ### v1 → v2 (BL-017, ontwerpprincipe)
 
-Nieuwe intakes gebruiken **v2**; lopende/afgeronde opnames blijven op hun gepinde versie (ADR-0001). Config: `database/data/templates/airco/v2.php`.
+V2 introduceerde onderstaande vraagreductie. Nieuwe intakes gebruiken inmiddels de laatste gepubliceerde **v5**; lopende/afgeronde opnames blijven op hun gepinde versie (ADR-0001).
 
 | Wijziging | Was (v1) | Wordt (v2) |
 |-----------|----------|------------|
@@ -171,7 +175,43 @@ Twee bronnen, gestuurd door vraag-`meta` (dus template-data, geen code):
 
 Zodra de aanvrager het veld zelf wijzigt of eroverheen navigeert, vervalt `prefill_source` (bevestigd). De deterministische `show`/`require`-regels blijven de enige poort voor verplichte velden — een voorzet vult alleen een waarde in, het ontgrendelt niets.
 
-Airco: v3 vlagt `request`-vragen als `installer_prefillable` en `rooms.floor_level` als `prefill_from_previous`. Verdere afleiding (uit adres/openbare bronnen, uit foto's) staat los in BL-019/BL-020.
+Airco: v3 vlagt `request`-vragen als `installer_prefillable` en `rooms.floor_level` als `prefill_from_previous`.
+
+## Externe feiten en vraagreductie (BL-019)
+
+PDOK Locatieserver vult bij het aanmaken straat, postcode en plaats vanuit één adresselectie. Daarna haalt `EnrichIntakeAddress` het BAG-verblijfsobject en het gekoppelde pand op. De actie is fail-soft: time-out, geen exacte match of een gemanipuleerde lookup-id blokkeert de intake nooit.
+
+Automatische waarden worden in `intake_external_facts` opgeslagen met bron, referentie/URL, zekerheid en ophaaltijdstip (ADR-0007). De eerste set bevat adrescontrole, coördinaten/gemeente/provincie, gebruiksoppervlakte, gebruiksdoel, perceelreferentie en — bij exact één gekoppeld pand — bouwjaar. Rapport/PDF en installateursdetail tonen deze feiten plus expliciete onzekerheden.
+
+Als BAG coördinaten levert, vraagt `PdokAerialImageService` server-side een actuele `Actueel_orthoHR` JPEG op via PDOK Luchtfoto RGB WMS (`EPSG:3857`, standaard circa 180 × 120 meter). Het bestand wordt gevalideerd, op de private `MEDIA_DISK` bewaard en als gemarkeerd bovenaanzicht in installateursdetail, HTML en PDF opgenomen. De browser maakt geen directe WMS-call. WMS-falen schrijft alleen een luchtfoto-onzekerheid en laat de al geslaagde BAG-verrijking intact; hard purge verwijdert het bestand.
+
+**Vraagbesluit:** de luchtfoto vervangt geen klantfoto. Zij geeft dak, perceel en omgeving als snelle installateurscontext, maar geen betrouwbare actuele gevel, leidingroute, obstakels of montagehoogte. `facade_overview_photo` blijft daarom optioneel; de bestaande concrete buitenunit-/routefoto’s blijven de eenvoudigste controlebron wanneer ze nodig zijn.
+
+Vraagreductie blijft template-gestuurd:
+
+| `meta`-vlag | Gedrag |
+|-------------|--------|
+| `skip_when_prefilled_by: pdok` | De wizard laat de vraag weg als voor dezelfde vraag een antwoord met `prefill_source=pdok` bestaat. Zonder eenduidig bronresultaat blijft de normale vraag zichtbaar. |
+
+Airco v4 gebruikt dit alleen voor `build_year`: BAG registreert dit direct op het eenduidig gekoppelde pand. `building_type` blijft een klantvraag, omdat BAG-gebruiksdoel niet betrouwbaar onderscheidt tussen appartement, tussenwoning, hoekwoning en vrijstaand. Automatisch opgehaalde feiten gaan naast antwoorden mee in de context voor AI-samenvatting en aandachtspunten; bron en zekerheid blijven behouden.
+
+## Foto-afleiding als bevestigbare voorzet (BL-020)
+
+Airco v5 markeert `fusebox_photo` met `meta.photo_analysis=fusebox` en maakt de foto-opdracht concreet: groepen, hoofdschakelaar en vrije posities recht van voren en leesbaar. De normale, optionele `free_group_known`-vraag blijft de fallback.
+
+Bij expliciet ingeschakelde foto-inferentie beoordeelt `AssessFuseboxPhotos` maximaal twee recente meterkastfoto's. Alleen `free_group=yes|no` met `confidence=high` wordt als `prefill_source=ai` klaargezet. De wizard toont deze keuze gemarkeerd als foto-inschatting; een klantkeuze bevestigt/corrigeert en verwijdert de prefillbron. Bestaande klant- of installateurantwoorden worden nooit overschreven. Bij onvoldoende beeld blijft de normale vraag staan en verschijnt de concrete `retake_instruction` bij de foto.
+
+De volledige beperkte uitkomst (vrije groep, 1-/3-fase/unknown, zekerheid, zichtbaar bewijs, provider/model en gebruikte upload-id's) staat als `fusebox_photo_assessment` in de automatisch verzamelde informatie. Dossier, HTML en PDF noemen `AI-fotoanalyse` als bron en zetten de waarneming altijd bij te controleren onzekerheden. Beeldbytes bestaan alleen tijdens het providerrequest; verwijderen van de bronfoto verwijdert de AI-voorzet en het afgeleide feit. Zonder provider/flag werkt de intake ongewijzigd verder.
+
+## Gerichte aanvullende informatieronde (BL-027)
+
+1. De installateur kiest na afronding `need_more_info` en voegt 1–5 concrete items toe: `text`, `photo` of `document` (PDF).
+2. `SubmitIntakeReview` schrijft review + genummerde ronde atomair en zet de intake op `awaiting_customer`. De bestaande geldige token blijft de enige klanttoegang.
+3. `IntakeWizard` schakelt voor die status naar een aparte vervolgmodus: uitsluitend de gevraagde items, één per scherm. Bestaande templatevragen worden niet opnieuw getoond.
+4. Tekst wordt tussentijds opgeslagen. Foto-items gebruiken dezelfde MIME-controle, HEIC-normalisatie, private disk en uploadlimiet als de gewone wizard. Documentitems accepteren alleen PDF na server-side MIME- en bestandssignatuurcontrole en gebruiken dezelfde private disk.
+5. `CompleteFollowUpRound` vereist elk antwoord/minimaal één gevraagd bestand, markeert de ronde compleet, zet de intake opnieuw op `completed`, bouwt HTML/PDF opnieuw op en stuurt de bestaande installateursnotificatie.
+
+Rapport en installateurdetail behouden eerdere antwoorden en tonen per aanvulling ronde, vraag, klantantwoord/foto's/documenten en bron. Activity events bevatten alleen ronde, item-id, type en aantallen; nooit vrije tekst of token. Standaardlimieten: 3 rondes, 5 items per ronde, 5 foto's per foto-item en 3 PDF's per documentitem (`INTAKE_FOLLOW_UP_*`).
 
 ## Nieuwe intaketemplate toevoegen
 
@@ -185,12 +225,9 @@ Geen nieuwe controllers per intaketype.
 
 ## Uitbreidingspunten (niet MVP)
 
-Gepland werk staat in [docs/backlog.md](backlog.md); relevante items voor de engine:
+Gepland werk staat in [docs/backlog.md](backlog.md).
 
-- Afleiden uit adres/openbare bronnen: satellietbeeld, BAG-bouwjaar (BL-019)
-- Foto-gedreven afleiding en adaptieve vervolgvragen, bv. meterkastfoto → vrije groep (BL-020)
-
-Afgerond: airco-template v2-audit (BL-017); prefill van bekende gegevens (BL-016, zie [§ Prefill](#prefill-van-bekende-gegevens-bl-016)).
+Afgerond: airco-template v2-audit (BL-017); prefill van bekende gegevens (BL-016, zie [§ Prefill](#prefill-van-bekende-gegevens-bl-016)); openbare adres-/gebouw-/luchtfotodata (BL-019); bevestigbare meterkastfoto-afleiding (BL-020); gerichte aanvullende informatierondes (BL-027).
 
 Verder buiten scope tot er vraag naar is:
 

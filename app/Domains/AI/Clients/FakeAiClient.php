@@ -43,6 +43,20 @@ final class FakeAiClient implements AiClientInterface
             throw self::$forcedException;
         }
 
+        if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'fusebox-assessment')) {
+            return new AiCompletionResult(
+                output: [
+                    'free_group' => 'yes',
+                    'phase' => 'three_phase',
+                    'confidence' => 'high',
+                    'evidence' => 'Fictieve testuitkomst voor de lokale fotoanalyse.',
+                    'retake_instruction' => null,
+                ],
+                provider: 'fake',
+                model: 'fake-vision-v1',
+            );
+        }
+
         $output = self::$forcedOutput ?? [
             'summary' => 'Fictieve AI-samenvatting van de intake voor testgebruik.',
             'highlights' => [

@@ -29,8 +29,15 @@ return [
 
     'timeout_seconds' => (int) env('AI_TIMEOUT_SECONDS', 20),
 
+    'photo_inference' => [
+        'enabled' => (bool) env('AI_PHOTO_INFERENCE_ENABLED', false),
+        'max_images' => (int) env('AI_PHOTO_INFERENCE_MAX_IMAGES', 2),
+    ],
+
     'summary_prompt' => 'summary',
 
     'attention_points_prompt' => 'attention_points',
+
+    'fusebox_prompt' => 'fusebox_assessment',
 
 ];

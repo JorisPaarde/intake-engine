@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domains\Intake\Actions;
 
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Services\AnswerValueReader;
@@ -81,6 +82,20 @@ final class SaveIntakeAnswer
 
             // An installer prefill at creation must not "start" the intake for the customer.
             $this->touchProgress($intake, $prefillSource === null);
+
+            if ($prefillSource === null) {
+                IntakeActivityEvent::query()->create([
+                    'intake_id' => $intake->id,
+                    'actor_type' => 'customer',
+                    'actor_id' => null,
+                    'event' => 'answer_saved',
+                    'properties' => [
+                        'question_key' => $questionKey,
+                        'section_instance_key' => $sectionInstanceKey,
+                    ],
+                    'created_at' => now(),
+                ]);
+            }
 
             return $answer;
         });

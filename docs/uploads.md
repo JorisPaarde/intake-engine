@@ -1,6 +1,6 @@
 # Uploads & mediastorage
 
-> **Documentversie:** 1.6 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.8 · **Laatste update:** 2026-07-20 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **geïmplementeerd (Fase 4)** · BL-021 multiselect + galerijkeuze.
 
@@ -27,6 +27,8 @@ Status: **geïmplementeerd (Fase 4)** · BL-021 multiselect + galerijkeuze.
 5. Verwijderen: `DeleteIntakeUpload` (soft delete + file delete + sync).
 6. Installateursgalerij (detailpagina): `InstallerPhotoGalleryBuilder` groepeert foto’s per sectie/instantie en toont vraaglabels uit de gepinde templateversie (geen rauwe `question_key` / `section_instance_key`) — BL-024.
 
+Na elke intake- of vervolgfoto-upload voert de app lokaal een niet-blokkerende bruikbaarheidscheck uit. Bij te donker of te klein beeld noemt de melding zowel de kwaliteitsverbetering als de concrete `photo_instructions` van de gepinde vraag of de gerichte foto-opdracht van de installateur, zodat de klant vóór indienen precies weet hoe en wat opnieuw in beeld moet. Omdat het kwaliteitsverdict op de upload staat, wordt dezelfde instructie na verversen, hervatten of terugnavigeren opnieuw getoond.
+
 ## Storage disks
 
 | Disk | Root | Gebruik |
@@ -34,6 +36,10 @@ Status: **geïmplementeerd (Fase 4)** · BL-021 multiselect + galerijkeuze.
 | `local` | `storage/app/private` | **Default `MEDIA_DISK`** |
 | `public` | `storage/app/public` | Niet voor intake-foto’s |
 | `s3` | bucket | Later via env |
+
+## Gerichte PDF-documenten
+
+Een PDF-upload verschijnt alleen wanneer de installateur in een aanvullende informatieronde expliciet antwoordvorm **Document (PDF)** kiest. Daardoor krijgt de normale intake geen extra scherm. `DocumentUploadNormalizer` vereist server-MIME `application/pdf`, controleert daarnaast de `%PDF-`-bestandssignatuur, begrenst de bestaande uploadlimiet en bewaart checksum/originele bestandsnaam. Documenten staan op dezelfde private `MEDIA_DISK`, zijn alleen via klanttoken of installateursauth te openen en worden met `Content-Disposition: attachment` plus `X-Content-Type-Options: nosniff` aangeboden; afbeeldingen blijven inline previews. Standaard zijn maximaal 3 PDF's per documentopdracht toegestaan (`INTAKE_FOLLOW_UP_MAX_DOCUMENTS`). Foto-normalisatie en fotokwaliteitsanalyse worden niet op documenten uitgevoerd.
 
 ```php
 'media' => env('MEDIA_DISK', 'local'),

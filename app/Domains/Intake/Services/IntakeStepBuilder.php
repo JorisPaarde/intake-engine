@@ -45,8 +45,11 @@ final class IntakeStepBuilder
         $intake->loadMissing('answers');
 
         $answers = [];
+        $answerSources = [];
         foreach ($intake->answers as $answer) {
-            $answers[VisibilityResolver::compositeKey($answer->question_key, $answer->section_instance_key)] = $answer->value;
+            $composite = VisibilityResolver::compositeKey($answer->question_key, $answer->section_instance_key);
+            $answers[$composite] = $answer->value;
+            $answerSources[$composite] = $answer->prefill_source;
         }
 
         foreach ($liveAnswers as $key => $value) {
@@ -82,6 +85,7 @@ final class IntakeStepBuilder
                         $instanceKey,
                         $allQuestions,
                         $answers,
+                        $answerSources,
                         $questionTypes,
                         $sectionsByQuestionKey,
                     );
@@ -96,6 +100,7 @@ final class IntakeStepBuilder
                 null,
                 $allQuestions,
                 $answers,
+                $answerSources,
                 $questionTypes,
                 $sectionsByQuestionKey,
             );
@@ -108,6 +113,7 @@ final class IntakeStepBuilder
      * @param  list<IntakeStep>  $steps
      * @param  Collection<string, IntakeQuestion>  $allQuestions
      * @param  array<string, array<string, mixed>|null>  $answers
+     * @param  array<string, string|null>  $answerSources
      * @param  array<string, QuestionType>  $questionTypes
      * @param  array<string, IntakeSection>  $sectionsByQuestionKey
      */
@@ -117,6 +123,7 @@ final class IntakeStepBuilder
         ?string $sectionInstanceKey,
         Collection $allQuestions,
         array $answers,
+        array $answerSources,
         array $questionTypes,
         array $sectionsByQuestionKey,
     ): void {
@@ -143,6 +150,12 @@ final class IntakeStepBuilder
             $state = $visibility[$composite] ?? ['visible' => false, 'required' => false];
 
             if ($state['visible'] !== true) {
+                continue;
+            }
+
+            $skipSource = $question->meta['skip_when_prefilled_by'] ?? null;
+
+            if (is_string($skipSource) && ($answerSources[$composite] ?? null) === $skipSource) {
                 continue;
             }
 

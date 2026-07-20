@@ -4,12 +4,20 @@ declare(strict_types=1);
 
 namespace App\Livewire\Customer;
 
+use App\Domains\AI\Actions\AssessFuseboxPhotos;
 use App\Domains\AI\Actions\AssessPhotoUsability;
+use App\Domains\AI\Models\AiRun;
+use App\Domains\Intake\Actions\CompleteFollowUpRound;
 use App\Domains\Intake\Actions\CompleteIntake;
+use App\Domains\Intake\Actions\DeleteFollowUpUpload;
 use App\Domains\Intake\Actions\DeleteIntakeUpload;
+use App\Domains\Intake\Actions\SaveFollowUpTextResponse;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
+use App\Domains\Intake\Actions\StoreFollowUpUpload;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeFollowUpItem;
+use App\Domains\Intake\Models\IntakeFollowUpRound;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Domains\Intake\Models\IntakeUpload;
@@ -20,6 +28,11 @@ use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Domains\Intake\Services\ProgressCalculator;
 use App\Domains\Intake\Services\ResolveIntakeByAccessToken;
 use App\Domains\Intake\Services\VisibilityResolver;
+use App\Enums\AiRunStatus;
+use App\Enums\FollowUpItemType;
+use App\Enums\FollowUpRoundStatus;
+use App\Enums\IntakeStatus;
+use App\Enums\PhotoUsabilityVerdict;
 use App\Enums\QuestionType;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
@@ -79,6 +92,22 @@ class IntakeWizard extends Component
 
     public bool $completed = false;
 
+    public bool $followUpMode = false;
+
+    #[Locked]
+    public int $followUpRoundId = 0;
+
+    public int $followUpStepIndex = 0;
+
+    /** @var array<int, string|null> */
+    public array $followUpResponses = [];
+
+    /** @var array<int, TemporaryUploadedFile|array<int, TemporaryUploadedFile>|null> */
+    public array $followUpPhotoFiles = [];
+
+    /** @var array<int, TemporaryUploadedFile|array<int, TemporaryUploadedFile>|null> */
+    public array $followUpDocumentFiles = [];
+
     /** @var list<array{question_key: string, section_instance_key: string|null, reason: string, label?: string, instance_label?: string|null}> */
     public array $completionMissing = [];
 
@@ -119,6 +148,23 @@ class IntakeWizard extends Component
         }
 
         $this->intakeId = $intake->id;
+
+        if ($intake->status === IntakeStatus::AwaitingCustomer) {
+            $round = $intake->followUpRounds()
+                ->where('status', FollowUpRoundStatus::Open)
+                ->with('items')
+                ->latest('round_number')
+                ->firstOrFail();
+
+            $this->followUpMode = true;
+            $this->followUpRoundId = $round->id;
+            $this->followUpResponses = $round->items
+                ->mapWithKeys(static fn (IntakeFollowUpItem $item): array => [$item->id => $item->response_text])
+                ->all();
+
+            return;
+        }
+
         $this->hydrateFormFromAnswers();
 
         $steps = $this->steps();
@@ -136,6 +182,11 @@ class IntakeWizard extends Component
     public function render(): View
     {
         $intake = $this->intake();
+
+        if ($this->followUpMode) {
+            return $this->renderFollowUp($intake);
+        }
+
         $version = $this->version();
         $steps = $this->steps();
         $this->clampStepIndex($steps);
@@ -145,6 +196,7 @@ class IntakeWizard extends Component
         $question = null;
         $visibility = [];
         $uploadsByQuestion = [];
+        $displayPhotoHint = $this->photoHint;
 
         if ($step !== null && ! $this->completed) {
             $question = app(IntakeStepBuilder::class)->questionForStep(
@@ -159,6 +211,25 @@ class IntakeWizard extends Component
                     $step['section_instance_key'],
                 );
                 $uploadsByQuestion = $this->uploadsForStep($step['section_instance_key']);
+
+                if ($question->type === QuestionType::Photo) {
+                    $composite = VisibilityResolver::compositeKey(
+                        $question->key,
+                        $step['section_instance_key'],
+                    );
+
+                    if (empty($displayPhotoHint[$composite])) {
+                        $persistentHint = $this->persistentIntakePhotoHint(
+                            $intake,
+                            $question,
+                            $uploadsByQuestion[$question->key] ?? collect(),
+                        );
+
+                        if ($persistentHint !== null) {
+                            $displayPhotoHint[$composite] = $persistentHint;
+                        }
+                    }
+                }
             }
         }
 
@@ -169,6 +240,7 @@ class IntakeWizard extends Component
             'question' => $question,
             'visibility' => $visibility,
             'uploadsByQuestion' => $uploadsByQuestion,
+            'displayPhotoHint' => $displayPhotoHint,
             'progressPercent' => $this->completed ? 100 : $progress['percent'],
             'missingRequired' => $this->completionMissing !== []
                 ? $this->completionMissing
@@ -184,7 +256,7 @@ class IntakeWizard extends Component
             return;
         }
 
-        $files = $this->normalizePhotoFiles($this->photoFiles[$key] ?? $value);
+        $files = $this->normalizeUploadFiles($this->photoFiles[$key] ?? $value);
 
         if ($files === []) {
             return;
@@ -193,12 +265,46 @@ class IntakeWizard extends Component
         $this->uploadPhotosForComposite($key, $files);
     }
 
+    public function updatedFollowUpPhotoFiles(mixed $value, ?string $key): void
+    {
+        $this->uploadFollowUpFiles($value, $key, FollowUpItemType::Photo);
+    }
+
+    public function updatedFollowUpDocumentFiles(mixed $value, ?string $key): void
+    {
+        $this->uploadFollowUpFiles($value, $key, FollowUpItemType::Document);
+    }
+
+    public function removeFollowUpUpload(int $itemId, int $uploadId): void
+    {
+        $item = $this->followUpItem($itemId);
+        $upload = IntakeUpload::query()->findOrFail($uploadId);
+
+        try {
+            app(DeleteFollowUpUpload::class)->handle($this->intake(), $item, $upload);
+            $this->saveMessage = $item->type === FollowUpItemType::Photo
+                ? 'Foto verwijderd'
+                : 'Document verwijderd';
+        } catch (ValidationException $exception) {
+            $this->addError('follow_up', $exception->errors()['upload'][0]
+                ?? $exception->errors()['photo'][0]
+                ?? 'Verwijderen mislukt.');
+        }
+    }
+
     public function removePhoto(int $uploadId): void
     {
         $upload = IntakeUpload::query()->findOrFail($uploadId);
 
         try {
             app(DeleteIntakeUpload::class)->handle($this->intake(), $upload);
+
+            if ($upload->question_key === 'fusebox_photo' && $upload->section_instance_key === null) {
+                $assessment = app(AssessFuseboxPhotos::class);
+                $assessment->invalidateDerivedState($this->intake());
+                $this->applyFuseboxAssessment($assessment->handle($this->intake()));
+            }
+
             $this->forgetIntakeDerivedCaches();
             $composite = VisibilityResolver::compositeKey(
                 $upload->question_key,
@@ -214,6 +320,21 @@ class IntakeWizard extends Component
 
     public function updated(string $property): void
     {
+        if (str_starts_with($property, 'followUpResponses.')) {
+            $itemId = (int) substr($property, strlen('followUpResponses.'));
+
+            if ($this->followUpMode && $itemId > 0) {
+                app(SaveFollowUpTextResponse::class)->handle(
+                    $this->intake(),
+                    $this->followUpItem($itemId),
+                    $this->followUpResponses[$itemId] ?? null,
+                );
+                $this->saveMessage = 'Opgeslagen';
+            }
+
+            return;
+        }
+
         if (! str_starts_with($property, 'form.')) {
             return;
         }
@@ -243,6 +364,119 @@ class IntakeWizard extends Component
         }
     }
 
+    public function nextFollowUp(): void
+    {
+        if (! $this->currentFollowUpSatisfied()) {
+            return;
+        }
+
+        $count = $this->followUpRound()->items->count();
+        $this->followUpStepIndex = min($this->followUpStepIndex + 1, max(0, $count - 1));
+        $this->saveMessage = '';
+    }
+
+    public function previousFollowUp(): void
+    {
+        $this->followUpStepIndex = max(0, $this->followUpStepIndex - 1);
+        $this->saveMessage = '';
+    }
+
+    public function completeFollowUp(): void
+    {
+        if (! $this->currentFollowUpSatisfied()) {
+            return;
+        }
+
+        try {
+            app(CompleteFollowUpRound::class)->handle(
+                $this->intake(),
+                $this->followUpRound(),
+                $this->followUpResponses,
+            );
+            $this->forgetIntakeDerivedCaches();
+            $this->completed = true;
+            $this->saveMessage = '';
+        } catch (ValidationException $exception) {
+            $this->addError('follow_up', $exception->errors()['follow_up'][0] ?? 'Aanvulling afronden mislukt.');
+        }
+    }
+
+    private function renderFollowUp(Intake $intake): View
+    {
+        $round = $this->followUpRound();
+        $items = $round->items->values();
+        $this->followUpStepIndex = max(0, min($this->followUpStepIndex, max(0, $items->count() - 1)));
+        $item = $items->get($this->followUpStepIndex);
+
+        return view('livewire.customer.follow-up-wizard', [
+            'intake' => $intake,
+            'round' => $round,
+            'items' => $items,
+            'item' => $item,
+            'isLastStep' => $this->followUpStepIndex >= $items->count() - 1,
+            'followUpPhotoHint' => $item instanceof IntakeFollowUpItem
+                && $item->type === FollowUpItemType::Photo
+                ? $this->persistentFollowUpPhotoHint($item)
+                : null,
+            'maxUploadKb' => (int) config('intake.uploads.max_kilobytes', 5120),
+            'maxPhotos' => (int) config('intake.follow_up.max_photos_per_item', 5),
+            'maxDocuments' => (int) config('intake.follow_up.max_documents_per_item', 3),
+        ]);
+    }
+
+    private function followUpRound(): IntakeFollowUpRound
+    {
+        return IntakeFollowUpRound::query()
+            ->with(['items.uploads'])
+            ->where('intake_id', $this->intakeId)
+            ->findOrFail($this->followUpRoundId);
+    }
+
+    private function followUpItem(int $itemId): IntakeFollowUpItem
+    {
+        return IntakeFollowUpItem::query()
+            ->whereHas('round', fn ($query) => $query
+                ->where('intake_id', $this->intakeId)
+                ->where('id', $this->followUpRoundId))
+            ->findOrFail($itemId);
+    }
+
+    private function currentFollowUpSatisfied(): bool
+    {
+        $item = $this->followUpRound()->items->get($this->followUpStepIndex);
+
+        if (! $item instanceof IntakeFollowUpItem) {
+            return false;
+        }
+
+        if ($item->type === FollowUpItemType::Text) {
+            $response = trim((string) ($this->followUpResponses[$item->id] ?? ''));
+
+            if ($response === '') {
+                $this->addError('follow_up', 'Vul eerst een antwoord in.');
+
+                return false;
+            }
+
+            app(SaveFollowUpTextResponse::class)->handle($this->intake(), $item, $response);
+
+            return true;
+        }
+
+        if ($item->uploads->isEmpty()) {
+            $this->addError(
+                'follow_up',
+                $item->type === FollowUpItemType::Photo
+                    ? 'Voeg eerst minimaal één foto toe.'
+                    : 'Voeg eerst minimaal één PDF-document toe.',
+            );
+
+            return false;
+        }
+
+        return true;
+    }
+
     /**
      * Commit a short_text/number value from Enter, then advance (BL-023).
      * Needed because wire:model.blur has not synced yet when Enter is pressed.
@@ -270,7 +504,7 @@ class IntakeWizard extends Component
     /**
      * @return list<TemporaryUploadedFile>
      */
-    private function normalizePhotoFiles(mixed $raw): array
+    private function normalizeUploadFiles(mixed $raw): array
     {
         if ($raw instanceof TemporaryUploadedFile) {
             return [$raw];
@@ -289,6 +523,56 @@ class IntakeWizard extends Component
         }
 
         return $files;
+    }
+
+    private function uploadFollowUpFiles(mixed $value, ?string $key, FollowUpItemType $type): void
+    {
+        if (! $this->followUpMode || $key === null || ! ctype_digit($key)) {
+            return;
+        }
+
+        $itemId = (int) $key;
+        $property = $type === FollowUpItemType::Photo
+            ? 'followUpPhotoFiles'
+            : 'followUpDocumentFiles';
+        $errorBagKey = $property.'.'.$key;
+        $this->resetErrorBag($errorBagKey);
+        $files = $this->normalizeUploadFiles($this->{$property}[$itemId] ?? $value);
+
+        if ($files === []) {
+            return;
+        }
+
+        $item = $this->followUpItem($itemId);
+        $stored = 0;
+        $error = null;
+
+        foreach ($files as $file) {
+            try {
+                $upload = app(StoreFollowUpUpload::class)->handle($this->intake(), $item, $file);
+                $stored++;
+
+                if ($type === FollowUpItemType::Photo) {
+                    app(AssessPhotoUsability::class)->handle($upload);
+                }
+            } catch (ValidationException $exception) {
+                $error = $exception->errors()['upload'][0]
+                    ?? $exception->errors()['photo'][0]
+                    ?? 'Bestand uploaden mislukt.';
+            }
+        }
+
+        $this->{$property}[$itemId] = null;
+
+        if ($type === FollowUpItemType::Photo) {
+            $this->saveMessage = $stored === 1 ? 'Foto opgeslagen' : ($stored > 1 ? "{$stored} foto's opgeslagen" : '');
+        } else {
+            $this->saveMessage = $stored === 1 ? 'Document opgeslagen' : ($stored > 1 ? "{$stored} documenten opgeslagen" : '');
+        }
+
+        if ($error !== null) {
+            $this->addError($errorBagKey, $error);
+        }
     }
 
     /**
@@ -326,8 +610,10 @@ class IntakeWizard extends Component
 
                 // BL-007: non-blocking local usability check — a hint, never a block.
                 $verdict = app(AssessPhotoUsability::class)->handle($upload);
-                if (! $verdict->isUsable() && $verdict->customerHint() !== null) {
-                    $hints[] = $verdict->customerHint();
+                $retakeHint = $this->photoRetakeHint($verdict, $questionKey);
+
+                if ($retakeHint !== null) {
+                    $hints[] = $retakeHint;
                 }
 
                 // BL-025: invalidate request-cache after the upload changed intake state.
@@ -336,6 +622,16 @@ class IntakeWizard extends Component
                 $errors[] = $e->errors()['photo'][0]
                     ?? $e->errors()['photoFiles.'.$composite][0]
                     ?? 'Upload mislukt. Probeer het opnieuw.';
+            }
+        }
+
+        if ($stored > 0 && $questionKey === 'fusebox_photo' && $instanceKey === null) {
+            $assessmentHint = $this->applyFuseboxAssessment(
+                app(AssessFuseboxPhotos::class)->handle($this->intake()),
+            );
+
+            if ($assessmentHint !== null) {
+                $hints[] = $assessmentHint;
             }
         }
 
@@ -359,6 +655,118 @@ class IntakeWizard extends Component
             $unique = array_values(array_unique($errors));
             $this->addError('photoFiles.'.$composite, implode(' ', $unique));
         }
+    }
+
+    private function photoRetakeHint(PhotoUsabilityVerdict $verdict, string $questionKey): ?string
+    {
+        $qualityHint = $verdict->customerHint();
+
+        if ($qualityHint === null) {
+            return null;
+        }
+
+        foreach ($this->version()->sections as $section) {
+            foreach ($section->questions as $question) {
+                if ($question->key !== $questionKey) {
+                    continue;
+                }
+
+                $instruction = trim((string) $question->photo_instructions);
+
+                if ($instruction === '') {
+                    return $qualityHint;
+                }
+
+                return $qualityHint.' Zorg dat dit opnieuw duidelijk in beeld staat: '
+                    .rtrim($instruction, '.').'.';
+            }
+        }
+
+        return $qualityHint;
+    }
+
+    /** @param Collection<int, IntakeUpload> $uploads */
+    private function persistentIntakePhotoHint(
+        Intake $intake,
+        IntakeQuestion $question,
+        Collection $uploads,
+    ): ?string {
+        $hints = [];
+
+        foreach ($uploads as $upload) {
+            $verdict = $upload->usability_verdict;
+
+            if ($verdict instanceof PhotoUsabilityVerdict) {
+                $hint = $this->photoRetakeHint($verdict, $question->key);
+
+                if ($hint !== null) {
+                    $hints[] = $hint;
+                }
+            }
+        }
+
+        if ($question->key === 'fusebox_photo') {
+            $fact = $intake->externalFacts()
+                ->where('fact_key', 'fusebox_photo_assessment')
+                ->where('source', AssessFuseboxPhotos::SOURCE)
+                ->latest('id')
+                ->first();
+            $instruction = $fact?->value['retake_instruction'] ?? null;
+
+            if (is_string($instruction) && trim($instruction) !== '') {
+                $hints[] = 'Voor een betere beoordeling: '.trim($instruction);
+            }
+        }
+
+        return $hints === [] ? null : implode(' ', array_values(array_unique($hints)));
+    }
+
+    private function persistentFollowUpPhotoHint(IntakeFollowUpItem $item): ?string
+    {
+        $hints = [];
+
+        foreach ($item->uploads as $upload) {
+            $verdict = $upload->usability_verdict;
+            $qualityHint = $verdict instanceof PhotoUsabilityVerdict
+                ? $verdict->customerHint()
+                : null;
+
+            if ($qualityHint !== null) {
+                $hints[] = $qualityHint.' Zorg dat dit opnieuw duidelijk in beeld staat: '
+                    .rtrim($item->prompt, '.').'.';
+            }
+        }
+
+        return $hints === [] ? null : implode(' ', array_values(array_unique($hints)));
+    }
+
+    private function applyFuseboxAssessment(?AiRun $run): ?string
+    {
+        $composite = VisibilityResolver::compositeKey('free_group_known', null);
+        $this->refreshAnswerInForm($composite);
+
+        $answer = $this->intake()->answers()
+            ->where('question_key', 'free_group_known')
+            ->whereNull('section_instance_key')
+            ->first();
+
+        if ($answer?->prefill_source === 'ai') {
+            $this->prefillNotice[$composite] = 'Ingeschat op basis van uw meterkastfoto — klopt deze keuze?';
+        } else {
+            unset($this->prefillNotice[$composite]);
+        }
+
+        if ($run?->status !== AiRunStatus::Succeeded || ! is_array($run->output)) {
+            return null;
+        }
+
+        $instruction = $run->output['retake_instruction'] ?? null;
+
+        if (is_string($instruction) && trim($instruction) !== '') {
+            return 'Voor een betere beoordeling: '.trim($instruction);
+        }
+
+        return null;
     }
 
     /**
@@ -703,9 +1111,11 @@ class IntakeWizard extends Component
             $composite = VisibilityResolver::compositeKey($answer->question_key, $answer->section_instance_key);
             $form[$composite] = $answer->value ?? [];
 
-            // BL-016: an installer pre-fill the applicant has not confirmed yet.
+            // A prefill remains editable and is only authoritative after customer confirmation.
             if ($answer->prefill_source === 'installer') {
                 $notices[$composite] = 'Alvast ingevuld door uw installateur — controleer en pas aan indien nodig';
+            } elseif ($answer->prefill_source === 'ai') {
+                $notices[$composite] = 'Ingeschat op basis van uw meterkastfoto — klopt deze keuze?';
             }
         }
 
