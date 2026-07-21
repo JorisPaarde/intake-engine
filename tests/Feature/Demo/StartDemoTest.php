@@ -18,6 +18,7 @@ use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 
@@ -61,7 +62,8 @@ it('shows the start demo button on the homepage when enabled', function () {
     $this->get('/')
         ->assertOk()
         ->assertSee('Start demo', false)
-        ->assertSee('Demo — geen echte offerte', false);
+        ->assertSee('Demo van de klantflow', false)
+        ->assertSee('In de demo uitgeschakeld', false);
 });
 
 it('hides the start demo button for authenticated users', function () {
@@ -75,6 +77,35 @@ it('hides the start demo button for authenticated users', function () {
         ->assertDontSee('Start demo', false)
         ->assertSee('Open dashboard', false)
         ->assertDontSee('geen account nodig', false);
+});
+
+it('explains which full-app steps are disabled during a demo intake', function () {
+    config([
+        'intake.demo.enabled' => true,
+        'intake.demo.user_email' => 'demo@intake-engine.test',
+    ]);
+
+    $this->post(route('demo.start'));
+    $intake = Intake::query()->where('is_demo', true)->firstOrFail();
+
+    $this->get(route('customer.intake.show', ['token' => $intake->access_token]))
+        ->assertOk()
+        ->assertSee('Demo — je ervaart de klantflow', false)
+        ->assertSee('In de volledige app gebeurt daarna ook (hier uitgeschakeld)', false)
+        ->assertSee('AI-samenvatting en aandachtspunten op het dossier', false)
+        ->assertSee('PDF-export van het rapport', false)
+        ->assertSee('Beoordeling en aanvullingsronde in het installateursdashboard', false);
+});
+
+it('lists disabled full-app steps on the demo thank-you notice', function () {
+    $html = Blade::render('<x-demo-scope-notice variant="complete" />');
+
+    expect($html)
+        ->toContain('Wat je net hebt gedaan')
+        ->toContain('Wat de volledige app daarna nog doet')
+        ->toContain('E-mail met de persoonlijke klantlink')
+        ->toContain('Maak een account')
+        ->toContain(route('register'));
 });
 
 it('enables demo by default when DEMO_ENABLED is unset', function () {

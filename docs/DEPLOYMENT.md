@@ -1,6 +1,6 @@
 # Deployment naar cPanel (staging + production)
 
-> **Documentversie:** 2.2 · **Laatste update:** 2026-07-21 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.3 · **Laatste update:** 2026-07-21 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 **Statusregel:** staging en production zijn fysiek en logisch gescheiden; open handmatige acties (env/host) staan in [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
 
@@ -251,7 +251,7 @@ De server leest maximaal twee recente private meterkastfoto's van `MEDIA_DISK` e
 
 ## Publieke demo (BL-001)
 
-De knop **Start demo** staat **standaard aan** (`DEMO_ENABLED` default `true`) voor **gasten**. Ingelogde gebruikers zien hem niet (wel **Open dashboard**). Elke anonieme bezoeker kan zonder account een tijdelijke airco-intake starten. Optioneel in `shared/.env`:
+De knop **Start demo** staat **standaard aan** (`DEMO_ENABLED` default `true`) voor **gasten**. Ingelogde gebruikers zien hem niet (wel **Open dashboard**). Elke anonieme bezoeker kan zonder account een tijdelijke airco-intake starten. De demo toont de klantflow en legt in banner + bedankt-scherm uit welke volledige-app-stappen hier uitstaan (e-mail, AI-samenvatting, PDF, installateursdashboard). Optioneel in `shared/.env`:
 
 ```env
 DEMO_ENABLED=true
