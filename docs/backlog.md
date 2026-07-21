@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 3.30 · **Laatste update:** 2026-07-20 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.31 · **Laatste update:** 2026-07-21 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -20,7 +20,7 @@ Status: `backlog` · `ready` · `in_progress` · `done` · `dropped` — priorit
 | E4 | AI bespaart beoordeelwerk | Samenvatting, aandachtspunten en fotokwaliteitscheck besparen de installateur leeswerk en de aanvrager een extra aanleverronde. AI blijft ondersteunend (docs/ai.md). |
 | E5 | Bruikbaar dossier & klaar voor groei | Het dossier moet buiten de browser bruikbaar zijn en het product moet zonder extra handelingen te ervaren, beheren en opschalen zijn. |
 
-Volgorde-advies: volg kolom **#** in de overzichtstabel hieronder. De rode draad: demo/staging afronden (BL-001), parallel de externe drempel BL-011 oplossen en tot slot groei-/beheeritems. Externe activering van de code-complete foto-afleiding blijft een DPIA/env-actie. Parallelisatie: zie [§ Parallelisatie](#parallelisatie) en kolom **Band**.
+Volgorde-advies: volg kolom **#** in de overzichtstabel hieronder. De rode draad: demo/staging afronden (BL-001) en daarna groei-/beheeritems; het eigen domein en geldige HTTPS zijn met BL-011 afgerond. Externe activering van de code-complete foto-afleiding blijft een DPIA/env-actie. Parallelisatie: zie [§ Parallelisatie](#parallelisatie) en kolom **Band**.
 
 ## Parallelisatie
 
@@ -29,7 +29,7 @@ Items in **verschillende parallel-bands** kunnen tegelijk door aparte agents/men
 | Band | Type | Items (open) | Mag parallel met |
 |------|------|--------------|------------------|
 | **A** | Afronden (lopend) | BL-001 | D–I (staging-config/smoke; weinig codeconflict) |
-| **D** | Infra (extern) | BL-011 | Alles (vooral producteigenaar/host) |
+| **D** | Infra (extern) | — (BL-011 done) | — |
 | **F** | Open data / adres | — (BL-019 done) | — |
 | **H** | AI-keten | — (BL-006/007/020 done) | — |
 | **I** | Beheer / schaal | BL-010, BL-013 (BL-012 later) | Onderling parallel; met A–H zolang geen gedeelde deploy-/storage-wijziging botst |
@@ -42,7 +42,7 @@ Afgeronde bands (niet meer te plannen): **B** = BL-016 (prefill), **C** = BL-008
 
 **Concrete parallel-startsets:**
 
-1. **Nu parallel uitvoerbaar:** BL-011 (extern) naast afronden van BL-001; SMTP/PDOK op staging aanzetten voor smoketests (BL-004/014/015/019/027).
+1. **Nu parallel uitvoerbaar:** BL-001 afronden; SMTP/PDOK op staging aanzetten voor smoketests (BL-004/014/015/019/027).
 2. **Na DPIA parallel activeren:** externe AI + foto-inferentie via staging-env en smoketest; geen resterend code-item.
 3. **Laag-prioriteit parallel:** BL-010 · BL-013 · (BL-012 bij tweede klant).
 
@@ -53,10 +53,9 @@ Geprioriteerd op het hoofddoel (herprioritering 2026-07-18): hoeveel handelingen
 | # | ID | Item | Epic | Status | Prioriteit | Band |
 |---|----|------|------|--------|------------|------|
 | 1 | BL-001 | Demo-versie van de app | E5 | in_progress | medium | A |
-| 2 | BL-011 | Eigen domein + geldig SSL voor staging | E1 | backlog | high | D · parallel |
-| 3 | BL-010 | Production-deployworkflow (tags + eigen omgeving) | E5 | backlog | low | I · parallel |
-| 4 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low | I · later |
-| 5 | BL-013 | S3 als mediadisk | E5 | backlog | low | I · parallel |
+| 2 | BL-010 | Production-deployworkflow (tags + eigen omgeving) | E5 | backlog | low | I · parallel |
+| 3 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low | I · later |
+| 4 | BL-013 | S3 als mediadisk | E5 | backlog | low | I · parallel |
 | — | BL-020 | Foto-gedreven afleiding en adaptieve vervolgvragen | E4 | done | medium | H (done) |
 | — | BL-019 | Afleiden uit adres en openbare bronnen (luchtfoto, BAG) | E3 | done | medium | F (done) |
 | — | BL-026 | Kernmetrics voor frictie en dossierbruikbaarheid | E1 | done | medium | M (done) |
@@ -76,6 +75,7 @@ Geprioriteerd op het hoofddoel (herprioritering 2026-07-18): hoeveel handelingen
 | — | BL-016 | Hergebruik bekende gegevens (prefill) | E3 | done | high | B (done) |
 | — | BL-008 | HEIC-ondersteuning bij foto-uploads | E1 | done | high | C (done) |
 | — | BL-002 | Functionele hertest staging (Fase 3–6) | E1 | done | high | A (done) |
+| — | BL-011 | Eigen domein + geldig SSL voor staging | E1 | done | high | D (done) |
 | — | BL-017 | Airco-template v2: vraag-voor-vraag audit op het ontwerpprincipe | E3 | done | high | — |
 | — | BL-018 | Vraag-voor-vraag klantflow (één vraag per scherm) | E3 | done | high | — |
 | — | BL-003 | Staging PHP-uploadlimieten verifiëren/verhogen | E1 | done | high | — |
@@ -106,11 +106,11 @@ De flow van Fase 1–6 belooft "zo min mogelijk handelingen", maar dat geldt all
 
 ### BL-011 — Eigen domein + geldig SSL voor staging
 
-- **Status:** backlog · **Prioriteit:** high *(opgehoogd 2026-07-18 bij hoofddoel-herprioritering: dit kost élke aanvrager twee handelingen vóór de eerste vraag)*
-- **Parallel:** band **D** — parallel met alle code-items (extern: producteigenaar/host).
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-21 · **Ref:** `README.md`, `docs/DEPLOYMENT.md`
+- **Parallel:** band **D** (done).
 - **Doel:** het tijdelijke `.cpanel.site`-domein (self-signed, "Technical Domain"-tussenscherm) vervangen door een eigen (sub)domein met Let's Encrypt. Daarna README-omgevingstabel bijwerken.
 - **Waarom:** het tussenscherm en de browserwaarschuwing zijn twee extra handelingen (en een vertrouwensbreuk) vóór de aanvrager ook maar één vraag heeft gezien.
-- **Afhankelijkheden:** extern — er moet een eigen (sub)domein aan het hostingaccount gekoppeld worden; actie producteigenaar/host.
+- **Resultaat:** `https://intake-engine.nl/` is gekoppeld aan de publieke cPanel-omgeving en antwoordt via geldig HTTPS zonder Technical Domain-tussenscherm. README, deploymentdocumentatie en beide server-env-sjablonen gebruiken de nieuwe canonical URL. De aparte productie-deployworkflow blijft bewust BL-010.
 
 ### BL-021 — Foto's: meerdere tegelijk uploaden en galerijkeuze niet blokkeren
 
@@ -326,7 +326,7 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 ### BL-010 — Production-deployworkflow
 
 - **Status:** backlog · **Prioriteit:** low *(verlaagd 2026-07-18 bij hoofddoel-herprioritering: bespaart nu geen handelingen; oppakken zodra een eerste echte klant/productiegang concreet is — zelfde trigger als BL-012. BL-009 purge is al done.)* · **Ref:** `docs/DEPLOYMENT.md`
-- **Parallel:** band **I** — parallel met productwerk; afstemmen met BL-011/BL-013 bij gedeelde deploy-/hostingkeuzes.
+- **Parallel:** band **I** — parallel met productwerk; afstemmen met BL-013 bij gedeelde deploy-/hostingkeuzes.
 - **Doel:** `deploy-production.yml` getriggerd op tags (`v*`), `PRODUCTION_*`-secrets, eigen `apps/intake-engine-production`-boom en database. Eerste release taggen als `v0.x` en CHANGELOG `[Unreleased]` afsluiten.
 
 ### BL-012 — Multi-tenancy (companies)

@@ -1,6 +1,6 @@
 # Intake Engine (Digitale Opname)
 
-> **Documentversie:** 1.27 · **Laatste update:** 2026-07-20 · Onderhoud: zie [AGENTS.md](AGENTS.md)
+> **Documentversie:** 1.28 · **Laatste update:** 2026-07-21 · Onderhoud: zie [AGENTS.md](AGENTS.md)
 
 **Werk je als agent aan dit project? Lees eerst [AGENTS.md](AGENTS.md)** — het projectgeheugen, de documentkaart en het onderhoudsprotocol.
 
@@ -12,9 +12,9 @@ Helpt installatiebedrijven om aanvragen op afstand te beoordelen via een begelei
 
 | Omgeving | URL |
 |----------|-----|
-| Staging  | https://sociable-navy-raccoon.45-152-250-86.cpanel.site |
+| Publiek/live | https://intake-engine.nl/ |
 
-Inloggen op `/login`, dashboard op `/dashboard`, health-check op `/health`. Dit is een tijdelijk `.cpanel.site`-testdomein met self-signed SSL: de browser toont een waarschuwing en een "Technical Domain"-tussenscherm (klik *Continue*). Vervangen zodra er een eigen domein aan het account hangt.
+Inloggen op `/login`, dashboard op `/dashboard`, health-check op `/health`. Het eigen domein gebruikt geldig HTTPS zonder Technical Domain-tussenscherm. De huidige publieke omgeving wordt nog via de staging-deployworkflow bijgewerkt; de aparte productie-workflow blijft BL-010.
 
 ## Installatie (macOS)
 
@@ -100,4 +100,4 @@ De volledige documentkaart — welk document waarvoor de bron van waarheid is �
 
 ## Huidige status
 
-**MVP-fasen 1–6 afgerond en gemerged naar `main`** (t/m AI-samenvatting). Open werk: [docs/backlog.md](docs/backlog.md). BL-019 is code-compleet: adres-autocomplete en BAG-verrijking leveren bouwjaar, gebruiksdoel, oppervlakte, locatie en perceel met bron/zekerheid; een eenduidig BAG-bouwjaar vervangt de klantvraag in airco v4. Een actuele PDOK-luchtfoto rond de BAG-locatie staat als private, gemarkeerde context in dossier en PDF. BL-020 is code-compleet achter een privacyflag: airco v5 laat meterkastfoto's multimodaal beoordelen, vult alleen bij hoge zekerheid de vrije-groepkeuze als bevestigbare voorzet in en bewaart fase, bron en onzekerheid in het dossier; externe activering wacht op DPIA/key. BL-027 biedt gerichte tekst-, foto- en beveiligde PDF-documentopdrachten na beoordeling. BL-026 toont op `/metrics` privacyveilige funnel-, frictie- en dossiermetrics. BL-001 demo-code is klaar, maar staging-flag/smoke en overige **host/env-acties** (SMTP, domein/SSL, PDOK-grondslag, externe AI) staan in [docs/DEPLOYMENT.md § Handmatige acties](docs/DEPLOYMENT.md#handmatige-acties-producteigenaar). Handmatige teststatus: [docs/functional-test-status.md](docs/functional-test-status.md).
+**MVP-fasen 1–6 afgerond en gemerged naar `main`** (t/m AI-samenvatting). Open werk: [docs/backlog.md](docs/backlog.md). BL-019 is code-compleet: adres-autocomplete en BAG-verrijking leveren bouwjaar, gebruiksdoel, oppervlakte, locatie en perceel met bron/zekerheid; een eenduidig BAG-bouwjaar vervangt de klantvraag in airco v4. Een actuele PDOK-luchtfoto rond de BAG-locatie staat als private, gemarkeerde context in dossier en PDF. BL-020 is code-compleet achter een privacyflag: airco v5 laat meterkastfoto's multimodaal beoordelen, vult alleen bij hoge zekerheid de vrije-groepkeuze als bevestigbare voorzet in en bewaart fase, bron en onzekerheid in het dossier; externe activering wacht op DPIA/key. BL-027 biedt gerichte tekst-, foto- en beveiligde PDF-documentopdrachten na beoordeling. BL-026 toont op `/metrics` privacyveilige funnel-, frictie- en dossiermetrics. BL-011 is afgerond: de publieke omgeving draait op `https://intake-engine.nl/` met geldig HTTPS. BL-001 demo-code is klaar, maar staging-flag/smoke en overige **host/env-acties** (SMTP, PDOK-grondslag, externe AI) staan in [docs/DEPLOYMENT.md § Handmatige acties](docs/DEPLOYMENT.md#handmatige-acties-producteigenaar). Handmatige teststatus: [docs/functional-test-status.md](docs/functional-test-status.md).

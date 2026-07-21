@@ -1,8 +1,8 @@
 # Deployment naar cPanel (staging)
 
-> **Documentversie:** 1.12 · **Laatste update:** 2026-07-20 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.13 · **Laatste update:** 2026-07-21 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-**Statusregel:** open handmatige acties (env/host) staan in [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
+**Statusregel:** de publieke URL is `https://intake-engine.nl/`; open handmatige acties (env/host) staan in [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
 
 Afgestemd op de huidige host:
 
@@ -94,7 +94,7 @@ Kan de document root niet buiten `public_html`? Gebruik dan een symlink:
 ln -sfn ~/apps/intake-engine-staging/current/public ~/public_html/staging
 ```
 
-Zet daarna SSL aan via **Lets Encrypt SSL** (het huidige self-signed certificaat is niet geschikt).
+Zet daarna SSL aan via **Lets Encrypt SSL**. Voor de huidige publieke omgeving is `intake-engine.nl` gekoppeld en het certificaat actief (BL-011 afgerond op 2026-07-21).
 
 ### 6. GitHub secrets
 
@@ -138,7 +138,7 @@ Templatewijzigingen: bump de versie in `database/data/templates/airco/` en laat 
 1. Serversetup hierboven afronden (vooral `shared/.env`).
 2. Push naar `main` (of Actions → *Deploy staging* → *Run workflow*).
 3. Na afloop: `php artisan key:generate --force` in `current/` (alleen de eerste keer).
-4. Check `https://<staging-domein>` en `shared/storage/logs/laravel-*.log`.
+4. Check `https://intake-engine.nl/` en `shared/storage/logs/laravel-*.log`.
 
 ## Rollback
 
@@ -167,8 +167,7 @@ Sjabloon: [`.env.staging.example`](../.env.staging.example). Na elke `.env`-wijz
 |---|--------|------|----------------|-------------|
 | 1 | **SMTP voor mails** (BL-004/014/015/027) | `shared/.env` | Zie [§ Mail](#mail-bl-004). Zonder dit blijft de app bij `MAIL_MAILER=log` en **stuurt geen** klant-/installateursmails met tokens of notificaties (bewust, ADR-0002). | Echte bezorging + smoke-tests BL-004/014/015/027 |
 | 2 | **Publieke demo aanzetten** (BL-001) | `shared/.env` | `DEMO_ENABLED=true` (optioneel `DEMO_TTL_HOURS=12`). Zie [§ Publieke demo](#publieke-demo-bl-001). | Knop **Start demo** op `/`; daarna BL-001 → `done` na smoke |
-| 3 | **Eigen (sub)domein + Let’s Encrypt** (BL-011) | cPanel → Domains / SSL | Vervang `.cpanel.site` + self-signed. Zet daarna `APP_URL=https://…` in `shared/.env` en werk de README-omgevingstabel bij. | Geen Technical Domain-tussenscherm / browserwaarschuwing voor aanvragers |
-| 4 | **Cron controleren** (scheduler + queue) | cPanel → Cron Jobs | Twee jobs uit [§ Cron](#7-cron-scheduler--queue-worker) moeten actief zijn (`schedule:run` + `queue:work`). | Demo-purge, herinneringen, soft-delete-purge, AI/PDF-jobs |
+| 3 | **Cron controleren** (scheduler + queue) | cPanel → Cron Jobs | Twee jobs uit [§ Cron](#7-cron-scheduler--queue-worker) moeten actief zijn (`schedule:run` + `queue:work`). | Demo-purge, herinneringen, soft-delete-purge, AI/PDF-jobs |
 
 ### Optioneel / later (niet blokkerend voor de kernflow)
 
@@ -281,7 +280,7 @@ Foto-uploads (Fase 4) vereisen limieten ≥ applicatielimiet (5 MB per bestand).
 **Meten na deploy (geen SSH):**
 
 ```bash
-curl -sk https://<staging-domein>/health | jq .php_upload
+curl -sS https://intake-engine.nl/health | jq .php_upload
 ```
 
 Minima via `.user.ini`: `upload_max_filesize=10M`, `post_max_size=12M`. Staging gemeten 2026-07-18 via `/health`: **512M / 512M** (host hoger dan minimum) — zie [docs/uploads.md](uploads.md).
