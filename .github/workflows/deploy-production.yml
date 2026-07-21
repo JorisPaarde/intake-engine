@@ -1,0 +1,100 @@
+name: Deploy production
+
+# Production is volledig gescheiden van staging: eigen GitHub environment,
+# secrets, deploypad, .env, database en storage. Alleen een v*-tag of een
+# bewuste handmatige dispatch kan deze workflow starten.
+#
+# Vereiste environment secrets (production):
+#   PRODUCTION_SSH_HOST
+#   PRODUCTION_SSH_PORT
+#   PRODUCTION_SSH_USER
+#   PRODUCTION_SSH_KEY
+#   PRODUCTION_DEPLOY_PATH   /home/intakeengine/apps/intake-engine-production
+#   PRODUCTION_PHP_BIN      /usr/local/bin/php
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build & deploy naar production
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: https://intake-engine.nl/
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo, pdo_mysql, intl, gd, zip
+          coverage: none
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install PHP dependencies (production)
+        run: composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Build frontend assets
+        run: |
+          npm ci
+          npm run build
+
+      - name: Prepare SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PRODUCTION_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "${{ secrets.PRODUCTION_SSH_PORT }}" "${{ secrets.PRODUCTION_SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Rsync release naar server
+        env:
+          HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
+          PORT: ${{ secrets.PRODUCTION_SSH_PORT }}
+          USER: ${{ secrets.PRODUCTION_SSH_USER }}
+          DEPLOY_PATH: ${{ secrets.PRODUCTION_DEPLOY_PATH }}
+        run: |
+          case "$DEPLOY_PATH" in
+            */intake-engine-production) ;;
+            *) echo "Onveilig production-deploypad: $DEPLOY_PATH"; exit 1 ;;
+          esac
+          RELEASE="releases/${GITHUB_SHA::12}"
+          echo "RELEASE=$RELEASE" >> "$GITHUB_ENV"
+          ssh -i ~/.ssh/deploy_key -p "$PORT" "$USER@$HOST" "mkdir -p '$DEPLOY_PATH/$RELEASE' '$DEPLOY_PATH/shared/storage'"
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/deploy_key -p $PORT" \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude 'node_modules' \
+            --exclude 'tests' \
+            --exclude 'storage' \
+            --exclude '.env*' \
+            ./ "$USER@$HOST:$DEPLOY_PATH/$RELEASE/"
+
+      - name: Activeer release (migrate, cache, queue restart)
+        env:
+          HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
+          PORT: ${{ secrets.PRODUCTION_SSH_PORT }}
+          USER: ${{ secrets.PRODUCTION_SSH_USER }}
+          DEPLOY_PATH: ${{ secrets.PRODUCTION_DEPLOY_PATH }}
+          PHP_BIN: ${{ secrets.PRODUCTION_PHP_BIN }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -p "$PORT" "$USER@$HOST" \
+            "bash '$DEPLOY_PATH/$RELEASE/deploy/activate.sh' '$DEPLOY_PATH' '$RELEASE' '$PHP_BIN' 3 production"
+
+      - name: Verify production health
+        run: curl --fail --silent --show-error --retry 5 --retry-delay 3 https://intake-engine.nl/health

@@ -1,6 +1,6 @@
 # AGENTS.md — Projectgeheugen & werkinstructies
 
-> **Documentversie:** 1.4 · **Laatste update:** 2026-07-18 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
+> **Documentversie:** 1.5 · **Laatste update:** 2026-07-21 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
 
 Dit bestand is de **centrale ingang** voor iedere agent (of mens) die aan dit project werkt. Het beschrijft waar het projectgeheugen leeft, welk document waarvoor de bron van waarheid is, en hoe je dat geheugen bijhoudt. **Lees dit bestand aan het begin van elke taak.**
 
@@ -191,8 +191,10 @@ Praktische lessen uit cloud-runs. Doel: sneller groen zonder opnieuw te ontdekke
 
 ### Staging-testen (browser / Playwright)
 
-- Staging-URL: zie README § Omgevingen. Self-signed SSL → `ignoreHTTPSErrors: true`.
-- **cPanel 428 “Technical Domain”:** eerste response is vaak 428. Cookie `cpanel_tech_domain=1` (domain = staging-host, path `/`) **vóór** navigatie zetten, of op “Continue” klikken. Zonder die cookie falen ook latere Livewire-POSTs stil.
+- Omgevingen zijn gescheiden: `main` → `staging.intake-engine.nl` / `apps/intake-engine-staging`; `v*` of bewuste dispatch → `intake-engine.nl` / `apps/intake-engine-production`. Gebruik nooit database, `.env`, app-key, sessiecookie of storage van de andere omgeving.
+- Kopieer je een bestaande release als bootstrap voor een nieuwe omgeving, verwijder dan `bootstrap/cache/config.php`, `routes-*.php` en `events.php` **vóór** de eerste Artisan-opdracht. Anders kunnen migraties/storage-links nog de gecachete bron-DB en bronpaden gebruiken; `deploy/activate.sh` doet dit en controleert ook `APP_ENV`.
+- Staging-URL: zie README § Omgevingen; `staging.intake-engine.nl` heeft geldig Let’s Encrypt-TLS, dus geen `ignoreHTTPSErrors` of cPanel-cookie gebruiken.
+- **Legacy technical domain:** alleen de oude `.cpanel.site`-host gebruikte een 428 “Technical Domain”-scherm en `cpanel_tech_domain=1`. Gebruik die host niet meer voor smoketests; hij is geen actuele omgevings-URL.
 - Klanttokens zijn `Str::random(64)` → charset `[A-Za-z0-9]`, niet hex. Lees de link via `#customer-link` (`inputValue`), niet via een te strakke regex op page HTML.
 - Wizard (BL-018): één vraag per scherm; markering `Vraag X van Y`. Velden: `wire:model.blur` (text/number) → na `fill` een echte `Tab`/blur en wacht op “Opgeslagen”; radios/booleans: `wire:model.live` → wacht op “Opgeslagen” vóór “Volgende”. Foto’s: wacht op preview/`Foto opgeslagen`.
 - “Afronden” faalt zonder zichtbare alert als Livewire de 428-interstitial krijgt i.p.v. de component — tech-domain-cookie eerst fixen, daarna pas debuggen op compleetheid.

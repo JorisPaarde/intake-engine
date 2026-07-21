@@ -1,8 +1,8 @@
-# Deployment naar cPanel (staging)
+# Deployment naar cPanel (staging + production)
 
-> **Documentversie:** 1.12 · **Laatste update:** 2026-07-20 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.0 · **Laatste update:** 2026-07-21 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-**Statusregel:** open handmatige acties (env/host) staan in [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
+**Statusregel:** staging en production zijn fysiek en logisch gescheiden; open handmatige acties (env/host) staan in [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
 
 Afgestemd op de huidige host:
 
@@ -16,18 +16,26 @@ Afgestemd op de huidige host:
 
 ## Hoe het werkt
 
-Push naar `main` → GitHub Actions bouwt (composer `--no-dev` + Vite-assets) → rsync naar `releases/<sha>` op de server → `deploy/activate.sh` koppelt shared `.env`/`storage`, draait `migrate --force`, seedt de **IntakeTemplateSeeder** (idempotente reference-data), cachet config/routes/views en wisselt de `current`-symlink. Rollback = symlink naar de vorige release terugzetten.
+| Omgeving | URL | Trigger | GitHub environment | Serverpad | Database |
+|---|---|---|---|---|---|
+| staging | `https://staging.intake-engine.nl/` | push naar `main` of handmatige dispatch | `staging` | `/home/intakeengine/apps/intake-engine-staging` | `intakeengine_staging` |
+| production | `https://intake-engine.nl/` | tag `v*` of bewuste handmatige dispatch | `production` | `/home/intakeengine/apps/intake-engine-production` | `intakeengine_production` |
+
+Beide workflows bouwen in GitHub Actions (Composer `--no-dev` + Vite-assets), rsyncen naar hun eigen `releases/<sha>` en roepen `deploy/activate.sh` aan. Het script controleert het verwachte `APP_ENV`, koppelt alleen de eigen shared `.env`/storage, verwijdert eventuele runtimecache uit een gekopieerde release, draait migraties + `IntakeTemplateSeeder`, cachet config/routes/views en wisselt de `current`-symlink atomisch. Per omgeving blijven de laatste drie releases bewaard.
 
 ```
-/home/intakeengine/apps/intake-engine-staging/
-├── current -> releases/abc123def456     # actieve release (symlink)
-├── releases/
-│   ├── abc123def456/
-│   └── ...                              # laatste 5 worden bewaard
-└── shared/
-    ├── .env                             # secrets, overleeft deploys
-    └── storage/                         # uploads + logs, overleeft deploys
+/home/intakeengine/apps/
+├── intake-engine-staging/
+│   ├── current -> releases/<sha>
+│   ├── releases/                        # laatste 3
+│   └── shared/{.env,storage/}
+└── intake-engine-production/
+    ├── current -> releases/<sha>
+    ├── releases/                        # laatste 3
+    └── shared/{.env,storage/}
 ```
+
+De twee `shared`-bomen worden nooit gekoppeld of gesynchroniseerd tijdens normale deploys. De SSH-key mag gedeeld zijn; runtimecredentials, database, app-key, sessiecookie en mediaopslag niet.
 
 ## Eenmalige serversetup
 
@@ -54,19 +62,25 @@ Op de server:
 
 ```bash
 mkdir -p ~/apps/intake-engine-staging/{releases,shared/storage}
+mkdir -p ~/apps/intake-engine-production/{releases,shared/storage}
 nano ~/apps/intake-engine-staging/shared/.env   # inhoud: zie .env.staging.example
+nano ~/apps/intake-engine-production/shared/.env # inhoud: zie .env.production.example
 chmod 600 ~/apps/intake-engine-staging/shared/.env
+chmod 600 ~/apps/intake-engine-production/shared/.env
 ```
 
-Vul minimaal `APP_URL`, DB-gegevens (stap 3) en genereer na de eerste deploy een key:
+Gebruik per omgeving een eigen `APP_KEY`, `APP_URL`, `SESSION_COOKIE`, DB-user/database en mail-/AI-config. Genereer keys pas nadat de eerste release aanwezig is:
 
 ```bash
 cd ~/apps/intake-engine-staging/current && php artisan key:generate --force
+cd ~/apps/intake-engine-production/current && php artisan key:generate --force
 ```
 
 ### 3. Database
 
-cPanel → **Manage My Databases**: maak database + user aan (cPanel prefixt met `intakeengine_`, bv. `intakeengine_staging`) en geef de user *All Privileges*. Zet de gegevens in `shared/.env`.
+cPanel → **Manage My Databases**: maak twee databases met twee users aan en geef iedere user alleen *All Privileges* op zijn eigen database. Huidige namen: `intakeengine_staging` en `intakeengine_production`. Zet de credentials uitsluitend in de bijbehorende `shared/.env`.
+
+Op 2026-07-21 zijn de bestaande gebruikers, dossiers en private media eenmalig van staging naar production gekopieerd om continuïteit op het hoofddomein te bewaren. Sessies, caches en queuejobs zijn niet meegenomen. Dit is geen terugkerende synchronisatie: beide omgevingen divergeren vanaf dat moment.
 
 ### 4. PHP-binary bepalen
 
@@ -78,44 +92,50 @@ which php && php -v
 /opt/alt/php84/usr/bin/php -v
 ```
 
-Gebruik het pad dat 8.4 rapporteert als `STAGING_PHP_BIN`-secret.
+Gebruik het pad dat 8.4 rapporteert als `STAGING_PHP_BIN` en `PRODUCTION_PHP_BIN`; op de huidige host is dit `/usr/local/bin/php`.
 
 ### 5. Document root koppelen
 
-Maak in cPanel → **Domains** het staging-(sub)domein aan en zet de document root op:
+De huidige koppelingen in cPanel → **Domains** zijn:
 
 ```
-/home/intakeengine/apps/intake-engine-staging/current/public
+staging.intake-engine.nl -> /home/intakeengine/apps/intake-engine-staging/current/public
+intake-engine.nl         -> /home/intakeengine/public_html
 ```
 
-Kan de document root niet buiten `public_html`? Gebruik dan een symlink:
+Het hoofddomein gebruikt de atomisch verwisselbare symlink:
 
 ```bash
-ln -sfn ~/apps/intake-engine-staging/current/public ~/public_html/staging
+ln -sfn apps/intake-engine-production/current/public ~/public_html.next
+mv -Tf ~/public_html.next ~/public_html
 ```
 
-Zet daarna SSL aan via **Lets Encrypt SSL** (het huidige self-signed certificaat is niet geschikt).
+Beide domeinen hebben een eigen actief Let’s Encrypt-certificaat. **Force HTTPS Redirect** hoort in cPanel voor beide domeinen aan te staan. Wijzig de hoofddomeinsymlink pas nadat production via CLI en `/health` is gecontroleerd.
 
 ### 6. GitHub secrets
 
-Repo → Settings → Secrets and variables → Actions (of environment `staging`):
+Repo → Settings → Environments → `staging` / `production`. Gebruik dezelfde suffixen per omgeving:
 
-| Secret | Waarde |
-|---|---|
-| `STAGING_SSH_HOST` | `s1155.hostingsecure.com` |
-| `STAGING_SSH_PORT` | `22` (of afwijkende poort) |
-| `STAGING_SSH_USER` | `intakeengine` |
-| `STAGING_SSH_KEY` | inhoud van `~/.ssh/intake_engine_deploy` (private key) |
-| `STAGING_DEPLOY_PATH` | `/home/intakeengine/apps/intake-engine-staging` |
-| `STAGING_PHP_BIN` | uitkomst van stap 4 |
+| Staging secret | Production secret | Waarde |
+|---|---|---|
+| `STAGING_SSH_HOST` | `PRODUCTION_SSH_HOST` | `s1155.hostingsecure.com` |
+| `STAGING_SSH_PORT` | `PRODUCTION_SSH_PORT` | `22` |
+| `STAGING_SSH_USER` | `PRODUCTION_SSH_USER` | `intakeengine` |
+| `STAGING_SSH_KEY` | `PRODUCTION_SSH_KEY` | inhoud van de private deploy-key |
+| `STAGING_DEPLOY_PATH` | `PRODUCTION_DEPLOY_PATH` | respectievelijk `...-staging` / `...-production` |
+| `STAGING_PHP_BIN` | `PRODUCTION_PHP_BIN` | `/usr/local/bin/php` |
+
+De workflows weigeren een deploypad dat niet eindigt op de verwachte omgevingsnaam. `activate.sh` weigert daarnaast een `.env` waarvan `APP_ENV` niet overeenkomt met `staging` of `production`.
 
 ### 7. Cron: scheduler + queue-worker
 
-cPanel → **Cron Jobs**, twee entries (pas `PHP_BIN` aan):
+cPanel → **Cron Jobs**, twee entries per omgeving:
 
 ```
-* * * * * cd /home/intakeengine/apps/intake-engine-staging/current && php artisan schedule:run >> /dev/null 2>&1
-* * * * * cd /home/intakeengine/apps/intake-engine-staging/current && php artisan queue:work --stop-when-empty --max-time=50 >> /dev/null 2>&1
+* * * * * cd /home/intakeengine/apps/intake-engine-staging/current && /usr/local/bin/php artisan schedule:run >> /dev/null 2>&1
+* * * * * cd /home/intakeengine/apps/intake-engine-staging/current && /usr/local/bin/php artisan queue:work --stop-when-empty --max-time=50 >> /dev/null 2>&1
+* * * * * cd /home/intakeengine/apps/intake-engine-production/current && /usr/local/bin/php artisan schedule:run >> /dev/null 2>&1
+* * * * * cd /home/intakeengine/apps/intake-engine-production/current && /usr/local/bin/php artisan queue:work --stop-when-empty --max-time=50 >> /dev/null 2>&1
 ```
 
 Geen supervisor op cPanel; `--stop-when-empty --max-time=50` per minuut is de pragmatische variant. `queue:restart` in de deploy zorgt dat workers na een release verse code draaien.
@@ -126,40 +146,51 @@ Geen supervisor op cPanel; `--stop-when-empty --max-time=50` per minuut is de pr
 
 `activate.sh` draait altijd:
 
-1. `migrate --force`
-2. `db:seed --class=IntakeTemplateSeeder --force` — publiceert/bevestigt de airco-template (idempotent; bestaande gepubliceerde versie wordt niet overschreven)
+1. doelpad en `APP_ENV` controleren;
+2. shared `.env`/storage koppelen en stale runtimecache verwijderen;
+3. `migrate --force`;
+4. `db:seed --class=IntakeTemplateSeeder --force` — publiceert/bevestigt de airco-template (idempotent; bestaande gepubliceerde versie wordt niet overschreven);
+5. caches opbouwen, `current` atomisch wisselen, queue herstarten en oude releases tot drie opruimen.
 
 **Niet** in deploy: `DatabaseSeeder` / `DemoIntakeSeeder` (demo-users en demo-intakes blijven handmatig of alleen lokaal).
 
 Templatewijzigingen: bump de versie in `database/data/templates/airco/` en laat de seeder een nieuwe published version aanmaken — in-place edits van een gepubliceerde versie gebeuren niet.
 
-## Eerste deploy
+## Deployen
 
-1. Serversetup hierboven afronden (vooral `shared/.env`).
-2. Push naar `main` (of Actions → *Deploy staging* → *Run workflow*).
-3. Na afloop: `php artisan key:generate --force` in `current/` (alleen de eerste keer).
-4. Check `https://<staging-domein>` en `shared/storage/logs/laravel-*.log`.
+### Staging
+
+1. Merge/push naar `main` of start Actions → **Deploy staging** handmatig.
+2. Controleer `https://staging.intake-engine.nl/health` (`environment=staging`).
+3. Controleer `apps/intake-engine-staging/shared/storage/logs/`.
+
+### Production
+
+1. Zorg dat de te releasen commit op `main` staat en CI groen is.
+2. Maak en push een semver-tag `v*`, of start Actions → **Deploy production** bewust handmatig op de juiste ref.
+3. Controleer `https://intake-engine.nl/health` (`environment=production`).
+4. Controleer `apps/intake-engine-production/shared/storage/logs/` en bevestig dat staging ongewijzigd bleef.
 
 ## Rollback
 
 ```bash
-cd ~/apps/intake-engine-staging
+cd ~/apps/intake-engine-<staging|production>
 ls -1t releases/            # kies vorige release
 ln -sfn "$PWD/releases/<vorige>" current
-cd current && php artisan config:cache && php artisan queue:restart
+cd current
+rm -f bootstrap/cache/config.php bootstrap/cache/routes-*.php bootstrap/cache/events.php
+php artisan config:cache && php artisan queue:restart
 ```
 
 Let op: database-migraties worden niet automatisch teruggedraaid — vandaar de afspraak "alleen additieve migraties" (zie ARCHITECTURE.md).
 
-## Production later
+## Eenmalige scheiding uitgevoerd
 
-Kopieer `deploy-staging.yml` naar `deploy-production.yml`, trigger op tags (`v*`) i.p.v. push, gebruik `PRODUCTION_*`-secrets en een eigen `apps/intake-engine-production`-boom plus eigen database. De server-setup is identiek.
+Op 2026-07-21 is de eerdere situatie (`intake-engine.nl` → stagingmap) zonder dataverlies opgesplitst. Eerst zijn productiondatabase, media, `.env` en release geverifieerd; daarna is `public_html` atomisch naar production omgezet en is `staging.intake-engine.nl` op de bestaande stagingmap gezet. Herhaal deze kopieerprocedure niet: vervolgdeploys lopen uitsluitend via hun eigen workflow.
 
 ## Handmatige acties (producteigenaar)
 
-Alles hieronder staat **niet** in git en moet jij (of de host) zetten. Bestand op staging:  
-`/home/intakeengine/apps/intake-engine-staging/shared/.env`  
-Sjabloon: [`.env.staging.example`](../.env.staging.example). Na elke `.env`-wijziging: `cd …/current && php artisan config:cache` (of wacht op de volgende deploy).
+Alles hieronder staat **niet** in git en moet jij (of de host) per omgeving zetten. Bestanden: `apps/intake-engine-staging/shared/.env` en `apps/intake-engine-production/shared/.env`; sjablonen: [`.env.staging.example`](../.env.staging.example) en [`.env.production.example`](../.env.production.example). Na elke `.env`-wijziging: `cd …/current && php artisan config:cache` (of wacht op de volgende deploy).
 
 ### Nu open op staging
 
@@ -167,15 +198,12 @@ Sjabloon: [`.env.staging.example`](../.env.staging.example). Na elke `.env`-wijz
 |---|--------|------|----------------|-------------|
 | 1 | **SMTP voor mails** (BL-004/014/015/027) | `shared/.env` | Zie [§ Mail](#mail-bl-004). Zonder dit blijft de app bij `MAIL_MAILER=log` en **stuurt geen** klant-/installateursmails met tokens of notificaties (bewust, ADR-0002). | Echte bezorging + smoke-tests BL-004/014/015/027 |
 | 2 | **Publieke demo aanzetten** (BL-001) | `shared/.env` | `DEMO_ENABLED=true` (optioneel `DEMO_TTL_HOURS=12`). Zie [§ Publieke demo](#publieke-demo-bl-001). | Knop **Start demo** op `/`; daarna BL-001 → `done` na smoke |
-| 3 | **Eigen (sub)domein + Let’s Encrypt** (BL-011) | cPanel → Domains / SSL | Vervang `.cpanel.site` + self-signed. Zet daarna `APP_URL=https://…` in `shared/.env` en werk de README-omgevingstabel bij. | Geen Technical Domain-tussenscherm / browserwaarschuwing voor aanvragers |
-| 4 | **Cron controleren** (scheduler + queue) | cPanel → Cron Jobs | Twee jobs uit [§ Cron](#7-cron-scheduler--queue-worker) moeten actief zijn (`schedule:run` + `queue:work`). | Demo-purge, herinneringen, soft-delete-purge, AI/PDF-jobs |
 
 ### Optioneel / later (niet blokkerend voor de kernflow)
 
 | Actie | Wanneer | Vars / stappen |
 |--------|---------|----------------|
 | Externe AI + foto-inferentie | Na DPIA / akkoord (BL-006/020) | `AI_PROVIDER=openai`, `AI_API_KEY=…`, geschikt multimodaal `AI_MODEL` en pas daarna `AI_PHOTO_INFERENCE_ENABLED=true`. Nu bewust `null`/`false` (soft-fail). Nooit keys in git. |
-| Productie-`.env` | Bij eerste echte productiegang (BL-010) | Sjabloon [`.env.production.example`](../.env.production.example): SMTP verplicht, `DEMO_ENABLED=false`, eigen DB + `APP_URL`. |
 | `MEDIA_DISK=s3` + AWS-vars | Bij storagegroei / vertrek cPanel (BL-013) | Bestaande rijen behouden `disk`+`path`. |
 | `PDOK_ENABLED=false` | Alleen als uitgaande adres-/locatiebevraging juridisch of technisch nog niet mag | Adres-autocomplete, BAG-verrijking en luchtfoto uit; handmatig adres/bouwjaar en klantfoto’s blijven werken. Geen API-key nodig. |
 | `PDOK_AERIAL_ENABLED=false` | BAG mag wel, luchtfoto nog niet of WMS-verkeer ongewenst | Alleen server-side luchtfotocapture uit; BAG-feiten blijven werken. |
@@ -281,7 +309,8 @@ Foto-uploads (Fase 4) vereisen limieten ≥ applicatielimiet (5 MB per bestand).
 **Meten na deploy (geen SSH):**
 
 ```bash
-curl -sk https://<staging-domein>/health | jq .php_upload
+curl -sS https://staging.intake-engine.nl/health | jq .php_upload
+curl -sS https://intake-engine.nl/health | jq .php_upload
 ```
 
 Minima via `.user.ini`: `upload_max_filesize=10M`, `post_max_size=12M`. Staging gemeten 2026-07-18 via `/health`: **512M / 512M** (host hoger dan minimum) — zie [docs/uploads.md](uploads.md).
@@ -292,7 +321,6 @@ Minima via `.user.ini`: `upload_max_filesize=10M`, `post_max_size=12M`. Staging 
 
 - Geen Supervisor — queue via cron
 - Rollback zet alleen de code-symlink terug, niet de database
-- Geen production-deployworkflow nog
-- Workflow-staplabel kan “PHP 8.3” noemen terwijl `php-version` 8.4 is
+- De hosting heeft 1 GB diskquotum; beide omgevingen bewaren daarom maximaal drie releases
 - `MEDIA_DISK` moet private `local` zijn voor intakefoto’s en aangeleverde documenten (niet `public`)
 - Rapporten zijn HTML (`generated_reports`); PDF via lichte Dompdf-job (BL-005) — queue-worker nodig voor generatie

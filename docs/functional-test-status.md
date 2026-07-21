@@ -1,16 +1,18 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.21 · **Laatste update:** 2026-07-20 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.22 · **Laatste update:** 2026-07-21 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
 Bijwerken door wie de test daadwerkelijk heeft uitgevoerd: een menselijke tester **of** een testende agent (bijv. een agent die de app via een browser bedient). Niet invullen op basis van alleen implementatie — er moet echt functioneel getest zijn. Implementerende agents voegen alleen nieuwe `todo`-regels toe voor functionaliteit die zij introduceren.
 
-Laatste testsessie: 2026-07-20 (lokaal via browser; BL-027 documentopdracht op desktop en 390 px)
+Laatste testsessie: 2026-07-21 (remote; gescheiden staging/production, domeinrouting, TLS, database en storage)
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
 | Deploy-pipeline (push -> Actions -> rsync -> activate -> live) | pass | 2026-07-18 | Atomische symlink-swap werkt; PR #14 deploy success |
+| Omgevingsscheiding staging/production (BL-010/011) | pass | 2026-07-21 | Publieke DNS, geldig TLS en HTTP→HTTPS 301 gecontroleerd. `intake-engine.nl/health` meldt `environment=production`; `staging.intake-engine.nl/health` meldt `environment=staging`. Beide: eigen app-key, sessiecookie, database, storage, releaseboom en twee cronjobs. Productionkopie behield 16 users/20 intakes; production runtime startte met 0 sessies/0 jobs. Environmentguard blokkeerde een bewust verkeerde target vóór activatie. GitHub productionworkflow zelf nog na merge via tag/dispatch smoke-testen. |
+| Productionworkflow via `v*`/handmatige dispatch (BL-010) | todo | - | Na merge: production environment/secrets controleren, handmatige dispatch of release-tag uitvoeren, Actions groen en `/health` opnieuw `production`; staging mag niet wijzigen. |
 | /health (app boot + DB-verbinding) | pass | 2026-07-18 | JSON ok; `php_upload` 512M/512M (BL-003) |
 | /login rendert | pass | 2026-07-18 | Toont loginformulier |
 | Auth-beveiliging dashboard/intakes | pass | 2026-07-18 | Uitgelogd → redirect `/login` (na dismiss 428-interstitial) |
