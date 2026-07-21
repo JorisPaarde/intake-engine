@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 3.33 · **Laatste update:** 2026-07-21 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.34 · **Laatste update:** 2026-07-21 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -302,7 +302,7 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 - **Status:** in_progress · **Prioriteit:** medium *(#1 in de uitvoeringsvolgorde: restwerk is klein — staging-flag + smoke-test — en lopend werk afronden gaat vóór nieuw werk starten)* · **Ref:** [issue #5](https://github.com/JorisPaarde/intake-engine/issues/5)
 - **Parallel:** band **A** (afronden) — restwerk is staging-config + smoke-test; parallel met code-sporen D–I.
 - **Doel:** publiek of semi-publiek demopad zodat prospects/installateurs het product kunnen ervaren zonder eigen accountsetup of echte klantdata — het hoofddoel ("zo min mogelijk handelingen") toegepast op de allereerste kennismaking.
-- **Invulling (deze PR):** homepage **"Start demo"** → tijdelijke airco-intake + klantlink (`is_demo`, TTL via `DEMO_TTL_HOURS`, watermerk, geen AI-job, hourly `intakes:purge-demos`). Geen account nodig; fictieve `@demo.invalid`-e-mail. `DEMO_ENABLED` staat **standaard aan** (opt-out met `false`).
+- **Invulling (deze PR):** homepage **"Start demo"** → tijdelijke airco-intake + klantlink (`is_demo`, TTL via `DEMO_TTL_HOURS`, watermerk, geen AI-job, hourly `intakes:purge-demos`). Geen account nodig; fictieve `@demo.invalid`-e-mail. `DEMO_ENABLED` staat **standaard aan** (opt-out met `false`). Demoknop alleen voor gasten (ingelogde installateurs zien **Open dashboard**).
 - **Nog te doen na deploy:** als een bestaande `shared/.env` nog `DEMO_ENABLED=false` heeft → verwijderen of op `true` zetten + `config:cache`; smoke-test Start demo → wizard → watermerk; daarna status → `done`.
 - **Afhankelijkheden:** geen — klantflow (Fase 3), uploads (Fase 4) en rapport (Fase 5) zijn af.
 - **Niet doen in demo:** echte mail naar willekeurige adressen, persistente PII van bezoekers zonder TTL.

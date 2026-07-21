@@ -64,6 +64,19 @@ it('shows the start demo button on the homepage when enabled', function () {
         ->assertSee('Demo — geen echte offerte', false);
 });
 
+it('hides the start demo button for authenticated users', function () {
+    config(['intake.demo.enabled' => true]);
+
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get('/')
+        ->assertOk()
+        ->assertDontSee('Start demo', false)
+        ->assertSee('Open dashboard', false)
+        ->assertDontSee('geen account nodig', false);
+});
+
 it('enables demo by default when DEMO_ENABLED is unset', function () {
     expect(config('intake.demo.enabled'))->toBeTrue();
 

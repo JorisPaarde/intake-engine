@@ -6,7 +6,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
-- BL-001: publieke demo staat standaard **aan** (`DEMO_ENABLED` default `true` in alle env-sjablonen). Bezoekers zien **Start demo** zonder handmatige staging-flag; `DEMO_ENABLED=false` blijft de opt-out bij misbruik. Bestaande `shared/.env` met expliciet `false` moet die regel verwijderen of op `true` zetten.
+- BL-001: publieke demo staat standaard **aan** (`DEMO_ENABLED` default `true` in alle env-sjablonen). Bezoekers zien **Start demo** zonder handmatige staging-flag; `DEMO_ENABLED=false` blijft de opt-out bij misbruik. Bestaande `shared/.env` met expliciet `false` moet die regel verwijderen of op `true` zetten. Ingelogde gebruikers zien de demoknop niet (wel **Open dashboard**).
 
 ### Added
 
