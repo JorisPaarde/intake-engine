@@ -1,8 +1,8 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 1.6 · **Laatste update:** 2026-07-20 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.7 · **Laatste update:** 2026-07-21 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: **Fase 6 + BL-007 + BL-020 geïmplementeerd** — samenvatting, aandachtspunten, lokale fotokwaliteit en een bevestigbare multimodale meterkastvoorzet. Externe provider en foto-inferentie staan **standaard uit** (DPIA + key vereist). Zie ADR-0005.
+Status: **Fase 6 + BL-007 + BL-020 geïmplementeerd** — samenvatting, aandachtspunten, lokale fotokwaliteit en een bevestigbare multimodale meterkastvoorzet. Externe provider en foto-inferentie staan **standaard uit** (DPIA + key vereist). Zie ADR-0005. **Publieke demo** draait samenvatting + aandachtspunten wel: inline bij afronden, met heuristic-fallback als `AI_PROVIDER=null`, zichtbaar op het bedankt-scherm.
 
 De verplichte korte dossiersamenvatting is deterministisch en staat los van deze AI-laag. AI kan daarbovenop alleen een herkenbaar niet-bindend voorstel toevoegen.
 

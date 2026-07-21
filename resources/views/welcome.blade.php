@@ -138,8 +138,8 @@
                         @guest
                             @if (config('intake.demo.enabled'))
                                 <p class="max-w-lg text-sm leading-relaxed text-white/60">
-                                    Demo van de klantflow (vragen + foto’s) · geen account nodig · verdwijnt na {{ (int) config('intake.demo.ttl_hours', 12) }} uur.
-                                    In de demo uitgeschakeld: e-mail, AI-samenvatting, PDF en installateursdashboard — die zie je toegelicht in de demo zelf.
+                                    Demo van de klantflow (vragen + foto’s + AI-samenvatting) · geen account nodig · verdwijnt na {{ (int) config('intake.demo.ttl_hours', 12) }} uur.
+                                    In de demo uitgeschakeld: e-mail, PDF en installateursdashboard — toegelicht in de demo zelf.
                                 </p>
                             @endif
                         @endguest

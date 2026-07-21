@@ -91,9 +91,11 @@ it('explains which full-app steps are disabled during a demo intake', function (
     $this->get(route('customer.intake.show', ['token' => $intake->access_token]))
         ->assertOk()
         ->assertSee('Demo — je ervaart de klantflow', false)
+        ->assertSee('Wel aan in deze demo', false)
+        ->assertSee('AI-samenvatting en voorgestelde aandachtspunten op het dossier', false)
         ->assertSee('In de volledige app gebeurt daarna ook (hier uitgeschakeld)', false)
-        ->assertSee('AI-samenvatting en aandachtspunten op het dossier', false)
         ->assertSee('PDF-export van het rapport', false)
+        ->assertDontSee('AI-samenvatting en aandachtspunten op het dossier', false)
         ->assertSee('Beoordeling en aanvullingsronde in het installateursdashboard', false);
 });
 
@@ -102,8 +104,10 @@ it('lists disabled full-app steps on the demo thank-you notice', function () {
 
     expect($html)
         ->toContain('Wat je net hebt gedaan')
+        ->toContain('AI-voorstel voor het dossier')
         ->toContain('Wat de volledige app daarna nog doet')
         ->toContain('E-mail met de persoonlijke klantlink')
+        ->not->toContain('AI-samenvatting en aandachtspunten op het dossier')
         ->toContain('Maak een account')
         ->toContain(route('register'));
 });
@@ -161,8 +165,9 @@ it('purges expired demo intakes and keeps active ones', function () {
     expect(Intake::withTrashed()->whereKey($expired->id)->exists())->toBeFalse();
 });
 
-it('does not dispatch AI summary job when a demo intake is completed', function () {
+it('runs AI summary inline when a demo intake is completed', function () {
     Queue::fake();
+    config(['ai.provider' => 'null']);
 
     $user = User::factory()->create();
     $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
@@ -179,9 +184,15 @@ it('does not dispatch AI summary job when a demo intake is completed', function 
 
     fillDemoIntakeUntilComplete($intake);
 
-    app(CompleteIntake::class)->handle($intake->fresh());
+    $completed = app(CompleteIntake::class)->handle($intake->fresh());
 
     Queue::assertNotPushed(SummarizeIntakeJob::class);
+
+    $completed->load('report');
+    $aiSummary = $completed->report?->meta['ai_summary'] ?? null;
+
+    expect($aiSummary)->toBeArray()
+        ->and($aiSummary['summary'] ?? null)->toBeString()->not->toBeEmpty();
 });
 
 function fillDemoIntakeUntilComplete(Intake $intake): void

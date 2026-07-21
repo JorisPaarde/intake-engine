@@ -6,7 +6,15 @@ namespace App\Domains\Intake\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property array<string, mixed>|null $meta
+ * @property Carbon|null $generated_at
+ * @property Carbon|null $pdf_generated_at
+ * @property string|null $pdf_disk
+ * @property string|null $pdf_path
+ */
 class GeneratedReport extends Model
 {
     protected $fillable = [

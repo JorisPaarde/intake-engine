@@ -36,7 +36,11 @@
                 @endif
             </p>
             @if ($intake->is_demo)
-                <x-demo-scope-notice variant="complete" />
+                <x-demo-scope-notice
+                    variant="complete"
+                    :demo-ai-summary="$demoAiSummary"
+                    :demo-attention-points="$demoAttentionPoints"
+                />
             @endif
         </div>
     @elseif ($step === null || $question === null)

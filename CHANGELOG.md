@@ -6,7 +6,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
-- BL-001: publieke demo staat standaard **aan** (`DEMO_ENABLED` default `true` in alle env-sjablonen). Bezoekers zien **Start demo** zonder handmatige staging-flag; `DEMO_ENABLED=false` blijft de opt-out bij misbruik. Bestaande `shared/.env` met expliciet `false` moet die regel verwijderen of op `true` zetten. Ingelogde gebruikers zien de demoknop niet (wel **Open dashboard**). In de demo (banner + bedankt-scherm) staat expliciet welke volledige-app-stappen uitstaan: e-mail, AI, PDF, installateursdashboard/aanvulling.
+- BL-001: publieke demo staat standaard **aan** (`DEMO_ENABLED` default `true` in alle env-sjablonen). Bezoekers zien **Start demo** zonder handmatige staging-flag; `DEMO_ENABLED=false` blijft de opt-out bij misbruik. Bestaande `shared/.env` met expliciet `false` moet die regel verwijderen of op `true` zetten. Ingelogde gebruikers zien de demoknop niet (wel **Open dashboard**). Demo draait AI-samenvatting/aandachtspunten inline (heuristic-fallback als `AI_PROVIDER=null`) en toont het voorstel op het bedankt-scherm; banner legt uit wat nog uitstaat (e-mail, PDF, dashboard).
 
 ### Added
 
@@ -46,7 +46,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Added
 
-- BL-001 publieke demo: homepage **Start demo** (`POST /demo/start`) maakt een tijdelijke airco-intake + klantlink (`is_demo`, TTL, watermerk, geen AI-job); hourly purge via `intakes:purge-demos`. Feature-flag `DEMO_ENABLED` (nu standaard aan; zie Changed hierboven).
+- BL-001 publieke demo: homepage **Start demo** (`POST /demo/start`) maakt een tijdelijke airco-intake + klantlink (`is_demo`, TTL, watermerk, AI inline bij afronden); hourly purge via `intakes:purge-demos`. Feature-flag `DEMO_ENABLED` (nu standaard aan; zie Changed hierboven).
 - `public/.user.ini` met PHP upload-limieten (`upload_max_filesize=10M`, `post_max_size=12M`) voor cPanel/LiteSpeed web-requests (BL-003).
 - `/health` exposeert `php_upload` (ini + app-limiet) zodat staging-limieten remote te meten zijn zonder SSH.
 - `AGENTS.md`: projectgeheugen met vast hoofddoel en vast ontwerpprincipe (alleen door producteigenaar aan te passen), snelstart-leesroutine en taakrouting (gericht lezen i.p.v. alles doorzoeken), documentkaart (bron van waarheid per onderwerp), versioneringsregels en verplicht onderhoudsprotocol voor agents.
