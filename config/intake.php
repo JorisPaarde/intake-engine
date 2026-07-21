@@ -53,12 +53,13 @@ return [
     |--------------------------------------------------------------------------
     |
     | Creates a temporary airco-intake + customer link without account signup.
-    | Default on for local/staging; keep off in production until intentional.
+    | On by default everywhere so any visitor can try the product. Set
+    | DEMO_ENABLED=false only to hide the homepage button and block starts.
     |
     */
 
     'demo' => [
-        'enabled' => (bool) env('DEMO_ENABLED', false),
+        'enabled' => filter_var(env('DEMO_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
         'ttl_hours' => (int) env('DEMO_TTL_HOURS', 12),
         'user_email' => env('DEMO_USER_EMAIL', 'demo@intake-engine.invalid'),
         'throttle_per_hour' => (int) env('DEMO_THROTTLE_PER_HOUR', 5),

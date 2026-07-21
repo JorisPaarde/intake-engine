@@ -13,7 +13,7 @@ final class StartDemoController extends Controller
 {
     public function __invoke(StartDemoIntake $startDemoIntake): RedirectResponse
     {
-        if (! (bool) config('intake.demo.enabled', false)) {
+        if (! (bool) config('intake.demo.enabled', true)) {
             throw new NotFoundHttpException;
         }
 

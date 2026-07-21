@@ -1,6 +1,6 @@
 # AGENTS.md — Projectgeheugen & werkinstructies
 
-> **Documentversie:** 1.5 · **Laatste update:** 2026-07-21 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
+> **Documentversie:** 1.6 · **Laatste update:** 2026-07-21 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
 
 Dit bestand is de **centrale ingang** voor iedere agent (of mens) die aan dit project werkt. Het beschrijft waar het projectgeheugen leeft, welk document waarvoor de bron van waarheid is, en hoe je dat geheugen bijhoudt. **Lees dit bestand aan het begin van elke taak.**
 
@@ -199,6 +199,6 @@ Praktische lessen uit cloud-runs. Doel: sneller groen zonder opnieuw te ontdekke
 - Wizard (BL-018): één vraag per scherm; markering `Vraag X van Y`. Velden: `wire:model.blur` (text/number) → na `fill` een echte `Tab`/blur en wacht op “Opgeslagen”; radios/booleans: `wire:model.live` → wacht op “Opgeslagen” vóór “Volgende”. Foto’s: wacht op preview/`Foto opgeslagen`.
 - “Afronden” faalt zonder zichtbare alert als Livewire de 428-interstitial krijgt i.p.v. de component — tech-domain-cookie eerst fixen, daarna pas debuggen op compleetheid.
 - Progress-% telt ook optionele lege vragen mee; 98% ≠ “één verplicht veld mist”. Bij blokkade: let op de rode alert “Nog niet alles is ingevuld” / “Beantwoord eerst…”.
-- Demo-user `installateur@example.com` ontbreekt op staging (deploy seedt alleen templates) → registreren als fallback. **Start demo** alleen zichtbaar als `DEMO_ENABLED=true` in staging `shared/.env` (niet in git).
+- Demo-user `installateur@example.com` ontbreekt op staging (deploy seedt alleen templates) → registreren als fallback. **Start demo** staat standaard aan (`DEMO_ENABLED` default `true`); alleen uit bij expliciet `DEMO_ENABLED=false` in `shared/.env` (niet in git).
 - AI-samenvatting op staging is vaak `blocked` bij `AI_PROVIDER=null` (soft-fail by design) — geen fail, wel zo noteren in `docs/functional-test-status.md`.
 - Screenshots/resultaten: `/opt/cursor/artifacts/…` (blijft buiten git).

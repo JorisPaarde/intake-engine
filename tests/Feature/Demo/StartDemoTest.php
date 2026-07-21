@@ -64,6 +64,14 @@ it('shows the start demo button on the homepage when enabled', function () {
         ->assertSee('Demo — geen echte offerte', false);
 });
 
+it('enables demo by default when DEMO_ENABLED is unset', function () {
+    expect(config('intake.demo.enabled'))->toBeTrue();
+
+    $this->get('/')
+        ->assertOk()
+        ->assertSee('Start demo', false);
+});
+
 it('hides the start demo button when demo mode is disabled', function () {
     config(['intake.demo.enabled' => false]);
 
