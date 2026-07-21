@@ -58,7 +58,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
-- De publieke canonical URL is `https://intake-engine.nl/`. README, cPanel-deploymentdocumentatie en staging-/productie-env-sjablonen verwijzen naar het eigen domein met geldig HTTPS; BL-011 is afgerond. De aparte productie-deployworkflow blijft BL-010.
+- BL-010/011 omgevingsscheiding: `https://intake-engine.nl/` gebruikt een eigen production-releaseboom, `.env`, app-key, sessiecookie, database, private storage en cronjobs; `https://staging.intake-engine.nl/` blijft volledig apart voor `main`-deploys. Nieuwe `deploy-production.yml` draait op `v*`-tags of handmatige dispatch met `PRODUCTION_*`-secrets. `activate.sh` controleert doelomgeving en release-retentie, en verwijdert stale Laravel-runtimecaches vóór migraties om cross-environment activatie te voorkomen. README v1.29, deploymentdocs v2.0, backlog v3.32, teststatus v1.22 en AGENTS v1.5 leggen beheer, rollback en verificatie vast.
 - `docs/backlog.md` v3.22 + `docs/ai.md` v1.2 + `docs/database.md` v1.6 + `docs/functional-test-status.md` v1.14 + README v1.20: BL-006/BL-007 → `done` (AI-aandachtspunten + fotokwaliteit + externe provider-clientlaag); band H deels afgerond.
 - `docs/backlog.md` v3.21 + `docs/intake-engine.md` v1.7 + `docs/functional-test-status.md` v1.14 + README v1.19: BL-022 → `done` (voortgang op verplichte vragen + klikbare ontbreekt-lijst); band J rest BL-025; staging-smoketest als `todo`.
 - `docs/backlog.md` v3.20 + `docs/intake-engine.md` v1.6 + `docs/functional-test-status.md` v1.13 + README v1.18: BL-023 → `done` (auto-doorgaan + Enter); band J-keten bijgewerkt (volgende: BL-022); staging-smoketest als `todo`.

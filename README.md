@@ -1,6 +1,6 @@
 # Intake Engine (Digitale Opname)
 
-> **Documentversie:** 1.28 · **Laatste update:** 2026-07-21 · Onderhoud: zie [AGENTS.md](AGENTS.md)
+> **Documentversie:** 1.29 · **Laatste update:** 2026-07-21 · Onderhoud: zie [AGENTS.md](AGENTS.md)
 
 **Werk je als agent aan dit project? Lees eerst [AGENTS.md](AGENTS.md)** — het projectgeheugen, de documentkaart en het onderhoudsprotocol.
 
@@ -12,9 +12,10 @@ Helpt installatiebedrijven om aanvragen op afstand te beoordelen via een begelei
 
 | Omgeving | URL |
 |----------|-----|
-| Publiek/live | https://intake-engine.nl/ |
+| Production | https://intake-engine.nl/ |
+| Staging | https://staging.intake-engine.nl/ |
 
-Inloggen op `/login`, dashboard op `/dashboard`, health-check op `/health`. Het eigen domein gebruikt geldig HTTPS zonder Technical Domain-tussenscherm. De huidige publieke omgeving wordt nog via de staging-deployworkflow bijgewerkt; de aparte productie-workflow blijft BL-010.
+Inloggen op `/login`, dashboard op `/dashboard`, health-check op `/health`. Beide omgevingen gebruiken geldig HTTPS en hebben een eigen `.env`, app-key, sessiecookie, database, storage en releaseboom. `main` deployt naar staging; een `v*`-tag of bewuste handmatige production-dispatch deployt naar production.
 
 ## Installatie (macOS)
 
@@ -77,7 +78,7 @@ Secrets nooit in git. Belangrijke vars: `APP_*`, `DB_*`, `QUEUE_CONNECTION`, `CA
 
 ## Deployment
 
-Push `main` → GitHub Actions → rsync → `deploy/activate.sh` (migrate, cache, atomic symlink). **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
+Push `main` → staging; tag `v*` of handmatige production-dispatch → production. Beide gebruiken GitHub Actions → rsync → `deploy/activate.sh` (environmentguard, migrate, cache, atomische symlink). **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**.
 
 ## Projectstructuur
 
@@ -94,10 +95,10 @@ deploy/          # activate.sh
 De volledige documentkaart — welk document waarvoor de bron van waarheid is — staat in [AGENTS.md § Geheugenkaart](AGENTS.md#geheugenkaart-welk-document-is-waarvoor-de-bron-van-waarheid). Snelle ingangen:
 
 - [docs/backlog.md](docs/backlog.md) — al het open werk, geordend in 5 epics
-- [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — deploy naar staging/cPanel
+- [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — gescheiden staging- en productiondeploy op cPanel
 - [docs/metrics.md](docs/metrics.md) — definities van productmetrics en staging-smoke
 - [CHANGELOG.md](CHANGELOG.md) — wijzigingslog
 
 ## Huidige status
 
-**MVP-fasen 1–6 afgerond en gemerged naar `main`** (t/m AI-samenvatting). Open werk: [docs/backlog.md](docs/backlog.md). BL-019 is code-compleet: adres-autocomplete en BAG-verrijking leveren bouwjaar, gebruiksdoel, oppervlakte, locatie en perceel met bron/zekerheid; een eenduidig BAG-bouwjaar vervangt de klantvraag in airco v4. Een actuele PDOK-luchtfoto rond de BAG-locatie staat als private, gemarkeerde context in dossier en PDF. BL-020 is code-compleet achter een privacyflag: airco v5 laat meterkastfoto's multimodaal beoordelen, vult alleen bij hoge zekerheid de vrije-groepkeuze als bevestigbare voorzet in en bewaart fase, bron en onzekerheid in het dossier; externe activering wacht op DPIA/key. BL-027 biedt gerichte tekst-, foto- en beveiligde PDF-documentopdrachten na beoordeling. BL-026 toont op `/metrics` privacyveilige funnel-, frictie- en dossiermetrics. BL-011 is afgerond: de publieke omgeving draait op `https://intake-engine.nl/` met geldig HTTPS. BL-001 demo-code is klaar, maar staging-flag/smoke en overige **host/env-acties** (SMTP, PDOK-grondslag, externe AI) staan in [docs/DEPLOYMENT.md § Handmatige acties](docs/DEPLOYMENT.md#handmatige-acties-producteigenaar). Handmatige teststatus: [docs/functional-test-status.md](docs/functional-test-status.md).
+**MVP-fasen 1–6 afgerond en gemerged naar `main`** (t/m AI-samenvatting). Open werk: [docs/backlog.md](docs/backlog.md). BL-019 is code-compleet: adres-autocomplete en BAG-verrijking leveren bouwjaar, gebruiksdoel, oppervlakte, locatie en perceel met bron/zekerheid; een eenduidig BAG-bouwjaar vervangt de klantvraag in airco v4. Een actuele PDOK-luchtfoto rond de BAG-locatie staat als private, gemarkeerde context in dossier en PDF. BL-020 is code-compleet achter een privacyflag: airco v5 laat meterkastfoto's multimodaal beoordelen, vult alleen bij hoge zekerheid de vrije-groepkeuze als bevestigbare voorzet in en bewaart fase, bron en onzekerheid in het dossier; externe activering wacht op DPIA/key. BL-027 biedt gerichte tekst-, foto- en beveiligde PDF-documentopdrachten na beoordeling. BL-026 toont op `/metrics` privacyveilige funnel-, frictie- en dossiermetrics. BL-010/011 zijn afgerond: production en staging draaien gescheiden op eigen HTTPS-domeinen en runtimegegevens. BL-001 demo-code is klaar, maar staging-flag/smoke en overige **host/env-acties** (SMTP, PDOK-grondslag, externe AI) staan in [docs/DEPLOYMENT.md § Handmatige acties](docs/DEPLOYMENT.md#handmatige-acties-producteigenaar). Handmatige teststatus: [docs/functional-test-status.md](docs/functional-test-status.md).

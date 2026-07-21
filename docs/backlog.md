@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 3.31 · **Laatste update:** 2026-07-21 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.32 · **Laatste update:** 2026-07-21 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -32,7 +32,7 @@ Items in **verschillende parallel-bands** kunnen tegelijk door aparte agents/men
 | **D** | Infra (extern) | — (BL-011 done) | — |
 | **F** | Open data / adres | — (BL-019 done) | — |
 | **H** | AI-keten | — (BL-006/007/020 done) | — |
-| **I** | Beheer / schaal | BL-010, BL-013 (BL-012 later) | Onderling parallel; met A–H zolang geen gedeelde deploy-/storage-wijziging botst |
+| **I** | Beheer / schaal | BL-013 (BL-012 later; BL-010 done) | Met A–H zolang geen gedeelde storagewijziging botst |
 | **J** | Klantwizard-verbeteringen | — (BL-021–BL-025 done) | — |
 | **K** | Installateursweergave | — (BL-024 done) | — |
 | **L** | Gerichte vervolgflow | — (BL-027 done) | — |
@@ -44,7 +44,7 @@ Afgeronde bands (niet meer te plannen): **B** = BL-016 (prefill), **C** = BL-008
 
 1. **Nu parallel uitvoerbaar:** BL-001 afronden; SMTP/PDOK op staging aanzetten voor smoketests (BL-004/014/015/019/027).
 2. **Na DPIA parallel activeren:** externe AI + foto-inferentie via staging-env en smoketest; geen resterend code-item.
-3. **Laag-prioriteit parallel:** BL-010 · BL-013 · (BL-012 bij tweede klant).
+3. **Laag-prioriteit parallel:** BL-013 · (BL-012 bij tweede klant).
 
 ## Overzicht
 
@@ -53,9 +53,8 @@ Geprioriteerd op het hoofddoel (herprioritering 2026-07-18): hoeveel handelingen
 | # | ID | Item | Epic | Status | Prioriteit | Band |
 |---|----|------|------|--------|------------|------|
 | 1 | BL-001 | Demo-versie van de app | E5 | in_progress | medium | A |
-| 2 | BL-010 | Production-deployworkflow (tags + eigen omgeving) | E5 | backlog | low | I · parallel |
-| 3 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low | I · later |
-| 4 | BL-013 | S3 als mediadisk | E5 | backlog | low | I · parallel |
+| 2 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low | I · later |
+| 3 | BL-013 | S3 als mediadisk | E5 | backlog | low | I · parallel |
 | — | BL-020 | Foto-gedreven afleiding en adaptieve vervolgvragen | E4 | done | medium | H (done) |
 | — | BL-019 | Afleiden uit adres en openbare bronnen (luchtfoto, BAG) | E3 | done | medium | F (done) |
 | — | BL-026 | Kernmetrics voor frictie en dossierbruikbaarheid | E1 | done | medium | M (done) |
@@ -76,6 +75,7 @@ Geprioriteerd op het hoofddoel (herprioritering 2026-07-18): hoeveel handelingen
 | — | BL-008 | HEIC-ondersteuning bij foto-uploads | E1 | done | high | C (done) |
 | — | BL-002 | Functionele hertest staging (Fase 3–6) | E1 | done | high | A (done) |
 | — | BL-011 | Eigen domein + geldig SSL voor staging | E1 | done | high | D (done) |
+| — | BL-010 | Production-deployworkflow (tags + eigen omgeving) | E5 | done | low | I (done) |
 | — | BL-017 | Airco-template v2: vraag-voor-vraag audit op het ontwerpprincipe | E3 | done | high | — |
 | — | BL-018 | Vraag-voor-vraag klantflow (één vraag per scherm) | E3 | done | high | — |
 | — | BL-003 | Staging PHP-uploadlimieten verifiëren/verhogen | E1 | done | high | — |
@@ -325,9 +325,10 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 
 ### BL-010 — Production-deployworkflow
 
-- **Status:** backlog · **Prioriteit:** low *(verlaagd 2026-07-18 bij hoofddoel-herprioritering: bespaart nu geen handelingen; oppakken zodra een eerste echte klant/productiegang concreet is — zelfde trigger als BL-012. BL-009 purge is al done.)* · **Ref:** `docs/DEPLOYMENT.md`
-- **Parallel:** band **I** — parallel met productwerk; afstemmen met BL-013 bij gedeelde deploy-/hostingkeuzes.
+- **Status:** done · **Prioriteit:** low · **Datum:** 2026-07-21 · **Ref:** `docs/DEPLOYMENT.md`, `.github/workflows/deploy-production.yml`
+- **Parallel:** band **I** (done).
 - **Doel:** `deploy-production.yml` getriggerd op tags (`v*`), `PRODUCTION_*`-secrets, eigen `apps/intake-engine-production`-boom en database. Eerste release taggen als `v0.x` en CHANGELOG `[Unreleased]` afsluiten.
+- **Resultaat:** `main` blijft automatisch naar `staging.intake-engine.nl` deployen; `v*` of een bewuste handmatige dispatch gebruikt GitHub environment `production` en `PRODUCTION_*`-secrets voor `intake-engine.nl`. Beide omgevingen hebben eigen `.env`, app-key, sessiecookie, database, private storage, cronjobs en releaseboom. Deploypaden en `APP_ENV` worden vóór migraties gecontroleerd; stale runtimecaches worden vóór de eerste Artisan-boot verwijderd. De bestaande stagingdata/media zijn eenmalig naar production gekopieerd en runtimecaches, sessies en queuejobs niet.
 
 ### BL-012 — Multi-tenancy (companies)
 
@@ -347,6 +348,7 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 
 | ID | Afgerond | PR |
 |----|----------|-----|
+| BL-010 | 2026-07-21 | deze wijziging — gescheiden staging/production + productionworkflow |
 | BL-020 | 2026-07-20 | (deze PR) — bevestigbare meterkastfoto-afleiding + airco v5; externe activering na DPIA |
 | BL-025 | 2026-07-18 | #34 — wizard request-caching (herstel van gesloten #32) |
 | BL-007 | 2026-07-18 | (deze PR) — heuristische aandachtspunten + accept/verwijder + fotokwaliteit |
