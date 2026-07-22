@@ -1,8 +1,8 @@
 # Intake-engine
 
-> **Documentversie:** 1.15 · **Laatste update:** 2026-07-22 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.16 · **Laatste update:** 2026-07-22 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: **geïmplementeerd t/m Fase 6 + BL-019 openbare data + BL-020 foto-afleiding + BL-027 gerichte vervolgrondes**. Airco-template **v6** gepubliceerd — v5 + adaptieve vragenlijst: foto's vóór de vragen die ze beantwoorden, generieke foto-afleiding en bouwtype uit BAG.
+Status: **geïmplementeerd t/m Fase 6 + BL-019 openbare data + BL-020 foto-afleiding + BL-027 gerichte vervolgrondes**. Airco-template **v7** gepubliceerd — v6 + maximale vraagreductie: elke sectie opent met de foto, leidingrouteprofiel toegevoegd en overbodige vragen geschrapt.
 
 ## Doel
 
@@ -149,7 +149,7 @@ Secties (stabiele keys over versies):
 
 ### v1 → v2 (BL-017, ontwerpprincipe)
 
-V2 introduceerde onderstaande vraagreductie. Nieuwe intakes gebruiken inmiddels de laatste gepubliceerde **v6**; lopende/afgeronde opnames blijven op hun gepinde versie (ADR-0001).
+V2 introduceerde onderstaande vraagreductie. Nieuwe intakes gebruiken inmiddels de laatste gepubliceerde **v7**; lopende/afgeronde opnames blijven op hun gepinde versie (ADR-0001).
 
 | Wijziging | Was (v1) | Wordt (v2) |
 |-----------|----------|------------|
@@ -213,7 +213,39 @@ Zekerheid bepaalt hoeveel werk de aanvrager overhoudt:
 
 Bestaande antwoorden van aanvrager of installateur worden nooit overschreven, en het weghalen van een foto wist elke conclusie die eruit volgde.
 
-Profielen in v6: `room` op `room_photos` (grootte, zonbelasting, glasoppervlak) en `outdoor` op `outdoor_location_photos` (ondergrond, bereikbaarheid). Binnen `rooms` en `outdoor_unit` staat de foto nu vóór die vragen — daarvoor stond hij erachter, waardoor de aanvrager alles al had ingetypt voordat de foto iets kon uitsparen.
+Profielen in v7:
+
+| Profiel | Fotovraag | Leidt af |
+|---|---|---|
+| `room` | `room_photos` | ruimtetype, grootte, zonbelasting, glasoppervlak |
+| `outdoor` | `outdoor_location_photos` | plek, ondergrond, bereikbaarheid |
+| `pipe_route` | `pipe_route_photos` | route, afstandsindicatie, boringen nodig |
+| `fusebox` | `fusebox_photo` | vrije groep, fase (eigen actie, zie hieronder) |
+
+Elke sectie opent nu met zijn foto. In v6 stonden `room_type` en `outdoor_location` nog vóór hun foto en konden daardoor per definitie niet vervallen.
+
+Booleanvragen worden afgeleid via `yes`/`no` op de wire en pas bij opslag omgezet naar een echte boolean, zodat het model nooit over JSON-types hoeft te redeneren.
+
+### Wat bewust blijft staan
+
+Niet alles hoort weg te vallen, ook niet als het "korter" kan:
+
+- `ownership`, `pipe_visibility`, `noise_sensitive` — juridische status en voorkeuren staan niet op een foto.
+- `floor_level` — een binnenfoto laat de verdieping niet betrouwbaar zien.
+- `truth_confirmation` en `privacy_consent` blijven twee losse vragen. Toestemming moet specifiek en ongebundeld zijn; samenvoegen met een juistheidsverklaring maakt haar niet-vrij. Eén stap winst weegt daar niet tegenop.
+- `insulation_indication` blijft een vraag: bouwjaar uit de BAG zegt weinig over uitgevoerde renovaties.
+
+### Effect op het aantal stappen
+
+Gemeten op een opname met één binnenunit, met werkende BAG en foto-inferentie:
+
+| Versie | Stappen |
+|---|---|
+| v5 (platte lijst) | 38 |
+| v6 (adaptief) | 29 |
+| v7 (maximaal afgeleid) | ~20 |
+
+Wat overblijft is intentie (reden, koelen/verwarmen, aantal units), niet-zichtbare feiten (eigendom, verdieping), voorkeuren en de twee afsluitende verklaringen.
 
 Bij expliciet ingeschakelde foto-inferentie beoordeelt `AssessFuseboxPhotos` maximaal twee recente meterkastfoto's. Alleen `free_group=yes|no` met `confidence=high` wordt als `prefill_source=ai` klaargezet. De wizard toont deze keuze gemarkeerd als foto-inschatting; een klantkeuze bevestigt/corrigeert en verwijdert de prefillbron. Bestaande klant- of installateurantwoorden worden nooit overschreven. Bij onvoldoende beeld blijft de normale vraag staan en verschijnt de concrete `retake_instruction` bij de foto.
 
