@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.25 · **Laatste update:** 2026-07-21 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.26 · **Laatste update:** 2026-07-22 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -17,6 +17,10 @@ Laatste testsessie: 2026-07-21 (remote; gescheiden staging/production, domeinrou
 | /login rendert | pass | 2026-07-18 | Toont loginformulier |
 | Auth-beveiliging dashboard/intakes | pass | 2026-07-18 | Uitgelogd → redirect `/login` (na dismiss 428-interstitial) |
 | Dashboard weergave | pass | 2026-07-18 | Bereikbaar na registratie |
+| Dev-admin `/dev` toegang (BL-028) | todo | - | Op staging: ingelogd → `/dev` bereikbaar, nav-link "Dev" zichtbaar. In productie (of `DEV_ADMIN_ENABLED=false`): `/dev` geeft 404 en nav-link ontbreekt. Uitgelogd → redirect `/login`. |
+| Dev-admin dienststatus (BL-028) | todo | - | `/dev` toont per externe dienst enabled/key/base-URL/timeout en laatst-gelukt tijd; geo-diensten met opgeslagen feiten worden groen, ongebruikte grijs, ontbrekende key amber. Geen live calls. |
+| Dev-admin opname-inspector (BL-028) | todo | - | `/dev/intakes` zoekt op adres/uuid; detail toont externe feiten (PDOK/BAG), AI-runs, antwoorden, uploads en de activiteiten-tijdlijn van één opname. |
+| Dev-admin AI-runs/activiteit/health (BL-028) | todo | - | `/dev/ai-runs` en `/dev/activity` filteren en tonen de zojuist gegenereerde runs/events; `/dev/health` toont DB/queue-diepte/cache/storage/uploads/HEIC/versies. |
 | Productmetrics `/metrics` (BL-026) | pass | lokaal 2026-07-20; staging nog todo | Authenticated weergave met periodefilter, zes kerncijfers, uitvalpunten en per-opname-links gecontroleerd; eerste beoordeling met `need_more_info` telt als 0,0% direct genoeg. Desktop en 390 px zonder pagina-overflow; tabel scrolt intern; geen nieuwe browserwarnings/-errors. Na deploy dezelfde smoke volgens `docs/metrics.md`. |
 | Opname aanmaken (Airco) | pass | 2026-07-18 | Opgeslagen, detail + klantlink |
 | Adres-autocomplete + BAG-verrijking (BL-019) | todo | - | Na deploy: typ adres → selecteer PDOK-suggestie → postcode/plaats gevuld; detail toont bouwjaar/gebruiksdoel/oppervlakte/locatie/perceel met bron; handmatige invoer blijft werken bij PDOK-storing |

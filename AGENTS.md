@@ -1,6 +1,6 @@
 # AGENTS.md — Projectgeheugen & werkinstructies
 
-> **Documentversie:** 1.7 · **Laatste update:** 2026-07-21 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
+> **Documentversie:** 1.8 · **Laatste update:** 2026-07-22 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
 
 Dit bestand is de **centrale ingang** voor iedere agent (of mens) die aan dit project werkt. Het beschrijft waar het projectgeheugen leeft, welk document waarvoor de bron van waarheid is, en hoe je dat geheugen bijhoudt. **Lees dit bestand aan het begin van elke taak.**
 
@@ -187,6 +187,7 @@ Praktische lessen uit cloud-runs. Doel: sneller groen zonder opnieuw te ontdekke
 - Kwaliteitspoort: `composer check` (= Pint + PHPStan level 6 + Pest) vóór je “klaar” claimt.
 - Featuretests met `Livewire::test(...)` hebben geen Vite-build nodig; `$this->get(...)` die een layout met `@vite` raakt wél.
 - Docs-DoD: CHANGELOG `[Unreleased]`, geraakte docs + versiebump, backlog-status, eventueel `todo` in `docs/functional-test-status.md`, en deze tipsectie als je iets nieuws leerde.
+- **Staging-inzage:** de dev-admin op `/dev` (BL-028, ADR-0008) toont per opname de ruwe binnengekomen data (externe feiten, AI-runs, antwoorden, uploads, activity-events) en een passieve dienststatus — sneller dan zelf via DB/logs speuren. Alleen aan op local/staging (`config('devadmin.enabled')`), hard 404 op production.
 - Branchnaam: `cursor/<korte-naam>-<suffix>` zoals de run voorschrijft; base `main`; PR via de cloud-PR-tool (niet `gh pr create` tenzij dat de enige optie is).
 
 ### Staging-testen (browser / Playwright)

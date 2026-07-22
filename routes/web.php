@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Customer\IntakeUploadController as CustomerIntakeUploadController;
 use App\Http\Controllers\Demo\StartDemoController;
+use App\Http\Controllers\Dev\DevActivityController;
+use App\Http\Controllers\Dev\DevAiRunController;
+use App\Http\Controllers\Dev\DevDashboardController;
+use App\Http\Controllers\Dev\DevHealthController;
+use App\Http\Controllers\Dev\DevIntakeController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\Installer\AddressSuggestionController;
 use App\Http\Controllers\Installer\DashboardController;
@@ -56,6 +61,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/intakes/{intake}/uploads/{upload}', [InstallerIntakeUploadController::class, 'show'])
         ->name('installer.uploads.show');
 });
+
+Route::middleware(['auth', 'verified', 'dev.access'])
+    ->prefix('dev')
+    ->name('dev.')
+    ->group(function () {
+        Route::get('/', DevDashboardController::class)->name('dashboard');
+        Route::get('/health', DevHealthController::class)->name('health');
+        Route::get('/ai-runs', DevAiRunController::class)->name('ai-runs');
+        Route::get('/activity', DevActivityController::class)->name('activity');
+        Route::get('/intakes', [DevIntakeController::class, 'index'])->name('intakes');
+        Route::get('/intakes/{intake}', [DevIntakeController::class, 'show'])
+            ->withTrashed()
+            ->name('intakes.show');
+    });
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

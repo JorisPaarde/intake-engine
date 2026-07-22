@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 3.36 · **Laatste update:** 2026-07-21 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.37 · **Laatste update:** 2026-07-22 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -55,6 +55,7 @@ Geprioriteerd op het hoofddoel (herprioritering 2026-07-18): hoeveel handelingen
 | 1 | BL-001 | Demo-versie van de app | E5 | in_progress | medium | A |
 | 2 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low | I · later |
 | 3 | BL-013 | S3 als mediadisk | E5 | backlog | low | I · parallel |
+| — | BL-028 | Dev-admin: staging-inzage in dienststatus en opname-data | E5 | done | medium | I (done) |
 | — | BL-020 | Foto-gedreven afleiding en adaptieve vervolgvragen | E4 | done | medium | H (done) |
 | — | BL-019 | Afleiden uit adres en openbare bronnen (luchtfoto, BAG) | E3 | done | medium | F (done) |
 | — | BL-026 | Kernmetrics voor frictie en dossierbruikbaarheid | E1 | done | medium | M (done) |
@@ -335,6 +336,12 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 - **Status:** backlog · **Prioriteit:** low · **Ref:** ADR-0006
 - **Parallel:** band **I** · later — niet parallel starten vóór concrete tweede klant; raakt breed (users/intakes).
 - **Doel:** bewust afwezig in MVP. Pas oppakken bij een concrete tweede klant/bedrijf: `companies`-tabel + tenant-scope op intakes en users.
+
+### BL-028 — Dev-admin: staging-inzage in dienststatus en opname-data
+
+- **Status:** done · **Prioriteit:** medium · **Epic:** E5 · **Band:** I
+- **Waarom:** op staging moet controleerbaar zijn of de externe APIs werken en welke data er bij een opname binnenkwam, zonder de installateursflow te vervuilen. Dat spaart de producteigenaar handmatig speurwerk via logs/DB bij het verifiëren van de vele staging-todo's in `docs/functional-test-status.md`.
+- **Opgeleverd:** routegroep `/dev` met vier panelen — dienststatus (passief, uit `intake_external_facts`/`ai_runs`, geen live calls), opname-inspector (ruwe feiten/AI-runs/antwoorden/uploads/events per intake), AI-runs & activiteitenlog, en een uitgebreid systeem/health-paneel. Omgevings-gated: aan op local/staging, hard 404 op production via `EnsureDevAccess` (`config('devadmin.enabled')`); navigatielink alleen zichtbaar wanneer aan. Beslissing en privacy-afweging: **ADR-0008** (in lijn met ADR-0002/0007). Verificatie: zie `docs/functional-test-status.md`.
 
 ### BL-013 — S3 als mediadisk
 
