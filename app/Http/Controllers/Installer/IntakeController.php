@@ -120,6 +120,8 @@ class IntakeController extends Controller
             'followUpRounds.items.uploads',
             'report',
             'review.reviewer',
+            'pipeRouteSessions.segments.upload',
+            'pipeRouteSessions.approver',
         ]);
 
         return view('installer.intakes.show', [

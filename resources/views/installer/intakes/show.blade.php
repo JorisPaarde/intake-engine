@@ -294,6 +294,10 @@
                 @endif
             </div>
 
+            <div class="bg-white shadow-sm sm:rounded-lg p-6">
+                @include('installer.intakes._pipe-route')
+            </div>
+
             @if ($intake->report)
                 <div class="bg-white shadow-sm sm:rounded-lg p-6 space-y-4">
                     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
