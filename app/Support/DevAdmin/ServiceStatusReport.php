@@ -13,7 +13,6 @@ use App\Domains\Intake\Services\PdokAerialImageService;
 use App\Domains\Intake\Services\ThreeDBagService;
 use App\Enums\AiRunStatus;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Collection;
 
 /**
  * Passieve statusweergave van de externe diensten: leidt "werkt het?" af uit de
@@ -138,7 +137,7 @@ final class ServiceStatusReport
     }
 
     /**
-     * @param  Collection<string, object{last_at: string|null, cnt: int}>  $facts
+     * @param  array<string, array{last_at: string|null, cnt: int}>  $facts
      * @return array<string, mixed>
      */
     private function geoRow(
@@ -148,12 +147,12 @@ final class ServiceStatusReport
         string $baseUrl,
         int $timeout,
         string $source,
-        Collection $facts,
+        array $facts,
         bool $requiresKey = false,
         bool $hasKey = true,
     ): array {
-        $row = $facts->get($source);
-        $lastAt = $row?->last_at !== null ? Carbon::parse($row->last_at) : null;
+        $row = $facts[$source] ?? null;
+        $lastAt = ($row['last_at'] ?? null) !== null ? Carbon::parse($row['last_at']) : null;
 
         return [
             'key' => $key,
@@ -169,23 +168,27 @@ final class ServiceStatusReport
             'last_status' => $lastAt !== null ? AiRunStatus::Succeeded->value : null,
             'last_error' => null,
             'failures' => 0,
-            'fact_count' => (int) ($row->cnt ?? 0),
+            'fact_count' => (int) ($row['cnt'] ?? 0),
         ];
     }
 
     /**
-     * @return Collection<string, object{last_at: string|null, cnt: int}>
+     * @return array<string, array{last_at: string|null, cnt: int}>
      */
-    private function latestFactsBySource(): Collection
+    private function latestFactsBySource(): array
     {
-        /** @var Collection<string, object{last_at: string|null, cnt: int}> $rows */
-        $rows = IntakeExternalFact::query()
+        return IntakeExternalFact::query()
             ->selectRaw('source, MAX(captured_at) as last_at, COUNT(*) as cnt')
             ->groupBy('source')
+            ->toBase()
             ->get()
-            ->keyBy('source');
-
-        return $rows;
+            ->mapWithKeys(static fn (object $row): array => [
+                (string) $row->source => [
+                    'last_at' => $row->last_at !== null ? (string) $row->last_at : null,
+                    'cnt' => (int) $row->cnt,
+                ],
+            ])
+            ->all();
     }
 
     private function latestAiRun(): ?AiRun

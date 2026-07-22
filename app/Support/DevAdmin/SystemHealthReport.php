@@ -128,7 +128,9 @@ final class SystemHealthReport
             }
 
             try {
-                $disks[$disk] = ['ok' => Storage::disk($disk)->exists('.') || true];
+                // Bereikbaarheidsprobe: een misgeconfigureerde disk gooit hier.
+                Storage::disk($disk)->exists('probe');
+                $disks[$disk] = ['ok' => true];
             } catch (Throwable $e) {
                 $disks[$disk] = ['ok' => false, 'message' => $e->getMessage()];
             }

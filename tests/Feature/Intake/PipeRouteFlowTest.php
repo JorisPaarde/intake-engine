@@ -2,14 +2,13 @@
 
 declare(strict_types=1);
 
+use App\Domains\AI\Actions\SynthesizePipeRoute;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\Intake\Actions\AddPipeRoutePhoto;
 use App\Domains\Intake\Actions\ApprovePipeRoute;
 use App\Domains\Intake\Actions\StartPipeRouteSession;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeUpload;
-use App\Domains\Intake\Models\PipeRouteSession;
-use App\Domains\AI\Actions\SynthesizePipeRoute;
 use App\Enums\AiRunType;
 use App\Enums\PipeRouteStatus;
 use App\Models\User;
