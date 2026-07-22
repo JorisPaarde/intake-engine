@@ -1,8 +1,8 @@
 # Intake-engine
 
-> **Documentversie:** 1.18 · **Laatste update:** 2026-07-22 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.19 · **Laatste update:** 2026-07-22 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: **geïmplementeerd t/m Fase 6 + BL-019 openbare data + BL-020 foto-afleiding + BL-027 gerichte vervolgrondes**. Airco-template **v7** gepubliceerd — v6 + maximale vraagreductie: elke sectie opent met de foto, leidingrouteprofiel toegevoegd en overbodige vragen geschrapt.
+Status: **geïmplementeerd t/m Fase 6 + BL-019 openbare data + BL-020 foto-afleiding + BL-027 gerichte vervolgrondes**. Airco-template **v8** gepubliceerd — v7 + het geregistreerde energielabel neemt isolatie en bouwtype over.
 
 ## Doel
 
@@ -149,7 +149,7 @@ Secties (stabiele keys over versies):
 
 ### v1 → v2 (BL-017, ontwerpprincipe)
 
-V2 introduceerde onderstaande vraagreductie. Nieuwe intakes gebruiken inmiddels de laatste gepubliceerde **v7**; lopende/afgeronde opnames blijven op hun gepinde versie (ADR-0001).
+V2 introduceerde onderstaande vraagreductie. Nieuwe intakes gebruiken inmiddels de laatste gepubliceerde **v8**; lopende/afgeronde opnames blijven op hun gepinde versie (ADR-0001).
 
 | Wijziging | Was (v1) | Wordt (v2) |
 |-----------|----------|------------|
@@ -252,6 +252,25 @@ Twee dingen komen ook op het Kadaster-pad van PDOK: **coördinaten** (Kadaster l
 
 `oorspronkelijkBouwjaar` is bij Kadaster een array — één jaar per pand waar het verblijfsobject deel van uitmaakt. Alleen een eenduidig jaar wordt als voorzet overgenomen; bij panden met verschillende bouwjaren blijft de bouwjaarvraag gewoon staan.
 
+## Energielabel uit EP-Online
+
+[EP-Online](https://www.rvo.nl/onderwerpen/wetten-en-regels-gebouwen/ep-online) van RVO is het landelijke register van geregistreerde energielabels. Bevraagd op het BAG-verblijfsobject-id dat de adresverrijking toch al oplevert (`/api/v5/PandEnergielabel/AdresseerbaarObject/{id}`), dus zonder opnieuw op adres te matchen. Key via `epbdwebservices.rvo.nl`, meegestuurd als `Authorization`-header.
+
+Het neemt twee vragen over:
+
+| Vraag | Uit | Waarom dit mag |
+|---|---|---|
+| `insulation_indication` | `Energiebehoefte` | geregistreerd ná eventuele renovaties |
+| `building_type` | `Gebouwtype` | het woningtype dat de BAG níét kent |
+
+**Isolatie volgt de energiebehoefte, niet de labelletter.** Die letter verrekent ook installaties, dus een matig geïsoleerd huis met zonnepanelen scoort een A terwijl de warmtevraag hoog blijft. `Energiebehoefte` (NTA 8800) is juist de vraag vóór installaties en dus de maat voor wat een airco moet leveren. Grenzen: ≤50 `good`, ≤100 `average`, daarboven `poor`. Oudere en vereenvoudigde labels hebben dat getal niet; die vallen terug op de letter.
+
+**Bouwtype alleen bij herkenning.** EP-Online legt de waarden van `Gebouwtype` niet vast in de OpenAPI-spec, dus de omschrijving wordt op herkenbare woorden gematcht ("vrijstaand", "hoek", "tussen", "galerij"). Herkennen we hem niet, dan blijft de vraag staan in plaats van dat we gokken. `Gebouwklasse` "U" gaat rechtstreeks naar `commercial`.
+
+Beide onderbouwingen — labelletter én kWh/m²·jr — komen als feit in het dossier met bron en registratiedatum, zodat een afgeleid antwoord navolgbaar blijft. Heeft een adres geen label, dan blijven beide vragen gewoon staan; registratie is verplicht bij verkoop, verhuur en oplevering, dus de dekking is hoog maar niet volledig.
+
+Omdat `building_type` nu uit twee registers kan komen, accepteert `meta.skip_when_prefilled_by` sinds v8 ook een lijst bronnen.
+
 ## Pandgeometrie uit de 3DBAG
 
 Naast PDOK/BAG haalt `EnrichIntakeAddress` dakvorm en gevelhoogte op bij de [3DBAG](https://3dbag.nl) van TU Delft, op basis van het pand-id dat de BAG-verrijking al heeft opgeleverd. De data staat onder **CC BY 4.0**: opslaan en tonen in het dossier mag, mits de bron vermeld blijft — anders dan bij Google Street View, waar het vooraf ophalen, opslaan of cachen van beeld verboden is en embedden in een gegenereerde PDF dus niet kan.
@@ -275,6 +294,7 @@ Gemeten op een opname met één binnenunit, met werkende BAG en foto-inferentie:
 | v5 (platte lijst) | 38 |
 | v6 (adaptief) | 29 |
 | v7 (maximaal afgeleid) | ~20 |
+| v8 (met energielabel) | ~19 |
 
 Wat overblijft is intentie (reden, koelen/verwarmen, aantal units), niet-zichtbare feiten (eigendom, verdieping), voorkeuren en de twee afsluitende verklaringen.
 

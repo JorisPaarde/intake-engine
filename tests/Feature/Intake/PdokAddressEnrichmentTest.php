@@ -187,7 +187,7 @@ test('selected address stores BAG facts and removes the redundant build-year ste
     $aerial = $intake->externalFacts()->where('fact_key', 'aerial_image')->firstOrFail();
 
     expect($intake->status)->toBe(IntakeStatus::Sent)
-        ->and($intake->templateVersion->version)->toBe(7)
+        ->and($intake->templateVersion->version)->toBe(8)
         ->and($intake->address_line)->toBe('Damrak 1')
         ->and($intake->address_postal_code)->toBe('1012LG')
         ->and($buildYear->value)->toBe(['number' => 1890])
@@ -718,4 +718,100 @@ test('without a key the Kadaster API is never called', function () {
     expect($intake->externalFacts()->where('fact_key', 'building_year')->exists())->toBeTrue();
 
     Http::assertNotSent(fn (Request $request): bool => str_contains($request->url(), 'kadaster'));
+});
+
+test('a messy hand-typed address is rescued by Kadaster and rewritten to the BAG spelling', function () {
+    enableKadasterBag();
+
+    // Precies het productiegeval: huisnummer dubbel ingetypt. De Locatieserver vindt het
+    // adres wel, maar matchesIntake() wijst het af — waarna vroeger de héle verrijking
+    // leeg bleef en het dossier 'Nog geen externe gegevens beschikbaar' toonde.
+    Http::fake(function (Request $request) {
+        if (str_contains($request->url(), 'kadaster.test')) {
+            return Http::response([
+                '_embedded' => [
+                    'adressen' => [[
+                        'openbareRuimteNaam' => 'Bernadottelaan',
+                        'huisnummer' => 273,
+                        'postcode' => '2037GR',
+                        'woonplaatsNaam' => 'Haarlem',
+                        'adresseerbaarObjectIdentificatie' => '0392010000123456',
+                        'pandIdentificaties' => ['0392100000123456'],
+                        'oppervlakte' => 118,
+                        'gebruiksdoelen' => ['woonfunctie'],
+                        'oorspronkelijkBouwjaar' => ['1962'],
+                    ]],
+                ],
+            ]);
+        }
+
+        if (str_contains($request->url(), '/free')) {
+            return Http::response(['response' => ['docs' => [[
+                ...pdokAddressDocument(),
+                'straatnaam' => 'Bernadottelaan',
+                'huisnummer' => 273,
+                'postcode' => '2037GR',
+                'woonplaatsnaam' => 'Haarlem',
+                'weergavenaam' => 'Bernadottelaan 273, 2037GR Haarlem',
+            ]]]]);
+        }
+
+        if (str_contains($request->url(), '/collections/verblijfsobject/items')) {
+            return Http::response([
+                'features' => [[
+                    'properties' => ['identificatie' => '0392010000123456'],
+                    'geometry' => ['type' => 'Point', 'coordinates' => [4.6462, 52.3874]],
+                ]],
+            ]);
+        }
+
+        if (str_contains($request->url(), '/aerial')) {
+            return Http::response(fakeAerialJpeg(), 200, ['Content-Type' => 'image/jpeg']);
+        }
+
+        return Http::response([], 404);
+    });
+
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->post(route('intakes.store'), [
+        'template_key' => 'airco',
+        'customer_name' => 'Rommelig Adres',
+        'customer_email' => 'rommelig@example.com',
+        'address_line' => 'Bernadottelaan, 273, 273',
+        'address_postal_code' => '2037GR',
+        'address_city' => 'Haarlem',
+    ]);
+
+    $intake = Intake::query()->where('customer_email', 'rommelig@example.com')->firstOrFail();
+    $facts = $intake->externalFacts()->pluck('value', 'fact_key');
+
+    expect($intake->address_line)->toBe('Bernadottelaan 273')
+        ->and($facts['building_year'])->toBe(['number' => 1962])
+        ->and($facts['floor_area_m2'])->toBe(['number' => 118, 'unit' => 'm²'])
+        ->and($intake->answers()->where('question_key', 'build_year')->firstOrFail()->value)->toBe(['number' => 1962])
+        // Een woonfunctie mag het bouwtype juist níét invullen.
+        ->and($intake->answers()->where('question_key', 'building_type')->exists())->toBeFalse();
+});
+
+test('without Kadaster a messy address still leaves an explicit uncertainty', function () {
+    config()->set('services.bag_api.enabled', false);
+
+    fakeSuccessfulPdok();
+
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->post(route('intakes.store'), [
+        'template_key' => 'airco',
+        'customer_name' => 'Rommelig Zonder Kadaster',
+        'customer_email' => 'rommelig2@example.com',
+        'address_line' => 'Damrak, 1, 1',
+        'address_postal_code' => '1012LG',
+        'address_city' => 'Amsterdam',
+    ]);
+
+    $intake = Intake::query()->where('customer_email', 'rommelig2@example.com')->firstOrFail();
+
+    expect($intake->externalFacts()->where('fact_key', 'address_verification')->firstOrFail()->value)
+        ->toBe(['status' => 'not_found']);
 });

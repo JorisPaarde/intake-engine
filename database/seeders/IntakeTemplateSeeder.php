@@ -22,6 +22,7 @@ class IntakeTemplateSeeder extends Seeder
             database_path('data/templates/airco/v5.php'),
             database_path('data/templates/airco/v6.php'),
             database_path('data/templates/airco/v7.php'),
+            database_path('data/templates/airco/v8.php'),
         ];
 
         foreach ($configs as $path) {

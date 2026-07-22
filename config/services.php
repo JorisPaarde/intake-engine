@@ -83,6 +83,25 @@ return [
         'timeout_seconds' => (int) env('BAG_API_TIMEOUT_SECONDS', 5),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | EP-Online (RVO) — geregistreerde energielabels
+    |--------------------------------------------------------------------------
+    |
+    | Levert de envelopkwaliteit (via de energiebehoefte) en het geregistreerde
+    | woningtype, bevraagd op het BAG-verblijfsobject-id. Key aanvragen via
+    | epbdwebservices.rvo.nl; die is persoonlijk en hoort in de shared .env per
+    | omgeving, nooit in de repo. Geen label = de vragen blijven gewoon staan.
+    |
+    */
+
+    'ep_online' => [
+        'enabled' => (bool) env('EP_ONLINE_ENABLED', false),
+        'base_url' => env('EP_ONLINE_BASE_URL', 'https://public.ep-online.nl'),
+        'key' => env('EP_ONLINE_KEY'),
+        'timeout_seconds' => (int) env('EP_ONLINE_TIMEOUT_SECONDS', 5),
+    ],
+
     'threedbag' => [
         'enabled' => (bool) env('THREEDBAG_ENABLED', true),
         'base_url' => env('THREEDBAG_BASE_URL', 'https://api.3dbag.nl'),

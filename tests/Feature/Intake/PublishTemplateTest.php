@@ -7,7 +7,7 @@ use App\Domains\Intake\Services\PublishIntakeTemplateFromConfig;
 use App\Enums\TemplateVersionStatus;
 use Database\Seeders\IntakeTemplateSeeder;
 
-test('airco template seeder publishes v1 through v7 with v7 as latest', function () {
+test('airco template seeder publishes v1 through v8 with v8 as latest', function () {
     $this->seed(IntakeTemplateSeeder::class);
 
     $template = IntakeTemplate::query()->where('key', 'airco')->first();
@@ -17,14 +17,14 @@ test('airco template seeder publishes v1 through v7 with v7 as latest', function
 
     $versions = $template->versions()->orderBy('version')->get();
 
-    expect($versions)->toHaveCount(7)
-        ->and($versions->pluck('version')->all())->toBe([1, 2, 3, 4, 5, 6, 7])
+    expect($versions)->toHaveCount(8)
+        ->and($versions->pluck('version')->all())->toBe([1, 2, 3, 4, 5, 6, 7, 8])
         ->and($versions->every(fn ($version) => $version->status === TemplateVersionStatus::Published))->toBeTrue();
 
     $latest = $template->latestPublishedVersion();
 
     expect($latest)->not->toBeNull()
-        ->and($latest->version)->toBe(7)
+        ->and($latest->version)->toBe(8)
         ->and($latest->sections()->count())->toBeGreaterThan(5)
         ->and($latest->sections()->where('key', 'rooms')->value('is_repeatable'))->toBeTrue();
 
@@ -63,6 +63,14 @@ test('airco template seeder publishes v1 through v7 with v7 as latest', function
 
     expect($buildYear->meta['skip_when_prefilled_by'] ?? null)->toBe('pdok');
 
+    // v8: bouwtype accepteert twee registers, isolatie er één.
+    $building = $latest->sections()->where('key', 'building')->firstOrFail();
+
+    expect($building->questions()->where('key', 'building_type')->firstOrFail()->meta['skip_when_prefilled_by'])
+        ->toBe(['pdok', 'epo'])
+        ->and($building->questions()->where('key', 'insulation_indication')->firstOrFail()->meta['skip_when_prefilled_by'])
+        ->toBe(['epo']);
+
     $outdoor = $latest->sections()->where('key', 'outdoor_unit')->firstOrFail();
     $freeGroup = $latest->sections()
         ->where('key', 'electrical')
@@ -89,12 +97,12 @@ test('airco template seeder publishes v1 through v7 with v7 as latest', function
     $againV1 = app(PublishIntakeTemplateFromConfig::class)->handle(
         require database_path('data/templates/airco/v1.php'),
     );
-    $againV7 = app(PublishIntakeTemplateFromConfig::class)->handle(
-        require database_path('data/templates/airco/v7.php'),
+    $againV8 = app(PublishIntakeTemplateFromConfig::class)->handle(
+        require database_path('data/templates/airco/v8.php'),
     );
 
     expect($againV1->version)->toBe(1)
-        ->and($againV7->id)->toBe($latest->id)
+        ->and($againV8->id)->toBe($latest->id)
         ->and(IntakeTemplate::query()->where('key', 'airco')->count())->toBe(1)
-        ->and($template->versions()->count())->toBe(7);
+        ->and($template->versions()->count())->toBe(8);
 });

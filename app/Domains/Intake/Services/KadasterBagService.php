@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domains\Intake\Services;
 
 use App\Domains\Intake\Data\BagAddressAttributes;
+use App\Domains\Intake\Models\Intake;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 
@@ -102,7 +103,64 @@ final class KadasterBagService
             floorAreaM2: $this->positiveInt($address['oppervlakte'] ?? null),
             usagePurposes: $this->stringList($address['gebruiksdoelen'] ?? null),
             buildYear: $this->buildYear($address['oorspronkelijkBouwjaar'] ?? null),
+            street: (string) ($address['openbareRuimteNaam'] ?? ''),
+            houseNumber: $this->positiveInt($address['huisnummer'] ?? null),
+            houseLetter: $this->blankToNull($address['huisletter'] ?? null),
+            addition: $this->blankToNull($address['huisnummertoevoeging'] ?? null),
+            postalCode: strtoupper((string) ($address['postcode'] ?? '')),
+            city: (string) ($address['woonplaatsNaam'] ?? ''),
         );
+    }
+
+    /**
+     * Bevraagt Kadaster rechtstreeks vanuit de opname, zonder tussenkomst van de
+     * Locatieserver.
+     *
+     * Dit is precies het geval waarin de PDOK-route stukloopt: een handmatig ingetypt
+     * adres als "Bernadottelaan, 273, 273" haalt de vrije-tekstzoekopdracht wél op, maar
+     * valt daarna af op `matchesIntake()` — waarna de héle verrijking leeg blijft. De
+     * postcode en het huisnummer zijn in zo'n adres nog gewoon bruikbaar, en Kadaster
+     * bevraagt exact daarop.
+     */
+    public function attributesForIntake(Intake $intake): ?BagAddressAttributes
+    {
+        $postalCode = (string) ($intake->address_postal_code ?? '');
+
+        if (! $this->enabled() || $postalCode === '') {
+            return null;
+        }
+
+        $parsed = $this->parseHouseNumber((string) $intake->address_line);
+
+        if ($parsed === null) {
+            return null;
+        }
+
+        [$houseNumber, $houseLetter] = $parsed;
+
+        return $this->attributesFor($postalCode, $houseNumber, $houseLetter);
+    }
+
+    /**
+     * Haalt het eerste huisnummer met eventuele direct aanliggende letter uit een
+     * adresregel. Bewust conservatief: een toevoeging na een streepje of spatie laten we
+     * staan, want die raden levert een verkeerd adres op in plaats van geen adres.
+     *
+     * @return array{0: int, 1: string|null}|null
+     */
+    private function parseHouseNumber(string $addressLine): ?array
+    {
+        if (preg_match('/\b(\d{1,5})\s*([A-Za-z])?\b/', $addressLine, $matches) !== 1) {
+            return null;
+        }
+
+        $number = (int) $matches[1];
+
+        if ($number <= 0) {
+            return null;
+        }
+
+        return [$number, $this->blankToNull($matches[2] ?? null)];
     }
 
     public function addressUrl(string $addressableObjectId): string

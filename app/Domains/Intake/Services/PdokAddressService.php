@@ -85,12 +85,12 @@ final class PdokAddressService
             ? $this->lookup($lookupId)
             : $this->findExactAddress($intake);
 
-        if ($address === null) {
-            return null;
-        }
-
-        if (! $this->matchesIntake($address, $intake)) {
-            return null;
+        // Een handmatig ingetypt adres ("Bernadottelaan, 273, 273") komt door de
+        // vrije-tekstzoekopdracht heen maar valt af op matchesIntake(), waarna vroeger de
+        // héle verrijking leeg bleef. Postcode en huisnummer zijn dan nog prima bruikbaar,
+        // dus Kadaster krijgt eerst nog een kans voordat we opgeven.
+        if ($address === null || ! $this->matchesIntake($address, $intake)) {
+            return $this->enrichFromKadasterOnly($intake);
         }
 
         $addressableObjectId = $address['adresseerbaarobject_id'] ?? null;
@@ -167,6 +167,58 @@ final class PdokAddressService
     public static function sourceName(): string
     {
         return self::SOURCE;
+    }
+
+    /**
+     * Laatste redmiddel wanneer de Locatieserver het adres niet eenduidig kan koppelen.
+     *
+     * Levert een AddressEnrichment op basis van postcode + huisnummer alleen. Gemeente en
+     * provincie ontbreken dan — die komen uit de Locatieserver — maar bouwjaar,
+     * oppervlakte, gebruiksdoel, pand-id en coördinaten zijn er wél, en de adresregel
+     * wordt meteen rechtgezet naar de BAG-schrijfwijze.
+     */
+    private function enrichFromKadasterOnly(Intake $intake): ?AddressEnrichment
+    {
+        if (! $this->kadasterBag->enabled()) {
+            return null;
+        }
+
+        try {
+            $kadaster = $this->kadasterBag->attributesForIntake($intake);
+        } catch (Throwable $exception) {
+            Log::warning('Kadaster BAG fallback lookup failed.', [
+                'exception' => $exception::class,
+            ]);
+
+            return null;
+        }
+
+        if ($kadaster === null || ! $kadaster->hasAddressLine()) {
+            return null;
+        }
+
+        [$longitude, $latitude] = $this->coordinates(
+            $this->residenceGeometry($kadaster->addressableObjectId)
+        );
+
+        return new AddressEnrichment(
+            lookupId: '',
+            displayAddress: trim($kadaster->addressLine().', '.$kadaster->postalCode.' '.$kadaster->city),
+            addressLine: $kadaster->addressLine(),
+            postalCode: $kadaster->postalCode,
+            city: $kadaster->city,
+            bagAddressableObjectId: $kadaster->addressableObjectId,
+            municipality: null,
+            province: null,
+            latitude: $latitude,
+            longitude: $longitude,
+            floorAreaM2: $kadaster->floorAreaM2,
+            usagePurposes: $kadaster->usagePurposes,
+            parcelIds: [],
+            buildYear: $kadaster->buildYear,
+            bagBuildingId: $kadaster->singleBuildingId(),
+            buildingCount: $kadaster->buildingCount(),
+        );
     }
 
     /**
