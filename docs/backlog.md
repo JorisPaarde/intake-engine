@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 3.37 · **Laatste update:** 2026-07-22 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.38 · **Laatste update:** 2026-07-22 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -53,7 +53,8 @@ Geprioriteerd op het hoofddoel (herprioritering 2026-07-18): hoeveel handelingen
 | # | ID | Item | Epic | Status | Prioriteit | Band |
 |---|----|------|------|--------|------------|------|
 | 1 | BL-001 | Demo-versie van de app | E5 | in_progress | medium | A |
-| 2 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low | I · later |
+| 2 | BL-029 | Begeleide leidingroute (foto-voor-foto + routesynthese) | E4 | in_progress | high | H · parallel |
+| 3 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low | I · later |
 | 3 | BL-013 | S3 als mediadisk | E5 | backlog | low | I · parallel |
 | — | BL-028 | Dev-admin: staging-inzage in dienststatus en opname-data | E5 | done | medium | I (done) |
 | — | BL-020 | Foto-gedreven afleiding en adaptieve vervolgvragen | E4 | done | medium | H (done) |
@@ -336,6 +337,13 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 - **Status:** backlog · **Prioriteit:** low · **Ref:** ADR-0006
 - **Parallel:** band **I** · later — niet parallel starten vóór concrete tweede klant; raakt breed (users/intakes).
 - **Doel:** bewust afwezig in MVP. Pas oppakken bij een concrete tweede klant/bedrijf: `companies`-tabel + tenant-scope op intakes en users.
+
+### BL-029 — Begeleide leidingroute (foto-voor-foto + routesynthese)
+
+- **Status:** in_progress · **Prioriteit:** high · **Epic:** E4 · **Band:** H (parallel)
+- **Waarom:** de installateur wil weten of de foto's genoeg laten zien over waar stroom beschikbaar is en waar de verbinding tussen binnen- en buitenunit kan komen. De oude `pipe_route_assessment` classificeert alleen een route en vervangt vragen; dat beantwoordt de verkeerde vraag. Zie ADR-0009.
+- **Opgeleverd (backend-slice):** `pipe_route_sessions`/`pipe_route_segments` + `PipeRouteStatus`; prompts `route_photo_analysis` (per foto) en `route_synthesis` (route uit segmenten) met float-confidence; acties `StartPipeRouteSession`, `AddPipeRoutePhoto` (→ `AnalyzeRoutePhoto`), `SynthesizePipeRoute` (Terra met Sol-escalatie), `ApprovePipeRoute`; modeltiering via `config('ai.route.*')` los van het globale `ai.model`, met per-call model-override in de AI-laag; gated op `AI_ROUTE_ANALYSIS_ENABLED`. Pest-tests met `Http::fake`.
+- **Nog te doen:** klant-wizard-UI (markeer binnenunit-positie → beoordeling → steeds één vervolgfoto-lus), installateur-goedkeuringsweergave (voorgestelde/alternatieve route, onzekerheden, ontbrekende controles), koppeling in de intake-flow, en DPIA-activering (`AI_ROUTE_ANALYSIS_ENABLED` + provider/key) vóór echte klantdata. Functionele staging-test: zie `docs/functional-test-status.md`.
 
 ### BL-028 — Dev-admin: staging-inzage in dienststatus en opname-data
 

@@ -1,6 +1,6 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 1.7 · **Laatste update:** 2026-07-21 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.8 · **Laatste update:** 2026-07-22 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **Fase 6 + BL-007 + BL-020 geïmplementeerd** — samenvatting, aandachtspunten, lokale fotokwaliteit en een bevestigbare multimodale meterkastvoorzet. Externe provider en foto-inferentie staan **standaard uit** (DPIA + key vereist). Zie ADR-0005. **Publieke demo** draait samenvatting + aandachtspunten wel: inline bij afronden, met heuristic-fallback als `AI_PROVIDER=null`, zichtbaar op het bedankt-scherm.
 
@@ -117,6 +117,16 @@ Server-side validatie vóór opslaan. Ongeldige output = `failed`.
 
 - `AssessPhotoUsability` beoordeelt elke geüploade foto **lokaal met GD** (`PhotoUsabilityHeuristic`): te donker of te lage resolutie → verdict op `intake_uploads.usability_verdict`. Geen externe API.
 - Klantflow: niet-blokkerende hint bij de fotostap ("foto lijkt te donker — maak er eventueel nog één"); blokkeert afronden **nooit** (ADR-0004/0005). Installateur: subtiel kwaliteitslabel in de galerij. `AiRun` type `photo_quality` per beoordeling.
+
+## Begeleide leidingroute (BL-029, ADR-0009)
+
+Aparte, stateful route-analyse los van de bestaande foto-afleiding. Beoordeelt per foto of wand/doorvoer zichtbaar is en of een route naar buiten aannemelijk is, vat de segmenten samen tot een voorgestelde + alternatieve route met onzekerheden en ontbrekende controles, en vraagt steeds om één gerichte vervolgfoto. De installateur keurt de route altijd zelf goed (`ApprovePipeRoute`).
+
+- **Contracten (float-confidence):** `route_photo_analysis` (per foto) en `route_synthesis` (route uit segmenten) — gestructureerde JSON, promptmappen onder `app/Domains/AI/Prompts/`.
+- **Persistentie:** `pipe_route_sessions` + `pipe_route_segments` (elke foto = één segment met volledige analyse-JSON).
+- **Modeltiering, los van `ai.model`:** `config('ai.route.model')` (default `gpt-5.6-terra`) doet de analyse; de synthese escaleert bij lage zekerheid of een niet-doorlopende route naar `config('ai.route.review_model')` (default `gpt-5.6-sol`). Model-ID's env-overschrijfbaar (`AI_ROUTE_MODEL`/`AI_ROUTE_REVIEW_MODEL`); de AI-laag heeft hiervoor een per-call `model`-override.
+- **Gated + soft-fail:** achter `AI_ROUTE_ANALYSIS_ENABLED` (standaard uit); meer beeld naar een externe LLM valt onder de DPIA-voorwaarde (ADR-0005/0009). `ai_runs`-types `route_analysis` en `route_synthesis`.
+- **Nog te bouwen:** klant-wizard en installateur-goedkeuringsweergave (backend-slice is er; UI volgt — BL-029).
 
 ## Volgende uitbreidingen
 
