@@ -1,8 +1,8 @@
 # Intake-engine
 
-> **Documentversie:** 1.19 · **Laatste update:** 2026-07-22 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.20 · **Laatste update:** 2026-07-22 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: **geïmplementeerd t/m Fase 6 + BL-019 openbare data + BL-020 foto-afleiding + BL-027 gerichte vervolgrondes**. Airco-template **v8** gepubliceerd — v7 + het geregistreerde energielabel neemt isolatie en bouwtype over.
+Status: **geïmplementeerd t/m Fase 6 + BL-019 openbare data + BL-020 foto-afleiding + BL-027 gerichte vervolgrondes**. Airco-template **v9** gepubliceerd — v8 + de openingsvraag levert functie, aantal units en ruimtetypes, plus conditionele cascades en keuzelijsten.
 
 ## Doel
 
@@ -149,7 +149,7 @@ Secties (stabiele keys over versies):
 
 ### v1 → v2 (BL-017, ontwerpprincipe)
 
-V2 introduceerde onderstaande vraagreductie. Nieuwe intakes gebruiken inmiddels de laatste gepubliceerde **v8**; lopende/afgeronde opnames blijven op hun gepinde versie (ADR-0001).
+V2 introduceerde onderstaande vraagreductie. Nieuwe intakes gebruiken inmiddels de laatste gepubliceerde **v9**; lopende/afgeronde opnames blijven op hun gepinde versie (ADR-0001).
 
 | Wijziging | Was (v1) | Wordt (v2) |
 |-----------|----------|------------|
@@ -252,6 +252,31 @@ Twee dingen komen ook op het Kadaster-pad van PDOK: **coördinaten** (Kadaster l
 
 `oorspronkelijkBouwjaar` is bij Kadaster een array — één jaar per pand waar het verblijfsobject deel van uitmaakt. Alleen een eenduidig jaar wordt als voorzet overgenomen; bij panden met verschillende bouwjaren blijft de bouwjaarvraag gewoon staan.
 
+## De openingsvraag telt mee (tekst-afleiding)
+
+"De slaapkamer en de woonkamer worden te warm in de zomer" beantwoordt drie vragen die de wizard daarna nog stelde: de functie (koelen), het aantal binnenunits (twee) en het type van elke ruimte. Tot v8 vroegen we dat alsnog.
+
+`request_reason` krijgt daarom `meta.text_analysis = 'request_intent'`. `DeriveIntentFromRequest` draait zodra dat antwoord wordt opgeslagen en werkt met dezelfde zekerheidsladder als de foto-afleiding: `high` laat de vraag vervallen, `medium` levert een bevestigbare voorzet, `low` doet niets.
+
+De genoemde ruimtes worden op volgorde aan `room-1`, `room-2`, … gekoppeld. De prompt mag alleen `high` kiezen wanneer de aanvrager de ruimtes expliciet benoemt — "het is warm boven" is geen opdracht voor twee units, en het aantal te hoog inschatten kost meer dan één extra vraag. Een toelichting korter dan tien tekens gaat helemaal niet naar de provider.
+
+Aparte vlag: `AI_TEXT_INFERENCE_ENABLED`. Tekst naar een externe provider sturen is een andere afweging dan foto's, dus dat staat los van `AI_PHOTO_INFERENCE_ENABLED`.
+
+## Cascades: wat logisch volgt, wordt niet gevraagd
+
+De regelmotor kon dit vanaf het begin; de template gebruikte hem alleen niet. v9 zet er `show`-regels op waar het antwoord al vastligt:
+
+| Vraag | Verschijnt niet wanneer | Waarom |
+|---|---|---|
+| `outdoor_accessibility` | `outdoor_mount_type` = `ground` | staat de unit op de grond, dan is ladder of steiger niet aan de orde |
+| `pipe_distance_indication` | `pipe_route_description` = `short_direct` | een korte directe doorboring ís de korte afstandsklasse |
+
+Let bij het toevoegen van regels op de operator: `readRuleComparable()` leest voor een `single_choice`-bron de sleutel `value`, niet `values`. Een `in`/`not_in` met een lijst blijft daar leeg — gebruik `equals`/`not_equals`.
+
+## Keuzelijsten in plaats van vrije tekst
+
+`brand_preference` is een `multi_choice` met merken en `desired_planning` een `single_choice` met termijnen. Vrije tekst leverde voor beide onbruikbare data op voor een offerte; een keuzelijst geeft de installateur iets om op te filteren.
+
 ## Energielabel uit EP-Online
 
 [EP-Online](https://www.rvo.nl/onderwerpen/wetten-en-regels-gebouwen/ep-online) van RVO is het landelijke register van geregistreerde energielabels. Bevraagd op het BAG-verblijfsobject-id dat de adresverrijking toch al oplevert (`/api/v5/PandEnergielabel/AdresseerbaarObject/{id}`), dus zonder opnieuw op adres te matchen. Key via `epbdwebservices.rvo.nl`, meegestuurd als `Authorization`-header.
@@ -287,7 +312,7 @@ Bewust géén vraagreductie. De hoogte van een pand zegt niet waar de buitenunit
 
 ### Effect op het aantal stappen
 
-Gemeten op een opname met één binnenunit, met werkende BAG en foto-inferentie:
+Gemeten op een opname met één binnenunit, met werkende BAG, energielabel, foto- en tekst-inferentie:
 
 | Versie | Stappen |
 |---|---|
@@ -295,8 +320,13 @@ Gemeten op een opname met één binnenunit, met werkende BAG en foto-inferentie:
 | v6 (adaptief) | 29 |
 | v7 (maximaal afgeleid) | ~20 |
 | v8 (met energielabel) | ~19 |
+| v9 (openingsvraag + cascades) | 18 |
 
-Wat overblijft is intentie (reden, koelen/verwarmen, aantal units), niet-zichtbare feiten (eigendom, verdieping), voorkeuren en de twee afsluitende verklaringen.
+Bij twee binnenunits komt daar 3 stappen per extra ruimte bij (foto's + verdieping), dus 21.
+
+Wat overblijft is de openingsvraag zelf, niet-zichtbare feiten (eigendom, verdieping), voorkeuren, de foto's en de twee afsluitende verklaringen.
+
+De cascades leveren in deze meting niets extra's op: de foto-afleiding had `outdoor_accessibility` en `pipe_distance_indication` al beantwoord. Ze zijn het vangnet voor de situatie waarin AI uit staat of te weinig zekerheid heeft — dan snoeien ze alsnog deterministisch.
 
 Bij expliciet ingeschakelde foto-inferentie beoordeelt `AssessFuseboxPhotos` maximaal twee recente meterkastfoto's. Alleen `free_group=yes|no` met `confidence=high` wordt als `prefill_source=ai` klaargezet. De wizard toont deze keuze gemarkeerd als foto-inschatting; een klantkeuze bevestigt/corrigeert en verwijdert de prefillbron. Bestaande klant- of installateurantwoorden worden nooit overschreven. Bij onvoldoende beeld blijft de normale vraag staan en verschijnt de concrete `retake_instruction` bij de foto.
 

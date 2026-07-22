@@ -283,7 +283,7 @@ test('enter on number advances to the next step', function () {
         ->set('form.cooling_heating.value', 'cooling')
         ->assertSet('activeStepKey', 'request::indoor_unit_count')
         ->call('advanceFromEnter', 'indoor_unit_count', 'number', '1')
-        ->assertSet('activeStepKey', 'request::brand_and_planning_wishes');
+        ->assertSet('activeStepKey', 'request::brand_preference');
 });
 
 test('wizard resumes on the stored question cursor', function () {

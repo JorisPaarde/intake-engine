@@ -34,10 +34,16 @@ return [
         'max_images' => (int) env('AI_PHOTO_INFERENCE_MAX_IMAGES', 2),
     ],
 
+    'text_inference' => [
+        'enabled' => (bool) env('AI_TEXT_INFERENCE_ENABLED', false),
+    ],
+
     'summary_prompt' => 'summary',
 
     'attention_points_prompt' => 'attention_points',
 
     'fusebox_prompt' => 'fusebox_assessment',
+
+    'request_intent_prompt' => 'request_intent',
 
 ];

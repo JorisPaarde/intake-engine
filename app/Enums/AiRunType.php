@@ -10,4 +10,5 @@ enum AiRunType: string
     case AttentionPoints = 'attention_points';
     case PhotoQuality = 'photo_quality';
     case PhotoAssessment = 'photo_assessment';
+    case RequestIntent = 'request_intent';
 }

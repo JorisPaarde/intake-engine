@@ -6,6 +6,7 @@ namespace App\Livewire\Customer;
 
 use App\Domains\AI\Actions\AssessFuseboxPhotos;
 use App\Domains\AI\Actions\AssessPhotoUsability;
+use App\Domains\AI\Actions\DeriveIntentFromRequest;
 use App\Domains\AI\Actions\DerivePhotoAnswers;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Support\PhotoDerivationProfile;
@@ -1324,6 +1325,26 @@ class IntakeWizard extends Component
             $payload,
         );
         $this->forgetIntakeDerivedCaches();
+
+        // Een vraag kan via meta.text_analysis latere vragen beantwoorden — de reden van de
+        // aanvraag noemt vaak al de ruimtes en of het om koelen of verwarmen gaat.
+        if ($instanceKey === null && $this->hasTextAnalysis($questionKey)) {
+            app(DeriveIntentFromRequest::class)->handle($this->intake());
+            $this->forgetIntakeDerivedCaches();
+        }
+    }
+
+    private function hasTextAnalysis(string $questionKey): bool
+    {
+        foreach ($this->version()->sections as $section) {
+            foreach ($section->questions as $question) {
+                if ($question->key === $questionKey) {
+                    return ($question->meta['text_analysis'] ?? null) === 'request_intent';
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
