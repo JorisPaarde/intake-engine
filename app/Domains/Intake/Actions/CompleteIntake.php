@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Actions;
 
+use App\Domains\AI\Actions\SuggestAttentionPoints;
+use App\Domains\AI\Actions\SummarizeIntake;
 use App\Domains\AI\Jobs\SuggestAttentionPointsJob;
 use App\Domains\AI\Jobs\SummarizeIntakeJob;
 use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
@@ -109,7 +111,11 @@ final class CompleteIntake
             return $intake->fresh(['report', 'attentionPoints']) ?? $intake;
         });
 
-        if (! $completed->is_demo) {
+        if ($completed->is_demo) {
+            // Demo: run AI inline so the thank-you screen can show a real voorstel.
+            // When AI_PROVIDER is off, fall back to heuristic (local, no external call).
+            $this->runDemoAi($completed);
+        } else {
             SummarizeIntakeJob::dispatch($completed->id);
             SuggestAttentionPointsJob::dispatch($completed->id);
             GenerateIntakePdfJob::dispatch($completed->id);
@@ -117,5 +123,21 @@ final class CompleteIntake
         }
 
         return $completed;
+    }
+
+    private function runDemoAi(Intake $intake): void
+    {
+        $originalProvider = config('ai.provider');
+
+        try {
+            if (in_array((string) $originalProvider, ['null', ''], true)) {
+                config(['ai.provider' => 'heuristic']);
+            }
+
+            app(SummarizeIntake::class)->handle($intake);
+            app(SuggestAttentionPoints::class)->handle($intake);
+        } finally {
+            config(['ai.provider' => $originalProvider]);
+        }
     }
 }

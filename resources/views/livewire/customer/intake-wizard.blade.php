@@ -1,8 +1,6 @@
 <div class="mx-auto flex min-h-[100svh] max-w-lg flex-col px-4 pb-8 pt-4 sm:px-6">
-    @if ($intake->is_demo)
-        <div class="mb-4 rounded-md border border-brand-ember/40 bg-brand-ember/10 px-4 py-2.5 text-center text-sm font-semibold text-brand-ember" role="status">
-            Demo — geen echte offerte
-        </div>
+    @if ($intake->is_demo && ! $completed)
+        <x-demo-scope-notice variant="banner" />
     @endif
 
     <header class="mb-6">
@@ -32,12 +30,18 @@
             <p class="mt-3 text-sm leading-relaxed text-brand-ink/70">
                 @if ($intake->is_demo)
                     Dit was een demo. Er wordt geen echte offerte gemaakt en de gegevens verdwijnen automatisch.
-                    Je kunt dit venster sluiten — of <a href="{{ url('/') }}" class="font-semibold text-brand-sea underline">terug naar de homepage</a>.
                 @else
                     Je opname is volledig ingevuld en doorgestuurd. De installateur neemt de gegevens verder in behandeling.
                     Je kunt dit venster sluiten.
                 @endif
             </p>
+            @if ($intake->is_demo)
+                <x-demo-scope-notice
+                    variant="complete"
+                    :demo-ai-summary="$demoAiSummary"
+                    :demo-attention-points="$demoAttentionPoints"
+                />
+            @endif
         </div>
     @elseif ($step === null || $question === null)
         <p class="rounded-md bg-white p-4 text-sm text-brand-ink/80 shadow-sm">

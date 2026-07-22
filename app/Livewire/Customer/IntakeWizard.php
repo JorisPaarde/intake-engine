@@ -29,6 +29,8 @@ use App\Domains\Intake\Services\ProgressCalculator;
 use App\Domains\Intake\Services\ResolveIntakeByAccessToken;
 use App\Domains\Intake\Services\VisibilityResolver;
 use App\Enums\AiRunStatus;
+use App\Enums\AttentionPointSource;
+use App\Enums\AttentionPointStatus;
 use App\Enums\FollowUpItemType;
 use App\Enums\FollowUpRoundStatus;
 use App\Enums\IntakeStatus;
@@ -233,6 +235,21 @@ class IntakeWizard extends Component
             }
         }
 
+        $demoAiSummary = null;
+        $demoAttentionPoints = [];
+
+        if ($this->completed && $intake->is_demo) {
+            $intake->loadMissing(['report', 'attentionPoints']);
+            $meta = $intake->report?->meta;
+            $metaSummary = is_array($meta) ? ($meta['ai_summary'] ?? null) : null;
+            $demoAiSummary = is_array($metaSummary) ? $metaSummary : null;
+            $demoAttentionPoints = $intake->attentionPoints
+                ->where('status', AttentionPointStatus::Proposed)
+                ->where('source', AttentionPointSource::Ai)
+                ->values()
+                ->all();
+        }
+
         return view('livewire.customer.intake-wizard', [
             'intake' => $intake,
             'steps' => $steps,
@@ -247,6 +264,8 @@ class IntakeWizard extends Component
                 : $progress['missing_required'],
             'isLastStep' => $this->stepIndex >= count($steps) - 1,
             'maxUploadKb' => (int) config('intake.uploads.max_kilobytes', 5120),
+            'demoAiSummary' => $demoAiSummary,
+            'demoAttentionPoints' => $demoAttentionPoints,
         ]);
     }
 

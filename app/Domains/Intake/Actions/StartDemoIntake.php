@@ -17,7 +17,7 @@ final class StartDemoIntake
 
     public function handle(): Intake
     {
-        if (! (bool) config('intake.demo.enabled', false)) {
+        if (! (bool) config('intake.demo.enabled', true)) {
             throw ValidationException::withMessages([
                 'demo' => 'Demo is uitgeschakeld in deze omgeving.',
             ]);

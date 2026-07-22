@@ -1,6 +1,6 @@
 # Deployment naar cPanel (staging + production)
 
-> **Documentversie:** 2.0 · **Laatste update:** 2026-07-21 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.4 · **Laatste update:** 2026-07-21 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 **Statusregel:** staging en production zijn fysiek en logisch gescheiden; open handmatige acties (env/host) staan in [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
 
@@ -197,12 +197,12 @@ Alles hieronder staat **niet** in git en moet jij (of de host) per omgeving zett
 | # | Actie | Waar | Vars / stappen | Ontgrendelt |
 |---|--------|------|----------------|-------------|
 | 1 | **SMTP voor mails** (BL-004/014/015/027) | `shared/.env` | Zie [§ Mail](#mail-bl-004). Zonder dit blijft de app bij `MAIL_MAILER=log` en **stuurt geen** klant-/installateursmails met tokens of notificaties (bewust, ADR-0002). | Echte bezorging + smoke-tests BL-004/014/015/027 |
-| 2 | **Publieke demo aanzetten** (BL-001) | `shared/.env` | `DEMO_ENABLED=true` (optioneel `DEMO_TTL_HOURS=12`). Zie [§ Publieke demo](#publieke-demo-bl-001). | Knop **Start demo** op `/`; daarna BL-001 → `done` na smoke |
 
 ### Optioneel / later (niet blokkerend voor de kernflow)
 
 | Actie | Wanneer | Vars / stappen |
 |--------|---------|----------------|
+| Publieke demo uitzetten | Alleen bij misbruik/load | `DEMO_ENABLED=false` in `shared/.env` + `config:cache`. Demo staat **standaard aan** (zie [§ Publieke demo](#publieke-demo-bl-001)). |
 | Externe AI + foto-inferentie | Na DPIA / akkoord (BL-006/020) | `AI_PROVIDER=openai`, `AI_API_KEY=…`, geschikt multimodaal `AI_MODEL` en pas daarna `AI_PHOTO_INFERENCE_ENABLED=true`. Nu bewust `null`/`false` (soft-fail). Nooit keys in git. |
 | `MEDIA_DISK=s3` + AWS-vars | Bij storagegroei / vertrek cPanel (BL-013) | Bestaande rijen behouden `disk`+`path`. |
 | `PDOK_ENABLED=false` | Alleen als uitgaande adres-/locatiebevraging juridisch of technisch nog niet mag | Adres-autocomplete, BAG-verrijking en luchtfoto uit; handmatig adres/bouwjaar en klantfoto’s blijven werken. Geen API-key nodig. |
@@ -251,14 +251,15 @@ De server leest maximaal twee recente private meterkastfoto's van `MEDIA_DISK` e
 
 ## Publieke demo (BL-001)
 
-Zet in staging `shared/.env` (zie `.env.staging.example`):
+De knop **Start demo** staat **standaard aan** (`DEMO_ENABLED` default `true`) voor **gasten**. Ingelogde gebruikers zien hem niet (wel **Open dashboard**). Elke anonieme bezoeker kan zonder account een tijdelijke airco-intake starten. De demo toont de klantflow **plus AI-samenvatting/aandachtspunten** (inline; heuristic-fallback als `AI_PROVIDER=null`) en legt uit welke stappen hier uitstaan (e-mail, PDF, installateursdashboard). Optioneel in `shared/.env`:
 
 ```env
 DEMO_ENABLED=true
 DEMO_TTL_HOURS=12
+DEMO_THROTTLE_PER_HOUR=5
 ```
 
-Daarna `php artisan config:cache` (of wacht op de volgende deploy-activate). Homepage toont **Start demo**; verlopen demo-intakes worden hourly gepurged (`intakes:purge-demos`). Productie: `DEMO_ENABLED=false` houden.
+Zet `DEMO_ENABLED=false` alleen om de knop/route uit te schakelen (bijv. misbruik). Daarna `php artisan config:cache` (of wacht op de volgende deploy-activate). Verlopen demo-intakes worden hourly gepurged (`intakes:purge-demos`). **Let op:** als een bestaande `shared/.env` nog expliciet `DEMO_ENABLED=false` heeft, verwijder die regel of zet `true` — anders blijft de oude waarde leidend.
 
 ## Mail (BL-004)
 

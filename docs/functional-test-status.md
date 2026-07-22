@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.22 · **Laatste update:** 2026-07-21 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.25 · **Laatste update:** 2026-07-21 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -58,7 +58,7 @@ Laatste testsessie: 2026-07-21 (remote; gescheiden staging/production, domeinrou
 | Airco v5 meterkastfoto-afleiding (BL-020) | todo | - | Eerst lokaal met `AI_PROVIDER=fake` + flag: meterkastfoto → `free_group_known` staat als foto-inschatting klaar en blijft corrigeerbaar; dossier toont fase/vrije groep, bron `AI-fotoanalyse` en onzekerheid; foto verwijderen wist voorzet/fact. Daarna alleen ná DPIA met fictieve stagingbeelden en multimodaal model: hoge zekerheid, onduidelijk beeld met concrete herhaalinstructie, providerfout soft-fail en geen beeldbytes/data-URL in logs/DB. |
 | Queue-worker (cron) | todo | - | Niet end-to-end bevestigd (geen zichtbaar AI-resultaat) |
 | Demo-login `installateur@example.com` | fail | 2026-07-18 | Credentials matchen niet — `DatabaseSeeder` draait niet bij deploy (alleen IntakeTemplateSeeder) |
-| Publieke demo “Start demo” (BL-001) | todo | - | Na deploy + `DEMO_ENABLED=true`: knop op `/`, redirect `/o/{token}`, watermerk, bedankt-copy |
+| Publieke demo “Start demo” (BL-001) | todo | - | Na deploy (demo standaard aan): knop op `/` voor gasten, redirect `/o/{token}`, banner (AI aan; e-mail/PDF/dashboard uit), afronden toont AI-voorstel op bedankt-scherm + registratielink. Ingelogd: geen demoknop. Als `shared/.env` nog `DEMO_ENABLED=false` heeft: op `true` of verwijderen + `config:cache`. |
 | Demo-intake purge (`intakes:purge-demos`) | todo | - | Scheduler/hourly; expired demo-intakes verdwijnen (incl. uploads) |
 
 ## Legenda
