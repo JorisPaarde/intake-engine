@@ -21,6 +21,16 @@
                     <x-nav-link :href="route('metrics')" :active="request()->routeIs('metrics')">
                         {{ __('Resultaten') }}
                     </x-nav-link>
+                    @if (config('devadmin.enabled'))
+                        <a href="{{ route('dev.dashboard') }}"
+                           @class([
+                               'inline-flex items-center border-b-2 px-1 pt-1 text-sm font-medium leading-5 transition duration-150 ease-in-out focus:outline-none',
+                               'border-amber-400 text-amber-700' => request()->routeIs('dev.*'),
+                               'border-transparent text-amber-600 hover:border-amber-300 hover:text-amber-700' => ! request()->routeIs('dev.*'),
+                           ])>
+                            Dev
+                        </a>
+                    @endif
                 </div>
             </div>
 
@@ -82,6 +92,11 @@
             <x-responsive-nav-link :href="route('metrics')" :active="request()->routeIs('metrics')">
                 {{ __('Resultaten') }}
             </x-responsive-nav-link>
+            @if (config('devadmin.enabled'))
+                <x-responsive-nav-link :href="route('dev.dashboard')" :active="request()->routeIs('dev.*')">
+                    {{ __('Dev-admin') }}
+                </x-responsive-nav-link>
+            @endif
         </div>
 
         <!-- Responsive Settings Options -->

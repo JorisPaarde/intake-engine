@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Added
+
+- **Dev-admin voor staging-inzage** (`/dev`, ADR-0008). Een aparte, omgevings-gated inzageomgeving los van de installateursflow, om op staging te controleren of de externe APIs werken en welke data er bij een opname binnenkwam. Vier panelen: (1) **dienststatus** — per externe integratie (PDOK, Kadaster BAG, EP-Online, 3DBAG, AI, mail, Slack) enabled-vlag, key-aanwezigheid, base-URL/timeout en een passieve health afgeleid uit de laatst opgeslagen resultaten (`intake_external_facts` per bron via `sourceName()`, `ai_runs` per provider) — bewust géén live calls; (2) **opname-inspector** — alle ruwe binnengekomen data van één intake: externe feiten, AI-runs (in/uit/fout), antwoorden, uploads, aandachtspunten, beoordeling en de activiteiten-tijdlijn; (3) **AI-runs & activiteitenlog** — doorzoekbaar over alle intakes; (4) **systeem/health** — superset van `/health` met queue-diepte, cache- en storage-checks. Toegang is standaard aan op `local`/`staging` en op `production` **automatisch uit** (hard 404 via `EnsureDevAccess`, geen env-var nodig op productie); `DEV_ADMIN_ENABLED=false` zet hem desgewenst ook op staging uit. De navigatielink verschijnt alleen wanneer de dev-admin aan staat. Omdat het paneel ruwe klant-PII toont, hoort het nooit op productie te draaien (ADR-0008, in lijn met ADR-0002/0007).
+
 ## [1.0.0] - 2026-07-22
 
 ### Changed

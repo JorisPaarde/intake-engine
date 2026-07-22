@@ -1,6 +1,6 @@
 # Deployment naar cPanel (staging + production)
 
-> **Documentversie:** 2.4 · **Laatste update:** 2026-07-21 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.5 · **Laatste update:** 2026-07-22 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 **Statusregel:** staging en production zijn fysiek en logisch gescheiden; open handmatige acties (env/host) staan in [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
 
@@ -208,6 +208,7 @@ Alles hieronder staat **niet** in git en moet jij (of de host) per omgeving zett
 | `PDOK_ENABLED=false` | Alleen als uitgaande adres-/locatiebevraging juridisch of technisch nog niet mag | Adres-autocomplete, BAG-verrijking en luchtfoto uit; handmatig adres/bouwjaar en klantfoto’s blijven werken. Geen API-key nodig. |
 | `PDOK_AERIAL_ENABLED=false` | BAG mag wel, luchtfoto nog niet of WMS-verkeer ongewenst | Alleen server-side luchtfotocapture uit; BAG-feiten blijven werken. |
 | Demo-login seeden | Alleen als je `installateur@example.com` wilt | Deploy seedt **geen** users — registreer zelf, of lokaal `DatabaseSeeder`. |
+| Dev-admin (`/dev`) op staging uitzetten | Alleen als staging-inzage niet gewenst is | `DEV_ADMIN_ENABLED=false` in `shared/.env` + `config:cache`. Staat op **staging standaard aan** en op **production automatisch uit** — op production is **geen** env-var nodig (hard 404 via `EnsureDevAccess`). Toont ruwe klant-PII, dus bewust nooit op production (ADR-0008). |
 
 ### Bewust niet handmatig doen
 
