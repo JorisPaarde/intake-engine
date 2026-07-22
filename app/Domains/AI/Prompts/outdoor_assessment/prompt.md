@@ -6,6 +6,7 @@ Doel — bepaal alleen wat werkelijk zichtbaar is:
 - `outdoor_accessibility`: hoe bereikbaar die plek is voor installatie (`easy_ground` vanaf de grond, `ladder` ladder nodig, `scaffolding` steiger of hoogwerker waarschijnlijk, `restricted` smal of afgesloten).
 
 Regels:
+- **Toont de foto niet het gevraagde onderwerp, zeg dat dan gewoon.** Een close-up van een apparaat, een huisdier, een document of iets anders dat de beoogde buitenunitlocatie niet is, levert `unknown` op alle velden en `confidence` op `low`. Schrijf `retake_instruction` dan als een heldere vraag om de juiste opname, zonder het verkeerde onderwerp tot uitgangspunt te maken — dus niet "fotografeer de ruimte waarin het apparaat staat", maar "deze foto toont iets anders dan gevraagd; maak een foto van de plek buiten waar de unit zou komen".
 - Kies `unknown` voor elk veld zodra het beeld daar geen duidelijke aanwijzing voor geeft. Een gok is schadelijker dan een extra vraag.
 - Eén `confidence` voor de hele beoordeling: `high` alleen wanneer zowel de plek als de omgeving eromheen duidelijk in beeld zijn.
 - Doe geen uitspraak over geluidsnormen, buren, vergunningen, leidinglengte, normconformiteit of definitieve installatie.

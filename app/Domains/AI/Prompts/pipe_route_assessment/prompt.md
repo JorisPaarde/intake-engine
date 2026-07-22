@@ -6,6 +6,7 @@ Doel — bepaal alleen wat werkelijk zichtbaar is:
 - `drillings_needed`: of er zichtbaar door muren of vloeren geboord zal moeten worden (`yes` of `no`).
 
 Regels:
+- **Toont de foto niet het gevraagde onderwerp, zeg dat dan gewoon.** Een close-up van een apparaat, een huisdier, een document of iets anders dat de leidingroute niet is, levert `unknown` op alle velden en `confidence` op `low`. Schrijf `retake_instruction` dan als een heldere vraag om de juiste opname, zonder het verkeerde onderwerp tot uitgangspunt te maken — dus niet "fotografeer de ruimte waarin het apparaat staat", maar "deze foto toont iets anders dan gevraagd; maak een foto van de muur of het plafond waar de leiding langs zou lopen".
 - Kies `unknown` voor elk veld zodra het beeld daar geen duidelijke aanwijzing voor geeft. Een gok is schadelijker dan een extra vraag.
 - Schat afstand alleen wanneer begin- en eindpunt of een herkenbare maatstaf in beeld zijn; anders `unknown`.
 - Eén `confidence` voor de hele beoordeling: `high` alleen wanneer de route als geheel te volgen is over de foto’s.
