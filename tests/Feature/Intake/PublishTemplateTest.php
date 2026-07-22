@@ -7,7 +7,7 @@ use App\Domains\Intake\Services\PublishIntakeTemplateFromConfig;
 use App\Enums\TemplateVersionStatus;
 use Database\Seeders\IntakeTemplateSeeder;
 
-test('airco template seeder publishes v1 through v5 with v5 as latest', function () {
+test('airco template seeder publishes v1 through v6 with v6 as latest', function () {
     $this->seed(IntakeTemplateSeeder::class);
 
     $template = IntakeTemplate::query()->where('key', 'airco')->first();
@@ -17,14 +17,14 @@ test('airco template seeder publishes v1 through v5 with v5 as latest', function
 
     $versions = $template->versions()->orderBy('version')->get();
 
-    expect($versions)->toHaveCount(5)
-        ->and($versions->pluck('version')->all())->toBe([1, 2, 3, 4, 5])
+    expect($versions)->toHaveCount(6)
+        ->and($versions->pluck('version')->all())->toBe([1, 2, 3, 4, 5, 6])
         ->and($versions->every(fn ($version) => $version->status === TemplateVersionStatus::Published))->toBeTrue();
 
     $latest = $template->latestPublishedVersion();
 
     expect($latest)->not->toBeNull()
-        ->and($latest->version)->toBe(5)
+        ->and($latest->version)->toBe(6)
         ->and($latest->sections()->count())->toBeGreaterThan(5)
         ->and($latest->sections()->where('key', 'rooms')->value('is_repeatable'))->toBeTrue();
 
@@ -88,12 +88,12 @@ test('airco template seeder publishes v1 through v5 with v5 as latest', function
     $againV1 = app(PublishIntakeTemplateFromConfig::class)->handle(
         require database_path('data/templates/airco/v1.php'),
     );
-    $againV5 = app(PublishIntakeTemplateFromConfig::class)->handle(
-        require database_path('data/templates/airco/v5.php'),
+    $againV6 = app(PublishIntakeTemplateFromConfig::class)->handle(
+        require database_path('data/templates/airco/v6.php'),
     );
 
     expect($againV1->version)->toBe(1)
-        ->and($againV5->id)->toBe($latest->id)
+        ->and($againV6->id)->toBe($latest->id)
         ->and(IntakeTemplate::query()->where('key', 'airco')->count())->toBe(1)
-        ->and($template->versions()->count())->toBe(5);
+        ->and($template->versions()->count())->toBe(6);
 });

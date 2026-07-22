@@ -13,6 +13,7 @@ final class StartDemoIntake
 {
     public function __construct(
         private readonly CreateIntake $createIntake,
+        private readonly EnrichIntakeAddress $enrichIntakeAddress,
     ) {}
 
     public function handle(): Intake
@@ -26,18 +27,25 @@ final class StartDemoIntake
         $creator = $this->resolveDemoUser();
         $suffix = Str::lower((string) Str::ulid());
 
-        return $this->createIntake->handle($creator, [
+        $intake = $this->createIntake->handle($creator, [
             'template_key' => 'airco',
             'customer_name' => 'Demo Aanvrager',
             'customer_email' => 'demo+'.$suffix.'@demo.invalid',
             'customer_phone' => null,
-            'address_line' => 'Voorbeeldstraat 1',
-            'address_postal_code' => '1234AB',
-            'address_city' => 'Amsterdam',
+            'address_line' => (string) config('intake.demo.address.line', 'Damrak 1'),
+            'address_postal_code' => (string) config('intake.demo.address.postal_code', '1012LG'),
+            'address_city' => (string) config('intake.demo.address.city', 'Amsterdam'),
             'internal_note' => 'Automatische demo-intake — geen echte offerte.',
             'is_demo' => true,
             'token_ttl_hours' => (int) config('intake.demo.ttl_hours', 12),
         ]);
+
+        // De demo moet dezelfde afleiding krijgen als een echte opname: zonder deze
+        // aanroep draait BAG/PDOK nooit en blijft `skip_when_prefilled_by` dood.
+        // Soft-fail zit in de action zelf, dus een storing blokkeert de demo niet.
+        $this->enrichIntakeAddress->handle($intake);
+
+        return $intake->fresh(['templateVersion.template']) ?? $intake;
     }
 
     private function resolveDemoUser(): User

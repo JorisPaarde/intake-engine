@@ -203,7 +203,7 @@ test('livewire string booleans satisfy required checks and allow next', function
         ->set('form.noise_sensitive', ['bool' => '0'])
         ->call('next')
         ->assertSet('showMissing', false)
-        ->assertSet('activeStepKey', 'outdoor_unit::outdoor_location_photos');
+        ->assertSet('activeStepKey', 'pipe_route::pipe_route_description');
 });
 
 test('single choice auto-advances after selecting an option', function () {
@@ -226,7 +226,7 @@ test('boolean auto-advances after choosing ja or nee', function () {
         ->set('activeStepKey', 'outdoor_unit::noise_sensitive')
         ->set('form.noise_sensitive.bool', '0')
         ->assertSet('showMissing', false)
-        ->assertSet('activeStepKey', 'outdoor_unit::outdoor_location_photos')
+        ->assertSet('activeStepKey', 'pipe_route::pipe_route_description')
         ->assertSet('saveMessage', 'Opgeslagen');
 });
 

@@ -1,8 +1,8 @@
 # Intake-engine
 
-> **Documentversie:** 1.14 · **Laatste update:** 2026-07-20 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.15 · **Laatste update:** 2026-07-22 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: **geïmplementeerd t/m Fase 6 + BL-019 openbare data + BL-020 foto-afleiding + BL-027 gerichte vervolgrondes**. Airco-template **v5** gepubliceerd — v4 + bevestigbare meterkastfoto-voorzet.
+Status: **geïmplementeerd t/m Fase 6 + BL-019 openbare data + BL-020 foto-afleiding + BL-027 gerichte vervolgrondes**. Airco-template **v6** gepubliceerd — v5 + adaptieve vragenlijst: foto's vóór de vragen die ze beantwoorden, generieke foto-afleiding en bouwtype uit BAG.
 
 ## Doel
 
@@ -149,7 +149,7 @@ Secties (stabiele keys over versies):
 
 ### v1 → v2 (BL-017, ontwerpprincipe)
 
-V2 introduceerde onderstaande vraagreductie. Nieuwe intakes gebruiken inmiddels de laatste gepubliceerde **v5**; lopende/afgeronde opnames blijven op hun gepinde versie (ADR-0001).
+V2 introduceerde onderstaande vraagreductie. Nieuwe intakes gebruiken inmiddels de laatste gepubliceerde **v6**; lopende/afgeronde opnames blijven op hun gepinde versie (ADR-0001).
 
 | Wijziging | Was (v1) | Wordt (v2) |
 |-----------|----------|------------|
@@ -193,11 +193,27 @@ Vraagreductie blijft template-gestuurd:
 |-------------|--------|
 | `skip_when_prefilled_by: pdok` | De wizard laat de vraag weg als voor dezelfde vraag een antwoord met `prefill_source=pdok` bestaat. Zonder eenduidig bronresultaat blijft de normale vraag zichtbaar. |
 
-Airco v4 gebruikt dit alleen voor `build_year`: BAG registreert dit direct op het eenduidig gekoppelde pand. `building_type` blijft een klantvraag, omdat BAG-gebruiksdoel niet betrouwbaar onderscheidt tussen appartement, tussenwoning, hoekwoning en vrijstaand. Automatisch opgehaalde feiten gaan naast antwoorden mee in de context voor AI-samenvatting en aandachtspunten; bron en zekerheid blijven behouden.
+Airco v4 gebruikte dit alleen voor `build_year`: BAG registreert dit direct op het eenduidig gekoppelde pand. v6 breidt het uit naar `building_type`, maar alleen voor het eenduidige geval — bevat het gebruiksdoel geen enkele `woonfunctie`, dan is `commercial` een feit. BAG onderscheidt appartement, tussenwoning, hoekwoning en vrijstaand níét, dus bij elke woonfunctie blijft de vraag gewoon staan: een fout voorzet kost de installateur meer dan één extra vraag.
+
+Belangrijk: de aanroep moet ook echt gebeuren. Tot v6 draaide `EnrichIntakeAddress` alleen bij `IntakeController::store`, waardoor de publieke demo nooit werd verrijkt en `skip_when_prefilled_by` daar dood bleef. `StartDemoIntake` roept de verrijking nu zelf aan, op een bestaand BAG-adres uit `intake.demo.address`. Automatisch opgehaalde feiten gaan naast antwoorden mee in de context voor AI-samenvatting en aandachtspunten; bron en zekerheid blijven behouden.
 
 ## Foto-afleiding als bevestigbare voorzet (BL-020)
 
 Airco v5 markeert `fusebox_photo` met `meta.photo_analysis=fusebox` en maakt de foto-opdracht concreet: groepen, hoofdschakelaar en vrije posities recht van voren en leesbaar. De normale, optionele `free_group_known`-vraag blijft de fallback.
+
+**v6 maakt dit generiek.** `meta.photo_analysis` verwijst naar een profiel uit `PhotoDerivationProfile::all()`; `DerivePhotoAnswers` draait dat profiel op de foto's van één vraag (en één sectie-instantie, dus per ruimte apart). Een profiel benoemt welke vragen het mag beantwoorden en met welke optiewaarden — een waarde buiten de template wordt afgekeurd, niet opgeslagen. Publiceren met een onbekende profielnaam faalt meteen, zodat een typefout niet stilletjes niets aflevert.
+
+Zekerheid bepaalt hoeveel werk de aanvrager overhoudt:
+
+| `confidence` | `prefill_source` | Gevolg in de wizard |
+|---|---|---|
+| `high` | `ai` | De vraag vervalt (`skip_when_prefilled_by: ai`); het bewijs blijft zichtbaar in het dossier |
+| `medium` | `ai_suggestion` | De vraag blijft staan, ingevuld als bevestigbare voorzet |
+| `low` | — | Niets opgeslagen; de vraag wordt normaal gesteld |
+
+Bestaande antwoorden van aanvrager of installateur worden nooit overschreven, en het weghalen van een foto wist elke conclusie die eruit volgde.
+
+Profielen in v6: `room` op `room_photos` (grootte, zonbelasting, glasoppervlak) en `outdoor` op `outdoor_location_photos` (ondergrond, bereikbaarheid). Binnen `rooms` en `outdoor_unit` staat de foto nu vóór die vragen — daarvoor stond hij erachter, waardoor de aanvrager alles al had ingetypt voordat de foto iets kon uitsparen.
 
 Bij expliciet ingeschakelde foto-inferentie beoordeelt `AssessFuseboxPhotos` maximaal twee recente meterkastfoto's. Alleen `free_group=yes|no` met `confidence=high` wordt als `prefill_source=ai` klaargezet. De wizard toont deze keuze gemarkeerd als foto-inschatting; een klantkeuze bevestigt/corrigeert en verwijdert de prefillbron. Bestaande klant- of installateurantwoorden worden nooit overschreven. Bij onvoldoende beeld blijft de normale vraag staan en verschijnt de concrete `retake_instruction` bij de foto.
 

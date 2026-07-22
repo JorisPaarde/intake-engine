@@ -57,6 +57,35 @@ final class FakeAiClient implements AiClientInterface
             );
         }
 
+        if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'room-assessment')) {
+            return new AiCompletionResult(
+                output: [
+                    'room_size_indication' => 'medium',
+                    'sun_exposure' => 'high',
+                    'glass_amount' => 'much',
+                    'confidence' => 'high',
+                    'evidence' => 'Fictieve testuitkomst voor de lokale ruimteanalyse.',
+                    'retake_instruction' => null,
+                ],
+                provider: 'fake',
+                model: 'fake-vision-v1',
+            );
+        }
+
+        if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'outdoor-assessment')) {
+            return new AiCompletionResult(
+                output: [
+                    'outdoor_mount_type' => 'wall',
+                    'outdoor_accessibility' => 'ladder',
+                    'confidence' => 'high',
+                    'evidence' => 'Fictieve testuitkomst voor de lokale buitenunitanalyse.',
+                    'retake_instruction' => null,
+                ],
+                provider: 'fake',
+                model: 'fake-vision-v1',
+            );
+        }
+
         $output = self::$forcedOutput ?? [
             'summary' => 'Fictieve AI-samenvatting van de intake voor testgebruik.',
             'highlights' => [

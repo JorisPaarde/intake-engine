@@ -63,6 +63,17 @@ return [
         'ttl_hours' => (int) env('DEMO_TTL_HOURS', 12),
         'user_email' => env('DEMO_USER_EMAIL', 'demo@intake-engine.invalid'),
         'throttle_per_hour' => (int) env('DEMO_THROTTLE_PER_HOUR', 5),
+
+        /*
+        | Het demo-adres moet een BESTAAND BAG-adres zijn, anders levert PDOK niets
+        | en vervalt er in de demo geen enkele vraag. Bewust een publiek pand — geen
+        | woonadres van een particulier.
+        */
+        'address' => [
+            'line' => env('DEMO_ADDRESS_LINE', 'Damrak 1'),
+            'postal_code' => env('DEMO_ADDRESS_POSTAL_CODE', '1012LG'),
+            'city' => env('DEMO_ADDRESS_CITY', 'Amsterdam'),
+        ],
     ],
 
     /*

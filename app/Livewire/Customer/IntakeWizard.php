@@ -6,7 +6,9 @@ namespace App\Livewire\Customer;
 
 use App\Domains\AI\Actions\AssessFuseboxPhotos;
 use App\Domains\AI\Actions\AssessPhotoUsability;
+use App\Domains\AI\Actions\DerivePhotoAnswers;
 use App\Domains\AI\Models\AiRun;
+use App\Domains\AI\Support\PhotoDerivationProfile;
 use App\Domains\Intake\Actions\CompleteFollowUpRound;
 use App\Domains\Intake\Actions\CompleteIntake;
 use App\Domains\Intake\Actions\DeleteFollowUpUpload;
@@ -318,11 +320,9 @@ class IntakeWizard extends Component
         try {
             app(DeleteIntakeUpload::class)->handle($this->intake(), $upload);
 
-            if ($upload->question_key === 'fusebox_photo' && $upload->section_instance_key === null) {
-                $assessment = app(AssessFuseboxPhotos::class);
-                $assessment->invalidateDerivedState($this->intake());
-                $this->applyFuseboxAssessment($assessment->handle($this->intake()));
-            }
+            // Een weggehaalde foto mag geen conclusie achterlaten die eruit was afgeleid.
+            $this->invalidatePhotoDerivation($upload->question_key, $upload->section_instance_key);
+            $this->runPhotoDerivation($upload->question_key, $upload->section_instance_key);
 
             $this->forgetIntakeDerivedCaches();
             $composite = VisibilityResolver::compositeKey(
@@ -644,10 +644,8 @@ class IntakeWizard extends Component
             }
         }
 
-        if ($stored > 0 && $questionKey === 'fusebox_photo' && $instanceKey === null) {
-            $assessmentHint = $this->applyFuseboxAssessment(
-                app(AssessFuseboxPhotos::class)->handle($this->intake()),
-            );
+        if ($stored > 0) {
+            $assessmentHint = $this->runPhotoDerivation($questionKey, $instanceKey);
 
             if ($assessmentHint !== null) {
                 $hints[] = $assessmentHint;
@@ -757,6 +755,123 @@ class IntakeWizard extends Component
         }
 
         return $hints === [] ? null : implode(' ', array_values(array_unique($hints)));
+    }
+
+    /**
+     * Runs whatever photo-analysis profile the question opted into via `meta.photo_analysis`.
+     * The fusebox keeps its dedicated action — it derives phase alongside the free-group answer,
+     * which does not fit the generic single-shape profile.
+     *
+     * @return string|null a retake hint for the applicant, when the model asked for a better photo
+     */
+    private function runPhotoDerivation(string $questionKey, ?string $instanceKey): ?string
+    {
+        $profileName = $this->photoAnalysisProfileName($questionKey);
+
+        if ($profileName === null) {
+            return null;
+        }
+
+        if ($profileName === 'fusebox') {
+            return $instanceKey === null
+                ? $this->applyFuseboxAssessment(app(AssessFuseboxPhotos::class)->handle($this->intake()))
+                : null;
+        }
+
+        $profile = PhotoDerivationProfile::find($profileName);
+
+        if (! $profile instanceof PhotoDerivationProfile) {
+            return null;
+        }
+
+        return $this->applyPhotoDerivation(
+            app(DerivePhotoAnswers::class)->handle($this->intake(), $questionKey, $instanceKey, $profile),
+            $instanceKey,
+            $profile,
+        );
+    }
+
+    private function invalidatePhotoDerivation(string $questionKey, ?string $instanceKey): void
+    {
+        $profileName = $this->photoAnalysisProfileName($questionKey);
+
+        if ($profileName === null) {
+            return;
+        }
+
+        if ($profileName === 'fusebox') {
+            if ($instanceKey === null) {
+                app(AssessFuseboxPhotos::class)->invalidateDerivedState($this->intake());
+            }
+
+            return;
+        }
+
+        $profile = PhotoDerivationProfile::find($profileName);
+
+        if ($profile instanceof PhotoDerivationProfile) {
+            app(DerivePhotoAnswers::class)->invalidateDerivedState(
+                $this->intake(),
+                $questionKey,
+                $instanceKey,
+                $profile,
+            );
+        }
+    }
+
+    private function photoAnalysisProfileName(string $questionKey): ?string
+    {
+        foreach ($this->version()->sections as $section) {
+            foreach ($section->questions as $question) {
+                if ($question->key !== $questionKey) {
+                    continue;
+                }
+
+                $profileName = $question->meta['photo_analysis'] ?? null;
+
+                return is_string($profileName) && $profileName !== '' ? $profileName : null;
+            }
+        }
+
+        return null;
+    }
+
+    private function applyPhotoDerivation(
+        ?AiRun $run,
+        ?string $instanceKey,
+        PhotoDerivationProfile $profile,
+    ): ?string {
+        foreach ($profile->questionKeys() as $questionKey) {
+            $composite = VisibilityResolver::compositeKey($questionKey, $instanceKey);
+            $this->refreshAnswerInForm($composite);
+
+            $answer = $this->intake()->answers()
+                ->where('question_key', $questionKey)
+                ->when(
+                    $instanceKey === null,
+                    static fn ($query) => $query->whereNull('section_instance_key'),
+                    static fn ($query) => $query->where('section_instance_key', $instanceKey),
+                )
+                ->first();
+
+            if ($answer?->prefill_source === DerivePhotoAnswers::SOURCE_SUGGESTED) {
+                $this->prefillNotice[$composite] = 'Ingeschat op basis van uw foto — klopt dit?';
+            } else {
+                unset($this->prefillNotice[$composite]);
+            }
+        }
+
+        if ($run?->status !== AiRunStatus::Succeeded || ! is_array($run->output)) {
+            return null;
+        }
+
+        $instruction = $run->output['retake_instruction'] ?? null;
+
+        if (is_string($instruction) && trim($instruction) !== '') {
+            return 'Voor een betere beoordeling: '.trim($instruction);
+        }
+
+        return null;
     }
 
     private function applyFuseboxAssessment(?AiRun $run): ?string
