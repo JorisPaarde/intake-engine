@@ -4,6 +4,30 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-07-22
+
+### Changed
+
+- **Adaptieve vragenlijst (airco v6 t/m v9).** De engine kon dit vanaf het begin — `VisibilityResolver`, rules en `skip_when_prefilled_by` stonden er — maar de template was een platte lijst van 38 vragen met precies één conditionele regel. Een opname met één binnenunit gaat nu van **38 naar 18 stappen**.
+  - **v6:** foto's staan vóór de vragen die ze beantwoorden (stonden erachter, dus de aanvrager typte alles al in voordat de foto iets kon uitsparen); generieke foto-afleiding via `meta.photo_analysis`; `building_type` uit het BAG-gebruiksdoel bij het eenduidige niet-woonfunctie geval.
+  - **v7:** elke sectie opent met zijn foto; profiel `pipe_route` erbij; `free_group_known` vervalt nu ook bij hoge zekerheid; `room_notes`, `facade_overview_photo` (de PDOK-luchtfoto levert het overzicht al) en de losse merk-/planningsvragen geschrapt of samengevoegd.
+  - **v8:** EP-Online levert `insulation_indication` en `building_type`; `meta.skip_when_prefilled_by` accepteert daarvoor een lijst bronnen.
+  - **v9:** de openingsvraag levert functie, aantal binnenunits en ruimtetypes; conditionele cascades op bereikbaarheid en leidingafstand; `brand_preference` en `desired_planning` zijn keuzelijsten in plaats van vrije tekst.
+- `StartDemoIntake` roept `EnrichIntakeAddress` aan. Die hing alleen aan `IntakeController::store`, waardoor de publieke demo nooit werd verrijkt en `skip_when_prefilled_by` daar dood bleef. Het demo-adres is bovendien een bestaand BAG-pand (`DEMO_ADDRESS_*`), want het oude `Voorbeeldstraat 1, 1234AB` bestaat niet en leverde per definitie niets op.
+
+### Added
+
+- **Generieke foto-afleiding** (`DerivePhotoAnswers`): elke fotovraag kan via `meta.photo_analysis` een profiel draaien, per sectie-instantie gescheiden. Zekerheid bepaalt het gevolg — `high` laat de vraag vervallen (bewijs blijft als extern feit in het dossier), `medium` levert een bevestigbare voorzet, `low` slaat niets op. Een waarde buiten de template-opties wordt afgekeurd, een eigen antwoord wordt nooit overschreven, en het weghalen van een foto wist elke conclusie die eruit volgde. Profielen: `room`, `outdoor`, `pipe_route`; de meterkast houdt zijn eigen `AssessFuseboxPhotos`. Publiceren met een onbekende profielnaam faalt meteen. Vereist `AI_PHOTO_INFERENCE_ENABLED=true`.
+- **Tekst-afleiding uit de openingsvraag** (`DeriveIntentFromRequest`): "de slaapkamer en de woonkamer worden te warm" levert functie, aantal binnenunits en het type van elke ruimte, op volgorde gekoppeld aan `room-1`, `room-2`, … De prompt mag alleen hoge zekerheid geven wanneer de ruimtes expliciet benoemd worden. Aparte vlag `AI_TEXT_INFERENCE_ENABLED` — tekst versturen is een andere afweging dan foto's.
+- **Kadaster BAG API Individuele Bevragingen** (`KadasterBagService`) als primaire bron voor de adreskenmerken, met de open PDOK-route als vangnet. Exacte bevraging op postcode + huisnummer in plaats van vrije tekst plus `matchesIntake()`-filter, en near-realtime in plaats van een periodiek extract. Redt ook een rommelig ingetypt adres (`Bernadottelaan, 273, 273`) dat vroeger de héle verrijking leeg liet en zet de adresregel recht naar de BAG-schrijfwijze. Coördinaten, gemeente en provincie blijven van PDOK komen: Kadaster levert geometrie in RD terwijl het dossier op WGS84 rekent. `BAG_API_*`, standaard uit.
+- **EP-Online (RVO)** (`EpOnlineService`): het geregistreerde energielabel levert de isolatie-indicatie en het woningtype. Isolatie volgt bewust de **energiebehoefte** en niet de labelletter — die verrekent ook installaties, dus een matig geïsoleerd huis met zonnepanelen scoort een A terwijl de warmtevraag hoog blijft. Bouwtype wordt alleen overgenomen als de omschrijving herkend wordt. Labelletter en kWh/m²·jr komen als feit met bron en registratiedatum in het dossier. `EP_ONLINE_*`, standaard uit.
+- **3DBAG (TU Delft)** (`ThreeDBagService`): dakvorm en gevelhoogte als contextfeit bij het BAG-pand. Open data onder CC BY 4.0, dus opslaan en tonen in het dossier mag — anders dan bij Google Street View, waar het vooraf ophalen, opslaan of cachen van beeld verboden is en embedden in een gegenereerde PDF dus niet kan. Bewust géén vraagreductie: de hoogte van een pand zegt niet waar de buitenunit komt te hangen. Een door 3DBAG als mogelijk onjuist gemarkeerde reconstructie krijgt lage zekerheid én een expliciete onzekerheid. `THREEDBAG_*`.
+
+### Fixed
+
+- `IntakeStepBuilder` accepteert een lijst bronnen in `meta.skip_when_prefilled_by`, zodat één vraag uit meerdere registers kan volgen.
+
+
 ### Changed
 
 - BL-001: publieke demo staat standaard **aan** (`DEMO_ENABLED` default `true` in alle env-sjablonen). Bezoekers zien **Start demo** zonder handmatige staging-flag; `DEMO_ENABLED=false` blijft de opt-out bij misbruik. Bestaande `shared/.env` met expliciet `false` moet die regel verwijderen of op `true` zetten. Ingelogde gebruikers zien de demoknop niet (wel **Open dashboard**). Demo draait AI-samenvatting/aandachtspunten inline (heuristic-fallback als `AI_PROVIDER=null`) en toont het voorstel op het bedankt-scherm; banner legt uit wat nog uitstaat (e-mail, PDF, dashboard).
