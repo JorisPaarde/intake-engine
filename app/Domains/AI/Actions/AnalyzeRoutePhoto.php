@@ -8,6 +8,7 @@ use App\Domains\AI\DTOs\AiImageInput;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\AiGateway;
 use App\Domains\AI\Services\PromptVersionRepository;
+use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Models\PipeRouteSegment;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
@@ -120,7 +121,7 @@ final class AnalyzeRoutePhoto
         }
     }
 
-    private function imageInput($upload): AiImageInput
+    private function imageInput(IntakeUpload $upload): AiImageInput
     {
         if (! in_array($upload->mime_type, ['image/jpeg', 'image/png', 'image/webp'], true)) {
             throw new \RuntimeException('Opgeslagen foto heeft geen ondersteund formaat voor beeldanalyse.');
