@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace App\Domains\Intake\Actions;
 
 use App\Domains\Intake\Data\AddressEnrichment;
+use App\Domains\Intake\Data\EnergyLabel;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeExternalFact;
+use App\Domains\Intake\Services\EpOnlineService;
 use App\Domains\Intake\Services\PdokAddressService;
 use App\Domains\Intake\Services\PdokAerialImageService;
+use App\Domains\Intake\Services\ThreeDBagService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -20,6 +23,8 @@ final class EnrichIntakeAddress
     public function __construct(
         private readonly PdokAddressService $pdok,
         private readonly PdokAerialImageService $aerialImages,
+        private readonly ThreeDBagService $threeDBag,
+        private readonly EpOnlineService $epOnline,
         private readonly SaveIntakeAnswer $saveIntakeAnswer,
     ) {}
 
@@ -40,6 +45,8 @@ final class EnrichIntakeAddress
 
             DB::transaction(fn () => $this->storeEnrichment($intake, $enrichment));
             $this->captureAerialImage($intake, $enrichment);
+            $this->captureBuildingGeometry($intake, $enrichment);
+            $this->captureEnergyLabel($intake, $enrichment);
         } catch (Throwable $exception) {
             $this->storeStatus($intake, 'unavailable');
             Log::warning('PDOK address enrichment failed.', [
@@ -195,6 +202,161 @@ final class EnrichIntakeAddress
             ],
             'created_at' => now(),
         ]);
+    }
+
+    /**
+     * Het geregistreerde energielabel uit EP-Online (RVO).
+     *
+     * Levert twee antwoorden die we anders zouden vragen:
+     *
+     *   - `insulation_indication` uit de energiebehoefte. Dat getal is de vraag vóór
+     *     installaties, dus een betere maat voor de schil dan de labelletter — die
+     *     verrekent ook zonnepanelen en warmtepomp.
+     *   - `building_type` uit het geregistreerde woningtype, maar alleen als het naar een
+     *     template-optie te vertalen is. Herkennen we de omschrijving niet, dan blijft de
+     *     vraag staan in plaats van dat we gokken.
+     *
+     * De onderbouwing (labelletter én kWh/m²·jr) komt als feit in het dossier, met bron en
+     * registratiedatum, zodat het afgeleide antwoord navolgbaar blijft.
+     */
+    private function captureEnergyLabel(Intake $intake, AddressEnrichment $data): void
+    {
+        try {
+            $label = $this->epOnline->forAddressableObject($data->bagAddressableObjectId);
+
+            if ($label === null) {
+                return;
+            }
+
+            $sourceUrl = $this->epOnline->labelUrl($data->bagAddressableObjectId);
+            $reference = $label->registeredAt;
+
+            if ($label->energyClass !== null) {
+                $this->upsertFact(
+                    $intake,
+                    'energy_label',
+                    'Energielabel',
+                    array_filter([
+                        'value' => $label->energyClass,
+                        'registered_at' => $label->registeredAt,
+                        'valid_until' => $label->validUntil,
+                    ], static fn (mixed $value): bool => $value !== null),
+                    'high',
+                    $reference,
+                    $sourceUrl,
+                    EpOnlineService::sourceName(),
+                );
+            }
+
+            if ($label->energyDemandKwhM2 !== null) {
+                $this->upsertFact(
+                    $intake,
+                    'energy_demand',
+                    'Energiebehoefte (schil)',
+                    ['number' => $label->energyDemandKwhM2, 'unit' => 'kWh/m²·jr'],
+                    'high',
+                    $reference,
+                    $sourceUrl,
+                    EpOnlineService::sourceName(),
+                );
+            }
+
+            $this->prefillFromEnergyLabel($intake, $label);
+        } catch (Throwable $exception) {
+            // Geen label of een storing betekent gewoon dat de vragen blijven staan.
+            Log::warning('EP-Online energy label lookup failed.', [
+                'intake_uuid' => $intake->uuid,
+                'exception' => $exception::class,
+            ]);
+        }
+    }
+
+    private function prefillFromEnergyLabel(Intake $intake, EnergyLabel $label): void
+    {
+        $insulation = $label->insulationIndication();
+
+        if ($insulation !== null && $this->hasQuestion($intake, 'insulation_indication')) {
+            $this->saveIntakeAnswer->handle($intake, 'insulation_indication', null, ['value' => $insulation], 'epo');
+        }
+
+        $buildingType = $label->buildingTypeOption();
+
+        if ($buildingType !== null && $this->hasQuestion($intake, 'building_type')) {
+            $this->saveIntakeAnswer->handle($intake, 'building_type', null, ['value' => $buildingType], 'epo');
+        }
+    }
+
+    /**
+     * Dakvorm en gevelhoogte uit de 3DBAG (CC BY 4.0 — opslaan mag, mits bron vermeld).
+     *
+     * Bewust alleen als context-feit: de hoogte van een pand zegt niet waar de buitenunit
+     * komt te hangen, dus hier vervalt geen enkele vraag. Het helpt de installateur bij het
+     * inschatten van ladder of steiger, en gaat als feit mee in de AI-context.
+     *
+     * Een onbetrouwbare reconstructie (`b3_kwaliteitsindicator = false`) wordt wél getoond,
+     * maar met lage zekerheid — de installateur moet kunnen zien dat hij er niet op mag varen.
+     */
+    private function captureBuildingGeometry(Intake $intake, AddressEnrichment $data): void
+    {
+        if ($data->bagBuildingId === null || $data->buildingCount !== 1) {
+            return;
+        }
+
+        try {
+            $geometry = $this->threeDBag->fetch($data->bagBuildingId);
+
+            if ($geometry === null) {
+                return;
+            }
+
+            $confidence = $geometry->reliable ? 'high' : 'low';
+            $sourceUrl = $this->threeDBag->featureUrl($data->bagBuildingId);
+
+            if ($geometry->heightAboveGroundM !== null) {
+                $this->upsertFact(
+                    $intake,
+                    'building_height_m',
+                    'Gevelhoogte (nok boven maaiveld)',
+                    ['number' => $geometry->heightAboveGroundM, 'unit' => 'm'],
+                    $confidence,
+                    $data->bagBuildingId,
+                    $sourceUrl,
+                    ThreeDBagService::sourceName(),
+                );
+            }
+
+            if ($geometry->hasUsableRoofType()) {
+                $this->upsertFact(
+                    $intake,
+                    'roof_type',
+                    'Dakvorm',
+                    ['value' => $geometry->roofType, 'label' => $geometry->roofTypeLabel()],
+                    $confidence,
+                    $data->bagBuildingId,
+                    $sourceUrl,
+                    ThreeDBagService::sourceName(),
+                );
+            }
+
+            if ($geometry->floorCount !== null) {
+                $this->upsertFact(
+                    $intake,
+                    'floor_count',
+                    'Aantal bouwlagen',
+                    ['number' => $geometry->floorCount],
+                    $confidence,
+                    $data->bagBuildingId,
+                    $sourceUrl,
+                    ThreeDBagService::sourceName(),
+                );
+            }
+        } catch (Throwable $exception) {
+            // 3DBAG is een aanvulling, nooit een blokkade voor de opname.
+            Log::warning('3DBAG building geometry lookup failed.', [
+                'intake_uuid' => $intake->uuid,
+                'exception' => $exception::class,
+            ]);
+        }
     }
 
     /**

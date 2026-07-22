@@ -153,9 +153,13 @@ final class IntakeStepBuilder
                 continue;
             }
 
-            $skipSource = $question->meta['skip_when_prefilled_by'] ?? null;
+            // Eén bron of een lijst: `building_type` kan zowel uit de BAG als uit een
+            // geregistreerd energielabel komen, en beide mogen de vraag laten vervallen.
+            $skipSources = $question->meta['skip_when_prefilled_by'] ?? null;
+            $skipSources = is_array($skipSources) ? $skipSources : [$skipSources];
+            $answerSource = $answerSources[$composite] ?? null;
 
-            if (is_string($skipSource) && ($answerSources[$composite] ?? null) === $skipSource) {
+            if ($answerSource !== null && in_array($answerSource, $skipSources, true)) {
                 continue;
             }
 

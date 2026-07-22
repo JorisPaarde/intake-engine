@@ -5,14 +5,21 @@ declare(strict_types=1);
 namespace App\Domains\Intake\Services;
 
 use App\Domains\Intake\Data\AddressEnrichment;
+use App\Domains\Intake\Data\BagAddressAttributes;
 use App\Domains\Intake\Models\Intake;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Throwable;
 
 final class PdokAddressService
 {
     private const SOURCE = 'PDOK / BAG';
+
+    public function __construct(
+        private readonly KadasterBagService $kadasterBag,
+    ) {}
 
     /**
      * @return list<array{id: string, label: string, address_line: string, postal_code: string, city: string}>
@@ -78,18 +85,47 @@ final class PdokAddressService
             ? $this->lookup($lookupId)
             : $this->findExactAddress($intake);
 
-        if ($address === null) {
-            return null;
-        }
-
-        if (! $this->matchesIntake($address, $intake)) {
-            return null;
+        // Een handmatig ingetypt adres ("Bernadottelaan, 273, 273") komt door de
+        // vrije-tekstzoekopdracht heen maar valt af op matchesIntake(), waarna vroeger de
+        // héle verrijking leeg bleef. Postcode en huisnummer zijn dan nog prima bruikbaar,
+        // dus Kadaster krijgt eerst nog een kans voordat we opgeven.
+        if ($address === null || ! $this->matchesIntake($address, $intake)) {
+            return $this->enrichFromKadasterOnly($intake);
         }
 
         $addressableObjectId = $address['adresseerbaarobject_id'] ?? null;
 
         if (! is_string($addressableObjectId) || preg_match('/^\d{16}$/', $addressableObjectId) !== 1) {
             return null;
+        }
+
+        // Coördinaten, gemeente en provincie blijven van de Locatieserver komen; alleen de
+        // BAG-kenmerken proberen we eerst bij Kadaster op te halen (verser + exact bevraagd).
+        $kadaster = $this->kadasterAttributes($address);
+
+        if ($kadaster !== null) {
+            [$longitude, $latitude] = $this->coordinates(
+                $this->residenceGeometry($kadaster->addressableObjectId)
+            );
+
+            return new AddressEnrichment(
+                lookupId: (string) ($address['id'] ?? ''),
+                displayAddress: (string) ($address['weergavenaam'] ?? ''),
+                addressLine: $this->addressLine($address),
+                postalCode: (string) ($address['postcode'] ?? ''),
+                city: (string) ($address['woonplaatsnaam'] ?? ''),
+                bagAddressableObjectId: $kadaster->addressableObjectId,
+                municipality: $this->nullableString($address['gemeentenaam'] ?? null),
+                province: $this->nullableString($address['provincienaam'] ?? null),
+                latitude: $latitude,
+                longitude: $longitude,
+                floorAreaM2: $kadaster->floorAreaM2,
+                usagePurposes: $kadaster->usagePurposes,
+                parcelIds: $this->stringList($address['gekoppeld_perceel'] ?? []),
+                buildYear: $kadaster->buildYear,
+                bagBuildingId: $kadaster->singleBuildingId(),
+                buildingCount: $kadaster->buildingCount(),
+            );
         }
 
         $residence = $this->bagRequest()
@@ -131,6 +167,111 @@ final class PdokAddressService
     public static function sourceName(): string
     {
         return self::SOURCE;
+    }
+
+    /**
+     * Laatste redmiddel wanneer de Locatieserver het adres niet eenduidig kan koppelen.
+     *
+     * Levert een AddressEnrichment op basis van postcode + huisnummer alleen. Gemeente en
+     * provincie ontbreken dan — die komen uit de Locatieserver — maar bouwjaar,
+     * oppervlakte, gebruiksdoel, pand-id en coördinaten zijn er wél, en de adresregel
+     * wordt meteen rechtgezet naar de BAG-schrijfwijze.
+     */
+    private function enrichFromKadasterOnly(Intake $intake): ?AddressEnrichment
+    {
+        if (! $this->kadasterBag->enabled()) {
+            return null;
+        }
+
+        try {
+            $kadaster = $this->kadasterBag->attributesForIntake($intake);
+        } catch (Throwable $exception) {
+            Log::warning('Kadaster BAG fallback lookup failed.', [
+                'exception' => $exception::class,
+            ]);
+
+            return null;
+        }
+
+        if ($kadaster === null || ! $kadaster->hasAddressLine()) {
+            return null;
+        }
+
+        [$longitude, $latitude] = $this->coordinates(
+            $this->residenceGeometry($kadaster->addressableObjectId)
+        );
+
+        return new AddressEnrichment(
+            lookupId: '',
+            displayAddress: trim($kadaster->addressLine().', '.$kadaster->postalCode.' '.$kadaster->city),
+            addressLine: $kadaster->addressLine(),
+            postalCode: $kadaster->postalCode,
+            city: $kadaster->city,
+            bagAddressableObjectId: $kadaster->addressableObjectId,
+            municipality: null,
+            province: null,
+            latitude: $latitude,
+            longitude: $longitude,
+            floorAreaM2: $kadaster->floorAreaM2,
+            usagePurposes: $kadaster->usagePurposes,
+            parcelIds: [],
+            buildYear: $kadaster->buildYear,
+            bagBuildingId: $kadaster->singleBuildingId(),
+            buildingCount: $kadaster->buildingCount(),
+        );
+    }
+
+    /**
+     * Kadaster bevraagt exact op postcode + huisnummer; een storing, ontbrekende key of
+     * niet-eenduidig antwoord levert null en laat de PDOK-route het werk doen.
+     *
+     * @param  array<string, mixed>  $address  document van de Locatieserver
+     */
+    private function kadasterAttributes(array $address): ?BagAddressAttributes
+    {
+        if (! $this->kadasterBag->enabled()) {
+            return null;
+        }
+
+        $postalCode = (string) ($address['postcode'] ?? '');
+        $houseNumber = $address['huisnummer'] ?? null;
+
+        if ($postalCode === '' || ! is_numeric($houseNumber)) {
+            return null;
+        }
+
+        try {
+            return $this->kadasterBag->attributesFor(
+                $postalCode,
+                (int) $houseNumber,
+                $this->nullableString($address['huisletter'] ?? null),
+                $this->nullableString($address['huisnummertoevoeging'] ?? null),
+            );
+        } catch (Throwable $exception) {
+            Log::warning('Kadaster BAG lookup failed; falling back to PDOK.', [
+                'exception' => $exception::class,
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Kadaster levert geometrie in RD (EPSG:28992) en het dossier rekent op WGS84, dus de
+     * coördinaten komen ook op het Kadaster-pad uit de PDOK-featureservice.
+     */
+    private function residenceGeometry(string $addressableObjectId): mixed
+    {
+        $residence = $this->bagRequest()
+            ->get('/collections/verblijfsobject/items', [
+                'f' => 'json',
+                'identificatie' => $addressableObjectId,
+                'limit' => 1,
+            ])
+            ->throw()
+            ->json('features.0');
+
+        return is_array($residence) ? ($residence['geometry']['coordinates'] ?? null) : null;
     }
 
     /** @return array<string, mixed>|null */

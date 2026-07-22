@@ -1,8 +1,8 @@
 # Intake-engine
 
-> **Documentversie:** 1.15 · **Laatste update:** 2026-07-22 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.20 · **Laatste update:** 2026-07-22 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: **geïmplementeerd t/m Fase 6 + BL-019 openbare data + BL-020 foto-afleiding + BL-027 gerichte vervolgrondes**. Airco-template **v6** gepubliceerd — v5 + adaptieve vragenlijst: foto's vóór de vragen die ze beantwoorden, generieke foto-afleiding en bouwtype uit BAG.
+Status: **geïmplementeerd t/m Fase 6 + BL-019 openbare data + BL-020 foto-afleiding + BL-027 gerichte vervolgrondes**. Airco-template **v9** gepubliceerd — v8 + de openingsvraag levert functie, aantal units en ruimtetypes, plus conditionele cascades en keuzelijsten.
 
 ## Doel
 
@@ -149,7 +149,7 @@ Secties (stabiele keys over versies):
 
 ### v1 → v2 (BL-017, ontwerpprincipe)
 
-V2 introduceerde onderstaande vraagreductie. Nieuwe intakes gebruiken inmiddels de laatste gepubliceerde **v6**; lopende/afgeronde opnames blijven op hun gepinde versie (ADR-0001).
+V2 introduceerde onderstaande vraagreductie. Nieuwe intakes gebruiken inmiddels de laatste gepubliceerde **v9**; lopende/afgeronde opnames blijven op hun gepinde versie (ADR-0001).
 
 | Wijziging | Was (v1) | Wordt (v2) |
 |-----------|----------|------------|
@@ -213,7 +213,120 @@ Zekerheid bepaalt hoeveel werk de aanvrager overhoudt:
 
 Bestaande antwoorden van aanvrager of installateur worden nooit overschreven, en het weghalen van een foto wist elke conclusie die eruit volgde.
 
-Profielen in v6: `room` op `room_photos` (grootte, zonbelasting, glasoppervlak) en `outdoor` op `outdoor_location_photos` (ondergrond, bereikbaarheid). Binnen `rooms` en `outdoor_unit` staat de foto nu vóór die vragen — daarvoor stond hij erachter, waardoor de aanvrager alles al had ingetypt voordat de foto iets kon uitsparen.
+Profielen in v7:
+
+| Profiel | Fotovraag | Leidt af |
+|---|---|---|
+| `room` | `room_photos` | ruimtetype, grootte, zonbelasting, glasoppervlak |
+| `outdoor` | `outdoor_location_photos` | plek, ondergrond, bereikbaarheid |
+| `pipe_route` | `pipe_route_photos` | route, afstandsindicatie, boringen nodig |
+| `fusebox` | `fusebox_photo` | vrije groep, fase (eigen actie, zie hieronder) |
+
+Elke sectie opent nu met zijn foto. In v6 stonden `room_type` en `outdoor_location` nog vóór hun foto en konden daardoor per definitie niet vervallen.
+
+Booleanvragen worden afgeleid via `yes`/`no` op de wire en pas bij opslag omgezet naar een echte boolean, zodat het model nooit over JSON-types hoeft te redeneren.
+
+### Wat bewust blijft staan
+
+Niet alles hoort weg te vallen, ook niet als het "korter" kan:
+
+- `ownership`, `pipe_visibility`, `noise_sensitive` — juridische status en voorkeuren staan niet op een foto.
+- `floor_level` — een binnenfoto laat de verdieping niet betrouwbaar zien.
+- `truth_confirmation` en `privacy_consent` blijven twee losse vragen. Toestemming moet specifiek en ongebundeld zijn; samenvoegen met een juistheidsverklaring maakt haar niet-vrij. Eén stap winst weegt daar niet tegenop.
+- `insulation_indication` blijft een vraag: bouwjaar uit de BAG zegt weinig over uitgevoerde renovaties.
+
+## Twee BAG-routes: Kadaster met PDOK als vangnet
+
+De adres-autocomplete in het installateursformulier blijft altijd de open PDOK Locatieserver — Individuele Bevragingen is geen geocoder. Voor de *kenmerken* van het gekozen adres probeert `PdokAddressService` eerst de [BAG API Individuele Bevragingen](https://www.kadaster.nl/zakelijk/producten/adressen-en-gebouwen/bag-api-individuele-bevragingen) van Kadaster:
+
+| | Kadaster Individuele Bevragingen | PDOK BAG OGC (vangnet) |
+|---|---|---|
+| Bevraging | exact op postcode + huisnummer | vrije tekst + `matchesIntake()`-filter |
+| Actualiteit | near-realtime uit de LVBAG | periodiek ververst extract |
+| Auth | `X-Api-Key` | geen |
+| Limieten | gebruikslimieten, niet voor bulk | geen |
+
+Zonder key, bij een storing of bij een niet-eenduidig antwoord valt de verrijking stil terug op de PDOK-route — dezelfde `AddressEnrichment`, dus de rest van de keten merkt er niets van. `BAG_API_ENABLED=false` is de standaard.
+
+Twee dingen komen ook op het Kadaster-pad van PDOK: **coördinaten** (Kadaster levert geometrie in RD/EPSG:28992, het dossier en de luchtfoto rekenen op WGS84) en **gemeente/provincie**.
+
+`oorspronkelijkBouwjaar` is bij Kadaster een array — één jaar per pand waar het verblijfsobject deel van uitmaakt. Alleen een eenduidig jaar wordt als voorzet overgenomen; bij panden met verschillende bouwjaren blijft de bouwjaarvraag gewoon staan.
+
+## De openingsvraag telt mee (tekst-afleiding)
+
+"De slaapkamer en de woonkamer worden te warm in de zomer" beantwoordt drie vragen die de wizard daarna nog stelde: de functie (koelen), het aantal binnenunits (twee) en het type van elke ruimte. Tot v8 vroegen we dat alsnog.
+
+`request_reason` krijgt daarom `meta.text_analysis = 'request_intent'`. `DeriveIntentFromRequest` draait zodra dat antwoord wordt opgeslagen en werkt met dezelfde zekerheidsladder als de foto-afleiding: `high` laat de vraag vervallen, `medium` levert een bevestigbare voorzet, `low` doet niets.
+
+De genoemde ruimtes worden op volgorde aan `room-1`, `room-2`, … gekoppeld. De prompt mag alleen `high` kiezen wanneer de aanvrager de ruimtes expliciet benoemt — "het is warm boven" is geen opdracht voor twee units, en het aantal te hoog inschatten kost meer dan één extra vraag. Een toelichting korter dan tien tekens gaat helemaal niet naar de provider.
+
+Aparte vlag: `AI_TEXT_INFERENCE_ENABLED`. Tekst naar een externe provider sturen is een andere afweging dan foto's, dus dat staat los van `AI_PHOTO_INFERENCE_ENABLED`.
+
+## Cascades: wat logisch volgt, wordt niet gevraagd
+
+De regelmotor kon dit vanaf het begin; de template gebruikte hem alleen niet. v9 zet er `show`-regels op waar het antwoord al vastligt:
+
+| Vraag | Verschijnt niet wanneer | Waarom |
+|---|---|---|
+| `outdoor_accessibility` | `outdoor_mount_type` = `ground` | staat de unit op de grond, dan is ladder of steiger niet aan de orde |
+| `pipe_distance_indication` | `pipe_route_description` = `short_direct` | een korte directe doorboring ís de korte afstandsklasse |
+
+Let bij het toevoegen van regels op de operator: `readRuleComparable()` leest voor een `single_choice`-bron de sleutel `value`, niet `values`. Een `in`/`not_in` met een lijst blijft daar leeg — gebruik `equals`/`not_equals`.
+
+## Keuzelijsten in plaats van vrije tekst
+
+`brand_preference` is een `multi_choice` met merken en `desired_planning` een `single_choice` met termijnen. Vrije tekst leverde voor beide onbruikbare data op voor een offerte; een keuzelijst geeft de installateur iets om op te filteren.
+
+## Energielabel uit EP-Online
+
+[EP-Online](https://www.rvo.nl/onderwerpen/wetten-en-regels-gebouwen/ep-online) van RVO is het landelijke register van geregistreerde energielabels. Bevraagd op het BAG-verblijfsobject-id dat de adresverrijking toch al oplevert (`/api/v5/PandEnergielabel/AdresseerbaarObject/{id}`), dus zonder opnieuw op adres te matchen. Key via `epbdwebservices.rvo.nl`, meegestuurd als `Authorization`-header.
+
+Het neemt twee vragen over:
+
+| Vraag | Uit | Waarom dit mag |
+|---|---|---|
+| `insulation_indication` | `Energiebehoefte` | geregistreerd ná eventuele renovaties |
+| `building_type` | `Gebouwtype` | het woningtype dat de BAG níét kent |
+
+**Isolatie volgt de energiebehoefte, niet de labelletter.** Die letter verrekent ook installaties, dus een matig geïsoleerd huis met zonnepanelen scoort een A terwijl de warmtevraag hoog blijft. `Energiebehoefte` (NTA 8800) is juist de vraag vóór installaties en dus de maat voor wat een airco moet leveren. Grenzen: ≤50 `good`, ≤100 `average`, daarboven `poor`. Oudere en vereenvoudigde labels hebben dat getal niet; die vallen terug op de letter.
+
+**Bouwtype alleen bij herkenning.** EP-Online legt de waarden van `Gebouwtype` niet vast in de OpenAPI-spec, dus de omschrijving wordt op herkenbare woorden gematcht ("vrijstaand", "hoek", "tussen", "galerij"). Herkennen we hem niet, dan blijft de vraag staan in plaats van dat we gokken. `Gebouwklasse` "U" gaat rechtstreeks naar `commercial`.
+
+Beide onderbouwingen — labelletter én kWh/m²·jr — komen als feit in het dossier met bron en registratiedatum, zodat een afgeleid antwoord navolgbaar blijft. Heeft een adres geen label, dan blijven beide vragen gewoon staan; registratie is verplicht bij verkoop, verhuur en oplevering, dus de dekking is hoog maar niet volledig.
+
+Omdat `building_type` nu uit twee registers kan komen, accepteert `meta.skip_when_prefilled_by` sinds v8 ook een lijst bronnen.
+
+## Pandgeometrie uit de 3DBAG
+
+Naast PDOK/BAG haalt `EnrichIntakeAddress` dakvorm en gevelhoogte op bij de [3DBAG](https://3dbag.nl) van TU Delft, op basis van het pand-id dat de BAG-verrijking al heeft opgeleverd. De data staat onder **CC BY 4.0**: opslaan en tonen in het dossier mag, mits de bron vermeld blijft — anders dan bij Google Street View, waar het vooraf ophalen, opslaan of cachen van beeld verboden is en embedden in een gegenereerde PDF dus niet kan.
+
+| Fact | Bron-attribuut | Nut |
+|---|---|---|
+| `building_height_m` | `b3_h_dak_max` − `b3_h_maaiveld` | ladder of steiger bij de buitenunit |
+| `roof_type` | `b3_dak_type` | plat of schuin dak |
+| `floor_count` | `b3_bouwlagen` | context bij de verdiepingsvraag |
+
+Bewust géén vraagreductie. De hoogte van een pand zegt niet waar de buitenunit komt te hangen, dus hier vervalt geen enkele vraag — dit is context voor de installateur en extra grond voor de AI-aandachtspunten.
+
+`b3_kwaliteitsindicator = false` betekent dat 3DBAG de 3D-reconstructie zelf als mogelijk onjuist markeert. De feiten worden dan nog steeds getoond, maar met lage zekerheid én een expliciete onzekerheid in het dossier — hoogte stuurt de keuze tussen ladder en steiger, dus dat mag de installateur niet ontgaan. Daktypen die geen betekenis hebben (`no points`, `no planes`, `unknown`) worden helemaal weggelaten in plaats van als "onbekend" getoond. Een storing bij 3DBAG blokkeert niets: de BAG-verrijking en de opname lopen gewoon door.
+
+### Effect op het aantal stappen
+
+Gemeten op een opname met één binnenunit, met werkende BAG, energielabel, foto- en tekst-inferentie:
+
+| Versie | Stappen |
+|---|---|
+| v5 (platte lijst) | 38 |
+| v6 (adaptief) | 29 |
+| v7 (maximaal afgeleid) | ~20 |
+| v8 (met energielabel) | ~19 |
+| v9 (openingsvraag + cascades) | 18 |
+
+Bij twee binnenunits komt daar 3 stappen per extra ruimte bij (foto's + verdieping), dus 21.
+
+Wat overblijft is de openingsvraag zelf, niet-zichtbare feiten (eigendom, verdieping), voorkeuren, de foto's en de twee afsluitende verklaringen.
+
+De cascades leveren in deze meting niets extra's op: de foto-afleiding had `outdoor_accessibility` en `pipe_distance_indication` al beantwoord. Ze zijn het vangnet voor de situatie waarin AI uit staat of te weinig zekerheid heeft — dan snoeien ze alsnog deterministisch.
 
 Bij expliciet ingeschakelde foto-inferentie beoordeelt `AssessFuseboxPhotos` maximaal twee recente meterkastfoto's. Alleen `free_group=yes|no` met `confidence=high` wordt als `prefill_source=ai` klaargezet. De wizard toont deze keuze gemarkeerd als foto-inschatting; een klantkeuze bevestigt/corrigeert en verwijdert de prefillbron. Bestaande klant- of installateurantwoorden worden nooit overschreven. Bij onvoldoende beeld blijft de normale vraag staan en verschijnt de concrete `retake_instruction` bij de foto.
 

@@ -7,6 +7,7 @@ use App\Domains\Intake\Actions\HardDeleteIntake;
 use App\Domains\Intake\Actions\StartDemoIntake;
 use App\Domains\Intake\Models\GeneratedReport;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Services\ExternalFactPresenter;
 use App\Domains\Intake\Services\GenerateIntakeReportHtml;
 use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Enums\IntakeStatus;
@@ -64,11 +65,24 @@ function fakeAerialJpeg(): string
     return is_string($binary) ? $binary : '';
 }
 
-function fakeSuccessfulPdok(int $aerialStatus = 200): void
+/**
+ * @param  array<string, mixed>|null  $threeDBagFeature  null = 3DBAG antwoordt 404 (geen geometrie)
+ */
+function fakeSuccessfulPdok(int $aerialStatus = 200, ?array $threeDBagFeature = null, int $threeDBagStatus = 200): void
 {
     $aerialJpeg = fakeAerialJpeg();
 
-    Http::fake(function (Request $request) use ($aerialJpeg, $aerialStatus) {
+    Http::fake(function (Request $request) use ($aerialJpeg, $aerialStatus, $threeDBagFeature, $threeDBagStatus) {
+        if (str_contains($request->url(), '3dbag')) {
+            if ($threeDBagStatus !== 200) {
+                return Http::response([], $threeDBagStatus);
+            }
+
+            return $threeDBagFeature === null
+                ? Http::response([], 404)
+                : Http::response($threeDBagFeature);
+        }
+
         if (str_contains($request->url(), '/aerial')) {
             return $aerialStatus === 200
                 ? Http::response($aerialJpeg, 200, ['Content-Type' => 'image/jpeg'])
@@ -173,7 +187,7 @@ test('selected address stores BAG facts and removes the redundant build-year ste
     $aerial = $intake->externalFacts()->where('fact_key', 'aerial_image')->firstOrFail();
 
     expect($intake->status)->toBe(IntakeStatus::Sent)
-        ->and($intake->templateVersion->version)->toBe(6)
+        ->and($intake->templateVersion->version)->toBe(9)
         ->and($intake->address_line)->toBe('Damrak 1')
         ->and($intake->address_postal_code)->toBe('1012LG')
         ->and($buildYear->value)->toBe(['number' => 1890])
@@ -394,4 +408,410 @@ test('a PDOK outage still lets the demo start', function () {
 
     expect($intake->exists)->toBeTrue()
         ->and($intake->access_token)->not->toBeEmpty();
+});
+
+/** @return array<string, mixed> */
+function threeDBagFeature(
+    string $roofType = 'slanted',
+    float $ridge = 30.682,
+    float $ground = 1.579,
+    bool $reliable = true,
+    ?int $floors = 4,
+): array {
+    return [
+        'feature' => [
+            'CityObjects' => [
+                'NL.IMBAG.Pand.0363100012185508' => [
+                    'attributes' => [
+                        'b3_dak_type' => $roofType,
+                        'b3_h_dak_max' => $ridge,
+                        'b3_h_maaiveld' => $ground,
+                        'b3_bouwlagen' => $floors,
+                        'b3_kwaliteitsindicator' => $reliable,
+                    ],
+                ],
+            ],
+        ],
+    ];
+}
+
+test('3DBAG geometry is stored as sourced context facts with attribution', function () {
+    config()->set('services.threedbag.base_url', 'https://api.3dbag.test');
+    fakeSuccessfulPdok(threeDBagFeature: threeDBagFeature());
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->post(route('intakes.store'), [
+        'template_key' => 'airco',
+        'customer_name' => '3DBAG Klant',
+        'customer_email' => '3dbag@example.com',
+        'address_line' => 'Damrak 1',
+        'address_postal_code' => '1012LG',
+        'address_city' => 'Amsterdam',
+        'address_lookup_id' => 'adr-8f4d573be765b4c80dd635ba73747903',
+    ]);
+
+    $intake = Intake::query()->where('customer_email', '3dbag@example.com')->firstOrFail();
+    $height = $intake->externalFacts()->where('fact_key', 'building_height_m')->firstOrFail();
+    $roof = $intake->externalFacts()->where('fact_key', 'roof_type')->firstOrFail();
+    $floors = $intake->externalFacts()->where('fact_key', 'floor_count')->firstOrFail();
+
+    // Nokhoogte minus maaiveld — de hoogte die ladder of steiger bepaalt.
+    expect($height->value)->toBe(['number' => 29.1, 'unit' => 'm'])
+        ->and($height->source)->toBe('3DBAG (TU Delft)')
+        ->and($height->confidence)->toBe('high')
+        ->and($height->source_url)->toContain('NL.IMBAG.Pand.0363100012185508')
+        ->and($roof->value['label'])->toBe('Schuin dak')
+        ->and($floors->value)->toBe(['number' => 4]);
+});
+
+test('an unreliable 3DBAG reconstruction is flagged instead of trusted', function () {
+    config()->set('services.threedbag.base_url', 'https://api.3dbag.test');
+    fakeSuccessfulPdok(threeDBagFeature: threeDBagFeature(reliable: false));
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->post(route('intakes.store'), [
+        'template_key' => 'airco',
+        'customer_name' => 'Onzeker Pand',
+        'customer_email' => 'onzeker@example.com',
+        'address_line' => 'Damrak 1',
+        'address_postal_code' => '1012LG',
+        'address_city' => 'Amsterdam',
+        'address_lookup_id' => 'adr-8f4d573be765b4c80dd635ba73747903',
+    ]);
+
+    $intake = Intake::query()->where('customer_email', 'onzeker@example.com')->firstOrFail();
+
+    expect($intake->externalFacts()->where('fact_key', 'building_height_m')->firstOrFail()->confidence)->toBe('low');
+
+    $presented = app(ExternalFactPresenter::class)->present($intake->fresh());
+
+    expect($presented['uncertainties'])->toContain(
+        'De 3D-reconstructie van dit pand is door 3DBAG als mogelijk onjuist gemarkeerd; gebruik hoogte en dakvorm alleen als indicatie.'
+    );
+});
+
+test('an unusable roof type is left out rather than shown as unknown', function () {
+    config()->set('services.threedbag.base_url', 'https://api.3dbag.test');
+    fakeSuccessfulPdok(threeDBagFeature: threeDBagFeature(roofType: 'no planes'));
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->post(route('intakes.store'), [
+        'template_key' => 'airco',
+        'customer_name' => 'Geen Dakvlak',
+        'customer_email' => 'geendak@example.com',
+        'address_line' => 'Damrak 1',
+        'address_postal_code' => '1012LG',
+        'address_city' => 'Amsterdam',
+        'address_lookup_id' => 'adr-8f4d573be765b4c80dd635ba73747903',
+    ]);
+
+    $intake = Intake::query()->where('customer_email', 'geendak@example.com')->firstOrFail();
+
+    expect($intake->externalFacts()->where('fact_key', 'roof_type')->exists())->toBeFalse()
+        ->and($intake->externalFacts()->where('fact_key', 'building_height_m')->exists())->toBeTrue();
+});
+
+test('a 3DBAG outage never blocks the intake or the rest of the enrichment', function () {
+    config()->set('services.threedbag.base_url', 'https://api.3dbag.test');
+    fakeSuccessfulPdok(threeDBagStatus: 503);
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->post(route('intakes.store'), [
+        'template_key' => 'airco',
+        'customer_name' => 'Storing Klant',
+        'customer_email' => 'storing3d@example.com',
+        'address_line' => 'Damrak 1',
+        'address_postal_code' => '1012LG',
+        'address_city' => 'Amsterdam',
+        'address_lookup_id' => 'adr-8f4d573be765b4c80dd635ba73747903',
+    ]);
+
+    $intake = Intake::query()->where('customer_email', 'storing3d@example.com')->firstOrFail();
+
+    expect($intake->externalFacts()->where('fact_key', 'building_height_m')->exists())->toBeFalse()
+        // De BAG-verrijking zelf moet gewoon geslaagd zijn.
+        ->and($intake->externalFacts()->where('fact_key', 'building_year')->exists())->toBeTrue()
+        ->and($intake->answers()->where('question_key', 'build_year')->exists())->toBeTrue();
+});
+
+/** @return array<string, mixed> */
+function kadasterAddress(
+    array $pandIds = ['0363100012185508'],
+    array $bouwjaar = ['1890'],
+    int $oppervlakte = 16100,
+    array $gebruiksdoelen = ['bijeenkomstfunctie', 'logiesfunctie'],
+): array {
+    return [
+        '_embedded' => [
+            'adressen' => [[
+                'openbareRuimteNaam' => 'Damrak',
+                'huisnummer' => 1,
+                'postcode' => '1012LG',
+                'woonplaatsNaam' => 'Amsterdam',
+                'adresseerbaarObjectIdentificatie' => '0363010012111931',
+                'pandIdentificaties' => $pandIds,
+                'oppervlakte' => $oppervlakte,
+                'gebruiksdoelen' => $gebruiksdoelen,
+                'oorspronkelijkBouwjaar' => $bouwjaar,
+            ]],
+        ],
+    ];
+}
+
+function enableKadasterBag(): void
+{
+    config()->set('services.bag_api.enabled', true);
+    config()->set('services.bag_api.key', 'test-key');
+    config()->set('services.bag_api.base_url', 'https://api.bag.kadaster.test/v2');
+}
+
+function storeIntakeViaInstaller(string $email): Intake
+{
+    $user = User::factory()->create();
+
+    test()->actingAs($user)->post(route('intakes.store'), [
+        'template_key' => 'airco',
+        'customer_name' => 'Kadaster Klant',
+        'customer_email' => $email,
+        'address_line' => 'Damrak 1',
+        'address_postal_code' => '1012LG',
+        'address_city' => 'Amsterdam',
+        'address_lookup_id' => 'adr-8f4d573be765b4c80dd635ba73747903',
+    ]);
+
+    return Intake::query()->where('customer_email', $email)->firstOrFail();
+}
+
+test('Kadaster supplies the BAG attributes and is queried with an exact match and api key', function () {
+    enableKadasterBag();
+
+    Http::fake(function (Request $request) {
+        if (str_contains($request->url(), 'kadaster.test')) {
+            return Http::response(kadasterAddress());
+        }
+
+        if (str_contains($request->url(), '/lookup')) {
+            return Http::response(['response' => ['docs' => [pdokAddressDocument()]]]);
+        }
+
+        if (str_contains($request->url(), '/collections/verblijfsobject/items')) {
+            return Http::response([
+                'features' => [[
+                    'properties' => ['identificatie' => '0363010012111931'],
+                    'geometry' => ['type' => 'Point', 'coordinates' => [4.89803846, 52.37714446]],
+                ]],
+            ]);
+        }
+
+        if (str_contains($request->url(), '/aerial')) {
+            return Http::response(fakeAerialJpeg(), 200, ['Content-Type' => 'image/jpeg']);
+        }
+
+        return Http::response([], 404);
+    });
+
+    $intake = storeIntakeViaInstaller('kadaster@example.com');
+    $facts = $intake->externalFacts()->pluck('value', 'fact_key');
+
+    expect($intake->answers()->where('question_key', 'build_year')->firstOrFail()->value)->toBe(['number' => 1890])
+        ->and($facts['building_year'])->toBe(['number' => 1890])
+        ->and($facts['floor_area_m2'])->toBe(['number' => 16100, 'unit' => 'm²'])
+        ->and($facts['usage_purposes'])->toBe(['values' => ['bijeenkomstfunctie', 'logiesfunctie']])
+        // Coördinaten blijven van PDOK komen; Kadaster levert RD, het dossier wil WGS84.
+        ->and($facts['location']['latitude'])->toBe(52.37714446);
+
+    Http::assertSent(fn (Request $request): bool => str_contains($request->url(), '/adressenuitgebreid')
+        && $request->hasHeader('X-Api-Key', 'test-key')
+        && $request['postcode'] === '1012LG'
+        && (int) $request['huisnummer'] === 1
+        && $request['exacteMatch'] === 'true');
+});
+
+test('a Kadaster outage silently falls back to the open PDOK route', function () {
+    enableKadasterBag();
+
+    fakeSuccessfulPdok();
+    Http::fake(function (Request $request) {
+        if (str_contains($request->url(), 'kadaster.test')) {
+            return Http::response([], 500);
+        }
+
+        return null;
+    });
+    fakeSuccessfulPdok();
+
+    $intake = storeIntakeViaInstaller('kadasterstoring@example.com');
+
+    // PDOK levert exact hetzelfde bouwjaar, dus de aanvrager merkt niets van de storing.
+    expect($intake->answers()->where('question_key', 'build_year')->firstOrFail()->value)->toBe(['number' => 1890])
+        ->and($intake->externalFacts()->where('fact_key', 'building_year')->exists())->toBeTrue();
+});
+
+test('an ambiguous Kadaster answer is refused rather than guessed', function () {
+    enableKadasterBag();
+
+    Http::fake(function (Request $request) {
+        if (str_contains($request->url(), 'kadaster.test')) {
+            // Twee treffers bij exacteMatch betekent dat het huisnummer niet volledig is.
+            return Http::response([
+                '_embedded' => [
+                    'adressen' => [
+                        kadasterAddress()['_embedded']['adressen'][0],
+                        kadasterAddress()['_embedded']['adressen'][0],
+                    ],
+                ],
+            ]);
+        }
+
+        return null;
+    });
+    fakeSuccessfulPdok();
+
+    $intake = storeIntakeViaInstaller('kadasterdubbel@example.com');
+
+    expect($intake->externalFacts()->where('fact_key', 'building_year')->exists())->toBeTrue();
+});
+
+test('a build year that differs per pand is left to the applicant', function () {
+    enableKadasterBag();
+
+    Http::fake(function (Request $request) {
+        if (str_contains($request->url(), 'kadaster.test')) {
+            return Http::response(kadasterAddress(
+                pandIds: ['0363100012185508', '0363100012185509'],
+                bouwjaar: ['1890', '1975'],
+            ));
+        }
+
+        if (str_contains($request->url(), '/lookup')) {
+            return Http::response(['response' => ['docs' => [pdokAddressDocument()]]]);
+        }
+
+        if (str_contains($request->url(), '/collections/verblijfsobject/items')) {
+            return Http::response([
+                'features' => [[
+                    'properties' => ['identificatie' => '0363010012111931'],
+                    'geometry' => ['type' => 'Point', 'coordinates' => [4.89803846, 52.37714446]],
+                ]],
+            ]);
+        }
+
+        return Http::response([], 404);
+    });
+
+    $intake = storeIntakeViaInstaller('kadasterjaren@example.com');
+
+    // Twee panden met verschillende bouwjaren: geen voorzet, en de bouwjaarvraag blijft staan.
+    expect($intake->answers()->where('question_key', 'build_year')->exists())->toBeFalse()
+        ->and($intake->externalFacts()->where('fact_key', 'building_match')->firstOrFail()->value['status'])
+        ->toBe('ambiguous');
+});
+
+test('without a key the Kadaster API is never called', function () {
+    config()->set('services.bag_api.enabled', true);
+    config()->set('services.bag_api.key', '');
+
+    fakeSuccessfulPdok();
+
+    $intake = storeIntakeViaInstaller('geenkey@example.com');
+
+    expect($intake->externalFacts()->where('fact_key', 'building_year')->exists())->toBeTrue();
+
+    Http::assertNotSent(fn (Request $request): bool => str_contains($request->url(), 'kadaster'));
+});
+
+test('a messy hand-typed address is rescued by Kadaster and rewritten to the BAG spelling', function () {
+    enableKadasterBag();
+
+    // Precies het productiegeval: huisnummer dubbel ingetypt. De Locatieserver vindt het
+    // adres wel, maar matchesIntake() wijst het af — waarna vroeger de héle verrijking
+    // leeg bleef en het dossier 'Nog geen externe gegevens beschikbaar' toonde.
+    Http::fake(function (Request $request) {
+        if (str_contains($request->url(), 'kadaster.test')) {
+            return Http::response([
+                '_embedded' => [
+                    'adressen' => [[
+                        'openbareRuimteNaam' => 'Bernadottelaan',
+                        'huisnummer' => 273,
+                        'postcode' => '2037GR',
+                        'woonplaatsNaam' => 'Haarlem',
+                        'adresseerbaarObjectIdentificatie' => '0392010000123456',
+                        'pandIdentificaties' => ['0392100000123456'],
+                        'oppervlakte' => 118,
+                        'gebruiksdoelen' => ['woonfunctie'],
+                        'oorspronkelijkBouwjaar' => ['1962'],
+                    ]],
+                ],
+            ]);
+        }
+
+        if (str_contains($request->url(), '/free')) {
+            return Http::response(['response' => ['docs' => [[
+                ...pdokAddressDocument(),
+                'straatnaam' => 'Bernadottelaan',
+                'huisnummer' => 273,
+                'postcode' => '2037GR',
+                'woonplaatsnaam' => 'Haarlem',
+                'weergavenaam' => 'Bernadottelaan 273, 2037GR Haarlem',
+            ]]]]);
+        }
+
+        if (str_contains($request->url(), '/collections/verblijfsobject/items')) {
+            return Http::response([
+                'features' => [[
+                    'properties' => ['identificatie' => '0392010000123456'],
+                    'geometry' => ['type' => 'Point', 'coordinates' => [4.6462, 52.3874]],
+                ]],
+            ]);
+        }
+
+        if (str_contains($request->url(), '/aerial')) {
+            return Http::response(fakeAerialJpeg(), 200, ['Content-Type' => 'image/jpeg']);
+        }
+
+        return Http::response([], 404);
+    });
+
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->post(route('intakes.store'), [
+        'template_key' => 'airco',
+        'customer_name' => 'Rommelig Adres',
+        'customer_email' => 'rommelig@example.com',
+        'address_line' => 'Bernadottelaan, 273, 273',
+        'address_postal_code' => '2037GR',
+        'address_city' => 'Haarlem',
+    ]);
+
+    $intake = Intake::query()->where('customer_email', 'rommelig@example.com')->firstOrFail();
+    $facts = $intake->externalFacts()->pluck('value', 'fact_key');
+
+    expect($intake->address_line)->toBe('Bernadottelaan 273')
+        ->and($facts['building_year'])->toBe(['number' => 1962])
+        ->and($facts['floor_area_m2'])->toBe(['number' => 118, 'unit' => 'm²'])
+        ->and($intake->answers()->where('question_key', 'build_year')->firstOrFail()->value)->toBe(['number' => 1962])
+        // Een woonfunctie mag het bouwtype juist níét invullen.
+        ->and($intake->answers()->where('question_key', 'building_type')->exists())->toBeFalse();
+});
+
+test('without Kadaster a messy address still leaves an explicit uncertainty', function () {
+    config()->set('services.bag_api.enabled', false);
+
+    fakeSuccessfulPdok();
+
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->post(route('intakes.store'), [
+        'template_key' => 'airco',
+        'customer_name' => 'Rommelig Zonder Kadaster',
+        'customer_email' => 'rommelig2@example.com',
+        'address_line' => 'Damrak, 1, 1',
+        'address_postal_code' => '1012LG',
+        'address_city' => 'Amsterdam',
+    ]);
+
+    $intake = Intake::query()->where('customer_email', 'rommelig2@example.com')->firstOrFail();
+
+    expect($intake->externalFacts()->where('fact_key', 'address_verification')->firstOrFail()->value)
+        ->toBe(['status' => 'not_found']);
 });

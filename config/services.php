@@ -51,4 +51,61 @@ return [
         'aerial_ground_width_meters' => (int) env('PDOK_AERIAL_GROUND_WIDTH_METERS', 180),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | 3DBAG — pandgeometrie (TU Delft)
+    |--------------------------------------------------------------------------
+    |
+    | Open data onder CC BY 4.0: opslaan en tonen in het dossier mag, mits de bron
+    | vermeld blijft. Levert dakvorm en gevelhoogte bij het BAG-pand-id dat de
+    | PDOK-verrijking al heeft opgehaald. Soft-fail: een storing blokkeert niets.
+    |
+    */
+
+    /*
+    |--------------------------------------------------------------------------
+    | Kadaster BAG API Individuele Bevragingen
+    |--------------------------------------------------------------------------
+    |
+    | Gezaghebbende, near-realtime BAG-kenmerken bij één adres, met exacte bevraging
+    | op postcode + huisnummer. Vereist een key van Kadaster (X-Api-Key). Zonder key
+    | of bij een storing valt de verrijking terug op de open PDOK-route.
+    |
+    | LET OP: bedoeld voor losse bevragingen, niet voor bulk — er gelden
+    | gebruikslimieten. De key hoort in de shared .env per omgeving, nooit in de repo.
+    |
+    */
+
+    'bag_api' => [
+        'enabled' => (bool) env('BAG_API_ENABLED', false),
+        'base_url' => env('BAG_API_BASE_URL', 'https://api.bag.kadaster.nl/lvbag/individuelebevragingen/v2'),
+        'key' => env('BAG_API_KEY'),
+        'timeout_seconds' => (int) env('BAG_API_TIMEOUT_SECONDS', 5),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | EP-Online (RVO) — geregistreerde energielabels
+    |--------------------------------------------------------------------------
+    |
+    | Levert de envelopkwaliteit (via de energiebehoefte) en het geregistreerde
+    | woningtype, bevraagd op het BAG-verblijfsobject-id. Key aanvragen via
+    | epbdwebservices.rvo.nl; die is persoonlijk en hoort in de shared .env per
+    | omgeving, nooit in de repo. Geen label = de vragen blijven gewoon staan.
+    |
+    */
+
+    'ep_online' => [
+        'enabled' => (bool) env('EP_ONLINE_ENABLED', false),
+        'base_url' => env('EP_ONLINE_BASE_URL', 'https://public.ep-online.nl'),
+        'key' => env('EP_ONLINE_KEY'),
+        'timeout_seconds' => (int) env('EP_ONLINE_TIMEOUT_SECONDS', 5),
+    ],
+
+    'threedbag' => [
+        'enabled' => (bool) env('THREEDBAG_ENABLED', true),
+        'base_url' => env('THREEDBAG_BASE_URL', 'https://api.3dbag.nl'),
+        'timeout_seconds' => (int) env('THREEDBAG_TIMEOUT_SECONDS', 5),
+    ],
+
 ];

@@ -48,6 +48,7 @@ function makeDerivationIntake(): Intake
 function outdoorOutput(string $confidence = 'high', string $mountType = 'wall'): array
 {
     return [
+        'outdoor_location' => 'garden',
         'outdoor_mount_type' => $mountType,
         'outdoor_accessibility' => 'ladder',
         'confidence' => $confidence,
@@ -240,4 +241,92 @@ test('room photos derive per room instance without leaking into another room', f
     expect($roomOne->value)->toBe(['value' => 'high'])
         ->and($intake->answers()->where('question_key', 'sun_exposure')->where('section_instance_key', 'room-2')->exists())
         ->toBeFalse();
+});
+
+test('the pipe route profile derives a boolean question as a real boolean', function () {
+    $intake = makeDerivationIntake();
+    FakeAiClient::reset();
+
+    app(StoreIntakeUpload::class)->handle(
+        $intake,
+        'pipe_route_photos',
+        null,
+        UploadedFile::fake()->image('route.jpg', 1200, 900),
+    );
+
+    app(DerivePhotoAnswers::class)->handle(
+        $intake,
+        'pipe_route_photos',
+        null,
+        PhotoDerivationProfile::require('pipe_route'),
+    );
+
+    $drillings = $intake->answers()->where('question_key', 'drillings_needed')->firstOrFail();
+    $route = $intake->answers()->where('question_key', 'pipe_route_description')->firstOrFail();
+
+    // 'yes' op de wire wordt een echte boolean in de opslag — niet de string 'yes'.
+    expect($drillings->value)->toBe(['bool' => true])
+        ->and($route->value)->toBe(['value' => 'along_facade']);
+
+    $version = $intake->templateVersion()->with(['sections.questions.options', 'sections.questions.rules'])->firstOrFail();
+    $stepKeys = collect(app(IntakeStepBuilder::class)->build($intake->fresh(), $version))->pluck('question_key');
+
+    expect($stepKeys)->not->toContain('drillings_needed')
+        ->and($stepKeys)->not->toContain('pipe_route_description')
+        // Een voorkeur staat niet op een foto en blijft dus staan.
+        ->and($stepKeys)->toContain('pipe_visibility');
+});
+
+test('a boolean derivation of no is stored as false rather than dropped', function () {
+    $intake = makeDerivationIntake();
+    FakeAiClient::alwaysReturn([
+        'pipe_route_description' => 'short_direct',
+        'pipe_distance_indication' => 'short',
+        'drillings_needed' => 'no',
+        'confidence' => 'high',
+        'evidence' => 'De binnen- en buitenunit delen dezelfde buitenmuur.',
+        'retake_instruction' => null,
+    ]);
+
+    app(StoreIntakeUpload::class)->handle(
+        $intake,
+        'pipe_route_photos',
+        null,
+        UploadedFile::fake()->image('route.jpg', 1200, 900),
+    );
+
+    app(DerivePhotoAnswers::class)->handle(
+        $intake,
+        'pipe_route_photos',
+        null,
+        PhotoDerivationProfile::require('pipe_route'),
+    );
+
+    expect($intake->answers()->where('question_key', 'drillings_needed')->firstOrFail()->value)
+        ->toBe(['bool' => false]);
+});
+
+test('an unknown field is skipped while its siblings are still applied', function () {
+    $intake = makeDerivationIntake();
+    FakeAiClient::alwaysReturn([
+        ...outdoorOutput(),
+        'outdoor_accessibility' => 'unknown',
+    ]);
+    uploadOutdoorPhoto($intake);
+
+    app(DerivePhotoAnswers::class)->handle(
+        $intake,
+        'outdoor_location_photos',
+        null,
+        PhotoDerivationProfile::require('outdoor'),
+    );
+
+    expect($intake->answers()->where('question_key', 'outdoor_mount_type')->exists())->toBeTrue()
+        ->and($intake->answers()->where('question_key', 'outdoor_accessibility')->exists())->toBeFalse();
+
+    $version = $intake->templateVersion()->with(['sections.questions.options', 'sections.questions.rules'])->firstOrFail();
+    $stepKeys = collect(app(IntakeStepBuilder::class)->build($intake->fresh(), $version))->pluck('question_key');
+
+    expect($stepKeys)->toContain('outdoor_accessibility')
+        ->and($stepKeys)->not->toContain('outdoor_mount_type');
 });
