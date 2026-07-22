@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Services;
 
+use App\Domains\AI\Support\PhotoDerivationProfile;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeQuestionOption;
 use App\Domains\Intake\Models\IntakeQuestionRule;
@@ -67,6 +68,8 @@ final class PublishIntakeTemplateFromConfig
                 ]);
 
                 foreach ($sectionData['questions'] as $questionData) {
+                    $this->assertKnownPhotoAnalysisProfile($questionData);
+
                     $question = IntakeQuestion::query()->create([
                         'intake_section_id' => $section->id,
                         'key' => $questionData['key'],
@@ -103,5 +106,30 @@ final class PublishIntakeTemplateFromConfig
 
             return $version->load(['sections.questions.options', 'sections.questions.rules']);
         });
+    }
+
+    /**
+     * A typo in `meta.photo_analysis` would publish silently and then derive nothing at
+     * runtime — the exact failure mode that kept the template flat. Fail at publish instead.
+     *
+     * @param  array<string, mixed>  $questionData
+     */
+    private function assertKnownPhotoAnalysisProfile(array $questionData): void
+    {
+        $meta = is_array($questionData['meta'] ?? null) ? $questionData['meta'] : [];
+        $profileName = $meta['photo_analysis'] ?? null;
+
+        if (! is_string($profileName) || $profileName === '') {
+            return;
+        }
+
+        // De meterkast houdt zijn eigen actie (fase + vrije groep) buiten het generieke register.
+        if ($profileName === 'fusebox' || PhotoDerivationProfile::find($profileName) !== null) {
+            return;
+        }
+
+        throw new RuntimeException(
+            "Vraag [{$questionData['key']}] verwijst naar onbekend foto-analyseprofiel [{$profileName}]."
+        );
     }
 }

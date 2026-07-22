@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Domains\Intake\Actions\GenerateIntakePdf;
 use App\Domains\Intake\Actions\HardDeleteIntake;
+use App\Domains\Intake\Actions\StartDemoIntake;
 use App\Domains\Intake\Models\GeneratedReport;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Services\GenerateIntakeReportHtml;
@@ -81,6 +82,13 @@ function fakeSuccessfulPdok(int $aerialStatus = 200): void
         }
 
         if (str_contains($request->url(), '/lookup')) {
+            return Http::response([
+                'response' => ['docs' => [pdokAddressDocument()]],
+            ]);
+        }
+
+        // Zonder lookup-id (o.a. de demo) zoekt de service via /free op het volledige adres.
+        if (str_contains($request->url(), '/free')) {
             return Http::response([
                 'response' => ['docs' => [pdokAddressDocument()]],
             ]);
@@ -165,7 +173,7 @@ test('selected address stores BAG facts and removes the redundant build-year ste
     $aerial = $intake->externalFacts()->where('fact_key', 'aerial_image')->firstOrFail();
 
     expect($intake->status)->toBe(IntakeStatus::Sent)
-        ->and($intake->templateVersion->version)->toBe(5)
+        ->and($intake->templateVersion->version)->toBe(6)
         ->and($intake->address_line)->toBe('Damrak 1')
         ->and($intake->address_postal_code)->toBe('1012LG')
         ->and($buildYear->value)->toBe(['number' => 1890])
@@ -352,4 +360,38 @@ test('lookup id cannot replace a manually entered different address', function (
         ->and($intake->externalFacts()->where('fact_key', 'address_verification')->firstOrFail()->value)
         ->toBe(['status' => 'not_found'])
         ->and($intake->answers()->where('question_key', 'build_year')->exists())->toBeFalse();
+});
+
+test('starting a demo enriches the address so BAG-known questions are skipped', function () {
+    fakeSuccessfulPdok();
+
+    config()->set('intake.demo.enabled', true);
+    config()->set('intake.demo.address.line', 'Damrak 1');
+    config()->set('intake.demo.address.postal_code', '1012LG');
+    config()->set('intake.demo.address.city', 'Amsterdam');
+
+    $intake = app(StartDemoIntake::class)->handle();
+
+    $buildYear = $intake->answers()->where('question_key', 'build_year')->firstOrFail();
+
+    expect($intake->is_demo)->toBeTrue()
+        ->and($buildYear->value)->toBe(['number' => 1890])
+        ->and($buildYear->prefill_source)->toBe('pdok')
+        ->and($intake->externalFacts()->pluck('fact_key'))->toContain('building_year');
+
+    $version = $intake->templateVersion()->with(['sections.questions.options', 'sections.questions.rules'])->firstOrFail();
+    $stepKeys = collect(app(IntakeStepBuilder::class)->build($intake->fresh(), $version))->pluck('question_key');
+
+    expect($stepKeys)->not->toContain('build_year');
+});
+
+test('a PDOK outage still lets the demo start', function () {
+    Http::fake(fn () => Http::response([], 500));
+
+    config()->set('intake.demo.enabled', true);
+
+    $intake = app(StartDemoIntake::class)->handle();
+
+    expect($intake->exists)->toBeTrue()
+        ->and($intake->access_token)->not->toBeEmpty();
 });

@@ -160,6 +160,7 @@ final class EnrichIntakeAddress
 
         if ($data->usagePurposes !== []) {
             $this->upsertFact($intake, 'usage_purposes', 'Gebruiksdoel', ['values' => $data->usagePurposes], 'high', $data->bagAddressableObjectId, $sourceUrl);
+            $this->prefillBuildingType($intake, $data->usagePurposes);
         }
 
         if ($data->parcelIds !== []) {
@@ -194,6 +195,29 @@ final class EnrichIntakeAddress
             ],
             'created_at' => now(),
         ]);
+    }
+
+    /**
+     * Het BAG-gebruiksdoel onderscheidt wél wonen van niet-wonen, maar niet tussen rijtjeshuis,
+     * hoekwoning en vrijstaand. Alleen het eenduidige geval wordt overgenomen: geen enkele
+     * woonfunctie betekent `commercial`. Bij twijfel of gemengd gebruik blijft de vraag staan —
+     * een fout voorzet kost de installateur meer dan één extra vraag.
+     *
+     * @param  list<string>  $usagePurposes
+     */
+    private function prefillBuildingType(Intake $intake, array $usagePurposes): void
+    {
+        if (! $this->hasQuestion($intake, 'building_type')) {
+            return;
+        }
+
+        $normalized = array_map(static fn (string $purpose): string => mb_strtolower(trim($purpose)), $usagePurposes);
+
+        if ($normalized === [] || in_array('woonfunctie', $normalized, true)) {
+            return;
+        }
+
+        $this->saveIntakeAnswer->handle($intake, 'building_type', null, ['value' => 'commercial'], 'pdok');
     }
 
     private function storeStatus(Intake $intake, string $status): void
