@@ -49,6 +49,8 @@ class IntakeUpload extends Model
     protected function casts(): array
     {
         return [
+            'intake_id' => 'integer',
+            'intake_follow_up_item_id' => 'integer',
             'size_bytes' => 'integer',
             'sort_order' => 'integer',
             'usability_verdict' => PhotoUsabilityVerdict::class,

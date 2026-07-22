@@ -35,6 +35,7 @@ class IntakeFollowUpItem extends Model
     protected function casts(): array
     {
         return [
+            'intake_follow_up_round_id' => 'integer',
             'type' => FollowUpItemType::class,
             'answered_at' => 'datetime',
         ];

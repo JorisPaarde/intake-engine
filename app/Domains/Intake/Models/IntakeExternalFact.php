@@ -38,6 +38,7 @@ class IntakeExternalFact extends Model
     protected function casts(): array
     {
         return [
+            'intake_id' => 'integer',
             'value' => 'array',
             'captured_at' => 'datetime',
         ];
