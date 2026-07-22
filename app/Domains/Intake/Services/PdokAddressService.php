@@ -5,14 +5,21 @@ declare(strict_types=1);
 namespace App\Domains\Intake\Services;
 
 use App\Domains\Intake\Data\AddressEnrichment;
+use App\Domains\Intake\Data\BagAddressAttributes;
 use App\Domains\Intake\Models\Intake;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Throwable;
 
 final class PdokAddressService
 {
     private const SOURCE = 'PDOK / BAG';
+
+    public function __construct(
+        private readonly KadasterBagService $kadasterBag,
+    ) {}
 
     /**
      * @return list<array{id: string, label: string, address_line: string, postal_code: string, city: string}>
@@ -92,6 +99,35 @@ final class PdokAddressService
             return null;
         }
 
+        // Coördinaten, gemeente en provincie blijven van de Locatieserver komen; alleen de
+        // BAG-kenmerken proberen we eerst bij Kadaster op te halen (verser + exact bevraagd).
+        $kadaster = $this->kadasterAttributes($address);
+
+        if ($kadaster !== null) {
+            [$longitude, $latitude] = $this->coordinates(
+                $this->residenceGeometry($kadaster->addressableObjectId)
+            );
+
+            return new AddressEnrichment(
+                lookupId: (string) ($address['id'] ?? ''),
+                displayAddress: (string) ($address['weergavenaam'] ?? ''),
+                addressLine: $this->addressLine($address),
+                postalCode: (string) ($address['postcode'] ?? ''),
+                city: (string) ($address['woonplaatsnaam'] ?? ''),
+                bagAddressableObjectId: $kadaster->addressableObjectId,
+                municipality: $this->nullableString($address['gemeentenaam'] ?? null),
+                province: $this->nullableString($address['provincienaam'] ?? null),
+                latitude: $latitude,
+                longitude: $longitude,
+                floorAreaM2: $kadaster->floorAreaM2,
+                usagePurposes: $kadaster->usagePurposes,
+                parcelIds: $this->stringList($address['gekoppeld_perceel'] ?? []),
+                buildYear: $kadaster->buildYear,
+                bagBuildingId: $kadaster->singleBuildingId(),
+                buildingCount: $kadaster->buildingCount(),
+            );
+        }
+
         $residence = $this->bagRequest()
             ->get('/collections/verblijfsobject/items', [
                 'f' => 'json',
@@ -131,6 +167,59 @@ final class PdokAddressService
     public static function sourceName(): string
     {
         return self::SOURCE;
+    }
+
+    /**
+     * Kadaster bevraagt exact op postcode + huisnummer; een storing, ontbrekende key of
+     * niet-eenduidig antwoord levert null en laat de PDOK-route het werk doen.
+     *
+     * @param  array<string, mixed>  $address  document van de Locatieserver
+     */
+    private function kadasterAttributes(array $address): ?BagAddressAttributes
+    {
+        if (! $this->kadasterBag->enabled()) {
+            return null;
+        }
+
+        $postalCode = (string) ($address['postcode'] ?? '');
+        $houseNumber = $address['huisnummer'] ?? null;
+
+        if ($postalCode === '' || ! is_numeric($houseNumber)) {
+            return null;
+        }
+
+        try {
+            return $this->kadasterBag->attributesFor(
+                $postalCode,
+                (int) $houseNumber,
+                $this->nullableString($address['huisletter'] ?? null),
+                $this->nullableString($address['huisnummertoevoeging'] ?? null),
+            );
+        } catch (Throwable $exception) {
+            Log::warning('Kadaster BAG lookup failed; falling back to PDOK.', [
+                'exception' => $exception::class,
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Kadaster levert geometrie in RD (EPSG:28992) en het dossier rekent op WGS84, dus de
+     * coördinaten komen ook op het Kadaster-pad uit de PDOK-featureservice.
+     */
+    private function residenceGeometry(string $addressableObjectId): mixed
+    {
+        $residence = $this->bagRequest()
+            ->get('/collections/verblijfsobject/items', [
+                'f' => 'json',
+                'identificatie' => $addressableObjectId,
+                'limit' => 1,
+            ])
+            ->throw()
+            ->json('features.0');
+
+        return is_array($residence) ? ($residence['geometry']['coordinates'] ?? null) : null;
     }
 
     /** @return array<string, mixed>|null */

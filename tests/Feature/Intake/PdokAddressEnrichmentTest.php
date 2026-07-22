@@ -533,3 +533,189 @@ test('a 3DBAG outage never blocks the intake or the rest of the enrichment', fun
         ->and($intake->externalFacts()->where('fact_key', 'building_year')->exists())->toBeTrue()
         ->and($intake->answers()->where('question_key', 'build_year')->exists())->toBeTrue();
 });
+
+/** @return array<string, mixed> */
+function kadasterAddress(
+    array $pandIds = ['0363100012185508'],
+    array $bouwjaar = ['1890'],
+    int $oppervlakte = 16100,
+    array $gebruiksdoelen = ['bijeenkomstfunctie', 'logiesfunctie'],
+): array {
+    return [
+        '_embedded' => [
+            'adressen' => [[
+                'openbareRuimteNaam' => 'Damrak',
+                'huisnummer' => 1,
+                'postcode' => '1012LG',
+                'woonplaatsNaam' => 'Amsterdam',
+                'adresseerbaarObjectIdentificatie' => '0363010012111931',
+                'pandIdentificaties' => $pandIds,
+                'oppervlakte' => $oppervlakte,
+                'gebruiksdoelen' => $gebruiksdoelen,
+                'oorspronkelijkBouwjaar' => $bouwjaar,
+            ]],
+        ],
+    ];
+}
+
+function enableKadasterBag(): void
+{
+    config()->set('services.bag_api.enabled', true);
+    config()->set('services.bag_api.key', 'test-key');
+    config()->set('services.bag_api.base_url', 'https://api.bag.kadaster.test/v2');
+}
+
+function storeIntakeViaInstaller(string $email): Intake
+{
+    $user = User::factory()->create();
+
+    test()->actingAs($user)->post(route('intakes.store'), [
+        'template_key' => 'airco',
+        'customer_name' => 'Kadaster Klant',
+        'customer_email' => $email,
+        'address_line' => 'Damrak 1',
+        'address_postal_code' => '1012LG',
+        'address_city' => 'Amsterdam',
+        'address_lookup_id' => 'adr-8f4d573be765b4c80dd635ba73747903',
+    ]);
+
+    return Intake::query()->where('customer_email', $email)->firstOrFail();
+}
+
+test('Kadaster supplies the BAG attributes and is queried with an exact match and api key', function () {
+    enableKadasterBag();
+
+    Http::fake(function (Request $request) {
+        if (str_contains($request->url(), 'kadaster.test')) {
+            return Http::response(kadasterAddress());
+        }
+
+        if (str_contains($request->url(), '/lookup')) {
+            return Http::response(['response' => ['docs' => [pdokAddressDocument()]]]);
+        }
+
+        if (str_contains($request->url(), '/collections/verblijfsobject/items')) {
+            return Http::response([
+                'features' => [[
+                    'properties' => ['identificatie' => '0363010012111931'],
+                    'geometry' => ['type' => 'Point', 'coordinates' => [4.89803846, 52.37714446]],
+                ]],
+            ]);
+        }
+
+        if (str_contains($request->url(), '/aerial')) {
+            return Http::response(fakeAerialJpeg(), 200, ['Content-Type' => 'image/jpeg']);
+        }
+
+        return Http::response([], 404);
+    });
+
+    $intake = storeIntakeViaInstaller('kadaster@example.com');
+    $facts = $intake->externalFacts()->pluck('value', 'fact_key');
+
+    expect($intake->answers()->where('question_key', 'build_year')->firstOrFail()->value)->toBe(['number' => 1890])
+        ->and($facts['building_year'])->toBe(['number' => 1890])
+        ->and($facts['floor_area_m2'])->toBe(['number' => 16100, 'unit' => 'm²'])
+        ->and($facts['usage_purposes'])->toBe(['values' => ['bijeenkomstfunctie', 'logiesfunctie']])
+        // Coördinaten blijven van PDOK komen; Kadaster levert RD, het dossier wil WGS84.
+        ->and($facts['location']['latitude'])->toBe(52.37714446);
+
+    Http::assertSent(fn (Request $request): bool => str_contains($request->url(), '/adressenuitgebreid')
+        && $request->hasHeader('X-Api-Key', 'test-key')
+        && $request['postcode'] === '1012LG'
+        && (int) $request['huisnummer'] === 1
+        && $request['exacteMatch'] === 'true');
+});
+
+test('a Kadaster outage silently falls back to the open PDOK route', function () {
+    enableKadasterBag();
+
+    fakeSuccessfulPdok();
+    Http::fake(function (Request $request) {
+        if (str_contains($request->url(), 'kadaster.test')) {
+            return Http::response([], 500);
+        }
+
+        return null;
+    });
+    fakeSuccessfulPdok();
+
+    $intake = storeIntakeViaInstaller('kadasterstoring@example.com');
+
+    // PDOK levert exact hetzelfde bouwjaar, dus de aanvrager merkt niets van de storing.
+    expect($intake->answers()->where('question_key', 'build_year')->firstOrFail()->value)->toBe(['number' => 1890])
+        ->and($intake->externalFacts()->where('fact_key', 'building_year')->exists())->toBeTrue();
+});
+
+test('an ambiguous Kadaster answer is refused rather than guessed', function () {
+    enableKadasterBag();
+
+    Http::fake(function (Request $request) {
+        if (str_contains($request->url(), 'kadaster.test')) {
+            // Twee treffers bij exacteMatch betekent dat het huisnummer niet volledig is.
+            return Http::response([
+                '_embedded' => [
+                    'adressen' => [
+                        kadasterAddress()['_embedded']['adressen'][0],
+                        kadasterAddress()['_embedded']['adressen'][0],
+                    ],
+                ],
+            ]);
+        }
+
+        return null;
+    });
+    fakeSuccessfulPdok();
+
+    $intake = storeIntakeViaInstaller('kadasterdubbel@example.com');
+
+    expect($intake->externalFacts()->where('fact_key', 'building_year')->exists())->toBeTrue();
+});
+
+test('a build year that differs per pand is left to the applicant', function () {
+    enableKadasterBag();
+
+    Http::fake(function (Request $request) {
+        if (str_contains($request->url(), 'kadaster.test')) {
+            return Http::response(kadasterAddress(
+                pandIds: ['0363100012185508', '0363100012185509'],
+                bouwjaar: ['1890', '1975'],
+            ));
+        }
+
+        if (str_contains($request->url(), '/lookup')) {
+            return Http::response(['response' => ['docs' => [pdokAddressDocument()]]]);
+        }
+
+        if (str_contains($request->url(), '/collections/verblijfsobject/items')) {
+            return Http::response([
+                'features' => [[
+                    'properties' => ['identificatie' => '0363010012111931'],
+                    'geometry' => ['type' => 'Point', 'coordinates' => [4.89803846, 52.37714446]],
+                ]],
+            ]);
+        }
+
+        return Http::response([], 404);
+    });
+
+    $intake = storeIntakeViaInstaller('kadasterjaren@example.com');
+
+    // Twee panden met verschillende bouwjaren: geen voorzet, en de bouwjaarvraag blijft staan.
+    expect($intake->answers()->where('question_key', 'build_year')->exists())->toBeFalse()
+        ->and($intake->externalFacts()->where('fact_key', 'building_match')->firstOrFail()->value['status'])
+        ->toBe('ambiguous');
+});
+
+test('without a key the Kadaster API is never called', function () {
+    config()->set('services.bag_api.enabled', true);
+    config()->set('services.bag_api.key', '');
+
+    fakeSuccessfulPdok();
+
+    $intake = storeIntakeViaInstaller('geenkey@example.com');
+
+    expect($intake->externalFacts()->where('fact_key', 'building_year')->exists())->toBeTrue();
+
+    Http::assertNotSent(fn (Request $request): bool => str_contains($request->url(), 'kadaster'));
+});

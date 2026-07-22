@@ -62,6 +62,27 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Kadaster BAG API Individuele Bevragingen
+    |--------------------------------------------------------------------------
+    |
+    | Gezaghebbende, near-realtime BAG-kenmerken bij één adres, met exacte bevraging
+    | op postcode + huisnummer. Vereist een key van Kadaster (X-Api-Key). Zonder key
+    | of bij een storing valt de verrijking terug op de open PDOK-route.
+    |
+    | LET OP: bedoeld voor losse bevragingen, niet voor bulk — er gelden
+    | gebruikslimieten. De key hoort in de shared .env per omgeving, nooit in de repo.
+    |
+    */
+
+    'bag_api' => [
+        'enabled' => (bool) env('BAG_API_ENABLED', false),
+        'base_url' => env('BAG_API_BASE_URL', 'https://api.bag.kadaster.nl/lvbag/individuelebevragingen/v2'),
+        'key' => env('BAG_API_KEY'),
+        'timeout_seconds' => (int) env('BAG_API_TIMEOUT_SECONDS', 5),
+    ],
+
     'threedbag' => [
         'enabled' => (bool) env('THREEDBAG_ENABLED', true),
         'base_url' => env('THREEDBAG_BASE_URL', 'https://api.3dbag.nl'),

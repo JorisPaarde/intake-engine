@@ -1,6 +1,6 @@
 # Intake-engine
 
-> **Documentversie:** 1.17 · **Laatste update:** 2026-07-22 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.18 · **Laatste update:** 2026-07-22 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **geïmplementeerd t/m Fase 6 + BL-019 openbare data + BL-020 foto-afleiding + BL-027 gerichte vervolgrondes**. Airco-template **v7** gepubliceerd — v6 + maximale vraagreductie: elke sectie opent met de foto, leidingrouteprofiel toegevoegd en overbodige vragen geschrapt.
 
@@ -234,6 +234,23 @@ Niet alles hoort weg te vallen, ook niet als het "korter" kan:
 - `floor_level` — een binnenfoto laat de verdieping niet betrouwbaar zien.
 - `truth_confirmation` en `privacy_consent` blijven twee losse vragen. Toestemming moet specifiek en ongebundeld zijn; samenvoegen met een juistheidsverklaring maakt haar niet-vrij. Eén stap winst weegt daar niet tegenop.
 - `insulation_indication` blijft een vraag: bouwjaar uit de BAG zegt weinig over uitgevoerde renovaties.
+
+## Twee BAG-routes: Kadaster met PDOK als vangnet
+
+De adres-autocomplete in het installateursformulier blijft altijd de open PDOK Locatieserver — Individuele Bevragingen is geen geocoder. Voor de *kenmerken* van het gekozen adres probeert `PdokAddressService` eerst de [BAG API Individuele Bevragingen](https://www.kadaster.nl/zakelijk/producten/adressen-en-gebouwen/bag-api-individuele-bevragingen) van Kadaster:
+
+| | Kadaster Individuele Bevragingen | PDOK BAG OGC (vangnet) |
+|---|---|---|
+| Bevraging | exact op postcode + huisnummer | vrije tekst + `matchesIntake()`-filter |
+| Actualiteit | near-realtime uit de LVBAG | periodiek ververst extract |
+| Auth | `X-Api-Key` | geen |
+| Limieten | gebruikslimieten, niet voor bulk | geen |
+
+Zonder key, bij een storing of bij een niet-eenduidig antwoord valt de verrijking stil terug op de PDOK-route — dezelfde `AddressEnrichment`, dus de rest van de keten merkt er niets van. `BAG_API_ENABLED=false` is de standaard.
+
+Twee dingen komen ook op het Kadaster-pad van PDOK: **coördinaten** (Kadaster levert geometrie in RD/EPSG:28992, het dossier en de luchtfoto rekenen op WGS84) en **gemeente/provincie**.
+
+`oorspronkelijkBouwjaar` is bij Kadaster een array — één jaar per pand waar het verblijfsobject deel van uitmaakt. Alleen een eenduidig jaar wordt als voorzet overgenomen; bij panden met verschillende bouwjaren blijft de bouwjaarvraag gewoon staan.
 
 ## Pandgeometrie uit de 3DBAG
 
