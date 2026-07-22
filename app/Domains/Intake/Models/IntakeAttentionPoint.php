@@ -38,6 +38,7 @@ class IntakeAttentionPoint extends Model
     protected function casts(): array
     {
         return [
+            'intake_id' => 'integer',
             'source' => AttentionPointSource::class,
             'status' => AttentionPointStatus::class,
             'is_resolved' => 'boolean',

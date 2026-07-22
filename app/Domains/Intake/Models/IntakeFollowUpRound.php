@@ -39,6 +39,7 @@ class IntakeFollowUpRound extends Model
     protected function casts(): array
     {
         return [
+            'intake_id' => 'integer',
             'round_number' => 'integer',
             'status' => FollowUpRoundStatus::class,
             'sent_at' => 'datetime',

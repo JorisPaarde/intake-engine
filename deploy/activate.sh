@@ -40,7 +40,12 @@ if [ -n "$EXPECTED_ENV" ]; then
 fi
 
 echo "==> Shared resources koppelen"
-mkdir -p "$SHARED/storage/app/public" \
+# app/private is de root van de `local`-disk (config/filesystems.php) en dus waar alle
+# intakefoto's, documenten en luchtfoto's landen. Ontbreekt die map in een verse shared
+# storage, dan mislukt de eerste upload — en omdat de disk `throw => false` heeft is dat
+# een stille false in plaats van een duidelijke fout.
+mkdir -p "$SHARED/storage/app/private" \
+         "$SHARED/storage/app/public" \
          "$SHARED/storage/framework/cache/data" \
          "$SHARED/storage/framework/sessions" \
          "$SHARED/storage/framework/views" \

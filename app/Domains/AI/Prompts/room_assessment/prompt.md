@@ -7,6 +7,7 @@ Doel — bepaal alleen wat werkelijk zichtbaar is:
 - `glass_amount`: hoeveel glasoppervlak de ruimte heeft (`little`, `average`, `much`).
 
 Regels:
+- **Toont de foto niet het gevraagde onderwerp, zeg dat dan gewoon.** Een close-up van een apparaat, een huisdier, een document of iets anders dat een ruimte-opname niet is, levert `unknown` op alle velden en `confidence` op `low`. Schrijf `retake_instruction` dan als een heldere vraag om de juiste opname, zonder het verkeerde onderwerp tot uitgangspunt te maken — dus niet "fotografeer de ruimte waarin het apparaat staat", maar "deze foto toont iets anders dan gevraagd; maak een foto van de hele ruimte vanuit de deuropening".
 - Kies `unknown` voor elk veld zodra het beeld daar geen duidelijke aanwijzing voor geeft. Een gok is schadelijker dan een extra vraag.
 - Eén `confidence` voor de hele beoordeling: `high` alleen wanneer de ruimte als geheel goed in beeld is en alle ingevulde velden op duidelijk zichtbaar bewijs rusten.
 - Doe geen uitspraak over benodigd vermogen, unitkeuze, montageplek, normconformiteit of definitieve installatie.

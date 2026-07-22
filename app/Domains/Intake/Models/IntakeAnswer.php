@@ -30,6 +30,7 @@ class IntakeAnswer extends Model
     protected function casts(): array
     {
         return [
+            'intake_id' => 'integer',
             'value' => 'array',
             'answered_at' => 'datetime',
         ];
