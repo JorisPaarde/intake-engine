@@ -26,6 +26,7 @@ final class AiGateway
         string $promptVersion,
         ?string $system = null,
         array $images = [],
+        ?string $model = null,
     ): AiCompletionResult {
         try {
             return $this->client->complete(new AiCompletionRequest(
@@ -34,6 +35,7 @@ final class AiGateway
                 promptVersion: $promptVersion,
                 system: $system,
                 images: $images,
+                model: $model,
             ));
         } catch (AiClientException $e) {
             throw $e;

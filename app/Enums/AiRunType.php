@@ -11,4 +11,6 @@ enum AiRunType: string
     case PhotoQuality = 'photo_quality';
     case PhotoAssessment = 'photo_assessment';
     case RequestIntent = 'request_intent';
+    case RouteAnalysis = 'route_analysis';
+    case RouteSynthesis = 'route_synthesis';
 }
