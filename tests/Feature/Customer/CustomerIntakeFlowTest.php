@@ -480,3 +480,27 @@ test('repeatable room questions become separate steps after unit count', functio
         ->and(collect($roomSteps)->pluck('section_instance_key')->unique()->values()->all())
         ->toBe(['room-1', 'room-2']);
 });
+
+test('an unanswered multi choice starts as an empty array so one tick does not select everything', function () {
+    $intake = makeAccessibleIntake();
+
+    $version = $intake->templateVersion()->with(['sections.questions.options', 'sections.questions.rules'])->firstOrFail();
+    $steps = app(IntakeStepBuilder::class)->build($intake, $version);
+    $index = collect($steps)->search(fn (array $step): bool => $step['question_key'] === 'brand_preference');
+
+    expect($index)->not->toBeFalse();
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('stepIndex', $index)
+        ->set('activeStepKey', 'request::brand_preference');
+
+    // Zonder deze vorm bindt Livewire de hele checkboxgroep aan één scalair.
+    expect($component->get('form')['brand_preference']['values'] ?? null)->toBe([]);
+
+    $component->set('form.brand_preference.values', ['daikin'])
+        ->call('next');
+
+    $answer = $intake->answers()->where('question_key', 'brand_preference')->firstOrFail();
+
+    expect($answer->value)->toBe(['values' => ['daikin']]);
+});

@@ -216,6 +216,7 @@ class IntakeWizard extends Component
                     $step['section_instance_key'],
                 );
                 $uploadsByQuestion = $this->uploadsForStep($step['section_instance_key']);
+                $this->ensureAnswerShape($question, $step['section_instance_key']);
 
                 if ($question->type === QuestionType::Photo) {
                     $composite = VisibilityResolver::compositeKey(
@@ -1233,6 +1234,34 @@ class IntakeWizard extends Component
         }
 
         return $answers;
+    }
+
+    /**
+     * Zorgt dat de formulierstaat van de actieve vraag al de juiste vorm heeft.
+     *
+     * `hydrateFormFromAnswers()` maakt alleen entries voor vragen die al beantwoord zijn.
+     * Bij een nog onbeantwoorde `multi_choice` bestaat `form.<composite>.values` daardoor
+     * niet, en dan bindt Livewire de hele checkboxgroep aan één scalair — één vinkje zet
+     * de waarde op `true` en alle vakjes lijken aangevinkt.
+     */
+    private function ensureAnswerShape(IntakeQuestion $question, ?string $sectionInstanceKey): void
+    {
+        if ($question->type !== QuestionType::MultiChoice) {
+            return;
+        }
+
+        $composite = VisibilityResolver::compositeKey($question->key, $sectionInstanceKey);
+        $current = $this->form[$composite] ?? [];
+
+        if (! is_array($current)) {
+            $current = [];
+        }
+
+        if (! is_array($current['values'] ?? null)) {
+            $current['values'] = [];
+        }
+
+        $this->form[$composite] = $current;
     }
 
     private function hydrateFormFromAnswers(): void
