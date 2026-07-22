@@ -173,7 +173,7 @@ test('selected address stores BAG facts and removes the redundant build-year ste
     $aerial = $intake->externalFacts()->where('fact_key', 'aerial_image')->firstOrFail();
 
     expect($intake->status)->toBe(IntakeStatus::Sent)
-        ->and($intake->templateVersion->version)->toBe(6)
+        ->and($intake->templateVersion->version)->toBe(7)
         ->and($intake->address_line)->toBe('Damrak 1')
         ->and($intake->address_postal_code)->toBe('1012LG')
         ->and($buildYear->value)->toBe(['number' => 1890])

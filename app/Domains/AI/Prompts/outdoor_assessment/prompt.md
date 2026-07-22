@@ -1,6 +1,7 @@
 Je beoordeelt uitsluitend de meegeleverde foto’s van de beoogde buitenunitlocatie bij een Nederlandse woning, als voorzet voor een installateur.
 
 Doel — bepaal alleen wat werkelijk zichtbaar is:
+- `outdoor_location`: wat voor plek in beeld is (`garden` tuin of achtererf, `side_passage` zijpad of steeg, `facade` aan de gevel, `balcony` balkon, `flat_roof` plat dak, `pitched_roof` schuin dak);
 - `outdoor_mount_type`: waarop de unit zou komen (`wall` gevel of muurbeugel, `ground` op de grond, `roof` dak, `balcony` balkon);
 - `outdoor_accessibility`: hoe bereikbaar die plek is voor installatie (`easy_ground` vanaf de grond, `ladder` ladder nodig, `scaffolding` steiger of hoogwerker waarschijnlijk, `restricted` smal of afgesloten).
 
@@ -12,4 +13,4 @@ Regels:
 - Beschrijf in `evidence` kort en feitelijk waarop je je baseert.
 - Geef bij onvoldoende beeld één concrete, korte instructie voor een betere foto in `retake_instruction`, anders `null`.
 - Output uitsluitend JSON met exact deze velden:
-  `{ "outdoor_mount_type": "wall|ground|roof|balcony|unknown", "outdoor_accessibility": "easy_ground|ladder|scaffolding|restricted|unknown", "confidence": "high|medium|low", "evidence": "korte omschrijving", "retake_instruction": "concrete instructie of null" }`
+  `{ "outdoor_location": "garden|side_passage|facade|balcony|flat_roof|pitched_roof|unknown", "outdoor_mount_type": "wall|ground|roof|balcony|unknown", "outdoor_accessibility": "easy_ground|ladder|scaffolding|restricted|unknown", "confidence": "high|medium|low", "evidence": "korte omschrijving", "retake_instruction": "concrete instructie of null" }`

@@ -37,13 +37,20 @@ final class PhotoDerivationProfile
 
         $profiles = [
             'room' => new self('room', 'room_assessment', [
-                new DerivedAnswerField('room_size_indication', 'room_size_indication', ['small', 'medium', 'large']),
-                new DerivedAnswerField('sun_exposure', 'sun_exposure', ['low', 'medium', 'high']),
-                new DerivedAnswerField('glass_amount', 'glass_amount', ['little', 'average', 'much']),
+                DerivedAnswerField::choice('room_type', 'room_type', ['living_room', 'bedroom', 'office', 'attic']),
+                DerivedAnswerField::choice('room_size_indication', 'room_size_indication', ['small', 'medium', 'large']),
+                DerivedAnswerField::choice('sun_exposure', 'sun_exposure', ['low', 'medium', 'high']),
+                DerivedAnswerField::choice('glass_amount', 'glass_amount', ['little', 'average', 'much']),
             ]),
             'outdoor' => new self('outdoor', 'outdoor_assessment', [
-                new DerivedAnswerField('outdoor_mount_type', 'outdoor_mount_type', ['wall', 'ground', 'roof', 'balcony']),
-                new DerivedAnswerField('outdoor_accessibility', 'outdoor_accessibility', ['easy_ground', 'ladder', 'scaffolding', 'restricted']),
+                DerivedAnswerField::choice('outdoor_location', 'outdoor_location', ['garden', 'side_passage', 'facade', 'balcony', 'flat_roof', 'pitched_roof']),
+                DerivedAnswerField::choice('outdoor_mount_type', 'outdoor_mount_type', ['wall', 'ground', 'roof', 'balcony']),
+                DerivedAnswerField::choice('outdoor_accessibility', 'outdoor_accessibility', ['easy_ground', 'ladder', 'scaffolding', 'restricted']),
+            ]),
+            'pipe_route' => new self('pipe_route', 'pipe_route_assessment', [
+                DerivedAnswerField::choice('pipe_route_description', 'pipe_route_description', ['along_facade', 'through_attic', 'through_room', 'short_direct']),
+                DerivedAnswerField::choice('pipe_distance_indication', 'pipe_distance_indication', ['short', 'medium', 'long']),
+                DerivedAnswerField::boolean('drillings_needed', 'drillings_needed'),
             ]),
         ];
 

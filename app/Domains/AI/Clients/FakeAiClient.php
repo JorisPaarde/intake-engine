@@ -60,6 +60,7 @@ final class FakeAiClient implements AiClientInterface
         if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'room-assessment')) {
             return new AiCompletionResult(
                 output: [
+                    'room_type' => 'living_room',
                     'room_size_indication' => 'medium',
                     'sun_exposure' => 'high',
                     'glass_amount' => 'much',
@@ -75,10 +76,26 @@ final class FakeAiClient implements AiClientInterface
         if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'outdoor-assessment')) {
             return new AiCompletionResult(
                 output: [
+                    'outdoor_location' => 'garden',
                     'outdoor_mount_type' => 'wall',
                     'outdoor_accessibility' => 'ladder',
                     'confidence' => 'high',
                     'evidence' => 'Fictieve testuitkomst voor de lokale buitenunitanalyse.',
+                    'retake_instruction' => null,
+                ],
+                provider: 'fake',
+                model: 'fake-vision-v1',
+            );
+        }
+
+        if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'pipe-route-assessment')) {
+            return new AiCompletionResult(
+                output: [
+                    'pipe_route_description' => 'along_facade',
+                    'pipe_distance_indication' => 'short',
+                    'drillings_needed' => 'yes',
+                    'confidence' => 'high',
+                    'evidence' => 'Fictieve testuitkomst voor de lokale leidingrouteanalyse.',
                     'retake_instruction' => null,
                 ],
                 provider: 'fake',
