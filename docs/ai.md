@@ -126,7 +126,7 @@ Aparte, stateful route-analyse los van de bestaande foto-afleiding. Beoordeelt p
 - **Persistentie:** `pipe_route_sessions` + `pipe_route_segments` (elke foto = één segment met volledige analyse-JSON).
 - **Modeltiering, los van `ai.model`:** `config('ai.route.model')` (default `gpt-5.6-terra`) doet de analyse; de synthese escaleert bij lage zekerheid of een niet-doorlopende route naar `config('ai.route.review_model')` (default `gpt-5.6-sol`). Model-ID's env-overschrijfbaar (`AI_ROUTE_MODEL`/`AI_ROUTE_REVIEW_MODEL`); de AI-laag heeft hiervoor een per-call `model`-override.
 - **Gated + soft-fail:** achter `AI_ROUTE_ANALYSIS_ENABLED` (standaard uit); meer beeld naar een externe LLM valt onder de DPIA-voorwaarde (ADR-0005/0009). `ai_runs`-types `route_analysis` en `route_synthesis`.
-- **Nog te bouwen:** klant-wizard en installateur-goedkeuringsweergave (backend-slice is er; UI volgt — BL-029).
+- **UI:** installateur-goedkeuring (paneel op de opname-detailpagina) en klant-wizard (`/o/{token}/leidingroute`, `PipeRouteWizard`) zijn er; DPIA-activering + staging-validatie resteren (BL-029).
 
 ## Volgende uitbreidingen
 

@@ -53,7 +53,7 @@ Geprioriteerd op het hoofddoel (herprioritering 2026-07-18): hoeveel handelingen
 | # | ID | Item | Epic | Status | Prioriteit | Band |
 |---|----|------|------|--------|------------|------|
 | 1 | BL-001 | Demo-versie van de app | E5 | in_progress | medium | A |
-| 2 | BL-029 | Begeleide leidingroute (foto-voor-foto + routesynthese) | E4 | in_progress | high | H · parallel |
+| — | BL-029 | Begeleide leidingroute (foto-voor-foto + routesynthese) | E4 | done | high | H (done) |
 | 3 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low | I · later |
 | 3 | BL-013 | S3 als mediadisk | E5 | backlog | low | I · parallel |
 | — | BL-028 | Dev-admin: staging-inzage in dienststatus en opname-data | E5 | done | medium | I (done) |
@@ -344,7 +344,8 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 - **Waarom:** de installateur wil weten of de foto's genoeg laten zien over waar stroom beschikbaar is en waar de verbinding tussen binnen- en buitenunit kan komen. De oude `pipe_route_assessment` classificeert alleen een route en vervangt vragen; dat beantwoordt de verkeerde vraag. Zie ADR-0009.
 - **Opgeleverd (backend-slice):** `pipe_route_sessions`/`pipe_route_segments` + `PipeRouteStatus`; prompts `route_photo_analysis` (per foto) en `route_synthesis` (route uit segmenten) met float-confidence; acties `StartPipeRouteSession`, `AddPipeRoutePhoto` (→ `AnalyzeRoutePhoto`), `SynthesizePipeRoute` (Terra met Sol-escalatie), `ApprovePipeRoute`; modeltiering via `config('ai.route.*')` los van het globale `ai.model`, met per-call model-override in de AI-laag; gated op `AI_ROUTE_ANALYSIS_ENABLED`. Pest-tests met `Http::fake`.
 - **Opgeleverd (installateur-UI):** paneel "Leidingroute (begeleid)" op de opname-detailpagina met voorgestelde/alternatieve route, onzekerheden, ontbrekende controles en segmentfoto's; Goedkeuren/Afkeuren via `PipeRouteController` (`intakes.pipe-route.review`). Feature-tests in `tests/Feature/Installer/PipeRouteReviewTest.php`.
-- **Nog te doen:** klant-wizard-UI (markeer binnenunit-positie → beoordeling → steeds één vervolgfoto-lus) inclusief koppeling in de klant-intake-flow, en DPIA-activering (`AI_ROUTE_ANALYSIS_ENABLED` + provider/key) vóór echte klantdata. Functionele staging-test: zie `docs/functional-test-status.md`.
+- **Opgeleverd (klant-wizard):** `/o/{token}/leidingroute` (Livewire `PipeRouteWizard`) — foto-voor-foto lus met per-foto beoordeling, steeds één gerichte vervolgfoto-instructie en een samengevatte route; routefoto's via `StoreRouteSegmentPhoto`. Feature-tests in `tests/Feature/Customer/PipeRouteWizardTest.php`.
+- **Nog te doen:** DPIA-activering (`AI_ROUTE_ANALYSIS_ENABLED` + provider/key) vóór echte klantdata, en op staging valideren met fictieve foto's (zie `docs/functional-test-status.md`). Optioneel: een link naar de begeleide route vanuit de bestaande klant-intakeflow.
 
 ### BL-028 — Dev-admin: staging-inzage in dienststatus en opname-data
 
