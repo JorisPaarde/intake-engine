@@ -65,7 +65,7 @@ final class DerivePhotoAnswers
         ?string $sectionInstanceKey,
         PhotoDerivationProfile $profile,
     ): ?AiRun {
-        $uploads = $this->uploads($intake, $photoQuestionKey, $sectionInstanceKey);
+        $uploads = $this->uploads($intake, $photoQuestionKey, $sectionInstanceKey, $profile->maxImages);
 
         if ($uploads->isEmpty()) {
             $this->invalidateDerivedState($intake, $photoQuestionKey, $sectionInstanceKey, $profile);
@@ -232,9 +232,16 @@ final class DerivePhotoAnswers
     }
 
     /** @return Collection<int, IntakeUpload> */
-    private function uploads(Intake $intake, string $photoQuestionKey, ?string $sectionInstanceKey): Collection
-    {
-        $maximum = max(1, min(3, (int) config('ai.photo_inference.max_images', 2)));
+    private function uploads(
+        Intake $intake,
+        string $photoQuestionKey,
+        ?string $sectionInstanceKey,
+        int $profileMaximum = 2,
+    ): Collection {
+        // Het profiel bepaalt de ondergrens van wat het nodig heeft; de config mag hoger
+        // maar nooit boven een harde bovengrens, anders lopen de providerkosten weg.
+        $configured = (int) config('ai.photo_inference.max_images', 2);
+        $maximum = max(1, min(6, max($profileMaximum, $configured)));
 
         $query = IntakeUpload::query()
             ->where('intake_id', $intake->id)

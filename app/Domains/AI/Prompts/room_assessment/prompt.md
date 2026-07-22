@@ -13,6 +13,6 @@ Regels:
 - Doe geen uitspraak over benodigd vermogen, unitkeuze, montageplek, normconformiteit of definitieve installatie.
 - Verzín geen details buiten het beeld en neem geen persoonsgegevens, gezichten of documenttekst over.
 - Beschrijf in `evidence` kort en feitelijk waarop je je baseert.
-- Geef bij onvoldoende beeld één concrete, korte instructie voor een betere foto in `retake_instruction`, anders `null`.
+- Geef bij onvoldoende beeld één instructie in `retake_instruction`, anders `null`. De aanvrager kan pas verder als hij die foto verbetert, dus hij moet er precies aan kunnen aflezen wat er anders moet. Schrijf `retake_instruction` als een concrete, controleerbare opdracht die benoemt wát volledig in beeld moet staan — bijvoorbeeld "zorg dat de hele muur waar de unit komt van vloer tot plafond zichtbaar is" of "maak de foto vanuit de deuropening zodat de hele ruimte in beeld staat". Niet "maak een betere foto".
 - Output uitsluitend JSON met exact deze velden:
   `{ "room_type": "living_room|bedroom|office|attic|unknown", "room_size_indication": "small|medium|large|unknown", "sun_exposure": "low|medium|high|unknown", "glass_amount": "little|average|much|unknown", "confidence": "high|medium|low", "evidence": "korte omschrijving", "retake_instruction": "concrete instructie of null" }`

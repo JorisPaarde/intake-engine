@@ -705,6 +705,118 @@ class IntakeWizard extends Component
     }
 
     /** @param Collection<int, IntakeUpload> $uploads */
+    /**
+     * Zet de blokkerende foutmelding op de actieve fotostap, of geeft false als er niets
+     * in de weg staat.
+     */
+    private function blockedByPhotoQuality(): bool
+    {
+        $steps = $this->steps();
+        $step = $steps[$this->stepIndex] ?? null;
+
+        if ($step === null) {
+            return false;
+        }
+
+        $question = app(IntakeStepBuilder::class)->questionForStep(
+            $this->version(),
+            $step['section_key'],
+            $step['question_key'],
+        );
+
+        if (! $question instanceof IntakeQuestion || $question->type !== QuestionType::Photo) {
+            return false;
+        }
+
+        // Blokkeren is opt-in per vraag. Het past alleen waar één duidelijke opname
+        // haalbaar is — een ruimte, een gevelplek, een meterkast. Een leidingroute loopt
+        // door het huis en is per definitie niet in één beeld te vangen; daar zou een
+        // negatief oordeel de aanvrager vastzetten op iets wat hij niet kán oplossen.
+        if (($question->meta['blocking_photo_quality'] ?? false) !== true) {
+            return false;
+        }
+
+        $composite = VisibilityResolver::compositeKey($question->key, $step['section_instance_key']);
+        $uploads = $this->uploadsForStep($step['section_instance_key'])[$question->key] ?? collect();
+
+        $instruction = $this->photoBlockingInstruction($this->intake(), $question, $uploads);
+
+        if ($instruction === null) {
+            return false;
+        }
+
+        $this->addError(
+            'photoFiles.'.$composite,
+            'Deze foto is nog niet bruikbaar genoeg. '.$instruction
+            .' Verwijder de foto en maak een nieuwe, of voeg een extra foto toe.'
+        );
+
+        return true;
+    }
+
+    /**
+     * De reden waarom de aangeleverde foto's bij deze vraag nog niet volstaan, of null.
+     *
+     * Alleen een *negatief oordeel* blokkeert. Het ontbreken van een oordeel doet dat
+     * nooit: staat de foto-analyse uit, faalt de provider of is er nog geen beoordeling,
+     * dan loopt de aanvrager gewoon door. Anders zou een storing bij de AI de hele opname
+     * stilleggen — en dat is precies het tegendeel van "zo min mogelijk handelingen".
+     *
+     * Twee bronnen:
+     *   - de AI-beoordeling gaf een concrete `retake_instruction` mee;
+     *   - álle foto's bij deze vraag zijn lokaal als onbruikbaar beoordeeld. Eén slechte
+     *     foto naast een goede blokkeert dus niet: een extra foto lost het op.
+     *
+     * @param  Collection<int, IntakeUpload>  $uploads
+     */
+    private function photoBlockingInstruction(
+        Intake $intake,
+        IntakeQuestion $question,
+        Collection $uploads,
+    ): ?string {
+        if ($uploads->isEmpty()) {
+            return null;
+        }
+
+        $instruction = $this->aiRetakeInstruction($intake, $question);
+
+        if ($instruction !== null) {
+            return $instruction;
+        }
+
+        $verdicts = $uploads
+            ->map(static fn (IntakeUpload $upload): ?PhotoUsabilityVerdict => $upload->usability_verdict)
+            ->filter(static fn (?PhotoUsabilityVerdict $verdict): bool => $verdict instanceof PhotoUsabilityVerdict);
+
+        if ($verdicts->isEmpty() || $verdicts->contains(static fn (PhotoUsabilityVerdict $v): bool => $v->isUsable())) {
+            return null;
+        }
+
+        return $this->photoRetakeHint($verdicts->first(), $question->key);
+    }
+
+    /**
+     * De concrete verbeterinstructie uit de laatste AI-beoordeling van deze fotovraag.
+     */
+    private function aiRetakeInstruction(Intake $intake, IntakeQuestion $question): ?string
+    {
+        $factKeys = [
+            $question->key.'_derivation',
+            'fusebox_photo_assessment',
+        ];
+
+        $fact = $intake->externalFacts()
+            ->whereIn('fact_key', $factKeys)
+            ->whereIn('source', [DerivePhotoAnswers::SOURCE, AssessFuseboxPhotos::SOURCE])
+            ->latest('id')
+            ->first();
+
+        $instruction = $fact?->value['retake_instruction'] ?? null;
+
+        return is_string($instruction) && trim($instruction) !== '' ? trim($instruction) : null;
+    }
+
+    /** @param Collection<int, IntakeUpload> $uploads */
     private function persistentIntakePhotoHint(
         Intake $intake,
         IntakeQuestion $question,
@@ -1010,6 +1122,15 @@ class IntakeWizard extends Component
 
         if (! $this->currentStepRequiredSatisfied()) {
             $this->showMissing = true;
+            $this->saveMessage = '';
+
+            return;
+        }
+
+        // Een foto die niet volstaat houdt de aanvrager hier vast: doorlopen levert de
+        // installateur een dossier op waar hij toch een aanvullingsronde voor moet openen.
+        // Verwijderen en opnieuw uploaden, of een extra foto, heft de blokkade op.
+        if ($this->blockedByPhotoQuality()) {
             $this->saveMessage = '';
 
             return;

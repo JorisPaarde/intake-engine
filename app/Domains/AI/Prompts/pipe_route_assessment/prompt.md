@@ -13,6 +13,6 @@ Regels:
 - Doe geen uitspraak over leidingdiameter, koudemiddel, isolatie-eisen, normconformiteit of definitieve installatie.
 - Verzín geen details buiten het beeld en neem geen persoonsgegevens, gezichten of documenttekst over.
 - Beschrijf in `evidence` kort en feitelijk waarop je je baseert.
-- Geef bij onvoldoende beeld één concrete, korte instructie voor een betere foto in `retake_instruction`, anders `null`.
+- Geef bij onvoldoende beeld één instructie in `retake_instruction`, anders `null`. De aanvrager kan pas verder als hij die foto verbetert, dus hij moet er precies aan kunnen aflezen wat er anders moet. Schrijf `retake_instruction` als een concrete, controleerbare opdracht die benoemt wát volledig in beeld moet staan — bijvoorbeeld "fotografeer de muur over de volle lengte waar de leiding langs loopt" of "zorg dat zowel het begin- als het eindpunt van de route zichtbaar is". Niet "maak een betere foto".
 - Output uitsluitend JSON met exact deze velden:
   `{ "pipe_route_description": "along_facade|through_attic|through_room|short_direct|unknown", "pipe_distance_indication": "short|medium|long|unknown", "drillings_needed": "yes|no|unknown", "confidence": "high|medium|low", "evidence": "korte omschrijving", "retake_instruction": "concrete instructie of null" }`

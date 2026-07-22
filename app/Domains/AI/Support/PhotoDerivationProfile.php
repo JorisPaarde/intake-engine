@@ -22,6 +22,12 @@ final class PhotoDerivationProfile
         public readonly string $name,
         public readonly string $promptName,
         public readonly array $fields,
+        /**
+         * Hoeveel foto's dit profiel meestuurt. Een ruimte of een meterkast is één
+         * onderwerp; een leidingroute loopt door het huis en is alleen te volgen als de
+         * losse opnames samen worden beoordeeld.
+         */
+        public readonly int $maxImages = 2,
     ) {}
 
     /**
@@ -47,7 +53,7 @@ final class PhotoDerivationProfile
                 DerivedAnswerField::choice('outdoor_mount_type', 'outdoor_mount_type', ['wall', 'ground', 'roof', 'balcony']),
                 DerivedAnswerField::choice('outdoor_accessibility', 'outdoor_accessibility', ['easy_ground', 'ladder', 'scaffolding', 'restricted']),
             ]),
-            'pipe_route' => new self('pipe_route', 'pipe_route_assessment', [
+            'pipe_route' => new self('pipe_route', 'pipe_route_assessment', maxImages: 5, fields: [
                 DerivedAnswerField::choice('pipe_route_description', 'pipe_route_description', ['along_facade', 'through_attic', 'through_room', 'short_direct']),
                 DerivedAnswerField::choice('pipe_distance_indication', 'pipe_distance_indication', ['short', 'medium', 'long']),
                 DerivedAnswerField::boolean('drillings_needed', 'drillings_needed'),

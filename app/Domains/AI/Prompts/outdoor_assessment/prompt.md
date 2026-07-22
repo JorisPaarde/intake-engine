@@ -12,6 +12,6 @@ Regels:
 - Doe geen uitspraak over geluidsnormen, buren, vergunningen, leidinglengte, normconformiteit of definitieve installatie.
 - Verzín geen details buiten het beeld en neem geen persoonsgegevens, gezichten, kentekens of huisnummers over.
 - Beschrijf in `evidence` kort en feitelijk waarop je je baseert.
-- Geef bij onvoldoende beeld één concrete, korte instructie voor een betere foto in `retake_instruction`, anders `null`.
+- Geef bij onvoldoende beeld één instructie in `retake_instruction`, anders `null`. De aanvrager kan pas verder als hij die foto verbetert, dus hij moet er precies aan kunnen aflezen wat er anders moet. Schrijf `retake_instruction` als een concrete, controleerbare opdracht die benoemt wát volledig in beeld moet staan — bijvoorbeeld "zorg dat de hele gevel tot aan de grond zichtbaar is" of "ga een paar meter naar achteren zodat de plek én de omgeving eromheen in beeld staan". Niet "maak een betere foto".
 - Output uitsluitend JSON met exact deze velden:
   `{ "outdoor_location": "garden|side_passage|facade|balcony|flat_roof|pitched_roof|unknown", "outdoor_mount_type": "wall|ground|roof|balcony|unknown", "outdoor_accessibility": "easy_ground|ladder|scaffolding|restricted|unknown", "confidence": "high|medium|low", "evidence": "korte omschrijving", "retake_instruction": "concrete instructie of null" }`
