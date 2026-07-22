@@ -1,6 +1,6 @@
 # Intake-engine
 
-> **Documentversie:** 1.16 · **Laatste update:** 2026-07-22 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.17 · **Laatste update:** 2026-07-22 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **geïmplementeerd t/m Fase 6 + BL-019 openbare data + BL-020 foto-afleiding + BL-027 gerichte vervolgrondes**. Airco-template **v7** gepubliceerd — v6 + maximale vraagreductie: elke sectie opent met de foto, leidingrouteprofiel toegevoegd en overbodige vragen geschrapt.
 
@@ -234,6 +234,20 @@ Niet alles hoort weg te vallen, ook niet als het "korter" kan:
 - `floor_level` — een binnenfoto laat de verdieping niet betrouwbaar zien.
 - `truth_confirmation` en `privacy_consent` blijven twee losse vragen. Toestemming moet specifiek en ongebundeld zijn; samenvoegen met een juistheidsverklaring maakt haar niet-vrij. Eén stap winst weegt daar niet tegenop.
 - `insulation_indication` blijft een vraag: bouwjaar uit de BAG zegt weinig over uitgevoerde renovaties.
+
+## Pandgeometrie uit de 3DBAG
+
+Naast PDOK/BAG haalt `EnrichIntakeAddress` dakvorm en gevelhoogte op bij de [3DBAG](https://3dbag.nl) van TU Delft, op basis van het pand-id dat de BAG-verrijking al heeft opgeleverd. De data staat onder **CC BY 4.0**: opslaan en tonen in het dossier mag, mits de bron vermeld blijft — anders dan bij Google Street View, waar het vooraf ophalen, opslaan of cachen van beeld verboden is en embedden in een gegenereerde PDF dus niet kan.
+
+| Fact | Bron-attribuut | Nut |
+|---|---|---|
+| `building_height_m` | `b3_h_dak_max` − `b3_h_maaiveld` | ladder of steiger bij de buitenunit |
+| `roof_type` | `b3_dak_type` | plat of schuin dak |
+| `floor_count` | `b3_bouwlagen` | context bij de verdiepingsvraag |
+
+Bewust géén vraagreductie. De hoogte van een pand zegt niet waar de buitenunit komt te hangen, dus hier vervalt geen enkele vraag — dit is context voor de installateur en extra grond voor de AI-aandachtspunten.
+
+`b3_kwaliteitsindicator = false` betekent dat 3DBAG de 3D-reconstructie zelf als mogelijk onjuist markeert. De feiten worden dan nog steeds getoond, maar met lage zekerheid én een expliciete onzekerheid in het dossier — hoogte stuurt de keuze tussen ladder en steiger, dus dat mag de installateur niet ontgaan. Daktypen die geen betekenis hebben (`no points`, `no planes`, `unknown`) worden helemaal weggelaten in plaats van als "onbekend" getoond. Een storing bij 3DBAG blokkeert niets: de BAG-verrijking en de opname lopen gewoon door.
 
 ### Effect op het aantal stappen
 

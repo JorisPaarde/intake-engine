@@ -10,6 +10,7 @@ use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeExternalFact;
 use App\Domains\Intake\Services\PdokAddressService;
 use App\Domains\Intake\Services\PdokAerialImageService;
+use App\Domains\Intake\Services\ThreeDBagService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -20,6 +21,7 @@ final class EnrichIntakeAddress
     public function __construct(
         private readonly PdokAddressService $pdok,
         private readonly PdokAerialImageService $aerialImages,
+        private readonly ThreeDBagService $threeDBag,
         private readonly SaveIntakeAnswer $saveIntakeAnswer,
     ) {}
 
@@ -40,6 +42,7 @@ final class EnrichIntakeAddress
 
             DB::transaction(fn () => $this->storeEnrichment($intake, $enrichment));
             $this->captureAerialImage($intake, $enrichment);
+            $this->captureBuildingGeometry($intake, $enrichment);
         } catch (Throwable $exception) {
             $this->storeStatus($intake, 'unavailable');
             Log::warning('PDOK address enrichment failed.', [
@@ -195,6 +198,79 @@ final class EnrichIntakeAddress
             ],
             'created_at' => now(),
         ]);
+    }
+
+    /**
+     * Dakvorm en gevelhoogte uit de 3DBAG (CC BY 4.0 — opslaan mag, mits bron vermeld).
+     *
+     * Bewust alleen als context-feit: de hoogte van een pand zegt niet waar de buitenunit
+     * komt te hangen, dus hier vervalt geen enkele vraag. Het helpt de installateur bij het
+     * inschatten van ladder of steiger, en gaat als feit mee in de AI-context.
+     *
+     * Een onbetrouwbare reconstructie (`b3_kwaliteitsindicator = false`) wordt wél getoond,
+     * maar met lage zekerheid — de installateur moet kunnen zien dat hij er niet op mag varen.
+     */
+    private function captureBuildingGeometry(Intake $intake, AddressEnrichment $data): void
+    {
+        if ($data->bagBuildingId === null || $data->buildingCount !== 1) {
+            return;
+        }
+
+        try {
+            $geometry = $this->threeDBag->fetch($data->bagBuildingId);
+
+            if ($geometry === null) {
+                return;
+            }
+
+            $confidence = $geometry->reliable ? 'high' : 'low';
+            $sourceUrl = $this->threeDBag->featureUrl($data->bagBuildingId);
+
+            if ($geometry->heightAboveGroundM !== null) {
+                $this->upsertFact(
+                    $intake,
+                    'building_height_m',
+                    'Gevelhoogte (nok boven maaiveld)',
+                    ['number' => $geometry->heightAboveGroundM, 'unit' => 'm'],
+                    $confidence,
+                    $data->bagBuildingId,
+                    $sourceUrl,
+                    ThreeDBagService::sourceName(),
+                );
+            }
+
+            if ($geometry->hasUsableRoofType()) {
+                $this->upsertFact(
+                    $intake,
+                    'roof_type',
+                    'Dakvorm',
+                    ['value' => $geometry->roofType, 'label' => $geometry->roofTypeLabel()],
+                    $confidence,
+                    $data->bagBuildingId,
+                    $sourceUrl,
+                    ThreeDBagService::sourceName(),
+                );
+            }
+
+            if ($geometry->floorCount !== null) {
+                $this->upsertFact(
+                    $intake,
+                    'floor_count',
+                    'Aantal bouwlagen',
+                    ['number' => $geometry->floorCount],
+                    $confidence,
+                    $data->bagBuildingId,
+                    $sourceUrl,
+                    ThreeDBagService::sourceName(),
+                );
+            }
+        } catch (Throwable $exception) {
+            // 3DBAG is een aanvulling, nooit een blokkade voor de opname.
+            Log::warning('3DBAG building geometry lookup failed.', [
+                'intake_uuid' => $intake->uuid,
+                'exception' => $exception::class,
+            ]);
+        }
     }
 
     /**

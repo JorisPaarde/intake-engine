@@ -51,4 +51,21 @@ return [
         'aerial_ground_width_meters' => (int) env('PDOK_AERIAL_GROUND_WIDTH_METERS', 180),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | 3DBAG — pandgeometrie (TU Delft)
+    |--------------------------------------------------------------------------
+    |
+    | Open data onder CC BY 4.0: opslaan en tonen in het dossier mag, mits de bron
+    | vermeld blijft. Levert dakvorm en gevelhoogte bij het BAG-pand-id dat de
+    | PDOK-verrijking al heeft opgehaald. Soft-fail: een storing blokkeert niets.
+    |
+    */
+
+    'threedbag' => [
+        'enabled' => (bool) env('THREEDBAG_ENABLED', true),
+        'base_url' => env('THREEDBAG_BASE_URL', 'https://api.3dbag.nl'),
+        'timeout_seconds' => (int) env('THREEDBAG_TIMEOUT_SECONDS', 5),
+    ],
+
 ];

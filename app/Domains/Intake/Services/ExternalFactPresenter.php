@@ -123,6 +123,9 @@ final class ExternalFactPresenter
             'usage_purposes' => $this->listDisplay($value['values'] ?? null),
             'parcel_ids' => $this->listDisplay($value['values'] ?? null),
             'building_year' => isset($value['number']) ? (string) $value['number'] : null,
+            'building_height_m' => isset($value['number']) ? (string) $value['number'].' '.($value['unit'] ?? 'm') : null,
+            'roof_type' => is_string($value['label'] ?? null) ? $value['label'] : null,
+            'floor_count' => isset($value['number']) ? (string) $value['number'] : null,
             'fusebox_photo_assessment' => $this->fuseboxAssessmentDisplay($value),
             default => null,
         };
@@ -201,6 +204,13 @@ final class ExternalFactPresenter
             };
         }
 
+        // 3DBAG markeert zelf wanneer de 3D-reconstructie mogelijk onjuist is; dat mag de
+        // installateur niet ontgaan, want hoogte stuurt de keuze tussen ladder en steiger.
+        if (in_array($fact->fact_key, ['building_height_m', 'roof_type', 'floor_count'], true)
+            && $fact->confidence === 'low') {
+            return 'De 3D-reconstructie van dit pand is door 3DBAG als mogelijk onjuist gemarkeerd; gebruik hoogte en dakvorm alleen als indicatie.';
+        }
+
         if ($fact->fact_key === 'fusebox_photo_assessment') {
             $instruction = $fact->value['retake_instruction'] ?? null;
 
@@ -224,6 +234,9 @@ final class ExternalFactPresenter
             'location',
             'parcel_ids',
             'building_match',
+            'roof_type',
+            'building_height_m',
+            'floor_count',
             'fusebox_photo_assessment',
             'aerial_image',
             'aerial_image_status',

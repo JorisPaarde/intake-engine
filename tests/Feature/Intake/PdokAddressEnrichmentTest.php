@@ -7,6 +7,7 @@ use App\Domains\Intake\Actions\HardDeleteIntake;
 use App\Domains\Intake\Actions\StartDemoIntake;
 use App\Domains\Intake\Models\GeneratedReport;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Services\ExternalFactPresenter;
 use App\Domains\Intake\Services\GenerateIntakeReportHtml;
 use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Enums\IntakeStatus;
@@ -64,11 +65,24 @@ function fakeAerialJpeg(): string
     return is_string($binary) ? $binary : '';
 }
 
-function fakeSuccessfulPdok(int $aerialStatus = 200): void
+/**
+ * @param  array<string, mixed>|null  $threeDBagFeature  null = 3DBAG antwoordt 404 (geen geometrie)
+ */
+function fakeSuccessfulPdok(int $aerialStatus = 200, ?array $threeDBagFeature = null, int $threeDBagStatus = 200): void
 {
     $aerialJpeg = fakeAerialJpeg();
 
-    Http::fake(function (Request $request) use ($aerialJpeg, $aerialStatus) {
+    Http::fake(function (Request $request) use ($aerialJpeg, $aerialStatus, $threeDBagFeature, $threeDBagStatus) {
+        if (str_contains($request->url(), '3dbag')) {
+            if ($threeDBagStatus !== 200) {
+                return Http::response([], $threeDBagStatus);
+            }
+
+            return $threeDBagFeature === null
+                ? Http::response([], 404)
+                : Http::response($threeDBagFeature);
+        }
+
         if (str_contains($request->url(), '/aerial')) {
             return $aerialStatus === 200
                 ? Http::response($aerialJpeg, 200, ['Content-Type' => 'image/jpeg'])
@@ -394,4 +408,128 @@ test('a PDOK outage still lets the demo start', function () {
 
     expect($intake->exists)->toBeTrue()
         ->and($intake->access_token)->not->toBeEmpty();
+});
+
+/** @return array<string, mixed> */
+function threeDBagFeature(
+    string $roofType = 'slanted',
+    float $ridge = 30.682,
+    float $ground = 1.579,
+    bool $reliable = true,
+    ?int $floors = 4,
+): array {
+    return [
+        'feature' => [
+            'CityObjects' => [
+                'NL.IMBAG.Pand.0363100012185508' => [
+                    'attributes' => [
+                        'b3_dak_type' => $roofType,
+                        'b3_h_dak_max' => $ridge,
+                        'b3_h_maaiveld' => $ground,
+                        'b3_bouwlagen' => $floors,
+                        'b3_kwaliteitsindicator' => $reliable,
+                    ],
+                ],
+            ],
+        ],
+    ];
+}
+
+test('3DBAG geometry is stored as sourced context facts with attribution', function () {
+    config()->set('services.threedbag.base_url', 'https://api.3dbag.test');
+    fakeSuccessfulPdok(threeDBagFeature: threeDBagFeature());
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->post(route('intakes.store'), [
+        'template_key' => 'airco',
+        'customer_name' => '3DBAG Klant',
+        'customer_email' => '3dbag@example.com',
+        'address_line' => 'Damrak 1',
+        'address_postal_code' => '1012LG',
+        'address_city' => 'Amsterdam',
+        'address_lookup_id' => 'adr-8f4d573be765b4c80dd635ba73747903',
+    ]);
+
+    $intake = Intake::query()->where('customer_email', '3dbag@example.com')->firstOrFail();
+    $height = $intake->externalFacts()->where('fact_key', 'building_height_m')->firstOrFail();
+    $roof = $intake->externalFacts()->where('fact_key', 'roof_type')->firstOrFail();
+    $floors = $intake->externalFacts()->where('fact_key', 'floor_count')->firstOrFail();
+
+    // Nokhoogte minus maaiveld — de hoogte die ladder of steiger bepaalt.
+    expect($height->value)->toBe(['number' => 29.1, 'unit' => 'm'])
+        ->and($height->source)->toBe('3DBAG (TU Delft)')
+        ->and($height->confidence)->toBe('high')
+        ->and($height->source_url)->toContain('NL.IMBAG.Pand.0363100012185508')
+        ->and($roof->value['label'])->toBe('Schuin dak')
+        ->and($floors->value)->toBe(['number' => 4]);
+});
+
+test('an unreliable 3DBAG reconstruction is flagged instead of trusted', function () {
+    config()->set('services.threedbag.base_url', 'https://api.3dbag.test');
+    fakeSuccessfulPdok(threeDBagFeature: threeDBagFeature(reliable: false));
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->post(route('intakes.store'), [
+        'template_key' => 'airco',
+        'customer_name' => 'Onzeker Pand',
+        'customer_email' => 'onzeker@example.com',
+        'address_line' => 'Damrak 1',
+        'address_postal_code' => '1012LG',
+        'address_city' => 'Amsterdam',
+        'address_lookup_id' => 'adr-8f4d573be765b4c80dd635ba73747903',
+    ]);
+
+    $intake = Intake::query()->where('customer_email', 'onzeker@example.com')->firstOrFail();
+
+    expect($intake->externalFacts()->where('fact_key', 'building_height_m')->firstOrFail()->confidence)->toBe('low');
+
+    $presented = app(ExternalFactPresenter::class)->present($intake->fresh());
+
+    expect($presented['uncertainties'])->toContain(
+        'De 3D-reconstructie van dit pand is door 3DBAG als mogelijk onjuist gemarkeerd; gebruik hoogte en dakvorm alleen als indicatie.'
+    );
+});
+
+test('an unusable roof type is left out rather than shown as unknown', function () {
+    config()->set('services.threedbag.base_url', 'https://api.3dbag.test');
+    fakeSuccessfulPdok(threeDBagFeature: threeDBagFeature(roofType: 'no planes'));
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->post(route('intakes.store'), [
+        'template_key' => 'airco',
+        'customer_name' => 'Geen Dakvlak',
+        'customer_email' => 'geendak@example.com',
+        'address_line' => 'Damrak 1',
+        'address_postal_code' => '1012LG',
+        'address_city' => 'Amsterdam',
+        'address_lookup_id' => 'adr-8f4d573be765b4c80dd635ba73747903',
+    ]);
+
+    $intake = Intake::query()->where('customer_email', 'geendak@example.com')->firstOrFail();
+
+    expect($intake->externalFacts()->where('fact_key', 'roof_type')->exists())->toBeFalse()
+        ->and($intake->externalFacts()->where('fact_key', 'building_height_m')->exists())->toBeTrue();
+});
+
+test('a 3DBAG outage never blocks the intake or the rest of the enrichment', function () {
+    config()->set('services.threedbag.base_url', 'https://api.3dbag.test');
+    fakeSuccessfulPdok(threeDBagStatus: 503);
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->post(route('intakes.store'), [
+        'template_key' => 'airco',
+        'customer_name' => 'Storing Klant',
+        'customer_email' => 'storing3d@example.com',
+        'address_line' => 'Damrak 1',
+        'address_postal_code' => '1012LG',
+        'address_city' => 'Amsterdam',
+        'address_lookup_id' => 'adr-8f4d573be765b4c80dd635ba73747903',
+    ]);
+
+    $intake = Intake::query()->where('customer_email', 'storing3d@example.com')->firstOrFail();
+
+    expect($intake->externalFacts()->where('fact_key', 'building_height_m')->exists())->toBeFalse()
+        // De BAG-verrijking zelf moet gewoon geslaagd zijn.
+        ->and($intake->externalFacts()->where('fact_key', 'building_year')->exists())->toBeTrue()
+        ->and($intake->answers()->where('question_key', 'build_year')->exists())->toBeTrue();
 });
