@@ -174,6 +174,12 @@ class Intake extends Model
         return $this->hasMany(IntakeActivityEvent::class);
     }
 
+    /** @return HasMany<PipeRouteSession, $this> */
+    public function pipeRouteSessions(): HasMany
+    {
+        return $this->hasMany(PipeRouteSession::class)->latest('id');
+    }
+
     public function customerUrl(): string
     {
         return url('/o/'.$this->access_token);

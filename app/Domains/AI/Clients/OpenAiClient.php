@@ -32,7 +32,9 @@ final class OpenAiClient implements AiClientInterface
         }
 
         $baseUrl = rtrim((string) config('ai.base_url', 'https://api.openai.com/v1'), '/');
-        $model = (string) config('ai.model', 'gpt-4o-mini');
+        $model = $request->model !== null && trim($request->model) !== ''
+            ? trim($request->model)
+            : (string) config('ai.model', 'gpt-4o-mini');
         $timeout = (int) config('ai.timeout_seconds', 20);
 
         $system = trim($request->prompt."\n\n".($request->system ?? ''));

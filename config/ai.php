@@ -46,4 +46,33 @@ return [
 
     'request_intent_prompt' => 'request_intent',
 
+    /*
+    |--------------------------------------------------------------------------
+    | Begeleide leidingroute (guided pipe route)
+    |--------------------------------------------------------------------------
+    |
+    | Aparte, zwaardere fotoanalyse die per foto beoordeelt of de wand/doorvoer
+    | zichtbaar is en of een route naar buiten aannemelijk is, en die de segmenten
+    | tot één leidingroute samenvat. Bewust een eigen modelkeuze, los van het
+    | globale `ai.model`: dit draait alleen op deze complexe route-analyse.
+    |
+    | `model` doet de standaardanalyse; bij lage zekerheid of een complexe route
+    | escaleert de synthese naar het capabelere `review_model`. De installateur
+    | keurt de uiteindelijke route altijd goed (zie ADR-0008-... / docs/ai.md).
+    |
+    | Model-ID's zijn overschrijfbaar via .env, zodat een nieuwe generatie zonder
+    | codewijziging in te zetten is. Vereist AI_PROVIDER=openai + key + DPIA.
+    |
+    */
+
+    'route' => [
+        'enabled' => (bool) env('AI_ROUTE_ANALYSIS_ENABLED', false),
+        'model' => env('AI_ROUTE_MODEL', 'gpt-5.6-terra'),
+        'review_model' => env('AI_ROUTE_REVIEW_MODEL', 'gpt-5.6-sol'),
+        'escalate_below_confidence' => (float) env('AI_ROUTE_ESCALATE_BELOW', 0.7),
+        'max_images' => (int) env('AI_ROUTE_MAX_IMAGES', 4),
+        'analysis_prompt' => 'route_photo_analysis',
+        'synthesis_prompt' => 'route_synthesis',
+    ],
+
 ];

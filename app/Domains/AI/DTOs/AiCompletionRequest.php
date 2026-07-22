@@ -16,5 +16,6 @@ final readonly class AiCompletionRequest
         public string $promptVersion,
         public ?string $system = null,
         public array $images = [],
+        public ?string $model = null,
     ) {}
 }
