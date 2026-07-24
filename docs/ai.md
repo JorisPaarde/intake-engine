@@ -1,6 +1,6 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 1.8 · **Laatste update:** 2026-07-22 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.9 · **Laatste update:** 2026-07-24 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **Fase 6 + BL-007 + BL-020 geïmplementeerd** — samenvatting, aandachtspunten, lokale fotokwaliteit en een bevestigbare multimodale meterkastvoorzet. Externe provider en foto-inferentie staan **standaard uit** (DPIA + key vereist). Zie ADR-0005. **Publieke demo** draait samenvatting + aandachtspunten wel: inline bij afronden, met heuristic-fallback als `AI_PROVIDER=null`, zichtbaar op het bedankt-scherm.
 
@@ -33,6 +33,7 @@ App\Domains\AI\
   Clients\OpenAiClient
   DTOs\AiImageInput
   Services\AiGateway
+  Services\AiBudgetGuard
   Services\PromptVersionRepository
   Prompts\summary\ | attention_points\ | fusebox_assessment\
   Actions\SummarizeIntake
@@ -41,7 +42,7 @@ App\Domains\AI\
   Models\AiRun
 ```
 
-Provider via `.env`: `AI_PROVIDER`, `AI_API_KEY`, `AI_TIMEOUT_SECONDS`. Multimodale verzending vereist daarnaast `AI_PHOTO_INFERENCE_ENABLED=true`; standaard `false`, maximaal twee recente meterkastfoto's per beoordeling.
+Provider via `.env`: `AI_PROVIDER`, `AI_API_KEY`, `AI_TIMEOUT_SECONDS`. Multimodale verzending vereist daarnaast `AI_PHOTO_INFERENCE_ENABLED=true`; standaard `false`, maximaal twee recente meterkastfoto's per beoordeling. `AI_PROVIDER=openai` valt door de budgetguard fail-closed als er geen dag- of maandcap is gezet.
 
 | Provider | Gedrag |
 |----------|--------|
@@ -51,6 +52,27 @@ Provider via `.env`: `AI_PROVIDER`, `AI_API_KEY`, `AI_TIMEOUT_SECONDS`. Multimod
 | `openai` | Externe OpenAI-compatibele provider (BL-006). **Standaard uit**; vereist `AI_API_KEY` (+ `AI_BASE_URL`/`AI_MODEL`) én DPIA/akkoord. PII wordt vóór verzending geredigeerd (`AiInputRedactor`); bij fout/timeout → soft-fail |
 
 Kernintake hangt **niet** van AI af. `CompleteIntake` dispatcht `SummarizeIntakeJob` ná commit; falen = `ai_runs.status=failed` + log.
+
+## Budgetguard
+
+Alle betaalde externe calls lopen door `OpenAiClient`, dus één guard dekt samenvatting, aandachtspunten, tekstafleiding, foto-afleiding en routeanalyse/synthese. De guard doet vóór de HTTP-call een budgetcheck en gooit een normale `AiClientException` wanneer de cap ontbreekt of bereikt is. Callers behandelen dat als soft-fail: intake, upload, dossier en review blijven bruikbaar.
+
+Env-vars:
+
+```env
+AI_BUDGET_DAILY_CENTS=500
+AI_BUDGET_MONTHLY_CENTS=5000
+AI_BUDGET_RESERVE_CENTS_PER_CALL=1
+AI_BUDGET_INPUT_CENTS_PER_1K_TOKENS=...
+AI_BUDGET_OUTPUT_CENTS_PER_1K_TOKENS=...
+AI_BUDGET_IMAGE_CENTS_PER_IMAGE=...
+```
+
+- `AI_BUDGET_ENFORCED=true` is de default. Zet dit alleen bewust uit voor lokale experimenten zonder echte providerkosten.
+- Minstens één van `AI_BUDGET_DAILY_CENTS` of `AI_BUDGET_MONTHLY_CENTS` moet staan voordat `AI_PROVIDER=openai` calls doet.
+- De pre-call check telt geslaagde OpenAI-runs sinds dag-/maandstart plus `AI_BUDGET_RESERVE_CENTS_PER_CALL`.
+- Na succes bewaart `ai_runs` de provider-usage (`input_tokens`, `output_tokens`, `total_tokens`), `image_count` en `estimated_cost_cents`. Als tokenusage ontbreekt, telt de reservering als minimum.
+- `/dev` toont provider/model/tekst-/foto-/routeflags en budgetcaps zonder API-key; `/dev/ai-runs` toont token- en kostengebruik per run.
 
 ## Datastructuur `ai_runs`
 
@@ -65,6 +87,9 @@ Kernintake hangt **niet** van AI af. `CompleteIntake` dispatcht `SummarizeIntake
 | `output` | json (gestructureerd, gevalideerd) |
 | `status` | `pending` / `succeeded` / `failed` |
 | `error_message` | nullable |
+| `input_tokens` / `output_tokens` / `total_tokens` | providerusage, nullable |
+| `image_count` | aantal meegestuurde beelden |
+| `estimated_cost_cents` | budgettelling in centen of budget-units |
 | `started_at` / `finished_at` | |
 
 ## Flow

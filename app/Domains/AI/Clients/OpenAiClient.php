@@ -8,6 +8,7 @@ use App\Domains\AI\Contracts\AiClientInterface;
 use App\Domains\AI\DTOs\AiCompletionRequest;
 use App\Domains\AI\DTOs\AiCompletionResult;
 use App\Domains\AI\Exceptions\AiClientException;
+use App\Domains\AI\Services\AiBudgetGuard;
 use App\Domains\AI\Services\AiInputRedactor;
 use Illuminate\Support\Facades\Http;
 
@@ -21,6 +22,7 @@ final class OpenAiClient implements AiClientInterface
 {
     public function __construct(
         private readonly AiInputRedactor $redactor,
+        private readonly AiBudgetGuard $budgetGuard,
     ) {}
 
     public function complete(AiCompletionRequest $request): AiCompletionResult
@@ -36,6 +38,8 @@ final class OpenAiClient implements AiClientInterface
             ? trim($request->model)
             : (string) config('ai.model', 'gpt-4o-mini');
         $timeout = (int) config('ai.timeout_seconds', 20);
+
+        $this->budgetGuard->ensureOpenAiBudgetAvailable();
 
         $system = trim($request->prompt."\n\n".($request->system ?? ''));
         $redactedInput = $this->redactor->redact($request->input);
@@ -91,10 +95,29 @@ final class OpenAiClient implements AiClientInterface
             throw new AiClientException('Externe AI-provider gaf ongeldige JSON.');
         }
 
+        $inputTokens = $this->integerUsage($response->json('usage.prompt_tokens'));
+        $outputTokens = $this->integerUsage($response->json('usage.completion_tokens'));
+        $totalTokens = $this->integerUsage($response->json('usage.total_tokens'));
+        $imageCount = count($request->images);
+
         return new AiCompletionResult(
             output: $output,
             provider: 'openai',
             model: is_string($response->json('model')) ? $response->json('model') : $model,
+            inputTokens: $inputTokens,
+            outputTokens: $outputTokens,
+            totalTokens: $totalTokens,
+            imageCount: $imageCount,
+            estimatedCostCents: $this->budgetGuard->estimateCostCents($inputTokens, $outputTokens, $imageCount),
         );
+    }
+
+    private function integerUsage(mixed $value): ?int
+    {
+        if (! is_int($value) && ! is_numeric($value)) {
+            return null;
+        }
+
+        return max(0, (int) $value);
     }
 }

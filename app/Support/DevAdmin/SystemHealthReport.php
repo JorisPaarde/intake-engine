@@ -128,7 +128,14 @@ final class SystemHealthReport
             }
 
             try {
-                $disks[$disk] = ['ok' => Storage::disk($disk)->exists('.') || true];
+                $path = 'devadmin-health/'.Str::random(16).'.txt';
+                $storage = Storage::disk($disk);
+
+                $storage->put($path, 'ok');
+                $ok = $storage->exists($path);
+                $storage->delete($path);
+
+                $disks[$disk] = ['ok' => $ok];
             } catch (Throwable $e) {
                 $disks[$disk] = ['ok' => false, 'message' => $e->getMessage()];
             }

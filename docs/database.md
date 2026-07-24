@@ -1,6 +1,6 @@
 # Databaseschema — Digitale Opname
 
-> **Documentversie:** 1.11 · **Laatste update:** 2026-07-20 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.12 · **Laatste update:** 2026-07-24 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **geïmplementeerd**. Basisschema via `2026_07_17_120000_create_intake_engine_tables`; externe feiten via `2026_07_20_140000_create_intake_external_facts_table` (BL-019, ADR-0007); gerichte vervolgrondes via `2026_07_20_150000_create_intake_follow_up_tables` (BL-027).
 
@@ -364,6 +364,11 @@ BL-026 gebruikt deze tabel samen met bestaande intake-timestamps en relaties voo
 | `output` | json nullable | |
 | `status` | string | `pending` / `succeeded` / `failed` |
 | `error_message` | text nullable | |
+| `input_tokens` | unsigned integer nullable | Providerusage; geen promptinhoud |
+| `output_tokens` | unsigned integer nullable | Providerusage; geen outputinhoud |
+| `total_tokens` | unsigned integer nullable | Providerusage |
+| `image_count` | unsigned small integer | Aantal beelden in de provider-call |
+| `estimated_cost_cents` | unsigned integer nullable | Budgettelling voor externe AI-caps |
 | `started_at` / `finished_at` | timestamp nullable | |
 | `timestamps` | | |
 

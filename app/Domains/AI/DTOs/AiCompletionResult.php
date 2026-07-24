@@ -13,5 +13,10 @@ final readonly class AiCompletionResult
         public array $output,
         public string $provider,
         public ?string $model = null,
+        public ?int $inputTokens = null,
+        public ?int $outputTokens = null,
+        public ?int $totalTokens = null,
+        public int $imageCount = 0,
+        public ?int $estimatedCostCents = null,
     ) {}
 }

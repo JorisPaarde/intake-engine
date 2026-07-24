@@ -1,6 +1,6 @@
 # Deployment naar cPanel (staging + production)
 
-> **Documentversie:** 2.5 · **Laatste update:** 2026-07-22 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.7 · **Laatste update:** 2026-07-24 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 **Statusregel:** staging en production zijn fysiek en logisch gescheiden; open handmatige acties (env/host) staan in [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
 
@@ -21,7 +21,7 @@ Afgestemd op de huidige host:
 | staging | `https://staging.intake-engine.nl/` | push naar `main` of handmatige dispatch | `staging` | `/home/intakeengine/apps/intake-engine-staging` | `intakeengine_staging` |
 | production | `https://intake-engine.nl/` | tag `v*` of bewuste handmatige dispatch | `production` | `/home/intakeengine/apps/intake-engine-production` | `intakeengine_production` |
 
-Beide workflows bouwen in GitHub Actions (Composer `--no-dev` + Vite-assets), rsyncen naar hun eigen `releases/<sha>` en roepen `deploy/activate.sh` aan. Het script controleert het verwachte `APP_ENV`, koppelt alleen de eigen shared `.env`/storage, verwijdert eventuele runtimecache uit een gekopieerde release, draait migraties + `IntakeTemplateSeeder`, cachet config/routes/views en wisselt de `current`-symlink atomisch. Per omgeving blijven de laatste drie releases bewaard.
+Beide workflows bouwen in GitHub Actions (Composer `--no-dev` + Vite-assets), rsyncen naar hun eigen `releases/<sha>` en roepen `deploy/activate.sh` aan. Het script controleert het verwachte `APP_ENV`, koppelt alleen de eigen shared `.env`/storage, verwijdert eventuele runtimecache uit een gekopieerde release, draait migraties + `IntakeTemplateSeeder`, seedt op staging optioneel de demo-installateur-login, cachet config/routes/views en wisselt de `current`-symlink atomisch. Per omgeving blijven de laatste drie releases bewaard.
 
 ```
 /home/intakeengine/apps/
@@ -204,10 +204,11 @@ Alles hieronder staat **niet** in git en moet jij (of de host) per omgeving zett
 |--------|---------|----------------|
 | Publieke demo uitzetten | Alleen bij misbruik/load | `DEMO_ENABLED=false` in `shared/.env` + `config:cache`. Demo staat **standaard aan** (zie [§ Publieke demo](#publieke-demo-bl-001)). |
 | Externe AI + foto-inferentie | Na DPIA / akkoord (BL-006/020) | `AI_PROVIDER=openai`, `AI_API_KEY=…`, geschikt multimodaal `AI_MODEL` en pas daarna `AI_PHOTO_INFERENCE_ENABLED=true`. Nu bewust `null`/`false` (soft-fail). Nooit keys in git. |
+| AI-budgetcap | Verplicht vóór `AI_PROVIDER=openai` op staging/productie | Zet minstens `AI_BUDGET_DAILY_CENTS` of `AI_BUDGET_MONTHLY_CENTS`, plus conservatieve token-/beeldrates. Zonder cap faalt OpenAI bewust vóór de provider-call. |
 | `MEDIA_DISK=s3` + AWS-vars | Bij storagegroei / vertrek cPanel (BL-013) | Bestaande rijen behouden `disk`+`path`. |
 | `PDOK_ENABLED=false` | Alleen als uitgaande adres-/locatiebevraging juridisch of technisch nog niet mag | Adres-autocomplete, BAG-verrijking en luchtfoto uit; handmatig adres/bouwjaar en klantfoto’s blijven werken. Geen API-key nodig. |
 | `PDOK_AERIAL_ENABLED=false` | BAG mag wel, luchtfoto nog niet of WMS-verkeer ongewenst | Alleen server-side luchtfotocapture uit; BAG-feiten blijven werken. |
-| Demo-login seeden | Alleen als je `installateur@example.com` wilt | Deploy seedt **geen** users — registreer zelf, of lokaal `DatabaseSeeder`. |
+| Demo-installateur-login | Alleen voor staging-dossierchecks van publieke demo-opnames | Zet `DEMO_INSTALLER_PASSWORD` privé in staging `shared/.env`; de volgende staging deploy seedt het account op `DEMO_USER_EMAIL`. |
 | Dev-admin (`/dev`) op staging uitzetten | Alleen als staging-inzage niet gewenst is | `DEV_ADMIN_ENABLED=false` in `shared/.env` + `config:cache`. Staat op **staging standaard aan** en op **production automatisch uit** — op production is **geen** env-var nodig (hard 404 via `EnsureDevAccess`). Toont ruwe klant-PII, dus bewust nooit op production (ADR-0008). |
 
 ### Bewust niet handmatig doen
@@ -244,11 +245,17 @@ Standaard wordt geen foto extern verstuurd. Activeer pas na DPIA/akkoord en met 
 AI_PROVIDER=openai
 AI_API_KEY=...
 AI_MODEL=...
+AI_BUDGET_DAILY_CENTS=500
+AI_BUDGET_MONTHLY_CENTS=5000
+AI_BUDGET_RESERVE_CENTS_PER_CALL=1
+AI_BUDGET_INPUT_CENTS_PER_1K_TOKENS=...
+AI_BUDGET_OUTPUT_CENTS_PER_1K_TOKENS=...
+AI_BUDGET_IMAGE_CENTS_PER_IMAGE=...
 AI_PHOTO_INFERENCE_ENABLED=true
 AI_PHOTO_INFERENCE_MAX_IMAGES=2
 ```
 
-De server leest maximaal twee recente private meterkastfoto's van `MEDIA_DISK` en verstuurt ze als base64 data-URL in het providerrequest. Data-URL's/beeldbytes komen niet in database, events of logs; alleen uploadchecksums vormen de inputhash. Fout, timeout of ongeldige output blokkeert upload of intake nooit. Zet de flag bij twijfel terug op `false`; lokale fotokwaliteit, handmatige vrije-groepvraag en installateurscontrole blijven werken. Voer vóór echte klantdata de BL-020-smoke uit `docs/functional-test-status.md` uit met fictieve beelden.
+De server leest maximaal twee recente private meterkastfoto's van `MEDIA_DISK` en verstuurt ze als base64 data-URL in het providerrequest. Data-URL's/beeldbytes komen niet in database, events of logs; alleen uploadchecksums vormen de inputhash. Fout, timeout, ongeldige output of budgetlimiet blokkeert upload of intake nooit. Zet de flag bij twijfel terug op `false`; lokale fotokwaliteit, handmatige vrije-groepvraag en installateurscontrole blijven werken. Voer vóór echte klantdata de BL-020-smoke uit `docs/functional-test-status.md` uit met fictieve beelden.
 
 ## Publieke demo (BL-001)
 
@@ -257,8 +264,12 @@ De knop **Start demo** staat **standaard aan** (`DEMO_ENABLED` default `true`) v
 ```env
 DEMO_ENABLED=true
 DEMO_TTL_HOURS=12
+DEMO_USER_EMAIL=demo@intake-engine.invalid
+DEMO_INSTALLER_PASSWORD=          # privé staging-wachtwoord voor dossierchecks
 DEMO_THROTTLE_PER_HOUR=5
 ```
+
+Zet `DEMO_INSTALLER_PASSWORD` alleen in staging als de demo-installateur ook de afgeronde publieke demo-opnames in het dashboard moet kunnen openen. `deploy/activate.sh` draait daarvoor op staging `DemoInstallerSeeder`; zonder wachtwoord wordt geen login aangemaakt. Het demo-dashboard toont alleen demo-opnames van dit demo-account, terwijl normale installateurs demo-opnames verborgen houden.
 
 Zet `DEMO_ENABLED=false` alleen om de knop/route uit te schakelen (bijv. misbruik). Daarna `php artisan config:cache` (of wacht op de volgende deploy-activate). Verlopen demo-intakes worden hourly gepurged (`intakes:purge-demos`). **Let op:** als een bestaande `shared/.env` nog expliciet `DEMO_ENABLED=false` heeft, verwijder die regel of zet `true` — anders blijft de oude waarde leidend.
 

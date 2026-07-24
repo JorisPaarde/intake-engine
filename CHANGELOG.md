@@ -31,6 +31,8 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Fixed
 
+- External OpenAI calls now fail closed behind env-configured daily/monthly budget caps, record returned token/image usage and estimated cents on `ai_runs`, and expose safe runtime/budget status in dev-admin without API keys.
+- Staging can now seed a controlled demo-installer login from `DEMO_INSTALLER_PASSWORD`, and that account sees its own public demo intakes on the dashboard for dossier/review checks. Regular installer dashboards still hide demo intakes; production deploys do not seed the demo login.
 - `IntakeStepBuilder` accepteert een lijst bronnen in `meta.skip_when_prefilled_by`, zodat één vraag uit meerdere registers kan volgen.
 
 

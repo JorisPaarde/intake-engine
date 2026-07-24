@@ -62,6 +62,7 @@ return [
         'enabled' => filter_var(env('DEMO_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
         'ttl_hours' => (int) env('DEMO_TTL_HOURS', 12),
         'user_email' => env('DEMO_USER_EMAIL', 'demo@intake-engine.invalid'),
+        'installer_password' => env('DEMO_INSTALLER_PASSWORD'),
         'throttle_per_hour' => (int) env('DEMO_THROTTLE_PER_HOUR', 5),
 
         /*

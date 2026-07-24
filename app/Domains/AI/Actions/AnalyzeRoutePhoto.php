@@ -86,10 +86,8 @@ final class AnalyzeRoutePhoto
 
             $output = $this->validateOutput($result->output);
 
-            $run->update([
+            $run->update($run->completionResultAttributes($result, $model) + [
                 'status' => AiRunStatus::Succeeded,
-                'provider' => $result->provider,
-                'model' => $result->model ?? $model,
                 'output' => $output,
                 'error_message' => null,
                 'finished_at' => now(),

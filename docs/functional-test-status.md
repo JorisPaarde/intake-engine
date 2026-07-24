@@ -1,12 +1,12 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.27 · **Laatste update:** 2026-07-22 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.30 · **Laatste update:** 2026-07-24 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
 Bijwerken door wie de test daadwerkelijk heeft uitgevoerd: een menselijke tester **of** een testende agent (bijv. een agent die de app via een browser bedient). Niet invullen op basis van alleen implementatie — er moet echt functioneel getest zijn. Implementerende agents voegen alleen nieuwe `todo`-regels toe voor functionaliteit die zij introduceren.
 
-Laatste testsessie: 2026-07-21 (remote; gescheiden staging/production, domeinrouting, TLS, database en storage)
+Laatste testsessie: 2026-07-24 (staging; publieke demo via HTTP/Livewire-driver, inclusief foto-uploads en demo-afronding)
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
@@ -61,10 +61,12 @@ Laatste testsessie: 2026-07-21 (remote; gescheiden staging/production, domeinrou
 | AI-aandachtspunten voorstellen + accept/verwijder (BL-007) | todo | - | Met `AI_PROVIDER=heuristic`: opnamepagina → "AI-aandachtspunten voorstellen" → accepteren (komt in rapport) / verwijderen (blijft weg); `null` = geen voorstellen |
 | Fotokwaliteit-hint klant + label installateur (BL-007) | todo | - | Donkere/kleine foto in klantflow → niet-blokkerende hint, afronden blijft mogelijk; installateursgalerij toont kwaliteitslabel |
 | Externe LLM-provider (BL-006) | todo | - | Alleen ná DPIA + `AI_API_KEY`: `AI_PROVIDER=openai` levert samenvatting/aandachtspunten; controleer dat geen e-mail/telefoon in de payload staat |
+| AI-budgetcap voor externe provider | todo | - | Codegereed: `AI_PROVIDER=openai` faalt vóór provider-call als dag/maandcap ontbreekt of bereikt is; `ai_runs` bewaart tokens/beelden/geschatte centen. Na deploy: zet lage stagingcap, bewijs budget-limited soft-fail en `/dev` runtimeflags zonder key. |
 | Airco v5 meterkastfoto-afleiding (BL-020) | todo | - | Eerst lokaal met `AI_PROVIDER=fake` + flag: meterkastfoto → `free_group_known` staat als foto-inschatting klaar en blijft corrigeerbaar; dossier toont fase/vrije groep, bron `AI-fotoanalyse` en onzekerheid; foto verwijderen wist voorzet/fact. Daarna alleen ná DPIA met fictieve stagingbeelden en multimodaal model: hoge zekerheid, onduidelijk beeld met concrete herhaalinstructie, providerfout soft-fail en geen beeldbytes/data-URL in logs/DB. |
 | Queue-worker (cron) | todo | - | Niet end-to-end bevestigd (geen zichtbaar AI-resultaat) |
-| Demo-login `installateur@example.com` | fail | 2026-07-18 | Credentials matchen niet — `DatabaseSeeder` draait niet bij deploy (alleen IntakeTemplateSeeder) |
-| Publieke demo “Start demo” (BL-001) | todo | - | Na deploy (demo standaard aan): knop op `/` voor gasten, redirect `/o/{token}`, banner (AI aan; e-mail/PDF/dashboard uit), afronden toont AI-voorstel op bedankt-scherm + registratielink. Ingelogd: geen demoknop. Als `shared/.env` nog `DEMO_ENABLED=false` heeft: op `true` of verwijderen + `config:cache`. |
+| Demo-login `installateur@example.com` | fail | 2026-07-18 | Legacy seed-account faalt op staging; niet meer gebruiken als gate voor publieke demo-dossiers. |
+| Demo-installateur dashboard voor publieke demo-opnames | todo | - | Na deploy + privé `DEMO_INSTALLER_PASSWORD`: login als `DEMO_USER_EMAIL`, dashboard toont alleen eigen `is_demo` opnames; open afgeronde demo-opname en controleer dossier/report/review. Codegereed op branch `cursor/mvp-readiness-checks`; staging-smoke nog nodig. |
+| Publieke demo “Start demo” (BL-001) | pass | staging 2026-07-24 | Guest `/` toont **Start demo**; POST redirectt naar `/o/{64}`; demo-banner noemt scope; 38-stappen airco-demo via HTTP/Livewire-driver afgerond met synthetische JPEG-uploads; bedankt-scherm toont AI-voorstel, aandachtspunten, volledige-app beperkingen en registratielink. Niet als browser/mobile-visuele pass tellen; ingelogd verborgen en purge blijven apart te testen. |
 | Demo-intake purge (`intakes:purge-demos`) | todo | - | Scheduler/hourly; expired demo-intakes verdwijnen (incl. uploads) |
 
 ## Legenda
@@ -78,6 +80,14 @@ Laatste testsessie: 2026-07-21 (remote; gescheiden staging/production, domeinrou
 | `n/a` | Niet van toepassing voor deze omgeving |
 
 ## Ruimte voor details
+
+### Sessie 2026-07-24 (staging) — publieke demo BL-001
+
+Scope: publieke **Start demo** vanaf `https://staging.intake-engine.nl/` tot en met demo-afronding. Uitgevoerd door testende agent via HTTP/Livewire-driver omdat de sessie geen browser-automation surface beschikbaar had (`agent.browsers.list()` leeg). Dit is dus geen mobiele visuele/browser-QA.
+
+**Pass:** `/health` gaf `environment=staging`, DB ok, queue `database`, uploadlimieten 512M/512M en Imagick/HEIC-read true. Guest homepage toonde **Start demo** en de demo-scopecopy. De demo-start POST redirectte naar een gegenereerde `/o/{64}` klantlink. De klantwizard renderde de demo-banner en is functioneel doorlopen tot **Bedankt**: verplichte tekst-/keuze-/booleanvragen zijn via Livewire beantwoord, meerdere verplichte fotostappen kregen een synthetische JPEG via de normale Livewire temporary-upload flow, `complete` eindigde met `completed=true`, voortgang 100%, AI-voorstel, voorgestelde aandachtspunten, volledige-app beperkingen en registratielink.
+
+**Niet gedekt:** echte mobiele browserinteractie, camerakeuze/galerijkeuze, visuele layout/overlap, ingelogde gebruiker ziet geen demoknop, demo-purge, installateursdashboard/dossier/review voor deze demo-opname.
 
 ### Sessie 2026-07-20 (lokaal) — BL-027 documentopdracht
 

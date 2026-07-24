@@ -132,10 +132,8 @@ final class DerivePhotoAnswers
 
             $output = $this->validateOutput($result->output, $profile);
 
-            $run->update([
+            $run->update($run->completionResultAttributes($result) + [
                 'status' => AiRunStatus::Succeeded,
-                'provider' => $result->provider,
-                'model' => $result->model,
                 'output' => $output,
                 'error_message' => null,
                 'finished_at' => now(),
