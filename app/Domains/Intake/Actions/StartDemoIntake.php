@@ -6,6 +6,7 @@ namespace App\Domains\Intake\Actions;
 
 use App\Domains\Intake\Models\Intake;
 use App\Models\User;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -61,10 +62,35 @@ final class StartDemoIntake
             ],
         );
 
+        $updates = [];
+
         if ($user->email_verified_at === null) {
-            $user->forceFill(['email_verified_at' => now()])->save();
+            $updates['email_verified_at'] = now();
+        }
+
+        $password = $this->demoInstallerPassword();
+
+        if ($password !== null && ! Hash::check($password, (string) $user->password)) {
+            $updates['password'] = Hash::make($password);
+        }
+
+        if ($updates !== []) {
+            $user->forceFill($updates)->save();
         }
 
         return $user;
+    }
+
+    private function demoInstallerPassword(): ?string
+    {
+        $password = config('intake.demo.installer_password');
+
+        if (! is_string($password)) {
+            return null;
+        }
+
+        $password = trim($password);
+
+        return $password === '' ? null : $password;
     }
 }

@@ -65,10 +65,8 @@ final class SuggestAttentionPoints
             $points = $this->validateOutput($result->output);
             $this->persistProposals($intake, $points);
 
-            $run->update([
+            $run->update($run->completionResultAttributes($result) + [
                 'status' => AiRunStatus::Succeeded,
-                'provider' => $result->provider,
-                'model' => $result->model,
                 'output' => ['points' => $points],
                 'finished_at' => now(),
                 'error_message' => null,

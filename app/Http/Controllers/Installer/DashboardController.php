@@ -15,9 +15,21 @@ class DashboardController extends Controller
     {
         $this->authorize('viewAny', Intake::class);
 
-        $intakes = Intake::query()
-            ->with(['templateVersion.template'])
-            ->where('is_demo', false)
+        $user = $request->user();
+        $showingDemoIntakes = $this->shouldShowDemoIntakes($request);
+
+        $query = Intake::query()
+            ->with(['templateVersion.template']);
+
+        if ($showingDemoIntakes && $user !== null) {
+            $query
+                ->where('is_demo', true)
+                ->where('created_by', $user->id);
+        } else {
+            $query->where('is_demo', false);
+        }
+
+        $intakes = $query
             // "Nieuw afgerond" (completed, nog niet beoordeeld) bovenaan — BL-014.
             ->orderByRaw("CASE WHEN status = 'completed' AND reviewed_at IS NULL THEN 0 ELSE 1 END")
             ->latest()
@@ -25,6 +37,17 @@ class DashboardController extends Controller
 
         return view('installer.dashboard', [
             'intakes' => $intakes,
+            'showingDemoIntakes' => $showingDemoIntakes,
         ]);
+    }
+
+    private function shouldShowDemoIntakes(Request $request): bool
+    {
+        $user = $request->user();
+
+        return $user !== null
+            && ! app()->isProduction()
+            && (bool) config('intake.demo.enabled', true)
+            && $user->email === (string) config('intake.demo.user_email', 'demo@intake-engine.invalid');
     }
 }

@@ -66,8 +66,12 @@ cd "$RELEASE_PATH"
 echo "==> storage:link + migraties + template-reference"
 "$PHP_BIN" artisan storage:link --force
 "$PHP_BIN" artisan migrate --force
-# Alleen idempotente reference-data (airco-template). Geen demo-users/intakes.
+# Alleen idempotente reference-data (airco-template).
 "$PHP_BIN" artisan db:seed --class=IntakeTemplateSeeder --force
+if [ "$EXPECTED_ENV" = "staging" ]; then
+    # Staging krijgt alleen de demo-installateur-login, geen vaste demo-intakes.
+    "$PHP_BIN" artisan db:seed --class=DemoInstallerSeeder --force
+fi
 
 echo "==> Caches verversen"
 "$PHP_BIN" artisan config:cache

@@ -2,11 +2,13 @@
     <x-slot name="header">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                Digitale opnames
+                {{ $showingDemoIntakes ? 'Digitale demo-opnames' : 'Digitale opnames' }}
             </h2>
-            <a href="{{ route('intakes.create') }}" class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-gray-700 focus:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
-                Nieuwe opname
-            </a>
+            @unless ($showingDemoIntakes)
+                <a href="{{ route('intakes.create') }}" class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-gray-700 focus:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
+                    Nieuwe opname
+                </a>
+            @endunless
         </div>
     </x-slot>
 
@@ -15,6 +17,12 @@
             @if (session('status'))
                 <div class="mb-4 rounded-md bg-green-50 px-4 py-3 text-sm text-green-800">
                     {{ session('status') }}
+                </div>
+            @endif
+
+            @if ($showingDemoIntakes)
+                <div class="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    Demo-overzicht: je ziet hier alleen tijdelijke publieke demo-opnames van dit demo-account.
                 </div>
             @endif
 
@@ -46,6 +54,11 @@
                                                 Nieuw afgerond
                                             </span>
                                         @endif
+                                        @if ($intake->is_demo)
+                                            <span class="ml-2 inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-900">
+                                                Demo
+                                            </span>
+                                        @endif
                                     </td>
                                     <td class="px-4 py-3 text-gray-600">{{ $intake->customer_email }}</td>
                                     <td class="px-4 py-3 text-gray-600">{{ $intake->templateVersion?->template?->name ?? '—' }}</td>
@@ -70,7 +83,7 @@
                             @empty
                                 <tr>
                                     <td colspan="8" class="px-4 py-10 text-center text-gray-500">
-                                        Nog geen opnames. Maak de eerste aan.
+                                        {{ $showingDemoIntakes ? 'Nog geen demo-opnames. Start eerst de publieke demo vanaf de homepage.' : 'Nog geen opnames. Maak de eerste aan.' }}
                                     </td>
                                 </tr>
                             @endforelse

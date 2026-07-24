@@ -59,6 +59,11 @@
                     </summary>
                     <div class="space-y-2 border-t border-gray-100 px-4 py-3 text-xs text-gray-600">
                         <div>prompt-versie: {{ $run->prompt_version ?? '—' }} · input-hash: <code>{{ \Illuminate\Support\Str::limit((string) $run->input_hash, 16, '…') }}</code></div>
+                        <div>
+                            tokens: input {{ $run->input_tokens ?? '—' }} · output {{ $run->output_tokens ?? '—' }} · totaal {{ $run->total_tokens ?? '—' }}
+                            · beelden: {{ $run->image_count }}
+                            · geschatte kosten: {{ $run->estimated_cost_cents !== null ? $run->estimated_cost_cents.' cent' : '—' }}
+                        </div>
                         <div>gestart: {{ $run->started_at }} · klaar: {{ $run->finished_at ?? '—' }}</div>
                         @if ($run->error_message)
                             <div class="rounded bg-red-50 p-2 text-red-700">{{ $run->error_message }}</div>

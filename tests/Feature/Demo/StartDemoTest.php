@@ -14,11 +14,13 @@ use App\Domains\Intake\Services\CompletenessChecker;
 use App\Enums\IntakeStatus;
 use App\Enums\QuestionType;
 use App\Models\User;
+use Database\Seeders\DemoInstallerSeeder;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 
@@ -54,6 +56,53 @@ it('starts a demo intake and redirects to the customer link', function () {
     $response->assertRedirect(route('customer.intake.show', ['token' => $intake->access_token]));
 
     expect(User::query()->where('email', 'demo@intake-engine.test')->exists())->toBeTrue();
+});
+
+it('sets a configured demo installer password when starting a demo', function () {
+    config([
+        'intake.demo.enabled' => true,
+        'intake.demo.user_email' => 'demo@intake-engine.test',
+        'intake.demo.installer_password' => 'secret-demo-password',
+    ]);
+
+    $this->post(route('demo.start'));
+
+    $demoUser = User::query()->where('email', 'demo@intake-engine.test')->firstOrFail();
+
+    expect(Hash::check('secret-demo-password', $demoUser->password))->toBeTrue();
+
+    $this->post(route('login'), [
+        'email' => 'demo@intake-engine.test',
+        'password' => 'secret-demo-password',
+    ])->assertRedirect(route('dashboard', absolute: false));
+});
+
+it('seeds the configured demo installer login', function () {
+    config([
+        'intake.demo.enabled' => true,
+        'intake.demo.user_email' => 'demo@intake-engine.test',
+        'intake.demo.installer_password' => 'secret-demo-password',
+    ]);
+
+    $this->seed(DemoInstallerSeeder::class);
+
+    $demoUser = User::query()->where('email', 'demo@intake-engine.test')->firstOrFail();
+
+    expect($demoUser->name)->toBe('Demo Installateur')
+        ->and($demoUser->email_verified_at)->not->toBeNull()
+        ->and(Hash::check('secret-demo-password', $demoUser->password))->toBeTrue();
+});
+
+it('does not seed a demo installer login without a configured password', function () {
+    config([
+        'intake.demo.enabled' => true,
+        'intake.demo.user_email' => 'demo@intake-engine.test',
+        'intake.demo.installer_password' => null,
+    ]);
+
+    $this->seed(DemoInstallerSeeder::class);
+
+    expect(User::query()->where('email', 'demo@intake-engine.test')->exists())->toBeFalse();
 });
 
 it('shows the start demo button on the homepage when enabled', function () {
@@ -128,19 +177,48 @@ it('hides the start demo button when demo mode is disabled', function () {
         ->assertDontSee('Start demo', false);
 });
 
-it('hides demo intakes from the installer dashboard', function () {
+it('hides demo intakes from a regular installer dashboard', function () {
     config(['intake.demo.enabled' => true]);
 
     $this->post(route('demo.start'));
 
-    $demoUser = User::query()->where('email', config('intake.demo.user_email'))->firstOrFail();
     $demoIntake = Intake::query()->where('is_demo', true)->firstOrFail();
+    $regularInstaller = User::factory()->create();
 
-    $this->actingAs($demoUser)
+    $this->actingAs($regularInstaller)
         ->get(route('dashboard'))
         ->assertOk()
         ->assertDontSee($demoIntake->customer_name)
         ->assertDontSee($demoIntake->customer_email);
+});
+
+it('shows the demo installers own demo intakes on the dashboard', function () {
+    config([
+        'intake.demo.enabled' => true,
+        'intake.demo.user_email' => 'demo@intake-engine.test',
+        'intake.demo.installer_password' => 'secret-demo-password',
+    ]);
+
+    $this->post(route('demo.start'));
+
+    $demoUser = User::query()->where('email', 'demo@intake-engine.test')->firstOrFail();
+    $demoIntake = Intake::query()->where('is_demo', true)->firstOrFail();
+
+    $demoIntake->forceFill([
+        'status' => IntakeStatus::Completed,
+        'completed_at' => now(),
+        'progress_percent' => 100,
+    ])->save();
+
+    $this->actingAs($demoUser)
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertSee('Digitale demo-opnames')
+        ->assertSee('Demo-overzicht')
+        ->assertSee($demoIntake->customer_name)
+        ->assertSee($demoIntake->customer_email)
+        ->assertSee('Demo')
+        ->assertSee('Openen');
 });
 
 it('purges expired demo intakes and keeps active ones', function () {

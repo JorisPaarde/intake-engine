@@ -58,10 +58,8 @@ final class SummarizeIntake
 
             $validated = $this->validateOutput($result->output);
 
-            $run->update([
+            $run->update($run->completionResultAttributes($result) + [
                 'status' => AiRunStatus::Succeeded,
-                'provider' => $result->provider,
-                'model' => $result->model,
                 'output' => $validated,
                 'finished_at' => now(),
                 'error_message' => null,

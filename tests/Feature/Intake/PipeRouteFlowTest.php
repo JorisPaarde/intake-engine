@@ -9,7 +9,6 @@ use App\Domains\Intake\Actions\ApprovePipeRoute;
 use App\Domains\Intake\Actions\StartPipeRouteSession;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeUpload;
-use App\Domains\Intake\Models\PipeRouteSession;
 use App\Enums\AiRunType;
 use App\Enums\PipeRouteStatus;
 use App\Models\User;
@@ -23,6 +22,8 @@ beforeEach(function () {
         'ai.api_key' => 'test-key',
         'ai.route.enabled' => true,
         'ai.route.escalate_below_confidence' => 0.7,
+        'ai.budget.daily_cents' => 1000,
+        'ai.budget.monthly_cents' => 10000,
     ]);
 });
 
@@ -57,6 +58,7 @@ function fakeOpenAi(array $content, string $model = 'gpt-5.6-terra'): void
     Http::fake([
         '*' => Http::response([
             'model' => $model,
+            'usage' => ['prompt_tokens' => 100, 'completion_tokens' => 40, 'total_tokens' => 140],
             'choices' => [['message' => ['content' => json_encode($content)]]],
         ]),
     ]);
@@ -83,7 +85,11 @@ test('adding a photo analyses it with the terra model and stores the result on t
         ->and($segment->analysis['visible_elements'])->toContain('bestaande muurdoorvoer');
 
     $run = AiRun::query()->where('type', AiRunType::RouteAnalysis)->firstOrFail();
-    expect($run->status->value)->toBe('succeeded');
+    expect($run->status->value)->toBe('succeeded')
+        ->and($run->input_tokens)->toBe(100)
+        ->and($run->output_tokens)->toBe(40)
+        ->and($run->total_tokens)->toBe(140)
+        ->and($run->estimated_cost_cents)->toBe(1);
 
     Http::assertSent(fn ($request) => $request['model'] === 'gpt-5.6-terra');
 

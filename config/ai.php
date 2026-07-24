@@ -29,6 +29,28 @@ return [
 
     'timeout_seconds' => (int) env('AI_TIMEOUT_SECONDS', 20),
 
+    /*
+    |--------------------------------------------------------------------------
+    | External AI budget guard
+    |--------------------------------------------------------------------------
+    |
+    | Applies only to paid external provider calls (`AI_PROVIDER=openai`). Enforcement
+    | is fail-closed by default: if OpenAI is active but no daily/monthly cap is set,
+    | the provider call soft-fails before spending. Costs are estimated from returned
+    | token usage plus optional image/run reservations; keep rates conservative.
+    |
+    */
+
+    'budget' => [
+        'enforced' => filter_var(env('AI_BUDGET_ENFORCED', true), FILTER_VALIDATE_BOOLEAN),
+        'daily_cents' => env('AI_BUDGET_DAILY_CENTS'),
+        'monthly_cents' => env('AI_BUDGET_MONTHLY_CENTS'),
+        'reserve_cents_per_call' => (int) env('AI_BUDGET_RESERVE_CENTS_PER_CALL', 1),
+        'input_cents_per_1k_tokens' => (float) env('AI_BUDGET_INPUT_CENTS_PER_1K_TOKENS', 0),
+        'output_cents_per_1k_tokens' => (float) env('AI_BUDGET_OUTPUT_CENTS_PER_1K_TOKENS', 0),
+        'image_cents_per_image' => (float) env('AI_BUDGET_IMAGE_CENTS_PER_IMAGE', 0),
+    ],
+
     'photo_inference' => [
         'enabled' => (bool) env('AI_PHOTO_INFERENCE_ENABLED', false),
         'max_images' => (int) env('AI_PHOTO_INFERENCE_MAX_IMAGES', 2),
