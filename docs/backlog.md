@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 3.38 · **Laatste update:** 2026-07-22 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.39 · **Laatste update:** 2026-07-24 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -31,7 +31,7 @@ Items in **verschillende parallel-bands** kunnen tegelijk door aparte agents/men
 | **A** | Afronden (lopend) | BL-001 | D–I (staging-config/smoke; weinig codeconflict) |
 | **D** | Infra (extern) | — (BL-011 done) | — |
 | **F** | Open data / adres | — (BL-019 done) | — |
-| **H** | AI-keten | — (BL-006/007/020 done) | — |
+| **H** | AI-keten | BL-029, BL-030 (BL-006/007/020 done) | Met A/I; BL-030 raakt uploadpipeline (afstemmen met BL-013) |
 | **I** | Beheer / schaal | BL-013 (BL-012 later; BL-010 done) | Met A–H zolang geen gedeelde storagewijziging botst |
 | **J** | Klantwizard-verbeteringen | — (BL-021–BL-025 done) | — |
 | **K** | Installateursweergave | — (BL-024 done) | — |
@@ -42,8 +42,8 @@ Afgeronde bands (niet meer te plannen): **B** = BL-016 (prefill), **C** = BL-008
 
 **Concrete parallel-startsets:**
 
-1. **Nu parallel uitvoerbaar:** BL-001 afronden; SMTP/PDOK op staging aanzetten voor smoketests (BL-004/014/015/019/027).
-2. **Na DPIA parallel activeren:** externe AI + foto-inferentie via staging-env en smoketest; geen resterend code-item.
+1. **Nu parallel uitvoerbaar:** BL-001 afronden; BL-030 (dossier+AI-beeldvarianten) naast/vóór zware route-vision; SMTP/PDOK op staging voor smoketests (BL-004/014/015/019/027).
+2. **Na DPIA parallel activeren:** externe AI + foto-inferentie + route-analyse via staging-env en smoketest.
 3. **Laag-prioriteit parallel:** BL-013 · (BL-012 bij tweede klant).
 
 ## Overzicht
@@ -54,8 +54,9 @@ Geprioriteerd op het hoofddoel (herprioritering 2026-07-18): hoeveel handelingen
 |---|----|------|------|--------|------------|------|
 | 1 | BL-001 | Demo-versie van de app | E5 | in_progress | medium | A |
 | 2 | BL-029 | Begeleide leidingroute (foto-voor-foto + routesynthese) | E4 | in_progress | high | H · parallel |
-| 3 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low | I · later |
-| 3 | BL-013 | S3 als mediadisk | E5 | backlog | low | I · parallel |
+| 3 | BL-030 | Foto-varianten: dossier + AI-analyse (JPEG, tokens/storage) | E4 | ready | high | H · parallel |
+| 4 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low | I · later |
+| 5 | BL-013 | S3 als mediadisk | E5 | backlog | low | I · parallel |
 | — | BL-028 | Dev-admin: staging-inzage in dienststatus en opname-data | E5 | done | medium | I (done) |
 | — | BL-020 | Foto-gedreven afleiding en adaptieve vervolgvragen | E4 | done | medium | H (done) |
 | — | BL-019 | Afleiden uit adres en openbare bronnen (luchtfoto, BAG) | E3 | done | medium | F (done) |
@@ -344,6 +345,26 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 - **Waarom:** de installateur wil weten of de foto's genoeg laten zien over waar stroom beschikbaar is en waar de verbinding tussen binnen- en buitenunit kan komen. De oude `pipe_route_assessment` classificeert alleen een route en vervangt vragen; dat beantwoordt de verkeerde vraag. Zie ADR-0009.
 - **Opgeleverd (backend-slice):** `pipe_route_sessions`/`pipe_route_segments` + `PipeRouteStatus`; prompts `route_photo_analysis` (per foto) en `route_synthesis` (route uit segmenten) met float-confidence; acties `StartPipeRouteSession`, `AddPipeRoutePhoto` (→ `AnalyzeRoutePhoto`), `SynthesizePipeRoute` (Terra met Sol-escalatie), `ApprovePipeRoute`; modeltiering via `config('ai.route.*')` los van het globale `ai.model`, met per-call model-override in de AI-laag; gated op `AI_ROUTE_ANALYSIS_ENABLED`. Pest-tests met `Http::fake`.
 - **Nog te doen:** klant-wizard-UI (markeer binnenunit-positie → beoordeling → steeds één vervolgfoto-lus), installateur-goedkeuringsweergave (voorgestelde/alternatieve route, onzekerheden, ontbrekende controles), koppeling in de intake-flow, en DPIA-activering (`AI_ROUTE_ANALYSIS_ENABLED` + provider/key) vóór echte klantdata. Functionele staging-test: zie `docs/functional-test-status.md`.
+- **Afhankelijk / parallel:** BL-030 verlaagt vision-tokens en storage voor route- en overige foto-AI; bij voorkeur BL-030 landt vóór of samen met productieve route-vision.
+
+### BL-030 — Foto-varianten: dossier + AI-analyse (JPEG, tokens/storage)
+
+- **Status:** ready · **Prioriteit:** high · **Epic:** E4 · **Band:** H (parallel) · **Ref:** `docs/uploads.md`, `docs/ai.md`, ADR-0009
+- **Doel:** per upload geen telefoon-posterresolutie op disk; wel genoeg dossierkwaliteit én een aparte, kleinere AI-kopie. Bespaart storage én vision-tokens (~86% op beeldtokens t.o.v. 4k-phone) zonder dossiermateriaal te verliezen.
+- **Beslissing (vast):**
+
+  | Variant | Lange zijde | Formaat | Kwaliteit | Gebruik |
+  |---------|-------------|---------|-----------|---------|
+  | **Dossier** | **2048 px** | JPEG | **82** | Preview, galerij, HTML/PDF, installateur-zoom |
+  | **AI-analyse** | **1536 px** | JPEG | **80** | Alleen vision-calls (Terra e.d.) |
+
+  Beide: auto-orient, EXIF/metadata strippen, HEIC/PNG/WebP → JPEG. Uploadlimiet blijft gelden op het binnenkomende bestand vóór conversie. WebP als opslagformaat bewust niet (JPEG = minder foutgevoelig voor Imagick/Dompdf/OpenAI). Uitgewerkt implementatieplan: [`docs/plans/bl-030-dossier-ai-image-variants.md`](plans/bl-030-dossier-ai-image-variants.md).
+- **Scope AI:** alle vision-paden via gedeelde `AiImageResolver` — `AnalyzeRoutePhoto`, `SynthesizePipeRoute`-escalatie (Sol alleen relevante analysekopieën), `AssessFuseboxPhotos`, `DerivePhotoAnswers`. Lokale `AssessPhotoUsability` gebruikt de dossiervariant.
+- **Datamodel:** `intake_uploads.analysis_path` (+ mime/size/checksum); `path` blijft dossier. `HardDeleteIntake` verwijdert beide bestanden.
+- **Config:** `INTAKE_DOSSIER_MAX_LONG_EDGE` / `INTAKE_DOSSIER_JPEG_QUALITY` / `INTAKE_ANALYSIS_MAX_LONG_EDGE` / `INTAKE_ANALYSIS_JPEG_QUALITY` (defaults 2048/82/1536/80); vervangt oude `max_long_edge` / `heic_to_jpeg_quality`.
+- **Uitvolgorde:** (1) config + migratie + normalizer twee JPEG’s · (2) Store/FollowUp + HardDelete + tests · (3) `AiImageResolver` + vision-actions · (4) docs/CHANGELOG · (5) latere slice: bij onleesbaar detail één crop/hogere-res van die foto, nooit alle originelen opnieuw.
+- **Niet in scope:** client-side resize; backfill-job (lazy op eerste AI-gebruik of dossier-fallback); UI behalve dat previews op 2048 i.p.v. 4k kunnen ogen.
+- **Waarom (hoofddoel):** multi-foto route-analyse (BL-029) en overige vision moeten betaalbaar en privacyvriendelijker (geen EXIF) blijven zonder dat de installateur detail in het dossier verliest.
 
 ### BL-028 — Dev-admin: staging-inzage in dienststatus en opname-data
 
