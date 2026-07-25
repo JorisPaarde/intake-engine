@@ -1,6 +1,6 @@
 # Databaseschema — Digitale Opname
 
-> **Documentversie:** 1.12 · **Laatste update:** 2026-07-24 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.13 · **Laatste update:** 2026-07-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **geïmplementeerd**. Basisschema via `2026_07_17_120000_create_intake_engine_tables`; externe feiten via `2026_07_20_140000_create_intake_external_facts_table` (BL-019, ADR-0007); gerichte vervolgrondes via `2026_07_20_150000_create_intake_follow_up_tables` (BL-027).
 
@@ -8,7 +8,7 @@ Status: **geïmplementeerd**. Basisschema via `2026_07_17_120000_create_intake_e
 
 1. **Template ≠ uitvoering.** Definities (templateversies, secties, vragen) zijn los van antwoorden van een concrete opname.
 2. **Immutabele gepubliceerde versies.** Een intake pin’t een `intake_template_version_id`. Afronden wijzigt die versie nooit.
-3. **Geen multi-company in MVP.** Eén installatiebedrijf per installatie. Geen `companies`-tabel tot multi-tenancy echt nodig is.
+3. **Bedrijf als tenantgrens.** Users, intakes, media en branding zijn via `company_id` geïsoleerd (ADR-0010).
 4. **Privacy.** Persoonsgegevens, foto’s en documenten zitten in `intakes`, `intake_answers`, `intake_uploads`. Soft delete + expliciete purge-actie voor dossierverwijdering.
 5. **JSON alleen waar zinvol.** Antwoordwaarden, validatieregels, compleetheidsnapshots. Geen volledige template-JSON als primaire bron — relationeel blijft leidend.
 6. **Automatische feiten houden hun herkomst.** Externe gegevens staan los van klantantwoorden en bewaren bron, referentie, zekerheid en ophaaltijdstip (ADR-0007).
@@ -31,9 +31,13 @@ NL-labels (concept / verstuurd / …) horen in UI/resources, niet als DB-waarden
 
 ## Tabellen
 
+### `companies`
+
+Tenantbron met UUID/slug, bedrijfsnaam, private logo-metadata en gecontroleerde primaire-, accent- en contrastkleur. Logo's staan op `MEDIA_DISK` onder `companies/{uuid}/branding/`.
+
 ### `users` (bestaand)
 
-Installateuraccounts. Geen rollenstructuur in MVP.
+Installateuraccounts met verplichte FK `company_id`; meerdere users kunnen bij hetzelfde bedrijf horen.
 
 Privacy: `name`, `email`, `password` (hashed).
 

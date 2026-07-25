@@ -25,7 +25,7 @@ final class MetricsController extends Controller
             : now()->subDays((int) $period)->startOfDay();
 
         return view('installer.metrics', [
-            'metrics' => $metricsService->calculate($createdSince),
+            'metrics' => $metricsService->calculate($createdSince, $request->user()?->company),
             'period' => $period,
         ]);
     }

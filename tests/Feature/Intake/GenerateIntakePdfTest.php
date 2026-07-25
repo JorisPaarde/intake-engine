@@ -170,7 +170,7 @@ test('generate intake pdf stores a downloadable file from HTML report', function
             ->exists()
     )->toBeTrue();
 
-    $user = User::factory()->create();
+    $user = User::factory()->create(['company_id' => $intake->company_id]);
 
     $this->actingAs($user)
         ->get(route('intakes.pdf', $intake))
@@ -185,7 +185,7 @@ test('installer can queue pdf regeneration from the show page', function () {
     fillPdfIntake($intake);
     app(CompleteIntake::class)->handle($intake->fresh());
 
-    $user = User::factory()->create();
+    $user = User::factory()->create(['company_id' => $intake->company_id]);
 
     $this->actingAs($user)
         ->post(route('intakes.pdf.regenerate', $intake))

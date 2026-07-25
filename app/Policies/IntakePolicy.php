@@ -16,7 +16,7 @@ class IntakePolicy
 
     public function view(User $user, Intake $intake): bool
     {
-        return true;
+        return $this->sameCompany($user, $intake);
     }
 
     public function create(User $user): bool
@@ -26,16 +26,21 @@ class IntakePolicy
 
     public function update(User $user, Intake $intake): bool
     {
-        return true;
+        return $this->sameCompany($user, $intake);
     }
 
     public function revoke(User $user, Intake $intake): bool
     {
-        return true;
+        return $this->sameCompany($user, $intake);
     }
 
     public function review(User $user, Intake $intake): bool
     {
-        return true;
+        return $this->sameCompany($user, $intake);
+    }
+
+    private function sameCompany(User $user, Intake $intake): bool
+    {
+        return (int) $user->company_id === (int) $intake->company_id;
     }
 }

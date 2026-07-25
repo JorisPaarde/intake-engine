@@ -1,12 +1,20 @@
-<nav x-data="{ open: false }" class="bg-white border-b border-gray-100">
+@php
+    $navCompany = Auth::user()?->company;
+@endphp
+<nav x-data="{ open: false }" class="border-b border-[#D2D2D7] bg-white">
     <!-- Primary Navigation Menu -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between h-16">
+        <div class="flex min-h-16 justify-between">
             <div class="flex">
                 <!-- Logo -->
-                <div class="shrink-0 flex items-center">
-                    <a href="{{ route('dashboard') }}">
-                        <x-application-logo class="block h-9 w-auto fill-current text-gray-800" />
+                <div class="flex shrink-0 items-center">
+                    <a href="{{ route('dashboard') }}" class="flex min-h-11 items-center gap-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--tenant-primary)] focus:ring-offset-2">
+                        @if ($navCompany?->hasLogo())
+                            <img src="{{ route('company.logo.show', $navCompany) }}" alt="{{ $navCompany->name }}" class="h-9 w-9 rounded-lg border border-[#D2D2D7] object-contain">
+                        @else
+                            <x-application-logo class="block h-9 w-9 text-[var(--tenant-primary)]" />
+                        @endif
+                        <span class="hidden max-w-48 truncate text-sm font-semibold text-[#1D1D1F] lg:block">{{ $navCompany?->name ?? config('app.name') }}</span>
                     </a>
                 </div>
 
@@ -20,6 +28,9 @@
                     </x-nav-link>
                     <x-nav-link :href="route('metrics')" :active="request()->routeIs('metrics')">
                         {{ __('Resultaten') }}
+                    </x-nav-link>
+                    <x-nav-link :href="route('company.settings.edit')" :active="request()->routeIs('company.settings.*')">
+                        {{ __('Bedrijf') }}
                     </x-nav-link>
                     @if (config('devadmin.enabled'))
                         <a href="{{ route('dev.dashboard') }}"
@@ -38,7 +49,7 @@
             <div class="hidden sm:flex sm:items-center sm:ms-6">
                 <x-dropdown align="right" width="48">
                     <x-slot name="trigger">
-                        <button class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-500 bg-white hover:text-gray-700 focus:outline-none transition ease-in-out duration-150">
+                        <button class="inline-flex min-h-11 items-center rounded-xl border border-transparent bg-white px-3 py-2 text-sm font-medium leading-4 text-[#424245] transition hover:text-[#1D1D1F] focus:outline-none focus:ring-2 focus:ring-[var(--tenant-primary)] focus:ring-offset-2">
                             <div>{{ Auth::user()->name }}</div>
 
                             <div class="ms-1">
@@ -51,7 +62,7 @@
 
                     <x-slot name="content">
                         <x-dropdown-link :href="route('profile.edit')">
-                            {{ __('Profile') }}
+                            {{ __('Profiel') }}
                         </x-dropdown-link>
 
                         <!-- Authentication -->
@@ -61,7 +72,7 @@
                             <x-dropdown-link :href="route('logout')"
                                     onclick="event.preventDefault();
                                                 this.closest('form').submit();">
-                                {{ __('Log Out') }}
+                                {{ __('Uitloggen') }}
                             </x-dropdown-link>
                         </form>
                     </x-slot>
@@ -70,7 +81,7 @@
 
             <!-- Hamburger -->
             <div class="-me-2 flex items-center sm:hidden">
-                <button @click="open = ! open" class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 focus:text-gray-500 transition duration-150 ease-in-out">
+                <button @click="open = ! open" class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl p-2 text-[#424245] transition hover:bg-[#F5F5F7] hover:text-[#1D1D1F] focus:outline-none focus:ring-2 focus:ring-[var(--tenant-primary)] focus:ring-offset-2">
                     <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
                         <path :class="{'hidden': open, 'inline-flex': ! open }" class="inline-flex" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
                         <path :class="{'hidden': ! open, 'inline-flex': open }" class="hidden" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -92,6 +103,9 @@
             <x-responsive-nav-link :href="route('metrics')" :active="request()->routeIs('metrics')">
                 {{ __('Resultaten') }}
             </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('company.settings.edit')" :active="request()->routeIs('company.settings.*')">
+                {{ __('Bedrijf') }}
+            </x-responsive-nav-link>
             @if (config('devadmin.enabled'))
                 <x-responsive-nav-link :href="route('dev.dashboard')" :active="request()->routeIs('dev.*')">
                     {{ __('Dev-admin') }}
@@ -102,13 +116,13 @@
         <!-- Responsive Settings Options -->
         <div class="pt-4 pb-1 border-t border-gray-200">
             <div class="px-4">
-                <div class="font-medium text-base text-gray-800">{{ Auth::user()->name }}</div>
-                <div class="font-medium text-sm text-gray-500">{{ Auth::user()->email }}</div>
+                <div class="text-base font-medium text-[#1D1D1F]">{{ Auth::user()->name }}</div>
+                <div class="text-sm font-medium text-[#6E6E73]">{{ Auth::user()->email }}</div>
             </div>
 
             <div class="mt-3 space-y-1">
                 <x-responsive-nav-link :href="route('profile.edit')">
-                    {{ __('Profile') }}
+                    {{ __('Profiel') }}
                 </x-responsive-nav-link>
 
                 <!-- Authentication -->
@@ -118,7 +132,7 @@
                     <x-responsive-nav-link :href="route('logout')"
                             onclick="event.preventDefault();
                                         this.closest('form').submit();">
-                        {{ __('Log Out') }}
+                        {{ __('Uitloggen') }}
                     </x-responsive-nav-link>
                 </form>
             </div>

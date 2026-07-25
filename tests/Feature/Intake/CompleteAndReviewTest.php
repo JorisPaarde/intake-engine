@@ -234,7 +234,7 @@ test('installer can submit a review decision', function () {
     fillIntakeUntilComplete($intake);
     app(CompleteIntake::class)->handle($intake->fresh());
 
-    $reviewer = User::factory()->create();
+    $reviewer = User::factory()->create(['company_id' => $intake->company_id]);
 
     $this->actingAs($reviewer)
         ->post(route('intakes.review', $intake), [
@@ -266,7 +266,7 @@ test('installer can submit a review decision', function () {
 
 test('submit review action rejects non-completed intakes', function () {
     $intake = makePhase5Intake();
-    $reviewer = User::factory()->create();
+    $reviewer = User::factory()->create(['company_id' => $intake->company_id]);
 
     expect(fn () => app(SubmitIntakeReview::class)->handle($intake, $reviewer, [
         'decision' => ReviewDecision::PrepareQuote,
@@ -280,7 +280,7 @@ test('need more information creates a targeted customer round and sends the exis
     $intake = makePhase5Intake();
     fillIntakeUntilComplete($intake);
     app(CompleteIntake::class)->handle($intake->fresh());
-    $reviewer = User::factory()->create();
+    $reviewer = User::factory()->create(['company_id' => $intake->company_id]);
 
     $this->actingAs($reviewer)
         ->post(route('intakes.review', $intake), [
@@ -326,7 +326,7 @@ test('customer completes text and photo follow up and dossier returns for review
     $intake = makePhase5Intake();
     fillIntakeUntilComplete($intake);
     app(CompleteIntake::class)->handle($intake->fresh());
-    $reviewer = User::factory()->create();
+    $reviewer = User::factory()->create(['company_id' => $intake->company_id]);
 
     app(SubmitIntakeReview::class)->handle($intake->fresh(), $reviewer, [
         'decision' => ReviewDecision::NeedMoreInfo,
@@ -392,7 +392,7 @@ test('customer can add a requested PDF document to the protected dossier', funct
     $intake = makePhase5Intake();
     fillIntakeUntilComplete($intake);
     app(CompleteIntake::class)->handle($intake->fresh());
-    $reviewer = User::factory()->create();
+    $reviewer = User::factory()->create(['company_id' => $intake->company_id]);
 
     app(SubmitIntakeReview::class)->handle($intake->fresh(), $reviewer, [
         'decision' => ReviewDecision::NeedMoreInfo,
@@ -467,7 +467,7 @@ test('follow up photo quality hint repeats the installers exact photo request', 
     fillIntakeUntilComplete($intake);
     app(CompleteIntake::class)->handle($intake->fresh());
 
-    app(SubmitIntakeReview::class)->handle($intake->fresh(), User::factory()->create(), [
+    app(SubmitIntakeReview::class)->handle($intake->fresh(), User::factory()->create(['company_id' => $intake->company_id]), [
         'decision' => ReviewDecision::NeedMoreInfo,
         'follow_up_items' => [[
             'type' => FollowUpItemType::Photo,
@@ -494,7 +494,7 @@ test('need more information requires concrete items and caps follow up rounds', 
     $intake = makePhase5Intake();
     fillIntakeUntilComplete($intake);
     app(CompleteIntake::class)->handle($intake->fresh());
-    $reviewer = User::factory()->create();
+    $reviewer = User::factory()->create(['company_id' => $intake->company_id]);
 
     $this->actingAs($reviewer)
         ->post(route('intakes.review', $intake), [
@@ -540,7 +540,7 @@ test('expired token cannot open an active follow up round', function () {
     $intake = makePhase5Intake();
     fillIntakeUntilComplete($intake);
     app(CompleteIntake::class)->handle($intake->fresh());
-    $reviewer = User::factory()->create();
+    $reviewer = User::factory()->create(['company_id' => $intake->company_id]);
 
     app(SubmitIntakeReview::class)->handle($intake->fresh(), $reviewer, [
         'decision' => ReviewDecision::NeedMoreInfo,

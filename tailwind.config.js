@@ -12,18 +12,18 @@ export default {
     theme: {
         extend: {
             fontFamily: {
-                sans: ['"DM Sans"', 'Figtree', ...defaultTheme.fontFamily.sans],
-                display: ['"Fraunces"', 'Georgia', 'serif'],
+                sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', '"SF Pro Display"', ...defaultTheme.fontFamily.sans],
+                display: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', ...defaultTheme.fontFamily.sans],
             },
             colors: {
                 brand: {
-                    ink: '#0f1c24',
-                    mist: '#e8eef2',
-                    fog: '#c5d4de',
-                    sea: '#1a6b7a',
-                    deep: '#0d3d47',
-                    sand: '#f2ebe3',
-                    ember: '#c45c26',
+                    ink: '#1D1D1F',
+                    mist: '#F5F5F7',
+                    fog: '#D2D2D7',
+                    sea: '#0071E3',
+                    deep: '#1D1D1F',
+                    sand: '#F5F5F7',
+                    ember: '#B42318',
                 },
             },
         },

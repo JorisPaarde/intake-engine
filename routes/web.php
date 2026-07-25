@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\CompanyLogoController;
 use App\Http\Controllers\Customer\IntakeUploadController as CustomerIntakeUploadController;
 use App\Http\Controllers\Demo\StartDemoController;
 use App\Http\Controllers\Dev\DevActivityController;
@@ -11,6 +12,7 @@ use App\Http\Controllers\Dev\DevHealthController;
 use App\Http\Controllers\Dev\DevIntakeController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\Installer\AddressSuggestionController;
+use App\Http\Controllers\Installer\CompanySettingsController;
 use App\Http\Controllers\Installer\DashboardController;
 use App\Http\Controllers\Installer\IntakeController;
 use App\Http\Controllers\Installer\IntakeUploadController as InstallerIntakeUploadController;
@@ -33,6 +35,8 @@ Route::middleware(['customer.intake', 'throttle:customer-intake'])
     ->where(['token' => '[A-Za-z0-9]{64}'])
     ->group(function () {
         Route::get('/o/{token}', IntakeWizard::class)->name('customer.intake.show');
+        Route::get('/o/{token}/company-logo', [CompanyLogoController::class, 'customer'])
+            ->name('customer.company-logo.show');
         Route::get('/o/{token}/uploads/{upload}', [CustomerIntakeUploadController::class, 'show'])
             ->name('customer.uploads.show');
     });
@@ -40,6 +44,9 @@ Route::middleware(['customer.intake', 'throttle:customer-intake'])
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
     Route::get('/metrics', MetricsController::class)->name('metrics');
+    Route::get('/settings/company', [CompanySettingsController::class, 'edit'])->name('company.settings.edit');
+    Route::patch('/settings/company', [CompanySettingsController::class, 'update'])->name('company.settings.update');
+    Route::get('/companies/{company}/logo', [CompanyLogoController::class, 'installer'])->name('company.logo.show');
 
     Route::get('/address-suggestions', AddressSuggestionController::class)
         ->middleware('throttle:60,1')

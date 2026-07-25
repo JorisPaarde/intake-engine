@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domains\Intake\Actions;
 
 use App\Domains\Intake\Models\Intake;
+use App\Models\Company;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -56,6 +57,9 @@ final class StartDemoIntake
         $user = User::query()->firstOrCreate(
             ['email' => $email],
             [
+                'company_id' => Company::query()->create([
+                    'name' => 'Demo Installateur',
+                ])->id,
                 'name' => 'Demo Installateur',
                 'password' => Str::password(32),
                 'email_verified_at' => now(),
