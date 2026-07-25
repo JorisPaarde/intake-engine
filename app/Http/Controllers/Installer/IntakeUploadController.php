@@ -14,11 +14,11 @@ class IntakeUploadController extends Controller
 {
     public function show(Intake $intake, IntakeUpload $upload): StreamedResponse
     {
+        $this->authorize('view', $intake);
+
         if ($upload->intake_id !== $intake->id) {
             abort(404);
         }
-
-        $this->authorize('view', $intake);
 
         $disk = Storage::disk($upload->disk);
 

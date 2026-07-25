@@ -153,6 +153,7 @@ class IntakeWizard extends Component
         }
 
         $this->intakeId = $intake->id;
+        $this->resolvedIntake = $intake->loadMissing(['answers', 'uploads']);
 
         if ($intake->status === IntakeStatus::AwaitingCustomer) {
             $round = $intake->followUpRounds()
@@ -182,6 +183,14 @@ class IntakeWizard extends Component
         $this->clampStepIndex($steps);
         $this->syncActiveStepKey($steps);
         $this->applyPrefillForActiveStep();
+    }
+
+    public function hydrate(): void
+    {
+        $intake = app(ResolveIntakeByAccessToken::class)->handle($this->token);
+        abort_unless($intake->id === $this->intakeId, 404);
+
+        $this->resolvedIntake = $intake->loadMissing(['answers', 'uploads']);
     }
 
     public function render(): View

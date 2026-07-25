@@ -98,7 +98,10 @@ test('metrics service calculates the product funnel per intake and in aggregate'
         'is_demo' => true,
     ]);
 
-    $metrics = app(IntakeMetricsService::class)->calculate(Carbon::parse('2026-06-20 00:00:00'));
+    $metrics = app(IntakeMetricsService::class)->calculate(
+        $user->company()->firstOrFail(),
+        Carbon::parse('2026-06-20 00:00:00'),
+    );
 
     expect($metrics['summary'])
         ->created_count->toBe(4)
@@ -172,7 +175,7 @@ test('direct enough information uses the first review instead of the overwritten
     ]);
     createReview($intake, $user, true, '2026-07-20 08:00:00');
 
-    $metrics = app(IntakeMetricsService::class)->calculate();
+    $metrics = app(IntakeMetricsService::class)->calculate($user->company()->firstOrFail());
     $row = collect($metrics['intakes'])->firstWhere('id', $intake->id);
 
     expect($row)

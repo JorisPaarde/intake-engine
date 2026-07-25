@@ -10,100 +10,110 @@ use Illuminate\Support\Str;
 
 return new class extends Migration
 {
+    /** @var bool */
+    public $withinTransaction = false;
+
     public function up(): void
     {
-        Schema::create('companies', function (Blueprint $table): void {
-            $table->id();
-            $table->uuid('uuid')->unique();
-            $table->string('slug')->unique();
-            $table->string('name');
-            $table->string('logo_disk')->nullable();
-            $table->string('logo_path')->nullable();
-            $table->string('logo_original_filename')->nullable();
-            $table->string('logo_mime_type')->nullable();
-            $table->unsignedBigInteger('logo_size_bytes')->nullable();
-            $table->string('primary_color', 7)->default('#0071E3');
-            $table->string('accent_color', 7)->default('#005EC0');
-            $table->string('on_primary_color', 7)->default('#FFFFFF');
-            $table->timestamps();
-        });
+        Schema::disableForeignKeyConstraints();
 
-        Schema::table('users', function (Blueprint $table): void {
-            $table->foreignId('company_id')
-                ->nullable()
-                ->after('id')
-                ->constrained()
-                ->restrictOnDelete();
-        });
+        try {
+            Schema::create('companies', function (Blueprint $table): void {
+                $table->id();
+                $table->uuid('uuid')->unique();
+                $table->string('slug')->unique();
+                $table->string('name');
+                $table->string('logo_disk')->nullable();
+                $table->string('logo_path')->nullable();
+                $table->string('logo_original_filename')->nullable();
+                $table->string('logo_mime_type')->nullable();
+                $table->unsignedBigInteger('logo_size_bytes')->nullable();
+                $table->string('primary_color', 7)->default('#0071E3');
+                $table->string('accent_color', 7)->default('#005EC0');
+                $table->string('on_primary_color', 7)->default('#FFFFFF');
+                $table->timestamps();
+            });
 
-        Schema::table('intakes', function (Blueprint $table): void {
-            $table->foreignId('company_id')
-                ->nullable()
-                ->after('intake_template_version_id')
-                ->constrained()
-                ->restrictOnDelete();
-            $table->index(['company_id', 'status', 'created_at']);
-        });
+            Schema::table('users', function (Blueprint $table): void {
+                $table->foreignId('company_id')
+                    ->nullable()
+                    ->after('id')
+                    ->constrained()
+                    ->restrictOnDelete();
+            });
 
-        $now = now();
+            Schema::table('intakes', function (Blueprint $table): void {
+                $table->foreignId('company_id')
+                    ->nullable()
+                    ->after('intake_template_version_id')
+                    ->constrained()
+                    ->restrictOnDelete();
+                $table->index(['company_id', 'status', 'created_at']);
+            });
 
-        foreach (DB::table('users')->orderBy('id')->get(['id', 'name', 'email']) as $user) {
-            $baseSlug = Str::slug((string) ($user->name ?: Str::before((string) $user->email, '@')));
-            $slug = $this->uniqueSlug($baseSlug !== '' ? $baseSlug : 'bedrijf', (int) $user->id);
+            $now = now();
 
-            $companyId = DB::table('companies')->insertGetId([
-                'uuid' => (string) Str::uuid(),
-                'slug' => $slug,
-                'name' => (string) ($user->name ?: 'Installatiebedrijf'),
-                'primary_color' => '#0071E3',
-                'accent_color' => '#005EC0',
-                'on_primary_color' => '#FFFFFF',
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]);
+            if (DB::table('users')->exists()) {
+                $legacyCompanyId = DB::table('companies')->insertGetId([
+                    'uuid' => (string) Str::uuid(),
+                    'slug' => 'bestaand-installatiebedrijf',
+                    'name' => 'Installatiebedrijf',
+                    'primary_color' => '#0071E3',
+                    'accent_color' => '#005EC0',
+                    'on_primary_color' => '#FFFFFF',
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
 
-            DB::table('users')
-                ->where('id', $user->id)
-                ->update(['company_id' => $companyId, 'updated_at' => $now]);
+                DB::table('users')->update([
+                    'company_id' => $legacyCompanyId,
+                    'updated_at' => $now,
+                ]);
+
+                DB::table('intakes')->update([
+                    'company_id' => $legacyCompanyId,
+                    'updated_at' => $now,
+                ]);
+            }
+
+            if (DB::table('users')->whereNull('company_id')->exists()
+                || DB::table('intakes')->whereNull('company_id')->exists()) {
+                throw new RuntimeException('Company backfill is incomplete; refusing to enforce NOT NULL.');
+            }
+
+            Schema::table('users', function (Blueprint $table): void {
+                $table->foreignId('company_id')->nullable(false)->change();
+            });
+
+            Schema::table('intakes', function (Blueprint $table): void {
+                $table->foreignId('company_id')->nullable(false)->change();
+            });
+        } finally {
+            Schema::enableForeignKeyConstraints();
         }
-
-        foreach (DB::table('intakes')->orderBy('id')->get(['id', 'created_by']) as $intake) {
-            $companyId = DB::table('users')
-                ->where('id', $intake->created_by)
-                ->value('company_id');
-
-            DB::table('intakes')
-                ->where('id', $intake->id)
-                ->update(['company_id' => $companyId, 'updated_at' => $now]);
-        }
-
-        Schema::table('users', function (Blueprint $table): void {
-            $table->foreignId('company_id')->nullable(false)->change();
-        });
-
-        Schema::table('intakes', function (Blueprint $table): void {
-            $table->foreignId('company_id')->nullable(false)->change();
-        });
     }
 
     public function down(): void
     {
-        Schema::table('intakes', function (Blueprint $table): void {
-            $table->dropIndex(['company_id', 'status', 'created_at']);
-            $table->dropConstrainedForeignId('company_id');
-        });
+        Schema::disableForeignKeyConstraints();
 
-        Schema::table('users', function (Blueprint $table): void {
-            $table->dropConstrainedForeignId('company_id');
-        });
+        try {
+            Schema::table('intakes', function (Blueprint $table): void {
+                $table->dropForeign(['company_id']);
+            });
 
-        Schema::dropIfExists('companies');
-    }
+            Schema::table('intakes', function (Blueprint $table): void {
+                $table->dropIndex(['company_id', 'status', 'created_at']);
+                $table->dropColumn('company_id');
+            });
 
-    private function uniqueSlug(string $baseSlug, int $userId): string
-    {
-        $slug = Str::limit($baseSlug, 72, '').'-'.$userId;
+            Schema::table('users', function (Blueprint $table): void {
+                $table->dropConstrainedForeignId('company_id');
+            });
 
-        return Str::limit($slug, 96, '');
+            Schema::dropIfExists('companies');
+        } finally {
+            Schema::enableForeignKeyConstraints();
+        }
     }
 };

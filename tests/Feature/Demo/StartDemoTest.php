@@ -16,6 +16,7 @@ use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
 use App\Enums\IntakeStatus;
 use App\Enums\QuestionType;
+use App\Models\Company;
 use App\Models\User;
 use Database\Seeders\DemoInstallerSeeder;
 use Database\Seeders\IntakeTemplateSeeder;
@@ -59,6 +60,22 @@ it('starts a demo intake and redirects to the customer link', function () {
     $response->assertRedirect(route('customer.intake.show', ['token' => $intake->access_token]));
 
     expect(User::query()->where('email', 'demo@intake-engine.test')->exists())->toBeTrue();
+});
+
+it('reuses one demo company across repeated demo starts', function () {
+    config([
+        'intake.demo.enabled' => true,
+        'intake.demo.user_email' => 'demo@intake-engine.test',
+    ]);
+
+    $this->post(route('demo.start'))->assertRedirect();
+    $this->post(route('demo.start'))->assertRedirect();
+
+    $demoUser = User::query()->where('email', 'demo@intake-engine.test')->firstOrFail();
+
+    expect(Company::query()->where('slug', 'publieke-demo-installateur')->count())->toBe(1)
+        ->and(Company::query()->count())->toBe(1)
+        ->and($demoUser->company?->slug)->toBe('publieke-demo-installateur');
 });
 
 it('sets a configured demo installer password when starting a demo', function () {

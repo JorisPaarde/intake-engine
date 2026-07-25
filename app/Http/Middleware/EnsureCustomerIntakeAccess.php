@@ -23,6 +23,7 @@ final class EnsureCustomerIntakeAccess
         $token = (string) $request->route('token');
 
         $intake = $this->resolveIntakeByAccessToken->handle($token);
+        $intake->loadMissing('company');
 
         $request->attributes->set('customer_intake', $intake);
 

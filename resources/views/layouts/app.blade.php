@@ -12,11 +12,7 @@
     </head>
     @php
         $company = Auth::user()?->company;
-        $tokens = $company?->themeTokens() ?? [
-            'primary' => \App\Models\Company::DEFAULT_PRIMARY,
-            'accent' => \App\Models\Company::DEFAULT_ACCENT,
-            'on_primary' => \App\Models\Company::DEFAULT_ON_PRIMARY,
-        ];
+        $tokens = $company?->themeTokens() ?? \App\Models\Company::defaultThemeTokens();
     @endphp
     <body class="font-sans antialiased text-[#1D1D1F]" style="--tenant-primary: {{ $tokens['primary'] }}; --tenant-accent: {{ $tokens['accent'] }}; --tenant-on-primary: {{ $tokens['on_primary'] }};">
         <div class="min-h-screen bg-[#F5F5F7]">

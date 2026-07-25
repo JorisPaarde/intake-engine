@@ -63,6 +63,15 @@ test('invalid or revoked customer token is refused', function () {
         ->assertNotFound();
 });
 
+test('an open Livewire session stops when its customer token is revoked', function () {
+    $intake = makeAccessibleIntake();
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+
+    $intake->update(['token_revoked_at' => now()]);
+
+    $component->call('next')->assertStatus(404);
+});
+
 test('token for a different intake does not expose another dossier', function () {
     $first = makeAccessibleIntake();
     $second = makeAccessibleIntake();

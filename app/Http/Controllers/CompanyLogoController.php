@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Domains\Intake\Models\Intake;
 use App\Models\Company;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -13,18 +14,19 @@ final class CompanyLogoController extends Controller
 {
     public function installer(Request $request, Company $company): StreamedResponse
     {
-        abort_unless((int) $request->user()?->company_id === (int) $company->id, 403);
+        $companyId = $request->user()?->company_id;
+        abort_unless($companyId !== null && (int) $companyId === (int) $company->id, 403);
 
         return $this->stream($company);
     }
 
-    public function customer(Request $request, string $token): StreamedResponse
+    public function customer(Request $request): StreamedResponse
     {
         $intake = $request->attributes->get('customer_intake');
-        abort_unless(is_object($intake) && method_exists($intake, 'company'), 404);
+        abort_unless($intake instanceof Intake, 404);
 
-        /** @var Company $company */
-        $company = $intake->company()->firstOrFail();
+        $company = $intake->company;
+        abort_unless($company instanceof Company, 404);
 
         return $this->stream($company);
     }

@@ -21,14 +21,3 @@
         outline-offset: 2px;
     }
 }
-
-@layer components {
-    .tenant-action {
-        background-color: var(--tenant-primary, #0071E3);
-        color: var(--tenant-on-primary, #FFFFFF);
-    }
-
-    .tenant-action:hover {
-        background-color: var(--tenant-accent, #005EC0);
-    }
-}

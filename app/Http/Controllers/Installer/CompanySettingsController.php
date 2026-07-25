@@ -13,7 +13,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Throwable;
 
 final class CompanySettingsController extends Controller
 {
@@ -51,39 +54,71 @@ final class CompanySettingsController extends Controller
             $tokens = $colorExtractor->tokensFromHex($validated['primary_color']);
         }
 
-        DB::transaction(function () use ($company, $validated, $logoFile, $logoMeta, $tokens): void {
-            $oldDisk = $company->logo_disk;
-            $oldPath = $company->logo_path;
-            $newPath = null;
+        $newDisk = null;
+        $newPath = null;
 
-            if ($logoFile !== null) {
-                $disk = (string) config('filesystems.media', 'local');
-                $newPath = 'companies/'.$company->uuid.'/branding/logo.'.$logoMeta['extension'];
-                Storage::disk($disk)->put($newPath, File::get($logoFile->getRealPath() ?: $logoFile->getPathname()));
+        if ($logoFile !== null) {
+            $newDisk = (string) config('filesystems.media', 'local');
+            $newPath = 'companies/'.$company->uuid.'/branding/'.Str::uuid().'.'.$logoMeta['extension'];
+            $stored = Storage::disk($newDisk)->put(
+                $newPath,
+                File::get($logoFile->getRealPath() ?: $logoFile->getPathname()),
+            );
 
-                $company->forceFill([
-                    'logo_disk' => $disk,
-                    'logo_path' => $newPath,
-                    'logo_original_filename' => $logoFile->getClientOriginalName(),
-                    'logo_mime_type' => $logoMeta['mime'],
-                    'logo_size_bytes' => $logoMeta['size'],
+            if (! $stored) {
+                throw ValidationException::withMessages([
+                    'logo' => 'Het logo kon niet veilig worden opgeslagen. Probeer het opnieuw.',
                 ]);
             }
 
-            $company->name = (string) $validated['name'];
+        }
 
-            if ($tokens !== null) {
-                $company->primary_color = $tokens['primary'];
-                $company->accent_color = $tokens['accent'];
-                $company->on_primary_color = $tokens['on_primary'];
+        try {
+            [$oldDisk, $oldPath] = DB::transaction(function () use (
+                $company,
+                $validated,
+                $logoFile,
+                $logoMeta,
+                $tokens,
+                $newDisk,
+                $newPath,
+            ): array {
+                $lockedCompany = Company::query()->lockForUpdate()->findOrFail($company->id);
+                $oldLogo = [$lockedCompany->logo_disk, $lockedCompany->logo_path];
+
+                if ($logoFile !== null) {
+                    $lockedCompany->forceFill([
+                        'logo_disk' => $newDisk,
+                        'logo_path' => $newPath,
+                        'logo_original_filename' => $logoFile->getClientOriginalName(),
+                        'logo_mime_type' => $logoMeta['mime'],
+                        'logo_size_bytes' => $logoMeta['size'],
+                    ]);
+                }
+
+                $lockedCompany->name = (string) $validated['name'];
+
+                if ($tokens !== null) {
+                    $lockedCompany->primary_color = $tokens['primary'];
+                    $lockedCompany->accent_color = $tokens['accent'];
+                    $lockedCompany->on_primary_color = $tokens['on_primary'];
+                }
+
+                $lockedCompany->save();
+
+                return $oldLogo;
+            });
+        } catch (Throwable $exception) {
+            if ($newDisk !== null) {
+                Storage::disk($newDisk)->delete($newPath);
             }
 
-            $company->save();
+            throw $exception;
+        }
 
-            if ($newPath !== null && is_string($oldDisk) && is_string($oldPath) && $oldPath !== $newPath) {
-                Storage::disk($oldDisk)->delete($oldPath);
-            }
-        });
+        if ($newPath !== null && is_string($oldDisk) && is_string($oldPath)) {
+            Storage::disk($oldDisk)->delete($oldPath);
+        }
 
         return redirect()
             ->route('company.settings.edit')

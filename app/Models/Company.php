@@ -44,12 +44,8 @@ class Company extends Model
             }
 
             if (! isset($company->attributes['slug']) || $company->slug === '') {
-                $company->slug = static::uniqueSlug((string) $company->name);
+                $company->slug = self::generateSlug((string) $company->name, (string) $company->uuid);
             }
-
-            $company->primary_color = static::normalizeHex($company->primary_color) ?? self::DEFAULT_PRIMARY;
-            $company->accent_color = static::normalizeHex($company->accent_color) ?? self::DEFAULT_ACCENT;
-            $company->on_primary_color = static::normalizeHex($company->on_primary_color) ?? self::DEFAULT_ON_PRIMARY;
         });
 
         static::saving(function (Company $company): void {
@@ -96,6 +92,20 @@ class Company extends Model
         ];
     }
 
+    /**
+     * Canonical fallback for requests without a resolved tenant.
+     *
+     * @return array{primary: string, accent: string, on_primary: string}
+     */
+    public static function defaultThemeTokens(): array
+    {
+        return [
+            'primary' => self::DEFAULT_PRIMARY,
+            'accent' => self::DEFAULT_ACCENT,
+            'on_primary' => self::DEFAULT_ON_PRIMARY,
+        ];
+    }
+
     public static function normalizeHex(?string $hex): ?string
     {
         if (! is_string($hex)) {
@@ -107,18 +117,11 @@ class Company extends Model
         return preg_match('/^#[0-9A-F]{6}$/', $hex) === 1 ? $hex : null;
     }
 
-    public static function uniqueSlug(string $name): string
+    private static function generateSlug(string $name, string $uuid): string
     {
         $base = Str::slug($name);
-        $base = $base === '' ? 'bedrijf' : Str::limit($base, 72, '');
-        $slug = $base;
-        $counter = 2;
+        $base = $base !== '' ? $base : 'bedrijf';
 
-        while (static::query()->where('slug', $slug)->exists()) {
-            $slug = Str::limit($base, 72, '').'-'.$counter;
-            $counter++;
-        }
-
-        return $slug;
+        return Str::limit($base, 59, '').'-'.$uuid;
     }
 }

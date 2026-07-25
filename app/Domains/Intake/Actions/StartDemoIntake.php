@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace App\Domains\Intake\Actions;
 
 use App\Domains\Intake\Models\Intake;
-use App\Models\Company;
+use App\Domains\Intake\Services\DemoInstallerProvisioner;
 use App\Models\User;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -16,6 +15,7 @@ final class StartDemoIntake
     public function __construct(
         private readonly CreateIntake $createIntake,
         private readonly EnrichIntakeAddress $enrichIntakeAddress,
+        private readonly DemoInstallerProvisioner $demoInstallerProvisioner,
     ) {}
 
     public function handle(): Intake
@@ -52,49 +52,8 @@ final class StartDemoIntake
 
     private function resolveDemoUser(): User
     {
-        $email = (string) config('intake.demo.user_email', 'demo@intake-engine.invalid');
-
-        $user = User::query()->firstOrCreate(
-            ['email' => $email],
-            [
-                'company_id' => Company::query()->create([
-                    'name' => 'Demo Installateur',
-                ])->id,
-                'name' => 'Demo Installateur',
-                'password' => Str::password(32),
-                'email_verified_at' => now(),
-            ],
+        return $this->demoInstallerProvisioner->provision(
+            $this->demoInstallerProvisioner->configuredPassword(),
         );
-
-        $updates = [];
-
-        if ($user->email_verified_at === null) {
-            $updates['email_verified_at'] = now();
-        }
-
-        $password = $this->demoInstallerPassword();
-
-        if ($password !== null && ! Hash::check($password, (string) $user->password)) {
-            $updates['password'] = Hash::make($password);
-        }
-
-        if ($updates !== []) {
-            $user->forceFill($updates)->save();
-        }
-
-        return $user;
-    }
-
-    private function demoInstallerPassword(): ?string
-    {
-        $password = config('intake.demo.installer_password');
-
-        if (! is_string($password)) {
-            return null;
-        }
-
-        $password = trim($password);
-
-        return $password === '' ? null : $password;
     }
 }

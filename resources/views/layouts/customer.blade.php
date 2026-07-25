@@ -14,13 +14,9 @@
     @php
         $customerIntake = request()->attributes->get('customer_intake');
         $customerCompany = $customerIntake instanceof \App\Domains\Intake\Models\Intake
-            ? $customerIntake->company()->first()
+            ? $customerIntake->company
             : null;
-        $tokens = $customerCompany?->themeTokens() ?? [
-            'primary' => \App\Models\Company::DEFAULT_PRIMARY,
-            'accent' => \App\Models\Company::DEFAULT_ACCENT,
-            'on_primary' => \App\Models\Company::DEFAULT_ON_PRIMARY,
-        ];
+        $tokens = $customerCompany?->themeTokens() ?? \App\Models\Company::defaultThemeTokens();
     @endphp
     <body class="min-h-[100svh] bg-[#F5F5F7] font-sans text-[#1D1D1F] antialiased" style="--tenant-primary: {{ $tokens['primary'] }}; --tenant-accent: {{ $tokens['accent'] }}; --tenant-on-primary: {{ $tokens['on_primary'] }};">
         {{ $slot }}

@@ -1,6 +1,6 @@
 # Architectuurkeuzes
 
-> **Documentversie:** 1.2 · **Laatste update:** 2026-07-18 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.3 · **Laatste update:** 2026-07-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 ## Uitgangspunt: engine, geen airco-app
 
@@ -34,7 +34,7 @@ Per domein:
 
 `app/Http` blijft dun (controllers, form requests, middleware, Livewire als UI-adapter). `app/Support` voor domeinloze helpers.
 
-Geplande domeinen: `Intake`, `Photos`, `Reports`, `Users`, `AI` (leeg tot Fase 6), `Chat` (alleen indien conversatie-UI nodig — MVP gebruikt stappenflow, geen chatbot).
+Actieve domeinen: `Intake`, `AI` en `Branding`. Voeg pas een nieuw domein toe wanneer meerdere use-cases een eigen begrippen- en servicelaag nodig hebben.
 
 ## Request- en datastromen
 
@@ -56,7 +56,7 @@ Templatebeheer (seed/artisan)
 
 Server-rendered Blade. Livewire voor interactieve klantstappen en uploads (Fase 3–4). Alpine voor kleine client-gedragingen. Geen Inertia/SPA.
 
-Bestaande Breeze-componenten hergebruiken; geen nieuw designsysteem.
+Bestaande Breeze-componenten vormen één solide, tenantgestuurd designsysteem: systeemtypografie, neutrale oppervlakken en CSS-variabelen uit `Company::themeTokens()`. Geen Liquid Glass, blur of translucency (ADR-0010).
 
 ## Queues
 
@@ -68,9 +68,17 @@ Media via `config('filesystems.media')` → env `MEDIA_DISK`. Default **private 
 
 ## Autorisatie
 
-- Installateur: `auth` + policies
-- Klant: token-middleware, scope = één intake
-- Geen multi-tenancy in MVP (ADR-0006)
+- Installateur: `auth` + policies; iedere query en mutatie is begrensd door `company_id`.
+- Klant: token-middleware, scope = één intake; bedrijf en branding worden uitsluitend via die intake geladen.
+- `companies` is de tenantbron (ADR-0010, vervangt ADR-0006).
+
+### Tenantinvarianten voor implementerende agents
+
+1. Een installateursservice die tenantdata leest, ontvangt een verplichte `Company`; `null` mag nooit “alle bedrijven” betekenen.
+2. Route-modelbinding is geen autorisatie. Gebruik een policy of een autoriserende FormRequest vóór iedere mutatie of private download.
+3. Customer-routes gebruiken alleen het door `EnsureCustomerIntakeAccess` geplaatste `customer_intake`; zoek geen bedrijf op uit een los requestveld.
+4. Private mediapaden worden nooit direct gepubliceerd. Logo's en intakebestanden lopen via geautoriseerde/tokengebonden controllers.
+5. Nieuwe tenantgebonden paden krijgen minimaal een positieve test voor een collega binnen hetzelfde bedrijf en een negatieve cross-company test.
 
 ## AI
 
@@ -94,7 +102,7 @@ Build in GitHub Actions, rsync release, `deploy/activate.sh` (migrate, cache, at
 
 1. **cPanel** — cron-queue i.p.v. Supervisor; gedeelde PHP-limieten (uploads! zie BL-003 in `docs/backlog.md`).
 2. **Token plaintext in DB** — hertoonbare link vs. hash-only (ADR-0002).
-3. **Geen companies-tabel** — sneller MVP; later tenant-scope toevoegen (BL-012).
+3. **Expliciete companies-tabel** — iets meer query- en testdiscipline, maar een harde grens voor data, media en branding (ADR-0010).
 4. **HTML-rapport eerst** — PDF is een afgeleid async artefact (BL-005 done; Dompdf).
 
 ## Gerelateerde documentatie
