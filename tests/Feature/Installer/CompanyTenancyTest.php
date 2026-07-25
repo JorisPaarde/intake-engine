@@ -78,6 +78,9 @@ test('installer actions reject intakes outside the users company', function () {
 
     $this->actingAs($user)->get(route('intakes.show', $foreign))->assertForbidden();
     $this->actingAs($user)->post(route('intakes.revoke', $foreign))->assertForbidden();
+    $this->actingAs($user)->post(route('intakes.review', $foreign), [
+        'decision' => 'prepare_quote',
+    ])->assertForbidden();
     $this->actingAs($user)->get(route('installer.uploads.show', [$foreign, $upload]))->assertForbidden();
     $this->actingAs($user)->get(route('intakes.report', $foreign))->assertForbidden();
 });

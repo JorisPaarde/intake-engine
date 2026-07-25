@@ -1,13 +1,8 @@
 @php
     $company = $intake->company;
-    $theme = $company?->themeTokens() ?? [
-        'primary' => \App\Models\Company::DEFAULT_PRIMARY,
-        'accent' => \App\Models\Company::DEFAULT_ACCENT,
-        'on_primary' => \App\Models\Company::DEFAULT_ON_PRIMARY,
-    ];
 @endphp
 
-<div class="mx-auto flex min-h-[100svh] max-w-lg flex-col px-4 pb-8 pt-4 sm:px-6" style="--tenant-primary: {{ $theme['primary'] }}; --tenant-accent: {{ $theme['accent'] }}; --tenant-on-primary: {{ $theme['on_primary'] }};">
+<div class="mx-auto flex min-h-[100svh] max-w-lg flex-col px-4 pb-8 pt-4 sm:px-6">
     @if ($intake->is_demo && ! $completed)
         <x-demo-scope-notice variant="banner" />
     @endif

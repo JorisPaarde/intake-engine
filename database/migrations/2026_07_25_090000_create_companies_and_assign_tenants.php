@@ -47,34 +47,46 @@ return new class extends Migration
 
         $now = now();
 
-        foreach (DB::table('users')->orderBy('id')->get(['id', 'name', 'email']) as $user) {
-            $baseSlug = Str::slug((string) ($user->name ?: Str::before((string) $user->email, '@')));
-            $slug = $this->uniqueSlug($baseSlug !== '' ? $baseSlug : 'bedrijf', (int) $user->id);
+        DB::table('users')->orderBy('id')->chunkById(250, function ($users) use ($now): void {
+            foreach ($users as $user) {
+                $baseSlug = Str::slug((string) ($user->name ?: Str::before((string) $user->email, '@')));
+                $slug = $this->uniqueSlug($baseSlug !== '' ? $baseSlug : 'bedrijf', (int) $user->id);
 
-            $companyId = DB::table('companies')->insertGetId([
-                'uuid' => (string) Str::uuid(),
-                'slug' => $slug,
-                'name' => (string) ($user->name ?: 'Installatiebedrijf'),
-                'primary_color' => '#0071E3',
-                'accent_color' => '#005EC0',
-                'on_primary_color' => '#FFFFFF',
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]);
+                $companyId = DB::table('companies')->insertGetId([
+                    'uuid' => (string) Str::uuid(),
+                    'slug' => $slug,
+                    'name' => (string) ($user->name ?: 'Installatiebedrijf'),
+                    'primary_color' => '#0071E3',
+                    'accent_color' => '#005EC0',
+                    'on_primary_color' => '#FFFFFF',
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
 
-            DB::table('users')
-                ->where('id', $user->id)
-                ->update(['company_id' => $companyId, 'updated_at' => $now]);
-        }
+                DB::table('users')
+                    ->where('id', $user->id)
+                    ->update(['company_id' => $companyId, 'updated_at' => $now]);
+            }
+        }, 'id');
 
-        foreach (DB::table('intakes')->orderBy('id')->get(['id', 'created_by']) as $intake) {
-            $companyId = DB::table('users')
-                ->where('id', $intake->created_by)
-                ->value('company_id');
+        DB::table('intakes')->orderBy('id')->chunkById(500, function ($intakes) use ($now): void {
+            $companyIds = DB::table('users')
+                ->whereIn('id', $intakes->pluck('created_by')->unique()->all())
+                ->pluck('company_id', 'id');
 
-            DB::table('intakes')
-                ->where('id', $intake->id)
-                ->update(['company_id' => $companyId, 'updated_at' => $now]);
+            foreach ($intakes as $intake) {
+                DB::table('intakes')
+                    ->where('id', $intake->id)
+                    ->update([
+                        'company_id' => $companyIds->get($intake->created_by),
+                        'updated_at' => $now,
+                    ]);
+            }
+        }, 'id');
+
+        if (DB::table('users')->whereNull('company_id')->exists()
+            || DB::table('intakes')->whereNull('company_id')->exists()) {
+            throw new RuntimeException('Company backfill is incomplete; refusing to enforce NOT NULL.');
         }
 
         Schema::table('users', function (Blueprint $table): void {
@@ -89,8 +101,12 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('intakes', function (Blueprint $table): void {
+            $table->dropForeign(['company_id']);
+        });
+
+        Schema::table('intakes', function (Blueprint $table): void {
             $table->dropIndex(['company_id', 'status', 'created_at']);
-            $table->dropConstrainedForeignId('company_id');
+            $table->dropColumn('company_id');
         });
 
         Schema::table('users', function (Blueprint $table): void {

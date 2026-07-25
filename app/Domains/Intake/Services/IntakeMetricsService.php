@@ -60,11 +60,11 @@ final class IntakeMetricsService
      *     dropoffs: list<array{key: string, label: string, count: int}>
      * }
      */
-    public function calculate(?DateTimeInterface $createdSince = null, ?Company $company = null): array
+    public function calculate(Company $company, ?DateTimeInterface $createdSince = null): array
     {
         $intakes = Intake::query()
             ->where('is_demo', false)
-            ->when($company !== null, fn ($query) => $query->where('company_id', $company->id))
+            ->where('company_id', $company->id)
             ->when($createdSince !== null, fn ($query) => $query->where('created_at', '>=', $createdSince))
             ->with([
                 'answers:id,intake_id,question_key,prefill_source',

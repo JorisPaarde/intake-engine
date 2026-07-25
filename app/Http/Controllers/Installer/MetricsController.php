@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Installer;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Services\IntakeMetricsService;
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -23,9 +24,11 @@ final class MetricsController extends Controller
         $createdSince = $period === 'all'
             ? null
             : now()->subDays((int) $period)->startOfDay();
+        $user = $request->user();
+        abort_unless($user instanceof User, 403);
 
         return view('installer.metrics', [
-            'metrics' => $metricsService->calculate($createdSince, $request->user()?->company),
+            'metrics' => $metricsService->calculate($user->company()->firstOrFail(), $createdSince),
             'period' => $period,
         ]);
     }

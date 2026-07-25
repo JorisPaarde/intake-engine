@@ -37,10 +37,10 @@ final class CompanyLogoColorExtractor
                     $red = ($rgba >> 16) & 0xFF;
                     $green = ($rgba >> 8) & 0xFF;
                     $blue = $rgba & 0xFF;
-                    $hsl = $this->rgbToHsl($red, $green, $blue);
+                    $saturation = $this->saturation($red, $green, $blue);
                     $luminance = $this->relativeLuminance($red, $green, $blue);
 
-                    if ($hsl['s'] < 0.16 || $luminance > 0.88 || $luminance < 0.025) {
+                    if ($saturation < 0.16 || $luminance > 0.88 || $luminance < 0.025) {
                         continue;
                     }
 
@@ -57,7 +57,7 @@ final class CompanyLogoColorExtractor
                     $buckets[$key]['red'] += $red;
                     $buckets[$key]['green'] += $green;
                     $buckets[$key]['blue'] += $blue;
-                    $buckets[$key]['saturation'] += $hsl['s'];
+                    $buckets[$key]['saturation'] += $saturation;
                     $buckets[$key]['luminance'] += $luminance;
                 }
             }
@@ -146,17 +146,10 @@ final class CompanyLogoColorExtractor
      */
     private function fallback(): array
     {
-        return [
-            'primary' => Company::DEFAULT_PRIMARY,
-            'accent' => Company::DEFAULT_ACCENT,
-            'on_primary' => Company::DEFAULT_ON_PRIMARY,
-        ];
+        return Company::defaultThemeTokens();
     }
 
-    /**
-     * @return array{h: float, s: float, l: float}
-     */
-    private function rgbToHsl(int $red, int $green, int $blue): array
+    private function saturation(int $red, int $green, int $blue): float
     {
         $r = $red / 255;
         $g = $green / 255;
@@ -166,21 +159,14 @@ final class CompanyLogoColorExtractor
         $lightness = ($max + $min) / 2;
 
         if ($max === $min) {
-            return ['h' => 0.0, 's' => 0.0, 'l' => $lightness];
+            return 0.0;
         }
 
         $delta = $max - $min;
-        $saturation = $lightness > 0.5
+
+        return $lightness > 0.5
             ? $delta / (2 - $max - $min)
             : $delta / ($max + $min);
-
-        $hue = match ($max) {
-            $r => (($g - $b) / $delta) + ($g < $b ? 6 : 0),
-            $g => (($b - $r) / $delta) + 2,
-            default => (($r - $g) / $delta) + 4,
-        };
-
-        return ['h' => $hue / 6, 's' => $saturation, 'l' => $lightness];
     }
 
     private function contrastRatio(int $r1, int $g1, int $b1, int $r2, int $g2, int $b2): float

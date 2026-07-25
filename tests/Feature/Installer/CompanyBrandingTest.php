@@ -7,7 +7,9 @@ use App\Domains\Intake\Models\IntakeTemplate;
 use App\Models\Company;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
@@ -67,6 +69,56 @@ test('company logo validation rejects excessive pixel dimensions before decoding
         ->assertSessionHasErrors('logo');
 
     @unlink($path);
+});
+
+test('failed company update removes the newly stored logo and preserves the old logo', function () {
+    $company = Company::factory()->withLogo('old-logo')->create();
+    $user = User::factory()->for($company)->create();
+    Storage::disk('local')->put($company->logo_path, 'old-logo');
+    $event = 'eloquent.saving: '.Company::class;
+    Event::listen($event, static fn () => throw new RuntimeException('database update failed'));
+    $failed = false;
+
+    try {
+        $this->withoutExceptionHandling()
+            ->actingAs($user)
+            ->patch(route('company.settings.update'), [
+                'name' => 'Nieuwe naam',
+                'primary_color' => '',
+                'logo' => UploadedFile::fake()->image('replacement.png', 120, 120),
+            ]);
+    } catch (RuntimeException) {
+        $failed = true;
+    } finally {
+        Event::forget($event);
+    }
+
+    expect($failed)->toBeTrue()
+        ->and(Storage::disk('local')->get($company->logo_path))->toBe('old-logo')
+        ->and(Storage::disk('local')->allFiles('companies/'.$company->uuid.'/branding'))->toHaveCount(1);
+});
+
+test('failed logo storage leaves company metadata unchanged and reports a validation error', function () {
+    $company = Company::factory()->create();
+    $user = User::factory()->for($company)->create();
+    $logo = UploadedFile::fake()->image('logo.png', 120, 120);
+    $disk = Mockery::mock(FilesystemAdapter::class);
+    $disk->shouldReceive('put')->once()->andReturnFalse();
+    Storage::shouldReceive('disk')->with('local')->once()->andReturn($disk);
+
+    $this->actingAs($user)
+        ->from(route('company.settings.edit'))
+        ->patch(route('company.settings.update'), [
+            'name' => 'Ongewijzigd Bedrijf',
+            'logo' => $logo,
+        ])
+        ->assertRedirect(route('company.settings.edit'))
+        ->assertSessionHasErrors('logo');
+
+    $company->refresh();
+
+    expect($company->logo_path)->toBeNull()
+        ->and($company->name)->not->toBe('Ongewijzigd Bedrijf');
 });
 
 test('installer logo route only serves the authenticated users company logo', function () {
