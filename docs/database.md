@@ -1,6 +1,6 @@
 # Databaseschema — Digitale Opname
 
-> **Documentversie:** 1.13 · **Laatste update:** 2026-07-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.14 · **Laatste update:** 2026-07-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **geïmplementeerd**. Basisschema via `2026_07_17_120000_create_intake_engine_tables`; externe feiten via `2026_07_20_140000_create_intake_external_facts_table` (BL-019, ADR-0007); gerichte vervolgrondes via `2026_07_20_150000_create_intake_follow_up_tables` (BL-027).
 
@@ -215,6 +215,10 @@ Automatisch verzamelde feiten blijven gescheiden van klantantwoorden, zodat het 
 Unique: `(intake_id, fact_key, source)`. Index: `(intake_id, confidence)`.
 
 BL-019 bewaart de WMS-luchtfoto als privaat bestand onder `intakes/{uuid}/external/pdok-aerial.jpg`; `aerial_image` bevat alleen opslagmetadata, WMS-laag, bbox en centrumcoördinaten. `HardDeleteIntake` verwijdert media uit externe feiten vóór de cascade-delete.
+
+De BAG-woningtypeafleiding voegt geen schema toe. `building_type_inference` gebruikt dezelfde tabel en bewaart in `value`: templateoptie, leesbare afleidingsreden en aantal verblijfsobjecten. `source_reference` bevat het BAG-pand-ID, `source_url` de controleerbare pandquery en `source` is `PDOK / BAG pandgeometrie`. Het afgeleide antwoord blijft afzonderlijk in `intake_answers` staan met `prefill_source=pdok`.
+
+BL-007 genereert voorstellen automatisch na eerste afronding en opnieuw na een afgeronde aanvullende ronde; er is geen handmatige genereerroute. De integrale AI-payload wordt niet in deze tabel opgeslagen: `ai_runs.input_hash` bewaart alleen de reproduceerbare hash. Voorstellen blijven `source=ai,status=proposed`; accept/dismiss door de installateur blijft de grens tussen voorstel en rapportwaardig aandachtspunt.
 
 ### `intake_uploads`
 

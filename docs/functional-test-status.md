@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.30 · **Laatste update:** 2026-07-24 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.31 · **Laatste update:** 2026-07-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -58,7 +58,7 @@ Laatste testsessie: 2026-07-24 (staging; publieke demo via HTTP/Livewire-driver,
 | Gerichte aanvullende informatieronde (BL-027) | todo | - | Review `need_more_info` met tekst + foto-opdracht → klantmail/dezelfde link → klant ziet alleen vervolgitems, rondt af → dossier toont ronde/bron/antwoord/foto en dashboard markeert opnieuw als te beoordelen; test ook handmatige linkfallback bij mailconfig |
 | Gericht PDF-document opvragen (BL-027) | pass | lokaal 2026-07-20; staging nog todo | Featuretest: documentopdracht, herstel na ongeldige PDF, upload, afronden, auth-link, forced download en HTML/PDF-dossier groen. Gegenereerde 5-pagina-PDF visueel gecontroleerd: documentkaart met prompt, bestandsnaam, bron en ronde zonder clipping. Live documentstap desktop + 390 px zonder overflow of browserwarnings/-errors; route geeft `application/pdf`, attachment en `nosniff`. Na deploy dezelfde smoke met een echte PDF. |
 | AI-samenvatting in rapport (Fase 6) | blocked | 2026-07-18 | Geen “AI-voorstel” — staging `AI_PROVIDER=null` (soft-fail by design) |
-| AI-aandachtspunten voorstellen + accept/verwijder (BL-007) | todo | - | Met `AI_PROVIDER=heuristic`: opnamepagina → "AI-aandachtspunten voorstellen" → accepteren (komt in rapport) / verwijderen (blijft weg); `null` = geen voorstellen |
+| AI-aandachtspunten automatisch + accept/verwijder (BL-007) | todo | lokaal geautomatiseerd pass 2026-07-25; staging nog todo | Geen genereerknop/-endpoint. Eerste afronding en afgeronde aanvullende ronde plannen automatisch analyse; context omvat alle technische dossierbronnen met provenance/confidence en sluit identiteit, adresvelden, opslagpaden en bytes uit. Op staging met `AI_PROVIDER=heuristic`: voorstellen verschijnen zonder klik; accepteren komt in rapport, verwijderen blijft weg; `null` blijft soft-fail. |
 | Fotokwaliteit-hint klant + label installateur (BL-007) | todo | - | Donkere/kleine foto in klantflow → niet-blokkerende hint, afronden blijft mogelijk; installateursgalerij toont kwaliteitslabel |
 | Externe LLM-provider (BL-006) | todo | - | Alleen ná DPIA + `AI_API_KEY`: `AI_PROVIDER=openai` levert samenvatting/aandachtspunten; controleer dat geen e-mail/telefoon in de payload staat |
 | AI-budgetcap voor externe provider | todo | - | Codegereed: `AI_PROVIDER=openai` faalt vóór provider-call als dag/maandcap ontbreekt of bereikt is; `ai_runs` bewaart tokens/beelden/geschatte centen. Na deploy: zet lage stagingcap, bewijs budget-limited soft-fail en `/dev` runtimeflags zonder key. |

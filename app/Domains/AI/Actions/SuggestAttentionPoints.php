@@ -6,6 +6,7 @@ namespace App\Domains\AI\Actions;
 
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\AiGateway;
+use App\Domains\AI\Services\IntakeAttentionContextBuilder;
 use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeAttentionPoint;
@@ -29,18 +30,17 @@ final class SuggestAttentionPoints
     public function __construct(
         private readonly AiGateway $aiGateway,
         private readonly PromptVersionRepository $promptVersions,
+        private readonly IntakeAttentionContextBuilder $contextBuilder,
     ) {}
 
     public function handle(Intake $intake): AiRun
     {
-        $intake->loadMissing(['answers', 'externalFacts', 'followUpRounds.items.uploads', 'templateVersion.template']);
-
         $promptName = (string) config('ai.attention_points_prompt', 'attention_points');
         $promptVersion = $this->promptVersions->version($promptName);
         $promptBody = $this->promptVersions->body($promptName);
         $provider = (string) config('ai.provider', 'null');
 
-        $payload = $this->buildPayload($intake);
+        $payload = $this->contextBuilder->build($intake);
         $inputHash = hash('sha256', (string) json_encode($payload, JSON_THROW_ON_ERROR));
 
         $run = AiRun::query()->create([
@@ -88,65 +88,6 @@ final class SuggestAttentionPoints
 
             return $run->fresh() ?? $run;
         }
-    }
-
-    /**
-     * @return array{answers: array<string, mixed>, external_facts: array<string, array{value: array<string, mixed>, source: string, confidence: string}>, follow_up: list<array{round_number: int, items: list<array{type: string, prompt: string, response_text: string|null, upload_count: int}>}>, template_key: string|null, template_version: int|null}
-     */
-    private function buildPayload(Intake $intake): array
-    {
-        $answers = [];
-
-        foreach ($intake->answers as $answer) {
-            $key = $answer->section_instance_key
-                ? $answer->section_instance_key.'__'.$answer->question_key
-                : $answer->question_key;
-
-            $answers[$key] = $answer->value;
-        }
-
-        $externalFacts = [];
-        foreach ($intake->externalFacts as $fact) {
-            $externalFacts[$fact->fact_key] = [
-                'value' => $fact->value,
-                'source' => $fact->source,
-                'confidence' => $fact->confidence,
-            ];
-        }
-
-        return [
-            'answers' => $answers,
-            'external_facts' => $externalFacts,
-            'follow_up' => $this->followUpPayload($intake),
-            'template_key' => $intake->templateVersion?->template?->key,
-            'template_version' => $intake->templateVersion?->version,
-        ];
-    }
-
-    /** @return list<array{round_number: int, items: list<array{type: string, prompt: string, response_text: string|null, upload_count: int}>}> */
-    private function followUpPayload(Intake $intake): array
-    {
-        $payload = [];
-
-        foreach ($intake->followUpRounds as $round) {
-            $items = [];
-
-            foreach ($round->items as $item) {
-                $items[] = [
-                    'type' => $item->type->value,
-                    'prompt' => $item->prompt,
-                    'response_text' => $item->response_text,
-                    'upload_count' => $item->uploads->count(),
-                ];
-            }
-
-            $payload[] = [
-                'round_number' => $round->round_number,
-                'items' => $items,
-            ];
-        }
-
-        return $payload;
     }
 
     /**

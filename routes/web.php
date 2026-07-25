@@ -56,7 +56,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/intakes', [IntakeController::class, 'store'])->name('intakes.store');
     Route::get('/intakes/{intake}', [IntakeController::class, 'show'])->name('intakes.show');
     Route::post('/intakes/{intake}/review', [IntakeController::class, 'review'])->name('intakes.review');
-    Route::post('/intakes/{intake}/attention/suggest', [IntakeController::class, 'suggestAttention'])->name('intakes.attention.suggest');
     Route::post('/intakes/{intake}/attention/{point}/accept', [IntakeController::class, 'acceptAttention'])->name('intakes.attention.accept');
     Route::post('/intakes/{intake}/attention/{point}/dismiss', [IntakeController::class, 'dismissAttention'])->name('intakes.attention.dismiss');
     Route::post('/intakes/{intake}/revoke', [IntakeController::class, 'revoke'])->name('intakes.revoke');

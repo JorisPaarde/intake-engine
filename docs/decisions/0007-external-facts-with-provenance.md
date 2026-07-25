@@ -11,7 +11,8 @@ Adres-, gebouw-, kaart- en latere beeldbronnen kunnen vragen vervangen en het do
 
 - Automatisch opgehaalde gegevens worden generiek opgeslagen in `intake_external_facts`, gekoppeld aan de intake.
 - Elk feit bewaart machinekey, label, JSON-waarde, bron, bronreferentie/-URL, zekerheid en ophaaltijdstip.
-- Een extern feit mag een vraag alleen overslaan als de gepinde template dit expliciet toestaat én het antwoord uit de vereiste bron komt. Airco v4 gebruikt dit eerst voor een eenduidig BAG-bouwjaar (`skip_when_prefilled_by=pdok`).
+- Een extern feit mag een vraag alleen overslaan als de gepinde template dit expliciet toestaat én het antwoord uit de vereiste bron komt. Airco v4 gebruikt dit eerst voor een eenduidig BAG-bouwjaar (`skip_when_prefilled_by=pdok`). Voor `building_type` geldt daarnaast: EP-Online of een bestaand klantantwoord wint; BAG-pandgeometrie mag alleen bij hoge zekerheid invullen.
+- BAG-woningtypeafleiding telt verblijfsobjecten binnen het exacte pand en vergelijkt naburige pandcontouren in RD. Meerdere verblijfsobjecten betekenen appartement; grondgebonden typen volgen alleen uit een complete buurtquery en bruikbare contouren. Afgekorte, ongeldige of ambigue geometrie laat de handmatige vraag staan.
 - Geen match, ambiguïteit of providerstoring wordt als onzekerheid in het dossier getoond; de handmatige vraag blijft de fallback.
 - PDOK-verrijking gebeurt synchronisch met een korte timeout omdat de uitkomst vóór de klantflow nodig is. Falen is altijd soft-fail en blokkeert aanmaken/mailen niet.
 - Een externe media-afleiding bewaart alleen disk/pad/MIME/afmetingen in `value`; bytes blijven op private storage. BL-019 gebruikt dit voor een server-side PDOK WMS-luchtfoto met zichtbare bron en locatiecentrum. Bovenaanzicht is context, geen bewijs voor gevel of exacte plaatsing.

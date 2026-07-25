@@ -9,9 +9,11 @@ use App\Domains\Intake\Data\EnergyLabel;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeExternalFact;
+use App\Domains\Intake\Services\BuildingTypeResolver;
 use App\Domains\Intake\Services\EpOnlineService;
 use App\Domains\Intake\Services\PdokAddressService;
 use App\Domains\Intake\Services\PdokAerialImageService;
+use App\Domains\Intake\Services\PdokBuildingContextService;
 use App\Domains\Intake\Services\ThreeDBagService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -25,6 +27,8 @@ final class EnrichIntakeAddress
         private readonly PdokAerialImageService $aerialImages,
         private readonly ThreeDBagService $threeDBag,
         private readonly EpOnlineService $epOnline,
+        private readonly PdokBuildingContextService $buildingContext,
+        private readonly BuildingTypeResolver $buildingTypeResolver,
         private readonly SaveIntakeAnswer $saveIntakeAnswer,
     ) {}
 
@@ -44,9 +48,10 @@ final class EnrichIntakeAddress
             }
 
             DB::transaction(fn () => $this->storeEnrichment($intake, $enrichment));
+            $this->captureEnergyLabel($intake, $enrichment);
+            $this->captureInferredBuildingType($intake, $enrichment);
             $this->captureAerialImage($intake, $enrichment);
             $this->captureBuildingGeometry($intake, $enrichment);
-            $this->captureEnergyLabel($intake, $enrichment);
         } catch (Throwable $exception) {
             $this->storeStatus($intake, 'unavailable');
             Log::warning('PDOK address enrichment failed.', [
@@ -353,6 +358,60 @@ final class EnrichIntakeAddress
         } catch (Throwable $exception) {
             // 3DBAG is een aanvulling, nooit een blokkade voor de opname.
             Log::warning('3DBAG building geometry lookup failed.', [
+                'intake_uuid' => $intake->uuid,
+                'exception' => $exception::class,
+            ]);
+        }
+    }
+
+    /**
+     * Leidt het woningtype alleen af wanneer BAG één pand koppelt, de template de vraag kent
+     * en EP-Online of de klant nog geen antwoord heeft vastgelegd. Iedere storing of
+     * geometrische twijfel laat de vraag bewust staan.
+     */
+    private function captureInferredBuildingType(Intake $intake, AddressEnrichment $data): void
+    {
+        if ($data->bagBuildingId === null
+            || $data->buildingCount !== 1
+            || ! $this->hasQuestion($intake, 'building_type')
+            || $intake->answers()->where('question_key', 'building_type')->exists()) {
+            return;
+        }
+
+        try {
+            $context = $this->buildingContext->fetch($data->bagBuildingId);
+            $inference = $context === null ? null : $this->buildingTypeResolver->resolve($context);
+
+            if ($inference === null) {
+                return;
+            }
+
+            $sourceUrl = $this->buildingContext->buildingUrl($data->bagBuildingId);
+
+            $this->upsertFact(
+                $intake,
+                'building_type_inference',
+                'Afgeleid woningtype',
+                [
+                    'value' => $inference->option,
+                    'reason' => $inference->reason,
+                    'addressable_object_count' => $context->addressableObjectCount,
+                ],
+                $inference->confidence,
+                $data->bagBuildingId,
+                $sourceUrl,
+                PdokBuildingContextService::sourceName(),
+            );
+
+            $this->saveIntakeAnswer->handle(
+                $intake,
+                'building_type',
+                null,
+                ['value' => $inference->option],
+                'pdok',
+            );
+        } catch (Throwable $exception) {
+            Log::warning('PDOK building type inference failed.', [
                 'intake_uuid' => $intake->uuid,
                 'exception' => $exception::class,
             ]);

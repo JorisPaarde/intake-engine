@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Installer;
 
-use App\Domains\AI\Actions\SuggestAttentionPoints;
 use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Actions\EnrichIntakeAddress;
 use App\Domains\Intake\Actions\RegenerateIntakeAccessToken;
@@ -157,17 +156,6 @@ class IntakeController extends Controller
         return redirect()
             ->route('intakes.show', $intake)
             ->with('status', $message);
-    }
-
-    public function suggestAttention(Intake $intake, SuggestAttentionPoints $suggestAttentionPoints): RedirectResponse
-    {
-        $this->authorize('update', $intake);
-
-        $suggestAttentionPoints->handle($intake);
-
-        return redirect()
-            ->route('intakes.show', $intake)
-            ->with('status', 'AI-aandachtspunten voorgesteld. Beoordeel ze hieronder.');
     }
 
     public function acceptAttention(

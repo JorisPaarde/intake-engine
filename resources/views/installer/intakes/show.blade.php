@@ -258,17 +258,9 @@
             @endif
 
             <div class="bg-white shadow-sm sm:rounded-lg p-6 space-y-3">
-                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <h3 class="text-base font-semibold text-gray-900">AI-voorgestelde aandachtspunten</h3>
-                        <p class="text-xs text-gray-500">Niet bindend — u beslist wat u overneemt.</p>
-                    </div>
-                    <form method="POST" action="{{ route('intakes.attention.suggest', $intake) }}">
-                        @csrf
-                        <button type="submit" class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-widest text-gray-700 hover:bg-gray-50">
-                            {{ $proposedPoints->isEmpty() ? 'AI-aandachtspunten voorstellen' : 'Opnieuw voorstellen' }}
-                        </button>
-                    </form>
+                <div>
+                    <h3 class="text-base font-semibold text-gray-900">AI-voorgestelde aandachtspunten</h3>
+                    <p class="text-xs text-gray-500">Automatisch samengesteld uit het volledige technische dossier. Niet bindend — u beslist wat u overneemt.</p>
                 </div>
 
                 @if ($proposedPoints->isNotEmpty())
