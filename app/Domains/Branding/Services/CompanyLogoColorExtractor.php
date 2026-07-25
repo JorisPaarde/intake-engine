@@ -125,8 +125,8 @@ final class CompanyLogoColorExtractor
             ? '#FFFFFF'
             : '#1D1D1F';
 
-        if ($this->contrastRatio($red, $green, $blue, 29, 29, 31) < 4.5
-            && $onPrimary === '#1D1D1F') {
+        if ($onPrimary === '#1D1D1F'
+            && $this->contrastRatio($red, $green, $blue, 29, 29, 31) < 4.5) {
             return $this->fallback();
         }
 

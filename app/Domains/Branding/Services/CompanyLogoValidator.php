@@ -29,11 +29,11 @@ final class CompanyLogoValidator
         if (! is_array($info)
             || $info[0] < 1
             || $info[1] < 1
-            || $info[0] > 4096
-            || $info[1] > 4096
-            || $info[0] * $info[1] > 16_000_000) {
+            || $info[0] > 2048
+            || $info[1] > 2048
+            || $info[0] * $info[1] > 4_000_000) {
             throw ValidationException::withMessages([
-                'logo' => 'Het logo heeft ongeldige of te grote afmetingen (maximaal 4096 × 4096 pixels).',
+                'logo' => 'Het logo heeft ongeldige of te grote afmetingen (maximaal 2048 × 2048 pixels).',
             ]);
         }
 
@@ -49,6 +49,20 @@ final class CompanyLogoValidator
                 'logo' => 'Upload een geldig JPEG-, PNG- of WebP-logo.',
             ]);
         }
+
+        $image = match ($extension) {
+            'jpg' => @imagecreatefromjpeg($path) ?: null,
+            'png' => @imagecreatefrompng($path) ?: null,
+            'webp' => function_exists('imagecreatefromwebp') ? (@imagecreatefromwebp($path) ?: null) : null,
+        };
+
+        if (! $image instanceof \GdImage) {
+            throw ValidationException::withMessages([
+                'logo' => 'Het logo kon niet volledig worden gelezen.',
+            ]);
+        }
+
+        imagedestroy($image);
 
         return [
             'mime' => $mime,

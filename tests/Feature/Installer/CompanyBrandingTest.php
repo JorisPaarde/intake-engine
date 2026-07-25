@@ -53,6 +53,23 @@ test('company logo validation rejects fake image content by server inspection', 
         ->assertSessionHasErrors('logo');
 });
 
+test('company logo validation rejects an image with valid metadata that cannot be fully decoded', function () {
+    $company = Company::factory()->create();
+    $user = User::factory()->for($company)->create();
+    $validLogo = UploadedFile::fake()->image('valid.png', 120, 120);
+    $bytes = file_get_contents($validLogo->getRealPath());
+
+    expect($bytes)->toBeString();
+
+    $this->actingAs($user)
+        ->patch(route('company.settings.update'), [
+            'name' => 'Naam',
+            'primary_color' => '',
+            'logo' => UploadedFile::fake()->createWithContent('broken.png', substr($bytes, 0, 33)),
+        ])
+        ->assertSessionHasErrors('logo');
+});
+
 test('company logo validation rejects excessive pixel dimensions before decoding', function () {
     $company = Company::factory()->create();
     $user = User::factory()->for($company)->create();

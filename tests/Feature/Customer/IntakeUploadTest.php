@@ -165,7 +165,7 @@ test('unauthorized users cannot view another intakes upload', function () {
 
     $this->actingAs($stranger)
         ->get(route('installer.uploads.show', [$otherIntake, $upload]))
-        ->assertNotFound();
+        ->assertForbidden();
 });
 
 test('installer can view an upload belonging to an intake', function () {
