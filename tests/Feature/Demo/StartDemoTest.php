@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Domains\AI\Jobs\SummarizeIntakeJob;
+use App\Domains\AI\Models\AiRun;
 use App\Domains\Intake\Actions\CompleteIntake;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
@@ -11,6 +12,8 @@ use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Domains\Intake\Services\CompletenessChecker;
+use App\Enums\AiRunStatus;
+use App\Enums\AiRunType;
 use App\Enums\IntakeStatus;
 use App\Enums\QuestionType;
 use App\Models\User;
@@ -271,6 +274,55 @@ it('runs AI summary inline when a demo intake is completed', function () {
 
     expect($aiSummary)->toBeArray()
         ->and($aiSummary['summary'] ?? null)->toBeString()->not->toBeEmpty();
+});
+
+it('falls back to heuristic AI when the configured demo provider fails', function () {
+    Queue::fake();
+    config([
+        'ai.provider' => 'openai',
+        'ai.api_key' => 'test-key',
+        'ai.budget.daily_cents' => null,
+        'ai.budget.monthly_cents' => null,
+    ]);
+
+    $user = User::factory()->create();
+    $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
+    $intake = Intake::factory()->create([
+        'created_by' => $user->id,
+        'intake_template_version_id' => $version->id,
+        'status' => IntakeStatus::Sent,
+        'is_demo' => true,
+        'customer_name' => 'Demo AI Fallback',
+        'customer_email' => 'demo-ai-fallback@demo.invalid',
+        'address_line' => 'Voorbeeldstraat 1',
+        'address_city' => 'Amsterdam',
+    ]);
+
+    fillDemoIntakeUntilComplete($intake);
+
+    $completed = app(CompleteIntake::class)->handle($intake->fresh());
+
+    Queue::assertNotPushed(SummarizeIntakeJob::class);
+
+    $completed->load('report');
+    $meta = $completed->report?->meta ?? [];
+
+    expect($meta['ai_summary'] ?? null)->toBeArray()
+        ->and($meta['ai_provider'] ?? null)->toBe('heuristic');
+
+    expect(AiRun::query()
+        ->where('intake_id', $completed->id)
+        ->where('type', AiRunType::Summary)
+        ->where('provider', 'openai')
+        ->where('status', AiRunStatus::Failed)
+        ->exists())->toBeTrue();
+
+    expect(AiRun::query()
+        ->where('intake_id', $completed->id)
+        ->where('type', AiRunType::Summary)
+        ->where('provider', 'heuristic')
+        ->where('status', AiRunStatus::Succeeded)
+        ->exists())->toBeTrue();
 });
 
 function fillDemoIntakeUntilComplete(Intake $intake): void
