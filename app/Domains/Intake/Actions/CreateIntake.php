@@ -56,6 +56,7 @@ final class CreateIntake
             $intake = Intake::query()->create([
                 'uuid' => (string) Str::uuid(),
                 'intake_template_version_id' => $version->id,
+                'company_id' => $creator->company_id,
                 'created_by' => $creator->id,
                 'status' => IntakeStatus::Sent,
                 'customer_name' => $data['customer_name'],

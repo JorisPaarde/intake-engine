@@ -8,13 +8,21 @@
 
         <title>{{ $title ?? 'Digitale opname' }}</title>
 
-        <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=dm-sans:400,500,600,700|fraunces:500,600&display=swap" rel="stylesheet" />
-
         @vite(['resources/css/app.css'])
         @livewireStyles
     </head>
-    <body class="font-sans antialiased bg-brand-sand text-brand-ink min-h-[100svh]">
+    @php
+        $customerIntake = request()->attributes->get('customer_intake');
+        $customerCompany = $customerIntake instanceof \App\Domains\Intake\Models\Intake
+            ? $customerIntake->company()->first()
+            : null;
+        $tokens = $customerCompany?->themeTokens() ?? [
+            'primary' => \App\Models\Company::DEFAULT_PRIMARY,
+            'accent' => \App\Models\Company::DEFAULT_ACCENT,
+            'on_primary' => \App\Models\Company::DEFAULT_ON_PRIMARY,
+        ];
+    @endphp
+    <body class="min-h-[100svh] bg-[#F5F5F7] font-sans text-[#1D1D1F] antialiased" style="--tenant-primary: {{ $tokens['primary'] }}; --tenant-accent: {{ $tokens['accent'] }}; --tenant-on-primary: {{ $tokens['on_primary'] }};">
         {{ $slot }}
         @livewireScripts
     </body>

@@ -1,6 +1,6 @@
 # ADR-0006: Geen multi-tenancy in MVP
 
-- **Status:** Accepted
+- **Status:** Superseded by ADR-0010
 - **Datum:** 2026-07-17
 
 ## Context

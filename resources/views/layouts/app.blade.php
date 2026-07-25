@@ -7,21 +7,25 @@
 
         <title>{{ config('app.name', 'Laravel') }}</title>
 
-        <!-- Fonts -->
-        <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
-
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
-    <body class="font-sans antialiased">
-        <div class="min-h-screen bg-gray-100">
+    @php
+        $company = Auth::user()?->company;
+        $tokens = $company?->themeTokens() ?? [
+            'primary' => \App\Models\Company::DEFAULT_PRIMARY,
+            'accent' => \App\Models\Company::DEFAULT_ACCENT,
+            'on_primary' => \App\Models\Company::DEFAULT_ON_PRIMARY,
+        ];
+    @endphp
+    <body class="font-sans antialiased text-[#1D1D1F]" style="--tenant-primary: {{ $tokens['primary'] }}; --tenant-accent: {{ $tokens['accent'] }}; --tenant-on-primary: {{ $tokens['on_primary'] }};">
+        <div class="min-h-screen bg-[#F5F5F7]">
             @include('layouts.navigation')
 
             <!-- Page Heading -->
             @isset($header)
-                <header class="bg-white shadow">
-                    <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+                <header class="border-b border-[#D2D2D7] bg-white">
+                    <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
                         {{ $header }}
                     </div>
                 </header>

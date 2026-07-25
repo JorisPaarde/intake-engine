@@ -6,6 +6,7 @@ namespace App\Domains\Intake\Models;
 
 use App\Domains\AI\Models\AiRun;
 use App\Enums\IntakeStatus;
+use App\Models\Company;
 use App\Models\User;
 use Database\Factories\IntakeFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -40,6 +41,7 @@ class Intake extends Model
     protected $fillable = [
         'uuid',
         'intake_template_version_id',
+        'company_id',
         'created_by',
         'status',
         'customer_name',
@@ -94,6 +96,16 @@ class Intake extends Model
             if (! isset($intake->attributes['uuid'])) {
                 $intake->uuid = (string) Str::uuid();
             }
+
+            if (! isset($intake->attributes['company_id']) && isset($intake->attributes['created_by'])) {
+                $companyId = User::query()
+                    ->whereKey($intake->attributes['created_by'])
+                    ->value('company_id');
+
+                if ($companyId !== null) {
+                    $intake->company_id = (int) $companyId;
+                }
+            }
         });
     }
 
@@ -112,6 +124,12 @@ class Intake extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /** @return BelongsTo<Company, $this> */
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
     }
 
     /** @return HasMany<IntakeAnswer, $this> */

@@ -1,6 +1,6 @@
 # Intake Engine (Digitale Opname)
 
-> **Documentversie:** 1.30 · **Laatste update:** 2026-07-21 · Onderhoud: zie [AGENTS.md](AGENTS.md)
+> **Documentversie:** 1.31 · **Laatste update:** 2026-07-25 · Onderhoud: zie [AGENTS.md](AGENTS.md)
 
 **Werk je als agent aan dit project? Lees eerst [AGENTS.md](AGENTS.md)** — het projectgeheugen, de documentkaart en het onderhoudsprotocol.
 
@@ -100,5 +100,7 @@ De volledige documentkaart — welk document waarvoor de bron van waarheid is �
 - [CHANGELOG.md](CHANGELOG.md) — wijzigingslog
 
 ## Huidige status
+
+**Multi-account en white-label zijn code-compleet:** ieder installatiebedrijf is een geïsoleerde tenant met eigen medewerkers, aanvragen, private media, logo en toegankelijke huisstijlkleuren. Installateurs- en klantflow gebruiken hetzelfde moderne, solide designsysteem zonder glaseffecten.
 
 **MVP-fasen 1–6 afgerond en gemerged naar `main`** (t/m AI-samenvatting). Open werk: [docs/backlog.md](docs/backlog.md). BL-019 is code-compleet: adres-autocomplete en BAG-verrijking leveren bouwjaar, gebruiksdoel, oppervlakte, locatie en perceel met bron/zekerheid; een eenduidig BAG-bouwjaar vervangt de klantvraag in airco v4. Een actuele PDOK-luchtfoto rond de BAG-locatie staat als private, gemarkeerde context in dossier en PDF. BL-020 is code-compleet achter een privacyflag: airco v5 laat meterkastfoto's multimodaal beoordelen, vult alleen bij hoge zekerheid de vrije-groepkeuze als bevestigbare voorzet in en bewaart fase, bron en onzekerheid in het dossier; externe activering wacht op DPIA/key. BL-027 biedt gerichte tekst-, foto- en beveiligde PDF-documentopdrachten na beoordeling. BL-026 toont op `/metrics` privacyveilige funnel-, frictie- en dossiermetrics. BL-010/011 zijn afgerond: production en staging draaien gescheiden op eigen HTTPS-domeinen en runtimegegevens. BL-001 publieke demo staat **standaard aan** (`DEMO_ENABLED` default `true`); resterende **host/env-acties** (SMTP, PDOK-grondslag, externe AI; demo alleen uitzetten bij misbruik) staan in [docs/DEPLOYMENT.md § Handmatige acties](docs/DEPLOYMENT.md#handmatige-acties-producteigenaar). Handmatige teststatus: [docs/functional-test-status.md](docs/functional-test-status.md).

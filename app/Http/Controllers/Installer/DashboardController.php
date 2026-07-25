@@ -19,6 +19,7 @@ class DashboardController extends Controller
         $showingDemoIntakes = $this->shouldShowDemoIntakes($request);
 
         $query = Intake::query()
+            ->where('company_id', $user?->company_id)
             ->with(['templateVersion.template']);
 
         if ($showingDemoIntakes && $user !== null) {

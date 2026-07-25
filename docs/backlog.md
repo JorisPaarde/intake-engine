@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 3.39 · **Laatste update:** 2026-07-24 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.40 · **Laatste update:** 2026-07-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -32,7 +32,7 @@ Items in **verschillende parallel-bands** kunnen tegelijk door aparte agents/men
 | **D** | Infra (extern) | — (BL-011 done) | — |
 | **F** | Open data / adres | — (BL-019 done) | — |
 | **H** | AI-keten | BL-029, BL-030 (BL-006/007/020 done) | Met A/I; BL-030 raakt uploadpipeline (afstemmen met BL-013) |
-| **I** | Beheer / schaal | BL-013 (BL-012 later; BL-010 done) | Met A–H zolang geen gedeelde storagewijziging botst |
+| **I** | Beheer / schaal | BL-013 (BL-012/031/032 done) | BL-013 kan zelfstandig worden opgepakt; tenantbranding gebruikt al `MEDIA_DISK` |
 | **J** | Klantwizard-verbeteringen | — (BL-021–BL-025 done) | — |
 | **K** | Installateursweergave | — (BL-024 done) | — |
 | **L** | Gerichte vervolgflow | — (BL-027 done) | — |
@@ -44,7 +44,7 @@ Afgeronde bands (niet meer te plannen): **B** = BL-016 (prefill), **C** = BL-008
 
 1. **Nu parallel uitvoerbaar:** BL-001 afronden; BL-030 (dossier+AI-beeldvarianten) naast/vóór zware route-vision; SMTP/PDOK op staging voor smoketests (BL-004/014/015/019/027).
 2. **Na DPIA parallel activeren:** externe AI + foto-inferentie + route-analyse via staging-env en smoketest.
-3. **Laag-prioriteit parallel:** BL-013 · (BL-012 bij tweede klant).
+3. **Laag-prioriteit parallel:** BL-013.
 
 ## Overzicht
 
@@ -55,8 +55,10 @@ Geprioriteerd op het hoofddoel (herprioritering 2026-07-18): hoeveel handelingen
 | 1 | BL-001 | Demo-versie van de app | E5 | in_progress | medium | A |
 | 2 | BL-029 | Begeleide leidingroute (foto-voor-foto + routesynthese) | E4 | in_progress | high | H · parallel |
 | 3 | BL-030 | Foto-varianten: dossier + AI-analyse (JPEG, tokens/storage) | E4 | ready | high | H · parallel |
-| 4 | BL-012 | Multi-tenancy (companies) | E5 | backlog | low | I · later |
-| 5 | BL-013 | S3 als mediadisk | E5 | backlog | low | I · parallel |
+| 4 | BL-013 | S3 als mediadisk | E5 | backlog | low | I · parallel |
+| — | BL-012 | Multi-accountplatform voor installatiebedrijven | E5 | done | high | I (done) |
+| — | BL-031 | White-label branding uit installateurslogo | E5 | done | high | I (done) |
+| — | BL-032 | Modern, strak en Apple-achtig productdesign | E5 | done | high | I (done) |
 | — | BL-028 | Dev-admin: staging-inzage in dienststatus en opname-data | E5 | done | medium | I (done) |
 | — | BL-020 | Foto-gedreven afleiding en adaptieve vervolgvragen | E4 | done | medium | H (done) |
 | — | BL-019 | Afleiden uit adres en openbare bronnen (luchtfoto, BAG) | E3 | done | medium | F (done) |
@@ -333,11 +335,30 @@ Het hoofddoel eindigt bij een **bruikbaar dossier**: bruikbaar in de offerte-flo
 - **Doel:** `deploy-production.yml` getriggerd op tags (`v*`), `PRODUCTION_*`-secrets, eigen `apps/intake-engine-production`-boom en database. Eerste release taggen als `v0.x` en CHANGELOG `[Unreleased]` afsluiten.
 - **Resultaat:** `main` blijft automatisch naar `staging.intake-engine.nl` deployen; `v*` of een bewuste handmatige dispatch gebruikt GitHub environment `production` en `PRODUCTION_*`-secrets voor `intake-engine.nl`. Beide omgevingen hebben eigen `.env`, app-key, sessiecookie, database, private storage, cronjobs en releaseboom. Deploypaden en `APP_ENV` worden vóór migraties gecontroleerd; stale runtimecaches worden vóór de eerste Artisan-boot verwijderd. De bestaande stagingdata/media zijn eenmalig naar production gekopieerd en runtimecaches, sessies en queuejobs niet.
 
-### BL-012 — Multi-tenancy (companies)
+### BL-012 — Multi-accountplatform voor installatiebedrijven
 
-- **Status:** backlog · **Prioriteit:** low · **Ref:** ADR-0006
-- **Parallel:** band **I** · later — niet parallel starten vóór concrete tweede klant; raakt breed (users/intakes).
-- **Doel:** bewust afwezig in MVP. Pas oppakken bij een concrete tweede klant/bedrijf: `companies`-tabel + tenant-scope op intakes en users.
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-25 · **PR:** (deze PR) · **Ref:** ADR-0010
+- **Parallel:** band **I**, kettingkop vóór BL-030 en BL-031; raakt users, intakes, policies, registratie, queries en storage.
+- **Doel:** ieder installatiebedrijf wordt een tenant (`companies`). Een gebruiker hoort bij precies één bedrijf; meerdere medewerkers per bedrijf worden door het model ondersteund. Iedere intake is rechtstreeks aan een bedrijf gekoppeld en alle installateursroutes, metrics, rapporten en private bestanden zijn tenantgebonden.
+- **Migratie:** bestaande gebruikers krijgen ieder een eigen bedrijf; hun bestaande intakes worden via `created_by` aan dat bedrijf gekoppeld. Nieuwe registraties maken atomair een bedrijf en eigenaaraccount aan.
+- **Kaders:** route-modelbinding is nooit autorisatie; policies én tenantgescope queries blijven verplicht. Klanttokens geven uitsluitend toegang tot één intake en daarmee één bedrijfsstijl. Platformbeheer over tenants heen valt buiten deze slice.
+- **Acceptatie:** tests bewijzen dat bedrijf A geen intake, upload, rapport of metrics van bedrijf B kan lezen of wijzigen; medewerkers van hetzelfde bedrijf delen de bedrijfsintakes.
+
+### BL-031 — White-label branding uit installateurslogo
+
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-25 · **PR:** (deze PR) · **Ref:** BL-012, ADR-0010
+- **Parallel:** band **I**, na BL-012.
+- **Doel:** een installateur beheert bedrijfsnaam en logo. Na een gevalideerde JPEG/PNG/WebP-upload bepaalt de server een representatieve primaire kleur en leidt daaruit toegankelijke accent-, tekst- en oppervlaktekleuren af.
+- **Kaders:** logo en kleuren staan op de tenant en worden privé opgeslagen; transparante/witte achtergrondpixels tellen niet als merkkleur. WCAG-leesbaarheid, veilige standaardkleur en handmatige kleurcorrectie zijn verplicht. Geen externe beeld- of AI-provider.
+- **Acceptatie:** installateursapp, klantintake en aanvraag-/dossierweergaven tonen uitsluitend logo en kleuren van de juiste tenant; foutieve of kleurloze logo's vallen veilig terug.
+
+### BL-032 — Modern, strak en Apple-achtig productdesign
+
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-25 · **PR:** (deze PR) · **Ref:** BL-031
+- **Parallel:** band **I**, na BL-031.
+- **Doel:** gedeelde layouts, navigatie, formulieren, dashboard en klantwizard krijgen één rustig premium designsysteem: systeemfont, sterke typografische hiërarchie, veel witruimte, neutrale oppervlakken, subtiele scheiding en duidelijke tenantkleur voor acties.
+- **Kaders:** nadrukkelijk géén Liquid Glass: geen backdrop blur, translucente kaarten, glanzende gradients of decoratieve glaslagen. Mobiel eerst, 44px touch targets, zichtbare focusringen en voldoende contrast.
+- **Acceptatie:** kernschermen zijn responsive en visueel consistent; dynamische tenantbranding overschrijft alleen de gecontroleerde design tokens, niet willekeurige component-CSS.
 
 ### BL-029 — Begeleide leidingroute (foto-voor-foto + routesynthese)
 
