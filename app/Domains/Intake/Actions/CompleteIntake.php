@@ -8,6 +8,7 @@ use App\Domains\AI\Actions\SuggestAttentionPoints;
 use App\Domains\AI\Actions\SummarizeIntake;
 use App\Domains\AI\Jobs\SuggestAttentionPointsJob;
 use App\Domains\AI\Jobs\SummarizeIntakeJob;
+use App\Domains\AI\Models\AiRun;
 use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
 use App\Domains\Intake\Models\GeneratedReport;
 use App\Domains\Intake\Models\Intake;
@@ -15,6 +16,7 @@ use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeAttentionPoint;
 use App\Domains\Intake\Services\CompletenessChecker;
 use App\Domains\Intake\Services\GenerateIntakeReportHtml;
+use App\Enums\AiRunStatus;
 use App\Enums\AttentionPointSource;
 use App\Enums\IntakeStatus;
 use Illuminate\Support\Facades\DB;
@@ -130,14 +132,42 @@ final class CompleteIntake
         $originalProvider = config('ai.provider');
 
         try {
-            if (in_array((string) $originalProvider, ['null', ''], true)) {
-                config(['ai.provider' => 'heuristic']);
+            $provider = (string) $originalProvider;
+
+            if (in_array($provider, ['null', ''], true)) {
+                $this->runDemoAiWithProvider($intake, 'heuristic');
+
+                return;
             }
 
-            app(SummarizeIntake::class)->handle($intake);
-            app(SuggestAttentionPoints::class)->handle($intake);
+            [$summaryRun, $attentionRun] = $this->runDemoAiActions($intake);
+
+            if ($provider !== 'heuristic' && ($summaryRun->status === AiRunStatus::Failed || $attentionRun->status === AiRunStatus::Failed)) {
+                $this->runDemoAiWithProvider($intake, 'heuristic');
+            }
         } finally {
             config(['ai.provider' => $originalProvider]);
         }
+    }
+
+    /**
+     * @return array{0: AiRun, 1: AiRun}
+     */
+    private function runDemoAiWithProvider(Intake $intake, string $provider): array
+    {
+        config(['ai.provider' => $provider]);
+
+        return $this->runDemoAiActions($intake);
+    }
+
+    /**
+     * @return array{0: AiRun, 1: AiRun}
+     */
+    private function runDemoAiActions(Intake $intake): array
+    {
+        return [
+            app(SummarizeIntake::class)->handle($intake),
+            app(SuggestAttentionPoints::class)->handle($intake),
+        ];
     }
 }
