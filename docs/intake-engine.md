@@ -1,6 +1,6 @@
 # Intake-engine
 
-> **Documentversie:** 1.20 · **Laatste update:** 2026-07-22 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.21 · **Laatste update:** 2026-07-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **geïmplementeerd t/m Fase 6 + BL-019 openbare data + BL-020 foto-afleiding + BL-027 gerichte vervolgrondes**. Airco-template **v9** gepubliceerd — v8 + de openingsvraag levert functie, aantal units en ruimtetypes, plus conditionele cascades en keuzelijsten.
 
@@ -295,6 +295,22 @@ Het neemt twee vragen over:
 Beide onderbouwingen — labelletter én kWh/m²·jr — komen als feit in het dossier met bron en registratiedatum, zodat een afgeleid antwoord navolgbaar blijft. Heeft een adres geen label, dan blijven beide vragen gewoon staan; registratie is verplicht bij verkoop, verhuur en oplevering, dus de dekking is hoog maar niet volledig.
 
 Omdat `building_type` nu uit twee registers kan komen, accepteert `meta.skip_when_prefilled_by` sinds v8 ook een lijst bronnen.
+
+## Woningtype uit BAG-pandgeometrie
+
+Ontbreekt een herkenbaar EP-Online-woningtype, dan gebruikt `PdokBuildingContextService` het exacte BAG-pand en een kleine ruimtelijke buurtquery in RD (EPSG:28992). De engine telt verblijfsobjecten die via `pand.href` aan hetzelfde pand zijn gekoppeld en vergelijkt gedeelde pandgrenzen:
+
+| BAG-context | Afgeleid templateantwoord |
+|---|---|
+| meerdere verblijfsobjecten in één pand | `apartment` |
+| één verblijfsobject, geen aansluiting | `detached` |
+| geïsoleerd paar aansluitende panden | `semi_detached` |
+| uiteinde van een langere pandketen | `corner` |
+| aansluitingen aan tegenoverliggende zijden | `terraced` |
+
+De classificatie is bewust fail-closed. Een ongeldige contour, nul verblijfsobjecten, een afgekorte buurtquery of een niet-eenduidige aansluitingsvorm levert geen antwoord op. EP-Online en ieder bestaand klant-/installateurantwoord worden nooit overschreven. Bij hoge zekerheid bewaart `building_type_inference` de conclusie, reden, BAG-pandreferentie en het aantal verblijfsobjecten; het antwoord gebruikt `prefill_source=pdok`, waardoor de gepinde v8/v9-template de redundante vraag kan overslaan.
+
+De luchtfoto is hierbij alleen visuele dossiercontext. Pixels worden niet als bron van waarheid gebruikt; exacte BAG-contouren zijn controleerbaar en betrouwbaarder.
 
 ## Pandgeometrie uit de 3DBAG
 

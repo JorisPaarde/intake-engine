@@ -30,6 +30,7 @@ use Illuminate\Support\Str;
  * @property Carbon|null $reminder_sent_at
  * @property int $progress_percent
  * @property bool $is_demo
+ * @property array<string, mixed>|null $completeness_snapshot
  */
 class Intake extends Model
 {

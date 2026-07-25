@@ -1,6 +1,6 @@
 # Architectuurkeuzes
 
-> **Documentversie:** 1.3 · **Laatste update:** 2026-07-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.4 · **Laatste update:** 2026-07-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 ## Uitgangspunt: engine, geen airco-app
 
@@ -50,6 +50,18 @@ Klant (access_token middleware)
 
 Templatebeheer (seed/artisan)
   → published intake_template_versions (immutabel)
+
+Adresverrijking (synchronisch, fail-soft)
+  → PDOK/Kadaster BAG → adres- en pandfeiten
+  → EP-Online heeft prioriteit voor geregistreerd woningtype
+  → BAG-pandcontext → deterministische woningtypeafleiding bij hoge zekerheid
+  → intake_external_facts + gemarkeerde prefill; bij twijfel blijft de vraag staan
+
+Dossierafronding / afgeronde aanvullende ronde
+  → SuggestAttentionPointsJob automatisch
+  → IntakeAttentionContextBuilder bundelt technische dossierbronnen + provenance
+  → AI-voorstellen blijven proposed tot accept/dismiss door installateur
+  → providerfout blokkeert dossier, review en rapport nooit
 ```
 
 ## Frontend

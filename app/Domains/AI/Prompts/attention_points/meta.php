@@ -6,6 +6,6 @@ declare(strict_types=1);
  * @return array{version: string, description: string}
  */
 return [
-    'version' => 'attention_points-v1',
-    'description' => 'Voorstel voor aandachtspunten uit een afgeronde intake (niet bindend).',
+    'version' => 'attention_points-v2',
+    'description' => 'Integraal voorstel voor aandachtspunten uit alle beschikbare technische dossierbronnen (niet bindend).',
 ];

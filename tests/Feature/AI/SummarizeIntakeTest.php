@@ -6,6 +6,7 @@ use App\Domains\AI\Actions\SummarizeIntake;
 use App\Domains\AI\Clients\FakeAiClient;
 use App\Domains\AI\Clients\HeuristicAiClient;
 use App\Domains\AI\Contracts\AiClientInterface;
+use App\Domains\AI\Jobs\SuggestAttentionPointsJob;
 use App\Domains\AI\Jobs\SummarizeIntakeJob;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\Intake\Actions\CompleteIntake;
@@ -142,6 +143,7 @@ test('complete intake dispatches summarize job and still finishes when AI fails'
         ->and($completed->report->html)->not->toContain('AI-voorstel');
 
     Queue::assertPushed(SummarizeIntakeJob::class, fn (SummarizeIntakeJob $job): bool => $job->intakeId === $completed->id);
+    Queue::assertPushed(SuggestAttentionPointsJob::class, fn (SuggestAttentionPointsJob $job): bool => $job->intakeId === $completed->id);
 
     $run = app(SummarizeIntake::class)->handle($completed->fresh());
 

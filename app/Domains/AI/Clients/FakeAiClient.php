@@ -16,6 +16,8 @@ final class FakeAiClient implements AiClientInterface
 
     private static ?AiClientException $forcedException = null;
 
+    private static ?AiCompletionRequest $lastRequest = null;
+
     /**
      * @param  array<string, mixed>  $output
      */
@@ -35,10 +37,18 @@ final class FakeAiClient implements AiClientInterface
     {
         self::$forcedOutput = null;
         self::$forcedException = null;
+        self::$lastRequest = null;
+    }
+
+    public static function lastRequest(): ?AiCompletionRequest
+    {
+        return self::$lastRequest;
     }
 
     public function complete(AiCompletionRequest $request): AiCompletionResult
     {
+        self::$lastRequest = $request;
+
         if (self::$forcedException instanceof AiClientException) {
             throw self::$forcedException;
         }

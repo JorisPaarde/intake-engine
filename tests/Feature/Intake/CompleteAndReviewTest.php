@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Domains\AI\Jobs\SuggestAttentionPointsJob;
 use App\Domains\Intake\Actions\CompleteIntake;
 use App\Domains\Intake\Actions\GenerateIntakePdf;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
@@ -379,6 +380,7 @@ test('customer completes text and photo follow up and dossier returns for review
         ->and($intake->report->html)->toContain('Beoordeel de aangeleverde aanvulling');
 
     Mail::assertSent(InstallerIntakeCompletedMail::class);
+    Queue::assertPushed(SuggestAttentionPointsJob::class, fn (SuggestAttentionPointsJob $job): bool => $job->intakeId === $intake->id);
 
     $this->get(route('customer.intake.show', $intake->access_token))->assertNotFound();
 });

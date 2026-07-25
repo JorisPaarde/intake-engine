@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Domains\AI\Actions\SuggestAttentionPoints;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Models\GeneratedReport;
 use App\Domains\Intake\Models\Intake;
@@ -35,13 +36,18 @@ function makeReviewableIntake(User $owner): Intake
     return $intake->fresh();
 }
 
-test('installer suggests, accepts and dismisses AI attention points', function () {
+test('installer reviews automatically generated AI attention points without a generation button', function () {
     $owner = User::factory()->create();
     $intake = makeReviewableIntake($owner);
 
+    app(SuggestAttentionPoints::class)->handle($intake);
+
     $this->actingAs($owner)
-        ->post(route('intakes.attention.suggest', $intake))
-        ->assertRedirect(route('intakes.show', $intake));
+        ->get(route('intakes.show', $intake))
+        ->assertOk()
+        ->assertSee('AI-voorgestelde aandachtspunten')
+        ->assertDontSee('AI-aandachtspunten voorstellen')
+        ->assertDontSee('Opnieuw voorstellen');
 
     $proposed = $intake->fresh()->attentionPoints()->aiProposed()->get();
     expect($proposed->pluck('code')->all())->toContain('no_free_group', 'condensate_pump_maybe');
@@ -55,31 +61,30 @@ test('installer suggests, accepts and dismisses AI attention points', function (
     expect($accept->fresh()->status)->toBe(AttentionPointStatus::Accepted)
         ->and($dismiss->fresh()->status)->toBe(AttentionPointStatus::Dismissed);
 
-    // Accepted point is rebuilt into the report; dismissed is not.
     $html = $intake->fresh()->report->html;
     expect($html)->toContain('Geen vrije groep bekend')
         ->and($html)->not->toContain('condenspomp');
 });
 
-test('re-suggesting keeps a dismissed point out and an accepted point in', function () {
+test('automatic re-analysis keeps a dismissed point out and an accepted point in', function () {
     $owner = User::factory()->create();
     $intake = makeReviewableIntake($owner);
 
-    $this->actingAs($owner)->post(route('intakes.attention.suggest', $intake));
+    app(SuggestAttentionPoints::class)->handle($intake);
     $point = $intake->fresh()->attentionPoints()->where('code', 'no_free_group')->firstOrFail();
     $this->actingAs($owner)->post(route('intakes.attention.dismiss', [$intake, $point]));
 
-    $this->actingAs($owner)->post(route('intakes.attention.suggest', $intake));
+    app(SuggestAttentionPoints::class)->handle($intake->fresh());
 
     expect($intake->fresh()->attentionPoints()->where('code', 'no_free_group')->value('status'))
         ->toBe(AttentionPointStatus::Dismissed);
 });
 
-test('a guest cannot act on attention points', function () {
+test('the manual attention point generation endpoint does not exist', function () {
     $owner = User::factory()->create();
     $intake = makeReviewableIntake($owner);
 
-    $this->post(route('intakes.attention.suggest', $intake))->assertRedirect(route('login'));
+    $this->post("/intakes/{$intake->id}/attention/suggest")->assertNotFound();
 });
 
 test('a point from another intake cannot be accepted', function () {

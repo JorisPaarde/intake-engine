@@ -1,6 +1,6 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 1.9 · **Laatste update:** 2026-07-24 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.10 · **Laatste update:** 2026-07-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **Fase 6 + BL-007 + BL-020 geïmplementeerd** — samenvatting, aandachtspunten, lokale fotokwaliteit en een bevestigbare multimodale meterkastvoorzet. Externe provider en foto-inferentie staan **standaard uit** (DPIA + key vereist). Zie ADR-0005. **Publieke demo** draait samenvatting + aandachtspunten wel: inline bij afronden, met heuristic-fallback als `AI_PROVIDER=null`, zichtbaar op het bedankt-scherm.
 
@@ -126,7 +126,7 @@ Server-side validatie vóór opslaan. Ongeldige output = `failed`.
 
 ## Privacy
 
-- Input voor AI: antwoorden + automatisch verzamelde feiten (waarde, bron, zekerheid) + gerichte vervolgrondes (`round_number`, type, prompt, antwoord, foto-aantal) + attention-point codes + template-meta — geen e-mail/telefoon als apart veld in de payload. Externe feiten uit BL-019 en aanvullingen uit BL-027 worden zo met de oorspronkelijke intake gecombineerd zonder herkomstverlies.
+- Input voor AI-aandachtspunten wordt door `IntakeAttentionContextBuilder` als één technisch dossier samengesteld: antwoorden met vraag-/sectielabels en prefillbron, automatisch verzamelde feiten (waarde, bron, zekerheid), uploads met MIME/omvang/kwaliteitsverdict, gerichte vervolgrondes, deterministische aandachtspunten, volledigheid, eerdere installateursreview en leidingroutes met segmentanalyses. Klantidentiteit, adresvelden, opslagpaden en bestandsbytes worden niet opgenomen. Eerdere AI-aandachtspunten worden niet als bron teruggevoerd, om zelfversterking te voorkomen.
 - Extra redactielaag (`AiInputRedactor`) verwijdert e-mail/telefoon uit vrije tekst vóór verzending naar een externe provider. Restrisico (willekeurige NAW in vrije tekst) wordt in de DPIA afgewogen.
 - Foto-inferentie verstuurt de beeldbytes alleen in het uitgaande providerrequest. `ai_runs` bewaart een hash van promptversie + uploadchecksums; database, activity-events en logs bevatten geen beeldbytes of data-URL. Het afgeleide feit bevat alleen gecontroleerde enums, korte bewijsomschrijving, provider/model en upload-id's.
 - Geen API-keys in logs of git (`.env`)
@@ -136,7 +136,8 @@ Server-side validatie vóór opslaan. Ongeldige output = `failed`.
 
 - `SuggestAttentionPoints` (mirror van `SummarizeIntake`) leidt via de gekozen provider aandachtspunten af; `HeuristicAiClient` doet dit deterministisch en lokaal. Prompt: `attention_points` (versioned).
 - Voorstellen landen als `intake_attention_points` met `source=ai`, `status=proposed`. De installateur **accepteert** (→ `accepted`, komt in het rapport) of **verwijdert** (→ `dismissed`) ze op de opnamepagina. Alleen `accepted` (en system/reviewer) punten staan in het rapport.
-- Idempotent op `(intake, code)`: opnieuw voorstellen dupliceert niet en respecteert een eerdere accept/dismiss-beslissing. Async na afronding (`SuggestAttentionPointsJob`) + on-demand knop. Provider `null` = soft-fail (geen voorstellen).
+- Idempotent op `(intake, code)`: automatische heranalyse dupliceert niet en respecteert een eerdere accept/dismiss-beslissing. `SuggestAttentionPointsJob` wordt automatisch gepland bij de eerste afronding én opnieuw na iedere afgeronde aanvullende ronde. Er is geen genereer-/opnieuw-knop of handmatige endpoint; de installateur beoordeelt alleen de voorstellen. Provider `null` = soft-fail (geen voorstellen, kernflow blijft werken).
+- Prompt `attention_points-v2` beoordeelt het volledige dossier integraal en moet bronconflicten, onzekerheden en ontbrekende gegevens expliciet signaleren zonder afleidingen als bevestigde feiten te presenteren.
 
 ## Fotokwaliteit (BL-007)
 
