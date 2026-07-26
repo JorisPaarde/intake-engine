@@ -209,7 +209,7 @@ De meest directe toepassing van het ontwerpprincipe: *de applicatie vraagt niets
 
 ### BL-033 — Postcode-eerst adresaanvulling bij nieuwe opname
 
-- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-26 · **PR:** #51 + automatische-lookupcorrectie
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-26 · **PR:** #51 + #52
 - **Parallel:** band **F** — bouwt voort op BL-019 en raakt alleen de installerflow voor een nieuwe opname plus de bestaande PDOK-adreslookup.
 - **Doel:** bij het aanmaken eerst postcode, huisnummer en optionele toevoeging invullen; de applicatie zoekt daarna het exacte BAG/PDOK-adres en vult straat en plaats aan. Dit voorkomt vrije adreszoektekst en dubbele invoer.
 - **Kaders:** postcode en huisnummer worden server-side gevalideerd en genormaliseerd; meerdere toevoegingen blijven expliciet selecteerbaar; de gekozen lookup-ID en zichtbare adresvelden moeten bij elkaar passen. PDOK blijft fail-soft: storing of geen resultaat toont een duidelijke handmatige adresfallback en blokkeert het aanmaken niet. Geen API-call tijdens renderen; automatisch zoeken start pas na complete geldige invoer en een korte debounce.
