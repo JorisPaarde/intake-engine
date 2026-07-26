@@ -24,9 +24,11 @@ class StoreIntakeRequest extends FormRequest
             'customer_name' => ['required', 'string', 'max:255'],
             'customer_email' => ['required', 'email', 'max:255'],
             'customer_phone' => ['nullable', 'string', 'max:50'],
+            'address_postal_code' => ['required', 'string', 'regex:/^[1-9]\d{3}[A-Z]{2}$/'],
+            'address_house_number' => ['required', 'integer', 'min:1', 'max:999999'],
+            'address_house_number_addition' => ['nullable', 'string', 'max:20', 'regex:/^[A-Za-z0-9\-\s]+$/'],
             'address_line' => ['required', 'string', 'max:255'],
-            'address_postal_code' => ['nullable', 'string', 'max:20'],
-            'address_city' => ['nullable', 'string', 'max:120'],
+            'address_city' => ['required', 'string', 'max:120'],
             'address_lookup_id' => ['nullable', 'string', 'regex:/^adr-[a-f0-9]{32}$/'],
             'internal_note' => ['nullable', 'string', 'max:5000'],
             'template_key' => ['required', 'string', Rule::exists('intake_templates', 'key')->where('is_active', true)],
@@ -46,12 +48,28 @@ class StoreIntakeRequest extends FormRequest
             'customer_name' => 'naam klant',
             'customer_email' => 'e-mailadres',
             'customer_phone' => 'telefoonnummer',
-            'address_line' => 'adres',
             'address_postal_code' => 'postcode',
+            'address_house_number' => 'huisnummer',
+            'address_house_number_addition' => 'toevoeging',
+            'address_line' => 'straat en huisnummer',
             'address_city' => 'plaats',
             'address_lookup_id' => 'geselecteerd adres',
             'internal_note' => 'interne notitie',
             'template_key' => 'type opname',
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $rawPostalCode = $this->input('address_postal_code');
+        $postalCode = is_string($rawPostalCode) && trim($rawPostalCode) !== ''
+            ? strtoupper((string) preg_replace('/\s+/', '', trim($rawPostalCode)))
+            : null;
+        $addition = trim((string) $this->input('address_house_number_addition'));
+
+        $this->merge([
+            'address_postal_code' => $postalCode,
+            'address_house_number_addition' => $addition === '' ? null : $addition,
+        ]);
     }
 }

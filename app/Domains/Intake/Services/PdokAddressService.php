@@ -24,7 +24,55 @@ final class PdokAddressService
     /**
      * @return list<array{id: string, label: string, address_line: string, postal_code: string, city: string}>
      */
-    public function suggest(string $query): array
+    public function suggestForPostalAddress(string $postalCode, int $houseNumber, ?string $addition = null): array
+    {
+        $normalizedPostalCode = strtoupper((string) preg_replace('/\s+/', '', trim($postalCode)));
+        $displayPostalCode = substr($normalizedPostalCode, 0, 4).' '.substr($normalizedPostalCode, 4, 2);
+        $normalizedAddition = strtoupper(trim((string) $addition));
+        $query = trim($displayPostalCode.' '.$houseNumber.' '.$normalizedAddition);
+
+        return array_values(array_filter(
+            $this->suggest($query, 50),
+            fn (array $suggestion): bool => $this->matchesPostalSuggestion(
+                $suggestion,
+                $normalizedPostalCode,
+                $houseNumber,
+                $normalizedAddition,
+            ),
+        ));
+    }
+
+    /**
+     * @param  array{address_line: string, postal_code: string}  $suggestion
+     */
+    private function matchesPostalSuggestion(
+        array $suggestion,
+        string $postalCode,
+        int $houseNumber,
+        string $addition,
+    ): bool {
+        $suggestionPostalCode = strtoupper((string) preg_replace('/\s+/', '', $suggestion['postal_code']));
+
+        if ($suggestionPostalCode !== $postalCode
+            || preg_match('/\s(\d+)(?:-(.+))?$/u', $suggestion['address_line'], $matches) !== 1
+            || (int) $matches[1] !== $houseNumber) {
+            return false;
+        }
+
+        if ($addition === '') {
+            return true;
+        }
+
+        $suggestionAddition = $this->normalizeAddition($matches[2] ?? '');
+        $requestedAddition = $this->normalizeAddition($addition);
+
+        return $suggestionAddition === $requestedAddition;
+    }
+
+    /**
+     * @return list<array{id: string, label: string, address_line: string, postal_code: string, city: string}>
+     */
+    public function suggest(string $query, int $limit = 7): array
     {
         if (! $this->enabled() || mb_strlen(trim($query)) < 3) {
             return [];
@@ -33,7 +81,7 @@ final class PdokAddressService
         $response = $this->searchRequest()->get('/suggest', [
             'q' => trim($query),
             'fq' => 'type:adres',
-            'rows' => 7,
+            'rows' => max(1, min($limit, 50)),
             'fl' => 'id,weergavenaam,type,straatnaam,huisnummer,huisletter,huisnummertoevoeging,postcode,woonplaatsnaam',
         ])->throw()->json('response.docs', []);
 
@@ -73,6 +121,11 @@ final class PdokAddressService
         }
 
         return $suggestions;
+    }
+
+    private function normalizeAddition(string $addition): string
+    {
+        return strtoupper(trim((string) preg_replace('/[\s-]+/u', '-', trim($addition)), '-'));
     }
 
     public function enrich(Intake $intake, ?string $lookupId = null): ?AddressEnrichment

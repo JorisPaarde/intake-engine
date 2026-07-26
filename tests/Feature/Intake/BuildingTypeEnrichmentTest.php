@@ -97,6 +97,7 @@ it('prefills a terraced building type from BAG geometry and removes the customer
         'customer_phone' => '0612345678',
         'address_line' => 'Teststraat 10',
         'address_postal_code' => '1234 AB',
+        'address_house_number' => 10,
         'address_city' => 'Testdam',
         'address_lookup_id' => 'adr-8f4d573be765b4c80dd635ba73747903',
     ])->assertRedirect();

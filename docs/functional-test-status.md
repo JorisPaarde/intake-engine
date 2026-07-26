@@ -1,12 +1,12 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.31 · **Laatste update:** 2026-07-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.32 · **Laatste update:** 2026-07-26 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
 Bijwerken door wie de test daadwerkelijk heeft uitgevoerd: een menselijke tester **of** een testende agent (bijv. een agent die de app via een browser bedient). Niet invullen op basis van alleen implementatie — er moet echt functioneel getest zijn. Implementerende agents voegen alleen nieuwe `todo`-regels toe voor functionaliteit die zij introduceren.
 
-Laatste testsessie: 2026-07-24 (staging; publieke demo via HTTP/Livewire-driver, inclusief foto-uploads en demo-afronding)
+Laatste testsessie: 2026-07-26 (lokaal; postcode-eerst adresaanvulling met echte PDOK-call en visuele browsercontrole)
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
@@ -25,7 +25,7 @@ Laatste testsessie: 2026-07-24 (staging; publieke demo via HTTP/Livewire-driver,
 | Dev-admin AI-runs/activiteit/health (BL-028) | todo | - | `/dev/ai-runs` en `/dev/activity` filteren en tonen de zojuist gegenereerde runs/events; `/dev/health` toont DB/queue-diepte/cache/storage/uploads/HEIC/versies. |
 | Productmetrics `/metrics` (BL-026) | pass | lokaal 2026-07-20; staging nog todo | Authenticated weergave met periodefilter, zes kerncijfers, uitvalpunten en per-opname-links gecontroleerd; eerste beoordeling met `need_more_info` telt als 0,0% direct genoeg. Desktop en 390 px zonder pagina-overflow; tabel scrolt intern; geen nieuwe browserwarnings/-errors. Na deploy dezelfde smoke volgens `docs/metrics.md`. |
 | Opname aanmaken (Airco) | pass | 2026-07-18 | Opgeslagen, detail + klantlink |
-| Adres-autocomplete + BAG-verrijking (BL-019) | todo | - | Na deploy: typ adres → selecteer PDOK-suggestie → postcode/plaats gevuld; detail toont bouwjaar/gebruiksdoel/oppervlakte/locatie/perceel met bron; handmatige invoer blijft werken bij PDOK-storing |
+| Postcode-eerst adresaanvulling + BAG-verrijking (BL-019/033) | pass | lokaal 2026-07-26; staging nog todo | Nieuwe opname toont postcode, huisnummer en toevoeging vóór het adres; echte PDOK-call `1012 JS + 1` vulde `Dam 1, Amsterdam` en BAG-adresreferentie. Desktoplayout, bewuste zoekactie, statusfeedback en handmatige fallback gecontroleerd; geautomatiseerde tests dekken exacte filtering, toevoeging, ongeldige invoer en storing. Na deploy dezelfde smoke op staging plus detailverrijking. |
 | Airco v4: BAG-bouwjaar vervangt vraag (BL-019) | todo | - | Met eenduidig pand: klantwizard toont geen `build_year`-vraag en rapport bevat BAG-bouwjaar; zonder match/meerdere panden/storing blijft de vraag zichtbaar en dossier toont onzekerheid |
 | PDOK-luchtfoto in dossier/PDF (BL-019) | todo | lokaal live pass 2026-07-20; staging nog todo | Lokaal met echte PDOK-services: Damrak 1 → 900×600 beeld, marker/bron/maat/BAG-feiten, desktop + 390 px zonder overflow of consolefouten. Na deploy dezelfde detail/PDF-, WMS-fallback- en purgecheck op staging. |
 | Beveiligde klantlink genereren | pass | 2026-07-18 | Token-URL `/o/{64}` |
@@ -80,6 +80,10 @@ Laatste testsessie: 2026-07-24 (staging; publieke demo via HTTP/Livewire-driver,
 | `n/a` | Niet van toepassing voor deze omgeving |
 
 ## Ruimte voor details
+
+### Sessie 2026-07-26 (lokaal) — BL-033 postcode-eerst adresaanvulling
+
+Geïsoleerde lokale SQLite-omgeving met tijdelijk testaccount. Op de nieuwe-opnamepagina staan postcode, huisnummer en optionele toevoeging vóór straat/plaats; op desktop in één rij en op smallere schermen via de responsive grid in één kolom. De zoekactie is expliciet en veroorzaakt geen call tijdens renderen. Een echte PDOK Locatieserver-call met `1012 JS + 1` vulde `Dam 1`, `Amsterdam` en de BAG-adresreferentie en toonde “Adres gevonden en aangevuld.” De gevonden-adressectie bleef bewerkbaar; handmatige invoer bleef bereikbaar. Geen browserconsolefouten. Staging blijft `todo` tot deploy.
 
 ### Sessie 2026-07-24 (staging) — publieke demo BL-001
 
