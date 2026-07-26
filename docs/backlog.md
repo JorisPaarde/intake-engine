@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 3.41 · **Laatste update:** 2026-07-26 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.42 · **Laatste update:** 2026-07-26 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -30,7 +30,7 @@ Items in **verschillende parallel-bands** kunnen tegelijk door aparte agents/men
 |------|------|--------------|------------------|
 | **A** | Afronden (lopend) | BL-001 | D–I (staging-config/smoke; weinig codeconflict) |
 | **D** | Infra (extern) | — (BL-011 done) | — |
-| **F** | Open data / adres | BL-033 (BL-019 done) | Met A/H/I; raakt alleen nieuwe-opnameflow en PDOK-adreslookup |
+| **F** | Open data / adres | — (BL-019/033 done) | — |
 | **H** | AI-keten | BL-029, BL-030 (BL-006/007/020 done) | Met A/I; BL-030 raakt uploadpipeline (afstemmen met BL-013) |
 | **I** | Beheer / schaal | BL-013 (BL-012/031/032 done) | BL-013 kan zelfstandig worden opgepakt; tenantbranding gebruikt al `MEDIA_DISK` |
 | **J** | Klantwizard-verbeteringen | — (BL-021–BL-025 done) | — |
@@ -52,11 +52,11 @@ Geprioriteerd op het hoofddoel (herprioritering 2026-07-18): hoeveel handelingen
 
 | # | ID | Item | Epic | Status | Prioriteit | Band |
 |---|----|------|------|--------|------------|------|
-| 1 | BL-033 | Postcode-eerst adresaanvulling bij nieuwe opname | E3 | in_progress | high | F · parallel |
-| 2 | BL-001 | Demo-versie van de app | E5 | in_progress | medium | A |
-| 3 | BL-029 | Begeleide leidingroute (foto-voor-foto + routesynthese) | E4 | in_progress | high | H · parallel |
-| 4 | BL-030 | Foto-varianten: dossier + AI-analyse (JPEG, tokens/storage) | E4 | ready | high | H · parallel |
-| 5 | BL-013 | S3 als mediadisk | E5 | backlog | low | I · parallel |
+| 1 | BL-001 | Demo-versie van de app | E5 | in_progress | medium | A |
+| 2 | BL-029 | Begeleide leidingroute (foto-voor-foto + routesynthese) | E4 | in_progress | high | H · parallel |
+| 3 | BL-030 | Foto-varianten: dossier + AI-analyse (JPEG, tokens/storage) | E4 | ready | high | H · parallel |
+| 4 | BL-013 | S3 als mediadisk | E5 | backlog | low | I · parallel |
+| — | BL-033 | Postcode-eerst adresaanvulling bij nieuwe opname | E3 | done | high | F (done) |
 | — | BL-012 | Multi-accountplatform voor installatiebedrijven | E5 | done | high | I (done) |
 | — | BL-031 | White-label branding uit installateurslogo | E5 | done | high | I (done) |
 | — | BL-032 | Modern, strak en Apple-achtig productdesign | E5 | done | high | I (done) |
@@ -209,11 +209,12 @@ De meest directe toepassing van het ontwerpprincipe: *de applicatie vraagt niets
 
 ### BL-033 — Postcode-eerst adresaanvulling bij nieuwe opname
 
-- **Status:** in_progress · **Prioriteit:** high · **Datum gestart:** 2026-07-26
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-26 · **PR:** #51 + #52
 - **Parallel:** band **F** — bouwt voort op BL-019 en raakt alleen de installerflow voor een nieuwe opname plus de bestaande PDOK-adreslookup.
 - **Doel:** bij het aanmaken eerst postcode, huisnummer en optionele toevoeging invullen; de applicatie zoekt daarna het exacte BAG/PDOK-adres en vult straat en plaats aan. Dit voorkomt vrije adreszoektekst en dubbele invoer.
-- **Kaders:** postcode en huisnummer worden server-side gevalideerd en genormaliseerd; meerdere toevoegingen blijven expliciet selecteerbaar; de gekozen lookup-ID en zichtbare adresvelden moeten bij elkaar passen. PDOK blijft fail-soft: storing of geen resultaat toont een duidelijke handmatige adresfallback en blokkeert het aanmaken niet. Geen API-call tijdens renderen en geen externe lookup zonder bewuste zoekactie of complete invoer.
+- **Kaders:** postcode en huisnummer worden server-side gevalideerd en genormaliseerd; meerdere toevoegingen blijven expliciet selecteerbaar; de gekozen lookup-ID en zichtbare adresvelden moeten bij elkaar passen. PDOK blijft fail-soft: storing of geen resultaat toont een duidelijke handmatige adresfallback en blokkeert het aanmaken niet. Geen API-call tijdens renderen; automatisch zoeken start pas na complete geldige invoer en een korte debounce.
 - **Acceptatie:** postcode staat vóór adresvelden; `1234 AB + 10 (+ toevoeging)` levert via het bestaande authenticated/throttled endpoint één of meer veilige adressuggesties; keuze vult straat/postcode/plaats en lookup-ID; wijziging van postcode/huisnummer wist een oude selectie; toetsenbord en statusfeedback zijn toegankelijk; validatie en featuretests dekken exact resultaat, meerdere toevoegingen, ongeldige invoer, PDOK-storing en handmatige fallback.
+- **Resultaat:** geldige postcode + huisnummer starten zonder extra knop automatisch de exacte lookup; toevoegingswijzigingen zoeken opnieuw. Debounce, abort en request-identiteitscontrole voorkomen dubbele of verouderde resultaten en automatische resultaten verplaatsen de focus niet.
 
 ### BL-016 — Hergebruik bekende gegevens (prefill)
 

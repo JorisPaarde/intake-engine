@@ -79,16 +79,7 @@
                             </div>
                         </div>
 
-                        <div class="mt-4 flex flex-wrap items-center gap-3">
-                            <button
-                                type="button"
-                                data-address-search
-                                class="inline-flex items-center rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
-                            >
-                                Adres zoeken
-                            </button>
-                            <p data-address-status class="text-sm text-gray-600" role="status" aria-live="polite"></p>
-                        </div>
+                        <p data-address-status class="mt-4 text-sm text-gray-600" role="status" aria-live="polite"></p>
 
                         <input id="address_lookup_id" name="address_lookup_id" type="hidden" value="{{ old('address_lookup_id') }}">
                         <ul
@@ -222,7 +213,6 @@
             const postalCode = document.getElementById('address_postal_code');
             const houseNumber = document.getElementById('address_house_number');
             const addition = document.getElementById('address_house_number_addition');
-            const searchButton = root?.querySelector('[data-address-search]');
             const status = root?.querySelector('[data-address-status]');
             const list = root?.querySelector('[data-address-suggestions]');
             const manual = root?.querySelector('[data-manual-address]');
@@ -231,9 +221,10 @@
             const city = document.getElementById('address_city');
             const lookupId = document.getElementById('address_lookup_id');
 
-            if (!root || !postalCode || !houseNumber || !addition || !searchButton || !status || !list || !manual || !manualSummary || !addressLine || !city || !lookupId) return;
+            if (!root || !postalCode || !houseNumber || !addition || !status || !list || !manual || !manualSummary || !addressLine || !city || !lookupId) return;
 
             let request = null;
+            let searchTimer = null;
 
             function closeSuggestions() {
                 list.replaceChildren();
@@ -254,11 +245,15 @@
             }
 
             function cancelActiveRequest() {
+                if (searchTimer) {
+                    window.clearTimeout(searchTimer);
+                    searchTimer = null;
+                }
+
                 if (!request) return;
 
                 request.abort();
                 request = null;
-                searchButton.disabled = false;
                 root.removeAttribute('aria-busy');
             }
 
@@ -284,7 +279,6 @@
                 manualSummary.textContent = 'Gevonden adres';
                 closeSuggestions();
                 setStatus('Adres gevonden en aangevuld.', false);
-                addressLine.focus();
             }
 
             function showSuggestions(suggestions) {
@@ -293,7 +287,6 @@
                 if (suggestions.length === 0) {
                     manual.open = true;
                     setStatus('Geen adres gevonden. Vul straat en plaats handmatig in.', true);
-                    addressLine.focus();
                     return;
                 }
 
@@ -315,29 +308,19 @@
 
                 list.classList.remove('hidden');
                 setStatus('Meerdere adressen gevonden. Kies het juiste adres.', false);
-                list.querySelector('button')?.focus();
             }
 
             async function searchAddress() {
                 const normalizedPostalCode = postalCode.value.toUpperCase().replace(/\s+/g, '');
                 const normalizedHouseNumber = houseNumber.value.trim();
 
-                if (!/^[1-9]\d{3}[A-Z]{2}$/.test(normalizedPostalCode)) {
-                    setStatus('Vul een geldige postcode in, bijvoorbeeld 1234 AB.', true);
-                    postalCode.focus();
-                    return;
-                }
+                if (!/^[1-9]\d{3}[A-Z]{2}$/.test(normalizedPostalCode)) return;
 
-                if (!/^\d+$/.test(normalizedHouseNumber) || Number(normalizedHouseNumber) < 1) {
-                    setStatus('Vul een geldig huisnummer in.', true);
-                    houseNumber.focus();
-                    return;
-                }
+                if (!/^\d+$/.test(normalizedHouseNumber) || Number(normalizedHouseNumber) < 1) return;
 
                 if (request) request.abort();
                 const activeRequest = new AbortController();
                 request = activeRequest;
-                searchButton.disabled = true;
                 root.setAttribute('aria-busy', 'true');
                 closeSuggestions();
                 setStatus('Adres zoeken…', false);
@@ -372,7 +355,6 @@
                     }
                 } finally {
                     if (request === activeRequest) {
-                        searchButton.disabled = false;
                         root.removeAttribute('aria-busy');
                         request = null;
                     }
@@ -387,14 +369,26 @@
                 setStatus('Adres handmatig aangepast.', false);
             }
 
+            function scheduleAddressSearch() {
+                clearSelectedAddress();
+
+                const normalizedPostalCode = postalCode.value.toUpperCase().replace(/\s+/g, '');
+                const normalizedHouseNumber = houseNumber.value.trim();
+                const canSearch = /^[1-9]\d{3}[A-Z]{2}$/.test(normalizedPostalCode)
+                    && /^\d+$/.test(normalizedHouseNumber)
+                    && Number(normalizedHouseNumber) >= 1;
+
+                if (!canSearch) return;
+
+                setStatus('Adres wordt automatisch gezocht…', false);
+                searchTimer = window.setTimeout(function () {
+                    searchTimer = null;
+                    searchAddress();
+                }, 350);
+            }
+
             [postalCode, houseNumber, addition].forEach(function (field) {
-                field.addEventListener('input', clearSelectedAddress);
-                field.addEventListener('keydown', function (event) {
-                    if (event.key === 'Enter') {
-                        event.preventDefault();
-                        searchAddress();
-                    }
-                });
+                field.addEventListener('input', scheduleAddressSearch);
             });
 
             postalCode.addEventListener('blur', function () {
@@ -405,10 +399,9 @@
             list.addEventListener('keydown', function (event) {
                 if (event.key === 'Escape') {
                     closeSuggestions();
-                    searchButton.focus();
+                    postalCode.focus();
                 }
             });
-            searchButton.addEventListener('click', searchAddress);
         })();
     </script>
 </x-app-layout>

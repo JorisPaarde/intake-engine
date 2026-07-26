@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.32 · **Laatste update:** 2026-07-26 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.33 · **Laatste update:** 2026-07-26 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -25,7 +25,7 @@ Laatste testsessie: 2026-07-26 (lokaal; postcode-eerst adresaanvulling met echte
 | Dev-admin AI-runs/activiteit/health (BL-028) | todo | - | `/dev/ai-runs` en `/dev/activity` filteren en tonen de zojuist gegenereerde runs/events; `/dev/health` toont DB/queue-diepte/cache/storage/uploads/HEIC/versies. |
 | Productmetrics `/metrics` (BL-026) | pass | lokaal 2026-07-20; staging nog todo | Authenticated weergave met periodefilter, zes kerncijfers, uitvalpunten en per-opname-links gecontroleerd; eerste beoordeling met `need_more_info` telt als 0,0% direct genoeg. Desktop en 390 px zonder pagina-overflow; tabel scrolt intern; geen nieuwe browserwarnings/-errors. Na deploy dezelfde smoke volgens `docs/metrics.md`. |
 | Opname aanmaken (Airco) | pass | 2026-07-18 | Opgeslagen, detail + klantlink |
-| Postcode-eerst adresaanvulling + BAG-verrijking (BL-019/033) | pass | lokaal 2026-07-26; staging nog todo | Nieuwe opname toont postcode, huisnummer en toevoeging vóór het adres; echte PDOK-call `1012 JS + 1` vulde `Dam 1, Amsterdam` en BAG-adresreferentie. Desktoplayout, bewuste zoekactie, statusfeedback en handmatige fallback gecontroleerd; geautomatiseerde tests dekken exacte filtering, toevoeging, ongeldige invoer en storing. Na deploy dezelfde smoke op staging plus detailverrijking. |
+| Postcode-eerst adresaanvulling + BAG-verrijking (BL-019/033) | todo | knopvariant lokaal pass 2026-07-26; automatische flow nog testen | Nieuwe opname toont postcode, huisnummer en toevoeging vóór het adres. De exacte PDOK/BAG-resultaten, statusfeedback en handmatige fallback zijn lokaal bewezen; na de ontwerpprincipecorrectie moet nog functioneel worden bevestigd dat complete geldige invoer zonder zoekknop automatisch zoekt, debounce/annulering werkt en focus niet verspringt. Daarna dezelfde smoke op staging plus detailverrijking. |
 | Airco v4: BAG-bouwjaar vervangt vraag (BL-019) | todo | - | Met eenduidig pand: klantwizard toont geen `build_year`-vraag en rapport bevat BAG-bouwjaar; zonder match/meerdere panden/storing blijft de vraag zichtbaar en dossier toont onzekerheid |
 | PDOK-luchtfoto in dossier/PDF (BL-019) | todo | lokaal live pass 2026-07-20; staging nog todo | Lokaal met echte PDOK-services: Damrak 1 → 900×600 beeld, marker/bron/maat/BAG-feiten, desktop + 390 px zonder overflow of consolefouten. Na deploy dezelfde detail/PDF-, WMS-fallback- en purgecheck op staging. |
 | Beveiligde klantlink genereren | pass | 2026-07-18 | Token-URL `/o/{64}` |
@@ -81,9 +81,9 @@ Laatste testsessie: 2026-07-26 (lokaal; postcode-eerst adresaanvulling met echte
 
 ## Ruimte voor details
 
-### Sessie 2026-07-26 (lokaal) — BL-033 postcode-eerst adresaanvulling
+### Sessie 2026-07-26 (lokaal) — BL-033 oorspronkelijke knopvariant
 
-Geïsoleerde lokale SQLite-omgeving met tijdelijk testaccount. Op de nieuwe-opnamepagina staan postcode, huisnummer en optionele toevoeging vóór straat/plaats; op desktop in één rij en op smallere schermen via de responsive grid in één kolom. De zoekactie is expliciet en veroorzaakt geen call tijdens renderen. Een echte PDOK Locatieserver-call met `1012 JS + 1` vulde `Dam 1`, `Amsterdam` en de BAG-adresreferentie en toonde “Adres gevonden en aangevuld.” De gevonden-adressectie bleef bewerkbaar; handmatige invoer bleef bereikbaar. Geen browserconsolefouten. Staging blijft `todo` tot deploy.
+Geïsoleerde lokale SQLite-omgeving met tijdelijk testaccount. Op de nieuwe-opnamepagina stonden postcode, huisnummer en optionele toevoeging vóór straat/plaats; op desktop in één rij en op smallere schermen via de responsive grid in één kolom. De toenmalige expliciete zoekactie deed geen call tijdens renderen. Een echte PDOK Locatieserver-call met `1012 JS + 1` vulde `Dam 1`, `Amsterdam` en de BAG-adresreferentie en toonde “Adres gevonden en aangevuld.” De gevonden-adressectie bleef bewerkbaar; handmatige invoer bleef bereikbaar. Geen browserconsolefouten. Deze sessie bewijst de latere automatische lookup zonder knop niet; die staat hierboven terecht als `todo`.
 
 ### Sessie 2026-07-24 (staging) — publieke demo BL-001
 
