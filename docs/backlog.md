@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 3.42 · **Laatste update:** 2026-07-26 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.43 · **Laatste update:** 2026-07-26 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -31,7 +31,7 @@ Items in **verschillende parallel-bands** kunnen tegelijk door aparte agents/men
 | **A** | Afronden (lopend) | BL-001 | D–I (staging-config/smoke; weinig codeconflict) |
 | **D** | Infra (extern) | — (BL-011 done) | — |
 | **F** | Open data / adres | — (BL-019/033 done) | — |
-| **H** | AI-keten | BL-029, BL-030 (BL-006/007/020 done) | Met A/I; BL-030 raakt uploadpipeline (afstemmen met BL-013) |
+| **H** | AI-keten | BL-029, BL-030 (BL-006/007/020/034 done) | Met A/I; BL-030 raakt uploadpipeline (afstemmen met BL-013) |
 | **I** | Beheer / schaal | BL-013 (BL-012/031/032 done) | BL-013 kan zelfstandig worden opgepakt; tenantbranding gebruikt al `MEDIA_DISK` |
 | **J** | Klantwizard-verbeteringen | — (BL-021–BL-025 done) | — |
 | **K** | Installateursweergave | — (BL-024 done) | — |
@@ -56,6 +56,7 @@ Geprioriteerd op het hoofddoel (herprioritering 2026-07-18): hoeveel handelingen
 | 2 | BL-029 | Begeleide leidingroute (foto-voor-foto + routesynthese) | E4 | in_progress | high | H · parallel |
 | 3 | BL-030 | Foto-varianten: dossier + AI-analyse (JPEG, tokens/storage) | E4 | ready | high | H · parallel |
 | 4 | BL-013 | S3 als mediadisk | E5 | backlog | low | I · parallel |
+| — | BL-034 | Splitconfiguratie als installateursaandachtspunt | E4 | done | medium | H (done) |
 | — | BL-033 | Postcode-eerst adresaanvulling bij nieuwe opname | E3 | done | high | F (done) |
 | — | BL-012 | Multi-accountplatform voor installatiebedrijven | E5 | done | high | I (done) |
 | — | BL-031 | White-label branding uit installateurslogo | E5 | done | high | I (done) |
@@ -274,6 +275,12 @@ De meest directe toepassing van het ontwerpprincipe: *de applicatie vraagt niets
 ## Epic E4 — AI bespaart beoordeelwerk
 
 AI mag nooit bron van waarheid zijn (docs/ai.md, ADR-0005), maar kan wél handelingen schrappen: de samenvatting bespaart de installateur leeswerk, aandachtspunten-voorstellen versnellen de beoordeling, en een fotokwaliteitscheck voorkomt dat de aanvrager later een tweede aanleverronde moet doen.
+
+### BL-034 — Splitconfiguratie als installateursaandachtspunt
+
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-07-26 · **PR:** automatische-splitcorrectie
+- **Doel:** de klant geen technische single-/multi-splitkeuze laten maken, maar de installateur bij meerdere binnenunits expliciet laten beoordelen of één multi-split of meerdere single-splits passend zijn.
+- **Resultaat:** `CompletenessChecker` maakt bij meer dan één binnenunit het deterministische systeemaandachtspunt `review_split_configuration`, inclusief het gekozen aantal. Bij één binnenunit verschijnt geen extra punt. De buitenunit- en leidingroutesecties blijven éénmalig en vragen dus niet per binnenunit dezelfde foto's.
 
 ### BL-006 — Externe LLM-provider (na DPIA)
 

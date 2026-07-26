@@ -1,6 +1,6 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 1.11 · **Laatste update:** 2026-07-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.12 · **Laatste update:** 2026-07-26 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **Fase 6 + BL-007 + BL-020 geïmplementeerd** — samenvatting, aandachtspunten, lokale fotokwaliteit en een bevestigbare multimodale meterkastvoorzet. Externe provider en foto-inferentie staan **standaard uit** (DPIA + key vereist). Zie ADR-0005. **Publieke demo** draait samenvatting + aandachtspunten wel: inline bij afronden, met heuristic-fallback als `AI_PROVIDER=null`, zichtbaar op het bedankt-scherm.
 
@@ -134,6 +134,7 @@ Server-side validatie vóór opslaan. Ongeldige output = `failed`.
 
 ## Aandachtspunten-voorstellen (BL-007)
 
+- Systeemaandachtspunten zijn deterministisch en staan los van AI. BL-034 voegt bij meer dan één binnenunit `review_split_configuration` toe, zodat de installateur één multi-split versus meerdere single-splits beoordeelt zonder de klant een technische keuze te laten maken. Dit punt is direct gezaghebbend (`source=system`), maar blijft alleen een controlepunt en geen definitief installatieadvies.
 - `SuggestAttentionPoints` (mirror van `SummarizeIntake`) leidt via de gekozen provider aandachtspunten af; `HeuristicAiClient` doet dit deterministisch en lokaal. Prompt: `attention_points` (versioned).
 - Voorstellen landen als `intake_attention_points` met `source=ai`, `status=proposed`. De installateur **accepteert** (→ `accepted`, komt in het rapport) of **verwijdert** (→ `dismissed`) ze op de opnamepagina. Alleen `accepted` (en system/reviewer) punten staan in het rapport.
 - Idempotent en database-uniek op `(intake, source, code)`: automatische heranalyse dupliceert niet en respecteert een eerdere accept/dismiss-beslissing. Queuejobs voor dezelfde intake gebruiken `WithoutOverlapping`. Alle writers van providercontext (antwoorden, uploads, follow-ups, verrijkingsfeiten, reviews, foto-afleidingen en leidingroutes), voorstelopslag en installateursbeslissingen locken eerst dezelfde intake-row en daarna pas childrecords. Externe providercalls blijven buiten transacties. Vlak vóór voorstelopslag wordt onder de intake-lock de actuele begrensde context opnieuw gehasht; wijkt die af van `ai_runs.input_hash`, dan is het providerresultaat stale en wordt niets toegepast. `SuggestAttentionPointsJob` wordt automatisch gepland bij de eerste afronding én opnieuw na iedere afgeronde aanvullende ronde. Er is geen genereer-/opnieuw-knop of handmatige endpoint; de installateur beoordeelt alleen de voorstellen. Contextbouw, hashing, providercall, validatie en opslag vallen allemaal binnen de soft-failgrens; een fout blokkeert de kernflow niet.

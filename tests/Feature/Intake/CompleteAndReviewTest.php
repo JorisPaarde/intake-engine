@@ -153,6 +153,33 @@ test('incomplete intake cannot be completed', function () {
     expect($intake->fresh()->status)->toBe(IntakeStatus::Sent);
 });
 
+test('multiple indoor units create an installer attention point for the split configuration', function () {
+    $intake = makePhase5Intake();
+    app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 4]);
+    $version = $intake->templateVersion()
+        ->with(['sections.questions.options', 'sections.questions.rules'])
+        ->firstOrFail();
+
+    $check = app(CompletenessChecker::class)->check($intake->fresh(), $version);
+
+    expect($check['attention_points'])->toContain([
+        'code' => 'review_split_configuration',
+        'label' => 'Beoordeel voor 4 binnenunits: één multi-split of meerdere single-splits.',
+    ]);
+});
+
+test('one indoor unit does not create a split configuration attention point', function () {
+    $intake = makePhase5Intake();
+    app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
+    $version = $intake->templateVersion()
+        ->with(['sections.questions.options', 'sections.questions.rules'])
+        ->firstOrFail();
+
+    $check = app(CompletenessChecker::class)->check($intake->fresh(), $version);
+
+    expect(collect($check['attention_points'])->pluck('code'))->not->toContain('review_split_configuration');
+});
+
 test('complete intake stores snapshot report and attention points', function () {
     $intake = makePhase5Intake();
     fillIntakeUntilComplete($intake);
