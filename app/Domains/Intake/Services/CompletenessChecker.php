@@ -62,6 +62,21 @@ final class CompletenessChecker
         $intake->loadMissing(['answers']);
         $points = [];
 
+        $indoorUnitCount = $intake->answers
+            ->first(static fn ($answer): bool => $answer->question_key === 'indoor_unit_count'
+                && $answer->section_instance_key === null);
+        $indoorUnitCountValue = is_array($indoorUnitCount?->value)
+            ? ($indoorUnitCount->value['number'] ?? null)
+            : null;
+
+        if (is_numeric($indoorUnitCountValue) && (int) $indoorUnitCountValue > 1) {
+            $count = (int) $indoorUnitCountValue;
+            $points[] = [
+                'code' => 'review_split_configuration',
+                'label' => "Beoordeel voor {$count} binnenunits: één multi-split of meerdere single-splits.",
+            ];
+        }
+
         $freeGroup = $intake->answers
             ->first(static fn ($answer): bool => $answer->question_key === 'free_group_known'
                 && $answer->section_instance_key === null);

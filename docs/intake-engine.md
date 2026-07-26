@@ -1,6 +1,6 @@
 # Intake-engine
 
-> **Documentversie:** 1.23 · **Laatste update:** 2026-07-26 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.24 · **Laatste update:** 2026-07-26 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **geïmplementeerd t/m Fase 6 + BL-019 openbare data + BL-020 foto-afleiding + BL-027 gerichte vervolgrondes + BL-033 postcode-eerst adresaanvulling**. Airco-template **v9** gepubliceerd — v8 + de openingsvraag levert functie, aantal units en ruimtetypes, plus conditionele cascades en keuzelijsten.
 
@@ -56,6 +56,8 @@ De rapportpreview toont daarnaast alle werkelijk aangeleverde intake- en vervolg
 - Geordend (`sort_order`)
 - Klantflow: **één zichtbare vraag per scherm** (BL-018); sectietitel blijft als hoofdstukmarkering zichtbaar
 - `is_repeatable`: bv. “Ruimtes” herhaalt zich N keer op basis van `repeat_count_question_key` (aantal binnenunits)
+- De airco-sectie **Ruimtes** herhaalt per binnenunit; **Buitenunit** en **Leidingroute** zijn niet herhaalbaar. Vier binnenunits vragen daarom niet om vier sets buitenunitfoto's.
+- Bij meer dan één binnenunit voegt de compleetheidscontrole het deterministische installateursaandachtspunt `review_split_configuration` toe: beoordeel één multi-split versus meerdere single-splits. Dit is bewust geen klantvraag en geen automatische technische keuze.
 
 `section_instance_key` op antwoorden/uploads: `null` voor normale secties, `room-1` … `room-n` voor herhalingen.
 
