@@ -253,11 +253,17 @@ Bestanden: privé disk, pad `intakes/{uuid}/…/{ulid}.ext`. Geen publieke URL.
 | `source` | AttentionPointSource (`system`/`reviewer`/`ai`) |
 | `code` | string nullable |
 | `label` | string |
+| `ai_confidence` | string nullable (`low`/`medium`/`high`) — machineleesbare zekerheid van een AI-voorstel |
+| `evidence` | JSON nullable — maximaal tien `{source_type, reference}`-verwijzingen naar bestaande dossiercontext |
 | `status` | string nullable — BL-007: AI-voorstellevenscyclus (`proposed`/`accepted`/`dismissed`), `AttentionPointStatus`. `null` voor system/reviewer (altijd gezaghebbend) |
 | `is_resolved` | boolean |
 | `resolved_at` | timestamp nullable |
 | `resolved_by` | FK users nullable |
 | `timestamps` | |
+
+Uniek: `(intake_id, source, code)` voorkomt dubbele gecodeerde voorstellen bij gelijktijdige heranalyse. Bestaande dubbelen worden bij de hardeningsmigratie deterministisch geconsolideerd; een geaccepteerd/verwijderd besluit heeft daarbij voorrang op een open voorstel.
+
+**Deployvoorwaarde voor `2026_07_25_160000_harden_ai_attention_points`:** stop vóór `php artisan migrate --force` alle queueworkers en blokkeer tijdelijk webwrites (onderhoudsmodus). De migratie consolideert eerst bestaande dubbelen en maakt daarna de unieke index; een nog draaiende oude worker kan anders precies tussen die stappen opnieuw een dubbel voorstel schrijven. Start pas na een geslaagde migratie de workers met de nieuwe releasecode.
 
 ### `intake_notes`
 

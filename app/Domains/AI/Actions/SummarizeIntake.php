@@ -6,12 +6,15 @@ namespace App\Domains\AI\Actions;
 
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\AiGateway;
+use App\Domains\AI\Services\IntakeAttentionContextBuilder;
 use App\Domains\AI\Services\PromptVersionRepository;
+use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Services\GenerateIntakeReportHtml;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
 use App\Enums\AttentionPointStatus;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -23,6 +26,7 @@ final class SummarizeIntake
         private readonly AiGateway $aiGateway,
         private readonly PromptVersionRepository $promptVersions,
         private readonly GenerateIntakeReportHtml $generateIntakeReportHtml,
+        private readonly IntakeAttentionContextBuilder $contextBuilder,
     ) {}
 
     public function handle(Intake $intake): AiRun
@@ -97,13 +101,19 @@ final class SummarizeIntake
                 ? $answer->section_instance_key.'__'.$answer->question_key
                 : $answer->question_key;
 
-            $answers[$key] = $answer->value;
+            $answers[$key] = is_array($answer->value)
+                ? $this->contextBuilder->sanitizeExternalValue($answer->value)
+                : $answer->value;
         }
 
         $externalFacts = [];
         foreach ($intake->externalFacts as $fact) {
+            if ($this->contextBuilder->isSensitiveFactKey($fact->fact_key)) {
+                continue;
+            }
+
             $externalFacts[$fact->fact_key] = [
-                'value' => $fact->value,
+                'value' => $this->contextBuilder->sanitizeExternalValue($fact->value),
                 'source' => $fact->source,
                 'confidence' => $fact->confidence,
             ];
@@ -184,45 +194,54 @@ final class SummarizeIntake
      */
     private function attachSummaryToReport(Intake $intake, array $summary, AiRun $run): void
     {
-        $report = $intake->report;
+        DB::transaction(function () use ($intake, $summary, $run): void {
+            $intake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
+            $report = $intake->report()->lockForUpdate()->first();
 
-        if ($report === null) {
-            return;
+            if ($report === null) {
+                return;
+            }
+
+            $intake->load('attentionPoints');
+
+            $version = $intake->templateVersion()
+                ->with(['sections.questions.options', 'sections.questions.rules', 'template'])
+                ->firstOrFail();
+
+            // Only authoritative points in the report — never still-proposed/dismissed AI ones (BL-007).
+            $attentionPoints = $intake->attentionPoints
+                ->filter(static fn ($point): bool => $point->status === null
+                    || $point->status === AttentionPointStatus::Accepted)
+                ->map(static fn ($point): array => [
+                    'code' => (string) ($point->code ?? ''),
+                    'label' => $point->label,
+                ])
+                ->values()
+                ->all();
+
+            $html = $this->generateIntakeReportHtml->handle(
+                $intake,
+                $version,
+                $attentionPoints,
+                $summary,
+            );
+
+            $rawMeta = $report->getAttribute('meta');
+            $meta = is_array($rawMeta) ? $rawMeta : [];
+            $meta['ai_summary'] = $summary;
+            $meta['ai_run_id'] = $run->id;
+            $meta['ai_provider'] = $run->provider;
+            $meta['ai_prompt_version'] = $run->prompt_version;
+
+            $report->update([
+                'html' => $html,
+                'meta' => $meta,
+                'generated_at' => now(),
+            ]);
+        }, 3);
+
+        if (! $intake->is_demo) {
+            GenerateIntakePdfJob::dispatch($intake->id);
         }
-
-        $version = $intake->templateVersion()
-            ->with(['sections.questions.options', 'sections.questions.rules', 'template'])
-            ->firstOrFail();
-
-        // Only authoritative points in the report — never still-proposed/dismissed AI ones (BL-007).
-        $attentionPoints = $intake->attentionPoints
-            ->filter(static fn ($point): bool => $point->status === null
-                || $point->status === AttentionPointStatus::Accepted)
-            ->map(static fn ($point): array => [
-                'code' => (string) ($point->code ?? ''),
-                'label' => $point->label,
-            ])
-            ->values()
-            ->all();
-
-        $html = $this->generateIntakeReportHtml->handle(
-            $intake,
-            $version,
-            $attentionPoints,
-            $summary,
-        );
-
-        $rawMeta = $report->getAttribute('meta');
-        $meta = is_array($rawMeta) ? $rawMeta : [];
-        $meta['ai_summary'] = $summary;
-        $meta['ai_run_id'] = $run->id;
-        $meta['ai_provider'] = $run->provider;
-        $meta['ai_prompt_version'] = $run->prompt_version;
-
-        $report->update([
-            'html' => $html,
-            'meta' => $meta,
-            'generated_at' => now(),
-        ]);
     }
 }

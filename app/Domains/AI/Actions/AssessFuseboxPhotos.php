@@ -16,6 +16,7 @@ use App\Domains\Intake\Models\IntakeExternalFact;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
+use App\Enums\IntakeStatus;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -58,7 +59,11 @@ final class AssessFuseboxPhotos
         $promptVersion = $this->promptVersions->version($promptName);
         $promptBody = $this->promptVersions->body($promptName);
         $manifest = $uploads->map(static fn (IntakeUpload $upload): array => [
-            'upload_id' => $upload->id,
+            'checksum' => $upload->checksum,
+            'mime_type' => $upload->mime_type,
+        ])->values()->all();
+        $persistenceManifest = $uploads->map(static fn (IntakeUpload $upload): array => [
+            'id' => $upload->id,
             'checksum' => $upload->checksum,
             'mime_type' => $upload->mime_type,
         ])->values()->all();
@@ -114,23 +119,42 @@ final class AssessFuseboxPhotos
             ]);
 
             $run = $run->fresh() ?? $run;
-            $this->storeObservation($intake, $run, $output, $uploads);
-            $this->prefillFreeGroup($intake, $output);
 
-            IntakeActivityEvent::query()->create([
-                'intake_id' => $intake->id,
-                'actor_type' => 'system',
-                'actor_id' => null,
-                'event' => 'photo_assessment_completed',
-                'properties' => [
-                    'ai_run_id' => $run->id,
-                    'question_key' => self::PHOTO_QUESTION,
-                    'confidence' => $output['confidence'],
-                    'free_group' => $output['free_group'],
-                    'phase' => $output['phase'],
-                ],
-                'created_at' => now(),
-            ]);
+            DB::transaction(function () use ($intake, $run, $output, $uploads, $persistenceManifest): void {
+                $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
+
+                if (! in_array($lockedIntake->status, [IntakeStatus::Sent, IntakeStatus::InProgress], true)) {
+                    throw new \RuntimeException('Opname is afgerond tijdens AI-analyse; resultaat niet toegepast.');
+                }
+
+                $currentManifest = $this->uploads($intake)->map(static fn (IntakeUpload $upload): array => [
+                    'id' => $upload->id,
+                    'checksum' => $upload->checksum,
+                    'mime_type' => $upload->mime_type,
+                ])->values()->all();
+
+                if ($currentManifest !== $persistenceManifest) {
+                    throw new \RuntimeException('Meterkastfoto’s gewijzigd tijdens AI-analyse; resultaat niet toegepast.');
+                }
+
+                $this->storeObservation($intake, $run, $output, $uploads);
+                $this->prefillFreeGroup($intake, $output);
+
+                IntakeActivityEvent::query()->create([
+                    'intake_id' => $intake->id,
+                    'actor_type' => 'system',
+                    'actor_id' => null,
+                    'event' => 'photo_assessment_completed',
+                    'properties' => [
+                        'ai_run_id' => $run->id,
+                        'question_key' => self::PHOTO_QUESTION,
+                        'confidence' => $output['confidence'],
+                        'free_group' => $output['free_group'],
+                        'phase' => $output['phase'],
+                    ],
+                    'created_at' => now(),
+                ]);
+            }, 3);
 
             return $run;
         } catch (Throwable $exception) {
@@ -153,6 +177,8 @@ final class AssessFuseboxPhotos
     public function invalidateDerivedState(Intake $intake): void
     {
         DB::transaction(function () use ($intake): void {
+            Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
+
             IntakeExternalFact::query()
                 ->where('intake_id', $intake->id)
                 ->where('fact_key', 'fusebox_photo_assessment')

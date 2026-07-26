@@ -48,8 +48,8 @@ final class PdokBuildingContextService
         }
 
         $bounds = $this->bounds($target->outline);
-        $nearbyFeatures = $this->features('pand', $this->expandedBbox($bounds, self::NEARBY_MARGIN_METERS));
-        $residenceFeatures = $this->features('verblijfsobject', $this->expandedBbox($bounds, self::RESIDENCE_MARGIN_METERS));
+        [$nearbyFeatures, $nearbyComplete] = $this->features('pand', $this->expandedBbox($bounds, self::NEARBY_MARGIN_METERS));
+        [$residenceFeatures, $residenceComplete] = $this->features('verblijfsobject', $this->expandedBbox($bounds, self::RESIDENCE_MARGIN_METERS));
         $targetHref = rtrim((string) config('services.pdok.bag_base_url'), '/')
             .'/collections/pand/items/'.$featureId;
         $nearby = [];
@@ -62,11 +62,14 @@ final class PdokBuildingContextService
             }
         }
 
+        [$residenceCount, $hasMixedUse, $associationsComplete] = $this->residenceUsageForBuilding($residenceFeatures, $targetHref);
+
         return new BuildingContext(
             target: $target,
             nearby: $nearby,
-            addressableObjectCount: $this->countResidencesForBuilding($residenceFeatures, $targetHref),
-            complete: count($nearbyFeatures) < self::LIMIT,
+            addressableObjectCount: $residenceCount,
+            complete: $nearbyComplete && $residenceComplete && $associationsComplete,
+            hasMixedUse: $hasMixedUse,
         );
     }
 
@@ -89,22 +92,39 @@ final class PdokBuildingContextService
         return $identification === $bagBuildingId ? $features[0] : null;
     }
 
-    /** @return list<array<string, mixed>> */
+    /** @return array{0: list<array<string, mixed>>, 1: bool} */
     private function features(string $collection, string $bbox): array
     {
-        $features = $this->request()->get('/collections/'.$collection.'/items', [
+        $data = $this->request()->get('/collections/'.$collection.'/items', [
             'f' => 'json',
             'limit' => self::LIMIT,
             'bbox' => $bbox,
             'bbox-crs' => self::RD_CRS,
             'crs' => self::RD_CRS,
-        ])->throw()->json('features', []);
+        ])->throw()->json();
 
-        if (! is_array($features)) {
-            return [];
+        if (! is_array($data)) {
+            return [[], false];
         }
 
-        return array_values(array_filter($features, 'is_array'));
+        $features = is_array($data['features'] ?? null)
+            ? array_values(array_filter($data['features'], 'is_array'))
+            : [];
+        $matched = $data['numberMatched'] ?? null;
+        $returned = $data['numberReturned'] ?? null;
+        $links = is_array($data['links'] ?? null) ? $data['links'] : [];
+        $hasNext = collect($links)->contains(
+            fn (mixed $link): bool => is_array($link) && ($link['rel'] ?? null) === 'next',
+        );
+        $returnedIsComplete = is_int($returned)
+            && $returned === count($features)
+            && ! $hasNext;
+        $matchedIsComplete = is_int($matched)
+            ? $matched <= $returned
+            : $returnedIsComplete && $returned < self::LIMIT;
+        $complete = $returnedIsComplete && $matchedIsComplete;
+
+        return [$features, $complete];
     }
 
     /** @param array<string, mixed> $feature */
@@ -171,21 +191,53 @@ final class PdokBuildingContextService
 
     /**
      * @param  list<array<string, mixed>>  $features
+     * @return array{0: int, 1: bool, 2: bool}
      */
-    private function countResidencesForBuilding(array $features, string $targetHref): int
+    private function residenceUsageForBuilding(array $features, string $targetHref): array
     {
-        $count = 0;
+        $residenceCount = 0;
+        $hasMixedUse = false;
+        $associationsComplete = true;
 
         foreach ($features as $feature) {
-            $hrefs = $feature['properties']['pand.href'] ?? [];
+            $properties = is_array($feature['properties'] ?? null) ? $feature['properties'] : [];
+            $hrefs = $properties['pand.href'] ?? [];
             $hrefs = is_string($hrefs) ? [$hrefs] : $hrefs;
 
-            if (is_array($hrefs) && in_array($targetHref, $hrefs, true)) {
-                $count++;
+            if (! is_array($hrefs)
+                || $hrefs === []
+                || count(array_filter($hrefs, static fn (mixed $href): bool => is_string($href) && $href !== '')) !== count($hrefs)) {
+                $associationsComplete = false;
+
+                continue;
+            }
+
+            if (! in_array($targetHref, $hrefs, true)) {
+                continue;
+            }
+
+            $purposes = $properties['gebruiksdoel'] ?? [];
+            $purposes = is_string($purposes) ? [$purposes] : $purposes;
+
+            if (! is_array($purposes) || $purposes === []) {
+                $hasMixedUse = true;
+
+                continue;
+            }
+
+            $hasResidenceUse = in_array('woonfunctie', $purposes, true);
+            $hasNonResidenceUse = count(array_diff($purposes, ['woonfunctie'])) > 0;
+
+            if ($hasResidenceUse) {
+                $residenceCount++;
+            }
+
+            if ($hasNonResidenceUse || ! $hasResidenceUse) {
+                $hasMixedUse = true;
             }
         }
 
-        return $count;
+        return [$residenceCount, $hasMixedUse, $associationsComplete];
     }
 
     /** @param list<array{0: float, 1: float}> $outline

@@ -474,20 +474,23 @@ final class EnrichIntakeAddress
         ?string $sourceUrl,
         ?string $source = null,
     ): void {
-        IntakeExternalFact::query()->updateOrCreate(
-            [
-                'intake_id' => $intake->id,
-                'fact_key' => $key,
-                'source' => $source ?? PdokAddressService::sourceName(),
-            ],
-            [
-                'label' => $label,
-                'value' => $value,
-                'source_reference' => $reference,
-                'source_url' => $sourceUrl,
-                'confidence' => $confidence,
-                'captured_at' => now(),
-            ],
-        );
+        DB::transaction(function () use ($intake, $key, $label, $value, $confidence, $reference, $sourceUrl, $source): void {
+            Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
+            IntakeExternalFact::query()->updateOrCreate(
+                [
+                    'intake_id' => $intake->id,
+                    'fact_key' => $key,
+                    'source' => $source ?? PdokAddressService::sourceName(),
+                ],
+                [
+                    'label' => $label,
+                    'value' => $value,
+                    'source_reference' => $reference,
+                    'source_url' => $sourceUrl,
+                    'confidence' => $confidence,
+                    'captured_at' => now(),
+                ],
+            );
+        }, 3);
     }
 }

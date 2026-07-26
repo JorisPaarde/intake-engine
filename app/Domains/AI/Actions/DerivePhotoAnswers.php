@@ -18,6 +18,7 @@ use App\Domains\Intake\Models\IntakeExternalFact;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
+use App\Enums\IntakeStatus;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -79,13 +80,17 @@ final class DerivePhotoAnswers
 
         $promptVersion = $this->promptVersions->version($profile->promptName);
         $promptBody = $this->promptVersions->body($profile->promptName);
+        $persistenceManifest = $uploads->map(static fn (IntakeUpload $upload): array => [
+            'id' => $upload->id,
+            'checksum' => $upload->checksum,
+            'mime_type' => $upload->mime_type,
+        ])->values()->all();
 
         $input = [
             'task' => 'derive_answers_from_photos',
             'profile' => $profile->name,
             'expected_fields' => $this->schema($profile),
             'images' => $uploads->map(static fn (IntakeUpload $upload): array => [
-                'upload_id' => $upload->id,
                 'checksum' => $upload->checksum,
                 'mime_type' => $upload->mime_type,
             ])->values()->all(),
@@ -141,26 +146,45 @@ final class DerivePhotoAnswers
 
             $run = $run->fresh() ?? $run;
 
-            $this->storeObservation($intake, $run, $output, $uploads, $photoQuestionKey, $sectionInstanceKey, $profile);
-            $applied = $this->applyDerivedAnswers($intake, $output, $sectionInstanceKey, $profile);
+            DB::transaction(function () use ($intake, $run, $output, $uploads, $photoQuestionKey, $sectionInstanceKey, $profile, $persistenceManifest): void {
+                $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
 
-            IntakeActivityEvent::query()->create([
-                'intake_id' => $intake->id,
-                'actor_type' => 'system',
-                'actor_id' => null,
-                'event' => 'photo_answers_derived',
-                // Keys and confidence only — never derived answer values in logs (ADR-0002).
-                'properties' => [
-                    'ai_run_id' => $run->id,
-                    'profile' => $profile->name,
-                    'question_key' => $photoQuestionKey,
-                    'section_instance_key' => $sectionInstanceKey,
-                    'confidence' => $output['confidence'],
-                    'derived_question_keys' => $applied['derived'],
-                    'suggested_question_keys' => $applied['suggested'],
-                ],
-                'created_at' => now(),
-            ]);
+                if (! in_array($lockedIntake->status, [IntakeStatus::Sent, IntakeStatus::InProgress], true)) {
+                    throw new \RuntimeException('Opname is afgerond tijdens AI-analyse; resultaat niet toegepast.');
+                }
+
+                $currentManifest = $this->uploads($intake, $photoQuestionKey, $sectionInstanceKey)
+                    ->map(static fn (IntakeUpload $upload): array => [
+                        'id' => $upload->id,
+                        'checksum' => $upload->checksum,
+                        'mime_type' => $upload->mime_type,
+                    ])->values()->all();
+
+                if ($currentManifest !== $persistenceManifest) {
+                    throw new \RuntimeException('Foto’s gewijzigd tijdens AI-analyse; resultaat niet toegepast.');
+                }
+
+                $this->storeObservation($intake, $run, $output, $uploads, $photoQuestionKey, $sectionInstanceKey, $profile);
+                $applied = $this->applyDerivedAnswers($intake, $output, $sectionInstanceKey, $profile);
+
+                IntakeActivityEvent::query()->create([
+                    'intake_id' => $intake->id,
+                    'actor_type' => 'system',
+                    'actor_id' => null,
+                    'event' => 'photo_answers_derived',
+                    // Keys and confidence only — never derived answer values in logs (ADR-0002).
+                    'properties' => [
+                        'ai_run_id' => $run->id,
+                        'profile' => $profile->name,
+                        'question_key' => $photoQuestionKey,
+                        'section_instance_key' => $sectionInstanceKey,
+                        'confidence' => $output['confidence'],
+                        'derived_question_keys' => $applied['derived'],
+                        'suggested_question_keys' => $applied['suggested'],
+                    ],
+                    'created_at' => now(),
+                ]);
+            }, 3);
 
             return $run;
         } catch (Throwable $exception) {
@@ -193,6 +217,8 @@ final class DerivePhotoAnswers
         PhotoDerivationProfile $profile,
     ): void {
         DB::transaction(function () use ($intake, $photoQuestionKey, $sectionInstanceKey, $profile): void {
+            Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
+
             IntakeExternalFact::query()
                 ->where('intake_id', $intake->id)
                 ->where('fact_key', $this->factKey($photoQuestionKey, $sectionInstanceKey))

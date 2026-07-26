@@ -9,6 +9,7 @@ use App\Domains\Intake\Models\Intake;
 use App\Enums\IntakeStatus;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Support\Facades\Log;
 
 final class SuggestAttentionPointsJob implements ShouldQueue
@@ -20,6 +21,14 @@ final class SuggestAttentionPointsJob implements ShouldQueue
     public function __construct(
         public readonly int $intakeId,
     ) {}
+
+    /** @return list<object> */
+    public function middleware(): array
+    {
+        return [(new WithoutOverlapping('attention-points:'.$this->intakeId))
+            ->releaseAfter(5)
+            ->expireAfter(300)];
+    }
 
     public function handle(SuggestAttentionPoints $suggestAttentionPoints): void
     {

@@ -7,6 +7,7 @@ namespace App\Domains\Intake\Actions;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\PipeRouteSession;
 use App\Enums\PipeRouteStatus;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Start (of hervat) een begeleide leidingroute-sessie voor een intake. Een nog niet
@@ -16,16 +17,19 @@ final class StartPipeRouteSession
 {
     public function handle(Intake $intake): PipeRouteSession
     {
-        $open = $intake->pipeRouteSessions()
-            ->whereIn('status', [PipeRouteStatus::Collecting, PipeRouteStatus::Proposed])
-            ->first();
+        return DB::transaction(function () use ($intake): PipeRouteSession {
+            $intake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
+            $open = $intake->pipeRouteSessions()
+                ->whereIn('status', [PipeRouteStatus::Collecting, PipeRouteStatus::Proposed])
+                ->first();
 
-        if ($open instanceof PipeRouteSession) {
-            return $open;
-        }
+            if ($open instanceof PipeRouteSession) {
+                return $open;
+            }
 
-        return $intake->pipeRouteSessions()->create([
-            'status' => PipeRouteStatus::Collecting,
-        ]);
+            return $intake->pipeRouteSessions()->create([
+                'status' => PipeRouteStatus::Collecting,
+            ]);
+        }, 3);
     }
 }

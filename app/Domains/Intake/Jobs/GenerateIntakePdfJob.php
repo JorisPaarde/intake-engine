@@ -9,17 +9,34 @@ use App\Domains\Intake\Models\Intake;
 use App\Enums\IntakeStatus;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Support\Facades\Log;
 
 final class GenerateIntakePdfJob implements ShouldQueue
 {
     use Queueable;
 
-    public int $tries = 2;
+    public int $tries = 20;
+
+    public int $backoff = 30;
+
+    public int $timeout = 300;
+
+    public bool $failOnTimeout = true;
 
     public function __construct(
         public readonly int $intakeId,
     ) {}
+
+    /** @return list<object> */
+    public function middleware(): array
+    {
+        return [
+            (new WithoutOverlapping('intake-pdf-'.$this->intakeId))
+                ->releaseAfter(30)
+                ->expireAfter(360),
+        ];
+    }
 
     public function handle(GenerateIntakePdf $generateIntakePdf): void
     {

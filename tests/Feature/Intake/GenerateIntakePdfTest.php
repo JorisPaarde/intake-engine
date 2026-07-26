@@ -17,8 +17,10 @@ use App\Domains\Intake\Services\EmbedPrivateReportMedia;
 use App\Enums\IntakeStatus;
 use App\Enums\QuestionType;
 use App\Models\User;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 
@@ -131,6 +133,13 @@ test('completing an intake dispatches the PDF generation job', function () {
     });
 });
 
+test('PDF generation jobs for one intake cannot overlap', function () {
+    $middleware = (new GenerateIntakePdfJob(42))->middleware();
+
+    expect($middleware)->toHaveCount(1)
+        ->and($middleware[0])->toBeInstanceOf(WithoutOverlapping::class);
+});
+
 test('generate intake pdf stores a downloadable file from HTML report', function () {
     $disk = (string) config('filesystems.media', 'local');
     $intake = makePdfIntake();
@@ -176,6 +185,20 @@ test('generate intake pdf stores a downloadable file from HTML report', function
         ->get(route('intakes.pdf', $intake))
         ->assertOk()
         ->assertHeader('content-type', 'application/pdf');
+});
+
+test('PDF render failures escape so the queue can retry without marking the report generated', function () {
+    Queue::fake();
+    $intake = makePdfIntake();
+    fillPdfIntake($intake);
+    app(CompleteIntake::class)->handle($intake->fresh());
+
+    Pdf::shouldReceive('loadHTML')->once()->andThrow(new RuntimeException('temporary render failure'));
+
+    expect(fn () => app(GenerateIntakePdf::class)->handle($intake->fresh()))
+        ->toThrow(RuntimeException::class, 'temporary render failure');
+
+    expect($intake->report()->firstOrFail()->pdf_generated_at)->toBeNull();
 });
 
 test('installer can queue pdf regeneration from the show page', function () {

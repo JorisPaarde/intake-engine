@@ -78,33 +78,33 @@ final class HeuristicAiClient implements AiClientInterface
 
         $freeGroup = $this->choice($answers, 'free_group_known');
         if ($freeGroup === 'no') {
-            $points[] = ['code' => 'no_free_group', 'label' => 'Geen vrije groep bekend — controleer de meterkast/voeding.'];
-        } elseif ($freeGroup === null || $freeGroup === 'unknown') {
-            $points[] = ['code' => 'free_group_unknown', 'label' => 'Onbekend of er een vrije groep is — beoordeel de meterkastfoto.'];
+            $points[] = $this->point('no_free_group', 'Geen vrije groep bekend — controleer de meterkast/voeding.', ['free_group_known']);
+        } elseif ($freeGroup === 'unknown') {
+            $points[] = $this->point('free_group_unknown', 'Onbekend of er een vrije groep is — beoordeel de meterkastfoto.', ['free_group_known'], 'medium');
         }
 
         if ($this->bool($answers, 'natural_fall_possible') === false) {
-            $points[] = ['code' => 'condensate_pump_maybe', 'label' => 'Natuurlijk afschot lijkt niet mogelijk — mogelijk condenspomp nodig.'];
+            $points[] = $this->point('condensate_pump_maybe', 'Natuurlijk afschot lijkt niet mogelijk — mogelijk condenspomp nodig.', ['natural_fall_possible']);
         }
 
         if (in_array($this->choice($answers, 'outdoor_accessibility'), ['scaffolding', 'restricted'], true)) {
-            $points[] = ['code' => 'outdoor_access_difficult', 'label' => 'Buitenunitlocatie lijkt moeilijk bereikbaar — plan mogelijk hoogwerker/steiger.'];
+            $points[] = $this->point('outdoor_access_difficult', 'Buitenunitlocatie lijkt moeilijk bereikbaar — plan mogelijk hoogwerker/steiger.', ['outdoor_accessibility']);
         }
 
         if ($this->bool($answers, 'noise_sensitive') === true) {
-            $points[] = ['code' => 'noise_sensitive_env', 'label' => 'Geluidsgevoelige omgeving (buren dichtbij) — let op plaatsing en geluid van de buitenunit.'];
+            $points[] = $this->point('noise_sensitive_env', 'Geluidsgevoelige omgeving (buren dichtbij) — let op plaatsing en geluid van de buitenunit.', ['noise_sensitive']);
         }
 
         if ($this->bool($answers, 'drillings_needed') === true) {
-            $points[] = ['code' => 'drillings_needed', 'label' => 'Boringen door muren of vloeren zijn waarschijnlijk nodig.'];
+            $points[] = $this->point('drillings_needed', 'Boringen door muren of vloeren zijn waarschijnlijk nodig.', ['drillings_needed']);
         }
 
         if ($this->choice($answers, 'pipe_distance_indication') === 'long') {
-            $points[] = ['code' => 'long_pipe_run', 'label' => 'Lange leidingafstand ingeschat — controleer capaciteit en materiaalkosten.'];
+            $points[] = $this->point('long_pipe_run', 'Lange leidingafstand ingeschat — controleer capaciteit en materiaalkosten.', ['pipe_distance_indication']);
         }
 
         if ($this->choice($answers, 'building_type') === 'apartment' && $this->choice($answers, 'ownership') === 'rented') {
-            $points[] = ['code' => 'permission_needed', 'label' => 'Huurappartement — mogelijk toestemming van VvE of verhuurder nodig.'];
+            $points[] = $this->point('permission_needed', 'Huurappartement — mogelijk toestemming van VvE of verhuurder nodig.', ['building_type', 'ownership']);
         }
 
         return new AiCompletionResult(
@@ -112,6 +112,26 @@ final class HeuristicAiClient implements AiClientInterface
             provider: 'heuristic',
             model: 'heuristic-v1',
         );
+    }
+
+    /**
+     * @param  list<string>  $answerReferences
+     * @return array{code: string, label: string, confidence: string, evidence: list<array{source_type: string, reference: string}>}
+     */
+    private function point(string $code, string $label, array $answerReferences, string $confidence = 'high'): array
+    {
+        return [
+            'code' => $code,
+            'label' => $label,
+            'confidence' => $confidence,
+            'evidence' => array_map(
+                static fn (string $reference): array => [
+                    'source_type' => 'answer',
+                    'reference' => $reference,
+                ],
+                $answerReferences,
+            ),
+        ];
     }
 
     /**

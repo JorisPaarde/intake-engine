@@ -51,6 +51,14 @@ final class SaveIntakeAnswer
         }
 
         return DB::transaction(function () use ($intake, $questionKey, $sectionInstanceKey, $normalized, $prefillSource): IntakeAnswer {
+            $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
+
+            if (! in_array($lockedIntake->status, [IntakeStatus::Sent, IntakeStatus::InProgress], true)) {
+                throw ValidationException::withMessages([
+                    'value' => 'Deze opname kan niet meer worden gewijzigd.',
+                ]);
+            }
+
             $query = IntakeAnswer::query()
                 ->where('intake_id', $intake->id)
                 ->where('question_key', $questionKey);

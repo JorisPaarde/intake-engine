@@ -31,6 +31,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -164,10 +165,16 @@ class IntakeController extends Controller
         RebuildIntakeReportHtml $rebuildIntakeReportHtml,
     ): RedirectResponse {
         $this->authorize('update', $intake);
-        $this->guardAiProposal($intake, $point);
+        $lockedPoint = DB::transaction(function () use ($intake, $point): IntakeAttentionPoint {
+            Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
+            $lockedPoint = IntakeAttentionPoint::query()->whereKey($point->id)->lockForUpdate()->firstOrFail();
+            $this->guardAiProposal($intake, $lockedPoint, requireProvenance: true);
+            $lockedPoint->update(['status' => AttentionPointStatus::Accepted]);
 
-        $point->update(['status' => AttentionPointStatus::Accepted]);
+            return $lockedPoint;
+        }, 3);
         $rebuildIntakeReportHtml->handle($intake->fresh() ?? $intake);
+        GenerateIntakePdfJob::dispatch($intake->id);
 
         return redirect()
             ->route('intakes.show', $intake)
@@ -177,20 +184,27 @@ class IntakeController extends Controller
     public function dismissAttention(Intake $intake, IntakeAttentionPoint $point): RedirectResponse
     {
         $this->authorize('update', $intake);
-        $this->guardAiProposal($intake, $point);
-
-        $point->update(['status' => AttentionPointStatus::Dismissed]);
+        DB::transaction(function () use ($intake, $point): void {
+            Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
+            $lockedPoint = IntakeAttentionPoint::query()->whereKey($point->id)->lockForUpdate()->firstOrFail();
+            $this->guardAiProposal($intake, $lockedPoint);
+            $lockedPoint->update(['status' => AttentionPointStatus::Dismissed]);
+        }, 3);
 
         return redirect()
             ->route('intakes.show', $intake)
             ->with('status', 'AI-voorstel verwijderd.');
     }
 
-    private function guardAiProposal(Intake $intake, IntakeAttentionPoint $point): void
-    {
+    private function guardAiProposal(
+        Intake $intake,
+        IntakeAttentionPoint $point,
+        bool $requireProvenance = false,
+    ): void {
         if ($point->intake_id !== $intake->id
             || $point->source !== AttentionPointSource::Ai
-            || $point->status !== AttentionPointStatus::Proposed) {
+            || $point->status !== AttentionPointStatus::Proposed
+            || ($requireProvenance && ! $point->hasValidAiProvenance())) {
             throw new NotFoundHttpException('Aandachtspunt niet gevonden.');
         }
     }

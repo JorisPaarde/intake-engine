@@ -6,6 +6,7 @@ namespace App\Domains\Intake\Services;
 
 use App\Domains\Intake\Models\Intake;
 use App\Enums\AttentionPointStatus;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Regenerates the stored report HTML from the current authoritative attention points
@@ -20,37 +21,41 @@ final class RebuildIntakeReportHtml
 
     public function handle(Intake $intake): void
     {
-        $intake->loadMissing(['report', 'attentionPoints']);
-        $report = $intake->report;
+        DB::transaction(function () use ($intake): void {
+            $intake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
+            $report = $intake->report()->lockForUpdate()->first();
 
-        if ($report === null) {
-            return;
-        }
+            if ($report === null) {
+                return;
+            }
 
-        $version = $intake->templateVersion()
-            ->with(['sections.questions.options', 'sections.questions.rules', 'template'])
-            ->firstOrFail();
+            $intake->load('attentionPoints');
 
-        $attentionPoints = $intake->attentionPoints
-            ->filter(static fn ($point): bool => $point->status === null
-                || $point->status === AttentionPointStatus::Accepted)
-            ->map(static fn ($point): array => [
-                'code' => (string) ($point->code ?? ''),
-                'label' => $point->label,
-            ])
-            ->values()
-            ->all();
+            $version = $intake->templateVersion()
+                ->with(['sections.questions.options', 'sections.questions.rules', 'template'])
+                ->firstOrFail();
 
-        $rawMeta = $report->getAttribute('meta');
-        $meta = is_array($rawMeta) ? $rawMeta : [];
-        /** @var array{summary: string, highlights: list<string>}|null $aiSummary */
-        $aiSummary = is_array($meta['ai_summary'] ?? null) ? $meta['ai_summary'] : null;
+            $attentionPoints = $intake->attentionPoints
+                ->filter(static fn ($point): bool => $point->status === null
+                    || $point->status === AttentionPointStatus::Accepted)
+                ->map(static fn ($point): array => [
+                    'code' => (string) ($point->code ?? ''),
+                    'label' => $point->label,
+                ])
+                ->values()
+                ->all();
 
-        $html = $this->generateIntakeReportHtml->handle($intake, $version, $attentionPoints, $aiSummary);
+            $rawMeta = $report->getAttribute('meta');
+            $meta = is_array($rawMeta) ? $rawMeta : [];
+            /** @var array{summary: string, highlights: list<string>}|null $aiSummary */
+            $aiSummary = is_array($meta['ai_summary'] ?? null) ? $meta['ai_summary'] : null;
 
-        $report->update([
-            'html' => $html,
-            'generated_at' => now(),
-        ]);
+            $html = $this->generateIntakeReportHtml->handle($intake, $version, $attentionPoints, $aiSummary);
+
+            $report->update([
+                'html' => $html,
+                'generated_at' => now(),
+            ]);
+        }, 3);
     }
 }

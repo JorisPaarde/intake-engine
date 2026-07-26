@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Actions;
 
+use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\PipeRouteSession;
 use App\Enums\PipeRouteStatus;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * De installateur keurt de voorgestelde leidingroute goed of af. Dit is bewust een
@@ -17,28 +20,41 @@ final class ApprovePipeRoute
 {
     public function handle(PipeRouteSession $session, User $installer, bool $approved = true): PipeRouteSession
     {
-        $status = $approved ? PipeRouteStatus::Approved : PipeRouteStatus::Rejected;
+        return DB::transaction(function () use ($session, $installer, $approved): PipeRouteSession {
+            $intake = Intake::query()->whereKey($session->intake_id)->lockForUpdate()->firstOrFail();
+            $session = PipeRouteSession::query()->whereKey($session->id)->lockForUpdate()->firstOrFail();
 
-        $session->update([
-            'status' => $status,
-            'approved_by' => $installer->id,
-            'approved_at' => now(),
-        ]);
+            if ($session->intake_id !== $intake->id
+                || $installer->company_id !== $intake->company_id
+                || $session->status !== PipeRouteStatus::Proposed) {
+                throw ValidationException::withMessages([
+                    'route' => 'Deze leidingroute kan niet worden beoordeeld.',
+                ]);
+            }
 
-        IntakeActivityEvent::query()->create([
-            'intake_id' => $session->intake_id,
-            'actor_type' => 'user',
-            'actor_id' => $installer->id,
-            'event' => 'pipe_route_reviewed',
-            // Alleen keys/status — nooit route-inhoud in de log (ADR-0002).
-            'properties' => [
-                'pipe_route_session_id' => $session->id,
-                'decision' => $status->value,
-                'segment_count' => $session->segments()->count(),
-            ],
-            'created_at' => now(),
-        ]);
+            $status = $approved ? PipeRouteStatus::Approved : PipeRouteStatus::Rejected;
 
-        return $session->fresh() ?? $session;
+            $session->update([
+                'status' => $status,
+                'approved_by' => $installer->id,
+                'approved_at' => now(),
+            ]);
+
+            IntakeActivityEvent::query()->create([
+                'intake_id' => $session->intake_id,
+                'actor_type' => 'user',
+                'actor_id' => $installer->id,
+                'event' => 'pipe_route_reviewed',
+                // Alleen keys/status — nooit route-inhoud in de log (ADR-0002).
+                'properties' => [
+                    'pipe_route_session_id' => $session->id,
+                    'decision' => $status->value,
+                    'segment_count' => $session->segments()->count(),
+                ],
+                'created_at' => now(),
+            ]);
+
+            return $session->fresh() ?? $session;
+        }, 3);
     }
 }

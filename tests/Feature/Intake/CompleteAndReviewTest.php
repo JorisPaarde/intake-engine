@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Domains\AI\Jobs\SuggestAttentionPointsJob;
 use App\Domains\Intake\Actions\CompleteIntake;
+use App\Domains\Intake\Actions\DeleteIntakeUpload;
 use App\Domains\Intake\Actions\GenerateIntakePdf;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
@@ -555,4 +556,52 @@ test('expired token cannot open an active follow up round', function () {
     $intake->update(['token_expires_at' => now()->subMinute()]);
 
     $this->get(route('customer.intake.show', $intake->access_token))->assertNotFound();
+});
+
+test('completed intake rejects customer answer and upload mutations', function () {
+    $intake = makePhase5Intake();
+    fillIntakeUntilComplete($intake);
+    $completed = app(CompleteIntake::class)->handle($intake);
+    $version = $completed->templateVersion()->with(['sections.questions.options'])->firstOrFail();
+    $textQuestion = $version->sections->flatMap->questions->first(
+        fn (IntakeQuestion $question): bool => $question->type !== QuestionType::Photo,
+    );
+    $photoQuestion = $version->sections->flatMap->questions->first(
+        fn (IntakeQuestion $question): bool => $question->type === QuestionType::Photo,
+    );
+    $upload = $completed->uploads()->firstOrFail();
+    $originalValue = $completed->answers()
+        ->where('question_key', $textQuestion->key)
+        ->whereNull('section_instance_key')
+        ->value('value');
+    $uploadCount = $completed->uploads()->count();
+
+    expect(fn () => app(SaveIntakeAnswer::class)->handle(
+        $completed,
+        $textQuestion->key,
+        null,
+        sampleAnswerForQuestion($textQuestion),
+    ))->toThrow(ValidationException::class)
+        ->and(fn () => app(StoreIntakeUpload::class)->handle(
+            $completed,
+            $photoQuestion->key,
+            null,
+            UploadedFile::fake()->image('late.jpg', 640, 480),
+        ))->toThrow(ValidationException::class)
+        ->and(fn () => app(DeleteIntakeUpload::class)->handle($completed, $upload))
+        ->toThrow(ValidationException::class)
+        ->and(fn () => app(SaveIntakeAnswer::class)->handle(
+            $completed,
+            $textQuestion->key,
+            null,
+            sampleAnswerForQuestion($textQuestion),
+            'ai',
+        ))->toThrow(ValidationException::class);
+
+    expect($completed->answers()
+        ->where('question_key', $textQuestion->key)
+        ->whereNull('section_instance_key')
+        ->value('value'))->toBe($originalValue)
+        ->and($completed->uploads()->count())->toBe($uploadCount);
+    Storage::disk($upload->disk)->assertExists($upload->path);
 });

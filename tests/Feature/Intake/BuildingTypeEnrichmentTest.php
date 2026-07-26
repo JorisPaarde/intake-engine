@@ -59,19 +59,30 @@ it('prefills a terraced building type from BAG geometry and removes the customer
         }
 
         if (str_contains($request->url(), '/collections/pand/items')) {
-            return Http::response(['features' => [
-                enrichmentBuildingFeature('left-feature', '0363100012185507', -6, 0, 0, 10),
-                enrichmentBuildingFeature('target-feature', '0363100012185508', 0, 0, 6, 10),
-                enrichmentBuildingFeature('right-feature', '0363100012185509', 6, 0, 12, 10),
-            ]]);
+            return Http::response([
+                'numberMatched' => 3,
+                'numberReturned' => 3,
+                'links' => [],
+                'features' => [
+                    enrichmentBuildingFeature('left-feature', '0363100012185507', -6, 0, 0, 10),
+                    enrichmentBuildingFeature('target-feature', '0363100012185508', 0, 0, 6, 10),
+                    enrichmentBuildingFeature('right-feature', '0363100012185509', 6, 0, 12, 10),
+                ],
+            ]);
         }
 
         if (str_contains($request->url(), '/collections/verblijfsobject/items')) {
-            return Http::response(['features' => [[
-                'properties' => [
-                    'pand.href' => ['https://api.pdok.test/bag/collections/pand/items/target-feature'],
-                ],
-            ]]]);
+            return Http::response([
+                'numberMatched' => 1,
+                'numberReturned' => 1,
+                'links' => [],
+                'features' => [[
+                    'properties' => [
+                        'pand.href' => ['https://api.pdok.test/bag/collections/pand/items/target-feature'],
+                        'gebruiksdoel' => ['woonfunctie'],
+                    ],
+                ]],
+            ]);
         }
 
         return Http::response([], 404);

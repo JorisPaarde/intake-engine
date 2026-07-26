@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Actions;
 
+use App\Domains\Intake\Jobs\DeleteStoredMediaJob;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\ProgressCalculator;
+use App\Enums\IntakeStatus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 final class DeleteIntakeUpload
 {
@@ -27,17 +30,23 @@ final class DeleteIntakeUpload
             ]);
         }
 
-        DB::transaction(function () use ($intake, $upload): void {
-            $disk = $upload->disk;
-            $path = $upload->path;
-            $questionKey = $upload->question_key;
-            $sectionInstanceKey = $upload->section_instance_key;
+        [$disk, $path] = DB::transaction(function () use ($intake, $upload): array {
+            $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
+            $lockedUpload = IntakeUpload::query()->whereKey($upload->id)->lockForUpdate()->firstOrFail();
 
-            $upload->delete();
-
-            if (Storage::disk($disk)->exists($path)) {
-                Storage::disk($disk)->delete($path);
+            if (! in_array($lockedIntake->status, [IntakeStatus::Sent, IntakeStatus::InProgress], true)
+                || $lockedUpload->intake_id !== $lockedIntake->id) {
+                throw ValidationException::withMessages([
+                    'photo' => 'Deze foto kan niet meer worden verwijderd.',
+                ]);
             }
+
+            $disk = $lockedUpload->disk;
+            $path = $lockedUpload->path;
+            $questionKey = $lockedUpload->question_key;
+            $sectionInstanceKey = $lockedUpload->section_instance_key;
+
+            $lockedUpload->delete();
 
             $this->syncAnswerUploadIds($intake, $questionKey, $sectionInstanceKey);
             $this->touchProgress($intake);
@@ -48,12 +57,29 @@ final class DeleteIntakeUpload
                 'actor_id' => null,
                 'event' => 'upload_deleted',
                 'properties' => [
-                    'upload_id' => $upload->id,
+                    'upload_id' => $lockedUpload->id,
                     'question_key' => $questionKey,
                 ],
                 'created_at' => now(),
             ]);
-        });
+
+            return [$disk, $path];
+        }, 3);
+
+        $this->deleteStoredMedia($disk, $path);
+    }
+
+    private function deleteStoredMedia(string $disk, string $path): void
+    {
+        try {
+            if (Storage::disk($disk)->delete($path)) {
+                return;
+            }
+        } catch (Throwable) {
+            // Retry asynchronously after the database mutation has committed.
+        }
+
+        DeleteStoredMediaJob::dispatch($disk, $path);
     }
 
     private function syncAnswerUploadIds(Intake $intake, string $questionKey, ?string $sectionInstanceKey): void

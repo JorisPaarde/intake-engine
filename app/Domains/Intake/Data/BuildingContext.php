@@ -12,5 +12,6 @@ final readonly class BuildingContext
         public array $nearby,
         public int $addressableObjectCount,
         public bool $complete = true,
+        public bool $hasMixedUse = false,
     ) {}
 }

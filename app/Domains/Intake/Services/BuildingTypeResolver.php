@@ -16,16 +16,16 @@ final class BuildingTypeResolver
 
     public function resolve(BuildingContext $context): ?BuildingTypeInference
     {
+        if ($context->hasMixedUse || ! $context->complete || ! $this->hasUsableOutline($context->target)) {
+            return null;
+        }
+
         if ($context->addressableObjectCount > 1) {
             return new BuildingTypeInference(
                 option: 'apartment',
                 confidence: 'high',
                 reason: 'Meerdere BAG-verblijfsobjecten zijn gekoppeld aan hetzelfde pand.',
             );
-        }
-
-        if (! $context->complete || ! $this->hasUsableOutline($context->target)) {
-            return null;
         }
 
         $adjoining = array_values(array_filter(
