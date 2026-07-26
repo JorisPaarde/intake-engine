@@ -83,13 +83,14 @@ test('create intake validation rejects malformed postcode lookup fields', functi
         ]);
 });
 
-test('new intake form asks for postcode and house number before the completed address', function () {
+test('new intake form automatically looks up postcode and house number without a search button', function () {
     $user = User::factory()->create();
 
     $html = $this->actingAs($user)
         ->get(route('intakes.create'))
         ->assertOk()
-        ->assertSee('Adres zoeken')
+        ->assertDontSee('>Adres zoeken<', false)
+        ->assertDontSee('data-address-search', false)
         ->assertSee('Handmatig invoeren')
         ->getContent();
 
@@ -98,6 +99,8 @@ test('new intake form asks for postcode and house number before the completed ad
         ->and(strpos($html, 'id="address_house_number"'))
         ->toBeLessThan(strpos($html, 'id="address_line"'))
         ->and($html)
+        ->toContain('function scheduleAddressSearch()')
+        ->toContain("field.addEventListener('input', scheduleAddressSearch)")
         ->toContain("function markAddressAsManuallyEdited() {\n                cancelActiveRequest();");
 });
 

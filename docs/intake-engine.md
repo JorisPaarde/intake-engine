@@ -1,6 +1,6 @@
 # Intake-engine
 
-> **Documentversie:** 1.22 · **Laatste update:** 2026-07-26 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.23 · **Laatste update:** 2026-07-26 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **geïmplementeerd t/m Fase 6 + BL-019 openbare data + BL-020 foto-afleiding + BL-027 gerichte vervolgrondes + BL-033 postcode-eerst adresaanvulling**. Airco-template **v9** gepubliceerd — v8 + de openingsvraag levert functie, aantal units en ruimtetypes, plus conditionele cascades en keuzelijsten.
 
@@ -29,11 +29,11 @@ Runtime leest altijd uit de database (de gepinde versie), nooit rechtstreeks uit
 
 ## Nieuwe opname: postcode-eerst adresaanvulling (BL-033)
 
-- De installateur vult eerst postcode, huisnummer en optionele toevoeging in en kiest bewust **Adres zoeken**.
+- De installateur vult eerst postcode, huisnummer en optionele toevoeging in. Zodra postcode en huisnummer geldig en compleet zijn, start de lookup automatisch na een korte debounce; er is geen zoekknop.
 - Het authenticated adresendpoint valideert en normaliseert de invoer en gebruikt PDOK Locatieserver. Alleen resultaten met exact dezelfde postcode en hetzelfde huisnummer worden teruggegeven; een opgegeven toevoeging moet eveneens exact overeenkomen.
 - Eén resultaat vult straat, postcode, plaats en BAG-adresreferentie direct aan. Bij meerdere toevoegingen kiest de installateur het juiste resultaat.
 - Wijzigen van postcode, huisnummer of toevoeging wist een eerdere selectie. Handmatige straat- en plaatsinvoer blijft beschikbaar bij geen resultaat, een PDOK-storing of bewust corrigeren.
-- De externe call vindt uitsluitend na een bewuste zoekactie plaats, nooit tijdens het renderen. De bestaande fail-soft BAG/open-dataverrijking na opslaan blijft ongewijzigd.
+- De externe call vindt uitsluitend na complete geldige invoer plaats, nooit tijdens het renderen. Nieuwe invoer annuleert een geplande of lopende call; verouderde responses kunnen zichtbare of handmatige invoer niet overschrijven. De bestaande fail-soft BAG/open-dataverrijking na opslaan blijft ongewijzigd.
 
 Het interne dossier en HTML/PDF-rapport bevatten altijd een korte deterministische samenvatting van bekende kernantwoorden. Deze gebruikt labels uit de gepinde templateversie en heeft geen AI-provider nodig; een eventuele AI-samenvatting blijft een apart, niet-bindend voorstel.
 
