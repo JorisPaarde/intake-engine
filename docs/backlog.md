@@ -278,7 +278,7 @@ AI mag nooit bron van waarheid zijn (docs/ai.md, ADR-0005), maar kan wél handel
 
 ### BL-034 — Splitconfiguratie als installateursaandachtspunt
 
-- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-07-26 · **PR:** automatische-splitcorrectie
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-07-26 · **PR:** #53
 - **Doel:** de klant geen technische single-/multi-splitkeuze laten maken, maar de installateur bij meerdere binnenunits expliciet laten beoordelen of één multi-split of meerdere single-splits passend zijn.
 - **Resultaat:** `CompletenessChecker` maakt bij meer dan één binnenunit het deterministische systeemaandachtspunt `review_split_configuration`, inclusief het gekozen aantal. Bij één binnenunit verschijnt geen extra punt. De buitenunit- en leidingroutesecties blijven éénmalig en vragen dus niet per binnenunit dezelfde foto's.
 
