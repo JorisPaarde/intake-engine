@@ -21,6 +21,7 @@ test('installer can create an intake with a unique customer link', function () {
         'customer_phone' => '0611111111',
         'address_line' => 'Testlaan 10',
         'address_postal_code' => '1000AA',
+        'address_house_number' => 10,
         'address_city' => 'Amsterdam',
         'internal_note' => 'Bel eerst terug.',
     ]);
@@ -51,7 +52,53 @@ test('create intake validation requires customer fields', function () {
         ->post(route('intakes.store'), [
             'template_key' => 'airco',
         ])
-        ->assertSessionHasErrors(['customer_name', 'customer_email', 'address_line']);
+        ->assertSessionHasErrors([
+            'customer_name',
+            'customer_email',
+            'address_postal_code',
+            'address_house_number',
+            'address_line',
+            'address_city',
+        ]);
+});
+
+test('create intake validation rejects malformed postcode lookup fields', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->post(route('intakes.store'), [
+            'template_key' => 'airco',
+            'customer_name' => 'Validatie Klant',
+            'customer_email' => 'validatie@example.com',
+            'address_postal_code' => '123',
+            'address_house_number' => 'nul',
+            'address_house_number_addition' => '@',
+            'address_line' => 'Teststraat 1',
+            'address_city' => 'Testdam',
+        ])
+        ->assertSessionHasErrors([
+            'address_postal_code',
+            'address_house_number',
+            'address_house_number_addition',
+        ]);
+});
+
+test('new intake form asks for postcode and house number before the completed address', function () {
+    $user = User::factory()->create();
+
+    $html = $this->actingAs($user)
+        ->get(route('intakes.create'))
+        ->assertOk()
+        ->assertSee('Adres zoeken')
+        ->assertSee('Handmatig invoeren')
+        ->getContent();
+
+    expect(strpos($html, 'id="address_postal_code"'))
+        ->toBeLessThan(strpos($html, 'id="address_house_number"'))
+        ->and(strpos($html, 'id="address_house_number"'))
+        ->toBeLessThan(strpos($html, 'id="address_line"'))
+        ->and($html)
+        ->toContain("function markAddressAsManuallyEdited() {\n                cancelActiveRequest();");
 });
 
 test('installer can pre-fill known request answers at creation', function () {
@@ -62,6 +109,9 @@ test('installer can pre-fill known request answers at creation', function () {
         'customer_name' => 'Prefill Klant',
         'customer_email' => 'prefill@example.com',
         'address_line' => 'Testlaan 10',
+        'address_postal_code' => '1000AA',
+        'address_house_number' => 10,
+        'address_city' => 'Amsterdam',
         'prefill' => [
             'request_reason' => 'Slaapkamer te warm',
             'cooling_heating' => 'cooling',
@@ -92,6 +142,9 @@ test('installer pre-fill ignores questions that are not prefillable', function (
         'customer_name' => 'Whitelist Klant',
         'customer_email' => 'whitelist@example.com',
         'address_line' => 'Testlaan 11',
+        'address_postal_code' => '1000AA',
+        'address_house_number' => 11,
+        'address_city' => 'Amsterdam',
         'prefill' => [
             'noise_sensitive' => '1', // valid question, but not installer_prefillable
         ],
@@ -110,6 +163,9 @@ test('creating without prefill stores no answers', function () {
         'customer_name' => 'Plain Klant',
         'customer_email' => 'plain@example.com',
         'address_line' => 'Testlaan 12',
+        'address_postal_code' => '1000AA',
+        'address_house_number' => 12,
+        'address_city' => 'Amsterdam',
     ]);
 
     $intake = Intake::query()->where('customer_email', 'plain@example.com')->firstOrFail();

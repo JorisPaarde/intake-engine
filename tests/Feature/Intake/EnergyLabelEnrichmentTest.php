@@ -98,6 +98,7 @@ function createEnrichedIntake(string $email): Intake
         'customer_email' => $email,
         'address_line' => 'Damrak 1',
         'address_postal_code' => '1012LG',
+        'address_house_number' => 1,
         'address_city' => 'Amsterdam',
         'address_lookup_id' => 'adr-8f4d573be765b4c80dd635ba73747903',
     ]);

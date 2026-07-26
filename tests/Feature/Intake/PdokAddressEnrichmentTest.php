@@ -156,7 +156,8 @@ test('authenticated installer receives sanitized PDOK address suggestions', func
         ]);
 
     Http::assertSent(fn (Request $request): bool => str_contains($request->url(), '/suggest')
-        && $request['fq'] === 'type:adres');
+        && $request['fq'] === 'type:adres'
+        && $request['rows'] === 7);
 });
 
 test('guest cannot use address suggestions', function () {
@@ -175,6 +176,7 @@ test('selected address stores BAG facts and removes the redundant build-year ste
         'customer_phone' => '0612345678',
         'address_line' => 'Damrak 1',
         'address_postal_code' => '1012 LG',
+        'address_house_number' => 1,
         'address_city' => 'Amsterdam',
         'address_lookup_id' => 'adr-8f4d573be765b4c80dd635ba73747903',
     ]);
@@ -243,6 +245,7 @@ test('generated dossier contains contact data external sources uncertainty and n
         'customer_phone' => '0612345678',
         'address_line' => 'Damrak 1',
         'address_postal_code' => '1012LG',
+        'address_house_number' => 1,
         'address_city' => 'Amsterdam',
         'address_lookup_id' => 'adr-8f4d573be765b4c80dd635ba73747903',
     ]);
@@ -289,6 +292,7 @@ test('aerial outage does not discard successful BAG enrichment', function () {
         'customer_email' => 'luchtfoto-offline@example.com',
         'address_line' => 'Damrak 1',
         'address_postal_code' => '1012LG',
+        'address_house_number' => 1,
         'address_city' => 'Amsterdam',
         'address_lookup_id' => 'adr-8f4d573be765b4c80dd635ba73747903',
     ]);
@@ -314,6 +318,7 @@ test('hard deleting an intake also removes its captured aerial image', function 
         'customer_email' => 'purge-aerial@example.com',
         'address_line' => 'Damrak 1',
         'address_postal_code' => '1012LG',
+        'address_house_number' => 1,
         'address_city' => 'Amsterdam',
         'address_lookup_id' => 'adr-8f4d573be765b4c80dd635ba73747903',
     ]);
@@ -338,6 +343,7 @@ test('PDOK outage never blocks intake creation and leaves an explicit uncertaint
         'customer_email' => 'offline@example.com',
         'address_line' => 'Handmatige straat 2',
         'address_postal_code' => '1234AB',
+        'address_house_number' => 2,
         'address_city' => 'Utrecht',
     ])->assertRedirect();
 
@@ -363,6 +369,7 @@ test('lookup id cannot replace a manually entered different address', function (
         'customer_email' => 'anders@example.com',
         'address_line' => 'Andere straat 9',
         'address_postal_code' => '9999ZZ',
+        'address_house_number' => 9,
         'address_city' => 'Rotterdam',
         'address_lookup_id' => 'adr-8f4d573be765b4c80dd635ba73747903',
     ]);
@@ -446,6 +453,7 @@ test('3DBAG geometry is stored as sourced context facts with attribution', funct
         'customer_email' => '3dbag@example.com',
         'address_line' => 'Damrak 1',
         'address_postal_code' => '1012LG',
+        'address_house_number' => 1,
         'address_city' => 'Amsterdam',
         'address_lookup_id' => 'adr-8f4d573be765b4c80dd635ba73747903',
     ]);
@@ -475,6 +483,7 @@ test('an unreliable 3DBAG reconstruction is flagged instead of trusted', functio
         'customer_email' => 'onzeker@example.com',
         'address_line' => 'Damrak 1',
         'address_postal_code' => '1012LG',
+        'address_house_number' => 1,
         'address_city' => 'Amsterdam',
         'address_lookup_id' => 'adr-8f4d573be765b4c80dd635ba73747903',
     ]);
@@ -501,6 +510,7 @@ test('an unusable roof type is left out rather than shown as unknown', function 
         'customer_email' => 'geendak@example.com',
         'address_line' => 'Damrak 1',
         'address_postal_code' => '1012LG',
+        'address_house_number' => 1,
         'address_city' => 'Amsterdam',
         'address_lookup_id' => 'adr-8f4d573be765b4c80dd635ba73747903',
     ]);
@@ -522,6 +532,7 @@ test('a 3DBAG outage never blocks the intake or the rest of the enrichment', fun
         'customer_email' => 'storing3d@example.com',
         'address_line' => 'Damrak 1',
         'address_postal_code' => '1012LG',
+        'address_house_number' => 1,
         'address_city' => 'Amsterdam',
         'address_lookup_id' => 'adr-8f4d573be765b4c80dd635ba73747903',
     ]);
@@ -575,6 +586,7 @@ function storeIntakeViaInstaller(string $email): Intake
         'customer_email' => $email,
         'address_line' => 'Damrak 1',
         'address_postal_code' => '1012LG',
+        'address_house_number' => 1,
         'address_city' => 'Amsterdam',
         'address_lookup_id' => 'adr-8f4d573be765b4c80dd635ba73747903',
     ]);
@@ -780,6 +792,7 @@ test('a messy hand-typed address is rescued by Kadaster and rewritten to the BAG
         'customer_email' => 'rommelig@example.com',
         'address_line' => 'Bernadottelaan, 273, 273',
         'address_postal_code' => '2037GR',
+        'address_house_number' => 273,
         'address_city' => 'Haarlem',
     ]);
 
@@ -807,6 +820,7 @@ test('without Kadaster a messy address still leaves an explicit uncertainty', fu
         'customer_email' => 'rommelig2@example.com',
         'address_line' => 'Damrak, 1, 1',
         'address_postal_code' => '1012LG',
+        'address_house_number' => 1,
         'address_city' => 'Amsterdam',
     ]);
 

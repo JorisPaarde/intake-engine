@@ -24,6 +24,9 @@ test('creating an intake mails the customer link and records a safe activity eve
         'customer_name' => 'Mail Klant',
         'customer_email' => 'mail.klant@example.com',
         'address_line' => 'Testlaan 1',
+        'address_postal_code' => '1000AA',
+        'address_house_number' => 1,
+        'address_city' => 'Amsterdam',
     ])->assertRedirect();
 
     $intake = Intake::query()->where('customer_email', 'mail.klant@example.com')->firstOrFail();
@@ -59,6 +62,9 @@ test('customer link mail is skipped when mailer is log to avoid tokens in logs',
         'customer_name' => 'Log Klant',
         'customer_email' => 'log.klant@example.com',
         'address_line' => 'Testlaan 2',
+        'address_postal_code' => '1000AA',
+        'address_house_number' => 2,
+        'address_city' => 'Amsterdam',
     ])->assertRedirect();
 
     expect(session('status'))->toBeString()->toContain('nog niet geconfigureerd');
