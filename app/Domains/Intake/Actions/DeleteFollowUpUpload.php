@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Actions;
 
+use App\Domains\Intake\Jobs\DeleteStoredMediaJob;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeFollowUpItem;
@@ -13,6 +14,7 @@ use App\Enums\IntakeStatus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 final class DeleteFollowUpUpload
 {
@@ -30,16 +32,28 @@ final class DeleteFollowUpUpload
             ]);
         }
 
-        DB::transaction(function () use ($intake, $item, $upload): void {
-            $disk = $upload->disk;
-            $path = $upload->path;
-            $uploadId = $upload->id;
-            $upload->delete();
+        [$disk, $path] = DB::transaction(function () use ($intake, $item, $upload): array {
+            $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
+            $lockedItem = IntakeFollowUpItem::query()->with('round')->lockForUpdate()->findOrFail($item->id);
+            $lockedUpload = IntakeUpload::query()->whereKey($upload->id)->lockForUpdate()->firstOrFail();
 
-            Storage::disk($disk)->delete($path);
+            if ($lockedItem->round->intake_id !== $lockedIntake->id
+                || $lockedItem->round->status !== FollowUpRoundStatus::Open
+                || $lockedIntake->status !== IntakeStatus::AwaitingCustomer
+                || $lockedUpload->intake_id !== $lockedIntake->id
+                || $lockedUpload->intake_follow_up_item_id !== $lockedItem->id) {
+                throw ValidationException::withMessages([
+                    'upload' => 'Dit bestand kan niet worden verwijderd.',
+                ]);
+            }
 
-            if (! $item->uploads()->exists()) {
-                $item->update(['answered_at' => null]);
+            $disk = $lockedUpload->disk;
+            $path = $lockedUpload->path;
+            $uploadId = $lockedUpload->id;
+            $lockedUpload->delete();
+
+            if (! $lockedItem->uploads()->exists()) {
+                $lockedItem->update(['answered_at' => null]);
             }
 
             IntakeActivityEvent::query()->create([
@@ -48,13 +62,30 @@ final class DeleteFollowUpUpload
                 'actor_id' => null,
                 'event' => 'follow_up_upload_deleted',
                 'properties' => [
-                    'round_number' => $item->round->round_number,
-                    'item_id' => $item->id,
-                    'item_type' => $item->type->value,
+                    'round_number' => $lockedItem->round->round_number,
+                    'item_id' => $lockedItem->id,
+                    'item_type' => $lockedItem->type->value,
                     'upload_id' => $uploadId,
                 ],
                 'created_at' => now(),
             ]);
-        });
+
+            return [$disk, $path];
+        }, 3);
+
+        $this->deleteStoredMedia($disk, $path);
+    }
+
+    private function deleteStoredMedia(string $disk, string $path): void
+    {
+        try {
+            if (Storage::disk($disk)->delete($path)) {
+                return;
+            }
+        } catch (Throwable) {
+            // Retry asynchronously after the database mutation has committed.
+        }
+
+        DeleteStoredMediaJob::dispatch($disk, $path);
     }
 }

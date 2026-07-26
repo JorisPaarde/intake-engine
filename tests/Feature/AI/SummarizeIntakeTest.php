@@ -13,16 +13,21 @@ use App\Domains\Intake\Actions\CompleteIntake;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeAttentionPoint;
+use App\Domains\Intake\Models\IntakeExternalFact;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Domains\Intake\Services\CompletenessChecker;
 use App\Enums\AiRunStatus;
+use App\Enums\AttentionPointSource;
+use App\Enums\AttentionPointStatus;
 use App\Enums\IntakeStatus;
 use App\Enums\QuestionType;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 
@@ -152,6 +157,13 @@ test('complete intake dispatches summarize job and still finishes when AI fails'
         ->and($completed->fresh()->report->html)->not->toContain('AI-voorstel');
 });
 
+test('attention point jobs for one intake cannot overlap', function () {
+    $middleware = (new SuggestAttentionPointsJob(42))->middleware();
+
+    expect($middleware)->toHaveCount(1)
+        ->and($middleware[0])->toBeInstanceOf(WithoutOverlapping::class);
+});
+
 test('successful AI summary is attached to the HTML report', function () {
     FakeAiClient::alwaysReturn([
         'summary' => 'Samenvatting voor de installateur over deze airco-aanvraag.',
@@ -178,6 +190,37 @@ test('successful AI summary is attached to the HTML report', function () {
         ->and($report->meta['ai_summary']['summary'] ?? null)->toContain('Samenvatting voor de installateur');
 });
 
+test('summary rebuild reloads authoritative attention points after a concurrent acceptance', function () {
+    FakeAiClient::alwaysReturn([
+        'summary' => 'Actuele samenvatting.',
+        'highlights' => ['Controleer het actuele aandachtspunt.'],
+    ]);
+
+    $intake = makeAiIntake();
+    fillAiIntakeUntilComplete($intake);
+    app(CompleteIntake::class)->handle($intake->fresh());
+
+    $point = IntakeAttentionPoint::query()->create([
+        'intake_id' => $intake->id,
+        'source' => AttentionPointSource::Ai,
+        'code' => 'concurrent_acceptance',
+        'label' => 'Recent geaccepteerd aandachtspunt',
+        'status' => AttentionPointStatus::Proposed,
+        'ai_confidence' => 'high',
+        'evidence' => [['source_type' => 'answer', 'reference' => 'free_group_known']],
+    ]);
+    $staleIntake = $intake->fresh();
+    $staleIntake->load('attentionPoints');
+    $point->update(['status' => AttentionPointStatus::Accepted]);
+
+    $run = app(SummarizeIntake::class)->handle($staleIntake);
+
+    expect($run->error_message)->toBeNull()
+        ->and($run->status)->toBe(AiRunStatus::Succeeded)
+        ->and($point->fresh()->status)->toBe(AttentionPointStatus::Accepted)
+        ->and($intake->fresh()->report->html)->toContain('Recent geaccepteerd aandachtspunt');
+});
+
 test('heuristic provider produces a local summary without external API', function () {
     config(['ai.provider' => 'heuristic']);
     $this->app->forgetInstance(AiClientInterface::class);
@@ -195,4 +238,48 @@ test('heuristic provider produces a local summary without external API', functio
     expect($run->status)->toBe(AiRunStatus::Succeeded)
         ->and($run->provider)->toBe('heuristic')
         ->and($intake->fresh()->report->html)->toContain('AI-voorstel (niet bindend)');
+});
+
+test('external summary payload strips internal ids and sensitive facts recursively', function () {
+    FakeAiClient::alwaysReturn([
+        'summary' => 'Veilige technische samenvatting.',
+        'highlights' => ['Geen interne identificaties gedeeld.'],
+    ]);
+    $intake = makeAiIntake();
+    app(SaveIntakeAnswer::class)->handle($intake, 'free_group_known', null, ['value' => 'no']);
+    $intake->answers()->where('question_key', 'free_group_known')->firstOrFail()->update([
+        'value' => ['value' => 'no', 'upload_ids' => [987654]],
+    ]);
+    IntakeExternalFact::query()->create([
+        'intake_id' => $intake->id,
+        'fact_key' => 'building_type_inference',
+        'label' => 'Woningtype',
+        'value' => ['option' => 'corner', 'bag_building_id' => 'secret', 'upload_ids' => [123]],
+        'source' => 'PDOK',
+        'source_reference' => 'secret-reference',
+        'confidence' => 'high',
+        'captured_at' => now(),
+    ]);
+    IntakeExternalFact::query()->create([
+        'intake_id' => $intake->id,
+        'fact_key' => 'location',
+        'label' => 'Locatie',
+        'value' => ['latitude' => 52.1, 'longitude' => 4.3],
+        'source' => 'PDOK',
+        'source_reference' => 'secret-location',
+        'confidence' => 'high',
+        'captured_at' => now(),
+    ]);
+
+    app(SummarizeIntake::class)->handle($intake->fresh());
+    $encoded = json_encode(FakeAiClient::lastRequest()?->input, JSON_THROW_ON_ERROR);
+
+    expect($encoded)->not->toContain(
+        'upload_ids',
+        'bag_building_id',
+        'secret-reference',
+        'secret-location',
+        'latitude',
+        'longitude',
+    );
 });

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Actions;
 
+use App\Domains\Intake\Jobs\DeleteStoredMediaJob;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeAnswer;
@@ -20,6 +21,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 final class StoreIntakeUpload
 {
@@ -66,42 +68,77 @@ final class StoreIntakeUpload
                 ]);
             }
 
-            return DB::transaction(function () use ($intake, $questionKey, $sectionInstanceKey, $disk, $path, $normalized, $existingCount): IntakeUpload {
-                $upload = IntakeUpload::query()->create([
-                    'intake_id' => $intake->id,
-                    'question_key' => $questionKey,
-                    'section_instance_key' => $sectionInstanceKey,
-                    'disk' => $disk,
-                    'path' => $path,
-                    'original_filename' => $normalized->originalFilename,
-                    'mime_type' => $normalized->mime,
-                    'size_bytes' => $normalized->sizeBytes,
-                    'checksum' => $normalized->checksum,
-                    'sort_order' => $existingCount + 1,
-                ]);
+            try {
+                return DB::transaction(function () use ($intake, $questionKey, $sectionInstanceKey, $disk, $path, $normalized, $maxFiles): IntakeUpload {
+                    $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
 
-                $this->syncAnswerUploadIds($intake, $questionKey, $sectionInstanceKey);
-                $this->touchProgress($intake);
+                    if (! in_array($lockedIntake->status, [IntakeStatus::Sent, IntakeStatus::InProgress], true)) {
+                        throw ValidationException::withMessages([
+                            'photo' => 'Deze opname kan niet meer worden gewijzigd.',
+                        ]);
+                    }
 
-                IntakeActivityEvent::query()->create([
-                    'intake_id' => $intake->id,
-                    'actor_type' => 'customer',
-                    'actor_id' => null,
-                    'event' => 'upload_stored',
-                    'properties' => [
-                        'upload_id' => $upload->id,
+                    $currentCount = $this->uploadsQuery($intake, $questionKey, $sectionInstanceKey)->count();
+
+                    if ($currentCount >= $maxFiles) {
+                        throw ValidationException::withMessages([
+                            'photo' => "Je kunt maximaal {$maxFiles} foto’s bij deze vraag uploaden.",
+                        ]);
+                    }
+
+                    $upload = IntakeUpload::query()->create([
+                        'intake_id' => $intake->id,
                         'question_key' => $questionKey,
-                    ],
-                    'created_at' => now(),
-                ]);
+                        'section_instance_key' => $sectionInstanceKey,
+                        'disk' => $disk,
+                        'path' => $path,
+                        'original_filename' => $normalized->originalFilename,
+                        'mime_type' => $normalized->mime,
+                        'size_bytes' => $normalized->sizeBytes,
+                        'checksum' => $normalized->checksum,
+                        'sort_order' => $currentCount + 1,
+                    ]);
 
-                return $upload;
-            });
+                    $this->syncAnswerUploadIds($intake, $questionKey, $sectionInstanceKey);
+                    $this->touchProgress($intake);
+
+                    IntakeActivityEvent::query()->create([
+                        'intake_id' => $intake->id,
+                        'actor_type' => 'customer',
+                        'actor_id' => null,
+                        'event' => 'upload_stored',
+                        'properties' => [
+                            'upload_id' => $upload->id,
+                            'question_key' => $questionKey,
+                        ],
+                        'created_at' => now(),
+                    ]);
+
+                    return $upload;
+                });
+            } catch (Throwable $exception) {
+                $this->cleanupFailedUpload($disk, $path);
+
+                throw $exception;
+            }
         } finally {
             foreach ($normalized->cleanupPaths as $cleanupPath) {
                 @unlink($cleanupPath);
             }
         }
+    }
+
+    private function cleanupFailedUpload(string $disk, string $path): void
+    {
+        try {
+            if (Storage::disk($disk)->delete($path)) {
+                return;
+            }
+        } catch (Throwable) {
+            // Retry asynchronously below.
+        }
+
+        DeleteStoredMediaJob::dispatch($disk, $path);
     }
 
     private function findPhotoQuestion(Intake $intake, string $questionKey): IntakeQuestion

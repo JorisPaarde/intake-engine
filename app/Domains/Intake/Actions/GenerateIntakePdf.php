@@ -9,7 +9,6 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Services\EmbedPrivateReportMedia;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
 
@@ -31,23 +30,16 @@ final class GenerateIntakePdf
         $disk = (string) config('filesystems.media', 'local');
         $path = 'intakes/'.$intake->uuid.'/reports/rapport.pdf';
 
-        try {
-            $html = $this->embedPrivateReportMedia->handle($intake, $report->html);
-            $binary = Pdf::loadHTML($html)
-                ->setPaper('a4')
-                ->output();
-        } catch (Throwable $exception) {
-            Log::warning('Failed to generate intake PDF', [
-                'intake_id' => $intake->id,
-                'exception' => $exception::class,
-            ]);
+        $html = $this->embedPrivateReportMedia->handle($intake, $report->html);
+        $binary = Pdf::loadHTML($html)
+            ->setPaper('a4')
+            ->output();
 
-            return null;
+        if (! Storage::disk($disk)->put($path, $binary)) {
+            throw new \RuntimeException('PDF kon niet worden opgeslagen.');
         }
 
-        $this->deleteExistingPdf($report);
-
-        Storage::disk($disk)->put($path, $binary);
+        $this->deletePreviousPdfAtDifferentPath($report, $disk, $path);
 
         $report->update([
             'pdf_disk' => $disk,
@@ -69,9 +61,10 @@ final class GenerateIntakePdf
         return $report->fresh() ?? $report;
     }
 
-    private function deleteExistingPdf(GeneratedReport $report): void
+    private function deletePreviousPdfAtDifferentPath(GeneratedReport $report, string $disk, string $path): void
     {
-        if (blank($report->pdf_disk) || blank($report->pdf_path)) {
+        if (blank($report->pdf_disk) || blank($report->pdf_path)
+            || ($report->pdf_disk === $disk && $report->pdf_path === $path)) {
             return;
         }
 

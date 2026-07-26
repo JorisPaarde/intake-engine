@@ -266,13 +266,40 @@
                 @if ($proposedPoints->isNotEmpty())
                     <ul class="divide-y divide-gray-100">
                         @foreach ($proposedPoints as $point)
-                            <li class="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
-                                <span class="text-sm text-gray-800">{{ $point->label }}</span>
+                            <li class="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div class="min-w-0 text-sm text-gray-800">
+                                    <p>{{ $point->label }}</p>
+                                    @if ($point->ai_confidence)
+                                        <p class="mt-1 text-xs text-gray-500">
+                                            Zekerheid: {{ match ($point->ai_confidence) { 'high' => 'hoog', 'medium' => 'middel', 'low' => 'laag', default => $point->ai_confidence } }}
+                                        </p>
+                                    @endif
+                                    @if (is_array($point->evidence) && $point->evidence !== [])
+                                        <ul class="mt-1 space-y-0.5 text-xs text-gray-500">
+                                            @foreach ($point->evidence as $evidence)
+                                                <li>
+                                                    {{ match ($evidence['source_type'] ?? '') {
+                                                        'answer' => 'klantantwoord',
+                                                        'external_fact' => 'extern feit',
+                                                        'upload' => 'upload',
+                                                        'follow_up' => 'aanvulling',
+                                                        'installer_review' => 'installateursbeoordeling',
+                                                        'pipe_route' => 'leidingroute',
+                                                        'system_attention_point' => 'systeemsignaal',
+                                                        default => 'dossierbron',
+                                                    } }} · <code>{{ $evidence['reference'] ?? 'onbekend' }}</code>
+                                                </li>
+                                            @endforeach
+                                        </ul>
+                                    @endif
+                                </div>
                                 <span class="flex shrink-0 gap-2">
-                                    <form method="POST" action="{{ route('intakes.attention.accept', [$intake, $point]) }}">
-                                        @csrf
-                                        <button type="submit" class="inline-flex items-center rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">Accepteren</button>
-                                    </form>
+                                    @if ($point->hasValidAiProvenance())
+                                        <form method="POST" action="{{ route('intakes.attention.accept', [$intake, $point]) }}">
+                                            @csrf
+                                            <button type="submit" class="inline-flex items-center rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">Accepteren</button>
+                                        </form>
+                                    @endif
                                     <form method="POST" action="{{ route('intakes.attention.dismiss', [$intake, $point]) }}">
                                         @csrf
                                         <button type="submit" class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50">Verwijderen</button>

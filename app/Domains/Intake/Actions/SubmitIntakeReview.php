@@ -54,6 +54,14 @@ final class SubmitIntakeReview
         }
 
         return DB::transaction(function () use ($intake, $reviewer, $data, $decision, $followUpItems): IntakeReview {
+            $intake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
+
+            if (! in_array($intake->status, [IntakeStatus::Completed, IntakeStatus::Reviewed], true)) {
+                throw ValidationException::withMessages([
+                    'intake' => 'Alleen afgeronde opnames kunnen worden beoordeeld.',
+                ]);
+            }
+
             $reviewedAt = now();
 
             $review = IntakeReview::query()->updateOrCreate(
@@ -94,7 +102,7 @@ final class SubmitIntakeReview
             ]);
 
             return $review;
-        });
+        }, 3);
     }
 
     /**

@@ -31,25 +31,27 @@ final class CompleteIntake
 
     public function handle(Intake $intake): Intake
     {
-        if (! in_array($intake->status, [IntakeStatus::Sent, IntakeStatus::InProgress], true)) {
-            throw ValidationException::withMessages([
-                'intake' => 'Deze opname kan niet meer worden afgerond.',
-            ]);
-        }
-
         $version = $intake->templateVersion()
             ->with(['sections.questions.options', 'sections.questions.rules', 'template'])
             ->firstOrFail();
 
-        $check = $this->completenessChecker->check($intake, $version);
+        $completed = DB::transaction(function () use ($intake, $version): Intake {
+            $intake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
 
-        if (! $check['is_complete']) {
-            throw ValidationException::withMessages([
-                'completeness' => 'Nog niet alles is ingevuld. Controleer de ontbrekende onderdelen.',
-            ]);
-        }
+            if (! in_array($intake->status, [IntakeStatus::Sent, IntakeStatus::InProgress], true)) {
+                throw ValidationException::withMessages([
+                    'intake' => 'Deze opname kan niet meer worden afgerond.',
+                ]);
+            }
 
-        $completed = DB::transaction(function () use ($intake, $version, $check): Intake {
+            $check = $this->completenessChecker->check($intake, $version);
+
+            if (! $check['is_complete']) {
+                throw ValidationException::withMessages([
+                    'completeness' => 'Nog niet alles is ingevuld. Controleer de ontbrekende onderdelen.',
+                ]);
+            }
+
             $snapshot = [
                 'is_complete' => true,
                 'missing' => [],
@@ -111,7 +113,7 @@ final class CompleteIntake
             ]);
 
             return $intake->fresh(['report', 'attentionPoints']) ?? $intake;
-        });
+        }, 3);
 
         if ($completed->is_demo) {
             // Demo: run AI inline so the thank-you screen can show a real voorstel.
@@ -142,7 +144,11 @@ final class CompleteIntake
 
             [$summaryRun, $attentionRun] = $this->runDemoAiActions($intake);
 
-            if ($provider !== 'heuristic' && ($summaryRun->status === AiRunStatus::Failed || $attentionRun->status === AiRunStatus::Failed)) {
+            if ($provider !== 'heuristic' && (
+                $summaryRun->status === AiRunStatus::Failed
+                || $attentionRun === null
+                || $attentionRun->status === AiRunStatus::Failed
+            )) {
                 $this->runDemoAiWithProvider($intake, 'heuristic');
             }
         } finally {
@@ -151,7 +157,7 @@ final class CompleteIntake
     }
 
     /**
-     * @return array{0: AiRun, 1: AiRun}
+     * @return array{0: AiRun, 1: AiRun|null}
      */
     private function runDemoAiWithProvider(Intake $intake, string $provider): array
     {
@@ -161,7 +167,7 @@ final class CompleteIntake
     }
 
     /**
-     * @return array{0: AiRun, 1: AiRun}
+     * @return array{0: AiRun, 1: AiRun|null}
      */
     private function runDemoAiActions(Intake $intake): array
     {

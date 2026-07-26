@@ -7,11 +7,13 @@ namespace App\Domains\AI\Actions;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\AiGateway;
 use App\Domains\AI\Services\PromptVersionRepository;
+use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\PipeRouteSegment;
 use App\Domains\Intake\Models\PipeRouteSession;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
 use App\Enums\PipeRouteStatus;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -37,9 +39,11 @@ final class SynthesizePipeRoute
             return $session;
         }
 
-        $segments = $session->segments()->whereNotNull('analysis')->get();
+        $segments = $session->segments()->orderBy('sequence')->get();
 
-        if ($segments->isEmpty()) {
+        if ($segments->isEmpty() || $segments->contains(
+            static fn (PipeRouteSegment $segment): bool => $segment->analysis === null,
+        )) {
             return $session;
         }
 
@@ -85,17 +89,37 @@ final class SynthesizePipeRoute
             return $session;
         }
 
-        $session->update([
-            'status' => PipeRouteStatus::Proposed,
-            'confidence' => $output['confidence'],
-            'proposed_route' => $output['proposed_route'],
-            'alternative_route' => $output['alternative_route'],
-            'uncertainties' => $output['uncertainties'],
-            'missing_checks' => $output['missing_checks'],
-            'next_photo_instruction' => $output['next_photo_instruction'] !== '' ? $output['next_photo_instruction'] : null,
-        ]);
+        return DB::transaction(function () use ($session, $output, $input): PipeRouteSession {
+            Intake::query()->whereKey($session->intake_id)->lockForUpdate()->firstOrFail();
+            $session = PipeRouteSession::query()->whereKey($session->id)->lockForUpdate()->firstOrFail();
+            $currentSegments = $session->segments()->orderBy('sequence')->get()
+                ->map(static fn (PipeRouteSegment $segment): array => [
+                    'sequence' => $segment->sequence,
+                    'role' => $segment->label ?? 'onbekend',
+                    'photo_usable' => $segment->photo_usable,
+                    'route_possible' => $segment->route_possible,
+                    'confidence' => $segment->confidence,
+                    'visible_elements' => $segment->analysis['visible_elements'] ?? [],
+                    'route_segments' => $segment->analysis['route_segments'] ?? [],
+                    'missing_information' => $segment->analysis['missing_information'] ?? [],
+                ])->values()->all();
 
-        return $session->fresh() ?? $session;
+            if ($session->status !== PipeRouteStatus::Collecting || $currentSegments !== $input['segments']) {
+                return $session;
+            }
+
+            $session->update([
+                'status' => PipeRouteStatus::Proposed,
+                'confidence' => $output['confidence'],
+                'proposed_route' => $output['proposed_route'],
+                'alternative_route' => $output['alternative_route'],
+                'uncertainties' => $output['uncertainties'],
+                'missing_checks' => $output['missing_checks'],
+                'next_photo_instruction' => $output['next_photo_instruction'] !== '' ? $output['next_photo_instruction'] : null,
+            ]);
+
+            return $session->fresh() ?? $session;
+        }, 3);
     }
 
     /**

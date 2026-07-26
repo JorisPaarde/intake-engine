@@ -10,6 +10,7 @@ use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplate;
+use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\GenerateIntakeReportHtml;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
@@ -160,6 +161,31 @@ test('assessment is idempotent and deleting its evidence removes the derived sta
     app(AssessFuseboxPhotos::class)->handle($intake);
 
     expect($intake->answers()->where('prefill_source', 'ai')->exists())->toBeFalse()
+        ->and($intake->externalFacts()->where('fact_key', 'fusebox_photo_assessment')->exists())->toBeFalse();
+});
+
+test('replacing identical photo bytes during analysis rejects stale upload provenance', function () {
+    $intake = makeFuseboxAssessmentIntake();
+    $upload = app(StoreIntakeUpload::class)->handle(
+        $intake,
+        'fusebox_photo',
+        null,
+        UploadedFile::fake()->image('meterkast.jpg', 1200, 900),
+    );
+
+    FakeAiClient::respondUsing(function () use ($upload): array {
+        $attributes = $upload->getAttributes();
+        unset($attributes['id'], $attributes['created_at'], $attributes['updated_at'], $attributes['deleted_at']);
+        $upload->delete();
+        IntakeUpload::query()->create($attributes);
+
+        return fuseboxOutput();
+    });
+
+    $run = app(AssessFuseboxPhotos::class)->handle($intake);
+
+    expect($run?->status)->toBe(AiRunStatus::Failed)
+        ->and($intake->answers()->where('prefill_source', 'ai')->exists())->toBeFalse()
         ->and($intake->externalFacts()->where('fact_key', 'fusebox_photo_assessment')->exists())->toBeFalse();
 });
 

@@ -197,9 +197,27 @@ test('synthesis stays on terra when the route is already confident', function ()
     Http::assertNotSent(fn ($request) => $request['model'] === 'gpt-5.6-sol');
 });
 
+test('synthesis waits until every committed route segment has been analysed', function () {
+    Http::fake();
+    $intake = routeIntake();
+    $session = app(StartPipeRouteSession::class)->handle($intake);
+    $session->segments()->create([
+        'intake_upload_id' => routeUpload($intake)->id,
+        'sequence' => 1,
+        'label' => 'pending foto',
+        'analysis' => null,
+    ]);
+
+    $result = app(SynthesizePipeRoute::class)->handle($session);
+
+    expect($result->fresh()->status)->toBe(PipeRouteStatus::Collecting)
+        ->and(AiRun::query()->where('type', AiRunType::RouteSynthesis)->exists())->toBeFalse();
+    Http::assertNothingSent();
+});
+
 test('the installer approval is an explicit human step recorded on the session', function () {
     $intake = routeIntake();
-    $installer = User::factory()->create();
+    $installer = User::factory()->create(['company_id' => $intake->company_id]);
     $session = $intake->pipeRouteSessions()->create(['status' => PipeRouteStatus::Proposed]);
 
     $session = app(ApprovePipeRoute::class)->handle($session, $installer, true);

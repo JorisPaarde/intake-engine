@@ -293,6 +293,30 @@ it('runs AI summary inline when a demo intake is completed', function () {
         ->and($aiSummary['summary'] ?? null)->toBeString()->not->toBeEmpty();
 });
 
+it('keeps demo completion successful when attention context fails before a run exists', function () {
+    Queue::fake();
+    config([
+        'ai.provider' => 'fake',
+        'ai.attention_points_prompt' => 'missing-attention-prompt',
+    ]);
+
+    $user = User::factory()->create();
+    $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
+    $intake = Intake::factory()->create([
+        'created_by' => $user->id,
+        'intake_template_version_id' => $version->id,
+        'status' => IntakeStatus::Sent,
+        'is_demo' => true,
+    ]);
+
+    fillDemoIntakeUntilComplete($intake);
+
+    $completed = app(CompleteIntake::class)->handle($intake->fresh());
+
+    expect($completed->status)->toBe(IntakeStatus::Completed)
+        ->and($completed->fresh()->report)->not->toBeNull();
+});
+
 it('falls back to heuristic AI when the configured demo provider fails', function () {
     Queue::fake();
     config([

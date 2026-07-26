@@ -8,10 +8,12 @@ use App\Domains\AI\DTOs\AiImageInput;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\AiGateway;
 use App\Domains\AI\Services\PromptVersionRepository;
+use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Models\PipeRouteSegment;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -53,7 +55,6 @@ final class AnalyzeRoutePhoto
             'segment_role' => $segment->label ?? 'onbekend',
             'sequence' => $segment->sequence,
             'image' => [
-                'upload_id' => $upload->id,
                 'checksum' => $upload->checksum,
                 'mime_type' => $upload->mime_type,
             ],
@@ -93,15 +94,29 @@ final class AnalyzeRoutePhoto
                 'finished_at' => now(),
             ]);
 
-            $segment->update([
-                'ai_run_id' => $run->id,
-                'photo_usable' => $output['photo_usable'],
-                'route_possible' => $output['route_possible'],
-                'confidence' => $output['confidence'],
-                'analysis' => $output,
-            ]);
+            return DB::transaction(function () use ($segment, $run, $output, $input): PipeRouteSegment {
+                $intakeId = $segment->session()->value('intake_id');
+                Intake::query()->whereKey($intakeId)->lockForUpdate()->firstOrFail();
+                $segment = PipeRouteSegment::query()->with('upload')->whereKey($segment->id)->lockForUpdate()->firstOrFail();
 
-            return $segment->fresh() ?? $segment;
+                if ($segment->sequence !== $input['sequence']
+                    || ($segment->label ?? 'onbekend') !== $input['segment_role']
+                    || $segment->upload === null
+                    || $segment->upload->checksum !== $input['image']['checksum']
+                    || $segment->upload->mime_type !== $input['image']['mime_type']) {
+                    throw new \RuntimeException('Routefoto gewijzigd tijdens AI-analyse; resultaat niet toegepast.');
+                }
+
+                $segment->update([
+                    'ai_run_id' => $run->id,
+                    'photo_usable' => $output['photo_usable'],
+                    'route_possible' => $output['route_possible'],
+                    'confidence' => $output['confidence'],
+                    'analysis' => $output,
+                ]);
+
+                return $segment->fresh() ?? $segment;
+            }, 3);
         } catch (Throwable $exception) {
             Log::warning('Route photo analysis failed', [
                 'segment_id' => $segment->id,

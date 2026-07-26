@@ -6,7 +6,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Added
 
-- **BL-007:** AI-aandachtspunten zijn geen installateuractie meer: de handmatige genereerroute/-knop is verwijderd. Eerste afronding en iedere afgeronde aanvullende ronde plannen automatisch een idempotente analyse met prompt v2 over antwoorden plus labels/prefillbron, BAG/PDOK/EP-Online/3DBAG-feiten en confidence, uploads/kwaliteit, vervolgreacties, systeemsignalen, review en leidingrouteanalyses. Identiteit, adresvelden, opslagpaden en beeldbytes blijven buiten deze payload.
+- **BL-007:** AI-aandachtspunten zijn geen installateuractie meer: de handmatige genereerroute/-knop is verwijderd. Eerste afronding en iedere afgeronde aanvullende ronde plannen automatisch een idempotente analyse met prompt v3 over antwoorden plus labels/prefillbron, BAG/PDOK/EP-Online/3DBAG-feiten en confidence, uploads/kwaliteit, vervolgreacties, systeemsignalen, review en leidingrouteanalyses. Identiteit, adresvelden, opslagpaden en beeldbytes blijven buiten deze payload.
 - **BL-019:** automatische woningtype-afleiding uit openbare BAG-pandgeometrie. De engine telt verblijfsobjecten binnen het exacte pand en vergelijkt aansluitende pandcontouren in RD om appartement, vrijstaand, twee-onder-een-kap, hoek- en tussenwoning alleen bij hoge zekerheid als `pdok`-prefill vast te leggen. EP-Online en klantantwoorden blijven leidend; onvolledige of ambigue geometrie laat de vraag staan.
 - **BL-012/031/032:** multi-accountbedrijven met harde tenantisolatie, relationele ondersteuning voor meerdere medewerkers per bedrijf, private logo-upload, lokale kleurafleiding met toegankelijke fallbacks en tenantbranding in installateurs- en klantflow. Uitnodigingen en medewerkersbeheer volgen in aparte slices. Moderne solide Apple-achtige UI zonder Liquid Glass, blur of translucency.
 - **BL-030 (plan/ready):** foto-varianten dossier (~2048px JPEG q82) + AI-analyse (~1536px JPEG q80); geen telefoon-originelen op disk; EXIF strippen; alle vision-paden via analysekopie; Sol-escalatie alleen met relevante analysekopieën. Detail: `docs/backlog.md` § BL-030.
@@ -21,6 +21,8 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Fixed
 
+- AI-aandachtspunten zijn gehard met recursieve locatie-/BAG-/ID-redactie, harde payloadlimieten, stabiele evidence-referenties, verplichte gevalideerde confidence/evidence, stale-contextdetectie, een gedeeld intake-first lockprotocol, overlap- en beslissingslocks, geserialiseerde rapport/PDF-rebuilds, database-uniciteit en een herhaalbaar geteste MySQL-migratie. Open legacyvoorstellen zonder provenance worden tijdens de migratie verwijderd en zijn server-side niet accepteerbaar. Onvolledige, mixed-use of malformed PDOK-context blijft fail-closed; complete PDOK-pagina’s met `numberMatched: null` blijven bruikbaar.
+- Dompdf en Guzzle zijn bijgewerkt naar versies zonder de gemelde security-advisories.
 - Publieke demo-AI valt nu terug op de lokale heuristic wanneer de geconfigureerde externe provider faalt (bijv. ontbrekende budgetcap, key/model-fout of timeout), zodat het bedankt-scherm alsnog een AI-voorstel/aandachtspunten kan tonen zonder externe spend.
 
 ## [1.0.0] - 2026-07-22

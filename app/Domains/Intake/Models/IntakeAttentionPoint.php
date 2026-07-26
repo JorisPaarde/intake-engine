@@ -17,16 +17,26 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $code
  * @property string $label
  * @property AttentionPointStatus|null $status
+ * @property string|null $ai_confidence
+ * @property list<array{source_type: string, reference: string}>|null $evidence
  * @property bool $is_resolved
  */
 class IntakeAttentionPoint extends Model
 {
+    /** @var list<string> */
+    private const EVIDENCE_SOURCE_TYPES = [
+        'answer', 'external_fact', 'upload', 'follow_up',
+        'installer_review', 'pipe_route', 'system_attention_point',
+    ];
+
     protected $fillable = [
         'intake_id',
         'source',
         'code',
         'label',
         'status',
+        'ai_confidence',
+        'evidence',
         'is_resolved',
         'resolved_at',
         'resolved_by',
@@ -41,6 +51,7 @@ class IntakeAttentionPoint extends Model
             'intake_id' => 'integer',
             'source' => AttentionPointSource::class,
             'status' => AttentionPointStatus::class,
+            'evidence' => 'array',
             'is_resolved' => 'boolean',
             'resolved_at' => 'datetime',
         ];
@@ -68,6 +79,30 @@ class IntakeAttentionPoint extends Model
     {
         $query->where('source', AttentionPointSource::Ai->value)
             ->where('status', AttentionPointStatus::Proposed->value);
+    }
+
+    public function hasValidAiProvenance(): bool
+    {
+        $confidence = $this->getAttribute('ai_confidence');
+        $evidenceItems = $this->getAttribute('evidence');
+
+        if (! is_string($confidence)
+            || ! in_array($confidence, ['low', 'medium', 'high'], true)
+            || ! is_array($evidenceItems)
+            || $evidenceItems === []) {
+            return false;
+        }
+
+        foreach ($evidenceItems as $evidence) {
+            if (! is_array($evidence)
+                || ! in_array($evidence['source_type'] ?? null, self::EVIDENCE_SOURCE_TYPES, true)
+                || ! is_string($evidence['reference'] ?? null)
+                || trim($evidence['reference']) === '') {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /** @return BelongsTo<Intake, $this> */

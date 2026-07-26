@@ -27,6 +27,7 @@ final class CompleteFollowUpRound
     public function handle(Intake $intake, IntakeFollowUpRound $round, array $textResponses): Intake
     {
         $completed = DB::transaction(function () use ($intake, $round, $textResponses): Intake {
+            $intake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
             $round = IntakeFollowUpRound::query()
                 ->with(['items.uploads'])
                 ->lockForUpdate()

@@ -20,5 +20,6 @@ Regels:
 - Wijzig klantantwoorden niet en leid geen persoonsgegevens af.
 - Baseer je uitsluitend op de meegeleverde technische dossiercontext.
 - Vermijd duplicaten van `system_attention_points`, tenzij extra context een concreet aanvullend controlepunt rechtvaardigt.
-- Output strikt als JSON: `{ "points": [ { "code": "<stabiele_snake_case_code>", "label": "<korte NL-omschrijving>" } ] }`.
+- Output strikt als JSON: `{ "points": [ { "code": "<stabiele_snake_case_code>", "label": "<korte NL-omschrijving>", "confidence": "low|medium|high", "evidence": [ { "source_type": "answer|external_fact|upload|follow_up|installer_review|pipe_route|system_attention_point", "reference": "<exact reference-veld uit het contextobject>" } ] } ] }`.
+- Geef per voorstel een confidence en maximaal tien concrete verwijzingen. Gebruik uitsluitend het exacte `reference`-veld van een object in de aangeleverde context; verzin, verkort of combineer geen referenties.
 - Gebruik korte, stabiele codes (bv. `no_free_group`, `source_conflict_building_type`). Laat de lijst leeg (`[]`) als er niets opvalt.

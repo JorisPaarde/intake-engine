@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Actions;
 
+use App\Domains\Intake\Jobs\DeleteStoredMediaJob;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeFollowUpItem;
@@ -20,6 +21,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 final class StoreFollowUpUpload
 {
@@ -75,39 +77,65 @@ final class StoreFollowUpUpload
                 ]);
             }
 
-            return DB::transaction(function () use ($intake, $item, $disk, $path, $normalized, $existingCount): IntakeUpload {
-                $upload = IntakeUpload::query()->create([
-                    'intake_id' => $intake->id,
-                    'question_key' => 'follow_up_'.$item->id,
-                    'section_instance_key' => null,
-                    'intake_follow_up_item_id' => $item->id,
-                    'disk' => $disk,
-                    'path' => $path,
-                    'original_filename' => $normalized->originalFilename,
-                    'mime_type' => $normalized->mime,
-                    'size_bytes' => $normalized->sizeBytes,
-                    'checksum' => $normalized->checksum,
-                    'sort_order' => $existingCount + 1,
-                ]);
+            try {
+                return DB::transaction(function () use ($intake, $item, $disk, $path, $normalized, $maxFiles, $fileLabel): IntakeUpload {
+                    $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
+                    $lockedItem = IntakeFollowUpItem::query()->with('round')->lockForUpdate()->findOrFail($item->id);
 
-                $item->update(['answered_at' => now()]);
+                    if ($lockedItem->round->intake_id !== $lockedIntake->id
+                        || $lockedItem->round->status !== FollowUpRoundStatus::Open
+                        || ! in_array($lockedItem->type, [FollowUpItemType::Photo, FollowUpItemType::Document], true)
+                        || $lockedIntake->status !== IntakeStatus::AwaitingCustomer) {
+                        throw ValidationException::withMessages([
+                            'upload' => 'Deze uploadopdracht is niet meer beschikbaar.',
+                        ]);
+                    }
 
-                IntakeActivityEvent::query()->create([
-                    'intake_id' => $intake->id,
-                    'actor_type' => 'customer',
-                    'actor_id' => null,
-                    'event' => 'follow_up_upload_stored',
-                    'properties' => [
-                        'round_number' => $item->round->round_number,
-                        'item_id' => $item->id,
-                        'item_type' => $item->type->value,
-                        'upload_id' => $upload->id,
-                    ],
-                    'created_at' => now(),
-                ]);
+                    $currentCount = $lockedItem->uploads()->count();
 
-                return $upload;
-            });
+                    if ($currentCount >= $maxFiles) {
+                        throw ValidationException::withMessages([
+                            'upload' => "Je kunt maximaal {$maxFiles} {$fileLabel}s bij deze opdracht uploaden.",
+                        ]);
+                    }
+
+                    $upload = IntakeUpload::query()->create([
+                        'intake_id' => $intake->id,
+                        'question_key' => 'follow_up_'.$item->id,
+                        'section_instance_key' => null,
+                        'intake_follow_up_item_id' => $item->id,
+                        'disk' => $disk,
+                        'path' => $path,
+                        'original_filename' => $normalized->originalFilename,
+                        'mime_type' => $normalized->mime,
+                        'size_bytes' => $normalized->sizeBytes,
+                        'checksum' => $normalized->checksum,
+                        'sort_order' => $currentCount + 1,
+                    ]);
+
+                    $lockedItem->update(['answered_at' => now()]);
+
+                    IntakeActivityEvent::query()->create([
+                        'intake_id' => $intake->id,
+                        'actor_type' => 'customer',
+                        'actor_id' => null,
+                        'event' => 'follow_up_upload_stored',
+                        'properties' => [
+                            'round_number' => $lockedItem->round->round_number,
+                            'item_id' => $lockedItem->id,
+                            'item_type' => $lockedItem->type->value,
+                            'upload_id' => $upload->id,
+                        ],
+                        'created_at' => now(),
+                    ]);
+
+                    return $upload;
+                });
+            } catch (Throwable $exception) {
+                $this->cleanupFailedUpload($disk, $path);
+
+                throw $exception;
+            }
         } finally {
             if ($normalized instanceof NormalizedPhotoUpload) {
                 foreach ($normalized->cleanupPaths as $cleanupPath) {
@@ -115,5 +143,18 @@ final class StoreFollowUpUpload
                 }
             }
         }
+    }
+
+    private function cleanupFailedUpload(string $disk, string $path): void
+    {
+        try {
+            if (Storage::disk($disk)->delete($path)) {
+                return;
+            }
+        } catch (Throwable) {
+            // Retry asynchronously below.
+        }
+
+        DeleteStoredMediaJob::dispatch($disk, $path);
     }
 }

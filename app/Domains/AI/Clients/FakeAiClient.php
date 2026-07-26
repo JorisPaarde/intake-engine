@@ -8,6 +8,7 @@ use App\Domains\AI\Contracts\AiClientInterface;
 use App\Domains\AI\DTOs\AiCompletionRequest;
 use App\Domains\AI\DTOs\AiCompletionResult;
 use App\Domains\AI\Exceptions\AiClientException;
+use Closure;
 
 final class FakeAiClient implements AiClientInterface
 {
@@ -18,12 +19,24 @@ final class FakeAiClient implements AiClientInterface
 
     private static ?AiCompletionRequest $lastRequest = null;
 
+    /** @var (Closure(AiCompletionRequest): array<string, mixed>)|null */
+    private static ?Closure $responseCallback = null;
+
     /**
      * @param  array<string, mixed>  $output
      */
     public static function alwaysReturn(array $output): void
     {
         self::$forcedOutput = $output;
+        self::$forcedException = null;
+        self::$responseCallback = null;
+    }
+
+    /** @param Closure(AiCompletionRequest): array<string, mixed> $callback */
+    public static function respondUsing(Closure $callback): void
+    {
+        self::$responseCallback = $callback;
+        self::$forcedOutput = null;
         self::$forcedException = null;
     }
 
@@ -38,6 +51,7 @@ final class FakeAiClient implements AiClientInterface
         self::$forcedOutput = null;
         self::$forcedException = null;
         self::$lastRequest = null;
+        self::$responseCallback = null;
     }
 
     public static function lastRequest(): ?AiCompletionRequest
@@ -51,6 +65,18 @@ final class FakeAiClient implements AiClientInterface
 
         if (self::$forcedException instanceof AiClientException) {
             throw self::$forcedException;
+        }
+
+        $callbackOutput = self::$responseCallback === null
+            ? null
+            : (self::$responseCallback)($request);
+
+        if ($callbackOutput !== null) {
+            return new AiCompletionResult(
+                output: $callbackOutput,
+                provider: 'fake',
+                model: 'fake-v1',
+            );
         }
 
         if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'fusebox-assessment')) {
