@@ -1,8 +1,8 @@
 # Databaseschema — Digitale Opname
 
-> **Documentversie:** 1.14 · **Laatste update:** 2026-07-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.0 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: **geïmplementeerd**. Basisschema via `2026_07_17_120000_create_intake_engine_tables`; externe feiten via `2026_07_20_140000_create_intake_external_facts_table` (BL-019, ADR-0007); gerichte vervolgrondes via `2026_07_20_150000_create_intake_follow_up_tables` (BL-027).
+Status: het hoofdstuk **Huidige tabellen** beschrijft het geïmplementeerde schema. Het hoofdstuk **Besloten doelmodel** is het migratieplan uit ADR-0011/0012 en bestaat nog niet als migrations. Noem doelobjecten niet geïmplementeerd voordat BL-035/039/040 ze daadwerkelijk oplevert.
 
 ## Ontwerpprincipes
 
@@ -12,6 +12,8 @@ Status: **geïmplementeerd**. Basisschema via `2026_07_17_120000_create_intake_e
 4. **Privacy.** Persoonsgegevens, foto’s en documenten zitten in `intakes`, `intake_answers`, `intake_uploads`. Soft delete + expliciete purge-actie voor dossierverwijdering.
 5. **JSON alleen waar zinvol.** Antwoordwaarden, validatieregels, compleetheidsnapshots. Geen volledige template-JSON als primaire bron — relationeel blijft leidend.
 6. **Automatische feiten houden hun herkomst.** Externe gegevens staan los van klantantwoorden en bewaren bron, referentie, zekerheid en ophaaltijdstip (ADR-0007).
+7. **Doelmodel: dossier vóór vraag.** Nieuwe technische objecten hangen aan de opname; vragen, uploads, externe feiten en AI-runs worden bewijs bij die objecten (ADR-0011).
+8. **Stapsgewijze migratie.** Bestaande opnames en gepinde templates blijven werken terwijl nieuwe objecten naast de huidige vraagkoppelingen worden gevuld.
 
 ## Enums (PHP backed enums, centrale bron)
 
@@ -26,10 +28,57 @@ Status: **geïmplementeerd**. Basisschema via `2026_07_17_120000_create_intake_e
 | `AttentionPointSource` | `system`, `reviewer`, `ai` |
 | `RuleOperator` | `equals`, `not_equals`, `in`, `not_in`, `gt`, `gte`, `lt`, `lte`, `filled` |
 | `RuleEffect` | `show`, `require` |
+| `PipeRouteStatus` | `collecting`, `proposed`, `approved`, `rejected` |
+| `AttentionPointStatus` | `proposed`, `accepted`, `dismissed` |
+| `PhotoUsabilityVerdict` | `ok`, `too_dark`, `too_small` |
 
 NL-labels (concept / verstuurd / …) horen in UI/resources, niet als DB-waarden.
 
-## Tabellen
+## Besloten doelmodel (nog niet geïmplementeerd)
+
+De bestaande `intakes`-rij blijft het migratieanker en representeert de technische opname. De voorafgaande aanvraag leeft in het bronsysteem; de opname bewaart een snapshot van de benodigde aanvraaggegevens en waar beschikbaar een externe aanvraagreferentie. Er wordt geen tweede lead-/CRM-flow in deze app gebouwd.
+
+Onderstaande namen zijn werkbare tabelnamen voor de implementatie-ADRs/PR's. Zij zijn pas schemawaarheid nadat de migrations bestaan.
+
+| Doelobject / werknaam | Verantwoordelijkheid | Eerste backlog |
+|-----------------------|----------------------|----------------|
+| `intake_observations` | Waarneming of conclusie met onderwerp, waarde, bronsoort, actor, zekerheid, status en vaststellingsmoment. | BL-035 |
+| `intake_evidence_links` | Koppelt een observatie/conclusie aan bestaand antwoord, extern feit, upload, AI-run of installateurswaarneming zonder de bron te kopiëren. | BL-035 |
+| `intake_contribution_tasks` | Afgebakende tekst-, foto-, document-, meet- of controleopdracht voor klant of installateur, met doel/beslisgebied en lifecycle. | BL-035/038 |
+| `intake_decision_states` | Status, blokkades en aanbevolen volgende actie per beslisgebied; staat los van vragenlijstcompleetheid. | BL-035/036 |
+| `intake_spaces` | Gewenste fysieke ruimtes, onafhankelijk van het gekozen aantal binnenunits. | BL-039 |
+| `airco_placement_options` | Kandidaatpositie voor binnenunit, buitenunit, voedingsbron of afvoerpunt, gekoppeld aan ruimte/buitengebied en bewijs. | BL-039 |
+| `airco_installation_options` | Eén kandidaatconfiguratie (single-/multi-split of combinatie) met status/rangschikking. | BL-039 |
+| `airco_installation_option_placements` | Koppelt de gebruikte binnen-/buiten-/serviceposities aan één installatieoptie. | BL-039 |
+| `airco_connections` | Technische verbinding van type `refrigerant`, `condensate` of `power`, met concrete eindpunten, zekerheid en kostenimpact. | BL-040 |
+| `airco_connection_segments` | Segmenten, obstakels, lengteklasse, bereikbaarheid en open controles per verbinding. | BL-040 |
+
+### Migratieregels
+
+1. Voeg nieuwe tabellen/kolommen uitbreidend toe; verwijder of herinterpreteer geen historische template-/antwoordrecords.
+2. Maak bewijslinks naar bestaande bronrecords. Kopieer foto-, register- of AI-inhoud niet naar een tweede JSON-waarheid.
+3. `intakes.access_token` wordt in het doelmodel nullable of verplaatst naar taaktoegang: bij **Zelf uitvoeren** bestaat geen klantlink; maak toegang pas wanneer klanttaken bestaan.
+4. `intake_follow_up_rounds/items` blijven tijdens de migratie werken en worden door BL-038 naar algemene bijdrageopdrachten gemapt.
+5. `pipe_route_sessions/segments` blijven bestaan en krijgen in BL-040 een expliciete koppeling aan één `airco_connection`; zij zijn niet langer één globale route per opname.
+6. Iedere nieuwe tenantgebonden tabel bevat een ondubbelzinnige route naar `company_id` en krijgt positieve same-company- en negatieve cross-company-tests.
+7. Een installateurscorrectie verwijdert de eerdere bron-/AI-conclusie niet; zij markeert de geselecteerde conclusie en bewaart de delta voor audit en metrics.
+
+### Doelrelaties
+
+```mermaid
+erDiagram
+    intakes ||--o{ intake_spaces : contains
+    intakes ||--o{ intake_observations : records
+    intakes ||--o{ intake_contribution_tasks : assigns
+    intakes ||--o{ intake_decision_states : evaluates
+    intake_spaces ||--o{ airco_placement_options : offers
+    intakes ||--o{ airco_installation_options : proposes
+    airco_installation_options ||--o{ airco_connections : requires
+    airco_connections ||--o{ airco_connection_segments : consists_of
+    intake_observations ||--o{ intake_evidence_links : supported_by
+```
+
+## Huidige tabellen (geïmplementeerd)
 
 ### `companies`
 
@@ -142,13 +191,14 @@ Index: `(intake_question_id)`.
 
 ### `intakes`
 
-Eén digitale opname / klanttraject.
+Eén digitale technische opname. In de huidige implementatie bevat deze rij ook de snapshot van klant-/adresgegevens en de klanttoegang; er is geen aparte aanvraagentiteit.
 
 | Kolom | Type | Toelichting |
 |-------|------|-------------|
 | `id` | bigint PK | |
 | `uuid` | uuid unique | Stabiele interne referentie |
 | `intake_template_version_id` | FK, restrict | Gepinde versie |
+| `company_id` | FK → companies, restrict | Verplichte tenantgrens |
 | `created_by` | FK → users, restrict | Installateur |
 | `status` | IntakeStatus | |
 | `customer_name` | string | Privacy |
@@ -165,6 +215,7 @@ Eén digitale opname / klanttraject.
 | `current_question_key` | string nullable | Wizard-cursor: huidige vraag (BL-018) |
 | `current_section_instance_key` | string nullable | Wizard-cursor: repeatable-instantie (`room-1`, …) |
 | `progress_percent` | unsigned tinyint default 0 | Gecached |
+| `is_demo` | boolean default false | Tijdelijke publieke demo-opname; index met tokenverval |
 | `started_at` | timestamp nullable | Eerste klantactiviteit |
 | `completed_at` | timestamp nullable | |
 | `reviewed_at` | timestamp nullable | |
@@ -173,7 +224,7 @@ Eén digitale opname / klanttraject.
 | `timestamps` | | |
 | `deleted_at` | soft delete | |
 
-Indexes: `status`, `created_by`, `customer_email`, `(status, created_at)`.
+Indexes: `status`, `created_by`, `customer_email`, `(status, created_at)`, `(company_id, status, created_at)`, `(is_demo, token_expires_at)`.
 
 **Tokenstrategie:** zie ADR-0002. Token zit in URL en DB (hoge entropie); nooit in logs.
 
@@ -208,7 +259,7 @@ Automatisch verzamelde feiten blijven gescheiden van klantantwoorden, zodat het 
 | `source` | string | Bronlabel, bv. `PDOK / BAG` of `PDOK Luchtfoto RGB` |
 | `source_reference` | string nullable | BAG-identificatie of providerreferentie |
 | `source_url` | text nullable | Controleerbare bron-URL |
-| `confidence` | string | `high` of `unknown`; uitbreidbaar zonder conclusie in code te verbergen |
+| `confidence` | string | Huidig gebruikt o.a. `high`, `low`, `unknown`; bronservice bepaalt betekenis |
 | `captured_at` | timestamp | Tijdstip waarop het feit is opgehaald |
 | `timestamps` | | |
 
@@ -243,6 +294,45 @@ BL-007 genereert voorstellen automatisch na eerste afronding en opnieuw na een a
 Index: `(intake_id, question_key)`.
 
 Bestanden: privé disk, pad `intakes/{uuid}/…/{ulid}.ext`. Geen publieke URL.
+
+### `pipe_route_sessions` (BL-029, huidige backend)
+
+Stateful synthese van één begeleide route. ADR-0012 vervangt de oorspronkelijke globale UI-aanname; BL-040 koppelt deze bestaande bouwsteen later aan één concrete aircoverbinding.
+
+| Kolom | Type | Toelichting |
+|-------|------|-------------|
+| `id` | bigint PK | |
+| `intake_id` | FK, cascade | Huidige koppeling aan opname |
+| `status` | PipeRouteStatus | `collecting`, `proposed`, `approved`, `rejected` |
+| `confidence` | decimal(4,3) nullable | Synthesezekerheid 0..1 |
+| `proposed_route` | json nullable | Gestructureerde voorgestelde route |
+| `alternative_route` | json nullable | Alternatief |
+| `uncertainties` | json nullable | Onzekerheden |
+| `missing_checks` | json nullable | Ontbrekende controles |
+| `next_photo_instruction` | text nullable | Eén gerichte volgende foto-opdracht |
+| `approved_by` | FK users nullable | Installateursbeoordeling |
+| `approved_at` | timestamp nullable | |
+| `timestamps` | | |
+
+Index: `(intake_id, status)`.
+
+### `pipe_route_segments` (BL-029, huidige backend)
+
+| Kolom | Type | Toelichting |
+|-------|------|-------------|
+| `id` | bigint PK | |
+| `pipe_route_session_id` | FK, cascade | |
+| `intake_upload_id` | FK nullable, null on delete | Bewijsfoto |
+| `ai_run_id` | FK nullable, null on delete | Bijbehorende analyse |
+| `sequence` | unsigned smallint | Volgorde |
+| `label` | string nullable | Rol, bv. binnenwand/gevel/obstakel |
+| `photo_usable` | boolean nullable | |
+| `route_possible` | boolean nullable | |
+| `confidence` | decimal(4,3) nullable | 0..1 |
+| `analysis` | json nullable | Volledige gevalideerde segmentanalyse |
+| `timestamps` | | |
+
+Index: `(pipe_route_session_id, sequence)`.
 
 ### `intake_attention_points`
 
@@ -336,7 +426,7 @@ Foto- en PDF-antwoorden staan in `intake_uploads` met `intake_follow_up_item_id`
 | `pdf_generated_at` | timestamp nullable | |
 | `meta` | json nullable | Compleetheidssamenvatting e.d. |
 | `generated_at` | timestamp | |
-| `timestamps` | |
+| `timestamps` | | |
 
 PDF is een afgeleid artefact (Dompdf, async); HTML heeft voorrang.
 
@@ -356,12 +446,13 @@ Index: `(intake_id, created_at)`.
 
 BL-026 gebruikt deze tabel samen met bestaande intake-timestamps en relaties voor afgeleide productmetrics; er is bewust geen tweede analytics-tabel. `answer_saved` bewaart alleen `question_key` en `section_instance_key`, nooit de antwoordwaarde. De overige getelde klant-events zijn upload opslaan/verwijderen, vervolgtekst/-foto opslaan/verwijderen en hoofd-/vervolgronde afronden. Volledige definities: [metrics.md](metrics.md).
 
-### Bewust niet in MVP
+### Bewust niet in het huidige schema
 
 | Concept | Reden |
 |---------|--------|
-| `companies` | Geen multi-tenancy nodig |
+| Aparte `applications`-/leadstabel | De aanvraag bestaat vóór deze app; `intakes` bewaart nu de benodigde snapshot. Een externe referentie kan zonder CRM-model worden toegevoegd. |
 | `intake_participants` | Klantgegevens op `intakes` volstaan |
+| Dossier-/ruimte-/plaatsings-/verbindingsobjecten | Besloten doelmodel; worden gefaseerd via BL-035/039/040 toegevoegd, zie boven. |
 | Volledige event-sourcing | Te zwaar |
 
 ### `ai_runs` (Fase 6)
@@ -370,7 +461,7 @@ BL-026 gebruikt deze tabel samen met bestaande intake-timestamps en relaties voo
 |-------|------|-------------|
 | `id` | bigint PK | |
 | `intake_id` | FK, cascade | |
-| `type` | string | `summary` / `attention_points` / `photo_quality` |
+| `type` | string | o.a. `summary`, `attention_points`, `photo_quality`, `photo_assessment`, `route_analysis`, `route_synthesis` |
 | `provider` | string | |
 | `model` | string nullable | |
 | `prompt_version` | string | |
@@ -390,14 +481,17 @@ BL-026 gebruikt deze tabel samen met bestaande intake-timestamps en relaties voo
 
 | Ouder | Kind | On delete |
 |-------|------|-----------|
+| company | users/intakes | **restrict** |
 | template | versions | cascade |
 | version | sections | cascade |
 | section | questions | cascade |
 | question | options/rules | cascade |
 | version | intakes | **restrict** (versie met opnames niet hard verwijderen) |
-| intake | answers/external facts/follow-up rounds/uploads/notes/attention/reviews/reports/events | cascade |
+| intake | answers/external facts/follow-up rounds/uploads/notes/attention/reviews/reports/events/ai-runs/pipe-route-sessions | cascade |
 | follow-up round | follow-up items | cascade |
 | follow-up item | gekoppelde uploads | cascade |
+| pipe-route session | pipe-route segments | cascade |
+| upload / ai-run | gekoppeld route-segment | null on delete |
 | user (created_by) | intakes | **restrict** |
 
 Soft-deleted intakes: bestanden blijven tot daily `intakes:purge-deleted` (BL-009; default 30 dagen via `INTAKE_SOFT_DELETE_RETENTION_DAYS`).
@@ -413,6 +507,7 @@ Soft-deleted intakes: bestanden blijven tot daily `intakes:purge-deleted` (BL-00
 | Foto’s (EXIF kan locatie bevatten) | `intake_uploads` + storage |
 | Aangeleverde PDF-documenten | `intake_uploads` + storage |
 | Interne notities | `intake_notes`, `intakes.internal_note` |
+| Routevoorstellen, segmentanalyses en foto-instructies | `pipe_route_sessions`, `pipe_route_segments` |
 | Rapport-HTML | `generated_reports.html` |
 
 **Bewaartermijn:** actieve dossiers onbeperkt zolang account bestaat; na soft delete **30 dagen** hard purge inclusief foto's, aangeleverde documenten en rapport-PDF (`intakes:purge-deleted`, configureerbaar via `INTAKE_SOFT_DELETE_RETENTION_DAYS`). Soft-delete-UI voor intakes volgt later; de purge-job is al actief. Geen echte klantdata in seeders/tests.
@@ -421,6 +516,8 @@ Soft-deleted intakes: bestanden blijven tot daily `intakes:purge-deleted` (BL-00
 
 ```mermaid
 erDiagram
+    companies ||--o{ users : employs
+    companies ||--o{ intakes : owns
     users ||--o{ intakes : creates
     users ||--o{ intake_notes : writes
     users ||--o{ intake_reviews : reviews
@@ -444,6 +541,17 @@ erDiagram
     intakes ||--o| generated_reports : has
     intakes ||--o{ intake_activity_events : logs
     intakes ||--o{ ai_runs : has
+    intakes ||--o{ pipe_route_sessions : analyzes
+    pipe_route_sessions ||--o{ pipe_route_segments : contains
+    intake_uploads o|--o{ pipe_route_segments : evidences
+    ai_runs o|--o{ pipe_route_segments : analyzes
+
+    companies {
+        bigint id PK
+        uuid uuid UK
+        string slug UK
+        string name
+    }
 
     intake_templates {
         bigint id PK
@@ -480,11 +588,13 @@ erDiagram
         bigint id PK
         uuid uuid UK
         bigint intake_template_version_id FK
+        bigint company_id FK
         bigint created_by FK
         string status
         string customer_name
         string customer_email
         string access_token UK
+        boolean is_demo
         timestamp reminder_sent_at
         json completeness_snapshot
     }
@@ -531,12 +641,29 @@ erDiagram
         string pdf_path
         timestamp pdf_generated_at
     }
+
+    pipe_route_sessions {
+        bigint id PK
+        bigint intake_id FK
+        string status
+        decimal confidence
+        json proposed_route
+    }
+
+    pipe_route_segments {
+        bigint id PK
+        bigint pipe_route_session_id FK
+        bigint intake_upload_id FK
+        bigint ai_run_id FK
+        int sequence
+        json analysis
+    }
 ```
 
 ## Seeddata
 
 - 1 installateur (`test@example.com` of dedicated seeder-user)
-- gepubliceerde airco-templateversies (v1–v3 historisch, v4 latest — BAG-bouwjaar overslaan bij eenduidige bron, BL-019)
+- gepubliceerde airco-templateversies (v1–v8 historisch, v9 latest — adaptieve bron-/foto-/tekstafleiding)
 - 1 open intake (`sent`)
 - 1 gedeeltelijk ingevulde intake (`in_progress`)
 - 1 afgeronde intake (`completed`) met veilige placeholder-uploads

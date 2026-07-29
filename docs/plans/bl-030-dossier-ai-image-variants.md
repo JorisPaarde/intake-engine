@@ -19,7 +19,7 @@ Beide: auto-orient, EXIF/metadata strippen, HEIC/HEIF → JPEG. PNG/WebP-uploads
 
 **Waarom 2048 dossier (niet full phone, niet 1536):** genoeg om in te zoomen op groepen/aansluitingen/obstakels; geen posterdrukwerk; ~halve lineaire resolutie t.o.v. typische 4k-phone → veel minder storage zonder dossierkwaliteit te verliezen.
 
-**Scope AI-consumenten (gedeelde bouwsteen):** alle vision-paden gebruiken de analysekopie — `AnalyzeRoutePhoto`, `SynthesizePipeRoute`-escalatie (Sol), `AssessFuseboxPhotos`, `DerivePhotoAnswers`. Lokale `AssessPhotoUsability` gebruikt **dossier** (zelfde beeld dat de mens ziet).
+**Scope AI-consumenten (gedeelde bouwsteen):** alle vision-paden gebruiken de analysekopie — `AnalyzeRoutePhoto`, `SynthesizePipeRoute`-escalatie (Sol), `AssessFuseboxPhotos`, `DerivePhotoAnswers` en de latere BL-040/041-verbindingsanalyse. Lokale `AssessPhotoUsability` gebruikt **dossier** (zelfde beeld dat de mens ziet).
 
 **Sol-escalatie:** stuurt opnieuw alleen de **relevante** segmentfoto’s als **analysekopie** (niet dossier, niet telefoon-origineeel). Synthese blijft tekst+segmentmetadata + die images.
 
@@ -37,9 +37,9 @@ Vijf foto’s: ±60.000 → ±8.640 beeldtokens. Dossier op disk blijft ~2048 vo
 
 ## Huidige gap
 
-- [`app/Domains/Intake/Services/PhotoUploadNormalizer.php`](app/Domains/Intake/Services/PhotoUploadNormalizer.php): JPEG/PNG/WebP = passthrough (EXIF + volle resolutie blijven); HEIC alleen → JPEG max **3000** px.
+- [`app/Domains/Intake/Services/PhotoUploadNormalizer.php`](../../app/Domains/Intake/Services/PhotoUploadNormalizer.php): JPEG/PNG/WebP = passthrough (EXIF + volle resolutie blijven); HEIC alleen → JPEG max **3000** px.
 - AI (`AnalyzeRoutePhoto::imageInput`, `DerivePhotoAnswers`, `AssessFuseboxPhotos`): leest `Storage::disk($upload->disk)->get($upload->path)` als data-URL → volle opgeslagen bytes.
-- [`app/Domains/Intake/Actions/HardDeleteIntake.php`](app/Domains/Intake/Actions/HardDeleteIntake.php): verwijdert alleen `path`, geen tweede bestand.
+- [`app/Domains/Intake/Actions/HardDeleteIntake.php`](../../app/Domains/Intake/Actions/HardDeleteIntake.php): verwijdert alleen `path`, geen tweede bestand.
 
 ## Architectuur
 
@@ -71,11 +71,11 @@ Migratie op `intake_uploads`:
 
 1. **`PhotoUploadNormalizer`** — altijd Imagick-pipeline (niet alleen HEIC):
    - lees → `autoOrient` → `stripImage` → twee writes (dossier 2048/q82, analysis 1536/q80)
-   - DTO [`NormalizedPhotoUpload`](app/Domains/Intake/Services/NormalizedPhotoUpload.php) uitbreiden met analysis temp-pad + meta + cleanupPaths voor beide temps
+   - DTO [`NormalizedPhotoUpload`](../../app/Domains/Intake/Services/NormalizedPhotoUpload.php) uitbreiden met analysis temp-pad + meta + cleanupPaths voor beide temps
 2. **`StoreIntakeUpload` / `StoreFollowUpUpload`** — beide bestanden op `MEDIA_DISK` (bijv. `…/{ulid}.jpg` + `…/{ulid}.analysis.jpg`); vul analysis-kolommen
 3. **`AiImageResolver`** (nieuw) — `forAnalysis(IntakeUpload): AiImageInput` (analysis_path; legacy: lazy-generate of dossier-fallback); alle vision-actions hiernaartoe
 4. **`HardDeleteIntake`** — ook `analysis_path` deleten
-5. **Config** in [`config/intake.php`](config/intake.php):
+5. **Config** in [`config/intake.php`](../../config/intake.php):
 
 ```php
 'conversion' => [
@@ -88,7 +88,7 @@ Migratie op `intake_uploads`:
 
 Verwijder/vervang oude `max_long_edge` / `heic_to_jpeg_quality` (één bron van waarheid; bump docs).
 
-6. **Fase 2 (later in zelfde BL):** `AiDetailCropper` + prompt-signaal/`missing_information` → optionele tweede call met één crop; config `INTAKE_ANALYSIS_DETAIL_LONG_EDGE` default 2048; geen batch-heranalyse.
+1. **Fase 2 (later in zelfde BL):** `AiDetailCropper` + prompt-signaal/`missing_information` → optionele tweede call met één crop; config `INTAKE_ANALYSIS_DETAIL_LONG_EDGE` default 2048; geen batch-heranalyse.
 
 ### Tests
 
@@ -100,8 +100,8 @@ Verwijder/vervang oude `max_long_edge` / `heic_to_jpeg_quality` (één bron van 
 ### Docs / backlog / changelog
 
 - Nieuw **BL-030**: “Foto-varianten dossier + AI-analyse”
-- Bijwerken: [`docs/uploads.md`](docs/uploads.md), [`docs/ai.md`](docs/ai.md) (tokens/Terra/Sol alleen analysis), korte verwijzing bij ADR-0009 / BL-029 indien route-escalatie geraakt wordt
-- [`CHANGELOG.md`](CHANGELOG.md) `[Unreleased]`; documentversiebumps
+- Bijwerken: [`docs/uploads.md`](../uploads.md), [`docs/ai.md`](../ai.md) (tokens/Terra/Sol alleen analysis), korte verwijzing bij ADR-0012 / BL-040 indien route-escalatie geraakt wordt
+- [`CHANGELOG.md`](../../CHANGELOG.md) `[Unreleased]`; documentversiebumps
 - Env-voorbeelden: knobs documenteren; geen secrets
 
 ### Niet in scope

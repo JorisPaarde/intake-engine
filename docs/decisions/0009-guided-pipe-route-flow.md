@@ -1,6 +1,6 @@
 # ADR-0009: Begeleide leidingroute met multi-foto LLM-analyse en modeltiering
 
-- **Status:** Accepted
+- **Status:** Superseded by ADR-0012
 - **Datum:** 2026-07-22
 
 ## Context
