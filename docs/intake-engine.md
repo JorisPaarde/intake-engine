@@ -1,14 +1,16 @@
-# Intake-engine
+# Vragen- en takenengine
 
-> **Documentversie:** 1.24 · **Laatste update:** 2026-07-26 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.0 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: **geïmplementeerd t/m Fase 6 + BL-019 openbare data + BL-020 foto-afleiding + BL-027 gerichte vervolgrondes + BL-033 postcode-eerst adresaanvulling**. Airco-template **v9** gepubliceerd — v8 + de openingsvraag levert functie, aantal units en ruimtetypes, plus conditionele cascades en keuzelijsten.
+Status: de hieronder beschreven templatewizard is **geïmplementeerd t/m airco v9**. De nieuwe rol als bijdrage-/takenengine binnen één centrale opname is **besloten maar nog niet volledig geïmplementeerd** (BL-035/037/038). Productmodel en rollen: [product-model.md](product-model.md).
 
 ## Doel
 
-Een herbruikbare intake-engine: vragen, validatie, conditionele logica, voortgang en compleetheid zijn data-gedreven. Airco is de eerste template, geen hardcoded airco-app.
+Een herbruikbare invoerengine: vragen en concrete tekst-, foto-, document- en controleopdrachten zijn data-gedreven, met validatie, conditionele logica, autosave, hervatten en taakcompleetheid.
 
-## Opbouw
+De engine is **niet** de technische bron van waarheid. Zij verzamelt bewijs en waarnemingen voor de centrale opname. Airco-objecten zoals ruimtes, plaatsingsopties, installatieopties en drie technische verbindingen horen in het aircodomein, niet als kunstmatige vraag-/antwoordstructuur in templates.
+
+## Huidige opbouw
 
 ```
 Template (key: airco)
@@ -26,6 +28,26 @@ Bron van template-inhoud in MVP:
 3. Geen visuele formulierbouwer
 
 Runtime leest altijd uit de database (de gepinde versie), nooit rechtstreeks uit views/controllers.
+
+## Doelrol binnen de centrale opname
+
+| Huidige aanname | Doelmodel |
+|-----------------|-----------|
+| Iedere opname begint met een klantlink | Installateur kiest klant, zelf uitvoeren of hybride; link alleen bij klanttaken |
+| Templatevragen bepalen de dossierstructuur | Dossierobjecten bepalen wat technisch nodig is; taken verzamelen het ontbrekende bewijs |
+| `rooms` herhaalt per vooraf gekozen binnenunit | Gewenste ruimtes bestaan eerst; de technische configuratie volgt uit kandidaatopstellingen |
+| Eén lineaire klantwizard | Klant krijgt lineaire afgebakende taken; installateur werkt vrij en niet-lineair |
+| `CompletenessChecker` bepaalt “opname klaar” | Checker bepaalt alleen of een taakset klaar is; beslisgereedheid staat per technisch gebied |
+| Prefill is vaak een apart te bevestigen veld | Met aan zekerheid grenzende waarschijnlijkheid vastgestelde data wordt gebruikt; alleen beslissende uitzonderingen worden voorgelegd |
+| Gerichte vervolgitems bestaan pas na review | Bijdrageopdrachten kunnen vanaf de start en tijdens iedere workflow worden toegewezen |
+
+### Workflowvereisten
+
+- **Klant:** één veilige, concrete opdracht per scherm; geen definitieve unit-, configuratie- of routekeuze.
+- **Installateur:** dezelfde opname volledig kunnen vullen zonder klanttoken; camera-first; vrije volgorde; technische waarneming direct als ter plaatse vastgesteld.
+- **Hybride:** iedere open taak heeft een bedoelde bijdrager; installateur kan een klanttaak overnemen of later één specifieke taak sturen.
+- **Brondata:** BAG, PDOK-luchtfoto, EP-Online en 3DBAG worden automatisch vóór klanttaken gebruikt om redundante vragen/opdrachten te voorkomen.
+- **Taakselectie:** een nieuwe vraag of foto-opdracht is alleen gerechtvaardigd wanneer het antwoord een plaatsing, verbinding, kostenrisico, veiligheid of offertebesluit kan veranderen.
 
 ## Nieuwe opname: postcode-eerst adresaanvulling (BL-033)
 
@@ -54,9 +76,9 @@ De rapportpreview toont daarnaast alle werkelijk aangeleverde intake- en vervolg
 ## Secties
 
 - Geordend (`sort_order`)
-- Klantflow: **één zichtbare vraag per scherm** (BL-018); sectietitel blijft als hoofdstukmarkering zichtbaar
+- Huidige klantflow: **één zichtbare vraag per scherm** (BL-018); sectietitel blijft als hoofdstukmarkering zichtbaar
 - `is_repeatable`: bv. “Ruimtes” herhaalt zich N keer op basis van `repeat_count_question_key` (aantal binnenunits)
-- De airco-sectie **Ruimtes** herhaalt per binnenunit; **Buitenunit** en **Leidingroute** zijn niet herhaalbaar. Vier binnenunits vragen daarom niet om vier sets buitenunitfoto's.
+- Huidig airco v9: **Ruimtes** herhaalt per opgegeven binnenunit; **Buitenunit** en **Leidingroute** zijn niet herhaalbaar. Dit is legacygedrag. BL-039 scheidt gewenste ruimtes van het later te kiezen aantal binnen-/buitenunits.
 - Bij meer dan één binnenunit voegt de compleetheidscontrole het deterministische installateursaandachtspunt `review_split_configuration` toe: beoordeel één multi-split versus meerdere single-splits. Dit is bewust geen klantvraag en geen automatische technische keuze.
 
 `section_instance_key` op antwoorden/uploads: `null` voor normale secties, `room-1` … `room-n` voor herhalingen.
@@ -96,6 +118,8 @@ Geen LLM in deze keten.
 
 Service: `CompletenessChecker`
 
+Deze service bewaakt in de huidige implementatie of alle verplichte zichtbare vragen/foto's van een template of vervolgronde zijn uitgevoerd. In het doelmodel blijft zij **taakcompleetheid** berekenen. Zij mag niet bepalen of koelleiding, condens, stroom of offertebasis technisch beslisgereed is; dat wordt BL-035/036.
+
 Controleert:
 
 - verplichte zichtbare vragen zonder geldig antwoord
@@ -125,7 +149,7 @@ Resultaat:
 
 In de klantwizard (BL-022) zijn ontbrekende items klikbaar (`goToMissing` → `goToStep`); `instance_label` gebruikt hetzelfde leesbare patroon als de wizard-sectietitel (“Ruimtes 2”), niet de rauwe key.
 
-Afronden (`CompleteIntake`) weigert als `is_complete === false`, tenzij een expliciete template-flag later “afronden met open punten” toestaat (standaard: **niet**).
+De huidige hoofdwizard (`CompleteIntake`) weigert als `is_complete === false`. In het doelmodel sluit dit alleen de toegewezen taakset; open technische beslisgebieden blijven toegestaan en zichtbaar.
 
 Bij afronding: `completeness_snapshot` + `generated_reports` momentopname.
 
@@ -144,7 +168,7 @@ Zie ADR-0001 en `docs/database.md`.
 - Zelfde klantlink hervat op `current_section_key` + `current_question_key` (+ `current_section_instance_key` bij repeatables)
 - Duidelijke “opgeslagen”-feedback in UI
 
-## Airco-template
+## Huidige airco-template
 
 Secties (stabiele keys over versies):
 
@@ -157,7 +181,7 @@ Secties (stabiele keys over versies):
 7. `condensate` — condensafvoer
 8. `closing` — opmerkingen, waarheidsverklaring, toestemming
 
-### v1 → v2 (BL-017, ontwerpprincipe)
+### v1 → v2 (BL-017, toenmalige vragenreductie)
 
 V2 introduceerde onderstaande vraagreductie. Nieuwe intakes gebruiken inmiddels de laatste gepubliceerde **v9**; lopende/afgeronde opnames blijven op hun gepinde versie (ADR-0001).
 
@@ -174,7 +198,9 @@ Keys van geschrapte v1-vragen bestaan niet in v2; hergebruikte keys behouden hun
 
 ## Prefill van bekende gegevens (BL-016)
 
-Toepassing van het ontwerpprincipe *"vraag niets wat al bekend is"*: de engine biedt een antwoord dat al bekend is aan als **voorzet**. Een prefill is altijd zichtbaar en bewerkbaar — nooit een verborgen aanname. De aanvrager bevestigt het door het te laten staan en verder te gaan. Deterministisch, **geen LLM** in deze keten.
+Huidig geïmplementeerd gedrag: de engine biedt een installateurswaarde als zichtbare, bewerkbare **voorzet**. Deze legacy-prefill laat de klant de waarde nog bevestigen door verder te gaan. Deterministisch, **geen LLM** in deze keten.
+
+Doelgedrag (ADR-0011): bekende aanvraag- en brongegevens en hoge-confidence afleidingen worden zonder apart bevestigingsscherm in het dossier gebruikt. Alleen een relevant conflict of onzekerheid wordt voorgelegd. De huidige `prefill_source` blijft tijdens de migratie nodig voor herkomst en compatibiliteit; BL-035/041 verschuift de beoordeling van veldniveau naar installatievoorstel + uitzonderingen.
 
 Twee bronnen, gestuurd door vraag-`meta` (dus template-data, geen code):
 
@@ -188,6 +214,8 @@ Zodra de aanvrager het veld zelf wijzigt of eroverheen navigeert, vervalt `prefi
 Airco: v3 vlagt `request`-vragen als `installer_prefillable` en `rooms.floor_level` als `prefill_from_previous`.
 
 ## Externe feiten en vraagreductie (BL-019)
+
+Deze bronketen is **al geïmplementeerd** en blijft de automatische basis van iedere opname; zij is geen toekomstige productwens.
 
 PDOK Locatieserver vult bij het aanmaken straat, postcode en plaats vanuit één adresselectie. Daarna haalt `EnrichIntakeAddress` het BAG-verblijfsobject en het gekoppelde pand op. De actie is fail-soft: time-out, geen exacte match of een gemanipuleerde lookup-id blokkeert de intake nooit.
 
@@ -208,6 +236,8 @@ Airco v4 gebruikte dit alleen voor `build_year`: BAG registreert dit direct op h
 Belangrijk: de aanroep moet ook echt gebeuren. Tot v6 draaide `EnrichIntakeAddress` alleen bij `IntakeController::store`, waardoor de publieke demo nooit werd verrijkt en `skip_when_prefilled_by` daar dood bleef. `StartDemoIntake` roept de verrijking nu zelf aan, op een bestaand BAG-adres uit `intake.demo.address`. Automatisch opgehaalde feiten gaan naast antwoorden mee in de context voor AI-samenvatting en aandachtspunten; bron en zekerheid blijven behouden.
 
 ## Foto-afleiding als bevestigbare voorzet (BL-020)
+
+Onderstaande zekerheidsladder beschrijft de huidige wizardintegratie. In het doelmodel blijft `medium` een uitzondering/controlepunt, maar wordt `high` rechtstreeks als herleidbare dossierconclusie gebruikt zonder een los bevestigingsscherm (BL-041).
 
 Airco v5 markeert `fusebox_photo` met `meta.photo_analysis=fusebox` en maakt de foto-opdracht concreet: groepen, hoofdschakelaar en vrije posities recht van voren en leesbaar. De normale, optionele `free_group_known`-vraag blijft de fallback.
 
@@ -376,7 +406,7 @@ Rapport en installateurdetail behouden eerdere antwoorden en tonen per aanvullin
 4. Tests voor visibility/completeness van die template
 5. Documenteer afwijkende secties in dit bestand
 
-Geen nieuwe controllers per intaketype.
+Maak geen type-specifieke controller wanneer een templatevraag/-regel volstaat. Heeft een intaketype eigen technische objecten en beslislogica nodig, voeg die binnen een expliciet domein toe volgens `docs/ARCHITECTURE.md`; forceer ze niet in vraag-JSON.
 
 ## Uitbreidingspunten (niet MVP)
 
@@ -388,4 +418,5 @@ Verder buiten scope tot er vraag naar is:
 
 - Visuele templatebouwer
 - Per-bedrijf template-overrides
-- Branching naar volledig andere flows mid-intake
+- Een lead-/kansscan vóór de bestaande aanvraag
+- Vrije autonome AI-chat die buiten bijdrageopdrachten om het dossier muteert

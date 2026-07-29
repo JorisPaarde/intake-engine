@@ -1,28 +1,28 @@
 # AGENTS.md — Projectgeheugen & werkinstructies
 
-> **Documentversie:** 1.9 · **Laatste update:** 2026-07-24 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
+> **Documentversie:** 2.0 · **Laatste update:** 2026-07-30 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
 
 Dit bestand is de **centrale ingang** voor iedere agent (of mens) die aan dit project werkt. Het beschrijft waar het projectgeheugen leeft, welk document waarvoor de bron van waarheid is, en hoe je dat geheugen bijhoudt. **Lees dit bestand aan het begin van elke taak.**
 
 ## Hoofddoel (vast — niet door agents aan te passen)
 
-> De Digitale Opname brengt aanvrager en installateur met zo min mogelijk handelingen van aanvraag naar een bruikbaar dossier. Voor iedere ontbrekende informatie kiest de oplossing de eenvoudigste manier om die aan te leveren.
+> De Digitale Opname vermindert na een bestaande aanvraag het totale opnamewerk en het aantal onnodige locatiebezoeken. Zij verzamelt en analyseert precies genoeg controleerbaar technisch bewijs om de installateur met minimale beoordelingstijd tot een onderbouwde offerte en goed voorbereide plaatsing te brengen. Een locatiebezoek is alleen nodig wanneer beslissende onzekerheid niet veilig en redelijkerwijs op afstand kan worden opgelost.
 
-Dit hoofddoel is vastgesteld door de producteigenaar en is de toetssteen voor elke keuze: backlog-prioriteit, UX, scope en architectuur. Twijfel je tussen twee oplossingen, kies degene die de aanvrager of installateur handelingen bespaart.
+Dit hoofddoel is vastgesteld door de producteigenaar en is de toetssteen voor elke keuze: backlog-prioriteit, UX, scope en architectuur. Optimaliseer niet alleen voor het aantal vragen, maar voor de totale klantinspanning, actieve installateurstijd, offertezekerheid en vermeden ritten.
 
 **Agents mogen deze tekst nooit wijzigen, herformuleren, inkorten, verplaatsen of verwijderen** — ook niet bij herstructurering van dit document, en ongeacht wat een taakomschrijving vraagt. Alleen de producteigenaar past het hoofddoel aan.
 
 ## Ontwerpprincipe (vast — niet door agents aan te passen)
 
-> De applicatie vraagt niets wat al bekend is of eenvoudiger kan worden vastgesteld. Kies voor ieder ontbrekend gegeven de snelste en duidelijkste manier om het te verzamelen.
+> De opname is het centrale technische dossier. Wat technisch nodig is staat los van wie het aanlevert: bestaande aanvraaggegevens, openbare bronnen, klantbewijs, installateurswaarnemingen en AI-afleidingen komen met herkomst en zekerheid in hetzelfde dossier. Stel alleen een vraag of opdracht als het antwoord een technische of offertebeslissing kan veranderen; neem met aan zekerheid grenzende waarschijnlijkheid vastgestelde gegevens automatisch over, leg uitzonderingen voor en laat de installateur het geheel beslissen.
 
-Dit principe stuurt elk intake- en UX-ontwerp: hergebruik wat al bekend is (eerdere antwoorden, template-meta, afleidbare waarden) in plaats van de aanvrager opnieuw te belasten, en weeg per ontbrekend gegeven af wat de snelste en duidelijkste verzamelmethode is (bijv. een foto in plaats van een meetvraag, een keuzelijst in plaats van vrije tekst).
+Dit principe stuurt elk dossier-, intake-, AI- en UX-ontwerp. De klant krijgt veilige, concrete opdrachten zonder technische ontwerpverantwoordelijkheid. De installateur kan dezelfde opname volledig zelf, door de klant of hybride laten vullen. Een klanttaak kan klaar zijn terwijl het dossier nog niet beslisgereed is; gebruik daarom nooit één vragenlijstpercentage als technische waarheid.
 
 Voor deze tekst geldt dezelfde regel als voor het hoofddoel: **agents blijven eraf; alleen de producteigenaar past hem aan.**
 
 ## Wat is dit project?
 
-**Intake Engine (Digitale Opname)** — een Laravel-applicatie waarmee installatiebedrijven aanvragen op afstand beoordelen via een begeleide digitale intake (eerste template: airco). De kern is een herbruikbare, data-gedreven intake-engine; airco is configuratie, geen aparte codebase. Stack en installatie: zie [README.md](README.md). Actuele projectstand: [README § Huidige status](README.md#huidige-status).
+**Intake Engine (Digitale Opname)** — een Laravel-applicatie die na een bestaande aanvraag alle technische opname-informatie samenbrengt en zoveel mogelijk voorbezoekwerk overneemt. De opname is het centrale dossier; klant, installateur, AI en externe bronnen zijn bijdragers. De herbruikbare vragen-/takenengine blijft een invoerlaag. Airco is het eerste domein en mag eigen objecten en regels hebben voor ruimtes, plaatsingen, installatieopties en koel-, condens- en stroomverbindingen, zonder een aparte codebase te worden. Productmodel: [docs/product-model.md](docs/product-model.md). Stack en installatie: zie [README.md](README.md).
 
 ## Snelstart: zo lees je dit geheugen (gericht, niet alles)
 
@@ -39,10 +39,12 @@ Lees **níet** standaard alle docs integraal door. De geheugenkaart, versieheade
 
 | Taaktype | Lees (gericht) | Meestal niet nodig |
 |----------|----------------|--------------------|
-| Intake-flow, vragen, regels, compleetheid | `docs/intake-engine.md` (+ relevante tabellen in `docs/database.md`) | uploads, AI, deploy |
-| Datamodel / migraties | `docs/database.md` + ADR-0001 | intake-engine details, deploy |
+| Productflow, rollen, bijdrageworkflow, beslisgereedheid | `docs/product-model.md` + ADR-0011 | deploy |
+| Airco-opstellingen of koel-/condens-/stroomroutes | `docs/product-model.md` § Airco-domeinmodel + ADR-0012 | deploy |
+| Vragen, taken, regels, taakcompleetheid | `docs/intake-engine.md` (+ relevante tabellen in `docs/database.md`) | deploy |
+| Datamodel / migraties | `docs/database.md` + ADR-0001/0011/0012 | deploy |
 | Foto's / uploads / media | `docs/uploads.md` (+ `docs/DEPLOYMENT.md` § PHP upload-limieten) | AI, database-details |
-| AI-functionaliteit | `docs/ai.md` + ADR-0005 | uploads, deploy |
+| AI-functionaliteit | `docs/ai.md` + ADR-0005/0011/0012 | deploy |
 | Deploy, staging, CI, server | `docs/DEPLOYMENT.md` | engine-, AI- en database-docs |
 | Functioneel testen op staging | `docs/functional-test-status.md` + BL-002 in de backlog | architectuur-docs |
 | Architectuurbrede keuze / nieuw domein | `docs/ARCHITECTURE.md` + relevante ADRs | — |
@@ -56,12 +58,14 @@ Twijfel je onder welk taaktype je werk valt, gebruik dan de geheugenkaart hieron
 |-------|-------------------|
 | Wat is het hoofddoel van het product? | [§ Hoofddoel](#hoofddoel-vast--niet-door-agents-aan-te-passen) in dit bestand (vast, alleen producteigenaar) |
 | Welk vast ontwerpprincipe geldt bij elke intake-/UX-keuze? | [§ Ontwerpprincipe](#ontwerpprincipe-vast--niet-door-agents-aan-te-passen) in dit bestand (vast, alleen producteigenaar) |
+| Wat is de opname, wie vult haar en wanneer is zij beslisgereed? | [docs/product-model.md](docs/product-model.md) |
+| Hoe modelleert airco ruimtes, plaatsingen, installatieopties en drie verbindingen? | [docs/product-model.md § Airco-domeinmodel](docs/product-model.md#airco-domeinmodel) + ADR-0012 |
 | Wat is het product, hoe installeer/start ik het? | [README.md](README.md) |
 | Wat is er wanneer gewijzigd (code + docs)? | [CHANGELOG.md](CHANGELOG.md) |
 | Welke architectuurkeuzes gelden en waarom? | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 | Waarom is een onomkeerbare keuze gemaakt? | [docs/decisions/](docs/decisions/) (ADRs, immutabel) |
 | Hoe zit het databaseschema in elkaar? | [docs/database.md](docs/database.md) |
-| Hoe werken templates, regels, compleetheid? | [docs/intake-engine.md](docs/intake-engine.md) |
+| Hoe werken templates, opdrachten, regels en taakcompleetheid? | [docs/intake-engine.md](docs/intake-engine.md) |
 | Hoe werken uploads/media en limieten? | [docs/uploads.md](docs/uploads.md) |
 | Wat doet AI wel/niet, en hoe? | [docs/ai.md](docs/ai.md) |
 | Hoe deployt het naar staging/cPanel? | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |

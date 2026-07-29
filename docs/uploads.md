@@ -1,8 +1,8 @@
 # Uploads & mediastorage
 
-> **Documentversie:** 1.8 · **Laatste update:** 2026-07-20 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.0 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: **geïmplementeerd (Fase 4)** · BL-021 multiselect + galerijkeuze.
+Status: de klantwizard-, vervolgopdracht- en private-mediaflow is **geïmplementeerd**. Installateuruploads, generieke bewijslinks en dossier-/AI-beeldvarianten zijn **doelmodel/backlog** (BL-035/037/038/030).
 
 ## Doelen
 
@@ -11,8 +11,11 @@ Status: **geïmplementeerd (Fase 4)** · BL-021 multiselect + galerijkeuze.
 - Privé: geen voorspelbare publieke paden
 - Disk-agnostisch: local cPanel → S3 zonder domeinlogica te wijzigen
 - Server-side validatie is leidend
+- Dezelfde private mediapipeline voor klant en installateur
+- Media is bewijs bij een dossierobject; een templatevraag is slechts één mogelijke herkomst
+- Actor, vaststellingswijze, bron, tijdstip en eventuele AI-analyse blijven herleidbaar
 
-## Uploadflow
+## Huidige uploadflow
 
 1. Klant opent foto-vraag in Livewire-intake (`/o/{token}`).
 2. File-input met `multiple` (zonder `capture`) → `wire:model` + `WithFileUploads` → `IntakeWizard::uploadPhotosForComposite` verwerkt elk bestand apart → `StoreIntakeUpload`.
@@ -29,6 +32,28 @@ Status: **geïmplementeerd (Fase 4)** · BL-021 multiselect + galerijkeuze.
 
 Na elke intake- of vervolgfoto-upload voert de app lokaal een niet-blokkerende bruikbaarheidscheck uit. Bij te donker of te klein beeld noemt de melding zowel de kwaliteitsverbetering als de concrete `photo_instructions` van de gepinde vraag of de gerichte foto-opdracht van de installateur, zodat de klant vóór indienen precies weet hoe en wat opnieuw in beeld moet. Omdat het kwaliteitsverdict op de upload staat, wordt dezelfde instructie na verversen, hervatten of terugnavigeren opnieuw getoond.
 
+## Doelflow: gedeeld bewijs
+
+### Klant
+
+- Krijgt uitsluitend uploads die bij een toegewezen veilige taak horen.
+- Ziet één concrete opdracht en kan **Niet veilig / niet bereikbaar** kiezen.
+- Een klantlink wordt alleen aangemaakt/geactiveerd wanneer klanttaken bestaan.
+
+### Installateur
+
+- Kan vanuit de mobiele opnameweergave rechtstreeks foto's/documenten maken of kiezen, zonder klantlink of lineaire wizard.
+- Kan de upload aan ruimte, plaatsingsoptie, installatieoptie, verbinding, segment of open punt koppelen.
+- Kan een waarneming als **ter plaatse vastgesteld** opslaan zonder verplichte foto wanneer vakinhoudelijke vaststelling voldoende is.
+
+### Datakoppeling
+
+- `intake_uploads` blijft de private bestandsbron.
+- De huidige `question_key`, `section_instance_key` en `intake_follow_up_item_id` blijven tijdens de migratie bestaan.
+- BL-035 voegt een generieke bewijslink toe; BL-040 gebruikt die voor verbindingssegmenten.
+- Bestandsbytes, EXIF en brondata worden nooit gekopieerd naar observatie-/AI-JSON.
+- Eén upload mag meerdere conclusies ondersteunen zonder het bestand te dupliceren.
+
 ## Storage disks
 
 | Disk | Root | Gebruik |
@@ -41,11 +66,13 @@ Na elke intake- of vervolgfoto-upload voert de app lokaal een niet-blokkerende b
 
 Een PDF-upload verschijnt alleen wanneer de installateur in een aanvullende informatieronde expliciet antwoordvorm **Document (PDF)** kiest. Daardoor krijgt de normale intake geen extra scherm. `DocumentUploadNormalizer` vereist server-MIME `application/pdf`, controleert daarnaast de `%PDF-`-bestandssignatuur, begrenst de bestaande uploadlimiet en bewaart checksum/originele bestandsnaam. Documenten staan op dezelfde private `MEDIA_DISK`, zijn alleen via klanttoken of installateursauth te openen en worden met `Content-Disposition: attachment` plus `X-Content-Type-Options: nosniff` aangeboden; afbeeldingen blijven inline previews. Standaard zijn maximaal 3 PDF's per documentopdracht toegestaan (`INTAKE_FOLLOW_UP_MAX_DOCUMENTS`). Foto-normalisatie en fotokwaliteitsanalyse worden niet op documenten uitgevoerd.
 
+Doelmodel: dezelfde normalizer en private serve-routes blijven gelden voor een document dat de installateur rechtstreeks aan de opname toevoegt of als bijdrageopdracht aan de klant toewijst.
+
 ```php
 'media' => env('MEDIA_DISK', 'local'),
 ```
 
-## Directorystructuur
+## Huidige directorystructuur
 
 ```
 {disk-root}/intakes/{intake_uuid}/{question_key}/{section_instance?}/{ulid}.jpg
@@ -92,6 +119,19 @@ iPhone-foto's in HEIC/HEIF worden server-side verwerkt; de aanvrager hoeft geen 
 - JPEG-kwaliteit start op `config('intake.uploads.conversion.heic_to_jpeg_quality')` (default 82) en wordt stap voor stap verlaagd tot het resultaat binnen `INTAKE_UPLOAD_MAX_KB` past.
 
 De database bewaart de metadata van het opgeslagen bestand (`mime_type=image/jpeg`, `.jpg`-pad, JPEG-size en checksum). `/health` exposeert `image_conversion.imagick_loaded` en `image_conversion.heic_read` zodat staging snel kan worden gecontroleerd.
+
+## Geplande beeldvarianten (BL-030, nog niet geïmplementeerd)
+
+BL-030 normaliseert iedere foto — niet alleen HEIC — naar twee private JPEG-varianten:
+
+| Variant | Lange zijde | Kwaliteit | Gebruik |
+|---------|-------------|-----------|---------|
+| Dossier | 2048 px | 82 | Menselijke preview, galerij, HTML/PDF en installateurzoom |
+| AI-analyse | 1536 px | 80 | Vision-calls; modelescalatie krijgt alleen relevante analysekopieën |
+
+Beide worden georiënteerd en van metadata/EXIF ontdaan; het telefoonorigineel blijft niet op disk. `path` blijft de dossiervariant; aanvullende `analysis_*`-metadata wijst naar de AI-kopie. Tot BL-030 landt, blijft het huidige gedrag hierboven leidend: JPEG/PNG/WebP kunnen nog op originele resolutie worden bewaard en alleen HEIC wordt genormaliseerd.
+
+Uitgewerkt implementatieplan: [plans/bl-030-dossier-ai-image-variants.md](plans/bl-030-dossier-ai-image-variants.md).
 
 ## PHP- en cPanel-limieten
 

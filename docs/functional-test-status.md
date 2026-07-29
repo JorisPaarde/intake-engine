@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.33 · **Laatste update:** 2026-07-26 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.34 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -18,7 +18,16 @@ Laatste testsessie: 2026-07-26 (lokaal; postcode-eerst adresaanvulling met echte
 | Auth-beveiliging dashboard/intakes | pass | 2026-07-18 | Uitgelogd → redirect `/login` (na dismiss 428-interstitial) |
 | Dashboard weergave | pass | 2026-07-18 | Bereikbaar na registratie |
 | Begeleide leidingroute — backend (BL-029) | todo | - | Met `AI_ROUTE_ANALYSIS_ENABLED=true` + `AI_PROVIDER=openai` + key op staging: foto toevoegen levert een `route_analysis`-AiRun (model = `AI_ROUTE_MODEL`), synthese een `route_synthesis`-AiRun; bij lage zekerheid volgt een tweede run met `AI_ROUTE_REVIEW_MODEL`. Zonder de vlag: geen AI-calls, wel opgeslagen segment. Alleen na DPIA/akkoord met fictieve foto's. |
-| Begeleide leidingroute — UI (BL-029) | todo | - | Nog te bouwen: klant-wizard (markeer binnenunit-positie → beoordeling → steeds één vervolgfoto) en installateur-goedkeuring van de voorgestelde/alternatieve route. |
+| Begeleide leidingroute — oude globale UI (BL-029) | n/a | 2026-07-30 scopebesluit | Wordt niet gebouwd: ADR-0009/BL-029 vervangen door ADR-0012/BL-040. Backend blijft; nieuwe UI koppelt routes aan één concrete verbinding binnen een installatieoptie. |
+| Startkeuze klant / zelf uitvoeren (BL-037) | todo | - | Na implementatie: **Zelf uitvoeren** maakt geen klantlink/token actief en verstuurt geen mail; **Klant laten opnemen** maakt de afgebakende klanttaakset en link. |
+| Volledig installateur-uitgevoerde opname (BL-037) | todo | - | Twee slaapkamers mobiel en in vrije volgorde vastleggen: ruimtes, foto's, waarnemingen en technische conclusies; afronden/offertebasis zonder klantactie. |
+| Volledig klant-uitgevoerde opname (BL-038) | todo | - | Klantboodschap “Met uw hulp kunnen we uw airco sneller plaatsen”; twee slaapkamers apart; veilige kamer-, buiten- en meterkasttaken; klant maakt geen configuratie-/routekeuze. |
+| Hybride opname + één latere klanttaak (BL-038) | todo | - | Installateur begint zelf zonder link, vraagt later alleen een meterkastfoto; link toont uitsluitend die taak; bijdrage komt in hetzelfde dossier terug. Test ook klantstart → installateur vult zelf aan. |
+| Sterke bron-/AI-afleiding zonder losse bevestiging (BL-035/041) | todo | - | BAG, luchtfoto, EP-Online/3DBAG en hoge-confidence conclusie worden met provenance gebruikt zonder bevestigingslijst; conflict of beslissende onzekerheid verschijnt wel als uitzondering en blijft corrigeerbaar. |
+| Beslisgereed dossier (BL-036) | todo | - | Taakset kan compleet zijn terwijl stroom nog blokkeert; dossier toont status per gebied en acties Offerte, Prijsindicatie, Aanvulling, Locatiebezoek, Afwijzen; installateur keurt voorstel als geheel. |
+| Twee slaapkamers: plaatsingen + installatieopties (BL-039) | todo | - | Gewenste ruimtes zijn niet vooraf units; dossier kan één multi-split en twee single-splits voorstellen met aparte binnen-/buitenposities; klant kiest niet, installateur selecteert/corrigeert. |
+| Drie verbindingen per airco-optie (BL-040) | todo | - | Per relevante opstelling: koelleiding, condensroute per binnenunit en stroomroute incl. groep/capaciteit, kabelroute en systeemafhankelijk aansluitpunt; ieder met bewijs/open punten/kostenimpact. |
+| Onderbouwd locatiebezoek (BL-036/040) | todo | - | Een onveilig of op afstand onzichtbaar beslissend segment eindigt na gerichte taak terecht in **Locatiebezoek nodig**, zonder eindeloze fotolus of onveilige klantinstructie. |
 | Dev-admin `/dev` toegang (BL-028) | todo | - | Op staging: ingelogd → `/dev` bereikbaar, nav-link "Dev" zichtbaar. In productie (of `DEV_ADMIN_ENABLED=false`): `/dev` geeft 404 en nav-link ontbreekt. Uitgelogd → redirect `/login`. |
 | Dev-admin dienststatus (BL-028) | todo | - | `/dev` toont per externe dienst enabled/key/base-URL/timeout en laatst-gelukt tijd; geo-diensten met opgeslagen feiten worden groen, ongebruikte grijs, ontbrekende key amber. Geen live calls. |
 | Dev-admin opname-inspector (BL-028) | todo | - | `/dev/intakes` zoekt op adres/uuid; detail toont externe feiten (PDOK/BAG), AI-runs, antwoorden, uploads en de activiteiten-tijdlijn van één opname. |

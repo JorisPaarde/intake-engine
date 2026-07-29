@@ -1,28 +1,57 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 1.12 · **Laatste update:** 2026-07-26 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.0 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: **Fase 6 + BL-007 + BL-020 geïmplementeerd** — samenvatting, aandachtspunten, lokale fotokwaliteit en een bevestigbare multimodale meterkastvoorzet. Externe provider en foto-inferentie staan **standaard uit** (DPIA + key vereist). Zie ADR-0005. **Publieke demo** draait samenvatting + aandachtspunten wel: inline bij afronden, met heuristic-fallback als `AI_PROVIDER=null`, zichtbaar op het bedankt-scherm.
+Status: **samenvatting, aandachtspunten, lokale fotokwaliteit, tekst-/foto-afleiding en routebackend zijn geïmplementeerd**. Externe provider en foto-/route-inferentie staan standaard uit (DPIA + key vereist). De uitbreiding naar bewijsgerichte opname-assistent, installatieopties en uitzonderingsreview is **besloten maar nog niet gebouwd** (BL-041, ADR-0011/0012).
 
 De verplichte korte dossiersamenvatting is deterministisch en staat los van deze AI-laag. AI kan daarbovenop alleen een herkenbaar niet-bindend voorstel toevoegen.
 
 ## Wat AI wél mag
 
-Ondersteunende adviezen, nooit bron van waarheid:
+AI levert een herleidbare technische voorzet en mag werk actief overnemen:
 
 - Samenvatting van antwoorden voor het interne rapport
 - Voorstel voor aandachtspunten dat de installateur accepteert of verwijdert
 - Signaleren van een onduidelijke meterkastfoto met een concrete nieuwe foto-opdracht
 - Indicatie of een foto waarschijnlijk bruikbaar is
 - Bevestigbare voorzet voor vrije groep en fase uit meterkastfoto's
+- Bewijs uit aanvraag, BAG/PDOK, luchtfoto, EP-Online, 3DBAG, klant en installateur gezamenlijk analyseren
+- Kandidaatposities en installatieopties voor airco voorstellen en rangschikken
+- Koel-, condens- en stroomverbindingen met bewijs, onzekerheid en kostenimpact voorstellen
+- Een hoge-confidence conclusie automatisch in het dossier toepassen zonder apart bevestigingsscherm
+- De kleinste veilige vervolgopdracht kiezen die een blokkerende onzekerheid kan oplossen
+- Bepalen welke uitzonderingen de installateur vóór offerte of plaatsing moet zien
 
 ## Wat AI níet mag
 
 - Antwoorden van de klant overschrijven
-- Verplichte validatie of afronding bepalen
-- Definitief technisch installatieadvies of offerte
+- Taakvalidatie omzeilen of bewijs/conclusies zonder herkomst opslaan
+- Zelfstandig elektrische veiligheid, definitieve uitvoerbaarheid, offerte of plaatsing goedkeuren
 - Autonome chat die de flow overneemt zonder menselijke controle
 - Persoonsgegevens naar een provider sturen zonder DPIA/akkoord en redactiestrategie
+- De klant technische ontwerpkeuzes laten bevestigen die bij de installateur horen
+- Lage zekerheid stil als feit toepassen of eindeloos om extra foto's blijven vragen
+
+## Doelwerking: bewijs → voorstel → uitzondering → beslissing
+
+1. De opname start met bestaande aanvraaggegevens en de al gebouwde bronverrijking.
+2. Klant- en/of installateursbijdragen leveren gericht bewijs bij ruimtes, plaatsingen en verbindingen.
+3. AI analyseert bewijs per object en bewaart gevalideerde conclusies met model, prompt, evidence-referenties en zekerheid.
+4. AI vormt één of meer installatieopties met afzonderlijke koel-, condens- en stroomroutes.
+5. De beslisservice bepaalt welke onzekerheden oplossing, prijs, veiligheid of uitvoerbaarheid nog kunnen veranderen.
+6. Alleen voor zo'n onzekerheid mag AI één concrete, veilige klant- of installateurstaak voorstellen.
+7. De installateur beoordeelt het complete voorstel en de gemarkeerde uitzonderingen; zijn correctie/keuze is de gezaghebbende conclusie.
+
+| Zekerheid en impact | Doelgedrag |
+|---------------------|------------|
+| Voldoet aan de objectspecifieke hoge-zekerheidsregel, geen relevant conflict | Automatisch toepassen; bron/evidence zichtbaar en eenvoudig corrigeerbaar; geen losse bevestiging. |
+| Middel of conflict, kan besluit wijzigen | Als voorstel/uitzondering tonen of één gerichte taak maken. |
+| Laag, besluit wordt niet geraakt | Niet toepassen en niet onnodig aan de gebruiker vragen. |
+| Laag, besluit wordt wel geblokkeerd | Gerichte veilige taak; lukt die niet, onderbouwd locatiebezoek. |
+
+De installateur hoeft dus niet alle AI-afleidingen te accepteren of verwijderen. De huidige aandachtspunten-UI blijft tijdens de migratie bestaan; BL-041 verplaatst de hoofdreview naar installatievoorstel + uitzonderingen.
+
+Een model dat zelf `confidence=high` teruggeeft voldoet niet automatisch aan de hoge-zekerheidsregel. De server valideert per conclusie minimaal toegestane bronnen/evidence, volledigheid, tegenstrijdigheden en veiligheidsimpact.
 
 ## Architectuur (geïmplementeerd)
 
@@ -36,8 +65,11 @@ App\Domains\AI\
   Services\AiBudgetGuard
   Services\PromptVersionRepository
   Prompts\summary\ | attention_points\ | fusebox_assessment\
+  Prompts\request_intent\ | room_assessment\ | outdoor_assessment\
+  Prompts\pipe_route_assessment\ | route_photo_analysis\ | route_synthesis\
   Actions\SummarizeIntake
-  Actions\AssessFuseboxPhotos
+  Actions\SuggestAttentionPoints | AssessFuseboxPhotos | DerivePhotoAnswers
+  Actions\AnalyzeRoutePhoto | SynthesizePipeRoute
   Jobs\SummarizeIntakeJob
   Models\AiRun
 ```
@@ -92,7 +124,7 @@ AI_BUDGET_IMAGE_CENTS_PER_IMAGE=...
 | `estimated_cost_cents` | budgettelling in centen of budget-units |
 | `started_at` / `finished_at` | |
 
-## Flow
+## Huidige geïmplementeerde flow
 
 1. Klant rondt af → `CompleteIntake` schrijft snapshot + HTML-rapport.
 2. `SummarizeIntakeJob` (queue) → `SummarizeIntake`.
@@ -131,6 +163,8 @@ Server-side validatie vóór opslaan. Ongeldige output = `failed`.
 - Foto-inferentie verstuurt de beeldbytes alleen in het uitgaande providerrequest. `ai_runs` bewaart een hash van promptversie + uploadchecksums; database, activity-events en logs bevatten geen beeldbytes of data-URL. Het afgeleide feit bevat alleen gecontroleerde enums, korte bewijsomschrijving, provider/model en upload-id's.
 - Geen API-keys in logs of git (`.env`)
 - De externe `openai`-provider staat standaard uit en wordt pas geactiveerd ná DPIA/akkoord (key in `.env`). Tests draaien met gemockte HTTP.
+- BL-041 maakt per analyse een expliciete minimale contextbuilder. De huidige attention-points-redactie wordt niet stil hergebruikt voor plaatsings- of routeanalyse als die andere bewijssoorten nodig heeft; iedere nieuwe beeld-/locatiestroom krijgt eigen allowlist, DPIA-afweging, promptcontract, budget en tests.
+- Doelobjecten verwijzen naar bestaand bewijs. AI-output mag geen kopie van klantfoto's, bronbeelden of onbeperkte vrije tekst in nieuwe JSON-velden opslaan.
 
 ## Aandachtspunten-voorstellen (BL-007)
 
@@ -146,17 +180,20 @@ Server-side validatie vóór opslaan. Ongeldige output = `failed`.
 - `AssessPhotoUsability` beoordeelt elke geüploade foto **lokaal met GD** (`PhotoUsabilityHeuristic`): te donker of te lage resolutie → verdict op `intake_uploads.usability_verdict`. Geen externe API.
 - Klantflow: niet-blokkerende hint bij de fotostap ("foto lijkt te donker — maak er eventueel nog één"); blokkeert afronden **nooit** (ADR-0004/0005). Installateur: subtiel kwaliteitslabel in de galerij. `AiRun` type `photo_quality` per beoordeling.
 
-## Begeleide leidingroute (BL-029, ADR-0009)
+## Huidige routebackend en herijking (BL-029 → BL-040)
 
-Aparte, stateful route-analyse los van de bestaande foto-afleiding. Beoordeelt per foto of wand/doorvoer zichtbaar is en of een route naar buiten aannemelijk is, vat de segmenten samen tot een voorgestelde + alternatieve route met onzekerheden en ontbrekende controles, en vraagt steeds om één gerichte vervolgfoto. De installateur keurt de route altijd zelf goed (`ApprovePipeRoute`).
+De bestaande stateful route-analyse beoordeelt per foto of wand/doorvoer zichtbaar is en of een route naar buiten aannemelijk is, vat segmenten samen tot een voorgestelde + alternatieve route met onzekerheden en ontbrekende controles, en kan één gerichte vervolgfoto voorstellen. De installateur keurt de route zelf goed (`ApprovePipeRoute`).
 
 - **Contracten (float-confidence):** `route_photo_analysis` (per foto) en `route_synthesis` (route uit segmenten) — gestructureerde JSON, promptmappen onder `app/Domains/AI/Prompts/`.
 - **Persistentie:** `pipe_route_sessions` + `pipe_route_segments` (elke foto = één segment met volledige analyse-JSON).
 - **Modeltiering, los van `ai.model`:** `config('ai.route.model')` (default `gpt-5.6-terra`) doet de analyse; de synthese escaleert bij lage zekerheid of een niet-doorlopende route naar `config('ai.route.review_model')` (default `gpt-5.6-sol`). Model-ID's env-overschrijfbaar (`AI_ROUTE_MODEL`/`AI_ROUTE_REVIEW_MODEL`); de AI-laag heeft hiervoor een per-call `model`-override.
 - **Gated + soft-fail:** achter `AI_ROUTE_ANALYSIS_ENABLED` (standaard uit); meer beeld naar een externe LLM valt onder de DPIA-voorwaarde (ADR-0005/0009). `ai_runs`-types `route_analysis` en `route_synthesis`.
-- **Nog te bouwen:** klant-wizard en installateur-goedkeuringsweergave (backend-slice is er; UI volgt — BL-029).
+- **Herijkt:** ADR-0009 is vervangen door ADR-0012 en BL-029 is `dropped` voor de resterende globale UI-scope. De backend blijft staan.
+- **Vervolg BL-040:** koppel een routesessie aan één concrete `refrigerant`-, `condensate`- of `power`-verbinding binnen een installatieoptie. Start de foto-voor-fotolus pas wanneer kandidaatposities bestaan en het ontbrekende segment de beslissing kan veranderen. De huidige prompts mogen niet zonder nieuw contract als geschikt voor condens- of stroomroutes worden beschouwd.
 
 ## Volgende uitbreidingen
 
-- Externe foto-inferentie activeren en op staging met representatieve, fictieve meterkastfoto's valideren ná DPIA/akkoord (`AI_PROVIDER=openai`, key en `AI_PHOTO_INFERENCE_ENABLED=true`).
-- Alleen na gemeten winst dezelfde veilige voorzetstructuur uitbreiden naar ruimte- of routefoto's; geen brede beeldherkenning zonder concrete geschrapte vraag.
+- **BL-030:** alle vision-calls via de kleinere analysekopie; relevante beelden bij modelescalatie.
+- **BL-040:** drie verbindingen en koppeling van routebackend aan een concrete installatieoptie.
+- **BL-041:** evidence-synthese, installatieopties, gerichte vervolgtaken en uitzonderingsreview.
+- Externe foto-/route-inferentie pas op staging activeren na DPIA/akkoord, budgetcaps, fictieve representatieve beelden en de functionele tests uit `functional-test-status.md`.
