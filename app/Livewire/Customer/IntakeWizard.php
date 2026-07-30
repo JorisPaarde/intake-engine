@@ -895,11 +895,9 @@ class IntakeWizard extends Component
             ->whereNull('section_instance_key')
             ->first();
 
-        if ($answer?->prefill_source === 'ai') {
-            $this->prefillNotice[$composite] = 'Ingeschat op basis van uw meterkastfoto — klopt deze keuze?';
-        } else {
-            unset($this->prefillNotice[$composite]);
-        }
+        // Hoge zekerheid gebruikt bron + confidence in het dossier en laat de
+        // redundante vraag vervallen; alleen ai_suggestion vraagt nog bevestiging.
+        unset($this->prefillNotice[$composite]);
 
         if ($run?->status !== AiRunStatus::Succeeded || ! is_array($run->output)) {
             return null;
@@ -1287,8 +1285,8 @@ class IntakeWizard extends Component
             // A prefill remains editable and is only authoritative after customer confirmation.
             if ($answer->prefill_source === 'installer') {
                 $notices[$composite] = 'Alvast ingevuld door uw installateur — controleer en pas aan indien nodig';
-            } elseif ($answer->prefill_source === 'ai') {
-                $notices[$composite] = 'Ingeschat op basis van uw meterkastfoto — klopt deze keuze?';
+            } elseif ($answer->prefill_source === DerivePhotoAnswers::SOURCE_SUGGESTED) {
+                $notices[$composite] = 'Ingeschat op basis van uw foto — controleer en pas aan indien nodig';
             }
         }
 

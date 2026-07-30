@@ -86,9 +86,13 @@ return [
     'uploads' => [
         'max_kilobytes' => (int) env('INTAKE_UPLOAD_MAX_KB', 5120),
         'max_files_per_question' => (int) env('INTAKE_UPLOAD_MAX_FILES', 5),
-        'conversion' => [
-            'heic_to_jpeg_quality' => 82,
-            'max_long_edge' => 3000,
+        'dossier' => [
+            'max_long_edge' => (int) env('INTAKE_DOSSIER_MAX_LONG_EDGE', 2048),
+            'jpeg_quality' => (int) env('INTAKE_DOSSIER_JPEG_QUALITY', 82),
+        ],
+        'analysis' => [
+            'max_long_edge' => (int) env('INTAKE_ANALYSIS_MAX_LONG_EDGE', 1536),
+            'jpeg_quality' => (int) env('INTAKE_ANALYSIS_JPEG_QUALITY', 80),
         ],
         'accepted_mimes' => [
             'image/jpeg',
@@ -100,12 +104,8 @@ return [
             'image/heif-sequence',
         ],
         'accepted_extensions' => ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'],
-        'stored_mimes' => [
-            'image/jpeg',
-            'image/png',
-            'image/webp',
-        ],
-        'stored_extensions' => ['jpg', 'jpeg', 'png', 'webp'],
+        'stored_mimes' => ['image/jpeg'],
+        'stored_extensions' => ['jpg', 'jpeg'],
         'document_mimes' => ['application/pdf'],
     ],
 

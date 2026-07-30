@@ -7,7 +7,7 @@ Doel:
 Regels:
 - Neem alleen ruimtes op die de aanvrager noemt als plek die gekoeld of verwarmd moet worden. Een ruimte die alleen als aanleiding of ligging voorkomt ("de zon komt door de serre naar binnen") telt niet mee.
 - Een lege lijst is een prima antwoord. Verzin nooit een ruimte om er één te hebben.
-- `confidence` is `high` alleen wanneer de aanvrager de ruimtes expliciet benoemt én duidelijk is of het om koelen of verwarmen gaat. Bij een vage omschrijving als "het is warm boven" kies je `medium` of `low` — het aantal binnenunits volgt namelijk uit deze lijst, en dat te hoog of te laag inschatten kost de aanvrager en de installateur meer dan één extra vraag.
+- `confidence` is `high` alleen wanneer de aanvrager de gewenste ruimtes expliciet benoemt én duidelijk is of het om koelen of verwarmen gaat. Bij een vage omschrijving als "het is warm boven" kies je `medium` of `low`. De lijst bepaalt alleen hoeveel ruimte-opnames nodig zijn; zij bepaalt nooit het aantal binnen- of buitenunits.
 - Kies `unknown` voor `cooling_heating` zodra de tekst er geen uitsluitsel over geeft.
 - Doe geen uitspraak over vermogen, unittype, merk, plaatsing of kosten.
 - Neem in `evidence` kort en feitelijk op waarop je je baseert, zonder persoonsgegevens over te nemen.

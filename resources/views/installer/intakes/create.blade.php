@@ -23,6 +23,43 @@
                         <x-input-error :messages="$errors->get('template_key')" class="mt-2" />
                     </div>
 
+                    <fieldset>
+                        <legend class="text-sm font-medium text-gray-700">Wie voert de opname uit?</legend>
+                        <div class="mt-2 grid gap-3 sm:grid-cols-2">
+                            <label class="cursor-pointer rounded-2xl border border-gray-200 bg-white p-4 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50">
+                                <span class="flex items-start gap-3">
+                                    <input
+                                        type="radio"
+                                        name="workflow_mode"
+                                        value="{{ \App\Enums\ContributionMode::Customer->value }}"
+                                        class="mt-1 border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                        @checked(old('workflow_mode', \App\Enums\ContributionMode::Customer->value) === \App\Enums\ContributionMode::Customer->value)
+                                    >
+                                    <span>
+                                        <span class="block text-sm font-semibold text-gray-900">Klant laten opnemen</span>
+                                        <span class="mt-1 block text-xs leading-5 text-gray-600">De klant krijgt direct een beveiligde link met begeleide foto- en informatieopdrachten.</span>
+                                    </span>
+                                </span>
+                            </label>
+                            <label class="cursor-pointer rounded-2xl border border-gray-200 bg-white p-4 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50">
+                                <span class="flex items-start gap-3">
+                                    <input
+                                        type="radio"
+                                        name="workflow_mode"
+                                        value="{{ \App\Enums\ContributionMode::Installer->value }}"
+                                        class="mt-1 border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                        @checked(old('workflow_mode') === \App\Enums\ContributionMode::Installer->value)
+                                    >
+                                    <span>
+                                        <span class="block text-sm font-semibold text-gray-900">Zelf de opname uitvoeren</span>
+                                        <span class="mt-1 block text-xs leading-5 text-gray-600">Open direct de mobiele werkplek. De klanttoegang blijft uit en er wordt geen link verstuurd.</span>
+                                    </span>
+                                </span>
+                            </label>
+                        </div>
+                        <x-input-error :messages="$errors->get('workflow_mode')" class="mt-2" />
+                    </fieldset>
+
                     <fieldset
                         class="rounded-2xl border border-gray-200 bg-gray-50/70 p-5"
                         data-address-lookup
@@ -137,7 +174,7 @@
                     <div>
                         <x-input-label for="customer_email" value="E-mailadres" />
                         <x-text-input id="customer_email" name="customer_email" class="mt-1 block w-full" type="email" :value="old('customer_email')" required />
-                        <p class="mt-1 text-sm text-gray-500">Hiernaar sturen we de klantlink automatisch (kopieerbare link blijft beschikbaar).</p>
+                        <p class="mt-1 text-sm text-gray-500" data-customer-email-help>Bij een klantopname sturen we de beveiligde link automatisch. Bij zelf opnemen wordt niets verstuurd.</p>
                         <x-input-error :messages="$errors->get('customer_email')" class="mt-2" />
                     </div>
 
@@ -157,7 +194,7 @@
                         <div class="rounded-md border border-gray-200 bg-gray-50 p-4">
                             <p class="text-sm font-semibold text-gray-800">Alvast invullen (optioneel)</p>
                             <p class="mt-1 text-xs text-gray-500">
-                                Wat u hier invult, ziet de klant als voorzet en bevestigt hij zelf — zo hoeft hij het niet opnieuw op te geven.
+                                Bekende gegevens worden direct in het dossier gezet. Alleen een beslissende onzekerheid wordt later nog gericht voorgelegd.
                             </p>
 
                             @foreach ($prefillQuestionsByTemplate as $templateKey => $questions)
@@ -175,7 +212,7 @@
 
                     <div class="flex items-center justify-end gap-3">
                         <a href="{{ route('dashboard') }}" class="text-sm text-gray-600 hover:text-gray-900">Annuleren</a>
-                        <x-primary-button>Opslaan en klantlink mailen</x-primary-button>
+                        <x-primary-button data-submit-label>Opslaan en klantlink mailen</x-primary-button>
 
                     </div>
                 </form>
@@ -209,6 +246,22 @@
 
     <script>
         (function () {
+            const workflowOptions = document.querySelectorAll('input[name="workflow_mode"]');
+            const submitLabel = document.querySelector('[data-submit-label]');
+
+            function syncWorkflow() {
+                if (!submitLabel) return;
+                const selected = document.querySelector('input[name="workflow_mode"]:checked');
+                submitLabel.textContent = selected?.value === '{{ \App\Enums\ContributionMode::Installer->value }}'
+                    ? 'Opname starten'
+                    : 'Opslaan en klantlink mailen';
+            }
+
+            workflowOptions.forEach(function (option) {
+                option.addEventListener('change', syncWorkflow);
+            });
+            syncWorkflow();
+
             const root = document.querySelector('[data-address-lookup]');
             const postalCode = document.getElementById('address_postal_code');
             const houseNumber = document.getElementById('address_house_number');

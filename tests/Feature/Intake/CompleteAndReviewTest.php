@@ -387,7 +387,7 @@ test('customer completes text and photo follow up and dossier returns for review
         ->call('completeFollowUp')
         ->assertHasNoErrors()
         ->assertSet('completed', true)
-        ->assertSee('Je aanvulling is toegevoegd aan het dossier.');
+        ->assertSee('Uw aanvulling is toegevoegd aan het dossier.');
 
     $intake->refresh();
     $round->refresh();
@@ -489,7 +489,7 @@ test('customer can add a requested PDF document to the protected dossier', funct
         ->assertDownload('plattegrond.pdf')
         ->assertHeader('X-Content-Type-Options', 'nosniff');
 
-    $component->assertSee('Je aanvulling is toegevoegd aan het dossier.');
+    $component->assertSee('Uw aanvulling is toegevoegd aan het dossier.');
 });
 
 test('follow up photo quality hint repeats the installers exact photo request', function () {

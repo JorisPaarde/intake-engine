@@ -32,20 +32,32 @@ function routeIntake(): Intake
     return Intake::factory()->create();
 }
 
-function routeUpload(Intake $intake): IntakeUpload
+function routeUpload(Intake $intake, bool $withAnalysisVariant = false): IntakeUpload
 {
-    Storage::disk('local')->put('route/photo-'.uniqid().'.jpg', 'fake-image-bytes');
-    $path = collect(Storage::disk('local')->allFiles('route'))->last();
+    $key = uniqid();
+    $path = 'route/photo-'.$key.'.jpg';
+    $analysisPath = $withAnalysisVariant ? 'route/analysis/photo-'.$key.'.jpg' : null;
+    Storage::disk('local')->put($path, 'dossier-image-bytes');
+
+    if ($analysisPath !== null) {
+        Storage::disk('local')->put($analysisPath, 'analysis-image-bytes');
+    }
 
     return IntakeUpload::query()->create([
         'intake_id' => $intake->id,
         'question_key' => 'pipe_route_guided',
         'disk' => 'local',
         'path' => $path,
+        'analysis_path' => $analysisPath,
         'original_filename' => 'photo.jpg',
         'mime_type' => 'image/jpeg',
-        'size_bytes' => 16,
-        'checksum' => hash('sha256', 'fake-image-bytes'),
+        'size_bytes' => 19,
+        'checksum' => hash('sha256', 'dossier-image-bytes'),
+        'analysis_mime_type' => $analysisPath === null ? null : 'image/jpeg',
+        'analysis_size_bytes' => $analysisPath === null ? null : 20,
+        'analysis_checksum' => $analysisPath === null
+            ? null
+            : hash('sha256', 'analysis-image-bytes'),
         'sort_order' => 0,
     ]);
 }
@@ -115,7 +127,9 @@ test('synthesis escalates to the sol review model when terra is unsure', functio
     $session = app(StartPipeRouteSession::class)->handle($intake);
 
     // Seed a usable segment directly so synthesis has something to work with.
+    $upload = routeUpload($intake, true);
     $session->segments()->create([
+        'intake_upload_id' => $upload->id,
         'sequence' => 1,
         'label' => 'binnenunit-positie',
         'photo_usable' => true,
@@ -166,7 +180,14 @@ test('synthesis escalates to the sol review model when terra is unsure', functio
         ->and($session->proposed_route)->toContain('langs gevel naar buitenunit');
 
     Http::assertSent(fn ($request) => $request['model'] === 'gpt-5.6-terra');
-    Http::assertSent(fn ($request) => $request['model'] === 'gpt-5.6-sol');
+    Http::assertSent(fn ($request) => $request['model'] === 'gpt-5.6-sol'
+        && str_contains($request->body(), base64_encode('analysis-image-bytes')));
+    Http::assertNotSent(fn ($request) => $request['model'] === 'gpt-5.6-sol'
+        && str_contains($request->body(), base64_encode('dossier-image-bytes')));
+    expect(AiRun::query()
+        ->where('type', AiRunType::RouteSynthesis)
+        ->where('model', 'gpt-5.6-sol')
+        ->value('image_count'))->toBe(1);
 });
 
 test('synthesis stays on terra when the route is already confident', function () {

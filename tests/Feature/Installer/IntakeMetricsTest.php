@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Domains\Intake\Actions\RecordInstallationOutcome;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
@@ -213,6 +214,78 @@ test('answer saves emit a privacy safe customer action event', function () {
             'section_instance_key' => null,
         ])
         ->and(json_encode($event->properties))->not->toContain('vertrouwelijke klanttekst');
+});
+
+test('outcome metrics measure remote quotes active installer time visits and installation surprises', function () {
+    $user = User::factory()->create();
+    $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
+    $remote = Intake::factory()->completed()->create([
+        'created_by' => $user->id,
+        'intake_template_version_id' => $version->id,
+    ]);
+    $visited = Intake::factory()->completed()->create([
+        'created_by' => $user->id,
+        'intake_template_version_id' => $version->id,
+    ]);
+    $estimate = Intake::factory()->completed()->create([
+        'created_by' => $user->id,
+        'intake_template_version_id' => $version->id,
+    ]);
+    $record = app(RecordInstallationOutcome::class);
+    $record->handle($remote, $user, [
+        'result' => 'installed',
+        'active_installer_minutes' => 12,
+        'customer_minutes' => 8,
+        'site_visit_occurred' => false,
+        'quote_type' => 'remote',
+        'installation_surprise' => 'none',
+    ]);
+    $record->handle($visited, $user, [
+        'result' => 'installed',
+        'active_installer_minutes' => 48,
+        'customer_minutes' => 12,
+        'site_visit_occurred' => true,
+        'site_visit_reasons' => ['power_uncertain', 'route_uncertain'],
+        'quote_type' => 'after_site_visit',
+        'proposal_assessed' => true,
+        'proposal_delta_codes' => ['outdoor_placement', 'refrigerant_route'],
+        'installation_surprise' => 'minor',
+    ]);
+    $record->handle($estimate, $user, [
+        'result' => 'estimate',
+        'active_installer_minutes' => 20,
+        'site_visit_occurred' => false,
+        'proposal_assessed' => true,
+        'proposal_delta_codes' => [],
+    ]);
+
+    $summary = app(IntakeMetricsService::class)
+        ->calculate($user->company()->firstOrFail())['summary'];
+
+    expect($summary)
+        ->outcome_recorded_count->toBe(3)
+        ->remote_quote_count->toBe(1)
+        ->remote_quote_percent->toBe(33.3)
+        ->price_estimate_count->toBe(1)
+        ->price_estimate_percent->toBe(33.3)
+        ->site_visit_count->toBe(1)
+        ->site_visit_percent->toBe(33.3)
+        ->site_visit_reasons->toBe([
+            ['code' => 'power_uncertain', 'label' => 'Stroomvoorziening niet zeker', 'count' => 1],
+            ['code' => 'route_uncertain', 'label' => 'Leidingroute niet zichtbaar', 'count' => 1],
+        ])
+        ->median_active_installer_minutes->toBe(20)
+        ->median_recorded_customer_minutes->toBe(10)
+        ->measured_proposal_count->toBe(2)
+        ->changed_proposal_count->toBe(1)
+        ->changed_proposal_percent->toBe(50.0)
+        ->proposal_delta_types->toBe([
+            ['code' => 'outdoor_placement', 'label' => 'Positie buitenunit', 'count' => 1],
+            ['code' => 'refrigerant_route', 'label' => 'Koelleiding', 'count' => 1],
+        ])
+        ->measured_installation_count->toBe(2)
+        ->installation_surprise_count->toBe(1)
+        ->installation_surprise_percent->toBe(50.0);
 });
 
 function createCustomerAnswers(Intake $intake, int $count): void

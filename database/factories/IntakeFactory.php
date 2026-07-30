@@ -6,6 +6,7 @@ namespace Database\Factories;
 
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
+use App\Enums\ContributionMode;
 use App\Enums\IntakeStatus;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -28,6 +29,7 @@ class IntakeFactory extends Factory
             'intake_template_version_id' => IntakeTemplateVersion::factory(),
             'created_by' => User::factory(),
             'status' => IntakeStatus::Sent,
+            'workflow_mode' => ContributionMode::Customer,
             'customer_name' => fake()->name(),
             'customer_email' => fake()->safeEmail(),
             'customer_phone' => fake()->optional()->numerify('06########'),
@@ -35,6 +37,7 @@ class IntakeFactory extends Factory
             'address_postal_code' => fake()->numerify('####').strtoupper(fake()->randomLetter().fake()->randomLetter()),
             'address_city' => fake()->city(),
             'access_token' => Str::random(64),
+            'customer_access_enabled' => true,
             'token_expires_at' => now()->addDays(60),
             'internal_note' => null,
             'progress_percent' => 0,

@@ -7,6 +7,7 @@ namespace App\Domains\AI\Actions;
 use App\Domains\AI\DTOs\AiImageInput;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\AiGateway;
+use App\Domains\AI\Services\AiImageResolver;
 use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\AI\Support\DerivedAnswerField;
 use App\Domains\AI\Support\PhotoDerivationProfile;
@@ -22,7 +23,6 @@ use App\Enums\IntakeStatus;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -56,6 +56,7 @@ final class DerivePhotoAnswers
 
     public function __construct(
         private readonly AiGateway $aiGateway,
+        private readonly AiImageResolver $aiImageResolver,
         private readonly PromptVersionRepository $promptVersions,
         private readonly SaveIntakeAnswer $saveIntakeAnswer,
     ) {}
@@ -80,20 +81,19 @@ final class DerivePhotoAnswers
 
         $promptVersion = $this->promptVersions->version($profile->promptName);
         $promptBody = $this->promptVersions->body($profile->promptName);
-        $persistenceManifest = $uploads->map(static fn (IntakeUpload $upload): array => [
+        $persistenceManifest = $uploads->map(fn (IntakeUpload $upload): array => [
             'id' => $upload->id,
-            'checksum' => $upload->checksum,
-            'mime_type' => $upload->mime_type,
+            ...$this->aiImageResolver->identity($upload),
         ])->values()->all();
 
         $input = [
             'task' => 'derive_answers_from_photos',
             'profile' => $profile->name,
             'expected_fields' => $this->schema($profile),
-            'images' => $uploads->map(static fn (IntakeUpload $upload): array => [
-                'checksum' => $upload->checksum,
-                'mime_type' => $upload->mime_type,
-            ])->values()->all(),
+            'images' => $uploads
+                ->map(fn (IntakeUpload $upload): array => $this->aiImageResolver->identity($upload))
+                ->values()
+                ->all(),
         ];
 
         $inputHash = hash('sha256', (string) json_encode([
@@ -154,10 +154,9 @@ final class DerivePhotoAnswers
                 }
 
                 $currentManifest = $this->uploads($intake, $photoQuestionKey, $sectionInstanceKey)
-                    ->map(static fn (IntakeUpload $upload): array => [
+                    ->map(fn (IntakeUpload $upload): array => [
                         'id' => $upload->id,
-                        'checksum' => $upload->checksum,
-                        'mime_type' => $upload->mime_type,
+                        ...$this->aiImageResolver->identity($upload),
                     ])->values()->all();
 
                 if ($currentManifest !== $persistenceManifest) {
@@ -285,14 +284,7 @@ final class DerivePhotoAnswers
         $images = [];
 
         foreach ($uploads as $upload) {
-            if (! in_array($upload->mime_type, ['image/jpeg', 'image/png', 'image/webp'], true)) {
-                throw new \RuntimeException('Opgeslagen foto heeft geen ondersteund formaat voor beeldanalyse.');
-            }
-
-            $images[] = new AiImageInput(
-                mimeType: $upload->mime_type,
-                binary: Storage::disk($upload->disk)->get($upload->path),
-            );
+            $images[] = $this->aiImageResolver->input($upload);
         }
 
         return $images;

@@ -6,10 +6,13 @@ namespace App\Domains\Intake\Actions;
 
 use App\Domains\AI\Actions\SuggestAttentionPoints;
 use App\Domains\AI\Jobs\SuggestAttentionPointsJob;
+use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
 use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeFollowUpRound;
+use App\Domains\Intake\Services\DecisionReadinessService;
+use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\RebuildIntakeReportHtml;
 use App\Enums\FollowUpItemType;
 use App\Enums\FollowUpRoundStatus;
@@ -21,6 +24,8 @@ final class CompleteFollowUpRound
 {
     public function __construct(
         private readonly RebuildIntakeReportHtml $rebuildIntakeReportHtml,
+        private readonly DossierManager $dossierManager,
+        private readonly DecisionReadinessService $decisionReadiness,
     ) {}
 
     /** @param array<int, string|null> $textResponses */
@@ -77,10 +82,19 @@ final class CompleteFollowUpRound
                 'completed_at' => now(),
             ]);
 
-            $intake->update([
-                'status' => IntakeStatus::Completed,
+            $returnStatus = $round->return_status;
+            $intakeUpdates = [
+                'status' => $returnStatus instanceof IntakeStatus
+                    ? $returnStatus
+                    : IntakeStatus::Completed,
                 'reviewed_at' => null,
-            ]);
+            ];
+
+            if ($round->purpose === 'contribution') {
+                $intakeUpdates['customer_access_enabled'] = false;
+            }
+
+            $intake->update($intakeUpdates);
 
             IntakeActivityEvent::query()->create([
                 'intake_id' => $intake->id,
@@ -97,7 +111,15 @@ final class CompleteFollowUpRound
             return $intake->fresh() ?? $intake;
         });
 
+        $this->dossierManager->initialize($completed);
+        $this->decisionReadiness->recalculate($completed);
+        SynthesizeSurveyDossierJob::dispatch($completed->id);
+
         $this->rebuildIntakeReportHtml->handle($completed);
+
+        if ($completed->status !== IntakeStatus::Completed) {
+            return $completed;
+        }
 
         if ($completed->is_demo) {
             app(SuggestAttentionPoints::class)->handle($completed);

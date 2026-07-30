@@ -10,6 +10,7 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeExternalFact;
 use App\Domains\Intake\Services\BuildingTypeResolver;
+use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\EpOnlineService;
 use App\Domains\Intake\Services\PdokAddressService;
 use App\Domains\Intake\Services\PdokAerialImageService;
@@ -29,6 +30,7 @@ final class EnrichIntakeAddress
         private readonly EpOnlineService $epOnline,
         private readonly PdokBuildingContextService $buildingContext,
         private readonly BuildingTypeResolver $buildingTypeResolver,
+        private readonly DossierManager $dossierManager,
         private readonly SaveIntakeAnswer $saveIntakeAnswer,
     ) {}
 
@@ -58,6 +60,8 @@ final class EnrichIntakeAddress
                 'intake_uuid' => $intake->uuid,
                 'exception' => $exception::class,
             ]);
+        } finally {
+            $this->dossierManager->initialize($intake->fresh() ?? $intake);
         }
     }
 

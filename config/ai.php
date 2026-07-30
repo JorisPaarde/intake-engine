@@ -68,6 +68,13 @@ return [
 
     'request_intent_prompt' => 'request_intent',
 
+    'dossier' => [
+        'enabled' => (bool) env('AI_DOSSIER_SYNTHESIS_ENABLED', false),
+        'model' => env('AI_DOSSIER_MODEL', 'gpt-5.6-terra'),
+        'max_images' => (int) env('AI_DOSSIER_MAX_IMAGES', 12),
+        'prompt' => 'dossier_synthesis',
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Begeleide leidingroute (guided pipe route)

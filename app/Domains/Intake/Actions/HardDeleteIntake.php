@@ -20,6 +20,10 @@ final class HardDeleteIntake
 
         foreach ($intake->uploads()->withTrashed()->get() as $upload) {
             $files[] = [$upload->disk, $upload->path];
+
+            if ($upload->analysis_path !== null) {
+                $files[] = [$upload->disk, $upload->analysis_path];
+            }
         }
 
         foreach ($intake->externalFacts as $fact) {

@@ -8,6 +8,7 @@ use App\Domains\AI\Actions\SuggestAttentionPoints;
 use App\Domains\AI\Actions\SummarizeIntake;
 use App\Domains\AI\Jobs\SuggestAttentionPointsJob;
 use App\Domains\AI\Jobs\SummarizeIntakeJob;
+use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
 use App\Domains\Intake\Models\GeneratedReport;
@@ -15,6 +16,8 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeAttentionPoint;
 use App\Domains\Intake\Services\CompletenessChecker;
+use App\Domains\Intake\Services\DecisionReadinessService;
+use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\GenerateIntakeReportHtml;
 use App\Enums\AiRunStatus;
 use App\Enums\AttentionPointSource;
@@ -26,6 +29,8 @@ final class CompleteIntake
 {
     public function __construct(
         private readonly CompletenessChecker $completenessChecker,
+        private readonly DossierManager $dossierManager,
+        private readonly DecisionReadinessService $decisionReadiness,
         private readonly GenerateIntakeReportHtml $generateIntakeReportHtml,
     ) {}
 
@@ -115,6 +120,9 @@ final class CompleteIntake
             return $intake->fresh(['report', 'attentionPoints']) ?? $intake;
         }, 3);
 
+        $this->dossierManager->initialize($completed);
+        $this->decisionReadiness->recalculate($completed);
+
         if ($completed->is_demo) {
             // Demo: run AI inline so the thank-you screen can show a real voorstel.
             // When AI_PROVIDER is off, fall back to heuristic (local, no external call).
@@ -122,6 +130,7 @@ final class CompleteIntake
         } else {
             SummarizeIntakeJob::dispatch($completed->id);
             SuggestAttentionPointsJob::dispatch($completed->id);
+            SynthesizeSurveyDossierJob::dispatch($completed->id);
             GenerateIntakePdfJob::dispatch($completed->id);
             app(SendInstallerIntakeCompleted::class)->handle($completed);
         }

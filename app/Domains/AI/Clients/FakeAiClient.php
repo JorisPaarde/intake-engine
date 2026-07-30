@@ -152,6 +152,20 @@ final class FakeAiClient implements AiClientInterface
             );
         }
 
+        if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'dossier-synthesis')) {
+            return new AiCompletionResult(
+                output: [
+                    'summary' => 'Fictieve integrale dossiersynthese voor testgebruik.',
+                    'placement_proposals' => [],
+                    'option_proposals' => [],
+                    'exceptions' => [],
+                    'customer_tasks' => [],
+                ],
+                provider: 'fake',
+                model: 'fake-v1',
+            );
+        }
+
         $output = self::$forcedOutput ?? [
             'summary' => 'Fictieve AI-samenvatting van de intake voor testgebruik.',
             'highlights' => [

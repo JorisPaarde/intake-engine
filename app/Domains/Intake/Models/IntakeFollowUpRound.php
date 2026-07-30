@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domains\Intake\Models;
 
 use App\Enums\FollowUpRoundStatus;
+use App\Enums\IntakeStatus;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
@@ -18,6 +19,8 @@ use Illuminate\Support\Carbon;
  * @property int $requested_by
  * @property int $round_number
  * @property FollowUpRoundStatus $status
+ * @property string $purpose
+ * @property IntakeStatus|null $return_status
  * @property Carbon $sent_at
  * @property Carbon|null $completed_at
  * @property-read Intake $intake
@@ -30,7 +33,9 @@ class IntakeFollowUpRound extends Model
         'intake_id',
         'requested_by',
         'round_number',
+        'purpose',
         'status',
+        'return_status',
         'sent_at',
         'completed_at',
     ];
@@ -42,6 +47,7 @@ class IntakeFollowUpRound extends Model
             'intake_id' => 'integer',
             'round_number' => 'integer',
             'status' => FollowUpRoundStatus::class,
+            'return_status' => IntakeStatus::class,
             'sent_at' => 'datetime',
             'completed_at' => 'datetime',
         ];

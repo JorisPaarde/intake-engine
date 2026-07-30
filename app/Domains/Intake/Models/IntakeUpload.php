@@ -17,6 +17,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $section_instance_key
  * @property string $disk
  * @property string $path
+ * @property string|null $analysis_path
+ * @property string|null $analysis_mime_type
+ * @property int|null $analysis_size_bytes
+ * @property string|null $analysis_checksum
  * @property string $original_filename
  * @property string $mime_type
  * @property int $size_bytes
@@ -35,6 +39,10 @@ class IntakeUpload extends Model
         'intake_follow_up_item_id',
         'disk',
         'path',
+        'analysis_path',
+        'analysis_mime_type',
+        'analysis_size_bytes',
+        'analysis_checksum',
         'original_filename',
         'mime_type',
         'size_bytes',
@@ -52,6 +60,7 @@ class IntakeUpload extends Model
             'intake_id' => 'integer',
             'intake_follow_up_item_id' => 'integer',
             'size_bytes' => 'integer',
+            'analysis_size_bytes' => 'integer',
             'sort_order' => 'integer',
             'usability_verdict' => PhotoUsabilityVerdict::class,
         ];

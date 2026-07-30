@@ -1,10 +1,10 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.0 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.1 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
-De MVP-bouwstenen staan historisch onder E1–E5. De volgende productfase staat onder E6–E10 en volgt het besloten [productmodel](product-model.md): één centrale technische opname na een bestaande aanvraag, meerdere bijdragers, beslisgereedheid en voor airco afzonderlijke koel-, condens- en stroomverbindingen.
+De MVP-bouwstenen staan historisch onder E1–E5. De productfase E6–E10 is op 2026-07-30 geïmplementeerd en volgt het [productmodel](product-model.md): één centrale technische opname na een bestaande aanvraag, meerdere bijdragers, beslisgereedheid en voor airco afzonderlijke koel-, condens- en stroomverbindingen.
 
 Status: `backlog` · `ready` · `in_progress` · `done` · `dropped` — prioriteit: `high` · `medium` · `low`
 
@@ -12,7 +12,7 @@ Status: `backlog` · `ready` · `in_progress` · `done` · `dropped` — priorit
 
 ## Epics
 
-### Volgende productfase
+### Geïmplementeerde dossierfase
 
 | Epic | Naam | Resultaat |
 |------|------|-----------|
@@ -32,28 +32,7 @@ Status: `backlog` · `ready` · `in_progress` · `done` · `dropped` — priorit
 | E4 | AI bespaart beoordeelwerk | Samenvatting, aandachtspunten, foto-afleiding en routebackend. |
 | E5 | Bruikbaar dossier & klaar voor groei | PDF, tenancy, branding, demo, beheer en schaalbaarheid. |
 
-Volgorde-advies: volg kolom **#**. BL-035 is de migratiegrens; bouw geen nieuwe klant- of route-UI vóór dat fundament. BL-030 kan parallel worden uitgevoerd en moet vóór productieve multi-fotoanalyse landen. BL-001 en BL-013 zijn losse operationele sporen.
-
-## Parallelisatie
-
-Items in **verschillende parallel-bands** kunnen tegelijk worden gebouwd. Items in dezelfde keten zijn sequentieel.
-
-| Band | Type | Items (open) | Mag parallel met |
-|------|------|--------------|------------------|
-| **N** | Dossierfundament | BL-035 → BL-036 | Blokkeert nieuwe product-UI en beslislogica |
-| **O** | Bijdrageworkflows | BL-037 → BL-038 | Na BL-035; BL-039 kan parallel |
-| **P** | Airco-domein | BL-039 → BL-040 | Na BL-035; BL-037 kan parallel |
-| **Q** | AI/uitzonderingen | BL-041 | Na BL-036/038/040 en BL-030 |
-| **R** | Uitkomstmeting | BL-042 | Instrumentatie kan deels parallel; definitieve definities na BL-036/041 |
-| **H** | Beeldpipeline | BL-030 | Parallel met BL-035/036/037/039; vóór BL-040/041 |
-| **A/I** | Operationeel | BL-001, BL-013 | Los van de productmigratie |
-
-**Concrete parallel-startsets:**
-
-1. **Nu:** BL-035 en BL-030 parallel; BL-001-smoke als los operationeel restwerk.
-2. **Na BL-035:** BL-037 (installateurworkflow) en BL-039 (airco-objecten) parallel.
-3. **Na BL-036/038/040:** BL-041 integreert bronnen en AI; BL-042 meet de uitkomst.
-4. **Alleen na DPIA:** externe foto-/routeanalyse op staging activeren; dit is configuratie en validatie, geen vervanging voor de productmigratie.
+BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. Hun eerdere afhankelijkheidsbanden blijven alleen in de detailsecties als historische ontwerpvolgorde herkenbaar. Open operationeel werk staat bij BL-001 en BL-013; externe AI-activering blijft een DPIA-/configuratiegate en is geen open implementatie-item.
 
 ## Overzicht
 
@@ -61,15 +40,15 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| 1 | BL-035 | Centrale dossierkern en migratiebrug | E6 | ready | high | N |
-| 2 | BL-039 | Airco: ruimtes, plaatsingsopties en installatieopties | E8 | ready | high | P · na BL-035 |
-| 3 | BL-036 | Beslisgereed installateursdossier en volgende acties | E6 | ready | high | N · na BL-035/039 |
-| 4 | BL-037 | Installateur voert opname volledig zelf uit | E7 | ready | high | O · na BL-035 |
-| 5 | BL-038 | Afgebakende klanttaken en hybride workflow | E7 | ready | high | O · na BL-037 |
-| 6 | BL-040 | Koel-, condens- en stroomverbindingen + routebrug | E8 | ready | high | P · na BL-039 + BL-030 |
-| 7 | BL-041 | AI-synthese, gerichte vervolgtaken en uitzonderingsreview | E9 | ready | high | Q · na BL-036/038/040 |
-| 8 | BL-042 | Uitkomstmetrics en montagefeedback | E10 | ready | medium | R · na BL-036; afronden na BL-041 |
-| ∥ | BL-030 | Foto-varianten: dossier + AI-analyse (JPEG, tokens/storage) | E9 | ready | high | H · parallel, vóór BL-040/041 |
+| — | BL-035 | Centrale dossierkern en migratiebrug | E6 | done | high | N (done) |
+| — | BL-039 | Airco: ruimtes, plaatsingsopties en installatieopties | E8 | done | high | P (done) |
+| — | BL-036 | Beslisgereed installateursdossier en volgende acties | E6 | done | high | N (done) |
+| — | BL-037 | Installateur voert opname volledig zelf uit | E7 | done | high | O (done) |
+| — | BL-038 | Afgebakende klanttaken en hybride workflow | E7 | done | high | O (done) |
+| — | BL-040 | Koel-, condens- en stroomverbindingen + routebrug | E8 | done | high | P (done) |
+| — | BL-041 | AI-synthese, gerichte vervolgtaken en uitzonderingsreview | E9 | done | high | Q (done) |
+| — | BL-042 | Uitkomstmetrics en montagefeedback | E10 | done | medium | R (done) |
+| — | BL-030 | Foto-varianten: dossier + AI-analyse (JPEG, tokens/storage) | E9 | done | high | H (done) |
 | ∥ | BL-001 | Demo-versie van de app | E5 | in_progress | medium | A · operationeel |
 | ∥ | BL-013 | S3 als mediadisk | E5 | backlog | low | I · operationeel |
 | — | BL-029 | Begeleide leidingroute volgens één globale routeflow | E4 | dropped | high | Vervangen door ADR-0012 / BL-040; backend blijft |
@@ -108,7 +87,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 ### BL-035 — Centrale dossierkern en migratiebrug
 
-- **Status:** ready · **Prioriteit:** high · **Band:** N · **Ref:** [product-model.md](product-model.md), ADR-0011
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-30 · **PR:** deze PR · **Band:** N · **Ref:** [product-model.md](product-model.md), ADR-0011
 - **Doel:** maak de opname technisch leidend zonder de huidige productieflow of gepinde templateversies te breken.
 - **Scope:**
   - introduceer generieke, tenantgebonden objecten voor dossierwaarnemingen/conclusies, bewijslinks en bijdrageopdrachten;
@@ -119,72 +98,80 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
   - lever services waarmee domeinen een beslisgebied en blokkerende onzekerheid kunnen registreren.
 - **Acceptatie:** bestaande intakes blijven leesbaar en af te ronden; nieuwe records zijn tenantgescope en auditbaar; één feit kan zonder duplicatie als bewijs bij een dossierobject worden gebruikt; geen documentatie of UI claimt dat een toekomstige tabel al bestaat.
 - **Niet in scope:** nieuwe klant- of installateurs-UI, airco-opstellingen, verwijderen van de huidige template-engine.
+- **Resultaat:** uitbreidende migration met dossieronderwerpen, records, bewijslinks, bijdragentaken en beslisgebieden; bestaande antwoorden, bronnen, uploads en vervolgrondes worden idempotent gebridged. Gepinde templates en legacyrapport/review blijven werken; tenant- en cross-company-invarianten zijn getest.
 
 ### BL-036 — Beslisgereed installateursdossier en volgende acties
 
-- **Status:** ready · **Prioriteit:** high · **Band:** N · **Afhankelijk:** BL-035 + eerste airco-objecten uit BL-039
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-30 · **PR:** deze PR · **Band:** N · **Afhankelijk:** BL-035 + BL-039
 - **Doel:** vervang “100% compleet” als installateurswaarheid door een dossier dat direct laat zien welke beslissing mogelijk is.
 - **Scope:** status per beslisgebied; installatievoorstel + bewijs; alleen conflicten/uitzonderingen prominent; kostenbepalende risico's; primaire acties **Offerte voorbereiden**, **Prijsindicatie**, **Gerichte aanvulling**, **Locatiebezoek**, **Afwijzen**.
 - **Beoordeling:** de installateur keurt het complete voorstel en de uitzonderingen goed; geen checkbox per automatisch feit. Correcties blijven bron en voorgaande AI-/bronconclusie bewaren.
 - **Acceptatie:** een klanttaak kan afgerond zijn terwijl één technisch beslisgebied openstaat; iedere blokker toont welk bewijs ontbreekt en welke volgende actie zinvol is; bestaande reviewbeslissingen migreren of mappen reproduceerbaar.
+- **Resultaat:** `DecisionReadinessService` berekent acht gebieden en volgende acties; de technische werkplek toont gereed, controle, blokkade, bewijs, kostenrisico en integraal voorstel los van wizardpercentage. Bestaande reviews blijven historisch leesbaar.
 
 ## Epic E7 — Klant-, installateur- en hybride bijdragen
 
 ### BL-037 — Installateur voert opname volledig zelf uit
 
-- **Status:** ready · **Prioriteit:** high · **Band:** O · **Afhankelijk:** BL-035
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-30 · **PR:** deze PR · **Band:** O · **Afhankelijk:** BL-035
 - **Doel:** bied vanaf **Nieuwe opname** de keuze **Zelf de opname uitvoeren**, zonder klantlink aan te maken of te versturen.
 - **Scope:** mobiele camera-first werkweergave, vrije navigatie, zelf ruimtes/waarnemingen/foto's toevoegen, technische conclusies direct vastleggen, bron **installateur / ter plaatse vastgesteld**, AI-controles op de achtergrond.
 - **UX-regel:** geen eenvoudige klantinstructies of verplichte fotobevestiging voor vakwaarnemingen; de installateur kan direct naar elk relevant dossieronderdeel springen.
 - **Acceptatie:** een volledige opname en offertebasis kan zonder actieve klanttoken worden gemaakt; tokenroutes blijven ontoegankelijk zolang geen klanttaak bestaat; alle tenant- en private-mediaregels blijven gelden.
+- **Resultaat:** startkeuze **Zelf de opname uitvoeren**, uitgeschakelde klanttoegang en directe mobiele werkplek voor ruimtes, posities, opties, routes, vakwaarnemingen en camera-upload. Eerste installateursbijdrage zet de lifecycle correct; installer-only-tokenroutes geven 404.
 
 ### BL-038 — Afgebakende klanttaken en hybride workflow
 
-- **Status:** ready · **Prioriteit:** high · **Band:** O · **Afhankelijk:** BL-037
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-30 · **PR:** deze PR · **Band:** O · **Afhankelijk:** BL-037
 - **Doel:** maak klantbijdragen optionele taken binnen het dossier in plaats van één verplichte volledige intake.
 - **Scope:** bestaande klantflow als taakset; klantboodschap **Met uw hulp kunnen we uw airco sneller plaatsen**; link alleen bij klanttaken; installateur kan zelf beginnen en later één taak sturen; klant ziet uitsluitend open klanttaken; klantopname kan door installateur worden aangevuld.
 - **Hergebruik:** generaliseer `intake_follow_up_rounds/items` zodat gerichte taken vóór én na een eerste afronding mogelijk zijn; behoud beveiligde token-, autosave-, upload- en hervatprincipes.
 - **Acceptatie:** tests voor volledig klant, volledig installateur, hybride, en installateur-start → één latere klantfoto; wisselen van workflow maakt geen dubbel dossier of tweede waarheid.
+- **Resultaat:** gerichte tekst-/foto-/PDF-taken delen de bestaande beveiligde vervolgflow, activeren toegang alleen voor open klantwerk en zetten haar na afronding weer uit. Klant-, installateur- en hybride bijdragen landen in hetzelfde dossier; tests dekken de vier kernscenario's.
 
 ## Epic E8 — Airco-opstellingen en verbindingen
 
 ### BL-039 — Airco: ruimtes, plaatsingsopties en installatieopties
 
-- **Status:** ready · **Prioriteit:** high · **Band:** P · **Afhankelijk:** BL-035 · **Ref:** ADR-0012
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-30 · **PR:** deze PR · **Band:** P · **Afhankelijk:** BL-035 · **Ref:** ADR-0012
 - **Doel:** modelleer de technische oplossing los van de huidige aanname “aantal gewenste ruimtes = vooraf gekozen aantal binnenunits”.
 - **Scope:** gewenste ruimtes; kandidaatposities voor binnen-/buitenunit, voeding en afvoer; installatieopties die posities koppelen; single-split, multi-split of meerdere single-splits als voorstellen; rangschikking, status en bewijs.
 - **Migratie:** airco v9 en bestaande `room-*`-antwoorden blijven bruikbaar; maak een nieuwe templateversie alleen voor de bijdrageflow, wijzig gepubliceerde versies nooit.
 - **Acceptatie:** twee slaapkamers kunnen meerdere installatieopties hebben; klant kiest geen configuratie; AI/installateur kan voorstellen toevoegen en de installateur selecteert of corrigeert.
+- **Resultaat:** persistente gewenste ruimtes, binnen-/buiten-/voedings-/afvoerposities en gevalideerde single-/multi-/meerdere-single-splitopties. Airco v10 behoudt de repeatable compatibiliteitskey maar vraagt klantgericht om gewenste ruimtes en geen unitpositie.
 
 ### BL-040 — Koel-, condens- en stroomverbindingen + routebrug
 
-- **Status:** ready · **Prioriteit:** high · **Band:** P · **Afhankelijk:** BL-039 + BL-030 · **Vervangt resterende BL-029-scope**
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-30 · **PR:** deze PR · **Band:** P · **Afhankelijk:** BL-039 + BL-030 · **Vervangt resterende BL-029-scope**
 - **Doel:** maak per installatieoptie de drie kosten- en uitvoeringsbepalende routes volwaardig.
 - **Scope:** verbindingstype `refrigerant`, `condensate`, `power`; concrete eindpunten; segmenten; lengteklasse, doorvoeren/obstakels, bereikbaarheid, onzekerheid en kostenimpact; per binnenunit eigen condensroute; gedeelde of aparte stroomroute waar passend.
 - **Routebrug:** koppel `pipe_route_sessions/segments` aan één verbinding; hergebruik fotoanalyse/modeltiering, maar bouw geen globale routewizard. Start een foto-voor-fotolus alleen als kandidaatposities bestaan en het ontbrekende segment de beslissing kan veranderen.
 - **Stroomveiligheid:** meterkast, groep/capaciteit, kabelroute en het systeemafhankelijke aansluitpunt horen bij één stroomverbinding; klant voert geen elektrische handelingen uit; eindcontrole installateur.
 - **Acceptatie:** single-split en twee-slaapkamer/multi-split zijn modelleerbaar; iedere verbinding heeft eigen bewijs/open punten; een onoplosbare route leidt onderbouwd tot locatiebezoek.
+- **Resultaat:** verbindingen hebben concrete optie-eindpunten, eigen status/segmenten/obstakels/onzekerheden/kostenimpact en vereiste stroomveiligheidscontrole. Iedere binnenpositie vereist koel én condens; stroom is apart. Een routesessie is uniek per verbinding, schrijft synthese terug en heropent veilig bij nieuw bewijs.
 
 ## Epic E9 — Automatisch vaststellen en uitzonderingen beoordelen
 
 ### BL-041 — AI-synthese, gerichte vervolgtaken en uitzonderingsreview
 
-- **Status:** ready · **Prioriteit:** high · **Band:** Q · **Afhankelijk:** BL-036/038/040 + BL-030
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-30 · **PR:** deze PR · **Band:** Q · **Afhankelijk:** BL-036/038/040 + BL-030
 - **Doel:** laat AI de opname zoveel mogelijk voorbereiden zonder bevestigingsadministratie of autonome eindbeslissing.
 - **Scope:** combineer aanvraaggegevens, BAG/PDOK, luchtfoto, EP-Online, 3DBAG, klant-/installateursbewijs en routes; stel plaatsingen/installatieopties voor; leg conclusies alleen automatisch vast wanneer een objectspecifieke serverregel bronkwaliteit, evidence, consistentie en impact als vrijwel zeker kwalificeert; genereer alleen de kleinste veilige taak die een blokkerende onzekerheid kan oplossen.
 - **Review:** toon voorstel, afwijkingen, conflicten en open kosten-/veiligheidspunten; installateur corrigeert of keurt het geheel goed. Bewaar model/prompt/evidence/confidence en de delta naar de uiteindelijke keuze.
 - **Gates:** bestaande DPIA-, budget-, privacy-, beeldvariant- en soft-failregels blijven verplicht. Providerfalen resulteert in handmatige dossierwerking, nooit in dataverlies of blokkade.
 - **Acceptatie:** geen bron- of AI-veld-voor-veld-confirmatiescherm; onzekere of tegenstrijdige feiten worden niet stil toegepast; dezelfde context is idempotent; een vervolgtaak heeft aantoonbare besliswaarde.
+- **Resultaat:** begrensde, geschoonde dossiersynthese met maximaal twaalf analysekopieën; harde referentie-, cardinaliteits-, route- en evidencevalidatie; idempotente vervanging van alleen AI-kandidaten; uitzonderingen en maximaal drie nog door installateur te versturen klanttaakvoorstellen. Geselecteerde/menselijke objecten en klanttoegang worden nooit autonoom gewijzigd.
 
 ## Epic E10 — Aantoonbare tijd- en ritbesparing
 
 ### BL-042 — Uitkomstmetrics en montagefeedback
 
-- **Status:** ready · **Prioriteit:** medium · **Band:** R · **Afhankelijk:** BL-036; volledige scope na BL-041
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-07-30 · **PR:** deze PR · **Band:** R · **Afhankelijk:** BL-036/041
 - **Doel:** bewijs dat de opname installateurstijd en locatiebezoeken vermindert zonder montagekwaliteit te verslechteren.
 - **Scope:** percentage op afstand offerbaar; prijsindicatie versus definitieve offerte; actieve installateurstijd; klanttijd/-acties; gerichte rondes; percentage met locatiebezoek; redenen voor locatiebezoek; AI-voorstel versus definitieve keuze; verrassingen/meerwerk bij montage.
 - **Meting:** splits wachttijd, klantinvultijd en actieve installateurstijd; behoud privacyveilige events; voeg na plaatsing een korte uitkomstregistratie toe.
 - **Acceptatie:** definities zijn reproduceerbaar in `metrics.md`; historische BL-026-cijfers blijven herkenbaar; dashboards labelen duidelijk welke metrics al gemeten en welke nog onvoldoende geïnstrumenteerd zijn.
+- **Resultaat:** één expliciete uitkomst per opname met offerte/indicatie/bezoek/plaatsing, handmatige actieve minuten, gecontroleerde bezoekredenen, vergeleken voorstel en deltacodes, montageverrassing en geselecteerde optie. `/metrics` toont reproduceerbare percentages/medianen en reden-/afwijkingsverdeling zonder klantinhoud.
 
 ## Epic E1 — Frictieloze basisflow
 
@@ -481,11 +468,11 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Status:** dropped · **Prioriteit:** high · **Datum:** 2026-07-30 · **Vervangen door:** ADR-0012 + BL-040
 - **Reden:** de resterende UI-scope ging uit van één globale leidingroute vanaf een al gekozen binnenunitpositie. Het besloten model vereist eerst plaatsings-/installatieopties en daarna afzonderlijke koel-, condens- en stroomverbindingen. De oude UI zou de verkeerde productstructuur verharden.
 - **Behouden backend-slice:** `pipe_route_sessions`/`pipe_route_segments`, float-confidence-contracten, `StartPipeRouteSession`, `AddPipeRoutePhoto`, `SynthesizePipeRoute`, `ApprovePipeRoute`, Terra/Sol-modeltiering, gating en tests blijven bruikbare bouwstenen.
-- **Vervolg:** BL-040 koppelt een routesessie aan één concrete verbinding binnen één installatieoptie en bouwt pas daarna een gerichte foto-voor-fotoflow. Er wordt geen generieke BL-029-klantwizard meer gebouwd.
+- **Opvolging:** BL-040 heeft de routesessie aan één concrete verbinding binnen één installatieoptie gekoppeld en de gerichte werkplekflow gebouwd. Er komt geen generieke BL-029-klantwizard.
 
 ### BL-030 — Foto-varianten: dossier + AI-analyse (JPEG, tokens/storage)
 
-- **Status:** ready · **Prioriteit:** high · **Epic:** E9 · **Band:** H (parallel) · **Ref:** `docs/uploads.md`, `docs/ai.md`, ADR-0012
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-30 · **PR:** deze PR · **Epic:** E9 · **Band:** H · **Ref:** `docs/uploads.md`, `docs/ai.md`, ADR-0012
 - **Doel:** per upload geen telefoon-posterresolutie op disk; wel genoeg dossierkwaliteit én een aparte, kleinere AI-kopie. Bespaart storage én vision-tokens (~86% op beeldtokens t.o.v. 4k-phone) zonder dossiermateriaal te verliezen.
 - **Beslissing (vast):**
 
@@ -501,6 +488,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Uitvolgorde:** (1) config + migratie + normalizer twee JPEG’s · (2) Store/FollowUp + HardDelete + tests · (3) `AiImageResolver` + vision-actions · (4) docs/CHANGELOG · (5) latere slice: bij onleesbaar detail één crop/hogere-res van die foto, nooit alle originelen opnieuw.
 - **Niet in scope:** client-side resize; backfill-job (lazy op eerste AI-gebruik of dossier-fallback); UI behalve dat previews op 2048 i.p.v. 4k kunnen ogen.
 - **Waarom (hoofddoel):** multi-foto verbindingsanalyse (BL-040/041) en overige vision moeten betaalbaar en privacyvriendelijker (geen EXIF) blijven zonder dat de installateur detail in het dossier verliest.
+- **Resultaat:** alle nieuwe klant-, vervolg- en installateursfoto's worden twee metadata-vrije JPEG's; beide opslagpaden hebben transactionele cleanup, verwijdering en hard purge. `AiImageResolver` bedient alle vision-acties; de Sol-routeherbeoordeling krijgt alleen maximaal vier relevante analysekopieën. Tests bewaken afmetingen, bytesbron en dubbele verwijdering.
 
 ### BL-028 — Dev-admin: staging-inzage in dienststatus en opname-data
 
@@ -520,6 +508,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 | ID | Datum | Resultaat / PR |
 |----|-------|----------------|
+| BL-030/035–042 | 2026-07-30 | deze PR — dossierkern, beeldvarianten, drie workflows, airco-opstellingen/verbindingen, AI-synthese en uitkomstmetrics |
 | BL-029 | 2026-07-30 | oorspronkelijke globale route-UI vervallen; backend behouden en vervolg onder BL-040 |
 | BL-010 | 2026-07-21 | deze wijziging — gescheiden staging/production + productionworkflow |
 | BL-020 | 2026-07-20 | (deze PR) — bevestigbare meterkastfoto-afleiding + airco v5; externe activering na DPIA |

@@ -7,6 +7,7 @@ namespace App\Domains\AI\Actions;
 use App\Domains\AI\DTOs\AiImageInput;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\AiGateway;
+use App\Domains\AI\Services\AiImageResolver;
 use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Models\Intake;
@@ -20,7 +21,6 @@ use App\Enums\IntakeStatus;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -37,6 +37,7 @@ final class AssessFuseboxPhotos
 
     public function __construct(
         private readonly AiGateway $aiGateway,
+        private readonly AiImageResolver $aiImageResolver,
         private readonly PromptVersionRepository $promptVersions,
         private readonly SaveIntakeAnswer $saveIntakeAnswer,
     ) {}
@@ -58,14 +59,13 @@ final class AssessFuseboxPhotos
         $promptName = (string) config('ai.fusebox_prompt', 'fusebox_assessment');
         $promptVersion = $this->promptVersions->version($promptName);
         $promptBody = $this->promptVersions->body($promptName);
-        $manifest = $uploads->map(static fn (IntakeUpload $upload): array => [
-            'checksum' => $upload->checksum,
-            'mime_type' => $upload->mime_type,
-        ])->values()->all();
-        $persistenceManifest = $uploads->map(static fn (IntakeUpload $upload): array => [
+        $manifest = $uploads
+            ->map(fn (IntakeUpload $upload): array => $this->aiImageResolver->identity($upload))
+            ->values()
+            ->all();
+        $persistenceManifest = $uploads->map(fn (IntakeUpload $upload): array => [
             'id' => $upload->id,
-            'checksum' => $upload->checksum,
-            'mime_type' => $upload->mime_type,
+            ...$this->aiImageResolver->identity($upload),
         ])->values()->all();
         $input = [
             'task' => 'assess_fusebox_photos',
@@ -127,10 +127,9 @@ final class AssessFuseboxPhotos
                     throw new \RuntimeException('Opname is afgerond tijdens AI-analyse; resultaat niet toegepast.');
                 }
 
-                $currentManifest = $this->uploads($intake)->map(static fn (IntakeUpload $upload): array => [
+                $currentManifest = $this->uploads($intake)->map(fn (IntakeUpload $upload): array => [
                     'id' => $upload->id,
-                    'checksum' => $upload->checksum,
-                    'mime_type' => $upload->mime_type,
+                    ...$this->aiImageResolver->identity($upload),
                 ])->values()->all();
 
                 if ($currentManifest !== $persistenceManifest) {
@@ -222,14 +221,7 @@ final class AssessFuseboxPhotos
         $images = [];
 
         foreach ($uploads as $upload) {
-            if (! in_array($upload->mime_type, ['image/jpeg', 'image/png', 'image/webp'], true)) {
-                throw new \RuntimeException('Opgeslagen foto heeft geen ondersteund formaat voor beeldanalyse.');
-            }
-
-            $images[] = new AiImageInput(
-                mimeType: $upload->mime_type,
-                binary: Storage::disk($upload->disk)->get($upload->path),
-            );
+            $images[] = $this->aiImageResolver->input($upload);
         }
 
         return $images;

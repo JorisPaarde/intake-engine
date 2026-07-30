@@ -6,13 +6,17 @@ namespace App\Domains\AI\Actions;
 
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\AiGateway;
+use App\Domains\AI\Services\AiImageResolver;
 use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Models\PipeRouteSegment;
 use App\Domains\Intake\Models\PipeRouteSession;
+use App\Enums\AircoConnectionStatus;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
 use App\Enums\PipeRouteStatus;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -30,6 +34,7 @@ final class SynthesizePipeRoute
 {
     public function __construct(
         private readonly AiGateway $aiGateway,
+        private readonly AiImageResolver $aiImageResolver,
         private readonly PromptVersionRepository $promptVersions,
     ) {}
 
@@ -39,7 +44,7 @@ final class SynthesizePipeRoute
             return $session;
         }
 
-        $segments = $session->segments()->orderBy('sequence')->get();
+        $segments = $session->segments()->with('upload')->orderBy('sequence')->get();
 
         if ($segments->isEmpty() || $segments->contains(
             static fn (PipeRouteSegment $segment): bool => $segment->analysis === null,
@@ -53,16 +58,10 @@ final class SynthesizePipeRoute
 
         $input = [
             'task' => 'synthesize_pipe_route',
-            'segments' => $segments->map(static fn (PipeRouteSegment $segment): array => [
-                'sequence' => $segment->sequence,
-                'role' => $segment->label ?? 'onbekend',
-                'photo_usable' => $segment->photo_usable,
-                'route_possible' => $segment->route_possible,
-                'confidence' => $segment->confidence,
-                'visible_elements' => $segment->analysis['visible_elements'] ?? [],
-                'route_segments' => $segment->analysis['route_segments'] ?? [],
-                'missing_information' => $segment->analysis['missing_information'] ?? [],
-            ])->values()->all(),
+            'segments' => $segments
+                ->map(fn (PipeRouteSegment $segment): array => $this->segmentInput($segment))
+                ->values()
+                ->all(),
         ];
 
         $threshold = (float) config('ai.route.escalate_below_confidence', 0.7);
@@ -74,7 +73,23 @@ final class SynthesizePipeRoute
 
             // Onduidelijke of niet-doorlopende route → tweede beoordeling met het zwaardere model.
             if ($output['route_continuous'] === false || $output['confidence'] < $threshold) {
-                $review = $this->run($session, $promptBody, $input, $promptVersion, $reviewModel);
+                $reviewUploads = $this->reviewUploads($segments);
+                $reviewInput = $input;
+                $reviewInput['review_image_manifest'] = $reviewUploads
+                    ->map(fn (IntakeUpload $upload): array => [
+                        'reference' => 'route_image:'.$upload->id,
+                        ...$this->aiImageResolver->identity($upload),
+                    ])
+                    ->values()
+                    ->all();
+                $review = $this->run(
+                    $session,
+                    $promptBody,
+                    $reviewInput,
+                    $promptVersion,
+                    $reviewModel,
+                    $reviewUploads,
+                );
 
                 if ($review['confidence'] >= $output['confidence']) {
                     $output = $review;
@@ -92,17 +107,13 @@ final class SynthesizePipeRoute
         return DB::transaction(function () use ($session, $output, $input): PipeRouteSession {
             Intake::query()->whereKey($session->intake_id)->lockForUpdate()->firstOrFail();
             $session = PipeRouteSession::query()->whereKey($session->id)->lockForUpdate()->firstOrFail();
-            $currentSegments = $session->segments()->orderBy('sequence')->get()
-                ->map(static fn (PipeRouteSegment $segment): array => [
-                    'sequence' => $segment->sequence,
-                    'role' => $segment->label ?? 'onbekend',
-                    'photo_usable' => $segment->photo_usable,
-                    'route_possible' => $segment->route_possible,
-                    'confidence' => $segment->confidence,
-                    'visible_elements' => $segment->analysis['visible_elements'] ?? [],
-                    'route_segments' => $segment->analysis['route_segments'] ?? [],
-                    'missing_information' => $segment->analysis['missing_information'] ?? [],
-                ])->values()->all();
+            $currentSegments = $session->segments()
+                ->with('upload')
+                ->orderBy('sequence')
+                ->get()
+                ->map(fn (PipeRouteSegment $segment): array => $this->segmentInput($segment))
+                ->values()
+                ->all();
 
             if ($session->status !== PipeRouteStatus::Collecting || $currentSegments !== $input['segments']) {
                 return $session;
@@ -118,12 +129,27 @@ final class SynthesizePipeRoute
                 'next_photo_instruction' => $output['next_photo_instruction'] !== '' ? $output['next_photo_instruction'] : null,
             ]);
 
-            return $session->fresh() ?? $session;
+            if ($session->connection !== null) {
+                $session->connection->update([
+                    'status' => $output['route_continuous']
+                        ? AircoConnectionStatus::Proposed
+                        : AircoConnectionStatus::NeedsEvidence,
+                    'segments' => $output['proposed_route'],
+                    'uncertainties' => [
+                        ...$output['uncertainties'],
+                        ...$output['missing_checks'],
+                    ],
+                    'confidence' => $output['confidence'],
+                ]);
+            }
+
+            return $session->fresh(['connection']) ?? $session;
         }, 3);
     }
 
     /**
      * @param  array<string, mixed>  $input
+     * @param  Collection<int, IntakeUpload>|null  $images
      * @return array<string, mixed>
      */
     private function run(
@@ -132,6 +158,7 @@ final class SynthesizePipeRoute
         array $input,
         string $promptVersion,
         string $model,
+        ?Collection $images = null,
     ): array {
         $run = AiRun::query()->create([
             'intake_id' => $session->intake_id,
@@ -154,6 +181,10 @@ final class SynthesizePipeRoute
                 prompt: $promptBody,
                 input: $input,
                 promptVersion: $promptVersion,
+                images: ($images ?? collect())
+                    ->map(fn (IntakeUpload $upload) => $this->aiImageResolver->input($upload))
+                    ->values()
+                    ->all(),
                 model: $model,
             );
 
@@ -209,5 +240,53 @@ final class SynthesizePipeRoute
         $validated['next_photo_instruction'] = trim((string) $validated['next_photo_instruction']);
 
         return $validated;
+    }
+
+    /** @return array<string, mixed> */
+    private function segmentInput(PipeRouteSegment $segment): array
+    {
+        return [
+            'sequence' => $segment->sequence,
+            'role' => $segment->label ?? 'onbekend',
+            'photo_usable' => $segment->photo_usable,
+            'route_possible' => $segment->route_possible,
+            'confidence' => $segment->confidence,
+            'image_reference' => $segment->upload === null
+                ? null
+                : 'route_image:'.$segment->upload->id,
+            'image' => $segment->upload === null
+                ? null
+                : $this->aiImageResolver->identity($segment->upload),
+            'visible_elements' => $segment->analysis['visible_elements'] ?? [],
+            'route_segments' => $segment->analysis['route_segments'] ?? [],
+            'missing_information' => $segment->analysis['missing_information'] ?? [],
+        ];
+    }
+
+    /**
+     * Geef Sol eerst de bruikbare segmenten met de laagste zekerheid: precies de
+     * beelden waarvoor de tekstsynthese extra visuele controle nodig heeft.
+     *
+     * @param  Collection<int, PipeRouteSegment>  $segments
+     * @return Collection<int, IntakeUpload>
+     */
+    private function reviewUploads(Collection $segments): Collection
+    {
+        return $segments
+            ->filter(static fn (PipeRouteSegment $segment): bool => $segment->upload instanceof IntakeUpload
+                && $segment->photo_usable !== false)
+            ->sortBy(static fn (PipeRouteSegment $segment): float => $segment->confidence ?? 0.0)
+            ->take((int) config('ai.route.max_images', 4))
+            ->map(static function (PipeRouteSegment $segment): IntakeUpload {
+                $upload = $segment->upload;
+
+                if (! $upload instanceof IntakeUpload) {
+                    throw new \LogicException('Routesegment mist de geselecteerde bewijsfoto.');
+                }
+
+                return $upload;
+            })
+            ->unique('id')
+            ->values();
     }
 }

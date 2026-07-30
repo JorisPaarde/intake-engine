@@ -1,10 +1,11 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                {{ $intake->customer_name }}
-            </h2>
-            <a href="{{ route('dashboard') }}" class="text-sm text-gray-600 hover:text-gray-900">← Terug naar overzicht</a>
+            <h2 class="font-semibold text-xl text-gray-800 leading-tight">{{ $intake->customer_name }}</h2>
+            <div class="flex items-center gap-3">
+                <a href="{{ route('intakes.workspace', $intake) }}" class="inline-flex min-h-10 items-center rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-500">Open technische opname</a>
+                <a href="{{ route('dashboard') }}" class="text-sm text-gray-600 hover:text-gray-900">← Overzicht</a>
+            </div>
         </div>
     </x-slot>
 
@@ -22,6 +23,7 @@
                         {{ $intake->status->label() }}
                     </span>
                     <span class="text-sm text-gray-500">{{ $intake->progress_percent }}% compleet</span>
+                    <span class="text-sm text-gray-500">{{ $intake->workflow_mode->label() }}</span>
                     <span class="text-sm text-gray-500">{{ $intake->templateVersion?->template?->name }} · v{{ $intake->templateVersion?->version }}</span>
                 </div>
 
@@ -124,6 +126,7 @@
                 @endif
             </div>
 
+            @if ($intake->customer_access_enabled)
             <div class="bg-white shadow-sm sm:rounded-lg p-6 space-y-4" x-data="{ copied: false }">
                 <h3 class="text-base font-semibold text-gray-900">Klantlink</h3>
                 <p class="text-sm text-gray-600">
@@ -180,6 +183,13 @@
                     </form>
                 </div>
             </div>
+            @else
+                <div class="rounded-lg border border-indigo-100 bg-indigo-50 p-6">
+                    <h3 class="text-base font-semibold text-indigo-950">Geen klantlink actief</h3>
+                    <p class="mt-1 text-sm text-indigo-900">Deze opname wordt door de installateur uitgevoerd. Vanuit de technische opname kunt u later één of meer concrete klantopdrachten sturen; pas dan wordt de beveiligde link geactiveerd.</p>
+                    <a href="{{ route('intakes.workspace', $intake) }}" class="mt-4 inline-flex min-h-10 items-center rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-500">Naar technische opname</a>
+                </div>
+            @endif
 
 
             <div class="bg-white shadow-sm sm:rounded-lg p-6 space-y-4">

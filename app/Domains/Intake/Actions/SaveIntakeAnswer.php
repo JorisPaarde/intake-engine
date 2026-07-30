@@ -9,6 +9,7 @@ use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Services\AnswerValueReader;
+use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\ProgressCalculator;
 use App\Enums\IntakeStatus;
 use App\Enums\QuestionType;
@@ -20,6 +21,7 @@ final class SaveIntakeAnswer
     public function __construct(
         private readonly AnswerValueReader $answerValueReader,
         private readonly ProgressCalculator $progressCalculator,
+        private readonly DossierManager $dossierManager,
     ) {}
 
     /**
@@ -50,10 +52,14 @@ final class SaveIntakeAnswer
             // For required fields, still persist partial drafts if user typed then cleared — progress will reflect.
         }
 
-        return DB::transaction(function () use ($intake, $questionKey, $sectionInstanceKey, $normalized, $prefillSource): IntakeAnswer {
+        $answer = DB::transaction(function () use ($intake, $questionKey, $sectionInstanceKey, $normalized, $prefillSource): IntakeAnswer {
             $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
 
-            if (! in_array($lockedIntake->status, [IntakeStatus::Sent, IntakeStatus::InProgress], true)) {
+            $allowedStatuses = $prefillSource === null
+                ? [IntakeStatus::Sent, IntakeStatus::InProgress]
+                : [IntakeStatus::Draft, IntakeStatus::Sent, IntakeStatus::InProgress];
+
+            if (! in_array($lockedIntake->status, $allowedStatuses, true)) {
                 throw ValidationException::withMessages([
                     'value' => 'Deze opname kan niet meer worden gewijzigd.',
                 ]);
@@ -107,6 +113,10 @@ final class SaveIntakeAnswer
 
             return $answer;
         });
+
+        $this->dossierManager->initialize($intake->fresh() ?? $intake);
+
+        return $answer;
     }
 
     private function touchProgress(Intake $intake, bool $allowStatusStart = true): void

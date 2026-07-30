@@ -2,10 +2,14 @@
 
 declare(strict_types=1);
 
+use App\Domains\AI\Services\AiImageResolver;
+use App\Domains\Intake\Actions\DeleteIntakeUpload;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
+use App\Domains\Intake\Models\DossierEvidenceLink;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Domains\Intake\Services\DossierManager;
 use App\Enums\IntakeStatus;
 use App\Livewire\Customer\IntakeWizard;
 use App\Models\User;
@@ -77,6 +81,8 @@ test('customer can upload and preview a photo for a photo question', function ()
 
     expect($upload)->toBeInstanceOf(IntakeUpload::class)
         ->and(Storage::disk((string) config('filesystems.media'))->exists($upload->path))->toBeTrue()
+        ->and($upload->analysis_path)->not->toBeNull()
+        ->and(Storage::disk((string) config('filesystems.media'))->exists($upload->analysis_path))->toBeTrue()
         ->and($intake->fresh()->answers()->where('question_key', 'fusebox_photo')->value('value'))
         ->toMatchArray(['upload_ids' => [$upload->id]]);
 
@@ -84,6 +90,49 @@ test('customer can upload and preview a photo for a photo question', function ()
         'token' => $intake->access_token,
         'upload' => $upload,
     ]))->assertOk();
+});
+
+test('every photo is re-encoded into separate bounded dossier and AI analysis JPEG variants', function () {
+    $intake = makeUploadIntake();
+    $disk = (string) config('filesystems.media');
+    $upload = app(StoreIntakeUpload::class)->handle(
+        $intake,
+        'fusebox_photo',
+        null,
+        UploadedFile::fake()->image('grote-telefoonfoto.png', 3200, 2400),
+    );
+
+    $dossierSize = getimagesize(Storage::disk($disk)->path($upload->path));
+    $analysisSize = getimagesize(Storage::disk($disk)->path($upload->analysis_path));
+
+    expect($upload->mime_type)->toBe('image/jpeg')
+        ->and($upload->analysis_mime_type)->toBe('image/jpeg')
+        ->and($upload->path)->toEndWith('.jpg')
+        ->and($upload->analysis_path)->toEndWith('.jpg')
+        ->and(max($dossierSize[0], $dossierSize[1]))->toBeLessThanOrEqual(2048)
+        ->and(max($analysisSize[0], $analysisSize[1]))->toBeLessThanOrEqual(1536)
+        ->and($upload->checksum)->not->toBe($upload->analysis_checksum);
+
+    $analysisInput = app(AiImageResolver::class)->input($upload);
+    expect($analysisInput->mimeType)->toBe('image/jpeg')
+        ->and($analysisInput->binary)->toBe(Storage::disk($disk)->get($upload->analysis_path));
+
+    $dossierPath = $upload->path;
+    $analysisPath = $upload->analysis_path;
+    app(DossierManager::class)->initialize($intake->fresh());
+    expect(DossierEvidenceLink::query()
+        ->where('evidence_type', 'intake_upload')
+        ->where('evidence_id', $upload->id)
+        ->exists())->toBeTrue();
+
+    app(DeleteIntakeUpload::class)->handle($intake, $upload);
+
+    expect(Storage::disk($disk)->exists($dossierPath))->toBeFalse()
+        ->and(Storage::disk($disk)->exists($analysisPath))->toBeFalse()
+        ->and(DossierEvidenceLink::query()
+            ->where('evidence_type', 'intake_upload')
+            ->where('evidence_id', $upload->id)
+            ->exists())->toBeFalse();
 });
 
 test('heic uploads are converted to stored jpeg files with working preview', function () {

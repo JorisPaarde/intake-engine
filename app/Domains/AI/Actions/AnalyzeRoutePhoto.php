@@ -4,18 +4,16 @@ declare(strict_types=1);
 
 namespace App\Domains\AI\Actions;
 
-use App\Domains\AI\DTOs\AiImageInput;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\AiGateway;
+use App\Domains\AI\Services\AiImageResolver;
 use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\Intake\Models\Intake;
-use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Models\PipeRouteSegment;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -30,6 +28,7 @@ final class AnalyzeRoutePhoto
 {
     public function __construct(
         private readonly AiGateway $aiGateway,
+        private readonly AiImageResolver $aiImageResolver,
         private readonly PromptVersionRepository $promptVersions,
     ) {}
 
@@ -54,10 +53,7 @@ final class AnalyzeRoutePhoto
             'task' => 'analyze_route_photo',
             'segment_role' => $segment->label ?? 'onbekend',
             'sequence' => $segment->sequence,
-            'image' => [
-                'checksum' => $upload->checksum,
-                'mime_type' => $upload->mime_type,
-            ],
+            'image' => $this->aiImageResolver->identity($upload),
         ];
 
         $run = AiRun::query()->create([
@@ -81,7 +77,7 @@ final class AnalyzeRoutePhoto
                 prompt: $promptBody,
                 input: $input,
                 promptVersion: $promptVersion,
-                images: [$this->imageInput($upload)],
+                images: [$this->aiImageResolver->input($upload)],
                 model: $model,
             );
 
@@ -102,8 +98,7 @@ final class AnalyzeRoutePhoto
                 if ($segment->sequence !== $input['sequence']
                     || ($segment->label ?? 'onbekend') !== $input['segment_role']
                     || $segment->upload === null
-                    || $segment->upload->checksum !== $input['image']['checksum']
-                    || $segment->upload->mime_type !== $input['image']['mime_type']) {
+                    || $this->aiImageResolver->identity($segment->upload) !== $input['image']) {
                     throw new \RuntimeException('Routefoto gewijzigd tijdens AI-analyse; resultaat niet toegepast.');
                 }
 
@@ -132,18 +127,6 @@ final class AnalyzeRoutePhoto
 
             return $segment;
         }
-    }
-
-    private function imageInput(IntakeUpload $upload): AiImageInput
-    {
-        if (! in_array($upload->mime_type, ['image/jpeg', 'image/png', 'image/webp'], true)) {
-            throw new \RuntimeException('Opgeslagen foto heeft geen ondersteund formaat voor beeldanalyse.');
-        }
-
-        return new AiImageInput(
-            mimeType: $upload->mime_type,
-            binary: Storage::disk($upload->disk)->get($upload->path),
-        );
     }
 
     /**

@@ -7,6 +7,7 @@ namespace App\Domains\Intake\Actions;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\PipeRouteSession;
+use App\Enums\AircoConnectionStatus;
 use App\Enums\PipeRouteStatus;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -40,6 +41,24 @@ final class ApprovePipeRoute
                 'approved_at' => now(),
             ]);
 
+            if ($session->connection !== null) {
+                $session->connection->update([
+                    'status' => $approved
+                        ? AircoConnectionStatus::Approved
+                        : AircoConnectionStatus::NeedsEvidence,
+                    'segments' => $approved ? ($session->proposed_route ?? []) : [],
+                    'uncertainties' => $approved
+                        ? ($session->uncertainties ?? [])
+                        : array_values(array_unique([
+                            ...($session->uncertainties ?? []),
+                            'De voorgestelde route is door de installateur afgewezen.',
+                        ])),
+                    'confidence' => $approved ? $session->confidence : null,
+                    'approved_by' => $approved ? $installer->id : null,
+                    'approved_at' => $approved ? now() : null,
+                ]);
+            }
+
             IntakeActivityEvent::query()->create([
                 'intake_id' => $session->intake_id,
                 'actor_type' => 'user',
@@ -54,7 +73,7 @@ final class ApprovePipeRoute
                 'created_at' => now(),
             ]);
 
-            return $session->fresh() ?? $session;
+            return $session->fresh(['connection']) ?? $session;
         }, 3);
     }
 }

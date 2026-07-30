@@ -1,8 +1,8 @@
 # Productmodel — centrale technische opname
 
-> **Documentversie:** 1.0 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.1 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: **besloten doelmodel; nog niet volledig geïmplementeerd**. De huidige vragenlijst-, upload-, open-data-, AI- en routefunctionaliteit blijft bestaan en wordt stapsgewijs onder dit model gebracht. De uitvoeringsvolgorde staat in [backlog.md](backlog.md).
+Status: **productfundament geïmplementeerd in BL-030 en BL-035 t/m BL-042**. De centrale dossierkern, drie bijdrageworkflows, airco-objecten, beslisgereedheid, beeldvarianten, AI-synthese en uitkomstregistratie zitten in dezelfde applicatie. Productief gebruik van externe beeld-AI blijft achter de bestaande DPIA-, provider- en staging-gates.
 
 ## Doel en afbakening
 
@@ -58,8 +58,8 @@ Bij het starten kiest de installateur hoe de opname wordt gevuld. Die keuze mag 
 | Workflow | Start | Werkwijze | Klantlink |
 |----------|-------|-----------|-----------|
 | Klant voert uit | Installateur kiest **Klant laten opnemen** | Lineaire, eenvoudige opdrachten; AI begeleidt en vraagt alleen beslissende aanvullingen. | Direct aangemaakt en verzonden. |
-| Installateur voert uit | Installateur kiest **Zelf de opname uitvoeren** | Mobiele, camera-first werkweergave; vrije volgorde; technische waarnemingen, posities en routes direct vastleggen. | Niet aangemaakt of verzonden. |
-| Hybride | Eén van beide workflows is al gestart | Installateur vult zelf aan of stuurt later één of meer heel specifieke klantopdrachten. | Alleen aangemaakt of geactiveerd wanneer de klant werkelijk iets moet bijdragen. |
+| Installateur voert uit | Installateur kiest **Zelf de opname uitvoeren** | Mobiele, camera-first werkweergave; vrije volgorde; technische waarnemingen, posities en routes direct vastleggen. | Token bestaat als intern lifecycle-anker, maar klanttoegang staat uit en niets wordt verzonden. |
+| Hybride | Eén van beide workflows is al gestart | Installateur vult zelf aan of stuurt later één of meer heel specifieke klantopdrachten. | Alleen geactiveerd en verzonden wanneer de klant werkelijk iets moet bijdragen. |
 
 Alle drie vullen dezelfde ruimtes, plaatsingen, verbindingen, bewijzen, onzekerheden en beslissingen. Er ontstaan geen aparte klant- en installateursdossiers.
 
@@ -85,7 +85,7 @@ Alle drie vullen dezelfde ruimtes, plaatsingen, verbindingen, bewijzen, onzekerh
 3. In een mobiele werkweergave kan de installateur vrij tussen ruimtes, buitenposities, meterkast en routes bewegen.
 4. Hij kan foto's maken, maten vastleggen, posities aanwijzen en waarnemingen of conclusies direct als **ter plaatse vastgesteld** opslaan.
 5. Een installateurswaarneming hoeft niet met een foto te worden bewezen wanneer de installateur haar zelf betrouwbaar heeft vastgesteld.
-6. AI vult op de achtergrond aan, detecteert tegenstrijdigheden en toont alleen relevante open punten.
+6. AI kan vanuit de werkplek of bij afronding het dossier synthetiseren, tegenstrijdigheden markeren en alleen relevante open punten tonen.
 7. De installateur kan de opname in dezelfde werkgang afronden en het dossier als offerte- en werkvoorbereidingsbasis gebruiken.
 
 ### Hybride workflow
@@ -199,19 +199,23 @@ Verbindingen bestaan uit segmenten. Foto's, kaartbeelden, antwoorden, metingen, 
 9. AI levert een installatievoorstel met bewijs, zekerheid, kostenrisico's en open punten.
 10. De installateur beoordeelt het geheel en kiest: op afstand offreren, nog één aanvulling of een locatiebezoek.
 
-## Huidige implementatie naar doelmodel
+## Geïmplementeerde migratiebrug
 
-| Huidige bouwsteen | Behouden rol in het doelmodel |
-|-------------------|-------------------------------|
-| `intakes` | Blijft voorlopig de technische opname en migratieanker. |
-| Template → sectie → vraag → antwoord | Vragen- en takenkanaal waarmee bewijs en waarnemingen worden verzameld. |
-| `intake_external_facts` | Bestaande automatische dossierbron voor BAG, luchtfoto, EP-Online, 3DBAG en afleidingen. |
-| `intake_uploads` | Private mediabron; krijgt doelobject-/bewijsrelaties naast de huidige vraagkoppeling. |
-| `intake_follow_up_*` | Voorloper van afgebakende bijdrageopdrachten; wordt inzetbaar vóór én na klantafronding en voor hybride werk. |
-| `pipe_route_sessions` / `segments` | Herbruikbare analysebouwsteen; wordt gekoppeld aan één concrete koelleiding, condensroute of stroomroute binnen een installatieoptie. |
-| `intake_reviews` | Voorloper van beslisgereedheid en volgende acties; één algemene boolean is niet genoeg voor het doelmodel. |
-| `CompletenessChecker` | Blijft de poort voor voltooiing van een concrete taakset, niet voor technische beslisgereedheid. |
-| AI-samenvatting en aandachtspunten | Worden uitgebreid naar evidence-synthese, kandidaatopstellingen, gerichte taken en uitzonderingsbeoordeling. |
+| Bouwsteen | Rol in het centrale dossier |
+|-----------|-----------------------------|
+| `intakes` | Technische opname en lifecycle-anker, inclusief `workflow_mode` en expliciet aan/uit gezette klanttoegang. |
+| Template → sectie → vraag → antwoord | Vragen- en takenkanaal; airco v10 vraagt om gewenste ruimtes en laat de technische configuratie aan het dossier. |
+| `dossier_subjects` / `dossier_records` / `dossier_evidence_links` | Centrale onderwerpen, waarnemingen/conclusies en herleidbaar bewijs met bron, actor, methode, zekerheid en status. |
+| `intake_external_facts` | Automatische bron voor BAG, luchtfoto, EP-Online, 3DBAG en afleidingen; de migratiebrug maakt er dossierrecords en bewijslinks van. |
+| `intake_uploads` | Private mediabron met metadata-vrije dossier- en analysekopie; bewijs kan aan ruimte, plaatsing, verbinding of algemeen dossier hangen. |
+| `intake_follow_up_*` + `contribution_tasks` | Afgebakende klanttaken vóór of na een eerste opnamebijdrage; na afronding wordt klanttoegang weer uitgezet. |
+| `airco_rooms` / plaatsings- en installatieopties | Gewenste ruimtes en vergelijkbare single-/multi-splitvoorstellen, los van de klantvragenstructuur. |
+| `airco_connections` | Afzonderlijke koel-, condens- en stroomverbindingen met eindpunten, bewijsstatus, onzekerheden en kostenimpact. |
+| `pipe_route_sessions` / `segments` | Foto-voor-fotobouwsteen, uniek gekoppeld aan één concrete verbinding en veilig heropenbaar bij nieuw bewijs. |
+| `dossier_decision_areas` | Technische status en volgende actie per beslisgebied; staat naast taakcompleetheid en bestaande historische review. |
+| `CompletenessChecker` | Poort voor voltooiing van een concrete klanttaakset, niet voor technische beslisgereedheid. |
+| Dossier-AI | Synthetiseert geschoonde bronnen en relevante analysekopieën tot onderbouwde plaatsingen, opstelling, drie verbindingen, uitzonderingen en voorgestelde klanttaken. |
+| `installation_outcomes` | Expliciete uitkomst, actieve tijd, locatiebezoekredenen, voorstelafwijkingen en montagefeedback voor reproduceerbare metrics. |
 
 ## Productinvarianten
 
@@ -234,6 +238,6 @@ Verbindingen bestaan uit segmenten. Foto's, kaartbeelden, antwoorden, metingen, 
 - de klant zelf een definitief systeem, vermogen, unitpositie of technisch tracé laten kiezen;
 - AI zelfstandig een veiligheidskritische installatie laten goedkeuren;
 - onveilige foto- of elektrische instructies;
-- het huidige schema in documentatie als al gemigreerd presenteren voordat de bijbehorende migraties zijn gebouwd.
+- een CRM- of offertebedragadministratie bouwen; de opname levert de technische basis en registreert alleen het type uitkomst.
 
 Architectuurbesluiten: [ADR-0011](decisions/0011-central-survey-dossier-and-contributors.md) en [ADR-0012](decisions/0012-airco-installation-options-and-connections.md).

@@ -1,6 +1,6 @@
 Je vat de per-foto beoordelingen van een begeleide leidingroute-vastlegging samen tot één routebeoordeling tussen binnen- en buitenunit van een airco in een Nederlandse woning. Je oordeel is een voorzet; de installateur keurt de uiteindelijke route altijd zelf goed.
 
-De invoer bevat de op volgorde gezette segmenten (per foto): rol, zichtbare elementen, of een routevervolg zichtbaar was, en de gemelde ontbrekende informatie. Baseer je uitsluitend op deze segmenten; verzin geen route-delen die geen enkel segment laat zien.
+De invoer bevat de op volgorde gezette segmenten (per foto): rol, zichtbare elementen, of een routevervolg zichtbaar was, en de gemelde ontbrekende informatie. Bij een zwaardere herbeoordeling worden daarnaast enkele relevante segmentfoto's meegestuurd in exact dezelfde volgorde als `review_image_manifest`; `image_reference` koppelt een segment aan zo'n foto. Baseer je uitsluitend op deze segmenten en eventuele meegestuurde beelden; verzin geen route-delen die geen enkel bewijs laat zien.
 
 Bepaal:
 - `route_continuous`: vormen de segmenten samen één doorlopende, aannemelijke route van binnenunit naar buitenunit? `true` alleen als de segmenten op elkaar aansluiten zonder ontbrekende schakel.

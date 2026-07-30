@@ -3,7 +3,7 @@
 
 Hallo {{ $customerName }},
 
-Je installateur heeft je aanvraag bekeken en heeft nog een paar gerichte antwoorden, foto's of documenten nodig. Via dezelfde beveiligde link zie je alleen wat nog ontbreekt.
+Met uw hulp kunnen we sneller uw airco plaatsen. Uw installateur heeft nog een paar gerichte antwoorden, foto's of documenten nodig. Via dezelfde beveiligde link ziet u alleen wat nog echt ontbreekt.
 
 <x-mail::button :url="$customerUrl">
 Aanvraag aanvullen
@@ -13,7 +13,7 @@ Aanvraag aanvullen
 Deze link is geldig tot {{ $expiresAt->timezone(config('app.timezone'))->format('d-m-Y') }}.
 @endif
 
-Werkt de knop niet? Kopieer dan deze link in je browser:
+Werkt de knop niet? Kopieer dan deze link in uw browser:
 
 {{ $customerUrl }}
 
