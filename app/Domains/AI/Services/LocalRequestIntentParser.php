@@ -160,14 +160,14 @@ final class LocalRequestIntentParser
         $result = [];
 
         foreach ($matches as $match) {
-            $roomWord = is_string($match['room'] ?? null) ? $match['room'] : '';
+            $roomWord = $match['room'];
             $type = $this->roomType($roomWord);
 
             if ($type === null) {
                 continue;
             }
 
-            $quantityWord = is_string($match['quantity'] ?? null) ? $match['quantity'] : '';
+            $quantityWord = $match['quantity'];
             $result[] = [
                 'type' => $type,
                 'quantity' => $this->number($quantityWord),
@@ -217,7 +217,7 @@ final class LocalRequestIntentParser
             return null;
         }
 
-        return $this->number(is_string($matches['quantity'] ?? null) ? $matches['quantity'] : '');
+        return $this->number($matches['quantity']);
     }
 
     private function number(string $value): ?int
