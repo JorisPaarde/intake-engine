@@ -71,7 +71,7 @@ final class InstallerPhotoGalleryBuilder
 
                 if (! isset($groups[$bucketKey])) {
                     $groups[$bucketKey] = [
-                        'heading' => $subject?->label ?? 'Dossierbewijs',
+                        'heading' => $subject->label ?? 'Dossierbewijs',
                         'sort' => [PHP_INT_MAX - 2, $subjectId ?? PHP_INT_MAX],
                         'uploads' => [],
                     ];
