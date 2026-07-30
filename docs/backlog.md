@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.5 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.6 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -53,6 +53,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-043 | Publieke productfunnel en interesse-CTA | E5 | done | medium | A (done) |
 | — | BL-044 | Hervatbare MySQL-dossiermigratie | E5 | done | high | deployherstel (done) |
 | — | BL-045 | Eenvoudige installateurstaal op de productfunnel | E5 | done | medium | A (done) |
+| — | BL-046 | Brede productbelofte op de productfunnel | E5 | done | medium | A (done) |
 | ∥ | BL-013 | S3 als mediadisk | E5 | backlog | low | I · operationeel |
 | — | BL-029 | Begeleide leidingroute volgens één globale routeflow | E4 | dropped | high | Vervangen door ADR-0012 / BL-040; backend blijft |
 | — | BL-034 | Splitconfiguratie als installateursaandachtspunt | E4 | done | medium | H (done) |
@@ -436,6 +437,14 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Doel:** maak de homepage in enkele seconden begrijpelijk en scanbaar, zonder werking te verbergen of besparingen te verzinnen.
 - **Scope:** één herkenbare hoofdbelofte; het praktijkprobleem in gewone taal; drie stappen; korte voordelen voor installateur en klant; productbeelden als bewijs; vier kernvragen; één lage-drempelige pilot-CTA. De dubbele workflowsectie vervalt en de keuze klant/zelf/combineren staat voortaan bij de werkwijze.
 - **Resultaat:** de funnel gebruikt korte zinnen en dagelijkse installateurstaal, met de herkadering dat een onnodig voorbezoek soms vooral een dure manier is om één ontbrekende foto te krijgen. Demo, interesseformulier, beveiliging en productgedrag blijven ongewijzigd.
+
+### BL-046 — Brede productbelofte op de productfunnel
+
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-07-30 · **PR:** deze PR · **Epic:** E5
+- **Aanleiding:** de vereenvoudigde funnel gebruikte de ontbrekende foto zo vaak als voorbeeld dat de Digitale Opname smaller leek dan het product is.
+- **Doel:** positioneer de app als complete opname- en beslisondersteuning tussen aanvraag en offerte, zonder terug te vallen op technische producttaal.
+- **Scope:** bredere hero, probleemschets, drie stappen, voordelen, productuitleg, demotekst, FAQ en metadata. Foto’s blijven zichtbaar als één invoervorm naast bestaande woninggegevens, klantaanvullingen, installateurswaarnemingen, opstellingen, routes en open punten.
+- **Resultaat:** de hoofdlijn is nu aanvraag → complete opname → installateursbesluit. De pagina blijft kort en scanbaar, terwijl foto’s weer één middel zijn in plaats van de volledige productbelofte.
 
 ### BL-044 — Hervatbare MySQL-dossiermigratie
 

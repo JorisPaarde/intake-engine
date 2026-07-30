@@ -9,7 +9,9 @@ it('shows the product homepage with login navigation', function () {
 
     $response->assertOk()
         ->assertSee('Digitale Opname', false)
-        ->assertSee('Geen voorbezoek voor één ontbrekende foto.', false)
+        ->assertSee('Een complete opname vóór je de bus instapt.', false)
+        ->assertSee('Wat al bekend is, staat klaar', false)
+        ->assertSee('Van woninggegevens tot installatievoorstel', false)
         ->assertSee('Inloggen', false)
         ->assertSee(route('login'), false);
 });
