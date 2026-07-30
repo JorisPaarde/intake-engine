@@ -310,7 +310,7 @@ Historische MVP-epic: bouwde prefill, adaptieve vragen en automatische BAG/PDOK-
 
 ### BL-047 — Gestructureerde adresregistratie en BAG-herstel
 
-- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-30 · **PR:** deze PR · **Band:** F · **Volgt op:** BL-019/033
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-30 · **PR:** #60 · **Band:** F · **Volgt op:** BL-019/033
 - **Aanleiding:** `2037 GR` + `273` kon als vrije tekst `Bernadottelaan, 273, 273` worden bewaard. De invoer valideerde het losse huisnummer wel, maar `CreateIntake` sloeg het niet op; de open BAG-route vergeleek daarna opnieuw de samengestelde tekst. Een test accepteerde ten onrechte dat alleen de optionele Kadaster-key dit achteraf kon repareren.
 - **Resultaat:** postcode, huisnummer en toevoeging zijn persistente intakevelden; suggestiekeuze synchroniseert de canonieke toevoeging; PDOK/BAG zoekt en matcht op die gestructureerde identiteit en schrijft de BAG-spelling terug. De hervatbare migratie normaliseert alleen het exacte dubbele-huisnummerpatroon en vult veilig afleidbare bestaande huisnummers aan. Bij `not_found`/`unavailable` kan de installateur de adrescontrole opnieuw starten.
 - **Acceptatiebewijs:** één ketentest voert exact `2037 GR` + `273` door requestnormalisatie, opslag, open PDOK-zoekquery, BAG-object en canonieke dossierregel, met `BAG_API_ENABLED=false`. Een aparte migratietest dekt backfill, hervatten en rollback.
@@ -554,7 +554,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 | ID | Datum | Resultaat / PR |
 |----|-------|----------------|
-| BL-047 | 2026-07-30 | deze PR — gestructureerde adresregistratie, BAG-ketentest en herstelactie |
+| BL-047 | 2026-07-30 | #60 — gestructureerde adresregistratie, BAG-ketentest en herstelactie |
 | BL-044 | 2026-07-30 | deze PR — hervatbare dossiermigration + MySQL-migratiesmoke |
 | BL-045 | 2026-07-30 | deze PR — kortere, scanbare funnelcopy voor airco-installateurs |
 | BL-030/035–042 | 2026-07-30 | deze PR — dossierkern, beeldvarianten, drie workflows, airco-opstellingen/verbindingen, AI-synthese en uitkomstmetrics |
