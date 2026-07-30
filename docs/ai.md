@@ -1,6 +1,6 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 3.0 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.1 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **samenvatting, aandachtspunten, lokale fotokwaliteit, tekst-/foto-afleiding, verbindingsgebonden routeanalyse en bewijsgerichte dossiersynthese zijn geïmplementeerd**. Externe provider en tekst-/foto-/route-/dossierinferentie staan standaard uit (DPIA + key + budgetcaps + staging-smoke vereist).
 
@@ -153,6 +153,14 @@ Dossiersynthese loopt na iedere afgeronde klant-, installateur- of gerichte bijd
 5. Een geldige run vervangt alleen eerdere nog-kandidaat AI-posities/-opties en nog-voorgestelde AI-taken. Geselecteerde of menselijke objecten blijven staan.
 6. AI-klanttaken blijven `proposed`; pas na installateurscontrole maakt de app de beperkte klanttaak en activeert zij toegang. Geen AI-actie keurt verbindingen of offertebesluiten goed.
 7. Vlak vóór opslag wordt dezelfde geschoonde context inclusief beeldmanifest onder de intake-lock opnieuw gehasht. Een stale resultaat wordt niet toegepast.
+
+## Openingszin: lokaal vóór externe AI
+
+`DeriveIntentFromRequest` gebruikt eerst `LocalRequestIntentParser`. Die parser is bewust klein en deterministisch: hij herkent alleen expliciete Nederlandse koel-/verwarmdoelen, aantallen van één tot acht, bekende ruimtetypen en de expliciete ligging “op zolder”. De zin `Ik wil twee airco’s om m’n slaapkamers op zolder te koelen` levert daardoor lokaal koelen, twee slaapkamers en voor beide `floor_level=attic` op; “zolder” wordt niet als derde ruimte behandeld. Tegenstrijdige aantallen en onduidelijke doelen vallen terug op de normale vragen.
+
+De lokale run bewaart alleen parserversie, inputhash, gecontroleerde output en toegepaste vraagsleutels; de vrije openingszin komt niet in activity-properties. Afgeleide antwoorden krijgen `prefill_source=request_text`. Dit pad draait direct na installateursaanmaak en als herstel bij een oudere actieve klantlink, ook wanneer `AI_PROVIDER=null` en `AI_TEXT_INFERENCE_ENABLED=false`.
+
+Alleen als de lokale parser niets zekers vindt, mag de versioned `request_intent`-prompt naar de geconfigureerde provider. Dat externe fallbackpad blijft achter `AI_TEXT_INFERENCE_ENABLED`; de klantlink-herstelpass zet externe calls expliciet uit.
 
 ## Promptversionering
 

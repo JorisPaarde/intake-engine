@@ -153,9 +153,9 @@ class IntakeWizard extends Component
         }
 
         $this->intakeId = $intake->id;
-        $this->resolvedIntake = $intake->loadMissing(['answers', 'uploads']);
 
         if ($intake->status === IntakeStatus::AwaitingCustomer) {
+            $this->resolvedIntake = $intake->loadMissing(['answers', 'uploads']);
             $round = $intake->followUpRounds()
                 ->where('status', FollowUpRoundStatus::Open)
                 ->with('items')
@@ -170,6 +170,13 @@ class IntakeWizard extends Component
 
             return;
         }
+
+        // Herstelt ook eerder aangemaakte opnames waarvan de installateur de openingszin
+        // al invulde. Alleen de lokale, evidente parser draait hier; een externe call
+        // hoort niet stil bij iedere geopende klantlink te starten.
+        app(DeriveIntentFromRequest::class)->handle($intake, allowExternal: false);
+        $intake = $intake->fresh() ?? $intake;
+        $this->resolvedIntake = $intake->loadMissing(['answers', 'uploads']);
 
         $this->hydrateFormFromAnswers();
 

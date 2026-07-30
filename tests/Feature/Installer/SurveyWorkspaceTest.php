@@ -79,7 +79,7 @@ test('installer can start a self-performed survey without exposing or mailing a 
         ->assertOk()
         ->assertSee('Technische opname')
         ->assertSee('Gerichte klanttaak')
-        ->assertSee('Bekende woningcontext');
+        ->assertSee('Automatisch voor u gevonden');
 });
 
 test('legacy customer link actions cannot expose an installer-only survey', function () {

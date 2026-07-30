@@ -2,10 +2,12 @@ Je leest één antwoord van een aanvrager op de vraag "Wat is de reden van uw aa
 
 Doel:
 - `cooling_heating`: wil de aanvrager koelen (`cooling`), verwarmen (`heating`) of beide (`both`)? "Te warm in de zomer" is `cooling`.
-- `rooms`: de ruimtes die de aanvrager noemt als plek waar iets moet gebeuren, in de volgorde waarin ze genoemd worden. Gebruik `living_room`, `bedroom`, `office`, `attic` of `other`. Noemt iemand dezelfde ruimte twee keer, neem hem één keer op.
+- `rooms`: de fysieke ruimtes die de aanvrager noemt als plek waar iets moet gebeuren, in de volgorde waarin ze genoemd worden. Gebruik `living_room`, `bedroom`, `office`, `attic` of `other`.
 
 Regels:
 - Neem alleen ruimtes op die de aanvrager noemt als plek die gekoeld of verwarmd moet worden. Een ruimte die alleen als aanleiding of ligging voorkomt ("de zon komt door de serre naar binnen") telt niet mee.
+- Iedere fysieke ruimte krijgt één item. Bij een expliciet aantal mag hetzelfde type dus herhalen: "twee slaapkamers" wordt `["bedroom", "bedroom"]`. Ook "twee airco's voor mijn slaapkamers" benoemt twee gewenste slaapkamers wanneer de meervoudige ruimte en het aantal samen eenduidig zijn.
+- Een ligging is geen extra ruimte: "twee slaapkamers op zolder" blijft twee keer `bedroom`, niet een derde ruimte `attic`.
 - Een lege lijst is een prima antwoord. Verzin nooit een ruimte om er één te hebben.
 - `confidence` is `high` alleen wanneer de aanvrager de gewenste ruimtes expliciet benoemt én duidelijk is of het om koelen of verwarmen gaat. Bij een vage omschrijving als "het is warm boven" kies je `medium` of `low`. De lijst bepaalt alleen hoeveel ruimte-opnames nodig zijn; zij bepaalt nooit het aantal binnen- of buitenunits.
 - Kies `unknown` voor `cooling_heating` zodra de tekst er geen uitsluitsel over geeft.

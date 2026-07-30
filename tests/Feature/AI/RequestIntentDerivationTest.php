@@ -10,8 +10,10 @@ use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Enums\AiRunStatus;
 use App\Enums\IntakeStatus;
+use App\Livewire\Customer\IntakeWizard;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
+use Livewire\Livewire;
 
 beforeEach(function () {
     $this->seed(IntakeTemplateSeeder::class);
@@ -48,24 +50,29 @@ function intentStepKeys(Intake $intake): array
     return collect(app(IntakeStepBuilder::class)->build($intake->fresh(), $version))->pluck('question_key')->all();
 }
 
-test('naming two rooms answers function, unit count and both room types', function () {
+test('the installer sentence answers function room count type and floor locally', function () {
     $intake = makeIntentIntake();
-    answerReason($intake, 'De slaapkamer en de woonkamer worden te warm in de zomer.');
+    answerReason($intake, "Ik wil twee airco’s om m’n slaapkamers op zolder te koelen.");
 
     $run = app(DeriveIntentFromRequest::class)->handle($intake);
 
     expect($run?->status)->toBe(AiRunStatus::Succeeded)
+        ->and($run?->provider)->toBe('local')
         ->and($intake->answers()->where('question_key', 'cooling_heating')->firstOrFail()->value)->toBe(['value' => 'cooling'])
+        ->and($intake->answers()->where('question_key', 'cooling_heating')->firstOrFail()->prefill_source)->toBe(DeriveIntentFromRequest::SOURCE_REQUEST_TEXT)
         ->and($intake->answers()->where('question_key', 'indoor_unit_count')->firstOrFail()->value)->toBe(['number' => 2])
         ->and($intake->answers()->where('question_key', 'room_type')->where('section_instance_key', 'room-1')->firstOrFail()->value)->toBe(['value' => 'bedroom'])
-        ->and($intake->answers()->where('question_key', 'room_type')->where('section_instance_key', 'room-2')->firstOrFail()->value)->toBe(['value' => 'living_room']);
+        ->and($intake->answers()->where('question_key', 'room_type')->where('section_instance_key', 'room-2')->firstOrFail()->value)->toBe(['value' => 'bedroom'])
+        ->and($intake->answers()->where('question_key', 'floor_level')->where('section_instance_key', 'room-1')->firstOrFail()->value)->toBe(['value' => 'attic'])
+        ->and($intake->answers()->where('question_key', 'floor_level')->where('section_instance_key', 'room-2')->firstOrFail()->value)->toBe(['value' => 'attic']);
 
     $steps = intentStepKeys($intake);
 
-    // De drie vragen zijn beantwoord en verdwijnen; de ruimtesectie is wel uitgeklapt.
+    // De bekende gegevens verdwijnen als vraag; de ruimtesectie is wel tweemaal uitgeklapt.
     expect($steps)->not->toContain('cooling_heating')
         ->and($steps)->not->toContain('indoor_unit_count')
         ->and($steps)->not->toContain('room_type')
+        ->and($steps)->not->toContain('floor_level')
         ->and(collect($steps)->filter(fn (string $k): bool => $k === 'room_photos'))->toHaveCount(2);
 });
 
@@ -121,14 +128,39 @@ test('a reason too short to conclude anything is skipped without an AI call', fu
         ->and($intake->answers()->where('question_key', 'cooling_heating')->exists())->toBeFalse();
 });
 
-test('text inference stays off unless explicitly enabled', function () {
+test('external text inference stays off unless explicitly enabled', function () {
     config(['ai.text_inference.enabled' => false]);
 
     $intake = makeIntentIntake();
-    answerReason($intake, 'De slaapkamer en de woonkamer worden te warm in de zomer.');
+    answerReason($intake, 'De serre moet worden gekoeld voordat de zomer begint.');
 
     expect(app(DeriveIntentFromRequest::class)->handle($intake))->toBeNull()
-        ->and($intake->answers()->where('question_key', 'cooling_heating')->exists())->toBeFalse();
+        ->and($intake->answers()->where('question_key', 'cooling_heating')->exists())->toBeFalse()
+        ->and(FakeAiClient::lastRequest())->toBeNull();
+});
+
+test('opening an older customer link repairs an installer sentence before building steps', function () {
+    config(['ai.text_inference.enabled' => false]);
+
+    $intake = makeIntentIntake();
+    app(SaveIntakeAnswer::class)->handle(
+        $intake,
+        'request_reason',
+        null,
+        ['text' => "Ik wil twee airco’s om m’n slaapkamers op zolder te koelen."],
+        'installer',
+    );
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->assertSet('intakeId', $intake->id);
+
+    expect($intake->answers()->where('question_key', 'indoor_unit_count')->firstOrFail()->value)
+        ->toBe(['number' => 2])
+        ->and($intake->answers()->where('question_key', 'floor_level')->where('section_instance_key', 'room-2')->firstOrFail()->value)
+        ->toBe(['value' => 'attic'])
+        ->and(intentStepKeys($intake))->not->toContain('indoor_unit_count')
+        ->and(intentStepKeys($intake))->not->toContain('room_type')
+        ->and(intentStepKeys($intake))->not->toContain('floor_level');
 });
 
 test('a ground-mounted outdoor unit drops the ladder question', function () {

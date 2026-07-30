@@ -55,6 +55,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-045 | Eenvoudige installateurstaal op de productfunnel | E5 | done | medium | A (done) |
 | — | BL-046 | Brede productbelofte op de productfunnel | E5 | done | medium | A (done) |
 | — | BL-047 | Gestructureerde adresregistratie en BAG-herstel | E3 | done | high | F (done) |
+| — | BL-048 | Openingszin hergebruiken en broninformatie terugbrengen | E3 | done | high | F (done) |
 | ∥ | BL-013 | S3 als mediadisk | E5 | backlog | low | I · operationeel |
 | — | BL-029 | Begeleide leidingroute volgens één globale routeflow | E4 | dropped | high | Vervangen door ADR-0012 / BL-040; backend blijft |
 | — | BL-034 | Splitconfiguratie als installateursaandachtspunt | E4 | done | medium | H (done) |
@@ -314,6 +315,14 @@ Historische MVP-epic: bouwde prefill, adaptieve vragen en automatische BAG/PDOK-
 - **Aanleiding:** `2037 GR` + `273` kon als vrije tekst `Bernadottelaan, 273, 273` worden bewaard. De invoer valideerde het losse huisnummer wel, maar `CreateIntake` sloeg het niet op; de open BAG-route vergeleek daarna opnieuw de samengestelde tekst. Een test accepteerde ten onrechte dat alleen de optionele Kadaster-key dit achteraf kon repareren.
 - **Resultaat:** postcode, huisnummer en toevoeging zijn persistente intakevelden; suggestiekeuze synchroniseert de canonieke toevoeging; PDOK/BAG zoekt en matcht op die gestructureerde identiteit en schrijft de BAG-spelling terug. De hervatbare migratie normaliseert alleen het exacte dubbele-huisnummerpatroon en vult veilig afleidbare bestaande huisnummers aan. Bij `not_found`/`unavailable` kan de installateur de adrescontrole opnieuw starten.
 - **Acceptatiebewijs:** één ketentest voert exact `2037 GR` + `273` door requestnormalisatie, opslag, open PDOK-zoekquery, BAG-object en canonieke dossierregel, met `BAG_API_ENABLED=false`. Een aparte migratietest dekt backfill, hervatten en rollback.
+
+### BL-048 — Openingszin hergebruiken en broninformatie terugbrengen
+
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-30 · **PR:** deze PR · **Band:** F · **Volgt op:** BL-016/019/047
+- **Aanleiding:** de installateur kon in `request_reason` al schrijven dat twee airco’s twee slaapkamers op zolder moeten koelen, maar `DeriveIntentFromRequest` draaide pas wanneer de klant zélf die vraag opsloeg. De klant kreeg daardoor opnieuw de vragen naar functie, aantal ruimtes en ruimtetype. De installateursweergave behandelde daarnaast ruwe BAG-logistiek zoals coördinaten, perceelreferentie en volledige gebruiksoppervlakte als even belangrijk als bouwjaar en isolatie.
+- **Resultaat:** een begrensde lokale parser verwerkt alleen evidente Nederlandse formuleringen direct na aanmaken en bij het openen van een oudere nog actieve klantlink. De exacte voorbeeldzin levert `cooling`, twee gewenste ruimtes, twee slaapkamers en voor beide `floor_level=attic`; zolder is de verdieping en geen derde ruimte. De bron `request_text` geldt voor gepinde templates als sterke tekstafleiding, zonder externe AI-call. De primaire bronweergave toont alleen energielabel/isolatie, bouwjaar, relevante 3D-context en meterkastbeoordeling; ruwe brondata blijft voor audit en dev-admin bewaard en de luchtfoto staat ingeklapt.
+- **EP-Online:** de bestaande verrijking blijft fail-soft en vereist op de omgeving `EP_ONLINE_ENABLED=true` plus een RVO-key. Bij resultaat vervalt de isolatievraag en toont het dossier de labelletter, isolatie-indicatie en beschikbare energiebehoefte. Zonder key of zonder geregistreerd label blijft de klantvraag staan.
+- **Acceptatiebewijs:** unit- en featuretests voeren letterlijk `Ik wil twee airco’s om m’n slaapkamers op zolder te koelen.` door parser, HTTP-aanmaak, opslag en klantstappen met externe tekst-AI uit. Zij bewijzen ook dat beide slaapkamertaken de zolderverdieping overnemen. EP-Online-tests bewijzen de isolatie-afleiding en de opgeschoonde presenter; staging-smokes blijven als `todo` in `functional-test-status.md`.
 
 ### BL-016 — Hergebruik bekende gegevens (prefill)
 

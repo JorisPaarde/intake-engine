@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Domains\Intake\Data\EnergyLabel;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Services\ExternalFactPresenter;
 use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
@@ -128,6 +129,13 @@ test('a registered energy label answers both insulation and building type', func
 
     expect(stepKeysFor($intake))->not->toContain('insulation_indication')
         ->and(stepKeysFor($intake))->not->toContain('building_type');
+
+    $presented = app(ExternalFactPresenter::class)->present($intake->fresh());
+
+    expect(collect($presented['facts'])->pluck('label')->all())
+        ->toContain('Energielabel', 'Isolatie-indicatie')
+        ->and(collect($presented['facts'])->firstWhere('label', 'Isolatie-indicatie')['display'])
+        ->toBe('Gemiddeld · 78,5 kWh/m²·jaar');
 
     Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'ep-online.test')
         && $request->hasHeader('Authorization', 'epo-test-key')

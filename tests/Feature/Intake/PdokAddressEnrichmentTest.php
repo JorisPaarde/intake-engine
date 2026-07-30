@@ -227,11 +227,15 @@ test('selected address stores BAG facts and removes the redundant build-year ste
     $this->actingAs($user)
         ->get(route('intakes.show', $intake))
         ->assertOk()
-        ->assertSee('Automatisch verzamelde informatie')
+        ->assertSee('Automatisch voor u gevonden')
         ->assertSee('1890')
-        ->assertSee('16100 m²')
+        ->assertDontSee('16100 m²')
+        ->assertDontSee('Gebruiksdoel')
+        ->assertDontSee('Perceelreferentie')
+        ->assertDontSee('52.377144')
         ->assertSee('PDOK / BAG')
         ->assertSee('Luchtfoto rond de BAG-locatie van deze opname')
+        ->assertSee('Luchtfoto van de omgeving bekijken')
         ->assertSee('PDOK Luchtfoto RGB')
         ->assertSee('data:image/jpeg;base64,', false);
 });
@@ -258,17 +262,18 @@ test('generated dossier contains contact data external sources uncertainty and n
 
     expect($html)->toContain('Klant en contact')
         ->toContain('dossier@example.com')
-        ->toContain('Automatisch verzamelde informatie')
+        ->toContain('Automatisch gevonden woning- en installatiegegevens')
         ->toContain('Bouwjaar')
         ->toContain('1890')
+        ->not->toContain('Gebruiksoppervlakte')
+        ->not->toContain('Perceelreferentie')
         ->toContain('Bron:')
         ->toContain('PDOK / BAG')
         ->toContain('data:image/jpeg;base64,')
         ->toContain('Rode markering: BAG-locatie')
         ->toContain('PDOK Luchtfoto RGB')
-        ->toContain('De luchtfoto geeft alleen bovenaanzicht')
         ->toContain('Voorstel volgende stap')
-        ->toContain('Controleer eerst de gemarkeerde onzekerheden');
+        ->toContain('De aanvraag is compleet; bereid de offerte voor.');
 
     GeneratedReport::query()->create([
         'intake_id' => $intake->id,

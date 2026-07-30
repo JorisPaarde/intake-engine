@@ -159,7 +159,10 @@ final class IntakeStepBuilder
             $skipSources = is_array($skipSources) ? $skipSources : [$skipSources];
             $answerSource = $answerSources[$composite] ?? null;
 
-            if ($answerSource !== null && in_array($answerSource, $skipSources, true)) {
+            // Een lokale, evidente conclusie uit de openingszin is brondata van de
+            // aanvrager zelf. Ook oudere gepinde templates kenden deze bronnaam nog niet.
+            if ($answerSource === 'request_text'
+                || ($answerSource !== null && in_array($answerSource, $skipSources, true))) {
                 continue;
             }
 

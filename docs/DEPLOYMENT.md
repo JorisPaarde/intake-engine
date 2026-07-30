@@ -1,6 +1,6 @@
 # Deployment naar cPanel (staging + production)
 
-> **Documentversie:** 2.12 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.13 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 **Statusregel:** staging en production zijn fysiek en logisch gescheiden; open handmatige acties (env/host) staan in [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
 
@@ -200,6 +200,7 @@ Alles hieronder staat **niet** in git en moet jij (of de host) per omgeving zett
 |---|--------|------|----------------|-------------|
 | 1 | **SMTP voor mails** (BL-004/014/015/027) | `shared/.env` | Zie [§ Mail](#mail-bl-004). Zonder dit blijft de app bij `MAIL_MAILER=log` en **stuurt geen** klant-/installateursmails met tokens of notificaties (bewust, ADR-0002). | Echte bezorging + smoke-tests BL-004/014/015/027 |
 | 2 | **Interesseformulier intern melden** (BL-043) | `shared/.env` | Zet na SMTP ook `PRODUCT_INTEREST_MAIL_TO` op het interne opvolgadres; zie [§ Interesseformulier](#interesseformulier-bl-043). | Directe e-mailmelding naast de altijd opgeslagen inzending |
+| 3 | **EP-Online voor isolatie** (BL-048) | `shared/.env` | Vraag de RVO-webservicekey aan via `epbdwebservices.rvo.nl`; zet `EP_ONLINE_ENABLED=true` en `EP_ONLINE_KEY=…`, daarna `php artisan config:cache`. Gebruik bij een bestaand dossier **Adres opnieuw controleren**. Key nooit in git. | Geregistreerd energielabel, isolatie-indicatie/energiebehoefte en waar herkenbaar woningtype; de bijbehorende klantvragen vervallen |
 
 ### Optioneel / later (niet blokkerend voor de kernflow)
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domains\Intake\Services;
 
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeExternalFact;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
@@ -20,10 +21,12 @@ final class ExternalFactPresenter
      */
     public function present(Intake $intake): array
     {
-        $intake->loadMissing('externalFacts');
+        $intake->loadMissing(['externalFacts', 'answers']);
         $facts = [];
         $uncertainties = [];
         $aerialImage = null;
+        $insulation = $this->insulationFact($intake);
+        $insulationAdded = false;
 
         if ($intake->externalFacts->isEmpty()) {
             return [
@@ -52,17 +55,22 @@ final class ExternalFactPresenter
 
             $display = $this->display($fact);
 
-            if ($display === null) {
-                continue;
+            if ($display !== null) {
+                $facts[] = [
+                    'label' => $fact->label,
+                    'display' => $display,
+                    'source' => $fact->source,
+                    'source_url' => $fact->source_url,
+                    'confidence' => $fact->confidence === 'high' ? 'hoge zekerheid' : 'te controleren',
+                ];
             }
 
-            $facts[] = [
-                'label' => $fact->label,
-                'display' => $display,
-                'source' => $fact->source,
-                'source_url' => $fact->source_url,
-                'confidence' => $fact->confidence === 'high' ? 'hoge zekerheid' : 'te controleren',
-            ];
+            if (! $insulationAdded
+                && $insulation !== null
+                && in_array($fact->fact_key, ['energy_label', 'energy_demand'], true)) {
+                $facts[] = $insulation;
+                $insulationAdded = true;
+            }
         }
 
         return [
@@ -117,14 +125,8 @@ final class ExternalFactPresenter
         $value = $fact->value;
 
         return match ($fact->fact_key) {
-            'address_verification' => ($value['status'] ?? null) === 'matched' ? 'Adres gevonden en genormaliseerd' : null,
-            'location' => $this->locationDisplay($value),
-            'floor_area_m2' => isset($value['number']) ? (string) $value['number'].' '.($value['unit'] ?? 'm²') : null,
-            'usage_purposes' => $this->listDisplay($value['values'] ?? null),
-            'parcel_ids' => $this->listDisplay($value['values'] ?? null),
             'building_year' => isset($value['number']) ? (string) $value['number'] : null,
             'energy_label' => is_string($value['value'] ?? null) ? $value['value'] : null,
-            'energy_demand' => isset($value['number']) ? (string) $value['number'].' '.($value['unit'] ?? 'kWh/m²·jr') : null,
             'building_height_m' => isset($value['number']) ? (string) $value['number'].' '.($value['unit'] ?? 'm') : null,
             'roof_type' => is_string($value['label'] ?? null) ? $value['label'] : null,
             'floor_count' => isset($value['number']) ? (string) $value['number'] : null,
@@ -151,31 +153,55 @@ final class ExternalFactPresenter
         return implode(' · ', array_filter([$freeGroup, $phase, $evidence]));
     }
 
-    /** @param array<string, mixed> $value */
-    private function locationDisplay(array $value): ?string
+    /**
+     * @return array{label: string, display: string, source: string, source_url: string|null, confidence: string}|null
+     */
+    private function insulationFact(Intake $intake): ?array
     {
-        $parts = array_values(array_filter([
-            is_string($value['municipality'] ?? null) ? $value['municipality'] : null,
-            is_string($value['province'] ?? null) ? $value['province'] : null,
-        ]));
+        $answer = $intake->answers->first(
+            static fn (IntakeAnswer $answer): bool => $answer->question_key === 'insulation_indication'
+                && $answer->section_instance_key === null
+                && $answer->prefill_source === 'epo',
+        );
+        $value = is_array($answer?->value) ? ($answer->value['value'] ?? null) : null;
+        $label = match ($value) {
+            'good' => 'Goed',
+            'average' => 'Gemiddeld',
+            'poor' => 'Matig',
+            default => null,
+        };
 
-        if (is_numeric($value['latitude'] ?? null) && is_numeric($value['longitude'] ?? null)) {
-            $parts[] = number_format((float) $value['latitude'], 6, '.', '')
-                .', '.number_format((float) $value['longitude'], 6, '.', '');
-        }
-
-        return $parts === [] ? null : implode(' · ', $parts);
-    }
-
-    private function listDisplay(mixed $values): ?string
-    {
-        if (! is_array($values)) {
+        if ($label === null) {
             return null;
         }
 
-        $strings = array_values(array_filter($values, static fn (mixed $value): bool => is_string($value) && $value !== ''));
+        $demand = $intake->externalFacts->first(
+            static fn (IntakeExternalFact $fact): bool => $fact->fact_key === 'energy_demand',
+        );
+        $energyLabel = $intake->externalFacts->first(
+            static fn (IntakeExternalFact $fact): bool => $fact->fact_key === 'energy_label',
+        );
+        $sourceFact = $demand ?? $energyLabel;
 
-        return $strings === [] ? null : implode(', ', $strings);
+        if (! $sourceFact instanceof IntakeExternalFact) {
+            return null;
+        }
+
+        $demandValue = $demand instanceof IntakeExternalFact ? $demand->value : [];
+        $number = $demandValue['number'] ?? null;
+        $display = $label;
+
+        if (is_numeric($number)) {
+            $display .= ' · '.number_format((float) $number, 1, ',', '.').' kWh/m²·jaar';
+        }
+
+        return [
+            'label' => 'Isolatie-indicatie',
+            'display' => $display,
+            'source' => $sourceFact->source,
+            'source_url' => $sourceFact->source_url,
+            'confidence' => $sourceFact->confidence === 'high' ? 'hoge zekerheid' : 'te controleren',
+        ];
     }
 
     private function uncertainty(IntakeExternalFact $fact): ?string
@@ -192,10 +218,6 @@ final class ExternalFactPresenter
             $count = is_numeric($fact->value['building_count'] ?? null) ? (int) $fact->value['building_count'] : 0;
 
             return "Het adres is aan {$count} panden gekoppeld; bouwjaar moet handmatig worden gecontroleerd.";
-        }
-
-        if ($fact->fact_key === 'aerial_image') {
-            return 'De luchtfoto geeft alleen bovenaanzicht en omgevingscontext; gevel, actuele obstakels en exacte plaatsing moeten via klantfoto’s of op locatie worden bevestigd.';
         }
 
         if ($fact->fact_key === 'aerial_image_status') {
@@ -230,17 +252,17 @@ final class ExternalFactPresenter
     {
         $index = array_search($key, [
             'address_verification',
-            'building_year',
-            'usage_purposes',
-            'floor_area_m2',
-            'location',
-            'parcel_ids',
-            'building_match',
             'energy_label',
             'energy_demand',
+            'building_year',
+            'building_match',
             'roof_type',
             'building_height_m',
             'floor_count',
+            'floor_area_m2',
+            'usage_purposes',
+            'location',
+            'parcel_ids',
             'fusebox_photo_assessment',
             'aerial_image',
             'aerial_image_status',

@@ -54,7 +54,7 @@
         <dd>{{ $intake->fullAddress() }}</dd>
     </dl>
 
-    <h2>Automatisch verzamelde informatie</h2>
+    <h2>Automatisch gevonden woning- en installatiegegevens</h2>
     @if ($externalData['aerial_image'])
         <figure class="aerial">
             <div class="aerial-image">

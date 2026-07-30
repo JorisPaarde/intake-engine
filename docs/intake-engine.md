@@ -1,6 +1,6 @@
 # Vragen- en takenengine
 
-> **Documentversie:** 2.3 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.4 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: de templatewizard is **geïmplementeerd t/m airco v10** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md).
 
@@ -200,14 +200,15 @@ Keys van geschrapte v1-vragen bestaan niet in v2; hergebruikte keys behouden hun
 
 ## Prefill van bekende gegevens (BL-016)
 
-Bekende aanvraag- en brongegevens en sterke afleidingen worden zonder apart overzicht van bevestigingsvelden in het dossier gebruikt. Alleen een relevant conflict of beslissende onzekerheid wordt voorgelegd. `prefill_source` blijft nodig voor herkomst en voor gepinde historische templates. Deze deterministische prefillketen gebruikt geen LLM.
+Bekende aanvraag- en brongegevens en sterke afleidingen worden zonder apart overzicht van bevestigingsvelden in het dossier gebruikt. Alleen een relevant conflict of beslissende onzekerheid wordt voorgelegd. `prefill_source` blijft nodig voor herkomst en voor gepinde historische templates.
 
-Twee bronnen, gestuurd door vraag-`meta` (dus template-data, geen code):
+Drie bronnen, gestuurd door vraag-`meta`:
 
 | `meta`-vlag | Bron | Gedrag |
 |-------------|------|--------|
 | `installer_prefillable: true` | De installateur vult de vraag bij het aanmaken alvast in (`CreateIntake`, formulier `installer/intakes/create`). | Opgeslagen met `prefill_source=installer`. Airco v10 voegt `installer` aan `skip_when_prefilled_by` toe en vraagt dus geen redundante klantbevestiging; oudere gepinde versies tonen de waarde nog bewerkbaar. Prefill zet de opname niet op `in_progress`. |
 | `prefill_from_previous: true` | Binnen een repeatable sectie: het antwoord van de dichtstbijzijnde vorige instantie. | `IntakePrefillResolver` levert een voorzet voor de actieve stap zolang die instantie nog leeg is. Pas bij "Volgende" wordt het als eigen antwoord opgeslagen (`prefill_source` blijft `null`). |
+| `text_analysis: request_intent` | Een begrensde lokale parser leest evidente feiten uit de openingszin; optionele externe analyse is alleen fallback. | Hoge zekerheid wordt opgeslagen met `prefill_source=request_text`. De stepbuilder behandelt die bron als sterke tekstafleiding en laat de al beantwoorde vraag ook in bestaande gepinde v9/v10-opnames vervallen. |
 
 Zodra de aanvrager een zichtbaar voorzetveld zelf wijzigt of eroverheen navigeert, vervalt `prefill_source`. De deterministische `show`/`require`-regels blijven de enige poort voor verplichte velden.
 
@@ -219,9 +220,9 @@ Deze bronketen is **al geïmplementeerd** en blijft de automatische basis van ie
 
 PDOK Locatieserver vult bij het aanmaken straat, postcode en plaats vanuit één adresselectie. Daarna haalt `EnrichIntakeAddress` het BAG-verblijfsobject en het gekoppelde pand op. De actie is fail-soft: time-out, geen exacte match of een gemanipuleerde lookup-id blokkeert de intake nooit.
 
-Automatische waarden worden in `intake_external_facts` opgeslagen met bron, referentie/URL, zekerheid en ophaaltijdstip (ADR-0007). De eerste set bevat adrescontrole, coördinaten/gemeente/provincie, gebruiksoppervlakte, gebruiksdoel, perceelreferentie en — bij exact één gekoppeld pand — bouwjaar. Rapport/PDF en installateursdetail tonen deze feiten plus expliciete onzekerheden.
+Automatische waarden worden in `intake_external_facts` opgeslagen met bron, referentie/URL, zekerheid en ophaaltijdstip (ADR-0007). De eerste set bevat adrescontrole, coördinaten/gemeente/provincie, gebruiksoppervlakte, gebruiksdoel, perceelreferentie en — bij exact één gekoppeld pand — bouwjaar. De volledige set blijft beschikbaar voor audit en dev-admin, maar de gewone installateursweergave en het rapport tonen alleen gegevens die een installatiebesluit ondersteunen: energielabel/isolatie, bouwjaar, relevante 3D-context en meterkastbeoordeling. Coördinaten, perceelreferentie, gebruiksdoel en volledige BAG-gebruiksoppervlakte worden niet als hoofdinhoud getoond.
 
-Als BAG coördinaten levert, vraagt `PdokAerialImageService` server-side een actuele `Actueel_orthoHR` JPEG op via PDOK Luchtfoto RGB WMS (`EPSG:3857`, standaard circa 180 × 120 meter). Het bestand wordt gevalideerd, op de private `MEDIA_DISK` bewaard en als gemarkeerd bovenaanzicht in installateursdetail, HTML en PDF opgenomen. De browser maakt geen directe WMS-call. WMS-falen schrijft alleen een luchtfoto-onzekerheid en laat de al geslaagde BAG-verrijking intact; hard purge verwijdert het bestand.
+Als BAG coördinaten levert, vraagt `PdokAerialImageService` server-side een actuele `Actueel_orthoHR` JPEG op via PDOK Luchtfoto RGB WMS (`EPSG:3857`, standaard circa 180 × 120 meter). Het bestand wordt gevalideerd, op de private `MEDIA_DISK` bewaard en als gemarkeerd bovenaanzicht in installateursdetail, HTML en PDF opgenomen. In het installateursdetail staat het beeld ingeklapt, zodat woningfeiten eerst scanbaar blijven. De browser maakt geen directe WMS-call. Alleen een echte WMS-fout schrijft een onzekerheid; de algemene beperking van een bovenaanzicht wordt niet bij ieder geslaagd dossier als actiepunt herhaald. Hard purge verwijdert het bestand.
 
 **Vraagbesluit:** de luchtfoto vervangt geen klantfoto. Zij geeft dak, perceel en omgeving als snelle installateurscontext, maar geen betrouwbare actuele gevel, leidingroute, obstakels of montagehoogte. `facade_overview_photo` blijft daarom optioneel; de bestaande concrete buitenunit-/routefoto’s blijven de eenvoudigste controlebron wanneer ze nodig zijn.
 
@@ -294,13 +295,13 @@ Twee dingen komen ook op het Kadaster-pad van PDOK: **coördinaten** (Kadaster l
 
 ## De openingsvraag telt mee (tekst-afleiding)
 
-"De slaapkamer en de woonkamer worden te warm in de zomer" beantwoordt drie vragen die de wizard daarna nog stelde: de functie (koelen), het aantal gewenste ruimtes (twee) en het type van elke ruimte. Tot v8 vroegen we dat alsnog.
+"Ik wil twee airco’s om m’n slaapkamers op zolder te koelen" beantwoordt meerdere vragen die de wizard daarna nog stelde: de functie (koelen), het aantal gewenste ruimtes (twee), het type van elke ruimte (tweemaal slaapkamer) en de verdieping (voor beide zolder). “Op zolder” is daarbij de ligging van die slaapkamers, niet een derde ruimte.
 
-`request_reason` krijgt daarom `meta.text_analysis = 'request_intent'`. `DeriveIntentFromRequest` draait zodra dat antwoord wordt opgeslagen en werkt met dezelfde zekerheidsladder als de foto-afleiding: `high` laat de vraag vervallen, `medium` levert een bevestigbare voorzet, `low` doet niets.
+`request_reason` heeft daarom `meta.text_analysis = 'request_intent'`. `DeriveIntentFromRequest` draait direct nadat de installateur de opname aanmaakt én wanneer de klant de openingsvraag zelf opslaat. Bij het openen van een oudere actieve klantlink draait één lokale herstelpass voordat de stappen worden gebouwd. De lokale parser herkent alleen een kleine set evidente Nederlandse doelen, aantallen en ruimtetypen; tegenstrijdige aantallen of een onduidelijke functie leveren niets op.
 
-De genoemde ruimtes worden op volgorde aan `room-1`, `room-2`, … gekoppeld. De prompt mag alleen `high` kiezen wanneer de aanvrager de ruimtes expliciet benoemt — "het is warm boven" bewijst geen twee gewenste ruimtes, en het aantal te hoog inschatten kost meer dan één extra vraag. De prompt gebruikt vanaf v10 expliciet `desired_room_count`; de opslagkey blijft voor compatibiliteit `indoor_unit_count`. Een toelichting korter dan tien tekens gaat helemaal niet naar de provider.
+Een evidente lokale conclusie gebruikt `prefill_source=request_text`, laat de redundante vragen vervallen en vereist geen AI-provider. De genoemde ruimtes worden op volgorde aan `room-1`, `room-2`, … gekoppeld; een expliciete zolderligging vult `floor_level=attic` bij iedere afgeleide slaapkamer in. Een zin met “twee airco’s” en een niet-geteld meervoud “slaapkamers” mag twee slaapkamers opleveren; bij een conflict, bijvoorbeeld twee airco’s voor drie genoemde kamers, blijft de normale vraag staan.
 
-Aparte vlag: `AI_TEXT_INFERENCE_ENABLED`. Tekst naar een externe provider sturen is een andere afweging dan foto's, dus dat staat los van `AI_PHOTO_INFERENCE_ENABLED`.
+Alleen wanneer de lokale parser geen zekere conclusie kan trekken, mag de bestaande versioned prompt (`request-intent-v3`) als fallback draaien. Daarvoor blijft `AI_TEXT_INFERENCE_ENABLED` vereist. Tekst naar een externe provider sturen is een andere afweging dan foto's, dus dat staat los van `AI_PHOTO_INFERENCE_ENABLED`; de herstelpass bij het openen van een klantlink doet nooit stil een externe call. Een toelichting korter dan tien tekens gaat helemaal niet naar een provider.
 
 ## Cascades: wat logisch volgt, wordt niet gevraagd
 
@@ -333,6 +334,8 @@ Het neemt twee vragen over:
 **Bouwtype alleen bij herkenning.** EP-Online legt de waarden van `Gebouwtype` niet vast in de OpenAPI-spec, dus de omschrijving wordt op herkenbare woorden gematcht ("vrijstaand", "hoek", "tussen", "galerij"). Herkennen we hem niet, dan blijft de vraag staan in plaats van dat we gokken. `Gebouwklasse` "U" gaat rechtstreeks naar `commercial`.
 
 Beide onderbouwingen — labelletter én kWh/m²·jr — komen als feit in het dossier met bron en registratiedatum, zodat een afgeleid antwoord navolgbaar blijft. Heeft een adres geen label, dan blijven beide vragen gewoon staan; registratie is verplicht bij verkoop, verhuur en oplevering, dus de dekking is hoog maar niet volledig.
+
+De gewone dossierweergave vertaalt het afgeleide antwoord naar **Isolatie-indicatie: Goed, Gemiddeld of Matig** en toont de energiebehoefte ernaast wanneer die beschikbaar is. De integratie is fail-soft en draait alleen met `EP_ONLINE_ENABLED=true` én een geldige key in de omgeving; zonder configuratie of zonder label blijft `insulation_indication` een normale klantvraag. Na het activeren kan **Adres opnieuw controleren** een bestaand dossier opnieuw via BAG en EP-Online verrijken.
 
 Omdat `building_type` nu uit twee registers kan komen, accepteert `meta.skip_when_prefilled_by` sinds v8 ook een lijst bronnen.
 
