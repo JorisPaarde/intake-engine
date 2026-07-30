@@ -19,8 +19,7 @@ final class PurgeDemoIntakesCommand extends Command
     public function handle(
         HardDeleteIntake $hardDeleteIntake,
         PublicDemoWorkspaceProvisioner $workspaceProvisioner,
-    ): int
-    {
+    ): int {
         $cutoff = now()->subHours(max(1, (int) config('intake.demo.ttl_hours', 2)));
 
         $query = Intake::query()
