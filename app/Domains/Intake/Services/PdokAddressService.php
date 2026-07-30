@@ -22,7 +22,7 @@ final class PdokAddressService
     ) {}
 
     /**
-     * @return list<array{id: string, label: string, address_line: string, postal_code: string, city: string}>
+     * @return list<array{id: string, label: string, address_line: string, postal_code: string, house_number: int, house_number_addition: string|null, city: string}>
      */
     public function suggestForPostalAddress(string $postalCode, int $houseNumber, ?string $addition = null): array
     {
@@ -43,7 +43,7 @@ final class PdokAddressService
     }
 
     /**
-     * @param  array{address_line: string, postal_code: string}  $suggestion
+     * @param  array{address_line: string, postal_code: string, house_number: int, house_number_addition: string|null}  $suggestion
      */
     private function matchesPostalSuggestion(
         array $suggestion,
@@ -53,9 +53,7 @@ final class PdokAddressService
     ): bool {
         $suggestionPostalCode = strtoupper((string) preg_replace('/\s+/', '', $suggestion['postal_code']));
 
-        if ($suggestionPostalCode !== $postalCode
-            || preg_match('/\s(\d+)(?:-(.+))?$/u', $suggestion['address_line'], $matches) !== 1
-            || (int) $matches[1] !== $houseNumber) {
+        if ($suggestionPostalCode !== $postalCode || $suggestion['house_number'] !== $houseNumber) {
             return false;
         }
 
@@ -63,14 +61,14 @@ final class PdokAddressService
             return true;
         }
 
-        $suggestionAddition = $this->normalizeAddition($matches[2] ?? '');
+        $suggestionAddition = $this->normalizeAddition((string) $suggestion['house_number_addition']);
         $requestedAddition = $this->normalizeAddition($addition);
 
         return $suggestionAddition === $requestedAddition;
     }
 
     /**
-     * @return list<array{id: string, label: string, address_line: string, postal_code: string, city: string}>
+     * @return list<array{id: string, label: string, address_line: string, postal_code: string, house_number: int, house_number_addition: string|null, city: string}>
      */
     public function suggest(string $query, int $limit = 7): array
     {
@@ -105,9 +103,11 @@ final class PdokAddressService
 
             $addressLine = $this->addressLine($document);
             $postalCode = (string) ($document['postcode'] ?? '');
+            $houseNumber = $this->nullableInt($document['huisnummer'] ?? null);
+            $houseNumberAddition = $this->addressAddition($document);
             $city = (string) ($document['woonplaatsnaam'] ?? '');
 
-            if ($addressLine === '' || $city === '') {
+            if ($addressLine === '' || $houseNumber === null || $houseNumber < 1 || $city === '') {
                 continue;
             }
 
@@ -116,6 +116,8 @@ final class PdokAddressService
                 'label' => $label,
                 'address_line' => $addressLine,
                 'postal_code' => $postalCode,
+                'house_number' => $houseNumber,
+                'house_number_addition' => $houseNumberAddition,
                 'city' => $city,
             ];
         }
@@ -138,10 +140,16 @@ final class PdokAddressService
             ? $this->lookup($lookupId)
             : $this->findExactAddress($intake);
 
-        // Een handmatig ingetypt adres ("Bernadottelaan, 273, 273") komt door de
-        // vrije-tekstzoekopdracht heen maar valt af op matchesIntake(), waarna vroeger de
-        // héle verrijking leeg bleef. Postcode en huisnummer zijn dan nog prima bruikbaar,
-        // dus Kadaster krijgt eerst nog een kans voordat we opgeven.
+        // Een verouderde of door handmatige invoer gewiste selectie mag de open route
+        // niet blokkeren. Probeer dan opnieuw op de persistente postcode/huisnummer-
+        // identiteit; een afwijkend adres wordt hieronder nog steeds fail-closed geweigerd.
+        if ($lookupId !== null && ($address === null || ! $this->matchesIntake($address, $intake))) {
+            $address = $this->findExactAddress($intake);
+        }
+
+        // Nieuwe opnames matchen op de gestructureerde postcode-/huisnummeridentiteit.
+        // De directe Kadaster-route blijft een optioneel vangnet voor historische records
+        // die nog niet eenduidig via de Locatieserver gekoppeld kunnen worden.
         if ($address === null || ! $this->matchesIntake($address, $intake)) {
             return $this->enrichFromKadasterOnly($intake);
         }
@@ -167,6 +175,8 @@ final class PdokAddressService
                 addressLine: $this->addressLine($address),
                 postalCode: (string) ($address['postcode'] ?? ''),
                 city: (string) ($address['woonplaatsnaam'] ?? ''),
+                houseNumber: $this->nullableInt($address['huisnummer'] ?? null),
+                houseNumberAddition: $this->addressAddition($address),
                 bagAddressableObjectId: $kadaster->addressableObjectId,
                 municipality: $this->nullableString($address['gemeentenaam'] ?? null),
                 province: $this->nullableString($address['provincienaam'] ?? null),
@@ -203,6 +213,8 @@ final class PdokAddressService
             addressLine: $this->addressLine($address),
             postalCode: (string) ($address['postcode'] ?? ''),
             city: (string) ($address['woonplaatsnaam'] ?? ''),
+            houseNumber: $this->nullableInt($address['huisnummer'] ?? null),
+            houseNumberAddition: $this->addressAddition($address),
             bagAddressableObjectId: $addressableObjectId,
             municipality: $this->nullableString($address['gemeentenaam'] ?? null),
             province: $this->nullableString($address['provincienaam'] ?? null),
@@ -260,6 +272,8 @@ final class PdokAddressService
             addressLine: $kadaster->addressLine(),
             postalCode: $kadaster->postalCode,
             city: $kadaster->city,
+            houseNumber: $kadaster->houseNumber,
+            houseNumberAddition: $this->joinedAddressAddition($kadaster->houseLetter, $kadaster->addition),
             bagAddressableObjectId: $kadaster->addressableObjectId,
             municipality: null,
             province: null,
@@ -342,7 +356,7 @@ final class PdokAddressService
     private function findExactAddress(Intake $intake): ?array
     {
         $documents = $this->searchRequest()->get('/free', [
-            'q' => $intake->fullAddress(),
+            'q' => $this->addressLookupQuery($intake),
             'fq' => 'type:adres',
             'rows' => 5,
             'fl' => '*',
@@ -366,7 +380,13 @@ final class PdokAddressService
     /** @param array<string, mixed> $document */
     private function matchesIntake(array $document, Intake $intake): bool
     {
-        if ($this->normalize($this->addressLine($document)) !== $this->normalize($intake->address_line)) {
+        if ($intake->address_house_number !== null) {
+            if ($this->nullableInt($document['huisnummer'] ?? null) !== $intake->address_house_number
+                || $this->normalizeAddition($this->addressAddition($document) ?? '')
+                    !== $this->normalizeAddition((string) $intake->address_house_number_addition)) {
+                return false;
+            }
+        } elseif ($this->normalize($this->addressLine($document)) !== $this->normalize($intake->address_line)) {
             return false;
         }
 
@@ -384,11 +404,41 @@ final class PdokAddressService
     {
         $street = trim((string) ($document['straatnaam'] ?? ''));
         $number = trim((string) ($document['huisnummer'] ?? ''));
-        $letter = trim((string) ($document['huisletter'] ?? ''));
-        $addition = trim((string) ($document['huisnummertoevoeging'] ?? ''));
-        $suffix = implode('-', array_values(array_filter([$letter, $addition], static fn (string $part): bool => $part !== '')));
+        $suffix = $this->addressAddition($document);
 
-        return trim($street.' '.$number.($suffix === '' ? '' : '-'.$suffix));
+        return trim($street.' '.$number.($suffix === null ? '' : '-'.$suffix));
+    }
+
+    /** @param array<string, mixed> $document */
+    private function addressAddition(array $document): ?string
+    {
+        return $this->joinedAddressAddition(
+            $this->nullableString($document['huisletter'] ?? null),
+            $this->nullableString($document['huisnummertoevoeging'] ?? null),
+        );
+    }
+
+    private function joinedAddressAddition(?string $houseLetter, ?string $addition): ?string
+    {
+        $suffix = implode('-', array_values(array_filter(
+            [trim((string) $houseLetter), trim((string) $addition)],
+            static fn (string $part): bool => $part !== '',
+        )));
+
+        return $suffix === '' ? null : strtoupper($suffix);
+    }
+
+    private function addressLookupQuery(Intake $intake): string
+    {
+        if ($intake->address_postal_code === null || $intake->address_house_number === null) {
+            return $intake->fullAddress();
+        }
+
+        return trim(implode(' ', array_filter([
+            $intake->address_postal_code,
+            (string) $intake->address_house_number,
+            $intake->address_house_number_addition,
+        ], static fn (?string $part): bool => $part !== null && $part !== '')));
     }
 
     /** @return array<string, mixed> */

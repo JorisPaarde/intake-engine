@@ -34,8 +34,10 @@ final class CreateIntake
      *     customer_email: string,
      *     customer_phone?: string|null,
      *     address_line: string,
-     *     address_postal_code?: string|null,
-     *     address_city?: string|null,
+     *     address_postal_code: string,
+     *     address_house_number: int|string,
+     *     address_house_number_addition?: string|null,
+     *     address_city: string,
      *     internal_note?: string|null,
      *     template_key?: string,
      *     is_demo?: bool,
@@ -46,6 +48,7 @@ final class CreateIntake
      */
     public function handle(User $creator, array $data): Intake
     {
+        $data = [...$data, ...$this->validatedAddress($data)];
         $templateKey = $data['template_key'] ?? 'airco';
         $isDemo = (bool) ($data['is_demo'] ?? false);
         $workflowMode = $data['workflow_mode'] ?? ContributionMode::Customer;
@@ -74,8 +77,10 @@ final class CreateIntake
                 'customer_email' => $data['customer_email'],
                 'customer_phone' => $data['customer_phone'] ?? null,
                 'address_line' => $data['address_line'],
-                'address_postal_code' => $data['address_postal_code'] ?? null,
-                'address_city' => $data['address_city'] ?? null,
+                'address_postal_code' => $data['address_postal_code'],
+                'address_house_number' => $data['address_house_number'],
+                'address_house_number_addition' => $data['address_house_number_addition'] ?? null,
+                'address_city' => $data['address_city'],
                 'access_token' => $this->tokenGenerator->generate(),
                 'customer_access_enabled' => $workflowMode !== ContributionMode::Installer,
                 'token_expires_at' => $expiresAt,
@@ -117,6 +122,71 @@ final class CreateIntake
         });
 
         return $intake;
+    }
+
+    /**
+     * FormRequest-validatie beschermt de HTTP-route; deze domeingrens voorkomt dat een
+     * interne caller opnieuw een intake maakt waarvan BAG het huisnummer uit vrije tekst
+     * moet raden.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array{
+     *     address_line: string,
+     *     address_postal_code: string,
+     *     address_house_number: int,
+     *     address_house_number_addition: string|null,
+     *     address_city: string
+     * }
+     */
+    private function validatedAddress(array $data): array
+    {
+        $addressLine = trim((string) ($data['address_line'] ?? ''));
+        $postalCode = strtoupper((string) preg_replace(
+            '/\s+/',
+            '',
+            trim((string) ($data['address_postal_code'] ?? '')),
+        ));
+        $houseNumber = filter_var(
+            $data['address_house_number'] ?? null,
+            FILTER_VALIDATE_INT,
+            ['options' => ['min_range' => 1, 'max_range' => 999999]],
+        );
+        $addition = strtoupper(trim((string) ($data['address_house_number_addition'] ?? '')));
+        $city = trim((string) ($data['address_city'] ?? ''));
+        $errors = [];
+
+        if ($addressLine === '') {
+            $errors['address_line'] = 'Vul straat en huisnummer in.';
+        }
+
+        if (preg_match('/^[1-9]\d{3}[A-Z]{2}$/', $postalCode) !== 1) {
+            $errors['address_postal_code'] = 'Vul een geldige postcode in.';
+        }
+
+        if ($houseNumber === false) {
+            $errors['address_house_number'] = 'Vul een geldig huisnummer in.';
+        }
+
+        if ($addition !== ''
+            && (mb_strlen($addition) > 20 || preg_match('/^[A-Z0-9\-\s]+$/', $addition) !== 1)) {
+            $errors['address_house_number_addition'] = 'Vul een geldige toevoeging in.';
+        }
+
+        if ($city === '') {
+            $errors['address_city'] = 'Vul een plaats in.';
+        }
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
+
+        return [
+            'address_line' => $addressLine,
+            'address_postal_code' => $postalCode,
+            'address_house_number' => (int) $houseNumber,
+            'address_house_number_addition' => $addition === '' ? null : $addition,
+            'address_city' => $city,
+        ];
     }
 
     /**

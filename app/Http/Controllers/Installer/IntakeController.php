@@ -19,6 +19,7 @@ use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Services\ExternalFactPresenter;
 use App\Domains\Intake\Services\InstallerPhotoGalleryBuilder;
 use App\Domains\Intake\Services\IntakeDossierSummaryBuilder;
+use App\Domains\Intake\Services\PdokAddressService;
 use App\Domains\Intake\Services\RebuildIntakeReportHtml;
 use App\Enums\AttentionPointSource;
 use App\Enums\AttentionPointStatus;
@@ -139,6 +140,31 @@ class IntakeController extends Controller
                 ->reject(static fn (ReviewDecision $decision): bool => $decision === ReviewDecision::Pending)
                 ->values(),
         ]);
+    }
+
+    public function retryAddressEnrichment(
+        Intake $intake,
+        EnrichIntakeAddress $enrichIntakeAddress,
+    ): RedirectResponse {
+        $this->authorize('update', $intake);
+        abort_if($intake->is_demo, 404);
+
+        $enrichIntakeAddress->handle($intake);
+
+        $verification = $intake->externalFacts()
+            ->where('fact_key', 'address_verification')
+            ->where('source', PdokAddressService::sourceName())
+            ->first();
+        $status = $verification?->value['status'] ?? null;
+        $message = match ($status) {
+            'matched' => 'Adres opnieuw gecontroleerd. De BAG-gegevens zijn bijgewerkt.',
+            'unavailable' => 'PDOK/BAG is tijdelijk niet beschikbaar. Probeer het later opnieuw.',
+            default => 'Het adres kon nog niet eenduidig in de BAG worden gevonden.',
+        };
+
+        return redirect()
+            ->route('intakes.show', $intake)
+            ->with('status', $message);
     }
 
     public function review(

@@ -32,6 +32,7 @@ final class AddressSuggestionController extends Controller
 
             /** @var array{postal_code: string, house_number: int|string, house_number_addition?: string|null} $validated */
             $validated = $validator->validated();
+            /** @return list<array{id: string, label: string, address_line: string, postal_code: string, house_number: int, house_number_addition: string|null, city: string}> */
             $lookup = fn (): array => $pdok->suggestForPostalAddress(
                 $validated['postal_code'],
                 (int) $validated['house_number'],
@@ -51,6 +52,7 @@ final class AddressSuggestionController extends Controller
 
             /** @var array{q: string} $validated */
             $validated = $validator->validated();
+            /** @return list<array{id: string, label: string, address_line: string, postal_code: string, house_number: int, house_number_addition: string|null, city: string}> */
             $lookup = fn (): array => $pdok->suggest($validated['q']);
         }
 

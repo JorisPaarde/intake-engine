@@ -61,6 +61,9 @@ Route::middleware(['auth', 'verified', 'public.demo.scope'])->group(function () 
     Route::get('/intakes/create', [IntakeController::class, 'create'])->name('intakes.create');
     Route::post('/intakes', [IntakeController::class, 'store'])->name('intakes.store');
     Route::get('/intakes/{intake}', [IntakeController::class, 'show'])->name('intakes.show');
+    Route::post('/intakes/{intake}/address-enrichment', [IntakeController::class, 'retryAddressEnrichment'])
+        ->middleware('throttle:10,1')
+        ->name('intakes.address-enrichment.retry');
     Route::get('/intakes/{intake}/opname', [SurveyWorkspaceController::class, 'show'])->name('intakes.workspace');
     Route::post('/intakes/{intake}/opname/rooms', [SurveyWorkspaceController::class, 'storeRoom'])->name('intakes.workspace.rooms.store');
     Route::post('/intakes/{intake}/opname/placements', [SurveyWorkspaceController::class, 'storePlacement'])->name('intakes.workspace.placements.store');

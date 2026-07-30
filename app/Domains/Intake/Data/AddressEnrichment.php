@@ -16,6 +16,8 @@ final readonly class AddressEnrichment
         public string $addressLine,
         public string $postalCode,
         public string $city,
+        public ?int $houseNumber,
+        public ?string $houseNumberAddition,
         public string $bagAddressableObjectId,
         public ?string $municipality,
         public ?string $province,

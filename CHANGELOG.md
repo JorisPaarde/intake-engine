@@ -6,6 +6,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Fixed
 
+- **Gestructureerde adresregistratie en BAG-herstel (BL-047):** postcode, huisnummer en toevoeging worden nu als afzonderlijke intakevelden bewaard en bepalen samen de exacte PDOK/BAG-match. De open PDOK-route is niet langer afhankelijk van het teruglezen van een vrije adresregel. Bestaande regels met het bekende dubbele huisnummer worden veilig genormaliseerd en een mislukte adrescontrole kan vanuit het dossier opnieuw worden uitgevoerd. De regressietest dekt expliciet `2037 GR` + `273` zonder optionele Kadaster-key.
 - **Hervatbare MySQL-dossiermigratie (BL-044):** de centrale dossiermigration kan na een door MySQL gedeeltelijk vastgelegde DDL-run veilig opnieuw starten zonder dubbele kolommen, tabellen of bewijslinks. De twee automatisch afgeleide foreign-keynamen die MySQLs limiet van 64 tekens overschreden hebben expliciete korte namen; CI voert voortaan naast de SQLite-tests ook een verse én hervatte MySQL-migratiesmoke uit.
 
 ### Added

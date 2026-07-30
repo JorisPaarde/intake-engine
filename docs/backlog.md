@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.6 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.7 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -54,6 +54,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-044 | Hervatbare MySQL-dossiermigratie | E5 | done | high | deployherstel (done) |
 | — | BL-045 | Eenvoudige installateurstaal op de productfunnel | E5 | done | medium | A (done) |
 | — | BL-046 | Brede productbelofte op de productfunnel | E5 | done | medium | A (done) |
+| — | BL-047 | Gestructureerde adresregistratie en BAG-herstel | E3 | done | high | F (done) |
 | ∥ | BL-013 | S3 als mediadisk | E5 | backlog | low | I · operationeel |
 | — | BL-029 | Begeleide leidingroute volgens één globale routeflow | E4 | dropped | high | Vervangen door ADR-0012 / BL-040; backend blijft |
 | — | BL-034 | Splitconfiguratie als installateursaandachtspunt | E4 | done | medium | H (done) |
@@ -307,6 +308,13 @@ Historische MVP-epic: bouwde prefill, adaptieve vragen en automatische BAG/PDOK-
 - **Acceptatie:** postcode staat vóór adresvelden; `1234 AB + 10 (+ toevoeging)` levert via het bestaande authenticated/throttled endpoint één of meer veilige adressuggesties; keuze vult straat/postcode/plaats en lookup-ID; wijziging van postcode/huisnummer wist een oude selectie; toetsenbord en statusfeedback zijn toegankelijk; validatie en featuretests dekken exact resultaat, meerdere toevoegingen, ongeldige invoer, PDOK-storing en handmatige fallback.
 - **Resultaat:** geldige postcode + huisnummer starten zonder extra knop automatisch de exacte lookup; toevoegingswijzigingen zoeken opnieuw. Debounce, abort en request-identiteitscontrole voorkomen dubbele of verouderde resultaten en automatische resultaten verplaatsen de focus niet.
 
+### BL-047 — Gestructureerde adresregistratie en BAG-herstel
+
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-30 · **PR:** #60 · **Band:** F · **Volgt op:** BL-019/033
+- **Aanleiding:** `2037 GR` + `273` kon als vrije tekst `Bernadottelaan, 273, 273` worden bewaard. De invoer valideerde het losse huisnummer wel, maar `CreateIntake` sloeg het niet op; de open BAG-route vergeleek daarna opnieuw de samengestelde tekst. Een test accepteerde ten onrechte dat alleen de optionele Kadaster-key dit achteraf kon repareren.
+- **Resultaat:** postcode, huisnummer en toevoeging zijn persistente intakevelden; suggestiekeuze synchroniseert de canonieke toevoeging; PDOK/BAG zoekt en matcht op die gestructureerde identiteit en schrijft de BAG-spelling terug. De hervatbare migratie normaliseert alleen het exacte dubbele-huisnummerpatroon en vult veilig afleidbare bestaande huisnummers aan. Bij `not_found`/`unavailable` kan de installateur de adrescontrole opnieuw starten.
+- **Acceptatiebewijs:** één ketentest voert exact `2037 GR` + `273` door requestnormalisatie, opslag, open PDOK-zoekquery, BAG-object en canonieke dossierregel, met `BAG_API_ENABLED=false`. Een aparte migratietest dekt backfill, hervatten en rollback.
+
 ### BL-016 — Hergebruik bekende gegevens (prefill)
 
 - **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-18 · **Ref:** [intake-engine.md § Prefill](../docs/intake-engine.md#prefill-van-bekende-gegevens-bl-016)
@@ -546,6 +554,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 | ID | Datum | Resultaat / PR |
 |----|-------|----------------|
+| BL-047 | 2026-07-30 | #60 — gestructureerde adresregistratie, BAG-ketentest en herstelactie |
 | BL-044 | 2026-07-30 | deze PR — hervatbare dossiermigration + MySQL-migratiesmoke |
 | BL-045 | 2026-07-30 | deze PR — kortere, scanbare funnelcopy voor airco-installateurs |
 | BL-030/035–042 | 2026-07-30 | deze PR — dossierkern, beeldvarianten, drie workflows, airco-opstellingen/verbindingen, AI-synthese en uitkomstmetrics |

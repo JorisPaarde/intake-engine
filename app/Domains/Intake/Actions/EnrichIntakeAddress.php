@@ -156,6 +156,8 @@ final class EnrichIntakeAddress
         $intake->update([
             'address_line' => $data->addressLine,
             'address_postal_code' => $data->postalCode,
+            'address_house_number' => $data->houseNumber ?? $intake->address_house_number,
+            'address_house_number_addition' => $data->houseNumberAddition,
             'address_city' => $data->city,
         ]);
 

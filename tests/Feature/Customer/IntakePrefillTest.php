@@ -118,6 +118,9 @@ test('installer-prefilled answers are shown to the customer as to-confirm', func
         'customer_name' => 'Klant Test',
         'customer_email' => 'klant@example.com',
         'address_line' => 'Teststraat 1',
+        'address_postal_code' => '1000AA',
+        'address_house_number' => 1,
+        'address_city' => 'Amsterdam',
         'template_key' => 'airco',
         'prefill' => [
             'request_reason' => 'Slaapkamer te warm',

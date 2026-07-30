@@ -31,6 +31,8 @@ use Illuminate\Support\Str;
  * @property Carbon|null $completed_at
  * @property Carbon|null $reviewed_at
  * @property Carbon|null $reminder_sent_at
+ * @property int|null $address_house_number
+ * @property string|null $address_house_number_addition
  * @property int $progress_percent
  * @property bool $is_demo
  * @property array<string, mixed>|null $completeness_snapshot
@@ -54,6 +56,8 @@ class Intake extends Model
         'customer_phone',
         'address_line',
         'address_postal_code',
+        'address_house_number',
+        'address_house_number_addition',
         'address_city',
         'access_token',
         'customer_access_enabled',
@@ -87,6 +91,7 @@ class Intake extends Model
             'completed_at' => 'datetime',
             'reviewed_at' => 'datetime',
             'reminder_sent_at' => 'datetime',
+            'address_house_number' => 'integer',
             'progress_percent' => 'integer',
             'is_demo' => 'boolean',
             'completeness_snapshot' => 'array',
