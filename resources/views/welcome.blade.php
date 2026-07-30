@@ -5,18 +5,18 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta
             name="description"
-            content="Digitale Opname helpt airco-installateurs sneller van aanvraag naar een controleerbare offerte en werkvoorbereiding, met minder onnodige voorbezoeken."
+            content="Laat klanten precies de juiste foto’s maken en zie sneller of je een airco-offerte kunt maken. Minder heen-en-weer, minder onnodige voorbezoeken."
         >
         <meta property="og:type" content="website">
         <meta property="og:locale" content="nl_NL">
-        <meta property="og:title" content="Digitale Opname — minder voorbezoeken, sneller offreren">
+        <meta property="og:title" content="Digitale Opname voor airco-installateurs">
         <meta
             property="og:description"
-            content="Woningdata, klantfoto’s en technische routes in één controleerbaar dossier voor de installateur."
+            content="Geen voorbezoek voor één ontbrekende foto. De klant krijgt duidelijke opdrachten; jij ziet wat er kan."
         >
         <meta property="og:url" content="{{ route('home') }}">
 
-        <title>Digitale Opname — minder voorbezoeken, sneller offreren</title>
+        <title>Digitale Opname voor airco-installateurs</title>
 
         @vite(['resources/css/app.css', 'resources/js/app.js'])
 
@@ -75,9 +75,9 @@
                 </a>
 
                 <nav class="hidden items-center gap-7 lg:flex" aria-label="Hoofdnavigatie">
-                    <a class="text-sm font-medium text-white/75 transition hover:text-white" href="#werkwijze">Werkwijze</a>
+                    <a class="text-sm font-medium text-white/75 transition hover:text-white" href="#werkwijze">Zo werkt het</a>
                     <a class="text-sm font-medium text-white/75 transition hover:text-white" href="#voordelen">Voordelen</a>
-                    <a class="text-sm font-medium text-white/75 transition hover:text-white" href="#product">Product</a>
+                    <a class="text-sm font-medium text-white/75 transition hover:text-white" href="#product">Bekijk de app</a>
                     <a class="text-sm font-medium text-white/75 transition hover:text-white" href="#vragen">Vragen</a>
                 </nav>
 
@@ -100,7 +100,7 @@
                             href="#interesse"
                             class="inline-flex min-h-10 items-center justify-center rounded-lg bg-white px-4 text-sm font-semibold text-brand-deep transition hover:bg-brand-mist"
                         >
-                            Ik heb interesse
+                            Ik wil een pilot
                         </a>
                     @endauth
                 </div>
@@ -113,13 +113,13 @@
                 <div class="relative mx-auto grid min-h-[760px] max-w-7xl items-center gap-16 px-5 pb-20 pt-32 sm:px-8 lg:grid-cols-[0.9fr_1.1fr] lg:py-32">
                     <div class="max-w-2xl">
                         <p class="home-reveal text-sm font-semibold uppercase tracking-[0.2em] text-cyan-200">
-                            Digitale woningopname voor airco-installateurs
+                            Voor airco-installateurs
                         </p>
                         <h1 class="home-reveal home-reveal-delay mt-5 font-display text-4xl font-semibold leading-[1.08] tracking-[-0.035em] text-white sm:text-5xl lg:text-6xl">
-                            Minder voorbezoeken. Sneller een offerte die klopt.
+                            Geen voorbezoek voor één ontbrekende foto.
                         </h1>
                         <p class="home-reveal home-reveal-delay-2 mt-6 max-w-xl text-lg leading-relaxed text-white/75">
-                            Woningdata, gerichte klantfoto’s en koel-, condens- en stroomroutes komen samen in één controleerbaar dossier. De app verzamelt en ordent. Jij blijft beslissen.
+                            De klant krijgt duidelijke foto-opdrachten. Jij ziet alles op één plek en weet sneller: offreren, nog één vraag stellen of toch langsgaan.
                         </p>
 
                         <div class="home-reveal home-reveal-delay-2 mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -131,7 +131,7 @@
                                             type="submit"
                                             class="inline-flex min-h-[52px] w-full items-center justify-center rounded-lg bg-brand-ember px-6 text-base font-semibold text-white shadow-lg shadow-black/20 transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-white sm:w-auto"
                                         >
-                                            Probeer de interactieve demo
+                                            Probeer de demo
                                             <svg class="ml-2 h-4 w-4" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                                                 <path d="M3.5 8h9m-3.5-3.5L12.5 8 9 11.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
                                             </svg>
@@ -142,7 +142,7 @@
                                     href="#interesse"
                                     class="inline-flex min-h-[52px] items-center justify-center rounded-lg border border-white/35 px-6 text-base font-semibold text-white transition hover:border-white/70 hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
                                 >
-                                    Bespreek een pilot
+                                    Ik wil een pilot
                                 </a>
                             @else
                                 <a
@@ -157,7 +157,7 @@
                         @guest
                             @if (config('intake.demo.enabled'))
                                 <div class="home-reveal home-reveal-delay-2 mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm text-white/60">
-                                    @foreach (['Geen account nodig', 'De echte installateursflow', 'Fictieve data'] as $item)
+                                    @foreach (['Geen account nodig', 'Fictieve aanvraag', 'Jij houdt de regie'] as $item)
                                         <span class="inline-flex items-center gap-2">
                                             <svg class="h-4 w-4 text-cyan-200" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                                                 <path d="m3 8.2 3.1 3.1L13 4.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -205,10 +205,10 @@
                                 <div class="p-4 sm:p-6">
                                     <div class="flex flex-wrap items-start justify-between gap-3">
                                         <div>
-                                            <p class="text-[10px] font-semibold uppercase tracking-[0.14em] text-brand-sea">Technisch dossier</p>
-                                            <h2 class="mt-1 text-base font-semibold text-brand-ink sm:text-lg">Klaar om te beoordelen</h2>
+                                            <p class="text-[10px] font-semibold uppercase tracking-[0.14em] text-brand-sea">Opname</p>
+                                            <h2 class="mt-1 text-base font-semibold text-brand-ink sm:text-lg">Bijna klaar</h2>
                                         </div>
-                                        <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-semibold text-emerald-700">6 gereed · 1 controle</span>
+                                        <span class="rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-semibold text-emerald-700">6 klaar · 1 check</span>
                                     </div>
 
                                     <div class="mt-5 grid gap-3 md:grid-cols-2">
@@ -216,14 +216,14 @@
                                             <div class="landing-photo-bedroom h-28" role="img" aria-label="Fictieve slaapkamerfoto"></div>
                                             <div class="p-3">
                                                 <p class="text-[10px] font-semibold text-brand-ink">Slaapkamer ouders</p>
-                                                <p class="mt-1 text-[10px] leading-relaxed text-gray-500">Binnenpositie en doorvoer zichtbaar</p>
+                                                <p class="mt-1 text-[10px] leading-relaxed text-gray-500">Binnenplek en muurdoorgang zichtbaar</p>
                                             </div>
                                         </div>
                                         <div class="space-y-2">
                                             @foreach ([
-                                                ['Koelleiding', 'Aannemelijk', 'bg-sky-500'],
-                                                ['Condensafvoer', 'Aannemelijk', 'bg-cyan-500'],
-                                                ['Stroomtoevoer', 'Controleren', 'bg-amber-500'],
+                                                ['Koelleiding', 'Lijkt goed', 'bg-sky-500'],
+                                                ['Condensafvoer', 'Lijkt goed', 'bg-cyan-500'],
+                                                ['Stroomtoevoer', 'Nog checken', 'bg-amber-500'],
                                             ] as [$label, $status, $color])
                                                 <div class="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2.5">
                                                     <span class="h-2 w-2 rounded-full {{ $color }}"></span>
@@ -237,7 +237,7 @@
                                     <div class="mt-3 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
                                         <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xs font-bold text-amber-700">!</span>
                                         <div>
-                                            <p class="text-[10px] font-semibold text-amber-900">Nog één beslissend detail</p>
+                                            <p class="text-[10px] font-semibold text-amber-900">Nog één ding nodig</p>
                                             <p class="mt-1 text-[10px] leading-relaxed text-amber-800/70">Vraag een scherpe foto van de groepsaanduiding. De rest van het voorstel blijft staan.</p>
                                         </div>
                                     </div>
@@ -246,7 +246,7 @@
                         </div>
 
                         <div class="absolute -bottom-8 -left-3 hidden w-48 rounded-xl border border-gray-200 bg-white p-3 shadow-xl sm:block lg:-left-10">
-                            <p class="text-[9px] font-semibold uppercase tracking-[0.12em] text-gray-400">Automatisch bekend</p>
+                            <p class="text-[9px] font-semibold uppercase tracking-[0.12em] text-gray-400">Staat al klaar</p>
                             <div class="mt-2 grid grid-cols-3 gap-2 text-center">
                                 @foreach ([['1996', 'Bouwjaar'], ['118 m²', 'Oppervlak'], ['B', 'Label']] as [$value, $label])
                                     <div class="rounded-lg bg-brand-mist px-2 py-2">
@@ -262,69 +262,67 @@
 
             <section class="border-b border-brand-fog bg-white px-5 py-8 sm:px-8">
                 <div class="mx-auto flex max-w-7xl flex-col gap-5 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
-                    <p class="text-sm font-semibold text-brand-ink">Ontworpen rond het echte werk na een airco-aanvraag</p>
+                    <p class="text-sm font-semibold text-brand-ink">De app doet het voorwerk. Jij geeft het vakmatige oordeel.</p>
                     <div class="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-brand-ink/55 sm:justify-end">
-                        <span>BAG & woningcontext</span>
-                        <span>Beeldbewijs</span>
-                        <span>3 technische routes</span>
-                        <span>Installateursbesluit</span>
+                        <span>Klant maakt foto’s</span>
+                        <span>Alles op één plek</span>
+                        <span>Jij beslist</span>
                     </div>
                 </div>
             </section>
 
-            <section class="bg-brand-mist px-5 py-20 sm:px-8 sm:py-28">
+            <section class="bg-brand-mist px-5 py-16 sm:px-8 sm:py-20">
                 <div class="mx-auto max-w-7xl">
                     <div class="grid gap-12 lg:grid-cols-[0.85fr_1.15fr] lg:items-end">
                         <div class="max-w-xl">
-                            <p class="text-sm font-semibold uppercase tracking-[0.18em] text-brand-sea">Het probleem</p>
+                            <p class="text-sm font-semibold uppercase tracking-[0.18em] text-brand-sea">Herkenbaar?</p>
                             <h2 class="mt-4 font-display text-3xl font-semibold tracking-[-0.025em] text-brand-ink sm:text-4xl">
-                                Eén ontbrekend detail kan de hele aanvraag vertragen.
+                                Niet ieder voorbezoek is vakwerk.
                             </h2>
                         </div>
                         <p class="max-w-2xl text-lg leading-relaxed text-brand-ink/65">
-                            Foto’s zonder context, losse WhatsApp-berichten en technische vragen die de klant niet kan beantwoorden. Uiteindelijk gaat er toch iemand langs voor informatie die vaak gericht op afstand verzameld had kunnen worden.
+                            Soms is het vooral een dure manier om één ontbrekende foto te krijgen. Je belt, appt en rijdt alsnog — terwijl de klant het juiste beeld vaak prima zelf kan maken.
                         </p>
                     </div>
 
-                    <div class="mt-12 grid gap-5 md:grid-cols-3">
+                    <div class="mt-10 grid gap-5 md:grid-cols-3">
                         @foreach ([
-                            ['01', 'Heen-en-weer', 'De installateur moet zelf ontdekken wat ontbreekt en steeds opnieuw uitleggen welke foto of maat nodig is.'],
-                            ['02', 'Onzeker offreren', 'Informatie staat verspreid, waardoor risico’s lastig te beoordelen zijn en werkvoorbereiding later opnieuw begint.'],
-                            ['03', 'Onnodig voorbezoek', 'Een rit wordt de veilige uitweg, ook wanneer maar één beslissend detail niet goed in beeld is gebracht.'],
+                            ['01', 'Losse foto’s', 'Jij moet uitzoeken wat je precies ziet.'],
+                            ['02', 'Nog een appje', 'Jij legt opnieuw uit wat er ontbreekt.'],
+                            ['03', 'Toch in de bus', 'Twijfel maakt een rit al snel de veilige keuze.'],
                         ] as [$number, $title, $copy])
-                            <article class="rounded-2xl border border-brand-fog bg-white p-6 sm:p-7">
+                            <article class="rounded-2xl border border-brand-fog bg-white p-6">
                                 <span class="text-xs font-semibold tracking-[0.18em] text-brand-sea">{{ $number }}</span>
-                                <h3 class="mt-5 text-xl font-semibold text-brand-ink">{{ $title }}</h3>
-                                <p class="mt-3 text-base leading-relaxed text-brand-ink/60">{{ $copy }}</p>
+                                <h3 class="mt-4 text-xl font-semibold text-brand-ink">{{ $title }}</h3>
+                                <p class="mt-2 text-base leading-relaxed text-brand-ink/60">{{ $copy }}</p>
                             </article>
                         @endforeach
                     </div>
 
                     <div class="mt-8 rounded-2xl bg-brand-deep px-6 py-6 text-white sm:flex sm:items-center sm:justify-between sm:gap-8 sm:px-8">
-                        <p class="font-display text-xl font-semibold sm:text-2xl">De opname neemt het verzamelwerk over.</p>
-                        <p class="mt-2 max-w-xl text-sm leading-relaxed text-white/65 sm:mt-0 sm:text-right">Niet het vakinhoudelijke oordeel van de installateur.</p>
+                        <p class="font-display text-xl font-semibold sm:text-2xl">Vraag eerder het juiste.</p>
+                        <p class="mt-2 max-w-xl text-sm leading-relaxed text-white/65 sm:mt-0 sm:text-right">In plaats van later nóg iets.</p>
                     </div>
                 </div>
             </section>
 
-            <section id="werkwijze" class="scroll-mt-6 bg-white px-5 py-20 sm:px-8 sm:py-28">
+            <section id="werkwijze" class="scroll-mt-6 bg-white px-5 py-16 sm:px-8 sm:py-20">
                 <div class="mx-auto max-w-7xl">
                     <div class="max-w-2xl">
-                        <p class="text-sm font-semibold uppercase tracking-[0.18em] text-brand-sea">Van aanvraag naar besluit</p>
+                        <p class="text-sm font-semibold uppercase tracking-[0.18em] text-brand-sea">Zo werkt het</p>
                         <h2 class="mt-4 font-display text-3xl font-semibold tracking-[-0.025em] text-brand-ink sm:text-4xl">
-                            Eén dossier, vier heldere stappen
+                            Van aanvraag naar duidelijkheid in drie stappen
                         </h2>
                         <p class="mt-4 text-lg leading-relaxed text-brand-ink/65">
-                            De techniek bepaalt welke informatie nodig is. Klant, installateur, openbare bronnen en AI leveren ieder alleen hun passende bijdrage.
+                            Laat de klant de opname doen, doe hem zelf of combineer beide. Alles komt in hetzelfde overzicht.
                         </p>
                     </div>
 
-                    <ol class="mt-14 grid gap-px overflow-hidden rounded-2xl border border-brand-fog bg-brand-fog lg:grid-cols-4">
+                    <ol class="mt-10 grid gap-px overflow-hidden rounded-2xl border border-brand-fog bg-brand-fog lg:grid-cols-3">
                         @foreach ([
-                            ['1', 'Start met wat al bekend is', 'Aanvraag- en woninggegevens vormen direct de basis. De klant hoeft bekende informatie niet opnieuw in te vullen.'],
-                            ['2', 'Verzamel gericht bewijs', 'Laat de klant duidelijke foto-opdrachten uitvoeren, leg de opname zelf vast of combineer beide routes.'],
-                            ['3', 'Orden posities en routes', 'Beeldbewijs wordt gekoppeld aan binnen- en buitenposities en aan koel-, condens- en stroomverbindingen.'],
-                            ['4', 'Controleer en beslis', 'Je ziet wat gereed is, wat nog aandacht vraagt en of offerte, aanvulling of locatiebezoek de juiste stap is.'],
+                            ['1', 'De klant maakt de juiste foto’s', 'Geen open vraag als “stuur wat foto’s”, maar één duidelijke opdracht per keer.'],
+                            ['2', 'Alles staat op één plek', 'Foto’s, woninggegevens en mogelijke leidingroutes staan netjes bij elkaar.'],
+                            ['3', 'Jij ziet wat de volgende stap is', 'Offreren, één detail opvragen of toch langsgaan. Jij houdt de regie.'],
                         ] as [$number, $title, $copy])
                             <li class="bg-white p-6 sm:p-7">
                                 <span class="flex h-9 w-9 items-center justify-center rounded-full bg-brand-sea text-sm font-semibold text-white">{{ $number }}</span>
@@ -336,61 +334,53 @@
                 </div>
             </section>
 
-            <section id="voordelen" class="scroll-mt-6 bg-[#EAF3F5] px-5 py-20 sm:px-8 sm:py-28">
+            <section id="voordelen" class="scroll-mt-6 bg-[#EAF3F5] px-5 py-16 sm:px-8 sm:py-20">
                 <div class="mx-auto max-w-7xl">
                     <div class="max-w-2xl">
-                        <p class="text-sm font-semibold uppercase tracking-[0.18em] text-brand-sea">Voordeel aan beide kanten</p>
+                        <p class="text-sm font-semibold uppercase tracking-[0.18em] text-brand-sea">Wat levert het op?</p>
                         <h2 class="mt-4 font-display text-3xl font-semibold tracking-[-0.025em] text-brand-ink sm:text-4xl">
-                            Minder werk voor jou. Een duidelijker proces voor je klant.
+                            Rust in je planning. Duidelijkheid voor je klant.
                         </h2>
                     </div>
 
-                    <div class="mt-12 grid gap-6 lg:grid-cols-2">
+                    <div class="mt-10 grid gap-6 lg:grid-cols-2">
                         <article class="rounded-3xl bg-brand-deep p-7 text-white sm:p-10">
-                            <p class="text-sm font-semibold uppercase tracking-[0.16em] text-cyan-200">Voor de installateur</p>
-                            <h3 class="mt-4 font-display text-2xl font-semibold sm:text-3xl">Meer aanvragen beoordelen met minder losse handelingen</h3>
-                            <ul class="mt-8 space-y-5">
+                            <p class="text-sm font-semibold uppercase tracking-[0.16em] text-cyan-200">Voor jou</p>
+                            <h3 class="mt-4 font-display text-2xl font-semibold sm:text-3xl">Minder gedoe vóór je kunt offreren</h3>
+                            <ul class="mt-8 space-y-4">
                                 @foreach ([
-                                    ['Minder uitzoekwerk', 'Woningcontext, foto’s, posities en routes staan op één plek met herkomst.'],
-                                    ['Sneller naar een offerte', 'Zie direct welke technische gebieden gereed zijn en waar nog één controle nodig is.'],
-                                    ['Betere werkvoorbereiding', 'Koel-, condens- en stroomroutes zijn afzonderlijk vastgelegd en blijven aan bewijs gekoppeld.'],
-                                    ['Volledige regie', 'Laat de klant opnemen, doe het zelf op locatie of werk hybride binnen hetzelfde dossier.'],
-                                ] as [$title, $copy])
+                                    'Minder nabellen en appen voor ontbrekende informatie',
+                                    'Sneller zien of je veilig kunt offreren',
+                                    'Beter voorbereid naar de montage',
+                                ] as $item)
                                     <li class="flex gap-4">
                                         <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-200 text-brand-deep">
                                             <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                                                 <path d="m3 8.2 3.1 3.1L13 4.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                                             </svg>
                                         </span>
-                                        <div>
-                                            <p class="font-semibold">{{ $title }}</p>
-                                            <p class="mt-1 text-sm leading-relaxed text-white/60">{{ $copy }}</p>
-                                        </div>
+                                        <p class="font-semibold leading-relaxed">{{ $item }}</p>
                                     </li>
                                 @endforeach
                             </ul>
                         </article>
 
                         <article class="rounded-3xl border border-white bg-white p-7 sm:p-10">
-                            <p class="text-sm font-semibold uppercase tracking-[0.16em] text-brand-ember">Voor de klant</p>
-                            <h3 class="mt-4 font-display text-2xl font-semibold text-brand-ink sm:text-3xl">Weten wat er nodig is, zonder installateur te hoeven spelen</h3>
-                            <ul class="mt-8 space-y-5">
+                            <p class="text-sm font-semibold uppercase tracking-[0.16em] text-brand-ember">Voor je klant</p>
+                            <h3 class="mt-4 font-display text-2xl font-semibold text-brand-ink sm:text-3xl">Precies weten wat er nodig is</h3>
+                            <ul class="mt-8 space-y-4">
                                 @foreach ([
-                                    ['Eén duidelijke opdracht tegelijk', 'De klant krijgt concrete foto-instructies in gewone taal, direct op de telefoon.'],
-                                    ['Geen technische ontwerpkeuzes', 'De klant laat de situatie zien; de installateur bepaalt positie, configuratie en uitvoerbaarheid.'],
-                                    ['Minder afspraken', 'Wanneer het bewijs voldoende is, hoeft er niet eerst iemand langs om alleen informatie te verzamelen.'],
-                                    ['Sneller duidelijkheid', 'Een complete, controleerbare opname verkort het traject tussen aanvraag en een onderbouwde reactie.'],
-                                ] as [$title, $copy])
+                                    'Eén simpele foto-opdracht tegelijk',
+                                    'Geen technische keuzes hoeven maken',
+                                    'Sneller duidelijkheid en minder afspraken',
+                                ] as $item)
                                     <li class="flex gap-4">
                                         <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-red-50 text-brand-ember">
                                             <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                                                 <path d="m3 8.2 3.1 3.1L13 4.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                                             </svg>
                                         </span>
-                                        <div>
-                                            <p class="font-semibold text-brand-ink">{{ $title }}</p>
-                                            <p class="mt-1 text-sm leading-relaxed text-brand-ink/60">{{ $copy }}</p>
-                                        </div>
+                                        <p class="font-semibold leading-relaxed text-brand-ink">{{ $item }}</p>
                                     </li>
                                 @endforeach
                             </ul>
@@ -399,17 +389,17 @@
                 </div>
             </section>
 
-            <section id="product" class="scroll-mt-6 overflow-hidden bg-white px-5 py-20 sm:px-8 sm:py-28">
+            <section id="product" class="scroll-mt-6 overflow-hidden bg-white px-5 py-16 sm:px-8 sm:py-20">
                 <div class="mx-auto max-w-7xl">
                     <div class="grid gap-10 lg:grid-cols-[0.72fr_1.28fr] lg:items-end">
                         <div class="max-w-xl">
-                            <p class="text-sm font-semibold uppercase tracking-[0.18em] text-brand-sea">Zo ziet het eruit</p>
+                            <p class="text-sm font-semibold uppercase tracking-[0.18em] text-brand-sea">In één oogopslag</p>
                             <h2 class="mt-4 font-display text-3xl font-semibold tracking-[-0.025em] text-brand-ink sm:text-4xl">
-                                Van foto naar technisch beslispunt
+                                Zie wat klaar is — en wat nog mist
                             </h2>
                         </div>
                         <p class="max-w-2xl text-lg leading-relaxed text-brand-ink/65">
-                            Onderstaande productweergaven gebruiken dezelfde fictieve woning, foto’s en dossierlogica als de interactieve demo. Geen losse marketingmock-up, maar het werk dat de app organiseert.
+                            Geen speurtocht door WhatsApp, e-mail en losse notities. Je opent de aanvraag en ziet meteen waar je aan toe bent.
                         </p>
                     </div>
 
@@ -419,24 +409,24 @@
                                 <span class="h-2.5 w-2.5 rounded-full bg-red-400"></span>
                                 <span class="h-2.5 w-2.5 rounded-full bg-amber-400"></span>
                                 <span class="h-2.5 w-2.5 rounded-full bg-emerald-400"></span>
-                                <span class="ml-3 text-xs font-medium text-brand-ink/40">Technische werkplek · Voorbeeldstraat 12</span>
+                                <span class="ml-3 text-xs font-medium text-brand-ink/40">Opname · Voorbeeldstraat 12</span>
                             </div>
 
                             <div class="p-4 sm:p-7">
                                 <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                                     <div>
-                                        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-brand-sea">Installatievoorstel</p>
+                                        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-brand-sea">Voorstel</p>
                                         <h3 class="mt-1 text-xl font-semibold text-brand-ink">Optie A · één multi-split</h3>
                                     </div>
-                                    <span class="w-fit rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700">Geselecteerd voorstel</span>
+                                    <span class="w-fit rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700">Voorkeursoptie</span>
                                 </div>
 
                                 <div class="mt-6 grid gap-4 md:grid-cols-2">
                                     @foreach ([
-                                        ['Koelleiding slaapkamer ouders', 'Binnenwand → overloop → achtergevel', 'Aannemelijk', 'sky'],
-                                        ['Condensafvoer slaapkamer ouders', 'Binnenpositie → bestaande afvoer', 'Aannemelijk', 'cyan'],
-                                        ['Koelleiding werkkamer', 'Binnenwand → achtergevel', 'Aannemelijk', 'sky'],
-                                        ['Stroom naar buitenunit', 'Meterkast → kruipruimte → achteraanbouw', 'Controle nodig', 'amber'],
+                                        ['Koelleiding slaapkamer ouders', 'Binnenwand → overloop → achtergevel', 'Lijkt goed', 'sky'],
+                                        ['Condensafvoer slaapkamer ouders', 'Binnenpositie → bestaande afvoer', 'Lijkt goed', 'cyan'],
+                                        ['Koelleiding werkkamer', 'Binnenwand → achtergevel', 'Lijkt goed', 'sky'],
+                                        ['Stroom naar buitenunit', 'Meterkast → kruipruimte → achteraanbouw', 'Nog checken', 'amber'],
                                     ] as [$title, $route, $status, $tone])
                                         <article class="rounded-xl border {{ $tone === 'amber' ? 'border-amber-200 bg-amber-50' : 'border-gray-200 bg-white' }} p-4">
                                             <div class="flex items-start justify-between gap-3">
@@ -452,12 +442,12 @@
                                 <div class="mt-4 grid gap-4 sm:grid-cols-[180px_1fr]">
                                     <div class="landing-photo-fusebox min-h-40 rounded-xl" role="img" aria-label="Fictieve foto van een meterkast"></div>
                                     <div class="rounded-xl border border-amber-200 bg-amber-50 p-5">
-                                        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-amber-700">Open uitzondering</p>
-                                        <h4 class="mt-2 font-semibold text-brand-ink">Groepsaanduiding deels onleesbaar</h4>
+                                        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-amber-700">Nog nodig</p>
+                                        <h4 class="mt-2 font-semibold text-brand-ink">Eén scherpere foto</h4>
                                         <p class="mt-2 text-sm leading-relaxed text-brand-ink/60">
-                                            De foto ondersteunt de voedingsroute, maar bewijst de vrije groep nog niet. Vraag alleen dit detail opnieuw.
+                                            De groepenkast staat erop, maar het label is niet goed leesbaar. Vraag alleen dit detail opnieuw.
                                         </p>
-                                        <div class="mt-4 inline-flex rounded-lg bg-brand-deep px-4 py-2.5 text-xs font-semibold text-white">Gerichte klanttaak klaarzetten</div>
+                                        <div class="mt-4 inline-flex rounded-lg bg-brand-deep px-4 py-2.5 text-xs font-semibold text-white">Vraag deze foto opnieuw</div>
                                     </div>
                                 </div>
                             </div>
@@ -490,50 +480,20 @@
                     </div>
 
                     <p class="mt-5 text-xs leading-relaxed text-brand-ink/45">
-                        Productweergave met volledig fictieve demo-inhoud. Werkelijke dossiers tonen alleen gegevens en bewijs van de betreffende opname.
+                        Fictieve voorbeeldopname. De demo gebruikt geen echte klantdata.
                     </p>
                 </div>
             </section>
 
-            <section class="bg-brand-mist px-5 py-20 sm:px-8 sm:py-28">
-                <div class="mx-auto max-w-7xl">
-                    <div class="grid gap-12 lg:grid-cols-[0.7fr_1.3fr]">
-                        <div>
-                            <p class="text-sm font-semibold uppercase tracking-[0.18em] text-brand-sea">Geen keurslijf</p>
-                            <h2 class="mt-4 font-display text-3xl font-semibold tracking-[-0.025em] text-brand-ink sm:text-4xl">
-                                Jij kiest wie de opname uitvoert
-                            </h2>
-                            <p class="mt-4 text-lg leading-relaxed text-brand-ink/65">
-                                De technische uitkomst blijft hetzelfde. Alleen de slimste manier om het bewijs te verzamelen verandert per aanvraag.
-                            </p>
-                        </div>
-
-                        <div class="grid gap-4 sm:grid-cols-3">
-                            @foreach ([
-                                ['Klant', 'De klant volgt een lineaire mobiele flow met veilige foto-opdrachten en zonder technische beslissingen.'],
-                                ['Installateur', 'Je loopt vrij door ruimtes, legt vakwaarnemingen direct vast en gebruikt je camera vanuit de werkplek.'],
-                                ['Hybride', 'Begin zelf en stuur later één gerichte klanttaak, of vul een klantopname zelf aan zonder opnieuw te beginnen.'],
-                            ] as [$title, $copy])
-                                <article class="rounded-2xl border border-brand-fog bg-white p-6">
-                                    <span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-sm font-semibold text-brand-sea">{{ mb_substr($title, 0, 1) }}</span>
-                                    <h3 class="mt-5 text-lg font-semibold text-brand-ink">{{ $title }}</h3>
-                                    <p class="mt-3 text-sm leading-relaxed text-brand-ink/60">{{ $copy }}</p>
-                                </article>
-                            @endforeach
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <section id="demo" class="bg-brand-deep px-5 py-20 text-white sm:px-8 sm:py-24">
+            <section id="demo" class="bg-brand-deep px-5 py-16 text-white sm:px-8 sm:py-20">
                 <div class="mx-auto flex max-w-7xl flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
                     <div class="max-w-2xl">
-                        <p class="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-200">Zelf ervaren</p>
+                        <p class="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-200">Zelf even proberen</p>
                         <h2 class="mt-4 font-display text-3xl font-semibold tracking-[-0.025em] sm:text-4xl">
-                            Loop door de echte installateurswerkplek
+                            Klik door een voorbeeldopname
                         </h2>
                         <p class="mt-4 text-lg leading-relaxed text-white/65">
-                            Bekijk een vooraf ingevulde voorbeeldwoning, controleer het installatievoorstel en open één gerichte klanttaak. Zonder account en zonder echte klantdata.
+                            Bekijk wat al klaarstaat, vind het ene ontbrekende detail en open de foto-opdracht voor de klant. Zonder account.
                         </p>
                     </div>
                     <div class="flex shrink-0 flex-col gap-3 sm:flex-row">
@@ -545,7 +505,7 @@
                                         type="submit"
                                         class="inline-flex min-h-[52px] w-full items-center justify-center rounded-lg bg-brand-ember px-6 text-base font-semibold text-white transition hover:brightness-110 sm:w-auto"
                                     >
-                                        Start de demo
+                                        Probeer de demo
                                     </button>
                                 </form>
                             @endif
@@ -553,7 +513,7 @@
                                 href="#interesse"
                                 class="inline-flex min-h-[52px] items-center justify-center rounded-lg border border-white/35 px-6 text-base font-semibold text-white transition hover:border-white/70"
                             >
-                                Eerst kennismaken
+                                Ik wil een pilot
                             </a>
                         @else
                             <a
@@ -567,23 +527,21 @@
                 </div>
             </section>
 
-            <section id="vragen" class="scroll-mt-6 bg-white px-5 py-20 sm:px-8 sm:py-28">
+            <section id="vragen" class="scroll-mt-6 bg-white px-5 py-16 sm:px-8 sm:py-20">
                 <div class="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[0.62fr_1.38fr]">
                     <div>
-                        <p class="text-sm font-semibold uppercase tracking-[0.18em] text-brand-sea">Veelgestelde vragen</p>
+                        <p class="text-sm font-semibold uppercase tracking-[0.18em] text-brand-sea">Goed om te weten</p>
                         <h2 class="mt-4 font-display text-3xl font-semibold tracking-[-0.025em] text-brand-ink sm:text-4xl">
-                            Wat neemt de app wel en niet over?
+                            De app doet het voorwerk. Niet jouw vakwerk.
                         </h2>
                     </div>
 
                     <div class="divide-y divide-brand-fog border-y border-brand-fog">
                         @foreach ([
-                            ['Vervangt Digitale Opname ieder locatiebezoek?', 'Nee. De app helpt onnodige ritten voorkomen. Als een beslissende onzekerheid niet veilig op afstand op te lossen is, blijft een locatiebezoek de juiste uitkomst.'],
-                            ['Maakt AI de technische beslissing?', 'Nee. AI ordent bewijs, doet onderbouwde voorstellen en markeert onzekerheden. De installateur controleert het geheel en beslist over offerte, aanvulling of bezoek.'],
-                            ['Moet de klant de volledige opname doen?', 'Nee. Je kiest per aanvraag voor klant, installateur of hybride. Je kunt later altijd één specifieke klantopdracht toevoegen aan hetzelfde dossier.'],
-                            ['Moet de klant een aircopositie of configuratie kiezen?', 'Nee. De klant laat ruimtes en situaties zien in begrijpelijke opdrachten. Binnen- en buitenposities, multi- of single-split en technische routes blijven vakkeuzes.'],
-                            ['Waar past dit in ons proces?', 'Na de bestaande aanvraag en vóór offerte en werkvoorbereiding. De Digitale Opname is het technische dossier; het is geen vervanging voor je CRM of offertepakket.'],
-                            ['Is het product alleen voor airco?', 'Airco is het eerste volledig uitgewerkte domein. De dossier- en takenbasis is herbruikbaar, maar de huidige demo en pilot richten zich bewust op airco-opnames.'],
+                            ['Vervangt dit elk voorbezoek?', 'Nee. Is iets niet veilig op afstand te beoordelen? Dan ga je gewoon langs. De app helpt vooral de ritten voorkomen die alleen nodig zijn om informatie te verzamelen.'],
+                            ['Beslist de app of AI wat er moet komen?', 'Nee. De app zet de informatie op een rij en laat zien waar nog twijfel zit. Jij kiest de oplossing en geeft groen licht.'],
+                            ['Wat als de klant een verkeerde foto maakt?', 'Dan krijgt de klant één nieuwe, duidelijke opdracht. Niet de hele opname opnieuw.'],
+                            ['Kan ik de opname ook zelf doen?', 'Ja. Laat de klant foto’s maken, doe het zelf of combineer beide. Alles blijft in dezelfde aanvraag staan.'],
                         ] as [$question, $answer])
                             <details class="group py-5">
                                 <summary class="flex cursor-pointer list-none items-center justify-between gap-5 text-base font-semibold text-brand-ink">
@@ -597,22 +555,22 @@
                 </div>
             </section>
 
-            <section id="interesse" class="scroll-mt-6 bg-[#EAF3F5] px-5 py-20 sm:px-8 sm:py-28">
+            <section id="interesse" class="scroll-mt-6 bg-[#EAF3F5] px-5 py-16 sm:px-8 sm:py-20">
                 <div class="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[0.78fr_1.22fr] lg:gap-20">
                     <div class="max-w-xl">
-                        <p class="text-sm font-semibold uppercase tracking-[0.18em] text-brand-sea">Interesse in een pilot?</p>
+                        <p class="text-sm font-semibold uppercase tracking-[0.18em] text-brand-sea">Klein beginnen</p>
                         <h2 class="mt-4 font-display text-3xl font-semibold tracking-[-0.025em] text-brand-ink sm:text-4xl">
-                            Bekijk wat Digitale Opname in jouw proces kan besparen
+                            Probeer het met een paar echte aanvragen
                         </h2>
                         <p class="mt-5 text-lg leading-relaxed text-brand-ink/65">
-                            Laat je gegevens achter. We bespreken hoe aanvragen nu binnenkomen, waar opnamewerk blijft liggen en of een pilot bij jullie werkwijze past.
+                            We kijken waar jij nu tijd verliest en maken daar een kleine pilot van. Daarna beslis je pas of het iets voor je is.
                         </p>
 
                         <ul class="mt-8 space-y-4 text-sm text-brand-ink/65">
                             @foreach ([
-                                'Een gerichte kennismaking, geen algemene softwarepitch',
-                                'Aansluiting op je huidige aanvraag- en offerteproces',
-                                'Samen bepalen welke pilotuitkomst echt waarde bewijst',
+                                'Aansluiten op hoe je nu werkt',
+                                'Beginnen met een paar aanvragen',
+                                'Alleen doorgaan als het echt tijd scheelt',
                             ] as $item)
                                 <li class="flex items-start gap-3">
                                     <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-sea text-white">
@@ -643,8 +601,8 @@
                             </div>
                         @else
                             <div>
-                                <p class="text-sm font-semibold text-brand-sea">Vrijblijvend kennismaken</p>
-                                <h3 class="mt-1 text-2xl font-semibold text-brand-ink">Vertel kort wie je bent</h3>
+                                <p class="text-sm font-semibold text-brand-sea">Interesse?</p>
+                                <h3 class="mt-1 text-2xl font-semibold text-brand-ink">Dan nemen we contact op</h3>
                             </div>
 
                             @if ($errors->any())
@@ -734,12 +692,12 @@
 
                             <div>
                                 <label for="message" class="block text-sm font-semibold text-brand-ink">
-                                    Waar wil je vooral tijd op besparen? <span class="font-normal text-brand-ink/45">(optioneel)</span>
+                                    Waar loopt het nu vooral vast? <span class="font-normal text-brand-ink/45">(optioneel)</span>
                                 </label>
                                 <textarea
                                     id="message"
                                     name="message"
-                                    rows="4"
+                                    rows="3"
                                     maxlength="1500"
                                     class="mt-2 block w-full rounded-lg border-brand-fog px-3.5 py-3 text-sm shadow-none focus:border-brand-sea focus:ring-brand-sea"
                                 >{{ old('message') }}</textarea>
@@ -752,7 +710,7 @@
                                     type="submit"
                                     class="inline-flex min-h-[52px] w-full items-center justify-center rounded-lg bg-brand-ember px-6 text-base font-semibold text-white transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-sea focus-visible:ring-offset-2"
                                 >
-                                    Ik wil kennismaken
+                                    Ik wil een pilot proberen
                                 </button>
                                 <p class="text-xs leading-relaxed text-brand-ink/45">
                                     We gebruiken je gegevens alleen om contact op te nemen over Digitale Opname en verwijderen de inzending uiterlijk na twaalf maanden.
@@ -768,12 +726,12 @@
             <div class="mx-auto flex max-w-7xl flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <p class="font-display text-sm font-semibold text-brand-deep">Digitale Opname</p>
-                    <p class="mt-1 text-xs text-brand-ink/45">Van aanvraag naar een controleerbaar installatiedossier.</p>
+                    <p class="mt-1 text-xs text-brand-ink/45">Minder heen-en-weer. Meer tijd voor installeren.</p>
                 </div>
                 <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-brand-ink/55">
-                    <a href="#werkwijze" class="hover:text-brand-ink">Werkwijze</a>
-                    <a href="#product" class="hover:text-brand-ink">Product</a>
-                    <a href="#interesse" class="hover:text-brand-ink">Interesse</a>
+                    <a href="#werkwijze" class="hover:text-brand-ink">Zo werkt het</a>
+                    <a href="#product" class="hover:text-brand-ink">Bekijk de app</a>
+                    <a href="#interesse" class="hover:text-brand-ink">Pilot</a>
                     @guest
                         <a href="{{ route('login') }}" class="hover:text-brand-ink">Inloggen</a>
                     @endguest

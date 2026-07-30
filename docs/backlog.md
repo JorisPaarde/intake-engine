@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.4 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.5 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -52,6 +52,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | ∥ | BL-001 | Demo-versie van de app | E5 | in_progress | medium | A · operationeel |
 | — | BL-043 | Publieke productfunnel en interesse-CTA | E5 | done | medium | A (done) |
 | — | BL-044 | Hervatbare MySQL-dossiermigratie | E5 | done | high | deployherstel (done) |
+| — | BL-045 | Eenvoudige installateurstaal op de productfunnel | E5 | done | medium | A (done) |
 | ∥ | BL-013 | S3 als mediadisk | E5 | backlog | low | I · operationeel |
 | — | BL-029 | Begeleide leidingroute volgens één globale routeflow | E4 | dropped | high | Vervangen door ADR-0012 / BL-040; backend blijft |
 | — | BL-034 | Splitconfiguratie als installateursaandachtspunt | E4 | done | medium | H (done) |
@@ -412,7 +413,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Status:** in_progress · **Prioriteit:** medium · **Band:** A (operationeel, parallel) · **Ref:** [issue #5](https://github.com/JorisPaarde/intake-engine/issues/5)
 - **Plan:** [bl-001-interactive-installer-demo.md](plans/bl-001-interactive-installer-demo.md)
 - **Doel:** publiek of semi-publiek demopad zodat prospects/installateurs het product kunnen ervaren zonder eigen accountsetup of echte klantdata — het hoofddoel ("zo min mogelijk handelingen") toegepast op de allereerste kennismaking.
-- **Nieuwe invulling:** publieke productfunnel (BL-043) met fictieve productweergaven + **Probeer de interactieve demo** → unieke tijdelijke demo-tenant en -user → rechtstreeks naar de echte installateurswerkplek met een fictief, deels voorbereid dossier. De bezoeker kan dezelfde ruimtes, posities, opties, verbindingen, foto’s en gerichte klanttaken gebruiken als productie. Klanttoegang wordt pas actief bij één gecontroleerde taak.
+- **Nieuwe invulling:** publieke productfunnel (BL-043/045) met fictieve productweergaven + **Probeer de demo** → unieke tijdelijke demo-tenant en -user → rechtstreeks naar de echte installateurswerkplek met een fictief, deels voorbereid dossier. De bezoeker kan dezelfde ruimtes, posities, opties, verbindingen, foto’s en gerichte klanttaken gebruiken als productie. Klanttoegang wordt pas actief bij één gecontroleerde taak.
 - **Scenario:** vaste BAG-/luchtfoto-/EP-Online-/3DBAG-voorbeeldcontext, twee gewenste ruimtes, synthetisch beeldbewijs, geselecteerd multi-splitvoorstel, afzonderlijke koel-/condens-/stroomroutes, vooraf berekende AI-synthese en één voorgestelde meterkasttaak.
 - **Kaders:** `is_demo`, standaard-TTL twee uur, hourly hard purge inclusief tijdelijke demo-tenant; geen echte PII, mail, PDF of externe AI-call; alle brondata en beelden expliciet als fictieve demo-inhoud herkenbaar.
 - **Acceptatie:** geïsoleerde gelijktijdige demosessies; redirect naar `intakes.workspace`; echte klanttaakweergave zonder mail; volledige cleanup; tests bewaken tenantgrens, externe-effectblokkade en scenario-inhoud.
@@ -427,6 +428,14 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Interesseflow:** valideert naam, bedrijf, e-mail en optionele telefoon/toelichting; honeypot + IP-rate-limit zonder IP-opslag; zelfstandige `product_interests`-opslag; optionele interne queuemail buiten de `log`-mailer; dagelijkse harde purge na standaard 365 dagen.
 - **Acceptatie:** demo blijft primair productbewijs; formulier blijft bruikbaar zonder SMTP; fout/succes is toegankelijk en Nederlandstalig; geen technische klantdata of intake wordt aangemaakt; desktop/mobiele staging-smoke staat als `todo` in de teststatus.
 - **Resultaat:** volledige funnel, twee responsieve productweergaven met synthetisch bewijs, werkende interesseopslag/notificatie/purge, env-documentatie en featuretests zijn geleverd.
+
+### BL-045 — Eenvoudige installateurstaal op de productfunnel
+
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-07-30 · **PR:** deze PR · **Epic:** E5
+- **Aanleiding:** de eerste funnelversie was volledig maar te lang en te technisch voor een installateur die snel wil weten wat het product hem oplevert.
+- **Doel:** maak de homepage in enkele seconden begrijpelijk en scanbaar, zonder werking te verbergen of besparingen te verzinnen.
+- **Scope:** één herkenbare hoofdbelofte; het praktijkprobleem in gewone taal; drie stappen; korte voordelen voor installateur en klant; productbeelden als bewijs; vier kernvragen; één lage-drempelige pilot-CTA. De dubbele workflowsectie vervalt en de keuze klant/zelf/combineren staat voortaan bij de werkwijze.
+- **Resultaat:** de funnel gebruikt korte zinnen en dagelijkse installateurstaal, met de herkadering dat een onnodig voorbezoek soms vooral een dure manier is om één ontbrekende foto te krijgen. Demo, interesseformulier, beveiliging en productgedrag blijven ongewijzigd.
 
 ### BL-044 — Hervatbare MySQL-dossiermigratie
 
@@ -529,6 +538,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 | ID | Datum | Resultaat / PR |
 |----|-------|----------------|
 | BL-044 | 2026-07-30 | deze PR — hervatbare dossiermigration + MySQL-migratiesmoke |
+| BL-045 | 2026-07-30 | deze PR — kortere, scanbare funnelcopy voor airco-installateurs |
 | BL-030/035–042 | 2026-07-30 | deze PR — dossierkern, beeldvarianten, drie workflows, airco-opstellingen/verbindingen, AI-synthese en uitkomstmetrics |
 | BL-029 | 2026-07-30 | oorspronkelijke globale route-UI vervallen; backend behouden en vervolg onder BL-040 |
 | BL-010 | 2026-07-21 | deze wijziging — gescheiden staging/production + productionworkflow |
