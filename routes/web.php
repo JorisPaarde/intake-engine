@@ -18,8 +18,8 @@ use App\Http\Controllers\Installer\IntakeController;
 use App\Http\Controllers\Installer\IntakeUploadController as InstallerIntakeUploadController;
 use App\Http\Controllers\Installer\MetricsController;
 use App\Http\Controllers\Installer\SurveyWorkspaceController;
-use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProductInterestController;
+use App\Http\Controllers\ProfileController;
 use App\Livewire\Customer\IntakeWizard;
 use Illuminate\Support\Facades\Route;
 

@@ -6,6 +6,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
@@ -14,8 +15,8 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $email
  * @property string|null $phone
  * @property string|null $message
- * @property \Illuminate\Support\Carbon|null $notification_queued_at
- * @property \Illuminate\Support\Carbon $expires_at
+ * @property Carbon|null $notification_queued_at
+ * @property Carbon $expires_at
  */
 #[Fillable([
     'company_name',
