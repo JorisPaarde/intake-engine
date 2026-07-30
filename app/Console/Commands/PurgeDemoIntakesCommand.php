@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Domains\Intake\Actions\HardDeleteIntake;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Services\PublicDemoWorkspaceProvisioner;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -15,9 +16,11 @@ final class PurgeDemoIntakesCommand extends Command
 
     protected $description = 'Hard-purge verlopen demo-intakes inclusief mediabestanden';
 
-    public function handle(HardDeleteIntake $hardDeleteIntake): int
-    {
-        $cutoff = now()->subHours(max(1, (int) config('intake.demo.ttl_hours', 12)));
+    public function handle(
+        HardDeleteIntake $hardDeleteIntake,
+        PublicDemoWorkspaceProvisioner $workspaceProvisioner,
+    ): int {
+        $cutoff = now()->subHours(max(1, (int) config('intake.demo.ttl_hours', 2)));
 
         $query = Intake::query()
             ->withTrashed()
@@ -33,9 +36,16 @@ final class PurgeDemoIntakesCommand extends Command
 
         $purged = 0;
 
-        $query->chunkById(50, function (Collection $intakes) use ($hardDeleteIntake, &$purged): void {
+        $query->chunkById(50, function (Collection $intakes) use (
+            $hardDeleteIntake,
+            $workspaceProvisioner,
+            &$purged,
+        ): void {
             foreach ($intakes as $intake) {
+                $userId = (int) $intake->created_by;
+                $companyId = (int) $intake->company_id;
                 $hardDeleteIntake->handle($intake);
+                $workspaceProvisioner->cleanupIfOrphaned($userId, $companyId);
                 $purged++;
             }
         });

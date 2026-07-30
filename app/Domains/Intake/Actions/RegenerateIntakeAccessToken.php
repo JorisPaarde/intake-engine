@@ -21,7 +21,9 @@ final class RegenerateIntakeAccessToken
         return DB::transaction(function () use ($intake, $actor): Intake {
             $intake->update([
                 'access_token' => $this->tokenGenerator->generate(),
-                'token_expires_at' => now()->addDays((int) config('intake.token_ttl_days', 60)),
+                'token_expires_at' => $intake->is_demo
+                    ? now()->addHours(max(1, (int) config('intake.demo.ttl_hours', 2)))
+                    : now()->addDays((int) config('intake.token_ttl_days', 60)),
                 'token_revoked_at' => null,
             ]);
 

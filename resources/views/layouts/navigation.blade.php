@@ -1,5 +1,9 @@
 @php
     $navCompany = Auth::user()?->company;
+    $isPublicDemo = session()->has('public_demo_intake_id')
+        && str_starts_with((string) Auth::user()?->email, 'installateur+')
+        && str_ends_with((string) Auth::user()?->email, '@demo.invalid')
+        && str_starts_with((string) $navCompany?->slug, 'publieke-demo-');
 @endphp
 <nav x-data="{ open: false }" class="border-b border-[#D2D2D7] bg-white">
     <!-- Primary Navigation Menu -->
@@ -23,25 +27,31 @@
                     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                         {{ __('Opnames') }}
                     </x-nav-link>
-                    <x-nav-link :href="route('intakes.create')" :active="request()->routeIs('intakes.create')">
-                        {{ __('Nieuwe opname') }}
-                    </x-nav-link>
-                    <x-nav-link :href="route('metrics')" :active="request()->routeIs('metrics')">
-                        {{ __('Resultaten') }}
-                    </x-nav-link>
-                    <x-nav-link :href="route('company.settings.edit')" :active="request()->routeIs('company.settings.*')">
-                        {{ __('Bedrijf') }}
-                    </x-nav-link>
-                    @if (config('devadmin.enabled'))
-                        <a href="{{ route('dev.dashboard') }}"
-                           @class([
-                               'inline-flex items-center border-b-2 px-1 pt-1 text-sm font-medium leading-5 transition duration-150 ease-in-out focus:outline-none',
-                               'border-amber-400 text-amber-700' => request()->routeIs('dev.*'),
-                               'border-transparent text-amber-600 hover:border-amber-300 hover:text-amber-700' => ! request()->routeIs('dev.*'),
-                           ])>
-                            Dev
-                        </a>
-                    @endif
+                    @unless ($isPublicDemo)
+                        <x-nav-link :href="route('intakes.create')" :active="request()->routeIs('intakes.create')">
+                            {{ __('Nieuwe opname') }}
+                        </x-nav-link>
+                        <x-nav-link :href="route('metrics')" :active="request()->routeIs('metrics')">
+                            {{ __('Resultaten') }}
+                        </x-nav-link>
+                        <x-nav-link :href="route('company.settings.edit')" :active="request()->routeIs('company.settings.*')">
+                            {{ __('Bedrijf') }}
+                        </x-nav-link>
+                        @if (config('devadmin.enabled'))
+                            <a href="{{ route('dev.dashboard') }}"
+                               @class([
+                                   'inline-flex items-center border-b-2 px-1 pt-1 text-sm font-medium leading-5 transition duration-150 ease-in-out focus:outline-none',
+                                   'border-amber-400 text-amber-700' => request()->routeIs('dev.*'),
+                                   'border-transparent text-amber-600 hover:border-amber-300 hover:text-amber-700' => ! request()->routeIs('dev.*'),
+                               ])>
+                                Dev
+                            </a>
+                        @endif
+                    @else
+                        <span class="inline-flex items-center border-b-2 border-sky-400 px-1 pt-1 text-sm font-semibold text-sky-700">
+                            Tijdelijke demo
+                        </span>
+                    @endunless
                 </div>
             </div>
 
@@ -61,9 +71,11 @@
                     </x-slot>
 
                     <x-slot name="content">
-                        <x-dropdown-link :href="route('profile.edit')">
-                            {{ __('Profiel') }}
-                        </x-dropdown-link>
+                        @unless ($isPublicDemo)
+                            <x-dropdown-link :href="route('profile.edit')">
+                                {{ __('Profiel') }}
+                            </x-dropdown-link>
+                        @endunless
 
                         <!-- Authentication -->
                         <form method="POST" action="{{ route('logout') }}">
@@ -97,20 +109,24 @@
             <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                 {{ __('Opnames') }}
             </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('intakes.create')" :active="request()->routeIs('intakes.create')">
-                {{ __('Nieuwe opname') }}
-            </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('metrics')" :active="request()->routeIs('metrics')">
-                {{ __('Resultaten') }}
-            </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('company.settings.edit')" :active="request()->routeIs('company.settings.*')">
-                {{ __('Bedrijf') }}
-            </x-responsive-nav-link>
-            @if (config('devadmin.enabled'))
-                <x-responsive-nav-link :href="route('dev.dashboard')" :active="request()->routeIs('dev.*')">
-                    {{ __('Dev-admin') }}
+            @unless ($isPublicDemo)
+                <x-responsive-nav-link :href="route('intakes.create')" :active="request()->routeIs('intakes.create')">
+                    {{ __('Nieuwe opname') }}
                 </x-responsive-nav-link>
-            @endif
+                <x-responsive-nav-link :href="route('metrics')" :active="request()->routeIs('metrics')">
+                    {{ __('Resultaten') }}
+                </x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('company.settings.edit')" :active="request()->routeIs('company.settings.*')">
+                    {{ __('Bedrijf') }}
+                </x-responsive-nav-link>
+                @if (config('devadmin.enabled'))
+                    <x-responsive-nav-link :href="route('dev.dashboard')" :active="request()->routeIs('dev.*')">
+                        {{ __('Dev-admin') }}
+                    </x-responsive-nav-link>
+                @endif
+            @else
+                <p class="px-4 py-2 text-sm font-semibold text-sky-700">Tijdelijke demo</p>
+            @endunless
         </div>
 
         <!-- Responsive Settings Options -->
@@ -121,9 +137,11 @@
             </div>
 
             <div class="mt-3 space-y-1">
-                <x-responsive-nav-link :href="route('profile.edit')">
-                    {{ __('Profiel') }}
-                </x-responsive-nav-link>
+                @unless ($isPublicDemo)
+                    <x-responsive-nav-link :href="route('profile.edit')">
+                        {{ __('Profiel') }}
+                    </x-responsive-nav-link>
+                @endunless
 
                 <!-- Authentication -->
                 <form method="POST" action="{{ route('logout') }}">

@@ -38,6 +38,12 @@ final class SuggestAttentionPointsJob implements ShouldQueue
             return;
         }
 
+        if ($intake->is_demo) {
+            Log::info('Skipping AI attention points for demo intake', ['intake_id' => $this->intakeId]);
+
+            return;
+        }
+
         if (! in_array($intake->status, [IntakeStatus::Completed, IntakeStatus::Reviewed], true)) {
             Log::info('Skipping AI attention points: intake not completed', ['intake_id' => $this->intakeId]);
 

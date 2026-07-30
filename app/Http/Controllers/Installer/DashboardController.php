@@ -46,9 +46,23 @@ class DashboardController extends Controller
     {
         $user = $request->user();
 
-        return $user !== null
-            && ! app()->isProduction()
-            && (bool) config('intake.demo.enabled', true)
+        if ($user === null || ! (bool) config('intake.demo.enabled', true)) {
+            return false;
+        }
+
+        $publicDemoIntakeId = $request->session()->get('public_demo_intake_id');
+
+        if (is_numeric($publicDemoIntakeId)
+            && Intake::query()
+                ->whereKey((int) $publicDemoIntakeId)
+                ->where('company_id', $user->company_id)
+                ->where('created_by', $user->id)
+                ->where('is_demo', true)
+                ->exists()) {
+            return true;
+        }
+
+        return ! app()->isProduction()
             && $user->email === (string) config('intake.demo.user_email', 'demo@intake-engine.invalid');
     }
 }

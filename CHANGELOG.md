@@ -6,6 +6,8 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Added
 
+- **Publieke productfunnel en interesse-CTA (BL-043):** de homepage leidt airco-installateurs van herkenbaar opnameverlies naar werkwijze, afzonderlijke voordelen voor installateur en klant, fictieve productweergaven, demo, FAQ en een pilotformulier. Geldige inzendingen worden rate-limited zonder IP-opslag in `product_interests` bewaard, optioneel via de bestaande queue naar een intern mailadres gemeld en standaard na 365 dagen automatisch verwijderd.
+- **Interactieve installateursdemo (BL-001):** de homepage combineert drie compacte productvoorbeelden met een echte, vooraf gevulde installateurswerkplek. Iedere start krijgt een eigen tijdelijke tenant en gebruiker, fictieve BAG-/luchtfoto-/EP-Online-/3DBAG-context, synthetisch beeldbewijs, twee ruimtes, één multi-splitvoorstel, vijf koel-/condens-/stroomverbindingen, vooraf berekende AI-uitvoer en één gerichte klanttaak. Klanttoegang kan zonder mail als simulatie worden geactiveerd; de hourly purge verwijdert na standaard twee uur ook beide beeldvarianten en het tijdelijke account/bedrijf.
 - **Centraal technisch opnamedossier (BL-035/036):** de bestaande intakegegevens, registerfeiten, antwoorden, uploads, installateurswaarnemingen en AI-voorstellen landen met bron, zekerheid en status in één dossier. Beslisgebieden bepalen afzonderlijk of offerte, plaatsing en technische uitvoering voldoende onderbouwd zijn; de bestaande vragenengine blijft via een migratiebrug werken.
 - **Drie volwaardige opnameworkflows (BL-037/038):** bij de start kiest de installateur voor klantopname of volledig zelf opnemen. De mobiele installateurswerkruimte werkt vrij en camera-first; een afgebakende klanttaak kan alleen voor het ontbrekende bewijs worden verstuurd. Een opname kan tijdens het werk automatisch hybride worden zonder bestaande dossiergegevens of klanttoegang onbedoeld open te zetten.
 - **Airco-opstellingen en verbindingen (BL-039/040):** airco v10 vraagt om gewenste ruimtes in plaats van vooraf gekozen binnenunits. Het dossier bevat kandidaat-binnen- en buitenposities, single-/multi-splitopstellingen en afzonderlijke koel-, condens- en stroomverbindingen met eigen bewijs, status en routeanalyse.
@@ -22,6 +24,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
+- De publieke demo opent niet langer de volledige klantvragenlijst. Zij gebruikt rechtstreeks `intakes.workspace`, dezelfde policies en domeinservices als de installateurflow, en toont alleen bij één beslissende uitzondering de bestaande afgeschermde klanttaakweergave. Een aparte sessiegrens houdt de tijdelijke gebruiker binnen dit ene demodossier en blokkeert normale aanmaak-, instellingen-, profiel-, metrics- en dev-routes.
 - Hoofddoel en ontwerpprincipe zijn door de producteigenaar herijkt: optimaliseren op totale opnamearbeid, actieve installateurstijd, vermeden onnodige ritten en onderbouwde offerte/plaatsing; de vragenlijst is voortaan een invoerlaag van de centrale opname.
 - BL-029/ADR-0009 zijn herijkt en ingebed in BL-040. Iedere routesessie hoort nu bij precies één concrete koel-, condens- of stroomverbinding. Nieuw bewijs heropent een eerder beoordeelde route; Terra analyseert per segment en Sol krijgt bij lage zekerheid of een onderbroken route alleen de relevante analysekopieën.
 - De klantbelofte is overal gelijkgetrokken naar **“Met uw hulp kunnen we sneller uw airco plaatsen.”** Bekende registergegevens en sterke afleidingen worden niet meer veld voor veld ter bevestiging aangeboden; alleen beslissende uitzonderingen leiden tot een aanvullende taak.
@@ -36,7 +39,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 - Dossier- en routebewerkingen zijn tenantgebonden en transactioneel gehard. Ongeldige opstellingscombinaties, ontbrekende binnenunitroutes, tegenstrijdige uitkomsten en klantbijdragen buiten hun afgebakende taak worden server-side geweigerd; een afgeronde bijdrage sluit de tijdelijke klanttoegang.
 - Foto-opslag ruimt bij een gedeeltelijke write beide varianten op. AI-synthese verwerpt verouderde context, routebewijs blijft aan de juiste verbinding gekoppeld en een nieuwe routefoto na goedkeuring zet de technische status terug naar beoordeling nodig.
 - Dompdf en Guzzle zijn bijgewerkt naar versies zonder de gemelde security-advisories.
-- Publieke demo-AI valt nu terug op de lokale heuristic wanneer de geconfigureerde externe provider faalt (bijv. ontbrekende budgetcap, key/model-fout of timeout), zodat het bedankt-scherm alsnog een AI-voorstel/aandachtspunten kan tonen zonder externe spend.
+- Demo-opnames kunnen via geen enkele dossier-, route-, foto- of tekstinferentieactie een externe AI-call starten. Het interactieve scenario gebruikt herleidbare vooraf berekende uitvoer; alleen de historische klantdemo-afronding gebruikt nog de lokale heuristic.
 
 ## [1.0.0] - 2026-07-22
 

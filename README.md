@@ -1,6 +1,6 @@
 # Intake Engine (Digitale Opname)
 
-> **Documentversie:** 2.1 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](AGENTS.md)
+> **Documentversie:** 2.3 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](AGENTS.md)
 
 **Werk je als agent aan dit project? Lees eerst [AGENTS.md](AGENTS.md)** — het projectgeheugen, de documentkaart en het onderhoudsprotocol.
 
@@ -62,6 +62,22 @@ composer check     # lint + analyse + test
 
 Branching, kwaliteitspoort en overige werkafspraken: [AGENTS.md § Werkafspraken](AGENTS.md#werkafspraken).
 
+## Publieke interactieve demo
+
+De publieke homepage is een productfunnel voor airco-installateurs: probleem en werkwijze, afzonderlijke voordelen voor installateur en klant, productweergaven met fictieve demo-inhoud, FAQ, interactieve demo en een interesseformulier voor een pilot.
+
+Een gast kan vanaf `/` zonder account **Probeer de interactieve demo** kiezen. De app maakt per start een eigen tijdelijk installatiebedrijf en gebruiker, logt de bezoeker daarin in en opent rechtstreeks de echte installateurswerkplek met een volledig fictieve voorbeeldopname.
+
+- dezelfde dossier-, tenant-, upload- en klanttaaklogica als productie;
+- vooraf berekende BAG-/luchtfoto-/EP-Online-/3DBAG- en AI-voorbeelddata;
+- synthetische foto’s via de normale dossier- en analysebeeldpipeline;
+- geen externe AI, e-mail, notificatie of PDF;
+- automatische hard purge van dossier, media, gebruiker en bedrijf na standaard twee uur.
+
+Een interesse-inzending wordt los van technische opnames in `product_interests` bewaard, zonder IP-adres. De dagelijkse purge verwijdert haar standaard na 365 dagen. Met `PRODUCT_INTEREST_MAIL_TO` en werkende SMTP wordt daarnaast een interne melding in de queue gezet; zonder mailconfig blijft de inzending gewoon bewaard.
+
+Technisch plan en acceptatie: [docs/plans/bl-001-interactive-installer-demo.md](docs/plans/bl-001-interactive-installer-demo.md).
+
 ## Omgevingen & .env
 
 | Omgeving   | Bestand              | Voorbeeld                 |
@@ -108,4 +124,6 @@ De volledige documentkaart — welk document waarvoor de bron van waarheid is �
 
 BAG/PDOK, PDOK-luchtfoto, EP-Online en 3DBAG vullen hetzelfde dossier automatisch. AI kan bron- en beeldbewijs synthetiseren tot plaatsingen, installatieopties, verbindingen, uitzonderingen en één gerichte vervolgtaak; voorstellen blijven controleerbaar en de installateur keurt het geheel goed. Iedere opgeslagen foto heeft een metadata-vrije dossierkopie en een kleinere analysekopie. `/metrics` meet onder meer offerte op afstand, prijsindicatie, actieve tijd, locatiebezoekredenen, voorstelafwijkingen en montageverrassingen.
 
-**Open operationeel werk:** BL-001 publieke demo staat standaard aan; externe AI-activering wacht op DPIA/key; SMTP en overige host/env-acties staan in [docs/DEPLOYMENT.md § Handmatige acties](docs/DEPLOYMENT.md#handmatige-acties-producteigenaar). Handmatige teststatus: [docs/functional-test-status.md](docs/functional-test-status.md).
+De publieke homepage is een installateursfunnel met fictieve productweergaven, interactieve demo en een zelfstandige, privacybegrensde interesse-CTA. Contactinzendingen starten nooit een technische opname.
+
+**Open operationeel werk:** de vernieuwde BL-001-demo is codegereed maar blijft `in_progress` tot de staging-/mobiele smoke is uitgevoerd. Externe AI-activering wacht op DPIA/key; SMTP en overige host/env-acties staan in [docs/DEPLOYMENT.md § Handmatige acties](docs/DEPLOYMENT.md#handmatige-acties-producteigenaar). Handmatige teststatus: [docs/functional-test-status.md](docs/functional-test-status.md).

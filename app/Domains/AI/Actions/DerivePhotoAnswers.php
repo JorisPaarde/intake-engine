@@ -67,6 +67,10 @@ final class DerivePhotoAnswers
         ?string $sectionInstanceKey,
         PhotoDerivationProfile $profile,
     ): ?AiRun {
+        if ($intake->is_demo) {
+            return null;
+        }
+
         $uploads = $this->uploads($intake, $photoQuestionKey, $sectionInstanceKey);
 
         if ($uploads->isEmpty()) {

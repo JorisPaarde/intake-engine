@@ -1,6 +1,6 @@
 # Deployment naar cPanel (staging + production)
 
-> **Documentversie:** 2.8 · **Laatste update:** 2026-07-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.10 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 **Statusregel:** staging en production zijn fysiek en logisch gescheiden; open handmatige acties (env/host) staan in [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
 
@@ -140,7 +140,7 @@ cPanel → **Cron Jobs**, twee entries per omgeving:
 
 Geen supervisor op cPanel; `--stop-when-empty --max-time=50` per minuut is de pragmatische variant. `queue:restart` in de deploy zorgt dat workers na een release verse code draaien.
 
-`schedule:run` dekt o.a. hourly `intakes:purge-demos`, daily `intakes:send-reminders` (BL-015) en daily `intakes:purge-deleted` (BL-009). De queue-worker verwerkt AI-samenvatting en PDF-export (BL-005).
+`schedule:run` dekt o.a. hourly `intakes:purge-demos`, daily `intakes:send-reminders` (BL-015), daily `intakes:purge-deleted` (BL-009) en daily `product-interests:purge` (BL-043). De queue-worker verwerkt AI-samenvatting, PDF-export (BL-005) en optionele interne interesse-notificaties.
 
 ## Database bij deploy
 
@@ -197,6 +197,7 @@ Alles hieronder staat **niet** in git en moet jij (of de host) per omgeving zett
 | # | Actie | Waar | Vars / stappen | Ontgrendelt |
 |---|--------|------|----------------|-------------|
 | 1 | **SMTP voor mails** (BL-004/014/015/027) | `shared/.env` | Zie [§ Mail](#mail-bl-004). Zonder dit blijft de app bij `MAIL_MAILER=log` en **stuurt geen** klant-/installateursmails met tokens of notificaties (bewust, ADR-0002). | Echte bezorging + smoke-tests BL-004/014/015/027 |
+| 2 | **Interesseformulier intern melden** (BL-043) | `shared/.env` | Zet na SMTP ook `PRODUCT_INTEREST_MAIL_TO` op het interne opvolgadres; zie [§ Interesseformulier](#interesseformulier-bl-043). | Directe e-mailmelding naast de altijd opgeslagen inzending |
 
 ### Optioneel / later (niet blokkerend voor de kernflow)
 
@@ -208,7 +209,7 @@ Alles hieronder staat **niet** in git en moet jij (of de host) per omgeving zett
 | `MEDIA_DISK=s3` + AWS-vars | Bij storagegroei / vertrek cPanel (BL-013) | Bestaande rijen behouden `disk`+`path`. |
 | `PDOK_ENABLED=false` | Alleen als uitgaande adres-/locatiebevraging juridisch of technisch nog niet mag | Adres-autocomplete, BAG-verrijking en luchtfoto uit; handmatig adres/bouwjaar en klantfoto’s blijven werken. Geen API-key nodig. |
 | `PDOK_AERIAL_ENABLED=false` | BAG mag wel, luchtfoto nog niet of WMS-verkeer ongewenst | Alleen server-side luchtfotocapture uit; BAG-feiten blijven werken. |
-| Demo-installateur-login | Alleen voor staging-dossierchecks van publieke demo-opnames | Zet `DEMO_INSTALLER_PASSWORD` privé in staging `shared/.env`; de volgende staging deploy seedt het account op `DEMO_USER_EMAIL`. |
+| Vast demo-installateuraccount | Alleen voor losse staging-inspectie buiten de publieke sessieflow | Optioneel `DEMO_INSTALLER_PASSWORD` privé zetten; de publieke demo heeft dit account niet nodig en maakt per bezoeker een eigen tijdelijk account. |
 | Dev-admin (`/dev`) op staging uitzetten | Alleen als staging-inzage niet gewenst is | `DEV_ADMIN_ENABLED=false` in `shared/.env` + `config:cache`. Staat op **staging standaard aan** en op **production automatisch uit** — op production is **geen** env-var nodig (hard 404 via `EnsureDevAccess`). Toont ruwe klant-PII, dus bewust nooit op production (ADR-0008). |
 
 ### Bewust niet handmatig doen
@@ -259,23 +260,41 @@ De server leest maximaal twee recente private meterkastfoto's van `MEDIA_DISK` e
 
 ## Publieke demo (BL-001)
 
-De knop **Start demo** staat **standaard aan** (`DEMO_ENABLED` default `true`) voor **gasten**. Ingelogde gebruikers zien hem niet (wel **Open dashboard**). Elke anonieme bezoeker kan zonder account een tijdelijke airco-intake starten. De demo toont de klantflow **plus AI-samenvatting/aandachtspunten** inline. Als `AI_PROVIDER=null` draait de lokale heuristic meteen; als een geconfigureerde externe provider faalt, valt de demo alsnog terug op die heuristic zodat het bedankt-scherm bruikbaar blijft. De demo legt ook uit welke stappen hier uitstaan (e-mail, PDF, installateursdashboard). Optioneel in `shared/.env`:
+De CTA **Probeer de interactieve demo** staat standaard aan (`DEMO_ENABLED=true`) voor gasten. Elke start maakt een uniek tijdelijk `Company`-/`User`-paar, logt de bezoeker daarin in en opent direct de echte `intakes.workspace` met een fictieve, vooraf voorbereide airco-opname. Reguliere tenants en andere demosessies blijven door dezelfde policies afgeschermd.
+
+Het scenario gebruikt synthetische foto’s en vaste voorbeeldresultaten voor BAG, luchtfoto, EP-Online, 3DBAG en dossiersynthese. Die foto’s lopen bij iedere start door de normale dubbele beeldpipeline. Demo-opnames versturen geen mail/notificatie, genereren geen PDF en doen geen externe AI- of adresbroncall — ook niet als die integraties in dezelfde omgeving zijn geactiveerd.
 
 ```env
 DEMO_ENABLED=true
-DEMO_TTL_HOURS=12
+DEMO_TTL_HOURS=2
 DEMO_USER_EMAIL=demo@intake-engine.invalid
-DEMO_INSTALLER_PASSWORD=          # privé staging-wachtwoord voor dossierchecks
+DEMO_INSTALLER_PASSWORD=          # optioneel vast account; niet nodig voor publieke demo
 DEMO_THROTTLE_PER_HOUR=5
 ```
 
-Zet `DEMO_INSTALLER_PASSWORD` alleen in staging als de demo-installateur ook de afgeronde publieke demo-opnames in het dashboard moet kunnen openen. `deploy/activate.sh` draait daarvoor op staging `DemoInstallerSeeder`; zonder wachtwoord wordt geen login aangemaakt. Het demo-dashboard toont alleen demo-opnames van dit demo-account, terwijl normale installateurs demo-opnames verborgen houden.
+`intakes:purge-demos` draait hourly. Een verlopen demo wordt hard verwijderd inclusief dossierrecords, luchtfoto, dossier-/analysebeelden en daarna uitsluitend het veilig aan de slug/e-mailprefix herkenbare verweesde demo-account en -bedrijf. Een actief of regulier account wordt nooit via deze cleanup verwijderd.
 
-Zet `DEMO_ENABLED=false` alleen om de knop/route uit te schakelen (bijv. misbruik). Daarna `php artisan config:cache` (of wacht op de volgende deploy-activate). Verlopen demo-intakes worden hourly gepurged (`intakes:purge-demos`). **Let op:** als een bestaande `shared/.env` nog expliciet `DEMO_ENABLED=false` heeft, verwijder die regel of zet `true` — anders blijft de oude waarde leidend.
+`DEMO_USER_EMAIL` en `DEMO_INSTALLER_PASSWORD` blijven alleen bestaan voor een optioneel vast staging-inspectieaccount via `DemoInstallerSeeder`; de publieke sessieflow gebruikt altijd unieke `@demo.invalid`-users.
+
+Zet `DEMO_ENABLED=false` alleen om nieuwe starts uit te schakelen, bijvoorbeeld bij misbruik/load. Daarna `php artisan config:cache` of wacht op de volgende deploy-activate. Bestaande tijdelijke demo’s blijven volgens hun TTL opruimen.
+
+## Interesseformulier (BL-043)
+
+De publieke funnel op `/` verwerkt `POST /interesse`. Iedere geldige inzending wordt eerst in `product_interests` opgeslagen; uitval van SMTP of queue kan de bevestiging aan de prospect daarom niet verliezen. Er wordt geen IP-adres opgeslagen. Een honeypot en IP-gebaseerde rate-limit beperken geautomatiseerde spam zonder extra persoonsgegevens te bewaren.
+
+```env
+PRODUCT_INTEREST_MAIL_TO=         # intern adres; leeg = alleen databaseopslag
+PRODUCT_INTEREST_THROTTLE_PER_HOUR=5
+PRODUCT_INTEREST_RETENTION_DAYS=365
+```
+
+Alleen met een geldig `PRODUCT_INTEREST_MAIL_TO` én een mailer anders dan `log` wordt een interne mailable ingepland. De mail gebruikt het adres van de prospect als `Reply-To`. Bij `MAIL_MAILER=log` wordt zij bewust overgeslagen, zodat contactgegevens niet in applicatielogs belanden.
+
+`product-interests:purge` draait dagelijks via de scheduler en verwijdert rijen waarvan `expires_at` is verstreken. De standaardtekst op de landingspagina communiceert de maximale bewaartermijn van twaalf maanden; wijzig `PRODUCT_INTEREST_RETENTION_DAYS` daarom niet naar een langere periode zonder die tekst en het privacybeleid mee te beoordelen.
 
 ## Mail (BL-004)
 
-Deze configuratie geldt ook voor BL-014, BL-015 en BL-027.
+Deze configuratie geldt ook voor BL-014, BL-015, BL-027 en de optionele BL-043-interessemelding.
 
 De app stuurt (bij werkende SMTP):
 
@@ -283,10 +302,11 @@ De app stuurt (bij werkende SMTP):
 - **Afrondingsmail** naar de installateur na klant-afronden (BL-014)
 - **Herinnering** naar de klant na `INTAKE_REMINDER_DAYS` zonder afronding (BL-015; max. één)
 - **Gerichte aanvulling** naar de klant na `need_more_info`, daarna opnieuw een afrondingsnotificatie naar de installateur (BL-027)
+- **Nieuwe productinteresse** naar `PRODUCT_INTEREST_MAIL_TO`, zonder dossier- of klanttoken (BL-043)
 
 De kopieerbare klantlink op de detailpagina blijft de fallback. Dashboard-markering **Nieuw afgerond** (BL-014) werkt ook zonder SMTP.
 
-**Belangrijk (ADR-0002):** bij `MAIL_MAILER=log` worden mails met access-tokens **niet** verstuurd — anders belandt het token in `storage/logs`. Installateurs-afrondingsmail bevat geen token maar wordt om dezelfde staging-reden overgeslagen. Zet op staging/productie echte SMTP:
+**Belangrijk (ADR-0002/privacy):** bij `MAIL_MAILER=log` worden mails met access-tokens **niet** verstuurd — anders belandt het token in `storage/logs`. Installateurs-afrondingsmail en de productinteressemelding bevatten geen token, maar worden om dezelfde reden overgeslagen: ook contactgegevens horen niet in applicatielogs. Zet op staging/productie echte SMTP:
 
 ```env
 MAIL_MAILER=smtp

@@ -51,7 +51,7 @@ final class DeriveIntentFromRequest
 
     public function handle(Intake $intake): ?AiRun
     {
-        if (! (bool) config('ai.text_inference.enabled', false)) {
+        if ($intake->is_demo || ! (bool) config('ai.text_inference.enabled', false)) {
             return null;
         }
 

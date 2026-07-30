@@ -383,38 +383,20 @@ test('lookup id cannot replace a manually entered different address', function (
         ->and($intake->answers()->where('question_key', 'build_year')->exists())->toBeFalse();
 });
 
-test('starting a demo enriches the address so BAG-known questions are skipped', function () {
-    fakeSuccessfulPdok();
-
-    config()->set('intake.demo.enabled', true);
-    config()->set('intake.demo.address.line', 'Damrak 1');
-    config()->set('intake.demo.address.postal_code', '1012LG');
-    config()->set('intake.demo.address.city', 'Amsterdam');
-
-    $intake = app(StartDemoIntake::class)->handle();
-
-    $buildYear = $intake->answers()->where('question_key', 'build_year')->firstOrFail();
-
-    expect($intake->is_demo)->toBeTrue()
-        ->and($buildYear->value)->toBe(['number' => 1890])
-        ->and($buildYear->prefill_source)->toBe('pdok')
-        ->and($intake->externalFacts()->pluck('fact_key'))->toContain('building_year');
-
-    $version = $intake->templateVersion()->with(['sections.questions.options', 'sections.questions.rules'])->firstOrFail();
-    $stepKeys = collect(app(IntakeStepBuilder::class)->build($intake->fresh(), $version))->pluck('question_key');
-
-    expect($stepKeys)->not->toContain('build_year');
-});
-
-test('a PDOK outage still lets the demo start', function () {
-    Http::fake(fn () => Http::response([], 500));
-
+test('starting a demo uses precomputed fictitious context without calling PDOK', function () {
+    Http::fake();
     config()->set('intake.demo.enabled', true);
 
     $intake = app(StartDemoIntake::class)->handle();
+    $buildYear = $intake->externalFacts()->where('fact_key', 'building_year')->firstOrFail();
 
     expect($intake->exists)->toBeTrue()
-        ->and($intake->access_token)->not->toBeEmpty();
+        ->and($intake->is_demo)->toBeTrue()
+        ->and($buildYear->value)->toBe(['number' => 1996])
+        ->and($buildYear->source)->toContain('fictief demo-voorbeeld')
+        ->and($intake->externalFacts()->pluck('fact_key'))->toContain('aerial_image');
+
+    Http::assertNothingSent();
 });
 
 /** @return array<string, mixed> */

@@ -1,6 +1,6 @@
 # Vragen- en takenengine
 
-> **Documentversie:** 2.1 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.2 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: de templatewizard is **geïmplementeerd t/m airco v10** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md).
 
@@ -231,7 +231,7 @@ Vraagreductie blijft template-gestuurd:
 
 Airco v4 gebruikte dit alleen voor `build_year`: BAG registreert dit direct op het eenduidig gekoppelde pand. v6 breidt het uit naar `building_type`, maar alleen voor het eenduidige geval — bevat het gebruiksdoel geen enkele `woonfunctie`, dan is `commercial` een feit. BAG onderscheidt appartement, tussenwoning, hoekwoning en vrijstaand níét, dus bij elke woonfunctie blijft de vraag gewoon staan: een fout voorzet kost de installateur meer dan één extra vraag.
 
-Belangrijk: de aanroep moet ook echt gebeuren. Tot v6 draaide `EnrichIntakeAddress` alleen bij `IntakeController::store`, waardoor de publieke demo nooit werd verrijkt en `skip_when_prefilled_by` daar dood bleef. `StartDemoIntake` roept de verrijking nu zelf aan, op een bestaand BAG-adres uit `intake.demo.address`. Automatisch opgehaalde feiten gaan naast antwoorden mee in de context voor AI-samenvatting en aandachtspunten; bron en zekerheid blijven behouden.
+In normale opnames wordt `EnrichIntakeAddress` direct na `IntakeController::store` aangeroepen; automatisch opgehaalde feiten gaan met bron en zekerheid het dossier in. De publieke demo is hiervan bewust losgekoppeld: `StartDemoIntake` benadert geen echt adres en bouwt expliciet gelabelde fictieve BAG-/luchtfoto-/EP-Online-/3DBAG-context. Zo blijft de demo voorspelbaar en worden openbare diensten niet door anoniem demoverkeer belast.
 
 ## Foto-afleiding en uitzonderingen (BL-020/041)
 

@@ -11,6 +11,7 @@ use App\Domains\Intake\Models\DossierRecord;
 use App\Domains\Intake\Models\DossierSubject;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeAnswer;
+use App\Domains\Intake\Models\IntakeUpload;
 use App\Enums\ContributionAudience;
 use App\Enums\ContributionTaskStatus;
 use App\Enums\DossierRecordKind;
@@ -287,7 +288,7 @@ final class DossierManager
         }
 
         foreach ($intake->uploads as $upload) {
-            $subject = $this->subjectForInstance($upload->section_instance_key, $roomSubjects) ?? $root;
+            $subject = $this->subjectForUpload($intake, $upload, $roomSubjects) ?? $root;
             $this->linkEvidence($intake, $subject, 'intake_upload', $upload->id);
         }
 
@@ -419,6 +420,31 @@ final class DossierManager
     private function subjectForInstance(?string $instanceKey, array $subjects): ?DossierSubject
     {
         return $instanceKey === null ? null : ($subjects[$instanceKey] ?? null);
+    }
+
+    /**
+     * @param  array<string, DossierSubject>  $roomSubjects
+     */
+    private function subjectForUpload(
+        Intake $intake,
+        IntakeUpload $upload,
+        array $roomSubjects,
+    ): ?DossierSubject {
+        $roomSubject = $this->subjectForInstance($upload->section_instance_key, $roomSubjects);
+
+        if ($roomSubject !== null) {
+            return $roomSubject;
+        }
+
+        if (! is_string($upload->section_instance_key)
+            || preg_match('/^subject-(\d+)$/', $upload->section_instance_key, $matches) !== 1) {
+            return null;
+        }
+
+        return DossierSubject::query()
+            ->where('intake_id', $intake->id)
+            ->where('company_id', $intake->company_id)
+            ->find((int) $matches[1]);
     }
 
     /** @return array<string, float> */

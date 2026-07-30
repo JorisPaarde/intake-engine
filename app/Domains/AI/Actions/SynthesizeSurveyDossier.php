@@ -60,7 +60,7 @@ final class SynthesizeSurveyDossier
 
     public function handle(Intake $intake): ?AiRun
     {
-        if (! (bool) config('ai.dossier.enabled', false)) {
+        if ($intake->is_demo || ! (bool) config('ai.dossier.enabled', false)) {
             return null;
         }
 

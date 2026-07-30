@@ -26,6 +26,7 @@ use App\Domains\Intake\Services\DecisionReadinessService;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\DossierOverviewBuilder;
 use App\Domains\Intake\Services\ExternalFactPresenter;
+use App\Domains\Intake\Services\InstallerPhotoGalleryBuilder;
 use App\Enums\AircoConfigurationType;
 use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
@@ -52,6 +53,7 @@ final class SurveyWorkspaceController extends Controller
         DossierManager $dossierManager,
         DossierOverviewBuilder $overviewBuilder,
         ExternalFactPresenter $externalFactPresenter,
+        InstallerPhotoGalleryBuilder $photoGalleryBuilder,
     ): View {
         $this->authorize('view', $intake);
         $dossierManager->initialize($intake);
@@ -76,6 +78,7 @@ final class SurveyWorkspaceController extends Controller
             'intake' => $intake,
             'dossier' => $overviewBuilder->build($intake),
             'externalData' => $externalFactPresenter->present($intake),
+            'photoGroups' => $photoGalleryBuilder->handle($intake),
             'placementTypes' => AircoPlacementType::cases(),
             'configurationTypes' => AircoConfigurationType::cases(),
             'connectionTypes' => AircoConnectionType::cases(),
@@ -270,7 +273,9 @@ final class SurveyWorkspaceController extends Controller
         return $this->back(
             $intake,
             isset($data['airco_connection_id'])
-                ? 'Foto opgeslagen en als volgend routesegment geanalyseerd.'
+                ? ($intake->is_demo
+                    ? 'Foto opgeslagen als routesegment. Live AI-analyse staat uit in de demo.'
+                    : 'Foto opgeslagen en als volgend routesegment geanalyseerd.')
                 : 'Foto als dossierbewijs opgeslagen.',
         );
     }
@@ -309,6 +314,7 @@ final class SurveyWorkspaceController extends Controller
         $mailResult = $sendRequest->handle($intake->fresh() ?? $intake, $round, $user);
         $message = match ($mailResult) {
             CustomerLinkMailResult::Sent => 'Gerichte klantopdracht aangemaakt en gemaild.',
+            CustomerLinkMailResult::SkippedDemo => 'Klantweergave geactiveerd. In de demo wordt geen e-mail verstuurd.',
             CustomerLinkMailResult::SkippedLogMailer => 'Klantopdracht aangemaakt. Mail is lokaal uitgeschakeld; deel de link handmatig.',
             CustomerLinkMailResult::Failed => 'Klantopdracht aangemaakt, maar mailen mislukte. Deel de link handmatig.',
             default => 'Gerichte klantopdracht aangemaakt.',
@@ -325,6 +331,11 @@ final class SurveyWorkspaceController extends Controller
     ): RedirectResponse {
         $this->authorize('update', $intake);
         abort_unless($session->intake_id === $intake->id, 404);
+
+        if ($intake->is_demo) {
+            return $this->back($intake, 'Deze route is vooraf berekend; de demo gebruikt geen live AI.');
+        }
+
         $synthesize->handle($session);
         $readiness->recalculate($intake);
 
@@ -351,6 +362,11 @@ final class SurveyWorkspaceController extends Controller
         SynthesizeSurveyDossier $synthesize,
     ): RedirectResponse {
         $this->authorize('update', $intake);
+
+        if ($intake->is_demo) {
+            return $this->back($intake, 'Het AI-voorstel is vooraf berekend; de demo gebruikt geen live AI.');
+        }
+
         $run = $synthesize->handle($intake);
 
         if ($run === null) {
@@ -391,6 +407,7 @@ final class SurveyWorkspaceController extends Controller
 
         return $this->back($intake, match ($mailResult) {
             CustomerLinkMailResult::Sent => 'AI-taak gecontroleerd en als gerichte klantopdracht gemaild.',
+            CustomerLinkMailResult::SkippedDemo => 'Klantweergave geactiveerd. In de demo wordt geen e-mail verstuurd.',
             CustomerLinkMailResult::SkippedLogMailer => 'Klantopdracht aangemaakt. Mail is lokaal uitgeschakeld; deel de link handmatig.',
             CustomerLinkMailResult::Failed => 'Klantopdracht aangemaakt, maar mailen mislukte. Deel de link handmatig.',
             default => 'AI-taak gecontroleerd en als gerichte klantopdracht aangemaakt.',

@@ -50,5 +50,12 @@ class AppServiceProvider extends ServiceProvider
 
             return Limit::perHour($perHour)->by((string) $request->ip());
         });
+
+        RateLimiter::for('product-interest', function (Request $request) {
+            $perHour = max(1, (int) config('intake.interest.throttle_per_hour', 5));
+
+            return Limit::perHour($perHour)
+                ->by(hash('sha256', (string) $request->ip()));
+        });
     }
 }

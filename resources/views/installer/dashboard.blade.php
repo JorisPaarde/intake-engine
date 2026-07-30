@@ -22,7 +22,7 @@
 
             @if ($showingDemoIntakes)
                 <div class="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                    Demo-overzicht: je ziet hier alleen tijdelijke publieke demo-opnames van dit demo-account.
+                    Demo-overzicht: je ziet alleen de tijdelijke, fictieve opname uit deze demosessie.
                 </div>
             @endif
 
@@ -75,8 +75,8 @@
                                     <td class="px-4 py-3 text-gray-600">{{ $intake->created_at?->timezone(config('app.timezone'))->format('d-m-Y H:i') }}</td>
                                     <td class="px-4 py-3 text-gray-600">{{ $intake->completed_at?->timezone(config('app.timezone'))->format('d-m-Y H:i') ?? '—' }}</td>
                                     <td class="px-4 py-3 text-right">
-                                        <a href="{{ route('intakes.show', $intake) }}" class="font-medium text-indigo-600 hover:text-indigo-800">
-                                            Openen
+                                        <a href="{{ $intake->is_demo ? route('intakes.workspace', $intake) : route('intakes.show', $intake) }}" class="font-medium text-indigo-600 hover:text-indigo-800">
+                                            {{ $intake->is_demo ? 'Open werkplek' : 'Openen' }}
                                         </a>
                                     </td>
                                 </tr>

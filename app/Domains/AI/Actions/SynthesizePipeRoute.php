@@ -40,7 +40,8 @@ final class SynthesizePipeRoute
 
     public function handle(PipeRouteSession $session): PipeRouteSession
     {
-        if (! (bool) config('ai.route.enabled', false)) {
+        if (Intake::query()->whereKey($session->intake_id)->where('is_demo', true)->exists()
+            || ! (bool) config('ai.route.enabled', false)) {
             return $session;
         }
 

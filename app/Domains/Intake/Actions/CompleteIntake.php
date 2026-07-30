@@ -19,7 +19,6 @@ use App\Domains\Intake\Services\CompletenessChecker;
 use App\Domains\Intake\Services\DecisionReadinessService;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\GenerateIntakeReportHtml;
-use App\Enums\AiRunStatus;
 use App\Enums\AttentionPointSource;
 use App\Enums\IntakeStatus;
 use Illuminate\Support\Facades\DB;
@@ -124,8 +123,8 @@ final class CompleteIntake
         $this->decisionReadiness->recalculate($completed);
 
         if ($completed->is_demo) {
-            // Demo: run AI inline so the thank-you screen can show a real voorstel.
-            // When AI_PROVIDER is off, fall back to heuristic (local, no external call).
+            // Een oude klantdemo kan nog worden afgerond. Gebruik daarvoor uitsluitend
+            // de lokale heuristic: een demo mag nooit een externe AI-call veroorzaken.
             $this->runDemoAi($completed);
         } else {
             SummarizeIntakeJob::dispatch($completed->id);
@@ -143,23 +142,7 @@ final class CompleteIntake
         $originalProvider = config('ai.provider');
 
         try {
-            $provider = (string) $originalProvider;
-
-            if (in_array($provider, ['null', ''], true)) {
-                $this->runDemoAiWithProvider($intake, 'heuristic');
-
-                return;
-            }
-
-            [$summaryRun, $attentionRun] = $this->runDemoAiActions($intake);
-
-            if ($provider !== 'heuristic' && (
-                $summaryRun->status === AiRunStatus::Failed
-                || $attentionRun === null
-                || $attentionRun->status === AiRunStatus::Failed
-            )) {
-                $this->runDemoAiWithProvider($intake, 'heuristic');
-            }
+            $this->runDemoAiWithProvider($intake, 'heuristic');
         } finally {
             config(['ai.provider' => $originalProvider]);
         }

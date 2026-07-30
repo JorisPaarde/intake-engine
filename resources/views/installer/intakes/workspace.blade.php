@@ -68,6 +68,29 @@
                 </div>
             @endif
 
+            @if ($intake->is_demo)
+                <section id="demo-intro" class="overflow-hidden rounded-3xl border border-sky-200 bg-sky-50 shadow-sm">
+                    <div class="grid gap-5 p-5 sm:p-6 lg:grid-cols-[1fr_auto] lg:items-center">
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Interactieve demo · echte werkplek</p>
+                            <h3 class="mt-2 text-xl font-semibold text-gray-950">Beoordeel een vooraf gevulde airco-opname</h3>
+                            <p class="mt-2 max-w-3xl text-sm leading-relaxed text-gray-700">
+                                Deze woning, klant en foto’s zijn volledig fictief. U gebruikt wel dezelfde installateursflow, validaties en dossieropslag als in de app. De sessie verdwijnt na {{ max(1, (int) config('intake.demo.ttl_hours', 2)) }} uur; live AI, e-mail en PDF-export staan uit.
+                            </p>
+                            <nav class="mt-4 flex flex-wrap gap-2 text-xs font-semibold" aria-label="Demoroute">
+                                <a href="#demo-context" class="rounded-full bg-white px-3 py-2 text-sky-800 shadow-sm ring-1 ring-sky-200">1. Woningcontext</a>
+                                <a href="#demo-evidence" class="rounded-full bg-white px-3 py-2 text-sky-800 shadow-sm ring-1 ring-sky-200">2. Foto’s</a>
+                                <a href="#demo-proposal" class="rounded-full bg-white px-3 py-2 text-sky-800 shadow-sm ring-1 ring-sky-200">3. Voorstel en routes</a>
+                                <a href="#demo-customer-task" class="rounded-full bg-white px-3 py-2 text-sky-800 shadow-sm ring-1 ring-sky-200">4. Gerichte klanttaak</a>
+                            </nav>
+                        </div>
+                        <a href="{{ url('/') }}" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-sky-300 bg-white px-4 py-2 text-sm font-semibold text-sky-900 hover:bg-sky-100">
+                            Terug naar website
+                        </a>
+                    </div>
+                </section>
+            @endif
+
             <section class="overflow-hidden rounded-3xl bg-gray-950 text-white shadow-sm">
                 <div class="grid gap-6 p-6 sm:p-8 lg:grid-cols-[1fr_auto] lg:items-end">
                     <div>
@@ -132,7 +155,7 @@
                         </div>
                     </section>
 
-                    <section class="rounded-3xl border border-indigo-100 bg-indigo-50/50 p-5 shadow-sm sm:p-6">
+                    <section id="demo-ai" class="rounded-3xl border border-indigo-100 bg-indigo-50/50 p-5 shadow-sm sm:p-6">
                         <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                             <div>
                                 <p class="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">AI-opnameassistent</p>
@@ -141,12 +164,18 @@
                                     De synthese gebruikt alleen brongebonden dossierinformatie. Opties, routes en klanttaken blijven voorstellen totdat u ze als geheel kiest of verstuurt.
                                 </p>
                             </div>
-                            <form method="POST" action="{{ route('intakes.workspace.synthesis', $intake) }}">
-                                @csrf
-                                <button class="inline-flex min-h-11 shrink-0 items-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500">
-                                    AI-voorstel vernieuwen
-                                </button>
-                            </form>
+                            @if ($intake->is_demo)
+                                <span class="inline-flex min-h-11 shrink-0 items-center rounded-xl bg-indigo-100 px-4 py-2 text-sm font-semibold text-indigo-800">
+                                    Vooraf berekend · € 0
+                                </span>
+                            @else
+                                <form method="POST" action="{{ route('intakes.workspace.synthesis', $intake) }}">
+                                    @csrf
+                                    <button class="inline-flex min-h-11 shrink-0 items-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500">
+                                        AI-voorstel vernieuwen
+                                    </button>
+                                </form>
+                            @endif
                         </div>
 
                         @if ($aiSynthesis)
@@ -170,7 +199,7 @@
                         @endif
                     </section>
 
-                    <section class="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+                    <section id="demo-context" class="scroll-mt-6 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
                         <div>
                             <h3 class="text-lg font-semibold text-gray-950">Bekende woningcontext</h3>
                             <p class="mt-1 text-sm text-gray-500">BAG, luchtfoto, EP-Online en 3DBAG staan al in het dossier; alleen gemarkeerde uitzonderingen vragen aandacht.</p>
@@ -204,6 +233,42 @@
                                 </ul>
                             </details>
                         @endif
+                    </section>
+
+                    <section id="demo-evidence" class="scroll-mt-6 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-950">Beeldbewijs in het dossier</h3>
+                            <p class="mt-1 text-sm text-gray-500">Elke foto blijft aan het juiste technische onderdeel gekoppeld; de installateur kan het origineel openen.</p>
+                        </div>
+
+                        @forelse ($photoGroups as $group)
+                            <div class="mt-5">
+                                <h4 class="text-sm font-semibold text-gray-800">{{ $group['heading'] }}</h4>
+                                <ul class="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                                    @foreach ($group['uploads'] as $item)
+                                        <li>
+                                            <a
+                                                href="{{ route('installer.uploads.show', [$intake, $item['upload']]) }}"
+                                                target="_blank"
+                                                rel="noopener"
+                                                class="group block overflow-hidden rounded-2xl border border-gray-200 bg-gray-50"
+                                            >
+                                                <img
+                                                    src="{{ route('installer.uploads.show', [$intake, $item['upload']]) }}"
+                                                    alt="{{ $group['heading'] }} · {{ $item['caption'] }}"
+                                                    class="aspect-[4/3] w-full object-cover transition group-hover:scale-[1.02]"
+                                                >
+                                                <span class="block truncate px-3 py-2 text-xs font-medium text-gray-700">{{ $item['caption'] }}</span>
+                                            </a>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        @empty
+                            <div class="mt-5 rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-5 py-8 text-center text-sm text-gray-500">
+                                Nog geen foto’s aan het dossier gekoppeld.
+                            </div>
+                        @endforelse
                     </section>
 
                     <section class="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
@@ -297,7 +362,7 @@
                         </details>
                     </section>
 
-                    <section class="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+                    <section id="demo-placements" class="scroll-mt-6 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
                         <div>
                             <h3 class="text-lg font-semibold text-gray-950">Kandidaatposities</h3>
                             <p class="mt-1 text-sm text-gray-500">Binnen, buiten, voeding en afvoer blijven losse mogelijkheden tot u een opstelling kiest.</p>
@@ -356,7 +421,7 @@
                         </details>
                     </section>
 
-                    <section class="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+                    <section id="demo-proposal" class="scroll-mt-6 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
                         <div>
                             <h3 class="text-lg font-semibold text-gray-950">Installatieopties</h3>
                             <p class="mt-1 text-sm text-gray-500">Vergelijk bijvoorbeeld één multi-split met twee losse single-splits.</p>
@@ -651,9 +716,14 @@
                         </form>
                     </section>
 
-                    <section class="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+                    <section id="demo-customer-task" class="scroll-mt-6 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
                         <h3 class="font-semibold text-gray-950">Gerichte klanttaak</h3>
-                        <p class="mt-1 text-sm leading-relaxed text-gray-500">De klant ziet alleen deze opdrachten. Pas bij opslaan wordt de klantlink actief.</p>
+                        <p class="mt-1 text-sm leading-relaxed text-gray-500">
+                            De klant ziet alleen deze opdrachten. Pas bij activeren wordt de klantlink actief.
+                            @if ($intake->is_demo)
+                                De klantweergave opent als simulatie; er wordt geen e-mail verstuurd.
+                            @endif
+                        </p>
                         @if ($proposedCustomerTasks->isNotEmpty())
                             <div class="mt-4 space-y-3">
                                 @foreach ($proposedCustomerTasks as $task)
@@ -665,7 +735,9 @@
                                         @endif
                                         <form method="POST" action="{{ route('intakes.workspace.tasks.send', [$intake, $task]) }}" class="mt-3">
                                             @csrf
-                                            <button class="min-h-10 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white">Controleren en versturen</button>
+                                            <button class="min-h-10 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white">
+                                                {{ $intake->is_demo ? 'Controleren en klantweergave activeren' : 'Controleren en versturen' }}
+                                            </button>
                                         </form>
                                     </article>
                                 @endforeach
@@ -690,7 +762,9 @@
                                     </select>
                                 </fieldset>
                             @endfor
-                            <x-primary-button class="w-full justify-center">Klanttaak maken en mailen</x-primary-button>
+                            <x-primary-button class="w-full justify-center">
+                                {{ $intake->is_demo ? 'Klantweergave activeren' : 'Klanttaak maken en mailen' }}
+                            </x-primary-button>
                         </form>
                     </section>
 

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Actions;
 
-use App\Domains\AI\Actions\SuggestAttentionPoints;
 use App\Domains\AI\Jobs\SuggestAttentionPointsJob;
 use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
 use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
@@ -113,21 +112,20 @@ final class CompleteFollowUpRound
 
         $this->dossierManager->initialize($completed);
         $this->decisionReadiness->recalculate($completed);
-        SynthesizeSurveyDossierJob::dispatch($completed->id);
+
+        if (! $completed->is_demo) {
+            SynthesizeSurveyDossierJob::dispatch($completed->id);
+        }
 
         $this->rebuildIntakeReportHtml->handle($completed);
 
-        if ($completed->status !== IntakeStatus::Completed) {
+        if ($completed->status !== IntakeStatus::Completed || $completed->is_demo) {
             return $completed;
         }
 
-        if ($completed->is_demo) {
-            app(SuggestAttentionPoints::class)->handle($completed);
-        } else {
-            SuggestAttentionPointsJob::dispatch($completed->id);
-            GenerateIntakePdfJob::dispatch($completed->id);
-            app(SendInstallerIntakeCompleted::class)->handle($completed);
-        }
+        SuggestAttentionPointsJob::dispatch($completed->id);
+        GenerateIntakePdfJob::dispatch($completed->id);
+        app(SendInstallerIntakeCompleted::class)->handle($completed);
 
         return $completed;
     }

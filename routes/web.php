@@ -18,18 +18,23 @@ use App\Http\Controllers\Installer\IntakeController;
 use App\Http\Controllers\Installer\IntakeUploadController as InstallerIntakeUploadController;
 use App\Http\Controllers\Installer\MetricsController;
 use App\Http\Controllers\Installer\SurveyWorkspaceController;
+use App\Http\Controllers\ProductInterestController;
 use App\Http\Controllers\ProfileController;
 use App\Livewire\Customer\IntakeWizard;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
-});
+})->name('home');
+
+Route::post('/interesse', ProductInterestController::class)
+    ->middleware('throttle:product-interest')
+    ->name('product-interest.store');
 
 Route::get('/health', HealthController::class)->name('health');
 
 Route::post('/demo/start', StartDemoController::class)
-    ->middleware('throttle:demo-start')
+    ->middleware(['guest', 'throttle:demo-start'])
     ->name('demo.start');
 
 Route::middleware(['customer.intake', 'throttle:customer-intake'])
@@ -42,7 +47,7 @@ Route::middleware(['customer.intake', 'throttle:customer-intake'])
             ->name('customer.uploads.show');
     });
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['auth', 'verified', 'public.demo.scope'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
     Route::get('/metrics', MetricsController::class)->name('metrics');
     Route::get('/settings/company', [CompanySettingsController::class, 'edit'])->name('company.settings.edit');
@@ -84,7 +89,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('installer.uploads.show');
 });
 
-Route::middleware(['auth', 'verified', 'dev.access'])
+Route::middleware(['auth', 'verified', 'public.demo.scope', 'dev.access'])
     ->prefix('dev')
     ->name('dev.')
     ->group(function () {
@@ -98,7 +103,7 @@ Route::middleware(['auth', 'verified', 'dev.access'])
             ->name('intakes.show');
     });
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'public.demo.scope'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
