@@ -9,6 +9,7 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Models\PipeRouteSegment;
 use App\Domains\Intake\Models\PipeRouteSession;
+use App\Enums\AircoConnectionStatus;
 use App\Enums\PipeRouteStatus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -47,6 +48,11 @@ final class AddPipeRoutePhoto
                     'alternative_route' => null,
                     'uncertainties' => null,
                     'missing_checks' => null,
+                ]);
+                $session->connection?->update([
+                    'status' => AircoConnectionStatus::NeedsEvidence,
+                    'approved_by' => null,
+                    'approved_at' => null,
                 ]);
             }
 

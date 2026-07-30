@@ -24,6 +24,9 @@
         </div>
 
         <div class="mt-4">
+            <p class="mb-4 rounded-xl bg-[color-mix(in_srgb,var(--tenant-primary)_8%,white)] px-4 py-3 text-sm font-medium leading-5 text-[#1D1D1F]">
+                Met uw hulp kunnen we sneller uw airco plaatsen. Wij gebruiken bekende woninggegevens al; u laat alleen zien wat we nog nodig hebben.
+            </p>
             <div class="flex items-center justify-between text-sm text-[#6E6E73]">
                 <span>Voortgang</span>
                 <span class="font-medium text-[#1D1D1F]">{{ $progressPercent }}%</span>
@@ -47,8 +50,8 @@
                 @if ($intake->is_demo)
                     Dit was een demo. Er wordt geen echte offerte gemaakt en de gegevens verdwijnen automatisch.
                 @else
-                    Je opname is volledig ingevuld en doorgestuurd. De installateur neemt de gegevens verder in behandeling.
-                    Je kunt dit venster sluiten.
+                    Uw bijdrage is veilig toegevoegd. De installateur beoordeelt nu alleen de installatiekeuzes en eventuele uitzonderingen.
+                    U kunt dit venster sluiten.
                 @endif
             </p>
             @if ($intake->is_demo)
@@ -337,7 +340,7 @@
                 @endif
             </div>
             <p class="mt-3 text-center text-xs text-[#6E6E73]">
-                Je voortgang blijft bewaard via deze link tot je afrondt.
+                Uw voortgang blijft bewaard via deze link tot u afrondt.
             </p>
         </footer>
     @endunless

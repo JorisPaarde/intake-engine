@@ -125,7 +125,7 @@ test('wizard advances one visible question at a time', function () {
         ->assertSet('stepIndex', 1)
         ->assertSet('activeStepKey', 'request::cooling_heating')
         ->assertSee('Wilt u koelen, verwarmen of beide?')
-        ->assertDontSee('Hoeveel binnenunits wilt u ongeveer?');
+        ->assertDontSee('Hoeveel ruimtes wilt u koelen of verwarmen?');
 });
 
 test('conditional show rules hide questions until matched', function () {
@@ -225,7 +225,7 @@ test('single choice auto-advances after selecting an option', function () {
         ->set('form.cooling_heating.value', 'cooling')
         ->assertSet('activeStepKey', 'request::indoor_unit_count')
         ->assertSet('saveMessage', 'Opgeslagen')
-        ->assertSee('Hoeveel binnenunits wilt u ongeveer?');
+        ->assertSee('Hoeveel ruimtes wilt u koelen of verwarmen?');
 });
 
 test('boolean auto-advances after choosing ja or nee', function () {

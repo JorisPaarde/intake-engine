@@ -1,19 +1,19 @@
 <x-mail::message>
-# Herinnering: je digitale opname
+# Herinnering: uw digitale opname
 
 Hallo {{ $customerName }},
 
-Je hebt nog een openstaande digitale opname. Via de knop hieronder kun je verdergaan waar je was gebleven — dat kan op je telefoon.
+Met uw hulp kunnen we sneller uw airco plaatsen. U hebt nog een openstaande digitale opname. Via de knop hieronder kunt u verdergaan waar u was gebleven — dat kan op uw telefoon.
 
 <x-mail::button :url="$customerUrl">
-Ga verder met je opname
+Ga verder met uw opname
 </x-mail::button>
 
 @if ($expiresAt)
 Deze link is geldig tot {{ $expiresAt->timezone(config('app.timezone'))->format('d-m-Y') }}.
 @endif
 
-Werkt de knop niet? Kopieer dan deze link in je browser:
+Werkt de knop niet? Kopieer dan deze link in uw browser:
 
 {{ $customerUrl }}
 

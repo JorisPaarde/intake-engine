@@ -1,8 +1,8 @@
 # Vragen- en takenengine
 
-> **Documentversie:** 2.0 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.1 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: de hieronder beschreven templatewizard is **geïmplementeerd t/m airco v9**. De nieuwe rol als bijdrage-/takenengine binnen één centrale opname is **besloten maar nog niet volledig geïmplementeerd** (BL-035/037/038). Productmodel en rollen: [product-model.md](product-model.md).
+Status: de templatewizard is **geïmplementeerd t/m airco v10** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md).
 
 ## Doel
 
@@ -29,22 +29,22 @@ Bron van template-inhoud in MVP:
 
 Runtime leest altijd uit de database (de gepinde versie), nooit rechtstreeks uit views/controllers.
 
-## Doelrol binnen de centrale opname
+## Rol binnen de centrale opname
 
-| Huidige aanname | Doelmodel |
-|-----------------|-----------|
-| Iedere opname begint met een klantlink | Installateur kiest klant, zelf uitvoeren of hybride; link alleen bij klanttaken |
-| Templatevragen bepalen de dossierstructuur | Dossierobjecten bepalen wat technisch nodig is; taken verzamelen het ontbrekende bewijs |
-| `rooms` herhaalt per vooraf gekozen binnenunit | Gewenste ruimtes bestaan eerst; de technische configuratie volgt uit kandidaatopstellingen |
-| Eén lineaire klantwizard | Klant krijgt lineaire afgebakende taken; installateur werkt vrij en niet-lineair |
-| `CompletenessChecker` bepaalt “opname klaar” | Checker bepaalt alleen of een taakset klaar is; beslisgereedheid staat per technisch gebied |
-| Prefill is vaak een apart te bevestigen veld | Met aan zekerheid grenzende waarschijnlijkheid vastgestelde data wordt gebruikt; alleen beslissende uitzonderingen worden voorgelegd |
-| Gerichte vervolgitems bestaan pas na review | Bijdrageopdrachten kunnen vanaf de start en tijdens iedere workflow worden toegewezen |
+| Oude aanname | Geïmplementeerd gedrag |
+|--------------|------------------------|
+| Iedere opname begint met een klantlink | Installateur kiest klant of zelf uitvoeren; hybride ontstaat wanneer beide bijdragen. Toegang staat alleen aan bij klantwerk. |
+| Templatevragen bepalen de dossierstructuur | Dossierobjecten bepalen wat technisch nodig is; taken verzamelen het ontbrekende bewijs. |
+| `rooms` herhaalt per vooraf gekozen binnenunit | Airco v10 gebruikt de compatibiliteitskey als aantal **gewenste ruimtes**; de technische configuratie volgt uit kandidaatopstellingen. |
+| Eén lineaire klantwizard | Klant krijgt een lineaire starttaakset of uitsluitend gerichte taken; installateur werkt vrij en niet-lineair. |
+| `CompletenessChecker` bepaalt “opname klaar” | Checker bepaalt alleen of een taakset klaar is; `DecisionReadinessService` bewaakt acht technische gebieden. |
+| Prefill is altijd apart te bevestigen | Eenduidige bronnen en sterke afleidingen mogen volgens serverregels direct worden gebruikt; alleen beslissende uitzonderingen worden voorgelegd. |
+| Gerichte vervolgitems bestaan pas na review | `contribution_tasks` gebruikt dezelfde beveiligde vervolgitems ook na een installer-only-start of tijdens hybride werk. |
 
 ### Workflowvereisten
 
 - **Klant:** één veilige, concrete opdracht per scherm; geen definitieve unit-, configuratie- of routekeuze.
-- **Installateur:** dezelfde opname volledig kunnen vullen zonder klanttoken; camera-first; vrije volgorde; technische waarneming direct als ter plaatse vastgesteld.
+- **Installateur:** dezelfde opname volledig kunnen vullen zonder actieve klanttoegang; camera-first; vrije volgorde; technische waarneming direct als ter plaatse vastgesteld.
 - **Hybride:** iedere open taak heeft een bedoelde bijdrager; installateur kan een klanttaak overnemen of later één specifieke taak sturen.
 - **Brondata:** BAG, PDOK-luchtfoto, EP-Online en 3DBAG worden automatisch vóór klanttaken gebruikt om redundante vragen/opdrachten te voorkomen.
 - **Taakselectie:** een nieuwe vraag of foto-opdracht is alleen gerechtvaardigd wanneer het antwoord een plaatsing, verbinding, kostenrisico, veiligheid of offertebesluit kan veranderen.
@@ -77,9 +77,9 @@ De rapportpreview toont daarnaast alle werkelijk aangeleverde intake- en vervolg
 
 - Geordend (`sort_order`)
 - Huidige klantflow: **één zichtbare vraag per scherm** (BL-018); sectietitel blijft als hoofdstukmarkering zichtbaar
-- `is_repeatable`: bv. “Ruimtes” herhaalt zich N keer op basis van `repeat_count_question_key` (aantal binnenunits)
-- Huidig airco v9: **Ruimtes** herhaalt per opgegeven binnenunit; **Buitenunit** en **Leidingroute** zijn niet herhaalbaar. Dit is legacygedrag. BL-039 scheidt gewenste ruimtes van het later te kiezen aantal binnen-/buitenunits.
-- Bij meer dan één binnenunit voegt de compleetheidscontrole het deterministische installateursaandachtspunt `review_split_configuration` toe: beoordeel één multi-split versus meerdere single-splits. Dit is bewust geen klantvraag en geen automatische technische keuze.
+- `is_repeatable`: bv. “Ruimtes” herhaalt zich N keer op basis van `repeat_count_question_key`
+- Airco v10: **Ruimtes** herhaalt per gewenste ruimte. De legacy-key `indoor_unit_count` blijft alleen als compatibiliteitsanker; klantlabel en betekenis zijn “aantal gewenste ruimtes”. **Buitenunit** en **Leidingroute** blijven één begeleide brontaakset; de installateurswerkplek modelleert daarna nul of meer echte plaatsingen/routes.
+- Bij meer dan één gewenste ruimte voegt de compleetheidscontrole het deterministische installateursaandachtspunt `review_split_configuration` toe: vergelijk één multi-split met meerdere single-splits. Dit is bewust geen klantvraag en geen automatische technische keuze.
 
 `section_instance_key` op antwoorden/uploads: `null` voor normale secties, `room-1` … `room-n` voor herhalingen.
 
@@ -118,7 +118,7 @@ Geen LLM in deze keten.
 
 Service: `CompletenessChecker`
 
-Deze service bewaakt in de huidige implementatie of alle verplichte zichtbare vragen/foto's van een template of vervolgronde zijn uitgevoerd. In het doelmodel blijft zij **taakcompleetheid** berekenen. Zij mag niet bepalen of koelleiding, condens, stroom of offertebasis technisch beslisgereed is; dat wordt BL-035/036.
+Deze service bewaakt of alle verplichte zichtbare vragen/foto's van een template of vervolgronde zijn uitgevoerd. Zij berekent uitsluitend **taakcompleetheid**. Koelleiding, condens, stroom en offertebasis worden apart door `DecisionReadinessService` beoordeeld.
 
 Controleert:
 
@@ -149,7 +149,7 @@ Resultaat:
 
 In de klantwizard (BL-022) zijn ontbrekende items klikbaar (`goToMissing` → `goToStep`); `instance_label` gebruikt hetzelfde leesbare patroon als de wizard-sectietitel (“Ruimtes 2”), niet de rauwe key.
 
-De huidige hoofdwizard (`CompleteIntake`) weigert als `is_complete === false`. In het doelmodel sluit dit alleen de toegewezen taakset; open technische beslisgebieden blijven toegestaan en zichtbaar.
+De hoofdwizard (`CompleteIntake`) weigert als `is_complete === false`. Afronding sluit alleen de toegewezen taakset; open technische beslisgebieden blijven toegestaan en zichtbaar in de installateurswerkplek.
 
 Bij afronding: `completeness_snapshot` + `generated_reports` momentopname.
 
@@ -172,18 +172,18 @@ Zie ADR-0001 en `docs/database.md`.
 
 Secties (stabiele keys over versies):
 
-1. `request` — aanvraag (reden, koelen/verwarmen, units, merk, planning)
+1. `request` — aanvraag (reden, koelen/verwarmen, gewenste ruimtes, merk, planning)
 2. `building` — woning/pand
-3. `rooms` — repeatable per binnenunit
-4. `outdoor_unit` — buitenunit
-5. `pipe_route` — leidingroute
+3. `rooms` — repeatable per gewenste ruimte
+4. `outdoor_unit` — beelden van relevante buitenruimte
+5. `pipe_route` — eerste routebeelden
 6. `electrical` — meterkast / groep
 7. `condensate` — condensafvoer
 8. `closing` — opmerkingen, waarheidsverklaring, toestemming
 
 ### v1 → v2 (BL-017, toenmalige vragenreductie)
 
-V2 introduceerde onderstaande vraagreductie. Nieuwe intakes gebruiken inmiddels de laatste gepubliceerde **v9**; lopende/afgeronde opnames blijven op hun gepinde versie (ADR-0001).
+V2 introduceerde onderstaande vraagreductie. Nieuwe intakes gebruiken inmiddels de laatste gepubliceerde **v10**; lopende/afgeronde opnames blijven op hun gepinde versie (ADR-0001). V10 verandert klanttaal en repeatable-semantiek naar gewenste ruimtes en voorkomt dat de klant een binnenunitpositie kiest; de technische single-/multi-splitkeuze staat in airco-objecten.
 
 | Wijziging | Was (v1) | Wordt (v2) |
 |-----------|----------|------------|
@@ -198,20 +198,18 @@ Keys van geschrapte v1-vragen bestaan niet in v2; hergebruikte keys behouden hun
 
 ## Prefill van bekende gegevens (BL-016)
 
-Huidig geïmplementeerd gedrag: de engine biedt een installateurswaarde als zichtbare, bewerkbare **voorzet**. Deze legacy-prefill laat de klant de waarde nog bevestigen door verder te gaan. Deterministisch, **geen LLM** in deze keten.
-
-Doelgedrag (ADR-0011): bekende aanvraag- en brongegevens en hoge-confidence afleidingen worden zonder apart bevestigingsscherm in het dossier gebruikt. Alleen een relevant conflict of onzekerheid wordt voorgelegd. De huidige `prefill_source` blijft tijdens de migratie nodig voor herkomst en compatibiliteit; BL-035/041 verschuift de beoordeling van veldniveau naar installatievoorstel + uitzonderingen.
+Bekende aanvraag- en brongegevens en sterke afleidingen worden zonder apart overzicht van bevestigingsvelden in het dossier gebruikt. Alleen een relevant conflict of beslissende onzekerheid wordt voorgelegd. `prefill_source` blijft nodig voor herkomst en voor gepinde historische templates. Deze deterministische prefillketen gebruikt geen LLM.
 
 Twee bronnen, gestuurd door vraag-`meta` (dus template-data, geen code):
 
 | `meta`-vlag | Bron | Gedrag |
 |-------------|------|--------|
-| `installer_prefillable: true` | De installateur vult de vraag bij het aanmaken alvast in (`CreateIntake`, formulier `installer/intakes/create`). | Opgeslagen als antwoord met `intake_answers.prefill_source = 'installer'`. De klantwizard toont het gemarkeerd als "alvast ingevuld — controleer". Prefill bij het aanmaken zet de intake **niet** op `in_progress`. |
+| `installer_prefillable: true` | De installateur vult de vraag bij het aanmaken alvast in (`CreateIntake`, formulier `installer/intakes/create`). | Opgeslagen met `prefill_source=installer`. Airco v10 voegt `installer` aan `skip_when_prefilled_by` toe en vraagt dus geen redundante klantbevestiging; oudere gepinde versies tonen de waarde nog bewerkbaar. Prefill zet de opname niet op `in_progress`. |
 | `prefill_from_previous: true` | Binnen een repeatable sectie: het antwoord van de dichtstbijzijnde vorige instantie. | `IntakePrefillResolver` levert een voorzet voor de actieve stap zolang die instantie nog leeg is. Pas bij "Volgende" wordt het als eigen antwoord opgeslagen (`prefill_source` blijft `null`). |
 
-Zodra de aanvrager het veld zelf wijzigt of eroverheen navigeert, vervalt `prefill_source` (bevestigd). De deterministische `show`/`require`-regels blijven de enige poort voor verplichte velden — een voorzet vult alleen een waarde in, het ontgrendelt niets.
+Zodra de aanvrager een zichtbaar voorzetveld zelf wijzigt of eroverheen navigeert, vervalt `prefill_source`. De deterministische `show`/`require`-regels blijven de enige poort voor verplichte velden.
 
-Airco: v3 vlagt `request`-vragen als `installer_prefillable` en `rooms.floor_level` als `prefill_from_previous`.
+Airco: v3 vlagt `request`-vragen als `installer_prefillable` en `rooms.floor_level` als `prefill_from_previous`; v10 slaat eenduidige installateursprefill over.
 
 ## Externe feiten en vraagreductie (BL-019)
 
@@ -235,9 +233,9 @@ Airco v4 gebruikte dit alleen voor `build_year`: BAG registreert dit direct op h
 
 Belangrijk: de aanroep moet ook echt gebeuren. Tot v6 draaide `EnrichIntakeAddress` alleen bij `IntakeController::store`, waardoor de publieke demo nooit werd verrijkt en `skip_when_prefilled_by` daar dood bleef. `StartDemoIntake` roept de verrijking nu zelf aan, op een bestaand BAG-adres uit `intake.demo.address`. Automatisch opgehaalde feiten gaan naast antwoorden mee in de context voor AI-samenvatting en aandachtspunten; bron en zekerheid blijven behouden.
 
-## Foto-afleiding als bevestigbare voorzet (BL-020)
+## Foto-afleiding en uitzonderingen (BL-020/041)
 
-Onderstaande zekerheidsladder beschrijft de huidige wizardintegratie. In het doelmodel blijft `medium` een uitzondering/controlepunt, maar wordt `high` rechtstreeks als herleidbare dossierconclusie gebruikt zonder een los bevestigingsscherm (BL-041).
+Onderstaande zekerheidsladder beschrijft de wizardintegratie. `medium` blijft een uitzondering/controlepunt; `high` wordt rechtstreeks als herleidbare dossierconclusie gebruikt zonder een los bevestigingsscherm.
 
 Airco v5 markeert `fusebox_photo` met `meta.photo_analysis=fusebox` en maakt de foto-opdracht concreet: groepen, hoofdschakelaar en vrije posities recht van voren en leesbaar. De normale, optionele `free_group_known`-vraag blijft de fallback.
 
@@ -294,11 +292,11 @@ Twee dingen komen ook op het Kadaster-pad van PDOK: **coördinaten** (Kadaster l
 
 ## De openingsvraag telt mee (tekst-afleiding)
 
-"De slaapkamer en de woonkamer worden te warm in de zomer" beantwoordt drie vragen die de wizard daarna nog stelde: de functie (koelen), het aantal binnenunits (twee) en het type van elke ruimte. Tot v8 vroegen we dat alsnog.
+"De slaapkamer en de woonkamer worden te warm in de zomer" beantwoordt drie vragen die de wizard daarna nog stelde: de functie (koelen), het aantal gewenste ruimtes (twee) en het type van elke ruimte. Tot v8 vroegen we dat alsnog.
 
 `request_reason` krijgt daarom `meta.text_analysis = 'request_intent'`. `DeriveIntentFromRequest` draait zodra dat antwoord wordt opgeslagen en werkt met dezelfde zekerheidsladder als de foto-afleiding: `high` laat de vraag vervallen, `medium` levert een bevestigbare voorzet, `low` doet niets.
 
-De genoemde ruimtes worden op volgorde aan `room-1`, `room-2`, … gekoppeld. De prompt mag alleen `high` kiezen wanneer de aanvrager de ruimtes expliciet benoemt — "het is warm boven" is geen opdracht voor twee units, en het aantal te hoog inschatten kost meer dan één extra vraag. Een toelichting korter dan tien tekens gaat helemaal niet naar de provider.
+De genoemde ruimtes worden op volgorde aan `room-1`, `room-2`, … gekoppeld. De prompt mag alleen `high` kiezen wanneer de aanvrager de ruimtes expliciet benoemt — "het is warm boven" bewijst geen twee gewenste ruimtes, en het aantal te hoog inschatten kost meer dan één extra vraag. De prompt gebruikt vanaf v10 expliciet `desired_room_count`; de opslagkey blijft voor compatibiliteit `indoor_unit_count`. Een toelichting korter dan tien tekens gaat helemaal niet naar de provider.
 
 Aparte vlag: `AI_TEXT_INFERENCE_ENABLED`. Tekst naar een externe provider sturen is een andere afweging dan foto's, dus dat staat los van `AI_PHOTO_INFERENCE_ENABLED`.
 
@@ -348,7 +346,7 @@ Ontbreekt een herkenbaar EP-Online-woningtype, dan gebruikt `PdokBuildingContext
 | uiteinde van een langere pandketen | `corner` |
 | aansluitingen aan tegenoverliggende zijden | `terraced` |
 
-De classificatie is bewust fail-closed. Een ongeldige contour, nul verblijfsobjecten, een afgekorte buurtquery of een niet-eenduidige aansluitingsvorm levert geen antwoord op. EP-Online en ieder bestaand klant-/installateurantwoord worden nooit overschreven. Bij hoge zekerheid bewaart `building_type_inference` de conclusie, reden, BAG-pandreferentie en het aantal verblijfsobjecten; het antwoord gebruikt `prefill_source=pdok`, waardoor de gepinde v8/v9-template de redundante vraag kan overslaan.
+De classificatie is bewust fail-closed. Een ongeldige contour, nul verblijfsobjecten, een afgekorte buurtquery of een niet-eenduidige aansluitingsvorm levert geen antwoord op. EP-Online en ieder bestaand klant-/installateurantwoord worden nooit overschreven. Bij hoge zekerheid bewaart `building_type_inference` de conclusie, reden, BAG-pandreferentie en het aantal verblijfsobjecten; het antwoord gebruikt `prefill_source=pdok`, waardoor gepinde v8–v10-templates de redundante vraag kunnen overslaan.
 
 De luchtfoto is hierbij alleen visuele dossiercontext. Pixels worden niet als bron van waarheid gebruikt; exacte BAG-contouren zijn controleerbaar en betrouwbaarder.
 
@@ -368,7 +366,7 @@ Bewust géén vraagreductie. De hoogte van een pand zegt niet waar de buitenunit
 
 ### Effect op het aantal stappen
 
-Gemeten op een opname met één binnenunit, met werkende BAG, energielabel, foto- en tekst-inferentie:
+Gemeten op een opname met één gewenste ruimte, met werkende BAG, energielabel, foto- en tekst-inferentie:
 
 | Versie | Stappen |
 |---|---|
@@ -377,24 +375,25 @@ Gemeten op een opname met één binnenunit, met werkende BAG, energielabel, foto
 | v7 (maximaal afgeleid) | ~20 |
 | v8 (met energielabel) | ~19 |
 | v9 (openingsvraag + cascades) | 18 |
+| v10 (gewenste-ruimtetaal) | 18 |
 
-Bij twee binnenunits komt daar 3 stappen per extra ruimte bij (foto's + verdieping), dus 21.
+Bij twee gewenste ruimtes komen daar 3 stappen voor de extra ruimte bij (foto's + verdieping), dus 21.
 
 Wat overblijft is de openingsvraag zelf, niet-zichtbare feiten (eigendom, verdieping), voorkeuren, de foto's en de twee afsluitende verklaringen.
 
 De cascades leveren in deze meting niets extra's op: de foto-afleiding had `outdoor_accessibility` en `pipe_distance_indication` al beantwoord. Ze zijn het vangnet voor de situatie waarin AI uit staat of te weinig zekerheid heeft — dan snoeien ze alsnog deterministisch.
 
-Bij expliciet ingeschakelde foto-inferentie beoordeelt `AssessFuseboxPhotos` maximaal twee recente meterkastfoto's. Alleen `free_group=yes|no` met `confidence=high` wordt als `prefill_source=ai` klaargezet. De wizard toont deze keuze gemarkeerd als foto-inschatting; een klantkeuze bevestigt/corrigeert en verwijdert de prefillbron. Bestaande klant- of installateurantwoorden worden nooit overschreven. Bij onvoldoende beeld blijft de normale vraag staan en verschijnt de concrete `retake_instruction` bij de foto.
+Bij expliciet ingeschakelde foto-inferentie beoordeelt `AssessFuseboxPhotos` maximaal twee recente meterkastfoto's. Alleen `free_group=yes|no` met `confidence=high` wordt als `prefill_source=ai` vastgelegd; de redundante vraag vervalt en bron/zekerheid blijven zichtbaar in het dossier. Bestaande klant- of installateurantwoorden worden nooit overschreven. Bij onvoldoende beeld blijft de normale vraag staan en verschijnt de concrete `retake_instruction` bij de foto.
 
 De volledige beperkte uitkomst (vrije groep, 1-/3-fase/unknown, zekerheid, zichtbaar bewijs, provider/model en gebruikte upload-id's) staat als `fusebox_photo_assessment` in de automatisch verzamelde informatie. Dossier, HTML en PDF noemen `AI-fotoanalyse` als bron en zetten de waarneming altijd bij te controleren onzekerheden. Beeldbytes bestaan alleen tijdens het providerrequest; verwijderen van de bronfoto verwijdert de AI-voorzet en het afgeleide feit. Zonder provider/flag werkt de intake ongewijzigd verder.
 
-## Gerichte aanvullende informatieronde (BL-027)
+## Gerichte klantbijdragen (BL-027/038)
 
-1. De installateur kiest na afronding `need_more_info` en voegt 1–5 concrete items toe: `text`, `photo` of `document` (PDF).
-2. `SubmitIntakeReview` schrijft review + genummerde ronde atomair en zet de intake op `awaiting_customer`. De bestaande geldige token blijft de enige klanttoegang.
-3. `IntakeWizard` schakelt voor die status naar een aparte vervolgmodus: uitsluitend de gevraagde items, één per scherm. Bestaande templatevragen worden niet opnieuw getoond.
+1. De installateur kan na een eerste klantflow via `need_more_info` óf rechtstreeks vanuit de technische werkplek 1–5 concrete items toevoegen: `text`, `photo` of `document` (PDF).
+2. `CreateCustomerContributionRequest` maakt naast de genummerde ronde een `contribution_task`, zet de workflow op `hybrid`, activeert klanttoegang en bewaart de status waarnaar de opname terugkeert. `SubmitIntakeReview` gebruikt dezelfde vervolgstructuur voor historische reviewrondes.
+3. `IntakeWizard` toont bij `awaiting_customer` uitsluitend de gevraagde items, één per scherm. Bestaande templatevragen worden niet opnieuw getoond.
 4. Tekst wordt tussentijds opgeslagen. Foto-items gebruiken dezelfde MIME-controle, HEIC-normalisatie, private disk en uploadlimiet als de gewone wizard. Documentitems accepteren alleen PDF na server-side MIME- en bestandssignatuurcontrole en gebruiken dezelfde private disk.
-5. `CompleteFollowUpRound` vereist elk antwoord/minimaal één gevraagd bestand, markeert de ronde compleet, zet de intake opnieuw op `completed`, bouwt HTML/PDF opnieuw op en stuurt de bestaande installateursnotificatie.
+5. `CompleteFollowUpRound` vereist elk antwoord/minimaal één gevraagd bestand, markeert ronde en taak compleet, zet de opname terug naar de bewaarde status, schakelt klanttoegang uit, synchroniseert het bewijs naar het dossier, herberekent beslisgereedheid, bouwt HTML/PDF opnieuw op en stuurt de bestaande installateursnotificatie.
 
 Rapport en installateurdetail behouden eerdere antwoorden en tonen per aanvulling ronde, vraag, klantantwoord/foto's/documenten en bron. Activity events bevatten alleen ronde, item-id, type en aantallen; nooit vrije tekst of token. Standaardlimieten: 3 rondes, 5 items per ronde, 5 foto's per foto-item en 3 PDF's per documentitem (`INTAKE_FOLLOW_UP_*`).
 

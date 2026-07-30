@@ -1,6 +1,7 @@
 <div class="mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-2xl flex-col px-4 py-5 sm:px-6">
     <header class="mb-5">
         <p class="text-sm font-medium text-brand-ink/60">Aanvulling voor {{ $intake->customer_name }}</p>
+        <p class="mt-2 text-sm leading-5 text-brand-ink/75">Met uw hulp kunnen we sneller uw airco plaatsen. Hieronder staat alleen wat nog echt nodig is.</p>
         @if (! $completed && $items->isNotEmpty())
             @php($progress = (int) round((($followUpStepIndex + 1) / $items->count()) * 100))
             <div class="mt-3 flex items-center justify-between text-xs text-brand-ink/55">
@@ -21,7 +22,7 @@
         <div class="flex flex-1 flex-col justify-center rounded-lg bg-white p-6 shadow-sm">
             <h1 class="font-display text-2xl font-semibold tracking-tight text-brand-ink">Bedankt</h1>
             <p class="mt-3 text-sm leading-relaxed text-brand-ink/70">
-                Je aanvulling is toegevoegd aan het dossier. De installateur krijgt bericht en beoordeelt de aanvraag opnieuw.
+                Uw aanvulling is toegevoegd aan het dossier. De installateur beoordeelt nu alleen wat nog aandacht nodig heeft.
             </p>
         </div>
     @elseif (! $item)

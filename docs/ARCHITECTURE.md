@@ -1,8 +1,8 @@
 # Architectuurkeuzes
 
-> **Documentversie:** 2.0 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.1 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: de runtime hieronder is **geïmplementeerd**; de dossier- en airco-doelarchitectuur is **besloten maar nog niet volledig gebouwd**. Zie [product-model.md](product-model.md) en ADR-0011/0012.
+Status: de runtime, dossierkern en eerste airco-domeinlaag hieronder zijn **geïmplementeerd**. Zie [product-model.md](product-model.md) en ADR-0011/0012.
 
 ## Uitgangspunt: dossierkern met herbruikbare invoerkanalen
 
@@ -10,7 +10,7 @@ De applicatie blijft één Laravel-codebase. De centrale architectuurgrens is de
 
 - `Intake` blijft het bestaande migratieanker voor opname, lifecycle, bijdragers, taken, bewijs en beslisgereedheid.
 - De template-engine blijft generiek voor vragen, foto-/documentopdrachten, regels, autosave en taakcompleetheid.
-- Airco krijgt binnen dezelfde codebase een eigen domeinlaag voor ruimtes, plaatsingsopties, installatieopties en koel-, condens- en stroomverbindingen.
+- Airco heeft binnen dezelfde codebase persistente modellen en services voor ruimtes, plaatsingsopties, installatieopties en koel-, condens- en stroomverbindingen.
 - AI, openbare bronnen, klant en installateur schrijven geen parallel dossier; hun bijdragen worden aan dezelfde opnameobjecten gekoppeld.
 
 Nieuwe intaketypes kunnen de generieke dossier- en takenbouwstenen hergebruiken en eigen domeinobjecten toevoegen wanneer alleen templateconfiguratie technisch onvoldoende is. Dit vervangt de oude aanname “airco is uitsluitend configuratie”, maar creëert geen aparte airco-app.
@@ -41,19 +41,21 @@ Per domein:
 
 `app/Http` blijft dun (controllers, form requests, middleware, Livewire als UI-adapter). `app/Support` voor domeinloze helpers.
 
-Actieve domeinen: `Intake`, `AI` en `Branding`. Doelarchitectuur: voeg `Airco` toe zodra BL-039 de eerste persistente plaatsings-/installatieobjecten bouwt. Tot dat moment mag documentatie die namespace niet als geïmplementeerd presenteren.
+Actieve namespaces: `Intake`, `AI` en `Branding`. De eerste airco-objecten staan bewust onder `App\Domains\Intake`, omdat zij lifecycle, tenancy, bewijs en beslisgereedheid delen met de opname. Een aparte `Airco`-namespace is pas zinvol wanneer het domein groot genoeg wordt; de huidige code claimt die grens niet.
 
 ## Huidige request- en datastromen
 
 ```text
 Installateur (session auth)
-  → Dashboard / CreateIntake / Review
-  → leest intakes + generated_reports + private uploads (policy)
+  → Dashboard / Nieuwe opname / technische werkplek / Review
+  → kiest customer of installer workflow
+  → leest en muteert dossier, airco-opties, verbindingen en private media (policy)
 
 Klant (access_token middleware)
-  → stappen-UI → SaveIntakeAnswer / StoreIntakeUpload
-  → CompletenessChecker bij navigatie/afronden
-  → CompleteIntake → snapshot + HTML-rapport
+  → volledige begeleide taakset óf alleen open gerichte bijdrage-items
+  → SaveIntakeAnswer / StoreIntakeUpload / CompleteFollowUpRound
+  → CompletenessChecker bewaakt uitsluitend de actieve taakset
+  → klanttoegang gaat na een gerichte bijdrage weer uit
 
 Templatebeheer (seed/artisan)
   → published intake_template_versions (immutabel)
@@ -65,15 +67,16 @@ Adresverrijking (synchronisch, fail-soft)
   → intake_external_facts + gemarkeerde prefill; bij twijfel blijft de vraag staan
 
 Dossierafronding / afgeronde aanvullende ronde
-  → SuggestAttentionPointsJob automatisch
-  → IntakeAttentionContextBuilder bundelt technische dossierbronnen + provenance
-  → AI-voorstellen blijven proposed tot accept/dismiss door installateur
+  → DossierManager synchroniseert legacy-antwoorden, bronnen en bewijs
+  → DecisionReadinessService berekent acht technische beslisgebieden
+  → SynthesizeSurveyDossierJob bundelt geschoonde broncontext + relevante analysekopieën
+  → AI-plaatsingen, installatieoptie, verbindingen, uitzonderingen en taken blijven voorstellen
   → providerfout blokkeert dossier, review en rapport nooit
 ```
 
-De huidige klantlink en templatewizard zijn een werkende invoerflow. De routebackend uit BL-029 bestaat, maar de oorspronkelijke generieke klant-/goedkeurings-UI wordt niet meer gebouwd volgens ADR-0009; ADR-0012 herijkt deze bouwsteen.
+De klantlink en templatewizard blijven een invoerflow. De routebackend uit BL-029 is via een unieke `airco_connection_id` per concrete verbinding hergebruikt; de oorspronkelijke globale route-UI is vervallen volgens ADR-0012.
 
-## Doelstroom
+## Centrale stroom
 
 ```mermaid
 flowchart TD
@@ -92,36 +95,36 @@ De bijdrager staat los van het technische object:
 - een foto kan door klant of installateur worden gemaakt;
 - een waarneming kan uit aanvraag, register, beeld, installateur of AI komen;
 - een taak kan vóór of na een eerste beoordeling aan klant of installateur worden toegewezen;
-- een klanttoken wordt pas aangemaakt/geactiveerd wanneer werkelijk klanttaken bestaan;
+- een intern tokenanker bestaat voor iedere opname, maar toegang wordt alleen geactiveerd wanneer werkelijk klanttaken bestaan en de link wordt alleen dan verzonden;
 - beslisgereedheid wordt per domeingebied berekend, niet uit één wizardpercentage.
 
-Stapsgewijze migratie:
+De geïmplementeerde migratiebrug:
 
-1. nieuwe dossierobjecten naast `intake_answers`, `intake_external_facts`, `intake_uploads` en `pipe_route_*`;
-2. expliciete bewijslinks vanuit bestaande records;
-3. nieuwe klant-/installateursworkflows boven dezelfde acties;
-4. rapport, review en metrics omschakelen op beslisgereedheid;
-5. pas daarna verouderde impliciete vraagkoppelingen uitfaseren.
+1. maakt dossieronderwerpen, records, bewijslinks, bijdrageopdrachten en beslisgebieden naast de bestaande records;
+2. backfillt voor bestaande opnames een dossierroot en bewijslinks zonder gepinde templates te wijzigen;
+3. houdt legacy-antwoorden, externe feiten, uploads en vervolgronden daarna idempotent met het dossier gesynchroniseerd;
+4. laat de nieuwe werkplek en AI op het dossier werken terwijl rapport/PDF en de historische review bruikbaar blijven;
+5. maakt uitfaseren van impliciete vraagkoppelingen later mogelijk zonder dat deze PR productiehistorie herschrijft.
 
 ## Frontend
 
-Server-rendered Blade. Livewire voor interactieve stappen, camera/uploads en installateurswerkweergave. Alpine voor kleine client-gedragingen. Geen Inertia/SPA.
+Server-rendered Blade. Livewire voor de interactieve klantwizard en klantuploads; de installateurswerkplek gebruikt snelle Blade-formulieren en mobiele file-inputs. Alpine voor kleine client-gedragingen. Geen Inertia/SPA.
 
 Bestaande Breeze-componenten vormen één solide, tenantgestuurd designsysteem: systeemtypografie, neutrale oppervlakken en CSS-variabelen uit `Company::themeTokens()`. Geen Liquid Glass, blur of translucency (ADR-0010).
 
 Doel-UX:
 
-- **klant:** mobiel, lineair, één veilige opdracht tegelijk, uitsluitend toegewezen taken;
+- **klant:** mobiel, lineair, één veilige opdracht tegelijk; de initiële begeleide taakset of uitsluitend toegewezen gerichte taken;
 - **installateur:** mobiel/camera-first, vrije volgorde, direct technische objecten en conclusies bewerken;
 - **review:** installatievoorstel en gemarkeerde uitzonderingen beoordelen, geen veld-voor-veld-akkoordadministratie.
 
 ## Queues
 
-`QUEUE_CONNECTION=database` blijft. Kernintake is **synchronisch** (ADR-0004). AI-samenvatting en PDF-export (BL-005, Dompdf) lopen as jobs. cPanel-cron worker: zie `docs/DEPLOYMENT.md`.
+`QUEUE_CONNECTION=database` blijft. Kernintake is **synchronisch** (ADR-0004). AI-samenvatting, dossiersynthese en PDF-export (BL-005, Dompdf) lopen als jobs. cPanel-cron worker: zie `docs/DEPLOYMENT.md`.
 
 ## Storage
 
-Media via `config('filesystems.media')` → env `MEDIA_DISK`. Default **private `local`**, niet `public` (ADR-0003). S3 = env-wissel. Details: `docs/uploads.md`.
+Media via `config('filesystems.media')` → env `MEDIA_DISK`. Default **private `local`**, niet `public` (ADR-0003). Iedere foto wordt vóór opslag genormaliseerd naar een metadata-vrije dossier-JPEG en een kleinere analyse-JPEG; vision-acties mogen alleen de analysekopie lezen. S3 = env-wissel. Details: `docs/uploads.md`.
 
 ## Autorisatie
 
@@ -139,9 +142,9 @@ Media via `config('filesystems.media')` → env `MEDIA_DISK`. Default **private 
 
 ## AI
 
-Geïmplementeerd: samenvatting, aandachtspunten, tekst-/foto-afleiding, modeltiering voor routeanalyse, budgetguard en provenance; externe calls blijven gated en soft-fail (ADR-0005/0009, `docs/ai.md`).
+Geïmplementeerd: samenvatting, aandachtspunten, tekst-/foto-afleiding, modeltiering voor routeanalyse, budgetguard, provenance en dossiersynthese. De dossiersynthese ordent geschoond bewijs, stelt gegronde plaatsingen, één installatieoptie en drie verbindingstypen voor, kiest de kleinste beslissende vervolgopdracht en markeert conflicten. Alle beeldpaden gebruiken de analysevariant; externe calls blijven gated en soft-fail (ADR-0005/0009, `docs/ai.md`).
 
-Doel: AI ordent bewijs, stelt plaatsingen/installatieopties en drie verbindingen voor, kiest de kleinste beslissende vervolgopdracht en markeert conflicten. Sterke afleidingen worden zonder losse bevestigingsstap toegepast; de installateur beslist over het voorstel als geheel. AI bepaalt nooit zelfstandig elektrische veiligheid, definitieve uitvoerbaarheid of offertegoedkeuring (ADR-0011/0012).
+Sterke deterministische afleidingen worden volgens expliciete serverregels zonder losse bevestigingsstap toegepast; AI-dossierobjecten blijven voorstelbaar en corrigeerbaar. De installateur beslist over het geheel. AI bepaalt nooit zelfstandig elektrische veiligheid, definitieve uitvoerbaarheid of offertegoedkeuring (ADR-0011/0012).
 
 ## Testen
 
@@ -161,13 +164,13 @@ Build in GitHub Actions, rsync release, `deploy/activate.sh` (migrate, cache, at
 
 1. **Stapsgewijze dossiermigratie** — tijdelijk bestaan huidige vraagkoppelingen en nieuwe dossierobjecten naast elkaar; duurder dan een big-bang rewrite, maar bestaande intakes, templateversies en productieflows blijven bruikbaar.
 2. **cPanel** — cron-queue i.p.v. Supervisor; gedeelde PHP-limieten (uploads! zie BL-003 in `docs/backlog.md`).
-3. **Token plaintext in DB** — hertoonbare link vs. hash-only (ADR-0002); een token is in het doelmodel optioneel en taakgebonden.
+3. **Token plaintext in DB** — hertoonbare link vs. hash-only (ADR-0002); installer-only-opnames bewaren een intern tokenanker maar de middleware weigert toegang zolang `customer_access_enabled=false`.
 4. **Expliciete companies-tabel** — iets meer query- en testdiscipline, maar een harde grens voor data, media en branding (ADR-0010).
 5. **HTML-rapport eerst** — PDF is een afgeleid async artefact (BL-005 done; Dompdf).
 
 ## Gerelateerde documentatie
 
-- `docs/product-model.md` — product-, workflow- en airco-doelmodel
+- `docs/product-model.md` — product-, workflow- en aircomodel
 - `docs/database.md` — schema + ER
 - `docs/intake-engine.md` — templates/opdrachten/regels/taakcompleetheid
 - `docs/uploads.md` — media

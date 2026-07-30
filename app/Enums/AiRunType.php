@@ -13,4 +13,5 @@ enum AiRunType: string
     case RequestIntent = 'request_intent';
     case RouteAnalysis = 'route_analysis';
     case RouteSynthesis = 'route_synthesis';
+    case DossierSynthesis = 'dossier_synthesis';
 }

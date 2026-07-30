@@ -1,8 +1,8 @@
 # Databaseschema — Digitale Opname
 
-> **Documentversie:** 2.0 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.0 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: het hoofdstuk **Huidige tabellen** beschrijft het geïmplementeerde schema. Het hoofdstuk **Besloten doelmodel** is het migratieplan uit ADR-0011/0012 en bestaat nog niet als migrations. Noem doelobjecten niet geïmplementeerd voordat BL-035/039/040 ze daadwerkelijk oplevert.
+Status: dit document beschrijft het **geïmplementeerde schema**, inclusief de uitbreidende dossiermigratie van BL-030 en BL-035 t/m BL-042. Bestaande antwoord-, bron-, upload-, review- en routetabellen blijven bewust bestaan naast de nieuwe dossierobjecten.
 
 ## Ontwerpprincipes
 
@@ -12,8 +12,8 @@ Status: het hoofdstuk **Huidige tabellen** beschrijft het geïmplementeerde sche
 4. **Privacy.** Persoonsgegevens, foto’s en documenten zitten in `intakes`, `intake_answers`, `intake_uploads`. Soft delete + expliciete purge-actie voor dossierverwijdering.
 5. **JSON alleen waar zinvol.** Antwoordwaarden, validatieregels, compleetheidsnapshots. Geen volledige template-JSON als primaire bron — relationeel blijft leidend.
 6. **Automatische feiten houden hun herkomst.** Externe gegevens staan los van klantantwoorden en bewaren bron, referentie, zekerheid en ophaaltijdstip (ADR-0007).
-7. **Doelmodel: dossier vóór vraag.** Nieuwe technische objecten hangen aan de opname; vragen, uploads, externe feiten en AI-runs worden bewijs bij die objecten (ADR-0011).
-8. **Stapsgewijze migratie.** Bestaande opnames en gepinde templates blijven werken terwijl nieuwe objecten naast de huidige vraagkoppelingen worden gevuld.
+7. **Dossier vóór vraag.** Technische objecten hangen aan de opname; vragen, uploads, externe feiten en AI-runs zijn herleidbaar bewijs bij die objecten (ADR-0011).
+8. **Uitbreidende migratie.** Bestaande opnames en gepinde templates blijven werken terwijl de idempotente migratiebrug de centrale dossierlaag vult.
 
 ## Enums (PHP backed enums, centrale bron)
 
@@ -31,51 +31,65 @@ Status: het hoofdstuk **Huidige tabellen** beschrijft het geïmplementeerde sche
 | `PipeRouteStatus` | `collecting`, `proposed`, `approved`, `rejected` |
 | `AttentionPointStatus` | `proposed`, `accepted`, `dismissed` |
 | `PhotoUsabilityVerdict` | `ok`, `too_dark`, `too_small` |
+| `ContributionMode` | `customer`, `installer`, `hybrid` |
+| `ContributionAudience` | `customer`, `installer` |
+| `ContributionTaskStatus` | `proposed`, `open`, `completed`, `cancelled` |
+| `DossierRecordKind` | `observation`, `conclusion` |
+| `DossierRecordStatus` | `proposed`, `established`, `conflicted`, `superseded` |
+| `DecisionAreaStatus` | `unknown`, `ready`, `review`, `blocked`, `not_applicable` |
+| `DossierNextAction` | `prepare_quote`, `send_estimate`, `request_contribution`, `plan_site_visit`, `reject` |
+| `AircoConfigurationType` | `single_split`, `multi_split`, `multiple_single_splits` |
+| `AircoPlacementType` | `indoor_unit`, `outdoor_unit`, `power_source`, `drain_point` |
+| `AircoOptionStatus` | `candidate`, `selected`, `rejected` |
+| `AircoConnectionType` | `refrigerant`, `condensate`, `power` |
+| `AircoConnectionStatus` | `unknown`, `proposed`, `plausible`, `needs_evidence`, `not_remotely_resolvable`, `approved` |
+| `InstallationSiteVisitReason` | `power_uncertain`, `condensate_uncertain`, `route_uncertain`, `access_uncertain`, `construction_uncertain`, `customer_preference`, `other` |
+| `InstallationProposalDelta` | `configuration`, `indoor_placement`, `outdoor_placement`, `refrigerant_route`, `condensate_route`, `power_route`, `cost` |
 
 NL-labels (concept / verstuurd / …) horen in UI/resources, niet als DB-waarden.
 
-## Besloten doelmodel (nog niet geïmplementeerd)
+## Geïmplementeerde dossiermigratie
 
 De bestaande `intakes`-rij blijft het migratieanker en representeert de technische opname. De voorafgaande aanvraag leeft in het bronsysteem; de opname bewaart een snapshot van de benodigde aanvraaggegevens en waar beschikbaar een externe aanvraagreferentie. Er wordt geen tweede lead-/CRM-flow in deze app gebouwd.
 
-Onderstaande namen zijn werkbare tabelnamen voor de implementatie-ADRs/PR's. Zij zijn pas schemawaarheid nadat de migrations bestaan.
-
-| Doelobject / werknaam | Verantwoordelijkheid | Eerste backlog |
-|-----------------------|----------------------|----------------|
-| `intake_observations` | Waarneming of conclusie met onderwerp, waarde, bronsoort, actor, zekerheid, status en vaststellingsmoment. | BL-035 |
-| `intake_evidence_links` | Koppelt een observatie/conclusie aan bestaand antwoord, extern feit, upload, AI-run of installateurswaarneming zonder de bron te kopiëren. | BL-035 |
-| `intake_contribution_tasks` | Afgebakende tekst-, foto-, document-, meet- of controleopdracht voor klant of installateur, met doel/beslisgebied en lifecycle. | BL-035/038 |
-| `intake_decision_states` | Status, blokkades en aanbevolen volgende actie per beslisgebied; staat los van vragenlijstcompleetheid. | BL-035/036 |
-| `intake_spaces` | Gewenste fysieke ruimtes, onafhankelijk van het gekozen aantal binnenunits. | BL-039 |
-| `airco_placement_options` | Kandidaatpositie voor binnenunit, buitenunit, voedingsbron of afvoerpunt, gekoppeld aan ruimte/buitengebied en bewijs. | BL-039 |
-| `airco_installation_options` | Eén kandidaatconfiguratie (single-/multi-split of combinatie) met status/rangschikking. | BL-039 |
-| `airco_installation_option_placements` | Koppelt de gebruikte binnen-/buiten-/serviceposities aan één installatieoptie. | BL-039 |
-| `airco_connections` | Technische verbinding van type `refrigerant`, `condensate` of `power`, met concrete eindpunten, zekerheid en kostenimpact. | BL-040 |
-| `airco_connection_segments` | Segmenten, obstakels, lengteklasse, bereikbaarheid en open controles per verbinding. | BL-040 |
+| Tabel | Verantwoordelijkheid |
+|-------|----------------------|
+| `dossier_subjects` | Hiërarchische onderwerpen zoals gehele opname, ruimte, plaatsing of verbinding. |
+| `dossier_records` | Waarneming of conclusie met waarde, actor/bron, vaststellingswijze, zekerheid, status en tijdstip. |
+| `dossier_evidence_links` | Koppelt onderwerp/record aan bestaand antwoord, extern feit, upload, AI-run of bijdrage zonder broninhoud te kopiëren. |
+| `contribution_tasks` | Afgebakende tekst-, foto- of documentopdracht voor klant/installateur, met doel, beslisgebied en lifecycle. |
+| `dossier_decision_areas` | Status, blokkade, kostenrisico en volgende actie per technisch beslisgebied. |
+| `airco_rooms` | Gewenste fysieke ruimtes, onafhankelijk van het aantal gekozen units. |
+| `airco_placement_options` | Kandidaatpositie voor binnenunit, buitenunit, voedingsbron of afvoerpunt. |
+| `airco_installation_options` | Kandidaatconfiguratie met rang, bron, zekerheid en selectiestatus. |
+| `airco_installation_option_placements` | Koppelt gebruikte posities aan één installatieoptie. |
+| `airco_connections` | Koel-, condens- of stroomverbinding met eindpunten, segmentomschrijving, zekerheid en kostenimpact. |
+| `installation_outcomes` | Expliciete offerte-/plaatsingsuitkomst en privacyveilige tijd-, bezoek-, afwijkings- en montagefeedback. |
 
 ### Migratieregels
 
 1. Voeg nieuwe tabellen/kolommen uitbreidend toe; verwijder of herinterpreteer geen historische template-/antwoordrecords.
 2. Maak bewijslinks naar bestaande bronrecords. Kopieer foto-, register- of AI-inhoud niet naar een tweede JSON-waarheid.
-3. `intakes.access_token` wordt in het doelmodel nullable of verplaatst naar taaktoegang: bij **Zelf uitvoeren** bestaat geen klantlink; maak toegang pas wanneer klanttaken bestaan.
-4. `intake_follow_up_rounds/items` blijven tijdens de migratie werken en worden door BL-038 naar algemene bijdrageopdrachten gemapt.
-5. `pipe_route_sessions/segments` blijven bestaan en krijgen in BL-040 een expliciete koppeling aan één `airco_connection`; zij zijn niet langer één globale route per opname.
-6. Iedere nieuwe tenantgebonden tabel bevat een ondubbelzinnige route naar `company_id` en krijgt positieve same-company- en negatieve cross-company-tests.
+3. `intakes.access_token` blijft als hoog-entropie lifecycle-anker bestaan; `customer_access_enabled=false` maakt installer-only-tokenroutes ontoegankelijk totdat een klanttaak wordt gestuurd.
+4. `intake_follow_up_rounds/items` blijven werken en worden naar `contribution_tasks` gemapt.
+5. `pipe_route_sessions/segments` blijven bestaan en zijn via een unieke nullable FK gekoppeld aan één `airco_connection`; zij zijn niet langer één globale route per opname.
+6. Iedere tenantgebonden tabel bevat een ondubbelzinnige route naar `company_id`; positieve same-company- en negatieve cross-company-tests bewaken dit.
 7. Een installateurscorrectie verwijdert de eerdere bron-/AI-conclusie niet; zij markeert de geselecteerde conclusie en bewaart de delta voor audit en metrics.
 
-### Doelrelaties
+### Dossierrelaties
 
 ```mermaid
 erDiagram
-    intakes ||--o{ intake_spaces : contains
-    intakes ||--o{ intake_observations : records
-    intakes ||--o{ intake_contribution_tasks : assigns
-    intakes ||--o{ intake_decision_states : evaluates
-    intake_spaces ||--o{ airco_placement_options : offers
+    intakes ||--o{ dossier_subjects : contains
+    intakes ||--o{ dossier_records : records
+    intakes ||--o{ contribution_tasks : assigns
+    intakes ||--o{ dossier_decision_areas : evaluates
+    intakes ||--o{ airco_rooms : contains
+    airco_rooms ||--o{ airco_placement_options : offers
     intakes ||--o{ airco_installation_options : proposes
     airco_installation_options ||--o{ airco_connections : requires
-    airco_connections ||--o{ airco_connection_segments : consists_of
-    intake_observations ||--o{ intake_evidence_links : supported_by
+    airco_connections ||--o| pipe_route_sessions : analyzes
+    dossier_records ||--o{ dossier_evidence_links : supported_by
 ```
 
 ## Huidige tabellen (geïmplementeerd)
@@ -201,6 +215,7 @@ Eén digitale technische opname. In de huidige implementatie bevat deze rij ook 
 | `company_id` | FK → companies, restrict | Verplichte tenantgrens |
 | `created_by` | FK → users, restrict | Installateur |
 | `status` | IntakeStatus | |
+| `workflow_mode` | ContributionMode | `customer`, `installer` of `hybrid` |
 | `customer_name` | string | Privacy |
 | `customer_email` | string | Privacy |
 | `customer_phone` | string nullable | Privacy |
@@ -208,6 +223,7 @@ Eén digitale technische opname. In de huidige implementatie bevat deze rij ook 
 | `address_postal_code` | string nullable | Privacy |
 | `address_city` | string nullable | Privacy |
 | `access_token` | string(64) unique | Klantbearer-token (zie ADR-0002) |
+| `customer_access_enabled` | boolean | Middlewarepoort; standaard uit voor installer-only en na afronding van gerichte klanttaken |
 | `token_expires_at` | timestamp nullable | |
 | `token_revoked_at` | timestamp nullable | |
 | `internal_note` | text nullable | Alleen intern |
@@ -216,7 +232,7 @@ Eén digitale technische opname. In de huidige implementatie bevat deze rij ook 
 | `current_section_instance_key` | string nullable | Wizard-cursor: repeatable-instantie (`room-1`, …) |
 | `progress_percent` | unsigned tinyint default 0 | Gecached |
 | `is_demo` | boolean default false | Tijdelijke publieke demo-opname; index met tokenverval |
-| `started_at` | timestamp nullable | Eerste klantactiviteit |
+| `started_at` | timestamp nullable | Eerste klant- of installateursbijdrage |
 | `completed_at` | timestamp nullable | |
 | `reviewed_at` | timestamp nullable | |
 | `reminder_sent_at` | timestamp nullable | BL-015: tijdstip van de (max. één) herinneringsmail |
@@ -226,7 +242,35 @@ Eén digitale technische opname. In de huidige implementatie bevat deze rij ook 
 
 Indexes: `status`, `created_by`, `customer_email`, `(status, created_at)`, `(company_id, status, created_at)`, `(is_demo, token_expires_at)`.
 
-**Tokenstrategie:** zie ADR-0002. Token zit in URL en DB (hoge entropie); nooit in logs.
+**Tokenstrategie:** zie ADR-0002. Token zit in URL en DB (hoge entropie); nooit in logs. De tokenwaarde alleen is niet genoeg: `EnsureCustomerIntakeAccess` vereist daarnaast actieve klanttoegang, een geldige vervaldatum en geen intrekking.
+
+### Centrale dossier- en bijdrageobjecten
+
+| Tabel | Belangrijkste velden en invarianten |
+|-------|-------------------------------------|
+| `dossier_subjects` | `intake_id`, `company_id`, optionele `parent_id`, `type`, unieke `(intake_id,key)`, label en `meta`. Iedere bestaande opname krijgt bij migratie de root `survey`. |
+| `dossier_records` | Onderwerp, `kind`, `key`, JSON-`value`, `actor_type/id`, `source_type/id`, `method`, `confidence`, `status`, `observed_at` en optionele `superseded_by_id`. Een correctie supersedeert de eerdere actieve record in plaats van haar te wissen. |
+| `dossier_evidence_links` | Onderwerp, optionele record, polymorfe applicatiereferentie `evidence_type/evidence_id` en relatie (`supports`); bewaart geen kopie van foto-, antwoord- of broninhoud. |
+| `contribution_tasks` | Onderwerp, optioneel legacy-`intake_follow_up_item_id`, doelgroep, type, prompt, beslisgebied, status, aanvrager, afrondende actor/tijd en `meta`. |
+| `dossier_decision_areas` | Unieke `(intake_id,key)`, label, status, volgende actie, blocker, blocker-onderwerp, kostenrisico's, evidence-samenvatting en beoordelingstijd. |
+
+Alle tabellen behalve de zuivere pivot dragen zowel `intake_id` als `company_id`. Services valideren dat gekozen onderwerpen, taken en airco-objecten bij dezelfde opname/tenant horen.
+
+### Airco-opstellingen en verbindingen
+
+| Tabel | Belangrijkste velden en invarianten |
+|-------|-------------------------------------|
+| `airco_rooms` | Gewenste ruimte met dossieronderwerp, unieke intake-key, naam, gebruik, volgorde, status, bron en optionele afmetingen. Legacy `room-*`-instanties worden idempotent gemapt. |
+| `airco_placement_options` | Optionele ruimte, dossieronderwerp, type, label/omschrijving, locatie-JSON, status, bron, zekerheid en kostenrisico's. |
+| `airco_installation_options` | Label, configuratietype, rang, status, samenvatting, kostenimpact, bron/zekerheid, maker en selectietijd. Single-split, multi-split en meerdere single-splits hebben server-side cardinaliteitscontrole. |
+| `airco_installation_option_placements` | Pivot met rol/volgorde; een positie komt per installatieoptie maximaal eenmaal voor. |
+| `airco_connections` | Installatieoptie, optionele concrete eindpunten, dossieronderwerp, type, status, lengteklasse, segmenten, obstakels, onzekerheden, kostenimpact, zekerheid, bron en integrale goedkeuring. Stroom zet `safety_check_required=true`. |
+
+Iedere geselecteerde binnenpositie moet voor beslisgereedheid in een eigen koel- én condensverbinding voorkomen. Minimaal één stroomverbinding is vereist. `not_remotely_resolvable` stuurt het beslisgebied naar locatiebezoek; `unknown`/`needs_evidence` naar een gerichte aanvulling.
+
+### `installation_outcomes`
+
+Eén actuele uitkomst per opname: `result`, actieve installateur- en klantminuten, expliciet locatiebezoek, maximaal drie gecontroleerde `site_visit_reasons`, `quote_type`, montageverrassing/notitie, geselecteerde installatieoptie, gecontroleerde `proposal_delta`-codes en `installed_at`. Vrije notities worden niet als analyticsdimensie gebruikt.
 
 ### `intake_answers`
 
@@ -237,7 +281,7 @@ Indexes: `status`, `created_by`, `customer_email`, `(status, created_at)`, `(com
 | `question_key` | string | Verwijst naar key in gepinde versie |
 | `section_instance_key` | string nullable | Bij repeatables: `room-1` |
 | `value` | json | Genormaliseerde waarde |
-| `prefill_source` | string nullable | Herkomst van een nog niet door de klant getypt antwoord: `installer` = zichtbare, te bevestigen voorzet (BL-016); `pdok` = eenduidig BAG-feit dat een template expliciet mag overslaan (BL-019). `null` bij een normaal of door de klant bevestigd antwoord. Zie [intake-engine.md § Prefill](intake-engine.md#prefill-van-bekende-gegevens-bl-016). |
+| `prefill_source` | string nullable | Herkomst: o.a. `installer`, `pdok`, `ai` (sterk afgeleid) of `ai_suggestion` (nog te controleren). De gepinde template bepaalt of een bronvraag zichtbaar blijft; airco v10 slaat eenduidige installateursprefill over. `null` bij normale klantinvoer. Zie [intake-engine.md § Prefill](intake-engine.md#prefill-van-bekende-gegevens-bl-016). |
 | `answered_at` | timestamp | |
 
 Unique: `(intake_id, question_key, section_instance_key)`.  
@@ -281,7 +325,11 @@ BL-007 genereert voorstellen automatisch na eerste afronding en opnieuw na een a
 | `section_instance_key` | string nullable | |
 | `intake_follow_up_item_id` | FK nullable, cascade | BL-027: foto of PDF bij een gerichte vervolgopdracht; `null` voor templatefoto's |
 | `disk` | string | Waarde van `MEDIA_DISK` bij upload |
-| `path` | string | Pad op disk (niet publiek voorspelbaar) |
+| `path` | string | Metadata-vrije dossier-JPEG (niet publiek voorspelbaar) |
+| `analysis_path` | string nullable | Kleinere metadata-vrije JPEG voor externe vision |
+| `analysis_mime_type` | string nullable | Altijd `image/jpeg` bij foto's |
+| `analysis_size_bytes` | unsigned bigint nullable | |
+| `analysis_checksum` | string nullable | SHA-256 van de analysekopie |
 | `original_filename` | string | Alleen weergave |
 | `mime_type` | string | Server-side gecontroleerd |
 | `size_bytes` | unsigned bigint | |
@@ -293,16 +341,17 @@ BL-007 genereert voorstellen automatisch na eerste afronding en opnieuw na een a
 
 Index: `(intake_id, question_key)`.
 
-Bestanden: privé disk, pad `intakes/{uuid}/…/{ulid}.ext`. Geen publieke URL.
+Bestanden: privé disk, paden onder `intakes/{uuid}/…`. Telefoonoriginelen worden niet bewaard. Niet-beeld-PDF's hebben geen analysevariant. Geen publieke URL.
 
 ### `pipe_route_sessions` (BL-029, huidige backend)
 
-Stateful synthese van één begeleide route. ADR-0012 vervangt de oorspronkelijke globale UI-aanname; BL-040 koppelt deze bestaande bouwsteen later aan één concrete aircoverbinding.
+Stateful synthese van één begeleide route. ADR-0012 vervangt de oorspronkelijke globale UI-aanname; iedere sessie kan uniek aan één concrete aircoverbinding zijn gekoppeld.
 
 | Kolom | Type | Toelichting |
 |-------|------|-------------|
 | `id` | bigint PK | |
 | `intake_id` | FK, cascade | Huidige koppeling aan opname |
+| `airco_connection_id` | FK nullable, unique, cascade | Concrete koel-, condens- of stroomverbinding |
 | `status` | PipeRouteStatus | `collecting`, `proposed`, `approved`, `rejected` |
 | `confidence` | decimal(4,3) nullable | Synthesezekerheid 0..1 |
 | `proposed_route` | json nullable | Gestructureerde voorgestelde route |
@@ -393,7 +442,9 @@ Genummerde aanvullende informatieronde na `need_more_info`.
 | `intake_id` | FK, cascade | |
 | `requested_by` | FK users, restrict | Installateur |
 | `round_number` | unsigned tinyint | Monotoon per intake; standaard maximaal 3 |
+| `purpose` | string | `follow_up` voor historie, `contribution` voor gerichte hybride taak |
 | `status` | FollowUpRoundStatus | `open` / `completed` |
+| `return_status` | string nullable | Status waarnaar een gerichte klanttaak na afronding terugkeert |
 | `sent_at` | timestamp | Beschikbaar via dezelfde klantlink |
 | `completed_at` | timestamp nullable | |
 | `timestamps` | | |
@@ -446,13 +497,12 @@ Index: `(intake_id, created_at)`.
 
 BL-026 gebruikt deze tabel samen met bestaande intake-timestamps en relaties voor afgeleide productmetrics; er is bewust geen tweede analytics-tabel. `answer_saved` bewaart alleen `question_key` en `section_instance_key`, nooit de antwoordwaarde. De overige getelde klant-events zijn upload opslaan/verwijderen, vervolgtekst/-foto opslaan/verwijderen en hoofd-/vervolgronde afronden. Volledige definities: [metrics.md](metrics.md).
 
-### Bewust niet in het huidige schema
+### Bewust niet in het schema
 
 | Concept | Reden |
 |---------|--------|
 | Aparte `applications`-/leadstabel | De aanvraag bestaat vóór deze app; `intakes` bewaart nu de benodigde snapshot. Een externe referentie kan zonder CRM-model worden toegevoegd. |
 | `intake_participants` | Klantgegevens op `intakes` volstaan |
-| Dossier-/ruimte-/plaatsings-/verbindingsobjecten | Besloten doelmodel; worden gefaseerd via BL-035/039/040 toegevoegd, zie boven. |
 | Volledige event-sourcing | Te zwaar |
 
 ### `ai_runs` (Fase 6)
@@ -461,7 +511,7 @@ BL-026 gebruikt deze tabel samen met bestaande intake-timestamps en relaties voo
 |-------|------|-------------|
 | `id` | bigint PK | |
 | `intake_id` | FK, cascade | |
-| `type` | string | o.a. `summary`, `attention_points`, `photo_quality`, `photo_assessment`, `route_analysis`, `route_synthesis` |
+| `type` | string | o.a. `summary`, `attention_points`, `photo_quality`, `photo_assessment`, `route_analysis`, `route_synthesis`, `dossier_synthesis` |
 | `provider` | string | |
 | `model` | string nullable | |
 | `prompt_version` | string | |
@@ -487,9 +537,15 @@ BL-026 gebruikt deze tabel samen met bestaande intake-timestamps en relaties voo
 | section | questions | cascade |
 | question | options/rules | cascade |
 | version | intakes | **restrict** (versie met opnames niet hard verwijderen) |
-| intake | answers/external facts/follow-up rounds/uploads/notes/attention/reviews/reports/events/ai-runs/pipe-route-sessions | cascade |
+| intake | legacy records + dossiersubjects/-records/-bewijs/-beslisgebieden + bijdragentaken + airco-objecten + uitkomst | cascade |
+| dossier subject | kindonderwerpen/records/bewijs | cascade |
+| dossier record | bewijs | cascade; `superseded_by_id` wordt null |
+| airco room | plaatsingsopties | cascade |
+| airco installation option | pivot/verbindingen | cascade |
+| airco placement option | pivot | cascade; verbindingseindpunt wordt null |
+| airco connection | gekoppelde pipe-route-session | cascade |
 | follow-up round | follow-up items | cascade |
-| follow-up item | gekoppelde uploads | cascade |
+| follow-up item | gekoppelde uploads/bijdragentaak | cascade |
 | pipe-route session | pipe-route segments | cascade |
 | upload / ai-run | gekoppeld route-segment | null on delete |
 | user (created_by) | intakes | **restrict** |
@@ -508,9 +564,12 @@ Soft-deleted intakes: bestanden blijven tot daily `intakes:purge-deleted` (BL-00
 | Aangeleverde PDF-documenten | `intake_uploads` + storage |
 | Interne notities | `intake_notes`, `intakes.internal_note` |
 | Routevoorstellen, segmentanalyses en foto-instructies | `pipe_route_sessions`, `pipe_route_segments` |
+| Technische waarnemingen, conclusies en bewijsrelaties | `dossier_records`, `dossier_evidence_links` |
+| Plaatsingen, opstellingen en routes | `airco_placement_options`, `airco_installation_options`, `airco_connections` |
+| Montagefeedback | `installation_outcomes.surprise_notes` |
 | Rapport-HTML | `generated_reports.html` |
 
-**Bewaartermijn:** actieve dossiers onbeperkt zolang account bestaat; na soft delete **30 dagen** hard purge inclusief foto's, aangeleverde documenten en rapport-PDF (`intakes:purge-deleted`, configureerbaar via `INTAKE_SOFT_DELETE_RETENTION_DAYS`). Soft-delete-UI voor intakes volgt later; de purge-job is al actief. Geen echte klantdata in seeders/tests.
+**Bewaartermijn:** actieve dossiers onbeperkt zolang account bestaat; na soft delete **30 dagen** hard purge inclusief beide beeldvarianten, aangeleverde documenten en rapport-PDF (`intakes:purge-deleted`, configureerbaar via `INTAKE_SOFT_DELETE_RETENTION_DAYS`). Soft-delete-UI voor intakes volgt later; de purge-job is al actief. Geen echte klantdata in seeders/tests.
 
 ## Mermaid ER-diagram
 
@@ -541,7 +600,22 @@ erDiagram
     intakes ||--o| generated_reports : has
     intakes ||--o{ intake_activity_events : logs
     intakes ||--o{ ai_runs : has
+    intakes ||--o{ dossier_subjects : structures
+    dossier_subjects ||--o{ dossier_records : records
+    dossier_subjects ||--o{ dossier_evidence_links : groups
+    dossier_records o|--o{ dossier_evidence_links : supports
+    intakes ||--o{ dossier_decision_areas : evaluates
+    intakes ||--o{ contribution_tasks : assigns
+    intake_follow_up_items o|--o| contribution_tasks : implements
+    intakes ||--o{ airco_rooms : wants
+    airco_rooms o|--o{ airco_placement_options : offers
+    intakes ||--o{ airco_installation_options : proposes
+    airco_installation_options ||--o{ airco_installation_option_placements : uses
+    airco_placement_options ||--o{ airco_installation_option_placements : included
+    airco_installation_options ||--o{ airco_connections : requires
+    intakes ||--o| installation_outcomes : measures
     intakes ||--o{ pipe_route_sessions : analyzes
+    airco_connections ||--o| pipe_route_sessions : details
     pipe_route_sessions ||--o{ pipe_route_segments : contains
     intake_uploads o|--o{ pipe_route_segments : evidences
     ai_runs o|--o{ pipe_route_segments : analyzes
@@ -591,9 +665,11 @@ erDiagram
         bigint company_id FK
         bigint created_by FK
         string status
+        string workflow_mode
         string customer_name
         string customer_email
         string access_token UK
+        boolean customer_access_enabled
         boolean is_demo
         timestamp reminder_sent_at
         json completeness_snapshot
@@ -623,7 +699,102 @@ erDiagram
         string question_key
         string disk
         string path
+        string analysis_path
         string mime_type
+    }
+
+    dossier_subjects {
+        bigint id PK
+        bigint intake_id FK
+        bigint company_id FK
+        bigint parent_id FK
+        string type
+        string key
+    }
+
+    dossier_records {
+        bigint id PK
+        bigint dossier_subject_id FK
+        string kind
+        string key
+        string source_type
+        decimal confidence
+        string status
+    }
+
+    dossier_evidence_links {
+        bigint id PK
+        bigint dossier_subject_id FK
+        bigint dossier_record_id FK
+        string evidence_type
+        bigint evidence_id
+    }
+
+    dossier_decision_areas {
+        bigint id PK
+        bigint intake_id FK
+        string key
+        string status
+        string next_action
+    }
+
+    contribution_tasks {
+        bigint id PK
+        bigint intake_id FK
+        bigint intake_follow_up_item_id FK
+        string audience
+        string type
+        string status
+    }
+
+    airco_rooms {
+        bigint id PK
+        bigint intake_id FK
+        bigint dossier_subject_id FK
+        string key
+        string name
+        json dimensions
+    }
+
+    airco_placement_options {
+        bigint id PK
+        bigint intake_id FK
+        bigint airco_room_id FK
+        string type
+        string status
+    }
+
+    airco_installation_options {
+        bigint id PK
+        bigint intake_id FK
+        string configuration_type
+        string status
+        int rank
+    }
+
+    airco_installation_option_placements {
+        bigint id PK
+        bigint airco_installation_option_id FK
+        bigint airco_placement_option_id FK
+        string role
+    }
+
+    airco_connections {
+        bigint id PK
+        bigint airco_installation_option_id FK
+        bigint from_placement_id FK
+        bigint to_placement_id FK
+        string type
+        string status
+    }
+
+    installation_outcomes {
+        bigint id PK
+        bigint intake_id FK
+        string result
+        boolean site_visit_occurred
+        json site_visit_reasons
+        json proposal_delta
     }
 
     intake_reviews {
@@ -645,6 +816,7 @@ erDiagram
     pipe_route_sessions {
         bigint id PK
         bigint intake_id FK
+        bigint airco_connection_id FK
         string status
         decimal confidence
         json proposed_route
@@ -663,7 +835,7 @@ erDiagram
 ## Seeddata
 
 - 1 installateur (`test@example.com` of dedicated seeder-user)
-- gepubliceerde airco-templateversies (v1–v8 historisch, v9 latest — adaptieve bron-/foto-/tekstafleiding)
+- gepubliceerde airco-templateversies (v1–v9 historisch, v10 latest — gewenste ruimtes i.p.v. vooraf gekozen units)
 - 1 open intake (`sent`)
 - 1 gedeeltelijk ingevulde intake (`in_progress`)
 - 1 afgeronde intake (`completed`) met veilige placeholder-uploads

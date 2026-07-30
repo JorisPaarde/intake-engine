@@ -25,7 +25,7 @@ final class CustomerFollowUpRequestMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Nog een paar gegevens nodig voor je aanvraag',
+            subject: 'Nog een paar gegevens nodig voor uw aanvraag',
         );
     }
 

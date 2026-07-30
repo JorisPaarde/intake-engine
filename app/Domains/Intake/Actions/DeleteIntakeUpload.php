@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domains\Intake\Actions;
 
 use App\Domains\Intake\Jobs\DeleteStoredMediaJob;
+use App\Domains\Intake\Models\DossierEvidenceLink;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeAnswer;
@@ -30,7 +31,7 @@ final class DeleteIntakeUpload
             ]);
         }
 
-        [$disk, $path] = DB::transaction(function () use ($intake, $upload): array {
+        [$disk, $path, $analysisPath] = DB::transaction(function () use ($intake, $upload): array {
             $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
             $lockedUpload = IntakeUpload::query()->whereKey($upload->id)->lockForUpdate()->firstOrFail();
 
@@ -43,9 +44,15 @@ final class DeleteIntakeUpload
 
             $disk = $lockedUpload->disk;
             $path = $lockedUpload->path;
+            $analysisPath = $lockedUpload->analysis_path;
             $questionKey = $lockedUpload->question_key;
             $sectionInstanceKey = $lockedUpload->section_instance_key;
 
+            DossierEvidenceLink::query()
+                ->where('intake_id', $lockedIntake->id)
+                ->where('evidence_type', 'intake_upload')
+                ->where('evidence_id', $lockedUpload->id)
+                ->delete();
             $lockedUpload->delete();
 
             $this->syncAnswerUploadIds($intake, $questionKey, $sectionInstanceKey);
@@ -63,10 +70,14 @@ final class DeleteIntakeUpload
                 'created_at' => now(),
             ]);
 
-            return [$disk, $path];
+            return [$disk, $path, $analysisPath];
         }, 3);
 
         $this->deleteStoredMedia($disk, $path);
+
+        if (is_string($analysisPath) && $analysisPath !== '') {
+            $this->deleteStoredMedia($disk, $analysisPath);
+        }
     }
 
     private function deleteStoredMedia(string $disk, string $path): void

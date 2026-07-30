@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.34 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.35 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -17,9 +17,9 @@ Laatste testsessie: 2026-07-26 (lokaal; postcode-eerst adresaanvulling met echte
 | /login rendert | pass | 2026-07-18 | Toont loginformulier |
 | Auth-beveiliging dashboard/intakes | pass | 2026-07-18 | Uitgelogd → redirect `/login` (na dismiss 428-interstitial) |
 | Dashboard weergave | pass | 2026-07-18 | Bereikbaar na registratie |
-| Begeleide leidingroute — backend (BL-029) | todo | - | Met `AI_ROUTE_ANALYSIS_ENABLED=true` + `AI_PROVIDER=openai` + key op staging: foto toevoegen levert een `route_analysis`-AiRun (model = `AI_ROUTE_MODEL`), synthese een `route_synthesis`-AiRun; bij lage zekerheid volgt een tweede run met `AI_ROUTE_REVIEW_MODEL`. Zonder de vlag: geen AI-calls, wel opgeslagen segment. Alleen na DPIA/akkoord met fictieve foto's. |
+| Verbindingsgebonden route + modelescalatie (BL-029/030/040) | todo | - | Met `AI_ROUTE_ANALYSIS_ENABLED=true` + externe testprovider: foto op één concrete verbinding levert `route_analysis`; synthese schrijft terug naar die verbinding; bij lage zekerheid volgt `AI_ROUTE_REVIEW_MODEL` met alleen relevante 1536px-analysekopieën. Nieuw bewijs heropent een goedgekeurde sessie zonder duplicaat. Alleen na DPIA/akkoord met fictieve foto's. |
 | Begeleide leidingroute — oude globale UI (BL-029) | n/a | 2026-07-30 scopebesluit | Wordt niet gebouwd: ADR-0009/BL-029 vervangen door ADR-0012/BL-040. Backend blijft; nieuwe UI koppelt routes aan één concrete verbinding binnen een installatieoptie. |
-| Startkeuze klant / zelf uitvoeren (BL-037) | todo | - | Na implementatie: **Zelf uitvoeren** maakt geen klantlink/token actief en verstuurt geen mail; **Klant laten opnemen** maakt de afgebakende klanttaakset en link. |
+| Startkeuze klant / zelf uitvoeren (BL-037) | todo | - | Na deploy: **Zelf uitvoeren** houdt klanttoegang uit en verstuurt geen mail; **Klant laten opnemen** activeert en mailt de begeleide klantlink. |
 | Volledig installateur-uitgevoerde opname (BL-037) | todo | - | Twee slaapkamers mobiel en in vrije volgorde vastleggen: ruimtes, foto's, waarnemingen en technische conclusies; afronden/offertebasis zonder klantactie. |
 | Volledig klant-uitgevoerde opname (BL-038) | todo | - | Klantboodschap “Met uw hulp kunnen we uw airco sneller plaatsen”; twee slaapkamers apart; veilige kamer-, buiten- en meterkasttaken; klant maakt geen configuratie-/routekeuze. |
 | Hybride opname + één latere klanttaak (BL-038) | todo | - | Installateur begint zelf zonder link, vraagt later alleen een meterkastfoto; link toont uitsluitend die taak; bijdrage komt in hetzelfde dossier terug. Test ook klantstart → installateur vult zelf aan. |
@@ -28,6 +28,8 @@ Laatste testsessie: 2026-07-26 (lokaal; postcode-eerst adresaanvulling met echte
 | Twee slaapkamers: plaatsingen + installatieopties (BL-039) | todo | - | Gewenste ruimtes zijn niet vooraf units; dossier kan één multi-split en twee single-splits voorstellen met aparte binnen-/buitenposities; klant kiest niet, installateur selecteert/corrigeert. |
 | Drie verbindingen per airco-optie (BL-040) | todo | - | Per relevante opstelling: koelleiding, condensroute per binnenunit en stroomroute incl. groep/capaciteit, kabelroute en systeemafhankelijk aansluitpunt; ieder met bewijs/open punten/kostenimpact. |
 | Onderbouwd locatiebezoek (BL-036/040) | todo | - | Een onveilig of op afstand onzichtbaar beslissend segment eindigt na gerichte taak terecht in **Locatiebezoek nodig**, zonder eindeloze fotolus of onveilige klantinstructie. |
+| Dossiersynthese + uitzonderingsreview (BL-041) | todo | - | Met `AI_DOSSIER_SYNTHESIS_ENABLED=true` en fictief bewijs: beeldgebonden binnen-/buiten-/voedings-/afvoerposities, geldige optie met drie verbindingstypen, uitzonderingen en maximaal drie gerichte taken. Ongeldige referentie/cardinaliteit faalt soft; AI activeert geen klantlink en keurt niets goed. |
+| Uitkomstregistratie + nieuwe metrics (BL-042) | todo | - | Leg offerte op afstand, prijsindicatie, bezoek met gecontroleerde redenen, vergeleken voorstel/deltacodes en plaatsing met montageverrassing vast. `/metrics` toont juiste noemers, medianen en reden-/afwijkingsverdeling; geen klantinhoud in pagina/events. |
 | Dev-admin `/dev` toegang (BL-028) | todo | - | Op staging: ingelogd → `/dev` bereikbaar, nav-link "Dev" zichtbaar. In productie (of `DEV_ADMIN_ENABLED=false`): `/dev` geeft 404 en nav-link ontbreekt. Uitgelogd → redirect `/login`. |
 | Dev-admin dienststatus (BL-028) | todo | - | `/dev` toont per externe dienst enabled/key/base-URL/timeout en laatst-gelukt tijd; geo-diensten met opgeslagen feiten worden groen, ongebruikte grijs, ontbrekende key amber. Geen live calls. |
 | Dev-admin opname-inspector (BL-028) | todo | - | `/dev/intakes` zoekt op adres/uuid; detail toont externe feiten (PDOK/BAG), AI-runs, antwoorden, uploads en de activiteiten-tijdlijn van één opname. |
@@ -48,6 +50,7 @@ Laatste testsessie: 2026-07-26 (lokaal; postcode-eerst adresaanvulling met echte
 | Migraties + logs op server | pass | 2026-07-17 | Alle migraties Ran; geen errors in logs |
 | Airco-template beschikbaar | pass | 2026-07-18 | Selecteerbaar bij aanmaken |
 | Airco-template v2 (BL-017) | todo | - | Na deploy: nieuwe opname pin’t v2; geen kamermaten-vragen; keuzelijsten i.p.v. vrije tekst buiten/route/condens; `free_group_known` / gevel optioneel; oude intakes blijven op v1 |
+| Airco-template v10 gewenste ruimtes (BL-039) | todo | - | Nieuwe opname pin’t v10; openingsvraag en repeatable-sectie spreken over gewenste ruimtes, niet vooraf gekozen units; extra kamerfoto vraagt om wanden/doorgangen en niet om een door de klant gekozen binnenunitpositie. Historische opnames blijven op hun gepinde versie. |
 | Homepage / (producthomepage Fase 3) | pass | 2026-07-18 | “Digitale Opname” producthomepage (geen Laravel-welcome) |
 | Registratie /register | pass | 2026-07-18 | Formulier werkt; landt op `/dashboard` |
 | E-mailverificatie flow | pass | 2026-07-18 | Geen `/verify-email`-blokkade op staging na register (of niet afgedwongen) |
@@ -55,9 +58,10 @@ Laatste testsessie: 2026-07-26 (lokaal; postcode-eerst adresaanvulling met echte
 | Vraag-voor-vraag klantflow (BL-018) | todo | - | Na deploy: één vraag per scherm, sectietitel als markering, Volgende/Vorige, conditionele vraag verschijnt pas na relevant antwoord, hervatten op juiste vraag |
 | Auto-doorgaan na keuze + Enter (BL-023) | todo | - | Na deploy: single_choice/boolean gaat automatisch door na keuze (Opgeslagen-bevestiging); Enter op tekst/nummer = Volgende; multi_choice/foto/long_text niet; Vorige blijft werken; laatste stap geen auto-afronden |
 | Voortgang + ontbreekt-lijst (BL-022) | todo | - | Na deploy: % bereikt 100 bij alleen verplichte vragen klaar (optioneel leeg mag); bij geblokkeerd afronden zijn ontbrekende items klikbaar en tonen “Ruimtes 2” i.p.v. `room-2` |
-| Installateur-prefill bij aanmaken (BL-016) | todo | - | Na deploy: "alvast invullen" op opname-aanmaken (airco v3 request-vragen); klant ziet ze met "alvast ingevuld — controleer"; intake blijft `sent` tot klant start |
+| Installateur-prefill bij aanmaken (BL-016/v10) | todo | - | Na deploy: bekende aanvraagwaarden staan met bron in het dossier; airco v10 slaat eenduidige installateursprefill over zonder losse klantbevestiging. Een historische gepinde v3-flow blijft de bewerkbare voorzet tonen; prefill alleen start de opname niet. |
 | Repeatable-prefill ruimtes (BL-016) | todo | - | Na deploy: bij ≥2 binnenunits neemt ruimte 2 `floor_level` over van ruimte 1 als bewerkbare voorzet ("Overgenomen van Ruimtes 1"); pas bij Volgende opgeslagen; ruimte 1 nooit voorgevuld |
 | Foto-uploads (Fase 4) | pass | 2026-07-18 | JPEG-upload + preview + “Foto opgeslagen” op ruimtestap |
+| Dossier- en AI-beeldvarianten (BL-030) | todo | - | Na deploy: JPEG/PNG/WebP/HEIC levert metadata-vrije JPEG-dossierkopie ≤2048px en analysekopie ≤1536px; preview gebruikt dossier, vision gebruikt analyse; verwijderen/purge wist beide. Controleer ook één historische upload zonder `analysis_path` op veilige fallback. |
 | Foto multiselect + galerij (BL-021) | todo | - | Na deploy: meerdere foto's in één keer kiezen; op mobiel camera én galerij (geen geforceerde camera); één mislukte foto blokkeert de rest niet; max_files wordt gehandhaafd |
 | HEIC/HEIF foto-upload (BL-008) | todo | - | Na deploy op staging met echte iPhone-foto: HEIC kiezen/maken, upload slaat op als JPEG, preview werkt, geen handmatige conversie nodig |
 | Leesbare foto-galerij installateur (BL-024) | todo | - | Na deploy: opname-detail toont vraaglabels + groepen (bv. “Ruimtes 2” / “Foto’s van de ruimte”), geen rauwe `question_key`/`room-2` |
@@ -71,7 +75,7 @@ Laatste testsessie: 2026-07-26 (lokaal; postcode-eerst adresaanvulling met echte
 | Fotokwaliteit-hint klant + label installateur (BL-007) | todo | - | Donkere/kleine foto in klantflow → niet-blokkerende hint, afronden blijft mogelijk; installateursgalerij toont kwaliteitslabel |
 | Externe LLM-provider (BL-006) | todo | - | Alleen ná DPIA + `AI_API_KEY`: `AI_PROVIDER=openai` levert samenvatting/aandachtspunten; controleer dat geen e-mail/telefoon in de payload staat |
 | AI-budgetcap voor externe provider | todo | - | Codegereed: `AI_PROVIDER=openai` faalt vóór provider-call als dag/maandcap ontbreekt of bereikt is; `ai_runs` bewaart tokens/beelden/geschatte centen. Na deploy: zet lage stagingcap, bewijs budget-limited soft-fail en `/dev` runtimeflags zonder key. |
-| Airco v5 meterkastfoto-afleiding (BL-020) | todo | - | Eerst lokaal met `AI_PROVIDER=fake` + flag: meterkastfoto → `free_group_known` staat als foto-inschatting klaar en blijft corrigeerbaar; dossier toont fase/vrije groep, bron `AI-fotoanalyse` en onzekerheid; foto verwijderen wist voorzet/fact. Daarna alleen ná DPIA met fictieve stagingbeelden en multimodaal model: hoge zekerheid, onduidelijk beeld met concrete herhaalinstructie, providerfout soft-fail en geen beeldbytes/data-URL in logs/DB. |
+| Airco v5/v10 meterkastfoto-afleiding (BL-020) | todo | - | Eerst lokaal met `AI_PROVIDER=fake` + flag: hoge zekerheid legt `free_group_known` met bron vast en slaat de redundante bevestigingsvraag over; dossier blijft corrigeerbaar en foto verwijderen wist afleiding/fact. Onduidelijk beeld geeft één concrete herhaalinstructie. Daarna alleen ná DPIA met fictieve stagingbeelden: providerfout soft-fail en geen beeldbytes/data-URL in logs/DB. |
 | Queue-worker (cron) | todo | - | Niet end-to-end bevestigd (geen zichtbaar AI-resultaat) |
 | Demo-login `installateur@example.com` | fail | 2026-07-18 | Legacy seed-account faalt op staging; niet meer gebruiken als gate voor publieke demo-dossiers. |
 | Demo-installateur dashboard voor publieke demo-opnames | todo | - | Na deploy + privé `DEMO_INSTALLER_PASSWORD`: login als `DEMO_USER_EMAIL`, dashboard toont alleen eigen `is_demo` opnames; open afgeronde demo-opname en controleer dossier/report/review. Codegereed op branch `cursor/mvp-readiness-checks`; staging-smoke nog nodig. |

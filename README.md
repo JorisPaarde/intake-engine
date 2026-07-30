@@ -1,12 +1,12 @@
 # Intake Engine (Digitale Opname)
 
-> **Documentversie:** 2.0 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](AGENTS.md)
+> **Documentversie:** 2.1 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](AGENTS.md)
 
 **Werk je als agent aan dit project? Lees eerst [AGENTS.md](AGENTS.md)** — het projectgeheugen, de documentkaart en het onderhoudsprotocol.
 
-Doel: na een bestaande aanvraag alle technische opname-informatie samenbrengen en zoveel mogelijk installateurstijd en onnodige locatiebezoeken besparen. In het besloten doelmodel kan de opname door de klant, volledig door de installateur of hybride worden gevuld. Eerste domein: **airco**.
+Doel: na een bestaande aanvraag alle technische opname-informatie samenbrengen en zoveel mogelijk installateurstijd en onnodige locatiebezoeken besparen. De opname kan door de klant, volledig door de installateur of hybride worden gevuld. Eerste domein: **airco**.
 
-De centrale opname is het productmodel; de bestaande data-gedreven intake-engine is één van de invoerkanalen. Airco krijgt daarnaast domeinobjecten voor ruimtes, plaatsings- en installatieopties en afzonderlijke koel-, condens- en stroomverbindingen. Het besloten doelmodel staat in [docs/product-model.md](docs/product-model.md). De huidige applicatie wordt daar stapsgewijs naartoe gemigreerd; zie [§ Huidige status](#huidige-status).
+De centrale opname is het productmodel; de data-gedreven intake-engine is één van de invoerkanalen. Airco heeft daarnaast domeinobjecten voor gewenste ruimtes, plaatsings- en installatieopties en afzonderlijke koel-, condens- en stroomverbindingen. Het geïmplementeerde model staat in [docs/product-model.md](docs/product-model.md); zie [§ Huidige status](#huidige-status).
 
 **Stack (feitelijk):** Laravel **13.20** · PHP **^8.3** (staging/CI **8.4**) · MySQL · Blade · Livewire **4.3** (package aanwezig) · Alpine.js · Tailwind CSS 3 · Breeze (auth) · Pest 4 · Pint · PHPStan/Larastan 6 · Vite 8
 
@@ -104,8 +104,8 @@ De volledige documentkaart — welk document waarvoor de bron van waarheid is �
 
 ## Huidige status
 
-**Huidige implementatie:** MVP-fasen 1–6 zijn afgerond. De app heeft een beveiligde klantwizard, private foto-/documentuploads, rapport/PDF, gerichte vervolgrondes, installer-review, multi-accounttenancy en white-label. BAG/PDOK, PDOK-luchtfoto, EP-Online en 3DBAG vullen het dossier al automatisch. AI-samenvatting, aandachtspunten, foto-afleiding en de backend van de begeleide leidingroute zijn gebouwd achter privacy- en providerflags. Production en staging zijn gescheiden.
+**Huidige implementatie:** MVP-fasen 1–6 én de dossiermigratie BL-030/035–042 zijn gebouwd. De app heeft één tenantgebonden opnamedossier met bron, zekerheid, status en bewijs; een beveiligde klantwizard; een vrije mobiele installateurswerkplek; gerichte hybride klanttaken; en beslisstatus per technisch gebied. Airco modelleert gewenste ruimtes, binnen-/buiten-/voedings-/afvoerposities, single-/multi-splitopties en afzonderlijke koel-, condens- en stroomverbindingen. De bestaande routebackend is per verbinding hergebruikt.
 
-**Besloten doelmodel, nog te bouwen:** de opname wordt het centrale dossier van een bestaande aanvraag; de klantlink wordt optioneel; volledig installateur-uitgevoerde en hybride opname worden kernflows; sterke bron-/AI-afleidingen worden zonder losse bevestigingsadministratie gebruikt; beslisgereedheid vervangt één globale compleetheidsstatus; airco krijgt kandidaatopstellingen met afzonderlijke koel-, condens- en stroomroutes. Zie [docs/product-model.md](docs/product-model.md), ADR-0011/0012 en de nieuwe uitvoeringsitems in [docs/backlog.md](docs/backlog.md).
+BAG/PDOK, PDOK-luchtfoto, EP-Online en 3DBAG vullen hetzelfde dossier automatisch. AI kan bron- en beeldbewijs synthetiseren tot plaatsingen, installatieopties, verbindingen, uitzonderingen en één gerichte vervolgtaak; voorstellen blijven controleerbaar en de installateur keurt het geheel goed. Iedere opgeslagen foto heeft een metadata-vrije dossierkopie en een kleinere analysekopie. `/metrics` meet onder meer offerte op afstand, prijsindicatie, actieve tijd, locatiebezoekredenen, voorstelafwijkingen en montageverrassingen.
 
 **Open operationeel werk:** BL-001 publieke demo staat standaard aan; externe AI-activering wacht op DPIA/key; SMTP en overige host/env-acties staan in [docs/DEPLOYMENT.md § Handmatige acties](docs/DEPLOYMENT.md#handmatige-acties-producteigenaar). Handmatige teststatus: [docs/functional-test-status.md](docs/functional-test-status.md).

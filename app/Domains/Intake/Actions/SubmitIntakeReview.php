@@ -8,6 +8,9 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeFollowUpRound;
 use App\Domains\Intake\Models\IntakeReview;
+use App\Domains\Intake\Services\DecisionReadinessService;
+use App\Domains\Intake\Services\DossierManager;
+use App\Enums\ContributionMode;
 use App\Enums\FollowUpItemType;
 use App\Enums\FollowUpRoundStatus;
 use App\Enums\IntakeStatus;
@@ -18,6 +21,11 @@ use Illuminate\Validation\ValidationException;
 
 final class SubmitIntakeReview
 {
+    public function __construct(
+        private readonly DecisionReadinessService $decisionReadiness,
+        private readonly DossierManager $dossierManager,
+    ) {}
+
     /**
      * @param  array{
      *     decision: ReviewDecision|string,
@@ -29,6 +37,12 @@ final class SubmitIntakeReview
      */
     public function handle(Intake $intake, User $reviewer, array $data): IntakeReview
     {
+        if ($reviewer->company_id !== $intake->company_id) {
+            throw ValidationException::withMessages([
+                'intake' => 'Deze opname hoort bij een ander installatiebedrijf.',
+            ]);
+        }
+
         if (! in_array($intake->status, [IntakeStatus::Completed, IntakeStatus::Reviewed], true)) {
             throw ValidationException::withMessages([
                 'intake' => 'Alleen afgeronde opnames kunnen worden beoordeeld.',
@@ -53,7 +67,7 @@ final class SubmitIntakeReview
             ]);
         }
 
-        return DB::transaction(function () use ($intake, $reviewer, $data, $decision, $followUpItems): IntakeReview {
+        $review = DB::transaction(function () use ($intake, $reviewer, $data, $decision, $followUpItems): IntakeReview {
             $intake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
 
             if (! in_array($intake->status, [IntakeStatus::Completed, IntakeStatus::Reviewed], true)) {
@@ -78,12 +92,23 @@ final class SubmitIntakeReview
                 ],
             );
 
-            $intake->update([
+            $intakeUpdates = [
                 'status' => $decision === ReviewDecision::NeedMoreInfo
                     ? IntakeStatus::AwaitingCustomer
                     : IntakeStatus::Reviewed,
                 'reviewed_at' => $reviewedAt,
-            ]);
+            ];
+
+            if ($decision === ReviewDecision::NeedMoreInfo) {
+                $intakeUpdates += [
+                    'workflow_mode' => ContributionMode::Hybrid,
+                    'customer_access_enabled' => true,
+                    'token_revoked_at' => null,
+                    'token_expires_at' => now()->addDays((int) config('intake.token_ttl_days', 60)),
+                ];
+            }
+
+            $intake->update($intakeUpdates);
 
             if ($decision === ReviewDecision::NeedMoreInfo) {
                 $this->createFollowUpRound($intake, $reviewer, $followUpItems);
@@ -103,6 +128,12 @@ final class SubmitIntakeReview
 
             return $review;
         }, 3);
+
+        $freshIntake = $intake->fresh() ?? $intake;
+        $this->dossierManager->initialize($freshIntake);
+        $this->decisionReadiness->recalculate($freshIntake);
+
+        return $review;
     }
 
     /**
@@ -129,7 +160,9 @@ final class SubmitIntakeReview
             'intake_id' => $intake->id,
             'requested_by' => $reviewer->id,
             'round_number' => $roundNumber,
+            'purpose' => 'contribution',
             'status' => FollowUpRoundStatus::Open,
+            'return_status' => IntakeStatus::Completed,
             'sent_at' => now(),
         ]);
 

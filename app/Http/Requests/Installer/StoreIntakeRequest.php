@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests\Installer;
 
 use App\Domains\Intake\Models\Intake;
+use App\Enums\ContributionMode;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -32,6 +33,7 @@ class StoreIntakeRequest extends FormRequest
             'address_lookup_id' => ['nullable', 'string', 'regex:/^adr-[a-f0-9]{32}$/'],
             'internal_note' => ['nullable', 'string', 'max:5000'],
             'template_key' => ['required', 'string', Rule::exists('intake_templates', 'key')->where('is_active', true)],
+            'workflow_mode' => ['required', Rule::enum(ContributionMode::class)],
             // BL-016: optional installer pre-answers (question_key => value). CreateIntake
             // whitelists these against the pinned version's installer_prefillable questions.
             'prefill' => ['nullable', 'array'],
@@ -56,6 +58,7 @@ class StoreIntakeRequest extends FormRequest
             'address_lookup_id' => 'geselecteerd adres',
             'internal_note' => 'interne notitie',
             'template_key' => 'type opname',
+            'workflow_mode' => 'manier van opnemen',
         ];
     }
 
@@ -70,6 +73,7 @@ class StoreIntakeRequest extends FormRequest
         $this->merge([
             'address_postal_code' => $postalCode,
             'address_house_number_addition' => $addition === '' ? null : $addition,
+            'workflow_mode' => $this->input('workflow_mode', ContributionMode::Customer->value),
         ]);
     }
 }

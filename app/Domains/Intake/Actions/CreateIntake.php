@@ -8,7 +8,9 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
+use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\IntakeAccessTokenGenerator;
+use App\Enums\ContributionMode;
 use App\Enums\IntakeStatus;
 use App\Enums\QuestionType;
 use App\Enums\TemplateVersionStatus;
@@ -23,6 +25,7 @@ final class CreateIntake
     public function __construct(
         private readonly IntakeAccessTokenGenerator $tokenGenerator,
         private readonly SaveIntakeAnswer $saveIntakeAnswer,
+        private readonly DossierManager $dossierManager,
     ) {}
 
     /**
@@ -37,6 +40,7 @@ final class CreateIntake
      *     template_key?: string,
      *     is_demo?: bool,
      *     token_ttl_hours?: int,
+     *     workflow_mode?: ContributionMode|string,
      *     prefill?: array<string, mixed>
      * }  $data
      */
@@ -44,10 +48,14 @@ final class CreateIntake
     {
         $templateKey = $data['template_key'] ?? 'airco';
         $isDemo = (bool) ($data['is_demo'] ?? false);
+        $workflowMode = $data['workflow_mode'] ?? ContributionMode::Customer;
+        $workflowMode = $workflowMode instanceof ContributionMode
+            ? $workflowMode
+            : ContributionMode::from((string) $workflowMode);
 
         $version = $this->resolvePublishedVersion($templateKey);
 
-        return DB::transaction(function () use ($creator, $data, $version, $isDemo): Intake {
+        $intake = DB::transaction(function () use ($creator, $data, $version, $isDemo, $workflowMode): Intake {
             $ttlHours = isset($data['token_ttl_hours']) ? (int) $data['token_ttl_hours'] : null;
             $expiresAt = $ttlHours !== null
                 ? now()->addHours(max(1, $ttlHours))
@@ -58,7 +66,10 @@ final class CreateIntake
                 'intake_template_version_id' => $version->id,
                 'company_id' => $creator->company_id,
                 'created_by' => $creator->id,
-                'status' => IntakeStatus::Sent,
+                'status' => $workflowMode === ContributionMode::Installer
+                    ? IntakeStatus::Draft
+                    : IntakeStatus::Sent,
+                'workflow_mode' => $workflowMode,
                 'customer_name' => $data['customer_name'],
                 'customer_email' => $data['customer_email'],
                 'customer_phone' => $data['customer_phone'] ?? null,
@@ -66,6 +77,7 @@ final class CreateIntake
                 'address_postal_code' => $data['address_postal_code'] ?? null,
                 'address_city' => $data['address_city'] ?? null,
                 'access_token' => $this->tokenGenerator->generate(),
+                'customer_access_enabled' => $workflowMode !== ContributionMode::Installer,
                 'token_expires_at' => $expiresAt,
                 'internal_note' => $data['internal_note'] ?? null,
                 'progress_percent' => 0,
@@ -80,6 +92,7 @@ final class CreateIntake
                 'properties' => [
                     'template_key' => $version->template->key,
                     'template_version' => $version->version,
+                    'workflow_mode' => $workflowMode->value,
                 ],
                 'created_at' => now(),
             ]);
@@ -98,8 +111,12 @@ final class CreateIntake
                 ]);
             }
 
+            $this->dossierManager->initialize($intake);
+
             return $intake->fresh(['templateVersion.template']) ?? $intake;
         });
+
+        return $intake;
     }
 
     /**

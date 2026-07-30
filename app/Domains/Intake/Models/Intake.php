@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domains\Intake\Models;
 
 use App\Domains\AI\Models\AiRun;
+use App\Enums\ContributionMode;
 use App\Enums\IntakeStatus;
 use App\Models\Company;
 use App\Models\User;
@@ -45,6 +46,7 @@ class Intake extends Model
         'company_id',
         'created_by',
         'status',
+        'workflow_mode',
         'customer_name',
         'customer_email',
         'customer_phone',
@@ -52,6 +54,7 @@ class Intake extends Model
         'address_postal_code',
         'address_city',
         'access_token',
+        'customer_access_enabled',
         'token_expires_at',
         'token_revoked_at',
         'internal_note',
@@ -74,6 +77,8 @@ class Intake extends Model
     {
         return [
             'status' => IntakeStatus::class,
+            'workflow_mode' => ContributionMode::class,
+            'customer_access_enabled' => 'boolean',
             'token_expires_at' => 'datetime',
             'token_revoked_at' => 'datetime',
             'started_at' => 'datetime',
@@ -199,6 +204,60 @@ class Intake extends Model
         return $this->hasMany(PipeRouteSession::class)->latest('id');
     }
 
+    /** @return HasMany<DossierSubject, $this> */
+    public function dossierSubjects(): HasMany
+    {
+        return $this->hasMany(DossierSubject::class);
+    }
+
+    /** @return HasMany<DossierRecord, $this> */
+    public function dossierRecords(): HasMany
+    {
+        return $this->hasMany(DossierRecord::class);
+    }
+
+    /** @return HasMany<DossierDecisionArea, $this> */
+    public function decisionAreas(): HasMany
+    {
+        return $this->hasMany(DossierDecisionArea::class);
+    }
+
+    /** @return HasMany<ContributionTask, $this> */
+    public function contributionTasks(): HasMany
+    {
+        return $this->hasMany(ContributionTask::class);
+    }
+
+    /** @return HasMany<AircoRoom, $this> */
+    public function aircoRooms(): HasMany
+    {
+        return $this->hasMany(AircoRoom::class)->orderBy('sort_order');
+    }
+
+    /** @return HasMany<AircoPlacementOption, $this> */
+    public function aircoPlacements(): HasMany
+    {
+        return $this->hasMany(AircoPlacementOption::class);
+    }
+
+    /** @return HasMany<AircoInstallationOption, $this> */
+    public function aircoInstallationOptions(): HasMany
+    {
+        return $this->hasMany(AircoInstallationOption::class)->orderByRaw('rank is null, rank')->orderBy('id');
+    }
+
+    /** @return HasMany<AircoConnection, $this> */
+    public function aircoConnections(): HasMany
+    {
+        return $this->hasMany(AircoConnection::class);
+    }
+
+    /** @return HasOne<InstallationOutcome, $this> */
+    public function outcome(): HasOne
+    {
+        return $this->hasOne(InstallationOutcome::class);
+    }
+
     public function customerUrl(): string
     {
         return url('/o/'.$this->access_token);
@@ -206,7 +265,7 @@ class Intake extends Model
 
     public function isTokenValid(): bool
     {
-        if ($this->token_revoked_at !== null) {
+        if (! $this->customer_access_enabled || $this->token_revoked_at !== null) {
             return false;
         }
 

@@ -59,68 +59,81 @@ final class StoreIntakeUpload
         try {
             $disk = (string) config('filesystems.media', 'local');
             $directory = $this->directory($intake, $questionKey, $sectionInstanceKey);
-            $filename = Str::ulid()->toBase32().'.'.$normalized->extension;
-            $path = $directory.'/'.$filename;
+            $basename = Str::ulid()->toBase32();
+            $path = $directory.'/'.$basename.'.'.$normalized->dossierExtension;
+            $analysisPath = $directory.'/analysis/'.$basename.'.'.$normalized->analysisExtension;
 
-            if (! Storage::disk($disk)->put($path, File::get($normalized->absolutePath))) {
+            if (! Storage::disk($disk)->put($path, File::get($normalized->dossierAbsolutePath))
+                || ! Storage::disk($disk)->put($analysisPath, File::get($normalized->analysisAbsolutePath))) {
+                $this->cleanupFailedUpload($disk, $path);
+                $this->cleanupFailedUpload($disk, $analysisPath);
+
                 throw ValidationException::withMessages([
                     'photo' => 'Upload mislukt. Probeer het opnieuw.',
                 ]);
             }
 
-            try {
-                return DB::transaction(function () use ($intake, $questionKey, $sectionInstanceKey, $disk, $path, $normalized, $maxFiles): IntakeUpload {
-                    $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
+            return DB::transaction(function () use ($intake, $questionKey, $sectionInstanceKey, $disk, $path, $analysisPath, $normalized, $maxFiles): IntakeUpload {
+                $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
 
-                    if (! in_array($lockedIntake->status, [IntakeStatus::Sent, IntakeStatus::InProgress], true)) {
-                        throw ValidationException::withMessages([
-                            'photo' => 'Deze opname kan niet meer worden gewijzigd.',
-                        ]);
-                    }
+                if (! in_array($lockedIntake->status, [IntakeStatus::Sent, IntakeStatus::InProgress], true)) {
+                    throw ValidationException::withMessages([
+                        'photo' => 'Deze opname kan niet meer worden gewijzigd.',
+                    ]);
+                }
 
-                    $currentCount = $this->uploadsQuery($intake, $questionKey, $sectionInstanceKey)->count();
+                $currentCount = $this->uploadsQuery($intake, $questionKey, $sectionInstanceKey)->count();
 
-                    if ($currentCount >= $maxFiles) {
-                        throw ValidationException::withMessages([
-                            'photo' => "Je kunt maximaal {$maxFiles} foto’s bij deze vraag uploaden.",
-                        ]);
-                    }
+                if ($currentCount >= $maxFiles) {
+                    throw ValidationException::withMessages([
+                        'photo' => "Je kunt maximaal {$maxFiles} foto’s bij deze vraag uploaden.",
+                    ]);
+                }
 
-                    $upload = IntakeUpload::query()->create([
-                        'intake_id' => $intake->id,
+                $upload = IntakeUpload::query()->create([
+                    'intake_id' => $intake->id,
+                    'question_key' => $questionKey,
+                    'section_instance_key' => $sectionInstanceKey,
+                    'disk' => $disk,
+                    'path' => $path,
+                    'analysis_path' => $analysisPath,
+                    'original_filename' => $normalized->originalFilename,
+                    'mime_type' => $normalized->dossierMime,
+                    'size_bytes' => $normalized->dossierSizeBytes,
+                    'checksum' => $normalized->dossierChecksum,
+                    'analysis_mime_type' => $normalized->analysisMime,
+                    'analysis_size_bytes' => $normalized->analysisSizeBytes,
+                    'analysis_checksum' => $normalized->analysisChecksum,
+                    'sort_order' => $currentCount + 1,
+                ]);
+
+                $this->syncAnswerUploadIds($intake, $questionKey, $sectionInstanceKey);
+                $this->touchProgress($intake);
+
+                IntakeActivityEvent::query()->create([
+                    'intake_id' => $intake->id,
+                    'actor_type' => 'customer',
+                    'actor_id' => null,
+                    'event' => 'upload_stored',
+                    'properties' => [
+                        'upload_id' => $upload->id,
                         'question_key' => $questionKey,
-                        'section_instance_key' => $sectionInstanceKey,
-                        'disk' => $disk,
-                        'path' => $path,
-                        'original_filename' => $normalized->originalFilename,
-                        'mime_type' => $normalized->mime,
-                        'size_bytes' => $normalized->sizeBytes,
-                        'checksum' => $normalized->checksum,
-                        'sort_order' => $currentCount + 1,
-                    ]);
+                    ],
+                    'created_at' => now(),
+                ]);
 
-                    $this->syncAnswerUploadIds($intake, $questionKey, $sectionInstanceKey);
-                    $this->touchProgress($intake);
-
-                    IntakeActivityEvent::query()->create([
-                        'intake_id' => $intake->id,
-                        'actor_type' => 'customer',
-                        'actor_id' => null,
-                        'event' => 'upload_stored',
-                        'properties' => [
-                            'upload_id' => $upload->id,
-                            'question_key' => $questionKey,
-                        ],
-                        'created_at' => now(),
-                    ]);
-
-                    return $upload;
-                });
-            } catch (Throwable $exception) {
+                return $upload;
+            });
+        } catch (Throwable $exception) {
+            if (isset($disk, $path)) {
                 $this->cleanupFailedUpload($disk, $path);
-
-                throw $exception;
             }
+
+            if (isset($disk, $analysisPath)) {
+                $this->cleanupFailedUpload($disk, $analysisPath);
+            }
+
+            throw $exception;
         } finally {
             foreach ($normalized->cleanupPaths as $cleanupPath) {
                 @unlink($cleanupPath);

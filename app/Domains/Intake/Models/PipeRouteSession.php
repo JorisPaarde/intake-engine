@@ -29,6 +29,7 @@ class PipeRouteSession extends Model
 {
     protected $fillable = [
         'intake_id',
+        'airco_connection_id',
         'status',
         'confidence',
         'proposed_route',
@@ -47,6 +48,7 @@ class PipeRouteSession extends Model
     {
         return [
             'status' => PipeRouteStatus::class,
+            'airco_connection_id' => 'integer',
             'confidence' => 'float',
             'proposed_route' => 'array',
             'alternative_route' => 'array',
@@ -60,6 +62,12 @@ class PipeRouteSession extends Model
     public function intake(): BelongsTo
     {
         return $this->belongsTo(Intake::class);
+    }
+
+    /** @return BelongsTo<AircoConnection, $this> */
+    public function connection(): BelongsTo
+    {
+        return $this->belongsTo(AircoConnection::class, 'airco_connection_id');
     }
 
     /** @return BelongsTo<User, $this> */

@@ -1,6 +1,6 @@
 # Plan: Dossier- + AI-beeldvarianten per upload
 
-> **Status:** ready (backlog) · **BL-030** · Canonical item: [`docs/backlog.md` § BL-030](../backlog.md) · Geen code tot implementatie-PR
+> **Status:** done · **BL-030** · **Datum:** 2026-07-30 · Canonical item: [`docs/backlog.md` § BL-030](../backlog.md)
 
 ## Overview
 
@@ -23,7 +23,7 @@ Beide: auto-orient, EXIF/metadata strippen, HEIC/HEIF → JPEG. PNG/WebP-uploads
 
 **Sol-escalatie:** stuurt opnieuw alleen de **relevante** segmentfoto’s als **analysekopie** (niet dossier, niet telefoon-origineeel). Synthese blijft tekst+segmentmetadata + die images.
 
-**Fase 2 (zelfde BL, latere slice):** bij “detail onleesbaar” → één hogere-res of crop van **die** foto (uit dossierbron, max ~2048 of gerichte crop), opnieuw alleen die ene image naar het model — nooit alle originelen opnieuw.
+**Latere optimalisatie, niet nodig voor afronding BL-030:** bij “detail onleesbaar” kan één hogere-res of crop van **die** foto (uit dossierbron, max ~2048 of gerichte crop) naar het model — nooit alle originelen opnieuw.
 
 ## Token-voorbeeld (richting, niet contract)
 
@@ -35,11 +35,12 @@ Beide: auto-orient, EXIF/metadata strippen, HEIC/HEIF → JPEG. PNG/WebP-uploads
 
 Vijf foto’s: ±60.000 → ±8.640 beeldtokens. Dossier op disk blijft ~2048 voor mensen; gaat niet naar het model tenzij fase-2 detail-escalatie.
 
-## Huidige gap
+## Opgeleverd
 
-- [`app/Domains/Intake/Services/PhotoUploadNormalizer.php`](../../app/Domains/Intake/Services/PhotoUploadNormalizer.php): JPEG/PNG/WebP = passthrough (EXIF + volle resolutie blijven); HEIC alleen → JPEG max **3000** px.
-- AI (`AnalyzeRoutePhoto::imageInput`, `DerivePhotoAnswers`, `AssessFuseboxPhotos`): leest `Storage::disk($upload->disk)->get($upload->path)` als data-URL → volle opgeslagen bytes.
-- [`app/Domains/Intake/Actions/HardDeleteIntake.php`](../../app/Domains/Intake/Actions/HardDeleteIntake.php): verwijdert alleen `path`, geen tweede bestand.
+- [`PhotoUploadNormalizer`](../../app/Domains/Intake/Services/PhotoUploadNormalizer.php) zet JPEG/PNG/WebP/HEIC/HEIF altijd om naar twee georiënteerde, metadata-vrije JPEG's via Imagick of GD.
+- Hoofd-, vervolg- en installateuruploads bewaren beide varianten met rollback-/retrycleanup; verwijderen en hard purge wissen beide.
+- `AiImageResolver` is de enige gateway voor visionbytes. Nieuwe uploads gebruiken de analysevariant; historische records hebben een expliciet gelabelde dossierfallback.
+- `AnalyzeRoutePhoto`, `DerivePhotoAnswers`, `AssessFuseboxPhotos`, dossiersynthese en de relevante Sol-routeherbeoordeling gebruiken de resolver.
 
 ## Architectuur
 
@@ -73,7 +74,7 @@ Migratie op `intake_uploads`:
    - lees → `autoOrient` → `stripImage` → twee writes (dossier 2048/q82, analysis 1536/q80)
    - DTO [`NormalizedPhotoUpload`](../../app/Domains/Intake/Services/NormalizedPhotoUpload.php) uitbreiden met analysis temp-pad + meta + cleanupPaths voor beide temps
 2. **`StoreIntakeUpload` / `StoreFollowUpUpload`** — beide bestanden op `MEDIA_DISK` (bijv. `…/{ulid}.jpg` + `…/{ulid}.analysis.jpg`); vul analysis-kolommen
-3. **`AiImageResolver`** (nieuw) — `forAnalysis(IntakeUpload): AiImageInput` (analysis_path; legacy: lazy-generate of dossier-fallback); alle vision-actions hiernaartoe
+3. **`AiImageResolver`** — `input(IntakeUpload): AiImageInput` (`analysis_path`; legacy dossierfallback); alle vision-actions hiernaartoe
 4. **`HardDeleteIntake`** — ook `analysis_path` deleten
 5. **Config** in [`config/intake.php`](../../config/intake.php):
 
@@ -88,14 +89,14 @@ Migratie op `intake_uploads`:
 
 Verwijder/vervang oude `max_long_edge` / `heic_to_jpeg_quality` (één bron van waarheid; bump docs).
 
-1. **Fase 2 (later in zelfde BL):** `AiDetailCropper` + prompt-signaal/`missing_information` → optionele tweede call met één crop; config `INTAKE_ANALYSIS_DETAIL_LONG_EDGE` default 2048; geen batch-heranalyse.
+Een toekomstige detailcrop krijgt pas een eigen slice wanneer representatieve stagingbeelden aantonen dat 1536px onvoldoende is.
 
 ### Tests
 
 - Normalizer: EXIF weg, lange zijde ≤2048/≤1536, beide JPEG, checksums verschillend
 - Store: twee files op disk; HardDelete ruimt beide op
 - AI actions (Fake/Http::fake): data-URL komt uit analysis-bytes (mock kleiner dan dossier)
-- Legacy upload zonder `analysis_path`: resolver valt terug zonder crash (lazy regenerate of dossier)
+- Legacy upload zonder `analysis_path`: resolver valt gecontroleerd terug op dossier
 
 ### Docs / backlog / changelog
 
@@ -117,13 +118,17 @@ Verwijder/vervang oude `max_long_edge` / `heic_to_jpeg_quality` (één bron van 
 2. Store + HardDelete + tests opslag
 3. `AiImageResolver` + alle vision-actions omschakelen + tests
 4. Docs + BL-030 + CHANGELOG
-5. (Slice 2) detail-crop / hogere-res-escalatie per foto
+5. Relevante analysekopieën meesturen bij Sol-routeherbeoordeling
 
-## Todos
+## Afrondingscheck
 
-- [ ] Config knobs (2048/82, 1536/80) + migratie `analysis_*` op `intake_uploads`
-- [ ] `PhotoUploadNormalizer`: altijd orient/strip/JPEG; schrijf dossier + analysis temps
-- [ ] `StoreIntakeUpload` / FollowUp + `HardDeleteIntake` beide bestanden
-- [ ] `AiImageResolver` + vision-actions op `analysis_path`
-- [ ] Pest + `uploads.md` / `ai.md` / CHANGELOG + BL-030
-- [ ] Later: onleesbaar detail → één crop/hogere-res; geen heranalyse alle foto’s
+- [x] Config knobs (2048/82, 1536/80) + migratie `analysis_*` op `intake_uploads`
+- [x] `PhotoUploadNormalizer`: altijd orient/strip/JPEG; schrijf dossier + analysis temps
+- [x] Hoofd-, vervolg- en installateuruploads + verwijder-/purgepaden voor beide bestanden
+- [x] `AiImageResolver` + alle vision-actions op `analysis_path`
+- [x] Sol-routeherbeoordeling met alleen relevante analysekopieën
+- [x] Pest + `uploads.md` / `ai.md` / CHANGELOG
+
+Een detailcrop of hogere-res heranalyse blijft bewust buiten BL-030. Die krijgt alleen een
+eigen backlog-slice wanneer representatieve stagingbeelden aantonen dat de analysevariant
+onvoldoende detail bevat; nooit als generieke heranalyse van alle foto's.

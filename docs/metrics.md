@@ -1,8 +1,8 @@
 # Productmetrics — Digitale Opname
 
-> **Documentversie:** 2.0 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.0 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: de BL-026-metrics en interne route `/metrics` zijn **geïmplementeerd**. De uitkomstmetrics voor het nieuwe productmodel zijn **gedefinieerd maar nog niet geïnstrumenteerd** (BL-042). Alleen geauthenticeerde, geverifieerde installateurs met `viewAny`-toegang tot opnames kunnen de pagina openen.
+Status: de BL-026-procesmetrics én de BL-042-uitkomstmetrics op de interne route `/metrics` zijn **geïmplementeerd**. Alleen geauthenticeerde, geverifieerde installateurs met `viewAny`-toegang tot opnames kunnen de pagina openen.
 
 ## Huidige definities (geïmplementeerd)
 
@@ -21,43 +21,43 @@ De gekozen periode filtert op `intakes.created_at`. Een opname die binnen het co
 
 Alle medianen sorteren gehele seconden/aantallen. Bij een even aantal metingen is de mediaan het afgeronde gemiddelde van de twee middelste waarden. Zonder geldige noemer toont de pagina `—`, niet `0%`.
 
-## Doelmetrics (BL-042, nog niet geïmplementeerd)
+## Uitkomstmetrics (BL-042, geïmplementeerd)
 
-Het nieuwe hoofddoel gaat over totale opnamearbeid, op afstand offeren en montagezekerheid. De huidige funnel blijft nuttig, maar kan niet aantonen hoeveel installateurstijd of locatiebezoeken zijn bespaard.
+De installateur legt na offerte, bezoek of plaatsing één actuele `installation_outcomes`-rij vast. Ontbrekende uitkomsten blijven buiten de noemer; afwezigheid wordt nooit als een bespaarde rit geïnterpreteerd.
 
-| Metric | Besloten definitie / benodigde instrumentatie |
-|--------|-----------------------------------------------|
-| Op afstand offerbaar | Opnames met eindbesluit **Offerte op afstand voorbereiden** en zonder locatiebezoek, gedeeld door alle opnames met een technisch eindbesluit. |
-| Alleen prijsindicatie | Opnames met **Prijsindicatie; technische controle volgt**, apart van definitief op afstand offerbaar. Nooit bij de eerste categorie optellen. |
-| Zonder locatiebezoek | Technisch besloten opnames zonder geregistreerd locatiebezoek gedeeld door alle technisch besloten opnames. Dit is meetbaar; noem het niet automatisch “vermeden” zonder nulmeting of expliciete installateursvraag. |
-| Reden locatiebezoek | Eén of meer gecontroleerde redencodes per besluit, bv. onzekere stroomroute, onzichtbare condensroute, bereikbaarheid, constructie of klantvoorkeur; vrije toelichting telt niet als analyticsdimensie. |
-| Actieve installateurstijd | Som van expliciete actieve werksessies aan opname/review, met idle-timeout; **niet** de wandkloktijd tussen aanmaak en besluit. Mediaan per workflow en uitkomst. |
-| Klantinspanning | Bestaande klantacties plus actieve klanttijd, uitgesplitst naar initiële taakset en gerichte aanvullingen. |
-| Eerste ronde op afstand gereed | Dossiers die vóór een aanvullende klanttaak al op afstand offerbaar zijn, gedeeld door dossiers met een eerste technische beoordeling. |
-| Gerichte aanvullingsrondes | Aantal bijdrageopdrachten en rondes na eerste analyse, uitgesplitst naar beslisgebied en uitkomst. |
-| Automatisch vastgesteld aandeel | Aantal gebruikte dossierconclusies uit aanvraag/register/AI zonder handmatige bevestigingsactie, gedeeld door alle gebruikte conclusies; alleen zinvol na BL-035-provenance. |
-| AI-voorstelafwijking | Verschil tussen voorgestelde en uiteindelijk geselecteerde plaatsingen, installatieoptie en verbindingen; rapporteer acceptatie én type correctie, niet alleen een succespercentage. |
-| Montageverrassing | Na plaatsing: onverwacht meerwerk, andere route/configuratie of onjuiste aanname die niet als dossieronzekerheid stond. Teller per uitgevoerde installatie en ernstklasse. |
-| Totale doorlooptijd | Splits wachttijd, klanttijd, automatische verwerking en installateurstijd; één samengestelde “tijd tot besluit” mag alleen als overkoepelende kalenderduur worden getoond. |
+| Metric | Reproduceerbare definitie |
+|--------|---------------------------|
+| Op afstand geoffreerd | Uitkomsten zonder locatiebezoek met `result=remote_quote` óf `quote_type=remote`, gedeeld door alle vastgelegde uitkomsten. Een geplaatste installatie zonder bezoek krijgt automatisch `quote_type=remote`. |
+| Alleen prijsindicatie | `result=estimate` of `quote_type=estimate`, gedeeld door alle vastgelegde uitkomsten. Deze categorie telt niet mee als definitieve offerte op afstand. |
+| Locatiebezoek | `site_visit_occurred=true`, gedeeld door alle vastgelegde uitkomsten. `result=site_visit` zet dit altijd waar. |
+| Reden locatiebezoek | Aantallen per gecontroleerde code: onzekere stroom, condens of route; bereikbaarheid; constructie/wandopbouw; klantvoorkeur; anders. Per uitkomst maximaal drie; minimaal één wanneer een bezoek is vastgelegd. |
+| Actieve installateurstijd | Handmatig vastgelegde `active_installer_minutes`; mediaan over uitkomsten met een waarde. Het is nadrukkelijk geen wandkloktijd en nog geen automatische sessietimer. |
+| Handmatig gemeten klanttijd | `customer_minutes`; mediaan over uitkomsten met een waarde. De bestaande eventgebaseerde klantacties blijven daarnaast zichtbaar. De oude maat **invultijd** wordt alleen voor de volledige klantworkflow berekend, omdat `started_at` in installer-/hybride flows ook installateurswerk of wachttijd kan omvatten. |
+| Voorstel aangepast | Uitkomsten waarbij **voorstel vergeleken** is aangevinkt en minimaal één gecontroleerde deltacode staat, gedeeld door alle uitkomsten waarbij het voorstel daadwerkelijk is vergeleken. Codes: configuratie, binnen-/buitenpositie, koel-/condens-/stroomroute en kosten. |
+| Montageverrassing | Geplaatste uitkomsten met `minor` of `major`, gedeeld door geplaatste uitkomsten met expliciet `none`, `minor` of `major`. Vrije toelichting wordt nooit als analyticsdimensie gegroepeerd. |
+| Gerichte aanvullingsrondes | Bestaand aantal `intake_follow_up_rounds`; totaal en gemiddelde blijven in de procesmetingen zichtbaar. |
+| Workflow | Iedere rij toont `customer`, `installer` of `hybrid`, zodat uitkomsten per bijdragevorm te vergelijken zijn. |
+
+Nog niet automatisch gemeten: echte actieve werksessies met idle-timeout, automatisch-vastgesteld aandeel en eerste-ronde-op-afstand-gereed. De UI doet daar geen schijnprecisie over; handmatig vastgelegde minuten zijn als zodanig gelabeld.
 
 ### Meetregels
 
-1. Leg workflow vast: `customer`, `installer` of `hybrid`.
-2. Leg een locatiebezoek en plaatsingsuitkomst expliciet vast; leid “bezoek vermeden” niet af uit afwezigheid van een event zolang de opname nog open is.
+1. Workflow staat op de opname als `customer`, `installer` of `hybrid`.
+2. Leg een locatiebezoek en plaatsingsuitkomst expliciet vast; leid “bezoek vermeden” niet af uit een opname zonder uitkomst.
 3. Gebruik gecontroleerde codes voor beslisstatus, blokkade, bezoekreden, correctietype en montage-uitkomst.
 4. Bewaar geen vrije klanttekst, foto-inhoud, token, adres of modelprompt in analytics-events.
-5. Toon op `/metrics` welke cijfers op volledige instrumentatie zijn gebaseerd en welke nog `—` zijn; vul ontbrekende historie niet met aannames.
+5. Zonder geldige noemer toont `/metrics` `—`; ontbrekende historie wordt niet met aannames gevuld.
 6. Vergelijk klant-, installateur- en hybride workflows afzonderlijk voordat productconclusies worden getrokken.
 
 ## Privacy
 
-De huidige analytics bewaart geen extra dataset. `IntakeMetricsService` leidt cijfers bij het openen af uit bestaande timestamps, identifiers, relaties en expliciete eventtypen. `answer_saved` bevat alleen `question_key` en optioneel `section_instance_key`; nooit het antwoord. De meetweergave toont geen klantnaam, e-mail, telefoon, token, vrije klanttekst, bestandsnaam of foto-inhoud.
-
-BL-042 mag gecontroleerde werksessie-, besluit-, bezoek- en montage-uitkomstevents toevoegen wanneer bestaande records onvoldoende zijn. Die events bevatten uitsluitend tenant/intake-referentie, type/code, duur/aantal en tijdstip; geen inhoudelijk dossierbewijs.
+`IntakeMetricsService` leidt procescijfers bij het openen af uit timestamps, relaties en privacyveilige eventtypen; uitkomstcijfers uit de tenantgebonden `installation_outcomes`. `answer_saved` bevat alleen `question_key` en optioneel `section_instance_key`; nooit het antwoord. Het uitkomstevent bevat alleen resultaatstype, bezoekboolean, gecontroleerde codes en ernst. De meetweergave toont geen klantnaam, e-mail, telefoon, token, vrije klanttekst, bestandsnaam, adres of foto-inhoud.
 
 ## Nulmeting en verificatie
 
 De reproduceerbare lokale nulmeting in `IntakeMetricsTest` gebruikt vier niet-demo-opnames: 3 gestart, 2 afgerond, 2 beoordeeld en 1 aanvullende ronde. Verwachte uitkomst: **66,7%** afgerond, **1 uur** mediane invultijd, **5** mediane klantacties, **0,3** ronde per gestarte opname, **50,0%** direct genoeg informatie en **2 uur 30 min** mediane tijd tot besluit. Demo-opnames tellen niet mee.
+
+Een aparte BL-042-test gebruikt drie uitkomsten: één op afstand geplaatste installatie, één plaatsing na bezoek en één prijsindicatie. Verwacht: **33,3%** op afstand geoffreerd, **33,3%** prijsindicatie, **33,3%** met locatiebezoek, **20 minuten** mediane installateurstijd, **10 minuten** mediane klanttijd, **50,0%** gewijzigde voorstellen en **50,0%** montageverrassingen. De test controleert ook de exacte bezoek- en deltacodes.
 
 Na iedere wijziging aan lifecycle-events of timestamps moeten de servicetest en de browser-smoke van `/metrics` opnieuw worden uitgevoerd.
 
@@ -71,4 +71,4 @@ Lokale browser-smoke 2026-07-20: **pass** op 1280×720 en 390×844. Auth-redirec
 4. Rond een testopname af en beoordeel die; controleer afronding, acties en besluitduur opnieuw.
 5. Controleer pagina en HTML-bron op afwezigheid van klantgegevens, vrije antwoorden en tokens.
 
-Status staging-smoke: **todo** tot BL-026 is gedeployed.
+Status: de BL-026-browser-smoke van 2026-07-20 was **pass**. Herhaal na deploy van deze PR de uitkomstkaarten, bezoekredenen, voorstelafwijkingen en installer-/hybride workflow als **todo** uit [functional-test-status.md](functional-test-status.md).

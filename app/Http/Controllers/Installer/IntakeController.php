@@ -22,6 +22,7 @@ use App\Domains\Intake\Services\IntakeDossierSummaryBuilder;
 use App\Domains\Intake\Services\RebuildIntakeReportHtml;
 use App\Enums\AttentionPointSource;
 use App\Enums\AttentionPointStatus;
+use App\Enums\ContributionMode;
 use App\Enums\CustomerLinkMailResult;
 use App\Enums\ReviewDecision;
 use App\Http\Controllers\Controller;
@@ -94,6 +95,13 @@ class IntakeController extends Controller
     ): RedirectResponse {
         $intake = $createIntake->handle($request->user(), $request->validated());
         $enrichIntakeAddress->handle($intake, $request->validated('address_lookup_id'));
+
+        if ($intake->workflow_mode === ContributionMode::Installer) {
+            return redirect()
+                ->route('intakes.workspace', $intake)
+                ->with('status', 'Opname aangemaakt. Er is geen klantlink verstuurd; u kunt direct zelf beginnen.');
+        }
+
         $mailResult = $sendCustomerIntakeLink->handle($intake, $request->user());
 
         return redirect()
@@ -228,6 +236,12 @@ class IntakeController extends Controller
     ): RedirectResponse {
         $this->authorize('update', $intake);
 
+        if (! $intake->customer_access_enabled) {
+            return redirect()
+                ->route('intakes.show', $intake)
+                ->with('status', 'Geen klantlink actief. Stuur vanuit de technische opname eerst een gerichte klantopdracht.');
+        }
+
         $intake = $regenerate->handle($intake, $request->user());
         $mailResult = $sendCustomerIntakeLink->handle($intake, $request->user());
 
@@ -242,6 +256,12 @@ class IntakeController extends Controller
         SendCustomerIntakeLink $sendCustomerIntakeLink,
     ): RedirectResponse {
         $this->authorize('update', $intake);
+
+        if (! $intake->customer_access_enabled) {
+            return redirect()
+                ->route('intakes.show', $intake)
+                ->with('status', 'Geen klantlink actief. Stuur vanuit de technische opname eerst een gerichte klantopdracht.');
+        }
 
         $mailResult = $sendCustomerIntakeLink->handle($intake, $request->user());
 

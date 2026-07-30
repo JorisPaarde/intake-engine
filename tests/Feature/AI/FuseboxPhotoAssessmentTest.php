@@ -65,7 +65,7 @@ function fuseboxOutput(
     ];
 }
 
-test('high confidence fusebox assessment creates a confirmable prefill and sourced dossier fact', function () {
+test('high confidence fusebox assessment establishes a sourced answer without a redundant confirmation', function () {
     $intake = makeFuseboxAssessmentIntake();
     FakeAiClient::alwaysReturn(fuseboxOutput());
 
@@ -219,7 +219,7 @@ test('wizard exposes the photo prefill and a precise retake hint without blockin
         ->assertSee('alle groepen en de hoofdschakelaar');
 });
 
-test('wizard presents a high confidence image result as a choice to confirm', function () {
+test('wizard does not ask the customer to reconfirm a high confidence image result', function () {
     $intake = makeFuseboxAssessmentIntake();
     FakeAiClient::alwaysReturn(fuseboxOutput());
 
@@ -229,5 +229,5 @@ test('wizard presents a high confidence image result as a choice to confirm', fu
     $notices = $component->get('prefillNotice');
 
     expect($component->get('form')['free_group_known']['value'] ?? null)->toBe('yes')
-        ->and($notices['free_group_known'] ?? null)->toContain('klopt deze keuze');
+        ->and($notices)->not->toHaveKey('free_group_known');
 });
