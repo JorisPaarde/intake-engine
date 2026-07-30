@@ -168,7 +168,7 @@ final class SynthesizeSurveyDossier
             'placement_proposals.*.subject_reference' => ['required', 'string', 'regex:/^subject:\d+$/'],
             'placement_proposals.*.confidence' => ['required', 'numeric', 'between:0,1'],
             'placement_proposals.*.evidence_references' => ['required', 'array', 'min:1', 'max:20'],
-            'placement_proposals.*.evidence_references.*' => ['required', 'string', 'distinct', 'max:160'],
+            'placement_proposals.*.evidence_references.*' => ['required', 'string', 'max:160'],
             'option_proposals' => ['present', 'array', 'max:3'],
             'option_proposals.*.label' => ['required', 'string', 'max:160'],
             'option_proposals.*.configuration_type' => ['required', Rule::enum(AircoConfigurationType::class)],
@@ -176,7 +176,7 @@ final class SynthesizeSurveyDossier
             'option_proposals.*.cost_impact' => ['required', 'in:low,medium,high,unknown'],
             'option_proposals.*.confidence' => ['required', 'numeric', 'between:0,1'],
             'option_proposals.*.placement_references' => ['required', 'array', 'min:2', 'max:20'],
-            'option_proposals.*.placement_references.*' => ['required', 'string', 'distinct', 'regex:/^(placement:\d+|proposal:[a-z0-9_]+)$/'],
+            'option_proposals.*.placement_references.*' => ['required', 'string', 'regex:/^(placement:\d+|proposal:[a-z0-9_]+)$/'],
             'option_proposals.*.connections' => ['required', 'array', 'min:3', 'max:40'],
             'option_proposals.*.connections.*.type' => ['required', Rule::enum(AircoConnectionType::class)],
             'option_proposals.*.connections.*.label' => ['required', 'string', 'max:180'],
@@ -200,14 +200,14 @@ final class SynthesizeSurveyDossier
             'option_proposals.*.connections.*.cost_impact' => ['required', 'in:low,medium,high,unknown'],
             'option_proposals.*.connections.*.confidence' => ['required', 'numeric', 'between:0,1'],
             'option_proposals.*.connections.*.evidence_references' => ['present', 'array', 'min:1', 'max:20'],
-            'option_proposals.*.connections.*.evidence_references.*' => ['string', 'distinct', 'max:160'],
+            'option_proposals.*.connections.*.evidence_references.*' => ['string', 'max:160'],
             'exceptions' => ['present', 'array', 'max:20'],
             'exceptions.*.code' => ['required', 'string', 'max:100', 'regex:/^[a-z0-9_]+$/'],
             'exceptions.*.label' => ['required', 'string', 'max:500'],
             'exceptions.*.decision_area_key' => ['required', 'in:request,capacity,placement,refrigerant,condensate,power,cost_risks'],
             'exceptions.*.confidence' => ['required', 'in:low,medium,high'],
             'exceptions.*.evidence_references' => ['present', 'array', 'min:1', 'max:20'],
-            'exceptions.*.evidence_references.*' => ['string', 'distinct', 'max:160'],
+            'exceptions.*.evidence_references.*' => ['string', 'max:160'],
             'customer_tasks' => ['present', 'array', 'max:3'],
             'customer_tasks.*.type' => ['required', Rule::enum(FollowUpItemType::class)],
             'customer_tasks.*.prompt' => ['required', 'string', 'max:500'],
@@ -215,7 +215,7 @@ final class SynthesizeSurveyDossier
             'customer_tasks.*.subject_reference' => ['present', 'nullable', 'string', 'regex:/^subject:\d+$/'],
             'customer_tasks.*.reason' => ['required', 'string', 'max:500'],
             'customer_tasks.*.evidence_references' => ['present', 'array', 'max:20'],
-            'customer_tasks.*.evidence_references.*' => ['string', 'distinct', 'max:160'],
+            'customer_tasks.*.evidence_references.*' => ['string', 'max:160'],
         ]);
 
         if ($validator->fails()) {
@@ -264,6 +264,7 @@ final class SynthesizeSurveyDossier
                 ]);
             }
 
+            $this->assertUniqueReferences($proposal['evidence_references']);
             $this->assertEvidenceReferences($proposal['evidence_references'], $evidence);
             $placements->put($proposal['key'], $proposal + [
                 'reference' => $proposal['key'],
@@ -272,6 +273,7 @@ final class SynthesizeSurveyDossier
 
         foreach ($output['option_proposals'] as $option) {
             $optionReferences = $option['placement_references'];
+            $this->assertUniqueReferences($optionReferences);
             $optionPlacements = $placements->only($optionReferences);
             $configuration = AircoConfigurationType::from($option['configuration_type']);
             $indoorCount = $optionPlacements->where('type', AircoPlacementType::IndoorUnit->value)->count();
@@ -337,11 +339,13 @@ final class SynthesizeSurveyDossier
                     }
                 }
 
+                $this->assertUniqueReferences($connection['evidence_references']);
                 $this->assertEvidenceReferences($connection['evidence_references'], $evidence);
             }
         }
 
         foreach ($output['exceptions'] as $exception) {
+            $this->assertUniqueReferences($exception['evidence_references']);
             $this->assertEvidenceReferences($exception['evidence_references'], $evidence);
         }
 
@@ -352,7 +356,18 @@ final class SynthesizeSurveyDossier
                     'customer_tasks' => 'Een AI-klanttaak verwijst naar een onbekend dossieronderdeel.',
                 ]);
             }
+            $this->assertUniqueReferences($task['evidence_references']);
             $this->assertEvidenceReferences($task['evidence_references'], $evidence);
+        }
+    }
+
+    /** @param list<string> $references */
+    private function assertUniqueReferences(array $references): void
+    {
+        if (count($references) !== count(array_unique($references, SORT_STRING))) {
+            throw ValidationException::withMessages([
+                'evidence_references' => 'Eén voorstel mag dezelfde referentie niet dubbel opnemen.',
+            ]);
         }
     }
 
