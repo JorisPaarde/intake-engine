@@ -1,6 +1,6 @@
 # Databaseschema — Digitale Opname
 
-> **Documentversie:** 3.2 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.3 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: dit document beschrijft het **geïmplementeerde schema**, inclusief de uitbreidende dossiermigratie van BL-030 en BL-035 t/m BL-042 en de zelfstandige publieke interesse-inzendingen van BL-043. Bestaande antwoord-, bron-, upload-, review- en routetabellen blijven bewust bestaan naast de nieuwe dossierobjecten.
 
@@ -13,7 +13,7 @@ Status: dit document beschrijft het **geïmplementeerde schema**, inclusief de u
 5. **JSON alleen waar zinvol.** Antwoordwaarden, validatieregels, compleetheidsnapshots. Geen volledige template-JSON als primaire bron — relationeel blijft leidend.
 6. **Automatische feiten houden hun herkomst.** Externe gegevens staan los van klantantwoorden en bewaren bron, referentie, zekerheid en ophaaltijdstip (ADR-0007).
 7. **Dossier vóór vraag.** Technische objecten hangen aan de opname; vragen, uploads, externe feiten en AI-runs zijn herleidbaar bewijs bij die objecten (ADR-0011).
-8. **Uitbreidende migratie.** Bestaande opnames en gepinde templates blijven werken terwijl de idempotente migratiebrug de centrale dossierlaag vult.
+8. **Uitbreidende en hervatbare migratie.** Bestaande opnames en gepinde templates blijven werken terwijl de idempotente migratiebrug de centrale dossierlaag vult. Iedere DDL-stap controleert haar eigen kolom of tabel, bewijsbackfill kan zonder duplicaten opnieuw draaien en expliciete constraintnamen blijven binnen MySQLs limiet van 64 tekens.
 9. **Marketingcontact ≠ technische aanvraag.** Een publieke interesse-inzending is een zelfstandige, tijdelijk bewaarde contactvraag en krijgt geen tenant-, klant-, adres- of dossierrelatie.
 
 ## Enums (PHP backed enums, centrale bron)
