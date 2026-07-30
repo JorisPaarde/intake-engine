@@ -29,6 +29,12 @@ final class SummarizeIntakeJob implements ShouldQueue
             return;
         }
 
+        if ($intake->is_demo) {
+            Log::info('Skipping AI summary for demo intake', ['intake_id' => $this->intakeId]);
+
+            return;
+        }
+
         if (! in_array($intake->status, [IntakeStatus::Completed, IntakeStatus::Reviewed], true)) {
             Log::info('Skipping AI summary: intake not completed', ['intake_id' => $this->intakeId]);
 

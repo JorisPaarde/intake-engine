@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.35 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.36 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -77,10 +77,10 @@ Laatste testsessie: 2026-07-26 (lokaal; postcode-eerst adresaanvulling met echte
 | AI-budgetcap voor externe provider | todo | - | Codegereed: `AI_PROVIDER=openai` faalt vóór provider-call als dag/maandcap ontbreekt of bereikt is; `ai_runs` bewaart tokens/beelden/geschatte centen. Na deploy: zet lage stagingcap, bewijs budget-limited soft-fail en `/dev` runtimeflags zonder key. |
 | Airco v5/v10 meterkastfoto-afleiding (BL-020) | todo | - | Eerst lokaal met `AI_PROVIDER=fake` + flag: hoge zekerheid legt `free_group_known` met bron vast en slaat de redundante bevestigingsvraag over; dossier blijft corrigeerbaar en foto verwijderen wist afleiding/fact. Onduidelijk beeld geeft één concrete herhaalinstructie. Daarna alleen ná DPIA met fictieve stagingbeelden: providerfout soft-fail en geen beeldbytes/data-URL in logs/DB. |
 | Queue-worker (cron) | todo | - | Niet end-to-end bevestigd (geen zichtbaar AI-resultaat) |
-| Demo-login `installateur@example.com` | fail | 2026-07-18 | Legacy seed-account faalt op staging; niet meer gebruiken als gate voor publieke demo-dossiers. |
-| Demo-installateur dashboard voor publieke demo-opnames | todo | - | Na deploy + privé `DEMO_INSTALLER_PASSWORD`: login als `DEMO_USER_EMAIL`, dashboard toont alleen eigen `is_demo` opnames; open afgeronde demo-opname en controleer dossier/report/review. Codegereed op branch `cursor/mvp-readiness-checks`; staging-smoke nog nodig. |
-| Publieke demo “Start demo” (BL-001) | pass | staging 2026-07-24 | Guest `/` toont **Start demo**; POST redirectt naar `/o/{64}`; demo-banner noemt scope; 38-stappen airco-demo via HTTP/Livewire-driver afgerond met synthetische JPEG-uploads; bedankt-scherm toont AI-voorstel, aandachtspunten, volledige-app beperkingen en registratielink. Niet als browser/mobile-visuele pass tellen; ingelogd verborgen en purge blijven apart te testen. |
-| Demo-intake purge (`intakes:purge-demos`) | todo | - | Scheduler/hourly; expired demo-intakes verdwijnen (incl. uploads) |
+| Oude publieke klantwizarddemo (BL-001 vóór herontwerp) | n/a | staging 2026-07-24 | Historisch functioneel bewezen, maar vervangen door de interactieve installateursdemo; zie de sessienotitie hieronder. |
+| Interactieve installateursdemo (BL-001) | todo | - | Na deploy als gast: homepagevoorbeelden → **Probeer de interactieve demo** → echte werkplek met fictieve woningcontext/foto’s/twee ruimtes/multi-split/drie verbindingstypen/één uitzondering. Controleer desktop én 390 px, toetsenbord, geen consolefouten en duidelijke tijdelijke-demo-uitleg. |
+| Demo: gerichte klantweergave zonder externe effecten | todo | - | Voorgestelde meterkasttaak activeren → knop **Klantweergave** → alleen die taak zichtbaar; geen mail, live AI, adrescall, PDF of notificatie. Afronden sluit toegang en toont de aanvulling in hetzelfde dossier. |
+| Demo-isolatie en purge (`intakes:purge-demos`) | todo | - | Start twee aparte browsersessies: verschillende tenant/user/intake en onderlinge weigering. Laat één sessie verlopen; hourly purge verwijdert intake, luchtfoto, beide beeldvarianten, tijdelijke user en company terwijl actieve demo blijft bestaan. |
 
 ## Legenda
 
@@ -99,6 +99,8 @@ Laatste testsessie: 2026-07-26 (lokaal; postcode-eerst adresaanvulling met echte
 Geïsoleerde lokale SQLite-omgeving met tijdelijk testaccount. Op de nieuwe-opnamepagina stonden postcode, huisnummer en optionele toevoeging vóór straat/plaats; op desktop in één rij en op smallere schermen via de responsive grid in één kolom. De toenmalige expliciete zoekactie deed geen call tijdens renderen. Een echte PDOK Locatieserver-call met `1012 JS + 1` vulde `Dam 1`, `Amsterdam` en de BAG-adresreferentie en toonde “Adres gevonden en aangevuld.” De gevonden-adressectie bleef bewerkbaar; handmatige invoer bleef bereikbaar. Geen browserconsolefouten. Deze sessie bewijst de latere automatische lookup zonder knop niet; die staat hierboven terecht als `todo`.
 
 ### Sessie 2026-07-24 (staging) — publieke demo BL-001
+
+Historische test van de inmiddels vervangen klantwizarddemo; deze pass geldt niet voor de nieuwe interactieve installateursdemo.
 
 Scope: publieke **Start demo** vanaf `https://staging.intake-engine.nl/` tot en met demo-afronding. Uitgevoerd door testende agent via HTTP/Livewire-driver omdat de sessie geen browser-automation surface beschikbaar had (`agent.browsers.list()` leeg). Dit is dus geen mobiele visuele/browser-QA.
 

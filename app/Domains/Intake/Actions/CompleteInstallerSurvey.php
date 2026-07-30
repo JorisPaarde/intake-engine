@@ -150,7 +150,9 @@ final class CompleteInstallerSurvey
             return $fresh;
         }, 3);
 
-        SynthesizeSurveyDossierJob::dispatch($completed->id);
+        if (! $completed->is_demo) {
+            SynthesizeSurveyDossierJob::dispatch($completed->id);
+        }
 
         return $completed;
     }

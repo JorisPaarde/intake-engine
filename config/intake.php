@@ -49,31 +49,30 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Public demo ("Start demo" on homepage)
+    | Public interactive installer demo
     |--------------------------------------------------------------------------
     |
-    | Creates a temporary airco-intake + customer link without account signup.
-    | On by default everywhere so any visitor can try the product. Set
-    | DEMO_ENABLED=false only to hide the homepage button and block starts.
+    | Creates a temporary, isolated installer workspace without account signup.
+    | The scenario uses fictitious precomputed data and never sends external
+    | messages or invokes live AI. Set DEMO_ENABLED=false to block new starts.
     |
     */
 
     'demo' => [
         'enabled' => filter_var(env('DEMO_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
-        'ttl_hours' => (int) env('DEMO_TTL_HOURS', 12),
+        'ttl_hours' => (int) env('DEMO_TTL_HOURS', 2),
         'user_email' => env('DEMO_USER_EMAIL', 'demo@intake-engine.invalid'),
         'installer_password' => env('DEMO_INSTALLER_PASSWORD'),
         'throttle_per_hour' => (int) env('DEMO_THROTTLE_PER_HOUR', 5),
 
         /*
-        | Het demo-adres moet een BESTAAND BAG-adres zijn, anders levert PDOK niets
-        | en vervalt er in de demo geen enkele vraag. Bewust een publiek pand — geen
-        | woonadres van een particulier.
+        | Uitsluitend fictieve presentatiewaarden. De publieke demo benadert geen
+        | adresbron; BAG, luchtfoto, EP-Online en 3DBAG zijn vooraf berekend.
         */
         'address' => [
-            'line' => env('DEMO_ADDRESS_LINE', 'Damrak 1'),
-            'postal_code' => env('DEMO_ADDRESS_POSTAL_CODE', '1012LG'),
-            'city' => env('DEMO_ADDRESS_CITY', 'Amsterdam'),
+            'line' => env('DEMO_ADDRESS_LINE', 'Voorbeeldstraat 12'),
+            'postal_code' => env('DEMO_ADDRESS_POSTAL_CODE', '1234AB'),
+            'city' => env('DEMO_ADDRESS_CITY', 'Voorbeeldstad'),
         ],
     ],
 

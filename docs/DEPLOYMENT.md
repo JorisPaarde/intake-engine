@@ -1,6 +1,6 @@
 # Deployment naar cPanel (staging + production)
 
-> **Documentversie:** 2.8 · **Laatste update:** 2026-07-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.9 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 **Statusregel:** staging en production zijn fysiek en logisch gescheiden; open handmatige acties (env/host) staan in [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
 
@@ -208,7 +208,7 @@ Alles hieronder staat **niet** in git en moet jij (of de host) per omgeving zett
 | `MEDIA_DISK=s3` + AWS-vars | Bij storagegroei / vertrek cPanel (BL-013) | Bestaande rijen behouden `disk`+`path`. |
 | `PDOK_ENABLED=false` | Alleen als uitgaande adres-/locatiebevraging juridisch of technisch nog niet mag | Adres-autocomplete, BAG-verrijking en luchtfoto uit; handmatig adres/bouwjaar en klantfoto’s blijven werken. Geen API-key nodig. |
 | `PDOK_AERIAL_ENABLED=false` | BAG mag wel, luchtfoto nog niet of WMS-verkeer ongewenst | Alleen server-side luchtfotocapture uit; BAG-feiten blijven werken. |
-| Demo-installateur-login | Alleen voor staging-dossierchecks van publieke demo-opnames | Zet `DEMO_INSTALLER_PASSWORD` privé in staging `shared/.env`; de volgende staging deploy seedt het account op `DEMO_USER_EMAIL`. |
+| Vast demo-installateuraccount | Alleen voor losse staging-inspectie buiten de publieke sessieflow | Optioneel `DEMO_INSTALLER_PASSWORD` privé zetten; de publieke demo heeft dit account niet nodig en maakt per bezoeker een eigen tijdelijk account. |
 | Dev-admin (`/dev`) op staging uitzetten | Alleen als staging-inzage niet gewenst is | `DEV_ADMIN_ENABLED=false` in `shared/.env` + `config:cache`. Staat op **staging standaard aan** en op **production automatisch uit** — op production is **geen** env-var nodig (hard 404 via `EnsureDevAccess`). Toont ruwe klant-PII, dus bewust nooit op production (ADR-0008). |
 
 ### Bewust niet handmatig doen
@@ -259,19 +259,23 @@ De server leest maximaal twee recente private meterkastfoto's van `MEDIA_DISK` e
 
 ## Publieke demo (BL-001)
 
-De knop **Start demo** staat **standaard aan** (`DEMO_ENABLED` default `true`) voor **gasten**. Ingelogde gebruikers zien hem niet (wel **Open dashboard**). Elke anonieme bezoeker kan zonder account een tijdelijke airco-intake starten. De demo toont de klantflow **plus AI-samenvatting/aandachtspunten** inline. Als `AI_PROVIDER=null` draait de lokale heuristic meteen; als een geconfigureerde externe provider faalt, valt de demo alsnog terug op die heuristic zodat het bedankt-scherm bruikbaar blijft. De demo legt ook uit welke stappen hier uitstaan (e-mail, PDF, installateursdashboard). Optioneel in `shared/.env`:
+De CTA **Probeer de interactieve demo** staat standaard aan (`DEMO_ENABLED=true`) voor gasten. Elke start maakt een uniek tijdelijk `Company`-/`User`-paar, logt de bezoeker daarin in en opent direct de echte `intakes.workspace` met een fictieve, vooraf voorbereide airco-opname. Reguliere tenants en andere demosessies blijven door dezelfde policies afgeschermd.
+
+Het scenario gebruikt synthetische foto’s en vaste voorbeeldresultaten voor BAG, luchtfoto, EP-Online, 3DBAG en dossiersynthese. Die foto’s lopen bij iedere start door de normale dubbele beeldpipeline. Demo-opnames versturen geen mail/notificatie, genereren geen PDF en doen geen externe AI- of adresbroncall — ook niet als die integraties in dezelfde omgeving zijn geactiveerd.
 
 ```env
 DEMO_ENABLED=true
-DEMO_TTL_HOURS=12
+DEMO_TTL_HOURS=2
 DEMO_USER_EMAIL=demo@intake-engine.invalid
-DEMO_INSTALLER_PASSWORD=          # privé staging-wachtwoord voor dossierchecks
+DEMO_INSTALLER_PASSWORD=          # optioneel vast account; niet nodig voor publieke demo
 DEMO_THROTTLE_PER_HOUR=5
 ```
 
-Zet `DEMO_INSTALLER_PASSWORD` alleen in staging als de demo-installateur ook de afgeronde publieke demo-opnames in het dashboard moet kunnen openen. `deploy/activate.sh` draait daarvoor op staging `DemoInstallerSeeder`; zonder wachtwoord wordt geen login aangemaakt. Het demo-dashboard toont alleen demo-opnames van dit demo-account, terwijl normale installateurs demo-opnames verborgen houden.
+`intakes:purge-demos` draait hourly. Een verlopen demo wordt hard verwijderd inclusief dossierrecords, luchtfoto, dossier-/analysebeelden en daarna uitsluitend het veilig aan de slug/e-mailprefix herkenbare verweesde demo-account en -bedrijf. Een actief of regulier account wordt nooit via deze cleanup verwijderd.
 
-Zet `DEMO_ENABLED=false` alleen om de knop/route uit te schakelen (bijv. misbruik). Daarna `php artisan config:cache` (of wacht op de volgende deploy-activate). Verlopen demo-intakes worden hourly gepurged (`intakes:purge-demos`). **Let op:** als een bestaande `shared/.env` nog expliciet `DEMO_ENABLED=false` heeft, verwijder die regel of zet `true` — anders blijft de oude waarde leidend.
+`DEMO_USER_EMAIL` en `DEMO_INSTALLER_PASSWORD` blijven alleen bestaan voor een optioneel vast staging-inspectieaccount via `DemoInstallerSeeder`; de publieke sessieflow gebruikt altijd unieke `@demo.invalid`-users.
+
+Zet `DEMO_ENABLED=false` alleen om nieuwe starts uit te schakelen, bijvoorbeeld bij misbruik/load. Daarna `php artisan config:cache` of wacht op de volgende deploy-activate. Bestaande tijdelijke demo’s blijven volgens hun TTL opruimen.
 
 ## Mail (BL-004)
 

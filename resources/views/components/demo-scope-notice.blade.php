@@ -6,21 +6,21 @@
 
 @php
     $included = [
-        'AI-samenvatting en voorgestelde aandachtspunten op het dossier',
+        'Dezelfde afgeschermde klanttaak en uploadflow als in de app',
+        'De aanvulling wordt direct aan hetzelfde technische dossier gekoppeld',
     ];
     $hidden = [
-        'E-mail met de persoonlijke klantlink (en herinneringen)',
-        'Afrondingsmail naar de installateur',
+        'E-mail en herinneringen naar een echte klant',
+        'Live AI-aanroepen',
         'PDF-export van het rapport',
-        'Beoordeling en aanvullingsronde in het installateursdashboard',
     ];
 @endphp
 
 @if ($variant === 'banner')
     <aside {{ $attributes->merge(['class' => 'mb-4 rounded-md border border-brand-ember/40 bg-brand-ember/10 px-4 py-3 text-left text-sm text-brand-ink', 'role' => 'status']) }}>
-        <p class="font-semibold text-brand-ember">Demo — je ervaart de klantflow</p>
+        <p class="font-semibold text-brand-ember">Demo — gerichte klantaanvulling</p>
         <p class="mt-1 leading-relaxed text-brand-ink/75">
-            Dezelfde vragen en foto’s als bij een echte opname. Na afronden draait ook de AI-samenvatting. Geen echte offerte; gegevens verdwijnen automatisch.
+            Je bekijkt één specifieke opdracht vanuit het fictieve installateursdossier. Er is geen echte klant of woning; de tijdelijke gegevens verdwijnen automatisch.
         </p>
         <p class="mt-2 font-medium text-brand-ink/85">Wel aan in deze demo:</p>
         <ul class="mt-1.5 list-disc space-y-0.5 pl-5 text-brand-ink/70">
@@ -28,7 +28,7 @@
                 <li>{{ $item }}</li>
             @endforeach
         </ul>
-        <p class="mt-2 font-medium text-brand-ink/85">In de volledige app gebeurt daarna ook (hier uitgeschakeld):</p>
+        <p class="mt-2 font-medium text-brand-ink/85">Bewust uitgeschakeld:</p>
         <ul class="mt-1.5 list-disc space-y-0.5 pl-5 text-brand-ink/70">
             @foreach ($hidden as $item)
                 <li>{{ $item }}</li>
@@ -39,7 +39,7 @@
     <div {{ $attributes->merge(['class' => 'mt-5 border-t border-brand-fog/80 pt-5 text-sm text-brand-ink/80']) }}>
         <p class="font-semibold text-brand-ink">Wat je net hebt gedaan</p>
         <p class="mt-1 leading-relaxed">
-            De begeleide klantintake: vragen beantwoorden, foto’s uploaden, afronden — plus een AI-voorstel voor het dossier.
+            Eén gerichte klantaanvulling afgerond. De foto of het antwoord is aan hetzelfde fictieve installateursdossier gekoppeld en de klanttoegang is weer gesloten.
         </p>
 
         @if (! empty($demoAiSummary) && is_array($demoAiSummary))
@@ -67,17 +67,15 @@
             </div>
         @endif
 
-        <p class="mt-4 font-semibold text-brand-ink">Wat de volledige app daarna nog doet</p>
+        <p class="mt-4 font-semibold text-brand-ink">Bewust uitgeschakeld in de demo</p>
         <ul class="mt-1.5 list-disc space-y-1 pl-5 leading-relaxed">
             @foreach ($hidden as $item)
                 <li>{{ $item }}</li>
             @endforeach
         </ul>
         <p class="mt-4 leading-relaxed">
-            Wil je dat zelf proberen?
-            <a href="{{ route('register') }}" class="font-semibold text-brand-sea underline">Maak een account</a>
-            of ga
-            <a href="{{ url('/') }}" class="font-semibold text-brand-sea underline">terug naar de homepage</a>.
+            Ga terug naar het andere tabblad om de bijgewerkte installateurswerkplek te bekijken, of ga
+            <a href="{{ url('/') }}" class="font-semibold text-brand-sea underline">terug naar de website</a>.
         </p>
     </div>
 @endif

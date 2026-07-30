@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Services;
 
+use App\Domains\Intake\Models\DossierSubject;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeSection;
@@ -26,7 +27,11 @@ final class InstallerPhotoGalleryBuilder
      */
     public function handle(Intake $intake): array
     {
-        $intake->loadMissing(['uploads.followUpItem.round', 'templateVersion.sections.questions']);
+        $intake->loadMissing([
+            'uploads.followUpItem.round',
+            'templateVersion.sections.questions',
+            'dossierSubjects',
+        ]);
 
         /** @var Collection<int, IntakeUpload> $uploads */
         $uploads = $intake->uploads->sortBy('sort_order')->values();
@@ -55,8 +60,32 @@ final class InstallerPhotoGalleryBuilder
 
         /** @var array<string, mixed> $groups */
         $groups = [];
+        /** @var Collection<int, DossierSubject> $dossierSubjects */
+        $dossierSubjects = $intake->dossierSubjects->keyBy('id');
 
         foreach ($uploads as $upload) {
+            if ($upload->question_key === 'installer_evidence') {
+                $subjectId = $this->dossierSubjectId($upload->section_instance_key);
+                $subject = $subjectId !== null ? $dossierSubjects->get($subjectId) : null;
+                $bucketKey = 'installer-evidence|'.($subjectId ?? 'unknown');
+
+                if (! isset($groups[$bucketKey])) {
+                    $groups[$bucketKey] = [
+                        'heading' => $subject?->label ?? 'Dossierbewijs',
+                        'sort' => [PHP_INT_MAX - 2, $subjectId ?? PHP_INT_MAX],
+                        'uploads' => [],
+                    ];
+                }
+
+                $groups[$bucketKey]['uploads'][] = [
+                    'upload' => $upload,
+                    'caption' => 'Dossierfoto',
+                    'question_sort' => $upload->sort_order,
+                ];
+
+                continue;
+            }
+
             if ($upload->followUpItem !== null) {
                 $round = $upload->followUpItem->round;
                 $bucketKey = 'follow-up|'.$round->round_number;
@@ -147,6 +176,16 @@ final class InstallerPhotoGalleryBuilder
         }
 
         return $result;
+    }
+
+    private function dossierSubjectId(?string $instanceKey): ?int
+    {
+        if (! is_string($instanceKey)
+            || preg_match('/^subject-(\d+)$/', $instanceKey, $matches) !== 1) {
+            return null;
+        }
+
+        return (int) $matches[1];
     }
 
     private function sectionHeading(IntakeSection $section, ?string $instanceKey): string

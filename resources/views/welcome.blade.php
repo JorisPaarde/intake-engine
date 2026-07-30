@@ -3,9 +3,9 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta name="description" content="Digitale Opname helpt installatiebedrijven om aanvragen op afstand te beoordelen via een begeleide intake met foto’s.">
+        <meta name="description" content="Digitale Opname bundelt woningdata, foto’s en technische routes in één beslisdossier voor airco-installateurs.">
 
-        <title>Digitale Opname — intake op afstand voor installateurs</title>
+        <title>Digitale Opname — sneller van aanvraag naar airco-offerte</title>
 
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=dm-sans:400,500,600,700|fraunces:500,600,700&display=swap" rel="stylesheet" />
@@ -94,10 +94,10 @@
                         Digitale Opname
                     </p>
                     <h1 class="home-reveal home-reveal-delay mt-5 max-w-2xl text-2xl font-medium leading-snug text-white/95 sm:text-3xl lg:text-4xl">
-                        Beoordeel installatieaanvragen op afstand
+                        Van foto’s naar een controleerbaar installatievoorstel
                     </h1>
                     <p class="home-reveal home-reveal-delay-2 mt-5 max-w-xl text-base leading-relaxed text-white/75 sm:text-lg">
-                        Stuur de klant een persoonlijke link. Zij doorlopen een begeleide intake met gerichte vragen en foto’s. Jij krijgt een helder dossier om te bepalen of een locatiebezoek nog nodig is.
+                        Laat de klant gericht fotograferen of voer de opname zelf uit. Bekende woningdata, beeldbewijs, posities en routes komen samen in één dossier waarmee u sneller kunt offreren en voorbereiden.
                     </p>
 
                     <div class="home-reveal home-reveal-delay-2 mt-10 flex flex-col gap-4">
@@ -110,7 +110,7 @@
                                             type="submit"
                                             class="inline-flex min-h-12 items-center justify-center rounded-md bg-brand-ember px-6 text-base font-semibold text-white transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
                                         >
-                                            Start demo
+                                            Probeer de interactieve demo
                                         </button>
                                     </form>
                                 @endif
@@ -138,12 +138,115 @@
                         @guest
                             @if (config('intake.demo.enabled'))
                                 <p class="max-w-lg text-sm leading-relaxed text-white/60">
-                                    Demo van de klantflow (vragen + foto’s + AI-samenvatting) · geen account nodig · verdwijnt na {{ (int) config('intake.demo.ttl_hours', 12) }} uur.
-                                    In de demo uitgeschakeld: e-mail, PDF en installateursdashboard — toegelicht in de demo zelf.
+                                    De echte installateurswerkplek, vooraf gevuld met een volledig fictieve opname · geen account nodig · automatisch verwijderd na {{ max(1, (int) config('intake.demo.ttl_hours', 2)) }} uur.
                                 </p>
                             @endif
                         @endguest
                     </div>
+                </div>
+            </section>
+
+            <section id="productvoorbeeld" class="bg-white px-5 py-20 sm:px-8 sm:py-28">
+                <div class="mx-auto max-w-6xl">
+                    <div class="max-w-2xl">
+                        <p class="text-sm font-semibold uppercase tracking-[0.18em] text-brand-sea">In één oogopslag</p>
+                        <h2 class="mt-3 font-display text-3xl font-semibold tracking-tight text-brand-ink sm:text-4xl">
+                            Geen vragenlijst, maar een beslisdossier
+                        </h2>
+                        <p class="mt-4 text-lg leading-relaxed text-brand-ink/70">
+                            Dit zijn echte onderdelen van de installateurswerkplek. In de interactieve demo kunt u hetzelfde dossier zelf bekijken en aanpassen.
+                        </p>
+                    </div>
+
+                    <div class="mt-12 grid gap-6 lg:grid-cols-3">
+                        <article class="overflow-hidden rounded-3xl border border-brand-fog bg-brand-mist shadow-sm">
+                            <div class="border-b border-brand-fog bg-white px-5 py-4">
+                                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-brand-sea">Woningcontext</p>
+                                <h3 class="mt-1 text-lg font-semibold text-brand-ink">Bekende data staat al klaar</h3>
+                            </div>
+                            <div class="space-y-3 p-5">
+                                <div class="relative aspect-[16/10] overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-100 via-stone-100 to-sky-100">
+                                    <div class="absolute left-[18%] top-[20%] h-[52%] w-[58%] rotate-[-6deg] rounded-xl border-2 border-brand-sea bg-white/55 shadow-sm"></div>
+                                    <div class="absolute bottom-3 left-3 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-brand-deep shadow-sm">Fictieve luchtfoto</div>
+                                </div>
+                                <dl class="grid grid-cols-2 gap-2 text-sm">
+                                    <div class="rounded-xl bg-white px-3 py-2">
+                                        <dt class="text-xs text-brand-ink/55">Bouwjaar</dt>
+                                        <dd class="font-semibold text-brand-ink">1996</dd>
+                                    </div>
+                                    <div class="rounded-xl bg-white px-3 py-2">
+                                        <dt class="text-xs text-brand-ink/55">Oppervlakte</dt>
+                                        <dd class="font-semibold text-brand-ink">118 m²</dd>
+                                    </div>
+                                    <div class="rounded-xl bg-white px-3 py-2">
+                                        <dt class="text-xs text-brand-ink/55">Energielabel</dt>
+                                        <dd class="font-semibold text-brand-ink">B</dd>
+                                    </div>
+                                    <div class="rounded-xl bg-white px-3 py-2">
+                                        <dt class="text-xs text-brand-ink/55">Verdiepingen</dt>
+                                        <dd class="font-semibold text-brand-ink">3</dd>
+                                    </div>
+                                </dl>
+                            </div>
+                        </article>
+
+                        <article class="overflow-hidden rounded-3xl border border-brand-fog bg-brand-mist shadow-sm">
+                            <div class="border-b border-brand-fog bg-white px-5 py-4">
+                                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-brand-sea">Installatievoorstel</p>
+                                <h3 class="mt-1 text-lg font-semibold text-brand-ink">Drie verbindingen, apart beoordeeld</h3>
+                            </div>
+                            <div class="space-y-3 p-5">
+                                <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                                    <div class="flex items-center justify-between gap-3">
+                                        <p class="font-semibold text-brand-ink">Optie A · één multi-split</p>
+                                        <span class="rounded-full bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white">Geselecteerd</span>
+                                    </div>
+                                    <p class="mt-2 text-sm leading-relaxed text-brand-ink/65">Twee bovenruimtes via één buitenunit op de achteraanbouw.</p>
+                                </div>
+                                @foreach ([
+                                    ['Koelleiding', 'Aannemelijk', 'bg-sky-500'],
+                                    ['Condensafvoer', 'Aannemelijk', 'bg-cyan-500'],
+                                    ['Stroomtoevoer', 'Controleren', 'bg-amber-500'],
+                                ] as [$label, $status, $color])
+                                    <div class="flex items-center gap-3 rounded-xl bg-white px-3 py-3 text-sm">
+                                        <span class="h-2.5 w-2.5 rounded-full {{ $color }}"></span>
+                                        <span class="flex-1 font-medium text-brand-ink">{{ $label }}</span>
+                                        <span class="text-xs text-brand-ink/55">{{ $status }}</span>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </article>
+
+                        <article class="overflow-hidden rounded-3xl border border-brand-fog bg-brand-mist shadow-sm">
+                            <div class="border-b border-brand-fog bg-white px-5 py-4">
+                                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-brand-sea">Beoordelen op uitzonderingen</p>
+                                <h3 class="mt-1 text-lg font-semibold text-brand-ink">Alleen vragen wat nog beslist</h3>
+                            </div>
+                            <div class="space-y-4 p-5">
+                                <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                                    <p class="text-xs font-semibold uppercase tracking-wide text-amber-800">Eén open punt</p>
+                                    <p class="mt-2 font-semibold text-brand-ink">Groepsaanduiding deels onleesbaar</p>
+                                    <p class="mt-1 text-sm leading-relaxed text-brand-ink/65">De rest van de stroomroute is voldoende onderbouwd.</p>
+                                </div>
+                                <div class="rounded-2xl bg-white p-4 shadow-sm">
+                                    <p class="text-xs font-semibold text-brand-sea">Gerichte klanttaak</p>
+                                    <p class="mt-2 text-sm font-medium leading-relaxed text-brand-ink">“Maak één frontale foto waarop alle groepslabels scherp leesbaar zijn.”</p>
+                                    <div class="mt-4 rounded-xl bg-brand-deep px-4 py-3 text-center text-sm font-semibold text-white">Klantweergave activeren</div>
+                                </div>
+                            </div>
+                        </article>
+                    </div>
+
+                    @guest
+                        @if (config('intake.demo.enabled'))
+                            <form method="POST" action="{{ route('demo.start') }}" class="mt-10">
+                                @csrf
+                                <button type="submit" class="inline-flex min-h-12 items-center justify-center rounded-md bg-brand-ember px-6 text-base font-semibold text-white transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-sea">
+                                    Open de echte werkplek
+                                </button>
+                            </form>
+                        @endif
+                    @endguest
                 </div>
             </section>
 
@@ -153,7 +256,7 @@
                         Hoe het werkt
                     </h2>
                     <p class="mt-3 max-w-2xl text-lg text-brand-ink/70">
-                        Van aanvraag tot intern rapport — zonder meteen langs te moeten.
+                        De opname bepaalt wat nodig is; klant en installateur kunnen ieder bewijs toevoegen.
                     </p>
 
                     <ol class="mt-14 space-y-12 border-l border-brand-fog pl-8 sm:space-y-14">
@@ -161,21 +264,21 @@
                             <span class="absolute -left-[2.4rem] flex h-7 w-7 items-center justify-center rounded-full bg-brand-sea text-sm font-semibold text-white" aria-hidden="true">1</span>
                             <h3 class="text-xl font-semibold text-brand-ink">Jij start een opname</h3>
                             <p class="mt-2 max-w-xl text-brand-ink/70">
-                                Vul klantgegevens in en krijg een unieke, beveiligde link. Deel die met de klant — automatisch mailen volgt later.
+                                Kies of de klant de opname uitvoert, of open direct de mobiele installateurswerkplek en leg alles zelf vast.
                             </p>
                         </li>
                         <li class="relative">
                             <span class="absolute -left-[2.4rem] flex h-7 w-7 items-center justify-center rounded-full bg-brand-sea text-sm font-semibold text-white" aria-hidden="true">2</span>
-                            <h3 class="text-xl font-semibold text-brand-ink">De klant doorloopt de intake</h3>
+                            <h3 class="text-xl font-semibold text-brand-ink">Bekende gegevens en foto’s komen samen</h3>
                             <p class="mt-2 max-w-xl text-brand-ink/70">
-                                Stap voor stap op de telefoon: vragen, foto’s van ruimtes, buitenunit en meterkast. Antwoorden worden tussentijds opgeslagen.
+                                BAG, luchtfoto, EP-Online en 3DBAG vullen de basis. Met uw hulp kunnen we sneller uw airco plaatsen: de klant laat alleen zien wat niet op afstand bekend is.
                             </p>
                         </li>
                         <li class="relative">
                             <span class="absolute -left-[2.4rem] flex h-7 w-7 items-center justify-center rounded-full bg-brand-sea text-sm font-semibold text-white" aria-hidden="true">3</span>
-                            <h3 class="text-xl font-semibold text-brand-ink">Jij beoordeelt het dossier</h3>
+                            <h3 class="text-xl font-semibold text-brand-ink">Jij controleert en beslist</h3>
                             <p class="mt-2 max-w-xl text-brand-ink/70">
-                                Bekijk antwoorden en foto’s, zie wat nog ontbreekt, en bepaal of een offerte of locatiebezoek nodig is.
+                                Beoordeel posities en koel-, condens- en stroomroutes als geheel. Vraag alleen een beslissend detail na en plan pas bij echte onzekerheid een bezoek.
                             </p>
                         </li>
                     </ol>

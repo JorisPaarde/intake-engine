@@ -44,6 +44,10 @@ final class AssessFuseboxPhotos
 
     public function handle(Intake $intake): ?AiRun
     {
+        if ($intake->is_demo) {
+            return null;
+        }
+
         $uploads = $this->uploads($intake);
 
         if ($uploads->isEmpty()) {

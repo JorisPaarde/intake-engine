@@ -1,6 +1,6 @@
 # Databaseschema — Digitale Opname
 
-> **Documentversie:** 3.0 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.1 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: dit document beschrijft het **geïmplementeerde schema**, inclusief de uitbreidende dossiermigratie van BL-030 en BL-035 t/m BL-042. Bestaande antwoord-, bron-, upload-, review- en routetabellen blijven bewust bestaan naast de nieuwe dossierobjecten.
 
@@ -231,7 +231,7 @@ Eén digitale technische opname. In de huidige implementatie bevat deze rij ook 
 | `current_question_key` | string nullable | Wizard-cursor: huidige vraag (BL-018) |
 | `current_section_instance_key` | string nullable | Wizard-cursor: repeatable-instantie (`room-1`, …) |
 | `progress_percent` | unsigned tinyint default 0 | Gecached |
-| `is_demo` | boolean default false | Tijdelijke publieke demo-opname; index met tokenverval |
+| `is_demo` | boolean default false | Tijdelijke publieke demo-opname; externe effecten uit, index met tokenverval |
 | `started_at` | timestamp nullable | Eerste klant- of installateursbijdrage |
 | `completed_at` | timestamp nullable | |
 | `reviewed_at` | timestamp nullable | |
@@ -243,6 +243,8 @@ Eén digitale technische opname. In de huidige implementatie bevat deze rij ook 
 Indexes: `status`, `created_by`, `customer_email`, `(status, created_at)`, `(company_id, status, created_at)`, `(is_demo, token_expires_at)`.
 
 **Tokenstrategie:** zie ADR-0002. Token zit in URL en DB (hoge entropie); nooit in logs. De tokenwaarde alleen is niet genoeg: `EnsureCustomerIntakeAccess` vereist daarnaast actieve klanttoegang, een geldige vervaldatum en geen intrekking.
+
+**Publieke demo-retentie:** iedere interactieve demosessie heeft een eigen herkenbare tijdelijke `companies`-/`users`-tenant. `intakes:purge-demos` force-deletet na de korte demo-TTL eerst de intake met alle gecascadeerde dossierobjecten en private media, en verwijdert daarna alleen een verweesde tenant waarvan zowel company-slug als user-e-mail aan het publieke demopatroon voldoen. Er zijn geen extra tabellen of zwakkere tenantregels voor demo’s.
 
 ### Centrale dossier- en bijdrageobjecten
 

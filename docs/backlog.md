@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.1 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.2 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -408,12 +408,14 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 ### BL-001 — Demo-versie van de app
 
 - **Status:** in_progress · **Prioriteit:** medium · **Band:** A (operationeel, parallel) · **Ref:** [issue #5](https://github.com/JorisPaarde/intake-engine/issues/5)
-- **Parallel:** band **A** (afronden) — restwerk is staging-config + smoke-test; parallel met code-sporen D–I.
+- **Plan:** [bl-001-interactive-installer-demo.md](plans/bl-001-interactive-installer-demo.md)
 - **Doel:** publiek of semi-publiek demopad zodat prospects/installateurs het product kunnen ervaren zonder eigen accountsetup of echte klantdata — het hoofddoel ("zo min mogelijk handelingen") toegepast op de allereerste kennismaking.
-- **Invulling (deze PR):** homepage **"Start demo"** → tijdelijke airco-intake + klantlink (`is_demo`, TTL via `DEMO_TTL_HOURS`, watermerk, AI-samenvatting + aandachtspunten inline, hourly `intakes:purge-demos`). Geen account nodig; fictieve `@demo.invalid`-e-mail. `DEMO_ENABLED` staat **standaard aan** (opt-out met `false`). Demoknop alleen voor gasten. Banner + bedankt-scherm tonen AI-resultaat en wat nog uitstaat (e-mail, PDF, dashboard).
-- **Nog te doen na deploy:** als een bestaande `shared/.env` nog `DEMO_ENABLED=false` heeft → verwijderen of op `true` zetten + `config:cache`; smoke-test Start demo → wizard → watermerk; daarna status → `done`.
-- **Afhankelijkheden:** geen — klantflow (Fase 3), uploads (Fase 4) en rapport (Fase 5) zijn af.
-- **Niet doen in demo:** echte mail naar willekeurige adressen, persistente PII van bezoekers zonder TTL.
+- **Nieuwe invulling:** homepage-productvoorbeelden + **Probeer de interactieve demo** → unieke tijdelijke demo-tenant en -user → rechtstreeks naar de echte installateurswerkplek met een fictief, deels voorbereid dossier. De bezoeker kan dezelfde ruimtes, posities, opties, verbindingen, foto’s en gerichte klanttaken gebruiken als productie. Klanttoegang wordt pas actief bij één gecontroleerde taak.
+- **Scenario:** vaste BAG-/luchtfoto-/EP-Online-/3DBAG-voorbeeldcontext, twee gewenste ruimtes, synthetisch beeldbewijs, geselecteerd multi-splitvoorstel, afzonderlijke koel-/condens-/stroomroutes, vooraf berekende AI-synthese en één voorgestelde meterkasttaak.
+- **Kaders:** `is_demo`, standaard-TTL twee uur, hourly hard purge inclusief tijdelijke demo-tenant; geen echte PII, mail, PDF of externe AI-call; alle brondata en beelden expliciet als fictieve demo-inhoud herkenbaar.
+- **Acceptatie:** geïsoleerde gelijktijdige demosessies; redirect naar `intakes.workspace`; echte klanttaakweergave zonder mail; volledige cleanup; tests bewaken tenantgrens, externe-effectblokkade en scenario-inhoud.
+- **Resultaat code:** unieke tijdelijke tenant/user, vooraf gevuld dossier via bestaande domeinservices, synthetische beelden via beide private varianten, werkplekrondleiding, productvoorbeelden op `/`, gesimuleerde klanttaak, sessiegrens tot exact één demodossier, harde AI-/mail-/PDF-grenzen en volledige purge zijn geïmplementeerd en geautomatiseerd afgedekt.
+- **Na deploy:** staging-smoke op desktop en mobiel voor homepage → werkplek → taak activeren → klantweergave → terug naar dossier; daarna BL-001 op `done`.
 
 ### BL-009 — Purge-job voor soft-deleted intakes
 
