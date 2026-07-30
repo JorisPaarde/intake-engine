@@ -185,7 +185,8 @@ it('ends the public demo session after its configured lifetime', function () {
     $this->post(route('demo.start'))->assertRedirect();
     $demo = Intake::query()->where('is_demo', true)->firstOrFail();
 
-    $this->travel(2)->hours()->travel(1)->second();
+    $this->travel(2)->hours();
+    $this->travel(1)->second();
 
     $this->get(route('intakes.workspace', $demo))
         ->assertRedirect('/');

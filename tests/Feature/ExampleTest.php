@@ -9,7 +9,7 @@ it('shows the product homepage with login navigation', function () {
 
     $response->assertOk()
         ->assertSee('Digitale Opname', false)
-        ->assertSee('Beoordeel installatieaanvragen op afstand', false)
+        ->assertSee('Van foto’s naar een controleerbaar installatievoorstel', false)
         ->assertSee('Inloggen', false)
         ->assertSee(route('login'), false);
 });
