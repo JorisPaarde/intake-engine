@@ -227,7 +227,7 @@ it('shows the start demo button on the homepage when enabled', function () {
     $this->get('/')
         ->assertOk()
         ->assertSee('Probeer de demo', false)
-        ->assertSee('Geen voorbezoek voor één ontbrekende foto.', false)
+        ->assertSee('Een complete opname vóór je de bus instapt.', false)
         ->assertSee('Voor jou', false)
         ->assertSee('Voor je klant', false)
         ->assertSee('Fictieve voorbeeldopname.', false)

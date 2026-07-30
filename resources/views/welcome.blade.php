@@ -5,14 +5,14 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta
             name="description"
-            content="Laat klanten precies de juiste foto’s maken en zie sneller of je een airco-offerte kunt maken. Minder heen-en-weer, minder onnodige voorbezoeken."
+            content="Breng aanvraag, woninggegevens en klantinformatie samen in één duidelijke airco-opname. Zie sneller of je kunt offreren, iets moet aanvullen of toch langsgaat."
         >
         <meta property="og:type" content="website">
         <meta property="og:locale" content="nl_NL">
         <meta property="og:title" content="Digitale Opname voor airco-installateurs">
         <meta
             property="og:description"
-            content="Geen voorbezoek voor één ontbrekende foto. De klant krijgt duidelijke opdrachten; jij ziet wat er kan."
+            content="Een complete opname vóór je de bus instapt. Alles wat je nodig hebt om te offreren, overzichtelijk bij elkaar."
         >
         <meta property="og:url" content="{{ route('home') }}">
 
@@ -116,10 +116,10 @@
                             Voor airco-installateurs
                         </p>
                         <h1 class="home-reveal home-reveal-delay mt-5 font-display text-4xl font-semibold leading-[1.08] tracking-[-0.035em] text-white sm:text-5xl lg:text-6xl">
-                            Geen voorbezoek voor één ontbrekende foto.
+                            Een complete opname vóór je de bus instapt.
                         </h1>
                         <p class="home-reveal home-reveal-delay-2 mt-6 max-w-xl text-lg leading-relaxed text-white/75">
-                            De klant krijgt duidelijke foto-opdrachten. Jij ziet alles op één plek en weet sneller: offreren, nog één vraag stellen of toch langsgaan.
+                            De app zet bij elkaar wat al bekend is, wat de klant aanlevert en wat jij zelf toevoegt. Zo zie je sneller: offreren, gericht aanvullen of toch langsgaan.
                         </p>
 
                         <div class="home-reveal home-reveal-delay-2 mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -157,7 +157,7 @@
                         @guest
                             @if (config('intake.demo.enabled'))
                                 <div class="home-reveal home-reveal-delay-2 mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm text-white/60">
-                                    @foreach (['Geen account nodig', 'Fictieve aanvraag', 'Jij houdt de regie'] as $item)
+                                    @foreach (['Bekende gegevens staan klaar', 'Klant, zelf of samen', 'Jij houdt de regie'] as $item)
                                         <span class="inline-flex items-center gap-2">
                                             <svg class="h-4 w-4 text-cyan-200" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                                                 <path d="m3 8.2 3.1 3.1L13 4.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -238,7 +238,7 @@
                                         <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-100 text-xs font-bold text-amber-700">!</span>
                                         <div>
                                             <p class="text-[10px] font-semibold text-amber-900">Nog één ding nodig</p>
-                                            <p class="mt-1 text-[10px] leading-relaxed text-amber-800/70">Vraag een scherpe foto van de groepsaanduiding. De rest van het voorstel blijft staan.</p>
+                                            <p class="mt-1 text-[10px] leading-relaxed text-amber-800/70">De groepsaanduiding is nog niet zeker. Vraag dit ene detail na; de rest van het voorstel blijft staan.</p>
                                         </div>
                                     </div>
                                 </div>
@@ -264,8 +264,8 @@
                 <div class="mx-auto flex max-w-7xl flex-col gap-5 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
                     <p class="text-sm font-semibold text-brand-ink">De app doet het voorwerk. Jij geeft het vakmatige oordeel.</p>
                     <div class="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-brand-ink/55 sm:justify-end">
-                        <span>Klant maakt foto’s</span>
-                        <span>Alles op één plek</span>
+                        <span>Bekende gegevens erbij</span>
+                        <span>Klant of zelf opnemen</span>
                         <span>Jij beslist</span>
                     </div>
                 </div>
@@ -277,19 +277,19 @@
                         <div class="max-w-xl">
                             <p class="text-sm font-semibold uppercase tracking-[0.18em] text-brand-sea">Herkenbaar?</p>
                             <h2 class="mt-4 font-display text-3xl font-semibold tracking-[-0.025em] text-brand-ink sm:text-4xl">
-                                Niet ieder voorbezoek is vakwerk.
+                                Een busrit is een dure manier om informatie te verzamelen.
                             </h2>
                         </div>
                         <p class="max-w-2xl text-lg leading-relaxed text-brand-ink/65">
-                            Soms is het vooral een dure manier om één ontbrekende foto te krijgen. Je belt, appt en rijdt alsnog — terwijl de klant het juiste beeld vaak prima zelf kan maken.
+                            Soms is een voorbezoek echt nodig. Maar soms ga je vooral omdat gegevens ontbreken, berichten verspreid staan en niemand zeker weet of de situatie compleet is.
                         </p>
                     </div>
 
                     <div class="mt-10 grid gap-5 md:grid-cols-3">
                         @foreach ([
-                            ['01', 'Losse foto’s', 'Jij moet uitzoeken wat je precies ziet.'],
-                            ['02', 'Nog een appje', 'Jij legt opnieuw uit wat er ontbreekt.'],
-                            ['03', 'Toch in de bus', 'Twijfel maakt een rit al snel de veilige keuze.'],
+                            ['01', 'Alles verspreid', 'Aanvraag, foto’s en notities staan op verschillende plekken.'],
+                            ['02', 'Pas laat gezien', 'Een ontbrekende maat of onduidelijke situatie valt pas op als je wilt offreren.'],
+                            ['03', 'Voor de zekerheid langs', 'Zonder compleet overzicht voelt een rit al snel als de veiligste keuze.'],
                         ] as [$number, $title, $copy])
                             <article class="rounded-2xl border border-brand-fog bg-white p-6">
                                 <span class="text-xs font-semibold tracking-[0.18em] text-brand-sea">{{ $number }}</span>
@@ -300,8 +300,8 @@
                     </div>
 
                     <div class="mt-8 rounded-2xl bg-brand-deep px-6 py-6 text-white sm:flex sm:items-center sm:justify-between sm:gap-8 sm:px-8">
-                        <p class="font-display text-xl font-semibold sm:text-2xl">Vraag eerder het juiste.</p>
-                        <p class="mt-2 max-w-xl text-sm leading-relaxed text-white/65 sm:mt-0 sm:text-right">In plaats van later nóg iets.</p>
+                        <p class="font-display text-xl font-semibold sm:text-2xl">Laat de app het verzamelwerk doen.</p>
+                        <p class="mt-2 max-w-xl text-sm leading-relaxed text-white/65 sm:mt-0 sm:text-right">Dan houd jij tijd over voor beoordelen, offreren en installeren.</p>
                     </div>
                 </div>
             </section>
@@ -311,18 +311,18 @@
                     <div class="max-w-2xl">
                         <p class="text-sm font-semibold uppercase tracking-[0.18em] text-brand-sea">Zo werkt het</p>
                         <h2 class="mt-4 font-display text-3xl font-semibold tracking-[-0.025em] text-brand-ink sm:text-4xl">
-                            Van aanvraag naar duidelijkheid in drie stappen
+                            Van aanvraag naar een duidelijk besluit
                         </h2>
                         <p class="mt-4 text-lg leading-relaxed text-brand-ink/65">
-                            Laat de klant de opname doen, doe hem zelf of combineer beide. Alles komt in hetzelfde overzicht.
+                            Laat de klant aanvullen, doe de opname zelf of combineer beide. Alles groeit mee in hetzelfde overzicht.
                         </p>
                     </div>
 
                     <ol class="mt-10 grid gap-px overflow-hidden rounded-2xl border border-brand-fog bg-brand-fog lg:grid-cols-3">
                         @foreach ([
-                            ['1', 'De klant maakt de juiste foto’s', 'Geen open vraag als “stuur wat foto’s”, maar één duidelijke opdracht per keer.'],
-                            ['2', 'Alles staat op één plek', 'Foto’s, woninggegevens en mogelijke leidingroutes staan netjes bij elkaar.'],
-                            ['3', 'Jij ziet wat de volgende stap is', 'Offreren, één detail opvragen of toch langsgaan. Jij houdt de regie.'],
+                            ['1', 'Wat al bekend is, staat klaar', 'De aanvraag en bekende woninggegevens worden meteen bij elkaar gezet.'],
+                            ['2', 'Alleen aanvullen wat nodig is', 'De klant doet dat stap voor stap, jij doet het zelf of jullie combineren het.'],
+                            ['3', 'Jij ziet waar je aan toe bent', 'Offreren, gericht aanvullen of toch langsgaan. Jij houdt de regie.'],
                         ] as [$number, $title, $copy])
                             <li class="bg-white p-6 sm:p-7">
                                 <span class="flex h-9 w-9 items-center justify-center rounded-full bg-brand-sea text-sm font-semibold text-white">{{ $number }}</span>
@@ -346,12 +346,12 @@
                     <div class="mt-10 grid gap-6 lg:grid-cols-2">
                         <article class="rounded-3xl bg-brand-deep p-7 text-white sm:p-10">
                             <p class="text-sm font-semibold uppercase tracking-[0.16em] text-cyan-200">Voor jou</p>
-                            <h3 class="mt-4 font-display text-2xl font-semibold sm:text-3xl">Minder gedoe vóór je kunt offreren</h3>
+                            <h3 class="mt-4 font-display text-2xl font-semibold sm:text-3xl">Minder voorwerk per aanvraag</h3>
                             <ul class="mt-8 space-y-4">
                                 @foreach ([
-                                    'Minder nabellen en appen voor ontbrekende informatie',
-                                    'Sneller zien of je veilig kunt offreren',
-                                    'Beter voorbereid naar de montage',
+                                    'Minder zoeken, bellen en appen',
+                                    'Sneller van aanvraag naar onderbouwde offerte',
+                                    'Met meer zekerheid naar de montage',
                                 ] as $item)
                                     <li class="flex gap-4">
                                         <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-cyan-200 text-brand-deep">
@@ -367,12 +367,12 @@
 
                         <article class="rounded-3xl border border-white bg-white p-7 sm:p-10">
                             <p class="text-sm font-semibold uppercase tracking-[0.16em] text-brand-ember">Voor je klant</p>
-                            <h3 class="mt-4 font-display text-2xl font-semibold text-brand-ink sm:text-3xl">Precies weten wat er nodig is</h3>
+                            <h3 class="mt-4 font-display text-2xl font-semibold text-brand-ink sm:text-3xl">Een makkelijke opname zonder vakkennis</h3>
                             <ul class="mt-8 space-y-4">
                                 @foreach ([
-                                    'Eén simpele foto-opdracht tegelijk',
-                                    'Geen technische keuzes hoeven maken',
-                                    'Sneller duidelijkheid en minder afspraken',
+                                    'Alleen doen wat op dat moment nodig is',
+                                    'Duidelijke vragen en opdrachten',
+                                    'Minder herhaling en onnodige afspraken',
                                 ] as $item)
                                     <li class="flex gap-4">
                                         <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-red-50 text-brand-ember">
@@ -395,11 +395,11 @@
                         <div class="max-w-xl">
                             <p class="text-sm font-semibold uppercase tracking-[0.18em] text-brand-sea">In één oogopslag</p>
                             <h2 class="mt-4 font-display text-3xl font-semibold tracking-[-0.025em] text-brand-ink sm:text-4xl">
-                                Zie wat klaar is — en wat nog mist
+                                Van woninggegevens tot installatievoorstel
                             </h2>
                         </div>
                         <p class="max-w-2xl text-lg leading-relaxed text-brand-ink/65">
-                            Geen speurtocht door WhatsApp, e-mail en losse notities. Je opent de aanvraag en ziet meteen waar je aan toe bent.
+                            De woning, gewenste ruimtes, mogelijke opstelling, routes en open punten staan bij elkaar. De app houdt het overzicht; jij geeft het vakmatige oordeel.
                         </p>
                     </div>
 
@@ -442,12 +442,12 @@
                                 <div class="mt-4 grid gap-4 sm:grid-cols-[180px_1fr]">
                                     <div class="landing-photo-fusebox min-h-40 rounded-xl" role="img" aria-label="Fictieve foto van een meterkast"></div>
                                     <div class="rounded-xl border border-amber-200 bg-amber-50 p-5">
-                                        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-amber-700">Nog nodig</p>
-                                        <h4 class="mt-2 font-semibold text-brand-ink">Eén scherpere foto</h4>
+                                        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-amber-700">Nog één controle</p>
+                                        <h4 class="mt-2 font-semibold text-brand-ink">Groepsaanduiding controleren</h4>
                                         <p class="mt-2 text-sm leading-relaxed text-brand-ink/60">
-                                            De groepenkast staat erop, maar het label is niet goed leesbaar. Vraag alleen dit detail opnieuw.
+                                            De stroomroute is nog niet zeker. Vraag alleen het ontbrekende detail op of controleer het zelf.
                                         </p>
-                                        <div class="mt-4 inline-flex rounded-lg bg-brand-deep px-4 py-2.5 text-xs font-semibold text-white">Vraag deze foto opnieuw</div>
+                                        <div class="mt-4 inline-flex rounded-lg bg-brand-deep px-4 py-2.5 text-xs font-semibold text-white">Vraag klant om aanvulling</div>
                                     </div>
                                 </div>
                             </div>
@@ -493,7 +493,7 @@
                             Klik door een voorbeeldopname
                         </h2>
                         <p class="mt-4 text-lg leading-relaxed text-white/65">
-                            Bekijk wat al klaarstaat, vind het ene ontbrekende detail en open de foto-opdracht voor de klant. Zonder account.
+                            Open een fictieve aanvraag en zie hoe losse informatie verandert in een duidelijke opname met een volgende stap. Zonder account.
                         </p>
                     </div>
                     <div class="flex shrink-0 flex-col gap-3 sm:flex-row">
@@ -540,8 +540,8 @@
                         @foreach ([
                             ['Vervangt dit elk voorbezoek?', 'Nee. Is iets niet veilig op afstand te beoordelen? Dan ga je gewoon langs. De app helpt vooral de ritten voorkomen die alleen nodig zijn om informatie te verzamelen.'],
                             ['Beslist de app of AI wat er moet komen?', 'Nee. De app zet de informatie op een rij en laat zien waar nog twijfel zit. Jij kiest de oplossing en geeft groen licht.'],
-                            ['Wat als de klant een verkeerde foto maakt?', 'Dan krijgt de klant één nieuwe, duidelijke opdracht. Niet de hele opname opnieuw.'],
-                            ['Kan ik de opname ook zelf doen?', 'Ja. Laat de klant foto’s maken, doe het zelf of combineer beide. Alles blijft in dezelfde aanvraag staan.'],
+                            ['Wat staat er in zo’n opname?', 'Alles wat je nodig hebt om de situatie te beoordelen: bekende woninggegevens, de wens van de klant, ruimtes, mogelijke plekken, routes en wat nog gecontroleerd moet worden.'],
+                            ['Kan ik de opname ook zelf doen?', 'Ja. Laat de klant aanvullen, doe de hele opname zelf of combineer beide. Alles blijft in hetzelfde overzicht staan.'],
                         ] as [$question, $answer])
                             <details class="group py-5">
                                 <summary class="flex cursor-pointer list-none items-center justify-between gap-5 text-base font-semibold text-brand-ink">
