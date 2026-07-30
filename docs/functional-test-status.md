@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.39 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.40 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -60,6 +60,7 @@ Laatste testsessie: 2026-07-26 (lokaal; postcode-eerst adresaanvulling met echte
 | Auto-doorgaan na keuze + Enter (BL-023) | todo | - | Na deploy: single_choice/boolean gaat automatisch door na keuze (Opgeslagen-bevestiging); Enter op tekst/nummer = Volgende; multi_choice/foto/long_text niet; Vorige blijft werken; laatste stap geen auto-afronden |
 | Voortgang + ontbreekt-lijst (BL-022) | todo | - | Na deploy: % bereikt 100 bij alleen verplichte vragen klaar (optioneel leeg mag); bij geblokkeerd afronden zijn ontbrekende items klikbaar en tonen “Ruimtes 2” i.p.v. `room-2` |
 | Installateur-prefill bij aanmaken (BL-016/v10) | todo | - | Na deploy: bekende aanvraagwaarden staan met bron in het dossier; airco v10 slaat eenduidige installateursprefill over zonder losse klantbevestiging. Een historische gepinde v3-flow blijft de bewerkbare voorzet tonen; prefill alleen start de opname niet. |
+| Openingszin voorkomt herhaalvragen (BL-048) | todo | - | Na deploy als installateur een klantopname aanmaken met exact `Ik wil twee airco’s om m’n slaapkamers op zolder te koelen.` en externe tekst-AI uit. De klantlink vraagt niet opnieuw naar koelen, aantal ruimtes, ruimtetype of verdieping en bouwt twee afzonderlijke slaapkamertaken op zolder; zolder wordt geen derde ruimte. Controleer hetzelfde met een vóór de deploy aangemaakte nog open link. |
 | Repeatable-prefill ruimtes (BL-016) | todo | - | Na deploy: bij ≥2 binnenunits neemt ruimte 2 `floor_level` over van ruimte 1 als bewerkbare voorzet ("Overgenomen van Ruimtes 1"); pas bij Volgende opgeslagen; ruimte 1 nooit voorgevuld |
 | Foto-uploads (Fase 4) | pass | 2026-07-18 | JPEG-upload + preview + “Foto opgeslagen” op ruimtestap |
 | Dossier- en AI-beeldvarianten (BL-030) | todo | - | Na deploy: JPEG/PNG/WebP/HEIC levert metadata-vrije JPEG-dossierkopie ≤2048px en analysekopie ≤1536px; preview gebruikt dossier, vision gebruikt analyse; verwijderen/purge wist beide. Controleer ook één historische upload zonder `analysis_path` op veilige fallback. |
@@ -68,7 +69,7 @@ Laatste testsessie: 2026-07-26 (lokaal; postcode-eerst adresaanvulling met echte
 | Leesbare foto-galerij installateur (BL-024) | todo | - | Na deploy: opname-detail toont vraaglabels + groepen (bv. “Ruimtes 2” / “Foto’s van de ruimte”), geen rauwe `question_key`/`room-2` |
 | Afronden + bedankt-scherm (Fase 5) | pass | 2026-07-18 | Na boolean-fix #14: volledige flow (incl. Ja/Nee) → **Bedankt** |
 | HTML-rapport + installateur-review (Fase 5) | pass | 2026-07-18 | Rapport-iframe + review `prepare_quote` opgeslagen |
-| Dossierbronnen + onzekerheden + volgende stap (BL-019) | todo | - | HTML/PDF toont klant/contact, automatisch verzamelde feiten met PDOK/BAG-bron en zekerheid, open onzekerheden en voorstel volgende stap |
+| Relevante dossierbronnen + EP-isolatie (BL-019/048) | todo | - | Na EP-configuratie een geregistreerd adres opnieuw controleren. Installateursdetail toont energielabel, leesbare isolatie-indicatie/energiebehoefte, bouwjaar en echte onzekerheden; de isolatievraag vervalt. Coördinaten, perceelreferentie, gebruiksdoel en volledige BAG-oppervlakte staan niet prominent en de luchtfoto is standaard ingeklapt. Controleer dezelfde selectie in HTML/PDF; zonder label blijft de isolatievraag staan. |
 | Gerichte aanvullende informatieronde (BL-027) | todo | - | Review `need_more_info` met tekst + foto-opdracht → klantmail/dezelfde link → klant ziet alleen vervolgitems, rondt af → dossier toont ronde/bron/antwoord/foto en dashboard markeert opnieuw als te beoordelen; test ook handmatige linkfallback bij mailconfig |
 | Gericht PDF-document opvragen (BL-027) | pass | lokaal 2026-07-20; staging nog todo | Featuretest: documentopdracht, herstel na ongeldige PDF, upload, afronden, auth-link, forced download en HTML/PDF-dossier groen. Gegenereerde 5-pagina-PDF visueel gecontroleerd: documentkaart met prompt, bestandsnaam, bron en ronde zonder clipping. Live documentstap desktop + 390 px zonder overflow of browserwarnings/-errors; route geeft `application/pdf`, attachment en `nosniff`. Na deploy dezelfde smoke met een echte PDF. |
 | AI-samenvatting in rapport (Fase 6) | blocked | 2026-07-18 | Geen “AI-voorstel” — staging `AI_PROVIDER=null` (soft-fail by design) |

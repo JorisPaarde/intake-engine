@@ -1,6 +1,6 @@
 # Databaseschema — Digitale Opname
 
-> **Documentversie:** 3.4 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.5 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: dit document beschrijft het **geïmplementeerde schema**, inclusief de uitbreidende dossiermigratie van BL-030 en BL-035 t/m BL-042 en de zelfstandige publieke interesse-inzendingen van BL-043. Bestaande antwoord-, bron-, upload-, review- en routetabellen blijven bewust bestaan naast de nieuwe dossierobjecten.
 
@@ -304,7 +304,7 @@ Eén actuele uitkomst per opname: `result`, actieve installateur- en klantminute
 | `question_key` | string | Verwijst naar key in gepinde versie |
 | `section_instance_key` | string nullable | Bij repeatables: `room-1` |
 | `value` | json | Genormaliseerde waarde |
-| `prefill_source` | string nullable | Herkomst: o.a. `installer`, `pdok`, `ai` (sterk afgeleid) of `ai_suggestion` (nog te controleren). De gepinde template bepaalt of een bronvraag zichtbaar blijft; airco v10 slaat eenduidige installateursprefill over. `null` bij normale klantinvoer. Zie [intake-engine.md § Prefill](intake-engine.md#prefill-van-bekende-gegevens-bl-016). |
+| `prefill_source` | string nullable | Herkomst: o.a. `installer`, `pdok`, `epo`, `request_text` (sterk en lokaal uit de openingszin), `ai` (sterk afgeleid) of `ai_suggestion` (nog te controleren). De gepinde template bepaalt of een bronvraag zichtbaar blijft; de stepbuilder behandelt `request_text` als sterke tekstafleiding voor bestaande v9/v10-opnames. `null` bij normale klantinvoer. Zie [intake-engine.md § Prefill](intake-engine.md#prefill-van-bekende-gegevens-bl-016). |
 | `answered_at` | timestamp | |
 
 Unique: `(intake_id, question_key, section_instance_key)`.  

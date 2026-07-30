@@ -6,6 +6,7 @@ namespace App\Domains\AI\Actions;
 
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\AiGateway;
+use App\Domains\AI\Services\LocalRequestIntentParser;
 use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Models\Intake;
@@ -13,6 +14,8 @@ use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeAnswer;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
+use App\Enums\IntakeStatus;
+use App\Enums\QuestionType;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -23,20 +26,22 @@ use Throwable;
  * Leidt uit de openingsvraag af wat de aanvrager daar al heeft verteld.
  *
  * "Slaapkamer en woonkamer worden te warm in de zomer" beantwoordt drie vragen die de
- * wizard daarna nog stelde: wat er moet gebeuren (koelen), hoeveel binnenunits (twee) en
+ * wizard daarna nog stelde: wat er moet gebeuren (koelen), hoeveel ruimtes (twee) en
  * om welke ruimtes het gaat (slaapkamer, woonkamer). Dat opnieuw vragen is precies wat het
  * ontwerpprincipe verbiedt.
  *
  * Zekerheid werkt zoals bij de foto-afleiding: `high` laat de vraag vervallen, `medium`
  * levert een bevestigbare voorzet, `low` doet niets. De prompt mag alleen `high` kiezen
  * wanneer de aanvrager de ruimtes expliciet noemt — "het is warm boven" is geen opdracht
- * voor twee units.
+ * voor twee ruimtes.
  */
 final class DeriveIntentFromRequest
 {
     public const SOURCE_DERIVED = 'ai';
 
     public const SOURCE_SUGGESTED = 'ai_suggestion';
+
+    public const SOURCE_REQUEST_TEXT = 'request_text';
 
     private const SOURCE_QUESTION = 'request_reason';
 
@@ -46,18 +51,33 @@ final class DeriveIntentFromRequest
     public function __construct(
         private readonly AiGateway $aiGateway,
         private readonly PromptVersionRepository $promptVersions,
+        private readonly LocalRequestIntentParser $localParser,
         private readonly SaveIntakeAnswer $saveIntakeAnswer,
     ) {}
 
-    public function handle(Intake $intake): ?AiRun
+    public function handle(Intake $intake, bool $allowExternal = true): ?AiRun
     {
-        if ($intake->is_demo || ! (bool) config('ai.text_inference.enabled', false)) {
+        if ($intake->is_demo || ! in_array($intake->status, [
+            IntakeStatus::Draft,
+            IntakeStatus::Sent,
+            IntakeStatus::InProgress,
+        ], true)) {
             return null;
         }
 
         $reason = $this->requestReason($intake);
 
         if ($reason === null) {
+            return null;
+        }
+
+        $localOutput = $this->localParser->parse($reason);
+
+        if ($localOutput !== null) {
+            return $this->recordLocalResult($intake, $reason, $localOutput);
+        }
+
+        if (! $allowExternal || ! (bool) config('ai.text_inference.enabled', false)) {
             return null;
         }
 
@@ -112,21 +132,14 @@ final class DeriveIntentFromRequest
             ]);
 
             $run = $run->fresh() ?? $run;
-            $applied = $this->apply($intake, $output);
+            $applied = $this->apply(
+                $intake,
+                $output,
+                self::SOURCE_DERIVED,
+                self::SOURCE_SUGGESTED,
+            );
 
-            IntakeActivityEvent::query()->create([
-                'intake_id' => $intake->id,
-                'actor_type' => 'system',
-                'actor_id' => null,
-                'event' => 'request_intent_derived',
-                // Sleutels en zekerheid, nooit de vrije tekst zelf (ADR-0002).
-                'properties' => [
-                    'ai_run_id' => $run->id,
-                    'confidence' => $output['confidence'],
-                    'question_keys' => $applied,
-                ],
-                'created_at' => now(),
-            ]);
+            $this->recordActivity($intake, $run, $output, $applied);
 
             return $run;
         } catch (Throwable $exception) {
@@ -138,6 +151,91 @@ final class DeriveIntentFromRequest
 
             return $run->fresh() ?? $run;
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $output
+     */
+    private function recordLocalResult(Intake $intake, string $reason, array $output): AiRun
+    {
+        $inputHash = hash('sha256', (string) json_encode([
+            'parser_version' => LocalRequestIntentParser::VERSION,
+            'request_reason' => $reason,
+        ], JSON_THROW_ON_ERROR));
+
+        $existing = AiRun::query()
+            ->where('intake_id', $intake->id)
+            ->where('type', AiRunType::RequestIntent)
+            ->where('input_hash', $inputHash)
+            ->where('status', AiRunStatus::Succeeded)
+            ->latest('id')
+            ->first();
+
+        if ($existing instanceof AiRun) {
+            return $existing;
+        }
+
+        $run = AiRun::query()->create([
+            'intake_id' => $intake->id,
+            'type' => AiRunType::RequestIntent,
+            'provider' => 'local',
+            'model' => LocalRequestIntentParser::VERSION,
+            'prompt_version' => LocalRequestIntentParser::VERSION,
+            'input_hash' => $inputHash,
+            'output' => null,
+            'status' => AiRunStatus::Pending,
+            'started_at' => now(),
+        ]);
+
+        try {
+            $applied = $this->apply(
+                $intake,
+                $output,
+                self::SOURCE_REQUEST_TEXT,
+                self::SOURCE_REQUEST_TEXT,
+            );
+            $run->update([
+                'output' => $output,
+                'status' => AiRunStatus::Succeeded,
+                'error_message' => null,
+                'finished_at' => now(),
+            ]);
+
+            $run = $run->fresh() ?? $run;
+            $this->recordActivity($intake, $run, $output, $applied);
+
+            return $run;
+        } catch (Throwable $exception) {
+            $run->update([
+                'status' => AiRunStatus::Failed,
+                'error_message' => Str::limit($exception->getMessage(), 1000, ''),
+                'finished_at' => now(),
+            ]);
+
+            return $run->fresh() ?? $run;
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $output
+     * @param  list<string>  $applied
+     */
+    private function recordActivity(Intake $intake, AiRun $run, array $output, array $applied): void
+    {
+        IntakeActivityEvent::query()->create([
+            'intake_id' => $intake->id,
+            'actor_type' => 'system',
+            'actor_id' => null,
+            'event' => 'request_intent_derived',
+            // Sleutels en zekerheid, nooit de vrije tekst zelf (ADR-0002).
+            'properties' => [
+                'ai_run_id' => $run->id,
+                'provider' => $run->provider,
+                'confidence' => $output['confidence'],
+                'question_keys' => $applied,
+            ],
+            'created_at' => now(),
+        ]);
     }
 
     private function requestReason(Intake $intake): ?string
@@ -188,15 +286,19 @@ final class DeriveIntentFromRequest
      * @param  array<string, mixed>  $output
      * @return list<string>
      */
-    private function apply(Intake $intake, array $output): array
-    {
+    private function apply(
+        Intake $intake,
+        array $output,
+        string $derivedSource,
+        string $suggestedSource,
+    ): array {
         $confidence = (string) $output['confidence'];
 
         if ($confidence === 'low') {
             return [];
         }
 
-        $source = $confidence === 'high' ? self::SOURCE_DERIVED : self::SOURCE_SUGGESTED;
+        $source = $confidence === 'high' ? $derivedSource : $suggestedSource;
         $applied = [];
 
         if ($output['cooling_heating'] !== 'unknown'
@@ -207,6 +309,10 @@ final class DeriveIntentFromRequest
 
         /** @var list<string> $rooms */
         $rooms = array_values($output['rooms']);
+        $floorLevel = $output['floor_level'] ?? null;
+        $floorLevelAnswer = $floorLevel === 'attic'
+            ? $this->floorLevelAnswer($intake, $floorLevel)
+            : null;
 
         if ($rooms === []) {
             return $applied;
@@ -222,15 +328,53 @@ final class DeriveIntentFromRequest
         foreach ($rooms as $index => $roomType) {
             $instanceKey = 'room-'.($index + 1);
 
-            if (! $this->mayWrite($intake, 'room_type', $instanceKey)) {
-                continue;
+            if ($this->mayWrite($intake, 'room_type', $instanceKey)) {
+                $this->saveIntakeAnswer->handle($intake, 'room_type', $instanceKey, ['value' => $roomType], $source);
+                $applied[] = 'room_type@'.$instanceKey;
             }
 
-            $this->saveIntakeAnswer->handle($intake, 'room_type', $instanceKey, ['value' => $roomType], $source);
-            $applied[] = 'room_type@'.$instanceKey;
+            if ($floorLevelAnswer !== null
+                && $this->mayWrite($intake, 'floor_level', $instanceKey)) {
+                $this->saveIntakeAnswer->handle($intake, 'floor_level', $instanceKey, $floorLevelAnswer, $source);
+                $applied[] = 'floor_level@'.$instanceKey;
+            }
         }
 
         return $applied;
+    }
+
+    /**
+     * Ondersteunt ook oudere gepinde templates waarin `floor_level` nog vrije tekst was.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function floorLevelAnswer(Intake $intake, string $floorLevel): ?array
+    {
+        $intake->loadMissing('templateVersion.sections.questions');
+
+        foreach ($intake->templateVersion->sections as $section) {
+            foreach ($section->questions as $question) {
+                if ($question->key !== 'floor_level') {
+                    continue;
+                }
+
+                if ($question->type === QuestionType::SingleChoice) {
+                    $optionExists = $question->options()
+                        ->where('value', $floorLevel)
+                        ->exists();
+
+                    return $optionExists ? ['value' => $floorLevel] : null;
+                }
+
+                if (in_array($question->type, [QuestionType::ShortText, QuestionType::LongText], true)) {
+                    return ['text' => 'Zolder'];
+                }
+
+                return null;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -252,6 +396,10 @@ final class DeriveIntentFromRequest
             return true;
         }
 
-        return in_array($existing->prefill_source, [self::SOURCE_DERIVED, self::SOURCE_SUGGESTED], true);
+        return in_array($existing->prefill_source, [
+            self::SOURCE_DERIVED,
+            self::SOURCE_SUGGESTED,
+            self::SOURCE_REQUEST_TEXT,
+        ], true);
     }
 }

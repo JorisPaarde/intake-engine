@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Installer;
 
+use App\Domains\AI\Actions\DeriveIntentFromRequest;
 use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Actions\EnrichIntakeAddress;
 use App\Domains\Intake\Actions\RegenerateIntakeAccessToken;
@@ -91,10 +92,12 @@ class IntakeController extends Controller
     public function store(
         StoreIntakeRequest $request,
         CreateIntake $createIntake,
+        DeriveIntentFromRequest $deriveIntentFromRequest,
         EnrichIntakeAddress $enrichIntakeAddress,
         SendCustomerIntakeLink $sendCustomerIntakeLink,
     ): RedirectResponse {
         $intake = $createIntake->handle($request->user(), $request->validated());
+        $deriveIntentFromRequest->handle($intake);
         $enrichIntakeAddress->handle($intake, $request->validated('address_lookup_id'));
 
         if ($intake->workflow_mode === ContributionMode::Installer) {

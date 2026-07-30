@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Enums\IntakeStatus;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
@@ -154,6 +155,48 @@ test('installer can pre-fill known request answers at creation', function () {
         ->and($cooling->value)->toBe(['value' => 'cooling'])
         ->and($cooling->prefill_source)->toBe('installer')
         ->and($intake->answers()->where('question_key', 'brand_preference')->exists())->toBeFalse();
+});
+
+test('installer opening text is applied before the customer receives the intake', function () {
+    config(['ai.provider' => 'null', 'ai.text_inference.enabled' => false]);
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->post(route('intakes.store'), [
+        'template_key' => 'airco',
+        'customer_name' => 'Zolder Klant',
+        'customer_email' => 'zolder@example.com',
+        'address_line' => 'Testlaan 13',
+        'address_postal_code' => '1000AA',
+        'address_house_number' => 13,
+        'address_city' => 'Amsterdam',
+        'prefill' => [
+            'request_reason' => 'Ik wil twee airco’s om m’n slaapkamers op zolder te koelen.',
+        ],
+    ]);
+
+    $intake = Intake::query()->where('customer_email', 'zolder@example.com')->firstOrFail();
+    $version = $intake->templateVersion()
+        ->with(['sections.questions.options', 'sections.questions.rules'])
+        ->firstOrFail();
+    $steps = collect(app(IntakeStepBuilder::class)->build($intake->fresh(), $version))
+        ->pluck('question_key');
+
+    expect($intake->answers()->where('question_key', 'cooling_heating')->firstOrFail()->value)
+        ->toBe(['value' => 'cooling'])
+        ->and($intake->answers()->where('question_key', 'indoor_unit_count')->firstOrFail()->value)
+        ->toBe(['number' => 2])
+        ->and($intake->answers()->where('question_key', 'room_type')->where('section_instance_key', 'room-1')->firstOrFail()->value)
+        ->toBe(['value' => 'bedroom'])
+        ->and($intake->answers()->where('question_key', 'room_type')->where('section_instance_key', 'room-2')->firstOrFail()->value)
+        ->toBe(['value' => 'bedroom'])
+        ->and($intake->answers()->where('question_key', 'floor_level')->where('section_instance_key', 'room-1')->firstOrFail()->value)
+        ->toBe(['value' => 'attic'])
+        ->and($intake->answers()->where('question_key', 'floor_level')->where('section_instance_key', 'room-2')->firstOrFail()->value)
+        ->toBe(['value' => 'attic'])
+        ->and($steps)->not->toContain('cooling_heating')
+        ->and($steps)->not->toContain('indoor_unit_count')
+        ->and($steps)->not->toContain('room_type')
+        ->and($steps)->not->toContain('floor_level');
 });
 
 test('installer pre-fill ignores questions that are not prefillable', function () {

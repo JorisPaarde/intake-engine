@@ -201,28 +201,29 @@
 
                     <section id="demo-context" class="scroll-mt-6 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
                         <div>
-                            <h3 class="text-lg font-semibold text-gray-950">Bekende woningcontext</h3>
-                            <p class="mt-1 text-sm text-gray-500">BAG, luchtfoto, EP-Online en 3DBAG staan al in het dossier; alleen gemarkeerde uitzonderingen vragen aandacht.</p>
+                            <h3 class="text-lg font-semibold text-gray-950">Automatisch voor u gevonden</h3>
+                            <p class="mt-1 text-sm text-gray-500">Alleen woninggegevens die helpen bij de beoordeling. De volledige brondata blijft in het dossier bewaard.</p>
                         </div>
-                        <div class="mt-5 grid gap-4 sm:grid-cols-2">
-                            @if ($externalData['aerial_image'])
-                                <figure class="overflow-hidden rounded-2xl border border-gray-200">
+                        <dl class="mt-5 grid gap-3 sm:grid-cols-2">
+                            @forelse ($externalData['facts'] as $fact)
+                                <div class="rounded-xl bg-gray-50 px-3 py-2">
+                                    <dt class="text-xs font-medium text-gray-500">{{ $fact['label'] }}</dt>
+                                    <dd class="mt-0.5 text-sm font-semibold text-gray-900">{{ $fact['display'] }}</dd>
+                                    <dd class="text-xs text-gray-500">{{ $fact['source'] }} · {{ $fact['confidence'] }}</dd>
+                                </div>
+                            @empty
+                                <p class="text-sm text-gray-500">Nog geen relevante woninggegevens gevonden.</p>
+                            @endforelse
+                        </dl>
+                        @if ($externalData['aerial_image'])
+                            <details class="mt-4 overflow-hidden rounded-2xl border border-gray-200 bg-gray-50">
+                                <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-gray-800">Luchtfoto van de omgeving bekijken</summary>
+                                <figure class="border-t border-gray-200 bg-white">
                                     <img src="{{ $externalData['aerial_image']['data_uri'] }}" alt="Luchtfoto van de woningomgeving" class="aspect-[3/2] w-full object-cover">
                                     <figcaption class="px-3 py-2 text-xs text-gray-500">{{ $externalData['aerial_image']['source'] }} · {{ $externalData['aerial_image']['confidence'] }}</figcaption>
                                 </figure>
-                            @endif
-                            <dl class="grid content-start gap-3">
-                                @forelse ($externalData['facts'] as $fact)
-                                    <div class="rounded-xl bg-gray-50 px-3 py-2">
-                                        <dt class="text-xs font-medium text-gray-500">{{ $fact['label'] }}</dt>
-                                        <dd class="mt-0.5 text-sm font-semibold text-gray-900">{{ $fact['display'] }}</dd>
-                                        <dd class="text-xs text-gray-500">{{ $fact['source'] }} · {{ $fact['confidence'] }}</dd>
-                                    </div>
-                                @empty
-                                    <p class="text-sm text-gray-500">De automatische woningcontext is nog niet beschikbaar.</p>
-                                @endforelse
-                            </dl>
-                        </div>
+                            </details>
+                        @endif
                         @if ($externalData['uncertainties'] !== [])
                             <details class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
                                 <summary class="cursor-pointer text-sm font-semibold text-amber-950">{{ count($externalData['uncertainties']) }} bronbeperking(en)</summary>

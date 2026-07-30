@@ -71,34 +71,9 @@
                     $addressVerificationStatus = $addressVerification?->value['status'] ?? null;
                 @endphp
                 <div>
-                    <h3 class="break-words text-base font-semibold text-gray-900">Automatisch verzamelde informatie</h3>
-                    <p class="mt-1 text-xs text-gray-500">Bron en zekerheid blijven zichtbaar; onzekere gegevens vragen om controle.</p>
+                    <h3 class="break-words text-base font-semibold text-gray-900">Automatisch voor u gevonden</h3>
+                    <p class="mt-1 text-xs text-gray-500">Alleen gegevens die helpen bij de beoordeling. De volledige brondata blijft in het dossier bewaard.</p>
                 </div>
-
-                @if ($externalData['aerial_image'])
-                    <figure class="max-w-3xl space-y-2">
-                        <div class="relative aspect-[3/2] overflow-hidden rounded-md border border-gray-200 bg-gray-100">
-                            <img
-                                src="{{ $externalData['aerial_image']['data_uri'] }}"
-                                alt="Luchtfoto rond de BAG-locatie van deze opname"
-                                class="h-full w-full object-cover"
-                            >
-                            <span class="pointer-events-none absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-red-600 shadow" aria-hidden="true"></span>
-                        </div>
-                        <figcaption class="text-xs text-gray-500">
-                            Rode markering: BAG-locatie
-                            @if ($externalData['aerial_image']['ground_width_meters'] && $externalData['aerial_image']['ground_height_meters'])
-                                · circa {{ $externalData['aerial_image']['ground_width_meters'] }} × {{ $externalData['aerial_image']['ground_height_meters'] }} meter
-                            @endif
-                            · Bron:
-                            @if ($externalData['aerial_image']['source_url'])
-                                <a href="{{ $externalData['aerial_image']['source_url'] }}" target="_blank" rel="noopener" class="underline hover:text-gray-700">{{ $externalData['aerial_image']['source'] }}</a>
-                            @else
-                                {{ $externalData['aerial_image']['source'] }}
-                            @endif
-                        </figcaption>
-                    </figure>
-                @endif
 
                 @if ($externalData['facts'] !== [])
                     <dl class="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
@@ -118,7 +93,40 @@
                         @endforeach
                     </dl>
                 @else
-                    <p class="text-sm text-gray-500">Nog geen externe gegevens beschikbaar.</p>
+                    <p class="text-sm text-gray-500">Nog geen relevante woninggegevens gevonden.</p>
+                @endif
+
+                @if ($externalData['aerial_image'])
+                    <details class="group rounded-lg border border-gray-200 bg-gray-50">
+                        <summary class="cursor-pointer list-none px-4 py-3 text-sm font-medium text-gray-800">
+                            <span class="inline-flex items-center gap-2">
+                                <span>Luchtfoto van de omgeving bekijken</span>
+                                <span class="text-gray-400 transition group-open:rotate-180" aria-hidden="true">⌄</span>
+                            </span>
+                        </summary>
+                        <figure class="space-y-2 border-t border-gray-200 p-4">
+                            <div class="relative aspect-[3/2] max-w-3xl overflow-hidden rounded-md border border-gray-200 bg-gray-100">
+                                <img
+                                    src="{{ $externalData['aerial_image']['data_uri'] }}"
+                                    alt="Luchtfoto rond de BAG-locatie van deze opname"
+                                    class="h-full w-full object-cover"
+                                >
+                                <span class="pointer-events-none absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-red-600 shadow" aria-hidden="true"></span>
+                            </div>
+                            <figcaption class="text-xs text-gray-500">
+                                Omgevingsbeeld met de BAG-locatie rood gemarkeerd
+                                @if ($externalData['aerial_image']['ground_width_meters'] && $externalData['aerial_image']['ground_height_meters'])
+                                    · circa {{ $externalData['aerial_image']['ground_width_meters'] }} × {{ $externalData['aerial_image']['ground_height_meters'] }} meter
+                                @endif
+                                ·
+                                @if ($externalData['aerial_image']['source_url'])
+                                    <a href="{{ $externalData['aerial_image']['source_url'] }}" target="_blank" rel="noopener" class="underline hover:text-gray-700">{{ $externalData['aerial_image']['source'] }}</a>
+                                @else
+                                    {{ $externalData['aerial_image']['source'] }}
+                                @endif
+                            </figcaption>
+                        </figure>
+                    </details>
                 @endif
 
                 @if ($externalData['uncertainties'] !== [])
