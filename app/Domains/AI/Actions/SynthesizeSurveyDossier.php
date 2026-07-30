@@ -244,7 +244,7 @@ final class SynthesizeSurveyDossier
             ->merge(collect($this->arrayRows($input['subjects'] ?? null))->pluck('reference'))
             ->merge($rooms->pluck('subject_reference'))
             ->merge(collect($this->arrayRows($input['dossier_records'] ?? null))->pluck('subject_reference'))
-            ->filter('is_string')
+            ->filter(static fn (mixed $reference): bool => is_string($reference))
             ->unique()
             ->values()
             ->all();
