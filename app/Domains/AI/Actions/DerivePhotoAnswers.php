@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\AI\Actions;
 
+use App\Domains\AI\DTOs\AiImageInput;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\AiGateway;
 use App\Domains\AI\Services\AiImageResolver;
@@ -276,7 +277,7 @@ final class DerivePhotoAnswers
 
     /**
      * @param  Collection<int, IntakeUpload>  $uploads
-     * @return list<\App\Domains\AI\DTOs\AiImageInput>
+     * @return list<AiImageInput>
      */
     private function imageInputs(Collection $uploads): array
     {

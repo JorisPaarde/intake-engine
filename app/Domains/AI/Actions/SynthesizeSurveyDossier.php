@@ -38,6 +38,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -113,7 +114,7 @@ final class SynthesizeSurveyDossier
                 $currentInput['image_manifest'] = $this->imageManifest($this->imageUploads($locked));
 
                 if (! hash_equals($inputHash, $this->hash($currentInput, $promptVersion, $model))) {
-                    throw new \RuntimeException('Opnamedossier gewijzigd tijdens AI-synthese; resultaat niet toegepast.');
+                    throw new RuntimeException('Opnamedossier gewijzigd tijdens AI-synthese; resultaat niet toegepast.');
                 }
 
                 $this->replaceProposals($locked, $run, $output);
@@ -371,15 +372,20 @@ final class SynthesizeSurveyDossier
         }
     }
 
-    /** @param array<string, mixed> $input
-     *  @return list<string>
+    /**
+     * @param  array<string, mixed>  $input
+     * @return list<string>
      */
     private function allReferences(array $input): array
     {
         $references = [];
-        $walk = function (mixed $value) use (&$walk, &$references): void {
+        $remaining = [$input];
+
+        while ($remaining !== []) {
+            $value = array_pop($remaining);
+
             if (! is_array($value)) {
-                return;
+                continue;
             }
 
             foreach ($value as $key => $item) {
@@ -388,10 +394,12 @@ final class SynthesizeSurveyDossier
                     && $item !== '') {
                     $references[] = $item;
                 }
-                $walk($item);
+
+                if (is_array($item)) {
+                    $remaining[] = $item;
+                }
             }
-        };
-        $walk($input);
+        }
 
         return array_values(array_unique($references));
     }
