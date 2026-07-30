@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Fixed
+
+- **Hervatbare MySQL-dossiermigratie (BL-044):** de centrale dossiermigration kan na een door MySQL gedeeltelijk vastgelegde DDL-run veilig opnieuw starten zonder dubbele kolommen, tabellen of bewijslinks. De twee automatisch afgeleide foreign-keynamen die MySQLs limiet van 64 tekens overschreden hebben expliciete korte namen; CI voert voortaan naast de SQLite-tests ook een verse én hervatte MySQL-migratiesmoke uit.
+
 ### Added
 
 - **Publieke productfunnel en interesse-CTA (BL-043):** de homepage leidt airco-installateurs van herkenbaar opnameverlies naar werkwijze, afzonderlijke voordelen voor installateur en klant, fictieve productweergaven, demo, FAQ en een pilotformulier. Geldige inzendingen worden rate-limited zonder IP-opslag in `product_interests` bewaard, optioneel via de bestaande queue naar een intern mailadres gemeld en standaard na 365 dagen automatisch verwijderd.

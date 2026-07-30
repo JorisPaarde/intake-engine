@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.3 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.4 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -51,6 +51,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-030 | Foto-varianten: dossier + AI-analyse (JPEG, tokens/storage) | E9 | done | high | H (done) |
 | ∥ | BL-001 | Demo-versie van de app | E5 | in_progress | medium | A · operationeel |
 | — | BL-043 | Publieke productfunnel en interesse-CTA | E5 | done | medium | A (done) |
+| — | BL-044 | Hervatbare MySQL-dossiermigratie | E5 | done | high | deployherstel (done) |
 | ∥ | BL-013 | S3 als mediadisk | E5 | backlog | low | I · operationeel |
 | — | BL-029 | Begeleide leidingroute volgens één globale routeflow | E4 | dropped | high | Vervangen door ADR-0012 / BL-040; backend blijft |
 | — | BL-034 | Splitconfiguratie als installateursaandachtspunt | E4 | done | medium | H (done) |
@@ -427,6 +428,13 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Acceptatie:** demo blijft primair productbewijs; formulier blijft bruikbaar zonder SMTP; fout/succes is toegankelijk en Nederlandstalig; geen technische klantdata of intake wordt aangemaakt; desktop/mobiele staging-smoke staat als `todo` in de teststatus.
 - **Resultaat:** volledige funnel, twee responsieve productweergaven met synthetisch bewijs, werkende interesseopslag/notificatie/purge, env-documentatie en featuretests zijn geleverd.
 
+### BL-044 — Hervatbare MySQL-dossiermigratie
+
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-30 · **PR:** deze PR · **Epic:** E5
+- **Aanleiding:** de dossiermigration bestond uit meerdere MySQL-DDL-stappen. MySQL legde de eerste kolommen en tabellen direct vast, maar Laravel registreerde de migration niet nadat een automatisch gegenereerde foreign-keynaam boven de limiet van 64 tekens faalde. Een herstart stopte daardoor al op de bestaande kolom `workflow_mode`.
+- **Doel:** herstel staging uitsluitend via reproduceerbare code en voorkom dat dezelfde fout bij een nieuwe database of latere onderbreking terugkomt.
+- **Resultaat:** alle kolom- en tabelstappen van de dossiermigration zijn hervatbaar; de bewijsbackfill is idempotent; de twee lange foreign keys hebben expliciete korte namen. Een regressietest voert dezelfde migration tweemaal uit en CI draait iedere PR ook met een verse MySQL 8.4-database, verwijdert daarna bewust alleen de migrationregistratie en bewijst dat hervatten slaagt.
+
 ### BL-009 — Purge-job voor soft-deleted intakes
 
 - **Status:** done · **Prioriteit:** low · **Datum:** 2026-07-18 · **PR:** #26 · **Ref:** `docs/database.md` (bewaartermijn)
@@ -520,6 +528,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 | ID | Datum | Resultaat / PR |
 |----|-------|----------------|
+| BL-044 | 2026-07-30 | deze PR — hervatbare dossiermigration + MySQL-migratiesmoke |
 | BL-030/035–042 | 2026-07-30 | deze PR — dossierkern, beeldvarianten, drie workflows, airco-opstellingen/verbindingen, AI-synthese en uitkomstmetrics |
 | BL-029 | 2026-07-30 | oorspronkelijke globale route-UI vervallen; backend behouden en vervolg onder BL-040 |
 | BL-010 | 2026-07-21 | deze wijziging — gescheiden staging/production + productionworkflow |

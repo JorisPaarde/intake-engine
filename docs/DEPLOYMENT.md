@@ -1,6 +1,6 @@
 # Deployment naar cPanel (staging + production)
 
-> **Documentversie:** 2.10 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.11 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 **Statusregel:** staging en production zijn fysiek en logisch gescheiden; open handmatige acties (env/host) staan in [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
 
@@ -155,6 +155,8 @@ Geen supervisor op cPanel; `--stop-when-empty --max-time=50` per minuut is de pr
 **Niet** in deploy: `DatabaseSeeder` / `DemoIntakeSeeder` (demo-users en demo-intakes blijven handmatig of alleen lokaal).
 
 Templatewijzigingen: bump de versie in `database/data/templates/airco/` en laat de seeder een nieuwe published version aanmaken — in-place edits van een gepubliceerde versie gebeuren niet.
+
+MySQL commit DDL-stappen zoals `ALTER TABLE` ook wanneer een latere stap in dezelfde Laravel-migration faalt. Daarom moeten migrations met meerdere DDL-stappen niet alleen uitbreidend maar ook hervatbaar zijn: controleer per stap `Schema::hasColumn()` / `Schema::hasTable()`, gebruik bij lange tabel- en kolomnamen een expliciete constraintnaam van maximaal 64 tekens en maak eventuele backfill idempotent. De CI-poort draait hiervoor naast de gewone SQLite-suite een volledige `migrate:fresh` tegen MySQL 8.4 en voert de dossiermigration daarna nogmaals uit alsof haar registratie na een onderbreking ontbreekt.
 
 ## Deployen
 
