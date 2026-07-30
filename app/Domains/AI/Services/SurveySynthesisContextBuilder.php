@@ -72,7 +72,8 @@ final class SurveySynthesisContextBuilder
                         'method' => $record->method,
                         'confidence' => $record->confidence,
                         'status' => $record->status->value,
-                    ]))
+                    ])
+                    ->all())
                 ->values()
                 ->all(),
             'rooms' => $intake->aircoRooms
