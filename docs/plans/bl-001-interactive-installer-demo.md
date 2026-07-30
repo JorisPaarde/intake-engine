@@ -1,6 +1,6 @@
 # BL-001 — Interactieve installateursdemo
 
-> **Documentversie:** 1.2 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../../AGENTS.md)
+> **Documentversie:** 1.3 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../../AGENTS.md)
 
 **Implementatiestatus:** codegereed in deze PR; BL-001 blijft `in_progress` tot de afzonderlijke staging- en mobiele visuele smoke is uitgevoerd.
 
@@ -10,8 +10,8 @@ De publieke demo gebruikt geen aparte nepflow en begint niet langer in de volled
 
 De kennismaking bestaat uit twee lagen:
 
-1. De homepage leidt bezoekers via probleem, werkwijze, voordelen, fictieve productweergaven, FAQ en de pilot-CTA naar passend bewijs of contact (BL-043).
-2. **Probeer de interactieve demo** opent dezelfde routes, policies, modellen, formulieren en dossierlogica als een normale installateur.
+1. De homepage leidt bezoekers via probleem, werkwijze, voordelen, fictieve productweergaven, FAQ en de pilot-CTA naar passend bewijs of contact (BL-043/045).
+2. **Probeer de demo** opent dezelfde routes, policies, modellen, formulieren en dossierlogica als een normale installateur.
 
 ## Verkoopverhaal
 
@@ -60,7 +60,7 @@ De voorbeeldopname laat in enkele minuten zien dat:
 
 ### Homepage
 
-- Hoofd-CTA: **Probeer de interactieve demo**.
+- Hoofd-CTA: **Probeer de demo**.
 - Korte belofte: dezelfde installateursomgeving, vooraf gevuld, geen account nodig, automatisch verwijderd.
 - Responsieve productweergaven tonen woningcontext, beeldbewijs, installatievoorstel, afzonderlijke verbindingen, uitzonderingsactie en de gerichte mobiele klanttaak met uitsluitend fictieve demo-inhoud.
 - De productuitleg beschrijft zowel klant-, installateur- als hybride opname; niet alleen “stuur een link”.

@@ -28,6 +28,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
+- **Eenvoudige installateurstaal op de productfunnel (BL-045):** de homepage opent nu met één herkenbare belofte, legt de werking uit in drie gewone stappen en schrapt dubbele en technische uitleg. De productbeelden, demo en pilot-CTA blijven staan; voordelen voor installateur en klant zijn teruggebracht tot korte, scanbare uitkomsten zonder onbewezen besparingscijfers.
 - De publieke demo opent niet langer de volledige klantvragenlijst. Zij gebruikt rechtstreeks `intakes.workspace`, dezelfde policies en domeinservices als de installateurflow, en toont alleen bij één beslissende uitzondering de bestaande afgeschermde klanttaakweergave. Een aparte sessiegrens houdt de tijdelijke gebruiker binnen dit ene demodossier en blokkeert normale aanmaak-, instellingen-, profiel-, metrics- en dev-routes.
 - Hoofddoel en ontwerpprincipe zijn door de producteigenaar herijkt: optimaliseren op totale opnamearbeid, actieve installateurstijd, vermeden onnodige ritten en onderbouwde offerte/plaatsing; de vragenlijst is voortaan een invoerlaag van de centrale opname.
 - BL-029/ADR-0009 zijn herijkt en ingebed in BL-040. Iedere routesessie hoort nu bij precies één concrete koel-, condens- of stroomverbinding. Nieuw bewijs heropent een eerder beoordeelde route; Terra analyseert per segment en Sol krijgt bij lage zekerheid of een onderbroken route alleen de relevante analysekopieën.

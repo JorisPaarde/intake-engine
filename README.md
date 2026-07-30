@@ -1,6 +1,6 @@
 # Intake Engine (Digitale Opname)
 
-> **Documentversie:** 2.3 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](AGENTS.md)
+> **Documentversie:** 2.4 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](AGENTS.md)
 
 **Werk je als agent aan dit project? Lees eerst [AGENTS.md](AGENTS.md)** — het projectgeheugen, de documentkaart en het onderhoudsprotocol.
 
@@ -66,7 +66,7 @@ Branching, kwaliteitspoort en overige werkafspraken: [AGENTS.md § Werkafspraken
 
 De publieke homepage is een productfunnel voor airco-installateurs: probleem en werkwijze, afzonderlijke voordelen voor installateur en klant, productweergaven met fictieve demo-inhoud, FAQ, interactieve demo en een interesseformulier voor een pilot.
 
-Een gast kan vanaf `/` zonder account **Probeer de interactieve demo** kiezen. De app maakt per start een eigen tijdelijk installatiebedrijf en gebruiker, logt de bezoeker daarin in en opent rechtstreeks de echte installateurswerkplek met een volledig fictieve voorbeeldopname.
+Een gast kan vanaf `/` zonder account **Probeer de demo** kiezen. De app maakt per start een eigen tijdelijk installatiebedrijf en gebruiker, logt de bezoeker daarin in en opent rechtstreeks de echte installateurswerkplek met een volledig fictieve voorbeeldopname.
 
 - dezelfde dossier-, tenant-, upload- en klanttaaklogica als productie;
 - vooraf berekende BAG-/luchtfoto-/EP-Online-/3DBAG- en AI-voorbeelddata;

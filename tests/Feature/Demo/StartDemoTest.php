@@ -226,12 +226,12 @@ it('shows the start demo button on the homepage when enabled', function () {
 
     $this->get('/')
         ->assertOk()
-        ->assertSee('Probeer de interactieve demo', false)
-        ->assertSee('Minder voorbezoeken. Sneller een offerte die klopt.', false)
-        ->assertSee('Voor de installateur', false)
-        ->assertSee('Voor de klant', false)
-        ->assertSee('Productweergave met volledig fictieve demo-inhoud', false)
-        ->assertSee('Ik wil kennismaken', false);
+        ->assertSee('Probeer de demo', false)
+        ->assertSee('Geen voorbezoek voor één ontbrekende foto.', false)
+        ->assertSee('Voor jou', false)
+        ->assertSee('Voor je klant', false)
+        ->assertSee('Fictieve voorbeeldopname.', false)
+        ->assertSee('Ik wil een pilot proberen', false);
 });
 
 it('hides the start demo button for authenticated users', function () {
@@ -242,7 +242,7 @@ it('hides the start demo button for authenticated users', function () {
     $this->actingAs($user)
         ->get('/')
         ->assertOk()
-        ->assertDontSee('Probeer de interactieve demo', false)
+        ->assertDontSee('Probeer de demo', false)
         ->assertSee('Open dashboard', false)
         ->assertDontSee('Geen account nodig', false);
 });
@@ -294,7 +294,7 @@ it('enables demo by default when DEMO_ENABLED is unset', function () {
 
     $this->get('/')
         ->assertOk()
-        ->assertSee('Probeer de interactieve demo', false);
+        ->assertSee('Probeer de demo', false);
 });
 
 it('hides the start demo button when demo mode is disabled', function () {
@@ -302,8 +302,7 @@ it('hides the start demo button when demo mode is disabled', function () {
 
     $this->get('/')
         ->assertOk()
-        ->assertDontSee('Probeer de interactieve demo', false)
-        ->assertDontSee('Start de demo', false);
+        ->assertDontSee('Probeer de demo', false);
 });
 
 it('hides demo intakes from a regular installer dashboard', function () {

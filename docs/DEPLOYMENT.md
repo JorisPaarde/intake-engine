@@ -1,6 +1,6 @@
 # Deployment naar cPanel (staging + production)
 
-> **Documentversie:** 2.11 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.12 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 **Statusregel:** staging en production zijn fysiek en logisch gescheiden; open handmatige acties (env/host) staan in [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
 
@@ -262,7 +262,7 @@ De server leest maximaal twee recente private meterkastfoto's van `MEDIA_DISK` e
 
 ## Publieke demo (BL-001)
 
-De CTA **Probeer de interactieve demo** staat standaard aan (`DEMO_ENABLED=true`) voor gasten. Elke start maakt een uniek tijdelijk `Company`-/`User`-paar, logt de bezoeker daarin in en opent direct de echte `intakes.workspace` met een fictieve, vooraf voorbereide airco-opname. Reguliere tenants en andere demosessies blijven door dezelfde policies afgeschermd.
+De CTA **Probeer de demo** staat standaard aan (`DEMO_ENABLED=true`) voor gasten. Elke start maakt een uniek tijdelijk `Company`-/`User`-paar, logt de bezoeker daarin in en opent direct de echte `intakes.workspace` met een fictieve, vooraf voorbereide airco-opname. Reguliere tenants en andere demosessies blijven door dezelfde policies afgeschermd.
 
 Het scenario gebruikt synthetische foto’s en vaste voorbeeldresultaten voor BAG, luchtfoto, EP-Online, 3DBAG en dossiersynthese. Die foto’s lopen bij iedere start door de normale dubbele beeldpipeline. Demo-opnames versturen geen mail/notificatie, genereren geen PDF en doen geen externe AI- of adresbroncall — ook niet als die integraties in dezelfde omgeving zijn geactiveerd.
 
