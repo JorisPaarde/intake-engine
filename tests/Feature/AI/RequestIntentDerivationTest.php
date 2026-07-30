@@ -52,7 +52,7 @@ function intentStepKeys(Intake $intake): array
 
 test('the installer sentence answers function room count type and floor locally', function () {
     $intake = makeIntentIntake();
-    answerReason($intake, "Ik wil twee airco’s om m’n slaapkamers op zolder te koelen.");
+    answerReason($intake, 'Ik wil twee airco’s om m’n slaapkamers op zolder te koelen.');
 
     $run = app(DeriveIntentFromRequest::class)->handle($intake);
 
@@ -147,7 +147,7 @@ test('opening an older customer link repairs an installer sentence before buildi
         $intake,
         'request_reason',
         null,
-        ['text' => "Ik wil twee airco’s om m’n slaapkamers op zolder te koelen."],
+        ['text' => 'Ik wil twee airco’s om m’n slaapkamers op zolder te koelen.'],
         'installer',
     );
 

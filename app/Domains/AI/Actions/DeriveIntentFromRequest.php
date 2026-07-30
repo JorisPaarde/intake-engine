@@ -291,8 +291,7 @@ final class DeriveIntentFromRequest
         array $output,
         string $derivedSource,
         string $suggestedSource,
-    ): array
-    {
+    ): array {
         $confidence = (string) $output['confidence'];
 
         if ($confidence === 'low') {

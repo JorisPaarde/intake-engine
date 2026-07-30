@@ -6,7 +6,7 @@ use App\Domains\AI\Services\LocalRequestIntentParser;
 
 test('it reads the explicit installer sentence without treating the attic as a third room', function () {
     $result = app(LocalRequestIntentParser::class)->parse(
-        "Ik wil twee airco’s om m’n slaapkamers op zolder te koelen.",
+        'Ik wil twee airco’s om m’n slaapkamers op zolder te koelen.',
     );
 
     expect($result)->not->toBeNull()

@@ -170,7 +170,7 @@ test('installer opening text is applied before the customer receives the intake'
         'address_house_number' => 13,
         'address_city' => 'Amsterdam',
         'prefill' => [
-            'request_reason' => "Ik wil twee airco’s om m’n slaapkamers op zolder te koelen.",
+            'request_reason' => 'Ik wil twee airco’s om m’n slaapkamers op zolder te koelen.',
         ],
     ]);
 
