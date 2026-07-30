@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.2 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.3 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -50,6 +50,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-042 | Uitkomstmetrics en montagefeedback | E10 | done | medium | R (done) |
 | — | BL-030 | Foto-varianten: dossier + AI-analyse (JPEG, tokens/storage) | E9 | done | high | H (done) |
 | ∥ | BL-001 | Demo-versie van de app | E5 | in_progress | medium | A · operationeel |
+| — | BL-043 | Publieke productfunnel en interesse-CTA | E5 | done | medium | A (done) |
 | ∥ | BL-013 | S3 als mediadisk | E5 | backlog | low | I · operationeel |
 | — | BL-029 | Begeleide leidingroute volgens één globale routeflow | E4 | dropped | high | Vervangen door ADR-0012 / BL-040; backend blijft |
 | — | BL-034 | Splitconfiguratie als installateursaandachtspunt | E4 | done | medium | H (done) |
@@ -410,12 +411,21 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Status:** in_progress · **Prioriteit:** medium · **Band:** A (operationeel, parallel) · **Ref:** [issue #5](https://github.com/JorisPaarde/intake-engine/issues/5)
 - **Plan:** [bl-001-interactive-installer-demo.md](plans/bl-001-interactive-installer-demo.md)
 - **Doel:** publiek of semi-publiek demopad zodat prospects/installateurs het product kunnen ervaren zonder eigen accountsetup of echte klantdata — het hoofddoel ("zo min mogelijk handelingen") toegepast op de allereerste kennismaking.
-- **Nieuwe invulling:** homepage-productvoorbeelden + **Probeer de interactieve demo** → unieke tijdelijke demo-tenant en -user → rechtstreeks naar de echte installateurswerkplek met een fictief, deels voorbereid dossier. De bezoeker kan dezelfde ruimtes, posities, opties, verbindingen, foto’s en gerichte klanttaken gebruiken als productie. Klanttoegang wordt pas actief bij één gecontroleerde taak.
+- **Nieuwe invulling:** publieke productfunnel (BL-043) met fictieve productweergaven + **Probeer de interactieve demo** → unieke tijdelijke demo-tenant en -user → rechtstreeks naar de echte installateurswerkplek met een fictief, deels voorbereid dossier. De bezoeker kan dezelfde ruimtes, posities, opties, verbindingen, foto’s en gerichte klanttaken gebruiken als productie. Klanttoegang wordt pas actief bij één gecontroleerde taak.
 - **Scenario:** vaste BAG-/luchtfoto-/EP-Online-/3DBAG-voorbeeldcontext, twee gewenste ruimtes, synthetisch beeldbewijs, geselecteerd multi-splitvoorstel, afzonderlijke koel-/condens-/stroomroutes, vooraf berekende AI-synthese en één voorgestelde meterkasttaak.
 - **Kaders:** `is_demo`, standaard-TTL twee uur, hourly hard purge inclusief tijdelijke demo-tenant; geen echte PII, mail, PDF of externe AI-call; alle brondata en beelden expliciet als fictieve demo-inhoud herkenbaar.
 - **Acceptatie:** geïsoleerde gelijktijdige demosessies; redirect naar `intakes.workspace`; echte klanttaakweergave zonder mail; volledige cleanup; tests bewaken tenantgrens, externe-effectblokkade en scenario-inhoud.
-- **Resultaat code:** unieke tijdelijke tenant/user, vooraf gevuld dossier via bestaande domeinservices, synthetische beelden via beide private varianten, werkplekrondleiding, productvoorbeelden op `/`, gesimuleerde klanttaak, sessiegrens tot exact één demodossier, harde AI-/mail-/PDF-grenzen en volledige purge zijn geïmplementeerd en geautomatiseerd afgedekt.
+- **Resultaat code:** unieke tijdelijke tenant/user, vooraf gevuld dossier via bestaande domeinservices, synthetische beelden via beide private varianten, werkplekrondleiding, volledige productfunnel op `/`, gesimuleerde klanttaak, sessiegrens tot exact één demodossier, harde AI-/mail-/PDF-grenzen en volledige purge zijn geïmplementeerd en geautomatiseerd afgedekt.
 - **Na deploy:** staging-smoke op desktop en mobiel voor homepage → werkplek → taak activeren → klantweergave → terug naar dossier; daarna BL-001 op `done`.
+
+### BL-043 — Publieke productfunnel en interesse-CTA
+
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-07-30 · **PR:** #56 · **Epic:** E5
+- **Doel:** maak van de publieke homepage een conversiegerichte route voor airco-installateurs, zonder de productwerking te versimpelen tot een algemene vragenlijst of onbewezen besparingsclaims.
+- **Scope:** probleem→oplossing-opbouw; werkwijze; afzonderlijke voordelen voor installateur en klant; fictieve productweergaven uit dezelfde demoset; klant-/installateur-/hybride uitleg; demo-CTA; FAQ; korte pilot-/interesse-CTA.
+- **Interesseflow:** valideert naam, bedrijf, e-mail en optionele telefoon/toelichting; honeypot + IP-rate-limit zonder IP-opslag; zelfstandige `product_interests`-opslag; optionele interne queuemail buiten de `log`-mailer; dagelijkse harde purge na standaard 365 dagen.
+- **Acceptatie:** demo blijft primair productbewijs; formulier blijft bruikbaar zonder SMTP; fout/succes is toegankelijk en Nederlandstalig; geen technische klantdata of intake wordt aangemaakt; desktop/mobiele staging-smoke staat als `todo` in de teststatus.
+- **Resultaat:** volledige funnel, twee responsieve productweergaven met synthetisch bewijs, werkende interesseopslag/notificatie/purge, env-documentatie en featuretests zijn geleverd.
 
 ### BL-009 — Purge-job voor soft-deleted intakes
 

@@ -78,6 +78,23 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Public product interest form
+    |--------------------------------------------------------------------------
+    |
+    | Submissions are retained in the application even when mail is unavailable.
+    | A configured recipient receives a queued notification, except through the
+    | log mailer so contact details never end up in application logs.
+    |
+    */
+
+    'interest' => [
+        'recipient' => env('PRODUCT_INTEREST_MAIL_TO'),
+        'throttle_per_hour' => (int) env('PRODUCT_INTEREST_THROTTLE_PER_HOUR', 5),
+        'retention_days' => (int) env('PRODUCT_INTEREST_RETENTION_DAYS', 365),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Photo uploads
     |--------------------------------------------------------------------------
     */

@@ -13,3 +13,4 @@ Artisan::command('inspire', function () {
 Schedule::command('intakes:purge-demos')->hourly();
 Schedule::command('intakes:send-reminders')->daily();
 Schedule::command('intakes:purge-deleted')->daily();
+Schedule::command('product-interests:purge')->daily();

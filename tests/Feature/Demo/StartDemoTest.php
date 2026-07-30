@@ -227,10 +227,11 @@ it('shows the start demo button on the homepage when enabled', function () {
     $this->get('/')
         ->assertOk()
         ->assertSee('Probeer de interactieve demo', false)
-        ->assertSee('Geen vragenlijst, maar een beslisdossier', false)
-        ->assertSee('Drie verbindingen, apart beoordeeld', false)
-        ->assertSee('Open de echte werkplek', false)
-        ->assertSee('automatisch verwijderd na 2 uur', false);
+        ->assertSee('Minder voorbezoeken. Sneller een offerte die klopt.', false)
+        ->assertSee('Voor de installateur', false)
+        ->assertSee('Voor de klant', false)
+        ->assertSee('Productweergave met volledig fictieve demo-inhoud', false)
+        ->assertSee('Ik wil kennismaken', false);
 });
 
 it('hides the start demo button for authenticated users', function () {
@@ -242,9 +243,8 @@ it('hides the start demo button for authenticated users', function () {
         ->get('/')
         ->assertOk()
         ->assertDontSee('Probeer de interactieve demo', false)
-        ->assertDontSee('Open de echte werkplek', false)
         ->assertSee('Open dashboard', false)
-        ->assertDontSee('geen account nodig', false);
+        ->assertDontSee('Geen account nodig', false);
 });
 
 it('activates a simulated customer view without sending mail', function () {
@@ -303,7 +303,7 @@ it('hides the start demo button when demo mode is disabled', function () {
     $this->get('/')
         ->assertOk()
         ->assertDontSee('Probeer de interactieve demo', false)
-        ->assertDontSee('Open de echte werkplek', false);
+        ->assertDontSee('Start de demo', false);
 });
 
 it('hides demo intakes from a regular installer dashboard', function () {

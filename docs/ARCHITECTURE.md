@@ -1,6 +1,6 @@
 # Architectuurkeuzes
 
-> **Documentversie:** 2.1 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.2 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: de runtime, dossierkern en eerste airco-domeinlaag hieronder zijn **geïmplementeerd**. Zie [product-model.md](product-model.md) en ADR-0011/0012.
 
@@ -46,6 +46,12 @@ Actieve namespaces: `Intake`, `AI` en `Branding`. De eerste airco-objecten staan
 ## Huidige request- en datastromen
 
 ```text
+Publieke prospect
+  → productfunnel / + interactieve demo
+  → POST /interesse (honeypot + IP-rate-limit)
+  → zelfstandige product_interests-rij, zonder IP of dossierrelatie
+  → optionele interne mailmelding via queue
+
 Installateur (session auth)
   → Dashboard / Nieuwe opname / technische werkplek / Review
   → kiest customer of installer workflow
@@ -120,7 +126,7 @@ Doel-UX:
 
 ## Queues
 
-`QUEUE_CONNECTION=database` blijft. Kernintake is **synchronisch** (ADR-0004). AI-samenvatting, dossiersynthese en PDF-export (BL-005, Dompdf) lopen als jobs. cPanel-cron worker: zie `docs/DEPLOYMENT.md`.
+`QUEUE_CONNECTION=database` blijft. Kernintake is **synchronisch** (ADR-0004). AI-samenvatting, dossiersynthese, PDF-export (BL-005, Dompdf) en de optionele interne melding van een productinteresse lopen via de queue. Een interesse-inzending is al veilig opgeslagen voordat mail wordt ingepland. cPanel-cron worker: zie `docs/DEPLOYMENT.md`.
 
 ## Storage
 
@@ -131,6 +137,7 @@ Media via `config('filesystems.media')` → env `MEDIA_DISK`. Default **private 
 - Installateur: `auth` + policies; iedere query en mutatie is begrensd door `company_id`.
 - Klant: token-middleware, scope = één intake; bedrijf en branding worden uitsluitend via die intake geladen.
 - `companies` is de tenantbron (ADR-0010, vervangt ADR-0006).
+- Publieke productinteresse: alleen create-route, servervalidatie, honeypot en rate-limit; geen publieke lees-/wijzigroute, geen tenant- of dossierkoppeling en geen IP-opslag.
 
 ### Tenantinvarianten voor implementerende agents
 

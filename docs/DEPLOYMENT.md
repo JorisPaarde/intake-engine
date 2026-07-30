@@ -1,6 +1,6 @@
 # Deployment naar cPanel (staging + production)
 
-> **Documentversie:** 2.9 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.10 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 **Statusregel:** staging en production zijn fysiek en logisch gescheiden; open handmatige acties (env/host) staan in [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
 
@@ -140,7 +140,7 @@ cPanel → **Cron Jobs**, twee entries per omgeving:
 
 Geen supervisor op cPanel; `--stop-when-empty --max-time=50` per minuut is de pragmatische variant. `queue:restart` in de deploy zorgt dat workers na een release verse code draaien.
 
-`schedule:run` dekt o.a. hourly `intakes:purge-demos`, daily `intakes:send-reminders` (BL-015) en daily `intakes:purge-deleted` (BL-009). De queue-worker verwerkt AI-samenvatting en PDF-export (BL-005).
+`schedule:run` dekt o.a. hourly `intakes:purge-demos`, daily `intakes:send-reminders` (BL-015), daily `intakes:purge-deleted` (BL-009) en daily `product-interests:purge` (BL-043). De queue-worker verwerkt AI-samenvatting, PDF-export (BL-005) en optionele interne interesse-notificaties.
 
 ## Database bij deploy
 
@@ -197,6 +197,7 @@ Alles hieronder staat **niet** in git en moet jij (of de host) per omgeving zett
 | # | Actie | Waar | Vars / stappen | Ontgrendelt |
 |---|--------|------|----------------|-------------|
 | 1 | **SMTP voor mails** (BL-004/014/015/027) | `shared/.env` | Zie [§ Mail](#mail-bl-004). Zonder dit blijft de app bij `MAIL_MAILER=log` en **stuurt geen** klant-/installateursmails met tokens of notificaties (bewust, ADR-0002). | Echte bezorging + smoke-tests BL-004/014/015/027 |
+| 2 | **Interesseformulier intern melden** (BL-043) | `shared/.env` | Zet na SMTP ook `PRODUCT_INTEREST_MAIL_TO` op het interne opvolgadres; zie [§ Interesseformulier](#interesseformulier-bl-043). | Directe e-mailmelding naast de altijd opgeslagen inzending |
 
 ### Optioneel / later (niet blokkerend voor de kernflow)
 
@@ -277,9 +278,23 @@ DEMO_THROTTLE_PER_HOUR=5
 
 Zet `DEMO_ENABLED=false` alleen om nieuwe starts uit te schakelen, bijvoorbeeld bij misbruik/load. Daarna `php artisan config:cache` of wacht op de volgende deploy-activate. Bestaande tijdelijke demo’s blijven volgens hun TTL opruimen.
 
+## Interesseformulier (BL-043)
+
+De publieke funnel op `/` verwerkt `POST /interesse`. Iedere geldige inzending wordt eerst in `product_interests` opgeslagen; uitval van SMTP of queue kan de bevestiging aan de prospect daarom niet verliezen. Er wordt geen IP-adres opgeslagen. Een honeypot en IP-gebaseerde rate-limit beperken geautomatiseerde spam zonder extra persoonsgegevens te bewaren.
+
+```env
+PRODUCT_INTEREST_MAIL_TO=         # intern adres; leeg = alleen databaseopslag
+PRODUCT_INTEREST_THROTTLE_PER_HOUR=5
+PRODUCT_INTEREST_RETENTION_DAYS=365
+```
+
+Alleen met een geldig `PRODUCT_INTEREST_MAIL_TO` én een mailer anders dan `log` wordt een interne mailable ingepland. De mail gebruikt het adres van de prospect als `Reply-To`. Bij `MAIL_MAILER=log` wordt zij bewust overgeslagen, zodat contactgegevens niet in applicatielogs belanden.
+
+`product-interests:purge` draait dagelijks via de scheduler en verwijdert rijen waarvan `expires_at` is verstreken. De standaardtekst op de landingspagina communiceert de maximale bewaartermijn van twaalf maanden; wijzig `PRODUCT_INTEREST_RETENTION_DAYS` daarom niet naar een langere periode zonder die tekst en het privacybeleid mee te beoordelen.
+
 ## Mail (BL-004)
 
-Deze configuratie geldt ook voor BL-014, BL-015 en BL-027.
+Deze configuratie geldt ook voor BL-014, BL-015, BL-027 en de optionele BL-043-interessemelding.
 
 De app stuurt (bij werkende SMTP):
 
@@ -287,10 +302,11 @@ De app stuurt (bij werkende SMTP):
 - **Afrondingsmail** naar de installateur na klant-afronden (BL-014)
 - **Herinnering** naar de klant na `INTAKE_REMINDER_DAYS` zonder afronding (BL-015; max. één)
 - **Gerichte aanvulling** naar de klant na `need_more_info`, daarna opnieuw een afrondingsnotificatie naar de installateur (BL-027)
+- **Nieuwe productinteresse** naar `PRODUCT_INTEREST_MAIL_TO`, zonder dossier- of klanttoken (BL-043)
 
 De kopieerbare klantlink op de detailpagina blijft de fallback. Dashboard-markering **Nieuw afgerond** (BL-014) werkt ook zonder SMTP.
 
-**Belangrijk (ADR-0002):** bij `MAIL_MAILER=log` worden mails met access-tokens **niet** verstuurd — anders belandt het token in `storage/logs`. Installateurs-afrondingsmail bevat geen token maar wordt om dezelfde staging-reden overgeslagen. Zet op staging/productie echte SMTP:
+**Belangrijk (ADR-0002/privacy):** bij `MAIL_MAILER=log` worden mails met access-tokens **niet** verstuurd — anders belandt het token in `storage/logs`. Installateurs-afrondingsmail en de productinteressemelding bevatten geen token, maar worden om dezelfde reden overgeslagen: ook contactgegevens horen niet in applicatielogs. Zet op staging/productie echte SMTP:
 
 ```env
 MAIL_MAILER=smtp

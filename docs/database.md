@@ -1,8 +1,8 @@
 # Databaseschema — Digitale Opname
 
-> **Documentversie:** 3.1 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.2 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: dit document beschrijft het **geïmplementeerde schema**, inclusief de uitbreidende dossiermigratie van BL-030 en BL-035 t/m BL-042. Bestaande antwoord-, bron-, upload-, review- en routetabellen blijven bewust bestaan naast de nieuwe dossierobjecten.
+Status: dit document beschrijft het **geïmplementeerde schema**, inclusief de uitbreidende dossiermigratie van BL-030 en BL-035 t/m BL-042 en de zelfstandige publieke interesse-inzendingen van BL-043. Bestaande antwoord-, bron-, upload-, review- en routetabellen blijven bewust bestaan naast de nieuwe dossierobjecten.
 
 ## Ontwerpprincipes
 
@@ -14,6 +14,7 @@ Status: dit document beschrijft het **geïmplementeerde schema**, inclusief de u
 6. **Automatische feiten houden hun herkomst.** Externe gegevens staan los van klantantwoorden en bewaren bron, referentie, zekerheid en ophaaltijdstip (ADR-0007).
 7. **Dossier vóór vraag.** Technische objecten hangen aan de opname; vragen, uploads, externe feiten en AI-runs zijn herleidbaar bewijs bij die objecten (ADR-0011).
 8. **Uitbreidende migratie.** Bestaande opnames en gepinde templates blijven werken terwijl de idempotente migratiebrug de centrale dossierlaag vult.
+9. **Marketingcontact ≠ technische aanvraag.** Een publieke interesse-inzending is een zelfstandige, tijdelijk bewaarde contactvraag en krijgt geen tenant-, klant-, adres- of dossierrelatie.
 
 ## Enums (PHP backed enums, centrale bron)
 
@@ -50,7 +51,7 @@ NL-labels (concept / verstuurd / …) horen in UI/resources, niet als DB-waarden
 
 ## Geïmplementeerde dossiermigratie
 
-De bestaande `intakes`-rij blijft het migratieanker en representeert de technische opname. De voorafgaande aanvraag leeft in het bronsysteem; de opname bewaart een snapshot van de benodigde aanvraaggegevens en waar beschikbaar een externe aanvraagreferentie. Er wordt geen tweede lead-/CRM-flow in deze app gebouwd.
+De bestaande `intakes`-rij blijft het migratieanker en representeert de technische opname. De voorafgaande installatieaanvraag leeft in het bronsysteem; de opname bewaart een snapshot van de benodigde aanvraaggegevens en waar beschikbaar een externe aanvraagreferentie. Er wordt geen tweede installatielead-/CRM-flow in deze app gebouwd. `product_interests` hieronder staat daar los van en bevat alleen contactverzoeken over het product zelf.
 
 | Tabel | Verantwoordelijkheid |
 |-------|----------------------|
@@ -93,6 +94,24 @@ erDiagram
 ```
 
 ## Huidige tabellen (geïmplementeerd)
+
+### `product_interests`
+
+Zelfstandige publieke interesse-inzending voor een pilot of kennismaking met Digitale Opname. Dit is geen airco-aanvraag en de rij heeft daarom bewust geen `company_id`, `intake_id`, adres, IP-adres of technische dossierdata.
+
+| Kolom | Type | Toelichting |
+|-------|------|-------------|
+| `id` | bigint PK | |
+| `company_name` | string(120) | Organisatie van de prospect |
+| `contact_name` | string(120) | Contactpersoon |
+| `email` | string(254) | Antwoordadres |
+| `phone` | string(40) nullable | Optioneel |
+| `message` | text nullable | Optionele procesvraag/toelichting, max. 1.500 tekens via requestvalidatie |
+| `notification_queued_at` | timestamp nullable | Interne mailmelding succesvol in de queue gezet |
+| `expires_at` | timestamp index | Dagelijkse harde verwijdergrens, standaard na 365 dagen |
+| `timestamps` | | |
+
+Het publieke POST-pad is rate-limited en heeft een honeypot. Zonder geldige `PRODUCT_INTEREST_MAIL_TO`, of bij de `log`-mailer, blijft de rij bewaard maar wordt geen contactinhoud naar mail/log gestuurd. `product-interests:purge` verwijdert verlopen rijen dagelijks.
 
 ### `companies`
 
@@ -503,7 +522,7 @@ BL-026 gebruikt deze tabel samen met bestaande intake-timestamps en relaties voo
 
 | Concept | Reden |
 |---------|--------|
-| Aparte `applications`-/leadstabel | De aanvraag bestaat vóór deze app; `intakes` bewaart nu de benodigde snapshot. Een externe referentie kan zonder CRM-model worden toegevoegd. |
+| Aparte installatie-`applications`-/leadstabel | De airco-aanvraag bestaat vóór deze app; `intakes` bewaart de benodigde snapshot. `product_interests` is uitsluitend een tijdelijk marketingcontact en geen installatieaanvraag/CRM-model. |
 | `intake_participants` | Klantgegevens op `intakes` volstaan |
 | Volledige event-sourcing | Te zwaar |
 
@@ -570,8 +589,9 @@ Soft-deleted intakes: bestanden blijven tot daily `intakes:purge-deleted` (BL-00
 | Plaatsingen, opstellingen en routes | `airco_placement_options`, `airco_installation_options`, `airco_connections` |
 | Montagefeedback | `installation_outcomes.surprise_notes` |
 | Rapport-HTML | `generated_reports.html` |
+| Bedrijfs-/contactnaam, e-mail, telefoon en vrije toelichting van prospects | `product_interests` |
 
-**Bewaartermijn:** actieve dossiers onbeperkt zolang account bestaat; na soft delete **30 dagen** hard purge inclusief beide beeldvarianten, aangeleverde documenten en rapport-PDF (`intakes:purge-deleted`, configureerbaar via `INTAKE_SOFT_DELETE_RETENTION_DAYS`). Soft-delete-UI voor intakes volgt later; de purge-job is al actief. Geen echte klantdata in seeders/tests.
+**Bewaartermijn:** actieve dossiers onbeperkt zolang account bestaat; na soft delete **30 dagen** hard purge inclusief beide beeldvarianten, aangeleverde documenten en rapport-PDF (`intakes:purge-deleted`, configureerbaar via `INTAKE_SOFT_DELETE_RETENTION_DAYS`). Publieke interesse-inzendingen worden zonder soft delete na standaard **365 dagen** verwijderd door `product-interests:purge` (`PRODUCT_INTEREST_RETENTION_DAYS`). Soft-delete-UI voor intakes volgt later; beide purge-jobs zijn actief. Geen echte klantdata in seeders/tests.
 
 ## Mermaid ER-diagram
 
@@ -621,6 +641,16 @@ erDiagram
     pipe_route_sessions ||--o{ pipe_route_segments : contains
     intake_uploads o|--o{ pipe_route_segments : evidences
     ai_runs o|--o{ pipe_route_segments : analyzes
+
+    product_interests {
+        bigint id PK
+        string company_name
+        string contact_name
+        string email
+        string phone
+        datetime notification_queued_at
+        datetime expires_at
+    }
 
     companies {
         bigint id PK
