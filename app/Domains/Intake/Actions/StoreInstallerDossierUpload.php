@@ -132,13 +132,8 @@ final class StoreInstallerDossierUpload
                 return $upload;
             }, 3);
         } catch (Throwable $exception) {
-            if (isset($disk, $path)) {
-                $this->delete($disk, $path);
-            }
-
-            if (isset($disk, $analysisPath)) {
-                $this->delete($disk, $analysisPath);
-            }
+            $this->delete($disk, $path);
+            $this->delete($disk, $analysisPath);
 
             throw $exception;
         } finally {

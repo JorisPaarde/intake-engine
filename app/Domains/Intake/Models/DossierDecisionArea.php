@@ -8,7 +8,22 @@ use App\Enums\DecisionAreaStatus;
 use App\Enums\DossierNextAction;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property int $id
+ * @property int $intake_id
+ * @property int $company_id
+ * @property string $key
+ * @property string $label
+ * @property DecisionAreaStatus $status
+ * @property DossierNextAction|null $next_action
+ * @property string|null $blocker
+ * @property int|null $blocking_subject_id
+ * @property array<int, string>|null $cost_risks
+ * @property array<string, mixed>|null $evidence_summary
+ * @property Carbon|null $assessed_at
+ */
 class DossierDecisionArea extends Model
 {
     protected $fillable = [

@@ -9,7 +9,26 @@ use App\Enums\DossierRecordStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property int $id
+ * @property int $intake_id
+ * @property int $company_id
+ * @property int $dossier_subject_id
+ * @property DossierRecordKind $kind
+ * @property string $key
+ * @property array<string, mixed> $value
+ * @property string $actor_type
+ * @property int|null $actor_id
+ * @property string $source_type
+ * @property int|null $source_id
+ * @property string $method
+ * @property float|null $confidence
+ * @property DossierRecordStatus $status
+ * @property Carbon $observed_at
+ * @property int|null $superseded_by_id
+ */
 class DossierRecord extends Model
 {
     protected $fillable = [

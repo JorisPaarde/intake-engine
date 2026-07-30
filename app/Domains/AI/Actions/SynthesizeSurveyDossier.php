@@ -235,17 +235,15 @@ final class SynthesizeSurveyDossier
      */
     private function validateReferences(array $output, array $input): void
     {
-        $placements = collect($input['placements'] ?? [])
-            ->filter('is_array')
+        $placements = collect($this->arrayRows($input['placements'] ?? null))
             ->keyBy('reference');
-        $rooms = collect($input['rooms'] ?? [])
-            ->filter('is_array')
+        $rooms = collect($this->arrayRows($input['rooms'] ?? null))
             ->keyBy('reference');
         $subjects = $placements
             ->pluck('subject_reference')
-            ->merge(collect($input['subjects'] ?? [])->pluck('reference'))
+            ->merge(collect($this->arrayRows($input['subjects'] ?? null))->pluck('reference'))
             ->merge($rooms->pluck('subject_reference'))
-            ->merge(collect($input['dossier_records'] ?? [])->pluck('subject_reference'))
+            ->merge(collect($this->arrayRows($input['dossier_records'] ?? null))->pluck('subject_reference'))
             ->filter('is_string')
             ->unique()
             ->values()
@@ -294,7 +292,8 @@ final class SynthesizeSurveyDossier
                 ]);
             }
 
-            $connectionTypes = collect($option['connections'])->pluck('type');
+            $connections = $this->arrayRows($option['connections'] ?? null);
+            $connectionTypes = collect($connections)->pluck('type');
             foreach (AircoConnectionType::cases() as $type) {
                 if (! $connectionTypes->contains($type->value)) {
                     throw ValidationException::withMessages([
@@ -304,12 +303,12 @@ final class SynthesizeSurveyDossier
             }
 
             foreach ([AircoConnectionType::Refrigerant, AircoConnectionType::Condensate] as $requiredType) {
-                $connections = collect($option['connections'])->where('type', $requiredType->value);
+                $connectionsForType = collect($connections)->where('type', $requiredType->value);
                 $indoorReferences = $optionPlacements
                     ->where('type', AircoPlacementType::IndoorUnit->value)
                     ->keys();
                 $coversEveryIndoorPlacement = $indoorReferences->every(
-                    static fn (string $reference): bool => $connections->contains(
+                    static fn (string $reference): bool => $connectionsForType->contains(
                         static fn (array $connection): bool => in_array(
                             $reference,
                             [
@@ -328,7 +327,7 @@ final class SynthesizeSurveyDossier
                 }
             }
 
-            foreach ($option['connections'] as $connection) {
+            foreach ($connections as $connection) {
                 foreach (['from_placement_reference', 'to_placement_reference'] as $key) {
                     $reference = $connection[$key];
                     if ($reference !== null && ! in_array($reference, $optionReferences, true)) {
@@ -384,10 +383,6 @@ final class SynthesizeSurveyDossier
         while ($remaining !== []) {
             $value = array_pop($remaining);
 
-            if (! is_array($value)) {
-                continue;
-            }
-
             foreach ($value as $key => $item) {
                 if (in_array($key, ['reference', 'subject_reference', 'room_reference'], true)
                     && is_string($item)
@@ -402,6 +397,24 @@ final class SynthesizeSurveyDossier
         }
 
         return array_values(array_unique($references));
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function arrayRows(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $rows = [];
+
+        foreach ($value as $row) {
+            if (is_array($row)) {
+                $rows[] = $row;
+            }
+        }
+
+        return $rows;
     }
 
     /** @param array<string, mixed> $output */

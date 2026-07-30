@@ -210,23 +210,15 @@ final class IntakeMetricsService
         $remoteQuote = $outcome !== null
             && ! $outcome->site_visit_occurred
             && ($outcome->result === 'remote_quote' || $outcome->quote_type === 'remote');
-        $proposalDelta = is_array($outcome?->proposal_delta)
-            ? $outcome->proposal_delta
-            : null;
-        $proposalDeltaCodes = is_array($proposalDelta['codes'] ?? null)
-            ? array_values(array_filter(
-                $proposalDelta['codes'],
-                static fn (mixed $code): bool => is_string($code)
-                    && InstallationProposalDelta::tryFrom($code) !== null,
-            ))
-            : [];
-        $siteVisitReasons = is_array($outcome?->site_visit_reasons)
-            ? array_values(array_filter(
-                $outcome->site_visit_reasons,
-                static fn (mixed $reason): bool => is_string($reason)
-                    && InstallationSiteVisitReason::tryFrom($reason) !== null,
-            ))
-            : [];
+        $proposalDelta = $outcome->proposal_delta ?? null;
+        $proposalDeltaCodes = array_values(array_filter(
+            $proposalDelta['codes'] ?? [],
+            static fn (string $code): bool => InstallationProposalDelta::tryFrom($code) !== null,
+        ));
+        $siteVisitReasons = array_values(array_filter(
+            $outcome->site_visit_reasons ?? [],
+            static fn (string $reason): bool => InstallationSiteVisitReason::tryFrom($reason) !== null,
+        ));
 
         return [
             'id' => $intake->id,
@@ -256,7 +248,7 @@ final class IntakeMetricsService
             'outcome_label' => $this->outcomeLabel($outcome?->result),
             'remote_quote' => $remoteQuote,
             'price_estimate' => $outcome?->result === 'estimate' || $outcome?->quote_type === 'estimate',
-            'site_visit_occurred' => $outcome?->site_visit_occurred ?? false,
+            'site_visit_occurred' => $outcome->site_visit_occurred ?? false,
             'site_visit_reasons' => $siteVisitReasons,
             'active_installer_minutes' => $outcome?->active_installer_minutes,
             'recorded_customer_minutes' => $outcome?->customer_minutes,

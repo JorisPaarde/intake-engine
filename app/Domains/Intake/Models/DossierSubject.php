@@ -9,6 +9,17 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property int $id
+ * @property int $intake_id
+ * @property int $company_id
+ * @property int|null $parent_id
+ * @property string $type
+ * @property string $key
+ * @property string $label
+ * @property array<string, mixed>|null $meta
+ * @property-read DossierSubject|null $parent
+ */
 class DossierSubject extends Model
 {
     protected $fillable = [

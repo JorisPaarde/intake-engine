@@ -8,6 +8,21 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property int $id
+ * @property int $intake_id
+ * @property int $company_id
+ * @property int $dossier_subject_id
+ * @property string $key
+ * @property string $name
+ * @property string|null $use_type
+ * @property int $sort_order
+ * @property string $status
+ * @property string $source_type
+ * @property int|null $source_id
+ * @property array<string, float>|null $dimensions
+ * @property-read DossierSubject $subject
+ */
 class AircoRoom extends Model
 {
     protected $fillable = [

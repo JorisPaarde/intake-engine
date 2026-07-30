@@ -10,7 +10,36 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property int $id
+ * @property int $intake_id
+ * @property int $company_id
+ * @property int $airco_installation_option_id
+ * @property int|null $from_placement_id
+ * @property int|null $to_placement_id
+ * @property int $dossier_subject_id
+ * @property AircoConnectionType $type
+ * @property string $label
+ * @property AircoConnectionStatus $status
+ * @property string|null $length_class
+ * @property array<int, string>|null $segments
+ * @property array<int, string>|null $obstacles
+ * @property array<int, string>|null $uncertainties
+ * @property string|null $cost_impact
+ * @property float|null $confidence
+ * @property string $source_type
+ * @property int|null $source_id
+ * @property bool $safety_check_required
+ * @property int|null $approved_by
+ * @property Carbon|null $approved_at
+ * @property-read AircoInstallationOption $installationOption
+ * @property-read AircoPlacementOption|null $fromPlacement
+ * @property-read AircoPlacementOption|null $toPlacement
+ * @property-read DossierSubject $subject
+ * @property-read PipeRouteSession|null $routeSession
+ */
 class AircoConnection extends Model
 {
     protected $fillable = [

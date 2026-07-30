@@ -270,7 +270,7 @@ final class DossierManager
                         'value' => $fact->value,
                         'source' => $fact->source,
                         'source_reference' => $fact->source_reference,
-                        'captured_at' => $fact->captured_at?->toIso8601String(),
+                        'captured_at' => $fact->captured_at->toIso8601String(),
                     ],
                     'actor_type' => 'system',
                     'actor_id' => null,
@@ -296,7 +296,7 @@ final class DossierManager
                 $existingTask = ContributionTask::query()
                     ->where('intake_follow_up_item_id', $item->id)
                     ->first();
-                $subject = $existingTask?->subject ?? $root;
+                $subject = $existingTask->subject ?? $root;
                 $task = ContributionTask::query()->updateOrCreate(
                     ['intake_follow_up_item_id' => $item->id],
                     [
@@ -314,7 +314,7 @@ final class DossierManager
                         'completed_by_type' => $item->answered_at === null ? null : 'customer',
                         'completed_by_id' => null,
                         'completed_at' => $item->answered_at,
-                        'meta' => array_merge($existingTask?->meta ?? [], [
+                        'meta' => array_merge($existingTask->meta ?? [], [
                             'round_number' => $round->round_number,
                         ]),
                     ],
@@ -370,7 +370,7 @@ final class DossierManager
             ->merge($intake->uploads->pluck('section_instance_key'))
             ->filter(static fn (mixed $key): bool => is_string($key) && preg_match('/^room-\d+$/', $key) === 1)
             ->unique()
-            ->sortNatural()
+            ->sort(SORT_NATURAL)
             ->values();
         $subjects = [];
 

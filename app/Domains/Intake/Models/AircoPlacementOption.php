@@ -10,6 +10,24 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
+/**
+ * @property int $id
+ * @property int $intake_id
+ * @property int $company_id
+ * @property int|null $airco_room_id
+ * @property int $dossier_subject_id
+ * @property AircoPlacementType $type
+ * @property string $label
+ * @property string|null $description
+ * @property array<string, mixed>|null $location_data
+ * @property AircoOptionStatus $status
+ * @property string $source_type
+ * @property int|null $source_id
+ * @property float|null $confidence
+ * @property array<int, string>|null $cost_risks
+ * @property-read AircoRoom|null $room
+ * @property-read DossierSubject $subject
+ */
 class AircoPlacementOption extends Model
 {
     protected $fillable = [

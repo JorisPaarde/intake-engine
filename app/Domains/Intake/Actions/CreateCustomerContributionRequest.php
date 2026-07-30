@@ -32,10 +32,10 @@ final class CreateCustomerContributionRequest
 
     /**
      * @param  list<array{
-     *     type: FollowUpItemType|string,
-     *     prompt: string,
-     *     decision_area_key?: string|null,
-     *     dossier_subject_id?: int|null
+     *     type: mixed,
+     *     prompt: mixed,
+     *     decision_area_key?: mixed,
+     *     dossier_subject_id?: mixed
      * }>  $items
      */
     public function handle(Intake $intake, User $requester, array $items): IntakeFollowUpRound
@@ -66,13 +66,12 @@ final class CreateCustomerContributionRequest
         ];
 
         foreach ($items as $item) {
-            if (trim((string) ($item['prompt'] ?? '')) === ''
+            if (trim((string) $item['prompt']) === ''
                 || mb_strlen((string) $item['prompt']) > 500
                 || (array_key_exists('dossier_subject_id', $item)
                     && $item['dossier_subject_id'] !== null
                     && ! is_numeric($item['dossier_subject_id']))
                 || (isset($item['decision_area_key'])
-                    && $item['decision_area_key'] !== null
                     && ! in_array($item['decision_area_key'], $allowedDecisionAreas, true))) {
                 throw ValidationException::withMessages([
                     'contribution_items' => 'Iedere klantopdracht moet concreet, kort en aan een geldig beslisgebied gekoppeld zijn.',

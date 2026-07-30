@@ -63,17 +63,14 @@ final class RecordInstallationOutcome
 
         foreach (['active_installer_minutes', 'customer_minutes'] as $minutesKey) {
             $minutes = $data[$minutesKey] ?? null;
-            $normalizedMinutes = $minutes === null || $minutes === ''
-                ? null
-                : filter_var($minutes, FILTER_VALIDATE_INT);
 
-            if ($normalizedMinutes === false || ($normalizedMinutes !== null && ($normalizedMinutes < 0 || $normalizedMinutes > 10000))) {
+            if ($minutes !== null && ($minutes < 0 || $minutes > 10000)) {
                 throw ValidationException::withMessages([
                     $minutesKey => 'Leg de tijd vast als een geldig aantal minuten tussen 0 en 10.000.',
                 ]);
             }
 
-            $data[$minutesKey] = $normalizedMinutes;
+            $data[$minutesKey] = $minutes;
         }
 
         if ($quoteType !== null && ! in_array($quoteType, ['remote', 'estimate', 'after_site_visit'], true)) {
@@ -120,8 +117,7 @@ final class RecordInstallationOutcome
         }
 
         if (collect($siteVisitReasons)->contains(
-            static fn (mixed $reason): bool => ! is_string($reason)
-                || InstallationSiteVisitReason::tryFrom($reason) === null,
+            static fn (string $reason): bool => InstallationSiteVisitReason::tryFrom($reason) === null,
         )) {
             throw ValidationException::withMessages([
                 'site_visit_reasons' => 'Een reden voor het locatiebezoek is ongeldig.',
@@ -129,8 +125,7 @@ final class RecordInstallationOutcome
         }
 
         if (collect($proposalDeltaCodes)->contains(
-            static fn (mixed $delta): bool => ! is_string($delta)
-                || InstallationProposalDelta::tryFrom($delta) === null,
+            static fn (string $delta): bool => InstallationProposalDelta::tryFrom($delta) === null,
         )) {
             throw ValidationException::withMessages([
                 'proposal_delta_codes' => 'Een afwijking van het voorstel is ongeldig.',
@@ -206,7 +201,7 @@ final class RecordInstallationOutcome
                     'site_visit_occurred' => $outcome->site_visit_occurred,
                     'site_visit_reasons' => $outcome->site_visit_reasons,
                     'installation_surprise' => $outcome->installation_surprise,
-                    'proposal_delta_codes' => $outcome->proposal_delta['codes'] ?? null,
+                    'proposal_delta_codes' => data_get($outcome->proposal_delta, 'codes'),
                 ],
                 'created_at' => now(),
             ]);

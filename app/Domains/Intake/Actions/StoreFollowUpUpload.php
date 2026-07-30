@@ -187,7 +187,7 @@ final class StoreFollowUpUpload
                 $this->cleanupFailedUpload($disk, $path);
             }
 
-            if (isset($disk, $analysisPath) && $analysisPath !== null) {
+            if (isset($disk, $analysisPath)) {
                 $this->cleanupFailedUpload($disk, $analysisPath);
             }
 

@@ -6,6 +6,8 @@ namespace App\Domains\Intake\Services;
 
 use App\Domains\Intake\Models\AircoConnection;
 use App\Domains\Intake\Models\AircoInstallationOption;
+use App\Domains\Intake\Models\AircoPlacementOption;
+use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\DossierDecisionArea;
 use App\Domains\Intake\Models\Intake;
 use App\Enums\AircoConnectionStatus;
@@ -106,8 +108,8 @@ final class DecisionReadinessService
             ];
         }
 
-        $complete = $intake->aircoRooms->every(static function ($room): bool {
-            $dimensions = is_array($room->dimensions) ? $room->dimensions : [];
+        $complete = $intake->aircoRooms->every(static function (AircoRoom $room): bool {
+            $dimensions = $room->dimensions ?? [];
 
             return $room->use_type !== null
                 && isset($dimensions['length_m'], $dimensions['width_m'], $dimensions['height_m']);
@@ -118,8 +120,8 @@ final class DecisionReadinessService
             'blocker' => $complete ? null : 'Controleer ontbrekende ruimtematen vóór definitieve capaciteitskeuze.',
             'evidence_summary' => [
                 'rooms' => $intake->aircoRooms->count(),
-                'complete_rooms' => $intake->aircoRooms->filter(static function ($room): bool {
-                    $dimensions = is_array($room->dimensions) ? $room->dimensions : [];
+                'complete_rooms' => $intake->aircoRooms->filter(static function (AircoRoom $room): bool {
+                    $dimensions = $room->dimensions ?? [];
 
                     return isset($dimensions['length_m'], $dimensions['width_m'], $dimensions['height_m']);
                 })->count(),
@@ -180,9 +182,9 @@ final class DecisionReadinessService
         if (in_array($type, [AircoConnectionType::Refrigerant, AircoConnectionType::Condensate], true)) {
             $uncoveredIndoorPlacements = $option->placements
                 ->filter(
-                    static fn ($placement): bool => $placement->type === AircoPlacementType::IndoorUnit,
+                    static fn (AircoPlacementOption $placement): bool => $placement->type === AircoPlacementType::IndoorUnit,
                 )
-                ->reject(static fn ($placement): bool => $connections->contains(
+                ->reject(static fn (AircoPlacementOption $placement): bool => $connections->contains(
                     static fn (AircoConnection $connection): bool => in_array(
                         $placement->id,
                         [$connection->from_placement_id, $connection->to_placement_id],

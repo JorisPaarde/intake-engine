@@ -22,7 +22,9 @@ use Illuminate\Support\Str;
 /**
  * @property string $uuid
  * @property IntakeStatus $status
+ * @property ContributionMode $workflow_mode
  * @property string $access_token
+ * @property bool $customer_access_enabled
  * @property Carbon|null $token_expires_at
  * @property Carbon|null $token_revoked_at
  * @property Carbon|null $started_at

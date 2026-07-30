@@ -10,7 +10,27 @@ use App\Enums\FollowUpItemType;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property int $id
+ * @property int $intake_id
+ * @property int $company_id
+ * @property int|null $dossier_subject_id
+ * @property int|null $intake_follow_up_item_id
+ * @property ContributionAudience $audience
+ * @property FollowUpItemType $type
+ * @property string $prompt
+ * @property string|null $decision_area_key
+ * @property ContributionTaskStatus $status
+ * @property int|null $requested_by
+ * @property string|null $completed_by_type
+ * @property int|null $completed_by_id
+ * @property Carbon|null $completed_at
+ * @property array<string, mixed>|null $meta
+ * @property-read DossierSubject|null $subject
+ * @property-read IntakeFollowUpItem|null $followUpItem
+ */
 class ContributionTask extends Model
 {
     protected $fillable = [

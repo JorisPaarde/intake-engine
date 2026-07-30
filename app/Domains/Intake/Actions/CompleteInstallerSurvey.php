@@ -138,7 +138,7 @@ final class CompleteInstallerSurvey
                 'actor_id' => $installer->id,
                 'event' => 'installer_survey_completed',
                 'properties' => [
-                    'selected_installation_option_id' => $selected?->id,
+                    'selected_installation_option_id' => $selected->id,
                     'approved_connection_count' => $approvedConnectionCount,
                 ],
                 'created_at' => now(),

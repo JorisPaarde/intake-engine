@@ -92,7 +92,7 @@ final class AircoSurveyService
         $type = $data['type'] instanceof AircoPlacementType
             ? $data['type']
             : AircoPlacementType::from((string) $data['type']);
-        $root = $room?->subject ?? $this->dossierManager->root($intake);
+        $root = $room->subject ?? $this->dossierManager->root($intake);
         $key = 'airco.placement.'.Str::lower(Str::ulid()->toBase32());
         $subject = $this->dossierManager->subject(
             $intake,

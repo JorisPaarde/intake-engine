@@ -9,6 +9,7 @@ use App\Domains\Intake\Models\AircoInstallationOption;
 use App\Domains\Intake\Models\AircoPlacementOption;
 use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\DossierRecord;
+use App\Domains\Intake\Models\DossierSubject;
 use App\Domains\Intake\Models\Intake;
 use App\Enums\DossierRecordStatus;
 
@@ -50,7 +51,7 @@ final class SurveySynthesisContextBuilder
                 'system_attention_points' => $legacy['system_attention_points'] ?? [],
             ],
             'subjects' => $intake->dossierSubjects
-                ->map(static fn ($subject): array => [
+                ->map(static fn (DossierSubject $subject): array => [
                     'reference' => 'subject:'.$subject->id,
                     'type' => $subject->type,
                     'label' => $subject->label,
@@ -58,7 +59,7 @@ final class SurveySynthesisContextBuilder
                 ->values()
                 ->all(),
             'dossier_records' => $intake->dossierSubjects
-                ->flatMap(fn ($subject) => $subject->records
+                ->flatMap(fn (DossierSubject $subject) => $subject->records
                     ->reject(fn (DossierRecord $record): bool => $record->status === DossierRecordStatus::Superseded)
                     ->map(fn (DossierRecord $record): array => [
                         'reference' => 'record:'.$record->id,
@@ -66,9 +67,7 @@ final class SurveySynthesisContextBuilder
                         'subject' => $subject->label,
                         'kind' => $record->kind->value,
                         'key' => $record->key,
-                        'value' => $this->legacyContext->sanitizeExternalValue(
-                            is_array($record->value) ? $record->value : [],
-                        ),
+                        'value' => $this->legacyContext->sanitizeExternalValue($record->value),
                         'source_type' => $record->source_type,
                         'method' => $record->method,
                         'confidence' => $record->confidence,

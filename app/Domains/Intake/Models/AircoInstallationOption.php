@@ -11,7 +11,24 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property int $id
+ * @property int $intake_id
+ * @property int $company_id
+ * @property string $label
+ * @property AircoConfigurationType $configuration_type
+ * @property int|null $rank
+ * @property AircoOptionStatus $status
+ * @property string|null $summary
+ * @property string|null $cost_impact
+ * @property string $source_type
+ * @property int|null $source_id
+ * @property float|null $confidence
+ * @property int|null $created_by
+ * @property Carbon|null $selected_at
+ */
 class AircoInstallationOption extends Model
 {
     protected $fillable = [
