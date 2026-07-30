@@ -205,7 +205,7 @@ test('dossier image budget takes one recent image per dossier part before taking
     $run = app(SynthesizeSurveyDossier::class)->handle($intake->fresh());
     $manifest = FakeAiClient::lastRequest()?->input['image_manifest'] ?? [];
 
-    expect($run?->status)->toBe(AiRunStatus::Succeeded)
+    expect($run?->status)->toBe(AiRunStatus::Succeeded, $run?->error_message ?? '')
         ->and(collect($manifest)->pluck('question_key')->unique())->toHaveCount(4)
         ->and(collect($manifest)->pluck('reference')->all())->toBe(
             collect($expectedIds)->map(static fn (int $id): string => 'dossier_image:'.$id)->all(),
@@ -381,7 +381,7 @@ test('AI synthesis can create image-grounded placement proposals before composin
 
     $run = app(SynthesizeSurveyDossier::class)->handle($intake->fresh());
 
-    expect($run?->status)->toBe(AiRunStatus::Succeeded)
+    expect($run?->status)->toBe(AiRunStatus::Succeeded, $run?->error_message ?? '')
         ->and(FakeAiClient::lastRequest()?->images)->toHaveCount(4)
         ->and(FakeAiClient::lastRequest()?->images[0]->binary)->toStartWith('analysis-')
         ->and(FakeAiClient::lastRequest()?->input['image_manifest'])->toHaveCount(4)
@@ -396,7 +396,7 @@ test('AI synthesis can create image-grounded placement proposals before composin
 
     $replacementRun = app(SynthesizeSurveyDossier::class)->handle($intake->fresh());
 
-    expect($replacementRun?->status)->toBe(AiRunStatus::Succeeded)
+    expect($replacementRun?->status)->toBe(AiRunStatus::Succeeded, $replacementRun?->error_message ?? '')
         ->and(AircoInstallationOption::query()->where('intake_id', $intake->id)->count())->toBe(1)
         ->and(AircoPlacementOption::query()->where('intake_id', $intake->id)->count())->toBe(4)
         ->and(AircoPlacementOption::query()
@@ -427,7 +427,7 @@ test('AI synthesis stores evidence-bound options and tasks as proposals without 
 
     $run = app(SynthesizeSurveyDossier::class)->handle($intake);
 
-    expect($run?->status)->toBe(AiRunStatus::Succeeded);
+    expect($run?->status)->toBe(AiRunStatus::Succeeded, $run?->error_message ?? '');
     $option = AircoInstallationOption::query()->where('intake_id', $intake->id)->sole();
     $task = ContributionTask::query()
         ->where('intake_id', $intake->id)
