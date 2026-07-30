@@ -125,15 +125,6 @@ final class LocalRequestIntentParser
 
     private function removeAtticAsLocation(string $text): string
     {
-        $mentionsAnotherRoom = preg_match(
-            '/\b(?:slaapkamers?|woonkamers?|huiskamers?|werkkamers?|kantoren?)\b/u',
-            $text,
-        ) === 1;
-
-        if (! $mentionsAnotherRoom) {
-            return $text;
-        }
-
         return preg_replace('/\bop\s+(?:de\s+)?zolder\b/u', '', $text) ?? $text;
     }
 

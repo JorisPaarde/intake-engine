@@ -16,6 +16,10 @@ test('it reads the explicit installer sentence without treating the attic as a t
         ->and($result['confidence'])->toBe('high');
 });
 
+test('it treats on the attic as a location and does not invent one room', function () {
+    expect(app(LocalRequestIntentParser::class)->parse('Te warm op zolder'))->toBeNull();
+});
+
 test('it reads two separately named physical rooms', function () {
     $result = app(LocalRequestIntentParser::class)->parse(
         'De slaapkamer en de woonkamer worden te warm in de zomer.',
