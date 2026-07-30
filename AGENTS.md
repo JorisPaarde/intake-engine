@@ -1,6 +1,6 @@
 # AGENTS.md — Projectgeheugen & werkinstructies
 
-> **Documentversie:** 2.1 · **Laatste update:** 2026-07-30 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
+> **Documentversie:** 2.2 · **Laatste update:** 2026-07-30 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
 
 Dit bestand is de **centrale ingang** voor iedere agent (of mens) die aan dit project werkt. Het beschrijft waar het projectgeheugen leeft, welk document waarvoor de bron van waarheid is, en hoe je dat geheugen bijhoudt. **Lees dit bestand aan het begin van elke taak.**
 
@@ -191,6 +191,7 @@ Praktische lessen uit cloud-runs. Doel: sneller groen zonder opnieuw te ontdekke
 - Airco-templatebron: `database/data/templates/airco/v1.php` (wijziging = nieuwe templateversie, ADR-0001).
 - Kwaliteitspoort: `composer check` (= Pint + PHPStan level 6 + Pest) vóór je “klaar” claimt.
 - Featuretests met `Livewire::test(...)` hebben geen Vite-build nodig; `$this->get(...)` die een layout met `@vite` raakt wél.
+- Test samengestelde invoerketens op de grens die ertoe doet: request → persistente velden → uitgaande servicequery → opgeslagen resultaat. Een DOM-stringassertie en losse HTTP-fakes kunnen allebei groen zijn terwijl de overdracht ertussen ontbreekt; gebruik voor adresregressies een echt postcode-/huisnummergeval.
 - MySQL-DDL kan vóór een latere migrationfout al gecommit zijn. Maak een migration met meerdere DDL-stappen per kolom/tabel hervatbaar, houd expliciete index-/constraintnamen ≤64 tekens en maak backfill herhaalbaar; CI controleert verse MySQL-migraties apart van de SQLite-tests.
 - Docs-DoD: CHANGELOG `[Unreleased]`, geraakte docs + versiebump, backlog-status, eventueel `todo` in `docs/functional-test-status.md`, en deze tipsectie als je iets nieuws leerde.
 - **Staging-inzage:** de dev-admin op `/dev` (BL-028, ADR-0008) toont per opname de ruwe binnengekomen data (externe feiten, AI-runs, antwoorden, uploads, activity-events) en een passieve dienststatus — sneller dan zelf via DB/logs speuren. Alleen aan op local/staging (`config('devadmin.enabled')`), hard 404 op production.

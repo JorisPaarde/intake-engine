@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.38 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.39 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -36,7 +36,7 @@ Laatste testsessie: 2026-07-26 (lokaal; postcode-eerst adresaanvulling met echte
 | Dev-admin AI-runs/activiteit/health (BL-028) | todo | - | `/dev/ai-runs` en `/dev/activity` filteren en tonen de zojuist gegenereerde runs/events; `/dev/health` toont DB/queue-diepte/cache/storage/uploads/HEIC/versies. |
 | Productmetrics `/metrics` (BL-026) | pass | lokaal 2026-07-20; staging nog todo | Authenticated weergave met periodefilter, zes kerncijfers, uitvalpunten en per-opname-links gecontroleerd; eerste beoordeling met `need_more_info` telt als 0,0% direct genoeg. Desktop en 390 px zonder pagina-overflow; tabel scrolt intern; geen nieuwe browserwarnings/-errors. Na deploy dezelfde smoke volgens `docs/metrics.md`. |
 | Opname aanmaken (Airco) | pass | 2026-07-18 | Opgeslagen, detail + klantlink |
-| Postcode-eerst adresaanvulling + BAG-verrijking (BL-019/033) | todo | knopvariant lokaal pass 2026-07-26; automatische flow nog testen | Nieuwe opname toont postcode, huisnummer en toevoeging vóór het adres. De exacte PDOK/BAG-resultaten, statusfeedback en handmatige fallback zijn lokaal bewezen; na de ontwerpprincipecorrectie moet nog functioneel worden bevestigd dat complete geldige invoer zonder zoekknop automatisch zoekt, debounce/annulering werkt en focus niet verspringt. Daarna dezelfde smoke op staging plus detailverrijking. |
+| Postcode-eerst adresaanvulling + BAG-verrijking (BL-019/033/047) | todo | knopvariant lokaal pass 2026-07-26; automatische flow nog testen | Op staging exact `2037 GR` + `273` invoeren: formulier vult `Bernadottelaan 273, Haarlem`, dossier bewaart huisnummer 273 afzonderlijk en toont een gematchte BAG-controle met gebouwgegevens. Test daarnaast automatische debounce/annulering, toevoegingskeuze en focus. Simuleer bij één dossier `not_found` en controleer **Adres opnieuw controleren**. |
 | Airco v4: BAG-bouwjaar vervangt vraag (BL-019) | todo | - | Met eenduidig pand: klantwizard toont geen `build_year`-vraag en rapport bevat BAG-bouwjaar; zonder match/meerdere panden/storing blijft de vraag zichtbaar en dossier toont onzekerheid |
 | PDOK-luchtfoto in dossier/PDF (BL-019) | todo | lokaal live pass 2026-07-20; staging nog todo | Lokaal met echte PDOK-services: Damrak 1 → 900×600 beeld, marker/bron/maat/BAG-feiten, desktop + 390 px zonder overflow of consolefouten. Na deploy dezelfde detail/PDF-, WMS-fallback- en purgecheck op staging. |
 | Beveiligde klantlink genereren | pass | 2026-07-18 | Token-URL `/o/{64}` |

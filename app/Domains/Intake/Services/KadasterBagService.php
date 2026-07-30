@@ -116,11 +116,8 @@ final class KadasterBagService
      * Bevraagt Kadaster rechtstreeks vanuit de opname, zonder tussenkomst van de
      * Locatieserver.
      *
-     * Dit is precies het geval waarin de PDOK-route stukloopt: een handmatig ingetypt
-     * adres als "Bernadottelaan, 273, 273" haalt de vrije-tekstzoekopdracht wél op, maar
-     * valt daarna af op `matchesIntake()` — waarna de héle verrijking leeg blijft. De
-     * postcode en het huisnummer zijn in zo'n adres nog gewoon bruikbaar, en Kadaster
-     * bevraagt exact daarop.
+     * Nieuwe opnames bewaren het huisnummer gestructureerd. Alleen voor historische
+     * opnames van vóór die migratie valt deze methode nog terug op de adresregel.
      */
     public function attributesForIntake(Intake $intake): ?BagAddressAttributes
     {
@@ -130,15 +127,24 @@ final class KadasterBagService
             return null;
         }
 
-        $parsed = $this->parseHouseNumber((string) $intake->address_line);
+        if ($intake->address_house_number !== null) {
+            [$houseLetter, $addition] = $this->splitAddressAddition(
+                $intake->address_house_number_addition,
+            );
 
-        if ($parsed === null) {
-            return null;
+            return $this->attributesFor(
+                $postalCode,
+                $intake->address_house_number,
+                $houseLetter,
+                $addition,
+            );
         }
 
-        [$houseNumber, $houseLetter] = $parsed;
+        $parsed = $this->parseHouseNumber((string) $intake->address_line);
 
-        return $this->attributesFor($postalCode, $houseNumber, $houseLetter);
+        return $parsed === null
+            ? null
+            : $this->attributesFor($postalCode, $parsed[0], $parsed[1]);
     }
 
     /**
@@ -161,6 +167,22 @@ final class KadasterBagService
         }
 
         return [$number, $this->blankToNull($matches[2] ?? null)];
+    }
+
+    /** @return array{0: string|null, 1: string|null} */
+    private function splitAddressAddition(?string $suffix): array
+    {
+        $parts = preg_split('/[\s-]+/', strtoupper(trim((string) $suffix)), 2);
+
+        if (! is_array($parts) || $parts === [] || $parts[0] === '') {
+            return [null, null];
+        }
+
+        if (preg_match('/^[A-Z]$/', $parts[0]) === 1) {
+            return [$parts[0], $this->blankToNull($parts[1] ?? null)];
+        }
+
+        return [null, $this->blankToNull(implode('-', $parts))];
     }
 
     public function addressUrl(string $addressableObjectId): string

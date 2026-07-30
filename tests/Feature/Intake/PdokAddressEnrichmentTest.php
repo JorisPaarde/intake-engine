@@ -151,6 +151,8 @@ test('authenticated installer receives sanitized PDOK address suggestions', func
                 'label' => 'Damrak 1, 1012LG Amsterdam',
                 'address_line' => 'Damrak 1',
                 'postal_code' => '1012LG',
+                'house_number' => 1,
+                'house_number_addition' => null,
                 'city' => 'Amsterdam',
             ]],
         ]);
@@ -714,12 +716,9 @@ test('without a key the Kadaster API is never called', function () {
     Http::assertNotSent(fn (Request $request): bool => str_contains($request->url(), 'kadaster'));
 });
 
-test('a messy hand-typed address is rescued by Kadaster and rewritten to the BAG spelling', function () {
+test('a structured address can use Kadaster attributes and is rewritten to the BAG spelling', function () {
     enableKadasterBag();
 
-    // Precies het productiegeval: huisnummer dubbel ingetypt. De Locatieserver vindt het
-    // adres wel, maar matchesIntake() wijst het af — waarna vroeger de héle verrijking
-    // leeg bleef en het dossier 'Nog geen externe gegevens beschikbaar' toonde.
     Http::fake(function (Request $request) {
         if (str_contains($request->url(), 'kadaster.test')) {
             return Http::response([
@@ -789,25 +788,107 @@ test('a messy hand-typed address is rescued by Kadaster and rewritten to the BAG
         ->and($intake->answers()->where('question_key', 'building_type')->exists())->toBeFalse();
 });
 
-test('without Kadaster a messy address still leaves an explicit uncertainty', function () {
+test('2037 GR and house number 273 reach BAG without the optional Kadaster API', function () {
     config()->set('services.bag_api.enabled', false);
 
-    fakeSuccessfulPdok();
+    Http::fake(function (Request $request) {
+        if (str_contains($request->url(), '/lookup')) {
+            return Http::response(['response' => ['docs' => [pdokAddressDocument()]]]);
+        }
+
+        if (str_contains($request->url(), '/free')) {
+            return Http::response(['response' => ['docs' => [[
+                'id' => 'adr-47f56cda8f286d7ec9475e170e375ba6',
+                'weergavenaam' => 'Bernadottelaan 273, 2037GR Haarlem',
+                'straatnaam' => 'Bernadottelaan',
+                'huisnummer' => 273,
+                'postcode' => '2037GR',
+                'woonplaatsnaam' => 'Haarlem',
+                'gemeentenaam' => 'Haarlem',
+                'provincienaam' => 'Noord-Holland',
+                'adresseerbaarobject_id' => '0392010000005891',
+                'gekoppeld_perceel' => ['HLM02-X-1693'],
+            ]]]]);
+        }
+
+        if (str_contains($request->url(), '/collections/verblijfsobject/items')) {
+            return Http::response([
+                'features' => [[
+                    'properties' => [
+                        'identificatie' => '0392010000005891',
+                        'oppervlakte' => 149,
+                        'gebruiksdoel' => 'woonfunctie',
+                        'pand.href' => ['https://api.pdok.test/bag/collections/pand/items/pand-bern'],
+                    ],
+                    'geometry' => ['type' => 'Point', 'coordinates' => [4.66584971, 52.35367818]],
+                ]],
+            ]);
+        }
+
+        if (str_contains($request->url(), '/collections/pand/items/pand-bern')) {
+            return Http::response([
+                'properties' => [
+                    'identificatie' => '0392100000003543',
+                    'bouwjaar' => 1966,
+                ],
+            ]);
+        }
+
+        if (str_contains($request->url(), '/aerial')) {
+            return Http::response(fakeAerialJpeg(), 200, ['Content-Type' => 'image/jpeg']);
+        }
+
+        return Http::response([], 404);
+    });
 
     $user = User::factory()->create();
 
     $this->actingAs($user)->post(route('intakes.store'), [
         'template_key' => 'airco',
-        'customer_name' => 'Rommelig Zonder Kadaster',
-        'customer_email' => 'rommelig2@example.com',
-        'address_line' => 'Damrak, 1, 1',
-        'address_postal_code' => '1012LG',
-        'address_house_number' => 1,
-        'address_city' => 'Amsterdam',
+        'customer_name' => 'Bernadottelaan Klant',
+        'customer_email' => 'bernadotte@example.com',
+        // De vrije tekst mag de oude, kapotte vorm hebben: de gestructureerde velden
+        // bepalen voortaan welk BAG-adres wordt bevraagd.
+        'address_line' => 'Bernadottelaan, 273, 273',
+        'address_postal_code' => '2037 GR',
+        'address_house_number' => 273,
+        'address_city' => 'Haarlem',
+        // Ook een verouderde selectie mag de persistente adresidentiteit niet blokkeren.
+        'address_lookup_id' => 'adr-8f4d573be765b4c80dd635ba73747903',
     ]);
 
-    $intake = Intake::query()->where('customer_email', 'rommelig2@example.com')->firstOrFail();
+    $intake = Intake::query()->where('customer_email', 'bernadotte@example.com')->firstOrFail();
+    $verification = $intake->externalFacts()
+        ->where('fact_key', 'address_verification')
+        ->firstOrFail();
 
-    expect($intake->externalFacts()->where('fact_key', 'address_verification')->firstOrFail()->value)
-        ->toBe(['status' => 'not_found']);
+    expect($intake->address_line)->toBe('Bernadottelaan 273')
+        ->and($intake->address_postal_code)->toBe('2037GR')
+        ->and($intake->address_house_number)->toBe(273)
+        ->and($verification->value)->toBe(['status' => 'matched'])
+        ->and($intake->externalFacts()->where('fact_key', 'building_year')->firstOrFail()->value)
+        ->toBe(['number' => 1966]);
+
+    // Een al bestaand dossier met de oude fout kan na de migratie vanuit de UI
+    // opnieuw worden gecontroleerd, zonder handmatige database-ingreep.
+    $intake->update(['address_line' => 'Bernadottelaan, 273, 273']);
+    $verification->update(['value' => ['status' => 'not_found']]);
+
+    $this->actingAs($user)
+        ->get(route('intakes.show', $intake))
+        ->assertOk()
+        ->assertSee('Adres opnieuw controleren');
+
+    $this->actingAs($user)
+        ->post(route('intakes.address-enrichment.retry', $intake))
+        ->assertRedirect(route('intakes.show', $intake))
+        ->assertSessionHas('status', 'Adres opnieuw gecontroleerd. De BAG-gegevens zijn bijgewerkt.');
+
+    expect($intake->refresh()->address_line)->toBe('Bernadottelaan 273')
+        ->and($intake->externalFacts()->where('fact_key', 'address_verification')->firstOrFail()->value)
+        ->toBe(['status' => 'matched']);
+
+    Http::assertSent(fn (Request $request): bool => str_contains($request->url(), '/free')
+        && $request['q'] === '2037GR 273');
+    Http::assertNotSent(fn (Request $request): bool => str_contains($request->url(), 'kadaster'));
 });

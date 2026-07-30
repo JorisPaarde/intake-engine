@@ -326,6 +326,8 @@
             function selectSuggestion(suggestion) {
                 addressLine.value = suggestion.address_line;
                 postalCode.value = formattedPostalCode(suggestion.postal_code);
+                houseNumber.value = String(suggestion.house_number);
+                addition.value = suggestion.house_number_addition || '';
                 city.value = suggestion.city;
                 lookupId.value = suggestion.id;
                 manual.open = true;

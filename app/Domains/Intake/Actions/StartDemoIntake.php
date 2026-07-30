@@ -42,6 +42,8 @@ final class StartDemoIntake
                 'customer_phone' => null,
                 'address_line' => (string) config('intake.demo.address.line', 'Voorbeeldstraat 12'),
                 'address_postal_code' => (string) config('intake.demo.address.postal_code', '1234AB'),
+                'address_house_number' => (int) config('intake.demo.address.house_number', 12),
+                'address_house_number_addition' => config('intake.demo.address.house_number_addition'),
                 'address_city' => (string) config('intake.demo.address.city', 'Voorbeeldstad'),
                 'internal_note' => 'Fictieve interactieve demo — geen echte woning, klant of offerte.',
                 'is_demo' => true,

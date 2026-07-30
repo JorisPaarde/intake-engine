@@ -68,11 +68,15 @@ class StoreIntakeRequest extends FormRequest
         $postalCode = is_string($rawPostalCode) && trim($rawPostalCode) !== ''
             ? strtoupper((string) preg_replace('/\s+/', '', trim($rawPostalCode)))
             : null;
-        $addition = trim((string) $this->input('address_house_number_addition'));
+        $addition = strtoupper(trim((string) $this->input('address_house_number_addition')));
+        $addressLine = trim((string) $this->input('address_line'));
+        $city = trim((string) $this->input('address_city'));
 
         $this->merge([
             'address_postal_code' => $postalCode,
             'address_house_number_addition' => $addition === '' ? null : $addition,
+            'address_line' => $addressLine,
+            'address_city' => $city,
             'workflow_mode' => $this->input('workflow_mode', ContributionMode::Customer->value),
         ]);
     }

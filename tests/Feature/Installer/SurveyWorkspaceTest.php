@@ -45,6 +45,7 @@ function createInstallerSurveyForWorkspace(User $user, string $email = 'zelf@exa
         'customer_email' => $email,
         'address_line' => 'Testlaan 10',
         'address_postal_code' => '1000AA',
+        'address_house_number' => 10,
         'address_city' => 'Amsterdam',
     ]);
 }

@@ -72,6 +72,8 @@ return [
         'address' => [
             'line' => env('DEMO_ADDRESS_LINE', 'Voorbeeldstraat 12'),
             'postal_code' => env('DEMO_ADDRESS_POSTAL_CODE', '1234AB'),
+            'house_number' => (int) env('DEMO_ADDRESS_HOUSE_NUMBER', 12),
+            'house_number_addition' => env('DEMO_ADDRESS_HOUSE_NUMBER_ADDITION'),
             'city' => env('DEMO_ADDRESS_CITY', 'Voorbeeldstad'),
         ],
     ],

@@ -50,6 +50,7 @@ function synthesisSurveyWithPlacements(): array
         'customer_email' => 'persoonlijk@example.com',
         'address_line' => 'Privélaan 99',
         'address_postal_code' => '1000AA',
+        'address_house_number' => 99,
         'address_city' => 'Amsterdam',
     ]);
     $survey = app(AircoSurveyService::class);
@@ -221,6 +222,7 @@ test('AI synthesis can create image-grounded placement proposals before composin
         'customer_email' => 'beeldbewijs@example.com',
         'address_line' => 'Teststraat 1',
         'address_postal_code' => '1000AA',
+        'address_house_number' => 1,
         'address_city' => 'Amsterdam',
     ]);
     $room = app(AircoSurveyService::class)->createRoom($intake, $user, [

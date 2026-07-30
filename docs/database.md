@@ -1,6 +1,6 @@
 # Databaseschema — Digitale Opname
 
-> **Documentversie:** 3.3 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.4 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: dit document beschrijft het **geïmplementeerde schema**, inclusief de uitbreidende dossiermigratie van BL-030 en BL-035 t/m BL-042 en de zelfstandige publieke interesse-inzendingen van BL-043. Bestaande antwoord-, bron-, upload-, review- en routetabellen blijven bewust bestaan naast de nieuwe dossierobjecten.
 
@@ -240,6 +240,8 @@ Eén digitale technische opname. In de huidige implementatie bevat deze rij ook 
 | `customer_phone` | string nullable | Privacy |
 | `address_line` | string | Privacy |
 | `address_postal_code` | string nullable | Privacy |
+| `address_house_number` | unsigned integer nullable | Privacy; gestructureerde BAG-identiteit, nullable voor historische records |
+| `address_house_number_addition` | string(20) nullable | Privacy; genormaliseerde huisletter/toevoeging voor exacte adresmatch |
 | `address_city` | string nullable | Privacy |
 | `access_token` | string(64) unique | Klantbearer-token (zie ADR-0002) |
 | `customer_access_enabled` | boolean | Middlewarepoort; standaard uit voor installer-only en na afronding van gerichte klanttaken |

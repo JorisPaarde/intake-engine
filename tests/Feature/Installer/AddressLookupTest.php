@@ -57,6 +57,8 @@ test('installer looks up an address by normalized postcode and house number', fu
                 'label' => 'Teststraat 10A, 1234 AB Testdam',
                 'address_line' => 'Teststraat 10-A',
                 'postal_code' => '1234AB',
+                'house_number' => 10,
+                'house_number_addition' => 'A',
                 'city' => 'Testdam',
             ]],
         ]);
@@ -99,6 +101,7 @@ test('lookup without an addition keeps all exact additions selectable', function
         ->assertOk()
         ->assertJsonCount(8, 'data')
         ->assertJsonPath('data.0.address_line', 'Teststraat 10-A')
+        ->assertJsonPath('data.0.house_number_addition', 'A')
         ->assertJsonPath('data.7.address_line', 'Teststraat 10-H');
 });
 

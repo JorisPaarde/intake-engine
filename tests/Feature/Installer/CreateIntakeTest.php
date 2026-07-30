@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Models\Intake;
 use App\Enums\IntakeStatus;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
+use Illuminate\Validation\ValidationException;
 
 beforeEach(function () {
     $this->seed(IntakeTemplateSeeder::class);
@@ -33,6 +35,9 @@ test('installer can create an intake with a unique customer link', function () {
         ->and($intake->uuid)->toHaveLength(36)
         ->and($intake->access_token)->toHaveLength(64)
         ->and($intake->created_by)->toBe($user->id)
+        ->and($intake->address_postal_code)->toBe('1000AA')
+        ->and($intake->address_house_number)->toBe(10)
+        ->and($intake->address_house_number_addition)->toBeNull()
         ->and($intake->templateVersion->template->key)->toBe('airco')
         ->and($intake->token_expires_at)->not->toBeNull();
 
@@ -83,6 +88,19 @@ test('create intake validation rejects malformed postcode lookup fields', functi
         ]);
 });
 
+test('the domain action refuses a new intake without a structured house number', function () {
+    $user = User::factory()->create();
+
+    expect(fn () => app(CreateIntake::class)->handle($user, [
+        'template_key' => 'airco',
+        'customer_name' => 'Onvolledig Adres',
+        'customer_email' => 'onvolledig@example.com',
+        'address_line' => 'Teststraat 10',
+        'address_postal_code' => '1000AA',
+        'address_city' => 'Amsterdam',
+    ]))->toThrow(ValidationException::class, 'Vul een geldig huisnummer in.');
+});
+
 test('new intake form automatically looks up postcode and house number without a search button', function () {
     $user = User::factory()->create();
 
@@ -101,6 +119,7 @@ test('new intake form automatically looks up postcode and house number without a
         ->and($html)
         ->toContain('function scheduleAddressSearch()')
         ->toContain("field.addEventListener('input', scheduleAddressSearch)")
+        ->toContain("addition.value = suggestion.house_number_addition || ''")
         ->toContain("function markAddressAsManuallyEdited() {\n                cancelActiveRequest();");
 });
 

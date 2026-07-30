@@ -63,6 +63,13 @@
             </div>
 
             <div class="min-w-0 bg-white shadow-sm sm:rounded-lg p-6 space-y-4">
+                @php
+                    $addressVerification = $intake->externalFacts->first(
+                        fn ($fact) => $fact->fact_key === 'address_verification'
+                            && $fact->source === \App\Domains\Intake\Services\PdokAddressService::sourceName()
+                    );
+                    $addressVerificationStatus = $addressVerification?->value['status'] ?? null;
+                @endphp
                 <div>
                     <h3 class="break-words text-base font-semibold text-gray-900">Automatisch verzamelde informatie</h3>
                     <p class="mt-1 text-xs text-gray-500">Bron en zekerheid blijven zichtbaar; onzekere gegevens vragen om controle.</p>
@@ -123,6 +130,13 @@
                             @endforeach
                         </ul>
                     </div>
+                @endif
+
+                @if (in_array($addressVerificationStatus, ['not_found', 'unavailable'], true) && ! $intake->is_demo)
+                    <form method="POST" action="{{ route('intakes.address-enrichment.retry', $intake) }}">
+                        @csrf
+                        <x-secondary-button type="submit">Adres opnieuw controleren</x-secondary-button>
+                    </form>
                 @endif
             </div>
 

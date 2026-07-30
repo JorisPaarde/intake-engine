@@ -1,6 +1,6 @@
 # Vragen- en takenengine
 
-> **Documentversie:** 2.2 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.3 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: de templatewizard is **geïmplementeerd t/m airco v10** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md).
 
@@ -54,8 +54,10 @@ Runtime leest altijd uit de database (de gepinde versie), nooit rechtstreeks uit
 - De installateur vult eerst postcode, huisnummer en optionele toevoeging in. Zodra postcode en huisnummer geldig en compleet zijn, start de lookup automatisch na een korte debounce; er is geen zoekknop.
 - Het authenticated adresendpoint valideert en normaliseert de invoer en gebruikt PDOK Locatieserver. Alleen resultaten met exact dezelfde postcode en hetzelfde huisnummer worden teruggegeven; een opgegeven toevoeging moet eveneens exact overeenkomen.
 - Eén resultaat vult straat, postcode, plaats en BAG-adresreferentie direct aan. Bij meerdere toevoegingen kiest de installateur het juiste resultaat.
+- Postcode, huisnummer en de gekozen toevoeging worden afzonderlijk in `intakes` bewaard. De zichtbare adresregel is alleen presentatie; BAG-matching leest het huisnummer nooit meer terug uit vrije tekst.
 - Wijzigen van postcode, huisnummer of toevoeging wist een eerdere selectie. Handmatige straat- en plaatsinvoer blijft beschikbaar bij geen resultaat, een PDOK-storing of bewust corrigeren.
 - De externe call vindt uitsluitend na complete geldige invoer plaats, nooit tijdens het renderen. Nieuwe invoer annuleert een geplande of lopende call; verouderde responses kunnen zichtbare of handmatige invoer niet overschrijven. De bestaande fail-soft BAG/open-dataverrijking na opslaan blijft ongewijzigd.
+- Historische adresregels met het bekende patroon `Straat, 273, 273` worden bij migratie alleen bij een exacte dubbele eindwaarde genormaliseerd. Een mislukte of tijdelijk onbeschikbare adrescontrole kan de installateur vanuit hetzelfde dossier opnieuw uitvoeren.
 
 Het interne dossier en HTML/PDF-rapport bevatten altijd een korte deterministische samenvatting van bekende kernantwoorden. Deze gebruikt labels uit de gepinde templateversie en heeft geen AI-provider nodig; een eventuele AI-samenvatting blijft een apart, niet-bindend voorstel.
 
@@ -279,7 +281,7 @@ De adres-autocomplete in het installateursformulier blijft altijd de open PDOK L
 
 | | Kadaster Individuele Bevragingen | PDOK BAG OGC (vangnet) |
 |---|---|---|
-| Bevraging | exact op postcode + huisnummer | vrije tekst + `matchesIntake()`-filter |
+| Bevraging | exact op postcode + huisnummer | gestructureerde postcode + huisnummer + toevoeging; Locatieserver levert het BAG-object |
 | Actualiteit | near-realtime uit de LVBAG | periodiek ververst extract |
 | Auth | `X-Api-Key` | geen |
 | Limieten | gebruikslimieten, niet voor bulk | geen |
