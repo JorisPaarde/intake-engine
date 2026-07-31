@@ -54,6 +54,7 @@ return [
     'photo_inference' => [
         'enabled' => (bool) env('AI_PHOTO_INFERENCE_ENABLED', false),
         'max_images' => (int) env('AI_PHOTO_INFERENCE_MAX_IMAGES', 2),
+        'observation_min_confidence' => (float) env('AI_PHOTO_OBSERVATION_MIN_CONFIDENCE', 0.65),
     ],
 
     'text_inference' => [
@@ -65,6 +66,8 @@ return [
     'attention_points_prompt' => 'attention_points',
 
     'fusebox_prompt' => 'fusebox_assessment',
+
+    'installer_photo_observation_prompt' => 'installer_photo_observation',
 
     'request_intent_prompt' => 'request_intent',
 

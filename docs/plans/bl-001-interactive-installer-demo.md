@@ -1,6 +1,6 @@
 # BL-001 — Interactieve installateursdemo
 
-> **Documentversie:** 1.3 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../../AGENTS.md)
+> **Documentversie:** 1.4 · **Laatste update:** 2026-07-31 · Onderhoud: zie [AGENTS.md](../../AGENTS.md)
 
 **Implementatiestatus:** codegereed in deze PR; BL-001 blijft `in_progress` tot de afzonderlijke staging- en mobiele visuele smoke is uitgevoerd.
 
@@ -38,7 +38,7 @@ De voorbeeldopname laat in enkele minuten zien dat:
 ### Eén echte productflow
 
 - De redirect gaat naar `intakes.workspace`, niet naar de oude klantwizard.
-- Alle normale werkplekmutaties blijven tijdelijk werken: ruimte, positie, optie, verbinding, vakwaarneming, foto en klanttaak.
+- Alle normale werkplekmutaties blijven tijdelijk werken: ruimte, positie, optie, verbinding, contextgebonden technische notitie, foto en klanttaak.
 - De voorbeeldopname wordt via dezelfde domeinservices opgebouwd als handmatige installateursinvoer.
 - De klantweergave wordt pas actief wanneer de bezoeker de voorgestelde klanttaak controleert en activeert.
 

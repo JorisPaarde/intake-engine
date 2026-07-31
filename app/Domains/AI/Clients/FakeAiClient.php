@@ -139,6 +139,20 @@ final class FakeAiClient implements AiClientInterface
             );
         }
 
+        if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'installer-photo-observation')) {
+            return new AiCompletionResult(
+                output: [
+                    'observations' => [[
+                        'text' => 'Gemetselde wand is vanaf de vloer bereikbaar.',
+                        'impact' => 'installation',
+                        'confidence' => 0.9,
+                    ]],
+                ],
+                provider: 'fake',
+                model: 'fake-vision-v1',
+            );
+        }
+
         if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'request-intent')) {
             return new AiCompletionResult(
                 output: [

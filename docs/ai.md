@@ -1,6 +1,6 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 3.1 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.2 · **Laatste update:** 2026-07-31 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **samenvatting, aandachtspunten, lokale fotokwaliteit, tekst-/foto-afleiding, verbindingsgebonden routeanalyse en bewijsgerichte dossiersynthese zijn geïmplementeerd**. Externe provider en tekst-/foto-/route-/dossierinferentie staan standaard uit (DPIA + key + budgetcaps + staging-smoke vereist).
 
@@ -15,6 +15,7 @@ AI levert een herleidbare technische voorzet en mag werk actief overnemen:
 - Signaleren van een onduidelijke meterkastfoto met een concrete nieuwe foto-opdracht
 - Indicatie of een foto waarschijnlijk bruikbaar is
 - Bevestigbare voorzet voor vrije groep en fase uit meterkastfoto's
+- Uit één contextgebonden installateursfoto maximaal drie beslisrelevante technische constateringen voorstellen
 - Bewijs uit aanvraag, BAG/PDOK, luchtfoto, EP-Online, 3DBAG, klant en installateur gezamenlijk analyseren
 - Kandidaatposities en installatieopties voor airco voorstellen en rangschikken
 - Koel-, condens- en stroomverbindingen met bewijs, onzekerheid en kostenimpact voorstellen
@@ -68,10 +69,12 @@ App\Domains\AI\
   Services\SurveySynthesisContextBuilder
   Prompts\summary\ | attention_points\ | fusebox_assessment\
   Prompts\request_intent\ | room_assessment\ | outdoor_assessment\
-  Prompts\pipe_route_assessment\ | route_photo_analysis\ | route_synthesis\
+  Prompts\pipe_route_assessment\ | installer_photo_observation\
+  Prompts\route_photo_analysis\ | route_synthesis\
   Prompts\dossier_synthesis\
   Actions\SummarizeIntake
   Actions\SuggestAttentionPoints | AssessFuseboxPhotos | DerivePhotoAnswers
+  Actions\SuggestInstallerPhotoObservations
   Actions\AnalyzeRoutePhoto | SynthesizePipeRoute
   Actions\SynthesizeSurveyDossier
   Jobs\SummarizeIntakeJob | SynthesizeSurveyDossierJob
@@ -143,6 +146,15 @@ Foto-afleiding loopt tijdens de meterkastupload, zodat de voorzet op de eerstvol
 4. Alleen `confidence=high` en `free_group=yes|no` schrijft een antwoord met `prefill_source=ai`; een bestaand klant-/installateurantwoord wordt nooit overschreven.
 5. Bij hoge zekerheid vervalt de redundante vraag; bron, bewijs en zekerheid blijven in het dossier. Middelmatige foto-afleidingen blijven als zichtbare voorzet controleerbaar.
 6. De waarneming staat apart in `intake_external_facts` met `AI-fotoanalyse`, runreferentie, provider/model, gebruikte upload-id's en altijd "te controleren". Verwijderen van de bronfoto maakt de afleiding ongeldig en verwijdert de AI-voorzet.
+
+Een installateursfoto bij een ruimte of positie gebruikt daarnaast een apart, kleiner contract:
+
+1. `SuggestInstallerPhotoObservations` ontvangt alleen het onderwerpstype, allowlisted typecontext en precies één metadata-vrije analysekopie; vrije ruimte- of positienamen gaan niet mee.
+2. Prompt `installer-photo-observation-v1` mag maximaal drie korte Nederlandse constateringen teruggeven die zichtbaar invloed kunnen hebben op haalbaarheid, materiaal, prijs of montage. Decoratieve details en definitieve elektrische veiligheidsuitspraken zijn verboden; een lege lijst is geldig.
+3. Servervalidatie accepteert alleen de vier impactcategorieën en bewaart uitsluitend voorstellen op of boven `AI_PHOTO_OBSERVATION_MIN_CONFIDENCE` (default `0.65`).
+4. Ieder voorstel landt als `proposed` dossierrecord met bewijslinks naar foto en AI-run. **Klopt** of **Aanpassen** maakt een nieuw gezaghebbend installateursrecord en supersedeert het voorstel; AI maakt nooit zelf een definitieve installateursconstatering.
+5. Demo-opnames slaan deze call over. Bij uitgeschakelde AI, providerfout of ongeldige uitvoer blijft de foto gewoon bruikbaar en verschijnt geen voorstel.
+6. Foto’s bij een verbinding blijven in de afzonderlijke routeanalyse; zo krijgt hetzelfde routesegment niet twee concurrerende AI-flows.
 
 Dossiersynthese loopt na iedere afgeronde klant-, installateur- of gerichte bijdrage en kan ook bewust vanuit de technische werkplek worden gestart:
 

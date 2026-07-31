@@ -201,8 +201,8 @@
 
                     <section id="demo-context" class="scroll-mt-6 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
                         <div>
-                            <h3 class="text-lg font-semibold text-gray-950">Automatisch voor u gevonden</h3>
-                            <p class="mt-1 text-sm text-gray-500">Alleen woninggegevens die helpen bij de beoordeling. De volledige brondata blijft in het dossier bewaard.</p>
+                            <h3 class="text-lg font-semibold text-gray-950">Woninggegevens</h3>
+                            <p class="mt-1 text-sm text-gray-500">Automatisch opgehaald voor deze opname. Hier staan alleen gegevens die kunnen helpen bij de installatie.</p>
                         </div>
                         <dl class="mt-5 grid gap-3 sm:grid-cols-2">
                             @forelse ($externalData['facts'] as $fact)
@@ -238,8 +238,8 @@
 
                     <section id="demo-evidence" class="scroll-mt-6 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
                         <div>
-                            <h3 class="text-lg font-semibold text-gray-950">Beeldbewijs in het dossier</h3>
-                            <p class="mt-1 text-sm text-gray-500">Elke foto blijft aan het juiste technische onderdeel gekoppeld; de installateur kan het origineel openen.</p>
+                            <h3 class="text-lg font-semibold text-gray-950">Foto’s</h3>
+                            <p class="mt-1 text-sm text-gray-500">Foto’s staan bij de ruimte, positie of route waar ze bij horen.</p>
                         </div>
 
                         @forelse ($photoGroups as $group)
@@ -280,6 +280,9 @@
 
                         <div class="mt-5 space-y-4">
                             @forelse ($intake->aircoRooms as $room)
+                                @php
+                                    $roomSubject = $intake->dossierSubjects->firstWhere('id', $room->dossier_subject_id);
+                                @endphp
                                 <article class="rounded-2xl border border-gray-200 p-4">
                                     <div class="flex flex-wrap items-start justify-between gap-3">
                                         <div>
@@ -300,7 +303,13 @@
                                             </p>
                                         </div>
                                         <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
-                                            {{ $room->source_type === 'installer' ? 'Ter plaatse' : 'Uit klanttaak' }}
+                                            {{ match ($room->source_type) {
+                                                'installer' => 'Door installateur toegevoegd',
+                                                'ai' => 'Door AI voorgesteld',
+                                                'customer' => 'Door klant opgegeven',
+                                                'template_bridge' => 'Uit aanvraag overgenomen',
+                                                default => 'Automatisch toegevoegd',
+                                            } }}
                                         </span>
                                     </div>
 
@@ -314,6 +323,12 @@
                                             @endforeach
                                         </ul>
                                     @endif
+
+                                    @include('installer.intakes._subject-tools', [
+                                        'intake' => $intake,
+                                        'subject' => $roomSubject,
+                                        'connection' => null,
+                                    ])
                                 </article>
                             @empty
                                 <div class="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-5 py-8 text-center">
@@ -372,6 +387,9 @@
                         @if ($intake->aircoPlacements->isNotEmpty())
                             <div class="mt-5 grid gap-3 sm:grid-cols-2">
                                 @foreach ($intake->aircoPlacements as $placement)
+                                    @php
+                                        $placementSubject = $intake->dossierSubjects->firstWhere('id', $placement->dossier_subject_id);
+                                    @endphp
                                     <article class="rounded-2xl border border-gray-200 p-4">
                                         <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ $placement->type->label() }}</p>
                                         <h4 class="mt-1 font-semibold text-gray-950">{{ $placement->label }}</h4>
@@ -381,6 +399,20 @@
                                         @if ($placement->description)
                                             <p class="mt-2 text-sm leading-relaxed text-gray-600">{{ $placement->description }}</p>
                                         @endif
+                                        <p class="mt-2 text-xs text-gray-500">
+                                            {{ match ($placement->source_type) {
+                                                'installer' => 'Door installateur toegevoegd',
+                                                'ai' => 'Door AI voorgesteld',
+                                                'customer' => 'Door klant opgegeven',
+                                                default => 'Automatisch toegevoegd',
+                                            } }}
+                                        </p>
+
+                                        @include('installer.intakes._subject-tools', [
+                                            'intake' => $intake,
+                                            'subject' => $placementSubject,
+                                            'connection' => null,
+                                        ])
                                     </article>
                                 @endforeach
                             </div>
@@ -469,6 +501,9 @@
 
                                     <div class="mt-5 space-y-3">
                                         @foreach ($option->connections as $connection)
+                                            @php
+                                                $connectionSubject = $intake->dossierSubjects->firstWhere('id', $connection->dossier_subject_id);
+                                            @endphp
                                             <div class="rounded-2xl border border-gray-200 bg-white p-4">
                                                 <div class="flex flex-wrap items-start justify-between gap-3">
                                                     <div>
@@ -524,6 +559,11 @@
                                                     </div>
                                                 @endif
 
+                                                @include('installer.intakes._subject-tools', [
+                                                    'intake' => $intake,
+                                                    'subject' => $connectionSubject,
+                                                    'connection' => $connection,
+                                                ])
                                             </div>
                                         @endforeach
                                     </div>
@@ -654,69 +694,6 @@
                 </main>
 
                 <aside class="space-y-6">
-                    <section class="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-                        <h3 class="font-semibold text-gray-950">Camera en bewijs</h3>
-                        <p class="mt-1 text-sm leading-relaxed text-gray-500">Foto’s komen direct bij het juiste dossieronderdeel. Voor AI wordt automatisch een kleinere kopie gebruikt.</p>
-                        <form method="POST" enctype="multipart/form-data" action="{{ route('intakes.workspace.evidence.store', $intake) }}" class="mt-4 space-y-4">
-                            @csrf
-                            <div>
-                                <x-input-label value="Onderdeel" />
-                                <select name="dossier_subject_id" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300" required>
-                                    @foreach ($intake->dossierSubjects as $subject)
-                                        <option value="{{ $subject->id }}">{{ $subject->label }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div>
-                                <label class="flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-4 text-center">
-                                    <span class="text-sm font-semibold text-gray-900">Foto maken of kiezen</span>
-                                    <span class="mt-1 text-xs text-gray-500">JPEG, PNG, WebP of HEIC · automatisch verkleind</span>
-                                    <input type="file" name="photo" accept="image/*,.heic,.heif" class="sr-only" required>
-                                </label>
-                            </div>
-                            @if ($intake->aircoInstallationOptions->flatMap->connections->isNotEmpty())
-                                <div>
-                                    <x-input-label value="Ook als routesegment (optioneel)" />
-                                    <select name="airco_connection_id" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300">
-                                        <option value="">Alleen dossierbewijs</option>
-                                        @foreach ($intake->aircoInstallationOptions as $option)
-                                            @foreach ($option->connections as $connection)
-                                                <option value="{{ $connection->id }}">{{ $connection->type->label() }} · {{ $connection->label }}</option>
-                                            @endforeach
-                                        @endforeach
-                                    </select>
-                                </div>
-                                <div>
-                                    <x-input-label value="Rol van dit segment" />
-                                    <x-text-input name="route_segment_label" class="mt-1 block w-full" placeholder="Andere kant van de wand" />
-                                </div>
-                            @endif
-                            <x-primary-button class="w-full justify-center">Foto opslaan</x-primary-button>
-                        </form>
-                    </section>
-
-                    <section class="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-                        <h3 class="font-semibold text-gray-950">Vakwaarneming</h3>
-                        <p class="mt-1 text-sm text-gray-500">Ter plaatse vastgesteld; een foto is niet verplicht.</p>
-                        <form method="POST" action="{{ route('intakes.workspace.observations.store', $intake) }}" class="mt-4 space-y-4">
-                            @csrf
-                            <select name="dossier_subject_id" class="block min-h-11 w-full rounded-xl border-gray-300" required>
-                                @foreach ($intake->dossierSubjects as $subject)
-                                    <option value="{{ $subject->id }}">{{ $subject->label }}</option>
-                                @endforeach
-                            </select>
-                            <x-text-input name="key" class="block w-full" placeholder="bijv. wandopbouw" required />
-                            <textarea name="text" rows="4" class="block w-full rounded-xl border-gray-300" placeholder="Wat heeft u vastgesteld?" required></textarea>
-                            <select name="method" class="block min-h-11 w-full rounded-xl border-gray-300" required>
-                                <option value="on_site">Ter plaatse vastgesteld</option>
-                                <option value="from_photo">Vastgesteld vanaf foto</option>
-                                <option value="phone">Telefonisch vastgesteld</option>
-                                <option value="manual">Handmatig toegevoegd</option>
-                            </select>
-                            <x-primary-button class="w-full justify-center">Waarneming opslaan</x-primary-button>
-                        </form>
-                    </section>
-
                     <section id="demo-customer-task" class="scroll-mt-6 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
                         <h3 class="font-semibold text-gray-950">Gerichte klanttaak</h3>
                         <p class="mt-1 text-sm leading-relaxed text-gray-500">

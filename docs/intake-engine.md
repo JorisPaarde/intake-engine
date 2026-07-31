@@ -1,6 +1,6 @@
 # Vragen- en takenengine
 
-> **Documentversie:** 2.4 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.5 · **Laatste update:** 2026-07-31 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: de templatewizard is **geïmplementeerd t/m airco v10** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md).
 
@@ -44,7 +44,7 @@ Runtime leest altijd uit de database (de gepinde versie), nooit rechtstreeks uit
 ### Workflowvereisten
 
 - **Klant:** één veilige, concrete opdracht per scherm; geen definitieve unit-, configuratie- of routekeuze.
-- **Installateur:** dezelfde opname volledig kunnen vullen zonder actieve klanttoegang; camera-first; vrije volgorde; technische waarneming direct als ter plaatse vastgesteld.
+- **Installateur:** dezelfde opname volledig kunnen vullen zonder actieve klanttoegang; camera-first; vrije volgorde; foto of technische notitie rechtstreeks bij de betreffende ruimte, positie of verbinding. Onderwerp, sleutel, methode en herkomst zijn geen invulvelden.
 - **Hybride:** iedere open taak heeft een bedoelde bijdrager; installateur kan een klanttaak overnemen of later één specifieke taak sturen.
 - **Brondata:** BAG, PDOK-luchtfoto, EP-Online en 3DBAG worden automatisch vóór klanttaken gebruikt om redundante vragen/opdrachten te voorkomen.
 - **Taakselectie:** een nieuwe vraag of foto-opdracht is alleen gerechtvaardigd wanneer het antwoord een plaatsing, verbinding, kostenrisico, veiligheid of offertebesluit kan veranderen.

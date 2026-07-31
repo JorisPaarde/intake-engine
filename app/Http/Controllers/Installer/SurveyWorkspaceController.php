@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Installer;
 
+use App\Domains\AI\Actions\SuggestInstallerPhotoObservations;
 use App\Domains\AI\Actions\SynthesizePipeRoute;
 use App\Domains\AI\Actions\SynthesizeSurveyDossier;
 use App\Domains\Intake\Actions\AddPipeRoutePhoto;
 use App\Domains\Intake\Actions\ApprovePipeRoute;
 use App\Domains\Intake\Actions\CompleteInstallerSurvey;
+use App\Domains\Intake\Actions\ConfirmInstallerObservation;
 use App\Domains\Intake\Actions\CreateCustomerContributionRequest;
 use App\Domains\Intake\Actions\RecordInstallationOutcome;
 use App\Domains\Intake\Actions\SaveInstallerObservation;
@@ -17,7 +19,10 @@ use App\Domains\Intake\Actions\StartPipeRouteSession;
 use App\Domains\Intake\Actions\StoreInstallerDossierUpload;
 use App\Domains\Intake\Models\AircoConnection;
 use App\Domains\Intake\Models\AircoInstallationOption;
+use App\Domains\Intake\Models\AircoPlacementOption;
+use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\ContributionTask;
+use App\Domains\Intake\Models\DossierRecord;
 use App\Domains\Intake\Models\DossierSubject;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\PipeRouteSession;
@@ -34,6 +39,7 @@ use App\Enums\AircoOptionStatus;
 use App\Enums\AircoPlacementType;
 use App\Enums\ContributionTaskStatus;
 use App\Enums\CustomerLinkMailResult;
+use App\Enums\DossierRecordStatus;
 use App\Enums\FollowUpItemType;
 use App\Enums\InstallationProposalDelta;
 use App\Enums\InstallationSiteVisitReason;
@@ -43,6 +49,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -59,7 +66,7 @@ final class SurveyWorkspaceController extends Controller
         $dossierManager->initialize($intake);
         $intake->load([
             'company',
-            'dossierSubjects.records',
+            'dossierSubjects.records.evidenceLinks',
             'dossierSubjects.evidenceLinks',
             'aircoRooms.placements',
             'aircoPlacements.room',
@@ -201,58 +208,77 @@ final class SurveyWorkspaceController extends Controller
         return $this->back($intake, 'Technische verbinding toegevoegd.');
     }
 
-    public function storeObservation(
+    public function storeNote(
         Request $request,
         Intake $intake,
+        DossierSubject $subject,
         SaveInstallerObservation $saveObservation,
     ): RedirectResponse {
         $this->authorize('update', $intake);
+        $this->guardWorkspaceSubject($intake, $subject);
         $data = $request->validate([
-            'dossier_subject_id' => [
-                'required',
-                'integer',
-                Rule::exists('dossier_subjects', 'id')->where('intake_id', $intake->id),
-            ],
-            'key' => ['required', 'string', 'regex:/^[a-z0-9_]{2,80}$/'],
             'text' => ['required', 'string', 'max:3000'],
-            'method' => ['required', 'in:on_site,phone,from_photo,manual'],
         ]);
-        $subject = DossierSubject::query()->where('intake_id', $intake->id)->findOrFail($data['dossier_subject_id']);
         $saveObservation->handle(
             $intake,
             $this->user($request),
             $subject,
-            $data['key'],
+            'installer_note.'.Str::lower(Str::ulid()->toBase32()),
             $data['text'],
-            $data['method'],
+            'installer_note',
         );
 
-        return $this->back($intake, 'Vakwaarneming vastgelegd.');
+        return $this->back($intake, 'Technische notitie toegevoegd.');
+    }
+
+    public function confirmObservation(
+        Request $request,
+        Intake $intake,
+        DossierRecord $record,
+        ConfirmInstallerObservation $confirmObservation,
+    ): RedirectResponse {
+        $this->authorize('update', $intake);
+        abort_unless($record->intake_id === $intake->id, 404);
+        $data = $request->validate([
+            'text' => ['sometimes', 'required', 'string', 'max:3000'],
+        ]);
+        $adjustedText = array_key_exists('text', $data) ? $data['text'] : null;
+        $confirmObservation->handle(
+            $intake,
+            $this->user($request),
+            $record,
+            $adjustedText,
+        );
+
+        return $this->back(
+            $intake,
+            $adjustedText === null
+                ? 'Technische constatering bevestigd.'
+                : 'Technische constatering aangepast en bevestigd.',
+        );
     }
 
     public function storeEvidence(
         Request $request,
         Intake $intake,
+        DossierSubject $subject,
         StoreInstallerDossierUpload $storeUpload,
         StartPipeRouteSession $startRoute,
         AddPipeRoutePhoto $addRoutePhoto,
+        SuggestInstallerPhotoObservations $suggestPhotoObservations,
     ): RedirectResponse {
         $this->authorize('update', $intake);
+        $this->guardWorkspaceSubject($intake, $subject);
         $data = $request->validate([
-            'dossier_subject_id' => [
-                'required',
-                'integer',
-                Rule::exists('dossier_subjects', 'id')->where('intake_id', $intake->id),
-            ],
             'photo' => ['required', 'file', 'max:'.config('intake.uploads.max_kilobytes', 5120)],
-            'airco_connection_id' => [
-                'nullable',
-                'integer',
-                Rule::exists('airco_connections', 'id')->where('intake_id', $intake->id),
-            ],
             'route_segment_label' => ['nullable', 'string', 'max:160'],
         ]);
-        $subject = DossierSubject::query()->where('intake_id', $intake->id)->findOrFail($data['dossier_subject_id']);
+        $connection = $subject->type === 'airco_connection'
+            ? AircoConnection::query()
+                ->where('intake_id', $intake->id)
+                ->where('dossier_subject_id', $subject->id)
+                ->firstOrFail()
+            : null;
         $photo = $request->file('photo');
         abort_unless($photo instanceof UploadedFile, 422);
         $upload = $storeUpload->handle(
@@ -262,21 +288,29 @@ final class SurveyWorkspaceController extends Controller
             $photo,
         );
 
-        if (isset($data['airco_connection_id'])) {
-            $connection = AircoConnection::query()
-                ->where('intake_id', $intake->id)
-                ->findOrFail($data['airco_connection_id']);
+        if ($connection instanceof AircoConnection) {
             $session = $startRoute->handle($intake, $connection);
             $addRoutePhoto->handle($session, $upload, $data['route_segment_label'] ?? null);
+        } else {
+            $run = $suggestPhotoObservations->handle($intake, $subject, $upload);
         }
+
+        $hasSuggestion = isset($run) && DossierRecord::query()
+            ->where('intake_id', $intake->id)
+            ->where('source_type', 'ai')
+            ->where('source_id', $run->id)
+            ->where('status', DossierRecordStatus::Proposed)
+            ->exists();
 
         return $this->back(
             $intake,
-            isset($data['airco_connection_id'])
+            $connection instanceof AircoConnection
                 ? ($intake->is_demo
                     ? 'Foto opgeslagen als routesegment. Live AI-analyse staat uit in de demo.'
-                    : 'Foto opgeslagen en als volgend routesegment geanalyseerd.')
-                : 'Foto als dossierbewijs opgeslagen.',
+                    : 'Foto opgeslagen als routesegment.')
+                : ($hasSuggestion
+                    ? 'Foto opgeslagen. Controleer de voorgestelde technische constatering.'
+                    : 'Foto opgeslagen bij '.$subject->label.'.'),
         );
     }
 
@@ -464,6 +498,32 @@ final class SurveyWorkspaceController extends Controller
         abort_unless($user instanceof User, 403);
 
         return $user;
+    }
+
+    private function guardWorkspaceSubject(Intake $intake, DossierSubject $subject): void
+    {
+        $belongsToObject = match ($subject->type) {
+            'airco_room' => AircoRoom::query()
+                ->where('intake_id', $intake->id)
+                ->where('dossier_subject_id', $subject->id)
+                ->exists(),
+            'airco_placement' => AircoPlacementOption::query()
+                ->where('intake_id', $intake->id)
+                ->where('dossier_subject_id', $subject->id)
+                ->exists(),
+            'airco_connection' => AircoConnection::query()
+                ->where('intake_id', $intake->id)
+                ->where('dossier_subject_id', $subject->id)
+                ->exists(),
+            default => false,
+        };
+
+        abort_unless(
+            $belongsToObject
+            && $subject->intake_id === $intake->id
+            && $subject->company_id === $intake->company_id,
+            404,
+        );
     }
 
     /** @return list<string> */

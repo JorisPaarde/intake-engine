@@ -70,8 +70,9 @@ Route::middleware(['auth', 'verified', 'public.demo.scope'])->group(function () 
     Route::post('/intakes/{intake}/opname/options', [SurveyWorkspaceController::class, 'storeInstallationOption'])->name('intakes.workspace.options.store');
     Route::post('/intakes/{intake}/opname/options/{option}/select', [SurveyWorkspaceController::class, 'selectInstallationOption'])->name('intakes.workspace.options.select');
     Route::post('/intakes/{intake}/opname/options/{option}/connections', [SurveyWorkspaceController::class, 'storeConnection'])->name('intakes.workspace.connections.store');
-    Route::post('/intakes/{intake}/opname/observations', [SurveyWorkspaceController::class, 'storeObservation'])->name('intakes.workspace.observations.store');
-    Route::post('/intakes/{intake}/opname/evidence', [SurveyWorkspaceController::class, 'storeEvidence'])->name('intakes.workspace.evidence.store');
+    Route::post('/intakes/{intake}/opname/subjects/{subject}/notes', [SurveyWorkspaceController::class, 'storeNote'])->name('intakes.workspace.notes.store');
+    Route::post('/intakes/{intake}/opname/subjects/{subject}/photos', [SurveyWorkspaceController::class, 'storeEvidence'])->name('intakes.workspace.photos.store');
+    Route::post('/intakes/{intake}/opname/photo-observations/{record}/confirm', [SurveyWorkspaceController::class, 'confirmObservation'])->name('intakes.workspace.photo-observations.confirm');
     Route::post('/intakes/{intake}/opname/customer-tasks', [SurveyWorkspaceController::class, 'requestContribution'])->name('intakes.workspace.tasks.store');
     Route::post('/intakes/{intake}/opname/routes/{session}/synthesize', [SurveyWorkspaceController::class, 'synthesizeRoute'])->name('intakes.workspace.routes.synthesize');
     Route::post('/intakes/{intake}/opname/routes/{session}/approve', [SurveyWorkspaceController::class, 'approveRoute'])->name('intakes.workspace.routes.approve');
