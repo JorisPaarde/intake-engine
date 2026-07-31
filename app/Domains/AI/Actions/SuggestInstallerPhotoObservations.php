@@ -283,14 +283,14 @@ final class SuggestInstallerPhotoObservations
         /** @var array{observations: list<array{text: string, impact: string, confidence: int|float|string}>} $validated */
         $validated = $validator->validated();
 
-        $observations = array_values(array_map(
+        $observations = array_map(
             static fn (array $observation): array => [
                 'text' => trim($observation['text']),
                 'impact' => $observation['impact'],
                 'confidence' => round((float) $observation['confidence'], 3),
             ],
             $validated['observations'],
-        ));
+        );
 
         foreach ($observations as $index => $observation) {
             if (mb_strlen($observation['text']) < 3) {
