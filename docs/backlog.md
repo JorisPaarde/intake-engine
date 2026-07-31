@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.7 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.8 · **Laatste update:** 2026-07-31 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -45,6 +45,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-036 | Beslisgereed installateursdossier en volgende acties | E6 | done | high | N (done) |
 | — | BL-037 | Installateur voert opname volledig zelf uit | E7 | done | high | O (done) |
 | — | BL-038 | Afgebakende klanttaken en hybride workflow | E7 | done | high | O (done) |
+| — | BL-049 | Contextgebonden foto’s en technische notities | E7 | done | high | O (done) |
 | — | BL-040 | Koel-, condens- en stroomverbindingen + routebrug | E8 | done | high | P (done) |
 | — | BL-041 | AI-synthese, gerichte vervolgtaken en uitzonderingsreview | E9 | done | high | Q (done) |
 | — | BL-042 | Uitkomstmetrics en montagefeedback | E10 | done | medium | R (done) |
@@ -121,10 +122,10 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 - **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-30 · **PR:** deze PR · **Band:** O · **Afhankelijk:** BL-035
 - **Doel:** bied vanaf **Nieuwe opname** de keuze **Zelf de opname uitvoeren**, zonder klantlink aan te maken of te versturen.
-- **Scope:** mobiele camera-first werkweergave, vrije navigatie, zelf ruimtes/waarnemingen/foto's toevoegen, technische conclusies direct vastleggen, bron **installateur / ter plaatse vastgesteld**, AI-controles op de achtergrond.
-- **UX-regel:** geen eenvoudige klantinstructies of verplichte fotobevestiging voor vakwaarnemingen; de installateur kan direct naar elk relevant dossieronderdeel springen.
+- **Scope:** mobiele camera-first werkweergave, vrije navigatie, zelf ruimtes, contextgebonden notities en foto's toevoegen, technische conclusies direct vastleggen en AI-controles op de achtergrond.
+- **UX-regel:** geen eenvoudige klantinstructies of verplichte foto bij een eigen technische notitie; de installateur kan direct naar elk relevant dossieronderdeel springen.
 - **Acceptatie:** een volledige opname en offertebasis kan zonder actieve klanttoken worden gemaakt; tokenroutes blijven ontoegankelijk zolang geen klanttaak bestaat; alle tenant- en private-mediaregels blijven gelden.
-- **Resultaat:** startkeuze **Zelf de opname uitvoeren**, uitgeschakelde klanttoegang en directe mobiele werkplek voor ruimtes, posities, opties, routes, vakwaarnemingen en camera-upload. Eerste installateursbijdrage zet de lifecycle correct; installer-only-tokenroutes geven 404.
+- **Resultaat:** startkeuze **Zelf de opname uitvoeren**, uitgeschakelde klanttoegang en directe mobiele werkplek voor ruimtes, posities, opties, routes, technische notities en foto-upload. BL-049 heeft de oorspronkelijke losse onderwerp-/methodekeuze daarna vervangen door objectgebonden acties. Eerste installateursbijdrage zet de lifecycle correct; installer-only-tokenroutes geven 404.
 
 ### BL-038 — Afgebakende klanttaken en hybride workflow
 
@@ -134,6 +135,14 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 - **Hergebruik:** generaliseer `intake_follow_up_rounds/items` zodat gerichte taken vóór én na een eerste afronding mogelijk zijn; behoud beveiligde token-, autosave-, upload- en hervatprincipes.
 - **Acceptatie:** tests voor volledig klant, volledig installateur, hybride, en installateur-start → één latere klantfoto; wisselen van workflow maakt geen dubbel dossier of tweede waarheid.
 - **Resultaat:** gerichte tekst-/foto-/PDF-taken delen de bestaande beveiligde vervolgflow, activeren toegang alleen voor open klantwerk en zetten haar na afronding weer uit. Klant-, installateur- en hybride bijdragen landen in hetzelfde dossier; tests dekken de vier kernscenario's.
+
+### BL-049 — Contextgebonden foto’s en technische notities
+
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-31 · **PR:** deze PR · **Band:** O · **Volgt op:** BL-035/037/040
+- **Aanleiding:** de werkplek vroeg de installateur bij **Camera en bewijs** en **Vakwaarneming** zelf een intern dossieronderwerp, vrije sleutel en vaststellingsmethode te kiezen. De lijst mengde opname, ruimtes, posities en verbindingen; telefonisch verkregen informatie kon daardoor als definitieve vakwaarneming worden opgeslagen en foto en conclusie leken dezelfde handeling.
+- **Resultaat:** foto’s en technische notities worden rechtstreeks vanaf de betreffende ruimte, positie of verbinding toegevoegd. De route bepaalt het onderwerp; de server maakt sleutel, methode en herkomst. Een routefoto blijft tegelijk routesegment. Bij een gewone ruimte- of positiefoto mag beeld-AI maximaal drie korte, beslisrelevante constateringen voorstellen; alleen voorstellen boven de configureerbare zekerheidsgrens verschijnen en blijven `proposed` totdat de installateur **Klopt** kiest of de tekst aanpast. Telefonisch verkregen informatie heeft geen handmatige snelweg meer naar een 100%-zekere vakwaarneming.
+- **UX:** de losse kaarten **Camera en bewijs** en **Vakwaarneming** zijn verwijderd. De acties heten **Foto maken** en **Technische notitie**; bronlabels worden automatisch getoond. De bronsectie heet **Woninggegevens** met een korte uitleg zonder dossierjargon.
+- **Acceptatiebewijs:** featuretests bewaken context- en tenantgrenzen, servergegenereerde sleutels/methoden, foto- en AI-evidence, minimale zekerheid, `proposed` → door installateur bevestigd/aangepast en afwezigheid van interne velden. Externe beeld-AI blijft standaard uit, soft-fail en achter de bestaande DPIA-/budgetgate; staging- en mobiele controle staat als `todo` in `functional-test-status.md`.
 
 ## Epic E8 — Airco-opstellingen en verbindingen
 
@@ -563,6 +572,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 | ID | Datum | Resultaat / PR |
 |----|-------|----------------|
+| BL-049 | 2026-07-31 | deze PR — contextgebonden foto’s/notities en bevestigbare fotoconstateringen |
 | BL-047 | 2026-07-30 | #60 — gestructureerde adresregistratie, BAG-ketentest en herstelactie |
 | BL-044 | 2026-07-30 | deze PR — hervatbare dossiermigration + MySQL-migratiesmoke |
 | BL-045 | 2026-07-30 | deze PR — kortere, scanbare funnelcopy voor airco-installateurs |

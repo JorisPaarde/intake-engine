@@ -1,6 +1,6 @@
 # Uploads & mediastorage
 
-> **Documentversie:** 3.0 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.1 · **Laatste update:** 2026-07-31 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: klant-, gerichte bijdrage- en installateursfoto's, private serve-routes, generieke bewijslinks en dossier-/analysevarianten zijn **geïmplementeerd**. Directe installateurs-PDF-upload is niet gebouwd; een PDF kan wel als gerichte klanttaak worden gevraagd.
 
@@ -17,7 +17,7 @@ Status: klant-, gerichte bijdrage- en installateursfoto's, private serve-routes,
 
 ## Gedeelde uploadflow
 
-1. Een klant opent een templatefoto of gerichte foto-opdracht; een installateur kiest vanuit de technische werkplek een dossieronderwerp.
+1. Een klant opent een templatefoto of gerichte foto-opdracht; een installateur start **Foto maken** rechtstreeks bij een ruimte, positie of verbinding. Het dossieronderwerp volgt uit die context en is niet handmatig kiesbaar.
 2. De hoofdwizard gebruikt multiselect zonder geforceerde camera. Gerichte klanttaken en de camera-first installateurswerkplek verwerken één concreet bestand per uploadactie.
 3. Action:
    - authz via token-middleware of installateurspolicy + intake/onderwerp-match
@@ -44,8 +44,10 @@ Na elke intake- of vervolgfoto-upload voert de app lokaal een niet-blokkerende b
 ### Installateur
 
 - Kan vanuit de mobiele opnameweergave rechtstreeks foto's maken of kiezen, zonder actieve klantlink of lineaire wizard.
-- Kan de upload aan een dossieronderwerp koppelen en optioneel tegelijk als segmentbewijs aan een concrete aircoverbinding toevoegen.
-- Kan een waarneming als **ter plaatse vastgesteld** opslaan zonder verplichte foto wanneer vakinhoudelijke vaststelling voldoende is.
+- Start de upload bij een ruimte, positie of verbinding; de app koppelt de foto automatisch aan precies dat dossieronderwerp.
+- Een foto bij een verbinding wordt tegelijk als segmentbewijs aan die concrete aircoverbinding toegevoegd.
+- Kan zonder foto bij hetzelfde onderdeel een **Technische notitie** toevoegen. Sleutel, methode en herkomst worden server-side bepaald; er is geen handmatige bron- of methodeselectie.
+- Bij een ruimte- of positiefoto mag beeld-AI alleen beslisrelevante constateringen voorstellen. Zo’n voorstel blijft herkenbaar onbevestigd totdat de installateur **Klopt** kiest of de tekst aanpast.
 
 ### Datakoppeling
 

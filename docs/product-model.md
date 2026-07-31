@@ -1,6 +1,6 @@
 # Productmodel — centrale technische opname
 
-> **Documentversie:** 1.1 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.2 · **Laatste update:** 2026-07-31 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **productfundament geïmplementeerd in BL-030 en BL-035 t/m BL-042**. De centrale dossierkern, drie bijdrageworkflows, airco-objecten, beslisgereedheid, beeldvarianten, AI-synthese en uitkomstregistratie zitten in dezelfde applicatie. Productief gebruik van externe beeld-AI blijft achter de bestaande DPIA-, provider- en staging-gates.
 
@@ -58,7 +58,7 @@ Bij het starten kiest de installateur hoe de opname wordt gevuld. Die keuze mag 
 | Workflow | Start | Werkwijze | Klantlink |
 |----------|-------|-----------|-----------|
 | Klant voert uit | Installateur kiest **Klant laten opnemen** | Lineaire, eenvoudige opdrachten; AI begeleidt en vraagt alleen beslissende aanvullingen. | Direct aangemaakt en verzonden. |
-| Installateur voert uit | Installateur kiest **Zelf de opname uitvoeren** | Mobiele, camera-first werkweergave; vrije volgorde; technische waarnemingen, posities en routes direct vastleggen. | Token bestaat als intern lifecycle-anker, maar klanttoegang staat uit en niets wordt verzonden. |
+| Installateur voert uit | Installateur kiest **Zelf de opname uitvoeren** | Mobiele, camera-first werkweergave; vrije volgorde; foto’s en technische notities direct bij ruimtes, posities en routes vastleggen. | Token bestaat als intern lifecycle-anker, maar klanttoegang staat uit en niets wordt verzonden. |
 | Hybride | Eén van beide workflows is al gestart | Installateur vult zelf aan of stuurt later één of meer heel specifieke klantopdrachten. | Alleen geactiveerd en verzonden wanneer de klant werkelijk iets moet bijdragen. |
 
 Alle drie vullen dezelfde ruimtes, plaatsingen, verbindingen, bewijzen, onzekerheden en beslissingen. Er ontstaan geen aparte klant- en installateursdossiers.
@@ -83,8 +83,8 @@ Alle drie vullen dezelfde ruimtes, plaatsingen, verbindingen, bewijzen, onzekerh
 1. De installateur kiest bij de start **Zelf de opname uitvoeren**; er wordt geen klantlink verstuurd.
 2. De aanvraaggegevens en automatische bronnen staan al in het dossier.
 3. In een mobiele werkweergave kan de installateur vrij tussen ruimtes, buitenposities, meterkast en routes bewegen.
-4. Hij kan foto's maken, maten vastleggen, posities aanwijzen en waarnemingen of conclusies direct als **ter plaatse vastgesteld** opslaan.
-5. Een installateurswaarneming hoeft niet met een foto te worden bewezen wanneer de installateur haar zelf betrouwbaar heeft vastgesteld.
+4. Bij iedere ruimte, positie en verbinding kan hij direct **Foto maken** of een **Technische notitie** toevoegen. Het dossieronderwerp, de sleutel, methode en herkomst volgen automatisch uit die plek in de werkweergave.
+5. Een notitie hoeft geen foto te hebben. Bij een foto kan AI alleen een korte, beslisrelevante constatering voorstellen; die wordt pas een gezaghebbende installateurswaarneming nadat de installateur haar bevestigt of aanpast.
 6. AI kan vanuit de werkplek of bij afronding het dossier synthetiseren, tegenstrijdigheden markeren en alleen relevante open punten tonen.
 7. De installateur kan de opname in dezelfde werkgang afronden en het dossier als offerte- en werkvoorbereidingsbasis gebruiken.
 
@@ -106,8 +106,10 @@ Het systeem vraagt niet om losse bevestiging wanneer een gegeven met aan zekerhe
 | Bestaande aanvraag | Overnemen; alleen een conflict of ontbrekend beslissend gegeven tonen. |
 | BAG / PDOK / EP-Online / 3DBAG | Automatisch als brongegeven opnemen; nooit een verplichte klantcontrole van overheidsvelden maken. |
 | Klantfoto of -antwoord | Als waarneming aan het juiste dossierobject koppelen; bij voldoende bewijs mag een conclusie automatisch volgen. |
-| Installateurswaarneming | Gezaghebbende menselijke waarneming, met actor, moment en eventueel locatiecontext. |
+| Installateurswaarneming | Gezaghebbende menselijke waarneming wanneer de installateur haar zelf toevoegt, bevestigt of aanpast; actor, moment, onderwerp en bewijs blijven bewaard. Telefonisch verkregen informatie is zonder vakcontrole geen definitieve waarneming. |
 | AI-afleiding | Met model/prompt, bewijsreferenties en zekerheid opslaan; bij hoge zekerheid toepassen, bij relevante twijfel als uitzondering tonen. |
+
+Voor korte constateringen uit een losse installateursfoto geldt bewust een strengere objectspecifieke regel: zij blijven altijd een zichtbaar voorstel totdat de installateur **Klopt** kiest of de tekst aanpast.
 
 Voor alle automatisch verwerkte informatie gelden deze regels:
 
@@ -192,7 +194,7 @@ Verbindingen bestaan uit segmenten. Foto's, kaartbeelden, antwoorden, metingen, 
 2. De installateur kiest klantopname of zelf uitvoeren.
 3. BAG, luchtfoto, EP-Online en 3DBAG worden met hun bestaande implementatie automatisch aan de opname toegevoegd.
 4. De twee slaapkamers worden als gewenste ruimtes vastgelegd; nog niet als definitief aantal binnen- of buitenunits.
-5. Via klantfoto's of installateurswaarnemingen ontstaan kandidaatposities binnen en buiten.
+5. Via klantfoto's of contextgebonden installateursfoto’s en -notities ontstaan kandidaatposities binnen en buiten.
 6. De app vormt bijvoorbeeld twee opties: één multi-split of twee single-splits.
 7. Voor iedere optie worden koelleidingen, condensafvoer en stroomtoevoer onderzocht.
 8. Alleen het ontbrekende stuk dat de keuze of prijs kan veranderen wordt als concrete taak gevraagd.

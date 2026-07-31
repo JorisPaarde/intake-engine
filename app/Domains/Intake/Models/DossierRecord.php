@@ -28,6 +28,7 @@ use Illuminate\Support\Carbon;
  * @property DossierRecordStatus $status
  * @property Carbon $observed_at
  * @property int|null $superseded_by_id
+ * @property-read DossierSubject|null $subject
  */
 class DossierRecord extends Model
 {

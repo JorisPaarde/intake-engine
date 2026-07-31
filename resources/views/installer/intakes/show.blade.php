@@ -71,8 +71,8 @@
                     $addressVerificationStatus = $addressVerification?->value['status'] ?? null;
                 @endphp
                 <div>
-                    <h3 class="break-words text-base font-semibold text-gray-900">Automatisch voor u gevonden</h3>
-                    <p class="mt-1 text-xs text-gray-500">Alleen gegevens die helpen bij de beoordeling. De volledige brondata blijft in het dossier bewaard.</p>
+                    <h3 class="break-words text-base font-semibold text-gray-900">Woninggegevens</h3>
+                    <p class="mt-1 text-xs text-gray-500">Automatisch opgehaald voor deze opname. Hier staan alleen gegevens die kunnen helpen bij de installatie.</p>
                 </div>
 
                 @if ($externalData['facts'] !== [])

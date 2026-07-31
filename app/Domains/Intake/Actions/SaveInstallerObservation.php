@@ -28,11 +28,13 @@ final class SaveInstallerObservation
         DossierSubject $subject,
         string $key,
         string $text,
-        string $method = 'on_site',
+        string $method = 'installer_note',
     ): DossierRecord {
-        if ($installer->company_id !== $intake->company_id || $subject->intake_id !== $intake->id) {
+        if ($installer->company_id !== $intake->company_id
+            || $subject->intake_id !== $intake->id
+            || $subject->company_id !== $intake->company_id) {
             throw ValidationException::withMessages([
-                'observation' => 'Deze waarneming hoort niet bij dit dossier.',
+                'observation' => 'Deze technische notitie hoort niet bij dit dossier.',
             ]);
         }
 

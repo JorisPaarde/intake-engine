@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Domains\AI\Clients\FakeAiClient;
 use App\Domains\Intake\Actions\ApprovePipeRoute;
 use App\Domains\Intake\Actions\CompleteFollowUpRound;
 use App\Domains\Intake\Actions\CompleteInstallerSurvey;
@@ -10,6 +11,7 @@ use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Actions\StartPipeRouteSession;
 use App\Domains\Intake\Mail\CustomerIntakeLinkMail;
 use App\Domains\Intake\Models\ContributionTask;
+use App\Domains\Intake\Models\DossierEvidenceLink;
 use App\Domains\Intake\Models\DossierRecord;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Services\AircoSurveyService;
@@ -22,18 +24,25 @@ use App\Enums\AircoPlacementType;
 use App\Enums\ContributionMode;
 use App\Enums\ContributionTaskStatus;
 use App\Enums\DecisionAreaStatus;
+use App\Enums\DossierRecordStatus;
 use App\Enums\FollowUpItemType;
 use App\Enums\IntakeStatus;
 use App\Enums\PipeRouteStatus;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 beforeEach(function () {
     $this->seed(IntakeTemplateSeeder::class);
     Mail::fake();
     config(['ai.dossier.enabled' => false]);
+});
+
+afterEach(function () {
+    FakeAiClient::reset();
 });
 
 function createInstallerSurveyForWorkspace(User $user, string $email = 'zelf@example.com'): Intake
@@ -79,7 +88,7 @@ test('installer can start a self-performed survey without exposing or mailing a 
         ->assertOk()
         ->assertSee('Technische opname')
         ->assertSee('Gerichte klanttaak')
-        ->assertSee('Automatisch voor u gevonden');
+        ->assertSee('Woninggegevens');
 });
 
 test('legacy customer link actions cannot expose an installer-only survey', function () {
@@ -100,6 +109,184 @@ test('legacy customer link actions cannot expose an installer-only survey', func
     expect($intake->fresh()->access_token)->toBe($inactiveToken)
         ->and($intake->fresh()->customer_access_enabled)->toBeFalse();
     Mail::assertNotSent(CustomerIntakeLinkMail::class);
+});
+
+test('workspace attaches photos and notes to the relevant object without exposing dossier internals', function () {
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'context@example.com');
+    $room = app(AircoSurveyService::class)->createRoom($intake, $user, [
+        'name' => 'Slaapkamer',
+        'use_type' => 'bedroom',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertSee('Woninggegevens')
+        ->assertSee('Automatisch opgehaald voor deze opname. Hier staan alleen gegevens die kunnen helpen bij de installatie.')
+        ->assertSee('Foto maken')
+        ->assertSee('Technische notitie')
+        ->assertDontSee('Camera en bewijs')
+        ->assertDontSee('Vakwaarneming')
+        ->assertDontSee('Telefonisch vastgesteld')
+        ->assertDontSee('name="key"', false)
+        ->assertDontSee('name="method"', false)
+        ->assertDontSee('name="dossier_subject_id"', false);
+
+    $this->actingAs($user)
+        ->post(route('intakes.workspace.notes.store', [$intake, $room->subject]), [
+            'text' => 'Massieve buitenmuur, vanaf de grond bereikbaar.',
+            'key' => 'door_gebruiker_bepaald',
+            'method' => 'phone',
+        ])
+        ->assertRedirect(route('intakes.workspace', $intake))
+        ->assertSessionHas('status', 'Technische notitie toegevoegd.');
+
+    $note = DossierRecord::query()
+        ->where('dossier_subject_id', $room->dossier_subject_id)
+        ->where('source_type', 'installer')
+        ->sole();
+
+    expect($note->key)->toStartWith('installer_note.')
+        ->and($note->key)->not->toBe('door_gebruiker_bepaald')
+        ->and($note->method)->toBe('installer_note')
+        ->and($note->confidence)->toBe(1.0)
+        ->and($note->status)->toBe(DossierRecordStatus::Established)
+        ->and($note->value['text'])->toBe('Massieve buitenmuur, vanaf de grond bereikbaar.');
+});
+
+test('workspace refuses a subject from another intake for contextual notes', function () {
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'eerste-context@example.com');
+    $other = createInstallerSurveyForWorkspace($user, 'tweede-context@example.com');
+    $otherRoom = app(AircoSurveyService::class)->createRoom($other, $user, [
+        'name' => 'Andere slaapkamer',
+        'use_type' => 'bedroom',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('intakes.workspace.notes.store', [$intake, $otherRoom->subject]), [
+            'text' => 'Mag niet worden opgeslagen.',
+        ])
+        ->assertNotFound();
+
+    expect(DossierRecord::query()
+        ->where('intake_id', $intake->id)
+        ->where('source_type', 'installer')
+        ->exists())->toBeFalse();
+});
+
+test('workspace stores a room photo in context and exposes AI output only as a proposal', function () {
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'contextfoto@example.com');
+    $room = app(AircoSurveyService::class)->createRoom($intake, $user, [
+        'name' => 'Slaapkamer Joris',
+        'use_type' => 'bedroom',
+    ]);
+    Storage::fake((string) config('filesystems.media', 'local'));
+    config([
+        'ai.provider' => 'fake',
+        'ai.photo_inference.enabled' => true,
+        'ai.photo_inference.observation_min_confidence' => 0.65,
+    ]);
+    FakeAiClient::alwaysReturn([
+        'observations' => [[
+            'text' => 'Gemetselde buitenmuur is vanaf de vloer bereikbaar.',
+            'impact' => 'installation',
+            'confidence' => 0.9,
+        ]],
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('intakes.workspace.photos.store', [$intake, $room->subject]), [
+            'photo' => UploadedFile::fake()->image('wand.jpg', 1200, 900),
+            'dossier_subject_id' => $intake->dossierSubjects()->where('key', 'survey')->value('id'),
+            'method' => 'phone',
+        ])
+        ->assertRedirect(route('intakes.workspace', $intake))
+        ->assertSessionHas('status', 'Foto opgeslagen. Controleer de voorgestelde technische constatering.');
+
+    $upload = $intake->uploads()->sole();
+    $proposal = DossierRecord::query()
+        ->where('dossier_subject_id', $room->dossier_subject_id)
+        ->where('source_type', 'ai')
+        ->sole();
+    $request = FakeAiClient::lastRequest();
+
+    expect($proposal->status)->toBe(DossierRecordStatus::Proposed)
+        ->and($proposal->method)->toBe('photo_inference')
+        ->and(DossierEvidenceLink::query()
+            ->where('dossier_subject_id', $room->dossier_subject_id)
+            ->where('dossier_record_id', $proposal->id)
+            ->where('evidence_type', 'intake_upload')
+            ->where('evidence_id', $upload->id)
+            ->exists())->toBeTrue()
+        ->and($request?->images)->toHaveCount(1)
+        ->and(array_key_exists('label', $request?->input['subject'] ?? []))->toBeFalse()
+        ->and(json_encode($request?->input, JSON_THROW_ON_ERROR))->not->toContain('Slaapkamer Joris')
+        ->and(DossierRecord::query()
+            ->where('dossier_subject_id', $intake->dossierSubjects()->where('key', 'survey')->value('id'))
+            ->where('source_type', 'ai')
+            ->exists())->toBeFalse();
+});
+
+test('workspace derives a route photo connection from its contextual subject', function () {
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'routefoto@example.com');
+    $survey = app(AircoSurveyService::class);
+    $room = $survey->createRoom($intake, $user, [
+        'name' => 'Slaapkamer',
+        'use_type' => 'bedroom',
+    ]);
+    $inside = $survey->createPlacement($intake, $user, [
+        'airco_room_id' => $room->id,
+        'type' => AircoPlacementType::IndoorUnit,
+        'label' => 'Binnenpositie',
+    ]);
+    $outside = $survey->createPlacement($intake, $user, [
+        'type' => AircoPlacementType::OutdoorUnit,
+        'label' => 'Buitenpositie',
+    ]);
+    $option = $survey->createInstallationOption($intake, $user, [
+        'label' => 'Optie A',
+        'configuration_type' => AircoConfigurationType::SingleSplit,
+        'placement_ids' => [$inside->id, $outside->id],
+    ]);
+    $connection = $survey->createConnection($intake, $user, $option, [
+        'type' => AircoConnectionType::Refrigerant,
+        'label' => 'Koelleiding',
+        'from_placement_id' => $inside->id,
+        'to_placement_id' => $outside->id,
+        'status' => AircoConnectionStatus::NeedsEvidence,
+    ]);
+    Storage::fake((string) config('filesystems.media', 'local'));
+    config([
+        'ai.photo_inference.enabled' => false,
+        'ai.route.enabled' => false,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertDontSee('name="airco_connection_id"', false);
+
+    $this->actingAs($user)
+        ->post(route('intakes.workspace.photos.store', [$intake, $connection->subject]), [
+            'photo' => UploadedFile::fake()->image('doorvoer.jpg', 1200, 900),
+            'route_segment_label' => 'Andere kant van de wand',
+            'airco_connection_id' => 999999,
+        ])
+        ->assertRedirect(route('intakes.workspace', $intake))
+        ->assertSessionHas('status', 'Foto opgeslagen als routesegment.');
+
+    $session = $intake->pipeRouteSessions()
+        ->where('airco_connection_id', $connection->id)
+        ->sole();
+    $segment = $session->segments()->sole();
+
+    expect($segment->label)->toBe('Andere kant van de wand')
+        ->and($segment->upload?->section_instance_key)->toBe('subject-'.$connection->dossier_subject_id)
+        ->and($intake->pipeRouteSessions()->count())->toBe(1);
 });
 
 test('installer-only survey can temporarily expose exactly one targeted customer task and return to installer work', function () {
