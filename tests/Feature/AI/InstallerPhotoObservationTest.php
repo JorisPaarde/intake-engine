@@ -6,6 +6,7 @@ use App\Domains\AI\Actions\SuggestInstallerPhotoObservations;
 use App\Domains\AI\Clients\FakeAiClient;
 use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Actions\StoreInstallerDossierUpload;
+use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\DossierEvidenceLink;
 use App\Domains\Intake\Models\DossierRecord;
 use App\Domains\Intake\Models\Intake;
@@ -34,7 +35,7 @@ afterEach(function () {
     FakeAiClient::reset();
 });
 
-/** @return array{0: User, 1: Intake, 2: \App\Domains\Intake\Models\AircoRoom} */
+/** @return array{0: User, 1: Intake, 2: AircoRoom} */
 function installerPhotoObservationContext(): array
 {
     $installer = User::factory()->create();
