@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.9 · **Laatste update:** 2026-08-05 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.10 · **Laatste update:** 2026-08-05 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -55,6 +55,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-044 | Hervatbare MySQL-dossiermigratie | E5 | done | high | deployherstel (done) |
 | — | BL-045 | Eenvoudige installateurstaal op de productfunnel | E5 | done | medium | A (done) |
 | — | BL-046 | Brede productbelofte op de productfunnel | E5 | done | medium | A (done) |
+| — | BL-050 | Productfunnel in JPWebcreation-huisstijl | E5 | done | medium | A (done) |
 | — | BL-047 | Gestructureerde adresregistratie en BAG-herstel | E3 | done | high | F (done) |
 | — | BL-048 | Openingszin hergebruiken en broninformatie terugbrengen | E3 | done | high | F (done) |
 | ∥ | BL-013 | S3 als mediadisk | E5 | backlog | low | I · operationeel |
@@ -471,6 +472,14 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Doel:** positioneer de app als complete opname- en beslisondersteuning tussen aanvraag en offerte, zonder terug te vallen op technische producttaal.
 - **Scope:** bredere hero, probleemschets, drie stappen, voordelen, productuitleg, demotekst, FAQ en metadata. Foto’s blijven zichtbaar als één invoervorm naast bestaande woninggegevens, klantaanvullingen, installateurswaarnemingen, opstellingen, routes en open punten.
 - **Resultaat:** de hoofdlijn is nu aanvraag → complete opname → installateursbesluit. De pagina blijft kort en scanbaar, terwijl foto’s weer één middel zijn in plaats van de volledige productbelofte.
+
+### BL-050 — Productfunnel in JPWebcreation-huisstijl
+
+- **Status:** in_progress · **Prioriteit:** medium · **Epic:** E5 · **Band:** A
+- **Aanleiding:** de publieke productfunnel gebruikte nog de cool-grijze Apple-achtige marketingstyling, terwijl jpwebcreation.nl de gewenste warmere huisstijl (groen/amber/paper) al heeft.
+- **Doel:** laat kleuren, typografie en knop-/oppervlaktestijl van `/` aansluiten op jpwebcreation.nl, zonder de ingelogde app (BL-032 `brand.*` / tenantkleuren) te wijzigen.
+- **Scope:** aparte `marketing.*`-tokens; Inter alleen op de homepage; hero-gradient, amber-CTA’s, coral eyebrows, paper/mist-vlakken en productmocks in dezelfde huisstijl. Copy, sectiestructuur, demo en interesseflow blijven functioneel gelijk.
+- **Acceptatie:** desktop/~390 px leesbaar zonder overflow; bestaande demo- en interesse-featuretests groen; ingelogde schermen blijven Apple/tenant-styling gebruiken.
 
 ### BL-044 — Hervatbare MySQL-dossiermigratie
 

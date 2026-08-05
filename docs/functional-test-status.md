@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.42 · **Laatste update:** 2026-08-05 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.43 · **Laatste update:** 2026-08-05 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -54,6 +54,7 @@ Laatste testsessie: 2026-07-26 (lokaal; postcode-eerst adresaanvulling met echte
 | Airco-template v10 gewenste ruimtes (BL-039) | todo | - | Nieuwe opname pin’t v10; openingsvraag en repeatable-sectie spreken over gewenste ruimtes, niet vooraf gekozen units; extra kamerfoto vraagt om wanden/doorgangen en niet om een door de klant gekozen binnenunitpositie. Historische opnames blijven op hun gepinde versie. |
 | Homepage / (producthomepage Fase 3) | pass | 2026-07-18 | “Digitale Opname” producthomepage (geen Laravel-welcome) |
 | Publieke productfunnel + interesse-CTA (BL-043) | todo | - | Na deploy desktop en 390 px: probleem → werkwijze → voordelen installateur/klant → productweergaven → FAQ → CTA logisch en zonder overflow doorlopen; toetsenbord/focus en details controleren. Geldig formulier geeft bevestiging en rij zonder IP; ongeldige invoer toont Nederlandse veldfouten; `PRODUCT_INTEREST_MAIL_TO` + SMTP zet één interne mail in de queue; `log`/leeg adres bewaart wel zonder mail. Verlopen testrij wordt door `product-interests:purge` verwijderd. |
+| Productfunnel JPWebcreation-huisstijl (BL-050) | todo | - | Na deploy desktop en 390 px: homepage toont warm paper/mist, groene/amber hero, amber primaire CTA’s en coral eyebrows; knoppen en formulier blijven leesbaar; geen overflow; demo-start en interesseformulier werken nog. Ingelogde app mag niet op deze marketingkleuren zijn overgegaan. |
 | Registratie /register | pass | 2026-07-18 | Formulier werkt; landt op `/dashboard` |
 | E-mailverificatie flow | pass | 2026-07-18 | Geen `/verify-email`-blokkade op staging na register (of niet afgedwongen) |
 | Klant-intakepagina /o/{token} (Fase 3) | pass | 2026-07-18 | Wizard end-to-end (8 stappen, 1 binnenunit) — *retest was vóór deploy BL-018; hertest nodig* |
