@@ -21,11 +21,13 @@ use App\Domains\Intake\Services\ExternalFactPresenter;
 use App\Domains\Intake\Services\InstallerPhotoGalleryBuilder;
 use App\Domains\Intake\Services\IntakeDossierSummaryBuilder;
 use App\Domains\Intake\Services\PdokAddressService;
+use App\Domains\Intake\Services\PublicDemoSession;
 use App\Domains\Intake\Services\RebuildIntakeReportHtml;
 use App\Enums\AttentionPointSource;
 use App\Enums\AttentionPointStatus;
 use App\Enums\ContributionMode;
 use App\Enums\CustomerLinkMailResult;
+use App\Enums\IntakeStatus;
 use App\Enums\ReviewDecision;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Installer\StoreIntakeRequest;
@@ -42,7 +44,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class IntakeController extends Controller
 {
-    public function create(): View
+    public function create(Request $request, PublicDemoSession $publicDemoSession): View
     {
         $this->authorize('create', Intake::class);
 
@@ -51,10 +53,29 @@ class IntakeController extends Controller
             ->orderBy('name')
             ->get();
 
+        $isPublicDemo = $publicDemoSession->isActive($request);
+        $demoDefaults = null;
+
+        if ($isPublicDemo) {
+            $suffix = strtolower((string) str()->ulid());
+            $demoDefaults = [
+                'customer_name' => (string) config('intake.demo.customer_name', 'Voorbeeldklant'),
+                'customer_email' => 'voorbeeld+'.$suffix.(string) config('intake.demo.customer_email_domain', '@demo.invalid'),
+                'address_line' => (string) config('intake.demo.address.line', 'Voorbeeldstraat 12'),
+                'address_postal_code' => (string) config('intake.demo.address.postal_code', '1234AB'),
+                'address_house_number' => (int) config('intake.demo.address.house_number', 12),
+                'address_house_number_addition' => config('intake.demo.address.house_number_addition'),
+                'address_city' => (string) config('intake.demo.address.city', 'Voorbeeldstad'),
+                'internal_note' => 'Fictieve interactieve demo — geen echte woning, klant of offerte.',
+            ];
+        }
+
         return view('installer.intakes.create', [
             'templates' => $templates,
             // BL-016: questions the installer may optionally pre-answer, per template.
             'prefillQuestionsByTemplate' => $this->prefillQuestionsByTemplate($templates),
+            'isPublicDemo' => $isPublicDemo,
+            'demoDefaults' => $demoDefaults,
         ]);
     }
 
@@ -95,8 +116,43 @@ class IntakeController extends Controller
         DeriveIntentFromRequest $deriveIntentFromRequest,
         EnrichIntakeAddress $enrichIntakeAddress,
         SendCustomerIntakeLink $sendCustomerIntakeLink,
+        PublicDemoSession $publicDemoSession,
     ): RedirectResponse {
-        $intake = $createIntake->handle($request->user(), $request->validated());
+        $isPublicDemo = $publicDemoSession->isActive($request);
+        $payload = $request->validated();
+
+        if ($isPublicDemo) {
+            // Workflow is chosen after create via the demo branch modal (no mail).
+            $payload['workflow_mode'] = ContributionMode::Customer;
+            $payload['is_demo'] = true;
+            $payload['token_ttl_hours'] = max(1, (int) config('intake.demo.ttl_hours', 2));
+            $payload['customer_access_enabled'] = false;
+        }
+
+        $intake = $createIntake->handle($request->user(), $payload);
+
+        if ($isPublicDemo) {
+            // Keep the link ready but inactive until the visitor picks a path.
+            $intake->forceFill([
+                'customer_access_enabled' => false,
+                'status' => IntakeStatus::Draft,
+            ])->save();
+
+            $request->session()->put([
+                'public_demo_intake_id' => $intake->id,
+                'public_demo_guide_step' => 'branch',
+                'public_demo_path_chosen' => null,
+            ]);
+
+            return redirect()
+                ->route('intakes.show', $intake)
+                ->with('demo_coachmark', 'branch')
+                ->with(
+                    'status',
+                    'Opname aangemaakt. In productie mailen we nu de klantlink — kies hier hoe je verder wilt kijken.',
+                );
+        }
+
         $deriveIntentFromRequest->handle($intake);
         $enrichIntakeAddress->handle($intake, $request->validated('address_lookup_id'));
 

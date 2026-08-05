@@ -66,8 +66,8 @@ return [
         'throttle_per_hour' => (int) env('DEMO_THROTTLE_PER_HOUR', 5),
 
         /*
-        | Uitsluitend fictieve presentatiewaarden. De publieke demo benadert geen
-        | adresbron; BAG, luchtfoto, EP-Online en 3DBAG zijn vooraf berekend.
+        | Uitsluitend fictieve presentatiewaarden voor de vooringevulde create-stap.
+        | Verrijking (BAG/luchtfoto) gebeurt alleen bij het laden van het voorbeelddossier.
         */
         'address' => [
             'line' => env('DEMO_ADDRESS_LINE', 'Voorbeeldstraat 12'),
@@ -75,6 +75,20 @@ return [
             'house_number' => (int) env('DEMO_ADDRESS_HOUSE_NUMBER', 12),
             'house_number_addition' => env('DEMO_ADDRESS_HOUSE_NUMBER_ADDITION'),
             'city' => env('DEMO_ADDRESS_CITY', 'Voorbeeldstad'),
+        ],
+
+        'customer_name' => env('DEMO_CUSTOMER_NAME', 'Voorbeeldklant'),
+        'customer_email_domain' => '@demo.invalid',
+
+        /*
+        | Verkorte klantroute in de begeleidde demo (representatieve stappen).
+        */
+        'short_customer_question_keys' => [
+            'request_reason',
+            'cooling_heating',
+            'building_type',
+            'outdoor_location',
+            'free_group_known',
         ],
     ],
 

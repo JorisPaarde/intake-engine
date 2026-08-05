@@ -2,14 +2,17 @@
 
 declare(strict_types=1);
 
+use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Actions\GenerateIntakePdf;
 use App\Domains\Intake\Actions\HardDeleteIntake;
+use App\Domains\Intake\Actions\LoadDemoSurveyScenario;
 use App\Domains\Intake\Actions\StartDemoIntake;
 use App\Domains\Intake\Models\GeneratedReport;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Services\ExternalFactPresenter;
 use App\Domains\Intake\Services\GenerateIntakeReportHtml;
 use App\Domains\Intake\Services\IntakeStepBuilder;
+use App\Enums\ContributionMode;
 use App\Enums\IntakeStatus;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
@@ -391,11 +394,27 @@ test('lookup id cannot replace a manually entered different address', function (
         ->and($intake->answers()->where('question_key', 'build_year')->exists())->toBeFalse();
 });
 
-test('starting a demo uses precomputed fictitious context without calling PDOK', function () {
+test('loading the demo sample dossier uses precomputed fictitious context without calling PDOK', function () {
     Http::fake();
     config()->set('intake.demo.enabled', true);
 
-    $intake = app(StartDemoIntake::class)->handle();
+    $user = app(StartDemoIntake::class)->handle();
+    $intake = app(CreateIntake::class)->handle($user, [
+        'template_key' => 'airco',
+        'workflow_mode' => ContributionMode::Installer,
+        'customer_name' => 'Voorbeeldklant',
+        'customer_email' => 'voorbeeld@demo.invalid',
+        'address_line' => 'Voorbeeldstraat 12',
+        'address_postal_code' => '1234AB',
+        'address_house_number' => 12,
+        'address_city' => 'Voorbeeldstad',
+        'is_demo' => true,
+        'token_ttl_hours' => 2,
+    ]);
+
+    app(LoadDemoSurveyScenario::class)->handle($intake, $user);
+    $intake->refresh();
+
     $buildYear = $intake->externalFacts()->where('fact_key', 'building_year')->firstOrFail();
 
     expect($intake->exists)->toBeTrue()

@@ -5,18 +5,20 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Installer;
 
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Services\PublicDemoSession;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function __invoke(Request $request): View
+    public function __invoke(Request $request, PublicDemoSession $publicDemoSession): View
     {
         $this->authorize('viewAny', Intake::class);
 
         $user = $request->user();
-        $showingDemoIntakes = $this->shouldShowDemoIntakes($request);
+        $isPublicDemo = $publicDemoSession->isActive($request);
+        $showingDemoIntakes = $this->shouldShowDemoIntakes($request, $publicDemoSession);
 
         $query = Intake::query()
             ->where('company_id', $user?->company_id)
@@ -39,10 +41,12 @@ class DashboardController extends Controller
         return view('installer.dashboard', [
             'intakes' => $intakes,
             'showingDemoIntakes' => $showingDemoIntakes,
+            'isPublicDemo' => $isPublicDemo,
+            'publicDemoHasIntake' => $publicDemoSession->intakeId($request) !== null,
         ]);
     }
 
-    private function shouldShowDemoIntakes(Request $request): bool
+    private function shouldShowDemoIntakes(Request $request, PublicDemoSession $publicDemoSession): bool
     {
         $user = $request->user();
 
@@ -50,15 +54,7 @@ class DashboardController extends Controller
             return false;
         }
 
-        $publicDemoIntakeId = $request->session()->get('public_demo_intake_id');
-
-        if (is_numeric($publicDemoIntakeId)
-            && Intake::query()
-                ->whereKey((int) $publicDemoIntakeId)
-                ->where('company_id', $user->company_id)
-                ->where('created_by', $user->id)
-                ->where('is_demo', true)
-                ->exists()) {
+        if ($publicDemoSession->isActive($request)) {
             return true;
         }
 

@@ -69,20 +69,31 @@
             @endif
 
             @if ($intake->is_demo)
-                <section id="demo-intro" class="overflow-hidden rounded-3xl border border-sky-200 bg-sky-50 shadow-sm">
+                <section id="demo-intro" class="overflow-hidden rounded-3xl border border-sky-200 bg-sky-50 shadow-sm" data-demo-anchor="workspace-intro">
                     <div class="grid gap-5 p-5 sm:p-6 lg:grid-cols-[1fr_auto] lg:items-center">
                         <div>
                             <p class="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Interactieve demo · echte werkplek</p>
-                            <h3 class="mt-2 text-xl font-semibold text-gray-950">Beoordeel een vooraf gevulde airco-opname</h3>
+                            <h3 class="mt-2 text-xl font-semibold text-gray-950">
+                                {{ $intake->aircoRooms->isEmpty() ? 'Bouw het technische dossier op' : 'Beoordeel het demoscenario' }}
+                            </h3>
                             <p class="mt-2 max-w-3xl text-sm leading-relaxed text-gray-700">
-                                Deze woning, klant en foto’s zijn volledig fictief. U gebruikt wel dezelfde installateursflow, validaties en dossieropslag als in de app. De sessie verdwijnt na {{ max(1, (int) config('intake.demo.ttl_hours', 2)) }} uur; live AI, e-mail en PDF-export staan uit.
+                                Dezelfde installateursflow als in productie. Data is fictief en verdwijnt na {{ max(1, (int) config('intake.demo.ttl_hours', 2)) }} uur; live AI, e-mail en PDF-export staan uit.
                             </p>
-                            <nav class="mt-4 flex flex-wrap gap-2 text-xs font-semibold" aria-label="Demoroute">
-                                <a href="#demo-context" class="rounded-full bg-white px-3 py-2 text-sky-800 shadow-sm ring-1 ring-sky-200">1. Woningcontext</a>
-                                <a href="#demo-evidence" class="rounded-full bg-white px-3 py-2 text-sky-800 shadow-sm ring-1 ring-sky-200">2. Foto’s</a>
-                                <a href="#demo-proposal" class="rounded-full bg-white px-3 py-2 text-sky-800 shadow-sm ring-1 ring-sky-200">3. Voorstel en routes</a>
-                                <a href="#demo-customer-task" class="rounded-full bg-white px-3 py-2 text-sky-800 shadow-sm ring-1 ring-sky-200">4. Gerichte klanttaak</a>
-                            </nav>
+                            @if ($intake->aircoRooms->isEmpty())
+                                <form method="POST" action="{{ route('demo.scenario.load', $intake) }}" class="mt-4">
+                                    @csrf
+                                    <button type="submit" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-600">
+                                        Toon voorbeelddossier
+                                    </button>
+                                </form>
+                            @else
+                                <nav class="mt-4 flex flex-wrap gap-2 text-xs font-semibold" aria-label="Demoroute">
+                                    <a href="#demo-context" class="rounded-full bg-white px-3 py-2 text-sky-800 shadow-sm ring-1 ring-sky-200">1. Woningcontext</a>
+                                    <a href="#demo-evidence" class="rounded-full bg-white px-3 py-2 text-sky-800 shadow-sm ring-1 ring-sky-200">2. Foto’s</a>
+                                    <a href="#demo-proposal" class="rounded-full bg-white px-3 py-2 text-sky-800 shadow-sm ring-1 ring-sky-200">3. Voorstel en routes</a>
+                                    <a href="#demo-customer-task" class="rounded-full bg-white px-3 py-2 text-sky-800 shadow-sm ring-1 ring-sky-200">4. Gerichte klanttaak</a>
+                                </nav>
+                            @endif
                         </div>
                         <a href="{{ url('/') }}" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-sky-300 bg-white px-4 py-2 text-sm font-semibold text-sky-900 hover:bg-sky-100">
                             Terug naar website
@@ -869,4 +880,13 @@
             </div>
         </div>
     </div>
+
+    @if ($intake->is_demo && (bool) session('public_demo_mode', false))
+        <x-demo-guide
+            :step="session('demo_coachmark', session('public_demo_guide_step'))"
+            :has-intake="true"
+            :intake="$intake"
+            :scenario-loaded="$intake->aircoRooms->isNotEmpty()"
+        />
+    @endif
 </x-app-layout>

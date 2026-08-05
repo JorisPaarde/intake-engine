@@ -2,25 +2,39 @@
     'variant' => 'banner',
     'demoAiSummary' => null,
     'demoAttentionPoints' => [],
+    'shortCustomer' => false,
+    'installerReturnUrl' => null,
 ])
 
 @php
-    $included = [
-        'Dezelfde afgeschermde klanttaak en uploadflow als in de app',
-        'De aanvulling wordt direct aan hetzelfde technische dossier gekoppeld',
-    ];
+    $included = $shortCustomer
+        ? [
+            'Verkorte demoroute met dezelfde klantvragen als in de app',
+            'Antwoorden landen in hetzelfde tijdelijke installateursdossier',
+        ]
+        : [
+            'Dezelfde afgeschermde klanttaak en uploadflow als in de app',
+            'De aanvulling wordt direct aan hetzelfde technische dossier gekoppeld',
+        ];
     $hidden = [
         'E-mail en herinneringen naar een echte klant',
         'Live AI-aanroepen',
         'PDF-export van het rapport',
+        ...($shortCustomer ? ['De volledige productievragenlijst (adaptief en langer)'] : []),
     ];
 @endphp
 
 @if ($variant === 'banner')
     <aside {{ $attributes->merge(['class' => 'mb-4 rounded-md border border-brand-ember/40 bg-brand-ember/10 px-4 py-3 text-left text-sm text-brand-ink', 'role' => 'status']) }}>
-        <p class="font-semibold text-brand-ember">Demo — gerichte klantaanvulling</p>
+        <p class="font-semibold text-brand-ember">
+            {{ $shortCustomer ? 'Demo — verkorte klantroute' : 'Demo — gerichte klantaanvulling' }}
+        </p>
         <p class="mt-1 leading-relaxed text-brand-ink/75">
-            Je bekijkt één specifieke opdracht vanuit het fictieve installateursdossier. Er is geen echte klant of woning; de tijdelijke gegevens verdwijnen automatisch.
+            @if ($shortCustomer)
+                Je bekijkt wat de klant ziet na het versturen van de link. Deze demoroute is verkort tot een paar representatieve stappen; er is geen echte klant of woning.
+            @else
+                Je bekijkt één specifieke opdracht vanuit het fictieve installateursdossier. Er is geen echte klant of woning; de tijdelijke gegevens verdwijnen automatisch.
+            @endif
         </p>
         <p class="mt-2 font-medium text-brand-ink/85">Wel aan in deze demo:</p>
         <ul class="mt-1.5 list-disc space-y-0.5 pl-5 text-brand-ink/70">
@@ -39,7 +53,11 @@
     <div {{ $attributes->merge(['class' => 'mt-5 border-t border-brand-fog/80 pt-5 text-sm text-brand-ink/80']) }}>
         <p class="font-semibold text-brand-ink">Wat je net hebt gedaan</p>
         <p class="mt-1 leading-relaxed">
-            Eén gerichte klantaanvulling afgerond. De foto of het antwoord is aan hetzelfde fictieve installateursdossier gekoppeld en de klanttoegang is weer gesloten.
+            @if ($shortCustomer)
+                De verkorte klantroute is afgerond. In productie zou de installateur nu een afrondingsmail krijgen.
+            @else
+                Eén gerichte klantaanvulling afgerond. De foto of het antwoord is aan hetzelfde fictieve installateursdossier gekoppeld en de klanttoegang is weer gesloten.
+            @endif
         </p>
 
         @if (! empty($demoAiSummary) && is_array($demoAiSummary))
@@ -74,8 +92,14 @@
             @endforeach
         </ul>
         <p class="mt-4 leading-relaxed">
-            Ga terug naar het andere tabblad om de bijgewerkte installateurswerkplek te bekijken, of ga
-            <a href="{{ url('/') }}" class="font-semibold text-brand-sea underline">terug naar de website</a>.
+            @if ($installerReturnUrl)
+                <a href="{{ $installerReturnUrl }}" class="font-semibold text-brand-sea underline">Terug naar het installateursdossier</a>
+                of ga
+                <a href="{{ url('/') }}" class="font-semibold text-brand-sea underline">terug naar de website</a>.
+            @else
+                Ga terug naar het andere tabblad om de bijgewerkte installateurswerkplek te bekijken, of ga
+                <a href="{{ url('/') }}" class="font-semibold text-brand-sea underline">terug naar de website</a>.
+            @endif
         </p>
     </div>
 @endif

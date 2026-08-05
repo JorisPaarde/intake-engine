@@ -6,6 +6,7 @@ use App\Domains\Intake\Mail\CustomerIntakeLinkMail;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeTemplate;
+use App\Enums\ContributionMode;
 use App\Enums\IntakeStatus;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
@@ -152,13 +153,48 @@ test('demo intakes never receive a customer link mail', function () {
     config([
         'intake.demo.enabled' => true,
         'intake.demo.user_email' => 'demo@intake-engine.test',
+        'intake.demo.ttl_hours' => 2,
     ]);
 
-    $this->post(route('demo.start'));
+    $this->post(route('demo.start'))->assertRedirect(route('dashboard'));
+    $user = User::query()
+        ->where('email', 'like', 'installateur+%@demo.invalid')
+        ->latest('id')
+        ->firstOrFail();
+
+    $this->actingAs($user)
+        ->withSession([
+            'public_demo_mode' => true,
+            'public_demo_company_id' => $user->company_id,
+            'public_demo_expires_at' => now()->addHours(2)->toIso8601String(),
+            'public_demo_intake_id' => null,
+        ])
+        ->post(route('intakes.store'), [
+            'template_key' => 'airco',
+            'workflow_mode' => ContributionMode::Customer->value,
+            'customer_name' => 'Voorbeeldklant',
+            'customer_email' => 'voorbeeld@demo.invalid',
+            'address_line' => 'Voorbeeldstraat 12',
+            'address_postal_code' => '1234AB',
+            'address_house_number' => 12,
+            'address_city' => 'Voorbeeldstad',
+        ])
+        ->assertRedirect();
 
     Mail::assertNothingSent();
 
     $intake = Intake::query()->where('is_demo', true)->firstOrFail();
+
+    $this->actingAs($user)
+        ->withSession([
+            'public_demo_mode' => true,
+            'public_demo_intake_id' => $intake->id,
+            'public_demo_expires_at' => now()->addHours(2)->toIso8601String(),
+        ])
+        ->post(route('demo.path.choose', $intake), ['path' => 'customer'])
+        ->assertRedirect();
+
+    Mail::assertNothingSent();
 
     expect(
         IntakeActivityEvent::query()

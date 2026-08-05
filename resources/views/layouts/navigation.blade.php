@@ -1,9 +1,10 @@
 @php
     $navCompany = Auth::user()?->company;
-    $isPublicDemo = session()->has('public_demo_intake_id')
+    $isPublicDemo = (bool) session('public_demo_mode', false)
         && str_starts_with((string) Auth::user()?->email, 'installateur+')
         && str_ends_with((string) Auth::user()?->email, '@demo.invalid')
         && str_starts_with((string) $navCompany?->slug, 'publieke-demo-');
+    $publicDemoNeedsCreate = $isPublicDemo && ! session()->has('public_demo_intake_id');
 @endphp
 <nav x-data="{ open: false }" class="border-b border-[#D2D2D7] bg-white">
     <!-- Primary Navigation Menu -->
@@ -27,7 +28,16 @@
                     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                         {{ __('Opnames') }}
                     </x-nav-link>
-                    @unless ($isPublicDemo)
+                    @if ($isPublicDemo)
+                        @if ($publicDemoNeedsCreate)
+                            <x-nav-link :href="route('intakes.create')" :active="request()->routeIs('intakes.create')" data-demo-anchor="nav-create">
+                                {{ __('Nieuwe opname') }}
+                            </x-nav-link>
+                        @endif
+                        <span class="inline-flex items-center border-b-2 border-sky-400 px-1 pt-1 text-sm font-semibold text-sky-700">
+                            Tijdelijke demo
+                        </span>
+                    @else
                         <x-nav-link :href="route('intakes.create')" :active="request()->routeIs('intakes.create')">
                             {{ __('Nieuwe opname') }}
                         </x-nav-link>
@@ -47,11 +57,7 @@
                                 Dev
                             </a>
                         @endif
-                    @else
-                        <span class="inline-flex items-center border-b-2 border-sky-400 px-1 pt-1 text-sm font-semibold text-sky-700">
-                            Tijdelijke demo
-                        </span>
-                    @endunless
+                    @endif
                 </div>
             </div>
 
@@ -109,7 +115,14 @@
             <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                 {{ __('Opnames') }}
             </x-responsive-nav-link>
-            @unless ($isPublicDemo)
+            @if ($isPublicDemo)
+                @if ($publicDemoNeedsCreate)
+                    <x-responsive-nav-link :href="route('intakes.create')" :active="request()->routeIs('intakes.create')">
+                        {{ __('Nieuwe opname') }}
+                    </x-responsive-nav-link>
+                @endif
+                <p class="px-4 py-2 text-sm font-semibold text-sky-700">Tijdelijke demo</p>
+            @else
                 <x-responsive-nav-link :href="route('intakes.create')" :active="request()->routeIs('intakes.create')">
                     {{ __('Nieuwe opname') }}
                 </x-responsive-nav-link>
@@ -124,9 +137,7 @@
                         {{ __('Dev-admin') }}
                     </x-responsive-nav-link>
                 @endif
-            @else
-                <p class="px-4 py-2 text-sm font-semibold text-sky-700">Tijdelijke demo</p>
-            @endunless
+            @endif
         </div>
 
         <!-- Responsive Settings Options -->

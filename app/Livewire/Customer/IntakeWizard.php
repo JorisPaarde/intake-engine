@@ -19,6 +19,7 @@ use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StoreFollowUpUpload;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeFollowUpItem;
 use App\Domains\Intake\Models\IntakeFollowUpRound;
 use App\Domains\Intake\Models\IntakeQuestion;
@@ -29,6 +30,7 @@ use App\Domains\Intake\Services\CompletenessChecker;
 use App\Domains\Intake\Services\IntakePrefillResolver;
 use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Domains\Intake\Services\ProgressCalculator;
+use App\Domains\Intake\Services\PublicDemoSession;
 use App\Domains\Intake\Services\ResolveIntakeByAccessToken;
 use App\Domains\Intake\Services\VisibilityResolver;
 use App\Enums\AiRunStatus;
@@ -212,7 +214,10 @@ class IntakeWizard extends Component
         $steps = $this->steps();
         $this->clampStepIndex($steps);
         $step = $steps[$this->stepIndex] ?? null;
-        $progress = app(ProgressCalculator::class)->calculate($intake, $version);
+        $demoShortCustomer = $this->isDemoShortCustomerPath($intake);
+        $progress = $demoShortCustomer
+            ? $this->demoShortProgress($steps)
+            : app(ProgressCalculator::class)->calculate($intake, $version);
 
         $question = null;
         $visibility = [];
@@ -258,7 +263,7 @@ class IntakeWizard extends Component
         $demoAiSummary = null;
         $demoAttentionPoints = [];
 
-        if ($this->completed && $intake->is_demo) {
+        if ($this->completed && $intake->is_demo && ! $demoShortCustomer) {
             $intake->loadMissing(['report', 'attentionPoints']);
             $meta = $intake->report?->meta;
             $metaSummary = is_array($meta) ? ($meta['ai_summary'] ?? null) : null;
@@ -278,6 +283,10 @@ class IntakeWizard extends Component
             'visibility' => $visibility,
             'uploadsByQuestion' => $uploadsByQuestion,
             'displayPhotoHint' => $displayPhotoHint,
+            'demoShortCustomer' => $demoShortCustomer,
+            'demoInstallerReturnUrl' => $demoShortCustomer
+                ? route('intakes.show', $intake)
+                : null,
             'progressPercent' => $this->completed ? 100 : $progress['percent'],
             'missingRequired' => $this->completionMissing !== []
                 ? $this->completionMissing
@@ -988,6 +997,13 @@ class IntakeWizard extends Component
         }
 
         $intake = $this->intake();
+
+        if ($this->isDemoShortCustomerPath($intake)) {
+            $this->completeDemoShortCustomerPath($intake);
+
+            return;
+        }
+
         $version = $this->version();
         $check = app(CompletenessChecker::class)->check($intake, $version);
 
@@ -1205,14 +1221,149 @@ class IntakeWizard extends Component
             return $this->resolvedSteps;
         }
 
-        $this->resolvedSteps = app(IntakeStepBuilder::class)->build(
+        $steps = app(IntakeStepBuilder::class)->build(
             $this->intake(),
             $this->version(),
             $this->liveAnswers(),
         );
+
+        if ($this->isDemoShortCustomerPath($this->intake())) {
+            $allowed = app(PublicDemoSession::class)->shortCustomerQuestionKeys();
+            $steps = array_values(array_filter(
+                $steps,
+                static fn (array $step): bool => in_array($step['question_key'], $allowed, true),
+            ));
+        }
+
+        $this->resolvedSteps = $steps;
         $this->resolvedStepsFormSignature = $signature;
 
         return $this->resolvedSteps;
+    }
+
+    private function isDemoShortCustomerPath(Intake $intake): bool
+    {
+        return $intake->is_demo
+            && (bool) session('public_demo_short_customer', false)
+            && ! $this->followUpMode;
+    }
+
+    /**
+     * @param  list<array{question_key: string, section_instance_key: string|null, section_key: string}>  $steps
+     * @return array{percent: int, missing_required: list<array{question_key: string, section_instance_key: string|null}>}
+     */
+    private function demoShortProgress(array $steps): array
+    {
+        $total = count($steps);
+        $answered = 0;
+        $missing = [];
+        $reader = app(AnswerValueReader::class);
+        $version = $this->version();
+
+        foreach ($steps as $step) {
+            $question = app(IntakeStepBuilder::class)->questionForStep(
+                $version,
+                $step['section_key'],
+                $step['question_key'],
+            );
+
+            if (! $question instanceof IntakeQuestion) {
+                continue;
+            }
+
+            $composite = VisibilityResolver::compositeKey(
+                $step['question_key'],
+                $step['section_instance_key'],
+            );
+            $value = $this->form[$composite] ?? null;
+            $filled = $reader->isFilled(is_array($value) ? $value : null, $question->type);
+
+            if ($filled) {
+                $answered++;
+            } elseif ($question->is_required) {
+                $missing[] = [
+                    'question_key' => $step['question_key'],
+                    'section_instance_key' => $step['section_instance_key'],
+                ];
+            }
+        }
+
+        return [
+            'percent' => $total === 0 ? 100 : (int) round(($answered / $total) * 100),
+            'missing_required' => $missing,
+        ];
+    }
+
+    private function completeDemoShortCustomerPath(Intake $intake): void
+    {
+        $allowed = app(PublicDemoSession::class)->shortCustomerQuestionKeys();
+        $steps = $this->steps();
+        $missing = [];
+
+        foreach ($steps as $step) {
+            if (! in_array($step['question_key'], $allowed, true)) {
+                continue;
+            }
+
+            $question = app(IntakeStepBuilder::class)->questionForStep(
+                $this->version(),
+                $step['section_key'],
+                $step['question_key'],
+            );
+
+            if (! $question instanceof IntakeQuestion || ! $question->is_required) {
+                continue;
+            }
+
+            $composite = VisibilityResolver::compositeKey(
+                $step['question_key'],
+                $step['section_instance_key'],
+            );
+            $value = $this->form[$composite] ?? null;
+            $filled = app(AnswerValueReader::class)->isFilled(
+                is_array($value) ? $value : null,
+                $question->type,
+            );
+
+            if (! $filled) {
+                $missing[] = [
+                    'question_key' => $step['question_key'],
+                    'section_instance_key' => $step['section_instance_key'],
+                    'reason' => 'required_answer',
+                    'label' => $question->label,
+                    'instance_label' => null,
+                ];
+            }
+        }
+
+        if ($missing !== []) {
+            $this->completionMissing = $missing;
+            $this->showMissing = true;
+            $this->saveMessage = '';
+
+            return;
+        }
+
+        IntakeActivityEvent::query()->create([
+            'intake_id' => $intake->id,
+            'actor_type' => 'customer',
+            'actor_id' => null,
+            'event' => 'demo_short_customer_completed',
+            'properties' => ['question_keys' => $allowed],
+            'created_at' => now(),
+        ]);
+
+        $intake->forceFill([
+            'progress_percent' => 100,
+        ])->save();
+
+        session()->put('public_demo_guide_step', 'customer_done');
+
+        $this->forgetIntakeDerivedCaches();
+        $this->completed = true;
+        $this->completionMissing = [];
+        $this->showMissing = false;
+        $this->saveMessage = '';
     }
 
     /**

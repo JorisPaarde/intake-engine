@@ -19,26 +19,32 @@ final class StartDemoController extends Controller
             throw new NotFoundHttpException;
         }
 
-        $intake = $startDemoIntake->handle();
-        $creator = $intake->creator;
-
-        abort_unless($creator !== null, 500);
+        $creator = $startDemoIntake->handle();
 
         Auth::login($creator);
         $request->session()->regenerate();
+
+        $ttlHours = max(1, (int) config('intake.demo.ttl_hours', 2));
+
         $request->session()->put([
-            'public_demo_intake_id' => $intake->id,
-            'public_demo_company_id' => $intake->company_id,
-            'public_demo_expires_at' => $intake->token_expires_at?->toIso8601String(),
+            'public_demo_mode' => true,
+            'public_demo_company_id' => $creator->company_id,
+            'public_demo_expires_at' => now()->addHours($ttlHours)->toIso8601String(),
+            'public_demo_guide_step' => 'welcome',
+            'public_demo_intake_id' => null,
+            'public_demo_path_chosen' => null,
+            'public_demo_short_customer' => false,
+            'public_demo_scenario_loaded' => false,
         ]);
 
         return redirect()
-            ->route('intakes.workspace', $intake)
+            ->route('dashboard')
             ->with(
                 'status',
-                'De interactieve demo staat klaar. Alles is fictief en wordt na '
-                    .max(1, (int) config('intake.demo.ttl_hours', 2))
+                'Welkom in de interactieve demo. Alles is fictief en wordt na '
+                    .$ttlHours
                     .' uur verwijderd.',
-            );
+            )
+            ->with('demo_coachmark', 'welcome');
     }
 }
