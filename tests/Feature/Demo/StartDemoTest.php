@@ -7,6 +7,7 @@ use App\Domains\AI\Models\AiRun;
 use App\Domains\Intake\Actions\CompleteIntake;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
+use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
 use App\Domains\Intake\Models\ContributionTask;
 use App\Domains\Intake\Models\DossierEvidenceLink;
 use App\Domains\Intake\Models\Intake;
@@ -622,7 +623,7 @@ it('does not dispatch PDF or installer mail when a demo intake is completed', fu
     $completed = app(CompleteIntake::class)->handle($intake->fresh());
 
     Queue::assertPushed(SummarizeIntakeJob::class);
-    Queue::assertNotPushed(\App\Domains\Intake\Jobs\GenerateIntakePdfJob::class);
+    Queue::assertNotPushed(GenerateIntakePdfJob::class);
     Mail::assertNothingSent();
     expect($completed->status)->toBe(IntakeStatus::Completed);
 });
