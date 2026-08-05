@@ -352,6 +352,10 @@
                 @endif
             </div>
 
+            @if ($intake->is_demo)
+                <x-demo-pdf-request :intake="$intake" />
+            @endif
+
             @if ($intake->report)
                 <div class="bg-white shadow-sm sm:rounded-lg p-6 space-y-4">
                     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -362,24 +366,39 @@
                             </p>
                         </div>
                         <div class="flex flex-wrap gap-2">
-                            @if ($intake->report->hasPdf())
-                                <a
-                                    href="{{ route('intakes.pdf', $intake) }}"
-                                    class="inline-flex items-center rounded-md bg-gray-800 px-3 py-2 text-xs font-semibold uppercase tracking-widest text-white hover:bg-gray-700"
-                                >
-                                    Download PDF
-                                </a>
+                            @if ($intake->is_demo)
+                                @if ($intake->report->hasPdf())
+                                    <a
+                                        href="{{ route('intakes.pdf', $intake) }}"
+                                        class="inline-flex items-center rounded-md bg-gray-800 px-3 py-2 text-xs font-semibold uppercase tracking-widest text-white hover:bg-gray-700"
+                                    >
+                                        Download PDF
+                                    </a>
+                                @else
+                                    <span class="inline-flex items-center rounded-md bg-gray-100 px-3 py-2 text-xs font-medium text-gray-600">
+                                        PDF op aanvraag via het formulier hierboven
+                                    </span>
+                                @endif
                             @else
-                                <span class="inline-flex items-center rounded-md bg-gray-100 px-3 py-2 text-xs font-medium text-gray-600">
-                                    PDF wordt voorbereid…
-                                </span>
+                                @if ($intake->report->hasPdf())
+                                    <a
+                                        href="{{ route('intakes.pdf', $intake) }}"
+                                        class="inline-flex items-center rounded-md bg-gray-800 px-3 py-2 text-xs font-semibold uppercase tracking-widest text-white hover:bg-gray-700"
+                                    >
+                                        Download PDF
+                                    </a>
+                                @else
+                                    <span class="inline-flex items-center rounded-md bg-gray-100 px-3 py-2 text-xs font-medium text-gray-600">
+                                        PDF wordt voorbereid…
+                                    </span>
+                                @endif
+                                <form method="POST" action="{{ route('intakes.pdf.regenerate', $intake) }}">
+                                    @csrf
+                                    <x-secondary-button type="submit">
+                                        {{ $intake->report->hasPdf() ? 'PDF opnieuw genereren' : 'PDF genereren' }}
+                                    </x-secondary-button>
+                                </form>
                             @endif
-                            <form method="POST" action="{{ route('intakes.pdf.regenerate', $intake) }}">
-                                @csrf
-                                <x-secondary-button type="submit">
-                                    {{ $intake->report->hasPdf() ? 'PDF opnieuw genereren' : 'PDF genereren' }}
-                                </x-secondary-button>
-                            </form>
                         </div>
                     </div>
 

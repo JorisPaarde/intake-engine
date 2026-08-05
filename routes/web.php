@@ -6,6 +6,7 @@ use App\Http\Controllers\CompanyLogoController;
 use App\Http\Controllers\Customer\IntakeUploadController as CustomerIntakeUploadController;
 use App\Http\Controllers\Demo\ChooseDemoPathController;
 use App\Http\Controllers\Demo\LoadDemoScenarioController;
+use App\Http\Controllers\Demo\RequestDemoReportPdfController;
 use App\Http\Controllers\Demo\StartDemoController;
 use App\Http\Controllers\Dev\DevActivityController;
 use App\Http\Controllers\Dev\DevAiRunController;
@@ -64,6 +65,9 @@ Route::middleware(['auth', 'verified', 'public.demo.scope'])->group(function () 
     Route::post('/intakes', [IntakeController::class, 'store'])->name('intakes.store');
     Route::post('/intakes/{intake}/demo/path', ChooseDemoPathController::class)->name('demo.path.choose');
     Route::post('/intakes/{intake}/demo/scenario', LoadDemoScenarioController::class)->name('demo.scenario.load');
+    Route::post('/intakes/{intake}/demo/rapport-pdf', RequestDemoReportPdfController::class)
+        ->middleware('throttle:product-interest')
+        ->name('demo.report-pdf');
     Route::get('/intakes/{intake}', [IntakeController::class, 'show'])->name('intakes.show');
     Route::post('/intakes/{intake}/address-enrichment', [IntakeController::class, 'retryAddressEnrichment'])
         ->middleware('throttle:10,1')
