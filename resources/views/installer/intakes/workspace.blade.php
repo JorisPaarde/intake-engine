@@ -77,7 +77,7 @@
                                 {{ $intake->aircoRooms->isEmpty() ? 'Bouw het technische dossier op' : 'Beoordeel het demoscenario' }}
                             </h3>
                             <p class="mt-2 max-w-3xl text-sm leading-relaxed text-gray-700">
-                                Dezelfde installateursflow als in productie. Data is fictief en verdwijnt na {{ max(1, (int) config('intake.demo.ttl_hours', 2)) }} uur; live AI, e-mail en PDF-export staan uit.
+                                Dezelfde installateursflow als in productie, inclusief adresverrijking en AI-foto-/tekstinterpretatie. Klantgegevens zijn fictief en verdwijnen na {{ max(1, (int) config('intake.demo.ttl_hours', 2)) }} uur; e-mail en PDF-export blijven uit.
                             </p>
                             @if ($intake->aircoRooms->isEmpty())
                                 <form method="POST" action="{{ route('demo.scenario.load', $intake) }}" class="mt-4">
@@ -175,18 +175,12 @@
                                     De synthese gebruikt alleen brongebonden dossierinformatie. Opties, routes en klanttaken blijven voorstellen totdat u ze als geheel kiest of verstuurt.
                                 </p>
                             </div>
-                            @if ($intake->is_demo)
-                                <span class="inline-flex min-h-11 shrink-0 items-center rounded-xl bg-indigo-100 px-4 py-2 text-sm font-semibold text-indigo-800">
-                                    Vooraf berekend · € 0
-                                </span>
-                            @else
-                                <form method="POST" action="{{ route('intakes.workspace.synthesis', $intake) }}">
-                                    @csrf
-                                    <button class="inline-flex min-h-11 shrink-0 items-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500">
-                                        AI-voorstel vernieuwen
-                                    </button>
-                                </form>
-                            @endif
+                            <form method="POST" action="{{ route('intakes.workspace.synthesis', $intake) }}">
+                                @csrf
+                                <button class="inline-flex min-h-11 shrink-0 items-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500">
+                                    AI-voorstel vernieuwen
+                                </button>
+                            </form>
                         </div>
 
                         @if ($aiSynthesis)

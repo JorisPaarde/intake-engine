@@ -1,6 +1,6 @@
 # Intake Engine (Digitale Opname)
 
-> **Documentversie:** 2.5 · **Laatste update:** 2026-08-05 · Onderhoud: zie [AGENTS.md](AGENTS.md)
+> **Documentversie:** 2.6 · **Laatste update:** 2026-08-05 · Onderhoud: zie [AGENTS.md](AGENTS.md)
 
 **Werk je als agent aan dit project? Lees eerst [AGENTS.md](AGENTS.md)** — het projectgeheugen, de documentkaart en het onderhoudsprotocol.
 
@@ -69,10 +69,11 @@ De publieke homepage is een productfunnel voor airco-installateurs: probleem en 
 Een gast kan vanaf `/` zonder account **Probeer de demo** kiezen. De app maakt per start een eigen tijdelijk installatiebedrijf en gebruiker, logt de bezoeker in als installateur en begeleidt via pop-ups: dashboard → *Nieuwe opname* → rolkeuze i.p.v. mail (*klant* of *zelf*).
 
 - dezelfde create-, dossier-, tenant-, upload- en klanttaaklogica als productie;
+- adresverrijking na postcode/huisnummer en AI-foto-/tekstinterpretatie zoals in productie (wanneer die integraties aan staan);
 - verkorte klantwizard of installateurswerkplek met optioneel voorbeelddossier;
-- vooraf berekende BAG-/luchtfoto-/EP-Online-/3DBAG- en AI-voorbeelddata bij sample-load;
+- vooraf berekende BAG-/luchtfoto-/EP-Online-/3DBAG- en AI-voorbeelddata bij sample-load als snelle boost;
 - synthetische foto’s via de normale dossier- en analysebeeldpipeline;
-- geen externe AI, e-mail, notificatie of PDF;
+- geen e-mail, notificatie of PDF;
 - automatische hard purge van dossier, media, gebruiker en bedrijf na standaard twee uur.
 
 Een interesse-inzending wordt los van technische opnames in `product_interests` bewaard, zonder IP-adres. De dagelijkse purge verwijdert haar standaard na 365 dagen. Met `PRODUCT_INTEREST_MAIL_TO` en werkende SMTP wordt daarnaast een interne melding in de queue gezet; zonder mailconfig blijft de inzending gewoon bewaard.

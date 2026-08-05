@@ -19,8 +19,8 @@
 
             @if ($intake->is_demo && ! session('public_demo_path_chosen'))
                 <div class="rounded-2xl border border-sky-200 bg-sky-50 px-5 py-4 text-sm text-sky-950" data-demo-anchor="branch-panel">
-                    <p class="font-semibold">Demo: kies hoe je verder kijkt</p>
-                    <p class="mt-1 text-sky-900/80">In productie mailen we nu de klantlink. Hier kies je of je doorgaat als klant of zelf de opname doet.</p>
+                    <p class="font-semibold">Demo: adresgegevens staan al in het dossier</p>
+                    <p class="mt-1 text-sky-900/80">Bekijk hieronder de opgehaalde woninggegevens. In productie mailen we nu de klantlink — hier kies je of je doorgaat als klant of zelf de opname doet.</p>
                 </div>
             @endif
 
@@ -147,7 +147,7 @@
                     </div>
                 @endif
 
-                @if (in_array($addressVerificationStatus, ['not_found', 'unavailable'], true) && ! $intake->is_demo)
+                @if (in_array($addressVerificationStatus, ['not_found', 'unavailable'], true))
                     <form method="POST" action="{{ route('intakes.address-enrichment.retry', $intake) }}">
                         @csrf
                         <x-secondary-button type="submit">Adres opnieuw controleren</x-secondary-button>

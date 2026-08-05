@@ -32,7 +32,7 @@ final class LoadDemoScenarioController extends Controller
             ->with('demo_coachmark', 'sample_loaded')
             ->with(
                 'status',
-                'Voorbeelddossier geladen. BAG-, foto- en AI-inhoud is fictief en vooraf berekend — geen live AI of e-mail.',
+                'Voorbeelddossier geladen. Je kunt hierna nog AI-voorstellen vernieuwen of eigen foto’s laten analyseren. E-mail blijft uit.',
             );
     }
 }

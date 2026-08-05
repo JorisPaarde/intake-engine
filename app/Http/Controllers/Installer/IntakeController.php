@@ -127,9 +127,24 @@ class IntakeController extends Controller
             $payload['is_demo'] = true;
             $payload['token_ttl_hours'] = max(1, (int) config('intake.demo.ttl_hours', 2));
             $payload['customer_access_enabled'] = false;
+
+            $demoReason = trim((string) config(
+                'intake.demo.request_reason',
+                'Twee slaapkamers op zolder koelen; het wordt daar te warm in de zomer.',
+            ));
+            if ($demoReason !== '' && blank(data_get($payload, 'prefill.request_reason'))) {
+                $payload['prefill'] = [
+                    ...(is_array($payload['prefill'] ?? null) ? $payload['prefill'] : []),
+                    'request_reason' => $demoReason,
+                ];
+            }
         }
 
         $intake = $createIntake->handle($request->user(), $payload);
+
+        // Same enrichment + intent path as production (including public demo).
+        $deriveIntentFromRequest->handle($intake);
+        $enrichIntakeAddress->handle($intake, $request->validated('address_lookup_id'));
 
         if ($isPublicDemo) {
             // Keep the link ready but inactive until the visitor picks a path.
@@ -149,12 +164,9 @@ class IntakeController extends Controller
                 ->with('demo_coachmark', 'branch')
                 ->with(
                     'status',
-                    'Opname aangemaakt. In productie mailen we nu de klantlink — kies hier hoe je verder wilt kijken.',
+                    'Opname aangemaakt. Adresgegevens zijn opgehaald. In productie mailen we nu de klantlink — kies hier hoe je verder wilt kijken.',
                 );
         }
-
-        $deriveIntentFromRequest->handle($intake);
-        $enrichIntakeAddress->handle($intake, $request->validated('address_lookup_id'));
 
         if ($intake->workflow_mode === ContributionMode::Installer) {
             return redirect()
@@ -206,7 +218,6 @@ class IntakeController extends Controller
         EnrichIntakeAddress $enrichIntakeAddress,
     ): RedirectResponse {
         $this->authorize('update', $intake);
-        abort_if($intake->is_demo, 404);
 
         $enrichIntakeAddress->handle($intake);
 

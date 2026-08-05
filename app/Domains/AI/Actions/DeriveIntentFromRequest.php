@@ -57,7 +57,7 @@ final class DeriveIntentFromRequest
 
     public function handle(Intake $intake, bool $allowExternal = true): ?AiRun
     {
-        if ($intake->is_demo || ! in_array($intake->status, [
+        if (! in_array($intake->status, [
             IntakeStatus::Draft,
             IntakeStatus::Sent,
             IntakeStatus::InProgress,

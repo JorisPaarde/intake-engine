@@ -45,7 +45,7 @@ final class SuggestInstallerPhotoObservations
         DossierSubject $subject,
         IntakeUpload $upload,
     ): ?AiRun {
-        if ($intake->is_demo || ! (bool) config('ai.photo_inference.enabled', false)) {
+        if (! (bool) config('ai.photo_inference.enabled', false)) {
             return null;
         }
 
