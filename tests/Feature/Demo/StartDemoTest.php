@@ -395,7 +395,27 @@ it('hides the start demo button for authenticated users', function () {
         ->get('/')
         ->assertOk()
         ->assertDontSee('Probeer de demo', false)
-        ->assertSee('Open dashboard', false);
+        ->assertDontSee('Verder in demo', false)
+        ->assertSee('Mijn opnames', false);
+});
+
+it('shows continue-demo CTAs on the homepage during a public demo session', function () {
+    config(['intake.demo.enabled' => true]);
+
+    $user = startPublicDemoSession();
+
+    $this->actingAs($user)
+        ->withSession(demoSessionFor($user))
+        ->get('/')
+        ->assertOk()
+        ->assertDontSee('Probeer de demo', false)
+        ->assertDontSee('Open dashboard', false)
+        ->assertDontSee('Mijn opnames', false)
+        ->assertDontSee('Inloggen', false)
+        ->assertSee('Verder in demo', false)
+        ->assertSee('Demo afsluiten', false)
+        ->assertSee('Ik wil een pilot', false)
+        ->assertSee(route('dashboard'), false);
 });
 
 it('activates a simulated customer view without sending mail', function () {

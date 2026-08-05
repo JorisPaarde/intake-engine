@@ -66,7 +66,7 @@ Branching, kwaliteitspoort en overige werkafspraken: [AGENTS.md § Werkafspraken
 
 De publieke homepage is een productfunnel voor airco-installateurs: probleem en werkwijze, afzonderlijke voordelen voor installateur en klant, productweergaven met fictieve demo-inhoud, FAQ, interactieve demo en een interesseformulier voor een pilot.
 
-Een gast kan vanaf `/` zonder account **Probeer de demo** kiezen. De app maakt per start een eigen tijdelijk installatiebedrijf en gebruiker, logt de bezoeker in als installateur en begeleidt via pop-ups: dashboard → *Nieuwe opname* (zelf postcode/huisnummer invullen) → rolkeuze i.p.v. mail (*klant* of *zelf*).
+Een gast kan vanaf `/` zonder account **Probeer de demo** kiezen (header: **Inloggen** + pilot). De app maakt per start een eigen tijdelijk installatiebedrijf en gebruiker, logt de bezoeker in als installateur en begeleidt via pop-ups: opnamelijst → *Nieuwe opname* (zelf postcode/huisnummer invullen) → rolkeuze i.p.v. mail (*klant* of *zelf*). Terug op `/` tijdens die sessie: **Verder in demo** / **Demo afsluiten**. Een echt account ziet **Mijn opnames** (zelfde `/dashboard` als nav “Opnames”), geen demostart.
 
 - dezelfde create-, dossier-, tenant-, upload- en klanttaaklogica als productie;
 - adresverrijking na postcode/huisnummer en AI-foto-/tekstinterpretatie zoals in productie (wanneer die integraties aan staan);

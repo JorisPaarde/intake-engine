@@ -67,6 +67,10 @@
         </style>
     </head>
     <body class="bg-marketing-paper font-marketing text-marketing-ink antialiased">
+        @php
+            $isPublicDemo = (bool) ($isPublicDemo ?? false);
+            $isRealAccount = Auth::check() && ! $isPublicDemo;
+        @endphp
         <header class="absolute inset-x-0 top-0 z-30">
             <div class="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8">
                 <a
@@ -85,12 +89,28 @@
                 </nav>
 
                 <div class="flex items-center gap-2 sm:gap-3">
-                    @auth
+                    @if ($isPublicDemo)
+                        <form method="POST" action="{{ route('logout') }}" class="hidden sm:block">
+                            @csrf
+                            <button
+                                type="submit"
+                                class="px-3 py-2 text-sm font-bold text-white/90 transition hover:text-white"
+                            >
+                                Demo afsluiten
+                            </button>
+                        </form>
                         <a
                             href="{{ route('dashboard') }}"
                             class="inline-flex min-h-10 items-center justify-center bg-marketing-amber px-4 text-sm font-extrabold text-marketing-ink transition hover:brightness-105"
                         >
-                            Naar opnames
+                            Verder in demo
+                        </a>
+                    @elseif ($isRealAccount)
+                        <a
+                            href="{{ route('dashboard') }}"
+                            class="inline-flex min-h-10 items-center justify-center bg-marketing-amber px-4 text-sm font-extrabold text-marketing-ink transition hover:brightness-105"
+                        >
+                            Mijn opnames
                         </a>
                     @else
                         <a
@@ -105,7 +125,7 @@
                         >
                             Ik wil een pilot
                         </a>
-                    @endauth
+                    @endif
                 </div>
             </div>
         </header>
@@ -126,7 +146,30 @@
                         </p>
 
                         <div class="home-reveal home-reveal-delay-2 mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
-                            @guest
+                            @if ($isPublicDemo)
+                                <a
+                                    href="{{ route('dashboard') }}"
+                                    class="inline-flex min-h-[52px] items-center justify-center bg-marketing-amber px-6 text-base font-extrabold text-marketing-ink transition hover:brightness-105 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-marketing-amber"
+                                >
+                                    Verder in demo
+                                    <svg class="ml-2 h-4 w-4" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                                        <path d="M3.5 8h9m-3.5-3.5L12.5 8 9 11.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </a>
+                                <a
+                                    href="#interesse"
+                                    class="inline-flex min-h-[52px] items-center justify-center border border-white/55 px-6 text-base font-extrabold text-white transition hover:border-white hover:bg-white/5 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-marketing-amber"
+                                >
+                                    Ik wil een pilot
+                                </a>
+                            @elseif ($isRealAccount)
+                                <a
+                                    href="{{ route('dashboard') }}"
+                                    class="inline-flex min-h-[52px] items-center justify-center bg-marketing-amber px-6 text-base font-extrabold text-marketing-ink transition hover:brightness-105"
+                                >
+                                    Mijn opnames
+                                </a>
+                            @else
                                 @if (config('intake.demo.enabled'))
                                     <form method="POST" action="{{ route('demo.start') }}">
                                         @csrf
@@ -147,30 +190,21 @@
                                 >
                                     Ik wil een pilot
                                 </a>
-                            @else
-                                <a
-                                    href="{{ route('dashboard') }}"
-                                    class="inline-flex min-h-13 items-center justify-center bg-marketing-amber px-6 text-base font-extrabold text-marketing-ink transition hover:brightness-105"
-                                >
-                                    Open dashboard
-                                </a>
-                            @endguest
+                            @endif
                         </div>
 
-                        @guest
-                            @if (config('intake.demo.enabled'))
-                                <div class="home-reveal home-reveal-delay-2 mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm text-white/70">
-                                    @foreach (['Bekende gegevens staan klaar', 'Klant, zelf of samen', 'Jij houdt de regie'] as $item)
-                                        <span class="inline-flex items-center gap-2">
-                                            <svg class="h-4 w-4 text-marketing-amber" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                                                <path d="m3 8.2 3.1 3.1L13 4.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                                            </svg>
-                                            {{ $item }}
-                                        </span>
-                                    @endforeach
-                                </div>
-                            @endif
-                        @endguest
+                        @if (! $isRealAccount && config('intake.demo.enabled'))
+                            <div class="home-reveal home-reveal-delay-2 mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm text-white/70">
+                                @foreach (['Bekende gegevens staan klaar', 'Klant, zelf of samen', 'Jij houdt de regie'] as $item)
+                                    <span class="inline-flex items-center gap-2">
+                                        <svg class="h-4 w-4 text-marketing-amber" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                                            <path d="m3 8.2 3.1 3.1L13 4.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                        {{ $item }}
+                                    </span>
+                                @endforeach
+                            </div>
+                        @endif
                     </div>
 
                     <div class="home-reveal home-reveal-delay-2 relative mx-auto w-full max-w-2xl" aria-label="Productweergave met fictieve demo-inhoud">
@@ -497,7 +531,27 @@
                         </p>
                     </div>
                     <div class="flex shrink-0 flex-col gap-3 sm:flex-row">
-                        @guest
+                        @if ($isPublicDemo)
+                            <a
+                                href="{{ route('dashboard') }}"
+                                class="inline-flex min-h-[52px] items-center justify-center bg-marketing-amber px-6 text-base font-extrabold text-marketing-ink transition hover:brightness-105"
+                            >
+                                Verder in demo
+                            </a>
+                            <a
+                                href="#interesse"
+                                class="inline-flex min-h-[52px] items-center justify-center border border-white/55 px-6 text-base font-extrabold text-white transition hover:border-white"
+                            >
+                                Ik wil een pilot
+                            </a>
+                        @elseif ($isRealAccount)
+                            <a
+                                href="{{ route('dashboard') }}"
+                                class="inline-flex min-h-[52px] items-center justify-center bg-marketing-amber px-6 text-base font-extrabold text-marketing-ink transition hover:brightness-105"
+                            >
+                                Mijn opnames
+                            </a>
+                        @else
                             @if (config('intake.demo.enabled'))
                                 <form method="POST" action="{{ route('demo.start') }}">
                                     @csrf
@@ -515,14 +569,7 @@
                             >
                                 Ik wil een pilot
                             </a>
-                        @else
-                            <a
-                                href="{{ route('dashboard') }}"
-                                class="inline-flex min-h-[52px] items-center justify-center bg-marketing-amber px-6 text-base font-extrabold text-marketing-ink transition hover:brightness-105"
-                            >
-                                Open dashboard
-                            </a>
-                        @endguest
+                        @endif
                     </div>
                 </div>
             </section>
@@ -732,9 +779,16 @@
                     <a href="#werkwijze" class="hover:text-marketing-ink">Zo werkt het</a>
                     <a href="#product" class="hover:text-marketing-ink">Bekijk de app</a>
                     <a href="#interesse" class="hover:text-marketing-ink">Pilot</a>
-                    @guest
+                    @if ($isPublicDemo)
+                        <form method="POST" action="{{ route('logout') }}" class="inline">
+                            @csrf
+                            <button type="submit" class="hover:text-marketing-ink">Demo afsluiten</button>
+                        </form>
+                    @elseif ($isRealAccount)
+                        <a href="{{ route('dashboard') }}" class="hover:text-marketing-ink">Mijn opnames</a>
+                    @else
                         <a href="{{ route('login') }}" class="hover:text-marketing-ink">Inloggen</a>
-                    @endguest
+                    @endif
                 </div>
             </div>
         </footer>
