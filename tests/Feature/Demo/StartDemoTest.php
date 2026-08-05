@@ -443,7 +443,7 @@ it('lists disabled full-app steps on the demo thank-you notice', function () {
         ->toContain('Eén gerichte klantaanvulling afgerond')
         ->toContain('Bewust uitgeschakeld in de demo')
         ->toContain('E-mail en herinneringen naar een echte klant')
-        ->toContain('PDF-export van het rapport')
+        ->toContain('Automatische PDF-export (wel op aanvraag met e-mail in het installateursdossier)')
         ->toContain('terug naar de website')
         ->not->toContain('Live AI-aanroepen');
 });
