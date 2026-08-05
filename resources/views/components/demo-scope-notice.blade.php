@@ -20,7 +20,7 @@
         ];
     $hidden = [
         'E-mail en herinneringen naar een echte klant',
-        'PDF-export van het rapport',
+        'Automatische PDF-export (wel op aanvraag met e-mail in het installateursdossier)',
         ...($shortCustomer ? ['De volledige productievragenlijst (adaptief en langer)'] : []),
     ];
 @endphp

@@ -1,6 +1,6 @@
 # BL-001 — Begeleide installateursdemo
 
-> **Documentversie:** 2.2 · **Laatste update:** 2026-08-05 · Onderhoud: zie [AGENTS.md](../../AGENTS.md)
+> **Documentversie:** 2.3 · **Laatste update:** 2026-08-05 · Onderhoud: zie [AGENTS.md](../../AGENTS.md)
 
 **Implementatiestatus:** begeleidde flow + live verrijking/AI in demo geïmplementeerd; BL-001 blijft `in_progress` tot de afzonderlijke staging- en mobiele visuele smoke is uitgevoerd.
 
@@ -27,7 +27,7 @@ De publieke demo start als een **echte installateursopname**: tijdelijke tenant 
 - `LoadDemoSurveyScenario` laadt het bestaande demoscenario op verzoek.
 - Coachmarks: Alpine `demoGuide` (installer) + native dialog (klant).
 - Verkorte klantroute via `config('intake.demo.short_customer_question_keys')`.
-- AI-acties en -jobs short-circuiten niet meer op `is_demo`; mail/PDF/notificaties wel. TTL + purge inclusief orphaned demo-workspaces.
+- AI-acties en -jobs short-circuiten niet meer op `is_demo`; klantmail/notificaties wel. PDF alleen via opt-in BL-051 (`RequestDemoReportPdf`). TTL + purge inclusief orphaned demo-workspaces.
 
 ## Acceptatiecriteria
 

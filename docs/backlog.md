@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.12 · **Laatste update:** 2026-08-05 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.13 · **Laatste update:** 2026-08-05 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -56,6 +56,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-045 | Eenvoudige installateurstaal op de productfunnel | E5 | done | medium | A (done) |
 | — | BL-046 | Brede productbelofte op de productfunnel | E5 | done | medium | A (done) |
 | — | BL-050 | Productfunnel in JPWebcreation-huisstijl | E5 | done | medium | A (done) |
+| ∥ | BL-051 | Demo-PDF op aanvraag als lead | E5 | in_progress | medium | A · bij BL-001 |
 | — | BL-047 | Gestructureerde adresregistratie en BAG-herstel | E3 | done | high | F (done) |
 | — | BL-048 | Openingszin hergebruiken en broninformatie terugbrengen | E3 | done | high | F (done) |
 | ∥ | BL-013 | S3 als mediadisk | E5 | backlog | low | I · operationeel |
@@ -443,10 +444,19 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Doel:** publiek of semi-publiek demopad zodat prospects/installateurs het product kunnen ervaren zonder eigen accountsetup of echte klantdata — het hoofddoel ("zo min mogelijk handelingen") toegepast op de allereerste kennismaking.
 - **Nieuwe invulling (begeleide flow):** **Probeer de demo** → tijdelijke tenant/user → dashboard met welkomstpopup → *Nieuwe opname* waarin de installateur zelf postcode/huisnummer intypt → rolkeuze-modal i.p.v. mail (*Doorgaan als klant* / *Zelf de opname doen*) → verkorte klantwizard of werkplek met optioneel voorbeelddossier; coachmark-popups op elke stap.
 - **Scenario (optioneel laden):** vaste BAG-/luchtfoto-/EP-Online-/3DBAG-voorbeeldcontext, twee gewenste ruimtes, synthetisch beeldbewijs, multi-splitvoorstel, koel-/condens-/stroomroutes, vooraf berekende AI-synthese en één voorgestelde meterkasttaak — als snelle boost naast live verrijking/AI.
-- **Kaders:** `is_demo`, standaard-TTL twee uur, hourly hard purge inclusief tijdelijke demo-tenant en orphaned demo-workspaces; geen echte PII, mail of PDF. Adresverrijking en AI (foto/tekst/synthese) draaien wanneer die integraties in de omgeving aan staan, zodat prospects het product echt zien.
-- **Acceptatie:** start op dashboard; create toont postcode-lookup + BAG-verrijking; branch zonder mail; beide paden begeleid met AI zichtbaar waar aan; sample-dossier op verzoek; isolatie/TTL/mail-PDF-grenzen; tests groen.
+- **Kaders:** `is_demo`, standaard-TTL twee uur, hourly hard purge inclusief tijdelijke demo-tenant en orphaned demo-workspaces; geen echte klantdata of klantmail. Adresverrijking en AI (foto/tekst/synthese) draaien wanneer die integraties aan staan. PDF alleen op vrijwillige aanvraag (BL-051).
+- **Acceptatie:** start op dashboard; create toont postcode-lookup + BAG-verrijking; branch zonder mail; beide paden begeleid met AI zichtbaar waar aan; sample-dossier op verzoek; isolatie/TTL; tests groen.
 - **Resultaat code:** begeleidde installateursstart, rolkeuze, verkorte klantroute, live verrijking/AI in demo, `LoadDemoSurveyScenario`, Alpine/native coachmarks en bijgewerkte Pest-dekking. Homepage-CTAs onderscheiden gast (**Probeer de demo** / **Inloggen**), actieve demosessie (**Verder in demo** / **Demo afsluiten**) en echt account (**Mijn opnames**).
-- **Na deploy:** staging-smoke homepage → create (verrijking zichtbaar) → branch → beide paden (foto-/tekst-AI) → sample-dossier → klanttaak; daarna BL-001 op `done`. Controleer ook terugkeer naar `/` tijdens demosessie en na uitloggen.
+- **Na deploy:** staging-smoke homepage → create (verrijking zichtbaar) → branch → beide paden (foto-/tekst-AI) → sample-dossier → klanttaak → PDF-aanvraag; daarna BL-001 op `done`. Controleer ook terugkeer naar `/` tijdens demosessie en na uitloggen.
+
+### BL-051 — Demo-PDF op aanvraag als lead
+
+- **Status:** in_progress · **Prioriteit:** medium · **Band:** A (bij BL-001) · **Epic:** E5
+- **Doel:** laat de installateur aan het eind van de demo een PDF van het demorapport ontvangen door een e-mailadres in te vullen; dat adres is meteen een productlead.
+- **Gedrag:** formulier op demo-werkplek en dossierpagina; bouwt/vernieuwt rapport-HTML; genereert PDF synchroon via `GenerateIntakePdf` (automatische PDF-jobs blijven demos skippen); stuurt PDF naar de prospect; slaat `product_interests` op met `source=demo_pdf_request` en notificeert `PRODUCT_INTEREST_MAIL_TO` (default `info@jpwebcreation.nl`).
+- **Kaders:** honeypot + bestaande interest-throttle; bij `MAIL_MAILER=log` wel lead + downloadbare PDF, geen mailqueue; geen echte klantdata in de lead — alleen het vrijwillig opgegeven adres.
+- **Acceptatie:** PDF-mail + lead-mail in tests met `Mail::fake()`; staging-smoke met SMTP zodra mailer niet `log` is.
+- **Na deploy:** smoke op staging; daarna status `done` met PR-nummer.
 
 ### BL-043 — Publieke productfunnel en interesse-CTA
 

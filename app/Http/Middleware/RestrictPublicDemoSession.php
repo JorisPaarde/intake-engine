@@ -60,10 +60,12 @@ final class RestrictPublicDemoSession
         $allowedWithIntake = $routeName === 'dashboard'
             || $routeName === 'intakes.show'
             || $routeName === 'intakes.store'
+            || $routeName === 'intakes.pdf'
             || $routeName === 'installer.uploads.show'
             || $routeName === 'logout'
             || $routeName === 'demo.path.choose'
             || $routeName === 'demo.scenario.load'
+            || $routeName === 'demo.report-pdf'
             || str_starts_with($routeName, 'intakes.workspace');
 
         if (! $hasIntake) {

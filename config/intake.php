@@ -110,7 +110,8 @@ return [
     */
 
     'interest' => [
-        'recipient' => env('PRODUCT_INTEREST_MAIL_TO'),
+        // Default lead inbox for homepage interest + demo PDF requests (BL-043/BL-051).
+        'recipient' => env('PRODUCT_INTEREST_MAIL_TO', 'info@jpwebcreation.nl'),
         'throttle_per_hour' => (int) env('PRODUCT_INTEREST_THROTTLE_PER_HOUR', 5),
         'retention_days' => (int) env('PRODUCT_INTEREST_RETENTION_DAYS', 365),
     ],

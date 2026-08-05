@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.45 · **Laatste update:** 2026-08-05 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.46 · **Laatste update:** 2026-08-05 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -82,8 +82,9 @@ Laatste testsessie: 2026-07-26 (lokaal; postcode-eerst adresaanvulling met echte
 | Airco v5/v10 meterkastfoto-afleiding (BL-020) | todo | - | Eerst lokaal met `AI_PROVIDER=fake` + flag: hoge zekerheid legt `free_group_known` met bron vast en slaat de redundante bevestigingsvraag over; dossier blijft corrigeerbaar en foto verwijderen wist afleiding/fact. Onduidelijk beeld geeft één concrete herhaalinstructie. Daarna alleen ná DPIA met fictieve stagingbeelden: providerfout soft-fail en geen beeldbytes/data-URL in logs/DB. |
 | Queue-worker (cron) | todo | - | Niet end-to-end bevestigd (geen zichtbaar AI-resultaat) |
 | Oude publieke klantwizarddemo (BL-001 vóór herontwerp) | n/a | staging 2026-07-24 | Historisch functioneel bewezen, maar vervangen door de interactieve installateursdemo; zie de sessienotitie hieronder. |
-| Interactieve installateursdemo (BL-001) | todo | - | Na deploy als gast: homepage → **Probeer de demo** → welkomstpopup → *Nieuwe opname* met lege postcode/huisnummer (zelf invullen; tipadres zichtbaar; lookup vult straat/plaats) → na opslaan woninggegevens/luchtfoto → rolkeuze i.p.v. mail. Test beide paden (verkorte klantwizard met foto-upload/AI én zelf/werkplek + *Toon voorbeelddossier* + AI-voorstel vernieuwen + klanttaak activeren). Desktop én 390 px, toetsenbord, geen consolefouten, geen mail/PDF. |
+| Interactieve installateursdemo (BL-001) | todo | - | Na deploy als gast: homepage → **Probeer de demo** → welkomstpopup → *Nieuwe opname* met lege postcode/huisnummer (zelf invullen; tipadres zichtbaar; lookup vult straat/plaats) → na opslaan woninggegevens/luchtfoto → rolkeuze i.p.v. mail. Test beide paden (verkorte klantwizard met foto-upload/AI én zelf/werkplek + *Toon voorbeelddossier* + AI-voorstel vernieuwen + klanttaak activeren). Desktop én 390 px, toetsenbord, geen consolefouten, geen klantmail. |
 | Homepage-CTAs gast / demosessie / account (BL-001/043) | todo | - | Gast: **Probeer de demo**, **Inloggen**, **Ik wil een pilot**. Tijdens demosessie terug naar `/`: **Verder in demo** + **Demo afsluiten**, geen **Mijn opnames**/Inloggen. Na **Demo afsluiten** weer gast-CTAs. Echt account: **Mijn opnames** naar `/dashboard`, geen demostart. |
+| Demo-PDF-aanvraag als lead (BL-051) | todo | - | Op werkplek/dossier: e-mail invullen → demorapport-PDF ontvangen/downloaden; lead in `product_interests` + mail naar `PRODUCT_INTEREST_MAIL_TO`. Bij `MAIL_MAILER=log`: lead + download, geen queue. |
 | Demo: gerichte klantweergave zonder mail/PDF | todo | - | Voorgestelde meterkasttaak activeren → knop **Klantweergave** → alleen die taak zichtbaar; geen mail, PDF of notificatie. Foto-AI mag meedraaien. Afronden sluit toegang en toont de aanvulling in hetzelfde dossier. |
 | Demo-isolatie en purge (`intakes:purge-demos`) | todo | - | Start twee aparte browsersessies: verschillende tenant/user/intake en onderlinge weigering. Laat één sessie verlopen; hourly purge verwijdert intake, luchtfoto, beide beeldvarianten, tijdelijke user en company terwijl actieve demo blijft bestaan. |
 

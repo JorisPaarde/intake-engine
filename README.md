@@ -73,7 +73,7 @@ Een gast kan vanaf `/` zonder account **Probeer de demo** kiezen (header: **Inlo
 - verkorte klantwizard of installateurswerkplek met optioneel voorbeelddossier;
 - vooraf berekende BAG-/luchtfoto-/EP-Online-/3DBAG- en AI-voorbeelddata bij sample-load als snelle boost;
 - synthetische foto’s via de normale dossier- en analysebeeldpipeline;
-- geen e-mail, notificatie of PDF;
+- geen klantmail of automatische PDF; wel optioneel demorapport-PDF op e-mailaanvraag (tegelijk productlead);
 - automatische hard purge van dossier, media, gebruiker en bedrijf na standaard twee uur.
 
 Een interesse-inzending wordt los van technische opnames in `product_interests` bewaard, zonder IP-adres. De dagelijkse purge verwijdert haar standaard na 365 dagen. Met `PRODUCT_INTEREST_MAIL_TO` en werkende SMTP wordt daarnaast een interne melding in de queue gezet; zonder mailconfig blijft de inzending gewoon bewaard.
