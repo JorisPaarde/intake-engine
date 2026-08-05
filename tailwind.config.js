@@ -14,6 +14,7 @@ export default {
             fontFamily: {
                 sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', '"SF Pro Display"', ...defaultTheme.fontFamily.sans],
                 display: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', ...defaultTheme.fontFamily.sans],
+                marketing: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', ...defaultTheme.fontFamily.sans],
             },
             colors: {
                 brand: {
@@ -24,6 +25,18 @@ export default {
                     deep: '#1D1D1F',
                     sand: '#F5F5F7',
                     ember: '#B42318',
+                },
+                marketing: {
+                    ink: '#18201d',
+                    muted: '#5e6862',
+                    paper: '#fbfaf6',
+                    mist: '#eef1ec',
+                    green: '#315f4f',
+                    'green-dark': '#15392f',
+                    leaf: '#6f8f78',
+                    amber: '#e7ad52',
+                    coral: '#a84832',
+                    line: 'rgba(24, 32, 29, 0.14)',
                 },
             },
         },
