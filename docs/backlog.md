@@ -55,7 +55,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-044 | Hervatbare MySQL-dossiermigratie | E5 | done | high | deployherstel (done) |
 | — | BL-045 | Eenvoudige installateurstaal op de productfunnel | E5 | done | medium | A (done) |
 | — | BL-046 | Brede productbelofte op de productfunnel | E5 | done | medium | A (done) |
-| — | BL-050 | Productfunnel in JPWebcreation-huisstijl | E5 | in_progress | medium | A |
+| — | BL-050 | Productfunnel in JPWebcreation-huisstijl | E5 | done | medium | A (done) |
 | — | BL-047 | Gestructureerde adresregistratie en BAG-herstel | E3 | done | high | F (done) |
 | — | BL-048 | Openingszin hergebruiken en broninformatie terugbrengen | E3 | done | high | F (done) |
 | ∥ | BL-013 | S3 als mediadisk | E5 | backlog | low | I · operationeel |
