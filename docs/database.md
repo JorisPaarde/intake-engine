@@ -1,6 +1,6 @@
 # Databaseschema — Digitale Opname
 
-> **Documentversie:** 3.5 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.6 · **Laatste update:** 2026-08-05 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: dit document beschrijft het **geïmplementeerde schema**, inclusief de uitbreidende dossiermigratie van BL-030 en BL-035 t/m BL-042 en de zelfstandige publieke interesse-inzendingen van BL-043. Bestaande antwoord-, bron-, upload-, review- en routetabellen blijven bewust bestaan naast de nieuwe dossierobjecten.
 
@@ -252,7 +252,7 @@ Eén digitale technische opname. In de huidige implementatie bevat deze rij ook 
 | `current_question_key` | string nullable | Wizard-cursor: huidige vraag (BL-018) |
 | `current_section_instance_key` | string nullable | Wizard-cursor: repeatable-instantie (`room-1`, …) |
 | `progress_percent` | unsigned tinyint default 0 | Gecached |
-| `is_demo` | boolean default false | Tijdelijke publieke demo-opname; externe effecten uit, index met tokenverval |
+| `is_demo` | boolean default false | Tijdelijke publieke demo-opname; mail/PDF uit, adresverrijking/AI mogen aan; index met tokenverval |
 | `started_at` | timestamp nullable | Eerste klant- of installateursbijdrage |
 | `completed_at` | timestamp nullable | |
 | `reviewed_at` | timestamp nullable | |
