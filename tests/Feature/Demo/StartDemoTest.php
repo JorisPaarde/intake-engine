@@ -172,7 +172,8 @@ it('continues as customer on a short guided route without sending mail', functio
         ->assertOk()
         ->assertSee('Demo — verkorte klantroute')
         ->assertSee('Dit ziet je klant')
-        ->assertSee('Wat is de reden van uw aanvraag?');
+        // Openingszin en koelen zijn al afgeleid; de verkorte route start bij een resterende vraag.
+        ->assertSee('Wat voor type gebouw is het?');
 });
 
 it('continues as installer and can load the sample dossier', function () {
@@ -186,7 +187,8 @@ it('continues as installer and can load the sample dossier', function () {
     $intake->refresh();
     expect($intake->workflow_mode)->toBe(ContributionMode::Installer)
         ->and($intake->customer_access_enabled)->toBeFalse()
-        ->and($intake->aircoRooms)->toHaveCount(0);
+        // Tekstinterpretatie van de demo-openingszin levert al gewenste ruimtes op.
+        ->and($intake->aircoRooms)->toHaveCount(2);
 
     $this->actingAs($user)
         ->withSession(demoSessionFor($user, $intake))
@@ -227,10 +229,13 @@ it('continues as installer and can load the sample dossier', function () {
             AircoConnectionType::Power->value => 1,
         ]);
 
-    $run = $intake->aiRuns->first();
+    $run = $intake->aiRuns->firstWhere('provider', 'demo_precomputed');
     expect($run?->type)->toBe(AiRunType::DossierSynthesis)
         ->and($run?->provider)->toBe('demo_precomputed')
-        ->and($run?->estimated_cost_cents)->toBe(0);
+        ->and($run?->estimated_cost_cents)->toBe(0)
+        ->and($intake->aiRuns->contains(
+            fn (AiRun $aiRun): bool => $aiRun->type === AiRunType::RequestIntent,
+        ))->toBeTrue();
 
     foreach ($intake->uploads as $upload) {
         Storage::disk($upload->disk)->assertExists($upload->path);

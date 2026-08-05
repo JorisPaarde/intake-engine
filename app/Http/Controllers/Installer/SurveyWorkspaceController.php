@@ -81,6 +81,11 @@ final class SurveyWorkspaceController extends Controller
             'outcome',
         ]);
 
+        $demoScenarioLoaded = $intake->is_demo
+            && $intake->activityEvents()
+                ->where('event', 'demo_scenario_loaded')
+                ->exists();
+
         return view('installer.intakes.workspace', [
             'intake' => $intake,
             'dossier' => $overviewBuilder->build($intake),
@@ -93,6 +98,7 @@ final class SurveyWorkspaceController extends Controller
             'followUpTypes' => FollowUpItemType::cases(),
             'siteVisitReasons' => InstallationSiteVisitReason::cases(),
             'proposalDeltas' => InstallationProposalDelta::cases(),
+            'demoScenarioLoaded' => $demoScenarioLoaded,
         ]);
     }
 
