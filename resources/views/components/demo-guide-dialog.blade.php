@@ -16,7 +16,7 @@
         default => [
             'meta' => 'Stap 4 van 6 · Klantweergave',
             'title' => 'Dit ziet je klant',
-            'body' => 'Begeleide opdrachten zonder technische ontwerpkeuzes. Deze demoroute is verkort tot een paar representatieve stappen; in productie is de lijst langer en adaptief.',
+            'body' => 'Begeleide opdrachten zonder technische ontwerpkeuzes. Foto’s kunnen door AI worden gelezen. Deze demoroute is verkort; in productie is de lijst langer en adaptief.',
             'aside' => 'Na afronden ga je terug naar het installateursdossier. Demo verdwijnt na '.$ttl.' uur.',
             'cta' => 'Begin als klant',
         ],

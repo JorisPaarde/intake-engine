@@ -305,9 +305,7 @@ final class SurveyWorkspaceController extends Controller
         return $this->back(
             $intake,
             $connection instanceof AircoConnection
-                ? ($intake->is_demo
-                    ? 'Foto opgeslagen als routesegment. Live AI-analyse staat uit in de demo.'
-                    : 'Foto opgeslagen als routesegment.')
+                ? 'Foto opgeslagen als routesegment.'
                 : ($hasSuggestion
                     ? 'Foto opgeslagen. Controleer de voorgestelde technische constatering.'
                     : 'Foto opgeslagen bij '.$subject->label.'.'),
@@ -366,10 +364,6 @@ final class SurveyWorkspaceController extends Controller
         $this->authorize('update', $intake);
         abort_unless($session->intake_id === $intake->id, 404);
 
-        if ($intake->is_demo) {
-            return $this->back($intake, 'Deze route is vooraf berekend; de demo gebruikt geen live AI.');
-        }
-
         $synthesize->handle($session);
         $readiness->recalculate($intake);
 
@@ -396,10 +390,6 @@ final class SurveyWorkspaceController extends Controller
         SynthesizeSurveyDossier $synthesize,
     ): RedirectResponse {
         $this->authorize('update', $intake);
-
-        if ($intake->is_demo) {
-            return $this->back($intake, 'Het AI-voorstel is vooraf berekend; de demo gebruikt geen live AI.');
-        }
 
         $run = $synthesize->handle($intake);
 

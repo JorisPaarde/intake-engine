@@ -113,19 +113,20 @@ final class CompleteFollowUpRound
         $this->dossierManager->initialize($completed);
         $this->decisionReadiness->recalculate($completed);
 
-        if (! $completed->is_demo) {
-            SynthesizeSurveyDossierJob::dispatch($completed->id);
-        }
+        SynthesizeSurveyDossierJob::dispatch($completed->id);
 
         $this->rebuildIntakeReportHtml->handle($completed);
 
-        if ($completed->status !== IntakeStatus::Completed || $completed->is_demo) {
+        if ($completed->status !== IntakeStatus::Completed) {
             return $completed;
         }
 
         SuggestAttentionPointsJob::dispatch($completed->id);
-        GenerateIntakePdfJob::dispatch($completed->id);
-        app(SendInstallerIntakeCompleted::class)->handle($completed);
+
+        if (! $completed->is_demo) {
+            GenerateIntakePdfJob::dispatch($completed->id);
+            app(SendInstallerIntakeCompleted::class)->handle($completed);
+        }
 
         return $completed;
     }

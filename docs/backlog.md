@@ -442,11 +442,11 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Plan:** [bl-001-interactive-installer-demo.md](plans/bl-001-interactive-installer-demo.md)
 - **Doel:** publiek of semi-publiek demopad zodat prospects/installateurs het product kunnen ervaren zonder eigen accountsetup of echte klantdata — het hoofddoel ("zo min mogelijk handelingen") toegepast op de allereerste kennismaking.
 - **Nieuwe invulling (begeleide flow):** **Probeer de demo** → tijdelijke tenant/user → dashboard met welkomstpopup → vooringevulde *Nieuwe opname* → rolkeuze-modal i.p.v. mail (*Doorgaan als klant* / *Zelf de opname doen*) → verkorte klantwizard of lege werkplek met optioneel voorbeelddossier; coachmark-popups op elke stap.
-- **Scenario (optioneel laden):** vaste BAG-/luchtfoto-/EP-Online-/3DBAG-voorbeeldcontext, twee gewenste ruimtes, synthetisch beeldbewijs, multi-splitvoorstel, koel-/condens-/stroomroutes, vooraf berekende AI-synthese en één voorgestelde meterkasttaak.
-- **Kaders:** `is_demo`, standaard-TTL twee uur, hourly hard purge inclusief tijdelijke demo-tenant en orphaned demo-workspaces; geen echte PII, mail, PDF of externe AI-call; alle brondata en beelden expliciet als fictieve demo-inhoud herkenbaar.
-- **Acceptatie:** start op dashboard; create + branch zonder mail; beide paden begeleid; sample-dossier op verzoek; isolatie/TTL/AI-mail-PDF-grenzen; tests groen.
-- **Resultaat code:** begeleidde installateursstart, rolkeuze, verkorte klantroute, `LoadDemoSurveyScenario`, Alpine/native coachmarks en bijgewerkte Pest-dekking.
-- **Na deploy:** staging-smoke homepage → create → branch → beide paden → sample-dossier → klanttaak; daarna BL-001 op `done`.
+- **Scenario (optioneel laden):** vaste BAG-/luchtfoto-/EP-Online-/3DBAG-voorbeeldcontext, twee gewenste ruimtes, synthetisch beeldbewijs, multi-splitvoorstel, koel-/condens-/stroomroutes, vooraf berekende AI-synthese en één voorgestelde meterkasttaak — als snelle boost naast live verrijking/AI.
+- **Kaders:** `is_demo`, standaard-TTL twee uur, hourly hard purge inclusief tijdelijke demo-tenant en orphaned demo-workspaces; geen echte PII, mail of PDF. Adresverrijking en AI (foto/tekst/synthese) draaien wanneer die integraties in de omgeving aan staan, zodat prospects het product echt zien.
+- **Acceptatie:** start op dashboard; create toont postcode-lookup + BAG-verrijking; branch zonder mail; beide paden begeleid met AI zichtbaar waar aan; sample-dossier op verzoek; isolatie/TTL/mail-PDF-grenzen; tests groen.
+- **Resultaat code:** begeleidde installateursstart, rolkeuze, verkorte klantroute, live verrijking/AI in demo, `LoadDemoSurveyScenario`, Alpine/native coachmarks en bijgewerkte Pest-dekking.
+- **Na deploy:** staging-smoke homepage → create (verrijking zichtbaar) → branch → beide paden (foto-/tekst-AI) → sample-dossier → klanttaak; daarna BL-001 op `done`.
 
 ### BL-043 — Publieke productfunnel en interesse-CTA
 

@@ -16,7 +16,7 @@
         <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
             @if ($isPublicDemo)
                 <div class="mb-4 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">
-                    Fictieve voorbeeldgegevens staan al ingevuld. Na opslaan kies je of je doorgaat als klant of zelf de opname doet — er wordt geen e-mail verstuurd.
+                    Voorbeeldgegevens staan al ingevuld (fictieve klant, echt voorbeeldadres). Bij postcode/huisnummer zie je adresaanvulling; na opslaan haalt de app woningbronnen op en leest AI de openingszin. Er wordt geen e-mail verstuurd.
                 </div>
             @endif
             <div class="bg-white shadow-sm sm:rounded-lg p-6" data-demo-anchor="create-form">
@@ -192,7 +192,7 @@
                         <x-text-input id="customer_email" name="customer_email" class="mt-1 block w-full" type="email" :value="$demoValue('customer_email')" required />
                         <p class="mt-1 text-sm text-gray-500" data-customer-email-help>
                             @if ($isPublicDemo)
-                                In de demo wordt geen e-mail verstuurd. Na opslaan kies je hoe je verder kijkt.
+                                In de demo wordt geen e-mail verstuurd. Adresverrijking en AI wel: na opslaan kies je hoe je verder kijkt.
                             @else
                                 Bij een klantopname sturen we de beveiligde link automatisch. Bij zelf opnemen wordt niets verstuurd.
                             @endif

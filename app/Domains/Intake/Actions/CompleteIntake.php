@@ -4,12 +4,9 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Actions;
 
-use App\Domains\AI\Actions\SuggestAttentionPoints;
-use App\Domains\AI\Actions\SummarizeIntake;
 use App\Domains\AI\Jobs\SuggestAttentionPointsJob;
 use App\Domains\AI\Jobs\SummarizeIntakeJob;
 use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
-use App\Domains\AI\Models\AiRun;
 use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
 use App\Domains\Intake\Models\GeneratedReport;
 use App\Domains\Intake\Models\Intake;
@@ -122,50 +119,17 @@ final class CompleteIntake
         $this->dossierManager->initialize($completed);
         $this->decisionReadiness->recalculate($completed);
 
-        if ($completed->is_demo) {
-            // Een oude klantdemo kan nog worden afgerond. Gebruik daarvoor uitsluitend
-            // de lokale heuristic: een demo mag nooit een externe AI-call veroorzaken.
-            $this->runDemoAi($completed);
-        } else {
-            SummarizeIntakeJob::dispatch($completed->id);
-            SuggestAttentionPointsJob::dispatch($completed->id);
-            SynthesizeSurveyDossierJob::dispatch($completed->id);
+        // Demo mag dezelfde AI-jobs draaien als productie zodat prospects foto-/tekst-AI zien.
+        // Mail en PDF blijven uit.
+        SummarizeIntakeJob::dispatch($completed->id);
+        SuggestAttentionPointsJob::dispatch($completed->id);
+        SynthesizeSurveyDossierJob::dispatch($completed->id);
+
+        if (! $completed->is_demo) {
             GenerateIntakePdfJob::dispatch($completed->id);
             app(SendInstallerIntakeCompleted::class)->handle($completed);
         }
 
         return $completed;
-    }
-
-    private function runDemoAi(Intake $intake): void
-    {
-        $originalProvider = config('ai.provider');
-
-        try {
-            $this->runDemoAiWithProvider($intake, 'heuristic');
-        } finally {
-            config(['ai.provider' => $originalProvider]);
-        }
-    }
-
-    /**
-     * @return array{0: AiRun, 1: AiRun|null}
-     */
-    private function runDemoAiWithProvider(Intake $intake, string $provider): array
-    {
-        config(['ai.provider' => $provider]);
-
-        return $this->runDemoAiActions($intake);
-    }
-
-    /**
-     * @return array{0: AiRun, 1: AiRun|null}
-     */
-    private function runDemoAiActions(Intake $intake): array
-    {
-        return [
-            app(SummarizeIntake::class)->handle($intake),
-            app(SuggestAttentionPoints::class)->handle($intake),
-        ];
     }
 }

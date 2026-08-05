@@ -10,15 +10,16 @@
     $included = $shortCustomer
         ? [
             'Verkorte demoroute met dezelfde klantvragen als in de app',
-            'Antwoorden landen in hetzelfde tijdelijke installateursdossier',
+            'Antwoorden en foto-AI landen in hetzelfde tijdelijke installateursdossier',
+            'Adresverrijking en AI-tekstinterpretatie zoals in productie',
         ]
         : [
             'Dezelfde afgeschermde klanttaak en uploadflow als in de app',
             'De aanvulling wordt direct aan hetzelfde technische dossier gekoppeld',
+            'Foto-AI mag meedraaien wanneer die in de omgeving aan staat',
         ];
     $hidden = [
         'E-mail en herinneringen naar een echte klant',
-        'Live AI-aanroepen',
         'PDF-export van het rapport',
         ...($shortCustomer ? ['De volledige productievragenlijst (adaptief en langer)'] : []),
     ];
@@ -31,9 +32,9 @@
         </p>
         <p class="mt-1 leading-relaxed text-brand-ink/75">
             @if ($shortCustomer)
-                Je bekijkt wat de klant ziet na het versturen van de link. Deze demoroute is verkort tot een paar representatieve stappen; er is geen echte klant of woning.
+                Je bekijkt wat de klant ziet na het versturen van de link. Deze demoroute is verkort tot een paar representatieve stappen; er is geen echte klant.
             @else
-                Je bekijkt één specifieke opdracht vanuit het fictieve installateursdossier. Er is geen echte klant of woning; de tijdelijke gegevens verdwijnen automatisch.
+                Je bekijkt één specifieke opdracht vanuit het tijdelijke installateursdossier. Er is geen echte klant; de gegevens verdwijnen automatisch.
             @endif
         </p>
         <p class="mt-2 font-medium text-brand-ink/85">Wel aan in deze demo:</p>
@@ -56,7 +57,7 @@
             @if ($shortCustomer)
                 De verkorte klantroute is afgerond. In productie zou de installateur nu een afrondingsmail krijgen.
             @else
-                Eén gerichte klantaanvulling afgerond. De foto of het antwoord is aan hetzelfde fictieve installateursdossier gekoppeld en de klanttoegang is weer gesloten.
+                Eén gerichte klantaanvulling afgerond. De foto of het antwoord is aan hetzelfde installateursdossier gekoppeld.
             @endif
         </p>
 
