@@ -413,9 +413,23 @@ it('shows continue-demo CTAs on the homepage during a public demo session', func
         ->assertDontSee('Mijn opnames', false)
         ->assertDontSee('Inloggen', false)
         ->assertSee('Verder in demo', false)
-        ->assertSee('Demo afsluiten', false)
+        ->assertSee('Demo beëindigen', false)
         ->assertSee('Ik wil een pilot', false)
         ->assertSee(route('dashboard'), false);
+});
+
+it('shows end-demo action in the app navigation during a public demo session', function () {
+    config(['intake.demo.enabled' => true]);
+
+    $user = startPublicDemoSession();
+
+    $this->actingAs($user)
+        ->withSession(demoSessionFor($user))
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertSee('Tijdelijke demo', false)
+        ->assertSee('Demo beëindigen', false)
+        ->assertDontSee('Uitloggen', false);
 });
 
 it('activates a simulated customer view without sending mail', function () {
