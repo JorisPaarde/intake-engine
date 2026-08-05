@@ -130,6 +130,30 @@ it('starts a guided demo on the installer dashboard without an intake yet', func
         ->assertSee('initialStep: \'welcome\'', false);
 });
 
+it('leaves postcode and house number empty so the installer types them', function () {
+    $user = startPublicDemoSession();
+    $session = [
+        'public_demo_mode' => true,
+        'public_demo_company_id' => $user->company_id,
+        'public_demo_expires_at' => now()->addHours(2)->toIso8601String(),
+        'public_demo_guide_step' => 'create',
+        'public_demo_intake_id' => null,
+    ];
+
+    $this->actingAs($user)
+        ->withSession($session)
+        ->get(route('intakes.create'))
+        ->assertOk()
+        ->assertSee('Vul zelf een postcode en huisnummer in')
+        ->assertSee('Tip om te proberen:')
+        ->assertSee((string) config('intake.demo.address.postal_code', '2037GR'))
+        ->assertSee('name="address_postal_code"', false)
+        ->assertDontSee('value="'.config('intake.demo.address.postal_code', '2037GR').'"', false)
+        ->assertDontSee('value="'.config('intake.demo.address.house_number', 273).'"', false)
+        ->assertSee('name="customer_name"', false)
+        ->assertSee('value="Voorbeeldklant"', false);
+});
+
 it('creates one demo intake from the normal create form and opens the role branch', function () {
     ['intake' => $intake, 'user' => $user] = createDemoIntakeViaForm();
 

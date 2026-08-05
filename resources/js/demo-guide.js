@@ -106,8 +106,8 @@ export function registerDemoGuide(Alpine) {
                     mode: 'info',
                     meta: 'Stap 2 van 6 · Aanmaken',
                     title: 'Zo start elke opname',
-                    body: 'Vul postcode en huisnummer in — hier al vooringevuld. Bij opslaan haalt de app openbare woninggegevens op en leest de AI de openingszin.',
-                    aside: 'Op dit formulier vult de postcode-lookup straat en plaats al aan. Daarna volgen BAG, luchtfoto en gerelateerde bronnen in het dossier.',
+                    body: 'Vul zelf postcode en huisnummer in. De app vult straat en plaats aan; na opslaan volgen woningbronnen en AI op de openingszin.',
+                    aside: 'Er staat een tipadres klaar, maar je mag elk bestaand adres proberen. Klantnaam blijft fictief.',
                     cta: 'Begrepen',
                 },
                 branch: {

@@ -56,17 +56,22 @@ class IntakeController extends Controller
         $isPublicDemo = $publicDemoSession->isActive($request);
         $demoDefaults = null;
 
+        $demoAddressExample = null;
+
         if ($isPublicDemo) {
             $suffix = strtolower((string) str()->ulid());
+            // Only fictional contact defaults — the installer types postcode/huisnummer
+            // themselves so the live address lookup is part of the demo experience.
             $demoDefaults = [
                 'customer_name' => (string) config('intake.demo.customer_name', 'Voorbeeldklant'),
                 'customer_email' => 'voorbeeld+'.$suffix.(string) config('intake.demo.customer_email_domain', '@demo.invalid'),
-                'address_line' => (string) config('intake.demo.address.line', 'Voorbeeldstraat 12'),
-                'address_postal_code' => (string) config('intake.demo.address.postal_code', '1234AB'),
-                'address_house_number' => (int) config('intake.demo.address.house_number', 12),
-                'address_house_number_addition' => config('intake.demo.address.house_number_addition'),
-                'address_city' => (string) config('intake.demo.address.city', 'Voorbeeldstad'),
-                'internal_note' => 'Fictieve interactieve demo — geen echte woning, klant of offerte.',
+                'internal_note' => 'Fictieve interactieve demo — geen echte klant of offerte.',
+            ];
+            $demoAddressExample = [
+                'line' => (string) config('intake.demo.address.line', 'Bernadottelaan 273'),
+                'postal_code' => (string) config('intake.demo.address.postal_code', '2037GR'),
+                'house_number' => (int) config('intake.demo.address.house_number', 273),
+                'city' => (string) config('intake.demo.address.city', 'Haarlem'),
             ];
         }
 
@@ -76,6 +81,7 @@ class IntakeController extends Controller
             'prefillQuestionsByTemplate' => $this->prefillQuestionsByTemplate($templates),
             'isPublicDemo' => $isPublicDemo,
             'demoDefaults' => $demoDefaults,
+            'demoAddressExample' => $demoAddressExample,
         ]);
     }
 

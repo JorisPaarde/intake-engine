@@ -67,8 +67,8 @@ return [
         'throttle_per_hour' => (int) env('DEMO_THROTTLE_PER_HOUR', 5),
 
         /*
-        | Vooringevulde create-waarden. Defaultadres is een bekende PDOK/BAG-match
-        | zodat de demo adresverrijking (luchtfoto, pandgegevens, e.d.) echt toont.
+        | Tipadres op het create-formulier (niet vooringevuld). De installateur typt
+        | postcode/huisnummer zelf; dit voorbeeld is een bekende PDOK/BAG-match.
         | Geen echte persoonsgegevens — alleen een openbaar adresvoorbeeld.
         */
         'address' => [
