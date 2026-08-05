@@ -36,8 +36,7 @@ final class AnalyzeRoutePhoto
     {
         $intakeId = $segment->session()->value('intake_id');
 
-        if (Intake::query()->whereKey($intakeId)->where('is_demo', true)->exists()
-            || ! (bool) config('ai.route.enabled', false)) {
+        if (! (bool) config('ai.route.enabled', false)) {
             return $segment;
         }
 

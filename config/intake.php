@@ -53,8 +53,9 @@ return [
     |--------------------------------------------------------------------------
     |
     | Creates a temporary, isolated installer workspace without account signup.
-    | The scenario uses fictitious precomputed data and never sends external
-    | messages or invokes live AI. Set DEMO_ENABLED=false to block new starts.
+    | Address enrichment and AI (photo/text/synthesis) follow the same path as
+    | production when those integrations are enabled. Mail and PDF stay off.
+    | Set DEMO_ENABLED=false to block new starts.
     |
     */
 
@@ -66,19 +67,24 @@ return [
         'throttle_per_hour' => (int) env('DEMO_THROTTLE_PER_HOUR', 5),
 
         /*
-        | Uitsluitend fictieve presentatiewaarden voor de vooringevulde create-stap.
-        | Verrijking (BAG/luchtfoto) gebeurt alleen bij het laden van het voorbeelddossier.
+        | Tipadres op het create-formulier (niet vooringevuld). De installateur typt
+        | postcode/huisnummer zelf; dit voorbeeld is een bekende PDOK/BAG-match.
+        | Geen echte persoonsgegevens — alleen een openbaar adresvoorbeeld.
         */
         'address' => [
-            'line' => env('DEMO_ADDRESS_LINE', 'Voorbeeldstraat 12'),
-            'postal_code' => env('DEMO_ADDRESS_POSTAL_CODE', '1234AB'),
-            'house_number' => (int) env('DEMO_ADDRESS_HOUSE_NUMBER', 12),
+            'line' => env('DEMO_ADDRESS_LINE', 'Bernadottelaan 273'),
+            'postal_code' => env('DEMO_ADDRESS_POSTAL_CODE', '2037GR'),
+            'house_number' => (int) env('DEMO_ADDRESS_HOUSE_NUMBER', 273),
             'house_number_addition' => env('DEMO_ADDRESS_HOUSE_NUMBER_ADDITION'),
-            'city' => env('DEMO_ADDRESS_CITY', 'Voorbeeldstad'),
+            'city' => env('DEMO_ADDRESS_CITY', 'Haarlem'),
         ],
 
         'customer_name' => env('DEMO_CUSTOMER_NAME', 'Voorbeeldklant'),
         'customer_email_domain' => '@demo.invalid',
+        'request_reason' => env(
+            'DEMO_REQUEST_REASON',
+            'Twee slaapkamers op zolder koelen; het wordt daar te warm in de zomer.',
+        ),
 
         /*
         | Verkorte klantroute in de begeleidde demo (representatieve stappen).

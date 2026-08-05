@@ -1,6 +1,7 @@
 @php
     $isPublicDemo = (bool) ($isPublicDemo ?? false);
     $demoDefaults = is_array($demoDefaults ?? null) ? $demoDefaults : [];
+    $demoAddressExample = is_array($demoAddressExample ?? null) ? $demoAddressExample : null;
     $demoValue = static function (string $key, mixed $fallback = null) use ($demoDefaults): mixed {
         return old($key, $demoDefaults[$key] ?? $fallback);
     };
@@ -16,7 +17,7 @@
         <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
             @if ($isPublicDemo)
                 <div class="mb-4 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">
-                    Fictieve voorbeeldgegevens staan al ingevuld. Na opslaan kies je of je doorgaat als klant of zelf de opname doet — er wordt geen e-mail verstuurd.
+                    Vul zelf een postcode en huisnummer in — net als na een echte aanvraag. Je ziet dan meteen de adresaanvulling; na opslaan volgen woningbronnen en AI op de openingszin. Klantnaam is fictief; er wordt geen e-mail verstuurd.
                 </div>
             @endif
             <div class="bg-white shadow-sm sm:rounded-lg p-6" data-demo-anchor="create-form">
@@ -83,6 +84,16 @@
                     >
                         <legend class="px-2 text-sm font-semibold text-gray-900">Adres van de opname</legend>
                         <p class="mb-4 text-sm text-gray-600">Vul eerst postcode en huisnummer in. Straat en plaats worden daarna automatisch aangevuld.</p>
+                        @if ($isPublicDemo && $demoAddressExample)
+                            <p class="mb-4 rounded-lg border border-sky-100 bg-white px-3 py-2 text-xs leading-relaxed text-sky-950/80">
+                                Tip om te proberen:
+                                <span class="font-semibold">{{ $demoAddressExample['postal_code'] }}</span>
+                                +
+                                <span class="font-semibold">{{ $demoAddressExample['house_number'] }}</span>
+                                ({{ $demoAddressExample['line'] }}, {{ $demoAddressExample['city'] }}).
+                                Je mag ook een ander bestaand adres gebruiken.
+                            </p>
+                        @endif
 
                         <div class="grid grid-cols-1 gap-4 sm:grid-cols-12">
                             <div class="sm:col-span-5">
@@ -92,7 +103,7 @@
                                     name="address_postal_code"
                                     class="mt-1 block w-full uppercase"
                                     type="text"
-                                    :value="$demoValue('address_postal_code')"
+                                    :value="old('address_postal_code')"
                                     autocomplete="postal-code"
                                     inputmode="text"
                                     maxlength="7"
@@ -109,7 +120,7 @@
                                     name="address_house_number"
                                     class="mt-1 block w-full"
                                     type="number"
-                                    :value="$demoValue('address_house_number')"
+                                    :value="old('address_house_number')"
                                     autocomplete="address-line2"
                                     min="1"
                                     max="999999"
@@ -124,7 +135,7 @@
                                     name="address_house_number_addition"
                                     class="mt-1 block w-full"
                                     type="text"
-                                    :value="$demoValue('address_house_number_addition')"
+                                    :value="old('address_house_number_addition')"
                                     maxlength="20"
                                     placeholder="A"
                                 />
@@ -146,7 +157,7 @@
                         <details
                             data-manual-address
                             class="mt-4 rounded-xl border border-gray-200 bg-white p-4"
-                            @if ($isPublicDemo || old('address_line') || $errors->has('address_line') || $errors->has('address_city')) open @endif
+                            @if (old('address_line') || $errors->has('address_line') || $errors->has('address_city')) open @endif
                         >
                             <summary class="cursor-pointer text-sm font-semibold text-gray-800">Handmatig invoeren</summary>
                             <p class="mt-2 text-xs text-gray-500">Controleer het aangevulde adres. U kunt straat en plaats indien nodig handmatig aanpassen.</p>
@@ -158,7 +169,7 @@
                                         name="address_line"
                                         class="mt-1 block w-full"
                                         type="text"
-                                        :value="$demoValue('address_line')"
+                                        :value="old('address_line')"
                                         autocomplete="street-address"
                                         required
                                     />
@@ -171,7 +182,7 @@
                                         name="address_city"
                                         class="mt-1 block w-full"
                                         type="text"
-                                        :value="$demoValue('address_city')"
+                                        :value="old('address_city')"
                                         autocomplete="address-level2"
                                         required
                                     />
@@ -192,7 +203,7 @@
                         <x-text-input id="customer_email" name="customer_email" class="mt-1 block w-full" type="email" :value="$demoValue('customer_email')" required />
                         <p class="mt-1 text-sm text-gray-500" data-customer-email-help>
                             @if ($isPublicDemo)
-                                In de demo wordt geen e-mail verstuurd. Na opslaan kies je hoe je verder kijkt.
+                                In de demo wordt geen e-mail verstuurd. Adresverrijking en AI wel: na opslaan kies je hoe je verder kijkt.
                             @else
                                 Bij een klantopname sturen we de beveiligde link automatisch. Bij zelf opnemen wordt niets verstuurd.
                             @endif

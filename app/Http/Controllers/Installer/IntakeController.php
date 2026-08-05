@@ -56,17 +56,22 @@ class IntakeController extends Controller
         $isPublicDemo = $publicDemoSession->isActive($request);
         $demoDefaults = null;
 
+        $demoAddressExample = null;
+
         if ($isPublicDemo) {
             $suffix = strtolower((string) str()->ulid());
+            // Only fictional contact defaults — the installer types postcode/huisnummer
+            // themselves so the live address lookup is part of the demo experience.
             $demoDefaults = [
                 'customer_name' => (string) config('intake.demo.customer_name', 'Voorbeeldklant'),
                 'customer_email' => 'voorbeeld+'.$suffix.(string) config('intake.demo.customer_email_domain', '@demo.invalid'),
-                'address_line' => (string) config('intake.demo.address.line', 'Voorbeeldstraat 12'),
-                'address_postal_code' => (string) config('intake.demo.address.postal_code', '1234AB'),
-                'address_house_number' => (int) config('intake.demo.address.house_number', 12),
-                'address_house_number_addition' => config('intake.demo.address.house_number_addition'),
-                'address_city' => (string) config('intake.demo.address.city', 'Voorbeeldstad'),
-                'internal_note' => 'Fictieve interactieve demo — geen echte woning, klant of offerte.',
+                'internal_note' => 'Fictieve interactieve demo — geen echte klant of offerte.',
+            ];
+            $demoAddressExample = [
+                'line' => (string) config('intake.demo.address.line', 'Bernadottelaan 273'),
+                'postal_code' => (string) config('intake.demo.address.postal_code', '2037GR'),
+                'house_number' => (int) config('intake.demo.address.house_number', 273),
+                'city' => (string) config('intake.demo.address.city', 'Haarlem'),
             ];
         }
 
@@ -76,6 +81,7 @@ class IntakeController extends Controller
             'prefillQuestionsByTemplate' => $this->prefillQuestionsByTemplate($templates),
             'isPublicDemo' => $isPublicDemo,
             'demoDefaults' => $demoDefaults,
+            'demoAddressExample' => $demoAddressExample,
         ]);
     }
 
@@ -127,9 +133,24 @@ class IntakeController extends Controller
             $payload['is_demo'] = true;
             $payload['token_ttl_hours'] = max(1, (int) config('intake.demo.ttl_hours', 2));
             $payload['customer_access_enabled'] = false;
+
+            $demoReason = trim((string) config(
+                'intake.demo.request_reason',
+                'Twee slaapkamers op zolder koelen; het wordt daar te warm in de zomer.',
+            ));
+            if ($demoReason !== '' && blank(data_get($payload, 'prefill.request_reason'))) {
+                $payload['prefill'] = [
+                    ...(is_array($payload['prefill'] ?? null) ? $payload['prefill'] : []),
+                    'request_reason' => $demoReason,
+                ];
+            }
         }
 
         $intake = $createIntake->handle($request->user(), $payload);
+
+        // Same enrichment + intent path as production (including public demo).
+        $deriveIntentFromRequest->handle($intake);
+        $enrichIntakeAddress->handle($intake, $request->validated('address_lookup_id'));
 
         if ($isPublicDemo) {
             // Keep the link ready but inactive until the visitor picks a path.
@@ -149,12 +170,9 @@ class IntakeController extends Controller
                 ->with('demo_coachmark', 'branch')
                 ->with(
                     'status',
-                    'Opname aangemaakt. In productie mailen we nu de klantlink — kies hier hoe je verder wilt kijken.',
+                    'Opname aangemaakt. Adresgegevens zijn opgehaald. In productie mailen we nu de klantlink — kies hier hoe je verder wilt kijken.',
                 );
         }
-
-        $deriveIntentFromRequest->handle($intake);
-        $enrichIntakeAddress->handle($intake, $request->validated('address_lookup_id'));
 
         if ($intake->workflow_mode === ContributionMode::Installer) {
             return redirect()
@@ -206,7 +224,6 @@ class IntakeController extends Controller
         EnrichIntakeAddress $enrichIntakeAddress,
     ): RedirectResponse {
         $this->authorize('update', $intake);
-        abort_if($intake->is_demo, 404);
 
         $enrichIntakeAddress->handle($intake);
 

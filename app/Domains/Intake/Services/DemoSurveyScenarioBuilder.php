@@ -51,6 +51,10 @@ final class DemoSurveyScenarioBuilder
         $this->storeExampleContext($intake);
         $this->dossierManager->initialize($intake);
 
+        // initialize() syncs rooms from derived answers; the sample dossier replaces that set.
+        $intake->aircoInstallationOptions()->delete();
+        $intake->aircoRooms()->delete();
+
         $run = $this->createPrecomputedAiRun($intake);
         $parents = $this->aircoSurvey->createRoom($intake, $installer, [
             'name' => 'Slaapkamer ouders',
@@ -202,6 +206,10 @@ final class DemoSurveyScenarioBuilder
         $this->storeSynthesisRecord($intake, $run, array_values($uploads));
         $this->storeProposedCustomerTask($intake, $run, $power->subject, $uploads['fusebox']);
         $this->dossierManager->initialize($intake->fresh() ?? $intake);
+        // Final initialize re-syncs answer-derived rooms; keep only the sample rooms.
+        $intake->aircoRooms()
+            ->where('source_type', 'template_bridge')
+            ->delete();
         $this->decisionReadiness->recalculate($intake->fresh() ?? $intake);
 
         IntakeActivityEvent::query()->create([

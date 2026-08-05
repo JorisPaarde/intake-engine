@@ -394,6 +394,58 @@ test('lookup id cannot replace a manually entered different address', function (
         ->and($intake->answers()->where('question_key', 'build_year')->exists())->toBeFalse();
 });
 
+test('creating a public demo intake runs live PDOK enrichment like production', function () {
+    fakeSuccessfulPdok();
+    config()->set('intake.demo.enabled', true);
+
+    $user = app(StartDemoIntake::class)->handle();
+    $session = [
+        'public_demo_mode' => true,
+        'public_demo_company_id' => $user->company_id,
+        'public_demo_expires_at' => now()->addHours(2)->toIso8601String(),
+        'public_demo_guide_step' => 'welcome',
+        'public_demo_intake_id' => null,
+    ];
+
+    $this->actingAs($user)
+        ->withSession($session)
+        ->post(route('intakes.store'), [
+            'template_key' => 'airco',
+            'workflow_mode' => ContributionMode::Customer->value,
+            'customer_name' => 'Voorbeeldklant',
+            'customer_email' => 'voorbeeld@demo.invalid',
+            'address_line' => 'Damrak 1',
+            'address_postal_code' => '1012LG',
+            'address_house_number' => 1,
+            'address_city' => 'Amsterdam',
+            'address_lookup_id' => 'adr-8f4d573be765b4c80dd635ba73747903',
+            'internal_note' => 'Demo met live verrijking',
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('status', fn (mixed $status): bool => is_string($status) && str_contains($status, 'Adresgegevens zijn opgehaald'));
+
+    $intake = Intake::query()->where('is_demo', true)->where('created_by', $user->id)->firstOrFail();
+
+    expect($intake->externalFacts()->where('fact_key', 'building_year')->exists())->toBeTrue()
+        ->and($intake->externalFacts()->where('fact_key', 'aerial_image')->exists())->toBeTrue()
+        ->and($intake->answers()->where('question_key', 'cooling_heating')->firstOrFail()->value)
+        ->toBe(['value' => 'cooling']);
+
+    $this->actingAs($user)
+        ->withSession(array_merge($session, [
+            'public_demo_intake_id' => $intake->id,
+            'public_demo_guide_step' => 'branch',
+        ]))
+        ->get(route('intakes.show', $intake))
+        ->assertOk()
+        ->assertSee('Woninggegevens')
+        ->assertSee('1890')
+        ->assertSee('adresgegevens staan al in het dossier');
+
+    Http::assertSent(fn (Request $request): bool => str_contains($request->url(), '/lookup')
+        || str_contains($request->url(), '/free'));
+});
+
 test('loading the demo sample dossier uses precomputed fictitious context without calling PDOK', function () {
     Http::fake();
     config()->set('intake.demo.enabled', true);

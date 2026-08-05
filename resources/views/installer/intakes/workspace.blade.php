@@ -74,18 +74,23 @@
                         <div>
                             <p class="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Interactieve demo · echte werkplek</p>
                             <h3 class="mt-2 text-xl font-semibold text-gray-950">
-                                {{ $intake->aircoRooms->isEmpty() ? 'Bouw het technische dossier op' : 'Beoordeel het demoscenario' }}
+                                {{ ($demoScenarioLoaded ?? false) ? 'Beoordeel het demoscenario' : 'Bouw het technische dossier op' }}
                             </h3>
                             <p class="mt-2 max-w-3xl text-sm leading-relaxed text-gray-700">
-                                Dezelfde installateursflow als in productie. Data is fictief en verdwijnt na {{ max(1, (int) config('intake.demo.ttl_hours', 2)) }} uur; live AI, e-mail en PDF-export staan uit.
+                                Dezelfde installateursflow als in productie, inclusief adresverrijking en AI-foto-/tekstinterpretatie. Klantgegevens zijn fictief en verdwijnen na {{ max(1, (int) config('intake.demo.ttl_hours', 2)) }} uur; e-mail en PDF-export blijven uit.
                             </p>
-                            @if ($intake->aircoRooms->isEmpty())
+                            @if (! ($demoScenarioLoaded ?? false))
                                 <form method="POST" action="{{ route('demo.scenario.load', $intake) }}" class="mt-4">
                                     @csrf
                                     <button type="submit" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-600">
                                         Toon voorbeelddossier
                                     </button>
                                 </form>
+                                @if ($intake->aircoRooms->isNotEmpty())
+                                    <p class="mt-2 text-xs leading-relaxed text-sky-900/70">
+                                        Uit de openingszin zijn al gewenste ruimtes afgeleid. Het voorbeelddossier vult dat aan met foto’s, routes en een klanttaak.
+                                    </p>
+                                @endif
                             @else
                                 <nav class="mt-4 flex flex-wrap gap-2 text-xs font-semibold" aria-label="Demoroute">
                                     <a href="#demo-context" class="rounded-full bg-white px-3 py-2 text-sky-800 shadow-sm ring-1 ring-sky-200">1. Woningcontext</a>
@@ -175,18 +180,12 @@
                                     De synthese gebruikt alleen brongebonden dossierinformatie. Opties, routes en klanttaken blijven voorstellen totdat u ze als geheel kiest of verstuurt.
                                 </p>
                             </div>
-                            @if ($intake->is_demo)
-                                <span class="inline-flex min-h-11 shrink-0 items-center rounded-xl bg-indigo-100 px-4 py-2 text-sm font-semibold text-indigo-800">
-                                    Vooraf berekend · € 0
-                                </span>
-                            @else
-                                <form method="POST" action="{{ route('intakes.workspace.synthesis', $intake) }}">
-                                    @csrf
-                                    <button class="inline-flex min-h-11 shrink-0 items-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500">
-                                        AI-voorstel vernieuwen
-                                    </button>
-                                </form>
-                            @endif
+                            <form method="POST" action="{{ route('intakes.workspace.synthesis', $intake) }}">
+                                @csrf
+                                <button class="inline-flex min-h-11 shrink-0 items-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500">
+                                    AI-voorstel vernieuwen
+                                </button>
+                            </form>
                         </div>
 
                         @if ($aiSynthesis)

@@ -29,7 +29,12 @@ final class LoadDemoSurveyScenario
             throw new InvalidArgumentException('Het voorbeelddossier hoort bij een andere demosessie.');
         }
 
-        if ($intake->aircoRooms()->exists()) {
+        $alreadyLoaded = IntakeActivityEvent::query()
+            ->where('intake_id', $intake->id)
+            ->where('event', 'demo_scenario_loaded')
+            ->exists();
+
+        if ($alreadyLoaded) {
             return $intake->fresh([
                 'aircoRooms',
                 'aircoInstallationOptions.connections',
@@ -45,6 +50,12 @@ final class LoadDemoSurveyScenario
                     : $intake->status,
                 'customer_access_enabled' => false,
             ])->save();
+
+            // Live intent derivation may already have created desired rooms; the sample
+            // dossier replaces that structure so the guided demo can still show a rich end state.
+            $intake->aircoInstallationOptions()->delete();
+            $intake->aircoRooms()->delete();
+            $intake->contributionTasks()->delete();
 
             $this->scenarioBuilder->build($intake, $installer);
 

@@ -1,6 +1,6 @@
 # AGENTS.md — Projectgeheugen & werkinstructies
 
-> **Documentversie:** 2.3 · **Laatste update:** 2026-08-05 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
+> **Documentversie:** 2.5 · **Laatste update:** 2026-08-05 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
 
 Dit bestand is de **centrale ingang** voor iedere agent (of mens) die aan dit project werkt. Het beschrijft waar het projectgeheugen leeft, welk document waarvoor de bron van waarheid is, en hoe je dat geheugen bijhoudt. **Lees dit bestand aan het begin van elke taak.**
 
@@ -194,7 +194,7 @@ Praktische lessen uit cloud-runs. Doel: sneller groen zonder opnieuw te ontdekke
 - Test samengestelde invoerketens op de grens die ertoe doet: request → persistente velden → uitgaande servicequery → opgeslagen resultaat. Een DOM-stringassertie en losse HTTP-fakes kunnen allebei groen zijn terwijl de overdracht ertussen ontbreekt; gebruik voor adresregressies een echt postcode-/huisnummergeval.
 - MySQL-DDL kan vóór een latere migrationfout al gecommit zijn. Maak een migration met meerdere DDL-stappen per kolom/tabel hervatbaar, houd expliciete index-/constraintnamen ≤64 tekens en maak backfill herhaalbaar; CI controleert verse MySQL-migraties apart van de SQLite-tests.
 - Docs-DoD: CHANGELOG `[Unreleased]`, geraakte docs + versiebump, backlog-status, eventueel `todo` in `docs/functional-test-status.md`, en deze tipsectie als je iets nieuws leerde.
-- **Publieke demo (BL-001):** start provisiont alleen ephemeral tenant/user → dashboard; intake via normale create. Sessiesleutels: `public_demo_mode`, `public_demo_intake_id` (pas na create), `public_demo_short_customer`, `public_demo_guide_step`. Rolkeuze: `POST demo.path.choose`; sample-dossier: `POST demo.scenario.load`. Middleware blokkeert tweede create en metrics/profiel/dev.
+- **Publieke demo (BL-001):** start provisiont alleen ephemeral tenant/user → dashboard; intake via normale create (inclusief `EnrichIntakeAddress` + `DeriveIntentFromRequest`). Postcode/huisnummer zijn leeg — installateur typt zelf; `DEMO_ADDRESS_*` is alleen tiptekst. AI/foto/tekst/synthese short-circuiten niet op `is_demo`; mail/PDF wel. Sessiesleutels: `public_demo_mode`, `public_demo_intake_id` (pas na create), `public_demo_short_customer`, `public_demo_guide_step`. Rolkeuze: `POST demo.path.choose`; sample-dossier: `POST demo.scenario.load`. Middleware blokkeert tweede create en metrics/profiel/dev.
 - **Staging-inzage:** de dev-admin op `/dev` (BL-028, ADR-0008) toont per opname de ruwe binnengekomen data (externe feiten, AI-runs, antwoorden, uploads, activity-events) en een passieve dienststatus — sneller dan zelf via DB/logs speuren. Alleen aan op local/staging (`config('devadmin.enabled')`), hard 404 op production.
 - Branchnaam: `cursor/<korte-naam>-<suffix>` zoals de run voorschrijft; base `main`; PR via de cloud-PR-tool (niet `gh pr create` tenzij dat de enige optie is).
 

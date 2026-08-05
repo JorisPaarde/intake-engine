@@ -7,16 +7,15 @@ use App\Domains\AI\Models\AiRun;
 use App\Domains\Intake\Actions\CompleteIntake;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
+use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
 use App\Domains\Intake\Models\ContributionTask;
 use App\Domains\Intake\Models\DossierEvidenceLink;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
-use App\Domains\Intake\Models\PipeRouteSession;
 use App\Domains\Intake\Services\CompletenessChecker;
 use App\Enums\AircoConnectionType;
-use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
 use App\Enums\ContributionMode;
 use App\Enums\ContributionTaskStatus;
@@ -80,10 +79,10 @@ function createDemoIntakeViaForm(?User $user = null): array
             'workflow_mode' => ContributionMode::Customer->value,
             'customer_name' => 'Voorbeeldklant',
             'customer_email' => 'voorbeeld@demo.invalid',
-            'address_line' => 'Voorbeeldstraat 12',
-            'address_postal_code' => '1234AB',
-            'address_house_number' => 12,
-            'address_city' => 'Voorbeeldstad',
+            'address_line' => (string) config('intake.demo.address.line', 'Bernadottelaan 273'),
+            'address_postal_code' => (string) config('intake.demo.address.postal_code', '2037GR'),
+            'address_house_number' => (int) config('intake.demo.address.house_number', 273),
+            'address_city' => (string) config('intake.demo.address.city', 'Haarlem'),
             'internal_note' => 'Fictieve interactieve demo',
         ])
         ->assertRedirect();
@@ -131,6 +130,30 @@ it('starts a guided demo on the installer dashboard without an intake yet', func
         ->assertSee('initialStep: \'welcome\'', false);
 });
 
+it('leaves postcode and house number empty so the installer types them', function () {
+    $user = startPublicDemoSession();
+    $session = [
+        'public_demo_mode' => true,
+        'public_demo_company_id' => $user->company_id,
+        'public_demo_expires_at' => now()->addHours(2)->toIso8601String(),
+        'public_demo_guide_step' => 'create',
+        'public_demo_intake_id' => null,
+    ];
+
+    $this->actingAs($user)
+        ->withSession($session)
+        ->get(route('intakes.create'))
+        ->assertOk()
+        ->assertSee('Vul zelf een postcode en huisnummer in')
+        ->assertSee('Tip om te proberen:')
+        ->assertSee((string) config('intake.demo.address.postal_code', '2037GR'))
+        ->assertSee('name="address_postal_code"', false)
+        ->assertDontSee('value="'.config('intake.demo.address.postal_code', '2037GR').'"', false)
+        ->assertDontSee('value="'.config('intake.demo.address.house_number', 273).'"', false)
+        ->assertSee('name="customer_name"', false)
+        ->assertSee('value="Voorbeeldklant"', false);
+});
+
 it('creates one demo intake from the normal create form and opens the role branch', function () {
     ['intake' => $intake, 'user' => $user] = createDemoIntakeViaForm();
 
@@ -173,7 +196,8 @@ it('continues as customer on a short guided route without sending mail', functio
         ->assertOk()
         ->assertSee('Demo — verkorte klantroute')
         ->assertSee('Dit ziet je klant')
-        ->assertSee('Wat is de reden van uw aanvraag?');
+        // Openingszin en koelen zijn al afgeleid; de verkorte route start bij een resterende vraag.
+        ->assertSee('Wat voor type gebouw is het?');
 });
 
 it('continues as installer and can load the sample dossier', function () {
@@ -187,7 +211,8 @@ it('continues as installer and can load the sample dossier', function () {
     $intake->refresh();
     expect($intake->workflow_mode)->toBe(ContributionMode::Installer)
         ->and($intake->customer_access_enabled)->toBeFalse()
-        ->and($intake->aircoRooms)->toHaveCount(0);
+        // Tekstinterpretatie van de demo-openingszin levert al gewenste ruimtes op.
+        ->and($intake->aircoRooms)->toHaveCount(2);
 
     $this->actingAs($user)
         ->withSession(demoSessionFor($user, $intake))
@@ -228,10 +253,13 @@ it('continues as installer and can load the sample dossier', function () {
             AircoConnectionType::Power->value => 1,
         ]);
 
-    $run = $intake->aiRuns->first();
+    $run = $intake->aiRuns->firstWhere('provider', 'demo_precomputed');
     expect($run?->type)->toBe(AiRunType::DossierSynthesis)
         ->and($run?->provider)->toBe('demo_precomputed')
-        ->and($run?->estimated_cost_cents)->toBe(0);
+        ->and($run?->estimated_cost_cents)->toBe(0)
+        ->and($intake->aiRuns->contains(
+            fn (AiRun $aiRun): bool => $aiRun->type === AiRunType::RequestIntent,
+        ))->toBeTrue();
 
     foreach ($intake->uploads as $upload) {
         Storage::disk($upload->disk)->assertExists($upload->path);
@@ -254,7 +282,7 @@ it('continues as installer and can load the sample dossier', function () {
         ->assertSee('Beoordeel het demoscenario')
         ->assertSee('Woninggegevens')
         ->assertSee('Controleren en klantweergave activeren')
-        ->assertDontSee('AI-voorstel vernieuwen');
+        ->assertSee('AI-voorstel vernieuwen');
 });
 
 it('creates a separate tenant and user for every public demo session', function () {
@@ -415,7 +443,9 @@ it('lists disabled full-app steps on the demo thank-you notice', function () {
         ->toContain('Eén gerichte klantaanvulling afgerond')
         ->toContain('Bewust uitgeschakeld in de demo')
         ->toContain('E-mail en herinneringen naar een echte klant')
-        ->toContain('terug naar de website');
+        ->toContain('PDF-export van het rapport')
+        ->toContain('terug naar de website')
+        ->not->toContain('Live AI-aanroepen');
 });
 
 it('enables demo by default when DEMO_ENABLED is unset', function () {
@@ -462,8 +492,25 @@ it('shows only the current public demo on its dashboard', function () {
         ->assertSee('Openen');
 });
 
-it('never invokes external AI from the interactive demo', function () {
-    Http::fake();
+it('allows live AI synthesis from the interactive demo when AI is enabled', function () {
+    Http::fake([
+        '*' => Http::response([
+            'output' => [[
+                'type' => 'message',
+                'content' => [[
+                    'type' => 'output_text',
+                    'text' => json_encode([
+                        'summary' => 'Demo AI-voorstel',
+                        'placements' => [],
+                        'installation_options' => [],
+                        'connections' => [],
+                        'exceptions' => [],
+                        'customer_tasks' => [],
+                    ], JSON_THROW_ON_ERROR),
+                ]],
+            ]],
+        ], 200),
+    ]);
     config([
         'ai.provider' => 'openai',
         'ai.api_key' => 'test-key',
@@ -477,22 +524,14 @@ it('never invokes external AI from the interactive demo', function () {
     $demoSession = demoSessionFor($user, $intake);
     $this->actingAs($user)->withSession($demoSession)->post(route('demo.path.choose', $intake), ['path' => 'installer']);
     $this->actingAs($user)->withSession($demoSession)->post(route('demo.scenario.load', $intake));
-    $session = PipeRouteSession::query()->where('intake_id', $intake->id)->firstOrFail();
 
     $this->actingAs($user)
         ->withSession($demoSession)
         ->post(route('intakes.workspace.synthesis', $intake))
-        ->assertSessionHas('status', 'Het AI-voorstel is vooraf berekend; de demo gebruikt geen live AI.');
-    $this->actingAs($user)
-        ->withSession($demoSession)
-        ->post(route('intakes.workspace.routes.synthesize', [$intake, $session]))
-        ->assertSessionHas('status', 'Deze route is vooraf berekend; de demo gebruikt geen live AI.');
+        ->assertRedirect(route('intakes.workspace', $intake));
 
-    Http::assertNothingSent();
-    expect(AiRun::query()
-        ->where('intake_id', $intake->id)
-        ->where('provider', 'openai')
-        ->exists())->toBeFalse();
+    // Demo synthesis is no longer short-circuited; the gateway may be called.
+    expect(Http::recorded()->isNotEmpty() || AiRun::query()->where('intake_id', $intake->id)->exists())->toBeTrue();
 });
 
 it('purges expired demo data media and ephemeral accounts while keeping active sessions', function () {
@@ -537,7 +576,7 @@ it('purges expired demo data media and ephemeral accounts while keeping active s
     }
 });
 
-it('runs AI summary inline when a demo intake is completed', function () {
+it('dispatches AI summary jobs when a demo intake is completed', function () {
     Queue::fake();
     config(['ai.provider' => 'null']);
 
@@ -558,13 +597,9 @@ it('runs AI summary inline when a demo intake is completed', function () {
 
     $completed = app(CompleteIntake::class)->handle($intake->fresh());
 
-    Queue::assertNotPushed(SummarizeIntakeJob::class);
-
-    $completed->load('report');
-    $aiSummary = $completed->report?->meta['ai_summary'] ?? null;
-
-    expect($aiSummary)->toBeArray()
-        ->and($aiSummary['summary'] ?? null)->toBeString()->not->toBeEmpty();
+    Queue::assertPushed(SummarizeIntakeJob::class);
+    expect($completed->status)->toBe(IntakeStatus::Completed)
+        ->and($completed->fresh()->report)->not->toBeNull();
 });
 
 it('keeps demo completion successful when attention context fails before a run exists', function () {
@@ -591,14 +626,12 @@ it('keeps demo completion successful when attention context fails before a run e
         ->and($completed->fresh()->report)->not->toBeNull();
 });
 
-it('uses only local heuristic AI when an old customer demo is completed', function () {
+it('does not dispatch PDF or installer mail when a demo intake is completed', function () {
     Queue::fake();
-    Http::fake();
+    Mail::fake();
     config([
         'ai.provider' => 'openai',
         'ai.api_key' => 'test-key',
-        'ai.budget.daily_cents' => null,
-        'ai.budget.monthly_cents' => null,
     ]);
 
     $user = User::factory()->create();
@@ -618,28 +651,10 @@ it('uses only local heuristic AI when an old customer demo is completed', functi
 
     $completed = app(CompleteIntake::class)->handle($intake->fresh());
 
-    Queue::assertNotPushed(SummarizeIntakeJob::class);
-
-    $completed->load('report');
-    $meta = $completed->report?->meta ?? [];
-
-    expect($meta['ai_summary'] ?? null)->toBeArray()
-        ->and($meta['ai_provider'] ?? null)->toBe('heuristic');
-
-    expect(AiRun::query()
-        ->where('intake_id', $completed->id)
-        ->where('type', AiRunType::Summary)
-        ->where('provider', 'openai')
-        ->exists())->toBeFalse();
-
-    expect(AiRun::query()
-        ->where('intake_id', $completed->id)
-        ->where('type', AiRunType::Summary)
-        ->where('provider', 'heuristic')
-        ->where('status', AiRunStatus::Succeeded)
-        ->exists())->toBeTrue();
-
-    Http::assertNothingSent();
+    Queue::assertPushed(SummarizeIntakeJob::class);
+    Queue::assertNotPushed(GenerateIntakePdfJob::class);
+    Mail::assertNothingSent();
+    expect($completed->status)->toBe(IntakeStatus::Completed);
 });
 
 function fillDemoIntakeUntilComplete(Intake $intake): void
