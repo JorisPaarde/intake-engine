@@ -475,11 +475,12 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-050 — Productfunnel in JPWebcreation-huisstijl
 
-- **Status:** in_progress · **Prioriteit:** medium · **Epic:** E5 · **Band:** A
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-08-05 · **PR:** #64 · **Epic:** E5 · **Band:** A
 - **Aanleiding:** de publieke productfunnel gebruikte nog de cool-grijze Apple-achtige marketingstyling, terwijl jpwebcreation.nl de gewenste warmere huisstijl (groen/amber/paper) al heeft.
 - **Doel:** laat kleuren, typografie en knop-/oppervlaktestijl van `/` aansluiten op jpwebcreation.nl, zonder de ingelogde app (BL-032 `brand.*` / tenantkleuren) te wijzigen.
 - **Scope:** aparte `marketing.*`-tokens; Inter alleen op de homepage; hero-gradient, amber-CTA’s, coral eyebrows, paper/mist-vlakken en productmocks in dezelfde huisstijl. Copy, sectiestructuur, demo en interesseflow blijven functioneel gelijk.
 - **Acceptatie:** desktop/~390 px leesbaar zonder overflow; bestaande demo- en interesse-featuretests groen; ingelogde schermen blijven Apple/tenant-styling gebruiken.
+- **Resultaat:** homepage gebruikt `marketing.*` + Inter met groene/amber hero en amber-CTA’s; app-`brand.*` ongewijzigd; featuretests/`composer check` groen.
 
 ### BL-044 — Hervatbare MySQL-dossiermigratie
 
