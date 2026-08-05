@@ -17,6 +17,13 @@
                 </div>
             @endif
 
+            @if ($intake->is_demo && ! session('public_demo_path_chosen'))
+                <div class="rounded-2xl border border-sky-200 bg-sky-50 px-5 py-4 text-sm text-sky-950" data-demo-anchor="branch-panel">
+                    <p class="font-semibold">Demo: kies hoe je verder kijkt</p>
+                    <p class="mt-1 text-sky-900/80">In productie mailen we nu de klantlink. Hier kies je of je doorgaat als klant of zelf de opname doet.</p>
+                </div>
+            @endif
+
             <div class="min-w-0 bg-white shadow-sm sm:rounded-lg p-6 space-y-4">
                 <div class="flex flex-wrap items-center gap-3">
                     <span class="inline-flex rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800">
@@ -580,4 +587,12 @@
             @endif
         </div>
     </div>
+
+    @if ($intake->is_demo && (bool) session('public_demo_mode', false))
+        <x-demo-guide
+            :step="session('demo_coachmark', session('public_demo_path_chosen') ? null : 'branch')"
+            :has-intake="true"
+            :intake="$intake"
+        />
+    @endif
 </x-app-layout>

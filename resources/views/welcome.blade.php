@@ -490,10 +490,10 @@
                     <div class="max-w-2xl">
                         <p class="text-sm font-semibold uppercase tracking-[0.18em] text-cyan-200">Zelf even proberen</p>
                         <h2 class="mt-4 font-display text-3xl font-semibold tracking-[-0.025em] sm:text-4xl">
-                            Klik door een voorbeeldopname
+                            Start zoals een installateur
                         </h2>
                         <p class="mt-4 text-lg leading-relaxed text-white/65">
-                            Open een fictieve aanvraag en zie hoe losse informatie verandert in een duidelijke opname met een volgende stap. Zonder account.
+                            Zelfde start als na een aanvraag, begeleid in pop-ups. Kies daarna of je doorgaat als klant of zelf de opname doet. Zonder account, in ongeveer drie minuten.
                         </p>
                     </div>
                     <div class="flex shrink-0 flex-col gap-3 sm:flex-row">

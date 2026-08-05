@@ -20,6 +20,10 @@
         outline: 2px solid var(--tenant-primary, #0071E3);
         outline-offset: 2px;
     }
+
+    [x-cloak] {
+        display: none !important;
+    }
 }
 
 @layer components {

@@ -4,7 +4,11 @@
 
 <div class="mx-auto flex min-h-[100svh] max-w-lg flex-col px-4 pb-8 pt-4 sm:px-6">
     @if ($intake->is_demo && ! $completed)
-        <x-demo-scope-notice variant="banner" />
+        <x-demo-scope-notice variant="banner" :short-customer="$demoShortCustomer ?? false" />
+    @endif
+
+    @if (($demoShortCustomer ?? false) && ! $completed)
+        <x-demo-guide-dialog step="customer_start" />
     @endif
 
     <header class="mb-6">
@@ -59,7 +63,12 @@
                     variant="complete"
                     :demo-ai-summary="$demoAiSummary"
                     :demo-attention-points="$demoAttentionPoints"
+                    :short-customer="$demoShortCustomer ?? false"
+                    :installer-return-url="$demoInstallerReturnUrl"
                 />
+                @if ($demoShortCustomer ?? false)
+                    <x-demo-guide-dialog step="customer_done" :return-url="$demoInstallerReturnUrl" />
+                @endif
             @endif
         </div>
     @elseif ($step === null || $question === null)

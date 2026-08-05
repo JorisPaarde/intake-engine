@@ -4,11 +4,15 @@
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
                 {{ $showingDemoIntakes ? 'Digitale demo-opnames' : 'Digitale opnames' }}
             </h2>
-            @unless ($showingDemoIntakes)
-                <a href="{{ route('intakes.create') }}" class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-gray-700 focus:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150">
+            @if ((! $showingDemoIntakes) || (($isPublicDemo ?? false) && ! ($publicDemoHasIntake ?? false)))
+                <a
+                    href="{{ route('intakes.create') }}"
+                    data-demo-anchor="dashboard-create"
+                    class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-gray-700 focus:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150"
+                >
                     Nieuwe opname
                 </a>
-            @endunless
+            @endif
         </div>
     </x-slot>
 
@@ -22,7 +26,11 @@
 
             @if ($showingDemoIntakes)
                 <div class="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                    Demo-overzicht: je ziet alleen de tijdelijke, fictieve opname uit deze demosessie.
+                    @if ($isPublicDemo ?? false)
+                        Demo-overzicht: je werkt als tijdelijke installateur. Data is fictief en verdwijnt na {{ max(1, (int) config('intake.demo.ttl_hours', 2)) }} uur.
+                    @else
+                        Demo-overzicht: je ziet alleen de tijdelijke, fictieve opname uit deze demosessie.
+                    @endif
                 </div>
             @endif
 
@@ -75,15 +83,21 @@
                                     <td class="px-4 py-3 text-gray-600">{{ $intake->created_at?->timezone(config('app.timezone'))->format('d-m-Y H:i') }}</td>
                                     <td class="px-4 py-3 text-gray-600">{{ $intake->completed_at?->timezone(config('app.timezone'))->format('d-m-Y H:i') ?? '—' }}</td>
                                     <td class="px-4 py-3 text-right">
-                                        <a href="{{ $intake->is_demo ? route('intakes.workspace', $intake) : route('intakes.show', $intake) }}" class="font-medium text-indigo-600 hover:text-indigo-800">
-                                            {{ $intake->is_demo ? 'Open werkplek' : 'Openen' }}
+                                        <a href="{{ route('intakes.show', $intake) }}" class="font-medium text-indigo-600 hover:text-indigo-800">
+                                            Openen
                                         </a>
                                     </td>
                                 </tr>
                             @empty
                                 <tr>
                                     <td colspan="8" class="px-4 py-10 text-center text-gray-500">
-                                        {{ $showingDemoIntakes ? 'Nog geen demo-opnames. Start eerst de publieke demo vanaf de homepage.' : 'Nog geen opnames. Maak de eerste aan.' }}
+                                        @if ($isPublicDemo ?? false)
+                                            Nog geen opname. Start met <a href="{{ route('intakes.create') }}" class="font-medium text-indigo-600 hover:text-indigo-800">Nieuwe opname</a> — net als na een echte aanvraag.
+                                        @elseif ($showingDemoIntakes)
+                                            Nog geen demo-opnames. Start eerst de publieke demo vanaf de homepage.
+                                        @else
+                                            Nog geen opnames. Maak de eerste aan.
+                                        @endif
                                     </td>
                                 </tr>
                             @endforelse
@@ -99,4 +113,11 @@
             </div>
         </div>
     </div>
+
+    @if ($isPublicDemo ?? false)
+        <x-demo-guide
+            :step="session('demo_coachmark', session('public_demo_guide_step', 'welcome'))"
+            :has-intake="$publicDemoHasIntake ?? false"
+        />
+    @endif
 </x-app-layout>

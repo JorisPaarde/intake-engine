@@ -41,6 +41,72 @@ beforeEach(function () {
     Storage::fake((string) config('filesystems.media', 'local'));
 });
 
+function startPublicDemoSession(): User
+{
+    config([
+        'intake.demo.enabled' => true,
+        'intake.demo.ttl_hours' => 2,
+    ]);
+
+    test()->post(route('demo.start'))
+        ->assertRedirect(route('dashboard'))
+        ->assertSessionHas('public_demo_mode', true);
+
+    return User::query()
+        ->where('email', 'like', 'installateur+%@demo.invalid')
+        ->latest('id')
+        ->firstOrFail();
+}
+
+/**
+ * @return array{intake: Intake, user: User}
+ */
+function createDemoIntakeViaForm(?User $user = null): array
+{
+    $user ??= startPublicDemoSession();
+
+    $session = [
+        'public_demo_mode' => true,
+        'public_demo_company_id' => $user->company_id,
+        'public_demo_expires_at' => now()->addHours(2)->toIso8601String(),
+        'public_demo_guide_step' => 'welcome',
+        'public_demo_intake_id' => null,
+    ];
+
+    test()->actingAs($user)
+        ->withSession($session)
+        ->post(route('intakes.store'), [
+            'template_key' => 'airco',
+            'workflow_mode' => ContributionMode::Customer->value,
+            'customer_name' => 'Voorbeeldklant',
+            'customer_email' => 'voorbeeld@demo.invalid',
+            'address_line' => 'Voorbeeldstraat 12',
+            'address_postal_code' => '1234AB',
+            'address_house_number' => 12,
+            'address_city' => 'Voorbeeldstad',
+            'internal_note' => 'Fictieve interactieve demo',
+        ])
+        ->assertRedirect();
+
+    $intake = Intake::query()->where('is_demo', true)->where('created_by', $user->id)->firstOrFail();
+
+    return ['intake' => $intake, 'user' => $user];
+}
+
+/**
+ * @return array<string, mixed>
+ */
+function demoSessionFor(User $user, ?Intake $intake = null): array
+{
+    return [
+        'public_demo_mode' => true,
+        'public_demo_company_id' => $user->company_id,
+        'public_demo_expires_at' => now()->addHours(2)->toIso8601String(),
+        'public_demo_intake_id' => $intake?->id,
+        'public_demo_guide_step' => $intake ? 'branch' : 'welcome',
+    ];
+}
+
 it('returns 404 when demo mode is disabled', function () {
     config(['intake.demo.enabled' => false]);
 
@@ -48,41 +114,104 @@ it('returns 404 when demo mode is disabled', function () {
         ->assertNotFound();
 });
 
-it('opens an isolated prefilled installer workspace', function () {
-    config([
-        'intake.demo.enabled' => true,
-        'intake.demo.ttl_hours' => 2,
+it('starts a guided demo on the installer dashboard without an intake yet', function () {
+    $user = startPublicDemoSession();
+
+    expect(Intake::query()->where('is_demo', true)->count())->toBe(0)
+        ->and($user->email)->toStartWith('installateur+')
+        ->and($user->company?->slug)->toStartWith('publieke-demo-');
+
+    $this->assertAuthenticatedAs($user);
+
+    $this->get(route('dashboard'))
+        ->assertOk()
+        ->assertSee('Digitale demo-opnames')
+        ->assertSee('Nieuwe opname')
+        ->assertSee('tijdelijke installateur')
+        ->assertSee('initialStep: \'welcome\'', false);
+});
+
+it('creates one demo intake from the normal create form and opens the role branch', function () {
+    ['intake' => $intake, 'user' => $user] = createDemoIntakeViaForm();
+
+    expect($intake->is_demo)->toBeTrue()
+        ->and($intake->customer_access_enabled)->toBeFalse()
+        ->and($intake->status)->toBe(IntakeStatus::Draft)
+        ->and($intake->token_expires_at)->not->toBeNull();
+
+    $this->actingAs($user)
+        ->withSession(demoSessionFor($user, $intake))
+        ->get(route('intakes.show', $intake))
+        ->assertOk()
+        ->assertSee('In productie mailen we nu de klantlink')
+        ->assertSee('Doorgaan als klant')
+        ->assertSee('Zelf de opname doen');
+
+    $this->actingAs($user)
+        ->withSession(demoSessionFor($user, $intake))
+        ->get(route('intakes.create'))
+        ->assertNotFound();
+});
+
+it('continues as customer on a short guided route without sending mail', function () {
+    Mail::fake();
+    ['intake' => $intake, 'user' => $user] = createDemoIntakeViaForm();
+
+    $this->actingAs($user)
+        ->withSession(demoSessionFor($user, $intake))
+        ->post(route('demo.path.choose', $intake), ['path' => 'customer'])
+        ->assertRedirect($intake->fresh()->customerUrl());
+
+    $intake->refresh();
+    expect($intake->workflow_mode)->toBe(ContributionMode::Customer)
+        ->and($intake->customer_access_enabled)->toBeTrue()
+        ->and($intake->status)->toBe(IntakeStatus::Sent);
+
+    Mail::assertNothingSent();
+
+    $this->get($intake->customerUrl())
+        ->assertOk()
+        ->assertSee('Demo — verkorte klantroute')
+        ->assertSee('Dit ziet je klant')
+        ->assertSee('Wat is de reden van uw aanvraag?');
+});
+
+it('continues as installer and can load the sample dossier', function () {
+    ['intake' => $intake, 'user' => $user] = createDemoIntakeViaForm();
+
+    $this->actingAs($user)
+        ->withSession(demoSessionFor($user, $intake))
+        ->post(route('demo.path.choose', $intake), ['path' => 'installer'])
+        ->assertRedirect(route('intakes.workspace', $intake));
+
+    $intake->refresh();
+    expect($intake->workflow_mode)->toBe(ContributionMode::Installer)
+        ->and($intake->customer_access_enabled)->toBeFalse()
+        ->and($intake->aircoRooms)->toHaveCount(0);
+
+    $this->actingAs($user)
+        ->withSession(demoSessionFor($user, $intake))
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertSee('Toon voorbeelddossier')
+        ->assertSee('Bouw het technische dossier op');
+
+    $this->actingAs($user)
+        ->withSession(demoSessionFor($user, $intake))
+        ->post(route('demo.scenario.load', $intake))
+        ->assertRedirect(route('intakes.workspace', $intake));
+
+    $intake->refresh()->load([
+        'externalFacts',
+        'uploads',
+        'aiRuns',
+        'aircoRooms',
+        'aircoPlacements',
+        'aircoInstallationOptions.connections',
+        'contributionTasks',
     ]);
 
-    $response = $this->post(route('demo.start'));
-
-    $intake = Intake::query()
-        ->with([
-            'creator.company',
-            'externalFacts',
-            'uploads',
-            'aiRuns',
-            'aircoRooms',
-            'aircoPlacements',
-            'aircoInstallationOptions.connections',
-            'contributionTasks',
-        ])
-        ->where('is_demo', true)
-        ->firstOrFail();
-    $creator = $intake->creator;
-
-    expect($creator)->not->toBeNull()
-        ->and($creator?->email)->toStartWith('installateur+')
-        ->and($creator?->email)->toEndWith('@demo.invalid')
-        ->and($creator?->company?->slug)->toStartWith('publieke-demo-')
-        ->and($intake->customer_email)->toEndWith('@demo.invalid')
-        ->and($intake->workflow_mode)->toBe(ContributionMode::Installer)
-        ->and($intake->status)->toBe(IntakeStatus::InProgress)
-        ->and($intake->customer_access_enabled)->toBeFalse()
-        ->and($intake->token_expires_at)->not->toBeNull()
-        ->and($intake->token_expires_at?->lessThanOrEqualTo(now()->addHours(2)->addMinute()))->toBeTrue()
-        ->and($intake->token_expires_at?->greaterThan(now()->addHour()))->toBeTrue()
-        ->and($intake->externalFacts)->toHaveCount(10)
+    expect($intake->externalFacts)->toHaveCount(10)
         ->and($intake->aircoRooms)->toHaveCount(2)
         ->and($intake->aircoPlacements)->toHaveCount(5)
         ->and($intake->aircoInstallationOptions)->toHaveCount(1)
@@ -118,54 +247,42 @@ it('opens an isolated prefilled installer workspace', function () {
             ->exists())->toBeTrue();
     }
 
-    $response
-        ->assertRedirect(route('intakes.workspace', $intake))
-        ->assertSessionHas('public_demo_intake_id', $intake->id);
-    $this->assertAuthenticatedAs($creator);
-
-    $this->get(route('intakes.workspace', $intake))
+    $this->actingAs($user)
+        ->withSession(demoSessionFor($user, $intake))
+        ->get(route('intakes.workspace', $intake))
         ->assertOk()
-        ->assertSee('Interactieve demo · echte werkplek')
+        ->assertSee('Beoordeel het demoscenario')
         ->assertSee('Woninggegevens')
-        ->assertSee('Luchtfoto van de omgeving bekijken')
-        ->assertSee('Foto’s')
-        ->assertSee('Optie A · één multi-split')
-        ->assertSee('Koelleiding slaapkamer ouders')
-        ->assertSee('Condensafvoer werkkamer')
-        ->assertSee('Voeding naar buitenunit')
-        ->assertSee('Groepsaanduiding deels onleesbaar')
         ->assertSee('Controleren en klantweergave activeren')
-        ->assertSee('Vooraf berekend · € 0')
         ->assertDontSee('AI-voorstel vernieuwen');
 });
 
 it('creates a separate tenant and user for every public demo session', function () {
-    $this->post(route('demo.start'))->assertRedirect();
-    $first = Intake::query()->where('is_demo', true)->firstOrFail();
-    $firstUserId = (int) $first->created_by;
-    $firstCompanyId = (int) $first->company_id;
+    $firstUser = startPublicDemoSession();
+    $firstCompanyId = (int) $firstUser->company_id;
 
     $this->post(route('logout'))->assertRedirect('/');
-    $this->post(route('demo.start'))->assertRedirect();
-    $second = Intake::query()
-        ->where('is_demo', true)
-        ->where('id', '!=', $first->id)
-        ->firstOrFail();
+    $secondUser = startPublicDemoSession();
 
-    expect($second->created_by)->not->toBe($firstUserId)
-        ->and($second->company_id)->not->toBe($firstCompanyId)
+    expect($secondUser->id)->not->toBe($firstUser->id)
+        ->and((int) $secondUser->company_id)->not->toBe($firstCompanyId)
         ->and(Company::query()->where('slug', 'like', 'publieke-demo-%')->count())->toBe(2);
 
-    $firstUser = User::query()->findOrFail($firstUserId);
+    ['intake' => $firstIntake] = createDemoIntakeViaForm($firstUser);
+    ['intake' => $secondIntake] = createDemoIntakeViaForm($secondUser);
+
     $this->actingAs($firstUser)
-        ->withSession(['public_demo_intake_id' => $first->id])
-        ->get(route('intakes.workspace', $second))
+        ->withSession([
+            'public_demo_mode' => true,
+            'public_demo_intake_id' => $firstIntake->id,
+            'public_demo_expires_at' => now()->addHour()->toIso8601String(),
+        ])
+        ->get(route('intakes.workspace', $secondIntake))
         ->assertNotFound();
 });
 
-it('keeps the temporary user inside its one demo dossier', function () {
-    $this->post(route('demo.start'))->assertRedirect();
-    $demo = Intake::query()->where('is_demo', true)->firstOrFail();
+it('keeps the temporary user inside its one demo dossier after create', function () {
+    ['intake' => $demo, 'user' => $user] = createDemoIntakeViaForm();
     $other = Intake::factory()->create([
         'company_id' => $demo->company_id,
         'created_by' => $demo->created_by,
@@ -173,23 +290,29 @@ it('keeps the temporary user inside its one demo dossier', function () {
         'is_demo' => false,
     ]);
 
-    $this->get(route('intakes.create'))->assertNotFound();
-    $this->get(route('metrics'))->assertNotFound();
-    $this->get(route('profile.edit'))->assertNotFound();
-    $this->get(route('intakes.workspace', $other))->assertNotFound();
-    $this->get(route('intakes.workspace', $demo))->assertOk();
+    $session = demoSessionFor($user, $demo);
+
+    $this->actingAs($user)->withSession($session)->get(route('intakes.create'))->assertNotFound();
+    $this->actingAs($user)->withSession($session)->get(route('metrics'))->assertNotFound();
+    $this->actingAs($user)->withSession($session)->get(route('profile.edit'))->assertNotFound();
+    $this->actingAs($user)->withSession($session)->get(route('intakes.workspace', $other))->assertNotFound();
+    $this->actingAs($user)->withSession($session)->get(route('intakes.show', $demo))->assertOk();
 });
 
 it('ends the public demo session after its configured lifetime', function () {
     config(['intake.demo.ttl_hours' => 2]);
-
-    $this->post(route('demo.start'))->assertRedirect();
-    $demo = Intake::query()->where('is_demo', true)->firstOrFail();
+    ['intake' => $demo, 'user' => $user] = createDemoIntakeViaForm();
 
     $this->travel(2)->hours();
     $this->travel(1)->second();
 
-    $this->get(route('intakes.workspace', $demo))
+    $this->actingAs($user)
+        ->withSession([
+            'public_demo_mode' => true,
+            'public_demo_intake_id' => $demo->id,
+            'public_demo_expires_at' => now()->subSecond()->toIso8601String(),
+        ])
+        ->get(route('intakes.workspace', $demo))
         ->assertRedirect('/');
     $this->assertGuest();
 });
@@ -228,7 +351,7 @@ it('shows the start demo button on the homepage when enabled', function () {
     $this->get('/')
         ->assertOk()
         ->assertSee('Probeer de demo', false)
-        ->assertSee('Een complete opname vóór je de bus instapt.', false)
+        ->assertSee('Start zoals een installateur', false)
         ->assertSee('Voor jou', false)
         ->assertSee('Voor je klant', false)
         ->assertSee('Fictieve voorbeeldopname.', false)
@@ -244,22 +367,27 @@ it('hides the start demo button for authenticated users', function () {
         ->get('/')
         ->assertOk()
         ->assertDontSee('Probeer de demo', false)
-        ->assertSee('Open dashboard', false)
-        ->assertDontSee('Geen account nodig', false);
+        ->assertSee('Open dashboard', false);
 });
 
 it('activates a simulated customer view without sending mail', function () {
     Mail::fake();
     config(['intake.demo.ttl_hours' => 2]);
 
-    $this->post(route('demo.start'))->assertRedirect();
-    $intake = Intake::query()->where('is_demo', true)->firstOrFail();
+    ['intake' => $intake, 'user' => $user] = createDemoIntakeViaForm();
+
+    $session = demoSessionFor($user, $intake);
+    $this->actingAs($user)->withSession($session)->post(route('demo.path.choose', $intake), ['path' => 'installer']);
+    $this->actingAs($user)->withSession($session)->post(route('demo.scenario.load', $intake));
+
     $task = ContributionTask::query()
         ->where('intake_id', $intake->id)
         ->where('status', ContributionTaskStatus::Proposed)
         ->firstOrFail();
 
-    $this->post(route('intakes.workspace.tasks.send', [$intake, $task]))
+    $this->actingAs($user)
+        ->withSession($session)
+        ->post(route('intakes.workspace.tasks.send', [$intake, $task]))
         ->assertRedirect(route('intakes.workspace', $intake))
         ->assertSessionHas('status', 'Klantweergave geactiveerd. In de demo wordt geen e-mail verstuurd.');
 
@@ -309,9 +437,7 @@ it('hides the start demo button when demo mode is disabled', function () {
 it('hides demo intakes from a regular installer dashboard', function () {
     config(['intake.demo.enabled' => true]);
 
-    $this->post(route('demo.start'));
-
-    $demoIntake = Intake::query()->where('is_demo', true)->firstOrFail();
+    ['intake' => $demoIntake] = createDemoIntakeViaForm();
     $regularInstaller = User::factory()->create();
 
     $this->actingAs($regularInstaller)
@@ -322,17 +448,18 @@ it('hides demo intakes from a regular installer dashboard', function () {
 });
 
 it('shows only the current public demo on its dashboard', function () {
-    $this->post(route('demo.start'))->assertRedirect();
-    $demoIntake = Intake::query()->where('is_demo', true)->firstOrFail();
+    ['intake' => $demoIntake, 'user' => $user] = createDemoIntakeViaForm();
 
-    $this->get(route('dashboard'))
+    $this->actingAs($user)
+        ->withSession(demoSessionFor($user, $demoIntake))
+        ->get(route('dashboard'))
         ->assertOk()
         ->assertSee('Digitale demo-opnames')
         ->assertSee('Demo-overzicht')
         ->assertSee($demoIntake->customer_name)
         ->assertSee($demoIntake->customer_email)
         ->assertSee('Demo')
-        ->assertSee('Open werkplek');
+        ->assertSee('Openen');
 });
 
 it('never invokes external AI from the interactive demo', function () {
@@ -346,13 +473,19 @@ it('never invokes external AI from the interactive demo', function () {
         'ai.text_inference.enabled' => true,
     ]);
 
-    $this->post(route('demo.start'))->assertRedirect();
-    $intake = Intake::query()->where('is_demo', true)->firstOrFail();
+    ['intake' => $intake, 'user' => $user] = createDemoIntakeViaForm();
+    $demoSession = demoSessionFor($user, $intake);
+    $this->actingAs($user)->withSession($demoSession)->post(route('demo.path.choose', $intake), ['path' => 'installer']);
+    $this->actingAs($user)->withSession($demoSession)->post(route('demo.scenario.load', $intake));
     $session = PipeRouteSession::query()->where('intake_id', $intake->id)->firstOrFail();
 
-    $this->post(route('intakes.workspace.synthesis', $intake))
+    $this->actingAs($user)
+        ->withSession($demoSession)
+        ->post(route('intakes.workspace.synthesis', $intake))
         ->assertSessionHas('status', 'Het AI-voorstel is vooraf berekend; de demo gebruikt geen live AI.');
-    $this->post(route('intakes.workspace.routes.synthesize', [$intake, $session]))
+    $this->actingAs($user)
+        ->withSession($demoSession)
+        ->post(route('intakes.workspace.routes.synthesize', [$intake, $session]))
         ->assertSessionHas('status', 'Deze route is vooraf berekend; de demo gebruikt geen live AI.');
 
     Http::assertNothingSent();
@@ -365,16 +498,21 @@ it('never invokes external AI from the interactive demo', function () {
 it('purges expired demo data media and ephemeral accounts while keeping active sessions', function () {
     config(['intake.demo.ttl_hours' => 2]);
 
-    $this->post(route('demo.start'))->assertRedirect();
-    $active = Intake::query()->where('is_demo', true)->latest('id')->firstOrFail();
+    ['intake' => $active, 'user' => $activeUser] = createDemoIntakeViaForm();
+    $activeSession = demoSessionFor($activeUser, $active);
+    $this->actingAs($activeUser)->withSession($activeSession)->post(route('demo.path.choose', $active), ['path' => 'installer']);
+    $this->actingAs($activeUser)->withSession($activeSession)->post(route('demo.scenario.load', $active));
     $activeUserId = (int) $active->created_by;
     $activeCompanyId = (int) $active->company_id;
 
     $this->post(route('logout'))->assertRedirect('/');
-    $this->post(route('demo.start'))->assertRedirect();
-    $expired = Intake::query()->where('is_demo', true)->latest('id')->firstOrFail();
+    ['intake' => $expired, 'user' => $expiredUser] = createDemoIntakeViaForm();
+    $expiredSession = demoSessionFor($expiredUser, $expired);
+    $this->actingAs($expiredUser)->withSession($expiredSession)->post(route('demo.path.choose', $expired), ['path' => 'installer']);
+    $this->actingAs($expiredUser)->withSession($expiredSession)->post(route('demo.scenario.load', $expired));
     $expiredUserId = (int) $expired->created_by;
     $expiredCompanyId = (int) $expired->company_id;
+    $expired->refresh();
     $expiredFiles = $expired->uploads()->get()->flatMap(
         static fn ($upload): array => array_values(array_filter([$upload->path, $upload->analysis_path])),
     )->all();

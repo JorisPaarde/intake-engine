@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Middleware;
 
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Services\PublicDemoSession;
 use App\Domains\Intake\Services\PublicDemoWorkspaceProvisioner;
 use App\Models\User;
 use Closure;
@@ -15,14 +16,14 @@ use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Keeps the automatically authenticated public demo user inside its one
- * temporary dossier. This prevents an anonymous visitor from using ordinary
- * installer routes to create real intakes or trigger external effects.
+ * Keeps the automatically authenticated public demo user inside the guided
+ * demo path: dashboard → one intake create → show/workspace (and logout).
  */
 final class RestrictPublicDemoSession
 {
     public function __construct(
         private readonly PublicDemoWorkspaceProvisioner $workspaceProvisioner,
+        private readonly PublicDemoSession $publicDemoSession,
     ) {}
 
     /**
@@ -39,37 +40,50 @@ final class RestrictPublicDemoSession
             return $next($request);
         }
 
-        $demoIntakeId = $request->session()->get('public_demo_intake_id');
-
-        if (! is_numeric($demoIntakeId)) {
-            return $this->expireSession($request);
-        }
-
-        $demoIntake = Intake::query()
-            ->whereKey((int) $demoIntakeId)
-            ->where('company_id', $user->company_id)
-            ->where('created_by', $user->id)
-            ->where('is_demo', true)
-            ->where(
-                'created_at',
-                '>',
-                now()->subHours(max(1, (int) config('intake.demo.ttl_hours', 2))),
-            )
-            ->first();
-
-        if ($demoIntake === null) {
+        if (! $this->publicDemoSession->isActive($request)) {
             return $this->expireSession($request);
         }
 
         $route = $request->route();
         $routeName = $route instanceof Route ? (string) $route->getName() : '';
-        $allowed = $routeName === 'dashboard'
+        $intakeId = $this->publicDemoSession->intakeId($request);
+        $hasIntake = $intakeId !== null;
+
+        $allowedWithoutIntake = in_array($routeName, [
+            'dashboard',
+            'intakes.create',
+            'intakes.store',
+            'address-suggestions',
+            'logout',
+        ], true);
+
+        $allowedWithIntake = $routeName === 'dashboard'
             || $routeName === 'intakes.show'
+            || $routeName === 'intakes.store'
             || $routeName === 'installer.uploads.show'
             || $routeName === 'logout'
+            || $routeName === 'demo.path.choose'
+            || $routeName === 'demo.scenario.load'
             || str_starts_with($routeName, 'intakes.workspace');
 
-        abort_unless($allowed, 404);
+        if (! $hasIntake) {
+            abort_unless($allowedWithoutIntake, 404);
+
+            return $next($request);
+        }
+
+        // Block a second intake create once the demo dossier exists.
+        if (in_array($routeName, ['intakes.create', 'intakes.store'], true)) {
+            abort(404);
+        }
+
+        abort_unless($allowedWithIntake, 404);
+
+        $demoIntake = $this->publicDemoSession->resolveIntake($request);
+
+        if ($demoIntake === null) {
+            return $this->expireSession($request);
+        }
 
         $routeIntake = $request->route('intake');
 

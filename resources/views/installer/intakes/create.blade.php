@@ -1,13 +1,25 @@
+@php
+    $isPublicDemo = (bool) ($isPublicDemo ?? false);
+    $demoDefaults = is_array($demoDefaults ?? null) ? $demoDefaults : [];
+    $demoValue = static function (string $key, mixed $fallback = null) use ($demoDefaults): mixed {
+        return old($key, $demoDefaults[$key] ?? $fallback);
+    };
+@endphp
 <x-app-layout>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            Nieuwe opname
+            {{ $isPublicDemo ? 'Nieuwe demo-opname' : 'Nieuwe opname' }}
         </h2>
     </x-slot>
 
     <div class="py-8">
         <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
-            <div class="bg-white shadow-sm sm:rounded-lg p-6">
+            @if ($isPublicDemo)
+                <div class="mb-4 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">
+                    Fictieve voorbeeldgegevens staan al ingevuld. Na opslaan kies je of je doorgaat als klant of zelf de opname doet — er wordt geen e-mail verstuurd.
+                </div>
+            @endif
+            <div class="bg-white shadow-sm sm:rounded-lg p-6" data-demo-anchor="create-form">
                 <form method="POST" action="{{ route('intakes.store') }}" class="space-y-5">
                     @csrf
 
@@ -23,42 +35,46 @@
                         <x-input-error :messages="$errors->get('template_key')" class="mt-2" />
                     </div>
 
-                    <fieldset>
-                        <legend class="text-sm font-medium text-gray-700">Wie voert de opname uit?</legend>
-                        <div class="mt-2 grid gap-3 sm:grid-cols-2">
-                            <label class="cursor-pointer rounded-2xl border border-gray-200 bg-white p-4 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50">
-                                <span class="flex items-start gap-3">
-                                    <input
-                                        type="radio"
-                                        name="workflow_mode"
-                                        value="{{ \App\Enums\ContributionMode::Customer->value }}"
-                                        class="mt-1 border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                        @checked(old('workflow_mode', \App\Enums\ContributionMode::Customer->value) === \App\Enums\ContributionMode::Customer->value)
-                                    >
-                                    <span>
-                                        <span class="block text-sm font-semibold text-gray-900">Klant laten opnemen</span>
-                                        <span class="mt-1 block text-xs leading-5 text-gray-600">De klant krijgt direct een beveiligde link met begeleide foto- en informatieopdrachten.</span>
+                    @if ($isPublicDemo)
+                        <input type="hidden" name="workflow_mode" value="{{ \App\Enums\ContributionMode::Customer->value }}">
+                    @else
+                        <fieldset>
+                            <legend class="text-sm font-medium text-gray-700">Wie voert de opname uit?</legend>
+                            <div class="mt-2 grid gap-3 sm:grid-cols-2">
+                                <label class="cursor-pointer rounded-2xl border border-gray-200 bg-white p-4 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50">
+                                    <span class="flex items-start gap-3">
+                                        <input
+                                            type="radio"
+                                            name="workflow_mode"
+                                            value="{{ \App\Enums\ContributionMode::Customer->value }}"
+                                            class="mt-1 border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                            @checked(old('workflow_mode', \App\Enums\ContributionMode::Customer->value) === \App\Enums\ContributionMode::Customer->value)
+                                        >
+                                        <span>
+                                            <span class="block text-sm font-semibold text-gray-900">Klant laten opnemen</span>
+                                            <span class="mt-1 block text-xs leading-5 text-gray-600">De klant krijgt direct een beveiligde link met begeleide foto- en informatieopdrachten.</span>
+                                        </span>
                                     </span>
-                                </span>
-                            </label>
-                            <label class="cursor-pointer rounded-2xl border border-gray-200 bg-white p-4 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50">
-                                <span class="flex items-start gap-3">
-                                    <input
-                                        type="radio"
-                                        name="workflow_mode"
-                                        value="{{ \App\Enums\ContributionMode::Installer->value }}"
-                                        class="mt-1 border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                        @checked(old('workflow_mode') === \App\Enums\ContributionMode::Installer->value)
-                                    >
-                                    <span>
-                                        <span class="block text-sm font-semibold text-gray-900">Zelf de opname uitvoeren</span>
-                                        <span class="mt-1 block text-xs leading-5 text-gray-600">Open direct de mobiele werkplek. De klanttoegang blijft uit en er wordt geen link verstuurd.</span>
+                                </label>
+                                <label class="cursor-pointer rounded-2xl border border-gray-200 bg-white p-4 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50">
+                                    <span class="flex items-start gap-3">
+                                        <input
+                                            type="radio"
+                                            name="workflow_mode"
+                                            value="{{ \App\Enums\ContributionMode::Installer->value }}"
+                                            class="mt-1 border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                            @checked(old('workflow_mode') === \App\Enums\ContributionMode::Installer->value)
+                                        >
+                                        <span>
+                                            <span class="block text-sm font-semibold text-gray-900">Zelf de opname uitvoeren</span>
+                                            <span class="mt-1 block text-xs leading-5 text-gray-600">Open direct de mobiele werkplek. De klanttoegang blijft uit en er wordt geen link verstuurd.</span>
+                                        </span>
                                     </span>
-                                </span>
-                            </label>
-                        </div>
-                        <x-input-error :messages="$errors->get('workflow_mode')" class="mt-2" />
-                    </fieldset>
+                                </label>
+                            </div>
+                            <x-input-error :messages="$errors->get('workflow_mode')" class="mt-2" />
+                        </fieldset>
+                    @endif
 
                     <fieldset
                         class="rounded-2xl border border-gray-200 bg-gray-50/70 p-5"
@@ -76,7 +92,7 @@
                                     name="address_postal_code"
                                     class="mt-1 block w-full uppercase"
                                     type="text"
-                                    :value="old('address_postal_code')"
+                                    :value="$demoValue('address_postal_code')"
                                     autocomplete="postal-code"
                                     inputmode="text"
                                     maxlength="7"
@@ -93,7 +109,7 @@
                                     name="address_house_number"
                                     class="mt-1 block w-full"
                                     type="number"
-                                    :value="old('address_house_number')"
+                                    :value="$demoValue('address_house_number')"
                                     autocomplete="address-line2"
                                     min="1"
                                     max="999999"
@@ -108,7 +124,7 @@
                                     name="address_house_number_addition"
                                     class="mt-1 block w-full"
                                     type="text"
-                                    :value="old('address_house_number_addition')"
+                                    :value="$demoValue('address_house_number_addition')"
                                     maxlength="20"
                                     placeholder="A"
                                 />
@@ -130,7 +146,7 @@
                         <details
                             data-manual-address
                             class="mt-4 rounded-xl border border-gray-200 bg-white p-4"
-                            @if (old('address_line') || $errors->has('address_line') || $errors->has('address_city')) open @endif
+                            @if ($isPublicDemo || old('address_line') || $errors->has('address_line') || $errors->has('address_city')) open @endif
                         >
                             <summary class="cursor-pointer text-sm font-semibold text-gray-800">Handmatig invoeren</summary>
                             <p class="mt-2 text-xs text-gray-500">Controleer het aangevulde adres. U kunt straat en plaats indien nodig handmatig aanpassen.</p>
@@ -142,7 +158,7 @@
                                         name="address_line"
                                         class="mt-1 block w-full"
                                         type="text"
-                                        :value="old('address_line')"
+                                        :value="$demoValue('address_line')"
                                         autocomplete="street-address"
                                         required
                                     />
@@ -155,7 +171,7 @@
                                         name="address_city"
                                         class="mt-1 block w-full"
                                         type="text"
-                                        :value="old('address_city')"
+                                        :value="$demoValue('address_city')"
                                         autocomplete="address-level2"
                                         required
                                     />
@@ -167,14 +183,20 @@
 
                     <div>
                         <x-input-label for="customer_name" value="Naam klant" />
-                        <x-text-input id="customer_name" name="customer_name" class="mt-1 block w-full" type="text" :value="old('customer_name')" required />
+                        <x-text-input id="customer_name" name="customer_name" class="mt-1 block w-full" type="text" :value="$demoValue('customer_name')" required />
                         <x-input-error :messages="$errors->get('customer_name')" class="mt-2" />
                     </div>
 
                     <div>
                         <x-input-label for="customer_email" value="E-mailadres" />
-                        <x-text-input id="customer_email" name="customer_email" class="mt-1 block w-full" type="email" :value="old('customer_email')" required />
-                        <p class="mt-1 text-sm text-gray-500" data-customer-email-help>Bij een klantopname sturen we de beveiligde link automatisch. Bij zelf opnemen wordt niets verstuurd.</p>
+                        <x-text-input id="customer_email" name="customer_email" class="mt-1 block w-full" type="email" :value="$demoValue('customer_email')" required />
+                        <p class="mt-1 text-sm text-gray-500" data-customer-email-help>
+                            @if ($isPublicDemo)
+                                In de demo wordt geen e-mail verstuurd. Na opslaan kies je hoe je verder kijkt.
+                            @else
+                                Bij een klantopname sturen we de beveiligde link automatisch. Bij zelf opnemen wordt niets verstuurd.
+                            @endif
+                        </p>
                         <x-input-error :messages="$errors->get('customer_email')" class="mt-2" />
                     </div>
 
@@ -186,7 +208,7 @@
 
                     <div>
                         <x-input-label for="internal_note" value="Interne notitie (optioneel)" />
-                        <textarea id="internal_note" name="internal_note" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">{{ old('internal_note') }}</textarea>
+                        <textarea id="internal_note" name="internal_note" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">{{ $demoValue('internal_note', '') }}</textarea>
                         <x-input-error :messages="$errors->get('internal_note')" class="mt-2" />
                     </div>
 
@@ -212,13 +234,19 @@
 
                     <div class="flex items-center justify-end gap-3">
                         <a href="{{ route('dashboard') }}" class="text-sm text-gray-600 hover:text-gray-900">Annuleren</a>
-                        <x-primary-button data-submit-label>Opslaan en klantlink mailen</x-primary-button>
+                        <x-primary-button data-submit-label>
+                            {{ $isPublicDemo ? 'Opname aanmaken' : 'Opslaan en klantlink mailen' }}
+                        </x-primary-button>
 
                     </div>
                 </form>
             </div>
         </div>
     </div>
+
+    @if ($isPublicDemo)
+        <x-demo-guide step="create" :has-intake="false" />
+    @endif
 
     @if (! empty($prefillQuestionsByTemplate))
         <script>

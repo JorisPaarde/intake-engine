@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.8 · **Laatste update:** 2026-07-31 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.9 · **Laatste update:** 2026-08-05 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -440,12 +440,12 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Status:** in_progress · **Prioriteit:** medium · **Band:** A (operationeel, parallel) · **Ref:** [issue #5](https://github.com/JorisPaarde/intake-engine/issues/5)
 - **Plan:** [bl-001-interactive-installer-demo.md](plans/bl-001-interactive-installer-demo.md)
 - **Doel:** publiek of semi-publiek demopad zodat prospects/installateurs het product kunnen ervaren zonder eigen accountsetup of echte klantdata — het hoofddoel ("zo min mogelijk handelingen") toegepast op de allereerste kennismaking.
-- **Nieuwe invulling:** publieke productfunnel (BL-043/045) met fictieve productweergaven + **Probeer de demo** → unieke tijdelijke demo-tenant en -user → rechtstreeks naar de echte installateurswerkplek met een fictief, deels voorbereid dossier. De bezoeker kan dezelfde ruimtes, posities, opties, verbindingen, foto’s en gerichte klanttaken gebruiken als productie. Klanttoegang wordt pas actief bij één gecontroleerde taak.
-- **Scenario:** vaste BAG-/luchtfoto-/EP-Online-/3DBAG-voorbeeldcontext, twee gewenste ruimtes, synthetisch beeldbewijs, geselecteerd multi-splitvoorstel, afzonderlijke koel-/condens-/stroomroutes, vooraf berekende AI-synthese en één voorgestelde meterkasttaak.
-- **Kaders:** `is_demo`, standaard-TTL twee uur, hourly hard purge inclusief tijdelijke demo-tenant; geen echte PII, mail, PDF of externe AI-call; alle brondata en beelden expliciet als fictieve demo-inhoud herkenbaar.
-- **Acceptatie:** geïsoleerde gelijktijdige demosessies; redirect naar `intakes.workspace`; echte klanttaakweergave zonder mail; volledige cleanup; tests bewaken tenantgrens, externe-effectblokkade en scenario-inhoud.
-- **Resultaat code:** unieke tijdelijke tenant/user, vooraf gevuld dossier via bestaande domeinservices, synthetische beelden via beide private varianten, werkplekrondleiding, volledige productfunnel op `/`, gesimuleerde klanttaak, sessiegrens tot exact één demodossier, harde AI-/mail-/PDF-grenzen en volledige purge zijn geïmplementeerd en geautomatiseerd afgedekt.
-- **Na deploy:** staging-smoke op desktop en mobiel voor homepage → werkplek → taak activeren → klantweergave → terug naar dossier; daarna BL-001 op `done`.
+- **Nieuwe invulling (begeleide flow):** **Probeer de demo** → tijdelijke tenant/user → dashboard met welkomstpopup → vooringevulde *Nieuwe opname* → rolkeuze-modal i.p.v. mail (*Doorgaan als klant* / *Zelf de opname doen*) → verkorte klantwizard of lege werkplek met optioneel voorbeelddossier; coachmark-popups op elke stap.
+- **Scenario (optioneel laden):** vaste BAG-/luchtfoto-/EP-Online-/3DBAG-voorbeeldcontext, twee gewenste ruimtes, synthetisch beeldbewijs, multi-splitvoorstel, koel-/condens-/stroomroutes, vooraf berekende AI-synthese en één voorgestelde meterkasttaak.
+- **Kaders:** `is_demo`, standaard-TTL twee uur, hourly hard purge inclusief tijdelijke demo-tenant en orphaned demo-workspaces; geen echte PII, mail, PDF of externe AI-call; alle brondata en beelden expliciet als fictieve demo-inhoud herkenbaar.
+- **Acceptatie:** start op dashboard; create + branch zonder mail; beide paden begeleid; sample-dossier op verzoek; isolatie/TTL/AI-mail-PDF-grenzen; tests groen.
+- **Resultaat code:** begeleidde installateursstart, rolkeuze, verkorte klantroute, `LoadDemoSurveyScenario`, Alpine/native coachmarks en bijgewerkte Pest-dekking.
+- **Na deploy:** staging-smoke homepage → create → branch → beide paden → sample-dossier → klanttaak; daarna BL-001 op `done`.
 
 ### BL-043 — Publieke productfunnel en interesse-CTA
 

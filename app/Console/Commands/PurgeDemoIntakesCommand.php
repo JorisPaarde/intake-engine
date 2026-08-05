@@ -7,6 +7,8 @@ namespace App\Console\Commands;
 use App\Domains\Intake\Actions\HardDeleteIntake;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Services\PublicDemoWorkspaceProvisioner;
+use App\Models\Company;
+use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -50,7 +52,26 @@ final class PurgeDemoIntakesCommand extends Command
             }
         });
 
-        $this->info("Purged {$purged} demo intake(s).");
+        $orphans = 0;
+        Company::query()
+            ->where('slug', 'like', 'publieke-demo-%')
+            ->where('created_at', '<', $cutoff)
+            ->whereDoesntHave('intakes')
+            ->chunkById(50, function (Collection $companies) use ($workspaceProvisioner, &$orphans): void {
+                foreach ($companies as $company) {
+                    $user = User::query()
+                        ->where('company_id', $company->id)
+                        ->where('email', 'like', 'installateur+%@demo.invalid')
+                        ->first();
+
+                    if ($user !== null) {
+                        $workspaceProvisioner->cleanupIfOrphaned((int) $user->id, (int) $company->id);
+                        $orphans++;
+                    }
+                }
+            });
+
+        $this->info("Purged {$purged} demo intake(s) and {$orphans} orphaned demo workspace(s).");
 
         return self::SUCCESS;
     }
