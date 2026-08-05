@@ -77,7 +77,7 @@
                                 {{ ($demoScenarioLoaded ?? false) ? 'Beoordeel het demoscenario' : 'Bouw het technische dossier op' }}
                             </h3>
                             <p class="mt-2 max-w-3xl text-sm leading-relaxed text-gray-700">
-                                Dezelfde installateursflow als in productie, inclusief adresverrijking en AI-foto-/tekstinterpretatie. Klantgegevens zijn fictief en verdwijnen na {{ max(1, (int) config('intake.demo.ttl_hours', 2)) }} uur; e-mail en PDF-export blijven uit.
+                                Dezelfde installateursflow als in productie, inclusief adresverrijking en AI-foto-/tekstinterpretatie. Klantgegevens zijn fictief en verdwijnen na {{ max(1, (int) config('intake.demo.ttl_hours', 2)) }} uur. Klantmail blijft uit; een demorapport-PDF kan je onderaan met je e-mail aanvragen.
                             </p>
                             @if (! ($demoScenarioLoaded ?? false))
                                 <form method="POST" action="{{ route('demo.scenario.load', $intake) }}" class="mt-4">
@@ -877,6 +877,11 @@
                     </section>
                 </aside>
             </div>
+            @if ($intake->is_demo)
+                <div class="mt-6">
+                    <x-demo-pdf-request :intake="$intake" />
+                </div>
+            @endif
         </div>
     </div>
 

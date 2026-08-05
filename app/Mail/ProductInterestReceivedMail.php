@@ -23,11 +23,15 @@ final class ProductInterestReceivedMail extends Mailable
 
     public function envelope(): Envelope
     {
+        $isDemoPdfLead = str_contains((string) $this->interest->message, 'source=demo_pdf_request');
+
         return new Envelope(
             replyTo: [
                 new Address($this->interest->email, $this->interest->contact_name),
             ],
-            subject: 'Nieuwe interesse in Digitale Opname',
+            subject: $isDemoPdfLead
+                ? 'Demo-lead: PDF-aanvraag Digitale Opname'
+                : 'Nieuwe interesse in Digitale Opname',
         );
     }
 

@@ -1,6 +1,6 @@
 # Deployment naar cPanel (staging + production)
 
-> **Documentversie:** 2.14 · **Laatste update:** 2026-08-05 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.15 · **Laatste update:** 2026-08-05 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 **Statusregel:** staging en production zijn fysiek en logisch gescheiden; open handmatige acties (env/host) staan in [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
 
@@ -286,12 +286,12 @@ Zet `DEMO_ENABLED=false` alleen om nieuwe starts uit te schakelen, bijvoorbeeld 
 De publieke funnel op `/` verwerkt `POST /interesse`. Iedere geldige inzending wordt eerst in `product_interests` opgeslagen; uitval van SMTP of queue kan de bevestiging aan de prospect daarom niet verliezen. Er wordt geen IP-adres opgeslagen. Een honeypot en IP-gebaseerde rate-limit beperken geautomatiseerde spam zonder extra persoonsgegevens te bewaren.
 
 ```env
-PRODUCT_INTEREST_MAIL_TO=         # intern adres; leeg = alleen databaseopslag
+PRODUCT_INTEREST_MAIL_TO=info@jpwebcreation.nl   # intern leadadres; leeg = alleen databaseopslag
 PRODUCT_INTEREST_THROTTLE_PER_HOUR=5
 PRODUCT_INTEREST_RETENTION_DAYS=365
 ```
 
-Alleen met een geldig `PRODUCT_INTEREST_MAIL_TO` én een mailer anders dan `log` wordt een interne mailable ingepland. De mail gebruikt het adres van de prospect als `Reply-To`. Bij `MAIL_MAILER=log` wordt zij bewust overgeslagen, zodat contactgegevens niet in applicatielogs belanden.
+Default is `info@jpwebcreation.nl` (homepage-interesse én demo-PDF-aanvragen, BL-043/BL-051). Alleen met een geldig adres én een mailer anders dan `log` wordt een interne mailable ingepland. De mail gebruikt het adres van de prospect als `Reply-To`. Bij `MAIL_MAILER=log` wordt zij bewust overgeslagen, zodat contactgegevens niet in applicatielogs belanden. Demo-PDF-aanvragen genereren dan wel de PDF voor download in de sessie.
 
 `product-interests:purge` draait dagelijks via de scheduler en verwijdert rijen waarvan `expires_at` is verstreken. De standaardtekst op de landingspagina communiceert de maximale bewaartermijn van twaalf maanden; wijzig `PRODUCT_INTEREST_RETENTION_DAYS` daarom niet naar een langere periode zonder die tekst en het privacybeleid mee te beoordelen.
 
@@ -306,6 +306,7 @@ De app stuurt (bij werkende SMTP):
 - **Herinnering** naar de klant na `INTAKE_REMINDER_DAYS` zonder afronding (BL-015; max. één)
 - **Gerichte aanvulling** naar de klant na `need_more_info`, daarna opnieuw een afrondingsnotificatie naar de installateur (BL-027)
 - **Nieuwe productinteresse** naar `PRODUCT_INTEREST_MAIL_TO`, zonder dossier- of klanttoken (BL-043)
+- **Demo-PDF-aanvraag** naar de prospect (PDF-bijlage) plus interne leadmail naar `PRODUCT_INTEREST_MAIL_TO` (BL-051)
 
 De kopieerbare klantlink op de detailpagina blijft de fallback. Dashboard-markering **Nieuw afgerond** (BL-014) werkt ook zonder SMTP.
 
