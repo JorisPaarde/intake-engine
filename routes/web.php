@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Domains\Intake\Services\PublicDemoSession;
 use App\Http\Controllers\CompanyLogoController;
 use App\Http\Controllers\Customer\IntakeUploadController as CustomerIntakeUploadController;
 use App\Http\Controllers\Demo\ChooseDemoPathController;
@@ -23,10 +24,13 @@ use App\Http\Controllers\Installer\SurveyWorkspaceController;
 use App\Http\Controllers\ProductInterestController;
 use App\Http\Controllers\ProfileController;
 use App\Livewire\Customer\IntakeWizard;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
+Route::get('/', function (Request $request, PublicDemoSession $publicDemoSession) {
+    return view('welcome', [
+        'isPublicDemo' => $publicDemoSession->isActive($request),
+    ]);
 })->name('home');
 
 Route::post('/interesse', ProductInterestController::class)

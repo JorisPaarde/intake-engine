@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.44 · **Laatste update:** 2026-08-05 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.45 · **Laatste update:** 2026-08-05 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -83,6 +83,7 @@ Laatste testsessie: 2026-07-26 (lokaal; postcode-eerst adresaanvulling met echte
 | Queue-worker (cron) | todo | - | Niet end-to-end bevestigd (geen zichtbaar AI-resultaat) |
 | Oude publieke klantwizarddemo (BL-001 vóór herontwerp) | n/a | staging 2026-07-24 | Historisch functioneel bewezen, maar vervangen door de interactieve installateursdemo; zie de sessienotitie hieronder. |
 | Interactieve installateursdemo (BL-001) | todo | - | Na deploy als gast: homepage → **Probeer de demo** → welkomstpopup → *Nieuwe opname* met lege postcode/huisnummer (zelf invullen; tipadres zichtbaar; lookup vult straat/plaats) → na opslaan woninggegevens/luchtfoto → rolkeuze i.p.v. mail. Test beide paden (verkorte klantwizard met foto-upload/AI én zelf/werkplek + *Toon voorbeelddossier* + AI-voorstel vernieuwen + klanttaak activeren). Desktop én 390 px, toetsenbord, geen consolefouten, geen mail/PDF. |
+| Homepage-CTAs gast / demosessie / account (BL-001/043) | todo | - | Gast: **Probeer de demo**, **Inloggen**, **Ik wil een pilot**. Tijdens demosessie terug naar `/`: **Verder in demo** + **Demo afsluiten**, geen **Mijn opnames**/Inloggen. Na **Demo afsluiten** weer gast-CTAs. Echt account: **Mijn opnames** naar `/dashboard`, geen demostart. |
 | Demo: gerichte klantweergave zonder mail/PDF | todo | - | Voorgestelde meterkasttaak activeren → knop **Klantweergave** → alleen die taak zichtbaar; geen mail, PDF of notificatie. Foto-AI mag meedraaien. Afronden sluit toegang en toont de aanvulling in hetzelfde dossier. |
 | Demo-isolatie en purge (`intakes:purge-demos`) | todo | - | Start twee aparte browsersessies: verschillende tenant/user/intake en onderlinge weigering. Laat één sessie verlopen; hourly purge verwijdert intake, luchtfoto, beide beeldvarianten, tijdelijke user en company terwijl actieve demo blijft bestaan. |
 

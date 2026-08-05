@@ -16,12 +16,14 @@ it('shows the product homepage with login navigation', function () {
         ->assertSee(route('login'), false);
 });
 
-it('shows dashboard link for authenticated users on the homepage', function () {
+it('shows my intakes link for authenticated users on the homepage', function () {
     $user = User::factory()->create();
 
     $this->actingAs($user)
         ->get('/')
         ->assertOk()
-        ->assertSee('Naar opnames', false)
+        ->assertSee('Mijn opnames', false)
+        ->assertDontSee('Probeer de demo', false)
+        ->assertDontSee('Open dashboard', false)
         ->assertSee(route('dashboard'), false);
 });

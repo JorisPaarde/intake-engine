@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.11 · **Laatste update:** 2026-08-05 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.12 · **Laatste update:** 2026-08-05 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -445,8 +445,8 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Scenario (optioneel laden):** vaste BAG-/luchtfoto-/EP-Online-/3DBAG-voorbeeldcontext, twee gewenste ruimtes, synthetisch beeldbewijs, multi-splitvoorstel, koel-/condens-/stroomroutes, vooraf berekende AI-synthese en één voorgestelde meterkasttaak — als snelle boost naast live verrijking/AI.
 - **Kaders:** `is_demo`, standaard-TTL twee uur, hourly hard purge inclusief tijdelijke demo-tenant en orphaned demo-workspaces; geen echte PII, mail of PDF. Adresverrijking en AI (foto/tekst/synthese) draaien wanneer die integraties in de omgeving aan staan, zodat prospects het product echt zien.
 - **Acceptatie:** start op dashboard; create toont postcode-lookup + BAG-verrijking; branch zonder mail; beide paden begeleid met AI zichtbaar waar aan; sample-dossier op verzoek; isolatie/TTL/mail-PDF-grenzen; tests groen.
-- **Resultaat code:** begeleidde installateursstart, rolkeuze, verkorte klantroute, live verrijking/AI in demo, `LoadDemoSurveyScenario`, Alpine/native coachmarks en bijgewerkte Pest-dekking.
-- **Na deploy:** staging-smoke homepage → create (verrijking zichtbaar) → branch → beide paden (foto-/tekst-AI) → sample-dossier → klanttaak; daarna BL-001 op `done`.
+- **Resultaat code:** begeleidde installateursstart, rolkeuze, verkorte klantroute, live verrijking/AI in demo, `LoadDemoSurveyScenario`, Alpine/native coachmarks en bijgewerkte Pest-dekking. Homepage-CTAs onderscheiden gast (**Probeer de demo** / **Inloggen**), actieve demosessie (**Verder in demo** / **Demo afsluiten**) en echt account (**Mijn opnames**).
+- **Na deploy:** staging-smoke homepage → create (verrijking zichtbaar) → branch → beide paden (foto-/tekst-AI) → sample-dossier → klanttaak; daarna BL-001 op `done`. Controleer ook terugkeer naar `/` tijdens demosessie en na uitloggen.
 
 ### BL-043 — Publieke productfunnel en interesse-CTA
 
@@ -455,7 +455,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Scope:** probleem→oplossing-opbouw; werkwijze; afzonderlijke voordelen voor installateur en klant; fictieve productweergaven uit dezelfde demoset; klant-/installateur-/hybride uitleg; demo-CTA; FAQ; korte pilot-/interesse-CTA.
 - **Interesseflow:** valideert naam, bedrijf, e-mail en optionele telefoon/toelichting; honeypot + IP-rate-limit zonder IP-opslag; zelfstandige `product_interests`-opslag; optionele interne queuemail buiten de `log`-mailer; dagelijkse harde purge na standaard 365 dagen.
 - **Acceptatie:** demo blijft primair productbewijs; formulier blijft bruikbaar zonder SMTP; fout/succes is toegankelijk en Nederlandstalig; geen technische klantdata of intake wordt aangemaakt; desktop/mobiele staging-smoke staat als `todo` in de teststatus.
-- **Resultaat:** volledige funnel, twee responsieve productweergaven met synthetisch bewijs, werkende interesseopslag/notificatie/purge, env-documentatie en featuretests zijn geleverd.
+- **Resultaat:** volledige funnel, twee responsieve productweergaven met synthetisch bewijs, werkende interesseopslag/notificatie/purge, env-documentatie en featuretests zijn geleverd. Latere fix: homepage-CTAs niet meer één generieke “dashboard”-knop voor elke `@auth`-sessie (inclusief demogebruiker).
 
 ### BL-045 — Eenvoudige installateurstaal op de productfunnel
 
