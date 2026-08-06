@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.13 · **Laatste update:** 2026-08-05 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.14 · **Laatste update:** 2026-08-05 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -446,8 +446,8 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Scenario (optioneel laden):** vaste BAG-/luchtfoto-/EP-Online-/3DBAG-voorbeeldcontext, twee gewenste ruimtes, synthetisch beeldbewijs, multi-splitvoorstel, koel-/condens-/stroomroutes, vooraf berekende AI-synthese en één voorgestelde meterkasttaak — als snelle boost naast live verrijking/AI.
 - **Kaders:** `is_demo`, standaard-TTL twee uur, hourly hard purge inclusief tijdelijke demo-tenant en orphaned demo-workspaces; geen echte klantdata of klantmail. Adresverrijking en AI (foto/tekst/synthese) draaien wanneer die integraties aan staan. PDF alleen op vrijwillige aanvraag (BL-051).
 - **Acceptatie:** start op dashboard; create toont postcode-lookup + BAG-verrijking; branch zonder mail; beide paden begeleid met AI zichtbaar waar aan; sample-dossier op verzoek; isolatie/TTL; tests groen.
-- **Resultaat code:** begeleidde installateursstart, rolkeuze, verkorte klantroute, live verrijking/AI in demo, `LoadDemoSurveyScenario`, Alpine/native coachmarks en bijgewerkte Pest-dekking. Homepage-CTAs onderscheiden gast (**Probeer de demo** / **Inloggen**), actieve demosessie (**Verder in demo** / **Demo afsluiten**) en echt account (**Mijn opnames**).
-- **Na deploy:** staging-smoke homepage → create (verrijking zichtbaar) → branch → beide paden (foto-/tekst-AI) → sample-dossier → klanttaak → PDF-aanvraag; daarna BL-001 op `done`. Controleer ook terugkeer naar `/` tijdens demosessie en na uitloggen.
+- **Resultaat code:** begeleidde installateursstart, rolkeuze, verkorte klantroute, live verrijking/AI in demo, `LoadDemoSurveyScenario`, Alpine/native coachmarks en bijgewerkte Pest-dekking. Homepage-CTAs onderscheiden gast (**Probeer de demo** / **Inloggen**), actieve demosessie (**Verder in demo** / **Demo beëindigen**) en echt account (**Mijn opnames**); **Demo beëindigen** blijft in de app-nav zichtbaar zolang de demosessie loopt.
+- **Na deploy:** staging-smoke homepage → create (verrijking zichtbaar) → branch → beide paden (foto-/tekst-AI) → sample-dossier → klanttaak → PDF-aanvraag; daarna BL-001 op `done`. Controleer ook terugkeer naar `/` tijdens demosessie en **Demo beëindigen**.
 
 ### BL-051 — Demo-PDF op aanvraag als lead
 
