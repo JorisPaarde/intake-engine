@@ -86,9 +86,12 @@ test('installer can start a self-performed survey without exposing or mailing a 
     $this->actingAs($user)
         ->get(route('intakes.workspace', $intake))
         ->assertOk()
-        ->assertSee('Klaar voor offerte')
+        ->assertSee('Volgende stap')
+        ->assertSee('Open punten')
+        ->assertSee('Ruimte toevoegen')
         ->assertSee('Taak voor de klant')
-        ->assertSee('Woninggegevens');
+        ->assertSee('Woninggegevens')
+        ->assertSee('tik om te openen');
 });
 
 test('legacy customer link actions cannot expose an installer-only survey', function () {
@@ -123,7 +126,8 @@ test('workspace attaches photos and notes to the relevant object without exposin
         ->get(route('intakes.workspace', $intake))
         ->assertOk()
         ->assertSee('Woninggegevens')
-        ->assertSee('Automatisch opgehaald voor deze opname. Hier staan alleen gegevens die kunnen helpen bij de installatie.')
+        ->assertSee('tik om te openen')
+        ->assertSee('Volgende stap')
         ->assertSee('Foto maken')
         ->assertSee('Technische notitie')
         ->assertDontSee('Camera en bewijs')

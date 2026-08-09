@@ -196,7 +196,7 @@ test('complete intake stores snapshot report and attention points', function () 
         ->and($completed->report->html)->toContain('Rapport Klant')
         ->and($completed->report->html)->toContain('Korte samenvatting')
         ->and($completed->report->html)->toContain('Gewenste functie: Alleen koelen.')
-        ->and($completed->report->html)->toContain('Opgegeven omvang: 1 binnenunit voor Woonkamer.')
+        ->and($completed->report->html)->toContain('Opgegeven omvang: 1 ruimte voor Woonkamer.')
         ->and($completed->report->html)->toContain('Testantwoord request_reason')
         ->and($completed->attentionPoints->pluck('code')->all())
         ->toContain('no_free_group')
@@ -387,7 +387,7 @@ test('customer completes text and photo follow up and dossier returns for review
         ->call('completeFollowUp')
         ->assertHasNoErrors()
         ->assertSet('completed', true)
-        ->assertSee('Uw aanvulling is toegevoegd aan het dossier.');
+        ->assertSee('Bedankt. Uw installateur kijkt nu of er nog iets openstaat.');
 
     $intake->refresh();
     $round->refresh();
@@ -489,7 +489,7 @@ test('customer can add a requested PDF document to the protected dossier', funct
         ->assertDownload('plattegrond.pdf')
         ->assertHeader('X-Content-Type-Options', 'nosniff');
 
-    $component->assertSee('Uw aanvulling is toegevoegd aan het dossier.');
+    $component->assertSee('Bedankt. Uw installateur kijkt nu of er nog iets openstaat.');
 });
 
 test('follow up photo quality hint repeats the installers exact photo request', function () {
