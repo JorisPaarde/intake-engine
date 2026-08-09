@@ -1,6 +1,6 @@
 # Intake Engine (Digitale Opname)
 
-> **Documentversie:** 2.10 · **Laatste update:** 2026-08-09 · Onderhoud: zie [AGENTS.md](AGENTS.md)
+> **Documentversie:** 2.11 · **Laatste update:** 2026-08-09 · Onderhoud: zie [AGENTS.md](AGENTS.md)
 
 **Werk je als agent aan dit project? Lees eerst [AGENTS.md](AGENTS.md)** — het projectgeheugen, de documentkaart en het onderhoudsprotocol.
 
@@ -122,7 +122,7 @@ De volledige documentkaart — welk document waarvoor de bron van waarheid is �
 
 ## Huidige status
 
-**Huidige implementatie:** MVP-fasen 1–6 én de dossiermigratie BL-030/035–042 zijn gebouwd. De app heeft één tenantgebonden opnamedossier met bron, zekerheid, status en bewijs; een beveiligde klantwizard; een vrije mobiele installateurswerkplek; gerichte hybride klanttaken; en beslisstatus per technisch gebied. Airco modelleert gewenste ruimtes, binnen-/buiten-/voedings-/afvoerposities, single-/multi-splitopties en afzonderlijke koel-, condens- en stroomverbindingen. De bestaande routebackend is per verbinding hergebruikt.
+**Huidige implementatie:** MVP-fasen 1–6 én de dossiermigratie BL-030/035–042 zijn gebouwd. De app heeft één tenantgebonden opnamedossier met bron, zekerheid, status en bewijs; een beveiligde klantwizard; een vrije mobiele installateurswerkplek (acties eerst, sticky CTA als echte handeling, open punten met deep links, bewijs bij het object); gerichte hybride klanttaken; en beslisstatus per technisch gebied. Airco modelleert gewenste ruimtes, binnen-/buiten-/voedings-/afvoerposities, single-/multi-splitopties en afzonderlijke koel-, condens- en stroomverbindingen. De bestaande routebackend is per verbinding hergebruikt.
 
 BAG/PDOK, PDOK-luchtfoto, EP-Online en 3DBAG vullen hetzelfde dossier automatisch. AI kan bron- en beeldbewijs synthetiseren tot plaatsingen, installatieopties, verbindingen, uitzonderingen en één gerichte vervolgtaak; voorstellen blijven controleerbaar en de installateur keurt het geheel goed. Iedere opgeslagen foto heeft een metadata-vrije dossierkopie en een kleinere analysekopie. `/metrics` meet onder meer offerte op afstand, prijsindicatie, actieve tijd, locatiebezoekredenen, voorstelafwijkingen en montageverrassingen.
 

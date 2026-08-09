@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.18 · **Laatste update:** 2026-08-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.19 · **Laatste update:** 2026-08-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -59,6 +59,11 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | ∥ | BL-051 | Demo-PDF op aanvraag als lead | E5 | in_progress | medium | A · bij BL-001 |
 | — | BL-052 | Gecontroleerd eenvoudig Nederlands in de app-UI | E5 | done | medium | A (done) |
 | — | BL-053 | Mobiele werkplek: acties eerst, info dicht | E5 | done | high | O · bij BL-037 |
+| — | BL-054 | Sticky CTA = echte handeling | E5 | done | high | O · bij BL-053 |
+| — | BL-055 | Open punten tikken door naar werkblok | E5 | done | high | O · bij BL-054 |
+| — | BL-056 | Sticky/open punten inkorten + mobiele volgorde | E5 | done | high | O · bij BL-054 |
+| — | BL-057 | Bewijsfoto’s bij het object | E5 | done | medium | O · bij BL-049/053 |
+| — | BL-058 | Licht afronden na voorstelgoedkeuring | E5 | done | medium | O · bij BL-054 |
 | — | BL-047 | Gestructureerde adresregistratie en BAG-herstel | E3 | done | high | F (done) |
 | — | BL-048 | Openingszin hergebruiken en broninformatie terugbrengen | E3 | done | high | F (done) |
 | ∥ | BL-013 | S3 als mediadisk | E5 | backlog | low | I · operationeel |
@@ -478,6 +483,36 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Niet in scope:** tab-IA, desktop-split layout, inhoud schrappen, demomodal-copy.
 - **Acceptatie:** op ~390 px zijn sticky CTA en open punten in het eerste scherm; werksecties bereikbaar zonder info-blokken te openen; demo-coach en `#demo-*`-sprongen blijven werken; `composer check` groen.
 - **Resultaat:** sticky actiebalk + gefilterde open punten + dichtgeklapte info; democoach en anchors intact; featuretests en BL-052-stringasserts bijgewerkt.
+
+### BL-054 — Sticky CTA = echte handeling
+
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-08-09 · **PR:** deze PR · **Epic:** E5 · **Band:** O · **Afhankelijk:** BL-053
+- **Doel:** de sticky knop scrollt/opent altijd een echte handeling, nooit “bekijk open punten”.
+- **Resultaat:** `WorkspacePrimaryActionResolver` kiest ruimte/plek/route/klanttaak/goedkeuren/uitkomst; unit- en featuretests bewaken dat “bekijken” verdwijnt.
+
+### BL-055 — Open punten tikken door naar werkblok
+
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-08-09 · **PR:** deze PR · **Epic:** E5 · **Band:** O · **Afhankelijk:** BL-054
+- **Doel:** elk open punt is een link naar het juiste werkblok (`#workspace-rooms`, `#demo-placements`, `#connection-{id}`, …).
+- **Resultaat:** kaarten tonen de concrete handeling + anker; verbindingen hebben `id="connection-{id}"`.
+
+### BL-056 — Sticky/open punten inkorten + mobiele volgorde
+
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-08-09 · **PR:** deze PR · **Epic:** E5 · **Band:** O · **Afhankelijk:** BL-054
+- **Doel:** minder statusruis; klanttaak en afronden in de main-flow na opstellingen.
+- **Resultaat:** compacte sticky (samenvatting + knop); max 3 open punten zichtbaar; klanttaak/afronden vóór AI; uitkomst in aside.
+
+### BL-057 — Bewijsfoto’s bij het object
+
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-08-09 · **PR:** deze PR · **Epic:** E5 · **Band:** O · **Afhankelijk:** BL-049/053
+- **Doel:** recente foto’s staan bij ruimte/plek/verbinding, niet alleen in de globale galerij.
+- **Resultaat:** `_subject-tools` toont tot 4 thumbnails per subject; globale fotolijst blijft dicht.
+
+### BL-058 — Licht afronden na voorstelgoedkeuring
+
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-08-09 · **PR:** deze PR · **Epic:** E5 · **Band:** O · **Afhankelijk:** BL-054
+- **Doel:** goedkeuren is één duidelijke knop; na akkoord een korte bevestiging + sprong naar uitkomst.
+- **Resultaat:** sectie “Voorstel afronden” met korte copy; sticky na goedkeuring wijst naar uitkomst.
 
 ### BL-052 — Gecontroleerd eenvoudig Nederlands in de app-UI
 

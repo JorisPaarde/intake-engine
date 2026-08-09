@@ -61,30 +61,20 @@
             static fn (array $group): int => count($group['uploads'] ?? []),
         );
         $factCount = count($externalData['facts'] ?? []);
-
-        // CTA-volgorde: afronden / klanttaak / ontbrekende basis / open punten / verder bouwen.
-        // Alleen Blocked/Review als open punt — Unknown hoort bij opbouwen, niet bij “nu handelen”.
-        if ($canApproveProposal) {
-            $primaryCtaHref = '#workspace-complete';
-            $primaryCtaLabel = 'Voorstel goedkeuren';
-        } elseif ($proposedCustomerTasks->isNotEmpty()) {
-            $primaryCtaHref = '#demo-customer-task';
-            $primaryCtaLabel = 'Klanttaak controleren';
-        } elseif ($intake->aircoRooms->isEmpty()) {
-            $primaryCtaHref = '#workspace-rooms';
-            $primaryCtaLabel = 'Ruimte toevoegen';
-        } elseif ($openAreas->isNotEmpty()) {
-            $primaryCtaHref = '#workspace-open-items';
-            $primaryCtaLabel = $openAreas->count() === 1
-                ? '1 open punt bekijken'
-                : $openAreas->count().' open punten bekijken';
-        } elseif ($intake->aircoPlacements->isEmpty()) {
-            $primaryCtaHref = '#demo-placements';
-            $primaryCtaLabel = 'Plek toevoegen';
-        } else {
-            $primaryCtaHref = '#demo-proposal';
-            $primaryCtaLabel = 'Naar opstellingen';
-        }
+        $primaryAction = app(\App\Domains\Intake\Services\WorkspacePrimaryActionResolver::class)->resolve(
+            $intake,
+            $quoteArea,
+            $canApproveProposal,
+            $proposalAlreadyApproved,
+            $proposedCustomerTasks,
+            $openAreas,
+        );
+        $primaryCtaHref = $primaryAction['href'];
+        $primaryCtaLabel = $primaryAction['label'];
+        $primarySummary = $primaryAction['summary'];
+        $visibleOpenAreas = $openAreas->take(3);
+        $hiddenOpenCount = max(0, $openAreas->count() - $visibleOpenAreas->count());
+        $areaTargetResolver = app(\App\Domains\Intake\Services\WorkspacePrimaryActionResolver::class);
     @endphp
 
     <div class="py-6 sm:py-8">
@@ -145,34 +135,18 @@
                 </section>
             @endif
 
-            {{-- Sticky next action: always visible on mobile, below demo modal z-index --}}
-            <div class="sticky top-0 z-30 -mx-4 border-b border-gray-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/90 sm:-mx-6 sm:px-6 lg:mx-0 lg:rounded-3xl lg:border lg:px-5 lg:py-4 lg:shadow-sm">
-                <div class="flex items-start justify-between gap-3">
+            {{-- Sticky next action: compact, below demo modal z-index (BL-054/056) --}}
+            <div class="sticky top-0 z-30 -mx-4 border-b border-gray-200 bg-white/95 px-4 py-2.5 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/90 sm:-mx-6 sm:px-6 lg:mx-0 lg:rounded-2xl lg:border lg:px-4 lg:py-3 lg:shadow-sm">
+                <div class="flex items-center justify-between gap-3">
                     <div class="min-w-0">
                         <p class="text-xs font-medium text-gray-500">Volgende stap</p>
-                        <p class="mt-0.5 truncate text-base font-semibold text-gray-950">
-                            {{ $quoteArea?->next_action?->label() ?? 'Opname opbouwen' }}
-                        </p>
-                        @if ($quoteArea?->blocker)
-                            <p class="mt-1 line-clamp-2 text-xs leading-relaxed text-gray-600">{{ $quoteArea->blocker }}</p>
-                        @endif
+                        <p class="truncate text-sm font-semibold text-gray-900">{{ $primarySummary }}</p>
                     </div>
-                    <div class="shrink-0 text-right">
-                        <p class="text-lg font-semibold tabular-nums text-gray-950">{{ $dossier['ready_count'] }}/{{ $dossier['total_count'] }}</p>
-                        <span @class([
-                            'mt-1 inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold',
-                            'bg-emerald-100 text-emerald-800' => $quoteArea?->status === \App\Enums\DecisionAreaStatus::Ready,
-                            'bg-amber-100 text-amber-900' => $quoteArea?->status === \App\Enums\DecisionAreaStatus::Review,
-                            'bg-red-100 text-red-800' => $quoteArea?->status === \App\Enums\DecisionAreaStatus::Blocked,
-                            'bg-gray-100 text-gray-700' => ! in_array($quoteArea?->status, [\App\Enums\DecisionAreaStatus::Ready, \App\Enums\DecisionAreaStatus::Review, \App\Enums\DecisionAreaStatus::Blocked], true),
-                        ])>
-                            {{ $quoteArea?->status?->label() ?? 'Onbekend' }}
-                        </span>
-                    </div>
+                    <p class="shrink-0 text-xs font-semibold tabular-nums text-gray-500">{{ $dossier['ready_count'] }}/{{ $dossier['total_count'] }}</p>
                 </div>
                 <a
                     href="{{ $primaryCtaHref }}"
-                    class="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-gray-950 px-4 text-sm font-semibold text-white hover:bg-gray-800"
+                    class="mt-2 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-gray-950 px-4 text-sm font-semibold text-white hover:bg-gray-800"
                 >
                     {{ $primaryCtaLabel }}
                 </a>
@@ -181,21 +155,22 @@
             <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
                 <main class="min-w-0 space-y-6">
                     @if ($openAreas->isNotEmpty())
-                        <section id="workspace-open-items" class="scroll-mt-24 rounded-3xl border border-amber-200 bg-amber-50/50 p-5 shadow-sm sm:p-6">
-                            <div class="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                                <div>
-                                    <h3 class="text-lg font-semibold text-gray-950">Open punten</h3>
-                                    <p class="mt-1 text-sm text-gray-600">Alleen wat nog actie vraagt.</p>
-                                </div>
-                                <span class="text-sm font-medium text-gray-500">{{ $intake->workflow_mode->label() }}</span>
+                        <section id="workspace-open-items" class="scroll-mt-24 rounded-3xl border border-amber-200 bg-amber-50/50 p-4 shadow-sm sm:p-5">
+                            <div class="flex items-center justify-between gap-3">
+                                <h3 class="text-base font-semibold text-gray-950">Open punten</h3>
+                                <span class="text-xs font-medium text-gray-500">{{ $openAreas->count() }} · {{ $intake->workflow_mode->label() }}</span>
                             </div>
-                            <div class="mt-4 grid gap-3 sm:grid-cols-2">
-                                @foreach ($openAreas as $area)
-                                    <article @class([
-                                        'rounded-2xl border p-4 bg-white',
-                                        'border-amber-200' => $area->status === \App\Enums\DecisionAreaStatus::Review,
-                                        'border-red-200' => $area->status === \App\Enums\DecisionAreaStatus::Blocked,
-                                    ])>
+                            <div class="mt-3 grid gap-2 sm:grid-cols-2">
+                                @foreach ($visibleOpenAreas as $area)
+                                    @php $areaTarget = $areaTargetResolver->targetForArea($intake, $area->key); @endphp
+                                    <a
+                                        href="{{ $areaTarget['href'] }}"
+                                        @class([
+                                            'rounded-2xl border bg-white p-3 transition hover:border-gray-400',
+                                            'border-amber-200' => $area->status === \App\Enums\DecisionAreaStatus::Review,
+                                            'border-red-200' => $area->status === \App\Enums\DecisionAreaStatus::Blocked,
+                                        ])
+                                    >
                                         <div class="flex items-start justify-between gap-3">
                                             <h4 class="text-sm font-semibold text-gray-950">{{ $area->label }}</h4>
                                             <span @class([
@@ -205,22 +180,39 @@
                                             ])>{{ $area->status->label() }}</span>
                                         </div>
                                         @if ($area->blocker)
-                                            <p class="mt-2 text-xs leading-relaxed text-gray-600">{{ $area->blocker }}</p>
+                                            <p class="mt-1.5 text-xs leading-relaxed text-gray-600">{{ $area->blocker }}</p>
                                         @endif
-                                        @if ($area->next_action)
-                                            <p class="mt-2 text-xs font-semibold text-gray-900">{{ $area->next_action->label() }}</p>
-                                        @endif
-                                    </article>
+                                        <p class="mt-2 text-xs font-semibold text-gray-950">{{ $areaTarget['label'] }} →</p>
+                                    </a>
                                 @endforeach
                             </div>
-                            <details class="mt-4 rounded-2xl border border-gray-200 bg-white">
-                                <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-gray-900">
-                                    Alle onderdelen ({{ $dossier['ready_count'] }}/{{ $dossier['total_count'] }} klaar)
+                            @if ($hiddenOpenCount > 0)
+                                <details class="mt-3 rounded-2xl border border-gray-200 bg-white">
+                                    <summary class="cursor-pointer px-4 py-2.5 text-sm font-semibold text-gray-900">
+                                        Nog {{ $hiddenOpenCount }} open
+                                    </summary>
+                                    <div class="grid gap-2 border-t border-gray-100 p-3 sm:grid-cols-2">
+                                        @foreach ($openAreas->slice(3) as $area)
+                                            @php $areaTarget = $areaTargetResolver->targetForArea($intake, $area->key); @endphp
+                                            <a href="{{ $areaTarget['href'] }}" class="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                                                <h4 class="text-sm font-semibold text-gray-950">{{ $area->label }}</h4>
+                                                @if ($area->blocker)
+                                                    <p class="mt-1 text-xs text-gray-600">{{ $area->blocker }}</p>
+                                                @endif
+                                                <p class="mt-2 text-xs font-semibold text-gray-950">{{ $areaTarget['label'] }} →</p>
+                                            </a>
+                                        @endforeach
+                                    </div>
+                                </details>
+                            @endif
+                            <details class="mt-3 rounded-2xl border border-gray-200 bg-white">
+                                <summary class="cursor-pointer px-4 py-2.5 text-sm font-semibold text-gray-900">
+                                    Alle onderdelen ({{ $dossier['ready_count'] }}/{{ $dossier['total_count'] }})
                                 </summary>
-                                <div class="grid gap-3 border-t border-gray-100 p-4 sm:grid-cols-2">
+                                <div class="grid gap-2 border-t border-gray-100 p-3 sm:grid-cols-2">
                                     @foreach ($dossier['areas'] as $area)
                                         <article @class([
-                                            'rounded-2xl border p-4',
+                                            'rounded-xl border p-3',
                                             'border-emerald-200 bg-emerald-50/60' => $area->status === \App\Enums\DecisionAreaStatus::Ready,
                                             'border-amber-200 bg-amber-50/70' => $area->status === \App\Enums\DecisionAreaStatus::Review,
                                             'border-red-200 bg-red-50/60' => $area->status === \App\Enums\DecisionAreaStatus::Blocked,
@@ -230,23 +222,20 @@
                                                 <h4 class="text-sm font-semibold text-gray-950">{{ $area->label }}</h4>
                                                 <span class="shrink-0 text-xs font-semibold text-gray-600">{{ $area->status->label() }}</span>
                                             </div>
-                                            @if ($area->blocker)
-                                                <p class="mt-2 text-xs leading-relaxed text-gray-600">{{ $area->blocker }}</p>
-                                            @endif
                                         </article>
                                     @endforeach
                                 </div>
                             </details>
                         </section>
                     @else
-                        <section id="workspace-open-items" class="scroll-mt-24 rounded-3xl border border-emerald-200 bg-emerald-50/40 px-5 py-4 shadow-sm">
+                        <section id="workspace-open-items" class="scroll-mt-24 rounded-3xl border border-emerald-200 bg-emerald-50/40 px-4 py-3 shadow-sm">
                             <div class="flex flex-wrap items-center justify-between gap-2">
-                                <p class="text-sm font-semibold text-emerald-950">Geen open punten meer voor de offertebasis.</p>
+                                <p class="text-sm font-semibold text-emerald-950">Geen open punten meer.</p>
                                 <details class="text-sm">
                                     <summary class="cursor-pointer font-semibold text-emerald-900">Alle onderdelen</summary>
-                                    <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                                    <div class="mt-3 grid gap-2 sm:grid-cols-2">
                                         @foreach ($dossier['areas'] as $area)
-                                            <article class="rounded-2xl border border-emerald-200 bg-white p-3">
+                                            <article class="rounded-xl border border-emerald-200 bg-white p-3">
                                                 <div class="flex items-start justify-between gap-3">
                                                     <h4 class="text-sm font-semibold text-gray-950">{{ $area->label }}</h4>
                                                     <span class="shrink-0 text-xs font-semibold text-gray-600">{{ $area->status->label() }}</span>
@@ -491,7 +480,7 @@
                                             @php
                                                 $connectionSubject = $intake->dossierSubjects->firstWhere('id', $connection->dossier_subject_id);
                                             @endphp
-                                            <div class="rounded-2xl border border-gray-200 bg-white p-4">
+                                            <div id="connection-{{ $connection->id }}" class="scroll-mt-24 rounded-2xl border border-gray-200 bg-white p-4">
                                                 <div class="flex flex-wrap items-start justify-between gap-3">
                                                     <div>
                                                         <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ $connection->type->label() }}</p>
@@ -679,6 +668,91 @@
                         </details>
                     </section>
 
+                    <section id="demo-customer-task" class="scroll-mt-24 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+                        <h3 class="font-semibold text-gray-950">Taak voor de klant</h3>
+                        <p class="mt-1 text-sm text-gray-500">
+                            Alleen wat de klant moet doen.
+                            @if ($intake->is_demo)
+                                Geen e-mail in de demo.
+                            @endif
+                        </p>
+                        @if ($proposedCustomerTasks->isNotEmpty())
+                            <div class="mt-4 space-y-3">
+                                @foreach ($proposedCustomerTasks as $task)
+                                    <article class="rounded-2xl border border-indigo-200 bg-indigo-50 p-3">
+                                        <p class="text-xs font-semibold uppercase tracking-wide text-indigo-700">AI-voorstel · {{ $task->type->label() }}</p>
+                                        <p class="mt-1 text-sm font-medium text-gray-950">{{ $task->prompt }}</p>
+                                        @if (! empty($task->meta['reason']))
+                                            <p class="mt-1 text-xs text-gray-600">{{ $task->meta['reason'] }}</p>
+                                        @endif
+                                        <form method="POST" action="{{ route('intakes.workspace.tasks.send', [$intake, $task]) }}" class="mt-3">
+                                            @csrf
+                                            <button class="min-h-10 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white">
+                                                {{ $intake->is_demo ? 'Controleren en klantweergave activeren' : 'Controleren en versturen' }}
+                                            </button>
+                                        </form>
+                                    </article>
+                                @endforeach
+                            </div>
+                        @endif
+                        <details class="mt-4 rounded-2xl border border-gray-200 bg-gray-50 p-4" @if ($proposedCustomerTasks->isEmpty()) open @endif>
+                            <summary class="cursor-pointer text-sm font-semibold text-gray-900">Klanttaak maken</summary>
+                            <form method="POST" action="{{ route('intakes.workspace.tasks.store', $intake) }}" class="mt-4 space-y-4">
+                                @csrf
+                                @for ($index = 0; $index < 3; $index++)
+                                    <fieldset class="rounded-2xl border border-gray-200 bg-white p-3">
+                                        <legend class="px-1 text-xs font-semibold text-gray-500">Opdracht {{ $index + 1 }}{{ $index > 0 ? ' (optioneel)' : '' }}</legend>
+                                        <select name="contribution_items[{{ $index }}][type]" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300 text-sm">
+                                            @foreach ($followUpTypes as $type)
+                                                <option value="{{ $type->value }}">{{ $type->label() }}</option>
+                                            @endforeach
+                                        </select>
+                                        <textarea name="contribution_items[{{ $index }}][prompt]" rows="3" class="mt-2 block w-full rounded-xl border-gray-300 text-sm" placeholder="{{ $index === 0 ? 'Bijv. Maak een leesbare foto van de volledige meterkast.' : 'Nog een concrete opdracht' }}"></textarea>
+                                        <select name="contribution_items[{{ $index }}][decision_area_key]" class="mt-2 block min-h-11 w-full rounded-xl border-gray-300 text-sm">
+                                            <option value="">Algemene opname</option>
+                                            @foreach ($dossier['areas']->where('key', '!=', 'quote') as $area)
+                                                <option value="{{ $area->key }}">{{ $area->label }}</option>
+                                            @endforeach
+                                        </select>
+                                    </fieldset>
+                                @endfor
+                                <x-primary-button class="w-full justify-center">
+                                    {{ $intake->is_demo ? 'Klantweergave activeren' : 'Klanttaak maken en mailen' }}
+                                </x-primary-button>
+                            </form>
+                        </details>
+                    </section>
+
+                    <section id="workspace-complete" class="scroll-mt-24 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+                        <h3 class="font-semibold text-gray-950">Voorstel afronden</h3>
+                        @if ($proposalAlreadyApproved)
+                            <div class="mt-3 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+                                Goedgekeurd. Leg hieronder de uitkomst vast als je wilt.
+                            </div>
+                            <a href="#workspace-outcome" class="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-emerald-300 bg-white px-4 text-sm font-semibold text-emerald-900 hover:bg-emerald-50">
+                                Uitkomst vastleggen
+                            </a>
+                        @elseif ($canApproveProposal)
+                            <p class="mt-1 text-sm text-gray-500">Keurt de gekozen opstelling en routes in één keer goed.</p>
+                            <form method="POST" action="{{ route('intakes.workspace.complete', $intake) }}" class="mt-4">
+                                @csrf
+                                <button class="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-gray-950 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800">
+                                    Voorstel goedkeuren
+                                </button>
+                            </form>
+                        @elseif ($selectedOption)
+                            <p class="mt-1 text-sm text-gray-500">Los eerst de open punten op. Daarna kun je goedkeuren.</p>
+                            <button type="button" disabled class="mt-4 inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center rounded-xl bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-500">
+                                Nog niet klaar om goed te keuren
+                            </button>
+                        @else
+                            <p class="mt-1 text-sm text-gray-500">Kies eerst een opstelling met koel-, condens- en stroomroute.</p>
+                            <a href="#demo-proposal" class="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-800 hover:bg-gray-50">
+                                Naar opstellingen
+                            </a>
+                        @endif
+                    </section>
+
                     <section id="demo-ai" class="scroll-mt-24 rounded-3xl border border-indigo-100 bg-indigo-50/50 shadow-sm">
                         <details class="group" @if ($aiSectionOpen) open @endif>
                             <summary class="cursor-pointer list-none px-5 py-4 sm:px-6 [&::-webkit-details-marker]:hidden">
@@ -822,90 +896,7 @@
 
                 </main>
 
-                <aside class="space-y-6">
-                    <section id="demo-customer-task" class="scroll-mt-24 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-                        <h3 class="font-semibold text-gray-950">Taak voor de klant</h3>
-                        <p class="mt-1 text-sm leading-relaxed text-gray-500">
-                            De klant ziet alleen deze opdrachten. Pas bij activeren wordt de klantlink actief.
-                            @if ($intake->is_demo)
-                                De klantweergave opent als simulatie; er wordt geen e-mail verstuurd.
-                            @endif
-                        </p>
-                        @if ($proposedCustomerTasks->isNotEmpty())
-                            <div class="mt-4 space-y-3">
-                                @foreach ($proposedCustomerTasks as $task)
-                                    <article class="rounded-2xl border border-indigo-200 bg-indigo-50 p-3">
-                                        <p class="text-xs font-semibold uppercase tracking-wide text-indigo-700">AI-voorstel · {{ $task->type->label() }}</p>
-                                        <p class="mt-1 text-sm font-medium text-gray-950">{{ $task->prompt }}</p>
-                                        @if (! empty($task->meta['reason']))
-                                            <p class="mt-1 text-xs text-gray-600">{{ $task->meta['reason'] }}</p>
-                                        @endif
-                                        <form method="POST" action="{{ route('intakes.workspace.tasks.send', [$intake, $task]) }}" class="mt-3">
-                                            @csrf
-                                            <button class="min-h-10 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white">
-                                                {{ $intake->is_demo ? 'Controleren en klantweergave activeren' : 'Controleren en versturen' }}
-                                            </button>
-                                        </form>
-                                    </article>
-                                @endforeach
-                            </div>
-                        @endif
-                        <form method="POST" action="{{ route('intakes.workspace.tasks.store', $intake) }}" class="mt-4 space-y-4">
-                            @csrf
-                            @for ($index = 0; $index < 3; $index++)
-                                <fieldset class="rounded-2xl border border-gray-200 p-3">
-                                    <legend class="px-1 text-xs font-semibold text-gray-500">Opdracht {{ $index + 1 }}{{ $index > 0 ? ' (optioneel)' : '' }}</legend>
-                                    <select name="contribution_items[{{ $index }}][type]" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300 text-sm">
-                                        @foreach ($followUpTypes as $type)
-                                            <option value="{{ $type->value }}">{{ $type->label() }}</option>
-                                        @endforeach
-                                    </select>
-                                    <textarea name="contribution_items[{{ $index }}][prompt]" rows="3" class="mt-2 block w-full rounded-xl border-gray-300 text-sm" placeholder="{{ $index === 0 ? 'Bijv. Maak een leesbare foto van de volledige meterkast.' : 'Nog een concrete opdracht' }}"></textarea>
-                                    <select name="contribution_items[{{ $index }}][decision_area_key]" class="mt-2 block min-h-11 w-full rounded-xl border-gray-300 text-sm">
-                                        <option value="">Algemene opname</option>
-                                        @foreach ($dossier['areas']->where('key', '!=', 'quote') as $area)
-                                            <option value="{{ $area->key }}">{{ $area->label }}</option>
-                                        @endforeach
-                                    </select>
-                                </fieldset>
-                            @endfor
-                            <x-primary-button class="w-full justify-center">
-                                {{ $intake->is_demo ? 'Klantweergave activeren' : 'Klanttaak maken en mailen' }}
-                            </x-primary-button>
-                        </form>
-                    </section>
-
-                    <section id="workspace-complete" class="scroll-mt-24 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-                        <h3 class="font-semibold text-gray-950">Opnamebijdrage afronden</h3>
-                        <p class="mt-1 text-sm leading-relaxed text-gray-500">
-                            @if ($proposalAlreadyApproved)
-                                De gekozen opstelling en alle bijbehorende verbindingen zijn integraal goedgekeurd.
-                            @elseif ($canApproveProposal)
-                                Hiermee keurt u de gekozen opstelling als geheel goed. Routes die lijken te kloppen worden samen bevestigd. Belangrijke open punten blijven zichtbaar.
-                            @elseif ($selectedOption)
-                                Los eerst de beslissende open punten op. Een geblokkeerde route of ontbrekend bewijs wordt nooit stilzwijgend goedgekeurd.
-                            @else
-                                Selecteer eerst één installatievoorstel met koel-, condens- en stroomverbindingen.
-                            @endif
-                        </p>
-                        @if ($proposalAlreadyApproved)
-                            <div class="mt-4 rounded-xl bg-emerald-50 px-4 py-3 text-center text-sm font-semibold text-emerald-800">
-                                Als geheel goedgekeurd
-                            </div>
-                        @elseif ($canApproveProposal)
-                            <form method="POST" action="{{ route('intakes.workspace.complete', $intake) }}" class="mt-4">
-                                @csrf
-                                <button class="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-gray-950 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800">
-                                    Gekozen voorstel als geheel goedkeuren
-                                </button>
-                            </form>
-                        @else
-                            <button type="button" disabled class="mt-4 inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center rounded-xl bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-500">
-                                Voorstel nog niet goed te keuren
-                            </button>
-                        @endif
-                    </section>
-
+                <aside class="space-y-6 lg:sticky lg:top-24 lg:self-start">
                     <section id="workspace-outcome" class="scroll-mt-24 rounded-3xl border border-gray-200 bg-white shadow-sm">
                         <details>
                             <summary class="cursor-pointer list-none px-5 py-4 [&::-webkit-details-marker]:hidden">
