@@ -47,6 +47,44 @@
                 \App\Enums\DecisionAreaStatus::Ready,
                 \App\Enums\DecisionAreaStatus::Review,
             ], true);
+        $openAreas = $dossier['areas']->filter(
+            static fn ($area): bool => in_array($area->status, [
+                \App\Enums\DecisionAreaStatus::Blocked,
+                \App\Enums\DecisionAreaStatus::Review,
+            ], true),
+        )->values();
+        $aiExceptions = is_array($aiSynthesis?->value['exceptions'] ?? null)
+            ? $aiSynthesis->value['exceptions']
+            : [];
+        $aiSectionOpen = $aiExceptions !== [];
+        $photoCount = collect($photoGroups ?? [])->sum(
+            static fn (array $group): int => count($group['uploads'] ?? []),
+        );
+        $factCount = count($externalData['facts'] ?? []);
+
+        // CTA-volgorde: afronden / klanttaak / ontbrekende basis / open punten / verder bouwen.
+        // Alleen Blocked/Review als open punt — Unknown hoort bij opbouwen, niet bij “nu handelen”.
+        if ($canApproveProposal) {
+            $primaryCtaHref = '#workspace-complete';
+            $primaryCtaLabel = 'Voorstel goedkeuren';
+        } elseif ($proposedCustomerTasks->isNotEmpty()) {
+            $primaryCtaHref = '#demo-customer-task';
+            $primaryCtaLabel = 'Klanttaak controleren';
+        } elseif ($intake->aircoRooms->isEmpty()) {
+            $primaryCtaHref = '#workspace-rooms';
+            $primaryCtaLabel = 'Ruimte toevoegen';
+        } elseif ($openAreas->isNotEmpty()) {
+            $primaryCtaHref = '#workspace-open-items';
+            $primaryCtaLabel = $openAreas->count() === 1
+                ? '1 open punt bekijken'
+                : $openAreas->count().' open punten bekijken';
+        } elseif ($intake->aircoPlacements->isEmpty()) {
+            $primaryCtaHref = '#demo-placements';
+            $primaryCtaLabel = 'Plek toevoegen';
+        } else {
+            $primaryCtaHref = '#demo-proposal';
+            $primaryCtaLabel = 'Naar opstellingen';
+        }
     @endphp
 
     <div class="py-6 sm:py-8">
@@ -107,182 +145,121 @@
                 </section>
             @endif
 
-            <section class="overflow-hidden rounded-3xl bg-gray-950 text-white shadow-sm">
-                <div class="grid gap-6 p-6 sm:p-8 lg:grid-cols-[1fr_auto] lg:items-end">
-                    <div>
-                        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-white/55">Besluit over de offerte</p>
-                        <h3 class="mt-2 text-2xl font-semibold tracking-tight">
+            {{-- Sticky next action: always visible on mobile, below demo modal z-index --}}
+            <div class="sticky top-0 z-30 -mx-4 border-b border-gray-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/90 sm:-mx-6 sm:px-6 lg:mx-0 lg:rounded-3xl lg:border lg:px-5 lg:py-4 lg:shadow-sm">
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <p class="text-xs font-medium text-gray-500">Volgende stap</p>
+                        <p class="mt-0.5 truncate text-base font-semibold text-gray-950">
                             {{ $quoteArea?->next_action?->label() ?? 'Opname opbouwen' }}
-                        </h3>
-                        <p class="mt-2 max-w-2xl text-sm leading-relaxed text-white/70">
-                            {{ $quoteArea?->blocker ?: 'De technische basis is aanwezig. Controleer het voorstel als geheel en leg uw beslissing vast.' }}
                         </p>
+                        @if ($quoteArea?->blocker)
+                            <p class="mt-1 line-clamp-2 text-xs leading-relaxed text-gray-600">{{ $quoteArea->blocker }}</p>
+                        @endif
                     </div>
-                    <div class="flex items-center gap-3">
-                        <div class="text-right">
-                            <p class="text-3xl font-semibold tabular-nums">{{ $dossier['ready_count'] }}/{{ $dossier['total_count'] }}</p>
-                            <p class="text-xs text-white/55">onderdelen klaar</p>
-                        </div>
+                    <div class="shrink-0 text-right">
+                        <p class="text-lg font-semibold tabular-nums text-gray-950">{{ $dossier['ready_count'] }}/{{ $dossier['total_count'] }}</p>
                         <span @class([
-                            'inline-flex min-h-11 items-center rounded-full px-4 py-2 text-sm font-semibold',
-                            'bg-emerald-400/20 text-emerald-200' => $quoteArea?->status === \App\Enums\DecisionAreaStatus::Ready,
-                            'bg-amber-400/20 text-amber-100' => $quoteArea?->status === \App\Enums\DecisionAreaStatus::Review,
-                            'bg-red-400/20 text-red-100' => $quoteArea?->status === \App\Enums\DecisionAreaStatus::Blocked,
-                            'bg-white/10 text-white/70' => ! in_array($quoteArea?->status, [\App\Enums\DecisionAreaStatus::Ready, \App\Enums\DecisionAreaStatus::Review, \App\Enums\DecisionAreaStatus::Blocked], true),
+                            'mt-1 inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold',
+                            'bg-emerald-100 text-emerald-800' => $quoteArea?->status === \App\Enums\DecisionAreaStatus::Ready,
+                            'bg-amber-100 text-amber-900' => $quoteArea?->status === \App\Enums\DecisionAreaStatus::Review,
+                            'bg-red-100 text-red-800' => $quoteArea?->status === \App\Enums\DecisionAreaStatus::Blocked,
+                            'bg-gray-100 text-gray-700' => ! in_array($quoteArea?->status, [\App\Enums\DecisionAreaStatus::Ready, \App\Enums\DecisionAreaStatus::Review, \App\Enums\DecisionAreaStatus::Blocked], true),
                         ])>
                             {{ $quoteArea?->status?->label() ?? 'Onbekend' }}
                         </span>
                     </div>
                 </div>
-            </section>
+                <a
+                    href="{{ $primaryCtaHref }}"
+                    class="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-gray-950 px-4 text-sm font-semibold text-white hover:bg-gray-800"
+                >
+                    {{ $primaryCtaLabel }}
+                </a>
+            </div>
 
             <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
                 <main class="min-w-0 space-y-6">
-                    <section class="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
-                        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                            <div>
-                                <h3 class="text-lg font-semibold text-gray-950">Klaar voor offerte</h3>
-                                <p class="mt-1 text-sm text-gray-500">Voortgang van de klanttaak zegt niets over of de offerte al klaar is.</p>
-                            </div>
-                            <span class="text-sm font-medium text-gray-500">{{ $intake->workflow_mode->label() }}</span>
-                        </div>
-
-                        <div class="mt-5 grid gap-3 sm:grid-cols-2">
-                            @foreach ($dossier['areas'] as $area)
-                                <article @class([
-                                    'rounded-2xl border p-4',
-                                    'border-emerald-200 bg-emerald-50/60' => $area->status === \App\Enums\DecisionAreaStatus::Ready,
-                                    'border-amber-200 bg-amber-50/70' => $area->status === \App\Enums\DecisionAreaStatus::Review,
-                                    'border-red-200 bg-red-50/60' => $area->status === \App\Enums\DecisionAreaStatus::Blocked,
-                                    'border-gray-200 bg-gray-50' => in_array($area->status, [\App\Enums\DecisionAreaStatus::Unknown, \App\Enums\DecisionAreaStatus::NotApplicable], true),
-                                ])>
-                                    <div class="flex items-start justify-between gap-3">
-                                        <h4 class="text-sm font-semibold text-gray-950">{{ $area->label }}</h4>
-                                        <span class="shrink-0 text-xs font-semibold text-gray-600">{{ $area->status->label() }}</span>
-                                    </div>
-                                    @if ($area->blocker)
-                                        <p class="mt-2 text-xs leading-relaxed text-gray-600">{{ $area->blocker }}</p>
-                                    @endif
-                                    @if ($area->next_action)
-                                        <p class="mt-2 text-xs font-semibold text-gray-900">{{ $area->next_action->label() }}</p>
-                                    @endif
-                                </article>
-                            @endforeach
-                        </div>
-                    </section>
-
-                    <section id="demo-ai" class="rounded-3xl border border-indigo-100 bg-indigo-50/50 p-5 shadow-sm sm:p-6">
-                        <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                            <div>
-                                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">AI-opnameassistent</p>
-                                <h3 class="mt-1 text-lg font-semibold text-gray-950">Eén voorstel. Geen aparte bevestiging per veld.</h3>
-                                <p class="mt-1 text-sm leading-relaxed text-gray-600">
-                                    Het voorstel gebruikt alleen gegevens uit deze opname. Opties, routes en klanttaken blijven voorstellen tot u ze kiest of verstuurt.
-                                </p>
-                            </div>
-                            <form method="POST" action="{{ route('intakes.workspace.synthesis', $intake) }}">
-                                @csrf
-                                <button class="inline-flex min-h-11 shrink-0 items-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500">
-                                    AI-voorstel vernieuwen
-                                </button>
-                            </form>
-                        </div>
-
-                        @if ($aiSynthesis)
-                            <div class="mt-5 rounded-2xl border border-indigo-100 bg-white p-4">
-                                <p class="text-sm font-medium leading-relaxed text-gray-900">{{ $aiSynthesis->value['summary'] ?? 'Synthese beschikbaar.' }}</p>
-                                @if (! empty($aiSynthesis->value['exceptions']))
-                                    <ul class="mt-3 space-y-2">
-                                        @foreach ($aiSynthesis->value['exceptions'] as $exception)
-                                            <li class="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-950">
-                                                <strong>{{ $exception['label'] }}</strong>
-                                                <span class="block text-xs text-amber-800">{{ $exception['decision_area_key'] }} · zekerheid {{ $exception['confidence'] }}</span>
-                                            </li>
-                                        @endforeach
-                                    </ul>
-                                @else
-                                    <p class="mt-2 text-xs text-gray-500">Geen beslissende uitzondering voorgesteld.</p>
-                                @endif
-                            </div>
-                        @else
-                            <p class="mt-4 text-sm text-indigo-900">Er is nog geen AI-voorstel opgeslagen. De status hierboven blijft leidend.</p>
-                        @endif
-                    </section>
-
-                    <section id="demo-context" class="scroll-mt-6 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
-                        <div>
-                            <h3 class="text-lg font-semibold text-gray-950">Woninggegevens</h3>
-                            <p class="mt-1 text-sm text-gray-500">Automatisch opgehaald voor deze opname. Hier staan alleen gegevens die kunnen helpen bij de installatie.</p>
-                        </div>
-                        <dl class="mt-5 grid gap-3 sm:grid-cols-2">
-                            @forelse ($externalData['facts'] as $fact)
-                                <div class="rounded-xl bg-gray-50 px-3 py-2">
-                                    <dt class="text-xs font-medium text-gray-500">{{ $fact['label'] }}</dt>
-                                    <dd class="mt-0.5 text-sm font-semibold text-gray-900">{{ $fact['display'] }}</dd>
-                                    <dd class="text-xs text-gray-500">{{ $fact['source'] }} · {{ $fact['confidence'] }}</dd>
+                    @if ($openAreas->isNotEmpty())
+                        <section id="workspace-open-items" class="scroll-mt-24 rounded-3xl border border-amber-200 bg-amber-50/50 p-5 shadow-sm sm:p-6">
+                            <div class="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                    <h3 class="text-lg font-semibold text-gray-950">Open punten</h3>
+                                    <p class="mt-1 text-sm text-gray-600">Alleen wat nog actie vraagt.</p>
                                 </div>
-                            @empty
-                                <p class="text-sm text-gray-500">Nog geen relevante woninggegevens gevonden.</p>
-                            @endforelse
-                        </dl>
-                        @if ($externalData['aerial_image'])
-                            <details class="mt-4 overflow-hidden rounded-2xl border border-gray-200 bg-gray-50">
-                                <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-gray-800">Luchtfoto van de omgeving bekijken</summary>
-                                <figure class="border-t border-gray-200 bg-white">
-                                    <img src="{{ $externalData['aerial_image']['data_uri'] }}" alt="Luchtfoto van de woningomgeving" class="aspect-[3/2] w-full object-cover">
-                                    <figcaption class="px-3 py-2 text-xs text-gray-500">{{ $externalData['aerial_image']['source'] }} · {{ $externalData['aerial_image']['confidence'] }}</figcaption>
-                                </figure>
-                            </details>
-                        @endif
-                        @if ($externalData['uncertainties'] !== [])
-                            <details class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
-                                <summary class="cursor-pointer text-sm font-semibold text-amber-950">{{ count($externalData['uncertainties']) }} bronbeperking(en)</summary>
-                                <ul class="mt-2 list-disc space-y-1 pl-5 text-xs text-amber-900">
-                                    @foreach ($externalData['uncertainties'] as $uncertainty)
-                                        <li>{{ $uncertainty }}</li>
-                                    @endforeach
-                                </ul>
-                            </details>
-                        @endif
-                    </section>
-
-                    <section id="demo-evidence" class="scroll-mt-6 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
-                        <div>
-                            <h3 class="text-lg font-semibold text-gray-950">Foto’s</h3>
-                            <p class="mt-1 text-sm text-gray-500">Foto’s staan bij de ruimte, positie of route waar ze bij horen.</p>
-                        </div>
-
-                        @forelse ($photoGroups as $group)
-                            <div class="mt-5">
-                                <h4 class="text-sm font-semibold text-gray-800">{{ $group['heading'] }}</h4>
-                                <ul class="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                                    @foreach ($group['uploads'] as $item)
-                                        <li>
-                                            <a
-                                                href="{{ route('installer.uploads.show', [$intake, $item['upload']]) }}"
-                                                target="_blank"
-                                                rel="noopener"
-                                                class="group block overflow-hidden rounded-2xl border border-gray-200 bg-gray-50"
-                                            >
-                                                <img
-                                                    src="{{ route('installer.uploads.show', [$intake, $item['upload']]) }}"
-                                                    alt="{{ $group['heading'] }} · {{ $item['caption'] }}"
-                                                    class="aspect-[4/3] w-full object-cover transition group-hover:scale-[1.02]"
-                                                >
-                                                <span class="block truncate px-3 py-2 text-xs font-medium text-gray-700">{{ $item['caption'] }}</span>
-                                            </a>
-                                        </li>
-                                    @endforeach
-                                </ul>
+                                <span class="text-sm font-medium text-gray-500">{{ $intake->workflow_mode->label() }}</span>
                             </div>
-                        @empty
-                            <div class="mt-5 rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-5 py-8 text-center text-sm text-gray-500">
-                                Nog geen foto’s aan het dossier gekoppeld.
+                            <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                                @foreach ($openAreas as $area)
+                                    <article @class([
+                                        'rounded-2xl border p-4 bg-white',
+                                        'border-amber-200' => $area->status === \App\Enums\DecisionAreaStatus::Review,
+                                        'border-red-200' => $area->status === \App\Enums\DecisionAreaStatus::Blocked,
+                                    ])>
+                                        <div class="flex items-start justify-between gap-3">
+                                            <h4 class="text-sm font-semibold text-gray-950">{{ $area->label }}</h4>
+                                            <span @class([
+                                                'shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold',
+                                                'bg-amber-100 text-amber-900' => $area->status === \App\Enums\DecisionAreaStatus::Review,
+                                                'bg-red-100 text-red-800' => $area->status === \App\Enums\DecisionAreaStatus::Blocked,
+                                            ])>{{ $area->status->label() }}</span>
+                                        </div>
+                                        @if ($area->blocker)
+                                            <p class="mt-2 text-xs leading-relaxed text-gray-600">{{ $area->blocker }}</p>
+                                        @endif
+                                        @if ($area->next_action)
+                                            <p class="mt-2 text-xs font-semibold text-gray-900">{{ $area->next_action->label() }}</p>
+                                        @endif
+                                    </article>
+                                @endforeach
                             </div>
-                        @endforelse
-                    </section>
+                            <details class="mt-4 rounded-2xl border border-gray-200 bg-white">
+                                <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-gray-900">
+                                    Alle onderdelen ({{ $dossier['ready_count'] }}/{{ $dossier['total_count'] }} klaar)
+                                </summary>
+                                <div class="grid gap-3 border-t border-gray-100 p-4 sm:grid-cols-2">
+                                    @foreach ($dossier['areas'] as $area)
+                                        <article @class([
+                                            'rounded-2xl border p-4',
+                                            'border-emerald-200 bg-emerald-50/60' => $area->status === \App\Enums\DecisionAreaStatus::Ready,
+                                            'border-amber-200 bg-amber-50/70' => $area->status === \App\Enums\DecisionAreaStatus::Review,
+                                            'border-red-200 bg-red-50/60' => $area->status === \App\Enums\DecisionAreaStatus::Blocked,
+                                            'border-gray-200 bg-gray-50' => in_array($area->status, [\App\Enums\DecisionAreaStatus::Unknown, \App\Enums\DecisionAreaStatus::NotApplicable], true),
+                                        ])>
+                                            <div class="flex items-start justify-between gap-3">
+                                                <h4 class="text-sm font-semibold text-gray-950">{{ $area->label }}</h4>
+                                                <span class="shrink-0 text-xs font-semibold text-gray-600">{{ $area->status->label() }}</span>
+                                            </div>
+                                            @if ($area->blocker)
+                                                <p class="mt-2 text-xs leading-relaxed text-gray-600">{{ $area->blocker }}</p>
+                                            @endif
+                                        </article>
+                                    @endforeach
+                                </div>
+                            </details>
+                        </section>
+                    @else
+                        <section id="workspace-open-items" class="scroll-mt-24 rounded-3xl border border-emerald-200 bg-emerald-50/40 px-5 py-4 shadow-sm">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <p class="text-sm font-semibold text-emerald-950">Geen open punten meer voor de offertebasis.</p>
+                                <details class="text-sm">
+                                    <summary class="cursor-pointer font-semibold text-emerald-900">Alle onderdelen</summary>
+                                    <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                                        @foreach ($dossier['areas'] as $area)
+                                            <article class="rounded-2xl border border-emerald-200 bg-white p-3">
+                                                <div class="flex items-start justify-between gap-3">
+                                                    <h4 class="text-sm font-semibold text-gray-950">{{ $area->label }}</h4>
+                                                    <span class="shrink-0 text-xs font-semibold text-gray-600">{{ $area->status->label() }}</span>
+                                                </div>
+                                            </article>
+                                        @endforeach
+                                    </div>
+                                </details>
+                            </div>
+                        </section>
+                    @endif
 
-                    <section class="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+                    <section id="workspace-rooms" class="scroll-mt-24 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
                         <div>
                             <h3 class="text-lg font-semibold text-gray-950">Gewenste ruimtes</h3>
                             <p class="mt-1 text-sm text-gray-500">Een ruimte is nog geen gekozen binnenunit.</p>
@@ -388,7 +365,7 @@
                         </details>
                     </section>
 
-                    <section id="demo-placements" class="scroll-mt-6 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+                    <section id="demo-placements" class="scroll-mt-24 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
                         <div>
                             <h3 class="text-lg font-semibold text-gray-950">Mogelijke plekken</h3>
                             <p class="mt-1 text-sm text-gray-500">Binnen, buiten, stroom en afvoer blijven losse mogelijkheden tot u een opstelling kiest.</p>
@@ -464,7 +441,7 @@
                         </details>
                     </section>
 
-                    <section id="demo-proposal" class="scroll-mt-6 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+                    <section id="demo-proposal" class="scroll-mt-24 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
                         <div>
                             <h3 class="text-lg font-semibold text-gray-950">Opstellingen</h3>
                             <p class="mt-1 text-sm text-gray-500">Vergelijk bijvoorbeeld één multi-split met twee losse single-splits.</p>
@@ -701,10 +678,152 @@
                             </form>
                         </details>
                     </section>
+
+                    <section id="demo-ai" class="scroll-mt-24 rounded-3xl border border-indigo-100 bg-indigo-50/50 shadow-sm">
+                        <details class="group" @if ($aiSectionOpen) open @endif>
+                            <summary class="cursor-pointer list-none px-5 py-4 sm:px-6 [&::-webkit-details-marker]:hidden">
+                                <div class="flex items-center justify-between gap-3">
+                                    <div>
+                                        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">AI-opnameassistent</p>
+                                        <h3 class="mt-1 text-lg font-semibold text-gray-950">
+                                            @if ($aiSectionOpen)
+                                                {{ count($aiExceptions) }} uitzondering(en) bekijken
+                                            @elseif ($aiSynthesis)
+                                                AI-voorstel bekijken
+                                            @else
+                                                AI-voorstel (nog leeg)
+                                            @endif
+                                        </h3>
+                                    </div>
+                                </div>
+                            </summary>
+                            <div class="space-y-4 border-t border-indigo-100 px-5 py-4 sm:px-6">
+                                <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                    <p class="text-sm leading-relaxed text-gray-600">
+                                        Het voorstel gebruikt alleen gegevens uit deze opname.
+                                    </p>
+                                    <form method="POST" action="{{ route('intakes.workspace.synthesis', $intake) }}">
+                                        @csrf
+                                        <button class="inline-flex min-h-11 shrink-0 items-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500">
+                                            AI-voorstel vernieuwen
+                                        </button>
+                                    </form>
+                                </div>
+                                @if ($aiSynthesis)
+                                    <div class="rounded-2xl border border-indigo-100 bg-white p-4">
+                                        <p class="text-sm font-medium leading-relaxed text-gray-900">{{ $aiSynthesis->value['summary'] ?? 'Synthese beschikbaar.' }}</p>
+                                        @if ($aiExceptions !== [])
+                                            <ul class="mt-3 space-y-2">
+                                                @foreach ($aiExceptions as $exception)
+                                                    <li class="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                                                        <strong>{{ $exception['label'] }}</strong>
+                                                        <span class="block text-xs text-amber-800">{{ $exception['decision_area_key'] }} · zekerheid {{ $exception['confidence'] }}</span>
+                                                    </li>
+                                                @endforeach
+                                            </ul>
+                                        @else
+                                            <p class="mt-2 text-xs text-gray-500">Geen beslissende uitzondering voorgesteld.</p>
+                                        @endif
+                                    </div>
+                                @else
+                                    <p class="text-sm text-indigo-900">Er is nog geen AI-voorstel opgeslagen.</p>
+                                @endif
+                            </div>
+                        </details>
+                    </section>
+
+                    <section id="demo-context" class="scroll-mt-24 rounded-3xl border border-gray-200 bg-white shadow-sm">
+                        <details>
+                            <summary class="cursor-pointer list-none px-5 py-4 sm:px-6 [&::-webkit-details-marker]:hidden">
+                                <div class="flex items-center justify-between gap-3">
+                                    <div>
+                                        <h3 class="text-lg font-semibold text-gray-950">Woninggegevens</h3>
+                                        <p class="mt-1 text-sm text-gray-500">{{ $factCount }} gegeven{{ $factCount === 1 ? '' : 's' }} · tik om te openen</p>
+                                    </div>
+                                </div>
+                            </summary>
+                            <div class="border-t border-gray-100 px-5 py-4 sm:px-6">
+                                <dl class="grid gap-3 sm:grid-cols-2">
+                                    @forelse ($externalData['facts'] as $fact)
+                                        <div class="rounded-xl bg-gray-50 px-3 py-2">
+                                            <dt class="text-xs font-medium text-gray-500">{{ $fact['label'] }}</dt>
+                                            <dd class="mt-0.5 text-sm font-semibold text-gray-900">{{ $fact['display'] }}</dd>
+                                            <dd class="text-xs text-gray-500">{{ $fact['source'] }} · {{ $fact['confidence'] }}</dd>
+                                        </div>
+                                    @empty
+                                        <p class="text-sm text-gray-500">Nog geen relevante woninggegevens gevonden.</p>
+                                    @endforelse
+                                </dl>
+                                @if ($externalData['aerial_image'])
+                                    <details class="mt-4 overflow-hidden rounded-2xl border border-gray-200 bg-gray-50">
+                                        <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-gray-800">Luchtfoto van de omgeving bekijken</summary>
+                                        <figure class="border-t border-gray-200 bg-white">
+                                            <img src="{{ $externalData['aerial_image']['data_uri'] }}" alt="Luchtfoto van de woningomgeving" class="aspect-[3/2] w-full object-cover">
+                                            <figcaption class="px-3 py-2 text-xs text-gray-500">{{ $externalData['aerial_image']['source'] }} · {{ $externalData['aerial_image']['confidence'] }}</figcaption>
+                                        </figure>
+                                    </details>
+                                @endif
+                                @if ($externalData['uncertainties'] !== [])
+                                    <details class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+                                        <summary class="cursor-pointer text-sm font-semibold text-amber-950">{{ count($externalData['uncertainties']) }} bronbeperking(en)</summary>
+                                        <ul class="mt-2 list-disc space-y-1 pl-5 text-xs text-amber-900">
+                                            @foreach ($externalData['uncertainties'] as $uncertainty)
+                                                <li>{{ $uncertainty }}</li>
+                                            @endforeach
+                                        </ul>
+                                    </details>
+                                @endif
+                            </div>
+                        </details>
+                    </section>
+
+                    <section id="demo-evidence" class="scroll-mt-24 rounded-3xl border border-gray-200 bg-white shadow-sm">
+                        <details>
+                            <summary class="cursor-pointer list-none px-5 py-4 sm:px-6 [&::-webkit-details-marker]:hidden">
+                                <div class="flex items-center justify-between gap-3">
+                                    <div>
+                                        <h3 class="text-lg font-semibold text-gray-950">Foto’s</h3>
+                                        <p class="mt-1 text-sm text-gray-500">{{ $photoCount }} foto{{ $photoCount === 1 ? '' : '’s' }} · tik om te openen</p>
+                                    </div>
+                                </div>
+                            </summary>
+                            <div class="border-t border-gray-100 px-5 py-4 sm:px-6">
+                                @forelse ($photoGroups as $group)
+                                    <div class="mt-2 first:mt-0">
+                                        <h4 class="text-sm font-semibold text-gray-800">{{ $group['heading'] }}</h4>
+                                        <ul class="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                                            @foreach ($group['uploads'] as $item)
+                                                <li>
+                                                    <a
+                                                        href="{{ route('installer.uploads.show', [$intake, $item['upload']]) }}"
+                                                        target="_blank"
+                                                        rel="noopener"
+                                                        class="group block overflow-hidden rounded-2xl border border-gray-200 bg-gray-50"
+                                                    >
+                                                        <img
+                                                            src="{{ route('installer.uploads.show', [$intake, $item['upload']]) }}"
+                                                            alt="{{ $group['heading'] }} · {{ $item['caption'] }}"
+                                                            class="aspect-[4/3] w-full object-cover transition group-hover:scale-[1.02]"
+                                                        >
+                                                        <span class="block truncate px-3 py-2 text-xs font-medium text-gray-700">{{ $item['caption'] }}</span>
+                                                    </a>
+                                                </li>
+                                            @endforeach
+                                        </ul>
+                                    </div>
+                                @empty
+                                    <div class="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-5 py-8 text-center text-sm text-gray-500">
+                                        Nog geen foto’s aan het dossier gekoppeld.
+                                    </div>
+                                @endforelse
+                            </div>
+                        </details>
+                    </section>
+
                 </main>
 
                 <aside class="space-y-6">
-                    <section id="demo-customer-task" class="scroll-mt-6 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+                    <section id="demo-customer-task" class="scroll-mt-24 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
                         <h3 class="font-semibold text-gray-950">Taak voor de klant</h3>
                         <p class="mt-1 text-sm leading-relaxed text-gray-500">
                             De klant ziet alleen deze opdrachten. Pas bij activeren wordt de klantlink actief.
@@ -756,7 +875,7 @@
                         </form>
                     </section>
 
-                    <section class="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+                    <section id="workspace-complete" class="scroll-mt-24 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
                         <h3 class="font-semibold text-gray-950">Opnamebijdrage afronden</h3>
                         <p class="mt-1 text-sm leading-relaxed text-gray-500">
                             @if ($proposalAlreadyApproved)
@@ -787,9 +906,13 @@
                         @endif
                     </section>
 
-                    <section class="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-                        <h3 class="font-semibold text-gray-950">Uitkomst na offerte of plaatsing</h3>
-                        <p class="mt-1 text-sm text-gray-500">Leg kort vast wat er gebeurde. Zo meten we bespaarde ritten en verrassingen bij montage.</p>
+                    <section id="workspace-outcome" class="scroll-mt-24 rounded-3xl border border-gray-200 bg-white shadow-sm">
+                        <details>
+                            <summary class="cursor-pointer list-none px-5 py-4 [&::-webkit-details-marker]:hidden">
+                                <h3 class="text-base font-semibold text-gray-950">Uitkomst na offerte of plaatsing</h3>
+                                <p class="mt-1 text-sm text-gray-500">Later invullen · tik om te openen</p>
+                            </summary>
+                            <div class="border-t border-gray-100 px-5 py-4">
                         @php
                             $recordedVisitReasons = old('site_visit_reasons', $intake->outcome?->site_visit_reasons ?? []);
                             $recordedProposalDeltas = old('proposal_delta_codes', $intake->outcome?->proposal_delta['codes'] ?? []);
@@ -874,6 +997,8 @@
                             @endif
                             <x-primary-button class="w-full justify-center">Uitkomst opslaan</x-primary-button>
                         </form>
+                            </div>
+                        </details>
                     </section>
                 </aside>
             </div>
@@ -884,6 +1009,24 @@
             @endif
         </div>
     </div>
+
+    {{-- Open collapsed info sections when a demo/hash jump lands on them --}}
+    <script>
+        (function () {
+            function openTargetDetails() {
+                const id = (window.location.hash || '').replace(/^#/, '');
+                if (!id) return;
+                const section = document.getElementById(id);
+                if (!section) return;
+                const details = section.matches('details') ? section : section.querySelector(':scope > details');
+                if (details) {
+                    details.open = true;
+                }
+            }
+            openTargetDetails();
+            window.addEventListener('hashchange', openTargetDetails);
+        })();
+    </script>
 
     @if ($intake->is_demo && (bool) session('public_demo_mode', false))
         <x-demo-guide

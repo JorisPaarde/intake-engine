@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.15 · **Laatste update:** 2026-08-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.18 · **Laatste update:** 2026-08-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -58,6 +58,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-050 | Productfunnel in JPWebcreation-huisstijl | E5 | done | medium | A (done) |
 | ∥ | BL-051 | Demo-PDF op aanvraag als lead | E5 | in_progress | medium | A · bij BL-001 |
 | — | BL-052 | Gecontroleerd eenvoudig Nederlands in de app-UI | E5 | done | medium | A (done) |
+| — | BL-053 | Mobiele werkplek: acties eerst, info dicht | E5 | done | high | O · bij BL-037 |
 | — | BL-047 | Gestructureerde adresregistratie en BAG-herstel | E3 | done | high | F (done) |
 | — | BL-048 | Openingszin hergebruiken en broninformatie terugbrengen | E3 | done | high | F (done) |
 | ∥ | BL-013 | S3 als mediadisk | E5 | backlog | low | I · operationeel |
@@ -467,6 +468,16 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Interesseflow:** valideert naam, bedrijf, e-mail en optionele telefoon/toelichting; honeypot + IP-rate-limit zonder IP-opslag; zelfstandige `product_interests`-opslag; optionele interne queuemail buiten de `log`-mailer; dagelijkse harde purge na standaard 365 dagen.
 - **Acceptatie:** demo blijft primair productbewijs; formulier blijft bruikbaar zonder SMTP; fout/succes is toegankelijk en Nederlandstalig; geen technische klantdata of intake wordt aangemaakt; desktop/mobiele staging-smoke staat als `todo` in de teststatus.
 - **Resultaat:** volledige funnel, twee responsieve productweergaven met synthetisch bewijs, werkende interesseopslag/notificatie/purge, env-documentatie en featuretests zijn geleverd. Latere fix: homepage-CTAs niet meer één generieke “dashboard”-knop voor elke `@auth`-sessie (inclusief demogebruiker).
+
+### BL-053 — Mobiele werkplek: acties eerst, info dicht
+
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-08-09 · **PR:** #70 · **Epic:** E5 · **Band:** O · **Afhankelijk:** BL-037
+- **Aanleiding:** de installateurswerkplek is op mobiel één lange kolom; status, AI, woninggegevens en foto’s staan vóór het echte werk.
+- **Doel:** zet de volgende actie en open punten bovenaan; houd het werkpad (ruimtes → plekken → opstellingen → afronden) open; klap niet-kritische info standaard dicht.
+- **Scope (fase 1):** sticky “Volgende stap” + primaire CTA (telling bij open punten; ook “Plek toevoegen”); alleen `Blocked`/`Review` als open punten (`Unknown` = opbouwen); AI/woninggegevens/foto’s/uitkomst als `<details>` (AI open bij uitzonderingen); sectievolgorde werk vóór info; demobanner, anchors en `<x-demo-guide>` ongemoeid; hash-sprongen openen dichtgeklapte secties.
+- **Niet in scope:** tab-IA, desktop-split layout, inhoud schrappen, demomodal-copy.
+- **Acceptatie:** op ~390 px zijn sticky CTA en open punten in het eerste scherm; werksecties bereikbaar zonder info-blokken te openen; demo-coach en `#demo-*`-sprongen blijven werken; `composer check` groen.
+- **Resultaat:** sticky actiebalk + gefilterde open punten + dichtgeklapte info; democoach en anchors intact; featuretests en BL-052-stringasserts bijgewerkt.
 
 ### BL-052 — Gecontroleerd eenvoudig Nederlands in de app-UI
 

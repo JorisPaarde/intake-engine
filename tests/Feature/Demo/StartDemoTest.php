@@ -194,7 +194,7 @@ it('continues as customer on a short guided route without sending mail', functio
 
     $this->get($intake->customerUrl())
         ->assertOk()
-        ->assertSee('Demo — verkorte klantroute')
+        ->assertSee('Demo — korte klantroute')
         ->assertSee('Dit ziet je klant')
         // Openingszin en koelen zijn al afgeleid; de verkorte route start bij een resterende vraag.
         ->assertSee('Wat voor type gebouw is het?');
@@ -279,7 +279,8 @@ it('continues as installer and can load the sample dossier', function () {
         ->withSession(demoSessionFor($user, $intake))
         ->get(route('intakes.workspace', $intake))
         ->assertOk()
-        ->assertSee('Beoordeel het demoscenario')
+        ->assertSee('Bekijk het demoscenario')
+        ->assertSee('Volgende stap')
         ->assertSee('Woninggegevens')
         ->assertSee('Controleren en klantweergave activeren')
         ->assertSee('AI-voorstel vernieuwen');
@@ -465,7 +466,7 @@ it('activates a simulated customer view without sending mail', function () {
 
     $this->get($intake->customerUrl())
         ->assertOk()
-        ->assertSee('Demo — gerichte klantaanvulling')
+        ->assertSee('Demo — aanvulling door de klant')
         ->assertSee('Maak één frontale foto van de volledige groepenkast');
 });
 

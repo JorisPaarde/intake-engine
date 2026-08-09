@@ -271,7 +271,7 @@ test('outcome metrics measure remote quotes active installer time visits and ins
         ->site_visit_count->toBe(1)
         ->site_visit_percent->toBe(33.3)
         ->site_visit_reasons->toBe([
-            ['code' => 'power_uncertain', 'label' => 'Stroomvoorziening niet zeker', 'count' => 1],
+            ['code' => 'power_uncertain', 'label' => 'Stroomvoorziening onduidelijk', 'count' => 1],
             ['code' => 'route_uncertain', 'label' => 'Leidingroute niet zichtbaar', 'count' => 1],
         ])
         ->median_active_installer_minutes->toBe(20)

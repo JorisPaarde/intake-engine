@@ -215,7 +215,7 @@ test('wizard exposes the photo prefill and a precise retake hint without blockin
     ]);
 
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
-        ->assertSee('Voor een betere beoordeling')
+        ->assertSee('Voor een duidelijkere foto')
         ->assertSee('alle groepen en de hoofdschakelaar');
 });
 
