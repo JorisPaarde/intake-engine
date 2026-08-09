@@ -17,11 +17,11 @@ enum InstallationSiteVisitReason: string
     public function label(): string
     {
         return match ($this) {
-            self::PowerUncertain => 'Stroomvoorziening niet zeker',
-            self::CondensateUncertain => 'Condensafvoer niet zeker',
+            self::PowerUncertain => 'Stroomvoorziening onduidelijk',
+            self::CondensateUncertain => 'Condensafvoer onduidelijk',
             self::RouteUncertain => 'Leidingroute niet zichtbaar',
-            self::AccessUncertain => 'Bereikbaarheid niet zeker',
-            self::ConstructionUncertain => 'Constructie of wandopbouw niet zeker',
+            self::AccessUncertain => 'Bereikbaarheid onduidelijk',
+            self::ConstructionUncertain => 'Muur of constructie onduidelijk',
             self::CustomerPreference => 'Voorkeur of verzoek van de klant',
             self::Other => 'Andere reden',
         };

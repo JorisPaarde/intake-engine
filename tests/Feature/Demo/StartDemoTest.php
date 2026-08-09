@@ -124,7 +124,7 @@ it('starts a guided demo on the installer dashboard without an intake yet', func
 
     $this->get(route('dashboard'))
         ->assertOk()
-        ->assertSee('Digitale demo-opnames')
+        ->assertSee('Demo-opnames')
         ->assertSee('Nieuwe opname')
         ->assertSee('tijdelijke installateur')
         ->assertSee('initialStep: \'welcome\'', false);
@@ -219,7 +219,7 @@ it('continues as installer and can load the sample dossier', function () {
         ->get(route('intakes.workspace', $intake))
         ->assertOk()
         ->assertSee('Toon voorbeelddossier')
-        ->assertSee('Bouw het technische dossier op');
+        ->assertSee('Bouw de opname op');
 
     $this->actingAs($user)
         ->withSession(demoSessionFor($user, $intake))
@@ -451,7 +451,7 @@ it('activates a simulated customer view without sending mail', function () {
         ->withSession($session)
         ->post(route('intakes.workspace.tasks.send', [$intake, $task]))
         ->assertRedirect(route('intakes.workspace', $intake))
-        ->assertSessionHas('status', 'Klantweergave geactiveerd. In de demo wordt geen e-mail verstuurd.');
+        ->assertSessionHas('status', 'Klantweergave geactiveerd. In de demo sturen we geen e-mail.');
 
     $intake->refresh();
     expect($intake->workflow_mode)->toBe(ContributionMode::Hybrid)
@@ -474,10 +474,10 @@ it('lists disabled full-app steps on the demo thank-you notice', function () {
 
     expect($html)
         ->toContain('Wat je net hebt gedaan')
-        ->toContain('Eén gerichte klantaanvulling afgerond')
+        ->toContain('Eén klantaanvulling is afgerond')
         ->toContain('Bewust uitgeschakeld in de demo')
         ->toContain('E-mail en herinneringen naar een echte klant')
-        ->toContain('Automatische PDF-export (wel op aanvraag met e-mail in het installateursdossier)')
+        ->toContain('Automatische PDF-export (wel op aanvraag met e-mail in de opname)')
         ->toContain('terug naar de website')
         ->not->toContain('Live AI-aanroepen');
 });
@@ -518,7 +518,7 @@ it('shows only the current public demo on its dashboard', function () {
         ->withSession(demoSessionFor($user, $demoIntake))
         ->get(route('dashboard'))
         ->assertOk()
-        ->assertSee('Digitale demo-opnames')
+        ->assertSee('Demo-opnames')
         ->assertSee('Demo-overzicht')
         ->assertSee($demoIntake->customer_name)
         ->assertSee($demoIntake->customer_email)

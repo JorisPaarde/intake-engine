@@ -313,7 +313,7 @@ final class SurveyWorkspaceController extends Controller
             $connection instanceof AircoConnection
                 ? 'Foto opgeslagen als routesegment.'
                 : ($hasSuggestion
-                    ? 'Foto opgeslagen. Controleer de voorgestelde technische constatering.'
+                    ? 'Foto opgeslagen. Controleer wat de AI voorstelt.'
                     : 'Foto opgeslagen bij '.$subject->label.'.'),
         );
     }
@@ -351,11 +351,11 @@ final class SurveyWorkspaceController extends Controller
         $round = $createRequest->handle($intake, $user, $validated['contribution_items']);
         $mailResult = $sendRequest->handle($intake->fresh() ?? $intake, $round, $user);
         $message = match ($mailResult) {
-            CustomerLinkMailResult::Sent => 'Gerichte klantopdracht aangemaakt en gemaild.',
-            CustomerLinkMailResult::SkippedDemo => 'Klantweergave geactiveerd. In de demo wordt geen e-mail verstuurd.',
-            CustomerLinkMailResult::SkippedLogMailer => 'Klantopdracht aangemaakt. Mail is lokaal uitgeschakeld; deel de link handmatig.',
-            CustomerLinkMailResult::Failed => 'Klantopdracht aangemaakt, maar mailen mislukte. Deel de link handmatig.',
-            default => 'Gerichte klantopdracht aangemaakt.',
+            CustomerLinkMailResult::Sent => 'Klanttaak aangemaakt en gemaild.',
+            CustomerLinkMailResult::SkippedDemo => 'Klantweergave geactiveerd. In de demo sturen we geen e-mail.',
+            CustomerLinkMailResult::SkippedLogMailer => 'Klanttaak aangemaakt. Mail is lokaal uit. Deel de link zelf.',
+            CustomerLinkMailResult::Failed => 'Klanttaak aangemaakt, maar mailen mislukte. Deel de link zelf.',
+            default => 'Klanttaak aangemaakt.',
         };
 
         return $this->back($intake, $message);
@@ -436,11 +436,11 @@ final class SurveyWorkspaceController extends Controller
         $mailResult = $sendRequest->handle($intake->fresh() ?? $intake, $round, $user);
 
         return $this->back($intake, match ($mailResult) {
-            CustomerLinkMailResult::Sent => 'AI-taak gecontroleerd en als gerichte klantopdracht gemaild.',
-            CustomerLinkMailResult::SkippedDemo => 'Klantweergave geactiveerd. In de demo wordt geen e-mail verstuurd.',
-            CustomerLinkMailResult::SkippedLogMailer => 'Klantopdracht aangemaakt. Mail is lokaal uitgeschakeld; deel de link handmatig.',
-            CustomerLinkMailResult::Failed => 'Klantopdracht aangemaakt, maar mailen mislukte. Deel de link handmatig.',
-            default => 'AI-taak gecontroleerd en als gerichte klantopdracht aangemaakt.',
+            CustomerLinkMailResult::Sent => 'AI-taak gecontroleerd en als klanttaak gemaild.',
+            CustomerLinkMailResult::SkippedDemo => 'Klantweergave geactiveerd. In de demo sturen we geen e-mail.',
+            CustomerLinkMailResult::SkippedLogMailer => 'Klanttaak aangemaakt. Mail is lokaal uit. Deel de link zelf.',
+            CustomerLinkMailResult::Failed => 'Klanttaak aangemaakt, maar mailen mislukte. Deel de link zelf.',
+            default => 'AI-taak gecontroleerd en als klanttaak aangemaakt.',
         });
     }
 

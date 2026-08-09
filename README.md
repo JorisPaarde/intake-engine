@@ -1,6 +1,6 @@
 # Intake Engine (Digitale Opname)
 
-> **Documentversie:** 2.9 · **Laatste update:** 2026-08-05 · Onderhoud: zie [AGENTS.md](AGENTS.md)
+> **Documentversie:** 2.10 · **Laatste update:** 2026-08-09 · Onderhoud: zie [AGENTS.md](AGENTS.md)
 
 **Werk je als agent aan dit project? Lees eerst [AGENTS.md](AGENTS.md)** — het projectgeheugen, de documentkaart en het onderhoudsprotocol.
 

@@ -16,7 +16,7 @@ enum DecisionAreaStatus: string
     {
         return match ($this) {
             self::Unknown => 'Nog niet beoordeeld',
-            self::Ready => 'Gereed',
+            self::Ready => 'Klaar',
             self::Review => 'Controle nodig',
             self::Blocked => 'Aanvulling nodig',
             self::NotApplicable => 'Niet van toepassing',

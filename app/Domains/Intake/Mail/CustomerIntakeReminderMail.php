@@ -25,7 +25,7 @@ final class CustomerIntakeReminderMail extends Mailable
         $appName = (string) config('app.name');
 
         return new Envelope(
-            subject: "Herinnering: rond uw digitale opname af ({$appName})",
+            subject: "Herinnering: rond uw opname af ({$appName})",
         );
     }
 

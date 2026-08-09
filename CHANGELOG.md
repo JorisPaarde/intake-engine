@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Changed
+
+- **Gecontroleerd eenvoudig Nederlands in de app-UI (BL-052):** klantwizard, follow-up, installateurswerkplek, demo-coach, auth, e-mails, enum-/beslislabels en flashmeldingen gebruiken korte zinnen en gewone woorden (ASD-STE100 / NEN-ISO 24495-1). Airco-template **v11** vernieuwt alleen klantlabels/help/foto-instructies; bestaande gepinde versies blijven intact. Schrijfregels: [docs/language.md](docs/language.md).
+
 ### Fixed
 
 - **Homepage-CTAs onderscheiden gast, demosessie en account (BL-001/043):** na starten van de publieke demo toonde `/` nog “Open dashboard” / “Naar opnames” alsof je een echt account had, waardoor **Probeer de demo**, **Inloggen** en de bedoeling van de knoppen verdwenen. Gast ziet weer demo + inloggen + pilot; een actieve demosessie krijgt **Verder in demo** en **Demo beëindigen** (ook altijd zichtbaar in de app-nav bij terugnavigeren); een echt account krijgt **Mijn opnames** (zelfde `/dashboard`-lijst als nav “Opnames”).

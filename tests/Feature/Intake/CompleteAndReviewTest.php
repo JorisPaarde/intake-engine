@@ -164,7 +164,7 @@ test('multiple indoor units create an installer attention point for the split co
 
     expect($check['attention_points'])->toContain([
         'code' => 'review_split_configuration',
-        'label' => 'Beoordeel voor 4 binnenunits: één multi-split of meerdere single-splits.',
+        'label' => 'Beoordeel voor 4 ruimtes: één multi-split of meerdere single-splits.',
     ]);
 });
 

@@ -1,6 +1,6 @@
 # AGENTS.md — Projectgeheugen & werkinstructies
 
-> **Documentversie:** 2.6 · **Laatste update:** 2026-08-05 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
+> **Documentversie:** 2.7 · **Laatste update:** 2026-08-09 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
 
 Dit bestand is de **centrale ingang** voor iedere agent (of mens) die aan dit project werkt. Het beschrijft waar het projectgeheugen leeft, welk document waarvoor de bron van waarheid is, en hoe je dat geheugen bijhoudt. **Lees dit bestand aan het begin van elke taak.**
 
@@ -42,6 +42,7 @@ Lees **níet** standaard alle docs integraal door. De geheugenkaart, versieheade
 | Productflow, rollen, bijdrageworkflow, beslisgereedheid | `docs/product-model.md` + ADR-0011 | deploy |
 | Airco-opstellingen of koel-/condens-/stroomroutes | `docs/product-model.md` § Airco-domeinmodel + ADR-0012 | deploy |
 | Vragen, taken, regels, taakcompleetheid | `docs/intake-engine.md` (+ relevante tabellen in `docs/database.md`) | deploy |
+| UI-/mailteksten herschrijven | `docs/language.md` (+ geraakte views/mails/templates) | deploy |
 | Datamodel / migraties | `docs/database.md` + ADR-0001/0011/0012 | deploy |
 | Foto's / uploads / media | `docs/uploads.md` (+ `docs/DEPLOYMENT.md` § PHP upload-limieten) | AI, database-details |
 | AI-functionaliteit | `docs/ai.md` + ADR-0005/0011/0012 | deploy |
@@ -75,6 +76,7 @@ Twijfel je onder welk taaktype je werk valt, gebruik dan de geheugenkaart hieron
 | Uitgewerkte implementatieplannen bij een BL-item? | [docs/plans/](docs/plans/) (alleen detail; status blijft in de backlog) |
 | Wat is functioneel getest (handmatig)? | [docs/functional-test-status.md](docs/functional-test-status.md) |
 | Welke werkafspraken gelden (branching, taal, kwaliteit, privacy)? | [§ Werkafspraken](#werkafspraken) in dit bestand |
+| Hoe schrijf ik gebruikersgerichte UI-teksten? | [docs/language.md](docs/language.md) |
 | Hoe werk ik als agent, hoe onderhoud ik dit geheugen? | dit bestand (AGENTS.md) |
 | Welke cloud-agent setup/tips besparen tijd? | [§ Tips voor cloud-agents](#tips-voor-cloud-agents-snelle-setup) in dit bestand |
 
@@ -166,7 +168,7 @@ Deze regels zorgen dat de snelstart-routine blijft werken en agents niet alles h
 Dit is de bron van waarheid voor deze afspraken; andere documenten (waaronder de README) verwijzen hierheen en herhalen ze niet.
 
 - **Branching:** `main` is deploybaar; feature branches + PR, CI groen vóór merge. Merge naar `main` deployt automatisch naar staging.
-- **Taal:** documentatie en UI in het Nederlands; code, keys en identifiers in het Engels.
+- **Taal:** documentatie en UI in het Nederlands; code, keys en identifiers in het Engels. Gebruikersgerichte teksten volgen [docs/language.md](docs/language.md) (korte zinnen, gewone woorden).
 - **Kwaliteit:** `composer check` per PR; migrations reproduceerbaar; geen handmatige staging-DB-edits.
 - **Privacy:** geen echte klantdata in seeders/tests/docs; tokens en API-keys nooit in logs of git.
 

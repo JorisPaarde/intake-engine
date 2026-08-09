@@ -25,7 +25,7 @@ final class CustomerIntakeLinkMail extends Mailable
         $appName = (string) config('app.name');
 
         return new Envelope(
-            subject: "Uw digitale opname staat klaar ({$appName})",
+            subject: "Uw opname staat klaar ({$appName})",
         );
     }
 

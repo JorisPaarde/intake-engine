@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.47 · **Laatste update:** 2026-08-05 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.48 · **Laatste update:** 2026-08-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -19,6 +19,7 @@ Laatste testsessie: 2026-07-26 (lokaal; postcode-eerst adresaanvulling met echte
 | Dashboard weergave | pass | 2026-07-18 | Bereikbaar na registratie |
 | Verbindingsgebonden route + modelescalatie (BL-029/030/040) | todo | - | Met `AI_ROUTE_ANALYSIS_ENABLED=true` + externe testprovider: foto op één concrete verbinding levert `route_analysis`; synthese schrijft terug naar die verbinding; bij lage zekerheid volgt `AI_ROUTE_REVIEW_MODEL` met alleen relevante 1536px-analysekopieën. Nieuw bewijs heropent een goedgekeurde sessie zonder duplicaat. Alleen na DPIA/akkoord met fictieve foto's. |
 | Begeleide leidingroute — oude globale UI (BL-029) | n/a | 2026-07-30 scopebesluit | Wordt niet gebouwd: ADR-0009/BL-029 vervangen door ADR-0012/BL-040. Backend blijft; nieuwe UI koppelt routes aan één concrete verbinding binnen een installatieoptie. |
+| Gecontroleerd eenvoudig Nederlands in app-UI (BL-052) | todo | - | Na deploy: klantwizard-afrondtekst, create-keuze (klant/zelf), werkplekkoppen (**Klaar voor offerte**, **Mogelijke plekken**), demo-coach en auth-login in gewone korte zinnen; nieuwe opname gebruikt airco v11-labels (o.a. zon/vrije groep). |
 | Startkeuze klant / zelf uitvoeren (BL-037) | todo | - | Na deploy: **Zelf uitvoeren** houdt klanttoegang uit en verstuurt geen mail; **Klant laten opnemen** activeert en mailt de begeleide klantlink. |
 | Volledig installateur-uitgevoerde opname (BL-037) | todo | - | Twee slaapkamers mobiel en in vrije volgorde vastleggen: ruimtes, contextgebonden foto's/notities en technische conclusies; afronden/offertebasis zonder klantactie. |
 | Contextgebonden foto’s en notities (BL-049) | todo | - | Na deploy op desktop en 390 px bij een ruimte, positie en verbinding **Foto maken** en **Technische notitie** doorlopen. Geen losse **Camera en bewijs**/**Vakwaarneming**, onderwerp-, sleutel-, methode- of telefoonkeuze. Met fictieve beelden en toegestane externe AI: voorstel blijft onbevestigd, **Klopt** en **Aanpassen** maken het definitief; lage zekerheid en providerfalen voegen geen dossiernoise toe. Controleer bronlabels, toetsenbord, camera én galerij en dat een routefoto één routesegment blijft. |

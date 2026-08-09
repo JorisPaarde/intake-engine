@@ -16,7 +16,7 @@ enum AircoPlacementType: string
         return match ($this) {
             self::IndoorUnit => 'Binnenunit',
             self::OutdoorUnit => 'Buitenunit',
-            self::PowerSource => 'Voedingspunt',
+            self::PowerSource => 'Stroomaansluiting',
             self::DrainPoint => 'Afvoerpunt',
         };
     }

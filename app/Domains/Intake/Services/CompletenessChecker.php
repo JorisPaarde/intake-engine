@@ -73,7 +73,7 @@ final class CompletenessChecker
             $count = (int) $indoorUnitCountValue;
             $points[] = [
                 'code' => 'review_split_configuration',
-                'label' => "Beoordeel voor {$count} binnenunits: één multi-split of meerdere single-splits.",
+                'label' => "Beoordeel voor {$count} ruimtes: één multi-split of meerdere single-splits.",
             ];
         }
 

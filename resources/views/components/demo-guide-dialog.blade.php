@@ -7,17 +7,17 @@
     $ttl = max(1, (int) config('intake.demo.ttl_hours', 2));
     $copy = match ($step) {
         'customer_done' => [
-            'meta' => 'Stap 6 van 6 · Terug naar dossier',
+            'meta' => 'Stap 6 van 6 · Terug naar opname',
             'title' => 'Klantgedeelte afgerond',
-            'body' => 'In productie krijgt de installateur een afrondingsmail. Hier open je het dossier direct om verder te beoordelen.',
+            'body' => 'Normaal krijgt de installateur een mail. Hier open je de opname meteen om verder te kijken.',
             'aside' => null,
-            'cta' => 'Naar installateursdossier',
+            'cta' => 'Naar de opname',
         ],
         default => [
             'meta' => 'Stap 4 van 6 · Klantweergave',
             'title' => 'Dit ziet je klant',
-            'body' => 'Begeleide opdrachten zonder technische ontwerpkeuzes. Foto’s kunnen door AI worden gelezen. Deze demoroute is verkort; in productie is de lijst langer en adaptief.',
-            'aside' => 'Na afronden ga je terug naar het installateursdossier. Demo verdwijnt na '.$ttl.' uur.',
+            'body' => 'De klant krijgt simpele stappen, geen technische keuzes. Foto’s kan de app meekijken. Deze demo is korter dan echt.',
+            'aside' => 'Na afronden ga je terug naar de opname. De demo verdwijnt na '.$ttl.' uur.',
             'cta' => 'Begin als klant',
         ],
     };

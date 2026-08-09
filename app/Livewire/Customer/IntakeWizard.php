@@ -758,7 +758,7 @@ class IntakeWizard extends Component
             $instruction = $fact?->value['retake_instruction'] ?? null;
 
             if (is_string($instruction) && trim($instruction) !== '') {
-                $hints[] = 'Voor een betere beoordeling: '.trim($instruction);
+                $hints[] = 'Voor een duidelijkere foto: '.trim($instruction);
             }
         }
 
@@ -882,7 +882,7 @@ class IntakeWizard extends Component
                 ->first();
 
             if ($answer?->prefill_source === DerivePhotoAnswers::SOURCE_SUGGESTED) {
-                $this->prefillNotice[$composite] = 'Ingeschat op basis van uw foto — klopt dit?';
+                $this->prefillNotice[$composite] = 'We hebben dit uit uw foto gehaald — klopt het?';
             } else {
                 unset($this->prefillNotice[$composite]);
             }
@@ -895,7 +895,7 @@ class IntakeWizard extends Component
         $instruction = $run->output['retake_instruction'] ?? null;
 
         if (is_string($instruction) && trim($instruction) !== '') {
-            return 'Voor een betere beoordeling: '.trim($instruction);
+            return 'Voor een duidelijkere foto: '.trim($instruction);
         }
 
         return null;
@@ -922,7 +922,7 @@ class IntakeWizard extends Component
         $instruction = $run->output['retake_instruction'] ?? null;
 
         if (is_string($instruction) && trim($instruction) !== '') {
-            return 'Voor een betere beoordeling: '.trim($instruction);
+            return 'Voor een duidelijkere foto: '.trim($instruction);
         }
 
         return null;
@@ -1442,9 +1442,9 @@ class IntakeWizard extends Component
 
             // A prefill remains editable and is only authoritative after customer confirmation.
             if ($answer->prefill_source === 'installer') {
-                $notices[$composite] = 'Alvast ingevuld door uw installateur — controleer en pas aan indien nodig';
+                $notices[$composite] = 'Uw installateur heeft dit alvast ingevuld — klopt het?';
             } elseif ($answer->prefill_source === DerivePhotoAnswers::SOURCE_SUGGESTED) {
-                $notices[$composite] = 'Ingeschat op basis van uw foto — controleer en pas aan indien nodig';
+                $notices[$composite] = 'We hebben dit uit uw foto gehaald — klopt het?';
             }
         }
 
@@ -1483,7 +1483,7 @@ class IntakeWizard extends Component
         }
 
         $this->form[$composite] = $suggestion['value'];
-        $this->prefillNotice[$composite] = 'Overgenomen van '.$suggestion['source_label'].' — controleer en pas aan indien nodig';
+        $this->prefillNotice[$composite] = 'Overgenomen van '.$suggestion['source_label'].' — klopt het zo?';
     }
 
     private function refreshAnswerInForm(string $composite): void

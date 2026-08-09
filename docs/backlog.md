@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.14 · **Laatste update:** 2026-08-05 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.15 · **Laatste update:** 2026-08-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -57,6 +57,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-046 | Brede productbelofte op de productfunnel | E5 | done | medium | A (done) |
 | — | BL-050 | Productfunnel in JPWebcreation-huisstijl | E5 | done | medium | A (done) |
 | ∥ | BL-051 | Demo-PDF op aanvraag als lead | E5 | in_progress | medium | A · bij BL-001 |
+| — | BL-052 | Gecontroleerd eenvoudig Nederlands in de app-UI | E5 | in_progress | medium | A |
 | — | BL-047 | Gestructureerde adresregistratie en BAG-herstel | E3 | done | high | F (done) |
 | — | BL-048 | Openingszin hergebruiken en broninformatie terugbrengen | E3 | done | high | F (done) |
 | ∥ | BL-013 | S3 als mediadisk | E5 | backlog | low | I · operationeel |
@@ -466,6 +467,15 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Interesseflow:** valideert naam, bedrijf, e-mail en optionele telefoon/toelichting; honeypot + IP-rate-limit zonder IP-opslag; zelfstandige `product_interests`-opslag; optionele interne queuemail buiten de `log`-mailer; dagelijkse harde purge na standaard 365 dagen.
 - **Acceptatie:** demo blijft primair productbewijs; formulier blijft bruikbaar zonder SMTP; fout/succes is toegankelijk en Nederlandstalig; geen technische klantdata of intake wordt aangemaakt; desktop/mobiele staging-smoke staat als `todo` in de teststatus.
 - **Resultaat:** volledige funnel, twee responsieve productweergaven met synthetisch bewijs, werkende interesseopslag/notificatie/purge, env-documentatie en featuretests zijn geleverd. Latere fix: homepage-CTAs niet meer één generieke “dashboard”-knop voor elke `@auth`-sessie (inclusief demogebruiker).
+
+### BL-052 — Gecontroleerd eenvoudig Nederlands in de app-UI
+
+- **Status:** in_progress · **Prioriteit:** medium · **Epic:** E5 · **Band:** A
+- **Aanleiding:** na BL-045 was de homepage eenvoudiger, maar klantwizard, installateurswerkplek, demo-coach, mails en templatevragen bevatten nog jargon en lange zinnen.
+- **Doel:** schrijf alle gebruikersgerichte app-teksten in gecontroleerd, eenvoudig Nederlands volgens ASD-STE100 en NEN-ISO 24495-1.
+- **Scope:** klantwizard/follow-up, installateursschermen, demo-coach, auth, e-mails, enum-/beslislabels, flashmeldingen en airco-template **v11** (alleen labels/help/foto-instructies). Nieuwe bron: [docs/language.md](language.md). Dev-admin en productdocs buiten scope.
+- **Acceptatie:** korte zinnen en gewone woorden; vaste termen uit de woordenlijst; nieuwe intakes gebruiken v10+vragen met v11-taal; bestaande gepinde templates blijven ongewijzigd; `composer check` groen.
+- **Niet in scope:** homepage-copy (BL-045/046), code-identifiers, ADR’s, interne comments.
 
 ### BL-045 — Eenvoudige installateurstaal op de productfunnel
 

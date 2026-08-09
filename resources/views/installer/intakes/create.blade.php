@@ -17,7 +17,7 @@
         <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
             @if ($isPublicDemo)
                 <div class="mb-4 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">
-                    Vul zelf een postcode en huisnummer in — net als na een echte aanvraag. Je ziet dan meteen de adresaanvulling; na opslaan volgen woningbronnen en AI op de openingszin. Klantnaam is fictief; er wordt geen e-mail verstuurd.
+                    Vul zelf een postcode en huisnummer in — net als na een echte aanvraag. Je ziet meteen straat en plaats. Na opslaan vult de app bekende woninggegevens aan en leest de korte uitleg mee. De klantnaam is nep. Er gaat geen e-mail uit.
                 </div>
             @endif
             <div class="bg-white shadow-sm sm:rounded-lg p-6" data-demo-anchor="create-form">
@@ -53,7 +53,7 @@
                                         >
                                         <span>
                                             <span class="block text-sm font-semibold text-gray-900">Klant laten opnemen</span>
-                                            <span class="mt-1 block text-xs leading-5 text-gray-600">De klant krijgt direct een beveiligde link met begeleide foto- en informatieopdrachten.</span>
+                                            <span class="mt-1 block text-xs leading-5 text-gray-600">De klant krijgt meteen een link. Daarin staan duidelijke stappen en foto-opdrachten.</span>
                                         </span>
                                     </span>
                                 </label>
@@ -68,7 +68,7 @@
                                         >
                                         <span>
                                             <span class="block text-sm font-semibold text-gray-900">Zelf de opname uitvoeren</span>
-                                            <span class="mt-1 block text-xs leading-5 text-gray-600">Open direct de mobiele werkplek. De klanttoegang blijft uit en er wordt geen link verstuurd.</span>
+                                            <span class="mt-1 block text-xs leading-5 text-gray-600">Je gaat meteen zelf aan de slag. De klant krijgt geen link.</span>
                                         </span>
                                     </span>
                                 </label>
@@ -203,9 +203,9 @@
                         <x-text-input id="customer_email" name="customer_email" class="mt-1 block w-full" type="email" :value="$demoValue('customer_email')" required />
                         <p class="mt-1 text-sm text-gray-500" data-customer-email-help>
                             @if ($isPublicDemo)
-                                In de demo wordt geen e-mail verstuurd. Adresverrijking en AI wel: na opslaan kies je hoe je verder kijkt.
+                                In de demo sturen we geen e-mail. Adresinvulling en AI werken wel. Na opslaan kies je hoe je verdergaat.
                             @else
-                                Bij een klantopname sturen we de beveiligde link automatisch. Bij zelf opnemen wordt niets verstuurd.
+                                Bij een klantopname sturen we de link automatisch. Bij zelf opnemen sturen we niets.
                             @endif
                         </p>
                         <x-input-error :messages="$errors->get('customer_email')" class="mt-2" />
@@ -227,7 +227,7 @@
                         <div class="rounded-md border border-gray-200 bg-gray-50 p-4">
                             <p class="text-sm font-semibold text-gray-800">Alvast invullen (optioneel)</p>
                             <p class="mt-1 text-xs text-gray-500">
-                                Bekende gegevens worden direct in het dossier gezet. Alleen een beslissende onzekerheid wordt later nog gericht voorgelegd.
+                                Wat al bekend is, zetten we meteen in de opname. Alleen als iets écht onduidelijk is, vragen we later nog iets na.
                             </p>
 
                             @foreach ($prefillQuestionsByTemplate as $templateKey => $questions)
@@ -246,7 +246,7 @@
                     <div class="flex items-center justify-end gap-3">
                         <a href="{{ route('dashboard') }}" class="text-sm text-gray-600 hover:text-gray-900">Annuleren</a>
                         <x-primary-button data-submit-label>
-                            {{ $isPublicDemo ? 'Opname aanmaken' : 'Opslaan en klantlink mailen' }}
+                            {{ $isPublicDemo ? 'Opname aanmaken' : 'Opslaan en link mailen' }}
                         </x-primary-button>
 
                     </div>
@@ -293,7 +293,7 @@
                 const selected = document.querySelector('input[name="workflow_mode"]:checked');
                 submitLabel.textContent = selected?.value === '{{ \App\Enums\ContributionMode::Installer->value }}'
                     ? 'Opname starten'
-                    : 'Opslaan en klantlink mailen';
+                    : 'Opslaan en link mailen';
             }
 
             workflowOptions.forEach(function (option) {

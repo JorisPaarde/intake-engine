@@ -86,8 +86,8 @@ test('installer can start a self-performed survey without exposing or mailing a 
     $this->actingAs($user)
         ->get(route('intakes.workspace', $intake))
         ->assertOk()
-        ->assertSee('Technische opname')
-        ->assertSee('Gerichte klanttaak')
+        ->assertSee('Klaar voor offerte')
+        ->assertSee('Taak voor de klant')
         ->assertSee('Woninggegevens');
 });
 
@@ -99,12 +99,12 @@ test('legacy customer link actions cannot expose an installer-only survey', func
     $this->actingAs($user)
         ->post(route('intakes.send-link', $intake))
         ->assertRedirect(route('intakes.show', $intake))
-        ->assertSessionHas('status', 'Geen klantlink actief. Stuur vanuit de technische opname eerst een gerichte klantopdracht.');
+        ->assertSessionHas('status', 'Geen klantlink actief. Stuur vanuit de opname eerst een taak naar de klant.');
 
     $this->actingAs($user)
         ->post(route('intakes.regenerate-token', $intake))
         ->assertRedirect(route('intakes.show', $intake))
-        ->assertSessionHas('status', 'Geen klantlink actief. Stuur vanuit de technische opname eerst een gerichte klantopdracht.');
+        ->assertSessionHas('status', 'Geen klantlink actief. Stuur vanuit de opname eerst een taak naar de klant.');
 
     expect($intake->fresh()->access_token)->toBe($inactiveToken)
         ->and($intake->fresh()->customer_access_enabled)->toBeFalse();
@@ -204,7 +204,7 @@ test('workspace stores a room photo in context and exposes AI output only as a p
             'method' => 'phone',
         ])
         ->assertRedirect(route('intakes.workspace', $intake))
-        ->assertSessionHas('status', 'Foto opgeslagen. Controleer de voorgestelde technische constatering.');
+        ->assertSessionHas('status', 'Foto opgeslagen. Controleer wat de AI voorstelt.');
 
     $upload = $intake->uploads()->sole();
     $proposal = DossierRecord::query()
@@ -433,7 +433,7 @@ test('two bedroom survey compares a multi-split option and approves all three co
     $this->actingAs($user)
         ->get(route('intakes.workspace', $intake))
         ->assertOk()
-        ->assertSee('Geselecteerd voorstel integraal goedkeuren');
+        ->assertSee('Gekozen voorstel als geheel goedkeuren');
 
     app(CompleteInstallerSurvey::class)->handle($intake->fresh(), $user);
 
@@ -451,7 +451,7 @@ test('two bedroom survey compares a multi-split option and approves all three co
     $this->actingAs($user)
         ->get(route('intakes.workspace', $intake))
         ->assertOk()
-        ->assertSee('Integraal goedgekeurd')
+        ->assertSee('Als geheel goedgekeurd')
         ->assertDontSee('Geselecteerd voorstel integraal goedkeuren')
         ->assertDontSee('Als onderdeel van voorstel goedkeuren');
 });

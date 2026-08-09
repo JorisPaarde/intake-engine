@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                {{ $showingDemoIntakes ? 'Digitale demo-opnames' : 'Digitale opnames' }}
+                {{ $showingDemoIntakes ? 'Demo-opnames' : 'Opnames' }}
             </h2>
             @if ((! $showingDemoIntakes) || (($isPublicDemo ?? false) && ! ($publicDemoHasIntake ?? false)))
                 <a

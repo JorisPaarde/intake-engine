@@ -26,7 +26,7 @@
         <div class="flex flex-1 flex-col justify-center rounded-lg bg-white p-6 shadow-sm">
             <h1 class="font-display text-2xl font-semibold tracking-tight text-brand-ink">Bedankt</h1>
             <p class="mt-3 text-sm leading-relaxed text-brand-ink/70">
-                Uw aanvulling is toegevoegd aan het dossier. De installateur beoordeelt nu alleen wat nog aandacht nodig heeft.
+                Bedankt. Uw installateur kijkt nu of er nog iets openstaat.
             </p>
             @if ($intake->is_demo)
                 <x-demo-scope-notice variant="complete" />

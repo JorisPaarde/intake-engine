@@ -3,14 +3,14 @@
 
 Hallo,
 
-{{ $customerName }} heeft de digitale opname afgerond@if ($address) ({{ $address }})@endif. Het dossier staat klaar om te beoordelen.
+{{ $customerName }} heeft de opname afgerond@if ($address) ({{ $address }})@endif. De opname staat klaar om te bekijken.
 
 @if ($completedAt)
 Afgerond op {{ $completedAt->timezone(config('app.timezone'))->format('d-m-Y H:i') }}.
 @endif
 
 <x-mail::button :url="$intakeUrl">
-Open het dossier
+Open de opname
 </x-mail::button>
 
 Met vriendelijke groet,  
