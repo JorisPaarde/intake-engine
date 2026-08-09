@@ -7,7 +7,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 ### Changed
 
 - **Werkplek om te genieten (BL-054–058):** sticky CTA is altijd een echte handeling (nooit “bekijk lijst”); open punten tikken door naar het werkblok; sticky/open punten zijn korter; klanttaak en afronden staan na opstellingen; objectfoto’s als thumbnails bij het subject; afronden is één knop met lichte bevestiging. Bouwt voort op BL-053.
-- **Mobiele werkplek: acties eerst (BL-053):** de installateursopname toont sticky “Volgende stap” met één CTA, daarna alleen `Blocked`/`Review` als open punten, dan ruimtes/plekken/opstellingen. AI, woninggegevens, foto’s en uitkomst staan standaard dicht (AI opent bij uitzonderingen). Demobanner, anchors en coachmodals blijven; hash-sprongen openen de juiste sectie.
+- **Mobiele werkplek: acties eerst (BL-053):** de installateursopname toont sticky “Volgende stap” met één CTA (telling bij open punten; ook “Plek toevoegen”), daarna alleen `Blocked`/`Review` als open punten, dan ruimtes/plekken/opstellingen. AI, woninggegevens, foto’s en uitkomst staan standaard dicht (AI opent bij uitzonderingen). Demobanner, anchors en coachmodals blijven; hash-sprongen openen de juiste sectie.
 - **Gecontroleerd eenvoudig Nederlands in de app-UI (BL-052):** klantwizard, follow-up, installateurswerkplek, demo-coach, auth, e-mails, enum-/beslislabels en flashmeldingen gebruiken korte zinnen en gewone woorden (ASD-STE100 / NEN-ISO 24495-1). Airco-template **v11** vernieuwt alleen klantlabels/help/foto-instructies; bestaande gepinde versies blijven intact. Schrijfregels: [docs/language.md](docs/language.md).
 
 ### Fixed
