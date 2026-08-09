@@ -3,7 +3,7 @@
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
                 <p class="text-sm font-medium text-gray-500">{{ $intake->customer_name }} · {{ $intake->fullAddress() }}</p>
-                <h2 class="mt-1 text-xl font-semibold leading-tight text-gray-900">Technische opname</h2>
+                <h2 class="mt-1 text-xl font-semibold leading-tight text-gray-900">Opname</h2>
             </div>
             <div class="flex flex-wrap gap-2">
                 <a href="{{ route('intakes.show', $intake) }}" class="inline-flex min-h-11 items-center rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50">
@@ -74,10 +74,10 @@
                         <div>
                             <p class="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Interactieve demo · echte werkplek</p>
                             <h3 class="mt-2 text-xl font-semibold text-gray-950">
-                                {{ ($demoScenarioLoaded ?? false) ? 'Beoordeel het demoscenario' : 'Bouw het technische dossier op' }}
+                                {{ ($demoScenarioLoaded ?? false) ? 'Bekijk het demoscenario' : 'Bouw de opname op' }}
                             </h3>
                             <p class="mt-2 max-w-3xl text-sm leading-relaxed text-gray-700">
-                                Dezelfde installateursflow als in productie, inclusief adresverrijking en AI-foto-/tekstinterpretatie. Klantgegevens zijn fictief en verdwijnen na {{ max(1, (int) config('intake.demo.ttl_hours', 2)) }} uur. Klantmail blijft uit; een demorapport-PDF kan je onderaan met je e-mail aanvragen.
+                                Dezelfde installateursflow als in productie, inclusief adresinvulling en AI voor foto’s en tekst. Klantgegevens zijn nep en verdwijnen na {{ max(1, (int) config('intake.demo.ttl_hours', 2)) }} uur. Klantmail blijft uit. Een demorapport-PDF kun je onderaan met je e-mail aanvragen.
                             </p>
                             @if (! ($demoScenarioLoaded ?? false))
                                 <form method="POST" action="{{ route('demo.scenario.load', $intake) }}" class="mt-4">
@@ -88,7 +88,7 @@
                                 </form>
                                 @if ($intake->aircoRooms->isNotEmpty())
                                     <p class="mt-2 text-xs leading-relaxed text-sky-900/70">
-                                        Uit de openingszin zijn al gewenste ruimtes afgeleid. Het voorbeelddossier vult dat aan met foto’s, routes en een klanttaak.
+                                        Uit de korte uitleg zijn al gewenste ruimtes afgeleid. Het voorbeelddossier vult dat aan met foto’s, routes en een klanttaak.
                                     </p>
                                 @endif
                             @else
@@ -96,7 +96,7 @@
                                     <a href="#demo-context" class="rounded-full bg-white px-3 py-2 text-sky-800 shadow-sm ring-1 ring-sky-200">1. Woningcontext</a>
                                     <a href="#demo-evidence" class="rounded-full bg-white px-3 py-2 text-sky-800 shadow-sm ring-1 ring-sky-200">2. Foto’s</a>
                                     <a href="#demo-proposal" class="rounded-full bg-white px-3 py-2 text-sky-800 shadow-sm ring-1 ring-sky-200">3. Voorstel en routes</a>
-                                    <a href="#demo-customer-task" class="rounded-full bg-white px-3 py-2 text-sky-800 shadow-sm ring-1 ring-sky-200">4. Gerichte klanttaak</a>
+                                    <a href="#demo-customer-task" class="rounded-full bg-white px-3 py-2 text-sky-800 shadow-sm ring-1 ring-sky-200">4. Taak voor de klant</a>
                                 </nav>
                             @endif
                         </div>
@@ -110,7 +110,7 @@
             <section class="overflow-hidden rounded-3xl bg-gray-950 text-white shadow-sm">
                 <div class="grid gap-6 p-6 sm:p-8 lg:grid-cols-[1fr_auto] lg:items-end">
                     <div>
-                        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-white/55">Offertebesluit</p>
+                        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-white/55">Besluit over de offerte</p>
                         <h3 class="mt-2 text-2xl font-semibold tracking-tight">
                             {{ $quoteArea?->next_action?->label() ?? 'Opname opbouwen' }}
                         </h3>
@@ -121,7 +121,7 @@
                     <div class="flex items-center gap-3">
                         <div class="text-right">
                             <p class="text-3xl font-semibold tabular-nums">{{ $dossier['ready_count'] }}/{{ $dossier['total_count'] }}</p>
-                            <p class="text-xs text-white/55">beslisgebieden gereed</p>
+                            <p class="text-xs text-white/55">onderdelen klaar</p>
                         </div>
                         <span @class([
                             'inline-flex min-h-11 items-center rounded-full px-4 py-2 text-sm font-semibold',
@@ -141,8 +141,8 @@
                     <section class="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
                         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div>
-                                <h3 class="text-lg font-semibold text-gray-950">Beslisgereedheid</h3>
-                                <p class="mt-1 text-sm text-gray-500">Taakvoortgang en technische zekerheid zijn bewust gescheiden.</p>
+                                <h3 class="text-lg font-semibold text-gray-950">Klaar voor offerte</h3>
+                                <p class="mt-1 text-sm text-gray-500">Voortgang van de klanttaak zegt niets over of de offerte al klaar is.</p>
                             </div>
                             <span class="text-sm font-medium text-gray-500">{{ $intake->workflow_mode->label() }}</span>
                         </div>
@@ -175,9 +175,9 @@
                         <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                             <div>
                                 <p class="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">AI-opnameassistent</p>
-                                <h3 class="mt-1 text-lg font-semibold text-gray-950">Integraal voorstel, geen losse veldbevestigingen</h3>
+                                <h3 class="mt-1 text-lg font-semibold text-gray-950">Eén voorstel. Geen aparte bevestiging per veld.</h3>
                                 <p class="mt-1 text-sm leading-relaxed text-gray-600">
-                                    De synthese gebruikt alleen brongebonden dossierinformatie. Opties, routes en klanttaken blijven voorstellen totdat u ze als geheel kiest of verstuurt.
+                                    Het voorstel gebruikt alleen gegevens uit deze opname. Opties, routes en klanttaken blijven voorstellen tot u ze kiest of verstuurt.
                                 </p>
                             </div>
                             <form method="POST" action="{{ route('intakes.workspace.synthesis', $intake) }}">
@@ -205,7 +205,7 @@
                                 @endif
                             </div>
                         @else
-                            <p class="mt-4 text-sm text-indigo-900">Nog geen integrale AI-synthese opgeslagen. De deterministische beslisgereedheid hierboven blijft leidend.</p>
+                            <p class="mt-4 text-sm text-indigo-900">Er is nog geen AI-voorstel opgeslagen. De status hierboven blijft leidend.</p>
                         @endif
                     </section>
 
@@ -390,8 +390,8 @@
 
                     <section id="demo-placements" class="scroll-mt-6 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
                         <div>
-                            <h3 class="text-lg font-semibold text-gray-950">Kandidaatposities</h3>
-                            <p class="mt-1 text-sm text-gray-500">Binnen, buiten, voeding en afvoer blijven losse mogelijkheden tot u een opstelling kiest.</p>
+                            <h3 class="text-lg font-semibold text-gray-950">Mogelijke plekken</h3>
+                            <p class="mt-1 text-sm text-gray-500">Binnen, buiten, stroom en afvoer blijven losse mogelijkheden tot u een opstelling kiest.</p>
                         </div>
 
                         @if ($intake->aircoPlacements->isNotEmpty())
@@ -429,7 +429,7 @@
                         @endif
 
                         <details class="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                            <summary class="cursor-pointer text-sm font-semibold text-gray-900">Kandidaatpositie toevoegen</summary>
+                            <summary class="cursor-pointer text-sm font-semibold text-gray-900">Mogelijke plek toevoegen</summary>
                             <form method="POST" action="{{ route('intakes.workspace.placements.store', $intake) }}" class="mt-4 grid gap-4 sm:grid-cols-2">
                                 @csrf
                                 <div>
@@ -466,7 +466,7 @@
 
                     <section id="demo-proposal" class="scroll-mt-6 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
                         <div>
-                            <h3 class="text-lg font-semibold text-gray-950">Installatieopties</h3>
+                            <h3 class="text-lg font-semibold text-gray-950">Opstellingen</h3>
                             <p class="mt-1 text-sm text-gray-500">Vergelijk bijvoorbeeld één multi-split met twee losse single-splits.</p>
                         </div>
 
@@ -658,14 +658,14 @@
                                 </article>
                             @empty
                                 <div class="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-5 py-8 text-center">
-                                    <p class="font-semibold text-gray-900">Nog geen installatieoptie</p>
-                                    <p class="mt-1 text-sm text-gray-500">Leg eerst binnen- en buitenposities vast en combineer die daarna.</p>
+                                    <p class="font-semibold text-gray-900">Nog geen opstelling</p>
+                                    <p class="mt-1 text-sm text-gray-500">Leg eerst plekken voor binnen- en buitenunit vast. Combineer die daarna.</p>
                                 </div>
                             @endforelse
                         </div>
 
                         <details class="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                            <summary class="cursor-pointer text-sm font-semibold text-gray-900">Installatieoptie maken</summary>
+                            <summary class="cursor-pointer text-sm font-semibold text-gray-900">Opstelling maken</summary>
                             <form method="POST" action="{{ route('intakes.workspace.options.store', $intake) }}" class="mt-4 grid gap-4 sm:grid-cols-2">
                                 @csrf
                                 <div>
@@ -696,7 +696,7 @@
                                     <textarea name="summary" rows="3" class="mt-1 block w-full rounded-xl border-gray-300"></textarea>
                                 </div>
                                 <div class="sm:col-span-2">
-                                    <x-primary-button>Installatieoptie opslaan</x-primary-button>
+                                    <x-primary-button>Opstelling opslaan</x-primary-button>
                                 </div>
                             </form>
                         </details>
@@ -705,7 +705,7 @@
 
                 <aside class="space-y-6">
                     <section id="demo-customer-task" class="scroll-mt-6 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-                        <h3 class="font-semibold text-gray-950">Gerichte klanttaak</h3>
+                        <h3 class="font-semibold text-gray-950">Taak voor de klant</h3>
                         <p class="mt-1 text-sm leading-relaxed text-gray-500">
                             De klant ziet alleen deze opdrachten. Pas bij activeren wordt de klantlink actief.
                             @if ($intake->is_demo)
@@ -743,7 +743,7 @@
                                     </select>
                                     <textarea name="contribution_items[{{ $index }}][prompt]" rows="3" class="mt-2 block w-full rounded-xl border-gray-300 text-sm" placeholder="{{ $index === 0 ? 'Bijv. Maak een leesbare foto van de volledige meterkast.' : 'Nog een concrete opdracht' }}"></textarea>
                                     <select name="contribution_items[{{ $index }}][decision_area_key]" class="mt-2 block min-h-11 w-full rounded-xl border-gray-300 text-sm">
-                                        <option value="">Algemeen dossier</option>
+                                        <option value="">Algemene opname</option>
                                         @foreach ($dossier['areas']->where('key', '!=', 'quote') as $area)
                                             <option value="{{ $area->key }}">{{ $area->label }}</option>
                                         @endforeach
@@ -762,7 +762,7 @@
                             @if ($proposalAlreadyApproved)
                                 De gekozen opstelling en alle bijbehorende verbindingen zijn integraal goedgekeurd.
                             @elseif ($canApproveProposal)
-                                Hiermee keurt u de gekozen opstelling integraal goed. Aannemelijke routes worden samen bevestigd; beslissende open punten blijven zichtbaar.
+                                Hiermee keurt u de gekozen opstelling als geheel goed. Routes die lijken te kloppen worden samen bevestigd. Belangrijke open punten blijven zichtbaar.
                             @elseif ($selectedOption)
                                 Los eerst de beslissende open punten op. Een geblokkeerde route of ontbrekend bewijs wordt nooit stilzwijgend goedgekeurd.
                             @else
@@ -771,13 +771,13 @@
                         </p>
                         @if ($proposalAlreadyApproved)
                             <div class="mt-4 rounded-xl bg-emerald-50 px-4 py-3 text-center text-sm font-semibold text-emerald-800">
-                                Integraal goedgekeurd
+                                Als geheel goedgekeurd
                             </div>
                         @elseif ($canApproveProposal)
                             <form method="POST" action="{{ route('intakes.workspace.complete', $intake) }}" class="mt-4">
                                 @csrf
                                 <button class="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-gray-950 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800">
-                                    Geselecteerd voorstel integraal goedkeuren
+                                    Gekozen voorstel als geheel goedkeuren
                                 </button>
                             </form>
                         @else
@@ -789,7 +789,7 @@
 
                     <section class="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
                         <h3 class="font-semibold text-gray-950">Uitkomst na offerte of plaatsing</h3>
-                        <p class="mt-1 text-sm text-gray-500">Kort vastleggen om bespaarde ritten en montageverrassingen werkelijk te meten.</p>
+                        <p class="mt-1 text-sm text-gray-500">Leg kort vast wat er gebeurde. Zo meten we bespaarde ritten en verrassingen bij montage.</p>
                         @php
                             $recordedVisitReasons = old('site_visit_reasons', $intake->outcome?->site_visit_reasons ?? []);
                             $recordedProposalDeltas = old('proposal_delta_codes', $intake->outcome?->proposal_delta['codes'] ?? []);

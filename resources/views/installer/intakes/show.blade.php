@@ -299,7 +299,7 @@
             <div class="bg-white shadow-sm sm:rounded-lg p-6 space-y-3">
                 <div>
                     <h3 class="text-base font-semibold text-gray-900">AI-voorgestelde aandachtspunten</h3>
-                    <p class="text-xs text-gray-500">Automatisch samengesteld uit het volledige technische dossier. Niet bindend — u beslist wat u overneemt.</p>
+                    <p class="text-xs text-gray-500">Automatisch gemaakt uit de hele opname. Niet bindend. U beslist wat u overneemt.</p>
                 </div>
 
                 @if ($proposedPoints->isNotEmpty())

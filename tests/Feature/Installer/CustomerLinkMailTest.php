@@ -35,7 +35,7 @@ test('creating an intake mails the customer link and records a safe activity eve
     Mail::assertSent(CustomerIntakeLinkMail::class, function (CustomerIntakeLinkMail $mail) use ($intake): bool {
         return $mail->hasTo('mail.klant@example.com')
             && $mail->intake->is($intake)
-            && str_contains($mail->envelope()->subject, 'digitale opname');
+            && str_contains($mail->envelope()->subject, 'opname staat klaar');
     });
 
     $event = IntakeActivityEvent::query()

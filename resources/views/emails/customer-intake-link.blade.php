@@ -1,9 +1,9 @@
 <x-mail::message>
-# Uw digitale opname staat klaar
+# Uw opname staat klaar
 
 Hallo {{ $customerName }},
 
-Met uw hulp kunnen we sneller uw airco plaatsen. Bekende woninggegevens hebben we al toegevoegd; via de knop hieronder vragen we alleen de informatie en foto’s die we nog nodig hebben. Dat kan op uw telefoon en u kunt later gewoon verdergaan.
+Met uw hulp kunnen we sneller uw airco plaatsen. Bekende woninggegevens hebben we al toegevoegd. Via de knop hieronder vraagt u alleen wat we nog nodig hebben. Dat kan op uw telefoon. U kunt later gewoon verdergaan.
 
 <x-mail::button :url="$customerUrl">
 Open uw opname

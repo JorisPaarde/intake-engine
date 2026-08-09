@@ -29,7 +29,7 @@
 
         <div class="mt-4">
             <p class="mb-4 rounded-xl bg-[color-mix(in_srgb,var(--tenant-primary)_8%,white)] px-4 py-3 text-sm font-medium leading-5 text-[#1D1D1F]">
-                Met uw hulp kunnen we sneller uw airco plaatsen. Wij gebruiken bekende woninggegevens al; u laat alleen zien wat we nog nodig hebben.
+                Met uw hulp kunnen we sneller uw airco plaatsen. Wij gebruiken al bekende woninggegevens. U laat alleen zien wat we nog nodig hebben.
             </p>
             <div class="flex items-center justify-between text-sm text-[#6E6E73]">
                 <span>Voortgang</span>
@@ -54,7 +54,7 @@
                 @if ($intake->is_demo)
                     Dit was een demo. Er wordt geen echte offerte gemaakt en de gegevens verdwijnen automatisch.
                 @else
-                    Uw bijdrage is veilig toegevoegd. De installateur beoordeelt nu alleen de installatiekeuzes en eventuele uitzonderingen.
+                    Bedankt. Uw installateur bekijkt nu of er nog iets nodig is voor de offerte.
                     U kunt dit venster sluiten.
                 @endif
             </p>
@@ -73,7 +73,7 @@
         </div>
     @elseif ($step === null || $question === null)
         <p class="rounded-xl border border-[#D2D2D7] bg-white p-4 text-sm text-[#424245] shadow-sm">
-            Er zijn nog geen vragen beschikbaar. Vul eerst het aantal binnenunits in bij Aanvraag.
+            Er zijn nog geen vragen. Vul eerst in hoeveel ruimtes u wilt koelen of verwarmen.
         </p>
     @else
         @php

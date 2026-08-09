@@ -7,7 +7,7 @@ use App\Domains\Intake\Services\PublishIntakeTemplateFromConfig;
 use App\Enums\TemplateVersionStatus;
 use Database\Seeders\IntakeTemplateSeeder;
 
-test('airco template seeder publishes v1 through v10 with v10 as latest', function () {
+test('airco template seeder publishes v1 through v11 with v11 as latest', function () {
     $this->seed(IntakeTemplateSeeder::class);
 
     $template = IntakeTemplate::query()->where('key', 'airco')->first();
@@ -17,14 +17,14 @@ test('airco template seeder publishes v1 through v10 with v10 as latest', functi
 
     $versions = $template->versions()->orderBy('version')->get();
 
-    expect($versions)->toHaveCount(10)
-        ->and($versions->pluck('version')->all())->toBe([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+    expect($versions)->toHaveCount(11)
+        ->and($versions->pluck('version')->all())->toBe([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
         ->and($versions->every(fn ($version) => $version->status === TemplateVersionStatus::Published))->toBeTrue();
 
     $latest = $template->latestPublishedVersion();
 
     expect($latest)->not->toBeNull()
-        ->and($latest->version)->toBe(10)
+        ->and($latest->version)->toBe(11)
         ->and($latest->sections()->count())->toBeGreaterThan(5)
         ->and($latest->sections()->where('key', 'rooms')->value('is_repeatable'))->toBeTrue();
 
@@ -96,23 +96,32 @@ test('airco template seeder publishes v1 through v10 with v10 as latest', functi
         ->firstOrFail();
 
     expect($freeGroup->is_required)->toBeFalse()
-        ->and($freeGroup->label)->toBe('Is er een vrije groep beschikbaar?')
+        ->and($freeGroup->label)->toBe('Is er een vrije groep in de meterkast?')
         ->and($freeGroup->meta['skip_when_prefilled_by'] ?? null)->toBe('ai')
         ->and($fuseboxPhoto->meta['photo_analysis'] ?? null)->toBe('fusebox')
         ->and($outdoor->questions()->where('key', 'distance_to_indoor')->exists())->toBeFalse()
         // v7 schrapt de losse gevelfoto: de PDOK-luchtfoto levert het overzicht al.
         ->and($outdoor->questions()->where('key', 'facade_overview_photo')->exists())->toBeFalse();
 
+    $sunExposure = $latest->sections()
+        ->where('key', 'rooms')
+        ->firstOrFail()
+        ->questions()
+        ->where('key', 'sun_exposure')
+        ->firstOrFail();
+
+    expect($sunExposure->label)->toBe('Hoeveel zon krijgt deze ruimte?');
+
     // Re-seeding is idempotent for published versions.
     $againV1 = app(PublishIntakeTemplateFromConfig::class)->handle(
         require database_path('data/templates/airco/v1.php'),
     );
-    $againV10 = app(PublishIntakeTemplateFromConfig::class)->handle(
-        require database_path('data/templates/airco/v10.php'),
+    $againV11 = app(PublishIntakeTemplateFromConfig::class)->handle(
+        require database_path('data/templates/airco/v11.php'),
     );
 
     expect($againV1->version)->toBe(1)
-        ->and($againV10->id)->toBe($latest->id)
+        ->and($againV11->id)->toBe($latest->id)
         ->and(IntakeTemplate::query()->where('key', 'airco')->count())->toBe(1)
-        ->and($template->versions()->count())->toBe(10);
+        ->and($template->versions()->count())->toBe(11);
 });

@@ -42,7 +42,7 @@ final class IntakeDossierSummaryBuilder
         if ($unitCount !== null || $rooms !== []) {
             $scope = $unitCount === null
                 ? 'Opgegeven ruimtes'
-                : 'Opgegeven omvang: '.$unitCount.' '.($unitCount === 1 ? 'binnenunit' : 'binnenunits');
+                : 'Opgegeven omvang: '.$unitCount.' '.($unitCount === 1 ? 'ruimte' : 'ruimtes');
 
             if ($rooms !== []) {
                 $scope .= ' voor '.implode(', ', $rooms);

@@ -1,8 +1,8 @@
 # Vragen- en takenengine
 
-> **Documentversie:** 2.5 · **Laatste update:** 2026-07-31 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.6 · **Laatste update:** 2026-08-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: de templatewizard is **geïmplementeerd t/m airco v10** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md).
+Status: de templatewizard is **geïmplementeerd t/m airco v11** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md). UI-taal: [language.md](language.md).
 
 ## Doel
 
@@ -185,7 +185,7 @@ Secties (stabiele keys over versies):
 
 ### v1 → v2 (BL-017, toenmalige vragenreductie)
 
-V2 introduceerde onderstaande vraagreductie. Nieuwe intakes gebruiken inmiddels de laatste gepubliceerde **v10**; lopende/afgeronde opnames blijven op hun gepinde versie (ADR-0001). V10 verandert klanttaal en repeatable-semantiek naar gewenste ruimtes en voorkomt dat de klant een binnenunitpositie kiest; de technische single-/multi-splitkeuze staat in airco-objecten.
+V2 introduceerde onderstaande vraagreductie. Nieuwe intakes gebruiken inmiddels de laatste gepubliceerde **v11**; lopende/afgeronde opnames blijven op hun gepinde versie (ADR-0001). V10 verandert klanttaal en repeatable-semantiek naar gewenste ruimtes en voorkomt dat de klant een binnenunitpositie kiest; de technische single-/multi-splitkeuze staat in airco-objecten. V11 houdt die structuur en vernieuwt alleen de klantteksten naar gecontroleerd eenvoudig Nederlands.
 
 | Wijziging | Was (v1) | Wordt (v2) |
 |-----------|----------|------------|
@@ -381,8 +381,11 @@ Gemeten op een opname met één gewenste ruimte, met werkende BAG, energielabel,
 | v8 (met energielabel) | ~19 |
 | v9 (openingsvraag + cascades) | 18 |
 | v10 (gewenste-ruimtetaal) | 18 |
+| v11 (eenvoudige klanttaal) | 18 |
 
 Bij twee gewenste ruimtes komen daar 3 stappen voor de extra ruimte bij (foto's + verdieping), dus 21.
+
+V11 wijzigt geen vragenstructuur of regels; alleen labels, helpteksten en foto-instructies naar gecontroleerd eenvoudig Nederlands (BL-052).
 
 Wat overblijft is de openingsvraag zelf, niet-zichtbare feiten (eigendom, verdieping), voorkeuren, de foto's en de twee afsluitende verklaringen.
 

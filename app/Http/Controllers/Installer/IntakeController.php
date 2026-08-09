@@ -341,7 +341,7 @@ class IntakeController extends Controller
         if (! $intake->customer_access_enabled) {
             return redirect()
                 ->route('intakes.show', $intake)
-                ->with('status', 'Geen klantlink actief. Stuur vanuit de technische opname eerst een gerichte klantopdracht.');
+                ->with('status', 'Geen klantlink actief. Stuur vanuit de opname eerst een taak naar de klant.');
         }
 
         $intake = $regenerate->handle($intake, $request->user());
@@ -362,7 +362,7 @@ class IntakeController extends Controller
         if (! $intake->customer_access_enabled) {
             return redirect()
                 ->route('intakes.show', $intake)
-                ->with('status', 'Geen klantlink actief. Stuur vanuit de technische opname eerst een gerichte klantopdracht.');
+                ->with('status', 'Geen klantlink actief. Stuur vanuit de opname eerst een taak naar de klant.');
         }
 
         $mailResult = $sendCustomerIntakeLink->handle($intake, $request->user());

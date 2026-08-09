@@ -1,9 +1,9 @@
 <x-mail::message>
-# Herinnering: uw digitale opname
+# Herinnering: uw opname
 
 Hallo {{ $customerName }},
 
-Met uw hulp kunnen we sneller uw airco plaatsen. U hebt nog een openstaande digitale opname. Via de knop hieronder kunt u verdergaan waar u was gebleven — dat kan op uw telefoon.
+Met uw hulp kunnen we sneller uw airco plaatsen. U hebt nog een openstaande opname. Via de knop hieronder kunt u verdergaan waar u was. Dat kan op uw telefoon.
 
 <x-mail::button :url="$customerUrl">
 Ga verder met uw opname

@@ -23,13 +23,13 @@ final class DecisionReadinessService
     /** @var array<string, string> */
     private const LABELS = [
         'request' => 'Aanvraag en gewenste ruimtes',
-        'capacity' => 'Capaciteit indiceren',
-        'placement' => 'Plaatsing en configuratie',
+        'capacity' => 'Benodigd vermogen',
+        'placement' => 'Plekken en opstelling',
         'refrigerant' => 'Koelleiding(en)',
         'condensate' => 'Condensafvoer',
         'power' => 'Stroomtoevoer',
-        'cost_risks' => 'Kostenbepalende risico’s',
-        'quote' => 'Offertebesluit',
+        'cost_risks' => 'Risico’s voor de prijs',
+        'quote' => 'Besluit over de offerte',
     ];
 
     /** @return Collection<int, DossierDecisionArea> */
@@ -88,7 +88,7 @@ final class DecisionReadinessService
             return [
                 'status' => DecisionAreaStatus::Blocked,
                 'next_action' => DossierNextAction::RequestContribution,
-                'blocker' => 'Leg minimaal één gewenste ruimte vast.',
+                'blocker' => 'Voeg minstens één gewenste ruimte toe.',
             ];
         }
 
@@ -104,7 +104,7 @@ final class DecisionReadinessService
         if ($intake->aircoRooms->isEmpty()) {
             return [
                 'status' => DecisionAreaStatus::Blocked,
-                'blocker' => 'Gewenste ruimtes ontbreken.',
+                'blocker' => 'Er is nog geen gewenste ruimte.',
             ];
         }
 
@@ -117,7 +117,7 @@ final class DecisionReadinessService
 
         return [
             'status' => $complete ? DecisionAreaStatus::Ready : DecisionAreaStatus::Review,
-            'blocker' => $complete ? null : 'Controleer ontbrekende ruimtematen vóór definitieve capaciteitskeuze.',
+            'blocker' => $complete ? null : 'Vul ontbrekende maten van de ruimte in voordat u het vermogen kiest.',
             'evidence_summary' => [
                 'rooms' => $intake->aircoRooms->count(),
                 'complete_rooms' => $intake->aircoRooms->filter(static function (AircoRoom $room): bool {
@@ -140,13 +140,13 @@ final class DecisionReadinessService
             return [
                 'status' => DecisionAreaStatus::Blocked,
                 'next_action' => DossierNextAction::RequestContribution,
-                'blocker' => 'Maak eerst een installatieoptie met binnen- en buitenposities.',
+                'blocker' => 'Maak eerst een opstelling met plekken voor binnen- en buitenunit.',
             ];
         }
 
         return [
             'status' => $selected === null ? DecisionAreaStatus::Review : DecisionAreaStatus::Ready,
-            'blocker' => $selected === null ? 'Kies of corrigeer één installatieoptie.' : null,
+            'blocker' => $selected === null ? 'Kies één opstelling, of pas die aan.' : null,
             'evidence_summary' => [
                 'option_id' => $candidate->id,
                 'configuration' => $candidate->configuration_type->value,
@@ -163,7 +163,7 @@ final class DecisionReadinessService
         if ($option === null) {
             return [
                 'status' => DecisionAreaStatus::Blocked,
-                'blocker' => 'Er is nog geen installatieoptie om deze route aan te koppelen.',
+                'blocker' => 'Er is nog geen opstelling om deze route aan te koppelen.',
             ];
         }
 
@@ -175,7 +175,7 @@ final class DecisionReadinessService
             return [
                 'status' => DecisionAreaStatus::Blocked,
                 'next_action' => DossierNextAction::RequestContribution,
-                'blocker' => 'Leg de '.$type->label().' voor deze installatieoptie vast.',
+                'blocker' => 'Leg de '.$type->label().' voor deze opstelling vast.',
             ];
         }
 
@@ -196,7 +196,7 @@ final class DecisionReadinessService
                 return [
                     'status' => DecisionAreaStatus::Blocked,
                     'next_action' => DossierNextAction::RequestContribution,
-                    'blocker' => 'Niet iedere binnenpositie heeft een eigen '.$type->label().'.',
+                    'blocker' => 'Niet elke binnenplek heeft een eigen '.$type->label().'.',
                     'evidence_summary' => [
                         'connections' => $connections->count(),
                         'uncovered_indoor_placement_ids' => $uncoveredIndoorPlacements->pluck('id')->all(),
@@ -211,7 +211,7 @@ final class DecisionReadinessService
             return [
                 'status' => DecisionAreaStatus::Blocked,
                 'next_action' => DossierNextAction::PlanSiteVisit,
-                'blocker' => 'Minimaal één route is niet verantwoord op afstand vast te stellen.',
+                'blocker' => 'Minstens één route is alleen te zien op locatie.',
             ];
         }
 
@@ -225,7 +225,7 @@ final class DecisionReadinessService
             return [
                 'status' => DecisionAreaStatus::Blocked,
                 'next_action' => DossierNextAction::RequestContribution,
-                'blocker' => 'Minimaal één route mist beslissend bewijs.',
+                'blocker' => 'Minstens één route mist belangrijk bewijs.',
             ];
         }
 
@@ -235,7 +235,7 @@ final class DecisionReadinessService
 
         return [
             'status' => $allApproved ? DecisionAreaStatus::Ready : DecisionAreaStatus::Review,
-            'blocker' => $allApproved ? null : 'De route is aannemelijk en wacht op integrale installateurscontrole.',
+            'blocker' => $allApproved ? null : 'De route lijkt te kloppen. Controleer hem nog als geheel.',
             'evidence_summary' => [
                 'connections' => $connections->count(),
                 'approved' => $connections->where('status', AircoConnectionStatus::Approved)->count(),
@@ -249,7 +249,7 @@ final class DecisionReadinessService
         if ($option === null) {
             return [
                 'status' => DecisionAreaStatus::Unknown,
-                'blocker' => 'Kostenrisico’s volgen na een installatieoptie.',
+                'blocker' => 'Prijsrisico’s volgen nadat er een opstelling is.',
             ];
         }
 
@@ -266,7 +266,7 @@ final class DecisionReadinessService
         return [
             'status' => $risks === [] ? DecisionAreaStatus::Ready : DecisionAreaStatus::Review,
             'cost_risks' => $risks,
-            'blocker' => $risks === [] ? null : 'Verwerk de gemarkeerde risico’s in offerte of voorbehoud.',
+            'blocker' => $risks === [] ? null : 'Neem de gemarkeerde risico’s mee in de offerte of in een voorbehoud.',
         ];
     }
 
@@ -286,7 +286,7 @@ final class DecisionReadinessService
             return [
                 'status' => DecisionAreaStatus::Blocked,
                 'next_action' => DossierNextAction::PlanSiteVisit,
-                'blocker' => 'Een beslissend onderdeel is niet op afstand vast te stellen.',
+                'blocker' => 'Een belangrijk onderdeel is alleen te zien op locatie.',
             ];
         }
 
@@ -296,7 +296,7 @@ final class DecisionReadinessService
             return [
                 'status' => DecisionAreaStatus::Blocked,
                 'next_action' => DossierNextAction::RequestContribution,
-                'blocker' => 'Los eerst de gemarkeerde beslissende onzekerheden op.',
+                'blocker' => 'Los eerst de gemarkeerde open punten op.',
             ];
         }
 
@@ -306,7 +306,7 @@ final class DecisionReadinessService
             return [
                 'status' => DecisionAreaStatus::Review,
                 'next_action' => DossierNextAction::SendEstimate,
-                'blocker' => 'Een prijsindicatie is mogelijk; technische controle blijft nodig.',
+                'blocker' => 'Een prijsindicatie kan. Controleer de techniek nog wel.',
             ];
         }
 
@@ -316,7 +316,7 @@ final class DecisionReadinessService
             return [
                 'status' => DecisionAreaStatus::Review,
                 'next_action' => DossierNextAction::PrepareQuote,
-                'blocker' => 'Controleer het installatievoorstel integraal en verwerk gemarkeerde kostenrisico’s.',
+                'blocker' => 'Controleer het voorstel als geheel. Neem gemarkeerde prijsrisico’s mee.',
             ];
         }
 

@@ -18,9 +18,9 @@ enum AircoConnectionStatus: string
         return match ($this) {
             self::Unknown => 'Nog onbekend',
             self::Proposed => 'Voorgesteld',
-            self::Plausible => 'Aannemelijk',
+            self::Plausible => 'Lijkt te kloppen',
             self::NeedsEvidence => 'Aanvulling nodig',
-            self::NotRemotelyResolvable => 'Niet op afstand vast te stellen',
+            self::NotRemotelyResolvable => 'Alleen te zien op locatie',
             self::Approved => 'Goedgekeurd',
         };
     }

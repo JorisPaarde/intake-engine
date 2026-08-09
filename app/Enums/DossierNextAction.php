@@ -17,7 +17,7 @@ enum DossierNextAction: string
         return match ($this) {
             self::PrepareQuote => 'Offerte voorbereiden',
             self::SendEstimate => 'Prijsindicatie sturen',
-            self::RequestContribution => 'Gerichte aanvulling vragen',
+            self::RequestContribution => 'Nog iets aan de klant vragen',
             self::PlanSiteVisit => 'Locatiebezoek plannen',
             self::Reject => 'Aanvraag afwijzen',
         };

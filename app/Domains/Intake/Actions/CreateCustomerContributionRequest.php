@@ -50,7 +50,7 @@ final class CreateCustomerContributionRequest
 
         if (count($items) > $maxItems) {
             throw ValidationException::withMessages([
-                'contribution_items' => "Voeg maximaal {$maxItems} gerichte klantopdrachten per ronde toe.",
+                'contribution_items' => "Voeg maximaal {$maxItems} klanttaken per ronde toe.",
             ]);
         }
 

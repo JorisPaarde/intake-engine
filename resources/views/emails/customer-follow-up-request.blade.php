@@ -3,7 +3,7 @@
 
 Hallo {{ $customerName }},
 
-Met uw hulp kunnen we sneller uw airco plaatsen. Uw installateur heeft nog een paar gerichte antwoorden, foto's of documenten nodig. Via dezelfde beveiligde link ziet u alleen wat nog echt ontbreekt.
+Met uw hulp kunnen we sneller uw airco plaatsen. Uw installateur heeft nog een paar antwoorden, foto's of documenten nodig. Via dezelfde beveiligde link ziet u alleen wat nog echt ontbreekt.
 
 <x-mail::button :url="$customerUrl">
 Aanvraag aanvullen

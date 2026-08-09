@@ -17,7 +17,7 @@ enum ReviewDecision: string
         return match ($this) {
             self::Pending => 'Nog beoordelen',
             self::PrepareQuote => 'Offerte voorbereiden',
-            self::NeedMoreInfo => 'Aanvullende informatie nodig',
+            self::NeedMoreInfo => 'Nog meer info nodig',
             self::SiteVisitNeeded => 'Locatiebezoek nodig',
             self::NotSuitable => 'Aanvraag niet passend',
         };

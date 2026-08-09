@@ -13,8 +13,8 @@ enum AircoOptionStatus: string
     public function label(): string
     {
         return match ($this) {
-            self::Candidate => 'Kandidaat',
-            self::Selected => 'Geselecteerd',
+            self::Candidate => 'Optie',
+            self::Selected => 'Gekozen',
             self::Rejected => 'Afgewezen',
         };
     }

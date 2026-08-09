@@ -13,7 +13,7 @@ enum FollowUpItemType: string
     public function label(): string
     {
         return match ($this) {
-            self::Text => 'Tekstantwoord',
+            self::Text => 'Tekst',
             self::Photo => 'Foto',
             self::Document => 'Document (PDF)',
         };
