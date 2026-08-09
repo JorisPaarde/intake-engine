@@ -470,12 +470,13 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-052 — Gecontroleerd eenvoudig Nederlands in de app-UI
 
-- **Status:** in_progress · **Prioriteit:** medium · **Epic:** E5 · **Band:** A
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-08-09 · **PR:** #69 · **Epic:** E5 · **Band:** A
 - **Aanleiding:** na BL-045 was de homepage eenvoudiger, maar klantwizard, installateurswerkplek, demo-coach, mails en templatevragen bevatten nog jargon en lange zinnen.
 - **Doel:** schrijf alle gebruikersgerichte app-teksten in gecontroleerd, eenvoudig Nederlands volgens ASD-STE100 en NEN-ISO 24495-1.
 - **Scope:** klantwizard/follow-up, installateursschermen, demo-coach, auth, e-mails, enum-/beslislabels, flashmeldingen en airco-template **v11** (alleen labels/help/foto-instructies). Nieuwe bron: [docs/language.md](language.md). Dev-admin en productdocs buiten scope.
 - **Acceptatie:** korte zinnen en gewone woorden; vaste termen uit de woordenlijst; nieuwe intakes gebruiken v10+vragen met v11-taal; bestaande gepinde templates blijven ongewijzigd; `composer check` groen.
 - **Niet in scope:** homepage-copy (BL-045/046), code-identifiers, ADR’s, interne comments.
+- **Resultaat:** UI/mails/enums herschreven; airco v11 gepubliceerd via seeder; schrijfregels in `docs/language.md`; featuretests bijgewerkt; `composer check` groen.
 
 ### BL-045 — Eenvoudige installateurstaal op de productfunnel
 
