@@ -486,31 +486,31 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-054 — Sticky CTA = echte handeling
 
-- **Status:** done · **Prioriteit:** high · **Datum:** 2026-08-09 · **PR:** deze PR · **Epic:** E5 · **Band:** O · **Afhankelijk:** BL-053
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-08-09 · **PR:** #71 · **Epic:** E5 · **Band:** O · **Afhankelijk:** BL-053
 - **Doel:** de sticky knop scrollt/opent altijd een echte handeling, nooit “bekijk open punten”.
 - **Resultaat:** `WorkspacePrimaryActionResolver` kiest ruimte/plek/route/klanttaak/goedkeuren/uitkomst; unit- en featuretests bewaken dat “bekijken” verdwijnt.
 
 ### BL-055 — Open punten tikken door naar werkblok
 
-- **Status:** done · **Prioriteit:** high · **Datum:** 2026-08-09 · **PR:** deze PR · **Epic:** E5 · **Band:** O · **Afhankelijk:** BL-054
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-08-09 · **PR:** #71 · **Epic:** E5 · **Band:** O · **Afhankelijk:** BL-054
 - **Doel:** elk open punt is een link naar het juiste werkblok (`#workspace-rooms`, `#demo-placements`, `#connection-{id}`, …).
 - **Resultaat:** kaarten tonen de concrete handeling + anker; verbindingen hebben `id="connection-{id}"`.
 
 ### BL-056 — Sticky/open punten inkorten + mobiele volgorde
 
-- **Status:** done · **Prioriteit:** high · **Datum:** 2026-08-09 · **PR:** deze PR · **Epic:** E5 · **Band:** O · **Afhankelijk:** BL-054
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-08-09 · **PR:** #71 · **Epic:** E5 · **Band:** O · **Afhankelijk:** BL-054
 - **Doel:** minder statusruis; klanttaak en afronden in de main-flow na opstellingen.
 - **Resultaat:** compacte sticky (samenvatting + knop); max 3 open punten zichtbaar; klanttaak/afronden vóór AI; uitkomst in aside.
 
 ### BL-057 — Bewijsfoto’s bij het object
 
-- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-08-09 · **PR:** deze PR · **Epic:** E5 · **Band:** O · **Afhankelijk:** BL-049/053
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-08-09 · **PR:** #71 · **Epic:** E5 · **Band:** O · **Afhankelijk:** BL-049/053
 - **Doel:** recente foto’s staan bij ruimte/plek/verbinding, niet alleen in de globale galerij.
 - **Resultaat:** `_subject-tools` toont tot 4 thumbnails per subject; globale fotolijst blijft dicht.
 
 ### BL-058 — Licht afronden na voorstelgoedkeuring
 
-- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-08-09 · **PR:** deze PR · **Epic:** E5 · **Band:** O · **Afhankelijk:** BL-054
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-08-09 · **PR:** #71 · **Epic:** E5 · **Band:** O · **Afhankelijk:** BL-054
 - **Doel:** goedkeuren is één duidelijke knop; na akkoord een korte bevestiging + sprong naar uitkomst.
 - **Resultaat:** sectie “Voorstel afronden” met korte copy; sticky na goedkeuring wijst naar uitkomst.
 
