@@ -22,9 +22,39 @@
         )
         ->sortByDesc('id');
     $fieldPrefix = 'subject-'.$subject?->id;
+    $subjectPhotos = $subject
+        ? $intake->uploads
+            ->filter(
+                static fn ($upload): bool => $upload->section_instance_key === 'subject-'.$subject->id
+            )
+            ->sortByDesc('id')
+            ->take(4)
+            ->values()
+        : collect();
 @endphp
 
 @if ($subject)
+    @if ($subjectPhotos->isNotEmpty())
+        <ul class="mt-4 grid grid-cols-4 gap-2">
+            @foreach ($subjectPhotos as $photo)
+                <li>
+                    <a
+                        href="{{ route('installer.uploads.show', [$intake, $photo]) }}"
+                        target="_blank"
+                        rel="noopener"
+                        class="block overflow-hidden rounded-xl border border-gray-200 bg-gray-50"
+                    >
+                        <img
+                            src="{{ route('installer.uploads.show', [$intake, $photo]) }}"
+                            alt="Foto bij {{ $subject->label }}"
+                            class="aspect-square w-full object-cover"
+                        >
+                    </a>
+                </li>
+            @endforeach
+        </ul>
+    @endif
+
     @if ($photoSuggestions->isNotEmpty())
         <div class="mt-4 space-y-3">
             @foreach ($photoSuggestions as $suggestion)

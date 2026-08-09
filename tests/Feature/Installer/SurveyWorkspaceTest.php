@@ -90,8 +90,11 @@ test('installer can start a self-performed survey without exposing or mailing a 
         ->assertSee('Open punten')
         ->assertSee('Ruimte toevoegen')
         ->assertSee('Taak voor de klant')
+        ->assertSee('Voorstel afronden')
         ->assertSee('Woninggegevens')
-        ->assertSee('tik om te openen');
+        ->assertSee('tik om te openen')
+        ->assertSee('href="#workspace-rooms"', false)
+        ->assertDontSee('open punten bekijken');
 });
 
 test('legacy customer link actions cannot expose an installer-only survey', function () {
@@ -128,11 +131,13 @@ test('workspace attaches photos and notes to the relevant object without exposin
         ->assertSee('Woninggegevens')
         ->assertSee('tik om te openen')
         ->assertSee('Volgende stap')
+        ->assertSee('Plek toevoegen')
         ->assertSee('Foto maken')
         ->assertSee('Technische notitie')
         ->assertDontSee('Camera en bewijs')
         ->assertDontSee('Vakwaarneming')
         ->assertDontSee('Telefonisch vastgesteld')
+        ->assertDontSee('open punten bekijken')
         ->assertDontSee('name="key"', false)
         ->assertDontSee('name="method"', false)
         ->assertDontSee('name="dossier_subject_id"', false);
@@ -437,7 +442,7 @@ test('two bedroom survey compares a multi-split option and approves all three co
     $this->actingAs($user)
         ->get(route('intakes.workspace', $intake))
         ->assertOk()
-        ->assertSee('Gekozen voorstel als geheel goedkeuren');
+        ->assertSee('Voorstel goedkeuren');
 
     app(CompleteInstallerSurvey::class)->handle($intake->fresh(), $user);
 
@@ -455,7 +460,8 @@ test('two bedroom survey compares a multi-split option and approves all three co
     $this->actingAs($user)
         ->get(route('intakes.workspace', $intake))
         ->assertOk()
-        ->assertSee('Als geheel goedgekeurd')
+        ->assertSee('Goedgekeurd. Leg hieronder de uitkomst vast als je wilt.')
+        ->assertSee('Uitkomst vastleggen')
         ->assertDontSee('Geselecteerd voorstel integraal goedkeuren')
         ->assertDontSee('Als onderdeel van voorstel goedkeuren');
 });
