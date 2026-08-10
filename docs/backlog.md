@@ -520,35 +520,39 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-059 — Ruimtes bewerken na aanmaken
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E7 · **Band:** O · **Afhankelijk:** BL-037/054
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-08-10 · **PR:** #73 · **Epic:** E7 · **Band:** O · **Afhankelijk:** BL-037/054
 - **Aanleiding:** installateurs kunnen ruimtematen en gebruik alleen bij aanmaken zetten; open punt “Maten invullen” landt op de ruimtesectie zonder bewerkbaar formulier.
 - **Doel:** naam, gebruik en maten van een bestaande ruimte bijwerken; beslisgereedheid herberekent; deep link `#room-{id}` naar de eerste incomplete ruimte.
 - **Scope:** `AircoSurveyService::updateRoom`, workspace-route/formulier, resolver-capacity-anchor. Geen verwijderen van ruimtes.
 - **Acceptatie:** maten wijzigen werkt; readiness volgt; open punt capacity springt naar `#room-{id}` wanneer maten missen.
+- **Resultaat:** bewerkformulier per ruimte; capacity-CTA deep-linkt naar eerste incomplete `#room-{id}`.
 
 ### BL-060 — Plaatsingen bewerken na aanmaken
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E8 · **Band:** O · **Afhankelijk:** BL-039/054
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-08-10 · **PR:** #73 · **Epic:** E8 · **Band:** O · **Afhankelijk:** BL-039/054
 - **Aanleiding:** plaatsingsopties zijn na create read-only; correcties vereisen een nieuwe kandidaat.
 - **Doel:** label, type, ruimte-koppeling en beschrijving van een bestaande plaatsing bijwerken.
 - **Scope:** `AircoSurveyService::updatePlacement`, workspace-route/formulier, `#placement-{id}`. Geen verwijderen.
 - **Acceptatie:** bijwerken herberekent readiness; subjectlabel blijft synchroon.
+- **Resultaat:** bewerkformulier per plek; dossier-subjectlabel/meta blijft synchroon.
 
 ### BL-061 — AI-uitzondering → 1-klik klanttaak
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E7 · **Band:** O · **Afhankelijk:** BL-038/041
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-08-10 · **PR:** #73 · **Epic:** E7 · **Band:** O · **Afhankelijk:** BL-038/041
 - **Aanleiding:** AI-uitzonderingen zijn alleen tekst; de installateur moet handmatig een klanttaakformulier vullen.
 - **Doel:** per uitzondering één knop die direct een klanttaak aanmaakt en (waar mogelijk) mailt.
 - **Scope:** snelle `customer-tasks/quick`-route op basis van exception-label + decision_area; hergebruik `CreateCustomerContributionRequest` + mailpad.
 - **Acceptatie:** één tik vanaf uitzondering → open klantronde; openstaande ronde blokkeert netjes.
+- **Resultaat:** knop “Vraag de klant” per AI-uitzondering.
 
 ### BL-062 — Open punt / foto → vraag klant
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E7 · **Band:** O · **Afhankelijk:** BL-054/049
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-08-10 · **PR:** #73 · **Epic:** E7 · **Band:** O · **Afhankelijk:** BL-054/049
 - **Aanleiding:** open punten zijn alleen deep links; bij AI-fotovoorstellen ontbreekt “vraag nieuwe foto aan de klant”.
 - **Doel:** bij open punten met `RequestContribution` en bij foto-voorstellen één-klik “Vraag de klant”.
 - **Scope:** zelfde quick-contribution endpoint; knoppen in open-puntenlijst en `_subject-tools`.
 - **Acceptatie:** prompt komt uit blocker/voorsteltekst; type photo waar relevant.
+- **Resultaat:** “Vraag de klant” bij open punten; “Vraag nieuwe foto” bij AI-fotovoorstellen.
 
 ### BL-052 — Gecontroleerd eenvoudig Nederlands in de app-UI
 
