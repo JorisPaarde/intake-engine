@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Added
+
+- **Werkplek afronden: bewerken + 1-klik klanttaak (BL-059–062):** ruimtes en plaatsingen zijn na aanmaken bewerkbaar (`#room-{id}` / `#placement-{id}`); capacity-open-punten springen naar de eerste ruimte zonder maten; AI-uitzonderingen, open punten met klantbijdrage en AI-fotovoorstellen hebben één-tik “Vraag de klant” / “Vraag nieuwe foto” via `customer-tasks/quick`.
+
 ### Changed
 
 - **Werkplek om te genieten (BL-054–058):** sticky CTA is altijd een echte handeling (nooit “bekijk lijst”); open punten tikken door naar het werkblok; sticky/open punten zijn korter; klanttaak en afronden staan na opstellingen; objectfoto’s als thumbnails bij het subject; afronden is één knop met lichte bevestiging. Bouwt voort op BL-053.

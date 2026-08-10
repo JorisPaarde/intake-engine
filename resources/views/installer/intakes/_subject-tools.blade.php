@@ -78,6 +78,26 @@
                                 Klopt
                             </button>
                         </form>
+                        <form method="POST" action="{{ route('intakes.workspace.tasks.quick', $intake) }}">
+                            @csrf
+                            <input type="hidden" name="type" value="{{ \App\Enums\FollowUpItemType::Photo->value }}">
+                            <input type="hidden" name="prompt" value="{{ \Illuminate\Support\Str::limit('Maak een nieuwe, duidelijke foto van '.$subject->label.'. '.$suggestion->value['text'], 500, '') }}">
+                            <input type="hidden" name="decision_area_key" value="{{ match ($subject->type) {
+                                'airco_room' => 'capacity',
+                                'airco_placement' => 'placement',
+                                'airco_connection' => match ($subject->meta['connection_type'] ?? null) {
+                                    'refrigerant' => 'refrigerant',
+                                    'condensate' => 'condensate',
+                                    'power' => 'power',
+                                    default => 'placement',
+                                },
+                                default => 'placement',
+                            } }}">
+                            <input type="hidden" name="dossier_subject_id" value="{{ $subject->id }}">
+                            <button class="inline-flex min-h-10 items-center rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-800 hover:bg-indigo-50">
+                                Vraag nieuwe foto
+                            </button>
+                        </form>
                         <details class="min-w-0 basis-full sm:basis-0 sm:flex-1">
                             <summary class="inline-flex min-h-10 cursor-pointer items-center rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-800">
                                 Aanpassen

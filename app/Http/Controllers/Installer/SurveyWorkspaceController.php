@@ -120,6 +120,26 @@ final class SurveyWorkspaceController extends Controller
         return $this->back($intake, 'Ruimte toegevoegd.');
     }
 
+    public function updateRoom(
+        Request $request,
+        Intake $intake,
+        AircoRoom $room,
+        AircoSurveyService $aircoSurvey,
+    ): RedirectResponse {
+        $this->authorize('update', $intake);
+        abort_unless($room->intake_id === $intake->id, 404);
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:120'],
+            'use_type' => ['nullable', 'in:bedroom,living_room,office,attic,other'],
+            'length_m' => ['nullable', 'numeric', 'between:0.5,100'],
+            'width_m' => ['nullable', 'numeric', 'between:0.5,100'],
+            'height_m' => ['nullable', 'numeric', 'between:1.5,10'],
+        ]);
+        $aircoSurvey->updateRoom($intake, $this->user($request), $room, $data);
+
+        return $this->back($intake, 'Ruimte bijgewerkt.');
+    }
+
     public function storePlacement(
         Request $request,
         Intake $intake,
@@ -140,6 +160,29 @@ final class SurveyWorkspaceController extends Controller
         $aircoSurvey->createPlacement($intake, $this->user($request), $data);
 
         return $this->back($intake, 'Plaatsingsoptie toegevoegd.');
+    }
+
+    public function updatePlacement(
+        Request $request,
+        Intake $intake,
+        AircoPlacementOption $placement,
+        AircoSurveyService $aircoSurvey,
+    ): RedirectResponse {
+        $this->authorize('update', $intake);
+        abort_unless($placement->intake_id === $intake->id, 404);
+        $data = $request->validate([
+            'airco_room_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('airco_rooms', 'id')->where('intake_id', $intake->id),
+            ],
+            'type' => ['required', Rule::enum(AircoPlacementType::class)],
+            'label' => ['required', 'string', 'max:160'],
+            'description' => ['nullable', 'string', 'max:1500'],
+        ]);
+        $aircoSurvey->updatePlacement($intake, $this->user($request), $placement, $data);
+
+        return $this->back($intake, 'Plaatsingsoptie bijgewerkt.');
     }
 
     public function storeInstallationOption(
@@ -350,15 +393,40 @@ final class SurveyWorkspaceController extends Controller
         $user = $this->user($request);
         $round = $createRequest->handle($intake, $user, $validated['contribution_items']);
         $mailResult = $sendRequest->handle($intake->fresh() ?? $intake, $round, $user);
-        $message = match ($mailResult) {
-            CustomerLinkMailResult::Sent => 'Klanttaak aangemaakt en gemaild.',
-            CustomerLinkMailResult::SkippedDemo => 'Klantweergave geactiveerd. In de demo sturen we geen e-mail.',
-            CustomerLinkMailResult::SkippedLogMailer => 'Klanttaak aangemaakt. Mail is lokaal uit. Deel de link zelf.',
-            CustomerLinkMailResult::Failed => 'Klanttaak aangemaakt, maar mailen mislukte. Deel de link zelf.',
-            default => 'Klanttaak aangemaakt.',
-        };
 
-        return $this->back($intake, $message);
+        return $this->back($intake, $this->contributionMailMessage($mailResult));
+    }
+
+    public function requestQuickContribution(
+        Request $request,
+        Intake $intake,
+        CreateCustomerContributionRequest $createRequest,
+        SendCustomerFollowUpRequest $sendRequest,
+    ): RedirectResponse {
+        $this->authorize('update', $intake);
+        $data = $request->validate([
+            'type' => ['required', Rule::enum(FollowUpItemType::class)],
+            'prompt' => ['required', 'string', 'max:500'],
+            'decision_area_key' => [
+                'nullable',
+                'in:request,capacity,placement,refrigerant,condensate,power,cost_risks,quote',
+            ],
+            'dossier_subject_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('dossier_subjects', 'id')->where('intake_id', $intake->id),
+            ],
+        ]);
+        $user = $this->user($request);
+        $round = $createRequest->handle($intake, $user, [[
+            'type' => $data['type'],
+            'prompt' => $data['prompt'],
+            'decision_area_key' => $data['decision_area_key'] ?? null,
+            'dossier_subject_id' => $data['dossier_subject_id'] ?? null,
+        ]]);
+        $mailResult = $sendRequest->handle($intake->fresh() ?? $intake, $round, $user);
+
+        return $this->back($intake, $this->contributionMailMessage($mailResult));
     }
 
     public function synthesizeRoute(
@@ -442,6 +510,17 @@ final class SurveyWorkspaceController extends Controller
             CustomerLinkMailResult::Failed => 'Klanttaak aangemaakt, maar mailen mislukte. Deel de link zelf.',
             default => 'AI-taak gecontroleerd en als klanttaak aangemaakt.',
         });
+    }
+
+    private function contributionMailMessage(CustomerLinkMailResult $mailResult): string
+    {
+        return match ($mailResult) {
+            CustomerLinkMailResult::Sent => 'Klanttaak aangemaakt en gemaild.',
+            CustomerLinkMailResult::SkippedDemo => 'Klantweergave geactiveerd. In de demo sturen we geen e-mail.',
+            CustomerLinkMailResult::SkippedLogMailer => 'Klanttaak aangemaakt. Mail is lokaal uit. Deel de link zelf.',
+            CustomerLinkMailResult::Failed => 'Klanttaak aangemaakt, maar mailen mislukte. Deel de link zelf.',
+            default => 'Klanttaak aangemaakt.',
+        };
     }
 
     public function complete(

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Services;
 
+use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\DossierDecisionArea;
 use App\Domains\Intake\Models\Intake;
 use App\Enums\AircoConnectionStatus;
@@ -137,10 +138,7 @@ final class WorkspacePrimaryActionResolver
                 'href' => '#workspace-rooms',
                 'label' => 'Ruimte toevoegen',
             ],
-            'capacity' => [
-                'href' => '#workspace-rooms',
-                'label' => 'Maten invullen',
-            ],
+            'capacity' => $this->capacityTarget($intake),
             'placement' => $intake->aircoPlacements->isEmpty()
                 ? ['href' => '#demo-placements', 'label' => 'Plek toevoegen']
                 : ['href' => '#demo-proposal', 'label' => 'Opstelling kiezen'],
@@ -160,6 +158,34 @@ final class WorkspacePrimaryActionResolver
                 'label' => 'Verder in de opname',
             ],
         };
+    }
+
+    /**
+     * @return array{href: string, label: string}
+     */
+    private function capacityTarget(Intake $intake): array
+    {
+        $incomplete = $intake->aircoRooms->first(
+            static function (AircoRoom $room): bool {
+                $dimensions = is_array($room->dimensions) ? $room->dimensions : [];
+
+                return ! is_numeric($dimensions['length_m'] ?? null)
+                    || ! is_numeric($dimensions['width_m'] ?? null)
+                    || ! is_numeric($dimensions['height_m'] ?? null);
+            },
+        );
+
+        if ($incomplete instanceof AircoRoom) {
+            return [
+                'href' => '#room-'.$incomplete->id,
+                'label' => 'Maten invullen',
+            ];
+        }
+
+        return [
+            'href' => '#workspace-rooms',
+            'label' => 'Maten invullen',
+        ];
     }
 
     /**

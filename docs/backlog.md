@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.19 · **Laatste update:** 2026-08-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.20 · **Laatste update:** 2026-08-10 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -64,6 +64,10 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-056 | Sticky/open punten inkorten + mobiele volgorde | E5 | done | high | O · bij BL-054 |
 | — | BL-057 | Bewijsfoto’s bij het object | E5 | done | medium | O · bij BL-049/053 |
 | — | BL-058 | Licht afronden na voorstelgoedkeuring | E5 | done | medium | O · bij BL-054 |
+| ▶ | BL-059 | Ruimtes bewerken na aanmaken | E7 | in_progress | high | O · bij BL-037/054 |
+| ▶ | BL-060 | Plaatsingen bewerken na aanmaken | E8 | in_progress | high | O · bij BL-039/054 |
+| ▶ | BL-061 | AI-uitzondering → 1-klik klanttaak | E7 | in_progress | high | O · bij BL-038/041 |
+| ▶ | BL-062 | Open punt / foto → vraag klant | E7 | in_progress | high | O · bij BL-054/049 |
 | — | BL-047 | Gestructureerde adresregistratie en BAG-herstel | E3 | done | high | F (done) |
 | — | BL-048 | Openingszin hergebruiken en broninformatie terugbrengen | E3 | done | high | F (done) |
 | ∥ | BL-013 | S3 als mediadisk | E5 | backlog | low | I · operationeel |
@@ -513,6 +517,38 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Status:** done · **Prioriteit:** medium · **Datum:** 2026-08-09 · **PR:** #71 · **Epic:** E5 · **Band:** O · **Afhankelijk:** BL-054
 - **Doel:** goedkeuren is één duidelijke knop; na akkoord een korte bevestiging + sprong naar uitkomst.
 - **Resultaat:** sectie “Voorstel afronden” met korte copy; sticky na goedkeuring wijst naar uitkomst.
+
+### BL-059 — Ruimtes bewerken na aanmaken
+
+- **Status:** in_progress · **Prioriteit:** high · **Epic:** E7 · **Band:** O · **Afhankelijk:** BL-037/054
+- **Aanleiding:** installateurs kunnen ruimtematen en gebruik alleen bij aanmaken zetten; open punt “Maten invullen” landt op de ruimtesectie zonder bewerkbaar formulier.
+- **Doel:** naam, gebruik en maten van een bestaande ruimte bijwerken; beslisgereedheid herberekent; deep link `#room-{id}` naar de eerste incomplete ruimte.
+- **Scope:** `AircoSurveyService::updateRoom`, workspace-route/formulier, resolver-capacity-anchor. Geen verwijderen van ruimtes.
+- **Acceptatie:** maten wijzigen werkt; readiness volgt; open punt capacity springt naar `#room-{id}` wanneer maten missen.
+
+### BL-060 — Plaatsingen bewerken na aanmaken
+
+- **Status:** in_progress · **Prioriteit:** high · **Epic:** E8 · **Band:** O · **Afhankelijk:** BL-039/054
+- **Aanleiding:** plaatsingsopties zijn na create read-only; correcties vereisen een nieuwe kandidaat.
+- **Doel:** label, type, ruimte-koppeling en beschrijving van een bestaande plaatsing bijwerken.
+- **Scope:** `AircoSurveyService::updatePlacement`, workspace-route/formulier, `#placement-{id}`. Geen verwijderen.
+- **Acceptatie:** bijwerken herberekent readiness; subjectlabel blijft synchroon.
+
+### BL-061 — AI-uitzondering → 1-klik klanttaak
+
+- **Status:** in_progress · **Prioriteit:** high · **Epic:** E7 · **Band:** O · **Afhankelijk:** BL-038/041
+- **Aanleiding:** AI-uitzonderingen zijn alleen tekst; de installateur moet handmatig een klanttaakformulier vullen.
+- **Doel:** per uitzondering één knop die direct een klanttaak aanmaakt en (waar mogelijk) mailt.
+- **Scope:** snelle `customer-tasks/quick`-route op basis van exception-label + decision_area; hergebruik `CreateCustomerContributionRequest` + mailpad.
+- **Acceptatie:** één tik vanaf uitzondering → open klantronde; openstaande ronde blokkeert netjes.
+
+### BL-062 — Open punt / foto → vraag klant
+
+- **Status:** in_progress · **Prioriteit:** high · **Epic:** E7 · **Band:** O · **Afhankelijk:** BL-054/049
+- **Aanleiding:** open punten zijn alleen deep links; bij AI-fotovoorstellen ontbreekt “vraag nieuwe foto aan de klant”.
+- **Doel:** bij open punten met `RequestContribution` en bij foto-voorstellen één-klik “Vraag de klant”.
+- **Scope:** zelfde quick-contribution endpoint; knoppen in open-puntenlijst en `_subject-tools`.
+- **Acceptatie:** prompt komt uit blocker/voorsteltekst; type photo waar relevant.
 
 ### BL-052 — Gecontroleerd eenvoudig Nederlands in de app-UI
 

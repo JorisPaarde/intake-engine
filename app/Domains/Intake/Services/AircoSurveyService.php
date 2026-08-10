@@ -8,6 +8,7 @@ use App\Domains\Intake\Models\AircoConnection;
 use App\Domains\Intake\Models\AircoInstallationOption;
 use App\Domains\Intake\Models\AircoPlacementOption;
 use App\Domains\Intake\Models\AircoRoom;
+use App\Domains\Intake\Models\DossierSubject;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Enums\AircoConfigurationType;
@@ -74,6 +75,43 @@ final class AircoSurveyService
     }
 
     /**
+     * @param  array{name: string, use_type?: string|null, length_m?: float|null, width_m?: float|null, height_m?: float|null}  $data
+     */
+    public function updateRoom(Intake $intake, User $installer, AircoRoom $room, array $data): AircoRoom
+    {
+        $this->guardTenant($intake, $installer);
+        $this->guardModel($intake, $room);
+
+        $dimensions = collect([
+            'length_m' => $data['length_m'] ?? null,
+            'width_m' => $data['width_m'] ?? null,
+            'height_m' => $data['height_m'] ?? null,
+        ])->filter(static fn (mixed $value): bool => is_numeric($value))->map(
+            static fn (mixed $value): float => (float) $value,
+        )->all();
+
+        $name = trim($data['name']);
+        $room->update([
+            'name' => $name,
+            'use_type' => $data['use_type'] ?? null,
+            'dimensions' => $dimensions,
+        ]);
+
+        if ($room->dossier_subject_id !== null) {
+            DossierSubject::query()
+                ->whereKey($room->dossier_subject_id)
+                ->where('intake_id', $intake->id)
+                ->update(['label' => $name]);
+        }
+
+        $this->activity($intake, $installer, 'airco_room_updated', ['room_id' => $room->id]);
+        $this->surveyProgress->markStarted($intake);
+        $this->decisionReadiness->recalculate($intake->fresh() ?? $intake);
+
+        return $room->fresh() ?? $room;
+    }
+
+    /**
      * @param  array{
      *     airco_room_id?: int|null,
      *     type: AircoPlacementType|string,
@@ -125,6 +163,66 @@ final class AircoSurveyService
         $this->decisionReadiness->recalculate($intake->fresh() ?? $intake);
 
         return $placement;
+    }
+
+    /**
+     * @param  array{
+     *     airco_room_id?: int|null,
+     *     type: AircoPlacementType|string,
+     *     label: string,
+     *     description?: string|null
+     * }  $data
+     */
+    public function updatePlacement(
+        Intake $intake,
+        User $installer,
+        AircoPlacementOption $placement,
+        array $data,
+    ): AircoPlacementOption {
+        $this->guardTenant($intake, $installer);
+        $this->guardModel($intake, $placement);
+
+        $room = array_key_exists('airco_room_id', $data) && $data['airco_room_id'] !== null && $data['airco_room_id'] !== ''
+            ? AircoRoom::query()->where('intake_id', $intake->id)->findOrFail((int) $data['airco_room_id'])
+            : null;
+        $type = $data['type'] instanceof AircoPlacementType
+            ? $data['type']
+            : AircoPlacementType::from((string) $data['type']);
+        $label = trim($data['label']);
+
+        $placement->update([
+            'airco_room_id' => $room?->id,
+            'type' => $type,
+            'label' => $label,
+            'description' => isset($data['description']) ? trim((string) $data['description']) : null,
+        ]);
+
+        if ($placement->dossier_subject_id !== null) {
+            $subject = $placement->subject
+                ?? DossierSubject::query()
+                    ->whereKey($placement->dossier_subject_id)
+                    ->where('intake_id', $intake->id)
+                    ->first();
+
+            if ($subject !== null) {
+                $meta = is_array($subject->meta) ? $subject->meta : [];
+                $meta['placement_type'] = $type->value;
+                $subject->update([
+                    'label' => $label,
+                    'meta' => $meta,
+                    'parent_id' => $room?->dossier_subject_id ?? $this->dossierManager->root($intake)->id,
+                ]);
+            }
+        }
+
+        $this->activity($intake, $installer, 'airco_placement_updated', [
+            'placement_id' => $placement->id,
+            'type' => $type->value,
+        ]);
+        $this->surveyProgress->markStarted($intake);
+        $this->decisionReadiness->recalculate($intake->fresh() ?? $intake);
+
+        return $placement->fresh(['room', 'subject']) ?? $placement;
     }
 
     /**

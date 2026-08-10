@@ -78,7 +78,9 @@ Route::middleware(['auth', 'verified', 'public.demo.scope'])->group(function () 
         ->name('intakes.address-enrichment.retry');
     Route::get('/intakes/{intake}/opname', [SurveyWorkspaceController::class, 'show'])->name('intakes.workspace');
     Route::post('/intakes/{intake}/opname/rooms', [SurveyWorkspaceController::class, 'storeRoom'])->name('intakes.workspace.rooms.store');
+    Route::post('/intakes/{intake}/opname/rooms/{room}', [SurveyWorkspaceController::class, 'updateRoom'])->name('intakes.workspace.rooms.update');
     Route::post('/intakes/{intake}/opname/placements', [SurveyWorkspaceController::class, 'storePlacement'])->name('intakes.workspace.placements.store');
+    Route::post('/intakes/{intake}/opname/placements/{placement}', [SurveyWorkspaceController::class, 'updatePlacement'])->name('intakes.workspace.placements.update');
     Route::post('/intakes/{intake}/opname/options', [SurveyWorkspaceController::class, 'storeInstallationOption'])->name('intakes.workspace.options.store');
     Route::post('/intakes/{intake}/opname/options/{option}/select', [SurveyWorkspaceController::class, 'selectInstallationOption'])->name('intakes.workspace.options.select');
     Route::post('/intakes/{intake}/opname/options/{option}/connections', [SurveyWorkspaceController::class, 'storeConnection'])->name('intakes.workspace.connections.store');
@@ -86,6 +88,7 @@ Route::middleware(['auth', 'verified', 'public.demo.scope'])->group(function () 
     Route::post('/intakes/{intake}/opname/subjects/{subject}/photos', [SurveyWorkspaceController::class, 'storeEvidence'])->name('intakes.workspace.photos.store');
     Route::post('/intakes/{intake}/opname/photo-observations/{record}/confirm', [SurveyWorkspaceController::class, 'confirmObservation'])->name('intakes.workspace.photo-observations.confirm');
     Route::post('/intakes/{intake}/opname/customer-tasks', [SurveyWorkspaceController::class, 'requestContribution'])->name('intakes.workspace.tasks.store');
+    Route::post('/intakes/{intake}/opname/customer-tasks/quick', [SurveyWorkspaceController::class, 'requestQuickContribution'])->name('intakes.workspace.tasks.quick');
     Route::post('/intakes/{intake}/opname/routes/{session}/synthesize', [SurveyWorkspaceController::class, 'synthesizeRoute'])->name('intakes.workspace.routes.synthesize');
     Route::post('/intakes/{intake}/opname/routes/{session}/approve', [SurveyWorkspaceController::class, 'approveRoute'])->name('intakes.workspace.routes.approve');
     Route::post('/intakes/{intake}/opname/ai-synthesis', [SurveyWorkspaceController::class, 'synthesizeDossier'])->name('intakes.workspace.synthesis');

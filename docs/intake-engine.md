@@ -1,6 +1,6 @@
 # Vragen- en takenengine
 
-> **Documentversie:** 2.6 · **Laatste update:** 2026-08-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.7 · **Laatste update:** 2026-08-10 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: de templatewizard is **geïmplementeerd t/m airco v11** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md). UI-taal: [language.md](language.md).
 
@@ -398,10 +398,11 @@ De volledige beperkte uitkomst (vrije groep, 1-/3-fase/unknown, zekerheid, zicht
 ## Gerichte klantbijdragen (BL-027/038)
 
 1. De installateur kan na een eerste klantflow via `need_more_info` óf rechtstreeks vanuit de technische werkplek 1–5 concrete items toevoegen: `text`, `photo` of `document` (PDF).
-2. `CreateCustomerContributionRequest` maakt naast de genummerde ronde een `contribution_task`, zet de workflow op `hybrid`, activeert klanttoegang en bewaart de status waarnaar de opname terugkeert. `SubmitIntakeReview` gebruikt dezelfde vervolgstructuur voor historische reviewrondes.
-3. `IntakeWizard` toont bij `awaiting_customer` uitsluitend de gevraagde items, één per scherm. Bestaande templatevragen worden niet opnieuw getoond.
-4. Tekst wordt tussentijds opgeslagen. Foto-items gebruiken dezelfde MIME-controle, HEIC-normalisatie, private disk en uploadlimiet als de gewone wizard. Documentitems accepteren alleen PDF na server-side MIME- en bestandssignatuurcontrole en gebruiken dezelfde private disk.
-5. `CompleteFollowUpRound` vereist elk antwoord/minimaal één gevraagd bestand, markeert ronde en taak compleet, zet de opname terug naar de bewaarde status, schakelt klanttoegang uit, synchroniseert het bewijs naar het dossier, herberekent beslisgereedheid, bouwt HTML/PDF opnieuw op en stuurt de bestaande installateursnotificatie.
+2. Vanaf de werkplek kan één concrete taak ook in één tik worden gestuurd (`intakes.workspace.tasks.quick`, BL-061/062): vanuit een AI-uitzondering, een open punt met `RequestContribution`, of “Vraag nieuwe foto” bij een AI-fotovoorstel. Die route hergebruikt `CreateCustomerContributionRequest` + mailpad; een openstaande klantronde blokkeert een tweede snelle taak.
+3. `CreateCustomerContributionRequest` maakt naast de genummerde ronde een `contribution_task`, zet de workflow op `hybrid`, activeert klanttoegang en bewaart de status waarnaar de opname terugkeert. `SubmitIntakeReview` gebruikt dezelfde vervolgstructuur voor historische reviewrondes.
+4. `IntakeWizard` toont bij `awaiting_customer` uitsluitend de gevraagde items, één per scherm. Bestaande templatevragen worden niet opnieuw getoond.
+5. Tekst wordt tussentijds opgeslagen. Foto-items gebruiken dezelfde MIME-controle, HEIC-normalisatie, private disk en uploadlimiet als de gewone wizard. Documentitems accepteren alleen PDF na server-side MIME- en bestandssignatuurcontrole en gebruiken dezelfde private disk.
+6. `CompleteFollowUpRound` vereist elk antwoord/minimaal één gevraagd bestand, markeert ronde en taak compleet, zet de opname terug naar de bewaarde status, schakelt klanttoegang uit, synchroniseert het bewijs naar het dossier, herberekent beslisgereedheid, bouwt HTML/PDF opnieuw op en stuurt de bestaande installateursnotificatie.
 
 Rapport en installateurdetail behouden eerdere antwoorden en tonen per aanvulling ronde, vraag, klantantwoord/foto's/documenten en bron. Activity events bevatten alleen ronde, item-id, type en aantallen; nooit vrije tekst of token. Standaardlimieten: 3 rondes, 5 items per ronde, 5 foto's per foto-item en 3 PDF's per documentitem (`INTAKE_FOLLOW_UP_*`).
 
