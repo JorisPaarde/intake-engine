@@ -64,10 +64,10 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-056 | Sticky/open punten inkorten + mobiele volgorde | E5 | done | high | O · bij BL-054 |
 | — | BL-057 | Bewijsfoto’s bij het object | E5 | done | medium | O · bij BL-049/053 |
 | — | BL-058 | Licht afronden na voorstelgoedkeuring | E5 | done | medium | O · bij BL-054 |
-| ▶ | BL-059 | Ruimtes bewerken na aanmaken | E7 | in_progress | high | O · bij BL-037/054 |
-| ▶ | BL-060 | Plaatsingen bewerken na aanmaken | E8 | in_progress | high | O · bij BL-039/054 |
-| ▶ | BL-061 | AI-uitzondering → 1-klik klanttaak | E7 | in_progress | high | O · bij BL-038/041 |
-| ▶ | BL-062 | Open punt / foto → vraag klant | E7 | in_progress | high | O · bij BL-054/049 |
+| — | BL-059 | Ruimtes bewerken na aanmaken | E7 | done | high | O · bij BL-037/054 |
+| — | BL-060 | Plaatsingen bewerken na aanmaken | E8 | done | high | O · bij BL-039/054 |
+| — | BL-061 | AI-uitzondering → 1-klik klanttaak | E7 | done | high | O · bij BL-038/041 |
+| — | BL-062 | Open punt / foto → vraag klant | E7 | done | high | O · bij BL-054/049 |
 | — | BL-047 | Gestructureerde adresregistratie en BAG-herstel | E3 | done | high | F (done) |
 | — | BL-048 | Openingszin hergebruiken en broninformatie terugbrengen | E3 | done | high | F (done) |
 | ∥ | BL-013 | S3 als mediadisk | E5 | backlog | low | I · operationeel |
