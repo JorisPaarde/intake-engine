@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\DossierDecisionArea;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Services\WorkspacePrimaryActionResolver;
@@ -60,11 +61,11 @@ test('open area targets deep-link to the matching work block', function () {
 
 test('capacity target deep-links to the first room missing dimensions', function () {
     $intake = bareIntake();
-    $complete = new \App\Domains\Intake\Models\AircoRoom([
+    $complete = (new AircoRoom)->forceFill([
         'id' => 11,
         'dimensions' => ['length_m' => 4.0, 'width_m' => 3.0, 'height_m' => 2.5],
     ]);
-    $incomplete = new \App\Domains\Intake\Models\AircoRoom([
+    $incomplete = (new AircoRoom)->forceFill([
         'id' => 22,
         'dimensions' => ['length_m' => 4.0],
     ]);

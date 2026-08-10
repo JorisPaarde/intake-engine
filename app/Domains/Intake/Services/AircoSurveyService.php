@@ -97,12 +97,10 @@ final class AircoSurveyService
             'dimensions' => $dimensions,
         ]);
 
-        if ($room->dossier_subject_id !== null) {
-            DossierSubject::query()
-                ->whereKey($room->dossier_subject_id)
-                ->where('intake_id', $intake->id)
-                ->update(['label' => $name]);
-        }
+        DossierSubject::query()
+            ->whereKey($room->dossier_subject_id)
+            ->where('intake_id', $intake->id)
+            ->update(['label' => $name]);
 
         $this->activity($intake, $installer, 'airco_room_updated', ['room_id' => $room->id]);
         $this->surveyProgress->markStarted($intake);
@@ -182,8 +180,9 @@ final class AircoSurveyService
         $this->guardTenant($intake, $installer);
         $this->guardModel($intake, $placement);
 
-        $room = array_key_exists('airco_room_id', $data) && $data['airco_room_id'] !== null && $data['airco_room_id'] !== ''
-            ? AircoRoom::query()->where('intake_id', $intake->id)->findOrFail((int) $data['airco_room_id'])
+        $roomId = $data['airco_room_id'] ?? null;
+        $room = is_numeric($roomId)
+            ? AircoRoom::query()->where('intake_id', $intake->id)->findOrFail((int) $roomId)
             : null;
         $type = $data['type'] instanceof AircoPlacementType
             ? $data['type']
@@ -197,23 +196,21 @@ final class AircoSurveyService
             'description' => isset($data['description']) ? trim((string) $data['description']) : null,
         ]);
 
-        if ($placement->dossier_subject_id !== null) {
-            $subject = $placement->subject
-                ?? DossierSubject::query()
-                    ->whereKey($placement->dossier_subject_id)
-                    ->where('intake_id', $intake->id)
-                    ->first();
+        $subject = $placement->subject
+            ?? DossierSubject::query()
+                ->whereKey($placement->dossier_subject_id)
+                ->where('intake_id', $intake->id)
+                ->firstOrFail();
 
-            if ($subject !== null) {
-                $meta = is_array($subject->meta) ? $subject->meta : [];
-                $meta['placement_type'] = $type->value;
-                $subject->update([
-                    'label' => $label,
-                    'meta' => $meta,
-                    'parent_id' => $room?->dossier_subject_id ?? $this->dossierManager->root($intake)->id,
-                ]);
-            }
-        }
+        $meta = is_array($subject->meta) ? $subject->meta : [];
+        $meta['placement_type'] = $type->value;
+        $subject->update([
+            'label' => $label,
+            'meta' => $meta,
+            'parent_id' => $room !== null
+                ? $room->dossier_subject_id
+                : $this->dossierManager->root($intake)->id,
+        ]);
 
         $this->activity($intake, $installer, 'airco_placement_updated', [
             'placement_id' => $placement->id,
