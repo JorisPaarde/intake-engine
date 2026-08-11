@@ -68,7 +68,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-060 | Plaatsingen bewerken na aanmaken | E8 | done | high | O · bij BL-039/054 |
 | — | BL-061 | AI-uitzondering → 1-klik klanttaak | E7 | done | high | O · bij BL-038/041 |
 | — | BL-062 | Open punt / foto → vraag klant | E7 | done | high | O · bij BL-054/049 |
-| ▶ | BL-063 | Openingszin: buitenunitplek + koel-synoniemen | E3 | in_progress | high | F · bij BL-048 |
+| — | BL-063 | Openingszin: buitenunitplek + koel-synoniemen | E3 | done | high | F · bij BL-048 |
 | — | BL-047 | Gestructureerde adresregistratie en BAG-herstel | E3 | done | high | F (done) |
 | — | BL-048 | Openingszin hergebruiken en broninformatie terugbrengen | E3 | done | high | F (done) |
 | ∥ | BL-013 | S3 als mediadisk | E5 | backlog | low | I · operationeel |
@@ -350,11 +350,12 @@ Historische MVP-epic: bouwde prefill, adaptieve vragen en automatische BAG/PDOK-
 
 ### BL-063 — Openingszin: buitenunitplek + koel-synoniemen
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E3 · **Band:** F · **Afhankelijk:** BL-048
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-08-11 · **PR:** #74 · **Epic:** E3 · **Band:** F · **Afhankelijk:** BL-048
 - **Aanleiding:** bij reden `Twee airco’s op slaapkamers om ze koud te krijgen buitenunit kan op dak dakkapel` faalde de lokale parser (geen “koelen”) én werd de buitenunitplek nooit afgeleid; de klant kreeg daardoor als eerste (demo) of vroeg (volledige wizard) opnieuw “Waar kan de buitenunit staan?”.
 - **Doel:** evidente koel-formuleringen (`koud te krijgen`) en expliciete buitenunitplekken (dakkapel/dak/gevel/tuin/balkon) overnemen als `request_text`, zodat die keuzevragen verdwijnen.
 - **Scope:** `LocalRequestIntentParser` v2 + `DeriveIntentFromRequest::apply` voor `outdoor_location`/`outdoor_mount_type`. Geen templateversie; fotovragen blijven staan. Geen bereikbaarheid gokken.
 - **Acceptatie:** de voorbeeldzin levert cooling + 2 slaapkamers + `pitched_roof`/`roof`; wizardstappen bevatten geen `outdoor_location`/`outdoor_mount_type`; `outdoor_location_photos` blijft.
+- **Resultaat:** parser v2 + apply; unit-/featuretests op de voorbeeldzin; docs/ai + intake-engine bijgewerkt.
 
 ### BL-016 — Hergebruik bekende gegevens (prefill)
 
