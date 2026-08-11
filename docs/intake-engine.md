@@ -1,8 +1,8 @@
 # Vragen- en takenengine
 
-> **Documentversie:** 2.7 · **Laatste update:** 2026-08-10 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.10 · **Laatste update:** 2026-08-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: de templatewizard is **geïmplementeerd t/m airco v11** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md). UI-taal: [language.md](language.md).
+Status: de templatewizard is **geïmplementeerd t/m airco v12** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md). UI-taal: [language.md](language.md).
 
 ## Doel
 
@@ -185,7 +185,7 @@ Secties (stabiele keys over versies):
 
 ### v1 → v2 (BL-017, toenmalige vragenreductie)
 
-V2 introduceerde onderstaande vraagreductie. Nieuwe intakes gebruiken inmiddels de laatste gepubliceerde **v11**; lopende/afgeronde opnames blijven op hun gepinde versie (ADR-0001). V10 verandert klanttaal en repeatable-semantiek naar gewenste ruimtes en voorkomt dat de klant een binnenunitpositie kiest; de technische single-/multi-splitkeuze staat in airco-objecten. V11 houdt die structuur en vernieuwt alleen de klantteksten naar gecontroleerd eenvoudig Nederlands.
+V2 introduceerde onderstaande vraagreductie. Nieuwe intakes gebruiken inmiddels de laatste gepubliceerde **v12**; lopende/afgeronde opnames blijven op hun gepinde versie (ADR-0001). V10 verandert klanttaal en repeatable-semantiek naar gewenste ruimtes en voorkomt dat de klant een binnenunitpositie kiest; de technische single-/multi-splitkeuze staat in airco-objecten. V11 houdt die structuur en vernieuwt alleen de klantteksten naar gecontroleerd eenvoudig Nederlands. V12 voegt de buitenunitoptie `dormer` (dakkapel) toe voor AI-catalogusprefill (ADR-0013).
 
 | Wijziging | Was (v1) | Wordt (v2) |
 |-----------|----------|------------|
@@ -299,7 +299,7 @@ Twee dingen komen ook op het Kadaster-pad van PDOK: **coördinaten** (Kadaster l
 
 `request_reason` heeft daarom `meta.text_analysis = 'request_intent'`. `DeriveIntentFromRequest` draait direct nadat de installateur de opname aanmaakt én wanneer de klant de openingsvraag zelf opslaat. Bij het openen van een oudere actieve klantlink draait één lokale herstelpass voordat de stappen worden gebouwd. De lokale parser herkent alleen een kleine set evidente Nederlandse doelen, aantallen en ruimtetypen; tegenstrijdige aantallen of een onduidelijke functie leveren niets op.
 
-Een evidente lokale conclusie gebruikt `prefill_source=request_text`, laat de redundante vragen vervallen en vereist geen AI-provider. De genoemde ruimtes worden op volgorde aan `room-1`, `room-2`, … gekoppeld; een expliciete zolderligging vult `floor_level=attic` bij iedere afgeleide slaapkamer in. Een zin met “twee airco’s” en een niet-geteld meervoud “slaapkamers” mag twee slaapkamers opleveren; bij een conflict, bijvoorbeeld twee airco’s voor drie genoemde kamers, blijft de normale vraag staan.
+Een evidente lokale conclusie (alleen offline-fallback) gebruikt `prefill_source=request_text`, laat de redundante vragen vervallen en vereist geen AI-provider. De genoemde ruimtes worden op volgorde aan `room-1`, `room-2`, … gekoppeld; een expliciete zolderligging vult `floor_level=attic` bij iedere afgeleide slaapkamer in. Met tekst-AI aan beoordeelt `PrefillAnswersFromKnownContext` (ADR-0013) de volledige fillable vraagenset — inclusief buitenunitplekken zoals dakkapel (`dormer` in airco v12); fotovragen blijven staan. Een zin met “twee airco’s” en een niet-geteld meervoud “slaapkamers” mag twee slaapkamers opleveren; bij een conflict, bijvoorbeeld twee airco’s voor drie genoemde kamers, blijft de normale vraag staan.
 
 Alleen wanneer de lokale parser geen zekere conclusie kan trekken, mag de bestaande versioned prompt (`request-intent-v3`) als fallback draaien. Daarvoor blijft `AI_TEXT_INFERENCE_ENABLED` vereist. Tekst naar een externe provider sturen is een andere afweging dan foto's, dus dat staat los van `AI_PHOTO_INFERENCE_ENABLED`; de herstelpass bij het openen van een klantlink doet nooit stil een externe call. Een toelichting korter dan tien tekens gaat helemaal niet naar een provider.
 
@@ -382,10 +382,11 @@ Gemeten op een opname met één gewenste ruimte, met werkende BAG, energielabel,
 | v9 (openingsvraag + cascades) | 18 |
 | v10 (gewenste-ruimtetaal) | 18 |
 | v11 (eenvoudige klanttaal) | 18 |
+| v12 (dakkapel-optie) | 18 |
 
 Bij twee gewenste ruimtes komen daar 3 stappen voor de extra ruimte bij (foto's + verdieping), dus 21.
 
-V11 wijzigt geen vragenstructuur of regels; alleen labels, helpteksten en foto-instructies naar gecontroleerd eenvoudig Nederlands (BL-052).
+V11 wijzigt geen vragenstructuur of regels; alleen labels, helpteksten en foto-instructies naar gecontroleerd eenvoudig Nederlands (BL-052). V12 wijzigt alleen de `outdoor_location`-opties (dakkapel); het stappentotaal blijft gelijk.
 
 Wat overblijft is de openingsvraag zelf, niet-zichtbare feiten (eigendom, verdieping), voorkeuren, de foto's en de twee afsluitende verklaringen.
 

@@ -43,7 +43,7 @@ final class PhotoDerivationProfile
                 DerivedAnswerField::choice('glass_amount', 'glass_amount', ['little', 'average', 'much']),
             ]),
             'outdoor' => new self('outdoor', 'outdoor_assessment', [
-                DerivedAnswerField::choice('outdoor_location', 'outdoor_location', ['garden', 'side_passage', 'facade', 'balcony', 'flat_roof', 'pitched_roof']),
+                DerivedAnswerField::choice('outdoor_location', 'outdoor_location', ['garden', 'side_passage', 'facade', 'balcony', 'flat_roof', 'pitched_roof', 'dormer']),
                 DerivedAnswerField::choice('outdoor_mount_type', 'outdoor_mount_type', ['wall', 'ground', 'roof', 'balcony']),
                 DerivedAnswerField::choice('outdoor_accessibility', 'outdoor_accessibility', ['easy_ground', 'ladder', 'scaffolding', 'restricted']),
             ]),

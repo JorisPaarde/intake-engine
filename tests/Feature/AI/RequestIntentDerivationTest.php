@@ -50,11 +50,13 @@ function intentStepKeys(Intake $intake): array
     return collect(app(IntakeStepBuilder::class)->build($intake->fresh(), $version))->pluck('question_key')->all();
 }
 
-test('the installer sentence answers function room count type and floor locally', function () {
+test('offline local fallback answers function room count type and floor', function () {
+    config(['ai.text_inference.enabled' => false]);
+
     $intake = makeIntentIntake();
     answerReason($intake, 'Ik wil twee airco’s om m’n slaapkamers op zolder te koelen.');
 
-    $run = app(DeriveIntentFromRequest::class)->handle($intake);
+    $run = app(DeriveIntentFromRequest::class)->handle($intake, allowExternal: false);
 
     expect($run?->status)->toBe(AiRunStatus::Succeeded)
         ->and($run?->provider)->toBe('local')
@@ -68,7 +70,6 @@ test('the installer sentence answers function room count type and floor locally'
 
     $steps = intentStepKeys($intake);
 
-    // De bekende gegevens verdwijnen als vraag; de ruimtesectie is wel tweemaal uitgeklapt.
     expect($steps)->not->toContain('cooling_heating')
         ->and($steps)->not->toContain('indoor_unit_count')
         ->and($steps)->not->toContain('room_type')
@@ -76,13 +77,55 @@ test('the installer sentence answers function room count type and floor locally'
         ->and(collect($steps)->filter(fn (string $k): bool => $k === 'room_photos'))->toHaveCount(2);
 });
 
+test('catalog AI prefill fills dormer outdoor placement from the openingszin', function () {
+    $intake = makeIntentIntake();
+    answerReason(
+        $intake,
+        "Twee airco's op slaapkamers om ze koud te krijgen buitenunit kan op dak dakkapel",
+    );
+
+    $run = app(DeriveIntentFromRequest::class)->handle($intake);
+
+    expect($run?->status)->toBe(AiRunStatus::Succeeded)
+        ->and($run?->prompt_version)->toStartWith('request-prefill')
+        ->and($intake->answers()->where('question_key', 'cooling_heating')->firstOrFail()->value)->toBe(['value' => 'cooling'])
+        ->and($intake->answers()->where('question_key', 'indoor_unit_count')->firstOrFail()->value)->toBe(['number' => 2])
+        ->and($intake->answers()->where('question_key', 'outdoor_location')->firstOrFail()->value)->toBe(['value' => 'dormer'])
+        ->and($intake->answers()->where('question_key', 'outdoor_mount_type')->firstOrFail()->value)->toBe(['value' => 'roof'])
+        ->and($intake->answers()->where('question_key', 'outdoor_location')->firstOrFail()->prefill_source)
+        ->toBe(DeriveIntentFromRequest::SOURCE_DERIVED);
+
+    $request = FakeAiClient::lastRequest();
+    expect($request)->not->toBeNull()
+        ->and($request?->input)->toHaveKey('question_catalog')
+        ->and($request?->input)->toHaveKey('known_context');
+
+    $steps = intentStepKeys($intake);
+
+    expect($steps)->not->toContain('cooling_heating')
+        ->and($steps)->not->toContain('indoor_unit_count')
+        ->and($steps)->not->toContain('outdoor_location')
+        ->and($steps)->not->toContain('outdoor_mount_type')
+        ->and($steps)->toContain('outdoor_location_photos');
+});
+
 test('a vague reason only suggests and keeps the questions', function () {
     $intake = makeIntentIntake();
     FakeAiClient::alwaysReturn([
-        'cooling_heating' => 'cooling',
-        'rooms' => ['bedroom'],
-        'confidence' => 'medium',
         'evidence' => 'De aanvrager noemt warmte boven, zonder de ruimte hard te benoemen.',
+        'fills' => [[
+            'question_key' => 'cooling_heating',
+            'section_instance_key' => null,
+            'confidence' => 'medium',
+            'value' => ['value' => 'cooling'],
+            'evidence' => null,
+        ], [
+            'question_key' => 'indoor_unit_count',
+            'section_instance_key' => null,
+            'confidence' => 'medium',
+            'value' => ['number' => 1],
+            'evidence' => null,
+        ]],
     ]);
     answerReason($intake, 'Het is boven altijd zo warm in de zomer.');
 
@@ -97,10 +140,14 @@ test('a vague reason only suggests and keeps the questions', function () {
 test('low confidence stores nothing at all', function () {
     $intake = makeIntentIntake();
     FakeAiClient::alwaysReturn([
-        'cooling_heating' => 'unknown',
-        'rooms' => [],
-        'confidence' => 'low',
         'evidence' => 'De toelichting geeft geen uitsluitsel.',
+        'fills' => [[
+            'question_key' => 'cooling_heating',
+            'section_instance_key' => null,
+            'confidence' => 'low',
+            'value' => ['value' => 'cooling'],
+            'evidence' => null,
+        ]],
     ]);
     answerReason($intake, 'Ik wil graag een offerte ontvangen alstublieft.');
 
@@ -111,11 +158,13 @@ test('low confidence stores nothing at all', function () {
 });
 
 test('an answer the applicant already gave is never overwritten', function () {
+    config(['ai.text_inference.enabled' => false]);
+
     $intake = makeIntentIntake();
     app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 4]);
     answerReason($intake, 'De slaapkamer en de woonkamer worden te warm in de zomer.');
 
-    app(DeriveIntentFromRequest::class)->handle($intake);
+    app(DeriveIntentFromRequest::class)->handle($intake, allowExternal: false);
 
     expect($intake->answers()->where('question_key', 'indoor_unit_count')->firstOrFail()->value)->toBe(['number' => 4]);
 });

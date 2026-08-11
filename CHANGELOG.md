@@ -6,6 +6,14 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Added
 
+- **AI-prefill tegen volledige vraagenset (BL-064, ADR-0013):** met tekst-AI aan beoordeelt `PrefillAnswersFromKnownContext` alle fillable templatevragen t.o.v. openingszin/antwoorden/feiten (`request-prefill-v1`). High → auto-invullen; medium → voorzet; low → niets. Airco **v12** voegt keuze “Op of aan de dakkapel” (`dormer`) toe als catalogusoptie.
+
+### Fixed
+
+- **Openingszin “koud te krijgen” (BL-063):** offline lokale fallback herkent die koel-formulering weer. Buitenunitplekken worden niet meer met regex gegokt (zoals ten onrechte “schuin dak” voor dakkapel); dat pad loopt via BL-064.
+
+### Added
+
 - **Werkplek afronden: bewerken + 1-klik klanttaak (BL-059–062):** ruimtes en plaatsingen zijn na aanmaken bewerkbaar (`#room-{id}` / `#placement-{id}`); capacity-open-punten springen naar de eerste ruimte zonder maten; AI-uitzonderingen, open punten met klantbijdrage en AI-fotovoorstellen hebben één-tik “Vraag de klant” / “Vraag nieuwe foto” via `customer-tasks/quick`.
 
 ### Changed

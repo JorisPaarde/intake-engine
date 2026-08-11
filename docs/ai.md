@@ -1,6 +1,6 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 3.2 · **Laatste update:** 2026-07-31 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.4 · **Laatste update:** 2026-08-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **samenvatting, aandachtspunten, lokale fotokwaliteit, tekst-/foto-afleiding, verbindingsgebonden routeanalyse en bewijsgerichte dossiersynthese zijn geïmplementeerd**. Externe provider en tekst-/foto-/route-/dossierinferentie staan standaard uit (DPIA + key + budgetcaps + staging-smoke vereist).
 
@@ -168,7 +168,9 @@ Dossiersynthese loopt na iedere afgeronde klant-, installateur- of gerichte bijd
 
 ## Openingszin: lokaal vóór externe AI
 
-`DeriveIntentFromRequest` gebruikt eerst `LocalRequestIntentParser`. Die parser is bewust klein en deterministisch: hij herkent alleen expliciete Nederlandse koel-/verwarmdoelen, aantallen van één tot acht, bekende ruimtetypen en de expliciete ligging “op zolder”. De zin `Ik wil twee airco’s om m’n slaapkamers op zolder te koelen` levert daardoor lokaal koelen, twee slaapkamers en voor beide `floor_level=attic` op; “zolder” wordt niet als derde ruimte behandeld. Tegenstrijdige aantallen en onduidelijke doelen vallen terug op de normale vragen.
+`DeriveIntentFromRequest` volgt ADR-0013. Met `AI_TEXT_INFERENCE_ENABLED` aan roept hij `PrefillAnswersFromKnownContext` aan: die stuurt de openingszin, bestaande antwoorden en relevante externe feiten plus de **volledige fillable vraagenset** van de gepinde templateversie naar prompt `request-prefill-v1`. Per vraag mag het model alleen cataloguskeys/opties teruggeven; `high` vult met `prefill_source=ai` (vraag vervalt), `medium` als `ai_suggestion`, `low` doet niets. Fotovragen worden niet ingevuld.
+
+Zonder tekst-AI (of bij de herstelpass op de klantlink) blijft `LocalRequestIntentParser` (`request-intent-local-v3`) als **bevroren offline-fallback**: alleen evidente koel-/verwarmdoelen (inclusief `koud te krijgen`), aantallen, ruimtetypen en “op zolder”. Geen buitenunit- of andere keuzeheuristiek — die opties horen in de templatecatalogus (airco v12: `dormer` voor dakkapel).
 
 De lokale run bewaart alleen parserversie, inputhash, gecontroleerde output en toegepaste vraagsleutels; de vrije openingszin komt niet in activity-properties. Afgeleide antwoorden krijgen `prefill_source=request_text`. Dit pad draait direct na installateursaanmaak en als herstel bij een oudere actieve klantlink, ook wanneer `AI_PROVIDER=null` en `AI_TEXT_INFERENCE_ENABLED=false`.
 
