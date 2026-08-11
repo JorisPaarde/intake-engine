@@ -368,7 +368,7 @@ Historische MVP-epic: bouwde prefill, adaptieve vragen en automatische BAG/PDOK-
 
 ### BL-065 — Herbeoordeling prefill bij nieuwe context
 
-- **Status:** done · **Prioriteit:** high · **Datum:** 2026-08-11 · **PR:** (deze) · **Epic:** E3 · **Band:** F · **Afhankelijk:** BL-064 · **ADR:** [0014](decisions/0014-reconsider-prefill-on-new-context.md)
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-08-11 · **PR:** #75 · **Epic:** E3 · **Band:** F · **Afhankelijk:** BL-064 · **ADR:** [0014](decisions/0014-reconsider-prefill-on-new-context.md)
 - **Aanleiding:** prefill draaide vóór BAG-verrijking en niet opnieuw bij latere notities/feiten; met AI aan werd foutloze lokale heuristiek overgeslagen.
 - **Doel:** bij groeiende context opnieuw beoordelen wat automatisch invulbaar is — heuristiek waar foutloos, AI voor cataloguskeuzes.
 - **Scope:** hybrid `DeriveIntentFromRequest`; enrich→derive op create/retry; hertrigger na installateursnotitie; observaties in AI-context; prompt v2.
