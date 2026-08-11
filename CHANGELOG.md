@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Added
+
+- **Werkplek afronden: bewerken + 1-klik klanttaak (BL-059–062):** ruimtes en plaatsingen zijn na aanmaken bewerkbaar (`#room-{id}` / `#placement-{id}`); capacity-open-punten springen naar de eerste ruimte zonder maten; AI-uitzonderingen, open punten met klantbijdrage en AI-fotovoorstellen hebben één-tik “Vraag de klant” / “Vraag nieuwe foto” via `customer-tasks/quick`.
+
 ### Changed
 
 - **Staging-smoke mobiele werkplek (BL-053/054–058):** functionele teststatus bijgewerkt na geslaagde 390 px-controle op staging (demo + voorbeelddossier; sticky echte CTA, deep links, dichtgeklapte info).

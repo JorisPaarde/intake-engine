@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\DossierDecisionArea;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Services\WorkspacePrimaryActionResolver;
@@ -53,8 +54,27 @@ test('open area targets deep-link to the matching work block', function () {
 
     expect($resolver->targetForArea($intake, 'request')['href'])->toBe('#workspace-rooms')
         ->and($resolver->targetForArea($intake, 'capacity')['label'])->toBe('Maten invullen')
+        ->and($resolver->targetForArea($intake, 'capacity')['href'])->toBe('#workspace-rooms')
         ->and($resolver->targetForArea($intake, 'placement')['href'])->toBe('#demo-placements')
         ->and($resolver->targetForArea($intake, 'quote')['href'])->toBe('#workspace-complete');
+});
+
+test('capacity target deep-links to the first room missing dimensions', function () {
+    $intake = bareIntake();
+    $complete = (new AircoRoom)->forceFill([
+        'id' => 11,
+        'dimensions' => ['length_m' => 4.0, 'width_m' => 3.0, 'height_m' => 2.5],
+    ]);
+    $incomplete = (new AircoRoom)->forceFill([
+        'id' => 22,
+        'dimensions' => ['length_m' => 4.0],
+    ]);
+    $intake->setRelation('aircoRooms', collect([$complete, $incomplete]));
+
+    $target = app(WorkspacePrimaryActionResolver::class)->targetForArea($intake, 'capacity');
+
+    expect($target['href'])->toBe('#room-22')
+        ->and($target['label'])->toBe('Maten invullen');
 });
 
 test('first actionable open area skips quote when other blockers exist', function () {

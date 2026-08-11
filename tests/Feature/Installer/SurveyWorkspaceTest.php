@@ -616,3 +616,114 @@ test('another company cannot open the technical workspace', function () {
         ->get(route('intakes.workspace', $intake))
         ->assertForbidden();
 });
+
+test('installer can update an existing room including dimensions', function () {
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'ruimte-edit@example.com');
+    $room = app(AircoSurveyService::class)->createRoom($intake, $user, [
+        'name' => 'Slaapkamer',
+        'use_type' => 'bedroom',
+    ]);
+
+    $this->actingAs($user)
+        ->from(route('intakes.workspace', $intake))
+        ->post(route('intakes.workspace.rooms.update', [$intake, $room]), [
+            'name' => 'Slaapkamer ouders',
+            'use_type' => 'bedroom',
+            'length_m' => 4.2,
+            'width_m' => 3.1,
+            'height_m' => 2.5,
+        ])
+        ->assertRedirect(route('intakes.workspace', $intake))
+        ->assertSessionHas('status', 'Ruimte bijgewerkt.');
+
+    $room->refresh();
+    expect($room->name)->toBe('Slaapkamer ouders')
+        ->and($room->dimensions)->toMatchArray([
+            'length_m' => 4.2,
+            'width_m' => 3.1,
+            'height_m' => 2.5,
+        ])
+        ->and($room->subject?->label)->toBe('Slaapkamer ouders');
+
+    $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertSee('id="room-'.$room->id.'"', false)
+        ->assertSee('Ruimte bewerken');
+});
+
+test('installer can update an existing placement', function () {
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'plek-edit@example.com');
+    $survey = app(AircoSurveyService::class);
+    $room = $survey->createRoom($intake, $user, [
+        'name' => 'Slaapkamer',
+        'use_type' => 'bedroom',
+        'length_m' => 4,
+        'width_m' => 3,
+        'height_m' => 2.5,
+    ]);
+    $placement = $survey->createPlacement($intake, $user, [
+        'airco_room_id' => $room->id,
+        'type' => AircoPlacementType::IndoorUnit,
+        'label' => 'Boven de deur',
+    ]);
+
+    $this->actingAs($user)
+        ->from(route('intakes.workspace', $intake))
+        ->post(route('intakes.workspace.placements.update', [$intake, $placement]), [
+            'airco_room_id' => $room->id,
+            'type' => AircoPlacementType::IndoorUnit->value,
+            'label' => 'Naast het raam',
+            'description' => 'Vrije wand van 90 cm',
+        ])
+        ->assertRedirect(route('intakes.workspace', $intake))
+        ->assertSessionHas('status', 'Plaatsingsoptie bijgewerkt.');
+
+    $placement->refresh();
+    expect($placement->label)->toBe('Naast het raam')
+        ->and($placement->description)->toBe('Vrije wand van 90 cm')
+        ->and($placement->subject?->label)->toBe('Naast het raam');
+});
+
+test('installer can create a customer task in one click from an AI exception prompt', function () {
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'quick-task@example.com');
+
+    $this->actingAs($user)
+        ->from(route('intakes.workspace', $intake))
+        ->post(route('intakes.workspace.tasks.quick', $intake), [
+            'type' => FollowUpItemType::Photo->value,
+            'prompt' => 'Maak één scherpe foto van de meterkastlabels.',
+            'decision_area_key' => 'power',
+        ])
+        ->assertRedirect(route('intakes.workspace', $intake));
+
+    $intake->refresh();
+    expect($intake->status)->toBe(IntakeStatus::AwaitingCustomer)
+        ->and($intake->customer_access_enabled)->toBeTrue()
+        ->and($intake->contributionTasks()->where('status', ContributionTaskStatus::Open)->count())->toBe(1)
+        ->and($intake->contributionTasks()->first()?->prompt)->toBe('Maak één scherpe foto van de meterkastlabels.');
+});
+
+test('quick customer task is blocked while another contribution round is open', function () {
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'quick-blocked@example.com');
+
+    app(CreateCustomerContributionRequest::class)->handle($intake, $user, [[
+        'type' => FollowUpItemType::Photo,
+        'prompt' => 'Eerste open taak.',
+        'decision_area_key' => 'power',
+    ]]);
+
+    $this->actingAs($user)
+        ->from(route('intakes.workspace', $intake))
+        ->post(route('intakes.workspace.tasks.quick', $intake), [
+            'type' => FollowUpItemType::Photo->value,
+            'prompt' => 'Tweede taak mag niet.',
+            'decision_area_key' => 'power',
+        ])
+        ->assertRedirect(route('intakes.workspace', $intake))
+        ->assertSessionHasErrors('contribution_items');
+});

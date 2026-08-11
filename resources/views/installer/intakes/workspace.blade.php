@@ -162,28 +162,50 @@
                             </div>
                             <div class="mt-3 grid gap-2 sm:grid-cols-2">
                                 @foreach ($visibleOpenAreas as $area)
-                                    @php $areaTarget = $areaTargetResolver->targetForArea($intake, $area->key); @endphp
-                                    <a
-                                        href="{{ $areaTarget['href'] }}"
+                                    @php
+                                        $areaTarget = $areaTargetResolver->targetForArea($intake, $area->key);
+                                        $askCustomerPrompt = \Illuminate\Support\Str::limit(
+                                            trim((string) ($area->blocker ?: ('Help ons verder met: '.$area->label))),
+                                            500,
+                                            '',
+                                        );
+                                        $askCustomerType = in_array($area->key, ['capacity', 'placement', 'refrigerant', 'condensate', 'power'], true)
+                                            ? \App\Enums\FollowUpItemType::Photo->value
+                                            : \App\Enums\FollowUpItemType::Text->value;
+                                    @endphp
+                                    <div
                                         @class([
-                                            'rounded-2xl border bg-white p-3 transition hover:border-gray-400',
+                                            'rounded-2xl border bg-white p-3',
                                             'border-amber-200' => $area->status === \App\Enums\DecisionAreaStatus::Review,
                                             'border-red-200' => $area->status === \App\Enums\DecisionAreaStatus::Blocked,
                                         ])
                                     >
-                                        <div class="flex items-start justify-between gap-3">
-                                            <h4 class="text-sm font-semibold text-gray-950">{{ $area->label }}</h4>
-                                            <span @class([
-                                                'shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold',
-                                                'bg-amber-100 text-amber-900' => $area->status === \App\Enums\DecisionAreaStatus::Review,
-                                                'bg-red-100 text-red-800' => $area->status === \App\Enums\DecisionAreaStatus::Blocked,
-                                            ])>{{ $area->status->label() }}</span>
-                                        </div>
-                                        @if ($area->blocker)
-                                            <p class="mt-1.5 text-xs leading-relaxed text-gray-600">{{ $area->blocker }}</p>
+                                        <a href="{{ $areaTarget['href'] }}" class="block transition hover:opacity-90">
+                                            <div class="flex items-start justify-between gap-3">
+                                                <h4 class="text-sm font-semibold text-gray-950">{{ $area->label }}</h4>
+                                                <span @class([
+                                                    'shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold',
+                                                    'bg-amber-100 text-amber-900' => $area->status === \App\Enums\DecisionAreaStatus::Review,
+                                                    'bg-red-100 text-red-800' => $area->status === \App\Enums\DecisionAreaStatus::Blocked,
+                                                ])>{{ $area->status->label() }}</span>
+                                            </div>
+                                            @if ($area->blocker)
+                                                <p class="mt-1.5 text-xs leading-relaxed text-gray-600">{{ $area->blocker }}</p>
+                                            @endif
+                                            <p class="mt-2 text-xs font-semibold text-gray-950">{{ $areaTarget['label'] }} →</p>
+                                        </a>
+                                        @if ($area->next_action === \App\Enums\DossierNextAction::RequestContribution)
+                                            <form method="POST" action="{{ route('intakes.workspace.tasks.quick', $intake) }}" class="mt-3 border-t border-gray-100 pt-3">
+                                                @csrf
+                                                <input type="hidden" name="type" value="{{ $askCustomerType }}">
+                                                <input type="hidden" name="prompt" value="{{ $askCustomerPrompt }}">
+                                                <input type="hidden" name="decision_area_key" value="{{ $area->key }}">
+                                                <button class="inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-900 hover:bg-gray-50">
+                                                    Vraag de klant
+                                                </button>
+                                            </form>
                                         @endif
-                                        <p class="mt-2 text-xs font-semibold text-gray-950">{{ $areaTarget['label'] }} →</p>
-                                    </a>
+                                    </div>
                                 @endforeach
                             </div>
                             @if ($hiddenOpenCount > 0)
@@ -258,8 +280,9 @@
                             @forelse ($intake->aircoRooms as $room)
                                 @php
                                     $roomSubject = $intake->dossierSubjects->firstWhere('id', $room->dossier_subject_id);
+                                    $roomDimensions = is_array($room->dimensions) ? $room->dimensions : [];
                                 @endphp
-                                <article class="rounded-2xl border border-gray-200 p-4">
+                                <article id="room-{{ $room->id }}" class="scroll-mt-28 rounded-2xl border border-gray-200 p-4">
                                     <div class="flex flex-wrap items-start justify-between gap-3">
                                         <div>
                                             <h4 class="font-semibold text-gray-950">{{ $room->name }}</h4>
@@ -272,9 +295,9 @@
                                                     'other' => 'Andere ruimte',
                                                     default => 'Gebruik nog niet vastgesteld',
                                                 } }}
-                                                @if (is_array($room->dimensions) && $room->dimensions !== [])
+                                                @if ($roomDimensions !== [])
                                                     ·
-                                                    {{ collect($room->dimensions)->map(fn ($value, $key) => number_format((float) $value, 1, ',', '.').' m')->implode(' × ') }}
+                                                    {{ collect($roomDimensions)->map(fn ($value, $key) => number_format((float) $value, 1, ',', '.').' m')->implode(' × ') }}
                                                 @endif
                                             </p>
                                         </div>
@@ -299,6 +322,47 @@
                                             @endforeach
                                         </ul>
                                     @endif
+
+                                    <details class="mt-4 rounded-xl border border-gray-200 bg-gray-50">
+                                        <summary class="flex min-h-11 cursor-pointer list-none items-center px-3 py-2 text-sm font-semibold text-gray-800">
+                                            Ruimte bewerken
+                                        </summary>
+                                        <form method="POST" action="{{ route('intakes.workspace.rooms.update', [$intake, $room]) }}" class="grid gap-3 border-t border-gray-200 p-3 sm:grid-cols-2">
+                                            @csrf
+                                            <div>
+                                                <x-input-label for="room-{{ $room->id }}-name" value="Herkenbare naam" />
+                                                <x-text-input id="room-{{ $room->id }}-name" name="name" class="mt-1 block w-full" value="{{ $room->name }}" required />
+                                            </div>
+                                            <div>
+                                                <x-input-label for="room-{{ $room->id }}-use" value="Gebruik" />
+                                                <select id="room-{{ $room->id }}-use" name="use_type" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300">
+                                                    <option value="" @selected($room->use_type === null)>Nog niet vastgesteld</option>
+                                                    <option value="bedroom" @selected($room->use_type === 'bedroom')>Slaapkamer</option>
+                                                    <option value="living_room" @selected($room->use_type === 'living_room')>Woonkamer</option>
+                                                    <option value="office" @selected($room->use_type === 'office')>Werkkamer</option>
+                                                    <option value="attic" @selected($room->use_type === 'attic')>Zolder</option>
+                                                    <option value="other" @selected($room->use_type === 'other')>Anders</option>
+                                                </select>
+                                            </div>
+                                            <div class="grid grid-cols-3 gap-2 sm:col-span-2">
+                                                <div>
+                                                    <x-input-label for="room-{{ $room->id }}-length" value="Lengte (m)" />
+                                                    <x-text-input id="room-{{ $room->id }}-length" name="length_m" type="number" step="0.1" min="0.5" class="mt-1 block w-full" value="{{ $roomDimensions['length_m'] ?? '' }}" />
+                                                </div>
+                                                <div>
+                                                    <x-input-label for="room-{{ $room->id }}-width" value="Breedte (m)" />
+                                                    <x-text-input id="room-{{ $room->id }}-width" name="width_m" type="number" step="0.1" min="0.5" class="mt-1 block w-full" value="{{ $roomDimensions['width_m'] ?? '' }}" />
+                                                </div>
+                                                <div>
+                                                    <x-input-label for="room-{{ $room->id }}-height" value="Hoogte (m)" />
+                                                    <x-text-input id="room-{{ $room->id }}-height" name="height_m" type="number" step="0.1" min="1.5" class="mt-1 block w-full" value="{{ $roomDimensions['height_m'] ?? '' }}" />
+                                                </div>
+                                            </div>
+                                            <div class="sm:col-span-2">
+                                                <x-primary-button>Wijzigingen opslaan</x-primary-button>
+                                            </div>
+                                        </form>
+                                    </details>
 
                                     @include('installer.intakes._subject-tools', [
                                         'intake' => $intake,
@@ -366,7 +430,7 @@
                                     @php
                                         $placementSubject = $intake->dossierSubjects->firstWhere('id', $placement->dossier_subject_id);
                                     @endphp
-                                    <article class="rounded-2xl border border-gray-200 p-4">
+                                    <article id="placement-{{ $placement->id }}" class="scroll-mt-28 rounded-2xl border border-gray-200 p-4">
                                         <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ $placement->type->label() }}</p>
                                         <h4 class="mt-1 font-semibold text-gray-950">{{ $placement->label }}</h4>
                                         @if ($placement->room)
@@ -383,6 +447,43 @@
                                                 default => 'Automatisch toegevoegd',
                                             } }}
                                         </p>
+
+                                        <details class="mt-4 rounded-xl border border-gray-200 bg-gray-50">
+                                            <summary class="flex min-h-11 cursor-pointer list-none items-center px-3 py-2 text-sm font-semibold text-gray-800">
+                                                Plek bewerken
+                                            </summary>
+                                            <form method="POST" action="{{ route('intakes.workspace.placements.update', [$intake, $placement]) }}" class="grid gap-3 border-t border-gray-200 p-3">
+                                                @csrf
+                                                <div>
+                                                    <x-input-label for="placement-{{ $placement->id }}-type" value="Soort positie" />
+                                                    <select id="placement-{{ $placement->id }}-type" name="type" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300" required>
+                                                        @foreach ($placementTypes as $type)
+                                                            <option value="{{ $type->value }}" @selected($placement->type === $type)>{{ $type->label() }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <x-input-label for="placement-{{ $placement->id }}-room" value="Ruimte (indien relevant)" />
+                                                    <select id="placement-{{ $placement->id }}-room" name="airco_room_id" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300">
+                                                        <option value="">Algemeen / buitenzijde</option>
+                                                        @foreach ($intake->aircoRooms as $room)
+                                                            <option value="{{ $room->id }}" @selected($placement->airco_room_id === $room->id)>{{ $room->name }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <x-input-label for="placement-{{ $placement->id }}-label" value="Korte omschrijving" />
+                                                    <x-text-input id="placement-{{ $placement->id }}-label" name="label" class="mt-1 block w-full" value="{{ $placement->label }}" required />
+                                                </div>
+                                                <div>
+                                                    <x-input-label for="placement-{{ $placement->id }}-description" value="Technische waarneming (optioneel)" />
+                                                    <textarea id="placement-{{ $placement->id }}-description" name="description" rows="3" class="mt-1 block w-full rounded-xl border-gray-300">{{ $placement->description }}</textarea>
+                                                </div>
+                                                <div>
+                                                    <x-primary-button>Wijzigingen opslaan</x-primary-button>
+                                                </div>
+                                            </form>
+                                        </details>
 
                                         @include('installer.intakes._subject-tools', [
                                             'intake' => $intake,
@@ -789,9 +890,28 @@
                                         @if ($aiExceptions !== [])
                                             <ul class="mt-3 space-y-2">
                                                 @foreach ($aiExceptions as $exception)
+                                                    @php
+                                                        $exceptionLabel = is_string($exception['label'] ?? null) ? $exception['label'] : 'Onbekende uitzondering';
+                                                        $exceptionArea = is_string($exception['decision_area_key'] ?? null) ? $exception['decision_area_key'] : null;
+                                                        $exceptionType = in_array($exceptionArea, ['capacity', 'placement', 'refrigerant', 'condensate', 'power'], true)
+                                                            ? \App\Enums\FollowUpItemType::Photo->value
+                                                            : \App\Enums\FollowUpItemType::Text->value;
+                                                        $exceptionPrompt = \Illuminate\Support\Str::limit($exceptionLabel, 500, '');
+                                                    @endphp
                                                     <li class="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-950">
-                                                        <strong>{{ $exception['label'] }}</strong>
-                                                        <span class="block text-xs text-amber-800">{{ $exception['decision_area_key'] }} · zekerheid {{ $exception['confidence'] }}</span>
+                                                        <strong>{{ $exceptionLabel }}</strong>
+                                                        <span class="block text-xs text-amber-800">{{ $exceptionArea }} · zekerheid {{ $exception['confidence'] ?? 'onbekend' }}</span>
+                                                        <form method="POST" action="{{ route('intakes.workspace.tasks.quick', $intake) }}" class="mt-2">
+                                                            @csrf
+                                                            <input type="hidden" name="type" value="{{ $exceptionType }}">
+                                                            <input type="hidden" name="prompt" value="{{ $exceptionPrompt }}">
+                                                            @if ($exceptionArea)
+                                                                <input type="hidden" name="decision_area_key" value="{{ $exceptionArea }}">
+                                                            @endif
+                                                            <button class="inline-flex min-h-10 items-center rounded-lg bg-amber-900 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-800">
+                                                                Vraag de klant
+                                                            </button>
+                                                        </form>
                                                     </li>
                                                 @endforeach
                                             </ul>

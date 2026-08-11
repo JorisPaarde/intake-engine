@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.51 · **Laatste update:** 2026-08-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.52 · **Laatste update:** 2026-08-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -22,6 +22,7 @@ Laatste testsessie: 2026-08-09 (staging; mobiele werkplek BL-053/054–058 op 39
 | Gecontroleerd eenvoudig Nederlands in app-UI (BL-052) | todo | - | Na deploy: klantwizard-afrondtekst, create-keuze (klant/zelf), werkplekkoppen (**Open punten**, **Mogelijke plekken**), demo-coach en auth-login in gewone korte zinnen; nieuwe opname gebruikt airco v11-labels (o.a. zon/vrije groep). |
 | Mobiele werkplek acties eerst (BL-053) | todo | - | Op ~390 px: sticky **Volgende stap** + CTA in eerste viewport; open punten vóór ruimtes; AI/woning/foto’s/uitkomst dicht tot tikken; democoach `installer_start`/`sample_loaded` en sprongen `#demo-context`/`#demo-proposal` openen secties; desktop blijft bruikbaar. |
 | Werkplek echte actie + deep links (BL-054–058) | todo | - | Sticky CTA doet echte handeling (geen “bekijken”); open punt tikt naar `#workspace-rooms`/`#connection-*`; max 3 open punten; klanttaak/afronden na opstellingen; thumbs bij object; na goedkeuren korte bevestiging + uitkomst. Democoach blijft. |
+| Ruimtes/plaatsingen bewerken + 1-klik klanttaak (BL-059–062) | todo | - | Op werkplek: bestaande ruimte maten/naam bijwerken; plek label/type bijwerken; capacity-open-punt naar `#room-{id}`; AI-uitzondering en open punt “Vraag de klant”; bij fotovoorstel “Vraag nieuwe foto”; openstaande ronde blokkeert tweede snelle taak. |
 | Startkeuze klant / zelf uitvoeren (BL-037) | todo | - | Na deploy: **Zelf uitvoeren** houdt klanttoegang uit en verstuurt geen mail; **Klant laten opnemen** activeert en mailt de begeleide klantlink. |
 | Volledig installateur-uitgevoerde opname (BL-037) | todo | - | Twee slaapkamers mobiel en in vrije volgorde vastleggen: ruimtes, contextgebonden foto's/notities en technische conclusies; afronden/offertebasis zonder klantactie. |
 | Contextgebonden foto’s en notities (BL-049) | todo | - | Na deploy op desktop en 390 px bij een ruimte, positie en verbinding **Foto maken** en **Technische notitie** doorlopen. Geen losse **Camera en bewijs**/**Vakwaarneming**, onderwerp-, sleutel-, methode- of telefoonkeuze. Met fictieve beelden en toegestane externe AI: voorstel blijft onbevestigd, **Klopt** en **Aanpassen** maken het definitief; lage zekerheid en providerfalen voegen geen dossiernoise toe. Controleer bronlabels, toetsenbord, camera én galerij en dat een routefoto één routesegment blijft. |
