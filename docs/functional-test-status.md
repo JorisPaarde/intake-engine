@@ -1,12 +1,12 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.51 · **Laatste update:** 2026-08-10 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.52 · **Laatste update:** 2026-08-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
 Bijwerken door wie de test daadwerkelijk heeft uitgevoerd: een menselijke tester **of** een testende agent (bijv. een agent die de app via een browser bedient). Niet invullen op basis van alleen implementatie — er moet echt functioneel getest zijn. Implementerende agents voegen alleen nieuwe `todo`-regels toe voor functionaliteit die zij introduceren.
 
-Laatste testsessie: 2026-07-26 (lokaal; postcode-eerst adresaanvulling met echte PDOK-call en visuele browsercontrole)
+Laatste testsessie: 2026-08-09 (staging; mobiele werkplek BL-053/054–058 op 390 px via publieke demo + voorbeelddossier)
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
