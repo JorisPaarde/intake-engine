@@ -1,6 +1,6 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 3.2 · **Laatste update:** 2026-07-31 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.3 · **Laatste update:** 2026-08-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **samenvatting, aandachtspunten, lokale fotokwaliteit, tekst-/foto-afleiding, verbindingsgebonden routeanalyse en bewijsgerichte dossiersynthese zijn geïmplementeerd**. Externe provider en tekst-/foto-/route-/dossierinferentie staan standaard uit (DPIA + key + budgetcaps + staging-smoke vereist).
 
@@ -168,7 +168,7 @@ Dossiersynthese loopt na iedere afgeronde klant-, installateur- of gerichte bijd
 
 ## Openingszin: lokaal vóór externe AI
 
-`DeriveIntentFromRequest` gebruikt eerst `LocalRequestIntentParser`. Die parser is bewust klein en deterministisch: hij herkent alleen expliciete Nederlandse koel-/verwarmdoelen, aantallen van één tot acht, bekende ruimtetypen en de expliciete ligging “op zolder”. De zin `Ik wil twee airco’s om m’n slaapkamers op zolder te koelen` levert daardoor lokaal koelen, twee slaapkamers en voor beide `floor_level=attic` op; “zolder” wordt niet als derde ruimte behandeld. Tegenstrijdige aantallen en onduidelijke doelen vallen terug op de normale vragen.
+`DeriveIntentFromRequest` gebruikt eerst `LocalRequestIntentParser` (`request-intent-local-v2`). Die parser is bewust klein en deterministisch: hij herkent alleen expliciete Nederlandse koel-/verwarmdoelen (inclusief `koud te krijgen`), aantallen van één tot acht, bekende ruimtetypen, de expliciete ligging “op zolder”, en een expliciete buitenunitplek (dakkapel/plat dak/dak/gevel/tuin/balkon). De zin `Twee airco’s op slaapkamers om ze koud te krijgen buitenunit kan op dak dakkapel` levert daardoor lokaal koelen, twee slaapkamers en `outdoor_location=pitched_roof` plus `outdoor_mount_type=roof`; “zolder” wordt niet als derde ruimte behandeld. Alleen “op het dak” zonder plat/schuin zet enkel het bevestigingstype. Tegenstrijdige aantallen en onduidelijke doelen vallen terug op de normale vragen.
 
 De lokale run bewaart alleen parserversie, inputhash, gecontroleerde output en toegepaste vraagsleutels; de vrije openingszin komt niet in activity-properties. Afgeleide antwoorden krijgen `prefill_source=request_text`. Dit pad draait direct na installateursaanmaak en als herstel bij een oudere actieve klantlink, ook wanneer `AI_PROVIDER=null` en `AI_TEXT_INFERENCE_ENABLED=false`.
 

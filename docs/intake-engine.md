@@ -1,6 +1,6 @@
 # Vragen- en takenengine
 
-> **Documentversie:** 2.7 · **Laatste update:** 2026-08-10 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.8 · **Laatste update:** 2026-08-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: de templatewizard is **geïmplementeerd t/m airco v11** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md). UI-taal: [language.md](language.md).
 

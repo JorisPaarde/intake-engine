@@ -54,3 +54,46 @@ test('it does not read a digit from a number outside the supported range', funct
         'Ik wil twaalf slaapkamers koelen.',
     ))->toBeNull();
 });
+
+test('it reads cooling from koud te krijgen and outdoor unit on a dormer roof', function () {
+    $result = app(LocalRequestIntentParser::class)->parse(
+        "Twee airco's op slaapkamers om ze koud te krijgen buitenunit kan op dak dakkapel",
+    );
+
+    expect($result)->not->toBeNull()
+        ->and($result['cooling_heating'])->toBe('cooling')
+        ->and($result['rooms'])->toBe(['bedroom', 'bedroom'])
+        ->and($result['outdoor_location'])->toBe('pitched_roof')
+        ->and($result['outdoor_mount_type'])->toBe('roof')
+        ->and($result['confidence'])->toBe('high');
+});
+
+test('it sets only outdoor mount when the roof type stays ambiguous', function () {
+    $result = app(LocalRequestIntentParser::class)->parse(
+        "Twee airco's op slaapkamers om te koelen; buitenunit kan op het dak.",
+    );
+
+    expect($result)->not->toBeNull()
+        ->and($result['outdoor_mount_type'])->toBe('roof')
+        ->and($result['outdoor_location'])->toBeNull();
+});
+
+test('it does not invent outdoor placement without an outdoor unit mention', function () {
+    $result = app(LocalRequestIntentParser::class)->parse(
+        'Ik wil twee airco’s om m’n slaapkamers op zolder te koelen.',
+    );
+
+    expect($result)->not->toBeNull()
+        ->and($result['outdoor_location'])->toBeNull()
+        ->and($result['outdoor_mount_type'])->toBeNull();
+});
+
+test('it reads heating from te koud without treating it as cooling', function () {
+    $result = app(LocalRequestIntentParser::class)->parse(
+        'De slaapkamer is te koud in de winter en moet worden verwarmd.',
+    );
+
+    expect($result)->not->toBeNull()
+        ->and($result['cooling_heating'])->toBe('heating')
+        ->and($result['rooms'])->toBe(['bedroom']);
+});

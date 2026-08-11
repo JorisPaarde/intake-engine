@@ -76,6 +76,35 @@ test('the installer sentence answers function room count type and floor locally'
         ->and(collect($steps)->filter(fn (string $k): bool => $k === 'room_photos'))->toHaveCount(2);
 });
 
+test('an openingszin with outdoor unit on a dormer skips the outdoor location questions', function () {
+    config(['ai.text_inference.enabled' => false]);
+
+    $intake = makeIntentIntake();
+    answerReason(
+        $intake,
+        "Twee airco's op slaapkamers om ze koud te krijgen buitenunit kan op dak dakkapel",
+    );
+
+    $run = app(DeriveIntentFromRequest::class)->handle($intake);
+
+    expect($run?->status)->toBe(AiRunStatus::Succeeded)
+        ->and($run?->provider)->toBe('local')
+        ->and($intake->answers()->where('question_key', 'cooling_heating')->firstOrFail()->value)->toBe(['value' => 'cooling'])
+        ->and($intake->answers()->where('question_key', 'indoor_unit_count')->firstOrFail()->value)->toBe(['number' => 2])
+        ->and($intake->answers()->where('question_key', 'outdoor_location')->firstOrFail()->value)->toBe(['value' => 'pitched_roof'])
+        ->and($intake->answers()->where('question_key', 'outdoor_mount_type')->firstOrFail()->value)->toBe(['value' => 'roof'])
+        ->and($intake->answers()->where('question_key', 'outdoor_location')->firstOrFail()->prefill_source)
+        ->toBe(DeriveIntentFromRequest::SOURCE_REQUEST_TEXT);
+
+    $steps = intentStepKeys($intake);
+
+    expect($steps)->not->toContain('cooling_heating')
+        ->and($steps)->not->toContain('indoor_unit_count')
+        ->and($steps)->not->toContain('outdoor_location')
+        ->and($steps)->not->toContain('outdoor_mount_type')
+        ->and($steps)->toContain('outdoor_location_photos');
+});
+
 test('a vague reason only suggests and keeps the questions', function () {
     $intake = makeIntentIntake();
     FakeAiClient::alwaysReturn([

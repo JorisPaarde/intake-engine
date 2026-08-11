@@ -28,7 +28,8 @@ use Throwable;
  * "Slaapkamer en woonkamer worden te warm in de zomer" beantwoordt drie vragen die de
  * wizard daarna nog stelde: wat er moet gebeuren (koelen), hoeveel ruimtes (twee) en
  * om welke ruimtes het gaat (slaapkamer, woonkamer). Dat opnieuw vragen is precies wat het
- * ontwerpprincipe verbiedt.
+ * ontwerpprincipe verbiedt. Hetzelfde geldt voor een expliciete buitenunitplek zoals
+ * "buitenunit kan op dakkapel".
  *
  * Zekerheid werkt zoals bij de foto-afleiding: `high` laat de vraag vervallen, `medium`
  * levert een bevestigbare voorzet, `low` doet niets. De prompt mag alleen `high` kiezen
@@ -340,7 +341,57 @@ final class DeriveIntentFromRequest
             }
         }
 
+        foreach ([
+            'outdoor_location' => $output['outdoor_location'] ?? null,
+            'outdoor_mount_type' => $output['outdoor_mount_type'] ?? null,
+        ] as $questionKey => $value) {
+            if (! is_string($value) || $value === '') {
+                continue;
+            }
+
+            if (! $this->mayWrite($intake, $questionKey, null)) {
+                continue;
+            }
+
+            $choice = $this->choiceAnswer($intake, $questionKey, $value);
+
+            if ($choice === null) {
+                continue;
+            }
+
+            $this->saveIntakeAnswer->handle($intake, $questionKey, null, $choice, $source);
+            $applied[] = $questionKey;
+        }
+
         return $applied;
+    }
+
+    /**
+     * @return array{value: string}|null
+     */
+    private function choiceAnswer(Intake $intake, string $questionKey, string $value): ?array
+    {
+        $intake->loadMissing('templateVersion.sections.questions');
+
+        foreach ($intake->templateVersion->sections as $section) {
+            foreach ($section->questions as $question) {
+                if ($question->key !== $questionKey) {
+                    continue;
+                }
+
+                if ($question->type !== QuestionType::SingleChoice) {
+                    return null;
+                }
+
+                $optionExists = $question->options()
+                    ->where('value', $value)
+                    ->exists();
+
+                return $optionExists ? ['value' => $value] : null;
+            }
+        }
+
+        return null;
     }
 
     /**

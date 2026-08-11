@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Fixed
+
+- **Openingszin herkent buitenunitplek en “koud te krijgen” (BL-063):** een reden als `Twee airco’s op slaapkamers om ze koud te krijgen buitenunit kan op dak dakkapel` vult nu lokaal koelen, twee slaapkamers en buitenunit op schuin dak (`pitched_roof`/`roof`) als `request_text`. De klant krijgt die keuzevragen niet opnieuw; fotobewijs blijft staan.
+
 ### Added
 
 - **Werkplek afronden: bewerken + 1-klik klanttaak (BL-059–062):** ruimtes en plaatsingen zijn na aanmaken bewerkbaar (`#room-{id}` / `#placement-{id}`); capacity-open-punten springen naar de eerste ruimte zonder maten; AI-uitzonderingen, open punten met klantbijdrage en AI-fotovoorstellen hebben één-tik “Vraag de klant” / “Vraag nieuwe foto” via `customer-tasks/quick`.
