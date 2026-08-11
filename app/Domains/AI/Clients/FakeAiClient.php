@@ -158,9 +158,20 @@ final class FakeAiClient implements AiClientInterface
                 ? mb_strtolower((string) $request->input['known_context']['request_reason'])
                 : '';
 
+            $observationText = '';
+            $observations = $request->input['known_context']['installer_observations'] ?? [];
+            if (is_array($observations)) {
+                foreach ($observations as $observation) {
+                    if (is_array($observation) && is_string($observation['text'] ?? null)) {
+                        $observationText .= ' '.mb_strtolower((string) $observation['text']);
+                    }
+                }
+            }
+
+            $corpus = trim($reason.' '.$observationText);
             $fills = [];
 
-            if (str_contains($reason, 'koud te krijgen') || str_contains($reason, 'koelen') || str_contains($reason, 'te warm')) {
+            if (str_contains($corpus, 'koud te krijgen') || str_contains($corpus, 'koelen') || str_contains($corpus, 'te warm')) {
                 $fills[] = [
                     'question_key' => 'cooling_heating',
                     'section_instance_key' => null,
@@ -170,7 +181,7 @@ final class FakeAiClient implements AiClientInterface
                 ];
             }
 
-            if (str_contains($reason, 'twee') && str_contains($reason, 'slaapkamer')) {
+            if (str_contains($corpus, 'twee') && str_contains($corpus, 'slaapkamer')) {
                 $fills[] = [
                     'question_key' => 'indoor_unit_count',
                     'section_instance_key' => null,
@@ -194,7 +205,7 @@ final class FakeAiClient implements AiClientInterface
                 ];
             }
 
-            if (str_contains($reason, 'dakkapel')) {
+            if (str_contains($corpus, 'dakkapel')) {
                 $fills[] = [
                     'question_key' => 'outdoor_location',
                     'section_instance_key' => null,
@@ -213,7 +224,7 @@ final class FakeAiClient implements AiClientInterface
 
             return new AiCompletionResult(
                 output: [
-                    'evidence' => 'Fictieve catalogusprefill op basis van de openingszin.',
+                    'evidence' => 'Fictieve catalogusprefill op basis van bekende context.',
                     'fills' => $fills,
                 ],
                 provider: 'fake',

@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.54 · **Laatste update:** 2026-08-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.55 · **Laatste update:** 2026-08-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -68,6 +68,7 @@ Laatste testsessie: 2026-08-09 (staging; mobiele werkplek BL-053/054–058 op 39
 | Installateur-prefill bij aanmaken (BL-016/v10) | todo | - | Na deploy: bekende aanvraagwaarden staan met bron in het dossier; airco v10 slaat eenduidige installateursprefill over zonder losse klantbevestiging. Een historische gepinde v3-flow blijft de bewerkbare voorzet tonen; prefill alleen start de opname niet. |
 | Openingszin voorkomt herhaalvragen (BL-048) | todo | - | Na deploy als installateur een klantopname aanmaken met exact `Ik wil twee airco’s om m’n slaapkamers op zolder te koelen.` en externe tekst-AI uit. De klantlink vraagt niet opnieuw naar koelen, aantal ruimtes, ruimtetype of verdieping en bouwt twee afzonderlijke slaapkamertaken op zolder; zolder wordt geen derde ruimte. Controleer hetzelfde met een vóór de deploy aangemaakte nog open link. |
 | Openingszin buitenunitplek (BL-063/064) | todo | - | Met `AI_TEXT_INFERENCE_ENABLED=true` + fake/echte provider: reden met dakkapel vult `dormer` (niet schuin dak) en slaat locatie-/bevestigingsvraag over; foto’s blijven. Zonder tekst-AI: wel koelen/ruimtes lokaal, buitenunitvraag blijft. Nieuwe opnames: airco v12. |
+| Herbeoordeling prefill bij latere info (BL-065) | todo | - | Na BAG-retry of installateursnotitie met nieuwe plekinfo opnieuw catalogusprefill; evidente koel/ruimte blijft lokaal ook met AI aan; menselijke antwoorden onaangetast. |
 | Repeatable-prefill ruimtes (BL-016) | todo | - | Na deploy: bij ≥2 binnenunits neemt ruimte 2 `floor_level` over van ruimte 1 als bewerkbare voorzet ("Overgenomen van Ruimtes 1"); pas bij Volgende opgeslagen; ruimte 1 nooit voorgevuld |
 | Foto-uploads (Fase 4) | pass | 2026-07-18 | JPEG-upload + preview + “Foto opgeslagen” op ruimtestap |
 | Dossier- en AI-beeldvarianten (BL-030) | todo | - | Na deploy: JPEG/PNG/WebP/HEIC levert metadata-vrije JPEG-dossierkopie ≤2048px en analysekopie ≤1536px; preview gebruikt dossier, vision gebruikt analyse; verwijderen/purge wist beide. Controleer ook één historische upload zonder `analysis_path` op veilige fallback. |

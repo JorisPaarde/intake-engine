@@ -7,7 +7,7 @@ namespace App\Domains\AI\Services;
 /**
  * Haalt alleen evidente aanvraagfeiten lokaal uit een Nederlandse openingszin.
  *
- * Offline-fallback wanneer tekst-AI uit staat (ADR-0013). Bewust klein en bevroren:
+ * Offline én hybrid met catalogus-AI (ADR-0013/0014). Bewust klein en bevroren:
  * alleen functie, ruimtetype/aantal en expliciete zolderligging. Geen uitbreiding
  * met buitenunit- of andere keuzeheuristieken — die horen in de AI-catalogusprefill.
  */

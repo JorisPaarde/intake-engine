@@ -6,6 +6,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Added
 
+- **Herbeoordeling prefill bij nieuwe context (BL-065, ADR-0014):** `DeriveIntentFromRequest` draait foutloze lokale heuristiek altijd eerst en daarna catalogus-AI. Prefill herstart na adresverrijking (aanmaak + retry) en na installateursnotities; AI-context bevat observaties (`request-prefill-v2`).
+
+### Added
+
 - **AI-prefill tegen volledige vraagenset (BL-064, ADR-0013):** met tekst-AI aan beoordeelt `PrefillAnswersFromKnownContext` alle fillable templatevragen t.o.v. openingszin/antwoorden/feiten (`request-prefill-v1`). High → auto-invullen; medium → voorzet; low → niets. Airco **v12** voegt keuze “Op of aan de dakkapel” (`dormer`) toe als catalogusoptie.
 
 ### Fixed

@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 use App\Domains\AI\Actions\DeriveIntentFromRequest;
 use App\Domains\AI\Clients\FakeAiClient;
+use App\Domains\Intake\Actions\SaveInstallerObservation;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplate;
+use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Enums\AiRunStatus;
 use App\Enums\IntakeStatus;
@@ -232,4 +234,78 @@ test('a short direct pipe route drops the distance question', function () {
     app(SaveIntakeAnswer::class)->handle($intake, 'pipe_route_description', null, ['value' => 'through_attic']);
 
     expect(intentStepKeys($intake->fresh()))->toContain('pipe_distance_indication');
+});
+
+test('hybrid path keeps local heuristic fills when AI returns nothing useful', function () {
+    $intake = makeIntentIntake();
+    FakeAiClient::alwaysReturn([
+        'evidence' => 'Geen harde catalogusvulling.',
+        'fills' => [],
+    ]);
+    answerReason($intake, 'Ik wil twee airco’s om m’n slaapkamers op zolder te koelen.');
+
+    $run = app(DeriveIntentFromRequest::class)->handle($intake);
+
+    expect($run?->status)->toBe(AiRunStatus::Succeeded)
+        ->and($intake->answers()->where('question_key', 'cooling_heating')->firstOrFail()->value)->toBe(['value' => 'cooling'])
+        ->and($intake->answers()->where('question_key', 'cooling_heating')->firstOrFail()->prefill_source)
+        ->toBe(DeriveIntentFromRequest::SOURCE_REQUEST_TEXT)
+        ->and($intake->answers()->where('question_key', 'floor_level')->where('section_instance_key', 'room-1')->firstOrFail()->value)
+        ->toBe(['value' => 'attic'])
+        ->and($intake->answers()->where('question_key', 'outdoor_location')->exists())->toBeFalse();
+});
+
+test('later installer observation reconsiders catalog prefill', function () {
+    $intake = makeIntentIntake();
+    answerReason($intake, 'Twee slaapkamers koelen omdat het te warm wordt.');
+
+    app(DeriveIntentFromRequest::class)->handle($intake);
+
+    expect($intake->answers()->where('question_key', 'outdoor_location')->exists())->toBeFalse();
+
+    $subject = app(DossierManager::class)->initialize($intake);
+    app(SaveInstallerObservation::class)->handle(
+        $intake,
+        User::query()->findOrFail($intake->created_by),
+        $subject,
+        'installer_note.test',
+        'Buitenunit kan op de dakkapel.',
+    );
+
+    FakeAiClient::reset();
+    app(DeriveIntentFromRequest::class)->handle($intake->fresh() ?? $intake);
+
+    $context = FakeAiClient::lastRequest()?->input['known_context'] ?? [];
+    $observationTexts = collect($context['installer_observations'] ?? [])
+        ->pluck('text')
+        ->all();
+
+    expect($intake->answers()->where('question_key', 'outdoor_location')->firstOrFail()->value)
+        ->toBe(['value' => 'dormer'])
+        ->and($observationTexts)->toContain('Buitenunit kan op de dakkapel.');
+});
+
+test('new external facts change the prefill context hash so AI runs again', function () {
+    $intake = makeIntentIntake();
+    answerReason($intake, 'Twee slaapkamers koelen omdat het te warm wordt.');
+
+    $first = app(DeriveIntentFromRequest::class)->handle($intake);
+    expect($first?->status)->toBe(AiRunStatus::Succeeded);
+
+    $intake->externalFacts()->create([
+        'fact_key' => 'building_year',
+        'label' => 'Bouwjaar',
+        'value' => ['number' => 1985],
+        'source' => 'PDOK / BAG',
+        'confidence' => 'high',
+        'captured_at' => now(),
+    ]);
+
+    FakeAiClient::reset();
+    $second = app(DeriveIntentFromRequest::class)->handle($intake->fresh() ?? $intake);
+
+    expect($second?->status)->toBe(AiRunStatus::Succeeded)
+        ->and($second?->id)->not->toBe($first?->id)
+        ->and(FakeAiClient::lastRequest()?->input['known_context']['external_facts'] ?? [])
+        ->not->toBeEmpty();
 });
