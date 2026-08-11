@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace App\Domains\AI\Actions;
 
 use App\Domains\AI\Models\AiRun;
-use App\Domains\AI\Services\AiGateway;
 use App\Domains\AI\Services\LocalRequestIntentParser;
-use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
@@ -16,25 +14,15 @@ use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
 use App\Enums\IntakeStatus;
 use App\Enums\QuestionType;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
- * Leidt uit de openingsvraag af wat de aanvrager daar al heeft verteld.
+ * Leidt uit bekende aanvraagcontext af welke templatevragen al beantwoord zijn.
  *
- * "Slaapkamer en woonkamer worden te warm in de zomer" beantwoordt drie vragen die de
- * wizard daarna nog stelde: wat er moet gebeuren (koelen), hoeveel ruimtes (twee) en
- * om welke ruimtes het gaat (slaapkamer, woonkamer). Dat opnieuw vragen is precies wat het
- * ontwerpprincipe verbiedt. Hetzelfde geldt voor een expliciete buitenunitplek zoals
- * "buitenunit kan op dakkapel".
- *
- * Zekerheid werkt zoals bij de foto-afleiding: `high` laat de vraag vervallen, `medium`
- * levert een bevestigbare voorzet, `low` doet niets. De prompt mag alleen `high` kiezen
- * wanneer de aanvrager de ruimtes expliciet noemt — "het is warm boven" is geen opdracht
- * voor twee ruimtes.
+ * Primair (ADR-0013): met tekst-AI aan beoordeelt `PrefillAnswersFromKnownContext`
+ * de volledige vraagenset van de gepinde template. Offline-fallback: een bevroren
+ * lokale parser voor evidente koel-/ruimte-/zolderfeiten (BL-048).
  */
 final class DeriveIntentFromRequest
 {
@@ -46,14 +34,10 @@ final class DeriveIntentFromRequest
 
     private const SOURCE_QUESTION = 'request_reason';
 
-    /** Dezelfde bovengrens als de repeatable ruimtesectie aanhoudt. */
-    private const MAX_ROOMS = 8;
-
     public function __construct(
-        private readonly AiGateway $aiGateway,
-        private readonly PromptVersionRepository $promptVersions,
         private readonly LocalRequestIntentParser $localParser,
         private readonly SaveIntakeAnswer $saveIntakeAnswer,
+        private readonly PrefillAnswersFromKnownContext $prefillFromKnownContext,
     ) {}
 
     public function handle(Intake $intake, bool $allowExternal = true): ?AiRun
@@ -72,86 +56,17 @@ final class DeriveIntentFromRequest
             return null;
         }
 
+        if ($allowExternal && (bool) config('ai.text_inference.enabled', false)) {
+            return $this->prefillFromKnownContext->handle($intake);
+        }
+
         $localOutput = $this->localParser->parse($reason);
 
         if ($localOutput !== null) {
             return $this->recordLocalResult($intake, $reason, $localOutput);
         }
 
-        if (! $allowExternal || ! (bool) config('ai.text_inference.enabled', false)) {
-            return null;
-        }
-
-        $promptName = (string) config('ai.request_intent_prompt', 'request_intent');
-        $promptVersion = $this->promptVersions->version($promptName);
-        $promptBody = $this->promptVersions->body($promptName);
-
-        $input = ['task' => 'derive_request_intent', 'request_reason' => $reason];
-        $inputHash = hash('sha256', (string) json_encode([
-            'prompt_version' => $promptVersion,
-            'input' => $input,
-        ], JSON_THROW_ON_ERROR));
-
-        $existing = AiRun::query()
-            ->where('intake_id', $intake->id)
-            ->where('type', AiRunType::RequestIntent)
-            ->where('input_hash', $inputHash)
-            ->where('status', AiRunStatus::Succeeded)
-            ->latest('id')
-            ->first();
-
-        if ($existing instanceof AiRun) {
-            return $existing;
-        }
-
-        $run = AiRun::query()->create([
-            'intake_id' => $intake->id,
-            'type' => AiRunType::RequestIntent,
-            'provider' => (string) config('ai.provider', 'null'),
-            'model' => null,
-            'prompt_version' => $promptVersion,
-            'input_hash' => $inputHash,
-            'output' => null,
-            'status' => AiRunStatus::Pending,
-            'started_at' => now(),
-        ]);
-
-        try {
-            $result = $this->aiGateway->complete(
-                prompt: $promptBody,
-                input: $input,
-                promptVersion: $promptVersion,
-            );
-
-            $output = $this->validateOutput($result->output);
-
-            $run->update($run->completionResultAttributes($result) + [
-                'status' => AiRunStatus::Succeeded,
-                'output' => $output,
-                'error_message' => null,
-                'finished_at' => now(),
-            ]);
-
-            $run = $run->fresh() ?? $run;
-            $applied = $this->apply(
-                $intake,
-                $output,
-                self::SOURCE_DERIVED,
-                self::SOURCE_SUGGESTED,
-            );
-
-            $this->recordActivity($intake, $run, $output, $applied);
-
-            return $run;
-        } catch (Throwable $exception) {
-            $run->update([
-                'status' => AiRunStatus::Failed,
-                'error_message' => Str::limit($exception->getMessage(), 1000, ''),
-                'finished_at' => now(),
-            ]);
-
-            return $run->fresh() ?? $run;
-        }
+        return null;
     }
 
     /**
@@ -189,10 +104,9 @@ final class DeriveIntentFromRequest
         ]);
 
         try {
-            $applied = $this->apply(
+            $applied = $this->applyLocal(
                 $intake,
                 $output,
-                self::SOURCE_REQUEST_TEXT,
                 self::SOURCE_REQUEST_TEXT,
             );
             $run->update([
@@ -228,7 +142,6 @@ final class DeriveIntentFromRequest
             'actor_type' => 'system',
             'actor_id' => null,
             'event' => 'request_intent_derived',
-            // Sleutels en zekerheid, nooit de vrije tekst zelf (ADR-0002).
             'properties' => [
                 'ai_run_id' => $run->id,
                 'provider' => $run->provider,
@@ -255,43 +168,17 @@ final class DeriveIntentFromRequest
 
         $text = trim($text);
 
-        // Onder een paar woorden valt er niets te concluderen.
         return mb_strlen($text) >= 10 ? $text : null;
-    }
-
-    /**
-     * @param  array<string, mixed>  $output
-     * @return array<string, mixed>
-     */
-    private function validateOutput(array $output): array
-    {
-        $validator = Validator::make($output, [
-            'cooling_heating' => ['required', Rule::in(['cooling', 'heating', 'both', 'unknown'])],
-            'rooms' => ['present', 'array', 'max:'.self::MAX_ROOMS],
-            'rooms.*' => [Rule::in(['living_room', 'bedroom', 'office', 'attic', 'other'])],
-            'confidence' => ['required', Rule::in(['high', 'medium', 'low'])],
-            'evidence' => ['required', 'string', 'min:3', 'max:300'],
-        ]);
-
-        if ($validator->fails()) {
-            throw ValidationException::withMessages($validator->errors()->toArray());
-        }
-
-        /** @var array<string, mixed> $validated */
-        $validated = $validator->validated();
-
-        return $validated;
     }
 
     /**
      * @param  array<string, mixed>  $output
      * @return list<string>
      */
-    private function apply(
+    private function applyLocal(
         Intake $intake,
         array $output,
-        string $derivedSource,
-        string $suggestedSource,
+        string $source,
     ): array {
         $confidence = (string) $output['confidence'];
 
@@ -299,7 +186,6 @@ final class DeriveIntentFromRequest
             return [];
         }
 
-        $source = $confidence === 'high' ? $derivedSource : $suggestedSource;
         $applied = [];
 
         if ($output['cooling_heating'] !== 'unknown'
@@ -324,8 +210,6 @@ final class DeriveIntentFromRequest
             $applied[] = 'indoor_unit_count';
         }
 
-        // De ruimtesectie herhaalt op volgorde, dus de zoveelste genoemde ruimte hoort bij
-        // room-N. Alleen invullen zolang de aanvrager daar zelf nog niets heeft gezet.
         foreach ($rooms as $index => $roomType) {
             $instanceKey = 'room-'.($index + 1);
 
@@ -341,62 +225,10 @@ final class DeriveIntentFromRequest
             }
         }
 
-        foreach ([
-            'outdoor_location' => $output['outdoor_location'] ?? null,
-            'outdoor_mount_type' => $output['outdoor_mount_type'] ?? null,
-        ] as $questionKey => $value) {
-            if (! is_string($value) || $value === '') {
-                continue;
-            }
-
-            if (! $this->mayWrite($intake, $questionKey, null)) {
-                continue;
-            }
-
-            $choice = $this->choiceAnswer($intake, $questionKey, $value);
-
-            if ($choice === null) {
-                continue;
-            }
-
-            $this->saveIntakeAnswer->handle($intake, $questionKey, null, $choice, $source);
-            $applied[] = $questionKey;
-        }
-
         return $applied;
     }
 
     /**
-     * @return array{value: string}|null
-     */
-    private function choiceAnswer(Intake $intake, string $questionKey, string $value): ?array
-    {
-        $intake->loadMissing('templateVersion.sections.questions');
-
-        foreach ($intake->templateVersion->sections as $section) {
-            foreach ($section->questions as $question) {
-                if ($question->key !== $questionKey) {
-                    continue;
-                }
-
-                if ($question->type !== QuestionType::SingleChoice) {
-                    return null;
-                }
-
-                $optionExists = $question->options()
-                    ->where('value', $value)
-                    ->exists();
-
-                return $optionExists ? ['value' => $value] : null;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Ondersteunt ook oudere gepinde templates waarin `floor_level` nog vrije tekst was.
-     *
      * @return array<string, mixed>|null
      */
     private function floorLevelAnswer(Intake $intake, string $floorLevel): ?array
@@ -428,9 +260,6 @@ final class DeriveIntentFromRequest
         return null;
     }
 
-    /**
-     * Een antwoord dat de aanvrager of installateur zelf gaf wint altijd.
-     */
     private function mayWrite(Intake $intake, string $questionKey, ?string $sectionInstanceKey): bool
     {
         $existing = IntakeAnswer::query()

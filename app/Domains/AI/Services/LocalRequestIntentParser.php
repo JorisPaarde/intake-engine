@@ -7,15 +7,13 @@ namespace App\Domains\AI\Services;
 /**
  * Haalt alleen evidente aanvraagfeiten lokaal uit een Nederlandse openingszin.
  *
- * Dit is bewust geen algemene taalparser. Hij past alleen een conclusie toe wanneer
- * functie, ruimtetype en exact aantal letterlijk uit een kleine set herkenbare
- * formuleringen volgen. Optioneel herkent hij ook een expliciete buitenunitplek
- * (dak/dakkapel/gevel/tuin/balkon). Alles daarbuiten blijft voor de normale vraag
- * of optionele externe tekstanalyse staan.
+ * Offline-fallback wanneer tekst-AI uit staat (ADR-0013). Bewust klein en bevroren:
+ * alleen functie, ruimtetype/aantal en expliciete zolderligging. Geen uitbreiding
+ * met buitenunit- of andere keuzeheuristieken — die horen in de AI-catalogusprefill.
  */
 final class LocalRequestIntentParser
 {
-    public const VERSION = 'request-intent-local-v2';
+    public const VERSION = 'request-intent-local-v3';
 
     private const MAX_ROOMS = 8;
 
@@ -24,8 +22,6 @@ final class LocalRequestIntentParser
      *     cooling_heating: 'cooling'|'heating'|'both',
      *     rooms: list<'living_room'|'bedroom'|'office'|'attic'|'other'>,
      *     floor_level: 'attic'|null,
-     *     outdoor_location: 'garden'|'side_passage'|'facade'|'balcony'|'flat_roof'|'pitched_roof'|null,
-     *     outdoor_mount_type: 'wall'|'ground'|'roof'|'balcony'|null,
      *     confidence: 'high',
      *     evidence: string
      * }|null
@@ -84,18 +80,14 @@ final class LocalRequestIntentParser
             return null;
         }
 
-        $outdoor = $this->detectOutdoorPlacement($normalized);
-
         return [
             'cooling_heating' => $function,
             'rooms' => $rooms,
             'floor_level' => preg_match('/\bop\s+(?:de\s+)?zolder\b/u', $normalized) === 1
                 ? 'attic'
                 : null,
-            'outdoor_location' => $outdoor['location'],
-            'outdoor_mount_type' => $outdoor['mount'],
             'confidence' => 'high',
-            'evidence' => $this->evidence($outdoor['location'] !== null || $outdoor['mount'] !== null),
+            'evidence' => 'Doel, aantal, gewenste ruimtes en eventuele zolderverdieping staan expliciet in de openingstekst.',
         ];
     }
 
@@ -128,58 +120,6 @@ final class LocalRequestIntentParser
             $heating => 'heating',
             default => null,
         };
-    }
-
-    /**
-     * @return array{
-     *     location: 'garden'|'side_passage'|'facade'|'balcony'|'flat_roof'|'pitched_roof'|null,
-     *     mount: 'wall'|'ground'|'roof'|'balcony'|null
-     * }
-     */
-    private function detectOutdoorPlacement(string $text): array
-    {
-        if (! preg_match('/\bbuitenunit(?:s)?\b|\bbuiten\s*unit(?:s)?\b/u', $text)) {
-            return ['location' => null, 'mount' => null];
-        }
-
-        if (preg_match('/\bdakkapel(?:len)?\b/u', $text) === 1
-            || preg_match('/\b(?:schuin(?:e)?\s+dak|hellend(?:e)?\s+dak)\b/u', $text) === 1) {
-            return ['location' => 'pitched_roof', 'mount' => 'roof'];
-        }
-
-        if (preg_match('/\bplat(?:te)?\s+dak\b/u', $text) === 1) {
-            return ['location' => 'flat_roof', 'mount' => 'roof'];
-        }
-
-        if (preg_match('/\b(?:op|aan)\s+(?:het\s+|de\s+)?dak\b/u', $text) === 1) {
-            // Alleen "op het dak" zonder plat/schuin: bevestigingstype is duidelijk, plektype niet.
-            return ['location' => null, 'mount' => 'roof'];
-        }
-
-        if (preg_match('/\b(?:op|aan)\s+(?:het\s+|de\s+)?balkon\b/u', $text) === 1) {
-            return ['location' => 'balcony', 'mount' => 'balcony'];
-        }
-
-        if (preg_match('/\b(?:in|op)\s+(?:de\s+)?tuin\b|\bachtererf\b/u', $text) === 1) {
-            return ['location' => 'garden', 'mount' => 'ground'];
-        }
-
-        if (preg_match('/\b(?:aan|op)\s+(?:de\s+)?gevel\b|\bmuurbeugel\b/u', $text) === 1) {
-            return ['location' => 'facade', 'mount' => 'wall'];
-        }
-
-        if (preg_match('/\bzijpad\b|\bsteeg\b/u', $text) === 1) {
-            return ['location' => 'side_passage', 'mount' => 'ground'];
-        }
-
-        return ['location' => null, 'mount' => null];
-    }
-
-    private function evidence(bool $includesOutdoor): string
-    {
-        return $includesOutdoor
-            ? 'Doel, aantal, gewenste ruimtes, eventuele zolderverdieping en buitenunitplek staan expliciet in de openingstekst.'
-            : 'Doel, aantal, gewenste ruimtes en eventuele zolderverdieping staan expliciet in de openingstekst.';
     }
 
     private function removeAtticAsLocation(string $text): string
@@ -217,10 +157,9 @@ final class LocalRequestIntentParser
                 continue;
             }
 
-            $quantityWord = $match['quantity'];
             $result[] = [
                 'type' => $type,
-                'quantity' => $this->number($quantityWord),
+                'quantity' => $this->number($match['quantity']),
                 'plural' => $this->isPluralRoom($roomWord),
             ];
         }

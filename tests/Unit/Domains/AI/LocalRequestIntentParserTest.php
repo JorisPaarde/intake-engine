@@ -13,7 +13,8 @@ test('it reads the explicit installer sentence without treating the attic as a t
         ->and($result['cooling_heating'])->toBe('cooling')
         ->and($result['rooms'])->toBe(['bedroom', 'bedroom'])
         ->and($result['floor_level'])->toBe('attic')
-        ->and($result['confidence'])->toBe('high');
+        ->and($result['confidence'])->toBe('high')
+        ->and($result)->not->toHaveKey('outdoor_location');
 });
 
 test('it treats on the attic as a location and does not invent one room', function () {
@@ -55,7 +56,7 @@ test('it does not read a digit from a number outside the supported range', funct
     ))->toBeNull();
 });
 
-test('it reads cooling from koud te krijgen and outdoor unit on a dormer roof', function () {
+test('it reads cooling from koud te krijgen without inventing outdoor placement', function () {
     $result = app(LocalRequestIntentParser::class)->parse(
         "Twee airco's op slaapkamers om ze koud te krijgen buitenunit kan op dak dakkapel",
     );
@@ -63,29 +64,8 @@ test('it reads cooling from koud te krijgen and outdoor unit on a dormer roof', 
     expect($result)->not->toBeNull()
         ->and($result['cooling_heating'])->toBe('cooling')
         ->and($result['rooms'])->toBe(['bedroom', 'bedroom'])
-        ->and($result['outdoor_location'])->toBe('pitched_roof')
-        ->and($result['outdoor_mount_type'])->toBe('roof')
-        ->and($result['confidence'])->toBe('high');
-});
-
-test('it sets only outdoor mount when the roof type stays ambiguous', function () {
-    $result = app(LocalRequestIntentParser::class)->parse(
-        "Twee airco's op slaapkamers om te koelen; buitenunit kan op het dak.",
-    );
-
-    expect($result)->not->toBeNull()
-        ->and($result['outdoor_mount_type'])->toBe('roof')
-        ->and($result['outdoor_location'])->toBeNull();
-});
-
-test('it does not invent outdoor placement without an outdoor unit mention', function () {
-    $result = app(LocalRequestIntentParser::class)->parse(
-        'Ik wil twee airco’s om m’n slaapkamers op zolder te koelen.',
-    );
-
-    expect($result)->not->toBeNull()
-        ->and($result['outdoor_location'])->toBeNull()
-        ->and($result['outdoor_mount_type'])->toBeNull();
+        ->and($result)->not->toHaveKey('outdoor_location')
+        ->and($result)->not->toHaveKey('outdoor_mount_type');
 });
 
 test('it reads heating from te koud without treating it as cooling', function () {

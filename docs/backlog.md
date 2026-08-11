@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.21 · **Laatste update:** 2026-08-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.23 · **Laatste update:** 2026-08-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -69,6 +69,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-061 | AI-uitzondering → 1-klik klanttaak | E7 | done | high | O · bij BL-038/041 |
 | — | BL-062 | Open punt / foto → vraag klant | E7 | done | high | O · bij BL-054/049 |
 | — | BL-063 | Openingszin: buitenunitplek + koel-synoniemen | E3 | done | high | F · bij BL-048 |
+| — | BL-064 | AI-prefill tegen volledige vraagenset | E3 | done | high | F · ADR-0013 · bij BL-048/063 |
 | — | BL-047 | Gestructureerde adresregistratie en BAG-herstel | E3 | done | high | F (done) |
 | — | BL-048 | Openingszin hergebruiken en broninformatie terugbrengen | E3 | done | high | F (done) |
 | ∥ | BL-013 | S3 als mediadisk | E5 | backlog | low | I · operationeel |
@@ -346,16 +347,23 @@ Historische MVP-epic: bouwde prefill, adaptieve vragen en automatische BAG/PDOK-
 - **Resultaat:** een begrensde lokale parser verwerkt alleen evidente Nederlandse formuleringen direct na aanmaken en bij het openen van een oudere nog actieve klantlink. De exacte voorbeeldzin levert `cooling`, twee gewenste ruimtes, twee slaapkamers en voor beide `floor_level=attic`; zolder is de verdieping en geen derde ruimte. De bron `request_text` geldt voor gepinde templates als sterke tekstafleiding, zonder externe AI-call. De primaire bronweergave toont alleen energielabel/isolatie, bouwjaar, relevante 3D-context en meterkastbeoordeling; ruwe brondata blijft voor audit en dev-admin bewaard en de luchtfoto staat ingeklapt.
 - **EP-Online:** de bestaande verrijking blijft fail-soft en vereist op de omgeving `EP_ONLINE_ENABLED=true` plus een RVO-key. Bij resultaat vervalt de isolatievraag en toont het dossier de labelletter, isolatie-indicatie en beschikbare energiebehoefte. Zonder key of zonder geregistreerd label blijft de klantvraag staan.
 - **Acceptatiebewijs:** unit- en featuretests voeren letterlijk `Ik wil twee airco’s om m’n slaapkamers op zolder te koelen.` door parser, HTTP-aanmaak, opslag en klantstappen met externe tekst-AI uit. Zij bewijzen ook dat beide slaapkamertaken de zolderverdieping overnemen. EP-Online-tests bewijzen de isolatie-afleiding en de opgeschoonde presenter; staging-smokes blijven als `todo` in `functional-test-status.md`.
-- **Vervolg:** BL-063 herkent ook expliciete buitenunitplekken en bredere koel-synoniemen.
+- **Vervolg:** BL-064 (ADR-0013) vult keuzevragen via AI tegen de volledige templatecatalogus i.p.v. heuristiek.
 
 ### BL-063 — Openingszin: buitenunitplek + koel-synoniemen
 
 - **Status:** done · **Prioriteit:** high · **Datum:** 2026-08-11 · **PR:** #74 · **Epic:** E3 · **Band:** F · **Afhankelijk:** BL-048
-- **Aanleiding:** bij reden `Twee airco’s op slaapkamers om ze koud te krijgen buitenunit kan op dak dakkapel` faalde de lokale parser (geen “koelen”) én werd de buitenunitplek nooit afgeleid; de klant kreeg daardoor als eerste (demo) of vroeg (volledige wizard) opnieuw “Waar kan de buitenunit staan?”.
-- **Doel:** evidente koel-formuleringen (`koud te krijgen`) en expliciete buitenunitplekken (dakkapel/dak/gevel/tuin/balkon) overnemen als `request_text`, zodat die keuzevragen verdwijnen.
-- **Scope:** `LocalRequestIntentParser` v2 + `DeriveIntentFromRequest::apply` voor `outdoor_location`/`outdoor_mount_type`. Geen templateversie; fotovragen blijven staan. Geen bereikbaarheid gokken.
-- **Acceptatie:** de voorbeeldzin levert cooling + 2 slaapkamers + `pitched_roof`/`roof`; wizardstappen bevatten geen `outdoor_location`/`outdoor_mount_type`; `outdoor_location_photos` blijft.
-- **Resultaat:** parser v2 + apply; unit-/featuretests op de voorbeeldzin; docs/ai + intake-engine bijgewerkt.
+- **Aanleiding:** bij reden `Twee airco’s op slaapkamers om ze koud te krijgen buitenunit kan op dak dakkapel` faalde de lokale parser (geen “koelen”) én werd de buitenunitplek nooit afgeleid; de klant kreeg daardoor opnieuw “Waar kan de buitenunit staan?”.
+- **Doel:** evidente koel-formuleringen (`koud te krijgen`) herkennen offline; buitenunitplekken via AI-catalogus (BL-064), niet via keuzeheuristiek.
+- **Resultaat:** lokale parser houdt `koud te krijgen` + ruimtes als offline-fallback; airco **v12** voegt optie `dormer` (dakkapel) toe. Outdoor-heuristiek is bewust niet uitgebreid — zie ADR-0013 / BL-064.
+
+### BL-064 — AI-prefill tegen volledige vraagenset
+
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-08-11 · **PR:** #74 · **Epic:** E3 · **Band:** F · **Afhankelijk:** BL-048/063 · **ADR:** [0013](decisions/0013-ai-prefill-from-template-catalog.md)
+- **Aanleiding:** keuzevragen (buitenunitplek e.d.) laten zich niet betrouwbaar met regex oplossen; de producteigenaar wil alle vooraf bekende info naar een model dat de volledige templatevraagenset kent.
+- **Doel:** `PrefillAnswersFromKnownContext` stuurt openingszin + antwoorden + feiten + vraagcatalogus naar `request_prefill`; high → auto-invullen (`ai`), medium → voorzet, low → niets.
+- **Scope:** catalogusbuilder, contextbuilder, prompt v1, DeriveIntent-orchestratie (AI aan → catalogus; AI uit → bevroren lokale fallback). Geen verdere outdoor-heuristiek.
+- **Acceptatie:** met tekst-AI aan vult de voorbeeldzin o.a. `dormer`/`roof` en slaat die vragen over; FakeAiClient ontvangt `question_catalog`; zonder tekst-AI blijft lokale fallback beperkt tot koel/ruimte/zolder.
+- **Resultaat:** ADR-0013; `PrefillAnswersFromKnownContext` + `request-prefill-v1`; airco **v12** (`dormer`); lokale parser alleen offline-fallback zonder outdoor-heuristiek.
 
 ### BL-016 — Hergebruik bekende gegevens (prefill)
 

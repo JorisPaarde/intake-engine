@@ -4,9 +4,13 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Added
+
+- **AI-prefill tegen volledige vraagenset (BL-064, ADR-0013):** met tekst-AI aan beoordeelt `PrefillAnswersFromKnownContext` alle fillable templatevragen t.o.v. openingszin/antwoorden/feiten (`request-prefill-v1`). High → auto-invullen; medium → voorzet; low → niets. Airco **v12** voegt keuze “Op of aan de dakkapel” (`dormer`) toe als catalogusoptie.
+
 ### Fixed
 
-- **Openingszin herkent buitenunitplek en “koud te krijgen” (BL-063):** een reden als `Twee airco’s op slaapkamers om ze koud te krijgen buitenunit kan op dak dakkapel` vult nu lokaal koelen, twee slaapkamers en buitenunit op schuin dak (`pitched_roof`/`roof`) als `request_text`. De klant krijgt die keuzevragen niet opnieuw; fotobewijs blijft staan.
+- **Openingszin “koud te krijgen” (BL-063):** offline lokale fallback herkent die koel-formulering weer. Buitenunitplekken worden niet meer met regex gegokt (zoals ten onrechte “schuin dak” voor dakkapel); dat pad loopt via BL-064.
 
 ### Added
 
