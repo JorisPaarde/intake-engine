@@ -1,6 +1,6 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 3.4 · **Laatste update:** 2026-08-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.5 · **Laatste update:** 2026-08-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **samenvatting, aandachtspunten, lokale fotokwaliteit, tekst-/foto-afleiding, verbindingsgebonden routeanalyse en bewijsgerichte dossiersynthese zijn geïmplementeerd**. Externe provider en tekst-/foto-/route-/dossierinferentie staan standaard uit (DPIA + key + budgetcaps + staging-smoke vereist).
 
@@ -166,15 +166,15 @@ Dossiersynthese loopt na iedere afgeronde klant-, installateur- of gerichte bijd
 6. AI-klanttaken blijven `proposed`; pas na installateurscontrole maakt de app de beperkte klanttaak en activeert zij toegang. Geen AI-actie keurt verbindingen of offertebesluiten goed.
 7. Vlak vóór opslag wordt dezelfde geschoonde context inclusief beeldmanifest onder de intake-lock opnieuw gehasht. Een stale resultaat wordt niet toegepast.
 
-## Openingszin: lokaal vóór externe AI
+## Openingszin: lokaal én catalogus-AI (ADR-0013/0014)
 
-`DeriveIntentFromRequest` volgt ADR-0013. Met `AI_TEXT_INFERENCE_ENABLED` aan roept hij `PrefillAnswersFromKnownContext` aan: die stuurt de openingszin, bestaande antwoorden en relevante externe feiten plus de **volledige fillable vraagenset** van de gepinde templateversie naar prompt `request-prefill-v1`. Per vraag mag het model alleen cataloguskeys/opties teruggeven; `high` vult met `prefill_source=ai` (vraag vervalt), `medium` als `ai_suggestion`, `low` doet niets. Fotovragen worden niet ingevuld.
+`DeriveIntentFromRequest` volgt een hybrid pad. Eerst past de bevroren `LocalRequestIntentParser` (`request-intent-local-v3`) foutloze evidente feiten toe: koel-/verwarmdoelen (inclusief `koud te krijgen`), aantallen, ruimtetypen en “op zolder”. Geen buitenunit- of andere keuzeheuristiek.
 
-Zonder tekst-AI (of bij de herstelpass op de klantlink) blijft `LocalRequestIntentParser` (`request-intent-local-v3`) als **bevroren offline-fallback**: alleen evidente koel-/verwarmdoelen (inclusief `koud te krijgen`), aantallen, ruimtetypen en “op zolder”. Geen buitenunit- of andere keuzeheuristiek — die opties horen in de templatecatalogus (airco v12: `dormer` voor dakkapel).
+Daarna, met `AI_TEXT_INFERENCE_ENABLED` aan en externe calls toegestaan, beoordeelt `PrefillAnswersFromKnownContext` de volledige fillable vraagenset via `request-prefill-v2`: openingszin, antwoorden, externe feiten en installateursobservaties. Per vraag alleen cataloguskeys/opties; `high` → `prefill_source=ai`, `medium` → `ai_suggestion`, `low` → niets. Fotovragen worden niet ingevuld.
 
-De lokale run bewaart alleen parserversie, inputhash, gecontroleerde output en toegepaste vraagsleutels; de vrije openingszin komt niet in activity-properties. Afgeleide antwoorden krijgen `prefill_source=request_text`. Dit pad draait direct na installateursaanmaak en als herstel bij een oudere actieve klantlink, ook wanneer `AI_PROVIDER=null` en `AI_TEXT_INFERENCE_ENABLED=false`.
+Herbeoordeling (ADR-0014) gebeurt opnieuw wanneer de context groeit: na adresverrijking (aanmaak én retry), bij opslaan van de openingszin, en na een installateursnotitie of aangepaste constatering. Ongewijzigde context herhaalt geen provider-call (inputhash).
 
-Alleen als de lokale parser niets zekers vindt, mag de versioned `request_intent`-prompt naar de geconfigureerde provider. Dat externe fallbackpad blijft achter `AI_TEXT_INFERENCE_ENABLED`; de klantlink-herstelpass zet externe calls expliciet uit.
+De lokale run bewaart alleen parserversie, inputhash, gecontroleerde output en toegepaste vraagsleutels; de vrije openingszin komt niet in activity-properties. Afgeleide antwoorden krijgen `prefill_source=request_text`. De klantlink-herstelpass zet externe calls expliciet uit (`allowExternal: false`) en draait alleen de lokale heuristiek.
 
 ## Promptversionering
 

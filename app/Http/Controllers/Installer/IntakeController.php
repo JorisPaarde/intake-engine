@@ -148,9 +148,9 @@ class IntakeController extends Controller
 
         $intake = $createIntake->handle($request->user(), $payload);
 
-        // Same enrichment + intent path as production (including public demo).
-        $deriveIntentFromRequest->handle($intake);
+        // Eerst bronnen verrijken, daarna prefill (ADR-0014): AI ziet BAG/EP-feiten mee.
         $enrichIntakeAddress->handle($intake, $request->validated('address_lookup_id'));
+        $deriveIntentFromRequest->handle($intake->fresh() ?? $intake);
 
         if ($isPublicDemo) {
             // Keep the link ready but inactive until the visitor picks a path.
@@ -222,10 +222,12 @@ class IntakeController extends Controller
     public function retryAddressEnrichment(
         Intake $intake,
         EnrichIntakeAddress $enrichIntakeAddress,
+        DeriveIntentFromRequest $deriveIntentFromRequest,
     ): RedirectResponse {
         $this->authorize('update', $intake);
 
         $enrichIntakeAddress->handle($intake);
+        $deriveIntentFromRequest->handle($intake->fresh() ?? $intake);
 
         $verification = $intake->externalFacts()
             ->where('fact_key', 'address_verification')

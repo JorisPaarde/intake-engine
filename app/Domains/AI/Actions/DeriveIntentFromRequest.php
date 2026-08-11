@@ -20,9 +20,9 @@ use Throwable;
 /**
  * Leidt uit bekende aanvraagcontext af welke templatevragen al beantwoord zijn.
  *
- * Primair (ADR-0013): met tekst-AI aan beoordeelt `PrefillAnswersFromKnownContext`
- * de volledige vraagenset van de gepinde template. Offline-fallback: een bevroren
- * lokale parser voor evidente koel-/ruimte-/zolderfeiten (BL-048).
+ * Hybrid (ADR-0014): eerst foutloze lokale heuristiek (koelen/ruimtes/zolder),
+ * daarna catalogus-AI wanneer tekst-AI aan is. Opnieuw aanroepen bij latere
+ * contextgroei (BAG, notities, bijgewerkte openingszin).
  */
 final class DeriveIntentFromRequest
 {
@@ -51,22 +51,23 @@ final class DeriveIntentFromRequest
         }
 
         $reason = $this->requestReason($intake);
+        $localRun = null;
 
-        if ($reason === null) {
-            return null;
+        if ($reason !== null) {
+            $localOutput = $this->localParser->parse($reason);
+
+            if ($localOutput !== null) {
+                $localRun = $this->recordLocalResult($intake, $reason, $localOutput);
+            }
         }
 
         if ($allowExternal && (bool) config('ai.text_inference.enabled', false)) {
-            return $this->prefillFromKnownContext->handle($intake);
+            $aiRun = $this->prefillFromKnownContext->handle($intake);
+
+            return $aiRun ?? $localRun;
         }
 
-        $localOutput = $this->localParser->parse($reason);
-
-        if ($localOutput !== null) {
-            return $this->recordLocalResult($intake, $reason, $localOutput);
-        }
-
-        return null;
+        return $localRun;
     }
 
     /**

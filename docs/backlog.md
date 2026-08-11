@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.23 · **Laatste update:** 2026-08-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.25 · **Laatste update:** 2026-08-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -70,6 +70,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-062 | Open punt / foto → vraag klant | E7 | done | high | O · bij BL-054/049 |
 | — | BL-063 | Openingszin: buitenunitplek + koel-synoniemen | E3 | done | high | F · bij BL-048 |
 | — | BL-064 | AI-prefill tegen volledige vraagenset | E3 | done | high | F · ADR-0013 · bij BL-048/063 |
+| — | BL-065 | Herbeoordeling prefill bij nieuwe context | E3 | done | high | F · ADR-0014 · bij BL-064 |
 | — | BL-047 | Gestructureerde adresregistratie en BAG-herstel | E3 | done | high | F (done) |
 | — | BL-048 | Openingszin hergebruiken en broninformatie terugbrengen | E3 | done | high | F (done) |
 | ∥ | BL-013 | S3 als mediadisk | E5 | backlog | low | I · operationeel |
@@ -364,6 +365,15 @@ Historische MVP-epic: bouwde prefill, adaptieve vragen en automatische BAG/PDOK-
 - **Scope:** catalogusbuilder, contextbuilder, prompt v1, DeriveIntent-orchestratie (AI aan → catalogus; AI uit → bevroren lokale fallback). Geen verdere outdoor-heuristiek.
 - **Acceptatie:** met tekst-AI aan vult de voorbeeldzin o.a. `dormer`/`roof` en slaat die vragen over; FakeAiClient ontvangt `question_catalog`; zonder tekst-AI blijft lokale fallback beperkt tot koel/ruimte/zolder.
 - **Resultaat:** ADR-0013; `PrefillAnswersFromKnownContext` + `request-prefill-v1`; airco **v12** (`dormer`); lokale parser alleen offline-fallback zonder outdoor-heuristiek.
+
+### BL-065 — Herbeoordeling prefill bij nieuwe context
+
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-08-11 · **PR:** (deze) · **Epic:** E3 · **Band:** F · **Afhankelijk:** BL-064 · **ADR:** [0014](decisions/0014-reconsider-prefill-on-new-context.md)
+- **Aanleiding:** prefill draaide vóór BAG-verrijking en niet opnieuw bij latere notities/feiten; met AI aan werd foutloze lokale heuristiek overgeslagen.
+- **Doel:** bij groeiende context opnieuw beoordelen wat automatisch invulbaar is — heuristiek waar foutloos, AI voor cataloguskeuzes.
+- **Scope:** hybrid `DeriveIntentFromRequest`; enrich→derive op create/retry; hertrigger na installateursnotitie; observaties in AI-context; prompt v2.
+- **Acceptatie:** create ziet feiten in AI-context; notitie met dakkapel vult `dormer` later; lokale koel/ruimte-fills blijven ook met AI aan; `composer check` groen.
+- **Resultaat:** ADR-0014; hybrid lokaal+AI; herbeoordeling na enrich/retry/notitie; `request-prefill-v2` met installateursobservaties.
 
 ### BL-016 — Hergebruik bekende gegevens (prefill)
 
