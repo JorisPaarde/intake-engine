@@ -121,8 +121,14 @@ final class SystemHealthReport
     private function storage(): array
     {
         $disks = [];
+        $mediaDisk = (string) config('filesystems.media', 'local');
+        $diskNames = array_values(array_unique(array_filter([
+            'local',
+            'public',
+            $mediaDisk !== '' ? $mediaDisk : null,
+        ])));
 
-        foreach (['local', 'media', 'public'] as $disk) {
+        foreach ($diskNames as $disk) {
             if (config("filesystems.disks.$disk") === null) {
                 continue;
             }

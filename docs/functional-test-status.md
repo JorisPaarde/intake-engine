@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.52 · **Laatste update:** 2026-08-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.53 · **Laatste update:** 2026-08-24 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -14,6 +14,7 @@ Laatste testsessie: 2026-08-09 (staging; mobiele werkplek BL-053/054–058 op 39
 | Omgevingsscheiding staging/production (BL-010/011) | pass | 2026-07-21 | Publieke DNS, geldig TLS en HTTP→HTTPS 301 gecontroleerd. `intake-engine.nl/health` meldt `environment=production`; `staging.intake-engine.nl/health` meldt `environment=staging`. Beide: eigen app-key, sessiecookie, database, storage, releaseboom en twee cronjobs. Productionkopie behield 16 users/20 intakes; production runtime startte met 0 sessies/0 jobs. Environmentguard blokkeerde een bewust verkeerde target vóór activatie. GitHub productionworkflow zelf nog na merge via tag/dispatch smoke-testen. |
 | Productionworkflow via `v*`/handmatige dispatch (BL-010) | todo | - | Na merge: production environment/secrets controleren, handmatige dispatch of release-tag uitvoeren, Actions groen en `/health` opnieuw `production`; staging mag niet wijzigen. |
 | /health (app boot + DB-verbinding) | pass | 2026-07-18 | JSON ok; `php_upload` 512M/512M (BL-003) |
+| S3 mediadisk omschakeling (BL-013) | todo | - | Alleen wanneer de producteigenaar S3 wil: AWS-vars + `MEDIA_DISK=s3` in `shared/.env`, `config:cache`, nieuwe foto uploaden landt op S3, bestaande local-foto’s blijven previewbaar, `/dev/health` toont s3 ok. Geen echte keys in git/logs. |
 | /login rendert | pass | 2026-07-18 | Toont loginformulier |
 | Auth-beveiliging dashboard/intakes | pass | 2026-07-18 | Uitgelogd → redirect `/login` (na dismiss 428-interstitial) |
 | Dashboard weergave | pass | 2026-07-18 | Bereikbaar na registratie |

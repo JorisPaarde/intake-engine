@@ -1,6 +1,6 @@
 # Intake Engine (Digitale Opname)
 
-> **Documentversie:** 2.12 · **Laatste update:** 2026-08-10 · Onderhoud: zie [AGENTS.md](AGENTS.md)
+> **Documentversie:** 2.13 · **Laatste update:** 2026-08-24 · Onderhoud: zie [AGENTS.md](AGENTS.md)
 
 **Werk je als agent aan dit project? Lees eerst [AGENTS.md](AGENTS.md)** — het projectgeheugen, de documentkaart en het onderhoudsprotocol.
 
@@ -88,11 +88,11 @@ Technisch plan en acceptatie: [docs/plans/bl-001-interactive-installer-demo.md](
 | staging    | `shared/.env` server | `.env.staging.example`    |
 | production | `shared/.env` server | `.env.production.example` |
 
-Secrets nooit in git. Belangrijke vars: `APP_*`, `DB_*`, `QUEUE_CONNECTION`, `CACHE_STORE`, `SESSION_*`, `FILESYSTEM_DISK`, `MEDIA_DISK` (private media: `local`), `MAIL_*`, `AI_*` (placeholders).
+Secrets nooit in git. Belangrijke vars: `APP_*`, `DB_*`, `QUEUE_CONNECTION`, `CACHE_STORE`, `SESSION_*`, `FILESYSTEM_DISK`, `MEDIA_DISK` (privé: `local` of `s3` + `AWS_*`), `MAIL_*`, `AI_*` (placeholders).
 
 ## Runtime: storage, queues & logging
 
-- **Storage:** intakefoto's en aangeleverde documenten via `MEDIA_DISK` (privé, geen hardcoded disknamen) — [docs/uploads.md](docs/uploads.md)
+- **Storage:** intakefoto's en aangeleverde documenten via `MEDIA_DISK` (privé `local` of `s3`; geen hardcoded disknamen) — [docs/uploads.md](docs/uploads.md)
 - **Queues:** `QUEUE_CONNECTION=database`; cron-worker op cPanel — [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md); sync/async-keuzes: ADR-0004
 - **Logging:** daily stack; lokaal `debug`, staging `info`, productie `warning`; server: `shared/storage/logs/`
 
@@ -128,4 +128,4 @@ BAG/PDOK, PDOK-luchtfoto, EP-Online en 3DBAG vullen hetzelfde dossier automatisc
 
 De publieke homepage is een installateursfunnel met fictieve productweergaven, interactieve demo en een zelfstandige, privacybegrensde interesse-CTA, visueel afgestemd op de JPWebcreation-huisstijl (aparte marketingtokens; de ingelogde app behoudt tenant-/Apple-styling). Contactinzendingen starten nooit een technische opname. Gebruikersgerichte app-teksten volgen gecontroleerd eenvoudig Nederlands ([docs/language.md](docs/language.md)); nieuwe airco-opnames gebruiken template v11.
 
-**Open operationeel werk:** de begeleidde BL-001-demo (installateursstart + rolkeuze + coachmarks) is codegereed maar blijft `in_progress` tot de staging-/mobiele smoke is uitgevoerd. Externe AI-activering wacht op DPIA/key; SMTP en overige host/env-acties staan in [docs/DEPLOYMENT.md § Handmatige acties](docs/DEPLOYMENT.md#handmatige-acties-producteigenaar). Handmatige teststatus: [docs/functional-test-status.md](docs/functional-test-status.md).
+**Open operationeel werk:** de begeleidde BL-001-demo (installateursstart + rolkeuze + coachmarks) is codegereed maar blijft `in_progress` tot de staging-/mobiele smoke is uitgevoerd. `MEDIA_DISK=s3` is app-ondersteund (BL-013); omschakelen is env-only. Externe AI-activering wacht op DPIA/key; SMTP en overige host/env-acties staan in [docs/DEPLOYMENT.md § Handmatige acties](docs/DEPLOYMENT.md#handmatige-acties-producteigenaar). Handmatige teststatus: [docs/functional-test-status.md](docs/functional-test-status.md).

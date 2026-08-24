@@ -32,7 +32,7 @@ Status: `backlog` · `ready` · `in_progress` · `done` · `dropped` — priorit
 | E4 | AI bespaart beoordeelwerk | Samenvatting, aandachtspunten, foto-afleiding en routebackend. |
 | E5 | Bruikbaar dossier & klaar voor groei | PDF, tenancy, branding, demo, beheer en schaalbaarheid. |
 
-BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. Hun eerdere afhankelijkheidsbanden blijven alleen in de detailsecties als historische ontwerpvolgorde herkenbaar. Open operationeel werk staat bij BL-001 en BL-013; externe AI-activering blijft een DPIA-/configuratiegate en is geen open implementatie-item.
+BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. Hun eerdere afhankelijkheidsbanden blijven alleen in de detailsecties als historische ontwerpvolgorde herkenbaar. Open operationeel werk staat bij BL-001; S3-mediadisk (BL-013) is app-klaar en wacht op eventuele env-omschakeling; externe AI-activering blijft een DPIA-/configuratiegate en is geen open implementatie-item.
 
 ## Overzicht
 
@@ -79,7 +79,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-062 | Open punt / foto → vraag klant | E7 | done | high | O · bij BL-054/049 |
 | — | BL-047 | Gestructureerde adresregistratie en BAG-herstel | E3 | done | high | F (done) |
 | — | BL-048 | Openingszin hergebruiken en broninformatie terugbrengen | E3 | done | high | F (done) |
-| ∥ | BL-013 | S3 als mediadisk | E5 | backlog | low | I · operationeel |
+| — | BL-013 | S3 als mediadisk | E5 | done | low | I · operationeel |
 | — | BL-029 | Begeleide leidingroute volgens één globale routeflow | E4 | dropped | high | Vervangen door ADR-0012 / BL-040; backend blijft |
 | — | BL-034 | Splitconfiguratie als installateursaandachtspunt | E4 | done | medium | H (done) |
 | — | BL-033 | Postcode-eerst adresaanvulling bij nieuwe opname | E3 | done | high | F (done) |
@@ -743,9 +743,10 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-013 — S3 als mediadisk
 
-- **Status:** backlog · **Prioriteit:** low · **Ref:** `docs/uploads.md`
-- **Parallel:** band **I** — parallel met A/D–H; afstemmen met afgeronde BL-008 als dezelfde mediapipeline geraakt wordt.
+- **Status:** done · **Prioriteit:** low · **Datum:** 2026-08-24 · **PR:** TBD · **Ref:** `docs/uploads.md`
+- **Parallel:** band **I** — parallel met A/D–H; afgestemd met afgeronde BL-008 mediapipeline.
 - **Doel:** `MEDIA_DISK=s3` + AWS-vars; bestaande rijen behouden `disk`+`path`. Pas nodig bij storagegroei of vertrek van cPanel.
+- **Resultaat:** `league/flysystem-aws-s3-v3` toegevoegd; `s3`-disk privé (visibility); schrijven blijft via `config('filesystems.media')` met disknaam op de rij; lezen/verwijderen/purge gebruiken de opgeslagen disk. Env-sjablonen en DEPLOYMENT/uploads documenteren de AWS-vars zonder secrets. Tests met fake disks bewijzen nieuwe uploads op `MEDIA_DISK` en onaangetaste legacy-rijen.
 
 ## Afgerond / vervallen
 
@@ -753,7 +754,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 | ID | Datum | Resultaat / PR |
 |----|-------|----------------|
-| BL-049 | 2026-07-31 | deze PR — contextgebonden foto’s/notities en bevestigbare fotoconstateringen |
+| BL-013 | 2026-08-24 | TBD — `MEDIA_DISK=s3` + AWS-env; legacy disk+path intact |
 | BL-047 | 2026-07-30 | #60 — gestructureerde adresregistratie, BAG-ketentest en herstelactie |
 | BL-044 | 2026-07-30 | deze PR — hervatbare dossiermigration + MySQL-migratiesmoke |
 | BL-045 | 2026-07-30 | deze PR — kortere, scanbare funnelcopy voor airco-installateurs |

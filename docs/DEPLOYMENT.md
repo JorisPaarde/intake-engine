@@ -1,6 +1,6 @@
 # Deployment naar cPanel (staging + production)
 
-> **Documentversie:** 2.15 · **Laatste update:** 2026-08-05 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.16 · **Laatste update:** 2026-08-24 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 **Statusregel:** staging en production zijn fysiek en logisch gescheiden; open handmatige acties (env/host) staan in [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
 
@@ -209,7 +209,7 @@ Alles hieronder staat **niet** in git en moet jij (of de host) per omgeving zett
 | Publieke demo uitzetten | Alleen bij misbruik/load | `DEMO_ENABLED=false` in `shared/.env` + `config:cache`. Demo staat **standaard aan** (zie [§ Publieke demo](#publieke-demo-bl-001)). |
 | Externe AI + foto-inferentie | Na DPIA / akkoord (BL-006/020) | `AI_PROVIDER=openai`, `AI_API_KEY=…`, geschikt multimodaal `AI_MODEL` en pas daarna `AI_PHOTO_INFERENCE_ENABLED=true`. Nu bewust `null`/`false` (soft-fail). Nooit keys in git. |
 | AI-budgetcap | Verplicht vóór `AI_PROVIDER=openai` op staging/productie | Zet minstens `AI_BUDGET_DAILY_CENTS` of `AI_BUDGET_MONTHLY_CENTS`, plus conservatieve token-/beeldrates. Zonder cap faalt OpenAI bewust vóór de provider-call. |
-| `MEDIA_DISK=s3` + AWS-vars | Bij storagegroei / vertrek cPanel (BL-013) | Bestaande rijen behouden `disk`+`path`. |
+| `MEDIA_DISK=s3` + AWS-vars | Bij storagegroei / vertrek cPanel (BL-013, klaar in app) | Zet `MEDIA_DISK=s3`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`, `AWS_BUCKET` (+ optioneel `AWS_URL`/`AWS_ENDPOINT`/`AWS_USE_PATH_STYLE_ENDPOINT`) in `shared/.env`, daarna `config:cache`. Bucketobjecten privé houden. Bestaande rijen behouden `disk`+`path` op de oude disk; geen bestands-/DB-migratie. Details: [uploads.md § Migratie naar S3](uploads.md#migratie-naar-s3-bl-013). |
 | `PDOK_ENABLED=false` | Alleen als uitgaande adres-/locatiebevraging juridisch of technisch nog niet mag | Adres-autocomplete, BAG-verrijking en luchtfoto uit; handmatig adres/bouwjaar en klantfoto’s blijven werken. Geen API-key nodig. |
 | `PDOK_AERIAL_ENABLED=false` | BAG mag wel, luchtfoto nog niet of WMS-verkeer ongewenst | Alleen server-side luchtfotocapture uit; BAG-feiten blijven werken. |
 | Vast demo-installateuraccount | Alleen voor losse staging-inspectie buiten de publieke sessieflow | Optioneel `DEMO_INSTALLER_PASSWORD` privé zetten; de publieke demo heeft dit account niet nodig en maakt per bezoeker een eigen tijdelijk account. |
@@ -359,5 +359,5 @@ Minima via `.user.ini`: `upload_max_filesize=10M`, `post_max_size=12M`. Staging 
 - Geen Supervisor — queue via cron
 - Rollback zet alleen de code-symlink terug, niet de database
 - De hosting heeft 1 GB diskquotum; beide omgevingen bewaren daarom maximaal drie releases
-- `MEDIA_DISK` moet private `local` zijn voor intakefoto’s en aangeleverde documenten (niet `public`)
+- `MEDIA_DISK` moet een **private** disk zijn voor intakefoto’s en aangeleverde documenten: default `local`, of `s3` na BL-013 — nooit `public`
 - Rapporten zijn HTML (`generated_reports`); PDF via lichte Dompdf-job (BL-005) — queue-worker nodig voor generatie

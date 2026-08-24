@@ -6,6 +6,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Added
 
+- **S3 als mediadisk (BL-013):** `MEDIA_DISK=s3` werkt via Laravel’s bestaande `s3`-disk en `league/flysystem-aws-s3-v3`. Nieuwe uploads/PDF’s/logo’s/luchtfoto’s schrijven naar de geconfigureerde disk (privé visibility); bestaande rijen behouden hun opgeslagen `disk`+`path` zonder migratie. AWS-vars staan in de env-sjablonen (geen secrets in git). Tests met fake disks dekken nieuwe uploads en legacy-rijen.
 - **Werkplek afronden: bewerken + 1-klik klanttaak (BL-059–062):** ruimtes en plaatsingen zijn na aanmaken bewerkbaar (`#room-{id}` / `#placement-{id}`); capacity-open-punten springen naar de eerste ruimte zonder maten; AI-uitzonderingen, open punten met klantbijdrage en AI-fotovoorstellen hebben één-tik “Vraag de klant” / “Vraag nieuwe foto” via `customer-tasks/quick`.
 
 ### Changed
