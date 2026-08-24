@@ -102,6 +102,6 @@ final class RestrictPublicDemoSession
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/');
+        return redirect()->route('demo.ended', ['reason' => 'expired']);
     }
 }

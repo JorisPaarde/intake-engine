@@ -56,19 +56,19 @@
             </div>
             <div class="flex flex-col gap-2 border-t border-gray-100 bg-gray-50 px-5 py-4 sm:flex-row sm:justify-end">
                 <template x-if="mode === 'branch'">
-                    <div class="flex w-full flex-col gap-2 sm:flex-row">
+                    <div class="flex w-full flex-col gap-2 sm:flex-row sm:flex-row-reverse">
                         <form method="POST" :action="pathChooseUrl" class="flex-1">
                             <input type="hidden" name="_token" :value="csrf">
-                            <input type="hidden" name="path" value="customer">
+                            <input type="hidden" name="path" value="installer">
                             <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-500">
-                                Doorgaan als klant
+                                Zelf de opname doen
                             </button>
                         </form>
                         <form method="POST" :action="pathChooseUrl" class="flex-1">
                             <input type="hidden" name="_token" :value="csrf">
-                            <input type="hidden" name="path" value="installer">
+                            <input type="hidden" name="path" value="customer">
                             <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-900 hover:bg-gray-50">
-                                Zelf de opname doen
+                                Bekijk wat de klant ziet
                             </button>
                         </form>
                     </div>

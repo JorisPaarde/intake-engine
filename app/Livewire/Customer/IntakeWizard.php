@@ -1357,7 +1357,7 @@ class IntakeWizard extends Component
             'progress_percent' => 100,
         ])->save();
 
-        session()->put('public_demo_guide_step', 'customer_done');
+        session()->forget('public_demo_guide_step');
 
         $this->forgetIntakeDerivedCaches();
         $this->completed = true;

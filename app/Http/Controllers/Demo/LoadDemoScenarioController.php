@@ -24,15 +24,14 @@ final class LoadDemoScenarioController extends Controller
 
         $request->session()->put([
             'public_demo_scenario_loaded' => true,
-            'public_demo_guide_step' => 'sample_loaded',
+            'public_demo_guide_step' => null,
         ]);
 
         return redirect()
             ->route('intakes.workspace', $intake)
-            ->with('demo_coachmark', 'sample_loaded')
             ->with(
                 'status',
-                'Voorbeelddossier geladen. Je kunt hierna nog AI-voorstellen vernieuwen of eigen foto’s laten analyseren. E-mail blijft uit.',
+                'Voorbeelddossier geladen (optionele boost). U kunt hierna AI-voorstellen vernieuwen of eigen foto’s laten analyseren. E-mail blijft uit.',
             );
     }
 }

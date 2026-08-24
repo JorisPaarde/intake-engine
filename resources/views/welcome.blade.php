@@ -94,6 +94,7 @@
                             @csrf
                             <button
                                 type="submit"
+                                onclick="return confirm('Weet u zeker dat u de demo wilt beëindigen? Demogegevens verdwijnen.')"
                                 class="px-3 py-2 text-sm font-bold text-white/90 transition hover:text-white"
                             >
                                 Demo beëindigen
@@ -782,7 +783,7 @@
                     @if ($isPublicDemo)
                         <form method="POST" action="{{ route('logout') }}" class="inline">
                             @csrf
-                            <button type="submit" class="hover:text-marketing-ink">Demo beëindigen</button>
+                            <button type="submit" onclick="return confirm('Weet u zeker dat u de demo wilt beëindigen? Demogegevens verdwijnen.')" class="hover:text-marketing-ink">Demo beëindigen</button>
                         </form>
                     @elseif ($isRealAccount)
                         <a href="{{ route('dashboard') }}" class="hover:text-marketing-ink">Mijn opnames</a>

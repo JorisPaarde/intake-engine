@@ -3,7 +3,7 @@
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">{{ $intake->customer_name }}</h2>
             <div class="flex items-center gap-3">
-                <a href="{{ route('intakes.workspace', $intake) }}" class="inline-flex min-h-10 items-center rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-500">Open technische opname</a>
+                <a href="{{ route('intakes.workspace', $intake) }}" class="inline-flex min-h-10 items-center rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-500">Opname openen</a>
                 <a href="{{ route('dashboard') }}" class="text-sm text-gray-600 hover:text-gray-900">← Overzicht</a>
             </div>
         </div>
@@ -19,8 +19,8 @@
 
             @if ($intake->is_demo && ! session('public_demo_path_chosen'))
                 <div class="rounded-2xl border border-sky-200 bg-sky-50 px-5 py-4 text-sm text-sky-950" data-demo-anchor="branch-panel">
-                    <p class="font-semibold">Demo: adresgegevens staan al in het dossier</p>
-                    <p class="mt-1 text-sky-900/80">Bekijk hieronder de opgehaalde woninggegevens. In productie mailen we nu de klantlink — hier kies je of je doorgaat als klant of zelf de opname doet.</p>
+                    <p class="font-semibold">Demo: adresgegevens staan al in de opname</p>
+                    <p class="mt-1 text-sky-900/80">Bekijk hieronder de opgehaalde woninggegevens. Doe de opname zelf, of bekijk kort wat de klant ziet. Er gaat geen e-mail uit in de demo.</p>
                 </div>
             @endif
 
@@ -29,10 +29,25 @@
                     <span class="inline-flex rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800">
                         {{ $intake->status->label() }}
                     </span>
-                    <span class="text-sm text-gray-500">{{ $intake->progress_percent }}% compleet</span>
+                    <span class="text-sm text-gray-500">Klanttaak: {{ $intake->progress_percent }}% beantwoord</span>
+                    <span class="text-sm font-medium text-gray-700">
+                        Klaar voor offerte: {{ $dossier['ready_count'] }}/{{ $dossier['total_count'] }}
+                    </span>
                     <span class="text-sm text-gray-500">{{ $intake->workflow_mode->label() }}</span>
-                    <span class="text-sm text-gray-500">{{ $intake->templateVersion?->template?->name }} · v{{ $intake->templateVersion?->version }}</span>
+                    <span class="text-sm text-gray-500">{{ $intake->templateVersion?->template?->name }}</span>
                 </div>
+                @if ($dossier['quote']?->blocker || ($dossier['blockers'] ?? collect())->isNotEmpty())
+                    <p class="text-sm text-amber-900">
+                        @if ($dossier['quote']?->next_action)
+                            Volgende actie: {{ $dossier['quote']->next_action->label() }}.
+                        @endif
+                        @if ($dossier['quote']?->blocker)
+                            {{ $dossier['quote']->blocker }}
+                        @elseif (($firstBlocker = ($dossier['blockers'] ?? collect())->first()) && $firstBlocker->blocker)
+                            {{ $firstBlocker->blocker }}
+                        @endif
+                    </p>
+                @endif
 
                 <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2 text-sm">
                     <div>

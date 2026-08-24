@@ -7,10 +7,6 @@
         <x-demo-scope-notice variant="banner" :short-customer="$demoShortCustomer ?? false" />
     @endif
 
-    @if (($demoShortCustomer ?? false) && ! $completed)
-        <x-demo-guide-dialog step="customer_start" />
-    @endif
-
     <header class="mb-6">
         <span class="sr-only">Digitale Opname</span>
         <div class="flex items-center gap-3">
@@ -66,9 +62,6 @@
                     :short-customer="$demoShortCustomer ?? false"
                     :installer-return-url="$demoInstallerReturnUrl"
                 />
-                @if ($demoShortCustomer ?? false)
-                    <x-demo-guide-dialog step="customer_done" :return-url="$demoInstallerReturnUrl" />
-                @endif
             @endif
         </div>
     @elseif ($step === null || $question === null)

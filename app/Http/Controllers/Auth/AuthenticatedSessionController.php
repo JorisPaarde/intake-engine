@@ -38,11 +38,18 @@ class AuthenticatedSessionController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
+        $wasPublicDemo = (bool) $request->session()->get('public_demo_mode', false)
+            || $request->session()->has('public_demo_intake_id');
+
         Auth::guard('web')->logout();
 
         $request->session()->invalidate();
 
         $request->session()->regenerateToken();
+
+        if ($wasPublicDemo) {
+            return redirect()->route('demo.ended', ['reason' => 'ended']);
+        }
 
         return redirect('/');
     }

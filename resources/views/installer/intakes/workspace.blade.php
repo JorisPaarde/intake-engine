@@ -100,28 +100,34 @@
                 <section id="demo-intro" class="overflow-hidden rounded-3xl border border-sky-200 bg-sky-50 shadow-sm" data-demo-anchor="workspace-intro">
                     <div class="grid gap-5 p-5 sm:p-6 lg:grid-cols-[1fr_auto] lg:items-center">
                         <div>
-                            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Interactieve demo · echte werkplek</p>
+                            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Demo · echte werkplek</p>
                             <h3 class="mt-2 text-xl font-semibold text-gray-950">
-                                {{ ($demoScenarioLoaded ?? false) ? 'Bekijk het demoscenario' : 'Bouw de opname op' }}
+                                {{ ($demoScenarioLoaded ?? false) ? 'Voorbeelddossier geladen' : 'Bouw de opname op' }}
                             </h3>
                             <p class="mt-2 max-w-3xl text-sm leading-relaxed text-gray-700">
-                                Dezelfde installateursflow als in productie, inclusief adresinvulling en AI voor foto’s en tekst. Klantgegevens zijn nep en verdwijnen na {{ max(1, (int) config('intake.demo.ttl_hours', 2)) }} uur. Klantmail blijft uit. Een demorapport-PDF kun je onderaan met je e-mail aanvragen.
+                                @if ($demoScenarioLoaded ?? false)
+                                    U bekijkt een optionele boost met voorbeeldinhoud. U kunt dit verder bewerken of AI opnieuw laten kijken. Klantmail blijft uit.
+                                @else
+                                    Begin met een lege opname — net als na een echte aanvraag. Adresinvulling en AI werken. Optioneel kunt u hieronder een voorbeelddossier laden als snelle boost.
+                                @endif
+                                Demogegevens verdwijnen na {{ max(1, (int) config('intake.demo.ttl_hours', 2)) }} uur.
                             </p>
                             @if (! ($demoScenarioLoaded ?? false))
                                 <form method="POST" action="{{ route('demo.scenario.load', $intake) }}" class="mt-4">
                                     @csrf
-                                    <button type="submit" class="inline-flex min-h-11 items-center justify-center rounded-xl bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-600">
-                                        Toon voorbeelddossier
+                                    <button type="submit" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-sky-400 bg-white px-4 py-2 text-sm font-semibold text-sky-900 hover:bg-sky-100">
+                                        Optioneel: toon voorbeelddossier
                                     </button>
                                 </form>
-                                @if ($intake->aircoRooms->isNotEmpty())
-                                    <p class="mt-2 text-xs leading-relaxed text-sky-900/70">
-                                        Uit de korte uitleg zijn al gewenste ruimtes afgeleid. Het voorbeelddossier vult dat aan met foto’s, routes en een klanttaak.
-                                    </p>
-                                @endif
+                                <p class="mt-2 text-xs leading-relaxed text-sky-900/70">
+                                    Niet nodig om de demo af te ronden. Alleen als u snel een rijk eindbeeld wilt zien.
+                                    @if ($intake->aircoRooms->isNotEmpty())
+                                        Uit de korte uitleg zijn al gewenste ruimtes afgeleid.
+                                    @endif
+                                </p>
                             @else
-                                <nav class="mt-4 flex flex-wrap gap-2 text-xs font-semibold" aria-label="Demoroute">
-                                    <a href="#demo-context" class="rounded-full bg-white px-3 py-2 text-sky-800 shadow-sm ring-1 ring-sky-200">1. Woningcontext</a>
+                                <nav class="mt-4 flex flex-wrap gap-2 text-xs font-semibold" aria-label="Voorbeeldroute">
+                                    <a href="#demo-context" class="rounded-full bg-white px-3 py-2 text-sky-800 shadow-sm ring-1 ring-sky-200">1. Woninggegevens</a>
                                     <a href="#demo-evidence" class="rounded-full bg-white px-3 py-2 text-sky-800 shadow-sm ring-1 ring-sky-200">2. Foto’s</a>
                                     <a href="#demo-proposal" class="rounded-full bg-white px-3 py-2 text-sky-800 shadow-sm ring-1 ring-sky-200">3. Voorstel en routes</a>
                                     <a href="#demo-customer-task" class="rounded-full bg-white px-3 py-2 text-sky-800 shadow-sm ring-1 ring-sky-200">4. Taak voor de klant</a>
@@ -551,7 +557,7 @@
                                             <p class="mt-1 text-xs text-gray-500">
                                                 {{ $option->source_type === 'ai' ? 'AI-voorstel' : 'Door installateur toegevoegd' }}
                                                 @if ($option->confidence !== null)
-                                                    · {{ number_format($option->confidence * 100, 0) }}% zekerheid
+                                                    · {{ \App\Domains\Intake\Services\DecisionReadinessService::confidencePhrase($option->confidence) }}
                                                 @endif
                                             </p>
                                             @if ($option->summary)
@@ -658,7 +664,7 @@
                                                 </select>
                                             </div>
                                             <div>
-                                                <x-input-label value="Huidige zekerheid" />
+                                                <x-input-label value="Hoe zeker bent u?" />
                                                 <select name="status" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300" required>
                                                     @foreach ($connectionStatuses as $status)
                                                         <option value="{{ $status->value }}">{{ $status->label() }}</option>
@@ -892,21 +898,30 @@
                                                 @foreach ($aiExceptions as $exception)
                                                     @php
                                                         $exceptionLabel = is_string($exception['label'] ?? null) ? $exception['label'] : 'Onbekende uitzondering';
-                                                        $exceptionArea = is_string($exception['decision_area_key'] ?? null) ? $exception['decision_area_key'] : null;
-                                                        $exceptionType = in_array($exceptionArea, ['capacity', 'placement', 'refrigerant', 'condensate', 'power'], true)
+                                                        $exceptionAreaKey = is_string($exception['decision_area_key'] ?? null) ? $exception['decision_area_key'] : null;
+                                                        $exceptionAreaLabel = $exceptionAreaKey
+                                                            ? \App\Domains\Intake\Services\DecisionReadinessService::areaLabel($exceptionAreaKey)
+                                                            : null;
+                                                        $exceptionConfidence = \App\Domains\Intake\Services\DecisionReadinessService::confidencePhrase($exception['confidence'] ?? null);
+                                                        $exceptionType = in_array($exceptionAreaKey, ['capacity', 'placement', 'refrigerant', 'condensate', 'power'], true)
                                                             ? \App\Enums\FollowUpItemType::Photo->value
                                                             : \App\Enums\FollowUpItemType::Text->value;
                                                         $exceptionPrompt = \Illuminate\Support\Str::limit($exceptionLabel, 500, '');
                                                     @endphp
                                                     <li class="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-950">
                                                         <strong>{{ $exceptionLabel }}</strong>
-                                                        <span class="block text-xs text-amber-800">{{ $exceptionArea }} · zekerheid {{ $exception['confidence'] ?? 'onbekend' }}</span>
+                                                        <span class="block text-xs text-amber-800">
+                                                            @if ($exceptionAreaLabel)
+                                                                {{ $exceptionAreaLabel }}:
+                                                            @endif
+                                                            {{ $exceptionConfidence }}
+                                                        </span>
                                                         <form method="POST" action="{{ route('intakes.workspace.tasks.quick', $intake) }}" class="mt-2">
                                                             @csrf
                                                             <input type="hidden" name="type" value="{{ $exceptionType }}">
                                                             <input type="hidden" name="prompt" value="{{ $exceptionPrompt }}">
-                                                            @if ($exceptionArea)
-                                                                <input type="hidden" name="decision_area_key" value="{{ $exceptionArea }}">
+                                                            @if ($exceptionAreaKey)
+                                                                <input type="hidden" name="decision_area_key" value="{{ $exceptionAreaKey }}">
                                                             @endif
                                                             <button class="inline-flex min-h-10 items-center rounded-lg bg-amber-900 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-800">
                                                                 Vraag de klant

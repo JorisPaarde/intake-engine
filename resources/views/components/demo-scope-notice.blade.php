@@ -32,9 +32,9 @@
         </p>
         <p class="mt-1 leading-relaxed text-brand-ink/75">
             @if ($shortCustomer)
-                Je bekijkt wat de klant ziet na het versturen van de link. Deze demoroute is kort gehouden. Er is geen echte klant.
+                U bekijkt wat de klant ziet na het versturen van de link. Deze demoroute is kort gehouden. Er is geen echte klant.
             @else
-                Je bekijkt één opdracht vanuit de tijdelijke opname. Er is geen echte klant. De gegevens verdwijnen automatisch.
+                U bekijkt één opdracht vanuit de tijdelijke opname. Er is geen echte klant. De gegevens verdwijnen automatisch.
             @endif
         </p>
         <p class="mt-2 font-medium text-brand-ink/85">Wel aan in deze demo:</p>
@@ -52,7 +52,7 @@
     </aside>
 @elseif ($variant === 'complete')
     <div {{ $attributes->merge(['class' => 'mt-5 border-t border-brand-fog/80 pt-5 text-sm text-brand-ink/80']) }}>
-        <p class="font-semibold text-brand-ink">Wat je net hebt gedaan</p>
+        <p class="font-semibold text-brand-ink">Wat u net heeft gedaan</p>
         <p class="mt-1 leading-relaxed">
             @if ($shortCustomer)
                 De korte klantroute is afgerond. In productie zou de installateur nu een mail krijgen.
