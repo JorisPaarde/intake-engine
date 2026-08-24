@@ -743,7 +743,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-013 — S3 als mediadisk
 
-- **Status:** done · **Prioriteit:** low · **Datum:** 2026-08-24 · **PR:** TBD · **Ref:** `docs/uploads.md`
+- **Status:** done · **Prioriteit:** low · **Datum:** 2026-08-24 · **PR:** #78 · **Ref:** `docs/uploads.md`
 - **Parallel:** band **I** — parallel met A/D–H; afgestemd met afgeronde BL-008 mediapipeline.
 - **Doel:** `MEDIA_DISK=s3` + AWS-vars; bestaande rijen behouden `disk`+`path`. Pas nodig bij storagegroei of vertrek van cPanel.
 - **Resultaat:** `league/flysystem-aws-s3-v3` toegevoegd; `s3`-disk privé (visibility); schrijven blijft via `config('filesystems.media')` met disknaam op de rij; lezen/verwijderen/purge gebruiken de opgeslagen disk. Env-sjablonen en DEPLOYMENT/uploads documenteren de AWS-vars zonder secrets. Tests met fake disks bewijzen nieuwe uploads op `MEDIA_DISK` en onaangetaste legacy-rijen.
@@ -754,7 +754,8 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 | ID | Datum | Resultaat / PR |
 |----|-------|----------------|
-| BL-013 | 2026-08-24 | TBD — `MEDIA_DISK=s3` + AWS-env; legacy disk+path intact |
+| BL-013 | 2026-08-24 | #78 — `MEDIA_DISK=s3` + AWS-env; legacy disk+path intact |
+| BL-049 | 2026-07-31 | deze PR — contextgebonden foto’s/notities en bevestigbare fotoconstateringen |
 | BL-047 | 2026-07-30 | #60 — gestructureerde adresregistratie, BAG-ketentest en herstelactie |
 | BL-044 | 2026-07-30 | deze PR — hervatbare dossiermigration + MySQL-migratiesmoke |
 | BL-045 | 2026-07-30 | deze PR — kortere, scanbare funnelcopy voor airco-installateurs |
