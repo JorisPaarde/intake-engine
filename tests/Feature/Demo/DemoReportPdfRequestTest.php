@@ -91,6 +91,9 @@ it('emails the demo PDF and stores a lead for info@jpwebcreation.nl', function (
     expect($interest->email)->toBe('joris@voorbeeld.nl')
         ->and($interest->message)->toContain(RequestDemoReportPdf::LEAD_MARKER)
         ->and($interest->message)->toContain($intake->uuid)
+        ->and($interest->message)->not->toContain('voorbeeld@demo.invalid')
+        ->and($interest->message)->not->toContain('Voorbeeldklant')
+        ->and($interest->phone)->toBeNull()
         ->and($interest->notification_queued_at)->not->toBeNull()
         ->and($intake->report?->hasPdf())->toBeTrue();
 
@@ -131,7 +134,26 @@ it('stores the lead but skips mail when MAIL_MAILER is log', function () {
     Mail::assertNothingQueued();
 });
 
-it('shows the PDF request form on the demo workspace', function () {
+it('silently accepts the honeypot without creating a lead or sending mail', function () {
+    Mail::fake();
+    ['intake' => $intake, 'user' => $user, 'session' => $session] = demoPdfSession();
+
+    $this->actingAs($user)
+        ->withSession($session)
+        ->post(route('demo.report-pdf', $intake), [
+            'email' => 'spam@voorbeeld.nl',
+            'website' => 'https://spam.example',
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('status');
+
+    expect(ProductInterest::query()->count())->toBe(0)
+        ->and($intake->fresh()->report)->toBeNull();
+
+    Mail::assertNothingQueued();
+});
+
+it('shows the PDF request form on the demo workspace and dossier page', function () {
     ['intake' => $intake, 'user' => $user, 'session' => $session] = demoPdfSession();
 
     $this->actingAs($user)
@@ -140,7 +162,15 @@ it('shows the PDF request form on the demo workspace', function () {
         ->assertOk()
         ->assertSee('Wil je het demorapport als PDF?')
         ->assertSee('demo-pdf-request', false)
-        ->assertSee('info@jpwebcreation.nl');
+        ->assertSee(route('demo.report-pdf', $intake), false)
+        ->assertDontSee('info@jpwebcreation.nl');
+
+    $this->actingAs($user)
+        ->withSession($session)
+        ->get(route('intakes.show', $intake))
+        ->assertOk()
+        ->assertSee('Wil je het demorapport als PDF?')
+        ->assertSee('demo-pdf-request', false);
 });
 
 it('rejects PDF requests for non-demo intakes', function () {

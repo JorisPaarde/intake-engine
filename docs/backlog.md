@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.21 · **Laatste update:** 2026-08-24 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.22 · **Laatste update:** 2026-08-24 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -58,7 +58,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-045 | Eenvoudige installateurstaal op de productfunnel | E5 | done | medium | A (done) |
 | — | BL-046 | Brede productbelofte op de productfunnel | E5 | done | medium | A (done) |
 | — | BL-050 | Productfunnel in JPWebcreation-huisstijl | E5 | done | medium | A (done) |
-| ∥ | BL-051 | Demo-PDF op aanvraag als lead | E5 | in_progress | medium | A · bij BL-001 |
+| — | BL-051 | Demo-PDF op aanvraag als lead | E5 | done | medium | A (done) |
 | — | BL-066 | Demo beëindigen: bevestiging + verlopen-pagina | E5 | ready | high | A · product/demo/UX |
 | — | BL-067 | Demo-rolkeuze: installateur primair | E5 | ready | high | A · product/demo/UX |
 | — | BL-068 | Demo-create: geen ‘mailen’ als mail uit staat | E5 | ready | high | A · product/demo/UX |
@@ -479,12 +479,12 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-051 — Demo-PDF op aanvraag als lead
 
-- **Status:** in_progress · **Prioriteit:** medium · **Band:** A (bij BL-001) · **Epic:** E5
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-08-24 · **PR:** #TBD · **Band:** A (bij BL-001) · **Epic:** E5
 - **Doel:** laat de installateur aan het eind van de demo een PDF van het demorapport ontvangen door een e-mailadres in te vullen; dat adres is meteen een productlead.
 - **Gedrag:** formulier op demo-werkplek en dossierpagina; bouwt/vernieuwt rapport-HTML; genereert PDF synchroon via `GenerateIntakePdf` (automatische PDF-jobs blijven demos skippen); stuurt PDF naar de prospect; slaat `product_interests` op met `source=demo_pdf_request` en notificeert `PRODUCT_INTEREST_MAIL_TO` (default `info@jpwebcreation.nl`).
 - **Kaders:** honeypot + bestaande interest-throttle; bij `MAIL_MAILER=log` wel lead + downloadbare PDF, geen mailqueue; geen echte klantdata in de lead — alleen het vrijwillig opgegeven adres.
 - **Acceptatie:** PDF-mail + lead-mail in tests met `Mail::fake()`; staging-smoke met SMTP zodra mailer niet `log` is.
-- **Na deploy:** smoke op staging; daarna status `done` met PR-nummer.
+- **Resultaat:** `RequestDemoReportPdf` + route `demo.report-pdf` + UI-component op werkplek/dossier; featuretests dekken PDF-mail, lead-mail, honeypot, `MAIL_MAILER=log` en afwijzing van niet-demo-opnames. Interne leadinbox wordt niet meer in de UI-copy getoond.
 
 ### BL-066 — Demo beëindigen: bevestiging + verlopen-pagina
 
