@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.20 · **Laatste update:** 2026-08-10 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.21 · **Laatste update:** 2026-08-24 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,6 +38,8 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
+**Nummering:** BL-063–065 zijn gereserveerd voor draft PR’s [#74](https://github.com/JorisPaarde/intake-engine/pull/74) / [#75](https://github.com/JorisPaarde/intake-engine/pull/75) (AI-prefill); niet hergebruiken. Nieuwe items starten bij BL-066.
+
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
 | — | BL-035 | Centrale dossierkern en migratiebrug | E6 | done | high | N (done) |
@@ -57,6 +59,13 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-046 | Brede productbelofte op de productfunnel | E5 | done | medium | A (done) |
 | — | BL-050 | Productfunnel in JPWebcreation-huisstijl | E5 | done | medium | A (done) |
 | ∥ | BL-051 | Demo-PDF op aanvraag als lead | E5 | in_progress | medium | A · bij BL-001 |
+| — | BL-066 | Demo beëindigen: bevestiging + verlopen-pagina | E5 | ready | high | A · product/demo/UX |
+| — | BL-067 | Demo-rolkeuze: installateur primair | E5 | ready | high | A · product/demo/UX |
+| — | BL-068 | Demo-create: geen ‘mailen’ als mail uit staat | E5 | ready | high | A · product/demo/UX |
+| — | BL-069 | Geen vragenlijst-100% als ‘opname compleet’ | E6 | ready | high | A · product/demo/UX |
+| — | BL-070 | Demo-tour: één progressielaag | E5 | ready | medium | A · product/demo/UX |
+| — | BL-071 | Rest-UI op language.md | E5 | ready | high | A · product/demo/UX |
+| — | BL-072 | Production-release van Unreleased | E5 | ready | medium | A · operationeel |
 | — | BL-052 | Gecontroleerd eenvoudig Nederlands in de app-UI | E5 | done | medium | A (done) |
 | — | BL-053 | Mobiele werkplek: acties eerst, info dicht | E5 | done | high | O · bij BL-037 |
 | — | BL-054 | Sticky CTA = echte handeling | E5 | done | high | O · bij BL-053 |
@@ -128,6 +137,14 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 - **Beoordeling:** de installateur keurt het complete voorstel en de uitzonderingen goed; geen checkbox per automatisch feit. Correcties blijven bron en voorgaande AI-/bronconclusie bewaren.
 - **Acceptatie:** een klanttaak kan afgerond zijn terwijl één technisch beslisgebied openstaat; iedere blokker toont welk bewijs ontbreekt en welke volgende actie zinvol is; bestaande reviewbeslissingen migreren of mappen reproduceerbaar.
 - **Resultaat:** `DecisionReadinessService` berekent acht gebieden en volgende acties; de technische werkplek toont gereed, controle, blokkade, bewijs, kostenrisico en integraal voorstel los van wizardpercentage. Bestaande reviews blijven historisch leesbaar.
+
+### BL-069 — Geen vragenlijst-100% als ‘opname compleet’
+
+- **Status:** ready · **Prioriteit:** high · **Datum:** 2026-08-24 · **Epic:** E6 · **Band:** A (product/demo/UX)
+- **Aanleiding:** AGENTS.md/product-model verbieden één vragenlijstpercentage als technische waarheid. Na de verkorte klantroute toont het installateursoverzicht `100% compleet` terwijl het dossier 2/8 is.
+- **Doel:** taakcompleetheid en klaar-voor-offerte gescheiden in de UI. Nooit 100% compleet tonen als synoniem voor een afgeronde technische opname.
+- **Scope:** installateursoverzicht en gerelateerde progressielabels; scheiding taak-% vs. beslisgebieden / volgende actie; demo- en productpaden.
+- **Acceptatie:** after short customer demo path, overview does not say the opname is 100% complete; decision areas / next action remain the source of truth.
 
 ## Epic E7 — Klant-, installateur- en hybride bijdragen
 
@@ -458,7 +475,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Kaders:** `is_demo`, standaard-TTL twee uur, hourly hard purge inclusief tijdelijke demo-tenant en orphaned demo-workspaces; geen echte klantdata of klantmail. Adresverrijking en AI (foto/tekst/synthese) draaien wanneer die integraties aan staan. PDF alleen op vrijwillige aanvraag (BL-051).
 - **Acceptatie:** start op dashboard; create toont postcode-lookup + BAG-verrijking; branch zonder mail; beide paden begeleid met AI zichtbaar waar aan; sample-dossier op verzoek; isolatie/TTL; tests groen.
 - **Resultaat code:** begeleidde installateursstart, rolkeuze, verkorte klantroute, live verrijking/AI in demo, `LoadDemoSurveyScenario`, Alpine/native coachmarks en bijgewerkte Pest-dekking. Homepage-CTAs onderscheiden gast (**Probeer de demo** / **Inloggen**), actieve demosessie (**Verder in demo** / **Demo beëindigen**) en echt account (**Mijn opnames**); **Demo beëindigen** blijft in de app-nav zichtbaar zolang de demosessie loopt.
-- **Na deploy:** staging-smoke homepage → create (verrijking zichtbaar) → branch → beide paden (foto-/tekst-AI) → sample-dossier → klanttaak → PDF-aanvraag; daarna BL-001 op `done`. Controleer ook terugkeer naar `/` tijdens demosessie en **Demo beëindigen**.
+- **Na deploy:** staging-smoke homepage → create (verrijking zichtbaar) → branch → beide paden (foto-/tekst-AI) → sample-dossier → klanttaak → PDF-aanvraag; daarna BL-001 op `done`. Controleer ook terugkeer naar `/` tijdens demosessie en **Demo beëindigen**. Resterende smoke moet ook een pad **zonder** *Toon voorbeelddossier* bevatten. UX-items BL-066–071 hoeven niet te wachten op merge van AI-prefill draft PR’s #74/#75.
 
 ### BL-051 — Demo-PDF op aanvraag als lead
 
@@ -468,6 +485,54 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Kaders:** honeypot + bestaande interest-throttle; bij `MAIL_MAILER=log` wel lead + downloadbare PDF, geen mailqueue; geen echte klantdata in de lead — alleen het vrijwillig opgegeven adres.
 - **Acceptatie:** PDF-mail + lead-mail in tests met `Mail::fake()`; staging-smoke met SMTP zodra mailer niet `log` is.
 - **Na deploy:** smoke op staging; daarna status `done` met PR-nummer.
+
+### BL-066 — Demo beëindigen: bevestiging + verlopen-pagina
+
+- **Status:** ready · **Prioriteit:** high · **Datum:** 2026-08-24 · **Epic:** E5 · **Band:** A (product/demo/UX)
+- **Aanleiding:** één klik op Demo beëindigen (geen confirm) droeg een actieve opname; daarna kale Laravel `404 | Not Found` op `/intakes/{id}/opname`.
+- **Doel:** per ongeluk afsluiten voorkomen; bij verlopen/beëindigde demo een Nederlandse pagina met ‘start opnieuw’, geen framework-404.
+- **Scope:** confirm-dialog vóór **Demo beëindigen**; Nederlandse expired/ended-demo-pagina met CTA; geen Laravel-404 voor verlopen demosessies.
+- **Acceptatie:** confirm-dialog vóór einde; expired/ended demo nooit 404; CTA terug naar homepage/nieuwe demo.
+
+### BL-067 — Demo-rolkeuze: installateur primair
+
+- **Status:** ready · **Prioriteit:** high · **Datum:** 2026-08-24 · **Epic:** E5 · **Band:** A (product/demo/UX)
+- **Aanleiding:** in een installateursdemo is ‘Doorgaan als klant’ de paarse hoofdknop. Prospects moeten acteren als hun eigen klant.
+- **Doel:** primaire actie is zelf de opname doen of (in productie) naar de klant sturen. Klantpad in de demo is secundair: ‘Bekijk wat de klant ziet’.
+- **Scope:** rolkeuze-UI/copy in de demo (en afgestemde productstart waar dezelfde knoppen gelden); installer-first CTA; klantpad blijft bereikbaar maar niet primair.
+- **Acceptatie:** installer-first CTA; customer path remains reachable but not primary; copy does not present role-play as the real start.
+
+### BL-068 — Demo-create: geen ‘mailen’ als mail uit staat
+
+- **Status:** ready · **Prioriteit:** high · **Datum:** 2026-08-24 · **Epic:** E5 · **Band:** A (product/demo/UX)
+- **Aanleiding:** knop ‘Opslaan en link mailen’ terwijl demo geen klantmail stuurt, daarna rolkeuze.
+- **Doel:** knoptekst en vervolg matchen wat er gebeurt (opslaan / naar de klant sturen alleen als mail echt gaat).
+- **Scope:** create-/branch-copy in demo vs. productie; geen claim dat e-mail is verstuurd wanneer demo-mail uit staat.
+- **Acceptatie:** demo-copy never claims email was sent; production copy may still say mailen when SMTP sends.
+
+### BL-070 — Demo-tour: één progressielaag
+
+- **Status:** ready · **Prioriteit:** medium · **Datum:** 2026-08-24 · **Epic:** E5 · **Band:** A (product/demo/UX)
+- **Aanleiding:** tour 6/6 overlays + product 8/8 sticky + 4 tabbladen. Installateur weet niet waar hij is. Sample-dossier is een shortcut; lege werkplek is de echte start.
+- **Doel:** max één korte welkomstlaag; daarna de echte werkplek. Voorbeelddossier blijft optioneel, niet de default happy path.
+- **Scope:** democoach/overlays en sticky progressie; voorbeelddossier als duidelijk gelabelde boost, niet als verplichte start.
+- **Acceptatie:** no 6-step modal stack; prospect can finish a real empty opname without loading the sample; sample remains a clearly labeled boost.
+
+### BL-071 — Rest-UI op language.md
+
+- **Status:** ready · **Prioriteit:** high · **Datum:** 2026-08-24 · **Epic:** E5 · **Band:** A (product/demo/UX)
+- **Aanleiding:** BL-052 is done, maar live UI breekt docs/language.md nog: chrome ‘Intake Engine’, ‘Open technische opname’, badge `Airco-opname · v11`, AI ‘power · zekerheid 0.76’, klant u/je-mix, Engelse HTML5-validatie (‘Please fill out this field.’) en Engelse 404.
+- **Doel:** gebruikersgerichte tekst volgt language.md. Merk in UI: Digitale Opname of gewoon opname. ‘Open technische opname’ → ‘Opname openen’. Geen templateversie in de UI. AI-onzekerheid in gewone taal (‘Meterkast: groepen niet scherp. Vraag een betere foto.’). Klanttekst consequent u. Validatie/expired in het Nederlands.
+- **Scope:** installateurs-, klant- en demo-UI; chrome/merknaam; knoppen/badges; AI-onzekerheidsteksten; HTML5-/validatiemeldingen; expired/404-pagina’s. Volgens [docs/language.md](language.md); geen nieuw jargon.
+- **Acceptatie:** listed strings gone from installer/customer/demo UI; language.md glossary applied; no new jargon.
+
+### BL-072 — Production-release van Unreleased
+
+- **Status:** ready · **Prioriteit:** medium · **Datum:** 2026-08-24 · **Epic:** E5 · **Band:** A (operationeel)
+- **Aanleiding:** enige git-tag is v1.0.0 (2026-07-22). Dossier-product, nieuwe demo, taal en werkplek staan in CHANGELOG [Unreleased]. Production-smoke via tag/dispatch is todo. Live vs staging-versie is onzeker.
+- **Doel:** bewuste production-release ná staging-smoke van BL-001, of documenteren welke commit nu op production draait.
+- **Scope:** README/DEPLOYMENT productieversie; tag + `/health`-smoke óf expliciete notitie bij dispatch zonder tag; geen tag vóór BL-001 staging-smoke.
+- **Acceptatie:** README/DEPLOYMENT state the live production version; either a new tag with /health production smoke, or an explicit note if production was dispatched without tag. Do not tag until BL-001 staging smoke passes.
 
 ### BL-043 — Publieke productfunnel en interesse-CTA
 
