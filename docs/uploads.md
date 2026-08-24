@@ -1,8 +1,8 @@
 # Uploads & mediastorage
 
-> **Documentversie:** 3.1 · **Laatste update:** 2026-07-31 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.2 · **Laatste update:** 2026-08-24 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: klant-, gerichte bijdrage- en installateursfoto's, private serve-routes, generieke bewijslinks en dossier-/analysevarianten zijn **geïmplementeerd**. Directe installateurs-PDF-upload is niet gebouwd; een PDF kan wel als gerichte klanttaak worden gevraagd.
+Status: klant-, gerichte bijdrage- en installateursfoto's, private serve-routes, generieke bewijslinks en dossier-/analysevarianten zijn **geïmplementeerd**. `MEDIA_DISK=s3` is ondersteund via Laravel’s `s3`-disk (BL-013). Directe installateurs-PDF-upload is niet gebouwd; een PDF kan wel als gerichte klanttaak worden gevraagd.
 
 ## Doelen
 
@@ -63,7 +63,9 @@ Na elke intake- of vervolgfoto-upload voert de app lokaal een niet-blokkerende b
 |------|------|---------|
 | `local` | `storage/app/private` | **Default `MEDIA_DISK`** |
 | `public` | `storage/app/public` | Niet voor intake-foto’s |
-| `s3` | bucket | Later via env |
+| `s3` | AWS-bucket (privé) | Via `MEDIA_DISK=s3` + AWS-env (BL-013) |
+
+Domeincode schrijft altijd naar `config('filesystems.media')` en bewaart die diskwnaam op de rij (`disk` / `pdf_disk` / `logo_disk` / `media_disk`). Lezen, previewen, verwijderen en hard purge gebruiken de **opgeslagen** disk — nooit opnieuw `MEDIA_DISK`. Zo blijft een env-wissel naar S3 veilig zonder bestanden of DB-rijen te migreren.
 
 ## Gerichte PDF-documenten
 
@@ -90,7 +92,7 @@ Dezelfde private serve-routes blijven gelden. De technische werkplek kan nu een 
 
 | Maatregel | Invulling |
 |-----------|-----------|
-| Private disk | `MEDIA_DISK=local` |
+| Private disk | `MEDIA_DISK=local` of `MEDIA_DISK=s3` (nooit `public`) |
 | Serve-routes | customer-token of installer `auth` + intake-match |
 | Inputtypes | jpeg, png, webp, heic/heif |
 | Opgeslagen fototypes | uitsluitend JPEG; beide varianten zijn metadata-vrij |
@@ -181,8 +183,25 @@ Hostlimieten liggen ruim boven het minimum; `public/.user.ini` blijft als vangne
 
 Alternatief op cPanel: MultiPHP INI Editor met dezelfde minima — zie [docs/DEPLOYMENT.md](DEPLOYMENT.md). Voorkeur: `.user.ini` in git zodat limieten deploys overleven.
 
-## Migratie naar S3
+## Migratie naar S3 (BL-013)
 
-1. AWS-vars in `.env`
-2. `MEDIA_DISK=s3`
-3. Bestaande rijen behouden `disk` + `path`
+Omschakelen is een env-wijziging; geen datamigratie van bestaande media.
+
+1. Zet in `shared/.env` (nooit in git):
+   ```env
+   MEDIA_DISK=s3
+   AWS_ACCESS_KEY_ID=…
+   AWS_SECRET_ACCESS_KEY=…
+   AWS_DEFAULT_REGION=eu-central-1
+   AWS_BUCKET=…
+   # Optioneel (MinIO/compat of custom URL):
+   # AWS_URL=
+   # AWS_ENDPOINT=
+   # AWS_USE_PATH_STYLE_ENDPOINT=false
+   ```
+2. `php artisan config:cache` (of wacht op de volgende deploy).
+3. Nieuwe uploads/PDF’s/logo’s/luchtfoto’s landen op S3 (visibility private).
+4. Bestaande rijen behouden hun opgeslagen `disk` + `path` en blijven via de app-routes bereikbaar zolang de oude disk (meestal `local`) beschikbaar blijft.
+5. Optioneel later: bestanden handmatig kopiën en rijen bijwerken — buiten scope van BL-013.
+
+Vereiste package: `league/flysystem-aws-s3-v3` (Composer). Secrets en keys staan alleen in de server-`.env`. Zie ook [DEPLOYMENT.md § Handmatige acties](DEPLOYMENT.md#handmatige-acties-producteigenaar).
