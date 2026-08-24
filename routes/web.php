@@ -44,6 +44,14 @@ Route::post('/demo/start', StartDemoController::class)
     ->middleware(['guest', 'throttle:demo-start'])
     ->name('demo.start');
 
+Route::get('/demo/beeindigd', function (Request $request) {
+    $reason = $request->query('reason', 'ended');
+
+    return view('demo.ended', [
+        'reason' => in_array($reason, ['ended', 'expired'], true) ? $reason : 'ended',
+    ]);
+})->name('demo.ended');
+
 Route::middleware(['customer.intake', 'throttle:customer-intake'])
     ->where(['token' => '[A-Za-z0-9]{64}'])
     ->group(function () {

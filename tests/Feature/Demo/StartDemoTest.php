@@ -166,9 +166,17 @@ it('creates one demo intake from the normal create form and opens the role branc
         ->withSession(demoSessionFor($user, $intake))
         ->get(route('intakes.show', $intake))
         ->assertOk()
-        ->assertSee('In productie mailen we nu de klantlink')
-        ->assertSee('Doorgaan als klant')
-        ->assertSee('Zelf de opname doen');
+        ->assertSee('Kies hieronder hoe u verder wilt kijken', false)
+        ->assertSee('Er gaat geen e-mail uit in de demo', false)
+        ->assertSee('Zelf de opname doen')
+        ->assertSee('Bekijk wat de klant ziet')
+        ->assertDontSee('Doorgaan als klant')
+        ->assertDontSee('In productie mailen we nu de klantlink')
+        ->assertSee('Opname openen')
+        ->assertDontSee('Open technische opname')
+        ->assertDontSee('% compleet')
+        ->assertSee('Klanttaak:')
+        ->assertSee('Klaar voor offerte:');
 
     $this->actingAs($user)
         ->withSession(demoSessionFor($user, $intake))
@@ -195,7 +203,8 @@ it('continues as customer on a short guided route without sending mail', functio
     $this->get($intake->customerUrl())
         ->assertOk()
         ->assertSee('Demo — korte klantroute')
-        ->assertSee('Dit ziet je klant')
+        ->assertSee('U bekijkt wat de klant ziet')
+        ->assertDontSee('Dit ziet je klant')
         // Openingszin en koelen zijn al afgeleid; de verkorte route start bij een resterende vraag.
         ->assertSee('Wat voor type gebouw is het?');
 });
@@ -218,8 +227,10 @@ it('continues as installer and can load the sample dossier', function () {
         ->withSession(demoSessionFor($user, $intake))
         ->get(route('intakes.workspace', $intake))
         ->assertOk()
-        ->assertSee('Toon voorbeelddossier')
-        ->assertSee('Bouw de opname op');
+        ->assertSee('Optioneel: toon voorbeelddossier')
+        ->assertSee('Bouw de opname op')
+        ->assertSee('Begin met een lege opname')
+        ->assertDontSee('Stap 4 van 6');
 
     $this->actingAs($user)
         ->withSession(demoSessionFor($user, $intake))
@@ -279,7 +290,7 @@ it('continues as installer and can load the sample dossier', function () {
         ->withSession(demoSessionFor($user, $intake))
         ->get(route('intakes.workspace', $intake))
         ->assertOk()
-        ->assertSee('Bekijk het demoscenario')
+        ->assertSee('Voorbeelddossier geladen')
         ->assertSee('Volgende stap')
         ->assertSee('Woninggegevens')
         ->assertSee('Controleren en klantweergave activeren')
@@ -290,7 +301,7 @@ it('creates a separate tenant and user for every public demo session', function 
     $firstUser = startPublicDemoSession();
     $firstCompanyId = (int) $firstUser->company_id;
 
-    $this->post(route('logout'))->assertRedirect('/');
+    $this->post(route('logout'))->assertRedirect(route('demo.ended', ['reason' => 'ended']));
     $secondUser = startPublicDemoSession();
 
     expect($secondUser->id)->not->toBe($firstUser->id)
@@ -342,7 +353,7 @@ it('ends the public demo session after its configured lifetime', function () {
             'public_demo_expires_at' => now()->subSecond()->toIso8601String(),
         ])
         ->get(route('intakes.workspace', $demo))
-        ->assertRedirect('/');
+        ->assertRedirect(route('demo.ended', ['reason' => 'expired']));
     $this->assertGuest();
 });
 
@@ -474,7 +485,7 @@ it('lists disabled full-app steps on the demo thank-you notice', function () {
     $html = Blade::render('<x-demo-scope-notice variant="complete" />');
 
     expect($html)
-        ->toContain('Wat je net hebt gedaan')
+        ->toContain('Wat u net heeft gedaan')
         ->toContain('Eén klantaanvulling is afgerond')
         ->toContain('Bewust uitgeschakeld in de demo')
         ->toContain('E-mail en herinneringen naar een echte klant')
@@ -579,7 +590,7 @@ it('purges expired demo data media and ephemeral accounts while keeping active s
     $activeUserId = (int) $active->created_by;
     $activeCompanyId = (int) $active->company_id;
 
-    $this->post(route('logout'))->assertRedirect('/');
+    $this->post(route('logout'))->assertRedirect(route('demo.ended', ['reason' => 'ended']));
     ['intake' => $expired, 'user' => $expiredUser] = createDemoIntakeViaForm();
     $expiredSession = demoSessionFor($expiredUser, $expired);
     $this->actingAs($expiredUser)->withSession($expiredSession)->post(route('demo.path.choose', $expired), ['path' => 'installer']);
@@ -690,6 +701,71 @@ it('does not dispatch PDF or installer mail when a demo intake is completed', fu
     Queue::assertNotPushed(GenerateIntakePdfJob::class);
     Mail::assertNothingSent();
     expect($completed->status)->toBe(IntakeStatus::Completed);
+});
+
+it('asks for confirmation copy on end-demo controls and lands on a Dutch ended page', function () {
+    config(['intake.demo.enabled' => true]);
+    $user = startPublicDemoSession();
+
+    $this->actingAs($user)
+        ->withSession(demoSessionFor($user))
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertSee('Weet u zeker dat u de demo wilt beëindigen?', false);
+
+    $this->actingAs($user)
+        ->withSession(demoSessionFor($user))
+        ->post(route('logout'))
+        ->assertRedirect(route('demo.ended', ['reason' => 'ended']));
+
+    $this->assertGuest();
+
+    $this->get(route('demo.ended', ['reason' => 'ended']))
+        ->assertOk()
+        ->assertSee('Demo beëindigd')
+        ->assertSee('Naar de homepage')
+        ->assertSee('Nieuwe demo starten')
+        ->assertDontSee('404 | Not Found');
+
+    $this->get(route('demo.ended', ['reason' => 'expired']))
+        ->assertOk()
+        ->assertSee('Deze demo is verlopen');
+});
+
+it('never claims email send on the demo create form', function () {
+    $user = startPublicDemoSession();
+
+    $this->actingAs($user)
+        ->withSession(demoSessionFor($user))
+        ->get(route('intakes.create'))
+        ->assertOk()
+        ->assertSee('Opname aanmaken')
+        ->assertDontSee('Opslaan en link mailen')
+        ->assertSee('Er gaat geen e-mail uit');
+});
+
+it('does not present questionnaire percent as a finished opname', function () {
+    ['intake' => $intake, 'user' => $user] = createDemoIntakeViaForm();
+    $intake->forceFill(['progress_percent' => 100])->save();
+
+    $this->actingAs($user)
+        ->withSession(demoSessionFor($user, $intake))
+        ->get(route('intakes.show', $intake))
+        ->assertOk()
+        ->assertDontSee('100% compleet')
+        ->assertSee('Klanttaak: 100% beantwoord')
+        ->assertSee('Klaar voor offerte:')
+        ->assertSee('Opname openen')
+        ->assertDontSee('Open technische opname')
+        ->assertDontSee(' · v');
+});
+
+it('renders Dutch not-found and ended pages instead of framework english', function () {
+    $this->get('/deze-route-bestaat-zeker-niet-'.uniqid())
+        ->assertNotFound()
+        ->assertSee('Pagina niet gevonden')
+        ->assertSee('Digitale Opname')
+        ->assertDontSee('Not Found');
 });
 
 function fillDemoIntakeUntilComplete(Intake $intake): void

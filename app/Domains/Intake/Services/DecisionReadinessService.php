@@ -32,6 +32,33 @@ final class DecisionReadinessService
         'quote' => 'Besluit over de offerte',
     ];
 
+    public static function areaLabel(string $key): string
+    {
+        return self::LABELS[$key] ?? $key;
+    }
+
+    /**
+     * Plain-Dutch phrase for AI confidence (BL-071). Never expose raw floats or keys.
+     */
+    public static function confidencePhrase(mixed $confidence): string
+    {
+        if (! is_numeric($confidence)) {
+            return 'zekerheid onbekend — controleer dit even';
+        }
+
+        $value = (float) $confidence;
+        // Accept both 0–1 and 0–100 scales.
+        if ($value > 1.0) {
+            $value = $value / 100;
+        }
+
+        return match (true) {
+            $value < 0.5 => 'nog onzeker — vraag een betere foto of controleer ter plekke',
+            $value < 0.8 => 'redelijk zeker, maar controleer dit even',
+            default => 'lijkt te kloppen',
+        };
+    }
+
     /** @return Collection<int, DossierDecisionArea> */
     public function recalculate(Intake $intake): Collection
     {

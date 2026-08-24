@@ -255,10 +255,6 @@
         </div>
     </div>
 
-    @if ($isPublicDemo)
-        <x-demo-guide step="create" :has-intake="false" />
-    @endif
-
     @if (! empty($prefillQuestionsByTemplate))
         <script>
             (function () {
@@ -285,13 +281,15 @@
 
     <script>
         (function () {
+            @unless ($isPublicDemo)
             const workflowOptions = document.querySelectorAll('input[name="workflow_mode"]');
             const submitLabel = document.querySelector('[data-submit-label]');
 
             function syncWorkflow() {
                 if (!submitLabel) return;
                 const selected = document.querySelector('input[name="workflow_mode"]:checked');
-                submitLabel.textContent = selected?.value === '{{ \App\Enums\ContributionMode::Installer->value }}'
+                if (!selected) return;
+                submitLabel.textContent = selected.value === '{{ \App\Enums\ContributionMode::Installer->value }}'
                     ? 'Opname starten'
                     : 'Opslaan en link mailen';
             }
@@ -300,6 +298,7 @@
                 option.addEventListener('change', syncWorkflow);
             });
             syncWorkflow();
+            @endunless
 
             const root = document.querySelector('[data-address-lookup]');
             const postalCode = document.getElementById('address_postal_code');

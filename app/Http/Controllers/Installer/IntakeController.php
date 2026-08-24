@@ -17,6 +17,7 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeAttentionPoint;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeTemplate;
+use App\Domains\Intake\Services\DossierOverviewBuilder;
 use App\Domains\Intake\Services\ExternalFactPresenter;
 use App\Domains\Intake\Services\InstallerPhotoGalleryBuilder;
 use App\Domains\Intake\Services\IntakeDossierSummaryBuilder;
@@ -170,7 +171,7 @@ class IntakeController extends Controller
                 ->with('demo_coachmark', 'branch')
                 ->with(
                     'status',
-                    'Opname aangemaakt. Adresgegevens zijn opgehaald. In productie mailen we nu de klantlink — kies hier hoe je verder wilt kijken.',
+                    'Opname aangemaakt. Adresgegevens zijn opgehaald. Kies hieronder hoe u verder wilt kijken — er gaat geen e-mail uit in de demo.',
                 );
         }
 
@@ -192,6 +193,7 @@ class IntakeController extends Controller
         InstallerPhotoGalleryBuilder $photoGalleryBuilder,
         ExternalFactPresenter $externalFactPresenter,
         IntakeDossierSummaryBuilder $summaryBuilder,
+        DossierOverviewBuilder $dossierOverviewBuilder,
     ): View {
         $this->authorize('view', $intake);
 
@@ -210,6 +212,7 @@ class IntakeController extends Controller
 
         return view('installer.intakes.show', [
             'intake' => $intake,
+            'dossier' => $dossierOverviewBuilder->build($intake),
             'photoGroups' => $photoGalleryBuilder->handle($intake),
             'externalData' => $externalFactPresenter->present($intake),
             'dossierSummary' => $summaryBuilder->build($intake, $intake->templateVersion),

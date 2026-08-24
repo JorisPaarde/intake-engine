@@ -6,11 +6,13 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Added
 
+- **Demo beëindigen + verlopen-pagina (BL-066):** bevestiging vóór **Demo beëindigen**; TTL/logout landt op `/demo/beeindigd` met Nederlandse copy en CTA’s naar homepage / nieuwe demo; Nederlandse `404`-pagina i.p.v. framework-Engels.
 - **S3 als mediadisk (BL-013):** `MEDIA_DISK=s3` werkt via Laravel’s bestaande `s3`-disk en `league/flysystem-aws-s3-v3`. Nieuwe uploads/PDF’s/logo’s/luchtfoto’s schrijven naar de geconfigureerde disk (privé visibility); bestaande rijen behouden hun opgeslagen `disk`+`path` zonder migratie. AWS-vars staan in de env-sjablonen (geen secrets in git). Tests met fake disks dekken nieuwe uploads en legacy-rijen.
 - **Werkplek afronden: bewerken + 1-klik klanttaak (BL-059–062):** ruimtes en plaatsingen zijn na aanmaken bewerkbaar (`#room-{id}` / `#placement-{id}`); capacity-open-punten springen naar de eerste ruimte zonder maten; AI-uitzonderingen, open punten met klantbijdrage en AI-fotovoorstellen hebben één-tik “Vraag de klant” / “Vraag nieuwe foto” via `customer-tasks/quick`.
 
 ### Changed
 
+- **Demo/UX-fixes installateursdemo (BL-067–071):** installer-first rolkeuze (**Zelf de opname doen** primair, **Bekijk wat de klant ziet** secundair); demo-create zonder ‘mailen’-claim; overzicht scheidt klanttaak-% van klaar-voor-offerte; demotour teruggebracht tot welkom + rolkeuze; voorbeelddossier duidelijk optioneel; UI-copy op language.md (Digitale Opname, **Opname openen**, geen template-v in UI, AI-onzekerheid in gewone taal, klant **u**, NL-validatie).
 - **Demo-PDF op aanvraag als lead afgerond (BL-051):** acceptatie gesloten: PDF-mail + lead-mail met `Mail::fake()`, honeypot zonder lead, `MAIL_MAILER=log` met downloadbare PDF, formulier op werkplek én dossier. UI-copy toont de interne leadinbox niet meer; de lead bevat geen demoklantgegevens.
 - **Backlog: demo/UX-fixes na installateursdemo 24 aug (BL-066–072):** nieuwe `ready`-items voor demo-beëindigen/expired-pagina, installer-first rolkeuze, geen ‘mailen’-copy zonder mail, scheiding taak-% vs. beslisgereedheid, één demoprogressielaag, rest-UI op language.md, en bewuste production-release. BL-063–065 blijven gereserveerd voor draft PR’s #74/#75.
 - **Staging-smoke mobiele werkplek (BL-053/054–058):** functionele teststatus bijgewerkt na geslaagde 390 px-controle op staging (demo + voorbeelddossier; sticky echte CTA, deep links, dichtgeklapte info).

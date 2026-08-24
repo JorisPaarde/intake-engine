@@ -43,7 +43,7 @@
                                 <th class="px-4 py-3 text-left font-medium text-gray-600">E-mail</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-600">Type</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-600">Status</th>
-                                <th class="px-4 py-3 text-left font-medium text-gray-600">Voortgang</th>
+                                <th class="px-4 py-3 text-left font-medium text-gray-600">Klanttaak</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-600">Aangemaakt</th>
                                 <th class="px-4 py-3 text-left font-medium text-gray-600">Afgerond</th>
                                 <th class="px-4 py-3 text-right font-medium text-gray-600"></th>
@@ -79,7 +79,7 @@
                                             {{ $intake->status->label() }}
                                         </span>
                                     </td>
-                                    <td class="px-4 py-3 text-gray-600">{{ $intake->progress_percent }}%</td>
+                                    <td class="px-4 py-3 text-gray-600">{{ $intake->progress_percent }}% beantwoord</td>
                                     <td class="px-4 py-3 text-gray-600">{{ $intake->created_at?->timezone(config('app.timezone'))->format('d-m-Y H:i') }}</td>
                                     <td class="px-4 py-3 text-gray-600">{{ $intake->completed_at?->timezone(config('app.timezone'))->format('d-m-Y H:i') ?? '—' }}</td>
                                     <td class="px-4 py-3 text-right">
