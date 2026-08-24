@@ -10,6 +10,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
+- **Demo-PDF op aanvraag als lead afgerond (BL-051):** acceptatie gesloten: PDF-mail + lead-mail met `Mail::fake()`, honeypot zonder lead, `MAIL_MAILER=log` met downloadbare PDF, formulier op werkplek én dossier. UI-copy toont de interne leadinbox niet meer; de lead bevat geen demoklantgegevens.
 - **Backlog: demo/UX-fixes na installateursdemo 24 aug (BL-066–072):** nieuwe `ready`-items voor demo-beëindigen/expired-pagina, installer-first rolkeuze, geen ‘mailen’-copy zonder mail, scheiding taak-% vs. beslisgereedheid, één demoprogressielaag, rest-UI op language.md, en bewuste production-release. BL-063–065 blijven gereserveerd voor draft PR’s #74/#75.
 - **Staging-smoke mobiele werkplek (BL-053/054–058):** functionele teststatus bijgewerkt na geslaagde 390 px-controle op staging (demo + voorbeelddossier; sticky echte CTA, deep links, dichtgeklapte info).
 - **Werkplek om te genieten (BL-054–058):** sticky CTA is altijd een echte handeling (nooit “bekijk lijst”); open punten tikken door naar het werkblok; sticky/open punten zijn korter; klanttaak en afronden staan na opstellingen; objectfoto’s als thumbnails bij het subject; afronden is één knop met lichte bevestiging. Bouwt voort op BL-053.
