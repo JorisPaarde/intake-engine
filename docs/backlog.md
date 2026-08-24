@@ -479,7 +479,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-051 — Demo-PDF op aanvraag als lead
 
-- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-08-24 · **PR:** #TBD · **Band:** A (bij BL-001) · **Epic:** E5
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-08-24 · **PR:** #77 · **Band:** A (bij BL-001) · **Epic:** E5
 - **Doel:** laat de installateur aan het eind van de demo een PDF van het demorapport ontvangen door een e-mailadres in te vullen; dat adres is meteen een productlead.
 - **Gedrag:** formulier op demo-werkplek en dossierpagina; bouwt/vernieuwt rapport-HTML; genereert PDF synchroon via `GenerateIntakePdf` (automatische PDF-jobs blijven demos skippen); stuurt PDF naar de prospect; slaat `product_interests` op met `source=demo_pdf_request` en notificeert `PRODUCT_INTEREST_MAIL_TO` (default `info@jpwebcreation.nl`).
 - **Kaders:** honeypot + bestaande interest-throttle; bij `MAIL_MAILER=log` wel lead + downloadbare PDF, geen mailqueue; geen echte klantdata in de lead — alleen het vrijwillig opgegeven adres.
