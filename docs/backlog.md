@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.23 · **Laatste update:** 2026-08-24 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.24 · **Laatste update:** 2026-08-26 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -66,6 +66,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-070 | Demo-tour: één progressielaag | E5 | done | medium | A · product/demo/UX |
 | — | BL-071 | Rest-UI op language.md | E5 | done | high | A · product/demo/UX |
 | — | BL-072 | Production-release van Unreleased | E5 | ready | medium | A · operationeel |
+| — | BL-073 | Demo trial-killers: klantlink NL, geen Voorbeeldklant, eerlijke voortgang | E5 | in_progress | high | A · product/demo/UX |
 | — | BL-052 | Gecontroleerd eenvoudig Nederlands in de app-UI | E5 | done | medium | A (done) |
 | — | BL-053 | Mobiele werkplek: acties eerst, info dicht | E5 | done | high | O · bij BL-037 |
 | — | BL-054 | Sticky CTA = echte handeling | E5 | done | high | O · bij BL-053 |
@@ -539,6 +540,15 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Doel:** bewuste production-release ná staging-smoke van BL-001, of documenteren welke commit nu op production draait.
 - **Scope:** README/DEPLOYMENT productieversie; tag + `/health`-smoke óf expliciete notitie bij dispatch zonder tag; geen tag vóór BL-001 staging-smoke.
 - **Acceptatie:** README/DEPLOYMENT state the live production version; either a new tag with /health production smoke, or an explicit note if production was dispatched without tag. Do not tag until BL-001 staging smoke passes.
+
+### BL-073 — Demo trial-killers: klantlink NL, geen Voorbeeldklant, eerlijke voortgang
+
+- **Status:** in_progress · **Prioriteit:** high · **Datum:** 2026-08-26 · **Epic:** E5 · **Band:** A (product/demo/UX)
+- **Aanleiding:** live production-demo (intake 38, 26 aug 2026): (1) **Klantweergave activeren** zonder klanttaak toont Engelse Laravel-validatie; (2) lege/echte werkplek toont **Voorbeeldklant** + persistente voorbeelddossier-CTA; (3) sticky `1/8` suggereert bijna-lege opname terwijl ruimtes/foto’s er al zijn; AI-voorstel “nog leeg” zonder uitleg.
+- **Doel:** klantpad weer bruikbaar; demo-trust herstellen; voortgang eerlijk over “met inhoud” vs klaar-voor-offerte. Prioriteit: klantlink eerst (mag alleen shippen).
+- **Scope:** `requestContribution`-validatie NL; demo create zonder vooringevulde Voorbeeldklant; sample-CTA alleen vóór echte werkplek-inhoud; `filled_count` + copy AI/opstelling; language.md je-regel; tests.
+- **Niet in scope:** draft AI-prefill #74/#75; fake 100%; mail bij `is_demo`.
+- **Acceptatie:** lege klanttaak → NL actionable fout, geen Engels; gevulde opdracht activeert klantweergave (demo zonder mail); nieuwe demo-opname toont getypte naam/adres; sample-CTA verdwijnt na plekken/foto’s/opstelling; counter toont met-inhoud + klaar-voor-offerte apart; lege AI verklaart ontbrekende opstelling.
 
 ### BL-043 — Publieke productfunnel en interesse-CTA
 

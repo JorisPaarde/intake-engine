@@ -14,8 +14,10 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
+use App\Domains\Intake\Services\AircoSurveyService;
 use App\Domains\Intake\Services\CompletenessChecker;
 use App\Enums\AircoConnectionType;
+use App\Enums\AircoPlacementType;
 use App\Enums\AiRunType;
 use App\Enums\ContributionMode;
 use App\Enums\ContributionTaskStatus;
@@ -77,7 +79,7 @@ function createDemoIntakeViaForm(?User $user = null): array
         ->post(route('intakes.store'), [
             'template_key' => 'airco',
             'workflow_mode' => ContributionMode::Customer->value,
-            'customer_name' => 'Voorbeeldklant',
+            'customer_name' => 'Familie Jansen',
             'customer_email' => 'voorbeeld@demo.invalid',
             'address_line' => (string) config('intake.demo.address.line', 'Bernadottelaan 273'),
             'address_postal_code' => (string) config('intake.demo.address.postal_code', '2037GR'),
@@ -144,14 +146,16 @@ it('leaves postcode and house number empty so the installer types them', functio
         ->withSession($session)
         ->get(route('intakes.create'))
         ->assertOk()
-        ->assertSee('Vul zelf een postcode en huisnummer in')
+        ->assertSee('Vul zelf een klantnaam, postcode en huisnummer in')
         ->assertSee('Tip om te proberen:')
         ->assertSee((string) config('intake.demo.address.postal_code', '2037GR'))
         ->assertSee('name="address_postal_code"', false)
         ->assertDontSee('value="'.config('intake.demo.address.postal_code', '2037GR').'"', false)
         ->assertDontSee('value="'.config('intake.demo.address.house_number', 273).'"', false)
         ->assertSee('name="customer_name"', false)
-        ->assertSee('value="Voorbeeldklant"', false);
+        ->assertDontSee('value="Voorbeeldklant"', false)
+        ->assertDontSee('value="Familie de Vries"', false)
+        ->assertSee('placeholder="Bijv. Familie de Vries"', false);
 });
 
 it('creates one demo intake from the normal create form and opens the role branch', function () {
@@ -230,6 +234,8 @@ it('continues as installer and can load the sample dossier', function () {
         ->assertSee('Optioneel: toon voorbeelddossier')
         ->assertSee('Bouw de opname op')
         ->assertSee('Begin met een lege opname')
+        ->assertSee('Familie Jansen')
+        ->assertDontSee('Voorbeeldklant')
         ->assertDontSee('Stap 4 van 6');
 
     $this->actingAs($user)
@@ -295,6 +301,38 @@ it('continues as installer and can load the sample dossier', function () {
         ->assertSee('Woninggegevens')
         ->assertSee('Controleren en klantweergave activeren')
         ->assertSee('AI-voorstel vernieuwen');
+});
+
+it('hides the sample dossier CTA once the installer starts real workspace work', function () {
+    ['intake' => $intake, 'user' => $user] = createDemoIntakeViaForm();
+
+    $this->actingAs($user)
+        ->withSession(demoSessionFor($user, $intake))
+        ->post(route('demo.path.choose', $intake), ['path' => 'installer'])
+        ->assertRedirect(route('intakes.workspace', $intake));
+
+    $this->actingAs($user)
+        ->withSession(demoSessionFor($user, $intake))
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertSee('Optioneel: toon voorbeelddossier')
+        ->assertSee('Familie Jansen')
+        ->assertDontSee('Voorbeeldklant');
+
+    app(AircoSurveyService::class)->createPlacement($intake, $user, [
+        'type' => AircoPlacementType::PowerSource,
+        'label' => 'Meterkast',
+    ]);
+
+    $this->actingAs($user)
+        ->withSession(demoSessionFor($user, $intake))
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertDontSee('Optioneel: toon voorbeelddossier')
+        ->assertSee('Je werkt in een echte opname')
+        ->assertSee('met inhoud')
+        ->assertSee('AI-voorstel wacht op een opstelling')
+        ->assertSee('klaar voor offerte');
 });
 
 it('creates a separate tenant and user for every public demo session', function () {

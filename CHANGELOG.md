@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Fixed
+
+- **Demo trial-killers (BL-073):** **Klantweergave activeren** zonder klantopdracht toont een Nederlandse, actionable fout i.p.v. Engels `The contribution items field is required.`; demo-create vult geen **Voorbeeldklant** meer voor (tip alleen als placeholder); voorbeelddossier-CTA verdwijnt zodra de werkplek echte plekken/foto’s/opstellingen heeft; sticky voortgang toont **met inhoud** los van klaar-voor-offerte; lege AI-voorstel legt uit dat eerst een opstelling nodig is. Nieuwe installateurs-/demo-UI gebruikt **je** ([docs/language.md](docs/language.md)). Demo blijft zonder klantmail.
+
 ### Added
 
 - **Demo beëindigen + verlopen-pagina (BL-066):** bevestiging vóór **Demo beëindigen**; TTL/logout landt op `/demo/beeindigd` met Nederlandse copy en CTA’s naar homepage / nieuwe demo; Nederlandse `404`-pagina i.p.v. framework-Engels.

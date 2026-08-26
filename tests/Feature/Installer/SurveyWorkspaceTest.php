@@ -707,6 +707,69 @@ test('installer can create a customer task in one click from an AI exception pro
         ->and($intake->contributionTasks()->first()?->prompt)->toBe('Maak één scherpe foto van de meterkastlabels.');
 });
 
+test('empty customer task form fails with Dutch actionable message', function () {
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'lege-klanttaak@example.com');
+
+    $this->actingAs($user)
+        ->from(route('intakes.workspace', $intake))
+        ->post(route('intakes.workspace.tasks.store', $intake), [
+            'contribution_items' => [
+                ['type' => FollowUpItemType::Text->value, 'prompt' => '', 'decision_area_key' => ''],
+                ['type' => FollowUpItemType::Text->value, 'prompt' => '   ', 'decision_area_key' => ''],
+            ],
+        ])
+        ->assertRedirect(route('intakes.workspace', $intake))
+        ->assertSessionHasErrors([
+            'contribution_items' => 'Vul minstens één klantopdracht in. Schrijf wat de klant moet doen.',
+        ]);
+
+    $this->actingAs($user)
+        ->followingRedirects()
+        ->from(route('intakes.workspace', $intake))
+        ->post(route('intakes.workspace.tasks.store', $intake), [
+            'contribution_items' => [
+                ['type' => FollowUpItemType::Text->value, 'prompt' => '', 'decision_area_key' => ''],
+            ],
+        ])
+        ->assertOk()
+        ->assertSee('Vul minstens één klantopdracht in')
+        ->assertDontSee('The contribution items field is required')
+        ->assertDontSee('contribution items');
+
+    expect($intake->fresh()->contributionTasks)->toHaveCount(0)
+        ->and($intake->fresh()->customer_access_enabled)->toBeFalse();
+});
+
+test('installer can activate customer view with one filled klantopdracht', function () {
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'klantweergave@example.com');
+
+    $this->actingAs($user)
+        ->from(route('intakes.workspace', $intake))
+        ->post(route('intakes.workspace.tasks.store', $intake), [
+            'contribution_items' => [
+                [
+                    'type' => FollowUpItemType::Photo->value,
+                    'prompt' => 'Maak een leesbare foto van de volledige meterkast.',
+                    'decision_area_key' => 'power',
+                ],
+                [
+                    'type' => FollowUpItemType::Text->value,
+                    'prompt' => '',
+                    'decision_area_key' => '',
+                ],
+            ],
+        ])
+        ->assertRedirect(route('intakes.workspace', $intake))
+        ->assertSessionHas('status');
+
+    $intake->refresh();
+    expect($intake->customer_access_enabled)->toBeTrue()
+        ->and($intake->status)->toBe(IntakeStatus::AwaitingCustomer)
+        ->and($intake->contributionTasks()->where('status', ContributionTaskStatus::Open)->count())->toBe(1);
+});
+
 test('quick customer task is blocked while another contribution round is open', function () {
     $user = User::factory()->create();
     $intake = createInstallerSurveyForWorkspace($user, 'quick-blocked@example.com');

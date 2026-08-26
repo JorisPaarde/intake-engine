@@ -144,7 +144,7 @@ final class DecisionReadinessService
 
         return [
             'status' => $complete ? DecisionAreaStatus::Ready : DecisionAreaStatus::Review,
-            'blocker' => $complete ? null : 'Vul ontbrekende maten van de ruimte in voordat u het vermogen kiest.',
+            'blocker' => $complete ? null : 'Vul ontbrekende maten van de ruimte in voordat je het vermogen kiest.',
             'evidence_summary' => [
                 'rooms' => $intake->aircoRooms->count(),
                 'complete_rooms' => $intake->aircoRooms->filter(static function (AircoRoom $room): bool {
