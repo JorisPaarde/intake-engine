@@ -79,7 +79,8 @@ return [
             'city' => env('DEMO_ADDRESS_CITY', 'Haarlem'),
         ],
 
-        'customer_name' => env('DEMO_CUSTOMER_NAME', 'Voorbeeldklant'),
+        // Tiptekst / placeholder op create — niet vooringevuld in het formulier.
+        'customer_name' => env('DEMO_CUSTOMER_NAME', 'Familie de Vries'),
         'customer_email_domain' => '@demo.invalid',
         'request_reason' => env(
             'DEMO_REQUEST_REASON',

@@ -17,7 +17,7 @@
         <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
             @if ($isPublicDemo)
                 <div class="mb-4 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">
-                    Vul zelf een postcode en huisnummer in — net als na een echte aanvraag. Je ziet meteen straat en plaats. Na opslaan vult de app bekende woninggegevens aan en leest de korte uitleg mee. De klantnaam is nep. Er gaat geen e-mail uit.
+                    Vul zelf een klantnaam, postcode en huisnummer in — net als na een echte aanvraag. Je ziet meteen straat en plaats. Na opslaan vult de app bekende woninggegevens aan en leest de korte uitleg mee. Gebruik fictieve klantgegevens. Er gaat geen e-mail uit.
                 </div>
             @endif
             <div class="bg-white shadow-sm sm:rounded-lg p-6" data-demo-anchor="create-form">
@@ -160,7 +160,7 @@
                             @if (old('address_line') || $errors->has('address_line') || $errors->has('address_city')) open @endif
                         >
                             <summary class="cursor-pointer text-sm font-semibold text-gray-800">Handmatig invoeren</summary>
-                            <p class="mt-2 text-xs text-gray-500">Controleer het aangevulde adres. U kunt straat en plaats indien nodig handmatig aanpassen.</p>
+                            <p class="mt-2 text-xs text-gray-500">Controleer het aangevulde adres. Je kunt straat en plaats indien nodig handmatig aanpassen.</p>
                             <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 <div>
                                     <x-input-label for="address_line" value="Straat en huisnummer" />
@@ -194,7 +194,15 @@
 
                     <div>
                         <x-input-label for="customer_name" value="Naam klant" />
-                        <x-text-input id="customer_name" name="customer_name" class="mt-1 block w-full" type="text" :value="$demoValue('customer_name')" required />
+                        <x-text-input
+                            id="customer_name"
+                            name="customer_name"
+                            class="mt-1 block w-full"
+                            type="text"
+                            :value="$demoValue('customer_name')"
+                            :placeholder="$isPublicDemo && $demoAddressExample ? ('Bijv. '.$demoAddressExample['customer_name']) : null"
+                            required
+                        />
                         <x-input-error :messages="$errors->get('customer_name')" class="mt-2" />
                     </div>
 

@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.53 · **Laatste update:** 2026-08-24 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.54 · **Laatste update:** 2026-08-26 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -29,7 +29,8 @@ Laatste testsessie: 2026-08-09 (staging; mobiele werkplek BL-053/054–058 op 39
 | Demo-create zonder mailclaim (BL-068) | todo | - | Demo create toont **Opname aanmaken**, geen **Opslaan en link mailen**; flash/branch zonder “mailen we”. |
 | Taak-% ≠ klaar-voor-offerte (BL-069) | todo | - | Na verkorte klantroute: overzicht toont geen `100% compleet`; wel Klanttaak + Klaar voor offerte Y/Z. |
 | Demo-tour één laag (BL-070) | todo | - | Geen Stap N/6-stack; welkom volstaat; lege werkplek afronden zonder sample; sample-CTA duidelijk optioneel. |
-| Rest-UI language.md (BL-071) | todo | - | Chrome Digitale Opname; **Opname openen**; geen template-v; AI zonder `power · 0.76`; klant **u**; NL-validatie/404. |
+| Rest-UI language.md (BL-071) | todo | - | Chrome Digitale Opname; **Opname openen**; geen template-v; AI zonder `power · 0.76`; nieuwe UI **je**; NL-validatie/404. |
+| Demo trial-killers (BL-073) | todo | - | Lege **Klantweergave activeren** → NL-fout, geen Engels; getypte klantnaam i.p.v. Voorbeeldklant; sample-CTA weg na plek/foto; sticky **met inhoud** ≠ klaar-voor-offerte; AI legt ontbrekende opstelling uit; demo zonder mail. |
 | Startkeuze klant / zelf uitvoeren (BL-037) | todo | - | Na deploy: **Zelf uitvoeren** houdt klanttoegang uit en verstuurt geen mail; **Klant laten opnemen** activeert en mailt de begeleide klantlink. |
 | Volledig installateur-uitgevoerde opname (BL-037) | todo | - | Twee slaapkamers mobiel en in vrije volgorde vastleggen: ruimtes, contextgebonden foto's/notities en technische conclusies; afronden/offertebasis zonder klantactie. |
 | Contextgebonden foto’s en notities (BL-049) | todo | - | Na deploy op desktop en 390 px bij een ruimte, positie en verbinding **Foto maken** en **Technische notitie** doorlopen. Geen losse **Camera en bewijs**/**Vakwaarneming**, onderwerp-, sleutel-, methode- of telefoonkeuze. Met fictieve beelden en toegestane externe AI: voorstel blijft onbevestigd, **Klopt** en **Aanpassen** maken het definitief; lage zekerheid en providerfalen voegen geen dossiernoise toe. Controleer bronlabels, toetsenbord, camera én galerij en dat een routefoto één routesegment blijft. |

@@ -372,10 +372,11 @@ final class SurveyWorkspaceController extends Controller
         $items = is_array($rawItems)
             ? array_values(array_filter($rawItems, static fn (mixed $item): bool => is_array($item) && filled($item['prompt'] ?? null)))
             : [];
+        $maxItems = (int) config('intake.follow_up.max_items_per_round', 5);
         $validator = Validator::make(
             ['contribution_items' => $items],
             [
-                'contribution_items' => ['required', 'array', 'min:1', 'max:'.config('intake.follow_up.max_items_per_round', 5)],
+                'contribution_items' => ['required', 'array', 'min:1', 'max:'.$maxItems],
                 'contribution_items.*.type' => ['required', Rule::enum(FollowUpItemType::class)],
                 'contribution_items.*.prompt' => ['required', 'string', 'max:500'],
                 'contribution_items.*.decision_area_key' => [
@@ -387,6 +388,21 @@ final class SurveyWorkspaceController extends Controller
                     'integer',
                     Rule::exists('dossier_subjects', 'id')->where('intake_id', $intake->id),
                 ],
+            ],
+            [
+                'contribution_items.required' => 'Vul minstens één klantopdracht in. Schrijf wat de klant moet doen.',
+                'contribution_items.min' => 'Vul minstens één klantopdracht in. Schrijf wat de klant moet doen.',
+                'contribution_items.max' => "Voeg maximaal {$maxItems} klantopdrachten per keer toe.",
+                'contribution_items.*.type.required' => 'Kies bij elke opdracht een type (tekst, foto of document).',
+                'contribution_items.*.prompt.required' => 'Schrijf bij elke opdracht wat de klant moet doen.',
+                'contribution_items.*.prompt.max' => 'Houd elke opdracht kort (maximaal 500 tekens).',
+                'contribution_items.*.decision_area_key.in' => 'Kies een geldig onderdeel van de opname, of laat Algemene opname staan.',
+                'contribution_items.*.dossier_subject_id.exists' => 'Die koppeling hoort niet bij deze opname.',
+            ],
+            [
+                'contribution_items' => 'klantopdrachten',
+                'contribution_items.*.type' => 'type opdracht',
+                'contribution_items.*.prompt' => 'opdrachttekst',
             ],
         );
         $validated = $validator->validate();
@@ -416,6 +432,15 @@ final class SurveyWorkspaceController extends Controller
                 'integer',
                 Rule::exists('dossier_subjects', 'id')->where('intake_id', $intake->id),
             ],
+        ], [
+            'type.required' => 'Kies een type opdracht (tekst, foto of document).',
+            'prompt.required' => 'Schrijf wat de klant moet doen.',
+            'prompt.max' => 'Houd de opdracht kort (maximaal 500 tekens).',
+            'decision_area_key.in' => 'Kies een geldig onderdeel van de opname.',
+            'dossier_subject_id.exists' => 'Die koppeling hoort niet bij deze opname.',
+        ], [
+            'type' => 'type opdracht',
+            'prompt' => 'opdrachttekst',
         ]);
         $user = $this->user($request);
         $round = $createRequest->handle($intake, $user, [[
@@ -531,7 +556,7 @@ final class SurveyWorkspaceController extends Controller
         $this->authorize('update', $intake);
         $complete->handle($intake, $this->user($request));
 
-        return $this->back($intake, 'Uw opnamebijdrage is afgerond; het beslisdossier is opnieuw beoordeeld.');
+        return $this->back($intake, 'Je opnamebijdrage is afgerond; het beslisdossier is opnieuw beoordeeld.');
     }
 
     public function recordOutcome(

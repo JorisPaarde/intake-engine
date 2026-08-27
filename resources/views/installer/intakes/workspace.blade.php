@@ -97,6 +97,13 @@
             @endif
 
             @if ($intake->is_demo)
+                @php
+                    $demoWorkStarted = ($demoScenarioLoaded ?? false)
+                        || $photoCount > 0
+                        || $intake->aircoPlacements->isNotEmpty()
+                        || $intake->aircoInstallationOptions->isNotEmpty();
+                    $showSampleDossierCta = ! ($demoScenarioLoaded ?? false) && ! $demoWorkStarted;
+                @endphp
                 <section id="demo-intro" class="overflow-hidden rounded-3xl border border-sky-200 bg-sky-50 shadow-sm" data-demo-anchor="workspace-intro">
                     <div class="grid gap-5 p-5 sm:p-6 lg:grid-cols-[1fr_auto] lg:items-center">
                         <div>
@@ -106,13 +113,15 @@
                             </h3>
                             <p class="mt-2 max-w-3xl text-sm leading-relaxed text-gray-700">
                                 @if ($demoScenarioLoaded ?? false)
-                                    U bekijkt een optionele boost met voorbeeldinhoud. U kunt dit verder bewerken of AI opnieuw laten kijken. Klantmail blijft uit.
+                                    Je bekijkt een optionele boost met voorbeeldinhoud. Je kunt dit verder bewerken of AI opnieuw laten kijken. Klantmail blijft uit.
+                                @elseif ($demoWorkStarted)
+                                    Je werkt in een echte opname. Adresinvulling en AI werken. Klantmail blijft uit.
                                 @else
-                                    Begin met een lege opname — net als na een echte aanvraag. Adresinvulling en AI werken. Optioneel kunt u hieronder een voorbeelddossier laden als snelle boost.
+                                    Begin met een lege opname — net als na een echte aanvraag. Adresinvulling en AI werken. Optioneel kun je hieronder een voorbeelddossier laden als snelle boost.
                                 @endif
                                 Demogegevens verdwijnen na {{ max(1, (int) config('intake.demo.ttl_hours', 2)) }} uur.
                             </p>
-                            @if (! ($demoScenarioLoaded ?? false))
+                            @if ($showSampleDossierCta)
                                 <form method="POST" action="{{ route('demo.scenario.load', $intake) }}" class="mt-4">
                                     @csrf
                                     <button type="submit" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-sky-400 bg-white px-4 py-2 text-sm font-semibold text-sky-900 hover:bg-sky-100">
@@ -120,12 +129,12 @@
                                     </button>
                                 </form>
                                 <p class="mt-2 text-xs leading-relaxed text-sky-900/70">
-                                    Niet nodig om de demo af te ronden. Alleen als u snel een rijk eindbeeld wilt zien.
+                                    Niet nodig om de demo af te ronden. Alleen als je snel een rijk eindbeeld wilt zien.
                                     @if ($intake->aircoRooms->isNotEmpty())
                                         Uit de korte uitleg zijn al gewenste ruimtes afgeleid.
                                     @endif
                                 </p>
-                            @else
+                            @elseif ($demoScenarioLoaded ?? false)
                                 <nav class="mt-4 flex flex-wrap gap-2 text-xs font-semibold" aria-label="Voorbeeldroute">
                                     <a href="#demo-context" class="rounded-full bg-white px-3 py-2 text-sky-800 shadow-sm ring-1 ring-sky-200">1. Woninggegevens</a>
                                     <a href="#demo-evidence" class="rounded-full bg-white px-3 py-2 text-sky-800 shadow-sm ring-1 ring-sky-200">2. Foto’s</a>
@@ -148,7 +157,13 @@
                         <p class="text-xs font-medium text-gray-500">Volgende stap</p>
                         <p class="truncate text-sm font-semibold text-gray-900">{{ $primarySummary }}</p>
                     </div>
-                    <p class="shrink-0 text-xs font-semibold tabular-nums text-gray-500">{{ $dossier['ready_count'] }}/{{ $dossier['total_count'] }}</p>
+                    <div class="shrink-0 text-right">
+                        <p class="text-xs font-semibold tabular-nums text-gray-700">{{ $dossier['filled_count'] }}/{{ $dossier['total_count'] }}</p>
+                        <p class="text-[11px] font-medium leading-tight text-gray-500">met inhoud</p>
+                        @if ($dossier['ready_count'] !== $dossier['filled_count'])
+                            <p class="mt-0.5 text-[11px] leading-tight text-gray-400">{{ $dossier['ready_count'] }} klaar voor offerte</p>
+                        @endif
+                    </div>
                 </div>
                 <a
                     href="{{ $primaryCtaHref }}"
@@ -235,9 +250,12 @@
                             @endif
                             <details class="mt-3 rounded-2xl border border-gray-200 bg-white">
                                 <summary class="cursor-pointer px-4 py-2.5 text-sm font-semibold text-gray-900">
-                                    Alle onderdelen ({{ $dossier['ready_count'] }}/{{ $dossier['total_count'] }})
+                                    Alle onderdelen ({{ $dossier['filled_count'] }}/{{ $dossier['total_count'] }} met inhoud)
                                 </summary>
-                                <div class="grid gap-2 border-t border-gray-100 p-3 sm:grid-cols-2">
+                                <p class="border-t border-gray-100 px-4 pt-3 text-xs text-gray-500">
+                                    {{ $dossier['ready_count'] }} van {{ $dossier['total_count'] }} klaar voor offerte — dat is iets anders dan “met inhoud”.
+                                </p>
+                                <div class="grid gap-2 p-3 sm:grid-cols-2">
                                     @foreach ($dossier['areas'] as $area)
                                         <article @class([
                                             'rounded-xl border p-3',
@@ -871,8 +889,10 @@
                                                 {{ count($aiExceptions) }} uitzondering(en) bekijken
                                             @elseif ($aiSynthesis)
                                                 AI-voorstel bekijken
+                                            @elseif ($intake->aircoInstallationOptions->isEmpty())
+                                                AI-voorstel wacht op een opstelling
                                             @else
-                                                AI-voorstel (nog leeg)
+                                                Nog geen AI-voorstel
                                             @endif
                                         </h3>
                                     </div>
@@ -934,8 +954,12 @@
                                             <p class="mt-2 text-xs text-gray-500">Geen beslissende uitzondering voorgesteld.</p>
                                         @endif
                                     </div>
+                                @elseif ($intake->aircoInstallationOptions->isEmpty())
+                                    <p class="text-sm text-indigo-900">
+                                        Er is nog geen opstelling. Leg eerst binnen- en buitenplekken vast en maak een opstelling. Daarna kan de AI een voorstel maken. Ruimtes of foto’s alleen tellen nog niet als klaar voor offerte.
+                                    </p>
                                 @else
-                                    <p class="text-sm text-indigo-900">Er is nog geen AI-voorstel opgeslagen.</p>
+                                    <p class="text-sm text-indigo-900">Er is nog geen AI-voorstel opgeslagen. Tik op vernieuwen om er een te maken.</p>
                                 @endif
                             </div>
                         </details>

@@ -31,7 +31,7 @@ final class LoadDemoScenarioController extends Controller
             ->route('intakes.workspace', $intake)
             ->with(
                 'status',
-                'Voorbeelddossier geladen (optionele boost). U kunt hierna AI-voorstellen vernieuwen of eigen foto’s laten analyseren. E-mail blijft uit.',
+                'Voorbeelddossier geladen (optionele boost). Je kunt hierna AI-voorstellen vernieuwen of eigen foto’s laten analyseren. E-mail blijft uit.',
             );
     }
 }

@@ -61,10 +61,9 @@ class IntakeController extends Controller
 
         if ($isPublicDemo) {
             $suffix = strtolower((string) str()->ulid());
-            // Only fictional contact defaults — the installer types postcode/huisnummer
-            // themselves so the live address lookup is part of the demo experience.
+            // Contact e-mail is fictional; naam + postcode/huisnummer typt de installateur zelf
+            // (DEMO_ADDRESS_* / DEMO_CUSTOMER_NAME zijn alleen tiptekst, niet vooringevuld).
             $demoDefaults = [
-                'customer_name' => (string) config('intake.demo.customer_name', 'Voorbeeldklant'),
                 'customer_email' => 'voorbeeld+'.$suffix.(string) config('intake.demo.customer_email_domain', '@demo.invalid'),
                 'internal_note' => 'Fictieve interactieve demo — geen echte klant of offerte.',
             ];
@@ -73,6 +72,7 @@ class IntakeController extends Controller
                 'postal_code' => (string) config('intake.demo.address.postal_code', '2037GR'),
                 'house_number' => (int) config('intake.demo.address.house_number', 273),
                 'city' => (string) config('intake.demo.address.city', 'Haarlem'),
+                'customer_name' => (string) config('intake.demo.customer_name', 'Familie de Vries'),
             ];
         }
 
