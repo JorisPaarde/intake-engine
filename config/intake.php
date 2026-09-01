@@ -86,17 +86,6 @@ return [
             'DEMO_REQUEST_REASON',
             'Twee slaapkamers op zolder koelen; het wordt daar te warm in de zomer.',
         ),
-
-        /*
-        | Verkorte klantroute in de begeleidde demo (representatieve stappen).
-        */
-        'short_customer_question_keys' => [
-            'request_reason',
-            'cooling_heating',
-            'building_type',
-            'outdoor_location',
-            'free_group_known',
-        ],
     ],
 
     /*

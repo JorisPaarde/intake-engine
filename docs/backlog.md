@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.28 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.29 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,7 +38,7 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 zijn gereserveerd voor draft PR’s [#74](https://github.com/JorisPaarde/intake-engine/pull/74) / [#75](https://github.com/JorisPaarde/intake-engine/pull/75) (AI-prefill); niet hergebruiken. Nieuwe items starten bij BL-066.
+**Nummering:** BL-063–065 zijn gereserveerd voor draft PR’s [#74](https://github.com/JorisPaarde/intake-engine/pull/74) / [#75](https://github.com/JorisPaarde/intake-engine/pull/75) (AI-prefill); niet hergebruiken. BL-077 is gereserveerd voor sibling demo-UX (vrije-groep na meterkast); niet hergebruiken. Nieuwe items starten bij BL-079.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
@@ -70,6 +70,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-074 | Offerte-kritisch bewijs na installateurstrial (meterkast, fase, stopcontacten, rondom huis, kruipruimte, vloerisolatie, maten) | E3/E7/E9 | done | high | product · airco-pad |
 | — | BL-075 | Demo-voorbeelddossier mag live PDOK-luchtfoto niet verbergen | E5 | done | high | A · product/demo |
 | — | BL-076 | Demo-banner: installateurstaal i.p.v. featuresheet | E5 | done | high | A · product/demo/UX |
+| — | BL-078 | Demo-klantpad: volledige airco-wizard i.p.v. 2-vragen-allowlist | E5 | done | high | A · product/demo |
 | — | BL-052 | Gecontroleerd eenvoudig Nederlands in de app-UI | E5 | done | medium | A (done) |
 | — | BL-053 | Mobiele werkplek: acties eerst, info dicht | E5 | done | high | O · bij BL-037 |
 | — | BL-054 | Sticky CTA = echte handeling | E5 | done | high | O · bij BL-053 |
@@ -475,11 +476,11 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Status:** in_progress · **Prioriteit:** medium · **Band:** A (operationeel, parallel) · **Ref:** [issue #5](https://github.com/JorisPaarde/intake-engine/issues/5)
 - **Plan:** [bl-001-interactive-installer-demo.md](plans/bl-001-interactive-installer-demo.md)
 - **Doel:** publiek of semi-publiek demopad zodat prospects/installateurs het product kunnen ervaren zonder eigen accountsetup of echte klantdata — het hoofddoel ("zo min mogelijk handelingen") toegepast op de allereerste kennismaking.
-- **Nieuwe invulling (begeleide flow):** **Probeer de demo** → tijdelijke tenant/user → dashboard met welkomstpopup → *Nieuwe opname* waarin de installateur zelf postcode/huisnummer intypt → rolkeuze-modal i.p.v. mail (*Doorgaan als klant* / *Zelf de opname doen*) → verkorte klantwizard of werkplek met optioneel voorbeelddossier; coachmark-popups op elke stap.
+- **Nieuwe invulling (begeleide flow):** **Probeer de demo** → tijdelijke tenant/user → dashboard met welkomstpopup → *Nieuwe opname* waarin de installateur zelf postcode/huisnummer intypt → rolkeuze-modal i.p.v. mail (*Bekijk wat de klant ziet* / *Zelf de opname doen*) → **volledige** klantwizard (zelfde airco-pad als productie) of werkplek met optioneel voorbeelddossier; coachmark-popups op elke stap.
 - **Scenario (optioneel laden):** vaste BAG-/luchtfoto-/EP-Online-/3DBAG-voorbeeldcontext, twee gewenste ruimtes, synthetisch beeldbewijs, multi-splitvoorstel, koel-/condens-/stroomroutes, vooraf berekende AI-synthese en één voorgestelde meterkasttaak — als snelle boost naast live verrijking/AI.
 - **Kaders:** `is_demo`, standaard-TTL twee uur, hourly hard purge inclusief tijdelijke demo-tenant en orphaned demo-workspaces; geen echte klantdata of klantmail. Adresverrijking en AI (foto/tekst/synthese) draaien wanneer die integraties aan staan. PDF alleen op vrijwillige aanvraag (BL-051).
 - **Acceptatie:** start op dashboard; create toont postcode-lookup + BAG-verrijking; branch zonder mail; beide paden begeleid met AI zichtbaar waar aan; sample-dossier op verzoek; isolatie/TTL; tests groen.
-- **Resultaat code:** begeleidde installateursstart, rolkeuze, verkorte klantroute, live verrijking/AI in demo, `LoadDemoSurveyScenario`, Alpine/native coachmarks en bijgewerkte Pest-dekking. Homepage-CTAs onderscheiden gast (**Probeer de demo** / **Inloggen**), actieve demosessie (**Verder in demo** / **Demo beëindigen**) en echt account (**Mijn opnames**); **Demo beëindigen** blijft in de app-nav zichtbaar zolang de demosessie loopt.
+- **Resultaat code:** begeleidde installateursstart, rolkeuze, volledige klantroute (BL-078), live verrijking/AI in demo, `LoadDemoSurveyScenario`, Alpine/native coachmarks en bijgewerkte Pest-dekking. Homepage-CTAs onderscheiden gast (**Probeer de demo** / **Inloggen**), actieve demosessie (**Verder in demo** / **Demo beëindigen**) en echt account (**Mijn opnames**); **Demo beëindigen** blijft in de app-nav zichtbaar zolang de demosessie loopt.
 - **Na deploy:** staging-smoke homepage → create (verrijking zichtbaar) → branch → beide paden (foto-/tekst-AI) → sample-dossier → klanttaak → PDF-aanvraag; daarna BL-001 op `done`. Controleer ook terugkeer naar `/` tijdens demosessie en **Demo beëindigen**. Resterende smoke moet ook een pad **zonder** *Toon voorbeelddossier* bevatten. UX-items BL-066–071 hoeven niet te wachten op merge van AI-prefill draft PR’s #74/#75.
 
 ### BL-051 — Demo-PDF op aanvraag als lead
@@ -590,6 +591,18 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Niet in scope:** short-customer allowlist in code; flashteksten elders, democoach, AI-flags, mailverzending.
 - **Acceptatie:** geen “Wel aan / bewust uitgeschakeld”-checklists; geen “productie”/“klantroute”/“expres kort”; tests groen; `composer check` groen.
 - **Resultaat:** banner “Demo — wat de klant ziet” (“Je vult in wat de klant invult…”) / “Demo — aanvulling door de klant” en complete-footer herschreven tot korte prose; featurelijsten verwijderd.
+
+### BL-078 — Demo-klantpad: volledige airco-wizard i.p.v. 2-vragen-allowlist
+
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-01 · **PR:** #84 · **Epic:** E5 · **Band:** A · product/demo
+- **Aanleiding:** als demo-klant zag Joris alleen ~2 vragen (o.a. vrije groep ja/nee, geen foto’s). De demo-klant moet juist helpen een zo compleet mogelijke opname te maken.
+- **Oorzaak:** `PublicDemoSession::shortCustomerQuestionKeys()` + `IntakeWizard` filterde stappen op een allowlist; sessieflag `public_demo_short_customer`.
+- **Doel:** publiek demo-klantpad gebruikt dezelfde klantwizard als productie (airco v12): verplichte meterkastfoto, foto’s rondom het huis, ruimtes, kruipruimte, enz. Mail/herinneringen blijven uit; demo-TTL blijft. Geen 2-vragen-stub.
+- **Scope:** remove allowlist-filter in wizard; stop zetten van `public_demo_short_customer`; verwijder config `short_customer_question_keys` + `shortCustomerQuestionKeys()`; afronden via normale `CompleteIntake` (mail/PDF blijven demos skippen). Installateurspad ongewijzigd. PDF-op-aanvraag blijft.
+- **Niet in scope:** BL-076 banner-copy (done in #83); BL-077 vrije-groep na meterkastfoto (sibling) — niet dupliceren.
+- **Acceptatie:** featuretest dat demo-klantpad `fusebox_photo` en `around_house_photos` bevat (niet alleen `free_group_known`); oude “exactly 2 steps”/short-keys-tests bijgewerkt; `composer check` groen.
+- **Hypothese (geverifieerd):** allowlist in wizard + sessieflag; geen templatewijziging nodig.
+- **Resultaat:** demo-klantpad = productie-wizard; sessieflag/config/allowlist verwijderd; banner zonder “kort”-claim (compatibel met BL-076).
 
 ### BL-043 — Publieke productfunnel en interesse-CTA
 

@@ -1,6 +1,6 @@
 # Intake Engine (Digitale Opname)
 
-> **Documentversie:** 2.15 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](AGENTS.md)
+> **Documentversie:** 2.16 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](AGENTS.md)
 
 **Werk je als agent aan dit project? Lees eerst [AGENTS.md](AGENTS.md)** — het projectgeheugen, de documentkaart en het onderhoudsprotocol.
 
@@ -70,7 +70,7 @@ Een gast kan vanaf `/` zonder account **Probeer de demo** kiezen (header: **Inlo
 
 - dezelfde create-, dossier-, tenant-, upload- en klanttaaklogica als productie;
 - adresverrijking na postcode/huisnummer en AI-foto-/tekstinterpretatie zoals in productie (wanneer die integraties aan staan);
-- verkorte klantwizard of installateurswerkplek met optioneel voorbeelddossier;
+- volledige klantwizard (zelfde airco-pad als productie) of installateurswerkplek met optioneel voorbeelddossier;
 - vooraf berekende BAG-/EP-Online-/3DBAG- en AI-voorbeelddata bij sample-load als snelle boost (live PDOK-luchtfoto van het getypeerde adres blijft staan);
 - synthetische foto’s via de normale dossier- en analysebeeldpipeline;
 - geen klantmail of automatische PDF; wel optioneel demorapport-PDF op e-mailaanvraag (tegelijk productlead);
