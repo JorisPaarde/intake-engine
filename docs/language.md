@@ -1,6 +1,6 @@
 # UI-taal — gecontroleerd eenvoudig Nederlands
 
-> **Documentversie:** 1.3 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.4 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: bron van waarheid voor gebruikersgerichte teksten in de app (UI, mails, templatevragen, flash-/foutmeldingen). Productdocumentatie mag technischer blijven.
 
@@ -31,7 +31,7 @@ Schrijf zodat klant en installateur snel begrijpen wat ze moeten doen. Volg de p
 | adresverrijking | adresinvulling |
 | woningbronnen | woninggegevens |
 | openingszin | korte uitleg bij de aanvraag |
-| kandidaatpositie | mogelijke plek |
+| kandidaatpositie / plekken / posities (installateurs-UI) | binnenunit / buitenunit (of stroomaansluiting / afvoerpunt) |
 | AI-constateringen | wat de AI ziet |
 | aannemelijk (status) | lijkt te kloppen |
 | niet op afstand vast te stellen | alleen te zien op locatie |

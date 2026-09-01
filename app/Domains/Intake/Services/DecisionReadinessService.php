@@ -181,7 +181,7 @@ final class DecisionReadinessService
             return [
                 'status' => DecisionAreaStatus::Blocked,
                 'next_action' => DossierNextAction::RequestContribution,
-                'blocker' => 'Maak eerst een opstelling met plekken voor binnen- en buitenunit.',
+                'blocker' => 'Maak eerst een opstelling met binnenunit en buitenunit.',
             ];
         }
 
@@ -246,7 +246,7 @@ final class DecisionReadinessService
                 return [
                     'status' => DecisionAreaStatus::Blocked,
                     'next_action' => DossierNextAction::RequestContribution,
-                    'blocker' => 'Niet elke binnenplek heeft een eigen '.$type->label().'.',
+                    'blocker' => 'Niet elke binnenunit heeft een eigen '.$type->label().'.',
                     'evidence_summary' => [
                         'connections' => $connections->count(),
                         'uncovered_indoor_placement_ids' => $uncoveredIndoorPlacements->pluck('id')->all(),

@@ -6,11 +6,13 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
+- **Installateurstaal: binnen-/buitenunit i.p.v. plekken/posities (BL-081):** werkplek-chrome en sticky CTA gebruiken **Binnen- en buitenunit**, **Binnen- of buitenunit toevoegen**, **Bewerken**, **Opslaan**, **Units in deze opstelling**; bodycopy “Leg eerst vast waar de binnenunit en buitenunit komen.” Typekeuze is vier zichtbare radio’s (Binnenunit / Buitenunit / Stroomaansluiting / Afvoerpunt) zonder dropdown of label “Soort”. Geen “plekken”/“posities” meer in installateurs-UI. Woordenlijst in [docs/language.md](docs/language.md).
 - **Demo-klantpad = volledige airco-wizard (BL-078):** de publieke demo-klantroute filtert niet meer op een allowlist van ~5 vragen (`public_demo_short_customer` / `short_customer_question_keys`). Dezelfde klantwizard als productie (airco v12), inclusief verplichte meterkastfoto en foto’s rondom het huis. Mail/herinneringen blijven uit; TTL en PDF-op-aanvraag blijven. Installateurspad ongewijzigd.
 - **Demo-banner in installateurstaal (BL-076):** `demo-scope-notice` toont geen featuresheet meer (“Wel aan / Bewust uitgeschakeld”, jargon als klantroute/productie). Korte prose: *Demo — wat de klant ziet* (“Je vult in wat de klant invult na jouw link”) / *Demo — aanvulling door de klant* en de afrondingsfooter; feiten (geen echte klant, geen mail, tijdelijke data, PDF alleen op aanvraag) met **je**. Geen claim dat de demovragenlijst “expres kort” of verkort is.
 
 ### Fixed
 
+- **Dubbele ruimtematen op de werkplek (BL-079):** per bestaande ruimte één altijd zichtbaar bewerkformulier (naam, gebruik, L×B×H, “Wijzigingen opslaan”). Het aparte “Maten opslaan”-blok en de accordion “Ruimte bewerken” zijn weg; “Ruimte toevoegen” blijft ongewijzigd.
 - **Demo-luchtfoto blijft bij het getypeerde adres (BL-075):** na live BAG/PDOK-verrijking overschrijft *Toon voorbeelddossier* de PDOK-luchtfoto niet meer met de synthetische Haarlem-voorbeeldcapture. Sample-load injecteert ruimtes/foto’s/AI; een fictieve luchtfoto alleen wanneer er nog geen live `PDOK Luchtfoto RGB` is. `ExternalFactPresenter` prefereert live PDOK boven fictief demo-voorbeeld.
 
 ### Added

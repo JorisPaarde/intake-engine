@@ -251,7 +251,7 @@ final class AircoSurveyService
         if (! $placements->contains('type', AircoPlacementType::IndoorUnit)
             || ! $placements->contains('type', AircoPlacementType::OutdoorUnit)) {
             throw ValidationException::withMessages([
-                'placement_ids' => 'Een installatieoptie bevat minimaal één binnen- en één buitenpositie.',
+                'placement_ids' => 'Een opstelling bevat minimaal één binnenunit en één buitenunit.',
             ]);
         }
 
@@ -269,7 +269,7 @@ final class AircoSurveyService
 
         if (! $validConfiguration) {
             throw ValidationException::withMessages([
-                'configuration_type' => 'Het aantal gekozen binnen- en buitenposities past niet bij deze configuratie.',
+                'configuration_type' => 'Het aantal gekozen binnen- en buitenunits past niet bij deze configuratie.',
             ]);
         }
 
@@ -380,7 +380,7 @@ final class AircoSurveyService
         foreach ([$from, $to] as $placement) {
             if ($placement !== null && ! in_array($placement->id, $optionPlacementIds, true)) {
                 throw ValidationException::withMessages([
-                    'from_placement_id' => 'Iedere routepositie moet onderdeel zijn van deze installatieoptie.',
+                    'from_placement_id' => 'Iedere unit in de route moet onderdeel zijn van deze opstelling.',
                 ]);
             }
         }
