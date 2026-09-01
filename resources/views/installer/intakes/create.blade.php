@@ -95,8 +95,8 @@
                             </p>
                         @endif
 
-                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-12">
-                            <div class="sm:col-span-5">
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div>
                                 <x-input-label for="address_postal_code" value="Postcode" />
                                 <x-text-input
                                     id="address_postal_code"
@@ -113,83 +113,72 @@
                                 />
                                 <x-input-error :messages="$errors->get('address_postal_code')" class="mt-2" />
                             </div>
-                            <div class="sm:col-span-4">
+                            <div>
                                 <x-input-label for="address_house_number" value="Huisnummer" />
                                 <x-text-input
                                     id="address_house_number"
                                     name="address_house_number"
                                     class="mt-1 block w-full"
-                                    type="number"
-                                    :value="old('address_house_number')"
+                                    type="text"
+                                    :value="old('address_house_number_addition') ? (old('address_house_number').old('address_house_number_addition')) : old('address_house_number')"
                                     autocomplete="address-line2"
-                                    min="1"
-                                    max="999999"
+                                    inputmode="text"
+                                    maxlength="30"
+                                    placeholder="12 of 12A"
                                     required
                                 />
                                 <x-input-error :messages="$errors->get('address_house_number')" class="mt-2" />
-                            </div>
-                            <div class="sm:col-span-3">
-                                <x-input-label for="address_house_number_addition" value="Toevoeging" />
-                                <x-text-input
-                                    id="address_house_number_addition"
-                                    name="address_house_number_addition"
-                                    class="mt-1 block w-full"
-                                    type="text"
-                                    :value="old('address_house_number_addition')"
-                                    maxlength="20"
-                                    placeholder="A"
-                                />
                                 <x-input-error :messages="$errors->get('address_house_number_addition')" class="mt-2" />
                             </div>
                         </div>
 
-                        <p data-address-status class="mt-4 text-sm text-gray-600" role="status" aria-live="polite"></p>
+                        {{-- Toevoeging blijft in de API/DB; niet zichtbaar (zit in huisnummer + straatregel). --}}
+                        <input
+                            id="address_house_number_addition"
+                            name="address_house_number_addition"
+                            type="hidden"
+                            value="{{ old('address_house_number_addition') }}"
+                        >
+
+                        <p data-address-status class="mt-3 min-h-[1.25rem] text-sm text-gray-600" role="status" aria-live="polite"></p>
 
                         <input id="address_lookup_id" name="address_lookup_id" type="hidden" value="{{ old('address_lookup_id') }}">
                         <ul
                             id="address-suggestions"
                             data-address-suggestions
-                            class="mt-3 hidden overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
+                            class="mt-2 hidden overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
                             aria-label="Gevonden adressen"
                         ></ul>
                         <x-input-error :messages="$errors->get('address_lookup_id')" class="mt-2" />
 
-                        <details
-                            data-manual-address
-                            class="mt-4 rounded-xl border border-gray-200 bg-white p-4"
-                            @if (old('address_line') || $errors->has('address_line') || $errors->has('address_city')) open @endif
-                        >
-                            <summary class="cursor-pointer text-sm font-semibold text-gray-800">Handmatig invoeren</summary>
-                            <p class="mt-2 text-xs text-gray-500">Controleer het aangevulde adres. Je kunt straat en plaats indien nodig handmatig aanpassen.</p>
-                            <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                <div>
-                                    <x-input-label for="address_line" value="Straat en huisnummer" />
-                                    <x-text-input
-                                        id="address_line"
-                                        name="address_line"
-                                        class="mt-1 block w-full"
-                                        type="text"
-                                        :value="old('address_line')"
-                                        autocomplete="street-address"
-                                        required
-                                    />
-                                    <x-input-error :messages="$errors->get('address_line')" class="mt-2" />
-                                </div>
-                                <div>
-                                    <x-input-label for="address_city" value="Plaats" />
-                                    <x-text-input
-                                        id="address_city"
-                                        name="address_city"
-                                        class="mt-1 block w-full"
-                                        type="text"
-                                        :value="old('address_city')"
-                                        autocomplete="address-level2"
-                                        required
-                                    />
-                                    <x-input-error :messages="$errors->get('address_city')" class="mt-2" />
-                                </div>
+                        <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <div>
+                                <x-input-label for="address_line" value="Straat en huisnummer" />
+                                <x-text-input
+                                    id="address_line"
+                                    name="address_line"
+                                    class="mt-1 block w-full"
+                                    type="text"
+                                    :value="old('address_line')"
+                                    autocomplete="street-address"
+                                    required
+                                />
+                                <x-input-error :messages="$errors->get('address_line')" class="mt-2" />
                             </div>
-                        </details>
+                            <div>
+                                <x-input-label for="address_city" value="Plaats" />
+                                <x-text-input
+                                    id="address_city"
+                                    name="address_city"
+                                    class="mt-1 block w-full"
+                                    type="text"
+                                    :value="old('address_city')"
+                                    autocomplete="address-level2"
+                                    required
+                                />
+                                <x-input-error :messages="$errors->get('address_city')" class="mt-2" />
+                            </div>
+                        </div>
                     </fieldset>
 
                     <div>
@@ -208,7 +197,14 @@
 
                     <div>
                         <x-input-label for="customer_email" value="E-mailadres" />
-                        <x-text-input id="customer_email" name="customer_email" class="mt-1 block w-full" type="email" :value="$demoValue('customer_email')" required />
+                        <x-text-input
+                            id="customer_email"
+                            name="customer_email"
+                            class="mt-1 block w-full"
+                            type="email"
+                            :value="old('customer_email')"
+                            :required="! $isPublicDemo"
+                        />
                         <p class="mt-1 text-sm text-gray-500" data-customer-email-help>
                             @if ($isPublicDemo)
                                 In de demo sturen we geen e-mail. Adresinvulling en AI werken wel. Na opslaan kies je hoe je verdergaat.
@@ -232,19 +228,39 @@
                     </div>
 
                     @if (! empty($prefillQuestionsByTemplate))
-                        <div class="rounded-md border border-gray-200 bg-gray-50 p-4">
+                        <div class="rounded-md border border-gray-200 bg-gray-50 p-3">
                             <p class="text-sm font-semibold text-gray-800">Alvast invullen (optioneel)</p>
-                            <p class="mt-1 text-xs text-gray-500">
-                                Wat al bekend is, zetten we meteen in de opname. Alleen als iets écht onduidelijk is, vragen we later nog iets na.
-                            </p>
+                            <p class="mt-0.5 text-xs text-gray-500">Wat je al weet, vul je hier in.</p>
 
                             @foreach ($prefillQuestionsByTemplate as $templateKey => $questions)
+                                @php
+                                    $prefillItems = $questions->values();
+                                    $dimensionKeys = ['room_length_m', 'room_width_m', 'ceiling_height_m'];
+                                    $renderedKeys = [];
+                                @endphp
                                 <div
                                     data-prefill-block="{{ $templateKey }}"
-                                    class="mt-4 space-y-4 {{ old('template_key', 'airco') === $templateKey ? '' : 'hidden' }}"
+                                    class="mt-2 space-y-2 {{ old('template_key', 'airco') === $templateKey ? '' : 'hidden' }}"
                                 >
-                                    @foreach ($questions as $question)
-                                        @include('installer.intakes._prefill-field', ['question' => $question])
+                                    @foreach ($prefillItems as $question)
+                                        @continue(in_array($question->key, $renderedKeys, true))
+
+                                        @if (in_array($question->key, $dimensionKeys, true))
+                                            <div class="grid grid-cols-3 gap-2">
+                                                @foreach ($dimensionKeys as $dimensionKey)
+                                                    @php
+                                                        $dimensionQuestion = $prefillItems->firstWhere('key', $dimensionKey);
+                                                    @endphp
+                                                    @if ($dimensionQuestion)
+                                                        @include('installer.intakes._prefill-field', ['question' => $dimensionQuestion])
+                                                        @php $renderedKeys[] = $dimensionKey; @endphp
+                                                    @endif
+                                                @endforeach
+                                            </div>
+                                        @else
+                                            @include('installer.intakes._prefill-field', ['question' => $question])
+                                            @php $renderedKeys[] = $question->key; @endphp
+                                        @endif
                                     @endforeach
                                 </div>
                             @endforeach
@@ -314,13 +330,11 @@
             const addition = document.getElementById('address_house_number_addition');
             const status = root?.querySelector('[data-address-status]');
             const list = root?.querySelector('[data-address-suggestions]');
-            const manual = root?.querySelector('[data-manual-address]');
-            const manualSummary = manual?.querySelector('summary');
             const addressLine = document.getElementById('address_line');
             const city = document.getElementById('address_city');
             const lookupId = document.getElementById('address_lookup_id');
 
-            if (!root || !postalCode || !houseNumber || !addition || !status || !list || !manual || !manualSummary || !addressLine || !city || !lookupId) return;
+            if (!root || !postalCode || !houseNumber || !addition || !status || !list || !addressLine || !city || !lookupId) return;
 
             let request = null;
             let searchTimer = null;
@@ -341,6 +355,20 @@
                 return normalized.length === 6
                     ? normalized.slice(0, 4) + ' ' + normalized.slice(4)
                     : value;
+            }
+
+            /** @returns {{ number: string, addition: string }|null} */
+            function parseHouseNumber(value) {
+                const trimmed = String(value || '').trim();
+                const match = trimmed.match(/^(\d+)\s*[-]?\s*([A-Za-z0-9][A-Za-z0-9\-\s]*)?$/i);
+                if (!match) return null;
+                const parsedAddition = (match[2] || '').trim().toUpperCase().replace(/\s+/g, '-');
+                return { number: match[1], addition: parsedAddition };
+            }
+
+            function displayHouseNumber(number, houseAddition) {
+                const suffix = String(houseAddition || '').trim();
+                return suffix === '' ? String(number) : String(number) + suffix;
             }
 
             function cancelActiveRequest() {
@@ -364,30 +392,27 @@
                     city.value = '';
                 }
                 lookupId.value = '';
-                manualSummary.textContent = 'Handmatig invoeren';
                 closeSuggestions();
                 setStatus('', false);
             }
 
             function selectSuggestion(suggestion) {
+                const suggestionAddition = suggestion.house_number_addition || '';
                 addressLine.value = suggestion.address_line;
                 postalCode.value = formattedPostalCode(suggestion.postal_code);
-                houseNumber.value = String(suggestion.house_number);
-                addition.value = suggestion.house_number_addition || '';
+                houseNumber.value = displayHouseNumber(suggestion.house_number, suggestionAddition);
+                addition.value = suggestionAddition;
                 city.value = suggestion.city;
                 lookupId.value = suggestion.id;
-                manual.open = true;
-                manualSummary.textContent = 'Gevonden adres';
                 closeSuggestions();
-                setStatus('Adres gevonden en aangevuld.', false);
+                setStatus('', false);
             }
 
             function showSuggestions(suggestions) {
                 closeSuggestions();
 
                 if (suggestions.length === 0) {
-                    manual.open = true;
-                    setStatus('Geen adres gevonden. Vul straat en plaats handmatig in.', true);
+                    setStatus('Geen adres gevonden. Vul straat en plaats zelf in.', true);
                     return;
                 }
 
@@ -413,11 +438,11 @@
 
             async function searchAddress() {
                 const normalizedPostalCode = postalCode.value.toUpperCase().replace(/\s+/g, '');
-                const normalizedHouseNumber = houseNumber.value.trim();
+                const parsed = parseHouseNumber(houseNumber.value);
 
-                if (!/^[1-9]\d{3}[A-Z]{2}$/.test(normalizedPostalCode)) return;
+                if (!/^[1-9]\d{3}[A-Z]{2}$/.test(normalizedPostalCode) || !parsed) return;
 
-                if (!/^\d+$/.test(normalizedHouseNumber) || Number(normalizedHouseNumber) < 1) return;
+                addition.value = parsed.addition;
 
                 if (request) request.abort();
                 const activeRequest = new AbortController();
@@ -429,9 +454,9 @@
                 try {
                     const url = new URL(root.dataset.endpoint, window.location.origin);
                     url.searchParams.set('postal_code', formattedPostalCode(normalizedPostalCode));
-                    url.searchParams.set('house_number', normalizedHouseNumber);
-                    if (addition.value.trim() !== '') {
-                        url.searchParams.set('house_number_addition', addition.value.trim());
+                    url.searchParams.set('house_number', parsed.number);
+                    if (parsed.addition !== '') {
+                        url.searchParams.set('house_number_addition', parsed.addition);
                     }
 
                     const response = await fetch(url, {
@@ -443,16 +468,14 @@
                     if (request !== activeRequest) return;
 
                     if (!response.ok) {
-                        manual.open = true;
-                        setStatus(payload.message || 'Adres zoeken is niet gelukt. Vul het adres handmatig in.', true);
+                        setStatus(payload.message || 'Adres zoeken is niet gelukt. Vul straat en plaats zelf in.', true);
                         return;
                     }
 
                     showSuggestions(Array.isArray(payload.data) ? payload.data : []);
                 } catch (error) {
                     if (error.name !== 'AbortError' && request === activeRequest) {
-                        manual.open = true;
-                        setStatus('De adresservice is tijdelijk niet beschikbaar. Vul het adres handmatig in.', true);
+                        setStatus('De adresservice is tijdelijk niet beschikbaar. Vul straat en plaats zelf in.', true);
                     }
                 } finally {
                     if (request === activeRequest) {
@@ -465,22 +488,21 @@
             function markAddressAsManuallyEdited() {
                 cancelActiveRequest();
                 lookupId.value = '';
-                manualSummary.textContent = 'Handmatig ingevoerd';
                 closeSuggestions();
-                setStatus('Adres handmatig aangepast.', false);
             }
 
             function scheduleAddressSearch() {
                 clearSelectedAddress();
 
                 const normalizedPostalCode = postalCode.value.toUpperCase().replace(/\s+/g, '');
-                const normalizedHouseNumber = houseNumber.value.trim();
+                const parsed = parseHouseNumber(houseNumber.value);
                 const canSearch = /^[1-9]\d{3}[A-Z]{2}$/.test(normalizedPostalCode)
-                    && /^\d+$/.test(normalizedHouseNumber)
-                    && Number(normalizedHouseNumber) >= 1;
+                    && parsed !== null
+                    && Number(parsed.number) >= 1;
 
                 if (!canSearch) return;
 
+                addition.value = parsed.addition;
                 setStatus('Adres wordt automatisch gezocht…', false);
                 searchTimer = window.setTimeout(function () {
                     searchTimer = null;
@@ -488,12 +510,18 @@
                 }, 350);
             }
 
-            [postalCode, houseNumber, addition].forEach(function (field) {
+            [postalCode, houseNumber].forEach(function (field) {
                 field.addEventListener('input', scheduleAddressSearch);
             });
 
             postalCode.addEventListener('blur', function () {
                 postalCode.value = formattedPostalCode(postalCode.value);
+            });
+            houseNumber.addEventListener('blur', function () {
+                const parsed = parseHouseNumber(houseNumber.value);
+                if (!parsed) return;
+                houseNumber.value = displayHouseNumber(parsed.number, parsed.addition);
+                addition.value = parsed.addition;
             });
             addressLine.addEventListener('input', markAddressAsManuallyEdited);
             city.addEventListener('input', markAddressAsManuallyEdited);

@@ -102,7 +102,7 @@ test('the domain action refuses a new intake without a structured house number',
     ]))->toThrow(ValidationException::class, 'Vul een geldig huisnummer in.');
 });
 
-test('new intake form automatically looks up postcode and house number without a search button', function () {
+test('new intake form shows street and city without toevoeging or manual-address chrome', function () {
     $user = User::factory()->create();
 
     $html = $this->actingAs($user)
@@ -110,7 +110,17 @@ test('new intake form automatically looks up postcode and house number without a
         ->assertOk()
         ->assertDontSee('>Adres zoeken<', false)
         ->assertDontSee('data-address-search', false)
-        ->assertSee('Handmatig invoeren')
+        ->assertDontSee('Toevoeging')
+        ->assertDontSee('Handmatig invoeren')
+        ->assertDontSee('Handmatig ingevoerd')
+        ->assertDontSee('Adres handmatig aangepast')
+        ->assertDontSee('Controleer het aangevulde adres')
+        ->assertDontSee('data-manual-address', false)
+        ->assertSee('Straat en huisnummer')
+        ->assertSee('Plaats')
+        ->assertSee('id="address_line"', false)
+        ->assertSee('id="address_city"', false)
+        ->assertSee('type="hidden"', false)
         ->getContent();
 
     expect(strpos($html, 'id="address_postal_code"'))
@@ -120,8 +130,51 @@ test('new intake form automatically looks up postcode and house number without a
         ->and($html)
         ->toContain('function scheduleAddressSearch()')
         ->toContain("field.addEventListener('input', scheduleAddressSearch)")
-        ->toContain("addition.value = suggestion.house_number_addition || ''")
-        ->toContain("function markAddressAsManuallyEdited() {\n                cancelActiveRequest();");
+        ->toContain('function parseHouseNumber(value)')
+        ->toContain('addressLine.value = suggestion.address_line')
+        ->toContain("function markAddressAsManuallyEdited() {\n                cancelActiveRequest();")
+        ->not->toContain('manualSummary')
+        ->not->toContain('Adres handmatig aangepast');
+});
+
+test('create form prefill block is compact without customer help essays', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get(route('intakes.create'))
+        ->assertOk()
+        ->assertSee('Alvast invullen (optioneel)')
+        ->assertSee('Kruipruimte')
+        ->assertSee('Lengte (m)')
+        ->assertSee('Breedte (m)')
+        ->assertSee('Hoogte (m)')
+        ->assertSee('grid-cols-3', false)
+        ->assertSee('>—<', false)
+        ->assertDontSee('— nog niet invullen —')
+        ->assertDontSee('Ga er niet in')
+        ->assertDontSee('Vaak ongeveer 2,4 tot 2,7 meter')
+        ->assertDontSee('Is er een kruipruimte onder de vloer?')
+        ->assertDontSee('Lengte van de ruimte (m), als u die weet');
+});
+
+test('house number with addition is parsed from a single field on store', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->post(route('intakes.store'), [
+        'template_key' => 'airco',
+        'customer_name' => 'Toevoeging Klant',
+        'customer_email' => 'toevoeging@example.com',
+        'address_line' => 'Teststraat 10A',
+        'address_postal_code' => '1234AB',
+        'address_house_number' => '10A',
+        'address_city' => 'Testdam',
+    ])->assertRedirect();
+
+    $intake = Intake::query()->where('customer_email', 'toevoeging@example.com')->firstOrFail();
+
+    expect($intake->address_house_number)->toBe(10)
+        ->and($intake->address_house_number_addition)->toBe('A')
+        ->and($intake->address_line)->toBe('Teststraat 10A');
 });
 
 test('installer can pre-fill known request answers at creation', function () {

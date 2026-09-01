@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.59 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.60 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -34,6 +34,7 @@ Laatste testsessie: 2026-08-09 (staging; mobiele werkplek BL-053/054–058 op 39
 | Rest-UI language.md (BL-071) | todo | - | Chrome Digitale Opname; **Opname openen**; geen template-v; AI zonder `power · 0.76`; nieuwe UI **je**; NL-validatie/404. |
 | Demo trial-killers (BL-073) | todo | - | Lege **Klantweergave activeren** → NL-fout, geen Engels; getypte klantnaam i.p.v. Voorbeeldklant; sample-CTA weg na plek/foto; sticky **met inhoud** ≠ klaar-voor-offerte; AI legt ontbrekende opstelling uit; demo zonder mail. |
 | Demo-banner installateurstaal (BL-076) | todo | - | Klantpad-banner: **Demo — wat de klant ziet**, “Je vult in wat de klant invult…”, geen “expres kort”/featuresheet; aanvulling + afrondingsfooter zonder featuresheet; **je**, geen “productie”/“klantroute”. |
+| Create-form adres/prefill (BL-080) | todo | - | Nieuwe opname: na postcode+huisnummer alleen Straat en huisnummer (met nummer) + Plaats; geen Toevoeging/Handmatig-chrome; demo-e-mail leeg (geen @demo.invalid); prefill korte labels, L×B×H op één rij, select “—”. |
 | Offerte-kritisch bewijs airco v12 (BL-074) | todo | - | Nieuwe opname: verplichte meterkastfoto + foto’s rondom het huis; bij onscherpe meterkast → extra foto, geen 1-/3-fasevraag; ruimtefoto zonder stopcontact → extra wandfoto; kruipruimte + vloerisolatie (of overgeslagen bij EP-Online); L×B×H zichtbaar op werkplek. |
 | Demo-klantpad volledige wizard (BL-078) | todo | - | Demo → **Bekijk wat de klant ziet**: zelfde stappen als productie (meterkastfoto, rondom huis, ruimtes, …); geen “Vraag 2 van 2”/alleen vrije groep; geen klantmail. |
 | Startkeuze klant / zelf uitvoeren (BL-037) | todo | - | Na deploy: **Zelf uitvoeren** houdt klanttoegang uit en verstuurt geen mail; **Klant laten opnemen** activeert en mailt de begeleide klantlink. |
@@ -54,7 +55,7 @@ Laatste testsessie: 2026-08-09 (staging; mobiele werkplek BL-053/054–058 op 39
 | Dev-admin AI-runs/activiteit/health (BL-028) | todo | - | `/dev/ai-runs` en `/dev/activity` filteren en tonen de zojuist gegenereerde runs/events; `/dev/health` toont DB/queue-diepte/cache/storage/uploads/HEIC/versies. |
 | Productmetrics `/metrics` (BL-026) | pass | lokaal 2026-07-20; staging nog todo | Authenticated weergave met periodefilter, zes kerncijfers, uitvalpunten en per-opname-links gecontroleerd; eerste beoordeling met `need_more_info` telt als 0,0% direct genoeg. Desktop en 390 px zonder pagina-overflow; tabel scrolt intern; geen nieuwe browserwarnings/-errors. Na deploy dezelfde smoke volgens `docs/metrics.md`. |
 | Opname aanmaken (Airco) | pass | 2026-07-18 | Opgeslagen, detail + klantlink |
-| Postcode-eerst adresaanvulling + BAG-verrijking (BL-019/033/047) | todo | knopvariant lokaal pass 2026-07-26; automatische flow nog testen | Op staging exact `2037 GR` + `273` invoeren: formulier vult `Bernadottelaan 273, Haarlem`, dossier bewaart huisnummer 273 afzonderlijk en toont een gematchte BAG-controle met gebouwgegevens. Test daarnaast automatische debounce/annulering, toevoegingskeuze en focus. Simuleer bij één dossier `not_found` en controleer **Adres opnieuw controleren**. |
+| Postcode-eerst adresaanvulling + BAG-verrijking (BL-019/033/047) | todo | knopvariant lokaal pass 2026-07-26; automatische flow nog testen | Op staging exact `2037 GR` + `273` invoeren: formulier vult `Bernadottelaan 273, Haarlem` in Straat en huisnummer + Plaats (geen Toevoeging/Handmatig-wrapper, BL-080), dossier bewaart huisnummer 273 afzonderlijk en toont een gematchte BAG-controle met gebouwgegevens. Test daarnaast automatische debounce/annulering, toevoeging via huisnummer `12A` en focus. Simuleer bij één dossier `not_found` en controleer **Adres opnieuw controleren**. |
 | Airco v4: BAG-bouwjaar vervangt vraag (BL-019) | todo | - | Met eenduidig pand: klantwizard toont geen `build_year`-vraag en rapport bevat BAG-bouwjaar; zonder match/meerdere panden/storing blijft de vraag zichtbaar en dossier toont onzekerheid |
 | PDOK-luchtfoto in dossier/PDF (BL-019) | todo | lokaal live pass 2026-07-20; staging nog todo | Lokaal met echte PDOK-services: Damrak 1 → 900×600 beeld, marker/bron/maat/BAG-feiten, desktop + 390 px zonder overflow of consolefouten. Na deploy dezelfde detail/PDF-, WMS-fallback- en purgecheck op staging. |
 | Beveiligde klantlink genereren | pass | 2026-07-18 | Token-URL `/o/{64}` |

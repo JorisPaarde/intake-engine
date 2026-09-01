@@ -1,6 +1,6 @@
 # Vragen- en takenengine
 
-> **Documentversie:** 2.9 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.10 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: de templatewizard is **geïmplementeerd t/m airco v12** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md). UI-taal: [language.md](language.md).
 
@@ -51,13 +51,14 @@ Runtime leest altijd uit de database (de gepinde versie), nooit rechtstreeks uit
 
 ## Nieuwe opname: postcode-eerst adresaanvulling (BL-033)
 
-- De installateur vult eerst postcode, huisnummer en optionele toevoeging in. Zodra postcode en huisnummer geldig en compleet zijn, start de lookup automatisch na een korte debounce; er is geen zoekknop.
+- De installateur vult eerst postcode en huisnummer in (toevoeging mag in het huisnummer, bijv. `12A`). Zodra postcode en huisnummer geldig en compleet zijn, start de lookup automatisch na een korte debounce; er is geen zoekknop.
 - Het authenticated adresendpoint valideert en normaliseert de invoer en gebruikt PDOK Locatieserver. Alleen resultaten met exact dezelfde postcode en hetzelfde huisnummer worden teruggegeven; een opgegeven toevoeging moet eveneens exact overeenkomen.
-- Eén resultaat vult straat, postcode, plaats en BAG-adresreferentie direct aan. Bij meerdere toevoegingen kiest de installateur het juiste resultaat.
-- Postcode, huisnummer en de gekozen toevoeging worden afzonderlijk in `intakes` bewaard. De zichtbare adresregel is alleen presentatie; BAG-matching leest het huisnummer nooit meer terug uit vrije tekst.
-- Wijzigen van postcode, huisnummer of toevoeging wist een eerdere selectie. Handmatige straat- en plaatsinvoer blijft beschikbaar bij geen resultaat, een PDOK-storing of bewust corrigeren.
+- Eén resultaat vult *Straat en huisnummer* (volledige regel inclusief nummer/toevoeging, bijv. `Bernadottelaan 12A`), plaats en BAG-adresreferentie direct aan. Bij meerdere toevoegingen kiest de installateur het juiste resultaat. Er is geen apart zichtbaar Toevoeging-veld en geen “handmatig invoeren”-wrapper (BL-080).
+- Postcode, huisnummer en de gekozen toevoeging worden afzonderlijk in `intakes` bewaard. De zichtbare adresregel is presentatie inclusief huisnummer; BAG-matching leest het huisnummer nooit meer terug uit vrije tekst.
+- Wijzigen van postcode of huisnummer wist een eerdere selectie. Straat en plaats blijven altijd bewerkbaar bij geen resultaat, een PDOK-storing of bewust corrigeren.
 - De externe call vindt uitsluitend na complete geldige invoer plaats, nooit tijdens het renderen. Nieuwe invoer annuleert een geplande of lopende call; verouderde responses kunnen zichtbare of handmatige invoer niet overschrijven. De bestaande fail-soft BAG/open-dataverrijking na opslaan blijft ongewijzigd.
 - Historische adresregels met het bekende patroon `Straat, 273, 273` worden bij migratie alleen bij een exacte dubbele eindwaarde genormaliseerd. Een mislukte of tijdelijk onbeschikbare adrescontrole kan de installateur vanuit hetzelfde dossier opnieuw uitvoeren.
+- **Installateur-prefill op create (BL-080):** optionele prefill toont korte labels zonder klant-`help_text`; L×B×H staan op één rij; lege selects gebruiken “—”.
 
 Het interne dossier en HTML/PDF-rapport bevatten altijd een korte deterministische samenvatting van bekende kernantwoorden. Deze gebruikt labels uit de gepinde templateversie en heeft geen AI-provider nodig; een eventuele AI-samenvatting blijft een apart, niet-bindend voorstel.
 

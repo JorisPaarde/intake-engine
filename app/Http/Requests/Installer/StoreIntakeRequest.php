@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests\Installer;
 
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Services\PublicDemoSession;
 use App\Enums\ContributionMode;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -68,16 +69,62 @@ class StoreIntakeRequest extends FormRequest
         $postalCode = is_string($rawPostalCode) && trim($rawPostalCode) !== ''
             ? strtoupper((string) preg_replace('/\s+/', '', trim($rawPostalCode)))
             : null;
+
+        [$houseNumber, $additionFromHouse] = $this->parseHouseNumberInput($this->input('address_house_number'));
         $addition = strtoupper(trim((string) $this->input('address_house_number_addition')));
+        if ($addition === '' && $additionFromHouse !== null) {
+            $addition = $additionFromHouse;
+        }
+
         $addressLine = trim((string) $this->input('address_line'));
         $city = trim((string) $this->input('address_city'));
+        $email = trim((string) $this->input('customer_email'));
+
+        // Public demo: never show @demo.invalid in the form; mint uniqueness on save.
+        if ($email === '' && $this->isPublicDemo()) {
+            $email = 'voorbeeld+'.strtolower((string) str()->ulid())
+                .(string) config('intake.demo.customer_email_domain', '@demo.invalid');
+        }
 
         $this->merge([
+            'customer_email' => $email === '' ? null : $email,
             'address_postal_code' => $postalCode,
+            'address_house_number' => $houseNumber,
             'address_house_number_addition' => $addition === '' ? null : $addition,
             'address_line' => $addressLine,
             'address_city' => $city,
             'workflow_mode' => $this->input('workflow_mode', ContributionMode::Customer->value),
         ]);
+    }
+
+    private function isPublicDemo(): bool
+    {
+        return app(PublicDemoSession::class)->isActive($this);
+    }
+
+    /**
+     * Accept "12", "12A", "12 A", or "12-A" from the huisnummer field.
+     *
+     * @return array{0: int|string|null, 1: string|null}
+     */
+    private function parseHouseNumberInput(mixed $raw): array
+    {
+        if (is_int($raw) || (is_string($raw) && ctype_digit(trim($raw)))) {
+            return [(int) $raw, null];
+        }
+
+        if (! is_string($raw)) {
+            return [$raw, null];
+        }
+
+        $trimmed = trim($raw);
+        if (preg_match('/^(\d+)\s*[-]?\s*([A-Za-z0-9][A-Za-z0-9\-\s]*)?$/u', $trimmed, $matches) !== 1) {
+            return [$raw, null];
+        }
+
+        $number = (int) $matches[1];
+        $addition = isset($matches[2]) ? strtoupper(trim((string) preg_replace('/\s+/', '-', trim($matches[2])), '-')) : '';
+
+        return [$number, $addition === '' ? null : $addition];
     }
 }

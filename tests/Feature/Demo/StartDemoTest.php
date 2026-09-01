@@ -83,7 +83,8 @@ function createDemoIntakeViaForm(?User $user = null): array
             'template_key' => 'airco',
             'workflow_mode' => ContributionMode::Customer->value,
             'customer_name' => 'Familie Jansen',
-            'customer_email' => 'voorbeeld@demo.invalid',
+            // Demo e-mail mag leeg: server zet uniek @demo.invalid bij opslaan.
+            'customer_email' => '',
             'address_line' => (string) config('intake.demo.address.line', 'Bernadottelaan 273'),
             'address_postal_code' => (string) config('intake.demo.address.postal_code', '2037GR'),
             'address_house_number' => (int) config('intake.demo.address.house_number', 273),
@@ -93,6 +94,9 @@ function createDemoIntakeViaForm(?User $user = null): array
         ->assertRedirect();
 
     $intake = Intake::query()->where('is_demo', true)->where('created_by', $user->id)->firstOrFail();
+
+    expect($intake->customer_email)->toEndWith('@demo.invalid')
+        ->and($intake->customer_email)->toStartWith('voorbeeld+');
 
     return ['intake' => $intake, 'user' => $user];
 }
@@ -145,7 +149,7 @@ it('leaves postcode and house number empty so the installer types them', functio
         'public_demo_intake_id' => null,
     ];
 
-    $this->actingAs($user)
+    $html = $this->actingAs($user)
         ->withSession($session)
         ->get(route('intakes.create'))
         ->assertOk()
@@ -158,7 +162,17 @@ it('leaves postcode and house number empty so the installer types them', functio
         ->assertSee('name="customer_name"', false)
         ->assertDontSee('value="Voorbeeldklant"', false)
         ->assertDontSee('value="Familie de Vries"', false)
-        ->assertSee('placeholder="Bijv. Familie de Vries"', false);
+        ->assertSee('placeholder="Bijv. Familie de Vries"', false)
+        ->assertDontSee('Toevoeging')
+        ->assertDontSee('Handmatig invoeren')
+        ->assertDontSee('Handmatig ingevoerd')
+        ->assertSee('Straat en huisnummer')
+        ->assertSee('Plaats')
+        ->getContent();
+
+    expect($html)
+        ->not->toContain('voorbeeld+')
+        ->and(preg_match('/id="customer_email"[^>]*value="[^"]*@demo\.invalid"/', $html))->toBe(0);
 });
 
 it('creates one demo intake from the normal create form and opens the role branch', function () {

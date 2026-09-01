@@ -60,11 +60,9 @@ class IntakeController extends Controller
         $demoAddressExample = null;
 
         if ($isPublicDemo) {
-            $suffix = strtolower((string) str()->ulid());
-            // Contact e-mail is fictional; naam + postcode/huisnummer typt de installateur zelf
-            // (DEMO_ADDRESS_* / DEMO_CUSTOMER_NAME zijn alleen tiptekst, niet vooringevuld).
+            // Geen @demo.invalid in value/placeholder — uniek e-mailadres wordt bij opslaan gezet.
+            // Naam + postcode/huisnummer typt de installateur zelf (DEMO_* alleen tiptekst).
             $demoDefaults = [
-                'customer_email' => 'voorbeeld+'.$suffix.(string) config('intake.demo.customer_email_domain', '@demo.invalid'),
                 'internal_note' => 'Fictieve interactieve demo — geen echte klant of offerte.',
             ];
             $demoAddressExample = [

@@ -56,7 +56,8 @@ final readonly class BagAddressAttributes
             static fn (string $part): bool => $part !== '',
         )));
 
-        return trim($this->street.' '.$this->houseNumber.($suffix === '' ? '' : '-'.$suffix));
+        // Dutch display: "Bernadottelaan 12A" (no hyphen between number and letter).
+        return trim($this->street.' '.$this->houseNumber.$suffix);
     }
 
     public function hasAddressLine(): bool

@@ -55,7 +55,7 @@ test('installer looks up an address by normalized postcode and house number', fu
             'data' => [[
                 'id' => 'adr-1234567890abcdef1234567890abcdef',
                 'label' => 'Teststraat 10A, 1234 AB Testdam',
-                'address_line' => 'Teststraat 10-A',
+                'address_line' => 'Teststraat 10A',
                 'postal_code' => '1234AB',
                 'house_number' => 10,
                 'house_number_addition' => 'A',
@@ -100,9 +100,9 @@ test('lookup without an addition keeps all exact additions selectable', function
         ]))
         ->assertOk()
         ->assertJsonCount(8, 'data')
-        ->assertJsonPath('data.0.address_line', 'Teststraat 10-A')
+        ->assertJsonPath('data.0.address_line', 'Teststraat 10A')
         ->assertJsonPath('data.0.house_number_addition', 'A')
-        ->assertJsonPath('data.7.address_line', 'Teststraat 10-H');
+        ->assertJsonPath('data.7.address_line', 'Teststraat 10H');
 });
 
 test('postcode lookup keeps meaningful addition separators distinct', function () {
