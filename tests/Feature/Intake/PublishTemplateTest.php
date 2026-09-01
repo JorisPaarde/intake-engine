@@ -7,7 +7,7 @@ use App\Domains\Intake\Services\PublishIntakeTemplateFromConfig;
 use App\Enums\TemplateVersionStatus;
 use Database\Seeders\IntakeTemplateSeeder;
 
-test('airco template seeder publishes v1 through v12 with v12 as latest', function () {
+test('airco template seeder publishes v1 through v13 with v13 as latest', function () {
     $this->seed(IntakeTemplateSeeder::class);
 
     $template = IntakeTemplate::query()->where('key', 'airco')->first();
@@ -17,14 +17,14 @@ test('airco template seeder publishes v1 through v12 with v12 as latest', functi
 
     $versions = $template->versions()->orderBy('version')->get();
 
-    expect($versions)->toHaveCount(12)
-        ->and($versions->pluck('version')->all())->toBe([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
+    expect($versions)->toHaveCount(13)
+        ->and($versions->pluck('version')->all())->toBe([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
         ->and($versions->every(fn ($version) => $version->status === TemplateVersionStatus::Published))->toBeTrue();
 
     $latest = $template->latestPublishedVersion();
 
     expect($latest)->not->toBeNull()
-        ->and($latest->version)->toBe(12)
+        ->and($latest->version)->toBe(13)
         ->and($latest->sections()->count())->toBeGreaterThan(5)
         ->and($latest->sections()->where('key', 'rooms')->value('is_repeatable'))->toBeTrue();
 
@@ -101,9 +101,12 @@ test('airco template seeder publishes v1 through v12 with v12 as latest', functi
         ->firstOrFail();
     $aroundHouse = $outdoor->questions()->where('key', 'around_house_photos')->firstOrFail();
 
-    expect($freeGroup->is_required)->toBeFalse()
+    expect($freeGroup->is_required)->toBeTrue()
         ->and($freeGroup->label)->toBe('Is er een vrije groep in de meterkast?')
-        ->and($freeGroup->meta['skip_when_prefilled_by'] ?? null)->toBe('ai')
+        ->and($freeGroup->meta['skip_when_prefilled_by'] ?? null)->toBe(['ai'])
+        ->and($freeGroup->rules)->toHaveCount(1)
+        ->and($freeGroup->rules->first()->source_question_key)->toBe('fusebox_photo')
+        ->and($freeGroup->rules->first()->operator->value)->toBe('filled')
         ->and($fuseboxPhoto->meta['photo_analysis'] ?? null)->toBe('fusebox')
         ->and($fuseboxPhoto->is_required)->toBeTrue()
         ->and($aroundHouse->is_required)->toBeTrue()
@@ -123,12 +126,12 @@ test('airco template seeder publishes v1 through v12 with v12 as latest', functi
     $againV1 = app(PublishIntakeTemplateFromConfig::class)->handle(
         require database_path('data/templates/airco/v1.php'),
     );
-    $againV12 = app(PublishIntakeTemplateFromConfig::class)->handle(
-        require database_path('data/templates/airco/v12.php'),
+    $againV13 = app(PublishIntakeTemplateFromConfig::class)->handle(
+        require database_path('data/templates/airco/v13.php'),
     );
 
     expect($againV1->version)->toBe(1)
-        ->and($againV12->id)->toBe($latest->id)
+        ->and($againV13->id)->toBe($latest->id)
         ->and(IntakeTemplate::query()->where('key', 'airco')->count())->toBe(1)
-        ->and($template->versions()->count())->toBe(12);
+        ->and($template->versions()->count())->toBe(13);
 });

@@ -43,6 +43,7 @@ Schrijf zodat klant en installateur snel begrijpen wat ze moeten doen. Volg de p
 | korte klantroute / verkorte demowizard | wat de klant ziet (volledige wizard) |
 | crawl space / kruipruimte-instructies | zeg of er een kruipruimte is; ga er niet in |
 | electrical phase question | 1- of 3-fase (uit meterkastfoto; geen aparte vraag) |
+| vrije-groepvraag vóór meterkastfoto | meterkastfoto eerst; ja/nee alleen als de foto free_group niet toont |
 
 Productnaam **Digitale Opname** mag als merknaam blijven. In lopende UI-tekst mag “opname” volstaan. Vermijd gemengde branding (“Intake Engine”) in gebruikers-UI.
 
