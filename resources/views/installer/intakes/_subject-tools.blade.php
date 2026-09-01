@@ -127,7 +127,7 @@
 
     @if ($technicalNotes->isNotEmpty())
         <div class="mt-4 space-y-2">
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Technische notities</p>
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Notities</p>
             @foreach ($technicalNotes as $note)
                 <div class="rounded-xl bg-gray-50 px-3 py-2">
                     <p class="text-sm leading-relaxed text-gray-800">{{ $note->value['text'] }}</p>
@@ -194,7 +194,7 @@
 
         <details class="min-w-0 basis-full rounded-xl border border-gray-200 bg-gray-50">
             <summary class="flex min-h-11 cursor-pointer list-none items-center px-3 py-2 text-sm font-semibold text-gray-800">
-                Technische notitie toevoegen
+                Notitie toevoegen
             </summary>
             <form
                 method="POST"

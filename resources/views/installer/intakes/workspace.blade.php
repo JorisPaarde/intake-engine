@@ -290,7 +290,7 @@
                     <section id="workspace-rooms" class="scroll-mt-24 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
                         <div>
                             <h3 class="text-lg font-semibold text-gray-950">Gewenste ruimtes</h3>
-                            <p class="mt-1 text-sm text-gray-500">Een ruimte is nog geen gekozen binnenunit.</p>
+                            <p class="mt-1 text-sm text-gray-500">Kamers uit de aanvraag.</p>
                         </div>
 
                         <div class="mt-5 space-y-4">
@@ -298,38 +298,25 @@
                                 @php
                                     $roomSubject = $intake->dossierSubjects->firstWhere('id', $room->dossier_subject_id);
                                     $roomDimensions = is_array($room->dimensions) ? $room->dimensions : [];
+                                    $length = $roomDimensions['length_m'] ?? null;
+                                    $width = $roomDimensions['width_m'] ?? null;
+                                    $height = $roomDimensions['height_m'] ?? null;
+                                    $hasAnyDimension = is_numeric($length) || is_numeric($width) || is_numeric($height);
                                 @endphp
                                 <article id="room-{{ $room->id }}" class="scroll-mt-28 rounded-2xl border border-gray-200 p-4">
                                     <div class="flex flex-wrap items-start justify-between gap-3">
-                                        <div>
-                                            <h4 class="font-semibold text-gray-950">{{ $room->name }}</h4>
-                                            <p class="mt-1 text-xs text-gray-500">
-                                                {{ match ($room->use_type) {
-                                                    'bedroom' => 'Slaapkamer',
-                                                    'living_room' => 'Woonkamer',
-                                                    'office' => 'Werkkamer',
-                                                    'attic' => 'Zolder',
-                                                    'other' => 'Andere ruimte',
-                                                    default => 'Gebruik nog niet vastgesteld',
-                                                } }}
-                                                @php
-                                                    $length = $roomDimensions['length_m'] ?? null;
-                                                    $width = $roomDimensions['width_m'] ?? null;
-                                                    $height = $roomDimensions['height_m'] ?? null;
-                                                @endphp
-                                                @if (is_numeric($length) || is_numeric($width) || is_numeric($height))
-                                                    ·
-                                                    {{ is_numeric($length) ? number_format((float) $length, 1, ',', '.') : '–' }}
-                                                    ×
-                                                    {{ is_numeric($width) ? number_format((float) $width, 1, ',', '.') : '–' }}
-                                                    ×
-                                                    {{ is_numeric($height) ? number_format((float) $height, 1, ',', '.') : '–' }}
-                                                    m
-                                                @else
-                                                    · Maten L×B×H nog niet ingevuld
-                                                @endif
-                                            </p>
-                                        </div>
+                                        <p class="text-xs text-gray-500">
+                                            @if ($hasAnyDimension)
+                                                {{ is_numeric($length) ? number_format((float) $length, 1, ',', '.') : '–' }}
+                                                ×
+                                                {{ is_numeric($width) ? number_format((float) $width, 1, ',', '.') : '–' }}
+                                                ×
+                                                {{ is_numeric($height) ? number_format((float) $height, 1, ',', '.') : '–' }}
+                                                m
+                                            @else
+                                                Maten nog leeg
+                                            @endif
+                                        </p>
                                         <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
                                             {{ match ($room->source_type) {
                                                 'installer' => 'Door installateur toegevoegd',
@@ -344,7 +331,7 @@
                                     <form method="POST" action="{{ route('intakes.workspace.rooms.update', [$intake, $room]) }}" class="mt-4 grid gap-3 rounded-xl border border-gray-100 bg-gray-50 p-3 sm:grid-cols-2">
                                         @csrf
                                         <div>
-                                            <x-input-label for="room-{{ $room->id }}-name" value="Herkenbare naam" />
+                                            <x-input-label for="room-{{ $room->id }}-name" value="Naam" />
                                             <x-text-input id="room-{{ $room->id }}-name" name="name" class="mt-1 block w-full" value="{{ $room->name }}" required />
                                         </div>
                                         <div>
@@ -407,7 +394,7 @@
                             <form method="POST" action="{{ route('intakes.workspace.rooms.store', $intake) }}" class="mt-4 grid gap-4 sm:grid-cols-2">
                                 @csrf
                                 <div>
-                                    <x-input-label for="room_name" value="Herkenbare naam" />
+                                    <x-input-label for="room_name" value="Naam" />
                                     <x-text-input id="room_name" name="name" class="mt-1 block w-full" placeholder="Slaapkamer ouders" required />
                                 </div>
                                 <div>
@@ -712,7 +699,7 @@
                                                 </select>
                                             </div>
                                             <div class="sm:col-span-2">
-                                                <x-input-label value="Herkenbare naam" />
+                                                <x-input-label value="Naam" />
                                                 <x-text-input name="label" class="mt-1 block w-full" placeholder="Koelleiding slaapkamer ouders" required />
                                             </div>
                                             <div>
