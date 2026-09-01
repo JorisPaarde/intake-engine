@@ -132,7 +132,19 @@ test('workspace attaches photos and notes to the relevant object without exposin
         ->assertSee('Woninggegevens')
         ->assertSee('tik om te openen')
         ->assertSee('Volgende stap')
-        ->assertSee('Plek toevoegen')
+        ->assertSee('Binnen- of buitenunit toevoegen')
+        ->assertDontSee('Plek toevoegen')
+        ->assertDontSee('Mogelijke plekken')
+        ->assertDontSee('Plekken en posities')
+        ->assertDontSee('Soort positie')
+        ->assertSee('id="placement_type_indoor_unit"', false)
+        ->assertSee('id="placement_type_outdoor_unit"', false)
+        ->assertSee('id="placement_type_power_source"', false)
+        ->assertSee('id="placement_type_drain_point"', false)
+        ->assertSee('Binnenunit')
+        ->assertSee('Buitenunit')
+        ->assertSee('Stroomaansluiting')
+        ->assertSee('Afvoerpunt')
         ->assertSee('Foto maken')
         ->assertSee('Technische notitie')
         ->assertDontSee('Camera en bewijs')
@@ -712,6 +724,14 @@ test('installer can update an existing placement', function () {
     expect($placement->label)->toBe('Naast het raam')
         ->and($placement->description)->toBe('Vrije wand van 90 cm')
         ->and($placement->subject?->label)->toBe('Naast het raam');
+
+    $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertSee('id="placement-'.$placement->id.'-type-indoor_unit"', false)
+        ->assertSee('id="placement-'.$placement->id.'-type-outdoor_unit"', false)
+        ->assertDontSee('Soort positie')
+        ->assertDontSee('id="placement-'.$placement->id.'-type"', false);
 });
 
 test('installer can create a customer task in one click from an AI exception prompt', function () {

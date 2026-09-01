@@ -79,8 +79,8 @@ final class WorkspacePrimaryActionResolver
         if ($intake->aircoPlacements->isEmpty()) {
             return [
                 'href' => '#demo-placements',
-                'label' => 'Plek toevoegen',
-                'summary' => 'Leg binnen- en buitenplekken vast',
+                'label' => 'Binnen- of buitenunit toevoegen',
+                'summary' => 'Leg eerst vast waar de binnenunit en buitenunit komen',
             ];
         }
 
@@ -101,7 +101,7 @@ final class WorkspacePrimaryActionResolver
             return [
                 'href' => '#demo-proposal',
                 'label' => 'Opstelling maken',
-                'summary' => 'Combineer plekken tot een opstelling',
+                'summary' => 'Combineer binnen- en buitenunit tot een opstelling',
             ];
         }
 
@@ -140,7 +140,7 @@ final class WorkspacePrimaryActionResolver
             ],
             'capacity' => $this->capacityTarget($intake),
             'placement' => $intake->aircoPlacements->isEmpty()
-                ? ['href' => '#demo-placements', 'label' => 'Plek toevoegen']
+                ? ['href' => '#demo-placements', 'label' => 'Binnen- of buitenunit toevoegen']
                 : ['href' => '#demo-proposal', 'label' => 'Opstelling kiezen'],
             'refrigerant' => $this->connectionTarget($intake, AircoConnectionType::Refrigerant, 'Koelroute vastleggen'),
             'condensate' => $this->connectionTarget($intake, AircoConnectionType::Condensate, 'Condensroute vastleggen'),

@@ -451,8 +451,8 @@
 
                     <section id="demo-placements" class="scroll-mt-24 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
                         <div>
-                            <h3 class="text-lg font-semibold text-gray-950">Mogelijke plekken</h3>
-                            <p class="mt-1 text-sm text-gray-500">Binnen, buiten, stroom en afvoer blijven losse mogelijkheden tot u een opstelling kiest.</p>
+                            <h3 class="text-lg font-semibold text-gray-950">Binnen- en buitenunit</h3>
+                            <p class="mt-1 text-sm text-gray-500">Binnenunit, buitenunit, stroomaansluiting en afvoerpunt blijven los tot je een opstelling kiest.</p>
                         </div>
 
                         @if ($intake->aircoPlacements->isNotEmpty())
@@ -481,18 +481,29 @@
 
                                         <details class="mt-4 rounded-xl border border-gray-200 bg-gray-50">
                                             <summary class="flex min-h-11 cursor-pointer list-none items-center px-3 py-2 text-sm font-semibold text-gray-800">
-                                                Plek bewerken
+                                                Bewerken
                                             </summary>
                                             <form method="POST" action="{{ route('intakes.workspace.placements.update', [$intake, $placement]) }}" class="grid gap-3 border-t border-gray-200 p-3">
                                                 @csrf
-                                                <div>
-                                                    <x-input-label for="placement-{{ $placement->id }}-type" value="Soort positie" />
-                                                    <select id="placement-{{ $placement->id }}-type" name="type" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300" required>
+                                                <fieldset class="sm:col-span-2">
+                                                    <legend class="sr-only">Soort unit of aansluiting</legend>
+                                                    <div class="grid grid-cols-2 gap-2">
                                                         @foreach ($placementTypes as $type)
-                                                            <option value="{{ $type->value }}" @selected($placement->type === $type)>{{ $type->label() }}</option>
+                                                            <label class="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50">
+                                                                <input
+                                                                    type="radio"
+                                                                    id="placement-{{ $placement->id }}-type-{{ $type->value }}"
+                                                                    name="type"
+                                                                    value="{{ $type->value }}"
+                                                                    class="border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                                    @checked($placement->type === $type)
+                                                                    required
+                                                                >
+                                                                <span>{{ $type->label() }}</span>
+                                                            </label>
                                                         @endforeach
-                                                    </select>
-                                                </div>
+                                                    </div>
+                                                </fieldset>
                                                 <div>
                                                     <x-input-label for="placement-{{ $placement->id }}-room" value="Ruimte (indien relevant)" />
                                                     <select id="placement-{{ $placement->id }}-room" name="airco_room_id" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300">
@@ -527,17 +538,28 @@
                         @endif
 
                         <details class="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                            <summary class="cursor-pointer text-sm font-semibold text-gray-900">Mogelijke plek toevoegen</summary>
+                            <summary class="cursor-pointer text-sm font-semibold text-gray-900">Binnen- of buitenunit toevoegen</summary>
                             <form method="POST" action="{{ route('intakes.workspace.placements.store', $intake) }}" class="mt-4 grid gap-4 sm:grid-cols-2">
                                 @csrf
-                                <div>
-                                    <x-input-label for="placement_type" value="Soort positie" />
-                                    <select id="placement_type" name="type" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300" required>
+                                <fieldset class="sm:col-span-2">
+                                    <legend class="sr-only">Soort unit of aansluiting</legend>
+                                    <div class="grid grid-cols-2 gap-2">
                                         @foreach ($placementTypes as $type)
-                                            <option value="{{ $type->value }}">{{ $type->label() }}</option>
+                                            <label class="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50">
+                                                <input
+                                                    type="radio"
+                                                    id="placement_type_{{ $type->value }}"
+                                                    name="type"
+                                                    value="{{ $type->value }}"
+                                                    class="border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                    @checked($loop->first)
+                                                    required
+                                                >
+                                                <span>{{ $type->label() }}</span>
+                                            </label>
                                         @endforeach
-                                    </select>
-                                </div>
+                                    </div>
+                                </fieldset>
                                 <div>
                                     <x-input-label for="placement_room" value="Ruimte (indien relevant)" />
                                     <select id="placement_room" name="airco_room_id" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300">
@@ -556,7 +578,7 @@
                                     <textarea id="placement_description" name="description" rows="3" class="mt-1 block w-full rounded-xl border-gray-300" placeholder="Vrije wand, bereikbaarheid, obstakels…"></textarea>
                                 </div>
                                 <div class="sm:col-span-2">
-                                    <x-primary-button>Positie opslaan</x-primary-button>
+                                    <x-primary-button>Opslaan</x-primary-button>
                                 </div>
                             </form>
                         </details>
@@ -757,7 +779,7 @@
                             @empty
                                 <div class="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-5 py-8 text-center">
                                     <p class="font-semibold text-gray-900">Nog geen opstelling</p>
-                                    <p class="mt-1 text-sm text-gray-500">Leg eerst plekken voor binnen- en buitenunit vast. Combineer die daarna.</p>
+                                    <p class="mt-1 text-sm text-gray-500">Leg eerst vast waar de binnenunit en buitenunit komen. Combineer die daarna.</p>
                                 </div>
                             @endforelse
                         </div>
@@ -779,7 +801,7 @@
                                     </select>
                                 </div>
                                 <div class="sm:col-span-2">
-                                    <x-input-label value="Posities in deze optie" />
+                                    <x-input-label value="Units in deze opstelling" />
                                     <div class="mt-2 grid gap-2 sm:grid-cols-2">
                                         @foreach ($intake->aircoPlacements as $placement)
                                             <label class="flex min-h-11 items-center gap-3 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm">
@@ -963,7 +985,7 @@
                                     </div>
                                 @elseif ($intake->aircoInstallationOptions->isEmpty())
                                     <p class="text-sm text-indigo-900">
-                                        Er is nog geen opstelling. Leg eerst binnen- en buitenplekken vast en maak een opstelling. Daarna kan de AI een voorstel maken. Ruimtes of foto’s alleen tellen nog niet als klaar voor offerte.
+                                        Er is nog geen opstelling. Leg eerst vast waar de binnenunit en buitenunit komen en maak een opstelling. Daarna kan de AI een voorstel maken. Ruimtes of foto’s alleen tellen nog niet als klaar voor offerte.
                                     </p>
                                 @else
                                     <p class="text-sm text-indigo-900">Er is nog geen AI-voorstel opgeslagen. Tik op vernieuwen om er een te maken.</p>

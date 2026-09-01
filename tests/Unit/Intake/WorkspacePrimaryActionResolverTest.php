@@ -48,6 +48,26 @@ test('primary action prefers adding a room before viewing open points', function
         ->and($action['label'])->not->toContain('bekijken');
 });
 
+test('primary action asks for indoor or outdoor unit when rooms exist but placements do not', function () {
+    $intake = bareIntake();
+    $intake->setRelation('aircoRooms', collect([(new AircoRoom)->forceFill(['id' => 1])]));
+
+    $action = app(WorkspacePrimaryActionResolver::class)->resolve(
+        $intake,
+        null,
+        false,
+        false,
+        collect(),
+        collect(),
+    );
+
+    expect($action['href'])->toBe('#demo-placements')
+        ->and($action['label'])->toBe('Binnen- of buitenunit toevoegen')
+        ->and($action['summary'])->toBe('Leg eerst vast waar de binnenunit en buitenunit komen')
+        ->and($action['label'])->not->toContain('Plek')
+        ->and($action['summary'])->not->toContain('plek');
+});
+
 test('open area targets deep-link to the matching work block', function () {
     $intake = bareIntake();
     $resolver = app(WorkspacePrimaryActionResolver::class);
@@ -56,6 +76,7 @@ test('open area targets deep-link to the matching work block', function () {
         ->and($resolver->targetForArea($intake, 'capacity')['label'])->toBe('Maten invullen')
         ->and($resolver->targetForArea($intake, 'capacity')['href'])->toBe('#workspace-rooms')
         ->and($resolver->targetForArea($intake, 'placement')['href'])->toBe('#demo-placements')
+        ->and($resolver->targetForArea($intake, 'placement')['label'])->toBe('Binnen- of buitenunit toevoegen')
         ->and($resolver->targetForArea($intake, 'quote')['href'])->toBe('#workspace-complete');
 });
 
