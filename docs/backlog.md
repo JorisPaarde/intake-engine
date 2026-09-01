@@ -75,7 +75,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-079 | Werkplek: één L×B×H-formulier per ruimtekaart | E7 | done | high | O · bij BL-059 |
 | — | BL-080 | Create-form: adres zonder chrome + compact prefill + geen demo-mail in UI | E3/E5 | done | high | A · product/UX |
 | — | BL-081 | Werkplek-copy: binnen-/buitenunit i.p.v. plekken/posities | E7 | done | high | O · bij BL-053/059 |
-| — | BL-082 | Installateurstaal: multi-split/singles + Notitie + demo-chrome + airco v14 | E5/E7 | in_progress | high | A · product/UX |
+| — | BL-082 | Installateurstaal: multi-split/singles + Notitie + demo-chrome + airco v14 | E5/E7 | done | high | A · product/UX |
 | — | BL-052 | Gecontroleerd eenvoudig Nederlands in de app-UI | E5 | done | medium | A (done) |
 | — | BL-053 | Mobiele werkplek: acties eerst, info dicht | E5 | done | high | O · bij BL-037 |
 | — | BL-054 | Sticky CTA = echte handeling | E5 | done | high | O · bij BL-053 |
@@ -588,11 +588,12 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-082 — Installateurstaal: multi-split/singles + Notitie + demo-chrome + airco v14
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E5/E7 · **Band:** A · product/UX · **Afhankelijk:** BL-076–081
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-01 · **PR:** #88 · **Epic:** E5/E7 · **Band:** A · product/UX · **Afhankelijk:** BL-076–081
 - **Aanleiding:** producteigenaar: rest-junk na BL-076–081 — abstracte “opstelling”/“optie”, “Technische waarneming”, demo “boost”/“echte werkplek”/“Voorbeeldroute”, u-vorm, te lange kruipruimte-/matenessays.
 - **Doel:** concrete installateurstaal zonder raden: combinatiekeuze = **multi-split of singles** (zelfstandig naamwoord desnoods **keuze**, nooit een derde productwoord); plaatsingsveld **Notitie**; demo-marker **Demo** + optioneel voorbeelddossier; **je**; airco **v14** met korte kruipruimte-/L×B×H-labels.
 - **Scope:** `workspace.blade.php`, `show.blade.php`, sticky/blocker/flash-copy, demo-coach JS, airco v14 + seeder, [docs/language.md](language.md); geen PHP-class-/domain-key-rename.
 - **Acceptatie:** grep installateursviews: geen user-visible “opstelling” / “technische waarneming” / “echte werkplek” / “Voorbeeldroute” / “boost” (sr-only ok); sticky/sectie multi-split of singles; v14 gepind op nieuwe intakes; tests; `composer check` groen.
+- **Resultaat:** chrome herschreven naar multi-split/singles + keuze; Notitie; demo-marker Demo; je-vorm; airco v14 gepubliceerd; `composer check` groen.
 - **Hypothese:** copy + templateversie; geen nieuw domeinmodel.
 
 ### BL-079 — Werkplek: één L×B×H-formulier per ruimtekaart
