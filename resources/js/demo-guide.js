@@ -107,7 +107,7 @@ export function registerDemoGuide(Alpine) {
                     mode: 'branch',
                     meta: 'Hoe wil je verder?',
                     title: 'Adresgegevens staan al in de opname',
-                    body: 'Bekijk hieronder wat er is opgehaald. Doe de opname zelf — net als in de praktijk. Of bekijk kort wat de klant ziet.',
+                    body: 'Bekijk hieronder wat er is opgehaald. Doe de opname zelf — net als in de praktijk. Of bekijk wat de klant ziet.',
                     aside: 'Beide paden gebruiken dezelfde echte productschermen. Er gaat geen e-mail uit in de demo.',
                 },
             };

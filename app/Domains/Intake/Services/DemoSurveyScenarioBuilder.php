@@ -200,8 +200,8 @@ final class DemoSurveyScenarioBuilder
         ];
 
         $this->storePrecomputedRoute($intake, $refrigerantParents, [
-            ['upload' => $uploads['bedroom']->id, 'label' => 'Binnenpositie en eerste doorvoer'],
-            ['upload' => $uploads['facade']->id, 'label' => 'Achtergevel en buitenunitpositie'],
+            ['upload' => $uploads['bedroom']->id, 'label' => 'Binnenunit en eerste doorvoer'],
+            ['upload' => $uploads['facade']->id, 'label' => 'Achtergevel en buitenunit'],
         ]);
         $this->storeSynthesisRecord($intake, $run, array_values($uploads));
         $this->storeProposedCustomerTask($intake, $run, $power->subject, $uploads['fusebox']);

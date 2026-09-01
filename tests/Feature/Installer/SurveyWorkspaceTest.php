@@ -153,10 +153,15 @@ test('workspace attaches photos and notes to the relevant object without exposin
         ->assertSee('Notitie toevoegen')
         ->assertDontSee('Technische notitie toevoegen')
         ->assertDontSee('Herkenbare naam')
+        ->assertDontSee('Korte omschrijving')
         ->assertDontSee('Een ruimte is nog geen')
         ->assertDontSee('Maten L×B×H')
+        ->assertDontSee('blijven los tot')
+        ->assertDontSee('Vergelijk bijvoorbeeld')
+        ->assertDontSee('iets anders dan')
         ->assertSee('Kamers uit de aanvraag')
         ->assertSee('Maten nog leeg')
+        ->assertSee('Eerst de units, daarna multi-split of singles.')
         ->assertDontSee('Camera en bewijs')
         ->assertDontSee('Vakwaarneming')
         ->assertDontSee('Telefonisch vastgesteld')
@@ -172,7 +177,7 @@ test('workspace attaches photos and notes to the relevant object without exposin
             'method' => 'phone',
         ])
         ->assertRedirect(route('intakes.workspace', $intake))
-        ->assertSessionHas('status', 'Technische notitie toegevoegd.');
+        ->assertSessionHas('status', 'Notitie toegevoegd.');
 
     $note = DossierRecord::query()
         ->where('dossier_subject_id', $room->dossier_subject_id)

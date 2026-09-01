@@ -277,7 +277,7 @@ final class SurveyWorkspaceController extends Controller
             'installer_note',
         );
 
-        return $this->back($intake, 'Technische notitie toegevoegd.');
+        return $this->back($intake, 'Notitie toegevoegd.');
     }
 
     public function confirmObservation(
@@ -302,8 +302,8 @@ final class SurveyWorkspaceController extends Controller
         return $this->back(
             $intake,
             $adjustedText === null
-                ? 'Technische constatering bevestigd.'
-                : 'Technische constatering aangepast en bevestigd.',
+                ? 'Notitie bevestigd.'
+                : 'Notitie aangepast en bevestigd.',
         );
     }
 

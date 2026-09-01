@@ -64,7 +64,7 @@
                         'materials' => 'Kan het materiaal beïnvloeden',
                         'cost' => 'Kan de prijs beïnvloeden',
                         'installation' => 'Kan de montage beïnvloeden',
-                        default => 'Technische constatering',
+                        default => 'Notitie',
                     };
                 @endphp
                 <div class="rounded-xl border border-indigo-200 bg-indigo-50 p-3">

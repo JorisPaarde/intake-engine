@@ -594,7 +594,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Doel:** één bewerkbare naam (**Naam**), Gebruik-dropdown zonder dubbele type in header, maten alleen als “Maten nog leeg” of `4,2 × 3,1 × 2,5 m`, korte sectiehelper of geen puzzelzin, **Notitie toevoegen**.
 - **Scope:** `workspace.blade.php` (Gewenste ruimtes), `_subject-tools.blade.php`, `SurveyWorkspaceTest`, [docs/language.md](language.md). Geen templateversie, geen domain keys.
 - **Acceptatie:** geen “Een ruimte is nog geen” / “Herkenbare naam” / “Maten L×B×H nog niet” / “Technische notitie toevoegen” in werkplek-UI; tests; `composer check` groen.
-- **Resultaat:** puzzelzin weg; geen dubbele h4/use_type; veld **Naam**; maten-subtitels kort; **Notitie toevoegen**.
+- **Resultaat:** puzzelzin weg; geen dubbele h4/use_type; veld **Naam**; maten-subtitels kort; **Notitie toevoegen**; plus zelfde-klas leftovers (collegehelpers, demo **je**, PDF/ended, sample-captions zonder positie).
 - **Hypothese:** pure UI-copy/layout; geen modelwijziging.
 
 ### BL-082 — Installateurstaal: multi-split/singles + Notitie + demo-chrome + airco v14

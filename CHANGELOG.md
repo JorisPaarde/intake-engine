@@ -6,7 +6,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Fixed
 
-- **Ruimtekaart-copy zonder herhaling (BL-083):** onder **Gewenste ruimtes** geen puzzelzin meer (“Een ruimte is nog geen…” → **Kamers uit de aanvraag.**). Kaart toont geen dubbele h4/`use_type` naast het bewerkformulier: alleen maten-subtitels (**Maten nog leeg** of `4,2 × 3,1 × 2,5 m`), veldlabel **Naam** (niet Herkenbare naam), badge/bron, Gebruik + L×B×H. Knop **Notitie toevoegen** (was Technische notitie toevoegen).
+- **Ruimtekaart-copy zonder herhaling (BL-083):** onder **Gewenste ruimtes** geen puzzelzin meer (“Een ruimte is nog geen…” → **Kamers uit de aanvraag.**). Kaart toont geen dubbele h4/`use_type` naast het bewerkformulier: alleen maten-subtitels (**Maten nog leeg** of `4,2 × 3,1 × 2,5 m`), veldlabel **Naam** (niet Herkenbare naam), badge/bron, Gebruik + L×B×H. Knop **Notitie toevoegen** (was Technische notitie toevoegen). Zelfde pass: werkplek-collegezinnen ingekort/weg, unit-label **Naam**, demo/confirm **je**, demorapport-PDF **je**, ended-pagina **je**, voorbeeldfoto-captions zonder “positie”, flash **Notitie toegevoegd.**
 
 ### Changed
 

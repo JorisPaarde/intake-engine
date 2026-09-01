@@ -246,7 +246,7 @@
                                     Alle onderdelen ({{ $dossier['filled_count'] }}/{{ $dossier['total_count'] }} met inhoud)
                                 </summary>
                                 <p class="border-t border-gray-100 px-4 pt-3 text-xs text-gray-500">
-                                    {{ $dossier['ready_count'] }} van {{ $dossier['total_count'] }} klaar voor offerte — dat is iets anders dan “met inhoud”.
+                                    {{ $dossier['ready_count'] }} van {{ $dossier['total_count'] }} klaar voor offerte.
                                 </p>
                                 <div class="grid gap-2 p-3 sm:grid-cols-2">
                                     @foreach ($dossier['areas'] as $area)
@@ -427,7 +427,7 @@
                     <section id="demo-placements" class="scroll-mt-24 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
                         <div>
                             <h3 class="text-lg font-semibold text-gray-950">Binnen- en buitenunit</h3>
-                            <p class="mt-1 text-sm text-gray-500">Binnenunit, buitenunit, stroomaansluiting en afvoerpunt blijven los tot je multi-split of singles kiest.</p>
+                            <p class="mt-1 text-sm text-gray-500">Eerst de units, daarna multi-split of singles.</p>
                         </div>
 
                         @if ($intake->aircoPlacements->isNotEmpty())
@@ -489,7 +489,7 @@
                                                     </select>
                                                 </div>
                                                 <div>
-                                                    <x-input-label for="placement-{{ $placement->id }}-label" value="Korte omschrijving" />
+                                                    <x-input-label for="placement-{{ $placement->id }}-label" value="Naam" />
                                                     <x-text-input id="placement-{{ $placement->id }}-label" name="label" class="mt-1 block w-full" value="{{ $placement->label }}" required />
                                                 </div>
                                                 <div>
@@ -545,7 +545,7 @@
                                     </select>
                                 </div>
                                 <div class="sm:col-span-2">
-                                    <x-input-label for="placement_label" value="Korte omschrijving" />
+                                    <x-input-label for="placement_label" value="Naam" />
                                     <x-text-input id="placement_label" name="label" class="mt-1 block w-full" placeholder="Binnenunit boven de deur" required />
                                 </div>
                                 <div class="sm:col-span-2">
@@ -562,7 +562,6 @@
                     <section id="demo-proposal" class="scroll-mt-24 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
                         <div>
                             <h3 class="text-lg font-semibold text-gray-950">Multi-split of singles</h3>
-                            <p class="mt-1 text-sm text-gray-500">Vergelijk bijvoorbeeld één multi-split of twee losse singles.</p>
                         </div>
 
                         <div class="mt-5 space-y-5">
@@ -754,7 +753,7 @@
                             @empty
                                 <div class="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-5 py-8 text-center">
                                     <p class="font-semibold text-gray-900">Nog geen keuze</p>
-                                    <p class="mt-1 text-sm text-gray-500">Leg eerst vast waar de binnenunit en buitenunit komen. Combineer die daarna: één multi-split of twee losse singles.</p>
+                                    <p class="mt-1 text-sm text-gray-500">Nog geen keuze. Eerst binnen- en buitenunit.</p>
                                 </div>
                             @endforelse
                         </div>
@@ -960,7 +959,7 @@
                                     </div>
                                 @elseif ($intake->aircoInstallationOptions->isEmpty())
                                     <p class="text-sm text-indigo-900">
-                                        Er is nog geen keuze. Leg eerst vast waar de binnenunit en buitenunit komen. Combineer die daarna: één multi-split of twee losse singles. Daarna kan de AI een voorstel maken. Ruimtes of foto’s alleen tellen nog niet als klaar voor offerte.
+                                        Nog geen keuze. Eerst binnen- en buitenunit.
                                     </p>
                                 @else
                                     <p class="text-sm text-indigo-900">Er is nog geen AI-voorstel opgeslagen. Tik op vernieuwen om er een te maken.</p>

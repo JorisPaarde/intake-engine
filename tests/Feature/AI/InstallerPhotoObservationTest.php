@@ -160,7 +160,7 @@ test('installer confirms or adjusts a photo observation into an established huma
             'text' => 'Massieve gemetselde buitenmuur.',
         ])
         ->assertRedirect(route('intakes.workspace', $intake))
-        ->assertSessionHas('status', 'Technische constatering aangepast en bevestigd.');
+        ->assertSessionHas('status', 'Notitie aangepast en bevestigd.');
 
     $confirmed = DossierRecord::query()
         ->where('dossier_subject_id', $room->dossier_subject_id)
