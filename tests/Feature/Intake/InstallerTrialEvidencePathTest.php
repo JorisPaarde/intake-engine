@@ -60,10 +60,10 @@ function bl074StepKeys(Intake $intake): array
         ->all();
 }
 
-test('airco v12 requires meterkast and around-house photos without a standalone phase question', function () {
+test('airco v13 requires meterkast and around-house photos without a standalone phase question', function () {
     $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
 
-    expect($version->version)->toBe(12);
+    expect($version->version)->toBe(13);
 
     $electrical = $version->sections()->where('key', 'electrical')->firstOrFail();
     $outdoor = $version->sections()->where('key', 'outdoor_unit')->firstOrFail();

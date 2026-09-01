@@ -70,6 +70,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-074 | Offerte-kritisch bewijs na installateurstrial (meterkast, fase, stopcontacten, rondom huis, kruipruimte, vloerisolatie, maten) | E3/E7/E9 | done | high | product · airco-pad |
 | — | BL-075 | Demo-voorbeelddossier mag live PDOK-luchtfoto niet verbergen | E5 | done | high | A · product/demo |
 | — | BL-076 | Demo-banner: installateurstaal i.p.v. featuresheet | E5 | done | high | A · product/demo/UX |
+| — | BL-077 | Meterkastfoto vóór vrije-groepvraag (geen ja/nee zonder foto) | E3/E5 | done | high | product · airco-pad |
 | — | BL-078 | Demo-klantpad: volledige airco-wizard i.p.v. 2-vragen-allowlist | E5 | done | high | A · product/demo |
 | — | BL-079 | Werkplek: één L×B×H-formulier per ruimtekaart | E7 | done | high | O · bij BL-059 |
 | — | BL-080 | Create-form: adres zonder chrome + compact prefill + geen demo-mail in UI | E3/E5 | done | high | A · product/UX |
@@ -612,6 +613,19 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Niet in scope:** short-customer allowlist in code; flashteksten elders, democoach, AI-flags, mailverzending.
 - **Acceptatie:** geen “Wel aan / bewust uitgeschakeld”-checklists; geen “productie”/“klantroute”/“expres kort”; tests groen; `composer check` groen.
 - **Resultaat:** banner “Demo — wat de klant ziet” (“Je vult in wat de klant invult…”) / “Demo — aanvulling door de klant” en complete-footer herschreven tot korte prose; featurelijsten verwijderd.
+
+### BL-077 — Meterkastfoto vóór vrije-groepvraag (geen ja/nee zonder foto)
+
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-01 · **PR:** #85 · **Epic:** E3/E5 · **Band:** product · airco-pad
+- **Aanleiding:** op live Digitale Opname (na PR #82) kon de klantwizard “Is er een vrije groep in de meterkast?” tonen zonder meterkastfoto — in strijd met BL-074.
+- **Doel:** eerste elektrische vraag is altijd de meterkastfoto; de ja/nee verschijnt alleen als fallback wanneer AI `free_group` niet uit de foto kon aflezen.
+- **Scope:**
+  1. Airco **v13**: `free_group_known` alleen zichtbaar als `fusebox_photo` gevuld is; blijft weg bij AI-prefill (`skip_when_prefilled_by=ai`); verplicht als zichtbare fallback.
+  2. Featuretest: nul uploads → geen vrije-groepvraag, wel `fusebox_photo`; duidelijke foto met afgeleide `free_group` → geen ja/nee.
+- **Niet in scope:** demo allowlist/short-keys (BL-078); nieuwe fasevraag; AI-providerwijziging.
+- **Acceptatie:** wizard: electrical path begint met meterkastfoto; na duidelijke foto met free_group geen ja/nee; tests; docs + `composer check` groen.
+- **Hypothese (geverifieerd):** v12 liet `free_group_known` staan zonder show-regel op de foto; demo allowlist versterkte het (opgelost in BL-078).
+- **Resultaat:** airco v13 + featuretests; geen herintroductie van `short_customer_question_keys`.
 
 ### BL-078 — Demo-klantpad: volledige airco-wizard i.p.v. 2-vragen-allowlist
 

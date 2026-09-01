@@ -2,7 +2,7 @@
 
 > **Documentversie:** 2.10 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: de templatewizard is **geïmplementeerd t/m airco v12** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md). UI-taal: [language.md](language.md).
+Status: de templatewizard is **geïmplementeerd t/m airco v13** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md). UI-taal: [language.md](language.md).
 
 ## Doel
 
@@ -186,7 +186,7 @@ Secties (stabiele keys over versies):
 
 ### v1 → v2 (BL-017, toenmalige vragenreductie)
 
-V2 introduceerde onderstaande vraagreductie. Nieuwe intakes gebruiken inmiddels de laatste gepubliceerde **v12**; lopende/afgeronde opnames blijven op hun gepinde versie (ADR-0001). V10 verandert klanttaal en repeatable-semantiek naar gewenste ruimtes en voorkomt dat de klant een binnenunitpositie kiest; de technische single-/multi-splitkeuze staat in airco-objecten. V11 houdt die structuur en vernieuwt alleen de klantteksten naar gecontroleerd eenvoudig Nederlands. V12 herstelt offerte-kritische bewijsfoto’s (meterkast, rondom het huis) en foto-afgeleide fase/stopcontacten zonder een stapel ja/nee-vragen (BL-074).
+V2 introduceerde onderstaande vraagreductie. Nieuwe intakes gebruiken inmiddels de laatste gepubliceerde **v13**; lopende/afgeronde opnames blijven op hun gepinde versie (ADR-0001). V10 verandert klanttaal en repeatable-semantiek naar gewenste ruimtes en voorkomt dat de klant een binnenunitpositie kiest; de technische single-/multi-splitkeuze staat in airco-objecten. V11 houdt die structuur en vernieuwt alleen de klantteksten naar gecontroleerd eenvoudig Nederlands. V12 herstelt offerte-kritische bewijsfoto’s (meterkast, rondom het huis) en foto-afgeleide fase/stopcontacten zonder een stapel ja/nee-vragen (BL-074). V13 zet de meterkastfoto strikt vóór `free_group_known`: geen losse vrije-groepvraag zonder foto, en geen ja/nee wanneer AI `free_group` al uit de foto haalde (BL-077).
 
 | Wijziging | Was (v1) | Wordt (v2) |
 |-----------|----------|------------|
@@ -195,7 +195,7 @@ V2 introduceerde onderstaande vraagreductie. Nieuwe intakes gebruiken inmiddels 
 | Buitenlocatie / bereikbaarheid / route / condens | vrije tekst | keuzelijsten |
 | Afstanden | 3 losse vragen (`distance_to_indoor`, `pipe_distance_indication`, `fusebox_distance`) | 1 optionele bandkeuze `pipe_distance_indication` |
 | Geveloverzicht | verplichte `facade_overview_photo` | optioneel (satellietbeeld: BL-019) |
-| Vrije groep | verplichte `free_group_known` | optioneel; meterkastfoto is leidend (afleiding: BL-020) |
+| Vrije groep | verplichte `free_group_known` | optioneel t/m v12; **v13:** alleen ná gevulde `fusebox_photo`, verplicht als zichtbare fallback; vervalt bij AI-prefill |
 
 Keys van geschrapte v1-vragen bestaan niet in v2; hergebruikte keys behouden hun betekenis binnen de versie.
 
@@ -284,7 +284,7 @@ Na de eerste echte installateurstrial (Jamie Elderenbos, 28 aug 2026) herstelt v
 
 | Onderwerp | Aanpak |
 |-----------|--------|
-| Meterkast | Verplichte `fusebox_photo`; bij lage zekerheid of onbekende fase volgt `fusebox_photo_extra` |
+| Meterkast | Verplichte `fusebox_photo` eerst; bij lage zekerheid of onbekende fase volgt `fusebox_photo_extra`; `free_group_known` alleen als AI free_group niet kon afleiden (nooit vóór de foto) |
 | 1-/3-fase | Alleen uit `AssessFuseboxPhotos` (`one_phase`/`three_phase`); geen losse fasevraag |
 | Stopcontacten | Uit ruimtefoto (`room_outlet_status`); anders verplichte `wall_outlet_photo` |
 | Rondom het huis | Verplichte `around_house_photos` (gevel/tuin/montageplek); geen Street View/luchtfoto-vervanging |
