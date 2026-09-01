@@ -1,8 +1,8 @@
 # Vragen- en takenengine
 
-> **Documentversie:** 2.10 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.11 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: de templatewizard is **geïmplementeerd t/m airco v13** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md). UI-taal: [language.md](language.md).
+Status: de templatewizard is **geïmplementeerd t/m airco v14** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md). UI-taal: [language.md](language.md).
 
 ## Doel
 
@@ -186,7 +186,7 @@ Secties (stabiele keys over versies):
 
 ### v1 → v2 (BL-017, toenmalige vragenreductie)
 
-V2 introduceerde onderstaande vraagreductie. Nieuwe intakes gebruiken inmiddels de laatste gepubliceerde **v13**; lopende/afgeronde opnames blijven op hun gepinde versie (ADR-0001). V10 verandert klanttaal en repeatable-semantiek naar gewenste ruimtes en voorkomt dat de klant een binnenunitpositie kiest; de technische single-/multi-splitkeuze staat in airco-objecten. V11 houdt die structuur en vernieuwt alleen de klantteksten naar gecontroleerd eenvoudig Nederlands. V12 herstelt offerte-kritische bewijsfoto’s (meterkast, rondom het huis) en foto-afgeleide fase/stopcontacten zonder een stapel ja/nee-vragen (BL-074). V13 zet de meterkastfoto strikt vóór `free_group_known`: geen losse vrije-groepvraag zonder foto, en geen ja/nee wanneer AI `free_group` al uit de foto haalde (BL-077).
+V2 introduceerde onderstaande vraagreductie. Nieuwe intakes gebruiken inmiddels de laatste gepubliceerde **v14**; lopende/afgeronde opnames blijven op hun gepinde versie (ADR-0001). V10 verandert klanttaal en repeatable-semantiek naar gewenste ruimtes en voorkomt dat de klant een binnenunitpositie kiest; de technische single-/multi-splitkeuze staat in airco-objecten. V11 houdt die structuur en vernieuwt alleen de klantteksten naar gecontroleerd eenvoudig Nederlands. V12 herstelt offerte-kritische bewijsfoto’s (meterkast, rondom het huis) en foto-afgeleide fase/stopcontacten zonder een stapel ja/nee-vragen (BL-074). V13 zet de meterkastfoto strikt vóór `free_group_known`: geen losse vrije-groepvraag zonder foto, en geen ja/nee wanneer AI `free_group` al uit de foto haalde (BL-077). V14 kort alleen kruipruimte- en L×B×H-labels/help in (BL-082).
 
 | Wijziging | Was (v1) | Wordt (v2) |
 |-----------|----------|------------|

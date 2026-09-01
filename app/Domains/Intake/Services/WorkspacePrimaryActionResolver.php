@@ -100,8 +100,8 @@ final class WorkspacePrimaryActionResolver
         if ($intake->aircoInstallationOptions->isEmpty()) {
             return [
                 'href' => '#demo-proposal',
-                'label' => 'Opstelling maken',
-                'summary' => 'Combineer binnen- en buitenunit tot een opstelling',
+                'label' => 'Kies multi-split of singles',
+                'summary' => 'Combineer binnen- en buitenunit tot één multi-split of losse singles',
             ];
         }
 
@@ -123,8 +123,8 @@ final class WorkspacePrimaryActionResolver
 
         return [
             'href' => '#demo-proposal',
-            'label' => 'Naar opstellingen',
-            'summary' => $quoteArea?->next_action?->label() ?? 'Werk de opstelling verder uit',
+            'label' => 'Naar multi-split of singles',
+            'summary' => $quoteArea?->next_action?->label() ?? 'Werk de keuze verder uit',
         ];
     }
 
@@ -141,7 +141,7 @@ final class WorkspacePrimaryActionResolver
             'capacity' => $this->capacityTarget($intake),
             'placement' => $intake->aircoPlacements->isEmpty()
                 ? ['href' => '#demo-placements', 'label' => 'Binnen- of buitenunit toevoegen']
-                : ['href' => '#demo-proposal', 'label' => 'Opstelling kiezen'],
+                : ['href' => '#demo-proposal', 'label' => 'Kies multi-split of singles'],
             'refrigerant' => $this->connectionTarget($intake, AircoConnectionType::Refrigerant, 'Koelroute vastleggen'),
             'condensate' => $this->connectionTarget($intake, AircoConnectionType::Condensate, 'Condensroute vastleggen'),
             'power' => $this->connectionTarget($intake, AircoConnectionType::Power, 'Stroomroute vastleggen'),
@@ -220,7 +220,7 @@ final class WorkspacePrimaryActionResolver
         ) ?? $intake->aircoInstallationOptions->first();
 
         if ($option === null) {
-            return ['href' => '#demo-proposal', 'label' => 'Opstelling maken'];
+            return ['href' => '#demo-proposal', 'label' => 'Kies multi-split of singles'];
         }
 
         $connection = $option->connections

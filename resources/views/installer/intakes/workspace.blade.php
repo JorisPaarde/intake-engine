@@ -107,17 +107,17 @@
                 <section id="demo-intro" class="overflow-hidden rounded-3xl border border-sky-200 bg-sky-50 shadow-sm" data-demo-anchor="workspace-intro">
                     <div class="grid gap-5 p-5 sm:p-6 lg:grid-cols-[1fr_auto] lg:items-center">
                         <div>
-                            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Demo · echte werkplek</p>
+                            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Demo</p>
                             <h3 class="mt-2 text-xl font-semibold text-gray-950">
                                 {{ ($demoScenarioLoaded ?? false) ? 'Voorbeelddossier geladen' : 'Bouw de opname op' }}
                             </h3>
                             <p class="mt-2 max-w-3xl text-sm leading-relaxed text-gray-700">
                                 @if ($demoScenarioLoaded ?? false)
-                                    Je bekijkt een optionele boost met voorbeeldinhoud. Je kunt dit verder bewerken of AI opnieuw laten kijken. Klantmail blijft uit.
+                                    Je bekijkt voorbeeldinhoud. Je kunt dit verder bewerken of AI opnieuw laten kijken. Geen echte klant, geen mail.
                                 @elseif ($demoWorkStarted)
-                                    Je werkt in een echte opname. Adresinvulling en AI werken. Klantmail blijft uit.
+                                    Je werkt in een opname. Adresinvulling en AI werken. Geen echte klant, geen mail.
                                 @else
-                                    Begin met een lege opname — net als na een echte aanvraag. Adresinvulling en AI werken. Optioneel kun je hieronder een voorbeelddossier laden als snelle boost.
+                                    Begin met een lege opname — net als na een echte aanvraag. Adresinvulling en AI werken. Geen echte klant, geen mail.
                                 @endif
                                 Demogegevens verdwijnen na {{ max(1, (int) config('intake.demo.ttl_hours', 2)) }} uur.
                             </p>
@@ -125,22 +125,15 @@
                                 <form method="POST" action="{{ route('demo.scenario.load', $intake) }}" class="mt-4">
                                     @csrf
                                     <button type="submit" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-sky-400 bg-white px-4 py-2 text-sm font-semibold text-sky-900 hover:bg-sky-100">
-                                        Optioneel: toon voorbeelddossier
+                                        Toon voorbeelddossier
                                     </button>
                                 </form>
                                 <p class="mt-2 text-xs leading-relaxed text-sky-900/70">
                                     Niet nodig om de demo af te ronden. Alleen als je snel een rijk eindbeeld wilt zien.
                                     @if ($intake->aircoRooms->isNotEmpty())
-                                        Uit de korte uitleg zijn al gewenste ruimtes afgeleid.
+                                        Uit de aanvraag zijn al ruimtes gehaald.
                                     @endif
                                 </p>
-                            @elseif ($demoScenarioLoaded ?? false)
-                                <nav class="mt-4 flex flex-wrap gap-2 text-xs font-semibold" aria-label="Voorbeeldroute">
-                                    <a href="#demo-context" class="rounded-full bg-white px-3 py-2 text-sky-800 shadow-sm ring-1 ring-sky-200">1. Woninggegevens</a>
-                                    <a href="#demo-evidence" class="rounded-full bg-white px-3 py-2 text-sky-800 shadow-sm ring-1 ring-sky-200">2. Foto’s</a>
-                                    <a href="#demo-proposal" class="rounded-full bg-white px-3 py-2 text-sky-800 shadow-sm ring-1 ring-sky-200">3. Voorstel en routes</a>
-                                    <a href="#demo-customer-task" class="rounded-full bg-white px-3 py-2 text-sky-800 shadow-sm ring-1 ring-sky-200">4. Taak voor de klant</a>
-                                </nav>
                             @endif
                         </div>
                         <a href="{{ url('/') }}" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-sky-300 bg-white px-4 py-2 text-sm font-semibold text-sky-900 hover:bg-sky-100">
@@ -452,7 +445,7 @@
                     <section id="demo-placements" class="scroll-mt-24 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
                         <div>
                             <h3 class="text-lg font-semibold text-gray-950">Binnen- en buitenunit</h3>
-                            <p class="mt-1 text-sm text-gray-500">Binnenunit, buitenunit, stroomaansluiting en afvoerpunt blijven los tot je een opstelling kiest.</p>
+                            <p class="mt-1 text-sm text-gray-500">Binnenunit, buitenunit, stroomaansluiting en afvoerpunt blijven los tot je multi-split of singles kiest.</p>
                         </div>
 
                         @if ($intake->aircoPlacements->isNotEmpty())
@@ -518,7 +511,7 @@
                                                     <x-text-input id="placement-{{ $placement->id }}-label" name="label" class="mt-1 block w-full" value="{{ $placement->label }}" required />
                                                 </div>
                                                 <div>
-                                                    <x-input-label for="placement-{{ $placement->id }}-description" value="Technische waarneming (optioneel)" />
+                                                    <x-input-label for="placement-{{ $placement->id }}-description" value="Notitie" />
                                                     <textarea id="placement-{{ $placement->id }}-description" name="description" rows="3" class="mt-1 block w-full rounded-xl border-gray-300">{{ $placement->description }}</textarea>
                                                 </div>
                                                 <div>
@@ -574,7 +567,7 @@
                                     <x-text-input id="placement_label" name="label" class="mt-1 block w-full" placeholder="Binnenunit boven de deur" required />
                                 </div>
                                 <div class="sm:col-span-2">
-                                    <x-input-label for="placement_description" value="Technische waarneming (optioneel)" />
+                                    <x-input-label for="placement_description" value="Notitie" />
                                     <textarea id="placement_description" name="description" rows="3" class="mt-1 block w-full rounded-xl border-gray-300" placeholder="Vrije wand, bereikbaarheid, obstakels…"></textarea>
                                 </div>
                                 <div class="sm:col-span-2">
@@ -586,8 +579,8 @@
 
                     <section id="demo-proposal" class="scroll-mt-24 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
                         <div>
-                            <h3 class="text-lg font-semibold text-gray-950">Opstellingen</h3>
-                            <p class="mt-1 text-sm text-gray-500">Vergelijk bijvoorbeeld één multi-split met twee losse single-splits.</p>
+                            <h3 class="text-lg font-semibold text-gray-950">Multi-split of singles</h3>
+                            <p class="mt-1 text-sm text-gray-500">Vergelijk bijvoorbeeld één multi-split of twee losse singles.</p>
                         </div>
 
                         <div class="mt-5 space-y-5">
@@ -616,7 +609,7 @@
                                         @else
                                             <form method="POST" action="{{ route('intakes.workspace.options.select', [$intake, $option]) }}">
                                                 @csrf
-                                                <button class="min-h-11 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Deze optie kiezen</button>
+                                                <button class="min-h-11 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Deze keuze</button>
                                             </form>
                                         @endif
                                     </div>
@@ -711,7 +704,7 @@
                                                 </select>
                                             </div>
                                             <div>
-                                                <x-input-label value="Hoe zeker bent u?" />
+                                                <x-input-label value="Hoe zeker ben je?" />
                                                 <select name="status" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300" required>
                                                     @foreach ($connectionStatuses as $status)
                                                         <option value="{{ $status->value }}">{{ $status->label() }}</option>
@@ -778,19 +771,19 @@
                                 </article>
                             @empty
                                 <div class="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-5 py-8 text-center">
-                                    <p class="font-semibold text-gray-900">Nog geen opstelling</p>
-                                    <p class="mt-1 text-sm text-gray-500">Leg eerst vast waar de binnenunit en buitenunit komen. Combineer die daarna.</p>
+                                    <p class="font-semibold text-gray-900">Nog geen keuze</p>
+                                    <p class="mt-1 text-sm text-gray-500">Leg eerst vast waar de binnenunit en buitenunit komen. Combineer die daarna: één multi-split of twee losse singles.</p>
                                 </div>
                             @endforelse
                         </div>
 
                         <details class="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                            <summary class="cursor-pointer text-sm font-semibold text-gray-900">Opstelling maken</summary>
+                            <summary class="cursor-pointer text-sm font-semibold text-gray-900">Kies multi-split of singles</summary>
                             <form method="POST" action="{{ route('intakes.workspace.options.store', $intake) }}" class="mt-4 grid gap-4 sm:grid-cols-2">
                                 @csrf
                                 <div>
                                     <x-input-label value="Naam" />
-                                    <x-text-input name="label" class="mt-1 block w-full" placeholder="Optie A · één multi-split" required />
+                                    <x-text-input name="label" class="mt-1 block w-full" placeholder="Keuze A · één multi-split" required />
                                 </div>
                                 <div>
                                     <x-input-label value="Configuratie" />
@@ -801,7 +794,7 @@
                                     </select>
                                 </div>
                                 <div class="sm:col-span-2">
-                                    <x-input-label value="Units in deze opstelling" />
+                                    <x-input-label value="Units in deze keuze" />
                                     <div class="mt-2 grid gap-2 sm:grid-cols-2">
                                         @foreach ($intake->aircoPlacements as $placement)
                                             <label class="flex min-h-11 items-center gap-3 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm">
@@ -812,11 +805,11 @@
                                     </div>
                                 </div>
                                 <div class="sm:col-span-2">
-                                    <x-input-label value="Waarom deze optie?" />
+                                    <x-input-label value="Waarom deze keuze?" />
                                     <textarea name="summary" rows="3" class="mt-1 block w-full rounded-xl border-gray-300"></textarea>
                                 </div>
                                 <div class="sm:col-span-2">
-                                    <x-primary-button>Opstelling opslaan</x-primary-button>
+                                    <x-primary-button>Keuze opslaan</x-primary-button>
                                 </div>
                             </form>
                         </details>
@@ -887,7 +880,7 @@
                                 Uitkomst vastleggen
                             </a>
                         @elseif ($canApproveProposal)
-                            <p class="mt-1 text-sm text-gray-500">Keurt de gekozen opstelling en routes in één keer goed.</p>
+                            <p class="mt-1 text-sm text-gray-500">Keurt je keuze en de routes in één keer goed.</p>
                             <form method="POST" action="{{ route('intakes.workspace.complete', $intake) }}" class="mt-4">
                                 @csrf
                                 <button class="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-gray-950 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800">
@@ -900,9 +893,9 @@
                                 Nog niet klaar om goed te keuren
                             </button>
                         @else
-                            <p class="mt-1 text-sm text-gray-500">Kies eerst een opstelling met koel-, condens- en stroomroute.</p>
+                            <p class="mt-1 text-sm text-gray-500">Kies eerst multi-split of singles met koel-, condens- en stroomroute.</p>
                             <a href="#demo-proposal" class="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-800 hover:bg-gray-50">
-                                Naar opstellingen
+                                Naar multi-split of singles
                             </a>
                         @endif
                     </section>
@@ -919,7 +912,7 @@
                                             @elseif ($aiSynthesis)
                                                 AI-voorstel bekijken
                                             @elseif ($intake->aircoInstallationOptions->isEmpty())
-                                                AI-voorstel wacht op een opstelling
+                                                AI-voorstel wacht op een keuze
                                             @else
                                                 Nog geen AI-voorstel
                                             @endif
@@ -985,7 +978,7 @@
                                     </div>
                                 @elseif ($intake->aircoInstallationOptions->isEmpty())
                                     <p class="text-sm text-indigo-900">
-                                        Er is nog geen opstelling. Leg eerst vast waar de binnenunit en buitenunit komen en maak een opstelling. Daarna kan de AI een voorstel maken. Ruimtes of foto’s alleen tellen nog niet als klaar voor offerte.
+                                        Er is nog geen keuze. Leg eerst vast waar de binnenunit en buitenunit komen. Combineer die daarna: één multi-split of twee losse singles. Daarna kan de AI een voorstel maken. Ruimtes of foto’s alleen tellen nog niet als klaar voor offerte.
                                     </p>
                                 @else
                                     <p class="text-sm text-indigo-900">Er is nog geen AI-voorstel opgeslagen. Tik op vernieuwen om er een te maken.</p>

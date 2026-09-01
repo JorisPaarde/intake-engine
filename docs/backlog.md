@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.32 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.33 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,7 +38,7 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 zijn gereserveerd voor draft PR’s [#74](https://github.com/JorisPaarde/intake-engine/pull/74) / [#75](https://github.com/JorisPaarde/intake-engine/pull/75) (AI-prefill); niet hergebruiken. BL-077 (meterkast vóór vrije groep) is done in PR #85. Nieuwe items starten bij BL-082 (BL-080 create-form UX in PR #87; BL-081 unit-copy in #86).
+**Nummering:** BL-063–065 zijn gereserveerd voor draft PR’s [#74](https://github.com/JorisPaarde/intake-engine/pull/74) / [#75](https://github.com/JorisPaarde/intake-engine/pull/75) (AI-prefill); niet hergebruiken. BL-077 (meterkast vóór vrije groep) is done in PR #85. Nieuwe items starten bij BL-083 (BL-082 copy-pass in deze PR; BL-080 create-form UX in PR #87; BL-081 unit-copy in #86).
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
@@ -75,6 +75,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-079 | Werkplek: één L×B×H-formulier per ruimtekaart | E7 | done | high | O · bij BL-059 |
 | — | BL-080 | Create-form: adres zonder chrome + compact prefill + geen demo-mail in UI | E3/E5 | done | high | A · product/UX |
 | — | BL-081 | Werkplek-copy: binnen-/buitenunit i.p.v. plekken/posities | E7 | done | high | O · bij BL-053/059 |
+| — | BL-082 | Installateurstaal: multi-split/singles + Notitie + demo-chrome + airco v14 | E5/E7 | done | high | A · product/UX |
 | — | BL-052 | Gecontroleerd eenvoudig Nederlands in de app-UI | E5 | done | medium | A (done) |
 | — | BL-053 | Mobiele werkplek: acties eerst, info dicht | E5 | done | high | O · bij BL-037 |
 | — | BL-054 | Sticky CTA = echte handeling | E5 | done | high | O · bij BL-053 |
@@ -584,6 +585,16 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Scope:** `workspace.blade.php`, `WorkspacePrimaryActionResolver`, validatie-/blocker-copy, [docs/language.md](language.md) woordenlijst; regressietests. Geen model-/routewijziging.
 - **Acceptatie:** geen “Mogelijke plekken”, “Plek toevoegen”, “Soort positie”, “Positie opslaan”, “Posities in deze optie” in installateurs-UI; sticky = **Binnen- of buitenunit toevoegen**; body = “Leg eerst vast waar de binnenunit en buitenunit komen.”; add/edit tonen Binnenunit, Buitenunit, Stroomaansluiting, Afvoerpunt als radio’s (`name="type"`).
 - **Resultaat:** chrome herschreven; type-select → zichtbare radio-chips; woordenlijst: plekken/posities → binnenunit/buitenunit.
+
+### BL-082 — Installateurstaal: multi-split/singles + Notitie + demo-chrome + airco v14
+
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-01 · **PR:** #88 · **Epic:** E5/E7 · **Band:** A · product/UX · **Afhankelijk:** BL-076–081
+- **Aanleiding:** producteigenaar: rest-junk na BL-076–081 — abstracte “opstelling”/“optie”, “Technische waarneming”, demo “boost”/“echte werkplek”/“Voorbeeldroute”, u-vorm, te lange kruipruimte-/matenessays.
+- **Doel:** concrete installateurstaal zonder raden: combinatiekeuze = **multi-split of singles** (zelfstandig naamwoord desnoods **keuze**, nooit een derde productwoord); plaatsingsveld **Notitie**; demo-marker **Demo** + optioneel voorbeelddossier; **je**; airco **v14** met korte kruipruimte-/L×B×H-labels.
+- **Scope:** `workspace.blade.php`, `show.blade.php`, sticky/blocker/flash-copy, demo-coach JS, airco v14 + seeder, [docs/language.md](language.md); geen PHP-class-/domain-key-rename.
+- **Acceptatie:** grep installateursviews: geen user-visible “opstelling” / “technische waarneming” / “echte werkplek” / “Voorbeeldroute” / “boost” (sr-only ok); sticky/sectie multi-split of singles; v14 gepind op nieuwe intakes; tests; `composer check` groen.
+- **Resultaat:** chrome herschreven naar multi-split/singles + keuze; Notitie; demo-marker Demo; je-vorm; airco v14 gepubliceerd; `composer check` groen.
+- **Hypothese:** copy + templateversie; geen nieuw domeinmodel.
 
 ### BL-079 — Werkplek: één L×B×H-formulier per ruimtekaart
 

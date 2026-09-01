@@ -145,6 +145,10 @@ test('workspace attaches photos and notes to the relevant object without exposin
         ->assertSee('Buitenunit')
         ->assertSee('Stroomaansluiting')
         ->assertSee('Afvoerpunt')
+        ->assertSee('Multi-split of singles')
+        ->assertSee('Notitie')
+        ->assertDontSee('Opstellingen')
+        ->assertDontSee('Technische waarneming')
         ->assertSee('Foto maken')
         ->assertSee('Technische notitie')
         ->assertDontSee('Camera en bewijs')
@@ -718,7 +722,7 @@ test('installer can update an existing placement', function () {
             'description' => 'Vrije wand van 90 cm',
         ])
         ->assertRedirect(route('intakes.workspace', $intake))
-        ->assertSessionHas('status', 'Plaatsingsoptie bijgewerkt.');
+        ->assertSessionHas('status', 'Unit bijgewerkt.');
 
     $placement->refresh();
     expect($placement->label)->toBe('Naast het raam')
