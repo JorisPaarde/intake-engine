@@ -704,8 +704,8 @@ test('installer can update an existing room including dimensions', function () {
 
     expect(substr_count($html, 'name="length_m"'))->toBe(2)
         ->and(substr_count($html, 'id="room-'.$room->id.'-length"'))->toBe(1)
-        ->and(substr_count($html, '>Slaapkamer ouders<'))->toBe(0)
-        ->and(substr_count($html, 'value="Slaapkamer ouders"'))->toBe(1);
+        ->and(substr_count($html, 'id="room-'.$room->id.'-name"'))->toBe(1)
+        ->and(substr_count($html, '<h4 class="font-semibold text-gray-950">Slaapkamer ouders</h4>'))->toBe(0);
 });
 
 test('installer can update an existing placement', function () {

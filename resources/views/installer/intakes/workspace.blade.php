@@ -307,12 +307,7 @@
                                     <div class="flex flex-wrap items-start justify-between gap-3">
                                         <p class="text-xs text-gray-500">
                                             @if ($hasAnyDimension)
-                                                {{ is_numeric($length) ? number_format((float) $length, 1, ',', '.') : '–' }}
-                                                ×
-                                                {{ is_numeric($width) ? number_format((float) $width, 1, ',', '.') : '–' }}
-                                                ×
-                                                {{ is_numeric($height) ? number_format((float) $height, 1, ',', '.') : '–' }}
-                                                m
+                                                {{ (is_numeric($length) ? number_format((float) $length, 1, ',', '.') : '–').' × '.(is_numeric($width) ? number_format((float) $width, 1, ',', '.') : '–').' × '.(is_numeric($height) ? number_format((float) $height, 1, ',', '.') : '–').' m' }}
                                             @else
                                                 Maten nog leeg
                                             @endif

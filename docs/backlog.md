@@ -76,7 +76,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-080 | Create-form: adres zonder chrome + compact prefill + geen demo-mail in UI | E3/E5 | done | high | A · product/UX |
 | — | BL-081 | Werkplek-copy: binnen-/buitenunit i.p.v. plekken/posities | E7 | done | high | O · bij BL-053/059 |
 | — | BL-082 | Installateurstaal: multi-split/singles + Notitie + demo-chrome + airco v14 | E5/E7 | done | high | A · product/UX |
-| — | BL-083 | Werkplek ruimtekaart: geen herhaalde naam/type + korte copy | E7 | in_progress | high | O · bij BL-079/081 |
+| — | BL-083 | Werkplek ruimtekaart: geen herhaalde naam/type + korte copy | E7 | done | high | O · bij BL-079/081 |
 | — | BL-052 | Gecontroleerd eenvoudig Nederlands in de app-UI | E5 | done | medium | A (done) |
 | — | BL-053 | Mobiele werkplek: acties eerst, info dicht | E5 | done | high | O · bij BL-037 |
 | — | BL-054 | Sticky CTA = echte handeling | E5 | done | high | O · bij BL-053 |
@@ -589,11 +589,12 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-083 — Werkplek ruimtekaart: geen herhaalde naam/type + korte copy
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E7 · **Band:** O · **Afhankelijk:** BL-079/081/082
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-01 · **PR:** #89 · **Epic:** E7 · **Band:** O · **Afhankelijk:** BL-079/081/082
 - **Aanleiding:** productie-screenshot: “Slaapkamer” vier keer op één kaart (h4, use_type-subtitels, Herkenbare naam, Gebruik); helper “Een ruimte is nog geen gekozen binnenunit.”; knop “Technische notitie toevoegen”.
 - **Doel:** één bewerkbare naam (**Naam**), Gebruik-dropdown zonder dubbele type in header, maten alleen als “Maten nog leeg” of `4,2 × 3,1 × 2,5 m`, korte sectiehelper of geen puzzelzin, **Notitie toevoegen**.
 - **Scope:** `workspace.blade.php` (Gewenste ruimtes), `_subject-tools.blade.php`, `SurveyWorkspaceTest`, [docs/language.md](language.md). Geen templateversie, geen domain keys.
 - **Acceptatie:** geen “Een ruimte is nog geen” / “Herkenbare naam” / “Maten L×B×H nog niet” / “Technische notitie toevoegen” in werkplek-UI; tests; `composer check` groen.
+- **Resultaat:** puzzelzin weg; geen dubbele h4/use_type; veld **Naam**; maten-subtitels kort; **Notitie toevoegen**.
 - **Hypothese:** pure UI-copy/layout; geen modelwijziging.
 
 ### BL-082 — Installateurstaal: multi-split/singles + Notitie + demo-chrome + airco v14
