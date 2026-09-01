@@ -150,7 +150,18 @@ test('workspace attaches photos and notes to the relevant object without exposin
         ->assertDontSee('Opstellingen')
         ->assertDontSee('Technische waarneming')
         ->assertSee('Foto maken')
-        ->assertSee('Technische notitie')
+        ->assertSee('Notitie toevoegen')
+        ->assertDontSee('Technische notitie toevoegen')
+        ->assertDontSee('Herkenbare naam')
+        ->assertDontSee('Korte omschrijving')
+        ->assertDontSee('Een ruimte is nog geen')
+        ->assertDontSee('Maten L×B×H')
+        ->assertDontSee('blijven los tot')
+        ->assertDontSee('Vergelijk bijvoorbeeld')
+        ->assertDontSee('iets anders dan')
+        ->assertSee('Kamers uit de aanvraag')
+        ->assertSee('Maten nog leeg')
+        ->assertSee('Eerst de units, daarna multi-split of singles.')
         ->assertDontSee('Camera en bewijs')
         ->assertDontSee('Vakwaarneming')
         ->assertDontSee('Telefonisch vastgesteld')
@@ -166,7 +177,7 @@ test('workspace attaches photos and notes to the relevant object without exposin
             'method' => 'phone',
         ])
         ->assertRedirect(route('intakes.workspace', $intake))
-        ->assertSessionHas('status', 'Technische notitie toegevoegd.');
+        ->assertSessionHas('status', 'Notitie toegevoegd.');
 
     $note = DossierRecord::query()
         ->where('dossier_subject_id', $room->dossier_subject_id)
@@ -687,13 +698,19 @@ test('installer can update an existing room including dimensions', function () {
         ->assertSee('id="room-'.$room->id.'-name"', false)
         ->assertSee('id="room-'.$room->id.'-length"', false)
         ->assertSee('Wijzigingen opslaan')
+        ->assertSee('4,2 × 3,1 × 2,5 m')
+        ->assertDontSee('Herkenbare naam')
+        ->assertDontSee('Maten L×B×H')
+        ->assertDontSee('Een ruimte is nog geen')
         ->assertDontSee('Maten opslaan')
         ->assertDontSee('Ruimte bewerken')
         ->assertDontSee('room-'.$room->id.'-length-inline')
         ->getContent();
 
     expect(substr_count($html, 'name="length_m"'))->toBe(2)
-        ->and(substr_count($html, 'id="room-'.$room->id.'-length"'))->toBe(1);
+        ->and(substr_count($html, 'id="room-'.$room->id.'-length"'))->toBe(1)
+        ->and(substr_count($html, 'id="room-'.$room->id.'-name"'))->toBe(1)
+        ->and(substr_count($html, '<h4 class="font-semibold text-gray-950">Slaapkamer ouders</h4>'))->toBe(0);
 });
 
 test('installer can update an existing placement', function () {

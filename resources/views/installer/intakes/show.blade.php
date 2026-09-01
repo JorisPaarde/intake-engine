@@ -20,7 +20,7 @@
             @if ($intake->is_demo && ! session('public_demo_path_chosen'))
                 <div class="rounded-2xl border border-sky-200 bg-sky-50 px-5 py-4 text-sm text-sky-950" data-demo-anchor="branch-panel">
                     <p class="font-semibold">Demo: adresgegevens staan al in de opname</p>
-                    <p class="mt-1 text-sky-900/80">Bekijk hieronder de opgehaalde woninggegevens. Doe de opname zelf, of bekijk kort wat de klant ziet. Er gaat geen e-mail uit in de demo.</p>
+                    <p class="mt-1 text-sky-900/80">Bekijk hieronder de opgehaalde woninggegevens. Doe de opname zelf, of bekijk wat de klant ziet. Er gaat geen e-mail uit in de demo.</p>
                 </div>
             @endif
 
@@ -230,8 +230,8 @@
             @else
                 <div class="rounded-lg border border-indigo-100 bg-indigo-50 p-6">
                     <h3 class="text-base font-semibold text-indigo-950">Geen klantlink actief</h3>
-                    <p class="mt-1 text-sm text-indigo-900">Deze opname wordt door de installateur uitgevoerd. Vanuit de technische opname kun je later één of meer concrete klantopdrachten sturen; pas dan wordt de beveiligde link geactiveerd.</p>
-                    <a href="{{ route('intakes.workspace', $intake) }}" class="mt-4 inline-flex min-h-10 items-center rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-500">Naar technische opname</a>
+                    <p class="mt-1 text-sm text-indigo-900">Deze opname wordt door de installateur uitgevoerd. Vanuit de opname kun je later één of meer concrete klantopdrachten sturen; pas dan wordt de beveiligde link geactiveerd.</p>
+                    <a href="{{ route('intakes.workspace', $intake) }}" class="mt-4 inline-flex min-h-10 items-center rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-500">Naar opname</a>
                 </div>
             @endif
 

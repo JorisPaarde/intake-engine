@@ -815,7 +815,7 @@ it('asks for confirmation copy on end-demo controls and lands on a Dutch ended p
         ->withSession(demoSessionFor($user))
         ->get(route('dashboard'))
         ->assertOk()
-        ->assertSee('Weet u zeker dat u de demo wilt beëindigen?', false);
+        ->assertSee('Weet je zeker dat je de demo wilt beëindigen?', false);
 
     $this->actingAs($user)
         ->withSession(demoSessionFor($user))

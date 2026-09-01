@@ -61,7 +61,7 @@
                 of ga
                 <a href="{{ url('/') }}" class="font-semibold text-brand-sea underline">terug naar de website</a>.
             @else
-                Ga terug naar het andere tabblad om de bijgewerkte werkplek te bekijken, of ga
+                Ga terug naar het andere tabblad om de bijgewerkte opname te bekijken, of ga
                 <a href="{{ url('/') }}" class="font-semibold text-brand-sea underline">terug naar de website</a>.
             @endif
         </p>

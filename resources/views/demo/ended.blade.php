@@ -14,9 +14,9 @@
             </h1>
             <p class="mt-3 text-base leading-relaxed text-gray-600">
                 @if (($reason ?? 'ended') === 'expired')
-                    De demosessie is verlopen. Demogegevens verdwijnen automatisch. U kunt opnieuw beginnen met een schone demo.
+                    De demosessie is verlopen. Demogegevens verdwijnen automatisch. Je kunt opnieuw beginnen met een schone demo.
                 @else
-                    U heeft de demosessie afgesloten. Demogegevens verdwijnen. U kunt opnieuw beginnen wanneer u wilt.
+                    Je hebt de demosessie afgesloten. Demogegevens verdwijnen. Je kunt opnieuw beginnen wanneer je wilt.
                 @endif
             </p>
             <div class="mt-8 flex flex-col gap-3 sm:flex-row">

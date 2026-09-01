@@ -1,6 +1,6 @@
 # UI-taal — gecontroleerd eenvoudig Nederlands
 
-> **Documentversie:** 1.5 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.7 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: bron van waarheid voor gebruikersgerichte teksten in de app (UI, mails, templatevragen, flash-/foutmeldingen). Productdocumentatie mag technischer blijven.
 
@@ -34,6 +34,13 @@ Schrijf zodat klant en installateur snel begrijpen wat ze moeten doen. Volg de p
 | kandidaatpositie / plekken / posities (installateurs-UI) | binnenunit / buitenunit (of stroomaansluiting / afvoerpunt) |
 | opstelling / installatieoptie / optie (installateurs-UI voor de combinatiekeuze) | multi-split of singles; als zelfstandig naamwoord nodig: **keuze** (niet een derde productwoord) |
 | Technische waarneming (plaatsingsveld) | Notitie |
+| Technische notitie toevoegen / Technische notities | Notitie toevoegen / Notities |
+| Technische constatering | Notitie |
+| Herkenbare naam / Korte omschrijving (unitnaam) | Naam |
+| Een ruimte is nog geen gekozen binnenunit | (weg; optioneel “Kamers uit de aanvraag.”) |
+| Maten L×B×H nog niet ingevuld | Maten nog leeg (of “4,2 × 3,1 × 2,5 m”) |
+| technische opname (CTA) | opname / Naar opname |
+| bijgewerkte werkplek (demo) | bijgewerkte opname |
 | Demo · echte werkplek / boost / Voorbeeldroute | Demo (marker); optioneel **Toon voorbeelddossier** |
 | AI-constateringen | wat de AI ziet |
 | aannemelijk (status) | lijkt te kloppen |

@@ -66,7 +66,7 @@
         </div>
     @elseif ($step === null || $question === null)
         <p class="rounded-xl border border-[#D2D2D7] bg-white p-4 text-sm text-[#424245] shadow-sm">
-            Er zijn nog geen vragen. Vul eerst in hoeveel ruimtes u wilt koelen of verwarmen.
+            Er zijn nog geen vragen. Vul eerst in hoeveel ruimtes je wilt koelen of verwarmen.
         </p>
     @else
         @php

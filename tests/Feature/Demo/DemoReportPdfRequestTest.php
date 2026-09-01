@@ -160,7 +160,7 @@ it('shows the PDF request form on the demo workspace and dossier page', function
         ->withSession($session)
         ->get(route('intakes.workspace', $intake))
         ->assertOk()
-        ->assertSee('Wilt u het demorapport als PDF?')
+        ->assertSee('Wil je het demorapport als PDF?')
         ->assertSee('demo-pdf-request', false)
         ->assertSee(route('demo.report-pdf', $intake), false)
         ->assertDontSee('info@jpwebcreation.nl');
@@ -169,7 +169,7 @@ it('shows the PDF request form on the demo workspace and dossier page', function
         ->withSession($session)
         ->get(route('intakes.show', $intake))
         ->assertOk()
-        ->assertSee('Wilt u het demorapport als PDF?')
+        ->assertSee('Wil je het demorapport als PDF?')
         ->assertSee('demo-pdf-request', false);
 });
 

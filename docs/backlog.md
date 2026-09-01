@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.33 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.34 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,7 +38,7 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 zijn gereserveerd voor draft PR’s [#74](https://github.com/JorisPaarde/intake-engine/pull/74) / [#75](https://github.com/JorisPaarde/intake-engine/pull/75) (AI-prefill); niet hergebruiken. BL-077 (meterkast vóór vrije groep) is done in PR #85. Nieuwe items starten bij BL-083 (BL-082 copy-pass in deze PR; BL-080 create-form UX in PR #87; BL-081 unit-copy in #86).
+**Nummering:** BL-063–065 zijn gereserveerd voor draft PR’s [#74](https://github.com/JorisPaarde/intake-engine/pull/74) / [#75](https://github.com/JorisPaarde/intake-engine/pull/75) (AI-prefill); niet hergebruiken. BL-077 (meterkast vóór vrije groep) is done in PR #85. Nieuwe items starten bij BL-084 (BL-083 ruimtekaart-copy in deze PR; BL-082 copy-pass in PR #88; BL-080 create-form UX in PR #87; BL-081 unit-copy in #86).
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
@@ -76,6 +76,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-080 | Create-form: adres zonder chrome + compact prefill + geen demo-mail in UI | E3/E5 | done | high | A · product/UX |
 | — | BL-081 | Werkplek-copy: binnen-/buitenunit i.p.v. plekken/posities | E7 | done | high | O · bij BL-053/059 |
 | — | BL-082 | Installateurstaal: multi-split/singles + Notitie + demo-chrome + airco v14 | E5/E7 | done | high | A · product/UX |
+| — | BL-083 | Werkplek ruimtekaart: geen herhaalde naam/type + korte copy | E7 | done | high | O · bij BL-079/081 |
 | — | BL-052 | Gecontroleerd eenvoudig Nederlands in de app-UI | E5 | done | medium | A (done) |
 | — | BL-053 | Mobiele werkplek: acties eerst, info dicht | E5 | done | high | O · bij BL-037 |
 | — | BL-054 | Sticky CTA = echte handeling | E5 | done | high | O · bij BL-053 |
@@ -585,6 +586,16 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Scope:** `workspace.blade.php`, `WorkspacePrimaryActionResolver`, validatie-/blocker-copy, [docs/language.md](language.md) woordenlijst; regressietests. Geen model-/routewijziging.
 - **Acceptatie:** geen “Mogelijke plekken”, “Plek toevoegen”, “Soort positie”, “Positie opslaan”, “Posities in deze optie” in installateurs-UI; sticky = **Binnen- of buitenunit toevoegen**; body = “Leg eerst vast waar de binnenunit en buitenunit komen.”; add/edit tonen Binnenunit, Buitenunit, Stroomaansluiting, Afvoerpunt als radio’s (`name="type"`).
 - **Resultaat:** chrome herschreven; type-select → zichtbare radio-chips; woordenlijst: plekken/posities → binnenunit/buitenunit.
+
+### BL-083 — Werkplek ruimtekaart: geen herhaalde naam/type + korte copy
+
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-01 · **PR:** #89 · **Epic:** E7 · **Band:** O · **Afhankelijk:** BL-079/081/082
+- **Aanleiding:** productie-screenshot: “Slaapkamer” vier keer op één kaart (h4, use_type-subtitels, Herkenbare naam, Gebruik); helper “Een ruimte is nog geen gekozen binnenunit.”; knop “Technische notitie toevoegen”.
+- **Doel:** één bewerkbare naam (**Naam**), Gebruik-dropdown zonder dubbele type in header, maten alleen als “Maten nog leeg” of `4,2 × 3,1 × 2,5 m`, korte sectiehelper of geen puzzelzin, **Notitie toevoegen**.
+- **Scope:** `workspace.blade.php` (Gewenste ruimtes), `_subject-tools.blade.php`, `SurveyWorkspaceTest`, [docs/language.md](language.md). Geen templateversie, geen domain keys.
+- **Acceptatie:** geen “Een ruimte is nog geen” / “Herkenbare naam” / “Maten L×B×H nog niet” / “Technische notitie toevoegen” in werkplek-UI; tests; `composer check` groen.
+- **Resultaat:** puzzelzin weg; geen dubbele h4/use_type; veld **Naam**; maten-subtitels kort; **Notitie toevoegen**; plus zelfde-klas leftovers (collegehelpers, demo **je**, PDF/ended, sample-captions zonder positie).
+- **Hypothese:** pure UI-copy/layout; geen modelwijziging.
 
 ### BL-082 — Installateurstaal: multi-split/singles + Notitie + demo-chrome + airco v14
 

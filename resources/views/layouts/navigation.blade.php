@@ -68,7 +68,7 @@
                         @csrf
                         <button
                             type="submit"
-                            onclick="return confirm('Weet u zeker dat u de demo wilt beëindigen? Demogegevens verdwijnen.')"
+                            onclick="return confirm('Weet je zeker dat je de demo wilt beëindigen? Demogegevens verdwijnen.')"
                             class="inline-flex min-h-11 items-center justify-center rounded-xl border border-sky-300 bg-sky-50 px-3 text-sm font-semibold text-sky-800 transition hover:border-sky-400 hover:bg-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2"
                         >
                             Demo beëindigen
@@ -102,7 +102,7 @@
                                 <form method="POST" action="{{ route('logout') }}">
                                     @csrf
                                     <x-dropdown-link :href="route('logout')"
-                                            onclick="event.preventDefault(); if (!confirm('Weet u zeker dat u de demo wilt beëindigen? Demogegevens verdwijnen.')) return false; this.closest('form').submit();">
+                                            onclick="event.preventDefault(); if (!confirm('Weet je zeker dat je de demo wilt beëindigen? Demogegevens verdwijnen.')) return false; this.closest('form').submit();">
                                         {{ __('Demo beëindigen') }}
                                     </x-dropdown-link>
                                 </form>
@@ -182,7 +182,7 @@
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
                         <x-responsive-nav-link :href="route('logout')"
-                                onclick="event.preventDefault(); if (!confirm('Weet u zeker dat u de demo wilt beëindigen? Demogegevens verdwijnen.')) return false; this.closest('form').submit();">
+                                onclick="event.preventDefault(); if (!confirm('Weet je zeker dat je de demo wilt beëindigen? Demogegevens verdwijnen.')) return false; this.closest('form').submit();">
                             {{ __('Demo beëindigen') }}
                         </x-responsive-nav-link>
                     </form>

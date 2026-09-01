@@ -12,9 +12,9 @@
     data-demo-anchor="pdf-request"
 >
     <p class="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Afronden · demorapport</p>
-    <h3 class="mt-2 text-xl font-semibold text-gray-950">Wilt u het demorapport als PDF?</h3>
+    <h3 class="mt-2 text-xl font-semibold text-gray-950">Wil je het demorapport als PDF?</h3>
     <p class="mt-2 max-w-2xl text-sm leading-relaxed text-gray-700">
-        Vul uw e-mailadres in. We sturen het rapport van deze demosessie. We noteren dit adres ook als
+        Vul je e-mailadres in. We sturen het rapport van deze demosessie. We noteren dit adres ook als
         kennismakingsaanvraag — zonder klantgegevens uit de demo.
     </p>
 
