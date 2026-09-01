@@ -64,8 +64,11 @@ final class DecisionReadinessService
     {
         $intake->loadMissing([
             'aircoRooms',
+            'aircoPlacements',
             'aircoInstallationOptions.placements',
             'aircoInstallationOptions.connections',
+            'uploads',
+            'answers',
             'review',
         ]);
 
@@ -76,10 +79,10 @@ final class DecisionReadinessService
         $areas = [];
         $areas['request'] = $this->requestArea($intake);
         $areas['capacity'] = $this->capacityArea($intake);
-        $areas['placement'] = $this->placementArea($candidate, $selected);
+        $areas['placement'] = $this->placementArea($intake, $candidate, $selected);
 
         foreach (AircoConnectionType::cases() as $type) {
-            $areas[$type->value] = $this->connectionArea($candidate, $type);
+            $areas[$type->value] = $this->connectionArea($intake, $candidate, $type);
         }
 
         $areas['cost_risks'] = $this->costArea($candidate);
@@ -160,9 +163,20 @@ final class DecisionReadinessService
      * @return array<string, mixed>
      */
     private function placementArea(
+        Intake $intake,
         ?AircoInstallationOption $candidate,
         ?AircoInstallationOption $selected,
     ): array {
+        $hasAroundHousePhoto = $this->hasAroundHousePhoto($intake);
+
+        if (! $hasAroundHousePhoto) {
+            return [
+                'status' => DecisionAreaStatus::Blocked,
+                'next_action' => DossierNextAction::RequestContribution,
+                'blocker' => 'Voeg foto’s rondom het huis toe (gevel, tuin of montageplek). Een luchtfoto volstaat niet.',
+            ];
+        }
+
         if ($candidate === null) {
             return [
                 'status' => DecisionAreaStatus::Blocked,
@@ -184,9 +198,18 @@ final class DecisionReadinessService
 
     /** @return array<string, mixed> */
     private function connectionArea(
+        Intake $intake,
         ?AircoInstallationOption $option,
         AircoConnectionType $type,
     ): array {
+        if ($type === AircoConnectionType::Power && ! $this->hasFuseboxPhoto($intake)) {
+            return [
+                'status' => DecisionAreaStatus::Blocked,
+                'next_action' => DossierNextAction::RequestContribution,
+                'blocker' => 'Voeg een duidelijke meterkastfoto toe. Daaruit volgt 1- of 3-fase.',
+            ];
+        }
+
         if ($option === null) {
             return [
                 'status' => DecisionAreaStatus::Blocked,
@@ -352,5 +375,71 @@ final class DecisionReadinessService
             'next_action' => DossierNextAction::PrepareQuote,
             'blocker' => null,
         ];
+    }
+
+    private function hasFuseboxPhoto(Intake $intake): bool
+    {
+        if ($intake->uploads->contains(
+            static fn ($upload): bool => in_array(
+                $upload->question_key,
+                ['fusebox_photo', 'fusebox_photo_extra'],
+                true,
+            ),
+        )) {
+            return true;
+        }
+
+        foreach ($intake->aircoPlacements as $placement) {
+            if ($placement->type === AircoPlacementType::PowerSource
+                && $placement->dossier_subject_id !== null
+                && $this->subjectHasUploadEvidence($intake, (int) $placement->dossier_subject_id)) {
+                return true;
+            }
+        }
+
+        foreach ($intake->aircoInstallationOptions as $option) {
+            foreach ($option->connections as $connection) {
+                if ($connection->type === AircoConnectionType::Power
+                    && $connection->dossier_subject_id !== null
+                    && $this->subjectHasUploadEvidence($intake, (int) $connection->dossier_subject_id)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private function hasAroundHousePhoto(Intake $intake): bool
+    {
+        if ($intake->uploads->contains(
+            static fn ($upload): bool => in_array(
+                $upload->question_key,
+                ['around_house_photos', 'facade_overview_photo', 'outdoor_location_photos'],
+                true,
+            ),
+        )) {
+            return true;
+        }
+
+        foreach ($intake->aircoPlacements as $placement) {
+            if ($placement->type === AircoPlacementType::OutdoorUnit
+                && $placement->dossier_subject_id !== null
+                && $this->subjectHasUploadEvidence($intake, (int) $placement->dossier_subject_id)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function subjectHasUploadEvidence(Intake $intake, int $subjectId): bool
+    {
+        $instanceKey = 'subject-'.$subjectId;
+
+        return $intake->uploads->contains(
+            static fn ($upload): bool => $upload->question_key === 'installer_evidence'
+                && $upload->section_instance_key === $instanceKey,
+        );
     }
 }

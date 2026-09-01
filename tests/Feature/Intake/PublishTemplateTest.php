@@ -7,7 +7,7 @@ use App\Domains\Intake\Services\PublishIntakeTemplateFromConfig;
 use App\Enums\TemplateVersionStatus;
 use Database\Seeders\IntakeTemplateSeeder;
 
-test('airco template seeder publishes v1 through v11 with v11 as latest', function () {
+test('airco template seeder publishes v1 through v12 with v12 as latest', function () {
     $this->seed(IntakeTemplateSeeder::class);
 
     $template = IntakeTemplate::query()->where('key', 'airco')->first();
@@ -17,14 +17,14 @@ test('airco template seeder publishes v1 through v11 with v11 as latest', functi
 
     $versions = $template->versions()->orderBy('version')->get();
 
-    expect($versions)->toHaveCount(11)
-        ->and($versions->pluck('version')->all())->toBe([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
+    expect($versions)->toHaveCount(12)
+        ->and($versions->pluck('version')->all())->toBe([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
         ->and($versions->every(fn ($version) => $version->status === TemplateVersionStatus::Published))->toBeTrue();
 
     $latest = $template->latestPublishedVersion();
 
     expect($latest)->not->toBeNull()
-        ->and($latest->version)->toBe(11)
+        ->and($latest->version)->toBe(12)
         ->and($latest->sections()->count())->toBeGreaterThan(5)
         ->and($latest->sections()->where('key', 'rooms')->value('is_repeatable'))->toBeTrue();
 
@@ -37,9 +37,11 @@ test('airco template seeder publishes v1 through v11 with v11 as latest', functi
     $roomKeys = $roomQuestions->pluck('key')->all();
 
     expect($roomKeys)->toContain('room_size_indication')
-        ->and($roomKeys)->not->toContain('room_length_m')
-        ->and($roomKeys)->not->toContain('room_width_m')
-        ->and($roomKeys)->not->toContain('ceiling_height_m');
+        ->and($roomKeys)->toContain('room_length_m')
+        ->and($roomKeys)->toContain('room_width_m')
+        ->and($roomKeys)->toContain('ceiling_height_m')
+        ->and($roomKeys)->toContain('wall_outlet_photo')
+        ->and($roomQuestions->firstWhere('key', 'room_length_m')->is_required)->toBeFalse();
 
     // BL-016 (v3): prefill meta flags flow through the seeder.
     $floorLevel = $roomQuestions->firstWhere('key', 'floor_level');
@@ -79,7 +81,10 @@ test('airco template seeder publishes v1 through v11 with v11 as latest', functi
     expect($building->questions()->where('key', 'building_type')->firstOrFail()->meta['skip_when_prefilled_by'])
         ->toBe(['pdok', 'epo'])
         ->and($building->questions()->where('key', 'insulation_indication')->firstOrFail()->meta['skip_when_prefilled_by'])
-        ->toBe(['epo']);
+        ->toBe(['epo'])
+        ->and($building->questions()->where('key', 'crawl_space_present')->exists())->toBeTrue()
+        ->and($building->questions()->where('key', 'floor_insulation')->firstOrFail()->meta['skip_when_prefilled_by'])
+        ->toContain('epo');
 
     $outdoor = $latest->sections()->where('key', 'outdoor_unit')->firstOrFail();
     $freeGroup = $latest->sections()
@@ -94,13 +99,15 @@ test('airco template seeder publishes v1 through v11 with v11 as latest', functi
         ->questions()
         ->where('key', 'fusebox_photo')
         ->firstOrFail();
+    $aroundHouse = $outdoor->questions()->where('key', 'around_house_photos')->firstOrFail();
 
     expect($freeGroup->is_required)->toBeFalse()
         ->and($freeGroup->label)->toBe('Is er een vrije groep in de meterkast?')
         ->and($freeGroup->meta['skip_when_prefilled_by'] ?? null)->toBe('ai')
         ->and($fuseboxPhoto->meta['photo_analysis'] ?? null)->toBe('fusebox')
+        ->and($fuseboxPhoto->is_required)->toBeTrue()
+        ->and($aroundHouse->is_required)->toBeTrue()
         ->and($outdoor->questions()->where('key', 'distance_to_indoor')->exists())->toBeFalse()
-        // v7 schrapt de losse gevelfoto: de PDOK-luchtfoto levert het overzicht al.
         ->and($outdoor->questions()->where('key', 'facade_overview_photo')->exists())->toBeFalse();
 
     $sunExposure = $latest->sections()
@@ -116,12 +123,12 @@ test('airco template seeder publishes v1 through v11 with v11 as latest', functi
     $againV1 = app(PublishIntakeTemplateFromConfig::class)->handle(
         require database_path('data/templates/airco/v1.php'),
     );
-    $againV11 = app(PublishIntakeTemplateFromConfig::class)->handle(
-        require database_path('data/templates/airco/v11.php'),
+    $againV12 = app(PublishIntakeTemplateFromConfig::class)->handle(
+        require database_path('data/templates/airco/v12.php'),
     );
 
     expect($againV1->version)->toBe(1)
-        ->and($againV11->id)->toBe($latest->id)
+        ->and($againV12->id)->toBe($latest->id)
         ->and(IntakeTemplate::query()->where('key', 'airco')->count())->toBe(1)
-        ->and($template->versions()->count())->toBe(11);
+        ->and($template->versions()->count())->toBe(12);
 });

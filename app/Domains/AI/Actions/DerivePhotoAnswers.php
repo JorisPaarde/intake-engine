@@ -370,15 +370,34 @@ final class DerivePhotoAnswers
         PhotoDerivationProfile $profile,
     ): array {
         $confidence = (string) $output['confidence'];
+        $applied = [];
+
+        // BL-074: stopcontactstatus altijd vastleggen zodat een extra wandfoto kan
+        // verschijnen — ook bij lage zekerheid — zonder een ja/nee-klantvraag.
+        if ($profile->name === 'room') {
+            $outletApplied = $this->applyRoomOutletStatus(
+                $intake,
+                $output,
+                $sectionInstanceKey,
+                $confidence,
+            );
+
+            if ($outletApplied !== null) {
+                $applied[] = $outletApplied;
+            }
+        }
 
         if ($confidence === 'low') {
-            return ['derived' => [], 'suggested' => []];
+            return ['derived' => $applied, 'suggested' => []];
         }
 
         $source = $confidence === 'high' ? self::SOURCE_DERIVED : self::SOURCE_SUGGESTED;
-        $applied = [];
 
         foreach ($profile->fields as $field) {
+            if ($field->questionKey === 'room_outlet_status') {
+                continue;
+            }
+
             $value = (string) ($output[$field->outputKey] ?? 'unknown');
 
             if ($value === 'unknown') {
@@ -403,6 +422,63 @@ final class DerivePhotoAnswers
         return $confidence === 'high'
             ? ['derived' => $applied, 'suggested' => []]
             : ['derived' => [], 'suggested' => $applied];
+    }
+
+    /**
+     * @param  array<string, mixed>  $output
+     */
+    private function applyRoomOutletStatus(
+        Intake $intake,
+        array $output,
+        ?string $sectionInstanceKey,
+        string $confidence,
+    ): ?string {
+        $field = null;
+
+        foreach (PhotoDerivationProfile::require('room')->fields as $candidate) {
+            if ($candidate->questionKey === 'room_outlet_status') {
+                $field = $candidate;
+                break;
+            }
+        }
+
+        if ($field === null || ! $this->mayOverwrite($intake, $field, $sectionInstanceKey)) {
+            return null;
+        }
+
+        if (! $this->intakeHasQuestion($intake, 'room_outlet_status')) {
+            return null;
+        }
+
+        $raw = (string) ($output['room_outlet_status'] ?? 'unknown');
+        $status = ($confidence === 'high' && $raw === 'present')
+            ? 'present'
+            : 'needs_photo';
+
+        $this->saveIntakeAnswer->handle(
+            $intake,
+            'room_outlet_status',
+            $sectionInstanceKey,
+            ['value' => $status],
+            self::SOURCE_DERIVED,
+        );
+
+        return 'room_outlet_status';
+    }
+
+    private function intakeHasQuestion(Intake $intake, string $questionKey): bool
+    {
+        $intake->loadMissing('templateVersion.sections.questions');
+
+        foreach ($intake->templateVersion?->sections ?? [] as $section) {
+            foreach ($section->questions as $question) {
+                if ($question->key === $questionKey) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**

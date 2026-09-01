@@ -6,6 +6,6 @@ declare(strict_types=1);
  * @return array{version: string, description: string}
  */
 return [
-    'version' => 'room-assessment-v3',
-    'description' => 'Leidt ruimtetype en -kenmerken af uit ruimtefoto’s; nooit zelfstandig capaciteits- of installatieadvies.',
+    'version' => 'room-assessment-v4',
+    'description' => 'Leidt ruimtetype, kenmerken en stopcontactzichtbaarheid af; extra wandfoto alleen als outlet buiten beeld (BL-074).',
 ];

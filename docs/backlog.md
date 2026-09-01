@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.24 · **Laatste update:** 2026-08-26 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.25 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -67,6 +67,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-071 | Rest-UI op language.md | E5 | done | high | A · product/demo/UX |
 | — | BL-072 | Production-release van Unreleased | E5 | ready | medium | A · operationeel |
 | — | BL-073 | Demo trial-killers: klantlink NL, geen Voorbeeldklant, eerlijke voortgang | E5 | done | high | A · product/demo/UX |
+| 1 | BL-074 | Offerte-kritisch bewijs na installateurstrial (meterkast, fase, stopcontacten, rondom huis, kruipruimte, vloerisolatie, maten) | E3/E7/E9 | in_progress | high | product · airco-pad |
 | — | BL-052 | Gecontroleerd eenvoudig Nederlands in de app-UI | E5 | done | medium | A (done) |
 | — | BL-053 | Mobiele werkplek: acties eerst, info dicht | E5 | done | high | O · bij BL-037 |
 | — | BL-054 | Sticky CTA = echte handeling | E5 | done | high | O · bij BL-053 |
@@ -550,6 +551,23 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Niet in scope:** draft AI-prefill #74/#75; fake 100%; mail bij `is_demo`.
 - **Acceptatie:** lege klanttaak → NL actionable fout, geen Engels; gevulde opdracht activeert klantweergave (demo zonder mail); nieuwe demo-opname toont getypte naam/adres; sample-CTA verdwijnt na plekken/foto’s/opstelling; counter toont met-inhoud + klaar-voor-offerte apart; lege AI verklaart ontbrekende opstelling.
 - **Resultaat:** NL-validatie op klanttaakpad; geen Voorbeeldklant-prefill; sample-CTA conditional; `filled_count` in dossieroverzicht; AI-empty copy; tests + language.md je-regel.
+
+### BL-074 — Offerte-kritisch bewijs na installateurstrial (Jamie Elderenbos, 28 aug 2026)
+
+- **Status:** in_progress · **Prioriteit:** high · **Epic:** E3/E7/E9 · **Band:** product · airco-pad
+- **Aanleiding:** eerste echte installateurstrial: ontbrekende of verborgen quote-kritische signalen (meterkast/fase, stopcontacten, foto’s rondom het huis, kruipruimte, vloerisolatie, kamermaten).
+- **Doel:** standaard airco-opnamepad verzamelt dit bewijs zonder twintig extra ja/nee-klantvragen; fase en stopcontacten komen uit foto’s met extra-foto-fallback.
+- **Scope:**
+  1. Meterkastfoto in het standaardpad (klanttaak én open punt op de werkplek).
+  2. 1-/3-fase uit dezelfde meterkastfoto (`AssessFuseboxPhotos`); extra meterkastfoto bij lage zekerheid; geen losse fasevraag.
+  3. Stopcontacten uit ruimte-/wandfoto; extra wandfoto alleen als buiten beeld; geen ja/nee als de foto het toont.
+  4. Verplichte foto’s rondom het huis (gevel/buiten/montageplek); géén Street View/luchtfoto als vervanging.
+  5. Kruipruimte als kleine veilige waarneming (klant of installateur).
+  6. Vloerisolatie: EP-Online als aanwezig (fail-soft, geen key verplicht in deze PR); anders korte vraag.
+  7. Kamer L×B×H zichtbaar op de werkplek; klantpad optionele meters of foto-voorzet (geen BL-017-meetspam).
+- **Niet in scope:** nieuw domeinmodel; Google Street View-integratie; verplichten van `EP_ONLINE_KEY`.
+- **Acceptatie:** backlog-item bestaat; default airco-pad vraagt meterkast + rondom-huis; fase/outlets uit foto’s met extra-foto-fallback; kruipruimte vastlegbaar; vloerisolatie via EP-Online of vraag; maten zichtbaar; tests; `composer check` groen.
+- **Hypothese (geverifieerd):** vooral collection-path / template v12 / workspace open-punten / bestaande AI-fotopad — geen nieuw domain model.
 
 ### BL-043 — Publieke productfunnel en interesse-CTA
 

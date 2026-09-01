@@ -290,6 +290,16 @@ final class EnrichIntakeAddress
             $this->saveIntakeAnswer->handle($intake, 'insulation_indication', null, ['value' => $insulation], 'epo');
         }
 
+        // BL-074: vloerisolatie alleen vragen als EP-Online geen label leverde (fail-soft).
+        if ($insulation !== null && $this->hasQuestion($intake, 'floor_insulation')) {
+            $floor = match ($insulation) {
+                'good' => 'yes',
+                'poor' => 'no',
+                default => 'unknown',
+            };
+            $this->saveIntakeAnswer->handle($intake, 'floor_insulation', null, ['value' => $floor], 'epo');
+        }
+
         $buildingType = $label->buildingTypeOption();
 
         if ($buildingType !== null && $this->hasQuestion($intake, 'building_type')) {

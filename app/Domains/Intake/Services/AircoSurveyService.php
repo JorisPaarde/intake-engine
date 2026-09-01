@@ -93,7 +93,7 @@ final class AircoSurveyService
         $name = trim($data['name']);
         $room->update([
             'name' => $name,
-            'use_type' => $data['use_type'] ?? null,
+            'use_type' => array_key_exists('use_type', $data) ? $data['use_type'] : $room->use_type,
             'dimensions' => $dimensions,
         ]);
 

@@ -319,9 +319,21 @@
                                                     'other' => 'Andere ruimte',
                                                     default => 'Gebruik nog niet vastgesteld',
                                                 } }}
-                                                @if ($roomDimensions !== [])
+                                                @php
+                                                    $length = $roomDimensions['length_m'] ?? null;
+                                                    $width = $roomDimensions['width_m'] ?? null;
+                                                    $height = $roomDimensions['height_m'] ?? null;
+                                                @endphp
+                                                @if (is_numeric($length) || is_numeric($width) || is_numeric($height))
                                                     ·
-                                                    {{ collect($roomDimensions)->map(fn ($value, $key) => number_format((float) $value, 1, ',', '.').' m')->implode(' × ') }}
+                                                    {{ is_numeric($length) ? number_format((float) $length, 1, ',', '.') : '–' }}
+                                                    ×
+                                                    {{ is_numeric($width) ? number_format((float) $width, 1, ',', '.') : '–' }}
+                                                    ×
+                                                    {{ is_numeric($height) ? number_format((float) $height, 1, ',', '.') : '–' }}
+                                                    m
+                                                @else
+                                                    · Maten L×B×H nog niet ingevuld
                                                 @endif
                                             </p>
                                         </div>
@@ -335,6 +347,29 @@
                                             } }}
                                         </span>
                                     </div>
+
+                                    <form method="POST" action="{{ route('intakes.workspace.rooms.update', [$intake, $room]) }}" class="mt-4 grid gap-3 rounded-xl border border-gray-100 bg-gray-50 p-3 sm:grid-cols-3">
+                                        @csrf
+                                        <input type="hidden" name="name" value="{{ $room->name }}" />
+                                        @if (is_string($room->use_type) && $room->use_type !== '')
+                                            <input type="hidden" name="use_type" value="{{ $room->use_type }}" />
+                                        @endif
+                                        <div>
+                                            <x-input-label for="room-{{ $room->id }}-length-inline" value="Lengte (m)" />
+                                            <x-text-input id="room-{{ $room->id }}-length-inline" name="length_m" type="number" step="0.1" min="0.5" class="mt-1 block w-full" value="{{ $roomDimensions['length_m'] ?? '' }}" />
+                                        </div>
+                                        <div>
+                                            <x-input-label for="room-{{ $room->id }}-width-inline" value="Breedte (m)" />
+                                            <x-text-input id="room-{{ $room->id }}-width-inline" name="width_m" type="number" step="0.1" min="0.5" class="mt-1 block w-full" value="{{ $roomDimensions['width_m'] ?? '' }}" />
+                                        </div>
+                                        <div>
+                                            <x-input-label for="room-{{ $room->id }}-height-inline" value="Hoogte (m)" />
+                                            <x-text-input id="room-{{ $room->id }}-height-inline" name="height_m" type="number" step="0.1" min="1.5" class="mt-1 block w-full" value="{{ $roomDimensions['height_m'] ?? '' }}" />
+                                        </div>
+                                        <div class="sm:col-span-3">
+                                            <x-primary-button>Maten opslaan</x-primary-button>
+                                        </div>
+                                    </form>
 
                                     @if ($room->placements->isNotEmpty())
                                         <ul class="mt-4 grid gap-2 sm:grid-cols-2">
