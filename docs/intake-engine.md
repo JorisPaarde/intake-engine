@@ -1,6 +1,6 @@
 # Vragen- en takenengine
 
-> **Documentversie:** 2.8 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.9 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: de templatewizard is **geïmplementeerd t/m airco v12** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md). UI-taal: [language.md](language.md).
 
@@ -234,7 +234,7 @@ Vraagreductie blijft template-gestuurd:
 
 Airco v4 gebruikte dit alleen voor `build_year`: BAG registreert dit direct op het eenduidig gekoppelde pand. v6 breidt het uit naar `building_type`, maar alleen voor het eenduidige geval — bevat het gebruiksdoel geen enkele `woonfunctie`, dan is `commercial` een feit. BAG onderscheidt appartement, tussenwoning, hoekwoning en vrijstaand níét, dus bij elke woonfunctie blijft de vraag gewoon staan: een fout voorzet kost de installateur meer dan één extra vraag.
 
-In normale opnames wordt `EnrichIntakeAddress` direct na `IntakeController::store` aangeroepen; automatisch opgehaalde feiten gaan met bron en zekerheid het dossier in. De publieke demo is hiervan bewust losgekoppeld: `StartDemoIntake` benadert geen echt adres en bouwt expliciet gelabelde fictieve BAG-/luchtfoto-/EP-Online-/3DBAG-context. Zo blijft de demo voorspelbaar en worden openbare diensten niet door anoniem demoverkeer belast.
+In normale opnames wordt `EnrichIntakeAddress` direct na `IntakeController::store` aangeroepen; automatisch opgehaalde feiten gaan met bron en zekerheid het dossier in. De publieke demo volgt hetzelfde create-pad: na postcode/huisnummer draait live BAG/PDOK/luchtfoto-verrijking. Het optionele voorbeelddossier injecteert ruimtes, foto’s en AI-voorbeeldcontent; een synthetische luchtfoto wordt alleen toegevoegd wanneer er nog geen live `PDOK Luchtfoto RGB`-capture is, zodat het getypeerde adres zichtbaar blijft (BL-075).
 
 ## Foto-afleiding en uitzonderingen (BL-020/041)
 

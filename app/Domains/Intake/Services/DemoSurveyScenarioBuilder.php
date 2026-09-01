@@ -262,6 +262,25 @@ final class DemoSurveyScenarioBuilder
             }
         }
 
+        // Live PDOK aerial from the typed address must stay visible; sample load only
+        // injects a synthetic aerial when no live capture exists (empty-address demos).
+        if ($this->hasLivePdokAerial($intake)) {
+            return;
+        }
+
+        $this->storeSyntheticAerial($intake);
+    }
+
+    private function hasLivePdokAerial(Intake $intake): bool
+    {
+        return $intake->externalFacts()
+            ->where('fact_key', 'aerial_image')
+            ->where('source', PdokAerialImageService::sourceName())
+            ->exists();
+    }
+
+    private function storeSyntheticAerial(Intake $intake): void
+    {
         $asset = resource_path('demo/evidence/aerial.jpg');
         $disk = (string) config('filesystems.media', 'local');
         $path = 'intakes/'.$intake->uuid.'/external/demo-aerial.jpg';

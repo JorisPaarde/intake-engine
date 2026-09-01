@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Fixed
+
+- **Demo-luchtfoto blijft bij het getypeerde adres (BL-075):** na live BAG/PDOK-verrijking overschrijft *Toon voorbeelddossier* de PDOK-luchtfoto niet meer met de synthetische Haarlem-voorbeeldcapture. Sample-load injecteert ruimtes/foto’s/AI; een fictieve luchtfoto alleen wanneer er nog geen live `PDOK Luchtfoto RGB` is. `ExternalFactPresenter` prefereert live PDOK boven fictief demo-voorbeeld.
+
 ### Added
 
 - **Offerte-kritisch bewijs na installateurstrial (BL-074):** airco-template **v12** maakt meterkastfoto en foto’s rondom het huis verplicht; 1-/3-fase volgt uit dezelfde meterkastfoto (`AssessFuseboxPhotos`) met extra-foto bij lage zekerheid (geen losse fasevraag); stopcontacten uit de ruimtefoto met optionele extra wandfoto; kruipruimte-waarneming; vloerisolatie via EP-Online of korte vraag (fail-soft); optionele kamer L×B×H + zichtbare maten op de werkplek. Open punten markeren ontbrekende meterkast- en omgevingsfoto’s.
