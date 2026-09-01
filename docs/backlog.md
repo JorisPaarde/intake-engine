@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.27 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.28 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -583,13 +583,13 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-076 — Demo-banner: installateurstaal i.p.v. featuresheet
 
-- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-01 · **PR:** (deze PR) · **Epic:** E5 · **Band:** A · product/demo/UX
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-01 · **PR:** #83 · **Epic:** E5 · **Band:** A · product/demo/UX
 - **Aanleiding:** producteigenaar: de klant-demo-banner (“Demo — korte klantroute” + “Wel aan / Bewust uitgeschakeld”-lijsten) is geen goede installateurstaal; jargon (klantroute, foto-AI, productie, productielijst, afgeschermde klanttaak).
-- **Doel:** korte installateur-tot-installateur copy in `demo-scope-notice` (banner + complete), zonder featuresheet; feiten (geen echte klant, geen uitgaande mail, tijdelijke data, PDF niet automatisch) in één à twee zinnen; **je** volgens [docs/language.md](language.md).
+- **Doel:** korte installateur-tot-installateur copy in `demo-scope-notice` (banner + complete), zonder featuresheet; feiten (geen echte klant, geen uitgaande mail, tijdelijke data, PDF niet automatisch) in één à twee zinnen; **je** volgens [docs/language.md](language.md). Geen suggestie dat de demoklantvragenlijst verkort/“expres kort” is (productintentie: zo compleet mogelijke opname; allowlist-verwijdering is apart).
 - **Scope:** alleen copy in `resources/views/components/demo-scope-notice.blade.php` + stringasserts in `StartDemoTest`; geen gedrag/AI/mail-wijziging.
-- **Niet in scope:** flashteksten elders, democoach, AI-flags, mailverzending.
-- **Acceptatie:** geen “Wel aan / bewust uitgeschakeld”-checklists op de banner; geen “productie”/“klantroute” in die component; tests groen; `composer check` groen.
-- **Resultaat:** banner “Demo — wat de klant ziet” / “Demo — aanvulling door de klant” en complete-footer herschreven tot korte prose; featurelijsten verwijderd.
+- **Niet in scope:** short-customer allowlist in code; flashteksten elders, democoach, AI-flags, mailverzending.
+- **Acceptatie:** geen “Wel aan / bewust uitgeschakeld”-checklists; geen “productie”/“klantroute”/“expres kort”; tests groen; `composer check` groen.
+- **Resultaat:** banner “Demo — wat de klant ziet” (“Je vult in wat de klant invult…”) / “Demo — aanvulling door de klant” en complete-footer herschreven tot korte prose; featurelijsten verwijderd.
 
 ### BL-043 — Publieke productfunnel en interesse-CTA
 

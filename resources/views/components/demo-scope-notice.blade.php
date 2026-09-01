@@ -13,7 +13,7 @@
         </p>
         <p class="mt-1 leading-relaxed text-brand-ink/75">
             @if ($shortCustomer)
-                Je kijkt naar de pagina na jouw link. Geen echte klant, er gaat geen mail uit. Dit is expres kort; in het echt krijgt de klant alleen wat nog nodig is.
+                Je vult in wat de klant invult na jouw link. Geen echte klant, er gaat geen mail uit.
             @else
                 Je bekijkt één opdracht uit de tijdelijke opname. Geen echte klant, er gaat geen mail uit. De gegevens verdwijnen vanzelf.
             @endif
@@ -24,7 +24,7 @@
         <p class="font-semibold text-brand-ink">Wat je net hebt gedaan</p>
         <p class="mt-1 leading-relaxed">
             @if ($shortCustomer)
-                Je hebt de demopagina van de klant afgerond. Geen echte klant, er ging geen mail uit. De gegevens verdwijnen vanzelf; een PDF gaat alleen als je die aanvraagt.
+                Je hebt afgerond wat de klant na de link invult. Geen echte klant, er ging geen mail uit. De gegevens verdwijnen vanzelf; een PDF gaat alleen als je die aanvraagt.
             @else
                 Je hebt één aanvulling afgerond. Geen echte klant, er ging geen mail uit. De gegevens verdwijnen vanzelf; een PDF gaat alleen als je die aanvraagt.
             @endif

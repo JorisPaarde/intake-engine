@@ -6,7 +6,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
-- **Demo-banner in installateurstaal (BL-076):** `demo-scope-notice` toont geen featuresheet meer (“Wel aan / Bewust uitgeschakeld”, jargon als klantroute/productie). Korte prose: *Demo — wat de klant ziet* / *Demo — aanvulling door de klant* en de afrondingsfooter; feiten (geen echte klant, geen mail, tijdelijke data, PDF alleen op aanvraag) in één à twee zinnen met **je**.
+- **Demo-banner in installateurstaal (BL-076):** `demo-scope-notice` toont geen featuresheet meer (“Wel aan / Bewust uitgeschakeld”, jargon als klantroute/productie). Korte prose: *Demo — wat de klant ziet* (“Je vult in wat de klant invult na jouw link”) / *Demo — aanvulling door de klant* en de afrondingsfooter; feiten (geen echte klant, geen mail, tijdelijke data, PDF alleen op aanvraag) met **je**. Geen claim dat de demovragenlijst “expres kort” of verkort is.
 
 ### Fixed
 

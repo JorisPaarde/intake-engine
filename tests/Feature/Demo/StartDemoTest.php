@@ -207,15 +207,16 @@ it('continues as customer on a short guided route without sending mail', functio
     $this->get($intake->customerUrl())
         ->assertOk()
         ->assertSee('Demo — wat de klant ziet')
-        ->assertSee('Je kijkt naar de pagina na jouw link')
+        ->assertSee('Je vult in wat de klant invult na jouw link')
         ->assertSee('Geen echte klant, er gaat geen mail uit')
+        ->assertDontSee('expres kort')
+        ->assertDontSee('korte klantroute')
         ->assertDontSee('Wel aan in deze demo')
         ->assertDontSee('Bewust uitgeschakeld')
         ->assertDontSee('Dit ziet je klant')
-        // Openingszin en koelen zijn al afgeleid; de verkorte route start bij een resterende vraag.
+        // Openingszin en koelen zijn al afgeleid; de wizard start bij een resterende vraag.
         ->assertSee('Wat voor type gebouw is het?');
 });
-
 
 it('continues as installer and can load the sample dossier', function () {
     ['intake' => $intake, 'user' => $user] = createDemoIntakeViaForm();
