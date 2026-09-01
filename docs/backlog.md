@@ -631,7 +631,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Aanleiding:** producteigenaar op create: Toevoeging + “Handmatig invoeren/ingevoerd” + status/helper zijn ruis; straatregel toonde soms alleen straatnaam; demo prefillde `voorbeeld+…@demo.invalid` zichtbaar; prefill-blok (kruipruimte + L×B×H) te veel ruimte/tekst.
 - **Doel:** postcode + huisnummer blijven lookup; daarna alleen *Straat en huisnummer* (volledig, met nummer/toevoeging) en *Plaats*; toevoeging in huisnummer/straatregel (hidden OK); geen `@demo.invalid` in UI (server-side bij lege opslaan); compacte installateur-prefill zonder klant-helpteksten.
 - **Scope:** `create.blade.php` + JS, `_prefill-field`, `StoreIntakeRequest`, `PdokAddressService`/`BagAddressAttributes` address_line-schrijfwijze, demo create/store; featuretests; docs.
-- **Niet in scope:** klantwizard-labels herschrijven; open PRs #84/#85/#86; nieuwe templateversie.
+- **Niet in scope:** klantwizard-labels herschrijven; open PR #85; nieuwe templateversie. (#84/#86 zijn gemerged.)
 - **Acceptatie:** create toont geen Toevoeging/Handmatig-chrome; suggestion `address_line` bevat huisnummer; demo create zonder zichtbaar `@demo.invalid`; prefill korte labels + L×B×H-rij + “—”; `composer check` groen.
 - **Resultaat:** adresblok vereenvoudigd; `address_line` als `Straat 12A`; demo-e-mail leeg in UI; prefill compact.
 
