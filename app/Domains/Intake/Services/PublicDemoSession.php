@@ -78,31 +78,4 @@ final class PublicDemoSession
 
         return $query->first();
     }
-
-    /**
-     * @return list<string>
-     */
-    public function shortCustomerQuestionKeys(): array
-    {
-        $configured = config('intake.demo.short_customer_question_keys', [
-            'request_reason',
-            'cooling_heating',
-            'building_type',
-            'outdoor_location',
-            'free_group_known',
-        ]);
-
-        if (! is_array($configured)) {
-            return [];
-        }
-
-        $keys = [];
-        foreach ($configured as $key) {
-            if (is_string($key) && $key !== '') {
-                $keys[] = $key;
-            }
-        }
-
-        return $keys;
-    }
 }

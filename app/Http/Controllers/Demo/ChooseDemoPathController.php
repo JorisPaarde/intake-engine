@@ -30,7 +30,6 @@ final class ChooseDemoPathController extends Controller
 
         $request->session()->put([
             'public_demo_path_chosen' => $path,
-            'public_demo_short_customer' => $path === 'customer',
             'public_demo_guide_step' => null,
         ]);
 

@@ -33,7 +33,6 @@ final class StartDemoController extends Controller
             'public_demo_guide_step' => 'welcome',
             'public_demo_intake_id' => null,
             'public_demo_path_chosen' => null,
-            'public_demo_short_customer' => false,
             'public_demo_scenario_loaded' => false,
         ]);
 

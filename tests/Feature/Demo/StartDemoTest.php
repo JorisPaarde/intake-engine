@@ -16,6 +16,7 @@ use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Domains\Intake\Services\AircoSurveyService;
 use App\Domains\Intake\Services\CompletenessChecker;
+use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Enums\AircoConnectionType;
 use App\Enums\AircoPlacementType;
 use App\Enums\AiRunType;
@@ -188,34 +189,69 @@ it('creates one demo intake from the normal create form and opens the role branc
         ->assertNotFound();
 });
 
-it('continues as customer on a short guided route without sending mail', function () {
+it('continues as customer on the full production wizard without sending mail', function () {
     Mail::fake();
     ['intake' => $intake, 'user' => $user] = createDemoIntakeViaForm();
 
     $this->actingAs($user)
         ->withSession(demoSessionFor($user, $intake))
         ->post(route('demo.path.choose', $intake), ['path' => 'customer'])
-        ->assertRedirect($intake->fresh()->customerUrl());
+        ->assertRedirect($intake->fresh()->customerUrl())
+        ->assertSessionMissing('public_demo_short_customer');
 
     $intake->refresh();
     expect($intake->workflow_mode)->toBe(ContributionMode::Customer)
         ->and($intake->customer_access_enabled)->toBeTrue()
-        ->and($intake->status)->toBe(IntakeStatus::Sent);
+        ->and($intake->status)->toBe(IntakeStatus::Sent)
+        ->and(session('public_demo_path_chosen'))->toBe('customer');
 
     Mail::assertNothingSent();
 
-    $this->get($intake->customerUrl())
-        ->assertOk()
-        ->assertSee('Demo — wat de klant ziet')
-        ->assertSee('Je vult in wat de klant invult na jouw link')
-        ->assertSee('Geen echte klant, er gaat geen mail uit')
-        ->assertDontSee('expres kort')
-        ->assertDontSee('korte klantroute')
-        ->assertDontSee('Wel aan in deze demo')
-        ->assertDontSee('Bewust uitgeschakeld')
-        ->assertDontSee('Dit ziet je klant')
-        // Openingszin en koelen zijn al afgeleid; de wizard start bij een resterende vraag.
-        ->assertSee('Wat voor type gebouw is het?');
+    $version = $intake->templateVersion()
+        ->with(['sections.questions.options', 'sections.questions.rules'])
+        ->firstOrFail();
+    $stepKeys = collect(app(IntakeStepBuilder::class)->build($intake, $version))
+        ->pluck('question_key')
+        ->all();
+
+    expect($stepKeys)
+        ->toContain('fusebox_photo')
+        ->toContain('around_house_photos')
+        ->toContain('free_group_known')
+        ->and(count($stepKeys))->toBeGreaterThan(2);
+
+    $banner = Blade::render('<x-demo-scope-notice variant="banner" :short-customer="true" />');
+    expect($banner)
+        ->toContain('Demo — wat de klant ziet')
+        ->toContain('Je vult in wat de klant invult na jouw link')
+        ->toContain('Geen echte klant, er gaat geen mail uit')
+        ->not->toContain('korte klantroute')
+        ->not->toContain('expres kort')
+        ->not->toContain('Wel aan in deze demo')
+        ->not->toContain('Bewust uitgeschakeld');
+
+    $component = Livewire\Livewire::test(\App\Livewire\Customer\IntakeWizard::class, [
+        'token' => $intake->access_token,
+    ]);
+
+    // Wizard must expose the same photo steps as production (not the old allowlist stub).
+    $wizardSteps = (new ReflectionClass($component->instance()))
+        ->getMethod('steps');
+    $wizardSteps->setAccessible(true);
+    /** @var list<array{question_key: string}> $resolved */
+    $resolved = $wizardSteps->invoke($component->instance());
+    $wizardKeys = array_column($resolved, 'question_key');
+
+    expect($wizardKeys)
+        ->toContain('fusebox_photo')
+        ->toContain('around_house_photos')
+        ->and(count($wizardKeys))->toBeGreaterThan(2);
+
+    $html = $component->html();
+    expect($html)
+        ->toContain('Demo — wat de klant ziet')
+        ->not->toContain('Vraag 2 van 2')
+        ->toMatch('/Vraag \d+ van ([3-9]|\d{2,})/');
 });
 
 it('continues as installer and can load the sample dossier', function () {

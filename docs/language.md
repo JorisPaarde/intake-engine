@@ -1,6 +1,6 @@
 # UI-taal — gecontroleerd eenvoudig Nederlands
 
-> **Documentversie:** 1.2 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.3 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: bron van waarheid voor gebruikersgerichte teksten in de app (UI, mails, templatevragen, flash-/foutmeldingen). Productdocumentatie mag technischer blijven.
 
@@ -40,6 +40,7 @@ Schrijf zodat klant en installateur snel begrijpen wat ze moeten doen. Volg de p
 | zonbelasting | hoeveel zon krijgt de ruimte |
 | adaptief | past zich aan |
 | Voorbeeldklant (als vooringevulde demo-naam) | door installateur getypte naam (tip alleen als placeholder) |
+| korte klantroute / verkorte demowizard | wat de klant ziet (volledige wizard) |
 | crawl space / kruipruimte-instructies | zeg of er een kruipruimte is; ga er niet in |
 | electrical phase question | 1- of 3-fase (uit meterkastfoto; geen aparte vraag) |
 
