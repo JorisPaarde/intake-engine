@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Changed
+
+- **Demo-banner in installateurstaal (BL-076):** `demo-scope-notice` toont geen featuresheet meer (“Wel aan / Bewust uitgeschakeld”, jargon als klantroute/productie). Korte prose: *Demo — wat de klant ziet* (“Je vult in wat de klant invult na jouw link”) / *Demo — aanvulling door de klant* en de afrondingsfooter; feiten (geen echte klant, geen mail, tijdelijke data, PDF alleen op aanvraag) met **je**. Geen claim dat de demovragenlijst “expres kort” of verkort is.
+
 ### Fixed
 
 - **Demo-luchtfoto blijft bij het getypeerde adres (BL-075):** na live BAG/PDOK-verrijking overschrijft *Toon voorbeelddossier* de PDOK-luchtfoto niet meer met de synthetische Haarlem-voorbeeldcapture. Sample-load injecteert ruimtes/foto’s/AI; een fictieve luchtfoto alleen wanneer er nog geen live `PDOK Luchtfoto RGB` is. `ExternalFactPresenter` prefereert live PDOK boven fictief demo-voorbeeld.

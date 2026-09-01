@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.56 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.57 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -31,6 +31,7 @@ Laatste testsessie: 2026-08-09 (staging; mobiele werkplek BL-053/054–058 op 39
 | Demo-tour één laag (BL-070) | todo | - | Geen Stap N/6-stack; welkom volstaat; lege werkplek afronden zonder sample; sample-CTA duidelijk optioneel. |
 | Rest-UI language.md (BL-071) | todo | - | Chrome Digitale Opname; **Opname openen**; geen template-v; AI zonder `power · 0.76`; nieuwe UI **je**; NL-validatie/404. |
 | Demo trial-killers (BL-073) | todo | - | Lege **Klantweergave activeren** → NL-fout, geen Engels; getypte klantnaam i.p.v. Voorbeeldklant; sample-CTA weg na plek/foto; sticky **met inhoud** ≠ klaar-voor-offerte; AI legt ontbrekende opstelling uit; demo zonder mail. |
+| Demo-banner installateurstaal (BL-076) | todo | - | Klantpad-banner: **Demo — wat de klant ziet**, “Je vult in wat de klant invult…”, geen “expres kort”/featuresheet; aanvulling + afrondingsfooter zonder featuresheet; **je**, geen “productie”/“klantroute”. |
 | Offerte-kritisch bewijs airco v12 (BL-074) | todo | - | Nieuwe opname: verplichte meterkastfoto + foto’s rondom het huis; bij onscherpe meterkast → extra foto, geen 1-/3-fasevraag; ruimtefoto zonder stopcontact → extra wandfoto; kruipruimte + vloerisolatie (of overgeslagen bij EP-Online); L×B×H zichtbaar op werkplek. |
 | Startkeuze klant / zelf uitvoeren (BL-037) | todo | - | Na deploy: **Zelf uitvoeren** houdt klanttoegang uit en verstuurt geen mail; **Klant laten opnemen** activeert en mailt de begeleide klantlink. |
 | Volledig installateur-uitgevoerde opname (BL-037) | todo | - | Twee slaapkamers mobiel en in vrije volgorde vastleggen: ruimtes, contextgebonden foto's/notities en technische conclusies; afronden/offertebasis zonder klantactie. |
