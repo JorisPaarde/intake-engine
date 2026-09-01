@@ -70,7 +70,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-074 | Offerte-kritisch bewijs na installateurstrial (meterkast, fase, stopcontacten, rondom huis, kruipruimte, vloerisolatie, maten) | E3/E7/E9 | done | high | product · airco-pad |
 | — | BL-075 | Demo-voorbeelddossier mag live PDOK-luchtfoto niet verbergen | E5 | done | high | A · product/demo |
 | — | BL-076 | Demo-banner: installateurstaal i.p.v. featuresheet | E5 | done | high | A · product/demo/UX |
-| — | BL-078 | Demo-klantpad: volledige airco-wizard i.p.v. 2-vragen-allowlist | E5 | in_progress | high | A · product/demo |
+| — | BL-078 | Demo-klantpad: volledige airco-wizard i.p.v. 2-vragen-allowlist | E5 | done | high | A · product/demo |
 | — | BL-052 | Gecontroleerd eenvoudig Nederlands in de app-UI | E5 | done | medium | A (done) |
 | — | BL-053 | Mobiele werkplek: acties eerst, info dicht | E5 | done | high | O · bij BL-037 |
 | — | BL-054 | Sticky CTA = echte handeling | E5 | done | high | O · bij BL-053 |
@@ -594,7 +594,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-078 — Demo-klantpad: volledige airco-wizard i.p.v. 2-vragen-allowlist
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E5 · **Band:** A · product/demo
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-01 · **PR:** #84 · **Epic:** E5 · **Band:** A · product/demo
 - **Aanleiding:** als demo-klant zag Joris alleen ~2 vragen (o.a. vrije groep ja/nee, geen foto’s). De demo-klant moet juist helpen een zo compleet mogelijke opname te maken.
 - **Oorzaak:** `PublicDemoSession::shortCustomerQuestionKeys()` + `IntakeWizard` filterde stappen op een allowlist; sessieflag `public_demo_short_customer`.
 - **Doel:** publiek demo-klantpad gebruikt dezelfde klantwizard als productie (airco v12): verplichte meterkastfoto, foto’s rondom het huis, ruimtes, kruipruimte, enz. Mail/herinneringen blijven uit; demo-TTL blijft. Geen 2-vragen-stub.
@@ -602,6 +602,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Niet in scope:** BL-076 banner-copy (done in #83); BL-077 vrije-groep na meterkastfoto (sibling) — niet dupliceren.
 - **Acceptatie:** featuretest dat demo-klantpad `fusebox_photo` en `around_house_photos` bevat (niet alleen `free_group_known`); oude “exactly 2 steps”/short-keys-tests bijgewerkt; `composer check` groen.
 - **Hypothese (geverifieerd):** allowlist in wizard + sessieflag; geen templatewijziging nodig.
+- **Resultaat:** demo-klantpad = productie-wizard; sessieflag/config/allowlist verwijderd; banner zonder “kort”-claim (compatibel met BL-076).
 
 ### BL-043 — Publieke productfunnel en interesse-CTA
 
