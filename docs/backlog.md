@@ -568,21 +568,11 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
   7. Kamer L×B×H zichtbaar op de werkplek; klantpad optionele meters of foto-voorzet (geen BL-017-meetspam).
 - **Niet in scope:** nieuw domeinmodel; Google Street View-integratie; verplichten van `EP_ONLINE_KEY`.
 - **Acceptatie:** backlog-item bestaat; default airco-pad vraagt meterkast + rondom-huis; fase/outlets uit foto’s met extra-foto-fallback; kruipruimte vastlegbaar; vloerisolatie via EP-Online of vraag; maten zichtbaar; tests; `composer check` groen.
-
-### BL-075 — Demo-voorbeelddossier mag live PDOK-luchtfoto niet verbergen
-
-- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-01 · **PR:** (deze PR) · **Epic:** E5 · **Band:** A · product/demo
-- **Aanleiding:** na zelf postcode/huisnummer in de publieke demo toonde *Toon voorbeelddossier* de synthetische Haarlem-luchtfoto terwijl het adres (en de live PDOK-capture) van de prospect bleef — “Als ik bij demo mijn adres invul klopt er niks van de luchtfoto.”
-- **Doel:** sample-load mag de live BAG/PDOK-luchtfoto van het getypeerde adres niet vervangen of verbergen; alleen ruimtes/foto’s/AI-voorbeeldcontent injecteren.
-- **Scope:** `DemoSurveyScenarioBuilder::storeExampleContext` slaat synthetische `aerial_image` over wanneer `PDOK Luchtfoto RGB` al bestaat; `ExternalFactPresenter` prefereert live PDOK boven bronnen met “fictief demo-voorbeeld”; featuretest Damrak/Amsterdam → enrich → sample → present.
-- **Niet in scope:** lat/lon-swap; AI-keys; herschrijven van andere fictieve BAG/EP/3DBAG-contextfeiten.
-- **Acceptatie:** na live aerial + sample load toont presenter bron `PDOK Luchtfoto RGB` met live grondmaat (~180 m), niet fictief 80×55; sample zonder live aerial blijft synthetische luchtfoto krijgen; bestaande Pdok-tests groen.
-- **Resultaat:** geen tweede aerial-fact bij bestaande live capture; presenter last-wins niet meer ten gunste van fictief demo-voorbeeld.
 - **Hypothese (geverifieerd):** vooral collection-path / template v12 / workspace open-punten / bestaande AI-fotopad — geen nieuw domain model.
 
 ### BL-075 — Demo-voorbeelddossier mag live PDOK-luchtfoto niet verbergen
 
-- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-01 · **PR:** (deze PR) · **Epic:** E5 · **Band:** A · product/demo
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-01 · **PR:** #82 · **Epic:** E5 · **Band:** A · product/demo
 - **Aanleiding:** na zelf postcode/huisnummer in de publieke demo toonde *Toon voorbeelddossier* de synthetische Haarlem-luchtfoto terwijl het adres (en de live PDOK-capture) van de prospect bleef — “Als ik bij demo mijn adres invul klopt er niks van de luchtfoto.”
 - **Doel:** sample-load mag de live BAG/PDOK-luchtfoto van het getypeerde adres niet vervangen of verbergen; alleen ruimtes/foto’s/AI-voorbeeldcontent injecteren.
 - **Scope:** `DemoSurveyScenarioBuilder::storeExampleContext` slaat synthetische `aerial_image` over wanneer `PDOK Luchtfoto RGB` al bestaat; `ExternalFactPresenter` prefereert live PDOK boven bronnen met “fictief demo-voorbeeld”; featuretest Damrak/Amsterdam → enrich → sample → present.
