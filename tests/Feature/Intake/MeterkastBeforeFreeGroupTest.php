@@ -61,9 +61,9 @@ function makeBl077Intake(): Intake
     ]);
 }
 
-test('airco v13 hides free_group_known until a meterkast photo exists', function () {
+test('airco latest template hides free_group_known until a meterkast photo exists', function () {
     $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
-    expect($version->version)->toBe(13);
+    expect($version->version)->toBe(14);
 
     $freeGroup = $version->sections()
         ->where('key', 'electrical')

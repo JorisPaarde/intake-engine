@@ -230,7 +230,7 @@
             @else
                 <div class="rounded-lg border border-indigo-100 bg-indigo-50 p-6">
                     <h3 class="text-base font-semibold text-indigo-950">Geen klantlink actief</h3>
-                    <p class="mt-1 text-sm text-indigo-900">Deze opname wordt door de installateur uitgevoerd. Vanuit de technische opname kunt u later één of meer concrete klantopdrachten sturen; pas dan wordt de beveiligde link geactiveerd.</p>
+                    <p class="mt-1 text-sm text-indigo-900">Deze opname wordt door de installateur uitgevoerd. Vanuit de technische opname kun je later één of meer concrete klantopdrachten sturen; pas dan wordt de beveiligde link geactiveerd.</p>
                     <a href="{{ route('intakes.workspace', $intake) }}" class="mt-4 inline-flex min-h-10 items-center rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-500">Naar technische opname</a>
                 </div>
             @endif
@@ -314,7 +314,7 @@
             <div class="bg-white shadow-sm sm:rounded-lg p-6 space-y-3">
                 <div>
                     <h3 class="text-base font-semibold text-gray-900">AI-voorgestelde aandachtspunten</h3>
-                    <p class="text-xs text-gray-500">Automatisch gemaakt uit de hele opname. Niet bindend. U beslist wat u overneemt.</p>
+                    <p class="text-xs text-gray-500">Automatisch gemaakt uit de hele opname. Niet bindend. Jij beslist wat je overneemt.</p>
                 </div>
 
                 @if ($proposedPoints->isNotEmpty())

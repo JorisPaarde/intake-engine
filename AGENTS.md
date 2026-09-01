@@ -1,6 +1,6 @@
 # AGENTS.md — Projectgeheugen & werkinstructies
 
-> **Documentversie:** 2.12 · **Laatste update:** 2026-09-01 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
+> **Documentversie:** 2.13 · **Laatste update:** 2026-09-01 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
 
 Dit bestand is de **centrale ingang** voor iedere agent (of mens) die aan dit project werkt. Het beschrijft waar het projectgeheugen leeft, welk document waarvoor de bron van waarheid is, en hoe je dat geheugen bijhoudt. **Lees dit bestand aan het begin van elke taak.**
 
@@ -190,7 +190,7 @@ Praktische lessen uit cloud-runs. Doel: sneller groen zonder opnieuw te ontdekke
 
 - Taak → backlog-ID: vage wensen mappen op de **overzichtstabel** in `docs/backlog.md` (kolom `#` = aanbevolen volgorde). Lopend werk (`in_progress`) afronden vóór nieuw high-item starten. Zet status in dezelfde PR.
 - Klantflow: `app/Livewire/Customer/IntakeWizard.php` + `IntakeStepBuilder` + `resources/views/livewire/customer/intake-wizard.blade.php`; engine: `VisibilityResolver` / `CompletenessChecker` / `AnswerValueReader`.
-- Airco-templatebron: `database/data/templates/airco/v1.php` … latest `v13.php` (wijziging = nieuwe templateversie, ADR-0001). V13: `free_group_known` pas ná `fusebox_photo` (show `filled`); AI-prefill slaat de ja/nee over. Demo allowlist/short-keys: zie BL-078 (niet hier wijzigen).
+- Airco-templatebron: `database/data/templates/airco/v1.php` … latest `v14.php` (wijziging = nieuwe templateversie, ADR-0001). V13: `free_group_known` pas ná `fusebox_photo` (show `filled`); AI-prefill slaat de ja/nee over. V14: korte kruipruimte-/L×B×H-labels. Demo allowlist/short-keys: zie BL-078 (niet hier wijzigen).
 - Kwaliteitspoort: `composer check` (= Pint + PHPStan level 6 + Pest) vóór je “klaar” claimt.
 - Featuretests met `Livewire::test(...)` hebben geen Vite-build nodig; `$this->get(...)` die een layout met `@vite` raakt wél.
 - Test samengestelde invoerketens op de grens die ertoe doet: request → persistente velden → uitgaande servicequery → opgeslagen resultaat. Een DOM-stringassertie en losse HTTP-fakes kunnen allebei groen zijn terwijl de overdracht ertussen ontbreekt; gebruik voor adresregressies een echt postcode-/huisnummergeval.

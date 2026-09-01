@@ -107,7 +107,7 @@ final class DemoSurveyScenarioBuilder
         ]);
 
         $option = $this->aircoSurvey->createInstallationOption($intake, $installer, [
-            'label' => 'Optie A · één multi-split',
+            'label' => 'Keuze A · één multi-split',
             'configuration_type' => AircoConfigurationType::MultiSplit,
             'summary' => 'Eén buitenunit op de aanbouw bedient beide bovenruimtes en houdt de tuin vrij.',
             'cost_impact' => 'medium',

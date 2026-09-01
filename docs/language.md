@@ -1,6 +1,6 @@
 # UI-taal — gecontroleerd eenvoudig Nederlands
 
-> **Documentversie:** 1.4 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.5 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: bron van waarheid voor gebruikersgerichte teksten in de app (UI, mails, templatevragen, flash-/foutmeldingen). Productdocumentatie mag technischer blijven.
 
@@ -32,6 +32,9 @@ Schrijf zodat klant en installateur snel begrijpen wat ze moeten doen. Volg de p
 | woningbronnen | woninggegevens |
 | openingszin | korte uitleg bij de aanvraag |
 | kandidaatpositie / plekken / posities (installateurs-UI) | binnenunit / buitenunit (of stroomaansluiting / afvoerpunt) |
+| opstelling / installatieoptie / optie (installateurs-UI voor de combinatiekeuze) | multi-split of singles; als zelfstandig naamwoord nodig: **keuze** (niet een derde productwoord) |
+| Technische waarneming (plaatsingsveld) | Notitie |
+| Demo · echte werkplek / boost / Voorbeeldroute | Demo (marker); optioneel **Toon voorbeelddossier** |
 | AI-constateringen | wat de AI ziet |
 | aannemelijk (status) | lijkt te kloppen |
 | niet op afstand vast te stellen | alleen te zien op locatie |
@@ -41,9 +44,10 @@ Schrijf zodat klant en installateur snel begrijpen wat ze moeten doen. Volg de p
 | adaptief | past zich aan |
 | Voorbeeldklant (als vooringevulde demo-naam) | door installateur getypte naam (tip alleen als placeholder) |
 | korte klantroute / verkorte demowizard | wat de klant ziet (volledige wizard) |
-| crawl space / kruipruimte-instructies | zeg of er een kruipruimte is; ga er niet in |
+| crawl space / kruipruimte-instructies | “Is er een kruipruimte?” (geen essay; v14) |
 | electrical phase question | 1- of 3-fase (uit meterkastfoto; geen aparte vraag) |
 | vrije-groepvraag vóór meterkastfoto | meterkastfoto eerst; ja/nee alleen als de foto free_group niet toont |
+| Lengte/Breedte/Hoogte van de ruimte … als u die weet | Lengte (m) / Breedte (m) / Hoogte (m) (v14) |
 
 Productnaam **Digitale Opname** mag als merknaam blijven. In lopende UI-tekst mag “opname” volstaan. Vermijd gemengde branding (“Intake Engine”) in gebruikers-UI.
 

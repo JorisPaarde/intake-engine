@@ -289,7 +289,7 @@ it('continues as installer and can load the sample dossier', function () {
         ->withSession(demoSessionFor($user, $intake))
         ->get(route('intakes.workspace', $intake))
         ->assertOk()
-        ->assertSee('Optioneel: toon voorbeelddossier')
+        ->assertSee('Toon voorbeelddossier')
         ->assertSee('Bouw de opname op')
         ->assertSee('Begin met een lege opname')
         ->assertSee('Familie Jansen')
@@ -373,7 +373,7 @@ it('hides the sample dossier CTA once the installer starts real workspace work',
         ->withSession(demoSessionFor($user, $intake))
         ->get(route('intakes.workspace', $intake))
         ->assertOk()
-        ->assertSee('Optioneel: toon voorbeelddossier')
+        ->assertSee('Toon voorbeelddossier')
         ->assertSee('Familie Jansen')
         ->assertDontSee('Voorbeeldklant');
 
@@ -387,9 +387,10 @@ it('hides the sample dossier CTA once the installer starts real workspace work',
         ->get(route('intakes.workspace', $intake))
         ->assertOk()
         ->assertDontSee('Optioneel: toon voorbeelddossier')
-        ->assertSee('Je werkt in een echte opname')
+        ->assertDontSee('Toon voorbeelddossier')
+        ->assertSee('Je werkt in een opname')
         ->assertSee('met inhoud')
-        ->assertSee('AI-voorstel wacht op een opstelling')
+        ->assertSee('AI-voorstel wacht op een keuze')
         ->assertSee('klaar voor offerte');
 });
 

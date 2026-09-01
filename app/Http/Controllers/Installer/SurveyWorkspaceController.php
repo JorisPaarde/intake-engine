@@ -159,7 +159,7 @@ final class SurveyWorkspaceController extends Controller
         ]);
         $aircoSurvey->createPlacement($intake, $this->user($request), $data);
 
-        return $this->back($intake, 'Plaatsingsoptie toegevoegd.');
+        return $this->back($intake, 'Unit toegevoegd.');
     }
 
     public function updatePlacement(
@@ -182,7 +182,7 @@ final class SurveyWorkspaceController extends Controller
         ]);
         $aircoSurvey->updatePlacement($intake, $this->user($request), $placement, $data);
 
-        return $this->back($intake, 'Plaatsingsoptie bijgewerkt.');
+        return $this->back($intake, 'Unit bijgewerkt.');
     }
 
     public function storeInstallationOption(
@@ -206,7 +206,7 @@ final class SurveyWorkspaceController extends Controller
         ]);
         $aircoSurvey->createInstallationOption($intake, $this->user($request), $data);
 
-        return $this->back($intake, 'Installatieoptie toegevoegd.');
+        return $this->back($intake, 'Keuze toegevoegd.');
     }
 
     public function selectInstallationOption(
@@ -218,7 +218,7 @@ final class SurveyWorkspaceController extends Controller
         $this->authorize('update', $intake);
         $aircoSurvey->selectInstallationOption($intake, $this->user($request), $option);
 
-        return $this->back($intake, 'Installatieoptie geselecteerd.');
+        return $this->back($intake, 'Keuze geselecteerd.');
     }
 
     public function storeConnection(
@@ -499,7 +499,7 @@ final class SurveyWorkspaceController extends Controller
         return $this->back(
             $intake,
             $run->status->value === 'succeeded'
-                ? 'AI-voorstel vernieuwd. Controleer de opties en uitzonderingen als geheel.'
+                ? 'AI-voorstel vernieuwd. Controleer de keuzes en uitzonderingen als geheel.'
                 : 'AI-synthese kon niet worden afgerond; het bestaande dossier is ongewijzigd gebleven.',
         );
     }

@@ -24,7 +24,7 @@ final class DecisionReadinessService
     private const LABELS = [
         'request' => 'Aanvraag en gewenste ruimtes',
         'capacity' => 'Benodigd vermogen',
-        'placement' => 'Plekken en opstelling',
+        'placement' => 'Binnen- en buitenunit',
         'refrigerant' => 'Koelleiding(en)',
         'condensate' => 'Condensafvoer',
         'power' => 'Stroomtoevoer',
@@ -181,13 +181,13 @@ final class DecisionReadinessService
             return [
                 'status' => DecisionAreaStatus::Blocked,
                 'next_action' => DossierNextAction::RequestContribution,
-                'blocker' => 'Maak eerst een opstelling met binnenunit en buitenunit.',
+                'blocker' => 'Kies eerst multi-split of singles met binnenunit en buitenunit.',
             ];
         }
 
         return [
             'status' => $selected === null ? DecisionAreaStatus::Review : DecisionAreaStatus::Ready,
-            'blocker' => $selected === null ? 'Kies één opstelling, of pas die aan.' : null,
+            'blocker' => $selected === null ? 'Kies multi-split of singles, of pas die keuze aan.' : null,
             'evidence_summary' => [
                 'option_id' => $candidate->id,
                 'configuration' => $candidate->configuration_type->value,
@@ -213,7 +213,7 @@ final class DecisionReadinessService
         if ($option === null) {
             return [
                 'status' => DecisionAreaStatus::Blocked,
-                'blocker' => 'Er is nog geen opstelling om deze route aan te koppelen.',
+                'blocker' => 'Er is nog geen keuze om deze route aan te koppelen.',
             ];
         }
 
@@ -225,7 +225,7 @@ final class DecisionReadinessService
             return [
                 'status' => DecisionAreaStatus::Blocked,
                 'next_action' => DossierNextAction::RequestContribution,
-                'blocker' => 'Leg de '.$type->label().' voor deze opstelling vast.',
+                'blocker' => 'Leg de '.$type->label().' voor deze keuze vast.',
             ];
         }
 
@@ -299,7 +299,7 @@ final class DecisionReadinessService
         if ($option === null) {
             return [
                 'status' => DecisionAreaStatus::Unknown,
-                'blocker' => 'Prijsrisico’s volgen nadat er een opstelling is.',
+                'blocker' => 'Prijsrisico’s volgen nadat er een keuze is.',
             ];
         }
 
