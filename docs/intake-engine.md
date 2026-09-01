@@ -1,8 +1,8 @@
 # Vragen- en takenengine
 
-> **Documentversie:** 2.7 · **Laatste update:** 2026-08-10 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.8 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: de templatewizard is **geïmplementeerd t/m airco v11** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md). UI-taal: [language.md](language.md).
+Status: de templatewizard is **geïmplementeerd t/m airco v12** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md). UI-taal: [language.md](language.md).
 
 ## Doel
 
@@ -185,7 +185,7 @@ Secties (stabiele keys over versies):
 
 ### v1 → v2 (BL-017, toenmalige vragenreductie)
 
-V2 introduceerde onderstaande vraagreductie. Nieuwe intakes gebruiken inmiddels de laatste gepubliceerde **v11**; lopende/afgeronde opnames blijven op hun gepinde versie (ADR-0001). V10 verandert klanttaal en repeatable-semantiek naar gewenste ruimtes en voorkomt dat de klant een binnenunitpositie kiest; de technische single-/multi-splitkeuze staat in airco-objecten. V11 houdt die structuur en vernieuwt alleen de klantteksten naar gecontroleerd eenvoudig Nederlands.
+V2 introduceerde onderstaande vraagreductie. Nieuwe intakes gebruiken inmiddels de laatste gepubliceerde **v12**; lopende/afgeronde opnames blijven op hun gepinde versie (ADR-0001). V10 verandert klanttaal en repeatable-semantiek naar gewenste ruimtes en voorkomt dat de klant een binnenunitpositie kiest; de technische single-/multi-splitkeuze staat in airco-objecten. V11 houdt die structuur en vernieuwt alleen de klantteksten naar gecontroleerd eenvoudig Nederlands. V12 herstelt offerte-kritische bewijsfoto’s (meterkast, rondom het huis) en foto-afgeleide fase/stopcontacten zonder een stapel ja/nee-vragen (BL-074).
 
 | Wijziging | Was (v1) | Wordt (v2) |
 |-----------|----------|------------|
@@ -224,7 +224,7 @@ Automatische waarden worden in `intake_external_facts` opgeslagen met bron, refe
 
 Als BAG coördinaten levert, vraagt `PdokAerialImageService` server-side een actuele `Actueel_orthoHR` JPEG op via PDOK Luchtfoto RGB WMS (`EPSG:3857`, standaard circa 180 × 120 meter). Het bestand wordt gevalideerd, op de private `MEDIA_DISK` bewaard en als gemarkeerd bovenaanzicht in installateursdetail, HTML en PDF opgenomen. In het installateursdetail staat het beeld ingeklapt, zodat woningfeiten eerst scanbaar blijven. De browser maakt geen directe WMS-call. Alleen een echte WMS-fout schrijft een onzekerheid; de algemene beperking van een bovenaanzicht wordt niet bij ieder geslaagd dossier als actiepunt herhaald. Hard purge verwijdert het bestand.
 
-**Vraagbesluit:** de luchtfoto vervangt geen klantfoto. Zij geeft dak, perceel en omgeving als snelle installateurscontext, maar geen betrouwbare actuele gevel, leidingroute, obstakels of montagehoogte. `facade_overview_photo` blijft daarom optioneel; de bestaande concrete buitenunit-/routefoto’s blijven de eenvoudigste controlebron wanneer ze nodig zijn.
+**Vraagbesluit:** de luchtfoto vervangt geen klantfoto. Zij geeft dak, perceel en omgeving als snelle installateurscontext, maar geen betrouwbare actuele gevel, leidingroute, obstakels of montagehoogte. Google Street View is géén vervanging (voorgevel-only, ToS, achtergevel/tuin meestal ontbreekt). Vanaf airco **v12** is `around_house_photos` daarom weer **verplicht** in het standaardpad; de concrete buitenunit-/routefoto’s blijven aanvullend.
 
 Vraagreductie blijft template-gestuurd:
 
@@ -258,10 +258,10 @@ Profielen in v7:
 
 | Profiel | Fotovraag | Leidt af |
 |---|---|---|
-| `room` | `room_photos` | ruimtetype, grootte, zonbelasting, glasoppervlak |
+| `room` | `room_photos` | ruimtetype, grootte, zonbelasting, glasoppervlak, stopcontactzichtbaarheid (`room_outlet_status` → eventueel extra `wall_outlet_photo`) |
 | `outdoor` | `outdoor_location_photos` | plek, ondergrond, bereikbaarheid |
 | `pipe_route` | `pipe_route_photos` | route, afstandsindicatie, boringen nodig |
-| `fusebox` | `fusebox_photo` | vrije groep, fase (eigen actie, zie hieronder) |
+| `fusebox` | `fusebox_photo` (+ optioneel `fusebox_photo_extra`) | vrije groep, fase (eigen actie; geen losse 1-/3-fasevraag) |
 
 Elke sectie opent nu met zijn foto. In v6 stonden `room_type` en `outdoor_location` nog vóór hun foto en konden daardoor per definitie niet vervallen.
 
@@ -274,7 +274,22 @@ Niet alles hoort weg te vallen, ook niet als het "korter" kan:
 - `ownership`, `pipe_visibility`, `noise_sensitive` — juridische status en voorkeuren staan niet op een foto.
 - `floor_level` — een binnenfoto laat de verdieping niet betrouwbaar zien.
 - `truth_confirmation` en `privacy_consent` blijven twee losse vragen. Toestemming moet specifiek en ongebundeld zijn; samenvoegen met een juistheidsverklaring maakt haar niet-vrij. Eén stap winst weegt daar niet tegenop.
-- `insulation_indication` blijft een vraag: bouwjaar uit de BAG zegt weinig over uitgevoerde renovaties.
+- `insulation_indication` / `floor_insulation` blijven vragen zolang EP-Online geen label levert; met label vervallen ze (`skip_when_prefilled_by: epo`, fail-soft zonder key).
+- `crawl_space_present` (v12) — veilige ja/nee/weet-niet-waarneming; geen kruipinstructies.
+
+## Airco v12 — offerte-kritisch bewijs (BL-074)
+
+Na de eerste echte installateurstrial (Jamie Elderenbos, 28 aug 2026) herstelt v12 bewijs dat de offerte raakt zonder twintig extra ja/nee-klantvragen:
+
+| Onderwerp | Aanpak |
+|-----------|--------|
+| Meterkast | Verplichte `fusebox_photo`; bij lage zekerheid of onbekende fase volgt `fusebox_photo_extra` |
+| 1-/3-fase | Alleen uit `AssessFuseboxPhotos` (`one_phase`/`three_phase`); geen losse fasevraag |
+| Stopcontacten | Uit ruimtefoto (`room_outlet_status`); anders verplichte `wall_outlet_photo` |
+| Rondom het huis | Verplichte `around_house_photos` (gevel/tuin/montageplek); geen Street View/luchtfoto-vervanging |
+| Kruipruimte | Optionele `crawl_space_present` (klant of installateur) |
+| Vloerisolatie | `floor_insulation`; overgeslagen bij EP-Online-prefill |
+| Kamer L×B×H | Optionele meters + zichtbaar op de werkplek; geen verplichte meetspam |
 
 ## Twee BAG-routes: Kadaster met PDOK als vangnet
 

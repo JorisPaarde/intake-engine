@@ -33,7 +33,11 @@ final class AssessFuseboxPhotos
 
     private const PHOTO_QUESTION = 'fusebox_photo';
 
+    private const EXTRA_PHOTO_QUESTION = 'fusebox_photo_extra';
+
     private const TARGET_QUESTION = 'free_group_known';
+
+    private const CLARITY_QUESTION = 'fusebox_clarity';
 
     public function __construct(
         private readonly AiGateway $aiGateway,
@@ -138,6 +142,7 @@ final class AssessFuseboxPhotos
 
                 $this->storeObservation($intake, $run, $output, $uploads);
                 $this->prefillFreeGroup($intake, $output);
+                $this->prefillClarity($intake, $output);
 
                 IntakeActivityEvent::query()->create([
                     'intake_id' => $intake->id,
@@ -150,6 +155,7 @@ final class AssessFuseboxPhotos
                         'confidence' => $output['confidence'],
                         'free_group' => $output['free_group'],
                         'phase' => $output['phase'],
+                        'clarity' => $this->clarityValue($output),
                     ],
                     'created_at' => now(),
                 ]);
@@ -186,7 +192,7 @@ final class AssessFuseboxPhotos
 
             IntakeAnswer::query()
                 ->where('intake_id', $intake->id)
-                ->where('question_key', self::TARGET_QUESTION)
+                ->whereIn('question_key', [self::TARGET_QUESTION, self::CLARITY_QUESTION])
                 ->whereNull('section_instance_key')
                 ->where('prefill_source', 'ai')
                 ->delete();
@@ -199,11 +205,13 @@ final class AssessFuseboxPhotos
     /** @return Collection<int, IntakeUpload> */
     private function uploads(Intake $intake): Collection
     {
-        $maximum = max(1, min(3, (int) config('ai.photo_inference.max_images', 2)));
+        $maximum = max(1, min(4, (int) config('ai.photo_inference.max_images', 2) + 1));
 
+        // Prefer the latest primary + extra meterkast photos so a sharper retake
+        // can clear a previous low-confidence / unknown-phase verdict (BL-074).
         return IntakeUpload::query()
             ->where('intake_id', $intake->id)
-            ->where('question_key', self::PHOTO_QUESTION)
+            ->whereIn('question_key', [self::PHOTO_QUESTION, self::EXTRA_PHOTO_QUESTION])
             ->whereNull('section_instance_key')
             ->latest('id')
             ->limit($maximum)
@@ -309,5 +317,67 @@ final class AssessFuseboxPhotos
             ['value' => $output['free_group']],
             'ai',
         );
+    }
+
+    /**
+     * Drive the optional extra meterkast photo without a standalone 1-/3-fase question.
+     *
+     * @param  array{free_group: string, phase: string, confidence: string, evidence: string, retake_instruction: string|null}  $output
+     */
+    private function prefillClarity(Intake $intake, array $output): void
+    {
+        if (! $this->hasQuestion($intake, self::CLARITY_QUESTION)) {
+            return;
+        }
+
+        $existing = IntakeAnswer::query()
+            ->where('intake_id', $intake->id)
+            ->where('question_key', self::CLARITY_QUESTION)
+            ->whereNull('section_instance_key')
+            ->first();
+
+        if ($existing instanceof IntakeAnswer && $existing->prefill_source !== 'ai') {
+            return;
+        }
+
+        $this->saveIntakeAnswer->handle(
+            $intake,
+            self::CLARITY_QUESTION,
+            null,
+            ['value' => $this->clarityValue($output)],
+            'ai',
+        );
+    }
+
+    /**
+     * @param  array{free_group: string, phase: string, confidence: string, evidence: string, retake_instruction: string|null}  $output
+     */
+    private function clarityValue(array $output): string
+    {
+        $phaseKnown = in_array($output['phase'], ['one_phase', 'three_phase'], true);
+        $instruction = is_string($output['retake_instruction'] ?? null)
+            ? trim((string) $output['retake_instruction'])
+            : '';
+
+        if ($output['confidence'] === 'high' && $phaseKnown && $instruction === '') {
+            return 'clear';
+        }
+
+        return 'needs_clearer_photo';
+    }
+
+    private function hasQuestion(Intake $intake, string $questionKey): bool
+    {
+        $intake->loadMissing('templateVersion.sections.questions');
+
+        foreach ($intake->templateVersion->sections as $section) {
+            foreach ($section->questions as $question) {
+                if ($question->key === $questionKey) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }

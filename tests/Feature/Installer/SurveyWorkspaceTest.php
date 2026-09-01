@@ -14,6 +14,7 @@ use App\Domains\Intake\Models\ContributionTask;
 use App\Domains\Intake\Models\DossierEvidenceLink;
 use App\Domains\Intake\Models\DossierRecord;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\AircoSurveyService;
 use App\Domains\Intake\Services\DecisionReadinessService;
 use App\Enums\AircoConfigurationType;
@@ -399,6 +400,23 @@ test('two bedroom survey compares a multi-split option and approves all three co
         'type' => AircoPlacementType::DrainPoint,
         'label' => 'Regenwaterafvoer achtergevel',
     ]);
+
+    // BL-074: meterkast- en omgevingsfoto’s horen bij de standaard bewijsroute.
+    foreach ([$power, $outside] as $index => $placement) {
+        IntakeUpload::query()->create([
+            'intake_id' => $intake->id,
+            'question_key' => 'installer_evidence',
+            'section_instance_key' => 'subject-'.$placement->dossier_subject_id,
+            'disk' => 'local',
+            'path' => 'test/workspace-evidence-'.$index.'.jpg',
+            'original_filename' => $index === 0 ? 'meterkast.jpg' : 'gevel.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => 100,
+            'checksum' => hash('sha256', 'workspace-evidence-'.$index),
+            'sort_order' => 1,
+        ]);
+    }
+
     $option = $survey->createInstallationOption($intake, $user, [
         'label' => 'Optie A · één multi-split',
         'configuration_type' => AircoConfigurationType::MultiSplit,

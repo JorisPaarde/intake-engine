@@ -41,6 +41,8 @@ final class PhotoDerivationProfile
                 DerivedAnswerField::choice('room_size_indication', 'room_size_indication', ['small', 'medium', 'large']),
                 DerivedAnswerField::choice('sun_exposure', 'sun_exposure', ['low', 'medium', 'high']),
                 DerivedAnswerField::choice('glass_amount', 'glass_amount', ['little', 'average', 'much']),
+                // Stopcontacten: alleen status voor extra-wandfoto-fallback (geen ja/nee-klantvraag).
+                DerivedAnswerField::choice('room_outlet_status', 'room_outlet_status', ['present', 'needs_photo']),
             ]),
             'outdoor' => new self('outdoor', 'outdoor_assessment', [
                 DerivedAnswerField::choice('outdoor_location', 'outdoor_location', ['garden', 'side_passage', 'facade', 'balcony', 'flat_roof', 'pitched_roof']),

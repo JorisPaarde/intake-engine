@@ -903,17 +903,11 @@ class IntakeWizard extends Component
 
     private function applyFuseboxAssessment(?AiRun $run): ?string
     {
-        $composite = VisibilityResolver::compositeKey('free_group_known', null);
-        $this->refreshAnswerInForm($composite);
-
-        $answer = $this->intake()->answers()
-            ->where('question_key', 'free_group_known')
-            ->whereNull('section_instance_key')
-            ->first();
-
-        // Hoge zekerheid gebruikt bron + confidence in het dossier en laat de
-        // redundante vraag vervallen; alleen ai_suggestion vraagt nog bevestiging.
-        unset($this->prefillNotice[$composite]);
+        foreach (['free_group_known', 'fusebox_clarity'] as $questionKey) {
+            $composite = VisibilityResolver::compositeKey($questionKey, null);
+            $this->refreshAnswerInForm($composite);
+            unset($this->prefillNotice[$composite]);
+        }
 
         if ($run?->status !== AiRunStatus::Succeeded || ! is_array($run->output)) {
             return null;

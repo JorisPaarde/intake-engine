@@ -100,6 +100,7 @@ final class FakeAiClient implements AiClientInterface
                     'room_size_indication' => 'medium',
                     'sun_exposure' => 'high',
                     'glass_amount' => 'much',
+                    'room_outlet_status' => 'present',
                     'confidence' => 'high',
                     'evidence' => 'Fictieve testuitkomst voor de lokale ruimteanalyse.',
                     'retake_instruction' => null,

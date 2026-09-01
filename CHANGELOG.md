@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Added
+
+- **Offerte-kritisch bewijs na installateurstrial (BL-074):** airco-template **v12** maakt meterkastfoto en foto’s rondom het huis verplicht; 1-/3-fase volgt uit dezelfde meterkastfoto (`AssessFuseboxPhotos`) met extra-foto bij lage zekerheid (geen losse fasevraag); stopcontacten uit de ruimtefoto met optionele extra wandfoto; kruipruimte-waarneming; vloerisolatie via EP-Online of korte vraag (fail-soft); optionele kamer L×B×H + zichtbare maten op de werkplek. Open punten markeren ontbrekende meterkast- en omgevingsfoto’s.
+
 ### Fixed
 
 - **Demo trial-killers (BL-073):** **Klantweergave activeren** zonder klantopdracht toont een Nederlandse, actionable fout i.p.v. Engels `The contribution items field is required.`; demo-create vult geen **Voorbeeldklant** meer voor (tip alleen als placeholder); voorbeelddossier-CTA verdwijnt zodra de werkplek echte plekken/foto’s/opstellingen heeft; sticky voortgang toont **met inhoud** los van klaar-voor-offerte; lege AI-voorstel legt uit dat eerst een opstelling nodig is. Nieuwe installateurs-/demo-UI gebruikt **je** ([docs/language.md](docs/language.md)). Demo blijft zonder klantmail.
