@@ -57,7 +57,7 @@ test('a dark photo shows a non-blocking hint and does not block the flow', funct
     expect($hint[$composite] ?? null)->toContain('donker')
         ->toContain('nieuwe foto met meer licht')
         ->toContain('vanuit de deuropening')
-        ->toContain('muren waar de unit zou kunnen hangen')
+        ->toContain('stopcontacten')
         ->and($component->get('showMissing'))->toBeFalse();
 
     $component->assertHasNoErrors('photoFiles.'.$composite);
@@ -68,5 +68,5 @@ test('a dark photo shows a non-blocking hint and does not block the flow', funct
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->assertSee('Maak een nieuwe foto met meer licht.')
         ->assertSee('vanuit de deuropening')
-        ->assertSee('muren waar de unit zou kunnen hangen');
+        ->assertSee('stopcontacten');
 });

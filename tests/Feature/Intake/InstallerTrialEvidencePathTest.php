@@ -223,7 +223,7 @@ test('floor insulation is skipped when EP-Online already answered insulation', f
     $intake = makeBl074Intake();
 
     $enricher = app(EnrichIntakeAddress::class);
-    $method = new \ReflectionMethod($enricher, 'prefillFromEnergyLabel');
+    $method = new ReflectionMethod($enricher, 'prefillFromEnergyLabel');
     $method->invoke(
         $enricher,
         $intake,

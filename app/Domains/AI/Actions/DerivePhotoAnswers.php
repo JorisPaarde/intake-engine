@@ -470,7 +470,7 @@ final class DerivePhotoAnswers
     {
         $intake->loadMissing('templateVersion.sections.questions');
 
-        foreach ($intake->templateVersion?->sections ?? [] as $section) {
+        foreach ($intake->templateVersion->sections as $section) {
             foreach ($section->questions as $question) {
                 if ($question->key === $questionKey) {
                     return true;

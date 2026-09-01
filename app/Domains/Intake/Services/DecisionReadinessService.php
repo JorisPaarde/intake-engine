@@ -391,7 +391,6 @@ final class DecisionReadinessService
 
         foreach ($intake->aircoPlacements as $placement) {
             if ($placement->type === AircoPlacementType::PowerSource
-                && $placement->dossier_subject_id !== null
                 && $this->subjectHasUploadEvidence($intake, (int) $placement->dossier_subject_id)) {
                 return true;
             }
@@ -400,7 +399,6 @@ final class DecisionReadinessService
         foreach ($intake->aircoInstallationOptions as $option) {
             foreach ($option->connections as $connection) {
                 if ($connection->type === AircoConnectionType::Power
-                    && $connection->dossier_subject_id !== null
                     && $this->subjectHasUploadEvidence($intake, (int) $connection->dossier_subject_id)) {
                     return true;
                 }
@@ -424,7 +422,6 @@ final class DecisionReadinessService
 
         foreach ($intake->aircoPlacements as $placement) {
             if ($placement->type === AircoPlacementType::OutdoorUnit
-                && $placement->dossier_subject_id !== null
                 && $this->subjectHasUploadEvidence($intake, (int) $placement->dossier_subject_id)) {
                 return true;
             }

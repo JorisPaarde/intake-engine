@@ -67,7 +67,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-071 | Rest-UI op language.md | E5 | done | high | A · product/demo/UX |
 | — | BL-072 | Production-release van Unreleased | E5 | ready | medium | A · operationeel |
 | — | BL-073 | Demo trial-killers: klantlink NL, geen Voorbeeldklant, eerlijke voortgang | E5 | done | high | A · product/demo/UX |
-| 1 | BL-074 | Offerte-kritisch bewijs na installateurstrial (meterkast, fase, stopcontacten, rondom huis, kruipruimte, vloerisolatie, maten) | E3/E7/E9 | in_progress | high | product · airco-pad |
+| — | BL-074 | Offerte-kritisch bewijs na installateurstrial (meterkast, fase, stopcontacten, rondom huis, kruipruimte, vloerisolatie, maten) | E3/E7/E9 | done | high | product · airco-pad |
 | — | BL-052 | Gecontroleerd eenvoudig Nederlands in de app-UI | E5 | done | medium | A (done) |
 | — | BL-053 | Mobiele werkplek: acties eerst, info dicht | E5 | done | high | O · bij BL-037 |
 | — | BL-054 | Sticky CTA = echte handeling | E5 | done | high | O · bij BL-053 |
