@@ -24,6 +24,7 @@ use App\Enums\ContributionMode;
 use App\Enums\ContributionTaskStatus;
 use App\Enums\IntakeStatus;
 use App\Enums\QuestionType;
+use App\Livewire\Customer\IntakeWizard;
 use App\Models\Company;
 use App\Models\User;
 use Database\Seeders\DemoInstallerSeeder;
@@ -37,6 +38,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Livewire;
 
 beforeEach(function () {
     $this->seed(IntakeTemplateSeeder::class);
@@ -230,7 +232,7 @@ it('continues as customer on the full production wizard without sending mail', f
         ->not->toContain('Wel aan in deze demo')
         ->not->toContain('Bewust uitgeschakeld');
 
-    $component = Livewire\Livewire::test(\App\Livewire\Customer\IntakeWizard::class, [
+    $component = Livewire::test(IntakeWizard::class, [
         'token' => $intake->access_token,
     ]);
 
