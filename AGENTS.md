@@ -190,7 +190,7 @@ Praktische lessen uit cloud-runs. Doel: sneller groen zonder opnieuw te ontdekke
 
 - Taak → backlog-ID: vage wensen mappen op de **overzichtstabel** in `docs/backlog.md` (kolom `#` = aanbevolen volgorde). Lopend werk (`in_progress`) afronden vóór nieuw high-item starten. Zet status in dezelfde PR.
 - Klantflow: `app/Livewire/Customer/IntakeWizard.php` + `IntakeStepBuilder` + `resources/views/livewire/customer/intake-wizard.blade.php`; engine: `VisibilityResolver` / `CompletenessChecker` / `AnswerValueReader`.
-- Airco-templatebron: `database/data/templates/airco/v1.php` … latest `v13.php` (wijziging = nieuwe templateversie, ADR-0001). V13: `free_group_known` pas ná `fusebox_photo` (show `filled`); short-demo keys bevatten `fusebox_photo` (+ extra), niet alleen de ja/nee.
+- Airco-templatebron: `database/data/templates/airco/v1.php` … latest `v13.php` (wijziging = nieuwe templateversie, ADR-0001). V13: `free_group_known` pas ná `fusebox_photo` (show `filled`); AI-prefill slaat de ja/nee over. Demo allowlist/short-keys: zie BL-078 (niet hier wijzigen).
 - Kwaliteitspoort: `composer check` (= Pint + PHPStan level 6 + Pest) vóór je “klaar” claimt.
 - Featuretests met `Livewire::test(...)` hebben geen Vite-build nodig; `$this->get(...)` die een layout met `@vite` raakt wél.
 - Test samengestelde invoerketens op de grens die ertoe doet: request → persistente velden → uitgaande servicequery → opgeslagen resultaat. Een DOM-stringassertie en losse HTTP-fakes kunnen allebei groen zijn terwijl de overdracht ertussen ontbreekt; gebruik voor adresregressies een echt postcode-/huisnummergeval.

@@ -8,7 +8,6 @@ use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Services\IntakeStepBuilder;
-use App\Domains\Intake\Services\PublicDemoSession;
 use App\Enums\ContributionMode;
 use App\Enums\IntakeStatus;
 use App\Livewire\Customer\IntakeWizard;
@@ -44,22 +43,7 @@ function bl077StepKeys(Intake $intake): array
         ->all();
 }
 
-/** @return list<string> */
-function bl077ShortDemoStepKeys(Intake $intake): array
-{
-    $allowed = app(PublicDemoSession::class)->shortCustomerQuestionKeys();
-    $version = $intake->templateVersion()
-        ->with(['sections.questions.options', 'sections.questions.rules'])
-        ->firstOrFail();
-
-    return collect(app(IntakeStepBuilder::class)->build($intake->fresh(), $version))
-        ->pluck('question_key')
-        ->filter(static fn (string $key): bool => in_array($key, $allowed, true))
-        ->values()
-        ->all();
-}
-
-function makeBl077DemoIntake(): Intake
+function makeBl077Intake(): Intake
 {
     $user = User::factory()->create();
     $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
@@ -95,7 +79,7 @@ test('airco v13 hides free_group_known until a meterkast photo exists', function
         ->and($freeGroup->rules->first()->operator->value)->toBe('filled')
         ->and($freeGroup->rules->first()->effect->value)->toBe('show');
 
-    $intake = makeBl077DemoIntake();
+    $intake = makeBl077Intake();
     $steps = bl077StepKeys($intake);
 
     expect($steps)->toContain('fusebox_photo')
@@ -103,26 +87,18 @@ test('airco v13 hides free_group_known until a meterkast photo exists', function
         ->and($steps)->not->toContain('electrical_phase');
 });
 
-test('short demo customer path with zero uploads asks for meterkastfoto not vrije groep', function () {
-    $intake = makeBl077DemoIntake();
+test('customer wizard with zero uploads asks for meterkastfoto not vrije groep', function () {
+    $intake = makeBl077Intake();
+    $steps = bl077StepKeys($intake);
 
-    expect(app(PublicDemoSession::class)->shortCustomerQuestionKeys())
-        ->toContain('fusebox_photo')
-        ->and(app(PublicDemoSession::class)->shortCustomerQuestionKeys())
-        ->toContain('free_group_known');
+    expect($steps)->toContain('fusebox_photo')
+        ->and($steps)->not->toContain('free_group_known')
+        ->and($steps)->not->toContain('electrical_phase');
 
-    $shortKeys = bl077ShortDemoStepKeys($intake);
-
-    expect($shortKeys)->toContain('fusebox_photo')
-        ->and($shortKeys)->not->toContain('free_group_known')
-        ->and($shortKeys)->not->toContain('electrical_phase');
-
-    // Screenshot-case: zero uploads on the short customer demo route.
-    $this->withSession(['public_demo_short_customer' => true]);
-
+    // Screenshot-case: zero uploads — electrical path must not offer the ja/nee.
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
 
-    /** @var list<array{question_key: string}> $viewSteps */
+    /** @var list<array{question_key: string, key: string}> $viewSteps */
     $viewSteps = $component->viewData('steps');
     $viewKeys = collect($viewSteps)->pluck('question_key')->all();
 
@@ -144,7 +120,7 @@ test('short demo customer path with zero uploads asks for meterkastfoto not vrij
 });
 
 test('clear fusebox photo with free_group derived skips the ja/nee question', function () {
-    $intake = makeBl077DemoIntake();
+    $intake = makeBl077Intake();
     FakeAiClient::alwaysReturn([
         'free_group' => 'yes',
         'phase' => 'three_phase',
@@ -172,7 +148,7 @@ test('clear fusebox photo with free_group derived skips the ja/nee question', fu
 });
 
 test('fusebox photo without readable free_group shows the ja/nee fallback after the photo', function () {
-    $intake = makeBl077DemoIntake();
+    $intake = makeBl077Intake();
     FakeAiClient::alwaysReturn([
         'free_group' => 'unknown',
         'phase' => 'one_phase',
