@@ -1,6 +1,6 @@
 # Deployment naar cPanel (staging + production)
 
-> **Documentversie:** 2.16 · **Laatste update:** 2026-08-24 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.17 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 **Statusregel:** staging en production zijn fysiek en logisch gescheiden; open handmatige acties (env/host) staan in [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
 
@@ -265,7 +265,7 @@ De server leest maximaal twee recente private meterkastfoto's van `MEDIA_DISK` e
 
 De CTA **Probeer de demo** staat standaard aan (`DEMO_ENABLED=true`) voor gasten. Elke start maakt een uniek tijdelijk `Company`-/`User`-paar, logt de bezoeker in als installateur en begeleidt via dashboard → *Nieuwe opname* → rolkeuze. Reguliere tenants en andere demosessies blijven door dezelfde policies afgeschermd.
 
-Na opslaan volgt dezelfde adresverrijking (PDOK/BAG/luchtfoto e.d.) en tekstinterpretatie als productie. Foto-AI, dossiersynthese en route-AI mogen meedraaien wanneer die integraties in de omgeving aan staan — zo zien prospects het echte product. Het optionele *Toon voorbeelddossier* laadt synthetische foto’s en vaste voorbeeldresultaten als snelle boost. Demo-opnames versturen geen mail/notificatie en genereren geen PDF.
+Na opslaan volgt dezelfde adresverrijking (PDOK/BAG/luchtfoto e.d.) en tekstinterpretatie als productie. Foto-AI, dossiersynthese en route-AI mogen meedraaien wanneer die integraties in de omgeving aan staan — zo zien prospects het echte product. Het optionele *Toon voorbeelddossier* laadt synthetische foto’s, ruimtes en vaste AI-voorbeeldresultaten als snelle boost; een live PDOK-luchtfoto van het getypeerde adres wordt daarbij niet overschreven (BL-075). Demo-opnames versturen geen mail/notificatie en genereren geen PDF.
 
 ```env
 DEMO_ENABLED=true

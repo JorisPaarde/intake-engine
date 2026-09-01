@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.55 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.56 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -96,6 +96,7 @@ Laatste testsessie: 2026-08-09 (staging; mobiele werkplek BL-053/054–058 op 39
 | Queue-worker (cron) | todo | - | Niet end-to-end bevestigd (geen zichtbaar AI-resultaat) |
 | Oude publieke klantwizarddemo (BL-001 vóór herontwerp) | n/a | staging 2026-07-24 | Historisch functioneel bewezen, maar vervangen door de interactieve installateursdemo; zie de sessienotitie hieronder. |
 | Interactieve installateursdemo (BL-001) | todo | - | Na deploy als gast: homepage → **Probeer de demo** → welkomstpopup → *Nieuwe opname* met lege postcode/huisnummer (zelf invullen; tipadres zichtbaar; lookup vult straat/plaats) → na opslaan woninggegevens/luchtfoto → rolkeuze i.p.v. mail. Test beide paden (verkorte klantwizard met foto-upload/AI én zelf/werkplek + *Toon voorbeelddossier* + AI-voorstel vernieuwen + klanttaak activeren). Desktop én 390 px, toetsenbord, geen consolefouten, geen klantmail. |
+| Demo-voorbeelddossier behoudt live PDOK-luchtfoto (BL-075) | todo | - | Demo-create met eigen (niet-Haarlem) postcode/huisnummer → live luchtfoto zichtbaar → *Optioneel: toon voorbeelddossier* → woninggegevens tonen nog de PDOK-luchtfoto van dat adres (bron zonder “fictief demo-voorbeeld”, grondmaat ~180 m), niet de synthetische 80×55-voorbeeldcapture. |
 | Homepage-CTAs gast / demosessie / account (BL-001/043) | todo | - | Gast: **Probeer de demo**, **Inloggen**, **Ik wil een pilot**. Tijdens demosessie: overal **Demo beëindigen** (homepage + app-nav, ook na browser-back); op `/` ook **Verder in demo**, geen **Mijn opnames**/Inloggen. Na **Demo beëindigen** weer gast-CTAs. Echt account: **Mijn opnames** naar `/dashboard`, geen demostart. |
 | Demo-PDF-aanvraag als lead (BL-051) | todo | - | Op werkplek/dossier: e-mail invullen → demorapport-PDF ontvangen/downloaden; lead in `product_interests` + mail naar `PRODUCT_INTEREST_MAIL_TO`. Bij `MAIL_MAILER=log`: lead + download, geen queue. |
 | Demo: gerichte klantweergave zonder mail/PDF | todo | - | Voorgestelde meterkasttaak activeren → knop **Klantweergave** → alleen die taak zichtbaar; geen mail, PDF of notificatie. Foto-AI mag meedraaien. Afronden sluit toegang en toont de aanvulling in hetzelfde dossier. |

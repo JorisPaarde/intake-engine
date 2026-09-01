@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.25 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.26 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -68,6 +68,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-072 | Production-release van Unreleased | E5 | ready | medium | A · operationeel |
 | — | BL-073 | Demo trial-killers: klantlink NL, geen Voorbeeldklant, eerlijke voortgang | E5 | done | high | A · product/demo/UX |
 | — | BL-074 | Offerte-kritisch bewijs na installateurstrial (meterkast, fase, stopcontacten, rondom huis, kruipruimte, vloerisolatie, maten) | E3/E7/E9 | done | high | product · airco-pad |
+| — | BL-075 | Demo-voorbeelddossier mag live PDOK-luchtfoto niet verbergen | E5 | done | high | A · product/demo |
 | — | BL-052 | Gecontroleerd eenvoudig Nederlands in de app-UI | E5 | done | medium | A (done) |
 | — | BL-053 | Mobiele werkplek: acties eerst, info dicht | E5 | done | high | O · bij BL-037 |
 | — | BL-054 | Sticky CTA = echte handeling | E5 | done | high | O · bij BL-053 |
@@ -554,7 +555,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-074 — Offerte-kritisch bewijs na installateurstrial (Jamie Elderenbos, 28 aug 2026)
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E3/E7/E9 · **Band:** product · airco-pad
+- **Status:** done · **Prioriteit:** high · **Epic:** E3/E7/E9 · **Band:** product · airco-pad
 - **Aanleiding:** eerste echte installateurstrial: ontbrekende of verborgen quote-kritische signalen (meterkast/fase, stopcontacten, foto’s rondom het huis, kruipruimte, vloerisolatie, kamermaten).
 - **Doel:** standaard airco-opnamepad verzamelt dit bewijs zonder twintig extra ja/nee-klantvragen; fase en stopcontacten komen uit foto’s met extra-foto-fallback.
 - **Scope:**
@@ -567,7 +568,27 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
   7. Kamer L×B×H zichtbaar op de werkplek; klantpad optionele meters of foto-voorzet (geen BL-017-meetspam).
 - **Niet in scope:** nieuw domeinmodel; Google Street View-integratie; verplichten van `EP_ONLINE_KEY`.
 - **Acceptatie:** backlog-item bestaat; default airco-pad vraagt meterkast + rondom-huis; fase/outlets uit foto’s met extra-foto-fallback; kruipruimte vastlegbaar; vloerisolatie via EP-Online of vraag; maten zichtbaar; tests; `composer check` groen.
+
+### BL-075 — Demo-voorbeelddossier mag live PDOK-luchtfoto niet verbergen
+
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-01 · **PR:** (deze PR) · **Epic:** E5 · **Band:** A · product/demo
+- **Aanleiding:** na zelf postcode/huisnummer in de publieke demo toonde *Toon voorbeelddossier* de synthetische Haarlem-luchtfoto terwijl het adres (en de live PDOK-capture) van de prospect bleef — “Als ik bij demo mijn adres invul klopt er niks van de luchtfoto.”
+- **Doel:** sample-load mag de live BAG/PDOK-luchtfoto van het getypeerde adres niet vervangen of verbergen; alleen ruimtes/foto’s/AI-voorbeeldcontent injecteren.
+- **Scope:** `DemoSurveyScenarioBuilder::storeExampleContext` slaat synthetische `aerial_image` over wanneer `PDOK Luchtfoto RGB` al bestaat; `ExternalFactPresenter` prefereert live PDOK boven bronnen met “fictief demo-voorbeeld”; featuretest Damrak/Amsterdam → enrich → sample → present.
+- **Niet in scope:** lat/lon-swap; AI-keys; herschrijven van andere fictieve BAG/EP/3DBAG-contextfeiten.
+- **Acceptatie:** na live aerial + sample load toont presenter bron `PDOK Luchtfoto RGB` met live grondmaat (~180 m), niet fictief 80×55; sample zonder live aerial blijft synthetische luchtfoto krijgen; bestaande Pdok-tests groen.
+- **Resultaat:** geen tweede aerial-fact bij bestaande live capture; presenter last-wins niet meer ten gunste van fictief demo-voorbeeld.
 - **Hypothese (geverifieerd):** vooral collection-path / template v12 / workspace open-punten / bestaande AI-fotopad — geen nieuw domain model.
+
+### BL-075 — Demo-voorbeelddossier mag live PDOK-luchtfoto niet verbergen
+
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-01 · **PR:** (deze PR) · **Epic:** E5 · **Band:** A · product/demo
+- **Aanleiding:** na zelf postcode/huisnummer in de publieke demo toonde *Toon voorbeelddossier* de synthetische Haarlem-luchtfoto terwijl het adres (en de live PDOK-capture) van de prospect bleef — “Als ik bij demo mijn adres invul klopt er niks van de luchtfoto.”
+- **Doel:** sample-load mag de live BAG/PDOK-luchtfoto van het getypeerde adres niet vervangen of verbergen; alleen ruimtes/foto’s/AI-voorbeeldcontent injecteren.
+- **Scope:** `DemoSurveyScenarioBuilder::storeExampleContext` slaat synthetische `aerial_image` over wanneer `PDOK Luchtfoto RGB` al bestaat; `ExternalFactPresenter` prefereert live PDOK boven bronnen met “fictief demo-voorbeeld”; featuretest Damrak/Amsterdam → enrich → sample → present.
+- **Niet in scope:** lat/lon-swap; AI-keys; herschrijven van andere fictieve BAG/EP/3DBAG-contextfeiten.
+- **Acceptatie:** na live aerial + sample load toont presenter bron `PDOK Luchtfoto RGB` met live grondmaat (~180 m), niet fictief 80×55; sample zonder live aerial blijft synthetische luchtfoto krijgen; bestaande Pdok-tests groen.
+- **Resultaat:** geen tweede aerial-fact bij bestaande live capture; presenter last-wins niet meer ten gunste van fictief demo-voorbeeld.
 
 ### BL-043 — Publieke productfunnel en interesse-CTA
 

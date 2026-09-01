@@ -468,14 +468,73 @@ test('loading the demo sample dossier uses precomputed fictitious context withou
     $intake->refresh();
 
     $buildYear = $intake->externalFacts()->where('fact_key', 'building_year')->firstOrFail();
+    $aerial = $intake->externalFacts()->where('fact_key', 'aerial_image')->firstOrFail();
 
     expect($intake->exists)->toBeTrue()
         ->and($intake->is_demo)->toBeTrue()
         ->and($buildYear->value)->toBe(['number' => 1996])
         ->and($buildYear->source)->toContain('fictief demo-voorbeeld')
-        ->and($intake->externalFacts()->pluck('fact_key'))->toContain('aerial_image');
+        ->and($aerial->source)->toContain('fictief demo-voorbeeld')
+        ->and($aerial->value['ground_width_meters'])->toBe(80);
 
     Http::assertNothingSent();
+});
+
+test('demo sample dossier keeps the live PDOK aerial for the typed address', function () {
+    fakeSuccessfulPdok();
+    config()->set('intake.demo.enabled', true);
+
+    $user = app(StartDemoIntake::class)->handle();
+    $session = [
+        'public_demo_mode' => true,
+        'public_demo_company_id' => $user->company_id,
+        'public_demo_expires_at' => now()->addHours(2)->toIso8601String(),
+        'public_demo_guide_step' => 'welcome',
+        'public_demo_intake_id' => null,
+    ];
+
+    $this->actingAs($user)
+        ->withSession($session)
+        ->post(route('intakes.store'), [
+            'template_key' => 'airco',
+            'workflow_mode' => ContributionMode::Installer->value,
+            'customer_name' => 'Damrak Demo',
+            'customer_email' => 'damrak-aerial@demo.invalid',
+            'address_line' => 'Damrak 1',
+            'address_postal_code' => '1012LG',
+            'address_house_number' => 1,
+            'address_city' => 'Amsterdam',
+            'address_lookup_id' => 'adr-8f4d573be765b4c80dd635ba73747903',
+            'internal_note' => 'Live aerial moet blijven na voorbeelddossier',
+        ])
+        ->assertRedirect();
+
+    $intake = Intake::query()->where('customer_email', 'damrak-aerial@demo.invalid')->firstOrFail();
+    $liveAerial = $intake->externalFacts()
+        ->where('fact_key', 'aerial_image')
+        ->where('source', 'PDOK Luchtfoto RGB')
+        ->firstOrFail();
+
+    expect($liveAerial->value['ground_width_meters'])->toBe(180)
+        ->and($liveAerial->value['ground_height_meters'])->toBe(120)
+        ->and($liveAerial->value['media_path'])->toContain('pdok-aerial.jpg');
+
+    app(LoadDemoSurveyScenario::class)->handle($intake->fresh() ?? $intake, $user);
+    $intake->refresh();
+
+    expect($intake->externalFacts()->where('fact_key', 'aerial_image')->count())->toBe(1)
+        ->and($intake->externalFacts()->where('fact_key', 'aerial_image')->where('source', 'like', '%fictief demo-voorbeeld%')->exists())
+        ->toBeFalse()
+        ->and($intake->aircoRooms()->count())->toBeGreaterThan(0);
+
+    $presented = app(ExternalFactPresenter::class)->present($intake->fresh() ?? $intake);
+
+    expect($presented['aerial_image'])->not->toBeNull()
+        ->and($presented['aerial_image']['source'])->toBe('PDOK Luchtfoto RGB')
+        ->and($presented['aerial_image']['source'])->not->toContain('fictief demo-voorbeeld')
+        ->and($presented['aerial_image']['ground_width_meters'])->toBe(180)
+        ->and($presented['aerial_image']['ground_height_meters'])->toBe(120)
+        ->and($presented['aerial_image']['label'])->toBe('Luchtfoto rond BAG-locatie');
 });
 
 /** @return array<string, mixed> */

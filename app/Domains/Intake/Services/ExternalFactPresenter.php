@@ -36,6 +36,9 @@ final class ExternalFactPresenter
             ];
         }
 
+        $selectedAerialFact = null;
+        $selectedAerialPreference = PHP_INT_MAX;
+
         foreach ($intake->externalFacts->sortBy(fn (IntakeExternalFact $fact): int => $this->order($fact->fact_key)) as $fact) {
             $uncertainty = $this->uncertainty($fact);
 
@@ -44,10 +47,12 @@ final class ExternalFactPresenter
             }
 
             if ($fact->fact_key === 'aerial_image') {
-                $aerialImage = $this->aerialImage($fact);
+                $preference = $this->aerialSourcePreference($fact->source);
 
-                if ($aerialImage === null) {
-                    $uncertainties[] = 'De opgeslagen luchtfoto kon niet worden geladen; gebruik de klantfoto’s en controleer de omgeving.';
+                // Prefer live PDOK over fictive demo overlays; never let last-wins hide the typed address.
+                if ($preference < $selectedAerialPreference) {
+                    $selectedAerialFact = $fact;
+                    $selectedAerialPreference = $preference;
                 }
 
                 continue;
@@ -73,11 +78,35 @@ final class ExternalFactPresenter
             }
         }
 
+        if ($selectedAerialFact instanceof IntakeExternalFact) {
+            $aerialImage = $this->aerialImage($selectedAerialFact);
+
+            if ($aerialImage === null) {
+                $uncertainties[] = 'De opgeslagen luchtfoto kon niet worden geladen; gebruik de klantfoto’s en controleer de omgeving.';
+            }
+        }
+
         return [
             'facts' => $facts,
             'uncertainties' => array_values(array_unique($uncertainties)),
             'aerial_image' => $aerialImage,
         ];
+    }
+
+    /**
+     * Lower is better. Live PDOK outranks synthetic demo overlays that share fact_key.
+     */
+    private function aerialSourcePreference(string $source): int
+    {
+        if ($source === PdokAerialImageService::sourceName()) {
+            return 0;
+        }
+
+        if (str_contains($source, 'fictief demo-voorbeeld')) {
+            return 20;
+        }
+
+        return 10;
     }
 
     /**
