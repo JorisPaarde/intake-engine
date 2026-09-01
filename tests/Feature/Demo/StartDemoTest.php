@@ -233,7 +233,7 @@ it('continues as customer on the full production wizard without sending mail', f
     expect($stepKeys)
         ->toContain('fusebox_photo')
         ->toContain('around_house_photos')
-        ->toContain('free_group_known')
+        ->not->toContain('free_group_known')
         ->and(count($stepKeys))->toBeGreaterThan(2);
 
     $banner = Blade::render('<x-demo-scope-notice variant="banner" :short-customer="true" />');
@@ -261,6 +261,7 @@ it('continues as customer on the full production wizard without sending mail', f
     expect($wizardKeys)
         ->toContain('fusebox_photo')
         ->toContain('around_house_photos')
+        ->not->toContain('free_group_known')
         ->and(count($wizardKeys))->toBeGreaterThan(2);
 
     $html = $component->html();
