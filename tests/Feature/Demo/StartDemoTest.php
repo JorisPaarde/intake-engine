@@ -206,12 +206,16 @@ it('continues as customer on a short guided route without sending mail', functio
 
     $this->get($intake->customerUrl())
         ->assertOk()
-        ->assertSee('Demo — korte klantroute')
-        ->assertSee('U bekijkt wat de klant ziet')
+        ->assertSee('Demo — wat de klant ziet')
+        ->assertSee('Je kijkt naar de pagina na jouw link')
+        ->assertSee('Geen echte klant, er gaat geen mail uit')
+        ->assertDontSee('Wel aan in deze demo')
+        ->assertDontSee('Bewust uitgeschakeld')
         ->assertDontSee('Dit ziet je klant')
         // Openingszin en koelen zijn al afgeleid; de verkorte route start bij een resterende vraag.
         ->assertSee('Wat voor type gebouw is het?');
 });
+
 
 it('continues as installer and can load the sample dossier', function () {
     ['intake' => $intake, 'user' => $user] = createDemoIntakeViaForm();
@@ -516,19 +520,26 @@ it('activates a simulated customer view without sending mail', function () {
     $this->get($intake->customerUrl())
         ->assertOk()
         ->assertSee('Demo — aanvulling door de klant')
+        ->assertSee('Je bekijkt één opdracht uit de tijdelijke opname')
+        ->assertSee('Geen echte klant, er gaat geen mail uit')
+        ->assertDontSee('Wel aan in deze demo')
+        ->assertDontSee('Bewust uitgeschakeld')
         ->assertSee('Maak één frontale foto van de volledige groepenkast');
 });
 
-it('lists disabled full-app steps on the demo thank-you notice', function () {
+it('keeps the demo thank-you notice short without a feature checklist', function () {
     $html = Blade::render('<x-demo-scope-notice variant="complete" />');
 
     expect($html)
-        ->toContain('Wat u net heeft gedaan')
-        ->toContain('Eén klantaanvulling is afgerond')
-        ->toContain('Bewust uitgeschakeld in de demo')
-        ->toContain('E-mail en herinneringen naar een echte klant')
-        ->toContain('Automatische PDF-export (wel op aanvraag met e-mail in de opname)')
+        ->toContain('Wat je net hebt gedaan')
+        ->toContain('Je hebt één aanvulling afgerond')
+        ->toContain('Geen echte klant, er ging geen mail uit')
+        ->toContain('De gegevens verdwijnen vanzelf')
+        ->toContain('een PDF gaat alleen als je die aanvraagt')
         ->toContain('terug naar de website')
+        ->not->toContain('Bewust uitgeschakeld')
+        ->not->toContain('Wel aan in deze demo')
+        ->not->toContain('productie')
         ->not->toContain('Live AI-aanroepen');
 });
 

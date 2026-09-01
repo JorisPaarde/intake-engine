@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.26 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.27 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -69,6 +69,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-073 | Demo trial-killers: klantlink NL, geen Voorbeeldklant, eerlijke voortgang | E5 | done | high | A · product/demo/UX |
 | — | BL-074 | Offerte-kritisch bewijs na installateurstrial (meterkast, fase, stopcontacten, rondom huis, kruipruimte, vloerisolatie, maten) | E3/E7/E9 | done | high | product · airco-pad |
 | — | BL-075 | Demo-voorbeelddossier mag live PDOK-luchtfoto niet verbergen | E5 | done | high | A · product/demo |
+| — | BL-076 | Demo-banner: installateurstaal i.p.v. featuresheet | E5 | done | high | A · product/demo/UX |
 | — | BL-052 | Gecontroleerd eenvoudig Nederlands in de app-UI | E5 | done | medium | A (done) |
 | — | BL-053 | Mobiele werkplek: acties eerst, info dicht | E5 | done | high | O · bij BL-037 |
 | — | BL-054 | Sticky CTA = echte handeling | E5 | done | high | O · bij BL-053 |
@@ -579,6 +580,16 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Niet in scope:** lat/lon-swap; AI-keys; herschrijven van andere fictieve BAG/EP/3DBAG-contextfeiten.
 - **Acceptatie:** na live aerial + sample load toont presenter bron `PDOK Luchtfoto RGB` met live grondmaat (~180 m), niet fictief 80×55; sample zonder live aerial blijft synthetische luchtfoto krijgen; bestaande Pdok-tests groen.
 - **Resultaat:** geen tweede aerial-fact bij bestaande live capture; presenter last-wins niet meer ten gunste van fictief demo-voorbeeld.
+
+### BL-076 — Demo-banner: installateurstaal i.p.v. featuresheet
+
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-01 · **PR:** (deze PR) · **Epic:** E5 · **Band:** A · product/demo/UX
+- **Aanleiding:** producteigenaar: de klant-demo-banner (“Demo — korte klantroute” + “Wel aan / Bewust uitgeschakeld”-lijsten) is geen goede installateurstaal; jargon (klantroute, foto-AI, productie, productielijst, afgeschermde klanttaak).
+- **Doel:** korte installateur-tot-installateur copy in `demo-scope-notice` (banner + complete), zonder featuresheet; feiten (geen echte klant, geen uitgaande mail, tijdelijke data, PDF niet automatisch) in één à twee zinnen; **je** volgens [docs/language.md](language.md).
+- **Scope:** alleen copy in `resources/views/components/demo-scope-notice.blade.php` + stringasserts in `StartDemoTest`; geen gedrag/AI/mail-wijziging.
+- **Niet in scope:** flashteksten elders, democoach, AI-flags, mailverzending.
+- **Acceptatie:** geen “Wel aan / bewust uitgeschakeld”-checklists op de banner; geen “productie”/“klantroute” in die component; tests groen; `composer check` groen.
+- **Resultaat:** banner “Demo — wat de klant ziet” / “Demo — aanvulling door de klant” en complete-footer herschreven tot korte prose; featurelijsten verwijderd.
 
 ### BL-043 — Publieke productfunnel en interesse-CTA
 

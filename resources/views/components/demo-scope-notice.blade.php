@@ -6,58 +6,27 @@
     'installerReturnUrl' => null,
 ])
 
-@php
-    $included = $shortCustomer
-        ? [
-            'Korte demoroute met dezelfde klantvragen als in de app',
-            'Antwoorden en foto-AI komen in dezelfde tijdelijke opname',
-            'Adresinvulling en AI-tekst zoals in productie',
-        ]
-        : [
-            'Dezelfde afgeschermde klanttaak en uploadflow als in de app',
-            'De aanvulling wordt direct aan dezelfde opname gekoppeld',
-            'Foto-AI mag meedraaien wanneer die in de omgeving aan staat',
-        ];
-    $hidden = [
-        'E-mail en herinneringen naar een echte klant',
-        'Automatische PDF-export (wel op aanvraag met e-mail in de opname)',
-        ...($shortCustomer ? ['De volledige productielijst (langer en past zich aan)'] : []),
-    ];
-@endphp
-
 @if ($variant === 'banner')
     <aside {{ $attributes->merge(['class' => 'mb-4 rounded-md border border-brand-ember/40 bg-brand-ember/10 px-4 py-3 text-left text-sm text-brand-ink', 'role' => 'status']) }}>
         <p class="font-semibold text-brand-ember">
-            {{ $shortCustomer ? 'Demo — korte klantroute' : 'Demo — aanvulling door de klant' }}
+            {{ $shortCustomer ? 'Demo — wat de klant ziet' : 'Demo — aanvulling door de klant' }}
         </p>
         <p class="mt-1 leading-relaxed text-brand-ink/75">
             @if ($shortCustomer)
-                U bekijkt wat de klant ziet na het versturen van de link. Deze demoroute is kort gehouden. Er is geen echte klant.
+                Je kijkt naar de pagina na jouw link. Geen echte klant, er gaat geen mail uit. Dit is expres kort; in het echt krijgt de klant alleen wat nog nodig is.
             @else
-                U bekijkt één opdracht vanuit de tijdelijke opname. Er is geen echte klant. De gegevens verdwijnen automatisch.
+                Je bekijkt één opdracht uit de tijdelijke opname. Geen echte klant, er gaat geen mail uit. De gegevens verdwijnen vanzelf.
             @endif
         </p>
-        <p class="mt-2 font-medium text-brand-ink/85">Wel aan in deze demo:</p>
-        <ul class="mt-1.5 list-disc space-y-0.5 pl-5 text-brand-ink/70">
-            @foreach ($included as $item)
-                <li>{{ $item }}</li>
-            @endforeach
-        </ul>
-        <p class="mt-2 font-medium text-brand-ink/85">Bewust uitgeschakeld:</p>
-        <ul class="mt-1.5 list-disc space-y-0.5 pl-5 text-brand-ink/70">
-            @foreach ($hidden as $item)
-                <li>{{ $item }}</li>
-            @endforeach
-        </ul>
     </aside>
 @elseif ($variant === 'complete')
     <div {{ $attributes->merge(['class' => 'mt-5 border-t border-brand-fog/80 pt-5 text-sm text-brand-ink/80']) }}>
-        <p class="font-semibold text-brand-ink">Wat u net heeft gedaan</p>
+        <p class="font-semibold text-brand-ink">Wat je net hebt gedaan</p>
         <p class="mt-1 leading-relaxed">
             @if ($shortCustomer)
-                De korte klantroute is afgerond. In productie zou de installateur nu een mail krijgen.
+                Je hebt de demopagina van de klant afgerond. Geen echte klant, er ging geen mail uit. De gegevens verdwijnen vanzelf; een PDF gaat alleen als je die aanvraagt.
             @else
-                Eén klantaanvulling is afgerond. De foto of het antwoord hoort bij dezelfde opname.
+                Je hebt één aanvulling afgerond. Geen echte klant, er ging geen mail uit. De gegevens verdwijnen vanzelf; een PDF gaat alleen als je die aanvraagt.
             @endif
         </p>
 
@@ -86,12 +55,6 @@
             </div>
         @endif
 
-        <p class="mt-4 font-semibold text-brand-ink">Bewust uitgeschakeld in de demo</p>
-        <ul class="mt-1.5 list-disc space-y-1 pl-5 leading-relaxed">
-            @foreach ($hidden as $item)
-                <li>{{ $item }}</li>
-            @endforeach
-        </ul>
         <p class="mt-4 leading-relaxed">
             @if ($installerReturnUrl)
                 <a href="{{ $installerReturnUrl }}" class="font-semibold text-brand-sea underline">Terug naar de opname</a>
