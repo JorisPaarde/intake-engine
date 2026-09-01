@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.57 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.58 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -24,6 +24,7 @@ Laatste testsessie: 2026-08-09 (staging; mobiele werkplek BL-053/054–058 op 39
 | Mobiele werkplek acties eerst (BL-053) | todo | - | Op ~390 px: sticky **Volgende stap** + CTA in eerste viewport; open punten vóór ruimtes; AI/woning/foto’s/uitkomst dicht tot tikken; democoach `installer_start`/`sample_loaded` en sprongen `#demo-context`/`#demo-proposal` openen secties; desktop blijft bruikbaar. |
 | Werkplek echte actie + deep links (BL-054–058) | todo | - | Sticky CTA doet echte handeling (geen “bekijken”); open punt tikt naar `#workspace-rooms`/`#connection-*`; max 3 open punten; klanttaak/afronden na opstellingen; thumbs bij object; na goedkeuren korte bevestiging + uitkomst. Democoach blijft. |
 | Ruimtes/plaatsingen bewerken + 1-klik klanttaak (BL-059–062) | todo | - | Op werkplek: bestaande ruimte maten/naam bijwerken; plek label/type bijwerken; capacity-open-punt naar `#room-{id}`; AI-uitzondering en open punt “Vraag de klant”; bij fotovoorstel “Vraag nieuwe foto”; openstaande ronde blokkeert tweede snelle taak. |
+| Één L×B×H-formulier per ruimtekaart (BL-079) | todo | - | Op werkplek bij bestaande ruimte: alleen één set naam/gebruik/L×B×H + “Wijzigingen opslaan”; geen “Maten opslaan” en geen accordion “Ruimte bewerken”; “Ruimte toevoegen” blijft. |
 | Demo beëindigen + verlopen-pagina (BL-066) | todo | - | Confirm vóór **Demo beëindigen**; na einde/TTL → `/demo/beeindigd` (NL, CTA homepage/nieuwe demo); geen Engelse Laravel-404. |
 | Demo-rolkeuze installer-first (BL-067) | todo | - | Na create: **Zelf de opname doen** is primaire knop; **Bekijk wat de klant ziet** secundair; klantpad blijft bereikbaar. |
 | Demo-create zonder mailclaim (BL-068) | todo | - | Demo create toont **Opname aanmaken**, geen **Opslaan en link mailen**; flash/branch zonder “mailen we”. |

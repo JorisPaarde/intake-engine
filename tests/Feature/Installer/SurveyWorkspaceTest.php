@@ -664,11 +664,20 @@ test('installer can update an existing room including dimensions', function () {
         ])
         ->and($room->subject?->label)->toBe('Slaapkamer ouders');
 
-    $this->actingAs($user)
+    $html = $this->actingAs($user)
         ->get(route('intakes.workspace', $intake))
         ->assertOk()
         ->assertSee('id="room-'.$room->id.'"', false)
-        ->assertSee('Ruimte bewerken');
+        ->assertSee('id="room-'.$room->id.'-name"', false)
+        ->assertSee('id="room-'.$room->id.'-length"', false)
+        ->assertSee('Wijzigingen opslaan')
+        ->assertDontSee('Maten opslaan')
+        ->assertDontSee('Ruimte bewerken')
+        ->assertDontSee('room-'.$room->id.'-length-inline')
+        ->getContent();
+
+    expect(substr_count($html, 'name="length_m"'))->toBe(2)
+        ->and(substr_count($html, 'id="room-'.$room->id.'-length"'))->toBe(1);
 });
 
 test('installer can update an existing placement', function () {

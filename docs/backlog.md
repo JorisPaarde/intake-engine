@@ -70,7 +70,11 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-074 | Offerte-kritisch bewijs na installateurstrial (meterkast, fase, stopcontacten, rondom huis, kruipruimte, vloerisolatie, maten) | E3/E7/E9 | done | high | product · airco-pad |
 | — | BL-075 | Demo-voorbeelddossier mag live PDOK-luchtfoto niet verbergen | E5 | done | high | A · product/demo |
 | — | BL-076 | Demo-banner: installateurstaal i.p.v. featuresheet | E5 | done | high | A · product/demo/UX |
+<<<<<<< HEAD
 | — | BL-078 | Demo-klantpad: volledige airco-wizard i.p.v. 2-vragen-allowlist | E5 | done | high | A · product/demo |
+=======
+| — | BL-079 | Werkplek: één L×B×H-formulier per ruimtekaart | E7 | done | high | O · bij BL-059 |
+>>>>>>> 95b4674 (fix(BL-079): single always-visible room edit form on workspace)
 | — | BL-052 | Gecontroleerd eenvoudig Nederlands in de app-UI | E5 | done | medium | A (done) |
 | — | BL-053 | Mobiele werkplek: acties eerst, info dicht | E5 | done | high | O · bij BL-037 |
 | — | BL-054 | Sticky CTA = echte handeling | E5 | done | high | O · bij BL-053 |
@@ -571,6 +575,15 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Niet in scope:** nieuw domeinmodel; Google Street View-integratie; verplichten van `EP_ONLINE_KEY`.
 - **Acceptatie:** backlog-item bestaat; default airco-pad vraagt meterkast + rondom-huis; fase/outlets uit foto’s met extra-foto-fallback; kruipruimte vastlegbaar; vloerisolatie via EP-Online of vraag; maten zichtbaar; tests; `composer check` groen.
 - **Hypothese (geverifieerd):** vooral collection-path / template v12 / workspace open-punten / bestaande AI-fotopad — geen nieuw domain model.
+
+### BL-079 — Werkplek: één L×B×H-formulier per ruimtekaart
+
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-01 · **PR:** #86 · **Epic:** E7 · **Band:** O · **Afhankelijk:** BL-059
+- **Aanleiding:** op de installateurswerkplek toonde elke ruimtekaart twee POST-formulieren naar `rooms.update`: een altijd zichtbaar “Maten opslaan”-blok (alleen L×B×H) én een details-accordion “Ruimte bewerken” met dezelfde maten plus naam/gebruik — dubbele velden, twee knoppen.
+- **Doel:** één altijd zichtbaar bewerkformulier per bestaande ruimte: herkenbare naam, gebruik, L×B×H, één knop “Wijzigingen opslaan”. Geen aparte “Maten opslaan”-shortcut; geen accordion voor deze velden. “Ruimte toevoegen” blijft apart.
+- **Scope:** `resources/views/installer/intakes/workspace.blade.php` (ruimtekaart); regressietest in `SurveyWorkspaceTest`. Geen controller-/servicemodelwijziging.
+- **Acceptatie:** geen ruimtekaart rendert `length_m` twee keer; grep toont geen `Maten opslaan` / `-length-inline` meer op de kaart; plek-bewerken blijft uniek (type/room/label/description).
+- **Resultaat:** één always-on editformulier per ruimtekaart; “Maten opslaan” en accordion verwijderd.
 
 ### BL-075 — Demo-voorbeelddossier mag live PDOK-luchtfoto niet verbergen
 

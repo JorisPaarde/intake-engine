@@ -11,6 +11,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Fixed
 
+- **Dubbele ruimtematen op de werkplek (BL-079):** per bestaande ruimte één altijd zichtbaar bewerkformulier (naam, gebruik, L×B×H, “Wijzigingen opslaan”). Het aparte “Maten opslaan”-blok en de accordion “Ruimte bewerken” zijn weg; “Ruimte toevoegen” blijft ongewijzigd.
 - **Demo-luchtfoto blijft bij het getypeerde adres (BL-075):** na live BAG/PDOK-verrijking overschrijft *Toon voorbeelddossier* de PDOK-luchtfoto niet meer met de synthetische Haarlem-voorbeeldcapture. Sample-load injecteert ruimtes/foto’s/AI; een fictieve luchtfoto alleen wanneer er nog geen live `PDOK Luchtfoto RGB` is. `ExternalFactPresenter` prefereert live PDOK boven fictief demo-voorbeeld.
 
 ### Added

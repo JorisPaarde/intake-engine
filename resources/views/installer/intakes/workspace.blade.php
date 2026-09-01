@@ -348,26 +348,39 @@
                                         </span>
                                     </div>
 
-                                    <form method="POST" action="{{ route('intakes.workspace.rooms.update', [$intake, $room]) }}" class="mt-4 grid gap-3 rounded-xl border border-gray-100 bg-gray-50 p-3 sm:grid-cols-3">
+                                    <form method="POST" action="{{ route('intakes.workspace.rooms.update', [$intake, $room]) }}" class="mt-4 grid gap-3 rounded-xl border border-gray-100 bg-gray-50 p-3 sm:grid-cols-2">
                                         @csrf
-                                        <input type="hidden" name="name" value="{{ $room->name }}" />
-                                        @if (is_string($room->use_type) && $room->use_type !== '')
-                                            <input type="hidden" name="use_type" value="{{ $room->use_type }}" />
-                                        @endif
                                         <div>
-                                            <x-input-label for="room-{{ $room->id }}-length-inline" value="Lengte (m)" />
-                                            <x-text-input id="room-{{ $room->id }}-length-inline" name="length_m" type="number" step="0.1" min="0.5" class="mt-1 block w-full" value="{{ $roomDimensions['length_m'] ?? '' }}" />
+                                            <x-input-label for="room-{{ $room->id }}-name" value="Herkenbare naam" />
+                                            <x-text-input id="room-{{ $room->id }}-name" name="name" class="mt-1 block w-full" value="{{ $room->name }}" required />
                                         </div>
                                         <div>
-                                            <x-input-label for="room-{{ $room->id }}-width-inline" value="Breedte (m)" />
-                                            <x-text-input id="room-{{ $room->id }}-width-inline" name="width_m" type="number" step="0.1" min="0.5" class="mt-1 block w-full" value="{{ $roomDimensions['width_m'] ?? '' }}" />
+                                            <x-input-label for="room-{{ $room->id }}-use" value="Gebruik" />
+                                            <select id="room-{{ $room->id }}-use" name="use_type" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300">
+                                                <option value="" @selected($room->use_type === null)>Nog niet vastgesteld</option>
+                                                <option value="bedroom" @selected($room->use_type === 'bedroom')>Slaapkamer</option>
+                                                <option value="living_room" @selected($room->use_type === 'living_room')>Woonkamer</option>
+                                                <option value="office" @selected($room->use_type === 'office')>Werkkamer</option>
+                                                <option value="attic" @selected($room->use_type === 'attic')>Zolder</option>
+                                                <option value="other" @selected($room->use_type === 'other')>Anders</option>
+                                            </select>
                                         </div>
-                                        <div>
-                                            <x-input-label for="room-{{ $room->id }}-height-inline" value="Hoogte (m)" />
-                                            <x-text-input id="room-{{ $room->id }}-height-inline" name="height_m" type="number" step="0.1" min="1.5" class="mt-1 block w-full" value="{{ $roomDimensions['height_m'] ?? '' }}" />
+                                        <div class="grid grid-cols-3 gap-2 sm:col-span-2">
+                                            <div>
+                                                <x-input-label for="room-{{ $room->id }}-length" value="Lengte (m)" />
+                                                <x-text-input id="room-{{ $room->id }}-length" name="length_m" type="number" step="0.1" min="0.5" class="mt-1 block w-full" value="{{ $roomDimensions['length_m'] ?? '' }}" />
+                                            </div>
+                                            <div>
+                                                <x-input-label for="room-{{ $room->id }}-width" value="Breedte (m)" />
+                                                <x-text-input id="room-{{ $room->id }}-width" name="width_m" type="number" step="0.1" min="0.5" class="mt-1 block w-full" value="{{ $roomDimensions['width_m'] ?? '' }}" />
+                                            </div>
+                                            <div>
+                                                <x-input-label for="room-{{ $room->id }}-height" value="Hoogte (m)" />
+                                                <x-text-input id="room-{{ $room->id }}-height" name="height_m" type="number" step="0.1" min="1.5" class="mt-1 block w-full" value="{{ $roomDimensions['height_m'] ?? '' }}" />
+                                            </div>
                                         </div>
-                                        <div class="sm:col-span-3">
-                                            <x-primary-button>Maten opslaan</x-primary-button>
+                                        <div class="sm:col-span-2">
+                                            <x-primary-button>Wijzigingen opslaan</x-primary-button>
                                         </div>
                                     </form>
 
@@ -381,47 +394,6 @@
                                             @endforeach
                                         </ul>
                                     @endif
-
-                                    <details class="mt-4 rounded-xl border border-gray-200 bg-gray-50">
-                                        <summary class="flex min-h-11 cursor-pointer list-none items-center px-3 py-2 text-sm font-semibold text-gray-800">
-                                            Ruimte bewerken
-                                        </summary>
-                                        <form method="POST" action="{{ route('intakes.workspace.rooms.update', [$intake, $room]) }}" class="grid gap-3 border-t border-gray-200 p-3 sm:grid-cols-2">
-                                            @csrf
-                                            <div>
-                                                <x-input-label for="room-{{ $room->id }}-name" value="Herkenbare naam" />
-                                                <x-text-input id="room-{{ $room->id }}-name" name="name" class="mt-1 block w-full" value="{{ $room->name }}" required />
-                                            </div>
-                                            <div>
-                                                <x-input-label for="room-{{ $room->id }}-use" value="Gebruik" />
-                                                <select id="room-{{ $room->id }}-use" name="use_type" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300">
-                                                    <option value="" @selected($room->use_type === null)>Nog niet vastgesteld</option>
-                                                    <option value="bedroom" @selected($room->use_type === 'bedroom')>Slaapkamer</option>
-                                                    <option value="living_room" @selected($room->use_type === 'living_room')>Woonkamer</option>
-                                                    <option value="office" @selected($room->use_type === 'office')>Werkkamer</option>
-                                                    <option value="attic" @selected($room->use_type === 'attic')>Zolder</option>
-                                                    <option value="other" @selected($room->use_type === 'other')>Anders</option>
-                                                </select>
-                                            </div>
-                                            <div class="grid grid-cols-3 gap-2 sm:col-span-2">
-                                                <div>
-                                                    <x-input-label for="room-{{ $room->id }}-length" value="Lengte (m)" />
-                                                    <x-text-input id="room-{{ $room->id }}-length" name="length_m" type="number" step="0.1" min="0.5" class="mt-1 block w-full" value="{{ $roomDimensions['length_m'] ?? '' }}" />
-                                                </div>
-                                                <div>
-                                                    <x-input-label for="room-{{ $room->id }}-width" value="Breedte (m)" />
-                                                    <x-text-input id="room-{{ $room->id }}-width" name="width_m" type="number" step="0.1" min="0.5" class="mt-1 block w-full" value="{{ $roomDimensions['width_m'] ?? '' }}" />
-                                                </div>
-                                                <div>
-                                                    <x-input-label for="room-{{ $room->id }}-height" value="Hoogte (m)" />
-                                                    <x-text-input id="room-{{ $room->id }}-height" name="height_m" type="number" step="0.1" min="1.5" class="mt-1 block w-full" value="{{ $roomDimensions['height_m'] ?? '' }}" />
-                                                </div>
-                                            </div>
-                                            <div class="sm:col-span-2">
-                                                <x-primary-button>Wijzigingen opslaan</x-primary-button>
-                                            </div>
-                                        </form>
-                                    </details>
 
                                     @include('installer.intakes._subject-tools', [
                                         'intake' => $intake,
