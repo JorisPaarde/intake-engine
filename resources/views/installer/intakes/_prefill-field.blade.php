@@ -3,13 +3,21 @@
     $name = 'prefill['.$question->key.']';
     $old = old('prefill.'.$question->key);
     $inputClass = 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500';
+    // Create-form only: short labels; customer wizard keeps the full template label.
+    $shortLabels = [
+        'crawl_space_present' => 'Kruipruimte',
+        'floor_insulation' => 'Vloerisolatie',
+        'room_length_m' => 'Lengte (m)',
+        'room_width_m' => 'Breedte (m)',
+        'ceiling_height_m' => 'Hoogte (m)',
+    ];
+    $label = is_string($question->meta['short_label'] ?? null) && $question->meta['short_label'] !== ''
+        ? $question->meta['short_label']
+        : ($shortLabels[$question->key] ?? $question->label);
 @endphp
 
 <div>
-    <x-input-label :value="$question->label" />
-    @if ($question->help_text)
-        <p class="mt-1 text-xs text-gray-500">{{ $question->help_text }}</p>
-    @endif
+    <x-input-label :value="$label" />
 
     @switch ($question->type->value)
         @case('long_text')
@@ -22,7 +30,7 @@
 
         @case('single_choice')
             <select name="{{ $name }}" class="{{ $inputClass }}">
-                <option value="">— nog niet invullen —</option>
+                <option value="">—</option>
                 @foreach ($question->options as $option)
                     <option value="{{ $option->value }}" @selected((string) $old === (string) $option->value)>{{ $option->label }}</option>
                 @endforeach
@@ -44,7 +52,7 @@
 
         @case('boolean')
             <select name="{{ $name }}" class="{{ $inputClass }}">
-                <option value="">— nog niet invullen —</option>
+                <option value="">—</option>
                 <option value="1" @selected($old === '1')>Ja</option>
                 <option value="0" @selected($old === '0')>Nee</option>
             </select>
@@ -54,5 +62,5 @@
             <x-text-input name="{{ $name }}" type="text" class="mt-1 block w-full" :value="$old" />
     @endswitch
 
-    <x-input-error :messages="$errors->get('prefill.'.$question->key)" class="mt-2" />
+    <x-input-error :messages="$errors->get('prefill.'.$question->key)" class="mt-1" />
 </div>

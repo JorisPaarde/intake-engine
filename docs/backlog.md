@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.30 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.31 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,7 +38,7 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 zijn gereserveerd voor draft PR’s [#74](https://github.com/JorisPaarde/intake-engine/pull/74) / [#75](https://github.com/JorisPaarde/intake-engine/pull/75) (AI-prefill); niet hergebruiken. BL-077 is gereserveerd voor sibling demo-UX (vrije-groep na meterkast); niet hergebruiken. Nieuwe items starten bij BL-080 (BL-081 is unit-copy in PR #86).
+**Nummering:** BL-063–065 zijn gereserveerd voor draft PR’s [#74](https://github.com/JorisPaarde/intake-engine/pull/74) / [#75](https://github.com/JorisPaarde/intake-engine/pull/75) (AI-prefill); niet hergebruiken. BL-077 is gereserveerd voor sibling demo-UX (vrije-groep na meterkast); niet hergebruiken. Nieuwe items starten bij BL-082 (BL-080 create-form UX in PR #87; BL-081 unit-copy in #86).
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
@@ -72,6 +72,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-076 | Demo-banner: installateurstaal i.p.v. featuresheet | E5 | done | high | A · product/demo/UX |
 | — | BL-078 | Demo-klantpad: volledige airco-wizard i.p.v. 2-vragen-allowlist | E5 | done | high | A · product/demo |
 | — | BL-079 | Werkplek: één L×B×H-formulier per ruimtekaart | E7 | done | high | O · bij BL-059 |
+| — | BL-080 | Create-form: adres zonder chrome + compact prefill + geen demo-mail in UI | E3/E5 | done | high | A · product/UX |
 | — | BL-081 | Werkplek-copy: binnen-/buitenunit i.p.v. plekken/posities | E7 | done | high | O · bij BL-053/059 |
 | — | BL-052 | Gecontroleerd eenvoudig Nederlands in de app-UI | E5 | done | medium | A (done) |
 | — | BL-053 | Mobiele werkplek: acties eerst, info dicht | E5 | done | high | O · bij BL-037 |
@@ -623,6 +624,16 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Acceptatie:** featuretest dat demo-klantpad `fusebox_photo` en `around_house_photos` bevat (niet alleen `free_group_known`); oude “exactly 2 steps”/short-keys-tests bijgewerkt; `composer check` groen.
 - **Hypothese (geverifieerd):** allowlist in wizard + sessieflag; geen templatewijziging nodig.
 - **Resultaat:** demo-klantpad = productie-wizard; sessieflag/config/allowlist verwijderd; banner zonder “kort”-claim (compatibel met BL-076).
+
+### BL-080 — Create-form: adres zonder chrome + compact prefill + geen demo-mail in UI
+
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-01 · **PR:** #87 · **Epic:** E3/E5 · **Band:** A · product/UX
+- **Aanleiding:** producteigenaar op create: Toevoeging + “Handmatig invoeren/ingevoerd” + status/helper zijn ruis; straatregel toonde soms alleen straatnaam; demo prefillde `voorbeeld+…@demo.invalid` zichtbaar; prefill-blok (kruipruimte + L×B×H) te veel ruimte/tekst.
+- **Doel:** postcode + huisnummer blijven lookup; daarna alleen *Straat en huisnummer* (volledig, met nummer/toevoeging) en *Plaats*; toevoeging in huisnummer/straatregel (hidden OK); geen `@demo.invalid` in UI (server-side bij lege opslaan); compacte installateur-prefill zonder klant-helpteksten.
+- **Scope:** `create.blade.php` + JS, `_prefill-field`, `StoreIntakeRequest`, `PdokAddressService`/`BagAddressAttributes` address_line-schrijfwijze, demo create/store; featuretests; docs.
+- **Niet in scope:** klantwizard-labels herschrijven; open PRs #84/#85/#86; nieuwe templateversie.
+- **Acceptatie:** create toont geen Toevoeging/Handmatig-chrome; suggestion `address_line` bevat huisnummer; demo create zonder zichtbaar `@demo.invalid`; prefill korte labels + L×B×H-rij + “—”; `composer check` groen.
+- **Resultaat:** adresblok vereenvoudigd; `address_line` als `Straat 12A`; demo-e-mail leeg in UI; prefill compact.
 
 ### BL-043 — Publieke productfunnel en interesse-CTA
 

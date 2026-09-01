@@ -406,7 +406,8 @@ final class PdokAddressService
         $number = trim((string) ($document['huisnummer'] ?? ''));
         $suffix = $this->addressAddition($document);
 
-        return trim($street.' '.$number.($suffix === null ? '' : '-'.$suffix));
+        // Full line including number and any addition, e.g. "Bernadottelaan 12A".
+        return trim($street.' '.$number.($suffix ?? ''));
     }
 
     /** @param array<string, mixed> $document */
