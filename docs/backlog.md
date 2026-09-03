@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.36 · **Laatste update:** 2026-09-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.37 · **Laatste update:** 2026-09-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -42,13 +42,13 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| ∥ | BL-084 | Opnamedetail: open punten direct aanklikbaar + volgende open punt | E6 | ready | high | detailpagina-UX |
-| ∥ | BL-085 | Lege "AI-voorgestelde aandachtspunten" niet als dode sectie | E4 | ready | medium | detailpagina-UX |
-| ∥ | BL-086 | Opnamedetailpagina herstructureren rond "wat nu te doen" | E6 | backlog | medium | detailpagina-UX |
-| ∥ | BL-087 | Actiegerichte contactgegevens (bellen/mailen/kaart) | E6 | ready | medium | detailpagina-UX |
-| ∥ | BL-088 | Eén heldere aandachtspunten-sectie i.p.v. twee | E4 | ready | medium | detailpagina-UX |
-| ∥ | BL-089 | Fotokwaliteitswaarschuwing → 1-klik klanttaak | E7 | backlog | medium | detailpagina-UX |
-| ∥ | BL-090 | Rapport lichter op detail + PDF-statusfeedback | E6 | backlog | low | detailpagina-UX |
+| — | BL-084 | Opnamedetail: open punten direct aanklikbaar + volgende open punt | E6 | done | high | detailpagina-UX |
+| — | BL-085 | Lege "AI-voorgestelde aandachtspunten" niet als dode sectie | E4 | done | medium | detailpagina-UX |
+| — | BL-086 | Opnamedetailpagina herstructureren rond "wat nu te doen" | E6 | done | medium | detailpagina-UX |
+| — | BL-087 | Actiegerichte contactgegevens (bellen/mailen/kaart) | E6 | done | medium | detailpagina-UX |
+| — | BL-088 | Eén heldere aandachtspunten-sectie i.p.v. twee | E4 | done | medium | detailpagina-UX |
+| — | BL-089 | Fotokwaliteitswaarschuwing → 1-klik klanttaak | E7 | done | medium | detailpagina-UX |
+| — | BL-090 | Rapport lichter op detail + PDF-statusfeedback | E6 | done | low | detailpagina-UX |
 | — | BL-035 | Centrale dossierkern en migratiebrug | E6 | done | high | N (done) |
 | — | BL-039 | Airco: ruimtes, plaatsingsopties en installatieopties | E8 | done | high | P (done) |
 | — | BL-036 | Beslisgereed installateursdossier en volgende acties | E6 | done | high | N (done) |
@@ -596,7 +596,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-084 — Opnamedetail: open punten direct aanklikbaar + volgende open punt
 
-- **Status:** ready · **Prioriteit:** high · **Epic:** E6 · **Band:** detailpagina-UX
+- **Status:** done · **Datum:** 2026-09-03 · **PR:** (deze PR) · **Prioriteit:** high · **Epic:** E6 · **Band:** detailpagina-UX
 - **Aanleiding:** productie (`/intakes/54`): de kop meldt "Volgende actie: Nog iets aan de klant vragen. Los eerst de gemarkeerde open punten op", maar er is geen makkelijke weg naar die open punten — laat staan naar de eerstvolgende — om ze op te lossen. De "Naar opname"-knop springt naar de bovenkant van de werkplek, niet naar het open punt.
 - **Doel:** de open punten op de detailpagina zijn direct handelbaar. De "Volgende actie"-regel wordt een duidelijke CTA die deep-linkt naar het betreffende open punt; de blockers uit `DecisionReadinessService` worden een korte, klikbare lijst die per punt naar de juiste plek in de werkplek scrollt, plus een "volgende open punt"-actie.
 - **Scope:** `resources/views/installer/intakes/show.blade.php` (kopblok "Volgende actie" + een compacte open-puntenlijst), deep-links naar bestaande ankers in `workspace.blade.php` (`#workspace-open-items`, `#room-{id}`); waar een fijner anker per gebied ontbreekt, dat anker toevoegen in de werkplek. Hergebruik `DecisionReadinessService` (blockers/`next_action` per gebied); geen nieuw datamodel. `SurveyWorkspaceTest`/detailpagina-test.
@@ -605,7 +605,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-085 — Lege "AI-voorgestelde aandachtspunten" niet als dode sectie
 
-- **Status:** ready · **Prioriteit:** medium · **Epic:** E4 · **Band:** detailpagina-UX
+- **Status:** done · **Datum:** 2026-09-03 · **PR:** (deze PR) · **Prioriteit:** medium · **Epic:** E4 · **Band:** detailpagina-UX
 - **Aanleiding:** productie (`/intakes/54`): de sectie "AI-voorgestelde aandachtspunten" is leeg en oogt kapot. Zonder geactiveerde externe AI (DPIA/key) of zonder gedraaide run zijn er nooit voorstellen, dus "Geen openstaande AI-voorstellen" staat er permanent zonder uitleg of actie.
 - **Doel:** de sectie toont een betekenisvolle staat i.p.v. een dode lege lijst: leg uit waaróm er niets is (AI staat uit / nog niet gedraaid) en bied, waar AI beschikbaar is, een expliciete "AI-aandachtspunten voorstellen"-actie; anders de sectie inklappen/verbergen.
 - **Scope:** `resources/views/installer/intakes/show.blade.php` (aandachtspunten-blok), evt. een terugkerende suggest-actie via bestaande `intakes.attention.suggest`-route; `config('ai.*')`-status om de staat te bepalen. Detailpagina-test op de drie states (uit / leeg-maar-mogelijk / voorstellen aanwezig).
@@ -614,7 +614,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-086 — Opnamedetailpagina herstructureren rond "wat nu te doen"
 
-- **Status:** backlog · **Prioriteit:** medium · **Epic:** E6 · **Band:** detailpagina-UX
+- **Status:** done · **Datum:** 2026-09-03 · **PR:** (deze PR) · **Prioriteit:** medium · **Epic:** E6 · **Band:** detailpagina-UX
 - **Aanleiding:** productie (`/intakes/54`): de detailpagina is als geheel niet gebruiksvriendelijk — een lange dichte opsomming waarin de eigenlijke vervolgactie ondersneeuwt, terwijl de handelende werkplek een aparte pagina is.
 - **Doel:** de pagina ordenen rond de eerstvolgende handeling: bovenaan een actie-samenvatting (volgende actie + open punten, zie BL-084) en een duidelijke primaire CTA naar de werkplek; ruwe data (woninggegevens, uploads, activiteit) naar secundaire/inklapbare secties. Overweeg convergentie van detailpagina (lees-dossier) en werkplek (handelen) zodat er één heldere plek is om verder te werken.
 - **Scope:** `resources/views/installer/intakes/show.blade.php` (herindeling/prioritering), mogelijk lichte aanpassing aan de relatie met `workspace.blade.php`; `docs/language.md` voor teksten. Bouwt voort op BL-084/085. Geen datamodelwijziging beoogd.
@@ -623,7 +623,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-087 — Actiegerichte contactgegevens (bellen/mailen/kaart)
 
-- **Status:** ready · **Prioriteit:** medium · **Epic:** E6 · **Band:** detailpagina-UX
+- **Status:** done · **Datum:** 2026-09-03 · **PR:** (deze PR) · **Prioriteit:** medium · **Epic:** E6 · **Band:** detailpagina-UX
 - **Aanleiding:** op de detailpagina zijn e-mail, telefoon en adres platte tekst. Op mobiel moet de installateur nummer/adres overtypen om te bellen, mailen of navigeren.
 - **Doel:** telefoon als `tel:`-link, e-mail als `mailto:`-link, en adres als link naar kaart/navigatie (nieuw tabblad). Alleen als het veld gevuld is; geen gedrag veranderen als het leeg is.
 - **Scope:** `resources/views/installer/intakes/show.blade.php` (kerngegevens-`dl`). Puur UI; geen datamodel. Detailpagina-test op de links.
@@ -632,7 +632,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-088 — Eén heldere aandachtspunten-sectie i.p.v. twee
 
-- **Status:** ready · **Prioriteit:** medium · **Epic:** E4 · **Band:** detailpagina-UX
+- **Status:** done · **Datum:** 2026-09-03 · **PR:** (deze PR) · **Prioriteit:** medium · **Epic:** E4 · **Band:** detailpagina-UX
 - **Aanleiding:** de pagina toont vlak na elkaar "Aandachtspunten" (overgenomen/systeem) en "AI-voorgestelde aandachtspunten" (voorstellen). Twee bijna gelijke koppen is verwarrend, en opgeloste punten blijven in de lijst staan.
 - **Doel:** één sectie "Aandachtspunten" met duidelijk onderscheid tussen *overgenomen/actueel* en *AI-voorstel (accepteren/verwijderen)*; opgeloste punten inklappen of naar onder. Sluit aan op de lege-staat-fix van BL-085.
 - **Scope:** `resources/views/installer/intakes/show.blade.php` (blokken regels ~295 en ~314 samenvoegen); geen wijziging aan `attentionPoints`-model of accept/dismiss-routes. Detailpagina-test.
@@ -641,7 +641,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-089 — Fotokwaliteitswaarschuwing → 1-klik klanttaak
 
-- **Status:** backlog · **Prioriteit:** medium · **Epic:** E7 · **Band:** detailpagina-UX
+- **Status:** done · **Datum:** 2026-09-03 · **PR:** (deze PR) · **Prioriteit:** medium · **Epic:** E7 · **Band:** detailpagina-UX
 - **Aanleiding:** bij een foto met een automatische bruikbaarheidswaarschuwing (⚠) staat alleen een badge; de installateur moet zelf een aparte klanttaak opstellen om een betere foto te vragen.
 - **Doel:** naast de waarschuwing een 1-klik-actie "Vraag betere foto" die een afgebakende klanttaak voor precies die foto/vraag voorbereidt (hergebruik bestaande vervolgtaak-/klantopdracht-flow).
 - **Scope:** `resources/views/installer/intakes/show.blade.php` (fotogalerij-badge) + koppeling naar de bestaande follow-up/klanttaak-actie (werkplek). Feature-test dat de knop de juiste taak voorbereidt.
@@ -650,7 +650,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-090 — Rapport lichter op detail + PDF-statusfeedback
 
-- **Status:** backlog · **Prioriteit:** low · **Epic:** E6 · **Band:** detailpagina-UX
+- **Status:** done · **Datum:** 2026-09-03 · **PR:** (deze PR) · **Prioriteit:** low · **Epic:** E6 · **Band:** detailpagina-UX
 - **Aanleiding:** zodra er een rapport is, staat er altijd een 32rem-`iframe` op de detailpagina (zwaar op mobiel), en "PDF wordt voorbereid…" is een dood spoor zonder verversing of status.
 - **Doel:** het rapport standaard als lichte kaart/knop (inklapbaar of aparte view) i.p.v. een altijd-geladen iframe, en bij een nog niet klare PDF een duidelijke status met verversing (of automatische statusupdate) zodat de installateur weet wanneer hij klaar is.
 - **Scope:** `resources/views/installer/intakes/show.blade.php` (rapport-blok, regels ~374-446); geen wijziging aan rapportgeneratie zelf. Detailpagina-test (iframe niet standaard geladen; statusweergave klopt).

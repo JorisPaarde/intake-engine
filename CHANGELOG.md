@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Changed
+
+- **Opnamedetail UX (BL-084–090):** detailpagina herordend rond **Wat nu te doen** — sticky primaire CTA + klikbare open punten met deep-links naar de werkplek (`#room-{id}`, `#connection-{id}`, …); contactgegevens als `mailto:`/`tel:`/kaartlink; één **Aandachtspunten**-sectie (actueel vs AI-voorstel, opgeloste punten ingeklapt); AI uit = uitleg, AI aan zonder run = knop **AI-aandachtspunten voorstellen** (`POST intakes.attention.suggest`); fotowaarschuwing ⚠ → **Vraag betere foto** (1-klik klanttaak); woninggegevens/foto’s/klantlink/beoordeling/rapport secundair in `<details>`; rapport standaard licht (link + lazy iframe), PDF-status met **Status verversen** en auto-reload.
+
 ### Fixed
 
 - **Ruimtekaart-copy zonder herhaling (BL-083):** onder **Gewenste ruimtes** geen puzzelzin meer (“Een ruimte is nog geen…” → **Kamers uit de aanvraag.**). Kaart toont geen dubbele h4/`use_type` naast het bewerkformulier: alleen maten-subtitels (**Maten nog leeg** of `4,2 × 3,1 × 2,5 m`), veldlabel **Naam** (niet Herkenbare naam), badge/bron, Gebruik + L×B×H. Knop **Notitie toevoegen** (was Technische notitie toevoegen). Zelfde pass: werkplek-collegezinnen ingekort/weg, unit-label **Naam**, demo/confirm **je**, demorapport-PDF **je**, ended-pagina **je**, voorbeeldfoto-captions zonder “positie”, flash **Notitie toegevoegd.**

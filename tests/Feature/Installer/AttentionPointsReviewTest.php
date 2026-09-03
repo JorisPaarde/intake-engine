@@ -48,7 +48,9 @@ test('installer reviews automatically generated AI attention points without a ge
     $this->actingAs($owner)
         ->get(route('intakes.show', $intake))
         ->assertOk()
-        ->assertSee('AI-voorgestelde aandachtspunten')
+        ->assertSee('Aandachtspunten')
+        ->assertSee('AI-voorstel · accepteren of verwijderen')
+        ->assertDontSee('AI-voorgestelde aandachtspunten')
         ->assertDontSee('AI-aandachtspunten voorstellen')
         ->assertDontSee('Opnieuw voorstellen');
 
@@ -134,11 +136,25 @@ test('automatic re-analysis keeps a dismissed point out and an accepted point in
         ->toBe(AttentionPointStatus::Dismissed);
 });
 
-test('the manual attention point generation endpoint does not exist', function () {
+test('installer can manually trigger ai attention suggestions when ai is available', function () {
     $owner = User::factory()->create();
     $intake = makeReviewableIntake($owner);
 
-    $this->post("/intakes/{$intake->id}/attention/suggest")->assertNotFound();
+    $this->actingAs($owner)
+        ->post(route('intakes.attention.suggest', $intake))
+        ->assertRedirect(route('intakes.show', $intake));
+
+    expect($intake->fresh()->attentionPoints()->aiProposed()->count())->toBeGreaterThan(0);
+});
+
+test('manual attention point generation is blocked when ai is disabled', function () {
+    config(['ai.provider' => 'null']);
+    $owner = User::factory()->create();
+    $intake = makeReviewableIntake($owner);
+
+    $this->actingAs($owner)
+        ->post(route('intakes.attention.suggest', $intake))
+        ->assertNotFound();
 });
 
 test('a point from another intake cannot be accepted', function () {
