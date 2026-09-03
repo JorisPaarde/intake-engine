@@ -42,7 +42,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| — | BL-091 | Demo: opslaan op dossierdetail mag niet naar login/404 | E5 | in_progress | high | A · product/demo |
+| — | BL-091 | Demo: opslaan op dossierdetail mag niet naar login/404 | E5 | done | high | A · product/demo |
 | — | BL-084 | Opnamedetail: open punten direct aanklikbaar + volgende open punt | E6 | done | high | detailpagina-UX |
 | — | BL-085 | Lege "AI-voorgestelde aandachtspunten" niet als dode sectie | E4 | done | medium | detailpagina-UX |
 | — | BL-086 | Opnamedetailpagina herstructureren rond "wat nu te doen" | E6 | done | medium | detailpagina-UX |
@@ -660,12 +660,13 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-091 — Demo: opslaan op dossierdetail mag niet naar login/404
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E5 · **Band:** A · product/demo · **Afhankelijk:** BL-001/084–090
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-03 · **PR:** #93 · **Epic:** E5 · **Band:** A · product/demo · **Afhankelijk:** BL-001/084–090
 - **Aanleiding:** producteigenaar: “Als ik in de demo iets opsla word ik naar inlog scherm gestuurd.”
 - **Oorzaak:** `RestrictPublicDemoSession` allowlist dekte werkplek-POSTs maar niet dossierdetail-acties die BL-084–090 zichtbaar maakten (adres opnieuw, AI-aandachtspunten, beoordeling, rapport/PDF, link). Daarnaast: gepurgede ephemeral user → `auth` faalt vóór demo-middleware → echt `/login` i.p.v. `demo.ended`.
 - **Doel:** demo-saves op show/workspace blijven ingelogd; stale demo-auth naar `/demo/beeindigd`.
 - **Scope:** `RestrictPublicDemoSession`, `bootstrap/app.php` `redirectGuestsTo`, Pest in `StartDemoTest`.
 - **Acceptatie:** demo POST adres/beoordeling/aandachtspunten/ruimte → geen 404/login; stale/purged demo → `demo.ended`; metrics/profiel blijven 404; `composer check` groen.
+- **Resultaat:** allowlist uitgebreid; stale/purged demo → `demo.ended`; featuretests groen.
 - **Hypothese:** middleware-allowlist + guest-redirect; geen UI-herontwerp.
 
 ### BL-083 — Werkplek ruimtekaart: geen herhaalde naam/type + korte copy

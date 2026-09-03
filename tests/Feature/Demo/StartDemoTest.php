@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Domains\AI\Jobs\SummarizeIntakeJob;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\Intake\Actions\CompleteIntake;
+use App\Domains\Intake\Actions\HardDeleteIntake;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
@@ -502,10 +503,10 @@ it('sends purged demo users to the ended page instead of the installer login', f
 
     expect(session('public_demo_mode'))->toBeTrue();
 
-    app(\App\Domains\Intake\Actions\HardDeleteIntake::class)->handle($intake);
+    app(HardDeleteIntake::class)->handle($intake);
     $companyId = (int) $user->company_id;
     $user->delete();
-    \App\Models\Company::query()->whereKey($companyId)->delete();
+    Company::query()->whereKey($companyId)->delete();
 
     $this->get(route('dashboard'))
         ->assertRedirect(route('demo.ended', ['reason' => 'expired']));
