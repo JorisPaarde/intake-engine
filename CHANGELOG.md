@@ -6,7 +6,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
-- **Opnamedetail UX (BL-084–090):** detailpagina herordend rond **Wat nu te doen** — sticky primaire CTA + klikbare open punten met deep-links naar de werkplek (`#room-{id}`, `#connection-{id}`, …); contactgegevens als `mailto:`/`tel:`/kaartlink; één **Aandachtspunten**-sectie (actueel vs AI-voorstel, opgeloste punten ingeklapt); AI uit = uitleg, AI aan zonder run = knop **AI-aandachtspunten voorstellen** (`POST intakes.attention.suggest`); fotowaarschuwing ⚠ → **Vraag betere foto** (1-klik klanttaak); woninggegevens/foto’s/klantlink/beoordeling/rapport secundair in `<details>`; rapport standaard licht (link + lazy iframe), PDF-status met **Status verversen** en auto-reload.
+- **Opnamedetail UX (BL-084–090):** detailpagina herordend rond **Wat nu te doen** — sticky primaire CTA + klikbare open punten met deep-links naar de werkplek (`#room-{id}`, `#connection-{id}`, …); contactgegevens als `mailto:`/`tel:`/kaartlink; één **Aandachtspunten**-sectie (actueel vs AI-voorstel, opgeloste punten ingeklapt); AI uit = uitleg, AI aan zonder run = knop **AI-aandachtspunten voorstellen** (`POST intakes.attention.suggest`); fotowaarschuwing ⚠ → **Vraag betere foto** (1-klik klanttaak); woninggegevens/foto’s/klantlink/beoordeling/rapport secundair in `<details>`; rapport standaard licht (link + lazy iframe), PDF-status met handmatige **Status verversen**.
 
 ### Fixed
 

@@ -67,6 +67,8 @@ test('detail page shows ai disabled explanation instead of a dead empty ai secti
     $this->actingAs($user)
         ->get(route('intakes.show', $intake))
         ->assertOk()
+        ->assertSee('Aandachtspunten')
+        ->assertSee('AI staat uit in deze omgeving')
         ->assertDontSee('AI-voorgestelde aandachtspunten')
         ->assertDontSee('Geen openstaande AI-voorstellen');
 });
@@ -181,6 +183,8 @@ test('detail page does not load report iframe by default', function () {
         ->assertOk()
         ->assertSee('Rapport openen')
         ->assertSee('Status verversen')
+        ->assertSee('Ververs de status over een moment')
+        ->assertDontSee('De pagina ververst automatisch')
         ->assertSee('data-lazy-report', false)
         ->getContent();
 

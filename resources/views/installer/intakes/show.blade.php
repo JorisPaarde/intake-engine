@@ -3,7 +3,7 @@
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">{{ $intake->customer_name }}</h2>
             <div class="flex items-center gap-3">
-                <a href="{{ $workspaceUrl }}{{ $primaryAction['href'] }}" class="inline-flex min-h-10 items-center rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-500">{{ $primaryAction['label'] }}</a>
+                <a href="{{ $workspaceUrl }}{{ $primaryAction['href'] }}" class="inline-flex min-h-10 items-center rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-500">Opname openen</a>
                 <a href="{{ route('dashboard') }}" class="text-sm text-gray-600 hover:text-gray-900">← Overzicht</a>
             </div>
         </div>
@@ -65,8 +65,7 @@
                         <p class="mt-1 text-sm text-gray-700">{{ $primaryAction['summary'] }}</p>
                     </div>
                     <div class="shrink-0 text-right text-sm">
-                        <p class="font-semibold tabular-nums text-gray-900">{{ $dossier['ready_count'] }}/{{ $dossier['total_count'] }}</p>
-                        <p class="text-xs text-gray-500">klaar voor offerte</p>
+                        <p class="font-semibold tabular-nums text-gray-900">Klaar voor offerte: {{ $dossier['ready_count'] }}/{{ $dossier['total_count'] }}</p>
                     </div>
                 </div>
 
@@ -74,7 +73,7 @@
                     <span class="inline-flex rounded-full bg-white px-2.5 py-0.5 text-xs font-medium text-gray-800">
                         {{ $intake->status->label() }}
                     </span>
-                    <span class="text-gray-500">Klanttaak: {{ $intake->progress_percent }}%</span>
+                    <span class="text-gray-500">Klanttaak: {{ $intake->progress_percent }}% beantwoord</span>
                     <span class="text-gray-500">{{ $intake->workflow_mode->label() }}</span>
                 </div>
 
@@ -180,6 +179,7 @@
                     <span class="mt-1 block text-xs font-normal text-gray-500">Automatisch opgehaald · tik om te openen</span>
                 </summary>
                 <div class="space-y-4 border-t border-gray-100 px-6 pb-6 pt-4">
+                    <p class="text-xs text-gray-500">Automatisch opgehaald voor deze opname. Hier staan alleen gegevens die kunnen helpen bij de installatie.</p>
                 @if ($externalData['facts'] !== [])
                     <dl class="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
                         @foreach ($externalData['facts'] as $fact)
@@ -254,7 +254,7 @@
                 </div>
             </details>
 
-            @if ($showAttentionSection)
+            @if ($showAttentionSection || ! $aiAttentionAvailable)
                 <div class="bg-white shadow-sm sm:rounded-lg p-6 space-y-4">
                     <div>
                         <h3 class="text-base font-semibold text-gray-900">Aandachtspunten</h3>
@@ -511,7 +511,7 @@
                         : null;
                     $pdfReady = $intake->report->hasPdf();
                 @endphp
-                <details class="rounded-2xl border border-gray-200 bg-white shadow-sm" @unless($pdfReady) x-data="{ refreshIn: 15 }" x-init="setInterval(() => { refreshIn = Math.max(0, refreshIn - 1); if (refreshIn === 0) { window.location.reload(); } }, 1000)" @endunless>
+                <details class="rounded-2xl border border-gray-200 bg-white shadow-sm">
                     <summary class="cursor-pointer list-none px-6 py-4 [&::-webkit-details-marker]:hidden">
                         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <div>
@@ -562,11 +562,9 @@
                                 @endif
                             </div>
                         </div>
-                        @unless ($pdfReady)
-                            @if (! $intake->is_demo)
-                                <p class="mt-2 text-xs text-gray-500">De pagina ververst automatisch zodra de PDF klaar is.</p>
-                            @endif
-                        @endunless
+                        @if (! $pdfReady && ! $intake->is_demo)
+                            <p class="mt-2 text-xs text-gray-500">Ververs de status over een moment om te controleren of de PDF klaar is.</p>
+                        @endif
                     </summary>
                     <div class="space-y-4 border-t border-gray-100 px-6 pb-6 pt-4">
                         @if ($aiSummary)
