@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.37 · **Laatste update:** 2026-09-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.38 · **Laatste update:** 2026-09-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,10 +38,11 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 zijn gereserveerd voor draft PR’s [#74](https://github.com/JorisPaarde/intake-engine/pull/74) / [#75](https://github.com/JorisPaarde/intake-engine/pull/75) (AI-prefill); niet hergebruiken. BL-077 (meterkast vóór vrije groep) is done in PR #85. BL-084–090 (detailpagina-UX: open-punten-navigatie, lege AI-aandachtspuntensectie, herstructurering, actiegerichte contactgegevens, aandachtspunten samenvoegen, fotowaarschuwing→klanttaak, rapport lichter) zijn toegevoegd naar aanleiding van productie `/intakes/54`; nieuwe items starten bij BL-091 (BL-083 ruimtekaart-copy in PR #89; BL-082 copy-pass in PR #88; BL-080 create-form UX in PR #87; BL-081 unit-copy in #86).
+**Nummering:** BL-063–065 zijn gereserveerd voor draft PR’s [#74](https://github.com/JorisPaarde/intake-engine/pull/74) / [#75](https://github.com/JorisPaarde/intake-engine/pull/75) (AI-prefill); niet hergebruiken. BL-077 (meterkast vóór vrije groep) is done in PR #85. BL-084–090 (detailpagina-UX) done; nieuwe items starten bij BL-092 (BL-091 demo-save/login in deze PR; BL-083 ruimtekaart-copy in PR #89; BL-082 copy-pass in PR #88).
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
+| — | BL-091 | Demo: opslaan op dossierdetail mag niet naar login/404 | E5 | in_progress | high | A · product/demo |
 | — | BL-084 | Opnamedetail: open punten direct aanklikbaar + volgende open punt | E6 | done | high | detailpagina-UX |
 | — | BL-085 | Lege "AI-voorgestelde aandachtspunten" niet als dode sectie | E4 | done | medium | detailpagina-UX |
 | — | BL-086 | Opnamedetailpagina herstructureren rond "wat nu te doen" | E6 | done | medium | detailpagina-UX |
@@ -656,6 +657,16 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Scope:** `resources/views/installer/intakes/show.blade.php` (rapport-blok, regels ~374-446); geen wijziging aan rapportgeneratie zelf. Detailpagina-test (iframe niet standaard geladen; statusweergave klopt).
 - **Acceptatie:** detailpagina laadt niet standaard een zware iframe; PDF-status is begrijpelijk en ververst; `composer check` groen.
 - **Hypothese:** UI + kleine statuslogica; geen wijziging aan PDF-pijplijn.
+
+### BL-091 — Demo: opslaan op dossierdetail mag niet naar login/404
+
+- **Status:** in_progress · **Prioriteit:** high · **Epic:** E5 · **Band:** A · product/demo · **Afhankelijk:** BL-001/084–090
+- **Aanleiding:** producteigenaar: “Als ik in de demo iets opsla word ik naar inlog scherm gestuurd.”
+- **Oorzaak:** `RestrictPublicDemoSession` allowlist dekte werkplek-POSTs maar niet dossierdetail-acties die BL-084–090 zichtbaar maakten (adres opnieuw, AI-aandachtspunten, beoordeling, rapport/PDF, link). Daarnaast: gepurgede ephemeral user → `auth` faalt vóór demo-middleware → echt `/login` i.p.v. `demo.ended`.
+- **Doel:** demo-saves op show/workspace blijven ingelogd; stale demo-auth naar `/demo/beeindigd`.
+- **Scope:** `RestrictPublicDemoSession`, `bootstrap/app.php` `redirectGuestsTo`, Pest in `StartDemoTest`.
+- **Acceptatie:** demo POST adres/beoordeling/aandachtspunten/ruimte → geen 404/login; stale/purged demo → `demo.ended`; metrics/profiel blijven 404; `composer check` groen.
+- **Hypothese:** middleware-allowlist + guest-redirect; geen UI-herontwerp.
 
 ### BL-083 — Werkplek ruimtekaart: geen herhaalde naam/type + korte copy
 

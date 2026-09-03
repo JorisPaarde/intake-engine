@@ -22,6 +22,22 @@ return Application::configure(basePath: dirname(__DIR__))
             'dev.access' => EnsureDevAccess::class,
             'public.demo.scope' => RestrictPublicDemoSession::class,
         ]);
+
+        // Stale demo auth (purged ephemeral user / dead login id) must not land
+        // on the real installer login form — send them to the demo-ended page.
+        $middleware->redirectGuestsTo(function (Request $request): string {
+            $session = $request->hasSession() ? $request->session() : null;
+
+            if ($session !== null
+                && (
+                    (bool) $session->get('public_demo_mode', false)
+                    || $session->has('public_demo_intake_id')
+                )) {
+                return route('demo.ended', ['reason' => 'expired']);
+            }
+
+            return route('login');
+        });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

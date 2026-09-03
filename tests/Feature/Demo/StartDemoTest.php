@@ -454,6 +454,64 @@ it('ends the public demo session after its configured lifetime', function () {
     $this->assertGuest();
 });
 
+it('allows dossier detail saves in the public demo without bouncing to login', function () {
+    Http::fake([
+        'api.pdok.nl/*' => Http::response(['response' => ['numFound' => 0, 'docs' => []]], 200),
+        'bag.basisregistraties.overheid.nl/*' => Http::response('', 404),
+    ]);
+
+    ['intake' => $demo, 'user' => $user] = createDemoIntakeViaForm();
+    $session = demoSessionFor($user, $demo);
+
+    $this->actingAs($user)
+        ->withSession($session)
+        ->from(route('intakes.show', $demo))
+        ->post(route('intakes.address-enrichment.retry', $demo))
+        ->assertRedirect(route('intakes.show', $demo))
+        ->assertSessionMissing('errors');
+
+    $this->assertAuthenticatedAs($user);
+
+    $this->actingAs($user)
+        ->withSession($session)
+        ->from(route('intakes.workspace', $demo))
+        ->post(route('intakes.workspace.rooms.store', $demo), [
+            'name' => 'Slaapkamer',
+            'use_type' => 'bedroom',
+            'length_m' => 4,
+            'width_m' => 3,
+            'height_m' => 2.5,
+        ])
+        ->assertRedirect(route('intakes.workspace', $demo));
+
+    $this->assertAuthenticatedAs($user);
+    expect($demo->fresh()->aircoRooms()->where('name', 'Slaapkamer')->exists())->toBeTrue();
+});
+
+it('sends stale demo guests to the ended page instead of the installer login', function () {
+    $this->withSession([
+        'public_demo_mode' => true,
+        'public_demo_intake_id' => 999,
+    ])->get(route('dashboard'))
+        ->assertRedirect(route('demo.ended', ['reason' => 'expired']));
+});
+
+it('sends purged demo users to the ended page instead of the installer login', function () {
+    $user = startPublicDemoSession();
+    ['intake' => $intake] = createDemoIntakeViaForm($user);
+
+    expect(session('public_demo_mode'))->toBeTrue();
+
+    app(\App\Domains\Intake\Actions\HardDeleteIntake::class)->handle($intake);
+    $companyId = (int) $user->company_id;
+    $user->delete();
+    \App\Models\Company::query()->whereKey($companyId)->delete();
+
+    $this->get(route('dashboard'))
+        ->assertRedirect(route('demo.ended', ['reason' => 'expired']));
+    $this->assertGuest();
+});
+
 it('seeds the configured demo installer login', function () {
     config([
         'intake.demo.enabled' => true,

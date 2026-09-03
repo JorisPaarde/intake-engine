@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Fixed
+
+- **Demo-opslaan stuurde naar login/404 (BL-091):** `RestrictPublicDemoSession` mist dossierdetail-acties die na BL-084–090 zichtbaar zijn (adres opnieuw, AI-aandachtspunten, beoordeling, rapport/PDF, link regenereren/intrekken) → 404. Allowlist uitgebreid. Stale demo-auth (gepurgede tijdelijke user) gaat naar `/demo/beeindigd` i.p.v. het echte installateurs-`/login`.
+
 ### Changed
 
 - **Handmatige stagingtest opnamedetail UX (BL-084–090):** de via de publieke demo observeerbare detailflow is op desktop en mobiel vastgelegd als geslaagd; niet-beschikbare datagedreven toestanden voor fotowaarschuwing, externe AI en PDF-pending blijven expliciet `todo` in `docs/functional-test-status.md`.
