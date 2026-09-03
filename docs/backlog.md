@@ -463,7 +463,7 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-020 — Foto-gedreven afleiding en adaptieve vervolgvragen
 
-- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-07-20 · **PR:** #91
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-07-20 · **PR:** (deze PR)
 - **Parallel:** band **H** — **ná** BL-006, parallel met BL-007; template-kant mag aansluiten op afgeronde BL-016/v2/v3.
 - **Doel:** foto's niet alleen opslaan maar er informatie uit **afleiden**, zodat vragen vervallen of juist gericht gesteld worden. Voorbeelden (richting, geen letterlijke scope):
   - **Meterkastfoto:** herken of er een vrije groep is; zit de kast vol → stel gericht de vervolgvragen die daarbij horen (uitbreiding groepenkast, 1-fase/3-fase) en sla `free_group_known` als vraag over;
@@ -892,7 +892,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-012 — Multi-accountplatform voor installatiebedrijven
 
-- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-25 · **PR:** #91 · **Ref:** ADR-0010
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-25 · **PR:** (deze PR) · **Ref:** ADR-0010
 - **Parallel:** band **I**, kettingkop vóór BL-030 en BL-031; raakt users, intakes, policies, registratie, queries en storage.
 - **Doel:** ieder installatiebedrijf wordt een tenant (`companies`). Een gebruiker hoort bij precies één bedrijf; meerdere medewerkers per bedrijf worden door het model ondersteund. Iedere intake is rechtstreeks aan een bedrijf gekoppeld en alle installateursroutes, metrics, rapporten en private bestanden zijn tenantgebonden.
 - **Migratie:** bestaande gebruikers krijgen ieder een eigen bedrijf; hun bestaande intakes worden via `created_by` aan dat bedrijf gekoppeld. Nieuwe registraties maken atomair een bedrijf en eigenaaraccount aan.
@@ -901,7 +901,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-031 — White-label branding uit installateurslogo
 
-- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-25 · **PR:** #91 · **Ref:** BL-012, ADR-0010
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-25 · **PR:** (deze PR) · **Ref:** BL-012, ADR-0010
 - **Parallel:** band **I**, na BL-012.
 - **Doel:** een installateur beheert bedrijfsnaam en logo. Na een gevalideerde JPEG/PNG/WebP-upload bepaalt de server een representatieve primaire kleur en leidt daaruit toegankelijke accent-, tekst- en oppervlaktekleuren af.
 - **Kaders:** logo en kleuren staan op de tenant en worden privé opgeslagen; transparante/witte achtergrondpixels tellen niet als merkkleur. WCAG-leesbaarheid, veilige standaardkleur en handmatige kleurcorrectie zijn verplicht. Geen externe beeld- of AI-provider.
@@ -909,7 +909,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-032 — Modern, strak en Apple-achtig productdesign
 
-- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-25 · **PR:** #91 · **Ref:** BL-031
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-07-25 · **PR:** (deze PR) · **Ref:** BL-031
 - **Parallel:** band **I**, na BL-031.
 - **Doel:** gedeelde layouts, navigatie, formulieren, dashboard en klantwizard krijgen één rustig premium designsysteem: systeemfont, sterke typografische hiërarchie, veel witruimte, neutrale oppervlakken, subtiele scheiding en duidelijke tenantkleur voor acties.
 - **Kaders:** nadrukkelijk géén Liquid Glass: geen backdrop blur, translucente kaarten, glanzende gradients of decoratieve glaslagen. Mobiel eerst, 44px touch targets, zichtbare focusringen en voldoende contrast.
