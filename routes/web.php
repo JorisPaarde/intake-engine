@@ -104,6 +104,7 @@ Route::middleware(['auth', 'verified', 'public.demo.scope'])->group(function () 
     Route::post('/intakes/{intake}/opname/complete', [SurveyWorkspaceController::class, 'complete'])->name('intakes.workspace.complete');
     Route::post('/intakes/{intake}/opname/outcome', [SurveyWorkspaceController::class, 'recordOutcome'])->name('intakes.workspace.outcome');
     Route::post('/intakes/{intake}/review', [IntakeController::class, 'review'])->name('intakes.review');
+    Route::post('/intakes/{intake}/attention/suggest', [IntakeController::class, 'suggestAttention'])->name('intakes.attention.suggest');
     Route::post('/intakes/{intake}/attention/{point}/accept', [IntakeController::class, 'acceptAttention'])->name('intakes.attention.accept');
     Route::post('/intakes/{intake}/attention/{point}/dismiss', [IntakeController::class, 'dismissAttention'])->name('intakes.attention.dismiss');
     Route::post('/intakes/{intake}/revoke', [IntakeController::class, 'revoke'])->name('intakes.revoke');

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Installer;
 
 use App\Domains\AI\Actions\DeriveIntentFromRequest;
+use App\Domains\AI\Actions\SuggestAttentionPoints;
 use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Actions\EnrichIntakeAddress;
 use App\Domains\Intake\Actions\RegenerateIntakeAccessToken;
@@ -24,11 +25,19 @@ use App\Domains\Intake\Services\IntakeDossierSummaryBuilder;
 use App\Domains\Intake\Services\PdokAddressService;
 use App\Domains\Intake\Services\PublicDemoSession;
 use App\Domains\Intake\Services\RebuildIntakeReportHtml;
+use App\Domains\Intake\Services\WorkspacePrimaryActionResolver;
+use App\Enums\AircoConnectionStatus;
+use App\Enums\AircoOptionStatus;
+use App\Enums\AiRunStatus;
+use App\Enums\AiRunType;
 use App\Enums\AttentionPointSource;
 use App\Enums\AttentionPointStatus;
 use App\Enums\ContributionMode;
+use App\Enums\ContributionTaskStatus;
 use App\Enums\CustomerLinkMailResult;
+use App\Enums\DecisionAreaStatus;
 use App\Enums\IntakeStatus;
+use App\Enums\PipeRouteStatus;
 use App\Enums\ReviewDecision;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Installer\StoreIntakeRequest;
@@ -206,18 +215,77 @@ class IntakeController extends Controller
             'followUpRounds.items.uploads',
             'report',
             'review.reviewer',
+            'aircoRooms',
+            'aircoPlacements',
+            'aircoInstallationOptions.connections',
+            'contributionTasks',
+            'aiRuns',
         ]);
+
+        $dossier = $dossierOverviewBuilder->build($intake);
+        $quoteArea = $dossier['quote'];
+        $openAreas = $dossier['blockers'];
+        $selectedOption = $intake->aircoInstallationOptions->first(
+            static fn ($option) => $option->status === AircoOptionStatus::Selected,
+        );
+        $proposalAlreadyApproved = $selectedOption
+            && in_array($intake->status, [IntakeStatus::Completed, IntakeStatus::Reviewed], true)
+            && $selectedOption->connections->isNotEmpty()
+            && $selectedOption->connections->every(
+                static fn ($connection) => $connection->status === AircoConnectionStatus::Approved
+                    && (! $connection->routeSession
+                        || $connection->routeSession->status === PipeRouteStatus::Approved),
+            );
+        $canApproveProposal = ! $proposalAlreadyApproved
+            && $selectedOption
+            && in_array($quoteArea?->status, [DecisionAreaStatus::Ready, DecisionAreaStatus::Review], true);
+        $proposedCustomerTasks = $intake->contributionTasks
+            ->where('status', ContributionTaskStatus::Proposed);
+        $primaryAction = app(WorkspacePrimaryActionResolver::class)->resolve(
+            $intake,
+            $quoteArea,
+            $canApproveProposal,
+            $proposalAlreadyApproved,
+            $proposedCustomerTasks,
+            $openAreas,
+        );
+        $aiProvider = (string) config('ai.provider', 'null');
+        $attentionAiSucceeded = $intake->aiRuns
+            ->where('type', AiRunType::AttentionPoints)
+            ->contains(static fn ($run) => $run->status === AiRunStatus::Succeeded);
 
         return view('installer.intakes.show', [
             'intake' => $intake,
-            'dossier' => $dossierOverviewBuilder->build($intake),
+            'dossier' => $dossier,
             'photoGroups' => $photoGalleryBuilder->handle($intake),
             'externalData' => $externalFactPresenter->present($intake),
             'dossierSummary' => $summaryBuilder->build($intake, $intake->templateVersion),
             'reviewDecisions' => collect(ReviewDecision::cases())
                 ->reject(static fn (ReviewDecision $decision): bool => $decision === ReviewDecision::Pending)
                 ->values(),
+            'primaryAction' => $primaryAction,
+            'workspaceUrl' => route('intakes.workspace', $intake),
+            'aiProvider' => $aiProvider,
+            'aiAttentionAvailable' => $aiProvider !== 'null',
+            'attentionAiSucceeded' => $attentionAiSucceeded,
         ]);
+    }
+
+    public function suggestAttention(
+        Intake $intake,
+        SuggestAttentionPoints $suggestAttentionPoints,
+    ): RedirectResponse {
+        $this->authorize('update', $intake);
+
+        if ((string) config('ai.provider', 'null') === 'null') {
+            throw new NotFoundHttpException('AI is niet beschikbaar.');
+        }
+
+        $suggestAttentionPoints->handle($intake);
+
+        return redirect()
+            ->route('intakes.show', $intake)
+            ->with('status', 'AI-aandachtspunten bijgewerkt.');
     }
 
     public function retryAddressEnrichment(
