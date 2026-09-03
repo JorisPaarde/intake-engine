@@ -1,16 +1,17 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.62 · **Laatste update:** 2026-09-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.63 · **Laatste update:** 2026-09-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
 Bijwerken door wie de test daadwerkelijk heeft uitgevoerd: een menselijke tester **of** een testende agent (bijv. een agent die de app via een browser bedient). Niet invullen op basis van alleen implementatie — er moet echt functioneel getest zijn. Implementerende agents voegen alleen nieuwe `todo`-regels toe voor functionaliteit die zij introduceren.
 
-Laatste testsessie: 2026-08-09 (staging; mobiele werkplek BL-053/054–058 op 390 px via publieke demo + voorbeelddossier)
+Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 en 400×924 via publieke demo + voorbeelddossier)
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
-| Opnamedetail UX (BL-084–090) | todo | - | Op detailpagina: **Wat nu te doen** + open-punten deep-links; contact mail/tel/kaart; één aandachtspunten-sectie (AI uit/uitleg, AI aan + voorstel-trigger); ⚠ **Vraag betere foto**; rapport niet standaard zwaar iframe; PDF **Status verversen**. Desktop + mobiel. |
+| Opnamedetail UX basis (BL-084–088/090) | pass | staging 2026-09-03 | Publieke demo-opname 61: `/health` staging ok; op 1280×800 en 400×924 **Wat nu te doen**, primaire actie, open punten en één **Aandachtspunten**-sectie gecontroleerd zonder horizontale overflow. **Koelroute vastleggen** sprong naar `/intakes/61/opname#connection-38`. E-mail opende `mailto:`, adres Google Maps; lege telefoon toonde `—` zonder link. AI-toestand gaf uitleg + voorstelknop. Rapport/demorapport stond niet als zwaar iframe standaard geladen. |
+| Opnamedetail UX datagedreven toestanden (BL-085/089/090) | todo | staging deels 2026-09-03 | Nog gericht testen met passende fictieve data: AI-voorstel daadwerkelijk genereren/beoordelen; foto met bruikbaarheidswaarschuwing → **Vraag betere foto** en vooringevulde klanttaak; bestaand rapport lazy openen en PDF-pending → **Status verversen**. Deze toestanden kwamen niet voor in het publieke voorbeelddossier; geen echte mail of externe AI gestart. |
 | Deploy-pipeline (push -> Actions -> rsync -> activate -> live) | pass | 2026-07-18 | Atomische symlink-swap werkt; PR #14 deploy success |
 | Omgevingsscheiding staging/production (BL-010/011) | pass | 2026-07-21 | Publieke DNS, geldig TLS en HTTP→HTTPS 301 gecontroleerd. `intake-engine.nl/health` meldt `environment=production`; `staging.intake-engine.nl/health` meldt `environment=staging`. Beide: eigen app-key, sessiecookie, database, storage, releaseboom en twee cronjobs. Productionkopie behield 16 users/20 intakes; production runtime startte met 0 sessies/0 jobs. Environmentguard blokkeerde een bewust verkeerde target vóór activatie. GitHub productionworkflow zelf nog na merge via tag/dispatch smoke-testen. |
 | Productionworkflow via `v*`/handmatige dispatch (BL-010) | todo | - | Na merge: production environment/secrets controleren, handmatige dispatch of release-tag uitvoeren, Actions groen en `/health` opnieuw `production`; staging mag niet wijzigen. |

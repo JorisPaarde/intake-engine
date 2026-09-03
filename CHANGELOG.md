@@ -6,6 +6,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
+- **Handmatige stagingtest opnamedetail UX (BL-084–090):** de via de publieke demo observeerbare detailflow is op desktop en mobiel vastgelegd als geslaagd; niet-beschikbare datagedreven toestanden voor fotowaarschuwing, externe AI en PDF-pending blijven expliciet `todo` in `docs/functional-test-status.md`.
 - **Opnamedetail UX (BL-084–090):** detailpagina herordend rond **Wat nu te doen** — sticky primaire CTA + klikbare open punten met deep-links naar de werkplek (`#room-{id}`, `#connection-{id}`, …); contactgegevens als `mailto:`/`tel:`/kaartlink; één **Aandachtspunten**-sectie (actueel vs AI-voorstel, opgeloste punten ingeklapt); AI uit = uitleg, AI aan zonder run = knop **AI-aandachtspunten voorstellen** (`POST intakes.attention.suggest`); fotowaarschuwing ⚠ → **Vraag betere foto** (1-klik klanttaak); woninggegevens/foto’s/klantlink/beoordeling/rapport secundair in `<details>`; rapport standaard licht (link + lazy iframe), PDF-status met handmatige **Status verversen**.
 
 ### Fixed
