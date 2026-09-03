@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.35 · **Laatste update:** 2026-09-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.36 · **Laatste update:** 2026-09-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,13 +38,17 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 zijn gereserveerd voor draft PR’s [#74](https://github.com/JorisPaarde/intake-engine/pull/74) / [#75](https://github.com/JorisPaarde/intake-engine/pull/75) (AI-prefill); niet hergebruiken. BL-077 (meterkast vóór vrije groep) is done in PR #85. BL-084/085/086 (opnamedetail open-punten-navigatie, lege AI-aandachtspuntensectie en detailpagina-herstructurering) zijn toegevoegd naar aanleiding van productie `/intakes/54`; nieuwe items starten bij BL-087 (BL-083 ruimtekaart-copy in PR #89; BL-082 copy-pass in PR #88; BL-080 create-form UX in PR #87; BL-081 unit-copy in #86).
+**Nummering:** BL-063–065 zijn gereserveerd voor draft PR’s [#74](https://github.com/JorisPaarde/intake-engine/pull/74) / [#75](https://github.com/JorisPaarde/intake-engine/pull/75) (AI-prefill); niet hergebruiken. BL-077 (meterkast vóór vrije groep) is done in PR #85. BL-084–090 (detailpagina-UX: open-punten-navigatie, lege AI-aandachtspuntensectie, herstructurering, actiegerichte contactgegevens, aandachtspunten samenvoegen, fotowaarschuwing→klanttaak, rapport lichter) zijn toegevoegd naar aanleiding van productie `/intakes/54`; nieuwe items starten bij BL-091 (BL-083 ruimtekaart-copy in PR #89; BL-082 copy-pass in PR #88; BL-080 create-form UX in PR #87; BL-081 unit-copy in #86).
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
 | ∥ | BL-084 | Opnamedetail: open punten direct aanklikbaar + volgende open punt | E6 | ready | high | detailpagina-UX |
 | ∥ | BL-085 | Lege "AI-voorgestelde aandachtspunten" niet als dode sectie | E4 | ready | medium | detailpagina-UX |
 | ∥ | BL-086 | Opnamedetailpagina herstructureren rond "wat nu te doen" | E6 | backlog | medium | detailpagina-UX |
+| ∥ | BL-087 | Actiegerichte contactgegevens (bellen/mailen/kaart) | E6 | ready | medium | detailpagina-UX |
+| ∥ | BL-088 | Eén heldere aandachtspunten-sectie i.p.v. twee | E4 | ready | medium | detailpagina-UX |
+| ∥ | BL-089 | Fotokwaliteitswaarschuwing → 1-klik klanttaak | E7 | backlog | medium | detailpagina-UX |
+| ∥ | BL-090 | Rapport lichter op detail + PDF-statusfeedback | E6 | backlog | low | detailpagina-UX |
 | — | BL-035 | Centrale dossierkern en migratiebrug | E6 | done | high | N (done) |
 | — | BL-039 | Airco: ruimtes, plaatsingsopties en installatieopties | E8 | done | high | P (done) |
 | — | BL-036 | Beslisgereed installateursdossier en volgende acties | E6 | done | high | N (done) |
@@ -616,6 +620,42 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Scope:** `resources/views/installer/intakes/show.blade.php` (herindeling/prioritering), mogelijk lichte aanpassing aan de relatie met `workspace.blade.php`; `docs/language.md` voor teksten. Bouwt voort op BL-084/085. Geen datamodelwijziging beoogd.
 - **Acceptatie:** een installateur ziet binnen één blik wat de volgende stap is en komt met één klik op de juiste plek; de ruwe data staat er nog maar leidt niet meer af; desktop + mobiel zonder overflow; `composer check` groen.
 - **Hypothese:** overwegend layout/informatiearchitectuur; grotere UI-pass dan BL-084/085, daarom apart en als `backlog`.
+
+### BL-087 — Actiegerichte contactgegevens (bellen/mailen/kaart)
+
+- **Status:** ready · **Prioriteit:** medium · **Epic:** E6 · **Band:** detailpagina-UX
+- **Aanleiding:** op de detailpagina zijn e-mail, telefoon en adres platte tekst. Op mobiel moet de installateur nummer/adres overtypen om te bellen, mailen of navigeren.
+- **Doel:** telefoon als `tel:`-link, e-mail als `mailto:`-link, en adres als link naar kaart/navigatie (nieuw tabblad). Alleen als het veld gevuld is; geen gedrag veranderen als het leeg is.
+- **Scope:** `resources/views/installer/intakes/show.blade.php` (kerngegevens-`dl`). Puur UI; geen datamodel. Detailpagina-test op de links.
+- **Acceptatie:** telefoon belt, e-mail opent mail, adres opent kaart; lege velden tonen `—` zonder link; `composer check` groen.
+- **Hypothese:** kleine UI-wijziging.
+
+### BL-088 — Eén heldere aandachtspunten-sectie i.p.v. twee
+
+- **Status:** ready · **Prioriteit:** medium · **Epic:** E4 · **Band:** detailpagina-UX
+- **Aanleiding:** de pagina toont vlak na elkaar "Aandachtspunten" (overgenomen/systeem) en "AI-voorgestelde aandachtspunten" (voorstellen). Twee bijna gelijke koppen is verwarrend, en opgeloste punten blijven in de lijst staan.
+- **Doel:** één sectie "Aandachtspunten" met duidelijk onderscheid tussen *overgenomen/actueel* en *AI-voorstel (accepteren/verwijderen)*; opgeloste punten inklappen of naar onder. Sluit aan op de lege-staat-fix van BL-085.
+- **Scope:** `resources/views/installer/intakes/show.blade.php` (blokken regels ~295 en ~314 samenvoegen); geen wijziging aan `attentionPoints`-model of accept/dismiss-routes. Detailpagina-test.
+- **Acceptatie:** één kop, helder onderscheid voorstel vs. actueel, opgeloste punten niet meer prominent; accepteren/verwijderen werkt onveranderd; `composer check` groen.
+- **Hypothese:** UI-herindeling; geen modelwijziging.
+
+### BL-089 — Fotokwaliteitswaarschuwing → 1-klik klanttaak
+
+- **Status:** backlog · **Prioriteit:** medium · **Epic:** E7 · **Band:** detailpagina-UX
+- **Aanleiding:** bij een foto met een automatische bruikbaarheidswaarschuwing (⚠) staat alleen een badge; de installateur moet zelf een aparte klanttaak opstellen om een betere foto te vragen.
+- **Doel:** naast de waarschuwing een 1-klik-actie "Vraag betere foto" die een afgebakende klanttaak voor precies die foto/vraag voorbereidt (hergebruik bestaande vervolgtaak-/klantopdracht-flow).
+- **Scope:** `resources/views/installer/intakes/show.blade.php` (fotogalerij-badge) + koppeling naar de bestaande follow-up/klanttaak-actie (werkplek). Feature-test dat de knop de juiste taak voorbereidt.
+- **Acceptatie:** een gemarkeerde foto biedt een directe "vraag betere foto"-actie die de vervolgtaak vooraf invult; `composer check` groen.
+- **Hypothese:** UI + hergebruik bestaande klanttaak-actie; mogelijk kleine controllerlijm.
+
+### BL-090 — Rapport lichter op detail + PDF-statusfeedback
+
+- **Status:** backlog · **Prioriteit:** low · **Epic:** E6 · **Band:** detailpagina-UX
+- **Aanleiding:** zodra er een rapport is, staat er altijd een 32rem-`iframe` op de detailpagina (zwaar op mobiel), en "PDF wordt voorbereid…" is een dood spoor zonder verversing of status.
+- **Doel:** het rapport standaard als lichte kaart/knop (inklapbaar of aparte view) i.p.v. een altijd-geladen iframe, en bij een nog niet klare PDF een duidelijke status met verversing (of automatische statusupdate) zodat de installateur weet wanneer hij klaar is.
+- **Scope:** `resources/views/installer/intakes/show.blade.php` (rapport-blok, regels ~374-446); geen wijziging aan rapportgeneratie zelf. Detailpagina-test (iframe niet standaard geladen; statusweergave klopt).
+- **Acceptatie:** detailpagina laadt niet standaard een zware iframe; PDF-status is begrijpelijk en ververst; `composer check` groen.
+- **Hypothese:** UI + kleine statuslogica; geen wijziging aan PDF-pijplijn.
 
 ### BL-083 — Werkplek ruimtekaart: geen herhaalde naam/type + korte copy
 
