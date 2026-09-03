@@ -18,6 +18,10 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Keeps the automatically authenticated public demo user inside the guided
  * demo path: dashboard → one intake create → show/workspace (and logout).
+ *
+ * Dossier detail actions that are visible in the demo (adres opnieuw, AI-
+ * aandachtspunten, beoordeling, rapport/PDF) must stay on the allowlist so a
+ * save does not 404 or bounce the visitor to /login (BL-091).
  */
 final class RestrictPublicDemoSession
 {
@@ -61,6 +65,15 @@ final class RestrictPublicDemoSession
             || $routeName === 'intakes.show'
             || $routeName === 'intakes.store'
             || $routeName === 'intakes.pdf'
+            || $routeName === 'intakes.pdf.regenerate'
+            || $routeName === 'intakes.report'
+            || $routeName === 'intakes.review'
+            || $routeName === 'intakes.address-enrichment.retry'
+            || $routeName === 'intakes.attention.suggest'
+            || $routeName === 'intakes.attention.accept'
+            || $routeName === 'intakes.attention.dismiss'
+            || $routeName === 'intakes.regenerate-token'
+            || $routeName === 'intakes.revoke'
             || $routeName === 'installer.uploads.show'
             || $routeName === 'logout'
             || $routeName === 'demo.path.choose'

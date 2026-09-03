@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Domains\AI\Jobs\SummarizeIntakeJob;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\Intake\Actions\CompleteIntake;
+use App\Domains\Intake\Actions\HardDeleteIntake;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
@@ -452,6 +453,102 @@ it('ends the public demo session after its configured lifetime', function () {
         ->get(route('intakes.workspace', $demo))
         ->assertRedirect(route('demo.ended', ['reason' => 'expired']));
     $this->assertGuest();
+});
+
+it('allows dossier detail saves in the public demo without bouncing to login', function () {
+    Http::fake([
+        'api.pdok.nl/*' => Http::response(['response' => ['numFound' => 0, 'docs' => []]], 200),
+        'bag.basisregistraties.overheid.nl/*' => Http::response('', 404),
+    ]);
+
+    ['intake' => $demo, 'user' => $user] = createDemoIntakeViaForm();
+    $session = demoSessionFor($user, $demo);
+
+    $this->actingAs($user)
+        ->withSession($session)
+        ->from(route('intakes.show', $demo))
+        ->post(route('intakes.address-enrichment.retry', $demo))
+        ->assertRedirect(route('intakes.show', $demo))
+        ->assertSessionMissing('errors');
+
+    $this->assertAuthenticatedAs($user);
+
+    $this->actingAs($user)
+        ->withSession($session)
+        ->from(route('intakes.workspace', $demo))
+        ->post(route('intakes.workspace.rooms.store', $demo), [
+            'name' => 'Slaapkamer',
+            'use_type' => 'bedroom',
+            'length_m' => 4,
+            'width_m' => 3,
+            'height_m' => 2.5,
+        ])
+        ->assertRedirect(route('intakes.workspace', $demo));
+
+    $this->assertAuthenticatedAs($user);
+    expect($demo->fresh()->aircoRooms()->where('name', 'Slaapkamer')->exists())->toBeTrue();
+});
+
+it('sends stale demo guests to the ended page instead of the installer login', function () {
+    $this->withSession([
+        'public_demo_mode' => true,
+        'public_demo_intake_id' => 999,
+    ])->get(route('dashboard'))
+        ->assertRedirect(route('demo.ended', ['reason' => 'expired']));
+});
+
+it('sends purged demo users to the ended page instead of the installer login', function () {
+    $user = startPublicDemoSession();
+    ['intake' => $intake] = createDemoIntakeViaForm($user);
+
+    expect(session('public_demo_mode'))->toBeTrue();
+
+    app(HardDeleteIntake::class)->handle($intake);
+    $companyId = (int) $user->company_id;
+    $user->delete();
+    Company::query()->whereKey($companyId)->delete();
+
+    $this->get(route('dashboard'))
+        ->assertRedirect(route('demo.ended', ['reason' => 'expired']));
+    $this->assertGuest();
+});
+
+it('clears url.intended when the demo ended page is shown', function () {
+    $deadDemoUrl = url('/intakes/999/workspace');
+
+    $this->withSession([
+        'public_demo_mode' => true,
+        'public_demo_intake_id' => 999,
+        'url.intended' => $deadDemoUrl,
+    ])->get(route('demo.ended', ['reason' => 'expired']))
+        ->assertOk();
+
+    expect(session()->has('url.intended'))->toBeFalse()
+        ->and(session()->has('public_demo_mode'))->toBeFalse()
+        ->and(session()->has('public_demo_intake_id'))->toBeFalse();
+});
+
+it('sends a real login after demo residue to the dashboard instead of a dead intake url', function () {
+    $installer = User::factory()->create([
+        'password' => Hash::make('password'),
+    ]);
+    $deadDemoUrl = url('/intakes/999/workspace');
+
+    $this->withSession([
+        'public_demo_mode' => true,
+        'public_demo_intake_id' => 999,
+        'public_demo_company_id' => 1,
+        'public_demo_expires_at' => now()->subHour()->toIso8601String(),
+        'url.intended' => $deadDemoUrl,
+    ])->post('/login', [
+        'email' => $installer->email,
+        'password' => 'password',
+    ])->assertRedirect(route('dashboard', absolute: false));
+
+    $this->assertAuthenticatedAs($installer);
+    expect(session()->has('url.intended'))->toBeFalse()
+        ->and(session()->has('public_demo_mode'))->toBeFalse()
+        ->and(session()->has('public_demo_intake_id'))->toBeFalse();
 });
 
 it('seeds the configured demo installer login', function () {

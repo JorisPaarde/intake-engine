@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.63 · **Laatste update:** 2026-09-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.65 · **Laatste update:** 2026-09-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -104,6 +104,7 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 | Queue-worker (cron) | todo | - | Niet end-to-end bevestigd (geen zichtbaar AI-resultaat) |
 | Oude publieke klantwizarddemo (BL-001 vóór herontwerp) | n/a | staging 2026-07-24 | Historisch functioneel bewezen, maar vervangen door de interactieve installateursdemo; zie de sessienotitie hieronder. |
 | Interactieve installateursdemo (BL-001) | todo | - | Na deploy als gast: homepage → **Probeer de demo** → welkomstpopup → *Nieuwe opname* met lege postcode/huisnummer (zelf invullen; tipadres zichtbaar; lookup vult straat/plaats) → na opslaan woninggegevens/luchtfoto → rolkeuze i.p.v. mail. Test beide paden (volledige klantwizard met meterkast/rondom-huis-foto’s/AI én zelf/werkplek + *Toon voorbeelddossier* + AI-voorstel vernieuwen + klanttaak activeren). Desktop én 390 px, toetsenbord, geen consolefouten, geen klantmail. |
+| Demo opslaan zonder login-bounce (BL-091) | todo | - | In publieke demo op dossierdetail: Adres opnieuw / AI-aandachtspunten / Beoordeling opslaan blijft in de demo (geen `/login`, geen 404). Werkplek Ruimte opslaan idem. Verlopen/gepurgede demo → `/demo/beeindigd`, niet installateurslogin. Daarna echt inloggen → dashboard (geen 404 op oude demo-URL); “Mijn opnames” blijft werken. |
 | Demo-voorbeelddossier behoudt live PDOK-luchtfoto (BL-075) | todo | - | Demo-create met eigen (niet-Haarlem) postcode/huisnummer → live luchtfoto zichtbaar → *Optioneel: toon voorbeelddossier* → woninggegevens tonen nog de PDOK-luchtfoto van dat adres (bron zonder “fictief demo-voorbeeld”, grondmaat ~180 m), niet de synthetische 80×55-voorbeeldcapture. |
 | Meterkastfoto vóór vrije groep (BL-077) | todo | - | Klantwizard zonder uploads: electrical ask = meterkastfoto, geen “Is er een vrije groep…?”. Na duidelijke meterkastfoto met AI-`free_group`: geen ja/nee. Nieuwe opnames pin’en airco v14 (v13-regel blijft). |
 | Homepage-CTAs gast / demosessie / account (BL-001/043) | todo | - | Gast: **Probeer de demo**, **Inloggen**, **Ik wil een pilot**. Tijdens demosessie: overal **Demo beëindigen** (homepage + app-nav, ook na browser-back); op `/` ook **Verder in demo**, geen **Mijn opnames**/Inloggen. Na **Demo beëindigen** weer gast-CTAs. Echt account: **Mijn opnames** naar `/dashboard`, geen demostart. |

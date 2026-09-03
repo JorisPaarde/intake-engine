@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Auth;
 
+use App\Domains\Intake\Services\PublicDemoSession;
+use App\Domains\Intake\Services\PublicDemoWorkspaceProvisioner;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use Illuminate\Http\RedirectResponse;
@@ -24,11 +26,27 @@ class AuthenticatedSessionController extends Controller
     /**
      * Handle an incoming authentication request.
      */
-    public function store(LoginRequest $request): RedirectResponse
-    {
+    public function store(
+        LoginRequest $request,
+        PublicDemoSession $publicDemoSession,
+        PublicDemoWorkspaceProvisioner $workspaceProvisioner,
+    ): RedirectResponse {
         $request->authenticate();
 
         $request->session()->regenerate();
+
+        // Leftover public-demo flags + url.intended from redirect()->guest()
+        // would send a real installer to a purged demo intake → 404 (BL-091).
+        $hadDemoResidue = $publicDemoSession->hasSessionFlags($request);
+        $user = $request->user();
+
+        if ($hadDemoResidue || ($user !== null && ! $workspaceProvisioner->isEphemeralUser($user))) {
+            $publicDemoSession->forget($request);
+        }
+
+        if ($hadDemoResidue) {
+            $request->session()->forget('url.intended');
+        }
 
         return redirect()->intended(route('dashboard', absolute: false));
     }
