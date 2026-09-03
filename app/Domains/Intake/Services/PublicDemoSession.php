@@ -53,6 +53,33 @@ final class PublicDemoSession
         return is_numeric($id) ? (int) $id : null;
     }
 
+    /**
+     * @return list<string>
+     */
+    public static function sessionKeys(): array
+    {
+        return [
+            'public_demo_mode',
+            'public_demo_company_id',
+            'public_demo_expires_at',
+            'public_demo_guide_step',
+            'public_demo_intake_id',
+            'public_demo_path_chosen',
+            'public_demo_scenario_loaded',
+        ];
+    }
+
+    public function forget(Request $request): void
+    {
+        $request->session()->forget(self::sessionKeys());
+    }
+
+    public function hasSessionFlags(Request $request): bool
+    {
+        return (bool) $request->session()->get('public_demo_mode', false)
+            || $request->session()->has('public_demo_intake_id');
+    }
+
     public function resolveIntake(Request $request): ?Intake
     {
         $user = $request->user();

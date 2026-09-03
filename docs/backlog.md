@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.38 · **Laatste update:** 2026-09-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.39 · **Laatste update:** 2026-09-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -661,13 +661,13 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 ### BL-091 — Demo: opslaan op dossierdetail mag niet naar login/404
 
 - **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-03 · **PR:** #93 · **Epic:** E5 · **Band:** A · product/demo · **Afhankelijk:** BL-001/084–090
-- **Aanleiding:** producteigenaar: “Als ik in de demo iets opsla word ik naar inlog scherm gestuurd.”
-- **Oorzaak:** `RestrictPublicDemoSession` allowlist dekte werkplek-POSTs maar niet dossierdetail-acties die BL-084–090 zichtbaar maakten (adres opnieuw, AI-aandachtspunten, beoordeling, rapport/PDF, link). Daarnaast: gepurgede ephemeral user → `auth` faalt vóór demo-middleware → echt `/login` i.p.v. `demo.ended`.
-- **Doel:** demo-saves op show/workspace blijven ingelogd; stale demo-auth naar `/demo/beeindigd`.
-- **Scope:** `RestrictPublicDemoSession`, `bootstrap/app.php` `redirectGuestsTo`, Pest in `StartDemoTest`.
-- **Acceptatie:** demo POST adres/beoordeling/aandachtspunten/ruimte → geen 404/login; stale/purged demo → `demo.ended`; metrics/profiel blijven 404; `composer check` groen.
-- **Resultaat:** allowlist uitgebreid; stale/purged demo → `demo.ended`; featuretests groen.
-- **Hypothese:** middleware-allowlist + guest-redirect; geen UI-herontwerp.
+- **Aanleiding:** producteigenaar: “Als ik in de demo iets opsla word ik naar inlog scherm gestuurd.” Follow-up: “Als ik inlog ging ik naar een 404 en als ik dan op de site weer mijn opnames klikte kwam ik wel in m’n omgeving.”
+- **Oorzaak:** (1) `RestrictPublicDemoSession` allowlist dekte werkplek-POSTs maar niet dossierdetail-acties die BL-084–090 zichtbaar maakten → 404. (2) Gepurgede ephemeral user → `auth` faalt vóór demo-middleware → echt `/login`. (3) `redirect()->guest(demo.ended)` zet `url.intended` op de dode demo-intake-URL; na echt inloggen hervat `redirect()->intended(dashboard)` die URL → 404; “Mijn opnames” → `/dashboard` werkt wél.
+- **Doel:** demo-saves op show/workspace blijven ingelogd; stale demo-auth naar `/demo/beeindigd`; echt inloggen na demo-residue → dashboard (geen 404).
+- **Scope:** `RestrictPublicDemoSession`, `bootstrap/app.php` `redirectGuestsTo`, `AuthenticatedSessionController` + `PublicDemoSession::forget`/`hasSessionFlags`, `demo.ended` wist `url.intended`, Pest in `StartDemoTest`.
+- **Acceptatie:** demo POST adres/beoordeling/aandachtspunten/ruimte → geen 404/login; stale/purged demo → `demo.ended`; login met demo-residue + intended demo-URL → dashboard; metrics/profiel blijven 404; `composer check` groen.
+- **Resultaat:** allowlist uitgebreid; stale/purged demo → `demo.ended`; login wist demo-flags + `url.intended`; featuretests groen.
+- **Hypothese:** middleware-allowlist + guest-redirect + intended-cleanup; geen UI-herontwerp.
 
 ### BL-083 — Werkplek ruimtekaart: geen herhaalde naam/type + korte copy
 

@@ -6,7 +6,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Fixed
 
-- **Demo-opslaan stuurde naar login/404 (BL-091):** `RestrictPublicDemoSession` mist dossierdetail-acties die na BL-084–090 zichtbaar zijn (adres opnieuw, AI-aandachtspunten, beoordeling, rapport/PDF, link regenereren/intrekken) → 404. Allowlist uitgebreid. Stale demo-auth (gepurgede tijdelijke user) gaat naar `/demo/beeindigd` i.p.v. het echte installateurs-`/login`.
+- **Demo-opslaan stuurde naar login/404 (BL-091):** `RestrictPublicDemoSession` mist dossierdetail-acties die na BL-084–090 zichtbaar zijn (adres opnieuw, AI-aandachtspunten, beoordeling, rapport/PDF, link regenereren/intrekken) → 404. Allowlist uitgebreid. Stale demo-auth (gepurgede tijdelijke user) gaat naar `/demo/beeindigd` i.p.v. het echte installateurs-`/login`. Na echt inloggen wist login/`demo.ended` demo-sessieflags én `url.intended` (Laravel guest-redirect), zodat je niet meer op een dode demo-opname-URL (404) landt — “Mijn opnames” werkte al omdat dat naar `/dashboard` gaat.
 
 ### Changed
 

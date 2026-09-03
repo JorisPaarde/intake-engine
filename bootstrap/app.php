@@ -25,6 +25,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Stale demo auth (purged ephemeral user / dead login id) must not land
         // on the real installer login form — send them to the demo-ended page.
+        // That page clears url.intended so a later real login does not resume a
+        // dead demo intake URL (404). Login also clears leftover demo flags.
         $middleware->redirectGuestsTo(function (Request $request): string {
             $session = $request->hasSession() ? $request->session() : null;
 

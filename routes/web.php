@@ -44,7 +44,12 @@ Route::post('/demo/start', StartDemoController::class)
     ->middleware(['guest', 'throttle:demo-start'])
     ->name('demo.start');
 
-Route::get('/demo/beeindigd', function (Request $request) {
+Route::get('/demo/beeindigd', function (Request $request, PublicDemoSession $publicDemoSession) {
+    // Auth guest-redirect uses redirect()->guest(), which stores url.intended.
+    // Clear that plus leftover demo flags so a later real login goes to dashboard.
+    $request->session()->forget('url.intended');
+    $publicDemoSession->forget($request);
+
     $reason = $request->query('reason', 'ended');
 
     return view('demo.ended', [
