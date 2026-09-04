@@ -6,7 +6,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
-- **Create: AI-prefill = één tekstveld (BL-093):** op *Nieuwe opname* alleen optioneel `prefill[request_reason]` voor de installateur — sectie **AI vult de vragen in**, veld **Beschrijf wat de klant wil**. Copy maakt duidelijk: AI vult alles in wat zij zeker genoeg weet en stelt alleen open vragen nog. Geen multi-veld-prefill meer; `DeriveIntentFromRequest` blijft de afleiding.
+- **Create: AI-prefill = één tekstveld + dicteren (BL-093/094):** op *Nieuwe opname* alleen optioneel `prefill[request_reason]` — sectie **AI vult de vragen in**, veld **Beschrijf wat de klant wil**, knop **Dicteren** (Web Speech API, `nl-NL`, spraak→tekst in de browser). Copy: AI vult alles in wat zeker genoeg is en stelt alleen open vragen. Geen multi-veld-prefill-UI; `DeriveIntentFromRequest` blijft de afleiding.
 
 ### Fixed
 

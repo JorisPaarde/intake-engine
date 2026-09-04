@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.40 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.42 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,10 +38,11 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 zijn gereserveerd voor draft PR’s [#74](https://github.com/JorisPaarde/intake-engine/pull/74) / [#75](https://github.com/JorisPaarde/intake-engine/pull/75) (AI-prefill); niet hergebruiken. BL-077 (meterkast vóór vrije groep) is done in PR #85. BL-084–090 (detailpagina-UX) done; BL-092 gereserveerd voor open PR 5xx-logging; nieuwe items starten bij BL-094 (BL-093 create één prefill-tekstveld in #95; BL-091 demo-save/login in #93).
+**Nummering:** BL-063–065 zijn gereserveerd voor draft PR’s [#74](https://github.com/JorisPaarde/intake-engine/pull/74) / [#75](https://github.com/JorisPaarde/intake-engine/pull/75) (AI-prefill); niet hergebruiken. BL-077 (meterkast vóór vrije groep) is done in PR #85. BL-084–090 (detailpagina-UX) done; BL-092 gereserveerd voor open PR 5xx-logging; nieuwe items starten bij BL-095 (BL-094 dicteerknop + BL-093 AI-beschrijvingsveld in #95; BL-091 demo-save/login in #93).
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
+| — | BL-094 | Create: dicteerknop spraak→tekst bij AI-beschrijvingsveld | E3/E5 | done | medium | A · product/UX · bij BL-093 |
 | — | BL-093 | Create: AI vult vragen in via één beschrijvingsveld | E3/E5 | done | high | A · product/UX |
 | — | BL-091 | Demo: opslaan op dossierdetail mag niet naar login/404 | E5 | done | high | A · product/demo |
 | — | BL-084 | Opnamedetail: open punten direct aanklikbaar + volgende open punt | E6 | done | high | detailpagina-UX |
@@ -679,6 +680,17 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Acceptatie:** precies één `prefill[...]`-veld; copy noemt AI-invullen + open vragen overslaan; `composer check` groen.
 - **Resultaat:** create-UI = AI-beschrijvingsveld; multi-veld-prefill weg; intent-afleiding ongewijzigd.
 - **Hypothese:** UI/copy maakt productintentie helder; bestaande afleiding dekt koelen/ruimtes/verdieping.
+
+### BL-094 — Create: dicteerknop spraak→tekst bij AI-beschrijvingsveld
+
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-09-04 · **PR:** #95 · **Epic:** E3/E5 · **Band:** A · product/UX · **Afhankelijk:** BL-093
+- **Aanleiding:** installateur wil de aanvraag kunnen **inspreken** i.p.v. alleen typen bij **Beschrijf wat de klant wil**.
+- **Doel:** knop **Dicteren** naast het veld; browser zet spraak om naar Nederlandse tekst in hetzelfde textarea (geen server-upload van audio).
+- **Scope:** `create.blade.php` (Web Speech API `nl-NL`); featuretest op markup/script; docs. Geen nieuwe API-keys.
+- **Acceptatie:** knop in HTML; script gebruikt `SpeechRecognition`/`webkitSpeechRecognition`; knop verborgen zonder ondersteuning; NL-foutteksten bij microfoonweigering; `composer check` groen.
+- **Resultaat:** knop **Dicteren**/**Stop** naast het AI-beschrijvingsveld; client-side `nl-NL` recognition; knop `hidden` tot API beschikbaar; NL-status/fouten.
+- **Hypothese:** client-side dicteren; Chrome/Edge betrouwbaar, overige browsers graceful hide.
+- **Beperking:** werkt in browsers met Web Speech API (HTTPS); geen server-side transcriptie in deze slice.
 
 ### BL-083 — Werkplek ruimtekaart: geen herhaalde naam/type + korte copy
 

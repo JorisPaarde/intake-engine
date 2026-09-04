@@ -1,6 +1,6 @@
 # Vragen- en takenengine
 
-> **Documentversie:** 2.15 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.16 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: de templatewizard is **geïmplementeerd t/m airco v14** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md). UI-taal: [language.md](language.md).
 
@@ -58,7 +58,7 @@ Runtime leest altijd uit de database (de gepinde versie), nooit rechtstreeks uit
 - Wijzigen van postcode of huisnummer wist een eerdere selectie. Straat en plaats blijven altijd bewerkbaar bij geen resultaat, een PDOK-storing of bewust corrigeren.
 - De externe call vindt uitsluitend na complete geldige invoer plaats, nooit tijdens het renderen. Nieuwe invoer annuleert een geplande of lopende call; verouderde responses kunnen zichtbare of handmatige invoer niet overschrijven. De bestaande fail-soft BAG/open-dataverrijking na opslaan blijft ongewijzigd.
 - Historische adresregels met het bekende patroon `Straat, 273, 273` worden bij migratie alleen bij een exacte dubbele eindwaarde genormaliseerd. Een mislukte of tijdelijk onbeschikbare adrescontrole kan de installateur vanuit hetzelfde dossier opnieuw uitvoeren.
-- **Één AI-prefillveld op create (BL-093):** optioneel **Beschrijf wat de klant wil** (`prefill[request_reason]`) onder **AI vult de vragen in** — installateur noteert de aanvraag; AI/app (`DeriveIntentFromRequest`) vult alles in wat zeker genoeg is en laat alleen open vragen over. Geen multi-veld-prefill-UI meer. Backend kan nog andere `prefill`-keys in de create-POST accepteren (tests); die staan niet in de UI.
+- **Één AI-prefillveld op create (BL-093/094):** optioneel **Beschrijf wat de klant wil** (`prefill[request_reason]`) onder **AI vult de vragen in**, met knop **Dicteren** (browser Web Speech API, Nederlands; knop alleen zichtbaar als de browser dicteren ondersteunt). Installateur typt of spreekt de aanvraag in; AI/app (`DeriveIntentFromRequest`) vult alles in wat zeker genoeg is en laat alleen open vragen over. Geen multi-veld-prefill-UI. Backend kan nog andere `prefill`-keys in de create-POST accepteren (tests); die staan niet in de UI.
 
 Het interne dossier en HTML/PDF-rapport bevatten altijd een korte deterministische samenvatting van bekende kernantwoorden. Deze gebruikt labels uit de gepinde templateversie en heeft geen AI-provider nodig; een eventuele AI-samenvatting blijft een apart, niet-bindend voorstel.
 
