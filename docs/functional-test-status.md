@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.65 · **Laatste update:** 2026-09-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.66 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -10,6 +10,7 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
+| HTTP 5xx/503-logging (BL-092) | todo | - | Na deploy: forceer of observeer een 5xx/LiteSpeed-503 (bijv. Opname aanmaken); controleer `shared/storage/logs/laravel.log` op `HTTP server error response` of `HTTP request ended without clean response` met path/route; bij kale host-503 zonder PHP-regel ook cPanel/LiteSpeed-errorlog. Geen tokens in de log. |
 | Opnamedetail UX basis (BL-084–088/090) | pass | staging 2026-09-03 | Publieke demo-opname 61: `/health` staging ok; op 1280×800 en 400×924 **Wat nu te doen**, primaire actie, open punten en één **Aandachtspunten**-sectie gecontroleerd zonder horizontale overflow. **Koelroute vastleggen** sprong naar `/intakes/61/opname#connection-38`. E-mail opende `mailto:`, adres Google Maps; lege telefoon toonde `—` zonder link. AI-toestand gaf uitleg + voorstelknop. Rapport/demorapport stond niet als zwaar iframe standaard geladen. |
 | Opnamedetail UX datagedreven toestanden (BL-085/089/090) | todo | staging deels 2026-09-03 | Nog gericht testen met passende fictieve data: AI-voorstel daadwerkelijk genereren/beoordelen; foto met bruikbaarheidswaarschuwing → **Vraag betere foto** en vooringevulde klanttaak; bestaand rapport lazy openen en PDF-pending → **Status verversen**. Deze toestanden kwamen niet voor in het publieke voorbeelddossier; geen echte mail of externe AI gestart. |
 | Deploy-pipeline (push -> Actions -> rsync -> activate -> live) | pass | 2026-07-18 | Atomische symlink-swap werkt; PR #14 deploy success |

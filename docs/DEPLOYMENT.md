@@ -1,6 +1,6 @@
 # Deployment naar cPanel (staging + production)
 
-> **Documentversie:** 2.17 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.18 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 **Statusregel:** staging en production zijn fysiek en logisch gescheiden; open handmatige acties (env/host) staan in [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
 
@@ -172,6 +172,14 @@ MySQL commit DDL-stappen zoals `ALTER TABLE` ook wanneer een latere stap in deze
 2. Maak en push een semver-tag `v*`, of start Actions → **Deploy production** bewust handmatig op de juiste ref.
 3. Controleer `https://intake-engine.nl/health` (`environment=production`).
 4. Controleer `apps/intake-engine-production/shared/storage/logs/` en bevestig dat staging ongewijzigd bleef.
+
+### HTTP 5xx / LiteSpeed 503 debuggen (BL-092)
+
+LiteSpeed toont soms een kale **503 Service Unavailable** (“The server is temporarily busy…”) vóór of tijdens PHP — vooral bij zware POSTs zoals **Opname aanmaken** (adresverrijking).
+
+1. **Applicatielog** (`shared/storage/logs/laravel.log`): zoek op `HTTP server error response` (Laravel gaf zelf ≥500, o.a. `abort(503)`) of `HTTP request ended without clean response` (PHP fatal/abort mid-request). Context bevat o.a. `request_id`, `method`, `path` (klanttokens geredacteerd), `route`, `duration_ms`, `user_id`, `demo_mode`. Domeincode kan dezelfde context meeloggen via `app(AppErrorLogger::class)->error(...)` / `->warning(...)`.
+2. **Host-errorlog** (cPanel → Errors / LiteSpeed): nodig wanneer de 503 komt **zonder** PHP-trail (entry-process limit, SIGKILL, crash vóór bootstrap). Die gevallen kan de app niet loggen.
+3. Vergelijk tijdstempel met de testeractie (bijv. submit op `/intakes`).
 
 ## Rollback
 
