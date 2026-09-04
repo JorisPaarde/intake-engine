@@ -1,6 +1,6 @@
 # Intake Engine (Digitale Opname)
 
-> **Documentversie:** 2.18 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](AGENTS.md)
+> **Documentversie:** 2.19 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](AGENTS.md)
 
 **Werk je als agent aan dit project? Lees eerst [AGENTS.md](AGENTS.md)** — het projectgeheugen, de documentkaart en het onderhoudsprotocol.
 
@@ -118,6 +118,7 @@ De volledige documentkaart — welk document waarvoor de bron van waarheid is �
 - [docs/backlog.md](docs/backlog.md) — al het open werk en de uitvoeringsvolgorde
 - [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — gescheiden staging- en productiondeploy op cPanel
 - [docs/metrics.md](docs/metrics.md) — definities van productmetrics en staging-smoke
+- [docs/browser-test-flow.md](docs/browser-test-flow.md) — visuele browser-QA (echte browser op staging)
 - [CHANGELOG.md](CHANGELOG.md) — wijzigingslog
 
 ## Huidige status
@@ -128,4 +129,4 @@ BAG/PDOK, PDOK-luchtfoto, EP-Online en 3DBAG vullen hetzelfde dossier automatisc
 
 De publieke homepage is een installateursfunnel met fictieve productweergaven, interactieve demo en een zelfstandige, privacybegrensde interesse-CTA, visueel afgestemd op de JPWebcreation-huisstijl (aparte marketingtokens; de ingelogde app behoudt tenant-/Apple-styling). Contactinzendingen starten nooit een technische opname. Gebruikersgerichte app-teksten volgen gecontroleerd eenvoudig Nederlands ([docs/language.md](docs/language.md)); Nieuwe airco-opnames gebruiken template **v15** (dakkapel/`dormer` voor AI-catalogusprefill; korte kruipruimte-/matenlabels uit v14; meterkastfoto vóór vrije-groepvraag uit v13; offerte-kritisch bewijs uit v12; BL-063/064/074/077/082).
 
-**Open operationeel werk:** de begeleidde BL-001-demo (installateursstart + rolkeuze + coachmarks) is codegereed maar blijft `in_progress` tot de staging-/mobiele smoke is uitgevoerd. `MEDIA_DISK=s3` is app-ondersteund (BL-013); omschakelen is env-only. Externe AI-activering wacht op DPIA/key; SMTP en overige host/env-acties staan in [docs/DEPLOYMENT.md § Handmatige acties](docs/DEPLOYMENT.md#handmatige-acties-producteigenaar). Handmatige teststatus: [docs/functional-test-status.md](docs/functional-test-status.md).
+**Open operationeel werk:** de begeleidde BL-001-demo (installateursstart + rolkeuze + coachmarks) is codegereed maar blijft `in_progress` tot de staging-/mobiele smoke is uitgevoerd. `MEDIA_DISK=s3` is app-ondersteund (BL-013); omschakelen is env-only. Externe AI-activering wacht op DPIA/key; SMTP en overige host/env-acties staan in [docs/DEPLOYMENT.md § Handmatige acties](docs/DEPLOYMENT.md#handmatige-acties-producteigenaar). Visuele browser-QA: [docs/browser-test-flow.md](docs/browser-test-flow.md). Uitslag: [docs/functional-test-status.md](docs/functional-test-status.md).

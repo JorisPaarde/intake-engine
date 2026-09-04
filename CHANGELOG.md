@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Added
+
+- **Browser-testspeelboek (BL-096):** [docs/browser-test-flow.md](docs/browser-test-flow.md) is het stapsgewijze script voor een agent (of mens) die een echte browser opent op staging en naar het scherm kijkt. Bevat kopieerprompt, Flow A (demo-installateur), B (klantpad), optioneel C (Dicteren) en D (negatief). `docs/functional-test-status.md` blijft de uitslagentabel; Pest telt niet als uitvoering.
+
 ### Changed
 
 - **Prefill-opruiming:** ongebruikte `request_intent`-prompt (vervangen door `request_prefill`) verwijderd. Create-copy en demo-welkom ingekort (opname i.p.v. dossier).

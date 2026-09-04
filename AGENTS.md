@@ -1,6 +1,6 @@
 # AGENTS.md — Projectgeheugen & werkinstructies
 
-> **Documentversie:** 2.15 · **Laatste update:** 2026-09-04 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
+> **Documentversie:** 2.16 · **Laatste update:** 2026-09-04 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
 
 Dit bestand is de **centrale ingang** voor iedere agent (of mens) die aan dit project werkt. Het beschrijft waar het projectgeheugen leeft, welk document waarvoor de bron van waarheid is, en hoe je dat geheugen bijhoudt. **Lees dit bestand aan het begin van elke taak.**
 
@@ -47,7 +47,7 @@ Lees **níet** standaard alle docs integraal door. De geheugenkaart, versieheade
 | Foto's / uploads / media | `docs/uploads.md` (+ `docs/DEPLOYMENT.md` § PHP upload-limieten) | AI, database-details |
 | AI-functionaliteit | `docs/ai.md` + ADR-0005/0011/0012 | deploy |
 | Deploy, staging, CI, server | `docs/DEPLOYMENT.md` | engine-, AI- en database-docs |
-| Functioneel testen op staging | `docs/functional-test-status.md` + BL-002 in de backlog | architectuur-docs |
+| Functioneel testen op staging | `docs/browser-test-flow.md` (stappen) + `docs/functional-test-status.md` (uitslag) | architectuur-docs |
 | Architectuurbrede keuze / nieuw domein | `docs/ARCHITECTURE.md` + relevante ADRs | — |
 | Docs/geheugen zelf onderhouden | dit bestand volledig | — |
 
@@ -75,6 +75,7 @@ Twijfel je onder welk taaktype je werk valt, gebruik dan de geheugenkaart hieron
 | Wat is het nog te bouwen werk? | [docs/backlog.md](docs/backlog.md) (**enige** backlog) |
 | Uitgewerkte implementatieplannen bij een BL-item? | [docs/plans/](docs/plans/) (alleen detail; status blijft in de backlog) |
 | Wat is functioneel getest (handmatig)? | [docs/functional-test-status.md](docs/functional-test-status.md) |
+| Hoe voert een agent visuele browser-QA uit? | [docs/browser-test-flow.md](docs/browser-test-flow.md) (stappen + kopieerprompt); uitslag in functional-test-status |
 | Welke werkafspraken gelden (branching, taal, kwaliteit, privacy)? | [§ Werkafspraken](#werkafspraken) in dit bestand |
 | Hoe schrijf ik gebruikersgerichte UI-teksten? | [docs/language.md](docs/language.md) |
 | Hoe werk ik als agent, hoe onderhoud ik dit geheugen? | dit bestand (AGENTS.md) |
@@ -203,6 +204,7 @@ Praktische lessen uit cloud-runs. Doel: sneller groen zonder opnieuw te ontdekke
 
 ### Staging-testen (browser / Playwright)
 
+- **Speelboek:** visuele QA (echte browser, kijken als een mens) volgt [docs/browser-test-flow.md](docs/browser-test-flow.md). Pest/Livewire/HTTP tellen niet als uitvoering. Uitslag alleen in `docs/functional-test-status.md` voor stappen die je zelf zag.
 - Omgevingen zijn gescheiden: `main` → `staging.intake-engine.nl` / `apps/intake-engine-staging`; `v*` of bewuste dispatch → `intake-engine.nl` / `apps/intake-engine-production`. Gebruik nooit database, `.env`, app-key, sessiecookie of storage van de andere omgeving.
 - Kopieer je een bestaande release als bootstrap voor een nieuwe omgeving, verwijder dan `bootstrap/cache/config.php`, `routes-*.php` en `events.php` **vóór** de eerste Artisan-opdracht. Anders kunnen migraties/storage-links nog de gecachete bron-DB en bronpaden gebruiken; `deploy/activate.sh` doet dit en controleert ook `APP_ENV`.
 - Staging-URL: zie README § Omgevingen; `staging.intake-engine.nl` heeft geldig Let’s Encrypt-TLS, dus geen `ignoreHTTPSErrors` of cPanel-cookie gebruiken.
