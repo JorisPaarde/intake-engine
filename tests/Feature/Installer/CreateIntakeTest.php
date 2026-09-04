@@ -137,24 +137,31 @@ test('new intake form shows street and city without toevoeging or manual-address
         ->not->toContain('Adres handmatig aangepast');
 });
 
-test('create form prefill block is compact without customer help essays', function () {
+test('create form shows only one installer prefill text field', function () {
     $user = User::factory()->create();
 
-    $this->actingAs($user)
+    $html = $this->actingAs($user)
         ->get(route('intakes.create'))
         ->assertOk()
-        ->assertSee('Alvast invullen (optioneel)')
-        ->assertSee('Kruipruimte')
-        ->assertSee('Lengte (m)')
-        ->assertSee('Breedte (m)')
-        ->assertSee('Hoogte (m)')
-        ->assertSee('grid-cols-3', false)
-        ->assertSee('>—<', false)
-        ->assertDontSee('— nog niet invullen —')
-        ->assertDontSee('Ga er niet in')
-        ->assertDontSee('Vaak ongeveer 2,4 tot 2,7 meter')
-        ->assertDontSee('Is er een kruipruimte onder de vloer?')
-        ->assertDontSee('Lengte van de ruimte (m), als u die weet');
+        ->assertSee('AI vult de vragen in (optioneel)')
+        ->assertSee('Beschrijf wat de klant wil')
+        ->assertSee('Schrijf of dicteer zo volledig mogelijk')
+        ->assertSee('De AI vult daarmee alles in wat zij zeker genoeg weet')
+        ->assertSee('alleen vragen die daarna nog open zijn')
+        ->assertSee('id="prefill-request-reason-dictate"', false)
+        ->assertSee('Dicteren')
+        ->assertSee('SpeechRecognition || window.webkitSpeechRecognition', false)
+        ->assertSee("recognition.lang = 'nl-NL'", false)
+        ->assertSee('name="prefill[request_reason]"', false)
+        ->assertDontSee('name="prefill[cooling_heating]"', false)
+        ->assertDontSee('name="prefill[indoor_unit_count]"', false)
+        ->assertDontSee('name="prefill[crawl_space_present]"', false)
+        ->assertDontSee('name="prefill[room_length_m]"', false)
+        ->assertDontSee('name="prefill[floor_insulation]"', false)
+        ->assertDontSee('data-prefill-block', false)
+        ->getContent();
+
+    expect(substr_count($html, 'name="prefill['))->toBe(1);
 });
 
 test('house number with addition is parsed from a single field on store', function () {

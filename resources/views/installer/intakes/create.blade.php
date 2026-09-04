@@ -17,7 +17,7 @@
         <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
             @if ($isPublicDemo)
                 <div class="mb-4 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">
-                    Vul zelf een klantnaam, postcode en huisnummer in — net als na een echte aanvraag. Je ziet meteen straat en plaats. Na opslaan vult de app bekende woninggegevens aan en leest de korte uitleg mee. Gebruik fictieve klantgegevens. Er gaat geen e-mail uit.
+                    Vul zelf een klantnaam, postcode en huisnummer in — net als na een echte aanvraag. Je ziet meteen straat en plaats. Na opslaan vult de app bekende woninggegevens aan. Beschrijf hieronder wat de klant wil: de AI vult daarmee vragen in en slaat over wat al duidelijk is. Gebruik fictieve klantgegevens. Er gaat geen e-mail uit.
                 </div>
             @endif
             <div class="bg-white shadow-sm sm:rounded-lg p-6" data-demo-anchor="create-form">
@@ -227,45 +227,39 @@
                         <x-input-error :messages="$errors->get('internal_note')" class="mt-2" />
                     </div>
 
-                    @if (! empty($prefillQuestionsByTemplate))
-                        <div class="rounded-md border border-gray-200 bg-gray-50 p-3">
-                            <p class="text-sm font-semibold text-gray-800">Alvast invullen (optioneel)</p>
-                            <p class="mt-0.5 text-xs text-gray-500">Wat je al weet, vul je hier in.</p>
-
-                            @foreach ($prefillQuestionsByTemplate as $templateKey => $questions)
-                                @php
-                                    $prefillItems = $questions->values();
-                                    $dimensionKeys = ['room_length_m', 'room_width_m', 'ceiling_height_m'];
-                                    $renderedKeys = [];
-                                @endphp
-                                <div
-                                    data-prefill-block="{{ $templateKey }}"
-                                    class="mt-2 space-y-2 {{ old('template_key', 'airco') === $templateKey ? '' : 'hidden' }}"
+                    <div class="rounded-md border border-gray-200 bg-gray-50 p-3">
+                        <p class="text-sm font-semibold text-gray-800">AI vult de vragen in (optioneel)</p>
+                        <p class="mt-0.5 text-xs text-gray-500">Schrijf of dicteer zo volledig mogelijk wat de klant wil. De AI vult daarmee alles in wat zij zeker genoeg weet, en stelt alleen vragen die daarna nog open zijn. Jij maakt de opname aan en stuurt daarna de link, of je gaat zelf verder.</p>
+                        <div class="mt-2">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <x-input-label for="prefill_request_reason" value="Beschrijf wat de klant wil" />
+                                <x-secondary-button
+                                    type="button"
+                                    id="prefill-request-reason-dictate"
+                                    class="gap-2 px-3"
+                                    data-dictate-start="Dicteren"
+                                    data-dictate-stop="Stop"
+                                    aria-pressed="false"
+                                    hidden
                                 >
-                                    @foreach ($prefillItems as $question)
-                                        @continue(in_array($question->key, $renderedKeys, true))
-
-                                        @if (in_array($question->key, $dimensionKeys, true))
-                                            <div class="grid grid-cols-3 gap-2">
-                                                @foreach ($dimensionKeys as $dimensionKey)
-                                                    @php
-                                                        $dimensionQuestion = $prefillItems->firstWhere('key', $dimensionKey);
-                                                    @endphp
-                                                    @if ($dimensionQuestion)
-                                                        @include('installer.intakes._prefill-field', ['question' => $dimensionQuestion])
-                                                        @php $renderedKeys[] = $dimensionKey; @endphp
-                                                    @endif
-                                                @endforeach
-                                            </div>
-                                        @else
-                                            @include('installer.intakes._prefill-field', ['question' => $question])
-                                            @php $renderedKeys[] = $question->key; @endphp
-                                        @endif
-                                    @endforeach
-                                </div>
-                            @endforeach
+                                    <svg class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                        <path d="M10 1.5a2.75 2.75 0 0 0-2.75 2.75v5a2.75 2.75 0 1 0 5.5 0v-5A2.75 2.75 0 0 0 10 1.5Z" />
+                                        <path d="M5.5 8.25a.75.75 0 0 0-1.5 0 6 6 0 0 0 5.25 5.953V16.5H7.75a.75.75 0 0 0 0 1.5h4.5a.75.75 0 0 0 0-1.5H11.75v-2.297A6 6 0 0 0 17 8.25a.75.75 0 0 0-1.5 0 4.5 4.5 0 1 1-9 0Z" />
+                                    </svg>
+                                    <span data-dictate-label>Dicteren</span>
+                                </x-secondary-button>
+                            </div>
+                            <textarea
+                                id="prefill_request_reason"
+                                name="prefill[request_reason]"
+                                rows="4"
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                placeholder="Bijv. twee slaapkamers op zolder koelen in de zomer"
+                            >{{ old('prefill.request_reason', '') }}</textarea>
+                            <p id="prefill-request-reason-dictate-status" class="mt-1 text-xs text-gray-500" hidden aria-live="polite"></p>
+                            <x-input-error :messages="$errors->get('prefill.request_reason')" class="mt-1" />
                         </div>
-                    @endif
+                    </div>
 
                     <div class="flex items-center justify-end gap-3">
                         <a href="{{ route('dashboard') }}" class="text-sm text-gray-600 hover:text-gray-900">Annuleren</a>
@@ -278,30 +272,6 @@
             </div>
         </div>
     </div>
-
-    @if (! empty($prefillQuestionsByTemplate))
-        <script>
-            (function () {
-                const select = document.getElementById('template_key');
-                const blocks = document.querySelectorAll('[data-prefill-block]');
-                if (!select || blocks.length === 0) return;
-
-                function sync() {
-                    blocks.forEach(function (block) {
-                        const active = block.getAttribute('data-prefill-block') === select.value;
-                        block.classList.toggle('hidden', !active);
-                        // Disabled inputs are not submitted — keeps hidden templates' answers out.
-                        block.querySelectorAll('input, select, textarea').forEach(function (field) {
-                            field.disabled = !active;
-                        });
-                    });
-                }
-
-                select.addEventListener('change', sync);
-                sync();
-            })();
-        </script>
-    @endif
 
     <script>
         (function () {
@@ -530,6 +500,148 @@
                     closeSuggestions();
                     postalCode.focus();
                 }
+            });
+        })();
+    </script>
+
+    <script>
+        (function () {
+            const textarea = document.getElementById('prefill_request_reason');
+            const button = document.getElementById('prefill-request-reason-dictate');
+            const status = document.getElementById('prefill-request-reason-dictate-status');
+            const label = button ? button.querySelector('[data-dictate-label]') : null;
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+            if (!textarea || !button || !status || !label || !SpeechRecognition) {
+                return;
+            }
+
+            button.hidden = false;
+
+            const startLabel = button.getAttribute('data-dictate-start') || 'Dicteren';
+            const stopLabel = button.getAttribute('data-dictate-stop') || 'Stop';
+            let recognition = null;
+            let listening = false;
+            let baseText = '';
+
+            function setStatus(message, isError) {
+                status.hidden = !message;
+                status.textContent = message || '';
+                status.classList.toggle('text-red-600', Boolean(isError));
+                status.classList.toggle('text-gray-500', !isError);
+            }
+
+            function setListening(active) {
+                listening = active;
+                button.setAttribute('aria-pressed', active ? 'true' : 'false');
+                label.textContent = active ? stopLabel : startLabel;
+                button.classList.toggle('border-red-300', active);
+                button.classList.toggle('bg-red-50', active);
+                button.classList.toggle('text-red-800', active);
+            }
+
+            function fitTextarea() {
+                textarea.style.height = 'auto';
+                textarea.style.height = Math.min(textarea.scrollHeight, 320) + 'px';
+            }
+
+            function appendFinal(transcript) {
+                const piece = String(transcript || '').trim();
+                if (!piece) return;
+
+                baseText = baseText.trim() === '' ? piece : (baseText.trim() + ' ' + piece);
+                textarea.value = baseText;
+                textarea.dispatchEvent(new Event('input', { bubbles: true }));
+                fitTextarea();
+            }
+
+            function stopListening() {
+                if (!recognition) return;
+                try {
+                    recognition.stop();
+                } catch (error) {
+                    // Already stopped.
+                }
+            }
+
+            function startListening() {
+                recognition = new SpeechRecognition();
+                recognition.lang = 'nl-NL';
+                recognition.continuous = true;
+                recognition.interimResults = true;
+                recognition.maxAlternatives = 1;
+                baseText = textarea.value || '';
+
+                recognition.onstart = function () {
+                    setListening(true);
+                    setStatus('Luisteren… spreek in en tik op Stop als je klaar bent.', false);
+                };
+
+                recognition.onresult = function (event) {
+                    let interim = '';
+
+                    for (let index = event.resultIndex; index < event.results.length; index++) {
+                        const result = event.results[index];
+                        const transcript = result[0] ? result[0].transcript : '';
+
+                        if (result.isFinal) {
+                            appendFinal(transcript);
+                        } else {
+                            interim += transcript;
+                        }
+                    }
+
+                    if (interim.trim() !== '') {
+                        const preview = baseText.trim() === ''
+                            ? interim.trim()
+                            : (baseText.trim() + ' ' + interim.trim());
+                        textarea.value = preview;
+                        fitTextarea();
+                        setStatus('Luisteren…', false);
+                    }
+                };
+
+                recognition.onerror = function (event) {
+                    const code = event && event.error ? String(event.error) : '';
+                    let message = 'Dicteren lukte niet. Typ de tekst of probeer opnieuw.';
+
+                    if (code === 'not-allowed' || code === 'service-not-allowed') {
+                        message = 'Geen toegang tot de microfoon. Sta microfoon toe in de browser en probeer opnieuw.';
+                    } else if (code === 'no-speech') {
+                        message = 'Geen spraak gehoord. Tik opnieuw op Dicteren.';
+                    } else if (code === 'network') {
+                        message = 'Geen netwerk voor dicteren. Controleer je verbinding.';
+                    } else if (code === 'aborted') {
+                        message = '';
+                    }
+
+                    setListening(false);
+                    setStatus(message, message !== '');
+                };
+
+                recognition.onend = function () {
+                    setListening(false);
+                    textarea.value = baseText;
+                    if (status.textContent.indexOf('Luisteren') === 0) {
+                        setStatus(baseText.trim() === '' ? '' : 'Tekst toegevoegd. Je kunt nog typen of opnieuw dicteren.', false);
+                    }
+                };
+
+                try {
+                    recognition.start();
+                } catch (error) {
+                    setListening(false);
+                    setStatus('Dicteren kon niet starten in deze browser.', true);
+                }
+            }
+
+            button.addEventListener('click', function () {
+                if (listening) {
+                    stopListening();
+                    return;
+                }
+
+                startListening();
             });
         })();
     </script>

@@ -16,7 +16,6 @@ use App\Domains\Intake\Actions\SubmitIntakeReview;
 use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeAttentionPoint;
-use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Services\DossierOverviewBuilder;
 use App\Domains\Intake\Services\ExternalFactPresenter;
@@ -45,7 +44,6 @@ use App\Http\Requests\Installer\StoreIntakeReviewRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
@@ -85,47 +83,13 @@ class IntakeController extends Controller
 
         return view('installer.intakes.create', [
             'templates' => $templates,
-            // BL-016: questions the installer may optionally pre-answer, per template.
-            'prefillQuestionsByTemplate' => $this->prefillQuestionsByTemplate($templates),
             'isPublicDemo' => $isPublicDemo,
             'demoDefaults' => $demoDefaults,
             'demoAddressExample' => $demoAddressExample,
         ]);
     }
 
-    /**
-     * @param  Collection<int, IntakeTemplate>  $templates
-     * @return array<string, Collection<int, IntakeQuestion>>
-     */
-    private function prefillQuestionsByTemplate($templates): array
-    {
-        $byTemplate = [];
-
-        foreach ($templates as $template) {
-            $version = $template->latestPublishedVersion();
-
-            if ($version === null) {
-                continue;
-            }
-
-            $version->loadMissing('sections.questions.options');
-
-            $questions = $version->sections
-                ->sortBy('sort_order')
-                ->flatMap(fn ($section) => $section->questions->sortBy('sort_order'))
-                ->filter(fn ($question) => ($question->meta['installer_prefillable'] ?? false) === true)
-                ->values();
-
-            if ($questions->isNotEmpty()) {
-                $byTemplate[$template->key] = $questions;
-            }
-        }
-
-        return $byTemplate;
-    }
-
-    public function store(
-        StoreIntakeRequest $request,
+    public function store(StoreIntakeRequest $request,
         CreateIntake $createIntake,
         DeriveIntentFromRequest $deriveIntentFromRequest,
         EnrichIntakeAddress $enrichIntakeAddress,
