@@ -140,6 +140,19 @@ it('starts a guided demo on the installer dashboard without an intake yet', func
         ->assertSee('initialStep: \'welcome\'', false);
 });
 
+it('welcome popup explains how the app helps the installer', function () {
+    $source = (string) file_get_contents(resource_path('js/demo-guide.js'));
+
+    expect($source)
+        ->toContain("title: 'Zo werkt de Digitale Opname'")
+        ->toContain('Je krijgt een aanvraag binnen')
+        ->toContain('eigen woorden')
+        ->toContain('De AI haalt woninggegevens op')
+        ->toContain('vaak zonder voorbezoek')
+        ->toContain("cta: 'Start met nieuwe opname'")
+        ->not->toContain('Welkom in de installateursdemo');
+});
+
 it('leaves postcode and house number empty so the installer types them', function () {
     $user = startPublicDemoSession();
     $session = [

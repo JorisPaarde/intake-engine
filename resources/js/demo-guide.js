@@ -9,6 +9,7 @@ export function registerDemoGuide(Alpine) {
         mode: 'info',
         title: '',
         body: '',
+        bodyLines: [],
         aside: '',
         cta: 'Begrepen',
         metaLabel: '',
@@ -66,7 +67,10 @@ export function registerDemoGuide(Alpine) {
             }
             this.mode = copy.mode;
             this.title = copy.title;
-            this.body = copy.body;
+            this.body = copy.body || '';
+            this.bodyLines = Array.isArray(copy.bodyLines) && copy.bodyLines.length > 0
+                ? copy.bodyLines
+                : (copy.body ? [copy.body] : []);
             this.aside = copy.aside || '';
             this.cta = copy.cta || 'Begrepen';
             this.metaLabel = copy.meta;
@@ -97,10 +101,14 @@ export function registerDemoGuide(Alpine) {
             const map = {
                 welcome: {
                     mode: 'info',
-                    meta: 'Welkom',
-                    title: 'Welkom in de installateursdemo',
-                    body: 'Je bent tijdelijk ingelogd als installateur. Je start precies zoals na een echte aanvraag: met een nieuwe opname. De klantnaam is nep. Adresinvulling en AI werken wel.',
-                    aside: `Deze demosessie verdwijnt automatisch na ${ttl} uur. Geen echte klant, geen mail. PDF kun je later op aanvraag ontvangen.`,
+                    meta: 'Hoe het werkt',
+                    title: 'Zo werkt de Digitale Opname',
+                    bodyLines: [
+                        'Je krijgt een aanvraag binnen. Vul in eigen woorden in wat je al weet.',
+                        'De AI haalt woninggegevens op en vult aan wat zeker genoeg is. Alleen open punten blijven over.',
+                        'Jij beoordeelt het dossier en maakt sneller een offerte — vaak zonder voorbezoek.',
+                    ],
+                    aside: `Tijdelijke demosessie (${ttl} uur). Geen echte klant, geen mail.`,
                     cta: 'Start met nieuwe opname',
                 },
                 branch: {

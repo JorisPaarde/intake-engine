@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.39 · **Laatste update:** 2026-09-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.40 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,10 +38,11 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 zijn gereserveerd voor draft PR’s [#74](https://github.com/JorisPaarde/intake-engine/pull/74) / [#75](https://github.com/JorisPaarde/intake-engine/pull/75) (AI-prefill); niet hergebruiken. BL-077 (meterkast vóór vrije groep) is done in PR #85. BL-084–090 (detailpagina-UX) done; nieuwe items starten bij BL-092 (BL-091 demo-save/login in deze PR; BL-083 ruimtekaart-copy in PR #89; BL-082 copy-pass in PR #88).
+**Nummering:** BL-063–065 zijn gereserveerd voor draft PR’s [#74](https://github.com/JorisPaarde/intake-engine/pull/74) / [#75](https://github.com/JorisPaarde/intake-engine/pull/75) (AI-prefill); niet hergebruiken. BL-077 (meterkast vóór vrije groep) is done in PR #85. BL-084–090 (detailpagina-UX) done; BL-092–094 gereserveerd voor open PR’s [#94](https://github.com/JorisPaarde/intake-engine/pull/94) / [#95](https://github.com/JorisPaarde/intake-engine/pull/95); nieuwe items starten bij BL-096 (BL-095 demo-welkom in deze PR; BL-091 demo-save/login in #93).
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
+| — | BL-095 | Demo-welkom: korte uitleg hoe de app helpt | E5 | in_progress | high | A · product/demo/UX |
 | — | BL-091 | Demo: opslaan op dossierdetail mag niet naar login/404 | E5 | done | high | A · product/demo |
 | — | BL-084 | Opnamedetail: open punten direct aanklikbaar + volgende open punt | E6 | done | high | detailpagina-UX |
 | — | BL-085 | Lege "AI-voorgestelde aandachtspunten" niet als dode sectie | E4 | done | medium | detailpagina-UX |
@@ -657,6 +658,15 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Scope:** `resources/views/installer/intakes/show.blade.php` (rapport-blok, regels ~374-446); geen wijziging aan rapportgeneratie zelf. Detailpagina-test (iframe niet standaard geladen; statusweergave klopt).
 - **Acceptatie:** detailpagina laadt niet standaard een zware iframe; PDF-status is begrijpelijk en ververst; `composer check` groen.
 - **Hypothese:** UI + kleine statuslogica; geen wijziging aan PDF-pijplijn.
+
+### BL-095 — Demo-welkom: korte uitleg hoe de app helpt
+
+- **Status:** in_progress · **Prioriteit:** high · **Datum:** 2026-09-04 · **PR:** — · **Epic:** E5 · **Band:** A · product/demo/UX · **Afhankelijk:** BL-001/070
+- **Aanleiding:** demostart moet meteen duidelijk maken wat de Digitale Opname doet voor de installateur — niet alleen “je bent tijdelijk ingelogd”.
+- **Doel:** welkomstpopup bij demostart in een paar zinnen: aanvraag binnen → invullen wat je al weet in eigen woorden → AI haalt data op en vult aan → jij beoordeelt / offert sneller (vaak zonder voorbezoek).
+- **Scope:** `resources/js/demo-guide.js` (welcome-copy) + `demo-guide.blade.php` (meerdere alinea’s); Pest op brontekst; docs. Geen flowwijziging.
+- **Acceptatie:** welcome-titel/body leggen productflow uit; CTA blijft *Start met nieuwe opname*; `composer check` groen.
+- **Hypothese:** pure copy/UI; bestaande welcome→create-flow blijft.
 
 ### BL-091 — Demo: opslaan op dossierdetail mag niet naar login/404
 
