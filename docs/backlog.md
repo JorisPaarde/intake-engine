@@ -38,7 +38,7 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 speelboek en BL-097 autofill zijn aparte PR’s. Deze slice BL-098. Nieuwe items starten bij BL-099.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 speelboek en BL-097 autofill zijn aparte PR’s. Deze slice BL-098 in #101. Nieuwe items starten bij BL-099.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
@@ -704,7 +704,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-098 — Openingszin: herhaalde kamers naar catalogus-AI + naam per type
 
-- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-04 · **PR:** deze PR · **Epic:** E3/E9 · **Band:** F · bij BL-048/064
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-04 · **PR:** #101 · **Epic:** E3/E9 · **Band:** F · bij BL-048/064
 - **Aanleiding:** “Drie slaapkamers en woonkamer koelen woonkamers is 5 bij 7 meter en de slaapkamers 20m2 elk” leverde extra kamers zonder maten; de woonkamer heette **Woonkamer 3**. Product: dit mag niet deterministisch; de AI bepaalt.
 - **Doel:** lokale parser niet uitbreiden met maten/anaphora-invulling (ADR-0013). Bij herhaald kamertype: geen lokale high-confidence. Catalogus-AI vult aantal/type/L×B. Namen per type (Woonkamer 1).
 - **Scope:** `LocalRequestIntentParser` v4 (herhaald type → null), `request-prefill-v3`, `PrefillAnswersFromKnownContext` ruimt extra `room-N` op, `DossierManager` naam per type, Pest-voorbeelden.
@@ -1057,7 +1057,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 | ID | Datum | Resultaat / PR |
 |----|-------|----------------|
-| BL-098 | 2026-09-04 | deze PR — herhaalde kamers naar catalogus-AI; naam per type |
+| BL-098 | 2026-09-04 | #101 — herhaalde kamers naar catalogus-AI; naam per type |
 | BL-013 | 2026-08-24 | #78 — `MEDIA_DISK=s3` + AWS-env; legacy disk+path intact |
 | BL-049 | 2026-07-31 | deze PR — contextgebonden foto’s/notities en bevestigbare fotoconstateringen |
 | BL-047 | 2026-07-30 | #60 — gestructureerde adresregistratie, BAG-ketentest en herstelactie |
