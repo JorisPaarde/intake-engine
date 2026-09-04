@@ -229,9 +229,9 @@
 
                     <div class="rounded-md border border-gray-200 bg-gray-50 p-3">
                         <p class="text-sm font-semibold text-gray-800">Alvast invullen (optioneel)</p>
-                        <p class="mt-0.5 text-xs text-gray-500">Schrijf kort wat je al weet uit de aanvraag. De app haalt daaruit wat zij kan invullen.</p>
+                        <p class="mt-0.5 text-xs text-gray-500">Noteer kort wat de klant vroeg. De app haalt daaruit wat zij al kan invullen. Jij maakt de opname aan en stuurt daarna de link, of je gaat zelf verder.</p>
                         <div class="mt-2">
-                            <x-input-label for="prefill_request_reason" value="Korte uitleg bij de aanvraag" />
+                            <x-input-label for="prefill_request_reason" value="Wat vroeg de klant?" />
                             <textarea
                                 id="prefill_request_reason"
                                 name="prefill[request_reason]"

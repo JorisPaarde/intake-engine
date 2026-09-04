@@ -6,7 +6,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
-- **Create: Alvast invullen = één tekstveld (BL-093):** op *Nieuwe opname* alleen optioneel `prefill[request_reason]` (**Korte uitleg bij de aanvraag**). Geen aparte velden meer voor koelen/verwarmen, ruimtes, kruipruimte of L×B×H — `DeriveIntentFromRequest` haalt daaruit wat kan. Multi-veld-prefill-UI en `_prefill-field` zijn weg; backend accepteert nog overige `prefill[...]` in de POST (tests/demo).
+- **Create: Alvast invullen = één tekstveld (BL-093):** op *Nieuwe opname* alleen optioneel `prefill[request_reason]` voor de **installateur** (**Wat vroeg de klant?**). Geen aparte velden meer voor koelen/verwarmen, ruimtes, kruipruimte of L×B×H — `DeriveIntentFromRequest` haalt daaruit wat kan. Multi-veld-prefill-UI en `_prefill-field` zijn weg; backend accepteert nog overige `prefill[...]` in de POST (tests/demo).
 
 ### Fixed
 

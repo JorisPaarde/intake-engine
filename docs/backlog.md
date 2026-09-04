@@ -672,11 +672,12 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-093 — Create: Alvast invullen = één tekstveld
 
-- **Status:** in_progress · **Prioriteit:** high · **Datum:** 2026-09-04 · **PR:** #95 · **Epic:** E3/E5 · **Band:** A · product/UX
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-04 · **PR:** #95 · **Epic:** E3/E5 · **Band:** A · product/UX
 - **Aanleiding:** producteigenaar: multi-veld *Alvast invullen* is dubbel; beperk tot **1 tekstveld** — de AI/app haalt eruit wat zij kan invullen.
-- **Doel:** create toont alleen optioneel `prefill[request_reason]` (**Korte uitleg bij de aanvraag**); geen koelen/ruimtes/kruipruimte/L×B×H-prefill meer.
+- **Doel:** create toont alleen optioneel `prefill[request_reason]` (**Wat vroeg de klant?** — installateurstaal); geen koelen/ruimtes/kruipruimte/L×B×H-prefill meer.
 - **Scope:** `create.blade.php` (één textarea); `_prefill-field` + multi-blok-JS weg; featuretest; docs. Backend `prefill` + `DeriveIntentFromRequest` blijven.
-- **Acceptatie:** create heeft precies één `prefill[...]`-veld (`request_reason`); geen andere prefill-inputs; `composer check` groen.
+- **Acceptatie:** create heeft precies één `prefill[...]`-veld (`request_reason`) met installateurscopy; geen andere prefill-inputs; `composer check` groen.
+- **Resultaat:** create-UI = één tekstveld **Wat vroeg de klant?**; multi-veld-prefill weg; intent-afleiding ongewijzigd.
 - **Hypothese:** UI-beperking; bestaande intent-afleiding dekt de rest.
 
 ### BL-083 — Werkplek ruimtekaart: geen herhaalde naam/type + korte copy
@@ -1007,4 +1008,3 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 | BL-017 | 2026-07-18 | #21 |
 | BL-018 | 2026-07-18 | #18 |
 | BL-003 | 2026-07-18 | #12 (+ staging-verificatie via `/health`, docs #13) |
-       
