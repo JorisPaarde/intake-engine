@@ -8,6 +8,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 - **Adreszoekstatus bleef hangen na autofill (BL-097):** browser-autofill vulde *Straat en huisnummer* / *Plaats* in dezelfde ronde als postcode; die `input` brak de PDOK-lookup af en liet **Adres wordt automatisch gezocht…** staan. Straat/plaats-input tijdens een geplande of lopende lookup (en kort ná een match) wordt genegeerd; de PDOK-uitslag vult de velden. `autocomplete="off"` op die twee velden. Ongeldige of afgebroken zoekactie wist de status.
 
+### Added
+
+- **Browser-testspeelboek (BL-096):** [docs/browser-test-flow.md](docs/browser-test-flow.md) is het stapsgewijze script voor een agent (of mens) die een echte browser opent op staging en naar het scherm kijkt. Bevat kopieerprompt, Flow A (demo-installateur), B (klantpad), optioneel C (Dicteren) en D (negatief). `docs/functional-test-status.md` blijft de uitslagentabel; Pest telt niet als uitvoering.
+
 ### Changed
 
 - **Prefill-opruiming:** ongebruikte `request_intent`-prompt (vervangen door `request_prefill`) verwijderd. Create-copy en demo-welkom ingekort (opname i.p.v. dossier).

@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.46 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.47 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,11 +38,12 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 (AI-catalogusprefill, ADR-0013/0014) in #97. BL-077 done in PR #85. BL-084–090 done; BL-091–095 done in #93–#96. BL-096 = browser-testspeelboek (aparte PR). Deze slice BL-097. Nieuwe items starten bij BL-098.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 speelboek in #99. Deze slice BL-097. Nieuwe items starten bij BL-098.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
 | — | BL-097 | Create: browser-autofill mag adreszoekstatus niet laten hangen | E3 | done | high | A · product/UX · bij BL-033/080 |
+| — | BL-096 | Browser-testspeelboek voor visuele agent-QA | E1/E5 | done | medium | A · docs/QA |
 | — | BL-095 | Demo-welkom: korte uitleg hoe de app helpt | E5 | done | high | A · product/demo/UX |
 | — | BL-094 | Create: dicteerknop spraak→tekst bij AI-beschrijvingsveld | E3/E5 | done | medium | A · product/UX · bij BL-093 |
 | — | BL-093 | Create: AI vult vragen in via één beschrijvingsveld | E3/E5 | done | high | A · product/UX |
@@ -704,13 +705,22 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-097 — Create: browser-autofill mag adreszoekstatus niet laten hangen
 
-- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-04 · **PR:** deze PR · **Epic:** E3 · **Band:** A · product/UX · **Afhankelijk:** BL-033/080
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-04 · **PR:** #100 · **Epic:** E3 · **Band:** A · product/UX · **Afhankelijk:** BL-033/080
 - **Aanleiding:** browser-autofill vult *Straat en huisnummer* / *Plaats* meteen; status **Adres wordt automatisch gezocht…** blijft staan.
 - **Oorzaak:** `input` op straat/plaats riep `markAddressAsManuallyEdited` → `cancelActiveRequest()` (timer/fetch weg) zonder de status te wissen.
 - **Doel:** postcode+huisnummer-lookup loopt af; autofill op straat/plaats breekt die niet; status verdwijnt na resultaat of fout.
 - **Scope:** `create.blade.php` lookup-JS + `autocomplete="off"` op straat/plaats; featuretest op bron; docs. Geen PDOK-API-wijziging.
 - **Acceptatie:** straat/plaats-input tijdens debounce/fetch annuleert de lookup niet; `composer check` groen.
 - **Resultaat:** `shouldIgnoreStreetCityInput()` tijdens pending lookup + korte grace na selectie; hangende zoekstatus wordt gewist bij afgebroken/ongeldige zoekactie.
+
+### BL-096 — Browser-testspeelboek voor visuele agent-QA
+
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-09-04 · **PR:** #99 · **Epic:** E1/E5 · **Band:** A · docs/QA
+- **Aanleiding:** er was geen stapsgewijs script voor een agent die een echte browser opent en naar het scherm kijkt; `functional-test-status.md` is alleen de uitslagentabel, AGENTS.md § Staging-testen alleen valkuilen, Pest geen visuele QA.
+- **Doel:** één kopieerbaar speelboek (`docs/browser-test-flow.md`) met prompt + Flow A (demo-installateur), B (klantpad), optioneel C (Dicteren) en D (negatief), desktop + mobiel, staging-only.
+- **Scope:** docs + geheugenkaart/taakrouting; geen productcode. Uitvoering vult `docs/functional-test-status.md`, niet dit item.
+- **Acceptatie:** speelboek is de bron voor visuele browser-QA; Pest telt niet als uitvoering.
+- **Resultaat:** `docs/browser-test-flow.md` v1.0; AGENTS.md wijst taaktype “Functioneel testen” daarheen.
 
 ### BL-091 — Demo: opslaan op dossierdetail mag niet naar login/404
 
@@ -1059,7 +1069,8 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 | ID | Datum | Resultaat / PR |
 |----|-------|----------------|
-| BL-097 | 2026-09-04 | deze PR — autofill breekt adreslookup-status niet meer |
+| BL-097 | 2026-09-04 | #100 — autofill breekt adreslookup-status niet meer |
+| BL-096 | 2026-09-04 | #99 — visueel browser-speelboek (`docs/browser-test-flow.md`) |
 | BL-013 | 2026-08-24 | #78 — `MEDIA_DISK=s3` + AWS-env; legacy disk+path intact |
 | BL-049 | 2026-07-31 | deze PR — contextgebonden foto’s/notities en bevestigbare fotoconstateringen |
 | BL-047 | 2026-07-30 | #60 — gestructureerde adresregistratie, BAG-ketentest en herstelactie |
