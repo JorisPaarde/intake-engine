@@ -6,7 +6,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
-- **Create zonder “Alvast invullen” (BL-093):** het optionele prefill-blok op *Nieuwe opname* (reden, koelen/verwarmen, ruimtes, kruipruimte, L×B×H) is weg — die vragen volgen daarna in wizard/werkplek. Backend blijft `prefill` in de create-POST accepteren (demo `request_reason`); partial `_prefill-field` en create-JS voor template-blokken zijn verwijderd.
+- **Create: Alvast invullen = één tekstveld (BL-093):** op *Nieuwe opname* alleen optioneel `prefill[request_reason]` (**Korte uitleg bij de aanvraag**). Geen aparte velden meer voor koelen/verwarmen, ruimtes, kruipruimte of L×B×H — `DeriveIntentFromRequest` haalt daaruit wat kan. Multi-veld-prefill-UI en `_prefill-field` zijn weg; backend accepteert nog overige `prefill[...]` in de POST (tests/demo).
 
 ### Fixed
 

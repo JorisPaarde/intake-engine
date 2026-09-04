@@ -38,11 +38,11 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 zijn gereserveerd voor draft PR’s [#74](https://github.com/JorisPaarde/intake-engine/pull/74) / [#75](https://github.com/JorisPaarde/intake-engine/pull/75) (AI-prefill); niet hergebruiken. BL-077 (meterkast vóór vrije groep) is done in PR #85. BL-084–090 (detailpagina-UX) done; BL-092 gereserveerd voor open PR 5xx-logging; nieuwe items starten bij BL-094 (BL-093 create zonder Alvast invullen in deze PR; BL-091 demo-save/login in #93).
+**Nummering:** BL-063–065 zijn gereserveerd voor draft PR’s [#74](https://github.com/JorisPaarde/intake-engine/pull/74) / [#75](https://github.com/JorisPaarde/intake-engine/pull/75) (AI-prefill); niet hergebruiken. BL-077 (meterkast vóór vrije groep) is done in PR #85. BL-084–090 (detailpagina-UX) done; BL-092 gereserveerd voor open PR 5xx-logging; nieuwe items starten bij BL-094 (BL-093 create één prefill-tekstveld in #95; BL-091 demo-save/login in #93).
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| — | BL-093 | Create: “Alvast invullen”-blok weg (dubbel) | E3/E5 | done | high | A · product/UX |
+| — | BL-093 | Create: Alvast invullen = één tekstveld (AI haalt rest) | E3/E5 | done | high | A · product/UX |
 | — | BL-091 | Demo: opslaan op dossierdetail mag niet naar login/404 | E5 | done | high | A · product/demo |
 | — | BL-084 | Opnamedetail: open punten direct aanklikbaar + volgende open punt | E6 | done | high | detailpagina-UX |
 | — | BL-085 | Lege "AI-voorgestelde aandachtspunten" niet als dode sectie | E4 | done | medium | detailpagina-UX |
@@ -670,15 +670,14 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Resultaat:** allowlist uitgebreid; stale/purged demo → `demo.ended`; login wist demo-flags + `url.intended`; featuretests groen.
 - **Hypothese:** middleware-allowlist + guest-redirect + intended-cleanup; geen UI-herontwerp.
 
-### BL-093 — Create: “Alvast invullen”-blok weg (dubbel)
+### BL-093 — Create: Alvast invullen = één tekstveld
 
-- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-04 · **PR:** #95 · **Epic:** E3/E5 · **Band:** A · product/UX
-- **Aanleiding:** producteigenaar/tester: hele *Alvast invullen*-deel mag weg; is dubbel, volgt nadien al (wizard/werkplek).
-- **Doel:** create-form toont geen optioneel prefill-blok meer; alleen adres/klant/workflow zoals nodig om de opname te starten.
-- **Scope:** `create.blade.php`, `_prefill-field` verwijderen, `IntakeController::create` zonder `prefillQuestionsByTemplate`; featuretest; docs. Backend `prefill` in store mag blijven (demo/`CreateIntake`-tests).
-- **Acceptatie:** create toont geen “Alvast invullen”; geen `prefill[...]`-velden in HTML; `composer check` groen.
-- **Resultaat:** create-UI zonder Alvast invullen; partial + controller-wiring weg; backend-prefill blijft voor demo/tests.
-- **Hypothese:** pure UI-cleanup; geen templateversie.
+- **Status:** in_progress · **Prioriteit:** high · **Datum:** 2026-09-04 · **PR:** #95 · **Epic:** E3/E5 · **Band:** A · product/UX
+- **Aanleiding:** producteigenaar: multi-veld *Alvast invullen* is dubbel; beperk tot **1 tekstveld** — de AI/app haalt eruit wat zij kan invullen.
+- **Doel:** create toont alleen optioneel `prefill[request_reason]` (**Korte uitleg bij de aanvraag**); geen koelen/ruimtes/kruipruimte/L×B×H-prefill meer.
+- **Scope:** `create.blade.php` (één textarea); `_prefill-field` + multi-blok-JS weg; featuretest; docs. Backend `prefill` + `DeriveIntentFromRequest` blijven.
+- **Acceptatie:** create heeft precies één `prefill[...]`-veld (`request_reason`); geen andere prefill-inputs; `composer check` groen.
+- **Hypothese:** UI-beperking; bestaande intent-afleiding dekt de rest.
 
 ### BL-083 — Werkplek ruimtekaart: geen herhaalde naam/type + korte copy
 
@@ -1008,3 +1007,4 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 | BL-017 | 2026-07-18 | #21 |
 | BL-018 | 2026-07-18 | #18 |
 | BL-003 | 2026-07-18 | #12 (+ staging-verificatie via `/health`, docs #13) |
+       

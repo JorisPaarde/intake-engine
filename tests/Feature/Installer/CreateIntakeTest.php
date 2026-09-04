@@ -137,16 +137,24 @@ test('new intake form shows street and city without toevoeging or manual-address
         ->not->toContain('Adres handmatig aangepast');
 });
 
-test('create form has no installer alvast-invullen prefill block', function () {
+test('create form shows only one installer prefill text field', function () {
     $user = User::factory()->create();
 
-    $this->actingAs($user)
+    $html = $this->actingAs($user)
         ->get(route('intakes.create'))
         ->assertOk()
-        ->assertDontSee('Alvast invullen (optioneel)')
-        ->assertDontSee('Wat je al weet, vul je hier in.')
+        ->assertSee('Alvast invullen (optioneel)')
+        ->assertSee('Korte uitleg bij de aanvraag')
+        ->assertSee('name="prefill[request_reason]"', false)
+        ->assertDontSee('name="prefill[cooling_heating]"', false)
+        ->assertDontSee('name="prefill[indoor_unit_count]"', false)
+        ->assertDontSee('name="prefill[crawl_space_present]"', false)
+        ->assertDontSee('name="prefill[room_length_m]"', false)
+        ->assertDontSee('name="prefill[floor_insulation]"', false)
         ->assertDontSee('data-prefill-block', false)
-        ->assertDontSee('name="prefill[', false);
+        ->getContent();
+
+    expect(substr_count($html, 'name="prefill['))->toBe(1);
 });
 
 test('house number with addition is parsed from a single field on store', function () {

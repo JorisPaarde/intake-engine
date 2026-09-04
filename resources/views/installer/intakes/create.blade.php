@@ -227,6 +227,22 @@
                         <x-input-error :messages="$errors->get('internal_note')" class="mt-2" />
                     </div>
 
+                    <div class="rounded-md border border-gray-200 bg-gray-50 p-3">
+                        <p class="text-sm font-semibold text-gray-800">Alvast invullen (optioneel)</p>
+                        <p class="mt-0.5 text-xs text-gray-500">Schrijf kort wat je al weet uit de aanvraag. De app haalt daaruit wat zij kan invullen.</p>
+                        <div class="mt-2">
+                            <x-input-label for="prefill_request_reason" value="Korte uitleg bij de aanvraag" />
+                            <textarea
+                                id="prefill_request_reason"
+                                name="prefill[request_reason]"
+                                rows="3"
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                placeholder="Bijv. twee slaapkamers op zolder koelen"
+                            >{{ old('prefill.request_reason', '') }}</textarea>
+                            <x-input-error :messages="$errors->get('prefill.request_reason')" class="mt-1" />
+                        </div>
+                    </div>
+
                     <div class="flex items-center justify-end gap-3">
                         <a href="{{ route('dashboard') }}" class="text-sm text-gray-600 hover:text-gray-900">Annuleren</a>
                         <x-primary-button data-submit-label>
