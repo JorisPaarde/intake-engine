@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.39 · **Laatste update:** 2026-09-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.40 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,10 +38,11 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 zijn gereserveerd voor draft PR’s [#74](https://github.com/JorisPaarde/intake-engine/pull/74) / [#75](https://github.com/JorisPaarde/intake-engine/pull/75) (AI-prefill); niet hergebruiken. BL-077 (meterkast vóór vrije groep) is done in PR #85. BL-084–090 (detailpagina-UX) done; nieuwe items starten bij BL-092 (BL-091 demo-save/login in deze PR; BL-083 ruimtekaart-copy in PR #89; BL-082 copy-pass in PR #88).
+**Nummering:** BL-063–065 zijn gereserveerd voor draft PR’s [#74](https://github.com/JorisPaarde/intake-engine/pull/74) / [#75](https://github.com/JorisPaarde/intake-engine/pull/75) (AI-prefill); niet hergebruiken. BL-077 (meterkast vóór vrije groep) is done in PR #85. BL-084–090 (detailpagina-UX) done; BL-092 gereserveerd voor open PR 5xx-logging; nieuwe items starten bij BL-094 (BL-093 create zonder Alvast invullen in deze PR; BL-091 demo-save/login in #93).
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
+| — | BL-093 | Create: “Alvast invullen”-blok weg (dubbel) | E3/E5 | in_progress | high | A · product/UX |
 | — | BL-091 | Demo: opslaan op dossierdetail mag niet naar login/404 | E5 | done | high | A · product/demo |
 | — | BL-084 | Opnamedetail: open punten direct aanklikbaar + volgende open punt | E6 | done | high | detailpagina-UX |
 | — | BL-085 | Lege "AI-voorgestelde aandachtspunten" niet als dode sectie | E4 | done | medium | detailpagina-UX |
@@ -668,6 +669,15 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Acceptatie:** demo POST adres/beoordeling/aandachtspunten/ruimte → geen 404/login; stale/purged demo → `demo.ended`; login met demo-residue + intended demo-URL → dashboard; metrics/profiel blijven 404; `composer check` groen.
 - **Resultaat:** allowlist uitgebreid; stale/purged demo → `demo.ended`; login wist demo-flags + `url.intended`; featuretests groen.
 - **Hypothese:** middleware-allowlist + guest-redirect + intended-cleanup; geen UI-herontwerp.
+
+### BL-093 — Create: “Alvast invullen”-blok weg (dubbel)
+
+- **Status:** in_progress · **Prioriteit:** high · **Datum:** 2026-09-04 · **Epic:** E3/E5 · **Band:** A · product/UX
+- **Aanleiding:** producteigenaar/tester: hele *Alvast invullen*-deel mag weg; is dubbel, volgt nadien al (wizard/werkplek).
+- **Doel:** create-form toont geen optioneel prefill-blok meer; alleen adres/klant/workflow zoals nodig om de opname te starten.
+- **Scope:** `create.blade.php`, `_prefill-field` verwijderen, `IntakeController::create` zonder `prefillQuestionsByTemplate`; featuretest; docs. Backend `prefill` in store mag blijven (demo/`CreateIntake`-tests).
+- **Acceptatie:** create toont geen “Alvast invullen”; geen `prefill[...]`-velden in HTML; `composer check` groen.
+- **Hypothese:** pure UI-cleanup; geen templateversie.
 
 ### BL-083 — Werkplek ruimtekaart: geen herhaalde naam/type + korte copy
 

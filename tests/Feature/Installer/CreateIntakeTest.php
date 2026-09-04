@@ -137,24 +137,16 @@ test('new intake form shows street and city without toevoeging or manual-address
         ->not->toContain('Adres handmatig aangepast');
 });
 
-test('create form prefill block is compact without customer help essays', function () {
+test('create form has no installer alvast-invullen prefill block', function () {
     $user = User::factory()->create();
 
     $this->actingAs($user)
         ->get(route('intakes.create'))
         ->assertOk()
-        ->assertSee('Alvast invullen (optioneel)')
-        ->assertSee('Kruipruimte')
-        ->assertSee('Lengte (m)')
-        ->assertSee('Breedte (m)')
-        ->assertSee('Hoogte (m)')
-        ->assertSee('grid-cols-3', false)
-        ->assertSee('>—<', false)
-        ->assertDontSee('— nog niet invullen —')
-        ->assertDontSee('Ga er niet in')
-        ->assertDontSee('Vaak ongeveer 2,4 tot 2,7 meter')
-        ->assertDontSee('Is er een kruipruimte onder de vloer?')
-        ->assertDontSee('Lengte van de ruimte (m), als u die weet');
+        ->assertDontSee('Alvast invullen (optioneel)')
+        ->assertDontSee('Wat je al weet, vul je hier in.')
+        ->assertDontSee('data-prefill-block', false)
+        ->assertDontSee('name="prefill[', false);
 });
 
 test('house number with addition is parsed from a single field on store', function () {
