@@ -42,7 +42,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| — | BL-093 | Create: “Alvast invullen”-blok weg (dubbel) | E3/E5 | in_progress | high | A · product/UX |
+| — | BL-093 | Create: “Alvast invullen”-blok weg (dubbel) | E3/E5 | done | high | A · product/UX |
 | — | BL-091 | Demo: opslaan op dossierdetail mag niet naar login/404 | E5 | done | high | A · product/demo |
 | — | BL-084 | Opnamedetail: open punten direct aanklikbaar + volgende open punt | E6 | done | high | detailpagina-UX |
 | — | BL-085 | Lege "AI-voorgestelde aandachtspunten" niet als dode sectie | E4 | done | medium | detailpagina-UX |
@@ -672,11 +672,12 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-093 — Create: “Alvast invullen”-blok weg (dubbel)
 
-- **Status:** in_progress · **Prioriteit:** high · **Datum:** 2026-09-04 · **Epic:** E3/E5 · **Band:** A · product/UX
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-04 · **PR:** #95 · **Epic:** E3/E5 · **Band:** A · product/UX
 - **Aanleiding:** producteigenaar/tester: hele *Alvast invullen*-deel mag weg; is dubbel, volgt nadien al (wizard/werkplek).
 - **Doel:** create-form toont geen optioneel prefill-blok meer; alleen adres/klant/workflow zoals nodig om de opname te starten.
 - **Scope:** `create.blade.php`, `_prefill-field` verwijderen, `IntakeController::create` zonder `prefillQuestionsByTemplate`; featuretest; docs. Backend `prefill` in store mag blijven (demo/`CreateIntake`-tests).
 - **Acceptatie:** create toont geen “Alvast invullen”; geen `prefill[...]`-velden in HTML; `composer check` groen.
+- **Resultaat:** create-UI zonder Alvast invullen; partial + controller-wiring weg; backend-prefill blijft voor demo/tests.
 - **Hypothese:** pure UI-cleanup; geen templateversie.
 
 ### BL-083 — Werkplek ruimtekaart: geen herhaalde naam/type + korte copy
