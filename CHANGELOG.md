@@ -11,6 +11,15 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Added
 
+- **Herbeoordeling prefill bij nieuwe context (BL-065, ADR-0014):** `DeriveIntentFromRequest` draait foutloze lokale heuristiek altijd eerst en daarna catalogus-AI. Prefill herstart na adresverrijking (aanmaak + retry) en na installateursnotities; AI-context bevat observaties (`request-prefill-v2`). Port van draft PR #75 naar huidige main.
+- **AI-prefill tegen volledige vraagenset (BL-064, ADR-0013):** met tekst-AI aan beoordeelt `PrefillAnswersFromKnownContext` alle fillable templatevragen t.o.v. openingszin/antwoorden/feiten (`request-prefill-v1`). High → auto-invullen; medium → voorzet; low → niets. Airco **v15** voegt keuze “Op of aan de dakkapel” (`dormer`) toe als catalogusoptie (v12–v14 van main blijven ongewijzigd; ADR-0001).
+
+### Fixed
+
+- **Openingszin “koud te krijgen” (BL-063):** offline lokale fallback herkent die koel-formulering weer. Buitenunitplekken worden niet meer met regex gegokt (zoals ten onrechte “schuin dak” voor dakkapel); dat pad loopt via BL-064.
+
+### Added
+
 - **HTTP 5xx/503-logging + algemene AppErrorLogger (BL-092):** `App\Support\Logging\AppErrorLogger` is de gedeelde error-logger (`error()`/`warning()` met request-context). Web-middleware `LogServerErrorResponses` schrijft bij Laravel-responses ≥500 `HTTP server error response` naar `laravel.log` (method, geredacteerd path, route, duration, user/demo-context). HttpException ≥500 wordt weer gerapporteerd (Laravel negeerde die standaard). Abrupte PHP-einden (fatal/connection abort) loggen `HTTP request ended without clean response`. Host-503 zonder PHP-trail blijft alleen in cPanel/LiteSpeed-errorlog — zie [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) § HTTP 5xx.
 
 ### Fixed
@@ -52,8 +61,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 ### Added
 
 - **Demo beëindigen + verlopen-pagina (BL-066):** bevestiging vóór **Demo beëindigen**; TTL/logout landt op `/demo/beeindigd` met Nederlandse copy en CTA’s naar homepage / nieuwe demo; Nederlandse `404`-pagina i.p.v. framework-Engels.
-- **S3 als mediadisk (BL-013):** `MEDIA_DISK=s3` werkt via Laravel’s bestaande `s3`-disk en `league/flysystem-aws-s3-v3`. Nieuwe uploads/PDF’s/logo’s/luchtfoto’s schrijven naar de geconfigureerde disk (privé visibility); bestaande rijen behouden hun opgeslagen `disk`+`path` zonder migratie. AWS-vars staan in de env-sjablonen (geen secrets in git). Tests met fake disks dekken nieuwe uploads en legacy-rijen.
-- **Werkplek afronden: bewerken + 1-klik klanttaak (BL-059–062):** ruimtes en plaatsingen zijn na aanmaken bewerkbaar (`#room-{id}` / `#placement-{id}`); capacity-open-punten springen naar de eerste ruimte zonder maten; AI-uitzonderingen, open punten met klantbijdrage en AI-fotovoorstellen hebben één-tik “Vraag de klant” / “Vraag nieuwe foto” via `customer-tasks/quick`.
+- **S3 als mediadisk (BL-013):** `MEDIA_DISK=s3` werkt via Laravel’s bestaande `s3`-disk en `league/flysystem-aws-s3-v3`. Nieuwe uploads/PDF’s/logo’s/luchtfoto’s schrijven naar de geconfigureerde disk (privé visibility); bestaande rijen behouden hun opgeslagen `disk`+`path` zonder migratie. AWS-vars staan in de env-sjablonen (geen secrets in git). Tests met fake disks dekken nieuwe uploads en legacy-rijen.- **Werkplek afronden: bewerken + 1-klik klanttaak (BL-059–062):** ruimtes en plaatsingen zijn na aanmaken bewerkbaar (`#room-{id}` / `#placement-{id}`); capacity-open-punten springen naar de eerste ruimte zonder maten; AI-uitzonderingen, open punten met klantbijdrage en AI-fotovoorstellen hebben één-tik “Vraag de klant” / “Vraag nieuwe foto” via `customer-tasks/quick`.
 
 ### Changed
 

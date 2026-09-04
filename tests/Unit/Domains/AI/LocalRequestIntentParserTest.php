@@ -13,7 +13,8 @@ test('it reads the explicit installer sentence without treating the attic as a t
         ->and($result['cooling_heating'])->toBe('cooling')
         ->and($result['rooms'])->toBe(['bedroom', 'bedroom'])
         ->and($result['floor_level'])->toBe('attic')
-        ->and($result['confidence'])->toBe('high');
+        ->and($result['confidence'])->toBe('high')
+        ->and($result)->not->toHaveKey('outdoor_location');
 });
 
 test('it treats on the attic as a location and does not invent one room', function () {
@@ -53,4 +54,26 @@ test('it does not read a digit from a number outside the supported range', funct
     expect(app(LocalRequestIntentParser::class)->parse(
         'Ik wil twaalf slaapkamers koelen.',
     ))->toBeNull();
+});
+
+test('it reads cooling from koud te krijgen without inventing outdoor placement', function () {
+    $result = app(LocalRequestIntentParser::class)->parse(
+        "Twee airco's op slaapkamers om ze koud te krijgen buitenunit kan op dak dakkapel",
+    );
+
+    expect($result)->not->toBeNull()
+        ->and($result['cooling_heating'])->toBe('cooling')
+        ->and($result['rooms'])->toBe(['bedroom', 'bedroom'])
+        ->and($result)->not->toHaveKey('outdoor_location')
+        ->and($result)->not->toHaveKey('outdoor_mount_type');
+});
+
+test('it reads heating from te koud without treating it as cooling', function () {
+    $result = app(LocalRequestIntentParser::class)->parse(
+        'De slaapkamer is te koud in de winter en moet worden verwarmd.',
+    );
+
+    expect($result)->not->toBeNull()
+        ->and($result['cooling_heating'])->toBe('heating')
+        ->and($result['rooms'])->toBe(['bedroom']);
 });

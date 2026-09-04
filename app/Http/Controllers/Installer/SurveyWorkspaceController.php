@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Installer;
 
+use App\Domains\AI\Actions\DeriveIntentFromRequest;
 use App\Domains\AI\Actions\SuggestInstallerPhotoObservations;
 use App\Domains\AI\Actions\SynthesizePipeRoute;
 use App\Domains\AI\Actions\SynthesizeSurveyDossier;
@@ -262,6 +263,7 @@ final class SurveyWorkspaceController extends Controller
         Intake $intake,
         DossierSubject $subject,
         SaveInstallerObservation $saveObservation,
+        DeriveIntentFromRequest $deriveIntentFromRequest,
     ): RedirectResponse {
         $this->authorize('update', $intake);
         $this->guardWorkspaceSubject($intake, $subject);
@@ -277,6 +279,8 @@ final class SurveyWorkspaceController extends Controller
             'installer_note',
         );
 
+        $deriveIntentFromRequest->handle($intake->fresh() ?? $intake);
+
         return $this->back($intake, 'Notitie toegevoegd.');
     }
 
@@ -285,6 +289,7 @@ final class SurveyWorkspaceController extends Controller
         Intake $intake,
         DossierRecord $record,
         ConfirmInstallerObservation $confirmObservation,
+        DeriveIntentFromRequest $deriveIntentFromRequest,
     ): RedirectResponse {
         $this->authorize('update', $intake);
         abort_unless($record->intake_id === $intake->id, 404);
@@ -298,6 +303,8 @@ final class SurveyWorkspaceController extends Controller
             $record,
             $adjustedText,
         );
+
+        $deriveIntentFromRequest->handle($intake->fresh() ?? $intake);
 
         return $this->back(
             $intake,

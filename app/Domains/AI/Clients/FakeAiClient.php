@@ -154,6 +154,85 @@ final class FakeAiClient implements AiClientInterface
             );
         }
 
+        if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'request-prefill')) {
+            $reason = is_string($request->input['known_context']['request_reason'] ?? null)
+                ? mb_strtolower((string) $request->input['known_context']['request_reason'])
+                : '';
+
+            $observationText = '';
+            $observations = $request->input['known_context']['installer_observations'] ?? [];
+            if (is_array($observations)) {
+                foreach ($observations as $observation) {
+                    if (is_array($observation) && is_string($observation['text'] ?? null)) {
+                        $observationText .= ' '.mb_strtolower((string) $observation['text']);
+                    }
+                }
+            }
+
+            $corpus = trim($reason.' '.$observationText);
+            $fills = [];
+
+            if (str_contains($corpus, 'koud te krijgen') || str_contains($corpus, 'koelen') || str_contains($corpus, 'te warm')) {
+                $fills[] = [
+                    'question_key' => 'cooling_heating',
+                    'section_instance_key' => null,
+                    'confidence' => 'high',
+                    'value' => ['value' => 'cooling'],
+                    'evidence' => null,
+                ];
+            }
+
+            if (str_contains($corpus, 'twee') && str_contains($corpus, 'slaapkamer')) {
+                $fills[] = [
+                    'question_key' => 'indoor_unit_count',
+                    'section_instance_key' => null,
+                    'confidence' => 'high',
+                    'value' => ['number' => 2],
+                    'evidence' => null,
+                ];
+                $fills[] = [
+                    'question_key' => 'room_type',
+                    'section_instance_key' => 'room-1',
+                    'confidence' => 'high',
+                    'value' => ['value' => 'bedroom'],
+                    'evidence' => null,
+                ];
+                $fills[] = [
+                    'question_key' => 'room_type',
+                    'section_instance_key' => 'room-2',
+                    'confidence' => 'high',
+                    'value' => ['value' => 'bedroom'],
+                    'evidence' => null,
+                ];
+            }
+
+            if (str_contains($corpus, 'dakkapel')) {
+                $fills[] = [
+                    'question_key' => 'outdoor_location',
+                    'section_instance_key' => null,
+                    'confidence' => 'high',
+                    'value' => ['value' => 'dormer'],
+                    'evidence' => null,
+                ];
+                $fills[] = [
+                    'question_key' => 'outdoor_mount_type',
+                    'section_instance_key' => null,
+                    'confidence' => 'high',
+                    'value' => ['value' => 'roof'],
+                    'evidence' => null,
+                ];
+            }
+
+            return new AiCompletionResult(
+                output: [
+                    'evidence' => 'Fictieve catalogusprefill op basis van bekende context.',
+                    'fills' => $fills,
+                ],
+                provider: 'fake',
+                model: 'fake-v1',
+            );
+        }
+
         if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'request-intent')) {
             return new AiCompletionResult(
                 output: [

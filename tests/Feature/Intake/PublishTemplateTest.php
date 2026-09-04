@@ -7,7 +7,7 @@ use App\Domains\Intake\Services\PublishIntakeTemplateFromConfig;
 use App\Enums\TemplateVersionStatus;
 use Database\Seeders\IntakeTemplateSeeder;
 
-test('airco template seeder publishes v1 through v14 with v14 as latest', function () {
+test('airco template seeder publishes v1 through v15 with v15 as latest', function () {
     $this->seed(IntakeTemplateSeeder::class);
 
     $template = IntakeTemplate::query()->where('key', 'airco')->first();
@@ -17,14 +17,14 @@ test('airco template seeder publishes v1 through v14 with v14 as latest', functi
 
     $versions = $template->versions()->orderBy('version')->get();
 
-    expect($versions)->toHaveCount(14)
-        ->and($versions->pluck('version')->all())->toBe([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])
+    expect($versions)->toHaveCount(15)
+        ->and($versions->pluck('version')->all())->toBe([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
         ->and($versions->every(fn ($version) => $version->status === TemplateVersionStatus::Published))->toBeTrue();
 
     $latest = $template->latestPublishedVersion();
 
     expect($latest)->not->toBeNull()
-        ->and($latest->version)->toBe(14)
+        ->and($latest->version)->toBe(15)
         ->and($latest->sections()->count())->toBeGreaterThan(5)
         ->and($latest->sections()->where('key', 'rooms')->value('is_repeatable'))->toBeTrue();
 
@@ -119,7 +119,17 @@ test('airco template seeder publishes v1 through v14 with v14 as latest', functi
         ->and($fuseboxPhoto->is_required)->toBeTrue()
         ->and($aroundHouse->is_required)->toBeTrue()
         ->and($outdoor->questions()->where('key', 'distance_to_indoor')->exists())->toBeFalse()
-        ->and($outdoor->questions()->where('key', 'facade_overview_photo')->exists())->toBeFalse();
+        // v7 schrapt de losse gevelfoto: de PDOK-luchtfoto levert het overzicht al.
+        ->and($outdoor->questions()->where('key', 'facade_overview_photo')->exists())->toBeFalse()
+        // v15: dakkapel als expliciete buitenunitplek (geen regex-heuristiek).
+        ->and(
+            $outdoor->questions()
+                ->where('key', 'outdoor_location')
+                ->firstOrFail()
+                ->options()
+                ->where('value', 'dormer')
+                ->value('label'),
+        )->toBe('Op of aan de dakkapel');
 
     $sunExposure = $latest->sections()
         ->where('key', 'rooms')
@@ -134,12 +144,12 @@ test('airco template seeder publishes v1 through v14 with v14 as latest', functi
     $againV1 = app(PublishIntakeTemplateFromConfig::class)->handle(
         require database_path('data/templates/airco/v1.php'),
     );
-    $againV14 = app(PublishIntakeTemplateFromConfig::class)->handle(
-        require database_path('data/templates/airco/v14.php'),
+    $againV15 = app(PublishIntakeTemplateFromConfig::class)->handle(
+        require database_path('data/templates/airco/v15.php'),
     );
 
     expect($againV1->version)->toBe(1)
-        ->and($againV14->id)->toBe($latest->id)
+        ->and($againV15->id)->toBe($latest->id)
         ->and(IntakeTemplate::query()->where('key', 'airco')->count())->toBe(1)
-        ->and($template->versions()->count())->toBe(14);
+        ->and($template->versions()->count())->toBe(15);
 });

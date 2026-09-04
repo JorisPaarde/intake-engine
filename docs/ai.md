@@ -1,6 +1,6 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 3.2 · **Laatste update:** 2026-07-31 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.5 · **Laatste update:** 2026-08-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **samenvatting, aandachtspunten, lokale fotokwaliteit, tekst-/foto-afleiding, verbindingsgebonden routeanalyse en bewijsgerichte dossiersynthese zijn geïmplementeerd**. Externe provider en tekst-/foto-/route-/dossierinferentie staan standaard uit (DPIA + key + budgetcaps + staging-smoke vereist).
 
@@ -166,13 +166,15 @@ Dossiersynthese loopt na iedere afgeronde klant-, installateur- of gerichte bijd
 6. AI-klanttaken blijven `proposed`; pas na installateurscontrole maakt de app de beperkte klanttaak en activeert zij toegang. Geen AI-actie keurt verbindingen of offertebesluiten goed.
 7. Vlak vóór opslag wordt dezelfde geschoonde context inclusief beeldmanifest onder de intake-lock opnieuw gehasht. Een stale resultaat wordt niet toegepast.
 
-## Openingszin: lokaal vóór externe AI
+## Openingszin: lokaal én catalogus-AI (ADR-0013/0014)
 
-`DeriveIntentFromRequest` gebruikt eerst `LocalRequestIntentParser`. Die parser is bewust klein en deterministisch: hij herkent alleen expliciete Nederlandse koel-/verwarmdoelen, aantallen van één tot acht, bekende ruimtetypen en de expliciete ligging “op zolder”. De zin `Ik wil twee airco’s om m’n slaapkamers op zolder te koelen` levert daardoor lokaal koelen, twee slaapkamers en voor beide `floor_level=attic` op; “zolder” wordt niet als derde ruimte behandeld. Tegenstrijdige aantallen en onduidelijke doelen vallen terug op de normale vragen.
+`DeriveIntentFromRequest` volgt een hybrid pad. Eerst past de bevroren `LocalRequestIntentParser` (`request-intent-local-v3`) foutloze evidente feiten toe: koel-/verwarmdoelen (inclusief `koud te krijgen`), aantallen, ruimtetypen en “op zolder”. Geen buitenunit- of andere keuzeheuristiek.
 
-De lokale run bewaart alleen parserversie, inputhash, gecontroleerde output en toegepaste vraagsleutels; de vrije openingszin komt niet in activity-properties. Afgeleide antwoorden krijgen `prefill_source=request_text`. Dit pad draait direct na installateursaanmaak en als herstel bij een oudere actieve klantlink, ook wanneer `AI_PROVIDER=null` en `AI_TEXT_INFERENCE_ENABLED=false`.
+Daarna, met `AI_TEXT_INFERENCE_ENABLED` aan en externe calls toegestaan, beoordeelt `PrefillAnswersFromKnownContext` de volledige fillable vraagenset via `request-prefill-v2`: openingszin, antwoorden, externe feiten en installateursobservaties. Per vraag alleen cataloguskeys/opties; `high` → `prefill_source=ai`, `medium` → `ai_suggestion`, `low` → niets. Fotovragen worden niet ingevuld.
 
-Alleen als de lokale parser niets zekers vindt, mag de versioned `request_intent`-prompt naar de geconfigureerde provider. Dat externe fallbackpad blijft achter `AI_TEXT_INFERENCE_ENABLED`; de klantlink-herstelpass zet externe calls expliciet uit.
+Herbeoordeling (ADR-0014) gebeurt opnieuw wanneer de context groeit: na adresverrijking (aanmaak én retry), bij opslaan van de openingszin, en na een installateursnotitie of aangepaste constatering. Ongewijzigde context herhaalt geen provider-call (inputhash).
+
+De lokale run bewaart alleen parserversie, inputhash, gecontroleerde output en toegepaste vraagsleutels; de vrije openingszin komt niet in activity-properties. Afgeleide antwoorden krijgen `prefill_source=request_text`. De klantlink-herstelpass zet externe calls expliciet uit (`allowExternal: false`) en draait alleen de lokale heuristiek.
 
 ## Promptversionering
 
