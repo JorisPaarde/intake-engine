@@ -42,7 +42,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| — | BL-095 | Demo-welkom: korte uitleg hoe de app helpt | E5 | in_progress | high | A · product/demo/UX |
+| — | BL-095 | Demo-welkom: korte uitleg hoe de app helpt | E5 | done | high | A · product/demo/UX |
 | — | BL-091 | Demo: opslaan op dossierdetail mag niet naar login/404 | E5 | done | high | A · product/demo |
 | — | BL-084 | Opnamedetail: open punten direct aanklikbaar + volgende open punt | E6 | done | high | detailpagina-UX |
 | — | BL-085 | Lege "AI-voorgestelde aandachtspunten" niet als dode sectie | E4 | done | medium | detailpagina-UX |
@@ -661,11 +661,12 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-095 — Demo-welkom: korte uitleg hoe de app helpt
 
-- **Status:** in_progress · **Prioriteit:** high · **Datum:** 2026-09-04 · **PR:** — · **Epic:** E5 · **Band:** A · product/demo/UX · **Afhankelijk:** BL-001/070
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-04 · **PR:** #96 · **Epic:** E5 · **Band:** A · product/demo/UX · **Afhankelijk:** BL-001/070
 - **Aanleiding:** demostart moet meteen duidelijk maken wat de Digitale Opname doet voor de installateur — niet alleen “je bent tijdelijk ingelogd”.
 - **Doel:** welkomstpopup bij demostart in een paar zinnen: aanvraag binnen → invullen wat je al weet in eigen woorden → AI haalt data op en vult aan → jij beoordeelt / offert sneller (vaak zonder voorbezoek).
 - **Scope:** `resources/js/demo-guide.js` (welcome-copy) + `demo-guide.blade.php` (meerdere alinea’s); Pest op brontekst; docs. Geen flowwijziging.
 - **Acceptatie:** welcome-titel/body leggen productflow uit; CTA blijft *Start met nieuwe opname*; `composer check` groen.
+- **Resultaat:** welcome = **Zo werkt de Digitale Opname** met drie korte alinea’s (aanvraag / AI-aanvullen / offerte zonder voorbezoek); meta “Hoe het werkt”.
 - **Hypothese:** pure copy/UI; bestaande welcome→create-flow blijft.
 
 ### BL-091 — Demo: opslaan op dossierdetail mag niet naar login/404
