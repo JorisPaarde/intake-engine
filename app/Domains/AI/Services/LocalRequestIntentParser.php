@@ -7,14 +7,13 @@ namespace App\Domains\AI\Services;
 /**
  * Haalt alleen evidente aanvraagfeiten lokaal uit een Nederlandse openingszin.
  *
- * Dit is bewust geen algemene taalparser. Hij past alleen een conclusie toe wanneer
- * functie, ruimtetype en exact aantal letterlijk uit een kleine set herkenbare
- * formuleringen volgen. Alles daarbuiten blijft voor de normale vraag of optionele
- * externe tekstanalyse staan.
+ * Offline én hybrid met catalogus-AI (ADR-0013/0014). Bewust klein en bevroren:
+ * alleen functie, ruimtetype/aantal en expliciete zolderligging. Geen uitbreiding
+ * met buitenunit- of andere keuzeheuristieken — die horen in de AI-catalogusprefill.
  */
 final class LocalRequestIntentParser
 {
-    public const VERSION = 'request-intent-local-v1';
+    public const VERSION = 'request-intent-local-v3';
 
     private const MAX_ROOMS = 8;
 
@@ -107,7 +106,7 @@ final class LocalRequestIntentParser
     private function detectFunction(string $text): ?string
     {
         $cooling = preg_match(
-            '/\b(?:koelen|koeling|gekoeld|verkoelen|te\s+warm|hitte)\b/u',
+            '/\b(?:koelen|koeling|gekoeld|verkoelen|afkoelen|te\s+warm|hitte|koud\s+te\s+krijgen|koel\s+te\s+(?:houden|krijgen))\b/u',
             $text,
         ) === 1;
         $heating = preg_match(
@@ -158,10 +157,9 @@ final class LocalRequestIntentParser
                 continue;
             }
 
-            $quantityWord = $match['quantity'];
             $result[] = [
                 'type' => $type,
-                'quantity' => $this->number($quantityWord),
+                'quantity' => $this->number($match['quantity']),
                 'plural' => $this->isPluralRoom($roomWord),
             ];
         }

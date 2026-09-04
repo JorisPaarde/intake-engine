@@ -71,6 +71,8 @@ return [
 
     'request_intent_prompt' => 'request_intent',
 
+    'request_prefill_prompt' => 'request_prefill',
+
     'dossier' => [
         'enabled' => (bool) env('AI_DOSSIER_SYNTHESIS_ENABLED', false),
         'model' => env('AI_DOSSIER_MODEL', 'gpt-5.6-terra'),
