@@ -1,6 +1,6 @@
 # Vragen- en takenengine
 
-> **Documentversie:** 2.17 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.18 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: de templatewizard is **geïmplementeerd t/m airco v15** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md). UI-taal: [language.md](language.md).
 
@@ -315,7 +315,7 @@ Twee dingen komen ook op het Kadaster-pad van PDOK: **coördinaten** (Kadaster l
 
 `request_reason` heeft daarom `meta.text_analysis = 'request_intent'`. `DeriveIntentFromRequest` draait ná adresverrijking bij aanmaak, opnieuw bij BAG-retry, wanneer de openingsvraag opnieuw wordt opgeslagen, en na een installateursnotitie (ADR-0014). Bij het openen van een oudere actieve klantlink draait één lokale herstelpass voordat de stappen worden gebouwd. De lokale parser herkent alleen een kleine set evidente Nederlandse doelen, aantallen en ruimtetypen; tegenstrijdige aantallen of een onduidelijke functie leveren niets op.
 
-Een evidente lokale conclusie gebruikt `prefill_source=request_text`, laat de redundante vragen vervallen en vereist geen AI-provider — ook niet wanneer tekst-AI aan staat (hybrid). De genoemde ruimtes worden op volgorde aan `room-1`, `room-2`, … gekoppeld; een expliciete zolderligging vult `floor_level=attic` bij iedere afgeleide slaapkamer in. Met tekst-AI aan beoordeelt `PrefillAnswersFromKnownContext` (ADR-0013/0014) daarna de volledige fillable vraagenset — inclusief buitenunitplekken zoals dakkapel (`dormer` in airco v12) en latere installateursobservaties; fotovragen blijven staan. Een zin met “twee airco’s” en een niet-geteld meervoud “slaapkamers” mag twee slaapkamers opleveren; bij een conflict, bijvoorbeeld twee airco’s voor drie genoemde kamers, blijft de normale vraag staan.
+Een evidente lokale conclusie gebruikt `prefill_source=request_text`, laat de redundante vragen vervallen en vereist geen AI-provider — ook niet wanneer tekst-AI aan staat (hybrid). De genoemde ruimtes worden op volgorde aan `room-1`, `room-2`, … gekoppeld; een expliciete zolderligging vult `floor_level=attic` bij iedere afgeleide slaapkamer in. Met tekst-AI aan beoordeelt `PrefillAnswersFromKnownContext` (ADR-0013/0014) daarna de volledige fillable vraagenset — inclusief buitenunitplekken zoals dakkapel (`dormer` in airco v15) en latere installateursobservaties; fotovragen blijven staan. Een zin met “twee airco’s” en een niet-geteld meervoud “slaapkamers” mag twee slaapkamers opleveren; bij een conflict, bijvoorbeeld twee airco’s voor drie genoemde kamers, blijft de normale vraag staan.
 
 Tekst naar een externe provider sturen blijft achter `AI_TEXT_INFERENCE_ENABLED` en staat los van `AI_PHOTO_INFERENCE_ENABLED`; de herstelpass bij het openen van een klantlink doet nooit stil een externe call. Een toelichting korter dan tien tekens start geen catalogus-AI.
 

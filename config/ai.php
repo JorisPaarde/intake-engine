@@ -69,8 +69,6 @@ return [
 
     'installer_photo_observation_prompt' => 'installer_photo_observation',
 
-    'request_intent_prompt' => 'request_intent',
-
     'request_prefill_prompt' => 'request_prefill',
 
     'dossier' => [

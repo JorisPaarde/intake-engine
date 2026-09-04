@@ -1186,7 +1186,6 @@
             :step="session('demo_coachmark', session('public_demo_guide_step'))"
             :has-intake="true"
             :intake="$intake"
-            :scenario-loaded="$intake->aircoRooms->isNotEmpty()"
         />
     @endif
 </x-app-layout>
