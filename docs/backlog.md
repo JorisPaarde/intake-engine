@@ -1,7 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.42 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
-
+> **Documentversie:** 4.43 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
 De MVP-bouwstenen staan historisch onder E1–E5. De productfase E6–E10 is op 2026-07-30 geïmplementeerd en volgt het [productmodel](product-model.md): één centrale technische opname na een bestaande aanvraag, meerdere bijdragers, beslisgereedheid en voor airco afzonderlijke koel-, condens- en stroomverbindingen.
@@ -38,12 +37,13 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 zijn gereserveerd voor draft PR’s [#74](https://github.com/JorisPaarde/intake-engine/pull/74) / [#75](https://github.com/JorisPaarde/intake-engine/pull/75) (AI-prefill); niet hergebruiken. BL-077 (meterkast vóór vrije groep) is done in PR #85. BL-084–090 (detailpagina-UX) done; BL-092 gereserveerd voor open PR 5xx-logging; nieuwe items starten bij BL-095 (BL-094 dicteerknop + BL-093 AI-beschrijvingsveld in #95; BL-091 demo-save/login in #93).
+**Nummering:** BL-063–065 zijn gereserveerd voor draft PR’s [#74](https://github.com/JorisPaarde/intake-engine/pull/74) / [#75](https://github.com/JorisPaarde/intake-engine/pull/75) (AI-prefill); niet hergebruiken. BL-077 (meterkast vóór vrije groep) is done in PR #85. BL-084–090 (detailpagina-UX) done; nieuwe items starten bij BL-095 (BL-092–094 done in #94/#95; BL-091 demo-save/login in #93).
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
 | — | BL-094 | Create: dicteerknop spraak→tekst bij AI-beschrijvingsveld | E3/E5 | done | medium | A · product/UX · bij BL-093 |
 | — | BL-093 | Create: AI vult vragen in via één beschrijvingsveld | E3/E5 | done | high | A · product/UX |
+| — | BL-092 | HTTP 5xx/503-logging voor staging/production-debug | E5 | done | high | A · operationeel |
 | — | BL-091 | Demo: opslaan op dossierdetail mag niet naar login/404 | E5 | done | high | A · product/demo |
 | — | BL-084 | Opnamedetail: open punten direct aanklikbaar + volgende open punt | E6 | done | high | detailpagina-UX |
 | — | BL-085 | Lege "AI-voorgestelde aandachtspunten" niet als dode sectie | E4 | done | medium | detailpagina-UX |
@@ -691,6 +691,17 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Resultaat:** knop **Dicteren**/**Stop** naast het AI-beschrijvingsveld; client-side `nl-NL` recognition; knop `hidden` tot API beschikbaar; NL-status/fouten.
 - **Hypothese:** client-side dicteren; Chrome/Edge betrouwbaar, overige browsers graceful hide.
 - **Beperking:** werkt in browsers met Web Speech API (HTTPS); geen server-side transcriptie in deze slice.
+
+### BL-092 — HTTP 5xx/503-logging voor staging/production-debug
+
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-04 · **PR:** #94 · **Epic:** E5 · **Band:** A · operationeel
+- **Aanleiding:** tester krijgt herhaaldelijk LiteSpeed-**503** (“temporarily busy”) op production bij o.a. **Opname aanmaken**; zonder app-log is de oorzaak (timeout, fatal, entry-limit) niet te zien. Follow-up: algemene error-logfunctie om gebruikersfouten te volgen.
+- **Doel:** gedeelde `AppErrorLogger` + elke door Laravel geproduceerde ≥500-response én abrupte PHP-einden (fatal/abort) landen in `laravel.log` met veilige request-context; documenteer host-errorlog voor 503 zonder PHP-trail.
+- **Scope:** `App\Support\Logging\AppErrorLogger`, `LogServerErrorResponses`; `bootstrap/app.php` (HttpException ≥500 reporten); [docs/DEPLOYMENT.md](DEPLOYMENT.md); Pest.
+- **Acceptatie:** abort(503) → logregel met path/route; 404 niet als server error; `AppErrorLogger::error()` verrijkt met request-context; tokens in `/o/{token}` geredacteerd; `composer check` groen.
+- **Resultaat:** `AppErrorLogger` + web-middleware loggen ≥500 en abrupte einden; HttpException ≥500 weer gerapporteerd; deploy-docs voor app- vs host-errorlog.
+- **Hypothese:** middleware terminate + exception report + herbruikbare logger; geen gedragswijziging van de create-flow in deze slice.
+
 
 ### BL-083 — Werkplek ruimtekaart: geen herhaalde naam/type + korte copy
 

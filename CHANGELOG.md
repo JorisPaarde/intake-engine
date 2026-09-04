@@ -8,6 +8,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 - **Create: AI-prefill = één tekstveld + dicteren (BL-093/094):** op *Nieuwe opname* alleen optioneel `prefill[request_reason]` — sectie **AI vult de vragen in**, veld **Beschrijf wat de klant wil**, knop **Dicteren** (Web Speech API, `nl-NL`, spraak→tekst in de browser). Copy: AI vult alles in wat zeker genoeg is en stelt alleen open vragen. Geen multi-veld-prefill-UI; `DeriveIntentFromRequest` blijft de afleiding.
 
+### Added
+
+- **HTTP 5xx/503-logging + algemene AppErrorLogger (BL-092):** `App\Support\Logging\AppErrorLogger` is de gedeelde error-logger (`error()`/`warning()` met request-context). Web-middleware `LogServerErrorResponses` schrijft bij Laravel-responses ≥500 `HTTP server error response` naar `laravel.log` (method, geredacteerd path, route, duration, user/demo-context). HttpException ≥500 wordt weer gerapporteerd (Laravel negeerde die standaard). Abrupte PHP-einden (fatal/connection abort) loggen `HTTP request ended without clean response`. Host-503 zonder PHP-trail blijft alleen in cPanel/LiteSpeed-errorlog — zie [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) § HTTP 5xx.
+
 ### Fixed
 
 - **Demo-opslaan stuurde naar login/404 (BL-091):** `RestrictPublicDemoSession` mist dossierdetail-acties die na BL-084–090 zichtbaar zijn (adres opnieuw, AI-aandachtspunten, beoordeling, rapport/PDF, link regenereren/intrekken) → 404. Allowlist uitgebreid. Stale demo-auth (gepurgede tijdelijke user) gaat naar `/demo/beeindigd` i.p.v. het echte installateurs-`/login`. Na echt inloggen wist login/`demo.ended` demo-sessieflags én `url.intended` (Laravel guest-redirect), zodat je niet meer op een dode demo-opname-URL (404) landt — “Mijn opnames” werkte al omdat dat naar `/dashboard` gaat.
