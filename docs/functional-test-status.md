@@ -1,8 +1,10 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.71 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.73 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
+
+**Stappen voor een visuele browser-run:** [docs/browser-test-flow.md](browser-test-flow.md) (niet dit bestand). Dit document is alleen de uitslag. Een Pest-run vult hier niets in.
 
 Bijwerken door wie de test daadwerkelijk heeft uitgevoerd: een menselijke tester **of** een testende agent (bijv. een agent die de app via een browser bedient). Niet invullen op basis van alleen implementatie — er moet echt functioneel getest zijn. Implementerende agents voegen alleen nieuwe `todo`-regels toe voor functionaliteit die zij introduceren.
 
@@ -11,6 +13,8 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
 | Openingszin drie slaapkamers + woonkamer + maten (BL-098) | todo | - | Met tekst-AI aan: *Drie slaapkamers en woonkamer koelen woonkamers is 5 bij 7 meter en de slaapkamers 20m2 elk* → 3 slaapkamers + 1 woonkamer (niet extra kamers); woonkamer heet **Woonkamer 1**; L×B 5×7 op de woonkamer; slaapkamers zonder verzonnen lengte/breedte. Zonder tekst-AI: die zin vult kamers niet lokaal. |
+| Create adreslookup vs browser-autofill (BL-097) | todo | - | Op create: laat de browser een opgeslagen adres invullen (of vul straat/plaats direct terwijl postcode+huisnummer compleet zijn). Status **Adres wordt automatisch gezocht…** mag niet blijven hangen; straat/plaats worden door PDOK overschreven of tonen een nette fout. Daarna handmatig straat wijzigen ná een match: lookup-id mag weg, opslaan blijft mogelijk. |
+| Browser-testspeelboek Flow A–B (BL-096) | todo | - | Echte browser op staging volgens [browser-test-flow.md](browser-test-flow.md): landing → welkom → create (leeg + tip 2037GR/273) → rolkeuze → werkplek; tweede pad klantwizard. Desktop 1280 + ~390 px. Geen Pest. |
 | Demo-welkom productuitleg (BL-095) | todo | - | Na deploy: **Probeer de demo** → popup **Zo werkt de Digitale Opname**; create toont géén lange “Vul zelf een klantnaam…”-banner; tipadres blijft; CTA **Start met nieuwe opname** → create. |
 | Create AI-prefill = 1 tekstveld (BL-093) | todo | - | Na deploy: *Nieuwe opname* toont **AI vult de vragen in** + veld **Beschrijf wat de klant wil**; copy over AI vult/overslaan; geen multi-veld-prefill; na tekst + opslaan verdwijnen afgeleide vragen bij hoge zekerheid. |
 | Create dicteerknop (BL-094) | todo | - | Op Chrome/Edge (desktop + mobiel): knop **Dicteren** zichtbaar; microfoontoestemming → spraak verschijnt in het tekstveld; **Stop** beëindigt; zonder ondersteuning blijft knop verborgen; typen blijft werken. |

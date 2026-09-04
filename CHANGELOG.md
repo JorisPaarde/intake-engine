@@ -7,6 +7,11 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 ### Fixed
 
 - **Openingszin met herhaalde kamers ging naar de regex i.p.v. AI (BL-098):** “Drie slaapkamers … woonkamers is 5 bij 7 meter en de slaapkamers 20m2 elk” telde elke kamernaam lokaal (extra ruimtes, geen maten). Lokale parser laat herhaalde types nu los (`request-intent-local-v4`); catalogus-AI (`request-prefill-v3`) bepaalt aantal, type en L×B. Werkpleknamen nummeren per type: eerste woonkamer is **Woonkamer 1**, niet Woonkamer 3.
+- **Adreszoekstatus bleef hangen na autofill (BL-097):** browser-autofill vulde *Straat en huisnummer* / *Plaats* in dezelfde ronde als postcode; die `input` brak de PDOK-lookup af en liet **Adres wordt automatisch gezocht…** staan. Straat/plaats-input tijdens een geplande of lopende lookup (en kort ná een match) wordt genegeerd; de PDOK-uitslag vult de velden. `autocomplete="off"` op die twee velden. Ongeldige of afgebroken zoekactie wist de status.
+
+### Added
+
+- **Browser-testspeelboek (BL-096):** [docs/browser-test-flow.md](docs/browser-test-flow.md) is het stapsgewijze script voor een agent (of mens) die een echte browser opent op staging en naar het scherm kijkt. Bevat kopieerprompt, Flow A (demo-installateur), B (klantpad), optioneel C (Dicteren) en D (negatief). `docs/functional-test-status.md` blijft de uitslagentabel; Pest telt niet als uitvoering.
 
 ### Changed
 
