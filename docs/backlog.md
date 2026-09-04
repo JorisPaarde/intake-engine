@@ -1,6 +1,7 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.43 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.44 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
 De MVP-bouwstenen staan historisch onder E1–E5. De productfase E6–E10 is op 2026-07-30 geïmplementeerd en volgt het [productmodel](product-model.md): één centrale technische opname na een bestaande aanvraag, meerdere bijdragers, beslisgereedheid en voor airco afzonderlijke koel-, condens- en stroomverbindingen.
@@ -37,10 +38,11 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 zijn gereserveerd voor draft PR’s [#74](https://github.com/JorisPaarde/intake-engine/pull/74) / [#75](https://github.com/JorisPaarde/intake-engine/pull/75) (AI-prefill); niet hergebruiken. BL-077 (meterkast vóór vrije groep) is done in PR #85. BL-084–090 (detailpagina-UX) done; nieuwe items starten bij BL-095 (BL-092–094 done in #94/#95; BL-091 demo-save/login in #93).
+**Nummering:** BL-063–065 zijn gereserveerd voor draft PR’s [#74](https://github.com/JorisPaarde/intake-engine/pull/74) / [#75](https://github.com/JorisPaarde/intake-engine/pull/75) (AI-prefill); niet hergebruiken. BL-077 (meterkast vóór vrije groep) is done in PR #85. BL-084–090 (detailpagina-UX) done; nieuwe items starten bij BL-096 (BL-092–095 done in #94/#95/#96; BL-091 demo-save/login in #93).
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
+| — | BL-095 | Demo-welkom: korte uitleg hoe de app helpt | E5 | done | high | A · product/demo/UX |
 | — | BL-094 | Create: dicteerknop spraak→tekst bij AI-beschrijvingsveld | E3/E5 | done | medium | A · product/UX · bij BL-093 |
 | — | BL-093 | Create: AI vult vragen in via één beschrijvingsveld | E3/E5 | done | high | A · product/UX |
 | — | BL-092 | HTTP 5xx/503-logging voor staging/production-debug | E5 | done | high | A · operationeel |
@@ -659,6 +661,16 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Scope:** `resources/views/installer/intakes/show.blade.php` (rapport-blok, regels ~374-446); geen wijziging aan rapportgeneratie zelf. Detailpagina-test (iframe niet standaard geladen; statusweergave klopt).
 - **Acceptatie:** detailpagina laadt niet standaard een zware iframe; PDF-status is begrijpelijk en ververst; `composer check` groen.
 - **Hypothese:** UI + kleine statuslogica; geen wijziging aan PDF-pijplijn.
+
+### BL-095 — Demo-welkom: korte uitleg hoe de app helpt
+
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-04 · **PR:** #96 · **Epic:** E5 · **Band:** A · product/demo/UX · **Afhankelijk:** BL-001/070
+- **Aanleiding:** demostart moet meteen duidelijk maken wat de Digitale Opname doet voor de installateur — niet alleen “je bent tijdelijk ingelogd”.
+- **Doel:** welkomstpopup bij demostart in een paar zinnen: aanvraag binnen → invullen wat je al weet in eigen woorden → AI haalt data op en vult aan → jij beoordeelt / offert sneller (vaak zonder voorbezoek).
+- **Scope:** `resources/js/demo-guide.js` (welcome-copy) + `demo-guide.blade.php` (meerdere alinea’s); Pest op brontekst; docs. Geen flowwijziging.
+- **Acceptatie:** welcome-titel/body leggen productflow uit; CTA blijft *Start met nieuwe opname*; `composer check` groen.
+- **Resultaat:** welcome = **Zo werkt de Digitale Opname** met drie korte alinea’s (aanvraag / AI-aanvullen / offerte zonder voorbezoek); meta “Hoe het werkt”; lange create-banner (“Vul zelf een klantnaam…”) verwijderd — tipadres blijft.
+- **Hypothese:** pure copy/UI; bestaande welcome→create-flow blijft.
 
 ### BL-091 — Demo: opslaan op dossierdetail mag niet naar login/404
 

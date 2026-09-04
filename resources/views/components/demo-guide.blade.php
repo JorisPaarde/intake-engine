@@ -51,7 +51,11 @@
             </div>
             <div class="space-y-3 px-5 py-5">
                 <h3 id="demo-guide-title" class="text-xl font-semibold text-gray-950" x-text="title"></h3>
-                <p class="text-sm leading-relaxed text-gray-700" x-text="body"></p>
+                <div class="space-y-2">
+                    <template x-for="(line, index) in bodyLines" :key="index">
+                        <p class="text-sm leading-relaxed text-gray-700" x-text="line"></p>
+                    </template>
+                </div>
                 <p class="text-xs leading-relaxed text-gray-500" x-show="aside" x-text="aside"></p>
             </div>
             <div class="flex flex-col gap-2 border-t border-gray-100 bg-gray-50 px-5 py-4 sm:flex-row sm:justify-end">

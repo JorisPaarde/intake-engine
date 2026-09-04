@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.68 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.69 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -10,6 +10,7 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
+| Demo-welkom productuitleg (BL-095) | todo | - | Na deploy: **Probeer de demo** → popup **Zo werkt de Digitale Opname**; create toont géén lange “Vul zelf een klantnaam…”-banner; tipadres blijft; CTA **Start met nieuwe opname** → create. |
 | Create AI-prefill = 1 tekstveld (BL-093) | todo | - | Na deploy: *Nieuwe opname* toont **AI vult de vragen in** + veld **Beschrijf wat de klant wil**; copy over AI vult/overslaan; geen multi-veld-prefill; na tekst + opslaan verdwijnen afgeleide vragen bij hoge zekerheid. |
 | Create dicteerknop (BL-094) | todo | - | Op Chrome/Edge (desktop + mobiel): knop **Dicteren** zichtbaar; microfoontoestemming → spraak verschijnt in het tekstveld; **Stop** beëindigt; zonder ondersteuning blijft knop verborgen; typen blijft werken. |
 | HTTP 5xx/503-logging (BL-092) | todo | - | Na deploy: forceer of observeer een 5xx/LiteSpeed-503 (bijv. Opname aanmaken); controleer `shared/storage/logs/laravel.log` op `HTTP server error response` of `HTTP request ended without clean response` met path/route; bij kale host-503 zonder PHP-regel ook cPanel/LiteSpeed-errorlog. Geen tokens in de log. |
