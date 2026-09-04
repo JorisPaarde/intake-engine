@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.39 · **Laatste update:** 2026-09-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.40 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,10 +38,11 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 zijn gereserveerd voor draft PR’s [#74](https://github.com/JorisPaarde/intake-engine/pull/74) / [#75](https://github.com/JorisPaarde/intake-engine/pull/75) (AI-prefill); niet hergebruiken. BL-077 (meterkast vóór vrije groep) is done in PR #85. BL-084–090 (detailpagina-UX) done; nieuwe items starten bij BL-092 (BL-091 demo-save/login in deze PR; BL-083 ruimtekaart-copy in PR #89; BL-082 copy-pass in PR #88).
+**Nummering:** BL-063–065 zijn gereserveerd voor draft PR’s [#74](https://github.com/JorisPaarde/intake-engine/pull/74) / [#75](https://github.com/JorisPaarde/intake-engine/pull/75) (AI-prefill); niet hergebruiken. BL-077 (meterkast vóór vrije groep) is done in PR #85. BL-084–090 (detailpagina-UX) done; nieuwe items starten bij BL-093 (BL-092 5xx-logging in deze PR; BL-091 demo-save/login in #93; BL-083 ruimtekaart-copy in PR #89; BL-082 copy-pass in PR #88).
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
+| — | BL-092 | HTTP 5xx/503-logging voor staging/production-debug | E5 | done | high | A · operationeel |
 | — | BL-091 | Demo: opslaan op dossierdetail mag niet naar login/404 | E5 | done | high | A · product/demo |
 | — | BL-084 | Opnamedetail: open punten direct aanklikbaar + volgende open punt | E6 | done | high | detailpagina-UX |
 | — | BL-085 | Lege "AI-voorgestelde aandachtspunten" niet als dode sectie | E4 | done | medium | detailpagina-UX |
@@ -668,6 +669,16 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Acceptatie:** demo POST adres/beoordeling/aandachtspunten/ruimte → geen 404/login; stale/purged demo → `demo.ended`; login met demo-residue + intended demo-URL → dashboard; metrics/profiel blijven 404; `composer check` groen.
 - **Resultaat:** allowlist uitgebreid; stale/purged demo → `demo.ended`; login wist demo-flags + `url.intended`; featuretests groen.
 - **Hypothese:** middleware-allowlist + guest-redirect + intended-cleanup; geen UI-herontwerp.
+
+### BL-092 — HTTP 5xx/503-logging voor staging/production-debug
+
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-04 · **PR:** #94 · **Epic:** E5 · **Band:** A · operationeel
+- **Aanleiding:** tester krijgt herhaaldelijk LiteSpeed-**503** (“temporarily busy”) op production bij o.a. **Opname aanmaken**; zonder app-log is de oorzaak (timeout, fatal, entry-limit) niet te zien. Follow-up: algemene error-logfunctie om gebruikersfouten te volgen.
+- **Doel:** gedeelde `AppErrorLogger` + elke door Laravel geproduceerde ≥500-response én abrupte PHP-einden (fatal/abort) landen in `laravel.log` met veilige request-context; documenteer host-errorlog voor 503 zonder PHP-trail.
+- **Scope:** `App\Support\Logging\AppErrorLogger`, `LogServerErrorResponses`; `bootstrap/app.php` (HttpException ≥500 reporten); [docs/DEPLOYMENT.md](DEPLOYMENT.md); Pest.
+- **Acceptatie:** abort(503) → logregel met path/route; 404 niet als server error; `AppErrorLogger::error()` verrijkt met request-context; tokens in `/o/{token}` geredacteerd; `composer check` groen.
+- **Resultaat:** `AppErrorLogger` + web-middleware loggen ≥500 en abrupte einden; HttpException ≥500 weer gerapporteerd; deploy-docs voor app- vs host-errorlog.
+- **Hypothese:** middleware terminate + exception report + herbruikbare logger; geen gedragsfixiging van de create-flow in deze slice.
 
 ### BL-083 — Werkplek ruimtekaart: geen herhaalde naam/type + korte copy
 
