@@ -1,6 +1,6 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 3.5 · **Laatste update:** 2026-08-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.6 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **samenvatting, aandachtspunten, lokale fotokwaliteit, tekst-/foto-afleiding, verbindingsgebonden routeanalyse en bewijsgerichte dossiersynthese zijn geïmplementeerd**. Externe provider en tekst-/foto-/route-/dossierinferentie staan standaard uit (DPIA + key + budgetcaps + staging-smoke vereist).
 
@@ -68,13 +68,14 @@ App\Domains\AI\
   Services\PromptVersionRepository
   Services\SurveySynthesisContextBuilder
   Prompts\summary\ | attention_points\ | fusebox_assessment\
-  Prompts\request_intent\ | room_assessment\ | outdoor_assessment\
+  Prompts\request_prefill\ | room_assessment\ | outdoor_assessment\
   Prompts\pipe_route_assessment\ | installer_photo_observation\
   Prompts\route_photo_analysis\ | route_synthesis\
   Prompts\dossier_synthesis\
   Actions\SummarizeIntake
   Actions\SuggestAttentionPoints | AssessFuseboxPhotos | DerivePhotoAnswers
   Actions\SuggestInstallerPhotoObservations
+  Actions\DeriveIntentFromRequest | PrefillAnswersFromKnownContext
   Actions\AnalyzeRoutePhoto | SynthesizePipeRoute
   Actions\SynthesizeSurveyDossier
   Jobs\SummarizeIntakeJob | SynthesizeSurveyDossierJob

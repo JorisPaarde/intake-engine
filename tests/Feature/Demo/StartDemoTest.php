@@ -151,7 +151,8 @@ it('welcome popup explains how the app helps the installer', function () {
         ->toContain('vaak zonder voorbezoek')
         ->toContain('Geen echte klant, geen mail')
         ->toContain("cta: 'Start met nieuwe opname'")
-        ->not->toContain('Welkom in de installateursdemo');
+        ->not->toContain('Welkom in de installateursdemo')
+        ->not->toContain('beoordeelt het dossier');
 });
 
 it('leaves postcode and house number empty so the installer types them', function () {

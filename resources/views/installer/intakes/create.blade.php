@@ -224,7 +224,7 @@
 
                     <div class="rounded-md border border-gray-200 bg-gray-50 p-3">
                         <p class="text-sm font-semibold text-gray-800">AI vult de vragen in (optioneel)</p>
-                        <p class="mt-0.5 text-xs text-gray-500">Schrijf of dicteer zo volledig mogelijk wat de klant wil. De AI vult daarmee alles in wat zij zeker genoeg weet, en stelt alleen vragen die daarna nog open zijn. Jij maakt de opname aan en stuurt daarna de link, of je gaat zelf verder.</p>
+                        <p class="mt-0.5 text-xs text-gray-500">Schrijf of dicteer wat de klant wil. De AI vult in wat zeker genoeg is. Alleen open vragen blijven over.</p>
                         <div class="mt-2">
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <x-input-label for="prefill_request_reason" value="Beschrijf wat de klant wil" />

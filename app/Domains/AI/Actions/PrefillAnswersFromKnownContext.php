@@ -108,7 +108,7 @@ final class PrefillAnswersFromKnownContext
             );
 
             $output = $this->validateOutput($result->output, $catalog);
-            $applied = $this->apply($intake, $output, $catalog);
+            $applied = $this->apply($intake, $output);
 
             $run->update($run->completionResultAttributes($result) + [
                 'status' => AiRunStatus::Succeeded,
@@ -310,10 +310,9 @@ final class PrefillAnswersFromKnownContext
 
     /**
      * @param  array{evidence: string, fills: list<array<string, mixed>>}  $output
-     * @param  array<string, mixed>  $catalog
      * @return list<string>
      */
-    private function apply(Intake $intake, array $output, array $catalog): array
+    private function apply(Intake $intake, array $output): array
     {
         $applied = [];
 
@@ -332,10 +331,6 @@ final class PrefillAnswersFromKnownContext
                 continue;
             }
 
-            if (! $this->questionExistsOnTemplate($intake, $questionKey)) {
-                continue;
-            }
-
             $source = $confidence === 'high' ? self::SOURCE_DERIVED : self::SOURCE_SUGGESTED;
             $this->saveIntakeAnswer->handle(
                 $intake,
@@ -349,21 +344,6 @@ final class PrefillAnswersFromKnownContext
         }
 
         return $applied;
-    }
-
-    private function questionExistsOnTemplate(Intake $intake, string $questionKey): bool
-    {
-        $intake->loadMissing('templateVersion.sections.questions');
-
-        foreach ($intake->templateVersion->sections as $section) {
-            foreach ($section->questions as $question) {
-                if ($question->key === $questionKey) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
     }
 
     private function mayWrite(Intake $intake, string $questionKey, ?string $sectionInstanceKey): bool

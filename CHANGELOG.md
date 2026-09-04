@@ -6,6 +6,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
+- **Prefill-opruiming:** ongebruikte `request_intent`-prompt (vervangen door `request_prefill`) verwijderd. Create-copy en demo-welkom ingekort (opname i.p.v. dossier).
 - **Demo-welkom legt uit hoe de app helpt (BL-095):** welkomstpopup bij demostart heet **Zo werkt de Digitale Opname** — korte installateurstaal: aanvraag → invullen in eigen woorden → AI haalt woninggegevens op en vult aan → sneller offerte, vaak zonder voorbezoek. Vervangt de lange uitlegbanner op *Nieuwe demo-opname* (create); tipadres blijft.
 - **Create: AI-prefill = één tekstveld + dicteren (BL-093/094):** op *Nieuwe opname* alleen optioneel `prefill[request_reason]` — sectie **AI vult de vragen in**, veld **Beschrijf wat de klant wil**, knop **Dicteren** (Web Speech API, `nl-NL`, spraak→tekst in de browser). Copy: AI vult alles in wat zeker genoeg is en stelt alleen open vragen. Geen multi-veld-prefill-UI; `DeriveIntentFromRequest` blijft de afleiding.
 

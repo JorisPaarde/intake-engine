@@ -8,7 +8,6 @@ export function registerDemoGuide(Alpine) {
         open: false,
         mode: 'info',
         title: '',
-        body: '',
         bodyLines: [],
         aside: '',
         cta: 'Begrepen',
@@ -18,7 +17,6 @@ export function registerDemoGuide(Alpine) {
         pathChooseUrl: config.pathChooseUrl,
         csrf: config.csrf,
         createUrl: config.createUrl || null,
-        returnUrl: config.returnUrl || null,
         storageKey: 'intake-demo-guide-dismissed',
 
         init() {
@@ -67,10 +65,7 @@ export function registerDemoGuide(Alpine) {
             }
             this.mode = copy.mode;
             this.title = copy.title;
-            this.body = copy.body || '';
-            this.bodyLines = Array.isArray(copy.bodyLines) && copy.bodyLines.length > 0
-                ? copy.bodyLines
-                : (copy.body ? [copy.body] : []);
+            this.bodyLines = copy.bodyLines || [];
             this.aside = copy.aside || '';
             this.cta = copy.cta || 'Begrepen';
             this.metaLabel = copy.meta;
@@ -106,7 +101,7 @@ export function registerDemoGuide(Alpine) {
                     bodyLines: [
                         'Je krijgt een aanvraag binnen. Vul in eigen woorden in wat je al weet.',
                         'De AI haalt woninggegevens op en vult aan wat zeker genoeg is. Alleen open punten blijven over.',
-                        'Jij beoordeelt het dossier en maakt sneller een offerte — vaak zonder voorbezoek.',
+                        'Jij beoordeelt de opname en maakt sneller een offerte — vaak zonder voorbezoek.',
                     ],
                     aside: `Tijdelijke demosessie (${ttl} uur). Geen echte klant, geen mail.`,
                     cta: 'Start met nieuwe opname',
@@ -115,7 +110,9 @@ export function registerDemoGuide(Alpine) {
                     mode: 'branch',
                     meta: 'Hoe wil je verder?',
                     title: 'Adresgegevens staan al in de opname',
-                    body: 'Bekijk hieronder wat er is opgehaald. Doe de opname zelf — net als in de praktijk. Of bekijk wat de klant ziet.',
+                    bodyLines: [
+                        'Bekijk hieronder wat er is opgehaald. Doe de opname zelf — net als in de praktijk. Of bekijk wat de klant ziet.',
+                    ],
                     aside: 'Beide paden gebruiken dezelfde echte productschermen. Er gaat geen e-mail uit in de demo.',
                 },
             };

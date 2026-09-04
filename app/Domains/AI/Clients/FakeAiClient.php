@@ -233,19 +233,6 @@ final class FakeAiClient implements AiClientInterface
             );
         }
 
-        if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'request-intent')) {
-            return new AiCompletionResult(
-                output: [
-                    'cooling_heating' => 'cooling',
-                    'rooms' => ['bedroom', 'living_room'],
-                    'confidence' => 'high',
-                    'evidence' => 'Fictieve testuitkomst voor de lokale intentie-analyse.',
-                ],
-                provider: 'fake',
-                model: 'fake-v1',
-            );
-        }
-
         if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'dossier-synthesis')) {
             return new AiCompletionResult(
                 output: [

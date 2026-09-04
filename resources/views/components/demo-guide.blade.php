@@ -2,8 +2,6 @@
     'step' => null,
     'hasIntake' => false,
     'intake' => null,
-    'scenarioLoaded' => false,
-    'returnUrl' => null,
 ])
 
 @php
@@ -16,11 +14,9 @@
     x-data="demoGuide({
         initialStep: @js($activeStep),
         hasIntake: @js((bool) $hasIntake),
-        scenarioLoaded: @js((bool) $scenarioLoaded),
         pathChooseUrl: @js($pathChooseUrl),
         csrf: @js(csrf_token()),
         createUrl: @js(route('intakes.create')),
-        returnUrl: @js($returnUrl),
         ttlHours: @js($ttl),
     })"
     x-cloak
