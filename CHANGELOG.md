@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Fixed
+
+- **Adreszoekstatus bleef hangen na autofill (BL-097):** browser-autofill vulde *Straat en huisnummer* / *Plaats* in dezelfde ronde als postcode; die `input` brak de PDOK-lookup af en liet **Adres wordt automatisch gezocht…** staan. Straat/plaats-input tijdens een geplande of lopende lookup (en kort ná een match) wordt genegeerd; de PDOK-uitslag vult de velden. `autocomplete="off"` op die twee velden. Ongeldige of afgebroken zoekactie wist de status.
+
 ### Changed
 
 - **Prefill-opruiming:** ongebruikte `request_intent`-prompt (vervangen door `request_prefill`) verwijderd. Create-copy en demo-welkom ingekort (opname i.p.v. dossier).

@@ -155,7 +155,7 @@
                                     class="mt-1 block w-full"
                                     type="text"
                                     :value="old('address_line')"
-                                    autocomplete="street-address"
+                                    autocomplete="off"
                                     required
                                 />
                                 <x-input-error :messages="$errors->get('address_line')" class="mt-2" />
@@ -168,7 +168,7 @@
                                     class="mt-1 block w-full"
                                     type="text"
                                     :value="old('address_city')"
-                                    autocomplete="address-level2"
+                                    autocomplete="off"
                                     required
                                 />
                                 <x-input-error :messages="$errors->get('address_city')" class="mt-2" />
@@ -303,6 +303,7 @@
 
             let request = null;
             let searchTimer = null;
+            let ignoreStreetCityInputUntil = 0;
 
             function closeSuggestions() {
                 list.replaceChildren();
@@ -349,8 +350,24 @@
                 root.removeAttribute('aria-busy');
             }
 
+            function isAddressSearchPending() {
+                return searchTimer !== null || request !== null;
+            }
+
+            function shouldIgnoreStreetCityInput() {
+                return isAddressSearchPending() || Date.now() < ignoreStreetCityInputUntil;
+            }
+
+            function clearSearchingStatus() {
+                const current = status.textContent;
+                if (current === 'Adres wordt automatisch gezocht…' || current === 'Adres zoeken…') {
+                    setStatus('', false);
+                }
+            }
+
             function clearSelectedAddress() {
                 cancelActiveRequest();
+                clearSearchingStatus();
 
                 if (lookupId.value !== '') {
                     addressLine.value = '';
@@ -371,6 +388,7 @@
                 lookupId.value = suggestion.id;
                 closeSuggestions();
                 setStatus('', false);
+                ignoreStreetCityInputUntil = Date.now() + 600;
             }
 
             function showSuggestions(suggestions) {
@@ -405,7 +423,10 @@
                 const normalizedPostalCode = postalCode.value.toUpperCase().replace(/\s+/g, '');
                 const parsed = parseHouseNumber(houseNumber.value);
 
-                if (!/^[1-9]\d{3}[A-Z]{2}$/.test(normalizedPostalCode) || !parsed) return;
+                if (!/^[1-9]\d{3}[A-Z]{2}$/.test(normalizedPostalCode) || !parsed) {
+                    clearSearchingStatus();
+                    return;
+                }
 
                 addition.value = parsed.addition;
 
@@ -451,7 +472,13 @@
             }
 
             function markAddressAsManuallyEdited() {
-                cancelActiveRequest();
+                // Browser-autofill vult straat/plaats in dezelfde ronde als postcode.
+                // Die input mag een geplande/lopende PDOK-lookup niet afbreken, anders blijft
+                // “Adres wordt automatisch gezocht…” staan.
+                if (shouldIgnoreStreetCityInput()) {
+                    return;
+                }
+
                 lookupId.value = '';
                 closeSuggestions();
             }
@@ -469,6 +496,7 @@
 
                 addition.value = parsed.addition;
                 setStatus('Adres wordt automatisch gezocht…', false);
+                ignoreStreetCityInputUntil = Date.now() + 800;
                 searchTimer = window.setTimeout(function () {
                     searchTimer = null;
                     searchAddress();
