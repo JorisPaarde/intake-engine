@@ -17,7 +17,7 @@
         <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
             @if ($isPublicDemo)
                 <div class="mb-4 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">
-                    Vul zelf een klantnaam, postcode en huisnummer in — net als na een echte aanvraag. Je ziet meteen straat en plaats. Na opslaan vult de app bekende woninggegevens aan en leest de korte uitleg mee. Gebruik fictieve klantgegevens. Er gaat geen e-mail uit.
+                    Vul zelf een klantnaam, postcode en huisnummer in — net als na een echte aanvraag. Je ziet meteen straat en plaats. Na opslaan vult de app bekende woninggegevens aan. Beschrijf hieronder wat de klant wil: de AI vult daarmee vragen in en slaat over wat al duidelijk is. Gebruik fictieve klantgegevens. Er gaat geen e-mail uit.
                 </div>
             @endif
             <div class="bg-white shadow-sm sm:rounded-lg p-6" data-demo-anchor="create-form">
@@ -228,16 +228,16 @@
                     </div>
 
                     <div class="rounded-md border border-gray-200 bg-gray-50 p-3">
-                        <p class="text-sm font-semibold text-gray-800">Alvast invullen (optioneel)</p>
-                        <p class="mt-0.5 text-xs text-gray-500">Noteer kort wat de klant vroeg. De app haalt daaruit wat zij al kan invullen. Jij maakt de opname aan en stuurt daarna de link, of je gaat zelf verder.</p>
+                        <p class="text-sm font-semibold text-gray-800">AI vult de vragen in (optioneel)</p>
+                        <p class="mt-0.5 text-xs text-gray-500">Schrijf zo volledig mogelijk wat de klant wil. De AI vult daarmee alles in wat zij zeker genoeg weet, en stelt alleen vragen die daarna nog open zijn. Jij maakt de opname aan en stuurt daarna de link, of je gaat zelf verder.</p>
                         <div class="mt-2">
-                            <x-input-label for="prefill_request_reason" value="Wat vroeg de klant?" />
+                            <x-input-label for="prefill_request_reason" value="Beschrijf wat de klant wil" />
                             <textarea
                                 id="prefill_request_reason"
                                 name="prefill[request_reason]"
-                                rows="3"
+                                rows="4"
                                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                placeholder="Bijv. twee slaapkamers op zolder koelen"
+                                placeholder="Bijv. twee slaapkamers op zolder koelen in de zomer"
                             >{{ old('prefill.request_reason', '') }}</textarea>
                             <x-input-error :messages="$errors->get('prefill.request_reason')" class="mt-1" />
                         </div>
