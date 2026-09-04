@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.70 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.71 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -10,6 +10,7 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
+| Openingszin drie slaapkamers + woonkamer + maten (BL-098) | todo | - | Met tekst-AI aan: *Drie slaapkamers en woonkamer koelen woonkamers is 5 bij 7 meter en de slaapkamers 20m2 elk* → 3 slaapkamers + 1 woonkamer (niet extra kamers); woonkamer heet **Woonkamer 1**; L×B 5×7 op de woonkamer; slaapkamers zonder verzonnen lengte/breedte. Zonder tekst-AI: die zin vult kamers niet lokaal. |
 | Demo-welkom productuitleg (BL-095) | todo | - | Na deploy: **Probeer de demo** → popup **Zo werkt de Digitale Opname**; create toont géén lange “Vul zelf een klantnaam…”-banner; tipadres blijft; CTA **Start met nieuwe opname** → create. |
 | Create AI-prefill = 1 tekstveld (BL-093) | todo | - | Na deploy: *Nieuwe opname* toont **AI vult de vragen in** + veld **Beschrijf wat de klant wil**; copy over AI vult/overslaan; geen multi-veld-prefill; na tekst + opslaan verdwijnen afgeleide vragen bij hoge zekerheid. |
 | Create dicteerknop (BL-094) | todo | - | Op Chrome/Edge (desktop + mobiel): knop **Dicteren** zichtbaar; microfoontoestemming → spraak verschijnt in het tekstveld; **Stop** beëindigt; zonder ondersteuning blijft knop verborgen; typen blijft werken. |

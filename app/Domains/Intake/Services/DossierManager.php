@@ -374,6 +374,7 @@ final class DossierManager
             ->sort(SORT_NATURAL)
             ->values();
         $subjects = [];
+        $typeCounts = [];
 
         foreach ($instanceKeys as $index => $instanceKey) {
             $typeAnswer = $intake->answers->first(
@@ -381,7 +382,9 @@ final class DossierManager
                     && $answer->question_key === 'room_type',
             );
             $useType = is_array($typeAnswer?->value) ? ($typeAnswer->value['value'] ?? null) : null;
-            $name = $this->roomLabel(is_string($useType) ? $useType : null, $index + 1);
+            $typeKey = is_string($useType) ? $useType : 'other';
+            $typeCounts[$typeKey] = ($typeCounts[$typeKey] ?? 0) + 1;
+            $name = $this->roomLabel(is_string($useType) ? $useType : null, $typeCounts[$typeKey]);
             $subject = $this->subject(
                 $intake,
                 'airco.room.'.$instanceKey,

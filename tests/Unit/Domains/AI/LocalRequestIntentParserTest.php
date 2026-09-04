@@ -77,3 +77,48 @@ test('it reads heating from te koud without treating it as cooling', function ()
         ->and($result['cooling_heating'])->toBe('heating')
         ->and($result['rooms'])->toBe(['bedroom']);
 });
+
+dataset('request intent examples', [
+    'user: drie slaapkamers + woonkamer + maten (herhaling → AI)' => [
+        'Drie slaapkamers en woonkamer koelen woonkamers is 5 bij 7 meter en de slaapkamers 20m2 elk',
+        null,
+    ],
+    'zelfde inhoud met leestekens (herhaling → AI)' => [
+        'Drie slaapkamers en een woonkamer koelen. Woonkamer is 5 bij 7 meter, slaapkamers 20m2 elk.',
+        null,
+    ],
+    'twee slaapkamers + woonkamer daarna herhaald (→ AI)' => [
+        'Twee slaapkamers en een woonkamer koelen. De woonkamer is 4 bij 5 meter.',
+        null,
+    ],
+    'slaapkamer twee keer als losse naam (→ AI)' => [
+        'Slaapkamer, slaapkamer en woonkamer koelen',
+        null,
+    ],
+    'alleen drie slaapkamers blijft lokaal' => [
+        'Drie slaapkamers koelen',
+        ['bedroom', 'bedroom', 'bedroom'],
+    ],
+    'ongeteld meervoud blijft open' => [
+        'Mijn slaapkamers moeten worden gekoeld.',
+        null,
+    ],
+    'twee slaapkamers zonder herhaling blijft lokaal' => [
+        'Twee slaapkamers koelen, elk 20 m2.',
+        ['bedroom', 'bedroom'],
+    ],
+]);
+
+test('request intent examples leave restated rooms to catalog AI', function (string $text, ?array $expectedRooms) {
+    $result = app(LocalRequestIntentParser::class)->parse($text);
+
+    if ($expectedRooms === null) {
+        expect($result)->toBeNull();
+
+        return;
+    }
+
+    expect($result)->not->toBeNull()
+        ->and($result['rooms'])->toBe($expectedRooms)
+        ->and($result)->not->toHaveKey('dimensions');
+})->with('request intent examples');

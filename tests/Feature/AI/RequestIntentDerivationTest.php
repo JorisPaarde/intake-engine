@@ -79,6 +79,116 @@ test('offline local fallback answers function room count type and floor', functi
         ->and(collect($steps)->filter(fn (string $k): bool => $k === 'room_photos'))->toHaveCount(2);
 });
 
+test('messy restated rooms are not filled by the local parser', function () {
+    config(['ai.text_inference.enabled' => false]);
+
+    $intake = makeIntentIntake();
+    answerReason(
+        $intake,
+        'Drie slaapkamers en woonkamer koelen woonkamers is 5 bij 7 meter en de slaapkamers 20m2 elk',
+    );
+
+    $run = app(DeriveIntentFromRequest::class)->handle($intake, allowExternal: false);
+
+    expect($run)->toBeNull()
+        ->and($intake->answers()->where('question_key', 'indoor_unit_count')->exists())->toBeFalse()
+        ->and($intake->answers()->where('question_key', 'room_type')->exists())->toBeFalse();
+});
+
+test('workspace names rooms per use type not global index', function () {
+    config(['ai.text_inference.enabled' => false]);
+
+    $intake = makeIntentIntake();
+    answerReason($intake, 'De slaapkamer en de woonkamer worden te warm in de zomer.');
+
+    app(DeriveIntentFromRequest::class)->handle($intake, allowExternal: false);
+    app(DossierManager::class)->initialize($intake->fresh() ?? $intake);
+
+    expect($intake->fresh()->aircoRooms()->orderBy('sort_order')->pluck('name')->all())
+        ->toBe(['Slaapkamer 1', 'Woonkamer 1']);
+});
+
+test('catalog AI fills restated rooms dimensions and per-type names', function () {
+    $intake = makeIntentIntake();
+    FakeAiClient::alwaysReturn([
+        'evidence' => 'Drie slaapkamers en één woonkamer; woonkamer 5 bij 7 meter; slaapkamers alleen 20 m².',
+        'fills' => [
+            [
+                'question_key' => 'cooling_heating',
+                'section_instance_key' => null,
+                'confidence' => 'high',
+                'value' => ['value' => 'cooling'],
+                'evidence' => null,
+            ],
+            [
+                'question_key' => 'indoor_unit_count',
+                'section_instance_key' => null,
+                'confidence' => 'high',
+                'value' => ['number' => 4],
+                'evidence' => null,
+            ],
+            [
+                'question_key' => 'room_type',
+                'section_instance_key' => 'room-1',
+                'confidence' => 'high',
+                'value' => ['value' => 'bedroom'],
+                'evidence' => null,
+            ],
+            [
+                'question_key' => 'room_type',
+                'section_instance_key' => 'room-2',
+                'confidence' => 'high',
+                'value' => ['value' => 'bedroom'],
+                'evidence' => null,
+            ],
+            [
+                'question_key' => 'room_type',
+                'section_instance_key' => 'room-3',
+                'confidence' => 'high',
+                'value' => ['value' => 'bedroom'],
+                'evidence' => null,
+            ],
+            [
+                'question_key' => 'room_type',
+                'section_instance_key' => 'room-4',
+                'confidence' => 'high',
+                'value' => ['value' => 'living_room'],
+                'evidence' => null,
+            ],
+            [
+                'question_key' => 'room_length_m',
+                'section_instance_key' => 'room-4',
+                'confidence' => 'high',
+                'value' => ['number' => 5],
+                'evidence' => null,
+            ],
+            [
+                'question_key' => 'room_width_m',
+                'section_instance_key' => 'room-4',
+                'confidence' => 'high',
+                'value' => ['number' => 7],
+                'evidence' => null,
+            ],
+        ],
+    ]);
+    answerReason(
+        $intake,
+        'Drie slaapkamers en woonkamer koelen woonkamers is 5 bij 7 meter en de slaapkamers 20m2 elk',
+    );
+
+    $run = app(DeriveIntentFromRequest::class)->handle($intake);
+
+    expect($run?->status)->toBe(AiRunStatus::Succeeded)
+        ->and($run?->prompt_version)->toStartWith('request-prefill')
+        ->and($intake->answers()->where('question_key', 'indoor_unit_count')->firstOrFail()->value)->toBe(['number' => 4])
+        ->and($intake->answers()->where('question_key', 'room_length_m')->where('section_instance_key', 'room-1')->exists())->toBeFalse();
+
+    app(DossierManager::class)->initialize($intake->fresh() ?? $intake);
+
+    expect($intake->fresh()->aircoRooms()->orderBy('sort_order')->pluck('name')->all())
+        ->toBe(['Slaapkamer 1', 'Slaapkamer 2', 'Slaapkamer 3', 'Woonkamer 1']);
+});
+
 test('catalog AI prefill fills dormer outdoor placement from the openingszin', function () {
     $intake = makeIntentIntake();
     answerReason(
