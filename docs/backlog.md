@@ -42,7 +42,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| — | BL-092 | HTTP 5xx/503-logging voor staging/production-debug | E5 | in_progress | high | A · operationeel |
+| — | BL-092 | HTTP 5xx/503-logging voor staging/production-debug | E5 | done | high | A · operationeel |
 | — | BL-091 | Demo: opslaan op dossierdetail mag niet naar login/404 | E5 | done | high | A · product/demo |
 | — | BL-084 | Opnamedetail: open punten direct aanklikbaar + volgende open punt | E6 | done | high | detailpagina-UX |
 | — | BL-085 | Lege "AI-voorgestelde aandachtspunten" niet als dode sectie | E4 | done | medium | detailpagina-UX |
@@ -672,11 +672,12 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-092 — HTTP 5xx/503-logging voor staging/production-debug
 
-- **Status:** in_progress · **Prioriteit:** high · **Datum:** 2026-09-04 · **Epic:** E5 · **Band:** A · operationeel
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-04 · **PR:** #94 · **Epic:** E5 · **Band:** A · operationeel
 - **Aanleiding:** tester krijgt herhaaldelijk LiteSpeed-**503** (“temporarily busy”) op production bij o.a. **Opname aanmaken**; zonder app-log is de oorzaak (timeout, fatal, entry-limit) niet te zien. Follow-up: algemene error-logfunctie om gebruikersfouten te volgen.
 - **Doel:** gedeelde `AppErrorLogger` + elke door Laravel geproduceerde ≥500-response én abrupte PHP-einden (fatal/abort) landen in `laravel.log` met veilige request-context; documenteer host-errorlog voor 503 zonder PHP-trail.
 - **Scope:** `App\Support\Logging\AppErrorLogger`, `LogServerErrorResponses`; `bootstrap/app.php` (HttpException ≥500 reporten); [docs/DEPLOYMENT.md](DEPLOYMENT.md); Pest.
 - **Acceptatie:** abort(503) → logregel met path/route; 404 niet als server error; `AppErrorLogger::error()` verrijkt met request-context; tokens in `/o/{token}` geredacteerd; `composer check` groen.
+- **Resultaat:** `AppErrorLogger` + web-middleware loggen ≥500 en abrupte einden; HttpException ≥500 weer gerapporteerd; deploy-docs voor app- vs host-errorlog.
 - **Hypothese:** middleware terminate + exception report + herbruikbare logger; geen gedragsfixiging van de create-flow in deze slice.
 
 ### BL-083 — Werkplek ruimtekaart: geen herhaalde naam/type + korte copy
