@@ -149,6 +149,7 @@ it('welcome popup explains how the app helps the installer', function () {
         ->toContain('eigen woorden')
         ->toContain('De AI haalt woninggegevens op')
         ->toContain('vaak zonder voorbezoek')
+        ->toContain('Geen echte klant, geen mail')
         ->toContain("cta: 'Start met nieuwe opname'")
         ->not->toContain('Welkom in de installateursdemo');
 });
@@ -167,7 +168,8 @@ it('leaves postcode and house number empty so the installer types them', functio
         ->withSession($session)
         ->get(route('intakes.create'))
         ->assertOk()
-        ->assertSee('Vul zelf een klantnaam, postcode en huisnummer in')
+        ->assertDontSee('Vul zelf een klantnaam, postcode en huisnummer in')
+        ->assertDontSee('leest de korte uitleg mee')
         ->assertSee('Tip om te proberen:')
         ->assertSee((string) config('intake.demo.address.postal_code', '2037GR'))
         ->assertSee('name="address_postal_code"', false)
@@ -955,7 +957,7 @@ it('never claims email send on the demo create form', function () {
         ->assertOk()
         ->assertSee('Opname aanmaken')
         ->assertDontSee('Opslaan en link mailen')
-        ->assertSee('Er gaat geen e-mail uit');
+        ->assertDontSee('link mailen');
 });
 
 it('does not present questionnaire percent as a finished opname', function () {

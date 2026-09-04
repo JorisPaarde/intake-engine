@@ -10,7 +10,7 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
-| Demo-welkom productuitleg (BL-095) | todo | - | Na deploy: **Probeer de demo** → popup **Zo werkt de Digitale Opname** met aanvraag/eigen woorden/AI-aanvullen/offerte-zonder-voorbezoek; CTA **Start met nieuwe opname** → create. |
+| Demo-welkom productuitleg (BL-095) | todo | - | Na deploy: **Probeer de demo** → popup **Zo werkt de Digitale Opname**; create toont géén lange “Vul zelf een klantnaam…”-banner; tipadres blijft; CTA **Start met nieuwe opname** → create. |
 | Opnamedetail UX basis (BL-084–088/090) | pass | staging 2026-09-03 | Publieke demo-opname 61: `/health` staging ok; op 1280×800 en 400×924 **Wat nu te doen**, primaire actie, open punten en één **Aandachtspunten**-sectie gecontroleerd zonder horizontale overflow. **Koelroute vastleggen** sprong naar `/intakes/61/opname#connection-38`. E-mail opende `mailto:`, adres Google Maps; lege telefoon toonde `—` zonder link. AI-toestand gaf uitleg + voorstelknop. Rapport/demorapport stond niet als zwaar iframe standaard geladen. |
 | Opnamedetail UX datagedreven toestanden (BL-085/089/090) | todo | staging deels 2026-09-03 | Nog gericht testen met passende fictieve data: AI-voorstel daadwerkelijk genereren/beoordelen; foto met bruikbaarheidswaarschuwing → **Vraag betere foto** en vooringevulde klanttaak; bestaand rapport lazy openen en PDF-pending → **Status verversen**. Deze toestanden kwamen niet voor in het publieke voorbeelddossier; geen echte mail of externe AI gestart. |
 | Deploy-pipeline (push -> Actions -> rsync -> activate -> live) | pass | 2026-07-18 | Atomische symlink-swap werkt; PR #14 deploy success |

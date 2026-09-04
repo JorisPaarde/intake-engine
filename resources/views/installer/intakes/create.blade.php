@@ -15,11 +15,6 @@
 
     <div class="py-8">
         <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
-            @if ($isPublicDemo)
-                <div class="mb-4 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">
-                    Vul zelf een klantnaam, postcode en huisnummer in — net als na een echte aanvraag. Je ziet meteen straat en plaats. Na opslaan vult de app bekende woninggegevens aan en leest de korte uitleg mee. Gebruik fictieve klantgegevens. Er gaat geen e-mail uit.
-                </div>
-            @endif
             <div class="bg-white shadow-sm sm:rounded-lg p-6" data-demo-anchor="create-form">
                 <form method="POST" action="{{ route('intakes.store') }}" class="space-y-5">
                     @csrf

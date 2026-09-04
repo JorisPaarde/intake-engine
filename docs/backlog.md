@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.40 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.41 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -666,7 +666,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Doel:** welkomstpopup bij demostart in een paar zinnen: aanvraag binnen → invullen wat je al weet in eigen woorden → AI haalt data op en vult aan → jij beoordeelt / offert sneller (vaak zonder voorbezoek).
 - **Scope:** `resources/js/demo-guide.js` (welcome-copy) + `demo-guide.blade.php` (meerdere alinea’s); Pest op brontekst; docs. Geen flowwijziging.
 - **Acceptatie:** welcome-titel/body leggen productflow uit; CTA blijft *Start met nieuwe opname*; `composer check` groen.
-- **Resultaat:** welcome = **Zo werkt de Digitale Opname** met drie korte alinea’s (aanvraag / AI-aanvullen / offerte zonder voorbezoek); meta “Hoe het werkt”.
+- **Resultaat:** welcome = **Zo werkt de Digitale Opname** met drie korte alinea’s (aanvraag / AI-aanvullen / offerte zonder voorbezoek); meta “Hoe het werkt”; lange create-banner (“Vul zelf een klantnaam…”) verwijderd — tipadres blijft.
 - **Hypothese:** pure copy/UI; bestaande welcome→create-flow blijft.
 
 ### BL-091 — Demo: opslaan op dossierdetail mag niet naar login/404

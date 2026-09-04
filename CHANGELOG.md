@@ -6,7 +6,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
-- **Demo-welkom legt uit hoe de app helpt (BL-095):** welkomstpopup bij demostart heet **Zo werkt de Digitale Opname** — korte installateurstaal: aanvraag → invullen in eigen woorden → AI haalt woninggegevens op en vult aan → sneller offerte, vaak zonder voorbezoek. Geen “Welkom in de installateursdemo”-meta meer als hoofdboodschap.
+- **Demo-welkom legt uit hoe de app helpt (BL-095):** welkomstpopup bij demostart heet **Zo werkt de Digitale Opname** — korte installateurstaal: aanvraag → invullen in eigen woorden → AI haalt woninggegevens op en vult aan → sneller offerte, vaak zonder voorbezoek. Vervangt de lange uitlegbanner op *Nieuwe demo-opname* (create); tipadres blijft.
 
 ### Fixed
 
