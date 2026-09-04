@@ -6,6 +6,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Fixed
 
+- **Openingszin met herhaalde kamers ging naar de regex i.p.v. AI (BL-098):** “Drie slaapkamers … woonkamers is 5 bij 7 meter en de slaapkamers 20m2 elk” telde elke kamernaam lokaal (extra ruimtes, geen maten). Lokale parser laat herhaalde types nu los (`request-intent-local-v4`); catalogus-AI (`request-prefill-v3`) bepaalt aantal, type en L×B. Werkpleknamen nummeren per type: eerste woonkamer is **Woonkamer 1**, niet Woonkamer 3.
 - **Adreszoekstatus bleef hangen na autofill (BL-097):** browser-autofill vulde *Straat en huisnummer* / *Plaats* in dezelfde ronde als postcode; die `input` brak de PDOK-lookup af en liet **Adres wordt automatisch gezocht…** staan. Straat/plaats-input tijdens een geplande of lopende lookup (en kort ná een match) wordt genegeerd; de PDOK-uitslag vult de velden. `autocomplete="off"` op die twee velden. Ongeldige of afgebroken zoekactie wist de status.
 
 ### Added

@@ -343,7 +343,58 @@ final class PrefillAnswersFromKnownContext
             $applied[] = $instanceKey === null ? $questionKey : $questionKey.'@'.$instanceKey;
         }
 
+        $this->pruneExtraPrefillRooms($intake, $output['fills']);
+
         return $applied;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $fills
+     */
+    private function pruneExtraPrefillRooms(Intake $intake, array $fills): void
+    {
+        $roomCount = null;
+
+        foreach ($fills as $fill) {
+            if (($fill['question_key'] ?? null) !== 'indoor_unit_count') {
+                continue;
+            }
+
+            $value = $fill['value'] ?? null;
+            $number = is_array($value) ? ($value['number'] ?? null) : null;
+
+            if (is_numeric($number) && (int) $number >= 1) {
+                $roomCount = (int) $number;
+            }
+        }
+
+        if ($roomCount === null) {
+            return;
+        }
+
+        $answers = IntakeAnswer::query()
+            ->where('intake_id', $intake->id)
+            ->whereIn('prefill_source', [
+                self::SOURCE_DERIVED,
+                self::SOURCE_SUGGESTED,
+                DeriveIntentFromRequest::SOURCE_REQUEST_TEXT,
+            ])
+            ->whereNotNull('section_instance_key')
+            ->get();
+
+        foreach ($answers as $answer) {
+            $instanceKey = $answer->section_instance_key;
+
+            if (! is_string($instanceKey) || preg_match('/^room-(\d+)$/', $instanceKey, $matches) !== 1) {
+                continue;
+            }
+
+            if ((int) $matches[1] <= $roomCount) {
+                continue;
+            }
+
+            $answer->delete();
+        }
     }
 
     private function mayWrite(Intake $intake, string $questionKey, ?string $sectionInstanceKey): bool

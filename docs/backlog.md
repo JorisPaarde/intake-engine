@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.47 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.48 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,10 +38,11 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 speelboek in #99. Deze slice BL-097. Nieuwe items starten bij BL-098.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. Deze slice BL-098 in #101. Nieuwe items starten bij BL-099.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
+| — | BL-098 | Openingszin: herhaalde kamers naar catalogus-AI + naam per type | E3/E9 | done | high | F · bij BL-048/064 |
 | — | BL-097 | Create: browser-autofill mag adreszoekstatus niet laten hangen | E3 | done | high | A · product/UX · bij BL-033/080 |
 | — | BL-096 | Browser-testspeelboek voor visuele agent-QA | E1/E5 | done | medium | A · docs/QA |
 | — | BL-095 | Demo-welkom: korte uitleg hoe de app helpt | E5 | done | high | A · product/demo/UX |
@@ -703,6 +704,14 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Resultaat:** welcome = **Zo werkt de Digitale Opname** met drie korte alinea’s (aanvraag / AI-aanvullen / offerte zonder voorbezoek); meta “Hoe het werkt”; lange create-banner (“Vul zelf een klantnaam…”) verwijderd — tipadres blijft.
 - **Hypothese:** pure copy/UI; bestaande welcome→create-flow blijft.
 
+### BL-098 — Openingszin: herhaalde kamers naar catalogus-AI + naam per type
+
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-04 · **PR:** #101 · **Epic:** E3/E9 · **Band:** F · bij BL-048/064
+- **Aanleiding:** “Drie slaapkamers en woonkamer koelen woonkamers is 5 bij 7 meter en de slaapkamers 20m2 elk” leverde extra kamers zonder maten; de woonkamer heette **Woonkamer 3**. Product: dit mag niet deterministisch; de AI bepaalt.
+- **Doel:** lokale parser niet uitbreiden met maten/anaphora-invulling (ADR-0013). Bij herhaald kamertype: geen lokale high-confidence. Catalogus-AI vult aantal/type/L×B. Namen per type (Woonkamer 1).
+- **Scope:** `LocalRequestIntentParser` v4 (herhaald type → null), `request-prefill-v3`, `PrefillAnswersFromKnownContext` ruimt extra `room-N` op, `DossierManager` naam per type, Pest-voorbeelden.
+- **Acceptatie:** gebruikerszin lokaal geen kamers; met catalogus-AI 3 slaapkamers + woonkamer + L×B; namen Slaapkamer 1–3 en Woonkamer 1; `composer check` groen.
+
 ### BL-097 — Create: browser-autofill mag adreszoekstatus niet laten hangen
 
 - **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-04 · **PR:** #100 · **Epic:** E3 · **Band:** A · product/UX · **Afhankelijk:** BL-033/080
@@ -1069,6 +1078,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 | ID | Datum | Resultaat / PR |
 |----|-------|----------------|
+| BL-098 | 2026-09-04 | #101 — herhaalde kamers naar catalogus-AI; naam per type |
 | BL-097 | 2026-09-04 | #100 — autofill breekt adreslookup-status niet meer |
 | BL-096 | 2026-09-04 | #99 — visueel browser-speelboek (`docs/browser-test-flow.md`) |
 | BL-013 | 2026-08-24 | #78 — `MEDIA_DISK=s3` + AWS-env; legacy disk+path intact |

@@ -9,11 +9,12 @@ namespace App\Domains\AI\Services;
  *
  * Offline én hybrid met catalogus-AI (ADR-0013/0014). Bewust klein en bevroren:
  * alleen functie, ruimtetype/aantal en expliciete zolderligging. Geen uitbreiding
- * met buitenunit- of andere keuzeheuristieken — die horen in de AI-catalogusprefill.
+ * met buitenunit-, maat- of andere keuzeheuristieken — die horen in de AI-catalogusprefill.
+ * Zelfde kamertype twee keer noemen (vaak toelichting) is geen lokale high-confidence.
  */
 final class LocalRequestIntentParser
 {
-    public const VERSION = 'request-intent-local-v3';
+    public const VERSION = 'request-intent-local-v4';
 
     private const MAX_ROOMS = 8;
 
@@ -39,6 +40,13 @@ final class LocalRequestIntentParser
         $roomMatches = $this->roomMatches($roomText);
 
         if ($roomMatches === []) {
+            return null;
+        }
+
+        $mentionedTypes = array_map(static fn (array $match): string => $match['type'], $roomMatches);
+
+        // Zelfde kamertype meer dan eens (vaak maten naderhand) is niet foutloos lokaal — catalogus-AI.
+        if (count($mentionedTypes) !== count(array_unique($mentionedTypes))) {
             return null;
         }
 

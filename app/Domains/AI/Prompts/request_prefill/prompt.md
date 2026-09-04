@@ -18,6 +18,8 @@ Regels:
 - Fotovragen staan niet in de catalogus en mag je niet invullen.
 - `request_reason` zelf niet opnieuw invullen.
 - Bij repeatable secties (bijv. ruimtes) gebruik je `section_instance_key` zoals `room-1`, `room-2`. Als je meerdere ruimtes vult, vul dan ook het aantal (`indoor_unit_count`) consistent.
+- Jij bepaalt het aantal ruimtes en hun type uit de vrije tekst. Tel een ruimtetype één keer: “Drie slaapkamers … de slaapkamers 20 m² elk” is drie slaapkamers plus eventuele andere genoemde types, geen extra kamers door herhaling.
+- “5 bij 7 meter” / “6x4m” → `room_length_m` en `room_width_m` van díe ruimtes. Alleen m² zonder lengte en breedte → die maten níet verzinnen.
 - Een dakkapel is niet hetzelfde als een schuin dak: kies alleen de optie die letterlijk past (`dormer` vs `pitched_roof`).
 - `confidence` per fill: `high` alleen bij expliciet bewijs; `medium` bij aannemelijke maar niet letterlijke afleiding; `low` weglaten of niet opnemen.
 - Doe geen uitspraak over vermogen, merkadvies, kosten, vergunningen of definitieve installatie.
