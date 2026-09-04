@@ -132,7 +132,12 @@ test('new intake form shows street and city without toevoeging or manual-address
         ->toContain("field.addEventListener('input', scheduleAddressSearch)")
         ->toContain('function parseHouseNumber(value)')
         ->toContain('addressLine.value = suggestion.address_line')
-        ->toContain("function markAddressAsManuallyEdited() {\n                cancelActiveRequest();")
+        ->toContain('function markAddressAsManuallyEdited()')
+        ->toContain('function shouldIgnoreStreetCityInput()')
+        ->toContain('isAddressSearchPending()')
+        ->toContain('autocomplete="off"')
+        ->not->toContain('autocomplete="street-address"')
+        ->not->toContain("function markAddressAsManuallyEdited() {\n                cancelActiveRequest();")
         ->not->toContain('manualSummary')
         ->not->toContain('Adres handmatig aangepast');
 });

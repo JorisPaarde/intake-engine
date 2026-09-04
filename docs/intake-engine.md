@@ -1,6 +1,6 @@
 # Vragen- en takenengine
 
-> **Documentversie:** 2.18 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.19 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: de templatewizard is **geïmplementeerd t/m airco v15** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md). UI-taal: [language.md](language.md).
 
@@ -56,7 +56,8 @@ Runtime leest altijd uit de database (de gepinde versie), nooit rechtstreeks uit
 - Eén resultaat vult *Straat en huisnummer* (volledige regel inclusief nummer/toevoeging, bijv. `Bernadottelaan 12A`), plaats en BAG-adresreferentie direct aan. Bij meerdere toevoegingen kiest de installateur het juiste resultaat. Er is geen apart zichtbaar Toevoeging-veld en geen “handmatig invoeren”-wrapper (BL-080).
 - Postcode, huisnummer en de gekozen toevoeging worden afzonderlijk in `intakes` bewaard. De zichtbare adresregel is presentatie inclusief huisnummer; BAG-matching leest het huisnummer nooit meer terug uit vrije tekst.
 - Wijzigen van postcode of huisnummer wist een eerdere selectie. Straat en plaats blijven altijd bewerkbaar bij geen resultaat, een PDOK-storing of bewust corrigeren.
-- De externe call vindt uitsluitend na complete geldige invoer plaats, nooit tijdens het renderen. Nieuwe invoer annuleert een geplande of lopende call; verouderde responses kunnen zichtbare of handmatige invoer niet overschrijven. De bestaande fail-soft BAG/open-dataverrijking na opslaan blijft ongewijzigd.
+- Browser-autofill vult straat en plaats vaak in dezelfde ronde als postcode. Die invoer breekt een geplande of lopende lookup **niet** af (anders blijft “Adres wordt automatisch gezocht…” staan). De PDOK-uitslag overschrijft straat/plaats. Straat en plaats hebben `autocomplete="off"` zodat de browser ze niet als hoofdadresveld behandelt; een echte correctie ná de lookup wist wel de BAG-referentie.
+- De externe call vindt uitsluitend na complete geldige invoer plaats, nooit tijdens het renderen. Nieuwe **postcode- of huisnummerinvoer** annuleert een geplande of lopende call; verouderde responses kunnen zichtbare of handmatige invoer niet overschrijven. De bestaande fail-soft BAG/open-dataverrijking na opslaan blijft ongewijzigd.
 - Historische adresregels met het bekende patroon `Straat, 273, 273` worden bij migratie alleen bij een exacte dubbele eindwaarde genormaliseerd. Een mislukte of tijdelijk onbeschikbare adrescontrole kan de installateur vanuit hetzelfde dossier opnieuw uitvoeren.
 - **Één AI-prefillveld op create (BL-093/094):** optioneel **Beschrijf wat de klant wil** (`prefill[request_reason]`) onder **AI vult de vragen in**, met knop **Dicteren** (browser Web Speech API, Nederlands; knop alleen zichtbaar als de browser dicteren ondersteunt). Installateur typt of spreekt de aanvraag in; AI/app (`DeriveIntentFromRequest`) vult alles in wat zeker genoeg is en laat alleen open vragen over. Geen multi-veld-prefill-UI. Backend kan nog andere `prefill`-keys in de create-POST accepteren (tests); die staan niet in de UI.
 
