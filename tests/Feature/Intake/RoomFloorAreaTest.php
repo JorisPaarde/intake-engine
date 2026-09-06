@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Services\AircoSurveyService;
 use App\Domains\Intake\Services\DecisionReadinessService;
 use App\Domains\Intake\Support\RoomAreaAcceptance;
@@ -21,7 +22,7 @@ beforeEach(function () {
 function makeFloorAreaIntake(): Intake
 {
     $user = User::factory()->create();
-    $version = \App\Domains\Intake\Models\IntakeTemplate::query()
+    $version = IntakeTemplate::query()
         ->where('key', 'airco')
         ->firstOrFail()
         ->latestPublishedVersion();
