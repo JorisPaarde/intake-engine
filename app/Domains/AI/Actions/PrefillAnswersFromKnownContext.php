@@ -337,9 +337,12 @@ final class PrefillAnswersFromKnownContext
             if ($questionKey === 'room_area_m2') {
                 $number = is_array($fill['value'] ?? null) ? ($fill['value']['number'] ?? null) : null;
                 $area = is_numeric($number) ? (float) $number : null;
-                $evidence = is_string($fill['evidence'] ?? null) ? (string) $fill['evidence'] : null;
-                $runEvidence = is_string($output['evidence'] ?? null) ? (string) $output['evidence'] : null;
-                $effectiveEvidence = ($evidence !== null && trim($evidence) !== '') ? $evidence : $runEvidence;
+                $fillEvidence = $fill['evidence'] ?? null;
+                $evidence = is_string($fillEvidence) && trim($fillEvidence) !== ''
+                    ? trim($fillEvidence)
+                    : null;
+                $runEvidence = trim($output['evidence']);
+                $effectiveEvidence = $evidence ?? ($runEvidence !== '' ? $runEvidence : null);
 
                 if (! RoomAreaAcceptance::acceptsAiExactArea($confidence, $effectiveEvidence, $area)) {
                     // Keep as reviewable suggestion; never invent L×B and never trust weak m².

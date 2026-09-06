@@ -229,10 +229,10 @@ final class RoomDimensions
             $confidence = $input['area_confidence'] ?? 'high';
             $evidence = $input['area_evidence'] ?? null;
 
-            if (is_string($source) && $source !== '') {
+            if ($source !== '') {
                 $dimensions['area_source'] = $source;
             }
-            if (is_string($confidence) && $confidence !== '') {
+            if ($confidence !== '') {
                 $dimensions['area_confidence'] = $confidence;
             }
             if (is_string($evidence) && trim($evidence) !== '') {

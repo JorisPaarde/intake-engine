@@ -483,7 +483,7 @@ final class DossierManager
             }
         }
 
-        if ($areaAnswer instanceof IntakeAnswer && isset($dimensions['area_m2'])) {
+        if ($areaAnswer instanceof IntakeAnswer) {
             $mapped = RoomAreaAcceptance::fromPrefillSource($areaAnswer->prefill_source);
             $dimensions['area_source'] = $mapped['source'];
             $dimensions['area_confidence'] = $mapped['confidence'];
