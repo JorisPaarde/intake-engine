@@ -182,6 +182,7 @@ test('incomplete refrigerant links become open points after readiness recalculat
         'configuration_type' => AircoConfigurationType::SingleSplit,
         'placement_ids' => [$indoor->id, $outdoor->id],
     ]);
+    $survey->markInstallationOptionFeasible($intake, $user, $option);
     $survey->selectInstallationOption($intake, $user, $option);
 
     $areas = $readiness->recalculate($intake->fresh() ?? $intake);

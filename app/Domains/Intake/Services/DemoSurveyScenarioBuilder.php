@@ -190,6 +190,7 @@ final class DemoSurveyScenarioBuilder
             'confidence' => 0.76,
         ]);
 
+        $this->aircoSurvey->markInstallationOptionFeasible($intake, $installer, $option);
         $this->aircoSurvey->selectInstallationOption($intake, $installer, $option);
 
         $uploads = [

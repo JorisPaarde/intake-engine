@@ -8,4 +8,5 @@ enum FollowUpRoundStatus: string
 {
     case Open = 'open';
     case Completed = 'completed';
+    case Cancelled = 'cancelled';
 }

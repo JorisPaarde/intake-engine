@@ -51,7 +51,23 @@
         @enderror
 
         <div class="flex-1 rounded-lg bg-white p-4 shadow-sm">
-            @if ($item->type === \App\Enums\FollowUpItemType::Text)
+            @if ($item->type === \App\Enums\FollowUpItemType::Choice)
+                <fieldset class="space-y-3">
+                    <legend class="sr-only">Kies één optie</legend>
+                    @foreach ($choiceOptions as $choice)
+                        <label class="flex min-h-12 cursor-pointer items-start gap-3 rounded-md border border-brand-fog px-3 py-3 has-[:checked]:border-brand-sea has-[:checked]:bg-brand-mist/40">
+                            <input
+                                type="radio"
+                                class="mt-1 border-brand-fog text-brand-sea focus:ring-brand-sea"
+                                wire:model.live="followUpResponses.{{ $item->id }}"
+                                value="{{ $choice['value'] }}"
+                                name="follow-up-choice-{{ $item->id }}"
+                            >
+                            <span class="text-sm leading-relaxed text-brand-ink">{{ $choice['label'] }}</span>
+                        </label>
+                    @endforeach
+                </fieldset>
+            @elseif ($item->type === \App\Enums\FollowUpItemType::Text)
                 <textarea
                     rows="6"
                     wire:model.blur="followUpResponses.{{ $item->id }}"

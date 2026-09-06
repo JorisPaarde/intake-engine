@@ -38,11 +38,11 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. De opnamefeedback gebruikt BL-099–103; de dev-AI-proeftuin is BL-104. Nieuwe items starten bij BL-105.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in open PR #107. De opnamefeedback gebruikt BL-099–103; de dev-AI-proeftuin is BL-104. Nieuwe items starten bij BL-105.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| 1 | BL-103 | Technische configuratie eerst, klantvoorkeur pas na haalbaarheidscheck | E7/E8 | backlog | high | na BL-102 · bij BL-038/039 · ADR-0012 |
+| 1 | BL-103 | Technische configuratie eerst, klantvoorkeur pas na haalbaarheidscheck | E7/E8 | in_progress | high | na BL-102 · bij BL-038/039 · ADR-0012 |
 | — | BL-104 | Dev: AI-invoer van Nieuwe opname veilig testen en verklaren | E3/E5 | done | medium | dev/QA · bij BL-028/064/065/093/098 · PR #105 |
 | — | BL-100 | Opnamewerkplek: vooraf ingevulde klanttaak vanuit ieder onderdeel | E7 | done | high | opname-UX · na BL-099 · bij BL-038/061/062/089 · PR #106 |
 | — | BL-102 | Ruimtecentrische binnen-/buitenunitkoppeling met juiste cardinaliteit | E8 | done | high | airco-configuratie · ADR-0012 · bij BL-039/040/060 · PR #104 |
@@ -762,7 +762,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-103 — Technische configuratie eerst, klantvoorkeur pas na haalbaarheidscheck
 
-- **Status:** backlog · **Prioriteit:** high · **Epic:** E7/E8 · **Band:** airco-configuratie · **Afhankelijk:** BL-102 voor concrete, gevalideerde unitkoppelingen · **Volgt op:** BL-038/039 · **Ref:** productmodel + ADR-0012
+- **Status:** in_progress · **Prioriteit:** high · **Epic:** E7/E8 · **Band:** airco-configuratie · **Afhankelijk:** BL-102 voor concrete, gevalideerde unitkoppelingen · **Volgt op:** BL-038/039 · **Ref:** productmodel + ADR-0012
 - **Aanleiding:** feedback op de opnamewerkplek maakt de beslisvolgorde expliciet: single-split of multi-split is een technische keuze van de installateur. Een klantvoorkeur heeft pas betekenis nadat de installatieopties technisch zijn beoordeeld en mag niet via een vroege vraag impliciet het systeemontwerp bepalen.
 - **Doel:** borg in de werkplek en bijdrageflow dat de installateur eerst de technisch haalbare opties vaststelt; alleen daarna kan hij desgewenst een klantvoorkeur vragen tussen die haalbare alternatieven.
 - **Scope:** status/acties bij **Multi-split of singles**, selectie van haalbare installatieopties en een daarop gebaseerde contextuele klanttaak. Een voorkeur wordt als afzonderlijke bijdrage met bron opgeslagen en blijft ondergeschikt aan de uiteindelijke installateursselectie. Gebruik gewone klanttaal over merkbare gevolgen; toon geen technische ontwerpvelden die de klant moet invullen.

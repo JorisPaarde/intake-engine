@@ -14,6 +14,7 @@ use App\Domains\Intake\Support\RoomDimensions;
 use App\Domains\Intake\Support\RoomHeightRequirement;
 use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
+use App\Enums\AircoOptionFeasibility;
 use App\Enums\AircoOptionStatus;
 use App\Enums\AircoPlacementType;
 use App\Enums\DecisionAreaStatus;
@@ -305,6 +306,29 @@ final class DecisionReadinessService
             ];
         }
 
+        $intake->loadMissing('aircoInstallationOptions');
+        $feasibleCount = $intake->aircoInstallationOptions
+            ->filter(static fn (AircoInstallationOption $option): bool => $option->feasibility === AircoOptionFeasibility::Feasible)
+            ->count();
+        $pendingCount = $intake->aircoInstallationOptions
+            ->filter(static fn (AircoInstallationOption $option): bool => $option->feasibility === AircoOptionFeasibility::Pending)
+            ->count();
+
+        if ($selected === null && $feasibleCount === 0) {
+            return [
+                'status' => DecisionAreaStatus::Review,
+                'blocker' => $pendingCount > 0
+                    ? 'Beoordeel welke keuzes technisch haalbaar zijn.'
+                    : 'Markeer minstens één technisch haalbare keuze, of pas de keuzes aan.',
+                'evidence_summary' => [
+                    'option_id' => $candidate->id,
+                    'configuration' => $candidate->configuration_type->value,
+                    'feasible_count' => 0,
+                    'pending_count' => $pendingCount,
+                ],
+            ];
+        }
+
         return [
             'status' => $selected === null ? DecisionAreaStatus::Review : DecisionAreaStatus::Ready,
             'blocker' => $selected === null ? 'Kies multi-split of singles, of pas die keuze aan.' : null,
@@ -312,6 +336,7 @@ final class DecisionReadinessService
                 'option_id' => $candidate->id,
                 'configuration' => $candidate->configuration_type->value,
                 'placements' => $candidate->placements->count(),
+                'feasible_count' => $feasibleCount,
             ],
         ];
     }

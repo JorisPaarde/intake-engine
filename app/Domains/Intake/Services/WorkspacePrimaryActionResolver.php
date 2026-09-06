@@ -11,6 +11,7 @@ use App\Domains\Intake\Support\RoomDimensions;
 use App\Domains\Intake\Support\RoomHeightRequirement;
 use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
+use App\Enums\AircoOptionFeasibility;
 use App\Enums\AircoOptionStatus;
 use App\Enums\DecisionAreaStatus;
 use App\Enums\DossierNextAction;
@@ -109,6 +110,24 @@ final class WorkspacePrimaryActionResolver
                 'href' => '#demo-proposal',
                 'label' => 'Kies multi-split of singles',
                 'summary' => 'Combineer binnen- en buitenunit tot één multi-split of losse singles',
+            ];
+        }
+
+        $hasFeasible = $intake->aircoInstallationOptions->contains(
+            static fn ($option): bool => $option->feasibility === AircoOptionFeasibility::Feasible,
+        );
+        $hasPending = $intake->aircoInstallationOptions->contains(
+            static fn ($option): bool => $option->feasibility === AircoOptionFeasibility::Pending,
+        );
+        $hasSelected = $intake->aircoInstallationOptions->contains(
+            static fn ($option): bool => $option->status === AircoOptionStatus::Selected,
+        );
+
+        if (! $hasSelected && ! $hasFeasible && $hasPending) {
+            return [
+                'href' => '#demo-proposal',
+                'label' => 'Beoordeel haalbaarheid',
+                'summary' => 'Markeer welke keuzes technisch haalbaar zijn',
             ];
         }
 

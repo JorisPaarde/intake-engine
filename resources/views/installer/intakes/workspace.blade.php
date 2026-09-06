@@ -722,18 +722,34 @@
                     <section id="demo-proposal" class="scroll-mt-24 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
                         <div>
                             <h3 class="text-lg font-semibold text-gray-950">Multi-split of singles</h3>
+                            <p class="mt-1 text-sm text-gray-500">Beoordeel eerst wat technisch haalbaar is. Vraag pas daarna een klantvoorkeur.</p>
                         </div>
+
+                        @if (! empty($preferenceState['stale_preference']))
+                            <div class="mt-4 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950" role="status">
+                                De eerdere klantvoorkeur is verouderd omdat de haalbare keuzes zijn gewijzigd. Beoordeel opnieuw en stuur zo nodig een nieuwe voorkeurstaak.
+                            </div>
+                        @endif
 
                         <div class="mt-5 space-y-5">
                             @forelse ($intake->aircoInstallationOptions as $option)
                                 <article @class([
                                     'rounded-2xl border p-4 sm:p-5',
                                     'border-emerald-300 bg-emerald-50/40' => $option->status === \App\Enums\AircoOptionStatus::Selected,
-                                    'border-gray-200' => $option->status !== \App\Enums\AircoOptionStatus::Selected,
+                                    'border-rose-200 bg-rose-50/30' => $option->feasibility === \App\Enums\AircoOptionFeasibility::Infeasible,
+                                    'border-sky-200 bg-sky-50/30' => $option->feasibility === \App\Enums\AircoOptionFeasibility::Feasible
+                                        && $option->status !== \App\Enums\AircoOptionStatus::Selected,
+                                    'border-gray-200' => $option->status !== \App\Enums\AircoOptionStatus::Selected
+                                        && $option->feasibility === \App\Enums\AircoOptionFeasibility::Pending,
                                 ])>
                                     <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                         <div>
-                                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ $option->configuration_type->label() }}</p>
+                                            <div class="flex flex-wrap items-center gap-2">
+                                                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ $option->configuration_type->label() }}</p>
+                                                <span class="rounded-full bg-white px-2.5 py-0.5 text-xs font-semibold text-gray-700 ring-1 ring-gray-200">
+                                                    {{ $option->feasibility->label() }}
+                                                </span>
+                                            </div>
                                             <h4 class="mt-1 text-base font-semibold text-gray-950">{{ $option->label }}</h4>
                                             <p class="mt-1 text-xs text-gray-500">
                                                 {{ $option->source_type === 'ai' ? 'AI-voorstel' : 'Door installateur toegevoegd' }}
@@ -743,6 +759,9 @@
                                             </p>
                                             @if ($option->summary)
                                                 <p class="mt-2 text-sm leading-relaxed text-gray-600">{{ $option->summary }}</p>
+                                            @endif
+                                            @if ($option->feasibility === \App\Enums\AircoOptionFeasibility::Infeasible && $option->infeasibility_reason)
+                                                <p class="mt-2 text-sm text-rose-800"><span class="font-semibold">Niet haalbaar:</span> {{ $option->infeasibility_reason }}</p>
                                             @endif
                                             <form method="POST" action="{{ route('intakes.workspace.options.configuration', [$intake, $option]) }}" class="mt-3 flex flex-wrap items-end gap-2">
                                                 @csrf
@@ -757,14 +776,33 @@
                                                 <button class="min-h-11 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Opslaan</button>
                                             </form>
                                         </div>
-                                        @if ($option->status === \App\Enums\AircoOptionStatus::Selected)
-                                            <span class="rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white">Geselecteerd</span>
-                                        @else
-                                            <form method="POST" action="{{ route('intakes.workspace.options.select', [$intake, $option]) }}">
-                                                @csrf
-                                                <button class="min-h-11 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Deze keuze</button>
-                                            </form>
-                                        @endif
+                                        <div class="flex flex-col items-stretch gap-2 sm:items-end">
+                                            @if ($option->status === \App\Enums\AircoOptionStatus::Selected)
+                                                <span class="rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white">Geselecteerd</span>
+                                            @elseif ($option->feasibility === \App\Enums\AircoOptionFeasibility::Feasible)
+                                                <form method="POST" action="{{ route('intakes.workspace.options.select', [$intake, $option]) }}">
+                                                    @csrf
+                                                    <button class="min-h-11 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Deze keuze</button>
+                                                </form>
+                                            @endif
+                                            @if ($option->feasibility !== \App\Enums\AircoOptionFeasibility::Feasible)
+                                                <form method="POST" action="{{ route('intakes.workspace.options.feasible', [$intake, $option]) }}">
+                                                    @csrf
+                                                    <button class="min-h-11 w-full rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500 sm:w-auto">Markeer haalbaar</button>
+                                                </form>
+                                            @endif
+                                            @if ($option->feasibility !== \App\Enums\AircoOptionFeasibility::Infeasible && $option->status !== \App\Enums\AircoOptionStatus::Selected)
+                                                <details class="rounded-xl border border-rose-200 bg-white p-3">
+                                                    <summary class="cursor-pointer text-sm font-semibold text-rose-800">Niet haalbaar</summary>
+                                                    <form method="POST" action="{{ route('intakes.workspace.options.infeasible', [$intake, $option]) }}" class="mt-3 space-y-2">
+                                                        @csrf
+                                                        <label class="block text-xs font-medium text-gray-700" for="infeasible-reason-{{ $option->id }}">Waarom niet?</label>
+                                                        <textarea id="infeasible-reason-{{ $option->id }}" name="infeasibility_reason" rows="2" class="block w-full rounded-xl border-gray-300 text-sm" required placeholder="Bijv. te lange koelroute of geen geschikte buitenplek."></textarea>
+                                                        <button class="min-h-10 rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white">Opslaan als niet haalbaar</button>
+                                                    </form>
+                                                </details>
+                                            @endif
+                                        </div>
                                     </div>
 
                                     <ul class="mt-4 flex flex-wrap gap-2">
@@ -964,6 +1002,27 @@
                                 </div>
                             @endforelse
                         </div>
+
+                        @if (($preferenceState['available'] ?? false) === true)
+                            <div id="demo-preference" class="mt-5 rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4">
+                                <h4 class="text-sm font-semibold text-indigo-950">Klantvoorkeur vragen</h4>
+                                <p class="mt-1 text-sm text-indigo-900/80">Er zijn {{ $preferenceState['feasible_count'] }} haalbare keuzes. Controleer de taak en stuur die naar de klant. Jij blijft eindverantwoordelijk voor de keuze.</p>
+                                <p class="mt-3 rounded-xl bg-white/80 px-3 py-2 text-sm text-gray-800">{{ $preferenceState['prompt'] }}</p>
+                                <ul class="mt-3 space-y-1 text-sm text-gray-700">
+                                    @foreach ($preferenceState['choices'] as $choice)
+                                        <li>· {{ $choice['label'] }}</li>
+                                    @endforeach
+                                </ul>
+                                <form method="POST" action="{{ route('intakes.workspace.options.preference', $intake) }}" class="mt-4">
+                                    @csrf
+                                    <button class="min-h-11 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500">Voorkeurstaak versturen</button>
+                                </form>
+                            </div>
+                        @elseif (($preferenceState['feasible_count'] ?? 0) === 1)
+                            <p class="mt-5 text-sm text-gray-500">Eén haalbare keuze: geen voorkeurvraag nodig. Selecteer die keuze zelf.</p>
+                        @elseif (($preferenceState['feasible_count'] ?? 0) === 0 && $intake->aircoInstallationOptions->isNotEmpty())
+                            <p class="mt-5 text-sm text-gray-500">Nog geen klantvoorkeur: markeer eerst minstens twee keuzes als haalbaar.</p>
+                        @endif
 
                         <details class="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-4">
                             <summary class="cursor-pointer text-sm font-semibold text-gray-900">Kies multi-split of singles</summary>

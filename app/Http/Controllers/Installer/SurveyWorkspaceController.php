@@ -32,6 +32,7 @@ use App\Domains\Intake\Services\DecisionReadinessService;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\DossierOverviewBuilder;
 use App\Domains\Intake\Services\ExternalFactPresenter;
+use App\Domains\Intake\Services\InstallationOptionPreferenceService;
 use App\Domains\Intake\Services\InstallerPhotoGalleryBuilder;
 use App\Enums\AircoConfigurationType;
 use App\Enums\AircoConnectionStatus;
@@ -63,6 +64,7 @@ final class SurveyWorkspaceController extends Controller
         DossierOverviewBuilder $overviewBuilder,
         ExternalFactPresenter $externalFactPresenter,
         InstallerPhotoGalleryBuilder $photoGalleryBuilder,
+        InstallationOptionPreferenceService $preferenceService,
     ): View {
         $this->authorize('view', $intake);
         $dossierManager->initialize($intake);
@@ -105,11 +107,12 @@ final class SurveyWorkspaceController extends Controller
             'configurationTypes' => AircoConfigurationType::cases(),
             'connectionTypes' => AircoConnectionType::cases(),
             'connectionStatuses' => AircoConnectionStatus::cases(),
-            'followUpTypes' => FollowUpItemType::cases(),
+            'followUpTypes' => $this->manualFollowUpTypes(),
             'siteVisitReasons' => InstallationSiteVisitReason::cases(),
             'proposalDeltas' => InstallationProposalDelta::cases(),
             'demoScenarioLoaded' => $demoScenarioLoaded,
             'customerTaskDraft' => $customerTaskDraft,
+            'preferenceState' => $preferenceService->workspaceState($intake),
         ]);
     }
 
@@ -152,6 +155,20 @@ final class SurveyWorkspaceController extends Controller
                     ? (int) $data['dossier_subject_id']
                     : null,
             ]);
+    }
+
+    /** @return list<FollowUpItemType> */
+    private function manualFollowUpTypes(): array
+    {
+        $types = [];
+        foreach (FollowUpItemType::cases() as $type) {
+            if ($type === FollowUpItemType::Choice) {
+                continue;
+            }
+            $types[] = $type;
+        }
+
+        return $types;
     }
 
     public function storeRoom(
@@ -302,9 +319,57 @@ final class SurveyWorkspaceController extends Controller
         AircoSurveyService $aircoSurvey,
     ): RedirectResponse {
         $this->authorize('update', $intake);
+        abort_unless($option->intake_id === $intake->id, 404);
         $aircoSurvey->selectInstallationOption($intake, $this->user($request), $option);
 
         return $this->back($intake, 'Keuze geselecteerd.');
+    }
+
+    public function markInstallationOptionFeasible(
+        Request $request,
+        Intake $intake,
+        AircoInstallationOption $option,
+        AircoSurveyService $aircoSurvey,
+    ): RedirectResponse {
+        $this->authorize('update', $intake);
+        abort_unless($option->intake_id === $intake->id, 404);
+        $aircoSurvey->markInstallationOptionFeasible($intake, $this->user($request), $option);
+
+        return $this->back($intake, 'Keuze gemarkeerd als haalbaar.');
+    }
+
+    public function markInstallationOptionInfeasible(
+        Request $request,
+        Intake $intake,
+        AircoInstallationOption $option,
+        AircoSurveyService $aircoSurvey,
+    ): RedirectResponse {
+        $this->authorize('update', $intake);
+        abort_unless($option->intake_id === $intake->id, 404);
+        $data = $request->validate([
+            'infeasibility_reason' => ['required', 'string', 'max:1000'],
+        ], [
+            'infeasibility_reason.required' => 'Schrijf kort waarom deze keuze niet haalbaar is.',
+        ]);
+        $aircoSurvey->markInstallationOptionInfeasible(
+            $intake,
+            $this->user($request),
+            $option,
+            $data['infeasibility_reason'],
+        );
+
+        return $this->back($intake, 'Keuze gemarkeerd als niet haalbaar.');
+    }
+
+    public function requestInstallationPreference(
+        Request $request,
+        Intake $intake,
+        InstallationOptionPreferenceService $preferenceService,
+    ): RedirectResponse {
+        $this->authorize('update', $intake);
+        $result = $preferenceService->requestPreference($intake, $this->user($request));
+
+        return $this->back($intake, $this->contributionMailMessage($result['mail']));
     }
 
     public function updateConfigurationType(

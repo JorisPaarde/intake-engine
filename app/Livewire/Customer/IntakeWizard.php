@@ -18,6 +18,7 @@ use App\Domains\Intake\Actions\SaveFollowUpTextResponse;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StoreFollowUpUpload;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
+use App\Domains\Intake\Models\ContributionTask;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeFollowUpItem;
 use App\Domains\Intake\Models\IntakeFollowUpRound;
@@ -462,6 +463,10 @@ class IntakeWizard extends Component
                 && $item->type === FollowUpItemType::Photo
                 ? $this->persistentFollowUpPhotoHint($item)
                 : null,
+            'choiceOptions' => $item instanceof IntakeFollowUpItem
+                && $item->type === FollowUpItemType::Choice
+                ? $this->followUpChoiceOptions($item)
+                : [],
             'maxUploadKb' => (int) config('intake.uploads.max_kilobytes', 5120),
             'maxPhotos' => (int) config('intake.follow_up.max_photos_per_item', 5),
             'maxDocuments' => (int) config('intake.follow_up.max_documents_per_item', 3),
@@ -493,13 +498,29 @@ class IntakeWizard extends Component
             return false;
         }
 
-        if ($item->type === FollowUpItemType::Text) {
+        if ($item->type === FollowUpItemType::Text || $item->type === FollowUpItemType::Choice) {
             $response = trim((string) ($this->followUpResponses[$item->id] ?? ''));
 
             if ($response === '') {
-                $this->addError('follow_up', 'Vul eerst een antwoord in.');
+                $this->addError(
+                    'follow_up',
+                    $item->type === FollowUpItemType::Choice
+                        ? 'Kies eerst één van de opties.'
+                        : 'Vul eerst een antwoord in.',
+                );
 
                 return false;
+            }
+
+            if ($item->type === FollowUpItemType::Choice) {
+                $allowed = collect($this->followUpChoiceOptions($item))
+                    ->pluck('value')
+                    ->all();
+                if (! in_array($response, $allowed, true)) {
+                    $this->addError('follow_up', 'Kies een van de getoonde opties.');
+
+                    return false;
+                }
             }
 
             app(SaveFollowUpTextResponse::class)->handle($this->intake(), $item, $response);
@@ -519,6 +540,40 @@ class IntakeWizard extends Component
         }
 
         return true;
+    }
+
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    private function followUpChoiceOptions(IntakeFollowUpItem $item): array
+    {
+        $task = ContributionTask::query()
+            ->where('intake_follow_up_item_id', $item->id)
+            ->first();
+        $meta = is_array($task?->meta) ? $task->meta : [];
+        $choices = $meta['choices'] ?? [];
+
+        if (! is_array($choices)) {
+            return [];
+        }
+
+        $normalized = [];
+        foreach ($choices as $choice) {
+            if (! is_array($choice)) {
+                continue;
+            }
+            $value = trim((string) ($choice['value'] ?? ''));
+            $label = trim((string) ($choice['label'] ?? ''));
+            if ($value === '' || $label === '') {
+                continue;
+            }
+            $normalized[] = [
+                'value' => $value,
+                'label' => $label,
+            ];
+        }
+
+        return $normalized;
     }
 
     /**
