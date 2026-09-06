@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Changed
+
+- **Opnamewerkplek: één overzicht Alle onderdelen (BL-099):** dubbele kaartenlijsten onder **Open punten** en **Nog N open** zijn weg. `#workspace-open-items` toont elk beslisgebied precies één keer als uitklapbaar onderdeel (status, blocker/detail, deep-link, optioneel **Vraag de klant**). Sticky **Volgende stap** blijft een compacte samenvatting. Geen wijziging aan readinessregels of de acht gebieden.
+
 ### Fixed
 
 - **Openingszin met herhaalde kamers ging naar de regex i.p.v. AI (BL-098):** “Drie slaapkamers … woonkamers is 5 bij 7 meter en de slaapkamers 20m2 elk” telde elke kamernaam lokaal (extra ruimtes, geen maten). Lokale parser laat herhaalde types nu los (`request-intent-local-v4`); catalogus-AI (`request-prefill-v3`) bepaalt aantal, type en L×B. Werkpleknamen nummeren per type: eerste woonkamer is **Woonkamer 1**, niet Woonkamer 3.

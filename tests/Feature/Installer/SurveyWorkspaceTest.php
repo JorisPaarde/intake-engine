@@ -88,14 +88,176 @@ test('installer can start a self-performed survey without exposing or mailing a 
         ->get(route('intakes.workspace', $intake))
         ->assertOk()
         ->assertSee('Volgende stap')
-        ->assertSee('Open punten')
+        ->assertSee('Alle onderdelen')
         ->assertSee('Ruimte toevoegen')
         ->assertSee('Taak voor de klant')
         ->assertSee('Voorstel afronden')
         ->assertSee('Woninggegevens')
         ->assertSee('tik om te openen')
         ->assertSee('href="#workspace-rooms"', false)
+        ->assertSee('id="dossier-area-request"', false)
         ->assertDontSee('open punten bekijken');
+});
+
+test('workspace Alle onderdelen is the single overview when open points exist', function () {
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'overzicht-open@example.com');
+
+    $response = $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertSee('Alle onderdelen')
+        ->assertSee('id="workspace-open-items"', false)
+        ->assertSee('id="dossier-area-request"', false)
+        ->assertSee('id="dossier-area-capacity"', false)
+        ->assertSee('id="dossier-area-quote"', false)
+        ->assertSee('Aanvulling nodig')
+        ->assertSee('href="#workspace-rooms"', false);
+
+    $html = $response->getContent();
+    expect(substr_count($html, 'id="dossier-area-'))->toBe(8)
+        ->and(substr_count($html, 'id="dossier-area-request"'))->toBe(1)
+        ->and(preg_match('/Nog\s+\d+\s+open/', $html))->toBe(0)
+        ->and(preg_match('/<h3[^>]*>\s*Open punten\s*<\/h3>/', $html))->toBe(0);
+});
+
+test('workspace Alle onderdelen remains the single overview when nothing is open', function () {
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'overzicht-klaar@example.com');
+    $survey = app(AircoSurveyService::class);
+
+    $parents = $survey->createRoom($intake, $user, [
+        'name' => 'Slaapkamer ouders',
+        'use_type' => 'bedroom',
+        'length_m' => 4.2,
+        'width_m' => 3.5,
+        'height_m' => 2.6,
+    ]);
+    $children = $survey->createRoom($intake, $user, [
+        'name' => 'Slaapkamer kinderen',
+        'use_type' => 'bedroom',
+        'length_m' => 3.8,
+        'width_m' => 3.1,
+        'height_m' => 2.6,
+    ]);
+    $insideParents = $survey->createPlacement($intake, $user, [
+        'airco_room_id' => $parents->id,
+        'type' => AircoPlacementType::IndoorUnit,
+        'label' => 'Boven de slaapkamerdeur',
+    ]);
+    $insideChildren = $survey->createPlacement($intake, $user, [
+        'airco_room_id' => $children->id,
+        'type' => AircoPlacementType::IndoorUnit,
+        'label' => 'Vrije wand naast het raam',
+    ]);
+    $outside = $survey->createPlacement($intake, $user, [
+        'type' => AircoPlacementType::OutdoorUnit,
+        'label' => 'Platte dak van de aanbouw',
+    ]);
+    $power = $survey->createPlacement($intake, $user, [
+        'type' => AircoPlacementType::PowerSource,
+        'label' => 'Nieuwe groep in meterkast',
+    ]);
+    $drain = $survey->createPlacement($intake, $user, [
+        'type' => AircoPlacementType::DrainPoint,
+        'label' => 'Regenwaterafvoer achtergevel',
+    ]);
+
+    foreach ([$power, $outside] as $index => $placement) {
+        IntakeUpload::query()->create([
+            'intake_id' => $intake->id,
+            'question_key' => 'installer_evidence',
+            'section_instance_key' => 'subject-'.$placement->dossier_subject_id,
+            'disk' => 'local',
+            'path' => 'test/overview-evidence-'.$index.'.jpg',
+            'original_filename' => $index === 0 ? 'meterkast.jpg' : 'gevel.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => 100,
+            'checksum' => hash('sha256', 'overview-evidence-'.$index),
+            'sort_order' => 1,
+        ]);
+    }
+
+    IntakeUpload::query()->create([
+        'intake_id' => $intake->id,
+        'question_key' => 'fusebox_photo',
+        'section_instance_key' => null,
+        'disk' => 'local',
+        'path' => 'test/overview-fusebox.jpg',
+        'original_filename' => 'fusebox.jpg',
+        'mime_type' => 'image/jpeg',
+        'size_bytes' => 100,
+        'checksum' => hash('sha256', 'overview-fusebox'),
+        'sort_order' => 1,
+    ]);
+
+    IntakeUpload::query()->create([
+        'intake_id' => $intake->id,
+        'question_key' => 'around_house_photos',
+        'section_instance_key' => null,
+        'disk' => 'local',
+        'path' => 'test/overview-around.jpg',
+        'original_filename' => 'around.jpg',
+        'mime_type' => 'image/jpeg',
+        'size_bytes' => 100,
+        'checksum' => hash('sha256', 'overview-around'),
+        'sort_order' => 1,
+    ]);
+
+    $option = $survey->createInstallationOption($intake, $user, [
+        'label' => 'Optie A · één multi-split',
+        'configuration_type' => AircoConfigurationType::MultiSplit,
+        'summary' => 'Eén buitenunit bedient beide slaapkamers.',
+        'cost_impact' => 'medium',
+        'placement_ids' => [
+            $insideParents->id,
+            $insideChildren->id,
+            $outside->id,
+            $power->id,
+            $drain->id,
+        ],
+    ]);
+
+    foreach ([
+        [AircoConnectionType::Refrigerant, 'Koelleiding ouders', $insideParents->id, $outside->id],
+        [AircoConnectionType::Refrigerant, 'Koelleiding kinderen', $insideChildren->id, $outside->id],
+        [AircoConnectionType::Condensate, 'Condens ouders', $insideParents->id, $drain->id],
+        [AircoConnectionType::Condensate, 'Condens kinderen', $insideChildren->id, $drain->id],
+        [AircoConnectionType::Power, 'Stroom naar buitenunit', $power->id, $outside->id],
+    ] as [$type, $label, $from, $to]) {
+        $survey->createConnection($intake, $user, $option, [
+            'type' => $type,
+            'label' => $label,
+            'from_placement_id' => $from,
+            'to_placement_id' => $to,
+            'status' => AircoConnectionStatus::Proposed,
+            'length_class' => 'medium',
+            'segments' => ['Zichtbare en aannemelijke route'],
+            'cost_impact' => 'medium',
+            'confidence' => 0.9,
+        ]);
+    }
+    $survey->selectInstallationOption($intake, $user, $option);
+    app(CompleteInstallerSurvey::class)->handle($intake->fresh(), $user);
+
+    $openCount = app(DecisionReadinessService::class)
+        ->recalculate($intake->fresh())
+        ->filter(fn ($area) => in_array($area->status, [DecisionAreaStatus::Blocked, DecisionAreaStatus::Review], true))
+        ->count();
+    expect($openCount)->toBe(0);
+
+    $response = $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertSee('Alle onderdelen')
+        ->assertSee('Geen open punten meer')
+        ->assertSee('Klaar')
+        ->assertSee('id="dossier-area-quote"', false);
+
+    $html = $response->getContent();
+    expect(substr_count($html, 'id="dossier-area-'))->toBe(8)
+        ->and(preg_match('/Nog\s+\d+\s+open/', $html))->toBe(0)
+        ->and(preg_match('/<h3[^>]*>\s*Open punten\s*<\/h3>/', $html))->toBe(0);
 });
 
 test('legacy customer link actions cannot expose an installer-only survey', function () {

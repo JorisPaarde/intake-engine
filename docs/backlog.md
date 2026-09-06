@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.50 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.51 · **Laatste update:** 2026-09-06 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -42,7 +42,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| 1 | BL-099 | Opnamewerkplek: `Alle onderdelen` vervangt dubbele open-puntenlijsten | E6 | backlog | high | opname-UX · bij BL-053/055/056/084/086 |
+| 1 | BL-099 | Opnamewerkplek: `Alle onderdelen` vervangt dubbele open-puntenlijsten | E6 | in_progress | high | opname-UX · bij BL-053/055/056/084/086 |
 | 2 | BL-100 | Opnamewerkplek: vooraf ingevulde klanttaak vanuit ieder onderdeel | E7 | backlog | high | opname-UX · na BL-099 · bij BL-038/061/062/089 |
 | 3 | BL-101 | Ruimteoppervlakte: L×B óf betrouwbaar m², hoogte apart | E3/E7/E9 | backlog | high | ruimtegegevens · bij BL-074/079/098 |
 | 4 | BL-102 | Ruimtecentrische binnen-/buitenunitkoppeling met juiste cardinaliteit | E8 | backlog | high | airco-configuratie · ADR-0012 · bij BL-039/040/060 |
@@ -720,7 +720,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-099 — Opnamewerkplek: `Alle onderdelen` vervangt dubbele open-puntenlijsten
 
-- **Status:** backlog · **Prioriteit:** high · **Epic:** E6 · **Band:** opname-UX · **Volgt op:** BL-053/055/056/084/086
+- **Status:** in_progress · **Prioriteit:** high · **Epic:** E6 · **Band:** opname-UX · **Volgt op:** BL-053/055/056/084/086
 - **Aanleiding:** feedback op `/intakes/61/opname#room-130`: bovenaan de opnamewerkplek staan dezelfde beslisgebieden achtereenvolgens als losse kaarten onder **Open punten**, nogmaals onder **Nog 3 open** en daarna als **Alle onderdelen**. De installateur moet drie representaties vergelijken en detailinformatie wordt herhaald.
 - **Doel:** maak **Alle onderdelen** het centrale klikbare en uitklapbare overzicht voor status, ontbrekende informatie en de eerstvolgende handeling per onderdeel.
 - **Scope:** `resources/views/installer/intakes/workspace.blade.php`, de bestaande `DossierOverviewBuilder`-data en targets uit `WorkspacePrimaryActionResolver`; één responsieve onderdelenlijst met status/telling, detail op verzoek en een gerichte deep-link of actie. De sticky volgende-stapbalk mag een compacte samenvatting houden, maar geen tweede inhoudelijke lijst. Geen nieuw datamodel.
