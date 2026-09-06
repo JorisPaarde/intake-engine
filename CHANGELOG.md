@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Added
+
+- **Ruimtecentrische binnen-/buitenunitkoppeling (BL-102):** vanuit de ruimtekaart koppelt de installateur een binnenunit (exact één gewenste ruimte) aan een herkenbare gedeelde buitenunit via een `refrigerant`-verbinding in de installatieoptie. Cardinaliteit: single-split 1↔1, multi-split ≥2 indoor → dezelfde ene outdoor, meerdere singles unieke 1↔1-paren. Onvolledige/dubbele/kruiskoppelingen worden afgewezen en als open punt in beslisgereedheid getoond. Hergebruikt plaatsingsopties, optie-placementpivot en bestaande koelleidingen (ADR-0012); geen nieuwe hoofdtabel.
+
 ### Changed
 
 - **Opnamewerkplek: één overzicht Alle onderdelen (BL-099):** dubbele kaartenlijsten onder **Open punten** en **Nog N open** zijn weg. `#workspace-open-items` toont elk beslisgebied precies één keer als uitklapbaar onderdeel (status, blocker/detail, deep-link, optioneel **Vraag de klant**). Sticky **Volgende stap** blijft een compacte samenvatting. Geen wijziging aan readinessregels of de acht gebieden.

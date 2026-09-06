@@ -1,6 +1,6 @@
 # Databaseschema — Digitale Opname
 
-> **Documentversie:** 3.6 · **Laatste update:** 2026-08-05 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.7 · **Laatste update:** 2026-09-06 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: dit document beschrijft het **geïmplementeerde schema**, inclusief de uitbreidende dossiermigratie van BL-030 en BL-035 t/m BL-042 en de zelfstandige publieke interesse-inzendingen van BL-043. Bestaande antwoord-, bron-, upload-, review- en routetabellen blijven bewust bestaan naast de nieuwe dossierobjecten.
 
@@ -61,10 +61,10 @@ De bestaande `intakes`-rij blijft het migratieanker en representeert de technisc
 | `contribution_tasks` | Afgebakende tekst-, foto- of documentopdracht voor klant/installateur, met doel, beslisgebied en lifecycle. |
 | `dossier_decision_areas` | Status, blokkade, kostenrisico en volgende actie per technisch beslisgebied. |
 | `airco_rooms` | Gewenste fysieke ruimtes, onafhankelijk van het aantal gekozen units. |
-| `airco_placement_options` | Kandidaatpositie voor binnenunit, buitenunit, voedingsbron of afvoerpunt. |
+| `airco_placement_options` | Kandidaatpositie voor binnenunit, buitenunit, voedingsbron of afvoerpunt. Binnenunit vereist `airco_room_id`; buitenunit is gedeeld (geen ruimteeigendom). |
 | `airco_installation_options` | Kandidaatconfiguratie met rang, bron, zekerheid en selectiestatus. |
 | `airco_installation_option_placements` | Koppelt gebruikte posities aan één installatieoptie. |
-| `airco_connections` | Koel-, condens- of stroomverbinding met eindpunten, segmentomschrijving, zekerheid en kostenimpact. |
+| `airco_connections` | Koel-, condens- of stroomverbinding met eindpunten, segmentomschrijving, zekerheid en kostenimpact. Voor `refrigerant` geldt BL-102-cardinaliteit t.o.v. de installatieoptie. |
 | `installation_outcomes` | Expliciete offerte-/plaatsingsuitkomst en privacyveilige tijd-, bezoek-, afwijkings- en montagefeedback. |
 
 ### Migratieregels

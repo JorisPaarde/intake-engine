@@ -1,6 +1,6 @@
 # Productmodel — centrale technische opname
 
-> **Documentversie:** 1.3 · **Laatste update:** 2026-08-10 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.4 · **Laatste update:** 2026-09-06 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **productfundament geïmplementeerd in BL-030 en BL-035 t/m BL-042**. De centrale dossierkern, drie bijdrageworkflows, airco-objecten, beslisgereedheid, beeldvarianten, AI-synthese en uitkomstregistratie zitten in dezelfde applicatie. Productief gebruik van externe beeld-AI blijft achter de bestaande DPIA-, provider- en staging-gates.
 
@@ -172,6 +172,8 @@ Een **installatieoptie** combineert:
 - de voorgenomen koppeling tussen die posities;
 - bijvoorbeeld single-split, multi-split of meerdere single-splits;
 - per technische verbinding het bewijs, de onzekerheid en de kostenimpact.
+
+**Ruimtecentrische unitkoppeling (BL-102):** een binnenunitpositie hoort bij precies één gewenste ruimte (`airco_room_id`). Binnen een installatieoptie koppelt een `refrigerant`-verbinding die binnenunit aan precies één herkenbaar gelabelde buitenunit. Buitenunits blijven gedeelde plaatsingsopties en zijn geen eigendom van een ruimte. Cardinaliteit: single-split 1↔1; multi-split ≥2 indoor naar dezelfde ene outdoor; meerdere single-splits evenveel unieke 1↔1-paren. Onvolledige, dubbele of kruiskoppelingen zijn ongeldig en verschijnen als open punt.
 
 AI mag opties voorstellen en rangschikken. De installateur kiest, corrigeert of verwerpt.
 

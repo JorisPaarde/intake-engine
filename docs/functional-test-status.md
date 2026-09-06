@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.74 · **Laatste update:** 2026-09-06 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.75 · **Laatste update:** 2026-09-06 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -12,6 +12,7 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
+| Ruimtecentrische unitkoppeling (BL-102) | todo | - | Op werkplek `#room-{id}`: binnenunit + gekoppelde buitenunit + configuratie zichtbaar/bewerkbaar; single-split 1↔1, multi-split ≥2→1 outdoor, meerdere singles unieke paren; ongeldige koppeling toont open punt; buitenunit blijft gedeeld (geen ruimteeigendom). |
 | Opnamewerkplek Alle onderdelen (BL-099) | todo | - | Op `/intakes/{id}/opname`: één sectie **Alle onderdelen** met elk beslisgebied precies één keer (status + uitklap detail/deep-link); géén kaarten onder **Open punten** of **Nog N open**; sticky blijft compact; desktop + ~390 px zonder horizontale overflow. |
 | Openingszin drie slaapkamers + woonkamer + maten (BL-098) | todo | - | Met tekst-AI aan: *Drie slaapkamers en woonkamer koelen woonkamers is 5 bij 7 meter en de slaapkamers 20m2 elk* → 3 slaapkamers + 1 woonkamer (niet extra kamers); woonkamer heet **Woonkamer 1**; L×B 5×7 op de woonkamer; slaapkamers zonder verzonnen lengte/breedte. Zonder tekst-AI: die zin vult kamers niet lokaal. |
 | Create adreslookup vs browser-autofill (BL-097) | todo | - | Op create: laat de browser een opgeslagen adres invullen (of vul straat/plaats direct terwijl postcode+huisnummer compleet zijn). Status **Adres wordt automatisch gezocht…** mag niet blijven hangen; straat/plaats worden door PDOK overschreven of tonen een nette fout. Daarna handmatig straat wijzigen ná een match: lookup-id mag weg, opslaan blijft mogelijk. |

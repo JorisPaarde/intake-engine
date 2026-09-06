@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.51 · **Laatste update:** 2026-09-06 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.52 · **Laatste update:** 2026-09-06 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,13 +38,13 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. De opnamefeedback gebruikt BL-099–103; de dev-AI-proeftuin is BL-104. Nieuwe items starten bij BL-105.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-102 in #104. De opnamefeedback gebruikt BL-099–103; de dev-AI-proeftuin is BL-104. Nieuwe items starten bij BL-105.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
 | 1 | BL-100 | Opnamewerkplek: vooraf ingevulde klanttaak vanuit ieder onderdeel | E7 | backlog | high | opname-UX · na BL-099 · bij BL-038/061/062/089 |
 | 2 | BL-101 | Ruimteoppervlakte: L×B óf betrouwbaar m², hoogte apart | E3/E7/E9 | backlog | high | ruimtegegevens · bij BL-074/079/098 |
-| 3 | BL-102 | Ruimtecentrische binnen-/buitenunitkoppeling met juiste cardinaliteit | E8 | backlog | high | airco-configuratie · ADR-0012 · bij BL-039/040/060 |
+| 3 | BL-102 | Ruimtecentrische binnen-/buitenunitkoppeling met juiste cardinaliteit | E8 | done | high | airco-configuratie · ADR-0012 · bij BL-039/040/060 |
 | 4 | BL-103 | Technische configuratie eerst, klantvoorkeur pas na haalbaarheidscheck | E7/E8 | backlog | high | na BL-102 · bij BL-038/039 · ADR-0012 |
 | 5 | BL-104 | Dev: AI-invoer van Nieuwe opname veilig testen en verklaren | E3/E5 | backlog | medium | dev/QA · bij BL-028/064/065/093/098 |
 | — | BL-099 | Opnamewerkplek: `Alle onderdelen` vervangt dubbele open-puntenlijsten | E6 | done | high | opname-UX · bij BL-053/055/056/084/086 · PR #102 |
@@ -750,14 +750,14 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-102 — Ruimtecentrische binnen-/buitenunitkoppeling met juiste cardinaliteit
 
-- **Status:** backlog · **Prioriteit:** high · **Epic:** E8 · **Band:** airco-configuratie · **Volgt op:** BL-039/040/060/081/082 · **Ref:** ADR-0012
+- **Status:** done (2026-09-06, #104) · **Prioriteit:** high · **Epic:** E8 · **Band:** airco-configuratie · **Volgt op:** BL-039/040/060/081/082 · **Ref:** ADR-0012
 - **Aanleiding:** op `/intakes/{intake}/opname#room-{id}` staan binnenunits wel bij een ruimte, maar de herkenbare koppeling met de buitenunit wordt pas verderop via een globale keuze en losse verbindingen opgebouwd. Daardoor is vanuit de ruimte niet direct zichtbaar welke binnenunit bij welke buitenunit hoort en bewijst de huidige telling van units nog niet alle één-op-één- of gedeelde koppelingen.
 - **Doel:** maak de technische relatie vanuit de ruimte begrijpelijk en expliciet: een binnenunit hoort bij precies één gewenste ruimte en wordt binnen een installatieoptie aan een herkenbaar gelabelde buitenunit gekoppeld.
 - **Scope:** ruimtekaart, unitblokken, installatieopties, koelleiding-eindpunten en validatie in `AircoSurveyService`; hergebruik de bestaande plaatsingsopties, optie-placementpivot en concrete `refrigerant`-verbindingen uit ADR-0012. Buitenunits blijven gedeelde plaatsingsopties en worden niet rechtstreeks eigendom van een ruimte.
 - **Niet in scope:** gewenste ruimtes gelijkstellen aan een definitief aantal units; de klant zelf posities of de technische configuratie laten kiezen; ADR-0012 vervangen.
 - **Acceptatie:** iedere binnenunitpositie in een geldige optie heeft exact één `airco_room_id` en een expliciete koelleiding naar één herkenbare buitenunit; vanuit de ruimtekaart zijn binnenunit, gekoppelde buitenunit en configuratietype zichtbaar en bewerkbaar zonder naar losse globale lijsten te moeten zoeken; single-split valideert precies één binnenunit ↔ één buitenunit; multi-split valideert minimaal twee binnenunits die ieder naar dezelfde ene buitenunit koppelen; meerdere single-splits valideert evenveel binnen- als buitenunits met uitsluitend unieke één-op-éénparen; onvolledige, dubbele of kruis-opnamekoppelingen worden afgewezen en als gericht open punt getoond; tests dekken de drie configuraties, tenantgrenzen en herberekende readiness; `composer check` groen.
 - **Hypothese:** het bestaande model bevat de benodigde objecten; de belangrijkste aanvulling is expliciete relatievalidatie en ruimtecentrische UX, mogelijk zonder nieuwe hoofdtabel.
-
+- **Oplevering:** `AircoUnitCouplingValidator` + `AircoSurveyService::syncRoomUnitCoupling` / strengere plaatsings- en koelleidingvalidatie; ruimtekaart toont/bewerkt binnenunit, gekoppelde buitenunit en configuratie; readiness toont ontbrekende/ongeldige koppelingen als open punt.
 ### BL-103 — Technische configuratie eerst, klantvoorkeur pas na haalbaarheidscheck
 
 - **Status:** backlog · **Prioriteit:** high · **Epic:** E7/E8 · **Band:** airco-configuratie · **Afhankelijk:** BL-102 voor concrete, gevalideerde unitkoppelingen · **Volgt op:** BL-038/039 · **Ref:** productmodel + ADR-0012
