@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Domains\AI\Actions;
 
+use App\Domains\AI\DTOs\RequestPrefillCandidate;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\AiGateway;
 use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\AI\Services\RequestPrefillContextBuilder;
+use App\Domains\AI\Services\RequestPrefillOutcomeClassifier;
 use App\Domains\AI\Services\TemplateQuestionCatalogBuilder;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Models\Intake;
@@ -18,10 +20,7 @@ use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
 use App\Enums\IntakeStatus;
 use App\Enums\QuestionType;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
@@ -38,6 +37,7 @@ final class PrefillAnswersFromKnownContext
         private readonly PromptVersionRepository $promptVersions,
         private readonly TemplateQuestionCatalogBuilder $catalogBuilder,
         private readonly RequestPrefillContextBuilder $contextBuilder,
+        private readonly RequestPrefillOutcomeClassifier $classifier,
         private readonly SaveIntakeAnswer $saveIntakeAnswer,
     ) {}
 
@@ -108,8 +108,16 @@ final class PrefillAnswersFromKnownContext
                 promptVersion: $promptVersion,
             );
 
-            $output = $this->validateOutput($result->output, $catalog);
-            $applied = $this->apply($intake, $output);
+            $classified = $this->classifier->classifyCatalogOutput(
+                $result->output,
+                $catalog,
+                $this->photoKeys($intake),
+            );
+            $output = [
+                'evidence' => $classified['evidence'],
+                'fills' => $classified['fills'],
+            ];
+            $applied = $this->apply($intake, $output, $classified['candidates']);
 
             $run->update($run->completionResultAttributes($result) + [
                 'status' => AiRunStatus::Succeeded,
@@ -147,204 +155,44 @@ final class PrefillAnswersFromKnownContext
     }
 
     /**
-     * @param  array<string, mixed>  $output
-     * @param  array<string, mixed>  $catalog
-     * @return array<string, mixed>
-     */
-    private function validateOutput(array $output, array $catalog): array
-    {
-        $validator = Validator::make($output, [
-            'evidence' => ['required', 'string', 'min:3', 'max:500'],
-            'fills' => ['present', 'array', 'max:40'],
-            'fills.*.question_key' => ['required', 'string', 'max:120'],
-            'fills.*.section_instance_key' => ['nullable', 'string', 'max:80'],
-            'fills.*.confidence' => ['required', Rule::in(['high', 'medium', 'low'])],
-            'fills.*.value' => ['required', 'array'],
-            'fills.*.evidence' => ['nullable', 'string', 'max:300'],
-        ]);
-
-        if ($validator->fails()) {
-            throw ValidationException::withMessages($validator->errors()->toArray());
-        }
-
-        /** @var array{evidence: string, fills: list<array<string, mixed>>} $validated */
-        $validated = $validator->validated();
-        $index = $this->catalogIndex($catalog);
-        $fills = [];
-
-        foreach ($validated['fills'] as $fill) {
-            $key = (string) $fill['question_key'];
-            $question = $index[$key] ?? null;
-
-            if ($question === null) {
-                continue;
-            }
-
-            if ($question['type'] === QuestionType::Photo->value) {
-                continue;
-            }
-
-            $normalized = $this->normalizeValue($question, $fill['value']);
-
-            if ($normalized === null) {
-                continue;
-            }
-
-            $instanceKey = $fill['section_instance_key'] ?? null;
-            if (! $question['is_repeatable'] && $instanceKey !== null) {
-                continue;
-            }
-
-            if ($question['is_repeatable'] && ($instanceKey === null || $instanceKey === '')) {
-                continue;
-            }
-
-            $fills[] = [
-                'question_key' => $key,
-                'section_instance_key' => is_string($instanceKey) ? $instanceKey : null,
-                'confidence' => $fill['confidence'],
-                'value' => $normalized,
-                'evidence' => $fill['evidence'] ?? null,
-            ];
-        }
-
-        return [
-            'evidence' => $validated['evidence'],
-            'fills' => $fills,
-        ];
-    }
-
-    /**
-     * @param  array<string, mixed>  $catalog
-     * @return array<string, array{type: string, options: list<string>, is_repeatable: bool}>
-     */
-    private function catalogIndex(array $catalog): array
-    {
-        $index = [];
-
-        foreach ($catalog['sections'] as $section) {
-            $repeatable = (bool) ($section['is_repeatable'] ?? false);
-
-            foreach ($section['questions'] as $question) {
-                $options = [];
-                foreach ($question['options'] ?? [] as $option) {
-                    if (is_string($option['value'] ?? null)) {
-                        $options[] = $option['value'];
-                    }
-                }
-
-                $index[$question['key']] = [
-                    'type' => (string) $question['type'],
-                    'options' => $options,
-                    'is_repeatable' => $repeatable,
-                ];
-            }
-        }
-
-        return $index;
-    }
-
-    /**
-     * @param  array{type: string, options: list<string>, is_repeatable: bool}  $question
-     * @param  array<string, mixed>  $value
-     * @return array<string, mixed>|null
-     */
-    private function normalizeValue(array $question, array $value): ?array
-    {
-        return match ($question['type']) {
-            QuestionType::SingleChoice->value => $this->normalizeChoice($question['options'], $value),
-            QuestionType::MultiChoice->value => $this->normalizeMultiChoice($question['options'], $value),
-            QuestionType::Number->value => isset($value['number']) && is_numeric($value['number'])
-                ? ['number' => (str_contains((string) $value['number'], '.')
-                    ? (float) $value['number']
-                    : (int) $value['number'])]
-                : null,
-            QuestionType::ShortText->value, QuestionType::LongText->value => isset($value['text']) && is_string($value['text']) && trim($value['text']) !== ''
-                ? ['text' => trim($value['text'])]
-                : null,
-            QuestionType::Boolean->value => array_key_exists('bool', $value) && is_bool($value['bool'])
-                ? ['bool' => $value['bool']]
-                : null,
-            default => null,
-        };
-    }
-
-    /**
-     * @param  list<string>  $options
-     * @param  array<string, mixed>  $value
-     * @return array{value: string}|null
-     */
-    private function normalizeChoice(array $options, array $value): ?array
-    {
-        $choice = $value['value'] ?? null;
-
-        if (! is_string($choice) || ! in_array($choice, $options, true)) {
-            return null;
-        }
-
-        return ['value' => $choice];
-    }
-
-    /**
-     * @param  list<string>  $options
-     * @param  array<string, mixed>  $value
-     * @return array{values: list<string>}|null
-     */
-    private function normalizeMultiChoice(array $options, array $value): ?array
-    {
-        $values = $value['values'] ?? null;
-
-        if (! is_array($values) || $values === []) {
-            return null;
-        }
-
-        $normalized = [];
-        foreach ($values as $item) {
-            if (! is_string($item) || ! in_array($item, $options, true)) {
-                return null;
-            }
-            $normalized[] = $item;
-        }
-
-        return ['values' => array_values(array_unique($normalized))];
-    }
-
-    /**
      * @param  array{evidence: string, fills: list<array<string, mixed>>}  $output
+     * @param  list<RequestPrefillCandidate>  $candidates
      * @return list<string>
      */
-    private function apply(Intake $intake, array $output): array
+    private function apply(Intake $intake, array $output, array $candidates): array
     {
         $applied = [];
 
-        foreach ($output['fills'] as $fill) {
-            $confidence = (string) $fill['confidence'];
-
-            if ($confidence === 'low') {
+        foreach ($candidates as $candidate) {
+            if (! in_array($candidate->disposition, [
+                RequestPrefillCandidate::DISPOSITION_FILL,
+                RequestPrefillCandidate::DISPOSITION_SUGGESTION,
+            ], true)) {
                 continue;
             }
 
-            $questionKey = (string) $fill['question_key'];
-            $instanceKey = $fill['section_instance_key'] ?? null;
-            $instanceKey = is_string($instanceKey) ? $instanceKey : null;
-
-            if (! $this->mayWrite($intake, $questionKey, $instanceKey)) {
+            if ($candidate->value === null) {
                 continue;
             }
 
-            $source = $confidence === 'high' ? self::SOURCE_DERIVED : self::SOURCE_SUGGESTED;
+            if (! $this->mayWrite($intake, $candidate->questionKey, $candidate->sectionInstanceKey)) {
+                continue;
+            }
 
-            if ($questionKey === 'room_area_m2') {
-                $number = is_array($fill['value'] ?? null) ? ($fill['value']['number'] ?? null) : null;
+            $source = $candidate->disposition === RequestPrefillCandidate::DISPOSITION_FILL
+                ? self::SOURCE_DERIVED
+                : self::SOURCE_SUGGESTED;
+
+            if ($candidate->questionKey === 'room_area_m2') {
+                $number = $candidate->value['number'] ?? null;
                 $area = is_numeric($number) ? (float) $number : null;
-                $fillEvidence = $fill['evidence'] ?? null;
-                $evidence = is_string($fillEvidence) && trim($fillEvidence) !== ''
-                    ? trim($fillEvidence)
+                $evidence = is_string($candidate->evidence) && trim($candidate->evidence) !== ''
+                    ? trim($candidate->evidence)
                     : null;
                 $runEvidence = trim($output['evidence']);
                 $effectiveEvidence = $evidence ?? ($runEvidence !== '' ? $runEvidence : null);
 
-                if (! RoomAreaAcceptance::acceptsAiExactArea($confidence, $effectiveEvidence, $area)) {
+                if (! RoomAreaAcceptance::acceptsAiExactArea($candidate->confidence, $effectiveEvidence, $area)) {
                     // Keep as reviewable suggestion; never invent L×B and never trust weak m².
                     $source = self::SOURCE_SUGGESTED;
                 }
@@ -352,18 +200,37 @@ final class PrefillAnswersFromKnownContext
 
             $this->saveIntakeAnswer->handle(
                 $intake,
-                $questionKey,
-                $instanceKey,
-                $fill['value'],
+                $candidate->questionKey,
+                $candidate->sectionInstanceKey,
+                $candidate->value,
                 $source,
             );
 
-            $applied[] = $instanceKey === null ? $questionKey : $questionKey.'@'.$instanceKey;
+            $applied[] = $candidate->compositeKey();
         }
 
         $this->pruneExtraPrefillRooms($intake, $output['fills']);
 
         return $applied;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function photoKeys(Intake $intake): array
+    {
+        $intake->loadMissing('templateVersion.sections.questions');
+        $keys = [];
+
+        foreach ($intake->templateVersion->sections as $section) {
+            foreach ($section->questions as $question) {
+                if ($question->type === QuestionType::Photo) {
+                    $keys[] = $question->key;
+                }
+            }
+        }
+
+        return array_values(array_unique($keys));
     }
 
     /**

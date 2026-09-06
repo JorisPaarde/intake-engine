@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Domains\AI\Actions;
 
+use App\Domains\AI\DTOs\RequestPrefillCandidate;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\LocalRequestIntentParser;
+use App\Domains\AI\Services\RequestPrefillOutcomeClassifier;
+use App\Domains\AI\Services\TemplateQuestionCatalogBuilder;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
@@ -13,7 +16,6 @@ use App\Domains\Intake\Models\IntakeAnswer;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
 use App\Enums\IntakeStatus;
-use App\Enums\QuestionType;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -38,6 +40,8 @@ final class DeriveIntentFromRequest
         private readonly LocalRequestIntentParser $localParser,
         private readonly SaveIntakeAnswer $saveIntakeAnswer,
         private readonly PrefillAnswersFromKnownContext $prefillFromKnownContext,
+        private readonly TemplateQuestionCatalogBuilder $catalogBuilder,
+        private readonly RequestPrefillOutcomeClassifier $classifier,
     ) {}
 
     public function handle(Intake $intake, bool $allowExternal = true): ?AiRun
@@ -181,84 +185,35 @@ final class DeriveIntentFromRequest
         array $output,
         string $source,
     ): array {
-        $confidence = (string) $output['confidence'];
-
-        if ($confidence === 'low') {
-            return [];
-        }
-
+        $catalog = $this->catalogBuilder->build($intake);
+        $candidates = $this->classifier->classifyLocalOutput($output, $catalog);
         $applied = [];
 
-        if ($output['cooling_heating'] !== 'unknown'
-            && $this->mayWrite($intake, 'cooling_heating', null)) {
-            $this->saveIntakeAnswer->handle($intake, 'cooling_heating', null, ['value' => $output['cooling_heating']], $source);
-            $applied[] = 'cooling_heating';
-        }
-
-        /** @var list<string> $rooms */
-        $rooms = array_values($output['rooms']);
-        $floorLevel = $output['floor_level'] ?? null;
-        $floorLevelAnswer = $floorLevel === 'attic'
-            ? $this->floorLevelAnswer($intake, $floorLevel)
-            : null;
-
-        if ($rooms === []) {
-            return $applied;
-        }
-
-        if ($this->mayWrite($intake, 'indoor_unit_count', null)) {
-            $this->saveIntakeAnswer->handle($intake, 'indoor_unit_count', null, ['number' => count($rooms)], $source);
-            $applied[] = 'indoor_unit_count';
-        }
-
-        foreach ($rooms as $index => $roomType) {
-            $instanceKey = 'room-'.($index + 1);
-
-            if ($this->mayWrite($intake, 'room_type', $instanceKey)) {
-                $this->saveIntakeAnswer->handle($intake, 'room_type', $instanceKey, ['value' => $roomType], $source);
-                $applied[] = 'room_type@'.$instanceKey;
+        foreach ($candidates as $candidate) {
+            if ($candidate->disposition !== RequestPrefillCandidate::DISPOSITION_FILL) {
+                continue;
             }
 
-            if ($floorLevelAnswer !== null
-                && $this->mayWrite($intake, 'floor_level', $instanceKey)) {
-                $this->saveIntakeAnswer->handle($intake, 'floor_level', $instanceKey, $floorLevelAnswer, $source);
-                $applied[] = 'floor_level@'.$instanceKey;
+            if ($candidate->value === null) {
+                continue;
             }
+
+            if (! $this->mayWrite($intake, $candidate->questionKey, $candidate->sectionInstanceKey)) {
+                continue;
+            }
+
+            $this->saveIntakeAnswer->handle(
+                $intake,
+                $candidate->questionKey,
+                $candidate->sectionInstanceKey,
+                $candidate->value,
+                $source,
+            );
+
+            $applied[] = $candidate->compositeKey();
         }
 
         return $applied;
-    }
-
-    /**
-     * @return array<string, mixed>|null
-     */
-    private function floorLevelAnswer(Intake $intake, string $floorLevel): ?array
-    {
-        $intake->loadMissing('templateVersion.sections.questions');
-
-        foreach ($intake->templateVersion->sections as $section) {
-            foreach ($section->questions as $question) {
-                if ($question->key !== 'floor_level') {
-                    continue;
-                }
-
-                if ($question->type === QuestionType::SingleChoice) {
-                    $optionExists = $question->options()
-                        ->where('value', $floorLevel)
-                        ->exists();
-
-                    return $optionExists ? ['value' => $floorLevel] : null;
-                }
-
-                if (in_array($question->type, [QuestionType::ShortText, QuestionType::LongText], true)) {
-                    return ['text' => 'Zolder'];
-                }
-
-                return null;
-            }
-        }
-
-        return null;
     }
 
     private function mayWrite(Intake $intake, string $questionKey, ?string $sectionInstanceKey): bool

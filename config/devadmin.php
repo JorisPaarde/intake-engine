@@ -23,4 +23,18 @@ return [
         in_array(env('APP_ENV', 'production'), ['local', 'staging'], true),
     ),
 
+    /*
+    |--------------------------------------------------------------------------
+    | AI-invoer testen (BL-104)
+    |--------------------------------------------------------------------------
+    |
+    | Dry-run van openingszin → lokale parser → catalogus-AI. Begrens lengte en
+    | tempo zodat staging-testers geen kostbare herhaalcalls of logspam veroorzaken.
+    |
+    */
+    'ai_input_test' => [
+        'max_length' => (int) env('DEV_AI_INPUT_TEST_MAX_LENGTH', 2000),
+        'throttle_per_minute' => (int) env('DEV_AI_INPUT_TEST_THROTTLE_PER_MINUTE', 10),
+    ],
+
 ];

@@ -12,6 +12,7 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
+| Dev AI-invoer testen (BL-104) | todo | - | Op staging `/dev/ai-input-test`: proeftekst + **Evaluatie starten**; versies/gates zichtbaar; fills/voorzetten/afwijzingen met reden; bij `AI_TEXT_INFERENCE_ENABLED=false` alleen lokaal + duidelijke melding; geen nieuwe opname/AI-run/mail. |
 | Ruimteoppervlak L×B of m² + hoogte apart (BL-101) | todo | - | Op werkplek: ruimte met alleen L×B toont berekend m² en maakt capaciteit compleet zonder hoogte; alleen betrouwbaar m² idem; conflict L×B vs m² toont controlepunt; zolder vraagt hoogte; AI “20 m²” vult `room_area_m2` zonder verzonnen L×B (airco v16). |
 | Ruimtecentrische unitkoppeling (BL-102) | todo | - | Op werkplek `#room-{id}`: binnenunit + gekoppelde buitenunit + configuratie zichtbaar/bewerkbaar; single-split 1↔1, multi-split ≥2→1 outdoor, meerdere singles unieke paren; ongeldige koppeling toont open punt; buitenunit blijft gedeeld (geen ruimteeigendom). |
 | Opnamewerkplek Alle onderdelen (BL-099) | todo | - | Op `/intakes/{id}/opname`: één sectie **Alle onderdelen** met elk beslisgebied precies één keer (status + uitklap detail/deep-link); géén kaarten onder **Open punten** of **Nog N open**; sticky blijft compact; desktop + ~390 px zonder horizontale overflow. |

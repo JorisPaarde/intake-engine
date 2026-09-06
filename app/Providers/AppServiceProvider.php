@@ -57,5 +57,16 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perHour($perHour)
                 ->by(hash('sha256', (string) $request->ip()));
         });
+
+        RateLimiter::for('dev-ai-input-test', function (Request $request) {
+            $perMinute = max(1, (int) config('devadmin.ai_input_test.throttle_per_minute', 10));
+            $userId = $request->user()?->id;
+
+            return Limit::perMinute($perMinute)->by(
+                $userId !== null
+                    ? 'user:'.$userId
+                    : 'ip:'.hash('sha256', (string) $request->ip()),
+            );
+        });
     }
 }
