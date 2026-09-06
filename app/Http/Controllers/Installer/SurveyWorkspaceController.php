@@ -57,6 +57,7 @@ use Illuminate\View\View;
 final class SurveyWorkspaceController extends Controller
 {
     public function show(
+        Request $request,
         Intake $intake,
         DossierManager $dossierManager,
         DossierOverviewBuilder $overviewBuilder,
@@ -87,6 +88,14 @@ final class SurveyWorkspaceController extends Controller
                 ->where('event', 'demo_scenario_loaded')
                 ->exists();
 
+        $customerTaskDraft = $request->session()->pull('customer_task_draft');
+        if (! is_array($customerTaskDraft)
+            || ! is_string($customerTaskDraft['type'] ?? null)
+            || ! is_string($customerTaskDraft['prompt'] ?? null)
+            || trim((string) $customerTaskDraft['prompt']) === '') {
+            $customerTaskDraft = null;
+        }
+
         return view('installer.intakes.workspace', [
             'intake' => $intake,
             'dossier' => $overviewBuilder->build($intake),
@@ -100,7 +109,49 @@ final class SurveyWorkspaceController extends Controller
             'siteVisitReasons' => InstallationSiteVisitReason::cases(),
             'proposalDeltas' => InstallationProposalDelta::cases(),
             'demoScenarioLoaded' => $demoScenarioLoaded,
+            'customerTaskDraft' => $customerTaskDraft,
         ]);
+    }
+
+    public function prepareContribution(Request $request, Intake $intake): RedirectResponse
+    {
+        $this->authorize('update', $intake);
+        $data = $request->validate([
+            'type' => ['required', Rule::enum(FollowUpItemType::class)],
+            'prompt' => ['required', 'string', 'max:500'],
+            'decision_area_key' => [
+                'nullable',
+                'in:request,capacity,placement,refrigerant,condensate,power,cost_risks,quote',
+            ],
+            'dossier_subject_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('dossier_subjects', 'id')->where('intake_id', $intake->id),
+            ],
+        ], [
+            'type.required' => 'Kies een type opdracht (tekst, foto of document).',
+            'prompt.required' => 'Schrijf wat de klant moet doen.',
+            'prompt.max' => 'Houd de opdracht kort (maximaal 500 tekens).',
+            'decision_area_key.in' => 'Kies een geldig onderdeel van de opname.',
+            'dossier_subject_id.exists' => 'Die koppeling hoort niet bij deze opname.',
+        ], [
+            'type' => 'type opdracht',
+            'prompt' => 'opdrachttekst',
+        ]);
+
+        return redirect()
+            ->to(route('intakes.workspace', $intake).'#demo-customer-task')
+            ->with('status', 'Controleer de vooringevulde klanttaak en verstuur hem daarna.')
+            ->with('customer_task_draft', [
+                'type' => $data['type'] instanceof FollowUpItemType
+                    ? $data['type']->value
+                    : (string) $data['type'],
+                'prompt' => trim((string) $data['prompt']),
+                'decision_area_key' => $data['decision_area_key'] ?? null,
+                'dossier_subject_id' => isset($data['dossier_subject_id'])
+                    ? (int) $data['dossier_subject_id']
+                    : null,
+            ]);
     }
 
     public function storeRoom(

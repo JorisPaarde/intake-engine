@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.53 · **Laatste update:** 2026-09-06 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.54 · **Laatste update:** 2026-09-06 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,13 +38,13 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-101 done in #103. BL-102 in #104. De opnamefeedback gebruikt BL-099–103; de dev-AI-proeftuin is BL-104. Nieuwe items starten bij BL-105.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. De opnamefeedback gebruikt BL-099–103; de dev-AI-proeftuin is BL-104. Nieuwe items starten bij BL-105.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| 1 | BL-100 | Opnamewerkplek: vooraf ingevulde klanttaak vanuit ieder onderdeel | E7 | backlog | high | opname-UX · na BL-099 · bij BL-038/061/062/089 |
-| 2 | BL-103 | Technische configuratie eerst, klantvoorkeur pas na haalbaarheidscheck | E7/E8 | backlog | high | na BL-102 · bij BL-038/039 · ADR-0012 |
-| 3 | BL-104 | Dev: AI-invoer van Nieuwe opname veilig testen en verklaren | E3/E5 | backlog | medium | dev/QA · bij BL-028/064/065/093/098 |
+| 1 | BL-103 | Technische configuratie eerst, klantvoorkeur pas na haalbaarheidscheck | E7/E8 | backlog | high | na BL-102 · bij BL-038/039 · ADR-0012 |
+| 2 | BL-104 | Dev: AI-invoer van Nieuwe opname veilig testen en verklaren | E3/E5 | backlog | medium | dev/QA · bij BL-028/064/065/093/098 |
+| — | BL-100 | Opnamewerkplek: vooraf ingevulde klanttaak vanuit ieder onderdeel | E7 | done | high | opname-UX · na BL-099 · bij BL-038/061/062/089 · PR #106 |
 | — | BL-102 | Ruimtecentrische binnen-/buitenunitkoppeling met juiste cardinaliteit | E8 | done | high | airco-configuratie · ADR-0012 · bij BL-039/040/060 · PR #104 |
 | — | BL-101 | Ruimteoppervlakte: L×B óf betrouwbaar m², hoogte apart | E3/E7/E9 | done | high | ruimtegegevens · bij BL-074/079/098 · PR #103 |
 | — | BL-099 | Opnamewerkplek: `Alle onderdelen` vervangt dubbele open-puntenlijsten | E6 | done | high | opname-UX · bij BL-053/055/056/084/086 · PR #102 |
@@ -730,13 +730,13 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-100 — Opnamewerkplek: vooraf ingevulde klanttaak vanuit ieder onderdeel
 
-- **Status:** backlog · **Prioriteit:** high · **Epic:** E7 · **Band:** opname-UX · **Afhankelijk:** BL-099 voor de definitieve plaats in het onderdelenoverzicht · **Volgt op:** BL-038/061/062/089
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-06 · **PR:** #106 · **Epic:** E7 · **Band:** opname-UX · **Afhankelijk:** BL-099 · **Volgt op:** BL-038/061/062/089
 - **Aanleiding:** op `/intakes/{intake}/opname` bestaat een los blok **Taak voor de klant** met maximaal drie handmatig in te vullen opdrachten. Snelle klanttaken bestaan alleen bij enkele open punten, AI-uitzonderingen en fotovoorstellen; vanuit een willekeurig onderdeel kan de installateur ontbrekende informatie nog niet direct als herkenbare, vooraf ingevulde taak voorbereiden.
 - **Doel:** bied vanuit ieder relevant dossieronderdeel één contextuele actie om alleen de ontbrekende klantinformatie als vooraf ingevulde taak te maken.
 - **Scope:** het onderdelenoverzicht en de ruimte-, unit-, configuratie- en verbindingsblokken in `workspace.blade.php`; bestaande `intakes.workspace.tasks.store`/`tasks.quick`, `SurveyWorkspaceController` en `CreateCustomerContributionRequest`. Voorinvullen omvat minimaal taaktype, korte concrete opdracht, `decision_area_key` en waar aanwezig het dossieronderwerp/object. De installateur kan de tekst controleren voordat klanttoegang of mail wordt geactiveerd. Het losse handmatige klanttaakblok blijft alleen als algemene/meer-opdrachtenfallback en concurreert niet met de contextuele actie.
 - **Niet in scope:** de klant een technische keuze, unitpositie, route of veiligheidscontrole laten uitvoeren; meerdere gelijktijdige open klantrondes toestaan; mail-/tokenregels vervangen.
 - **Acceptatie:** ieder onderdeel met veilig door de klant aan te leveren ontbrekende informatie toont **Vraag de klant**; de taak opent vooraf ingevuld met het juiste type, onderdeel en objectcontext; vanuit een ruimte zoals `#room-{id}` verwijst de opdracht herkenbaar naar die ruimte; onderdelen waarvoor de installateur zelf moet beslissen tonen geen misleidende klantactie; de installateur kan controleren en daarna versturen/activeren; bestaande limieten, open-rondeblokkade, tenantgrenzen, tokenbeveiliging en demo-zonder-mail blijven gelden; featuretests dekken minimaal ruimte, foto, verbinding en niet-klantgeschikte technische keuze; `composer check` groen.
-- **Hypothese:** uitbreiding en eenduidige presentatie van de bestaande bijdrageflow; mogelijk is extra subjectcontext in de taakrelatie of metadata nodig.
+- **Resultaat:** `ContextualCustomerTaskBuilder` + `tasks.prepare`; knoppen op ruimte/verbinding/foto en klantveilige Alle-onderdelen-rijen; review in `#demo-customer-task` vóór store; multi-split zonder klantactie; feature- + unittests groen.
 
 ### BL-101 — Ruimteoppervlakte: L×B óf betrouwbaar m², hoogte apart
 

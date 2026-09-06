@@ -113,18 +113,28 @@ test('first actionable open area skips quote when other blockers exist', functio
 
 test('overview item exposes deep-link detail and ask-customer payload for open areas', function () {
     $intake = bareIntake();
+    $room = (new AircoRoom)->forceFill([
+        'id' => 5,
+        'name' => 'Slaapkamer',
+        'use_type' => 'bedroom',
+        'dimensions' => null,
+        'dossier_subject_id' => 11,
+    ]);
+    $intake->setRelation('aircoRooms', collect([$room]));
     $area = fakeOpenArea('capacity', DecisionAreaStatus::Blocked, 'Vul maten in');
 
     $item = app(WorkspacePrimaryActionResolver::class)->overviewItem($intake, $area);
 
-    expect($item['href'])->toBe('#workspace-rooms')
+    expect($item['href'])->toBe('#room-5')
         ->and($item['label'])->toBe('Maten invullen')
         ->and($item['is_open'])->toBeTrue()
         ->and($item['detail'])->toBe('Vul maten in')
         ->and($item['ask_customer'])->toMatchArray([
-            'type' => 'photo',
-            'prompt' => 'Vul maten in',
-        ]);
+            'type' => 'text',
+            'decision_area_key' => 'capacity',
+            'dossier_subject_id' => 11,
+        ])
+        ->and($item['ask_customer']['prompt'])->toContain('Slaapkamer');
 });
 
 test('overview item has no ask-customer action for ready areas', function () {
@@ -142,4 +152,18 @@ test('overview item has no ask-customer action for ready areas', function () {
     expect($item['is_open'])->toBeFalse()
         ->and($item['ask_customer'])->toBeNull()
         ->and($item['href'])->toBe('#workspace-rooms');
+});
+
+test('overview item has no ask-customer for installer-only multi-split choice', function () {
+    $intake = bareIntake();
+    $area = fakeOpenArea(
+        'placement',
+        DecisionAreaStatus::Blocked,
+        'Kies eerst multi-split of singles met binnenunit en buitenunit.',
+    );
+
+    $item = app(WorkspacePrimaryActionResolver::class)->overviewItem($intake, $area);
+
+    expect($item['is_open'])->toBeTrue()
+        ->and($item['ask_customer'])->toBeNull();
 });
