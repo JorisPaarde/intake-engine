@@ -1,6 +1,6 @@
 # UI-taal — gecontroleerd eenvoudig Nederlands
 
-> **Documentversie:** 1.7 · **Laatste update:** 2026-09-01 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.8 · **Laatste update:** 2026-09-06 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: bron van waarheid voor gebruikersgerichte teksten in de app (UI, mails, templatevragen, flash-/foutmeldingen). Productdocumentatie mag technischer blijven.
 
@@ -38,7 +38,7 @@ Schrijf zodat klant en installateur snel begrijpen wat ze moeten doen. Volg de p
 | Technische constatering | Notitie |
 | Herkenbare naam / Korte omschrijving (unitnaam) | Naam |
 | Een ruimte is nog geen gekozen binnenunit | (weg; optioneel “Kamers uit de aanvraag.”) |
-| Maten L×B×H nog niet ingevuld | Maten nog leeg (of “4,2 × 3,1 × 2,5 m”) |
+| Maten L×B×H nog niet ingevuld | Maten nog leeg (of “4,2 × 3,1 m (13,0 m²)” / “16,5 m²”) |
 | technische opname (CTA) | opname / Naar opname |
 | bijgewerkte werkplek (demo) | bijgewerkte opname |
 | Demo · echte werkplek / boost / Voorbeeldroute | Demo (marker); optioneel **Toon voorbeelddossier** |

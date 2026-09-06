@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.50 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.51 · **Laatste update:** 2026-09-06 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -44,7 +44,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 |---|----|------|------|--------|------------|-------------------------|
 | 1 | BL-099 | Opnamewerkplek: `Alle onderdelen` vervangt dubbele open-puntenlijsten | E6 | backlog | high | opname-UX · bij BL-053/055/056/084/086 |
 | 2 | BL-100 | Opnamewerkplek: vooraf ingevulde klanttaak vanuit ieder onderdeel | E7 | backlog | high | opname-UX · na BL-099 · bij BL-038/061/062/089 |
-| 3 | BL-101 | Ruimteoppervlakte: L×B óf betrouwbaar m², hoogte apart | E3/E7/E9 | backlog | high | ruimtegegevens · bij BL-074/079/098 |
+| 3 | BL-101 | Ruimteoppervlakte: L×B óf betrouwbaar m², hoogte apart | E3/E7/E9 | in_progress | high | ruimtegegevens · bij BL-074/079/098 |
 | 4 | BL-102 | Ruimtecentrische binnen-/buitenunitkoppeling met juiste cardinaliteit | E8 | backlog | high | airco-configuratie · ADR-0012 · bij BL-039/040/060 |
 | 5 | BL-103 | Technische configuratie eerst, klantvoorkeur pas na haalbaarheidscheck | E7/E8 | backlog | high | na BL-102 · bij BL-038/039 · ADR-0012 |
 | 6 | BL-104 | Dev: AI-invoer van Nieuwe opname veilig testen en verklaren | E3/E5 | backlog | medium | dev/QA · bij BL-028/064/065/093/098 |
@@ -740,7 +740,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-101 — Ruimteoppervlakte: L×B óf betrouwbaar m², hoogte apart
 
-- **Status:** backlog · **Prioriteit:** high · **Epic:** E3/E7/E9 · **Band:** ruimtegegevens · **Volgt op:** BL-074/079/098
+- **Status:** in_progress · **Prioriteit:** high · **Epic:** E3/E7/E9 · **Band:** ruimtegegevens · **Volgt op:** BL-074/079/098
 - **Aanleiding:** de ruimtekaart op `/intakes/{intake}/opname#room-{id}` vraagt altijd lengte, breedte en hoogte. Het dossier en de readinesscontrole kennen alleen die drie maten. Wanneer de klant of AI al een betrouwbaar vloeroppervlak in m² heeft gevonden, blijven lengte en breedte daardoor alsnog als ontbrekend terugkomen; hoogte wordt tegelijk als verplichte derde maat behandeld terwijl zij niet voor iedere beslissing nodig is.
 - **Doel:** gebruik voor de vloeroppervlakte precies één voldoende betrouwbare route: óf lengte × breedte, óf een expliciet en betrouwbaar vastgesteld aantal m². Behandel hoogte als een afzonderlijk technisch gegeven dat alleen wordt gevraagd of blokkeert wanneer zij een beslissing kan veranderen.
 - **Scope:** ruimtegegevens/bronregistratie, `AircoRoom.dimensions`, `DossierManager`, `DecisionReadinessService`, de ruimtekaart en relevante AI-/prefillregels. Bewaar bij exact m² de bron, evidence en zekerheid; leid vanuit alleen m² nooit fictieve lengte/breedte af. Toon bij L×B het berekende oppervlak en voorkom een tweede oppervlaktevraag. Als de klantvraagstructuur wijzigt, publiceer een nieuwe immutable airco-templateversie volgens ADR-0001.

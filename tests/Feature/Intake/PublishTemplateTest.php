@@ -7,7 +7,7 @@ use App\Domains\Intake\Services\PublishIntakeTemplateFromConfig;
 use App\Enums\TemplateVersionStatus;
 use Database\Seeders\IntakeTemplateSeeder;
 
-test('airco template seeder publishes v1 through v15 with v15 as latest', function () {
+test('airco template seeder publishes v1 through v16 with v16 as latest', function () {
     $this->seed(IntakeTemplateSeeder::class);
 
     $template = IntakeTemplate::query()->where('key', 'airco')->first();
@@ -17,14 +17,14 @@ test('airco template seeder publishes v1 through v15 with v15 as latest', functi
 
     $versions = $template->versions()->orderBy('version')->get();
 
-    expect($versions)->toHaveCount(15)
-        ->and($versions->pluck('version')->all())->toBe([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
+    expect($versions)->toHaveCount(16)
+        ->and($versions->pluck('version')->all())->toBe([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
         ->and($versions->every(fn ($version) => $version->status === TemplateVersionStatus::Published))->toBeTrue();
 
     $latest = $template->latestPublishedVersion();
 
     expect($latest)->not->toBeNull()
-        ->and($latest->version)->toBe(15)
+        ->and($latest->version)->toBe(16)
         ->and($latest->sections()->count())->toBeGreaterThan(5)
         ->and($latest->sections()->where('key', 'rooms')->value('is_repeatable'))->toBeTrue();
 
@@ -39,15 +39,17 @@ test('airco template seeder publishes v1 through v15 with v15 as latest', functi
     expect($roomKeys)->toContain('room_size_indication')
         ->and($roomKeys)->toContain('room_length_m')
         ->and($roomKeys)->toContain('room_width_m')
+        ->and($roomKeys)->toContain('room_area_m2')
         ->and($roomKeys)->toContain('ceiling_height_m')
         ->and($roomKeys)->toContain('wall_outlet_photo')
         ->and($roomQuestions->firstWhere('key', 'room_length_m')->is_required)->toBeFalse()
+        ->and($roomQuestions->firstWhere('key', 'room_area_m2')->is_required)->toBeFalse()
         ->and($roomQuestions->firstWhere('key', 'room_length_m')->label)->toBe('Lengte (m)')
         ->and($roomQuestions->firstWhere('key', 'room_width_m')->label)->toBe('Breedte (m)')
+        ->and($roomQuestions->firstWhere('key', 'room_area_m2')->label)->toBe('Vloeroppervlak (m²)')
         ->and($roomQuestions->firstWhere('key', 'ceiling_height_m')->label)->toBe('Hoogte (m)')
-        ->and($roomQuestions->firstWhere('key', 'room_length_m')->help_text)->toBeNull()
-        ->and($roomQuestions->firstWhere('key', 'room_width_m')->help_text)->toBeNull()
-        ->and($roomQuestions->firstWhere('key', 'ceiling_height_m')->help_text)->toBeNull();
+        ->and($roomQuestions->firstWhere('key', 'room_area_m2')->help_text)->toContain('lengte en breedte')
+        ->and($roomQuestions->firstWhere('key', 'ceiling_height_m')->help_text)->toContain('plafondhoogte');
 
     // BL-016 (v3): prefill meta flags flow through the seeder.
     $floorLevel = $roomQuestions->firstWhere('key', 'floor_level');
@@ -144,12 +146,12 @@ test('airco template seeder publishes v1 through v15 with v15 as latest', functi
     $againV1 = app(PublishIntakeTemplateFromConfig::class)->handle(
         require database_path('data/templates/airco/v1.php'),
     );
-    $againV15 = app(PublishIntakeTemplateFromConfig::class)->handle(
-        require database_path('data/templates/airco/v15.php'),
+    $againV16 = app(PublishIntakeTemplateFromConfig::class)->handle(
+        require database_path('data/templates/airco/v16.php'),
     );
 
     expect($againV1->version)->toBe(1)
-        ->and($againV15->id)->toBe($latest->id)
+        ->and($againV16->id)->toBe($latest->id)
         ->and(IntakeTemplate::query()->where('key', 'airco')->count())->toBe(1)
-        ->and($template->versions()->count())->toBe(15);
+        ->and($template->versions()->count())->toBe(16);
 });

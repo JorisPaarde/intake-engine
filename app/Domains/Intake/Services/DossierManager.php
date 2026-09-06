@@ -12,6 +12,7 @@ use App\Domains\Intake\Models\DossierSubject;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Domains\Intake\Support\RoomAreaAcceptance;
 use App\Enums\ContributionAudience;
 use App\Enums\ContributionTaskStatus;
 use App\Enums\DossierRecordKind;
@@ -450,15 +451,19 @@ final class DossierManager
             ->find((int) $matches[1]);
     }
 
-    /** @return array<string, float> */
+    /**
+     * @return array<string, float|string>
+     */
     private function roomDimensions(Intake $intake, string $instanceKey): array
     {
         $mapping = [
             'room_length_m' => 'length_m',
             'room_width_m' => 'width_m',
             'ceiling_height_m' => 'height_m',
+            'room_area_m2' => 'area_m2',
         ];
         $dimensions = [];
+        $areaAnswer = null;
 
         foreach ($mapping as $questionKey => $dimensionKey) {
             $answer = $intake->answers->first(
@@ -467,11 +472,29 @@ final class DossierManager
             );
             $number = is_array($answer?->value) ? ($answer->value['number'] ?? null) : null;
 
-            if (is_numeric($number)) {
-                $dimensions[$dimensionKey] = (float) $number;
+            if (! is_numeric($number)) {
+                continue;
+            }
+
+            $dimensions[$dimensionKey] = (float) $number;
+
+            if ($questionKey === 'room_area_m2') {
+                $areaAnswer = $answer;
             }
         }
 
+        if ($areaAnswer instanceof IntakeAnswer && isset($dimensions['area_m2'])) {
+            $mapped = RoomAreaAcceptance::fromPrefillSource($areaAnswer->prefill_source);
+            $dimensions['area_source'] = $mapped['source'];
+            $dimensions['area_confidence'] = $mapped['confidence'];
+
+            // Keep a short evidence trail for AI-derived exact m².
+            if (in_array($mapped['source'], ['ai', 'ai_suggestion'], true)) {
+                $dimensions['area_evidence'] = 'Uit bekende context of AI-prefill';
+            }
+        }
+
+        // Never invent length/width from area alone — leave L×B empty when only m² is known.
         return $dimensions;
     }
 

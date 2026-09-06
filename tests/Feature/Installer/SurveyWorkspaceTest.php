@@ -698,7 +698,9 @@ test('installer can update an existing room including dimensions', function () {
         ->assertSee('id="room-'.$room->id.'-name"', false)
         ->assertSee('id="room-'.$room->id.'-length"', false)
         ->assertSee('Wijzigingen opslaan')
-        ->assertSee('4,2 × 3,1 × 2,5 m')
+        ->assertSee('4,2 × 3,1 m')
+        ->assertSee('(13,0 m²)')
+        ->assertSee('H 2,5 m')
         ->assertDontSee('Herkenbare naam')
         ->assertDontSee('Maten L×B×H')
         ->assertDontSee('Een ruimte is nog geen')
@@ -708,9 +710,69 @@ test('installer can update an existing room including dimensions', function () {
         ->getContent();
 
     expect(substr_count($html, 'name="length_m"'))->toBe(2)
+        ->and(substr_count($html, 'name="area_m2"'))->toBe(2)
         ->and(substr_count($html, 'id="room-'.$room->id.'-length"'))->toBe(1)
+        ->and(substr_count($html, 'id="room-'.$room->id.'-area"'))->toBe(1)
         ->and(substr_count($html, 'id="room-'.$room->id.'-name"'))->toBe(1)
         ->and(substr_count($html, '<h4 class="font-semibold text-gray-950">Slaapkamer ouders</h4>'))->toBe(0);
+});
+
+test('installer can save trusted floor area without length and width', function () {
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'ruimte-area@example.com');
+    $room = app(AircoSurveyService::class)->createRoom($intake, $user, [
+        'name' => 'Slaapkamer',
+        'use_type' => 'bedroom',
+    ]);
+
+    $this->actingAs($user)
+        ->from(route('intakes.workspace', $intake))
+        ->post(route('intakes.workspace.rooms.update', [$intake, $room]), [
+            'name' => 'Slaapkamer',
+            'use_type' => 'bedroom',
+            'area_m2' => 16.5,
+        ])
+        ->assertRedirect(route('intakes.workspace', $intake));
+
+    $room->refresh();
+    expect($room->dimensions)->toMatchArray([
+        'area_m2' => 16.5,
+        'area_source' => 'installer',
+        'area_confidence' => 'high',
+    ])
+        ->and($room->dimensions)->not->toHaveKey('length_m')
+        ->and($room->dimensions)->not->toHaveKey('width_m');
+
+    $capacity = $intake->fresh()->decisionAreas()->where('key', 'capacity')->firstOrFail();
+    expect($capacity->status->value)->toBe('ready');
+
+    $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertSee('16,5 m²')
+        ->assertSee('Bron oppervlak: installer');
+});
+
+test('conflicting length width and area_m2 show as control point on the room card', function () {
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'ruimte-conflict@example.com');
+    $room = app(AircoSurveyService::class)->createRoom($intake, $user, [
+        'name' => 'Woonkamer',
+        'use_type' => 'living_room',
+        'length_m' => 5,
+        'width_m' => 4,
+        'area_m2' => 12,
+    ]);
+
+    $capacity = $intake->fresh()->decisionAreas()->where('key', 'capacity')->firstOrFail();
+    expect($capacity->status->value)->toBe('review')
+        ->and($capacity->blocker)->toContain('niet overeen');
+
+    $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertSee('Controleer maten')
+        ->assertSee('komen niet overeen');
 });
 
 test('installer can update an existing placement', function () {

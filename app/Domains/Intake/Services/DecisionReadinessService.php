@@ -10,6 +10,8 @@ use App\Domains\Intake\Models\AircoPlacementOption;
 use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\DossierDecisionArea;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Support\RoomDimensions;
+use App\Domains\Intake\Support\RoomHeightRequirement;
 use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
 use App\Enums\AircoOptionStatus;
@@ -20,6 +22,10 @@ use Illuminate\Support\Collection;
 
 final class DecisionReadinessService
 {
+    public function __construct(
+        private readonly RoomHeightRequirement $heightRequirement,
+    ) {}
+
     /** @var array<string, string> */
     private const LABELS = [
         'request' => 'Aanvraag en gewenste ruimtes',
@@ -138,24 +144,104 @@ final class DecisionReadinessService
             ];
         }
 
-        $complete = $intake->aircoRooms->every(static function (AircoRoom $room): bool {
-            $dimensions = $room->dimensions ?? [];
+        $conflictRoom = $intake->aircoRooms->first(
+            static function (AircoRoom $room): bool {
+                return RoomDimensions::from(is_array($room->dimensions) ? $room->dimensions : null)
+                    ->hasFloorAreaConflict();
+            },
+        );
 
-            return $room->use_type !== null
-                && isset($dimensions['length_m'], $dimensions['width_m'], $dimensions['height_m']);
-        });
+        if ($conflictRoom instanceof AircoRoom) {
+            return [
+                'status' => DecisionAreaStatus::Review,
+                'next_action' => DossierNextAction::RequestContribution,
+                'blocker' => 'Controleer lengte×breedte en m² bij '.$conflictRoom->name.': die komen niet overeen.',
+                'evidence_summary' => $this->capacityEvidence($intake),
+            ];
+        }
+
+        $untrustedAreaRoom = $intake->aircoRooms->first(
+            static function (AircoRoom $room): bool {
+                $dimensions = RoomDimensions::from(is_array($room->dimensions) ? $room->dimensions : null);
+
+                return $dimensions->hasUntrustedAreaM2() && ! $dimensions->hasLengthAndWidth();
+            },
+        );
+
+        if ($untrustedAreaRoom instanceof AircoRoom) {
+            return [
+                'status' => DecisionAreaStatus::Review,
+                'next_action' => DossierNextAction::RequestContribution,
+                'blocker' => 'Controleer het vloeroppervlak van '.$untrustedAreaRoom->name.': de bron is nog niet betrouwbaar genoeg.',
+                'evidence_summary' => $this->capacityEvidence($intake),
+            ];
+        }
+
+        $incompleteFloor = $intake->aircoRooms->first(
+            static function (AircoRoom $room): bool {
+                if ($room->use_type === null) {
+                    return true;
+                }
+
+                return ! RoomDimensions::from(is_array($room->dimensions) ? $room->dimensions : null)
+                    ->hasReliableFloorArea();
+            },
+        );
+
+        if ($incompleteFloor instanceof AircoRoom) {
+            return [
+                'status' => DecisionAreaStatus::Review,
+                'blocker' => 'Vul lengte en breedte of een betrouwbaar vloeroppervlak (m²) in voordat je het vermogen kiest.',
+                'evidence_summary' => $this->capacityEvidence($intake),
+            ];
+        }
+
+        $missingHeight = $intake->aircoRooms->first(
+            fn (AircoRoom $room): bool => $this->heightRequirement->missingRequiredHeight($room),
+        );
+
+        if ($missingHeight instanceof AircoRoom) {
+            return [
+                'status' => DecisionAreaStatus::Review,
+                'next_action' => DossierNextAction::RequestContribution,
+                'blocker' => 'Vul de plafondhoogte van '.$missingHeight->name.' in; die is nodig voor deze ruimte.',
+                'evidence_summary' => $this->capacityEvidence($intake),
+            ];
+        }
 
         return [
-            'status' => $complete ? DecisionAreaStatus::Ready : DecisionAreaStatus::Review,
-            'blocker' => $complete ? null : 'Vul ontbrekende maten van de ruimte in voordat je het vermogen kiest.',
-            'evidence_summary' => [
-                'rooms' => $intake->aircoRooms->count(),
-                'complete_rooms' => $intake->aircoRooms->filter(static function (AircoRoom $room): bool {
-                    $dimensions = $room->dimensions ?? [];
+            'status' => DecisionAreaStatus::Ready,
+            'blocker' => null,
+            'evidence_summary' => $this->capacityEvidence($intake),
+        ];
+    }
 
-                    return isset($dimensions['length_m'], $dimensions['width_m'], $dimensions['height_m']);
-                })->count(),
-            ],
+    /** @return array<string, mixed> */
+    private function capacityEvidence(Intake $intake): array
+    {
+        $completeRooms = $intake->aircoRooms->filter(
+            function (AircoRoom $room): bool {
+                if ($room->use_type === null) {
+                    return false;
+                }
+
+                $dimensions = RoomDimensions::from(is_array($room->dimensions) ? $room->dimensions : null);
+
+                if (! $dimensions->hasReliableFloorArea()) {
+                    return false;
+                }
+
+                if ($this->heightRequirement->missingRequiredHeight($room)) {
+                    return false;
+                }
+
+                return true;
+            },
+        )->count();
+
+        return [
+            'rooms' => $intake->aircoRooms->count(),
+            'complete_rooms' => $completeRooms,
         ];
     }
 

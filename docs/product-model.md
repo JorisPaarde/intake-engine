@@ -1,6 +1,6 @@
 # Productmodel — centrale technische opname
 
-> **Documentversie:** 1.3 · **Laatste update:** 2026-08-10 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.4 · **Laatste update:** 2026-09-06 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **productfundament geïmplementeerd in BL-030 en BL-035 t/m BL-042**. De centrale dossierkern, drie bijdrageworkflows, airco-objecten, beslisgereedheid, beeldvarianten, AI-synthese en uitkomstregistratie zitten in dezelfde applicatie. Productief gebruik van externe beeld-AI blijft achter de bestaande DPIA-, provider- en staging-gates.
 
@@ -157,7 +157,7 @@ De aanvraag benoemt gewenste ruimtes, bijvoorbeeld twee slaapkamers. Dat beteken
 Per gewenste ruimte bewaart de opname:
 
 - ruimte-identiteit en gebruik;
-- relevante omstandigheden voor capaciteit;
+- relevante omstandigheden voor capaciteit, waaronder vloeroppervlak via precies één betrouwbare grondslag (`length_m` × `width_m` óf een expliciet en betrouwbaar `area_m2` met bron/zekerheid; nooit verzonnen L×B uit alleen m²) en plafondhoogte alleen wanneer een expliciete regel die nodig maakt;
 - bewijs en waarnemingen;
 - nul, één of meer kandidaatposities voor een binnenunit.
 

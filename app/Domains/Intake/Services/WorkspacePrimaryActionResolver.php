@@ -7,6 +7,8 @@ namespace App\Domains\Intake\Services;
 use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\DossierDecisionArea;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Support\RoomDimensions;
+use App\Domains\Intake\Support\RoomHeightRequirement;
 use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
 use App\Enums\AircoOptionStatus;
@@ -30,6 +32,10 @@ final class WorkspacePrimaryActionResolver
         'cost_risks',
         'quote',
     ];
+
+    public function __construct(
+        private readonly RoomHeightRequirement $heightRequirement,
+    ) {}
 
     /**
      * @param  Collection<int, DossierDecisionArea>  $openAreas
@@ -166,19 +172,33 @@ final class WorkspacePrimaryActionResolver
     private function capacityTarget(Intake $intake): array
     {
         $incomplete = $intake->aircoRooms->first(
-            static function (AircoRoom $room): bool {
-                $dimensions = is_array($room->dimensions) ? $room->dimensions : [];
+            function (AircoRoom $room): bool {
+                $dimensions = RoomDimensions::from(is_array($room->dimensions) ? $room->dimensions : null);
 
-                return ! is_numeric($dimensions['length_m'] ?? null)
-                    || ! is_numeric($dimensions['width_m'] ?? null)
-                    || ! is_numeric($dimensions['height_m'] ?? null);
+                if ($dimensions->hasFloorAreaConflict() || $dimensions->hasUntrustedAreaM2()) {
+                    return true;
+                }
+
+                if (! $dimensions->hasReliableFloorArea()) {
+                    return true;
+                }
+
+                return $this->heightRequirement->missingRequiredHeight($room);
             },
         );
 
         if ($incomplete instanceof AircoRoom) {
+            $dimensions = RoomDimensions::from(is_array($incomplete->dimensions) ? $incomplete->dimensions : null);
+            $label = match (true) {
+                $dimensions->hasFloorAreaConflict() => 'Maten controleren',
+                $dimensions->hasUntrustedAreaM2() && ! $dimensions->hasLengthAndWidth() => 'Oppervlak controleren',
+                $this->heightRequirement->missingRequiredHeight($incomplete) => 'Hoogte invullen',
+                default => 'Maten invullen',
+            };
+
             return [
                 'href' => '#room-'.$incomplete->id,
-                'label' => 'Maten invullen',
+                'label' => $label,
             ];
         }
 

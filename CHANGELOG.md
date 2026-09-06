@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Added
+
+- **Ruimteoppervlak via L×B of betrouwbaar m²; hoogte apart (BL-101):** `AircoRoom.dimensions` accepteert `area_m2` met bron/zekerheid/evidence naast `length_m`/`width_m`/`height_m`. Capaciteit is compleet bij één betrouwbare vloergrondslag; conflicterende L×B en m² worden controlepunt; AI-m² alleen bij `RoomAreaAcceptance` (high + evidence). Ontbrekende hoogte blokkeert niet standaard (wel bij zolder). Airco **v16** voegt optionele vraag `room_area_m2` toe; prefill-prompt `request-prefill-v4`.
+
 ### Fixed
 
 - **Openingszin met herhaalde kamers ging naar de regex i.p.v. AI (BL-098):** “Drie slaapkamers … woonkamers is 5 bij 7 meter en de slaapkamers 20m2 elk” telde elke kamernaam lokaal (extra ruimtes, geen maten). Lokale parser laat herhaalde types nu los (`request-intent-local-v4`); catalogus-AI (`request-prefill-v3`) bepaalt aantal, type en L×B. Werkpleknamen nummeren per type: eerste woonkamer is **Woonkamer 1**, niet Woonkamer 3.

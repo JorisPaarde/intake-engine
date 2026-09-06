@@ -1,6 +1,6 @@
 # Databaseschema — Digitale Opname
 
-> **Documentversie:** 3.6 · **Laatste update:** 2026-08-05 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.7 · **Laatste update:** 2026-09-06 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: dit document beschrijft het **geïmplementeerde schema**, inclusief de uitbreidende dossiermigratie van BL-030 en BL-035 t/m BL-042 en de zelfstandige publieke interesse-inzendingen van BL-043. Bestaande antwoord-, bron-, upload-, review- en routetabellen blijven bewust bestaan naast de nieuwe dossierobjecten.
 
@@ -283,7 +283,7 @@ Alle tabellen behalve de zuivere pivot dragen zowel `intake_id` als `company_id`
 
 | Tabel | Belangrijkste velden en invarianten |
 |-------|-------------------------------------|
-| `airco_rooms` | Gewenste ruimte met dossieronderwerp, unieke intake-key, naam, gebruik, volgorde, status, bron en optionele afmetingen. Legacy `room-*`-instanties worden idempotent gemapt. |
+| `airco_rooms` | Gewenste ruimte met dossieronderwerp, unieke intake-key, naam, gebruik, volgorde, status, bron en optionele afmetingen in JSON `dimensions`. Vloeroppervlak via `length_m`+`width_m` óf betrouwbaar `area_m2` (+ `area_source`/`area_confidence`/`area_evidence`); `height_m` apart. Legacy `room-*`-instanties worden idempotent gemapt. |
 | `airco_placement_options` | Optionele ruimte, dossieronderwerp, type, label/omschrijving, locatie-JSON, status, bron, zekerheid en kostenrisico's. |
 | `airco_installation_options` | Label, configuratietype, rang, status, samenvatting, kostenimpact, bron/zekerheid, maker en selectietijd. Single-split, multi-split en meerdere single-splits hebben server-side cardinaliteitscontrole. |
 | `airco_installation_option_placements` | Pivot met rol/volgorde; een positie komt per installatieoptie maximaal eenmaal voor. |

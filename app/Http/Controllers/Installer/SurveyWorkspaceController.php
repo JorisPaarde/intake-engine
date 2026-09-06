@@ -115,6 +115,7 @@ final class SurveyWorkspaceController extends Controller
             'length_m' => ['nullable', 'numeric', 'between:0.5,100'],
             'width_m' => ['nullable', 'numeric', 'between:0.5,100'],
             'height_m' => ['nullable', 'numeric', 'between:1.5,10'],
+            'area_m2' => ['nullable', 'numeric', 'between:1,500'],
         ]);
         $aircoSurvey->createRoom($intake, $this->user($request), $data);
 
@@ -135,6 +136,7 @@ final class SurveyWorkspaceController extends Controller
             'length_m' => ['nullable', 'numeric', 'between:0.5,100'],
             'width_m' => ['nullable', 'numeric', 'between:0.5,100'],
             'height_m' => ['nullable', 'numeric', 'between:1.5,10'],
+            'area_m2' => ['nullable', 'numeric', 'between:1,500'],
         ]);
         $aircoSurvey->updateRoom($intake, $this->user($request), $room, $data);
 
