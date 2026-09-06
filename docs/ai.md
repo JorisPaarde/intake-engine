@@ -61,12 +61,14 @@ App\Domains\AI\
   Contracts\AiClientInterface
   Clients\NullAiClient | FakeAiClient | HeuristicAiClient
   Clients\OpenAiClient
-  DTOs\AiImageInput
+  DTOs\AiImageInput | RequestIntentEvaluation | RequestPrefillCandidate
   Services\AiGateway
   Services\AiImageResolver
   Services\AiBudgetGuard
   Services\PromptVersionRepository
   Services\SurveySynthesisContextBuilder
+  Services\LocalRequestIntentParser | TemplateQuestionCatalogBuilder | RequestPrefillContextBuilder
+  Services\RequestPrefillOutcomeClassifier | EvaluateRequestIntent
   Prompts\summary\ | attention_points\ | fusebox_assessment\
   Prompts\request_prefill\ | room_assessment\ | outdoor_assessment\
   Prompts\pipe_route_assessment\ | installer_photo_observation\
@@ -176,6 +178,8 @@ Daarna, met `AI_TEXT_INFERENCE_ENABLED` aan en externe calls toegestaan, beoorde
 Herbeoordeling (ADR-0014) gebeurt opnieuw wanneer de context groeit: na adresverrijking (aanmaak én retry), bij opslaan van de openingszin, en na een installateursnotitie of aangepaste constatering. Ongewijzigde context herhaalt geen provider-call (inputhash).
 
 De lokale run bewaart alleen parserversie, inputhash, gecontroleerde output en toegepaste vraagsleutels; de vrije openingszin komt niet in activity-properties. Afgeleide antwoorden krijgen `prefill_source=request_text`. De klantlink-herstelpass zet externe calls expliciet uit (`allowExternal: false`) en draait alleen de lokale heuristiek.
+
+Normalisatie en classificatie (fill / voorzet / afgewezen + reden) zitten in `RequestPrefillOutcomeClassifier`; `EvaluateRequestIntent` draait dezelfde keten dry-run voor Dev-admin **AI-invoer testen** (BL-104) zonder intakes, antwoorden, AI-runs, mail of jobs. Productie past alleen fill/suggestion toe via `DeriveIntentFromRequest` / `PrefillAnswersFromKnownContext`.
 
 ## Promptversionering
 

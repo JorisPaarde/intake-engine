@@ -28,6 +28,7 @@ test('dev-admin is a hard 404 when disabled (production)', function () {
     $this->get('/dev')->assertNotFound();
     $this->get('/dev/health')->assertNotFound();
     $this->get('/dev/ai-runs')->assertNotFound();
+    $this->get('/dev/ai-input-test')->assertNotFound();
     $this->get('/dev/activity')->assertNotFound();
     $this->get('/dev/intakes')->assertNotFound();
 });
@@ -37,6 +38,7 @@ test('all dev-admin pages render for an authenticated installer', function () {
 
     $this->get('/dev/health')->assertOk();
     $this->get('/dev/ai-runs')->assertOk();
+    $this->get('/dev/ai-input-test')->assertOk()->assertSee('AI-invoer testen');
     $this->get('/dev/activity')->assertOk();
     $this->get('/dev/intakes')->assertOk();
 });

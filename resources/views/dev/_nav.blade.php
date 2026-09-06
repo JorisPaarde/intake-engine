@@ -3,6 +3,7 @@
         'dev.dashboard' => 'Overzicht',
         'dev.intakes' => 'Opname-inspector',
         'dev.ai-runs' => 'AI-runs',
+        'dev.ai-input-test' => 'AI-invoer testen',
         'dev.activity' => 'Activiteit',
         'dev.health' => 'Systeem/health',
     ];

@@ -6,6 +6,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Added
 
+- **Dev-admin AI-invoer testen (BL-104):** tab `/dev/ai-input-test` draait dry-run dezelfde keten als Nieuwe opname (lokale parser → catalogus-AI → normalisatie/validatie) via gedeelde `EvaluateRequestIntent` + `RequestPrefillOutcomeClassifier`. Toont versies, fills/voorzetten/afwijzingen met reden, hypothetisch formulierbeeld en open vragen. Production hard 404; geen duurzame intakes/antwoorden/AI-runs/mail/jobs; rate-limit + max lengte; bij uitgeschakelde tekst-AI alleen lokaal pad met duidelijke melding (geen stille mock).
 - **Contextuele klanttaak vanuit ieder onderdeel (BL-100):** op de opnamewerkplek tonen ruimte-, foto- en verbindingsblokken (plus klantveilige open onderdelen in **Alle onderdelen**) **Vraag de klant**. Die actie opent `#demo-customer-task` vooraf ingevuld (type, opdracht, `decision_area_key`, dossieronderwerp); de installateur controleert en verstuurt daarna via het bestaande store-pad. Technische keuzes (multi-split/singles, unitpositie, route goedkeuren) tonen geen misleidende klantactie. AI-uitzonderingen blijven 1-klik via `tasks.quick`.
 - **Ruimteoppervlak via L×B of betrouwbaar m²; hoogte apart (BL-101):** `AircoRoom.dimensions` accepteert `area_m2` met bron/zekerheid/evidence naast `length_m`/`width_m`/`height_m`. Capaciteit is compleet bij één betrouwbare vloergrondslag; conflicterende L×B en m² worden controlepunt; AI-m² alleen bij `RoomAreaAcceptance` (high + evidence). Ontbrekende hoogte blokkeert niet standaard (wel bij zolder). Airco **v16** voegt optionele vraag `room_area_m2` toe; prefill-prompt `request-prefill-v4`.
 - **Ruimtecentrische binnen-/buitenunitkoppeling (BL-102):** vanuit de ruimtekaart koppelt de installateur een binnenunit (exact één gewenste ruimte) aan een herkenbare gedeelde buitenunit via een `refrigerant`-verbinding in de installatieoptie. Cardinaliteit: single-split 1↔1, multi-split ≥2 indoor → dezelfde ene outdoor, meerdere singles unieke 1↔1-paren. Onvolledige/dubbele/kruiskoppelingen worden afgewezen en als open punt in beslisgereedheid getoond. Hergebruikt plaatsingsopties, optie-placementpivot en bestaande koelleidingen (ADR-0012); geen nieuwe hoofdtabel.
@@ -18,10 +19,6 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 - **Openingszin met herhaalde kamers ging naar de regex i.p.v. AI (BL-098):** “Drie slaapkamers … woonkamers is 5 bij 7 meter en de slaapkamers 20m2 elk” telde elke kamernaam lokaal (extra ruimtes, geen maten). Lokale parser laat herhaalde types nu los (`request-intent-local-v4`); catalogus-AI (`request-prefill-v3`) bepaalt aantal, type en L×B. Werkpleknamen nummeren per type: eerste woonkamer is **Woonkamer 1**, niet Woonkamer 3.
 - **Adreszoekstatus bleef hangen na autofill (BL-097):** browser-autofill vulde *Straat en huisnummer* / *Plaats* in dezelfde ronde als postcode; die `input` brak de PDOK-lookup af en liet **Adres wordt automatisch gezocht…** staan. Straat/plaats-input tijdens een geplande of lopende lookup (en kort ná een match) wordt genegeerd; de PDOK-uitslag vult de velden. `autocomplete="off"` op die twee velden. Ongeldige of afgebroken zoekactie wist de status.
-
-### Added
-
-- **Browser-testspeelboek (BL-096):** [docs/browser-test-flow.md](docs/browser-test-flow.md) is het stapsgewijze script voor een agent (of mens) die een echte browser opent op staging en naar het scherm kijkt. Bevat kopieerprompt, Flow A (demo-installateur), B (klantpad), optioneel C (Dicteren) en D (negatief). `docs/functional-test-status.md` blijft de uitslagentabel; Pest telt niet als uitvoering.
 
 ### Changed
 
