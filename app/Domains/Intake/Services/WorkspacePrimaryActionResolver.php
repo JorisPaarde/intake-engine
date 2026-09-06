@@ -12,7 +12,9 @@ use App\Enums\AircoConnectionType;
 use App\Enums\AircoOptionStatus;
 use App\Enums\DecisionAreaStatus;
 use App\Enums\DossierNextAction;
+use App\Enums\FollowUpItemType;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 /**
  * Resolves the sticky primary CTA and per-area deep links for the installer workspace (BL-054/055).
@@ -158,6 +160,53 @@ final class WorkspacePrimaryActionResolver
                 'label' => 'Verder in de opname',
             ],
         };
+    }
+
+    /**
+     * Presentation payload for one row in the central Alle onderdelen overview (BL-099).
+     *
+     * @return array{
+     *     href: string,
+     *     label: string,
+     *     is_open: bool,
+     *     detail: string|null,
+     *     ask_customer: array{type: string, prompt: string}|null
+     * }
+     */
+    public function overviewItem(Intake $intake, DossierDecisionArea $area): array
+    {
+        $target = $this->targetForArea($intake, $area->key);
+        $isOpen = in_array(
+            $area->status,
+            [DecisionAreaStatus::Blocked, DecisionAreaStatus::Review],
+            true,
+        );
+
+        $detail = $area->blocker
+            ?? $area->next_action?->label()
+            ?? null;
+
+        $askCustomer = null;
+        if ($isOpen && $area->next_action === DossierNextAction::RequestContribution) {
+            $askCustomer = [
+                'type' => in_array($area->key, ['capacity', 'placement', 'refrigerant', 'condensate', 'power'], true)
+                    ? FollowUpItemType::Photo->value
+                    : FollowUpItemType::Text->value,
+                'prompt' => Str::limit(
+                    trim((string) ($area->blocker ?: ('Help ons verder met: '.$area->label))),
+                    500,
+                    '',
+                ),
+            ];
+        }
+
+        return [
+            'href' => $target['href'],
+            'label' => $target['label'],
+            'is_open' => $isOpen,
+            'detail' => $detail,
+            'ask_customer' => $askCustomer,
+        ];
     }
 
     /**

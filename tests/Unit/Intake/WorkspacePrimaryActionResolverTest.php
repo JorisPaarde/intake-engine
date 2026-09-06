@@ -110,3 +110,36 @@ test('first actionable open area skips quote when other blockers exist', functio
 
     expect($first?->key)->toBe('placement');
 });
+
+test('overview item exposes deep-link detail and ask-customer payload for open areas', function () {
+    $intake = bareIntake();
+    $area = fakeOpenArea('capacity', DecisionAreaStatus::Blocked, 'Vul maten in');
+
+    $item = app(WorkspacePrimaryActionResolver::class)->overviewItem($intake, $area);
+
+    expect($item['href'])->toBe('#workspace-rooms')
+        ->and($item['label'])->toBe('Maten invullen')
+        ->and($item['is_open'])->toBeTrue()
+        ->and($item['detail'])->toBe('Vul maten in')
+        ->and($item['ask_customer'])->toMatchArray([
+            'type' => 'photo',
+            'prompt' => 'Vul maten in',
+        ]);
+});
+
+test('overview item has no ask-customer action for ready areas', function () {
+    $intake = bareIntake();
+    $area = new DossierDecisionArea([
+        'key' => 'request',
+        'label' => 'Aanvraag',
+        'status' => DecisionAreaStatus::Ready,
+        'blocker' => null,
+        'next_action' => null,
+    ]);
+
+    $item = app(WorkspacePrimaryActionResolver::class)->overviewItem($intake, $area);
+
+    expect($item['is_open'])->toBeFalse()
+        ->and($item['ask_customer'])->toBeNull()
+        ->and($item['href'])->toBe('#workspace-rooms');
+});
