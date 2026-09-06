@@ -324,6 +324,26 @@ final class DossierManager
 
                 $record = null;
                 if ($item->answered_at !== null) {
+                    $taskMeta = is_array($task->meta) ? $task->meta : [];
+                    $value = [
+                        'prompt' => $item->prompt,
+                        'response_text' => $item->response_text,
+                        'upload_ids' => $item->uploads()->pluck('id')->map(
+                            static fn (mixed $id): int => (int) $id,
+                        )->all(),
+                    ];
+
+                    if (($taskMeta['kind'] ?? null) === InstallationOptionPreferenceService::META_KIND) {
+                        $preferenceService = app(InstallationOptionPreferenceService::class);
+                        $preferredOptionId = $preferenceService->parsePreferredOptionId($item->response_text);
+                        $value['preference_kind'] = InstallationOptionPreferenceService::META_KIND;
+                        $value['preferred_option_id'] = $preferredOptionId;
+                        $value['no_preference'] = $preferenceService->isNoPreference($item->response_text);
+                        $value['feasible_fingerprint'] = $taskMeta['feasible_fingerprint'] ?? null;
+                        $value['stale'] = (bool) ($taskMeta['stale'] ?? false);
+                        $value['auto_selected'] = false;
+                    }
+
                     $record = DossierRecord::query()->updateOrCreate(
                         [
                             'intake_id' => $intake->id,
@@ -334,14 +354,10 @@ final class DossierManager
                             'company_id' => $intake->company_id,
                             'dossier_subject_id' => $subject->id,
                             'kind' => DossierRecordKind::Observation,
-                            'key' => 'customer_contribution.'.$item->id,
-                            'value' => [
-                                'prompt' => $item->prompt,
-                                'response_text' => $item->response_text,
-                                'upload_ids' => $item->uploads()->pluck('id')->map(
-                                    static fn (mixed $id): int => (int) $id,
-                                )->all(),
-                            ],
+                            'key' => ($taskMeta['kind'] ?? null) === InstallationOptionPreferenceService::META_KIND
+                                ? 'customer_installation_preference'
+                                : 'customer_contribution.'.$item->id,
+                            'value' => $value,
                             'actor_type' => 'customer',
                             'actor_id' => null,
                             'method' => 'targeted_customer_task',

@@ -33,6 +33,8 @@ Schrijf zodat klant en installateur snel begrijpen wat ze moeten doen. Volg de p
 | openingszin | korte uitleg bij de aanvraag |
 | kandidaatpositie / plekken / posities (installateurs-UI) | binnenunit / buitenunit (of stroomaansluiting / afvoerpunt) |
 | opstelling / installatieoptie / optie (installateurs-UI voor de combinatiekeuze) | multi-split of singles; als zelfstandig naamwoord nodig: **keuze** (niet een derde productwoord) |
+| haalbaarheidsbeoordeling / feasibility | **haalbaar** / **niet haalbaar** (met korte motivatie) |
+| klantconfiguratiekeuze vóór technische check | eerst haalbare keuzes; daarna optioneel **klantvoorkeur** (incl. **Geen voorkeur**) |
 | Technische waarneming (plaatsingsveld) | Notitie |
 | Technische notitie toevoegen / Technische notities | Notitie toevoegen / Notities |
 | Technische constatering | Notitie |

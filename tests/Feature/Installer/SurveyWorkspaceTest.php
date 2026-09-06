@@ -238,6 +238,7 @@ test('workspace Alle onderdelen remains the single overview when nothing is open
             'confidence' => 0.9,
         ]);
     }
+    $survey->markInstallationOptionFeasible($intake, $user, $option);
     $survey->selectInstallationOption($intake, $user, $option);
     app(CompleteInstallerSurvey::class)->handle($intake->fresh(), $user);
 
@@ -640,6 +641,7 @@ test('two bedroom survey compares a multi-split option and approves all three co
             'confidence' => 0.9,
         ]);
     }
+    $survey->markInstallationOptionFeasible($intake, $user, $option);
     $survey->selectInstallationOption($intake, $user, $option);
 
     $quoteBefore = app(DecisionReadinessService::class)

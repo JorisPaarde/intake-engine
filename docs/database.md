@@ -1,6 +1,6 @@
 # Databaseschema — Digitale Opname
 
-> **Documentversie:** 3.7 · **Laatste update:** 2026-09-06 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.8 · **Laatste update:** 2026-09-06 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: dit document beschrijft het **geïmplementeerde schema**, inclusief de uitbreidende dossiermigratie van BL-030 en BL-035 t/m BL-042 en de zelfstandige publieke interesse-inzendingen van BL-043. Bestaande antwoord-, bron-, upload-, review- en routetabellen blijven bewust bestaan naast de nieuwe dossierobjecten.
 
@@ -24,8 +24,8 @@ Status: dit document beschrijft het **geïmplementeerde schema**, inclusief de u
 | `QuestionType` | `short_text`, `long_text`, `number`, `single_choice`, `multi_choice`, `boolean`, `photo` |
 | `TemplateVersionStatus` | `draft`, `published`, `archived` |
 | `ReviewDecision` | `pending`, `prepare_quote`, `need_more_info`, `site_visit_needed`, `not_suitable` |
-| `FollowUpItemType` | `text`, `photo`, `document` |
-| `FollowUpRoundStatus` | `open`, `completed` |
+| `FollowUpItemType` | `text`, `photo`, `document`, `choice` |
+| `FollowUpRoundStatus` | `open`, `completed`, `cancelled` |
 | `AttentionPointSource` | `system`, `reviewer`, `ai` |
 | `RuleOperator` | `equals`, `not_equals`, `in`, `not_in`, `gt`, `gte`, `lt`, `lte`, `filled` |
 | `RuleEffect` | `show`, `require` |
@@ -42,6 +42,7 @@ Status: dit document beschrijft het **geïmplementeerde schema**, inclusief de u
 | `AircoConfigurationType` | `single_split`, `multi_split`, `multiple_single_splits` |
 | `AircoPlacementType` | `indoor_unit`, `outdoor_unit`, `power_source`, `drain_point` |
 | `AircoOptionStatus` | `candidate`, `selected`, `rejected` |
+| `AircoOptionFeasibility` | `pending`, `feasible`, `infeasible` |
 | `AircoConnectionType` | `refrigerant`, `condensate`, `power` |
 | `AircoConnectionStatus` | `unknown`, `proposed`, `plausible`, `needs_evidence`, `not_remotely_resolvable`, `approved` |
 | `InstallationSiteVisitReason` | `power_uncertain`, `condensate_uncertain`, `route_uncertain`, `access_uncertain`, `construction_uncertain`, `customer_preference`, `other` |
@@ -285,7 +286,7 @@ Alle tabellen behalve de zuivere pivot dragen zowel `intake_id` als `company_id`
 |-------|-------------------------------------|
 | `airco_rooms` | Gewenste ruimte met dossieronderwerp, unieke intake-key, naam, gebruik, volgorde, status, bron en optionele afmetingen in JSON `dimensions`. Vloeroppervlak via `length_m`+`width_m` óf betrouwbaar `area_m2` (+ `area_source`/`area_confidence`/`area_evidence`); `height_m` apart. Legacy `room-*`-instanties worden idempotent gemapt. |
 | `airco_placement_options` | Optionele ruimte, dossieronderwerp, type, label/omschrijving, locatie-JSON, status, bron, zekerheid en kostenrisico's. |
-| `airco_installation_options` | Label, configuratietype, rang, status, samenvatting, kostenimpact, bron/zekerheid, maker en selectietijd. Single-split, multi-split en meerdere single-splits hebben server-side cardinaliteitscontrole. |
+| `airco_installation_options` | Label, configuratietype, rang, status (`candidate`/`selected`/`rejected`), haalbaarheid (`pending`/`feasible`/`infeasible`), optionele `infeasibility_reason`, samenvatting, kostenimpact, bron/zekerheid, maker en selectietijd. Single-split, multi-split en meerdere single-splits hebben server-side cardinaliteitscontrole. Selectie vereist `feasibility=feasible`. |
 | `airco_installation_option_placements` | Pivot met rol/volgorde; een positie komt per installatieoptie maximaal eenmaal voor. |
 | `airco_connections` | Installatieoptie, optionele concrete eindpunten, dossieronderwerp, type, status, lengteklasse, segmenten, obstakels, onzekerheden, kostenimpact, zekerheid, bron en integrale goedkeuring. Stroom zet `safety_check_required=true`. |
 
@@ -466,7 +467,7 @@ Genummerde aanvullende informatieronde na `need_more_info`.
 | `requested_by` | FK users, restrict | Installateur |
 | `round_number` | unsigned tinyint | Monotoon per intake; standaard maximaal 3 |
 | `purpose` | string | `follow_up` voor historie, `contribution` voor gerichte hybride taak |
-| `status` | FollowUpRoundStatus | `open` / `completed` |
+| `status` | FollowUpRoundStatus | `open` / `completed` / `cancelled` |
 | `return_status` | string nullable | Status waarnaar een gerichte klanttaak na afronding terugkeert |
 | `sent_at` | timestamp | Beschikbaar via dezelfde klantlink |
 | `completed_at` | timestamp nullable | |
@@ -480,7 +481,7 @@ Unique: `(intake_id, round_number)`. Index: `(intake_id, status)`.
 |-------|------|-------------|
 | `id` | bigint PK | |
 | `intake_follow_up_round_id` | FK, cascade | |
-| `type` | FollowUpItemType | `text`, `photo` of `document` |
+| `type` | FollowUpItemType | `text`, `photo`, `document` of `choice` |
 | `prompt` | text | Concrete vraag, foto- of documentopdracht; privacygevoelig |
 | `response_text` | text nullable | Klantantwoord bij type `text`; privacygevoelig |
 | `answered_at` | timestamp nullable | |
@@ -803,6 +804,8 @@ erDiagram
         bigint intake_id FK
         string configuration_type
         string status
+        string feasibility
+        string infeasibility_reason
         int rank
     }
 

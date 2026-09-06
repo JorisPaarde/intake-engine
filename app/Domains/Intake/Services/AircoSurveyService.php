@@ -15,6 +15,7 @@ use App\Domains\Intake\Support\RoomDimensions;
 use App\Enums\AircoConfigurationType;
 use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
+use App\Enums\AircoOptionFeasibility;
 use App\Enums\AircoOptionStatus;
 use App\Enums\AircoPlacementType;
 use App\Models\User;
@@ -31,6 +32,7 @@ final class AircoSurveyService
         private readonly DecisionReadinessService $decisionReadiness,
         private readonly InstallerSurveyProgress $surveyProgress,
         private readonly AircoUnitCouplingValidator $couplingValidator,
+        private readonly InstallationOptionPreferenceService $preferenceService,
     ) {}
 
     /**
@@ -341,6 +343,8 @@ final class AircoSurveyService
                 'configuration_type' => $configuration,
                 'rank' => ((int) $intake->aircoInstallationOptions()->max('rank')) + 1,
                 'status' => AircoOptionStatus::Candidate,
+                'feasibility' => AircoOptionFeasibility::Pending,
+                'infeasibility_reason' => null,
                 'summary' => isset($data['summary']) ? trim((string) $data['summary']) : null,
                 'cost_impact' => $data['cost_impact'] ?? null,
                 'source_type' => 'installer',
@@ -387,6 +391,68 @@ final class AircoSurveyService
         return $option;
     }
 
+    public function markInstallationOptionFeasible(
+        Intake $intake,
+        User $installer,
+        AircoInstallationOption $option,
+    ): AircoInstallationOption {
+        $this->guardTenant($intake, $installer);
+        $this->guardModel($intake, $option);
+
+        $option->update([
+            'feasibility' => AircoOptionFeasibility::Feasible,
+            'infeasibility_reason' => null,
+        ]);
+
+        $this->activity($intake, $installer, 'airco_installation_option_feasible', [
+            'option_id' => $option->id,
+        ]);
+        $this->preferenceService->invalidateIfFeasibleSetChanged($intake->fresh() ?? $intake, $installer);
+        $this->surveyProgress->markStarted($intake);
+        $this->decisionReadiness->recalculate($intake->fresh() ?? $intake);
+
+        return $option->fresh(['placements', 'connections']) ?? $option;
+    }
+
+    public function markInstallationOptionInfeasible(
+        Intake $intake,
+        User $installer,
+        AircoInstallationOption $option,
+        string $reason,
+    ): AircoInstallationOption {
+        $this->guardTenant($intake, $installer);
+        $this->guardModel($intake, $option);
+
+        $reason = trim($reason);
+        if ($reason === '' || mb_strlen($reason) > 1000) {
+            throw ValidationException::withMessages([
+                'infeasibility_reason' => 'Schrijf kort waarom deze keuze niet haalbaar is.',
+            ]);
+        }
+
+        if ($option->status === AircoOptionStatus::Selected) {
+            throw ValidationException::withMessages([
+                'option' => 'Maak eerst een andere keuze voordat je deze als niet haalbaar markeert.',
+            ]);
+        }
+
+        $option->update([
+            'feasibility' => AircoOptionFeasibility::Infeasible,
+            'infeasibility_reason' => $reason,
+            'status' => AircoOptionStatus::Candidate,
+            'selected_at' => null,
+        ]);
+
+        $this->activity($intake, $installer, 'airco_installation_option_infeasible', [
+            'option_id' => $option->id,
+        ]);
+        $this->preferenceService->invalidateIfFeasibleSetChanged($intake->fresh() ?? $intake, $installer);
+        $this->surveyProgress->markStarted($intake);
+        $this->decisionReadiness->recalculate($intake->fresh() ?? $intake);
+
+        return $option->fresh(['placements', 'connections']) ?? $option;
+    }
+
     public function selectInstallationOption(
         Intake $intake,
         User $installer,
@@ -394,6 +460,13 @@ final class AircoSurveyService
     ): AircoInstallationOption {
         $this->guardTenant($intake, $installer);
         $this->guardModel($intake, $option);
+
+        if ($option->feasibility !== AircoOptionFeasibility::Feasible
+            && $option->status !== AircoOptionStatus::Selected) {
+            throw ValidationException::withMessages([
+                'option' => 'Markeer deze keuze eerst als haalbaar voordat je hem selecteert.',
+            ]);
+        }
 
         $problems = $this->couplingValidator->optionProblems($option, requireComplete: false);
         if ($problems !== []) {
@@ -412,6 +485,8 @@ final class AircoSurveyService
                 ]);
             $option->update([
                 'status' => AircoOptionStatus::Selected,
+                'feasibility' => AircoOptionFeasibility::Feasible,
+                'infeasibility_reason' => null,
                 'selected_at' => now(),
             ]);
         }, 3);

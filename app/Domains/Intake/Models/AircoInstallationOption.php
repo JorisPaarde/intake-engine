@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domains\Intake\Models;
 
 use App\Enums\AircoConfigurationType;
+use App\Enums\AircoOptionFeasibility;
 use App\Enums\AircoOptionStatus;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
@@ -21,6 +22,8 @@ use Illuminate\Support\Carbon;
  * @property AircoConfigurationType $configuration_type
  * @property int|null $rank
  * @property AircoOptionStatus $status
+ * @property AircoOptionFeasibility $feasibility
+ * @property string|null $infeasibility_reason
  * @property string|null $summary
  * @property string|null $cost_impact
  * @property string $source_type
@@ -38,6 +41,8 @@ class AircoInstallationOption extends Model
         'configuration_type',
         'rank',
         'status',
+        'feasibility',
+        'infeasibility_reason',
         'summary',
         'cost_impact',
         'source_type',
@@ -56,11 +61,17 @@ class AircoInstallationOption extends Model
             'configuration_type' => AircoConfigurationType::class,
             'rank' => 'integer',
             'status' => AircoOptionStatus::class,
+            'feasibility' => AircoOptionFeasibility::class,
             'source_id' => 'integer',
             'confidence' => 'float',
             'created_by' => 'integer',
             'selected_at' => 'datetime',
         ];
+    }
+
+    public function isFeasible(): bool
+    {
+        return $this->feasibility === AircoOptionFeasibility::Feasible;
     }
 
     /** @return BelongsTo<Intake, $this> */

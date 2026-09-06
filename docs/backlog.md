@@ -38,11 +38,11 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. De opnamefeedback gebruikt BL-099–103; de dev-AI-proeftuin is BL-104. Nieuwe items starten bij BL-105.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. De opnamefeedback gebruikt BL-099–103; de dev-AI-proeftuin is BL-104. Nieuwe items starten bij BL-105.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| 1 | BL-103 | Technische configuratie eerst, klantvoorkeur pas na haalbaarheidscheck | E7/E8 | backlog | high | na BL-102 · bij BL-038/039 · ADR-0012 |
+| — | BL-103 | Technische configuratie eerst, klantvoorkeur pas na haalbaarheidscheck | E7/E8 | done | high | na BL-102 · bij BL-038/039 · ADR-0012 · PR #107 |
 | — | BL-104 | Dev: AI-invoer van Nieuwe opname veilig testen en verklaren | E3/E5 | done | medium | dev/QA · bij BL-028/064/065/093/098 · PR #105 |
 | — | BL-100 | Opnamewerkplek: vooraf ingevulde klanttaak vanuit ieder onderdeel | E7 | done | high | opname-UX · na BL-099 · bij BL-038/061/062/089 · PR #106 |
 | — | BL-102 | Ruimtecentrische binnen-/buitenunitkoppeling met juiste cardinaliteit | E8 | done | high | airco-configuratie · ADR-0012 · bij BL-039/040/060 · PR #104 |
@@ -762,12 +762,13 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-103 — Technische configuratie eerst, klantvoorkeur pas na haalbaarheidscheck
 
-- **Status:** backlog · **Prioriteit:** high · **Epic:** E7/E8 · **Band:** airco-configuratie · **Afhankelijk:** BL-102 voor concrete, gevalideerde unitkoppelingen · **Volgt op:** BL-038/039 · **Ref:** productmodel + ADR-0012
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-06 · **PR:** #107 · **Epic:** E7/E8 · **Band:** airco-configuratie · **Afhankelijk:** BL-102 · **Volgt op:** BL-038/039 · **Ref:** productmodel + ADR-0012
 - **Aanleiding:** feedback op de opnamewerkplek maakt de beslisvolgorde expliciet: single-split of multi-split is een technische keuze van de installateur. Een klantvoorkeur heeft pas betekenis nadat de installatieopties technisch zijn beoordeeld en mag niet via een vroege vraag impliciet het systeemontwerp bepalen.
 - **Doel:** borg in de werkplek en bijdrageflow dat de installateur eerst de technisch haalbare opties vaststelt; alleen daarna kan hij desgewenst een klantvoorkeur vragen tussen die haalbare alternatieven.
 - **Scope:** status/acties bij **Multi-split of singles**, selectie van haalbare installatieopties en een daarop gebaseerde contextuele klanttaak. Een voorkeur wordt als afzonderlijke bijdrage met bron opgeslagen en blijft ondergeschikt aan de uiteindelijke installateursselectie. Gebruik gewone klanttaal over merkbare gevolgen; toon geen technische ontwerpvelden die de klant moet invullen.
 - **Niet in scope:** de klant een definitieve single-/multi-splitconfiguratie, unitpositie, route, vermogen of veiligheidsbesluit laten kiezen; automatisch een installatieoptie selecteren op basis van voorkeur; nieuwe offerteprijsadministratie.
 - **Acceptatie:** vóór technische haalbaarheidsbeoordeling is geen klantvoorkeuractie beschikbaar; de installateur kan één of meer concrete opties als haalbaar markeren en onhaalbare opties motiveren; bij nul of één haalbare optie wordt geen onnodige keuzevraag aangeboden; bij meerdere haalbare opties kan de installateur een vooraf ingevulde voorkeurstaak controleren en versturen; de klant ziet alleen begrijpelijke, technisch geldige alternatieven en kan ook **Geen voorkeur** kiezen; het antwoord selecteert niets automatisch en de installateur neemt aantoonbaar het eindbesluit; wijziging van de haalbare opties maakt een nog open of oud voorkeurantwoord zichtbaar verouderd en vereist herbeoordeling; tests dekken de poort, één/meerdere opties, geen voorkeur en ongewijzigde installateursverantwoordelijkheid; `composer check` groen.
+- **Resultaat:** `feasibility`/`infeasibility_reason` op installatieopties; voorkeurspoort ≥2 haalbaar; Choice-klanttaak + dossierobservatie zonder auto-select; stale bij wijziging haalbare set; Pest + `composer check` groen.
 - **Hypothese:** workflow-/statusuitbreiding op bestaande installatieopties en klanttaken; geen nieuw architectuurprincipe omdat het productmodel deze rolverdeling al voorschrijft.
 
 ### BL-104 — Dev: AI-invoer van Nieuwe opname veilig testen en verklaren

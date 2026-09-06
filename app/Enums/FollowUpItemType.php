@@ -9,6 +9,7 @@ enum FollowUpItemType: string
     case Text = 'text';
     case Photo = 'photo';
     case Document = 'document';
+    case Choice = 'choice';
 
     public function label(): string
     {
@@ -16,6 +17,7 @@ enum FollowUpItemType: string
             self::Text => 'Tekst',
             self::Photo => 'Foto',
             self::Document => 'Document (PDF)',
+            self::Choice => 'Keuze',
         };
     }
 }

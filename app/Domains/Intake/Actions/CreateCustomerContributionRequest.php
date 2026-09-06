@@ -35,7 +35,8 @@ final class CreateCustomerContributionRequest
      *     type: mixed,
      *     prompt: mixed,
      *     decision_area_key?: mixed,
-     *     dossier_subject_id?: mixed
+     *     dossier_subject_id?: mixed,
+     *     meta?: mixed
      * }>  $items
      */
     public function handle(Intake $intake, User $requester, array $items): IntakeFollowUpRound
@@ -72,7 +73,10 @@ final class CreateCustomerContributionRequest
                     && $item['dossier_subject_id'] !== null
                     && ! is_numeric($item['dossier_subject_id']))
                 || (isset($item['decision_area_key'])
-                    && ! in_array($item['decision_area_key'], $allowedDecisionAreas, true))) {
+                    && ! in_array($item['decision_area_key'], $allowedDecisionAreas, true))
+                || (array_key_exists('meta', $item)
+                    && $item['meta'] !== null
+                    && ! is_array($item['meta']))) {
                 throw ValidationException::withMessages([
                     'contribution_items' => 'Iedere klantopdracht moet concreet, kort en aan een geldig beslisgebied gekoppeld zijn.',
                 ]);
@@ -153,7 +157,10 @@ final class CreateCustomerContributionRequest
                     'decision_area_key' => $item['decision_area_key'] ?? null,
                     'status' => ContributionTaskStatus::Open,
                     'requested_by' => $requester->id,
-                    'meta' => ['round_number' => $roundNumber],
+                    'meta' => array_merge(
+                        is_array($item['meta'] ?? null) ? $item['meta'] : [],
+                        ['round_number' => $roundNumber],
+                    ),
                 ]);
             }
 

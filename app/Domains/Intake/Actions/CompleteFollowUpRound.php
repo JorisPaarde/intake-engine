@@ -48,7 +48,7 @@ final class CompleteFollowUpRound
             $missing = [];
 
             foreach ($round->items as $item) {
-                if ($item->type === FollowUpItemType::Text) {
+                if ($item->type === FollowUpItemType::Text || $item->type === FollowUpItemType::Choice) {
                     $response = trim((string) ($textResponses[$item->id] ?? ''));
 
                     if ($response === '') {

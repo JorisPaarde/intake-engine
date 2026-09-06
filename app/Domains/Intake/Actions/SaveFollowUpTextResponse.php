@@ -21,7 +21,7 @@ final class SaveFollowUpTextResponse
 
         if ($item->round->intake_id !== $intake->id
             || $item->round->status !== FollowUpRoundStatus::Open
-            || $item->type !== FollowUpItemType::Text
+            || ! in_array($item->type, [FollowUpItemType::Text, FollowUpItemType::Choice], true)
             || $intake->status !== IntakeStatus::AwaitingCustomer) {
             throw ValidationException::withMessages([
                 'follow_up' => 'Deze aanvullende vraag is niet meer beschikbaar.',
@@ -36,7 +36,7 @@ final class SaveFollowUpTextResponse
 
             if ($lockedItem->round->intake_id !== $intake->id
                 || $lockedItem->round->status !== FollowUpRoundStatus::Open
-                || $lockedItem->type !== FollowUpItemType::Text
+                || ! in_array($lockedItem->type, [FollowUpItemType::Text, FollowUpItemType::Choice], true)
                 || $lockedIntake->status !== IntakeStatus::AwaitingCustomer) {
                 throw ValidationException::withMessages([
                     'follow_up' => 'Deze aanvullende vraag is niet meer beschikbaar.',
