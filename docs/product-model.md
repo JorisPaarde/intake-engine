@@ -157,7 +157,7 @@ De aanvraag benoemt gewenste ruimtes, bijvoorbeeld twee slaapkamers. Dat beteken
 Per gewenste ruimte bewaart de opname:
 
 - ruimte-identiteit en gebruik;
-- relevante omstandigheden voor capaciteit;
+- relevante omstandigheden voor capaciteit, waaronder vloeroppervlak via precies één betrouwbare grondslag (`length_m` × `width_m` óf een expliciet en betrouwbaar `area_m2` met bron/zekerheid; nooit verzonnen L×B uit alleen m²) en plafondhoogte alleen wanneer een expliciete regel die nodig maakt;
 - bewijs en waarnemingen;
 - nul, één of meer kandidaatposities voor een binnenunit.
 

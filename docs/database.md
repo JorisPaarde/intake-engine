@@ -283,7 +283,7 @@ Alle tabellen behalve de zuivere pivot dragen zowel `intake_id` als `company_id`
 
 | Tabel | Belangrijkste velden en invarianten |
 |-------|-------------------------------------|
-| `airco_rooms` | Gewenste ruimte met dossieronderwerp, unieke intake-key, naam, gebruik, volgorde, status, bron en optionele afmetingen. Legacy `room-*`-instanties worden idempotent gemapt. |
+| `airco_rooms` | Gewenste ruimte met dossieronderwerp, unieke intake-key, naam, gebruik, volgorde, status, bron en optionele afmetingen in JSON `dimensions`. Vloeroppervlak via `length_m`+`width_m` óf betrouwbaar `area_m2` (+ `area_source`/`area_confidence`/`area_evidence`); `height_m` apart. Legacy `room-*`-instanties worden idempotent gemapt. |
 | `airco_placement_options` | Optionele ruimte, dossieronderwerp, type, label/omschrijving, locatie-JSON, status, bron, zekerheid en kostenrisico's. |
 | `airco_installation_options` | Label, configuratietype, rang, status, samenvatting, kostenimpact, bron/zekerheid, maker en selectietijd. Single-split, multi-split en meerdere single-splits hebben server-side cardinaliteitscontrole. |
 | `airco_installation_option_placements` | Pivot met rol/volgorde; een positie komt per installatieoptie maximaal eenmaal voor. |

@@ -9,6 +9,7 @@ use App\Domains\Intake\Models\AircoInstallationOption;
 use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\DossierDecisionArea;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Support\RoomDimensions;
 use App\Enums\AircoConnectionType;
 use App\Enums\DecisionAreaStatus;
 use Illuminate\Support\Collection;
@@ -76,13 +77,9 @@ final class DossierOverviewBuilder
             'request' => $intake->aircoRooms->isNotEmpty(),
             'capacity' => $intake->aircoRooms->contains(
                 static function (AircoRoom $room): bool {
-                    $dimensions = is_array($room->dimensions) ? $room->dimensions : [];
+                    $dimensions = RoomDimensions::from(is_array($room->dimensions) ? $room->dimensions : null);
 
-                    return $room->use_type !== null
-                        || isset($dimensions['length_m'], $dimensions['width_m'], $dimensions['height_m'])
-                        || isset($dimensions['length_m'])
-                        || isset($dimensions['width_m'])
-                        || isset($dimensions['height_m']);
+                    return $room->use_type !== null || $dimensions->hasAnyMeasure();
                 },
             ),
             'placement' => $intake->aircoPlacements->isNotEmpty()

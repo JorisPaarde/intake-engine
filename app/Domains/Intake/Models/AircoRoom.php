@@ -20,7 +20,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string $status
  * @property string $source_type
  * @property int|null $source_id
- * @property array<string, float>|null $dimensions
+ * @property array<string, float|string>|null $dimensions
  * @property-read DossierSubject $subject
  */
 class AircoRoom extends Model

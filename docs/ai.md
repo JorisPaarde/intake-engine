@@ -1,6 +1,6 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 3.7 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.8 · **Laatste update:** 2026-09-06 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **samenvatting, aandachtspunten, lokale fotokwaliteit, tekst-/foto-afleiding, verbindingsgebonden routeanalyse en bewijsgerichte dossiersynthese zijn geïmplementeerd**. Externe provider en tekst-/foto-/route-/dossierinferentie staan standaard uit (DPIA + key + budgetcaps + staging-smoke vereist).
 
@@ -171,7 +171,7 @@ Dossiersynthese loopt na iedere afgeronde klant-, installateur- of gerichte bijd
 
 `DeriveIntentFromRequest` volgt een hybrid pad. Eerst past de bevroren `LocalRequestIntentParser` (`request-intent-local-v4`) alleen foutloze evidente feiten toe: koel-/verwarmdoelen (inclusief `koud te krijgen`), éénduidige aantallen/ruimtetypen en “op zolder”. Zelfde kamertype twee keer noemen (vaak maten naderhand) is geen lokale high-confidence — dat bepaalt catalogus-AI. Geen lokale maat-, buitenunit- of andere keuzeheuristiek.
 
-Daarna, met `AI_TEXT_INFERENCE_ENABLED` aan en externe calls toegestaan, beoordeelt `PrefillAnswersFromKnownContext` de volledige fillable vraagenset via `request-prefill-v3`: openingszin, antwoorden, externe feiten en installateursobservaties. Per vraag alleen cataloguskeys/opties; `high` → `prefill_source=ai`, `medium` → `ai_suggestion`, `low` → niets. Fotovragen worden niet ingevuld. De prompt telt herhaalde kamernamen niet dubbel en neemt letterlijke L×B over, geen m²→L×B.
+Daarna, met `AI_TEXT_INFERENCE_ENABLED` aan en externe calls toegestaan, beoordeelt `PrefillAnswersFromKnownContext` de volledige fillable vraagenset via `request-prefill-v4`: openingszin, antwoorden, externe feiten en installateursobservaties. Per vraag alleen cataloguskeys/opties; `high` → `prefill_source=ai`, `medium` → `ai_suggestion`, `low` → niets. Fotovragen worden niet ingevuld. De prompt telt herhaalde kamernamen niet dubbel; neemt letterlijke L×B over of vult `room_area_m2` bij exact m² (geen m²→L×B). Exact AI-m² telt alleen bij hoge zekerheid + evidence (`RoomAreaAcceptance`).
 
 Herbeoordeling (ADR-0014) gebeurt opnieuw wanneer de context groeit: na adresverrijking (aanmaak én retry), bij opslaan van de openingszin, en na een installateursnotitie of aangepaste constatering. Ongewijzigde context herhaalt geen provider-call (inputhash).
 

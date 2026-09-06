@@ -11,6 +11,7 @@ use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\DossierSubject;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
+use App\Domains\Intake\Support\RoomDimensions;
 use App\Enums\AircoConfigurationType;
 use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
@@ -33,7 +34,14 @@ final class AircoSurveyService
     ) {}
 
     /**
-     * @param  array{name: string, use_type?: string|null, length_m?: float|null, width_m?: float|null, height_m?: float|null}  $data
+     * @param  array{
+     *     name: string,
+     *     use_type?: string|null,
+     *     length_m?: float|null,
+     *     width_m?: float|null,
+     *     height_m?: float|null,
+     *     area_m2?: float|null
+     * }  $data
      */
     public function createRoom(Intake $intake, User $installer, array $data): AircoRoom
     {
@@ -47,13 +55,14 @@ final class AircoSurveyService
             trim($data['name']),
             $root,
         );
-        $dimensions = collect([
+        $dimensions = RoomDimensions::normalizeWritable([
             'length_m' => $data['length_m'] ?? null,
             'width_m' => $data['width_m'] ?? null,
             'height_m' => $data['height_m'] ?? null,
-        ])->filter(static fn (mixed $value): bool => is_numeric($value))->map(
-            static fn (mixed $value): float => (float) $value,
-        )->all();
+            'area_m2' => $data['area_m2'] ?? null,
+            'area_source' => 'installer',
+            'area_confidence' => 'high',
+        ]);
 
         $room = AircoRoom::query()->create([
             'intake_id' => $intake->id,
@@ -77,20 +86,28 @@ final class AircoSurveyService
     }
 
     /**
-     * @param  array{name: string, use_type?: string|null, length_m?: float|null, width_m?: float|null, height_m?: float|null}  $data
+     * @param  array{
+     *     name: string,
+     *     use_type?: string|null,
+     *     length_m?: float|null,
+     *     width_m?: float|null,
+     *     height_m?: float|null,
+     *     area_m2?: float|null
+     * }  $data
      */
     public function updateRoom(Intake $intake, User $installer, AircoRoom $room, array $data): AircoRoom
     {
         $this->guardTenant($intake, $installer);
         $this->guardModel($intake, $room);
 
-        $dimensions = collect([
+        $dimensions = RoomDimensions::normalizeWritable([
             'length_m' => $data['length_m'] ?? null,
             'width_m' => $data['width_m'] ?? null,
             'height_m' => $data['height_m'] ?? null,
-        ])->filter(static fn (mixed $value): bool => is_numeric($value))->map(
-            static fn (mixed $value): float => (float) $value,
-        )->all();
+            'area_m2' => $data['area_m2'] ?? null,
+            'area_source' => 'installer',
+            'area_confidence' => 'high',
+        ]);
 
         $name = trim($data['name']);
         $room->update([

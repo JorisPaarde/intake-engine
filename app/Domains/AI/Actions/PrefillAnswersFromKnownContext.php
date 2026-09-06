@@ -13,6 +13,7 @@ use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeAnswer;
+use App\Domains\Intake\Support\RoomAreaAcceptance;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
 use App\Enums\IntakeStatus;
@@ -332,6 +333,23 @@ final class PrefillAnswersFromKnownContext
             }
 
             $source = $confidence === 'high' ? self::SOURCE_DERIVED : self::SOURCE_SUGGESTED;
+
+            if ($questionKey === 'room_area_m2') {
+                $number = is_array($fill['value'] ?? null) ? ($fill['value']['number'] ?? null) : null;
+                $area = is_numeric($number) ? (float) $number : null;
+                $fillEvidence = $fill['evidence'] ?? null;
+                $evidence = is_string($fillEvidence) && trim($fillEvidence) !== ''
+                    ? trim($fillEvidence)
+                    : null;
+                $runEvidence = trim($output['evidence']);
+                $effectiveEvidence = $evidence ?? ($runEvidence !== '' ? $runEvidence : null);
+
+                if (! RoomAreaAcceptance::acceptsAiExactArea($confidence, $effectiveEvidence, $area)) {
+                    // Keep as reviewable suggestion; never invent L×B and never trust weak m².
+                    $source = self::SOURCE_SUGGESTED;
+                }
+            }
+
             $this->saveIntakeAnswer->handle(
                 $intake,
                 $questionKey,

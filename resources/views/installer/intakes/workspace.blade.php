@@ -267,17 +267,38 @@
                             @forelse ($intake->aircoRooms as $room)
                                 @php
                                     $roomSubject = $intake->dossierSubjects->firstWhere('id', $room->dossier_subject_id);
-                                    $roomDimensions = is_array($room->dimensions) ? $room->dimensions : [];
-                                    $length = $roomDimensions['length_m'] ?? null;
-                                    $width = $roomDimensions['width_m'] ?? null;
-                                    $height = $roomDimensions['height_m'] ?? null;
-                                    $hasAnyDimension = is_numeric($length) || is_numeric($width) || is_numeric($height);
+                                    $roomMeasures = \App\Domains\Intake\Support\RoomDimensions::from(is_array($room->dimensions) ? $room->dimensions : null);
+                                    $length = $roomMeasures->lengthM();
+                                    $width = $roomMeasures->widthM();
+                                    $height = $roomMeasures->heightM();
+                                    $areaM2 = $roomMeasures->declaredAreaM2();
+                                    $computedArea = $roomMeasures->areaFromLengthWidth();
+                                    $hasAnyDimension = $roomMeasures->hasAnyMeasure();
+                                    $floorConflict = $roomMeasures->hasFloorAreaConflict();
+                                    $heightNeeded = $room->use_type === 'attic';
                                 @endphp
                                 <article id="room-{{ $room->id }}" class="scroll-mt-28 rounded-2xl border border-gray-200 p-4">
                                     <div class="flex flex-wrap items-start justify-between gap-3">
                                         <p class="text-xs text-gray-500">
-                                            @if ($hasAnyDimension)
-                                                {{ (is_numeric($length) ? number_format((float) $length, 1, ',', '.') : '–').' × '.(is_numeric($width) ? number_format((float) $width, 1, ',', '.') : '–').' × '.(is_numeric($height) ? number_format((float) $height, 1, ',', '.') : '–').' m' }}
+                                            @if ($floorConflict)
+                                                Controleer maten: L×B en m² komen niet overeen
+                                            @elseif ($roomMeasures->hasLengthAndWidth())
+                                                {{ number_format((float) $length, 1, ',', '.').' × '.number_format((float) $width, 1, ',', '.') }} m
+                                                @if ($computedArea !== null)
+                                                    <span class="text-gray-400">({{ number_format($computedArea, 1, ',', '.') }} m²)</span>
+                                                @endif
+                                                @if (is_numeric($height))
+                                                    <span class="text-gray-400">· H {{ number_format((float) $height, 1, ',', '.') }} m</span>
+                                                @endif
+                                            @elseif ($roomMeasures->hasTrustedAreaM2())
+                                                {{ number_format((float) $areaM2, 1, ',', '.') }} m²
+                                                @if (is_numeric($height))
+                                                    <span class="text-gray-400">· H {{ number_format((float) $height, 1, ',', '.') }} m</span>
+                                                @endif
+                                            @elseif ($roomMeasures->hasUntrustedAreaM2())
+                                                {{ number_format((float) $areaM2, 1, ',', '.') }} m² — nog controleren
+                                            @elseif ($hasAnyDimension)
+                                                Maten deels ingevuld
                                             @else
                                                 Maten nog leeg
                                             @endif
@@ -292,6 +313,23 @@
                                             } }}
                                         </span>
                                     </div>
+
+                                    @if ($floorConflict)
+                                        <p class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                                            Lengte×breedte ({{ number_format((float) $computedArea, 1, ',', '.') }} m²) en opgegeven oppervlak ({{ number_format((float) $areaM2, 1, ',', '.') }} m²) komen niet overeen. Kies één betrouwbare grondslag.
+                                        </p>
+                                    @elseif ($roomMeasures->hasUntrustedAreaM2() && ! $roomMeasures->hasLengthAndWidth())
+                                        <p class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                                            Oppervlak {{ number_format((float) $areaM2, 1, ',', '.') }} m² is nog niet betrouwbaar genoeg
+                                            @if ($roomMeasures->areaConfidence())
+                                                ({{ $roomMeasures->areaConfidence() === 'high' ? 'hoge' : ($roomMeasures->areaConfidence() === 'medium' ? 'middelmatige' : 'lage') }} zekerheid)
+                                            @endif
+                                            @if ($roomMeasures->areaSource())
+                                                · bron: {{ $roomMeasures->areaSource() }}
+                                            @endif
+                                            . Bevestig of vul lengte en breedte in.
+                                        </p>
+                                    @endif
 
                                     <form method="POST" action="{{ route('intakes.workspace.rooms.update', [$intake, $room]) }}" class="mt-4 grid gap-3 rounded-xl border border-gray-100 bg-gray-50 p-3 sm:grid-cols-2">
                                         @csrf
@@ -310,20 +348,43 @@
                                                 <option value="other" @selected($room->use_type === 'other')>Anders</option>
                                             </select>
                                         </div>
-                                        <div class="grid grid-cols-3 gap-2 sm:col-span-2">
+                                        <div class="sm:col-span-2">
+                                            <p class="text-xs text-gray-500">Vloeroppervlak: vul lengte en breedte in, of een betrouwbaar aantal m² — niet allebei nodig.</p>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-2 sm:col-span-2 sm:grid-cols-4">
                                             <div>
                                                 <x-input-label for="room-{{ $room->id }}-length" value="Lengte (m)" />
-                                                <x-text-input id="room-{{ $room->id }}-length" name="length_m" type="number" step="0.1" min="0.5" class="mt-1 block w-full" value="{{ $roomDimensions['length_m'] ?? '' }}" />
+                                                <x-text-input id="room-{{ $room->id }}-length" name="length_m" type="number" step="0.1" min="0.5" class="mt-1 block w-full" value="{{ $roomMeasures->lengthM() ?? '' }}" />
                                             </div>
                                             <div>
                                                 <x-input-label for="room-{{ $room->id }}-width" value="Breedte (m)" />
-                                                <x-text-input id="room-{{ $room->id }}-width" name="width_m" type="number" step="0.1" min="0.5" class="mt-1 block w-full" value="{{ $roomDimensions['width_m'] ?? '' }}" />
+                                                <x-text-input id="room-{{ $room->id }}-width" name="width_m" type="number" step="0.1" min="0.5" class="mt-1 block w-full" value="{{ $roomMeasures->widthM() ?? '' }}" />
                                             </div>
                                             <div>
-                                                <x-input-label for="room-{{ $room->id }}-height" value="Hoogte (m)" />
-                                                <x-text-input id="room-{{ $room->id }}-height" name="height_m" type="number" step="0.1" min="1.5" class="mt-1 block w-full" value="{{ $roomDimensions['height_m'] ?? '' }}" />
+                                                <x-input-label for="room-{{ $room->id }}-area" value="Oppervlak (m²)" />
+                                                <x-text-input id="room-{{ $room->id }}-area" name="area_m2" type="number" step="0.1" min="1" class="mt-1 block w-full" value="{{ $roomMeasures->declaredAreaM2() ?? '' }}" />
+                                            </div>
+                                            <div>
+                                                <x-input-label for="room-{{ $room->id }}-height" :value="$heightNeeded ? 'Hoogte (m, nodig)' : 'Hoogte (m)'" />
+                                                <x-text-input id="room-{{ $room->id }}-height" name="height_m" type="number" step="0.1" min="1.5" class="mt-1 block w-full" value="{{ $roomMeasures->heightM() ?? '' }}" />
+                                                @unless ($heightNeeded)
+                                                    <p class="mt-1 text-xs text-gray-400">Alleen als die een besluit verandert.</p>
+                                                @endunless
                                             </div>
                                         </div>
+                                        @if ($roomMeasures->hasTrustedAreaM2() || $roomMeasures->areaSource())
+                                            <div class="sm:col-span-2 text-xs text-gray-500">
+                                                @if ($roomMeasures->areaSource())
+                                                    Bron oppervlak: {{ $roomMeasures->areaSource() }}
+                                                @endif
+                                                @if ($roomMeasures->areaConfidence())
+                                                    · zekerheid: {{ $roomMeasures->areaConfidence() }}
+                                                @endif
+                                                @if ($roomMeasures->areaEvidence())
+                                                    · {{ $roomMeasures->areaEvidence() }}
+                                                @endif
+                                            </div>
+                                        @endif
                                         <div class="sm:col-span-2">
                                             <x-primary-button>Wijzigingen opslaan</x-primary-button>
                                         </div>
@@ -472,7 +533,10 @@
                                         <option value="other">Anders</option>
                                     </select>
                                 </div>
-                                <div class="grid grid-cols-3 gap-2 sm:col-span-2">
+                                <div class="sm:col-span-2">
+                                    <p class="text-xs text-gray-500">Vloeroppervlak: lengte en breedte, of m². Hoogte alleen als die ertoe doet.</p>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 sm:col-span-2 sm:grid-cols-4">
                                     <div>
                                         <x-input-label for="room_length" value="Lengte (m)" />
                                         <x-text-input id="room_length" name="length_m" type="number" step="0.1" min="0.5" class="mt-1 block w-full" />
@@ -480,6 +544,10 @@
                                     <div>
                                         <x-input-label for="room_width" value="Breedte (m)" />
                                         <x-text-input id="room_width" name="width_m" type="number" step="0.1" min="0.5" class="mt-1 block w-full" />
+                                    </div>
+                                    <div>
+                                        <x-input-label for="room_area" value="Oppervlak (m²)" />
+                                        <x-text-input id="room_area" name="area_m2" type="number" step="0.1" min="1" class="mt-1 block w-full" />
                                     </div>
                                     <div>
                                         <x-input-label for="room_height" value="Hoogte (m)" />

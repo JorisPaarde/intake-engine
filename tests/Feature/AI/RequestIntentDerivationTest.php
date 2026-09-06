@@ -169,6 +169,27 @@ test('catalog AI fills restated rooms dimensions and per-type names', function (
                 'value' => ['number' => 7],
                 'evidence' => null,
             ],
+            [
+                'question_key' => 'room_area_m2',
+                'section_instance_key' => 'room-1',
+                'confidence' => 'high',
+                'value' => ['number' => 20],
+                'evidence' => 'slaapkamers 20m2 elk',
+            ],
+            [
+                'question_key' => 'room_area_m2',
+                'section_instance_key' => 'room-2',
+                'confidence' => 'high',
+                'value' => ['number' => 20],
+                'evidence' => 'slaapkamers 20m2 elk',
+            ],
+            [
+                'question_key' => 'room_area_m2',
+                'section_instance_key' => 'room-3',
+                'confidence' => 'high',
+                'value' => ['number' => 20],
+                'evidence' => 'slaapkamers 20m2 elk',
+            ],
         ],
     ]);
     answerReason(
@@ -181,12 +202,18 @@ test('catalog AI fills restated rooms dimensions and per-type names', function (
     expect($run?->status)->toBe(AiRunStatus::Succeeded)
         ->and($run?->prompt_version)->toStartWith('request-prefill')
         ->and($intake->answers()->where('question_key', 'indoor_unit_count')->firstOrFail()->value)->toBe(['number' => 4])
-        ->and($intake->answers()->where('question_key', 'room_length_m')->where('section_instance_key', 'room-1')->exists())->toBeFalse();
+        ->and($intake->answers()->where('question_key', 'room_length_m')->where('section_instance_key', 'room-1')->exists())->toBeFalse()
+        ->and($intake->answers()->where('question_key', 'room_area_m2')->where('section_instance_key', 'room-1')->firstOrFail()->value)->toBe(['number' => 20])
+        ->and($intake->answers()->where('question_key', 'room_area_m2')->where('section_instance_key', 'room-1')->firstOrFail()->prefill_source)->toBe('ai');
 
     app(DossierManager::class)->initialize($intake->fresh() ?? $intake);
 
-    expect($intake->fresh()->aircoRooms()->orderBy('sort_order')->pluck('name')->all())
-        ->toBe(['Slaapkamer 1', 'Slaapkamer 2', 'Slaapkamer 3', 'Woonkamer 1']);
+    $rooms = $intake->fresh()->aircoRooms()->orderBy('sort_order')->get();
+    expect($rooms->pluck('name')->all())->toBe(['Slaapkamer 1', 'Slaapkamer 2', 'Slaapkamer 3', 'Woonkamer 1'])
+        ->and($rooms[0]->dimensions['area_m2'] ?? null)->toEqual(20)
+        ->and($rooms[0]->dimensions)->not->toHaveKey('length_m')
+        ->and($rooms[3]->dimensions['length_m'] ?? null)->toEqual(5)
+        ->and($rooms[3]->dimensions['width_m'] ?? null)->toEqual(7);
 });
 
 test('catalog AI prefill fills dormer outdoor placement from the openingszin', function () {
