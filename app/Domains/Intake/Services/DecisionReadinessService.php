@@ -24,6 +24,7 @@ final class DecisionReadinessService
 {
     public function __construct(
         private readonly RoomHeightRequirement $heightRequirement,
+        private readonly AircoUnitCouplingValidator $couplingValidator,
     ) {}
 
     /** @var array<string, string> */
@@ -271,6 +272,39 @@ final class DecisionReadinessService
             ];
         }
 
+        $indoorsWithoutRoom = $candidate->placements
+            ->filter(static fn (AircoPlacementOption $placement): bool => $placement->type === AircoPlacementType::IndoorUnit)
+            ->filter(static fn (AircoPlacementOption $placement): bool => $placement->airco_room_id === null);
+        if ($indoorsWithoutRoom->isNotEmpty()) {
+            return [
+                'status' => DecisionAreaStatus::Blocked,
+                'next_action' => DossierNextAction::RequestContribution,
+                'blocker' => 'Koppel iedere binnenunit aan precies één gewenste ruimte.',
+                'evidence_summary' => [
+                    'option_id' => $candidate->id,
+                    'indoor_without_room_ids' => $indoorsWithoutRoom->pluck('id')->all(),
+                ],
+            ];
+        }
+
+        $couplingProblems = $this->couplingValidator->optionProblems($candidate, requireComplete: true);
+        $cardinalityOrOwnership = array_values(array_filter(
+            $couplingProblems,
+            static fn (string $problem): bool => ! str_contains(mb_strtolower($problem), 'koelleiding'),
+        ));
+        if ($cardinalityOrOwnership !== []) {
+            return [
+                'status' => DecisionAreaStatus::Blocked,
+                'next_action' => DossierNextAction::RequestContribution,
+                'blocker' => $cardinalityOrOwnership[0],
+                'evidence_summary' => [
+                    'option_id' => $candidate->id,
+                    'configuration' => $candidate->configuration_type->value,
+                    'coupling_problems' => $cardinalityOrOwnership,
+                ],
+            ];
+        }
+
         return [
             'status' => $selected === null ? DecisionAreaStatus::Review : DecisionAreaStatus::Ready,
             'blocker' => $selected === null ? 'Kies multi-split of singles, of pas die keuze aan.' : null,
@@ -313,6 +347,29 @@ final class DecisionReadinessService
                 'next_action' => DossierNextAction::RequestContribution,
                 'blocker' => 'Leg de '.$type->label().' voor deze keuze vast.',
             ];
+        }
+
+        if ($type === AircoConnectionType::Refrigerant) {
+            $couplingProblems = $this->couplingValidator->optionProblems($option, requireComplete: true);
+            $linkProblems = array_values(array_filter(
+                $couplingProblems,
+                static fn (string $problem): bool => str_contains(mb_strtolower($problem), 'koelleiding')
+                    || str_contains(mb_strtolower($problem), 'koppel')
+                    || str_contains(mb_strtolower($problem), 'deelt geen buitenunit')
+                    || str_contains(mb_strtolower($problem), 'zelfde buitenunit')
+                    || str_contains(mb_strtolower($problem), 'één-op-één'),
+            ));
+            if ($linkProblems !== []) {
+                return [
+                    'status' => DecisionAreaStatus::Blocked,
+                    'next_action' => DossierNextAction::RequestContribution,
+                    'blocker' => $linkProblems[0],
+                    'evidence_summary' => [
+                        'connections' => $connections->count(),
+                        'coupling_problems' => $linkProblems,
+                    ],
+                ];
+            }
         }
 
         if (in_array($type, [AircoConnectionType::Refrigerant, AircoConnectionType::Condensate], true)) {

@@ -61,10 +61,10 @@ De bestaande `intakes`-rij blijft het migratieanker en representeert de technisc
 | `contribution_tasks` | Afgebakende tekst-, foto- of documentopdracht voor klant/installateur, met doel, beslisgebied en lifecycle. |
 | `dossier_decision_areas` | Status, blokkade, kostenrisico en volgende actie per technisch beslisgebied. |
 | `airco_rooms` | Gewenste fysieke ruimtes, onafhankelijk van het aantal gekozen units. |
-| `airco_placement_options` | Kandidaatpositie voor binnenunit, buitenunit, voedingsbron of afvoerpunt. |
+| `airco_placement_options` | Kandidaatpositie voor binnenunit, buitenunit, voedingsbron of afvoerpunt. Binnenunit vereist `airco_room_id`; buitenunit is gedeeld (geen ruimteeigendom). |
 | `airco_installation_options` | Kandidaatconfiguratie met rang, bron, zekerheid en selectiestatus. |
 | `airco_installation_option_placements` | Koppelt gebruikte posities aan één installatieoptie. |
-| `airco_connections` | Koel-, condens- of stroomverbinding met eindpunten, segmentomschrijving, zekerheid en kostenimpact. |
+| `airco_connections` | Koel-, condens- of stroomverbinding met eindpunten, segmentomschrijving, zekerheid en kostenimpact. Voor `refrigerant` geldt BL-102-cardinaliteit t.o.v. de installatieoptie. |
 | `installation_outcomes` | Expliciete offerte-/plaatsingsuitkomst en privacyveilige tijd-, bezoek-, afwijkings- en montagefeedback. |
 
 ### Migratieregels

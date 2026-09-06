@@ -27,6 +27,7 @@ final class DossierOverviewBuilder
      *     quote: DossierDecisionArea|null,
      *     ready_count: int,
      *     filled_count: int,
+     *     open_count: int,
      *     total_count: int
      * }
      */
@@ -40,20 +41,23 @@ final class DossierOverviewBuilder
             'aircoInstallationOptions.connections',
         ]);
 
+        $blockers = $areas->filter(
+            static fn (DossierDecisionArea $area): bool => in_array(
+                $area->status,
+                [DecisionAreaStatus::Blocked, DecisionAreaStatus::Review],
+                true,
+            ),
+        )->values();
+
         return [
             'areas' => $areas,
-            'blockers' => $areas->filter(
-                static fn (DossierDecisionArea $area): bool => in_array(
-                    $area->status,
-                    [DecisionAreaStatus::Blocked, DecisionAreaStatus::Review],
-                    true,
-                ),
-            )->values(),
+            'blockers' => $blockers,
             'quote' => $quote instanceof DossierDecisionArea ? $quote : null,
             'ready_count' => $areas->where('status', DecisionAreaStatus::Ready)->count(),
             'filled_count' => $areas->filter(
                 fn (DossierDecisionArea $area): bool => $this->areaHasContent($intake, $area),
             )->count(),
+            'open_count' => $blockers->count(),
             'total_count' => $areas->count(),
         ];
     }

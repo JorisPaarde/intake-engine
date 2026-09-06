@@ -72,9 +72,9 @@
         $primaryCtaHref = $primaryAction['href'];
         $primaryCtaLabel = $primaryAction['label'];
         $primarySummary = $primaryAction['summary'];
-        $visibleOpenAreas = $openAreas->take(3);
-        $hiddenOpenCount = max(0, $openAreas->count() - $visibleOpenAreas->count());
         $areaTargetResolver = app(\App\Domains\Intake\Services\WorkspacePrimaryActionResolver::class);
+        $firstActionableOpenKey = $areaTargetResolver->firstActionableOpenArea($openAreas)?->key;
+        $hasOpenPoints = $openAreas->isNotEmpty();
     @endphp
 
     <div class="py-6 sm:py-8">
@@ -168,124 +168,94 @@
 
             <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
                 <main class="min-w-0 space-y-6">
-                    @if ($openAreas->isNotEmpty())
-                        <section id="workspace-open-items" class="scroll-mt-24 rounded-3xl border border-amber-200 bg-amber-50/50 p-4 shadow-sm sm:p-5">
-                            <div class="flex items-center justify-between gap-3">
-                                <h3 class="text-base font-semibold text-gray-950">Open punten</h3>
-                                <span class="text-xs font-medium text-gray-500">{{ $openAreas->count() }} · {{ $intake->workflow_mode->label() }}</span>
+                    {{-- Central Alle onderdelen overview (BL-099): één lijst, geen dubbele open-puntenkaarten --}}
+                    <section
+                        id="workspace-open-items"
+                        @class([
+                            'scroll-mt-24 rounded-3xl border p-4 shadow-sm sm:p-5',
+                            'border-amber-200 bg-amber-50/50' => $hasOpenPoints,
+                            'border-emerald-200 bg-emerald-50/40' => ! $hasOpenPoints,
+                        ])
+                    >
+                        <div class="flex flex-wrap items-start justify-between gap-2">
+                            <div class="min-w-0">
+                                <h3 class="text-base font-semibold text-gray-950">Alle onderdelen</h3>
+                                <p class="mt-0.5 text-xs leading-relaxed text-gray-600">
+                                    @if ($hasOpenPoints)
+                                        {{ $openAreas->count() }} open · {{ $dossier['ready_count'] }} van {{ $dossier['total_count'] }} klaar voor offerte
+                                    @else
+                                        Geen open punten meer · {{ $dossier['ready_count'] }} van {{ $dossier['total_count'] }} klaar voor offerte
+                                    @endif
+                                </p>
                             </div>
-                            <div class="mt-3 grid gap-2 sm:grid-cols-2">
-                                @foreach ($visibleOpenAreas as $area)
-                                    @php
-                                        $areaTarget = $areaTargetResolver->targetForArea($intake, $area->key);
-                                        $askCustomerPrompt = \Illuminate\Support\Str::limit(
-                                            trim((string) ($area->blocker ?: ('Help ons verder met: '.$area->label))),
-                                            500,
-                                            '',
-                                        );
-                                        $askCustomerType = in_array($area->key, ['capacity', 'placement', 'refrigerant', 'condensate', 'power'], true)
-                                            ? \App\Enums\FollowUpItemType::Photo->value
-                                            : \App\Enums\FollowUpItemType::Text->value;
-                                    @endphp
-                                    <div
-                                        @class([
-                                            'rounded-2xl border bg-white p-3',
-                                            'border-amber-200' => $area->status === \App\Enums\DecisionAreaStatus::Review,
-                                            'border-red-200' => $area->status === \App\Enums\DecisionAreaStatus::Blocked,
-                                        ])
-                                    >
-                                        <a href="{{ $areaTarget['href'] }}" class="block transition hover:opacity-90">
-                                            <div class="flex items-start justify-between gap-3">
-                                                <h4 class="text-sm font-semibold text-gray-950">{{ $area->label }}</h4>
-                                                <span @class([
-                                                    'shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold',
-                                                    'bg-amber-100 text-amber-900' => $area->status === \App\Enums\DecisionAreaStatus::Review,
-                                                    'bg-red-100 text-red-800' => $area->status === \App\Enums\DecisionAreaStatus::Blocked,
-                                                ])>{{ $area->status->label() }}</span>
-                                            </div>
-                                            @if ($area->blocker)
-                                                <p class="mt-1.5 text-xs leading-relaxed text-gray-600">{{ $area->blocker }}</p>
+                            <span class="shrink-0 text-xs font-medium text-gray-500">{{ $intake->workflow_mode->label() }}</span>
+                        </div>
+
+                        <div class="mt-3 space-y-2">
+                            @foreach ($dossier['areas'] as $area)
+                                @php
+                                    $overviewItem = $areaTargetResolver->overviewItem($intake, $area);
+                                    $expandByDefault = $hasOpenPoints && $area->key === $firstActionableOpenKey;
+                                @endphp
+                                <details
+                                    id="dossier-area-{{ $area->key }}"
+                                    @class([
+                                        'min-w-0 overflow-hidden rounded-2xl border bg-white',
+                                        'border-emerald-200' => $area->status === \App\Enums\DecisionAreaStatus::Ready,
+                                        'border-amber-200' => $area->status === \App\Enums\DecisionAreaStatus::Review,
+                                        'border-red-200' => $area->status === \App\Enums\DecisionAreaStatus::Blocked,
+                                        'border-gray-200' => in_array($area->status, [
+                                            \App\Enums\DecisionAreaStatus::Unknown,
+                                            \App\Enums\DecisionAreaStatus::NotApplicable,
+                                        ], true),
+                                    ])
+                                    @if ($expandByDefault) open @endif
+                                >
+                                    <summary class="flex cursor-pointer list-none items-start justify-between gap-3 p-3 [&::-webkit-details-marker]:hidden">
+                                        <span class="min-w-0 text-sm font-semibold text-gray-950">{{ $area->label }}</span>
+                                        <span @class([
+                                            'shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold',
+                                            'bg-emerald-100 text-emerald-900' => $area->status === \App\Enums\DecisionAreaStatus::Ready,
+                                            'bg-amber-100 text-amber-900' => $area->status === \App\Enums\DecisionAreaStatus::Review,
+                                            'bg-red-100 text-red-800' => $area->status === \App\Enums\DecisionAreaStatus::Blocked,
+                                            'bg-gray-100 text-gray-700' => in_array($area->status, [
+                                                \App\Enums\DecisionAreaStatus::Unknown,
+                                                \App\Enums\DecisionAreaStatus::NotApplicable,
+                                            ], true),
+                                        ])>{{ $area->status->label() }}</span>
+                                    </summary>
+                                    <div class="min-w-0 space-y-2 border-t border-gray-100 px-3 pb-3 pt-2">
+                                        @if ($overviewItem['detail'])
+                                            <p class="break-words text-xs leading-relaxed text-gray-600">{{ $overviewItem['detail'] }}</p>
+                                        @elseif (! $overviewItem['is_open'])
+                                            <p class="text-xs text-gray-500">Geen open detail voor dit onderdeel.</p>
+                                        @endif
+
+                                        @if ($overviewItem['is_open'])
+                                            <a
+                                                href="{{ $overviewItem['href'] }}"
+                                                class="inline-flex min-h-10 w-full items-center justify-center rounded-lg bg-gray-950 px-3 py-2 text-xs font-semibold text-white hover:bg-gray-800 sm:w-auto"
+                                            >
+                                                {{ $overviewItem['label'] }} →
+                                            </a>
+
+                                            @if ($overviewItem['ask_customer'] !== null)
+                                                <form method="POST" action="{{ route('intakes.workspace.tasks.quick', $intake) }}" class="border-t border-gray-100 pt-2">
+                                                    @csrf
+                                                    <input type="hidden" name="type" value="{{ $overviewItem['ask_customer']['type'] }}">
+                                                    <input type="hidden" name="prompt" value="{{ $overviewItem['ask_customer']['prompt'] }}">
+                                                    <input type="hidden" name="decision_area_key" value="{{ $area->key }}">
+                                                    <button class="inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-900 hover:bg-gray-50">
+                                                        Vraag de klant
+                                                    </button>
+                                                </form>
                                             @endif
-                                            <p class="mt-2 text-xs font-semibold text-gray-950">{{ $areaTarget['label'] }} →</p>
-                                        </a>
-                                        @if ($area->next_action === \App\Enums\DossierNextAction::RequestContribution)
-                                            <form method="POST" action="{{ route('intakes.workspace.tasks.quick', $intake) }}" class="mt-3 border-t border-gray-100 pt-3">
-                                                @csrf
-                                                <input type="hidden" name="type" value="{{ $askCustomerType }}">
-                                                <input type="hidden" name="prompt" value="{{ $askCustomerPrompt }}">
-                                                <input type="hidden" name="decision_area_key" value="{{ $area->key }}">
-                                                <button class="inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-900 hover:bg-gray-50">
-                                                    Vraag de klant
-                                                </button>
-                                            </form>
                                         @endif
                                     </div>
-                                @endforeach
-                            </div>
-                            @if ($hiddenOpenCount > 0)
-                                <details class="mt-3 rounded-2xl border border-gray-200 bg-white">
-                                    <summary class="cursor-pointer px-4 py-2.5 text-sm font-semibold text-gray-900">
-                                        Nog {{ $hiddenOpenCount }} open
-                                    </summary>
-                                    <div class="grid gap-2 border-t border-gray-100 p-3 sm:grid-cols-2">
-                                        @foreach ($openAreas->slice(3) as $area)
-                                            @php $areaTarget = $areaTargetResolver->targetForArea($intake, $area->key); @endphp
-                                            <a href="{{ $areaTarget['href'] }}" class="rounded-xl border border-gray-200 bg-gray-50 p-3">
-                                                <h4 class="text-sm font-semibold text-gray-950">{{ $area->label }}</h4>
-                                                @if ($area->blocker)
-                                                    <p class="mt-1 text-xs text-gray-600">{{ $area->blocker }}</p>
-                                                @endif
-                                                <p class="mt-2 text-xs font-semibold text-gray-950">{{ $areaTarget['label'] }} →</p>
-                                            </a>
-                                        @endforeach
-                                    </div>
                                 </details>
-                            @endif
-                            <details class="mt-3 rounded-2xl border border-gray-200 bg-white">
-                                <summary class="cursor-pointer px-4 py-2.5 text-sm font-semibold text-gray-900">
-                                    Alle onderdelen ({{ $dossier['filled_count'] }}/{{ $dossier['total_count'] }} met inhoud)
-                                </summary>
-                                <p class="border-t border-gray-100 px-4 pt-3 text-xs text-gray-500">
-                                    {{ $dossier['ready_count'] }} van {{ $dossier['total_count'] }} klaar voor offerte.
-                                </p>
-                                <div class="grid gap-2 p-3 sm:grid-cols-2">
-                                    @foreach ($dossier['areas'] as $area)
-                                        <article @class([
-                                            'rounded-xl border p-3',
-                                            'border-emerald-200 bg-emerald-50/60' => $area->status === \App\Enums\DecisionAreaStatus::Ready,
-                                            'border-amber-200 bg-amber-50/70' => $area->status === \App\Enums\DecisionAreaStatus::Review,
-                                            'border-red-200 bg-red-50/60' => $area->status === \App\Enums\DecisionAreaStatus::Blocked,
-                                            'border-gray-200 bg-gray-50' => in_array($area->status, [\App\Enums\DecisionAreaStatus::Unknown, \App\Enums\DecisionAreaStatus::NotApplicable], true),
-                                        ])>
-                                            <div class="flex items-start justify-between gap-3">
-                                                <h4 class="text-sm font-semibold text-gray-950">{{ $area->label }}</h4>
-                                                <span class="shrink-0 text-xs font-semibold text-gray-600">{{ $area->status->label() }}</span>
-                                            </div>
-                                        </article>
-                                    @endforeach
-                                </div>
-                            </details>
-                        </section>
-                    @else
-                        <section id="workspace-open-items" class="scroll-mt-24 rounded-3xl border border-emerald-200 bg-emerald-50/40 px-4 py-3 shadow-sm">
-                            <div class="flex flex-wrap items-center justify-between gap-2">
-                                <p class="text-sm font-semibold text-emerald-950">Geen open punten meer.</p>
-                                <details class="text-sm">
-                                    <summary class="cursor-pointer font-semibold text-emerald-900">Alle onderdelen</summary>
-                                    <div class="mt-3 grid gap-2 sm:grid-cols-2">
-                                        @foreach ($dossier['areas'] as $area)
-                                            <article class="rounded-xl border border-emerald-200 bg-white p-3">
-                                                <div class="flex items-start justify-between gap-3">
-                                                    <h4 class="text-sm font-semibold text-gray-950">{{ $area->label }}</h4>
-                                                    <span class="shrink-0 text-xs font-semibold text-gray-600">{{ $area->status->label() }}</span>
-                                                </div>
-                                            </article>
-                                        @endforeach
-                                    </div>
-                                </details>
-                            </div>
-                        </section>
-                    @endif
+                            @endforeach
+                        </div>
+                    </section>
 
                     <section id="workspace-rooms" class="scroll-mt-24 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
                         <div>
@@ -420,9 +390,108 @@
                                         </div>
                                     </form>
 
-                                    @if ($room->placements->isNotEmpty())
+                                    @php
+                                        $roomIndoor = $room->placements
+                                            ->firstWhere('type', \App\Enums\AircoPlacementType::IndoorUnit);
+                                        $activeOption = $intake->aircoInstallationOptions
+                                            ->firstWhere('status', \App\Enums\AircoOptionStatus::Selected)
+                                            ?? $intake->aircoInstallationOptions->first();
+                                        $linkedOutdoor = null;
+                                        $refrigerantLink = null;
+                                        if ($roomIndoor && $activeOption) {
+                                            $refrigerantLink = $activeOption->connections
+                                                ->filter(static fn ($c) => $c->type === \App\Enums\AircoConnectionType::Refrigerant)
+                                                ->first(static function ($c) use ($roomIndoor) {
+                                                    return in_array($roomIndoor->id, [$c->from_placement_id, $c->to_placement_id], true);
+                                                });
+                                            if ($refrigerantLink) {
+                                                $otherId = $refrigerantLink->from_placement_id === $roomIndoor->id
+                                                    ? $refrigerantLink->to_placement_id
+                                                    : $refrigerantLink->from_placement_id;
+                                                $linkedOutdoor = $intake->aircoPlacements->firstWhere('id', $otherId)
+                                                    ?? $activeOption->placements->firstWhere('id', $otherId);
+                                            }
+                                        }
+                                        $outdoorChoices = $intake->aircoPlacements
+                                            ->filter(static fn ($p) => $p->type === \App\Enums\AircoPlacementType::OutdoorUnit);
+                                    @endphp
+
+                                    <div class="mt-4 rounded-xl border border-gray-200 bg-white p-3">
+                                        <p class="text-sm font-semibold text-gray-900">Binnen- en buitenunit</p>
+                                        <p class="mt-1 text-xs text-gray-500">Koppel de binnenunit van deze ruimte aan een gedeelde buitenunit.</p>
+
+                                        @if ($roomIndoor || $linkedOutdoor || $activeOption)
+                                            <dl class="mt-3 grid gap-2 text-sm sm:grid-cols-3">
+                                                <div>
+                                                    <dt class="text-xs text-gray-500">Binnenunit</dt>
+                                                    <dd class="font-medium text-gray-900">{{ $roomIndoor?->label ?? 'Nog open' }}</dd>
+                                                </div>
+                                                <div>
+                                                    <dt class="text-xs text-gray-500">Buitenunit</dt>
+                                                    <dd class="font-medium text-gray-900">{{ $linkedOutdoor?->label ?? 'Nog niet gekoppeld' }}</dd>
+                                                </div>
+                                                <div>
+                                                    <dt class="text-xs text-gray-500">Configuratie</dt>
+                                                    <dd class="font-medium text-gray-900">{{ $activeOption?->configuration_type->label() ?? 'Nog geen keuze' }}</dd>
+                                                </div>
+                                            </dl>
+                                        @endif
+
+                                        <form method="POST" action="{{ route('intakes.workspace.rooms.unit-coupling', [$intake, $room]) }}" class="mt-3 grid gap-3 sm:grid-cols-2">
+                                            @csrf
+                                            @if ($activeOption)
+                                                <input type="hidden" name="installation_option_id" value="{{ $activeOption->id }}">
+                                            @endif
+                                            <div>
+                                                <x-input-label for="room-{{ $room->id }}-indoor-label" value="Naam binnenunit" />
+                                                <x-text-input
+                                                    id="room-{{ $room->id }}-indoor-label"
+                                                    name="indoor_label"
+                                                    class="mt-1 block w-full"
+                                                    value="{{ old('indoor_label', $roomIndoor?->label ?? ('Binnenunit '.$room->name)) }}"
+                                                    required
+                                                />
+                                            </div>
+                                            <div>
+                                                <x-input-label for="room-{{ $room->id }}-config" value="Configuratie" />
+                                                <select id="room-{{ $room->id }}-config" name="configuration_type" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300" required>
+                                                    @foreach ($configurationTypes as $type)
+                                                        <option value="{{ $type->value }}" @selected(old('configuration_type', $activeOption?->configuration_type?->value) === $type->value)>
+                                                            {{ $type->label() }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <x-input-label for="room-{{ $room->id }}-outdoor" value="Buitenunit" />
+                                                <select id="room-{{ $room->id }}-outdoor" name="outdoor_placement_id" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300">
+                                                    <option value="">Nieuwe buitenunit…</option>
+                                                    @foreach ($outdoorChoices as $outdoor)
+                                                        <option value="{{ $outdoor->id }}" @selected((int) old('outdoor_placement_id', $linkedOutdoor?->id) === $outdoor->id)>
+                                                            {{ $outdoor->label }}
+                                                        </option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <x-input-label for="room-{{ $room->id }}-outdoor-label" value="Nieuwe buitenunit (naam)" />
+                                                <x-text-input
+                                                    id="room-{{ $room->id }}-outdoor-label"
+                                                    name="outdoor_label"
+                                                    class="mt-1 block w-full"
+                                                    value="{{ old('outdoor_label') }}"
+                                                    placeholder="Bijv. plat dak aanbouw"
+                                                />
+                                            </div>
+                                            <div class="sm:col-span-2">
+                                                <x-primary-button>Koppeling opslaan</x-primary-button>
+                                            </div>
+                                        </form>
+                                    </div>
+
+                                    @if ($room->placements->filter(static fn ($p) => $p->type !== \App\Enums\AircoPlacementType::IndoorUnit)->isNotEmpty())
                                         <ul class="mt-4 grid gap-2 sm:grid-cols-2">
-                                            @foreach ($room->placements as $placement)
+                                            @foreach ($room->placements->filter(static fn ($p) => $p->type !== \App\Enums\AircoPlacementType::IndoorUnit) as $placement)
                                                 <li class="rounded-xl bg-gray-50 px-3 py-3 text-sm">
                                                     <span class="font-semibold text-gray-900">{{ $placement->type->label() }}</span>
                                                     <span class="block text-gray-600">{{ $placement->label }}</span>
@@ -548,7 +617,7 @@
                                                     </div>
                                                 </fieldset>
                                                 <div>
-                                                    <x-input-label for="placement-{{ $placement->id }}-room" value="Ruimte (indien relevant)" />
+                                                    <x-input-label for="placement-{{ $placement->id }}-room" value="Ruimte (verplicht bij binnenunit)" />
                                                     <select id="placement-{{ $placement->id }}-room" name="airco_room_id" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300">
                                                         <option value="">Algemeen / buitenzijde</option>
                                                         @foreach ($intake->aircoRooms as $room)
@@ -604,7 +673,7 @@
                                     </div>
                                 </fieldset>
                                 <div>
-                                    <x-input-label for="placement_room" value="Ruimte (indien relevant)" />
+                                    <x-input-label for="placement_room" value="Ruimte (verplicht bij binnenunit)" />
                                     <select id="placement_room" name="airco_room_id" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300">
                                         <option value="">Algemeen / buitenzijde</option>
                                         @foreach ($intake->aircoRooms as $room)
@@ -652,6 +721,18 @@
                                             @if ($option->summary)
                                                 <p class="mt-2 text-sm leading-relaxed text-gray-600">{{ $option->summary }}</p>
                                             @endif
+                                            <form method="POST" action="{{ route('intakes.workspace.options.configuration', [$intake, $option]) }}" class="mt-3 flex flex-wrap items-end gap-2">
+                                                @csrf
+                                                <div>
+                                                    <x-input-label for="option-{{ $option->id }}-config" value="Configuratie" />
+                                                    <select id="option-{{ $option->id }}-config" name="configuration_type" class="mt-1 block min-h-11 rounded-xl border-gray-300" required>
+                                                        @foreach ($configurationTypes as $type)
+                                                            <option value="{{ $type->value }}" @selected($option->configuration_type === $type)>{{ $type->label() }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                                <button class="min-h-11 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Opslaan</button>
+                                            </form>
                                         </div>
                                         @if ($option->status === \App\Enums\AircoOptionStatus::Selected)
                                             <span class="rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white">Geselecteerd</span>
@@ -667,9 +748,27 @@
                                         @foreach ($option->placements as $placement)
                                             <li class="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-700 ring-1 ring-gray-200">
                                                 {{ $placement->type->label() }} · {{ $placement->label }}
+                                                @if ($placement->room)
+                                                    · {{ $placement->room->name }}
+                                                @endif
                                             </li>
                                         @endforeach
                                     </ul>
+                                    @php
+                                        $optionRefrigerantLinks = $option->connections
+                                            ->filter(static fn ($c) => $c->type === \App\Enums\AircoConnectionType::Refrigerant);
+                                    @endphp
+                                    @if ($optionRefrigerantLinks->isNotEmpty())
+                                        <ul class="mt-3 space-y-1 text-sm text-gray-700">
+                                            @foreach ($optionRefrigerantLinks as $link)
+                                                <li>
+                                                    {{ $link->fromPlacement?->label ?? 'Binnenunit' }}
+                                                    →
+                                                    {{ $link->toPlacement?->label ?? 'Buitenunit' }}
+                                                </li>
+                                            @endforeach
+                                        </ul>
+                                    @endif
 
                                     <div class="mt-5 space-y-3">
                                         @foreach ($option->connections as $connection)

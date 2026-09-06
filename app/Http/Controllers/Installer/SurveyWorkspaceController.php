@@ -143,6 +143,36 @@ final class SurveyWorkspaceController extends Controller
         return $this->back($intake, 'Ruimte bijgewerkt.');
     }
 
+    public function syncRoomUnitCoupling(
+        Request $request,
+        Intake $intake,
+        AircoRoom $room,
+        AircoSurveyService $aircoSurvey,
+    ): RedirectResponse {
+        $this->authorize('update', $intake);
+        abort_unless($room->intake_id === $intake->id, 404);
+        $data = $request->validate([
+            'indoor_label' => ['required', 'string', 'max:160'],
+            'outdoor_placement_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('airco_placement_options', 'id')
+                    ->where('intake_id', $intake->id)
+                    ->where('type', AircoPlacementType::OutdoorUnit->value),
+            ],
+            'outdoor_label' => ['nullable', 'string', 'max:160'],
+            'configuration_type' => ['required', Rule::enum(AircoConfigurationType::class)],
+            'installation_option_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('airco_installation_options', 'id')->where('intake_id', $intake->id),
+            ],
+        ]);
+        $aircoSurvey->syncRoomUnitCoupling($intake, $this->user($request), $room, $data);
+
+        return $this->back($intake, 'Binnen- en buitenunit gekoppeld.');
+    }
+
     public function storePlacement(
         Request $request,
         Intake $intake,
@@ -151,6 +181,7 @@ final class SurveyWorkspaceController extends Controller
         $this->authorize('update', $intake);
         $data = $request->validate([
             'airco_room_id' => [
+                Rule::requiredIf(fn (): bool => (string) $request->input('type') === AircoPlacementType::IndoorUnit->value),
                 'nullable',
                 'integer',
                 Rule::exists('airco_rooms', 'id')->where('intake_id', $intake->id),
@@ -175,6 +206,7 @@ final class SurveyWorkspaceController extends Controller
         abort_unless($placement->intake_id === $intake->id, 404);
         $data = $request->validate([
             'airco_room_id' => [
+                Rule::requiredIf(fn (): bool => (string) $request->input('type') === AircoPlacementType::IndoorUnit->value),
                 'nullable',
                 'integer',
                 Rule::exists('airco_rooms', 'id')->where('intake_id', $intake->id),
@@ -222,6 +254,27 @@ final class SurveyWorkspaceController extends Controller
         $aircoSurvey->selectInstallationOption($intake, $this->user($request), $option);
 
         return $this->back($intake, 'Keuze geselecteerd.');
+    }
+
+    public function updateConfigurationType(
+        Request $request,
+        Intake $intake,
+        AircoInstallationOption $option,
+        AircoSurveyService $aircoSurvey,
+    ): RedirectResponse {
+        $this->authorize('update', $intake);
+        abort_unless($option->intake_id === $intake->id, 404);
+        $data = $request->validate([
+            'configuration_type' => ['required', Rule::enum(AircoConfigurationType::class)],
+        ]);
+        $aircoSurvey->updateConfigurationType(
+            $intake,
+            $this->user($request),
+            $option,
+            $data['configuration_type'],
+        );
+
+        return $this->back($intake, 'Configuratie bijgewerkt.');
     }
 
     public function storeConnection(

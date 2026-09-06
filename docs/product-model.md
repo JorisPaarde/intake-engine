@@ -173,6 +173,8 @@ Een **installatieoptie** combineert:
 - bijvoorbeeld single-split, multi-split of meerdere single-splits;
 - per technische verbinding het bewijs, de onzekerheid en de kostenimpact.
 
+**Ruimtecentrische unitkoppeling (BL-102):** een binnenunitpositie hoort bij precies één gewenste ruimte (`airco_room_id`). Binnen een installatieoptie koppelt een `refrigerant`-verbinding die binnenunit aan precies één herkenbaar gelabelde buitenunit. Buitenunits blijven gedeelde plaatsingsopties en zijn geen eigendom van een ruimte. Cardinaliteit: single-split 1↔1; multi-split ≥2 indoor naar dezelfde ene outdoor; meerdere single-splits evenveel unieke 1↔1-paren. Onvolledige, dubbele of kruiskoppelingen zijn ongeldig en verschijnen als open punt.
+
 AI mag opties voorstellen en rangschikken. De installateur kiest, corrigeert of verwerpt.
 
 ### Drie volwaardige technische verbindingen

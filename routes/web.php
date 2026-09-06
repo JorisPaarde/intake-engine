@@ -92,10 +92,12 @@ Route::middleware(['auth', 'verified', 'public.demo.scope'])->group(function () 
     Route::get('/intakes/{intake}/opname', [SurveyWorkspaceController::class, 'show'])->name('intakes.workspace');
     Route::post('/intakes/{intake}/opname/rooms', [SurveyWorkspaceController::class, 'storeRoom'])->name('intakes.workspace.rooms.store');
     Route::post('/intakes/{intake}/opname/rooms/{room}', [SurveyWorkspaceController::class, 'updateRoom'])->name('intakes.workspace.rooms.update');
+    Route::post('/intakes/{intake}/opname/rooms/{room}/unit-coupling', [SurveyWorkspaceController::class, 'syncRoomUnitCoupling'])->name('intakes.workspace.rooms.unit-coupling');
     Route::post('/intakes/{intake}/opname/placements', [SurveyWorkspaceController::class, 'storePlacement'])->name('intakes.workspace.placements.store');
     Route::post('/intakes/{intake}/opname/placements/{placement}', [SurveyWorkspaceController::class, 'updatePlacement'])->name('intakes.workspace.placements.update');
     Route::post('/intakes/{intake}/opname/options', [SurveyWorkspaceController::class, 'storeInstallationOption'])->name('intakes.workspace.options.store');
     Route::post('/intakes/{intake}/opname/options/{option}/select', [SurveyWorkspaceController::class, 'selectInstallationOption'])->name('intakes.workspace.options.select');
+    Route::post('/intakes/{intake}/opname/options/{option}/configuration', [SurveyWorkspaceController::class, 'updateConfigurationType'])->name('intakes.workspace.options.configuration');
     Route::post('/intakes/{intake}/opname/options/{option}/connections', [SurveyWorkspaceController::class, 'storeConnection'])->name('intakes.workspace.connections.store');
     Route::post('/intakes/{intake}/opname/subjects/{subject}/notes', [SurveyWorkspaceController::class, 'storeNote'])->name('intakes.workspace.notes.store');
     Route::post('/intakes/{intake}/opname/subjects/{subject}/photos', [SurveyWorkspaceController::class, 'storeEvidence'])->name('intakes.workspace.photos.store');
