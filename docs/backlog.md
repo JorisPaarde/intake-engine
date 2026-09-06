@@ -42,12 +42,12 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| 1 | BL-099 | Opnamewerkplek: `Alle onderdelen` vervangt dubbele open-puntenlijsten | E6 | in_progress | high | opname-UX · bij BL-053/055/056/084/086 |
-| 2 | BL-100 | Opnamewerkplek: vooraf ingevulde klanttaak vanuit ieder onderdeel | E7 | backlog | high | opname-UX · na BL-099 · bij BL-038/061/062/089 |
-| 3 | BL-101 | Ruimteoppervlakte: L×B óf betrouwbaar m², hoogte apart | E3/E7/E9 | backlog | high | ruimtegegevens · bij BL-074/079/098 |
-| 4 | BL-102 | Ruimtecentrische binnen-/buitenunitkoppeling met juiste cardinaliteit | E8 | backlog | high | airco-configuratie · ADR-0012 · bij BL-039/040/060 |
-| 5 | BL-103 | Technische configuratie eerst, klantvoorkeur pas na haalbaarheidscheck | E7/E8 | backlog | high | na BL-102 · bij BL-038/039 · ADR-0012 |
-| 6 | BL-104 | Dev: AI-invoer van Nieuwe opname veilig testen en verklaren | E3/E5 | backlog | medium | dev/QA · bij BL-028/064/065/093/098 |
+| 1 | BL-100 | Opnamewerkplek: vooraf ingevulde klanttaak vanuit ieder onderdeel | E7 | backlog | high | opname-UX · na BL-099 · bij BL-038/061/062/089 |
+| 2 | BL-101 | Ruimteoppervlakte: L×B óf betrouwbaar m², hoogte apart | E3/E7/E9 | backlog | high | ruimtegegevens · bij BL-074/079/098 |
+| 3 | BL-102 | Ruimtecentrische binnen-/buitenunitkoppeling met juiste cardinaliteit | E8 | backlog | high | airco-configuratie · ADR-0012 · bij BL-039/040/060 |
+| 4 | BL-103 | Technische configuratie eerst, klantvoorkeur pas na haalbaarheidscheck | E7/E8 | backlog | high | na BL-102 · bij BL-038/039 · ADR-0012 |
+| 5 | BL-104 | Dev: AI-invoer van Nieuwe opname veilig testen en verklaren | E3/E5 | backlog | medium | dev/QA · bij BL-028/064/065/093/098 |
+| — | BL-099 | Opnamewerkplek: `Alle onderdelen` vervangt dubbele open-puntenlijsten | E6 | done | high | opname-UX · bij BL-053/055/056/084/086 · PR #102 |
 | — | BL-098 | Openingszin: herhaalde kamers naar catalogus-AI + naam per type | E3/E9 | done | high | F · bij BL-048/064 |
 | — | BL-097 | Create: browser-autofill mag adreszoekstatus niet laten hangen | E3 | done | high | A · product/UX · bij BL-033/080 |
 | — | BL-096 | Browser-testspeelboek voor visuele agent-QA | E1/E5 | done | medium | A · docs/QA |
