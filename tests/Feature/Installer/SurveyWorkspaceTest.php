@@ -25,6 +25,7 @@ use App\Enums\AircoPlacementType;
 use App\Enums\ContributionMode;
 use App\Enums\ContributionTaskStatus;
 use App\Enums\DecisionAreaStatus;
+use App\Enums\DossierRecordKind;
 use App\Enums\DossierRecordStatus;
 use App\Enums\FollowUpItemType;
 use App\Enums\IntakeStatus;
@@ -1081,4 +1082,218 @@ test('quick customer task is blocked while another contribution round is open', 
         ])
         ->assertRedirect(route('intakes.workspace', $intake))
         ->assertSessionHasErrors('contribution_items');
+});
+
+test('room block offers contextual customer task that opens prefilled for review', function () {
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'bl100-ruimte@example.com');
+    $room = app(AircoSurveyService::class)->createRoom($intake, $user, [
+        'name' => 'Slaapkamer ouders',
+        'use_type' => 'bedroom',
+    ]);
+
+    $html = $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertSee('id="room-'.$room->id.'"', false)
+        ->assertSee('Vraag de klant')
+        ->getContent();
+
+    expect($html)->toContain(route('intakes.workspace.tasks.prepare', $intake, false));
+
+    $this->actingAs($user)
+        ->get(route('intakes.workspace.tasks.prepare', [
+            'intake' => $intake,
+            'type' => FollowUpItemType::Text->value,
+            'prompt' => 'Meet of noteer de lengte en breedte van Slaapkamer ouders, of het vloeroppervlak in m².',
+            'decision_area_key' => 'capacity',
+            'dossier_subject_id' => $room->dossier_subject_id,
+        ]))
+        ->assertRedirect(route('intakes.workspace', $intake).'#demo-customer-task')
+        ->assertSessionHas('customer_task_draft.prompt', 'Meet of noteer de lengte en breedte van Slaapkamer ouders, of het vloeroppervlak in m².')
+        ->assertSessionHas('customer_task_draft.decision_area_key', 'capacity')
+        ->assertSessionHas('customer_task_draft.dossier_subject_id', $room->dossier_subject_id);
+
+    $this->actingAs($user)
+        ->followingRedirects()
+        ->get(route('intakes.workspace.tasks.prepare', [
+            'intake' => $intake,
+            'type' => FollowUpItemType::Text->value,
+            'prompt' => 'Meet of noteer de lengte en breedte van Slaapkamer ouders, of het vloeroppervlak in m².',
+            'decision_area_key' => 'capacity',
+            'dossier_subject_id' => $room->dossier_subject_id,
+        ]))
+        ->assertOk()
+        ->assertSee('Vooringevulde klanttaak controleren')
+        ->assertSee('Meet of noteer de lengte en breedte van Slaapkamer ouders, of het vloeroppervlak in m².')
+        ->assertSee('value="capacity"', false)
+        ->assertSee('name="contribution_items[0][dossier_subject_id]"', false);
+
+    expect($intake->fresh()->customer_access_enabled)->toBeFalse()
+        ->and($intake->fresh()->contributionTasks()->count())->toBe(0);
+});
+
+test('photo suggestion offers prepare link that prefills a retake task', function () {
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'bl100-foto@example.com');
+    $room = app(AircoSurveyService::class)->createRoom($intake, $user, [
+        'name' => 'Woonkamer',
+        'use_type' => 'living_room',
+        'length_m' => 4,
+        'width_m' => 3,
+        'height_m' => 2.5,
+    ]);
+    $subject = $room->subject;
+    expect($subject)->not->toBeNull();
+    DossierRecord::query()->create([
+        'intake_id' => $intake->id,
+        'company_id' => $intake->company_id,
+        'dossier_subject_id' => $subject->id,
+        'kind' => DossierRecordKind::Observation,
+        'key' => 'photo_observation',
+        'value' => ['text' => 'De muur is te donker zichtbaar.', 'impact' => 'installation'],
+        'status' => DossierRecordStatus::Proposed,
+        'source_type' => 'ai',
+        'method' => 'photo_inference',
+        'confidence' => 0.6,
+        'actor_type' => 'ai',
+        'observed_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertSee('Vraag nieuwe foto')
+        ->assertSee(route('intakes.workspace.tasks.prepare', $intake, false), false);
+
+    $this->actingAs($user)
+        ->followingRedirects()
+        ->get(route('intakes.workspace.tasks.prepare', [
+            'intake' => $intake,
+            'type' => FollowUpItemType::Photo->value,
+            'prompt' => 'Maak een nieuwe, duidelijke foto van Woonkamer. De muur is te donker zichtbaar.',
+            'decision_area_key' => 'capacity',
+            'dossier_subject_id' => $subject->id,
+        ]))
+        ->assertOk()
+        ->assertSee('Vooringevulde klanttaak controleren')
+        ->assertSee('Maak een nieuwe, duidelijke foto van Woonkamer')
+        ->assertSee('value="photo"', false);
+
+    expect($intake->fresh()->customer_access_enabled)->toBeFalse();
+});
+
+test('connection needing evidence offers contextual customer photo task', function () {
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'bl100-verbinding@example.com');
+    $survey = app(AircoSurveyService::class);
+    $room = $survey->createRoom($intake, $user, [
+        'name' => 'Slaapkamer',
+        'use_type' => 'bedroom',
+        'length_m' => 4,
+        'width_m' => 3,
+        'height_m' => 2.5,
+    ]);
+    $inside = $survey->createPlacement($intake, $user, [
+        'airco_room_id' => $room->id,
+        'type' => AircoPlacementType::IndoorUnit,
+        'label' => 'Binnenpositie',
+    ]);
+    $outside = $survey->createPlacement($intake, $user, [
+        'type' => AircoPlacementType::OutdoorUnit,
+        'label' => 'Buitenpositie',
+    ]);
+    $option = $survey->createInstallationOption($intake, $user, [
+        'label' => 'Optie A',
+        'configuration_type' => AircoConfigurationType::SingleSplit,
+        'placement_ids' => [$inside->id, $outside->id],
+    ]);
+    $connection = $survey->createConnection($intake, $user, $option, [
+        'type' => AircoConnectionType::Refrigerant,
+        'label' => 'Koelleiding slaapkamer',
+        'from_placement_id' => $inside->id,
+        'to_placement_id' => $outside->id,
+        'status' => AircoConnectionStatus::NeedsEvidence,
+    ]);
+
+    $html = $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertSee('id="connection-'.$connection->id.'"', false)
+        ->assertSee('Vraag de klant')
+        ->getContent();
+
+    expect($html)->toContain('Koelleiding slaapkamer')
+        ->and(substr_count($html, 'intakes.workspace.tasks.prepare') > 0 || str_contains($html, '/customer-tasks/prepare'))->toBeTrue();
+
+    $this->actingAs($user)
+        ->followingRedirects()
+        ->get(route('intakes.workspace.tasks.prepare', [
+            'intake' => $intake,
+            'type' => FollowUpItemType::Photo->value,
+            'prompt' => 'Maak een duidelijke foto van de Koelleiding “Koelleiding slaapkamer” (Binnenpositie → Buitenpositie). Laat zien waar de leiding of kabel zichtbaar loopt.',
+            'decision_area_key' => 'refrigerant',
+            'dossier_subject_id' => $connection->dossier_subject_id,
+        ]))
+        ->assertOk()
+        ->assertSee('Vooringevulde klanttaak controleren')
+        ->assertSee('Koelleiding slaapkamer')
+        ->assertSee('value="refrigerant"', false);
+
+    expect($intake->fresh()->contributionTasks()->count())->toBe(0);
+});
+
+test('multi-split configuration choice does not show a misleading customer ask', function () {
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'bl100-technische-keuze@example.com');
+    $survey = app(AircoSurveyService::class);
+    $room = $survey->createRoom($intake, $user, [
+        'name' => 'Slaapkamer',
+        'use_type' => 'bedroom',
+        'length_m' => 4,
+        'width_m' => 3,
+        'height_m' => 2.5,
+    ]);
+    $survey->createPlacement($intake, $user, [
+        'airco_room_id' => $room->id,
+        'type' => AircoPlacementType::IndoorUnit,
+        'label' => 'Binnenpositie',
+    ]);
+    $survey->createPlacement($intake, $user, [
+        'type' => AircoPlacementType::OutdoorUnit,
+        'label' => 'Buitenpositie',
+    ]);
+
+    $disk = (string) config('filesystems.media', 'local');
+    Storage::fake($disk);
+    Storage::disk($disk)->put('photos/gevel.jpg', 'fake');
+    IntakeUpload::query()->create([
+        'intake_id' => $intake->id,
+        'question_key' => 'around_house_photos',
+        'section_instance_key' => null,
+        'disk' => $disk,
+        'path' => 'photos/gevel.jpg',
+        'original_filename' => 'gevel.jpg',
+        'mime_type' => 'image/jpeg',
+        'size_bytes' => 10,
+        'sort_order' => 1,
+    ]);
+
+    $html = $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertSee('Multi-split of singles')
+        ->assertSee('id="demo-proposal"', false)
+        ->assertSee('id="dossier-area-placement"', false)
+        ->getContent();
+
+    $placementBlock = [];
+    expect(preg_match('/id="dossier-area-placement".*?<\/details>/s', $html, $placementBlock))->toBe(1)
+        ->and($placementBlock[0])->toContain('multi-split of singles')
+        ->and($placementBlock[0])->not->toContain('Vraag de klant');
+
+    expect(preg_match(
+        '/id="demo-proposal"[^>]*>.*?Vraag de klant/s',
+        $html,
+    ))->toBe(0);
 });

@@ -14,9 +14,7 @@ use App\Enums\AircoConnectionType;
 use App\Enums\AircoOptionStatus;
 use App\Enums\DecisionAreaStatus;
 use App\Enums\DossierNextAction;
-use App\Enums\FollowUpItemType;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
 
 /**
  * Resolves the sticky primary CTA and per-area deep links for the installer workspace (BL-054/055).
@@ -36,6 +34,7 @@ final class WorkspacePrimaryActionResolver
     ];
 
     public function __construct(
+        private readonly ContextualCustomerTaskBuilder $customerTaskBuilder,
         private readonly RoomHeightRequirement $heightRequirement,
     ) {}
 
@@ -169,14 +168,19 @@ final class WorkspacePrimaryActionResolver
     }
 
     /**
-     * Presentation payload for one row in the central Alle onderdelen overview (BL-099).
+     * Presentation payload for one row in the central Alle onderdelen overview (BL-099/100).
      *
      * @return array{
      *     href: string,
      *     label: string,
      *     is_open: bool,
      *     detail: string|null,
-     *     ask_customer: array{type: string, prompt: string}|null
+     *     ask_customer: array{
+     *         type: string,
+     *         prompt: string,
+     *         decision_area_key: string,
+     *         dossier_subject_id: int|null
+     *     }|null
      * }
      */
     public function overviewItem(Intake $intake, DossierDecisionArea $area): array
@@ -192,26 +196,14 @@ final class WorkspacePrimaryActionResolver
             ?? $area->next_action?->label()
             ?? null;
 
-        $askCustomer = null;
-        if ($isOpen && $area->next_action === DossierNextAction::RequestContribution) {
-            $askCustomer = [
-                'type' => in_array($area->key, ['capacity', 'placement', 'refrigerant', 'condensate', 'power'], true)
-                    ? FollowUpItemType::Photo->value
-                    : FollowUpItemType::Text->value,
-                'prompt' => Str::limit(
-                    trim((string) ($area->blocker ?: ('Help ons verder met: '.$area->label))),
-                    500,
-                    '',
-                ),
-            ];
-        }
-
         return [
             'href' => $target['href'],
             'label' => $target['label'],
             'is_open' => $isOpen,
             'detail' => $detail,
-            'ask_customer' => $askCustomer,
+            'ask_customer' => $isOpen
+                ? $this->customerTaskBuilder->forDecisionArea($intake, $area)
+                : null,
         ];
     }
 

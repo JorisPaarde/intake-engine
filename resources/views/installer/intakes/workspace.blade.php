@@ -73,8 +73,11 @@
         $primaryCtaLabel = $primaryAction['label'];
         $primarySummary = $primaryAction['summary'];
         $areaTargetResolver = app(\App\Domains\Intake\Services\WorkspacePrimaryActionResolver::class);
+        $customerTaskBuilder = app(\App\Domains\Intake\Services\ContextualCustomerTaskBuilder::class);
         $firstActionableOpenKey = $areaTargetResolver->firstActionableOpenArea($openAreas)?->key;
         $hasOpenPoints = $openAreas->isNotEmpty();
+        $customerTaskDraft = is_array($customerTaskDraft ?? null) ? $customerTaskDraft : null;
+        $hasCustomerTaskDraft = $customerTaskDraft !== null;
     @endphp
 
     <div class="py-6 sm:py-8">
@@ -240,15 +243,18 @@
                                             </a>
 
                                             @if ($overviewItem['ask_customer'] !== null)
-                                                <form method="POST" action="{{ route('intakes.workspace.tasks.quick', $intake) }}" class="border-t border-gray-100 pt-2">
-                                                    @csrf
-                                                    <input type="hidden" name="type" value="{{ $overviewItem['ask_customer']['type'] }}">
-                                                    <input type="hidden" name="prompt" value="{{ $overviewItem['ask_customer']['prompt'] }}">
-                                                    <input type="hidden" name="decision_area_key" value="{{ $area->key }}">
-                                                    <button class="inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-900 hover:bg-gray-50">
-                                                        Vraag de klant
-                                                    </button>
-                                                </form>
+                                                <a
+                                                    href="{{ route('intakes.workspace.tasks.prepare', array_filter([
+                                                        'intake' => $intake,
+                                                        'type' => $overviewItem['ask_customer']['type'],
+                                                        'prompt' => $overviewItem['ask_customer']['prompt'],
+                                                        'decision_area_key' => $overviewItem['ask_customer']['decision_area_key'],
+                                                        'dossier_subject_id' => $overviewItem['ask_customer']['dossier_subject_id'],
+                                                    ], static fn (mixed $value): bool => $value !== null && $value !== '')) }}"
+                                                    class="inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-900 hover:bg-gray-50"
+                                                >
+                                                    Vraag de klant
+                                                </a>
                                             @endif
                                         @endif
                                     </div>
@@ -276,6 +282,7 @@
                                     $hasAnyDimension = $roomMeasures->hasAnyMeasure();
                                     $floorConflict = $roomMeasures->hasFloorAreaConflict();
                                     $heightNeeded = $room->use_type === 'attic';
+                                    $roomCustomerAsk = $customerTaskBuilder->forRoom($room);
                                 @endphp
                                 <article id="room-{{ $room->id }}" class="scroll-mt-28 rounded-2xl border border-gray-200 p-4">
                                     <div class="flex flex-wrap items-start justify-between gap-3">
@@ -303,15 +310,31 @@
                                                 Maten nog leeg
                                             @endif
                                         </p>
-                                        <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
-                                            {{ match ($room->source_type) {
-                                                'installer' => 'Door installateur toegevoegd',
-                                                'ai' => 'Door AI voorgesteld',
-                                                'customer' => 'Door klant opgegeven',
-                                                'template_bridge' => 'Uit aanvraag overgenomen',
-                                                default => 'Automatisch toegevoegd',
-                                            } }}
-                                        </span>
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
+                                                {{ match ($room->source_type) {
+                                                    'installer' => 'Door installateur toegevoegd',
+                                                    'ai' => 'Door AI voorgesteld',
+                                                    'customer' => 'Door klant opgegeven',
+                                                    'template_bridge' => 'Uit aanvraag overgenomen',
+                                                    default => 'Automatisch toegevoegd',
+                                                } }}
+                                            </span>
+                                            @if ($roomCustomerAsk !== null)
+                                                <a
+                                                    href="{{ route('intakes.workspace.tasks.prepare', array_filter([
+                                                        'intake' => $intake,
+                                                        'type' => $roomCustomerAsk['type'],
+                                                        'prompt' => $roomCustomerAsk['prompt'],
+                                                        'decision_area_key' => $roomCustomerAsk['decision_area_key'],
+                                                        'dossier_subject_id' => $roomCustomerAsk['dossier_subject_id'],
+                                                    ], static fn (mixed $value): bool => $value !== null && $value !== '')) }}"
+                                                    class="inline-flex min-h-10 items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-900 hover:bg-gray-50"
+                                                >
+                                                    Vraag de klant
+                                                </a>
+                                            @endif
+                                        </div>
                                     </div>
 
                                     @if ($floorConflict)
@@ -774,6 +797,7 @@
                                         @foreach ($option->connections as $connection)
                                             @php
                                                 $connectionSubject = $intake->dossierSubjects->firstWhere('id', $connection->dossier_subject_id);
+                                                $connectionCustomerAsk = $customerTaskBuilder->forConnection($connection);
                                             @endphp
                                             <div id="connection-{{ $connection->id }}" class="scroll-mt-24 rounded-2xl border border-gray-200 bg-white p-4">
                                                 <div class="flex flex-wrap items-start justify-between gap-3">
@@ -789,7 +813,23 @@
                                                             @endif
                                                         </p>
                                                     </div>
-                                                    <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">{{ $connection->status->label() }}</span>
+                                                    <div class="flex flex-wrap items-center gap-2">
+                                                        <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">{{ $connection->status->label() }}</span>
+                                                        @if ($connectionCustomerAsk !== null)
+                                                            <a
+                                                                href="{{ route('intakes.workspace.tasks.prepare', array_filter([
+                                                                    'intake' => $intake,
+                                                                    'type' => $connectionCustomerAsk['type'],
+                                                                    'prompt' => $connectionCustomerAsk['prompt'],
+                                                                    'decision_area_key' => $connectionCustomerAsk['decision_area_key'],
+                                                                    'dossier_subject_id' => $connectionCustomerAsk['dossier_subject_id'],
+                                                                ], static fn (mixed $value): bool => $value !== null && $value !== '')) }}"
+                                                                class="inline-flex min-h-10 items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-900 hover:bg-gray-50"
+                                                            >
+                                                                Vraag de klant
+                                                            </a>
+                                                        @endif
+                                                    </div>
                                                 </div>
 
                                                 @if (is_array($connection->segments) && $connection->segments !== [])
@@ -966,7 +1006,11 @@
                     <section id="demo-customer-task" class="scroll-mt-24 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
                         <h3 class="font-semibold text-gray-950">Taak voor de klant</h3>
                         <p class="mt-1 text-sm text-gray-500">
-                            Alleen wat de klant moet doen.
+                            @if ($hasCustomerTaskDraft)
+                                Controleer de vooringevulde opdracht en verstuur hem daarna.
+                            @else
+                                Alleen wat de klant moet doen. Gebruik dit blok voor een algemene of extra opdracht.
+                            @endif
                             @if ($intake->is_demo)
                                 Geen e-mail in de demo.
                             @endif
@@ -990,25 +1034,36 @@
                                 @endforeach
                             </div>
                         @endif
-                        <details class="mt-4 rounded-2xl border border-gray-200 bg-gray-50 p-4" @if ($proposedCustomerTasks->isEmpty()) open @endif>
-                            <summary class="cursor-pointer text-sm font-semibold text-gray-900">Klanttaak maken</summary>
+                        <details class="mt-4 rounded-2xl border border-gray-200 bg-gray-50 p-4" @if ($proposedCustomerTasks->isEmpty() || $hasCustomerTaskDraft) open @endif>
+                            <summary class="cursor-pointer text-sm font-semibold text-gray-900">
+                                {{ $hasCustomerTaskDraft ? 'Vooringevulde klanttaak controleren' : 'Klanttaak maken' }}
+                            </summary>
                             <form method="POST" action="{{ route('intakes.workspace.tasks.store', $intake) }}" class="mt-4 space-y-4">
                                 @csrf
                                 @for ($index = 0; $index < 3; $index++)
+                                    @php
+                                        $draftType = $index === 0 ? ($customerTaskDraft['type'] ?? null) : null;
+                                        $draftPrompt = $index === 0 ? ($customerTaskDraft['prompt'] ?? '') : '';
+                                        $draftArea = $index === 0 ? ($customerTaskDraft['decision_area_key'] ?? '') : '';
+                                        $draftSubjectId = $index === 0 ? ($customerTaskDraft['dossier_subject_id'] ?? null) : null;
+                                    @endphp
                                     <fieldset class="rounded-2xl border border-gray-200 bg-white p-3">
                                         <legend class="px-1 text-xs font-semibold text-gray-500">Opdracht {{ $index + 1 }}{{ $index > 0 ? ' (optioneel)' : '' }}</legend>
                                         <select name="contribution_items[{{ $index }}][type]" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300 text-sm">
                                             @foreach ($followUpTypes as $type)
-                                                <option value="{{ $type->value }}">{{ $type->label() }}</option>
+                                                <option value="{{ $type->value }}" @selected($draftType === $type->value)>{{ $type->label() }}</option>
                                             @endforeach
                                         </select>
-                                        <textarea name="contribution_items[{{ $index }}][prompt]" rows="3" class="mt-2 block w-full rounded-xl border-gray-300 text-sm" placeholder="{{ $index === 0 ? 'Bijv. Maak een leesbare foto van de volledige meterkast.' : 'Nog een concrete opdracht' }}"></textarea>
+                                        <textarea name="contribution_items[{{ $index }}][prompt]" rows="3" class="mt-2 block w-full rounded-xl border-gray-300 text-sm" placeholder="{{ $index === 0 ? 'Bijv. Maak een leesbare foto van de volledige meterkast.' : 'Nog een concrete opdracht' }}">{{ $draftPrompt }}</textarea>
                                         <select name="contribution_items[{{ $index }}][decision_area_key]" class="mt-2 block min-h-11 w-full rounded-xl border-gray-300 text-sm">
                                             <option value="">Algemene opname</option>
                                             @foreach ($dossier['areas']->where('key', '!=', 'quote') as $area)
-                                                <option value="{{ $area->key }}">{{ $area->label }}</option>
+                                                <option value="{{ $area->key }}" @selected($draftArea === $area->key)>{{ $area->label }}</option>
                                             @endforeach
                                         </select>
+                                        @if ($draftSubjectId)
+                                            <input type="hidden" name="contribution_items[{{ $index }}][dossier_subject_id]" value="{{ $draftSubjectId }}">
+                                        @endif
                                     </fieldset>
                                 @endfor
                                 <x-primary-button class="w-full justify-center">
