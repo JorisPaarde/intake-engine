@@ -42,7 +42,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| — | BL-105 | Publieke XML-sitemap + robots.txt-verwijzing | E5 | done | medium | A · SEO/marketing · bij BL-043 |
+| — | BL-105 | Publieke XML-sitemap + robots.txt-verwijzing | E5 | done | medium | A · SEO/marketing · bij BL-043 · PR #108 |
 | — | BL-103 | Technische configuratie eerst, klantvoorkeur pas na haalbaarheidscheck | E7/E8 | done | high | na BL-102 · bij BL-038/039 · ADR-0012 · PR #107 |
 | — | BL-104 | Dev: AI-invoer van Nieuwe opname veilig testen en verklaren | E3/E5 | done | medium | dev/QA · bij BL-028/064/065/093/098 · PR #105 |
 | — | BL-100 | Opnamewerkplek: vooraf ingevulde klanttaak vanuit ieder onderdeel | E7 | done | high | opname-UX · na BL-099 · bij BL-038/061/062/089 · PR #106 |
@@ -932,7 +932,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-105 — Publieke XML-sitemap + robots.txt-verwijzing
 
-- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-09-10 · **Epic:** E5 · **Band:** A · SEO/marketing · **Volgt op:** BL-043
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-09-10 · **PR:** #108 · **Epic:** E5 · **Band:** A · SEO/marketing · **Volgt op:** BL-043
 - **Aanleiding:** `https://intake-engine.nl/sitemap.xml` gaf 404; Search Console was al geverifieerd. Marketingoppervlak is in de praktijk alleen de homepage; auth/demo/app-routes horen niet geïndexeerd.
 - **Doel:** geldige XML-sitemap op `/sitemap.xml` met alleen indexeerbare marketing-URL’s; `robots.txt` verwijst ernaar.
 - **Scope:** Laravel-route `sitemap` via `SitemapController` met allowlist van named routes (nu alleen `home`); `public/robots.txt` krijgt `Sitemap: https://intake-engine.nl/sitemap.xml`; featuretests; docs. Geen noindex-wijzigingen.
