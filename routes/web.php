@@ -25,6 +25,7 @@ use App\Http\Controllers\Installer\MetricsController;
 use App\Http\Controllers\Installer\SurveyWorkspaceController;
 use App\Http\Controllers\ProductInterestController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SitemapController;
 use App\Livewire\Customer\IntakeWizard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -34,6 +35,8 @@ Route::get('/', function (Request $request, PublicDemoSession $publicDemoSession
         'isPublicDemo' => $publicDemoSession->isActive($request),
     ]);
 })->name('home');
+
+Route::get('/sitemap.xml', SitemapController::class)->name('sitemap');
 
 Route::post('/interesse', ProductInterestController::class)
     ->middleware('throttle:product-interest')

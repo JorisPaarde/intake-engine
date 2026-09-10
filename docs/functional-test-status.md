@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.76 · **Laatste update:** 2026-09-06 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.77 · **Laatste update:** 2026-09-10 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -12,6 +12,7 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
+| Publieke XML-sitemap + robots (BL-105) | todo | - | Na production-deploy: `GET /sitemap.xml` is valide `urlset` met homepage-URL (geen trailing slash); `/robots.txt` bevat `Sitemap: https://intake-engine.nl/sitemap.xml`; geen `/login`/`/dashboard` in de sitemap. |
 | Haalbaarheid vóór klantvoorkeur (BL-103) | todo | - | Op werkplek `#demo-proposal`: markeer ≥2 keuzes haalbaar → **Voorkeurstaak versturen**; 0/1 haalbaar toont geen voorkeur-CTA; klant ziet alleen haalbare labels + **Geen voorkeur**; antwoord selecteert niets; wijzig haalbare set → verouderd-banner. |
 | Dev AI-invoer testen (BL-104) | todo | - | Op staging `/dev/ai-input-test`: proeftekst + **Evaluatie starten**; versies/gates zichtbaar; fills/voorzetten/afwijzingen met reden; bij `AI_TEXT_INFERENCE_ENABLED=false` alleen lokaal + duidelijke melding; geen nieuwe opname/AI-run/mail. |
 | Ruimteoppervlak L×B of m² + hoogte apart (BL-101) | todo | - | Op werkplek: ruimte met alleen L×B toont berekend m² en maakt capaciteit compleet zonder hoogte; alleen betrouwbaar m² idem; conflict L×B vs m² toont controlepunt; zolder vraagt hoogte; AI “20 m²” vult `room_area_m2` zonder verzonnen L×B (airco v16). |

@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.54 · **Laatste update:** 2026-09-06 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.55 · **Laatste update:** 2026-09-10 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,10 +38,11 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. De opnamefeedback gebruikt BL-099–103; de dev-AI-proeftuin is BL-104. Nieuwe items starten bij BL-105.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. De opnamefeedback gebruikt BL-099–103; de dev-AI-proeftuin is BL-104. Nieuwe items starten bij BL-106.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
+| — | BL-105 | Publieke XML-sitemap + robots.txt-verwijzing | E5 | done | medium | A · SEO/marketing · bij BL-043 |
 | — | BL-103 | Technische configuratie eerst, klantvoorkeur pas na haalbaarheidscheck | E7/E8 | done | high | na BL-102 · bij BL-038/039 · ADR-0012 · PR #107 |
 | — | BL-104 | Dev: AI-invoer van Nieuwe opname veilig testen en verklaren | E3/E5 | done | medium | dev/QA · bij BL-028/064/065/093/098 · PR #105 |
 | — | BL-100 | Opnamewerkplek: vooraf ingevulde klanttaak vanuit ieder onderdeel | E7 | done | high | opname-UX · na BL-099 · bij BL-038/061/062/089 · PR #106 |
@@ -928,6 +929,16 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Niet in scope:** klantwizard-labels herschrijven; open PR #85; nieuwe templateversie. (#84/#86 zijn gemerged.)
 - **Acceptatie:** create toont geen Toevoeging/Handmatig-chrome; suggestion `address_line` bevat huisnummer; demo create zonder zichtbaar `@demo.invalid`; prefill korte labels + L×B×H-rij + “—”; `composer check` groen.
 - **Resultaat:** adresblok vereenvoudigd; `address_line` als `Straat 12A`; demo-e-mail leeg in UI; prefill compact.
+
+### BL-105 — Publieke XML-sitemap + robots.txt-verwijzing
+
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-09-10 · **Epic:** E5 · **Band:** A · SEO/marketing · **Volgt op:** BL-043
+- **Aanleiding:** `https://intake-engine.nl/sitemap.xml` gaf 404; Search Console was al geverifieerd. Marketingoppervlak is in de praktijk alleen de homepage; auth/demo/app-routes horen niet geïndexeerd.
+- **Doel:** geldige XML-sitemap op `/sitemap.xml` met alleen indexeerbare marketing-URL’s; `robots.txt` verwijst ernaar.
+- **Scope:** Laravel-route `sitemap` via `SitemapController` met allowlist van named routes (nu alleen `home`); `public/robots.txt` krijgt `Sitemap: https://intake-engine.nl/sitemap.xml`; featuretests; docs. Geen noindex-wijzigingen.
+- **Niet in scope:** `/login`, `/dashboard`, `/health`, demo-sessie-eindpunten, klanttokens; nieuwe marketingpagina’s verzinnen.
+- **Acceptatie:** `/sitemap.xml` levert een valide `urlset` met de canonieke homepage-URL (`route('home')`, zonder trailing slash zoals `og:url`); robots verwijst naar de production-sitemap; `composer check` groen.
+- **Resultaat:** allowlist-gebaseerde sitemap-route + robots-verwijzing; uitbreiden = named route toevoegen aan `INDEXABLE_ROUTE_NAMES`.
 
 ### BL-043 — Publieke productfunnel en interesse-CTA
 
