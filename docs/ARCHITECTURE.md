@@ -1,6 +1,6 @@
 # Architectuurkeuzes
 
-> **Documentversie:** 2.2 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.3 · **Laatste update:** 2026-09-10 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: de runtime, dossierkern en eerste airco-domeinlaag hieronder zijn **geïmplementeerd**. Zie [product-model.md](product-model.md) en ADR-0011/0012.
 
@@ -48,6 +48,8 @@ Actieve namespaces: `Intake`, `AI` en `Branding`. De eerste airco-objecten staan
 ```text
 Publieke prospect
   → productfunnel / + interactieve demo
+  → GET /sitemap.xml (allowlist marketing-URL’s; geen auth/demo/app)
+  → static public/robots.txt (Sitemap → production /sitemap.xml)
   → POST /interesse (honeypot + IP-rate-limit)
   → zelfstandige product_interests-rij, zonder IP of dossierrelatie
   → optionele interne mailmelding via queue
