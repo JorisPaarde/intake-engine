@@ -21,7 +21,7 @@
                     @endforeach
                 </select>
             </label>
-            <button type="submit" class="rounded bg-gray-800 px-3 py-2 text-white">Zoek</button>
+            <button type="submit" class="rounded bg-marketing-green-dark px-3 py-2 text-white">Zoek</button>
             <a href="{{ route('dev.intakes') }}" class="px-2 py-2 text-gray-500 hover:underline">Reset</a>
         </form>
 

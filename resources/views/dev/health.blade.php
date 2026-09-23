@@ -19,7 +19,7 @@
                             <dd class="text-right font-medium text-gray-900">
                                 @if (is_bool($value))
                                     <span @class([
-                                        'rounded-full px-2 py-0.5 text-xs',
+                                        'rounded px-2 py-0.5 text-xs',
                                         'bg-green-100 text-green-800' => $value,
                                         'bg-red-100 text-red-800' => ! $value,
                                     ])>{{ $value ? 'ja' : 'nee' }}</span>

@@ -1101,7 +1101,9 @@ test('room block offers contextual customer task that opens prefilled for review
         ->assertSee('Vraag de klant')
         ->getContent();
 
-    expect($html)->toContain(route('intakes.workspace.tasks.prepare', $intake, false));
+    // BL-107: "Vraag de klant" maakt en verstuurt de taak in één klik via het quick-pad.
+    expect($html)->toContain(route('intakes.workspace.tasks.quick', $intake, false))
+        ->and($html)->toContain('dossier_subject_id='.$room->dossier_subject_id);
 
     $this->actingAs($user)
         ->get(route('intakes.workspace.tasks.prepare', [
@@ -1166,7 +1168,7 @@ test('photo suggestion offers prepare link that prefills a retake task', functio
         ->get(route('intakes.workspace', $intake))
         ->assertOk()
         ->assertSee('Vraag nieuwe foto')
-        ->assertSee(route('intakes.workspace.tasks.prepare', $intake, false), false);
+        ->assertSee(route('intakes.workspace.tasks.quick', $intake), false);
 
     $this->actingAs($user)
         ->followingRedirects()
@@ -1226,7 +1228,7 @@ test('connection needing evidence offers contextual customer photo task', functi
         ->getContent();
 
     expect($html)->toContain('Koelleiding slaapkamer')
-        ->and(substr_count($html, 'intakes.workspace.tasks.prepare') > 0 || str_contains($html, '/customer-tasks/prepare'))->toBeTrue();
+        ->and($html)->toContain('/customer-tasks/quick');
 
     $this->actingAs($user)
         ->followingRedirects()

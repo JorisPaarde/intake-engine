@@ -69,7 +69,7 @@
                                     @endif
                                 </td>
                                 <td class="px-4 py-3">
-                                    <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium {{ $toneClasses }}">{{ $text }}</span>
+                                    <span class="inline-flex rounded px-2 py-0.5 text-xs font-medium {{ $toneClasses }}">{{ $text }}</span>
                                     @if (($service['failures'] ?? 0) > 0)
                                         <span class="ml-1 text-xs text-red-600">({{ $service['failures'] }} mislukt)</span>
                                     @endif
@@ -117,7 +117,7 @@
                                 @endif
                             </div>
                             <span @class([
-                                'rounded-full px-2 py-0.5 text-xs font-medium',
+                                'rounded px-2 py-0.5 text-xs font-medium',
                                 'bg-green-100 text-green-800' => $run->status->value === 'succeeded',
                                 'bg-red-100 text-red-800' => $run->status->value === 'failed',
                                 'bg-gray-100 text-gray-600' => $run->status->value === 'pending',

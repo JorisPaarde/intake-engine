@@ -70,7 +70,7 @@
                 </div>
 
                 <div class="flex flex-wrap items-center gap-2 text-sm">
-                    <span class="inline-flex rounded-full bg-white px-2.5 py-0.5 text-xs font-medium text-gray-800">
+                    <span class="inline-flex rounded bg-white px-2.5 py-0.5 text-xs font-medium text-gray-800">
                         {{ $intake->status->label() }}
                     </span>
                     <span class="text-gray-500">Klanttaak: {{ $intake->progress_percent }}% beantwoord</span>
@@ -263,7 +263,7 @@
 
                     @if ($authoritativePoints->isNotEmpty())
                         <div>
-                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Actueel</p>
+                            <p class="text-xs font-extrabold uppercase tracking-[0.06em] text-gray-600">Actueel</p>
                             <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-800">
                                 @foreach ($authoritativePoints as $point)
                                     <li>
@@ -279,7 +279,7 @@
 
                     @if ($proposedPoints->isNotEmpty())
                         <div>
-                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">AI-voorstel · accepteren of verwijderen</p>
+                            <p class="text-xs font-extrabold uppercase tracking-[0.06em] text-gray-600">AI-voorstel · accepteren of verwijderen</p>
                             <ul class="mt-2 divide-y divide-gray-100">
                                 @foreach ($proposedPoints as $point)
                                     <li class="flex flex-col gap-2 py-3 sm:flex-row sm:items-start sm:justify-between">
@@ -384,7 +384,7 @@
                     >
                     <button
                         type="button"
-                        class="inline-flex items-center justify-center rounded-md bg-gray-800 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-700"
+                        class="inline-flex items-center justify-center rounded-md bg-marketing-green-dark px-4 py-2 text-sm font-semibold text-white hover:bg-marketing-green"
                         @click="
                             navigator.clipboard.writeText(document.getElementById('customer-link').value);
                             copied = true;
@@ -525,7 +525,7 @@
                                     @if ($pdfReady)
                                         <a
                                             href="{{ route('intakes.pdf', $intake) }}"
-                                            class="inline-flex items-center rounded-md bg-gray-800 px-3 py-2 text-xs font-semibold uppercase tracking-widest text-white hover:bg-gray-700"
+                                            class="inline-flex items-center rounded-md bg-marketing-green-dark px-3 py-2 text-sm font-semibold text-white hover:bg-marketing-green"
                                         >
                                             Download PDF
                                         </a>
@@ -538,7 +538,7 @@
                                     @if ($pdfReady)
                                         <a
                                             href="{{ route('intakes.pdf', $intake) }}"
-                                            class="inline-flex items-center rounded-md bg-gray-800 px-3 py-2 text-xs font-semibold uppercase tracking-widest text-white hover:bg-gray-700"
+                                            class="inline-flex items-center rounded-md bg-marketing-green-dark px-3 py-2 text-sm font-semibold text-white hover:bg-marketing-green"
                                         >
                                             Download PDF
                                         </a>

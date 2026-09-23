@@ -12,8 +12,8 @@
                 <span>Onderdeel {{ $followUpStepIndex + 1 }} van {{ $items->count() }}</span>
                 <span class="font-medium text-brand-ink">{{ $progress }}%</span>
             </div>
-            <div class="mt-2 h-2 overflow-hidden rounded-full bg-brand-fog/60" role="progressbar" aria-valuenow="{{ $progress }}" aria-valuemin="0" aria-valuemax="100">
-                <div class="h-full rounded-full bg-brand-sea transition-all duration-300" style="width: {{ $progress }}%"></div>
+            <div class="mt-2 h-1.5 overflow-hidden bg-brand-fog/60" role="progressbar" aria-valuenow="{{ $progress }}" aria-valuemin="0" aria-valuemax="100">
+                <div class="h-full bg-brand-sea transition-all duration-300" style="width: {{ $progress }}%"></div>
             </div>
         @endif
 

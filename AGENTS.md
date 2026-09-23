@@ -1,6 +1,6 @@
 # AGENTS.md — Projectgeheugen & werkinstructies
 
-> **Documentversie:** 2.17 · **Laatste update:** 2026-09-06 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
+> **Documentversie:** 2.18 · **Laatste update:** 2026-09-23 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
 
 Dit bestand is de **centrale ingang** voor iedere agent (of mens) die aan dit project werkt. Het beschrijft waar het projectgeheugen leeft, welk document waarvoor de bron van waarheid is, en hoe je dat geheugen bijhoudt. **Lees dit bestand aan het begin van elke taak.**
 
@@ -184,6 +184,8 @@ Praktische lessen uit cloud-runs. Doel: sneller groen zonder opnieuw te ontdekke
 - **Composer** staat vaak niet in PATH. Installeer naar `~/bin/composer` (`mkdir -p ~/bin` eerst) en zet `PATH="$HOME/bin:$PATH"`.
 - **Node/npm** is meestal wél aanwezig (nvm). Voor HTTP-featuretests die layouts renderen: `npm ci && npm run build` — anders faalt Vite op ontbrekend `public/build/manifest.json`.
 - **Imagick HEIC/HEIF** is nodig voor BL-008. Snel checken: `php -r 'var_dump(class_exists("Imagick"), Imagick::queryFormats("HEIC"), Imagick::queryFormats("HEIF"));'`.
+- **Composer achter een egress-proxy die `api.github.com`-zipballs blokkeert (403 / "Could not authenticate"):** `composer install --prefer-source` (git clone werkt wel). `phpstan/phpstan` heeft in de lock alleen een dist; geef hem tijdelijk een `source` (`git`, `https://github.com/phpstan/phpstan.git`, zelfde `reference`), installeer en zet daarna `git checkout composer.lock` terug.
+- **Huisstijl (BL-107):** stock Tailwind-schalen (`gray`, `indigo/blue/sky`, `green/emerald`, `amber`, `red/rose`) zijn in `tailwind.config.js` naar de productpalet gemapt; gebruik gewoon die klassen of `marketing-*`, en `.eyebrow` voor terracotta labels. Geen Apple-hex (`#1D1D1F`, `#0071E3`, …) meer toevoegen.
 - Lokaal/.env voor tests: `cp .env.example .env && php artisan key:generate`. Tests draaien op **sqlite `:memory:`** (zie CI); geen MySQL nodig voor `composer check`.
 - Check of er al een async install loopt (`/tmp/cursor/async-install/`); in JIT-omgevingen kan die map leeg zijn — zelf bootstrapen is dan sneller dan wachten.
 

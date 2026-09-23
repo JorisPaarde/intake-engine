@@ -1,9 +1,10 @@
 <x-app-layout>
-    <x-slot name="header">
+    <x-slot name="header" width="max-w-4xl">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-                <p class="text-sm font-medium text-gray-500">{{ $intake->customer_name }} · {{ $intake->fullAddress() }}</p>
-                <h2 class="mt-1 text-xl font-semibold leading-tight text-gray-900">Opname</h2>
+                <p class="eyebrow">Opname</p>
+                <h2 class="mt-1 text-2xl font-extrabold leading-tight tracking-tight text-gray-950">{{ $intake->fullAddress() }}</h2>
+                <p class="mt-1 text-sm text-gray-500">{{ $intake->customer_name }}</p>
             </div>
             <div class="flex flex-wrap gap-2">
                 <a href="{{ route('intakes.show', $intake) }}" class="inline-flex min-h-11 items-center rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50">
@@ -81,7 +82,7 @@
     @endphp
 
     <div class="py-6 sm:py-8">
-        <div class="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
+        <div class="mx-auto max-w-4xl space-y-6 px-4 sm:px-6 lg:px-8">
             @if (session('status'))
                 <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-900" role="status">
                     {{ session('status') }}
@@ -110,7 +111,7 @@
                 <section id="demo-intro" class="overflow-hidden rounded-3xl border border-sky-200 bg-sky-50 shadow-sm" data-demo-anchor="workspace-intro">
                     <div class="grid gap-5 p-5 sm:p-6 lg:grid-cols-[1fr_auto] lg:items-center">
                         <div>
-                            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Demo</p>
+                            <p class="eyebrow">Demo</p>
                             <h3 class="mt-2 text-xl font-semibold text-gray-950">
                                 {{ ($demoScenarioLoaded ?? false) ? 'Voorbeelddossier geladen' : 'Bouw de opname op' }}
                             </h3>
@@ -147,11 +148,11 @@
             @endif
 
             {{-- Sticky next action: compact, below demo modal z-index (BL-054/056) --}}
-            <div class="sticky top-0 z-30 -mx-4 border-b border-gray-200 bg-white/95 px-4 py-2.5 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/90 sm:-mx-6 sm:px-6 lg:mx-0 lg:rounded-2xl lg:border lg:px-4 lg:py-3 lg:shadow-sm">
+            <div class="sticky top-0 z-30 -mx-4 border-b border-gray-200 bg-white/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-white/90 sm:-mx-6 sm:px-6 lg:mx-0 lg:border lg:px-5 lg:py-4 lg:shadow-md">
                 <div class="flex items-center justify-between gap-3">
                     <div class="min-w-0">
-                        <p class="text-xs font-medium text-gray-500">Volgende stap</p>
-                        <p class="truncate text-sm font-semibold text-gray-900">{{ $primarySummary }}</p>
+                        <p class="eyebrow">Volgende stap</p>
+                        <p class="mt-0.5 truncate text-base font-bold text-gray-950">{{ $primarySummary }}</p>
                     </div>
                     <div class="shrink-0 text-right">
                         <p class="text-xs font-semibold tabular-nums text-gray-700">{{ $dossier['filled_count'] }}/{{ $dossier['total_count'] }}</p>
@@ -163,27 +164,26 @@
                 </div>
                 <a
                     href="{{ $primaryCtaHref }}"
-                    class="mt-2 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-gray-950 px-4 text-sm font-semibold text-white hover:bg-gray-800"
+                    class="mt-2 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-marketing-green-dark px-4 text-sm font-semibold text-white hover:bg-marketing-green"
                 >
                     {{ $primaryCtaLabel }}
                 </a>
             </div>
 
-            <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+            <div class="grid gap-6">
                 <main class="min-w-0 space-y-6">
                     {{-- Central Alle onderdelen overview (BL-099): één lijst, geen dubbele open-puntenkaarten --}}
                     <section
                         id="workspace-open-items"
                         @class([
-                            'scroll-mt-24 rounded-3xl border p-4 shadow-sm sm:p-5',
-                            'border-amber-200 bg-amber-50/50' => $hasOpenPoints,
-                            'border-emerald-200 bg-emerald-50/40' => ! $hasOpenPoints,
+                            'scroll-mt-24 border border-gray-200 bg-[#f7f8f5] p-4 sm:p-6',
                         ])
                     >
                         <div class="flex flex-wrap items-start justify-between gap-2">
                             <div class="min-w-0">
-                                <h3 class="text-base font-semibold text-gray-950">Alle onderdelen</h3>
-                                <p class="mt-0.5 text-xs leading-relaxed text-gray-600">
+                                <p class="eyebrow">Overzicht</p>
+                                <h3 class="mt-1 text-2xl font-extrabold tracking-tight text-gray-950 sm:text-[28px]">Alle onderdelen</h3>
+                                <p class="mt-1 text-sm leading-relaxed text-gray-600">
                                     @if ($hasOpenPoints)
                                         {{ $openAreas->count() }} open · {{ $dossier['ready_count'] }} van {{ $dossier['total_count'] }} klaar voor offerte
                                     @else
@@ -191,10 +191,10 @@
                                     @endif
                                 </p>
                             </div>
-                            <span class="shrink-0 text-xs font-medium text-gray-500">{{ $intake->workflow_mode->label() }}</span>
+                            <span class="shrink-0 bg-[#e5ede7] px-3 py-1.5 text-sm font-bold text-marketing-green-dark">{{ $intake->workflow_mode->label() }}</span>
                         </div>
 
-                        <div class="mt-3 space-y-2">
+                        <div class="mt-5 space-y-2.5">
                             @foreach ($dossier['areas'] as $area)
                                 @php
                                     $overviewItem = $areaTargetResolver->overviewItem($intake, $area);
@@ -203,31 +203,38 @@
                                 <details
                                     id="dossier-area-{{ $area->key }}"
                                     @class([
-                                        'min-w-0 overflow-hidden rounded-2xl border bg-white',
-                                        'border-emerald-200' => $area->status === \App\Enums\DecisionAreaStatus::Ready,
-                                        'border-amber-200' => $area->status === \App\Enums\DecisionAreaStatus::Review,
-                                        'border-red-200' => $area->status === \App\Enums\DecisionAreaStatus::Blocked,
-                                        'border-gray-200' => in_array($area->status, [
-                                            \App\Enums\DecisionAreaStatus::Unknown,
-                                            \App\Enums\DecisionAreaStatus::NotApplicable,
-                                        ], true),
+                                        'group min-w-0 overflow-hidden border transition',
+                                        'border-amber-300 bg-amber-50' => $expandByDefault,
+                                        'border-gray-200 bg-white hover:border-gray-300' => ! $expandByDefault,
                                     ])
                                     @if ($expandByDefault) open @endif
                                 >
-                                    <summary class="flex cursor-pointer list-none items-start justify-between gap-3 p-3 [&::-webkit-details-marker]:hidden">
-                                        <span class="min-w-0 text-sm font-semibold text-gray-950">{{ $area->label }}</span>
+                                    <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 [&::-webkit-details-marker]:hidden">
+                                        <span class="flex min-w-0 items-center gap-3">
+                                            <span aria-hidden="true" @class([
+                                                'h-2.5 w-2.5 shrink-0 rounded-full',
+                                                'bg-emerald-500' => $area->status === \App\Enums\DecisionAreaStatus::Ready,
+                                                'bg-amber-400' => $area->status === \App\Enums\DecisionAreaStatus::Review,
+                                                'bg-red-600' => $area->status === \App\Enums\DecisionAreaStatus::Blocked,
+                                                'bg-gray-300' => in_array($area->status, [
+                                                    \App\Enums\DecisionAreaStatus::Unknown,
+                                                    \App\Enums\DecisionAreaStatus::NotApplicable,
+                                                ], true),
+                                            ])></span>
+                                            <span class="min-w-0 text-[15px] font-bold text-gray-950">{{ $area->label }}</span>
+                                        </span>
                                         <span @class([
-                                            'shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold',
-                                            'bg-emerald-100 text-emerald-900' => $area->status === \App\Enums\DecisionAreaStatus::Ready,
-                                            'bg-amber-100 text-amber-900' => $area->status === \App\Enums\DecisionAreaStatus::Review,
-                                            'bg-red-100 text-red-800' => $area->status === \App\Enums\DecisionAreaStatus::Blocked,
-                                            'bg-gray-100 text-gray-700' => in_array($area->status, [
+                                            'shrink-0 text-sm',
+                                            'text-gray-600' => $area->status === \App\Enums\DecisionAreaStatus::Ready,
+                                            'font-semibold text-amber-800' => $area->status === \App\Enums\DecisionAreaStatus::Review,
+                                            'font-semibold text-red-700' => $area->status === \App\Enums\DecisionAreaStatus::Blocked,
+                                            'text-gray-500' => in_array($area->status, [
                                                 \App\Enums\DecisionAreaStatus::Unknown,
                                                 \App\Enums\DecisionAreaStatus::NotApplicable,
                                             ], true),
                                         ])>{{ $area->status->label() }}</span>
                                     </summary>
-                                    <div class="min-w-0 space-y-2 border-t border-gray-100 px-3 pb-3 pt-2">
+                                    <div class="min-w-0 space-y-3 border-t border-gray-200/70 px-4 pb-4 pt-3 pl-[2.375rem]">
                                         @if ($overviewItem['detail'])
                                             <p class="break-words text-xs leading-relaxed text-gray-600">{{ $overviewItem['detail'] }}</p>
                                         @elseif (! $overviewItem['is_open'])
@@ -237,24 +244,13 @@
                                         @if ($overviewItem['is_open'])
                                             <a
                                                 href="{{ $overviewItem['href'] }}"
-                                                class="inline-flex min-h-10 w-full items-center justify-center rounded-lg bg-gray-950 px-3 py-2 text-xs font-semibold text-white hover:bg-gray-800 sm:w-auto"
+                                                class="inline-flex min-h-10 w-full items-center justify-center rounded-lg bg-marketing-green-dark px-3 py-2 text-xs font-semibold text-white hover:bg-marketing-green sm:w-auto"
                                             >
                                                 {{ $overviewItem['label'] }} →
                                             </a>
 
                                             @if ($overviewItem['ask_customer'] !== null)
-                                                <a
-                                                    href="{{ route('intakes.workspace.tasks.prepare', array_filter([
-                                                        'intake' => $intake,
-                                                        'type' => $overviewItem['ask_customer']['type'],
-                                                        'prompt' => $overviewItem['ask_customer']['prompt'],
-                                                        'decision_area_key' => $overviewItem['ask_customer']['decision_area_key'],
-                                                        'dossier_subject_id' => $overviewItem['ask_customer']['dossier_subject_id'],
-                                                    ], static fn (mixed $value): bool => $value !== null && $value !== '')) }}"
-                                                    class="inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-900 hover:bg-gray-50"
-                                                >
-                                                    Vraag de klant
-                                                </a>
+                                                <x-ask-customer-button :intake="$intake" :ask="$overviewItem['ask_customer']" label="Vraag de klant" class="inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-900 hover:bg-gray-50" />
                                             @endif
                                         @endif
                                     </div>
@@ -284,9 +280,11 @@
                                     $heightNeeded = $room->use_type === 'attic';
                                     $roomCustomerAsk = $customerTaskBuilder->forRoom($room);
                                 @endphp
-                                <article id="room-{{ $room->id }}" class="scroll-mt-28 rounded-2xl border border-gray-200 p-4">
+                                <article id="room-{{ $room->id }}" class="scroll-mt-28 border border-gray-200 bg-white p-4 sm:p-5">
                                     <div class="flex flex-wrap items-start justify-between gap-3">
-                                        <p class="text-xs text-gray-500">
+                                        <div class="min-w-0">
+                                        <p class="text-base font-bold text-gray-950">{{ $room->name }}</p>
+                                        <p class="mt-0.5 text-sm text-gray-500">
                                             @if ($floorConflict)
                                                 Controleer maten: L×B en m² komen niet overeen
                                             @elseif ($roomMeasures->hasLengthAndWidth())
@@ -310,8 +308,9 @@
                                                 Maten nog leeg
                                             @endif
                                         </p>
+                                        </div>
                                         <div class="flex flex-wrap items-center gap-2">
-                                            <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
+                                            <span class="rounded bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
                                                 {{ match ($room->source_type) {
                                                     'installer' => 'Door installateur toegevoegd',
                                                     'ai' => 'Door AI voorgesteld',
@@ -321,18 +320,7 @@
                                                 } }}
                                             </span>
                                             @if ($roomCustomerAsk !== null)
-                                                <a
-                                                    href="{{ route('intakes.workspace.tasks.prepare', array_filter([
-                                                        'intake' => $intake,
-                                                        'type' => $roomCustomerAsk['type'],
-                                                        'prompt' => $roomCustomerAsk['prompt'],
-                                                        'decision_area_key' => $roomCustomerAsk['decision_area_key'],
-                                                        'dossier_subject_id' => $roomCustomerAsk['dossier_subject_id'],
-                                                    ], static fn (mixed $value): bool => $value !== null && $value !== '')) }}"
-                                                    class="inline-flex min-h-10 items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-900 hover:bg-gray-50"
-                                                >
-                                                    Vraag de klant
-                                                </a>
+                                                <x-ask-customer-button :intake="$intake" :ask="$roomCustomerAsk" label="Vraag de klant" class="inline-flex min-h-10 items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-900 hover:bg-gray-50" />
                                             @endif
                                         </div>
                                     </div>
@@ -354,7 +342,17 @@
                                         </p>
                                     @endif
 
-                                    <form method="POST" action="{{ route('intakes.workspace.rooms.update', [$intake, $room]) }}" class="mt-4 grid gap-3 rounded-xl border border-gray-100 bg-gray-50 p-3 sm:grid-cols-2">
+                                    @php
+                                        $roomMeasuresOpen = $floorConflict
+                                            || ! ($roomMeasures->hasLengthAndWidth() || $roomMeasures->hasTrustedAreaM2());
+                                    @endphp
+                                    <details class="group/measures mt-4 border-t border-gray-100 pt-3" data-open-on-target @if ($roomMeasuresOpen) open @endif>
+                                        <summary class="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-gray-800 [&::-webkit-details-marker]:hidden">
+                                            <span>Maten en gebruik</span>
+                                            <span class="text-xs font-medium text-gray-500 group-open/measures:hidden">Aanpassen</span>
+                                            <span class="hidden text-xs font-medium text-gray-500 group-open/measures:inline">Inklappen</span>
+                                        </summary>
+                                    <form method="POST" action="{{ route('intakes.workspace.rooms.update', [$intake, $room]) }}" class="mt-2 grid gap-3 bg-gray-50 p-3 sm:grid-cols-2">
                                         @csrf
                                         <div>
                                             <x-input-label for="room-{{ $room->id }}-name" value="Naam" />
@@ -412,6 +410,7 @@
                                             <x-primary-button>Wijzigingen opslaan</x-primary-button>
                                         </div>
                                     </form>
+                                    </details>
 
                                     @php
                                         $roomIndoor = $room->placements
@@ -439,9 +438,16 @@
                                             ->filter(static fn ($p) => $p->type === \App\Enums\AircoPlacementType::OutdoorUnit);
                                     @endphp
 
-                                    <div class="mt-4 rounded-xl border border-gray-200 bg-white p-3">
-                                        <p class="text-sm font-semibold text-gray-900">Binnen- en buitenunit</p>
-                                        <p class="mt-1 text-xs text-gray-500">Koppel de binnenunit van deze ruimte aan een gedeelde buitenunit.</p>
+                                    <details class="group/units border-t border-gray-100 pt-3 mt-3">
+                                        <summary class="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 text-sm [&::-webkit-details-marker]:hidden">
+                                            <span class="font-semibold text-gray-800">Binnen- en buitenunit</span>
+                                            <span class="flex items-center gap-2 text-xs font-medium">
+                                                <span aria-hidden="true" @class(['h-2 w-2 rounded-full', 'bg-emerald-500' => $linkedOutdoor, 'bg-amber-400' => ! $linkedOutdoor])></span>
+                                                <span class="text-gray-600">{{ $linkedOutdoor ? 'Gekoppeld aan '.$linkedOutdoor->label : 'Nog niet gekoppeld' }}</span>
+                                            </span>
+                                        </summary>
+                                        <div class="mt-2 bg-gray-50 p-3">
+                                        <p class="text-xs text-gray-500">Koppel de binnenunit van deze ruimte aan een gedeelde buitenunit.</p>
 
                                         @if ($roomIndoor || $linkedOutdoor || $activeOption)
                                             <dl class="mt-3 grid gap-2 text-sm sm:grid-cols-3">
@@ -510,7 +516,8 @@
                                                 <x-primary-button>Koppeling opslaan</x-primary-button>
                                             </div>
                                         </form>
-                                    </div>
+                                        </div>
+                                    </details>
 
                                     @if ($room->placements->filter(static fn ($p) => $p->type !== \App\Enums\AircoPlacementType::IndoorUnit)->isNotEmpty())
                                         <ul class="mt-4 grid gap-2 sm:grid-cols-2">
@@ -597,7 +604,7 @@
                                         $placementSubject = $intake->dossierSubjects->firstWhere('id', $placement->dossier_subject_id);
                                     @endphp
                                     <article id="placement-{{ $placement->id }}" class="scroll-mt-28 rounded-2xl border border-gray-200 p-4">
-                                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ $placement->type->label() }}</p>
+                                        <p class="text-xs font-extrabold uppercase tracking-[0.06em] text-gray-600">{{ $placement->type->label() }}</p>
                                         <h4 class="mt-1 font-semibold text-gray-950">{{ $placement->label }}</h4>
                                         @if ($placement->room)
                                             <p class="mt-1 text-xs text-gray-500">{{ $placement->room->name }}</p>
@@ -745,8 +752,8 @@
                                     <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                         <div>
                                             <div class="flex flex-wrap items-center gap-2">
-                                                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ $option->configuration_type->label() }}</p>
-                                                <span class="rounded-full bg-white px-2.5 py-0.5 text-xs font-semibold text-gray-700 ring-1 ring-gray-200">
+                                                <p class="text-xs font-extrabold uppercase tracking-[0.06em] text-gray-600">{{ $option->configuration_type->label() }}</p>
+                                                <span class="rounded bg-white px-2.5 py-0.5 text-xs font-semibold text-gray-700 ring-1 ring-gray-200">
                                                     {{ $option->feasibility->label() }}
                                                 </span>
                                             </div>
@@ -778,7 +785,7 @@
                                         </div>
                                         <div class="flex flex-col items-stretch gap-2 sm:items-end">
                                             @if ($option->status === \App\Enums\AircoOptionStatus::Selected)
-                                                <span class="rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white">Geselecteerd</span>
+                                                <span class="rounded bg-emerald-600 px-3 py-1 text-xs font-semibold text-white">Geselecteerd</span>
                                             @elseif ($option->feasibility === \App\Enums\AircoOptionFeasibility::Feasible)
                                                 <form method="POST" action="{{ route('intakes.workspace.options.select', [$intake, $option]) }}">
                                                     @csrf
@@ -807,7 +814,7 @@
 
                                     <ul class="mt-4 flex flex-wrap gap-2">
                                         @foreach ($option->placements as $placement)
-                                            <li class="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-700 ring-1 ring-gray-200">
+                                            <li class="rounded bg-white px-3 py-1 text-xs font-medium text-gray-700 ring-1 ring-gray-200">
                                                 {{ $placement->type->label() }} · {{ $placement->label }}
                                                 @if ($placement->room)
                                                     · {{ $placement->room->name }}
@@ -840,7 +847,7 @@
                                             <div id="connection-{{ $connection->id }}" class="scroll-mt-24 rounded-2xl border border-gray-200 bg-white p-4">
                                                 <div class="flex flex-wrap items-start justify-between gap-3">
                                                     <div>
-                                                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ $connection->type->label() }}</p>
+                                                        <p class="text-xs font-extrabold uppercase tracking-[0.06em] text-gray-600">{{ $connection->type->label() }}</p>
                                                         <h5 class="mt-1 font-semibold text-gray-950">{{ $connection->label }}</h5>
                                                         <p class="mt-1 text-xs text-gray-500">
                                                             {{ $connection->fromPlacement?->label ?? 'Beginpunt open' }}
@@ -852,20 +859,9 @@
                                                         </p>
                                                     </div>
                                                     <div class="flex flex-wrap items-center gap-2">
-                                                        <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">{{ $connection->status->label() }}</span>
+                                                        <span class="rounded bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">{{ $connection->status->label() }}</span>
                                                         @if ($connectionCustomerAsk !== null)
-                                                            <a
-                                                                href="{{ route('intakes.workspace.tasks.prepare', array_filter([
-                                                                    'intake' => $intake,
-                                                                    'type' => $connectionCustomerAsk['type'],
-                                                                    'prompt' => $connectionCustomerAsk['prompt'],
-                                                                    'decision_area_key' => $connectionCustomerAsk['decision_area_key'],
-                                                                    'dossier_subject_id' => $connectionCustomerAsk['dossier_subject_id'],
-                                                                ], static fn (mixed $value): bool => $value !== null && $value !== '')) }}"
-                                                                class="inline-flex min-h-10 items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-900 hover:bg-gray-50"
-                                                            >
-                                                                Vraag de klant
-                                                            </a>
+                                                            <x-ask-customer-button :intake="$intake" :ask="$connectionCustomerAsk" label="Vraag de klant" class="inline-flex min-h-10 items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-900 hover:bg-gray-50" />
                                                         @endif
                                                     </div>
                                                 </div>
@@ -1062,7 +1058,11 @@
                         </details>
                     </section>
 
-                    <section id="demo-customer-task" class="scroll-mt-24 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+                    {{-- Klanttaken maakt de app zelf ("Vraag de klant" = één klik). Dit blok toont alleen AI-voorstellen of een vooringevuld concept; handmatig maken blijft bereikbaar via #demo-customer-task. --}}
+                    <section id="demo-customer-task" @class([
+                        'scroll-mt-24 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm',
+                        'hidden target:block' => $proposedCustomerTasks->isEmpty() && ! $hasCustomerTaskDraft,
+                    ])>
                         <h3 class="font-semibold text-gray-950">Taak voor de klant</h3>
                         <p class="mt-1 text-sm text-gray-500">
                             @if ($hasCustomerTaskDraft)
@@ -1078,7 +1078,7 @@
                             <div class="mt-4 space-y-3">
                                 @foreach ($proposedCustomerTasks as $task)
                                     <article class="rounded-2xl border border-indigo-200 bg-indigo-50 p-3">
-                                        <p class="text-xs font-semibold uppercase tracking-wide text-indigo-700">AI-voorstel · {{ $task->type->label() }}</p>
+                                        <p class="eyebrow">AI-voorstel · {{ $task->type->label() }}</p>
                                         <p class="mt-1 text-sm font-medium text-gray-950">{{ $task->prompt }}</p>
                                         @if (! empty($task->meta['reason']))
                                             <p class="mt-1 text-xs text-gray-600">{{ $task->meta['reason'] }}</p>
@@ -1093,7 +1093,7 @@
                                 @endforeach
                             </div>
                         @endif
-                        <details class="mt-4 rounded-2xl border border-gray-200 bg-gray-50 p-4" @if ($proposedCustomerTasks->isEmpty() || $hasCustomerTaskDraft) open @endif>
+                        <details class="mt-4 rounded-2xl border border-gray-200 bg-gray-50 p-4" @if ($hasCustomerTaskDraft) open @endif>
                             <summary class="cursor-pointer text-sm font-semibold text-gray-900">
                                 {{ $hasCustomerTaskDraft ? 'Vooringevulde klanttaak controleren' : 'Klanttaak maken' }}
                             </summary>
@@ -1145,7 +1145,7 @@
                             <p class="mt-1 text-sm text-gray-500">Keurt je keuze en de routes in één keer goed.</p>
                             <form method="POST" action="{{ route('intakes.workspace.complete', $intake) }}" class="mt-4">
                                 @csrf
-                                <button class="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-gray-950 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800">
+                                <button class="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-marketing-green-dark px-4 py-2 text-sm font-semibold text-white hover:bg-marketing-green">
                                     Voorstel goedkeuren
                                 </button>
                             </form>
@@ -1167,7 +1167,7 @@
                             <summary class="cursor-pointer list-none px-5 py-4 sm:px-6 [&::-webkit-details-marker]:hidden">
                                 <div class="flex items-center justify-between gap-3">
                                     <div>
-                                        <p class="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">AI-opnameassistent</p>
+                                        <p class="eyebrow">AI-opnameassistent</p>
                                         <h3 class="mt-1 text-lg font-semibold text-gray-950">
                                             @if ($aiSectionOpen)
                                                 {{ count($aiExceptions) }} uitzondering(en) bekijken
@@ -1339,8 +1339,9 @@
 
                 </main>
 
-                <aside class="space-y-6 lg:sticky lg:top-24 lg:self-start">
-                    <section id="workspace-outcome" class="scroll-mt-24 rounded-3xl border border-gray-200 bg-white shadow-sm">
+                <aside class="space-y-6">
+                    {{-- Voorlopig verborgen (producteigenaar); blijft bereikbaar via de CTA-link #workspace-outcome. --}}
+                    <section id="workspace-outcome" class="hidden scroll-mt-24 rounded-3xl border border-gray-200 bg-white shadow-sm target:block">
                         <details>
                             <summary class="cursor-pointer list-none px-5 py-4 [&::-webkit-details-marker]:hidden">
                                 <h3 class="text-base font-semibold text-gray-950">Uitkomst na offerte of plaatsing</h3>

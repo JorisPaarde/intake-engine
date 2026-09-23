@@ -11,28 +11,28 @@
         <span class="sr-only">Digitale Opname</span>
         <div class="flex items-center gap-3">
             @if ($company?->hasLogo())
-                <img src="{{ route('customer.company-logo.show', ['token' => $token]) }}" alt="{{ $company->name }}" class="h-11 w-11 rounded-xl border border-[#D2D2D7] bg-white object-contain">
+                <img src="{{ route('customer.company-logo.show', ['token' => $token]) }}" alt="{{ $company->name }}" class="h-11 w-11 rounded-xl border border-[#dde2da] bg-white object-contain">
             @else
-                <div class="flex h-11 w-11 items-center justify-center rounded-xl border border-[#D2D2D7] bg-white text-sm font-semibold text-[var(--tenant-primary)]">
+                <div class="flex h-11 w-11 items-center justify-center rounded-xl border border-[#dde2da] bg-white text-sm font-semibold text-[var(--tenant-primary)]">
                     {{ mb_strtoupper(mb_substr($company?->name ?? 'D', 0, 1)) }}
                 </div>
             @endif
             <div class="min-w-0">
-                <p class="truncate text-lg font-semibold text-[#1D1D1F]">{{ $company?->name ?? 'Digitale Opname' }}</p>
-                <p class="truncate text-sm text-[#6E6E73]">{{ $intake->customer_name }} · {{ $intake->fullAddress() }}</p>
+                <p class="truncate text-lg font-semibold text-[#18201d]">{{ $company?->name ?? 'Digitale Opname' }}</p>
+                <p class="truncate text-sm text-[#5e6862]">{{ $intake->customer_name }} · {{ $intake->fullAddress() }}</p>
             </div>
         </div>
 
         <div class="mt-4">
-            <p class="mb-4 rounded-xl bg-[color-mix(in_srgb,var(--tenant-primary)_8%,white)] px-4 py-3 text-sm font-medium leading-5 text-[#1D1D1F]">
+            <p class="mb-4 rounded-xl bg-[color-mix(in_srgb,var(--tenant-primary)_8%,white)] px-4 py-3 text-sm font-medium leading-5 text-[#18201d]">
                 Met uw hulp kunnen we sneller uw airco plaatsen. Wij gebruiken al bekende woninggegevens. U laat alleen zien wat we nog nodig hebben.
             </p>
-            <div class="flex items-center justify-between text-sm text-[#6E6E73]">
+            <div class="flex items-center justify-between text-sm text-[#5e6862]">
                 <span>Voortgang</span>
-                <span class="font-medium text-[#1D1D1F]">{{ $progressPercent }}%</span>
+                <span class="font-medium text-[#18201d]">{{ $progressPercent }}%</span>
             </div>
-            <div class="mt-2 h-2 overflow-hidden rounded-full bg-[#D2D2D7]" role="progressbar" aria-valuenow="{{ $progressPercent }}" aria-valuemin="0" aria-valuemax="100">
-                <div class="h-full rounded-full bg-[var(--tenant-primary)] transition-all duration-300" style="width: {{ $progressPercent }}%"></div>
+            <div class="mt-2 h-1.5 overflow-hidden bg-[#dde2da]" role="progressbar" aria-valuenow="{{ $progressPercent }}" aria-valuemin="0" aria-valuemax="100">
+                <div class="h-full bg-[var(--tenant-primary)] transition-all duration-300" style="width: {{ $progressPercent }}%"></div>
             </div>
         </div>
 
@@ -44,9 +44,9 @@
     </header>
 
     @if ($completed)
-        <div class="flex flex-1 flex-col justify-center rounded-xl border border-[#D2D2D7] bg-white p-6 shadow-sm">
-            <h1 class="text-2xl font-semibold tracking-normal text-[#1D1D1F]">Bedankt</h1>
-            <p class="mt-3 text-sm leading-relaxed text-[#6E6E73]">
+        <div class="flex flex-1 flex-col justify-center rounded-xl border border-[#dde2da] bg-white p-6 shadow-sm">
+            <h1 class="text-2xl font-extrabold tracking-tight text-[#18201d]">Bedankt</h1>
+            <p class="mt-3 text-sm leading-relaxed text-[#5e6862]">
                 @if ($intake->is_demo)
                     Dit was een demo. Er wordt geen echte offerte gemaakt en de gegevens verdwijnen automatisch.
                 @else
@@ -65,7 +65,7 @@
             @endif
         </div>
     @elseif ($step === null || $question === null)
-        <p class="rounded-xl border border-[#D2D2D7] bg-white p-4 text-sm text-[#424245] shadow-sm">
+        <p class="rounded-xl border border-[#dde2da] bg-white p-4 text-sm text-[#414b45] shadow-sm">
             Er zijn nog geen vragen. Vul eerst in hoeveel ruimtes je wilt koelen of verwarmen.
         </p>
     @else
@@ -75,29 +75,29 @@
         @endphp
 
         <div class="mb-4">
-            <p class="text-xs font-medium uppercase text-[#6E6E73]">
+            <p class="eyebrow">
                 {{ $step['section_title'] }}
-                <span class="mx-1.5 text-[#86868B]">·</span>
+                <span class="mx-1.5 text-[#838c86]">·</span>
                 Vraag {{ $stepIndex + 1 }} van {{ count($steps) }}
             </p>
-            <h1 class="mt-1 text-2xl font-semibold tracking-normal text-[#1D1D1F]">
+            <h1 class="mt-1 text-2xl font-extrabold tracking-tight text-[#18201d]">
                 {{ $question->label }}
                 @if ($state['required'])
-                    <span class="text-[#B42318]">*</span>
+                    <span class="text-[#a84832]">*</span>
                 @endif
             </h1>
             @if ($question->help_text)
-                <p class="mt-2 text-sm leading-relaxed text-[#6E6E73]">{{ $question->help_text }}</p>
+                <p class="mt-2 text-sm leading-relaxed text-[#5e6862]">{{ $question->help_text }}</p>
             @elseif ($step['description'])
-                <p class="mt-2 text-sm leading-relaxed text-[#6E6E73]">{{ $step['description'] }}</p>
+                <p class="mt-2 text-sm leading-relaxed text-[#5e6862]">{{ $step['description'] }}</p>
             @endif
         </div>
 
         @if ($showMissing)
-            <div class="mb-4 rounded-xl border border-[#FECACA] bg-white px-4 py-3 text-sm text-[#B42318]" role="alert">
+            <div class="mb-4 rounded-xl border border-[#eac3b4] bg-white px-4 py-3 text-sm text-[#a84832]" role="alert">
                 @if ($completionMissing !== [])
                     <p class="font-medium">Nog niet alles is ingevuld.</p>
-                    <ul class="mt-2 list-none space-y-1.5 pl-0 text-[#424245]">
+                    <ul class="mt-2 list-none space-y-1.5 pl-0 text-[#414b45]">
                         @foreach ($completionMissing as $item)
                             <li>
                                 <button
@@ -107,10 +107,10 @@
                                 >
                                     {{ $item['label'] ?? $item['question_key'] }}
                                     @if (! empty($item['instance_label']))
-                                        <span class="font-normal text-[#6E6E73]">({{ $item['instance_label'] }})</span>
+                                        <span class="font-normal text-[#5e6862]">({{ $item['instance_label'] }})</span>
                                     @endif
                                     @if (($item['reason'] ?? '') === 'required_photo')
-                                        <span class="font-normal text-[#6E6E73]"> — foto verplicht</span>
+                                        <span class="font-normal text-[#5e6862]"> — foto verplicht</span>
                                     @endif
                                 </button>
                             </li>
@@ -123,7 +123,7 @@
         @endif
 
         @error('completeness')
-            <div class="mb-4 rounded-xl border border-[#FECACA] bg-white px-4 py-3 text-sm text-[#B42318]" role="alert">
+            <div class="mb-4 rounded-xl border border-[#eac3b4] bg-white px-4 py-3 text-sm text-[#a84832]" role="alert">
                 {{ $message }}
             </div>
         @enderror
@@ -131,14 +131,14 @@
         <div class="flex-1" wire:key="q-{{ $composite }}">
             @if ($state['visible'])
                 @if (! empty($prefillNotice[$composite]))
-                    <div class="mb-3 flex items-start gap-2 rounded-xl border border-[#D2D2D7] bg-white px-3 py-2 text-sm text-[#424245]" role="status">
+                    <div class="mb-3 flex items-start gap-2 rounded-xl border border-[#dde2da] bg-white px-3 py-2 text-sm text-[#414b45]" role="status">
                         <svg class="mt-0.5 h-4 w-4 shrink-0 text-[var(--tenant-primary)]" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
                         </svg>
                         <span>{{ $prefillNotice[$composite] }}</span>
                     </div>
                 @endif
-                <div class="rounded-xl border border-[#D2D2D7] bg-white p-4 shadow-sm">
+                <div class="rounded-xl border border-[#dde2da] bg-white p-4 shadow-sm">
                     <div>
                         @switch ($question->type->value)
                             @case('short_text')
@@ -147,7 +147,7 @@
                                     type="text"
                                     wire:model.blur="form.{{ $composite }}.text"
                                     wire:keydown.enter.prevent="advanceFromEnter('{{ $composite }}', 'text', $event.target.value)"
-                                    class="block min-h-11 w-full rounded-xl border-[#D2D2D7] shadow-sm focus:border-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
+                                    class="block min-h-11 w-full rounded-xl border-[#dde2da] shadow-sm focus:border-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
                                     @if ($state['required']) required @endif
                                 >
                                 @break
@@ -157,7 +157,7 @@
                                     id="field-{{ $composite }}"
                                     rows="4"
                                     wire:model.blur="form.{{ $composite }}.text"
-                                    class="block w-full rounded-xl border-[#D2D2D7] shadow-sm focus:border-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
+                                    class="block w-full rounded-xl border-[#dde2da] shadow-sm focus:border-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
                                     @if ($state['required']) required @endif
                                 ></textarea>
                                 @break
@@ -169,7 +169,7 @@
                                     inputmode="decimal"
                                     wire:model.blur="form.{{ $composite }}.number"
                                     wire:keydown.enter.prevent="advanceFromEnter('{{ $composite }}', 'number', $event.target.value)"
-                                    class="block min-h-11 w-full rounded-xl border-[#D2D2D7] shadow-sm focus:border-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
+                                    class="block min-h-11 w-full rounded-xl border-[#dde2da] shadow-sm focus:border-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
                                     @if ($state['required']) required @endif
                                 >
                                 @break
@@ -177,12 +177,12 @@
                             @case('single_choice')
                                 <div class="space-y-2" role="radiogroup" aria-labelledby="field-{{ $composite }}">
                                     @foreach ($question->options as $option)
-                                        <label class="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border border-[#D2D2D7] px-3 py-2 has-[:checked]:border-[var(--tenant-primary)] has-[:checked]:bg-[#F5F5F7]">
+                                        <label class="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border border-[#dde2da] px-3 py-2 has-[:checked]:border-[var(--tenant-primary)] has-[:checked]:bg-[#eef1ec]">
                                             <input
                                                 type="radio"
                                                 wire:model.live="form.{{ $composite }}.value"
                                                 value="{{ $option->value }}"
-                                                class="border-[#D2D2D7] text-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
+                                                class="border-[#dde2da] text-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
                                             >
                                             <span class="text-sm font-medium">{{ $option->label }}</span>
                                         </label>
@@ -193,12 +193,12 @@
                             @case('multi_choice')
                                 <div class="space-y-2">
                                     @foreach ($question->options as $option)
-                                        <label class="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border border-[#D2D2D7] px-3 py-2 has-[:checked]:border-[var(--tenant-primary)] has-[:checked]:bg-[#F5F5F7]">
+                                        <label class="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border border-[#dde2da] px-3 py-2 has-[:checked]:border-[var(--tenant-primary)] has-[:checked]:bg-[#eef1ec]">
                                             <input
                                                 type="checkbox"
                                                 wire:model.live="form.{{ $composite }}.values"
                                                 value="{{ $option->value }}"
-                                                class="rounded border-[#D2D2D7] text-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
+                                                class="rounded border-[#dde2da] text-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
                                             >
                                             <span class="text-sm font-medium">{{ $option->label }}</span>
                                         </label>
@@ -208,12 +208,12 @@
 
                             @case('boolean')
                                 <div class="grid grid-cols-2 gap-2">
-                                    <label class="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#D2D2D7] px-3 py-2 has-[:checked]:border-[var(--tenant-primary)] has-[:checked]:bg-[#F5F5F7]">
-                                        <input type="radio" wire:model.live="form.{{ $composite }}.bool" value="1" class="border-[#D2D2D7] text-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]">
+                                    <label class="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#dde2da] px-3 py-2 has-[:checked]:border-[var(--tenant-primary)] has-[:checked]:bg-[#eef1ec]">
+                                        <input type="radio" wire:model.live="form.{{ $composite }}.bool" value="1" class="border-[#dde2da] text-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]">
                                         <span class="text-sm font-semibold">Ja</span>
                                     </label>
-                                    <label class="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#D2D2D7] px-3 py-2 has-[:checked]:border-[var(--tenant-primary)] has-[:checked]:bg-[#F5F5F7]">
-                                        <input type="radio" wire:model.live="form.{{ $composite }}.bool" value="0" class="border-[#D2D2D7] text-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]">
+                                    <label class="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#dde2da] px-3 py-2 has-[:checked]:border-[var(--tenant-primary)] has-[:checked]:bg-[#eef1ec]">
+                                        <input type="radio" wire:model.live="form.{{ $composite }}.bool" value="0" class="border-[#dde2da] text-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]">
                                         <span class="text-sm font-semibold">Nee</span>
                                     </label>
                                 </div>
@@ -222,7 +222,7 @@
                             @case('photo')
                                 <div class="space-y-3">
                                     @if ($question->photo_instructions)
-                                        <p class="text-sm text-[#6E6E73]">{{ $question->photo_instructions }}</p>
+                                        <p class="text-sm text-[#5e6862]">{{ $question->photo_instructions }}</p>
                                     @endif
 
                                     @php
@@ -234,7 +234,7 @@
                                     @if ($existingUploads->isNotEmpty())
                                         <ul class="grid grid-cols-2 gap-3">
                                             @foreach ($existingUploads as $upload)
-                                                <li class="relative overflow-hidden rounded-xl border border-[#D2D2D7] bg-[#F5F5F7]">
+                                                <li class="relative overflow-hidden rounded-xl border border-[#dde2da] bg-[#eef1ec]">
                                                     <img
                                                         src="{{ route('customer.uploads.show', ['token' => $token, 'upload' => $upload]) }}"
                                                         alt="{{ $upload->original_filename }}"
@@ -244,7 +244,7 @@
                                                         type="button"
                                                         wire:click="removePhoto({{ $upload->id }})"
                                                         wire:loading.attr="disabled"
-                                                        class="absolute inset-x-0 bottom-0 bg-[#1D1D1F] px-2 py-1.5 text-xs font-semibold text-white"
+                                                        class="absolute inset-x-0 bottom-0 bg-[#18201d] px-2 py-1.5 text-xs font-semibold text-white"
                                                     >
                                                         Verwijderen
                                                     </button>
@@ -255,9 +255,9 @@
 
                                     @if ($remainingSlots > 0)
                                         <div>
-                                            <label class="flex min-h-12 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-[#D2D2D7] bg-[#F5F5F7] px-4 py-5 text-center">
-                                                <span class="text-sm font-semibold text-[#1D1D1F]">Foto's maken of kiezen</span>
-                                                <span class="text-xs text-[#6E6E73]">
+                                            <label class="flex min-h-12 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-[#dde2da] bg-[#eef1ec] px-4 py-5 text-center">
+                                                <span class="text-sm font-semibold text-[#18201d]">Foto's maken of kiezen</span>
+                                                <span class="text-xs text-[#5e6862]">
                                                     JPEG, PNG, WebP of HEIC · max {{ number_format($maxUploadKb / 1024, 0) }} MB
                                                     · tot {{ $remainingSlots }} {{ $remainingSlots === 1 ? 'foto' : "foto's" }}
                                                     · camera of galerij
@@ -274,24 +274,24 @@
                                                 Bezig met uploaden…
                                             </div>
                                             @error('photoFiles.'.$composite)
-                                                <p class="mt-2 text-sm text-[#B42318]">{{ $message }}</p>
+                                                <p class="mt-2 text-sm text-[#a84832]">{{ $message }}</p>
                                             @enderror
                                             @error('photo')
-                                                <p class="mt-2 text-sm text-[#B42318]">{{ $message }}</p>
+                                                <p class="mt-2 text-sm text-[#a84832]">{{ $message }}</p>
                                             @enderror
                                         </div>
                                     @else
-                                        <p class="text-sm text-[#6E6E73]">Maximum van {{ $maxFiles }} foto's bereikt.</p>
+                                        <p class="text-sm text-[#5e6862]">Maximum van {{ $maxFiles }} foto's bereikt.</p>
                                         @error('photoFiles.'.$composite)
-                                            <p class="mt-2 text-sm text-[#B42318]">{{ $message }}</p>
+                                            <p class="mt-2 text-sm text-[#a84832]">{{ $message }}</p>
                                         @enderror
                                         @error('photo')
-                                            <p class="mt-2 text-sm text-[#B42318]">{{ $message }}</p>
+                                            <p class="mt-2 text-sm text-[#a84832]">{{ $message }}</p>
                                         @enderror
                                     @endif
 
                                     @if (! empty($displayPhotoHint[$composite]))
-                                        <p class="mt-3 flex items-start gap-2 rounded-xl border border-[#FECACA] bg-white px-3 py-2 text-sm text-[#424245]" role="status" wire:key="hint-{{ $composite }}">
+                                        <p class="mt-3 flex items-start gap-2 rounded-xl border border-[#eac3b4] bg-white px-3 py-2 text-sm text-[#414b45]" role="status" wire:key="hint-{{ $composite }}">
                                             <span aria-hidden="true">💡</span>
                                             <span>{{ $displayPhotoHint[$composite] }}</span>
                                         </p>
@@ -302,7 +302,7 @@
                     </div>
 
                     @error('value')
-                        <p class="mt-2 text-sm text-[#B42318]">{{ $message }}</p>
+                        <p class="mt-2 text-sm text-[#a84832]">{{ $message }}</p>
                     @enderror
                 </div>
             @endif
@@ -310,13 +310,13 @@
     @endif
 
     @unless ($completed)
-        <footer class="sticky bottom-0 -mx-4 mt-8 border-t border-[#D2D2D7] bg-[#F5F5F7] px-4 py-4 sm:-mx-6 sm:px-6">
+        <footer class="sticky bottom-0 -mx-4 mt-8 border-t border-[#dde2da] bg-[#eef1ec] px-4 py-4 sm:-mx-6 sm:px-6">
             <div class="flex gap-3">
                 <button
                     type="button"
                     wire:click="previous"
                     @disabled($stepIndex === 0)
-                    class="min-h-12 flex-1 rounded-xl border border-[#D2D2D7] bg-white px-4 text-sm font-semibold text-[#1D1D1F] disabled:opacity-40"
+                    class="min-h-12 flex-1 rounded-xl border border-[#dde2da] bg-white px-4 text-sm font-semibold text-[#18201d] disabled:opacity-40"
                 >
                     Vorige
                 </button>
@@ -341,7 +341,7 @@
                     </button>
                 @endif
             </div>
-            <p class="mt-3 text-center text-xs text-[#6E6E73]">
+            <p class="mt-3 text-center text-xs text-[#5e6862]">
                 Uw voortgang blijft bewaard via deze link tot u afrondt.
             </p>
         </footer>

@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.56 · **Laatste update:** 2026-09-23 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.57 · **Laatste update:** 2026-09-23 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,10 +38,11 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. Nieuwe items starten bij BL-107.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. Nieuwe items starten bij BL-108.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
+| — | BL-107 | App-huisstijl volgens productmockups + rustiger werkplek, Vraag de klant in één klik | E5/E6 | in_progress | high | UX/visueel · bij BL-043/053/099/100 |
 | — | BL-106 | `public/.user.ini`: `memory_limit=512M` persist in git | E1 | done | medium | A · hosting/deploy · bij BL-003 · PR #109 |
 | — | BL-105 | Publieke XML-sitemap + robots.txt-verwijzing | E5 | done | medium | A · SEO/marketing · bij BL-043 · PR #108 |
 | — | BL-103 | Technische configuratie eerst, klantvoorkeur pas na haalbaarheidscheck | E7/E8 | done | high | na BL-102 · bij BL-038/039 · ADR-0012 · PR #107 |
@@ -930,6 +931,15 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Niet in scope:** klantwizard-labels herschrijven; open PR #85; nieuwe templateversie. (#84/#86 zijn gemerged.)
 - **Acceptatie:** create toont geen Toevoeging/Handmatig-chrome; suggestion `address_line` bevat huisnummer; demo create zonder zichtbaar `@demo.invalid`; prefill korte labels + L×B×H-rij + “—”; `composer check` groen.
 - **Resultaat:** adresblok vereenvoudigd; `address_line` als `Straat 12A`; demo-e-mail leeg in UI; prefill compact.
+
+### BL-107 — App-huisstijl volgens productmockups + rustiger werkplek
+
+- **Status:** in_progress · **Prioriteit:** high · **Datum:** 2026-09-23 · **Epic:** E5/E6 · **Band:** UX/visueel · **Volgt op:** BL-043, BL-053, BL-099, BL-100
+- **Aanleiding:** de ingelogde app zag er generiek uit (Apple/Laravel-stijl, blauw, veel gekleurde randen) en paste niet bij de productmockups op de homepage. Werkplek voelde als veel formulieren; **Vraag de klant** opende een formulier terwijl de app de opdracht al maakt.
+- **Doel:** zelfde look & feel als de mockups (salie/bosgroen, oker voor de ene open actie, terracotta eyebrows, Inter, strakke vlakke kaarten) en minder zichtbare formulieren, zonder functionaliteit te wijzigen.
+- **Scope:** Tailwind-kleurschalen/hoeken/schaduwen herdefinieerd; globale CSS (koppen, focus, `.eyebrow`); layouts (Inter, loginpagina, merkmark); werkplek **Alle onderdelen** met statusstip, ruimtekaart met uitklapbare formulieren + hash-open; **Vraag de klant** post naar `tasks.quick`; **Uitkomst** en handmatige **Taak voor de klant** standaard verborgen (anchor toont ze); standaard tenantkleur groen + datamigratie voor ongewijzigde oude standaard.
+- **Niet in scope:** readiness-/taakregels, routes verwijderen, e-mail-/PDF-opmaak, marketinghomepage.
+- **Acceptatie:** desktop en ~390 px: werkplek, nieuwe opname, opnamelijst, klantwizard en login in nieuwe stijl; **Vraag de klant** maakt en verstuurt direct; deep-links openen dichtgeklapte blokken; `composer check` groen.
 
 ### BL-105 — Publieke XML-sitemap + robots.txt-verwijzing
 

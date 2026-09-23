@@ -36,7 +36,7 @@
                     @endforeach
                 </select>
             </label>
-            <button type="submit" class="rounded bg-gray-800 px-3 py-2 text-white">Filter</button>
+            <button type="submit" class="rounded bg-marketing-green-dark px-3 py-2 text-white">Filter</button>
             <a href="{{ route('dev.ai-runs') }}" class="px-2 py-2 text-gray-500 hover:underline">Reset</a>
         </form>
 
@@ -46,7 +46,7 @@
                     <summary class="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-sm">
                         <span class="font-medium text-gray-900">{{ $run->type->value }}</span>
                         <span @class([
-                            'rounded-full px-2 py-0.5 text-xs font-medium',
+                            'rounded px-2 py-0.5 text-xs font-medium',
                             'bg-green-100 text-green-800' => $run->status->value === 'succeeded',
                             'bg-red-100 text-red-800' => $run->status->value === 'failed',
                             'bg-gray-100 text-gray-600' => $run->status->value === 'pending',
