@@ -1,6 +1,6 @@
 # Uploads & mediastorage
 
-> **Documentversie:** 3.2 · **Laatste update:** 2026-08-24 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.3 · **Laatste update:** 2026-09-23 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: klant-, gerichte bijdrage- en installateursfoto's, private serve-routes, generieke bewijslinks en dossier-/analysevarianten zijn **geïmplementeerd**. `MEDIA_DISK=s3` is ondersteund via Laravel’s `s3`-disk (BL-013). Directe installateurs-PDF-upload is niet gebouwd; een PDF kan wel als gerichte klanttaak worden gevraagd.
 
@@ -157,6 +157,7 @@ Applicatielimiet: **5 MB** per foto (`INTAKE_UPLOAD_MAX_KB`). PHP moet daarboven
 | `upload_max_filesize` | **10M** |
 | `post_max_size` | **12M** |
 | `max_file_uploads` | **20** |
+| `memory_limit` | **512M** |
 
 ### Meten
 
