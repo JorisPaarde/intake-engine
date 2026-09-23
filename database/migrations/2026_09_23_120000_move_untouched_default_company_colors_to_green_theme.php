@@ -6,7 +6,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
 /**
- * BL-106: nieuwe huisstijl. Bedrijven die nog exact de oude standaardkleuren
+ * BL-107: nieuwe huisstijl. Bedrijven die nog exact de oude standaardkleuren
  * hebben (nooit zelf gekozen of uit een logo afgeleid) krijgen de nieuwe
  * bosgroene standaard. Zelf ingestelde tenantkleuren blijven ongemoeid.
  */

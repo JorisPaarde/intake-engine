@@ -185,7 +185,7 @@ Praktische lessen uit cloud-runs. Doel: sneller groen zonder opnieuw te ontdekke
 - **Node/npm** is meestal wél aanwezig (nvm). Voor HTTP-featuretests die layouts renderen: `npm ci && npm run build` — anders faalt Vite op ontbrekend `public/build/manifest.json`.
 - **Imagick HEIC/HEIF** is nodig voor BL-008. Snel checken: `php -r 'var_dump(class_exists("Imagick"), Imagick::queryFormats("HEIC"), Imagick::queryFormats("HEIF"));'`.
 - **Composer achter een egress-proxy die `api.github.com`-zipballs blokkeert (403 / "Could not authenticate"):** `composer install --prefer-source` (git clone werkt wel). `phpstan/phpstan` heeft in de lock alleen een dist; geef hem tijdelijk een `source` (`git`, `https://github.com/phpstan/phpstan.git`, zelfde `reference`), installeer en zet daarna `git checkout composer.lock` terug.
-- **Huisstijl (BL-106):** stock Tailwind-schalen (`gray`, `indigo/blue/sky`, `green/emerald`, `amber`, `red/rose`) zijn in `tailwind.config.js` naar de productpalet gemapt; gebruik gewoon die klassen of `marketing-*`, en `.eyebrow` voor terracotta labels. Geen Apple-hex (`#1D1D1F`, `#0071E3`, …) meer toevoegen.
+- **Huisstijl (BL-107):** stock Tailwind-schalen (`gray`, `indigo/blue/sky`, `green/emerald`, `amber`, `red/rose`) zijn in `tailwind.config.js` naar de productpalet gemapt; gebruik gewoon die klassen of `marketing-*`, en `.eyebrow` voor terracotta labels. Geen Apple-hex (`#1D1D1F`, `#0071E3`, …) meer toevoegen.
 - Lokaal/.env voor tests: `cp .env.example .env && php artisan key:generate`. Tests draaien op **sqlite `:memory:`** (zie CI); geen MySQL nodig voor `composer check`.
 - Check of er al een async install loopt (`/tmp/cursor/async-install/`); in JIT-omgevingen kan die map leeg zijn — zelf bootstrapen is dan sneller dan wachten.
 

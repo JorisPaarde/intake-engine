@@ -2,7 +2,7 @@
 
 {{--
     Eén klik: de app maakt de klanttaak en verstuurt hem direct via het bestaande
-    quick-pad (BL-106). Parameters staan — net als voorheen bij tasks.prepare — in de
+    quick-pad (BL-107). Parameters staan — net als voorheen bij tasks.prepare — in de
     URL; geen verborgen dossiervelden in het formulier.
 --}}
 <form

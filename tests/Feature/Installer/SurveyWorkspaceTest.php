@@ -1101,7 +1101,7 @@ test('room block offers contextual customer task that opens prefilled for review
         ->assertSee('Vraag de klant')
         ->getContent();
 
-    // BL-106: "Vraag de klant" maakt en verstuurt de taak in één klik via het quick-pad.
+    // BL-107: "Vraag de klant" maakt en verstuurt de taak in één klik via het quick-pad.
     expect($html)->toContain(route('intakes.workspace.tasks.quick', $intake, false))
         ->and($html)->toContain('dossier_subject_id='.$room->dossier_subject_id);
 

@@ -2,7 +2,7 @@ import defaultTheme from 'tailwindcss/defaultTheme';
 import forms from '@tailwindcss/forms';
 
 /*
- * Visuele huisstijl (BL-106): rustig salie/bosgroen met oker voor aandacht en
+ * Visuele huisstijl (BL-107): rustig salie/bosgroen met oker voor aandacht en
  * terracotta voor labels. De standaard Tailwind-kleurschalen worden hier
  * herdefinieerd, zodat bestaande views zonder markupwijziging meekleuren:
  *   gray            → warm, licht groengetint neutraal
