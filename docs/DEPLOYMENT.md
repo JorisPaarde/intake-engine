@@ -1,6 +1,6 @@
 # Deployment naar cPanel (staging + production)
 
-> **Documentversie:** 2.18 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.19 · **Laatste update:** 2026-09-23 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 **Statusregel:** staging en production zijn fysiek en logisch gescheiden; open handmatige acties (env/host) staan in [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
 
@@ -349,7 +349,7 @@ Volledige checklist van open host-/env-acties: [§ Handmatige acties producteige
 
 Foto-uploads (Fase 4) vereisen limieten ≥ applicatielimiet (5 MB per bestand).
 
-**Voorkeur (in git):** `public/.user.ini` zet `upload_max_filesize=10M`, `post_max_size=12M`, `max_file_uploads=20`. Die file gaat mee met elke release naar de document root.
+**Voorkeur (in git):** `public/.user.ini` zet `upload_max_filesize=10M`, `post_max_size=12M`, `max_file_uploads=20`, `memory_limit=512M`. Die file gaat mee met elke release naar de document root.
 
 **Meten na deploy (geen SSH):**
 

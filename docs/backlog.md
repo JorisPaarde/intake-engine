@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.55 · **Laatste update:** 2026-09-10 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.56 · **Laatste update:** 2026-09-23 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,10 +38,11 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. De opnamefeedback gebruikt BL-099–103; de dev-AI-proeftuin is BL-104. Nieuwe items starten bij BL-106.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. Nieuwe items starten bij BL-107.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
+| — | BL-106 | `public/.user.ini`: `memory_limit=512M` persist in git | E1 | done | medium | A · hosting/deploy · bij BL-003 · PR #109 |
 | — | BL-105 | Publieke XML-sitemap + robots.txt-verwijzing | E5 | done | medium | A · SEO/marketing · bij BL-043 · PR #108 |
 | — | BL-103 | Technische configuratie eerst, klantvoorkeur pas na haalbaarheidscheck | E7/E8 | done | high | na BL-102 · bij BL-038/039 · ADR-0012 · PR #107 |
 | — | BL-104 | Dev: AI-invoer van Nieuwe opname veilig testen en verklaren | E3/E5 | done | medium | dev/QA · bij BL-028/064/065/093/098 · PR #105 |
@@ -940,6 +941,16 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Acceptatie:** `/sitemap.xml` levert een valide `urlset` met de canonieke homepage-URL (`route('home')`, zonder trailing slash zoals `og:url`); robots verwijst naar de production-sitemap; `composer check` groen.
 - **Resultaat:** allowlist-gebaseerde sitemap-route + robots-verwijzing; uitbreiden = named route toevoegen aan `INDEXABLE_ROUTE_NAMES`.
 
+### BL-106 — `public/.user.ini`: `memory_limit=512M` persist in git
+
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-09-23 · **PR:** #109 · **Epic:** E1 · **Band:** A · hosting/deploy · **Volgt op:** BL-003
+- **Aanleiding:** live production had `memory_limit=512M` handmatig gezet; de git-`.user.ini` bevatte die regel niet, dus de volgende deploy zou de lagere host-default terugzetten.
+- **Doel:** `memory_limit = 512M` in `public/.user.ini` zodat releases de live limiet behouden.
+- **Scope:** één regel in `.user.ini`; docs (`uploads.md`, `DEPLOYMENT.md`, changelog). Geen app-PHP, geen tag, geen production-deploy.
+- **Niet in scope:** async-recording app-fixes; andere PHP-ini via MultiPHP.
+- **Acceptatie:** `.user.ini` bevat `memory_limit = 512M`; bestaande uploadlimieten en commentaren blijven staan.
+- **Resultaat:** limiet in git als vangnet naast de bestaande uploadsettings.
+
 ### BL-043 — Publieke productfunnel en interesse-CTA
 
 - **Status:** done · **Prioriteit:** medium · **Datum:** 2026-07-30 · **PR:** #56 · **Epic:** E5
@@ -1160,6 +1171,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 | ID | Datum | Resultaat / PR |
 |----|-------|----------------|
+| BL-106 | 2026-09-23 | #109 — `memory_limit=512M` in `public/.user.ini` |
 | BL-098 | 2026-09-04 | #101 — herhaalde kamers naar catalogus-AI; naam per type |
 | BL-097 | 2026-09-04 | #100 — autofill breekt adreslookup-status niet meer |
 | BL-096 | 2026-09-04 | #99 — visueel browser-speelboek (`docs/browser-test-flow.md`) |

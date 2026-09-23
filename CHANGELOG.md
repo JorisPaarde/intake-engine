@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Config
+
+- **`public/.user.ini`: `memory_limit = 512M` (BL-106):** spiegelt live hosting zodat production-deploys de hogere limiet niet meer overschrijven. Bestaande uploadlimieten ongewijzigd.
+
 ### Added
 
 - **Publieke XML-sitemap (BL-105):** `/sitemap.xml` via `SitemapController` met allowlist van indexeerbare marketingroutes (nu alleen `home`, canonieke URL zonder trailing slash zoals `og:url`). `public/robots.txt` verwijst naar `https://intake-engine.nl/sitemap.xml`. Geen auth-, demo- of app-URL’s.
