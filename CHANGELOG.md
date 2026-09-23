@@ -15,6 +15,13 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
+- **Nieuwe visuele huisstijl in de app (BL-106):** de ingelogde app, klantwizard en loginpagina volgen nu de productmockups van de homepage: Inter, salie/gebroken-witte achtergrond, bosgroene primaire knoppen, oker voor aandacht, terracotta eyebrow-labels (`.eyebrow`), strakke hoeken en vlakke kaarten. Tailwind-kleurschalen (`gray`, `indigo/blue/sky`, `green/emerald`, `amber/yellow`, `red/rose`) zijn in `tailwind.config.js` herdefinieerd zodat bestaande views meekleuren; Apple-hexwaarden in views vervangen. Eigen merkmark i.p.v. Laravel-logo. Standaard tenantkleur wordt `#15392F`/`#315F4F` (demo idem); migratie zet bedrijven met de ongewijzigde oude standaard (`#0071E3`/`#005EC0`) om, zelf gekozen kleuren blijven. Geen wijziging aan routes, regels of data.
+- **Opnamewerkplek rustiger (BL-106):** **Alle onderdelen** toont witte kaarten met statusstip + statustekst; alleen het eerstvolgende open onderdeel is oker gemarkeerd. Ruimtekaart toont naam + maten bovenaan; *Maten en gebruik* en *Binnen- en buitenunit* zijn uitklapbaar (maten open zolang ze ontbreken of conflicteren). Hash-deep-links (bijv. **Maten invullen →** naar `#room-{id}`) openen het juiste uitklapblok.
+- **Vraag de klant = één klik (BL-106):** alle contextuele **Vraag de klant**/**Vraag nieuwe foto**-knoppen posten direct naar het bestaande `tasks.quick`-pad (taak maken + versturen); geen vooringevuld formulier meer om te controleren. `tasks.prepare` blijft bestaan.
+- **Voorlopig verborgen (BL-106):** blok **Uitkomst na offerte of plaatsing** en het handmatige blok **Taak voor de klant** (als er geen AI-voorstel of concept is) staan standaard verborgen; ze verschijnen alleen via hun anchor (`#workspace-outcome`, `#demo-customer-task`) zodat bestaande CTA's blijven werken. Functionaliteit ongewijzigd.
+
+### Changed
+
 - **Opnamewerkplek: één overzicht Alle onderdelen (BL-099):** dubbele kaartenlijsten onder **Open punten** en **Nog N open** zijn weg. `#workspace-open-items` toont elk beslisgebied precies één keer als uitklapbaar onderdeel (status, blocker/detail, deep-link, optioneel **Vraag de klant**). Sticky **Volgende stap** blijft een compacte samenvatting. Geen wijziging aan readinessregels of de acht gebieden.
 
 ### Fixed

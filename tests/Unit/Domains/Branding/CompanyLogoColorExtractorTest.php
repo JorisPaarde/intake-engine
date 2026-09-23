@@ -26,7 +26,7 @@ test('extractor selects a deterministic saturated representative color and safe 
     $tokens = app(CompanyLogoColorExtractor::class)->extract($path);
 
     expect($tokens['primary'])->toBe('#0071E3')
-        ->and($tokens['accent'])->toBe('#005EC0')
+        ->and($tokens['accent'])->toBe('#005FBF')
         ->and($tokens['on_primary'])->toBe('#FFFFFF');
 
     @unlink($path);
@@ -42,8 +42,8 @@ test('extractor falls back when the image has only low information pixels', func
 
     $tokens = app(CompanyLogoColorExtractor::class)->extract($path);
 
-    expect($tokens['primary'])->toBe('#0071E3')
-        ->and($tokens['accent'])->toBe('#005EC0')
+    expect($tokens['primary'])->toBe('#15392F')
+        ->and($tokens['accent'])->toBe('#315F4F')
         ->and($tokens['on_primary'])->toBe('#FFFFFF');
 
     @unlink($path);

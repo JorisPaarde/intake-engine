@@ -11,7 +11,7 @@
     {{ $attributes->merge(['class' => 'rounded-3xl border border-sky-200 bg-sky-50 p-5 shadow-sm sm:p-6']) }}
     data-demo-anchor="pdf-request"
 >
-    <p class="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Afronden · demorapport</p>
+    <p class="eyebrow">Afronden · demorapport</p>
     <h3 class="mt-2 text-xl font-semibold text-gray-950">Wil je het demorapport als PDF?</h3>
     <p class="mt-2 max-w-2xl text-sm leading-relaxed text-gray-700">
         Vul je e-mailadres in. We sturen het rapport van deze demosessie. We noteren dit adres ook als

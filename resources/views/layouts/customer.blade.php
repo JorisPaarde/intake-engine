@@ -8,6 +8,9 @@
 
         <title>{{ $title ?? 'Digitale opname' }}</title>
 
+        <link rel="preconnect" href="https://fonts.bunny.net">
+        <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700,800&display=swap" rel="stylesheet">
+
         @vite(['resources/css/app.css'])
         @livewireStyles
     </head>
@@ -18,7 +21,7 @@
             : null;
         $tokens = $customerCompany?->themeTokens() ?? \App\Models\Company::defaultThemeTokens();
     @endphp
-    <body class="min-h-[100svh] bg-[#F5F5F7] font-sans text-[#1D1D1F] antialiased" style="--tenant-primary: {{ $tokens['primary'] }}; --tenant-accent: {{ $tokens['accent'] }}; --tenant-on-primary: {{ $tokens['on_primary'] }};">
+    <body class="min-h-[100svh] bg-[#eef1ec] font-sans text-[#18201d] antialiased" style="--tenant-primary: {{ $tokens['primary'] }}; --tenant-accent: {{ $tokens['accent'] }}; --tenant-on-primary: {{ $tokens['on_primary'] }};">
         {{ $slot }}
         @livewireScripts
     </body>

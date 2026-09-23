@@ -83,18 +83,7 @@
                                 ->forPhotoSuggestion($subject, $suggestion);
                         @endphp
                         @if ($photoAsk !== null)
-                            <a
-                                href="{{ route('intakes.workspace.tasks.prepare', array_filter([
-                                    'intake' => $intake,
-                                    'type' => $photoAsk['type'],
-                                    'prompt' => $photoAsk['prompt'],
-                                    'decision_area_key' => $photoAsk['decision_area_key'],
-                                    'dossier_subject_id' => $photoAsk['dossier_subject_id'],
-                                ], static fn (mixed $value): bool => $value !== null && $value !== '')) }}"
-                                class="inline-flex min-h-10 items-center rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-800 hover:bg-indigo-50"
-                            >
-                                Vraag nieuwe foto
-                            </a>
+                            <x-ask-customer-button :intake="$intake" :ask="$photoAsk" label="Vraag nieuwe foto" class="inline-flex min-h-10 items-center rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-800 hover:bg-indigo-50" />
                         @endif
                         <details class="min-w-0 basis-full sm:basis-0 sm:flex-1">
                             <summary class="inline-flex min-h-10 cursor-pointer items-center rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-800">
@@ -112,7 +101,7 @@
                                     class="block w-full rounded-xl border-gray-300 text-sm"
                                     required
                                 >{{ $suggestion->value['text'] }}</textarea>
-                                <button class="inline-flex min-h-10 items-center rounded-lg bg-gray-950 px-3 py-2 text-xs font-semibold text-white hover:bg-gray-800">
+                                <button class="inline-flex min-h-10 items-center rounded-lg bg-marketing-green-dark px-3 py-2 text-xs font-semibold text-white hover:bg-marketing-green">
                                     Aanpassing bevestigen
                                 </button>
                             </form>
@@ -125,7 +114,7 @@
 
     @if ($technicalNotes->isNotEmpty())
         <div class="mt-4 space-y-2">
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Notities</p>
+            <p class="text-xs font-extrabold uppercase tracking-[0.06em] text-gray-600">Notities</p>
             @foreach ($technicalNotes as $note)
                 <div class="rounded-xl bg-gray-50 px-3 py-2">
                     <p class="text-sm leading-relaxed text-gray-800">{{ $note->value['text'] }}</p>
@@ -184,7 +173,7 @@
                         >
                     </div>
                 @endif
-                <button class="inline-flex min-h-10 items-center rounded-lg bg-gray-950 px-3 py-2 text-xs font-semibold text-white hover:bg-gray-800">
+                <button class="inline-flex min-h-10 items-center rounded-lg bg-marketing-green-dark px-3 py-2 text-xs font-semibold text-white hover:bg-marketing-green">
                     Foto opslaan
                 </button>
             </form>
@@ -213,7 +202,7 @@
                         required
                     ></textarea>
                 </div>
-                <button class="inline-flex min-h-10 items-center rounded-lg bg-gray-950 px-3 py-2 text-xs font-semibold text-white hover:bg-gray-800">
+                <button class="inline-flex min-h-10 items-center rounded-lg bg-marketing-green-dark px-3 py-2 text-xs font-semibold text-white hover:bg-marketing-green">
                     Notitie toevoegen
                 </button>
             </form>

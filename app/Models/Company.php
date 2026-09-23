@@ -30,9 +30,9 @@ class Company extends Model
     /** @use HasFactory<CompanyFactory> */
     use HasFactory;
 
-    public const DEFAULT_PRIMARY = '#0071E3';
+    public const DEFAULT_PRIMARY = '#15392F';
 
-    public const DEFAULT_ACCENT = '#005EC0';
+    public const DEFAULT_ACCENT = '#315F4F';
 
     public const DEFAULT_ON_PRIMARY = '#FFFFFF';
 

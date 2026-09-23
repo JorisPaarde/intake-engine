@@ -25,7 +25,7 @@
     <div
         x-show="open"
         x-transition.opacity
-        class="fixed inset-0 bg-[#1D1D1F]/45"
+        class="fixed inset-0 bg-[#18201d]/45"
         @click="dismissible && close()"
     ></div>
 
@@ -43,7 +43,7 @@
             @keydown.escape.window="dismissible && close()"
         >
             <div class="border-b border-sky-100 bg-sky-50 px-5 py-3">
-                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700" x-text="metaLabel"></p>
+                <p class="eyebrow" x-text="metaLabel"></p>
             </div>
             <div class="space-y-3 px-5 py-5">
                 <h3 id="demo-guide-title" class="text-xl font-semibold text-gray-950" x-text="title"></h3>

@@ -66,4 +66,49 @@ function registerDutchFormValidation() {
 
 registerDutchFormValidation();
 
+/**
+ * Deep-links (#room-12, #demo-customer-task, …) must also work when the
+ * target sits in, or carries, an ingeklapt <details>-blok: open the
+ * ancestors and any `details[data-open-on-target]` directly in the target.
+ */
+function registerHashDisclosure() {
+    const reveal = () => {
+        const id = decodeURIComponent(window.location.hash.slice(1));
+        if (!id) {
+            return;
+        }
+        const target = document.getElementById(id);
+        if (!target) {
+            return;
+        }
+        for (let el = target.parentElement; el; el = el.parentElement) {
+            if (el.tagName === 'DETAILS') {
+                el.open = true;
+            }
+        }
+        if (target.tagName === 'DETAILS') {
+            target.open = true;
+        }
+        const inner = target.querySelector('details[data-open-on-target]');
+        if (inner) {
+            inner.open = true;
+        }
+    };
+
+    window.addEventListener('hashchange', reveal);
+    document.addEventListener('click', (event) => {
+        const link = event.target instanceof Element ? event.target.closest('a[href*="#"]') : null;
+        if (link && link.hash && link.pathname === window.location.pathname && link.hash === window.location.hash) {
+            reveal();
+        }
+    });
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', reveal);
+    } else {
+        reveal();
+    }
+}
+
+registerHashDisclosure();
+
 Alpine.start();

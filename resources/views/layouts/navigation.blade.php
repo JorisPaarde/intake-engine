@@ -6,7 +6,7 @@
         && str_starts_with((string) $navCompany?->slug, 'publieke-demo-');
     $publicDemoNeedsCreate = $isPublicDemo && ! session()->has('public_demo_intake_id');
 @endphp
-<nav x-data="{ open: false }" class="border-b border-[#D2D2D7] bg-white">
+<nav x-data="{ open: false }" class="border-b border-[#dde2da] bg-white">
     <!-- Primary Navigation Menu -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex min-h-16 justify-between">
@@ -15,11 +15,11 @@
                 <div class="flex shrink-0 items-center">
                     <a href="{{ route('dashboard') }}" class="flex min-h-11 items-center gap-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--tenant-primary)] focus:ring-offset-2">
                         @if ($navCompany?->hasLogo())
-                            <img src="{{ route('company.logo.show', $navCompany) }}" alt="{{ $navCompany->name }}" class="h-9 w-9 rounded-lg border border-[#D2D2D7] object-contain">
+                            <img src="{{ route('company.logo.show', $navCompany) }}" alt="{{ $navCompany->name }}" class="h-9 w-9 rounded-lg border border-[#dde2da] object-contain">
                         @else
                             <x-application-logo class="block h-9 w-9 text-[var(--tenant-primary)]" />
                         @endif
-                        <span class="hidden max-w-48 truncate text-sm font-semibold text-[#1D1D1F] lg:block">{{ $navCompany?->name ?? config('app.name') }}</span>
+                        <span class="hidden max-w-48 truncate text-sm font-semibold text-[#18201d] lg:block">{{ $navCompany?->name ?? config('app.name') }}</span>
                     </a>
                 </div>
 
@@ -79,7 +79,7 @@
                 <div class="hidden sm:flex sm:items-center">
                     <x-dropdown align="right" width="48">
                         <x-slot name="trigger">
-                            <button class="inline-flex min-h-11 items-center rounded-xl border border-transparent bg-white px-3 py-2 text-sm font-medium leading-4 text-[#424245] transition hover:text-[#1D1D1F] focus:outline-none focus:ring-2 focus:ring-[var(--tenant-primary)] focus:ring-offset-2">
+                            <button class="inline-flex min-h-11 items-center rounded-xl border border-transparent bg-white px-3 py-2 text-sm font-medium leading-4 text-[#414b45] transition hover:text-[#18201d] focus:outline-none focus:ring-2 focus:ring-[var(--tenant-primary)] focus:ring-offset-2">
                                 <div>{{ Auth::user()->name }}</div>
 
                                 <div class="ms-1">
@@ -121,7 +121,7 @@
 
                 <!-- Hamburger -->
                 <div class="-me-2 flex items-center sm:hidden">
-                    <button @click="open = ! open" class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl p-2 text-[#424245] transition hover:bg-[#F5F5F7] hover:text-[#1D1D1F] focus:outline-none focus:ring-2 focus:ring-[var(--tenant-primary)] focus:ring-offset-2">
+                    <button @click="open = ! open" class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl p-2 text-[#414b45] transition hover:bg-[#eef1ec] hover:text-[#18201d] focus:outline-none focus:ring-2 focus:ring-[var(--tenant-primary)] focus:ring-offset-2">
                         <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
                             <path :class="{'hidden': open, 'inline-flex': ! open }" class="inline-flex" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
                             <path :class="{'hidden': ! open, 'inline-flex': open }" class="hidden" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -166,8 +166,8 @@
         <!-- Responsive Settings Options -->
         <div class="pt-4 pb-1 border-t border-gray-200">
             <div class="px-4">
-                <div class="text-base font-medium text-[#1D1D1F]">{{ Auth::user()->name }}</div>
-                <div class="text-sm font-medium text-[#6E6E73]">{{ Auth::user()->email }}</div>
+                <div class="text-base font-medium text-[#18201d]">{{ Auth::user()->name }}</div>
+                <div class="text-sm font-medium text-[#5e6862]">{{ Auth::user()->email }}</div>
             </div>
 
             <div class="mt-3 space-y-1">

@@ -6,9 +6,9 @@
         <title>Demo beëindigd — Digitale Opname</title>
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
-    <body class="min-h-screen bg-[#F5F5F7] font-sans text-[#1D1D1F] antialiased">
+    <body class="min-h-screen bg-[#eef1ec] font-sans text-[#18201d] antialiased">
         <main class="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-5 py-12">
-            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">Digitale Opname</p>
+            <p class="eyebrow">Digitale Opname</p>
             <h1 class="mt-3 text-3xl font-semibold tracking-tight text-gray-950">
                 {{ ($reason ?? 'ended') === 'expired' ? 'Deze demo is verlopen' : 'Demo beëindigd' }}
             </h1>
@@ -22,7 +22,7 @@
             <div class="mt-8 flex flex-col gap-3 sm:flex-row">
                 <a
                     href="{{ url('/') }}"
-                    class="inline-flex min-h-11 items-center justify-center rounded-xl bg-gray-950 px-5 text-sm font-semibold text-white hover:bg-gray-800"
+                    class="inline-flex min-h-11 items-center justify-center rounded-xl bg-marketing-green-dark px-5 text-sm font-semibold text-white hover:bg-marketing-green"
                 >
                     Naar de homepage
                 </a>

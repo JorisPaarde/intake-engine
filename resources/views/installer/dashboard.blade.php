@@ -8,7 +8,7 @@
                 <a
                     href="{{ route('intakes.create') }}"
                     data-demo-anchor="dashboard-create"
-                    class="inline-flex items-center px-4 py-2 bg-gray-800 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-gray-700 focus:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150"
+                    class="inline-flex items-center px-4 py-2 min-h-11 bg-marketing-green-dark border border-transparent rounded-md font-semibold text-sm text-white hover:bg-marketing-green focus:bg-marketing-green focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150"
                 >
                     Nieuwe opname
                 </a>
@@ -58,12 +58,12 @@
                                     <td class="px-4 py-3 text-gray-900">
                                         {{ $intake->customer_name }}
                                         @if ($intake->isAwaitingReview())
-                                            <span class="ml-2 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">
+                                            <span class="ml-2 inline-flex rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">
                                                 Nieuw afgerond
                                             </span>
                                         @endif
                                         @if ($intake->is_demo)
-                                            <span class="ml-2 inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-900">
+                                            <span class="ml-2 inline-flex rounded bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-900">
                                                 Demo
                                             </span>
                                         @endif
@@ -72,7 +72,7 @@
                                     <td class="px-4 py-3 text-gray-600">{{ $intake->templateVersion?->template?->name ?? '—' }}</td>
                                     <td class="px-4 py-3">
                                         <span @class([
-                                            'inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium',
+                                            'inline-flex rounded px-2.5 py-0.5 text-xs font-medium',
                                             'bg-amber-100 text-amber-900' => $intake->isAwaitingReview(),
                                             'bg-gray-100 text-gray-800' => ! $intake->isAwaitingReview(),
                                         ])>

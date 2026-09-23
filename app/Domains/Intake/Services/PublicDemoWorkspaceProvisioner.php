@@ -30,8 +30,8 @@ final class PublicDemoWorkspaceProvisioner
             $company = Company::query()->create([
                 'name' => 'Demo Installatiebedrijf',
                 'slug' => self::COMPANY_SLUG_PREFIX.$suffix,
-                'primary_color' => '#0071E3',
-                'accent_color' => '#005EC0',
+                'primary_color' => Company::DEFAULT_PRIMARY,
+                'accent_color' => Company::DEFAULT_ACCENT,
                 'on_primary_color' => '#FFFFFF',
             ]);
 

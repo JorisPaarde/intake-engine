@@ -2,9 +2,9 @@
     <x-slot name="header">
         <div class="flex flex-wrap items-center gap-3">
             <h2 class="text-xl font-semibold leading-tight text-gray-800">Opname #{{ $intake->id }}</h2>
-            <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">{{ $intake->status->label() }}</span>
-            @if ($intake->is_demo)<span class="rounded-full bg-indigo-100 px-2 py-0.5 text-xs text-indigo-700">demo</span>@endif
-            @if ($intake->trashed())<span class="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700">verwijderd</span>@endif
+            <span class="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">{{ $intake->status->label() }}</span>
+            @if ($intake->is_demo)<span class="rounded bg-indigo-100 px-2 py-0.5 text-xs text-indigo-700">demo</span>@endif
+            @if ($intake->trashed())<span class="rounded bg-red-100 px-2 py-0.5 text-xs text-red-700">verwijderd</span>@endif
             <a href="{{ route('dev.intakes') }}" class="ml-auto text-sm text-indigo-600 hover:underline">← Terug</a>
         </div>
     </x-slot>
@@ -72,7 +72,7 @@
                         <summary class="flex cursor-pointer flex-wrap items-center gap-x-3 text-sm">
                             <span class="font-medium text-gray-900">{{ $run->type->value }}</span>
                             <span @class([
-                                'rounded-full px-2 py-0.5 text-xs font-medium',
+                                'rounded px-2 py-0.5 text-xs font-medium',
                                 'bg-green-100 text-green-800' => $run->status->value === 'succeeded',
                                 'bg-red-100 text-red-800' => $run->status->value === 'failed',
                                 'bg-gray-100 text-gray-600' => $run->status->value === 'pending',

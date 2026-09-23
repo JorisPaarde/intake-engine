@@ -12,7 +12,7 @@
                         href="{{ route('metrics', ['period' => $value]) }}"
                         @class([
                             'px-3 py-2 text-sm font-medium transition',
-                            'bg-gray-800 text-white' => $period === (string) $value,
+                            'bg-marketing-green-dark text-white' => $period === (string) $value,
                             'text-gray-600 hover:bg-gray-50 hover:text-gray-900' => $period !== (string) $value,
                             'border-l border-gray-300' => ! $loop->first,
                         ])
@@ -102,7 +102,7 @@
                         <p class="mt-2 text-3xl font-semibold text-gray-900">{{ $percentage($metrics['summary']['installation_surprise_percent']) }}</p>
                         <p class="mt-1 text-xs text-gray-500">{{ $metrics['summary']['installation_surprise_count'] }} van {{ $metrics['summary']['measured_installation_count'] }} gemeten plaatsingen</p>
                     </div>
-                    <div class="bg-gray-950 p-5 text-white">
+                    <div class="bg-marketing-green-dark p-5 text-white">
                         <p class="text-sm font-medium text-white/60">Primaire productmaat</p>
                         <p class="mt-2 text-xl font-semibold">Offerte zonder voorrit</p>
                         <p class="mt-2 text-xs leading-relaxed text-white/60">Een snelle klantflow telt pas als winst wanneer de installateur veilig kan beslissen en de montage klopt.</p>
