@@ -42,7 +42,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| — | BL-106 | `public/.user.ini`: `memory_limit=512M` persist in git | E1 | done | medium | A · hosting/deploy · bij BL-003 |
+| — | BL-106 | `public/.user.ini`: `memory_limit=512M` persist in git | E1 | done | medium | A · hosting/deploy · bij BL-003 · PR #109 |
 | — | BL-105 | Publieke XML-sitemap + robots.txt-verwijzing | E5 | done | medium | A · SEO/marketing · bij BL-043 · PR #108 |
 | — | BL-103 | Technische configuratie eerst, klantvoorkeur pas na haalbaarheidscheck | E7/E8 | done | high | na BL-102 · bij BL-038/039 · ADR-0012 · PR #107 |
 | — | BL-104 | Dev: AI-invoer van Nieuwe opname veilig testen en verklaren | E3/E5 | done | medium | dev/QA · bij BL-028/064/065/093/098 · PR #105 |
@@ -943,7 +943,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-106 — `public/.user.ini`: `memory_limit=512M` persist in git
 
-- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-09-23 · **PR:** (deze PR) · **Epic:** E1 · **Band:** A · hosting/deploy · **Volgt op:** BL-003
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-09-23 · **PR:** #109 · **Epic:** E1 · **Band:** A · hosting/deploy · **Volgt op:** BL-003
 - **Aanleiding:** live production had `memory_limit=512M` handmatig gezet; de git-`.user.ini` bevatte die regel niet, dus de volgende deploy zou de lagere host-default terugzetten.
 - **Doel:** `memory_limit = 512M` in `public/.user.ini` zodat releases de live limiet behouden.
 - **Scope:** één regel in `.user.ini`; docs (`uploads.md`, `DEPLOYMENT.md`, changelog). Geen app-PHP, geen tag, geen production-deploy.
@@ -1171,7 +1171,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 | ID | Datum | Resultaat / PR |
 |----|-------|----------------|
-| BL-106 | 2026-09-23 | (deze PR) — `memory_limit=512M` in `public/.user.ini` |
+| BL-106 | 2026-09-23 | #109 — `memory_limit=512M` in `public/.user.ini` |
 | BL-098 | 2026-09-04 | #101 — herhaalde kamers naar catalogus-AI; naam per type |
 | BL-097 | 2026-09-04 | #100 — autofill breekt adreslookup-status niet meer |
 | BL-096 | 2026-09-04 | #99 — visueel browser-speelboek (`docs/browser-test-flow.md`) |
