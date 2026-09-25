@@ -1,8 +1,8 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 3.8 · **Laatste update:** 2026-09-06 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.9 · **Laatste update:** 2026-09-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: **samenvatting, aandachtspunten, lokale fotokwaliteit, tekst-/foto-afleiding, verbindingsgebonden routeanalyse en bewijsgerichte dossiersynthese zijn geïmplementeerd**. Externe provider en tekst-/foto-/route-/dossierinferentie staan standaard uit (DPIA + key + budgetcaps + staging-smoke vereist).
+Status: **samenvatting, aandachtspunten, lokale fotokwaliteit, tekst-/foto-afleiding, verbindingsgebonden routeanalyse en bewijsgerichte dossiersynthese zijn geïmplementeerd**. Externe provider en tekst-/foto-/route-/dossierinferentie staan standaard uit (provider + key + featurevlaggen + budgetcaps; soft-fail zonder die config).
 
 De verplichte korte dossiersamenvatting is deterministisch en staat los van deze AI-laag. AI kan daarbovenop alleen een herkenbaar niet-bindend voorstel toevoegen.
 
@@ -29,7 +29,7 @@ AI levert een herleidbare technische voorzet en mag werk actief overnemen:
 - Taakvalidatie omzeilen of bewijs/conclusies zonder herkomst opslaan
 - Zelfstandig elektrische veiligheid, definitieve uitvoerbaarheid, offerte of plaatsing goedkeuren
 - Autonome chat die de flow overneemt zonder menselijke controle
-- Persoonsgegevens naar een provider sturen zonder DPIA/akkoord en redactiestrategie
+- Persoonsgegevens (e-mail, telefoon, adres) of beeldbytes in AI-payloads/logs/DB zonder redactie
 - De klant technische ontwerpkeuzes laten bevestigen die bij de installateur horen
 - Lage zekerheid stil als feit toepassen of eindeloos om extra foto's blijven vragen
 
@@ -91,7 +91,7 @@ Provider via `.env`: `AI_PROVIDER`, `AI_API_KEY`, `AI_TIMEOUT_SECONDS`. Multimod
 | `null` (default) | Soft-fail; afronding/rapport blijven intact |
 | `fake` | Vaste testdata (Pest) |
 | `heuristic` | Lokale deterministische samenvatting + aandachtspunten, geen externe API |
-| `openai` | Externe OpenAI-compatibele provider (BL-006). **Standaard uit**; vereist `AI_API_KEY` (+ `AI_BASE_URL`/`AI_MODEL`) én DPIA/akkoord. PII wordt vóór verzending geredigeerd (`AiInputRedactor`); bij fout/timeout → soft-fail |
+| `openai` | Externe OpenAI-compatibele provider (BL-006). **Standaard uit**; vereist `AI_API_KEY` (+ `AI_BASE_URL`/`AI_MODEL`) en budgetcaps. PII wordt vóór verzending geredigeerd (`AiInputRedactor`); bij fout/timeout → soft-fail |
 
 Kernintake hangt **niet** van AI af. Klant-, installateur- en gerichte bijdrageafronding dispatchen de passende jobs ná commit; falen = `ai_runs.status=failed` + privacyveilige log en blokkeert het dossier niet.
 
@@ -200,11 +200,11 @@ Server-side validatie vóór opslaan. Ongeldige output = `failed`.
 ## Privacy
 
 - Input voor AI-aandachtspunten wordt door `IntakeAttentionContextBuilder` als één technisch dossier samengesteld: antwoorden met vraag-/sectielabels en prefillbron, automatisch verzamelde technische feiten (waarde, bron, zekerheid), uploads met MIME/omvang/kwaliteitsverdict, gerichte vervolgrondes, deterministische aandachtspunten, volledigheid, eerdere installateursreview en leidingroutes met segmentanalyses. Klantidentiteit, adresvelden, opslagpaden, bestandsbytes, coördinaten, geometrie/bounding boxes en locatie-identifiers worden niet opgenomen. Gevoelige facttypen (`location`, `parcel_ids`, `aerial_image`) worden volledig uitgesloten; nested en dotted keys voor URL's, BAG-hrefs, geometrie, coördinaten en enkel-/meervoudige ID-velden (`*_id`, `*_ids`) worden recursief verwijderd. Objectgebonden evidence gebruikt stabiele HMAC-referenties; interne database-ID's zijn niet terug te rekenen en worden niet verzonden. De builder begrenst aantallen, vrije tekst en het totale JSON-payload; bij overschrijding wordt veilig afgekapt. Eerdere AI-aandachtspunten worden niet als bron teruggevoerd, om zelfversterking te voorkomen.
-- Extra redactielaag (`AiInputRedactor`) verwijdert e-mail/telefoon uit vrije tekst vóór verzending naar een externe provider. Restrisico (willekeurige NAW in vrije tekst) wordt in de DPIA afgewogen.
+- Extra redactielaag (`AiInputRedactor`) verwijdert e-mail/telefoon uit vrije tekst vóór verzending naar een externe provider. Restrisico (willekeurige NAW in vrije tekst) blijft; stuur geen adres/contact mee in prompts.
 - Vision-acties lezen via `AiImageResolver`: nieuwe uploads gebruiken uitsluitend de metadata-vrije 1536px-analysevariant; historische rijen zonder variant hebben een expliciet gelabelde dossierfallback. De zwaardere Sol-routeherbeoordeling krijgt maximaal vier relevante, bruikbare segmentbeelden met de laagste zekerheid, nooit alle foto's blind opnieuw.
 - Beeldbytes bestaan alleen in het uitgaande providerrequest. `ai_runs` bewaart een hash van promptversie + variantchecksums; database, activity-events en logs bevatten geen beeldbytes of data-URL. Afgeleide feiten bevatten alleen gecontroleerde waarden, korte bewijsomschrijving, provider/model en interne bewijsreferenties.
 - Geen API-keys in logs of git (`.env`)
-- De externe `openai`-provider staat standaard uit en wordt pas geactiveerd ná DPIA/akkoord (key in `.env`). Tests draaien met gemockte HTTP.
+- De externe `openai`-provider staat standaard uit; activering is env-only (`AI_PROVIDER=openai` + key + budgetcaps + de gewenste featurevlaggen). Tests draaien met gemockte HTTP.
 - `SurveySynthesisContextBuilder` hergebruikt expliciet de begrensde en geteste legacy-redactie voor gedeelde antwoord-/broncontext en voegt alleen allowlisted dossier- en aircovelden toe. Dossierobjectreferenties zijn interne runreferenties; klantidentiteit, adres, locatiegeometrie en opslagpaden ontbreken.
 - Dossierobjecten verwijzen naar bestaand bewijs. AI-output mag geen kopie van klantfoto's, bronbeelden of onbeperkte vrije tekst in nieuwe JSON-velden opslaan.
 
@@ -229,7 +229,7 @@ De bestaande stateful route-analyse beoordeelt per foto of wand/doorvoer zichtba
 - **Contracten (float-confidence):** `route_photo_analysis` (per foto) en `route_synthesis` (route uit segmenten) — gestructureerde JSON, promptmappen onder `app/Domains/AI/Prompts/`.
 - **Persistentie:** `pipe_route_sessions` + `pipe_route_segments` (elke foto = één segment met volledige analyse-JSON).
 - **Modeltiering, los van `ai.model`:** `config('ai.route.model')` (default `gpt-5.6-terra`) doet de analyse; de synthese escaleert bij lage zekerheid of een niet-doorlopende route naar `config('ai.route.review_model')` (default `gpt-5.6-sol`). Model-ID's env-overschrijfbaar (`AI_ROUTE_MODEL`/`AI_ROUTE_REVIEW_MODEL`); de AI-laag heeft hiervoor een per-call `model`-override.
-- **Gated + soft-fail:** achter `AI_ROUTE_ANALYSIS_ENABLED` (standaard uit); meer beeld naar een externe LLM valt onder de DPIA-voorwaarde (ADR-0005/0009). `ai_runs`-types `route_analysis` en `route_synthesis`.
+- **Gated + soft-fail:** achter `AI_ROUTE_ANALYSIS_ENABLED` (standaard uit) plus provider/key/budgetcaps. `ai_runs`-types `route_analysis` en `route_synthesis`.
 - **Herijkt:** ADR-0009 is vervangen door ADR-0012 en BL-029 is `dropped` voor de resterende globale UI-scope. De backend blijft staan.
 - **Verbindingskoppeling:** één routesessie is via een unieke FK gekoppeld aan één concrete `refrigerant`-, `condensate`- of `power`-verbinding binnen een installatieoptie. Nieuw bewijs heropent een eerder goedgekeurde sessie/verbinding veilig; synthese schrijft voorstel, onzekerheden en zekerheid terug naar die verbinding.
 - **Beeldselectie:** per-fotoanalyse gebruikt de analysekopie. Alleen bij een onzekere/niet-doorlopende Terra-synthese krijgt Sol maximaal `AI_ROUTE_MAX_IMAGES` relevante analysekopieën; de inputhash bevat manifest en variant.
@@ -237,6 +237,6 @@ De bestaande stateful route-analyse beoordeelt per foto of wand/doorvoer zichtba
 
 ## Operationele gates en latere optimalisatie
 
-- Externe foto-/route-inferentie pas op staging activeren na DPIA/akkoord, budgetcaps, fictieve representatieve beelden en de functionele tests uit `functional-test-status.md`.
+- Externe foto-/route-inferentie op staging: zet `AI_PROVIDER=openai`, key, budgetcaps, daarna `AI_PHOTO_INFERENCE_ENABLED` / `AI_ROUTE_ANALYSIS_ENABLED`, en voer de functionele tests uit `functional-test-status.md` uit met fictieve representatieve beelden.
 - Dossiersynthese afzonderlijk activeren met `AI_DOSSIER_SYNTHESIS_ENABLED`; controleer kosten, referentievalidatie en de installateursreview vóór productie.
 - Een latere optimalisatie mag bij een aantoonbaar onleesbaar detail één crop of maximaal-2048px dossiervariant van precies die foto analyseren. Nooit alle originelen opnieuw; telefoonoriginelen bestaan niet op disk.

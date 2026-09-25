@@ -6,11 +6,11 @@ namespace App\Domains\AI\Services;
 
 /**
  * Redacts obvious PII (e-mail, telefoon) from an AI payload before it leaves the app
- * to an external provider (ADR-0005, DPIA-lijn). Structured PII (naam/e-mail/telefoon)
+ * to an external provider (ADR-0005). Structured PII (naam/e-mail/telefoon)
  * zit al niet in de payload; dit vangt vrije-tekstantwoorden af als extra laag.
  *
  * Let op: dit verwijdert geen willekeurige NAW uit vrije tekst — dat blijft een
- * restrisico dat in de DPIA wordt afgewogen vóór activering van een externe provider.
+ * restrisico; adres/e-mail/telefoon horen sowieso niet in AI-payloads (zie docs/ai.md).
  */
 final class AiInputRedactor
 {

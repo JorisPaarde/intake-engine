@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Http;
 
 /**
  * OpenAI-compatible chat client behind AiClientInterface (BL-006). Requires an API key
- * in .env (AI_API_KEY); default provider stays `null` until DPIA + key are in place.
+ * in .env (AI_API_KEY) and budget caps when enforced; default provider stays `null`.
  * PII is redacted before sending (AiInputRedactor). Any failure raises AiClientException,
  * which the callers treat as a soft-fail — the intake flow never depends on this.
  */

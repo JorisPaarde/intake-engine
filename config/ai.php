@@ -12,10 +12,10 @@ return [
     | null       — AI uitgeschakeld (soft-fail)
     | fake       — vaste testdata
     | heuristic  — lokale deterministische samenvatting zonder externe API
-    | openai     — externe OpenAI-compatibele provider (vereist AI_API_KEY + DPIA)
+    | openai     — externe OpenAI-compatibele provider (vereist AI_API_KEY + budgetcaps)
     |
-    | LET OP: 'openai' stuurt (geredigeerde) inhoud naar een externe partij. Pas
-    | activeren na DPIA/akkoord en met een key in .env. Standaard blijft 'null'.
+    | LET OP: 'openai' stuurt (geredigeerde) inhoud naar een externe partij.
+    | Vereist AI_API_KEY en minstens één budgetcap in .env. Standaard blijft 'null'.
     |
     */
 
@@ -93,7 +93,8 @@ return [
     | keurt de uiteindelijke route altijd goed (zie ADR-0008-... / docs/ai.md).
     |
     | Model-ID's zijn overschrijfbaar via .env, zodat een nieuwe generatie zonder
-    | codewijziging in te zetten is. Vereist AI_PROVIDER=openai + key + DPIA.
+    | codewijziging in te zetten is. Vereist AI_PROVIDER=openai + key + budgetcaps
+    | en AI_ROUTE_ANALYSIS_ENABLED=true.
     |
     */
 

@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.57 · **Laatste update:** 2026-09-23 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.58 · **Laatste update:** 2026-09-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -32,16 +32,17 @@ Status: `backlog` · `ready` · `in_progress` · `done` · `dropped` — priorit
 | E4 | AI bespaart beoordeelwerk | Samenvatting, aandachtspunten, foto-afleiding en routebackend. |
 | E5 | Bruikbaar dossier & klaar voor groei | PDF, tenancy, branding, demo, beheer en schaalbaarheid. |
 
-BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. Hun eerdere afhankelijkheidsbanden blijven alleen in de detailsecties als historische ontwerpvolgorde herkenbaar. Open operationeel werk staat bij BL-001; S3-mediadisk (BL-013) is app-klaar en wacht op eventuele env-omschakeling; externe AI-activering blijft een DPIA-/configuratiegate en is geen open implementatie-item.
+BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. Hun eerdere afhankelijkheidsbanden blijven alleen in de detailsecties als historische ontwerpvolgorde herkenbaar. Open operationeel werk staat bij BL-001; S3-mediadisk (BL-013) is app-klaar en wacht op eventuele env-omschakeling; externe AI-activering is env-only (provider/key/featurevlaggen/budgetcaps) en is geen open implementatie-item (DPIA-procespoort verwijderd in BL-108).
 
 ## Overzicht
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. Nieuwe items starten bij BL-108.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. Nieuwe items starten bij BL-109.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
+| — | BL-108 | DPIA-/privacytoets-poort voor AI verwijderd | E4 | done | high | A · product/AI · bij BL-006/020/041/049 |
 | — | BL-107 | App-huisstijl volgens productmockups + rustiger werkplek, Vraag de klant in één klik | E5/E6 | in_progress | high | UX/visueel · bij BL-043/053/099/100 |
 | — | BL-106 | `public/.user.ini`: `memory_limit=512M` persist in git | E1 | done | medium | A · hosting/deploy · bij BL-003 · PR #109 |
 | — | BL-105 | Publieke XML-sitemap + robots.txt-verwijzing | E5 | done | medium | A · SEO/marketing · bij BL-043 · PR #108 |
@@ -130,7 +131,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-026 | Kernmetrics voor frictie en dossierbruikbaarheid | E1 | done | medium | M (done) |
 | — | BL-027 | Gerichte aanvullende-informatieronde na beoordeling | E2 | done | high | L (done) |
 | — | BL-025 | Wizard-responstijd: dubbele queries per Livewire-request terugdringen | E1 | done | low | J (done) |
-| — | BL-006 | Externe LLM-provider (clientlaag; activering na DPIA + key) | E4 | done | medium | H (done) |
+| — | BL-006 | Externe LLM-provider (clientlaag; activering via env + key) | E4 | done | medium | H (done) |
 | — | BL-007 | AI-uitbreidingen: attention points, fotokwaliteit, accepteren/verwijderen | E4 | done | low | H (done) |
 | — | BL-022 | Voortgang en "ontbreekt nog" kloppend en klikbaar maken | E1 | done | medium | J (done) |
 | — | BL-023 | Eén tik minder per vraag: automatisch door na eenduidige keuze | E3 | done | medium | J (done) |
@@ -211,7 +212,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 - **Aanleiding:** de werkplek vroeg de installateur bij **Camera en bewijs** en **Vakwaarneming** zelf een intern dossieronderwerp, vrije sleutel en vaststellingsmethode te kiezen. De lijst mengde opname, ruimtes, posities en verbindingen; telefonisch verkregen informatie kon daardoor als definitieve vakwaarneming worden opgeslagen en foto en conclusie leken dezelfde handeling.
 - **Resultaat:** foto’s en technische notities worden rechtstreeks vanaf de betreffende ruimte, positie of verbinding toegevoegd. De route bepaalt het onderwerp; de server maakt sleutel, methode en herkomst. Een routefoto blijft tegelijk routesegment. Bij een gewone ruimte- of positiefoto mag beeld-AI maximaal drie korte, beslisrelevante constateringen voorstellen; alleen voorstellen boven de configureerbare zekerheidsgrens verschijnen en blijven `proposed` totdat de installateur **Klopt** kiest of de tekst aanpast. Telefonisch verkregen informatie heeft geen handmatige snelweg meer naar een 100%-zekere vakwaarneming.
 - **UX:** de losse kaarten **Camera en bewijs** en **Vakwaarneming** zijn verwijderd. De acties heten **Foto maken** en **Technische notitie**; bronlabels worden automatisch getoond. De bronsectie heet **Woninggegevens** met een korte uitleg zonder dossierjargon.
-- **Acceptatiebewijs:** featuretests bewaken context- en tenantgrenzen, servergegenereerde sleutels/methoden, foto- en AI-evidence, minimale zekerheid, `proposed` → door installateur bevestigd/aangepast en afwezigheid van interne velden. Externe beeld-AI blijft standaard uit, soft-fail en achter de bestaande DPIA-/budgetgate; staging- en mobiele controle staat als `todo` in `functional-test-status.md`.
+- **Acceptatiebewijs:** featuretests bewaken context- en tenantgrenzen, servergegenereerde sleutels/methoden, foto- en AI-evidence, minimale zekerheid, `proposed` → door installateur bevestigd/aangepast en afwezigheid van interne velden. Externe beeld-AI blijft standaard uit, soft-fail en achter provider-/featurevlag-/budgetgates; staging- en mobiele controle staat als `todo` in `functional-test-status.md`.
 
 ## Epic E8 — Airco-opstellingen en verbindingen
 
@@ -242,7 +243,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 - **Doel:** laat AI de opname zoveel mogelijk voorbereiden zonder bevestigingsadministratie of autonome eindbeslissing.
 - **Scope:** combineer aanvraaggegevens, BAG/PDOK, luchtfoto, EP-Online, 3DBAG, klant-/installateursbewijs en routes; stel plaatsingen/installatieopties voor; leg conclusies alleen automatisch vast wanneer een objectspecifieke serverregel bronkwaliteit, evidence, consistentie en impact als vrijwel zeker kwalificeert; genereer alleen de kleinste veilige taak die een blokkerende onzekerheid kan oplossen.
 - **Review:** toon voorstel, afwijkingen, conflicten en open kosten-/veiligheidspunten; installateur corrigeert of keurt het geheel goed. Bewaar model/prompt/evidence/confidence en de delta naar de uiteindelijke keuze.
-- **Gates:** bestaande DPIA-, budget-, privacy-, beeldvariant- en soft-failregels blijven verplicht. Providerfalen resulteert in handmatige dossierwerking, nooit in dataverlies of blokkade.
+- **Gates:** budget-, PII-redactie-, beeldvariant- en soft-failregels blijven verplicht. Providerfalen resulteert in handmatige dossierwerking, nooit in dataverlies of blokkade.
 - **Acceptatie:** geen bron- of AI-veld-voor-veld-confirmatiescherm; onzekere of tegenstrijdige feiten worden niet stil toegepast; dezelfde context is idempotent; een vervolgtaak heeft aantoonbare besliswaarde.
 - **Resultaat:** begrensde, geschoonde dossiersynthese met maximaal twaalf analysekopieën; harde referentie-, cardinaliteits-, route- en evidencevalidatie; idempotente vervanging van alleen AI-kandidaten; uitzonderingen en maximaal drie nog door installateur te versturen klanttaakvoorstellen. Geselecteerde/menselijke objecten en klanttoegang worden nooit autonoom gewijzigd.
 
@@ -473,15 +474,15 @@ Historische MVP-epic: bouwde prefill, adaptieve vragen en automatische BAG/PDOK-
 
 ### BL-019 — Afleiden uit adres en openbare bronnen (satellietbeeld, BAG)
 
-- **Status:** done *(code; staging/privacy-gate open)* · **Prioriteit:** medium · **Datum:** 2026-07-20 · **Ref:** ADR-0007, `docs/intake-engine.md`, `docs/database.md`
+- **Status:** done *(code; staging-smoke open)* · **Prioriteit:** medium · **Datum:** 2026-07-20 · **Ref:** ADR-0007, `docs/intake-engine.md`, `docs/database.md`
 - **Parallel:** band **F** — parallel met A/D/E/G/H/I; gebruikt BL-016-kaders (voorzet, geen verborgen aanname).
 - **Doel:** het adres is al bekend bij het aanmaken van de opname (`intakes.address_*`); gebruik dat om vragen te schrappen of te verifiëren i.p.v. ze te stellen:
   - **Satelliet-/luchtfoto** (bijv. Google Maps Static API of PDOK-luchtfoto) tonen in het installateursrapport en als context bij de buitenunit-/gevelvragen — kan `facade_overview_photo` deels vervangen of de aanvrager alleen om bevestiging vragen ("klopt dit beeld van uw woning?");
   - **BAG/open data:** bouwjaar (`build_year`) en gebouwtype (`building_type`) zijn vaak uit openbare registers af te leiden; toon als voorzet die de aanvrager alleen bevestigt (kader BL-016: prefill is een voorzet, geen verborgen aanname).
-- **Kaders:** afgeleide waarden zijn deterministisch of door de aanvrager bevestigd; API-keys via `.env`, nooit in git; kosten/quota van externe API's afwegen (PDOK/BAG is gratis en Nederlands, Google Maps betaald). Privacy: adres alleen naar externe API sturen als daar een verwerkingsgrondslag voor is — meenemen in dezelfde DPIA-lijn als BL-006.
+- **Kaders:** afgeleide waarden zijn deterministisch of door de aanvrager bevestigd; API-keys via `.env`, nooit in git; kosten/quota van externe API's afwegen (PDOK/BAG is gratis en Nederlands, Google Maps betaald). Privacy: adres alleen naar externe API sturen wanneer de omgeving dat toestaat; uitzetten via `PDOK_ENABLED` / `PDOK_AERIAL_ENABLED`.
 - **Resultaat:** authenticated adres-autocomplete via PDOK Locatieserver vult straat, postcode en plaats in één selectie. Na aanmaken haalt een fail-soft verrijkingsactie BAG-verblijfsobject/pand op en bewaart bouwjaar, gebruiksdoel, gebruiksoppervlakte, coördinaten en perceelreferentie met bron/zekerheid. Airco **v4** slaat `build_year` alleen over bij een eenduidig BAG-antwoord. Bij coördinaten haalt de server ook `Actueel_orthoHR` via PDOK WMS op als gevalideerde private JPEG; installateursdetail, HTML en PDF tonen die met centrumstip, schaalcontext, bron en onzekerheid. WMS-falen laat BAG intact; purge verwijdert media. De optionele gevelfoto vervalt bewust niet: bovenaanzicht bewijst gevel, route, obstakels en montageplek niet.
-- **Resterende gate (niet-code):** staging-smoke + privacy/grondslag formeel accorderen vóór echte klantdata; zo nodig `PDOK_ENABLED=false` of alleen `PDOK_AERIAL_ENABLED=false`.
-- **Afhankelijkheden:** geen harde; rapportintegratie kan los van de klantflow. Bij externe API's: DPIA-afweging (zie BL-006).
+- **Resterende gate (niet-code):** staging-smoke vóór echte klantdata; zo nodig `PDOK_ENABLED=false` of alleen `PDOK_AERIAL_ENABLED=false`.
+- **Afhankelijkheden:** geen harde; rapportintegratie kan los van de klantflow.
 
 ## Epic E4 — AI bespaart beoordeelwerk
 
@@ -493,12 +494,19 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Doel:** de klant geen technische single-/multi-splitkeuze laten maken, maar de installateur bij meerdere binnenunits expliciet laten beoordelen of één multi-split of meerdere single-splits passend zijn.
 - **Resultaat:** `CompletenessChecker` maakt bij meer dan één binnenunit het deterministische systeemaandachtspunt `review_split_configuration`, inclusief het gekozen aantal. Bij één binnenunit verschijnt geen extra punt. De buitenunit- en leidingroutesecties blijven éénmalig en vragen dus niet per binnenunit dezelfde foto's.
 
-### BL-006 — Externe LLM-provider (na DPIA)
+### BL-006 — Externe LLM-provider
 
-- **Status:** done *(clientlaag; activering geblokkeerd op DPIA + key)* · **Prioriteit:** medium · **Datum:** 2026-07-18 · **Ref:** ADR-0005, `docs/ai.md`
+- **Status:** done *(clientlaag; activering via env + key + budgetcaps)* · **Prioriteit:** medium · **Datum:** 2026-07-18 · **Ref:** ADR-0005, `docs/ai.md`
 - **Doel:** OpenAI (of vergelijkbaar) client achter `AiClientInterface` naast null/fake/heuristic.
 - **Resultaat:** `OpenAiClient` (OpenAI-compatibel, Laravel `Http`, JSON-mode) achter `AiClientInterface`; provider-keuze op `AI_PROVIDER`; `AiInputRedactor` verwijdert e-mail/telefoon vóór verzending; config `AI_BASE_URL`/`AI_MODEL`/`AI_API_KEY`/`AI_TIMEOUT_SECONDS`. Standaard `null`; getest met `Http::fake()`.
-- **Resterende gate (niet-code):** DPIA/akkoord + key in `.env` door producteigenaar. Géén echte PII naar de provider vóór die er zijn.
+- **Resterende gate (niet-code):** key + budgetcaps + gewenste featurevlaggen in `.env` door producteigenaar. Geen e-mail/telefoon/adres in AI-payloads; soft-fail zonder provider.
+
+### BL-108 — DPIA-/privacytoets-poort voor AI verwijderd
+
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-25 · **PR:** deze PR · **Epic:** E4 · **Band:** A · **Volgt op:** BL-006/020/041/049
+- **Aanleiding:** producteigenaar wil de DPIA-/privacytoets-poort voor AI-functies weg; die stond in docs/comments als “pas na DPIA” maar blokkeerde runtime niet.
+- **Resultaat:** geen runtime-DPIA-check gevonden of toegevoegd. Documentatie, config-comments en env-voorbeelden spreken niet langer van een DPIA-activatiepoort. AI hangt van `AI_PROVIDER` / key / featurevlaggen / budgetcaps af. Intact: budgetcaps, PII-redactie, geen beeldbytes in logs/DB, soft-fail, intakeveld `privacy_consent`. ADRs blijven ongewijzigd (immutabel).
+- **Acceptatie:** `composer check` groen; docs/CHANGELOG/backlog bijgewerkt.
 
 ### BL-007 — AI-uitbreidingen
 
@@ -517,8 +525,8 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
   - **Route-/gevelfoto's:** schat leidinglengte en boringen in als voorzet voor de installateur.
 - **Kaders (ADR-0005, docs/ai.md):** AI-uitkomsten zijn altijd een **voorzet** — de aanvrager of installateur bevestigt; deterministische regels (`show`/`require`) blijven de enige poort voor verplichte velden. Een AI-afleiding mag een vraag *invullen als voorzet* of een *conditionele vervolgvraag activeren via een bevestigd antwoord*, maar nooit stil een verplicht veld wegnemen. Foto-analyse loopt async (ADR-0004) en mag de flow nooit blokkeren: geen of trage analyse = gewoon de vraag stellen.
 - **Uitvoering (gefaseerd):** eerst de template-kant (vragen conditioneel maken op een bevestigbaar afleidingsantwoord, via BL-017-versie), dan `AssessPhoto*`-acties achter `AiClientInterface`, dan de klantflow-integratie ("wij zien op uw foto X — klopt dat?").
-- **Afhankelijkheden:** BL-006-clientlaag is er (activering wacht op DPIA + key); een **multimodale** LLM productief is nog nodig voor betrouwbare beeldherkenning. BL-007 legde de `AssessPhotoUsability`-basis (done); BL-017/BL-018 voor de template- en flowkant.
-- **Resultaat:** airco v5 markeert `fusebox_photo` voor multimodale beoordeling. `AssessFuseboxPhotos` verstuurt na expliciete privacyflag maximaal twee private meterkastfoto's via de bestaande providerinterface, valideert een beperkte vrije-groep-/fase-uitkomst en vult alleen een hoge-zekerheidswaarde als zichtbare, door de klant te bevestigen voorzet in. Onzekere output levert een concrete herhaalfoto-instructie; klantantwoorden worden nooit overschreven. Dossier/HTML/PDF tonen het afgeleide feit met provider, runreferentie, bron en verplichte installateurscontrole. Dezelfde afbeeldingshash is idempotent; verwijderen van bewijs wist afleiding. OpenAI-beeldinput gebruikt data-URL's alleen in transit, nooit in DB/logs. Runtime blijft standaard uit; DPIA, key, env-activatie en staging-smoke staan in deployment/teststatus.
+- **Afhankelijkheden:** BL-006-clientlaag is er (activering via env + key); een **multimodale** LLM productief is nog nodig voor betrouwbare beeldherkenning. BL-007 legde de `AssessPhotoUsability`-basis (done); BL-017/BL-018 voor de template- en flowkant.
+- **Resultaat:** airco v5 markeert `fusebox_photo` voor multimodale beoordeling. `AssessFuseboxPhotos` verstuurt na expliciete featurevlag (`AI_PHOTO_INFERENCE_ENABLED`) maximaal twee private meterkastfoto's via de bestaande providerinterface, valideert een beperkte vrije-groep-/fase-uitkomst en vult alleen een hoge-zekerheidswaarde als zichtbare, door de klant te bevestigen voorzet in. Onzekere output levert een concrete herhaalfoto-instructie; klantantwoorden worden nooit overschreven. Dossier/HTML/PDF tonen het afgeleide feit met provider, runreferentie, bron en verplichte installateurscontrole. Dezelfde afbeeldingshash is idempotent; verwijderen van bewijs wist afleiding. OpenAI-beeldinput gebruikt data-URL's alleen in transit, nooit in DB/logs. Runtime blijft standaard uit; key, env-activatie en staging-smoke staan in deployment/teststatus.
 
 ## Epic E5 — Bruikbaar dossier & klaar voor groei
 
@@ -652,7 +660,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 ### BL-085 — Lege "AI-voorgestelde aandachtspunten" niet als dode sectie
 
 - **Status:** done · **Datum:** 2026-09-03 · **PR:** #91 · **Prioriteit:** medium · **Epic:** E4 · **Band:** detailpagina-UX
-- **Aanleiding:** productie (`/intakes/54`): de sectie "AI-voorgestelde aandachtspunten" is leeg en oogt kapot. Zonder geactiveerde externe AI (DPIA/key) of zonder gedraaide run zijn er nooit voorstellen, dus "Geen openstaande AI-voorstellen" staat er permanent zonder uitleg of actie.
+- **Aanleiding:** productie (`/intakes/54`): de sectie "AI-voorgestelde aandachtspunten" is leeg en oogt kapot. Zonder geactiveerde externe AI (provider/key) of zonder gedraaide run zijn er nooit voorstellen, dus "Geen openstaande AI-voorstellen" staat er permanent zonder uitleg of actie.
 - **Doel:** de sectie toont een betekenisvolle staat i.p.v. een dode lege lijst: leg uit waaróm er niets is (AI staat uit / nog niet gedraaid) en bied, waar AI beschikbaar is, een expliciete "AI-aandachtspunten voorstellen"-actie; anders de sectie inklappen/verbergen.
 - **Scope:** `resources/views/installer/intakes/show.blade.php` (aandachtspunten-blok), evt. een terugkerende suggest-actie via bestaande `intakes.attention.suggest`-route; `config('ai.*')`-status om de staat te bepalen. Detailpagina-test op de drie states (uit / leeg-maar-mogelijk / voorstellen aanwezig).
 - **Acceptatie:** met AI uit toont de sectie een uitleg (geen kale "geen voorstellen"); met AI aan en niets gedraaid een trigger; met voorstellen de bestaande lijst met accepteren/verwijderen; `composer check` groen.
@@ -779,7 +787,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Status:** done · **Prioriteit:** medium · **Datum:** 2026-09-06 · **PR:** #105 · **Epic:** E3/E5 · **Band:** dev/QA · **Volgt op:** BL-028/064/065/093/098 · **Ref:** ADR-0013/0014
 - **Aanleiding:** staging heeft onder **Dev-admin** al tabs voor opname-inspectie, AI-runs, activiteit en systeemstatus, maar geen eenvoudige manier om los te testen wat het veld **Beschrijf wat de klant wil** op **Nieuwe opname** doet. Een tester wil een vrije proeftekst zoals “Ik wil drie airco’s voor al mijn slaapkamers en één voor mijn woonkamer om te koelen” invoeren en daarna kunnen doorgronden welke stap welke uitkomst veroorzaakt, zonder daarvoor een echte opname of klantflow te starten.
 - **Doel:** voeg in de afgeschermde devomgeving een tab **AI-invoer testen** toe die met één knop dezelfde lokale parser, templatecatalogus, AI-prefill, normalisatie en validatieregels uitvoert als `Nieuwe opname`, en het volledige hypothetische resultaat begrijpelijk toont.
-- **Scope:** een nieuwe route/controller/view onder de bestaande `dev.access`-groep en een tab in `resources/views/dev/_nav.blade.php`; één begrensd tekstveld met de actieve templateversie die `CreateIntake` voor een nieuwe airco-opname zou kiezen. De uitvoering hergebruikt `DeriveIntentFromRequest`, `LocalRequestIntentParser`, `RequestPrefillContextBuilder`, `TemplateQuestionCatalogBuilder` en `PrefillAnswersFromKnownContext` via één gedeelde preview-/evaluatielaag die ook het productiepad gebruikt; kopieer geen prompt, catalogus, confidencegrenzen of validatieregels naar devcode. Respecteer de echte stagingconfiguratie en provider-/DPIA-gates: als externe tekst-AI uitstaat, toon dat als reden en voer alleen het werkelijk beschikbare lokale pad uit; gebruik nooit stil een mock. Toon per fase: effectieve template-, parser-, prompt-, provider- en modelversie; lokale afleidingen; AI-kandidaten met vraag-/ruimtelabel, genormaliseerde waarde, evidence en zekerheid; indeling **zou invullen**, **voorzet**, **niet ingevuld** of **afgewezen** met concrete reden; het resulterende hypothetische formulier-/dossierbeeld; en de vragen die zichtbaar/open zouden blijven. Deze indeling is uitsluitend diagnostiek in dev: productie blijft waarden met voldoende zekerheid automatisch invullen en de installateur kan ze via de bestaande bewerkpaden aanpassen.
+- **Scope:** een nieuwe route/controller/view onder de bestaande `dev.access`-groep en een tab in `resources/views/dev/_nav.blade.php`; één begrensd tekstveld met de actieve templateversie die `CreateIntake` voor een nieuwe airco-opname zou kiezen. De uitvoering hergebruikt `DeriveIntentFromRequest`, `LocalRequestIntentParser`, `RequestPrefillContextBuilder`, `TemplateQuestionCatalogBuilder` en `PrefillAnswersFromKnownContext` via één gedeelde preview-/evaluatielaag die ook het productiepad gebruikt; kopieer geen prompt, catalogus, confidencegrenzen of validatieregels naar devcode. Respecteer de echte stagingconfiguratie en provider-/featurevlaggen: als externe tekst-AI uitstaat, toon dat als reden en voer alleen het werkelijk beschikbare lokale pad uit; gebruik nooit stil een mock. Toon per fase: effectieve template-, parser-, prompt-, provider- en modelversie; lokale afleidingen; AI-kandidaten met vraag-/ruimtelabel, genormaliseerde waarde, evidence en zekerheid; indeling **zou invullen**, **voorzet**, **niet ingevuld** of **afgewezen** met concrete reden; het resulterende hypothetische formulier-/dossierbeeld; en de vragen die zichtbaar/open zouden blijven. Deze indeling is uitsluitend diagnostiek in dev: productie blijft waarden met voldoende zekerheid automatisch invullen en de installateur kan ze via de bestaande bewerkpaden aanpassen.
 - **Veiligheid en privacy:** de proef draait uitsluitend op local/staging achter `auth` + `verified` + `dev.access` en geeft op production hard 404. Gebruik een geïsoleerde dry-runcontext; maak of wijzig geen duurzame `intakes`, antwoorden, dossierrecords, AI-runs, activiteiten, klanttaken of uploads. Verstuur nooit klantmail en start geen queuejob. Bewaar of log de vrije proeftekst niet; toon geen API-key, token, systeemsecret of ongeredigeerd providerrequest. Begrens invoerlengte en verzoektempo om foutieve of kostbare herhaalcalls te voorkomen.
 - **Niet in scope:** een algemene prompt-playground voor willekeurige systeemprompts of modellen; prompt-/templateversies vanuit de UI wijzigen; resultaten vanuit het proefscherm opslaan of naar een echte opname kopiëren; een extra bevestigings-, goedkeurings- of auditstap toevoegen aan de productieflow; het bestaande automatische prefill- en correctiegedrag wijzigen; adresverrijking, foto-AI, dossiersynthese of e-mail testen; de bestaande AI-runs-/opname-inspectortabs vervangen.
 - **Acceptatie:** een geautoriseerde stagingtester opent **AI-invoer testen**, voert de voorbeeldtekst in en start met één knop een echte, niet-gemockte evaluatie volgens de actuele configuratie; het scherm laat alle genoemde fasen en versies zien en verklaart per catalogusvraag waarom een waarde automatisch zou worden ingevuld, alleen een voorzet is, open blijft of wordt afgewezen; onbekende question keys, ongeldige keuzevalues, lage zekerheid, conflicten en niet-invulbare/fotovragen hebben een zichtbare afwijzings- of overslaanreden; bij uitgeschakelde/providerfalende AI blijft de lokale uitkomst zichtbaar met een heldere melding en zonder 500; een contracttest bewijst dat bij gelijke template, context, configuratie en providerrespons de dev-preview exact dezelfde geclassificeerde fills/voorzetten/afwijzingen oplevert als de keten `CreateIntake` → `DeriveIntentFromRequest`; na succes én fout zijn aantallen in alle relevante producttabellen ongewijzigd en zijn geen mails/jobs verstuurd; onbevoegde gebruikers en production krijgen 404; raw proeftekst en secrets staan niet in logs; featuretests dekken toegang, dry-run, provider-uit, validatie-uitleg, rate-limit en side-effectvrijheid; `composer check` groen.
@@ -1182,6 +1190,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 | ID | Datum | Resultaat / PR |
 |----|-------|----------------|
 | BL-106 | 2026-09-23 | #109 — `memory_limit=512M` in `public/.user.ini` |
+| BL-108 | 2026-09-25 | deze PR — DPIA-procespoort voor AI verwijderd; activering alleen via env |
 | BL-098 | 2026-09-04 | #101 — herhaalde kamers naar catalogus-AI; naam per type |
 | BL-097 | 2026-09-04 | #100 — autofill breekt adreslookup-status niet meer |
 | BL-096 | 2026-09-04 | #99 — visueel browser-speelboek (`docs/browser-test-flow.md`) |
@@ -1193,10 +1202,10 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 | BL-030/035–042 | 2026-07-30 | deze PR — dossierkern, beeldvarianten, drie workflows, airco-opstellingen/verbindingen, AI-synthese en uitkomstmetrics |
 | BL-029 | 2026-07-30 | oorspronkelijke globale route-UI vervallen; backend behouden en vervolg onder BL-040 |
 | BL-010 | 2026-07-21 | deze wijziging — gescheiden staging/production + productionworkflow |
-| BL-020 | 2026-07-20 | (deze PR) — bevestigbare meterkastfoto-afleiding + airco v5; externe activering na DPIA |
+| BL-020 | 2026-07-20 | (deze PR) — bevestigbare meterkastfoto-afleiding + airco v5; externe activering via env |
 | BL-025 | 2026-07-18 | #34 — wizard request-caching (herstel van gesloten #32) |
 | BL-007 | 2026-07-18 | (deze PR) — heuristische aandachtspunten + accept/verwijder + fotokwaliteit |
-| BL-006 | 2026-07-18 | (deze PR) — `OpenAiClient` + redactie achter `AiClientInterface` (activering na DPIA + key) |
+| BL-006 | 2026-07-18 | (deze PR) — `OpenAiClient` + redactie achter `AiClientInterface` (activering via env + key) |
 | BL-024 | 2026-07-18 | #28 — vraaglabels + groepering foto-galerij installateur |
 | BL-014 | 2026-07-18 | #26 — afrondingsmail + dashboard “Nieuw afgerond” |
 | BL-015 | 2026-07-18 | #26 — `intakes:send-reminders` + `reminder_sent_at` |
