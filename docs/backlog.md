@@ -503,7 +503,7 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-108 — DPIA-/privacytoets-poort voor AI verwijderd
 
-- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-25 · **PR:** deze PR · **Epic:** E4 · **Band:** A · **Volgt op:** BL-006/020/041/049
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-25 · **PR:** #110 · **Epic:** E4 · **Band:** A · **Volgt op:** BL-006/020/041/049
 - **Aanleiding:** producteigenaar wil de DPIA-/privacytoets-poort voor AI-functies weg; die stond in docs/comments als “pas na DPIA” maar blokkeerde runtime niet.
 - **Resultaat:** geen runtime-DPIA-check gevonden of toegevoegd. Documentatie, config-comments en env-voorbeelden spreken niet langer van een DPIA-activatiepoort. AI hangt van `AI_PROVIDER` / key / featurevlaggen / budgetcaps af. Intact: budgetcaps, PII-redactie, geen beeldbytes in logs/DB, soft-fail, intakeveld `privacy_consent`. ADRs blijven ongewijzigd (immutabel).
 - **Acceptatie:** `composer check` groen; docs/CHANGELOG/backlog bijgewerkt.
@@ -1190,7 +1190,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 | ID | Datum | Resultaat / PR |
 |----|-------|----------------|
 | BL-106 | 2026-09-23 | #109 — `memory_limit=512M` in `public/.user.ini` |
-| BL-108 | 2026-09-25 | deze PR — DPIA-procespoort voor AI verwijderd; activering alleen via env |
+| BL-108 | 2026-09-25 | #110 — DPIA-procespoort voor AI verwijderd; activering alleen via env |
 | BL-098 | 2026-09-04 | #101 — herhaalde kamers naar catalogus-AI; naam per type |
 | BL-097 | 2026-09-04 | #100 — autofill breekt adreslookup-status niet meer |
 | BL-096 | 2026-09-04 | #99 — visueel browser-speelboek (`docs/browser-test-flow.md`) |
