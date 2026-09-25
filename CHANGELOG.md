@@ -7,6 +7,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 ### Changed
 
 - **DPIA-poort voor AI verwijderd (BL-108):** er was geen runtime-DPIA-check in code; wel documentatie-, comment- en env-teksten die externe AI “pas na DPIA” blokkeerden als procespoort. Die formulering is weg. AI hangt alleen nog van normale provider-/featurevlag-/budgetconfiguratie af. Intact: budgetcaps, PII-redactie (geen e-mail/telefoon/adres in payloads), geen beeldbytes in logs/DB, soft-fail zonder provider/key, en intakeveld `privacy_consent`.
+- **OpenRouter/OpenAI-compatibele gateway (BL-108):** `AI_BASE_URL` was al configureerbaar; toegevoegd: optioneel `AI_VISION_MODEL` (beeldcalls), optionele attributieheaders `AI_HTTP_REFERER`/`AI_APP_TITLE` (`HTTP-Referer`, `X-Title`, `X-OpenRouter-Title`), en key-redactie in exceptionteksten. Docs/env-voorbeelden beschrijven OpenRouter (`https://openrouter.ai/api/v1`). Defaults ongewijzigd.
 
 ### Config
 

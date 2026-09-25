@@ -23,9 +23,19 @@ return [
 
     'api_key' => env('AI_API_KEY'),
 
+    // OpenAI-compatible base URL. OpenRouter: https://openrouter.ai/api/v1
     'base_url' => env('AI_BASE_URL', 'https://api.openai.com/v1'),
 
+    // Default model for text-only calls (samenvatting, prefill, aandachtspunten, …).
     'model' => env('AI_MODEL', 'gpt-4o-mini'),
+
+    // Optional override when the request includes images and no per-call model is set.
+    // Empty = fall back to AI_MODEL (same multimodal model for text and vision).
+    'vision_model' => env('AI_VISION_MODEL'),
+
+    // Optional OpenRouter attribution headers (HTTP-Referer / X-Title). Empty = omit.
+    'http_referer' => env('AI_HTTP_REFERER'),
+    'app_title' => env('AI_APP_TITLE'),
 
     'timeout_seconds' => (int) env('AI_TIMEOUT_SECONDS', 20),
 

@@ -1,8 +1,8 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 3.9 · **Laatste update:** 2026-09-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.10 · **Laatste update:** 2026-09-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: **samenvatting, aandachtspunten, lokale fotokwaliteit, tekst-/foto-afleiding, verbindingsgebonden routeanalyse en bewijsgerichte dossiersynthese zijn geïmplementeerd**. Externe provider en tekst-/foto-/route-/dossierinferentie staan standaard uit (provider + key + featurevlaggen + budgetcaps; soft-fail zonder die config).
+Status: **samenvatting, aandachtspunten, lokale fotokwaliteit, tekst-/foto-afleiding, verbindingsgebonden routeanalyse en bewijsgerichte dossiersynthese zijn geïmplementeerd**. Externe provider en tekst-/foto-/route-/dossierinferentie staan standaard uit (provider + key + featurevlaggen + budgetcaps; soft-fail zonder die config). OpenAI-compatibele gateways (o.a. OpenRouter) via `AI_BASE_URL`.
 
 De verplichte korte dossiersamenvatting is deterministisch en staat los van deze AI-laag. AI kan daarbovenop alleen een herkenbaar niet-bindend voorstel toevoegen.
 
@@ -84,14 +84,18 @@ App\Domains\AI\
   Models\AiRun
 ```
 
-Provider via `.env`: `AI_PROVIDER`, `AI_API_KEY`, `AI_TIMEOUT_SECONDS`. Multimodale wizardafleiding vereist `AI_PHOTO_INFERENCE_ENABLED=true`; routeanalyse `AI_ROUTE_ANALYSIS_ENABLED=true`; integrale dossiersynthese `AI_DOSSIER_SYNTHESIS_ENABLED=true`. Alle staan standaard uit. Dossiersynthese gebruikt maximaal `AI_DOSSIER_MAX_IMAGES` (default 12) relevante analysekopieën. `AI_PROVIDER=openai` valt door de budgetguard fail-closed als er geen dag- of maandcap is gezet.
+Provider via `.env`: `AI_PROVIDER`, `AI_API_KEY`, `AI_BASE_URL`, `AI_MODEL`, optioneel `AI_VISION_MODEL`, `AI_TIMEOUT_SECONDS`. Multimodale wizardafleiding vereist `AI_PHOTO_INFERENCE_ENABLED=true`; routeanalyse `AI_ROUTE_ANALYSIS_ENABLED=true`; integrale dossiersynthese `AI_DOSSIER_SYNTHESIS_ENABLED=true`. Alle staan standaard uit. Dossiersynthese gebruikt maximaal `AI_DOSSIER_MAX_IMAGES` (default 12) relevante analysekopieën. `AI_PROVIDER=openai` valt door de budgetguard fail-closed als er geen dag- of maandcap is gezet.
 
 | Provider | Gedrag |
 |----------|--------|
 | `null` (default) | Soft-fail; afronding/rapport blijven intact |
 | `fake` | Vaste testdata (Pest) |
 | `heuristic` | Lokale deterministische samenvatting + aandachtspunten, geen externe API |
-| `openai` | Externe OpenAI-compatibele provider (BL-006). **Standaard uit**; vereist `AI_API_KEY` (+ `AI_BASE_URL`/`AI_MODEL`) en budgetcaps. PII wordt vóór verzending geredigeerd (`AiInputRedactor`); bij fout/timeout → soft-fail |
+| `openai` | Externe OpenAI-compatibele provider (BL-006), inclusief OpenRouter. **Standaard uit**; vereist `AI_API_KEY` (+ `AI_BASE_URL`/`AI_MODEL`) en budgetcaps. Optioneel `AI_VISION_MODEL` voor calls met beelden; optioneel `AI_HTTP_REFERER`/`AI_APP_TITLE` (OpenRouter-attributie). PII wordt vóór verzending geredigeerd (`AiInputRedactor`); bij fout/timeout → soft-fail; key nooit in exceptiontekst |
+
+### OpenRouter
+
+Zet `AI_PROVIDER=openai`, `AI_BASE_URL=https://openrouter.ai/api/v1`, `AI_API_KEY` op de OpenRouter-key, en `AI_MODEL` op een OpenRouter-model-id (bijv. `google/gemini-2.5-flash-lite` — multimodal, structured JSON, goedkoop). Voor foto's: zelfde id of apart `AI_VISION_MODEL`. Route-/dossiermodellen (`AI_ROUTE_MODEL`, `AI_ROUTE_REVIEW_MODEL`, `AI_DOSSIER_MODEL`) moeten ook bestaande OpenRouter-ids zijn; de app-defaults (`gpt-5.6-terra` e.d.) werken daar niet. Optioneel: `AI_HTTP_REFERER` + `AI_APP_TITLE` voor leaderboard-attributie.
 
 Kernintake hangt **niet** van AI af. Klant-, installateur- en gerichte bijdrageafronding dispatchen de passende jobs ná commit; falen = `ai_runs.status=failed` + privacyveilige log en blokkeert het dossier niet.
 

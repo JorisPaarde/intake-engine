@@ -1,6 +1,6 @@
 # Deployment naar cPanel (staging + production)
 
-> **Documentversie:** 2.20 · **Laatste update:** 2026-09-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.21 · **Laatste update:** 2026-09-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 **Statusregel:** staging en production zijn fysiek en logisch gescheiden; open handmatige acties (env/host) staan in [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
 
@@ -215,7 +215,7 @@ Alles hieronder staat **niet** in git en moet jij (of de host) per omgeving zett
 | Actie | Wanneer | Vars / stappen |
 |--------|---------|----------------|
 | Publieke demo uitzetten | Alleen bij misbruik/load | `DEMO_ENABLED=false` in `shared/.env` + `config:cache`. Demo staat **standaard aan** (zie [§ Publieke demo](#publieke-demo-bl-001)). |
-| Externe AI + foto-inferentie | Wanneer AI op staging/productie gewenst is (BL-006/020) | `AI_PROVIDER=openai`, `AI_API_KEY=…`, geschikt multimodaal `AI_MODEL`, budgetcaps, en pas daarna `AI_PHOTO_INFERENCE_ENABLED=true` (plus eventueel tekst-/route-/dossiervlaggen). Nu bewust `null`/`false` (soft-fail). Nooit keys in git. |
+| Externe AI + foto-inferentie | Wanneer AI op staging/productie gewenst is (BL-006/020) | `AI_PROVIDER=openai`, `AI_API_KEY=…`, `AI_BASE_URL` (OpenAI of `https://openrouter.ai/api/v1`), `AI_MODEL` (+ optioneel `AI_VISION_MODEL`), budgetcaps, daarna featurevlaggen. Nu bewust `null`/`false` (soft-fail). Nooit keys in git. |
 | AI-budgetcap | Verplicht vóór `AI_PROVIDER=openai` op staging/productie | Zet minstens `AI_BUDGET_DAILY_CENTS` of `AI_BUDGET_MONTHLY_CENTS`, plus conservatieve token-/beeldrates. Zonder cap faalt OpenAI bewust vóór de provider-call. |
 | `MEDIA_DISK=s3` + AWS-vars | Bij storagegroei / vertrek cPanel (BL-013, klaar in app) | Zet `MEDIA_DISK=s3`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION`, `AWS_BUCKET` (+ optioneel `AWS_URL`/`AWS_ENDPOINT`/`AWS_USE_PATH_STYLE_ENDPOINT`) in `shared/.env`, daarna `config:cache`. Bucketobjecten privé houden. Bestaande rijen behouden `disk`+`path` op de oude disk; geen bestands-/DB-migratie. Details: [uploads.md § Migratie naar S3](uploads.md#migratie-naar-s3-bl-013). |
 | `PDOK_ENABLED=false` | Alleen als uitgaande adres-/locatiebevraging juridisch of technisch nog niet mag | Adres-autocomplete, BAG-verrijking en luchtfoto uit; handmatig adres/bouwjaar en klantfoto’s blijven werken. Geen API-key nodig. |
@@ -251,14 +251,18 @@ Vereisten: uitgaand HTTPS naar `api.pdok.nl` én `service.pdok.nl`, schrijfrecht
 
 ## Multimodale meterkastbeoordeling (BL-020)
 
-Standaard wordt geen foto extern verstuurd. Activeer met een model dat beeldinput ondersteunt:
+Standaard wordt geen foto extern verstuurd. Activeer met een model dat beeldinput ondersteunt. Voorbeeld OpenRouter:
 
 ```env
 AI_PROVIDER=openai
+AI_BASE_URL=https://openrouter.ai/api/v1
 AI_API_KEY=...
-AI_MODEL=...
-AI_BUDGET_DAILY_CENTS=500
-AI_BUDGET_MONTHLY_CENTS=5000
+AI_MODEL=google/gemini-2.5-flash-lite
+AI_VISION_MODEL=google/gemini-2.5-flash-lite
+AI_HTTP_REFERER=https://staging.intake-engine.nl
+AI_APP_TITLE=Digitale Opname
+AI_BUDGET_DAILY_CENTS=200
+AI_BUDGET_MONTHLY_CENTS=2500
 AI_BUDGET_RESERVE_CENTS_PER_CALL=1
 AI_BUDGET_INPUT_CENTS_PER_1K_TOKENS=...
 AI_BUDGET_OUTPUT_CENTS_PER_1K_TOKENS=...

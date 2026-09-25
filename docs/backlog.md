@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.58 · **Laatste update:** 2026-09-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.59 · **Laatste update:** 2026-09-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -505,7 +505,7 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 - **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-25 · **PR:** #110 · **Epic:** E4 · **Band:** A · **Volgt op:** BL-006/020/041/049
 - **Aanleiding:** producteigenaar wil de DPIA-/privacytoets-poort voor AI-functies weg; die stond in docs/comments als “pas na DPIA” maar blokkeerde runtime niet.
-- **Resultaat:** geen runtime-DPIA-check gevonden of toegevoegd. Documentatie, config-comments en env-voorbeelden spreken niet langer van een DPIA-activatiepoort. AI hangt van `AI_PROVIDER` / key / featurevlaggen / budgetcaps af. Intact: budgetcaps, PII-redactie, geen beeldbytes in logs/DB, soft-fail, intakeveld `privacy_consent`. ADRs blijven ongewijzigd (immutabel).
+- **Resultaat:** geen runtime-DPIA-check gevonden of toegevoegd. Documentatie, config-comments en env-voorbeelden spreken niet langer van een DPIA-activatiepoort. AI hangt van `AI_PROVIDER` / key / featurevlaggen / budgetcaps af. Daarnaast: expliciete OpenRouter-docs, optioneel `AI_VISION_MODEL` + attributieheaders, key-redactie in exceptions. Intact: budgetcaps, PII-redactie, geen beeldbytes in logs/DB, soft-fail, intakeveld `privacy_consent`. ADRs blijven ongewijzigd (immutabel).
 - **Acceptatie:** `composer check` groen; docs/CHANGELOG/backlog bijgewerkt.
 
 ### BL-007 — AI-uitbreidingen

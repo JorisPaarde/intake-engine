@@ -182,3 +182,123 @@ test('openai client requires an api key', function () {
 
     app(OpenAiClient::class)->complete(aiRequest());
 })->throws(AiClientException::class);
+
+test('openai client posts to the configured OpenAI-compatible base URL', function () {
+    config([
+        'ai.provider' => 'openai',
+        'ai.api_key' => 'test-key',
+        'ai.base_url' => 'https://openrouter.ai/api/v1',
+        'ai.model' => 'google/gemini-2.5-flash-lite',
+    ]);
+
+    Http::fake([
+        'https://openrouter.ai/api/v1/chat/completions' => Http::response([
+            'model' => 'google/gemini-2.5-flash-lite',
+            'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
+            'choices' => [['message' => ['content' => json_encode(['summary' => 'ok', 'highlights' => ['x']])]]],
+        ], 200),
+    ]);
+
+    app(OpenAiClient::class)->complete(aiRequest());
+
+    Http::assertSent(function ($request): bool {
+        return $request->url() === 'https://openrouter.ai/api/v1/chat/completions'
+            && ($request->data()['model'] ?? null) === 'google/gemini-2.5-flash-lite'
+            && $request->hasHeader('Authorization', 'Bearer test-key');
+    });
+});
+
+test('openai client sends optional OpenRouter attribution headers', function () {
+    config([
+        'ai.provider' => 'openai',
+        'ai.api_key' => 'test-key',
+        'ai.base_url' => 'https://openrouter.ai/api/v1',
+        'ai.http_referer' => 'https://staging.intake-engine.nl',
+        'ai.app_title' => 'Digitale Opname',
+    ]);
+
+    Http::fake([
+        '*/chat/completions' => Http::response([
+            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+            'choices' => [['message' => ['content' => json_encode(['summary' => 'ok', 'highlights' => []])]]],
+        ], 200),
+    ]);
+
+    app(OpenAiClient::class)->complete(aiRequest());
+
+    Http::assertSent(function ($request): bool {
+        return $request->hasHeader('HTTP-Referer', 'https://staging.intake-engine.nl')
+            && $request->hasHeader('X-Title', 'Digitale Opname')
+            && $request->hasHeader('X-OpenRouter-Title', 'Digitale Opname');
+    });
+});
+
+test('openai client uses vision_model for image requests when set', function () {
+    config([
+        'ai.provider' => 'openai',
+        'ai.api_key' => 'test-key',
+        'ai.model' => 'text-only-model',
+        'ai.vision_model' => 'vision-model-id',
+    ]);
+
+    Http::fake([
+        '*/chat/completions' => Http::response([
+            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+            'choices' => [['message' => ['content' => json_encode(['ok' => true])]]],
+        ], 200),
+    ]);
+
+    app(OpenAiClient::class)->complete(new AiCompletionRequest(
+        prompt: 'Beoordeel als JSON.',
+        input: ['task' => 'fusebox'],
+        promptVersion: 'fusebox-assessment-v1',
+        images: [new AiImageInput('image/jpeg', 'bytes')],
+    ));
+
+    Http::assertSent(fn ($request): bool => ($request->data()['model'] ?? null) === 'vision-model-id');
+});
+
+test('openai client falls back to AI_MODEL for images when vision_model is empty', function () {
+    config([
+        'ai.provider' => 'openai',
+        'ai.api_key' => 'test-key',
+        'ai.model' => 'shared-multimodal',
+        'ai.vision_model' => null,
+    ]);
+
+    Http::fake([
+        '*/chat/completions' => Http::response([
+            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+            'choices' => [['message' => ['content' => json_encode(['ok' => true])]]],
+        ], 200),
+    ]);
+
+    app(OpenAiClient::class)->complete(new AiCompletionRequest(
+        prompt: 'Beoordeel als JSON.',
+        input: ['task' => 'fusebox'],
+        promptVersion: 'fusebox-assessment-v1',
+        images: [new AiImageInput('image/jpeg', 'bytes')],
+    ));
+
+    Http::assertSent(fn ($request): bool => ($request->data()['model'] ?? null) === 'shared-multimodal');
+});
+
+test('openai client never puts the api key in exception messages', function () {
+    config([
+        'ai.provider' => 'openai',
+        'ai.api_key' => 'super-secret-openrouter-key',
+        'ai.base_url' => 'https://openrouter.ai/api/v1',
+    ]);
+
+    Http::fake(function () {
+        throw new RuntimeException('upstream failed with key=super-secret-openrouter-key');
+    });
+
+    try {
+        app(OpenAiClient::class)->complete(aiRequest());
+        expect(false)->toBeTrue();
+    } catch (AiClientException $e) {
+        expect($e->getMessage())->not->toContain('super-secret-openrouter-key')
+            ->and($e->getMessage())->toContain('[redacted]');
+    }
+});
