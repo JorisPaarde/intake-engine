@@ -42,7 +42,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| — | BL-109 | Dossiersynthese: enum-normalisatie + volledige validatiefouten in ai_runs | E9 | in_progress | high | AI · bij BL-041/108 · staging intake 63 |
+| — | BL-109 | Dossiersynthese: enum-normalisatie + volledige validatiefouten in ai_runs | E9 | done | high | AI · bij BL-041/108 · staging intake 63 · PR #111 |
 | — | BL-108 | DPIA-/privacytoets-poort voor AI verwijderd | E4 | done | high | A · product/AI · bij BL-006/020/041/049 |
 | — | BL-107 | App-huisstijl volgens productmockups + rustiger werkplek, Vraag de klant in één klik | E5/E6 | in_progress | high | UX/visueel · bij BL-043/053/099/100 |
 | — | BL-106 | `public/.user.ini`: `memory_limit=512M` persist in git | E1 | done | medium | A · hosting/deploy · bij BL-003 · PR #109 |
