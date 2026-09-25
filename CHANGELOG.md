@@ -4,6 +4,11 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Changed
+
+- **DPIA-poort voor AI verwijderd (BL-108):** er was geen runtime-DPIA-check in code; wel documentatie-, comment- en env-teksten die externe AI “pas na DPIA” blokkeerden als procespoort. Die formulering is weg. AI hangt alleen nog van normale provider-/featurevlag-/budgetconfiguratie af. Intact: budgetcaps, PII-redactie (geen e-mail/telefoon/adres in payloads), geen beeldbytes in logs/DB, soft-fail zonder provider/key, en intakeveld `privacy_consent`.
+- **OpenRouter/OpenAI-compatibele gateway (BL-108):** `AI_BASE_URL` was al configureerbaar; toegevoegd: optioneel `AI_VISION_MODEL` (beeldcalls), optionele attributieheaders `AI_HTTP_REFERER`/`AI_APP_TITLE` (`HTTP-Referer`, `X-Title`, `X-OpenRouter-Title`), en key-redactie in exceptionteksten. Docs/env-voorbeelden beschrijven OpenRouter (`https://openrouter.ai/api/v1`). Defaults ongewijzigd.
+
 ### Config
 
 - **`public/.user.ini`: `memory_limit = 512M` (BL-106):** spiegelt live hosting zodat production-deploys de hogere limiet niet meer overschrijven. Bestaande uploadlimieten ongewijzigd.
@@ -292,7 +297,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Known limitations
 
-- De externe LLM-clientlaag bestaat, maar activering met echte klantdata blijft uit tot DPIA, key, budgetcaps en staging-validatie zijn afgerond.
+- De externe LLM-clientlaag bestaat; activering is env-only (`AI_PROVIDER`, key, featurevlaggen, budgetcaps). Zonder die config soft-failt AI.
 - Staging-mails (klantlink, afrondingsnotificatie, herinnering) wachten op echte SMTP in `shared/.env` (bij `MAIL_MAILER=log` skip).
 - Soft-delete-UI voor intakes ontbreekt nog; BL-009-purge is klaar zodra dossiers soft-deleted worden.
 - Demo-user `installateur@example.com` ontbreekt op staging (deploy seedt alleen templates).

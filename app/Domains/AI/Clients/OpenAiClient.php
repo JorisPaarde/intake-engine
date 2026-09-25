@@ -10,13 +10,15 @@ use App\Domains\AI\DTOs\AiCompletionResult;
 use App\Domains\AI\Exceptions\AiClientException;
 use App\Domains\AI\Services\AiBudgetGuard;
 use App\Domains\AI\Services\AiInputRedactor;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 
 /**
- * OpenAI-compatible chat client behind AiClientInterface (BL-006). Requires an API key
- * in .env (AI_API_KEY); default provider stays `null` until DPIA + key are in place.
- * PII is redacted before sending (AiInputRedactor). Any failure raises AiClientException,
- * which the callers treat as a soft-fail — the intake flow never depends on this.
+ * OpenAI-compatible chat client behind AiClientInterface (BL-006). Works with OpenAI
+ * and OpenAI-compatible gateways (e.g. OpenRouter via AI_BASE_URL). Requires AI_API_KEY
+ * and budget caps when enforced; default provider stays `null`. PII is redacted before
+ * sending (AiInputRedactor). Failures raise AiClientException (soft-fail for callers).
+ * API keys never appear in exception messages.
  */
 final class OpenAiClient implements AiClientInterface
 {
@@ -34,9 +36,7 @@ final class OpenAiClient implements AiClientInterface
         }
 
         $baseUrl = rtrim((string) config('ai.base_url', 'https://api.openai.com/v1'), '/');
-        $model = $request->model !== null && trim($request->model) !== ''
-            ? trim($request->model)
-            : (string) config('ai.model', 'gpt-4o-mini');
+        $model = $this->resolveModel($request);
         $timeout = (int) config('ai.timeout_seconds', 20);
 
         $this->budgetGuard->ensureOpenAiBudgetAvailable();
@@ -61,10 +61,7 @@ final class OpenAiClient implements AiClientInterface
         }
 
         try {
-            $response = Http::baseUrl($baseUrl)
-                ->timeout($timeout)
-                ->withToken($apiKey)
-                ->asJson()
+            $response = $this->httpClient($baseUrl, $apiKey, $timeout)
                 ->post('/chat/completions', [
                     'model' => $model,
                     'temperature' => 0.2,
@@ -75,7 +72,10 @@ final class OpenAiClient implements AiClientInterface
                     ],
                 ]);
         } catch (\Throwable $e) {
-            throw new AiClientException('Externe AI-aanroep mislukt: '.$e->getMessage(), previous: $e);
+            throw new AiClientException(
+                'Externe AI-aanroep mislukt: '.$this->safeExceptionMessage($e->getMessage(), $apiKey),
+                previous: $e,
+            );
         }
 
         if ($response->failed()) {
@@ -110,6 +110,62 @@ final class OpenAiClient implements AiClientInterface
             imageCount: $imageCount,
             estimatedCostCents: $this->budgetGuard->estimateCostCents($inputTokens, $outputTokens, $imageCount),
         );
+    }
+
+    private function resolveModel(AiCompletionRequest $request): string
+    {
+        if ($request->model !== null && trim($request->model) !== '') {
+            return trim($request->model);
+        }
+
+        if ($request->images !== []) {
+            $visionModel = trim((string) config('ai.vision_model', ''));
+
+            if ($visionModel !== '') {
+                return $visionModel;
+            }
+        }
+
+        return (string) config('ai.model', 'gpt-4o-mini');
+    }
+
+    private function httpClient(string $baseUrl, string $apiKey, int $timeout): PendingRequest
+    {
+        $client = Http::baseUrl($baseUrl)
+            ->timeout($timeout)
+            ->withToken($apiKey)
+            ->asJson();
+
+        $headers = [];
+        $referer = trim((string) config('ai.http_referer', ''));
+        $appTitle = trim((string) config('ai.app_title', ''));
+
+        if ($referer !== '') {
+            $headers['HTTP-Referer'] = $referer;
+        }
+
+        if ($appTitle !== '') {
+            // OpenRouter historically accepted X-Title; current docs also use X-OpenRouter-Title.
+            $headers['X-Title'] = $appTitle;
+            $headers['X-OpenRouter-Title'] = $appTitle;
+        }
+
+        if ($headers !== []) {
+            $client = $client->withHeaders($headers);
+        }
+
+        return $client;
+    }
+
+    private function safeExceptionMessage(string $message, string $apiKey): string
+    {
+        $safe = $message;
+
+        if ($apiKey !== '' && str_contains($safe, $apiKey)) {
+            $safe = str_replace($apiKey, '[redacted]', $safe);
+        }
+
+        return $safe;
     }
 
     private function integerUsage(mixed $value): ?int
