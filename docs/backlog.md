@@ -513,7 +513,7 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 - **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-25 · **PR:** #111 · **Epic:** E9 · **Band:** AI · **Volgt op:** BL-041/108 · **Ref:** staging intake 63 / ai_run 85
 - **Aanleiding:** na meterkastfoto faalde `dossier_synthesis` soft met `ValidationException` op `option_proposals.0.connections.2.length_class` (model leverde waarde buiten `short|medium|long|unknown`); provider-call zelf slaagde. `error_message` toonde alleen de eerste fout (“and 1 more error”).
-- **Resultaat:** `DossierSynthesisOutputNormalizer` + `AiEnumNormalizer` normaliseren enums vóór validatie (synoniemen/haakjes; `unknown`-fallback waar toegestaan; `approved` nooit gecoeerd). Prompt `dossier-synthesis-v3` met strikte tokens. `AiValidationFailureFormatter` schrijft alle attributen + afgewezen waarde naar log/`ai_runs.error_message`. Soft-fail/budget/PII/beeldbytes intact. Geen env-only fix.
+- **Resultaat:** `DossierSynthesisOutputNormalizer` + `AiEnumNormalizer` normaliseren enums vóór validatie (synoniemen/haakjes; `unknown`-fallback waar toegestaan; `approved` wordt nooit genormaliseerd naar een schrijfbare status). Prompt `dossier-synthesis-v3` met strikte tokens. `AiValidationFailureFormatter` schrijft alle attributen + afgewezen waarde naar log/`ai_runs.error_message`. Soft-fail/budget/PII/beeldbytes intact. Geen env-only fix.
 - **Acceptatie:** Pest met afwijkende `length_class` slaagt; `composer check` groen.
 
 ### BL-007 — AI-uitbreidingen
