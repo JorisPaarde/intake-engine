@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.79 · **Laatste update:** 2026-09-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.80 · **Laatste update:** 2026-09-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -12,6 +12,7 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
+| Dossiersynthese enums na fotoupload (BL-109) | todo | - | Op staging met OpenRouter/Gemini: tekst-AI-voorstel ok; upload meterkastfoto als routesegment → AI-refresh slaagt (geen soft-fail op `length_class`); bij eventuele validatiefout toont `ai_runs.error_message` alle attributen + afgewezen waarde (geen beeldbytes/key). |
 | App-huisstijl + rustiger werkplek (BL-107) | todo | - | Op 1280 px en ~390 px: login, opnamelijst, **Nieuwe opname**, werkplek en klantwizard in salie/bosgroen-stijl zonder blauw/Laravel-logo; **Alle onderdelen** met statusstippen, alleen eerstvolgende open punt oker; **Maten invullen →** opent maten van de juiste ruimte; **Vraag de klant** maakt + verstuurt direct (statusmelding, geen formulier); **Uitkomst** niet zichtbaar tenzij via CTA. |
 | Publieke XML-sitemap + robots (BL-105) | todo | - | Na production-deploy: `GET /sitemap.xml` is valide `urlset` met homepage-URL (geen trailing slash); `/robots.txt` bevat `Sitemap: https://intake-engine.nl/sitemap.xml`; geen `/login`/`/dashboard` in de sitemap. |
 | Haalbaarheid vóór klantvoorkeur (BL-103) | todo | - | Op werkplek `#demo-proposal`: markeer ≥2 keuzes haalbaar → **Voorkeurstaak versturen**; 0/1 haalbaar toont geen voorkeur-CTA; klant ziet alleen haalbare labels + **Geen voorkeur**; antwoord selecteert niets; wijzig haalbare set → verouderd-banner. |

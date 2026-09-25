@@ -1,6 +1,6 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 3.10 · **Laatste update:** 2026-09-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.11 · **Laatste update:** 2026-09-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **samenvatting, aandachtspunten, lokale fotokwaliteit, tekst-/foto-afleiding, verbindingsgebonden routeanalyse en bewijsgerichte dossiersynthese zijn geïmplementeerd**. Externe provider en tekst-/foto-/route-/dossierinferentie staan standaard uit (provider + key + featurevlaggen + budgetcaps; soft-fail zonder die config). OpenAI-compatibele gateways (o.a. OpenRouter) via `AI_BASE_URL`.
 
@@ -67,6 +67,7 @@ App\Domains\AI\
   Services\AiBudgetGuard
   Services\PromptVersionRepository
   Services\SurveySynthesisContextBuilder
+  Services\AiEnumNormalizer | DossierSynthesisOutputNormalizer | AiValidationFailureFormatter
   Services\LocalRequestIntentParser | TemplateQuestionCatalogBuilder | RequestPrefillContextBuilder
   Services\RequestPrefillOutcomeClassifier | EvaluateRequestIntent
   Prompts\summary\ | attention_points\ | fusebox_assessment\
@@ -167,8 +168,8 @@ Dossiersynthese loopt na iedere afgeronde klant-, installateur- of gerichte bijd
 
 1. `DossierManager` synchroniseert antwoorden, bronnen, uploads en klantbijdragen; `SurveySynthesisContextBuilder` voegt gewenste ruimtes, dossierrecords, bestaande posities, opties en verbindingen toe.
 2. Identiteit, adres, coördinaten, geometrie, opslagpaden en ongecontroleerde identifiers worden verwijderd. Maximaal twaalf relevante dossierfoto's gaan als analysevariant mee, evenwichtig over dossieronderwerpen.
-3. Prompt `dossier-synthesis-v2` mag alleen beeldgebonden kandidaatposities voorstellen met geldige onderwerp-/ruimte- en `dossier_image:*`-referenties.
-4. Servervalidatie controleert enumwaarden, alle evidence-referenties, configuratiecardinaliteit, positiegrenzen, drie verbindingstypen en een eigen koel-/condensroute voor iedere binnenpositie.
+3. Prompt `dossier-synthesis-v3` mag alleen beeldgebonden kandidaatposities voorstellen met geldige onderwerp-/ruimte- en `dossier_image:*`-referenties; enumvelden (o.a. `length_class`, `cost_impact`, `status`) moeten exacte tokens zijn zonder synoniemen of haakjes.
+4. Vóór validatie normaliseert `DossierSynthesisOutputNormalizer` afwijkende enumstrings (trim/lowercase/synoniemen; `unknown`-fallback waar toegestaan). Servervalidatie controleert daarna enumwaarden, alle evidence-referenties, configuratiecardinaliteit, positiegrenzen, drie verbindingstypen en een eigen koel-/condensroute voor iedere binnenpositie. Bij `ValidationException` schrijft `AiValidationFailureFormatter` alle attributen + afgewezen waarde (ingekort, geen beeldbytes/PII) naar log en `ai_runs.error_message`.
 5. Een geldige run vervangt alleen eerdere nog-kandidaat AI-posities/-opties en nog-voorgestelde AI-taken. Geselecteerde of menselijke objecten blijven staan.
 6. AI-klanttaken blijven `proposed`; pas na installateurscontrole maakt de app de beperkte klanttaak en activeert zij toegang. Geen AI-actie keurt verbindingen of offertebesluiten goed.
 7. Vlak vóór opslag wordt dezelfde geschoonde context inclusief beeldmanifest onder de intake-lock opnieuw gehasht. Een stale resultaat wordt niet toegepast.

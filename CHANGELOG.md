@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Fixed
+
+- **Dossiersynthese faalde soft op afwijkende enums (BL-109):** na een meterkast-/routefoto leverde Gemini via OpenRouter waarden als `short (<5m)` / Nederlandse synoniemen voor `length_class` (en vergelijkbare enumvelden). Servervalidatie gooide `ValidationException`; alleen de eerste fout kwam in `ai_runs.error_message`. Nu: normalisatie vóór validatie (trim/lowercase/synoniemen; `unknown`-fallback waar toegestaan), prompt `dossier-synthesis-v3` met strikte enumtokens, en bij validatiefout alle attributen + afgewezen waarde (ingekort, geen beeldbytes/PII) in log en `ai_runs.error_message`. Soft-fail, budgetcaps en privacy ongewijzigd.
+
 ### Changed
 
 - **DPIA-poort voor AI verwijderd (BL-108):** er was geen runtime-DPIA-check in code; wel documentatie-, comment- en env-teksten die externe AI “pas na DPIA” blokkeerden als procespoort. Die formulering is weg. AI hangt alleen nog van normale provider-/featurevlag-/budgetconfiguratie af. Intact: budgetcaps, PII-redactie (geen e-mail/telefoon/adres in payloads), geen beeldbytes in logs/DB, soft-fail zonder provider/key, en intakeveld `privacy_consent`.

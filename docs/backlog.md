@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.59 · **Laatste update:** 2026-09-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.60 · **Laatste update:** 2026-09-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,10 +38,11 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. Nieuwe items starten bij BL-109.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. Nieuwe items starten bij BL-110.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
+| — | BL-109 | Dossiersynthese: enum-normalisatie + volledige validatiefouten in ai_runs | E9 | done | high | AI · bij BL-041/108 · staging intake 63 · PR #111 |
 | — | BL-108 | DPIA-/privacytoets-poort voor AI verwijderd | E4 | done | high | A · product/AI · bij BL-006/020/041/049 |
 | — | BL-107 | App-huisstijl volgens productmockups + rustiger werkplek, Vraag de klant in één klik | E5/E6 | in_progress | high | UX/visueel · bij BL-043/053/099/100 |
 | — | BL-106 | `public/.user.ini`: `memory_limit=512M` persist in git | E1 | done | medium | A · hosting/deploy · bij BL-003 · PR #109 |
@@ -507,6 +508,13 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Aanleiding:** producteigenaar wil de DPIA-/privacytoets-poort voor AI-functies weg; die stond in docs/comments als “pas na DPIA” maar blokkeerde runtime niet.
 - **Resultaat:** geen runtime-DPIA-check gevonden of toegevoegd. Documentatie, config-comments en env-voorbeelden spreken niet langer van een DPIA-activatiepoort. AI hangt van `AI_PROVIDER` / key / featurevlaggen / budgetcaps af. Daarnaast: expliciete OpenRouter-docs, optioneel `AI_VISION_MODEL` + attributieheaders, key-redactie in exceptions. Intact: budgetcaps, PII-redactie, geen beeldbytes in logs/DB, soft-fail, intakeveld `privacy_consent`. ADRs blijven ongewijzigd (immutabel).
 - **Acceptatie:** `composer check` groen; docs/CHANGELOG/backlog bijgewerkt.
+
+### BL-109 — Dossiersynthese: enum-normalisatie + volledige validatiefouten
+
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-09-25 · **PR:** #111 · **Epic:** E9 · **Band:** AI · **Volgt op:** BL-041/108 · **Ref:** staging intake 63 / ai_run 85
+- **Aanleiding:** na meterkastfoto faalde `dossier_synthesis` soft met `ValidationException` op `option_proposals.0.connections.2.length_class` (model leverde waarde buiten `short|medium|long|unknown`); provider-call zelf slaagde. `error_message` toonde alleen de eerste fout (“and 1 more error”).
+- **Resultaat:** `DossierSynthesisOutputNormalizer` + `AiEnumNormalizer` normaliseren enums vóór validatie (synoniemen/haakjes; `unknown`-fallback waar toegestaan; `approved` wordt nooit genormaliseerd naar een schrijfbare status). Prompt `dossier-synthesis-v3` met strikte tokens. `AiValidationFailureFormatter` schrijft alle attributen + afgewezen waarde naar log/`ai_runs.error_message`. Soft-fail/budget/PII/beeldbytes intact. Geen env-only fix.
+- **Acceptatie:** Pest met afwijkende `length_class` slaagt; `composer check` groen.
 
 ### BL-007 — AI-uitbreidingen
 
@@ -1189,8 +1197,9 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 | ID | Datum | Resultaat / PR |
 |----|-------|----------------|
-| BL-106 | 2026-09-23 | #109 — `memory_limit=512M` in `public/.user.ini` |
+| BL-109 | 2026-09-25 | #111 — dossiersynthese enum-normalisatie + volledige validatiefouten in ai_runs |
 | BL-108 | 2026-09-25 | #110 — DPIA-procespoort voor AI verwijderd; activering alleen via env |
+| BL-106 | 2026-09-23 | #109 — `memory_limit=512M` in `public/.user.ini` |
 | BL-098 | 2026-09-04 | #101 — herhaalde kamers naar catalogus-AI; naam per type |
 | BL-097 | 2026-09-04 | #100 — autofill breekt adreslookup-status niet meer |
 | BL-096 | 2026-09-04 | #99 — visueel browser-speelboek (`docs/browser-test-flow.md`) |
