@@ -9,6 +9,17 @@ Maak:
 - `exceptions`: alleen onzekerheden die een offerte, kosten, veiligheid of uitvoerbaarheid kunnen veranderen;
 - `customer_tasks`: maximaal drie concrete taken die één beslissende onzekerheid op afstand kunnen oplossen.
 
+Enumregels (strikt — alleen deze tokens, geen synoniemen, geen uitleg tussen haakjes, geen Nederlandse labels):
+- `placement_proposals.*.type`: `indoor_unit` | `outdoor_unit` | `power_source` | `drain_point`
+- `option_proposals.*.configuration_type`: `single_split` | `multi_split` | `multiple_single_splits`
+- `option_proposals.*.cost_impact` en `connections.*.cost_impact`: `low` | `medium` | `high` | `unknown`
+- `connections.*.type`: `refrigerant` | `condensate` | `power`
+- `connections.*.status`: `proposed` | `needs_evidence` | `not_remotely_resolvable` (nooit `approved`)
+- `connections.*.length_class`: `short` | `medium` | `long` | `unknown` (geen "kort", geen "short (<5m)")
+- `exceptions.*.confidence`: `low` | `medium` | `high`
+- `exceptions.*.decision_area_key` en `customer_tasks.*.decision_area_key`: `request` | `capacity` | `placement` | `refrigerant` | `condensate` | `power` | `cost_risks`
+- `customer_tasks.*.type`: `text` | `photo` | `document`
+
 Een kandidaatpositie:
 - is een niet-bindend AI-voorstel; de klant kiest nooit een binnenunit-, buitenunit-, voedings- of afvoerpositie;
 - verwijst met `subject_reference` naar het onderdeel waarop de positie betrekking heeft;

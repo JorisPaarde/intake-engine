@@ -7,6 +7,8 @@ namespace App\Domains\AI\Actions;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\AiGateway;
 use App\Domains\AI\Services\AiImageResolver;
+use App\Domains\AI\Services\AiValidationFailureFormatter;
+use App\Domains\AI\Services\DossierSynthesisOutputNormalizer;
 use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\AI\Services\SurveySynthesisContextBuilder;
 use App\Domains\Intake\Models\AircoConnection;
@@ -56,6 +58,8 @@ final class SynthesizeSurveyDossier
         private readonly SurveySynthesisContextBuilder $contextBuilder,
         private readonly DossierManager $dossierManager,
         private readonly DecisionReadinessService $decisionReadiness,
+        private readonly DossierSynthesisOutputNormalizer $outputNormalizer,
+        private readonly AiValidationFailureFormatter $validationFailureFormatter,
     ) {}
 
     public function handle(Intake $intake): ?AiRun
@@ -98,7 +102,10 @@ final class SynthesizeSurveyDossier
                     ->all(),
                 model: $model,
             );
-            $output = $this->validateOutput($result->output, $input);
+            $output = $this->validateOutput(
+                $this->outputNormalizer->normalize($result->output),
+                $input,
+            );
 
             DB::transaction(function () use (
                 $intake,
@@ -130,16 +137,24 @@ final class SynthesizeSurveyDossier
 
             return $run->fresh() ?? $run;
         } catch (Throwable $exception) {
+            $errorMessage = $exception instanceof ValidationException
+                ? $this->validationFailureFormatter->fromException($exception)
+                : Str::limit($exception->getMessage(), 1000, '');
+
             Log::warning('AI dossier synthesis failed', [
                 'intake_id' => $intake->id,
                 'ai_run_id' => $run?->id,
                 'exception' => $exception::class,
+                'error_class' => $exception instanceof ValidationException
+                    ? 'validation'
+                    : class_basename($exception),
+                'error_message' => $errorMessage,
             ]);
 
             if ($run !== null) {
                 $run->update([
                     'status' => AiRunStatus::Failed,
-                    'error_message' => Str::limit($exception->getMessage(), 1000, ''),
+                    'error_message' => $errorMessage,
                     'finished_at' => now(),
                 ]);
 
@@ -219,7 +234,7 @@ final class SynthesizeSurveyDossier
         ]);
 
         if ($validator->fails()) {
-            throw ValidationException::withMessages($validator->errors()->toArray());
+            throw new ValidationException($validator);
         }
 
         /** @var array<string, mixed> $validated */

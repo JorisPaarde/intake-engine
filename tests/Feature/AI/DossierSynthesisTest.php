@@ -485,6 +485,51 @@ test('AI synthesis is idempotent and an invalid ungrounded response leaves exist
             ->count())->toBe(1);
 });
 
+test('AI synthesis normalizes deviant length_class instead of failing soft', function () {
+    [$intake] = synthesisSurveyWithPlacements();
+    FakeAiClient::respondUsing(function (AiCompletionRequest $request): array {
+        $output = validDossierSynthesisOutput($request, 'Genormaliseerde lengte');
+        $output['option_proposals'][0]['connections'][0]['length_class'] = 'short (<5m)';
+        $output['option_proposals'][0]['connections'][1]['length_class'] = 'Kort';
+        $output['option_proposals'][0]['connections'][2]['length_class'] = 'ongeveer 12 meter';
+        $output['option_proposals'][0]['cost_impact'] = 'Matig';
+        $output['option_proposals'][0]['connections'][2]['cost_impact'] = 'onbekend';
+
+        return $output;
+    });
+
+    $run = app(SynthesizeSurveyDossier::class)->handle($intake->fresh());
+    $option = AircoInstallationOption::query()->where('intake_id', $intake->id)->sole();
+    $lengths = $option->connections->pluck('length_class')->all();
+
+    expect($run?->status)->toBe(AiRunStatus::Succeeded, $run?->error_message ?? '')
+        ->and($run?->prompt_version)->toBe('dossier-synthesis-v3')
+        ->and($option->cost_impact)->toBe('medium')
+        ->and($lengths)->toBe(['short', 'short', 'unknown']);
+});
+
+test('AI synthesis stores all validation errors with rejected values when enums remain invalid', function () {
+    [$intake] = synthesisSurveyWithPlacements();
+    FakeAiClient::respondUsing(function (AiCompletionRequest $request): array {
+        $output = validDossierSynthesisOutput($request, 'Kapotte enums');
+        // Status "approved" must never be coerced; length_class stays invalid only if we skip unknown fallback — use invalid status + invalid decision area without unknown fallback.
+        $output['option_proposals'][0]['connections'][2]['status'] = 'approved';
+        $output['exceptions'][0]['decision_area_key'] = 'not_a_real_area';
+
+        return $output;
+    });
+
+    $run = app(SynthesizeSurveyDossier::class)->handle($intake->fresh());
+
+    expect($run?->status)->toBe(AiRunStatus::Failed)
+        ->and($run?->error_message)->toContain('connections.2.status')
+        ->and($run?->error_message)->toContain('approved')
+        ->and($run?->error_message)->toContain('exceptions.0.decision_area_key')
+        ->and($run?->error_message)->toContain('not_a_real_area')
+        ->and($run?->error_message)->not->toContain('(and 1 more error)')
+        ->and(AircoInstallationOption::query()->where('intake_id', $intake->id)->count())->toBe(0);
+});
+
 test('installer explicitly sends an AI proposed task before customer access becomes active', function () {
     [$intake, $user] = synthesisSurveyWithPlacements();
     FakeAiClient::respondUsing(fn (AiCompletionRequest $request): array => validDossierSynthesisOutput($request));
