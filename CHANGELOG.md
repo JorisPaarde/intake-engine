@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-02
+
+Productie-release `v1.2.0`. Bevat alles na `v1.1.0`: sitemap (BL-105), `memory_limit` (BL-106), nieuwe app-huisstijl en rustiger werkplek (BL-107), OpenRouter-ondersteuning zonder DPIA-procespoort (BL-108), enum-normalisatie in de dossiersynthese (BL-109) en de fixes uit de demo-walks van 24 september (BL-110–BL-115).
+
 ### Fixed
 
 - **Ruimtematen verdwenen na opslaan (BL-110):** workspace-GET riep `DossierManager::initialize()` → `syncRooms` die installateursmaten overschreef met lege template-brugantwoorden. Nu: maten mergen (bestaande winnen); naam/gebruik van bestaande kamers blijven. Waarschuwing bij ongeopgeslagen matenformulier. Featuretest dekt opslaan + herladen.

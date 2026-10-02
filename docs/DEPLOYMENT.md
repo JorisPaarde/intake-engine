@@ -168,7 +168,7 @@ MySQL commit DDL-stappen zoals `ALTER TABLE` ook wanneer een latere stap in deze
 
 ### Production
 
-**Huidige productieversie:** `v1.1.0` (`d6e60ea6`), gedeployed 2026-09-06 via [run 34046769097](https://github.com/JorisPaarde/intake-engine/actions/runs/34046769097). Werk deze regel bij bij iedere production-deploy.
+**Huidige productieversie:** `v1.2.0`, gedeployed 2026-10-02 via tag `v1.2.0` (Actions → **Deploy production**). Vorige: `v1.1.0` (`d6e60ea6`, 2026-09-06, [run 34046769097](https://github.com/JorisPaarde/intake-engine/actions/runs/34046769097)). Werk deze regel bij bij iedere production-deploy.
 
 1. Zorg dat de te releasen commit op `main` staat en CI groen is.
 2. Verplaats in `CHANGELOG.md` de items onder `[Unreleased]` naar een nieuwe sectie `## [x.y.z] - JJJJ-MM-DD`.

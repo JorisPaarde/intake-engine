@@ -17,7 +17,7 @@ De centrale opname is het productmodel; de data-gedreven intake-engine is één 
 | Production | https://intake-engine.nl/ |
 | Staging | https://staging.intake-engine.nl/ |
 
-Productie draait **`v1.1.0`** (`d6e60ea6`, gedeployed 2026-09-06). Staging volgt `main` en loopt daarop vooruit; wat nog niet live staat, staat in [CHANGELOG § Unreleased](CHANGELOG.md#unreleased).
+Productie draait **`v1.2.0`** (gedeployed 2026-10-02). Staging volgt `main` en loopt daarop vooruit; wat nog niet live staat, staat in [CHANGELOG § Unreleased](CHANGELOG.md#unreleased).
 
 Inloggen op `/login`, dashboard op `/dashboard`, health-check op `/health`. Beide omgevingen gebruiken geldig HTTPS en hebben een eigen `.env`, app-key, sessiecookie, database, storage en releaseboom. `main` deployt naar staging; een `v*`-tag of bewuste handmatige production-dispatch deployt naar production.
 
