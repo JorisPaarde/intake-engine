@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.60 · **Laatste update:** 2026-10-02 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.61 · **Laatste update:** 2026-10-02 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -97,7 +97,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-069 | Geen vragenlijst-100% als ‘opname compleet’ | E6 | done | high | A · product/demo/UX |
 | — | BL-070 | Demo-tour: één progressielaag | E5 | done | medium | A · product/demo/UX |
 | — | BL-071 | Rest-UI op language.md | E5 | done | high | A · product/demo/UX |
-| — | BL-072 | Production-release van Unreleased | E5 | ready | medium | A · operationeel |
+| — | BL-072 | Production-release van Unreleased | E5 | done | medium | A · operationeel (done) |
 | — | BL-073 | Demo trial-killers: klantlink NL, geen Voorbeeldklant, eerlijke voortgang | E5 | done | high | A · product/demo/UX |
 | — | BL-074 | Offerte-kritisch bewijs na installateurstrial (meterkast, fase, stopcontacten, rondom huis, kruipruimte, vloerisolatie, maten) | E3/E7/E9 | done | high | product · airco-pad |
 | — | BL-075 | Demo-voorbeelddossier mag live PDOK-luchtfoto niet verbergen | E5 | done | high | A · product/demo |
@@ -662,11 +662,12 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-072 — Production-release van Unreleased
 
-- **Status:** ready · **Prioriteit:** medium · **Datum:** 2026-08-24 · **Epic:** E5 · **Band:** A (operationeel)
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-10-02 · **PR:** #112 · **Epic:** E5 · **Band:** A (operationeel)
 - **Aanleiding:** enige git-tag is v1.0.0 (2026-07-22). Dossier-product, nieuwe demo, taal en werkplek staan in CHANGELOG [Unreleased]. Production-smoke via tag/dispatch is todo. Live vs staging-versie is onzeker.
 - **Doel:** bewuste production-release ná staging-smoke van BL-001, of documenteren welke commit nu op production draait.
 - **Scope:** README/DEPLOYMENT productieversie; tag + `/health`-smoke óf expliciete notitie bij dispatch zonder tag; geen tag vóór BL-001 staging-smoke.
 - **Acceptatie:** README/DEPLOYMENT state the live production version; either a new tag with /health production smoke, or an explicit note if production was dispatched without tag. Do not tag until BL-001 staging smoke passes.
+- **Stand 2026-10-02:** `v1.1.0` (`d6e60ea6`) is getagd en staat sinds 2026-09-06 op production ([deploy-run 34046769097](https://github.com/JorisPaarde/intake-engine/actions/runs/34046769097), groen). CHANGELOG heeft nu een eigen `[1.1.0] - 2026-09-06`-sectie; README en DEPLOYMENT noemen de live versie. De `/health`-smoke van die release is niet door de agent zelf gecontroleerd (egress naar de live sites is in de cloud-sandbox geblokkeerd). **Release 2026-10-02:** op expliciete go van de producteigenaar is `[Unreleased]` (BL-105–BL-115) uitgebracht als `v1.2.0` (CHANGELOG-sectie + tag → Deploy production). De BL-001-staging-smoke was op dat moment nog niet uitgevoerd; die blijft onder BL-001 open. Volgende releases volgen het stappenplan in DEPLOYMENT § Production.
 
 ### BL-073 — Demo trial-killers: klantlink NL, geen Voorbeeldklant, eerlijke voortgang
 
@@ -1138,7 +1139,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-050 — Productfunnel in JPWebcreation-huisstijl
 
-- **Status:** in_progress · **Prioriteit:** medium · **Epic:** E5 · **Band:** A
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-08-05 · **PR:** #64 · **Epic:** E5 · **Band:** A
 - **Aanleiding:** de publieke productfunnel gebruikte nog de cool-grijze Apple-achtige marketingstyling, terwijl jpwebcreation.nl de gewenste warmere huisstijl (groen/amber/paper) al heeft.
 - **Doel:** laat kleuren, typografie en knop-/oppervlaktestijl van `/` aansluiten op jpwebcreation.nl, zonder de ingelogde app (BL-032 `brand.*` / tenantkleuren) te wijzigen.
 - **Scope:** aparte `marketing.*`-tokens; Inter alleen op de homepage; hero-gradient, amber-CTA’s, coral eyebrows, paper/mist-vlakken en productmocks in dezelfde huisstijl. Copy, sectiestructuur, demo en interesseflow blijven functioneel gelijk.
@@ -1245,6 +1246,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 | ID | Datum | Resultaat / PR |
 |----|-------|----------------|
+| BL-072 | 2026-10-02 | #112 — `v1.1.0` vastgelegd en `v1.2.0` (BL-105–115) naar production |
 | BL-110–115 | 2026-10-02 | demo-kritiek 24 sep: maten-persist, AI-foutstijl, je/u, NL-foutpagina’s, sticky clicks, klantlink 410 |
 | BL-109 | 2026-09-25 | #111 — dossiersynthese enum-normalisatie + volledige validatiefouten in ai_runs |
 | BL-108 | 2026-09-25 | #110 — DPIA-procespoort voor AI verwijderd; activering alleen via env |
