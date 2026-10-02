@@ -1,6 +1,6 @@
 # UI-taal — gecontroleerd eenvoudig Nederlands
 
-> **Documentversie:** 1.8 · **Laatste update:** 2026-09-06 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.9 · **Laatste update:** 2026-10-02 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: bron van waarheid voor gebruikersgerichte teksten in de app (UI, mails, templatevragen, flash-/foutmeldingen). Productdocumentatie mag technischer blijven.
 
@@ -18,7 +18,7 @@ Schrijf zodat klant en installateur snel begrijpen wat ze moeten doen. Volg de p
 6. **Vaste termen.** Gebruik overal dezelfde woorden voor hetzelfde ding (zie woordenlijst).
 7. **Geen overbodige woorden.** Schrap “digitale”, “technisch”, “gericht” als die niets toevoegen voor de lezer.
 8. **Domeinwoorden mogen blijven** als installateurs ze dagelijks gebruiken: airco, offerte, opname, binnenunit, buitenunit, koelleiding, condensafvoer, multi-split, single-split, meterkast, vrije groep.
-9. **Aanspreekvorm: je.** Nieuwe UI-copy (installateur, demo, flash-/foutmeldingen) gebruikt **je/jij/jouw**, niet **u/uw**. Gepubliceerde klanttemplatevragen blijven immutabel (ADR-0001); wijzig die alleen via een nieuwe templateversie.
+9. **Aanspreekvorm: je.** Alle gebruikersgerichte copy (installateur, klant, demo, flash-/foutmeldingen, klantmails, auth) gebruikt **je/jij/jouw**, niet **u/uw**. Gepubliceerde klanttemplatevragen blijven immutabel (ADR-0001); wijzig die alleen via een nieuwe templateversie.
 
 ## Woordenlijst (voorkeur)
 

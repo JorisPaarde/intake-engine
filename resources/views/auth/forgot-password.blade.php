@@ -1,6 +1,6 @@
 <x-guest-layout>
     <div class="mb-4 text-sm text-gray-600">
-        Wachtwoord vergeten? Geen probleem. Vul uw e-mailadres in. U krijgt een link om een nieuw wachtwoord te kiezen.
+        Wachtwoord vergeten? Geen probleem. Vul je e-mailadres in. Je krijgt een link om een nieuw wachtwoord te kiezen.
     </div>
 
     <!-- Session Status -->

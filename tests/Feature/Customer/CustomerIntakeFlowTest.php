@@ -60,7 +60,8 @@ test('invalid or revoked customer token is refused', function () {
     ]);
 
     $this->get(route('customer.intake.show', $intake->access_token))
-        ->assertNotFound();
+        ->assertStatus(410)
+        ->assertSee('Deze link werkt niet meer');
 });
 
 test('an open Livewire session stops when its customer token is revoked', function () {
@@ -69,7 +70,7 @@ test('an open Livewire session stops when its customer token is revoked', functi
 
     $intake->update(['token_revoked_at' => now()]);
 
-    $component->call('next')->assertStatus(404);
+    $component->call('next')->assertStatus(410);
 });
 
 test('token for a different intake does not expose another dossier', function () {

@@ -1,11 +1,11 @@
 <x-guest-layout>
     <div class="mb-4 text-sm text-gray-600">
-        Bedankt voor uw registratie. Bevestig eerst uw e-mailadres via de link die we net hebben gestuurd. Geen mail ontvangen? Vraag dan een nieuwe link aan.
+        Bedankt voor je registratie. Bevestig eerst je e-mailadres via de link die we net hebben gestuurd. Geen mail ontvangen? Vraag dan een nieuwe link aan.
     </div>
 
     @if (session('status') == 'verification-link-sent')
         <div class="mb-4 font-medium text-sm text-green-600">
-            Er is een nieuwe bevestigingslink gestuurd naar het e-mailadres van uw registratie.
+            Er is een nieuwe bevestigingslink gestuurd naar het e-mailadres van je registratie.
         </div>
     @endif
 

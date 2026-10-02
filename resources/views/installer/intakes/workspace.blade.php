@@ -89,6 +89,12 @@
                 </div>
             @endif
 
+            @if (session('error'))
+                <div class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-900" role="alert">
+                    {{ session('error') }}
+                </div>
+            @endif
+
             @if ($errors->any())
                 <div class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900" role="alert">
                     <p class="font-semibold">Dit onderdeel kon nog niet worden opgeslagen.</p>
@@ -147,9 +153,9 @@
                 </section>
             @endif
 
-            {{-- Sticky next action: compact, below demo modal z-index (BL-054/056) --}}
-            <div class="sticky top-0 z-30 -mx-4 border-b border-gray-200 bg-white/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-white/90 sm:-mx-6 sm:px-6 lg:mx-0 lg:border lg:px-5 lg:py-4 lg:shadow-md">
-                <div class="flex items-center justify-between gap-3">
+            {{-- Sticky next action: pointer-events-none so overlap does not steal Foto maken / field clicks (BL-111) --}}
+            <div class="pointer-events-none sticky top-0 z-30 -mx-4 border-b border-gray-200 bg-white/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-white/90 sm:-mx-6 sm:px-6 lg:mx-0 lg:border lg:px-5 lg:py-4 lg:shadow-md">
+                <div class="pointer-events-auto flex items-center justify-between gap-3">
                     <div class="min-w-0">
                         <p class="eyebrow">Volgende stap</p>
                         <p class="mt-0.5 truncate text-base font-bold text-gray-950">{{ $primarySummary }}</p>
@@ -164,7 +170,7 @@
                 </div>
                 <a
                     href="{{ $primaryCtaHref }}"
-                    class="mt-2 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-marketing-green-dark px-4 text-sm font-semibold text-white hover:bg-marketing-green"
+                    class="pointer-events-auto mt-2 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-marketing-green-dark px-4 text-sm font-semibold text-white hover:bg-marketing-green"
                 >
                     {{ $primaryCtaLabel }}
                 </a>
@@ -352,7 +358,16 @@
                                             <span class="text-xs font-medium text-gray-500 group-open/measures:hidden">Aanpassen</span>
                                             <span class="hidden text-xs font-medium text-gray-500 group-open/measures:inline">Inklappen</span>
                                         </summary>
-                                    <form method="POST" action="{{ route('intakes.workspace.rooms.update', [$intake, $room]) }}" class="mt-2 grid gap-3 bg-gray-50 p-3 sm:grid-cols-2">
+                                    <form
+                                        method="POST"
+                                        action="{{ route('intakes.workspace.rooms.update', [$intake, $room]) }}"
+                                        class="mt-2 grid gap-3 bg-gray-50 p-3 sm:grid-cols-2"
+                                        data-warn-unsaved
+                                        x-data="{ dirty: false }"
+                                        x-on:input="dirty = true"
+                                        x-on:change="dirty = true"
+                                        x-on:submit="dirty = false"
+                                    >
                                         @csrf
                                         <div>
                                             <x-input-label for="room-{{ $room->id }}-name" value="Naam" />
@@ -1460,6 +1475,25 @@
             }
             openTargetDetails();
             window.addEventListener('hashchange', openTargetDetails);
+
+            // Warn when leaving room forms with unsaved typed values (BL-110).
+            window.addEventListener('beforeunload', function (event) {
+                const dirty = Array.from(document.querySelectorAll('[data-warn-unsaved]')).some(function (form) {
+                    if (typeof Alpine === 'undefined' || !Alpine.$data) {
+                        return false;
+                    }
+                    try {
+                        return Boolean(Alpine.$data(form)?.dirty);
+                    } catch (e) {
+                        return false;
+                    }
+                });
+                if (!dirty) {
+                    return;
+                }
+                event.preventDefault();
+                event.returnValue = '';
+            });
         })();
     </script>
 

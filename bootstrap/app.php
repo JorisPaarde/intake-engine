@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Domains\Intake\Exceptions\CustomerLinkUnavailableException;
 use App\Http\Middleware\EnsureCustomerIntakeAccess;
 use App\Http\Middleware\EnsureDevAccess;
 use App\Http\Middleware\LogServerErrorResponses;
@@ -60,6 +61,17 @@ return Application::configure(basePath: dirname(__DIR__))
             static fn (Throwable $e): bool => $e instanceof HttpExceptionInterface
                 && $e->getStatusCode() < 500,
         );
+        $exceptions->dontReport(CustomerLinkUnavailableException::class);
+
+        $exceptions->render(function (CustomerLinkUnavailableException $e, Request $request) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $e->getMessage()], 410);
+            }
+
+            return response()->view('errors.customer-link-unavailable', [
+                'reason' => $e->reason,
+            ], 410);
+        });
 
         $exceptions->context(function () {
             if (app()->runningInConsole()) {

@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.60 · **Laatste update:** 2026-09-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.60 · **Laatste update:** 2026-10-02 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,10 +38,16 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. Nieuwe items starten bij BL-110.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. Nieuwe items starten bij BL-116.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
+| — | BL-115 | Gebruikte/ongeldige klantlink: NL-pagina i.p.v. kale 404 | E7 | done | medium | UX · bij BL-038/066 · demo-walk 24 sep |
+| — | BL-114 | Sticky Volgende stap onderschept geen klikken eronder | E6 | done | medium | UX · bij BL-053/054 · demo-walk 24 sep |
+| — | BL-113 | Nederlandse foutpagina’s 403/405/419/500/503 | E5 | done | medium | A · UX · bij BL-066/092 · demo-walk 24 sep |
+| — | BL-112 | Aanspreekvorm je consistent (klant + installateur) | E5 | done | medium | UX/taal · bij BL-052 · demo-walk 24 sep |
+| — | BL-111 | AI-voorstel-fout in foutstijl (niet groen) + BL-109 afronden | E9 | done | high | AI/UX · bij BL-109 · demo-walk 24 sep |
+| — | BL-110 | Ruimtematen blijven bewaard na opslaan + herladen | E8 | done | high | A · syncRooms · demo-walk 24 sep · hoogste prio |
 | — | BL-109 | Dossiersynthese: enum-normalisatie + volledige validatiefouten in ai_runs | E9 | done | high | AI · bij BL-041/108 · staging intake 63 · PR #111 |
 | — | BL-108 | DPIA-/privacytoets-poort voor AI verwijderd | E4 | done | high | A · product/AI · bij BL-006/020/041/049 |
 | — | BL-107 | App-huisstijl volgens productmockups + rustiger werkplek, Vraag de klant in één klik | E5/E6 | in_progress | high | UX/visueel · bij BL-043/053/099/100 |
@@ -515,6 +521,48 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Aanleiding:** na meterkastfoto faalde `dossier_synthesis` soft met `ValidationException` op `option_proposals.0.connections.2.length_class` (model leverde waarde buiten `short|medium|long|unknown`); provider-call zelf slaagde. `error_message` toonde alleen de eerste fout (“and 1 more error”).
 - **Resultaat:** `DossierSynthesisOutputNormalizer` + `AiEnumNormalizer` normaliseren enums vóór validatie (synoniemen/haakjes; `unknown`-fallback waar toegestaan; `approved` wordt nooit genormaliseerd naar een schrijfbare status). Prompt `dossier-synthesis-v3` met strikte tokens. `AiValidationFailureFormatter` schrijft alle attributen + afgewezen waarde naar log/`ai_runs.error_message`. Soft-fail/budget/PII/beeldbytes intact. Geen env-only fix.
 - **Acceptatie:** Pest met afwijkende `length_class` slaagt; `composer check` groen.
+
+### BL-110 — Ruimtematen blijven bewaard na opslaan + herladen
+
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-10-02 · **Epic:** E8 · **Band:** A · **Volgt op:** BL-039/101 · **Ref:** demo-walk 24 sep intakes 77/78
+- **Aanleiding:** op `/intakes/{id}/opname` gaf “Wijzigingen opslaan” “Ruimte bijgewerkt”, maar na herladen stond opnieuw “Maten nog leeg”. Oorzaak: workspace-GET roept `DossierManager::initialize()` → `syncRooms` die `dimensions` overschreef met lege antwoorden uit de template-brug.
+- **Resultaat:** `syncRooms` merge’t maten (bestaande winnen); naam/gebruik bij bestaande kamers niet meer wissen. Waarschuwing bij ongeopgeslagen matenformulieren. Featuretest: L×B opslaan + workspace-reload houdt 4,2×3,1 / 13,0 m².
+- **Acceptatie:** Pest groen; staging-smoke: maten blijven na opslaan + herladen.
+
+### BL-111 — AI-voorstel-fout in foutstijl + BL-109 meenemen
+
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-10-02 · **Epic:** E9 · **Volgt op:** BL-109 · **Ref:** demo-walk 24 sep
+- **Aanleiding:** “AI-voorstel vernieuwen” toonde mislukte synthese in groene statusbalk; BL-109 (enum-normalisatie) stond open als draft-PR.
+- **Resultaat:** BL-109 meegenomen; mislukte/uitgeschakelde synthese flasht `session('error')` met rode alert i.p.v. groene `status`.
+- **Acceptatie:** Pest op foutstijl; staging: vernieuwen levert voorstel of rode foutmelding.
+
+### BL-112 — Aanspreekvorm je consistent
+
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-10-02 · **Epic:** E5 · **Volgt op:** BL-052 · **Ref:** `docs/language.md`
+- **Aanleiding:** klantpad mengde “Je bekijkt…” (demo) met “Met uw hulp… / Uw installateur”.
+- **Resultaat:** klantwizard, follow-up, klantmails, auth-copy en 404 op **je/jij/jouw**. Gepubliceerde templatevragen ongemoeid (ADR-0001).
+- **Acceptatie:** geen `uw` meer in geraakte views/mails; Pest-asserts bijgewerkt.
+
+### BL-113 — Nederlandse foutpagina’s 403/405/419/500/503
+
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-10-02 · **Epic:** E5 · **Volgt op:** BL-066/092
+- **Aanleiding:** GET op POST-only routes (bijv. ruimte-update) toonde Engelse Symfony “Oops! An Error Occurred”.
+- **Resultaat:** branded NL-pagina’s voor 403/405/419/500/503 (zelfde stijl als 404); gedeelde `_layout`.
+- **Acceptatie:** Pest render-checks; staging GET op POST-route toont NL 405.
+
+### BL-114 — Sticky Volgende stap onderschept geen klikken
+
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-10-02 · **Epic:** E6 · **Volgt op:** BL-053/054 · **Ref:** 1280×800 / 390
+- **Aanleiding:** sticky balk over Foto maken / velden onderschepte klikken.
+- **Resultaat:** `pointer-events-none` op sticky container, `pointer-events-auto` op interactieve kinderen.
+- **Acceptatie:** staging: file-picker onder sticky bereikbaar.
+
+### BL-115 — Gebruikte/ongeldige klantlink: NL-pagina i.p.v. 404
+
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-10-02 · **Epic:** E7 · **Volgt op:** BL-038/066
+- **Aanleiding:** gebruikte `/o/{token}` gaf kale 404; bedoeld dat toegang dichtgaat na afronden/revoke.
+- **Resultaat:** bekende maar ongeldige token → HTTP 410 + NL-pagina (“al gebruikt” / “verlopen” / “werkt niet meer”); onbekende token blijft 404.
+- **Acceptatie:** Pest 410 + copy; staging heropen gebruikte link.
 
 ### BL-007 — AI-uitbreidingen
 
@@ -1197,6 +1245,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 | ID | Datum | Resultaat / PR |
 |----|-------|----------------|
+| BL-110–115 | 2026-10-02 | demo-kritiek 24 sep: maten-persist, AI-foutstijl, je/u, NL-foutpagina’s, sticky clicks, klantlink 410 |
 | BL-109 | 2026-09-25 | #111 — dossiersynthese enum-normalisatie + volledige validatiefouten in ai_runs |
 | BL-108 | 2026-09-25 | #110 — DPIA-procespoort voor AI verwijderd; activering alleen via env |
 | BL-106 | 2026-09-23 | #109 — `memory_limit=512M` in `public/.user.ini` |

@@ -3,15 +3,15 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Pagina niet gevonden — Digitale Opname</title>
+        <title>{{ $title }} — Digitale Opname</title>
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="min-h-screen bg-[#eef1ec] font-sans text-[#18201d] antialiased">
         <main class="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-5 py-12">
             <p class="eyebrow">Digitale Opname</p>
-            <h1 class="mt-3 text-3xl font-semibold tracking-tight text-gray-950">Pagina niet gevonden</h1>
+            <h1 class="mt-3 text-3xl font-semibold tracking-tight text-gray-950">{{ $heading }}</h1>
             <p class="mt-3 text-base leading-relaxed text-gray-600">
-                Deze pagina bestaat niet of is niet meer beschikbaar. Deed je een demo? Dan kan de sessie verlopen of beëindigd zijn.
+                {{ $body }}
             </p>
             <div class="mt-8 flex flex-col gap-3 sm:flex-row">
                 <a
@@ -20,7 +20,15 @@
                 >
                     Naar de homepage
                 </a>
-                @if (config('intake.demo.enabled', true))
+                @if (($status ?? null) === 503 || ($status ?? null) === 500 || ($status ?? null) === 419)
+                    <button
+                        type="button"
+                        onclick="window.location.reload()"
+                        class="inline-flex min-h-11 items-center justify-center rounded-xl border border-gray-300 bg-white px-5 text-sm font-semibold text-gray-900 hover:bg-gray-50"
+                    >
+                        Opnieuw proberen
+                    </button>
+                @elseif (config('intake.demo.enabled', true) && in_array(($status ?? null), [403, 405], true))
                     <form method="POST" action="{{ route('demo.start') }}">
                         @csrf
                         <button

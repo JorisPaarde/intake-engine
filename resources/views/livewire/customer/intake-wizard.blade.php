@@ -25,7 +25,7 @@
 
         <div class="mt-4">
             <p class="mb-4 rounded-xl bg-[color-mix(in_srgb,var(--tenant-primary)_8%,white)] px-4 py-3 text-sm font-medium leading-5 text-[#18201d]">
-                Met uw hulp kunnen we sneller uw airco plaatsen. Wij gebruiken al bekende woninggegevens. U laat alleen zien wat we nog nodig hebben.
+                Met jouw hulp kunnen we sneller je airco plaatsen. We gebruiken al bekende woninggegevens. Jij laat alleen zien wat we nog nodig hebben.
             </p>
             <div class="flex items-center justify-between text-sm text-[#5e6862]">
                 <span>Voortgang</span>
@@ -50,8 +50,8 @@
                 @if ($intake->is_demo)
                     Dit was een demo. Er wordt geen echte offerte gemaakt en de gegevens verdwijnen automatisch.
                 @else
-                    Bedankt. Uw installateur bekijkt nu of er nog iets nodig is voor de offerte.
-                    U kunt dit venster sluiten.
+                    Bedankt. Je installateur bekijkt nu of er nog iets nodig is voor de offerte.
+                    Je kunt dit venster sluiten.
                 @endif
             </p>
             @if ($intake->is_demo)
@@ -342,7 +342,7 @@
                 @endif
             </div>
             <p class="mt-3 text-center text-xs text-[#5e6862]">
-                Uw voortgang blijft bewaard via deze link tot u afrondt.
+                Je voortgang blijft bewaard via deze link tot je afrondt.
             </p>
         </footer>
     @endunless
