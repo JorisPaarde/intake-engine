@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.60 · **Laatste update:** 2026-10-02 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.61 · **Laatste update:** 2026-10-02 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -667,6 +667,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Doel:** bewuste production-release ná staging-smoke van BL-001, of documenteren welke commit nu op production draait.
 - **Scope:** README/DEPLOYMENT productieversie; tag + `/health`-smoke óf expliciete notitie bij dispatch zonder tag; geen tag vóór BL-001 staging-smoke.
 - **Acceptatie:** README/DEPLOYMENT state the live production version; either a new tag with /health production smoke, or an explicit note if production was dispatched without tag. Do not tag until BL-001 staging smoke passes.
+- **Stand 2026-10-02:** `v1.1.0` (`d6e60ea6`) is getagd en staat sinds 2026-09-06 op production ([deploy-run 34046769097](https://github.com/JorisPaarde/intake-engine/actions/runs/34046769097), groen). CHANGELOG heeft nu een eigen `[1.1.0] - 2026-09-06`-sectie; README en DEPLOYMENT noemen de live versie. De `/health`-smoke van die release is niet door de agent zelf gecontroleerd (egress naar de live sites is in de cloud-sandbox geblokkeerd). **Nog open:** de volgende release van `[Unreleased]` (BL-105–BL-115, incl. de demo-walk-fixes BL-110–115 uit #113) — pas na staging-smoke en expliciete go van de producteigenaar; bij het taggen de `[Unreleased]`-items naar een nieuwe versiesectie verplaatsen.
 
 ### BL-073 — Demo trial-killers: klantlink NL, geen Voorbeeldklant, eerlijke voortgang
 
@@ -1138,7 +1139,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-050 — Productfunnel in JPWebcreation-huisstijl
 
-- **Status:** in_progress · **Prioriteit:** medium · **Epic:** E5 · **Band:** A
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-08-05 · **PR:** #64 · **Epic:** E5 · **Band:** A
 - **Aanleiding:** de publieke productfunnel gebruikte nog de cool-grijze Apple-achtige marketingstyling, terwijl jpwebcreation.nl de gewenste warmere huisstijl (groen/amber/paper) al heeft.
 - **Doel:** laat kleuren, typografie en knop-/oppervlaktestijl van `/` aansluiten op jpwebcreation.nl, zonder de ingelogde app (BL-032 `brand.*` / tenantkleuren) te wijzigen.
 - **Scope:** aparte `marketing.*`-tokens; Inter alleen op de homepage; hero-gradient, amber-CTA’s, coral eyebrows, paper/mist-vlakken en productmocks in dezelfde huisstijl. Copy, sectiestructuur, demo en interesseflow blijven functioneel gelijk.

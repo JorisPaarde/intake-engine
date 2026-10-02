@@ -1,6 +1,6 @@
 # Deployment naar cPanel (staging + production)
 
-> **Documentversie:** 2.21 · **Laatste update:** 2026-09-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.22 · **Laatste update:** 2026-10-02 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 **Statusregel:** staging en production zijn fysiek en logisch gescheiden; open handmatige acties (env/host) staan in [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
 
@@ -168,10 +168,13 @@ MySQL commit DDL-stappen zoals `ALTER TABLE` ook wanneer een latere stap in deze
 
 ### Production
 
+**Huidige productieversie:** `v1.1.0` (`d6e60ea6`), gedeployed 2026-09-06 via [run 34046769097](https://github.com/JorisPaarde/intake-engine/actions/runs/34046769097). Werk deze regel bij bij iedere production-deploy.
+
 1. Zorg dat de te releasen commit op `main` staat en CI groen is.
-2. Maak en push een semver-tag `v*`, of start Actions → **Deploy production** bewust handmatig op de juiste ref.
-3. Controleer `https://intake-engine.nl/health` (`environment=production`).
-4. Controleer `apps/intake-engine-production/shared/storage/logs/` en bevestig dat staging ongewijzigd bleef.
+2. Verplaats in `CHANGELOG.md` de items onder `[Unreleased]` naar een nieuwe sectie `## [x.y.z] - JJJJ-MM-DD`.
+3. Maak en push een semver-tag `v*`, of start Actions → **Deploy production** bewust handmatig op de juiste ref.
+4. Controleer `https://intake-engine.nl/health` (`environment=production`).
+5. Controleer `apps/intake-engine-production/shared/storage/logs/` en bevestig dat staging ongewijzigd bleef.
 
 ### HTTP 5xx / LiteSpeed 503 debuggen (BL-092)
 
