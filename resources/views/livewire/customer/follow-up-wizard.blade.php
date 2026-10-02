@@ -5,7 +5,7 @@
 
     <header class="mb-5">
         <p class="text-sm font-medium text-brand-ink/60">Aanvulling voor {{ $intake->customer_name }}</p>
-        <p class="mt-2 text-sm leading-5 text-brand-ink/75">Met uw hulp kunnen we sneller uw airco plaatsen. Hieronder staat alleen wat nog echt nodig is.</p>
+        <p class="mt-2 text-sm leading-5 text-brand-ink/75">Met jouw hulp kunnen we sneller je airco plaatsen. Hieronder staat alleen wat nog echt nodig is.</p>
         @if (! $completed && $items->isNotEmpty())
             @php($progress = (int) round((($followUpStepIndex + 1) / $items->count()) * 100))
             <div class="mt-3 flex items-center justify-between text-xs text-brand-ink/55">
@@ -26,7 +26,7 @@
         <div class="flex flex-1 flex-col justify-center rounded-lg bg-white p-6 shadow-sm">
             <h1 class="font-display text-2xl font-semibold tracking-tight text-brand-ink">Bedankt</h1>
             <p class="mt-3 text-sm leading-relaxed text-brand-ink/70">
-                Bedankt. Uw installateur kijkt nu of er nog iets openstaat.
+                Bedankt. Je installateur kijkt nu of er nog iets openstaat.
             </p>
             @if ($intake->is_demo)
                 <x-demo-scope-notice variant="complete" />

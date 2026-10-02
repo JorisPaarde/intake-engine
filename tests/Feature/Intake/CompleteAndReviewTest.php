@@ -387,7 +387,7 @@ test('customer completes text and photo follow up and dossier returns for review
         ->call('completeFollowUp')
         ->assertHasNoErrors()
         ->assertSet('completed', true)
-        ->assertSee('Bedankt. Uw installateur kijkt nu of er nog iets openstaat.');
+        ->assertSee('Bedankt. Je installateur kijkt nu of er nog iets openstaat.');
 
     $intake->refresh();
     $round->refresh();
@@ -410,7 +410,9 @@ test('customer completes text and photo follow up and dossier returns for review
     Mail::assertSent(InstallerIntakeCompletedMail::class);
     Queue::assertPushed(SuggestAttentionPointsJob::class, fn (SuggestAttentionPointsJob $job): bool => $job->intakeId === $intake->id);
 
-    $this->get(route('customer.intake.show', $intake->access_token))->assertNotFound();
+    $this->get(route('customer.intake.show', $intake->access_token))
+        ->assertStatus(410)
+        ->assertSee('Deze link is al gebruikt');
 });
 
 test('customer can add a requested PDF document to the protected dossier', function () {
@@ -489,7 +491,7 @@ test('customer can add a requested PDF document to the protected dossier', funct
         ->assertDownload('plattegrond.pdf')
         ->assertHeader('X-Content-Type-Options', 'nosniff');
 
-    $component->assertSee('Bedankt. Uw installateur kijkt nu of er nog iets openstaat.');
+    $component->assertSee('Bedankt. Je installateur kijkt nu of er nog iets openstaat.');
 });
 
 test('follow up photo quality hint repeats the installers exact photo request', function () {
@@ -582,7 +584,9 @@ test('expired token cannot open an active follow up round', function () {
 
     $intake->update(['token_expires_at' => now()->subMinute()]);
 
-    $this->get(route('customer.intake.show', $intake->access_token))->assertNotFound();
+    $this->get(route('customer.intake.show', $intake->access_token))
+        ->assertStatus(410)
+        ->assertSee('Deze link is verlopen');
 });
 
 test('completed intake rejects customer answer and upload mutations', function () {

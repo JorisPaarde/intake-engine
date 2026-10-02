@@ -671,15 +671,18 @@ final class SurveyWorkspaceController extends Controller
         $run = $synthesize->handle($intake);
 
         if ($run === null) {
-            return $this->back($intake, 'AI-dossiersynthese is in deze omgeving uitgeschakeld; de handmatige werkplek blijft volledig beschikbaar.');
+            return redirect()
+                ->route('intakes.workspace', $intake)
+                ->with('error', 'AI-dossiersynthese is in deze omgeving uitgeschakeld; de handmatige werkplek blijft volledig beschikbaar.');
         }
 
-        return $this->back(
-            $intake,
-            $run->status->value === 'succeeded'
-                ? 'AI-voorstel vernieuwd. Controleer de keuzes en uitzonderingen als geheel.'
-                : 'AI-synthese kon niet worden afgerond; het bestaande dossier is ongewijzigd gebleven.',
-        );
+        if ($run->status->value === 'succeeded') {
+            return $this->back($intake, 'AI-voorstel vernieuwd. Controleer de keuzes en uitzonderingen als geheel.');
+        }
+
+        return redirect()
+            ->route('intakes.workspace', $intake)
+            ->with('error', 'AI-synthese kon niet worden afgerond; het bestaande dossier is ongewijzigd gebleven.');
     }
 
     public function sendProposedTask(

@@ -1,6 +1,6 @@
 <x-guest-layout>
     <div class="mb-4 text-sm text-gray-600">
-        Dit is een beveiligd deel van de app. Bevestig uw wachtwoord om verder te gaan.
+        Dit is een beveiligd deel van de app. Bevestig je wachtwoord om verder te gaan.
     </div>
 
     <form method="POST" action="{{ route('password.confirm') }}">

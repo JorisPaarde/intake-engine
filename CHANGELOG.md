@@ -6,10 +6,16 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Fixed
 
+- **Ruimtematen verdwenen na opslaan (BL-110):** workspace-GET riep `DossierManager::initialize()` → `syncRooms` die installateursmaten overschreef met lege template-brugantwoorden. Nu: maten mergen (bestaande winnen); naam/gebruik van bestaande kamers blijven. Waarschuwing bij ongeopgeslagen matenformulier. Featuretest dekt opslaan + herladen.
+- **AI-voorstel-fout leek een succes (BL-111):** mislukte of uitgeschakelde dossiersynthese ging via groene `session('status')`. Nu rode `session('error')`-alert. Inclusief BL-109 enum-normalisatie (draft-PR #111).
+- **Engelse framework-foutpagina’s (BL-113):** 403/405/419/500/503 tonen nu NL, on-brand pagina’s (zelfde stijl als 404) i.p.v. Symfony “Oops! An Error Occurred”.
+- **Sticky Volgende stap onderschepte klikken (BL-114):** sticky balk gebruikt `pointer-events-none` met `pointer-events-auto` op knoppen/tekst, zodat Foto maken en velden eronder klikbaar blijven.
+- **Gebruikte klantlink = kale 404 (BL-115):** bekende maar ongeldige `/o/{token}` (afgerond/ingetrokken/verlopen) toont HTTP 410 met NL-uitleg; onbekende tokens blijven 404.
 - **Dossiersynthese faalde soft op afwijkende enums (BL-109):** na een meterkast-/routefoto leverde Gemini via OpenRouter waarden als `short (<5m)` / Nederlandse synoniemen voor `length_class` (en vergelijkbare enumvelden). Servervalidatie gooide `ValidationException`; alleen de eerste fout kwam in `ai_runs.error_message`. Nu: normalisatie vóór validatie (trim/lowercase/synoniemen; `unknown`-fallback waar toegestaan), prompt `dossier-synthesis-v3` met strikte enumtokens, en bij validatiefout alle attributen + afgewezen waarde (ingekort, geen beeldbytes/PII) in log en `ai_runs.error_message`. Soft-fail, budgetcaps en privacy ongewijzigd.
 
 ### Changed
 
+- **Aanspreekvorm je overal in UI/mails (BL-112):** klantwizard, follow-up, klantmails, auth en 404 op je/jij/jouw per `docs/language.md`. Templatevragen ongemoeid (ADR-0001).
 - **DPIA-poort voor AI verwijderd (BL-108):** er was geen runtime-DPIA-check in code; wel documentatie-, comment- en env-teksten die externe AI “pas na DPIA” blokkeerden als procespoort. Die formulering is weg. AI hangt alleen nog van normale provider-/featurevlag-/budgetconfiguratie af. Intact: budgetcaps, PII-redactie (geen e-mail/telefoon/adres in payloads), geen beeldbytes in logs/DB, soft-fail zonder provider/key, en intakeveld `privacy_consent`.
 - **OpenRouter/OpenAI-compatibele gateway (BL-108):** `AI_BASE_URL` was al configureerbaar; toegevoegd: optioneel `AI_VISION_MODEL` (beeldcalls), optionele attributieheaders `AI_HTTP_REFERER`/`AI_APP_TITLE` (`HTTP-Referer`, `X-Title`, `X-OpenRouter-Title`), en key-redactie in exceptionteksten. Docs/env-voorbeelden beschrijven OpenRouter (`https://openrouter.ai/api/v1`). Defaults ongewijzigd.
 

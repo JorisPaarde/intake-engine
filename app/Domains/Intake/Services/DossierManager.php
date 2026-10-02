@@ -401,7 +401,18 @@ final class DossierManager
             $useType = is_array($typeAnswer?->value) ? ($typeAnswer->value['value'] ?? null) : null;
             $typeKey = is_string($useType) ? $useType : 'other';
             $typeCounts[$typeKey] = ($typeCounts[$typeKey] ?? 0) + 1;
-            $name = $this->roomLabel(is_string($useType) ? $useType : null, $typeCounts[$typeKey]);
+            $generatedName = $this->roomLabel(is_string($useType) ? $useType : null, $typeCounts[$typeKey]);
+
+            $existing = AircoRoom::query()
+                ->where('intake_id', $intake->id)
+                ->where('key', $instanceKey)
+                ->first();
+
+            // Keep installer renames; only invent a label for brand-new rooms.
+            $name = is_string($existing?->name) && $existing->name !== ''
+                ? $existing->name
+                : $generatedName;
+
             $subject = $this->subject(
                 $intake,
                 'airco.room.'.$instanceKey,
@@ -412,26 +423,65 @@ final class DossierManager
             );
             $subjects[$instanceKey] = $subject;
 
-            AircoRoom::query()->updateOrCreate(
-                [
+            $answerDimensions = $this->roomDimensions($intake, $instanceKey);
+            $dimensions = $this->mergeRoomDimensions(
+                is_array($existing?->dimensions) ? $existing->dimensions : null,
+                $answerDimensions,
+            );
+
+            if ($existing === null) {
+                AircoRoom::query()->create([
                     'intake_id' => $intake->id,
-                    'key' => $instanceKey,
-                ],
-                [
                     'company_id' => $intake->company_id,
                     'dossier_subject_id' => $subject->id,
+                    'key' => $instanceKey,
                     'name' => $name,
                     'use_type' => is_string($useType) ? $useType : null,
                     'sort_order' => $index + 1,
                     'status' => 'desired',
                     'source_type' => 'template_bridge',
                     'source_id' => $typeAnswer?->id,
-                    'dimensions' => $this->roomDimensions($intake, $instanceKey),
-                ],
-            );
+                    'dimensions' => $dimensions,
+                ]);
+
+                continue;
+            }
+
+            // Workspace GET re-runs initialize()/syncRooms. Never wipe installer
+            // maten/naam/gebruik with empty template-bridge answers (demo walk Sep 2026).
+            $updates = [
+                'company_id' => $intake->company_id,
+                'dossier_subject_id' => $subject->id,
+                'sort_order' => $index + 1,
+                'status' => 'desired',
+                'dimensions' => $dimensions,
+            ];
+
+            if ($existing->use_type === null && is_string($useType)) {
+                $updates['use_type'] = $useType;
+            }
+
+            $existing->update($updates);
         }
 
         return $subjects;
+    }
+
+    /**
+     * Answer-derived measures fill gaps only; existing installer/customer values win.
+     *
+     * @param  array<string, float|string>|null  $existing
+     * @param  array<string, float|string>  $fromAnswers
+     * @return array<string, float|string>
+     */
+    private function mergeRoomDimensions(?array $existing, array $fromAnswers): array
+    {
+        if ($existing === null || $existing === []) {
+            return $fromAnswers;
+        }
+
+        // Later keys win for string keys — keep existing measures over empty re-sync.
+        return array_merge($fromAnswers, $existing);
     }
 
     /**

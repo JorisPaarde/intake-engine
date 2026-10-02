@@ -8,6 +8,7 @@ use App\Domains\Intake\Actions\CompleteFollowUpRound;
 use App\Domains\Intake\Actions\CompleteInstallerSurvey;
 use App\Domains\Intake\Actions\CreateCustomerContributionRequest;
 use App\Domains\Intake\Actions\CreateIntake;
+use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StartPipeRouteSession;
 use App\Domains\Intake\Mail\CustomerIntakeLinkMail;
 use App\Domains\Intake\Models\ContributionTask;
@@ -84,7 +85,9 @@ test('installer can start a self-performed survey without exposing or mailing a 
         ->and($intake->dossierSubjects()->where('key', 'survey')->exists())->toBeTrue();
     Mail::assertNotSent(CustomerIntakeLinkMail::class);
 
-    $this->get(route('customer.intake.show', $intake->access_token))->assertNotFound();
+    $this->get(route('customer.intake.show', $intake->access_token))
+        ->assertStatus(410)
+        ->assertSee('Deze link werkt niet meer');
     $this->actingAs($user)
         ->get(route('intakes.workspace', $intake))
         ->assertOk()
@@ -547,7 +550,9 @@ test('installer-only survey can temporarily expose exactly one targeted customer
             ->where('source_id', $item->id)
             ->exists())->toBeTrue();
 
-    $this->get(route('customer.intake.show', $intake->access_token))->assertNotFound();
+    $this->get(route('customer.intake.show', $intake->access_token))
+        ->assertStatus(410)
+        ->assertSee('Deze link werkt niet meer');
 });
 
 test('two bedroom survey compares a multi-split option and approves all three connection types integrally', function () {
@@ -880,6 +885,67 @@ test('installer can update an existing room including dimensions', function () {
         ->and(substr_count($html, 'id="room-'.$room->id.'-area"'))->toBe(1)
         ->and(substr_count($html, 'id="room-'.$room->id.'-name"'))->toBe(1)
         ->and(substr_count($html, '<h4 class="font-semibold text-gray-950">Slaapkamer ouders</h4>'))->toBe(0);
+});
+
+test('saved room dimensions survive workspace reload for template-bridge rooms', function () {
+    $this->withoutVite();
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'ruimte-persist@example.com');
+    $intake->update(['status' => IntakeStatus::InProgress]);
+
+    app(SaveIntakeAnswer::class)->handle(
+        $intake,
+        'indoor_unit_count',
+        null,
+        ['number' => 1],
+    );
+    app(SaveIntakeAnswer::class)->handle(
+        $intake,
+        'room_type',
+        'room-1',
+        ['value' => 'bedroom'],
+    );
+
+    // Mimic the demo walk: open workspace (initialize/syncRooms), save L×B, reload.
+    $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertSee('Maten nog leeg');
+
+    $room = $intake->fresh()->aircoRooms()->where('key', 'room-1')->firstOrFail();
+    expect($room->dimensions ?? [])->toBe([]);
+
+    $this->actingAs($user)
+        ->from(route('intakes.workspace', $intake))
+        ->post(route('intakes.workspace.rooms.update', [$intake, $room]), [
+            'name' => $room->name,
+            'use_type' => 'bedroom',
+            'length_m' => 4.2,
+            'width_m' => 3.1,
+        ])
+        ->assertRedirect(route('intakes.workspace', $intake))
+        ->assertSessionHas('status', 'Ruimte bijgewerkt.');
+
+    $room->refresh();
+    expect($room->dimensions)->toMatchArray([
+        'length_m' => 4.2,
+        'width_m' => 3.1,
+    ]);
+
+    // Critical: GET workspace re-runs dossier initialize/syncRooms and must not wipe maten.
+    $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertSee('4,2 × 3,1 m')
+        ->assertSee('(13,0 m²)')
+        ->assertDontSee('Maten nog leeg');
+
+    $room->refresh();
+    expect($room->dimensions)->toMatchArray([
+        'length_m' => 4.2,
+        'width_m' => 3.1,
+    ])
+        ->and($room->dimensions)->not->toHaveKey('height_m');
 });
 
 test('installer can save trusted floor area without length and width', function () {
