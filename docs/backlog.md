@@ -38,11 +38,12 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace logging. Nieuwe items starten bij BL-117.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace logging (#117) + klanttest P0 technische beslissingen (#115, v17). Nieuwe items starten bij BL-117.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
 | — | BL-116 | AI-trace logging + P2 upload/analyse-timings (klanttest 2 okt) | E4/E9 | in_progress | high | AI · stap 1 herstelvolgorde · bij BL-028/104/109 · PR #117 |
+| — | BL-116 | Technische beslissingen uit klantvragen (pomp/route/boringen/stroom) | E3/E7 | in_progress | high | klanttest 2026-10-02 P0 · airco v17 · PR #115 · bij BL-077/103 |
 | — | BL-115 | Gebruikte/ongeldige klantlink: NL-pagina i.p.v. kale 404 | E7 | done | medium | UX · bij BL-038/066 · demo-walk 24 sep |
 | — | BL-114 | Sticky Volgende stap onderschept geen klikken eronder | E6 | done | medium | UX · bij BL-053/054 · demo-walk 24 sep |
 | — | BL-113 | Nederlandse foutpagina’s 403/405/419/500/503 | E5 | done | medium | A · UX · bij BL-066/092 · demo-walk 24 sep |
@@ -557,6 +558,15 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Aanleiding:** sticky balk over Foto maken / velden onderschepte klikken.
 - **Resultaat:** `pointer-events-none` op sticky container, `pointer-events-auto` op interactieve kinderen.
 - **Acceptatie:** staging: file-picker onder sticky bereikbaar.
+
+### BL-116 — Technische beslissingen uit klantvragen (klanttest 2026-10-02 P0)
+
+- **Status:** in_progress · **Prioriteit:** high · **Epic:** E3/E7 · **Band:** klanttest P0 · **Volgt op:** BL-077/103 · **Ref:** productregels Joris + Notion-klanttest
+- **Aanleiding:** case 80 — na Condensafvoer “Weet ik niet” kreeg de klant een verplichte ja/nee over condenspomp; hetzelfde patroon bij leidingroute, boringen en technische stroomvragen.
+- **Doel:** klant toont situatie (foto/observatie) en wensen; technische beslissingen (pomp, route, boringen, elektrische voorziening) blijven open voor installateur; AI mag voorstellen; geen stilzwijgende ja/nee-default.
+- **Scope:** airco v17 `meta.installer_decision` op `natural_fall_possible`, `pipe_route_description`, `pipe_distance_indication`, `drillings_needed`, `free_group_known`; klantwizard/progress slaat die over; condens “Weet ik niet” → verplichte afvoerfoto; systeemaandachtspunten voor open technische punten.
+- **Niet in scope:** foto-first/bekende velden (andere stroom), AI-fotoconclusie-stelligheid, interne-veldenfilter, voortgangs-UX.
+- **Acceptatie:** klant rondt af zonder verzonnen techniek; “Weet ik niet” leidt niet tot verplichte technische ja/nee; open punten zichtbaar voor installateur; Pest + `composer check` groen.
 
 ### BL-115 — Gebruikte/ongeldige klantlink: NL-pagina i.p.v. 404
 

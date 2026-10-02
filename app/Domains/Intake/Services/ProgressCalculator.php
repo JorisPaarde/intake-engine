@@ -8,6 +8,7 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeSection;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
+use App\Domains\Intake\Support\CustomerFacingQuestion;
 use App\Enums\QuestionType;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -54,6 +55,11 @@ final class ProgressCalculator
             $question = $this->findQuestion($sections, $target['question_key']);
 
             if (! $question instanceof IntakeQuestion) {
+                continue;
+            }
+
+            // Installateursbeslissingen tellen niet mee voor klantvoortgang/afronden.
+            if (! CustomerFacingQuestion::isCustomerFacing($question)) {
                 continue;
             }
 

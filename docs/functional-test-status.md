@@ -14,6 +14,7 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 |-----------|--------|-----------|----------|
 | AI-traces inzage + timings (BL-116) | todo | - | Dev `/dev/ai-traces` + CLI `ai:traces`: case 80/81 tekst + fotoupload; correlation-groepering zichtbaar; timings upload/preprocess/provider zichtbaar; mislukte call wist geen antwoord. |
 | Klantwizard network_upload_ms (BL-116) | todo | - | Fotovraag met `data-upload-timing`: na opslaan verschijnt net-ms op upload/trace (client-progress + expliciet upload-id). |
+| Technische beslissingen uit klantflow (PR #115 / v17) | todo | - | Case 80: Condensafvoer → Weet ik niet → afvoerfoto i.p.v. pomp-ja/nee; klant rondt af; installateur ziet open technische punten. |
 | Ruimtematen persist + herladen (BL-110) | todo | - | Demo: ruimte L 4,2 / B 3,1 → opslaan → herladen toont 4,2×3,1 (13,0 m²), niet “Maten nog leeg”. |
 | AI-voorstel vernieuwen + foutstijl (BL-109/111) | todo | - | Op staging met AI aan: **AI-voorstel vernieuwen** levert voorstel of rode foutalert (niet groen). |
 | Aanspreekvorm je (BL-112) | todo | - | Klantpad `/o/…` en mails zonder “uw/u”; installateur blijft “je”. |

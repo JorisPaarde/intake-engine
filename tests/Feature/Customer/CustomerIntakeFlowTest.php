@@ -139,15 +139,6 @@ test('conditional show rules hide questions until matched', function () {
 
     expect($drainPhoto)->not->toBeNull();
 
-    app(SaveIntakeAnswer::class)->handle($intake, 'natural_fall_possible', null, [
-        'bool' => false,
-    ]);
-
-    $intake->refresh();
-    $answers = [
-        VisibilityResolver::compositeKey('natural_fall_possible', null) => ['bool' => false],
-    ];
-
     $questionTypes = [];
     $sectionsByKey = [];
     foreach ($version->sections as $section) {
@@ -161,7 +152,7 @@ test('conditional show rules hide questions until matched', function () {
     $resolved = app(VisibilityResolver::class)->resolveQuestion(
         $drainPhoto,
         null,
-        $answers,
+        [],
         $questionTypes,
         $sectionsByKey,
     );
@@ -171,37 +162,35 @@ test('conditional show rules hide questions until matched', function () {
     $resolvedVisible = app(VisibilityResolver::class)->resolveQuestion(
         $drainPhoto,
         null,
-        [VisibilityResolver::compositeKey('natural_fall_possible', null) => ['bool' => true]],
+        [VisibilityResolver::compositeKey('drain_location', null) => ['value' => 'unknown']],
         $questionTypes,
         $sectionsByKey,
     );
 
-    expect($resolvedVisible['visible'])->toBeTrue();
+    expect($resolvedVisible['visible'])->toBeTrue()
+        ->and($resolvedVisible['required'])->toBeTrue();
 });
 
 test('hidden conditional questions are skipped in the question-per-step list', function () {
     $intake = makeAccessibleIntake();
     $version = $intake->templateVersion()->with(['sections.questions.rules'])->firstOrFail();
 
-    app(SaveIntakeAnswer::class)->handle($intake, 'natural_fall_possible', null, [
-        'bool' => false,
-    ]);
-    $intake->refresh();
-
     $steps = app(IntakeStepBuilder::class)->build($intake, $version);
     $questionKeys = array_column($steps, 'question_key');
 
-    expect($questionKeys)->not->toContain('drain_photo');
+    expect($questionKeys)->not->toContain('drain_photo')
+        ->and($questionKeys)->not->toContain('natural_fall_possible');
 
-    app(SaveIntakeAnswer::class)->handle($intake, 'natural_fall_possible', null, [
-        'bool' => true,
+    app(SaveIntakeAnswer::class)->handle($intake, 'drain_location', null, [
+        'value' => 'unknown',
     ]);
     $intake->refresh();
 
     $stepsVisible = app(IntakeStepBuilder::class)->build($intake, $version);
     $visibleKeys = array_column($stepsVisible, 'question_key');
 
-    expect($visibleKeys)->toContain('drain_photo');
+    expect($visibleKeys)->toContain('drain_photo')
+        ->and($visibleKeys)->not->toContain('natural_fall_possible');
 });
 
 test('livewire string booleans satisfy required checks and allow next', function () {

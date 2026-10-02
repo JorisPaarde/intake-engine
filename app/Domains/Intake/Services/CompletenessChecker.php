@@ -83,14 +83,17 @@ final class CompletenessChecker
 
         $value = is_array($freeGroup?->value) ? ($freeGroup->value['value'] ?? null) : null;
 
-        if ($value === 'no') {
+        if ($value === null) {
+            $points[] = [
+                'code' => 'electrical_provision_open',
+                'label' => 'Open technisch punt: stroomvoorziening / vrije groep nog te beoordelen',
+            ];
+        } elseif ($value === 'no') {
             $points[] = [
                 'code' => 'no_free_group',
                 'label' => 'Geen vrije groep bekend',
             ];
-        }
-
-        if ($value === 'unknown') {
+        } elseif ($value === 'unknown') {
             $points[] = [
                 'code' => 'free_group_unknown',
                 'label' => 'Onbekend of er een vrije groep beschikbaar is',
@@ -103,10 +106,39 @@ final class CompletenessChecker
 
         $naturalFallValue = is_array($naturalFall?->value) ? ($naturalFall->value['bool'] ?? null) : null;
 
-        if ($naturalFallValue === false) {
+        if ($naturalFallValue === null) {
+            $points[] = [
+                'code' => 'condensate_pump_open',
+                'label' => 'Open technisch punt: condenspomp of natuurlijk afschot nog te bepalen',
+            ];
+        } elseif ($naturalFallValue === false) {
             $points[] = [
                 'code' => 'condensate_pump_likely',
                 'label' => 'Natuurlijk afschot waarschijnlijk niet mogelijk — pomp mogelijk nodig',
+            ];
+        }
+
+        $pipeRoute = $intake->answers
+            ->first(static fn ($answer): bool => $answer->question_key === 'pipe_route_description'
+                && $answer->section_instance_key === null);
+        $pipeRouteValue = is_array($pipeRoute?->value) ? ($pipeRoute->value['value'] ?? null) : null;
+
+        if ($pipeRouteValue === null || $pipeRouteValue === 'unknown') {
+            $points[] = [
+                'code' => 'pipe_route_open',
+                'label' => 'Open technisch punt: leidingroute nog te beoordelen',
+            ];
+        }
+
+        $drillings = $intake->answers
+            ->first(static fn ($answer): bool => $answer->question_key === 'drillings_needed'
+                && $answer->section_instance_key === null);
+        $drillingsValue = is_array($drillings?->value) ? ($drillings->value['bool'] ?? null) : null;
+
+        if ($drillingsValue === null) {
+            $points[] = [
+                'code' => 'drillings_open',
+                'label' => 'Open technisch punt: doorboringen door muren/vloeren nog te beoordelen',
             ];
         }
 

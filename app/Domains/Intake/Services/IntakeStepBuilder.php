@@ -8,6 +8,7 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeSection;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
+use App\Domains\Intake\Support\CustomerFacingQuestion;
 use App\Enums\QuestionType;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -357,9 +358,10 @@ final class IntakeStepBuilder
         );
 
         $prefilledSkipped = $this->isPrefillSkipped($question, $answerSource);
-        $internal = $this->isInternalQuestion($question);
+        $customerFacing = CustomerFacingQuestion::isCustomerFacing($question);
+        $internal = $this->isInternalQuestion($question) || ! $customerFacing;
         $ruleVisible = $state['visible'] === true;
-        $wizardVisible = $ruleVisible && ! $prefilledSkipped;
+        $wizardVisible = $ruleVisible && ! $prefilledSkipped && $customerFacing;
 
         $reason = $this->catalogReason(
             wizardVisible: $wizardVisible,

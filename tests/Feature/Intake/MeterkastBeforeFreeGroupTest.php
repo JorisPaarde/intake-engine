@@ -7,6 +7,7 @@ use App\Domains\AI\Clients\FakeAiClient;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplate;
+use App\Domains\Intake\Services\CompletenessChecker;
 use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Enums\ContributionMode;
 use App\Enums\IntakeStatus;
@@ -61,9 +62,9 @@ function makeBl077Intake(): Intake
     ]);
 }
 
-test('airco latest template hides free_group_known until a meterkast photo exists', function () {
+test('airco latest template keeps free_group_known as installer decision outside the customer flow', function () {
     $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
-    expect($version->version)->toBe(16);
+    expect($version->version)->toBe(17);
 
     $freeGroup = $version->sections()
         ->where('key', 'electrical')
@@ -72,12 +73,11 @@ test('airco latest template hides free_group_known until a meterkast photo exist
         ->where('key', 'free_group_known')
         ->firstOrFail();
 
-    expect($freeGroup->is_required)->toBeTrue()
+    expect($freeGroup->is_required)->toBeFalse()
+        ->and($freeGroup->meta['installer_decision'] ?? null)->toBeTrue()
         ->and($freeGroup->meta['skip_when_prefilled_by'] ?? null)->toBe(['ai'])
         ->and($freeGroup->rules)->toHaveCount(1)
-        ->and($freeGroup->rules->first()->source_question_key)->toBe('fusebox_photo')
-        ->and($freeGroup->rules->first()->operator->value)->toBe('filled')
-        ->and($freeGroup->rules->first()->effect->value)->toBe('show');
+        ->and($freeGroup->rules->first()->source_question_key)->toBe('fusebox_photo');
 
     $intake = makeBl077Intake();
     $steps = bl077StepKeys($intake);
@@ -147,7 +147,7 @@ test('clear fusebox photo with free_group derived skips the ja/nee question', fu
         ->and($steps)->not->toContain('electrical_phase');
 });
 
-test('fusebox photo without readable free_group shows the ja/nee fallback after the photo', function () {
+test('fusebox photo without readable free_group never asks the customer a technical ja/nee', function () {
     $intake = makeBl077Intake();
     FakeAiClient::alwaysReturn([
         'free_group' => 'unknown',
@@ -167,12 +167,14 @@ test('fusebox photo without readable free_group shows the ja/nee fallback after 
     app(AssessFuseboxPhotos::class)->handle($intake);
 
     $steps = bl077StepKeys($intake);
-    $fuseboxIndex = array_search('fusebox_photo', $steps, true);
-    $freeGroupIndex = array_search('free_group_known', $steps, true);
+    $version = $intake->templateVersion()
+        ->with(['sections.questions.options', 'sections.questions.rules'])
+        ->firstOrFail();
+    $check = app(CompletenessChecker::class)->check($intake->fresh(), $version);
 
-    expect($steps)->toContain('free_group_known')
-        ->and($fuseboxIndex)->not->toBeFalse()
-        ->and($freeGroupIndex)->not->toBeFalse()
-        ->and($freeGroupIndex)->toBeGreaterThan($fuseboxIndex)
-        ->and($steps)->not->toContain('fusebox_photo_extra');
+    expect($steps)->not->toContain('free_group_known')
+        ->and($steps)->toContain('fusebox_photo')
+        ->and($steps)->not->toContain('fusebox_photo_extra')
+        ->and(collect($check['attention_points'])->pluck('code')->all())
+        ->toContain('electrical_provision_open');
 });

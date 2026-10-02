@@ -10,6 +10,7 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\IntakeStepBuilder;
+use App\Domains\Intake\Services\VisibilityResolver;
 use App\Enums\AiRunStatus;
 use App\Enums\IntakeStatus;
 use App\Livewire\Customer\IntakeWizard;
@@ -362,15 +363,47 @@ test('a ground-mounted outdoor unit drops the ladder question', function () {
     expect(intentStepKeys($intake->fresh()))->toContain('outdoor_accessibility');
 });
 
-test('a short direct pipe route drops the distance question', function () {
+test('pipe route and distance stay out of the customer wizard as installer decisions', function () {
     $intake = makeIntentIntake();
-    app(SaveIntakeAnswer::class)->handle($intake, 'pipe_route_description', null, ['value' => 'short_direct']);
+    $version = $intake->templateVersion()->with(['sections.questions.rules'])->firstOrFail();
 
-    expect(intentStepKeys($intake))->not->toContain('pipe_distance_indication');
+    $distance = $version->sections
+        ->flatMap->questions
+        ->firstWhere('key', 'pipe_distance_indication');
 
-    app(SaveIntakeAnswer::class)->handle($intake, 'pipe_route_description', null, ['value' => 'through_attic']);
+    expect($distance)->not->toBeNull()
+        ->and($distance->meta['installer_decision'] ?? null)->toBeTrue()
+        ->and(intentStepKeys($intake))->not->toContain('pipe_route_description')
+        ->and(intentStepKeys($intake))->not->toContain('pipe_distance_indication');
 
-    expect(intentStepKeys($intake->fresh()))->toContain('pipe_distance_indication');
+    // Visibility rules blijven gelden voor dossier/AI (niet voor klantstappen).
+    $questionTypes = [];
+    $sectionsByKey = [];
+    foreach ($version->sections as $section) {
+        foreach ($section->questions as $question) {
+            $questionTypes[$question->key] = $question->type;
+            $sectionsByKey[$question->key] = $section;
+            $question->setRelation('section', $section);
+        }
+    }
+
+    $hidden = app(VisibilityResolver::class)->resolveQuestion(
+        $distance,
+        null,
+        [VisibilityResolver::compositeKey('pipe_route_description', null) => ['value' => 'short_direct']],
+        $questionTypes,
+        $sectionsByKey,
+    );
+    $visible = app(VisibilityResolver::class)->resolveQuestion(
+        $distance,
+        null,
+        [VisibilityResolver::compositeKey('pipe_route_description', null) => ['value' => 'through_attic']],
+        $questionTypes,
+        $sectionsByKey,
+    );
+
+    expect($hidden['visible'])->toBeFalse()
+        ->and($visible['visible'])->toBeTrue();
 });
 
 test('hybrid path keeps local heuristic fills when AI returns nothing useful', function () {

@@ -11,6 +11,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 ### Changed
 
 - **BL-116 review r2:** deferred trace persistence (`succeed`/`fail`), tx-buffer, `correlation_id`/`parent_trace_id`, geen `schema_version`, `buildCatalog` + remainingQuestions, photo dims in timings, client `network_upload_ms` via progress=100 → `ai-upload-stored` + expliciet `uploadId` (`recordNetworkUploadTiming` / `recordNetworkUploadMs`, niet via Store*), `normalizeWithDiff`, kill-switch slaat snapshots over, Dev/CLI groeperen op correlation, chunked purge, idempotente media-delete job.
+- **Technische beslissingen uit de klantflow (klanttest 2026-10-02 P0 / PR #115):** airco **v17** markeert `natural_fall_possible`, `pipe_route_description`, `pipe_distance_indication`, `drillings_needed` en `free_group_known` als `meta.installer_decision`. De klantwizard en klantcompleetheid slaan die over; AI mag nog voorstellen, de installateur beslist. Bij condensafvoer “Weet ik niet” volgt een verplichte afvoerfoto i.p.v. ja/nee over pomp/afschot. Onbeantwoorde technische punten worden systeemaandachtspunten (`condensate_pump_open`, `pipe_route_open`, `drillings_open`, `electrical_provision_open`) zonder stilzwijgende ja/nee-default.
 
 ## [1.2.0] - 2026-10-02
 
