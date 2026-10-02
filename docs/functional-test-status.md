@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.81 · **Laatste update:** 2026-10-02 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.82 · **Laatste update:** 2026-10-02 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
