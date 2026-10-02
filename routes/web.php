@@ -12,6 +12,7 @@ use App\Http\Controllers\Demo\StartDemoController;
 use App\Http\Controllers\Dev\DevActivityController;
 use App\Http\Controllers\Dev\DevAiInputTestController;
 use App\Http\Controllers\Dev\DevAiRunController;
+use App\Http\Controllers\Dev\DevAiTraceController;
 use App\Http\Controllers\Dev\DevDashboardController;
 use App\Http\Controllers\Dev\DevHealthController;
 use App\Http\Controllers\Dev\DevIntakeController;
@@ -139,6 +140,8 @@ Route::middleware(['auth', 'verified', 'public.demo.scope', 'dev.access'])
         Route::get('/', DevDashboardController::class)->name('dashboard');
         Route::get('/health', DevHealthController::class)->name('health');
         Route::get('/ai-runs', DevAiRunController::class)->name('ai-runs');
+        Route::get('/ai-traces', [DevAiTraceController::class, 'index'])->name('ai-traces');
+        Route::get('/ai-traces/{aiTrace}', [DevAiTraceController::class, 'show'])->name('ai-traces.show');
         Route::get('/ai-input-test', [DevAiInputTestController::class, 'show'])->name('ai-input-test');
         Route::post('/ai-input-test', [DevAiInputTestController::class, 'evaluate'])
             ->middleware('throttle:dev-ai-input-test')

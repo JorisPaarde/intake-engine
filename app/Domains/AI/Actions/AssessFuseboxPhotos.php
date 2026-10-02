@@ -8,6 +8,8 @@ use App\Domains\AI\DTOs\AiImageInput;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\AiGateway;
 use App\Domains\AI\Services\AiImageResolver;
+use App\Domains\AI\Services\AiTraceRecorder;
+use App\Domains\AI\Services\AiTraceSnapshotService;
 use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Models\Intake;
@@ -17,6 +19,7 @@ use App\Domains\Intake\Models\IntakeExternalFact;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
+use App\Enums\AiTraceCallType;
 use App\Enums\IntakeStatus;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -44,6 +47,8 @@ final class AssessFuseboxPhotos
         private readonly AiImageResolver $aiImageResolver,
         private readonly PromptVersionRepository $promptVersions,
         private readonly SaveIntakeAnswer $saveIntakeAnswer,
+        private readonly AiTraceRecorder $traceRecorder,
+        private readonly AiTraceSnapshotService $traceSnapshots,
     ) {}
 
     public function handle(Intake $intake): ?AiRun
@@ -92,7 +97,7 @@ final class AssessFuseboxPhotos
             return $existing;
         }
 
-        $this->invalidateDerivedState($intake);
+        // Invalidate only after a successful provider result — failed calls must not wipe answers.
 
         $run = AiRun::query()->create([
             'intake_id' => $intake->id,
@@ -106,14 +111,49 @@ final class AssessFuseboxPhotos
             'started_at' => now(),
         ]);
 
+        $latestUpload = $uploads->sortByDesc('id')->first();
+        $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoAnalysis, [
+            'ai_run_id' => $run->id,
+            'upload_id' => $latestUpload?->id,
+            'subject_type' => 'question',
+            'subject_id' => self::PHOTO_QUESTION,
+            'provider' => (string) config('ai.provider', 'null'),
+            'prompt_version' => $promptVersion,
+            'schema_version' => $promptVersion,
+        ]);
+        if ($latestUpload !== null) {
+            $trace->linkUpload($latestUpload);
+        }
+        $dossierBefore = $this->traceSnapshots->answers($intake);
+
         try {
+            $photoRefs = $uploads->map(fn (IntakeUpload $upload): array => [
+                'upload_id' => $upload->id,
+                'category' => 'fusebox',
+                'path_ref' => 'intake_upload:'.$upload->id,
+                'checksum' => $upload->analysis_checksum ?? $upload->checksum,
+                ...$this->aiImageResolver->identity($upload),
+            ])->values()->all();
+
+            $trace->recordRequest(
+                systemAndUser: [
+                    'system' => $promptBody,
+                    'user' => $input,
+                ],
+                photoRefs: $photoRefs,
+                promptVersion: $promptVersion,
+                schemaVersion: $promptVersion,
+            );
+
             $result = $this->aiGateway->complete(
                 prompt: $promptBody,
                 input: $input,
                 promptVersion: $promptVersion,
                 images: $this->imageInputs($uploads),
             );
+            $trace->recordProviderResult($result);
             $output = $this->validateOutput($result->output);
+            $trace->recordParsed($output);
 
             $run->update($run->completionResultAttributes($result) + [
                 'status' => AiRunStatus::Succeeded,
@@ -124,7 +164,7 @@ final class AssessFuseboxPhotos
 
             $run = $run->fresh() ?? $run;
 
-            DB::transaction(function () use ($intake, $run, $output, $uploads, $persistenceManifest): void {
+            DB::transaction(function () use ($intake, $run, $output, $uploads, $persistenceManifest, $trace): void {
                 $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
 
                 if (! in_array($lockedIntake->status, [IntakeStatus::Sent, IntakeStatus::InProgress], true)) {
@@ -140,9 +180,16 @@ final class AssessFuseboxPhotos
                     throw new \RuntimeException('Meterkastfoto’s gewijzigd tijdens AI-analyse; resultaat niet toegepast.');
                 }
 
+                $this->invalidateDerivedState($intake);
+                $trace->step('invalidate_previous', ['question_key' => self::PHOTO_QUESTION]);
+
                 $this->storeObservation($intake, $run, $output, $uploads);
                 $this->prefillFreeGroup($intake, $output);
                 $this->prefillClarity($intake, $output);
+                $trace->step('apply', [
+                    'free_group' => $output['free_group'],
+                    'confidence' => $output['confidence'],
+                ]);
 
                 IntakeActivityEvent::query()->create([
                     'intake_id' => $intake->id,
@@ -151,6 +198,7 @@ final class AssessFuseboxPhotos
                     'event' => 'photo_assessment_completed',
                     'properties' => [
                         'ai_run_id' => $run->id,
+                        'ai_trace_id' => $trace->traceId(),
                         'question_key' => self::PHOTO_QUESTION,
                         'confidence' => $output['confidence'],
                         'free_group' => $output['free_group'],
@@ -161,11 +209,16 @@ final class AssessFuseboxPhotos
                 ]);
             }, 3);
 
+            $trace->linkAiRun($run);
+            $trace->recordDossierSnapshots($dossierBefore, $this->traceSnapshots->answers($intake->fresh() ?? $intake));
+            $trace->succeed();
+
             return $run;
         } catch (Throwable $exception) {
             Log::warning('AI fusebox photo assessment failed', [
                 'intake_id' => $intake->id,
                 'ai_run_id' => $run->id,
+                'ai_trace_id' => $trace->traceId(),
                 'exception' => $exception::class,
             ]);
 
@@ -174,6 +227,7 @@ final class AssessFuseboxPhotos
                 'error_message' => Str::limit($exception->getMessage(), 1000, ''),
                 'finished_at' => now(),
             ]);
+            $trace->fail($exception->getMessage());
 
             return $run->fresh() ?? $run;
         }

@@ -6,6 +6,8 @@ namespace App\Domains\AI\Actions;
 
 use App\Domains\AI\DTOs\RequestPrefillCandidate;
 use App\Domains\AI\Models\AiRun;
+use App\Domains\AI\Services\AiTraceRecorder;
+use App\Domains\AI\Services\AiTraceSnapshotService;
 use App\Domains\AI\Services\LocalRequestIntentParser;
 use App\Domains\AI\Services\RequestPrefillOutcomeClassifier;
 use App\Domains\AI\Services\TemplateQuestionCatalogBuilder;
@@ -15,6 +17,7 @@ use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeAnswer;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
+use App\Enums\AiTraceCallType;
 use App\Enums\IntakeStatus;
 use Illuminate\Support\Str;
 use Throwable;
@@ -42,6 +45,8 @@ final class DeriveIntentFromRequest
         private readonly PrefillAnswersFromKnownContext $prefillFromKnownContext,
         private readonly TemplateQuestionCatalogBuilder $catalogBuilder,
         private readonly RequestPrefillOutcomeClassifier $classifier,
+        private readonly AiTraceRecorder $traceRecorder,
+        private readonly AiTraceSnapshotService $traceSnapshots,
     ) {}
 
     public function handle(Intake $intake, bool $allowExternal = true): ?AiRun
@@ -108,12 +113,45 @@ final class DeriveIntentFromRequest
             'started_at' => now(),
         ]);
 
+        $trace = $this->traceRecorder->start($intake, AiTraceCallType::TextExtraction, [
+            'ai_run_id' => $run->id,
+            'provider' => 'local',
+            'prompt_version' => LocalRequestIntentParser::VERSION,
+            'schema_version' => LocalRequestIntentParser::VERSION,
+        ]);
+        $dossierBefore = $this->traceSnapshots->answers($intake);
+        $questionsBefore = $this->traceSnapshots->remainingQuestions($intake);
+
         try {
+            $trace->recordRequest(
+                systemAndUser: [
+                    'parser' => LocalRequestIntentParser::VERSION,
+                    'user' => ['request_reason' => $reason],
+                ],
+                promptVersion: LocalRequestIntentParser::VERSION,
+                schemaVersion: LocalRequestIntentParser::VERSION,
+                fallbackUsed: true,
+            );
+            $trace->recordParsed($output);
+            $trace->step('normalize', ['source' => 'local_parser']);
+
             $applied = $this->applyLocal(
                 $intake,
                 $output,
                 self::SOURCE_REQUEST_TEXT,
             );
+            $trace->step('apply', ['applied_question_keys' => $applied]);
+            $trace->recordFieldOutcomes(array_map(
+                static fn (string $key): array => [
+                    'question_key' => $key,
+                    'disposition' => 'accepted',
+                    'confidence' => $output['confidence'] ?? null,
+                    'source' => self::SOURCE_REQUEST_TEXT,
+                    'reason' => 'local_high_confidence',
+                ],
+                $applied,
+            ));
+
             $run->update([
                 'output' => $output,
                 'status' => AiRunStatus::Succeeded,
@@ -122,7 +160,11 @@ final class DeriveIntentFromRequest
             ]);
 
             $run = $run->fresh() ?? $run;
-            $this->recordActivity($intake, $run, $output, $applied);
+            $trace->linkAiRun($run);
+            $trace->recordDossierSnapshots($dossierBefore, $this->traceSnapshots->answers($intake));
+            $trace->recordRemainingQuestions($questionsBefore, $this->traceSnapshots->remainingQuestions($intake));
+            $trace->succeed();
+            $this->recordActivity($intake, $run, $output, $applied, $trace->traceId());
 
             return $run;
         } catch (Throwable $exception) {
@@ -131,6 +173,7 @@ final class DeriveIntentFromRequest
                 'error_message' => Str::limit($exception->getMessage(), 1000, ''),
                 'finished_at' => now(),
             ]);
+            $trace->fail($exception->getMessage());
 
             return $run->fresh() ?? $run;
         }
@@ -140,19 +183,20 @@ final class DeriveIntentFromRequest
      * @param  array<string, mixed>  $output
      * @param  list<string>  $applied
      */
-    private function recordActivity(Intake $intake, AiRun $run, array $output, array $applied): void
+    private function recordActivity(Intake $intake, AiRun $run, array $output, array $applied, ?string $traceId = null): void
     {
         IntakeActivityEvent::query()->create([
             'intake_id' => $intake->id,
             'actor_type' => 'system',
             'actor_id' => null,
             'event' => 'request_intent_derived',
-            'properties' => [
+            'properties' => array_filter([
                 'ai_run_id' => $run->id,
+                'ai_trace_id' => $traceId,
                 'provider' => $run->provider,
                 'confidence' => $output['confidence'],
                 'question_keys' => $applied,
-            ],
+            ], static fn (mixed $value): bool => $value !== null),
             'created_at' => now(),
         ]);
     }

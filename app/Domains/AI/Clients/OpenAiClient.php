@@ -60,12 +60,21 @@ final class OpenAiClient implements AiClientInterface
             ];
         }
 
+        $modelParameters = [
+            'temperature' => 0.2,
+            'response_format' => ['type' => 'json_object'],
+            'timeout_seconds' => $timeout,
+            'base_url' => $baseUrl,
+        ];
+
+        $providerStarted = microtime(true);
+
         try {
             $response = $this->httpClient($baseUrl, $apiKey, $timeout)
                 ->post('/chat/completions', [
                     'model' => $model,
-                    'temperature' => 0.2,
-                    'response_format' => ['type' => 'json_object'],
+                    'temperature' => $modelParameters['temperature'],
+                    'response_format' => $modelParameters['response_format'],
                     'messages' => [
                         ['role' => 'system', 'content' => $system],
                         ['role' => 'user', 'content' => $userContent],
@@ -78,11 +87,15 @@ final class OpenAiClient implements AiClientInterface
             );
         }
 
+        $providerMs = (int) round((microtime(true) - $providerStarted) * 1000);
+
         if ($response->failed()) {
             throw new AiClientException('Externe AI-provider gaf status '.$response->status().'.');
         }
 
         $content = $response->json('choices.0.message.content');
+        $finishReason = $response->json('choices.0.finish_reason');
+        $finishReason = is_string($finishReason) ? $finishReason : null;
 
         if (! is_string($content) || $content === '') {
             throw new AiClientException('Externe AI-provider gaf geen bruikbare inhoud.');
@@ -99,16 +112,21 @@ final class OpenAiClient implements AiClientInterface
         $outputTokens = $this->integerUsage($response->json('usage.completion_tokens'));
         $totalTokens = $this->integerUsage($response->json('usage.total_tokens'));
         $imageCount = count($request->images);
+        $actualModel = is_string($response->json('model')) ? $response->json('model') : $model;
 
         return new AiCompletionResult(
             output: $output,
             provider: 'openai',
-            model: is_string($response->json('model')) ? $response->json('model') : $model,
+            model: $actualModel,
             inputTokens: $inputTokens,
             outputTokens: $outputTokens,
             totalTokens: $totalTokens,
             imageCount: $imageCount,
             estimatedCostCents: $this->budgetGuard->estimateCostCents($inputTokens, $outputTokens, $imageCount),
+            finishReason: $finishReason,
+            rawResponse: $content,
+            providerMs: $providerMs,
+            modelParameters: $modelParameters,
         );
     }
 

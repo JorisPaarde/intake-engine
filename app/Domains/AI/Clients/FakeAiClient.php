@@ -72,86 +72,62 @@ final class FakeAiClient implements AiClientInterface
             : (self::$responseCallback)($request);
 
         if ($callbackOutput !== null) {
-            return new AiCompletionResult(
-                output: $callbackOutput,
-                provider: 'fake',
-                model: 'fake-v1',
-            );
+            return $this->result($callbackOutput, 'fake-v1');
         }
 
         if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'fusebox-assessment')) {
-            return new AiCompletionResult(
-                output: [
-                    'free_group' => 'yes',
-                    'phase' => 'three_phase',
-                    'confidence' => 'high',
-                    'evidence' => 'Fictieve testuitkomst voor de lokale fotoanalyse.',
-                    'retake_instruction' => null,
-                ],
-                provider: 'fake',
-                model: 'fake-vision-v1',
-            );
+            return $this->result([
+                'free_group' => 'yes',
+                'phase' => 'three_phase',
+                'confidence' => 'high',
+                'evidence' => 'Fictieve testuitkomst voor de lokale fotoanalyse.',
+                'retake_instruction' => null,
+            ], 'fake-vision-v1');
         }
 
         if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'room-assessment')) {
-            return new AiCompletionResult(
-                output: [
-                    'room_type' => 'living_room',
-                    'room_size_indication' => 'medium',
-                    'sun_exposure' => 'high',
-                    'glass_amount' => 'much',
-                    'room_outlet_status' => 'present',
-                    'confidence' => 'high',
-                    'evidence' => 'Fictieve testuitkomst voor de lokale ruimteanalyse.',
-                    'retake_instruction' => null,
-                ],
-                provider: 'fake',
-                model: 'fake-vision-v1',
-            );
+            return $this->result([
+                'room_type' => 'living_room',
+                'room_size_indication' => 'medium',
+                'sun_exposure' => 'high',
+                'glass_amount' => 'much',
+                'room_outlet_status' => 'present',
+                'confidence' => 'high',
+                'evidence' => 'Fictieve testuitkomst voor de lokale ruimteanalyse.',
+                'retake_instruction' => null,
+            ], 'fake-vision-v1');
         }
 
         if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'outdoor-assessment')) {
-            return new AiCompletionResult(
-                output: [
-                    'outdoor_location' => 'garden',
-                    'outdoor_mount_type' => 'wall',
-                    'outdoor_accessibility' => 'ladder',
-                    'confidence' => 'high',
-                    'evidence' => 'Fictieve testuitkomst voor de lokale buitenunitanalyse.',
-                    'retake_instruction' => null,
-                ],
-                provider: 'fake',
-                model: 'fake-vision-v1',
-            );
+            return $this->result([
+                'outdoor_location' => 'garden',
+                'outdoor_mount_type' => 'wall',
+                'outdoor_accessibility' => 'ladder',
+                'confidence' => 'high',
+                'evidence' => 'Fictieve testuitkomst voor de lokale buitenunitanalyse.',
+                'retake_instruction' => null,
+            ], 'fake-vision-v1');
         }
 
         if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'pipe-route-assessment')) {
-            return new AiCompletionResult(
-                output: [
-                    'pipe_route_description' => 'along_facade',
-                    'pipe_distance_indication' => 'short',
-                    'drillings_needed' => 'yes',
-                    'confidence' => 'high',
-                    'evidence' => 'Fictieve testuitkomst voor de lokale leidingrouteanalyse.',
-                    'retake_instruction' => null,
-                ],
-                provider: 'fake',
-                model: 'fake-vision-v1',
-            );
+            return $this->result([
+                'pipe_route_description' => 'along_facade',
+                'pipe_distance_indication' => 'short',
+                'drillings_needed' => 'yes',
+                'confidence' => 'high',
+                'evidence' => 'Fictieve testuitkomst voor de lokale leidingrouteanalyse.',
+                'retake_instruction' => null,
+            ], 'fake-vision-v1');
         }
 
         if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'installer-photo-observation')) {
-            return new AiCompletionResult(
-                output: [
-                    'observations' => [[
-                        'text' => 'Gemetselde wand is vanaf de vloer bereikbaar.',
-                        'impact' => 'installation',
-                        'confidence' => 0.9,
-                    ]],
-                ],
-                provider: 'fake',
-                model: 'fake-vision-v1',
-            );
+            return $this->result([
+                'observations' => [[
+                    'text' => 'Gemetselde wand is vanaf de vloer bereikbaar.',
+                    'impact' => 'installation',
+                    'confidence' => 0.9,
+                ]],
+            ], 'fake-vision-v1');
         }
 
         if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'request-prefill')) {
@@ -223,28 +199,20 @@ final class FakeAiClient implements AiClientInterface
                 ];
             }
 
-            return new AiCompletionResult(
-                output: [
-                    'evidence' => 'Fictieve catalogusprefill op basis van bekende context.',
-                    'fills' => $fills,
-                ],
-                provider: 'fake',
-                model: 'fake-v1',
-            );
+            return $this->result([
+                'evidence' => 'Fictieve catalogusprefill op basis van bekende context.',
+                'fills' => $fills,
+            ], 'fake-v1');
         }
 
         if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'dossier-synthesis')) {
-            return new AiCompletionResult(
-                output: [
-                    'summary' => 'Fictieve integrale dossiersynthese voor testgebruik.',
-                    'placement_proposals' => [],
-                    'option_proposals' => [],
-                    'exceptions' => [],
-                    'customer_tasks' => [],
-                ],
-                provider: 'fake',
-                model: 'fake-v1',
-            );
+            return $this->result([
+                'summary' => 'Fictieve integrale dossiersynthese voor testgebruik.',
+                'placement_proposals' => [],
+                'option_proposals' => [],
+                'exceptions' => [],
+                'customer_tasks' => [],
+            ], 'fake-v1');
         }
 
         $output = self::$forcedOutput ?? [
@@ -255,10 +223,24 @@ final class FakeAiClient implements AiClientInterface
             ],
         ];
 
+        return $this->result($output, 'fake-v1');
+    }
+
+    /**
+     * @param  array<string, mixed>  $output
+     */
+    private function result(array $output, string $model): AiCompletionResult
+    {
+        $raw = (string) json_encode($output, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
         return new AiCompletionResult(
             output: $output,
             provider: 'fake',
-            model: 'fake-v1',
+            model: $model,
+            finishReason: 'stop',
+            rawResponse: $raw,
+            providerMs: 1,
+            modelParameters: ['temperature' => 0.2, 'response_format' => ['type' => 'json_object']],
         );
     }
 }

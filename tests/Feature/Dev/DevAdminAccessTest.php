@@ -28,6 +28,7 @@ test('dev-admin is a hard 404 when disabled (production)', function () {
     $this->get('/dev')->assertNotFound();
     $this->get('/dev/health')->assertNotFound();
     $this->get('/dev/ai-runs')->assertNotFound();
+    $this->get('/dev/ai-traces')->assertNotFound();
     $this->get('/dev/ai-input-test')->assertNotFound();
     $this->get('/dev/activity')->assertNotFound();
     $this->get('/dev/intakes')->assertNotFound();

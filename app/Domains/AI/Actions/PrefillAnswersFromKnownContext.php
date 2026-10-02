@@ -7,6 +7,8 @@ namespace App\Domains\AI\Actions;
 use App\Domains\AI\DTOs\RequestPrefillCandidate;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\AiGateway;
+use App\Domains\AI\Services\AiTraceRecorder;
+use App\Domains\AI\Services\AiTraceSnapshotService;
 use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\AI\Services\RequestPrefillContextBuilder;
 use App\Domains\AI\Services\RequestPrefillOutcomeClassifier;
@@ -18,6 +20,7 @@ use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Support\RoomAreaAcceptance;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
+use App\Enums\AiTraceCallType;
 use App\Enums\IntakeStatus;
 use App\Enums\QuestionType;
 use Illuminate\Support\Str;
@@ -39,6 +42,8 @@ final class PrefillAnswersFromKnownContext
         private readonly RequestPrefillContextBuilder $contextBuilder,
         private readonly RequestPrefillOutcomeClassifier $classifier,
         private readonly SaveIntakeAnswer $saveIntakeAnswer,
+        private readonly AiTraceRecorder $traceRecorder,
+        private readonly AiTraceSnapshotService $traceSnapshots,
     ) {}
 
     public function handle(Intake $intake): ?AiRun
@@ -101,12 +106,38 @@ final class PrefillAnswersFromKnownContext
             'started_at' => now(),
         ]);
 
+        $trace = $this->traceRecorder->start($intake, AiTraceCallType::TextExtraction, [
+            'ai_run_id' => $run->id,
+            'provider' => (string) config('ai.provider', 'null'),
+            'prompt_version' => $promptVersion,
+            'schema_version' => $promptVersion,
+            'model_parameters' => ['temperature' => 0.2, 'response_format' => ['type' => 'json_object']],
+        ]);
+        $dossierBefore = $this->traceSnapshots->answers($intake);
+        $questionsBefore = $this->traceSnapshots->remainingQuestions($intake);
+        $trace->step('snapshot_before', [
+            'answer_count' => $dossierBefore['answer_count'],
+            'remaining_questions' => count($questionsBefore),
+        ]);
+
         try {
+            $trace->recordRequest(
+                systemAndUser: [
+                    'system' => $promptBody,
+                    'user' => $input,
+                    'prompt_version' => $promptVersion,
+                ],
+                promptVersion: $promptVersion,
+                schemaVersion: $promptVersion,
+                modelParameters: ['temperature' => 0.2, 'response_format' => ['type' => 'json_object']],
+            );
+
             $result = $this->aiGateway->complete(
                 prompt: $promptBody,
                 input: $input,
                 promptVersion: $promptVersion,
             );
+            $trace->recordProviderResult($result);
 
             $classified = $this->classifier->classifyCatalogOutput(
                 $result->output,
@@ -117,7 +148,25 @@ final class PrefillAnswersFromKnownContext
                 'evidence' => $classified['evidence'],
                 'fills' => $classified['fills'],
             ];
+            $trace->recordParsed($output);
+            $trace->step('normalize', [
+                'candidate_count' => count($classified['candidates']),
+            ]);
+            $trace->recordFieldOutcomes(array_map(
+                static fn (RequestPrefillCandidate $candidate): array => [
+                    'question_key' => $candidate->questionKey,
+                    'section_instance_key' => $candidate->sectionInstanceKey,
+                    'disposition' => $candidate->disposition,
+                    'confidence' => $candidate->confidence,
+                    'source' => $candidate->source,
+                    'reason' => $candidate->reason,
+                    'has_value' => $candidate->value !== null,
+                ],
+                $classified['candidates'],
+            ));
+
             $applied = $this->apply($intake, $output, $classified['candidates']);
+            $trace->step('apply', ['applied_question_keys' => $applied]);
 
             $run->update($run->completionResultAttributes($result) + [
                 'status' => AiRunStatus::Succeeded,
@@ -127,6 +176,17 @@ final class PrefillAnswersFromKnownContext
             ]);
 
             $run = $run->fresh() ?? $run;
+            $trace->linkAiRun($run);
+
+            $dossierAfter = $this->traceSnapshots->answers($intake);
+            $questionsAfter = $this->traceSnapshots->remainingQuestions($intake);
+            $trace->recordDossierSnapshots($dossierBefore, $dossierAfter);
+            $trace->recordRemainingQuestions($questionsBefore, $questionsAfter);
+            $trace->step('customer_step', [
+                'remaining_before' => count($questionsBefore),
+                'remaining_after' => count($questionsAfter),
+            ]);
+            $trace->succeed();
 
             IntakeActivityEvent::query()->create([
                 'intake_id' => $intake->id,
@@ -135,6 +195,7 @@ final class PrefillAnswersFromKnownContext
                 'event' => 'request_prefill_derived',
                 'properties' => [
                     'ai_run_id' => $run->id,
+                    'ai_trace_id' => $trace->traceId(),
                     'provider' => $run->provider,
                     'prompt_version' => $promptVersion,
                     'question_keys' => $applied,
@@ -149,6 +210,8 @@ final class PrefillAnswersFromKnownContext
                 'error_message' => Str::limit($exception->getMessage(), 1000, ''),
                 'finished_at' => now(),
             ]);
+            $trace->linkAiRun($run->fresh() ?? $run);
+            $trace->fail($exception->getMessage());
 
             return $run->fresh() ?? $run;
         }

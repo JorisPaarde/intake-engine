@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Added
+
+- **AI-trace logging + P2-timings (BL-116):** elke tekstextractie-, fotoanalyse- en synthese-call schrijft een `ai_traces`/`ai_trace_steps`-keten (trace-ID, intake, subject, provider/model/parameters, promptversie, request+context, foto-refs zonder base64, ruwe/geparste response, finish reason, tokens/kosten, field outcomes, dossier- en restvragen vóór/na). Upload/preprocess/provider/process apart gemeten (`intake_uploads.processing_timings` + trace-kolommen). Helper `AiTraceRecorder`/`AiTraceHandle::step()` voor parallelle stromen. Dev-admin `/dev/ai-traces` + CLI `ai:traces` / `ai:purge-traces` (configureerbare `AI_TRACE_RETENTION_DAYS`). Redactie van API-keys, authheaders en klanttokens. Mislukte foto-/meterkast-AI wist geen bestaande antwoorden meer vóór een geslaagde call.
+
 ## [1.2.0] - 2026-10-02
 
 Productie-release `v1.2.0`. Bevat alles na `v1.1.0`: sitemap (BL-105), `memory_limit` (BL-106), nieuwe app-huisstijl en rustiger werkplek (BL-107), OpenRouter-ondersteuning zonder DPIA-procespoort (BL-108), enum-normalisatie in de dossiersynthese (BL-109) en de fixes uit de demo-walks van 24 september (BL-110–BL-115).

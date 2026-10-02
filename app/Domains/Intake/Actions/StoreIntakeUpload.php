@@ -54,9 +54,12 @@ final class StoreIntakeUpload
             ]);
         }
 
+        $uploadStarted = microtime(true);
         $normalized = $this->photoUploadNormalizer->normalize($file);
+        $preprocessMs = (int) round((microtime(true) - $uploadStarted) * 1000);
 
         try {
+            $persistStarted = microtime(true);
             $disk = (string) config('filesystems.media', 'local');
             $directory = $this->directory($intake, $questionKey, $sectionInstanceKey);
             $basename = Str::ulid()->toBase32();
@@ -73,7 +76,7 @@ final class StoreIntakeUpload
                 ]);
             }
 
-            return DB::transaction(function () use ($intake, $questionKey, $sectionInstanceKey, $disk, $path, $analysisPath, $normalized, $maxFiles): IntakeUpload {
+            return DB::transaction(function () use ($intake, $questionKey, $sectionInstanceKey, $disk, $path, $analysisPath, $normalized, $maxFiles, $preprocessMs, $persistStarted): IntakeUpload {
                 $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
 
                 if (! in_array($lockedIntake->status, [IntakeStatus::Sent, IntakeStatus::InProgress], true)) {
@@ -90,6 +93,8 @@ final class StoreIntakeUpload
                     ]);
                 }
 
+                $uploadMs = (int) round((microtime(true) - $persistStarted) * 1000);
+
                 $upload = IntakeUpload::query()->create([
                     'intake_id' => $intake->id,
                     'question_key' => $questionKey,
@@ -105,6 +110,11 @@ final class StoreIntakeUpload
                     'analysis_size_bytes' => $normalized->analysisSizeBytes,
                     'analysis_checksum' => $normalized->analysisChecksum,
                     'sort_order' => $currentCount + 1,
+                    'processing_timings' => [
+                        'upload_ms' => $uploadMs,
+                        'preprocess_ms' => $preprocessMs,
+                        'measured_at' => now()->toIso8601String(),
+                    ],
                 ]);
 
                 $this->syncAnswerUploadIds($intake, $questionKey, $sectionInstanceKey);
