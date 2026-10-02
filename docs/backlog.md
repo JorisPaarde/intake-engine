@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.62 · **Laatste update:** 2026-10-02 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.63 · **Laatste update:** 2026-10-02 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -43,7 +43,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
 | — | BL-116 | AI-trace logging + P2 upload/analyse-timings (klanttest 2 okt) | E4/E9 | in_progress | high | AI · stap 1 herstelvolgorde · bij BL-028/104/109 · PR #117 |
-| — | BL-116 | Technische beslissingen uit klantvragen (pomp/route/boringen/stroom) | E3/E7 | in_progress | high | klanttest 2026-10-02 P0 · airco v17 · PR #115 · bij BL-077/103 |
+| — | BL-116 | Technische beslissingen uit klantvragen (pomp/route/boringen/stroom) | E3/E7 | done | high | klanttest 2026-10-02 P0 · airco v17 · PR #115 |
 | — | BL-115 | Gebruikte/ongeldige klantlink: NL-pagina i.p.v. kale 404 | E7 | done | medium | UX · bij BL-038/066 · demo-walk 24 sep |
 | — | BL-114 | Sticky Volgende stap onderschept geen klikken eronder | E6 | done | medium | UX · bij BL-053/054 · demo-walk 24 sep |
 | — | BL-113 | Nederlandse foutpagina’s 403/405/419/500/503 | E5 | done | medium | A · UX · bij BL-066/092 · demo-walk 24 sep |
@@ -561,7 +561,7 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-116 — Technische beslissingen uit klantvragen (klanttest 2026-10-02 P0)
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E3/E7 · **Band:** klanttest P0 · **Volgt op:** BL-077/103 · **Ref:** productregels Joris + Notion-klanttest
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-10-02 · **PR:** #115 · **Epic:** E3/E7 · **Band:** klanttest P0 · **Volgt op:** BL-077/103 · **Ref:** productregels Joris + Notion-klanttest
 - **Aanleiding:** case 80 — na Condensafvoer “Weet ik niet” kreeg de klant een verplichte ja/nee over condenspomp; hetzelfde patroon bij leidingroute, boringen en technische stroomvragen.
 - **Doel:** klant toont situatie (foto/observatie) en wensen; technische beslissingen (pomp, route, boringen, elektrische voorziening) blijven open voor installateur; AI mag voorstellen; geen stilzwijgende ja/nee-default.
 - **Scope:** airco v17 `meta.installer_decision` op `natural_fall_possible`, `pipe_route_description`, `pipe_distance_indication`, `drillings_needed`, `free_group_known`; klantwizard/progress slaat die over; condens “Weet ik niet” → verplichte afvoerfoto; systeemaandachtspunten voor open technische punten.
