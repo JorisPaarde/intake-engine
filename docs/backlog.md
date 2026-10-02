@@ -42,7 +42,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| — | BL-116 | AI-trace logging + P2 upload/analyse-timings (klanttest 2 okt) | E4/E9 | in_progress | high | AI · stap 1 herstelvolgorde · bij BL-028/104/109 |
+| — | BL-116 | AI-trace logging + P2 upload/analyse-timings (klanttest 2 okt) | E4/E9 | in_progress | high | AI · stap 1 herstelvolgorde · bij BL-028/104/109 · PR #117 |
 | — | BL-115 | Gebruikte/ongeldige klantlink: NL-pagina i.p.v. kale 404 | E7 | done | medium | UX · bij BL-038/066 · demo-walk 24 sep |
 | — | BL-114 | Sticky Volgende stap onderschept geen klikken eronder | E6 | done | medium | UX · bij BL-053/054 · demo-walk 24 sep |
 | — | BL-113 | Nederlandse foutpagina’s 403/405/419/500/503 | E5 | done | medium | A · UX · bij BL-066/092 · demo-walk 24 sep |
@@ -567,7 +567,7 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-116 — AI-trace logging + P2 upload/analyse-timings
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E4/E9 · **Band:** AI · **Volgt op:** BL-028/104/109 · **Ref:** Notion-klanttest 2026-10-02 § AI-logging + P2 meetdeel
+- **Status:** in_progress · **Prioriteit:** high · **Epic:** E4/E9 · **Band:** AI · **Volgt op:** BL-028/104/109 · **PR:** #117 · **Ref:** Notion-klanttest 2026-10-02 § AI-logging + P2 meetdeel
 - **Aanleiding:** Joris eist per mislukte/onjuiste AI-uitkomst onderscheid model vs prompt vs parser vs opslag vs klantflow; trage uploads/analyse zonder aparte fase-meting.
 - **Scope (deze PR):** `ai_traces`/`ai_trace_steps`, helper `AiTraceRecorder`/`AiTraceHandle::step()`, instrumentatie tekstextractie/fotoanalyse/synthese + upload timings, redactie, `/dev/ai-traces` + CLI, retention purge. Geen vragenlijst-/klantvraagtekst-wijzigingen (stromen 2–5).
 - **Acceptatie:** cases 80/81-tekst door extractie met fake provider → volledige keten in trace; mislukte call wist geen bestaand antwoord; geen secrets in log; `composer check` groen.
