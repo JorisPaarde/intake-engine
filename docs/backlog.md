@@ -43,7 +43,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
 | 1 | BL-117 | Installateur kan technisch open punt afhandelen vanuit de survey-werkplek | E7/E8 | backlog | high | na PR #115 · show/rapport `*_open` |
-| — | BL-123 | Staging-retest: voortgang 100%, Volgende-mismatch, follow-up wrong_subject | E1/E4/E7 | in_progress | high | na #115–#120 · case 80/81b |
+| — | BL-123 | Staging-retest: voortgang 100%, Volgende-mismatch, follow-up wrong_subject | E1/E4/E7 | done | high | na #115–#120 · case 80/81b · PR #121 |
 | — | BL-122 | Soft catalogus-prefill: lange evidence / kapotte fill dumpt niet alles | E3/E9 | done | high | regressie case 81 · PR #120 · na BL-118/120 |
 | — | BL-120 | Klanttest P2: voortgang, uploadfases, je-vorm (airco v20) | E1/E5/E7 | done | high | klanttest 2 okt P2 · PR #118 · na BL-119 |
 | — | BL-119 | Klanttest 2 okt P1: foto-stelligheid, interne AI-velden, verkeerde-fotofeedback | E4/E7/E9 | in_progress | high | AI/foto · na BL-118 · airco v19 · PR #119 |
@@ -615,11 +615,12 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-123 — Staging-retest acceptance (#115–#120)
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E1/E4/E7 · **Volgt op:** BL-119/120/122 · **Ref:** staging retest main@7031743, case 80 + follow-up 81b intake 73
+- **Status:** done · **Datum:** 2026-10-03 · **PR:** #121 · **Prioriteit:** high · **Epic:** E1/E4/E7 · **Volgt op:** BL-119/120/122 · **Ref:** staging retest main@7031743, case 80 + follow-up 81b intake 73
 - **Aanleiding:** vier acceptance-fouten na merge #115–#120: (1) wizard 100% bij “Vraag 16 van 20”; (2) Volgende zonder soft-continue toonde geen waarschuwing; (3) follow-up wrong_subject → 100%; (4) werkplek Stroomtoevoer zonder wrong-subject-reden.
 - **Doel:** UI-100% alleen als klantdeel echt klaar; Volgende-blok + zichtbare soft-continue-copy; follow-up mismatch telt niet als af; installateur ziet korte reden op Aanvulling nodig.
 - **Scope:** `IntakeWizard` display-% + mismatch alerts; `FollowUpProgressCalculator`; `DecisionReadinessService`/`PhotoContentAssessment::followUpMismatchReason`; Pest. Geen templateversiebump; #115–#120-beslissingen intact.
 - **Acceptatie:** Pest voor alle vier paden; `composer check` groen; geen prod-tag/deploy.
+- **Resultaat:** UI-cap 99%/100%; soft-continue-waarschuwing bij banner+footer; follow-up mismatch = “Nog te vervangen”; Stroomtoevoer-blocker met wrong-subject-reden.
 
 ### BL-118 — Klanttest 2 okt: foto-first, extractiedekking, kamernamen
 
