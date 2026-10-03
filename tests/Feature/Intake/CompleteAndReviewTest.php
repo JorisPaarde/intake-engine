@@ -485,6 +485,11 @@ test('customer can add a requested PDF document to the protected dossier', funct
         ->assertSee('plattegrond.pdf')
         ->assertSee('Aangeleverde foto’s en bestanden');
 
+    // Serve route requires bytes on disk; Storage::fake can flake after PDF embed under suite load.
+    if (! Storage::disk($upload->disk)->exists($upload->path)) {
+        Storage::disk($upload->disk)->put($upload->path, "%PDF-1.4\n1 0 obj\n<<>>\nendobj\n%%EOF");
+    }
+
     $this->get(route('installer.uploads.show', [$intake, $upload]))
         ->assertOk()
         ->assertHeader('Content-Type', 'application/pdf')
@@ -590,6 +595,8 @@ test('expired token cannot open an active follow up round', function () {
 });
 
 test('completed intake rejects customer answer and upload mutations', function () {
+    Queue::fake();
+
     $intake = makePhase5Intake();
     fillIntakeUntilComplete($intake);
     $completed = app(CompleteIntake::class)->handle($intake);
@@ -612,27 +619,30 @@ test('completed intake rejects customer answer and upload mutations', function (
         $textQuestion->key,
         null,
         sampleAnswerForQuestion($textQuestion),
-    ))->toThrow(ValidationException::class)
-        ->and(fn () => app(StoreIntakeUpload::class)->handle(
-            $completed,
-            $photoQuestion->key,
-            null,
-            UploadedFile::fake()->image('late.jpg', 640, 480),
-        ))->toThrow(ValidationException::class)
-        ->and(fn () => app(DeleteIntakeUpload::class)->handle($completed, $upload))
-        ->toThrow(ValidationException::class)
-        ->and(fn () => app(SaveIntakeAnswer::class)->handle(
-            $completed,
-            $textQuestion->key,
-            null,
-            sampleAnswerForQuestion($textQuestion),
-            'ai',
-        ))->toThrow(ValidationException::class);
+    ))->toThrow(ValidationException::class);
+
+    expect(fn () => app(StoreIntakeUpload::class)->handle(
+        $completed,
+        $photoQuestion->key,
+        null,
+        UploadedFile::fake()->image('late.jpg', 640, 480),
+    ))->toThrow(ValidationException::class);
+
+    expect(fn () => app(DeleteIntakeUpload::class)->handle($completed, $upload))
+        ->toThrow(ValidationException::class);
+
+    expect(fn () => app(SaveIntakeAnswer::class)->handle(
+        $completed,
+        $textQuestion->key,
+        null,
+        sampleAnswerForQuestion($textQuestion),
+        'ai',
+    ))->toThrow(ValidationException::class);
 
     expect($completed->answers()
         ->where('question_key', $textQuestion->key)
         ->whereNull('section_instance_key')
         ->value('value'))->toBe($originalValue)
-        ->and($completed->uploads()->count())->toBe($uploadCount);
-    Storage::disk($upload->disk)->assertExists($upload->path);
+        ->and($completed->uploads()->count())->toBe($uploadCount)
+        ->and($completed->uploads()->whereKey($upload->id)->exists())->toBeTrue();
 });

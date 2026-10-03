@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.61 · **Laatste update:** 2026-10-02 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.62 · **Laatste update:** 2026-10-02 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,10 +38,11 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. Nieuwe items starten bij BL-116.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace logging. Nieuwe items starten bij BL-117.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
+| — | BL-116 | AI-trace logging + P2 upload/analyse-timings (klanttest 2 okt) | E4/E9 | in_progress | high | AI · stap 1 herstelvolgorde · bij BL-028/104/109 · PR #117 |
 | — | BL-115 | Gebruikte/ongeldige klantlink: NL-pagina i.p.v. kale 404 | E7 | done | medium | UX · bij BL-038/066 · demo-walk 24 sep |
 | — | BL-114 | Sticky Volgende stap onderschept geen klikken eronder | E6 | done | medium | UX · bij BL-053/054 · demo-walk 24 sep |
 | — | BL-113 | Nederlandse foutpagina’s 403/405/419/500/503 | E5 | done | medium | A · UX · bij BL-066/092 · demo-walk 24 sep |
@@ -563,6 +564,13 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Aanleiding:** gebruikte `/o/{token}` gaf kale 404; bedoeld dat toegang dichtgaat na afronden/revoke.
 - **Resultaat:** bekende maar ongeldige token → HTTP 410 + NL-pagina (“al gebruikt” / “verlopen” / “werkt niet meer”); onbekende token blijft 404.
 - **Acceptatie:** Pest 410 + copy; staging heropen gebruikte link.
+
+### BL-116 — AI-trace logging + P2 upload/analyse-timings
+
+- **Status:** in_progress · **Prioriteit:** high · **Epic:** E4/E9 · **Band:** AI · **Volgt op:** BL-028/104/109 · **PR:** #117 · **Ref:** Notion-klanttest 2026-10-02 § AI-logging + P2 meetdeel
+- **Aanleiding:** Joris eist per mislukte/onjuiste AI-uitkomst onderscheid model vs prompt vs parser vs opslag vs klantflow; trage uploads/analyse zonder aparte fase-meting.
+- **Scope (deze PR):** `ai_traces`/`ai_trace_steps`, helper `AiTraceRecorder`/`AiTraceHandle::step()`, instrumentatie tekstextractie/fotoanalyse/synthese + upload timings, redactie, `/dev/ai-traces` + CLI, retention purge. Geen vragenlijst-/klantvraagtekst-wijzigingen (stromen 2–5).
+- **Acceptatie:** cases 80/81-tekst door extractie met fake provider → volledige keten in trace; mislukte call wist geen bestaand antwoord; geen secrets in log; `composer check` groen.
 
 ### BL-007 — AI-uitbreidingen
 

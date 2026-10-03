@@ -26,6 +26,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $size_bytes
  * @property int $sort_order
  * @property PhotoUsabilityVerdict|null $usability_verdict
+ * @property array{persist_ms?: int, preprocess_ms?: int, network_upload_ms?: int, measured_at?: string, dossier_width?: int|null, dossier_height?: int|null, analysis_width?: int|null, analysis_height?: int|null, correlation_id?: string}|null $processing_timings
  * @property-read IntakeFollowUpItem|null $followUpItem
  */
 class IntakeUpload extends Model
@@ -49,6 +50,7 @@ class IntakeUpload extends Model
         'checksum',
         'sort_order',
         'usability_verdict',
+        'processing_timings',
     ];
 
     /**
@@ -63,6 +65,7 @@ class IntakeUpload extends Model
             'analysis_size_bytes' => 'integer',
             'sort_order' => 'integer',
             'usability_verdict' => PhotoUsabilityVerdict::class,
+            'processing_timings' => 'array',
         ];
     }
 

@@ -7,6 +7,8 @@ namespace App\Domains\AI\Actions;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\AiGateway;
 use App\Domains\AI\Services\AiImageResolver;
+use App\Domains\AI\Services\AiTracePhotoRefBuilder;
+use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\Intake\Models\DossierEvidenceLink;
 use App\Domains\Intake\Models\DossierSubject;
@@ -16,6 +18,7 @@ use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\DossierManager;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
+use App\Enums\AiTraceCallType;
 use App\Enums\DossierRecordKind;
 use App\Enums\DossierRecordStatus;
 use Illuminate\Support\Facades\DB;
@@ -38,6 +41,8 @@ final class SuggestInstallerPhotoObservations
         private readonly AiImageResolver $aiImageResolver,
         private readonly PromptVersionRepository $promptVersions,
         private readonly DossierManager $dossierManager,
+        private readonly AiTraceRecorder $traceRecorder,
+        private readonly AiTracePhotoRefBuilder $photoRefBuilder,
     ) {}
 
     public function handle(
@@ -98,14 +103,44 @@ final class SuggestInstallerPhotoObservations
             'started_at' => now(),
         ]);
 
+        $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoAnalysis, [
+            'ai_run_id' => $run->id,
+            'upload_id' => $upload->id,
+            'subject_type' => 'dossier_subject',
+            'subject_id' => (string) $subject->id,
+            'provider' => (string) config('ai.provider', 'null'),
+            'prompt_version' => $promptVersion,
+        ]);
+        $trace->linkUpload($upload);
+
         try {
+            $photoRefs = $trace->isNoop()
+                ? []
+                : [$this->photoRefBuilder->fromUpload($upload, 'installer_observation')];
+            $trace->recordRequest(
+                systemAndUser: [
+                    'system' => $promptBody,
+                    'user' => $input,
+                ],
+                photoRefs: $photoRefs,
+                promptVersion: $promptVersion,
+            );
+
             $result = $this->aiGateway->complete(
                 prompt: $promptBody,
                 input: $input,
                 promptVersion: $promptVersion,
                 images: [$this->aiImageResolver->input($upload)],
             );
-            $output = $this->validateOutput($result->output);
+            $trace->recordProviderResult($result);
+
+            try {
+                $output = $this->validateOutput($result->output);
+                $trace->recordParsed($output);
+            } catch (ValidationException $exception) {
+                $trace->recordParsed([], $exception->errors());
+                throw $exception;
+            }
 
             $run->update($run->completionResultAttributes($result) + [
                 'status' => AiRunStatus::Succeeded,
@@ -115,87 +150,117 @@ final class SuggestInstallerPhotoObservations
             ]);
             $run = $run->fresh() ?? $run;
 
-            DB::transaction(function () use (
-                $intake,
-                $subject,
-                $upload,
-                $imageIdentity,
-                $subjectIdentity,
-                $run,
-                $output,
-            ): void {
-                Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
-                $currentSubject = DossierSubject::query()
-                    ->whereKey($subject->id)
-                    ->lockForUpdate()
-                    ->firstOrFail();
-                $currentUpload = IntakeUpload::query()->whereKey($upload->id)->lockForUpdate()->firstOrFail();
-                $this->guardContext($intake, $currentSubject, $currentUpload);
+            try {
+                DB::transaction(function () use (
+                    $intake,
+                    $subject,
+                    $upload,
+                    $imageIdentity,
+                    $subjectIdentity,
+                    $run,
+                    $output,
+                    $trace,
+                ): void {
+                    $trace->beginBuffer();
+                    Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
+                    $currentSubject = DossierSubject::query()
+                        ->whereKey($subject->id)
+                        ->lockForUpdate()
+                        ->firstOrFail();
+                    $currentUpload = IntakeUpload::query()->whereKey($upload->id)->lockForUpdate()->firstOrFail();
+                    $this->guardContext($intake, $currentSubject, $currentUpload);
 
-                if ($this->aiImageResolver->identity($currentUpload) !== $imageIdentity
-                    || [
-                        'type' => $currentSubject->type,
-                        'context' => $this->safeSubjectContext($currentSubject),
-                    ] !== $subjectIdentity) {
-                    throw new \RuntimeException('Foto of dossieronderdeel gewijzigd tijdens AI-analyse; resultaat niet toegepast.');
-                }
-
-                $minimumConfidence = max(
-                    0.0,
-                    min(1.0, (float) config('ai.photo_inference.observation_min_confidence', 0.65)),
-                );
-                $recordIds = [];
-
-                foreach ($output['observations'] as $index => $observation) {
-                    if ($observation['confidence'] < $minimumConfidence) {
-                        continue;
+                    if ($this->aiImageResolver->identity($currentUpload) !== $imageIdentity
+                        || [
+                            'type' => $currentSubject->type,
+                            'context' => $this->safeSubjectContext($currentSubject),
+                        ] !== $subjectIdentity) {
+                        throw new \RuntimeException('Foto of dossieronderdeel gewijzigd tijdens AI-analyse; resultaat niet toegepast.');
                     }
 
-                    $record = $this->dossierManager->record(
-                        intake: $intake,
-                        subject: $currentSubject,
-                        kind: DossierRecordKind::Observation,
-                        key: 'photo_observation.'.$upload->id.'.'.($index + 1),
-                        value: [
-                            'text' => $observation['text'],
-                            'impact' => $observation['impact'],
-                        ],
-                        actorType: 'system',
-                        actorId: null,
-                        sourceType: 'ai',
-                        sourceId: $run->id,
-                        method: 'photo_inference',
-                        confidence: $observation['confidence'],
-                        status: DossierRecordStatus::Proposed,
-                        evidence: [
-                            ['type' => 'intake_upload', 'id' => $upload->id],
-                            ['type' => 'ai_run', 'id' => $run->id],
-                        ],
+                    $minimumConfidence = max(
+                        0.0,
+                        min(1.0, (float) config('ai.photo_inference.observation_min_confidence', 0.65)),
                     );
-                    $recordIds[] = $record->id;
-                }
+                    $recordIds = [];
+                    $fieldOutcomes = [];
 
-                IntakeActivityEvent::query()->create([
-                    'intake_id' => $intake->id,
-                    'actor_type' => 'system',
-                    'actor_id' => null,
-                    'event' => 'installer_photo_observations_suggested',
-                    'properties' => [
-                        'ai_run_id' => $run->id,
-                        'upload_id' => $upload->id,
-                        'subject_key' => $currentSubject->key,
-                        'record_ids' => $recordIds,
-                    ],
-                    'created_at' => now(),
-                ]);
+                    foreach ($output['observations'] as $index => $observation) {
+                        $accepted = $observation['confidence'] >= $minimumConfidence;
+                        $fieldOutcomes[] = [
+                            'question_key' => 'photo_observation.'.($index + 1),
+                            'disposition' => $accepted ? 'accepted' : 'rejected',
+                            'confidence' => $observation['confidence'],
+                            'source' => 'ai',
+                            'reason' => $accepted
+                                ? 'accepted_observation'
+                                : 'low_confidence',
+                            'has_value' => true,
+                            'impact' => $observation['impact'],
+                        ];
 
-                $run->update([
-                    'output' => [
-                        ...$output,
-                        'stored_observation_count' => count($recordIds),
-                    ],
-                ]);
-            }, 3);
+                        if (! $accepted) {
+                            continue;
+                        }
+
+                        $record = $this->dossierManager->record(
+                            intake: $intake,
+                            subject: $currentSubject,
+                            kind: DossierRecordKind::Observation,
+                            key: 'photo_observation.'.$upload->id.'.'.($index + 1),
+                            value: [
+                                'text' => $observation['text'],
+                                'impact' => $observation['impact'],
+                            ],
+                            actorType: 'system',
+                            actorId: null,
+                            sourceType: 'ai',
+                            sourceId: $run->id,
+                            method: 'photo_inference',
+                            confidence: $observation['confidence'],
+                            status: DossierRecordStatus::Proposed,
+                            evidence: [
+                                ['type' => 'intake_upload', 'id' => $upload->id],
+                                ['type' => 'ai_run', 'id' => $run->id],
+                            ],
+                        );
+                        $recordIds[] = $record->id;
+                    }
+
+                    $trace->step('apply', ['stored_observation_count' => count($recordIds)]);
+                    $trace->recordFieldOutcomes($fieldOutcomes);
+
+                    IntakeActivityEvent::query()->create([
+                        'intake_id' => $intake->id,
+                        'actor_type' => 'system',
+                        'actor_id' => null,
+                        'event' => 'installer_photo_observations_suggested',
+                        'properties' => [
+                            'ai_run_id' => $run->id,
+                            'ai_trace_id' => $trace->traceId(),
+                            'upload_id' => $upload->id,
+                            'subject_key' => $currentSubject->key,
+                            'record_ids' => $recordIds,
+                        ],
+                        'created_at' => now(),
+                    ]);
+
+                    $run->update([
+                        'output' => [
+                            ...$output,
+                            'stored_observation_count' => count($recordIds),
+                        ],
+                    ]);
+                }, 3);
+                $trace->flushBuffer();
+            } catch (Throwable $transactionException) {
+                $trace->discardBuffer();
+                throw $transactionException;
+            }
+
+            $trace->linkAiRun($run->fresh() ?? $run);
+            $trace->stopProcessTimer();
+            $trace->succeed();
 
             return $run->fresh() ?? $run;
         } catch (Throwable $exception) {
@@ -203,6 +268,7 @@ final class SuggestInstallerPhotoObservations
                 'intake_id' => $intake->id,
                 'upload_id' => $upload->id,
                 'ai_run_id' => $run->id,
+                'ai_trace_id' => $trace->traceId(),
                 'exception' => $exception::class,
             ]);
 
@@ -211,6 +277,9 @@ final class SuggestInstallerPhotoObservations
                 'error_message' => Str::limit($exception->getMessage(), 1000, ''),
                 'finished_at' => now(),
             ]);
+            $trace->linkAiRun($run->fresh() ?? $run);
+            $trace->discardBuffer();
+            $trace->fail($exception->getMessage(), $exception);
 
             return $run->fresh() ?? $run;
         }

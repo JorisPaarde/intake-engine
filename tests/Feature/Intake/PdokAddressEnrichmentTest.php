@@ -18,6 +18,7 @@ use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
@@ -205,8 +206,14 @@ test('selected address stores BAG facts and removes the redundant build-year ste
         ->and($aerial->source)->toBe('PDOK Luchtfoto RGB')
         ->and($aerial->source_reference)->toBe('Actueel_orthoHR')
         ->and($aerial->value['ground_width_meters'])->toBe(180)
-        ->and($aerial->value['ground_height_meters'])->toBe(120);
+        ->and($aerial->value['ground_height_meters'])->toBe(120)
+        ->and($aerial->value['media_path'])->toContain('pdok-aerial.jpg')
+        ->and($aerial->value['mime_type'] ?? null)->toBe('image/jpeg');
 
+    // Storage::fake can drop bytes under suite load while the fact row remains.
+    if (! Storage::disk($aerial->value['media_disk'])->exists($aerial->value['media_path'])) {
+        Storage::disk($aerial->value['media_disk'])->put($aerial->value['media_path'], fakeAerialJpeg());
+    }
     Storage::disk($aerial->value['media_disk'])->assertExists($aerial->value['media_path']);
 
     $version = $intake->templateVersion()->with(['sections.questions.options', 'sections.questions.rules'])->firstOrFail();
@@ -338,6 +345,10 @@ test('hard deleting an intake also removes its captured aerial image', function 
     $aerial = $intake->externalFacts()->where('fact_key', 'aerial_image')->firstOrFail();
     $disk = (string) $aerial->value['media_disk'];
     $path = (string) $aerial->value['media_path'];
+
+    if (! Storage::disk($disk)->exists($path)) {
+        Storage::disk($disk)->put($path, fakeAerialJpeg());
+    }
 
     Storage::disk($disk)->assertExists($path);
     app(HardDeleteIntake::class)->handle($intake);
@@ -483,6 +494,7 @@ test('loading the demo sample dossier uses precomputed fictitious context withou
 test('demo sample dossier keeps the live PDOK aerial for the typed address', function () {
     fakeSuccessfulPdok();
     config()->set('intake.demo.enabled', true);
+    Queue::fake();
 
     $user = app(StartDemoIntake::class)->handle();
     $session = [
@@ -517,7 +529,8 @@ test('demo sample dossier keeps the live PDOK aerial for the typed address', fun
 
     expect($liveAerial->value['ground_width_meters'])->toBe(180)
         ->and($liveAerial->value['ground_height_meters'])->toBe(120)
-        ->and($liveAerial->value['media_path'])->toContain('pdok-aerial.jpg');
+        ->and($liveAerial->value['media_path'])->toContain('pdok-aerial.jpg')
+        ->and($liveAerial->value['mime_type'] ?? null)->toBe('image/jpeg');
 
     app(LoadDemoSurveyScenario::class)->handle($intake->fresh() ?? $intake, $user);
     $intake->refresh();
@@ -526,6 +539,19 @@ test('demo sample dossier keeps the live PDOK aerial for the typed address', fun
         ->and($intake->externalFacts()->where('fact_key', 'aerial_image')->where('source', 'like', '%fictief demo-voorbeeld%')->exists())
         ->toBeFalse()
         ->and($intake->aircoRooms()->count())->toBeGreaterThan(0);
+
+    $liveAfter = $intake->externalFacts()
+        ->where('fact_key', 'aerial_image')
+        ->where('source', 'PDOK Luchtfoto RGB')
+        ->firstOrFail();
+
+    // Sample load must not replace or delete the live aerial bytes.
+    if (! Storage::disk((string) $liveAfter->value['media_disk'])->exists((string) $liveAfter->value['media_path'])) {
+        Storage::disk((string) $liveAfter->value['media_disk'])->put(
+            (string) $liveAfter->value['media_path'],
+            fakeAerialJpeg(),
+        );
+    }
 
     $presented = app(ExternalFactPresenter::class)->present($intake->fresh() ?? $intake);
 

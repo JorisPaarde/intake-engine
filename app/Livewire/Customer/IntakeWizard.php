@@ -9,6 +9,7 @@ use App\Domains\AI\Actions\AssessPhotoUsability;
 use App\Domains\AI\Actions\DeriveIntentFromRequest;
 use App\Domains\AI\Actions\DerivePhotoAnswers;
 use App\Domains\AI\Models\AiRun;
+use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\AI\Support\PhotoDerivationProfile;
 use App\Domains\Intake\Actions\CompleteFollowUpRound;
 use App\Domains\Intake\Actions\CompleteIntake;
@@ -43,6 +44,7 @@ use App\Enums\QuestionType;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -648,11 +650,16 @@ class IntakeWizard extends Component
 
         foreach ($files as $file) {
             try {
-                $upload = app(StoreFollowUpUpload::class)->handle($this->intake(), $item, $file);
+                $upload = app(StoreFollowUpUpload::class)->handle(
+                    $this->intake(),
+                    $item,
+                    $file,
+                );
+                $this->rememberStoredUpload($upload);
                 $stored++;
 
                 if ($type === FollowUpItemType::Photo) {
-                    app(AssessPhotoUsability::class)->handle($upload);
+                    app(AssessPhotoUsability::class)->handle($upload, correlationId: $this->correlationIdForUpload($upload));
                 }
             } catch (ValidationException $exception) {
                 $error = $exception->errors()['upload'][0]
@@ -705,10 +712,14 @@ class IntakeWizard extends Component
                     $instanceKey,
                     $file,
                 );
+                $this->rememberStoredUpload($upload);
                 $stored++;
 
                 // BL-007: non-blocking local usability check — a hint, never a block.
-                $verdict = app(AssessPhotoUsability::class)->handle($upload);
+                $verdict = app(AssessPhotoUsability::class)->handle(
+                    $upload,
+                    correlationId: $this->correlationIdForUpload($upload),
+                );
                 $retakeHint = $this->photoRetakeHint($verdict, $questionKey);
 
                 if ($retakeHint !== null) {
@@ -853,8 +864,12 @@ class IntakeWizard extends Component
         }
 
         if ($profileName === 'fusebox') {
+            $correlationId = $this->latestUploadCorrelationId($questionKey, $instanceKey);
+
             return $instanceKey === null
-                ? $this->applyFuseboxAssessment(app(AssessFuseboxPhotos::class)->handle($this->intake()))
+                ? $this->applyFuseboxAssessment(
+                    app(AssessFuseboxPhotos::class)->handle($this->intake(), correlationId: $correlationId),
+                )
                 : null;
         }
 
@@ -864,8 +879,16 @@ class IntakeWizard extends Component
             return null;
         }
 
+        $correlationId = $this->latestUploadCorrelationId($questionKey, $instanceKey);
+
         return $this->applyPhotoDerivation(
-            app(DerivePhotoAnswers::class)->handle($this->intake(), $questionKey, $instanceKey, $profile),
+            app(DerivePhotoAnswers::class)->handle(
+                $this->intake(),
+                $questionKey,
+                $instanceKey,
+                $profile,
+                correlationId: $correlationId,
+            ),
             $instanceKey,
             $profile,
         );
@@ -1633,5 +1656,75 @@ class IntakeWizard extends Component
         }
 
         $this->stepIndex = min(max(0, $this->stepIndex), count($steps) - 1);
+    }
+
+    /**
+     * Livewire client callback: attach measured network ms to an explicit saved upload.
+     */
+    public function recordNetworkUploadTiming(int $uploadId, int $ms): void
+    {
+        if ($ms < 0 || $uploadId <= 0) {
+            return;
+        }
+
+        $upload = IntakeUpload::query()
+            ->where('intake_id', $this->intake()->id)
+            ->find($uploadId);
+
+        if (! $upload instanceof IntakeUpload) {
+            return;
+        }
+
+        app(AiTraceRecorder::class)->recordNetworkUploadMs($upload, $ms);
+    }
+
+    private function rememberStoredUpload(IntakeUpload $upload): void
+    {
+        $this->dispatch('ai-upload-stored', uploadId: $upload->id);
+    }
+
+    private function correlationIdForUpload(IntakeUpload $upload): string
+    {
+        $timings = $upload->processing_timings ?? [];
+        if (is_string($timings['correlation_id'] ?? null) && $timings['correlation_id'] !== '') {
+            return (string) $timings['correlation_id'];
+        }
+
+        $id = (string) Str::uuid();
+        $timings['correlation_id'] = $id;
+        $upload->update(['processing_timings' => $timings]);
+
+        return $id;
+    }
+
+    private function latestUploadCorrelationId(string $questionKey, ?string $instanceKey): ?string
+    {
+        if ($questionKey === 'fusebox_photo') {
+            $upload = IntakeUpload::query()
+                ->where('intake_id', $this->intake()->id)
+                ->whereIn('question_key', ['fusebox_photo', 'fusebox_photo_extra'])
+                ->whereNull('section_instance_key')
+                ->latest('id')
+                ->first();
+
+            return $upload instanceof IntakeUpload ? $this->correlationIdForUpload($upload) : null;
+        }
+
+        $query = IntakeUpload::query()
+            ->where('intake_id', $this->intake()->id)
+            ->where('question_key', $questionKey)
+            ->latest('id');
+
+        if ($instanceKey === null) {
+            $query->whereNull('section_instance_key');
+        } else {
+            $query->where('section_instance_key', $instanceKey);
+        }
+
+        $upload = $query->first();
+
+        return $upload instanceof IntakeUpload
+            ? $this->correlationIdForUpload($upload)
+            : null;
     }
 }

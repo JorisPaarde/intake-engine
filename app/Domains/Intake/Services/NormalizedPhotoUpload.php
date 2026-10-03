@@ -22,5 +22,9 @@ final readonly class NormalizedPhotoUpload
         public string $analysisChecksum,
         public string $originalFilename,
         public array $cleanupPaths = [],
+        public ?int $dossierWidth = null,
+        public ?int $dossierHeight = null,
+        public ?int $analysisWidth = null,
+        public ?int $analysisHeight = null,
     ) {}
 }

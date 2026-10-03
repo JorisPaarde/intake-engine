@@ -150,6 +150,19 @@ test('assessment is idempotent and deleting its evidence removes the derived sta
         null,
         UploadedFile::fake()->image('meterkast.jpg', 1200, 900),
     );
+    $disk = Storage::disk($upload->disk);
+    if (! $disk->exists($upload->path) || (is_string($upload->analysis_path) && ! $disk->exists((string) $upload->analysis_path))) {
+        $image = imagecreatetruecolor(32, 32);
+        imagefilledrectangle($image, 0, 0, 31, 31, imagecolorallocate($image, 180, 180, 180));
+        ob_start();
+        imagejpeg($image, null, 80);
+        $bytes = (string) ob_get_clean();
+        imagedestroy($image);
+        $disk->put($upload->path, $bytes);
+        if (is_string($upload->analysis_path) && $upload->analysis_path !== '') {
+            $disk->put($upload->analysis_path, $bytes);
+        }
+    }
 
     $first = app(AssessFuseboxPhotos::class)->handle($intake);
     $second = app(AssessFuseboxPhotos::class)->handle($intake);

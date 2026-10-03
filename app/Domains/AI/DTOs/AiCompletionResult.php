@@ -8,6 +8,7 @@ final readonly class AiCompletionResult
 {
     /**
      * @param  array<string, mixed>  $output
+     * @param  array<string, mixed>  $modelParameters
      */
     public function __construct(
         public array $output,
@@ -18,5 +19,9 @@ final readonly class AiCompletionResult
         public ?int $totalTokens = null,
         public int $imageCount = 0,
         public ?int $estimatedCostCents = null,
+        public ?string $finishReason = null,
+        public ?string $rawResponse = null,
+        public ?int $providerMs = null,
+        public array $modelParameters = [],
     ) {}
 }

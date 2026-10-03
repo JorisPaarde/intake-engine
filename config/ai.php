@@ -118,4 +118,20 @@ return [
         'synthesis_prompt' => 'route_synthesis',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | AI-trace logging (klanttest 2026-10-02)
+    |--------------------------------------------------------------------------
+    |
+    | Volledige keten logging: request → response → parse → field outcomes →
+    | dossier/restvragen. Geen API-keys, klanttokens of base64 in de standaardlog.
+    | Dev-admin `/dev/ai-traces` + CLI `ai:traces` / `ai:purge-traces`.
+    |
+    */
+
+    'tracing' => [
+        'enabled' => filter_var(env('AI_TRACING_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+        'retention_days' => (int) env('AI_TRACE_RETENTION_DAYS', 30),
+    ],
+
 ];

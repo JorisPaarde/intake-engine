@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Actions;
 
+use App\Domains\AI\Services\AiTracePhotoRefBuilder;
+use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\Intake\Jobs\DeleteStoredMediaJob;
 use App\Domains\Intake\Models\DossierSubject;
 use App\Domains\Intake\Models\Intake;
@@ -12,6 +14,7 @@ use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\InstallerSurveyProgress;
 use App\Domains\Intake\Services\PhotoUploadNormalizer;
+use App\Enums\AiTraceCallType;
 use App\Enums\IntakeStatus;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
@@ -28,6 +31,8 @@ final class StoreInstallerDossierUpload
         private readonly PhotoUploadNormalizer $normalizer,
         private readonly DossierManager $dossierManager,
         private readonly InstallerSurveyProgress $surveyProgress,
+        private readonly AiTraceRecorder $traceRecorder,
+        private readonly AiTracePhotoRefBuilder $photoRefs,
     ) {}
 
     public function handle(
@@ -53,7 +58,10 @@ final class StoreInstallerDossierUpload
             ]);
         }
 
+        $preprocessStarted = microtime(true);
         $normalized = $this->normalizer->normalize($file);
+        $preprocessMs = (int) round((microtime(true) - $preprocessStarted) * 1000);
+        $persistStarted = microtime(true);
         $disk = (string) config('filesystems.media', 'local');
         $basename = Str::ulid()->toBase32();
         $directory = 'intakes/'.$intake->uuid.'/installer/'.$subject->id;
@@ -79,6 +87,8 @@ final class StoreInstallerDossierUpload
                 $path,
                 $analysisPath,
                 $normalized,
+                $preprocessMs,
+                $persistStarted,
             ): IntakeUpload {
                 $locked = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
 
@@ -92,6 +102,17 @@ final class StoreInstallerDossierUpload
                     ->where('question_key', 'installer_evidence')
                     ->where('section_instance_key', 'subject-'.$subject->id)
                     ->max('sort_order') + 1;
+                $persistMs = (int) round((microtime(true) - $persistStarted) * 1000);
+                $timings = [
+                    'persist_ms' => $persistMs,
+                    'preprocess_ms' => $preprocessMs,
+                    'dossier_width' => $normalized->dossierWidth,
+                    'dossier_height' => $normalized->dossierHeight,
+                    'analysis_width' => $normalized->analysisWidth,
+                    'analysis_height' => $normalized->analysisHeight,
+                    'measured_at' => now()->toIso8601String(),
+                ];
+
                 $upload = IntakeUpload::query()->create([
                     'intake_id' => $intake->id,
                     'question_key' => 'installer_evidence',
@@ -107,6 +128,7 @@ final class StoreInstallerDossierUpload
                     'analysis_size_bytes' => $normalized->analysisSizeBytes,
                     'analysis_checksum' => $normalized->analysisChecksum,
                     'sort_order' => $sortOrder,
+                    'processing_timings' => $timings,
                 ]);
 
                 IntakeActivityEvent::query()->create([
@@ -142,7 +164,27 @@ final class StoreInstallerDossierUpload
             }
         }
 
+        $this->recordUploadTrace($intake, $upload, $subject);
+
         return $upload;
+    }
+
+    private function recordUploadTrace(Intake $intake, IntakeUpload $upload, DossierSubject $subject): void
+    {
+        $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoAnalysis, [
+            'upload_id' => $upload->id,
+            'subject_type' => 'dossier_subject',
+            'subject_id' => (string) $subject->id,
+        ]);
+        $trace->linkUpload($upload);
+        $trace->recordRequest(
+            systemAndUser: [
+                'system' => 'installer_dossier_upload_persist',
+                'user' => ['subject_key' => $subject->key, 'upload_id' => $upload->id],
+            ],
+            photoRefs: [$this->photoRefs->fromUpload($upload, 'installer_evidence')],
+        );
+        $trace->succeed();
     }
 
     private function delete(string $disk, string $path): void

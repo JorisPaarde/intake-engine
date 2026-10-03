@@ -109,6 +109,7 @@
                             multiple
                             class="sr-only"
                             wire:model="followUpPhotoFiles.{{ $item->id }}"
+                            data-upload-timing="1"
                         >
                     </label>
                     <div wire:loading wire:target="followUpPhotoFiles.{{ $item->id }}" class="mt-2 text-sm font-medium text-brand-sea">

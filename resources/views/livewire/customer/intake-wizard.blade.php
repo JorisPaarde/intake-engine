@@ -268,6 +268,7 @@
                                                     multiple
                                                     class="sr-only"
                                                     wire:model="photoFiles.{{ $composite }}"
+                                                    data-upload-timing="1"
                                                 >
                                             </label>
                                             <div wire:loading wire:target="photoFiles.{{ $composite }}" class="mt-2 text-sm font-medium text-[var(--tenant-primary)]">

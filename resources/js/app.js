@@ -111,4 +111,146 @@ function registerHashDisclosure() {
 
 registerHashDisclosure();
 
+/**
+ * Livewire file-upload network timing (BL-116 / P2).
+ * Measure start → first livewire-upload-progress at 100%, then call
+ * recordNetworkUploadTiming(uploadId, ms) after the server dispatches ai-upload-stored.
+ */
+function registerLivewireUploadTiming() {
+    /** @type {Map<string, {startedAt: number, networkMs: number|null, componentId: string|null}>} */
+    const pending = new Map();
+
+    /** @type {Map<string, number[]>} FIFO network ms per Livewire component */
+    const networkMsByComponent = new Map();
+
+    const isTimedInput = (event) => {
+        const input = event.target instanceof Element ? event.target : null;
+        if (!input) {
+            return false;
+        }
+        return input.closest('[data-upload-timing="1"]') !== null;
+    };
+
+    const keyFor = (event) => {
+        const input = event.target instanceof Element ? event.target : null;
+        const name = input?.getAttribute?.('wire:model') || input?.getAttribute?.('name') || 'default';
+        const root = input?.closest?.('[wire\\:id]');
+        const id = root?.getAttribute?.('wire:id') || 'unknown';
+        return id + '::' + name;
+    };
+
+    const enqueueMs = (componentId, ms) => {
+        if (!componentId || ms === null) {
+            return;
+        }
+        const queue = networkMsByComponent.get(componentId) ?? [];
+        queue.push(ms);
+        networkMsByComponent.set(componentId, queue);
+    };
+
+    const dequeueAnyMs = () => {
+        for (const [componentId, queue] of networkMsByComponent) {
+            if (!queue || queue.length === 0) {
+                continue;
+            }
+            const ms = queue.shift();
+            if (queue.length === 0) {
+                networkMsByComponent.delete(componentId);
+            }
+
+            return { componentId, ms: ms ?? null };
+        }
+
+        return null;
+    };
+
+    document.addEventListener('livewire-upload-start', (event) => {
+        if (!isTimedInput(event)) {
+            return;
+        }
+        const key = keyFor(event);
+        const root = event.target instanceof Element ? event.target.closest('[wire\\:id]') : null;
+        pending.set(key, {
+            startedAt: performance.now(),
+            networkMs: null,
+            componentId: root?.getAttribute?.('wire:id') || null,
+        });
+    });
+
+    document.addEventListener('livewire-upload-progress', (event) => {
+        if (!isTimedInput(event)) {
+            return;
+        }
+        const key = keyFor(event);
+        const entry = pending.get(key);
+        if (!entry || entry.networkMs !== null) {
+            return;
+        }
+        const detail = event.detail || {};
+        const progress = typeof detail.progress === 'number'
+            ? detail.progress
+            : (typeof detail === 'number' ? detail : null);
+        if (progress === 100) {
+            entry.networkMs = Math.max(0, Math.round(performance.now() - entry.startedAt));
+        }
+    });
+
+    document.addEventListener('livewire-upload-finish', (event) => {
+        if (!isTimedInput(event)) {
+            return;
+        }
+        const key = keyFor(event);
+        const entry = pending.get(key);
+        if (!entry) {
+            return;
+        }
+        if (entry.networkMs === null) {
+            entry.networkMs = Math.max(0, Math.round(performance.now() - entry.startedAt));
+        }
+        enqueueMs(entry.componentId, entry.networkMs);
+        pending.delete(key);
+    });
+
+    document.addEventListener('livewire-upload-error', (event) => {
+        if (!isTimedInput(event)) {
+            return;
+        }
+        pending.delete(keyFor(event));
+    });
+
+    const bindUploadStoredListener = () => {
+        if (typeof Livewire === 'undefined' || typeof Livewire.on !== 'function') {
+            return;
+        }
+        Livewire.on('ai-upload-stored', (payload) => {
+            const uploadId = payload?.uploadId ?? payload?.[0]?.uploadId;
+            if (!uploadId) {
+                return;
+            }
+            const next = dequeueAnyMs();
+            if (!next || next.ms === null) {
+                return;
+            }
+            const component = typeof Livewire.find === 'function'
+                ? Livewire.find(next.componentId)
+                : null;
+            if (!component || typeof component.call !== 'function') {
+                return;
+            }
+            try {
+                component.call('recordNetworkUploadTiming', uploadId, next.ms);
+            } catch {
+                // Soft-fail: timing is diagnostic only.
+            }
+        });
+    };
+
+    document.addEventListener('livewire:init', bindUploadStoredListener);
+    if (typeof Livewire !== 'undefined') {
+        bindUploadStoredListener();
+    }
+}
+
+registerLivewireUploadTiming();
+
 Alpine.start();

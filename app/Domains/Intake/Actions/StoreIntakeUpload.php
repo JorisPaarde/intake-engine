@@ -54,9 +54,18 @@ final class StoreIntakeUpload
             ]);
         }
 
+        if (! in_array($intake->status, [IntakeStatus::Sent, IntakeStatus::InProgress], true)) {
+            throw ValidationException::withMessages([
+                'photo' => 'Deze opname kan niet meer worden gewijzigd.',
+            ]);
+        }
+
+        $preprocessStarted = microtime(true);
         $normalized = $this->photoUploadNormalizer->normalize($file);
+        $preprocessMs = (int) round((microtime(true) - $preprocessStarted) * 1000);
 
         try {
+            $persistStarted = microtime(true);
             $disk = (string) config('filesystems.media', 'local');
             $directory = $this->directory($intake, $questionKey, $sectionInstanceKey);
             $basename = Str::ulid()->toBase32();
@@ -73,7 +82,7 @@ final class StoreIntakeUpload
                 ]);
             }
 
-            return DB::transaction(function () use ($intake, $questionKey, $sectionInstanceKey, $disk, $path, $analysisPath, $normalized, $maxFiles): IntakeUpload {
+            return DB::transaction(function () use ($intake, $questionKey, $sectionInstanceKey, $disk, $path, $analysisPath, $normalized, $maxFiles, $preprocessMs, $persistStarted): IntakeUpload {
                 $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
 
                 if (! in_array($lockedIntake->status, [IntakeStatus::Sent, IntakeStatus::InProgress], true)) {
@@ -90,6 +99,17 @@ final class StoreIntakeUpload
                     ]);
                 }
 
+                $persistMs = (int) round((microtime(true) - $persistStarted) * 1000);
+                $timings = [
+                    'persist_ms' => $persistMs,
+                    'preprocess_ms' => $preprocessMs,
+                    'dossier_width' => $normalized->dossierWidth,
+                    'dossier_height' => $normalized->dossierHeight,
+                    'analysis_width' => $normalized->analysisWidth,
+                    'analysis_height' => $normalized->analysisHeight,
+                    'measured_at' => now()->toIso8601String(),
+                ];
+
                 $upload = IntakeUpload::query()->create([
                     'intake_id' => $intake->id,
                     'question_key' => $questionKey,
@@ -105,6 +125,7 @@ final class StoreIntakeUpload
                     'analysis_size_bytes' => $normalized->analysisSizeBytes,
                     'analysis_checksum' => $normalized->analysisChecksum,
                     'sort_order' => $currentCount + 1,
+                    'processing_timings' => $timings,
                 ]);
 
                 $this->syncAnswerUploadIds($intake, $questionKey, $sectionInstanceKey);

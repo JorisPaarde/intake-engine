@@ -5,10 +5,14 @@ declare(strict_types=1);
 namespace App\Domains\AI\Actions;
 
 use App\Domains\AI\Models\AiRun;
+use App\Domains\AI\Services\AiTracePhotoRefBuilder;
+use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\AI\Services\PhotoUsabilityHeuristic;
+use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
+use App\Enums\AiTraceCallType;
 use App\Enums\PhotoUsabilityVerdict;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -18,15 +22,19 @@ use Illuminate\Support\Str;
  * Local, non-blocking photo-usability assessment (BL-007). Runs a deterministic GD
  * heuristic, records a `photo_quality` AiRun for audit, and stores the verdict on the
  * upload. Soft-fail: any error leaves the upload unflagged and never breaks the flow.
+ * Traced as photo_analysis (BL-116 / P2 timings).
  */
 final class AssessPhotoUsability
 {
     public function __construct(
         private readonly PhotoUsabilityHeuristic $heuristic,
+        private readonly AiTraceRecorder $traceRecorder,
+        private readonly AiTracePhotoRefBuilder $photoRefs,
     ) {}
 
-    public function handle(IntakeUpload $upload): PhotoUsabilityVerdict
+    public function handle(IntakeUpload $upload, ?string $correlationId = null): PhotoUsabilityVerdict
     {
+        $intake = Intake::query()->find($upload->intake_id);
         $run = AiRun::query()->create([
             'intake_id' => $upload->intake_id,
             'type' => AiRunType::PhotoQuality,
@@ -39,6 +47,25 @@ final class AssessPhotoUsability
             'started_at' => now(),
         ]);
 
+        $trace = $intake instanceof Intake
+            ? $this->traceRecorder->start($intake, AiTraceCallType::PhotoAnalysis, array_filter([
+                'ai_run_id' => $run->id,
+                'upload_id' => $upload->id,
+                'subject_type' => 'upload',
+                'subject_id' => (string) $upload->id,
+                'provider' => 'heuristic',
+                'prompt_version' => 'photo-heuristic-v1',
+                'correlation_id' => $correlationId,
+            ], static fn (mixed $value): bool => $value !== null))
+            : null;
+
+        if ($trace !== null) {
+            $trace->linkUpload($upload);
+            $trace->linkAiRun($run);
+        }
+
+        $processStarted = microtime(true);
+
         try {
             $bytes = Storage::disk((string) $upload->disk)->get((string) $upload->path);
 
@@ -47,6 +74,7 @@ final class AssessPhotoUsability
             }
 
             $verdict = $this->heuristic->assess($bytes);
+            $processMs = (int) round((microtime(true) - $processStarted) * 1000);
 
             $upload->update(['usability_verdict' => $verdict]);
 
@@ -55,6 +83,26 @@ final class AssessPhotoUsability
                 'output' => ['upload_id' => $upload->id, 'verdict' => $verdict->value],
                 'finished_at' => now(),
             ]);
+
+            if ($trace !== null) {
+                $photoRefs = $trace->isNoop()
+                    ? []
+                    : [$this->photoRefs->fromUpload($upload, 'usability')];
+
+                $trace->recordRequest(
+                    systemAndUser: [
+                        'system' => 'local photo usability heuristic',
+                        'user' => ['upload_id' => $upload->id, 'path_ref' => 'intake_upload:'.$upload->id],
+                    ],
+                    photoRefs: $photoRefs,
+                    promptVersion: 'photo-heuristic-v1',
+                    modelParameters: ['engine' => 'gd'],
+                );
+                $trace->recordParsed(['verdict' => $verdict->value]);
+                $trace->step('usability', ['verdict' => $verdict->value], durationMs: $processMs);
+                $trace->stopProcessTimer();
+                $trace->succeed();
+            }
 
             return $verdict;
         } catch (\Throwable $e) {
@@ -69,6 +117,8 @@ final class AssessPhotoUsability
                 'error_message' => Str::limit($e->getMessage(), 1000, ''),
                 'finished_at' => now(),
             ]);
+
+            $trace?->fail($e->getMessage(), $e);
 
             return PhotoUsabilityVerdict::Ok;
         }

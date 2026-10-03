@@ -1,6 +1,6 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 3.11 · **Laatste update:** 2026-09-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.17 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **samenvatting, aandachtspunten, lokale fotokwaliteit, tekst-/foto-afleiding, verbindingsgebonden routeanalyse en bewijsgerichte dossiersynthese zijn geïmplementeerd**. Externe provider en tekst-/foto-/route-/dossierinferentie staan standaard uit (provider + key + featurevlaggen + budgetcaps; soft-fail zonder die config). OpenAI-compatibele gateways (o.a. OpenRouter) via `AI_BASE_URL`.
 
@@ -82,7 +82,8 @@ App\Domains\AI\
   Actions\AnalyzeRoutePhoto | SynthesizePipeRoute
   Actions\SynthesizeSurveyDossier
   Jobs\SummarizeIntakeJob | SynthesizeSurveyDossierJob
-  Models\AiRun
+  Models\AiRun | AiTrace | AiTraceStep
+  Services\AiTraceRecorder | AiTraceHandle | AiTraceRedactor | AiTraceSnapshotService
 ```
 
 Provider via `.env`: `AI_PROVIDER`, `AI_API_KEY`, `AI_BASE_URL`, `AI_MODEL`, optioneel `AI_VISION_MODEL`, `AI_TIMEOUT_SECONDS`. Multimodale wizardafleiding vereist `AI_PHOTO_INFERENCE_ENABLED=true`; routeanalyse `AI_ROUTE_ANALYSIS_ENABLED=true`; integrale dossiersynthese `AI_DOSSIER_SYNTHESIS_ENABLED=true`. Alle staan standaard uit. Dossiersynthese gebruikt maximaal `AI_DOSSIER_MAX_IMAGES` (default 12) relevante analysekopieën. `AI_PROVIDER=openai` valt door de budgetguard fail-closed als er geen dag- of maandcap is gezet.
@@ -119,7 +120,27 @@ AI_BUDGET_IMAGE_CENTS_PER_IMAGE=...
 - Minstens één van `AI_BUDGET_DAILY_CENTS` of `AI_BUDGET_MONTHLY_CENTS` moet staan voordat `AI_PROVIDER=openai` calls doet.
 - De pre-call check telt geslaagde OpenAI-runs sinds dag-/maandstart plus `AI_BUDGET_RESERVE_CENTS_PER_CALL`.
 - Na succes bewaart `ai_runs` de provider-usage (`input_tokens`, `output_tokens`, `total_tokens`), `image_count` en `estimated_cost_cents`. Als tokenusage ontbreekt, telt de reservering als minimum.
-- `/dev` toont provider/model/tekst-/foto-/routeflags en budgetcaps zonder API-key; `/dev/ai-runs` toont token- en kostengebruik per run.
+- `/dev` toont provider/model/tekst-/foto-/routeflags en budgetcaps zonder API-key; `/dev/ai-runs` toont token- en kostengebruik per run; `/dev/ai-traces` toont de volledige request→response→parse→dossier-keten (BL-116).
+
+## AI-traces (BL-116, klanttest 2026-10-02)
+
+Doel: per mislukte/onjuiste uitkomst aantonen of de fout in model, prompt, parser, opslag of klantflow zit. Elke tekstextractie-, fotoanalyse- en synthese-call schrijft bij `succeed()`/`fail()` één `ai_traces`-rij (+ bulk `ai_trace_steps`) — mid-flight alleen in-memory. Correlatie via `correlation_id` / optioneel `parent_trace_id` over upload → provider → dossierupdate → restvragen.
+
+| Veldgroep | Inhoud |
+|-----------|--------|
+| Identiteit | `trace_id` (UUID), `correlation_id`, optioneel `parent_trace_id`, `intake_id`, optioneel `upload_id` / `ai_run_id` / subject (kamer/onderdeel) |
+| Call | `call_type` (`text_extraction` / `photo_analysis` / `synthesis` / …), tijdstippen, status |
+| Provider | provider, werkelijk model-ID, `model_parameters`, promptversie, fallback/retries, `finish_reason`, tokens/kosten |
+| Request | `request_snapshot` (system/user/context, geredigeerd); `photo_refs` naar beschermd origineel (geen base64; detail + dimensions) |
+| Response | `raw_response`, `parsed_response`, `validation_errors`, `normalizations` (lijst `{field, from, to, rule}` via `normalizeWithDiff`), `field_outcomes` (overgenomen/afgewezen + reden/confidence/bron) |
+| Effect | `dossier_before`/`dossier_after` (+ `changed_fields`), `remaining_questions_before`/`after` via `IntakeStepBuilder::buildCatalog` (reasons + next unanswered visible) |
+| P2-timings | `persist_ms` / `network_upload_ms` (client: upload-progress → `ai-upload-stored` → `recordNetworkUploadTiming` / `recordNetworkUploadMs`), `preprocess_ms`, `provider_ms`, `process_ms` (`stopProcessTimer` vóór after-snapshots) |
+
+**Geïnstrumenteerde acties:** `PrefillAnswersFromKnownContext`, `DerivePhotoAnswers`, `AssessFuseboxPhotos`, `SynthesizeSurveyDossier`, `AnalyzeRoutePhoto`, `SynthesizePipeRoute`, `SuggestInstallerPhotoObservations`, `SummarizeIntake`, `SuggestAttentionPoints` (+ lokale `AssessPhotoUsability`). Foto-refs via `AiTracePhotoRefBuilder` (width/height + dossier/analyse-variant uit upload timings). Transactiestappen via `beginBuffer()`/`flushBuffer()`/`discardBuffer()`. `model_parameters` komen uit `AiCompletionResult`, niet hardcoded. `fail($msg, $exception)` bewaart `provider_ms`/raw/finish/tokens bij clientfouten.
+
+**Helper voor parallelle stromen:** `AiTraceRecorder::start($intake, AiTraceCallType::…)` bouwt een **unsaved** `AiTrace`; `$trace->step(…)`, `recordFieldOutcomes`, `recordDossierSnapshots($before, $after, $changedFields)`, `succeed()` / `fail($msg, $exception)` schrijven pas. Zie PR-beschrijving van BL-116.
+
+Beveiliging: `AiTraceRedactor` verwijdert API-keys, Bearer-headers, klantlinktokens (`/o/…`), e-mail/telefoon (zelfde patronen als `AiInputRedactor`) en base64-beelden (alleen data:-prefix of lange strings zonder whitespace). Kill switch: `AI_TRACING_ENABLED=false` → no-op handle, geen writes. Trace-fouten worden gerapporteerd en genegeerd (nooit business-flow). Inzage via `/dev/ai-traces` alleen met `DEV_ADMIN_ENABLED` **én** e-mail op `DEV_ADMIN_EMAILS` (anders 403), of CLI `ai:traces`. Bewaartermijn: `AI_TRACE_RETENTION_DAYS` (default 30) + chunked `ai:purge-traces`. Een mislukte foto-/meterkast-call **invalideert geen** bestaande AI-antwoorden meer vóór een geslaagde providerresponse.
 
 ## Datastructuur `ai_runs`
 

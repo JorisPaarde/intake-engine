@@ -7,6 +7,9 @@ namespace App\Domains\AI\Actions;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\AiGateway;
 use App\Domains\AI\Services\AiImageResolver;
+use App\Domains\AI\Services\AiTracePhotoRefBuilder;
+use App\Domains\AI\Services\AiTraceRecorder;
+use App\Domains\AI\Services\AiTraceSnapshotService;
 use App\Domains\AI\Services\AiValidationFailureFormatter;
 use App\Domains\AI\Services\DossierSynthesisOutputNormalizer;
 use App\Domains\AI\Services\PromptVersionRepository;
@@ -28,6 +31,7 @@ use App\Enums\AircoOptionStatus;
 use App\Enums\AircoPlacementType;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
+use App\Enums\AiTraceCallType;
 use App\Enums\ContributionAudience;
 use App\Enums\ContributionTaskStatus;
 use App\Enums\DossierRecordKind;
@@ -60,6 +64,9 @@ final class SynthesizeSurveyDossier
         private readonly DecisionReadinessService $decisionReadiness,
         private readonly DossierSynthesisOutputNormalizer $outputNormalizer,
         private readonly AiValidationFailureFormatter $validationFailureFormatter,
+        private readonly AiTraceRecorder $traceRecorder,
+        private readonly AiTraceSnapshotService $traceSnapshots,
+        private readonly AiTracePhotoRefBuilder $photoRefBuilder,
     ) {}
 
     public function handle(Intake $intake): ?AiRun
@@ -69,6 +76,7 @@ final class SynthesizeSurveyDossier
         }
 
         $run = null;
+        $trace = null;
 
         try {
             $promptName = (string) config('ai.dossier.prompt', 'dossier_synthesis');
@@ -92,6 +100,31 @@ final class SynthesizeSurveyDossier
                 'started_at' => now(),
             ]);
 
+            $trace = $this->traceRecorder->start($intake, AiTraceCallType::Synthesis, [
+                'ai_run_id' => $run->id,
+                'provider' => (string) config('ai.provider', 'null'),
+                'prompt_version' => $promptVersion,
+            ]);
+            $dossierBefore = [];
+            $questionsBefore = [];
+            $photoRefs = [];
+            if (! $trace->isNoop()) {
+                $dossierBefore = $this->traceSnapshots->answers($intake);
+                $questionsBefore = $this->traceSnapshots->remainingQuestions($intake);
+                $photoRefs = $imageUploads->map(
+                    fn (IntakeUpload $upload): array => $this->photoRefBuilder->fromUpload($upload, 'dossier'),
+                )->values()->all();
+            }
+
+            $trace->recordRequest(
+                systemAndUser: [
+                    'system' => $promptBody,
+                    'user' => $input,
+                ],
+                photoRefs: $photoRefs,
+                promptVersion: $promptVersion,
+            );
+
             $result = $this->aiGateway->complete(
                 prompt: $promptBody,
                 input: $input,
@@ -102,38 +135,78 @@ final class SynthesizeSurveyDossier
                     ->all(),
                 model: $model,
             );
-            $output = $this->validateOutput(
-                $this->outputNormalizer->normalize($result->output),
-                $input,
-            );
+            $trace->recordProviderResult($result);
 
-            DB::transaction(function () use (
-                $intake,
-                $run,
-                $result,
-                $output,
-                $inputHash,
-                $promptVersion,
-                $model,
-            ): void {
-                $locked = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
-                $currentInput = $this->contextBuilder->build($locked);
-                $currentInput['image_manifest'] = $this->imageManifest($this->imageUploads($locked));
+            $normalizedDiff = $this->outputNormalizer->normalizeWithDiff($result->output);
+            $normalized = $normalizedDiff['output'];
+            $normalizations = $normalizedDiff['normalizations'];
+            $trace->step('normalize', [
+                'keys' => array_keys($normalized),
+                'normalization_count' => count($normalizations),
+            ]);
 
-                if (! hash_equals($inputHash, $this->hash($currentInput, $promptVersion, $model))) {
-                    throw new RuntimeException('Opnamedossier gewijzigd tijdens AI-synthese; resultaat niet toegepast.');
-                }
+            try {
+                $output = $this->validateOutput($normalized, $input);
+                $trace->recordParsed($output, [], $normalizations);
+            } catch (ValidationException $exception) {
+                $trace->recordParsed($normalized, $exception->errors(), $normalizations);
+                throw $exception;
+            }
 
-                $this->replaceProposals($locked, $run, $output);
-                $this->decisionReadiness->recalculate($locked);
+            try {
+                DB::transaction(function () use (
+                    $intake,
+                    $run,
+                    $result,
+                    $output,
+                    $inputHash,
+                    $promptVersion,
+                    $model,
+                    $trace,
+                ): void {
+                    $trace->beginBuffer();
+                    $locked = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
+                    $currentInput = $this->contextBuilder->build($locked);
+                    $currentInput['image_manifest'] = $this->imageManifest($this->imageUploads($locked));
 
-                $run->update($run->completionResultAttributes($result, $model) + [
-                    'status' => AiRunStatus::Succeeded,
-                    'output' => $output,
-                    'error_message' => null,
-                    'finished_at' => now(),
-                ]);
-            }, 3);
+                    if (! hash_equals($inputHash, $this->hash($currentInput, $promptVersion, $model))) {
+                        throw new RuntimeException('Opnamedossier gewijzigd tijdens AI-synthese; resultaat niet toegepast.');
+                    }
+
+                    $this->replaceProposals($locked, $run, $output);
+                    $this->decisionReadiness->recalculate($locked);
+                    $trace->step('apply', [
+                        'placement_count' => count($output['placement_proposals']),
+                        'option_count' => count($output['option_proposals']),
+                        'customer_task_count' => count($output['customer_tasks']),
+                    ]);
+
+                    $run->update($run->completionResultAttributes($result, $model) + [
+                        'status' => AiRunStatus::Succeeded,
+                        'output' => $output,
+                        'error_message' => null,
+                        'finished_at' => now(),
+                    ]);
+                }, 3);
+                $trace->flushBuffer();
+            } catch (Throwable $transactionException) {
+                $trace->discardBuffer();
+                throw $transactionException;
+            }
+
+            $trace->linkAiRun($run->fresh() ?? $run);
+            $trace->stopProcessTimer();
+            if (! $trace->isNoop()) {
+                $freshIntake = $intake->fresh() ?? $intake;
+                $dossierAfter = $this->traceSnapshots->answers($freshIntake);
+                $trace->recordDossierSnapshots(
+                    $dossierBefore,
+                    $dossierAfter,
+                    $this->traceSnapshots->changedFields($dossierBefore, $dossierAfter),
+                );
+                $trace->recordRemainingQuestions($questionsBefore, $this->traceSnapshots->remainingQuestions($freshIntake));
+            }
+            $trace->succeed();
 
             return $run->fresh() ?? $run;
         } catch (Throwable $exception) {
@@ -144,6 +217,7 @@ final class SynthesizeSurveyDossier
             Log::warning('AI dossier synthesis failed', [
                 'intake_id' => $intake->id,
                 'ai_run_id' => $run?->id,
+                'ai_trace_id' => $trace?->traceId(),
                 'exception' => $exception::class,
                 'error_class' => $exception instanceof ValidationException
                     ? 'validation'
@@ -157,9 +231,14 @@ final class SynthesizeSurveyDossier
                     'error_message' => $errorMessage,
                     'finished_at' => now(),
                 ]);
+                $trace?->linkAiRun($run->fresh() ?? $run);
+                $trace?->discardBuffer();
+                $trace?->fail($errorMessage, $exception);
 
                 return $run->fresh() ?? $run;
             }
+
+            $trace?->fail($errorMessage, $exception);
 
             return null;
         }
