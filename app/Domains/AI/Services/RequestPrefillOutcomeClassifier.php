@@ -36,7 +36,7 @@ final class RequestPrefillOutcomeClassifier
      *     validation_errors: array<string, list<string>>
      * }
      */
-    public function classifyCatalogOutput(array $output, array $catalog, array $photoKeys = []): array
+    public function classifyCatalogOutput(array $output, array $catalog, array $photoKeys = [], ?string $requestReason = null): array
     {
         $index = $this->catalogIndex($catalog);
         $labels = $this->catalogLabels($catalog);
@@ -212,6 +212,22 @@ final class RequestPrefillOutcomeClassifier
                     disposition: RequestPrefillCandidate::DISPOSITION_REJECTED,
                     source: RequestPrefillCandidate::SOURCE_CATALOG_AI,
                     reason: 'Fotovragen worden niet automatisch ingevuld.',
+                );
+
+                continue;
+            }
+
+            if ($key === 'cooling_heating' && $this->coolingInferredFromAircoAbsence($requestReason, $evidence, $fillEvidence)) {
+                $candidates[] = new RequestPrefillCandidate(
+                    questionKey: $key,
+                    sectionInstanceKey: $instanceKey,
+                    label: $label,
+                    value: $rawValue !== [] ? $rawValue : null,
+                    confidence: $confidence,
+                    evidence: $fillEvidence,
+                    disposition: RequestPrefillCandidate::DISPOSITION_REJECTED,
+                    source: RequestPrefillCandidate::SOURCE_CATALOG_AI,
+                    reason: 'Geen koel-/verwarmingsintentie: alleen afwezigheid van airco is geen cooling_heating.',
                 );
 
                 continue;
@@ -697,5 +713,41 @@ final class RequestPrefillOutcomeClassifier
         }
 
         return ['values' => array_values(array_unique($normalized))];
+    }
+
+    /**
+     * "Nog geen airco" without explicit cool/heat words must not yield cooling_heating (BL-127).
+     */
+    private function coolingInferredFromAircoAbsence(?string $requestReason, string $topEvidence, ?string $fillEvidence): bool
+    {
+        $corpus = mb_strtolower(trim(implode(' ', array_filter([
+            $requestReason,
+            $topEvidence,
+            $fillEvidence,
+        ], static fn (?string $part): bool => is_string($part) && trim($part) !== ''))));
+
+        if ($corpus === '') {
+            return false;
+        }
+
+        $mentionsAbsence = str_contains($corpus, 'geen airco')
+            || str_contains($corpus, 'nog geen airco')
+            || str_contains($corpus, 'nog geen unit')
+            || str_contains($corpus, 'nog geen installatie');
+
+        if (! $mentionsAbsence) {
+            return false;
+        }
+
+        $mentionsIntent = str_contains($corpus, 'koelen')
+            || str_contains($corpus, 'koud te krijgen')
+            || str_contains($corpus, 'te warm')
+            || str_contains($corpus, 'afkoelen')
+            || str_contains($corpus, 'verwarmen')
+            || str_contains($corpus, 'verwarming')
+            || str_contains($corpus, 'heating')
+            || str_contains($corpus, 'cooling');
+
+        return ! $mentionsIntent;
     }
 }

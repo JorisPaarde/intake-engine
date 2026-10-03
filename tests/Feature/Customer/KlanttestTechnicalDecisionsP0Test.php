@@ -164,7 +164,7 @@ test('technical decision keys are shared and hidden from the latest customer wiz
     );
 
     $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
-    expect($version->version)->toBe(21);
+    expect($version->version)->toBe(22);
 
     $steps = klanttestP0StepKeys(makeKlanttestP0Intake());
     foreach (TechnicalDecisionKeys::all() as $key) {

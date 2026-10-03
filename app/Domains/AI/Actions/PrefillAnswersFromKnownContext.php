@@ -146,6 +146,7 @@ final class PrefillAnswersFromKnownContext
                 $result->output,
                 $catalog,
                 $this->photoKeys($intake),
+                $reason,
             );
             $output = [
                 'evidence' => $classified['evidence'],

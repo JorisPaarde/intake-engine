@@ -16,6 +16,12 @@ final class RoomAreaAcceptance
 
     public const MIN_PLAUSIBLE_AREA_M2 = 1.0;
 
+    /** Template + foto-prompt: klein tot onder deze m² (exclusief). */
+    public const SIZE_SMALL_MAX_M2 = 12.0;
+
+    /** Template + foto-prompt: gemiddeld tot en met deze m². */
+    public const SIZE_MEDIUM_MAX_M2 = 20.0;
+
     /**
      * Human and high-confidence derived sources may complete floor area.
      */
@@ -75,12 +81,23 @@ final class RoomAreaAcceptance
 
     public static function sizeIndicationFromArea(float $areaM2): string
     {
-        // Templateopties: <12 klein, ≤20 gemiddeld, >20 groot.
+        // Eén bron met templateopties én room_assessment-prompt (BL-127).
         return match (true) {
-            $areaM2 < 12.0 => 'small',
-            $areaM2 <= 20.0 => 'medium',
+            $areaM2 < self::SIZE_SMALL_MAX_M2 => 'small',
+            $areaM2 <= self::SIZE_MEDIUM_MAX_M2 => 'medium',
             default => 'large',
         };
+    }
+
+    /**
+     * Korte NL-bandomschrijving voor prompts/docs — zelfde getallen als sizeIndicationFromArea.
+     */
+    public static function sizeIndicationBandsForPrompt(): string
+    {
+        $small = (int) self::SIZE_SMALL_MAX_M2;
+        $medium = (int) self::SIZE_MEDIUM_MAX_M2;
+
+        return "small tot ca. {$small} m², medium ca. {$small}–{$medium} m², large groter dan ca. {$medium} m²";
     }
 
     /**

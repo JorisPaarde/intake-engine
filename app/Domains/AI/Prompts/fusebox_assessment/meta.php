@@ -6,6 +6,6 @@ declare(strict_types=1);
  * @return array{version: string, description: string}
  */
 return [
-    'version' => 'fusebox-assessment-v3',
-    'description' => 'Meterkast: strikte free_group/fase-criteria, unknown i.p.v. gok, confidence-eisen.',
+    'version' => 'fusebox-assessment-v4',
+    'description' => 'Meterkast: empty_module_space i.p.v. free_group; never claim vrije groep; wrong-subject → low confidence.',
 ];

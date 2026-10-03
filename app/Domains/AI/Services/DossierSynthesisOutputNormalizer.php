@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\AI\Services;
 
+use App\Domains\Intake\Support\CustomerFacingTaskText;
 use App\Enums\AircoConfigurationType;
 use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
@@ -70,13 +71,27 @@ final class DossierSynthesisOutputNormalizer
         }
 
         if (isset($output['customer_tasks']) && is_array($output['customer_tasks'])) {
-            $output['customer_tasks'] = array_map(
-                fn (mixed $row, int|string $index): mixed => is_array($row)
-                    ? $this->normalizeCustomerTask($row, 'customer_tasks.'.$index)
-                    : $row,
-                $output['customer_tasks'],
-                array_keys($output['customer_tasks']),
-            );
+            $normalizedTasks = [];
+            foreach ($output['customer_tasks'] as $index => $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                $prompt = is_string($row['prompt'] ?? null) ? (string) $row['prompt'] : '';
+                $reason = is_string($row['reason'] ?? null) ? (string) $row['reason'] : '';
+                if (CustomerFacingTaskText::isInstallerInternal($prompt)
+                    || CustomerFacingTaskText::isInstallerInternal($reason)) {
+                    $this->diffs[] = [
+                        'field' => 'customer_tasks.'.$index,
+                        'from' => $prompt !== '' ? $prompt : $reason,
+                        'to' => null,
+                        'rule' => 'drop_installer_internal_customer_task',
+                    ];
+
+                    continue;
+                }
+                $normalizedTasks[] = $this->normalizeCustomerTask($row, 'customer_tasks.'.$index);
+            }
+            $output['customer_tasks'] = $normalizedTasks;
         }
 
         return [
