@@ -298,9 +298,18 @@ final class AiTraceHandle
                 'output_tokens' => $result->outputTokens,
                 'total_tokens' => $result->totalTokens,
                 'estimated_cost_cents' => $result->estimatedCostCents,
+                'estimated_cost' => $result->estimatedCost ?? $this->trace->estimated_cost,
+                'provider_response_id' => $result->providerResponseId ?? $this->trace->provider_response_id,
                 'parsed_response' => $this->redactor->redact($result->output),
                 'model_parameters' => $params === [] ? $this->trace->model_parameters : $params,
             ]);
+
+            // Prefer the provider completion id as request_id once known (OpenRouter `id`),
+            // while correlation_id stays our per-request/upload chain id.
+            if (is_string($result->providerResponseId) && $result->providerResponseId !== '') {
+                $this->assign(['request_id' => Str::limit($result->providerResponseId, 80, '')]);
+            }
+
             $this->appendStep('provider', [
                 'provider' => $result->provider,
                 'model' => $result->model,
@@ -308,6 +317,15 @@ final class AiTraceHandle
                 'input_tokens' => $result->inputTokens,
                 'output_tokens' => $result->outputTokens,
                 'image_count' => $result->imageCount,
+                'provider_response_id' => $result->providerResponseId,
+                'estimated_cost' => $result->estimatedCost,
+                'schema' => $params['schema'] ?? null,
+                'temperature' => $params['temperature'] ?? null,
+                'max_tokens' => $params['max_tokens'] ?? null,
+                'response_format_type' => $params['response_format_type']
+                    ?? (is_array($params['response_format'] ?? null)
+                        ? ($params['response_format']['type'] ?? null)
+                        : null),
             ], $result->providerMs);
 
             // process_ms is exclusive of provider wait.
@@ -544,8 +562,18 @@ final class AiTraceHandle
             'provider_ms' => $this->trace->provider_ms ?? 0,
             'process_ms' => $this->trace->process_ms ?? 0,
             'estimated_cost_cents' => $this->trace->estimated_cost_cents ?? 0,
+            'estimated_cost' => $this->trace->estimated_cost
+                ?? ($this->trace->estimated_cost_cents !== null
+                    ? number_format(((int) $this->trace->estimated_cost_cents) / 100, 6, '.', '')
+                    : '0'),
             'intake_ref_id' => $this->trace->intake_ref_id ?? $this->trace->intake_id,
-            'request_id' => $this->trace->request_id ?? (string) Str::uuid(),
+            'request_id' => $this->trace->request_id
+                ?? $this->trace->provider_response_id
+                ?? (string) Str::uuid(),
+            'correlation_id' => $this->trace->correlation_id ?? (string) Str::uuid(),
+            'provider_response_id' => $this->trace->provider_response_id,
+            'attempt' => $this->trace->attempt ?? (($this->trace->retry_count ?? 0) + 1),
+            'retry_count' => $this->trace->retry_count ?? 0,
         ];
 
         $this->assign($defaults);

@@ -17,6 +17,7 @@ use Illuminate\Support\Carbon;
  * @property string $trace_id
  * @property string|null $correlation_id
  * @property string|null $request_id
+ * @property string|null $provider_response_id
  * @property string|null $parent_trace_id
  * @property int|null $intake_id
  * @property int|null $intake_ref_id
@@ -33,6 +34,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $prompt_version
  * @property bool $fallback_used
  * @property int $retry_count
+ * @property int|null $attempt
  * @property array<string, mixed>|null $request_snapshot
  * @property array<int, array<string, mixed>>|null $photo_refs
  * @property string|null $raw_response
@@ -46,6 +48,7 @@ use Illuminate\Support\Carbon;
  * @property array<string, mixed>|null $remaining_questions_before
  * @property array<string, mixed>|null $remaining_questions_after
  * @property int|null $network_upload_ms
+ * @property int|null $queue_wait_ms
  * @property int|null $persist_ms
  * @property int|null $preprocess_ms
  * @property int|null $provider_ms
@@ -54,6 +57,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $output_tokens
  * @property int|null $total_tokens
  * @property int|null $estimated_cost_cents
+ * @property string|null $estimated_cost
  * @property string|null $error_message
  * @property Carbon|null $started_at
  * @property Carbon|null $finished_at
@@ -66,6 +70,7 @@ class AiTrace extends Model
         'trace_id',
         'correlation_id',
         'request_id',
+        'provider_response_id',
         'parent_trace_id',
         'intake_id',
         'intake_ref_id',
@@ -82,6 +87,7 @@ class AiTrace extends Model
         'prompt_version',
         'fallback_used',
         'retry_count',
+        'attempt',
         'request_snapshot',
         'photo_refs',
         'raw_response',
@@ -95,6 +101,7 @@ class AiTrace extends Model
         'remaining_questions_before',
         'remaining_questions_after',
         'network_upload_ms',
+        'queue_wait_ms',
         'persist_ms',
         'preprocess_ms',
         'provider_ms',
@@ -103,6 +110,7 @@ class AiTrace extends Model
         'output_tokens',
         'total_tokens',
         'estimated_cost_cents',
+        'estimated_cost',
         'error_message',
         'started_at',
         'finished_at',
@@ -130,8 +138,10 @@ class AiTrace extends Model
             'is_demo' => 'boolean',
             'fallback_used' => 'boolean',
             'retry_count' => 'integer',
+            'attempt' => 'integer',
             'intake_ref_id' => 'integer',
             'network_upload_ms' => 'integer',
+            'queue_wait_ms' => 'integer',
             'persist_ms' => 'integer',
             'preprocess_ms' => 'integer',
             'provider_ms' => 'integer',

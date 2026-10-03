@@ -1,7 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.94 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
-
+> **Documentversie:** 1.95 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
 **Stappen voor een visuele browser-run:** [docs/browser-test-flow.md](browser-test-flow.md) (niet dit bestand). Dit document is alleen de uitslag. Een Pest-run vult hier niets in.
@@ -12,9 +11,9 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
+| AI-trace velden request_id/cost/queue/GPS (BL-129) | todo | - | Na externe call: `/dev/ai-traces` toont provider_response_id (= OpenRouter `id`), estimated_cost ≠ alleen cents, model_parameters (temperature/max_tokens/schema); queue-foto toont queue_wait_ms + attempt; geen GPS in export. |
 | Foto-assessment terminal status (BL-127) | todo | - | Zelfde bestand op twee vragen → beide terminaal; too_small → Status niet oneindig Ontvangen; AI-fout → not_assessed-tekst + wizard door; na ~90 s assessing → “check volgt later”; pending >3 min verdwijnt via watchdog. |
-| Grote telefoonfoto-upload (BL-128) | todo | - | Op staging/mobiel: 2–8 MB JPG (4000px+) meterkast → Uploaden… met %-voortgang, géén false timeout bij actieve transfer of na 100% tijdens serverwerk; lege upload-file-200 wordt stil opnieuw geprobeerd; daarna Foto beoordelen; 8 KB webp blijft werken. |
-| AI-trace retentie/export + PDF-downscale (BL-125) | todo | - | Demo-purge: traces blijven via `intake_ref_id`; `ai:traces:export` jsonl+md voor 3 intakes; PDF van dossier met grote foto’s blijft merkelijk kleiner dan 29 MB zonder originelen te wijzigen. |
+| Grote telefoonfoto-upload (BL-128) | todo | - | Op staging/mobiel: 2–8 MB JPG (4000px+) meterkast → Uploaden… met %-voortgang, géén false timeout bij actieve transfer of na 100% tijdens serverwerk; lege upload-file-200 wordt stil opnieuw geprobeerd; daarna Foto beoordelen; 8 KB webp blijft werken. || AI-trace retentie/export + PDF-downscale (BL-125) | todo | - | Demo-purge: traces blijven via `intake_ref_id`; `ai:traces:export` jsonl+md voor 3 intakes; PDF van dossier met grote foto’s blijft merkelijk kleiner dan 29 MB zonder originelen te wijzigen. |
 | Form robustness adres/maten/upload (BL-124) | todo | - | Create: vroeg submit tijdens lookup → geen vastgezette “Controleer dit veld.”; submit disabled tijdens zoeken. Klant: L+B naast elkaar; sla-over op route/afvoer; 3024×4032 niet “lage resolutie”. airco v21. Upload-timeout aangescherpt in BL-128; assessing terminal status = BL-127. |
 | Prompt/vision quality (BL-126) | todo | - | Routefoto goot/doorvoer niet afgewezen; ownership koophuis/we huren overgenomen; Ouders/Kind op installateurslabels; meterkast free_group stabieler; Vervang foto/Toch doorgaan intact; lege woonkamer geen extra stopcontactvraag. |
 | Soft catalogus-prefill multi-room (BL-122) | todo | - | Demo create met exacte case-81-tekst → werkplek toont Slaapkamer ouders + Kinderkamer met maten; klantflow vraagt koelen/verwarmen niet opnieuw; case 80 blijft werken. |

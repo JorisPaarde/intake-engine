@@ -14,6 +14,7 @@ use App\Domains\AI\Services\AiTraceRedactor;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 
 /**
  * OpenAI-compatible chat client behind AiClientInterface (BL-006). Works with OpenAI
@@ -43,6 +44,8 @@ final class OpenAiClient implements AiClientInterface
         $baseUrl = rtrim((string) config('ai.base_url', 'https://api.openai.com/v1'), '/');
         $model = $this->resolveModel($request);
         $timeout = (int) config('ai.timeout_seconds', 20);
+        $temperature = $request->temperature ?? (float) config('ai.temperature', 0.2);
+        $maxTokens = $this->resolveMaxTokens();
 
         $this->budgetGuard->ensureOpenAiBudgetAvailable();
 
@@ -65,26 +68,36 @@ final class OpenAiClient implements AiClientInterface
             ];
         }
 
+        $responseFormat = ['type' => 'json_object'];
         $modelParameters = [
-            'temperature' => 0.2,
-            'response_format' => ['type' => 'json_object'],
+            'model' => $model,
+            'temperature' => $temperature,
+            'max_tokens' => $maxTokens,
+            'response_format' => $responseFormat,
+            'response_format_type' => $responseFormat['type'],
+            'schema' => $request->promptVersion,
             'timeout_seconds' => $timeout,
             'base_url' => $baseUrl,
         ];
+
+        $payload = [
+            'model' => $model,
+            'temperature' => $temperature,
+            'response_format' => $responseFormat,
+            'messages' => [
+                ['role' => 'system', 'content' => $system],
+                ['role' => 'user', 'content' => $userContent],
+            ],
+        ];
+        if ($maxTokens !== null) {
+            $payload['max_tokens'] = $maxTokens;
+        }
 
         $providerStarted = microtime(true);
 
         try {
             $response = $this->httpClient($baseUrl, $apiKey, $timeout)
-                ->post('/chat/completions', [
-                    'model' => $model,
-                    'temperature' => $modelParameters['temperature'],
-                    'response_format' => $modelParameters['response_format'],
-                    'messages' => [
-                        ['role' => 'system', 'content' => $system],
-                        ['role' => 'user', 'content' => $userContent],
-                    ],
-                ]);
+                ->post('/chat/completions', $payload);
         } catch (\Throwable $e) {
             $providerMs = (int) round((microtime(true) - $providerStarted) * 1000);
 
@@ -99,6 +112,7 @@ final class OpenAiClient implements AiClientInterface
         $finishReason = $response->json('choices.0.finish_reason');
         $finishReason = is_string($finishReason) ? $finishReason : null;
         $usage = $this->usageFromResponse($response);
+        $providerResponseId = $this->providerResponseId($response);
         $rawBody = $this->redactedRawBody((string) $response->body());
 
         if ($response->failed()) {
@@ -141,6 +155,12 @@ final class OpenAiClient implements AiClientInterface
         $totalTokens = $usage['total_tokens'];
         $imageCount = count($request->images);
         $actualModel = is_string($response->json('model')) ? $response->json('model') : $model;
+        $providerCost = $usage['cost'];
+        $estimatedCostCents = $providerCost !== null
+            ? max(0, (int) ceil($providerCost * 100))
+            : $this->budgetGuard->estimateCostCents($inputTokens, $outputTokens, $imageCount);
+
+        $modelParameters['model'] = $actualModel;
 
         return new AiCompletionResult(
             output: $output,
@@ -150,11 +170,15 @@ final class OpenAiClient implements AiClientInterface
             outputTokens: $outputTokens,
             totalTokens: $totalTokens,
             imageCount: $imageCount,
-            estimatedCostCents: $this->budgetGuard->estimateCostCents($inputTokens, $outputTokens, $imageCount),
+            estimatedCostCents: $estimatedCostCents,
             finishReason: $finishReason,
             rawResponse: $content,
             providerMs: $providerMs,
             modelParameters: $modelParameters,
+            providerResponseId: $providerResponseId,
+            estimatedCost: $providerCost !== null
+                ? $this->formatCost($providerCost)
+                : null,
         );
     }
 
@@ -173,6 +197,18 @@ final class OpenAiClient implements AiClientInterface
         }
 
         return (string) config('ai.model', 'gpt-4o-mini');
+    }
+
+    private function resolveMaxTokens(): ?int
+    {
+        $value = config('ai.max_tokens');
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $int = (int) $value;
+
+        return $int > 0 ? $int : null;
     }
 
     private function httpClient(string $baseUrl, string $apiKey, int $timeout): PendingRequest
@@ -224,7 +260,7 @@ final class OpenAiClient implements AiClientInterface
     }
 
     /**
-     * @return array{input_tokens: int|null, output_tokens: int|null, total_tokens: int|null}
+     * @return array{input_tokens: int|null, output_tokens: int|null, total_tokens: int|null, cost: float|null}
      */
     private function usageFromResponse(Response $response): array
     {
@@ -232,7 +268,39 @@ final class OpenAiClient implements AiClientInterface
             'input_tokens' => $this->integerUsage($response->json('usage.prompt_tokens')),
             'output_tokens' => $this->integerUsage($response->json('usage.completion_tokens')),
             'total_tokens' => $this->integerUsage($response->json('usage.total_tokens')),
+            'cost' => $this->floatCost($response->json('usage.cost')),
         ];
+    }
+
+    private function floatCost(mixed $value): ?float
+    {
+        if (! is_int($value) && ! is_float($value) && ! (is_string($value) && is_numeric($value))) {
+            return null;
+        }
+
+        $cost = (float) $value;
+
+        return $cost >= 0 ? $cost : null;
+    }
+
+    private function formatCost(float $cost): string
+    {
+        // Preserve fine provider precision without scientific notation noise.
+        $formatted = rtrim(rtrim(sprintf('%.12F', $cost), '0'), '.');
+
+        return $formatted === '' ? '0' : $formatted;
+    }
+
+    private function providerResponseId(Response $response): ?string
+    {
+        $id = $response->json('id');
+        if (! is_string($id)) {
+            return null;
+        }
+
+        $trimmed = trim($id);
+
+        return $trimmed === '' ? null : Str::limit($trimmed, 120, '');
     }
 
     private function redactedRawBody(string $body): string

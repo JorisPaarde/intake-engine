@@ -10,6 +10,7 @@ use App\Domains\AI\Jobs\AssessUploadedPhotoJob;
 use App\Domains\AI\Jobs\SuggestAttentionPointsJob;
 use App\Domains\AI\Jobs\SummarizeIntakeJob;
 use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
+use App\Domains\AI\Services\AiTraceRequestIdResolver;
 use App\Domains\AI\Services\PhotoAssessmentLifecycle;
 use App\Domains\Intake\Actions\CompleteIntake;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
@@ -228,6 +229,7 @@ test('follow-up progress wordt 100% alleen na bruikbare beoordeling', function (
         app(AssessFuseboxPhotos::class),
         app(DerivePhotoAnswers::class),
         app(PhotoAssessmentLifecycle::class),
+        app(AiTraceRequestIdResolver::class),
     );
 
     $component->call('pollPendingAssessments')
@@ -410,6 +412,7 @@ test('retry na mislukte beoordeling herbeoordeelt via queue', function () {
         app(AssessFuseboxPhotos::class),
         app(DerivePhotoAnswers::class),
         app(PhotoAssessmentLifecycle::class),
+        app(AiTraceRequestIdResolver::class),
     );
 
     $component->call('pollPendingAssessments')->assertSet('uploadPhase', '');
