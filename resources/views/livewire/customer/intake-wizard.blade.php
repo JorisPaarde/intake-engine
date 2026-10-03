@@ -356,31 +356,82 @@
                                                 uploadTimer: null,
                                                 uploadError: '',
                                                 requestError: '',
+                                                uploadProgress: null,
+                                                serverBusy: false,
+                                                inactivityMs: 45000,
+                                                serverWaitMs: 120000,
                                                 arm() {
                                                     clearTimeout(this.timer);
                                                     this.timedOut = false;
                                                     if ($wire.uploadPhase === 'assessing' && $wire.uploadPhaseComposite === @js($composite)) {
-                                                        this.timer = setTimeout(() => { this.timedOut = true }, 120000);
+                                                        // Afstemmen op BL-127 ui_soft_timeout (~90s); daarna soft-release of “Opnieuw beoordelen”.
+                                                        this.timer = setTimeout(() => { this.timedOut = true }, 90000);
                                                     }
+                                                },
+                                                armInactivityTimer() {
+                                                    clearTimeout(this.uploadTimer);
+                                                    this.uploadTimer = setTimeout(() => {
+                                                        // Geen timeout terwijl de server nog bezig is ná 100% (lege 200 / Livewire-finish).
+                                                        if (this.serverBusy) {
+                                                            return;
+                                                        }
+                                                        this.uploadTimedOut = true;
+                                                        this.uploadError = 'Uploaden lijkt vast te zitten. Controleer je verbinding en probeer opnieuw.';
+                                                    }, this.inactivityMs);
+                                                },
+                                                armServerWaitTimer() {
+                                                    clearTimeout(this.uploadTimer);
+                                                    this.serverBusy = true;
+                                                    this.uploadTimer = setTimeout(() => {
+                                                        this.uploadTimedOut = true;
+                                                        this.serverBusy = false;
+                                                        this.uploadError = 'Uploaden lijkt vast te zitten. Controleer je verbinding en probeer opnieuw.';
+                                                    }, this.serverWaitMs);
                                                 },
                                                 armUpload() {
                                                     clearTimeout(this.uploadTimer);
                                                     this.uploadTimedOut = false;
                                                     this.uploadError = '';
                                                     this.requestError = '';
-                                                    this.uploadTimer = setTimeout(() => {
-                                                        this.uploadTimedOut = true;
-                                                        this.uploadError = 'Uploaden duurde te lang. Controleer je verbinding en probeer opnieuw.';
-                                                    }, 15000);
+                                                    this.uploadProgress = 0;
+                                                    this.serverBusy = false;
+                                                    this.armInactivityTimer();
+                                                },
+                                                onUploadProgress(event) {
+                                                    const detail = event?.detail;
+                                                    const progress = typeof detail?.progress === 'number'
+                                                        ? detail.progress
+                                                        : (typeof detail === 'number' ? detail : null);
+                                                    if (typeof progress === 'number') {
+                                                        this.uploadProgress = progress;
+                                                        if (progress >= 100) {
+                                                            // Bytes zijn binnen; wacht op server-antwoord / Livewire-finish zonder inactiviteit-timeout.
+                                                            this.armServerWaitTimer();
+                                                            return;
+                                                        }
+                                                    }
+                                                    this.serverBusy = false;
+                                                    this.armInactivityTimer();
+                                                },
+                                                onServerBusy() {
+                                                    this.armServerWaitTimer();
+                                                },
+                                                onUploadRetrying() {
+                                                    this.uploadTimedOut = false;
+                                                    this.uploadError = '';
+                                                    this.armServerWaitTimer();
                                                 },
                                                 finishUpload() {
                                                     clearTimeout(this.uploadTimer);
+                                                    this.serverBusy = false;
+                                                    this.uploadProgress = 100;
                                                     if (! this.uploadTimedOut) {
                                                         this.uploadError = '';
                                                     }
                                                 },
                                                 failUpload() {
                                                     clearTimeout(this.uploadTimer);
+                                                    this.serverBusy = false;
                                                     this.uploadTimedOut = true;
                                                     this.uploadError = this.uploadError || 'Uploaden mislukt. Probeer het opnieuw.';
                                                 },
@@ -388,6 +439,8 @@
                                                     this.uploadTimedOut = false;
                                                     this.uploadError = '';
                                                     this.requestError = '';
+                                                    this.uploadProgress = null;
+                                                    this.serverBusy = false;
                                                     const input = document.getElementById(@js('photo-input-'.str_replace(['.', ' '], '-', $composite)));
                                                     if (input) {
                                                         input.value = '';
@@ -399,6 +452,7 @@
                                                         || 'De server is even niet bereikbaar. Probeer het opnieuw.';
                                                     this.requestError = message;
                                                     this.uploadTimedOut = true;
+                                                    this.serverBusy = false;
                                                     this.uploadError = message;
                                                     clearTimeout(this.uploadTimer);
                                                 },
@@ -408,11 +462,16 @@
                                                 $watch(() => $wire.uploadPhase, () => arm());
                                                 $watch(() => $wire.uploadPhaseComposite, () => arm());
                                                 window.addEventListener('intake:livewire-request-failed', (e) => onRequestFailed(e));
+                                                window.addEventListener('intake:upload-retrying', () => onUploadRetrying());
+                                                window.addEventListener('intake:upload-empty-response', () => onUploadRetrying());
+                                                window.addEventListener('intake:upload-retry-succeeded', () => finishUpload());
                                             "
                                             x-on:livewire-upload-start="armUpload()"
+                                            x-on:livewire-upload-progress="onUploadProgress($event)"
                                             x-on:livewire-upload-finish="finishUpload()"
                                             x-on:livewire-upload-error="failUpload()"
                                             data-upload-timing="1"
+                                            data-client-downscale="1"
                                         >
                                             @php($uploadBusy = ($uploadPhase ?? '') === 'assessing' && ($uploadPhaseComposite ?? '') === $composite)
                                             <label
@@ -444,9 +503,16 @@
                                                 wire:target="photoFiles.{{ $composite }}"
                                                 class="mt-2 text-sm font-medium text-[var(--tenant-primary)]"
                                                 data-uploading="1"
+                                                data-testid="upload-progress"
                                                 x-show="! uploadTimedOut"
                                             >
-                                                Uploaden…
+                                                <span x-text="
+                                                    uploadTimedOut ? '' : (
+                                                        serverBusy
+                                                            ? (uploadProgress >= 100 ? 'Bezig op de server…' : 'Uploaden…')
+                                                            : (uploadProgress === null || uploadProgress >= 100 ? 'Uploaden…' : ('Uploaden… ' + uploadProgress + '%'))
+                                                    )
+                                                "></span>
                                             </div>
                                             <div
                                                 x-show="uploadTimedOut && uploadError"

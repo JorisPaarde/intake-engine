@@ -36,10 +36,12 @@ final class StoreIntakeUpload
         string $questionKey,
         ?string $sectionInstanceKey,
         UploadedFile $file,
+        ?int $clientOriginalWidth = null,
+        ?int $clientOriginalHeight = null,
     ): IntakeUpload {
         $question = $this->findPhotoQuestion($intake, $questionKey);
         $maxFiles = (int) ($question->meta['max_files'] ?? config('intake.uploads.max_files_per_question', 5));
-        $maxKilobytes = (int) config('intake.uploads.max_kilobytes', 5120);
+        $maxKilobytes = (int) config('intake.uploads.max_kilobytes', 8192);
 
         $existingCount = $this->uploadsQuery($intake, $questionKey, $sectionInstanceKey)->count();
 
@@ -100,7 +102,7 @@ final class StoreIntakeUpload
                 ]);
             }
 
-            return DB::transaction(function () use ($intake, $questionKey, $sectionInstanceKey, $disk, $path, $analysisPath, $normalized, $maxFiles, $preprocessMs, $persistStarted): IntakeUpload {
+            return DB::transaction(function () use ($intake, $questionKey, $sectionInstanceKey, $disk, $path, $analysisPath, $normalized, $maxFiles, $preprocessMs, $persistStarted, $clientOriginalWidth, $clientOriginalHeight): IntakeUpload {
                 $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
 
                 if (! in_array($lockedIntake->status, [IntakeStatus::Sent, IntakeStatus::InProgress], true)) {
@@ -118,6 +120,15 @@ final class StoreIntakeUpload
                 }
 
                 $persistMs = (int) round((microtime(true) - $persistStarted) * 1000);
+                $originalWidth = $normalized->originalWidth;
+                $originalHeight = $normalized->originalHeight;
+                if ($clientOriginalWidth !== null && $clientOriginalHeight !== null
+                    && $clientOriginalWidth > 0 && $clientOriginalHeight > 0) {
+                    // Browser downscale (BL-128): resolutiecheck moet het telefoonorigineel gebruiken.
+                    $originalWidth = $clientOriginalWidth;
+                    $originalHeight = $clientOriginalHeight;
+                }
+
                 $timings = [
                     'persist_ms' => $persistMs,
                     'preprocess_ms' => $preprocessMs,
@@ -125,8 +136,8 @@ final class StoreIntakeUpload
                     'dossier_height' => $normalized->dossierHeight,
                     'analysis_width' => $normalized->analysisWidth,
                     'analysis_height' => $normalized->analysisHeight,
-                    'original_width' => $normalized->originalWidth,
-                    'original_height' => $normalized->originalHeight,
+                    'original_width' => $originalWidth,
+                    'original_height' => $originalHeight,
                     'measured_at' => now()->toIso8601String(),
                 ];
 

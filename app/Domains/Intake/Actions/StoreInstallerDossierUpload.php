@@ -50,7 +50,7 @@ final class StoreInstallerDossierUpload
             ]);
         }
 
-        $maxKilobytes = (int) config('intake.uploads.max_kilobytes', 5120);
+        $maxKilobytes = (int) config('intake.uploads.max_kilobytes', 8192);
 
         if ($file->getSize() !== false && $file->getSize() > $maxKilobytes * 1024) {
             throw ValidationException::withMessages([

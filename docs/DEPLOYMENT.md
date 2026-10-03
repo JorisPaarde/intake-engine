@@ -371,7 +371,7 @@ Volledige checklist van open host-/env-acties: [§ Handmatige acties producteige
 
 ## PHP upload-limieten (cPanel)
 
-Foto-uploads (Fase 4) vereisen limieten ≥ applicatielimiet (5 MB per bestand).
+Foto-uploads (Fase 4) vereisen limieten ≥ applicatielimiet (8 MB per bestand).
 
 **Voorkeur (in git):** `public/.user.ini` zet `upload_max_filesize=10M`, `post_max_size=12M`, `max_file_uploads=20`, `memory_limit=512M`. Die file gaat mee met elke release naar de document root.
 

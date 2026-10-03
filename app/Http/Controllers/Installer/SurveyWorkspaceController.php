@@ -497,7 +497,7 @@ final class SurveyWorkspaceController extends Controller
         $this->authorize('update', $intake);
         $this->guardWorkspaceSubject($intake, $subject);
         $data = $request->validate([
-            'photo' => ['required', 'file', 'max:'.config('intake.uploads.max_kilobytes', 5120)],
+            'photo' => ['required', 'file', 'max:'.config('intake.uploads.max_kilobytes', 8192)],
             'route_segment_label' => ['nullable', 'string', 'max:160'],
         ]);
         $connection = $subject->type === 'airco_connection'

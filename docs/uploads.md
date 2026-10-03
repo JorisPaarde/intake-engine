@@ -1,6 +1,6 @@
 # Uploads & mediastorage
 
-> **Documentversie:** 3.14 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.16 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: klant-, gerichte bijdrage- en installateursfoto's, private serve-routes, generieke bewijslinks en dossier-/analysevarianten zijn **geïmplementeerd**. `MEDIA_DISK=s3` is ondersteund via Laravel’s `s3`-disk (BL-013). Directe installateurs-PDF-upload is niet gebouwd; een PDF kan wel als gerichte klanttaak worden gevraagd.
 
@@ -32,7 +32,7 @@ Status: klant-, gerichte bijdrage- en installateursfoto's, private serve-routes,
 6. Verwijderen wist beide varianten; bij storagefalen neemt `DeleteStoredMediaJob` de retry over.
 7. Installateursgalerij (detailpagina): `InstallerPhotoGalleryBuilder` groepeert foto’s per sectie/instantie en toont vraaglabels uit de gepinde templateversie (geen rauwe `question_key` / `section_instance_key`) — BL-024.
 
-Na elke intake- of vervolgfoto-upload voert de app lokaal een niet-blokkerende bruikbaarheidscheck uit. Bij te donker of te klein beeld noemt de melding zowel de kwaliteitsverbetering als de concrete `photo_instructions` van de gepinde vraag of de gerichte foto-opdracht van de installateur, zodat de klant vóór indienen precies weet hoe en wat opnieuw in beeld moet. Omdat het kwaliteitsverdict op de upload staat, wordt dezelfde instructie na verversen, hervatten of terugnavigeren opnieuw getoond. **Resolutie (BL-124):** `TooSmall` gebruikt `processing_timings.original_width/height` van het bronbeeld (grootste HEIC-frame), niet de verkleinde dossier-/analysevariant. **Upload vs beoordeling:** ~15 s Alpine-timeout alleen op Livewire-upload (“Uploaden…” → NL-fout + **Opnieuw proberen**); assessing: `wire:poll.2s` + UI soft-timeout (~90 s, “check volgt later”) + 120 s “Opnieuw beoordelen”; watchdog herpakt vastgelopen pending. Livewire 5xx/503 toont NL-status i.p.v. Engelse LiteSpeed-overlay.
+Na elke intake- of vervolgfoto-upload voert de app lokaal een niet-blokkerende bruikbaarheidscheck uit. Bij te donker of te klein beeld noemt de melding zowel de kwaliteitsverbetering als de concrete `photo_instructions` van de gepinde vraag of de gerichte foto-opdracht van de installateur, zodat de klant vóór indienen precies weet hoe en wat opnieuw in beeld moet. Omdat het kwaliteitsverdict op de upload staat, wordt dezelfde instructie na verversen, hervatten of terugnavigeren opnieuw getoond. **Resolutie (BL-124/BL-128):** `TooSmall` gebruikt `processing_timings.original_width/height` van het bronbeeld (telefoonorigineel of grootste HEIC-frame), niet de verkleinde dossier-/analysevariant. **Upload-bytes (BL-128):** Alpine-timeout is *inactiviteit* (~45 s zonder progress) tijdens de byte-transfer; ná 100% wacht de UI op het serverantwoord (~120 s, “Bezig op de server…”) zonder false timeout. Lege/ongeldige HTTP 200 op `/livewire/upload-file` wordt client-side opgevangen en opnieuw geprobeerd met een **verse** signed URL (`freshSignedUploadUrl`). Grote JPEG/PNG/WebP worden in de browser verkleind (lange zijde ≤2048) vóór Livewire-upload; originele afmetingen gaan mee als `photoClientOriginals`. **Beoordeling (BL-127):** elke foto eindigt in terminale `assessment_status` (`assessed`/`heuristic_rejected`/`not_assessed`/`reused`); `wire:poll.2s` stopt op terminal status; UI soft-timeout ~90 s (“check volgt later”); Alpine “Opnieuw beoordelen” als vangnet; watchdog herpakt pending > ~3 min. Livewire 5xx/503 toont NL-status i.p.v. Engelse LiteSpeed-overlay.
 
 ## Gedeeld bewijs
 
@@ -97,14 +97,14 @@ Dezelfde private serve-routes blijven gelden. De technische werkplek kan nu een 
 | Serve-routes | customer-token of installer `auth` + intake-match |
 | Inputtypes | jpeg, png, webp, heic/heif |
 | Opgeslagen fototypes | uitsluitend JPEG; beide varianten zijn metadata-vrij |
-| Max size | `INTAKE_UPLOAD_MAX_KB` (default 5120 = 5 MB) |
+| Max size | `INTAKE_UPLOAD_MAX_KB` (default 8192 = 8 MB) |
 | Max files | vraag-`meta.max_files` of `INTAKE_UPLOAD_MAX_FILES` |
 
 ## Validatie
 
 | Regel | Waarde |
 |-------|--------|
-| Max per bestand | 5 MB (configureerbaar) |
+| Max per bestand | 8 MB (configureerbaar) |
 | Max per vraag | default 5 |
 | Inputtypes | jpeg, png, webp, heic/heif |
 | Opgeslagen fototypes | jpeg |
@@ -148,7 +148,7 @@ Uitvoering en verificatie: [plans/bl-030-dossier-ai-image-variants.md](plans/bl-
 
 ## PHP- en cPanel-limieten
 
-Applicatielimiet: **5 MB** per foto (`INTAKE_UPLOAD_MAX_KB`). PHP moet daarboven zitten.
+Applicatielimiet: **8 MB** per foto (`INTAKE_UPLOAD_MAX_KB`). PHP moet daarboven zitten.
 
 ### Gewenste waarden (in git)
 
@@ -173,7 +173,7 @@ Applicatielimiet: **5 MB** per foto (`INTAKE_UPLOAD_MAX_KB`). PHP moet daarboven
 | `upload_max_filesize` | **512M** |
 | `post_max_size` | **512M** |
 | `max_file_uploads` | **20** |
-| App-limiet | **5120 KB** (5 MB) |
+| App-limiet | **8192 KB** (8 MB) |
 
 Hostlimieten liggen ruim boven het minimum; `public/.user.ini` blijft als vangnet voor omgevingen met lage defaults. BL-003: done.
 
