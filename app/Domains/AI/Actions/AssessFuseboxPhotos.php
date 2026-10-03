@@ -70,7 +70,8 @@ final class AssessFuseboxPhotos
 
         if (! (bool) config('ai.photo_inference.enabled', false)) {
             foreach ($allUploads as $upload) {
-                if ($upload->contentAssessment() === null) {
+                $existing = $upload->contentAssessment();
+                if ($existing === null || $existing->needsReassessment()) {
                     $upload->storeContentAssessment(PhotoContentAssessment::notAssessed($expected));
                 }
             }
@@ -90,8 +91,9 @@ final class AssessFuseboxPhotos
         $applyContext = null;
 
         foreach ($allUploads as $upload) {
-            if ($upload->contentAssessment() !== null) {
-                $assessment = $upload->contentAssessment();
+            $existing = $upload->contentAssessment();
+            if ($existing !== null && ! $existing->needsReassessment()) {
+                $assessment = $existing;
                 if ($assessment->status() === PhotoContentAssessment::STATUS_WRONG_SUBJECT
                     && ! $assessment->customerAcceptedMismatch()) {
                     continue;

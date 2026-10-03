@@ -1,6 +1,6 @@
 # Deployment naar cPanel (staging + production)
 
-> **Documentversie:** 2.23 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.24 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 **Statusregel:** staging en production zijn fysiek en logisch gescheiden; open handmatige acties (env/host) staan in [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
 
@@ -129,18 +129,33 @@ De workflows weigeren een deploypad dat niet eindigt op de verwachte omgevingsna
 
 ### 7. Cron: scheduler + queue-worker
 
-cPanel → **Cron Jobs**, twee entries per omgeving:
+cPanel → **Cron Jobs**. Per omgeving zijn dit de **verplichte** regels (staging-voorbeeld; production: vervang het pad):
 
 ```
 * * * * * cd /home/intakeengine/apps/intake-engine-staging/current && /usr/local/bin/php artisan schedule:run >> /dev/null 2>&1
-* * * * * cd /home/intakeengine/apps/intake-engine-staging/current && /usr/local/bin/php artisan queue:work --stop-when-empty --max-time=50 >> /dev/null 2>&1
-* * * * * cd /home/intakeengine/apps/intake-engine-production/current && /usr/local/bin/php artisan schedule:run >> /dev/null 2>&1
-* * * * * cd /home/intakeengine/apps/intake-engine-production/current && /usr/local/bin/php artisan queue:work --stop-when-empty --max-time=50 >> /dev/null 2>&1
+* * * * * cd /home/intakeengine/apps/intake-engine-staging/current && /usr/local/bin/php artisan queue:work --queue=ai-photo,default --stop-when-empty --max-time=50 >> /dev/null 2>&1
 ```
 
-Geen supervisor op cPanel; `--stop-when-empty --max-time=50` per minuut is de pragmatische variant. `queue:restart` in de deploy zorgt dat workers na een release verse code draaien.
+Production (identiek, ander pad):
 
-`schedule:run` dekt o.a. hourly `intakes:purge-demos`, daily `intakes:send-reminders` (BL-015), daily `intakes:purge-deleted` (BL-009) en daily `product-interests:purge` (BL-043). De queue-worker verwerkt AI-samenvatting, PDF-export (BL-005) en optionele interne interesse-notificaties.
+```
+* * * * * cd /home/intakeengine/apps/intake-engine-production/current && /usr/local/bin/php artisan schedule:run >> /dev/null 2>&1
+* * * * * cd /home/intakeengine/apps/intake-engine-production/current && /usr/local/bin/php artisan queue:work --queue=ai-photo,default --stop-when-empty --max-time=50 >> /dev/null 2>&1
+```
+
+**Exacte regel die hosting moet zetten voor snellere fotobeoordeling** (naast `schedule:run`): de minutelijke worker hierboven met `--queue=ai-photo,default`. Zonder `ai-photo` in die queue-lijst blijven fotojobs tot de volgende scheduler-start liggen.
+
+Daarnaast start `schedule:run` elk uur (via `routes/console.php`) een langere worker zonder Supervisor:
+
+```text
+php artisan queue:work --queue=ai-photo,default --max-time=3500 --sleep=1 --tries=2
+```
+
+met `withoutOverlapping(55)` (cache-lock ≈ flock) en `runInBackground()`. Dat beperkt latency tot ~1 s zolang de hourly worker leeft; de minutelijke `--stop-when-empty` blijft het vangnet (worst case ~60 s).
+
+Geen supervisor op cPanel. `queue:restart` in de deploy zorgt dat workers na een release verse code draaien. `QUEUE_CONNECTION=database`.
+
+`schedule:run` dekt o.a. hourly `intakes:purge-demos`, daily `intakes:send-reminders` (BL-015), daily `intakes:purge-deleted` (BL-009), daily `product-interests:purge` (BL-043), daily `ai:purge-traces`, en de hourly `ai-photo`-worker. De queue verwerkt AI-fotobeoordeling (`AssessUploadedPhotoJob`), AI-samenvatting, PDF-export (BL-005) en optionele interne interesse-notificaties.
 
 ## Database bij deploy
 

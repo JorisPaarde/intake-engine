@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Actions;
 
-use App\Domains\AI\Services\AiTracePhotoRefBuilder;
 use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\Intake\Jobs\DeleteStoredMediaJob;
 use App\Domains\Intake\Models\Intake;
@@ -32,7 +31,6 @@ final class StoreFollowUpUpload
         private readonly PhotoUploadNormalizer $photoUploadNormalizer,
         private readonly DocumentUploadNormalizer $documentUploadNormalizer,
         private readonly AiTraceRecorder $traceRecorder,
-        private readonly AiTracePhotoRefBuilder $photoRefs,
     ) {}
 
     public function handle(Intake $intake, IntakeFollowUpItem $item, UploadedFile $file): IntakeUpload
@@ -217,7 +215,9 @@ final class StoreFollowUpUpload
                 return $upload;
             });
 
-            $this->recordUploadTrace($intake, $upload, $item);
+            if ($item->type !== FollowUpItemType::Photo) {
+                $this->recordUploadTrace($intake, $upload, $item);
+            }
 
             return $upload;
         } catch (Throwable $exception) {
@@ -241,32 +241,23 @@ final class StoreFollowUpUpload
 
     private function recordUploadTrace(Intake $intake, IntakeUpload $upload, IntakeFollowUpItem $item): void
     {
-        $callType = $item->type === FollowUpItemType::Photo
-            ? AiTraceCallType::PhotoAnalysis
-            : AiTraceCallType::TextExtraction;
+        // Alleen documenten: foto-AI schrijft zelf één volledige photo_analysis-trace gekoppeld aan ai_run.
+        if ($item->type === FollowUpItemType::Photo) {
+            return;
+        }
 
-        $trace = $this->traceRecorder->start($intake, $callType, [
+        $trace = $this->traceRecorder->start($intake, AiTraceCallType::TextExtraction, [
             'upload_id' => $upload->id,
             'subject_type' => 'follow_up_item',
             'subject_id' => (string) $item->id,
         ]);
         $trace->linkUpload($upload);
-        if ($item->type === FollowUpItemType::Photo) {
-            $trace->recordRequest(
-                systemAndUser: [
-                    'system' => 'follow_up_upload_persist',
-                    'user' => ['follow_up_item_id' => $item->id, 'upload_id' => $upload->id],
-                ],
-                photoRefs: [$this->photoRefs->fromUpload($upload, 'follow_up')],
-            );
-        } else {
-            $trace->recordRequest(
-                systemAndUser: [
-                    'system' => 'follow_up_upload_persist',
-                    'user' => ['follow_up_item_id' => $item->id, 'upload_id' => $upload->id],
-                ],
-            );
-        }
+        $trace->recordRequest(
+            systemAndUser: [
+                'system' => 'follow_up_upload_persist',
+                'user' => ['follow_up_item_id' => $item->id, 'upload_id' => $upload->id],
+            ],
+        );
         $trace->succeed();
     }
 

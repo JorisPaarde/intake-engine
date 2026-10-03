@@ -5,17 +5,23 @@ declare(strict_types=1);
 namespace App\Domains\AI\Actions;
 
 use App\Domains\AI\Models\AiRun;
+use App\Domains\AI\Models\AiTrace;
 use App\Domains\AI\Services\AiGateway;
 use App\Domains\AI\Services\AiImageResolver;
+use App\Domains\AI\Services\AiTracePhotoRefBuilder;
+use App\Domains\AI\Services\AiTraceRecorder;
+use App\Domains\AI\Services\AiTraceSnapshotService;
 use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Models\ContributionTask;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeFollowUpItem;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
+use App\Enums\AiTraceCallType;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -26,8 +32,8 @@ use Throwable;
 /**
  * Category check for targeted customer follow-up photo tasks.
  * Expected subject + accepted set from decision_area_key; unknown areas skip.
- * AssessPhotoUsability blijft een lokale GD-heuristic (geen vision) — geen
- * gecombineerde vision-call; async beoordeling staat op de backlog.
+ * AssessPhotoUsability blijft een lokale GD-heuristic (geen vision).
+ * AI-beoordeling draait via AssessUploadedPhotoJob (queue ai-photo).
  */
 final class AssessFollowUpPhotoSubject
 {
@@ -35,6 +41,9 @@ final class AssessFollowUpPhotoSubject
         private readonly AiGateway $aiGateway,
         private readonly AiImageResolver $aiImageResolver,
         private readonly PromptVersionRepository $promptVersions,
+        private readonly AiTraceRecorder $traceRecorder,
+        private readonly AiTraceSnapshotService $traceSnapshots,
+        private readonly AiTracePhotoRefBuilder $photoRefBuilder,
     ) {}
 
     /**
@@ -50,11 +59,14 @@ final class AssessFollowUpPhotoSubject
             return ['assessment' => null, 'message' => null];
         }
 
+        $previous = $upload->contentAssessment();
+
         if (! (bool) config('ai.photo_inference.enabled', false)) {
             $assessment = PhotoContentAssessment::notAssessed($expected);
             $upload->storeContentAssessment($assessment);
+            $this->recordAssessmentActivity($intake, $upload, $item, $assessment, $previous);
 
-            return ['assessment' => $assessment, 'message' => null];
+            return ['assessment' => $assessment, 'message' => $assessment->customerMessage()];
         }
 
         $promptName = 'follow_up_photo_subject';
@@ -89,8 +101,10 @@ final class AssessFollowUpPhotoSubject
 
         if ($existing instanceof AiRun && is_array($existing->output)) {
             $assessment = PhotoContentAssessment::fromModelOutput($expected, $existing->output, $accepted)
-                ->preservingCustomerAcceptance($upload->contentAssessment());
+                ->preservingCustomerAcceptance($previous);
             $upload->storeContentAssessment($assessment);
+            $this->ensureTraceForCachedRun($intake, $upload, $item, $existing, $promptVersion, $promptBody, $input);
+            $this->recordAssessmentActivity($intake, $upload, $item, $assessment, $previous);
 
             return [
                 'assessment' => $assessment,
@@ -110,14 +124,54 @@ final class AssessFollowUpPhotoSubject
             'started_at' => now(),
         ]);
 
+        $correlationId = (string) Str::uuid();
+        $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoAnalysis, [
+            'ai_run_id' => $run->id,
+            'upload_id' => $upload->id,
+            'subject_type' => 'follow_up_item',
+            'subject_id' => (string) $item->id,
+            'provider' => (string) config('ai.provider', 'null'),
+            'prompt_version' => $promptVersion,
+            'correlation_id' => $correlationId,
+        ]);
+        $trace->linkUpload($upload);
+        $trace->linkAiRun($run);
+
+        if (! $trace->isNoop()) {
+            $this->traceSnapshots->answers($intake);
+            $this->traceSnapshots->remainingQuestions($intake);
+        }
+
         try {
+            $photoRefs = [];
+            if (! $trace->isNoop()) {
+                $photoRefs = [$this->photoRefBuilder->fromUpload($upload, 'follow_up')];
+            }
+
+            $trace->recordRequest(
+                systemAndUser: [
+                    'system' => $promptBody,
+                    'user' => $input,
+                ],
+                photoRefs: $photoRefs,
+                promptVersion: $promptVersion,
+            );
+
             $result = $this->aiGateway->complete(
                 prompt: $promptBody,
                 input: $input,
                 promptVersion: $promptVersion,
                 images: [$this->aiImageResolver->input($upload)],
             );
-            $output = $this->validateOutput($result->output);
+            $trace->recordProviderResult($result);
+
+            try {
+                $output = $this->validateOutput($result->output);
+                $trace->recordParsed($output, []);
+            } catch (ValidationException $exception) {
+                $trace->recordParsed([], $exception->errors());
+                throw $exception;
+            }
 
             $run->update($run->completionResultAttributes($result) + [
                 'status' => AiRunStatus::Succeeded,
@@ -127,17 +181,32 @@ final class AssessFollowUpPhotoSubject
             ]);
 
             $assessment = PhotoContentAssessment::fromModelOutput($expected, $output, $accepted)
-                ->preservingCustomerAcceptance($upload->contentAssessment());
+                ->preservingCustomerAcceptance($previous);
             $upload->storeContentAssessment($assessment);
+
+            $freshRun = $run->fresh() ?? $run;
+            $trace->linkAiRun($freshRun);
+            $trace->step('apply', [
+                'content_status' => $assessment->status(),
+                'upload_id' => $upload->id,
+            ]);
+            $trace->succeed();
+
+            $this->recordAssessmentActivity($intake, $upload, $item, $assessment, $previous);
 
             return [
                 'assessment' => $assessment,
                 'message' => $this->customerFacingMessage($assessment),
             ];
         } catch (Throwable $exception) {
+            $trace->linkAiRun($run->fresh() ?? $run);
+            $trace->fail($exception->getMessage(), $exception);
+
             Log::warning('AI follow-up photo subject check failed', [
                 'intake_id' => $intake->id,
                 'ai_run_id' => $run->id,
+                'ai_trace_id' => $trace->traceId(),
+                'upload_id' => $upload->id,
                 'exception' => $exception::class,
             ]);
 
@@ -149,17 +218,90 @@ final class AssessFollowUpPhotoSubject
 
             $assessment = PhotoContentAssessment::notAssessed($expected);
             $upload->storeContentAssessment($assessment);
+            $this->recordAssessmentActivity($intake, $upload, $item, $assessment, $previous);
 
-            return ['assessment' => $assessment, 'message' => null];
+            return ['assessment' => $assessment, 'message' => $assessment->customerMessage()];
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $input
+     */
+    private function ensureTraceForCachedRun(
+        Intake $intake,
+        IntakeUpload $upload,
+        IntakeFollowUpItem $item,
+        AiRun $run,
+        string $promptVersion,
+        string $promptBody,
+        array $input,
+    ): void {
+        $existingTrace = AiTrace::query()
+            ->where('ai_run_id', $run->id)
+            ->where('call_type', AiTraceCallType::PhotoAnalysis)
+            ->first();
+
+        if ($existingTrace !== null) {
+            return;
+        }
+
+        $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoAnalysis, [
+            'ai_run_id' => $run->id,
+            'upload_id' => $upload->id,
+            'subject_type' => 'follow_up_item',
+            'subject_id' => (string) $item->id,
+            'provider' => $run->provider ?: (string) config('ai.provider', 'null'),
+            'model' => $run->model,
+            'prompt_version' => $promptVersion,
+            'correlation_id' => (string) Str::uuid(),
+        ]);
+        $trace->linkUpload($upload);
+        $trace->linkAiRun($run);
+        $trace->recordRequest(
+            systemAndUser: [
+                'system' => $promptBody,
+                'user' => $input,
+            ],
+            photoRefs: [$this->photoRefBuilder->fromUpload($upload, 'follow_up')],
+            promptVersion: $promptVersion,
+        );
+        $trace->step('cache_hit', ['ai_run_id' => $run->id]);
+        $trace->succeed('Hergebruikte eerdere foto-beoordeling');
+    }
+
+    private function recordAssessmentActivity(
+        Intake $intake,
+        IntakeUpload $upload,
+        IntakeFollowUpItem $item,
+        PhotoContentAssessment $assessment,
+        ?PhotoContentAssessment $previous,
+    ): void {
+        if ($previous !== null
+            && $previous->status() === $assessment->status()
+            && $previous->detectedSubject()?->value === $assessment->detectedSubject()?->value) {
+            return;
+        }
+
+        IntakeActivityEvent::query()->create([
+            'intake_id' => $intake->id,
+            'actor_type' => 'system',
+            'actor_id' => null,
+            'event' => 'follow_up_photo_assessed',
+            'properties' => [
+                'upload_id' => $upload->id,
+                'follow_up_item_id' => $item->id,
+                'status' => $assessment->status(),
+                'previous_status' => $previous?->status(),
+                'detected_subject' => $assessment->detectedSubject()?->value,
+                'expected_subject' => $assessment->expectedSubject()?->value,
+                'installer_reason' => $assessment->followUpMismatchReason(),
+            ],
+            'created_at' => now(),
+        ]);
     }
 
     private function customerFacingMessage(PhotoContentAssessment $assessment): ?string
     {
-        if ($assessment->status() === PhotoContentAssessment::STATUS_NOT_ASSESSED) {
-            return null;
-        }
-
         return $assessment->solvesContent() ? null : $assessment->customerMessage();
     }
 

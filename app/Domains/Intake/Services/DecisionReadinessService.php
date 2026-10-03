@@ -13,6 +13,7 @@ use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\ContributionTask;
 use App\Domains\Intake\Models\DossierDecisionArea;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeFollowUpItem;
 use App\Domains\Intake\Support\PhotoContentSatisfaction;
 use App\Domains\Intake\Support\RoomDimensions;
 use App\Domains\Intake\Support\RoomHeightRequirement;
@@ -589,6 +590,7 @@ final class DecisionReadinessService
     /**
      * Reason from a completed follow-up photo task when the customer sent the wrong subject.
      * Shown on the installer workspace open-area detail (staging 81b).
+     * A later correct photo on the same item clears the open reason (history stays on the old upload / activity log).
      */
     private function followUpWrongSubjectReason(
         Intake $intake,
@@ -603,6 +605,11 @@ final class DecisionReadinessService
         foreach ($tasks as $task) {
             $item = $task->followUpItem;
             if ($item === null || $item->type !== FollowUpItemType::Photo) {
+                continue;
+            }
+
+            // Correcte foto op dit item → geen open mismatch-reden meer.
+            if ($this->followUpItemHasSolvingPhoto($item)) {
                 continue;
             }
 
@@ -626,6 +633,10 @@ final class DecisionReadinessService
                     continue;
                 }
 
+                if ($this->followUpItemHasSolvingPhoto($item)) {
+                    continue;
+                }
+
                 foreach ($item->uploads as $upload) {
                     $assessment = $upload->contentAssessment();
                     if (! $assessment instanceof PhotoContentAssessment) {
@@ -646,6 +657,20 @@ final class DecisionReadinessService
         }
 
         return null;
+    }
+
+    private function followUpItemHasSolvingPhoto(IntakeFollowUpItem $item): bool
+    {
+        $item->loadMissing('uploads');
+
+        foreach ($item->uploads as $upload) {
+            $assessment = $upload->contentAssessment();
+            if ($assessment instanceof PhotoContentAssessment && $assessment->solvesContent()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function hasAroundHousePhoto(Intake $intake): bool
