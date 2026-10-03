@@ -82,9 +82,9 @@ test('airco template seeder publishes v1 through v20 with v20 as latest', functi
         ->where('key', 'indoor_unit_position_photo')
         ->firstOrFail();
     expect($reason->meta['installer_prefillable'] ?? null)->toBeTrue()
-        ->and($desiredRoomCount->label)->toBe('Hoeveel ruimtes wilt u koelen of verwarmen?')
+        ->and($desiredRoomCount->label)->toBe('Hoeveel ruimtes wil je koelen of verwarmen?')
         ->and($roomPositionPhoto->label)->toBe('Extra overzicht van wanden en doorgangen')
-        ->and($roomPositionPhoto->help_text)->toContain('U hoeft zelf geen plek');
+        ->and($roomPositionPhoto->help_text)->toContain('Je hoeft zelf geen plek');
 
     $buildYear = $latest->sections()
         ->where('key', 'building')

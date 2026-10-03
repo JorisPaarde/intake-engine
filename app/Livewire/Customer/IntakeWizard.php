@@ -47,6 +47,7 @@ use App\Enums\IntakeStatus;
 use App\Enums\PhotoUsabilityVerdict;
 use App\Enums\QuestionType;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -131,7 +132,6 @@ class IntakeWizard extends Component
     /** @var list<array{question_key: string, section_instance_key: string|null, reason: string, label?: string, instance_label?: string|null}> */
     public array $completionMissing = [];
 
-
     /**
      * Klantzichtbare uploadfase: assessing | failed | '' (idle).
      * Uploaden zelf toont de client via wire:loading.
@@ -156,7 +156,6 @@ class IntakeWizard extends Component
 
     /** Voorkomt herhaalde recover-js binnen één request-lifecycle. */
     private bool $queuedUnassessedRecovery = false;
-
 
     /**
      * Composites revealed via known-summary “Wijzigen” without clearing prefill_source yet.
@@ -368,8 +367,8 @@ class IntakeWizard extends Component
                 ? route('intakes.show', $intake)
                 : null,
             'progressPercent' => $this->completed ? 100 : $progress['percent'],
-            'progressAnswered' => $progress['answered_required'] ?? 0,
-            'progressTotal' => $progress['total_required'] ?? 0,
+            'progressAnswered' => $progress['answered_required'],
+            'progressTotal' => $progress['total_required'],
             'progressExtraNote' => $this->progressExtraNote,
             'uploadPhase' => $this->uploadPhase,
             'uploadPhaseMessage' => $this->uploadPhaseMessage,
@@ -930,7 +929,7 @@ class IntakeWizard extends Component
         }
     }
 
-public function retryFailedUploadPhase(): void
+    public function retryFailedUploadPhase(): void
     {
         $composite = $this->uploadPhaseComposite;
 
@@ -952,7 +951,7 @@ public function retryFailedUploadPhase(): void
         $this->js('$wire.assessPendingUploads()');
     }
 
-/**
+    /**
      * Beoordeel alleen de pending follow-upfoto's van het actieve item.
      */
     private function assessPendingFollowUpUploads(): void
@@ -1010,20 +1009,20 @@ public function retryFailedUploadPhase(): void
         }
     }
 
-private function setUploadPhase(string $phase, string $message): void
+    private function setUploadPhase(string $phase, string $message): void
     {
         $this->uploadPhase = $phase;
         $this->uploadPhaseMessage = $message;
     }
 
-private function clearUploadPhase(): void
+    private function clearUploadPhase(): void
     {
         $this->uploadPhase = '';
         $this->uploadPhaseMessage = '';
         $this->uploadPhaseComposite = '';
     }
 
-/**
+    /**
      * @return list<int>
      */
     private function pendingIdsFor(string $key): array
@@ -1035,7 +1034,7 @@ private function clearUploadPhase(): void
         return array_values(array_unique(array_map('intval', $this->pendingAssessUploadIds[$key])));
     }
 
-/**
+    /**
      * @param  list<int>  $ids
      */
     private function setPendingIdsFor(string $key, array $ids): void
@@ -1051,12 +1050,12 @@ private function clearUploadPhase(): void
         $this->pendingAssessUploadIds[$key] = $normalized;
     }
 
-private function clearPendingIdsFor(string $key): void
+    private function clearPendingIdsFor(string $key): void
     {
         unset($this->pendingAssessUploadIds[$key]);
     }
 
-/**
+    /**
      * Na reload/timeout: uploads zonder usability_verdict opnieuw in de beoordelingswachtrij.
      */
     private function recoverUnassessedUploads(bool $force = false): void
@@ -1167,7 +1166,7 @@ private function clearPendingIdsFor(string $key): void
         $this->js('$wire.assessPendingUploads()');
     }
 
-/**
+    /**
      * @param  list<string>  $previousTaskKeys
      * @param  array{
      *     percent: int,
@@ -1190,7 +1189,7 @@ private function clearPendingIdsFor(string $key): void
             : 'Na je foto hebben we nog een paar vragen: '.implode('; ', $newLabels);
     }
 
-/**
+    /**
      * Eerlijke klanttekst bij timeout vs. overige fouten; altijd na report($e).
      */
     private function customerThrowableMessage(\Throwable $exception, string $context): string
@@ -1212,7 +1211,7 @@ private function clearPendingIdsFor(string $key): void
             : 'Upload mislukt. Je eerdere antwoorden blijven bewaard — probeer het opnieuw.';
     }
 
-/**
+    /**
      * Upload each selected file independently so one failure does not block the rest (BL-021).
      * Round-trip 1: opslaan + uploadPhase=assessing. Round-trip 2: assessPendingUploads().
      *
@@ -1825,6 +1824,8 @@ private function clearPendingIdsFor(string $key): void
             return;
         }
 
+        $this->progressExtraNote = '';
+
         $currentKey = $this->activeStepKey !== ''
             ? $this->activeStepKey
             : ($this->steps()[$this->stepIndex]['key'] ?? null);
@@ -1932,6 +1933,8 @@ private function clearPendingIdsFor(string $key): void
         if ($this->stepIndex <= 0) {
             return;
         }
+
+        $this->progressExtraNote = '';
 
         $currentStep = $this->currentStep();
         $leavingForcedEdit = false;

@@ -31,7 +31,7 @@ beforeEach(function () {
     Storage::fake((string) config('filesystems.media', 'local'));
 });
 
-function makeKlanttestIntake(): Intake
+function makeP2ProgressIntake(): Intake
 {
     $user = User::factory()->create();
     $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
@@ -47,7 +47,7 @@ function makeKlanttestIntake(): Intake
     ]);
 }
 
-function klanttestFindQuestion(IntakeTemplateVersion $version, string $key): ?IntakeQuestion
+function p2FindQuestion(IntakeTemplateVersion $version, string $key): ?IntakeQuestion
 {
     foreach ($version->sections as $section) {
         foreach ($section->questions as $question) {
@@ -61,7 +61,7 @@ function klanttestFindQuestion(IntakeTemplateVersion $version, string $key): ?In
 }
 
 /** @return array<string, mixed> */
-function klanttestSampleAnswer(IntakeQuestion $question): array
+function p2SampleAnswer(IntakeQuestion $question): array
 {
     return match ($question->type) {
         QuestionType::Boolean => ['bool' => false],
@@ -90,7 +90,7 @@ function fillKlanttestIntakeUntilComplete(Intake $intake): void
         }
 
         foreach ($check['missing'] as $item) {
-            $question = klanttestFindQuestion($version, $item['question_key']);
+            $question = p2FindQuestion($version, $item['question_key']);
 
             if ($question === null) {
                 continue;
@@ -111,19 +111,19 @@ function fillKlanttestIntakeUntilComplete(Intake $intake): void
                 $intake,
                 $item['question_key'],
                 $item['section_instance_key'],
-                klanttestSampleAnswer($question),
+                p2SampleAnswer($question),
             );
         }
     }
 }
 
-function makeKlanttestFollowUpIntake(array $items): Intake
+function makeP2FollowUpIntake(array $items): Intake
 {
     Mail::fake();
     Queue::fake();
     config(['mail.default' => 'smtp']);
 
-    $intake = makeKlanttestIntake();
+    $intake = makeP2ProgressIntake();
     fillKlanttestIntakeUntilComplete($intake);
     app(CompleteIntake::class)->handle($intake->fresh());
     $reviewer = User::factory()->create(['company_id' => $intake->company_id]);
@@ -136,7 +136,7 @@ function makeKlanttestFollowUpIntake(array $items): Intake
     return $intake->fresh();
 }
 
-function klanttestFixtureUpload(string $name = 'woonkamer-720.jpg'): UploadedFile
+function p2FixtureUpload(string $name = 'woonkamer-720.jpg'): UploadedFile
 {
     $fixture = base_path('tests/fixtures/klanttest-20261002/'.$name);
     expect(is_file($fixture))->toBeTrue();
@@ -144,7 +144,7 @@ function klanttestFixtureUpload(string $name = 'woonkamer-720.jpg'): UploadedFil
     return UploadedFile::fake()->createWithContent($name, (string) file_get_contents($fixture));
 }
 
-function klanttestBrightUpload(string $name = 'bright.jpg', int $width = 1280, int $height = 960): UploadedFile
+function p2BrightUpload(string $name = 'bright.jpg', int $width = 1280, int $height = 960): UploadedFile
 {
     $img = imagecreatetruecolor($width, $height);
     imagefill($img, 0, 0, imagecolorallocate($img, 220, 220, 210));
@@ -157,7 +157,7 @@ function klanttestBrightUpload(string $name = 'bright.jpg', int $width = 1280, i
 }
 
 test('lege foto-opdracht in follow-up start op 0% niet op 100%', function () {
-    $intake = makeKlanttestFollowUpIntake([
+    $intake = makeP2FollowUpIntake([
         ['type' => FollowUpItemType::Photo, 'prompt' => 'Maak een foto van de meterkast.'],
     ]);
 
@@ -177,7 +177,7 @@ test('lege foto-opdracht in follow-up start op 0% niet op 100%', function () {
 });
 
 test('follow-up progress wordt 100% alleen na bruikbare beoordeling', function () {
-    $intake = makeKlanttestFollowUpIntake([
+    $intake = makeP2FollowUpIntake([
         ['type' => FollowUpItemType::Photo, 'prompt' => 'Maak een foto van de meterkast.'],
     ]);
     $round = $intake->followUpRounds()->with('items.uploads')->firstOrFail();
@@ -187,7 +187,7 @@ test('follow-up progress wordt 100% alleen na bruikbare beoordeling', function (
     expect($before['percent'])->toBe(0);
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
-        ->set('followUpPhotoFiles.'.$item->id, klanttestBrightUpload())
+        ->set('followUpPhotoFiles.'.$item->id, p2BrightUpload())
         ->assertSet('followUpMode', true)
         ->assertSet('uploadPhase', 'assessing')
         ->assertJs('$wire.assessPendingUploads()');
@@ -210,7 +210,7 @@ test('follow-up progress wordt 100% alleen na bruikbare beoordeling', function (
 });
 
 test('onbruikbare follow-upfoto telt niet mee voor 100%', function () {
-    $intake = makeKlanttestFollowUpIntake([
+    $intake = makeP2FollowUpIntake([
         ['type' => FollowUpItemType::Photo, 'prompt' => 'Maak een foto van de meterkast.'],
     ]);
     $item = $intake->followUpRounds()->with('items')->firstOrFail()->items->firstOrFail();
@@ -235,7 +235,7 @@ test('onbruikbare follow-upfoto telt niet mee voor 100%', function () {
 });
 
 test('progress calculator bereikt 100% alleen als CompletenessChecker compleet is', function () {
-    $intake = makeKlanttestIntake();
+    $intake = makeP2ProgressIntake();
     $version = $intake->templateVersion()->with(['sections.questions.options', 'sections.questions.rules'])->firstOrFail();
     $progress = app(ProgressCalculator::class)->calculate($intake, $version);
     $check = app(CompletenessChecker::class)->check($intake, $version);
@@ -255,11 +255,11 @@ test('progress calculator bereikt 100% alleen als CompletenessChecker compleet i
 });
 
 test('na opslaan staat uploadPhase assessing en js-effect in de Livewire-response', function () {
-    $intake = makeKlanttestIntake();
+    $intake = makeP2ProgressIntake();
     app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
 
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
-        ->set('photoFiles.fusebox_photo', klanttestFixtureUpload())
+        ->set('photoFiles.fusebox_photo', p2FixtureUpload())
         ->assertSet('uploadPhase', 'assessing')
         ->assertSet('uploadPhaseMessage', 'Foto beoordelen…')
         ->assertSet('uploadPhaseComposite', 'fusebox_photo')
@@ -269,7 +269,7 @@ test('na opslaan staat uploadPhase assessing en js-effect in de Livewire-respons
 });
 
 test('follow-up round-trip 1 bevat ook het assessPendingUploads js-effect', function () {
-    $intake = makeKlanttestFollowUpIntake([
+    $intake = makeP2FollowUpIntake([
         ['type' => FollowUpItemType::Photo, 'prompt' => 'Maak een foto van de meterkast.'],
     ]);
     $item = $intake->followUpRounds()->with('items')->firstOrFail()->items->firstOrFail();
@@ -281,7 +281,7 @@ test('follow-up round-trip 1 bevat ook het assessPendingUploads js-effect', func
 });
 
 test('dubbele upload met dezelfde inhoud toont melding en requeued zonder verdict', function () {
-    $intake = makeKlanttestIntake();
+    $intake = makeP2ProgressIntake();
     app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
     $contents = (string) file_get_contents(base_path('tests/fixtures/klanttest-20261002/woonkamer-720.jpg'));
 
@@ -302,14 +302,14 @@ test('dubbele upload met dezelfde inhoud toont melding en requeued zonder verdic
 });
 
 test('mount herstart beoordeling voor uploads zonder verdict', function () {
-    $intake = makeKlanttestIntake();
+    $intake = makeP2ProgressIntake();
     app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
 
     $upload = app(StoreIntakeUpload::class)->handle(
         $intake,
         'fusebox_photo',
         null,
-        klanttestFixtureUpload(),
+        p2FixtureUpload(),
     );
 
     expect($upload->usability_verdict)->toBeNull();
@@ -325,12 +325,12 @@ test('mount herstart beoordeling voor uploads zonder verdict', function () {
 });
 
 test('retry na mislukte beoordeling herbeoordeelt via tweede round-trip', function () {
-    $intake = makeKlanttestIntake();
+    $intake = makeP2ProgressIntake();
     app(SaveIntakeAnswer::class)->handle($intake, 'request_reason', null, ['text' => 'Timeout-proof']);
     app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
-        ->set('photoFiles.fusebox_photo', klanttestFixtureUpload())
+        ->set('photoFiles.fusebox_photo', p2FixtureUpload())
         ->assertSet('uploadPhase', 'assessing');
 
     $pending = $component->get('pendingAssessUploadIds');
@@ -351,7 +351,7 @@ test('retry na mislukte beoordeling herbeoordeelt via tweede round-trip', functi
 });
 
 test('progressExtraNote verdwijnt bij next na foto-analyse', function () {
-    $intake = makeKlanttestIntake();
+    $intake = makeP2ProgressIntake();
     app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
 
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
