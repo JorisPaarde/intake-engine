@@ -9,6 +9,7 @@ use App\Domains\AI\Services\PhotoAssessmentLifecycle;
 use App\Domains\Intake\Actions\CreateCustomerContributionRequest;
 use App\Domains\Intake\Models\ContributionTask;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeFollowUpItem;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\DossierManager;
@@ -59,7 +60,7 @@ function bl133MakeIntake(IntakeStatus $status = IntakeStatus::InProgress): Intak
 }
 
 /**
- * @return array{0: Intake, 1: \App\Domains\Intake\Models\IntakeFollowUpItem}
+ * @return array{0: Intake, 1: IntakeFollowUpItem}
  */
 function bl133MakeFollowUpIntake(IntakeStatus $status = IntakeStatus::InProgress): array
 {
