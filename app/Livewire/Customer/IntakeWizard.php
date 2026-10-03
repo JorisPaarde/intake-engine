@@ -113,10 +113,26 @@ class IntakeWizard extends Component
 
     /**
      * Composite key → non-blocking photo-usability hint after upload (BL-007).
+     * Only shown when {@see $photoHintScope} still matches the active upload + analysis.
      *
      * @var array<string, string|null>
      */
     public array $photoHint = [];
+
+    /**
+     * Scopes ephemeral photo feedback to the upload(s) + analysis run that produced it (BL-129).
+     * Cleared on delete/replace; ignored when the active uploads no longer match.
+     *
+     * @var array<string, array<string, mixed>|null>
+     */
+    public array $photoHintScope = [];
+
+    /**
+     * Upload-ids that produced the current {@see $progressExtraNote} (BL-129).
+     *
+     * @var list<int>
+     */
+    public array $progressExtraNoteUploadIds = [];
 
     public string $saveMessage = '';
 
@@ -305,8 +321,13 @@ class IntakeWizard extends Component
 
         $version = $this->version();
         $steps = $this->steps();
-        $this->clampStepIndex($steps);
-        $step = $steps[$this->stepIndex] ?? null;
+        // Display and validation share one resolver: stable step key, never a bare index.
+        $step = $this->resolveDisplayedStep($steps);
+        if ($step === null && $steps !== []) {
+            $this->realignToActiveStep();
+            $steps = $this->steps();
+            $step = $this->resolveDisplayedStep($steps);
+        }
         // Banner-variant for the primary demo customer wizard (not a shortened allowlist).
         $demoCustomerPath = $intake->is_demo && ! $this->followUpMode;
         $progress = app(ProgressCalculator::class)->calculate($intake, $version);
@@ -315,7 +336,7 @@ class IntakeWizard extends Component
         $groupQuestions = [];
         $visibility = [];
         $uploadsByQuestion = [];
-        $displayPhotoHint = $this->photoHint;
+        $displayPhotoHint = [];
         $photoMismatchAssessment = null;
 
         if ($step !== null && ! $this->completed && ($step['kind'] ?? 'question') !== 'known_summary') {
@@ -364,12 +385,16 @@ class IntakeWizard extends Component
                         $question->key,
                         $step['section_instance_key'],
                     );
+                    $stepUploads = $uploadsByQuestion[$question->key] ?? collect();
 
-                    if (empty($displayPhotoHint[$composite])) {
+                    $scopedHint = $this->scopedPhotoHintMessage($composite, $stepUploads);
+                    if ($scopedHint !== null) {
+                        $displayPhotoHint[$composite] = $scopedHint;
+                    } else {
                         $persistentHint = $this->persistentIntakePhotoHint(
                             $intake,
                             $question,
-                            $uploadsByQuestion[$question->key] ?? collect(),
+                            $stepUploads,
                         );
 
                         if ($persistentHint !== null) {
@@ -378,7 +403,6 @@ class IntakeWizard extends Component
                     }
 
                     $photoMismatchAssessment = null;
-                    $stepUploads = $uploadsByQuestion[$question->key] ?? collect();
 
                     // Banner alleen zolang de vraag niet content-satisfait is.
                     if (! PhotoContentSatisfaction::uploadsSatisfy($stepUploads)) {
@@ -504,6 +528,8 @@ class IntakeWizard extends Component
                 $upload->question_key,
                 $upload->section_instance_key,
             );
+            $this->clearPhotoFeedbackForComposite($composite);
+            $this->clearProgressExtraNoteIfRelatedToUpload($upload->id);
             $this->refreshAnswerInForm($composite);
             $this->saveMessage = 'Foto verwijderd';
             $this->showMissing = false;
@@ -820,7 +846,7 @@ class IntakeWizard extends Component
         }
 
         // Alleen deze item-fase resetten; pending van andere items blijft staan.
-        $this->progressExtraNote = '';
+        $this->clearProgressExtraNote();
         $this->clearPendingIdsFor($composite);
         if ($this->uploadPhaseComposite === $composite) {
             $this->uploadPhase = '';
@@ -1049,11 +1075,9 @@ class IntakeWizard extends Component
         $this->realignToActiveStep();
 
         $progressAfter = app(ProgressCalculator::class)->calculate($this->intake(), $this->version());
-        $this->setProgressExtraNoteFromNewTasks($previousKeys, $progressAfter);
+        $this->setProgressExtraNoteFromNewTasks($previousKeys, $progressAfter, $uploadIds);
 
-        if ($hints !== []) {
-            $this->photoHint[$composite] = implode(' ', array_values(array_unique($hints)));
-        }
+        $this->storeScopedPhotoHint($composite, $uploadIds, $hints);
 
         $this->clearPendingIdsFor($composite);
         $this->clearUploadPhase();
@@ -1482,6 +1506,7 @@ class IntakeWizard extends Component
 
     /**
      * @param  list<string>  $previousTaskKeys
+     * @param  list<int>  $sourceUploadIds
      * @param  array{
      *     percent: int,
      *     answered_required: int,
@@ -1490,17 +1515,26 @@ class IntakeWizard extends Component
      *     task_keys: list<string>
      * }  $progressAfter
      */
-    private function setProgressExtraNoteFromNewTasks(array $previousTaskKeys, array $progressAfter): void
-    {
+    private function setProgressExtraNoteFromNewTasks(
+        array $previousTaskKeys,
+        array $progressAfter,
+        array $sourceUploadIds = [],
+    ): void {
         $newLabels = app(ProgressCalculator::class)->newTaskLabels($previousTaskKeys, $progressAfter);
 
         if ($newLabels === []) {
+            $this->clearProgressExtraNote();
+
             return;
         }
 
         $this->progressExtraNote = count($newLabels) === 1
             ? 'Na je foto hebben we nog één vraag: '.$newLabels[0]
             : 'Na je foto hebben we nog een paar vragen: '.implode('; ', $newLabels);
+        $this->progressExtraNoteUploadIds = array_values(array_unique(array_map(
+            static fn (int $id): int => $id,
+            $sourceUploadIds,
+        )));
     }
 
     /**
@@ -1538,7 +1572,8 @@ class IntakeWizard extends Component
         $intake = $this->intake();
 
         // Alleen deze composite resetten; pending van andere vragen blijft staan.
-        $this->progressExtraNote = '';
+        $this->clearProgressExtraNote();
+        $this->clearPhotoFeedbackForComposite($composite);
         $this->clearPendingIdsFor($composite);
         if ($this->uploadPhaseComposite === $composite) {
             $this->uploadPhase = '';
@@ -1670,9 +1705,8 @@ class IntakeWizard extends Component
 
             $this->ensurePendingUploadsHaveUsabilityVerdict($storedUploadIds);
 
-            if ($hints !== []) {
-                $this->photoHint[$composite] = implode(' ', array_values(array_unique($hints)));
-            }
+            // Lokale usability-hint meteen tonen, gescopeerd op deze upload-ids (AI volgt via queue/poll).
+            $this->storeScopedPhotoHint($composite, $storedUploadIds, $hints);
 
             if ($queuedIds !== []) {
                 $this->setPendingIdsFor($composite, $queuedIds);
@@ -1999,7 +2033,7 @@ class IntakeWizard extends Component
         }
 
         $composite = VisibilityResolver::compositeKey($question->key, $step['section_instance_key']);
-        $this->photoHint[$composite] = null;
+        $this->clearPhotoFeedbackForComposite($composite);
         $this->forgetIntakeDerivedCaches();
         $this->showMissing = false;
         $this->saveMessage = '';
@@ -2068,7 +2102,8 @@ class IntakeWizard extends Component
         $this->forgetIntakeDerivedCaches();
 
         $composite = VisibilityResolver::compositeKey($question->key, $step['section_instance_key']);
-        $this->photoHint[$composite] = null;
+        $this->clearPhotoFeedbackForComposite($composite);
+        $this->clearProgressExtraNote();
         $this->refreshAnswerInForm($composite);
         $this->showMissing = false;
         $this->saveMessage = '';
@@ -2110,7 +2145,21 @@ class IntakeWizard extends Component
             return;
         }
 
-        $step = $this->currentStep();
+        $this->saveStep($this->currentStep());
+    }
+
+    /**
+     * @param  array{
+     *     key?: string,
+     *     section_key: string,
+     *     section_instance_key: string|null,
+     *     question_key: string,
+     *     kind?: 'question'|'known_summary'|'question_group',
+     *     group_question_keys?: list<string>
+     * }|null  $step
+     */
+    private function saveStep(?array $step): void
+    {
         if ($step === null || ($step['kind'] ?? 'question') === 'known_summary') {
             return;
         }
@@ -2289,12 +2338,16 @@ class IntakeWizard extends Component
             return;
         }
 
-        $this->progressExtraNote = '';
+        $this->clearProgressExtraNote();
 
-        $currentKey = $this->activeStepKey !== ''
-            ? $this->activeStepKey
-            : ($this->steps()[$this->stepIndex]['key'] ?? null);
-        $currentStep = $this->currentStep();
+        $knownBeforeSave = $this->knownStepKeys;
+        $stepsBeforeSave = $this->steps();
+        $currentKey = $this->displayedStepKey($stepsBeforeSave);
+        $currentStep = null;
+        if (is_string($currentKey) && $currentKey !== '') {
+            $beforeIndex = app(IntakeStepBuilder::class)->indexForStepKey($stepsBeforeSave, $currentKey);
+            $currentStep = $beforeIndex === null ? null : $stepsBeforeSave[$beforeIndex];
+        }
         $leavingForcedEdit = false;
         if ($currentStep !== null && ($currentStep['kind'] ?? 'question') !== 'known_summary') {
             $leavingForcedEdit = in_array(
@@ -2307,9 +2360,39 @@ class IntakeWizard extends Component
             );
         }
 
-        $this->saveCurrentStep();
+        if ($currentStep !== null) {
+            $this->saveStep($currentStep);
+        }
 
-        if (! $this->currentStepRequiredSatisfied()) {
+        // Recompute after save; keep navigating by the key we showed, not a shifted index.
+        $steps = $this->steps();
+        $currentIndex = is_string($currentKey)
+            ? app(IntakeStepBuilder::class)->indexForStepKey($steps, $currentKey)
+            : null;
+
+        if ($currentIndex === null && is_string($currentKey) && $currentKey !== '') {
+            // The displayed question left the list (e.g. room_name after fill). Land on
+            // the successor without validating a different question under a stale index.
+            if ($knownBeforeSave !== []) {
+                $this->knownStepKeys = $knownBeforeSave;
+            }
+            $this->activeStepKey = $currentKey;
+            $this->realignToActiveStep();
+            $this->showMissing = false;
+            $this->completionMissing = [];
+            $this->hydrateFormFromAnswers();
+            $this->applyPrefillForActiveStep();
+            $this->saveMessage = '';
+
+            return;
+        }
+
+        if ($currentIndex !== null) {
+            $this->stepIndex = $currentIndex;
+            $this->activeStepKey = $currentKey ?? '';
+        }
+
+        if (! $this->stepRequiredSatisfied($steps[$this->stepIndex] ?? null)) {
             $this->showMissing = true;
             $this->completionMissing = [];
             $this->saveMessage = '';
@@ -2327,11 +2410,8 @@ class IntakeWizard extends Component
             return;
         }
 
-        $steps = $this->steps();
-        $currentIndex = app(IntakeStepBuilder::class)->indexForStepKey($steps, $currentKey) ?? $this->stepIndex;
-
-        if ($currentIndex < count($steps) - 1) {
-            $this->stepIndex = $currentIndex + 1;
+        if ($this->stepIndex < count($steps) - 1) {
+            $this->stepIndex = $this->stepIndex + 1;
             $this->syncActiveStepKey($steps);
             $this->rememberCurrentCursor();
             $this->hydrateFormFromAnswers();
@@ -2396,13 +2476,19 @@ class IntakeWizard extends Component
 
     public function previous(): void
     {
-        if ($this->stepIndex <= 0) {
+        if ($this->stepIndex <= 0 && $this->activeStepKey === '') {
             return;
         }
 
-        $this->progressExtraNote = '';
+        $this->clearProgressExtraNote();
 
-        $currentStep = $this->currentStep();
+        $stepsBeforeSave = $this->steps();
+        $currentKey = $this->displayedStepKey($stepsBeforeSave);
+        $currentStep = null;
+        if (is_string($currentKey) && $currentKey !== '') {
+            $beforeIndex = app(IntakeStepBuilder::class)->indexForStepKey($stepsBeforeSave, $currentKey);
+            $currentStep = $beforeIndex === null ? null : $stepsBeforeSave[$beforeIndex];
+        }
         $leavingForcedEdit = false;
         if ($currentStep !== null && ($currentStep['kind'] ?? 'question') !== 'known_summary') {
             $leavingForcedEdit = in_array(
@@ -2415,7 +2501,9 @@ class IntakeWizard extends Component
             );
         }
 
-        $this->saveCurrentStep();
+        if ($currentStep !== null) {
+            $this->saveStep($currentStep);
+        }
 
         // Geforceerde known-edit: terug naar overzicht, niet naar de stap ervoor.
         if ($leavingForcedEdit) {
@@ -2426,12 +2514,23 @@ class IntakeWizard extends Component
             return;
         }
 
-        $currentKey = $this->activeStepKey !== ''
-            ? $this->activeStepKey
-            : ($this->steps()[$this->stepIndex]['key'] ?? null);
-
         $steps = $this->steps();
-        $currentIndex = app(IntakeStepBuilder::class)->indexForStepKey($steps, $currentKey) ?? $this->stepIndex;
+        $currentIndex = is_string($currentKey)
+            ? app(IntakeStepBuilder::class)->indexForStepKey($steps, $currentKey)
+            : null;
+
+        if ($currentIndex === null && is_string($currentKey) && $currentKey !== '') {
+            $this->activeStepKey = $currentKey;
+            $this->realignToActiveStep();
+            $this->hydrateFormFromAnswers();
+            $this->applyPrefillForActiveStep();
+            $this->saveMessage = '';
+            $this->showMissing = false;
+
+            return;
+        }
+
+        $currentIndex ??= $this->stepIndex;
         $this->stepIndex = max(0, $currentIndex - 1);
         $this->syncActiveStepKey($steps);
         $this->rememberCurrentCursor();
@@ -2905,8 +3004,25 @@ class IntakeWizard extends Component
 
     private function currentStepRequiredSatisfied(): bool
     {
-        $step = $this->currentStep();
-        if ($step === null) {
+        return $this->stepRequiredSatisfied($this->currentStep());
+    }
+
+    /**
+     * Validate the step that is (or will be) displayed — never a drifted array index.
+     *
+     * @param  array{
+     *     key?: string,
+     *     section_key: string,
+     *     section_instance_key: string|null,
+     *     question_key: string,
+     *     is_required?: bool,
+     *     kind?: 'question'|'known_summary'|'question_group',
+     *     group_question_keys?: list<string>
+     * }|null  $step
+     */
+    private function stepRequiredSatisfied(?array $step): bool
+    {
+        if ($step === null || ($step['kind'] ?? 'question') === 'known_summary') {
             return true;
         }
 
@@ -2966,18 +3082,15 @@ class IntakeWizard extends Component
             return true;
         }
 
-        $reader = app(AnswerValueReader::class);
-        $value = is_array($this->form[$key] ?? null) ? $this->form[$key] : null;
-
-        if (! $reader->isFilled($value, $question->type)) {
-            return false;
-        }
-
+        // Photos: trust DB uploads, not possibly stale Livewire form upload_ids (reload used to "fix" this).
         if ($question->type === QuestionType::Photo) {
             return $this->photoStepContentSatisfied($question->key, $step['section_instance_key']);
         }
 
-        return true;
+        $reader = app(AnswerValueReader::class);
+        $value = is_array($this->form[$key] ?? null) ? $this->form[$key] : null;
+
+        return $reader->isFilled($value, $question->type);
     }
 
     private function photoStepContentSatisfied(string $questionKey, ?string $sectionInstanceKey): bool
@@ -3011,16 +3124,98 @@ class IntakeWizard extends Component
      */
     private function currentStep(): ?array
     {
-        $steps = $this->steps();
+        return $this->resolveDisplayedStep($this->steps());
+    }
+
+    /**
+     * Resolve the step the customer sees. Prefer stable {@see $activeStepKey}; sync index from it.
+     * Never return a different question via a stale {@see $stepIndex} when the key is set but gone.
+     *
+     * @param  list<array{
+     *     key: string,
+     *     section_key: string,
+     *     section_instance_key: string|null,
+     *     question_key: string,
+     *     title: string,
+     *     section_title: string,
+     *     description: string|null,
+     *     help_text: string|null,
+     *     is_repeatable: bool,
+     *     is_required: bool,
+     *     kind?: 'question'|'known_summary'|'question_group',
+     *     known_items?: list<array{
+     *         question_key: string,
+     *         section_instance_key: string|null,
+     *         label: string,
+     *         display_value: string,
+     *         prefill_source: string,
+     *     }>,
+     *     group_key?: string,
+     *     group_question_keys?: list<string>
+     * }>  $steps
+     * @return array{
+     *     key: string,
+     *     section_key: string,
+     *     section_instance_key: string|null,
+     *     question_key: string,
+     *     title: string,
+     *     section_title: string,
+     *     description: string|null,
+     *     help_text: string|null,
+     *     is_repeatable: bool,
+     *     is_required: bool,
+     *     kind?: 'question'|'known_summary'|'question_group',
+     *     known_items?: list<array{
+     *         question_key: string,
+     *         section_instance_key: string|null,
+     *         label: string,
+     *         display_value: string,
+     *         prefill_source: string,
+     *     }>,
+     *     group_key?: string,
+     *     group_question_keys?: list<string>
+     * }|null
+     */
+    private function resolveDisplayedStep(array $steps): ?array
+    {
+        if ($steps === []) {
+            $this->stepIndex = 0;
+            $this->activeStepKey = '';
+
+            return null;
+        }
 
         if ($this->activeStepKey !== '') {
             $index = app(IntakeStepBuilder::class)->indexForStepKey($steps, $this->activeStepKey);
             if ($index !== null) {
+                $this->stepIndex = $index;
+
                 return $steps[$index];
             }
+
+            // Key missing: do not fall back to a drifted index (that is a different question).
+            return null;
         }
 
-        return $steps[$this->stepIndex] ?? null;
+        $this->clampStepIndex($steps);
+        $step = $steps[$this->stepIndex] ?? null;
+        if ($step !== null) {
+            $this->activeStepKey = $step['key'];
+        }
+
+        return $step;
+    }
+
+    /**
+     * @param  list<array{key: string}>  $steps
+     */
+    private function displayedStepKey(array $steps): ?string
+    {
+        if ($this->activeStepKey !== '') {
+            return $this->activeStepKey;
+        }
+
+        return $steps[$this->stepIndex]['key'] ?? null;
     }
 
     private function rememberCurrentCursor(): void
@@ -3121,6 +3316,132 @@ class IntakeWizard extends Component
         }
 
         $this->stepIndex = min(max(0, $this->stepIndex), count($steps) - 1);
+    }
+
+    private function clearProgressExtraNote(): void
+    {
+        $this->progressExtraNote = '';
+        $this->progressExtraNoteUploadIds = [];
+    }
+
+    private function clearProgressExtraNoteIfRelatedToUpload(int $uploadId): void
+    {
+        if ($this->progressExtraNoteUploadIds === [] || in_array($uploadId, $this->progressExtraNoteUploadIds, true)) {
+            $this->clearProgressExtraNote();
+        }
+    }
+
+    private function clearPhotoFeedbackForComposite(string $composite): void
+    {
+        $this->photoHint[$composite] = null;
+        $this->photoHintScope[$composite] = null;
+    }
+
+    /**
+     * @param  list<int>  $uploadIds
+     * @param  list<string>  $hints
+     */
+    private function storeScopedPhotoHint(string $composite, array $uploadIds, array $hints): void
+    {
+        $uploadIds = array_values(array_unique(array_map(
+            static fn (int $id): int => $id,
+            $uploadIds,
+        )));
+
+        if ($hints === [] || $uploadIds === []) {
+            $this->clearPhotoFeedbackForComposite($composite);
+
+            return;
+        }
+
+        $token = $this->analysisTokenForUploadIds($uploadIds);
+        $this->photoHint[$composite] = implode(' ', array_values(array_unique($hints)));
+        $this->photoHintScope[$composite] = [
+            'upload_ids' => $uploadIds,
+            'analysis_token' => $token,
+        ];
+    }
+
+    /**
+     * @param  Collection<int, IntakeUpload>  $uploads
+     */
+    private function scopedPhotoHintMessage(string $composite, Collection $uploads): ?string
+    {
+        $message = $this->photoHint[$composite] ?? null;
+        $scope = $this->photoHintScope[$composite] ?? null;
+
+        if (! is_string($message) || $message === '' || ! is_array($scope)) {
+            return null;
+        }
+
+        $scopedIds = $scope['upload_ids'] ?? null;
+        $scopedToken = $scope['analysis_token'] ?? null;
+
+        if (! is_array($scopedIds) || ! is_string($scopedToken) || $scopedToken === '') {
+            $this->clearPhotoFeedbackForComposite($composite);
+
+            return null;
+        }
+
+        /** @var list<int> $activeIds */
+        $activeIds = $uploads->pluck('id')->map(static fn ($id): int => (int) $id)->sort()->values()->all();
+        $scopedSorted = array_values(array_unique(array_map(
+            static fn (mixed $id): int => (int) $id,
+            $scopedIds,
+        )));
+        sort($scopedSorted);
+
+        if ($activeIds !== $scopedSorted) {
+            $this->clearPhotoFeedbackForComposite($composite);
+
+            return null;
+        }
+
+        if ($this->analysisTokenForUploadIds($activeIds) !== $scopedToken) {
+            $this->clearPhotoFeedbackForComposite($composite);
+
+            return null;
+        }
+
+        return $message;
+    }
+
+    /**
+     * Stable fingerprint of the active upload set + their analysis/usability outcome (BL-129).
+     *
+     * @param  list<int>  $uploadIds
+     */
+    private function analysisTokenForUploadIds(array $uploadIds): string
+    {
+        if ($uploadIds === []) {
+            return '';
+        }
+
+        $uploads = IntakeUpload::query()
+            ->where('intake_id', $this->intake()->id)
+            ->whereIn('id', $uploadIds)
+            ->orderBy('id')
+            ->get();
+
+        $parts = [];
+
+        foreach ($uploads as $upload) {
+            $timings = is_array($upload->processing_timings) ? $upload->processing_timings : [];
+            $correlation = is_string($timings['correlation_id'] ?? null)
+                ? (string) $timings['correlation_id']
+                : '';
+            $verdictEnum = $upload->usability_verdict;
+            $verdict = $verdictEnum instanceof PhotoUsabilityVerdict
+                ? $verdictEnum->value
+                : '';
+            $assessment = is_array($upload->content_assessment)
+                ? json_encode($upload->content_assessment, JSON_THROW_ON_ERROR)
+                : '';
+
+            $parts[] = $upload->id.'|'.$correlation.'|'.$verdict.'|'.hash('xxh3', $assessment);
+        }
+
+        return hash('xxh3', implode(';', $parts));
     }
 
     public function recordNetworkUploadTiming(int $uploadId, int $ms): void

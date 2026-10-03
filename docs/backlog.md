@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.81 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.82 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,11 +38,12 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = fotobeoordeling via queue (#124, done). **BL-122** = soft catalogus-prefill (case 81). **BL-123** = staging-retest acceptance (#115–#120). **BL-124** = form robustness (#127, done). **BL-125** = AI-trace retentie/export + PDF-downscale (#130, done). **BL-126** = prompt/vision quality (route/ownership/kamernamen). **BL-127** = foto-assessment terminale status + watchdog (#133, done). **BL-128** = grote telefoonfoto-upload (inactiviteit-timeout + client-downscale + lege-200-retry). Nieuwe items starten bij BL-129.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = fotobeoordeling via queue (#124, done). **BL-122** = soft catalogus-prefill (case 81). **BL-123** = staging-retest acceptance (#115–#120). **BL-124** = form robustness (#127, done). **BL-125** = AI-trace retentie/export + PDF-downscale (#130, done). **BL-126** = prompt/vision quality (route/ownership/kamernamen). **BL-127** = foto-assessment terminale status + watchdog (#133, done). **BL-128** = grote telefoonfoto-upload (inactiviteit-timeout + client-downscale + lege-200-retry, #131, done). **BL-129** = wizard nav + scoped foto-feedback (#129, done). Nieuwe items starten bij BL-130.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
 | 1 | BL-117 | Installateur kan technisch open punt afhandelen vanuit de survey-werkplek | E7/E8 | backlog | high | na PR #115 · show/rapport `*_open` |
+| — | BL-129 | Wizard: stabiele stap-id + scoped foto-feedback (geen stale hints) | E1/E4 | done | high | na BL-121 (#124) · queue/poll intact · PR #129 |
 | — | BL-128 | Grote telefoonfoto: inactiviteit-timeout + client-downscale + 8 MB + lege-200-retry | E1/E7 | done | high | A · na BL-124/127 · staging intake 78 · PR #131 |
 | — | BL-127 | Foto-assessment: terminale status, soft-timeout, ai_runs.upload_id, watchdog | E4 | done | high | na #124 · staging intake 78 · PR #133 |
 | — | BL-126 | Prompt/vision quality: route-categorie, ownership, kamernamen, free_group/glas | E3/E4/E9 | in_progress | high | AI/foto · na BL-119/122 · parallel dossier-synthesis |
@@ -602,6 +603,7 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Status:** done · **Datum:** 2026-10-03 · **PR:** #130 · **Prioriteit:** high · **Epic:** E4/E5 · **Band:** AI/ops · **Volgt op:** BL-116
 - **Doel:** traces overleven demo-purge (`intake_id` nullOnDelete + `intake_ref_id`/`is_demo`); retentie alleen via `ai:purge-traces`; `request_id`; consistente verplichte tracevelden per call type; `ai:traces:export` (jsonl/md, bundling, split, masking); demo-purge ruimt uploadmap op; PDF embedt downscaled foto’s (max 1600px / JPEG ~75) zonder originelen te wijzigen.
 - **Waarom niet `ai_runs`:** blijven cascadeOnDelete — operationele/idempotente apply-records zonder intake; duurzame diagnostiek zit in `ai_traces`.
+- **Resultaat:** merge #130.
 
 ### BL-120 — Klanttest P2: voortgang, uploadfases, je-vorm
 
@@ -625,6 +627,15 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Acceptatie:** Pest voor zelfde file/twee vragen, too_small→heuristic_rejected, AI-fout→not_assessed, watchdog; `composer check` groen.
 - **Resultaat:** PR #133; terminal `assessment_status` + soft-timeout + `ai_runs.upload_id` + watchdog.
 
+### BL-129 — Wizard: stabiele stap-id + scoped foto-feedback
+
+- **Status:** done · **Datum:** 2026-10-03 · **PR:** #129 · **Prioriteit:** high · **Epic:** E1/E4 · **Volgt op:** BL-121 (#124) · **Ref:** klantwizard room_name-shrink + stale foto-hints
+- **Aanleiding:** na `room_name` invullen kromp de stappenlijst; `Volgende`/`saveStep` valideerden via verschoven `stepIndex` (andere vraag) of stalen form-`upload_ids`. Foto-hints en “Na je foto…”-notities bleven zichtbaar na Vervang/Verwijderen zonder reload.
+- **Doel:** navigatie + verplichte-check via stabiele `activeStepKey`; foto-hints gescopeerd op upload-ids + analysis-token; clear bij delete/replace/nieuwe upload; fotovalidatie via DB (`PhotoContentSatisfaction`), niet via Livewire-form.
+- **Scope:** `IntakeWizard` (+ Pest). Bouwt op BL-121 queue/poll; **geen** sync AI in de Livewire-request. Nummering: BL-127/128 elders bezet (#133/#131) → dit item is BL-129.
+- **Acceptatie:** room_name → wall_outlet zonder index-drift; shrink/grow mid-flow stabiel; stale hints weg na replace/delete; known-facts skip + “Weet ik niet” intact; `composer check` groen.
+- **Resultaat:** `activeStepKey`/`resolveDisplayedStep`/`photoHintScope`; Pest `WizardNavigationPhotoFeedbackTest` (queue+poll); geen sync AI.
+
 ### BL-122 — Soft catalogus-prefill (case 81 regressie)
 
 - **Status:** done · **Datum:** 2026-10-03 · **PR:** #120 · **Prioriteit:** high · **Epic:** E3/E9 · **Volgt op:** BL-118/120 · **Ref:** staging demo intakes 67/68, klanttest case 81
@@ -636,11 +647,12 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-126 — Prompt/vision quality: route, ownership, kamernamen, classificatie
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E3/E4/E9 · **Band:** AI/foto · **Volgt op:** BL-119/121/122 · **PR:** #126
+- **Status:** done · **Datum:** 2026-10-03 · **PR:** #126 · **Prioriteit:** high · **Epic:** E3/E4/E9 · **Band:** AI/foto · **Volgt op:** BL-119/121/122
 - **Aanleiding:** routefoto (goot/doorvoer) → “Dit is een andere foto”; ownership flaky; Ouders/Kind niet op labels; free_group Ja/Nee wisselend; glas leeg bij grote ramen.
 - **Doel:** route-categorie mapping + prompts; OwnershipNormalizer; room_name→installer labels; unknown i.p.v. gok; classification temperature 0 via config (zonder OpenAiClient-internals).
 - **Scope:** extraction/prefill/photo-assessment prompts + PhotoSubject/PhotoContentAssessment mapping (compatibel met `AssessUploadedPhotoJob`); géén dossier-synthesis/OpenAiClient.
 - **Acceptatie:** fixture-test routefoto; ownership-phrasings; room_name sync + skip; Vervang foto/Toch doorgaan intact; lege woonkamer geen extra stopcontactvraag; `composer check` groen.
+- **Resultaat:** merge #126.
 
 ### BL-123 — Staging-retest acceptance (#115–#120)
 
