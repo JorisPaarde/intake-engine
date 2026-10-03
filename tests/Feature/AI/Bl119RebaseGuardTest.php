@@ -107,7 +107,7 @@ test('photo validateOutput normalizes Dutch confidence synonym and records norma
 
     $trace = AiTrace::query()
         ->where('intake_id', $intake->id)
-        ->where('call_type', AiTraceCallType::PhotoAnalysis)
+        ->where('call_type', AiTraceCallType::PhotoDerive)
         ->where('status', AiTraceStatus::Succeeded)
         ->latest('id')
         ->first();
@@ -200,7 +200,7 @@ test('successful photo derive trace contains apply step and activity ai_trace_id
 
     $trace = AiTrace::query()
         ->where('intake_id', $intake->id)
-        ->where('call_type', AiTraceCallType::PhotoAnalysis)
+        ->where('call_type', AiTraceCallType::PhotoDerive)
         ->where('status', AiTraceStatus::Succeeded)
         ->latest('id')
         ->first();

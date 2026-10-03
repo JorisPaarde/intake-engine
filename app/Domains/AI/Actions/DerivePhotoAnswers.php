@@ -254,7 +254,7 @@ final class DerivePhotoAnswers
                 // Cache-hit pad: geen open assess-trace — start apply-trace voor #117-stappen.
                 $correlationId ??= (string) Str::uuid();
                 $latestMatching = $matchingUploads->sortByDesc('id')->first();
-                $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoAnalysis, array_filter([
+                $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoDerive, array_filter([
                     'ai_run_id' => $run?->id,
                     'upload_id' => $latestMatching?->id,
                     'subject_type' => 'section',
@@ -566,7 +566,7 @@ final class DerivePhotoAnswers
 
         $correlationId ??= (string) Str::uuid();
 
-        $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoAnalysis, [
+        $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoDerive, [
             'ai_run_id' => $run->id,
             'upload_id' => $upload->id,
             'subject_type' => 'section',

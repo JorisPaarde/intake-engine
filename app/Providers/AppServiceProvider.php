@@ -9,10 +9,13 @@ use App\Domains\AI\Clients\HeuristicAiClient;
 use App\Domains\AI\Clients\NullAiClient;
 use App\Domains\AI\Clients\OpenAiClient;
 use App\Domains\AI\Contracts\AiClientInterface;
+use App\Domains\AI\Services\AiTraceRequestIdResolver;
 use App\Domains\Intake\Models\Intake;
 use App\Policies\IntakePolicy;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Queue\Events\JobProcessing;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
@@ -40,6 +43,16 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Gate::policy(Intake::class, IntakePolicy::class);
+
+        Event::listen(JobProcessing::class, function (JobProcessing $event): void {
+            $jobId = (string) $event->job->getJobId();
+            if ($jobId === '') {
+                $jobId = (string) $event->job->uuid();
+            }
+            if ($jobId !== '') {
+                app(AiTraceRequestIdResolver::class)->rememberJobId($jobId);
+            }
+        });
 
         RateLimiter::for('customer-intake', function (Request $request) {
             return Limit::perMinute(60)->by((string) $request->ip());

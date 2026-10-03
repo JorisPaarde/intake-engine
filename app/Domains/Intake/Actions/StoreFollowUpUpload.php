@@ -243,7 +243,7 @@ final class StoreFollowUpUpload
 
     private function recordUploadTrace(Intake $intake, IntakeUpload $upload, IntakeFollowUpItem $item): void
     {
-        // Alleen documenten: foto-AI schrijft zelf één volledige photo_analysis-trace gekoppeld aan ai_run.
+        // Alleen documenten: foto-AI schrijft zelf één volledige follow_up_photo_subject-trace gekoppeld aan ai_run.
         if ($item->type === FollowUpItemType::Photo) {
             return;
         }

@@ -103,7 +103,7 @@ final class SuggestInstallerPhotoObservations
             'started_at' => now(),
         ]);
 
-        $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoAnalysis, [
+        $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoAssess, [
             'ai_run_id' => $run->id,
             'upload_id' => $upload->id,
             'subject_type' => 'dossier_subject',

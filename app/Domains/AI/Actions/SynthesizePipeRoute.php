@@ -226,7 +226,8 @@ final class SynthesizePipeRoute
             'started_at' => now(),
         ]);
 
-        $trace = $this->traceRecorder->start($intake, AiTraceCallType::Synthesis, [
+        $callType = $fallbackUsed ? AiTraceCallType::RouteReview : AiTraceCallType::Route;
+        $trace = $this->traceRecorder->start($intake, $callType, [
             'ai_run_id' => $run->id,
             'subject_type' => 'pipe_route_session',
             'subject_id' => (string) $session->id,

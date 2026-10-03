@@ -122,7 +122,7 @@ final class AssessFollowUpPhotoSubject
         ]);
 
         $correlationId = (string) Str::uuid();
-        $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoAnalysis, [
+        $trace = $this->traceRecorder->start($intake, AiTraceCallType::FollowUpPhotoSubject, [
             'ai_run_id' => $run->id,
             'upload_id' => $upload->id,
             'subject_type' => 'follow_up_item',
@@ -142,7 +142,7 @@ final class AssessFollowUpPhotoSubject
         try {
             $photoRefs = [];
             if (! $trace->isNoop()) {
-                $photoRefs = [$this->photoRefBuilder->fromUpload($upload, 'follow_up')];
+                $photoRefs = [$this->photoRefBuilder->fromUpload($upload, 'follow_up_subject')];
             }
 
             $trace->recordRequest(
@@ -187,6 +187,7 @@ final class AssessFollowUpPhotoSubject
                 'content_status' => $assessment->status(),
                 'upload_id' => $upload->id,
             ]);
+            $trace->stopProcessTimer();
             $trace->succeed();
 
             return [
@@ -232,14 +233,14 @@ final class AssessFollowUpPhotoSubject
     ): void {
         $existingTrace = AiTrace::query()
             ->where('ai_run_id', $run->id)
-            ->where('call_type', AiTraceCallType::PhotoAnalysis)
+            ->where('call_type', AiTraceCallType::FollowUpPhotoSubject)
             ->first();
 
         if ($existingTrace !== null) {
             return;
         }
 
-        $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoAnalysis, [
+        $trace = $this->traceRecorder->start($intake, AiTraceCallType::FollowUpPhotoSubject, [
             'ai_run_id' => $run->id,
             'upload_id' => $upload->id,
             'subject_type' => 'follow_up_item',
@@ -256,7 +257,7 @@ final class AssessFollowUpPhotoSubject
                 'system' => $promptBody,
                 'user' => $input,
             ],
-            photoRefs: [$this->photoRefBuilder->fromUpload($upload, 'follow_up')],
+            photoRefs: [$this->photoRefBuilder->fromUpload($upload, 'follow_up_subject')],
             promptVersion: $promptVersion,
         );
         $trace->step('cache_hit', ['ai_run_id' => $run->id]);

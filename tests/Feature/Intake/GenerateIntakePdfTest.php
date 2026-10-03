@@ -208,6 +208,57 @@ test('PDF render failures escape so the queue can retry without marking the repo
     expect($intake->report()->firstOrFail()->pdf_generated_at)->toBeNull();
 });
 
+test('PDF embed downscales large photos for the PDF only and keeps originals', function () {
+    $disk = (string) config('filesystems.media', 'local');
+    $intake = makePdfIntake();
+
+    $image = imagecreatetruecolor(3200, 2400);
+    expect($image)->not->toBeFalse();
+    $bg = imagecolorallocate($image, 40, 80, 120);
+    imagefilledrectangle($image, 0, 0, 3199, 2399, $bg);
+    ob_start();
+    imagejpeg($image, null, 90);
+    $originalBytes = (string) ob_get_clean();
+    imagedestroy($image);
+
+    expect(strlen($originalBytes))->toBeGreaterThan(100_000);
+
+    $path = 'intakes/'.$intake->uuid.'/room_photos/huge.jpg';
+    Storage::disk($disk)->put($path, $originalBytes);
+
+    $upload = $intake->uploads()->create([
+        'question_key' => 'room_photos',
+        'section_instance_key' => 'room-1',
+        'disk' => $disk,
+        'path' => $path,
+        'original_filename' => 'huge.jpg',
+        'mime_type' => 'image/jpeg',
+        'size_bytes' => strlen($originalBytes),
+        'checksum' => hash('sha256', $originalBytes),
+        'sort_order' => 1,
+    ]);
+
+    $html = '<html><body><img data-intake-upload-id="'.$upload->id.'" alt="room"></body></html>';
+    $embedded = app(EmbedPrivateReportMedia::class)->handle($intake->fresh(), $html);
+
+    expect($embedded)->toContain('data:image/jpeg;base64,')
+        ->and($embedded)->not->toContain('data-intake-upload-id');
+
+    preg_match('/data:image\/jpeg;base64,([A-Za-z0-9+\/=]+)/', $embedded, $matches);
+    expect($matches[1] ?? null)->not->toBeNull();
+    $embeddedBytes = base64_decode((string) $matches[1], true);
+    expect($embeddedBytes)->not->toBeFalse();
+
+    $info = getimagesizefromstring($embeddedBytes);
+    expect($info)->toBeArray()
+        ->and(max((int) $info[0], (int) $info[1]))->toBeLessThanOrEqual(EmbedPrivateReportMedia::PDF_MAX_LONG_EDGE)
+        ->and(strlen((string) $embeddedBytes))->toBeLessThan((int) (strlen($originalBytes) * 0.5));
+
+    // Original on disk unchanged.
+    expect(Storage::disk($disk)->get($path))->toBe($originalBytes)
+        ->and(strlen((string) Storage::disk($disk)->get($path)))->toBe(strlen($originalBytes));
+});
+
 test('installer can queue pdf regeneration from the show page', function () {
     Queue::fake();
 

@@ -58,7 +58,7 @@ final class SummarizeIntake
             'started_at' => now(),
         ]);
 
-        $trace = $this->traceRecorder->start($intake, AiTraceCallType::Synthesis, [
+        $trace = $this->traceRecorder->start($intake, AiTraceCallType::Summary, [
             'ai_run_id' => $run->id,
             'provider' => $provider,
             'prompt_version' => $promptVersion,

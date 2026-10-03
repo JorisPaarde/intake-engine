@@ -7,9 +7,12 @@ namespace App\Domains\Intake\Actions;
 use App\Domains\Intake\Jobs\DeleteStoredMediaJob;
 use App\Domains\Intake\Models\Intake;
 use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 /**
  * Permanently removes an intake (and cascaded DB rows) plus media files on disk.
+ * Also removes the intake's private upload directory tree (`intakes/{uuid}/`)
+ * so demo purge does not leave empty folders behind.
  */
 final class HardDeleteIntake
 {
@@ -17,6 +20,8 @@ final class HardDeleteIntake
     {
         $intake->loadMissing(['report', 'externalFacts']);
         $files = [];
+        $directoryDisk = (string) config('filesystems.media', 'local');
+        $directoryPath = 'intakes/'.$intake->uuid;
 
         foreach ($intake->uploads()->withTrashed()->get() as $upload) {
             $files[] = [$upload->disk, $upload->path];
@@ -45,6 +50,8 @@ final class HardDeleteIntake
         foreach ($files as [$disk, $path]) {
             $this->deleteStorageFile($disk, $path);
         }
+
+        $this->deleteStorageDirectory($directoryDisk, $directoryPath);
     }
 
     private function deleteStorageFile(?string $disk, ?string $path): void
@@ -57,10 +64,25 @@ final class HardDeleteIntake
             if (Storage::disk($disk)->delete($path)) {
                 return;
             }
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // Retry asynchronously below.
         }
 
         DeleteStoredMediaJob::dispatch($disk, $path);
+    }
+
+    private function deleteStorageDirectory(string $disk, string $directory): void
+    {
+        if ($directory === '' || $directory === '/' || ! str_starts_with($directory, 'intakes/')) {
+            return;
+        }
+
+        try {
+            if (Storage::disk($disk)->directoryExists($directory)) {
+                Storage::disk($disk)->deleteDirectory($directory);
+            }
+        } catch (Throwable) {
+            // Best-effort: individual files already queued above.
+        }
     }
 }

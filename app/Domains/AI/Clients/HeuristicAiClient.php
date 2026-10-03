@@ -62,6 +62,13 @@ final class HeuristicAiClient implements AiClientInterface
             ],
             provider: 'heuristic',
             model: 'heuristic-v1',
+            inputTokens: 0,
+            outputTokens: max(1, count($highlights) * 20),
+            totalTokens: max(1, count($highlights) * 20),
+            estimatedCostCents: 0,
+            finishReason: 'stop',
+            rawResponse: (string) json_encode(['summary' => $summary, 'highlights' => $highlights], JSON_UNESCAPED_UNICODE),
+            providerMs: 0,
         );
     }
 
@@ -111,6 +118,13 @@ final class HeuristicAiClient implements AiClientInterface
             output: ['points' => $points],
             provider: 'heuristic',
             model: 'heuristic-v1',
+            inputTokens: 0,
+            outputTokens: max(1, count($points) * 25),
+            totalTokens: max(1, count($points) * 25),
+            estimatedCostCents: 0,
+            finishReason: 'stop',
+            rawResponse: (string) json_encode(['points' => $points], JSON_UNESCAPED_UNICODE),
+            providerMs: 0,
         );
     }
 

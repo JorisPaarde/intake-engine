@@ -242,7 +242,7 @@ test('mislukte foto-AI wist geen bestaand dossierantwoord', function (string $fi
 
     $trace = AiTrace::query()
         ->where('intake_id', $intake->id)
-        ->where('call_type', AiTraceCallType::PhotoAnalysis)
+        ->where('call_type', AiTraceCallType::PhotoDerive)
         ->latest('id')
         ->first();
 
@@ -290,7 +290,7 @@ test('fotoanalyse-succes koppelt upload timings en stappen aan dezelfde trace', 
 
     $trace = AiTrace::query()
         ->where('intake_id', $intake->id)
-        ->where('call_type', AiTraceCallType::PhotoAnalysis)
+        ->where('call_type', AiTraceCallType::PhotoDerive)
         ->where('status', AiTraceStatus::Succeeded)
         ->latest('id')
         ->first();

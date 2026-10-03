@@ -241,7 +241,7 @@ final class AssessFuseboxPhotos
             } else {
                 $correlationId ??= (string) Str::uuid();
                 $latestMatching = $matchingUploads->sortByDesc('id')->first();
-                $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoAnalysis, array_filter([
+                $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoAssess, array_filter([
                     'ai_run_id' => $run?->id,
                     'upload_id' => $latestMatching?->id,
                     'subject_type' => 'question',
@@ -491,7 +491,7 @@ final class AssessFuseboxPhotos
 
         $correlationId ??= (string) Str::uuid();
 
-        $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoAnalysis, [
+        $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoAssess, [
             'ai_run_id' => $run->id,
             'upload_id' => $upload->id,
             'subject_type' => 'question',

@@ -175,7 +175,7 @@ test('AI-fout of timeout leidt tot not_assessed soft-fail met klanttekst', funct
         ->and($progress['item_statuses'][$item->id]['status'])->toBe('assessed');
 });
 
-test('follow-up foto-assessment schrijft precies één complete photo_analysis-trace per ai_run', function () {
+test('follow-up foto-assessment schrijft precies één complete follow_up_photo_subject-trace per ai_run', function () {
     [$intake, $item] = makeQueuePhotoFollowUpIntake();
 
     FakeAiClient::alwaysReturn([
@@ -199,7 +199,7 @@ test('follow-up foto-assessment schrijft precies één complete photo_analysis-t
     foreach ($runs as $run) {
         $traces = AiTrace::query()
             ->where('ai_run_id', $run->id)
-            ->where('call_type', AiTraceCallType::PhotoAnalysis)
+            ->where('call_type', AiTraceCallType::FollowUpPhotoSubject)
             ->get();
 
         expect($traces)->toHaveCount(1)
@@ -207,10 +207,10 @@ test('follow-up foto-assessment schrijft precies één complete photo_analysis-t
             ->and($traces->first()->upload_id)->not->toBeNull();
     }
 
-    // Geen orphan photo_analysis zonder ai_run van upload-persist.
+    // Geen orphan follow-up-trace zonder ai_run van upload-persist.
     $orphans = AiTrace::query()
         ->where('intake_id', $intake->id)
-        ->where('call_type', AiTraceCallType::PhotoAnalysis)
+        ->where('call_type', AiTraceCallType::FollowUpPhotoSubject)
         ->whereNull('ai_run_id')
         ->count();
 

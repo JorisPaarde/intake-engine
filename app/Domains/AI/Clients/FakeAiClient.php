@@ -248,15 +248,34 @@ final class FakeAiClient implements AiClientInterface
     private function result(array $output, string $model): AiCompletionResult
     {
         $raw = (string) json_encode($output, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $request = self::$lastRequest;
+        $promptChars = $request === null
+            ? 0
+            : strlen($request->prompt) + strlen((string) json_encode($request->input, JSON_UNESCAPED_UNICODE));
+        $inputTokens = max(1, (int) ceil(max(1, $promptChars) / 4));
+        $outputTokens = max(1, (int) ceil(strlen($raw) / 4));
+        $imageCount = $request === null ? 0 : count($request->images);
+        $totalTokens = $inputTokens + $outputTokens;
+        // Rough fake budget units: 1 cent per 1k tokens + 2 cents per image.
+        $estimatedCostCents = (int) max(1, (int) ceil($totalTokens / 1000) + ($imageCount * 2));
 
         return new AiCompletionResult(
             output: $output,
             provider: 'fake',
             model: $model,
+            inputTokens: $inputTokens,
+            outputTokens: $outputTokens,
+            totalTokens: $totalTokens,
+            imageCount: $imageCount,
+            estimatedCostCents: $estimatedCostCents,
             finishReason: 'stop',
             rawResponse: $raw,
             providerMs: 1,
-            modelParameters: ['temperature' => 0.2, 'response_format' => ['type' => 'json_object']],
+            modelParameters: [
+                'temperature' => 0.2,
+                'response_format' => ['type' => 'json_object'],
+                'model' => $request !== null && $request->model !== null ? $request->model : $model,
+            ],
         );
     }
 }

@@ -116,7 +116,7 @@ final class DeriveIntentFromRequest
             'started_at' => now(),
         ]);
 
-        $trace = $this->traceRecorder->start($intake, AiTraceCallType::TextExtraction, [
+        $trace = $this->traceRecorder->start($intake, AiTraceCallType::RequestIntent, [
             'ai_run_id' => $run->id,
             'provider' => 'local',
             'prompt_version' => LocalRequestIntentParser::VERSION,

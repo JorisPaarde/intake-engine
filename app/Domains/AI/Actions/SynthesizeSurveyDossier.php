@@ -100,7 +100,7 @@ final class SynthesizeSurveyDossier
                 'started_at' => now(),
             ]);
 
-            $trace = $this->traceRecorder->start($intake, AiTraceCallType::Synthesis, [
+            $trace = $this->traceRecorder->start($intake, AiTraceCallType::DossierSynthesis, [
                 'ai_run_id' => $run->id,
                 'provider' => (string) config('ai.provider', 'null'),
                 'prompt_version' => $promptVersion,

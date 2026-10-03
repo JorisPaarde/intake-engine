@@ -132,6 +132,8 @@ return [
     'tracing' => [
         'enabled' => filter_var(env('AI_TRACING_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
         'retention_days' => (int) env('AI_TRACE_RETENTION_DAYS', 30),
+        'export_max_part_bytes' => (int) env('AI_TRACE_EXPORT_MAX_PART_BYTES', 1048576),
+        'export_max_part_chars' => (int) env('AI_TRACE_EXPORT_MAX_PART_CHARS', 800000),
     ],
 
 ];

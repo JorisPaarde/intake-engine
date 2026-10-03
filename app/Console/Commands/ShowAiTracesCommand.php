@@ -28,7 +28,11 @@ final class ShowAiTracesCommand extends Command
         $query = AiTrace::query()->with('steps')->latest('id');
 
         if (is_numeric($this->option('intake'))) {
-            $query->where('intake_id', (int) $this->option('intake'));
+            $intakeId = (int) $this->option('intake');
+            $query->where(function ($builder) use ($intakeId): void {
+                $builder->where('intake_ref_id', $intakeId)
+                    ->orWhere('intake_id', $intakeId);
+            });
         }
 
         if (is_string($this->option('trace')) && trim((string) $this->option('trace')) !== '') {
@@ -65,8 +69,8 @@ final class ShowAiTracesCommand extends Command
 
             foreach ($group as $trace) {
                 $this->line(str_repeat('-', 40));
-                $this->info("trace_id={$trace->trace_id} intake={$trace->intake_id} type={$trace->call_type->value} status={$trace->status->value}");
-                $this->line("provider={$trace->provider} model={$trace->model} prompt={$trace->prompt_version}");
+                $this->info("trace_id={$trace->trace_id} intake=".($trace->intake_ref_id ?? $trace->intake_id ?? '—')." type={$trace->call_type->value} status={$trace->status->value}");
+                $this->line("provider={$trace->provider} model={$trace->model} prompt={$trace->prompt_version} request_id={$trace->request_id}");
                 if ($trace->parent_trace_id) {
                     $this->line('parent_trace_id='.$trace->parent_trace_id);
                 }

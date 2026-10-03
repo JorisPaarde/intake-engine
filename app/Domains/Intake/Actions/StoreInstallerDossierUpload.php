@@ -173,7 +173,7 @@ final class StoreInstallerDossierUpload
 
     private function recordUploadTrace(Intake $intake, IntakeUpload $upload, DossierSubject $subject): void
     {
-        $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoAnalysis, [
+        $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoAssess, [
             'upload_id' => $upload->id,
             'subject_type' => 'dossier_subject',
             'subject_id' => (string) $subject->id,

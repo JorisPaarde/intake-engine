@@ -1,6 +1,6 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 3.24 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.25 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **samenvatting, aandachtspunten, lokale fotokwaliteit, tekst-/foto-afleiding, verbindingsgebonden routeanalyse en bewijsgerichte dossiersynthese zijn geïmplementeerd**. Externe provider en tekst-/foto-/route-/dossierinferentie staan standaard uit (provider + key + featurevlaggen + budgetcaps; soft-fail zonder die config). OpenAI-compatibele gateways (o.a. OpenRouter) via `AI_BASE_URL`.
 
@@ -123,25 +123,29 @@ AI_BUDGET_IMAGE_CENTS_PER_IMAGE=...
 - Na succes bewaart `ai_runs` de provider-usage (`input_tokens`, `output_tokens`, `total_tokens`), `image_count` en `estimated_cost_cents`. Als tokenusage ontbreekt, telt de reservering als minimum.
 - `/dev` toont provider/model/tekst-/foto-/routeflags en budgetcaps zonder API-key; `/dev/ai-runs` toont token- en kostengebruik per run; `/dev/ai-traces` toont de volledige request→response→parse→dossier-keten (BL-116).
 
-## AI-traces (BL-116, klanttest 2026-10-02)
+## AI-traces (BL-116 + BL-125)
 
-Doel: per mislukte/onjuiste uitkomst aantonen of de fout in model, prompt, parser, opslag of klantflow zit. Elke tekstextractie-, fotoanalyse- en synthese-call schrijft bij `succeed()`/`fail()` één `ai_traces`-rij (+ bulk `ai_trace_steps`) — mid-flight alleen in-memory. Correlatie via `correlation_id` / optioneel `parent_trace_id` over upload → provider → dossierupdate → restvragen.
+Doel: per mislukte/onjuiste uitkomst aantonen of de fout in model, prompt, parser, opslag of klantflow zit. Elke AI-call schrijft bij `succeed()`/`fail()` één `ai_traces`-rij (+ bulk `ai_trace_steps`) — mid-flight alleen in-memory. Correlatie via `correlation_id` / optioneel `parent_trace_id` over upload → provider → dossierupdate → restvragen; `request_id` koppelt HTTP/Livewire-request of queue-job.
 
 | Veldgroep | Inhoud |
 |-----------|--------|
-| Identiteit | `trace_id` (UUID), `correlation_id`, optioneel `parent_trace_id`, `intake_id`, optioneel `upload_id` / `ai_run_id` / subject (kamer/onderdeel) |
-| Call | `call_type` (`text_extraction` / `photo_analysis` / `synthesis` / …), tijdstippen, status |
+| Identiteit | `trace_id` (UUID), `correlation_id`, `request_id`, optioneel `parent_trace_id`, nullable `intake_id` (`nullOnDelete`), denormalised `intake_ref_id` + `is_demo`, optioneel `upload_id` / `ai_run_id` / subject |
+| Call | `call_type` (`text_extraction`, `request_intent`, `photo_derive`, `photo_assess`, `follow_up_photo_subject`, `summary`, `attention_points`, `dossier_synthesis`, `route`, `route_review`; legacy `photo_analysis`/`synthesis` blijven leesbaar), tijdstippen, status |
 | Provider | provider, werkelijk model-ID, `model_parameters`, promptversie, fallback/retries, `finish_reason`, tokens/kosten |
-| Request | `request_snapshot` (system/user/context, geredigeerd); `photo_refs` naar beschermd origineel (geen base64; detail + dimensions) |
+| Request | `request_snapshot` (system/user/context, geredigeerd); `photo_refs` (upload id, filename, question key, dims — nooit base64) |
 | Response | `raw_response`, `parsed_response`, `validation_errors`, `normalizations` (lijst `{field, from, to, rule}` via `normalizeWithDiff`), `field_outcomes` (overgenomen/afgewezen + reden/confidence/bron) |
 | Effect | `dossier_before`/`dossier_after` (+ `changed_fields`), `remaining_questions_before`/`after` via `IntakeStepBuilder::buildCatalog` (reasons + next unanswered visible) |
 | P2-timings | `persist_ms` / `network_upload_ms` (client: upload-progress → `ai-upload-stored` → `recordNetworkUploadTiming` / `recordNetworkUploadMs`), `preprocess_ms`, `provider_ms`, `process_ms` (`stopProcessTimer` vóór after-snapshots) |
 
-**Geïnstrumenteerde acties:** `PrefillAnswersFromKnownContext`, `DerivePhotoAnswers`, `AssessFuseboxPhotos`, `AssessFollowUpPhotoSubject`, `SynthesizeSurveyDossier`, `AnalyzeRoutePhoto`, `SynthesizePipeRoute`, `SuggestInstallerPhotoObservations`, `SummarizeIntake`, `SuggestAttentionPoints` (+ lokale `AssessPhotoUsability`). Foto-refs via `AiTracePhotoRefBuilder` (width/height + dossier/analyse-variant uit upload timings). Transactiestappen via `beginBuffer()`/`flushBuffer()`/`discardBuffer()`. `model_parameters` komen uit `AiCompletionResult`, niet hardcoded. `fail($msg, $exception)` bewaart `provider_ms`/raw/finish/tokens bij clientfouten.
+**Retentie vs demo-purge:** `ai_traces.intake_id` is nullable met `nullOnDelete`. Bij hard-delete van een demo-intake blijven traces staan met `intake_ref_id` + `is_demo`. Bewaartermijn alleen via daily `ai:purge-traces` (`AI_TRACE_RETENTION_DAYS`, default 30). **`ai_runs` blijven cascadeOnDelete** — dat zijn operationele/idempotente apply-records die zonder intake geen betekenis hebben; duurzame diagnostiek zit in `ai_traces`.
 
-**Helper voor parallelle stromen:** `AiTraceRecorder::start($intake, AiTraceCallType::…)` bouwt een **unsaved** `AiTrace`; `$trace->step(…)`, `recordFieldOutcomes`, `recordDossierSnapshots($before, $after, $changedFields)`, `succeed()` / `fail($msg, $exception)` schrijven pas. Zie PR-beschrijving van BL-116.
+**Export:** `php artisan ai:traces:export {--intake=*} {--since=} {--until=} {--demo-only} {--format=jsonl\|md} {--output=}`. `--intake` accepteert komma’s en herhaalde flags; één run bundelt meerdere intakes. Zonder `--format` schrijft beide. Output default `storage/app/exports/`. Per call: call type, promptversie, model, gemaskeerde request, photo refs, raw/parsed, validation/normalizations, tokens, durations, cost, status/error, request id, correlation id. Markdown: index (intakes, call count, total cost) + heading per intake + JSON-fenced subsections. JSONL: één regel per call met intake id. Masking opnieuw via `AiTraceRedactor` als safety net. Auto-split ≈1 MB of ≈200k tokens (4 chars/token) op intakegrenzen (anders callgrenzen) als `-partK-of-N` + `manifest.json`. Werkt ook voor gepurgede demo-intakes (`intake_ref_id`).
 
-Beveiliging: `AiTraceRedactor` verwijdert API-keys, Bearer-headers, klantlinktokens (`/o/…`), e-mail/telefoon (zelfde patronen als `AiInputRedactor`) en base64-beelden (alleen data:-prefix of lange strings zonder whitespace). Kill switch: `AI_TRACING_ENABLED=false` → no-op handle, geen writes. Trace-fouten worden gerapporteerd en genegeerd (nooit business-flow). Inzage via `/dev/ai-traces` alleen met `DEV_ADMIN_ENABLED` **én** e-mail op `DEV_ADMIN_EMAILS` (anders 403), of CLI `ai:traces`. Bewaartermijn: `AI_TRACE_RETENTION_DAYS` (default 30) + chunked `ai:purge-traces`. Een mislukte foto-/meterkast-call **invalideert geen** bestaande AI-antwoorden meer vóór een geslaagde providerresponse.
+**Geïnstrumenteerde acties:** `PrefillAnswersFromKnownContext` (`text_extraction`), `DeriveIntentFromRequest` (`request_intent`), `DerivePhotoAnswers` (`photo_derive`), `AssessFuseboxPhotos` / `AssessPhotoUsability` / `SuggestInstallerPhotoObservations` (`photo_assess`), `AssessFollowUpPhotoSubject` (`follow_up_photo_subject`), `SummarizeIntake` (`summary`), `SuggestAttentionPoints` (`attention_points`), `SynthesizeSurveyDossier` (`dossier_synthesis`), `AnalyzeRoutePhoto` + primaire `SynthesizePipeRoute` (`route`), route-escalatie (`route_review`). Foto-refs via `AiTracePhotoRefBuilder`. Transactiestappen via `beginBuffer()`/`flushBuffer()`/`discardBuffer()`. `succeed()`/`fail()` vullen verplichte velden (tokens/kosten/provider_ms e.d.) met veilige defaults wanneer een lokale/heuristic call geen providerresultaat heeft.
+
+**Helper voor parallelle stromen:** `AiTraceRecorder::start($intake, AiTraceCallType::…)` bouwt een **unsaved** `AiTrace` met `intake_ref_id`/`is_demo`/`request_id`; `$trace->step(…)`, `recordFieldOutcomes`, `recordDossierSnapshots($before, $after, $changedFields)`, `succeed()` / `fail($msg, $exception)` schrijven pas.
+
+Beveiliging: `AiTraceRedactor` verwijdert API-keys, Bearer-headers, klantlinktokens (`/o/…`), e-mail/telefoon, bekende namen/adressen (intake-context) plus NL straat+huisnummer-patronen, en base64-beelden. Kill switch: `AI_TRACING_ENABLED=false` → no-op handle, geen writes. Trace-fouten worden gerapporteerd en genegeerd (nooit business-flow). Inzage via `/dev/ai-traces` alleen met `DEV_ADMIN_ENABLED` **én** e-mail op `DEV_ADMIN_EMAILS` (anders 403), of CLI `ai:traces` / `ai:traces:export`. Een mislukte foto-/meterkast-call **invalideert geen** bestaande AI-antwoorden meer vóór een geslaagde providerresponse.
 
 ## Datastructuur `ai_runs`
 

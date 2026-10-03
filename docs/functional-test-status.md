@@ -12,6 +12,7 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
+| AI-trace retentie/export + PDF-downscale (BL-125) | todo | - | Demo-purge: traces blijven via `intake_ref_id`; `ai:traces:export` jsonl+md voor 3 intakes; PDF van dossier met grote foto’s blijft merkelijk kleiner dan 29 MB zonder originelen te wijzigen. |
 | Form robustness adres/maten/upload (BL-124) | todo | - | Create: vroeg submit tijdens lookup → geen vastgezette “Controleer dit veld.”; submit disabled tijdens zoeken. Klant: L+B naast elkaar; sla-over op route/afvoer; upload >15 s → NL-fout + Opnieuw proberen; 3024×4032 niet “lage resolutie”. airco v21. |
 | Soft catalogus-prefill multi-room (BL-122) | todo | - | Demo create met exacte case-81-tekst → werkplek toont Slaapkamer ouders + Kinderkamer met maten; klantflow vraagt koelen/verwarmen niet opnieuw; case 80 blijft werken. |
 | Fotobeoordeling via queue (BL-121) | todo | - | Twee gelijktijdige fotouploads → geen 503; wizard toont Uploaden/Foto beoordelen en resultaat zonder refresh; AI-fout → not_assessed-tekst. |
