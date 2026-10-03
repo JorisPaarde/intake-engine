@@ -1,6 +1,6 @@
 # Deployment naar cPanel (staging + production)
 
-> **Documentversie:** 2.24 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.25 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 **Statusregel:** staging en production zijn fysiek en logisch gescheiden; open handmatige acties (env/host) staan in [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
 
@@ -143,19 +143,21 @@ Production (identiek, ander pad):
 * * * * * cd /home/intakeengine/apps/intake-engine-production/current && /usr/local/bin/php artisan queue:work --queue=ai-photo,default --stop-when-empty --max-time=50 >> /dev/null 2>&1
 ```
 
-**Exacte regel die hosting moet zetten voor snellere fotobeoordeling** (naast `schedule:run`): de minutelijke worker hierboven met `--queue=ai-photo,default`. Zonder `ai-photo` in die queue-lijst blijven fotojobs tot de volgende scheduler-start liggen.
+**Let op cPanel `RANDOM_DELAY`:** de host zet vaak `RANDOM_DELAY=180`, waardoor een minutelijke cron tot ~3 minuten later kan starten. Plan daar rekening mee bij latency-verwachtingen na deploy/`queue:restart`.
 
-Daarnaast start `schedule:run` elk uur (via `routes/console.php`) een langere worker zonder Supervisor:
+**Primaire worker:** `schedule:run` (via `routes/console.php`, elke minuut) start een lange background-worker zolang er geen overlap-lock is:
 
 ```text
-php artisan queue:work --queue=ai-photo,default --max-time=3500 --sleep=1 --tries=2
+php artisan queue:work --queue=ai-photo,default --max-time=3300 --memory=256 --sleep=1 --tries=2
 ```
 
-met `withoutOverlapping(55)` (cache-lock ≈ flock) en `runInBackground()`. Dat beperkt latency tot ~1 s zolang de hourly worker leeft; de minutelijke `--stop-when-empty` blijft het vangnet (worst case ~60 s).
+met `everyMinute()`, `withoutOverlapping(60)` (mutex-expiry > max-time) en `runInBackground()`. Laravel roept na afloop `schedule:finish` aan en geeft de mutex vrij — na `queue:restart` (deploy) start de volgende `schedule:run` dus weer een worker (binnen ~1 min, of tot ~3 min met `RANDOM_DELAY`).
+
+**Fallback:** de minutelijke `--stop-when-empty`-cron hierboven blijft het vangnet wanneer de scheduler-worker even stil ligt. Zonder `ai-photo` in die queue-lijst blijven fotojobs liggen tot de lange worker weer draait.
 
 Geen supervisor op cPanel. `queue:restart` in de deploy zorgt dat workers na een release verse code draaien. `QUEUE_CONNECTION=database`.
 
-`schedule:run` dekt o.a. hourly `intakes:purge-demos`, daily `intakes:send-reminders` (BL-015), daily `intakes:purge-deleted` (BL-009), daily `product-interests:purge` (BL-043), daily `ai:purge-traces`, en de hourly `ai-photo`-worker. De queue verwerkt AI-fotobeoordeling (`AssessUploadedPhotoJob`), AI-samenvatting, PDF-export (BL-005) en optionele interne interesse-notificaties.
+`schedule:run` dekt o.a. hourly `intakes:purge-demos`, daily `intakes:send-reminders` (BL-015), daily `intakes:purge-deleted` (BL-009), daily `product-interests:purge` (BL-043), daily `ai:purge-traces`, en de minutelijk beheerde `ai-photo`-worker. De queue verwerkt AI-fotobeoordeling (`AssessUploadedPhotoJob`), AI-samenvatting, PDF-export (BL-005) en optionele interne interesse-notificaties.
 
 ## Database bij deploy
 
