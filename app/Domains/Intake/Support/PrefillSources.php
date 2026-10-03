@@ -210,12 +210,25 @@ final class PrefillSources
             return 'aanname';
         }
 
-        if ($provenance === FactProvenance::Inferred && PrefillSources::isStrongAi($prefillSource)) {
+        if ($provenance === FactProvenance::Inferred && self::isStrongAi($prefillSource)) {
             return 'aanname';
         }
 
-        if ($provenance === FactProvenance::Stated && self::isTextDerived($prefillSource)) {
-            return 'uit aanvraag';
+        if ($prefillSource === self::REQUEST_TEXT
+            || ($provenance === FactProvenance::Stated && self::isTextDerived($prefillSource))) {
+            return 'uit aanvraagtekst';
+        }
+
+        if ($prefillSource === self::AI_PHOTO || self::isPhotoSuggestion($prefillSource)) {
+            return 'uit foto';
+        }
+
+        if (self::isTextDerived($prefillSource)) {
+            return 'uit aanvraagtekst';
+        }
+
+        if ($prefillSource === self::DERIVED_LXW) {
+            return 'afgeleid';
         }
 
         return null;
