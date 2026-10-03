@@ -55,7 +55,9 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\Renderless;
 use Livewire\Component;
+use Livewire\Features\SupportFileUploads\GenerateSignedUploadUrl;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
 
@@ -91,6 +93,14 @@ class IntakeWizard extends Component
      * @var array<string, TemporaryUploadedFile|array<int, TemporaryUploadedFile>|null>
      */
     public array $photoFiles = [];
+
+    /**
+     * Composite key → client-reported original capture dimensions (BL-128).
+     * Filled by browser downscale before Livewire upload; FIFO per file in the batch.
+     *
+     * @var array<string, array<int, array<string, mixed>>>
+     */
+    public array $photoClientOriginals = [];
 
     /**
      * Composite key → labelled prefill notice for the applicant (BL-016).
@@ -421,10 +431,19 @@ class IntakeWizard extends Component
                 ? $this->completionMissing
                 : $progress['missing_required'],
             'isLastStep' => $this->stepIndex >= count($steps) - 1,
-            'maxUploadKb' => (int) config('intake.uploads.max_kilobytes', 5120),
+            'maxUploadKb' => (int) config('intake.uploads.max_kilobytes', 8192),
             'demoAiSummary' => $demoAiSummary,
             'demoAttentionPoints' => $demoAttentionPoints,
         ]);
+    }
+
+    /**
+     * Fresh signed URL for retrying a Livewire temp upload after an empty/invalid 200 (BL-128).
+     */
+    #[Renderless]
+    public function freshSignedUploadUrl(): string
+    {
+        return (new GenerateSignedUploadUrl)->forLocal();
     }
 
     public function updatedPhotoFiles(mixed $value, ?string $key): void
@@ -608,7 +627,7 @@ class IntakeWizard extends Component
                 && $item->type === FollowUpItemType::Choice
                 ? $this->followUpChoiceOptions($item)
                 : [],
-            'maxUploadKb' => (int) config('intake.uploads.max_kilobytes', 5120),
+            'maxUploadKb' => (int) config('intake.uploads.max_kilobytes', 8192),
             'maxPhotos' => (int) config('intake.follow_up.max_photos_per_item', 5),
             'maxDocuments' => (int) config('intake.follow_up.max_documents_per_item', 3),
         ]);
@@ -1514,7 +1533,7 @@ class IntakeWizard extends Component
      */
     private function uploadPhotosForComposite(string $composite, array $files): void
     {
-        $maxKb = (int) config('intake.uploads.max_kilobytes', 5120);
+        $maxKb = (int) config('intake.uploads.max_kilobytes', 8192);
         [$questionKey, $instanceKey] = $this->splitComposite($composite);
         $intake = $this->intake();
 
@@ -1533,8 +1552,12 @@ class IntakeWizard extends Component
         $errors = [];
         /** @var list<int> $storedUploadIds */
         $storedUploadIds = [];
+        /** @var array<int, array<string, mixed>> $clientOriginals */
+        $clientOriginals = is_array($this->photoClientOriginals[$composite] ?? null)
+            ? $this->photoClientOriginals[$composite]
+            : [];
 
-        foreach ($files as $file) {
+        foreach ($files as $index => $file) {
             try {
                 Validator::make(
                     ['photo' => $file],
@@ -1543,11 +1566,19 @@ class IntakeWizard extends Component
                     ['photo' => 'foto'],
                 )->validate();
 
+                $clientMeta = is_array($clientOriginals[$index] ?? null) ? $clientOriginals[$index] : [];
+                $rawWidth = $clientMeta['width'] ?? null;
+                $rawHeight = $clientMeta['height'] ?? null;
+                $clientWidth = is_numeric($rawWidth) ? (int) $rawWidth : null;
+                $clientHeight = is_numeric($rawHeight) ? (int) $rawHeight : null;
+
                 $upload = app(StoreIntakeUpload::class)->handle(
                     $intake,
                     $questionKey,
                     $instanceKey,
                     $file,
+                    clientOriginalWidth: $clientWidth,
+                    clientOriginalHeight: $clientHeight,
                 );
 
                 if (! $upload->wasRecentlyCreated) {
@@ -1581,6 +1612,7 @@ class IntakeWizard extends Component
 
         // Alleen deze foto-composite verversen — volledige hydrate wist niet-opgeslagen velden.
         $this->photoFiles[$composite] = [];
+        unset($this->photoClientOriginals[$composite]);
         $this->refreshAnswerInForm($composite);
         $this->showMissing = false;
         $this->resetErrorBag('photoFiles.'.$composite);

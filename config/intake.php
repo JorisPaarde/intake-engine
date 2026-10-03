@@ -113,7 +113,7 @@ return [
     */
 
     'uploads' => [
-        'max_kilobytes' => (int) env('INTAKE_UPLOAD_MAX_KB', 5120),
+        'max_kilobytes' => (int) env('INTAKE_UPLOAD_MAX_KB', 8192),
         'max_files_per_question' => (int) env('INTAKE_UPLOAD_MAX_FILES', 5),
         'dossier' => [
             'max_long_edge' => (int) env('INTAKE_DOSSIER_MAX_LONG_EDGE', 2048),

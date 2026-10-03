@@ -428,12 +428,12 @@ final class PhotoUploadNormalizer
 
     private function maxBytes(): int
     {
-        return (int) config('intake.uploads.max_kilobytes', 5120) * 1024;
+        return (int) config('intake.uploads.max_kilobytes', 8192) * 1024;
     }
 
     private function maxMegabytes(): string
     {
-        return number_format((int) config('intake.uploads.max_kilobytes', 5120) / 1024, 0, ',', '.');
+        return number_format((int) config('intake.uploads.max_kilobytes', 8192) / 1024, 0, ',', '.');
     }
 
     private function originalFilename(UploadedFile $file): string

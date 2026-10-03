@@ -33,7 +33,7 @@ final class DocumentUploadNormalizer
             ]);
         }
 
-        $maxKilobytes = (int) config('intake.uploads.max_kilobytes', 5120);
+        $maxKilobytes = (int) config('intake.uploads.max_kilobytes', 8192);
 
         if ($sizeBytes > $maxKilobytes * 1024) {
             throw ValidationException::withMessages([

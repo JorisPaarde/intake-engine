@@ -51,7 +51,7 @@ final class StoreFollowUpUpload
         $maxFiles = $isPhoto
             ? (int) config('intake.follow_up.max_photos_per_item', 5)
             : (int) config('intake.follow_up.max_documents_per_item', 3);
-        $maxKilobytes = (int) config('intake.uploads.max_kilobytes', 5120);
+        $maxKilobytes = (int) config('intake.uploads.max_kilobytes', 8192);
         $existingCount = $item->uploads()->count();
         $fileLabel = $isPhoto ? 'foto' : 'document';
 

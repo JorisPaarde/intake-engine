@@ -11,15 +11,13 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Fixed
 
-<<<<<<< HEAD
 - **`ai:traces:export --output` verdubbelde `exports/`:** relatief pad is t.o.v. `storage/app/exports`; een voorvoegsel `exports/` of `storage/app/exports/` wordt weggestript. Console toont aan het eind de absolute paden van alle geschreven bestanden.
-=======
 - **Foto’s blijven op “Ontvangen” / assessing (BL-127, staging intake 78):** sommige uploads kregen wel `usability_verdict` maar geen terminale pipeline-status (geen `photo_assessment` ai_run, poll bleef hangen). Elke klantfoto eindigt nu in precies één `assessment_status` (`assessed` / `heuristic_rejected` / `not_assessed` / `reused`); `AssessUploadedPhotoJob` mag niet meer stil returnen; `too_small` → `heuristic_rejected` zonder AI-wacht; UI soft-timeout (~90 s) laat de wizard door terwijl de watchdog pending > ~3 min herqueued; `ai_runs.upload_id` koppelt foto-runs; recover herlaadt uploads vers (geen stale relation).
->>>>>>> f61582f (Fix photo assessment terminal status and stuck Ontvangen UI (BL-127))
+- **Grote telefoonfoto faalt op “Uploaden duurde te lang” (BL-128 / staging intake 78):** de BL-124 Alpine-timeout van ~15 s was een wandklok over de hele Livewire-temp-upload — te krap voor 2–8 MB op trage mobiele netwerken. Timeout is nu *inactiviteit* (~45 s zonder progress; ná 100% bytes wacht de UI op de server zonder false timeout). JPEG/PNG/WebP worden in de browser verkleind (lange zijde ≤2048) vóór upload; originele afmetingen gaan mee als `photoClientOriginals`. **Lege/ongeldige 200 op `/livewire/upload-file`:** client retry met verse signed URL (niet dezelfde signature) i.p.v. te hangen tot de timeout. App-limiet **8 MB**. Assessing blijft BL-127: poll op terminale `assessment_status` + UI soft-timeout ~90 s (Alpine “Opnieuw beoordelen” als vangnet).
 - **503 bij gelijktijdige fotouploads (3 okt 2026, prod LiteSpeed/LVE):** AI-fotobeoordeling (`DerivePhotoAnswers`, `AssessFuseboxPhotos`, `AssessFollowUpPhotoSubject`) liep synchroon in de Livewire-request en hield PHP-workers tot `AI_TIMEOUT_SECONDS` vast. Beoordeling draait nu in `AssessUploadedPhotoJob` op queue `ai-photo` (uniek per upload); upload doet alleen opslaan + lokale usability. Wizard toont bestaande fases en pikt het resultaat op via `wire:poll.2s` (`pollPendingAssessments`). Soft-fail → `not_assessed` met klanttekst “We konden je foto nu niet automatisch beoordelen; de installateur kijkt mee.” Elke foto-AI schrijft precies één `photo_analysis`-trace gekoppeld aan `ai_run`.
 - **Adresvalidatie blijft hangen na lookup (BL-124):** `setCustomValidity` wordt gewist/herberekend na PDOK-autofill, op input/change en vóór submit; submitknop disabled terwijl de lookup loopt.
 - **Lage-resolutie-flag op verkleinde variant (BL-124):** usability checkt `original_width/height` (grootste HEIC-frame), niet de dossier-thumbnail.
-- **Upload blijft op “Uploaden…” (BL-124):** ~15 s timeout met NL-fout + **Opnieuw proberen** (alleen uploadfase; 120 s “Opnieuw beoordelen” voor assessing blijft); Livewire 5xx/503 toont NL-status i.p.v. Engelse LiteSpeed-overlay.
+- **Upload blijft op “Uploaden…” (BL-124):** eerste timeout/retry + NL Livewire-fouten; aangescherpt in BL-128 (inactiviteit i.p.v. 15 s wandklok).
 - **Routefoto ten onrechte afgewezen (BL-126):** leidingroute accepteert wand/plafond/goot/doorvoer en buitenunit-in-context; herkende `pipe_route` blokkeert nooit; mismatch-tekst noemt het ontbrekende onderdeel. Fixture `route-pipe-duct-IMG_9885.png` + mappingtests.
 - **Eigendom inconsistent uit openingszin (BL-126):** `OwnershipNormalizer` + promptvoorbeelden maken `owned`/`rented` deterministisch (koophuis, eigen woning, we huren, …).
 - **Kamernamen Ouders/Kind landen niet op installateurslabels (BL-126):** `room_name` sync’t naar `airco_rooms`; installateurshernoeming wint; bekende ownership/namen worden niet opnieuw gevraagd.
@@ -30,6 +28,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 - **Queue/cron (BL-121):** fotobeoordeling op `ai-photo`; Laravel-scheduler start elke minuut (als nodig) een lange `queue:work --queue=ai-photo,default --max-time=3300 --memory=256 --sleep=1` met `withoutOverlapping(60)` + `runInBackground` (mutex vrij via `schedule:finish`; herstart na deploy/`queue:restart` binnen ~1–3 min ondanks cPanel `RANDOM_DELAY`). Minutelijk `--stop-when-empty` blijft het vangnet — zie `docs/DEPLOYMENT.md`.
 - **Airco v21 / matenscherm + optionele route (BL-124):** lengte en breedte op één scherm (`wizard_group`); optioneel bij bekende m²; `pipe_route_photos`/`drain_photo`/`indoor_unit_position_photo` optioneel met “Weet ik niet / sla over”; muurfoto’s binnen/buiten op gewenste binnenunitplek; route blijft open punt voor de installateur.
 - Promptversies: `pipe-route-assessment-v4`, `room-assessment-v6`, `fusebox-assessment-v3`, `request-prefill-v7`, `follow-up-photo-subject-v2` (BL-126).
+- **Uploadlimiet 8 MB (BL-128):** default `INTAKE_UPLOAD_MAX_KB=8192` (was 5120); client-downscale beperkt wat er over de draad gaat.
 
 ## [1.3.0] - 2026-10-03
 

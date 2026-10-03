@@ -31,7 +31,7 @@ it('returns health status including php upload limits', function () {
     expect($response->json('php_upload.upload_max_filesize'))->toBeString()->not->toBeEmpty()
         ->and($response->json('php_upload.post_max_size'))->toBeString()->not->toBeEmpty()
         ->and($response->json('php_upload.max_file_uploads'))->toBeInt()->toBeGreaterThan(0)
-        ->and($response->json('php_upload.app_max_kilobytes'))->toBe(5120)
+        ->and($response->json('php_upload.app_max_kilobytes'))->toBe(8192)
         ->and($response->json('image_conversion.imagick_loaded'))->toBeBool()
         ->and($response->json('image_conversion.heic_read'))->toBeBool();
 });
