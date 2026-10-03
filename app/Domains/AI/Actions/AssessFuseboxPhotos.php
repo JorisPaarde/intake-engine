@@ -18,6 +18,7 @@ use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeExternalFact;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Domains\Intake\Support\PrefillSources;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
 use App\Enums\AiTraceCallType;
@@ -279,7 +280,12 @@ final class AssessFuseboxPhotos
                 ->where('intake_id', $intake->id)
                 ->whereIn('question_key', [self::TARGET_QUESTION, self::CLARITY_QUESTION])
                 ->whereNull('section_instance_key')
-                ->where('prefill_source', 'ai')
+                ->whereIn('prefill_source', [
+                    PrefillSources::AI_PHOTO,
+                    PrefillSources::AI_PHOTO_SUGGESTION,
+                    PrefillSources::AI_SUGGESTION_LEGACY,
+                    PrefillSources::AI_LEGACY,
+                ])
                 ->delete();
         });
 
@@ -484,7 +490,7 @@ final class AssessFuseboxPhotos
             ->whereNull('section_instance_key')
             ->first();
 
-        if ($existing instanceof IntakeAnswer && $existing->prefill_source !== 'ai') {
+        if ($existing instanceof IntakeAnswer && ! PrefillSources::photoMayOverwrite($existing->prefill_source)) {
             return;
         }
 
@@ -493,7 +499,7 @@ final class AssessFuseboxPhotos
             self::TARGET_QUESTION,
             null,
             ['value' => $output['free_group']],
-            'ai',
+            PrefillSources::AI_PHOTO,
         );
     }
 
@@ -514,7 +520,7 @@ final class AssessFuseboxPhotos
             ->whereNull('section_instance_key')
             ->first();
 
-        if ($existing instanceof IntakeAnswer && $existing->prefill_source !== 'ai') {
+        if ($existing instanceof IntakeAnswer && ! PrefillSources::photoMayOverwrite($existing->prefill_source)) {
             return;
         }
 
@@ -523,7 +529,7 @@ final class AssessFuseboxPhotos
             self::CLARITY_QUESTION,
             null,
             ['value' => $this->clarityValue($output)],
-            'ai',
+            PrefillSources::AI_PHOTO,
         );
     }
 

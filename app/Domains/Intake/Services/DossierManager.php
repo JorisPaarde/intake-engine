@@ -12,7 +12,9 @@ use App\Domains\Intake\Models\DossierSubject;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Domains\Intake\Support\PrefillSources;
 use App\Domains\Intake\Support\RoomAreaAcceptance;
+use App\Domains\Intake\Support\RoomLabelResolver;
 use App\Enums\ContributionAudience;
 use App\Enums\ContributionTaskStatus;
 use App\Enums\DossierRecordKind;
@@ -239,10 +241,8 @@ final class DossierManager
                     'actor_type' => $answer->prefill_source === null ? 'customer' : $answer->prefill_source,
                     'actor_id' => null,
                     'method' => $answer->prefill_source === null ? 'customer_input' : 'automatic_prefill',
-                    'confidence' => $answer->prefill_source === 'ai' ? 0.9 : 1.0,
-                    'status' => $answer->prefill_source === 'ai'
-                        ? DossierRecordStatus::Proposed
-                        : DossierRecordStatus::Established,
+                    'confidence' => $this->prefillConfidence($intake, $answer),
+                    'status' => $this->prefillStatus($intake, $answer),
                     'observed_at' => $answer->answered_at ?? $answer->updated_at,
                     'superseded_by_id' => null,
                 ],
@@ -393,25 +393,53 @@ final class DossierManager
         $subjects = [];
         $typeCounts = [];
 
+        // Botsingsset: alleen installateursnamen + manual-* rooms (geen flip-flop tussen templatekamers).
+        $usedNames = AircoRoom::query()
+            ->where('intake_id', $intake->id)
+            ->get()
+            ->filter(static function (AircoRoom $room): bool {
+                if ($room->name_source === 'installer') {
+                    return trim($room->name) !== '';
+                }
+
+                return str_starts_with($room->key, 'manual-') && trim($room->name) !== '';
+            })
+            ->map(static fn (AircoRoom $room): string => trim($room->name))
+            ->values()
+            ->all();
+
         foreach ($instanceKeys as $index => $instanceKey) {
             $typeAnswer = $intake->answers->first(
                 static fn (IntakeAnswer $answer): bool => $answer->section_instance_key === $instanceKey
                     && $answer->question_key === 'room_type',
             );
             $useType = is_array($typeAnswer?->value) ? ($typeAnswer->value['value'] ?? null) : null;
-            $typeKey = is_string($useType) ? $useType : 'other';
-            $typeCounts[$typeKey] = ($typeCounts[$typeKey] ?? 0) + 1;
-            $generatedName = $this->roomLabel(is_string($useType) ? $useType : null, $typeCounts[$typeKey]);
+            $generatedName = RoomLabelResolver::label(is_string($useType) ? $useType : null, $typeCounts);
+            $explicitName = $this->roomNameFromAnswers($intake, $instanceKey);
 
             $existing = AircoRoom::query()
                 ->where('intake_id', $intake->id)
                 ->where('key', $instanceKey)
                 ->first();
 
-            // Keep installer renames; only invent a label for brand-new rooms.
-            $name = is_string($existing?->name) && $existing->name !== ''
-                ? $existing->name
-                : $generatedName;
+            $typeSource = $typeAnswer?->prefill_source;
+            $typeIsAi = PrefillSources::isProposedAi($typeSource);
+            $typeIsCustomer = $typeAnswer !== null && $typeSource === null;
+
+            // Installateur > klant (expliciete naam) > AI/gegenereerd.
+            if ($existing !== null && $existing->name_source === 'installer' && $existing->name !== '') {
+                $name = $existing->name;
+            } else {
+                if ($explicitName !== null) {
+                    $name = RoomLabelResolver::uniqueAmong($explicitName, $usedNames);
+                } elseif ($typeIsAi || $typeIsCustomer || $existing === null) {
+                    $name = RoomLabelResolver::uniqueAmong($generatedName, $usedNames);
+                } else {
+                    $name = $this->resolveRoomName($existing->name, null, $generatedName);
+                    $name = RoomLabelResolver::uniqueAmong($name, $usedNames);
+                }
+                $usedNames[] = $name;
+            }
 
             $subject = $this->subject(
                 $intake,
@@ -429,6 +457,8 @@ final class DossierManager
                 $answerDimensions,
             );
 
+            $useTypeSource = $this->resolveUseTypeSource($existing, $typeSource, is_string($useType));
+
             if ($existing === null) {
                 AircoRoom::query()->create([
                     'intake_id' => $intake->id,
@@ -436,7 +466,9 @@ final class DossierManager
                     'dossier_subject_id' => $subject->id,
                     'key' => $instanceKey,
                     'name' => $name,
+                    'name_source' => null,
                     'use_type' => is_string($useType) ? $useType : null,
+                    'use_type_source' => $useTypeSource,
                     'sort_order' => $index + 1,
                     'status' => 'desired',
                     'source_type' => 'template_bridge',
@@ -447,8 +479,6 @@ final class DossierManager
                 continue;
             }
 
-            // Workspace GET re-runs initialize()/syncRooms. Never wipe installer
-            // maten/naam/gebruik with empty template-bridge answers (demo walk Sep 2026).
             $updates = [
                 'company_id' => $intake->company_id,
                 'dossier_subject_id' => $subject->id,
@@ -457,8 +487,13 @@ final class DossierManager
                 'dimensions' => $dimensions,
             ];
 
-            if ($existing->use_type === null && is_string($useType)) {
+            if ($existing->name_source !== 'installer') {
+                $updates['name'] = $name;
+            }
+
+            if (is_string($useType) && $this->mayUpdateUseType($existing, $typeSource)) {
                 $updates['use_type'] = $useType;
+                $updates['use_type_source'] = $useTypeSource;
             }
 
             $existing->update($updates);
@@ -467,8 +502,57 @@ final class DossierManager
         return $subjects;
     }
 
+    private function mayUpdateUseType(?AircoRoom $existing, ?string $typeSource): bool
+    {
+        if ($existing === null) {
+            return true;
+        }
+
+        $locked = $existing->use_type_source;
+        if ($locked === 'installer') {
+            return false;
+        }
+
+        // Klantcorrectie (lege prefill-bron) mag AI en eerdere klant bijwerken.
+        if ($typeSource === null) {
+            return true;
+        }
+
+        // AI alleen als use_type_source niet installer of klant is.
+        if ($locked === 'customer') {
+            return false;
+        }
+
+        return PrefillSources::isProposedAi($typeSource) || $existing->use_type === null;
+    }
+
+    private function resolveUseTypeSource(?AircoRoom $existing, ?string $typeSource, bool $hasType): ?string
+    {
+        if (! $hasType) {
+            return $existing?->use_type_source;
+        }
+
+        if ($existing?->use_type_source === 'installer') {
+            return 'installer';
+        }
+
+        if ($typeSource === null) {
+            return 'customer';
+        }
+
+        if ($existing?->use_type_source === 'customer') {
+            return 'customer';
+        }
+
+        return PrefillSources::isProposedAi($typeSource) ? 'ai' : ($existing?->use_type_source);
+    }
+
     /**
-     * Answer-derived measures fill gaps only; existing installer/customer values win.
+     * Antwoordmaten winnen tenzij de bestaande maten van de installateur komen.
+     *
+     * `dimensions_source=installer`: geen gatenvulling vanuit antwoorden (L/W en m² blijven
+     * gescheiden routes — geen area_* bij L×B, geen L/W bij area_m2).
+     * Legacy: `area_source=installer` is tijdelijk voor rijen van vóór de backfill.
      *
      * @param  array<string, float|string>|null  $existing
      * @param  array<string, float|string>  $fromAnswers
@@ -480,8 +564,80 @@ final class DossierManager
             return $fromAnswers;
         }
 
-        // Later keys win for string keys — keep existing measures over empty re-sync.
-        return array_merge($fromAnswers, $existing);
+        $installerOwned = ($existing['dimensions_source'] ?? null) === 'installer'
+            // Tijdelijk: rijen van vóór dimensions_source-backfill.
+            || ($existing['area_source'] ?? null) === 'installer';
+
+        if ($installerOwned) {
+            return $existing;
+        }
+
+        if ($fromAnswers === []) {
+            return $existing;
+        }
+
+        return array_merge($existing, $fromAnswers);
+    }
+
+    /**
+     * @return array{0: float, 1: DossierRecordStatus}
+     */
+    private function prefillConfidenceAndStatus(Intake $intake, IntakeAnswer $answer): array
+    {
+        $source = $answer->prefill_source;
+
+        if ($source === PrefillSources::DERIVED_LXW) {
+            return $this->derivedLxwConfidenceStatus($intake, $answer->section_instance_key);
+        }
+
+        if (PrefillSources::isSuggestion($source)) {
+            return [0.7, DossierRecordStatus::Proposed];
+        }
+
+        if (PrefillSources::isStrongAi($source)) {
+            return [0.9, DossierRecordStatus::Proposed];
+        }
+
+        return [1.0, DossierRecordStatus::Established];
+    }
+
+    private function prefillConfidence(Intake $intake, IntakeAnswer $answer): float
+    {
+        return $this->prefillConfidenceAndStatus($intake, $answer)[0];
+    }
+
+    private function prefillStatus(Intake $intake, IntakeAnswer $answer): DossierRecordStatus
+    {
+        return $this->prefillConfidenceAndStatus($intake, $answer)[1];
+    }
+
+    /**
+     * @return array{0: float, 1: DossierRecordStatus}
+     */
+    private function derivedLxwConfidenceStatus(Intake $intake, ?string $instanceKey): array
+    {
+        $sources = [];
+        foreach (['room_length_m', 'room_width_m'] as $key) {
+            $dim = $intake->answers->first(
+                static fn (IntakeAnswer $answer): bool => $answer->question_key === $key
+                    && $answer->section_instance_key === $instanceKey,
+            );
+            $sources[] = $dim?->prefill_source;
+        }
+
+        foreach ($sources as $source) {
+            if (PrefillSources::isSuggestion($source)) {
+                return [0.7, DossierRecordStatus::Proposed];
+            }
+        }
+
+        foreach ($sources as $source) {
+            if (PrefillSources::isStrongAi($source)) {
+                return [0.9, DossierRecordStatus::Proposed];
+            }
+        }
+
+        return [1.0, DossierRecordStatus::Established];
     }
 
     /**
@@ -554,9 +710,11 @@ final class DossierManager
             $dimensions['area_source'] = $mapped['source'];
             $dimensions['area_confidence'] = $mapped['confidence'];
 
-            // Keep a short evidence trail for AI-derived exact m².
-            if (in_array($mapped['source'], ['ai', 'ai_suggestion'], true)) {
-                $dimensions['area_evidence'] = 'Uit bekende context of AI-prefill';
+            // Keep a short evidence trail for AI-/L×B-derived exact m².
+            if (in_array($mapped['source'], ['ai', 'ai_suggestion', 'derived_lxw'], true)) {
+                $dimensions['area_evidence'] = $mapped['source'] === 'derived_lxw'
+                    ? 'Berekend uit L×B'
+                    : 'Uit bekende context of AI-prefill';
             }
         }
 
@@ -564,17 +722,40 @@ final class DossierManager
         return $dimensions;
     }
 
-    private function roomLabel(?string $useType, int $index): string
+    private function roomNameFromAnswers(Intake $intake, string $instanceKey): ?string
     {
-        $base = match ($useType) {
-            'living_room' => 'Woonkamer',
-            'bedroom' => 'Slaapkamer',
-            'office' => 'Werkkamer',
-            'attic' => 'Zolder',
-            default => 'Ruimte',
-        };
+        $answer = $intake->answers->first(
+            static fn (IntakeAnswer $answer): bool => $answer->section_instance_key === $instanceKey
+                && $answer->question_key === 'room_name',
+        );
+        $text = is_array($answer?->value) ? ($answer->value['text'] ?? null) : null;
 
-        return $base.' '.$index;
+        if (! is_string($text)) {
+            return null;
+        }
+
+        $trimmed = trim($text);
+
+        return $trimmed !== '' ? $trimmed : null;
+    }
+
+    private function resolveRoomName(?string $existingName, ?string $explicitName, string $generatedName): string
+    {
+        if (is_string($explicitName) && $explicitName !== '') {
+            return $explicitName;
+        }
+
+        if (is_string($existingName) && $existingName !== '') {
+            // Upgrade placeholder "Ruimte N" once we know a typed label.
+            if (preg_match('/^Ruimte\s+\d+$/u', $existingName) === 1
+                && preg_match('/^Ruimte\s+\d+$/u', $generatedName) !== 1) {
+                return $generatedName;
+            }
+
+            return $existingName;
+        }
+
+        return $generatedName;
     }
 
     private function answerRecordKey(IntakeAnswer $answer): string

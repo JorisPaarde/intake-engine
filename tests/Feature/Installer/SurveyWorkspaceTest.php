@@ -930,6 +930,7 @@ test('saved room dimensions survive workspace reload for template-bridge rooms',
     expect($room->dimensions)->toMatchArray([
         'length_m' => 4.2,
         'width_m' => 3.1,
+        'dimensions_source' => 'installer',
     ]);
 
     // Critical: GET workspace re-runs dossier initialize/syncRooms and must not wipe maten.
@@ -944,6 +945,7 @@ test('saved room dimensions survive workspace reload for template-bridge rooms',
     expect($room->dimensions)->toMatchArray([
         'length_m' => 4.2,
         'width_m' => 3.1,
+        'dimensions_source' => 'installer',
     ])
         ->and($room->dimensions)->not->toHaveKey('height_m');
 });
@@ -970,6 +972,7 @@ test('installer can save trusted floor area without length and width', function 
         'area_m2' => 16.5,
         'area_source' => 'installer',
         'area_confidence' => 'high',
+        'dimensions_source' => 'installer',
     ])
         ->and($room->dimensions)->not->toHaveKey('length_m')
         ->and($room->dimensions)->not->toHaveKey('width_m');

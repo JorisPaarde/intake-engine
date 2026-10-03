@@ -8,6 +8,9 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeSection;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
+use App\Domains\Intake\Support\KnownSummaryCatalog;
+use App\Domains\Intake\Support\PrefillSources;
+use App\Domains\Intake\Support\RoomLabelResolver;
 use App\Enums\QuestionType;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -15,7 +18,15 @@ use Illuminate\Support\Str;
 /**
  * Builds the customer wizard as one visible question per step (BL-018),
  * and a full question catalog with skip reasons for AI traces (BL-116).
+ * Known-summary + force-show for prefilled edits: BL-118.
  *
+ * @phpstan-type KnownSummaryItem array{
+ *     question_key: string,
+ *     section_instance_key: string|null,
+ *     label: string,
+ *     display_value: string,
+ *     prefill_source: string
+ * }
  * @phpstan-type IntakeStep array{
  *     key: string,
  *     section_key: string,
@@ -26,7 +37,9 @@ use Illuminate\Support\Str;
  *     description: string|null,
  *     help_text: string|null,
  *     is_repeatable: bool,
- *     is_required: bool
+ *     is_required: bool,
+ *     kind?: 'question'|'known_summary',
+ *     known_items?: list<KnownSummaryItem>
  * }
  * @phpstan-type CatalogRow array{
  *     question_key: string,
@@ -49,10 +62,15 @@ final class IntakeStepBuilder
 
     /**
      * @param  array<string, array<string, mixed>|null>  $liveAnswers  optional in-memory form answers for live visibility
+     * @param  list<string>  $forceShowComposites  composites that must stay visible (known-summary “Wijzigen”)
      * @return list<IntakeStep>
      */
-    public function build(Intake $intake, IntakeTemplateVersion $version, array $liveAnswers = []): array
-    {
+    public function build(
+        Intake $intake,
+        IntakeTemplateVersion $version,
+        array $liveAnswers = [],
+        array $forceShowComposites = [],
+    ): array {
         $context = $this->buildContext($intake, $version, $liveAnswers);
         $steps = [];
 
@@ -64,9 +82,11 @@ final class IntakeStepBuilder
                     $instanceKey = Str::singular($section->key).'-'.$i;
                     $this->appendVisibleQuestionSteps(
                         $steps,
+                        $intake,
                         $section,
                         $instanceKey,
                         $context,
+                        $forceShowComposites,
                     );
                 }
 
@@ -75,13 +95,15 @@ final class IntakeStepBuilder
 
             $this->appendVisibleQuestionSteps(
                 $steps,
+                $intake,
                 $section,
                 null,
                 $context,
+                $forceShowComposites,
             );
         }
 
-        return $steps;
+        return $this->insertKnownSummaryStep($steps, $intake, $version, $context['answers'], $context['allQuestions']);
     }
 
     /**
@@ -159,7 +181,7 @@ final class IntakeStepBuilder
     private function buildContext(Intake $intake, IntakeTemplateVersion $version, array $liveAnswers = []): array
     {
         $version->loadMissing(['sections.questions.options', 'sections.questions.rules']);
-        $intake->loadMissing('answers');
+        $intake->loadMissing(['answers', 'aircoRooms']);
 
         $answers = [];
         $answerSources = [];
@@ -206,22 +228,28 @@ final class IntakeStepBuilder
      *     sectionsByQuestionKey: array<string, IntakeSection>,
      *     allQuestions: Collection<string, IntakeQuestion>
      * }  $context
+     * @param  list<string>  $forceShowComposites
      */
     private function appendVisibleQuestionSteps(
         array &$steps,
+        Intake $intake,
         IntakeSection $section,
         ?string $sectionInstanceKey,
         array $context,
+        array $forceShowComposites,
     ): void {
         $questions = $section->questions->sortBy('sort_order')->values();
         $visibility = $this->resolveVisibilityForSection($questions, $sectionInstanceKey, $context);
 
         foreach ($questions as $question) {
+            $composite = VisibilityResolver::compositeKey($question->key, $sectionInstanceKey);
+            $forceShow = in_array($composite, $forceShowComposites, true);
             $presentation = $this->questionPresentation(
                 $question,
                 $sectionInstanceKey,
                 $visibility,
                 $context,
+                $forceShow,
             );
 
             if ($presentation['reason'] !== 'visible') {
@@ -229,21 +257,27 @@ final class IntakeStepBuilder
             }
 
             $instanceSuffix = $sectionInstanceKey === null ? '' : '::'.$sectionInstanceKey;
-            $sectionTitle = $sectionInstanceKey === null
-                ? $section->title
-                : $section->title.' '.Str::afterLast($sectionInstanceKey, '-');
+            $sectionTitle = $this->sectionTitleForInstance($intake, $section, $sectionInstanceKey);
+            $title = $question->label;
+            if ($sectionInstanceKey !== null && in_array($question->key, ['room_photos', 'indoor_unit_position_photo'], true)) {
+                $roomLabel = $this->instanceLabel($intake, $sectionInstanceKey);
+                if ($roomLabel !== null) {
+                    $title = $question->label.' — '.$roomLabel;
+                }
+            }
 
             $steps[] = [
                 'key' => $section->key.$instanceSuffix.'::'.$question->key,
                 'section_key' => $section->key,
                 'section_instance_key' => $sectionInstanceKey,
                 'question_key' => $question->key,
-                'title' => $question->label,
+                'title' => $title,
                 'section_title' => $sectionTitle,
                 'description' => $section->description,
                 'help_text' => $question->help_text,
                 'is_repeatable' => $section->is_repeatable,
                 'is_required' => $presentation['required'],
+                'kind' => 'question',
             ];
         }
     }
@@ -273,6 +307,7 @@ final class IntakeStepBuilder
                 $sectionInstanceKey,
                 $visibility,
                 $context,
+                forceShow: false,
             );
 
             $rows[] = [
@@ -347,6 +382,7 @@ final class IntakeStepBuilder
         ?string $sectionInstanceKey,
         array $visibility,
         array $context,
+        bool $forceShow = false,
     ): array {
         $composite = VisibilityResolver::compositeKey($question->key, $sectionInstanceKey);
         $state = $visibility[$composite] ?? ['visible' => false, 'required' => false];
@@ -357,15 +393,18 @@ final class IntakeStepBuilder
             $question->type,
         );
 
-        $prefilledSkipped = $this->isPrefillSkipped($question, $answerSource);
+        $prefilledSkipped = ! $forceShow && $this->isPrefillSkipped($question, $answerSource);
+        $roomNameHidden = ! $forceShow
+            && $question->key === 'room_name'
+            && ! $this->shouldAskRoomName($context['answers'], $sectionInstanceKey);
         $internal = $this->isInternalQuestion($question);
         $ruleVisible = $state['visible'] === true;
-        $wizardVisible = $ruleVisible && ! $prefilledSkipped;
+        $wizardVisible = $ruleVisible && ! $prefilledSkipped && ! $roomNameHidden;
 
         $reason = $this->catalogReason(
             wizardVisible: $wizardVisible,
             ruleVisible: $ruleVisible,
-            prefilledSkipped: $prefilledSkipped,
+            prefilledSkipped: $prefilledSkipped || $roomNameHidden,
             internal: $internal,
         );
 
@@ -403,10 +442,8 @@ final class IntakeStepBuilder
         $skipSources = $question->meta['skip_when_prefilled_by'] ?? null;
         $skipSources = is_array($skipSources) ? $skipSources : [$skipSources];
 
-        // Een lokale, evidente conclusie uit de openingszin is brondata van de
-        // aanvrager zelf. Ook oudere gepinde templates kenden deze bronnaam nog niet.
-        return $answerSource === 'request_text'
-            || ($answerSource !== null && in_array($answerSource, $skipSources, true));
+        // request_text / derived_lxw altijd; legacy `ai` matcht ook ai_text/ai_photo (BL-118).
+        return PrefillSources::shouldSkipPrefill($answerSource, $skipSources);
     }
 
     private function isInternalQuestion(IntakeQuestion $question): bool
@@ -418,6 +455,245 @@ final class IntakeStepBuilder
         return ($question->meta['internal'] ?? false) === true
             || $audience === 'installer'
             || $audience === 'internal';
+    }
+
+    /**
+     * @param  list<IntakeStep>  $steps
+     * @param  array<string, array<string, mixed>|null>  $answers
+     * @param  Collection<string, IntakeQuestion>  $allQuestions
+     * @return list<IntakeStep>
+     */
+    private function insertKnownSummaryStep(
+        array $steps,
+        Intake $intake,
+        IntakeTemplateVersion $version,
+        array $answers,
+        Collection $allQuestions,
+    ): array {
+        $items = [];
+        $intake->loadMissing('aircoRooms');
+
+        // Sectie → natural instance → vraag (room-2 vóór room-10).
+        $sectionOrder = [];
+        $questionOrder = [];
+        $questionSection = [];
+        foreach ($version->sections->sortBy('sort_order') as $section) {
+            $sectionOrder[$section->key] = (int) $section->sort_order;
+            foreach ($section->questions->sortBy('sort_order') as $question) {
+                $questionOrder[$question->key] = (int) $question->sort_order;
+                $questionSection[$question->key] = $section->key;
+            }
+        }
+
+        foreach ($intake->answers as $answer) {
+            $source = $answer->prefill_source;
+            $question = $allQuestions->get($answer->question_key);
+            if (! $question instanceof IntakeQuestion) {
+                continue;
+            }
+
+            if (! KnownSummaryCatalog::allows($question)
+                || ! KnownSummaryCatalog::allowsSource($source)
+                || ! KnownSummaryCatalog::isSkipped($source, $question)) {
+                continue;
+            }
+
+            $display = $source === PrefillSources::DERIVED_LXW
+                && $answer->question_key === 'room_area_m2'
+                ? 'berekend uit L×B'
+                : $this->displayAnswerValue($question, $answer->value);
+            if ($display === null) {
+                continue;
+            }
+
+            $instanceLabel = $this->instanceLabel($intake, $answer->section_instance_key);
+            $label = $question->label;
+            if ($instanceLabel !== null) {
+                $label = $instanceLabel.' — '.$label;
+            }
+
+            $sectionKey = $questionSection[$answer->question_key] ?? '';
+            $items[] = [
+                'question_key' => $answer->question_key,
+                'section_instance_key' => $answer->section_instance_key,
+                'label' => $label,
+                'display_value' => $display,
+                'prefill_source' => (string) $source,
+                '_section_order' => $sectionOrder[$sectionKey] ?? PHP_INT_MAX,
+                '_question_order' => $questionOrder[$answer->question_key] ?? PHP_INT_MAX,
+            ];
+        }
+
+        if ($items === []) {
+            return $steps;
+        }
+
+        usort($items, static function (array $a, array $b): int {
+            $sectionCmp = ($a['_section_order'] <=> $b['_section_order']);
+            if ($sectionCmp !== 0) {
+                return $sectionCmp;
+            }
+
+            $instanceCmp = strnatcmp((string) ($a['section_instance_key'] ?? ''), (string) ($b['section_instance_key'] ?? ''));
+            if ($instanceCmp !== 0) {
+                return $instanceCmp;
+            }
+
+            return ($a['_question_order'] <=> $b['_question_order'])
+                ?: ($a['question_key'] <=> $b['question_key']);
+        });
+
+        $items = array_map(static function (array $item): array {
+            unset($item['_section_order'], $item['_question_order']);
+
+            return $item;
+        }, $items);
+
+        $summary = [
+            'key' => '_known_summary',
+            'section_key' => 'request',
+            'section_instance_key' => null,
+            'question_key' => '_known_summary',
+            'title' => 'Dit hebben we al uit je aanvraag',
+            'section_title' => 'Bekende gegevens',
+            'description' => 'Klopt dit? Je kunt iets wijzigen; verder gaan mag meteen.',
+            'help_text' => 'Alleen echte onzekerheid vragen we later nog apart. Merkvoorkeur houdt de opname niet tegen.',
+            'is_repeatable' => false,
+            'is_required' => false,
+            'kind' => 'known_summary',
+            'known_items' => $items,
+        ];
+
+        // Na request_reason wanneer die in de flow staat; anders vooraan zodat het nooit wordt overgeslagen.
+        $insertAt = 0;
+        foreach ($steps as $index => $step) {
+            if ($step['question_key'] === 'request_reason') {
+                $insertAt = $index + 1;
+                break;
+            }
+        }
+
+        array_splice($steps, $insertAt, 0, [$summary]);
+
+        return $steps;
+    }
+
+    /**
+     * Alleen AircoRoom.name; anders null (sectietitel als fallback).
+     */
+    private function instanceLabel(Intake $intake, ?string $sectionInstanceKey): ?string
+    {
+        if ($sectionInstanceKey === null) {
+            return null;
+        }
+
+        $intake->loadMissing('aircoRooms');
+        $room = $intake->aircoRooms->firstWhere('key', $sectionInstanceKey);
+        if ($room !== null && trim($room->name) !== '') {
+            return trim($room->name);
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $value
+     */
+    private function displayAnswerValue(IntakeQuestion $question, ?array $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        return match ($question->type) {
+            QuestionType::SingleChoice => $this->optionLabel($question, is_string($value['value'] ?? null) ? $value['value'] : null),
+            QuestionType::MultiChoice => $this->multiOptionLabels($question, is_array($value['values'] ?? null) ? $value['values'] : []),
+            QuestionType::Number => isset($value['number']) && is_numeric($value['number'])
+                ? (string) $value['number']
+                : null,
+            QuestionType::ShortText, QuestionType::LongText => isset($value['text']) && is_string($value['text']) && trim($value['text']) !== ''
+                ? trim($value['text'])
+                : null,
+            QuestionType::Boolean => array_key_exists('bool', $value) && is_bool($value['bool'])
+                ? ($value['bool'] ? 'Ja' : 'Nee')
+                : null,
+            default => null,
+        };
+    }
+
+    private function optionLabel(IntakeQuestion $question, ?string $optionValue): ?string
+    {
+        if ($optionValue === null) {
+            return null;
+        }
+
+        $option = $question->options->firstWhere('value', $optionValue);
+
+        return is_string($option?->label) ? $option->label : $optionValue;
+    }
+
+    /**
+     * @param  list<mixed>  $values
+     */
+    private function multiOptionLabels(IntakeQuestion $question, array $values): ?string
+    {
+        $labels = [];
+        foreach ($values as $value) {
+            if (! is_string($value)) {
+                continue;
+            }
+            $labels[] = $this->optionLabel($question, $value) ?? $value;
+        }
+
+        return $labels === [] ? null : implode(', ', $labels);
+    }
+
+    /**
+     * room_name alleen als minstens twee ruimtes hetzelfde type hebben én deze
+     * ruimte nog geen geëxtraheerde naam heeft. Anders leidt de wizard/dossier af.
+     *
+     * @param  array<string, array<string, mixed>|null>  $answers
+     */
+    private function shouldAskRoomName(array $answers, ?string $sectionInstanceKey): bool
+    {
+        if ($sectionInstanceKey === null) {
+            return false;
+        }
+
+        $ownName = $answers[VisibilityResolver::compositeKey('room_name', $sectionInstanceKey)] ?? null;
+        $ownText = is_array($ownName) ? ($ownName['text'] ?? null) : null;
+        if (is_string($ownText) && trim($ownText) !== '') {
+            return false;
+        }
+
+        $typesByInstance = RoomLabelResolver::typesByInstance($answers);
+        $ownType = $typesByInstance[$sectionInstanceKey] ?? null;
+        if ($ownType === null) {
+            return false;
+        }
+
+        $sameType = 0;
+        foreach ($typesByInstance as $type) {
+            if ($type === $ownType) {
+                $sameType++;
+            }
+        }
+
+        return $sameType >= 2;
+    }
+
+    private function sectionTitleForInstance(
+        Intake $intake,
+        IntakeSection $section,
+        ?string $sectionInstanceKey,
+    ): string {
+        if ($sectionInstanceKey === null) {
+            return $section->title;
+        }
+
+        $label = $this->instanceLabel($intake, $sectionInstanceKey);
+
+        return $label ?? ($section->title.' '.Str::afterLast($sectionInstanceKey, '-'));
     }
 
     /**

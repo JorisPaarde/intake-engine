@@ -88,7 +88,7 @@ test('high confidence fusebox assessment establishes a sourced answer without a 
         ->and($run->status)->toBe(AiRunStatus::Succeeded)
         ->and($run->type)->toBe(AiRunType::PhotoAssessment)
         ->and($answer->value)->toBe(['value' => 'yes'])
-        ->and($answer->prefill_source)->toBe('ai')
+        ->and($answer->prefill_source)->toBe('ai_photo')
         ->and($fact->source)->toBe(AssessFuseboxPhotos::SOURCE)
         ->and($fact->value['phase'])->toBe('three_phase')
         ->and($fact->confidence)->toBe('medium')
@@ -173,7 +173,7 @@ test('assessment is idempotent and deleting its evidence removes the derived sta
     app(DeleteIntakeUpload::class)->handle($intake, $upload);
     app(AssessFuseboxPhotos::class)->handle($intake);
 
-    expect($intake->answers()->where('prefill_source', 'ai')->exists())->toBeFalse()
+    expect($intake->answers()->where('prefill_source', 'ai_photo')->exists())->toBeFalse()
         ->and($intake->externalFacts()->where('fact_key', 'fusebox_photo_assessment')->exists())->toBeFalse();
 });
 
@@ -198,6 +198,7 @@ test('replacing identical photo bytes during analysis rejects stale upload prove
     $run = app(AssessFuseboxPhotos::class)->handle($intake);
 
     expect($run?->status)->toBe(AiRunStatus::Failed)
+        ->and($intake->answers()->where('prefill_source', 'ai_photo')->exists())->toBeFalse()
         ->and($intake->answers()->where('prefill_source', 'ai')->exists())->toBeFalse()
         ->and($intake->externalFacts()->where('fact_key', 'fusebox_photo_assessment')->exists())->toBeFalse();
 });

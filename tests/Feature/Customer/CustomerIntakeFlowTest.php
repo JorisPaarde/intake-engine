@@ -216,7 +216,7 @@ test('livewire string booleans satisfy required checks and allow next', function
         ->set('form.noise_sensitive', ['bool' => '0'])
         ->call('next')
         ->assertSet('showMissing', false)
-        ->assertSet('activeStepKey', 'pipe_route::pipe_route_photos');
+        ->assertSet('activeStepKey', 'building::building_type');
 });
 
 test('single choice auto-advances after selecting an option', function () {
@@ -239,7 +239,7 @@ test('boolean auto-advances after choosing ja or nee', function () {
         ->set('activeStepKey', 'outdoor_unit::noise_sensitive')
         ->set('form.noise_sensitive.bool', '0')
         ->assertSet('showMissing', false)
-        ->assertSet('activeStepKey', 'pipe_route::pipe_route_photos')
+        ->assertSet('activeStepKey', 'building::building_type')
         ->assertSet('saveMessage', 'Opgeslagen');
 });
 
@@ -296,7 +296,7 @@ test('enter on number advances to the next step', function () {
         ->set('form.cooling_heating.value', 'cooling')
         ->assertSet('activeStepKey', 'request::indoor_unit_count')
         ->call('advanceFromEnter', 'indoor_unit_count', 'number', '1')
-        ->assertSet('activeStepKey', 'request::brand_preference');
+        ->assertSet('activeStepKey', 'rooms::room-1::room_photos');
 });
 
 test('wizard resumes on the stored question cursor', function () {
@@ -505,7 +505,7 @@ test('an unanswered multi choice starts as an empty array so one tick does not s
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->set('stepIndex', $index)
-        ->set('activeStepKey', 'request::brand_preference');
+        ->set('activeStepKey', 'closing::brand_preference');
 
     // Zonder deze vorm bindt Livewire de hele checkboxgroep aan één scalair.
     expect($component->get('form')['brand_preference']['values'] ?? null)->toBe([]);

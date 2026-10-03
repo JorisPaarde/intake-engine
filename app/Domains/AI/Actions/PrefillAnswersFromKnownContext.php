@@ -17,7 +17,9 @@ use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeAnswer;
+use App\Domains\Intake\Support\PrefillSources;
 use App\Domains\Intake\Support\RoomAreaAcceptance;
+use App\Domains\Intake\Support\TechnicalDecisionKeys;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
 use App\Enums\AiTraceCallType;
@@ -32,9 +34,9 @@ use Throwable;
  */
 final class PrefillAnswersFromKnownContext
 {
-    public const SOURCE_DERIVED = 'ai';
+    public const SOURCE_DERIVED = PrefillSources::AI_TEXT;
 
-    public const SOURCE_SUGGESTED = 'ai_suggestion';
+    public const SOURCE_SUGGESTED = PrefillSources::AI_TEXT_SUGGESTION;
 
     public function __construct(
         private readonly AiGateway $aiGateway,
@@ -254,6 +256,10 @@ final class PrefillAnswersFromKnownContext
                 continue;
             }
 
+            if (TechnicalDecisionKeys::contains($candidate->questionKey)) {
+                continue;
+            }
+
             if (! $this->mayWrite($intake, $candidate->questionKey, $candidate->sectionInstanceKey)) {
                 continue;
             }
@@ -288,9 +294,128 @@ final class PrefillAnswersFromKnownContext
             $applied[] = $candidate->compositeKey();
         }
 
-        $this->pruneExtraPrefillRooms($intake, $output['fills']);
+        $this->deriveAreaFromLengthWidth($intake);
+        $this->pruneExtraPrefillRooms($intake, $applied);
 
         return $applied;
+    }
+
+    /**
+     * Herberekent derived_lxw wanneer L of W wijzigt (ook buiten catalogus-prefill).
+     */
+    public function recalculateDerivedDimensions(Intake $intake): void
+    {
+        $this->deriveAreaFromLengthWidth($intake);
+    }
+
+    /**
+     * Bekende L×B → sla afgeleid m² op met bron `derived_lxw`; herberekent bij L/W-wijziging.
+     */
+    private function deriveAreaFromLengthWidth(Intake $intake): void
+    {
+        $intake->loadMissing('answers');
+        $byInstance = [];
+
+        foreach ($intake->answers as $answer) {
+            if (! in_array($answer->question_key, ['room_length_m', 'room_width_m'], true)) {
+                continue;
+            }
+            // Tekst-/AI-L×B, suggesties, of menselijke L×B (herberekening).
+            $dimSource = $answer->prefill_source;
+            $usableDim = $dimSource === null
+                || $dimSource === 'installer'
+                || PrefillSources::isTextDerived($dimSource)
+                || PrefillSources::isTextSuggestion($dimSource);
+            if (! $usableDim) {
+                continue;
+            }
+            $instance = $answer->section_instance_key;
+            if (! is_string($instance) || $instance === '') {
+                continue;
+            }
+            $number = is_array($answer->value) ? ($answer->value['number'] ?? null) : null;
+            if (! is_numeric($number)) {
+                continue;
+            }
+            $byInstance[$instance][$answer->question_key] = [
+                'number' => (float) $number,
+                'source' => $dimSource,
+            ];
+        }
+
+        foreach ($byInstance as $instanceKey => $dims) {
+            if (! isset($dims['room_length_m'], $dims['room_width_m'])) {
+                continue;
+            }
+
+            $area = round($dims['room_length_m']['number'] * $dims['room_width_m']['number'], 2);
+            if (! RoomAreaAcceptance::isPlausibleArea($area)) {
+                continue;
+            }
+
+            // Suggestie-L/W → suggestie-afleiding; anders derived_lxw.
+            $fromSuggestion = PrefillSources::isTextSuggestion($dims['room_length_m']['source'])
+                || PrefillSources::isTextSuggestion($dims['room_width_m']['source']);
+            $source = $fromSuggestion
+                ? PrefillSources::AI_TEXT_SUGGESTION
+                : PrefillSources::DERIVED_LXW;
+
+            $existingArea = $intake->answers->first(
+                static fn ($answer): bool => $answer->question_key === 'room_area_m2'
+                    && $answer->section_instance_key === $instanceKey,
+            );
+
+            // Alleen derived_lxw / suggestie herberekeken; exacte m² (klant/AI/installer) behouden.
+            if ($existingArea !== null
+                && ! in_array($existingArea->prefill_source, [
+                    PrefillSources::DERIVED_LXW,
+                    PrefillSources::AI_TEXT_SUGGESTION,
+                    PrefillSources::AI_SUGGESTION_LEGACY,
+                ], true)) {
+                continue;
+            }
+
+            $this->saveIntakeAnswer->handle(
+                $intake,
+                'room_area_m2',
+                $instanceKey,
+                ['number' => $area],
+                $source,
+            );
+
+            if ($this->mayWrite($intake, 'room_size_indication', $instanceKey)
+                || $this->mayOverwriteDerivedSize($intake, $instanceKey)) {
+                $size = RoomAreaAcceptance::sizeIndicationFromArea($area);
+                $this->saveIntakeAnswer->handle(
+                    $intake,
+                    'room_size_indication',
+                    $instanceKey,
+                    ['value' => $size],
+                    $source,
+                );
+            }
+        }
+    }
+
+    private function mayOverwriteDerivedSize(Intake $intake, string $instanceKey): bool
+    {
+        $existing = IntakeAnswer::query()
+            ->where('intake_id', $intake->id)
+            ->where('question_key', 'room_size_indication')
+            ->where('section_instance_key', $instanceKey)
+            ->first();
+
+        if (! $existing instanceof IntakeAnswer) {
+            return true;
+        }
+
+        return in_array($existing->prefill_source, [
+            PrefillSources::DERIVED_LXW,
+            PrefillSources::AI_TEXT_SUGGESTION,
+            PrefillSources::AI_SUGGESTION_LEGACY,
+            PrefillSources::AI_TEXT,
+            PrefillSources::AI_LEGACY,
+        ], true);
     }
 
     /**
@@ -313,35 +438,42 @@ final class PrefillAnswersFromKnownContext
     }
 
     /**
-     * @param  list<array<string, mixed>>  $fills
+     * @param  list<string>  $appliedComposites
      */
-    private function pruneExtraPrefillRooms(Intake $intake, array $fills): void
+    private function pruneExtraPrefillRooms(Intake $intake, array $appliedComposites): void
     {
+        // Alleen snoeien wanneer indoor_unit_count echt is toegepast.
+        $countApplied = false;
         $roomCount = null;
-
-        foreach ($fills as $fill) {
-            if (($fill['question_key'] ?? null) !== 'indoor_unit_count') {
-                continue;
-            }
-
-            $value = $fill['value'] ?? null;
-            $number = is_array($value) ? ($value['number'] ?? null) : null;
-
-            if (is_numeric($number) && (int) $number >= 1) {
-                $roomCount = (int) $number;
+        foreach ($appliedComposites as $composite) {
+            if ($composite === 'indoor_unit_count' || str_starts_with($composite, 'indoor_unit_count__')) {
+                $countApplied = true;
+                break;
             }
         }
 
-        if ($roomCount === null) {
+        if (! $countApplied) {
             return;
         }
+
+        $countAnswer = IntakeAnswer::query()
+            ->where('intake_id', $intake->id)
+            ->where('question_key', 'indoor_unit_count')
+            ->whereNull('section_instance_key')
+            ->first();
+        $number = is_array($countAnswer?->value) ? ($countAnswer->value['number'] ?? null) : null;
+        if (! is_numeric($number) || (int) $number < 1) {
+            return;
+        }
+
+        $roomCount = (int) $number;
 
         $answers = IntakeAnswer::query()
             ->where('intake_id', $intake->id)
             ->whereIn('prefill_source', [
-                self::SOURCE_DERIVED,
-                self::SOURCE_SUGGESTED,
-                DeriveIntentFromRequest::SOURCE_REQUEST_TEXT,
+                PrefillSources::AI_TEXT,
+                PrefillSources::AI_TEXT_SUGGESTION,
+                PrefillSources::REQUEST_TEXT,
             ])
             ->whereNotNull('section_instance_key')
             ->get();
@@ -380,6 +512,9 @@ final class PrefillAnswersFromKnownContext
         return in_array($existing->prefill_source, [
             self::SOURCE_DERIVED,
             self::SOURCE_SUGGESTED,
+            PrefillSources::AI_LEGACY,
+            PrefillSources::AI_SUGGESTION_LEGACY,
+            PrefillSources::DERIVED_LXW,
             DeriveIntentFromRequest::SOURCE_REQUEST_TEXT,
         ], true);
     }

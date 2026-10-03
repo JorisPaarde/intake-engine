@@ -1,6 +1,6 @@
 # Databaseschema — Digitale Opname
 
-> **Documentversie:** 3.13 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.14 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: dit document beschrijft het **geïmplementeerde schema**, inclusief de uitbreidende dossiermigratie van BL-030 en BL-035 t/m BL-042 en de zelfstandige publieke interesse-inzendingen van BL-043. Bestaande antwoord-, bron-, upload-, review- en routetabellen blijven bewust bestaan naast de nieuwe dossierobjecten.
 
@@ -284,7 +284,7 @@ Alle tabellen behalve de zuivere pivot dragen zowel `intake_id` als `company_id`
 
 | Tabel | Belangrijkste velden en invarianten |
 |-------|-------------------------------------|
-| `airco_rooms` | Gewenste ruimte met dossieronderwerp, unieke intake-key, naam, gebruik, volgorde, status, bron en optionele afmetingen in JSON `dimensions`. Vloeroppervlak via `length_m`+`width_m` óf betrouwbaar `area_m2` (+ `area_source`/`area_confidence`/`area_evidence`); `height_m` apart. Legacy `room-*`-instanties worden idempotent gemapt. |
+| `airco_rooms` | Gewenste ruimte met dossieronderwerp, unieke intake-key, naam, optioneel `name_source` (`installer` wint van `syncRooms`), `use_type` + optioneel `use_type_source` (installateur > klant > AI), volgorde, status, bron en optionele afmetingen in JSON `dimensions`. Vloeroppervlak via `length_m`+`width_m` óf betrouwbaar `area_m2` (+ `area_source`/`area_confidence`/`area_evidence`); `height_m` apart. Installateursmaten: `dimensions_source=installer` bij createRoom altijd en bij updateRoom alleen bij echte maatwijziging; `syncRooms` vult dan geen gaten vanuit antwoorden. Legacy `room-*`-instanties worden idempotent gemapt. |
 | `airco_placement_options` | Optionele ruimte, dossieronderwerp, type, label/omschrijving, locatie-JSON, status, bron, zekerheid en kostenrisico's. |
 | `airco_installation_options` | Label, configuratietype, rang, status (`candidate`/`selected`/`rejected`), haalbaarheid (`pending`/`feasible`/`infeasible`), optionele `infeasibility_reason`, samenvatting, kostenimpact, bron/zekerheid, maker en selectietijd. Single-split, multi-split en meerdere single-splits hebben server-side cardinaliteitscontrole. Selectie vereist `feasibility=feasible`. |
 | `airco_installation_option_placements` | Pivot met rol/volgorde; een positie komt per installatieoptie maximaal eenmaal voor. |
@@ -305,7 +305,7 @@ Eén actuele uitkomst per opname: `result`, actieve installateur- en klantminute
 | `question_key` | string | Verwijst naar key in gepinde versie |
 | `section_instance_key` | string nullable | Bij repeatables: `room-1` |
 | `value` | json | Genormaliseerde waarde |
-| `prefill_source` | string nullable | Herkomst: o.a. `installer`, `pdok`, `epo`, `request_text` (sterk en lokaal uit de openingszin), `ai` (sterk afgeleid) of `ai_suggestion` (nog te controleren). De gepinde template bepaalt of een bronvraag zichtbaar blijft; de stepbuilder behandelt `request_text` als sterke tekstafleiding voor bestaande v9/v10-opnames. `null` bij normale klantinvoer. Zie [intake-engine.md § Prefill](intake-engine.md#prefill-van-bekende-gegevens-bl-016). |
+| `prefill_source` | string nullable | Herkomst: o.a. `installer`, `pdok`, `epo`, `request_text` (sterk/lokaal uit openingszin), `ai_text` (catalogus-tekst-AI), `ai_photo` (foto-AI), legacy `ai`, `ai_text_suggestion` / `ai_photo_suggestion` (medium; legacy `ai_suggestion` = foto-suggestie), `derived_lxw` (m²/grootte uit L×B). De gepinde template bepaalt of een bronvraag zichtbaar blijft; legacy skiplijsten met alleen `ai` matchen ook `ai_text`/`ai_photo`. `null` bij normale klantinvoer. Zie [intake-engine.md § Prefill](intake-engine.md#prefill-van-bekende-gegevens-bl-016). |
 | `answered_at` | timestamp | |
 
 Unique: `(intake_id, question_key, section_instance_key)`.  

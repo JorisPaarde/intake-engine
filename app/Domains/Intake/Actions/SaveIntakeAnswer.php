@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Actions;
 
+use App\Domains\AI\Actions\PrefillAnswersFromKnownContext;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeAnswer;
@@ -115,6 +116,11 @@ final class SaveIntakeAnswer
         });
 
         $this->dossierManager->initialize($intake->fresh() ?? $intake);
+
+        if (in_array($questionKey, ['room_length_m', 'room_width_m'], true)) {
+            app(PrefillAnswersFromKnownContext::class)
+                ->recalculateDerivedDimensions($intake->fresh() ?? $intake);
+        }
 
         return $answer;
     }

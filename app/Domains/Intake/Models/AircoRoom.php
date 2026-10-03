@@ -15,7 +15,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $dossier_subject_id
  * @property string $key
  * @property string $name
+ * @property string|null $name_source
  * @property string|null $use_type
+ * @property string|null $use_type_source
  * @property int $sort_order
  * @property string $status
  * @property string $source_type
@@ -31,7 +33,9 @@ class AircoRoom extends Model
         'dossier_subject_id',
         'key',
         'name',
+        'name_source',
         'use_type',
+        'use_type_source',
         'sort_order',
         'status',
         'source_type',

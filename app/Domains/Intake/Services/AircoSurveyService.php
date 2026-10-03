@@ -65,6 +65,8 @@ final class AircoSurveyService
             'area_source' => 'installer',
             'area_confidence' => 'high',
         ]);
+        // Eigendomsmarker ook zonder m² (alleen L/B/H), zodat syncRooms antwoorden niet overschrijft.
+        $dimensions['dimensions_source'] = 'installer';
 
         $room = AircoRoom::query()->create([
             'intake_id' => $intake->id,
@@ -72,7 +74,11 @@ final class AircoSurveyService
             'dossier_subject_id' => $subject->id,
             'key' => $key,
             'name' => trim($data['name']),
+            'name_source' => 'installer',
             'use_type' => $data['use_type'] ?? null,
+            'use_type_source' => array_key_exists('use_type', $data) && $data['use_type'] !== null
+                ? 'installer'
+                : null,
             'sort_order' => ((int) $intake->aircoRooms()->max('sort_order')) + 1,
             'status' => 'desired',
             'source_type' => 'installer',
@@ -112,11 +118,26 @@ final class AircoSurveyService
         ]);
 
         $name = trim($data['name']);
-        $room->update([
-            'name' => $name,
-            'use_type' => array_key_exists('use_type', $data) ? $data['use_type'] : $room->use_type,
-            'dimensions' => $dimensions,
-        ]);
+        $updates = [];
+
+        $existingDimensions = is_array($room->dimensions) ? $room->dimensions : [];
+        if ($this->dimensionMeasuresDiffer($existingDimensions, $dimensions)) {
+            $dimensions['dimensions_source'] = 'installer';
+            $updates['dimensions'] = $dimensions;
+        }
+
+        if (array_key_exists('use_type', $data)) {
+            $updates['use_type'] = $data['use_type'];
+            $updates['use_type_source'] = 'installer';
+        }
+        if ($name !== $room->name) {
+            $updates['name'] = $name;
+            $updates['name_source'] = 'installer';
+        }
+
+        if ($updates !== []) {
+            $room->update($updates);
+        }
 
         DossierSubject::query()
             ->whereKey($room->dossier_subject_id)
@@ -128,6 +149,28 @@ final class AircoSurveyService
         $this->decisionReadiness->recalculate($intake->fresh() ?? $intake);
 
         return $room->fresh() ?? $room;
+    }
+
+    /**
+     * @param  array<string, float|string>  $existing
+     * @param  array<string, float|string>  $submitted
+     */
+    private function dimensionMeasuresDiffer(array $existing, array $submitted): bool
+    {
+        foreach (['length_m', 'width_m', 'height_m', 'area_m2'] as $key) {
+            $left = isset($existing[$key]) && is_numeric($existing[$key]) ? (float) $existing[$key] : null;
+            $right = isset($submitted[$key]) && is_numeric($submitted[$key]) ? (float) $submitted[$key] : null;
+
+            if ($left === null && $right === null) {
+                continue;
+            }
+
+            if ($left === null || $right === null || abs($left - $right) > 0.0001) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Domains\AI\Actions\DeriveIntentFromRequest;
+use App\Domains\AI\Actions\PrefillAnswersFromKnownContext;
 use App\Domains\AI\Clients\FakeAiClient;
 use App\Domains\Intake\Actions\SaveInstallerObservation;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
@@ -205,7 +206,7 @@ test('catalog AI fills restated rooms dimensions and per-type names', function (
         ->and($intake->answers()->where('question_key', 'indoor_unit_count')->firstOrFail()->value)->toBe(['number' => 4])
         ->and($intake->answers()->where('question_key', 'room_length_m')->where('section_instance_key', 'room-1')->exists())->toBeFalse()
         ->and($intake->answers()->where('question_key', 'room_area_m2')->where('section_instance_key', 'room-1')->firstOrFail()->value)->toBe(['number' => 20])
-        ->and($intake->answers()->where('question_key', 'room_area_m2')->where('section_instance_key', 'room-1')->firstOrFail()->prefill_source)->toBe('ai');
+        ->and($intake->answers()->where('question_key', 'room_area_m2')->where('section_instance_key', 'room-1')->firstOrFail()->prefill_source)->toBe('ai_text');
 
     app(DossierManager::class)->initialize($intake->fresh() ?? $intake);
 
@@ -233,7 +234,7 @@ test('catalog AI prefill fills dormer outdoor placement from the openingszin', f
         ->and($intake->answers()->where('question_key', 'outdoor_location')->firstOrFail()->value)->toBe(['value' => 'dormer'])
         ->and($intake->answers()->where('question_key', 'outdoor_mount_type')->firstOrFail()->value)->toBe(['value' => 'roof'])
         ->and($intake->answers()->where('question_key', 'outdoor_location')->firstOrFail()->prefill_source)
-        ->toBe(DeriveIntentFromRequest::SOURCE_DERIVED);
+        ->toBe(PrefillAnswersFromKnownContext::SOURCE_DERIVED);
 
     $request = FakeAiClient::lastRequest();
     expect($request)->not->toBeNull()

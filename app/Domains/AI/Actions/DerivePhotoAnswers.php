@@ -19,11 +19,15 @@ use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeAnswer;
+use App\Domains\Intake\Models\IntakeAttentionPoint;
 use App\Domains\Intake\Models\IntakeExternalFact;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Domains\Intake\Support\PrefillSources;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
 use App\Enums\AiTraceCallType;
+use App\Enums\AttentionPointSource;
+use App\Enums\AttentionPointStatus;
 use App\Enums\IntakeStatus;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -39,25 +43,26 @@ use Throwable;
  * through `meta.photo_analysis` (BL-020 generalised beyond the fusebox).
  *
  * Confidence decides how much work the applicant is left with:
- *   - `high`   → answer stored as SOURCE_DERIVED; the step disappears via
- *                `meta.skip_when_prefilled_by = 'ai'`. The evidence stays visible in the
- *                dossier as an external fact, so nothing is a hidden assumption.
+ *   - `high`   → answer stored as SOURCE_DERIVED (`ai_photo`); the step disappears via
+ *                `meta.skip_when_prefilled_by` including `ai_photo`. The evidence stays visible
+ *                in the dossier as an external fact, so nothing is a hidden assumption.
  *   - `medium` → answer stored as SOURCE_SUGGESTED; the question is still asked, but
  *                pre-filled as a voorzet the applicant only has to confirm.
  *   - `low` or `unknown` → nothing stored; the question is asked normally.
  *
- * Re-uploading photos invalidates every earlier derivation for that photo question, so a
- * stale answer can never outlive the image it came from.
+ * Re-uploading photos invalidates every earlier *photo* derivation for that photo question
+ * and section instance. Text-derived facts (`request_text` / `ai_text`) are never wiped or
+ * silently overwritten; a conflicting photo value becomes an installer attention point.
  */
 final class DerivePhotoAnswers
 {
     public const SOURCE = 'AI-fotoanalyse';
 
     /** Answer is trusted enough to replace the question entirely. */
-    public const SOURCE_DERIVED = 'ai';
+    public const SOURCE_DERIVED = PrefillSources::AI_PHOTO;
 
     /** Answer is only a voorzet; the applicant still confirms it. */
-    public const SOURCE_SUGGESTED = 'ai_suggestion';
+    public const SOURCE_SUGGESTED = PrefillSources::AI_PHOTO_SUGGESTION;
 
     public function __construct(
         private readonly AiGateway $aiGateway,
@@ -223,16 +228,25 @@ final class DerivePhotoAnswers
                         throw new \RuntimeException('Foto’s gewijzigd tijdens AI-analyse; resultaat niet toegepast.');
                     }
 
-                    // Invalidate only after a successful, validated provider result.
-                    $this->invalidateDerivedState($intake, $photoQuestionKey, $sectionInstanceKey, $profile);
-                    $trace->step('invalidate_previous', [
-                        'photo_question_key' => $photoQuestionKey,
-                        'section_instance_key' => $sectionInstanceKey,
-                    ]);
-
-                    $this->storeObservation($intake, $run, $output, $uploads, $photoQuestionKey, $sectionInstanceKey, $profile);
-                    $applied = $this->applyDerivedAnswers($intake, $output, $sectionInstanceKey, $profile);
-                    $trace->step('apply', $applied);
+                    // room_type-conflict met tekst: oude foto-velden behouden, geen klantfills.
+                    if ($this->hasRoomTypeTextConflict($intake, $output, $sectionInstanceKey, $profile)) {
+                        $this->storeObservation($intake, $run, $output, $uploads, $photoQuestionKey, $sectionInstanceKey, $profile);
+                        $applied = ['derived' => [], 'suggested' => []];
+                        $trace->step('room_type_text_conflict', [
+                            'photo_question_key' => $photoQuestionKey,
+                            'section_instance_key' => $sectionInstanceKey,
+                        ]);
+                    } else {
+                        // Invalidate only after a successful, validated provider result.
+                        $this->invalidateDerivedState($intake, $photoQuestionKey, $sectionInstanceKey, $profile);
+                        $trace->step('invalidate_previous', [
+                            'photo_question_key' => $photoQuestionKey,
+                            'section_instance_key' => $sectionInstanceKey,
+                        ]);
+                        $this->storeObservation($intake, $run, $output, $uploads, $photoQuestionKey, $sectionInstanceKey, $profile);
+                        $applied = $this->applyDerivedAnswers($intake, $output, $sectionInstanceKey, $profile);
+                        $trace->step('apply', $applied);
+                    }
                     $trace->recordFieldOutcomes(
                         $this->fieldOutcomesFromPhoto($intake, $output, $profile, $applied, $sectionInstanceKey),
                     );
@@ -385,16 +399,30 @@ final class DerivePhotoAnswers
         DB::transaction(function () use ($intake, $photoQuestionKey, $sectionInstanceKey, $profile): void {
             Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
 
+            $factKey = $this->factKey($photoQuestionKey, $sectionInstanceKey);
+            $hadPhotoFact = IntakeExternalFact::query()
+                ->where('intake_id', $intake->id)
+                ->where('fact_key', $factKey)
+                ->where('source', self::SOURCE)
+                ->exists();
+
             IntakeExternalFact::query()
                 ->where('intake_id', $intake->id)
-                ->where('fact_key', $this->factKey($photoQuestionKey, $sectionInstanceKey))
+                ->where('fact_key', $factKey)
                 ->where('source', self::SOURCE)
                 ->delete();
 
+            $questionKeys = $profile->questionKeys();
+            $sources = PrefillSources::photoInvalidationSources();
+            // Legacy `ai`-rijen alleen wissen als er een AI-fotoanalyse-fact was (consistent met meterkast).
+            if ($hadPhotoFact) {
+                $sources[] = PrefillSources::AI_LEGACY;
+            }
+
             $query = IntakeAnswer::query()
                 ->where('intake_id', $intake->id)
-                ->whereIn('question_key', $profile->questionKeys())
-                ->whereIn('prefill_source', [self::SOURCE_DERIVED, self::SOURCE_SUGGESTED]);
+                ->whereIn('question_key', $questionKeys)
+                ->whereIn('prefill_source', array_values(array_unique($sources)));
 
             $sectionInstanceKey === null
                 ? $query->whereNull('section_instance_key')
@@ -419,6 +447,309 @@ final class DerivePhotoAnswers
         }
 
         return $schema;
+    }
+
+    /**
+     * @param  array<string, mixed>  $output
+     */
+    private function hasRoomTypeTextConflict(
+        Intake $intake,
+        array $output,
+        ?string $sectionInstanceKey,
+        PhotoDerivationProfile $profile,
+    ): bool {
+        if ($profile->name !== 'room') {
+            return false;
+        }
+
+        $roomTypeField = null;
+        foreach ($profile->fields as $candidate) {
+            if ($candidate->questionKey === 'room_type') {
+                $roomTypeField = $candidate;
+                break;
+            }
+        }
+
+        if ($roomTypeField === null) {
+            return false;
+        }
+
+        $photoType = (string) ($output[$roomTypeField->outputKey] ?? 'unknown');
+        if ($photoType === 'unknown') {
+            return false;
+        }
+
+        $typeConflict = $this->textConflict($intake, $roomTypeField, $sectionInstanceKey, $photoType);
+        if ($typeConflict === null) {
+            return false;
+        }
+
+        $this->recordPhotoTextConflict(
+            $intake,
+            'room_type',
+            $sectionInstanceKey,
+            $typeConflict,
+            $photoType,
+        );
+
+        return true;
+    }
+
+    /**
+     * @param  array<string, mixed>  $output
+     * @return array{derived: list<string>, suggested: list<string>}
+     */
+    private function applyDerivedAnswers(
+        Intake $intake,
+        array $output,
+        ?string $sectionInstanceKey,
+        PhotoDerivationProfile $profile,
+    ): array {
+        $confidence = (string) $output['confidence'];
+        $applied = [];
+
+        // Conflict is al afgehandeld vóór invalidate; hier alleen fills.
+        // BL-074: stopcontactstatus altijd vastleggen zodat een extra wandfoto kan
+        // verschijnen — ook bij lage zekerheid — zonder een ja/nee-klantvraag.
+        if ($profile->name === 'room') {
+            $outletApplied = $this->applyRoomOutletStatus(
+                $intake,
+                $output,
+                $sectionInstanceKey,
+                $confidence,
+            );
+
+            if ($outletApplied !== null) {
+                $applied[] = $outletApplied;
+            }
+        }
+
+        if ($confidence === 'low') {
+            return ['derived' => $applied, 'suggested' => []];
+        }
+
+        $source = $confidence === 'high' ? self::SOURCE_DERIVED : self::SOURCE_SUGGESTED;
+
+        foreach ($profile->fields as $field) {
+            if ($field->questionKey === 'room_outlet_status') {
+                continue;
+            }
+
+            $value = (string) ($output[$field->outputKey] ?? 'unknown');
+
+            if ($value === 'unknown') {
+                continue;
+            }
+
+            $conflict = $this->textConflict($intake, $field, $sectionInstanceKey, $value);
+            if ($conflict !== null) {
+                $this->recordPhotoTextConflict($intake, $field->questionKey, $sectionInstanceKey, $conflict, $value);
+
+                continue;
+            }
+
+            if (! $this->mayOverwrite($intake, $field, $sectionInstanceKey)) {
+                continue;
+            }
+
+            $this->saveIntakeAnswer->handle(
+                $intake,
+                $field->questionKey,
+                $sectionInstanceKey,
+                $field->answerValue($value),
+                $source,
+            );
+
+            $applied[] = $field->questionKey;
+        }
+
+        return $confidence === 'high'
+            ? ['derived' => $applied, 'suggested' => []]
+            : ['derived' => [], 'suggested' => $applied];
+    }
+
+    /**
+     * @return array{source: string, value: mixed}|null
+     */
+    private function textConflict(
+        Intake $intake,
+        DerivedAnswerField $field,
+        ?string $sectionInstanceKey,
+        string $photoValue,
+    ): ?array {
+        // Afgeleide grootte uit L×B telt niet als tekstfeit tegen foto-size.
+        if ($field->questionKey === 'room_size_indication') {
+            return null;
+        }
+
+        $query = IntakeAnswer::query()
+            ->where('intake_id', $intake->id)
+            ->where('question_key', $field->questionKey);
+
+        $sectionInstanceKey === null
+            ? $query->whereNull('section_instance_key')
+            : $query->where('section_instance_key', $sectionInstanceKey);
+
+        $existing = $query->first();
+        if (! $existing instanceof IntakeAnswer || ! PrefillSources::isTextSide($existing->prefill_source)) {
+            return null;
+        }
+
+        // derived_lxw op oppervlak: wel tekstzijde voor overwrite-guard, maar size apart hierboven.
+        if ($existing->prefill_source === PrefillSources::DERIVED_LXW
+            && $field->questionKey === 'room_area_m2') {
+            return null;
+        }
+
+        $existingComparable = $existing->value['value'] ?? $existing->value['bool'] ?? $existing->value['number'] ?? null;
+        $photoComparable = $field->answerValue($photoValue)['value']
+            ?? $field->answerValue($photoValue)['bool']
+            ?? $field->answerValue($photoValue)['number']
+            ?? null;
+
+        if ($existingComparable === $photoComparable) {
+            return null;
+        }
+
+        return [
+            'source' => (string) $existing->prefill_source,
+            'value' => $existing->value,
+        ];
+    }
+
+    /**
+     * @param  array{source: string, value: mixed}  $conflict
+     */
+    private function recordPhotoTextConflict(
+        Intake $intake,
+        string $questionKey,
+        ?string $sectionInstanceKey,
+        array $conflict,
+        string $photoValue,
+    ): void {
+        $code = 'photo_text_conflict:'.$questionKey.($sectionInstanceKey !== null ? ':'.$sectionInstanceKey : '');
+
+        $existingPoint = IntakeAttentionPoint::query()
+            ->where('intake_id', $intake->id)
+            ->where('code', $code)
+            ->where('status', AttentionPointStatus::Proposed)
+            ->first();
+
+        $label = 'Foto wijkt af van de aanvraagtekst bij “'.$questionKey.'”'
+            .($sectionInstanceKey !== null ? ' ('.$sectionInstanceKey.')' : '')
+            .'. Tekst blijft leidend; foto-uitkomst is voorstel ('.$photoValue.').';
+
+        if ($existingPoint instanceof IntakeAttentionPoint) {
+            $existingPoint->update([
+                'label' => $label,
+                'ai_confidence' => 'medium',
+            ]);
+
+            return;
+        }
+
+        IntakeAttentionPoint::query()->create([
+            'intake_id' => $intake->id,
+            'source' => AttentionPointSource::Ai,
+            'code' => $code,
+            'label' => $label,
+            'status' => AttentionPointStatus::Proposed,
+            'ai_confidence' => 'medium',
+            'evidence' => [
+                [
+                    'source_type' => 'answer',
+                    'reference' => $questionKey.($sectionInstanceKey !== null ? '::'.$sectionInstanceKey : ''),
+                ],
+            ],
+            'is_resolved' => false,
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $output
+     */
+    private function applyRoomOutletStatus(
+        Intake $intake,
+        array $output,
+        ?string $sectionInstanceKey,
+        string $confidence,
+    ): ?string {
+        $field = null;
+
+        foreach (PhotoDerivationProfile::require('room')->fields as $candidate) {
+            if ($candidate->questionKey === 'room_outlet_status') {
+                $field = $candidate;
+                break;
+            }
+        }
+
+        if ($field === null || ! $this->mayOverwrite($intake, $field, $sectionInstanceKey)) {
+            return null;
+        }
+
+        if (! $this->intakeHasQuestion($intake, 'room_outlet_status')) {
+            return null;
+        }
+
+        $raw = (string) ($output['room_outlet_status'] ?? 'unknown');
+        $status = ($confidence === 'high' && $raw === 'present')
+            ? 'present'
+            : 'needs_photo';
+
+        $this->saveIntakeAnswer->handle(
+            $intake,
+            'room_outlet_status',
+            $sectionInstanceKey,
+            ['value' => $status],
+            self::SOURCE_DERIVED,
+        );
+
+        return 'room_outlet_status';
+    }
+
+    private function intakeHasQuestion(Intake $intake, string $questionKey): bool
+    {
+        $intake->loadMissing('templateVersion.sections.questions');
+
+        foreach ($intake->templateVersion->sections as $section) {
+            foreach ($section->questions as $question) {
+                if ($question->key === $questionKey) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * An answer the applicant, installer or text-AI already gave always wins over a photo fill.
+     * room_type from a previous photo of the same room remains correctable by a later photo.
+     */
+    private function mayOverwrite(Intake $intake, DerivedAnswerField $field, ?string $sectionInstanceKey): bool
+    {
+        $query = IntakeAnswer::query()
+            ->where('intake_id', $intake->id)
+            ->where('question_key', $field->questionKey);
+
+        $sectionInstanceKey === null
+            ? $query->whereNull('section_instance_key')
+            : $query->where('section_instance_key', $sectionInstanceKey);
+
+        $existing = $query->first();
+
+        if (! $existing instanceof IntakeAnswer) {
+            return true;
+        }
+
+        return PrefillSources::photoMayOverwrite($existing->prefill_source);
+    }
+
+    private function factKey(string $photoQuestionKey, ?string $sectionInstanceKey): string
+    {
+        return $sectionInstanceKey === null
+            ? $photoQuestionKey.'_derivation'
+            : $photoQuestionKey.'_derivation::'.$sectionInstanceKey;
     }
 
     /** @return Collection<int, IntakeUpload> */
@@ -557,156 +888,5 @@ final class DerivePhotoAnswers
                 'captured_at' => now(),
             ],
         );
-    }
-
-    /**
-     * @param  array<string, mixed>  $output
-     * @return array{derived: list<string>, suggested: list<string>}
-     */
-    private function applyDerivedAnswers(
-        Intake $intake,
-        array $output,
-        ?string $sectionInstanceKey,
-        PhotoDerivationProfile $profile,
-    ): array {
-        $confidence = (string) $output['confidence'];
-        $applied = [];
-
-        // BL-074: stopcontactstatus altijd vastleggen zodat een extra wandfoto kan
-        // verschijnen — ook bij lage zekerheid — zonder een ja/nee-klantvraag.
-        if ($profile->name === 'room') {
-            $outletApplied = $this->applyRoomOutletStatus(
-                $intake,
-                $output,
-                $sectionInstanceKey,
-                $confidence,
-            );
-
-            if ($outletApplied !== null) {
-                $applied[] = $outletApplied;
-            }
-        }
-
-        if ($confidence === 'low') {
-            return ['derived' => $applied, 'suggested' => []];
-        }
-
-        $source = $confidence === 'high' ? self::SOURCE_DERIVED : self::SOURCE_SUGGESTED;
-
-        foreach ($profile->fields as $field) {
-            if ($field->questionKey === 'room_outlet_status') {
-                continue;
-            }
-
-            $value = (string) ($output[$field->outputKey] ?? 'unknown');
-
-            if ($value === 'unknown') {
-                continue;
-            }
-
-            if (! $this->mayOverwrite($intake, $field, $sectionInstanceKey)) {
-                continue;
-            }
-
-            $this->saveIntakeAnswer->handle(
-                $intake,
-                $field->questionKey,
-                $sectionInstanceKey,
-                $field->answerValue($value),
-                $source,
-            );
-
-            $applied[] = $field->questionKey;
-        }
-
-        return $confidence === 'high'
-            ? ['derived' => $applied, 'suggested' => []]
-            : ['derived' => [], 'suggested' => $applied];
-    }
-
-    /**
-     * @param  array<string, mixed>  $output
-     */
-    private function applyRoomOutletStatus(
-        Intake $intake,
-        array $output,
-        ?string $sectionInstanceKey,
-        string $confidence,
-    ): ?string {
-        $field = null;
-
-        foreach (PhotoDerivationProfile::require('room')->fields as $candidate) {
-            if ($candidate->questionKey === 'room_outlet_status') {
-                $field = $candidate;
-                break;
-            }
-        }
-
-        if ($field === null || ! $this->mayOverwrite($intake, $field, $sectionInstanceKey)) {
-            return null;
-        }
-
-        if (! $this->intakeHasQuestion($intake, 'room_outlet_status')) {
-            return null;
-        }
-
-        $raw = (string) ($output['room_outlet_status'] ?? 'unknown');
-        $status = ($confidence === 'high' && $raw === 'present')
-            ? 'present'
-            : 'needs_photo';
-
-        $this->saveIntakeAnswer->handle(
-            $intake,
-            'room_outlet_status',
-            $sectionInstanceKey,
-            ['value' => $status],
-            self::SOURCE_DERIVED,
-        );
-
-        return 'room_outlet_status';
-    }
-
-    private function intakeHasQuestion(Intake $intake, string $questionKey): bool
-    {
-        $intake->loadMissing('templateVersion.sections.questions');
-
-        foreach ($intake->templateVersion->sections as $section) {
-            foreach ($section->questions as $question) {
-                if ($question->key === $questionKey) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * An answer the applicant or installer already gave always wins over a derivation.
-     */
-    private function mayOverwrite(Intake $intake, DerivedAnswerField $field, ?string $sectionInstanceKey): bool
-    {
-        $query = IntakeAnswer::query()
-            ->where('intake_id', $intake->id)
-            ->where('question_key', $field->questionKey);
-
-        $sectionInstanceKey === null
-            ? $query->whereNull('section_instance_key')
-            : $query->where('section_instance_key', $sectionInstanceKey);
-
-        $existing = $query->first();
-
-        if (! $existing instanceof IntakeAnswer) {
-            return true;
-        }
-
-        return in_array($existing->prefill_source, [self::SOURCE_DERIVED, self::SOURCE_SUGGESTED], true);
-    }
-
-    private function factKey(string $photoQuestionKey, ?string $sectionInstanceKey): string
-    {
-        return $sectionInstanceKey === null
-            ? $photoQuestionKey.'_derivation'
-            : $photoQuestionKey.'_derivation::'.$sectionInstanceKey;
     }
 }
