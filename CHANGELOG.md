@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Added
+
+- **AI-trace retentie/export (BL-125):** `ai_traces.intake_id` nullable (`nullOnDelete`) + denormalised `intake_ref_id`/`is_demo`/`request_id` zodat traces demo-purge overleven; retentie alleen via scheduled `ai:purge-traces`. Granulaire `AiTraceCallType`s, verplichte velden (prompt/model/request/photo_refs/raw/parsed/tokens/kosten/timings) via recorder/client, uitgebreide `AiTraceRedactor` (naam/adres), `ai:traces:export` (jsonl+md, bundling, auto-split, manifest). Demo-purge verwijdert ook `intakes/{uuid}/`. PDF-embed downscaled foto’s (max 1600px, JPEG ~75) zonder originelen te wijzigen. `ai_runs` blijft cascadeOnDelete (gedocumenteerd).
+
 ### Fixed
 
 - **503 bij gelijktijdige fotouploads (3 okt 2026, prod LiteSpeed/LVE):** AI-fotobeoordeling (`DerivePhotoAnswers`, `AssessFuseboxPhotos`, `AssessFollowUpPhotoSubject`) liep synchroon in de Livewire-request en hield PHP-workers tot `AI_TIMEOUT_SECONDS` vast. Beoordeling draait nu in `AssessUploadedPhotoJob` op queue `ai-photo` (uniek per upload); upload doet alleen opslaan + lokale usability. Wizard toont bestaande fases en pikt het resultaat op via `wire:poll.2s` (`pollPendingAssessments`). Soft-fail → `not_assessed` met klanttekst “We konden je foto nu niet automatisch beoordelen; de installateur kijkt mee.” Elke foto-AI schrijft precies één `photo_analysis`-trace gekoppeld aan `ai_run`.
@@ -15,6 +19,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 - **Queue/cron (BL-121):** fotobeoordeling op `ai-photo`; Laravel-scheduler start elk uur een langere `queue:work --queue=ai-photo,default --max-time=3500 --sleep=1` met `withoutOverlapping`. Minutelijk `queue:work` blijft als vangnet — zie `docs/DEPLOYMENT.md`.
 - **Airco v21 / matenscherm + optionele route (BL-124):** lengte en breedte op één scherm (`wizard_group`); optioneel bij bekende m²; `pipe_route_photos`/`drain_photo`/`indoor_unit_position_photo` optioneel met “Weet ik niet / sla over”; muurfoto’s binnen/buiten op gewenste binnenunitplek; route blijft open punt voor de installateur.
+
 
 ### Fixed
 

@@ -84,7 +84,7 @@ final class AnalyzeRoutePhoto
             'started_at' => now(),
         ]);
 
-        $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoAnalysis, [
+        $trace = $this->traceRecorder->start($intake, AiTraceCallType::Route, [
             'ai_run_id' => $run->id,
             'upload_id' => $upload->id,
             'subject_type' => 'pipe_route_segment',

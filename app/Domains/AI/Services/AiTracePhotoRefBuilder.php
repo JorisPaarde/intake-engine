@@ -25,6 +25,7 @@ final class AiTracePhotoRefBuilder
 
         return [
             'upload_id' => $upload->id,
+            'filename' => $upload->original_filename,
             'question_key' => $upload->question_key,
             'section_instance_key' => $upload->section_instance_key,
             'category' => $category,

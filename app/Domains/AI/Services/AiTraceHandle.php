@@ -481,6 +481,7 @@ final class AiTraceHandle
                 'error_message' => $message,
                 'finished_at' => now(),
             ]);
+            $this->ensureRequiredFields();
             $this->appendStep('succeed', null, $processMs);
             $this->persist();
         });
@@ -510,11 +511,44 @@ final class AiTraceHandle
                 'error_message' => $safe,
                 'finished_at' => now(),
             ]);
+            $this->ensureRequiredFields();
             $this->appendStep('fail', ['error' => Str::limit($safe, 500, '')], $processMs);
             $this->persist();
         });
 
         return $this->trace;
+    }
+
+    /**
+     * Fill required diagnostic fields so export/QA never sees unexpected nulls
+     * for successful or failed provider/local calls.
+     */
+    private function ensureRequiredFields(): void
+    {
+        if ($this->noop) {
+            return;
+        }
+
+        $defaults = [
+            'prompt_version' => $this->trace->prompt_version ?? 'unknown',
+            'model' => $this->trace->model ?? ($this->trace->provider ?? 'unknown'),
+            'request_snapshot' => $this->trace->request_snapshot ?? ['system' => null, 'user' => null],
+            'photo_refs' => $this->trace->photo_refs ?? [],
+            'raw_response' => $this->trace->raw_response ?? '',
+            'parsed_response' => $this->trace->parsed_response ?? [],
+            'validation_errors' => $this->trace->validation_errors ?? [],
+            'normalizations' => $this->trace->normalizations ?? [],
+            'input_tokens' => $this->trace->input_tokens ?? 0,
+            'output_tokens' => $this->trace->output_tokens ?? 0,
+            'total_tokens' => $this->trace->total_tokens ?? (($this->trace->input_tokens ?? 0) + ($this->trace->output_tokens ?? 0)),
+            'provider_ms' => $this->trace->provider_ms ?? 0,
+            'process_ms' => $this->trace->process_ms ?? 0,
+            'estimated_cost_cents' => $this->trace->estimated_cost_cents ?? 0,
+            'intake_ref_id' => $this->trace->intake_ref_id ?? $this->trace->intake_id,
+            'request_id' => $this->trace->request_id ?? (string) Str::uuid(),
+        ];
+
+        $this->assign($defaults);
     }
 
     /**

@@ -1,6 +1,6 @@
 # Databaseschema — Digitale Opname
 
-> **Documentversie:** 3.15 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.17 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: dit document beschrijft het **geïmplementeerde schema**, inclusief de uitbreidende dossiermigratie van BL-030 en BL-035 t/m BL-042 en de zelfstandige publieke interesse-inzendingen van BL-043. Bestaande antwoord-, bron-, upload-, review- en routetabellen blijven bewust bestaan naast de nieuwe dossierobjecten.
 
@@ -552,36 +552,41 @@ BL-026 gebruikt deze tabel samen met bestaande intake-timestamps en relaties voo
 | `started_at` / `finished_at` | timestamp nullable | |
 | `timestamps` | | |
 
-### `ai_traces` / `ai_trace_steps` (BL-116)
+### `ai_traces` / `ai_trace_steps` (BL-116 + BL-125)
 
-Volledige AI-ketenlogging (request → response → parse → dossier/restvragen) naast de compacte `ai_runs`. Zie [docs/ai.md § AI-traces](ai.md#ai-traces-bl-116-klanttest-2026-10-02).
+Volledige AI-ketenlogging (request → response → parse → dossier/restvragen) naast de compacte `ai_runs`. Zie [docs/ai.md § AI-traces](ai.md#ai-traces-bl-116--bl-124).
 
 | Kolom (`ai_traces`) | Type | Toelichting |
 |---------------------|------|-------------|
 | `trace_id` | uuid UK | Publieke correlatie-ID |
-| `intake_id` | FK cascade | |
+| `intake_id` | FK nullable, **nullOnDelete** | Overleeft demo hard-delete |
+| `intake_ref_id` | bigint nullable | Denormalised intake-id voor export/query na purge |
+| `is_demo` | bool | Denormalised demo-flag |
+| `request_id` | string nullable | HTTP/Livewire request-id of `job:{id}` |
 | `ai_run_id` | FK nullable | Koppeling naar bestaande run |
 | `upload_id` | bigint nullable | Foto-upload in dezelfde keten |
 | `subject_type` / `subject_id` | string nullable | Kamer/onderdeel |
-| `call_type` | string | `text_extraction` / `photo_analysis` / `synthesis` / … |
+| `call_type` | string | o.a. `text_extraction`, `request_intent`, `photo_derive`, `photo_assess`, `follow_up_photo_subject`, `summary`, `attention_points`, `dossier_synthesis`, `route`, `route_review` |
 | `status` | string | `pending` / `succeeded` / `failed` |
 | `provider` / `model` / `model_parameters` | | Werkelijk gebruikte provider/model |
 | `prompt_version` | string nullable | |
 | `correlation_id` / `parent_trace_id` | uuid nullable | Gedeelde uploadketen / escalatie-ouder |
 | `fallback_used` / `retry_count` | | |
-| `request_snapshot` / `photo_refs` | json nullable | Geredigeerd; foto-refs zonder base64 |
+| `request_snapshot` / `photo_refs` | json nullable | Geredigeerd; foto-refs zonder base64 (wel filename) |
 | `raw_response` | mediumtext nullable | |
 | `finish_reason` | string nullable | |
 | `parsed_response` / `validation_errors` / `normalizations` / `field_outcomes` | json nullable | Normalizations: `{field, from, to, rule}` |
 | `dossier_before` / `dossier_after` | json nullable | Compacte antwoordsnapshots |
 | `remaining_questions_before` / `after` | json nullable | Zichtbare klantstappen |
 | `persist_ms` / `network_upload_ms` / `preprocess_ms` / `provider_ms` / `process_ms` | unsigned int nullable | P2-fasen |
-| tokens / `estimated_cost_cents` | | Indien beschikbaar |
+| tokens / `estimated_cost_cents` | | Indien beschikbaar (defaults 0 bij lokale calls) |
 | `error_message` / `started_at` / `finished_at` | | |
 
 `ai_trace_steps`: `step_key`, `sequence`, `payload`, `duration_ms`, `recorded_at` — o.a. `normalize`, `apply`, `customer_step` voor parallelle stromen via `AiTraceHandle::step()`.
 
 `intake_uploads.processing_timings` (json nullable): `persist_ms`, `preprocess_ms`, `dossier_width`/`dossier_height`/`analysis_width`/`analysis_height`, optioneel `network_upload_ms` (client, via `AiTraceRecorder::recordNetworkUploadMs`) en `correlation_id`.
+
+**Note:** `ai_runs.intake_id` blijft cascadeOnDelete (operationeel/idempotent; diagnostiek zit in traces).
 
 ## Cascadegedrag
 

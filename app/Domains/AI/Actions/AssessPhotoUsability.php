@@ -74,7 +74,7 @@ final class AssessPhotoUsability
         ]);
 
         $trace = $intake instanceof Intake
-            ? $this->traceRecorder->start($intake, AiTraceCallType::PhotoAnalysis, array_filter([
+            ? $this->traceRecorder->start($intake, AiTraceCallType::PhotoAssess, array_filter([
                 'ai_run_id' => $run->id,
                 'upload_id' => $upload->id,
                 'subject_type' => 'upload',

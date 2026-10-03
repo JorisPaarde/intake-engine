@@ -11,12 +11,16 @@ use App\Enums\AiTraceStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 /**
  * @property string $trace_id
  * @property string|null $correlation_id
+ * @property string|null $request_id
  * @property string|null $parent_trace_id
- * @property int $intake_id
+ * @property int|null $intake_id
+ * @property int|null $intake_ref_id
+ * @property bool $is_demo
  * @property int|null $ai_run_id
  * @property int|null $upload_id
  * @property string|null $subject_type
@@ -51,14 +55,21 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int|null $total_tokens
  * @property int|null $estimated_cost_cents
  * @property string|null $error_message
+ * @property Carbon|null $started_at
+ * @property Carbon|null $finished_at
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
  */
 class AiTrace extends Model
 {
     protected $fillable = [
         'trace_id',
         'correlation_id',
+        'request_id',
         'parent_trace_id',
         'intake_id',
+        'intake_ref_id',
+        'is_demo',
         'ai_run_id',
         'upload_id',
         'subject_type',
@@ -116,8 +127,10 @@ class AiTrace extends Model
             'dossier_after' => 'array',
             'remaining_questions_before' => 'array',
             'remaining_questions_after' => 'array',
+            'is_demo' => 'boolean',
             'fallback_used' => 'boolean',
             'retry_count' => 'integer',
+            'intake_ref_id' => 'integer',
             'network_upload_ms' => 'integer',
             'persist_ms' => 'integer',
             'preprocess_ms' => 'integer',

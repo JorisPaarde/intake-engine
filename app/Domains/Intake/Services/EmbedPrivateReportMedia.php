@@ -9,9 +9,19 @@ use DOMDocument;
 use DOMElement;
 use DOMXPath;
 use Illuminate\Support\Facades\Storage;
+use Throwable;
 
+/**
+ * Embeds private intake photos as data-URIs for PDF rendering only.
+ * Originals on disk stay untouched; embeds are downscaled (max 1600px long edge,
+ * JPEG ~quality 75) to keep rapport.pdf small.
+ */
 final class EmbedPrivateReportMedia
 {
+    public const PDF_MAX_LONG_EDGE = 1600;
+
+    public const PDF_JPEG_QUALITY = 75;
+
     public function handle(Intake $intake, string $html): string
     {
         $intake->loadMissing('uploads');
@@ -59,13 +69,67 @@ final class EmbedPrivateReportMedia
                 continue;
             }
 
+            $bytes = $disk->get($upload->path);
+            if (! is_string($bytes) || $bytes === '') {
+                continue;
+            }
+
+            [$mime, $embedded] = $this->downscaleForPdf($bytes, (string) $upload->mime_type);
+
             $node->setAttribute(
                 'src',
-                'data:'.$upload->mime_type.';base64,'.base64_encode($disk->get($upload->path)),
+                'data:'.$mime.';base64,'.base64_encode($embedded),
             );
             $node->removeAttribute('data-intake-upload-id');
         }
 
         return $document->saveHTML() ?: $html;
+    }
+
+    /**
+     * @return array{0: string, 1: string} mime + binary
+     */
+    public function downscaleForPdf(string $bytes, string $mimeType): array
+    {
+        try {
+            $image = @imagecreatefromstring($bytes);
+            if ($image === false) {
+                return [$mimeType, $bytes];
+            }
+
+            $width = imagesx($image);
+            $height = imagesy($image);
+            $longEdge = max($width, $height);
+            if ($longEdge > self::PDF_MAX_LONG_EDGE) {
+                $scale = self::PDF_MAX_LONG_EDGE / $longEdge;
+                $targetW = max(1, (int) round($width * $scale));
+                $targetH = max(1, (int) round($height * $scale));
+                $resized = imagecreatetruecolor($targetW, $targetH);
+                if ($resized === false) {
+                    imagedestroy($image);
+
+                    return [$mimeType, $bytes];
+                }
+
+                imagealphablending($resized, true);
+                imagesavealpha($resized, true);
+                imagecopyresampled($resized, $image, 0, 0, 0, 0, $targetW, $targetH, $width, $height);
+                imagedestroy($image);
+                $image = $resized;
+            }
+
+            ob_start();
+            imagejpeg($image, null, self::PDF_JPEG_QUALITY);
+            $jpeg = (string) ob_get_clean();
+            imagedestroy($image);
+
+            if ($jpeg === '') {
+                return [$mimeType, $bytes];
+            }
+
+            return ['image/jpeg', $jpeg];
+        } catch (Throwable) {
+            return [$mimeType, $bytes];
+        }
     }
 }
