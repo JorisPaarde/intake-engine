@@ -220,9 +220,7 @@ final class CompletenessChecker
             return $section->title;
         }
 
-        $photoQuestion = $this->findQuestion($version, $photoKey);
-
-        return $photoQuestion?->label;
+        return null;
     }
 
     private function formatDecisionValue(IntakeAnswer $answer, ?IntakeQuestion $question): string

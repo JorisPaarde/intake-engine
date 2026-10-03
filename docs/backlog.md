@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.65 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.66 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -574,10 +574,10 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Status:** done · **Prioriteit:** high · **Datum:** 2026-10-03 · **PR:** #115 · **Epic:** E3/E7 · **Band:** klanttest P0 · **Volgt op:** BL-077/103 · **Ref:** productregels Joris + Notion-klanttest · **ADR:** [0015](decisions/0015-runtime-filter-technical-decision-questions.md)
 - **Aanleiding:** case 80 — na Condensafvoer “Weet ik niet” kreeg de klant een verplichte ja/nee over condenspomp; hetzelfde patroon bij leidingroute, boringen en technische stroomvragen.
 - **Doel:** klant toont situatie (foto/observatie) en wensen; technische beslissingen (pomp, route, boringen, elektrische voorziening) blijven open voor installateur; AI mag voorstellen; geen stilzwijgende ja/nee-default.
-- **Scope:** alleen `TechnicalDecisionKeys` (geen meta-flag); runtime-klantfilter + zichtbaarheidsbypass in klantmodus (ADR-0015); airco v17 optionele drain-observatie (herformuleerde opties) + altijd zichtbare `drain_photo` (verplicht bij leeg/onbekend); optionele `outdoor_mount_type`; leesbare AI-/klantlabels op `*_open`; `dossier-synthesis-v4` verbiedt technische klanttaken.
+- **Scope:** `VisibilityResolver`+`TechnicalDecisionKeys` (ADR-0015); technische bron zonder antwoord = voldaan in alle modi; airco v17 optionele drain-observatie + altijd zichtbare `drain_photo`; optionele `outdoor_mount_type`; leesbare AI-/klantlabels op `*_open`; `dossier-synthesis-v4`.
 - **Niet in scope:** foto-first/bekende velden (andere stroom); afhandelen van open punten (BL-117); herberekenen open-puntlabel na late fotoafleiding; rebase op #117 tot gevraagd.
 - **Acceptatie:** klant rondt af zonder verzonnen techniek; “Weet ik niet” → afvoerfoto (ook op v16); open punten blijven staan (ook bij AI-/klantwaarde); Pest + `composer check` groen.
-- **Resultaat:** PR #115; review-rondes 1–2.
+- **Resultaat:** PR #115; review-rondes 1–3.
 ### BL-115 — Gebruikte/ongeldige klantlink: NL-pagina i.p.v. 404
 
 - **Status:** done · **Prioriteit:** medium · **Datum:** 2026-10-02 · **Epic:** E7 · **Volgt op:** BL-038/066

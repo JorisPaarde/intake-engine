@@ -1,6 +1,6 @@
 # Vragen- en takenengine
 
-> **Documentversie:** 2.23 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.24 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: de templatewizard is **geïmplementeerd t/m airco v17** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md). UI-taal: [language.md](language.md).
 
@@ -187,7 +187,7 @@ Secties (stabiele keys over versies):
 
 ### v1 → v2 (BL-017, toenmalige vragenreductie)
 
-V2 introduceerde onderstaande vraagreductie. Nieuwe intakes gebruiken inmiddels de laatste gepubliceerde **v17**; lopende/afgeronde opnames blijven op hun gepinde versie (ADR-0001). V10 verandert klanttaal en repeatable-semantiek naar gewenste ruimtes en voorkomt dat de klant een binnenunitpositie kiest; de technische single-/multi-splitkeuze staat in airco-objecten. V11 houdt die structuur en vernieuwt alleen de klantteksten naar gecontroleerd eenvoudig Nederlands. V12 herstelt offerte-kritische bewijsfoto’s (meterkast, rondom het huis) en foto-afgeleide fase/stopcontacten zonder een stapel ja/nee-vragen (BL-074). V13 zet de meterkastfoto strikt vóór `free_group_known`: geen losse vrije-groepvraag zonder foto, en geen ja/nee wanneer AI `free_group` al uit de foto haalde (BL-077). V14 kort alleen kruipruimte- en L×B×H-labels/help in (BL-082). V15 voegt de buitenunitoptie `dormer` (dakkapel) toe voor AI-catalogusprefill (BL-063/064, ADR-0013). V16 voegt optioneel `room_area_m2` toe: vloeroppervlak via L×B óf betrouwbaar m²; plafondhoogte blijft apart/optioneel (BL-101). V17 maakt `drain_location`/`outdoor_mount_type` optioneel en herformuleert afvoerobservaties; `TechnicalDecisionKeys` filtert technische sleutels op alle gepinde versies (ADR-0015), inclusief zichtbaarheidsbypass in klantmodus. AI-/klantwaarden houden `*_open`-punten open (BL-116; afhandeling BL-117).
+V2 introduceerde onderstaande vraagreductie. Nieuwe intakes gebruiken inmiddels de laatste gepubliceerde **v17**; lopende/afgeronde opnames blijven op hun gepinde versie (ADR-0001). V10 verandert klanttaal en repeatable-semantiek naar gewenste ruimtes en voorkomt dat de klant een binnenunitpositie kiest; de technische single-/multi-splitkeuze staat in airco-objecten. V11 houdt die structuur en vernieuwt alleen de klantteksten naar gecontroleerd eenvoudig Nederlands. V12 herstelt offerte-kritische bewijsfoto’s (meterkast, rondom het huis) en foto-afgeleide fase/stopcontacten zonder een stapel ja/nee-vragen (BL-074). V13 zet de meterkastfoto strikt vóór `free_group_known`: geen losse vrije-groepvraag zonder foto, en geen ja/nee wanneer AI `free_group` al uit de foto haalde (BL-077). V14 kort alleen kruipruimte- en L×B×H-labels/help in (BL-082). V15 voegt de buitenunitoptie `dormer` (dakkapel) toe voor AI-catalogusprefill (BL-063/064, ADR-0013). V16 voegt optioneel `room_area_m2` toe: vloeroppervlak via L×B óf betrouwbaar m²; plafondhoogte blijft apart/optioneel (BL-101). V17 maakt `drain_location`/`outdoor_mount_type` optioneel en herformuleert afvoerobservaties; `VisibilityResolver`+`TechnicalDecisionKeys` filteren technische sleutels (ADR-0015); technische bron zonder antwoord telt in alle modi als voldaan. AI-/klantwaarden houden `*_open` open (BL-116; afhandeling BL-117).
 
 | Wijziging | Was (v1) | Wordt (v2) |
 |-----------|----------|------------|
@@ -233,7 +233,7 @@ Vraagreductie blijft template-gestuurd:
 | `meta`-vlag | Gedrag |
 |-------------|--------|
 | `skip_when_prefilled_by: pdok` | De wizard laat de vraag weg als voor dezelfde vraag een antwoord met `prefill_source=pdok` bestaat. Zonder eenduidig bronresultaat blijft de normale vraag zichtbaar. |
-| `TechnicalDecisionKeys` | Vraag blijft in de template (AI/dossier) maar verdwijnt uit klantwizard en klantcompleetheid op **alle** gepinde versies (ADR-0015). In klantmodus tellen zichtbaarheidsregels met zo’n bron als voldaan. AI-/klantwaarden houden `*_open`-punten open (geen afhandeling hier; BL-117). |
+| `TechnicalDecisionKeys` | Via `VisibilityResolver` (`customerMode`): target verdwijnt uit klantwizard/compleetheid. Regelbron zonder antwoord telt in **elke** modus als voldaan (rapport/SummarizeIntake meegenomen). AI-/klantwaarden houden `*_open` open (BL-117). |
 
 Airco v4 gebruikte dit alleen voor `build_year`: BAG registreert dit direct op het eenduidig gekoppelde pand. v6 breidt het uit naar `building_type`, maar alleen voor het eenduidige geval — bevat het gebruiksdoel geen enkele `woonfunctie`, dan is `commercial` een feit. BAG onderscheidt appartement, tussenwoning, hoekwoning en vrijstaand níét, dus bij elke woonfunctie blijft de vraag gewoon staan: een fout voorzet kost de installateur meer dan één extra vraag.
 

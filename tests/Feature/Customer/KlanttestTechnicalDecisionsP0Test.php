@@ -17,6 +17,7 @@ use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Domains\Intake\Services\CompletenessChecker;
+use App\Domains\Intake\Services\GenerateIntakeReportHtml;
 use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Domains\Intake\Support\TechnicalDecisionKeys;
 use App\Enums\IntakeStatus;
@@ -187,6 +188,30 @@ test('v16 pinned intake shows drain_photo after Weet ik niet despite hidden natu
         ->and($steps)->not->toContain('free_group_known')
         ->and($steps)->not->toContain('pipe_distance_indication')
         ->and($steps)->toContain('drain_photo');
+});
+
+test('v16 installer report includes drain_photo row when natural_fall is unanswered', function () {
+    $intake = makeKlanttestP0Intake(16);
+
+    app(SaveIntakeAnswer::class)->handle($intake, 'drain_location', null, [
+        'value' => 'unknown',
+    ]);
+
+    $drainFixture = base_path('tests/fixtures/klanttest-20261002/gevel-extra.jpg');
+    app(StoreIntakeUpload::class)->handle(
+        $intake,
+        'drain_photo',
+        null,
+        UploadedFile::fake()->createWithContent('drain.jpg', (string) file_get_contents($drainFixture)),
+    );
+
+    $version = $intake->fresh()->templateVersion()
+        ->with(['sections.questions.options', 'sections.questions.rules'])
+        ->firstOrFail();
+    $html = app(GenerateIntakeReportHtml::class)->handle($intake->fresh(), $version);
+
+    expect($html)->toContain('Foto van de mogelijke afvoerlocatie')
+        ->and($html)->toContain('1 foto(s)');
 });
 
 test('case 80 reproduction: Weet ik niet on drain_location does not force natural_fall ja/nee', function () {
