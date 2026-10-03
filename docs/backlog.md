@@ -43,7 +43,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
 | 1 | BL-117 | Installateur kan technisch open punt afhandelen vanuit de survey-werkplek | E7/E8 | backlog | high | na PR #115 · show/rapport `*_open` |
-| — | BL-125 | AI-trace retentie na demo-purge, export, request_id, PDF-downscale | E4/E5 | in_progress | high | AI/ops · na BL-116 · demo-purge |
+| — | BL-125 | AI-trace retentie na demo-purge, export, request_id, PDF-downscale | E4/E5 | in_progress | high | AI/ops · na BL-116 · demo-purge · PR #130 |
 | — | BL-124 | Form robustness: adresvalidatie, matenscherm L+B, optionele route-/afvoerfoto, upload-timeout | E1/E3/E7 | done | high | A · klanttest P1/P3 · airco v21 · PR #127 |
 | — | BL-123 | Staging-retest: voortgang 100%, Volgende-mismatch, follow-up wrong_subject | E1/E4/E7 | done | high | na #115–#120 · case 80/81b · PR #121 |
 | — | BL-122 | Soft catalogus-prefill: lange evidence / kapotte fill dumpt niet alles | E3/E9 | done | high | regressie case 81 · PR #120 · na BL-118/120 |
@@ -596,7 +596,7 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-125 — AI-trace retentie, export, request_id en PDF-downscale
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E4/E5 · **Band:** AI/ops · **Volgt op:** BL-116
+- **Status:** in_progress · **Prioriteit:** high · **Epic:** E4/E5 · **Band:** AI/ops · **Volgt op:** BL-116 · **PR:** #130
 - **Doel:** traces overleven demo-purge (`intake_id` nullOnDelete + `intake_ref_id`/`is_demo`); retentie alleen via `ai:purge-traces`; `request_id`; consistente verplichte tracevelden per call type; `ai:traces:export` (jsonl/md, bundling, split, masking); demo-purge ruimt uploadmap op; PDF embedt downscaled foto’s (max 1600px / JPEG ~75) zonder originelen te wijzigen.
 - **Waarom niet `ai_runs`:** blijven cascadeOnDelete — operationele/idempotente apply-records zonder intake; duurzame diagnostiek zit in `ai_traces`.
 
