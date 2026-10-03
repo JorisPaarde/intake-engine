@@ -6,7 +6,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Fixed
 
-- **Photo-assessment watchdog herqueued legacy uploads (BL-134, prod v1.4.0):** migratie `2026_10_03_200000` backfillde historische uploads zonder `content_assessment` als `assessment_status=pending`, waarna `photos:requeue-pending-assessments` ze naar `AssessUploadedPhotoJob` stuurde (o.a. oude intake 23 / upload 82). Fix: migratie zet legacy pending (`attempts=0`, geen ai_run / submitted / pre-feature) om naar `not_assessed`; watchdog herqueued alleen pipeline-dispatched uploads (`attempts >= 1`), binnen max-age (24 u), op klantfase-intakes, met cap 20/run; job op submitted/closed intakes zet alleen terminal status zonder AI.
+- **Photo-assessment watchdog herqueued legacy uploads (BL-134, prod v1.4.0):** migratie `2026_10_03_200000` backfillde historische uploads zonder `content_assessment` als `assessment_status=pending`, waarna `photos:requeue-pending-assessments` ze naar `AssessUploadedPhotoJob` stuurde (o.a. oude intake 23 / upload 82 — bestaande `content_assessment` overschreven + `photo_assessment_completed` event). Fix: migratie zet legacy pending om naar terminal (`assessed` als content bestaat, anders `not_assessed`) en laat `NULL` met rust; watchdog herqueued alleen pipeline-dispatched uploads (`attempts >= 1`), binnen max-age (24 u), op klantfase-intakes, met cap 20/run — submitted/closed worden **niet** aangeraakt; job op submitted/closed seal’t alleen pipeline-status zonder AI en zonder `content_assessment` te herschrijven.
 
 ### Added
 

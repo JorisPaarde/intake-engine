@@ -106,11 +106,10 @@ final class RequeuePendingPhotoAssessmentsCommand extends Command
                         continue;
                     }
 
-                    // (c) Customer phase only (not submitted/closed/purged).
+                    // (c) Customer phase only — never touch submitted/closed/purged uploads.
                     $intake = $upload->intake;
                     if ($intake === null || ! in_array($intake->status->value, $customerStatuses, true)) {
                         $skippedIntake++;
-                        $lifecycle->ensureTerminal($upload);
 
                         continue;
                     }

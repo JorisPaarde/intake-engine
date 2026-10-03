@@ -129,12 +129,20 @@ final class PhotoAssessmentLifecycle
      * Dispatch AI job idempotently.
      * Sets assessment_attempts >= 1 as the pipeline marker so the watchdog
      * only requeues uploads the app itself dispatched (BL-134).
+     * Never dispatches for submitted/closed intakes.
      */
     public function dispatch(IntakeUpload $upload, ?string $correlationId = null): void
     {
-        $fresh = $upload->fresh() ?? $upload;
+        $fresh = $upload->fresh(['intake']) ?? $upload;
 
         if ($this->isTerminal($fresh) && ! $fresh->contentAssessment()?->needsReassessment()) {
+            return;
+        }
+
+        $intake = $fresh->intake;
+        if ($intake !== null && $intake->status->isSubmittedOrClosed()) {
+            $this->sealPreservingContent($fresh);
+
             return;
         }
 
@@ -211,5 +219,32 @@ final class PhotoAssessmentLifecycle
         }
 
         $this->markNotAssessed($fresh, $expected);
+    }
+
+    /**
+     * Flip pending → terminal WITHOUT rewriting content_assessment or firing AI.
+     * Used for submitted/closed intakes (BL-133): preserve existing verdict bytes exactly.
+     */
+    public function sealPreservingContent(IntakeUpload $upload): void
+    {
+        $fresh = $upload->fresh() ?? $upload;
+
+        if ($this->isTerminal($fresh)) {
+            return;
+        }
+
+        $assessment = $fresh->contentAssessment();
+        $status = PhotoAssessmentStatus::NotAssessed;
+
+        if ($assessment instanceof PhotoContentAssessment
+            && $assessment->status() !== PhotoContentAssessment::STATUS_NOT_ASSESSED) {
+            $status = PhotoAssessmentStatus::Assessed;
+        }
+
+        // Only pipeline columns — never rewrite content_assessment JSON.
+        $fresh->forceFill([
+            'assessment_status' => $status,
+            'assessment_queued_at' => null,
+        ])->save();
     }
 }

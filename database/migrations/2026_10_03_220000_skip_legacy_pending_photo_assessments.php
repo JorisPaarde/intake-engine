@@ -11,14 +11,9 @@ use Illuminate\Support\Facades\Schema;
  * assessment_status=pending (+ assessment_queued_at=now), which the watchdog
  * then re-dispatched to AssessUploadedPhotoJob — including submitted intakes.
  *
- * Convert legacy pending rows (attempts=0, never pipeline-dispatched) to a
- * terminal status that never triggers AI. Idempotent; down() leaves data alone.
- *
- * Criteria (any match under pending + attempts=0):
- * - no linked ai_run for this upload, OR
- * - intake already submitted/closed/purged, OR
- * - upload created before the assessment_status feature deploy, OR
- * - backfill signature (created_at << assessment_queued_at)
+ * Convert legacy pending rows to a terminal status that never triggers AI.
+ * Never creates pending. Never touches assessment_status=NULL (stays NULL).
+ * Never rewrites content_assessment JSON. Idempotent; down() leaves data alone.
  */
 return new class extends Migration
 {
@@ -37,15 +32,16 @@ return new class extends Migration
         $closedStatuses = ['completed', 'reviewed', 'cancelled'];
         $hasAiRunsUploadId = Schema::hasColumn('ai_runs', 'upload_id');
 
+        // Only pending rows — NULL assessment_status is left alone (72 legacy NULLs on prod).
         DB::table('intake_uploads')
             ->where('assessment_status', 'pending')
-            ->where('assessment_attempts', 0)
             ->orderBy('id')
             ->chunkById(200, function ($rows) use ($closedStatuses, $hasAiRunsUploadId): void {
                 foreach ($rows as $row) {
                     $intake = DB::table('intakes')->where('id', $row->intake_id)->first();
                     $intakeStatus = is_object($intake) ? (string) ($intake->status ?? '') : '';
                     $intakeMissingOrPurged = $intake === null;
+                    $intakeClosed = in_array($intakeStatus, $closedStatuses, true);
 
                     $hasAiRun = false;
                     if ($hasAiRunsUploadId) {
@@ -62,22 +58,39 @@ return new class extends Migration
                         && $row->created_at !== null
                         && strtotime((string) $row->created_at) < (strtotime((string) $row->assessment_queued_at) - 3600);
 
+                    $attempts = (int) ($row->assessment_attempts ?? 0);
+
+                    // Closed intakes: seal any pending regardless of attempts.
+                    // Otherwise only never-dispatched (attempts=0) legacy/backfill rows.
                     $shouldConvert = $intakeMissingOrPurged
-                        || in_array($intakeStatus, $closedStatuses, true)
-                        || $createdBeforeFeature
-                        || $looksLikeBackfill
-                        || ! $hasAiRun;
+                        || $intakeClosed
+                        || (
+                            $attempts === 0
+                            && ($createdBeforeFeature || $looksLikeBackfill || ! $hasAiRun)
+                        );
 
                     if (! $shouldConvert) {
                         continue;
                     }
 
+                    // Preserve existing content_assessment: assessed if present & definitive,
+                    // otherwise not_assessed. Never write pending. Never touch content_assessment.
+                    $terminal = 'not_assessed';
+                    if ($row->content_assessment !== null && $row->content_assessment !== '') {
+                        $decoded = is_string($row->content_assessment)
+                            ? json_decode($row->content_assessment, true)
+                            : $row->content_assessment;
+                        $contentStatus = is_array($decoded) ? ($decoded['status'] ?? null) : null;
+                        if (is_string($contentStatus) && $contentStatus !== 'not_assessed') {
+                            $terminal = 'assessed';
+                        }
+                    }
+
                     DB::table('intake_uploads')
                         ->where('id', $row->id)
                         ->where('assessment_status', 'pending')
-                        ->where('assessment_attempts', 0)
                         ->update([
-                            'assessment_status' => 'not_assessed',
+                            'assessment_status' => $terminal,
                             'assessment_queued_at' => null,
                         ]);
                 }

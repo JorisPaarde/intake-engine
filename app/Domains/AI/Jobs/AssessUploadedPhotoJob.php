@@ -92,14 +92,14 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
             return;
         }
 
-        // Submitted/closed intakes: never overwrite answers — terminal status only (BL-134).
+        // Submitted/closed intakes: never call AI, never overwrite content_assessment (BL-134).
         if ($upload->intake->status->isSubmittedOrClosed()) {
             Log::info('Skipping photo assessment on submitted/closed intake', [
                 'upload_id' => $this->uploadId,
                 'intake_id' => $upload->intake_id,
                 'status' => $upload->intake->status->value,
             ]);
-            $lifecycle->ensureTerminal($upload);
+            $lifecycle->sealPreservingContent($upload);
 
             return;
         }

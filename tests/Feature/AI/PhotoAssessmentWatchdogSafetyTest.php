@@ -6,9 +6,12 @@ use App\Domains\AI\Clients\FakeAiClient;
 use App\Domains\AI\Jobs\AssessUploadedPhotoJob;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\PhotoAssessmentLifecycle;
+use App\Domains\AI\Support\PhotoContentAssessment;
+use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Actions\CreateCustomerContributionRequest;
 use App\Domains\Intake\Models\ContributionTask;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeFollowUpItem;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeUpload;
@@ -206,7 +209,83 @@ test('submitted intake krijgt geen AI van AssessUploadedPhotoJob — alleen term
     )->toBe(0);
 });
 
-test('watchdog slaat submitted intakes over en zet ze terminal', function () {
+test('completed intake met bestaande content_assessment: geen AI, geen overwrite, geen event (prod intake 23)', function () {
+    $intake = bl133MakeIntake(IntakeStatus::Completed);
+
+    $originalAssessment = PhotoContentAssessment::ok(PhotoSubject::OutdoorUnit)->toArray();
+    // Normalize via fromArray so cast/round-trip keys match (customer_accepted_mismatch etc.).
+    $originalAssessment = PhotoContentAssessment::fromArray($originalAssessment)?->toArray()
+        ?? $originalAssessment;
+
+    $upload = bl133PendingUpload($intake, [
+        'question_key' => 'outdoor_unit_photo',
+        'assessment_attempts' => 1,
+        'assessment_queued_at' => now()->subMinutes(5),
+        'created_at' => now()->subDays(30),
+        'content_assessment' => $originalAssessment,
+        'assessment_status' => PhotoAssessmentStatus::Pending,
+    ]);
+
+    // Snapshot exact JSON before any job/watchdog.
+    $contentBefore = $upload->fresh()->getRawOriginal('content_assessment')
+        ?? json_encode($upload->fresh()->content_assessment);
+    $eventsBefore = IntakeActivityEvent::query()->where('intake_id', $intake->id)->count();
+    $aiRunsBefore = AiRun::query()->where('intake_id', $intake->id)->count();
+
+    FakeAiClient::reset();
+    FakeAiClient::alwaysReturn([
+        'detected_subject' => 'fusebox',
+        'subject_match' => 'no',
+        'confidence' => 'high',
+        'evidence' => 'Would overwrite to wrong_subject if AI ran.',
+        'free_group' => 'unknown',
+        'phase' => 'unknown',
+    ]);
+
+    runAssessUploadedPhotoJob($upload->id);
+
+    $upload->refresh();
+    $contentAfterJob = $upload->getRawOriginal('content_assessment')
+        ?? json_encode($upload->content_assessment);
+
+    expect($upload->assessment_status)->toBe(PhotoAssessmentStatus::Assessed)
+        ->and($upload->contentAssessment()?->status())->toBe(PhotoContentAssessment::STATUS_OK)
+        ->and($upload->contentAssessment()?->toArray())->toBe($originalAssessment)
+        ->and($contentAfterJob)->toBe($contentBefore)
+        ->and(FakeAiClient::lastRequest())->toBeNull()
+        ->and(AiRun::query()->where('intake_id', $intake->id)->count())->toBe($aiRunsBefore)
+        ->and(
+            IntakeActivityEvent::query()
+                ->where('intake_id', $intake->id)
+                ->where('event', 'photo_assessment_completed')
+                ->count()
+        )->toBe(0)
+        ->and(IntakeActivityEvent::query()->where('intake_id', $intake->id)->count())->toBe($eventsBefore);
+
+    // Watchdog must not requeue or mutate closed-intake uploads either.
+    Queue::fake([AssessUploadedPhotoJob::class]);
+    // Re-pending to simulate the bad backfill still being pending when watchdog runs.
+    $upload->forceFill([
+        'assessment_status' => PhotoAssessmentStatus::Pending,
+        'assessment_queued_at' => now()->subMinutes(5),
+        'assessment_attempts' => 1,
+        'content_assessment' => $originalAssessment,
+    ])->save();
+
+    Artisan::call('photos:requeue-pending-assessments', [
+        '--minutes' => 3,
+        '--max-attempts' => 3,
+    ]);
+
+    $upload->refresh();
+    expect($upload->assessment_status)->toBe(PhotoAssessmentStatus::Pending)
+        ->and($upload->contentAssessment()?->toArray())->toBe($originalAssessment)
+        ->and($upload->assessment_attempts)->toBe(1);
+
+    Queue::assertNothingPushed();
+});
+
+test('watchdog raakt submitted intakes niet aan', function () {
     $intake = bl133MakeIntake(IntakeStatus::Completed);
 
     $upload = bl133PendingUpload($intake, [
@@ -221,7 +300,8 @@ test('watchdog slaat submitted intakes over en zet ze terminal', function () {
     ]);
 
     $upload->refresh();
-    expect($upload->assessment_status?->isTerminal())->toBeTrue();
+    expect($upload->assessment_status)->toBe(PhotoAssessmentStatus::Pending)
+        ->and($upload->assessment_attempts)->toBe(1);
     Queue::assertNothingPushed();
 });
 
@@ -302,13 +382,23 @@ test('lifecycle dispatch zet pipeline-marker assessment_attempts >= 1', function
     Queue::assertPushed(AssessUploadedPhotoJob::class, 1);
 });
 
-test('legacy-skip migratie zet pending attempts=0 om naar not_assessed', function () {
+test('legacy-skip migratie zet pending om naar terminal en laat NULL met rust', function () {
     $closed = bl133MakeIntake(IntakeStatus::Completed);
     $legacy = bl133PendingUpload($closed, [
         'assessment_attempts' => 0,
         'created_at' => now()->subDays(40),
         'assessment_queued_at' => now()->subMinutes(1),
     ]);
+
+    $withContent = bl133PendingUpload($closed, [
+        'assessment_attempts' => 0,
+        'created_at' => now()->subDays(40),
+        'assessment_queued_at' => now()->subMinutes(1),
+        'content_assessment' => PhotoContentAssessment::ok(PhotoSubject::OutdoorUnit)->toArray(),
+        'checksum' => hash('sha256', 'with-content'),
+        'path' => 'intakes/test/bl133-with-content.jpg',
+    ]);
+    $contentBefore = $withContent->fresh()->contentAssessment()?->toArray();
 
     $open = bl133MakeIntake(IntakeStatus::InProgress);
     // Fresh pipeline upload already marked — must not be converted.
@@ -327,21 +417,43 @@ test('legacy-skip migratie zet pending attempts=0 om naar not_assessed', functio
         'path' => 'intakes/test/bl133-open-legacy.jpg',
     ]);
 
+    // NULL assessment_status must stay NULL (prod: 72 untouched legacy rows).
+    $nullStatus = IntakeUpload::query()->create([
+        'intake_id' => $closed->id,
+        'question_key' => 'outdoor_unit_photo',
+        'disk' => (string) config('filesystems.media', 'local'),
+        'path' => 'intakes/test/bl133-null-status.jpg',
+        'original_filename' => 'null.jpg',
+        'mime_type' => 'image/jpeg',
+        'size_bytes' => 1000,
+        'checksum' => hash('sha256', 'null-status'),
+        'sort_order' => 1,
+        'usability_verdict' => PhotoUsabilityVerdict::Ok,
+        'assessment_status' => null,
+        'assessment_attempts' => 0,
+    ]);
+
     $migration = require database_path('migrations/2026_10_03_220000_skip_legacy_pending_photo_assessments.php');
     expect(Schema::hasColumn('intake_uploads', 'assessment_status'))->toBeTrue();
     $migration->up();
 
     $legacy->refresh();
+    $withContent->refresh();
     $fresh->refresh();
     $openLegacy->refresh();
+    $nullStatus->refresh();
 
     expect($legacy->assessment_status)->toBe(PhotoAssessmentStatus::NotAssessed)
         ->and($legacy->assessment_queued_at)->toBeNull()
+        ->and($withContent->assessment_status)->toBe(PhotoAssessmentStatus::Assessed)
+        ->and($withContent->contentAssessment()?->toArray())->toBe($contentBefore)
         ->and($fresh->assessment_status)->toBe(PhotoAssessmentStatus::Pending)
         ->and($fresh->assessment_attempts)->toBe(1)
-        ->and($openLegacy->assessment_status)->toBe(PhotoAssessmentStatus::NotAssessed);
+        ->and($openLegacy->assessment_status)->toBe(PhotoAssessmentStatus::NotAssessed)
+        ->and($nullStatus->assessment_status)->toBeNull();
 
-    // Idempotent second run.
+    // Idempotent second run — still no pending created for NULL.
     $migration->up();
-    expect($legacy->fresh()->assessment_status)->toBe(PhotoAssessmentStatus::NotAssessed);
+    expect($legacy->fresh()->assessment_status)->toBe(PhotoAssessmentStatus::NotAssessed)
+        ->and($nullStatus->fresh()->assessment_status)->toBeNull();
 });

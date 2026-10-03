@@ -611,9 +611,9 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-134 — Hotfix: legacy photo-assessment pending niet herqueuen
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E4 · **Volgt op:** BL-127 (#133) · **Ref:** prod v1.4.0 (main 413b7a9) — intake 23 / upload 82 kreeg onterecht `photo_assessment`
+- **Status:** in_progress · **Prioriteit:** high · **Epic:** E4 · **Volgt op:** BL-127 (#133) · **Ref:** prod v1.4.0 · rebased onto main@2d0871e — intake 23 / upload 82 kreeg onterecht `photo_assessment`
 - **Aanleiding:** migratie `2026_10_03_200000` backfillde historische uploads zonder `content_assessment` als `pending` (+ `assessment_queued_at=now`). Watchdog `photos:requeue-pending-assessments` (everyMinute) herdispatched die naar `AssessUploadedPhotoJob` → AI-kosten + datawijziging op oude/submitted intakes.
-- **Doel:** (1) migratie legacy pending → `not_assessed`; (2) watchdog alleen pipeline-dispatched (`attempts>=1`) + max-age + klantfase + cap; (3) job op submitted/closed alleen terminal, geen AI; (4) Pest.
+- **Doel:** (1) migratie legacy pending → terminal (`assessed`/`not_assessed`), NULL blijft NULL; (2) watchdog alleen pipeline-dispatched (`attempts>=1`) + max-age + klantfase + cap — submitted/closed nooit aanraken; (3) job op submitted/closed: `sealPreservingContent` (geen AI, geen content_assessment-overwrite, geen event); (4) Pest incl. exacte prod-repro intake 23.
 - **Acceptatie:** legacy pending niet herqueued; verse stuck pending wél; submitted nooit AI; cap werkt; `composer check` groen.
 
 ### BL-132 — AI-trace veldverbeteringen (provider id, cost, queue, redactie)
