@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Domains\AI\Clients\FakeAiClient;
+use App\Domains\AI\Support\PhotoContentAssessment;
+use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Actions\ApprovePipeRoute;
 use App\Domains\Intake\Actions\CompleteFollowUpRound;
 use App\Domains\Intake\Actions\CompleteInstallerSurvey;
@@ -534,6 +536,8 @@ test('installer-only survey can temporarily expose exactly one targeted customer
         'size_bytes' => 100,
         'checksum' => hash('sha256', 'meterkast'),
         'sort_order' => 1,
+        // Queue assessment already finished (tests skip AssessUploadedPhotoJob).
+        'content_assessment' => PhotoContentAssessment::ok(PhotoSubject::Fusebox)->toArray(),
     ]);
 
     app(CompleteFollowUpRound::class)->handle($intake, $round, []);

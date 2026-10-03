@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Domains\AI\Actions\AssessFuseboxPhotos;
 use App\Domains\AI\Actions\AssessFollowUpPhotoSubject;
+use App\Domains\AI\Actions\AssessFuseboxPhotos;
 use App\Domains\AI\Actions\DerivePhotoAnswers;
 use App\Domains\AI\Clients\FakeAiClient;
 use App\Domains\AI\Jobs\AssessUploadedPhotoJob;
@@ -38,6 +38,7 @@ use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -99,7 +100,7 @@ function runKlanttestAssessUploadedPhotoJob(int $uploadId): void
 /**
  * Upload → queue job (faked) → run job → poll results into Livewire state.
  *
- * @return array{0: \Livewire\Features\SupportTesting\Testable, 1: IntakeUpload}
+ * @return array{0: Testable, 1: IntakeUpload}
  */
 function klanttestFollowUpUploadAndAssess($component, $item, string $fixture): array
 {

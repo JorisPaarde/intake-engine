@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Actions;
 
-use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\AI\Jobs\SuggestAttentionPointsJob;
 use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
+use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
