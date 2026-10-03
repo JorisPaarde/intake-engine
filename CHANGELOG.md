@@ -10,6 +10,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Fixed
 
+- **`ai:traces:export --output` verdubbelde `exports/`:** relatief pad is t.o.v. `storage/app/exports`; een voorvoegsel `exports/` of `storage/app/exports/` wordt weggestript. Console toont aan het eind de absolute paden van alle geschreven bestanden.
 - **503 bij gelijktijdige fotouploads (3 okt 2026, prod LiteSpeed/LVE):** AI-fotobeoordeling (`DerivePhotoAnswers`, `AssessFuseboxPhotos`, `AssessFollowUpPhotoSubject`) liep synchroon in de Livewire-request en hield PHP-workers tot `AI_TIMEOUT_SECONDS` vast. Beoordeling draait nu in `AssessUploadedPhotoJob` op queue `ai-photo` (uniek per upload); upload doet alleen opslaan + lokale usability. Wizard toont bestaande fases en pikt het resultaat op via `wire:poll.2s` (`pollPendingAssessments`). Soft-fail → `not_assessed` met klanttekst “We konden je foto nu niet automatisch beoordelen; de installateur kijkt mee.” Elke foto-AI schrijft precies één `photo_analysis`-trace gekoppeld aan `ai_run`.
 - **Adresvalidatie blijft hangen na lookup (BL-124):** `setCustomValidity` wordt gewist/herberekend na PDOK-autofill, op input/change en vóór submit; submitknop disabled terwijl de lookup loopt.
 - **Lage-resolutie-flag op verkleinde variant (BL-124):** usability checkt `original_width/height` (grootste HEIC-frame), niet de dossier-thumbnail.

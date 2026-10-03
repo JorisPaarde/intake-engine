@@ -18,7 +18,7 @@ final class ExportAiTracesCommand extends Command
         {--until= : Alleen traces tot (Y-m-d of ISO-8601)}
         {--demo-only : Alleen demo-traces (is_demo)}
         {--format= : jsonl|md; leeg = beide}
-        {--output= : Doelmap of bestandsprefix (default storage/app/exports)}';
+        {--output= : Doelmap/prefix t.o.v. storage/app/exports (of absoluut); exports/ voorvoegsel wordt niet verdubbeld}';
 
     protected $description = 'Exporteer AI-traces (gemaskeerd) als JSONL en/of Markdown, met auto-split';
 
@@ -81,6 +81,8 @@ final class ExportAiTracesCommand extends Command
             ->unique()
             ->count();
         $manifestParts = [];
+        /** @var list<string> $writtenAbsolutePaths */
+        $writtenAbsolutePaths = [];
 
         foreach ($parts as $index => $part) {
             $partNumber = $index + 1;
@@ -102,11 +104,13 @@ final class ExportAiTracesCommand extends Command
                     ? $exporter->renderJsonl($part['traces'])
                     : $exporter->renderMarkdown($part['traces'], $meta);
                 File::put($path, $body);
+                $absolute = $this->absolutePath($path);
+                $writtenAbsolutePaths[] = $absolute;
                 $written[$format] = [
-                    'path' => $path,
+                    'path' => $absolute,
                     'bytes' => strlen($body),
                 ];
-                $this->info("Schreef {$format}: {$path} (".strlen($body).' bytes)');
+                $this->info("Schreef {$format}: {$absolute} (".strlen($body).' bytes)');
             }
 
             $manifestParts[] = [
@@ -141,11 +145,12 @@ final class ExportAiTracesCommand extends Command
             $manifestPath,
             (string) json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)."\n",
         );
+        $manifestAbsolute = $this->absolutePath($manifestPath);
+        $writtenAbsolutePaths[] = $manifestAbsolute;
 
         $this->newLine();
         $this->info("Export klaar: {$traces->count()} call(s) over {$totalIntakes} intake(s) in {$partCount} part(s).");
         $this->line('Totale geschatte kosten: '.$totalCost.' cent.');
-        $this->line('Manifest: '.$manifestPath);
         foreach ($manifestParts as $part) {
             $this->line(sprintf(
                 '  part %d/%d — intakes [%s] — %d calls — ~%d bytes',
@@ -155,6 +160,12 @@ final class ExportAiTracesCommand extends Command
                 $part['call_count'],
                 $part['approx_bytes'],
             ));
+        }
+
+        $this->newLine();
+        $this->info('Bestanden (absolute paden):');
+        foreach ($writtenAbsolutePaths as $absolute) {
+            $this->line('  '.$absolute);
         }
 
         return self::SUCCESS;
@@ -207,20 +218,53 @@ final class ExportAiTracesCommand extends Command
 
     private function resolveOutputBase(): string
     {
-        $output = $this->option('output');
-        if (is_string($output) && trim($output) !== '') {
-            $path = trim($output);
-            if (! str_starts_with($path, DIRECTORY_SEPARATOR) && ! preg_match('#^[A-Za-z]:[\\\\/]#', $path)) {
-                $path = storage_path('app/exports/'.ltrim($path, '/'));
-            }
+        $exportsRoot = storage_path('app/exports');
+        File::ensureDirectoryExists($exportsRoot);
 
+        $output = $this->option('output');
+        if (! is_string($output) || trim($output) === '') {
+            return $exportsRoot.DIRECTORY_SEPARATOR.'ai-traces-'.now()->format('Ymd-His');
+        }
+
+        $path = str_replace('\\', '/', trim($output));
+
+        // Absolute paths (Unix or Windows) stay as given.
+        if (str_starts_with($path, '/') || preg_match('#^[A-Za-z]:[\\\\/]#', $path) === 1) {
+            return str_replace('/', DIRECTORY_SEPARATOR, $path);
+        }
+
+        // Relative → under storage/app/exports. Strip a leading exports/ or
+        // storage/app/exports/ so --output=exports/foo does not become
+        // storage/app/exports/exports/foo.
+        $relative = ltrim($path, '/');
+        if ($relative === 'storage/app/exports' || $relative === 'exports') {
+            $relative = '';
+        } elseif (str_starts_with($relative, 'storage/app/exports/')) {
+            $relative = substr($relative, strlen('storage/app/exports/'));
+        } elseif (str_starts_with($relative, 'exports/')) {
+            $relative = substr($relative, strlen('exports/'));
+        }
+
+        $relative = ltrim(str_replace('\\', '/', (string) $relative), '/');
+        if ($relative === '' || $relative === '.') {
+            return $exportsRoot.DIRECTORY_SEPARATOR;
+        }
+
+        return $exportsRoot.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $relative);
+    }
+
+    private function absolutePath(string $path): string
+    {
+        $real = realpath($path);
+        if (is_string($real)) {
+            return $real;
+        }
+
+        if (str_starts_with($path, DIRECTORY_SEPARATOR) || preg_match('#^[A-Za-z]:[\\\\/]#', $path) === 1) {
             return $path;
         }
 
-        $dir = storage_path('app/exports');
-        File::ensureDirectoryExists($dir);
-
-        return $dir.DIRECTORY_SEPARATOR.'ai-traces-'.now()->format('Ymd-His');
+        return base_path($path);
     }
 
     private function parseDateOption(string $name): ?Carbon
