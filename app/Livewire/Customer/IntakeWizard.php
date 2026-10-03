@@ -9,6 +9,7 @@ use App\Domains\AI\Actions\AssessPhotoUsability;
 use App\Domains\AI\Actions\DeriveIntentFromRequest;
 use App\Domains\AI\Actions\DerivePhotoAnswers;
 use App\Domains\AI\Services\AiTraceRecorder;
+use App\Domains\AI\Services\AiTraceRequestIdResolver;
 use App\Domains\AI\Services\PhotoAssessmentLifecycle;
 use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\AI\Support\PhotoDerivationProfile;
@@ -49,7 +50,6 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -3677,16 +3677,7 @@ class IntakeWizard extends Component
 
     private function correlationIdForUpload(IntakeUpload $upload): string
     {
-        $timings = $upload->processing_timings ?? [];
-        if (is_string($timings['correlation_id'] ?? null) && $timings['correlation_id'] !== '') {
-            return (string) $timings['correlation_id'];
-        }
-
-        $id = (string) Str::uuid();
-        $timings['correlation_id'] = $id;
-        $upload->update(['processing_timings' => $timings]);
-
-        return $id;
+        return app(AiTraceRequestIdResolver::class)->resolveCorrelationIdForUpload($upload);
     }
 
     private function latestUploadCorrelationId(string $questionKey, ?string $instanceKey): ?string
