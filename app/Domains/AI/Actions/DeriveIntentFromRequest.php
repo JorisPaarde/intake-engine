@@ -117,10 +117,13 @@ final class DeriveIntentFromRequest
             'ai_run_id' => $run->id,
             'provider' => 'local',
             'prompt_version' => LocalRequestIntentParser::VERSION,
-            'schema_version' => LocalRequestIntentParser::VERSION,
         ]);
-        $dossierBefore = $this->traceSnapshots->answers($intake);
-        $questionsBefore = $this->traceSnapshots->remainingQuestions($intake);
+        $dossierBefore = [];
+        $questionsBefore = [];
+        if (! $trace->isNoop()) {
+            $dossierBefore = $this->traceSnapshots->answers($intake);
+            $questionsBefore = $this->traceSnapshots->remainingQuestions($intake);
+        }
 
         try {
             $trace->recordRequest(
@@ -129,7 +132,6 @@ final class DeriveIntentFromRequest
                     'user' => ['request_reason' => $reason],
                 ],
                 promptVersion: LocalRequestIntentParser::VERSION,
-                schemaVersion: LocalRequestIntentParser::VERSION,
                 fallbackUsed: true,
             );
             $trace->recordParsed($output);
@@ -161,8 +163,19 @@ final class DeriveIntentFromRequest
 
             $run = $run->fresh() ?? $run;
             $trace->linkAiRun($run);
-            $trace->recordDossierSnapshots($dossierBefore, $this->traceSnapshots->answers($intake));
-            $trace->recordRemainingQuestions($questionsBefore, $this->traceSnapshots->remainingQuestions($intake));
+            $trace->stopProcessTimer();
+            if (! $trace->isNoop()) {
+                $freshIntake = $intake->fresh() ?? $intake;
+                $trace->recordDossierSnapshots(
+                    $dossierBefore,
+                    $this->traceSnapshots->answers($freshIntake),
+                    $this->traceSnapshots->changedFields($dossierBefore, $this->traceSnapshots->answers($freshIntake)),
+                );
+                $trace->recordRemainingQuestions(
+                    $questionsBefore,
+                    $this->traceSnapshots->remainingQuestions($freshIntake),
+                );
+            }
             $trace->succeed();
             $this->recordActivity($intake, $run, $output, $applied, $trace->traceId());
 

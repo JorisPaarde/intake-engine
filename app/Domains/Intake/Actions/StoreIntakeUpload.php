@@ -54,6 +54,12 @@ final class StoreIntakeUpload
             ]);
         }
 
+        if (! in_array($intake->status, [IntakeStatus::Sent, IntakeStatus::InProgress], true)) {
+            throw ValidationException::withMessages([
+                'photo' => 'Deze opname kan niet meer worden gewijzigd.',
+            ]);
+        }
+
         $preprocessStarted = microtime(true);
         $normalized = $this->photoUploadNormalizer->normalize($file);
         $preprocessMs = (int) round((microtime(true) - $preprocessStarted) * 1000);

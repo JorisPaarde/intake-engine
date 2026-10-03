@@ -23,7 +23,13 @@
                 ])>{{ $trace->status->value }}</span>
                 <span>{{ $trace->provider }} · {{ $trace->model ?? '—' }}</span>
             </div>
-            <div>prompt: {{ $trace->prompt_version ?? '—' }} · correlation: {{ $trace->correlation_id ?? '—' }}</div>
+            <div>prompt: {{ $trace->prompt_version ?? '—' }}</div>
+            <div>
+                correlation: <span class="font-mono text-xs">{{ $trace->correlation_id ?? '—' }}</span>
+                @if ($trace->parent_trace_id)
+                    · parent: <span class="font-mono text-xs">{{ $trace->parent_trace_id }}</span>
+                @endif
+            </div>
             <div>subject: {{ $trace->subject_type ?? '—' }} {{ $trace->subject_id ?? '' }} · upload #{{ $trace->upload_id ?? '—' }} · ai_run #{{ $trace->ai_run_id ?? '—' }}</div>
             <div>fallback={{ $trace->fallback_used ? 'ja' : 'nee' }} · retries={{ $trace->retry_count }} · finish={{ $trace->finish_reason ?? '—' }}</div>
             <div>
@@ -38,6 +44,29 @@
                 <div class="rounded bg-red-50 p-2 text-red-700">{{ $trace->error_message }}</div>
             @endif
         </div>
+
+        @if ($relatedTraces->isNotEmpty())
+            <div class="rounded-lg border border-gray-200 bg-white p-4">
+                <h3 class="font-medium text-gray-900">Zelfde correlation-keten</h3>
+                <ul class="mt-2 space-y-1 text-xs">
+                    @foreach ($relatedTraces as $related)
+                        <li>
+                            @if ($related->id === $trace->id)
+                                <span class="font-medium text-gray-900">{{ $related->call_type->value }}</span>
+                                <span class="text-gray-500">(deze trace)</span>
+                            @else
+                                <a href="{{ route('dev.ai-traces.show', $related) }}" class="text-indigo-600 hover:underline">{{ $related->call_type->value }}</a>
+                            @endif
+                            <span class="text-gray-400">· {{ $related->status->value }}</span>
+                            <span class="font-mono text-gray-400">{{ \Illuminate\Support\Str::limit($related->trace_id, 13, '…') }}</span>
+                            @if ($related->parent_trace_id)
+                                <span class="text-amber-700">parent {{ \Illuminate\Support\Str::limit($related->parent_trace_id, 13, '…') }}</span>
+                            @endif
+                        </li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
 
         <div class="rounded-lg border border-gray-200 bg-white p-4">
             <h3 class="font-medium text-gray-900">Stappen</h3>

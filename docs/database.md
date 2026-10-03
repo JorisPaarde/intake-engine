@@ -1,6 +1,6 @@
 # Databaseschema — Digitale Opname
 
-> **Documentversie:** 3.12 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.13 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: dit document beschrijft het **geïmplementeerde schema**, inclusief de uitbreidende dossiermigratie van BL-030 en BL-035 t/m BL-042 en de zelfstandige publieke interesse-inzendingen van BL-043. Bestaande antwoord-, bron-, upload-, review- en routetabellen blijven bewust bestaan naast de nieuwe dossierobjecten.
 
@@ -571,7 +571,7 @@ Volledige AI-ketenlogging (request → response → parse → dossier/restvragen
 | `request_snapshot` / `photo_refs` | json nullable | Geredigeerd; foto-refs zonder base64 |
 | `raw_response` | mediumtext nullable | |
 | `finish_reason` | string nullable | |
-| `parsed_response` / `validation_errors` / `normalizations` / `field_outcomes` | json nullable | |
+| `parsed_response` / `validation_errors` / `normalizations` / `field_outcomes` | json nullable | Normalizations: `{field, from, to, rule}` |
 | `dossier_before` / `dossier_after` | json nullable | Compacte antwoordsnapshots |
 | `remaining_questions_before` / `after` | json nullable | Zichtbare klantstappen |
 | `persist_ms` / `network_upload_ms` / `preprocess_ms` / `provider_ms` / `process_ms` | unsigned int nullable | P2-fasen |

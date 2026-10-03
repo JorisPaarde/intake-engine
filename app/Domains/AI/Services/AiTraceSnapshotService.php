@@ -17,7 +17,7 @@ use Throwable;
  * Dossier snapshots include redacted value summaries + changed_fields diffs.
  * Remaining-question snapshots reuse {@see IntakeStepBuilder::buildCatalog()}.
  */
-final class AiTraceSnapshotService
+class AiTraceSnapshotService
 {
     public function __construct(
         private readonly IntakeStepBuilder $stepBuilder,

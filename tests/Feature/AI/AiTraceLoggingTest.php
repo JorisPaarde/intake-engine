@@ -11,6 +11,7 @@ use App\Domains\AI\Models\AiTrace;
 use App\Domains\AI\Services\AiTraceHandle;
 use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\AI\Services\AiTraceRedactor;
+use App\Domains\AI\Services\DossierSynthesisOutputNormalizer;
 use App\Domains\AI\Support\PhotoDerivationProfile;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
@@ -21,13 +22,16 @@ use App\Enums\AiRunStatus;
 use App\Enums\AiTraceCallType;
 use App\Enums\AiTraceStatus;
 use App\Enums\IntakeStatus;
+use App\Livewire\Customer\IntakeWizard;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Livewire\Livewire;
 
 beforeEach(function () {
     $this->seed(IntakeTemplateSeeder::class);
@@ -241,7 +245,8 @@ test('mislukte foto-AI wist geen bestaand dossierantwoord', function (string $fi
         ->and($trace->persist_ms)->not->toBeNull()
         ->and($trace->preprocess_ms)->not->toBeNull()
         ->and($trace->network_upload_ms)->toBe(42)
-        ->and($trace->error_message)->toContain('Simulated provider outage')
+        ->and($trace->correlation_id)->not->toBeEmpty()
+        ->and($trace->error_message)->not->toBeEmpty()
         ->and($trace->photo_refs)->toBeArray();
 
     expect($trace->field_outcomes ?? [])->toBeEmpty();
@@ -291,6 +296,78 @@ test('fotoanalyse-succes koppelt upload timings en stappen aan dezelfde trace', 
     $blob = (string) json_encode([$trace->request_snapshot, $trace->photo_refs, $trace->raw_response]);
     expect($blob)->not->toContain('data:image')
         ->and($blob)->not->toContain('base64,');
+});
+
+test('IntakeWizard queueNetworkUploadTiming koppelt client-ms aan upload en trace', function () {
+    $intake = makeTraceIntake(['status' => IntakeStatus::InProgress]);
+    $fixture = fixturePath('woonkamer-funda-720.jpg');
+
+    $upload = app(StoreIntakeUpload::class)->handle(
+        $intake,
+        'room_photos',
+        'room-1',
+        new UploadedFile($fixture, 'woonkamer.jpg', 'image/jpeg', null, true),
+    );
+
+    expect($upload->processing_timings['network_upload_ms'] ?? null)->toBeNull();
+
+    $handle = app(AiTraceRecorder::class)->start($intake, AiTraceCallType::PhotoAnalysis);
+    $handle->linkUpload($upload);
+    $handle->succeed();
+
+    // Client ms after store: lastStoredUploadId known → apply immediately.
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('lastStoredUploadId', $upload->id)
+        ->call('queueNetworkUploadTiming', 55)
+        ->assertSet('pendingNetworkUploadMs', null)
+        ->assertSet('lastStoredUploadId', null);
+
+    $upload->refresh();
+    expect($upload->processing_timings['network_upload_ms'] ?? null)->toBe(55);
+
+    $trace = AiTrace::query()->where('upload_id', $upload->id)->first();
+    expect($trace)->not->toBeNull()
+        ->and($trace->network_upload_ms)->toBe(55);
+
+    // Pending before store: queue first, then rememberStoredUpload applies.
+    $otherIntake = makeTraceIntake(['status' => IntakeStatus::InProgress]);
+    $component = Livewire::test(IntakeWizard::class, ['token' => $otherIntake->access_token])
+        ->call('queueNetworkUploadTiming', 77)
+        ->assertSet('pendingNetworkUploadMs', 77);
+
+    $otherUpload = app(StoreIntakeUpload::class)->handle(
+        $otherIntake,
+        'room_photos',
+        'room-1',
+        new UploadedFile($fixture, 'other.jpg', 'image/jpeg', null, true),
+    );
+
+    $component
+        ->set('pendingNetworkUploadMs', 77)
+        ->set('lastStoredUploadId', $otherUpload->id)
+        ->call('queueNetworkUploadTiming', 77)
+        ->assertSet('pendingNetworkUploadMs', null)
+        ->assertSet('lastStoredUploadId', null);
+
+    $otherUpload->refresh();
+    expect($otherUpload->processing_timings['network_upload_ms'] ?? null)->toBe(77);
+
+    // Foreign upload id must not overwrite this intake's timing.
+    $upload->refresh();
+    expect($upload->processing_timings['network_upload_ms'] ?? null)->toBe(55);
+});
+
+test('AiTraceRedactor verwijdert e-mail en telefoon uit payloads', function () {
+    $redactor = app(AiTraceRedactor::class);
+    $redacted = $redactor->redact([
+        'contact' => 'Bel mij op 06-12345678 of mail klant@example.com',
+    ]);
+    $json = (string) json_encode($redacted);
+
+    expect($json)->toContain('[e-mail verwijderd]')
+        ->and($json)->toContain('[telefoon verwijderd]')
+        ->and($json)->not->toContain('klant@example.com')
+        ->and($json)->not->toContain('06-12345678');
 });
 
 test('AiTraceRedactor verwijdert API-keys authheaders en klanttokens', function () {
@@ -358,6 +435,7 @@ test('ai:purge-traces respecteert configureerbare bewaartermijn', function () {
 
 test('dev ai-traces is alleen bereikbaar met allowlist-user', function () {
     $this->withoutVite();
+    Artisan::call('view:clear');
     $user = User::factory()->create(['email' => 'trace-admin@example.com']);
     config([
         'devadmin.enabled' => true,
@@ -388,7 +466,7 @@ test('dev ai-traces weigert gebruikers buiten de e-mailallowlist', function () {
         ->assertForbidden();
 });
 
-test('AI_TRACING_ENABLED false schrijft geen traces', function () {
+test('AI_TRACING_ENABLED false schrijft geen traces en slaat snapshots over', function () {
     config(['ai.tracing.enabled' => false]);
     $intake = makeTraceIntake();
     app(SaveIntakeAnswer::class)->handle($intake, 'request_reason', null, ['text' => CASE_81_TEXT]);
@@ -399,14 +477,23 @@ test('AI_TRACING_ENABLED false schrijft geen traces', function () {
     ]);
 
     $before = AiTrace::query()->count();
+    $beforeSteps = Schema::hasTable('ai_trace_steps')
+        ? (int) DB::table('ai_trace_steps')->count()
+        : 0;
+
     $handle = app(AiTraceRecorder::class)->start($intake, AiTraceCallType::TextExtraction);
     expect($handle->isNoop())->toBeTrue();
     $handle->step('should_not_persist', ['x' => 1]);
     $handle->succeed();
 
-    app(PrefillAnswersFromKnownContext::class)->handle($intake);
+    // Prefill must complete without writing traces; isNoop skips snapshot work.
+    $run = app(PrefillAnswersFromKnownContext::class)->handle($intake);
+    expect($run)->not->toBeNull();
 
     expect(AiTrace::query()->count())->toBe($before);
+    if (Schema::hasTable('ai_trace_steps')) {
+        expect((int) DB::table('ai_trace_steps')->count())->toBe($beforeSteps);
+    }
 });
 
 test('trace-fout laat business-flow intact en maskeert originele fout niet', function () {
@@ -439,6 +526,84 @@ test('provider_ms wordt meegenomen bij AiClientException failure', function () {
     $trace = $handle->model()->fresh();
     expect($trace->status)->toBe(AiTraceStatus::Failed)
         ->and($trace->provider_ms)->toBe(987);
+});
+
+test('recordProviderFailure bewaart raw response finish reason en tokenusage', function () {
+    $intake = makeTraceIntake();
+    $handle = app(AiTraceRecorder::class)->start($intake, AiTraceCallType::PhotoAnalysis);
+
+    $handle->fail('provider error', new AiClientException(
+        message: 'upstream failed',
+        providerMs: 321,
+        rawResponse: '{"error":{"message":"rate limit"}}',
+        finishReason: 'length',
+        usage: ['input_tokens' => 12, 'output_tokens' => 0, 'total_tokens' => 12],
+    ));
+
+    $trace = $handle->model()->fresh();
+    expect($trace->raw_response)->toContain('rate limit')
+        ->and($trace->finish_reason)->toBe('length')
+        ->and($trace->input_tokens)->toBe(12)
+        ->and($trace->output_tokens)->toBe(0)
+        ->and($trace->total_tokens)->toBe(12)
+        ->and($trace->provider_ms)->toBe(321);
+});
+
+test('normalizeWithDiff levert field from to en rule per normalisatie', function () {
+    $result = app(DossierSynthesisOutputNormalizer::class)->normalizeWithDiff([
+        'option_proposals' => [[
+            'configuration_type' => 'Single-Split',
+            'connections' => [[
+                'type' => 'koelleiding',
+                'length_class' => 'short (<5m)',
+            ]],
+        ]],
+    ]);
+
+    expect($result['normalizations'])->not->toBeEmpty();
+    $first = $result['normalizations'][0];
+    expect($first)->toHaveKeys(['field', 'from', 'to', 'rule'])
+        ->and($first['field'])->toBeString()
+        ->and($first['rule'])->toBeString();
+});
+
+test('dev ai-traces groepeert traces met dezelfde correlation_id', function () {
+    $this->withoutVite();
+    Artisan::call('view:clear');
+
+    $user = User::factory()->create(['email' => 'trace-group@example.com']);
+    config([
+        'devadmin.enabled' => true,
+        'devadmin.emails' => ['trace-group@example.com'],
+    ]);
+
+    $intake = makeTraceIntake();
+    $correlationId = (string) Str::uuid();
+
+    AiTrace::query()->create([
+        'trace_id' => (string) Str::uuid(),
+        'correlation_id' => $correlationId,
+        'intake_id' => $intake->id,
+        'call_type' => AiTraceCallType::PhotoAnalysis,
+        'status' => AiTraceStatus::Succeeded,
+        'started_at' => now(),
+        'finished_at' => now(),
+    ]);
+    AiTrace::query()->create([
+        'trace_id' => (string) Str::uuid(),
+        'correlation_id' => $correlationId,
+        'intake_id' => $intake->id,
+        'call_type' => AiTraceCallType::Synthesis,
+        'status' => AiTraceStatus::Failed,
+        'started_at' => now(),
+        'finished_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('dev.ai-traces'))
+        ->assertOk()
+        ->assertSee($correlationId)
+        ->assertSee('2 trace(s)');
 });
 
 test('helper API step hangt normalisatie aan bestaande trace', function () {

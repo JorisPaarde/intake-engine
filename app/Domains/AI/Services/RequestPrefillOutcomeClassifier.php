@@ -23,7 +23,8 @@ final class RequestPrefillOutcomeClassifier
      * @return array{
      *     evidence: string,
      *     fills: list<array<string, mixed>>,
-     *     candidates: list<RequestPrefillCandidate>
+     *     candidates: list<RequestPrefillCandidate>,
+     *     normalizations: list<array{field: string, from: mixed, to: mixed, rule: string}>
      * }
      */
     public function classifyCatalogOutput(array $output, array $catalog, array $photoKeys = []): array
@@ -48,6 +49,7 @@ final class RequestPrefillOutcomeClassifier
         $labels = $this->catalogLabels($catalog);
         $fills = [];
         $candidates = [];
+        $normalizations = [];
 
         foreach ($validated['fills'] as $fill) {
             $key = (string) $fill['question_key'];
@@ -157,6 +159,15 @@ final class RequestPrefillOutcomeClassifier
                 continue;
             }
 
+            if ($normalized !== $rawValue) {
+                $normalizations[] = [
+                    'field' => $instanceKey === null ? $key : $key.'|'.$instanceKey,
+                    'from' => $rawValue,
+                    'to' => $normalized,
+                    'rule' => 'catalog_value',
+                ];
+            }
+
             if ($confidence === 'low') {
                 $candidates[] = new RequestPrefillCandidate(
                     questionKey: $key,
@@ -205,6 +216,7 @@ final class RequestPrefillOutcomeClassifier
             'evidence' => $validated['evidence'],
             'fills' => $fills,
             'candidates' => $candidates,
+            'normalizations' => $normalizations,
         ];
     }
 

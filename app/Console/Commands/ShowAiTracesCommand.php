@@ -52,32 +52,47 @@ final class ShowAiTracesCommand extends Command
             return self::SUCCESS;
         }
 
-        foreach ($traces as $trace) {
+        $groups = $traces->groupBy(
+            static fn (AiTrace $trace): string => $trace->correlation_id ?: ('solo-'.$trace->id),
+        );
+
+        foreach ($groups as $correlationId => $group) {
             $this->line(str_repeat('=', 72));
-            $this->info("trace_id={$trace->trace_id} intake={$trace->intake_id} type={$trace->call_type->value} status={$trace->status->value}");
-            $this->line("provider={$trace->provider} model={$trace->model} prompt={$trace->prompt_version}");
-            $this->line(sprintf(
-                'timings: persist=%s network=%s preprocess=%s provider=%s process=%s ms',
-                $trace->persist_ms ?? '—',
-                $trace->network_upload_ms ?? '—',
-                $trace->preprocess_ms ?? '—',
-                $trace->provider_ms ?? '—',
-                $trace->process_ms ?? '—',
-            ));
-            $this->line('finish_reason='.($trace->finish_reason ?? '—').' tokens='.($trace->total_tokens ?? '—'));
-            if ($trace->error_message) {
-                $this->error($trace->error_message);
+            if ($group->count() > 1 || ! str_starts_with((string) $correlationId, 'solo-')) {
+                $this->info('correlation_id='.(str_starts_with((string) $correlationId, 'solo-') ? '—' : $correlationId)
+                    .' ('.$group->count().' traces)');
             }
-            $this->line('steps: '.$trace->steps->pluck('step_key')->implode(' → '));
-            if (is_array($trace->field_outcomes)) {
-                $this->line('field_outcomes: '.count($trace->field_outcomes));
-            }
-            if (is_array($trace->request_snapshot)) {
-                $encoded = (string) json_encode($trace->request_snapshot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-                $this->line('request_snapshot: '.mb_substr($encoded, 0, 400).(mb_strlen($encoded) > 400 ? '…' : ''));
-            }
-            if (is_string($trace->raw_response)) {
-                $this->line('raw_response: '.mb_substr($trace->raw_response, 0, 400).(mb_strlen($trace->raw_response) > 400 ? '…' : ''));
+
+            foreach ($group as $trace) {
+                $this->line(str_repeat('-', 40));
+                $this->info("trace_id={$trace->trace_id} intake={$trace->intake_id} type={$trace->call_type->value} status={$trace->status->value}");
+                $this->line("provider={$trace->provider} model={$trace->model} prompt={$trace->prompt_version}");
+                if ($trace->parent_trace_id) {
+                    $this->line('parent_trace_id='.$trace->parent_trace_id);
+                }
+                $this->line(sprintf(
+                    'timings: persist=%s network=%s preprocess=%s provider=%s process=%s ms',
+                    $trace->persist_ms ?? '—',
+                    $trace->network_upload_ms ?? '—',
+                    $trace->preprocess_ms ?? '—',
+                    $trace->provider_ms ?? '—',
+                    $trace->process_ms ?? '—',
+                ));
+                $this->line('finish_reason='.($trace->finish_reason ?? '—').' tokens='.($trace->total_tokens ?? '—'));
+                if ($trace->error_message) {
+                    $this->error($trace->error_message);
+                }
+                $this->line('steps: '.$trace->steps->pluck('step_key')->implode(' → '));
+                if (is_array($trace->field_outcomes)) {
+                    $this->line('field_outcomes: '.count($trace->field_outcomes));
+                }
+                if (is_array($trace->request_snapshot)) {
+                    $encoded = (string) json_encode($trace->request_snapshot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                    $this->line('request_snapshot: '.mb_substr($encoded, 0, 400).(mb_strlen($encoded) > 400 ? '…' : ''));
+                }
+                if (is_string($trace->raw_response)) {
+                    $this->line('raw_response: '.mb_substr($trace->raw_response, 0, 400).(mb_strlen($trace->raw_response) > 400 ? '…' : ''));
+                }
             }
         }
 

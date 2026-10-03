@@ -74,11 +74,17 @@ final class SynthesizePipeRoute
         $primaryModel = (string) config('ai.route.model', 'gpt-5.6-terra');
         $reviewModel = (string) config('ai.route.review_model', 'gpt-5.6-sol');
 
+        $review = null;
+        /** @var array{output: array<string, mixed>, trace: AiTraceHandle, run: AiRun, model: string}|null $primary */
+        $primary = null;
+
         try {
-            $output = $this->run($session, $promptBody, $input, $promptVersion, $primaryModel);
+            $primary = $this->run($session, $promptBody, $input, $promptVersion, $primaryModel);
+            $adopted = $primary;
+            $output = $primary['output'];
 
             // Onduidelijke of niet-doorlopende route → tweede beoordeling met het zwaardere model.
-            if ($output['route_continuous'] === false || $output['confidence'] < $threshold) {
+            if ($primary['output']['route_continuous'] === false || $primary['output']['confidence'] < $threshold) {
                 $reviewUploads = $this->reviewUploads($segments);
                 $reviewInput = $input;
                 $reviewInput['review_image_manifest'] = $reviewUploads
@@ -88,17 +94,29 @@ final class SynthesizePipeRoute
                     ])
                     ->values()
                     ->all();
-                $review = $this->run(
-                    $session,
-                    $promptBody,
-                    $reviewInput,
-                    $promptVersion,
-                    $reviewModel,
-                    $reviewUploads,
-                );
 
-                if ($review['confidence'] >= $output['confidence']) {
-                    $output = $review;
+                try {
+                    $review = $this->run(
+                        $session,
+                        $promptBody,
+                        $reviewInput,
+                        $promptVersion,
+                        $reviewModel,
+                        $reviewUploads,
+                        parentTraceId: $primary['trace']->traceId(),
+                        fallbackUsed: true,
+                        retryCount: 1,
+                    );
+
+                    if ($review['output']['confidence'] >= $primary['output']['confidence']) {
+                        $adopted = $review;
+                        $output = $review['output'];
+                    }
+                } catch (Throwable $reviewException) {
+                    Log::warning('Pipe route synthesis review failed', [
+                        'session_id' => $session->id,
+                        'exception' => $reviewException::class,
+                    ]);
                 }
             }
         } catch (Throwable $exception) {
@@ -107,56 +125,77 @@ final class SynthesizePipeRoute
                 'exception' => $exception::class,
             ]);
 
+            if ($primary !== null) {
+                $primary['trace']->fail($exception->getMessage(), $exception);
+            }
+
             return $session;
         }
 
-        return DB::transaction(function () use ($session, $output, $input): PipeRouteSession {
-            Intake::query()->whereKey($session->intake_id)->lockForUpdate()->firstOrFail();
-            $session = PipeRouteSession::query()->whereKey($session->id)->lockForUpdate()->firstOrFail();
-            $currentSegments = $session->segments()
-                ->with('upload')
-                ->orderBy('sequence')
-                ->get()
-                ->map(fn (PipeRouteSegment $segment): array => $this->segmentInput($segment))
-                ->values()
-                ->all();
+        try {
+            $session = DB::transaction(function () use ($session, $output, $input): PipeRouteSession {
+                Intake::query()->whereKey($session->intake_id)->lockForUpdate()->firstOrFail();
+                $session = PipeRouteSession::query()->whereKey($session->id)->lockForUpdate()->firstOrFail();
+                $currentSegments = $session->segments()
+                    ->with('upload')
+                    ->orderBy('sequence')
+                    ->get()
+                    ->map(fn (PipeRouteSegment $segment): array => $this->segmentInput($segment))
+                    ->values()
+                    ->all();
 
-            if ($session->status !== PipeRouteStatus::Collecting || $currentSegments !== $input['segments']) {
-                return $session;
-            }
+                if ($session->status !== PipeRouteStatus::Collecting || $currentSegments !== $input['segments']) {
+                    return $session;
+                }
 
-            $session->update([
-                'status' => PipeRouteStatus::Proposed,
-                'confidence' => $output['confidence'],
-                'proposed_route' => $output['proposed_route'],
-                'alternative_route' => $output['alternative_route'],
-                'uncertainties' => $output['uncertainties'],
-                'missing_checks' => $output['missing_checks'],
-                'next_photo_instruction' => $output['next_photo_instruction'] !== '' ? $output['next_photo_instruction'] : null,
+                $session->update([
+                    'status' => PipeRouteStatus::Proposed,
+                    'confidence' => $output['confidence'],
+                    'proposed_route' => $output['proposed_route'],
+                    'alternative_route' => $output['alternative_route'],
+                    'uncertainties' => $output['uncertainties'],
+                    'missing_checks' => $output['missing_checks'],
+                    'next_photo_instruction' => $output['next_photo_instruction'] !== '' ? $output['next_photo_instruction'] : null,
+                ]);
+
+                if ($session->connection !== null) {
+                    $session->connection->update([
+                        'status' => $output['route_continuous']
+                            ? AircoConnectionStatus::Proposed
+                            : AircoConnectionStatus::NeedsEvidence,
+                        'segments' => $output['proposed_route'],
+                        'uncertainties' => [
+                            ...$output['uncertainties'],
+                            ...$output['missing_checks'],
+                        ],
+                        'confidence' => $output['confidence'],
+                    ]);
+                }
+
+                return $session->fresh(['connection']) ?? $session;
+            }, 3);
+        } catch (Throwable $exception) {
+            Log::warning('Pipe route synthesis persist failed', [
+                'session_id' => $session->id,
+                'exception' => $exception::class,
             ]);
 
-            if ($session->connection !== null) {
-                $session->connection->update([
-                    'status' => $output['route_continuous']
-                        ? AircoConnectionStatus::Proposed
-                        : AircoConnectionStatus::NeedsEvidence,
-                    'segments' => $output['proposed_route'],
-                    'uncertainties' => [
-                        ...$output['uncertainties'],
-                        ...$output['missing_checks'],
-                    ],
-                    'confidence' => $output['confidence'],
-                ]);
-            }
+            return $session;
+        }
 
-            return $session->fresh(['connection']) ?? $session;
-        }, 3);
+        $this->finalizeSynthesisTrace($primary, $adopted === $primary);
+
+        if ($review !== null) {
+            $this->finalizeSynthesisTrace($review, $adopted === $review);
+        }
+
+        return $session;
     }
 
     /**
      * @param  array<string, mixed>  $input
      * @param  Collection<int, IntakeUpload>|null  $images
-     * @return array<string, mixed>
+     * @return array{output: array<string, mixed>, trace: AiTraceHandle, run: AiRun, model: string}
      */
     private function run(
         PipeRouteSession $session,
@@ -165,6 +204,9 @@ final class SynthesizePipeRoute
         string $promptVersion,
         string $model,
         ?Collection $images = null,
+        ?string $parentTraceId = null,
+        bool $fallbackUsed = false,
+        int $retryCount = 0,
     ): array {
         $intake = Intake::query()->findOrFail($session->intake_id);
 
@@ -190,15 +232,20 @@ final class SynthesizePipeRoute
             'subject_id' => (string) $session->id,
             'provider' => (string) config('ai.provider', 'null'),
             'prompt_version' => $promptVersion,
-            'schema_version' => $promptVersion,
+            'parent_trace_id' => $parentTraceId,
+            'fallback_used' => $fallbackUsed,
+            'retry_count' => $retryCount,
         ]);
 
         try {
             $uploads = $images ?? collect();
-            $photoRefs = $uploads
-                ->map(fn (IntakeUpload $upload): array => $this->photoRefBuilder->fromUpload($upload, 'route_review'))
-                ->values()
-                ->all();
+            $photoRefs = [];
+            if (! $trace->isNoop()) {
+                $photoRefs = $uploads
+                    ->map(fn (IntakeUpload $upload): array => $this->photoRefBuilder->fromUpload($upload, 'route_review'))
+                    ->values()
+                    ->all();
+            }
 
             $trace->recordRequest(
                 systemAndUser: [
@@ -207,7 +254,8 @@ final class SynthesizePipeRoute
                 ],
                 photoRefs: $photoRefs,
                 promptVersion: $promptVersion,
-                schemaVersion: $promptVersion,
+                fallbackUsed: $fallbackUsed,
+                retryCount: $retryCount,
             );
 
             $result = $this->aiGateway->complete(
@@ -223,8 +271,8 @@ final class SynthesizePipeRoute
             $trace->recordProviderResult($result);
 
             try {
-                $output = $this->validateOutput($result->output);
-                $trace->recordParsed($output);
+                [$output, $normalizations] = $this->validateOutput($result->output);
+                $trace->recordParsed($output, [], $normalizations);
             } catch (ValidationException $exception) {
                 $trace->recordParsed([], $exception->errors());
                 throw $exception;
@@ -237,15 +285,14 @@ final class SynthesizePipeRoute
                 'finished_at' => now(),
             ]);
 
-            $trace->linkAiRun($run->fresh() ?? $run);
-            $trace->step('apply', [
-                'route_continuous' => $output['route_continuous'],
-                'confidence' => $output['confidence'],
-                'model' => $model,
-            ]);
-            $trace->succeed();
+            $run = $run->fresh() ?? $run;
 
-            return $output;
+            return [
+                'output' => $output,
+                'trace' => $trace,
+                'run' => $run,
+                'model' => $model,
+            ];
         } catch (Throwable $exception) {
             $run->update([
                 'status' => AiRunStatus::Failed,
@@ -265,11 +312,44 @@ final class SynthesizePipeRoute
     }
 
     /**
+     * @param  array{output: array<string, mixed>, trace: AiTraceHandle, run: AiRun, model: string}  $attempt
+     */
+    private function finalizeSynthesisTrace(array $attempt, bool $adopted): void
+    {
+        $trace = $attempt['trace'];
+        $run = $attempt['run'];
+        $output = $attempt['output'];
+        $model = $attempt['model'];
+
+        $trace->linkAiRun($run);
+        $trace->stopProcessTimer();
+
+        if ($adopted) {
+            $trace->step('apply', [
+                'route_continuous' => $output['route_continuous'],
+                'confidence' => $output['confidence'],
+                'model' => $model,
+                'adopted' => true,
+            ]);
+        } else {
+            $trace->step('skipped', [
+                'adopted' => false,
+                'confidence' => $output['confidence'],
+                'model' => $model,
+            ]);
+        }
+
+        $trace->succeed();
+    }
+
+    /**
      * @param  array<string, mixed>  $output
-     * @return array<string, mixed>
+     * @return array{0: array<string, mixed>, 1: list<array{field: string, from: mixed, to: mixed, rule: string}>}
      */
     private function validateOutput(array $output): array
     {
+        /** @var list<array{field: string, from: mixed, to: mixed, rule: string}> $normalizations */
+        $normalizations = [];
         $validator = Validator::make($output, [
             'route_continuous' => ['required', 'boolean'],
             'proposed_route' => ['present', 'array'],
@@ -290,11 +370,41 @@ final class SynthesizePipeRoute
 
         /** @var array<string, mixed> $validated */
         $validated = $validator->validated();
-        $validated['route_continuous'] = (bool) $validated['route_continuous'];
-        $validated['confidence'] = round((float) $validated['confidence'], 3);
-        $validated['next_photo_instruction'] = trim((string) $validated['next_photo_instruction']);
 
-        return $validated;
+        $continuousFrom = $validated['route_continuous'];
+        $validated['route_continuous'] = (bool) $validated['route_continuous'];
+        if ($validated['route_continuous'] !== $continuousFrom) {
+            $normalizations[] = [
+                'field' => 'route_continuous',
+                'from' => $continuousFrom,
+                'to' => $validated['route_continuous'],
+                'rule' => 'boolean_cast',
+            ];
+        }
+
+        $confidenceFrom = $validated['confidence'];
+        $validated['confidence'] = round((float) $validated['confidence'], 3);
+        if ($validated['confidence'] !== $confidenceFrom) {
+            $normalizations[] = [
+                'field' => 'confidence',
+                'from' => $confidenceFrom,
+                'to' => $validated['confidence'],
+                'rule' => 'round_3',
+            ];
+        }
+
+        $instructionFrom = $validated['next_photo_instruction'];
+        $validated['next_photo_instruction'] = trim((string) $validated['next_photo_instruction']);
+        if ($validated['next_photo_instruction'] !== $instructionFrom) {
+            $normalizations[] = [
+                'field' => 'next_photo_instruction',
+                'from' => $instructionFrom,
+                'to' => $validated['next_photo_instruction'],
+                'rule' => 'trim',
+            ];
+        }
+
+        return [$validated, $normalizations];
     }
 
     /** @return array<string, mixed> */

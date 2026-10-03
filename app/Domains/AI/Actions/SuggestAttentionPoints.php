@@ -6,6 +6,7 @@ namespace App\Domains\AI\Actions;
 
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\AiGateway;
+use App\Domains\AI\Services\AiTraceHandle;
 use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\AI\Services\IntakeAttentionContextBuilder;
 use App\Domains\AI\Services\PromptVersionRepository;
@@ -67,7 +68,6 @@ final class SuggestAttentionPoints
                 'ai_run_id' => $run->id,
                 'provider' => $provider,
                 'prompt_version' => $promptVersion,
-                'schema_version' => $promptVersion,
             ]);
 
             $trace->recordRequest(
@@ -76,7 +76,6 @@ final class SuggestAttentionPoints
                     'user' => $payload,
                 ],
                 promptVersion: $promptVersion,
-                schemaVersion: $promptVersion,
             );
 
             $result = $this->aiGateway->complete(
@@ -100,20 +99,15 @@ final class SuggestAttentionPoints
                 'finished_at' => now(),
                 'error_message' => null,
             ];
-            $this->persistProposals($intake, $points, $inputHash, $run, $completionAttributes);
-            $trace->step('apply', ['point_count' => count($points)]);
-            $trace->recordFieldOutcomes(array_map(
-                static fn (array $point): array => [
-                    'question_key' => $point['code'],
-                    'disposition' => 'accepted',
-                    'confidence' => $point['confidence'],
-                    'source' => 'ai',
-                    'reason' => 'proposed_attention_point',
-                    'has_value' => true,
-                ],
-                $points,
-            ));
+            try {
+                $this->persistProposals($intake, $points, $inputHash, $run, $completionAttributes, $trace);
+                $trace->flushBuffer();
+            } catch (Throwable $transactionException) {
+                $trace->discardBuffer();
+                throw $transactionException;
+            }
             $trace->linkAiRun($run->fresh() ?? $run);
+            $trace->stopProcessTimer();
             $trace->succeed();
 
             return $run->fresh() ?? $run;
@@ -132,6 +126,7 @@ final class SuggestAttentionPoints
                     'finished_at' => now(),
                 ]);
                 $trace?->linkAiRun($run->fresh() ?? $run);
+                $trace?->discardBuffer();
                 $trace?->fail($e->getMessage(), $e);
 
                 return $run->fresh() ?? $run;
@@ -270,8 +265,10 @@ final class SuggestAttentionPoints
         string $inputHash,
         AiRun $run,
         array $completionAttributes,
+        AiTraceHandle $trace,
     ): void {
-        DB::transaction(function () use ($intake, $points, $inputHash, $run, $completionAttributes): void {
+        DB::transaction(function () use ($intake, $points, $inputHash, $run, $completionAttributes, $trace): void {
+            $trace->beginBuffer();
             $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
 
             if (! hash_equals($inputHash, $this->payloadHash($this->contextBuilder->build($lockedIntake)))) {
@@ -318,6 +315,18 @@ final class SuggestAttentionPoints
             }
 
             AiRun::query()->whereKey($run->id)->update($completionAttributes);
+            $trace->step('apply', ['point_count' => count($points)]);
+            $trace->recordFieldOutcomes(array_map(
+                static fn (array $point): array => [
+                    'question_key' => $point['code'],
+                    'disposition' => 'accepted',
+                    'confidence' => $point['confidence'],
+                    'source' => 'ai',
+                    'reason' => 'proposed_attention_point',
+                    'has_value' => true,
+                ],
+                $points,
+            ));
         }, 3);
     }
 

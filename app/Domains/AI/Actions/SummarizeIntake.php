@@ -6,6 +6,7 @@ namespace App\Domains\AI\Actions;
 
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\AiGateway;
+use App\Domains\AI\Services\AiTraceHandle;
 use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\AI\Services\IntakeAttentionContextBuilder;
 use App\Domains\AI\Services\PromptVersionRepository;
@@ -61,7 +62,6 @@ final class SummarizeIntake
             'ai_run_id' => $run->id,
             'provider' => $provider,
             'prompt_version' => $promptVersion,
-            'schema_version' => $promptVersion,
         ]);
 
         try {
@@ -71,7 +71,6 @@ final class SummarizeIntake
                     'user' => $payload,
                 ],
                 promptVersion: $promptVersion,
-                schemaVersion: $promptVersion,
             );
 
             $result = $this->aiGateway->complete(
@@ -96,9 +95,15 @@ final class SummarizeIntake
                 'error_message' => null,
             ]);
 
-            $this->attachSummaryToReport($intake, $validated, $run->fresh() ?? $run);
-            $trace->step('apply', ['highlight_count' => count($validated['highlights'])]);
+            try {
+                $this->attachSummaryToReport($intake, $validated, $run->fresh() ?? $run, $trace);
+                $trace->flushBuffer();
+            } catch (Throwable $transactionException) {
+                $trace->discardBuffer();
+                throw $transactionException;
+            }
             $trace->linkAiRun($run->fresh() ?? $run);
+            $trace->stopProcessTimer();
             $trace->succeed();
 
             return $run->fresh() ?? $run;
@@ -116,6 +121,7 @@ final class SummarizeIntake
                 'finished_at' => now(),
             ]);
             $trace->linkAiRun($run->fresh() ?? $run);
+            $trace->discardBuffer();
             $trace->fail($e->getMessage(), $e);
 
             return $run->fresh() ?? $run;
@@ -225,9 +231,10 @@ final class SummarizeIntake
     /**
      * @param  array{summary: string, highlights: list<string>}  $summary
      */
-    private function attachSummaryToReport(Intake $intake, array $summary, AiRun $run): void
+    private function attachSummaryToReport(Intake $intake, array $summary, AiRun $run, AiTraceHandle $trace): void
     {
-        DB::transaction(function () use ($intake, $summary, $run): void {
+        DB::transaction(function () use ($intake, $summary, $run, $trace): void {
+            $trace->beginBuffer();
             $intake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
             $report = $intake->report()->lockForUpdate()->first();
 
@@ -271,6 +278,7 @@ final class SummarizeIntake
                 'meta' => $meta,
                 'generated_at' => now(),
             ]);
+            $trace->step('apply', ['highlight_count' => count($summary['highlights'])]);
         }, 3);
 
         if (! $intake->is_demo) {

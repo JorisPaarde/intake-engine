@@ -110,19 +110,20 @@ final class SuggestInstallerPhotoObservations
             'subject_id' => (string) $subject->id,
             'provider' => (string) config('ai.provider', 'null'),
             'prompt_version' => $promptVersion,
-            'schema_version' => $promptVersion,
         ]);
         $trace->linkUpload($upload);
 
         try {
+            $photoRefs = $trace->isNoop()
+                ? []
+                : [$this->photoRefBuilder->fromUpload($upload, 'installer_observation')];
             $trace->recordRequest(
                 systemAndUser: [
                     'system' => $promptBody,
                     'user' => $input,
                 ],
-                photoRefs: [$this->photoRefBuilder->fromUpload($upload, 'installer_observation')],
+                photoRefs: $photoRefs,
                 promptVersion: $promptVersion,
-                schemaVersion: $promptVersion,
             );
 
             $result = $this->aiGateway->complete(
@@ -149,7 +150,6 @@ final class SuggestInstallerPhotoObservations
             ]);
             $run = $run->fresh() ?? $run;
 
-            $trace->beginBuffer();
             try {
                 DB::transaction(function () use (
                     $intake,
@@ -161,6 +161,7 @@ final class SuggestInstallerPhotoObservations
                     $output,
                     $trace,
                 ): void {
+                    $trace->beginBuffer();
                     Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
                     $currentSubject = DossierSubject::query()
                         ->whereKey($subject->id)
@@ -251,11 +252,14 @@ final class SuggestInstallerPhotoObservations
                         ],
                     ]);
                 }, 3);
-            } finally {
                 $trace->flushBuffer();
+            } catch (Throwable $transactionException) {
+                $trace->discardBuffer();
+                throw $transactionException;
             }
 
             $trace->linkAiRun($run->fresh() ?? $run);
+            $trace->stopProcessTimer();
             $trace->succeed();
 
             return $run->fresh() ?? $run;
@@ -274,6 +278,7 @@ final class SuggestInstallerPhotoObservations
                 'finished_at' => now(),
             ]);
             $trace->linkAiRun($run->fresh() ?? $run);
+            $trace->discardBuffer();
             $trace->fail($exception->getMessage(), $exception);
 
             return $run->fresh() ?? $run;

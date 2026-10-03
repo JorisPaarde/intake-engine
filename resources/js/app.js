@@ -114,12 +114,20 @@ registerHashDisclosure();
 /**
  * Livewire file-upload network timing (BL-116 / P2).
  * Measure start → first livewire-upload-progress at 100%, then call
- * recordNetworkUploadTiming(uploadId, ms) on the owning component after
- * the upload row exists (via livewire:commit / upload finish handshake).
+ * queueNetworkUploadTiming(ms). The server races this against Store*Upload
+ * via pendingNetworkUploadMs / lastStoredUploadId.
  */
 function registerLivewireUploadTiming() {
-    /** @type {Map<string, {startedAt: number, networkMs: number|null, componentId: string|null}>} */
+    /** @type {Map<string, {startedAt: number, queued: boolean, componentId: string|null}>} */
     const pending = new Map();
+
+    const isTimedInput = (event) => {
+        const input = event.target instanceof Element ? event.target : null;
+        if (!input) {
+            return false;
+        }
+        return input.closest('[data-upload-timing="1"]') !== null;
+    };
 
     const keyFor = (event) => {
         const input = event.target instanceof Element ? event.target : null;
@@ -129,39 +137,13 @@ function registerLivewireUploadTiming() {
         return id + '::' + name;
     };
 
-    document.addEventListener('livewire-upload-start', (event) => {
-        const key = keyFor(event);
-        const root = event.target instanceof Element ? event.target.closest('[wire\\:id]') : null;
-        pending.set(key, {
-            startedAt: performance.now(),
-            networkMs: null,
-            componentId: root?.getAttribute?.('wire:id') || null,
-        });
-    });
-
-    document.addEventListener('livewire-upload-progress', (event) => {
-        const key = keyFor(event);
-        const entry = pending.get(key);
-        if (!entry || entry.networkMs !== null) {
-            return;
-        }
-        const detail = event.detail || {};
-        const progress = typeof detail.progress === 'number'
-            ? detail.progress
-            : (typeof detail === 'number' ? detail : null);
-        if (progress === 100) {
-            entry.networkMs = Math.max(0, Math.round(performance.now() - entry.startedAt));
-        }
-    });
-
     const deliver = (componentId, ms) => {
-        if (!componentId || ms === null || typeof Livewire === 'undefined') {
+        if (!componentId || ms === null || typeof Livewire === 'undefined' || typeof Livewire.find !== 'function') {
             return;
         }
         try {
             const component = Livewire.find(componentId);
             if (component && typeof component.call === 'function') {
-                // Pass ms; server pairs it with the latest saved upload id.
                 component.call('queueNetworkUploadTiming', ms);
             }
         } catch {
@@ -169,20 +151,57 @@ function registerLivewireUploadTiming() {
         }
     };
 
+    document.addEventListener('livewire-upload-start', (event) => {
+        if (!isTimedInput(event)) {
+            return;
+        }
+        const key = keyFor(event);
+        const root = event.target instanceof Element ? event.target.closest('[wire\\:id]') : null;
+        pending.set(key, {
+            startedAt: performance.now(),
+            queued: false,
+            componentId: root?.getAttribute?.('wire:id') || null,
+        });
+    });
+
+    document.addEventListener('livewire-upload-progress', (event) => {
+        if (!isTimedInput(event)) {
+            return;
+        }
+        const key = keyFor(event);
+        const entry = pending.get(key);
+        if (!entry || entry.queued) {
+            return;
+        }
+        const detail = event.detail || {};
+        const progress = typeof detail.progress === 'number'
+            ? detail.progress
+            : (typeof detail === 'number' ? detail : null);
+        if (progress === 100) {
+            entry.queued = true;
+            deliver(entry.componentId, Math.max(0, Math.round(performance.now() - entry.startedAt)));
+        }
+    });
+
     document.addEventListener('livewire-upload-finish', (event) => {
+        if (!isTimedInput(event)) {
+            return;
+        }
         const key = keyFor(event);
         const entry = pending.get(key);
         if (!entry) {
             return;
         }
-        if (entry.networkMs === null) {
-            entry.networkMs = Math.max(0, Math.round(performance.now() - entry.startedAt));
+        if (!entry.queued) {
+            deliver(entry.componentId, Math.max(0, Math.round(performance.now() - entry.startedAt)));
         }
-        deliver(entry.componentId, entry.networkMs);
         pending.delete(key);
     });
 
     document.addEventListener('livewire-upload-error', (event) => {
+        if (!isTimedInput(event)) {
+            return;
+        }
         pending.delete(keyFor(event));
     });
 }

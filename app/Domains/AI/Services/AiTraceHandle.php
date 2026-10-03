@@ -11,6 +11,7 @@ use App\Domains\AI\Models\AiTrace;
 use App\Domains\AI\Models\AiTraceStep;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Enums\AiTraceStatus;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Throwable;
@@ -37,12 +38,12 @@ final class AiTraceHandle
     private bool $persisted = false;
 
     /**
-     * @var list<array{step_key: string, sequence: int, payload: array<string, mixed>|null, duration_ms: int|null, recorded_at: \Illuminate\Support\Carbon}>
+     * @var list<array{step_key: string, sequence: int, payload: array<string, mixed>|null, duration_ms: int|null, recorded_at: Carbon}>
      */
     private array $steps = [];
 
     /**
-     * @var list<array{step_key: string, sequence: int, payload: array<string, mixed>|null, duration_ms: int|null, recorded_at: \Illuminate\Support\Carbon}>
+     * @var list<array{step_key: string, sequence: int, payload: array<string, mixed>|null, duration_ms: int|null, recorded_at: Carbon}>
      */
     private array $txSteps = [];
 
@@ -207,11 +208,6 @@ final class AiTraceHandle
                 'analysis_checksum' => $upload->analysis_checksum,
                 'sort_order' => $upload->sort_order,
                 'path_ref' => 'intake_upload:'.$upload->id,
-                'timings' => [
-                    'persist_ms' => $persistMs,
-                    'preprocess_ms' => $preprocessMs,
-                    'network_upload_ms' => $networkMs,
-                ],
             ], $persistMs);
 
             if ($preprocessMs !== null) {
@@ -250,13 +246,11 @@ final class AiTraceHandle
      * @param  array<string, mixed>  $systemAndUser
      * @param  list<array<string, mixed>>  $photoRefs
      * @param  array<string, mixed>  $modelParameters
-     * @param  string|null  $schemaVersion  Deprecated/ignored (column removed); kept for BC until action instrumentation.
      */
     public function recordRequest(
         array $systemAndUser,
         array $photoRefs = [],
         ?string $promptVersion = null,
-        ?string $schemaVersion = null, // @phpstan-ignore-line parameter.unused
         array $modelParameters = [],
         bool $fallbackUsed = false,
         int $retryCount = 0,

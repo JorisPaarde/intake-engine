@@ -104,14 +104,17 @@ final class SynthesizeSurveyDossier
                 'ai_run_id' => $run->id,
                 'provider' => (string) config('ai.provider', 'null'),
                 'prompt_version' => $promptVersion,
-                'schema_version' => $promptVersion,
             ]);
-            $dossierBefore = $this->traceSnapshots->answers($intake);
-            $questionsBefore = $this->traceSnapshots->remainingQuestions($intake);
-
-            $photoRefs = $imageUploads->map(
-                fn (IntakeUpload $upload): array => $this->photoRefBuilder->fromUpload($upload, 'dossier'),
-            )->values()->all();
+            $dossierBefore = [];
+            $questionsBefore = [];
+            $photoRefs = [];
+            if (! $trace->isNoop()) {
+                $dossierBefore = $this->traceSnapshots->answers($intake);
+                $questionsBefore = $this->traceSnapshots->remainingQuestions($intake);
+                $photoRefs = $imageUploads->map(
+                    fn (IntakeUpload $upload): array => $this->photoRefBuilder->fromUpload($upload, 'dossier'),
+                )->values()->all();
+            }
 
             $trace->recordRequest(
                 systemAndUser: [
@@ -120,7 +123,6 @@ final class SynthesizeSurveyDossier
                 ],
                 photoRefs: $photoRefs,
                 promptVersion: $promptVersion,
-                schemaVersion: $promptVersion,
             );
 
             $result = $this->aiGateway->complete(
@@ -135,18 +137,22 @@ final class SynthesizeSurveyDossier
             );
             $trace->recordProviderResult($result);
 
-            $normalized = $this->outputNormalizer->normalize($result->output);
-            $trace->step('normalize', ['keys' => array_keys($normalized)]);
+            $normalizedDiff = $this->outputNormalizer->normalizeWithDiff($result->output);
+            $normalized = $normalizedDiff['output'];
+            $normalizations = $normalizedDiff['normalizations'];
+            $trace->step('normalize', [
+                'keys' => array_keys($normalized),
+                'normalization_count' => count($normalizations),
+            ]);
 
             try {
                 $output = $this->validateOutput($normalized, $input);
-                $trace->recordParsed($output);
+                $trace->recordParsed($output, [], $normalizations);
             } catch (ValidationException $exception) {
-                $trace->recordParsed($normalized, $exception->errors());
+                $trace->recordParsed($normalized, $exception->errors(), $normalizations);
                 throw $exception;
             }
 
-            $trace->beginBuffer();
             try {
                 DB::transaction(function () use (
                     $intake,
@@ -158,6 +164,7 @@ final class SynthesizeSurveyDossier
                     $model,
                     $trace,
                 ): void {
+                    $trace->beginBuffer();
                     $locked = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
                     $currentInput = $this->contextBuilder->build($locked);
                     $currentInput['image_manifest'] = $this->imageManifest($this->imageUploads($locked));
@@ -181,19 +188,24 @@ final class SynthesizeSurveyDossier
                         'finished_at' => now(),
                     ]);
                 }, 3);
-            } finally {
                 $trace->flushBuffer();
+            } catch (Throwable $transactionException) {
+                $trace->discardBuffer();
+                throw $transactionException;
             }
 
             $trace->linkAiRun($run->fresh() ?? $run);
-            $freshIntake = $intake->fresh() ?? $intake;
-            $dossierAfter = $this->traceSnapshots->answers($freshIntake);
-            $trace->recordDossierSnapshots(
-                $dossierBefore,
-                $dossierAfter,
-                $this->traceSnapshots->changedFields($dossierBefore, $dossierAfter),
-            );
-            $trace->recordRemainingQuestions($questionsBefore, $this->traceSnapshots->remainingQuestions($freshIntake));
+            $trace->stopProcessTimer();
+            if (! $trace->isNoop()) {
+                $freshIntake = $intake->fresh() ?? $intake;
+                $dossierAfter = $this->traceSnapshots->answers($freshIntake);
+                $trace->recordDossierSnapshots(
+                    $dossierBefore,
+                    $dossierAfter,
+                    $this->traceSnapshots->changedFields($dossierBefore, $dossierAfter),
+                );
+                $trace->recordRemainingQuestions($questionsBefore, $this->traceSnapshots->remainingQuestions($freshIntake));
+            }
             $trace->succeed();
 
             return $run->fresh() ?? $run;
@@ -220,6 +232,7 @@ final class SynthesizeSurveyDossier
                     'finished_at' => now(),
                 ]);
                 $trace?->linkAiRun($run->fresh() ?? $run);
+                $trace?->discardBuffer();
                 $trace?->fail($errorMessage, $exception);
 
                 return $run->fresh() ?? $run;

@@ -9,6 +9,7 @@ use App\Domains\AI\Actions\AssessPhotoUsability;
 use App\Domains\AI\Actions\DeriveIntentFromRequest;
 use App\Domains\AI\Actions\DerivePhotoAnswers;
 use App\Domains\AI\Models\AiRun;
+use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\AI\Support\PhotoDerivationProfile;
 use App\Domains\Intake\Actions\CompleteFollowUpRound;
 use App\Domains\Intake\Actions\CompleteIntake;
@@ -43,6 +44,7 @@ use App\Enums\QuestionType;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -77,16 +79,6 @@ class IntakeWizard extends Component
     public array $photoFiles = [];
 
     /**
-     * Pending client network-upload duration (ms) awaiting an upload id.
-     */
-    public ?int $pendingNetworkUploadMs = null;
-
-    /**
-     * Most recently stored upload id in this component lifecycle (for timing attach).
-     */
-    public ?int $lastStoredUploadId = null;
-
-    /**
      * Composite key → labelled prefill notice for the applicant (BL-016).
      * A prefill is a *voorzet*: the value sits editable in the form and is only
      * persisted once the applicant advances.
@@ -103,6 +95,12 @@ class IntakeWizard extends Component
     public array $photoHint = [];
 
     public string $saveMessage = '';
+
+    /** Client-measured network upload ms waiting for a stored upload id (BL-116). */
+    public ?int $pendingNetworkUploadMs = null;
+
+    /** Most recent upload id waiting for client network timing (BL-116). */
+    public ?int $lastStoredUploadId = null;
 
     public bool $showMissing = false;
 
@@ -872,8 +870,12 @@ class IntakeWizard extends Component
         }
 
         if ($profileName === 'fusebox') {
+            $correlationId = $this->latestUploadCorrelationId($questionKey, $instanceKey);
+
             return $instanceKey === null
-                ? $this->applyFuseboxAssessment(app(AssessFuseboxPhotos::class)->handle($this->intake()))
+                ? $this->applyFuseboxAssessment(
+                    app(AssessFuseboxPhotos::class)->handle($this->intake(), correlationId: $correlationId),
+                )
                 : null;
         }
 
@@ -883,8 +885,16 @@ class IntakeWizard extends Component
             return null;
         }
 
+        $correlationId = $this->latestUploadCorrelationId($questionKey, $instanceKey);
+
         return $this->applyPhotoDerivation(
-            app(DerivePhotoAnswers::class)->handle($this->intake(), $questionKey, $instanceKey, $profile),
+            app(DerivePhotoAnswers::class)->handle(
+                $this->intake(),
+                $questionKey,
+                $instanceKey,
+                $profile,
+                correlationId: $correlationId,
+            ),
             $instanceKey,
             $profile,
         );
@@ -1655,8 +1665,7 @@ class IntakeWizard extends Component
     }
 
     /**
-     * Livewire client callback: network ms measured until upload-progress=100%.
-     * Attaches to the most recently stored upload when available.
+     * Livewire client callback: queue measured network ms (may arrive before or after store).
      */
     public function queueNetworkUploadTiming(int $ms): void
     {
@@ -1665,26 +1674,33 @@ class IntakeWizard extends Component
         }
 
         $this->pendingNetworkUploadMs = $ms;
-        $this->flushPendingNetworkUploadTiming();
+
+        if ($this->lastStoredUploadId === null) {
+            return;
+        }
+
+        $upload = IntakeUpload::query()
+            ->where('intake_id', $this->intake()->id)
+            ->find($this->lastStoredUploadId);
+
+        if ($upload instanceof IntakeUpload) {
+            app(AiTraceRecorder::class)->recordNetworkUploadMs($upload, $ms);
+        }
+
+        $this->pendingNetworkUploadMs = null;
+        $this->lastStoredUploadId = null;
     }
 
     private function rememberStoredUpload(IntakeUpload $upload): void
     {
         $this->lastStoredUploadId = $upload->id;
-        $this->flushPendingNetworkUploadTiming();
-    }
 
-    private function flushPendingNetworkUploadTiming(): void
-    {
-        if ($this->pendingNetworkUploadMs === null || $this->lastStoredUploadId === null) {
+        if ($this->pendingNetworkUploadMs === null) {
             return;
         }
 
-        $upload = IntakeUpload::query()->find($this->lastStoredUploadId);
-        if ($upload instanceof IntakeUpload) {
-            app(\App\Domains\AI\Services\AiTraceRecorder::class)
-                ->recordNetworkUploadMs($upload, $this->pendingNetworkUploadMs);
-        }
+        app(AiTraceRecorder::class)
+            ->recordNetworkUploadMs($upload, $this->pendingNetworkUploadMs);
 
         $this->pendingNetworkUploadMs = null;
         $this->lastStoredUploadId = null;
@@ -1697,10 +1713,41 @@ class IntakeWizard extends Component
             return (string) $timings['correlation_id'];
         }
 
-        $id = (string) \Illuminate\Support\Str::uuid();
+        $id = (string) Str::uuid();
         $timings['correlation_id'] = $id;
         $upload->update(['processing_timings' => $timings]);
 
         return $id;
+    }
+
+    private function latestUploadCorrelationId(string $questionKey, ?string $instanceKey): ?string
+    {
+        if ($questionKey === 'fusebox_photo') {
+            $upload = IntakeUpload::query()
+                ->where('intake_id', $this->intake()->id)
+                ->whereIn('question_key', ['fusebox_photo', 'fusebox_photo_extra'])
+                ->whereNull('section_instance_key')
+                ->latest('id')
+                ->first();
+
+            return $upload instanceof IntakeUpload ? $this->correlationIdForUpload($upload) : null;
+        }
+
+        $query = IntakeUpload::query()
+            ->where('intake_id', $this->intake()->id)
+            ->where('question_key', $questionKey)
+            ->latest('id');
+
+        if ($instanceKey === null) {
+            $query->whereNull('section_instance_key');
+        } else {
+            $query->where('section_instance_key', $instanceKey);
+        }
+
+        $upload = $query->first();
+
+        return $upload instanceof IntakeUpload
+            ? $this->correlationIdForUpload($upload)
+            : null;
     }
 }

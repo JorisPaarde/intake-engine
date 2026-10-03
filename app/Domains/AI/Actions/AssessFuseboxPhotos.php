@@ -53,7 +53,7 @@ final class AssessFuseboxPhotos
         private readonly AiTracePhotoRefBuilder $photoRefBuilder,
     ) {}
 
-    public function handle(Intake $intake): ?AiRun
+    public function handle(Intake $intake, ?string $correlationId = null): ?AiRun
     {
         $uploads = $this->uploads($intake);
 
@@ -114,25 +114,32 @@ final class AssessFuseboxPhotos
         ]);
 
         $latestUpload = $uploads->sortByDesc('id')->first();
-        $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoAnalysis, [
+        $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoAnalysis, array_filter([
             'ai_run_id' => $run->id,
             'upload_id' => $latestUpload?->id,
             'subject_type' => 'question',
             'subject_id' => self::PHOTO_QUESTION,
             'provider' => (string) config('ai.provider', 'null'),
             'prompt_version' => $promptVersion,
-            'schema_version' => $promptVersion,
-        ]);
+            'correlation_id' => $correlationId,
+        ], static fn (mixed $value): bool => $value !== null));
         if ($latestUpload !== null) {
             $trace->linkUpload($latestUpload);
         }
-        $dossierBefore = $this->traceSnapshots->answers($intake);
-        $questionsBefore = $this->traceSnapshots->remainingQuestions($intake);
+        $dossierBefore = [];
+        $questionsBefore = [];
+        if (! $trace->isNoop()) {
+            $dossierBefore = $this->traceSnapshots->answers($intake);
+            $questionsBefore = $this->traceSnapshots->remainingQuestions($intake);
+        }
 
         try {
-            $photoRefs = $uploads->map(
-                fn (IntakeUpload $upload): array => $this->photoRefBuilder->fromUpload($upload, 'fusebox'),
-            )->values()->all();
+            $photoRefs = [];
+            if (! $trace->isNoop()) {
+                $photoRefs = $uploads->map(
+                    fn (IntakeUpload $upload): array => $this->photoRefBuilder->fromUpload($upload, 'fusebox'),
+                )->values()->all();
+            }
 
             $trace->recordRequest(
                 systemAndUser: [
@@ -141,7 +148,6 @@ final class AssessFuseboxPhotos
                 ],
                 photoRefs: $photoRefs,
                 promptVersion: $promptVersion,
-                schemaVersion: $promptVersion,
             );
 
             $result = $this->aiGateway->complete(
@@ -153,8 +159,8 @@ final class AssessFuseboxPhotos
             $trace->recordProviderResult($result);
 
             try {
-                $output = $this->validateOutput($result->output);
-                $trace->recordParsed($output);
+                [$output, $normalizations] = $this->validateOutput($result->output);
+                $trace->recordParsed($output, [], $normalizations);
             } catch (ValidationException $exception) {
                 $trace->recordParsed([], $exception->errors());
                 throw $exception;
@@ -169,9 +175,9 @@ final class AssessFuseboxPhotos
 
             $run = $run->fresh() ?? $run;
 
-            $trace->beginBuffer();
             try {
                 DB::transaction(function () use ($intake, $run, $output, $uploads, $persistenceManifest, $trace): void {
+                    $trace->beginBuffer();
                     $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
 
                     if (! in_array($lockedIntake->status, [IntakeStatus::Sent, IntakeStatus::InProgress], true)) {
@@ -216,19 +222,24 @@ final class AssessFuseboxPhotos
                         'created_at' => now(),
                     ]);
                 }, 3);
-            } finally {
                 $trace->flushBuffer();
+            } catch (Throwable $transactionException) {
+                $trace->discardBuffer();
+                throw $transactionException;
             }
 
             $trace->linkAiRun($run);
-            $freshIntake = $intake->fresh() ?? $intake;
-            $dossierAfter = $this->traceSnapshots->answers($freshIntake);
-            $trace->recordDossierSnapshots(
-                $dossierBefore,
-                $dossierAfter,
-                $this->traceSnapshots->changedFields($dossierBefore, $dossierAfter),
-            );
-            $trace->recordRemainingQuestions($questionsBefore, $this->traceSnapshots->remainingQuestions($freshIntake));
+            $trace->stopProcessTimer();
+            if (! $trace->isNoop()) {
+                $freshIntake = $intake->fresh() ?? $intake;
+                $dossierAfter = $this->traceSnapshots->answers($freshIntake);
+                $trace->recordDossierSnapshots(
+                    $dossierBefore,
+                    $dossierAfter,
+                    $this->traceSnapshots->changedFields($dossierBefore, $dossierAfter),
+                );
+                $trace->recordRemainingQuestions($questionsBefore, $this->traceSnapshots->remainingQuestions($freshIntake));
+            }
             $trace->succeed();
 
             return $run;
@@ -246,6 +257,7 @@ final class AssessFuseboxPhotos
                 'finished_at' => now(),
             ]);
             $trace->linkAiRun($run->fresh() ?? $run);
+            $trace->discardBuffer();
             $trace->fail($exception->getMessage(), $exception);
 
             return $run->fresh() ?? $run;
@@ -379,10 +391,12 @@ final class AssessFuseboxPhotos
 
     /**
      * @param  array<string, mixed>  $output
-     * @return array{free_group: string, phase: string, confidence: string, evidence: string, retake_instruction: string|null}
+     * @return array{0: array{free_group: string, phase: string, confidence: string, evidence: string, retake_instruction: string|null}, 1: list<array{field: string, from: mixed, to: mixed, rule: string}>}
      */
     private function validateOutput(array $output): array
     {
+        /** @var list<array{field: string, from: mixed, to: mixed, rule: string}> $normalizations */
+        $normalizations = [];
         $validator = Validator::make($output, [
             'free_group' => ['required', Rule::in(['yes', 'no', 'unknown'])],
             'phase' => ['required', Rule::in(['one_phase', 'three_phase', 'unknown'])],
@@ -398,13 +412,35 @@ final class AssessFuseboxPhotos
         /** @var array{free_group: string, phase: string, confidence: string, evidence: string, retake_instruction: string|null} $validated */
         $validated = $validator->validated();
 
-        return [
+        $evidenceFrom = $validated['evidence'];
+        $evidence = trim($validated['evidence']);
+        if ($evidence !== $evidenceFrom) {
+            $normalizations[] = [
+                'field' => 'evidence',
+                'from' => $evidenceFrom,
+                'to' => $evidence,
+                'rule' => 'trim',
+            ];
+        }
+
+        $retakeFrom = $validated['retake_instruction'];
+        $retake = is_string($validated['retake_instruction'])
+            ? trim($validated['retake_instruction'])
+            : null;
+        if ($retake !== $retakeFrom) {
+            $normalizations[] = [
+                'field' => 'retake_instruction',
+                'from' => $retakeFrom,
+                'to' => $retake,
+                'rule' => 'trim',
+            ];
+        }
+
+        return [[
             ...$validated,
-            'evidence' => trim($validated['evidence']),
-            'retake_instruction' => is_string($validated['retake_instruction'])
-                ? trim($validated['retake_instruction'])
-                : null,
-        ];
+            'evidence' => $evidence,
+            'retake_instruction' => $retake,
+        ], $normalizations];
     }
 
     /**

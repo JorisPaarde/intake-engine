@@ -91,19 +91,18 @@ final class AnalyzeRoutePhoto
             'subject_id' => (string) $segment->id,
             'provider' => (string) config('ai.provider', 'null'),
             'prompt_version' => $promptVersion,
-            'schema_version' => $promptVersion,
         ]);
         $trace->linkUpload($upload);
 
         try {
+            $photoRefs = $trace->isNoop() ? [] : [$this->photoRefBuilder->fromUpload($upload, 'route')];
             $trace->recordRequest(
                 systemAndUser: [
                     'system' => $promptBody,
                     'user' => $input,
                 ],
-                photoRefs: [$this->photoRefBuilder->fromUpload($upload, 'route')],
+                photoRefs: $photoRefs,
                 promptVersion: $promptVersion,
-                schemaVersion: $promptVersion,
             );
 
             $result = $this->aiGateway->complete(
@@ -116,8 +115,8 @@ final class AnalyzeRoutePhoto
             $trace->recordProviderResult($result);
 
             try {
-                $output = $this->validateOutput($result->output);
-                $trace->recordParsed($output);
+                [$output, $normalizations] = $this->validateOutput($result->output);
+                $trace->recordParsed($output, [], $normalizations);
             } catch (ValidationException $exception) {
                 $trace->recordParsed([], $exception->errors());
                 throw $exception;
@@ -130,36 +129,44 @@ final class AnalyzeRoutePhoto
                 'finished_at' => now(),
             ]);
 
-            $updated = DB::transaction(function () use ($segment, $run, $output, $input, $trace): PipeRouteSegment {
-                $intakeId = $segment->session()->value('intake_id');
-                Intake::query()->whereKey($intakeId)->lockForUpdate()->firstOrFail();
-                $segment = PipeRouteSegment::query()->with('upload')->whereKey($segment->id)->lockForUpdate()->firstOrFail();
+            try {
+                $updated = DB::transaction(function () use ($segment, $run, $output, $input, $trace): PipeRouteSegment {
+                    $trace->beginBuffer();
+                    $intakeId = $segment->session()->value('intake_id');
+                    Intake::query()->whereKey($intakeId)->lockForUpdate()->firstOrFail();
+                    $segment = PipeRouteSegment::query()->with('upload')->whereKey($segment->id)->lockForUpdate()->firstOrFail();
 
-                if ($segment->sequence !== $input['sequence']
-                    || ($segment->label ?? 'onbekend') !== $input['segment_role']
-                    || $segment->upload === null
-                    || $this->aiImageResolver->identity($segment->upload) !== $input['image']) {
-                    throw new \RuntimeException('Routefoto gewijzigd tijdens AI-analyse; resultaat niet toegepast.');
-                }
+                    if ($segment->sequence !== $input['sequence']
+                        || ($segment->label ?? 'onbekend') !== $input['segment_role']
+                        || $segment->upload === null
+                        || $this->aiImageResolver->identity($segment->upload) !== $input['image']) {
+                        throw new \RuntimeException('Routefoto gewijzigd tijdens AI-analyse; resultaat niet toegepast.');
+                    }
 
-                $segment->update([
-                    'ai_run_id' => $run->id,
-                    'photo_usable' => $output['photo_usable'],
-                    'route_possible' => $output['route_possible'],
-                    'confidence' => $output['confidence'],
-                    'analysis' => $output,
-                ]);
-                $trace->step('apply', [
-                    'segment_id' => $segment->id,
-                    'photo_usable' => $output['photo_usable'],
-                    'route_possible' => $output['route_possible'],
-                    'confidence' => $output['confidence'],
-                ]);
+                    $segment->update([
+                        'ai_run_id' => $run->id,
+                        'photo_usable' => $output['photo_usable'],
+                        'route_possible' => $output['route_possible'],
+                        'confidence' => $output['confidence'],
+                        'analysis' => $output,
+                    ]);
+                    $trace->step('apply', [
+                        'segment_id' => $segment->id,
+                        'photo_usable' => $output['photo_usable'],
+                        'route_possible' => $output['route_possible'],
+                        'confidence' => $output['confidence'],
+                    ]);
 
-                return $segment->fresh() ?? $segment;
-            }, 3);
+                    return $segment->fresh() ?? $segment;
+                }, 3);
+                $trace->flushBuffer();
+            } catch (Throwable $transactionException) {
+                $trace->discardBuffer();
+                throw $transactionException;
+            }
 
             $trace->linkAiRun($run->fresh() ?? $run);
+            $trace->stopProcessTimer();
             $trace->succeed();
 
             return $updated;
@@ -177,6 +184,7 @@ final class AnalyzeRoutePhoto
                 'finished_at' => now(),
             ]);
             $trace->linkAiRun($run->fresh() ?? $run);
+            $trace->discardBuffer();
             $trace->fail($exception->getMessage(), $exception);
 
             return $segment;
@@ -185,10 +193,12 @@ final class AnalyzeRoutePhoto
 
     /**
      * @param  array<string, mixed>  $output
-     * @return array<string, mixed>
+     * @return array{0: array<string, mixed>, 1: list<array{field: string, from: mixed, to: mixed, rule: string}>}
      */
     private function validateOutput(array $output): array
     {
+        /** @var list<array{field: string, from: mixed, to: mixed, rule: string}> $normalizations */
+        $normalizations = [];
         $validator = Validator::make($output, [
             'photo_usable' => ['required', 'boolean'],
             'visible_elements' => ['present', 'array'],
@@ -208,11 +218,43 @@ final class AnalyzeRoutePhoto
 
         /** @var array<string, mixed> $validated */
         $validated = $validator->validated();
-        $validated['photo_usable'] = (bool) $validated['photo_usable'];
-        $validated['route_possible'] = (bool) $validated['route_possible'];
-        $validated['confidence'] = round((float) $validated['confidence'], 3);
-        $validated['next_photo_instruction'] = trim((string) $validated['next_photo_instruction']);
 
-        return $validated;
+        foreach (['photo_usable', 'route_possible'] as $boolField) {
+            $from = $validated[$boolField];
+            $to = (bool) $validated[$boolField];
+            if ($from !== $to) {
+                $normalizations[] = [
+                    'field' => $boolField,
+                    'from' => $from,
+                    'to' => $to,
+                    'rule' => 'boolean_cast',
+                ];
+            }
+            $validated[$boolField] = $to;
+        }
+
+        $confidenceFrom = $validated['confidence'];
+        $validated['confidence'] = round((float) $validated['confidence'], 3);
+        if ($validated['confidence'] !== $confidenceFrom) {
+            $normalizations[] = [
+                'field' => 'confidence',
+                'from' => $confidenceFrom,
+                'to' => $validated['confidence'],
+                'rule' => 'round_3',
+            ];
+        }
+
+        $instructionFrom = $validated['next_photo_instruction'];
+        $validated['next_photo_instruction'] = trim((string) $validated['next_photo_instruction']);
+        if ($validated['next_photo_instruction'] !== $instructionFrom) {
+            $normalizations[] = [
+                'field' => 'next_photo_instruction',
+                'from' => $instructionFrom,
+                'to' => $validated['next_photo_instruction'],
+                'rule' => 'trim',
+            ];
+        }
+
+        return [$validated, $normalizations];
     }
 }

@@ -18,9 +18,15 @@ final class AiImageResolver
     {
         [$path, $mime] = $this->location($upload);
 
+        $binary = Storage::disk($upload->disk)->get($path);
+
+        if (! is_string($binary) || $binary === '') {
+            throw new \RuntimeException('Uploadbestand niet gevonden voor AI-beeldanalyse.');
+        }
+
         return new AiImageInput(
             mimeType: $mime,
-            binary: Storage::disk($upload->disk)->get($path),
+            binary: $binary,
         );
     }
 

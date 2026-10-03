@@ -32,7 +32,7 @@ final class AssessPhotoUsability
         private readonly AiTracePhotoRefBuilder $photoRefs,
     ) {}
 
-    public function handle(IntakeUpload $upload): PhotoUsabilityVerdict
+    public function handle(IntakeUpload $upload, ?string $correlationId = null): PhotoUsabilityVerdict
     {
         $intake = Intake::query()->find($upload->intake_id);
         $run = AiRun::query()->create([
@@ -48,14 +48,15 @@ final class AssessPhotoUsability
         ]);
 
         $trace = $intake instanceof Intake
-            ? $this->traceRecorder->start($intake, AiTraceCallType::PhotoAnalysis, [
+            ? $this->traceRecorder->start($intake, AiTraceCallType::PhotoAnalysis, array_filter([
                 'ai_run_id' => $run->id,
                 'upload_id' => $upload->id,
                 'subject_type' => 'upload',
                 'subject_id' => (string) $upload->id,
                 'provider' => 'heuristic',
                 'prompt_version' => 'photo-heuristic-v1',
-            ])
+                'correlation_id' => $correlationId,
+            ], static fn (mixed $value): bool => $value !== null))
             : null;
 
         if ($trace !== null) {
@@ -84,18 +85,22 @@ final class AssessPhotoUsability
             ]);
 
             if ($trace !== null) {
+                $photoRefs = $trace->isNoop()
+                    ? []
+                    : [$this->photoRefs->fromUpload($upload, 'usability')];
+
                 $trace->recordRequest(
                     systemAndUser: [
                         'system' => 'local photo usability heuristic',
                         'user' => ['upload_id' => $upload->id, 'path_ref' => 'intake_upload:'.$upload->id],
                     ],
-                    photoRefs: [$this->photoRefs->fromUpload($upload, 'usability')],
+                    photoRefs: $photoRefs,
                     promptVersion: 'photo-heuristic-v1',
-                    schemaVersion: 'photo-heuristic-v1',
                     modelParameters: ['engine' => 'gd'],
                 );
                 $trace->recordParsed(['verdict' => $verdict->value]);
                 $trace->step('usability', ['verdict' => $verdict->value], durationMs: $processMs);
+                $trace->stopProcessTimer();
                 $trace->succeed();
             }
 

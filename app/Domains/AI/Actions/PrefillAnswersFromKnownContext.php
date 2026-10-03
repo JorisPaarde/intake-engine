@@ -23,6 +23,7 @@ use App\Enums\AiRunType;
 use App\Enums\AiTraceCallType;
 use App\Enums\IntakeStatus;
 use App\Enums\QuestionType;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -110,10 +111,13 @@ final class PrefillAnswersFromKnownContext
             'ai_run_id' => $run->id,
             'provider' => (string) config('ai.provider', 'null'),
             'prompt_version' => $promptVersion,
-            'schema_version' => $promptVersion,
         ]);
-        $dossierBefore = $this->traceSnapshots->answers($intake);
-        $questionsBefore = $this->traceSnapshots->remainingQuestions($intake);
+        $dossierBefore = [];
+        $questionsBefore = [];
+        if (! $trace->isNoop()) {
+            $dossierBefore = $this->traceSnapshots->answers($intake);
+            $questionsBefore = $this->traceSnapshots->remainingQuestions($intake);
+        }
 
         try {
             $trace->recordRequest(
@@ -123,7 +127,6 @@ final class PrefillAnswersFromKnownContext
                     'prompt_version' => $promptVersion,
                 ],
                 promptVersion: $promptVersion,
-                schemaVersion: $promptVersion,
             );
 
             $result = $this->aiGateway->complete(
@@ -142,25 +145,38 @@ final class PrefillAnswersFromKnownContext
                 'evidence' => $classified['evidence'],
                 'fills' => $classified['fills'],
             ];
-            $trace->recordParsed($output);
+            $trace->recordParsed($output, [], $classified['normalizations']);
             $trace->step('normalize', [
                 'candidate_count' => count($classified['candidates']),
+                'normalization_count' => count($classified['normalizations']),
             ]);
-            $trace->recordFieldOutcomes(array_map(
-                static fn (RequestPrefillCandidate $candidate): array => [
-                    'question_key' => $candidate->questionKey,
-                    'section_instance_key' => $candidate->sectionInstanceKey,
-                    'disposition' => $candidate->disposition,
-                    'confidence' => $candidate->confidence,
-                    'source' => $candidate->source,
-                    'reason' => $candidate->reason,
-                    'has_value' => $candidate->value !== null,
-                ],
-                $classified['candidates'],
-            ));
 
-            $applied = $this->apply($intake, $output, $classified['candidates']);
-            $trace->step('apply', ['applied_question_keys' => $applied]);
+            try {
+                $applied = DB::transaction(function () use ($intake, $output, $classified, $trace): array {
+                    $trace->beginBuffer();
+                    Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
+                    $applied = $this->apply($intake, $output, $classified['candidates']);
+                    $trace->step('apply', ['applied_question_keys' => $applied]);
+                    $trace->recordFieldOutcomes(array_map(
+                        static fn (RequestPrefillCandidate $candidate): array => [
+                            'question_key' => $candidate->questionKey,
+                            'section_instance_key' => $candidate->sectionInstanceKey,
+                            'disposition' => $candidate->disposition,
+                            'confidence' => $candidate->confidence,
+                            'source' => $candidate->source,
+                            'reason' => $candidate->reason,
+                            'has_value' => $candidate->value !== null,
+                        ],
+                        $classified['candidates'],
+                    ));
+
+                    return $applied;
+                }, 3);
+                $trace->flushBuffer();
+            } catch (Throwable $transactionException) {
+                $trace->discardBuffer();
+                throw $transactionException;
+            }
 
             $run->update($run->completionResultAttributes($result) + [
                 'status' => AiRunStatus::Succeeded,
@@ -171,15 +187,20 @@ final class PrefillAnswersFromKnownContext
 
             $run = $run->fresh() ?? $run;
             $trace->linkAiRun($run);
-
-            $dossierAfter = $this->traceSnapshots->answers($intake);
-            $questionsAfter = $this->traceSnapshots->remainingQuestions($intake);
-            $trace->recordDossierSnapshots(
-                $dossierBefore,
-                $dossierAfter,
-                $this->traceSnapshots->changedFields($dossierBefore, $dossierAfter),
-            );
-            $trace->recordRemainingQuestions($questionsBefore, $questionsAfter);
+            $trace->stopProcessTimer();
+            if (! $trace->isNoop()) {
+                $freshIntake = $intake->fresh() ?? $intake;
+                $dossierAfter = $this->traceSnapshots->answers($freshIntake);
+                $trace->recordDossierSnapshots(
+                    $dossierBefore,
+                    $dossierAfter,
+                    $this->traceSnapshots->changedFields($dossierBefore, $dossierAfter),
+                );
+                $trace->recordRemainingQuestions(
+                    $questionsBefore,
+                    $this->traceSnapshots->remainingQuestions($freshIntake),
+                );
+            }
             $trace->succeed();
 
             IntakeActivityEvent::query()->create([
@@ -205,6 +226,7 @@ final class PrefillAnswersFromKnownContext
                 'finished_at' => now(),
             ]);
             $trace->linkAiRun($run->fresh() ?? $run);
+            $trace->discardBuffer();
             $trace->fail($exception->getMessage(), $exception);
 
             return $run->fresh() ?? $run;

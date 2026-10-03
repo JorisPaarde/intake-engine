@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.82 · **Laatste update:** 2026-10-02 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.83 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -12,7 +12,8 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
-| AI-traces inzage + timings (BL-116) | todo | - | Dev `/dev/ai-traces` + CLI `ai:traces`: case 80/81 tekst + fotoupload; timings upload/preprocess/provider zichtbaar; mislukte call wist geen antwoord. |
+| AI-traces inzage + timings (BL-116) | todo | - | Dev `/dev/ai-traces` + CLI `ai:traces`: case 80/81 tekst + fotoupload; correlation-groepering zichtbaar; timings upload/preprocess/provider zichtbaar; mislukte call wist geen antwoord. |
+| Klantwizard network_upload_ms (BL-116) | todo | - | Fotovraag met `data-upload-timing`: na opslaan verschijnt net-ms op upload/trace (client-progress + expliciet upload-id). |
 | Ruimtematen persist + herladen (BL-110) | todo | - | Demo: ruimte L 4,2 / B 3,1 → opslaan → herladen toont 4,2×3,1 (13,0 m²), niet “Maten nog leeg”. |
 | AI-voorstel vernieuwen + foutstijl (BL-109/111) | todo | - | Op staging met AI aan: **AI-voorstel vernieuwen** levert voorstel of rode foutalert (niet groen). |
 | Aanspreekvorm je (BL-112) | todo | - | Klantpad `/o/…` en mails zonder “uw/u”; installateur blijft “je”. |

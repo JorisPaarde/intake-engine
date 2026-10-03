@@ -1,6 +1,6 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 3.16 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.17 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **samenvatting, aandachtspunten, lokale fotokwaliteit, tekst-/foto-afleiding, verbindingsgebonden routeanalyse en bewijsgerichte dossiersynthese zijn geïmplementeerd**. Externe provider en tekst-/foto-/route-/dossierinferentie staan standaard uit (provider + key + featurevlaggen + budgetcaps; soft-fail zonder die config). OpenAI-compatibele gateways (o.a. OpenRouter) via `AI_BASE_URL`.
 
@@ -132,9 +132,9 @@ Doel: per mislukte/onjuiste uitkomst aantonen of de fout in model, prompt, parse
 | Call | `call_type` (`text_extraction` / `photo_analysis` / `synthesis` / …), tijdstippen, status |
 | Provider | provider, werkelijk model-ID, `model_parameters`, promptversie, fallback/retries, `finish_reason`, tokens/kosten |
 | Request | `request_snapshot` (system/user/context, geredigeerd); `photo_refs` naar beschermd origineel (geen base64; detail + dimensions) |
-| Response | `raw_response`, `parsed_response`, `validation_errors`, `normalizations`, `field_outcomes` (overgenomen/afgewezen + reden/confidence/bron) |
+| Response | `raw_response`, `parsed_response`, `validation_errors`, `normalizations` (lijst `{field, from, to, rule}` via `normalizeWithDiff`), `field_outcomes` (overgenomen/afgewezen + reden/confidence/bron) |
 | Effect | `dossier_before`/`dossier_after` (+ `changed_fields`), `remaining_questions_before`/`after` via `IntakeStepBuilder::buildCatalog` (reasons + next unanswered visible) |
-| P2-timings | `persist_ms` / `network_upload_ms` (via `recordNetworkUploadMs`), `preprocess_ms`, `provider_ms`, `process_ms` (`stopProcessTimer` vóór after-snapshots) |
+| P2-timings | `persist_ms` / `network_upload_ms` (client: upload-progress → `ai-upload-stored` → `recordNetworkUploadTiming` / `recordNetworkUploadMs`), `preprocess_ms`, `provider_ms`, `process_ms` (`stopProcessTimer` vóór after-snapshots) |
 
 **Geïnstrumenteerde acties:** `PrefillAnswersFromKnownContext`, `DerivePhotoAnswers`, `AssessFuseboxPhotos`, `SynthesizeSurveyDossier`, `AnalyzeRoutePhoto`, `SynthesizePipeRoute`, `SuggestInstallerPhotoObservations`, `SummarizeIntake`, `SuggestAttentionPoints` (+ lokale `AssessPhotoUsability`). Foto-refs via `AiTracePhotoRefBuilder` (width/height + dossier/analyse-variant uit upload timings). Transactiestappen via `beginBuffer()`/`flushBuffer()`/`discardBuffer()`. `model_parameters` komen uit `AiCompletionResult`, niet hardcoded. `fail($msg, $exception)` bewaart `provider_ms`/raw/finish/tokens bij clientfouten.
 
