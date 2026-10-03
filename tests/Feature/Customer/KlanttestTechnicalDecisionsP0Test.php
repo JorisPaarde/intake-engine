@@ -164,7 +164,7 @@ test('technical decision keys are shared and hidden from the latest customer wiz
     );
 
     $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
-    expect($version->version)->toBe(20);
+    expect($version->version)->toBe(21);
 
     $steps = klanttestP0StepKeys(makeKlanttestP0Intake());
     foreach (TechnicalDecisionKeys::all() as $key) {
@@ -236,7 +236,7 @@ test('case 80 reproduction: Weet ik niet on drain_location does not force natura
         ->firstWhere('question_key', 'drain_photo');
 
     expect($drainStep)->not->toBeNull()
-        ->and($drainStep['is_required'])->toBeTrue()
+        ->and($drainStep['is_required'])->toBeFalse()
         ->and($drainStep['title'])->toContain('condenswater');
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
@@ -255,6 +255,7 @@ test('case 80 reproduction: Weet ik niet on drain_location does not force natura
     $component->set('stepIndex', (int) $drainIndex)
         ->set('activeStepKey', $viewSteps[(int) $drainIndex]['key'])
         ->assertSee('Foto van de plek waar condenswater weg kan')
+        ->assertSee('Weet ik niet / sla over')
         ->assertDontSee('Kan het condenswater waarschijnlijk zonder pomp weglopen?')
         ->assertDontSee('Welke leidingroute lijkt het meest waarschijnlijk?')
         ->assertDontSee('Zijn er waarschijnlijk gaten door muren of vloeren nodig?');

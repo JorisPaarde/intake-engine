@@ -124,6 +124,8 @@ final class StoreIntakeUpload
                     'dossier_height' => $normalized->dossierHeight,
                     'analysis_width' => $normalized->analysisWidth,
                     'analysis_height' => $normalized->analysisHeight,
+                    'original_width' => $normalized->originalWidth,
+                    'original_height' => $normalized->originalHeight,
                     'measured_at' => now()->toIso8601String(),
                 ];
 

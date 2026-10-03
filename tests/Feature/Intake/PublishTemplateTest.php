@@ -7,7 +7,7 @@ use App\Domains\Intake\Services\PublishIntakeTemplateFromConfig;
 use App\Enums\TemplateVersionStatus;
 use Database\Seeders\IntakeTemplateSeeder;
 
-test('airco template seeder publishes v1 through v20 with v20 as latest', function () {
+test('airco template seeder publishes v1 through v21 with v21 as latest', function () {
     $this->seed(IntakeTemplateSeeder::class);
 
     $template = IntakeTemplate::query()->where('key', 'airco')->first();
@@ -17,14 +17,14 @@ test('airco template seeder publishes v1 through v20 with v20 as latest', functi
 
     $versions = $template->versions()->orderBy('version')->get();
 
-    expect($versions)->toHaveCount(20)
-        ->and($versions->pluck('version')->all())->toBe([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
+    expect($versions)->toHaveCount(21)
+        ->and($versions->pluck('version')->all())->toBe([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21])
         ->and($versions->every(fn ($version) => $version->status === TemplateVersionStatus::Published))->toBeTrue();
 
     $latest = $template->latestPublishedVersion();
 
     expect($latest)->not->toBeNull()
-        ->and($latest->version)->toBe(20)
+        ->and($latest->version)->toBe(21)
         ->and($latest->sections()->count())->toBeGreaterThan(5)
         ->and($latest->sections()->where('key', 'rooms')->value('is_repeatable'))->toBeTrue();
 
@@ -83,8 +83,20 @@ test('airco template seeder publishes v1 through v20 with v20 as latest', functi
         ->firstOrFail();
     expect($reason->meta['installer_prefillable'] ?? null)->toBeTrue()
         ->and($desiredRoomCount->label)->toBe('Hoeveel ruimtes wil je koelen of verwarmen?')
-        ->and($roomPositionPhoto->label)->toBe('Extra overzicht van wanden en doorgangen')
-        ->and($roomPositionPhoto->help_text)->toContain('Je hoeft zelf geen plek');
+        ->and($roomPositionPhoto->label)->toContain('binnen en buiten')
+        ->and($roomPositionPhoto->is_required)->toBeFalse()
+        ->and($roomPositionPhoto->help_text)->toContain('binnen');
+
+    $pipeRoute = $latest->sections()
+        ->where('key', 'pipe_route')
+        ->firstOrFail()
+        ->questions()
+        ->where('key', 'pipe_route_photos')
+        ->firstOrFail();
+    expect($pipeRoute->is_required)->toBeFalse()
+        ->and($pipeRoute->meta['allow_skip'] ?? null)->toBeTrue()
+        ->and($roomQuestions->firstWhere('key', 'room_length_m')->meta['wizard_group'] ?? null)->toBe('room_dimensions')
+        ->and($roomQuestions->firstWhere('key', 'room_width_m')->meta['wizard_group'] ?? null)->toBe('room_dimensions');
 
     $buildYear = $latest->sections()
         ->where('key', 'building')
@@ -162,8 +174,8 @@ test('airco template seeder publishes v1 through v20 with v20 as latest', functi
         ->and($drillings->meta['installer_decision'] ?? null)->toBeNull()
         ->and($drainPhoto->label)->toContain('condenswater')
         ->and($drainPhoto->is_required)->toBeFalse()
-        ->and($drainPhoto->rules->pluck('effect')->map->value->all())->toContain('require')
-        ->and($drainPhoto->rules->pluck('operator')->map->value->all())->toContain('not_in')
+        ->and($drainPhoto->rules)->toBeEmpty()
+        ->and($drainPhoto->meta['allow_skip'] ?? null)->toBeTrue()
         ->and($fuseboxPhoto->meta['photo_analysis'] ?? null)->toBe('fusebox')
         ->and($fuseboxPhoto->is_required)->toBeTrue()
         ->and($aroundHouse->is_required)->toBeTrue()
@@ -213,11 +225,11 @@ test('airco template seeder publishes v1 through v20 with v20 as latest', functi
         require database_path('data/templates/airco/v1.php'),
     );
     $againLatest = app(PublishIntakeTemplateFromConfig::class)->handle(
-        require database_path('data/templates/airco/v20.php'),
+        require database_path('data/templates/airco/v21.php'),
     );
 
     expect($againV1->version)->toBe(1)
         ->and($againLatest->id)->toBe($latest->id)
         ->and(IntakeTemplate::query()->where('key', 'airco')->count())->toBe(1)
-        ->and($template->versions()->count())->toBe(20);
+        ->and($template->versions()->count())->toBe(21);
 });

@@ -140,11 +140,13 @@
             </p>
             <h1 class="mt-1 text-2xl font-extrabold tracking-tight text-[#18201d]">
                 {{ $step['title'] ?? $question->label }}
-                @if ($state['required'])
+                @if ($state['required'] || (($step['kind'] ?? '') === 'question_group' && ($step['is_required'] ?? false)))
                     <span class="text-[#a84832]">*</span>
                 @endif
             </h1>
-            @if ($question->help_text)
+            @if (($step['kind'] ?? '') === 'question_group' && $step['help_text'])
+                <p class="mt-2 text-sm leading-relaxed text-[#5e6862]">{{ $step['help_text'] }}</p>
+            @elseif ($question->help_text)
                 <p class="mt-2 text-sm leading-relaxed text-[#5e6862]">{{ $question->help_text }}</p>
             @elseif ($step['description'])
                 <p class="mt-2 text-sm leading-relaxed text-[#5e6862]">{{ $step['description'] }}</p>
@@ -200,6 +202,35 @@
                 @endif
                 <div class="rounded-xl border border-[#dde2da] bg-white p-4 shadow-sm">
                     <div>
+                        @if (($step['kind'] ?? 'question') === 'question_group' && ($groupQuestions ?? []) !== [])
+                            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2" data-testid="dimensions-group">
+                                @foreach ($groupQuestions as $groupQuestion)
+                                    @php
+                                        $groupComposite = \App\Domains\Intake\Services\VisibilityResolver::compositeKey($groupQuestion->key, $step['section_instance_key']);
+                                        $groupState = $visibility[$groupComposite] ?? ['visible' => false, 'required' => false];
+                                    @endphp
+                                    <div wire:key="group-field-{{ $groupComposite }}">
+                                        <label for="field-{{ $groupComposite }}" class="mb-1 block text-sm font-medium text-[#18201d]">
+                                            {{ $groupQuestion->label }}
+                                            @if ($groupState['required'] || ($step['is_required'] ?? false))
+                                                <span class="text-[#a84832]">*</span>
+                                            @endif
+                                        </label>
+                                        <input
+                                            id="field-{{ $groupComposite }}"
+                                            type="number"
+                                            inputmode="decimal"
+                                            wire:model.blur="form.{{ $groupComposite }}.number"
+                                            class="block min-h-11 w-full rounded-xl border-[#dde2da] shadow-sm focus:border-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
+                                            @if ($groupState['required']) required @endif
+                                        >
+                                        @if ($groupQuestion->help_text)
+                                            <p class="mt-1 text-xs text-[#5e6862]">{{ $groupQuestion->help_text }}</p>
+                                        @endif
+                                    </div>
+                                @endforeach
+                            </div>
+                        @else
                         @switch ($question->type->value)
                             @case('short_text')
                                 <input
@@ -318,24 +349,75 @@
                                             @if (($uploadPhase ?? '') === 'assessing' && ($uploadPhaseComposite ?? '') === $composite)
                                                 wire:poll.2s="pollPendingAssessments"
                                             @endif
-                                            x-data="{ timedOut: false, timer: null }"
-                                            x-init="
-                                                const arm = () => {
-                                                    clearTimeout(timer);
-                                                    timedOut = false;
+                                            x-data="{
+                                                timedOut: false,
+                                                timer: null,
+                                                uploadTimedOut: false,
+                                                uploadTimer: null,
+                                                uploadError: '',
+                                                requestError: '',
+                                                arm() {
+                                                    clearTimeout(this.timer);
+                                                    this.timedOut = false;
                                                     if ($wire.uploadPhase === 'assessing' && $wire.uploadPhaseComposite === @js($composite)) {
-                                                        timer = setTimeout(() => { timedOut = true }, 120000);
+                                                        this.timer = setTimeout(() => { this.timedOut = true }, 120000);
                                                     }
-                                                };
+                                                },
+                                                armUpload() {
+                                                    clearTimeout(this.uploadTimer);
+                                                    this.uploadTimedOut = false;
+                                                    this.uploadError = '';
+                                                    this.requestError = '';
+                                                    this.uploadTimer = setTimeout(() => {
+                                                        this.uploadTimedOut = true;
+                                                        this.uploadError = 'Uploaden duurde te lang. Controleer je verbinding en probeer opnieuw.';
+                                                    }, 15000);
+                                                },
+                                                finishUpload() {
+                                                    clearTimeout(this.uploadTimer);
+                                                    if (! this.uploadTimedOut) {
+                                                        this.uploadError = '';
+                                                    }
+                                                },
+                                                failUpload() {
+                                                    clearTimeout(this.uploadTimer);
+                                                    this.uploadTimedOut = true;
+                                                    this.uploadError = this.uploadError || 'Uploaden mislukt. Probeer het opnieuw.';
+                                                },
+                                                retryUpload() {
+                                                    this.uploadTimedOut = false;
+                                                    this.uploadError = '';
+                                                    this.requestError = '';
+                                                    const input = document.getElementById(@js('photo-input-'.str_replace(['.', ' '], '-', $composite)));
+                                                    if (input) {
+                                                        input.value = '';
+                                                        input.click();
+                                                    }
+                                                },
+                                                onRequestFailed(event) {
+                                                    const message = event?.detail?.message
+                                                        || 'De server is even niet bereikbaar. Probeer het opnieuw.';
+                                                    this.requestError = message;
+                                                    this.uploadTimedOut = true;
+                                                    this.uploadError = message;
+                                                    clearTimeout(this.uploadTimer);
+                                                },
+                                            }"
+                                            x-init="
                                                 arm();
                                                 $watch(() => $wire.uploadPhase, () => arm());
                                                 $watch(() => $wire.uploadPhaseComposite, () => arm());
+                                                window.addEventListener('intake:livewire-request-failed', (e) => onRequestFailed(e));
                                             "
+                                            x-on:livewire-upload-start="armUpload()"
+                                            x-on:livewire-upload-finish="finishUpload()"
+                                            x-on:livewire-upload-error="failUpload()"
+                                            data-upload-timing="1"
                                         >
                                             @php($uploadBusy = ($uploadPhase ?? '') === 'assessing' && ($uploadPhaseComposite ?? '') === $composite)
                                             <label
                                                 class="flex min-h-12 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-[#dde2da] bg-[#eef1ec] px-4 py-5 text-center"
-                                                :class="{ 'pointer-events-none opacity-60': @js($uploadBusy) && ! timedOut }"
+                                                :class="{ 'pointer-events-none opacity-60': (@js($uploadBusy) && ! timedOut) || (uploadTimedOut === false && $el.querySelector('[data-uploading]')?.dataset.uploading === '1') }"
                                                 wire:loading.class="pointer-events-none opacity-60"
                                                 wire:target="photoFiles.{{ $composite }}"
                                             >
@@ -357,8 +439,30 @@
                                                     x-bind:disabled="@js($uploadBusy) && ! timedOut"
                                                 >
                                             </label>
-                                            <div wire:loading wire:target="photoFiles.{{ $composite }}" class="mt-2 text-sm font-medium text-[var(--tenant-primary)]">
+                                            <div
+                                                wire:loading
+                                                wire:target="photoFiles.{{ $composite }}"
+                                                class="mt-2 text-sm font-medium text-[var(--tenant-primary)]"
+                                                data-uploading="1"
+                                                x-show="! uploadTimedOut"
+                                            >
                                                 Uploaden…
+                                            </div>
+                                            <div
+                                                x-show="uploadTimedOut && uploadError"
+                                                x-cloak
+                                                class="mt-2 space-y-1 text-sm font-medium text-[#a84832]"
+                                                role="alert"
+                                                data-testid="upload-timeout-error"
+                                            >
+                                                <p x-text="uploadError"></p>
+                                                <button
+                                                    type="button"
+                                                    class="mt-1 text-sm font-semibold text-[var(--tenant-primary)] underline"
+                                                    x-on:click="retryUpload()"
+                                                >
+                                                    Opnieuw proberen
+                                                </button>
                                             </div>
                                             <div wire:loading.remove wire:target="photoFiles.{{ $composite }}">
                                                 @if (($uploadPhase ?? '') === 'assessing' && ($uploadPhaseComposite ?? '') === $composite)
@@ -418,6 +522,23 @@
                                         @enderror
                                     @endif
 
+                                    @if (
+                                        ($question->meta['allow_skip'] ?? false) === true
+                                        && $existingUploads->isEmpty()
+                                        && ! ($state['required'] ?? false)
+                                    )
+                                        <div class="mt-3">
+                                            <button
+                                                type="button"
+                                                wire:click="skipOptionalPhoto"
+                                                class="min-h-11 w-full rounded-xl border border-[#dde2da] bg-white px-4 text-sm font-semibold text-[#18201d]"
+                                                data-testid="photo-skip"
+                                            >
+                                                {{ $question->meta['skip_label'] ?? 'Weet ik niet / sla over' }}
+                                            </button>
+                                        </div>
+                                    @endif
+
                                     @if ($existingUploads->isNotEmpty())
                                         @php($photoStatus = $existingUploads->every(fn ($uploadItem) => $uploadItem->usability_verdict !== null) ? 'Beoordeeld' : 'Ontvangen')
                                         <p class="text-xs font-medium text-[#5e6862]" data-testid="photo-receipt-status">Status: {{ $photoStatus }}</p>
@@ -459,6 +580,7 @@
                                 </div>
                                 @break
                         @endswitch
+                        @endif
                     </div>
 
                     @error('value')

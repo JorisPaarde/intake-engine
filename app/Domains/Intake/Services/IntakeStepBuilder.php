@@ -39,8 +39,10 @@ use Illuminate\Support\Str;
  *     help_text: string|null,
  *     is_repeatable: bool,
  *     is_required: bool,
- *     kind?: 'question'|'known_summary',
- *     known_items?: list<KnownSummaryItem>
+ *     kind?: 'question'|'known_summary'|'question_group',
+ *     known_items?: list<KnownSummaryItem>,
+ *     group_key?: string,
+ *     group_question_keys?: list<string>
  * }
  * @phpstan-type CatalogRow array{
  *     question_key: string,
@@ -241,6 +243,8 @@ final class IntakeStepBuilder
     ): void {
         $questions = $section->questions->sortBy('sort_order')->values();
         $visibility = $this->resolveVisibilityForSection($questions, $sectionInstanceKey, $context);
+        /** @var array<string, true> $emittedGroups */
+        $emittedGroups = [];
 
         foreach ($questions as $question) {
             $composite = VisibilityResolver::compositeKey($question->key, $sectionInstanceKey);
@@ -254,6 +258,85 @@ final class IntakeStepBuilder
             );
 
             if ($presentation['reason'] !== 'visible') {
+                continue;
+            }
+
+            $wizardGroup = is_string($question->meta['wizard_group'] ?? null)
+                ? (string) $question->meta['wizard_group']
+                : null;
+
+            if ($wizardGroup !== null && $wizardGroup !== '') {
+                if (isset($emittedGroups[$wizardGroup])) {
+                    continue;
+                }
+
+                $groupMembers = $questions
+                    ->filter(static function (IntakeQuestion $candidate) use ($wizardGroup): bool {
+                        return ($candidate->meta['wizard_group'] ?? null) === $wizardGroup;
+                    })
+                    ->values();
+
+                $visibleMembers = [];
+                $groupRequired = false;
+                foreach ($groupMembers as $member) {
+                    $memberComposite = VisibilityResolver::compositeKey($member->key, $sectionInstanceKey);
+                    $memberForce = in_array($memberComposite, $forceShowComposites, true);
+                    $memberPresentation = $this->questionPresentation(
+                        $member,
+                        $sectionInstanceKey,
+                        $visibility,
+                        $context,
+                        $memberForce,
+                    );
+                    if ($memberPresentation['reason'] !== 'visible') {
+                        continue;
+                    }
+                    $visibleMembers[] = $member;
+                    $groupRequired = $groupRequired || $memberPresentation['required'];
+                }
+
+                if ($visibleMembers === []) {
+                    continue;
+                }
+
+                $emittedGroups[$wizardGroup] = true;
+                $primary = $visibleMembers[0];
+                $instanceSuffix = $sectionInstanceKey === null ? '' : '::'.$sectionInstanceKey;
+                $sectionTitle = $this->sectionTitleForInstance($intake, $section, $sectionInstanceKey);
+                $groupTitle = is_string($primary->meta['wizard_group_title'] ?? null)
+                    ? (string) $primary->meta['wizard_group_title']
+                    : $primary->label;
+                $groupHelp = is_string($primary->meta['wizard_group_help'] ?? null)
+                    ? (string) $primary->meta['wizard_group_help']
+                    : $primary->help_text;
+
+                // When floor area (m²) is already known for this room, L×B stays optional.
+                if ($wizardGroup === 'room_dimensions' && $this->roomAreaKnown($context, $sectionInstanceKey)) {
+                    $groupRequired = false;
+                    if ($groupHelp === null || $groupHelp === '') {
+                        $groupHelp = 'Het vloeroppervlak is al bekend. Lengte en breedte zijn optioneel.';
+                    }
+                }
+
+                $steps[] = [
+                    'key' => $section->key.$instanceSuffix.'::'.$wizardGroup,
+                    'section_key' => $section->key,
+                    'section_instance_key' => $sectionInstanceKey,
+                    'question_key' => $primary->key,
+                    'title' => $groupTitle,
+                    'section_title' => $sectionTitle,
+                    'description' => $section->description,
+                    'help_text' => $groupHelp,
+                    'is_repeatable' => $section->is_repeatable,
+                    'is_required' => $groupRequired,
+                    'kind' => 'question_group',
+                    'group_key' => $wizardGroup,
+                    'group_question_keys' => array_map(
+                        static fn (IntakeQuestion $member): string => $member->key,
+                        $visibleMembers,
+                    ),
+                ];
+
                 continue;
             }
 
@@ -281,6 +364,28 @@ final class IntakeStepBuilder
                 'kind' => 'question',
             ];
         }
+    }
+
+    /**
+     * @param  array{
+     *     answers: array<string, array<string, mixed>|null>,
+     *     answerSources: array<string, string|null>,
+     *     questionTypes: array<string, QuestionType>,
+     *     sectionsByQuestionKey: array<string, IntakeSection>,
+     *     allQuestions: Collection<string, IntakeQuestion>
+     * }  $context
+     */
+    private function roomAreaKnown(array $context, ?string $sectionInstanceKey): bool
+    {
+        $composite = VisibilityResolver::compositeKey('room_area_m2', $sectionInstanceKey);
+        $value = $context['answers'][$composite] ?? null;
+        if (! is_array($value)) {
+            return false;
+        }
+
+        $number = $value['number'] ?? null;
+
+        return is_numeric($number) && (float) $number > 0;
     }
 
     /**

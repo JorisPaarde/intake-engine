@@ -69,6 +69,8 @@ final class PhotoUploadNormalizer
                 dossierHeight: $dimensions['dossier_height'],
                 analysisWidth: $dimensions['analysis_width'],
                 analysisHeight: $dimensions['analysis_height'],
+                originalWidth: $dimensions['original_width'],
+                originalHeight: $dimensions['original_height'],
             );
         } catch (ValidationException $exception) {
             throw $exception;
@@ -85,7 +87,14 @@ final class PhotoUploadNormalizer
     }
 
     /**
-     * @return array{dossier_width: int, dossier_height: int, analysis_width: int, analysis_height: int}
+     * @return array{
+     *     dossier_width: int,
+     *     dossier_height: int,
+     *     analysis_width: int,
+     *     analysis_height: int,
+     *     original_width: int,
+     *     original_height: int
+     * }
      */
     private function createWithImagick(string $sourcePath, string $dossierPath, string $analysisPath): array
     {
@@ -93,11 +102,26 @@ final class PhotoUploadNormalizer
 
         try {
             $source->readImage($sourcePath);
-            $source->setIteratorIndex(0);
+            // HEIC/multi-frame: index 0 can be a small preview — pick the largest frame.
+            $bestIndex = 0;
+            $bestArea = 0;
+            $frameCount = max(1, $source->getNumberImages());
+            for ($index = 0; $index < $frameCount; $index++) {
+                $source->setIteratorIndex($index);
+                $area = max(1, $source->getImageWidth()) * max(1, $source->getImageHeight());
+                if ($area > $bestArea) {
+                    $bestArea = $area;
+                    $bestIndex = $index;
+                }
+            }
+            $source->setIteratorIndex($bestIndex);
             $source->autoOrient();
             $source->stripImage();
             $source->setImageBackgroundColor('white');
             $source = $source->mergeImageLayers(Imagick::LAYERMETHOD_FLATTEN);
+
+            $originalWidth = max(1, $source->getImageWidth());
+            $originalHeight = max(1, $source->getImageHeight());
 
             $dossierDims = $this->writeImagickVariant(
                 $source,
@@ -117,6 +141,8 @@ final class PhotoUploadNormalizer
                 'dossier_height' => $dossierDims['height'],
                 'analysis_width' => $analysisDims['width'],
                 'analysis_height' => $analysisDims['height'],
+                'original_width' => $originalWidth,
+                'original_height' => $originalHeight,
             ];
         } finally {
             $source->clear();
@@ -186,7 +212,14 @@ final class PhotoUploadNormalizer
     }
 
     /**
-     * @return array{dossier_width: int, dossier_height: int, analysis_width: int, analysis_height: int}
+     * @return array{
+     *     dossier_width: int,
+     *     dossier_height: int,
+     *     analysis_width: int,
+     *     analysis_height: int,
+     *     original_width: int,
+     *     original_height: int
+     * }
      */
     private function createWithGd(
         string $sourcePath,
@@ -207,6 +240,8 @@ final class PhotoUploadNormalizer
 
         try {
             $image = $this->orientGd($image, $sourcePath, $mime);
+            $originalWidth = max(1, imagesx($image));
+            $originalHeight = max(1, imagesy($image));
             $dossierDims = $this->writeGdVariant(
                 $image,
                 $dossierPath,
@@ -225,6 +260,8 @@ final class PhotoUploadNormalizer
                 'dossier_height' => $dossierDims['height'],
                 'analysis_width' => $analysisDims['width'],
                 'analysis_height' => $analysisDims['height'],
+                'original_width' => $originalWidth,
+                'original_height' => $originalHeight,
             ];
         } finally {
             imagedestroy($image);

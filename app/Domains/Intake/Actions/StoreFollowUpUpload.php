@@ -175,6 +175,8 @@ final class StoreFollowUpUpload
                     $timings['dossier_height'] = $normalized->dossierHeight;
                     $timings['analysis_width'] = $normalized->analysisWidth;
                     $timings['analysis_height'] = $normalized->analysisHeight;
+                    $timings['original_width'] = $normalized->originalWidth;
+                    $timings['original_height'] = $normalized->originalHeight;
                 }
 
                 $upload = IntakeUpload::query()->create([

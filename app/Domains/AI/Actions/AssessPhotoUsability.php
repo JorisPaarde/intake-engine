@@ -99,7 +99,11 @@ final class AssessPhotoUsability
                 throw new \RuntimeException('Uploadbestand niet gevonden voor beoordeling.');
             }
 
-            $verdict = $this->heuristic->assess($bytes);
+            $timings = is_array($upload->processing_timings) ? $upload->processing_timings : [];
+            $originalWidth = $this->positiveIntOrNull($timings['original_width'] ?? null);
+            $originalHeight = $this->positiveIntOrNull($timings['original_height'] ?? null);
+
+            $verdict = $this->heuristic->assess($bytes, $originalWidth, $originalHeight);
             $processMs = (int) round((microtime(true) - $processStarted) * 1000);
 
             $upload->update(['usability_verdict' => $verdict]);
@@ -150,5 +154,22 @@ final class AssessPhotoUsability
 
             return $verdict;
         }
+    }
+
+    private function positiveIntOrNull(mixed $value): ?int
+    {
+        if (is_int($value) && $value > 0) {
+            return $value;
+        }
+
+        if (is_string($value) && ctype_digit($value) && (int) $value > 0) {
+            return (int) $value;
+        }
+
+        if (is_float($value) && $value > 0 && floor($value) === $value) {
+            return (int) $value;
+        }
+
+        return null;
     }
 }

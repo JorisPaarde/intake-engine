@@ -158,7 +158,7 @@ test('conditional show rules hide questions until matched', function () {
     );
 
     expect($whenEmpty['visible'])->toBeTrue()
-        ->and($whenEmpty['required'])->toBeTrue();
+        ->and($whenEmpty['required'])->toBeFalse();
 
     $whenUnknown = app(VisibilityResolver::class)->resolveQuestion(
         $drainPhoto,
@@ -169,7 +169,7 @@ test('conditional show rules hide questions until matched', function () {
     );
 
     expect($whenUnknown['visible'])->toBeTrue()
-        ->and($whenUnknown['required'])->toBeTrue();
+        ->and($whenUnknown['required'])->toBeFalse();
 
     $whenConcrete = app(VisibilityResolver::class)->resolveQuestion(
         $drainPhoto,
