@@ -164,4 +164,28 @@ enum PhotoSubject: string
 
         return 'Dit is '.$detected->dutchNoun().'; we hebben '.$needed.' nodig.';
     }
+
+    /**
+     * Action-oriented customer retake prompt (je/jouw). Installer diagnosis stays separate.
+     */
+    public function customerRetakePrompt(): string
+    {
+        return match ($this) {
+            self::Fusebox => 'Maak een nieuwe, duidelijke foto van je meterkast',
+            self::Room => 'Maak een nieuwe, duidelijke foto van de hele ruimte',
+            self::OutdoorUnit => 'Maak een nieuwe, duidelijke foto van de buitenunit',
+            self::OutdoorLocation => 'Maak een nieuwe, duidelijke foto van de buitenplek voor de unit',
+            self::PipeRoute => 'Maak een nieuwe, duidelijke foto van de leidingroute',
+            self::Other => 'Maak een nieuwe, duidelijke foto van wat we vroegen',
+        };
+    }
+
+    /** Detect installer-only mismatch blockers that must not be shown to the customer. */
+    public static function isInstallerMismatchReason(string $text): bool
+    {
+        $lower = mb_strtolower($text);
+
+        return str_contains($lower, 'handmatig controleren')
+            || str_contains($lower, 'ontvangen foto lijkt');
+    }
 }

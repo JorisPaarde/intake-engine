@@ -667,11 +667,12 @@
                         </dl>
                     @endif
 
-                    @if ($intake->followUpRounds->isNotEmpty())
+                    @if (! empty($followUpReview['rounds']))
                         <div class="space-y-4 border-t border-gray-100 pt-4">
                             <h4 class="text-sm font-semibold text-gray-900">Aanvullende informatierondes</h4>
-                            @foreach ($intake->followUpRounds as $round)
-                                <section class="border-l-2 border-indigo-200 pl-4">
+                            @foreach ($followUpReview['rounds'] as $presentedRound)
+                                @php($round = $presentedRound['round'])
+                                <section class="border-l-2 border-indigo-200 pl-4" data-testid="follow-up-round-{{ $round->round_number }}">
                                     <div class="flex flex-wrap items-center justify-between gap-2">
                                         <h5 class="text-sm font-semibold text-gray-900">Ronde {{ $round->round_number }}</h5>
                                         <span class="text-xs font-medium text-gray-500">
@@ -679,28 +680,44 @@
                                         </span>
                                     </div>
                                     <ol class="mt-3 space-y-4">
-                                        @foreach ($round->items as $item)
+                                        @foreach ($presentedRound['items'] as $presentedItem)
+                                            @php($item = $presentedItem['item'])
                                             <li class="text-sm">
                                                 <p class="font-medium text-gray-900">{{ $item->prompt }}</p>
                                                 @if ($item->type === \App\Enums\FollowUpItemType::Text)
                                                     <p class="mt-1 whitespace-pre-wrap text-gray-700">{{ $item->response_text ?: 'Nog niet beantwoord' }}</p>
-                                                @elseif ($item->uploads->isEmpty())
+                                                @elseif ($presentedItem['uploads'] === [])
                                                     <p class="mt-1 text-gray-500">
                                                         {{ $item->type === \App\Enums\FollowUpItemType::Photo ? 'Nog geen foto aangeleverd' : 'Nog geen document aangeleverd' }}
                                                     </p>
                                                 @elseif ($item->type === \App\Enums\FollowUpItemType::Photo)
                                                     <ul class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                                                        @foreach ($item->uploads as $upload)
-                                                            <li>
+                                                        @foreach ($presentedItem['uploads'] as $presentedUpload)
+                                                            @php($upload = $presentedUpload['upload'])
+                                                            <li class="{{ $presentedUpload['superseded'] ? 'opacity-60' : '' }}" data-testid="follow-up-upload-{{ $upload->id }}">
                                                                 <a href="{{ route('installer.uploads.show', [$intake, $upload]) }}" target="_blank" rel="noopener" class="block">
                                                                     <img src="{{ route('installer.uploads.show', [$intake, $upload]) }}" alt="Aanvullende foto" class="aspect-square w-full rounded-md border border-gray-200 object-cover">
                                                                 </a>
+                                                                @if ($presentedUpload['superseded'])
+                                                                    <p class="mt-1 text-xs font-medium text-gray-500" data-testid="follow-up-superseded">
+                                                                        {{ $presentedUpload['supersession_label'] }}
+                                                                    </p>
+                                                                @elseif ($presentedUpload['installer_label'])
+                                                                    <p class="mt-1 text-xs font-medium text-amber-800" data-testid="follow-up-verdict">
+                                                                        {{ $presentedUpload['installer_label'] }}
+                                                                    </p>
+                                                                @elseif ($presentedUpload['assessment']?->status() === \App\Domains\AI\Support\PhotoContentAssessment::STATUS_OK)
+                                                                    <p class="mt-1 text-xs font-medium text-emerald-700" data-testid="follow-up-verdict">
+                                                                        Bruikbaar bewijs
+                                                                    </p>
+                                                                @endif
                                                             </li>
                                                         @endforeach
                                                     </ul>
                                                 @else
                                                     <ul class="mt-2 space-y-2">
-                                                        @foreach ($item->uploads as $upload)
+                                                        @foreach ($presentedItem['uploads'] as $presentedUpload)
+                                                            @php($upload = $presentedUpload['upload'])
                                                             <li>
                                                                 <a href="{{ route('installer.uploads.show', [$intake, $upload]) }}" target="_blank" rel="noopener" class="font-medium text-indigo-600 underline decoration-indigo-200 underline-offset-2 hover:text-indigo-800">
                                                                     {{ $upload->original_filename }}

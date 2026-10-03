@@ -233,6 +233,23 @@ final class PhotoContentAssessment
             .' — handmatig controleren';
     }
 
+    /**
+     * Customer-facing retake instruction for a wrong-subject follow-up photo.
+     * Never expose the installer diagnosis (“handmatig controleren”) to the customer.
+     */
+    public function customerRetakePrompt(): ?string
+    {
+        if ($this->value['status'] !== self::STATUS_WRONG_SUBJECT) {
+            return null;
+        }
+
+        $expected = $this->expectedSubject();
+
+        return $expected instanceof PhotoSubject
+            ? $expected->customerRetakePrompt()
+            : 'Maak een nieuwe, duidelijke foto van wat we vroegen';
+    }
+
     public function expectedSubject(): ?PhotoSubject
     {
         return PhotoSubject::tryFromMixed($this->value['expected_subject'] ?? null);

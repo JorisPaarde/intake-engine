@@ -581,6 +581,16 @@ class IntakeWizard extends Component
             return;
         }
 
+        // Hard gate: unresolved category mismatch never closes the task silently.
+        if ($this->followUpRoundHasUnresolvedMismatch()) {
+            $this->addError(
+                'follow_up',
+                'Vervang de foto of kies expliciet “Toch versturen”.',
+            );
+
+            return;
+        }
+
         try {
             app(CompleteFollowUpRound::class)->handle(
                 $this->intake(),
@@ -605,6 +615,10 @@ class IntakeWizard extends Component
         $currentStatus = $item instanceof IntakeFollowUpItem
             ? ($progress['item_statuses'][$item->id] ?? null)
             : null;
+        $followUpMismatch = $item instanceof IntakeFollowUpItem
+            && $item->type === FollowUpItemType::Photo
+            ? PhotoContentSatisfaction::unresolvedWrongSubject($item->uploads)
+            : null;
 
         return view('livewire.customer.follow-up-wizard', [
             'intake' => $intake,
@@ -623,6 +637,7 @@ class IntakeWizard extends Component
                 && $item->type === FollowUpItemType::Photo
                 ? $this->persistentFollowUpPhotoHint($item)
                 : null,
+            'followUpMismatchAssessment' => $followUpMismatch,
             'choiceOptions' => $item instanceof IntakeFollowUpItem
                 && $item->type === FollowUpItemType::Choice
                 ? $this->followUpChoiceOptions($item)
@@ -699,9 +714,132 @@ class IntakeWizard extends Component
             return false;
         }
 
-        // AI-contentverdict blokkeert afronden nooit; waarschuwing blijft zichtbaar via hint.
+        // Wacht tot assessment_status terminaal is (BL-121/BL-127).
+        if ($item->type === FollowUpItemType::Photo
+            && $item->uploads->contains(
+                static function (IntakeUpload $upload): bool {
+                    $status = $upload->assessment_status;
+
+                    return ! ($status instanceof PhotoAssessmentStatus && $status->isTerminal());
+                },
+            )) {
+            $this->addError('follow_up', 'Even geduld: we beoordelen je foto nog.');
+
+            return false;
+        }
+
+        // Known category mismatch: block next/complete unless explicitly overridden.
+        // not_assessed / AI-failure remains soft (send allowed; installer flag).
+        if ($item->type === FollowUpItemType::Photo
+            && PhotoContentSatisfaction::unresolvedWrongSubject($item->uploads) instanceof PhotoContentAssessment) {
+            $this->addError(
+                'follow_up',
+                'Vervang de foto of kies expliciet “Toch versturen”.',
+            );
+
+            return false;
+        }
 
         return true;
+    }
+
+    private function followUpRoundHasUnresolvedMismatch(): bool
+    {
+        foreach ($this->followUpRound()->items as $item) {
+            if ($item->type !== FollowUpItemType::Photo) {
+                continue;
+            }
+
+            if (PhotoContentSatisfaction::unresolvedWrongSubject($item->uploads) instanceof PhotoContentAssessment) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Soft continue for follow-up: customer explicitly overrides a wrong-subject photo.
+     * Task may then be sent; installer still sees the mismatch badge/reason.
+     */
+    public function acceptFollowUpPhotoMismatch(): void
+    {
+        if ($this->completed || ! $this->followUpMode) {
+            return;
+        }
+
+        $item = $this->followUpRound()->items->get($this->followUpStepIndex);
+
+        if (! $item instanceof IntakeFollowUpItem || $item->type !== FollowUpItemType::Photo) {
+            return;
+        }
+
+        $item->loadMissing('uploads');
+        $acceptedAny = false;
+
+        foreach ($item->uploads as $upload) {
+            $assessment = $upload->contentAssessment();
+
+            if (! $assessment instanceof PhotoContentAssessment
+                || $assessment->status() !== PhotoContentAssessment::STATUS_WRONG_SUBJECT
+                || $assessment->customerAcceptedMismatch()) {
+                continue;
+            }
+
+            $upload->storeContentAssessment($assessment->withCustomerAcceptedMismatch());
+            $acceptedAny = true;
+        }
+
+        if (! $acceptedAny) {
+            return;
+        }
+
+        $this->resetErrorBag('follow_up');
+        $this->forgetIntakeDerivedCaches();
+        $this->saveMessage = '';
+    }
+
+    /**
+     * Replace wrong-subject follow-up photos and open the file picker.
+     */
+    public function replaceFollowUpMismatchedPhoto(): void
+    {
+        if ($this->completed || ! $this->followUpMode) {
+            return;
+        }
+
+        $item = $this->followUpRound()->items->get($this->followUpStepIndex);
+
+        if (! $item instanceof IntakeFollowUpItem || $item->type !== FollowUpItemType::Photo) {
+            return;
+        }
+
+        $item->loadMissing('uploads');
+        $intake = $this->intake();
+        $removed = false;
+
+        foreach ($item->uploads as $upload) {
+            $assessment = $upload->contentAssessment();
+
+            if (! $assessment instanceof PhotoContentAssessment
+                || $assessment->status() !== PhotoContentAssessment::STATUS_WRONG_SUBJECT
+                || $assessment->customerAcceptedMismatch()) {
+                continue;
+            }
+
+            app(DeleteFollowUpUpload::class)->handle($intake, $item, $upload);
+            $removed = true;
+        }
+
+        if (! $removed) {
+            return;
+        }
+
+        $this->resetErrorBag('follow_up');
+        $this->forgetIntakeDerivedCaches();
+        $this->saveMessage = '';
+        $inputId = 'follow-up-photo-input-'.$item->id;
+        $this->js('document.getElementById('.json_encode($inputId).')?.click()');
     }
 
     /**
@@ -1798,8 +1936,9 @@ class IntakeWizard extends Component
         foreach ($item->uploads as $upload) {
             $assessment = $upload->contentAssessment();
 
+            // Wrong-subject feedback is shown once via the mismatch banner, not again here.
             if ($assessment instanceof PhotoContentAssessment
-                && $assessment->status() !== PhotoContentAssessment::STATUS_OK) {
+                && $assessment->status() === PhotoContentAssessment::STATUS_NEEDS_CLEARER) {
                 $contentHint = $assessment->customerMessage();
 
                 if ($contentHint !== null) {
@@ -1812,9 +1951,9 @@ class IntakeWizard extends Component
                 ? $verdict->customerHint()
                 : null;
 
+            // Do not repeat the item prompt (already the page title).
             if ($qualityHint !== null) {
-                $hints[] = $qualityHint.' Zorg dat dit opnieuw duidelijk in beeld staat: '
-                    .rtrim($item->prompt, '.').'.';
+                $hints[] = $qualityHint;
             }
         }
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Services;
 
+use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Models\AircoConnection;
 use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\DossierDecisionArea;
@@ -150,9 +151,14 @@ final class ContextualCustomerTaskBuilder
             default => 'placement',
         };
 
+        // Avoid doubling “Maak een nieuwe…” when the suggestion already is an action prompt.
+        $prompt = Str::startsWith(Str::lower($text), 'maak een')
+            ? $text
+            : 'Maak een nieuwe, duidelijke foto van '.$subject->label.'. '.$text;
+
         return $this->draft(
             FollowUpItemType::Photo,
-            'Maak een nieuwe, duidelijke foto van '.$subject->label.'. '.$text,
+            $prompt,
             $decisionArea,
             $subject->id,
         );
@@ -278,12 +284,18 @@ final class ContextualCustomerTaskBuilder
             return null;
         }
 
-        if (Str::contains(Str::lower($blocker), 'meterkast')) {
+        if (Str::contains(Str::lower($blocker), 'meterkast')
+            || PhotoSubject::isInstallerMismatchReason($blocker)) {
+            // Installer diagnosis stays on the decision area; customer gets an action prompt.
+            $prompt = PhotoSubject::isInstallerMismatchReason($blocker)
+                ? PhotoSubject::Fusebox->customerRetakePrompt()
+                : ($blocker !== ''
+                    ? $blocker
+                    : 'Maak een duidelijke foto van de meterkast. Daaruit volgt 1- of 3-fase.');
+
             return $this->draft(
                 FollowUpItemType::Photo,
-                $blocker !== ''
-                    ? $blocker
-                    : 'Maak een duidelijke foto van de meterkast. Daaruit volgt 1- of 3-fase.',
+                $prompt,
                 'power',
                 null,
             );
@@ -318,15 +330,38 @@ final class ContextualCustomerTaskBuilder
         }
 
         if ($blocker !== '' && Str::contains(Str::lower($blocker), ['bewijs', 'foto', 'meterkast'])) {
+            $prompt = PhotoSubject::isInstallerMismatchReason($blocker)
+                ? (PhotoSubject::expectedFromDecisionArea($area->key)?->customerRetakePrompt()
+                    ?? 'Maak een nieuwe, duidelijke foto van wat we vroegen')
+                : $blocker;
+
             return $this->draft(
                 FollowUpItemType::Photo,
-                $blocker,
+                $prompt,
                 $area->key,
                 null,
             );
         }
 
         return null;
+    }
+
+    /**
+     * Customer-safe prompt for a decision-area ask; never reuse installer mismatch diagnosis.
+     */
+    public function customerPromptForBlocker(string $decisionAreaKey, string $blocker): string
+    {
+        $blocker = trim($blocker);
+
+        if ($blocker !== '' && ! PhotoSubject::isInstallerMismatchReason($blocker)) {
+            return $blocker;
+        }
+
+        $expected = PhotoSubject::expectedFromDecisionArea($decisionAreaKey);
+
+        return $expected instanceof PhotoSubject
+            ? $expected->customerRetakePrompt()
+            : 'Maak een nieuwe, duidelijke foto van wat we vroegen';
     }
 
     /**
