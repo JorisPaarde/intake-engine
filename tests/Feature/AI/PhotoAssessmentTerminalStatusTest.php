@@ -124,7 +124,7 @@ test('zelfde bestand op verschillende vragen krijgt elk een terminale assessment
         'subject_match' => 'yes',
         'confidence' => 'high',
         'evidence' => 'Buitenunit zichtbaar.',
-        'free_group' => 'unknown',
+        'empty_module_space' => 'unknown',
         'phase' => 'unknown',
     ]);
 

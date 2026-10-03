@@ -71,7 +71,6 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
         $queueWaitMs = (int) max(0, round((microtime(true) - $this->dispatchedAt) * 1000));
         $attempt = max(1, $this->attempts());
         $requestIdResolver->rememberQueueMetrics($queueWaitMs, $attempt);
-        $requestIdResolver->rememberCorrelationId($this->correlationId);
 
         $upload = IntakeUpload::query()->with(['intake', 'followUpItem'])->find($this->uploadId);
 
@@ -79,18 +78,21 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
             return;
         }
 
+        // One correlation chain per upload via #136 AiTraceRequestIdResolver (not a second system).
+        $correlationId = $requestIdResolver->resolveCorrelationIdForUpload($upload, $this->correlationId);
+
         if ($lifecycle->isTerminal($upload) && ! $upload->contentAssessment()?->needsReassessment()) {
             return;
         }
 
         try {
             if ($upload->intake_follow_up_item_id !== null) {
-                $this->assessFollowUp($upload, $assessFollowUp, $lifecycle);
+                $this->assessFollowUp($upload, $assessFollowUp, $lifecycle, $correlationId);
 
                 return;
             }
 
-            $this->assessWizardPhoto($upload, $assessFusebox, $derivePhotoAnswers, $lifecycle);
+            $this->assessWizardPhoto($upload, $assessFusebox, $derivePhotoAnswers, $lifecycle, $correlationId);
         } catch (Throwable $exception) {
             Log::warning('Queued photo assessment failed', [
                 'upload_id' => $this->uploadId,
@@ -125,6 +127,7 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
         IntakeUpload $upload,
         AssessFollowUpPhotoSubject $assessFollowUp,
         PhotoAssessmentLifecycle $lifecycle,
+        string $correlationId,
     ): void {
         $item = $upload->followUpItem;
 
@@ -149,7 +152,8 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
             return;
         }
 
-        $result = $assessFollowUp->handle($intake, $item, $upload->fresh() ?? $upload);
+        $upload = $upload->fresh() ?? $upload;
+        $result = $assessFollowUp->handle($intake, $item, $upload, $correlationId);
         $assessment = $result['assessment'] ?? null;
 
         // Gebieden zonder subject-check: markeer als beoordeeld zodat de wizardpoll kan afronden.
@@ -165,6 +169,7 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
         AssessFuseboxPhotos $assessFusebox,
         DerivePhotoAnswers $derivePhotoAnswers,
         PhotoAssessmentLifecycle $lifecycle,
+        string $correlationId,
     ): void {
         $intake = $upload->intake;
         if ($intake === null) {
@@ -190,7 +195,9 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
         }
 
         if ($profileName === 'fusebox') {
-            $assessFusebox->handle($intake, correlationId: $this->correlationId);
+            // Fusebox action assesses all pending fusebox uploads; each upload gets its
+            // own correlation via AiTraceRequestIdResolver::resolveCorrelationIdForUpload.
+            $assessFusebox->handle($intake, correlationId: $correlationId);
             $lifecycle->ensureTerminal($upload->fresh() ?? $upload, $expected);
 
             return;
@@ -210,7 +217,7 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
             $upload->question_key,
             $upload->section_instance_key,
             $profile,
-            correlationId: $this->correlationId,
+            correlationId: $correlationId,
         );
 
         $lifecycle->ensureTerminal($upload->fresh() ?? $upload, $expected);

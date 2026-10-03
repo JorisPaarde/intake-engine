@@ -1,6 +1,6 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 3.30 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.32 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **samenvatting, aandachtspunten, lokale fotokwaliteit, tekst-/foto-afleiding, verbindingsgebonden routeanalyse en bewijsgerichte dossiersynthese zijn geïmplementeerd**. Externe provider en tekst-/foto-/route-/dossierinferentie staan standaard uit (provider + key + featurevlaggen + budgetcaps; soft-fail zonder die config). OpenAI-compatibele gateways (o.a. OpenRouter) via `AI_BASE_URL`.
 
@@ -250,7 +250,7 @@ Server-side validatie vóór opslaan. Ongeldige output = `failed`.
 - Prompt `attention_points-v3` beoordeelt het volledige dossier integraal. Elk voorstel bevat verplicht `confidence` en minimaal één concrete `evidence`-referentie. Elke combinatie van `source_type` en `reference` wordt server-side gecontroleerd tegen exact de naar de provider verzonden context; onbekende of verkeerd getypeerde modelreferenties maken de run ongeldig. Geldige provenance wordt machineleesbaar opgeslagen en vóór acceptatie getoond. Legacy AI-voorstellen zonder valide confidence/evidence worden tijdens de hardeningmigratie verwijderd en zijn ook server-side niet accepteerbaar. De prompt moet bronconflicten, onzekerheden en ontbrekende gegevens expliciet signaleren zonder afleidingen als bevestigde feiten te presenteren.
 - Rapportrebuilds en AI-samenvattingspersistentie locken de intake en laden aandachtspunten opnieuw, zodat een stale relation-cache een recente installateursbeslissing niet kan overschrijven. Na acceptatie wordt de HTML direct herbouwd en een nieuwe PDF-job ingepland.
 
-## Foto-categorie en stelligheid (BL-119 / BL-121 / BL-126)
+## Foto-categorie en stelligheid (BL-119 / BL-121 / BL-126 / BL-127)
 
 - Foto-afleiding (`DerivePhotoAnswers`, `AssessFuseboxPhotos`, `AssessFollowUpPhotoSubject`) draait **niet** in de Livewire-webrequest maar in `AssessUploadedPhotoJob` (queue `ai-photo`, unique per upload). De uploadrequest slaat alleen op + lokale usability (`AssessPhotoUsability`) en returnt meteen. Wizard: fases Uploaden → Foto beoordelen; resultaat via `wire:poll.2s` (`pollPendingAssessments`) zonder page refresh.
 - Beoordeelt **elke upload zonder definitieve assessment** (ook buiten het `max_images`-venster); `not_assessed` mag opnieuw. Fabriek: `PhotoContentAssessment::fromModelOutput`. Job: `$tries=2`, backoff, timeout > `AI_TIMEOUT_SECONDS`.
@@ -260,8 +260,8 @@ Server-side validatie vóór opslaan. Ongeldige output = `failed`.
 - Klant: `wrong_subject` soft-blockt verplichte foto’s — **Vervang foto** / **Toch doorgaan**. Banner verdwijnt zodra `PhotoContentSatisfaction` tevreden is; verkeerde foto houdt installateursbadge. Definitieve assessments worden niet overschreven; `not_assessed` wel herbeoordeeld.
 - `retake_instruction` op een bruikbare match → `needs_clearer` (ongeacht confidence), behalve op een geaccepteerde routefoto.
 - Meterkast-mismatch zet **geen** `fusebox_clarity=needs_clearer_photo`; één taak: vervang de foto.
-- Meterkastprompt `fusebox-assessment-v3`: strikte `free_group`/`phase`-criteria; bij twijfel `unknown` (lege kast ≠ vrije groep); `confidence=high` alleen bij helder bewijs.
-- Ruimteprompt `room-assessment-v6`: glas (`little`/`average`/`much`/`unknown`) met harde criteria; `room_outlet_status=unknown` schrijft geen antwoord en triggert geen `wall_outlet_photo` (lege woonkamer forceren geen stopcontactvraag).
+- Meterkastprompt `fusebox-assessment-v4` (BL-133): `empty_module_space` i.p.v. free_group-gok; wrong-subject → `confidence=low`; **nooit** `free_group_known` uit foto.
+- Ruimteprompt `room-assessment-v7` (BL-133): `glazing_type`; glas/zon mogen `unknown`; size-banden = `RoomAreaAcceptance`. `room_outlet_status=unknown` schrijft geen antwoord en triggert geen `wall_outlet_photo`.
 - Technische routeconclusies staan alleen als dossierfeit (`pipe_route_photos_derivation`). Model-`drillings_needed=no` → `unknown` + voorstelnotitie.
 - Interne velden `fusebox_clarity` / `room_outlet_status` nooit in klantstappen (`InternalCustomerQuestions`). Routevoorstellen via `TechnicalDecisionKeys::ROUTE_PROPOSAL_KEYS` (één class met #115-KEYS/`aiPrefillSources()`).
 - Follow-up: accepted subjects per `decision_area_key` (power→fusebox; refrigerant→pipe_route|outdoor_unit|room|outdoor_location). Prompt `follow-up-photo-subject-v2`. Beoordeling via `AssessUploadedPhotoJob` (queue `ai-photo`). Onopgeloste `wrong_subject` telt niet mee voor follow-up-100% (`FollowUpProgressCalculator` → “Nog te vervangen”); voortgang wacht op `content_assessment` van de job. Installateur ziet mismatch-reden via `followUpMismatchReason` (BL-123). **Aanvulling versturen** blokkeert tot vervangen of **Toch versturen** (BL-130); `not_assessed` blijft soft; na latere OK-foto verdwijnt mismatch-reden en telt follow-up-powerfoto voor `hasFuseboxPhoto` (BL-130). Klantprompt bij mismatch-blocker = `customerRetakePrompt` (nooit de interne diagnose).
@@ -297,3 +297,11 @@ De bestaande stateful route-analyse beoordeelt per foto of wand/doorvoer zichtba
 - Externe foto-/route-inferentie op staging: zet `AI_PROVIDER=openai`, key, budgetcaps, daarna `AI_PHOTO_INFERENCE_ENABLED` / `AI_ROUTE_ANALYSIS_ENABLED`, en voer de functionele tests uit `functional-test-status.md` uit met fictieve representatieve beelden.
 - Dossiersynthese afzonderlijk activeren met `AI_DOSSIER_SYNTHESIS_ENABLED`; controleer kosten, referentievalidatie en de installateursreview vóór productie.
 - Een latere optimalisatie mag bij een aantoonbaar onleesbaar detail één crop of maximaal-2048px dossiervariant van precies die foto analyseren. Nooit alle originelen opnieuw; telefoonoriginelen bestaan niet op disk.
+
+
+## Meterkast, glas en prefill (BL-133)
+
+- Meterkastfoto levert `empty_module_space` + `phase`; **nooit** `free_group_known` (een foto ziet geen vrije groep). Wrong-subject → `confidence=low`.
+- Ruimtefoto: `glazing_type`; `glass_amount`/`sun_exposure` mogen `unknown` (airco v23). Size-banden = `RoomAreaAcceptance` (<12 / ≤20 / >20).
+- Catalogus-prefill weigert `cooling_heating` bij alleen “Nog geen airco”.
+- Follow-upfoto’s: elke AI-call via trace handle; correlation per upload via `AiTraceRequestIdResolver::resolveCorrelationIdForUpload`; content_assessment altijd gezet (op BL-127 `upload_id`/lifecycle).

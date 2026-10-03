@@ -49,25 +49,27 @@ function makeFuseboxAssessmentIntake(): Intake
     ]);
 }
 
-/** @return array{free_group: string, phase: string, confidence: string, evidence: string, retake_instruction: string|null} */
+/** @return array{empty_module_space: string, phase: string, confidence: string, evidence: string, retake_instruction: string|null, detected_subject: string, subject_match: string} */
 function fuseboxOutput(
-    string $freeGroup = 'yes',
+    string $emptyModuleSpace = 'visible',
     string $phase = 'three_phase',
     string $confidence = 'high',
     ?string $retakeInstruction = null,
+    string $subjectMatch = 'yes',
+    string $detectedSubject = 'fusebox',
 ): array {
     return [
-        'free_group' => $freeGroup,
+        'empty_module_space' => $emptyModuleSpace,
         'phase' => $phase,
         'confidence' => $confidence,
-        'detected_subject' => 'fusebox',
-        'subject_match' => 'yes',
-        'evidence' => 'Een vrije positie en drie gekoppelde hoofdschakelaars zijn zichtbaar.',
+        'detected_subject' => $detectedSubject,
+        'subject_match' => $subjectMatch,
+        'evidence' => 'Een lege modulepositie en drie gekoppelde hoofdschakelaars zijn zichtbaar.',
         'retake_instruction' => $retakeInstruction,
     ];
 }
 
-test('high confidence fusebox assessment establishes a sourced answer without a redundant confirmation', function () {
+test('high confidence fusebox assessment stores observation but never fills free_group_known', function () {
     $intake = makeFuseboxAssessmentIntake();
     FakeAiClient::alwaysReturn(fuseboxOutput());
 
@@ -79,7 +81,6 @@ test('high confidence fusebox assessment establishes a sourced answer without a 
     );
 
     $run = app(AssessFuseboxPhotos::class)->handle($intake);
-    $answer = $intake->answers()->where('question_key', 'free_group_known')->firstOrFail();
     $fact = $intake->externalFacts()->where('fact_key', 'fusebox_photo_assessment')->firstOrFail();
     $html = app(GenerateIntakeReportHtml::class)->handle(
         $intake,
@@ -89,22 +90,21 @@ test('high confidence fusebox assessment establishes a sourced answer without a 
     expect($run)->not->toBeNull()
         ->and($run->status)->toBe(AiRunStatus::Succeeded)
         ->and($run->type)->toBe(AiRunType::PhotoAssessment)
-        ->and($answer->value)->toBe(['value' => 'yes'])
-        ->and($answer->prefill_source)->toBe('ai_photo')
+        ->and($intake->answers()->where('question_key', 'free_group_known')->exists())->toBeFalse()
         ->and($fact->source)->toBe(AssessFuseboxPhotos::SOURCE)
         ->and($fact->value['phase'])->toBe('three_phase')
+        ->and($fact->value['empty_module_space'])->toBe('visible')
         ->and($fact->confidence)->toBe('medium')
         ->and($fact->source_reference)->toBe('ai-run:'.$run->id)
         ->and($fact->value)->not->toHaveKey('binary')
         ->and($html)->toContain('Automatische beoordeling meterkastfoto')
-        ->and($html)->toContain('AI-fotoanalyse')
-        ->and($html)->toContain('controleer vrije groep en fase');
+        ->and($html)->toContain('AI-fotoanalyse');
 });
 
 test('medium confidence assessment stays an uncertainty and never fills an answer', function () {
     $intake = makeFuseboxAssessmentIntake();
     FakeAiClient::alwaysReturn(fuseboxOutput(
-        freeGroup: 'unknown',
+        emptyModuleSpace: 'unknown',
         phase: 'unknown',
         confidence: 'medium',
         retakeInstruction: 'Fotografeer de volledige groepenkast recht van voren met alle labels scherp in beeld.',
@@ -127,7 +127,7 @@ test('medium confidence assessment stays an uncertainty and never fills an answe
 test('photo assessment never overwrites a customer answer', function () {
     $intake = makeFuseboxAssessmentIntake();
     app(SaveIntakeAnswer::class)->handle($intake, 'free_group_known', null, ['value' => 'no']);
-    FakeAiClient::alwaysReturn(fuseboxOutput(freeGroup: 'yes'));
+    FakeAiClient::alwaysReturn(fuseboxOutput(emptyModuleSpace: 'visible'));
 
     app(StoreIntakeUpload::class)->handle(
         $intake,
@@ -195,7 +195,7 @@ test('replacing identical photo bytes during analysis rejects stale upload prove
 test('wizard exposes the photo prefill and a precise retake hint without blocking upload', function () {
     $intake = makeFuseboxAssessmentIntake();
     FakeAiClient::alwaysReturn(fuseboxOutput(
-        freeGroup: 'unknown',
+        emptyModuleSpace: 'unknown',
         phase: 'unknown',
         confidence: 'low',
         retakeInstruction: 'Neem één foto recht van voren waarop alle groepen en de hoofdschakelaar leesbaar zijn.',
@@ -232,6 +232,7 @@ test('wizard does not ask the customer to reconfirm a high confidence image resu
 
     $notices = $component->get('prefillNotice');
 
-    expect($component->get('form')['free_group_known']['value'] ?? null)->toBe('yes')
+    expect($component->get('form')['free_group_known']['value'] ?? null)->toBeNull()
+        ->and($intake->answers()->where('question_key', 'free_group_known')->exists())->toBeFalse()
         ->and($notices)->not->toHaveKey('free_group_known');
 });

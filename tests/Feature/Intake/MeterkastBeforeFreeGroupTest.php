@@ -63,7 +63,7 @@ function makeBl077Intake(): Intake
 
 test('airco latest template hides free_group_known until a meterkast photo exists', function () {
     $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
-    expect($version->version)->toBe(22);
+    expect($version->version)->toBe(23);
 
     $freeGroup = $version->sections()
         ->where('key', 'electrical')
@@ -119,13 +119,15 @@ test('customer wizard with zero uploads asks for meterkastfoto not vrije groep',
         ->assertDontSee('Is er een vrije groep in de meterkast?');
 });
 
-test('clear fusebox photo with free_group derived skips the ja/nee question', function () {
+test('clear fusebox photo never derives free_group_known from the photo', function () {
     $intake = makeBl077Intake();
     FakeAiClient::alwaysReturn([
-        'free_group' => 'yes',
+        'empty_module_space' => 'visible',
         'phase' => 'three_phase',
         'confidence' => 'high',
-        'evidence' => 'Drie faseleidingen en een vrije groep zijn zichtbaar.',
+        'detected_subject' => 'fusebox',
+        'subject_match' => 'yes',
+        'evidence' => 'Drie faseleidingen en een lege modulepositie zijn zichtbaar.',
         'retake_instruction' => null,
     ]);
 
@@ -139,9 +141,10 @@ test('clear fusebox photo with free_group derived skips the ja/nee question', fu
     app(AssessFuseboxPhotos::class)->handle($intake);
 
     $steps = bl077StepKeys($intake);
+    $fact = $intake->externalFacts()->where('fact_key', 'fusebox_photo_assessment')->firstOrFail();
 
-    expect($intake->answers()->where('question_key', 'free_group_known')->firstOrFail()->value)
-        ->toBe(['value' => 'yes'])
+    expect($intake->answers()->where('question_key', 'free_group_known')->exists())->toBeFalse()
+        ->and($fact->value['empty_module_space'])->toBe('visible')
         ->and($steps)->not->toContain('free_group_known')
         ->and($steps)->not->toContain('fusebox_photo_extra')
         ->and($steps)->not->toContain('electrical_phase');
@@ -150,10 +153,12 @@ test('clear fusebox photo with free_group derived skips the ja/nee question', fu
 test('fusebox photo without readable free_group shows the ja/nee fallback after the photo', function () {
     $intake = makeBl077Intake();
     FakeAiClient::alwaysReturn([
-        'free_group' => 'unknown',
+        'empty_module_space' => 'unknown',
         'phase' => 'one_phase',
         'confidence' => 'high',
-        'evidence' => 'Fase is zichtbaar; of er een vrije groep is blijft onduidelijk.',
+        'detected_subject' => 'fusebox',
+        'subject_match' => 'yes',
+        'evidence' => 'Fase is zichtbaar; lege modulepositie blijft onduidelijk.',
         'retake_instruction' => null,
     ]);
 

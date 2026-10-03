@@ -7,7 +7,7 @@ use App\Domains\Intake\Services\PublishIntakeTemplateFromConfig;
 use App\Enums\TemplateVersionStatus;
 use Database\Seeders\IntakeTemplateSeeder;
 
-test('airco template seeder publishes v1 through v22 with v22 as latest', function () {
+test('airco template seeder publishes v1 through v23 with v23 as latest', function () {
     $this->seed(IntakeTemplateSeeder::class);
 
     $template = IntakeTemplate::query()->where('key', 'airco')->first();
@@ -17,14 +17,14 @@ test('airco template seeder publishes v1 through v22 with v22 as latest', functi
 
     $versions = $template->versions()->orderBy('version')->get();
 
-    expect($versions)->toHaveCount(22)
-        ->and($versions->pluck('version')->all())->toBe([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22])
+    expect($versions)->toHaveCount(23)
+        ->and($versions->pluck('version')->all())->toBe([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23])
         ->and($versions->every(fn ($version) => $version->status === TemplateVersionStatus::Published))->toBeTrue();
 
     $latest = $template->latestPublishedVersion();
 
     expect($latest)->not->toBeNull()
-        ->and($latest->version)->toBe(22)
+        ->and($latest->version)->toBe(23)
         ->and($latest->sections()->count())->toBeGreaterThan(5)
         ->and($latest->sections()->where('key', 'rooms')->value('is_repeatable'))->toBeTrue();
 
@@ -39,6 +39,7 @@ test('airco template seeder publishes v1 through v22 with v22 as latest', functi
     expect($roomKeys)->toContain('room_size_indication')
         ->and($roomKeys)->toContain('room_length_m')
         ->and($roomKeys)->toContain('preferred_indoor_location')
+        ->and($roomKeys)->toContain('glazing_type')
         ->and($roomKeys)->toContain('indoor_unit_position_photo')
         ->and($roomKeys)->toContain('room_width_m')
         ->and($roomKeys)->toContain('room_area_m2')
@@ -220,18 +221,40 @@ test('airco template seeder publishes v1 through v22 with v22 as latest', functi
         ->where('key', 'sun_exposure')
         ->firstOrFail();
 
-    expect($sunExposure->label)->toBe('Hoeveel zon krijgt deze ruimte?');
+    expect($sunExposure->label)->toBe('Hoeveel zon krijgt deze ruimte?')
+        ->and($sunExposure->options()->pluck('value')->all())->toContain('unknown');
+
+    $glassAmount = $latest->sections()
+        ->where('key', 'rooms')
+        ->firstOrFail()
+        ->questions()
+        ->where('key', 'glass_amount')
+        ->firstOrFail();
+    $glazingType = $latest->sections()
+        ->where('key', 'rooms')
+        ->firstOrFail()
+        ->questions()
+        ->where('key', 'glazing_type')
+        ->firstOrFail();
+
+    expect($glassAmount->options()->pluck('value')->all())->toContain('unknown')
+        ->and($glazingType->options()->pluck('value')->all())->toBe([
+            'single',
+            'double',
+            'hr_plus_plus',
+            'unknown',
+        ]);
 
     // Re-seeding is idempotent for published versions.
     $againV1 = app(PublishIntakeTemplateFromConfig::class)->handle(
         require database_path('data/templates/airco/v1.php'),
     );
     $againLatest = app(PublishIntakeTemplateFromConfig::class)->handle(
-        require database_path('data/templates/airco/v22.php'),
+        require database_path('data/templates/airco/v23.php'),
     );
 
     expect($againV1->version)->toBe(1)
         ->and($againLatest->id)->toBe($latest->id)
         ->and(IntakeTemplate::query()->where('key', 'airco')->count())->toBe(1)
-        ->and($template->versions()->count())->toBe(22);
+        ->and($template->versions()->count())->toBe(23);
 });

@@ -78,6 +78,7 @@ function seedTwoBedroomRoomNameFlow(Intake $intake, string $outletStatus = 'need
             ['ceiling_height_m', ['number' => 2.5], PrefillSources::AI_TEXT],
             ['sun_exposure', ['value' => 'medium'], PrefillSources::AI_TEXT],
             ['glass_amount', ['value' => 'average'], PrefillSources::AI_TEXT],
+            ['glazing_type', ['value' => 'double'], PrefillSources::AI_TEXT],
             ['floor_level', ['value' => '1'], PrefillSources::AI_TEXT],
             ['room_outlet_status', ['value' => $outletStatus], PrefillSources::AI_PHOTO],
         ] as [$key, $value, $source]) {
@@ -202,7 +203,7 @@ test('room_name opslaan + foto + Volgende zonder reload: stabiele vraag-id, geen
     expect(count($component->viewData('steps')))->toBe($totalBefore - 1)
         ->and($afterNameKey)->not->toBe('rooms::room-1::room_name')
         ->and($afterNameKey)->not->toBe('')
-        // v22: preferred_indoor_location precedes wall_outlet when outlets need a photo.
+        // v22/v23: preferred_indoor_location (optioneel) vóór wall_outlet wanneer outlets een foto nodig hebben.
         ->and(in_array($afterNameKey, [
             'rooms::room-1::preferred_indoor_location',
             'rooms::room-1::wall_outlet_photo',
@@ -274,6 +275,7 @@ test('vraaglijst krimpt en groeit mid-flow zonder index-drift (beide richtingen)
         'room_size_indication' => 'medium',
         'sun_exposure' => 'medium',
         'glass_amount' => 'average',
+        'glazing_type' => 'double',
         'room_outlet_status' => 'needs_photo',
         'detected_subject' => 'room',
         'subject_match' => 'yes',

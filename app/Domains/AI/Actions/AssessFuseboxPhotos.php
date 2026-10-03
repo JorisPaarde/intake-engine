@@ -10,6 +10,7 @@ use App\Domains\AI\Services\AiImageResolver;
 use App\Domains\AI\Services\AiTraceHandle;
 use App\Domains\AI\Services\AiTracePhotoRefBuilder;
 use App\Domains\AI\Services\AiTraceRecorder;
+use App\Domains\AI\Services\AiTraceRequestIdResolver;
 use App\Domains\AI\Services\AiTraceSnapshotService;
 use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\AI\Support\PhotoContentAssessment;
@@ -54,6 +55,7 @@ final class AssessFuseboxPhotos
         private readonly AiTraceRecorder $traceRecorder,
         private readonly AiTraceSnapshotService $traceSnapshots,
         private readonly AiTracePhotoRefBuilder $photoRefBuilder,
+        private readonly AiTraceRequestIdResolver $requestIdResolver,
     ) {}
 
     public function handle(Intake $intake, ?string $correlationId = null): ?AiRun
@@ -239,15 +241,17 @@ final class AssessFuseboxPhotos
                 $dossierBefore = $applyContext['dossier_before'];
                 $questionsBefore = $applyContext['questions_before'];
             } else {
-                $correlationId ??= (string) Str::uuid();
                 $latestMatching = $matchingUploads->sortByDesc('id')->first();
+                $applyCorrelationId = $latestMatching instanceof IntakeUpload
+                    ? $this->requestIdResolver->resolveCorrelationIdForUpload($latestMatching, $correlationId)
+                    : $this->requestIdResolver->resolveCorrelationId($correlationId);
                 $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoAssess, array_filter([
                     'ai_run_id' => $run?->id,
                     'upload_id' => $latestMatching?->id,
                     'subject_type' => 'question',
                     'subject_id' => self::PHOTO_QUESTION,
                     'provider' => (string) config('ai.provider', 'null'),
-                    'correlation_id' => $correlationId,
+                    'correlation_id' => $applyCorrelationId,
                 ], static fn (mixed $value): bool => $value !== null));
                 if ($latestMatching instanceof IntakeUpload) {
                     $trace->linkUpload($latestMatching);
@@ -302,15 +306,15 @@ final class AssessFuseboxPhotos
 
                         $this->storeObservation($intake, $run, $output, $matchingUploads, $trace->traceId());
 
+                        // Foto mag free_group_known nooit afleiden (BL-129): alleen clarity + observation.
                         if ($hasOkMatch) {
-                            $this->prefillFreeGroup($intake, $output);
                             $this->prefillClarity($intake, $this->clarityValue($output));
                         } elseif ($needsClearer) {
                             $this->prefillClarity($intake, 'needs_clearer_photo');
                         }
 
                         $trace->step('apply', [
-                            'free_group' => $output['free_group'],
+                            'empty_module_space' => $output['empty_module_space'] ?? null,
                             'confidence' => $output['confidence'],
                         ]);
                         $trace->recordFieldOutcomes($this->fieldOutcomesFromFusebox($intake, $output));
@@ -325,7 +329,7 @@ final class AssessFuseboxPhotos
                                 'ai_trace_id' => $trace->traceId(),
                                 'question_key' => self::PHOTO_QUESTION,
                                 'confidence' => $output['confidence'],
-                                'free_group' => $output['free_group'],
+                                'empty_module_space' => $output['empty_module_space'] ?? null,
                                 'phase' => $output['phase'],
                                 'clarity' => $hasOkMatch ? $this->clarityValue($output) : ($needsClearer ? 'needs_clearer_photo' : null),
                                 'subject_match' => $output['subject_match'] ?? null,
@@ -490,7 +494,8 @@ final class AssessFuseboxPhotos
             'started_at' => now(),
         ]);
 
-        $correlationId ??= (string) Str::uuid();
+        // Per-upload correlation via #136 AiTraceRequestIdResolver (not a shared batch id).
+        $uploadCorrelationId = $this->requestIdResolver->resolveCorrelationIdForUpload($upload);
 
         $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoAssess, [
             'ai_run_id' => $run->id,
@@ -499,7 +504,7 @@ final class AssessFuseboxPhotos
             'subject_id' => self::PHOTO_QUESTION,
             'provider' => (string) config('ai.provider', 'null'),
             'prompt_version' => $promptVersion,
-            'correlation_id' => $correlationId,
+            'correlation_id' => $uploadCorrelationId,
         ]);
         $trace->linkUpload($upload);
 
@@ -693,10 +698,6 @@ final class AssessFuseboxPhotos
 
     /**
      * @param  array<string, mixed>  $output
-     * @return array{free_group: string, phase: string, confidence: string, evidence: string, retake_instruction: string|null, detected_subject: string|null, subject_match: string}
-     */
-    /**
-     * @param  array<string, mixed>  $output
      * @return array{0: array<string, mixed>, 1: list<array{field: string, from: mixed, to: mixed, rule: string}>}
      */
     private function validateOutput(array $output): array
@@ -706,10 +707,19 @@ final class AssessFuseboxPhotos
             PhotoSubject::cases(),
         );
 
+        // Accept legacy free_group from cached runs; map to empty_module_space.
+        if (! array_key_exists('empty_module_space', $output) && isset($output['free_group'])) {
+            $output['empty_module_space'] = match ((string) $output['free_group']) {
+                'yes' => 'visible',
+                'no' => 'none_visible',
+                default => 'unknown',
+            };
+        }
+
         /** @var list<array{field: string, from: mixed, to: mixed, rule: string}> $normalizations */
         $normalizations = [];
         $validator = Validator::make($output, [
-            'free_group' => ['required', Rule::in(['yes', 'no', 'unknown'])],
+            'empty_module_space' => ['required', Rule::in(['visible', 'none_visible', 'unknown'])],
             'phase' => ['required', Rule::in(['one_phase', 'three_phase', 'unknown'])],
             'confidence' => ['required', Rule::in(['high', 'medium', 'low'])],
             'evidence' => ['required', 'string', 'min:3', 'max:300'],
@@ -722,7 +732,7 @@ final class AssessFuseboxPhotos
             throw ValidationException::withMessages($validator->errors()->toArray());
         }
 
-        /** @var array{free_group: string, phase: string, confidence: string, evidence: string, retake_instruction: string|null, detected_subject?: string|null, subject_match?: string} $validated */
+        /** @var array{empty_module_space: string, phase: string, confidence: string, evidence: string, retake_instruction: string|null, detected_subject?: string|null, subject_match?: string} $validated */
         $validated = $validator->validated();
 
         $evidenceFrom = $validated['evidence'];
@@ -749,18 +759,30 @@ final class AssessFuseboxPhotos
             ];
         }
 
+        $subjectMatch = is_string($validated['subject_match'] ?? null)
+            ? $validated['subject_match']
+            : 'yes';
+        $confidence = $validated['confidence'];
+        if ($subjectMatch === 'no' && $confidence !== 'low') {
+            $normalizations[] = [
+                'field' => 'confidence',
+                'from' => $confidence,
+                'to' => 'low',
+                'rule' => 'wrong_subject_forces_low',
+            ];
+            $confidence = 'low';
+        }
+
         return [[
-            'free_group' => $validated['free_group'],
+            'empty_module_space' => $validated['empty_module_space'],
             'phase' => $validated['phase'],
-            'confidence' => $validated['confidence'],
+            'confidence' => $confidence,
             'evidence' => $evidence,
             'retake_instruction' => $retake,
             'detected_subject' => is_string($validated['detected_subject'] ?? null)
                 ? $validated['detected_subject']
                 : null,
-            'subject_match' => is_string($validated['subject_match'] ?? null)
-                ? $validated['subject_match']
-                : 'yes',
+            'subject_match' => $subjectMatch,
         ], $normalizations];
     }
 
@@ -794,7 +816,7 @@ final class AssessFuseboxPhotos
     }
 
     /**
-     * @param  array{free_group: string, phase: string, confidence: string, evidence: string, retake_instruction: string|null}  $output
+     * @param  array<string, mixed>  $output
      * @return list<array<string, mixed>>
      */
     private function fieldOutcomesFromFusebox(Intake $intake, array $output): array
@@ -802,33 +824,15 @@ final class AssessFuseboxPhotos
         $confidence = $output['confidence'];
         $outcomes = [];
 
-        $freeExisting = IntakeAnswer::query()
-            ->where('intake_id', $intake->id)
-            ->where('question_key', self::TARGET_QUESTION)
-            ->whereNull('section_instance_key')
-            ->first();
-        $freeProtected = $freeExisting instanceof IntakeAnswer && ! in_array($freeExisting->prefill_source, [PrefillSources::AI_PHOTO, PrefillSources::AI_PHOTO_SUGGESTION, PrefillSources::AI_LEGACY], true);
-        $freeAccepted = $confidence === 'high'
-            && $output['free_group'] !== 'unknown'
-            && $freeExisting instanceof IntakeAnswer
-            && in_array($freeExisting->prefill_source, [PrefillSources::AI_PHOTO, PrefillSources::AI_PHOTO_SUGGESTION, PrefillSources::AI_LEGACY], true);
-
-        $freeReason = match (true) {
-            $freeAccepted => 'accepted_'.$confidence,
-            $freeProtected => 'protected_user_edit',
-            $output['free_group'] === 'unknown' => 'unknown',
-            $confidence !== 'high' => 'low_confidence',
-            default => 'missing',
-        };
-
+        // free_group_known wordt bewust niet meer uit de foto gevuld (BL-129).
         $outcomes[] = [
             'question_key' => self::TARGET_QUESTION,
-            'output_key' => 'free_group',
-            'disposition' => $freeAccepted ? 'accepted' : 'rejected',
+            'output_key' => 'empty_module_space',
+            'disposition' => 'rejected',
             'confidence' => $confidence,
             'source' => self::SOURCE,
-            'reason' => $freeReason,
-            'has_value' => $output['free_group'] !== 'unknown',
+            'reason' => 'photo_cannot_establish_free_group',
+            'has_value' => ($output['empty_module_space'] ?? 'unknown') !== 'unknown',
         ];
 
         if ($this->hasQuestion($intake, self::CLARITY_QUESTION)) {
@@ -860,32 +864,6 @@ final class AssessFuseboxPhotos
         }
 
         return $outcomes;
-    }
-
-    /** @param array<string, mixed> $output */
-    private function prefillFreeGroup(Intake $intake, array $output): void
-    {
-        if ($output['confidence'] !== 'high' || $output['free_group'] === 'unknown') {
-            return;
-        }
-
-        $existing = IntakeAnswer::query()
-            ->where('intake_id', $intake->id)
-            ->where('question_key', self::TARGET_QUESTION)
-            ->whereNull('section_instance_key')
-            ->first();
-
-        if ($existing instanceof IntakeAnswer && ! PrefillSources::photoMayOverwrite($existing->prefill_source)) {
-            return;
-        }
-
-        $this->saveIntakeAnswer->handle(
-            $intake,
-            self::TARGET_QUESTION,
-            null,
-            ['value' => $output['free_group']],
-            PrefillSources::AI_PHOTO,
-        );
     }
 
     private function prefillClarity(Intake $intake, string $clarity): void

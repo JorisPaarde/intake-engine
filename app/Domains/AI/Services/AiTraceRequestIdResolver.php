@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domains\AI\Services;
 
 use App\Domains\AI\Models\AiTrace;
+use App\Domains\Intake\Models\IntakeUpload;
 use App\Support\Logging\AppErrorLogger;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Str;
@@ -14,6 +15,10 @@ use Throwable;
  * Resolves a stable HTTP/Livewire request id or queued job id for AI-trace correlation.
  * Always returns a non-empty string (≤80 chars). Provider completion ids are stored
  * separately as {@see AiTrace::$provider_response_id}.
+ *
+ * Per-upload photo chains use {@see resolveCorrelationIdForUpload()} so each upload
+ * keeps one stable correlation_id (persisted on processing_timings) without a second
+ * parallel correlation mechanism.
  */
 final class AiTraceRequestIdResolver
 {
@@ -139,6 +144,44 @@ final class AiTraceRequestIdResolver
         $this->rememberCorrelationId($generated);
 
         return $generated;
+    }
+
+    /**
+     * Stable correlation for one upload's photo-assessment chain.
+     *
+     * Prefer explicit (job/dispatch), else the upload's stored processing_timings
+     * correlation_id, else mint + persist. Does not reuse ambient context from a
+     * sibling upload in the same batch.
+     */
+    public function resolveCorrelationIdForUpload(IntakeUpload $upload, ?string $explicit = null): string
+    {
+        if (is_string($explicit) && $explicit !== '') {
+            $this->persistUploadCorrelation($upload, $explicit);
+
+            return $this->resolveCorrelationId($explicit);
+        }
+
+        $timings = is_array($upload->processing_timings) ? $upload->processing_timings : [];
+        $stored = $timings['correlation_id'] ?? null;
+        if (is_string($stored) && $stored !== '') {
+            return $this->resolveCorrelationId($stored);
+        }
+
+        $id = (string) Str::uuid();
+        $this->persistUploadCorrelation($upload, $id);
+
+        return $this->resolveCorrelationId($id);
+    }
+
+    private function persistUploadCorrelation(IntakeUpload $upload, string $correlationId): void
+    {
+        $timings = is_array($upload->processing_timings) ? $upload->processing_timings : [];
+        if (($timings['correlation_id'] ?? null) === $correlationId) {
+            return;
+        }
+
+        $timings['correlation_id'] = $correlationId;
+        $upload->update(['processing_timings' => $timings]);
     }
 
     public function rememberQueueMetrics(?int $queueWaitMs, ?int $attempt): void

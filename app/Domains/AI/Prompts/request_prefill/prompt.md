@@ -31,6 +31,7 @@ Regels:
 - Plafondhoogte (“plafond 2,5 meter”, “hoogte 2,6”) → `ceiling_height_m` van díe ruimte.
 - Heb je wél L×B én m² en komen die niet overeen: vul alleen wat letterlijk klopt; verzamel geen conflict door beide te forceren.
 - Koelen én verwarmen → `cooling_heating` = `both`; alleen koelen → `cooling`; alleen verwarmen → `heating`.
+- **Geen intent uit afwezigheid van airco:** zinnen als “Nog geen airco”, “geen airco”, “nog geen unit”, “wil airco” zonder koel-/verwarmingsdoel → **geen** `cooling_heating`-fill. Alleen vullen bij expliciet koelen, verwarmen, of beide.
 - Eigendom — altijd cataloguswaarden `owned` of `rented` (nooit “koop”/“huur” als value):
   - owned: “koop”, “koophuis”, “koopwoning”, “eigen woning”, “eigen huis”, “in eigendom”;
   - rented: “huur”, “huurwoning”, “huurhuis”, “we huren”, “wij huren”, “ik huur”.

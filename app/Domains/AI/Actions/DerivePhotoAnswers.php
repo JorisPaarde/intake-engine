@@ -11,6 +11,7 @@ use App\Domains\AI\Services\AiImageResolver;
 use App\Domains\AI\Services\AiTraceHandle;
 use App\Domains\AI\Services\AiTracePhotoRefBuilder;
 use App\Domains\AI\Services\AiTraceRecorder;
+use App\Domains\AI\Services\AiTraceRequestIdResolver;
 use App\Domains\AI\Services\AiTraceSnapshotService;
 use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\AI\Support\DerivedAnswerField;
@@ -66,6 +67,7 @@ final class DerivePhotoAnswers
         private readonly AiTraceRecorder $traceRecorder,
         private readonly AiTraceSnapshotService $traceSnapshots,
         private readonly AiTracePhotoRefBuilder $photoRefBuilder,
+        private readonly AiTraceRequestIdResolver $requestIdResolver,
     ) {}
 
     public function handle(
@@ -252,15 +254,17 @@ final class DerivePhotoAnswers
                 $questionsBefore = $applyContext['questions_before'];
             } else {
                 // Cache-hit pad: geen open assess-trace — start apply-trace voor #117-stappen.
-                $correlationId ??= (string) Str::uuid();
                 $latestMatching = $matchingUploads->sortByDesc('id')->first();
+                $applyCorrelationId = $latestMatching instanceof IntakeUpload
+                    ? $this->requestIdResolver->resolveCorrelationIdForUpload($latestMatching, $correlationId)
+                    : $this->requestIdResolver->resolveCorrelationId($correlationId);
                 $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoDerive, array_filter([
                     'ai_run_id' => $run?->id,
                     'upload_id' => $latestMatching?->id,
                     'subject_type' => 'section',
                     'subject_id' => $sectionInstanceKey ?? $photoQuestionKey,
                     'provider' => (string) config('ai.provider', 'null'),
-                    'correlation_id' => $correlationId,
+                    'correlation_id' => $applyCorrelationId,
                 ], static fn (mixed $value): bool => $value !== null));
                 if ($latestMatching instanceof IntakeUpload) {
                     $trace->linkUpload($latestMatching);
@@ -571,7 +575,8 @@ final class DerivePhotoAnswers
             'started_at' => now(),
         ]);
 
-        $correlationId ??= (string) Str::uuid();
+        // Per-upload correlation via #136 AiTraceRequestIdResolver.
+        $uploadCorrelationId = $this->requestIdResolver->resolveCorrelationIdForUpload($upload);
 
         $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoDerive, [
             'ai_run_id' => $run->id,
@@ -580,7 +585,7 @@ final class DerivePhotoAnswers
             'subject_id' => $sectionInstanceKey ?? $photoQuestionKey,
             'provider' => (string) config('ai.provider', 'null'),
             'prompt_version' => $promptVersion,
-            'correlation_id' => $correlationId,
+            'correlation_id' => $uploadCorrelationId,
         ]);
         $trace->linkUpload($upload);
 
@@ -813,6 +818,16 @@ final class DerivePhotoAnswers
 
         foreach ($profile->fields as $field) {
             if (! array_key_exists($field->outputKey, $output)) {
+                // Nieuwe optionele schema-velden (bijv. glazing_type) soft-defaulten zodat
+                // oudere fixtures/provider-responses zonder het veld niet hard falen (BL-129).
+                $output[$field->outputKey] = 'unknown';
+                $normalizations[] = [
+                    'field' => $field->outputKey,
+                    'from' => null,
+                    'to' => 'unknown',
+                    'rule' => 'missing_defaults_unknown',
+                ];
+
                 continue;
             }
             $from = $output[$field->outputKey];
@@ -1194,7 +1209,11 @@ final class DerivePhotoAnswers
 
             $value = (string) ($output[$field->outputKey] ?? 'unknown');
 
-            if ($value === 'unknown') {
+            if ($value === 'unknown' && ! $field->allowsPersistingUnknown()) {
+                continue;
+            }
+
+            if ($value !== 'unknown' && ! in_array($value, $field->allowedValues, true) && ! in_array($value, $field->schemaValues(), true)) {
                 continue;
             }
 

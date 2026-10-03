@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.98 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.99 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -12,6 +12,7 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
+| Staging AI-trace fixes (BL-133) | todo | - | Meterkast: geen free_group uit foto; glas unknown/glazing_type; “Nog geen airco” ≠ cooling; size 24 m² = large; geen “handmatig controleren”-klanttaak; follow-up meterkast heeft trace+assessment; correlation per upload. airco v23. |
 | AI-trace velden request_id/cost/queue/GPS (BL-132) | todo | - | Na externe call: `/dev/ai-traces` toont provider_response_id (= OpenRouter `id`), estimated_cost ≠ alleen cents, model_parameters (temperature/max_tokens/schema); queue-foto toont queue_wait_ms + attempt; geen GPS in export. |
 | Foto-assessment terminal status (BL-127) | todo | - | Zelfde bestand op twee vragen → beide terminaal; too_small → Status niet oneindig Ontvangen; AI-fout → not_assessed-tekst + wizard door; na ~90 s assessing → “check volgt later”; pending >3 min verdwijnt via watchdog. |
 | Grote telefoonfoto-upload (BL-128) | todo | - | Op staging/mobiel: 2–8 MB JPG (4000px+) meterkast → Uploaden… met %-voortgang, géén false timeout bij actieve transfer of na 100% tijdens serverwerk; lege upload-file-200 wordt stil opnieuw geprobeerd; daarna Foto beoordelen; 8 KB webp blijft werken. |

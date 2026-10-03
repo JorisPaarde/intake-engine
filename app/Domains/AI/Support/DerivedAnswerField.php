@@ -19,7 +19,7 @@ final class DerivedAnswerField
     private const BOOLEAN_VALUES = ['yes', 'no'];
 
     /**
-     * @param  list<string>  $allowedValues  accepted values excluding 'unknown'; ignored for booleans
+     * @param  list<string>  $allowedValues  accepted values (may include 'unknown' when the template has that option)
      */
     private function __construct(
         public readonly string $outputKey,
@@ -48,7 +48,16 @@ final class DerivedAnswerField
      */
     public function schemaValues(): array
     {
+        if (in_array('unknown', $this->allowedValues, true)) {
+            return $this->allowedValues;
+        }
+
         return [...$this->allowedValues, 'unknown'];
+    }
+
+    public function allowsPersistingUnknown(): bool
+    {
+        return in_array('unknown', $this->allowedValues, true);
     }
 
     /**

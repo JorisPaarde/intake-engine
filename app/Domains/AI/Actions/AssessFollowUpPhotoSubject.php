@@ -10,6 +10,7 @@ use App\Domains\AI\Services\AiGateway;
 use App\Domains\AI\Services\AiImageResolver;
 use App\Domains\AI\Services\AiTracePhotoRefBuilder;
 use App\Domains\AI\Services\AiTraceRecorder;
+use App\Domains\AI\Services\AiTraceRequestIdResolver;
 use App\Domains\AI\Services\AiTraceSnapshotService;
 use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\AI\Support\PhotoContentAssessment;
@@ -43,18 +44,24 @@ final class AssessFollowUpPhotoSubject
         private readonly AiTraceRecorder $traceRecorder,
         private readonly AiTraceSnapshotService $traceSnapshots,
         private readonly AiTracePhotoRefBuilder $photoRefBuilder,
+        private readonly AiTraceRequestIdResolver $requestIdResolver,
     ) {}
 
     /**
      * @return array{assessment: PhotoContentAssessment|null, message: string|null}
      */
-    public function handle(Intake $intake, IntakeFollowUpItem $item, IntakeUpload $upload): array
-    {
+    public function handle(
+        Intake $intake,
+        IntakeFollowUpItem $item,
+        IntakeUpload $upload,
+        ?string $correlationId = null,
+    ): array {
         $area = $this->decisionAreaKey($item);
         $accepted = PhotoSubject::acceptedSubjectsForDecisionArea($area);
         $expected = PhotoSubject::expectedFromDecisionArea($area);
 
         if ($accepted === null || $expected === null) {
+            // Gebied zonder subject-check (placement/condens/…): geen AI-call.
             return ['assessment' => null, 'message' => null];
         }
 
@@ -122,7 +129,7 @@ final class AssessFollowUpPhotoSubject
             'started_at' => now(),
         ]);
 
-        $correlationId = (string) Str::uuid();
+        $correlationId = $this->requestIdResolver->resolveCorrelationIdForUpload($upload, $correlationId);
         $trace = $this->traceRecorder->start($intake, AiTraceCallType::FollowUpPhotoSubject, [
             'ai_run_id' => $run->id,
             'upload_id' => $upload->id,
@@ -250,7 +257,7 @@ final class AssessFollowUpPhotoSubject
             'provider' => $run->provider ?: (string) config('ai.provider', 'null'),
             'model' => $run->model,
             'prompt_version' => $promptVersion,
-            'correlation_id' => (string) Str::uuid(),
+            'correlation_id' => $this->requestIdResolver->resolveCorrelationIdForUpload($upload),
         ]);
         $trace->linkUpload($upload);
         $trace->linkAiRun($run);

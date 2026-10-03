@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.87 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.88 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,12 +38,13 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = fotobeoordeling via queue (#124, done). **BL-122** = soft catalogus-prefill (case 81). **BL-123** = staging-retest acceptance (#115–#120). **BL-124** = form robustness (#127, done). **BL-125** = AI-trace retentie/export + PDF-downscale (#130, done). **BL-126** = prompt/vision quality (route/ownership/kamernamen). **BL-127** = foto-assessment terminale status + watchdog (#133, done). **BL-128** = grote telefoonfoto-upload (inactiviteit-timeout + client-downscale + lege-200-retry, #131 done). **BL-129** = klant-UX review v1.3.0 (airco v22, #134 done). **BL-130** = follow-up mismatch-override + reassessment (#125). **BL-131** = wizard nav + scoped foto-feedback (#129, done). **BL-132** = AI-trace veldverbeteringen (request_id/cost/queue/redactie). Nieuwe items starten bij BL-133.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = fotobeoordeling via queue (#124, done). **BL-122** = soft catalogus-prefill (case 81). **BL-123** = staging-retest acceptance (#115–#120). **BL-124** = form robustness (#127, done). **BL-125** = AI-trace retentie/export + PDF-downscale (#130, done). **BL-126** = prompt/vision quality (route/ownership/kamernamen). **BL-127** = foto-assessment terminale status + watchdog (#133, done). **BL-128** = grote telefoonfoto-upload (inactiviteit-timeout + client-downscale + lege-200-retry, #131 done). **BL-129** = klant-UX review v1.3.0 (airco v22, #134 done). **BL-130** = follow-up mismatch-override + reassessment (#125). **BL-131** = wizard nav + scoped foto-feedback (#129, done). **BL-132** = AI-trace veldverbeteringen (request_id/cost/queue/redactie, #136). **BL-133** = staging AI-trace fixes (fusebox/glass/prefill/follow-up, airco v23, #135). Nieuwe items starten bij BL-134.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
 | 1 | BL-117 | Installateur kan technisch open punt afhandelen vanuit de survey-werkplek | E7/E8 | backlog | high | na PR #115 · show/rapport `*_open` |
-| — | BL-132 | AI-trace velden: provider response id, cost, queue wait, GPS-redactie | E4/E5 | in_progress | high | AI/ops · na BL-125 · follow-up #132/#136 |
+| — | BL-133 | Staging AI-trace fixes: fusebox empty_module_space, glas/glazing, prefill, correlation | E3/E4/E9 | in_progress | high | AI/foto · na BL-126/127 · intakes 76–78 · airco v23 · PR #135 |
+| — | BL-132 | AI-trace velden: provider response id, cost, queue wait, GPS-redactie | E4/E5 | done | high | AI/ops · na BL-125 · PR #136 |
 | — | BL-131 | Wizard: stabiele stap-id + scoped foto-feedback (geen stale hints) | E1/E4 | done | high | na BL-121 (#124) · queue/poll intact · PR #129 |
 | — | BL-130 | Follow-up: mismatch-override, klantcopy, review per ronde, reassessment | E1/E4/E7 | done | high | na BL-123 · case 81b · PR #125 |
 | — | BL-129 | Klant-UX review v1.3.0: bedankt, foto-feedback, één voortgang, known-data, closing | E1/E5/E7 | done | high | na BL-124 · airco v22 · views/tekst · PR #134 |
@@ -652,6 +653,16 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Scope:** `RequestPrefillOutcomeClassifier`, `PrefillAnswersFromKnownContext`, `EvaluateRequestIntent`; Pest case 80/81 stagingteksten + unit soft-envelope. Geen template-/promptversiebump.
 - **Acceptatie:** case 81 met evidence = volledige openingszin + één scalar-fill → kamers/feiten opgeslagen, technische keys uitgesloten; `composer check` groen.
 - **Resultaat:** soft-envelope + per-fill apply-isolatie + staging-regressietests; AI-trace toont `validation_errors` bij ingekorte evidence.
+
+
+### BL-133 — Staging AI-trace fixes (fusebox/glass/prefill/follow-up)
+
+- **Status:** in_progress · **Prioriteit:** high · **Epic:** E3/E4/E9 · **Band:** AI/foto · **Volgt op:** BL-126/127/129 · **Ref:** staging intakes 76–78 (pre-#126 traces) · **PR:** #135
+- **Aanleiding:** meterkast “groepsruimtes bezet” → free_group Nee; glas leeg; cooling uit “Nog geen airco”; size-banden mismatch; “handmatig controleren” als klanttaak; follow-up zonder trace; gedeelde correlation_id.
+- **Doel:** `empty_module_space` + nooit free_group_known uit foto; glazing_type + unknown glas/zon; size = RoomAreaAcceptance; prefill-guard; filter interne notities; follow-up trace/assessment; correlation per upload (op BL-127 `upload_id`/lifecycle).
+- **Scope:** fusebox/room/prefill/dossier prompts + Assess*/Derive*/job/classifier/normalizer; airco **v23** (op v22 UX); géén OpenAiClient; geen dubbele assessment_status-kolommen.
+- **Acceptatie:** Pest per finding; `composer check` groen.
+- **Opmerking:** oorspronkelijk als BL-127/BL-129/BL-130/BL-132 gestart; hernummerd naar **BL-133** na merge van #133/#131/#134/#125/#129/#136 (BL-129–132 bezet).
 
 ### BL-126 — Prompt/vision quality: route, ownership, kamernamen, classificatie
 
