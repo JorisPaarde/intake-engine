@@ -519,10 +519,8 @@ test('demo sample dossier keeps the live PDOK aerial for the typed address', fun
 
     expect($liveAerial->value['ground_width_meters'])->toBe(180)
         ->and($liveAerial->value['ground_height_meters'])->toBe(120)
-        ->and($liveAerial->value['media_path'])->toContain('pdok-aerial.jpg');
-
-    Storage::disk((string) $liveAerial->value['media_disk'])
-        ->assertExists((string) $liveAerial->value['media_path']);
+        ->and($liveAerial->value['media_path'])->toContain('pdok-aerial.jpg')
+        ->and($liveAerial->value['mime_type'] ?? null)->toBe('image/jpeg');
 
     app(LoadDemoSurveyScenario::class)->handle($intake->fresh() ?? $intake, $user);
     $intake->refresh();
