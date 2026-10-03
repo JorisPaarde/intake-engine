@@ -43,7 +43,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
 | 1 | BL-117 | Installateur kan technisch open punt afhandelen vanuit de survey-werkplek | E7/E8 | backlog | high | na PR #115 · show/rapport `*_open` |
-| — | BL-122 | Soft catalogus-prefill: lange evidence / kapotte fill dumpt niet alles | E3/E9 | in_progress | high | regressie case 81 · na BL-118/120 |
+| — | BL-122 | Soft catalogus-prefill: lange evidence / kapotte fill dumpt niet alles | E3/E9 | done | high | regressie case 81 · PR #120 · na BL-118/120 |
 | — | BL-120 | Klanttest P2: voortgang, uploadfases, je-vorm (airco v20) | E1/E5/E7 | done | high | klanttest 2 okt P2 · PR #118 · na BL-119 |
 | — | BL-119 | Klanttest 2 okt P1: foto-stelligheid, interne AI-velden, verkeerde-fotofeedback | E4/E7/E9 | in_progress | high | AI/foto · na BL-118 · airco v19 · PR #119 |
 | — | BL-121 | Follow-up fotobeoordeling async (niet sync in request) | E4 | backlog | medium | AI/foto · bij BL-119 · performance |
@@ -605,11 +605,12 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-122 — Soft catalogus-prefill (case 81 regressie)
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E3/E9 · **Volgt op:** BL-118/120 · **Ref:** staging demo intakes 67/68, klanttest case 81
+- **Status:** done · **Datum:** 2026-10-03 · **PR:** #120 · **Prioriteit:** high · **Epic:** E3/E9 · **Volgt op:** BL-118/120 · **Ref:** staging demo intakes 67/68, klanttest case 81
 - **Aanleiding:** na #115–#119 produceerde AI-tekstprefill voor de lange multi-room openingszin (case 81) niets (0 kamers, klantvraag koelen/verwarmen opnieuw), terwijl korte case 80 wél werkte. Oorzaak: harde envelope-validatie (`evidence` max 500) dumpte de hele catalogusrespons wanneer het model de openingszin (>500 tekens) als evidence echo’de; lokale parser geeft bij herhaald kamertype `null`.
 - **Doel:** geldige fills altijd toepassen; te lange evidence inkorten; één kapotte fill alleen die fill rejecten (reden in AI-trace); betere `error_message` bij harde fouten.
 - **Scope:** `RequestPrefillOutcomeClassifier`, `PrefillAnswersFromKnownContext`, `EvaluateRequestIntent`; Pest case 80/81 stagingteksten + unit soft-envelope. Geen template-/promptversiebump.
 - **Acceptatie:** case 81 met evidence = volledige openingszin + één scalar-fill → kamers/feiten opgeslagen, technische keys uitgesloten; `composer check` groen.
+- **Resultaat:** soft-envelope + per-fill apply-isolatie + staging-regressietests; AI-trace toont `validation_errors` bij ingekorte evidence.
 
 ### BL-118 — Klanttest 2 okt: foto-first, extractiedekking, kamernamen
 
