@@ -6,6 +6,6 @@ declare(strict_types=1);
  * @return array{version: string, description: string}
  */
 return [
-    'version' => 'follow-up-photo-subject-v1',
-    'description' => 'Classificeert of een gerichte klanttaak-foto het gevraagde onderwerp toont.',
+    'version' => 'follow-up-photo-subject-v2',
+    'description' => 'Follow-up categoriecheck; pipe_route omvat goot/doorvoer/wand; accepted_subjects respecteren.',
 ];

@@ -41,6 +41,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Temperatuur
+    |--------------------------------------------------------------------------
+    |
+    | Standaardtekst-/synthesecalls: 0.2. Classificatie (foto-categorie, meterkast
+    | free_group/fase, glas/stopcontact, follow-up subject) gebruikt 0 voor
+    | deterministischer gedrag. Callers zetten dit via AiCompletionRequest;
+    | OpenAiClient leest $request->temperature wanneer gezet.
+    |
+    */
+
+    'temperature' => (float) env('AI_TEMPERATURE', 0.2),
+
+    'classification_temperature' => (float) env('AI_CLASSIFICATION_TEMPERATURE', 0),
+
+    /*
+    |--------------------------------------------------------------------------
     | External AI budget guard
     |--------------------------------------------------------------------------
     |

@@ -427,6 +427,7 @@ final class DossierManager
             $typeIsCustomer = $typeAnswer !== null && $typeSource === null;
 
             // Installateur > klant (expliciete naam) > AI/gegenereerd.
+            // room_name-antwoord (klant of AI-prefill) wint altijd van Slaapkamer N, tenzij installateur.
             if ($existing !== null && $existing->name_source === 'installer' && $existing->name !== '') {
                 $name = $existing->name;
             } else {
@@ -728,8 +729,12 @@ final class DossierManager
             static fn (IntakeAnswer $answer): bool => $answer->section_instance_key === $instanceKey
                 && $answer->question_key === 'room_name',
         );
-        $text = is_array($answer?->value) ? ($answer->value['text'] ?? null) : null;
+        $value = $answer?->value;
+        if (! is_array($value)) {
+            return null;
+        }
 
+        $text = $value['text'] ?? $value['value'] ?? null;
         if (! is_string($text)) {
             return null;
         }

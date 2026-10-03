@@ -1,6 +1,6 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 3.25 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.27 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **samenvatting, aandachtspunten, lokale fotokwaliteit, tekst-/foto-afleiding, verbindingsgebonden routeanalyse en bewijsgerichte dossiersynthese zijn geïmplementeerd**. Externe provider en tekst-/foto-/route-/dossierinferentie staan standaard uit (provider + key + featurevlaggen + budgetcaps; soft-fail zonder die config). OpenAI-compatibele gateways (o.a. OpenRouter) via `AI_BASE_URL`.
 
@@ -204,7 +204,7 @@ Dossiersynthese loopt na iedere afgeronde klant-, installateur- of gerichte bijd
 
 `DeriveIntentFromRequest` volgt een hybrid pad. Eerst past de bevroren `LocalRequestIntentParser` (`request-intent-local-v4`) alleen foutloze evidente feiten toe: koel-/verwarmdoelen (inclusief `koud te krijgen`), éénduidige aantallen/ruimtetypen en “op zolder”. Zelfde kamertype twee keer noemen (vaak maten naderhand) is geen lokale high-confidence — dat bepaalt catalogus-AI. Geen lokale maat-, buitenunit- of andere keuzeheuristiek.
 
-Daarna, met `AI_TEXT_INFERENCE_ENABLED` aan en externe calls toegestaan, beoordeelt `PrefillAnswersFromKnownContext` de volledige fillable vraagenset via `request-prefill-v6`: openingszin, antwoorden, externe feiten en installateursobservaties. Per vraag alleen cataloguskeys/opties; `high` → `prefill_source=ai_text`, `medium` → `ai_text_suggestion`, `low` → niets. Fotovragen worden niet ingevuld. De prompt telt herhaalde kamernamen niet dubbel; neemt letterlijke L×B over of vult `room_area_m2` bij exact m² (geen m²→L×B). Exact AI-m² telt alleen bij hoge zekerheid + evidence (`RoomAreaAcceptance`).
+Daarna, met `AI_TEXT_INFERENCE_ENABLED` aan en externe calls toegestaan, beoordeelt `PrefillAnswersFromKnownContext` de volledige fillable vraagenset via `request-prefill-v7`: openingszin, antwoorden, externe feiten en installateursobservaties. Per vraag alleen cataloguskeys/opties; `high` → `prefill_source=ai_text`, `medium` → `ai_text_suggestion`, `low` → niets. Fotovragen worden niet ingevuld. De prompt telt herhaalde kamernamen niet dubbel; neemt letterlijke L×B over of vult `room_area_m2` bij exact m² (geen m²→L×B). Exact AI-m² telt alleen bij hoge zekerheid + evidence (`RoomAreaAcceptance`). Ownership-synoniemen worden server-side genormaliseerd (`OwnershipNormalizer`).
 
 `RequestPrefillOutcomeClassifier` verwerkt catalogusoutput **soft**: te lange top-level `evidence` (>500) of fill-evidence (>300) wordt ingekort met normalisatie + `validation_errors` in de AI-trace; één kapotte fill (ongeldige confidence, scalar `value`, onbekende key) wordt rejected met reden terwijl andere fills doorgaan. Alleen een ontbrekende `fills`-array blijft een harde `ValidationException`. Prefill-apply vangt per-veld writefouten af zodat één mislukte opslag de rest niet terugdraait; harde fouten gebruiken `AiValidationFailureFormatter` in `ai_runs.error_message`.
 
@@ -250,19 +250,30 @@ Server-side validatie vóór opslaan. Ongeldige output = `failed`.
 - Prompt `attention_points-v3` beoordeelt het volledige dossier integraal. Elk voorstel bevat verplicht `confidence` en minimaal één concrete `evidence`-referentie. Elke combinatie van `source_type` en `reference` wordt server-side gecontroleerd tegen exact de naar de provider verzonden context; onbekende of verkeerd getypeerde modelreferenties maken de run ongeldig. Geldige provenance wordt machineleesbaar opgeslagen en vóór acceptatie getoond. Legacy AI-voorstellen zonder valide confidence/evidence worden tijdens de hardeningmigratie verwijderd en zijn ook server-side niet accepteerbaar. De prompt moet bronconflicten, onzekerheden en ontbrekende gegevens expliciet signaleren zonder afleidingen als bevestigde feiten te presenteren.
 - Rapportrebuilds en AI-samenvattingspersistentie locken de intake en laden aandachtspunten opnieuw, zodat een stale relation-cache een recente installateursbeslissing niet kan overschrijven. Na acceptatie wordt de HTML direct herbouwd en een nieuwe PDF-job ingepland.
 
-## Foto-categorie en stelligheid (BL-119 / BL-121)
+## Foto-categorie en stelligheid (BL-119 / BL-121 / BL-126)
 
 - Foto-afleiding (`DerivePhotoAnswers`, `AssessFuseboxPhotos`, `AssessFollowUpPhotoSubject`) draait **niet** in de Livewire-webrequest maar in `AssessUploadedPhotoJob` (queue `ai-photo`, unique per upload). De uploadrequest slaat alleen op + lokale usability (`AssessPhotoUsability`) en returnt meteen. Wizard: fases Uploaden → Foto beoordelen; resultaat via `wire:poll.2s` (`pollPendingAssessments`) zonder page refresh.
-- Beoordeelt **elke upload zonder definitieve assessment** (ook buiten het `max_images`-venster); `not_assessed` mag opnieuw. `subject_match=no` → altijd `wrong_subject` (detected of `other`), nooit `ok`/`needs_clearer`. AI-fout, timeout of inference uit → `not_assessed` (nooit null) met klanttekst “We konden je foto nu niet automatisch beoordelen; de installateur kijkt mee.” Job: `$tries=2`, backoff, timeout > `AI_TIMEOUT_SECONDS`.
+- Beoordeelt **elke upload zonder definitieve assessment** (ook buiten het `max_images`-venster); `not_assessed` mag opnieuw. Fabriek: `PhotoContentAssessment::fromModelOutput`. Job: `$tries=2`, backoff, timeout > `AI_TIMEOUT_SECONDS`.
 - Elke AI-fotobeoordeling schrijft precies één complete `ai_traces`-rij (`call_type=photo_analysis`) gekoppeld aan haar `ai_run` (model/provider/ms). Upload-persist traceert geen losse `photo_analysis` meer.
+- **Routevragen (`pipe_route_photos`):** geaccepteerde categorieën zijn `pipe_route`, `room` (wand/plafond), `outdoor_unit` en `outdoor_location`. Wand/plafond/goot/doorvoer (ook met bestaande unit in beeld) telt als bruikbaar. Een herkende `pipe_route` **blokkeert nooit** (`wrong_subject`/`needs_clearer` worden onderdrukt). Prompt `pipe-route-assessment-v4`.
+- Overige derive/fusebox: `subject_match=no` → `wrong_subject` (detected of `other`), nooit `ok`. AI-fout, timeout of inference uit → `not_assessed` (nooit null) met klanttekst “We konden je foto nu niet automatisch beoordelen; de installateur kijkt mee.” Klantmelding bij mismatch noemt het ontbrekende onderdeel (bij route: wand/plafond, goot of doorvoer).
 - Klant: `wrong_subject` soft-blockt verplichte foto’s — **Vervang foto** / **Toch doorgaan**. Banner verdwijnt zodra `PhotoContentSatisfaction` tevreden is; verkeerde foto houdt installateursbadge. Definitieve assessments worden niet overschreven; `not_assessed` wel herbeoordeeld.
-- `retake_instruction` op een bruikbare match → `needs_clearer` (ongeacht confidence).
+- `retake_instruction` op een bruikbare match → `needs_clearer` (ongeacht confidence), behalve op een geaccepteerde routefoto.
 - Meterkast-mismatch zet **geen** `fusebox_clarity=needs_clearer_photo`; één taak: vervang de foto.
-- Technische routeconclusies staan alleen als dossierfeit (`pipe_route_photos_derivation`). Model-`drillings_needed=no` → `unknown` + voorstelnotitie. Prompt `pipe-route-assessment-v3`.
+- Meterkastprompt `fusebox-assessment-v3`: strikte `free_group`/`phase`-criteria; bij twijfel `unknown` (lege kast ≠ vrije groep); `confidence=high` alleen bij helder bewijs.
+- Ruimteprompt `room-assessment-v6`: glas (`little`/`average`/`much`/`unknown`) met harde criteria; `room_outlet_status=unknown` schrijft geen antwoord en triggert geen `wall_outlet_photo` (lege woonkamer forceren geen stopcontactvraag).
+- Technische routeconclusies staan alleen als dossierfeit (`pipe_route_photos_derivation`). Model-`drillings_needed=no` → `unknown` + voorstelnotitie.
 - Interne velden `fusebox_clarity` / `room_outlet_status` nooit in klantstappen (`InternalCustomerQuestions`). Routevoorstellen via `TechnicalDecisionKeys::ROUTE_PROPOSAL_KEYS` (één class met #115-KEYS/`aiPrefillSources()`).
-- Follow-up: accepted subjects per `decision_area_key` (power→fusebox; refrigerant→pipe_route|outdoor_unit). Beoordeling via `AssessUploadedPhotoJob` (queue `ai-photo`). Onopgeloste `wrong_subject` telt niet mee voor follow-up-100% (`FollowUpProgressCalculator` → “Nog te vervangen”); voortgang wacht op `content_assessment` van de job. Installateur ziet mismatch-reden via `followUpMismatchReason` (BL-123).
+- Follow-up: accepted subjects per `decision_area_key` (power→fusebox; refrigerant→pipe_route|outdoor_unit|room|outdoor_location). Prompt `follow-up-photo-subject-v2`. Beoordeling via `AssessUploadedPhotoJob` (queue `ai-photo`). Onopgeloste `wrong_subject` telt niet mee voor follow-up-100% (`FollowUpProgressCalculator` → “Nog te vervangen”); voortgang wacht op `content_assessment` van de job. Installateur ziet mismatch-reden via `followUpMismatchReason` (BL-123).
+- Classificatiecalls (foto-afleiding, meterkast, follow-up subject) zetten `AiCompletionRequest::$temperature` op `config('ai.classification_temperature')` (default `0`). Standaardtekst blijft `config('ai.temperature')` (default `0.2`). OpenAiClient gebruikt `$request->temperature` wanneer gezet.
 - `DecisionReadinessService::hasFuseboxPhoto` en voortgang gebruiken `PhotoContentSatisfaction`.
 - Hosting/cron: zie `docs/DEPLOYMENT.md` § Cron (`--queue=ai-photo,default` + hourly scheduler-worker).
+
+## Catalogus-prefill: eigendom en kamernamen (BL-126)
+
+- Prompt `request-prefill-v7` forceert ownership-tokens `owned`/`rented` met NL-voorbeelden (koophuis, eigen woning, we huren, …) en neemt rollen letterlijk over in `room_name` (Ouders, Kind, …).
+- Code-side `OwnershipNormalizer` in `RequestPrefillOutcomeClassifier` map’t synoniemen deterministisch vóór catalogusvalidatie (AI-trace normalisatie `ownership_synonym`).
+- `syncRooms` zet `room_name`-antwoorden door naar `airco_rooms.name` / dossierlabels; `name_source=installer` wint altijd. Bekende ownership/`room_name` (AI of klant) worden niet opnieuw gevraagd (`skip_when_prefilled_by` + `shouldAskRoomName`).
 
 ## Fotokwaliteit (BL-007)
 

@@ -1,6 +1,6 @@
 # AGENTS.md — Projectgeheugen & werkinstructies
 
-> **Documentversie:** 2.35 · **Laatste update:** 2026-10-03 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
+> **Documentversie:** 2.36 · **Laatste update:** 2026-10-03 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
 
 Dit bestand is de **centrale ingang** voor iedere agent (of mens) die aan dit project werkt. Het beschrijft waar het projectgeheugen leeft, welk document waarvoor de bron van waarheid is, en hoe je dat geheugen bijhoudt. **Lees dit bestand aan het begin van elke taak.**
 
@@ -198,7 +198,8 @@ Praktische lessen uit cloud-runs. Doel: sneller groen zonder opnieuw te ontdekke
 - Klantvoortgang (BL-120/BL-123): takenlabel via `ProgressCalculator` / follow-up via `FollowUpProgressCalculator`; balk/% in de klantwizard volgt wizardstappen (done/total, hoogwater, 100% pas na afronden); follow-up wrong_subject = “Nog te vervangen”; prefill-skip via `PrefillSources::shouldSkipPrefill`; foto’s pas na bruikbare beoordeling. Extra-taaknotitie alleen ná analyse.
 - Klant-uploadfases (BL-120/BL-121/BL-124): `updatedPhotoFiles` slaat op + lokale usability, dispatcht `AssessUploadedPhotoJob` (`ai-photo`, unique per upload), zet `uploadPhase=assessing`; resultaat via `wire:poll.2s` → `pollPendingAssessments` (geen sync AI in de webrequest). Soft-fail → `not_assessed` + klanttekst; recovery alleen bij `usability`/`content_assessment` NULL (niet bij not_assessed). Cron: `--queue=ai-photo,default` — zie DEPLOYMENT.md. **Timeouts:** ~15 s Alpine alleen op Livewire-upload (“Uploaden…” → Opnieuw proberen); 120 s Alpine + “Opnieuw beoordelen” blijft voor `assessing` (niet dupliceren).
 - Openingszin: `LocalRequestIntentParser` alleen foutloze unieke ruimtetypes (geen extra regex voor maten/anaphora, ADR-0013). Zelfde type twee keer noemen → `null`, daarna catalogus-AI. Werkpleknamen nummeren per type (`Woonkamer 1`, niet globaal `Woonkamer 3`).
-- Catalogus-prefill (BL-122): te lange top-level `evidence` of één kapotte fill mag nooit de hele extractie dumpen — soft inkorten/reject per fill (`RequestPrefillOutcomeClassifier`); check AI-trace `validation_errors` + field outcomes. Staging case 81-tekst is >500 tekens; echo als evidence was de regressie.
+- Catalogus-prefill (BL-122/BL-126): te lange top-level `evidence` of één kapotte fill mag nooit de hele extractie dumpen — soft inkorten/reject per fill (`RequestPrefillOutcomeClassifier`); ownership-synoniemen via `OwnershipNormalizer`; check AI-trace `validation_errors` + field outcomes. Staging case 81-tekst is >500 tekens; echo als evidence was de regressie.
+- Routefoto-categorie (BL-126): `pipe_route` + room/outdoor_unit/outdoor_location geaccepteerd; herkende `pipe_route` blokkeert nooit; fixture `tests/fixtures/klanttest-20261002/route-pipe-duct-IMG_9885.png`. Classificatie-temp: `AI_CLASSIFICATION_TEMPERATURE` (default 0) via `AiCompletionRequest::$temperature` — OpenAiClient honoreren apart.
 - Kwaliteitspoort: `composer check` (= Pint + PHPStan level 6 + Pest) vóór je “klaar” claimt.
 - Featuretests met `Livewire::test(...)` hebben geen Vite-build nodig; `$this->get(...)` die een layout met `@vite` raakt wél.
 - Test samengestelde invoerketens op de grens die ertoe doet: request → persistente velden → uitgaande servicequery → opgeslagen resultaat. Een DOM-stringassertie en losse HTTP-fakes kunnen allebei groen zijn terwijl de overdracht ertussen ontbreekt; gebruik voor adresregressies een echt postcode-/huisnummergeval.

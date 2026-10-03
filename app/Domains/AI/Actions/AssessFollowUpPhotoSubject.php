@@ -159,6 +159,7 @@ final class AssessFollowUpPhotoSubject
                 input: $input,
                 promptVersion: $promptVersion,
                 images: [$this->aiImageResolver->input($upload)],
+                temperature: (float) config('ai.classification_temperature', 0),
             );
             $trace->recordProviderResult($result);
 

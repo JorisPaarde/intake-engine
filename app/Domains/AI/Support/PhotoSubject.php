@@ -86,6 +86,31 @@ enum PhotoSubject: string
     }
 
     /**
+     * Geaccepteerde onderwerpen voor een template-fotovraag (derive-pad).
+     * Null = alleen subject_match van het model telt (strenge 1:1-check).
+     *
+     * Routevragen accepteren wand/plafond/goot/doorvoer én buitenunit-in-routecontext:
+     * die beelden zijn bruikbaar voor de leidingroute en mogen de klant niet blokkeren.
+     *
+     * @return list<self>|null
+     */
+    public static function acceptedSubjectsForPhotoQuestion(string $questionKey, ?string $profileName = null): ?array
+    {
+        $expected = self::expectedForPhotoQuestion($questionKey, $profileName);
+
+        if ($expected === self::PipeRoute) {
+            return [
+                self::PipeRoute,
+                self::Room,
+                self::OutdoorUnit,
+                self::OutdoorLocation,
+            ];
+        }
+
+        return null;
+    }
+
+    /**
      * Expected subject from a structured follow-up decision area.
      * Null → niet controleerbaar (placement, condensate, request, cost_risks, …).
      */
@@ -110,7 +135,8 @@ enum PhotoSubject: string
 
         return match ($decisionAreaKey) {
             'power' => [self::Fusebox],
-            'refrigerant' => [self::PipeRoute, self::OutdoorUnit],
+            // Routebewijs: goot/doorvoer/wand/plafond én buitenunit in routecontext.
+            'refrigerant' => [self::PipeRoute, self::OutdoorUnit, self::Room, self::OutdoorLocation],
             'capacity' => [self::Room],
             // placement + condensate bewust niet controleerbaar.
             default => null,
@@ -119,13 +145,23 @@ enum PhotoSubject: string
 
     /**
      * Concrete customer message when the uploaded image does not match the ask.
+     * Noemt altijd wat er wél nodig is (ontbrekend onderdeel).
      */
     public function mismatchMessage(self $detected): string
     {
+        $needed = match ($this) {
+            self::Fusebox => 'een foto van de meterkast (groepenkast open, recht van voren)',
+            self::PipeRoute => 'een foto van de leidingroute (wand/plafond op de bedoelde plek, goot, leidingen of doorvoer)',
+            self::Room => 'een foto van de hele ruimte vanuit de deuropening',
+            self::OutdoorLocation => 'een foto van de buitenplek voor de unit',
+            self::OutdoorUnit => 'een foto van de buitenunit',
+            self::Other => 'een foto van '.$this->dutchLabel(),
+        };
+
         if ($this === self::Fusebox) {
-            return 'Vervang deze foto door een foto van de meterkast. Dit lijkt '.$detected->dutchNoun().'.';
+            return 'Vervang deze foto door '.$needed.'. Dit lijkt '.$detected->dutchNoun().'.';
         }
 
-        return 'Dit is '.$detected->dutchNoun().'; we hebben een foto van '.$this->dutchLabel().' nodig.';
+        return 'Dit is '.$detected->dutchNoun().'; we hebben '.$needed.' nodig.';
     }
 }

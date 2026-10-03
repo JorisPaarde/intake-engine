@@ -541,7 +541,13 @@ final class DerivePhotoAnswers
             ->first();
 
         if ($existing instanceof AiRun && is_array($existing->output)) {
-            $this->applyUploadAssessment($upload, $expected, $existing->output);
+            $this->applyUploadAssessment(
+                $upload,
+                $expected,
+                $existing->output,
+                $photoQuestionKey,
+                $profile->name,
+            );
 
             return [
                 'run' => $existing,
@@ -603,6 +609,7 @@ final class DerivePhotoAnswers
                 input: $input,
                 promptVersion: $promptVersion,
                 images: [$this->aiImageResolver->input($upload)],
+                temperature: (float) config('ai.classification_temperature', 0),
             );
             $trace->recordProviderResult($result);
 
@@ -626,7 +633,13 @@ final class DerivePhotoAnswers
                 'finished_at' => now(),
             ]);
 
-            $this->applyUploadAssessment($upload, $expected, $output);
+            $this->applyUploadAssessment(
+                $upload,
+                $expected,
+                $output,
+                $photoQuestionKey,
+                $profile->name,
+            );
 
             $freshRun = $run->fresh() ?? $run;
             $trace->linkAiRun($freshRun);
@@ -672,10 +685,18 @@ final class DerivePhotoAnswers
     /**
      * @param  array<string, mixed>  $output
      */
-    private function applyUploadAssessment(IntakeUpload $upload, PhotoSubject $expected, array $output): void
-    {
+    private function applyUploadAssessment(
+        IntakeUpload $upload,
+        PhotoSubject $expected,
+        array $output,
+        ?string $photoQuestionKey = null,
+        ?string $profileName = null,
+    ): void {
         $previous = $upload->contentAssessment();
-        $assessment = PhotoContentAssessment::fromModelOutput($expected, $output)
+        $accepted = $photoQuestionKey !== null
+            ? PhotoSubject::acceptedSubjectsForPhotoQuestion($photoQuestionKey, $profileName)
+            : null;
+        $assessment = PhotoContentAssessment::fromModelOutput($expected, $output, $accepted)
             ->preservingCustomerAcceptance($previous);
 
         $upload->storeContentAssessment($assessment);
@@ -1232,9 +1253,20 @@ final class DerivePhotoAnswers
         }
 
         $raw = (string) ($output['room_outlet_status'] ?? 'unknown');
-        $status = ($confidence === 'high' && $raw === 'present')
-            ? 'present'
-            : 'needs_photo';
+
+        // unknown: geen answer → geen wall_outlet_photo (lege woonkamer forceren geen stopcontactvraag).
+        if ($raw === 'unknown' || $raw === '') {
+            return null;
+        }
+
+        if ($raw === 'present' && $confidence === 'high') {
+            $status = 'present';
+        } elseif ($raw === 'needs_photo') {
+            $status = 'needs_photo';
+        } else {
+            // present met medium/low: geen harde claim en geen extra foto forceren.
+            return null;
+        }
 
         $this->saveIntakeAnswer->handle(
             $intake,
