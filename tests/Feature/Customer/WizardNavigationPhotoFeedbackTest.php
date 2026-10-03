@@ -7,6 +7,7 @@ use App\Domains\AI\Actions\AssessFuseboxPhotos;
 use App\Domains\AI\Actions\DerivePhotoAnswers;
 use App\Domains\AI\Clients\FakeAiClient;
 use App\Domains\AI\Jobs\AssessUploadedPhotoJob;
+use App\Domains\AI\Services\PhotoAssessmentLifecycle;
 use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
@@ -16,6 +17,7 @@ use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Enums\IntakeStatus;
+use App\Enums\PhotoAssessmentStatus;
 use App\Enums\PhotoUsabilityVerdict;
 use App\Livewire\Customer\IntakeWizard;
 use App\Models\User;
@@ -95,6 +97,7 @@ function seedTwoBedroomRoomNameFlow(Intake $intake, string $outletStatus = 'need
             );
             $upload->updateQuietly([
                 'usability_verdict' => PhotoUsabilityVerdict::Ok,
+                'assessment_status' => PhotoAssessmentStatus::Assessed,
                 'content_assessment' => [
                     'status' => 'ok',
                     'expected_subject' => 'room',
@@ -112,6 +115,7 @@ function runWizardNavPhotoJob(int $uploadId): void
         app(AssessFollowUpPhotoSubject::class),
         app(AssessFuseboxPhotos::class),
         app(DerivePhotoAnswers::class),
+        app(PhotoAssessmentLifecycle::class),
     );
 }
 
