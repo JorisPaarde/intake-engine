@@ -118,6 +118,13 @@ class IntakeWizard extends Component
     #[Locked]
     public int $followUpRoundId = 0;
 
+    /**
+     * Highest customer-wizard progress % shown this Livewire session (BL-123).
+     * Prevents the bar from dropping when the step list grows after photo analysis.
+     */
+    #[Locked]
+    public int $progressHighWater = 0;
+
     public int $followUpStepIndex = 0;
 
     /** @var array<int, string|null> */
@@ -366,14 +373,10 @@ class IntakeWizard extends Component
             'demoInstallerReturnUrl' => $demoCustomerPath
                 ? route('intakes.show', $intake)
                 : null,
-            'progressPercent' => $this->displayProgressPercent(
-                $progress['percent'],
-                $this->stepIndex >= count($steps) - 1,
-            ),
+            'progressPercent' => $this->resolveStepProgressPercent($steps),
             'progressAnswered' => $progress['answered_required'],
             'progressTotal' => $progress['total_required'],
             'progressExtraNote' => $this->progressExtraNote,
-            'progressRequiredComplete' => $progress['missing_required'] === [] && $progress['total_required'] > 0,
             'uploadPhase' => $this->uploadPhase,
             'uploadPhaseMessage' => $this->uploadPhaseMessage,
             'uploadPhaseComposite' => $this->uploadPhaseComposite,
@@ -2719,23 +2722,130 @@ class IntakeWizard extends Component
     }
 
     /**
-     * UI-percentage: taakgebaseerd (BL-120), maar 100% alleen wanneer het klantdeel
-     * echt klaar is — afgerond, of op de laatste stap met alle verplichte taken gedaan.
-     * Zo blijft de balk consistent met "Vraag X van Y" en gaat hij niet naar 100%
-     * terwijl er nog stappen openstaan.
+     * Customer-facing bar % follows the same step list as "Vraag X van Y" (BL-123):
+     * done steps / total visible steps. Passed/skipped steps and answered steps
+     * (including "Weet ik niet") count as done. 100% only after afronden.
+     * High-water keeps the bar from dropping when the list grows mid-session.
+     *
+     * @param  list<array<string, mixed>>  $steps
      */
-    private function displayProgressPercent(int $taskPercent, bool $isLastStep): int
+    private function resolveStepProgressPercent(array $steps): int
     {
         if ($this->completed) {
             return 100;
         }
 
-        $percent = max(0, min(100, $taskPercent));
-
-        if ($percent >= 100 && ! $isLastStep) {
-            return 99;
+        $raw = $this->computeRawStepProgressPercent($steps);
+        if ($raw > $this->progressHighWater) {
+            $this->progressHighWater = $raw;
         }
 
-        return $percent;
+        return $this->progressHighWater;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $steps
+     */
+    private function computeRawStepProgressPercent(array $steps): int
+    {
+        $total = count($steps);
+
+        if ($total === 0) {
+            return 0;
+        }
+
+        $done = 0;
+
+        foreach ($steps as $index => $step) {
+            if ($this->stepCountsAsDone($step, $index)) {
+                $done++;
+            }
+        }
+
+        $percent = (int) round(($done / $total) * 100);
+
+        // 100% is reserved for a completed customer part (afronden).
+        return max(0, min(99, $percent));
+    }
+
+    /**
+     * @param  array<string, mixed>  $step
+     */
+    private function stepCountsAsDone(array $step, int $index): bool
+    {
+        // Already left this step (answered or optional skip via Volgende).
+        if ($index < $this->stepIndex) {
+            return true;
+        }
+
+        if (($step['kind'] ?? 'question') === 'known_summary') {
+            return false;
+        }
+
+        return $this->stepHasPersistedAnswer($step);
+    }
+
+    /**
+     * @param  array<string, mixed>  $step
+     */
+    private function stepHasPersistedAnswer(array $step): bool
+    {
+        $questionKey = (string) ($step['question_key'] ?? '');
+        if ($questionKey === '' || $questionKey === '_known_summary') {
+            return false;
+        }
+
+        $question = app(IntakeStepBuilder::class)->questionForStep(
+            $this->version(),
+            (string) ($step['section_key'] ?? ''),
+            $questionKey,
+        );
+
+        if (! $question instanceof IntakeQuestion) {
+            return false;
+        }
+
+        $instanceKey = $step['section_instance_key'] ?? null;
+        $instanceKey = is_string($instanceKey) ? $instanceKey : null;
+        $composite = VisibilityResolver::compositeKey($questionKey, $instanceKey);
+        $intake = $this->intake();
+        $intake->loadMissing(['answers', 'uploads']);
+
+        if ($question->type === QuestionType::Photo) {
+            $hasUpload = $intake->uploads->contains(
+                static function (IntakeUpload $upload) use ($questionKey, $instanceKey): bool {
+                    if ($upload->question_key !== $questionKey) {
+                        return false;
+                    }
+
+                    return $instanceKey === null
+                        ? $upload->section_instance_key === null
+                        : $upload->section_instance_key === $instanceKey;
+                },
+            );
+
+            return $hasUpload;
+        }
+
+        $answer = $intake->answers->first(
+            static function ($row) use ($questionKey, $instanceKey): bool {
+                if ($row->question_key !== $questionKey) {
+                    return false;
+                }
+
+                return $instanceKey === null
+                    ? $row->section_instance_key === null
+                    : $row->section_instance_key === $instanceKey;
+            },
+        );
+
+        $value = is_array($answer?->value) ? $answer->value : null;
+
+        // Also accept an unsaved-but-hydrated form value for the active step.
+        if ($value === null && isset($this->form[$composite]) && is_array($this->form[$composite])) {
+            $value = $this->form[$composite];
+        }
+
+        return app(AnswerValueReader::class)->isFilled($value, $question->type);
     }
 }

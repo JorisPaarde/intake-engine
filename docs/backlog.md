@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.72 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.74 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -620,7 +620,7 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Doel:** UI-100% alleen als klantdeel echt klaar; Volgende-blok + zichtbare soft-continue-copy; follow-up mismatch telt niet als af; installateur ziet korte reden op Aanvulling nodig.
 - **Scope:** `IntakeWizard` display-% + mismatch alerts; `FollowUpProgressCalculator`; `DecisionReadinessService`/`PhotoContentAssessment::followUpMismatchReason`; Pest. Geen templateversiebump; #115–#120-beslissingen intact.
 - **Acceptatie:** Pest voor alle vier paden; `composer check` groen; geen prod-tag/deploy.
-- **Resultaat:** UI-cap 99%/100%; soft-continue-waarschuwing bij banner+footer; follow-up mismatch = “Nog te vervangen”; Stroomtoevoer-blocker met wrong-subject-reden.
+- **Resultaat:** stapgebaseerde balk/% (zelfde noemer als “Vraag X van Y”) + sessie-hoogwater; soft-continue-waarschuwing bij banner+footer; follow-up mismatch = “Nog te vervangen”; Stroomtoevoer-blocker met wrong-subject-reden.
 
 ### BL-118 — Klanttest 2 okt: foto-first, extractiedekking, kamernamen
 

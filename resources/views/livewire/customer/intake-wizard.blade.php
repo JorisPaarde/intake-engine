@@ -31,14 +31,11 @@
                 <span>Voortgang</span>
                 <span class="font-medium text-[#18201d]">{{ $progressPercent }}%</span>
             </div>
-            <div class="mt-2 h-1.5 overflow-hidden bg-[#dde2da]" role="progressbar" aria-valuenow="{{ $progressPercent }}" aria-valuemin="0" aria-valuemax="100" aria-label="Voortgang op basis van afgeronde taken">
+            <div class="mt-2 h-1.5 overflow-hidden bg-[#dde2da]" role="progressbar" aria-valuenow="{{ $progressPercent }}" aria-valuemin="0" aria-valuemax="100" aria-label="Voortgang op basis van wizardstappen">
                 <div class="h-full bg-[var(--tenant-primary)] transition-all duration-300" style="width: {{ $progressPercent }}%"></div>
             </div>
             @if (! $completed && ($progressTotal ?? 0) > 0)
                 <p class="mt-1 text-xs text-[#5e6862]">{{ $progressAnswered ?? 0 }} van {{ $progressTotal }} taken afgerond</p>
-                @if (($progressPercent ?? 0) < 100 && ($progressRequiredComplete ?? false))
-                    <p class="mt-1 text-xs text-[#5e6862]">Verplicht klaar — nog enkele optionele vragen</p>
-                @endif
             @endif
             @if (! empty($progressExtraNote))
                 <p class="mt-2 rounded-lg border border-[#dde2da] bg-white px-3 py-2 text-sm text-[#414b45]" role="status" data-testid="progress-extra-note">

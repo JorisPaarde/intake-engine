@@ -7,7 +7,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 ### Fixed
 
 - **Staging-retest na #115–#120 (BL-123):**
-  1. Klantwizard toonde **100%** terwijl “Vraag X van Y” nog openstond (optionele stappen buiten de taaknoemer). UI-cap: 100% alleen na afronden of op de laatste stap; daaronder max 99% met hint “Verplicht klaar — nog enkele optionele vragen”.
+  1. Klantwizard toonde **100%** terwijl “Vraag X van Y” nog openstond. Balk/% volgt nu dezelfde zichtbare stappen als de teller (done/total; overgeslagen / “Weet ik niet” = done); hoogste waarde in de sessie (`progressHighWater`); **100% alleen na afronden**. Label “X van Y taken afgerond” blijft taakgebaseerd.
   2. **Volgende** bij onopgeloste wrong_subject toonde de soft-continue-waarschuwing te makkelijk mist (alleen top-alert). Nu ook bij mismatch-banner + sticky footer; `completionMissing` gewist bij stap-blok; Pest pad A.
   3. Follow-up voortgang sprong naar **100%** na bruikbare maar verkeerde foto (`usability` ok, `content_assessment` wrong_subject). `FollowUpProgressCalculator` telt mismatch als open (“Nog te vervangen”).
   4. Installateurswerkplek hield Stroomtoevoer op Aanvulling nodig zonder reden. `DecisionReadinessService` toont nu o.a. “Ontvangen foto lijkt een buitenunit, geen meterkast — handmatig controleren”.

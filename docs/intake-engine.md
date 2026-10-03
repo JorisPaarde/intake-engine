@@ -1,6 +1,6 @@
 # Vragen- en takenengine
 
-> **Documentversie:** 2.29 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.30 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: de templatewizard is **geïmplementeerd t/m airco v20** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md). UI-taal: [language.md](language.md).
 
@@ -114,11 +114,11 @@ Geen LLM in deze keten.
 
 ## Voortgang
 
-- `ProgressCalculator` (BL-022/BL-120: afgeronde klanttaken; `PrefillSources::shouldSkipPrefill`): percentage over **verplichte** zichtbare vragen/foto’s in de gepinde versie — optionele onbeantwoorde vragen tellen niet mee, zodat taak-% ≈ klaar om af te ronden
-- Klantwizard-UI (BL-123): toont 100% pas na afronden of op de **laatste** stap; anders max 99% wanneer alle verplichte taken klaar zijn maar er nog stappen volgen (consistent met “Vraag X van Y”)
+- `ProgressCalculator` (BL-022/BL-120: afgeronde klanttaken; `PrefillSources::shouldSkipPrefill`): percentage over **verplichte** zichtbare vragen/foto’s — blijft de bron voor “X van Y taken afgerond” en CompletenessChecker
+- Klantwizard-balk/% (BL-123): volgt dezelfde zichtbare stappen als “Vraag X van Y” (done/total; overgeslagen of beantwoord incl. “Weet ik niet” = done); `progressHighWater` voorkomt dalen na herberekening; **100% alleen na afronden**
 - `FollowUpProgressCalculator` (BL-120/BL-123): foto-items pas “beoordeeld” na bruikbare usability **én** zonder onopgeloste `wrong_subject`; anders “Nog te vervangen” / 0%
-- `progress_percent` op `intakes` wordt bij elke save bijgewerkt (cache)
-- UI toont: huidige stap, percentage; bij geblokkeerd afronden een klikbare “Nog niet alles is ingevuld”-lijst
+- `progress_percent` op `intakes` wordt bij elke save bijgewerkt (cache; taakgebaseerd)
+- UI toont: huidige stap, stap-%, takenlabel; bij geblokkeerd afronden een klikbare “Nog niet alles is ingevuld”-lijst
 
 ## Compleetheidsberekening
 

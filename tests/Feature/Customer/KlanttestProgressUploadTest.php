@@ -452,41 +452,51 @@ test('progressExtraNote verdwijnt bij next na foto-analyse', function () {
         ->assertSet('progressExtraNote', '');
 });
 
-test('wizard toont geen 100% terwijl er nog stappen openstaan na verplichte taken', function () {
+test('wizard progress volgt Vraag X van Y, daalt niet mid-session, 100% pas na afronden', function () {
     $intake = makeP2ProgressIntake();
-    fillKlanttestIntakeUntilComplete($intake);
+    app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
     $intake->refresh();
-
-    $version = $intake->templateVersion()->with(['sections.questions.rules'])->firstOrFail();
-    $progress = app(ProgressCalculator::class)->calculate($intake, $version);
-    $check = app(CompletenessChecker::class)->check($intake, $version);
-
-    expect($progress['percent'])->toBe(100)
-        ->and($progress['missing_required'])->toBe([])
-        ->and($check['is_complete'])->toBeTrue();
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
     $steps = $component->viewData('steps');
-    expect(count($steps))->toBeGreaterThan(1);
+    $total = count($steps);
 
-    // Start niet op de laatste stap: UI-cap 99% zodat balk consistent blijft met Vraag X van Y.
-    $component
-        ->set('stepIndex', 0)
-        ->call('$refresh');
+    expect($total)->toBeGreaterThanOrEqual(10);
 
-    $percentAtStart = (int) $component->viewData('progressPercent');
-    $isLastAtStart = (bool) $component->viewData('isLastStep');
+    // "Vraag 16 van N" ≈ stepIndex 15 → done = 15 (passed/skipped), current nog open.
+    $targetIndex = min(15, max(1, $total - 2));
+    $component->set('stepIndex', $targetIndex);
 
-    expect($isLastAtStart)->toBeFalse()
-        ->and($percentAtStart)->toBe(99)
-        ->and($percentAtStart)->toBeLessThan(100);
+    $percentMid = (int) $component->viewData('progressPercent');
+    $expectedMid = min(99, (int) round(($targetIndex / $total) * 100));
 
-    $lastIndex = count($steps) - 1;
-    $component->set('stepIndex', $lastIndex)->call('$refresh');
+    expect($percentMid)->toBe($expectedMid)
+        ->and($percentMid)->toBeLessThan(100)
+        ->and($percentMid)->toBeGreaterThan(0);
 
-    expect((bool) $component->viewData('isLastStep'))->toBeTrue()
-        ->and((int) $component->viewData('progressPercent'))->toBe(100)
-        ->and((bool) $component->viewData('progressRequiredComplete'))->toBeTrue();
+    // Jumping back lowers raw done/total; session high-water must not decrease.
+    $component->set('stepIndex', max(0, (int) floor($targetIndex / 3)));
+
+    expect((int) $component->viewData('progressPercent'))->toBe($percentMid)
+        ->and((int) $component->get('progressHighWater'))->toBe($percentMid);
+
+    // Recalculated longer step list (extra room) must not lower the shown %.
+    $component->set('form.indoor_unit_count', ['number' => 2]);
+
+    $grownTotal = count($component->viewData('steps'));
+    expect($grownTotal)->toBeGreaterThan($total)
+        ->and((int) $component->viewData('progressPercent'))->toBeGreaterThanOrEqual($percentMid);
+
+    // Afronden → 100%.
+    fillKlanttestIntakeUntilComplete($intake->fresh());
+    $finished = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+    $finishSteps = $finished->viewData('steps');
+    $finished
+        ->set('stepIndex', max(0, count($finishSteps) - 1))
+        ->call('complete')
+        ->assertSet('completed', true);
+
+    expect((int) $finished->viewData('progressPercent'))->toBe(100);
 });
 
 test('follow-up wrong_subject telt niet mee voor 100% tot foto vervangen is', function () {
