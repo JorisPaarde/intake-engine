@@ -17,8 +17,15 @@ final class AiImageResolver
     public function input(IntakeUpload $upload): AiImageInput
     {
         [$path, $mime] = $this->location($upload);
+        $disk = Storage::disk($upload->disk);
+        $binary = $disk->exists($path) ? $disk->get($path) : null;
 
-        $binary = Storage::disk($upload->disk)->get($path);
+        // Analysis variant preferred; fall back to dossier bytes if the variant is missing.
+        if ((! is_string($binary) || $binary === '') && $path !== $upload->path) {
+            $path = $upload->path;
+            $mime = $upload->mime_type;
+            $binary = $disk->exists($path) ? $disk->get($path) : null;
+        }
 
         if (! is_string($binary) || $binary === '') {
             throw new \RuntimeException('Uploadbestand niet gevonden voor AI-beeldanalyse.');
