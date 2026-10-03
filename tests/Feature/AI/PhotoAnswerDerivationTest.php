@@ -9,6 +9,7 @@ use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplate;
+use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Enums\AiRunStatus;
 use App\Enums\IntakeStatus;
@@ -69,7 +70,7 @@ function uploadOutdoorPhoto(Intake $intake): void
     ensureUploadBytesPresent($upload);
 }
 
-function ensureUploadBytesPresent(\App\Domains\Intake\Models\IntakeUpload $upload): void
+function ensureUploadBytesPresent(IntakeUpload $upload): void
 {
     $disk = Storage::disk($upload->disk);
     $placeholder = fakeAerialJpegPlaceholder();
