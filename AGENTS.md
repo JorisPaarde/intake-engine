@@ -1,6 +1,7 @@
 # AGENTS.md — Projectgeheugen & werkinstructies
 
 > **Documentversie:** 2.46 · **Laatste update:** 2026-10-03 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
+
 Dit bestand is de **centrale ingang** voor iedere agent (of mens) die aan dit project werkt. Het beschrijft waar het projectgeheugen leeft, welk document waarvoor de bron van waarheid is, en hoe je dat geheugen bijhoudt. **Lees dit bestand aan het begin van elke taak.**
 
 ## Hoofddoel (vast — niet door agents aan te passen)
