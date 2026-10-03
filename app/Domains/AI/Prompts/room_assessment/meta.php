@@ -6,6 +6,6 @@ declare(strict_types=1);
  * @return array{version: string, description: string}
  */
 return [
-    'version' => 'room-assessment-v6',
-    'description' => 'Ruimtefoto: glas/stopcontact-criteria + unknown i.p.v. gok; categoriecheck behouden.',
+    'version' => 'room-assessment-v7',
+    'description' => 'Ruimtefoto: size-banden = RoomAreaAcceptance; glazing_type; unknown voor glas/zon.',
 ];

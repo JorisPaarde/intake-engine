@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.91 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.92 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -12,6 +12,7 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
+| Staging AI-trace fixes (BL-127) | todo | - | Meterkast: geen free_group uit foto; glas unknown/glazing_type; “Nog geen airco” ≠ cooling; size 24 m² = large; geen “handmatig controleren”-klanttaak; follow-up meterkast heeft trace+assessment; correlation per upload. airco v22. |
 | AI-trace retentie/export + PDF-downscale (BL-125) | todo | - | Demo-purge: traces blijven via `intake_ref_id`; `ai:traces:export` jsonl+md voor 3 intakes; PDF van dossier met grote foto’s blijft merkelijk kleiner dan 29 MB zonder originelen te wijzigen. |
 | Form robustness adres/maten/upload (BL-124) | todo | - | Create: vroeg submit tijdens lookup → geen vastgezette “Controleer dit veld.”; submit disabled tijdens zoeken. Klant: L+B naast elkaar; sla-over op route/afvoer; upload >15 s → NL-fout + Opnieuw proberen; 3024×4032 niet “lage resolutie”. airco v21. |
 | Prompt/vision quality (BL-126) | todo | - | Routefoto goot/doorvoer niet afgewezen; ownership koophuis/we huren overgenomen; Ouders/Kind op installateurslabels; meterkast free_group stabieler; Vervang foto/Toch doorgaan intact; lege woonkamer geen extra stopcontactvraag. |

@@ -38,11 +38,12 @@ final class PhotoDerivationProfile
         $profiles = [
             'room' => new self('room', 'room_assessment', [
                 DerivedAnswerField::choice('room_type', 'room_type', ['living_room', 'bedroom', 'office', 'attic']),
-                DerivedAnswerField::choice('room_size_indication', 'room_size_indication', ['small', 'medium', 'large']),
-                DerivedAnswerField::choice('sun_exposure', 'sun_exposure', ['low', 'medium', 'high']),
-                DerivedAnswerField::choice('glass_amount', 'glass_amount', ['little', 'average', 'much']),
+                DerivedAnswerField::choice('room_size_indication', 'room_size_indication', ['small', 'medium', 'large', 'unknown']),
+                DerivedAnswerField::choice('sun_exposure', 'sun_exposure', ['low', 'medium', 'high', 'unknown']),
+                DerivedAnswerField::choice('glass_amount', 'glass_amount', ['little', 'average', 'much', 'unknown']),
+                DerivedAnswerField::choice('glazing_type', 'glazing_type', ['single', 'double', 'hr_plus_plus', 'unknown']),
                 // Stopcontacten: alleen status voor extra-wandfoto-fallback (geen ja/nee-klantvraag).
-                DerivedAnswerField::choice('room_outlet_status', 'room_outlet_status', ['present', 'needs_photo']),
+                DerivedAnswerField::choice('room_outlet_status', 'room_outlet_status', ['present', 'needs_photo', 'unknown']),
             ]),
             'outdoor' => new self('outdoor', 'outdoor_assessment', [
                 DerivedAnswerField::choice('outdoor_location', 'outdoor_location', ['garden', 'side_passage', 'facade', 'balcony', 'flat_roof', 'pitched_roof', 'dormer']),

@@ -570,7 +570,8 @@ final class DerivePhotoAnswers
             'started_at' => now(),
         ]);
 
-        $correlationId ??= (string) Str::uuid();
+        // Correlation is per upload (BL-127), not reused from a sibling upload in the same batch.
+        $uploadCorrelationId = $this->correlationIdForUpload($upload);
 
         $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoDerive, [
             'ai_run_id' => $run->id,
@@ -579,7 +580,7 @@ final class DerivePhotoAnswers
             'subject_id' => $sectionInstanceKey ?? $photoQuestionKey,
             'provider' => (string) config('ai.provider', 'null'),
             'prompt_version' => $promptVersion,
-            'correlation_id' => $correlationId,
+            'correlation_id' => $uploadCorrelationId,
         ]);
         $trace->linkUpload($upload);
 
@@ -812,6 +813,16 @@ final class DerivePhotoAnswers
 
         foreach ($profile->fields as $field) {
             if (! array_key_exists($field->outputKey, $output)) {
+                // Nieuwe optionele schema-velden (bijv. glazing_type) soft-defaulten zodat
+                // oudere fixtures/provider-responses zonder het veld niet hard falen (BL-127).
+                $output[$field->outputKey] = 'unknown';
+                $normalizations[] = [
+                    'field' => $field->outputKey,
+                    'from' => null,
+                    'to' => 'unknown',
+                    'rule' => 'missing_defaults_unknown',
+                ];
+
                 continue;
             }
             $from = $output[$field->outputKey];
@@ -1193,7 +1204,11 @@ final class DerivePhotoAnswers
 
             $value = (string) ($output[$field->outputKey] ?? 'unknown');
 
-            if ($value === 'unknown') {
+            if ($value === 'unknown' && ! $field->allowsPersistingUnknown()) {
+                continue;
+            }
+
+            if ($value !== 'unknown' && ! in_array($value, $field->allowedValues, true) && ! in_array($value, $field->schemaValues(), true)) {
                 continue;
             }
 
@@ -1318,5 +1333,19 @@ final class DerivePhotoAnswers
         return $sectionInstanceKey === null
             ? $photoQuestionKey.'_derivation'
             : $photoQuestionKey.'_derivation::'.$sectionInstanceKey;
+    }
+
+    private function correlationIdForUpload(IntakeUpload $upload): string
+    {
+        $timings = is_array($upload->processing_timings) ? $upload->processing_timings : [];
+        if (is_string($timings['correlation_id'] ?? null) && $timings['correlation_id'] !== '') {
+            return (string) $timings['correlation_id'];
+        }
+
+        $id = (string) Str::uuid();
+        $timings['correlation_id'] = $id;
+        $upload->update(['processing_timings' => $timings]);
+
+        return $id;
     }
 }

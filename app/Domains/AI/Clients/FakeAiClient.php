@@ -77,7 +77,7 @@ final class FakeAiClient implements AiClientInterface
 
         if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'fusebox-assessment')) {
             return $this->result([
-                'free_group' => 'yes',
+                'empty_module_space' => 'visible',
                 'phase' => 'three_phase',
                 'detected_subject' => 'fusebox',
                 'subject_match' => 'yes',
@@ -93,6 +93,7 @@ final class FakeAiClient implements AiClientInterface
                 'room_size_indication' => 'medium',
                 'sun_exposure' => 'high',
                 'glass_amount' => 'much',
+                'glazing_type' => 'unknown',
                 'room_outlet_status' => 'present',
                 'detected_subject' => 'room',
                 'subject_match' => 'yes',
@@ -164,12 +165,26 @@ final class FakeAiClient implements AiClientInterface
             $corpus = trim($reason.' '.$observationText);
             $fills = [];
 
-            if (str_contains($corpus, 'koud te krijgen') || str_contains($corpus, 'koelen') || str_contains($corpus, 'te warm')) {
+            $mentionsCoolIntent = str_contains($corpus, 'koud te krijgen')
+                || str_contains($corpus, 'koelen')
+                || str_contains($corpus, 'te warm')
+                || str_contains($corpus, 'afkoelen')
+                || str_contains($corpus, 'verwarmen')
+                || str_contains($corpus, 'verwarming');
+            // "Nog geen airco" alone is not cooling/heating intent.
+            if ($mentionsCoolIntent) {
+                $value = 'cooling';
+                if ((str_contains($corpus, 'koelen') || str_contains($corpus, 'koud') || str_contains($corpus, 'te warm') || str_contains($corpus, 'afkoelen'))
+                    && (str_contains($corpus, 'verwarmen') || str_contains($corpus, 'verwarming'))) {
+                    $value = 'both';
+                } elseif (str_contains($corpus, 'verwarmen') || str_contains($corpus, 'verwarming')) {
+                    $value = 'heating';
+                }
                 $fills[] = [
                     'question_key' => 'cooling_heating',
                     'section_instance_key' => null,
                     'confidence' => 'high',
-                    'value' => ['value' => 'cooling'],
+                    'value' => ['value' => $value],
                     'evidence' => null,
                 ];
             }
