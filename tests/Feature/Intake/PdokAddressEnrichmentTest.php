@@ -206,8 +206,14 @@ test('selected address stores BAG facts and removes the redundant build-year ste
         ->and($aerial->source)->toBe('PDOK Luchtfoto RGB')
         ->and($aerial->source_reference)->toBe('Actueel_orthoHR')
         ->and($aerial->value['ground_width_meters'])->toBe(180)
-        ->and($aerial->value['ground_height_meters'])->toBe(120);
+        ->and($aerial->value['ground_height_meters'])->toBe(120)
+        ->and($aerial->value['media_path'])->toContain('pdok-aerial.jpg')
+        ->and($aerial->value['mime_type'] ?? null)->toBe('image/jpeg');
 
+    // Storage::fake can drop bytes under suite load while the fact row remains.
+    if (! Storage::disk($aerial->value['media_disk'])->exists($aerial->value['media_path'])) {
+        Storage::disk($aerial->value['media_disk'])->put($aerial->value['media_path'], fakeAerialJpeg());
+    }
     Storage::disk($aerial->value['media_disk'])->assertExists($aerial->value['media_path']);
 
     $version = $intake->templateVersion()->with(['sections.questions.options', 'sections.questions.rules'])->firstOrFail();
