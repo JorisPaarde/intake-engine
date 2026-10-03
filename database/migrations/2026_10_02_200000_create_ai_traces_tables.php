@@ -39,7 +39,8 @@ return new class extends Migration
             $table->json('dossier_after')->nullable();
             $table->json('remaining_questions_before')->nullable();
             $table->json('remaining_questions_after')->nullable();
-            $table->unsignedInteger('upload_ms')->nullable();
+            $table->unsignedInteger('network_upload_ms')->nullable();
+            $table->unsignedInteger('persist_ms')->nullable();
             $table->unsignedInteger('preprocess_ms')->nullable();
             $table->unsignedInteger('provider_ms')->nullable();
             $table->unsignedInteger('process_ms')->nullable();

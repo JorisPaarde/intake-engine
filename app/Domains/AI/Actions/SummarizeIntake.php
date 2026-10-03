@@ -6,6 +6,7 @@ namespace App\Domains\AI\Actions;
 
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\AiGateway;
+use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\AI\Services\IntakeAttentionContextBuilder;
 use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
@@ -13,12 +14,14 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Services\GenerateIntakeReportHtml;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
+use App\Enums\AiTraceCallType;
 use App\Enums\AttentionPointStatus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 final class SummarizeIntake
 {
@@ -27,6 +30,7 @@ final class SummarizeIntake
         private readonly PromptVersionRepository $promptVersions,
         private readonly GenerateIntakeReportHtml $generateIntakeReportHtml,
         private readonly IntakeAttentionContextBuilder $contextBuilder,
+        private readonly AiTraceRecorder $traceRecorder,
     ) {}
 
     public function handle(Intake $intake): AiRun
@@ -53,14 +57,37 @@ final class SummarizeIntake
             'started_at' => now(),
         ]);
 
+        $trace = $this->traceRecorder->start($intake, AiTraceCallType::Synthesis, [
+            'ai_run_id' => $run->id,
+            'provider' => $provider,
+            'prompt_version' => $promptVersion,
+            'schema_version' => $promptVersion,
+        ]);
+
         try {
+            $trace->recordRequest(
+                systemAndUser: [
+                    'system' => $promptBody,
+                    'user' => $payload,
+                ],
+                promptVersion: $promptVersion,
+                schemaVersion: $promptVersion,
+            );
+
             $result = $this->aiGateway->complete(
                 prompt: $promptBody,
                 input: $payload,
                 promptVersion: $promptVersion,
             );
+            $trace->recordProviderResult($result);
 
-            $validated = $this->validateOutput($result->output);
+            try {
+                $validated = $this->validateOutput($result->output);
+                $trace->recordParsed($validated);
+            } catch (ValidationException $exception) {
+                $trace->recordParsed([], $exception->errors());
+                throw $exception;
+            }
 
             $run->update($run->completionResultAttributes($result) + [
                 'status' => AiRunStatus::Succeeded,
@@ -70,12 +97,16 @@ final class SummarizeIntake
             ]);
 
             $this->attachSummaryToReport($intake, $validated, $run->fresh() ?? $run);
+            $trace->step('apply', ['highlight_count' => count($validated['highlights'])]);
+            $trace->linkAiRun($run->fresh() ?? $run);
+            $trace->succeed();
 
             return $run->fresh() ?? $run;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             Log::warning('AI summarize failed', [
                 'intake_id' => $intake->id,
                 'ai_run_id' => $run->id,
+                'ai_trace_id' => $trace->traceId(),
                 'message' => $e->getMessage(),
             ]);
 
@@ -84,6 +115,8 @@ final class SummarizeIntake
                 'error_message' => Str::limit($e->getMessage(), 1000, ''),
                 'finished_at' => now(),
             ]);
+            $trace->linkAiRun($run->fresh() ?? $run);
+            $trace->fail($e->getMessage(), $e);
 
             return $run->fresh() ?? $run;
         }

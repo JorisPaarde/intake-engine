@@ -35,6 +35,7 @@ final class StoreIntakeUpload
         string $questionKey,
         ?string $sectionInstanceKey,
         UploadedFile $file,
+        ?int $networkUploadMs = null,
     ): IntakeUpload {
         $question = $this->findPhotoQuestion($intake, $questionKey);
         $maxFiles = (int) ($question->meta['max_files'] ?? config('intake.uploads.max_files_per_question', 5));
@@ -54,9 +55,9 @@ final class StoreIntakeUpload
             ]);
         }
 
-        $uploadStarted = microtime(true);
+        $preprocessStarted = microtime(true);
         $normalized = $this->photoUploadNormalizer->normalize($file);
-        $preprocessMs = (int) round((microtime(true) - $uploadStarted) * 1000);
+        $preprocessMs = (int) round((microtime(true) - $preprocessStarted) * 1000);
 
         try {
             $persistStarted = microtime(true);
@@ -76,7 +77,7 @@ final class StoreIntakeUpload
                 ]);
             }
 
-            return DB::transaction(function () use ($intake, $questionKey, $sectionInstanceKey, $disk, $path, $analysisPath, $normalized, $maxFiles, $preprocessMs, $persistStarted): IntakeUpload {
+            return DB::transaction(function () use ($intake, $questionKey, $sectionInstanceKey, $disk, $path, $analysisPath, $normalized, $maxFiles, $preprocessMs, $persistStarted, $networkUploadMs): IntakeUpload {
                 $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
 
                 if (! in_array($lockedIntake->status, [IntakeStatus::Sent, IntakeStatus::InProgress], true)) {
@@ -93,7 +94,15 @@ final class StoreIntakeUpload
                     ]);
                 }
 
-                $uploadMs = (int) round((microtime(true) - $persistStarted) * 1000);
+                $persistMs = (int) round((microtime(true) - $persistStarted) * 1000);
+                $timings = [
+                    'persist_ms' => $persistMs,
+                    'preprocess_ms' => $preprocessMs,
+                    'measured_at' => now()->toIso8601String(),
+                ];
+                if ($networkUploadMs !== null && $networkUploadMs >= 0) {
+                    $timings['network_upload_ms'] = $networkUploadMs;
+                }
 
                 $upload = IntakeUpload::query()->create([
                     'intake_id' => $intake->id,
@@ -110,11 +119,7 @@ final class StoreIntakeUpload
                     'analysis_size_bytes' => $normalized->analysisSizeBytes,
                     'analysis_checksum' => $normalized->analysisChecksum,
                     'sort_order' => $currentCount + 1,
-                    'processing_timings' => [
-                        'upload_ms' => $uploadMs,
-                        'preprocess_ms' => $preprocessMs,
-                        'measured_at' => now()->toIso8601String(),
-                    ],
+                    'processing_timings' => $timings,
                 ]);
 
                 $this->syncAnswerUploadIds($intake, $questionKey, $sectionInstanceKey);

@@ -55,7 +55,7 @@
                             <span class="text-indigo-600">opname #{{ $trace->intake_id }}</span>
                         @endif
                         <span class="ml-auto text-xs text-gray-400">
-                            up {{ $trace->upload_ms ?? '—' }} · prep {{ $trace->preprocess_ms ?? '—' }} · prov {{ $trace->provider_ms ?? '—' }} · proc {{ $trace->process_ms ?? '—' }} ms
+                            up {{ $trace->persist_ms ?? '—' }} · net {{ $trace->network_upload_ms ?? '—' }} · prep {{ $trace->preprocess_ms ?? '—' }} · prov {{ $trace->provider_ms ?? '—' }} · proc {{ $trace->process_ms ?? '—' }} ms
                         </span>
                     </div>
                     <div class="mt-1 text-xs text-gray-500">

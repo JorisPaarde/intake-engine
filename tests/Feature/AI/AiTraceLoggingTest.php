@@ -198,7 +198,7 @@ test('mislukte foto-AI wist geen bestaand dossierantwoord', function () {
 
     expect($upload->processing_timings)->toBeArray()
         ->and($upload->processing_timings['preprocess_ms'] ?? null)->not->toBeNull()
-        ->and($upload->processing_timings['upload_ms'] ?? null)->not->toBeNull();
+        ->and(($upload->processing_timings['persist_ms'] ?? $upload->processing_timings['upload_ms'] ?? null))->not->toBeNull();
 
     FakeAiClient::alwaysFail('Simulated provider outage for trace acceptance');
 
@@ -228,7 +228,7 @@ test('mislukte foto-AI wist geen bestaand dossierantwoord', function () {
     expect($trace)->not->toBeNull()
         ->and($trace->status)->toBe(AiTraceStatus::Failed)
         ->and($trace->upload_id)->toBe($upload->id)
-        ->and($trace->upload_ms)->not->toBeNull()
+        ->and($trace->persist_ms)->not->toBeNull()
         ->and($trace->preprocess_ms)->not->toBeNull()
         ->and($trace->error_message)->toContain('Simulated provider outage')
         ->and($trace->photo_refs)->toBeArray();
@@ -264,7 +264,7 @@ test('fotoanalyse-succes koppelt upload timings en stappen aan dezelfde trace', 
 
     expect($trace)->not->toBeNull()
         ->and($trace->upload_id)->toBe($upload->id)
-        ->and($trace->upload_ms)->toBeInt()
+        ->and($trace->persist_ms)->toBeInt()
         ->and($trace->preprocess_ms)->toBeInt()
         ->and($trace->provider_ms)->not->toBeNull()
         ->and($trace->raw_response)->not->toBeEmpty()
@@ -306,7 +306,7 @@ test('ai:purge-traces respecteert configureerbare bewaartermijn', function () {
     $old = AiTrace::query()->create([
         'trace_id' => (string) Str::uuid(),
         'intake_id' => $intake->id,
-        'call_type' => AiTraceCallType::Other,
+        'call_type' => AiTraceCallType::Synthesis,
         'status' => AiTraceStatus::Succeeded,
         'started_at' => now()->subDays(40),
         'finished_at' => now()->subDays(40),
@@ -318,7 +318,7 @@ test('ai:purge-traces respecteert configureerbare bewaartermijn', function () {
     $fresh = AiTrace::query()->create([
         'trace_id' => (string) Str::uuid(),
         'intake_id' => $intake->id,
-        'call_type' => AiTraceCallType::Other,
+        'call_type' => AiTraceCallType::Synthesis,
         'status' => AiTraceStatus::Succeeded,
         'started_at' => now(),
         'finished_at' => now(),
@@ -332,9 +332,12 @@ test('ai:purge-traces respecteert configureerbare bewaartermijn', function () {
 
 test('dev ai-traces is alleen bereikbaar met dev-access middleware', function () {
     $this->withoutVite();
-    config(['devadmin.enabled' => true]);
+    $user = User::factory()->create(['email' => 'trace-admin@example.com']);
+    config([
+        'devadmin.enabled' => true,
+        'devadmin.emails' => ['trace-admin@example.com'],
+    ]);
 
-    $user = User::factory()->create();
     $this->actingAs($user)
         ->get(route('dev.ai-traces'))
         ->assertOk()
@@ -344,6 +347,19 @@ test('dev ai-traces is alleen bereikbaar met dev-access middleware', function ()
     $this->actingAs($user)
         ->get(route('dev.ai-traces'))
         ->assertNotFound();
+});
+
+test('dev ai-traces weigert gebruikers buiten de e-mailallowlist', function () {
+    $this->withoutVite();
+    config([
+        'devadmin.enabled' => true,
+        'devadmin.emails' => ['allowed@example.com'],
+    ]);
+
+    $user = User::factory()->create(['email' => 'other@example.com']);
+    $this->actingAs($user)
+        ->get(route('dev.ai-traces'))
+        ->assertForbidden();
 });
 
 test('helper API step hangt normalisatie aan bestaande trace', function () {

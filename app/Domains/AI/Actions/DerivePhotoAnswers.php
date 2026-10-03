@@ -8,6 +8,7 @@ use App\Domains\AI\DTOs\AiImageInput;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\AiGateway;
 use App\Domains\AI\Services\AiImageResolver;
+use App\Domains\AI\Services\AiTracePhotoRefBuilder;
 use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\AI\Services\AiTraceSnapshotService;
 use App\Domains\AI\Services\PromptVersionRepository;
@@ -64,6 +65,7 @@ final class DerivePhotoAnswers
         private readonly SaveIntakeAnswer $saveIntakeAnswer,
         private readonly AiTraceRecorder $traceRecorder,
         private readonly AiTraceSnapshotService $traceSnapshots,
+        private readonly AiTracePhotoRefBuilder $photoRefBuilder,
     ) {}
 
     public function handle(
@@ -150,18 +152,9 @@ final class DerivePhotoAnswers
         $questionsBefore = $this->traceSnapshots->remainingQuestions($intake);
 
         try {
-            $photoRefs = $uploads->map(fn (IntakeUpload $upload): array => [
-                'upload_id' => $upload->id,
-                'question_key' => $upload->question_key,
-                'section_instance_key' => $upload->section_instance_key,
-                'category' => $profile->name,
-                'mime_type' => $upload->analysis_mime_type ?? $upload->mime_type,
-                'size_bytes' => $upload->analysis_size_bytes ?? $upload->size_bytes,
-                'checksum' => $upload->analysis_checksum ?? $upload->checksum,
-                'sort_order' => $upload->sort_order,
-                'path_ref' => 'intake_upload:'.$upload->id,
-                ...$this->aiImageResolver->identity($upload),
-            ])->values()->all();
+            $photoRefs = $uploads->map(
+                fn (IntakeUpload $upload): array => $this->photoRefBuilder->fromUpload($upload, $profile->name),
+            )->values()->all();
 
             $trace->recordRequest(
                 systemAndUser: [
@@ -171,7 +164,6 @@ final class DerivePhotoAnswers
                 photoRefs: $photoRefs,
                 promptVersion: $promptVersion,
                 schemaVersion: $promptVersion,
-                modelParameters: ['temperature' => 0.2, 'response_format' => ['type' => 'json_object']],
             );
 
             $result = $this->aiGateway->complete(
@@ -182,8 +174,13 @@ final class DerivePhotoAnswers
             );
             $trace->recordProviderResult($result);
 
-            $output = $this->validateOutput($result->output, $profile);
-            $trace->recordParsed($output);
+            try {
+                $output = $this->validateOutput($result->output, $profile);
+                $trace->recordParsed($output);
+            } catch (ValidationException $exception) {
+                $trace->recordParsed([], $exception->errors());
+                throw $exception;
+            }
             $trace->step('normalize', ['profile' => $profile->name, 'confidence' => $output['confidence']]);
 
             $run->update($run->completionResultAttributes($result) + [
@@ -195,57 +192,69 @@ final class DerivePhotoAnswers
 
             $run = $run->fresh() ?? $run;
 
-            DB::transaction(function () use ($intake, $run, $output, $uploads, $photoQuestionKey, $sectionInstanceKey, $profile, $persistenceManifest, $trace): void {
-                $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
+            $trace->beginBuffer();
+            try {
+                DB::transaction(function () use ($intake, $run, $output, $uploads, $photoQuestionKey, $sectionInstanceKey, $profile, $persistenceManifest, $trace): void {
+                    $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
 
-                if (! in_array($lockedIntake->status, [IntakeStatus::Sent, IntakeStatus::InProgress], true)) {
-                    throw new \RuntimeException('Opname is afgerond tijdens AI-analyse; resultaat niet toegepast.');
-                }
+                    if (! in_array($lockedIntake->status, [IntakeStatus::Sent, IntakeStatus::InProgress], true)) {
+                        throw new \RuntimeException('Opname is afgerond tijdens AI-analyse; resultaat niet toegepast.');
+                    }
 
-                $currentManifest = $this->uploads($intake, $photoQuestionKey, $sectionInstanceKey)
-                    ->map(fn (IntakeUpload $upload): array => [
-                        'id' => $upload->id,
-                        ...$this->aiImageResolver->identity($upload),
-                    ])->values()->all();
+                    $currentManifest = $this->uploads($intake, $photoQuestionKey, $sectionInstanceKey)
+                        ->map(fn (IntakeUpload $upload): array => [
+                            'id' => $upload->id,
+                            ...$this->aiImageResolver->identity($upload),
+                        ])->values()->all();
 
-                if ($currentManifest !== $persistenceManifest) {
-                    throw new \RuntimeException('Foto’s gewijzigd tijdens AI-analyse; resultaat niet toegepast.');
-                }
+                    if ($currentManifest !== $persistenceManifest) {
+                        throw new \RuntimeException('Foto’s gewijzigd tijdens AI-analyse; resultaat niet toegepast.');
+                    }
 
-                // Invalidate only after a successful, validated provider result.
-                $this->invalidateDerivedState($intake, $photoQuestionKey, $sectionInstanceKey, $profile);
-                $trace->step('invalidate_previous', [
-                    'photo_question_key' => $photoQuestionKey,
-                    'section_instance_key' => $sectionInstanceKey,
-                ]);
-
-                $this->storeObservation($intake, $run, $output, $uploads, $photoQuestionKey, $sectionInstanceKey, $profile);
-                $applied = $this->applyDerivedAnswers($intake, $output, $sectionInstanceKey, $profile);
-                $trace->step('apply', $applied);
-                $trace->recordFieldOutcomes($this->fieldOutcomesFromPhoto($output, $profile, $applied));
-
-                IntakeActivityEvent::query()->create([
-                    'intake_id' => $intake->id,
-                    'actor_type' => 'system',
-                    'actor_id' => null,
-                    'event' => 'photo_answers_derived',
-                    // Keys and confidence only — never derived answer values in logs (ADR-0002).
-                    'properties' => [
-                        'ai_run_id' => $run->id,
-                        'ai_trace_id' => $trace->traceId(),
-                        'profile' => $profile->name,
-                        'question_key' => $photoQuestionKey,
+                    // Invalidate only after a successful, validated provider result.
+                    $this->invalidateDerivedState($intake, $photoQuestionKey, $sectionInstanceKey, $profile);
+                    $trace->step('invalidate_previous', [
+                        'photo_question_key' => $photoQuestionKey,
                         'section_instance_key' => $sectionInstanceKey,
-                        'confidence' => $output['confidence'],
-                        'derived_question_keys' => $applied['derived'],
-                        'suggested_question_keys' => $applied['suggested'],
-                    ],
-                    'created_at' => now(),
-                ]);
-            }, 3);
+                    ]);
+
+                    $this->storeObservation($intake, $run, $output, $uploads, $photoQuestionKey, $sectionInstanceKey, $profile);
+                    $applied = $this->applyDerivedAnswers($intake, $output, $sectionInstanceKey, $profile);
+                    $trace->step('apply', $applied);
+                    $trace->recordFieldOutcomes(
+                        $this->fieldOutcomesFromPhoto($intake, $output, $profile, $applied, $sectionInstanceKey),
+                    );
+
+                    IntakeActivityEvent::query()->create([
+                        'intake_id' => $intake->id,
+                        'actor_type' => 'system',
+                        'actor_id' => null,
+                        'event' => 'photo_answers_derived',
+                        // Keys and confidence only — never derived answer values in logs (ADR-0002).
+                        'properties' => [
+                            'ai_run_id' => $run->id,
+                            'ai_trace_id' => $trace->traceId(),
+                            'profile' => $profile->name,
+                            'question_key' => $photoQuestionKey,
+                            'section_instance_key' => $sectionInstanceKey,
+                            'confidence' => $output['confidence'],
+                            'derived_question_keys' => $applied['derived'],
+                            'suggested_question_keys' => $applied['suggested'],
+                        ],
+                        'created_at' => now(),
+                    ]);
+                }, 3);
+            } finally {
+                $trace->flushBuffer();
+            }
 
             $trace->linkAiRun($run);
-            $trace->recordDossierSnapshots($dossierBefore, $this->traceSnapshots->answers($intake->fresh() ?? $intake));
+            $dossierAfter = $this->traceSnapshots->answers($intake->fresh() ?? $intake);
+            $trace->recordDossierSnapshots(
+                $dossierBefore,
+                $dossierAfter,
+                $this->traceSnapshots->changedFields($dossierBefore, $dossierAfter),
+            );
             $trace->recordRemainingQuestions($questionsBefore, $this->traceSnapshots->remainingQuestions($intake->fresh() ?? $intake));
             $trace->succeed();
 
@@ -265,7 +274,7 @@ final class DerivePhotoAnswers
                 'finished_at' => now(),
             ]);
             $trace->linkAiRun($run->fresh() ?? $run);
-            $trace->fail($exception->getMessage());
+            $trace->fail($exception->getMessage(), $exception);
 
             return $run->fresh() ?? $run;
         }
@@ -276,25 +285,65 @@ final class DerivePhotoAnswers
      * @param  array{derived: list<string>, suggested: list<string>}  $applied
      * @return list<array<string, mixed>>
      */
-    private function fieldOutcomesFromPhoto(array $output, PhotoDerivationProfile $profile, array $applied): array
-    {
+    private function fieldOutcomesFromPhoto(
+        Intake $intake,
+        array $output,
+        PhotoDerivationProfile $profile,
+        array $applied,
+        ?string $sectionInstanceKey,
+    ): array {
         $outcomes = [];
+        $confidence = (string) ($output['confidence'] ?? 'low');
 
         foreach ($profile->fields as $field) {
             $key = $field->questionKey;
-            $accepted = in_array($key, $applied['derived'], true) || in_array($key, $applied['suggested'], true);
+            $hasKey = array_key_exists($field->outputKey, $output);
+            $rawValue = $hasKey ? (string) $output[$field->outputKey] : null;
+
+            if (in_array($key, $applied['derived'], true)) {
+                $outcomes[] = [
+                    'question_key' => $key,
+                    'output_key' => $field->outputKey,
+                    'disposition' => 'accepted',
+                    'confidence' => $confidence,
+                    'source' => self::SOURCE,
+                    'reason' => 'accepted_'.$confidence,
+                    'has_value' => true,
+                ];
+
+                continue;
+            }
+
+            if (in_array($key, $applied['suggested'], true)) {
+                $outcomes[] = [
+                    'question_key' => $key,
+                    'output_key' => $field->outputKey,
+                    'disposition' => 'suggested',
+                    'confidence' => $confidence,
+                    'source' => self::SOURCE,
+                    'reason' => 'suggested_'.$confidence,
+                    'has_value' => true,
+                ];
+
+                continue;
+            }
+
+            $reason = match (true) {
+                ! $hasKey => 'missing',
+                $rawValue === 'unknown' => 'unknown',
+                $confidence === 'low' => 'low_confidence',
+                ! $this->mayOverwrite($intake, $field, $sectionInstanceKey) => 'protected_user_edit',
+                default => 'skipped',
+            };
+
             $outcomes[] = [
                 'question_key' => $key,
                 'output_key' => $field->outputKey,
-                'disposition' => $accepted
-                    ? (in_array($key, $applied['derived'], true) ? 'accepted' : 'suggested')
-                    : 'rejected',
-                'confidence' => $output['confidence'] ?? null,
+                'disposition' => 'rejected',
+                'confidence' => $confidence,
                 'source' => self::SOURCE,
-                'reason' => $accepted
-                    ? 'photo_derivation_'.$output['confidence']
-                    : 'confidence_or_unknown_skipped',
-                'has_value' => array_key_exists($field->outputKey, $output),
+                'reason' => $reason,
+                'has_value' => $hasKey && $rawValue !== 'unknown',
             ];
         }
 

@@ -8,6 +8,7 @@ use App\Domains\AI\DTOs\AiImageInput;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\AiGateway;
 use App\Domains\AI\Services\AiImageResolver;
+use App\Domains\AI\Services\AiTracePhotoRefBuilder;
 use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\AI\Services\AiTraceSnapshotService;
 use App\Domains\AI\Services\PromptVersionRepository;
@@ -49,6 +50,7 @@ final class AssessFuseboxPhotos
         private readonly SaveIntakeAnswer $saveIntakeAnswer,
         private readonly AiTraceRecorder $traceRecorder,
         private readonly AiTraceSnapshotService $traceSnapshots,
+        private readonly AiTracePhotoRefBuilder $photoRefBuilder,
     ) {}
 
     public function handle(Intake $intake): ?AiRun
@@ -125,15 +127,12 @@ final class AssessFuseboxPhotos
             $trace->linkUpload($latestUpload);
         }
         $dossierBefore = $this->traceSnapshots->answers($intake);
+        $questionsBefore = $this->traceSnapshots->remainingQuestions($intake);
 
         try {
-            $photoRefs = $uploads->map(fn (IntakeUpload $upload): array => [
-                'upload_id' => $upload->id,
-                'category' => 'fusebox',
-                'path_ref' => 'intake_upload:'.$upload->id,
-                'checksum' => $upload->analysis_checksum ?? $upload->checksum,
-                ...$this->aiImageResolver->identity($upload),
-            ])->values()->all();
+            $photoRefs = $uploads->map(
+                fn (IntakeUpload $upload): array => $this->photoRefBuilder->fromUpload($upload, 'fusebox'),
+            )->values()->all();
 
             $trace->recordRequest(
                 systemAndUser: [
@@ -152,8 +151,14 @@ final class AssessFuseboxPhotos
                 images: $this->imageInputs($uploads),
             );
             $trace->recordProviderResult($result);
-            $output = $this->validateOutput($result->output);
-            $trace->recordParsed($output);
+
+            try {
+                $output = $this->validateOutput($result->output);
+                $trace->recordParsed($output);
+            } catch (ValidationException $exception) {
+                $trace->recordParsed([], $exception->errors());
+                throw $exception;
+            }
 
             $run->update($run->completionResultAttributes($result) + [
                 'status' => AiRunStatus::Succeeded,
@@ -164,53 +169,66 @@ final class AssessFuseboxPhotos
 
             $run = $run->fresh() ?? $run;
 
-            DB::transaction(function () use ($intake, $run, $output, $uploads, $persistenceManifest, $trace): void {
-                $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
+            $trace->beginBuffer();
+            try {
+                DB::transaction(function () use ($intake, $run, $output, $uploads, $persistenceManifest, $trace): void {
+                    $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
 
-                if (! in_array($lockedIntake->status, [IntakeStatus::Sent, IntakeStatus::InProgress], true)) {
-                    throw new \RuntimeException('Opname is afgerond tijdens AI-analyse; resultaat niet toegepast.');
-                }
+                    if (! in_array($lockedIntake->status, [IntakeStatus::Sent, IntakeStatus::InProgress], true)) {
+                        throw new \RuntimeException('Opname is afgerond tijdens AI-analyse; resultaat niet toegepast.');
+                    }
 
-                $currentManifest = $this->uploads($intake)->map(fn (IntakeUpload $upload): array => [
-                    'id' => $upload->id,
-                    ...$this->aiImageResolver->identity($upload),
-                ])->values()->all();
+                    $currentManifest = $this->uploads($intake)->map(fn (IntakeUpload $upload): array => [
+                        'id' => $upload->id,
+                        ...$this->aiImageResolver->identity($upload),
+                    ])->values()->all();
 
-                if ($currentManifest !== $persistenceManifest) {
-                    throw new \RuntimeException('Meterkastfoto’s gewijzigd tijdens AI-analyse; resultaat niet toegepast.');
-                }
+                    if ($currentManifest !== $persistenceManifest) {
+                        throw new \RuntimeException('Meterkastfoto’s gewijzigd tijdens AI-analyse; resultaat niet toegepast.');
+                    }
 
-                $this->invalidateDerivedState($intake);
-                $trace->step('invalidate_previous', ['question_key' => self::PHOTO_QUESTION]);
+                    $this->invalidateDerivedState($intake);
+                    $trace->step('invalidate_previous', ['question_key' => self::PHOTO_QUESTION]);
 
-                $this->storeObservation($intake, $run, $output, $uploads);
-                $this->prefillFreeGroup($intake, $output);
-                $this->prefillClarity($intake, $output);
-                $trace->step('apply', [
-                    'free_group' => $output['free_group'],
-                    'confidence' => $output['confidence'],
-                ]);
-
-                IntakeActivityEvent::query()->create([
-                    'intake_id' => $intake->id,
-                    'actor_type' => 'system',
-                    'actor_id' => null,
-                    'event' => 'photo_assessment_completed',
-                    'properties' => [
-                        'ai_run_id' => $run->id,
-                        'ai_trace_id' => $trace->traceId(),
-                        'question_key' => self::PHOTO_QUESTION,
-                        'confidence' => $output['confidence'],
+                    $this->storeObservation($intake, $run, $output, $uploads);
+                    $this->prefillFreeGroup($intake, $output);
+                    $this->prefillClarity($intake, $output);
+                    $trace->step('apply', [
                         'free_group' => $output['free_group'],
-                        'phase' => $output['phase'],
-                        'clarity' => $this->clarityValue($output),
-                    ],
-                    'created_at' => now(),
-                ]);
-            }, 3);
+                        'confidence' => $output['confidence'],
+                    ]);
+                    $trace->recordFieldOutcomes($this->fieldOutcomesFromFusebox($intake, $output));
+
+                    IntakeActivityEvent::query()->create([
+                        'intake_id' => $intake->id,
+                        'actor_type' => 'system',
+                        'actor_id' => null,
+                        'event' => 'photo_assessment_completed',
+                        'properties' => [
+                            'ai_run_id' => $run->id,
+                            'ai_trace_id' => $trace->traceId(),
+                            'question_key' => self::PHOTO_QUESTION,
+                            'confidence' => $output['confidence'],
+                            'free_group' => $output['free_group'],
+                            'phase' => $output['phase'],
+                            'clarity' => $this->clarityValue($output),
+                        ],
+                        'created_at' => now(),
+                    ]);
+                }, 3);
+            } finally {
+                $trace->flushBuffer();
+            }
 
             $trace->linkAiRun($run);
-            $trace->recordDossierSnapshots($dossierBefore, $this->traceSnapshots->answers($intake->fresh() ?? $intake));
+            $freshIntake = $intake->fresh() ?? $intake;
+            $dossierAfter = $this->traceSnapshots->answers($freshIntake);
+            $trace->recordDossierSnapshots(
+                $dossierBefore,
+                $dossierAfter,
+                $this->traceSnapshots->changedFields($dossierBefore, $dossierAfter),
+            );
+            $trace->recordRemainingQuestions($questionsBefore, $this->traceSnapshots->remainingQuestions($freshIntake));
             $trace->succeed();
 
             return $run;
@@ -227,7 +245,8 @@ final class AssessFuseboxPhotos
                 'error_message' => Str::limit($exception->getMessage(), 1000, ''),
                 'finished_at' => now(),
             ]);
-            $trace->fail($exception->getMessage());
+            $trace->linkAiRun($run->fresh() ?? $run);
+            $trace->fail($exception->getMessage(), $exception);
 
             return $run->fresh() ?? $run;
         }
@@ -254,6 +273,75 @@ final class AssessFuseboxPhotos
 
         $intake->unsetRelation('answers');
         $intake->unsetRelation('externalFacts');
+    }
+
+    /**
+     * @param  array{free_group: string, phase: string, confidence: string, evidence: string, retake_instruction: string|null}  $output
+     * @return list<array<string, mixed>>
+     */
+    private function fieldOutcomesFromFusebox(Intake $intake, array $output): array
+    {
+        $confidence = $output['confidence'];
+        $outcomes = [];
+
+        $freeExisting = IntakeAnswer::query()
+            ->where('intake_id', $intake->id)
+            ->where('question_key', self::TARGET_QUESTION)
+            ->whereNull('section_instance_key')
+            ->first();
+        $freeProtected = $freeExisting instanceof IntakeAnswer && $freeExisting->prefill_source !== 'ai';
+        $freeAccepted = $confidence === 'high'
+            && $output['free_group'] !== 'unknown'
+            && $freeExisting instanceof IntakeAnswer
+            && $freeExisting->prefill_source === 'ai';
+
+        $freeReason = match (true) {
+            $freeAccepted => 'accepted_'.$confidence,
+            $freeProtected => 'protected_user_edit',
+            $output['free_group'] === 'unknown' => 'unknown',
+            $confidence !== 'high' => 'low_confidence',
+            default => 'missing',
+        };
+
+        $outcomes[] = [
+            'question_key' => self::TARGET_QUESTION,
+            'output_key' => 'free_group',
+            'disposition' => $freeAccepted ? 'accepted' : 'rejected',
+            'confidence' => $confidence,
+            'source' => self::SOURCE,
+            'reason' => $freeReason,
+            'has_value' => $output['free_group'] !== 'unknown',
+        ];
+
+        if ($this->hasQuestion($intake, self::CLARITY_QUESTION)) {
+            $clarityExisting = IntakeAnswer::query()
+                ->where('intake_id', $intake->id)
+                ->where('question_key', self::CLARITY_QUESTION)
+                ->whereNull('section_instance_key')
+                ->first();
+            $clarityProtected = $clarityExisting instanceof IntakeAnswer
+                && $clarityExisting->prefill_source !== 'ai';
+            $clarityAccepted = $clarityExisting instanceof IntakeAnswer
+                && $clarityExisting->prefill_source === 'ai';
+
+            $clarityReason = match (true) {
+                $clarityAccepted => 'accepted_'.$confidence,
+                $clarityProtected => 'protected_user_edit',
+                default => 'missing',
+            };
+
+            $outcomes[] = [
+                'question_key' => self::CLARITY_QUESTION,
+                'output_key' => 'clarity',
+                'disposition' => $clarityAccepted ? 'accepted' : 'rejected',
+                'confidence' => $confidence,
+                'source' => self::SOURCE,
+                'reason' => $clarityReason,
+                'has_value' => $clarityAccepted,
+            ];
+        }
+
+        return $outcomes;
     }
 
     /** @return Collection<int, IntakeUpload> */

@@ -36,15 +36,35 @@ final class AiTraceRedactor
             $safe = (string) preg_replace($pattern, $replacement, $safe);
         }
 
-        // Customer intake tokens live under /o/{64-char token}.
         $safe = (string) preg_replace('#(/o/)[A-Za-z0-9]{32,}#', '$1[token-redacted]', $safe);
 
-        // Opaque base64 blobs (never store image bytes in the standard log).
-        if (strlen($safe) > 500 && preg_match('#^[A-Za-z0-9+/=\s]+$#', $safe) === 1) {
+        if ($this->looksLikeBase64Blob($safe)) {
             return '[base64-omitted len='.strlen($safe).']';
         }
 
         return $safe;
+    }
+
+    /**
+     * Base64 only when data:-prefix or a long unbroken base64 alphabet string (no whitespace).
+     * Long customer free-text without punctuation must stay intact.
+     */
+    public function looksLikeBase64Blob(string $value): bool
+    {
+        if (str_starts_with($value, 'data:') && str_contains($value, ';base64,')) {
+            return true;
+        }
+
+        if (strlen($value) <= 500) {
+            return false;
+        }
+
+        // No whitespace allowed — otherwise long NL customer text without punctuation is kept.
+        if (preg_match('/\s/', $value) === 1) {
+            return false;
+        }
+
+        return preg_match('#^[A-Za-z0-9+/=]+$#', $value) === 1;
     }
 
     private function walk(mixed $value): mixed
@@ -91,7 +111,7 @@ final class AiTraceRedactor
             || str_contains($key, 'access_token')
             || str_contains($key, 'customer_token')
             || str_contains($key, 'customer_access')
-            || $key === 'token' && ! str_contains($key, 'tokens');
+            || ($key === 'token');
     }
 
     private function photoRefPlaceholder(string $value): string

@@ -9,6 +9,4 @@ enum AiTraceCallType: string
     case TextExtraction = 'text_extraction';
     case PhotoAnalysis = 'photo_analysis';
     case Synthesis = 'synthesis';
-    case PhotoQuality = 'photo_quality';
-    case Other = 'other';
 }

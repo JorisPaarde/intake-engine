@@ -1,6 +1,6 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 3.12 · **Laatste update:** 2026-10-02 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.13 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **samenvatting, aandachtspunten, lokale fotokwaliteit, tekst-/foto-afleiding, verbindingsgebonden routeanalyse en bewijsgerichte dossiersynthese zijn geïmplementeerd**. Externe provider en tekst-/foto-/route-/dossierinferentie staan standaard uit (provider + key + featurevlaggen + budgetcaps; soft-fail zonder die config). OpenAI-compatibele gateways (o.a. OpenRouter) via `AI_BASE_URL`.
 
@@ -133,10 +133,12 @@ Doel: per mislukte/onjuiste uitkomst aantonen of de fout in model, prompt, parse
 | Provider | provider, werkelijk model-ID, `model_parameters`, prompt/schema-versie, fallback/retries, `finish_reason`, tokens/kosten |
 | Request | `request_snapshot` (system/user/context, geredigeerd); `photo_refs` naar beschermd origineel (geen base64) |
 | Response | `raw_response`, `parsed_response`, `validation_errors`, `normalizations`, `field_outcomes` (overgenomen/afgewezen + reden/confidence/bron) |
-| Effect | `dossier_before`/`dossier_after`, `remaining_questions_before`/`after` |
-| P2-timings | `upload_ms`, `preprocess_ms`, `provider_ms`, `process_ms` (apart gemeten) |
+| Effect | `dossier_before`/`dossier_after` (+ `changed_fields`), `remaining_questions_before`/`after` (incl. next_step + hidden reasons) |
+| P2-timings | `persist_ms` / `network_upload_ms`, `preprocess_ms`, `provider_ms`, `process_ms` (apart gemeten) |
 
-**Helper voor parallelle stromen:** `AiTraceRecorder::start($intake, AiTraceCallType::…)` → `AiTraceHandle` met `$trace->step('normalize', $payload, durationMs: …)`, `recordFieldOutcomes`, `recordDossierSnapshots`, `succeed()` / `fail()`. Zie PR-beschrijving van BL-116.
+**Geïnstrumenteerde acties:** `PrefillAnswersFromKnownContext`, `DerivePhotoAnswers`, `AssessFuseboxPhotos`, `SynthesizeSurveyDossier`, `AnalyzeRoutePhoto`, `SynthesizePipeRoute`, `SuggestInstallerPhotoObservations`, `SummarizeIntake`, `SuggestAttentionPoints` (+ lokale `AssessPhotoUsability`). Foto-refs via `AiTracePhotoRefBuilder` (width/height + dossier/analyse-variant). Transactiestappen via `beginBuffer()`/`flushBuffer()`. `model_parameters` komen uit `AiCompletionResult`, niet hardcoded. `fail($msg, $exception)` bewaart `provider_ms` bij clientfouten.
+
+**Helper voor parallelle stromen:** `AiTraceRecorder::start($intake, AiTraceCallType::…)` → `AiTraceHandle` met `$trace->step('normalize', $payload, durationMs: …)`, `recordFieldOutcomes`, `recordDossierSnapshots($before, $after, $changedFields)`, `succeed()` / `fail($msg, $exception)`. Zie PR-beschrijving van BL-116.
 
 Beveiliging: `AiTraceRedactor` verwijdert API-keys, Bearer-headers, klantlinktokens (`/o/…`) en base64-beelden. Inzage via `/dev/ai-traces` (dev-admin, local/staging) of CLI `ai:traces`. Bewaartermijn: `AI_TRACE_RETENTION_DAYS` (default 30) + dagelijkse `ai:purge-traces`. Een mislukte foto-/meterkast-call **invalideert geen** bestaande AI-antwoorden meer vóór een geslaagde providerresponse.
 

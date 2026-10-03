@@ -57,8 +57,9 @@ final class ShowAiTracesCommand extends Command
             $this->info("trace_id={$trace->trace_id} intake={$trace->intake_id} type={$trace->call_type->value} status={$trace->status->value}");
             $this->line("provider={$trace->provider} model={$trace->model} prompt={$trace->prompt_version}");
             $this->line(sprintf(
-                'timings: upload=%s preprocess=%s provider=%s process=%s ms',
-                $trace->upload_ms ?? '—',
+                'timings: persist=%s network=%s preprocess=%s provider=%s process=%s ms',
+                $trace->persist_ms ?? '—',
+                $trace->network_upload_ms ?? '—',
                 $trace->preprocess_ms ?? '—',
                 $trace->provider_ms ?? '—',
                 $trace->process_ms ?? '—',

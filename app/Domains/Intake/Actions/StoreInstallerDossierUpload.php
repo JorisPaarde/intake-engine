@@ -35,6 +35,7 @@ final class StoreInstallerDossierUpload
         User $installer,
         DossierSubject $subject,
         UploadedFile $file,
+        ?int $networkUploadMs = null,
     ): IntakeUpload {
         if ($installer->company_id !== $intake->company_id
             || $subject->intake_id !== $intake->id
@@ -53,7 +54,10 @@ final class StoreInstallerDossierUpload
             ]);
         }
 
+        $preprocessStarted = microtime(true);
         $normalized = $this->normalizer->normalize($file);
+        $preprocessMs = (int) round((microtime(true) - $preprocessStarted) * 1000);
+        $persistStarted = microtime(true);
         $disk = (string) config('filesystems.media', 'local');
         $basename = Str::ulid()->toBase32();
         $directory = 'intakes/'.$intake->uuid.'/installer/'.$subject->id;
@@ -79,6 +83,9 @@ final class StoreInstallerDossierUpload
                 $path,
                 $analysisPath,
                 $normalized,
+                $preprocessMs,
+                $persistStarted,
+                $networkUploadMs,
             ): IntakeUpload {
                 $locked = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
 
@@ -92,6 +99,16 @@ final class StoreInstallerDossierUpload
                     ->where('question_key', 'installer_evidence')
                     ->where('section_instance_key', 'subject-'.$subject->id)
                     ->max('sort_order') + 1;
+                $persistMs = (int) round((microtime(true) - $persistStarted) * 1000);
+                $timings = [
+                    'persist_ms' => $persistMs,
+                    'preprocess_ms' => $preprocessMs,
+                    'measured_at' => now()->toIso8601String(),
+                ];
+                if ($networkUploadMs !== null && $networkUploadMs >= 0) {
+                    $timings['network_upload_ms'] = $networkUploadMs;
+                }
+
                 $upload = IntakeUpload::query()->create([
                     'intake_id' => $intake->id,
                     'question_key' => 'installer_evidence',
@@ -107,6 +124,7 @@ final class StoreInstallerDossierUpload
                     'analysis_size_bytes' => $normalized->analysisSizeBytes,
                     'analysis_checksum' => $normalized->analysisChecksum,
                     'sort_order' => $sortOrder,
+                    'processing_timings' => $timings,
                 ]);
 
                 IntakeActivityEvent::query()->create([

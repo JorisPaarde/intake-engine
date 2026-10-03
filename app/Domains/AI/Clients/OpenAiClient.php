@@ -81,16 +81,22 @@ final class OpenAiClient implements AiClientInterface
                     ],
                 ]);
         } catch (\Throwable $e) {
+            $providerMs = (int) round((microtime(true) - $providerStarted) * 1000);
+
             throw new AiClientException(
                 'Externe AI-aanroep mislukt: '.$this->safeExceptionMessage($e->getMessage(), $apiKey),
                 previous: $e,
+                providerMs: $providerMs,
             );
         }
 
         $providerMs = (int) round((microtime(true) - $providerStarted) * 1000);
 
         if ($response->failed()) {
-            throw new AiClientException('Externe AI-provider gaf status '.$response->status().'.');
+            throw new AiClientException(
+                'Externe AI-provider gaf status '.$response->status().'.',
+                providerMs: $providerMs,
+            );
         }
 
         $content = $response->json('choices.0.message.content');
@@ -98,14 +104,20 @@ final class OpenAiClient implements AiClientInterface
         $finishReason = is_string($finishReason) ? $finishReason : null;
 
         if (! is_string($content) || $content === '') {
-            throw new AiClientException('Externe AI-provider gaf geen bruikbare inhoud.');
+            throw new AiClientException(
+                'Externe AI-provider gaf geen bruikbare inhoud.',
+                providerMs: $providerMs,
+            );
         }
 
         /** @var array<string, mixed>|null $output */
         $output = json_decode($content, true);
 
         if (! is_array($output)) {
-            throw new AiClientException('Externe AI-provider gaf ongeldige JSON.');
+            throw new AiClientException(
+                'Externe AI-provider gaf ongeldige JSON.',
+                providerMs: $providerMs,
+            );
         }
 
         $inputTokens = $this->integerUsage($response->json('usage.prompt_tokens'));

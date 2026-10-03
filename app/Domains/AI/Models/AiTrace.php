@@ -38,9 +38,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property array<int, array<string, mixed>>|null $field_outcomes
  * @property array<string, mixed>|null $dossier_before
  * @property array<string, mixed>|null $dossier_after
- * @property array<int, array<string, mixed>>|null $remaining_questions_before
- * @property array<int, array<string, mixed>>|null $remaining_questions_after
- * @property int|null $upload_ms
+ * @property array<string, mixed>|null $remaining_questions_before
+ * @property array<string, mixed>|null $remaining_questions_after
+ * @property int|null $network_upload_ms
+ * @property int|null $persist_ms
  * @property int|null $preprocess_ms
  * @property int|null $provider_ms
  * @property int|null $process_ms
@@ -80,7 +81,8 @@ class AiTrace extends Model
         'dossier_after',
         'remaining_questions_before',
         'remaining_questions_after',
-        'upload_ms',
+        'network_upload_ms',
+        'persist_ms',
         'preprocess_ms',
         'provider_ms',
         'process_ms',
@@ -114,7 +116,8 @@ class AiTrace extends Model
             'remaining_questions_after' => 'array',
             'fallback_used' => 'boolean',
             'retry_count' => 'integer',
-            'upload_ms' => 'integer',
+            'network_upload_ms' => 'integer',
+            'persist_ms' => 'integer',
             'preprocess_ms' => 'integer',
             'provider_ms' => 'integer',
             'process_ms' => 'integer',

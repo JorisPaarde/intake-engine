@@ -1,6 +1,6 @@
 # Databaseschema — Digitale Opname
 
-> **Documentversie:** 3.9 · **Laatste update:** 2026-10-02 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.10 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: dit document beschrijft het **geïmplementeerde schema**, inclusief de uitbreidende dossiermigratie van BL-030 en BL-035 t/m BL-042 en de zelfstandige publieke interesse-inzendingen van BL-043. Bestaande antwoord-, bron-, upload-, review- en routetabellen blijven bewust bestaan naast de nieuwe dossierobjecten.
 
@@ -573,13 +573,13 @@ Volledige AI-ketenlogging (request → response → parse → dossier/restvragen
 | `parsed_response` / `validation_errors` / `normalizations` / `field_outcomes` | json nullable | |
 | `dossier_before` / `dossier_after` | json nullable | Compacte antwoordsnapshots |
 | `remaining_questions_before` / `after` | json nullable | Zichtbare klantstappen |
-| `upload_ms` / `preprocess_ms` / `provider_ms` / `process_ms` | unsigned int nullable | P2-fasen |
+| `persist_ms` / `network_upload_ms` / `preprocess_ms` / `provider_ms` / `process_ms` | unsigned int nullable | P2-fasen |
 | tokens / `estimated_cost_cents` | | Indien beschikbaar |
 | `error_message` / `started_at` / `finished_at` | | |
 
 `ai_trace_steps`: `step_key`, `sequence`, `payload`, `duration_ms`, `recorded_at` — o.a. `normalize`, `apply`, `customer_step` voor parallelle stromen via `AiTraceHandle::step()`.
 
-`intake_uploads.processing_timings` (json nullable): `upload_ms` + `preprocess_ms` gemeten bij opslaan, overgenomen in de foto-trace.
+`intake_uploads.processing_timings` (json nullable): `persist_ms` (+ optioneel legacy `upload_ms`), `preprocess_ms`, `network_upload_ms` gemeten bij opslaan, overgenomen in de foto-trace.
 
 ## Cascadegedrag
 

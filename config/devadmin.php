@@ -25,6 +25,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | AI-traces allowlist (BL-116)
+    |--------------------------------------------------------------------------
+    |
+    | /dev/ai-traces toont de volledige AI-keten (request/response/dossier).
+    | Naast DEV_ADMIN_ENABLED geldt een e-mailallowlist uit DEV_ADMIN_EMAILS
+    | (komma-gescheiden). Lege allowlist = niemand mag AI-traces zien.
+    |
+    */
+
+    'emails' => array_values(array_filter(array_map(
+        static fn (string $email): string => strtolower(trim($email)),
+        explode(',', (string) env('DEV_ADMIN_EMAILS', '')),
+    ), static fn (string $email): bool => $email !== '')),
+
+    /*
+    |--------------------------------------------------------------------------
     | AI-invoer testen (BL-104)
     |--------------------------------------------------------------------------
     |

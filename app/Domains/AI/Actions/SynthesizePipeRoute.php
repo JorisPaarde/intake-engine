@@ -7,6 +7,9 @@ namespace App\Domains\AI\Actions;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\AiGateway;
 use App\Domains\AI\Services\AiImageResolver;
+use App\Domains\AI\Services\AiTraceHandle;
+use App\Domains\AI\Services\AiTracePhotoRefBuilder;
+use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeUpload;
@@ -15,6 +18,7 @@ use App\Domains\Intake\Models\PipeRouteSession;
 use App\Enums\AircoConnectionStatus;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
+use App\Enums\AiTraceCallType;
 use App\Enums\PipeRouteStatus;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -36,6 +40,8 @@ final class SynthesizePipeRoute
         private readonly AiGateway $aiGateway,
         private readonly AiImageResolver $aiImageResolver,
         private readonly PromptVersionRepository $promptVersions,
+        private readonly AiTraceRecorder $traceRecorder,
+        private readonly AiTracePhotoRefBuilder $photoRefBuilder,
     ) {}
 
     public function handle(PipeRouteSession $session): PipeRouteSession
@@ -160,6 +166,8 @@ final class SynthesizePipeRoute
         string $model,
         ?Collection $images = null,
     ): array {
+        $intake = Intake::query()->findOrFail($session->intake_id);
+
         $run = AiRun::query()->create([
             'intake_id' => $session->intake_id,
             'type' => AiRunType::RouteSynthesis,
@@ -176,19 +184,51 @@ final class SynthesizePipeRoute
             'started_at' => now(),
         ]);
 
+        $trace = $this->traceRecorder->start($intake, AiTraceCallType::Synthesis, [
+            'ai_run_id' => $run->id,
+            'subject_type' => 'pipe_route_session',
+            'subject_id' => (string) $session->id,
+            'provider' => (string) config('ai.provider', 'null'),
+            'prompt_version' => $promptVersion,
+            'schema_version' => $promptVersion,
+        ]);
+
         try {
+            $uploads = $images ?? collect();
+            $photoRefs = $uploads
+                ->map(fn (IntakeUpload $upload): array => $this->photoRefBuilder->fromUpload($upload, 'route_review'))
+                ->values()
+                ->all();
+
+            $trace->recordRequest(
+                systemAndUser: [
+                    'system' => $promptBody,
+                    'user' => $input,
+                ],
+                photoRefs: $photoRefs,
+                promptVersion: $promptVersion,
+                schemaVersion: $promptVersion,
+            );
+
             $result = $this->aiGateway->complete(
                 prompt: $promptBody,
                 input: $input,
                 promptVersion: $promptVersion,
-                images: ($images ?? collect())
+                images: $uploads
                     ->map(fn (IntakeUpload $upload) => $this->aiImageResolver->input($upload))
                     ->values()
                     ->all(),
                 model: $model,
             );
+            $trace->recordProviderResult($result);
 
-            $output = $this->validateOutput($result->output);
+            try {
+                $output = $this->validateOutput($result->output);
+                $trace->recordParsed($output);
+            } catch (ValidationException $exception) {
+                $trace->recordParsed([], $exception->errors());
+                throw $exception;
+            }
 
             $run->update($run->completionResultAttributes($result, $model) + [
                 'status' => AiRunStatus::Succeeded,
@@ -197,6 +237,14 @@ final class SynthesizePipeRoute
                 'finished_at' => now(),
             ]);
 
+            $trace->linkAiRun($run->fresh() ?? $run);
+            $trace->step('apply', [
+                'route_continuous' => $output['route_continuous'],
+                'confidence' => $output['confidence'],
+                'model' => $model,
+            ]);
+            $trace->succeed();
+
             return $output;
         } catch (Throwable $exception) {
             $run->update([
@@ -204,9 +252,16 @@ final class SynthesizePipeRoute
                 'error_message' => Str::limit($exception->getMessage(), 1000, ''),
                 'finished_at' => now(),
             ]);
+            $this->failTrace($trace, $run, $exception);
 
             throw $exception;
         }
+    }
+
+    private function failTrace(AiTraceHandle $trace, AiRun $run, Throwable $exception): void
+    {
+        $trace->linkAiRun($run->fresh() ?? $run);
+        $trace->fail($exception->getMessage(), $exception);
     }
 
     /**

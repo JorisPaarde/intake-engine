@@ -111,14 +111,9 @@ final class PrefillAnswersFromKnownContext
             'provider' => (string) config('ai.provider', 'null'),
             'prompt_version' => $promptVersion,
             'schema_version' => $promptVersion,
-            'model_parameters' => ['temperature' => 0.2, 'response_format' => ['type' => 'json_object']],
         ]);
         $dossierBefore = $this->traceSnapshots->answers($intake);
         $questionsBefore = $this->traceSnapshots->remainingQuestions($intake);
-        $trace->step('snapshot_before', [
-            'answer_count' => $dossierBefore['answer_count'],
-            'remaining_questions' => count($questionsBefore),
-        ]);
 
         try {
             $trace->recordRequest(
@@ -129,7 +124,6 @@ final class PrefillAnswersFromKnownContext
                 ],
                 promptVersion: $promptVersion,
                 schemaVersion: $promptVersion,
-                modelParameters: ['temperature' => 0.2, 'response_format' => ['type' => 'json_object']],
             );
 
             $result = $this->aiGateway->complete(
@@ -180,12 +174,12 @@ final class PrefillAnswersFromKnownContext
 
             $dossierAfter = $this->traceSnapshots->answers($intake);
             $questionsAfter = $this->traceSnapshots->remainingQuestions($intake);
-            $trace->recordDossierSnapshots($dossierBefore, $dossierAfter);
+            $trace->recordDossierSnapshots(
+                $dossierBefore,
+                $dossierAfter,
+                $this->traceSnapshots->changedFields($dossierBefore, $dossierAfter),
+            );
             $trace->recordRemainingQuestions($questionsBefore, $questionsAfter);
-            $trace->step('customer_step', [
-                'remaining_before' => count($questionsBefore),
-                'remaining_after' => count($questionsAfter),
-            ]);
             $trace->succeed();
 
             IntakeActivityEvent::query()->create([
@@ -211,7 +205,7 @@ final class PrefillAnswersFromKnownContext
                 'finished_at' => now(),
             ]);
             $trace->linkAiRun($run->fresh() ?? $run);
-            $trace->fail($exception->getMessage());
+            $trace->fail($exception->getMessage(), $exception);
 
             return $run->fresh() ?? $run;
         }

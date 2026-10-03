@@ -26,7 +26,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $size_bytes
  * @property int $sort_order
  * @property PhotoUsabilityVerdict|null $usability_verdict
- * @property array{upload_ms?: int, preprocess_ms?: int, measured_at?: string}|null $processing_timings
+ * @property array{persist_ms?: int, preprocess_ms?: int, network_upload_ms?: int, measured_at?: string, upload_ms?: int}|null $processing_timings
  * @property-read IntakeFollowUpItem|null $followUpItem
  */
 class IntakeUpload extends Model

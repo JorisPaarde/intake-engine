@@ -27,7 +27,8 @@
             <div>subject: {{ $trace->subject_type ?? '—' }} {{ $trace->subject_id ?? '' }} · upload #{{ $trace->upload_id ?? '—' }} · ai_run #{{ $trace->ai_run_id ?? '—' }}</div>
             <div>fallback={{ $trace->fallback_used ? 'ja' : 'nee' }} · retries={{ $trace->retry_count }} · finish={{ $trace->finish_reason ?? '—' }}</div>
             <div>
-                timings ms — upload: {{ $trace->upload_ms ?? '—' }},
+                timings ms — persist: {{ $trace->persist_ms ?? '—' }},
+                network: {{ $trace->network_upload_ms ?? '—' }},
                 preprocess: {{ $trace->preprocess_ms ?? '—' }},
                 provider: {{ $trace->provider_ms ?? '—' }},
                 process: {{ $trace->process_ms ?? '—' }}

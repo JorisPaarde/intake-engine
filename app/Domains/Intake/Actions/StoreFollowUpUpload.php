@@ -30,7 +30,7 @@ final class StoreFollowUpUpload
         private readonly DocumentUploadNormalizer $documentUploadNormalizer,
     ) {}
 
-    public function handle(Intake $intake, IntakeFollowUpItem $item, UploadedFile $file): IntakeUpload
+    public function handle(Intake $intake, IntakeFollowUpItem $item, UploadedFile $file, ?int $networkUploadMs = null): IntakeUpload
     {
         $item->loadMissing('round');
 
@@ -63,11 +63,14 @@ final class StoreFollowUpUpload
             ]);
         }
 
+        $preprocessStarted = microtime(true);
         $normalized = $isPhoto
             ? $this->photoUploadNormalizer->normalize($file)
             : $this->documentUploadNormalizer->normalize($file);
+        $preprocessMs = (int) round((microtime(true) - $preprocessStarted) * 1000);
 
         try {
+            $persistStarted = microtime(true);
             $disk = (string) config('filesystems.media', 'local');
             $directory = 'intakes/'.$intake->uuid.'/follow-up/'.$item->round->round_number.'/'.$item->id;
             $basename = Str::ulid()->toBase32();
@@ -125,6 +128,9 @@ final class StoreFollowUpUpload
                 $analysisChecksum,
                 $maxFiles,
                 $fileLabel,
+                $preprocessMs,
+                $persistStarted,
+                $networkUploadMs,
             ): IntakeUpload {
                 $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
                 $lockedItem = IntakeFollowUpItem::query()->with('round')->lockForUpdate()->findOrFail($item->id);
@@ -146,6 +152,16 @@ final class StoreFollowUpUpload
                     ]);
                 }
 
+                $persistMs = (int) round((microtime(true) - $persistStarted) * 1000);
+                $timings = [
+                    'persist_ms' => $persistMs,
+                    'preprocess_ms' => $preprocessMs,
+                    'measured_at' => now()->toIso8601String(),
+                ];
+                if ($networkUploadMs !== null && $networkUploadMs >= 0) {
+                    $timings['network_upload_ms'] = $networkUploadMs;
+                }
+
                 $upload = IntakeUpload::query()->create([
                     'intake_id' => $intake->id,
                     'question_key' => 'follow_up_'.$item->id,
@@ -162,6 +178,7 @@ final class StoreFollowUpUpload
                     'analysis_size_bytes' => $analysisSizeBytes,
                     'analysis_checksum' => $analysisChecksum,
                     'sort_order' => $currentCount + 1,
+                    'processing_timings' => $timings,
                 ]);
 
                 $lockedItem->update(['answered_at' => now()]);
