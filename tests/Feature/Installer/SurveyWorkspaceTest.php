@@ -32,6 +32,7 @@ use App\Enums\DossierRecordKind;
 use App\Enums\DossierRecordStatus;
 use App\Enums\FollowUpItemType;
 use App\Enums\IntakeStatus;
+use App\Enums\PhotoAssessmentStatus;
 use App\Enums\PipeRouteStatus;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
@@ -538,6 +539,7 @@ test('installer-only survey can temporarily expose exactly one targeted customer
         'sort_order' => 1,
         // Queue assessment already finished (tests skip AssessUploadedPhotoJob).
         'content_assessment' => PhotoContentAssessment::ok(PhotoSubject::Fusebox)->toArray(),
+        'assessment_status' => PhotoAssessmentStatus::Assessed,
     ]);
 
     app(CompleteFollowUpRound::class)->handle($intake, $round, []);
