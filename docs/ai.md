@@ -4,8 +4,7 @@
 
 Status: **samenvatting, aandachtspunten, lokale fotokwaliteit, tekst-/foto-afleiding, verbindingsgebonden routeanalyse en bewijsgerichte dossiersynthese zijn geïmplementeerd**. Externe provider en tekst-/foto-/route-/dossierinferentie staan standaard uit (provider + key + featurevlaggen + budgetcaps; soft-fail zonder die config). OpenAI-compatibele gateways (o.a. OpenRouter) via `AI_BASE_URL`.
 
-De verplichte korte dossiersamenvatting is deterministisch en staat los van deze AI-laag. AI kan daarbovenop alleen een herkenbaar niet-bindend voorstel toevoegen.
-## Wat AI wél mag
+De verplichte korte dossiersamenvatting is deterministisch en staat los van deze AI-laag. AI kan daarbovenop alleen een herkenbaar niet-bindend voorstel toevoegen.## Wat AI wél mag
 
 AI levert een herleidbare technische voorzet en mag werk actief overnemen:
 
@@ -174,8 +173,15 @@ php artisan ai:traces:export --demo-only --format=jsonl --output=/tmp/demo-trace
 | `--demo-only` | Alleen `is_demo=true` |
 | `--format=jsonl\|md` | Standaard `jsonl`; `md` = kop per intake, subkop per call, JSON in fenced blocks |
 | `--output=` | Pad; default `storage/app/exports/ai-traces-<timestamp>.<ext>` |
+| `--format=jsonl\|md` | Weglaten = **beide** bestanden; anders één formaat |
+| `--output=` | Pad of basisnaam; default `storage/app/exports/ai-traces-<timestamp>.<ext>` (bij beide formaten: zelfde stem + `.jsonl`/`.md`) |
 
-Per call: call_type, prompt_version, provider-model, gemaskeerde request (system/user), photo_refs (upload_id/filename/question_key, nooit beelddata), raw/parsed, validation_errors/normalizations, tokens, provider_ms + total_duration_ms, fractional cost, status/error, request_id + correlation_id. Export past `AiTraceRedactor` opnieuw toe als veiligheidsnet.
+**jsonl:** één regel per call; elke regel bevat `intake_id` / `intake_ref_id`. Foto’s alleen als refs (upload_id/filename/question_key), nooit base64.
+**md:** korte index (intakes, call_count, total_cost), daarna per intake een kop (id, demo yes/no, created, models) en subsections per call met JSON in fenced blocks.
+
+**Grootte / parts:** bij overschrijding van ~1 MB of ~200k tokens (schatting 4 tekens/token) splitst de export automatisch in `-part1-of-N` bestanden (bij voorkeur op intakegrenzen, anders op callgrenzen). Bovenaan elk md-deel én in `ai-traces-<timestamp>-manifest.json` staan total_bytes, part_count en welke intakes in welk deel zitten; dezelfde samenvatting gaat naar de console.
+
+Per call: call_type, prompt_version, provider-model, gemaskeerde request (system/user), photo_refs, raw/parsed, validation_errors/normalizations, tokens, provider_ms + total_duration_ms, fractional cost, status/error, request_id + correlation_id. Export past `AiTraceRedactor` opnieuw toe als veiligheidsnet.
 
 ## Datastructuur `ai_runs`
 

@@ -171,6 +171,10 @@ return [
         'retention_days' => (int) env('AI_TRACE_RETENTION_DAYS', 30),
         'export_max_part_bytes' => (int) env('AI_TRACE_EXPORT_MAX_PART_BYTES', 1048576),
         'export_max_part_chars' => (int) env('AI_TRACE_EXPORT_MAX_PART_CHARS', 800000),
+// Soft caps for ai:traces:export part splitting (~1 MB / ~200k tokens @ 4 chars/token).
+        'export_max_bytes' => (int) env('AI_TRACE_EXPORT_MAX_BYTES', 1_000_000),
+        'export_max_tokens' => (int) env('AI_TRACE_EXPORT_MAX_TOKENS', 200_000),
+        'export_chars_per_token' => (float) env('AI_TRACE_EXPORT_CHARS_PER_TOKEN', 4.0),
     ],
 
 ];

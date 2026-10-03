@@ -88,8 +88,9 @@ test('ai:traces:export schrijft jsonl gegroepeerd per intake met masking', funct
 
     expect($exit)->toBe(0);
     $files = Storage::disk('local')->files('exports');
-    expect($files)->not->toBeEmpty();
-    $path = $files[0];
+    $jsonlFiles = array_values(array_filter($files, static fn (string $f): bool => str_ends_with($f, '.jsonl')));
+    expect($jsonlFiles)->not->toBeEmpty();
+    $path = $jsonlFiles[0];
     expect($path)->toEndWith('.jsonl');
 
     $body = Storage::disk('local')->get($path);
@@ -200,4 +201,75 @@ test('AiTraceExporter re-applies masking as safety net', function () {
         ->and($md)->not->toContain('leak@example.com')
         ->and($jsonl)->toContain('[redacted]')
         ->and($md)->toContain('[e-mail verwijderd]');
+});
+
+test('ai:traces:export splits into parts under size cap with manifest and photo refs only', function () {
+    config([
+        'ai.tracing.export_max_bytes' => 2_500,
+        'ai.tracing.export_max_tokens' => 200_000,
+    ]);
+
+    $a = exportTraceIntake();
+    $b = exportTraceIntake();
+    $c = exportTraceIntake();
+
+    foreach ([$a, $b, $c] as $intake) {
+        makeExportTrace($intake, [
+            'raw_response' => str_repeat('x', 1_200),
+            'request_snapshot' => [
+                'system' => 'Je bent assistent.',
+                'user' => ['note' => str_repeat('payload-', 80)],
+            ],
+            'photo_refs' => [[
+                'upload_id' => 42,
+                'question_key' => 'room_photos',
+                'original_filename' => 'kamer.jpg',
+                // Deliberately hostile: must never land in export as image data.
+                'data_uri' => 'data:image/jpeg;base64,'.str_repeat('A', 200),
+            ]],
+        ]);
+    }
+
+    $exit = Artisan::call('ai:traces:export', [
+        '--intake' => [$a->id.','.$b->id.','.$c->id],
+        '--format' => 'jsonl',
+    ]);
+
+    expect($exit)->toBe(0);
+    $files = Storage::disk('local')->files('exports');
+    $jsonlParts = array_values(array_filter(
+        $files,
+        static fn (string $f): bool => str_contains($f, '-part') && str_ends_with($f, '.jsonl'),
+    ));
+    $manifestFiles = array_values(array_filter(
+        $files,
+        static fn (string $f): bool => str_ends_with($f, '-manifest.json'),
+    ));
+
+    expect($jsonlParts)->toHaveCount(3)
+        ->and($manifestFiles)->toHaveCount(1);
+
+    $manifest = json_decode(Storage::disk('local')->get($manifestFiles[0]), true, 512, JSON_THROW_ON_ERROR);
+    expect($manifest['part_count'])->toBe(3)
+        ->and($manifest['parts'])->toHaveCount(3)
+        ->and($manifest['total_bytes'])->toBeGreaterThan(0);
+
+    $intakeIdsAcrossParts = [];
+    foreach ($manifest['parts'] as $part) {
+        expect($part['intakes'])->toHaveCount(1);
+        $intakeIdsAcrossParts[] = $part['intakes'][0];
+        $partBody = Storage::disk('local')->get(
+            'exports/'.($part['files']['jsonl'] ?? ''),
+        );
+        expect($partBody)->not->toContain('data:image')
+            ->and($partBody)->not->toContain(str_repeat('A', 50))
+            ->and($partBody)->toContain('kamer.jpg')
+            ->and($partBody)->toContain('room_photos');
+    }
+
+    expect($intakeIdsAcrossParts)->toContain($a->id, $b->id, $c->id);
+
+    $output = Artisan::output();
+    expect($output)->toContain('part 1/3')
+        ->and($output)->toContain('manifest:');
 });

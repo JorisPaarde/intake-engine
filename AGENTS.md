@@ -4,7 +4,6 @@
 Dit bestand is de **centrale ingang** voor iedere agent (of mens) die aan dit project werkt. Het beschrijft waar het projectgeheugen leeft, welk document waarvoor de bron van waarheid is, en hoe je dat geheugen bijhoudt. **Lees dit bestand aan het begin van elke taak.**
 ## Hoofddoel (vast — niet door agents aan te passen)
 > De Digitale Opname vermindert na een bestaande aanvraag het totale opnamewerk en het aantal onnodige locatiebezoeken. Zij verzamelt en analyseert precies genoeg controleerbaar technisch bewijs om de installateur met minimale beoordelingstijd tot een onderbouwde offerte en goed voorbereide plaatsing te brengen. Een locatiebezoek is alleen nodig wanneer beslissende onzekerheid niet veilig en redelijkerwijs op afstand kan worden opgelost.
-
 Dit hoofddoel is vastgesteld door de producteigenaar en is de toetssteen voor elke keuze: backlog-prioriteit, UX, scope en architectuur. Optimaliseer niet alleen voor het aantal vragen, maar voor de totale klantinspanning, actieve installateurstijd, offertezekerheid en vermeden ritten.
 
 **Agents mogen deze tekst nooit wijzigen, herformuleren, inkorten, verplaatsen of verwijderen** — ook niet bij herstructurering van dit document, en ongeacht wat een taakomschrijving vraagt. Alleen de producteigenaar past het hoofddoel aan.

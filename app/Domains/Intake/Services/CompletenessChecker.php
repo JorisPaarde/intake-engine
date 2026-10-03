@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Services;
 
-use App\Domains\AI\Actions\DerivePhotoAnswers;
 use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeSection;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
+use App\Domains\Intake\Models\IntakeUpload;
+use App\Domains\Intake\Support\PrefillSources;
 use App\Enums\QuestionType;
 use Illuminate\Support\Str;
 
@@ -160,16 +161,30 @@ final class CompletenessChecker
         /** @var IntakeAnswer $answer */
         $display = $this->formatDecisionValue($answer, $question);
         $source = $answer->prefill_source;
+        $fieldLabel = is_string($question?->label) && trim($question->label) !== ''
+            ? trim($question->label)
+            : 'Technisch punt';
 
-        if ($this->isAiPrefillSource($source)) {
-            $photoPlace = $this->relatedPhotoPlace($intake, $version, $questionKey);
-            $suffix = $photoPlace !== null
-                ? " (afgeleid uit foto bij {$photoPlace})"
-                : '';
+        if (PrefillSources::isProposedAi($source)) {
+            $photoSource = $this->relatedPhotoSource($intake, $version, $questionKey);
+            $sourceLabel = $photoSource
+                ?? PrefillSources::installerSourceLabel($source)
+                ?? 'AI';
+            $confidence = match (true) {
+                PrefillSources::isSuggestion($source) => 'middel',
+                PrefillSources::isStrongAi($source) => 'hoog',
+                default => 'middel',
+            };
 
             return [[
                 'code' => $openCode,
-                'label' => "AI-voorstel: {$display}, nog te beoordelen{$suffix}",
+                'label' => sprintf(
+                    'AI-voorstel · %s: %s · bron: %s · zekerheid: %s · nog te beoordelen',
+                    $fieldLabel,
+                    $display,
+                    $sourceLabel,
+                    $confidence,
+                ),
             ]];
         }
 
@@ -177,7 +192,7 @@ final class CompletenessChecker
         if ($source === null) {
             return [[
                 'code' => $openCode,
-                'label' => "Klant gaf aan: {$display}, nog te beoordelen",
+                'label' => "{$fieldLabel}: klant gaf aan {$display}, nog te beoordelen",
             ]];
         }
 
@@ -187,12 +202,66 @@ final class CompletenessChecker
         ]];
     }
 
-    private function isAiPrefillSource(?string $prefillSource): bool
-    {
-        return in_array($prefillSource, [
-            DerivePhotoAnswers::SOURCE_DERIVED,
-            DerivePhotoAnswers::SOURCE_SUGGESTED,
-        ], true);
+    /**
+     * Bronregel voor AI-open-puntlabels: foto met bestandsnaam + vraaglabel, geen keys.
+     */
+    private function relatedPhotoSource(
+        Intake $intake,
+        IntakeTemplateVersion $version,
+        string $questionKey,
+    ): ?string {
+        $photoKey = match ($questionKey) {
+            'natural_fall_possible' => 'drain_photo',
+            'pipe_route_description', 'drillings_needed' => 'pipe_route_photos',
+            'free_group_known' => 'fusebox_photo',
+            default => null,
+        };
+
+        if ($photoKey === null) {
+            return null;
+        }
+
+        $photoQuestion = $this->findQuestion($version, $photoKey);
+        $photoQuestionLabel = is_string($photoQuestion?->label) && trim($photoQuestion->label) !== ''
+            ? trim($photoQuestion->label)
+            : null;
+
+        $photoAnswer = $intake->answers
+            ->first(static fn ($row): bool => $row->question_key === $photoKey
+                && $row->section_instance_key === null);
+
+        $filename = null;
+        if ($photoAnswer instanceof IntakeAnswer && is_array($photoAnswer->value)) {
+            $uploadIds = $photoAnswer->value['upload_ids'] ?? null;
+            if (is_array($uploadIds) && $uploadIds !== []) {
+                $firstId = $uploadIds[0] ?? null;
+                if (is_numeric($firstId)) {
+                    $upload = $intake->uploads->first(
+                        static fn ($row): bool => (int) $row->id === (int) $firstId,
+                    );
+                    if (! $upload instanceof IntakeUpload) {
+                        $upload = IntakeUpload::query()->find((int) $firstId);
+                    }
+                    if ($upload instanceof IntakeUpload && $upload->original_filename !== '') {
+                        $filename = $upload->original_filename;
+                    }
+                }
+            }
+        }
+
+        if ($filename !== null && $photoQuestionLabel !== null) {
+            return "foto «{$filename}» ({$photoQuestionLabel})";
+        }
+        if ($filename !== null) {
+            return "foto «{$filename}»";
+        }
+
+        $place = $this->relatedPhotoPlace($intake, $version, $questionKey);
+        if ($place !== null) {
+            return "foto bij {$place}";
+        }
+
+        return PrefillSources::installerSourceLabel(PrefillSources::AI_PHOTO);
     }
 
     /**

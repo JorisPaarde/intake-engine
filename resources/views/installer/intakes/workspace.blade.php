@@ -1286,6 +1286,13 @@
                                         <p class="text-sm text-gray-500">Nog geen relevante woninggegevens gevonden.</p>
                                     @endforelse
                                 </dl>
+                                @if ($rootSubject)
+                                    @include('installer.intakes._subject-tools', [
+                                        'intake' => $intake,
+                                        'subject' => $rootSubject,
+                                        'connection' => null,
+                                    ])
+                                @endif
                                 @if ($externalData['aerial_image'])
                                     <details class="mt-4 overflow-hidden rounded-2xl border border-gray-200 bg-gray-50">
                                         <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-gray-800">Luchtfoto van de omgeving bekijken</summary>

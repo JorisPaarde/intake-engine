@@ -789,7 +789,15 @@ final class DossierManager
             return 'customer_input';
         }
 
-        return $isAssumption ? 'ai_assumption' : 'automatic_prefill';
+        if ($isAssumption) {
+            return 'ai_assumption';
+        }
+
+        if (PrefillSources::isProposedAi($answer->prefill_source)) {
+            return 'ai_proposal';
+        }
+
+        return 'automatic_prefill';
     }
 
     /**
@@ -803,7 +811,8 @@ final class DossierManager
     ): array {
         $value = is_array($answer->value) ? $answer->value : [];
 
-        if (! $isAssumption) {
+        $enrichProposal = $isAssumption || PrefillSources::isProposedAi($answer->prefill_source);
+        if (! $enrichProposal) {
             return $value;
         }
 
@@ -821,7 +830,7 @@ final class DossierManager
             '_field_label' => $fieldLabel,
             '_display_value' => $displayValue,
             '_provenance_label' => ($provenance ?? FactProvenance::Inferred)->installerLabel(),
-            '_source_label' => PrefillSources::installerSourceLabel($answer->prefill_source, $provenance) ?? 'aanname',
+            '_source_label' => PrefillSources::installerSourceLabel($answer->prefill_source, $provenance) ?? 'AI',
             '_confidence_label' => $confidence,
         ]);
     }

@@ -11,7 +11,7 @@
     $assumptions = $subjectRecords
         ->filter(
             fn ($record) => $record->status === \App\Enums\DossierRecordStatus::Proposed
-                && $record->method === 'ai_assumption'
+                && in_array($record->method, ['ai_assumption', 'ai_proposal'], true)
         )
         ->sortByDesc('id');
     $technicalNotes = $subjectRecords
@@ -63,7 +63,7 @@
 
     @if ($assumptions->isNotEmpty())
         <div class="mt-4 space-y-2">
-            <p class="text-xs font-semibold uppercase tracking-[0.06em] text-amber-800">Aannames (nog bevestigen)</p>
+            <p class="text-xs font-semibold uppercase tracking-[0.06em] text-amber-800">AI-voorstellen (nog bevestigen)</p>
             <ul class="space-y-2">
                 @foreach ($assumptions as $assumption)
                     @php
