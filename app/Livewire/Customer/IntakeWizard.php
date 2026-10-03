@@ -2321,7 +2321,8 @@ class IntakeWizard extends Component
      *     section_key: string,
      *     section_instance_key: string|null,
      *     question_key: string,
-     *     kind?: 'question'|'known_summary'
+     *     kind?: 'question'|'known_summary'|'question_group',
+     *     group_question_keys?: list<string>
      * }|null  $step
      */
     private function saveStep(?array $step): void
@@ -3198,7 +3199,9 @@ class IntakeWizard extends Component
      *     section_key: string,
      *     section_instance_key: string|null,
      *     question_key: string,
-     *     kind?: 'question'|'known_summary'
+     *     is_required?: bool,
+     *     kind?: 'question'|'known_summary'|'question_group',
+     *     group_question_keys?: list<string>
      * }|null  $step
      */
     private function stepRequiredSatisfied(?array $step): bool
@@ -3329,14 +3332,16 @@ class IntakeWizard extends Component
      *     help_text: string|null,
      *     is_repeatable: bool,
      *     is_required: bool,
-     *     kind?: 'question'|'known_summary',
+     *     kind?: 'question'|'known_summary'|'question_group',
      *     known_items?: list<array{
      *         question_key: string,
      *         section_instance_key: string|null,
      *         label: string,
      *         display_value: string,
      *         prefill_source: string,
-     *     }>
+     *     }>,
+     *     group_key?: string,
+     *     group_question_keys?: list<string>
      * }>  $steps
      * @return array{
      *     key: string,
@@ -3349,14 +3354,16 @@ class IntakeWizard extends Component
      *     help_text: string|null,
      *     is_repeatable: bool,
      *     is_required: bool,
-     *     kind?: 'question'|'known_summary',
+     *     kind?: 'question'|'known_summary'|'question_group',
      *     known_items?: list<array{
      *         question_key: string,
      *         section_instance_key: string|null,
      *         label: string,
      *         display_value: string,
      *         prefill_source: string,
-     *     }>
+     *     }>,
+     *     group_key?: string,
+     *     group_question_keys?: list<string>
      * }|null
      */
     private function resolveDisplayedStep(array $steps): ?array
