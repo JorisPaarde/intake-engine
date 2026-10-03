@@ -529,6 +529,8 @@ test('AI synthesis stores rejected proposal reasons and keeps remaining valid pr
         ->and($run?->error_message)->toContain('not_a_real_area')
         ->and($run?->error_message)->not->toContain('(and 1 more error)')
         ->and($run?->input_tokens)->toBe(100)
+        ->and($run?->estimated_cost_microcents)->not->toBeNull()
+        ->and($run?->estimated_cost_cents)->not->toBeNull()
         ->and(AircoInstallationOption::query()->where('intake_id', $intake->id)->count())->toBe(0);
 });
 

@@ -166,4 +166,58 @@ final class PrefillSources
 
         return self::matchesSkipSource($answerSource, $skipSources);
     }
+
+    /**
+     * AI-aanname / voorzet: niet bevestigd door de klant (wizard mag om bevestiging vragen).
+     */
+    public static function isAssumption(?string $source): bool
+    {
+        return self::isSuggestion($source);
+    }
+
+    /**
+     * Wizard-hook: moet de klant dit antwoord nog bevestigen?
+     * Risicokeys met inferred/unknown of elke tekstsuggestie → ja.
+     */
+    public static function needsCustomerConfirmation(
+        ?string $prefillSource,
+        ?FactProvenance $provenance = null,
+        ?string $questionKey = null,
+    ): bool {
+        if ($prefillSource === null) {
+            return false;
+        }
+
+        if (self::isAssumption($prefillSource)) {
+            return true;
+        }
+
+        if ($questionKey !== null
+            && $provenance instanceof FactProvenance
+            && RiskRelevantPrefillKeys::requiresConfirmation($questionKey, $provenance)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Installateurslabel voor dossierweergave (null = geen badge).
+     */
+    public static function installerSourceLabel(?string $prefillSource, ?FactProvenance $provenance = null): ?string
+    {
+        if (self::isAssumption($prefillSource)) {
+            return 'aanname';
+        }
+
+        if ($provenance === FactProvenance::Inferred && PrefillSources::isStrongAi($prefillSource)) {
+            return 'aanname';
+        }
+
+        if ($provenance === FactProvenance::Stated && self::isTextDerived($prefillSource)) {
+            return 'uit aanvraag';
+        }
+
+        return null;
+    }
 }

@@ -18,7 +18,9 @@ use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeAnswer;
+use App\Domains\Intake\Support\FactProvenance;
 use App\Domains\Intake\Support\PrefillSources;
+use App\Domains\Intake\Support\RiskRelevantPrefillKeys;
 use App\Domains\Intake\Support\RoomAreaAcceptance;
 use App\Domains\Intake\Support\TechnicalDecisionKeys;
 use App\Enums\AiRunStatus;
@@ -178,6 +180,7 @@ final class PrefillAnswersFromKnownContext
                             'section_instance_key' => $candidate->sectionInstanceKey,
                             'disposition' => $candidate->disposition,
                             'confidence' => $candidate->confidence,
+                            'provenance' => $candidate->provenance?->value,
                             'source' => $candidate->source,
                             'reason' => $candidate->reason,
                             'has_value' => $candidate->value !== null,
@@ -291,6 +294,13 @@ final class PrefillAnswersFromKnownContext
                 ? self::SOURCE_DERIVED
                 : self::SOURCE_SUGGESTED;
 
+            $provenance = $candidate->provenance ?? FactProvenance::Inferred;
+
+            // Risicokeys met aanname: altijd suggestion-bron, nooit confirmed skip.
+            if (RiskRelevantPrefillKeys::requiresConfirmation($candidate->questionKey, $provenance)) {
+                $source = self::SOURCE_SUGGESTED;
+            }
+
             if ($candidate->questionKey === 'room_area_m2') {
                 $number = $candidate->value['number'] ?? null;
                 $area = is_numeric($number) ? (float) $number : null;
@@ -313,6 +323,7 @@ final class PrefillAnswersFromKnownContext
                     $candidate->sectionInstanceKey,
                     $candidate->value,
                     $source,
+                    $provenance,
                 );
                 $applied[] = $candidate->compositeKey();
             } catch (Throwable $exception) {

@@ -269,6 +269,8 @@ final class DossierSynthesisPartialAcceptor
      */
     private function acceptOption(array $option, string $path, $placements, array $evidence): array
     {
+        $option = $this->remapSubjectRefsToPlacements($option, $placements);
+
         $validator = Validator::make(
             ['item' => $option],
             [
@@ -422,6 +424,52 @@ final class DossierSynthesisPartialAcceptor
         $item['connections'] = $connections;
 
         return ['accepted' => $item, 'reason' => null];
+    }
+
+    /**
+     * Prod run-243: models sometimes emit subject:N where placement:N was meant.
+     * Remap only when exactly one placement belongs to that subject.
+     *
+     * @param  array<string, mixed>  $option
+     * @param  Collection<string, array<string, mixed>>  $placements
+     * @return array<string, mixed>
+     */
+    private function remapSubjectRefsToPlacements(array $option, $placements): array
+    {
+        $resolve = function (mixed $reference) use ($placements): mixed {
+            if (! is_string($reference) || preg_match('/^subject:\d+$/', $reference) !== 1) {
+                return $reference;
+            }
+
+            $matches = $placements
+                ->filter(static fn (array $placement): bool => ($placement['subject_reference'] ?? null) === $reference)
+                ->keys()
+                ->values();
+
+            return $matches->count() === 1 ? $matches->first() : $reference;
+        };
+
+        if (isset($option['placement_references']) && is_array($option['placement_references'])) {
+            $option['placement_references'] = array_values(array_map(
+                $resolve,
+                $option['placement_references'],
+            ));
+        }
+
+        if (isset($option['connections']) && is_array($option['connections'])) {
+            foreach ($option['connections'] as $index => $connection) {
+                if (! is_array($connection)) {
+                    continue;
+                }
+                foreach (['from_placement_reference', 'to_placement_reference'] as $key) {
+                    if (array_key_exists($key, $connection)) {
+                        $option['connections'][$index][$key] = $resolve($connection[$key]);
+                    }
+                }
+            }
+        }
+
+        return $option;
     }
 
     /**

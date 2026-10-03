@@ -34,11 +34,17 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 - **Dossiersynthese faalde op élk model (structuur + timeout + budget):**
   1. `OpenAiClient` ondersteunt strikte structured output (`response_format.json_schema`, `strict: true`) wanneer de caller een schema meegeeft; zonder schema blijft `json_object`. Dossiersynthese stuurt `DossierSynthesisJsonSchema` (enums, required, referentieformats).
-  2. `DossierSynthesisPartialAcceptor`: valideer per placement/option/connection; geldige items blijven, ongeldige worden gedropt met reden in AI-trace/`ai_runs`. Status `partial` of `succeeded` zolang minstens één voorstel overblijft; kapotte optie-connections laten geldige placements staan.
+  2. `DossierSynthesisPartialAcceptor`: valideer per placement/option/connection; geldige items blijven, ongeldige worden gedropt met reden in AI-trace/`ai_runs`. Status `partial` of `succeeded` zolang minstens één voorstel overblijft; kapotte optie-connections laten geldige placements staan. Eenduidige `subject:N` in placement/connection-refs wordt omgezet naar de bijbehorende `placement:N` (prod run-243); te weinig placements/connections blijft afgewezen.
   3. Prompt **`dossier-synthesis-v5`**: expliciet `from`/`to` = placement/proposal-refs (niet `room:ID`), `evidence_references` min. 1, min. cardinaliteit, few-shot voorbeeld.
   4. `AI_DOSSIER_TIMEOUT_SECONDS` (default 45) voor de queue-job, los van web-timeout 20s.
   5. Fractionele budgetteller: `estimated_cost_microcents` (1 cent = 10_000); reserve alleen pre-call; lege tarieven → reserve + éénmalige warning. Dossier-runs schrijven `image_count`/tokens/kosten ook bij partial/fail.
 
+### Added
+
+- **Prefill-provenance + aannames in het installateursdossier (BL-125, deel):**
+  1. `FactProvenance` (`stated`/`inferred`/`unknown`) + `RiskRelevantPrefillKeys`; risicokeys (`ownership`, `noise_sensitive`, techniek) met inferred → `ai_text_suggestion` + dossiermethode `ai_assumption` (“aanname”); `PrefillSources::needsCustomerConfirmation()` voor de wizard (UI nog niet aangesloten). Ontbrekende provenance op risicokeys → veilig inferred (geen promptbump in deze PR).
+  2. Dossier toont aannames met Nederlandse veldlabels, bron en zekerheid (geen raw question keys). Kolom `intake_answers.fact_provenance`.
+  3. Ownership-normaliser, room_name-sync, trace-retention/export en gerelateerde promptwijzigingen → parallelle PRs (buiten scope).
 ## [1.3.0] - 2026-10-03
 
 

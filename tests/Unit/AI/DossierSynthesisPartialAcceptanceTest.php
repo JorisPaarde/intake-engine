@@ -208,6 +208,89 @@ test('partial acceptor drops invalid placement subject_reference but keeps valid
         ->and($result['validation_errors'])->toHaveKey('placement_proposals.0');
 });
 
+test('partial acceptor remaps unambiguous subject refs to placements (prod run-243)', function () {
+    $input = partialAcceptorInput();
+    // Mimic prod: placement:298 lives under subject:298.
+    $input['placements'][] = [
+        'reference' => 'placement:298',
+        'type' => AircoPlacementType::IndoorUnit->value,
+        'subject_reference' => 'subject:298',
+    ];
+    $input['subjects'][] = ['reference' => 'subject:298'];
+    $input['rooms'][] = [
+        'reference' => 'room:98',
+        'subject_reference' => 'subject:298',
+    ];
+
+    $output = [
+        'summary' => 'Model gebruikte subject:298 waar placement:298 hoorde.',
+        'placement_proposals' => [],
+        'option_proposals' => [[
+            'label' => 'Single-split met subject-refs',
+            'configuration_type' => AircoConfigurationType::SingleSplit->value,
+            'summary' => 'Binnen- en buitenpositie met koel-, condens- en stroomverbinding.',
+            'cost_impact' => 'medium',
+            'confidence' => 0.7,
+            // Prod quirk: subject:298 i.p.v. placement:298; overige refs correct.
+            'placement_references' => ['subject:298', 'placement:82', 'placement:83', 'placement:84'],
+            'connections' => [
+                validConnection('refrigerant', 'subject:298', 'placement:82', 'dossier_image:101'),
+                validConnection('condensate', 'subject:298', 'placement:84', 'dossier_image:101'),
+                validConnection('power', 'placement:83', 'placement:82', 'dossier_image:102'),
+            ],
+        ]],
+        'exceptions' => [],
+        'customer_tasks' => [],
+    ];
+
+    $result = app(DossierSynthesisPartialAcceptor::class)->accept($output, $input);
+
+    expect($result['has_accepted_proposals'])->toBeTrue()
+        ->and($result['had_rejections'])->toBeFalse()
+        ->and($result['accepted']['option_proposals'])->toHaveCount(1)
+        ->and($result['accepted']['option_proposals'][0]['placement_references'])
+        ->toBe(['placement:298', 'placement:82', 'placement:83', 'placement:84'])
+        ->and($result['accepted']['option_proposals'][0]['connections'][0]['from_placement_reference'])->toBe('placement:298');
+});
+
+test('partial acceptor drops run-243 option that still has too few placements or connections after remap', function () {
+    $input = partialAcceptorInput();
+    $input['placements'][] = [
+        'reference' => 'placement:298',
+        'type' => AircoPlacementType::IndoorUnit->value,
+        'subject_reference' => 'subject:298',
+    ];
+    $input['subjects'][] = ['reference' => 'subject:298'];
+
+    $tooFew = [
+        'summary' => 'Te weinig placements en connections (prod run-243).',
+        'placement_proposals' => [],
+        'option_proposals' => [[
+            'label' => 'Incomplete optie',
+            'configuration_type' => AircoConfigurationType::SingleSplit->value,
+            'summary' => 'Alleen één subject-ref en twee connections.',
+            'cost_impact' => 'medium',
+            'confidence' => 0.6,
+            'placement_references' => ['subject:298'], // min 2 ontbreekt ook na remap
+            'connections' => [
+                validConnection('refrigerant', 'subject:298', 'placement:82', 'dossier_image:101'),
+                validConnection('condensate', 'subject:298', 'placement:84', 'dossier_image:101'),
+                // power missing
+            ],
+        ]],
+        'exceptions' => [],
+        'customer_tasks' => [],
+    ];
+
+    $result = app(DossierSynthesisPartialAcceptor::class)->accept($tooFew, $input);
+
+    expect($result['has_accepted_proposals'])->toBeFalse()
+        ->and($result['had_rejections'])->toBeTrue()
+        ->and($result['accepted']['option_proposals'])->toBe([])
+        ->and($result['validation_errors'])->toHaveKey('option_proposals.0')
+        ->and($result['validation_errors']['option_proposals.0'][0] ?? '')->toContain('placement_references');
+});
+
 test('dossier synthesis json schema encodes enums and required reference shapes', function () {
     $schema = app(DossierSynthesisJsonSchema::class)->schema();
     $format = app(DossierSynthesisJsonSchema::class)->responseFormat();

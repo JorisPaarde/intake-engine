@@ -2,7 +2,6 @@
 
 > **Documentversie:** 3.18 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 Status: dit document beschrijft het **geïmplementeerde schema**, inclusief de uitbreidende dossiermigratie van BL-030 en BL-035 t/m BL-042 en de zelfstandige publieke interesse-inzendingen van BL-043. Bestaande antwoord-, bron-, upload-, review- en routetabellen blijven bewust bestaan naast de nieuwe dossierobjecten.
-
 ## Ontwerpprincipes
 
 1. **Template ≠ uitvoering.** Definities (templateversies, secties, vragen) zijn los van antwoorden van een concrete opname.
@@ -305,6 +304,7 @@ Eén actuele uitkomst per opname: `result`, actieve installateur- en klantminute
 | `section_instance_key` | string nullable | Bij repeatables: `room-1` |
 | `value` | json | Genormaliseerde waarde |
 | `prefill_source` | string nullable | Herkomst: o.a. `installer`, `pdok`, `epo`, `request_text` (sterk/lokaal uit openingszin), `ai_text` (catalogus-tekst-AI), `ai_photo` (foto-AI), legacy `ai`, `ai_text_suggestion` / `ai_photo_suggestion` (medium; legacy `ai_suggestion` = foto-suggestie), `derived_lxw` (m²/grootte uit L×B). De gepinde template bepaalt of een bronvraag zichtbaar blijft; legacy skiplijsten met alleen `ai` matchen ook `ai_text`/`ai_photo`. `null` bij normale klantinvoer. Zie [intake-engine.md § Prefill](intake-engine.md#prefill-van-bekende-gegevens-bl-016). |
+| `fact_provenance` | string nullable | BL-125: `stated` / `inferred` / `unknown` — letterlijk gezegd vs. AI-aanname. Inferred risicokeys → voorzet/`ai_assumption` in het dossier. |
 | `answered_at` | timestamp | |
 
 Unique: `(intake_id, question_key, section_instance_key)`.  
@@ -576,6 +576,7 @@ Volledige AI-ketenlogging (request → response → parse → dossier/restvragen
 | `provider` / `model` / `model_parameters` | | Werkelijk gebruikte provider/model |
 | `prompt_version` | string nullable | |
 | `correlation_id` / `parent_trace_id` | uuid nullable | Gedeelde uploadketen / escalatie-ouder |
+| `provider_request_id` | string nullable | Provider-completion-`id` (BL-125) |
 | `fallback_used` / `retry_count` | | |
 | `request_snapshot` / `photo_refs` | json nullable | Geredigeerd; foto-refs zonder base64 (wel filename) |
 | `raw_response` | mediumtext nullable | |
