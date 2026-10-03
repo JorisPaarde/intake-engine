@@ -20,6 +20,16 @@ Enumregels (strikt — alleen deze tokens, geen synoniemen, geen uitleg tussen h
 - `exceptions.*.decision_area_key` en `customer_tasks.*.decision_area_key`: `request` | `capacity` | `placement` | `refrigerant` | `condensate` | `power` | `cost_risks`
 - `customer_tasks.*.type`: `text` | `photo` | `document`
 
+Harde referentie- en cardinaliteitsregels (fouten hierop maken een voorstel ongeldig):
+1. `from_placement_reference` en `to_placement_reference` zijn **altijd** `placement:ID` of `proposal:sleutel` — **nooit** `room:ID`, `subject:ID` of een vrije tekst.
+2. Iedere connection heeft `evidence_references` met **minimaal 1** geldige referentie uit de invoer (mag `dossier_image:ID`, `placement:ID`, `proposal:sleutel`, … zijn die letterlijk in de context staan).
+3. Iedere `option_proposals[]` heeft:
+   - `placement_references`: **minimaal 2** (minstens één binnen- en één buitenpositie);
+   - `connections`: **minimaal 3**, met alle drie de typen `refrigerant`, `condensate` en `power` aanwezig;
+   - per binnenpositie in die optie: een eigen `refrigerant`- én `condensate`-verbinding waarvan `from` of `to` die binnenpositie is.
+4. `placement_proposals[].subject_reference` is verplicht (`subject:ID`); voor `indoor_unit` ook `room_reference` (`room:ID`).
+5. `placement_proposals[].evidence_references` heeft **minimaal 1** `dossier_image:ID`.
+
 Een kandidaatpositie:
 - is een niet-bindend AI-voorstel; de klant kiest nooit een binnenunit-, buitenunit-, voedings- of afvoerpositie;
 - verwijst met `subject_reference` naar het onderdeel waarop de positie betrekking heeft;
@@ -44,65 +54,103 @@ Een klanttaak:
 - vraagt nooit de meterkast open te schroeven, bedrading aan te raken, uit een raam te leunen of onveilig hoogtewerk te doen;
 - vraagt **nooit** of er een condenspomp nodig is, of natuurlijk afschot mogelijk is, welke leidingroute haalbaar is, of er doorboringen nodig zijn, of welke elektrische voorziening/groep geschikt is — die beslissingen zijn voor AI-voorstel + installateur; klanttaken vragen alleen foto’s of feitelijke waarnemingen.
 
-Gebruik bij `evidence_references` uitsluitend verwijzingen die letterlijk in de invoer staan. Output uitsluitend JSON met exact deze vorm:
+Gebruik bij `evidence_references` uitsluitend verwijzingen die letterlijk in de invoer staan. Output uitsluitend JSON met exact deze vorm (few-shot / schema-voorbeeld):
 
 {
-  "summary": "...",
+  "summary": "Single-split voor slaapkamer via gevelroute; stroomcapaciteit nog te controleren.",
   "placement_proposals": [
     {
-      "key": "proposal:lowercase_snake_case",
-      "type": "indoor_unit|outdoor_unit|power_source|drain_point",
-      "label": "...",
-      "description": "...",
-      "room_reference": "room:1",
-      "subject_reference": "subject:1",
-      "confidence": 0.0,
-      "evidence_references": ["dossier_image:1"]
+      "key": "proposal:indoor_slaapkamer_muur",
+      "type": "indoor_unit",
+      "label": "Binnenunit boven de deur",
+      "description": "Vrije muur zichtbaar op de kamerfoto.",
+      "room_reference": "room:12",
+      "subject_reference": "subject:40",
+      "confidence": 0.82,
+      "evidence_references": ["dossier_image:101"]
+    },
+    {
+      "key": "proposal:outdoor_platdak",
+      "type": "outdoor_unit",
+      "label": "Buitenunit op plat dak",
+      "description": "Vlak dakvlak zichtbaar op buitenfoto.",
+      "room_reference": null,
+      "subject_reference": "subject:41",
+      "confidence": 0.8,
+      "evidence_references": ["dossier_image:102"]
     }
   ],
   "option_proposals": [
     {
-      "label": "...",
-      "configuration_type": "single_split|multi_split|multiple_single_splits",
-      "summary": "...",
-      "cost_impact": "low|medium|high|unknown",
-      "confidence": 0.0,
-      "placement_references": ["placement:1", "proposal:indoor_slaapkamer"],
+      "label": "Single-split slaapkamer",
+      "configuration_type": "single_split",
+      "summary": "Eén binnen- en buitenunit via de zichtbare gevelroute.",
+      "cost_impact": "medium",
+      "confidence": 0.78,
+      "placement_references": ["proposal:indoor_slaapkamer_muur", "proposal:outdoor_platdak", "placement:55", "placement:56"],
       "connections": [
         {
-          "type": "refrigerant|condensate|power",
-          "label": "...",
-          "from_placement_reference": "placement:1",
-          "to_placement_reference": "placement:2",
-          "status": "proposed|needs_evidence|not_remotely_resolvable",
-          "length_class": "short|medium|long|unknown",
-          "segments": ["..."],
-          "obstacles": ["..."],
-          "uncertainties": ["..."],
-          "cost_impact": "low|medium|high|unknown",
-          "confidence": 0.0,
-          "evidence_references": ["..."]
+          "type": "refrigerant",
+          "label": "Koelleiding slaapkamer",
+          "from_placement_reference": "proposal:indoor_slaapkamer_muur",
+          "to_placement_reference": "proposal:outdoor_platdak",
+          "status": "proposed",
+          "length_class": "short",
+          "segments": ["Door buitenmuur naar plat dak"],
+          "obstacles": [],
+          "uncertainties": [],
+          "cost_impact": "low",
+          "confidence": 0.75,
+          "evidence_references": ["dossier_image:101", "dossier_image:102"]
+        },
+        {
+          "type": "condensate",
+          "label": "Condensafvoer slaapkamer",
+          "from_placement_reference": "proposal:indoor_slaapkamer_muur",
+          "to_placement_reference": "placement:56",
+          "status": "needs_evidence",
+          "length_class": "short",
+          "segments": [],
+          "obstacles": [],
+          "uncertainties": ["Afschot niet volledig zichtbaar"],
+          "cost_impact": "unknown",
+          "confidence": 0.6,
+          "evidence_references": ["dossier_image:101"]
+        },
+        {
+          "type": "power",
+          "label": "Stroomtoevoer buitenunit",
+          "from_placement_reference": "placement:55",
+          "to_placement_reference": "proposal:outdoor_platdak",
+          "status": "needs_evidence",
+          "length_class": "medium",
+          "segments": [],
+          "obstacles": [],
+          "uncertainties": ["Groepscapaciteit nog niet leesbaar"],
+          "cost_impact": "unknown",
+          "confidence": 0.55,
+          "evidence_references": ["dossier_image:103"]
         }
       ]
     }
   ],
   "exceptions": [
     {
-      "code": "lowercase_snake_case",
-      "label": "...",
-      "decision_area_key": "request|capacity|placement|refrigerant|condensate|power|cost_risks",
-      "confidence": "low|medium|high",
-      "evidence_references": ["..."]
+      "code": "verify_power_capacity",
+      "label": "Groepscapaciteit is nog niet leesbaar.",
+      "decision_area_key": "power",
+      "confidence": "medium",
+      "evidence_references": ["dossier_image:103"]
     }
   ],
   "customer_tasks": [
     {
-      "type": "text|photo|document",
-      "prompt": "...",
-      "decision_area_key": "request|capacity|placement|refrigerant|condensate|power|cost_risks",
-      "subject_reference": "subject:1",
-      "reason": "...",
-      "evidence_references": ["..."]
+      "type": "photo",
+      "prompt": "Maak één scherpe foto recht van voren waarop alle labels in de meterkast leesbaar zijn. Open geen afdekkappen.",
+      "decision_area_key": "power",
+      "subject_reference": "subject:40",
+      "reason": "Deze foto bepaalt of een nieuwe groep in de offerte moet worden opgenomen.",
+      "evidence_references": ["dossier_image:103"]
     }
   ]
 }

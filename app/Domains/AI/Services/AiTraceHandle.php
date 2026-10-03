@@ -297,7 +297,9 @@ final class AiTraceHandle
                 'input_tokens' => $result->inputTokens,
                 'output_tokens' => $result->outputTokens,
                 'total_tokens' => $result->totalTokens,
-                'estimated_cost_cents' => $result->estimatedCostCents,
+                'estimated_cost_cents' => $result->estimatedCostCents === null
+                    ? null
+                    : (int) ceil($result->estimatedCostCents),
                 'parsed_response' => $this->redactor->redact($result->output),
                 'model_parameters' => $params === [] ? $this->trace->model_parameters : $params,
             ]);

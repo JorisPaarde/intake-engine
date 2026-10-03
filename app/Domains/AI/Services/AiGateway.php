@@ -19,6 +19,7 @@ final class AiGateway
     /**
      * @param  array<string, mixed>  $input
      * @param  list<AiImageInput>  $images
+     * @param  array<string, mixed>|null  $responseSchema
      */
     public function complete(
         string $prompt,
@@ -28,6 +29,8 @@ final class AiGateway
         array $images = [],
         ?string $model = null,
         ?float $temperature = null,
+        ?array $responseSchema = null,
+        ?int $timeoutSeconds = null,
     ): AiCompletionResult {
         try {
             return $this->client->complete(new AiCompletionRequest(
@@ -38,6 +41,8 @@ final class AiGateway
                 images: $images,
                 model: $model,
                 temperature: $temperature,
+                responseSchema: $responseSchema,
+                timeoutSeconds: $timeoutSeconds,
             ));
         } catch (AiClientException $e) {
             throw $e;

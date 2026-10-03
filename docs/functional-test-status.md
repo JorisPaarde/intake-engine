@@ -1,7 +1,6 @@
 # Functionele teststatus
 
 > **Documentversie:** 1.94 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
-
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
 **Stappen voor een visuele browser-run:** [docs/browser-test-flow.md](browser-test-flow.md) (niet dit bestand). Dit document is alleen de uitslag. Een Pest-run vult hier niets in.
@@ -17,6 +16,7 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 | AI-trace retentie/export + PDF-downscale (BL-125) | todo | - | Demo-purge: traces blijven via `intake_ref_id`; `ai:traces:export` jsonl+md voor 3 intakes; PDF van dossier met grote foto’s blijft merkelijk kleiner dan 29 MB zonder originelen te wijzigen. |
 | Form robustness adres/maten/upload (BL-124) | todo | - | Create: vroeg submit tijdens lookup → geen vastgezette “Controleer dit veld.”; submit disabled tijdens zoeken. Klant: L+B naast elkaar; sla-over op route/afvoer; 3024×4032 niet “lage resolutie”. airco v21. Upload-timeout aangescherpt in BL-128; assessing terminal status = BL-127. |
 | Prompt/vision quality (BL-126) | todo | - | Routefoto goot/doorvoer niet afgewezen; ownership koophuis/we huren overgenomen; Ouders/Kind op installateurslabels; meterkast free_group stabieler; Vervang foto/Toch doorgaan intact; lege woonkamer geen extra stopcontactvraag. |
+| Strikte dossiersynthese + fractionele budgetteller (BL-124) | todo | - | Op staging met OpenRouter/Gemini: AI-voorstel vernieuwen na foto’s → run `succeeded` of `partial` (niet altijd failed); `ai_runs.image_count` > 0 en tokens/kosten gevuld; partial run toont geldige placements zonder kapotte option; budgetteling in microcents plausibel (&lt; 1 cent per flash-lite call). |
 | Soft catalogus-prefill multi-room (BL-122) | todo | - | Demo create met exacte case-81-tekst → werkplek toont Slaapkamer ouders + Kinderkamer met maten; klantflow vraagt koelen/verwarmen niet opnieuw; case 80 blijft werken. |
 | Fotobeoordeling via queue (BL-121) | todo | - | Twee gelijktijdige fotouploads → geen 503; wizard toont Uploaden/Foto beoordelen en resultaat zonder refresh; AI-fout → not_assessed-tekst. |
 | Staging-retest acceptance (BL-123) | todo | - | Case 80: voortgang &lt;100% tot laatste stap; Volgende bij meterkast-als-ruimtefoto toont “Vervang… of Toch doorgaan”; follow-up meterkast+buitenunitfoto blijft 0%/Nog te vervangen; na versturen Stroomtoevoer toont wrong-subject-reden. |

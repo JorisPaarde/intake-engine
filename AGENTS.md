@@ -1,7 +1,6 @@
 # AGENTS.md — Projectgeheugen & werkinstructies
 
 > **Documentversie:** 2.39 · **Laatste update:** 2026-10-03 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
-
 Dit bestand is de **centrale ingang** voor iedere agent (of mens) die aan dit project werkt. Het beschrijft waar het projectgeheugen leeft, welk document waarvoor de bron van waarheid is, en hoe je dat geheugen bijhoudt. **Lees dit bestand aan het begin van elke taak.**
 
 ## Hoofddoel (vast — niet door agents aan te passen)
@@ -200,7 +199,8 @@ Praktische lessen uit cloud-runs. Doel: sneller groen zonder opnieuw te ontdekke
 - Openingszin: `LocalRequestIntentParser` alleen foutloze unieke ruimtetypes (geen extra regex voor maten/anaphora, ADR-0013). Zelfde type twee keer noemen → `null`, daarna catalogus-AI. Werkpleknamen nummeren per type (`Woonkamer 1`, niet globaal `Woonkamer 3`).
 - Catalogus-prefill (BL-122/BL-126): te lange top-level `evidence` of één kapotte fill mag nooit de hele extractie dumpen — soft inkorten/reject per fill (`RequestPrefillOutcomeClassifier`); ownership-synoniemen via `OwnershipNormalizer`; check AI-trace `validation_errors` + field outcomes. Staging case 81-tekst is >500 tekens; echo als evidence was de regressie.
 - Routefoto-categorie (BL-126): `pipe_route` + room/outdoor_unit/outdoor_location geaccepteerd; herkende `pipe_route` blokkeert nooit; fixture `tests/fixtures/klanttest-20261002/route-pipe-duct-IMG_9885.png`. Classificatie-temp: `AI_CLASSIFICATION_TEMPERATURE` (default 0) via `AiCompletionRequest::$temperature` — OpenAiClient honoreren apart.
-- Kwaliteitspoort: `composer check` (= Pint + PHPStan level 6 + Pest) vóór je “klaar” claimt.
+- Catalogus-prefill (BL-122): te lange top-level `evidence` of één kapotte fill mag nooit de hele extractie dumpen — soft inkorten/reject per fill (`RequestPrefillOutcomeClassifier`); check AI-trace `validation_errors` + field outcomes. Staging case 81-tekst is >500 tekens; echo als evidence was de regressie.
+- Dossiersynthese (BL-124): strict `json_schema` via `DossierSynthesisJsonSchema` + partial acceptance (`DossierSynthesisPartialAcceptor`); alleen placement/option tellen als “voorstel” (exceptions/tasks alleen → failed, bestaande kandidaten blijven). Timeout: `AI_DOSSIER_TIMEOUT_SECONDS` (45). Budget: fractional `estimated_cost_microcents` (×10000); lege rates → reserve + éénmalige warning. Check `ai_runs.image_count`/tokens na dossiercall.- Kwaliteitspoort: `composer check` (= Pint + PHPStan level 6 + Pest) vóór je “klaar” claimt.
 - Featuretests met `Livewire::test(...)` hebben geen Vite-build nodig; `$this->get(...)` die een layout met `@vite` raakt wél.
 - Test samengestelde invoerketens op de grens die ertoe doet: request → persistente velden → uitgaande servicequery → opgeslagen resultaat. Een DOM-stringassertie en losse HTTP-fakes kunnen allebei groen zijn terwijl de overdracht ertussen ontbreekt; gebruik voor adresregressies een echt postcode-/huisnummergeval.
 - MySQL-DDL kan vóór een latere migrationfout al gecommit zijn. Maak een migration met meerdere DDL-stappen per kolom/tabel hervatbaar, houd expliciete index-/constraintnamen ≤64 tekens en maak backfill herhaalbaar; CI controleert verse MySQL-migraties apart van de SQLite-tests.

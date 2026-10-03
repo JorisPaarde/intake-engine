@@ -1,7 +1,6 @@
 # Databaseschema — Digitale Opname
 
 > **Documentversie:** 3.18 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
-
 Status: dit document beschrijft het **geïmplementeerde schema**, inclusief de uitbreidende dossiermigratie van BL-030 en BL-035 t/m BL-042 en de zelfstandige publieke interesse-inzendingen van BL-043. Bestaande antwoord-, bron-, upload-, review- en routetabellen blijven bewust bestaan naast de nieuwe dossierobjecten.
 
 ## Ontwerpprincipes
@@ -547,13 +546,14 @@ BL-026 gebruikt deze tabel samen met bestaande intake-timestamps en relaties voo
 | `prompt_version` | string | |
 | `input_hash` | string(64) | |
 | `output` | json nullable | |
-| `status` | string | `pending` / `succeeded` / `failed` |
-| `error_message` | text nullable | |
+| `status` | string | `pending` / `succeeded` / `partial` / `failed` |
+| `error_message` | text nullable | Bij `partial`: samenvatting van afgewezen voorstellen |
 | `input_tokens` | unsigned integer nullable | Providerusage; geen promptinhoud |
 | `output_tokens` | unsigned integer nullable | Providerusage; geen outputinhoud |
 | `total_tokens` | unsigned integer nullable | Providerusage |
 | `image_count` | unsigned small integer | Aantal beelden in de provider-call |
-| `estimated_cost_cents` | unsigned integer nullable | Budgettelling voor externe AI-caps |
+| `estimated_cost_cents` | unsigned integer nullable | Ceiling in hele centen (weergave/compat) |
+| `estimated_cost_microcents` | unsigned bigint nullable | Fractionele kosten; 1 cent = 10_000 microcents |
 | `started_at` / `finished_at` | timestamp nullable | |
 | `timestamps` | | |
 
