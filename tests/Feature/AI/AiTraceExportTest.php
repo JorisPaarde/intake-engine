@@ -137,6 +137,8 @@ test('ai:traces:export werkt voor demo-traces na intake-purge via intake_ref_id'
     $intakeId = $intake->id;
     app(HardDeleteIntake::class)->handle($intake);
 
+    expect(AiTrace::query()->where('intake_ref_id', $intakeId)->whereNull('intake_id')->exists())->toBeTrue();
+
     $outDir = storage_path('app/exports/test-orphan-'.Str::random(6));
     $exit = Artisan::call('ai:traces:export', [
         '--intake' => [(string) $intakeId],
@@ -149,9 +151,10 @@ test('ai:traces:export werkt voor demo-traces na intake-purge via intake_ref_id'
     $jsonl = collect(glob($outDir.'/orphan*.jsonl') ?: [])->first();
     expect($jsonl)->not->toBeNull();
     $body = (string) file_get_contents((string) $jsonl);
+    // Exporter writes intake_id from intake_ref_id so purged traces stay addressable.
     expect($body)->toContain('"intake_ref_id":'.$intakeId)
         ->and($body)->toContain('"is_demo":true')
-        ->and($body)->toContain('"intake_id":null');
+        ->and($body)->toContain('"intake_id":'.$intakeId);
 });
 
 test('ai:traces:export splits into parts under size cap with manifest and photo refs only', function () {
@@ -213,7 +216,8 @@ test('ai:traces:export splits into parts under size cap with manifest and photo 
 
     $output = Artisan::output();
     expect($output)->toContain('part 1/3')
-        ->and($output)->toContain('Manifest:');
+        ->and($output)->toContain('Bestanden (absolute paden):')
+        ->and($output)->toContain('manifest.json');
 });
 
 test('AiTraceExporter re-applies masking as safety net on call payloads', function () {
