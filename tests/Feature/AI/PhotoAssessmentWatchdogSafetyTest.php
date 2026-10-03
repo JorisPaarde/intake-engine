@@ -91,7 +91,7 @@ function bl133MakeFollowUpIntake(IntakeStatus $status = IntakeStatus::InProgress
 
 function bl133PendingUpload(Intake $intake, array $overrides = []): IntakeUpload
 {
-    return IntakeUpload::query()->create(array_merge([
+    $defaults = [
         'intake_id' => $intake->id,
         'question_key' => 'outdoor_unit_photo',
         'disk' => (string) config('filesystems.media', 'local'),
@@ -105,9 +105,19 @@ function bl133PendingUpload(Intake $intake, array $overrides = []): IntakeUpload
         'assessment_status' => PhotoAssessmentStatus::Pending,
         'assessment_queued_at' => now()->subMinutes(5),
         'assessment_attempts' => 0,
-        'created_at' => now()->subMinutes(10),
-        'updated_at' => now()->subMinutes(5),
-    ], $overrides));
+    ];
+
+    $createdAt = $overrides['created_at'] ?? now()->subMinutes(10);
+    $updatedAt = $overrides['updated_at'] ?? now()->subMinutes(5);
+    unset($overrides['created_at'], $overrides['updated_at']);
+
+    $upload = IntakeUpload::query()->create(array_merge($defaults, $overrides));
+    $upload->forceFill([
+        'created_at' => $createdAt,
+        'updated_at' => $updatedAt,
+    ])->saveQuietly();
+
+    return $upload->fresh();
 }
 
 test('legacy pending backfill (attempts=0) wordt niet herqueued door watchdog', function () {
