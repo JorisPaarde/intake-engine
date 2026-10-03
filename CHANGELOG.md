@@ -13,13 +13,8 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
-<<<<<<< HEAD
-- **Queue/cron (BL-121):** fotobeoordeling op `ai-photo`; Laravel-scheduler start elk uur een langere `queue:work --queue=ai-photo,default --max-time=3500 --sleep=1` met `withoutOverlapping`. Minutelijk `queue:work` blijft als vangnet — zie `docs/DEPLOYMENT.md`.
-- **Airco v21 / matenscherm + optionele route (BL-124):** lengte en breedte op één scherm (`wizard_group`); optioneel bij bekende m²; `pipe_route_photos`/`drain_photo`/`indoor_unit_position_photo` optioneel met “Weet ik niet / sla over”; muurfoto’s binnen/buiten op gewenste binnenunitplek; route blijft open punt voor de installateur.
-=======
 - **Queue/cron (BL-121):** fotobeoordeling op `ai-photo`; Laravel-scheduler start elke minuut (als nodig) een lange `queue:work --queue=ai-photo,default --max-time=3300 --memory=256 --sleep=1` met `withoutOverlapping(60)` + `runInBackground` (mutex vrij via `schedule:finish`; herstart na deploy/`queue:restart` binnen ~1–3 min ondanks cPanel `RANDOM_DELAY`). Minutelijk `--stop-when-empty` blijft het vangnet — zie `docs/DEPLOYMENT.md`.
-
->>>>>>> 7779152 (Fix AI photo queue worker schedule for cPanel restarts)
+- **Airco v21 / matenscherm + optionele route (BL-124):** lengte en breedte op één scherm (`wizard_group`); optioneel bij bekende m²; `pipe_route_photos`/`drain_photo`/`indoor_unit_position_photo` optioneel met “Weet ik niet / sla over”; muurfoto’s binnen/buiten op gewenste binnenunitplek; route blijft open punt voor de installateur.
 
 ### Fixed
 
