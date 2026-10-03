@@ -5,7 +5,6 @@
 Status: **samenvatting, aandachtspunten, lokale fotokwaliteit, tekst-/foto-afleiding, verbindingsgebonden routeanalyse en bewijsgerichte dossiersynthese zijn geïmplementeerd**. Externe provider en tekst-/foto-/route-/dossierinferentie staan standaard uit (provider + key + featurevlaggen + budgetcaps; soft-fail zonder die config). OpenAI-compatibele gateways (o.a. OpenRouter) via `AI_BASE_URL`.
 
 De verplichte korte dossiersamenvatting is deterministisch en staat los van deze AI-laag. AI kan daarbovenop alleen een herkenbaar niet-bindend voorstel toevoegen.
-
 ## Wat AI wél mag
 
 AI levert een herleidbare technische voorzet en mag werk actief overnemen:
@@ -158,6 +157,25 @@ Doel: per mislukte/onjuiste uitkomst aantonen of de fout in model, prompt, parse
 
 Beveiliging: `AiTraceRedactor` verwijdert API-keys, Bearer-headers, klantlinktokens (`/o/…`), e-mail/telefoon, bekende namen/adressen (intake-context) plus NL straat+huisnummer-patronen, en base64-beelden. Kill switch: `AI_TRACING_ENABLED=false` → no-op handle, geen writes. Trace-fouten worden gerapporteerd en genegeerd (nooit business-flow). Inzage via `/dev/ai-traces` alleen met `DEV_ADMIN_ENABLED` **én** e-mail op `DEV_ADMIN_EMAILS` (anders 403), of CLI `ai:traces` / `ai:traces:export`. Een mislukte foto-/meterkast-call **invalideert geen** bestaande AI-antwoorden meer vóór een geslaagde providerresponse.
 Beveiliging: `AiTraceRedactor` verwijdert API-keys, Bearer-headers, klantlinktokens (`/o/…`), e-mail/telefoon, NL-postcodes/straat+huisnummer, en identity-keys (`customer_name`, `address_*`, …); base64-beelden alleen data:-prefix of lange strings zonder whitespace. Kill switch: `AI_TRACING_ENABLED=false` → no-op handle, geen writes. Trace-fouten worden gerapporteerd en genegeerd (nooit business-flow). Inzage via `/dev/ai-traces` alleen met `DEV_ADMIN_ENABLED` **én** e-mail op `DEV_ADMIN_EMAILS` (anders 403), of CLI `ai:traces`. Bewaartermijn: `AI_TRACE_RETENTION_DAYS` (default 30) + chunked `ai:purge-traces`. Een mislukte foto-/meterkast-call **invalideert geen** bestaande AI-antwoorden meer vóór een geslaagde providerresponse.
+
+### Export (`ai:traces:export`)
+
+Artisan-export voor analyse/LLM-review. Groepeert per intake (`intake_ref_id`, ook na demo-purge), calls chronologisch.
+
+```bash
+php artisan ai:traces:export --intake=81 --intake=82 --since=2026-10-01 --format=md
+php artisan ai:traces:export --demo-only --format=jsonl --output=/tmp/demo-traces.jsonl
+```
+
+| Optie | Betekenis |
+|-------|-----------|
+| `--intake=*` | Filter op `intake_id` **of** `intake_ref_id` (wees-traces) |
+| `--since` / `--until` | Datumbereik op `created_at` |
+| `--demo-only` | Alleen `is_demo=true` |
+| `--format=jsonl\|md` | Standaard `jsonl`; `md` = kop per intake, subkop per call, JSON in fenced blocks |
+| `--output=` | Pad; default `storage/app/exports/ai-traces-<timestamp>.<ext>` |
+
+Per call: call_type, prompt_version, provider-model, gemaskeerde request (system/user), photo_refs (upload_id/filename/question_key, nooit beelddata), raw/parsed, validation_errors/normalizations, tokens, provider_ms + total_duration_ms, fractional cost, status/error, request_id + correlation_id. Export past `AiTraceRedactor` opnieuw toe als veiligheidsnet.
 
 ## Datastructuur `ai_runs`
 

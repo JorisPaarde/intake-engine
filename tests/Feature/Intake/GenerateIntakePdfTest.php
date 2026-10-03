@@ -12,6 +12,7 @@ use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
+use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\CompletenessChecker;
 use App\Domains\Intake\Services\EmbedPrivateReportMedia;
 use App\Enums\IntakeStatus;
@@ -166,7 +167,7 @@ test('generate intake pdf stores a downloadable file from HTML report', function
     $embeddedHtml = app(EmbedPrivateReportMedia::class)->handle($intake, $intake->report->html);
 
     expect($embeddedHtml)
-        ->toContain('data:'.$firstUpload->mime_type.';base64,')
+        ->toContain('data:image/jpeg;base64,')
         ->not->toContain('data-intake-upload-id="'.$firstUpload->id.'"');
 
     $report = app(GenerateIntakePdf::class)->handle($intake);
@@ -273,4 +274,88 @@ test('installer can queue pdf regeneration from the show page', function () {
         ->assertRedirect(route('intakes.show', $intake));
 
     Queue::assertPushed(GenerateIntakePdfJob::class);
+});
+
+test('PDF embedding downscales large photos and keeps a size bound without touching originals', function () {
+    $disk = (string) config('filesystems.media', 'local');
+    $intake = makePdfIntake();
+    $intake->forceFill(['status' => IntakeStatus::Completed])->save();
+
+    $originals = [];
+    $imgTags = [];
+    for ($i = 1; $i <= 3; $i++) {
+        // Large bright JPEG (~several hundred KB to >1MB depending on GD).
+        $img = imagecreatetruecolor(4000, 3000);
+        $colour = imagecolorallocate($img, 40 + $i * 30, 80, 120);
+        imagefill($img, 0, 0, $colour);
+        // Add noise-ish rectangles so JPEG stays large.
+        for ($n = 0; $n < 200; $n++) {
+            $c = imagecolorallocate($img, random_int(0, 255), random_int(0, 255), random_int(0, 255));
+            imagefilledrectangle(
+                $img,
+                random_int(0, 3900),
+                random_int(0, 2900),
+                random_int(0, 3900),
+                random_int(0, 2900),
+                $c,
+            );
+        }
+        ob_start();
+        imagejpeg($img, null, 95);
+        $bytes = (string) ob_get_clean();
+        imagedestroy($img);
+
+        $path = 'intakes/'.$intake->uuid.'/large/photo-'.$i.'.jpg';
+        Storage::disk($disk)->put($path, $bytes);
+        $originals[] = ['path' => $path, 'bytes' => $bytes, 'size' => strlen($bytes)];
+
+        $upload = IntakeUpload::query()->create([
+            'intake_id' => $intake->id,
+            'question_key' => 'room_photos',
+            'section_instance_key' => 'room-'.$i,
+            'disk' => $disk,
+            'path' => $path,
+            'original_filename' => 'photo-'.$i.'.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => strlen($bytes),
+            'checksum' => hash('sha256', $bytes),
+            'sort_order' => $i,
+        ]);
+
+        $imgTags[] = '<img data-intake-upload-id="'.$upload->id.'" alt="foto '.$i.'" />';
+    }
+
+    $originalTotal = array_sum(array_column($originals, 'size'));
+    expect($originalTotal)->toBeGreaterThan(1_500_000);
+
+    $html = '<html><body><h1>Rapport</h1>'.implode('', $imgTags).'</body></html>';
+    $intake->report()->create([
+        'html' => $html,
+        'generated_at' => now(),
+    ]);
+
+    $embedded = app(EmbedPrivateReportMedia::class)->handle($intake->fresh(), $html);
+    expect($embedded)->toContain('data:image/jpeg;base64,');
+
+    // Originals untouched.
+    foreach ($originals as $original) {
+        expect(Storage::disk($disk)->get($original['path']))->toBe($original['bytes']);
+    }
+
+    // Embedded payload clearly smaller than raw originals.
+    preg_match_all('#data:image/jpeg;base64,([A-Za-z0-9+/=]+)#', $embedded, $matches);
+    expect($matches[1])->toHaveCount(3);
+    $embeddedBytes = 0;
+    foreach ($matches[1] as $b64) {
+        $embeddedBytes += strlen((string) base64_decode($b64, true));
+    }
+    expect($embeddedBytes)->toBeLessThan((int) ($originalTotal * 0.45));
+
+    $report = app(GenerateIntakePdf::class)->handle($intake->fresh());
+    expect($report)->not->toBeNull()->and($report->hasPdf())->toBeTrue();
+
+    $pdfSize = Storage::disk($disk)->size((string) $report->pdf_path);
+    // Three ~4K images uncompressed would be tens of MB; compressed PDF must stay bounded.
+    expect($pdfSize)->toBeLessThan(4_000_000)
+        ->and($pdfSize)->toBeGreaterThan(10_000);
 });

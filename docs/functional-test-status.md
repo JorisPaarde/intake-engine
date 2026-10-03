@@ -1,7 +1,6 @@
 # Functionele teststatus
 
 > **Documentversie:** 1.94 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
-
 **Stappen voor een visuele browser-run:** [docs/browser-test-flow.md](browser-test-flow.md) (niet dit bestand). Dit document is alleen de uitslag. Een Pest-run vult hier niets in.
 
 Bijwerken door wie de test daadwerkelijk heeft uitgevoerd: een menselijke tester **of** een testende agent (bijv. een agent die de app via een browser bedient). Niet invullen op basis van alleen implementatie — er moet echt functioneel getest zijn. Implementerende agents voegen alleen nieuwe `todo`-regels toe voor functionaliteit die zij introduceren.
