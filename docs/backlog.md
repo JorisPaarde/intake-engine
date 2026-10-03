@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.82 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.83 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -43,7 +43,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
 | 1 | BL-117 | Installateur kan technisch open punt afhandelen vanuit de survey-werkplek | E7/E8 | backlog | high | na PR #115 · show/rapport `*_open` |
-| — | BL-129 | Follow-up: mismatch-override, klantcopy, review per ronde, reassessment | E1/E4/E7 | in_progress | high | na BL-123 · case 81b · PR #125 |
+| — | BL-129 | Follow-up: mismatch-override, klantcopy, review per ronde, reassessment | E1/E4/E7 | done | high | na BL-123 · case 81b · PR #125 |
 | — | BL-128 | Grote telefoonfoto: inactiviteit-timeout + client-downscale + 8 MB + lege-200-retry | E1/E7 | done | high | A · na BL-124/127 · staging intake 78 · PR #131 |
 | — | BL-127 | Foto-assessment: terminale status, soft-timeout, ai_runs.upload_id, watchdog | E4 | done | high | na #124 · staging intake 78 · PR #133 |
 | — | BL-126 | Prompt/vision quality: route-categorie, ownership, kamernamen, free_group/glas | E3/E4/E9 | done | high | AI/foto · na BL-119/122 · PR #126 |
@@ -653,11 +653,12 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-129 — Follow-up mismatch-override, klantcopy, review per ronde, reassessment
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E1/E4/E7 · **Volgt op:** BL-119/123 · **Ref:** case 81b follow-up meterkast · **PR:** #125
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-10-03 · **PR:** #125 · **Epic:** E1/E4/E7 · **Volgt op:** BL-119/123 · **Ref:** case 81b follow-up meterkast
 - **Aanleiding:** (1) Aanvulling versturen bleef aan bij verkeerde categoriefoto en sloot de taak zonder override; (2) ronde 2 toonde interne diagnose als klantinstructie (dubbel advies); (3) installateursreview toonde na goede ronde-2-foto alleen de oude mismatch; (4) vervangende juiste foto → Beoordeeld/100% zonder nieuwe AI-run, open punt hield oude reden.
 - **Doel:** bekende mismatch blokkeert versturen of vereist **Toch versturen**; klant krijgt actiegerichte je-tekst; installateur ziet per ronde verdict + superseded; nieuwe upload triggert herbeoordeling en wist/vervangt de open reden.
 - **Scope:** `IntakeWizard` follow-up soft-continue (geen sync AI); submit wait/gate op queue-`content_assessment` + terminale `assessment_status`; `CompleteFollowUpRound`; `ContextualCustomerTaskBuilder`/`PhotoSubject::customerRetakePrompt`; `FollowUpEvidenceReview` + show-view; `DecisionReadinessService` solving follow-up-powerfoto’s; reassessment via opnieuw `AssessUploadedPhotoJob`. Pest. Geen templateversiebump; conflicten blijven proposals; 100%-op-lege-taak-fix blijft.
 - **Acceptatie:** Pest voor mismatch-blok+override, not_assessed soft, klantcopy zonder diagnose, superseded review, reassessment met nieuwe AiRun; `composer check` groen.
+- **Resultaat:** submit-gate + Toch versturen; klantcopy via `customerRetakePrompt`; review per ronde + superseded; reassessment op `ai-photo`-queue (na rebase op BL-121/#124 + BL-127 terminal status); show-blade `@php`-blokfix; `composer check` groen.
 
 ### BL-128 — Grote telefoonfoto betrouwbaar uploaden
 
@@ -696,7 +697,7 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-116 — AI-trace logging + P2 upload/analyse-timings
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E4/E9 · **Band:** AI · **Volgt op:** BL-028/104/109 · **PR:** #117 · **Ref:** Notion-klanttest 2026-10-02 § AI-logging + P2 meetdeel
+- **Status:** done · **Datum:** 2026-10-03 · **Prioriteit:** high · **Epic:** E4/E9 · **Band:** AI · **Volgt op:** BL-028/104/109 · **PR:** #117 · **Ref:** Notion-klanttest 2026-10-02 § AI-logging + P2 meetdeel
 - **Aanleiding:** Joris eist per mislukte/onjuiste AI-uitkomst onderscheid model vs prompt vs parser vs opslag vs klantflow; trage uploads/analyse zonder aparte fase-meting.
 - **Scope (deze PR):** `ai_traces`/`ai_trace_steps`, helper `AiTraceRecorder`/`AiTraceHandle::step()`, instrumentatie tekstextractie/fotoanalyse/synthese + upload timings, redactie, `/dev/ai-traces` + CLI, retention purge. Geen vragenlijst-/klantvraagtekst-wijzigingen (stromen 2–5).
 - **Acceptatie:** cases 80/81-tekst door extractie met fake provider → volledige keten in trace; mislukte call wist geen bestaand antwoord; geen secrets in log; `composer check` groen.
@@ -733,7 +734,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-001 — Demo-versie van de app
 
-- **Status:** in_progress · **Prioriteit:** medium · **Band:** A (operationeel, parallel) · **Ref:** [issue #5](https://github.com/JorisPaarde/intake-engine/issues/5)
+- **Status:** done · **Datum:** 2026-10-03 · **PR:** #125 · **Prioriteit:** medium · **Band:** A (operationeel, parallel) · **Ref:** [issue #5](https://github.com/JorisPaarde/intake-engine/issues/5)
 - **Plan:** [bl-001-interactive-installer-demo.md](plans/bl-001-interactive-installer-demo.md)
 - **Doel:** publiek of semi-publiek demopad zodat prospects/installateurs het product kunnen ervaren zonder eigen accountsetup of echte klantdata — het hoofddoel ("zo min mogelijk handelingen") toegepast op de allereerste kennismaking.
 - **Nieuwe invulling (begeleide flow):** **Probeer de demo** → tijdelijke tenant/user → dashboard met welkomstpopup → *Nieuwe opname* waarin de installateur zelf postcode/huisnummer intypt → rolkeuze-modal i.p.v. mail (*Bekijk wat de klant ziet* / *Zelf de opname doen*) → **volledige** klantwizard (zelfde airco-pad als productie) of werkplek met optioneel voorbeelddossier; coachmark-popups op elke stap.
@@ -1136,7 +1137,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-107 — App-huisstijl volgens productmockups + rustiger werkplek
 
-- **Status:** in_progress · **Prioriteit:** high · **Datum:** 2026-09-23 · **Epic:** E5/E6 · **Band:** UX/visueel · **Volgt op:** BL-043, BL-053, BL-099, BL-100
+- **Status:** done · **Datum:** 2026-10-03 · **PR:** #125 · **Prioriteit:** high · **Datum:** 2026-09-23 · **Epic:** E5/E6 · **Band:** UX/visueel · **Volgt op:** BL-043, BL-053, BL-099, BL-100
 - **Aanleiding:** de ingelogde app zag er generiek uit (Apple/Laravel-stijl, blauw, veel gekleurde randen) en paste niet bij de productmockups op de homepage. Werkplek voelde als veel formulieren; **Vraag de klant** opende een formulier terwijl de app de opdracht al maakt.
 - **Doel:** zelfde look & feel als de mockups (salie/bosgroen, oker voor de ene open actie, terracotta eyebrows, Inter, strakke vlakke kaarten) en minder zichtbare formulieren, zonder functionaliteit te wijzigen.
 - **Scope:** Tailwind-kleurschalen/hoeken/schaduwen herdefinieerd; globale CSS (koppen, focus, `.eyebrow`); layouts (Inter, loginpagina, merkmark); werkplek **Alle onderdelen** met statusstip, ruimtekaart met uitklapbare formulieren + hash-open; **Vraag de klant** post naar `tasks.quick`; **Uitkomst** en handmatige **Taak voor de klant** standaard verborgen (anchor toont ze); standaard tenantkleur groen + datamigratie voor ongewijzigde oude standaard.
