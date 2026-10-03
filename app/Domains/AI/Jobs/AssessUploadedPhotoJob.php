@@ -20,7 +20,6 @@ use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -72,7 +71,6 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
         $queueWaitMs = (int) max(0, round((microtime(true) - $this->dispatchedAt) * 1000));
         $attempt = max(1, $this->attempts());
         $requestIdResolver->rememberQueueMetrics($queueWaitMs, $attempt);
-        $requestIdResolver->rememberCorrelationId($this->correlationId);
 
         $upload = IntakeUpload::query()->with(['intake', 'followUpItem'])->find($this->uploadId);
 
@@ -80,18 +78,21 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
             return;
         }
 
+        // One correlation chain per upload via #136 AiTraceRequestIdResolver (not a second system).
+        $correlationId = $requestIdResolver->resolveCorrelationIdForUpload($upload, $this->correlationId);
+
         if ($lifecycle->isTerminal($upload) && ! $upload->contentAssessment()?->needsReassessment()) {
             return;
         }
 
         try {
             if ($upload->intake_follow_up_item_id !== null) {
-                $this->assessFollowUp($upload, $assessFollowUp, $lifecycle);
+                $this->assessFollowUp($upload, $assessFollowUp, $lifecycle, $correlationId);
 
                 return;
             }
 
-            $this->assessWizardPhoto($upload, $assessFusebox, $derivePhotoAnswers, $lifecycle);
+            $this->assessWizardPhoto($upload, $assessFusebox, $derivePhotoAnswers, $lifecycle, $correlationId);
         } catch (Throwable $exception) {
             Log::warning('Queued photo assessment failed', [
                 'upload_id' => $this->uploadId,
@@ -126,6 +127,7 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
         IntakeUpload $upload,
         AssessFollowUpPhotoSubject $assessFollowUp,
         PhotoAssessmentLifecycle $lifecycle,
+        string $correlationId,
     ): void {
         $item = $upload->followUpItem;
 
@@ -151,8 +153,6 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
         }
 
         $upload = $upload->fresh() ?? $upload;
-        $correlationId = $this->correlationId
-            ?? $this->correlationIdForUpload($upload);
         $result = $assessFollowUp->handle($intake, $item, $upload, $correlationId);
         $assessment = $result['assessment'] ?? null;
 
@@ -169,6 +169,7 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
         AssessFuseboxPhotos $assessFusebox,
         DerivePhotoAnswers $derivePhotoAnswers,
         PhotoAssessmentLifecycle $lifecycle,
+        string $correlationId,
     ): void {
         $intake = $upload->intake;
         if ($intake === null) {
@@ -194,7 +195,9 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
         }
 
         if ($profileName === 'fusebox') {
-            $assessFusebox->handle($intake, correlationId: $this->correlationId);
+            // Fusebox action assesses all pending fusebox uploads; each upload gets its
+            // own correlation via AiTraceRequestIdResolver::resolveCorrelationIdForUpload.
+            $assessFusebox->handle($intake, correlationId: $correlationId);
             $lifecycle->ensureTerminal($upload->fresh() ?? $upload, $expected);
 
             return;
@@ -214,7 +217,7 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
             $upload->question_key,
             $upload->section_instance_key,
             $profile,
-            correlationId: $this->correlationId,
+            correlationId: $correlationId,
         );
 
         $lifecycle->ensureTerminal($upload->fresh() ?? $upload, $expected);
@@ -257,19 +260,5 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
             ->value('decision_area_key');
 
         return is_string($key) && $key !== '' ? $key : null;
-    }
-
-    private function correlationIdForUpload(IntakeUpload $upload): string
-    {
-        $timings = is_array($upload->processing_timings) ? $upload->processing_timings : [];
-        if (is_string($timings['correlation_id'] ?? null) && $timings['correlation_id'] !== '') {
-            return (string) $timings['correlation_id'];
-        }
-
-        $id = (string) Str::uuid();
-        $timings['correlation_id'] = $id;
-        $upload->update(['processing_timings' => $timings]);
-
-        return $id;
     }
 }

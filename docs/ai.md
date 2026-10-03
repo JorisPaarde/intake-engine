@@ -1,6 +1,6 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 3.31 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.32 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **samenvatting, aandachtspunten, lokale fotokwaliteit, tekst-/foto-afleiding, verbindingsgebonden routeanalyse en bewijsgerichte dossiersynthese zijn geïmplementeerd**. Externe provider en tekst-/foto-/route-/dossierinferentie staan standaard uit (provider + key + featurevlaggen + budgetcaps; soft-fail zonder die config). OpenAI-compatibele gateways (o.a. OpenRouter) via `AI_BASE_URL`.
 
@@ -304,4 +304,4 @@ De bestaande stateful route-analyse beoordeelt per foto of wand/doorvoer zichtba
 - Meterkastfoto levert `empty_module_space` + `phase`; **nooit** `free_group_known` (een foto ziet geen vrije groep). Wrong-subject → `confidence=low`.
 - Ruimtefoto: `glazing_type`; `glass_amount`/`sun_exposure` mogen `unknown` (airco v23). Size-banden = `RoomAreaAcceptance` (<12 / ≤20 / >20).
 - Catalogus-prefill weigert `cooling_heating` bij alleen “Nog geen airco”.
-- Follow-upfoto’s: elke AI-call via trace handle; correlation per upload; content_assessment altijd gezet (op BL-127 `ai_runs.upload_id`/lifecycle).
+- Follow-upfoto’s: elke AI-call via trace handle; correlation per upload via `AiTraceRequestIdResolver::resolveCorrelationIdForUpload`; content_assessment altijd gezet (op BL-127 `upload_id`/lifecycle).

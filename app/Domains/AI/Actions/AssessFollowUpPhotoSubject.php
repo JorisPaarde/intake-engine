@@ -10,6 +10,7 @@ use App\Domains\AI\Services\AiGateway;
 use App\Domains\AI\Services\AiImageResolver;
 use App\Domains\AI\Services\AiTracePhotoRefBuilder;
 use App\Domains\AI\Services\AiTraceRecorder;
+use App\Domains\AI\Services\AiTraceRequestIdResolver;
 use App\Domains\AI\Services\AiTraceSnapshotService;
 use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\AI\Support\PhotoContentAssessment;
@@ -43,6 +44,7 @@ final class AssessFollowUpPhotoSubject
         private readonly AiTraceRecorder $traceRecorder,
         private readonly AiTraceSnapshotService $traceSnapshots,
         private readonly AiTracePhotoRefBuilder $photoRefBuilder,
+        private readonly AiTraceRequestIdResolver $requestIdResolver,
     ) {}
 
     /**
@@ -127,9 +129,7 @@ final class AssessFollowUpPhotoSubject
             'started_at' => now(),
         ]);
 
-        $correlationId = (is_string($correlationId) && $correlationId !== '')
-            ? $correlationId
-            : $this->correlationIdForUpload($upload);
+        $correlationId = $this->requestIdResolver->resolveCorrelationIdForUpload($upload, $correlationId);
         $trace = $this->traceRecorder->start($intake, AiTraceCallType::FollowUpPhotoSubject, [
             'ai_run_id' => $run->id,
             'upload_id' => $upload->id,
@@ -257,7 +257,7 @@ final class AssessFollowUpPhotoSubject
             'provider' => $run->provider ?: (string) config('ai.provider', 'null'),
             'model' => $run->model,
             'prompt_version' => $promptVersion,
-            'correlation_id' => $this->correlationIdForUpload($upload),
+            'correlation_id' => $this->requestIdResolver->resolveCorrelationIdForUpload($upload),
         ]);
         $trace->linkUpload($upload);
         $trace->linkAiRun($run);
@@ -312,19 +312,5 @@ final class AssessFollowUpPhotoSubject
         $validated = $validator->validated();
 
         return $validated;
-    }
-
-    private function correlationIdForUpload(IntakeUpload $upload): string
-    {
-        $timings = is_array($upload->processing_timings) ? $upload->processing_timings : [];
-        if (is_string($timings['correlation_id'] ?? null) && $timings['correlation_id'] !== '') {
-            return (string) $timings['correlation_id'];
-        }
-
-        $id = (string) Str::uuid();
-        $timings['correlation_id'] = $id;
-        $upload->update(['processing_timings' => $timings]);
-
-        return $id;
     }
 }

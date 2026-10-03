@@ -10,6 +10,7 @@ use App\Domains\AI\Services\AiImageResolver;
 use App\Domains\AI\Services\AiTraceHandle;
 use App\Domains\AI\Services\AiTracePhotoRefBuilder;
 use App\Domains\AI\Services\AiTraceRecorder;
+use App\Domains\AI\Services\AiTraceRequestIdResolver;
 use App\Domains\AI\Services\AiTraceSnapshotService;
 use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\AI\Support\PhotoContentAssessment;
@@ -54,6 +55,7 @@ final class AssessFuseboxPhotos
         private readonly AiTraceRecorder $traceRecorder,
         private readonly AiTraceSnapshotService $traceSnapshots,
         private readonly AiTracePhotoRefBuilder $photoRefBuilder,
+        private readonly AiTraceRequestIdResolver $requestIdResolver,
     ) {}
 
     public function handle(Intake $intake, ?string $correlationId = null): ?AiRun
@@ -239,15 +241,17 @@ final class AssessFuseboxPhotos
                 $dossierBefore = $applyContext['dossier_before'];
                 $questionsBefore = $applyContext['questions_before'];
             } else {
-                $correlationId ??= (string) Str::uuid();
                 $latestMatching = $matchingUploads->sortByDesc('id')->first();
+                $applyCorrelationId = $latestMatching instanceof IntakeUpload
+                    ? $this->requestIdResolver->resolveCorrelationIdForUpload($latestMatching, $correlationId)
+                    : $this->requestIdResolver->resolveCorrelationId($correlationId);
                 $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoAssess, array_filter([
                     'ai_run_id' => $run?->id,
                     'upload_id' => $latestMatching?->id,
                     'subject_type' => 'question',
                     'subject_id' => self::PHOTO_QUESTION,
                     'provider' => (string) config('ai.provider', 'null'),
-                    'correlation_id' => $correlationId,
+                    'correlation_id' => $applyCorrelationId,
                 ], static fn (mixed $value): bool => $value !== null));
                 if ($latestMatching instanceof IntakeUpload) {
                     $trace->linkUpload($latestMatching);
@@ -490,8 +494,8 @@ final class AssessFuseboxPhotos
             'started_at' => now(),
         ]);
 
-        // Correlation is per upload (BL-129), not shared across a fusebox batch.
-        $uploadCorrelationId = $this->correlationIdForUpload($upload);
+        // Per-upload correlation via #136 AiTraceRequestIdResolver (not a shared batch id).
+        $uploadCorrelationId = $this->requestIdResolver->resolveCorrelationIdForUpload($upload);
 
         $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoAssess, [
             'ai_run_id' => $run->id,
@@ -902,20 +906,6 @@ final class AssessFuseboxPhotos
         }
 
         return 'needs_clearer_photo';
-    }
-
-    private function correlationIdForUpload(IntakeUpload $upload): string
-    {
-        $timings = is_array($upload->processing_timings) ? $upload->processing_timings : [];
-        if (is_string($timings['correlation_id'] ?? null) && $timings['correlation_id'] !== '') {
-            return (string) $timings['correlation_id'];
-        }
-
-        $id = (string) Str::uuid();
-        $timings['correlation_id'] = $id;
-        $upload->update(['processing_timings' => $timings]);
-
-        return $id;
     }
 
     private function hasQuestion(Intake $intake, string $questionKey): bool
