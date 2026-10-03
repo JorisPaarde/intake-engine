@@ -19,12 +19,14 @@ use App\Livewire\Customer\IntakeWizard;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
 beforeEach(function () {
     $this->seed(IntakeTemplateSeeder::class);
     Storage::fake((string) config('filesystems.media', 'local'));
+    Queue::fake();
     FakeAiClient::reset();
     config([
         'ai.provider' => 'fake',

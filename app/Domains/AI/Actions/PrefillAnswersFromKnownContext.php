@@ -152,8 +152,8 @@ final class PrefillAnswersFromKnownContext
             ]);
 
             try {
+                $trace->beginBuffer();
                 $applied = DB::transaction(function () use ($intake, $output, $classified, $trace): array {
-                    $trace->beginBuffer();
                     Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
                     $applied = $this->apply($intake, $output, $classified['candidates']);
                     $trace->step('apply', ['applied_question_keys' => $applied]);

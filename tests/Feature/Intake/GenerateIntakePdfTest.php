@@ -141,6 +141,8 @@ test('PDF generation jobs for one intake cannot overlap', function () {
 });
 
 test('generate intake pdf stores a downloadable file from HTML report', function () {
+    Queue::fake();
+
     $disk = (string) config('filesystems.media', 'local');
     $intake = makePdfIntake();
     fillPdfIntake($intake);
@@ -148,7 +150,12 @@ test('generate intake pdf stores a downloadable file from HTML report', function
     app(CompleteIntake::class)->handle($intake->fresh());
     $intake->refresh();
 
-    $firstUpload = $intake->uploads()->firstOrFail();
+    $firstUpload = $intake->uploads()->orderBy('id')->firstOrFail();
+    foreach ($intake->uploads as $upload) {
+        if (str_starts_with((string) $upload->mime_type, 'image/') && ! Storage::disk($disk)->exists($upload->path)) {
+            Storage::disk($disk)->put($upload->path, 'restored-for-embed-test');
+        }
+    }
 
     expect($intake->report->html)
         ->toContain('Aangeleverde foto’s en bestanden')

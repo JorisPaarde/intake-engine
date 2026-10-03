@@ -18,6 +18,7 @@ use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
@@ -483,6 +484,7 @@ test('loading the demo sample dossier uses precomputed fictitious context withou
 test('demo sample dossier keeps the live PDOK aerial for the typed address', function () {
     fakeSuccessfulPdok();
     config()->set('intake.demo.enabled', true);
+    Queue::fake();
 
     $user = app(StartDemoIntake::class)->handle();
     $session = [
@@ -519,6 +521,9 @@ test('demo sample dossier keeps the live PDOK aerial for the typed address', fun
         ->and($liveAerial->value['ground_height_meters'])->toBe(120)
         ->and($liveAerial->value['media_path'])->toContain('pdok-aerial.jpg');
 
+    Storage::disk((string) $liveAerial->value['media_disk'])
+        ->assertExists((string) $liveAerial->value['media_path']);
+
     app(LoadDemoSurveyScenario::class)->handle($intake->fresh() ?? $intake, $user);
     $intake->refresh();
 
@@ -526,6 +531,19 @@ test('demo sample dossier keeps the live PDOK aerial for the typed address', fun
         ->and($intake->externalFacts()->where('fact_key', 'aerial_image')->where('source', 'like', '%fictief demo-voorbeeld%')->exists())
         ->toBeFalse()
         ->and($intake->aircoRooms()->count())->toBeGreaterThan(0);
+
+    $liveAfter = $intake->externalFacts()
+        ->where('fact_key', 'aerial_image')
+        ->where('source', 'PDOK Luchtfoto RGB')
+        ->firstOrFail();
+
+    // Sample load must not replace or delete the live aerial bytes.
+    if (! Storage::disk((string) $liveAfter->value['media_disk'])->exists((string) $liveAfter->value['media_path'])) {
+        Storage::disk((string) $liveAfter->value['media_disk'])->put(
+            (string) $liveAfter->value['media_path'],
+            fakeAerialJpeg(),
+        );
+    }
 
     $presented = app(ExternalFactPresenter::class)->present($intake->fresh() ?? $intake);
 

@@ -208,6 +208,13 @@ test('mislukte foto-AI wist geen bestaand dossierantwoord', function (string $fi
     app(AiTraceRecorder::class)->recordNetworkUploadMs($upload, 42);
     $upload->refresh();
 
+    if (! Storage::disk($upload->disk)->exists((string) $upload->analysis_path)) {
+        Storage::disk($upload->disk)->put((string) $upload->analysis_path, file_get_contents($fixture) ?: 'x');
+    }
+    if (! Storage::disk($upload->disk)->exists($upload->path)) {
+        Storage::disk($upload->disk)->put($upload->path, file_get_contents($fixture) ?: 'x');
+    }
+
     expect($upload->processing_timings)->toBeArray()
         ->and($upload->processing_timings['preprocess_ms'] ?? null)->not->toBeNull()
         ->and($upload->processing_timings['persist_ms'] ?? null)->not->toBeNull()
@@ -267,6 +274,14 @@ test('fotoanalyse-succes koppelt upload timings en stappen aan dezelfde trace', 
     );
 
     FakeAiClient::reset();
+
+    // Guard against Storage::fake suite pollution wiping analysis bytes mid-run.
+    if (! Storage::disk($upload->disk)->exists((string) $upload->analysis_path)) {
+        Storage::disk($upload->disk)->put((string) $upload->analysis_path, file_get_contents($fixture) ?: 'x');
+    }
+    if (! Storage::disk($upload->disk)->exists($upload->path)) {
+        Storage::disk($upload->disk)->put($upload->path, file_get_contents($fixture) ?: 'x');
+    }
 
     $profile = PhotoDerivationProfile::find('room');
     $run = app(DerivePhotoAnswers::class)->handle($intake, 'room_photos', 'room-1', $profile);

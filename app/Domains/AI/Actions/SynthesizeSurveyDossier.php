@@ -154,6 +154,7 @@ final class SynthesizeSurveyDossier
             }
 
             try {
+                $trace->beginBuffer();
                 DB::transaction(function () use (
                     $intake,
                     $run,
@@ -164,7 +165,6 @@ final class SynthesizeSurveyDossier
                     $model,
                     $trace,
                 ): void {
-                    $trace->beginBuffer();
                     $locked = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
                     $currentInput = $this->contextBuilder->build($locked);
                     $currentInput['image_manifest'] = $this->imageManifest($this->imageUploads($locked));

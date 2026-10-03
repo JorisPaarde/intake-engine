@@ -130,8 +130,8 @@ final class AnalyzeRoutePhoto
             ]);
 
             try {
+                $trace->beginBuffer();
                 $updated = DB::transaction(function () use ($segment, $run, $output, $input, $trace): PipeRouteSegment {
-                    $trace->beginBuffer();
                     $intakeId = $segment->session()->value('intake_id');
                     Intake::query()->whereKey($intakeId)->lockForUpdate()->firstOrFail();
                     $segment = PipeRouteSegment::query()->with('upload')->whereKey($segment->id)->lockForUpdate()->firstOrFail();

@@ -27,7 +27,14 @@ final class DeleteStoredMediaJob implements ShouldQueue
 
     public function handle(): void
     {
-        if (! Storage::disk($this->disk)->delete($this->path)) {
+        $disk = Storage::disk($this->disk);
+
+        // Idempotent: a prior sync cleanup or SoftDeletes race may already have removed the file.
+        if (! $disk->exists($this->path)) {
+            return;
+        }
+
+        if (! $disk->delete($this->path)) {
             throw new \RuntimeException('Privébestand kon niet worden verwijderd.');
         }
     }

@@ -151,6 +151,7 @@ final class SuggestInstallerPhotoObservations
             $run = $run->fresh() ?? $run;
 
             try {
+                $trace->beginBuffer();
                 DB::transaction(function () use (
                     $intake,
                     $subject,
@@ -161,7 +162,6 @@ final class SuggestInstallerPhotoObservations
                     $output,
                     $trace,
                 ): void {
-                    $trace->beginBuffer();
                     Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
                     $currentSubject = DossierSubject::query()
                         ->whereKey($subject->id)
