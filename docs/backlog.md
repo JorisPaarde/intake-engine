@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.71 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.72 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,11 +38,12 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = follow-up foto async. Nieuwe items starten bij BL-122.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = follow-up foto async. **BL-122** = soft catalogus-prefill (case 81). Nieuwe items starten bij BL-123.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
 | 1 | BL-117 | Installateur kan technisch open punt afhandelen vanuit de survey-werkplek | E7/E8 | backlog | high | na PR #115 · show/rapport `*_open` |
+| — | BL-122 | Soft catalogus-prefill: lange evidence / kapotte fill dumpt niet alles | E3/E9 | in_progress | high | regressie case 81 · na BL-118/120 |
 | — | BL-120 | Klanttest P2: voortgang, uploadfases, je-vorm (airco v20) | E1/E5/E7 | done | high | klanttest 2 okt P2 · PR #118 · na BL-119 |
 | — | BL-119 | Klanttest 2 okt P1: foto-stelligheid, interne AI-velden, verkeerde-fotofeedback | E4/E7/E9 | in_progress | high | AI/foto · na BL-118 · airco v19 · PR #119 |
 | — | BL-121 | Follow-up fotobeoordeling async (niet sync in request) | E4 | backlog | medium | AI/foto · bij BL-119 · performance |
@@ -601,6 +602,14 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 - **Status:** backlog · **Prioriteit:** medium · **Epic:** E4 · **Volgt op:** BL-119
 - **Doel:** `AssessFollowUpPhotoSubject` async i.p.v. sync in Livewire-upload.
+
+### BL-122 — Soft catalogus-prefill (case 81 regressie)
+
+- **Status:** in_progress · **Prioriteit:** high · **Epic:** E3/E9 · **Volgt op:** BL-118/120 · **Ref:** staging demo intakes 67/68, klanttest case 81
+- **Aanleiding:** na #115–#119 produceerde AI-tekstprefill voor de lange multi-room openingszin (case 81) niets (0 kamers, klantvraag koelen/verwarmen opnieuw), terwijl korte case 80 wél werkte. Oorzaak: harde envelope-validatie (`evidence` max 500) dumpte de hele catalogusrespons wanneer het model de openingszin (>500 tekens) als evidence echo’de; lokale parser geeft bij herhaald kamertype `null`.
+- **Doel:** geldige fills altijd toepassen; te lange evidence inkorten; één kapotte fill alleen die fill rejecten (reden in AI-trace); betere `error_message` bij harde fouten.
+- **Scope:** `RequestPrefillOutcomeClassifier`, `PrefillAnswersFromKnownContext`, `EvaluateRequestIntent`; Pest case 80/81 stagingteksten + unit soft-envelope. Geen template-/promptversiebump.
+- **Acceptatie:** case 81 met evidence = volledige openingszin + één scalar-fill → kamers/feiten opgeslagen, technische keys uitgesloten; `composer check` groen.
 
 ### BL-118 — Klanttest 2 okt: foto-first, extractiedekking, kamernamen
 

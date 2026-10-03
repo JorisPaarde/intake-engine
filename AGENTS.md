@@ -1,6 +1,6 @@
 # AGENTS.md — Projectgeheugen & werkinstructies
 
-> **Documentversie:** 2.29 · **Laatste update:** 2026-10-03 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
+> **Documentversie:** 2.30 · **Laatste update:** 2026-10-03 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
 
 Dit bestand is de **centrale ingang** voor iedere agent (of mens) die aan dit project werkt. Het beschrijft waar het projectgeheugen leeft, welk document waarvoor de bron van waarheid is, en hoe je dat geheugen bijhoudt. **Lees dit bestand aan het begin van elke taak.**
 
@@ -197,6 +197,7 @@ Praktische lessen uit cloud-runs. Doel: sneller groen zonder opnieuw te ontdekke
 - Klantvoortgang (BL-120): `ProgressCalculator` / `FollowUpProgressCalculator` tellen afgeronde verplichte klanttaken (niet stappositie); prefill-skip via `PrefillSources::shouldSkipPrefill`; foto’s pas na bruikbare beoordeling. Extra-taaknotitie alleen ná analyse.
 - Klant-uploadfases (BL-120): `updatedPhotoFiles` slaat op (+ `rememberStoredUpload` / `processing_timings` uit BL-116), zet `uploadPhase=assessing`, daarna `$this->js('$wire.assessPendingUploads()')`. Pending ids per composite/item; remount herzet uploads zonder verdict; Alpine 120s-timeout toont “Opnieuw beoordelen”. Soft-fail van `AssessPhotoUsability` **moet** een verdict persisten (fallback `ok`); `NULL` → eindeloze recovery-lus + herhaalde AI-calls. Recovery slaat `installer_evidence` over.
 - Openingszin: `LocalRequestIntentParser` alleen foutloze unieke ruimtetypes (geen extra regex voor maten/anaphora, ADR-0013). Zelfde type twee keer noemen → `null`, daarna catalogus-AI. Werkpleknamen nummeren per type (`Woonkamer 1`, niet globaal `Woonkamer 3`).
+- Catalogus-prefill (BL-122): te lange top-level `evidence` of één kapotte fill mag nooit de hele extractie dumpen — soft inkorten/reject per fill (`RequestPrefillOutcomeClassifier`); check AI-trace `validation_errors` + field outcomes. Staging case 81-tekst is >500 tekens; echo als evidence was de regressie.
 - Kwaliteitspoort: `composer check` (= Pint + PHPStan level 6 + Pest) vóór je “klaar” claimt.
 - Featuretests met `Livewire::test(...)` hebben geen Vite-build nodig; `$this->get(...)` die een layout met `@vite` raakt wél.
 - Test samengestelde invoerketens op de grens die ertoe doet: request → persistente velden → uitgaande servicequery → opgeslagen resultaat. Een DOM-stringassertie en losse HTTP-fakes kunnen allebei groen zijn terwijl de overdracht ertussen ontbreekt; gebruik voor adresregressies een echt postcode-/huisnummergeval.

@@ -1,6 +1,6 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 3.20 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.21 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **samenvatting, aandachtspunten, lokale fotokwaliteit, tekst-/foto-afleiding, verbindingsgebonden routeanalyse en bewijsgerichte dossiersynthese zijn geïmplementeerd**. Externe provider en tekst-/foto-/route-/dossierinferentie staan standaard uit (provider + key + featurevlaggen + budgetcaps; soft-fail zonder die config). OpenAI-compatibele gateways (o.a. OpenRouter) via `AI_BASE_URL`.
 
@@ -199,7 +199,9 @@ Dossiersynthese loopt na iedere afgeronde klant-, installateur- of gerichte bijd
 
 `DeriveIntentFromRequest` volgt een hybrid pad. Eerst past de bevroren `LocalRequestIntentParser` (`request-intent-local-v4`) alleen foutloze evidente feiten toe: koel-/verwarmdoelen (inclusief `koud te krijgen`), éénduidige aantallen/ruimtetypen en “op zolder”. Zelfde kamertype twee keer noemen (vaak maten naderhand) is geen lokale high-confidence — dat bepaalt catalogus-AI. Geen lokale maat-, buitenunit- of andere keuzeheuristiek.
 
-Daarna, met `AI_TEXT_INFERENCE_ENABLED` aan en externe calls toegestaan, beoordeelt `PrefillAnswersFromKnownContext` de volledige fillable vraagenset via `request-prefill-v4`: openingszin, antwoorden, externe feiten en installateursobservaties. Per vraag alleen cataloguskeys/opties; `high` → `prefill_source=ai`, `medium` → `ai_suggestion`, `low` → niets. Fotovragen worden niet ingevuld. De prompt telt herhaalde kamernamen niet dubbel; neemt letterlijke L×B over of vult `room_area_m2` bij exact m² (geen m²→L×B). Exact AI-m² telt alleen bij hoge zekerheid + evidence (`RoomAreaAcceptance`).
+Daarna, met `AI_TEXT_INFERENCE_ENABLED` aan en externe calls toegestaan, beoordeelt `PrefillAnswersFromKnownContext` de volledige fillable vraagenset via `request-prefill-v6`: openingszin, antwoorden, externe feiten en installateursobservaties. Per vraag alleen cataloguskeys/opties; `high` → `prefill_source=ai_text`, `medium` → `ai_text_suggestion`, `low` → niets. Fotovragen worden niet ingevuld. De prompt telt herhaalde kamernamen niet dubbel; neemt letterlijke L×B over of vult `room_area_m2` bij exact m² (geen m²→L×B). Exact AI-m² telt alleen bij hoge zekerheid + evidence (`RoomAreaAcceptance`).
+
+`RequestPrefillOutcomeClassifier` verwerkt catalogusoutput **soft**: te lange top-level `evidence` (>500) of fill-evidence (>300) wordt ingekort met normalisatie + `validation_errors` in de AI-trace; één kapotte fill (ongeldige confidence, scalar `value`, onbekende key) wordt rejected met reden terwijl andere fills doorgaan. Alleen een ontbrekende `fills`-array blijft een harde `ValidationException`. Prefill-apply vangt per-veld writefouten af zodat één mislukte opslag de rest niet terugdraait; harde fouten gebruiken `AiValidationFailureFormatter` in `ai_runs.error_message`.
 
 Herbeoordeling (ADR-0014) gebeurt opnieuw wanneer de context groeit: na adresverrijking (aanmaak én retry), bij opslaan van de openingszin, en na een installateursnotitie of aangepaste constatering. Ongewijzigde context herhaalt geen provider-call (inputhash).
 

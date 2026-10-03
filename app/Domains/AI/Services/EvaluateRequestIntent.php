@@ -199,7 +199,8 @@ final class EvaluateRequestIntent
                 $aiError = 'Catalogus-AI mislukt: '.$this->safeErrorMessage($exception);
             } catch (ValidationException $exception) {
                 $versions['provider'] = (string) config('ai.provider', 'null');
-                $aiError = 'Catalogus-AI gaf ongeldige output (validatie).';
+                $aiError = 'Catalogus-AI gaf ongeldige output (validatie): '
+                    .app(AiValidationFailureFormatter::class)->fromException($exception);
             } catch (Throwable $exception) {
                 $versions['provider'] = (string) config('ai.provider', 'null');
                 $aiError = 'Catalogus-AI mislukt: '.$this->safeErrorMessage($exception);
