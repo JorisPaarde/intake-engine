@@ -1,6 +1,6 @@
 # Uploads & mediastorage
 
-> **Documentversie:** 3.9 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.10 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: klant-, gerichte bijdrage- en installateursfoto's, private serve-routes, generieke bewijslinks en dossier-/analysevarianten zijn **geïmplementeerd**. `MEDIA_DISK=s3` is ondersteund via Laravel’s `s3`-disk (BL-013). Directe installateurs-PDF-upload is niet gebouwd; een PDF kan wel als gerichte klanttaak worden gevraagd.
 
@@ -28,7 +28,7 @@ Status: klant-, gerichte bijdrage- en installateursfoto's, private serve-routes,
    - rij in `intake_uploads`; templatefoto's synchroniseren daarnaast `intake_answers.value.upload_ids`
    - `DossierManager` koppelt bewijs aan ruimte, plaatsing, verbinding of algemene dossierroot
 4. Preview via `customer.uploads.show` / `installer.uploads.show`.
-5. AI-categoriecheck (BL-119): na vision-analyse krijgt de upload `content_assessment` (`ok` / `wrong_subject` / `needs_clearer` / `not_assessed`). Bestaande assessments worden niet overschreven. Verkeerd onderwerp: **Vervang foto** (verwijdert + picker) of **Toch doorgaan**. `not_assessed` is alleen zichtbaar voor de installateur. Niet-controleerbare gebieden (placement/condensate/zonder photo_analysis) houden `null`.
+5. AI-categoriecheck (BL-119): na vision-analyse krijgt de upload `content_assessment` (`ok` / `wrong_subject` / `needs_clearer` / `not_assessed`). Bestaande assessments worden niet overschreven. Verkeerd onderwerp: **Vervang foto** (verwijdert + picker) of **Toch doorgaan**. `not_assessed` is alleen zichtbaar voor de installateur. Niet-controleerbare gebieden (placement/condensate/zonder photo_analysis) houden `null`. Follow-up-beoordeling async → BL-121 (niet BL-120/#118).
 6. Verwijderen wist beide varianten; bij storagefalen neemt `DeleteStoredMediaJob` de retry over.
 7. Installateursgalerij (detailpagina): `InstallerPhotoGalleryBuilder` groepeert foto’s per sectie/instantie en toont vraaglabels uit de gepinde templateversie (geen rauwe `question_key` / `section_instance_key`) — BL-024.
 

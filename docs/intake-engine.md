@@ -1,6 +1,6 @@
 # Vragen- en takenengine
 
-> **Documentversie:** 2.26 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.27 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: de templatewizard is **geïmplementeerd t/m airco v19** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md). UI-taal: [language.md](language.md).
 
@@ -207,7 +207,7 @@ Runtime bovenop airco v19 (geen templatewijziging t.o.v. v18):
 - Foto-afleiding (`DerivePhotoAnswers`, `AssessFuseboxPhotos`) beoordeelt **elke upload zonder assessment**. `subject_match=no` → altijd `wrong_subject`; AI-fout of inference uit → `not_assessed` (nooit null na beoordelingspoging). Fabriek: `PhotoContentAssessment::fromModelOutput`.
 - Klant: `wrong_subject` soft-blockt verplichte foto’s — **Vervang foto** en **Toch doorgaan**. Banner verdwijnt via `PhotoContentSatisfaction`; verkeerde foto houdt installateursbadge. Bestaande `content_assessment` wordt niet overschreven.
 - Interne velden `fusebox_clarity` / `room_outlet_status` nooit in klantstappen (`InternalCustomerQuestions`). Routeconclusies via `TechnicalDecisionKeys::ROUTE_PROPOSAL_KEYS`.
-- Follow-up refrigerant accepteert `pipe_route` én `outdoor_unit`. Async follow-up → BL-120.
+- Follow-up refrigerant accepteert `pipe_route` én `outdoor_unit`. Async follow-up → BL-121.
 
 ## Prefill van bekende gegevens (BL-016)
 

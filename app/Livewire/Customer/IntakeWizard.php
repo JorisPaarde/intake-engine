@@ -718,6 +718,7 @@ class IntakeWizard extends Component
         foreach ($files as $file) {
             try {
                 $upload = app(StoreFollowUpUpload::class)->handle($this->intake(), $item, $file);
+                $this->rememberStoredUpload($upload);
                 $stored++;
 
                 if ($type === FollowUpItemType::Photo) {
@@ -793,6 +794,7 @@ class IntakeWizard extends Component
                     $instanceKey,
                     $file,
                 );
+                $this->rememberStoredUpload($upload);
                 $stored++;
                 $newUploads[] = $upload;
 
@@ -1962,6 +1964,7 @@ class IntakeWizard extends Component
             $questionTypes,
             $sectionsByQuestionKey,
             $targets,
+            customerMode: true,
         );
     }
 
@@ -2163,6 +2166,11 @@ class IntakeWizard extends Component
         }
 
         app(AiTraceRecorder::class)->recordNetworkUploadMs($upload, $ms);
+    }
+
+    private function rememberStoredUpload(IntakeUpload $upload): void
+    {
+        $this->dispatch('ai-upload-stored', uploadId: $upload->id);
     }
 
     private function correlationIdForUpload(IntakeUpload $upload): string

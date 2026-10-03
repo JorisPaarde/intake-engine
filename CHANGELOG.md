@@ -13,6 +13,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 - **AI-conclusie uit foto te stellig:** `drillings_needed=no` → fact `unknown` + voorstelnotitie; routevelden geen klant-`intake_answers`.
 - **Intern AI-veld als klantvraag:** `fusebox_clarity` / `room_outlet_status` altijd verborgen.
 - **Verkeerde foto zonder feedback:** per-upload verdict; soft-block; follow-up refrigerant accepteert pipe_route+outdoor_unit.
+- **Rebase #119 op main:** `rememberStoredUpload`/`ai-upload-stored`, normaliserende `validateOutput` + `persistenceManifest`, volledige #117-trace (apply/`ai_trace_id`), `customerMode: true`, async follow-up → BL-121 (niet BL-120).
 
 ### Added
 

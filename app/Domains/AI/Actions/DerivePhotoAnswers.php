@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Domains\AI\Actions;
 
 use App\Domains\AI\Models\AiRun;
+use App\Domains\AI\Services\AiEnumNormalizer;
 use App\Domains\AI\Services\AiGateway;
 use App\Domains\AI\Services\AiImageResolver;
+use App\Domains\AI\Services\AiTraceHandle;
 use App\Domains\AI\Services\AiTracePhotoRefBuilder;
 use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\AI\Services\AiTraceSnapshotService;
@@ -96,9 +98,12 @@ final class DerivePhotoAnswers
 
         $recentIds = $this->recentUploadIds($allUploads);
         $lastRun = null;
+        /** @var list<array<string, mixed>> $matchingOutputs */
         $matchingOutputs = [];
         $anyMismatch = false;
         $assessedAny = false;
+        /** @var array{run: AiRun, trace: AiTraceHandle, dossier_before: array<string, mixed>, questions_before: array<string, mixed>}|null $applyContext */
+        $applyContext = null;
 
         foreach ($allUploads as $upload) {
             // Alleen uploads zonder assessment — bestaande content_assessment blijft staan.
@@ -113,7 +118,7 @@ final class DerivePhotoAnswers
             }
 
             $assessedAny = true;
-            $run = $this->assessUpload(
+            $assessed = $this->assessUpload(
                 $intake,
                 $upload,
                 $photoQuestionKey,
@@ -122,6 +127,7 @@ final class DerivePhotoAnswers
                 $expected,
                 $correlationId,
             );
+            $run = $assessed['run'];
             $lastRun = $run;
 
             $freshUpload = $upload->fresh() ?? $upload;
@@ -137,15 +143,44 @@ final class DerivePhotoAnswers
             if ($assessment->status() === PhotoContentAssessment::STATUS_WRONG_SUBJECT
                 && ! $assessment->customerAcceptedMismatch()) {
                 $anyMismatch = true;
+                if ($assessed['trace'] instanceof AiTraceHandle) {
+                    $this->finalizeContentOnlyTrace(
+                        $assessed['trace'],
+                        $intake,
+                        $assessed['dossier_before'],
+                        $assessed['questions_before'],
+                    );
+                }
 
                 continue;
             }
 
-            if ($run->status === AiRunStatus::Succeeded
+            $isMatching = $run->status === AiRunStatus::Succeeded
                 && is_array($run->output)
                 && ($run->output['subject_match'] ?? 'yes') === 'yes'
-                && in_array($upload->id, $recentIds, true)) {
+                && in_array($upload->id, $recentIds, true);
+
+            if ($isMatching) {
                 $matchingOutputs[] = $run->output;
+                if ($assessed['trace'] instanceof AiTraceHandle) {
+                    // Eerdere apply-kandidaat sluiten zonder apply — alleen de laatste krijgt apply.
+                    if ($applyContext !== null) {
+                        $this->finalizeContentOnlyTrace(
+                            $applyContext['trace'],
+                            $intake,
+                            $applyContext['dossier_before'],
+                            $applyContext['questions_before'],
+                        );
+                    }
+                    $applyContext = $assessed;
+                }
+            } elseif ($assessed['trace'] instanceof AiTraceHandle) {
+                $this->finalizeContentOnlyTrace(
+                    $assessed['trace'],
+                    $intake,
+                    $assessed['dossier_before'],
+                    $assessed['questions_before'],
+                );
             }
         }
 
@@ -163,8 +198,6 @@ final class DerivePhotoAnswers
         if ($matchingOutputs === [] && ! $anyMismatch) {
             return $lastRun;
         }
-
-        $this->invalidateDerivedState($intake, $photoQuestionKey, $sectionInstanceKey, $profile);
 
         if ($matchingOutputs !== []) {
             $output = $this->mergeOutputs($matchingOutputs, $profile);
@@ -184,63 +217,240 @@ final class DerivePhotoAnswers
                     || $assessment->customerAcceptedMismatch();
             })->values();
 
-            if ($lastRun instanceof AiRun && is_array($output)) {
-                DB::transaction(function () use ($intake, $lastRun, $output, $matchingUploads, $photoQuestionKey, $sectionInstanceKey, $profile, $anyMismatch): void {
-                    $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
-
-                    if (! in_array($lockedIntake->status, [IntakeStatus::Sent, IntakeStatus::InProgress], true)) {
-                        throw new \RuntimeException('Opname is afgerond tijdens AI-analyse; resultaat niet toegepast.');
+            // Manifest van de analyse (niet van na de provider-call).
+            if ($applyContext !== null) {
+                $persistenceManifest = [$applyContext['persistence']];
+                // Voeg persistences van eerdere matching uploads toe via matchingUploads ids die in applyContext zitten.
+                // Bij één apply-context (laatste match) dekken we die upload; overige matching komen uit mergeOutputs ranked.
+                foreach ($matchingUploads as $matchingUpload) {
+                    if ((int) $matchingUpload->id === (int) $applyContext['persistence']['id']) {
+                        continue;
                     }
-
-                    if ($this->hasRoomTypeTextConflict($intake, $output, $sectionInstanceKey, $profile)) {
-                        $this->storeObservation($intake, $lastRun, $output, $matchingUploads, $photoQuestionKey, $sectionInstanceKey, $profile);
-                        $applied = ['derived' => [], 'suggested' => []];
-                    } else {
-                        $this->storeObservation($intake, $lastRun, $output, $matchingUploads, $photoQuestionKey, $sectionInstanceKey, $profile);
-                        $applied = $this->applyDerivedAnswers($intake, $output, $sectionInstanceKey, $profile);
-                    }
-
-                    IntakeActivityEvent::query()->create([
-                        'intake_id' => $intake->id,
-                        'actor_type' => 'system',
-                        'actor_id' => null,
-                        'event' => 'photo_answers_derived',
-                        'properties' => [
-                            'ai_run_id' => $lastRun->id,
-                            'profile' => $profile->name,
-                            'question_key' => $photoQuestionKey,
-                            'section_instance_key' => $sectionInstanceKey,
-                            'confidence' => $output['confidence'],
-                            'subject_match' => $output['subject_match'] ?? null,
-                            'detected_subject' => $output['detected_subject'] ?? null,
-                            'derived_question_keys' => $applied['derived'],
-                            'suggested_question_keys' => $applied['suggested'],
-                            'content_mismatch' => $anyMismatch,
-                        ],
-                        'created_at' => now(),
-                    ]);
-                }, 3);
+                    $persistenceManifest[] = [
+                        'id' => $matchingUpload->id,
+                        ...$this->aiImageResolver->identity($matchingUpload),
+                    ];
+                }
+                // Stabiele volgorde op id
+                usort($persistenceManifest, static fn (array $a, array $b): int => ((int) $a['id']) <=> ((int) $b['id']));
+            } else {
+                $persistenceManifest = $matchingUploads
+                    ->sortBy('id')
+                    ->map(fn (IntakeUpload $upload): array => [
+                        'id' => $upload->id,
+                        ...$this->aiImageResolver->identity($upload),
+                    ])
+                    ->values()
+                    ->all();
             }
-        } elseif ($anyMismatch && $lastRun instanceof AiRun) {
-            IntakeActivityEvent::query()->create([
-                'intake_id' => $intake->id,
-                'actor_type' => 'system',
-                'actor_id' => null,
-                'event' => 'photo_answers_derived',
-                'properties' => [
-                    'ai_run_id' => $lastRun->id,
-                    'profile' => $profile->name,
-                    'question_key' => $photoQuestionKey,
-                    'section_instance_key' => $sectionInstanceKey,
-                    'content_mismatch' => true,
-                    'derived_question_keys' => [],
-                    'suggested_question_keys' => [],
-                ],
-                'created_at' => now(),
-            ]);
+
+            $run = $applyContext['run'] ?? $lastRun;
+            if ($applyContext !== null) {
+                $trace = $applyContext['trace'];
+                $dossierBefore = $applyContext['dossier_before'];
+                $questionsBefore = $applyContext['questions_before'];
+            } else {
+                // Cache-hit pad: geen open assess-trace — start apply-trace voor #117-stappen.
+                $correlationId ??= (string) Str::uuid();
+                $latestMatching = $matchingUploads->sortByDesc('id')->first();
+                $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoAnalysis, array_filter([
+                    'ai_run_id' => $run?->id,
+                    'upload_id' => $latestMatching?->id,
+                    'subject_type' => 'section',
+                    'subject_id' => $sectionInstanceKey ?? $photoQuestionKey,
+                    'provider' => (string) config('ai.provider', 'null'),
+                    'correlation_id' => $correlationId,
+                ], static fn (mixed $value): bool => $value !== null));
+                if ($latestMatching instanceof IntakeUpload) {
+                    $trace->linkUpload($latestMatching);
+                }
+                $dossierBefore = [];
+                $questionsBefore = [];
+                if (! $trace->isNoop()) {
+                    $dossierBefore = $this->traceSnapshots->answers($intake);
+                    $questionsBefore = $this->traceSnapshots->remainingQuestions($intake);
+                }
+            }
+
+            if ($run instanceof AiRun && is_array($output)) {
+                try {
+                    DB::transaction(function () use (
+                        $intake,
+                        $run,
+                        $output,
+                        $matchingUploads,
+                        $photoQuestionKey,
+                        $sectionInstanceKey,
+                        $profile,
+                        $anyMismatch,
+                        $persistenceManifest,
+                        $trace,
+                    ): void {
+                        $trace->beginBuffer();
+                        $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
+
+                        if (! in_array($lockedIntake->status, [IntakeStatus::Sent, IntakeStatus::InProgress], true)) {
+                            throw new \RuntimeException('Opname is afgerond tijdens AI-analyse; resultaat niet toegepast.');
+                        }
+
+                        $currentManifest = $matchingUploads
+                            ->sortBy('id')
+                            ->map(function (IntakeUpload $upload): array {
+                                $fresh = IntakeUpload::query()->whereKey($upload->id)->first() ?? $upload;
+
+                                return [
+                                    'id' => $fresh->id,
+                                    ...$this->aiImageResolver->identity($fresh),
+                                ];
+                            })
+                            ->values()
+                            ->all();
+
+                        if ($currentManifest !== $persistenceManifest) {
+                            throw new \RuntimeException('Foto’s gewijzigd tijdens AI-analyse; resultaat niet toegepast.');
+                        }
+
+                        if ($this->hasRoomTypeTextConflict($intake, $output, $sectionInstanceKey, $profile)) {
+                            $this->storeObservation(
+                                $intake,
+                                $run,
+                                $output,
+                                $matchingUploads,
+                                $photoQuestionKey,
+                                $sectionInstanceKey,
+                                $profile,
+                                $trace->traceId(),
+                            );
+                            $applied = ['derived' => [], 'suggested' => []];
+                            $trace->step('room_type_text_conflict', [
+                                'photo_question_key' => $photoQuestionKey,
+                                'section_instance_key' => $sectionInstanceKey,
+                            ]);
+                        } else {
+                            $this->invalidateDerivedState($intake, $photoQuestionKey, $sectionInstanceKey, $profile);
+                            $trace->step('invalidate_previous', [
+                                'photo_question_key' => $photoQuestionKey,
+                                'section_instance_key' => $sectionInstanceKey,
+                            ]);
+                            $this->storeObservation(
+                                $intake,
+                                $run,
+                                $output,
+                                $matchingUploads,
+                                $photoQuestionKey,
+                                $sectionInstanceKey,
+                                $profile,
+                                $trace->traceId(),
+                            );
+                            $applied = $this->applyDerivedAnswers($intake, $output, $sectionInstanceKey, $profile);
+                            $trace->step('apply', $applied);
+                        }
+
+                        $trace->recordFieldOutcomes(
+                            $this->fieldOutcomesFromPhoto($intake, $output, $profile, $applied, $sectionInstanceKey),
+                        );
+
+                        IntakeActivityEvent::query()->create([
+                            'intake_id' => $intake->id,
+                            'actor_type' => 'system',
+                            'actor_id' => null,
+                            'event' => 'photo_answers_derived',
+                            'properties' => [
+                                'ai_run_id' => $run->id,
+                                'ai_trace_id' => $trace->traceId(),
+                                'profile' => $profile->name,
+                                'question_key' => $photoQuestionKey,
+                                'section_instance_key' => $sectionInstanceKey,
+                                'confidence' => $output['confidence'],
+                                'subject_match' => $output['subject_match'] ?? null,
+                                'detected_subject' => $output['detected_subject'] ?? null,
+                                'derived_question_keys' => $applied['derived'],
+                                'suggested_question_keys' => $applied['suggested'],
+                                'content_mismatch' => $anyMismatch,
+                            ],
+                            'created_at' => now(),
+                        ]);
+                    }, 3);
+                    $trace->flushBuffer();
+                } catch (Throwable $transactionException) {
+                    $trace->discardBuffer();
+                    $trace->fail($transactionException->getMessage(), $transactionException);
+                    throw $transactionException;
+                }
+
+                $trace->linkAiRun($run->fresh() ?? $run);
+                $trace->stopProcessTimer();
+                if (! $trace->isNoop()) {
+                    $freshIntake = $intake->fresh() ?? $intake;
+                    $dossierAfter = $this->traceSnapshots->answers($freshIntake);
+                    $trace->recordDossierSnapshots(
+                        $dossierBefore,
+                        $dossierAfter,
+                        $this->traceSnapshots->changedFields($dossierBefore, $dossierAfter),
+                    );
+                    $trace->recordRemainingQuestions(
+                        $questionsBefore,
+                        $this->traceSnapshots->remainingQuestions($freshIntake),
+                    );
+                }
+                $trace->succeed();
+
+                return $run->fresh() ?? $run;
+            }
+        }
+
+        if ($anyMismatch) {
+            $this->invalidateDerivedState($intake, $photoQuestionKey, $sectionInstanceKey, $profile);
+
+            if ($lastRun instanceof AiRun) {
+                IntakeActivityEvent::query()->create([
+                    'intake_id' => $intake->id,
+                    'actor_type' => 'system',
+                    'actor_id' => null,
+                    'event' => 'photo_answers_derived',
+                    'properties' => [
+                        'ai_run_id' => $lastRun->id,
+                        'ai_trace_id' => isset($applyContext['trace']) ? $applyContext['trace']->traceId() : null,
+                        'profile' => $profile->name,
+                        'question_key' => $photoQuestionKey,
+                        'section_instance_key' => $sectionInstanceKey,
+                        'content_mismatch' => true,
+                        'derived_question_keys' => [],
+                        'suggested_question_keys' => [],
+                    ],
+                    'created_at' => now(),
+                ]);
+            }
         }
 
         return $lastRun;
+    }
+
+    /**
+     * @param  array<string, mixed>  $dossierBefore
+     * @param  array<string, mixed>  $questionsBefore
+     */
+    private function finalizeContentOnlyTrace(
+        AiTraceHandle $trace,
+        Intake $intake,
+        array $dossierBefore,
+        array $questionsBefore,
+    ): void {
+        $trace->stopProcessTimer();
+        if (! $trace->isNoop()) {
+            $freshIntake = $intake->fresh() ?? $intake;
+            $dossierAfter = $this->traceSnapshots->answers($freshIntake);
+            $trace->recordDossierSnapshots(
+                $dossierBefore,
+                $dossierAfter,
+                $this->traceSnapshots->changedFields($dossierBefore, $dossierAfter),
+            );
+            $trace->recordRemainingQuestions(
+                $questionsBefore,
+                $this->traceSnapshots->remainingQuestions($freshIntake),
+            );
+        }
+        $trace->succeed();
     }
 
     /**
@@ -266,6 +476,15 @@ final class DerivePhotoAnswers
         return $outputs[0];
     }
 
+    /**
+     * @return array{
+     *     run: AiRun,
+     *     trace: AiTraceHandle|null,
+     *     dossier_before: array<string, mixed>,
+     *     questions_before: array<string, mixed>,
+     *     persistence: array{id: int|string, checksum: mixed, mime_type: string, variant: string}
+     * }
+     */
     private function assessUpload(
         Intake $intake,
         IntakeUpload $upload,
@@ -274,9 +493,14 @@ final class DerivePhotoAnswers
         PhotoDerivationProfile $profile,
         PhotoSubject $expected,
         ?string $correlationId = null,
-    ): AiRun {
+    ): array {
         $promptVersion = $this->promptVersions->version($profile->promptName);
         $promptBody = $this->promptVersions->body($profile->promptName);
+
+        $persistence = [
+            'id' => $upload->id,
+            ...$this->aiImageResolver->identity($upload),
+        ];
 
         $input = [
             'task' => 'derive_answers_from_photos',
@@ -303,7 +527,13 @@ final class DerivePhotoAnswers
         if ($existing instanceof AiRun && is_array($existing->output)) {
             $this->applyUploadAssessment($upload, $expected, $existing->output);
 
-            return $existing;
+            return [
+                'run' => $existing,
+                'trace' => null,
+                'dossier_before' => [],
+                'questions_before' => [],
+                'persistence' => $persistence,
+            ];
         }
 
         $run = AiRun::query()->create([
@@ -360,8 +590,18 @@ final class DerivePhotoAnswers
             );
             $trace->recordProviderResult($result);
 
-            $output = $this->validateOutput($result->output, $profile);
-            $trace->recordParsed($output, []);
+            try {
+                [$output, $normalizations] = $this->validateOutput($result->output, $profile);
+                $trace->recordParsed($output, [], $normalizations);
+            } catch (ValidationException $exception) {
+                $trace->recordParsed([], $exception->errors());
+                throw $exception;
+            }
+            $trace->step('normalize', [
+                'profile' => $profile->name,
+                'confidence' => $output['confidence'],
+                'normalization_count' => count($normalizations),
+            ]);
 
             $run->update($run->completionResultAttributes($result) + [
                 'status' => AiRunStatus::Succeeded,
@@ -372,30 +612,24 @@ final class DerivePhotoAnswers
 
             $this->applyUploadAssessment($upload, $expected, $output);
 
-            $trace->linkAiRun($run->fresh() ?? $run);
-            $trace->stopProcessTimer();
-            if (! $trace->isNoop()) {
-                $freshIntake = $intake->fresh() ?? $intake;
-                $dossierAfter = $this->traceSnapshots->answers($freshIntake);
-                $trace->recordDossierSnapshots(
-                    $dossierBefore,
-                    $dossierAfter,
-                    $this->traceSnapshots->changedFields($dossierBefore, $dossierAfter),
-                );
-                $trace->recordRemainingQuestions(
-                    $questionsBefore,
-                    $this->traceSnapshots->remainingQuestions($freshIntake),
-                );
-            }
-            $trace->succeed();
+            $freshRun = $run->fresh() ?? $run;
+            $trace->linkAiRun($freshRun);
 
-            return $run->fresh() ?? $run;
+            // Trace blijft open: handle() doet apply (of finalizeContentOnlyTrace).
+            return [
+                'run' => $freshRun,
+                'trace' => $trace,
+                'dossier_before' => $dossierBefore,
+                'questions_before' => $questionsBefore,
+                'persistence' => $persistence,
+            ];
         } catch (Throwable $exception) {
             $trace->linkAiRun($run->fresh() ?? $run);
             $trace->fail($exception->getMessage(), $exception);
             Log::warning('AI photo answer derivation failed', [
                 'intake_id' => $intake->id,
                 'ai_run_id' => $run->id,
+                'ai_trace_id' => $trace->traceId(),
                 'profile' => $profile->name,
                 'upload_id' => $upload->id,
                 'exception' => $exception::class,
@@ -409,7 +643,13 @@ final class DerivePhotoAnswers
 
             $upload->storeContentAssessment(PhotoContentAssessment::notAssessed($expected));
 
-            return $run->fresh() ?? $run;
+            return [
+                'run' => $run->fresh() ?? $run,
+                'trace' => null,
+                'dossier_before' => [],
+                'questions_before' => [],
+                'persistence' => $persistence,
+            ];
         }
     }
 
@@ -509,14 +749,46 @@ final class DerivePhotoAnswers
 
     /**
      * @param  array<string, mixed>  $output
-     * @return array<string, mixed>
+     * @return array{0: array<string, mixed>, 1: list<array{field: string, from: mixed, to: mixed, rule: string}>}
      */
     private function validateOutput(array $output, PhotoDerivationProfile $profile): array
     {
+        $normalizations = [];
+        $enums = app(AiEnumNormalizer::class);
         $subjectValues = array_map(
             static fn (PhotoSubject $subject): string => $subject->value,
             PhotoSubject::cases(),
         );
+
+        if (array_key_exists('confidence', $output)) {
+            $from = $output['confidence'];
+            $to = $enums->normalize(
+                $from,
+                ['high', 'medium', 'low'],
+                ['hoog' => 'high', 'middel' => 'medium', 'matig' => 'medium', 'laag' => 'low'],
+            );
+            if ($from !== $to) {
+                $normalizations[] = ['field' => 'confidence', 'from' => $from, 'to' => $to, 'rule' => 'confidence'];
+            }
+            $output['confidence'] = $to;
+        }
+
+        foreach ($profile->fields as $field) {
+            if (! array_key_exists($field->outputKey, $output)) {
+                continue;
+            }
+            $from = $output[$field->outputKey];
+            $to = $enums->normalize($from, $field->schemaValues());
+            if ($from !== $to) {
+                $normalizations[] = [
+                    'field' => $field->outputKey,
+                    'from' => $from,
+                    'to' => $to,
+                    'rule' => 'photo_field',
+                ];
+            }
+            $output[$field->outputKey] = $to;
+        }
 
         $rules = [
             'confidence' => ['required', Rule::in(['high', 'medium', 'low'])],
@@ -550,7 +822,7 @@ final class DerivePhotoAnswers
             ? $validated['subject_match']
             : 'yes';
 
-        return $validated;
+        return [$validated, $normalizations];
     }
 
     /**
@@ -565,6 +837,7 @@ final class DerivePhotoAnswers
         string $photoQuestionKey,
         ?string $sectionInstanceKey,
         PhotoDerivationProfile $profile,
+        ?string $traceId = null,
     ): void {
         $isPipeRoute = $profile->name === 'pipe_route';
         $factOutput = $output;
@@ -585,12 +858,13 @@ final class DerivePhotoAnswers
                 'label' => $isPipeRoute
                     ? 'Voorstel leidingroute uit foto'
                     : 'Automatische beoordeling van '.$photoQuestionKey,
-                'value' => [
+                'value' => array_filter([
                     ...$factOutput,
                     'profile' => $profile->name,
                     'provider' => $run->provider,
                     'model' => $run->model,
                     'upload_ids' => $uploads->pluck('id')->values()->all(),
+                    'ai_trace_id' => $traceId,
                     'proposal_fields' => $isPipeRoute
                         ? TechnicalDecisionKeys::ROUTE_PROPOSAL_KEYS
                         : [],
@@ -598,13 +872,87 @@ final class DerivePhotoAnswers
                         ? 'Technische route-/doorboringconclusies zijn voorstellen voor de installateur; afwezigheid van een zichtbaar gat bewijst geen “geen doorboring”.'
                         : null,
                     'reason' => is_string($factOutput['evidence'] ?? null) ? $factOutput['evidence'] : null,
-                ],
+                ], static fn (mixed $value): bool => $value !== null),
                 'source_reference' => 'ai-run:'.$run->id,
                 'source_url' => null,
                 'confidence' => $this->observationConfidence($profile, $factOutput),
                 'captured_at' => now(),
             ],
         );
+    }
+
+    /**
+     * @param  array<string, mixed>  $output
+     */
+
+    /**
+     * @param  array<string, mixed>  $output
+     * @param  array{derived: list<string>, suggested: list<string>}  $applied
+     * @return list<array<string, mixed>>
+     */
+    private function fieldOutcomesFromPhoto(
+        Intake $intake,
+        array $output,
+        PhotoDerivationProfile $profile,
+        array $applied,
+        ?string $sectionInstanceKey,
+    ): array {
+        $outcomes = [];
+        $confidence = (string) ($output['confidence'] ?? 'low');
+
+        foreach ($profile->fields as $field) {
+            $key = $field->questionKey;
+            $hasKey = array_key_exists($field->outputKey, $output);
+            $rawValue = $hasKey ? (string) $output[$field->outputKey] : null;
+
+            if (in_array($key, $applied['derived'], true)) {
+                $outcomes[] = [
+                    'question_key' => $key,
+                    'output_key' => $field->outputKey,
+                    'disposition' => 'accepted',
+                    'confidence' => $confidence,
+                    'source' => self::SOURCE,
+                    'reason' => 'accepted_'.$confidence,
+                    'has_value' => true,
+                ];
+
+                continue;
+            }
+
+            if (in_array($key, $applied['suggested'], true)) {
+                $outcomes[] = [
+                    'question_key' => $key,
+                    'output_key' => $field->outputKey,
+                    'disposition' => 'suggested',
+                    'confidence' => $confidence,
+                    'source' => self::SOURCE,
+                    'reason' => 'suggested_'.$confidence,
+                    'has_value' => true,
+                ];
+
+                continue;
+            }
+
+            $reason = match (true) {
+                ! $hasKey => 'missing',
+                $rawValue === 'unknown' => 'unknown',
+                $confidence === 'low' => 'low_confidence',
+                ! $this->mayOverwrite($intake, $field, $sectionInstanceKey) => 'protected_user_edit',
+                default => 'skipped',
+            };
+
+            $outcomes[] = [
+                'question_key' => $key,
+                'output_key' => $field->outputKey,
+                'disposition' => 'rejected',
+                'confidence' => $confidence,
+                'source' => self::SOURCE,
+                'reason' => $reason,
+                'has_value' => $hasKey && $rawValue !== 'unknown',
+            ];
+        }
+
+        return $outcomes;
     }
 
     /**
