@@ -198,14 +198,16 @@ class IntakeWizard extends Component
      *     help_text: string|null,
      *     is_repeatable: bool,
      *     is_required: bool,
-     *     kind?: 'question'|'known_summary',
+     *     kind?: 'question'|'known_summary'|'question_group',
      *     known_items?: list<array{
      *         question_key: string,
      *         section_instance_key: string|null,
      *         label: string,
      *         display_value: string,
      *         prefill_source: string
-     *     }>
+     *     }>,
+     *     group_key?: string,
+     *     group_question_keys?: list<string>
      * }>|null
      */
     private ?array $resolvedSteps = null;
@@ -293,6 +295,7 @@ class IntakeWizard extends Component
         $progress = app(ProgressCalculator::class)->calculate($intake, $version);
 
         $question = null;
+        $groupQuestions = [];
         $visibility = [];
         $uploadsByQuestion = [];
         $displayPhotoHint = $this->photoHint;
@@ -305,15 +308,41 @@ class IntakeWizard extends Component
                 $step['question_key'],
             );
 
+            $questionsForVisibility = collect();
             if ($question instanceof IntakeQuestion) {
+                $questionsForVisibility->push($question);
+            }
+
+            if (($step['kind'] ?? 'question') === 'question_group') {
+                foreach ($step['group_question_keys'] ?? [] as $groupKey) {
+                    $groupQuestion = app(IntakeStepBuilder::class)->questionForStep(
+                        $version,
+                        $step['section_key'],
+                        $groupKey,
+                    );
+                    if ($groupQuestion instanceof IntakeQuestion) {
+                        $groupQuestions[] = $groupQuestion;
+                        if (! $questionsForVisibility->contains(
+                            static fn (IntakeQuestion $q): bool => $q->key === $groupQuestion->key,
+                        )) {
+                            $questionsForVisibility->push($groupQuestion);
+                        }
+                    }
+                }
+            }
+
+            if ($questionsForVisibility->isNotEmpty()) {
                 $visibility = $this->visibilityForQuestions(
-                    collect([$question]),
+                    $questionsForVisibility,
                     $step['section_instance_key'],
                 );
                 $uploadsByQuestion = $this->uploadsForStep($step['section_instance_key']);
-                $this->ensureAnswerShape($question, $step['section_instance_key']);
 
-                if ($question->type === QuestionType::Photo) {
+                foreach ($questionsForVisibility as $visibleQuestion) {
+                    $this->ensureAnswerShape($visibleQuestion, $step['section_instance_key']);
+                }
+
+                if ($question instanceof IntakeQuestion && $question->type === QuestionType::Photo) {
                     $composite = VisibilityResolver::compositeKey(
                         $question->key,
                         $step['section_instance_key'],
@@ -364,6 +393,7 @@ class IntakeWizard extends Component
             'steps' => $steps,
             'step' => $step,
             'question' => $question,
+            'groupQuestions' => $groupQuestions,
             'visibility' => $visibility,
             'uploadsByQuestion' => $uploadsByQuestion,
             'displayPhotoHint' => $displayPhotoHint,
@@ -1924,6 +1954,24 @@ class IntakeWizard extends Component
             return;
         }
 
+        if (($step['kind'] ?? 'question') === 'question_group') {
+            foreach ($step['group_question_keys'] ?? [] as $groupKey) {
+                $groupQuestion = app(IntakeStepBuilder::class)->questionForStep(
+                    $this->version(),
+                    $step['section_key'],
+                    $groupKey,
+                );
+                if (! $groupQuestion instanceof IntakeQuestion || $groupQuestion->type === QuestionType::Photo) {
+                    continue;
+                }
+                $composite = VisibilityResolver::compositeKey($groupQuestion->key, $step['section_instance_key']);
+                $this->persistComposite($composite);
+            }
+            $this->saveMessage = 'Opgeslagen';
+
+            return;
+        }
+
         $question = app(IntakeStepBuilder::class)->questionForStep(
             $this->version(),
             $step['section_key'],
@@ -1937,6 +1985,40 @@ class IntakeWizard extends Component
         $composite = VisibilityResolver::compositeKey($question->key, $step['section_instance_key']);
         $this->persistComposite($composite);
         $this->saveMessage = 'Opgeslagen';
+    }
+
+    /**
+     * Optionele fotovraag overslaan zonder upload (route/afvoer blijft open voor installateur).
+     */
+    public function skipOptionalPhoto(): void
+    {
+        if ($this->completed) {
+            return;
+        }
+
+        $step = $this->currentStep();
+        if ($step === null || ($step['kind'] ?? 'question') === 'known_summary') {
+            return;
+        }
+
+        $question = app(IntakeStepBuilder::class)->questionForStep(
+            $this->version(),
+            $step['section_key'],
+            $step['question_key'],
+        );
+
+        if (! $question instanceof IntakeQuestion || $question->type !== QuestionType::Photo) {
+            return;
+        }
+
+        if (($question->meta['allow_skip'] ?? false) !== true && $step['is_required']) {
+            return;
+        }
+
+        // Optioneel: Volgende zonder foto; geen antwoord forceren.
+        $this->showMissing = false;
+        $this->completionMissing = [];
+        $this->next();
     }
 
     /**
@@ -2281,14 +2363,16 @@ class IntakeWizard extends Component
      *     help_text: string|null,
      *     is_repeatable: bool,
      *     is_required: bool,
-     *     kind?: 'question'|'known_summary',
+     *     kind?: 'question'|'known_summary'|'question_group',
      *     known_items?: list<array{
      *         question_key: string,
      *         section_instance_key: string|null,
      *         label: string,
      *         display_value: string,
      *         prefill_source: string,
-     *     }>
+     *     }>,
+     *     group_key?: string,
+     *     group_question_keys?: list<string>
      * }>
      */
     private function steps(): array
@@ -2665,6 +2749,41 @@ class IntakeWizard extends Component
             return true;
         }
 
+        if (($step['kind'] ?? 'question') === 'question_group') {
+            if (! $step['is_required']) {
+                return true;
+            }
+
+            foreach ($step['group_question_keys'] ?? [] as $groupKey) {
+                $groupQuestion = app(IntakeStepBuilder::class)->questionForStep(
+                    $this->version(),
+                    $step['section_key'],
+                    $groupKey,
+                );
+                if (! $groupQuestion instanceof IntakeQuestion) {
+                    continue;
+                }
+
+                $visibility = $this->visibilityForQuestions(
+                    collect([$groupQuestion]),
+                    $step['section_instance_key'],
+                );
+                $key = VisibilityResolver::compositeKey($groupQuestion->key, $step['section_instance_key']);
+                $state = $visibility[$key] ?? ['visible' => false, 'required' => false];
+                if (! $state['visible'] || ! $state['required']) {
+                    continue;
+                }
+
+                $reader = app(AnswerValueReader::class);
+                $value = is_array($this->form[$key] ?? null) ? $this->form[$key] : null;
+                if (! $reader->isFilled($value, $groupQuestion->type)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         $question = app(IntakeStepBuilder::class)->questionForStep(
             $this->version(),
             $step['section_key'],
@@ -2717,14 +2836,16 @@ class IntakeWizard extends Component
      *     help_text: string|null,
      *     is_repeatable: bool,
      *     is_required: bool,
-     *     kind?: 'question'|'known_summary',
+     *     kind?: 'question'|'known_summary'|'question_group',
      *     known_items?: list<array{
      *         question_key: string,
      *         section_instance_key: string|null,
      *         label: string,
      *         display_value: string,
      *         prefill_source: string,
-     *     }>
+     *     }>,
+     *     group_key?: string,
+     *     group_question_keys?: list<string>
      * }|null
      */
     private function currentStep(): ?array

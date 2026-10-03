@@ -135,11 +135,33 @@ test('new intake form shows street and city without toevoeging or manual-address
         ->toContain('function markAddressAsManuallyEdited()')
         ->toContain('function shouldIgnoreStreetCityInput()')
         ->toContain('isAddressSearchPending()')
+        ->toContain('function syncStreetCityValidity()')
+        ->toContain('function setSubmitPending(pending)')
+        ->toContain('data-address-submit')
+        ->toContain("form.addEventListener('submit'")
         ->toContain('autocomplete="off"')
         ->not->toContain('autocomplete="street-address"')
         ->not->toContain("function markAddressAsManuallyEdited() {\n                cancelActiveRequest();")
         ->not->toContain('manualSummary')
         ->not->toContain('Adres handmatig aangepast');
+});
+
+test('create form clears custom validity after address autofill and blocks submit while lookup runs', function () {
+    $user = User::factory()->create();
+
+    $html = $this->actingAs($user)
+        ->get(route('intakes.create'))
+        ->assertOk()
+        ->getContent();
+
+    expect($html)
+        ->toContain('syncStreetCityValidity()')
+        ->toContain('setSubmitPending(true)')
+        ->toContain('setSubmitPending(false)')
+        ->toContain('Even geduld — we zoeken het adres nog op.')
+        ->toContain("addressLine.dispatchEvent(new Event('input'")
+        ->toContain('__intakeClearCustomValidity')
+        ->toContain('__intakeRecomputeCustomValidity');
 });
 
 test('create form shows only one installer prefill text field', function () {

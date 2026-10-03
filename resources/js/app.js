@@ -16,6 +16,7 @@ function registerDutchFormValidation() {
     }
 
     const messageFor = (el) => {
+        // Native checks only — customError would otherwise stick as "Controleer dit veld."
         if (el.validity.valueMissing) {
             return 'Vul dit veld in.';
         }
@@ -40,28 +41,44 @@ function registerDutchFormValidation() {
         return 'Controleer dit veld.';
     };
 
+    const clearCustomValidity = (el) => {
+        if (el instanceof HTMLElement && 'setCustomValidity' in el) {
+            el.setCustomValidity('');
+        }
+    };
+
+    const recomputeCustomValidity = (el) => {
+        if (!(el instanceof HTMLElement) || !('setCustomValidity' in el)) {
+            return;
+        }
+        // Clear first so autofilled values are not blocked by a stale customError.
+        el.setCustomValidity('');
+        if (!el.validity.valid) {
+            el.setCustomValidity(messageFor(el));
+        }
+    };
+
     document.addEventListener(
         'invalid',
         (event) => {
-            const el = event.target;
-            if (!(el instanceof HTMLElement) || !('setCustomValidity' in el)) {
-                return;
-            }
-            el.setCustomValidity(messageFor(el));
+            recomputeCustomValidity(event.target);
         },
         true,
     );
 
-    document.addEventListener(
-        'input',
-        (event) => {
-            const el = event.target;
-            if (el instanceof HTMLElement && 'setCustomValidity' in el) {
-                el.setCustomValidity('');
-            }
-        },
-        true,
-    );
+    ['input', 'change'].forEach((eventName) => {
+        document.addEventListener(
+            eventName,
+            (event) => {
+                clearCustomValidity(event.target);
+            },
+            true,
+        );
+    });
+
+    // Expose for address-lookup autofill / submit guards (create form).
+    window.__intakeClearCustomValidity = clearCustomValidity;
+    window.__intakeRecomputeCustomValidity = recomputeCustomValidity;
 }
 
 registerDutchFormValidation();
@@ -252,5 +269,57 @@ function registerLivewireUploadTiming() {
 }
 
 registerLivewireUploadTiming();
+
+/**
+ * Dutch Livewire request failures (e.g. LiteSpeed 503) instead of the English overlay.
+ * Keeps the page/input; caller UI can offer "Opnieuw proberen".
+ */
+function registerLivewireDutchRequestErrors() {
+    const messageForStatus = (status) => {
+        if (status === 419) {
+            return 'Je sessie is verlopen. Vernieuw de pagina en probeer opnieuw.';
+        }
+        if (status === 503 || status === 502 || status === 504) {
+            return 'De server is even niet bereikbaar. Probeer het opnieuw.';
+        }
+        if (status >= 500) {
+            return 'Er ging iets mis op de server. Probeer het opnieuw.';
+        }
+        if (status === 0) {
+            return 'Geen verbinding. Controleer je netwerk en probeer opnieuw.';
+        }
+        return 'De aanvraag lukte niet. Probeer het opnieuw.';
+    };
+
+    const dispatchError = (status) => {
+        const detail = {
+            status: typeof status === 'number' ? status : 0,
+            message: messageForStatus(typeof status === 'number' ? status : 0),
+        };
+        document.dispatchEvent(new CustomEvent('intake:livewire-request-failed', { detail }));
+    };
+
+    const bind = () => {
+        if (typeof Livewire === 'undefined' || typeof Livewire.hook !== 'function') {
+            return;
+        }
+
+        Livewire.hook('request', ({ fail }) => {
+            fail(({ status, preventDefault }) => {
+                if (typeof preventDefault === 'function') {
+                    preventDefault();
+                }
+                dispatchError(status);
+            });
+        });
+    };
+
+    document.addEventListener('livewire:init', bind);
+    if (typeof Livewire !== 'undefined') {
+        bind();
+    }
+}
+
+registerLivewireDutchRequestErrors();
 
 Alpine.start();

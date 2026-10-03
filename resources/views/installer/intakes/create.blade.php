@@ -258,7 +258,7 @@
 
                     <div class="flex items-center justify-end gap-3">
                         <a href="{{ route('dashboard') }}" class="text-sm text-gray-600 hover:text-gray-900">Annuleren</a>
-                        <x-primary-button data-submit-label>
+                        <x-primary-button data-submit-label data-address-submit>
                             {{ $isPublicDemo ? 'Opname aanmaken' : 'Opslaan en link mailen' }}
                         </x-primary-button>
 
@@ -290,6 +290,7 @@
             @endunless
 
             const root = document.querySelector('[data-address-lookup]');
+            const form = root?.closest('form');
             const postalCode = document.getElementById('address_postal_code');
             const houseNumber = document.getElementById('address_house_number');
             const addition = document.getElementById('address_house_number_addition');
@@ -298,6 +299,7 @@
             const addressLine = document.getElementById('address_line');
             const city = document.getElementById('address_city');
             const lookupId = document.getElementById('address_lookup_id');
+            const submitButton = document.querySelector('[data-address-submit]');
 
             if (!root || !postalCode || !houseNumber || !addition || !status || !list || !addressLine || !city || !lookupId) return;
 
@@ -314,6 +316,41 @@
                 status.textContent = message;
                 status.classList.toggle('text-red-700', Boolean(isError));
                 status.classList.toggle('text-gray-600', !isError);
+            }
+
+            function clearFieldValidity(el) {
+                if (typeof window.__intakeClearCustomValidity === 'function') {
+                    window.__intakeClearCustomValidity(el);
+                    return;
+                }
+                if (el && typeof el.setCustomValidity === 'function') {
+                    el.setCustomValidity('');
+                }
+            }
+
+            function recomputeFieldValidity(el) {
+                if (typeof window.__intakeRecomputeCustomValidity === 'function') {
+                    window.__intakeRecomputeCustomValidity(el);
+                    return;
+                }
+                clearFieldValidity(el);
+            }
+
+            function syncStreetCityValidity() {
+                clearFieldValidity(addressLine);
+                clearFieldValidity(city);
+                // Autofill sets .value without an input event — recompute so a stale
+                // "Controleer dit veld." cannot block submit after a successful lookup.
+                recomputeFieldValidity(addressLine);
+                recomputeFieldValidity(city);
+            }
+
+            function setSubmitPending(pending) {
+                if (!submitButton) return;
+                submitButton.disabled = Boolean(pending);
+                submitButton.setAttribute('aria-busy', pending ? 'true' : 'false');
+                submitButton.classList.toggle('opacity-60', Boolean(pending));
+                submitButton.classList.toggle('cursor-not-allowed', Boolean(pending));
             }
 
             function formattedPostalCode(value) {
@@ -343,11 +380,15 @@
                     searchTimer = null;
                 }
 
-                if (!request) return;
+                if (!request) {
+                    setSubmitPending(false);
+                    return;
+                }
 
                 request.abort();
                 request = null;
                 root.removeAttribute('aria-busy');
+                setSubmitPending(false);
             }
 
             function isAddressSearchPending() {
@@ -389,6 +430,9 @@
                 closeSuggestions();
                 setStatus('', false);
                 ignoreStreetCityInputUntil = Date.now() + 600;
+                syncStreetCityValidity();
+                addressLine.dispatchEvent(new Event('input', { bubbles: true }));
+                city.dispatchEvent(new Event('input', { bubbles: true }));
             }
 
             function showSuggestions(suggestions) {
@@ -434,6 +478,7 @@
                 const activeRequest = new AbortController();
                 request = activeRequest;
                 root.setAttribute('aria-busy', 'true');
+                setSubmitPending(true);
                 closeSuggestions();
                 setStatus('Adres zoeken…', false);
 
@@ -455,18 +500,22 @@
 
                     if (!response.ok) {
                         setStatus(payload.message || 'Adres zoeken is niet gelukt. Vul straat en plaats zelf in.', true);
+                        syncStreetCityValidity();
                         return;
                     }
 
                     showSuggestions(Array.isArray(payload.data) ? payload.data : []);
+                    syncStreetCityValidity();
                 } catch (error) {
                     if (error.name !== 'AbortError' && request === activeRequest) {
                         setStatus('De adresservice is tijdelijk niet beschikbaar. Vul straat en plaats zelf in.', true);
+                        syncStreetCityValidity();
                     }
                 } finally {
                     if (request === activeRequest) {
                         root.removeAttribute('aria-busy');
                         request = null;
+                        setSubmitPending(isAddressSearchPending());
                     }
                 }
             }
@@ -492,10 +541,14 @@
                     && parsed !== null
                     && Number(parsed.number) >= 1;
 
-                if (!canSearch) return;
+                if (!canSearch) {
+                    setSubmitPending(false);
+                    return;
+                }
 
                 addition.value = parsed.addition;
                 setStatus('Adres wordt automatisch gezocht…', false);
+                setSubmitPending(true);
                 ignoreStreetCityInputUntil = Date.now() + 800;
                 searchTimer = window.setTimeout(function () {
                     searchTimer = null;
@@ -516,14 +569,38 @@
                 houseNumber.value = displayHouseNumber(parsed.number, parsed.addition);
                 addition.value = parsed.addition;
             });
-            addressLine.addEventListener('input', markAddressAsManuallyEdited);
-            city.addEventListener('input', markAddressAsManuallyEdited);
+            addressLine.addEventListener('input', function () {
+                clearFieldValidity(addressLine);
+                markAddressAsManuallyEdited();
+            });
+            addressLine.addEventListener('change', function () {
+                clearFieldValidity(addressLine);
+            });
+            city.addEventListener('input', function () {
+                clearFieldValidity(city);
+                markAddressAsManuallyEdited();
+            });
+            city.addEventListener('change', function () {
+                clearFieldValidity(city);
+            });
             list.addEventListener('keydown', function (event) {
                 if (event.key === 'Escape') {
                     closeSuggestions();
                     postalCode.focus();
                 }
             });
+
+            if (form) {
+                form.addEventListener('submit', function (event) {
+                    if (isAddressSearchPending()) {
+                        event.preventDefault();
+                        setStatus('Even geduld — we zoeken het adres nog op.', false);
+                        setSubmitPending(true);
+                        return;
+                    }
+                    syncStreetCityValidity();
+                });
+            }
         })();
     </script>
 

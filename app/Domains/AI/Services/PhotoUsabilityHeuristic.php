@@ -9,6 +9,7 @@ use App\Enums\PhotoUsabilityVerdict;
 /**
  * Deterministic, local photo-usability check via GD (BL-007). No external calls.
  * Samples luminance and dimensions to flag likely-unusable photos as a *voorstel*.
+ * Resolution uses original capture dimensions when known (not a resized dossier/thumb).
  */
 final class PhotoUsabilityHeuristic
 {
@@ -16,24 +17,33 @@ final class PhotoUsabilityHeuristic
 
     private const DARK_LUMINANCE = 55.0;        // 0..255 average
 
-    public function assess(string $imageBytes): PhotoUsabilityVerdict
-    {
+    public function assess(
+        string $imageBytes,
+        ?int $originalWidth = null,
+        ?int $originalHeight = null,
+    ): PhotoUsabilityVerdict {
         $image = @imagecreatefromstring($imageBytes);
 
         if ($image === false) {
             // Unreadable here (e.g. HEIC without support) — do not flag; stay silent.
+            // Still honour known original dimensions for the size check.
+            if ($originalWidth !== null && $originalHeight !== null
+                && min($originalWidth, $originalHeight) < self::MIN_DIMENSION) {
+                return PhotoUsabilityVerdict::TooSmall;
+            }
+
             return PhotoUsabilityVerdict::Ok;
         }
 
         try {
-            $width = imagesx($image);
-            $height = imagesy($image);
+            $width = $originalWidth ?? imagesx($image);
+            $height = $originalHeight ?? imagesy($image);
 
             if (min($width, $height) < self::MIN_DIMENSION) {
                 return PhotoUsabilityVerdict::TooSmall;
             }
 
-            if ($this->averageLuminance($image, $width, $height) < self::DARK_LUMINANCE) {
+            if ($this->averageLuminance($image, imagesx($image), imagesy($image)) < self::DARK_LUMINANCE) {
                 return PhotoUsabilityVerdict::TooDark;
             }
 

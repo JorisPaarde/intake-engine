@@ -38,11 +38,12 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = follow-up foto async. **BL-122** = soft catalogus-prefill (case 81). **BL-123** = staging-retest acceptance (#115–#120). Nieuwe items starten bij BL-124.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = follow-up foto async. **BL-122** = soft catalogus-prefill (case 81). **BL-123** = staging-retest acceptance (#115–#120). **BL-124** = form robustness (adresvalidatie, matenscherm, optionele route-/upload). Nieuwe items starten bij BL-125.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
 | 1 | BL-117 | Installateur kan technisch open punt afhandelen vanuit de survey-werkplek | E7/E8 | backlog | high | na PR #115 · show/rapport `*_open` |
+| — | BL-124 | Form robustness: adresvalidatie, matenscherm L+B, optionele route-/afvoerfoto, upload-timeout | E1/E3/E7 | in_progress | high | A · klanttest P1/P3 · airco v21 |
 | — | BL-123 | Staging-retest: voortgang 100%, Volgende-mismatch, follow-up wrong_subject | E1/E4/E7 | done | high | na #115–#120 · case 80/81b · PR #121 |
 | — | BL-122 | Soft catalogus-prefill: lange evidence / kapotte fill dumpt niet alles | E3/E9 | done | high | regressie case 81 · PR #120 · na BL-118/120 |
 | — | BL-120 | Klanttest P2: voortgang, uploadfases, je-vorm (airco v20) | E1/E5/E7 | done | high | klanttest 2 okt P2 · PR #118 · na BL-119 |
@@ -623,6 +624,15 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Scope:** `IntakeWizard` display-% + mismatch alerts; `FollowUpProgressCalculator`; `DecisionReadinessService`/`PhotoContentAssessment::followUpMismatchReason`; Pest. Geen templateversiebump; #115–#120-beslissingen intact.
 - **Acceptatie:** Pest voor alle vier paden; `composer check` groen; geen prod-tag/deploy.
 - **Resultaat:** stapgebaseerde balk/% (zelfde noemer als “Vraag X van Y”) + sessie-hoogwater; soft-continue-waarschuwing bij banner+footer; follow-up mismatch = “Nog te vervangen”; Stroomtoevoer-blocker met wrong-subject-reden.
+
+### BL-124 — Form robustness: adresvalidatie, matenscherm, optionele route-/upload
+
+- **Status:** in_progress · **Prioriteit:** high · **Epic:** E1/E3/E7 · **Band:** A · **Volgt op:** BL-097/101/120 · **Ref:** klanttest P1/P3 adres + maten + route/upload
+- **Aanleiding:** (1) vroeg submit tijdens adreslookup liet `setCustomValidity` (“Controleer dit veld.”) vastzitten op autofilled straat/plaats; (2) lengte en breedte apart terwijl m² al bekend; (3) verplichte routefoto terwijl route installateursopen punt is; (4) upload “Uploaden…” >20 s zonder timeout/fout; LiteSpeed 503-Engels; lage-resolutie-flag op thumbnail i.p.v. origineel.
+- **Doel:** validity wissen/herberekenen na lookup/autofill/input/change/vóór submit; submit disabled tijdens lookup; één L+B-scherm (optioneel bij bekende m², derived m² uit L×W); optionele route-/afvoer-/muurfoto’s met “Weet ik niet / sla over”; ~15 s upload-timeout + NL-fout + Opnieuw proberen; resolutie op origineel.
+- **Scope:** create-adres-JS + `app.js` validity; airco **v21**; `IntakeStepBuilder` `wizard_group`; wizard upload/skip UI; `PhotoUploadNormalizer`/`PhotoUsabilityHeuristic` original dims; Pest; docs.
+- **Acceptatie:** Pest adres-script + v21 matenscherm/skip/resolutie; `composer check` groen; “Weet ik niet” blokkeert niet; uploadfases blijven zichtbaar.
+- **Niet in scope:** wizard-navigatie/photo-queue/UX-tekst parallelwerk van andere agents.
 
 ### BL-118 — Klanttest 2 okt: foto-first, extractiedekking, kamernamen
 

@@ -7,11 +7,14 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 ### Fixed
 
 - **503 bij gelijktijdige fotouploads (3 okt 2026, prod LiteSpeed/LVE):** AI-fotobeoordeling (`DerivePhotoAnswers`, `AssessFuseboxPhotos`, `AssessFollowUpPhotoSubject`) liep synchroon in de Livewire-request en hield PHP-workers tot `AI_TIMEOUT_SECONDS` vast. Beoordeling draait nu in `AssessUploadedPhotoJob` op queue `ai-photo` (uniek per upload); upload doet alleen opslaan + lokale usability. Wizard toont bestaande fases en pikt het resultaat op via `wire:poll.2s` (`pollPendingAssessments`). Soft-fail → `not_assessed` met klanttekst “We konden je foto nu niet automatisch beoordelen; de installateur kijkt mee.” Elke foto-AI schrijft precies één `photo_analysis`-trace gekoppeld aan `ai_run`.
+- **Adresvalidatie blijft hangen na lookup (BL-124):** `setCustomValidity` wordt gewist/herberekend na PDOK-autofill, op input/change en vóór submit; submitknop disabled terwijl de lookup loopt.
+- **Lage-resolutie-flag op verkleinde variant (BL-124):** usability checkt `original_width/height` (grootste HEIC-frame), niet de dossier-thumbnail.
+- **Upload blijft op “Uploaden…” (BL-124):** ~15 s timeout met NL-fout + **Opnieuw proberen** (alleen uploadfase; 120 s “Opnieuw beoordelen” voor assessing blijft); Livewire 5xx/503 toont NL-status i.p.v. Engelse LiteSpeed-overlay.
 
 ### Changed
 
 - **Queue/cron (BL-121):** fotobeoordeling op `ai-photo`; Laravel-scheduler start elk uur een langere `queue:work --queue=ai-photo,default --max-time=3500 --sleep=1` met `withoutOverlapping`. Minutelijk `queue:work` blijft als vangnet — zie `docs/DEPLOYMENT.md`.
-
+- **Airco v21 / matenscherm + optionele route (BL-124):** lengte en breedte op één scherm (`wizard_group`); optioneel bij bekende m²; `pipe_route_photos`/`drain_photo`/`indoor_unit_position_photo` optioneel met “Weet ik niet / sla over”; muurfoto’s binnen/buiten op gewenste binnenunitplek; route blijft open punt voor de installateur.
 
 ### Fixed
 

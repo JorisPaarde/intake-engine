@@ -26,5 +26,7 @@ final readonly class NormalizedPhotoUpload
         public ?int $dossierHeight = null,
         public ?int $analysisWidth = null,
         public ?int $analysisHeight = null,
+        public ?int $originalWidth = null,
+        public ?int $originalHeight = null,
     ) {}
 }
