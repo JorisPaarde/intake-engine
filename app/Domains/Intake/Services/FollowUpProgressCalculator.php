@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Services;
 
+use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\Intake\Models\IntakeFollowUpItem;
+use App\Domains\Intake\Models\IntakeUpload;
 use App\Enums\FollowUpItemType;
 use App\Enums\PhotoUsabilityVerdict;
 use Illuminate\Support\Collection;
@@ -13,8 +15,9 @@ use Illuminate\Support\Collection;
  * Voortgang van een gerichte klantaanvulling op basis van afgeronde items,
  * niet op de huidige stappositie (klanttest P2).
  *
- * Foto's tellen pas mee als ze bruikbaar beoordeeld zijn; tijdens beoordeling
- * of bij onbruikbare foto's blijft het item open.
+ * Foto's tellen pas mee als ze bruikbaar beoordeeld zijn én geen onopgeloste
+ * wrong_subject-mismatch hebben; tijdens beoordeling of bij onbruikbare /
+ * verkeerde foto's blijft het item open (geen 100%).
  */
 final class FollowUpProgressCalculator
 {
@@ -60,7 +63,7 @@ final class FollowUpProgressCalculator
     }
 
     /**
-     * @return 'empty'|'received'|'assessed'|'unusable'|'complete'
+     * @return 'empty'|'received'|'assessed'|'unusable'|'mismatch'|'complete'
      */
     public function itemStatus(IntakeFollowUpItem $item, ?string $liveResponse = null): string
     {
@@ -93,7 +96,34 @@ final class FollowUpProgressCalculator
                 && $upload->usability_verdict->isUsable(),
         );
 
-        return $allUsable ? 'assessed' : 'unusable';
+        if (! $allUsable) {
+            return 'unusable';
+        }
+
+        // Wrong-subject zonder expliciete acceptatie telt niet als afgerond (staging 81b).
+        if ($this->hasUnresolvedWrongSubject($item->uploads)) {
+            return 'mismatch';
+        }
+
+        return 'assessed';
+    }
+
+    /**
+     * @param  Collection<int, IntakeUpload>  $uploads
+     */
+    private function hasUnresolvedWrongSubject(Collection $uploads): bool
+    {
+        foreach ($uploads as $upload) {
+            $assessment = $upload->contentAssessment();
+
+            if ($assessment instanceof PhotoContentAssessment
+                && $assessment->status() === PhotoContentAssessment::STATUS_WRONG_SUBJECT
+                && ! $assessment->customerAcceptedMismatch()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function statusLabel(string $status): string
@@ -102,6 +132,7 @@ final class FollowUpProgressCalculator
             'received' => 'Ontvangen, wordt beoordeeld',
             'assessed' => 'Beoordeeld',
             'unusable' => 'Nieuwe foto nodig',
+            'mismatch' => 'Nog te vervangen',
             'complete' => 'Compleet',
             default => 'Nog te doen',
         };

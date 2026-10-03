@@ -198,6 +198,32 @@ final class PhotoContentAssessment
         };
     }
 
+    /**
+     * Installer-facing reason when a follow-up photo has the wrong subject
+     * (e.g. outdoor unit uploaded for a meterkast task).
+     */
+    public function followUpMismatchReason(?PhotoSubject $expected = null): ?string
+    {
+        if ($this->value['status'] !== self::STATUS_WRONG_SUBJECT) {
+            return null;
+        }
+
+        $expectedLabel = $expected instanceof PhotoSubject
+            ? $expected->dutchShortLabel()
+            : (($expectedSubject = $this->expectedSubject()) instanceof PhotoSubject
+                ? $expectedSubject->dutchShortLabel()
+                : 'verwacht onderwerp');
+
+        return 'Ontvangen foto lijkt een '.$this->detectedLabel()
+            .', geen '.$expectedLabel
+            .' — handmatig controleren';
+    }
+
+    public function expectedSubject(): ?PhotoSubject
+    {
+        return PhotoSubject::tryFromMixed($this->value['expected_subject'] ?? null);
+    }
+
     /** System attention-point label after the customer continues despite a mismatch. */
     public function continueAnywayAttentionLabel(): string
     {

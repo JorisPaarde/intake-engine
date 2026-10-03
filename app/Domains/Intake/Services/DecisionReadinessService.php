@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Services;
 
+use App\Domains\AI\Support\PhotoContentAssessment;
+use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Models\AircoConnection;
 use App\Domains\Intake\Models\AircoInstallationOption;
 use App\Domains\Intake\Models\AircoPlacementOption;
 use App\Domains\Intake\Models\AircoRoom;
+use App\Domains\Intake\Models\ContributionTask;
 use App\Domains\Intake\Models\DossierDecisionArea;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Support\PhotoContentSatisfaction;
@@ -20,6 +23,7 @@ use App\Enums\AircoOptionStatus;
 use App\Enums\AircoPlacementType;
 use App\Enums\DecisionAreaStatus;
 use App\Enums\DossierNextAction;
+use App\Enums\FollowUpItemType;
 use Illuminate\Support\Collection;
 
 final class DecisionReadinessService
@@ -349,10 +353,13 @@ final class DecisionReadinessService
         AircoConnectionType $type,
     ): array {
         if ($type === AircoConnectionType::Power && ! $this->hasFuseboxPhoto($intake)) {
+            $mismatchReason = $this->followUpWrongSubjectReason($intake, 'power', PhotoSubject::Fusebox);
+
             return [
                 'status' => DecisionAreaStatus::Blocked,
                 'next_action' => DossierNextAction::RequestContribution,
-                'blocker' => 'Voeg een duidelijke meterkastfoto toe. Daaruit volgt 1- of 3-fase.',
+                'blocker' => $mismatchReason
+                    ?? 'Voeg een duidelijke meterkastfoto toe. Daaruit volgt 1- of 3-fase.',
             ];
         }
 
@@ -577,6 +584,68 @@ final class DecisionReadinessService
         }
 
         return false;
+    }
+
+    /**
+     * Reason from a completed follow-up photo task when the customer sent the wrong subject.
+     * Shown on the installer workspace open-area detail (staging 81b).
+     */
+    private function followUpWrongSubjectReason(
+        Intake $intake,
+        string $decisionAreaKey,
+        PhotoSubject $expected,
+    ): ?string {
+        $intake->loadMissing(['contributionTasks.followUpItem.uploads', 'followUpRounds.items.uploads']);
+
+        $tasks = $intake->contributionTasks
+            ->filter(static fn (ContributionTask $task): bool => $task->decision_area_key === $decisionAreaKey);
+
+        foreach ($tasks as $task) {
+            $item = $task->followUpItem;
+            if ($item === null || $item->type !== FollowUpItemType::Photo) {
+                continue;
+            }
+
+            foreach ($item->uploads as $upload) {
+                $assessment = $upload->contentAssessment();
+                if (! $assessment instanceof PhotoContentAssessment) {
+                    continue;
+                }
+
+                $reason = $assessment->followUpMismatchReason($expected);
+                if (is_string($reason) && $reason !== '') {
+                    return $reason;
+                }
+            }
+        }
+
+        // Fallback: any follow-up photo upload on this intake with matching expected subject.
+        foreach ($intake->followUpRounds as $round) {
+            foreach ($round->items as $item) {
+                if ($item->type !== FollowUpItemType::Photo) {
+                    continue;
+                }
+
+                foreach ($item->uploads as $upload) {
+                    $assessment = $upload->contentAssessment();
+                    if (! $assessment instanceof PhotoContentAssessment) {
+                        continue;
+                    }
+
+                    if ($assessment->expectedSubject() !== $expected
+                        && $assessment->expectedSubject() !== null) {
+                        continue;
+                    }
+
+                    $reason = $assessment->followUpMismatchReason($expected);
+                    if (is_string($reason) && $reason !== '') {
+                        return $reason;
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 
     private function hasAroundHousePhoto(Intake $intake): bool

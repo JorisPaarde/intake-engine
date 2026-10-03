@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.72 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.74 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,11 +38,12 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = follow-up foto async. **BL-122** = soft catalogus-prefill (case 81). Nieuwe items starten bij BL-123.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = follow-up foto async. **BL-122** = soft catalogus-prefill (case 81). **BL-123** = staging-retest acceptance (#115–#120). Nieuwe items starten bij BL-124.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
 | 1 | BL-117 | Installateur kan technisch open punt afhandelen vanuit de survey-werkplek | E7/E8 | backlog | high | na PR #115 · show/rapport `*_open` |
+| — | BL-123 | Staging-retest: voortgang 100%, Volgende-mismatch, follow-up wrong_subject | E1/E4/E7 | done | high | na #115–#120 · case 80/81b · PR #121 |
 | — | BL-122 | Soft catalogus-prefill: lange evidence / kapotte fill dumpt niet alles | E3/E9 | done | high | regressie case 81 · PR #120 · na BL-118/120 |
 | — | BL-120 | Klanttest P2: voortgang, uploadfases, je-vorm (airco v20) | E1/E5/E7 | done | high | klanttest 2 okt P2 · PR #118 · na BL-119 |
 | — | BL-119 | Klanttest 2 okt P1: foto-stelligheid, interne AI-velden, verkeerde-fotofeedback | E4/E7/E9 | in_progress | high | AI/foto · na BL-118 · airco v19 · PR #119 |
@@ -611,6 +612,15 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Scope:** `RequestPrefillOutcomeClassifier`, `PrefillAnswersFromKnownContext`, `EvaluateRequestIntent`; Pest case 80/81 stagingteksten + unit soft-envelope. Geen template-/promptversiebump.
 - **Acceptatie:** case 81 met evidence = volledige openingszin + één scalar-fill → kamers/feiten opgeslagen, technische keys uitgesloten; `composer check` groen.
 - **Resultaat:** soft-envelope + per-fill apply-isolatie + staging-regressietests; AI-trace toont `validation_errors` bij ingekorte evidence.
+
+### BL-123 — Staging-retest acceptance (#115–#120)
+
+- **Status:** done · **Datum:** 2026-10-03 · **PR:** #121 · **Prioriteit:** high · **Epic:** E1/E4/E7 · **Volgt op:** BL-119/120/122 · **Ref:** staging retest main@7031743, case 80 + follow-up 81b intake 73
+- **Aanleiding:** vier acceptance-fouten na merge #115–#120: (1) wizard 100% bij “Vraag 16 van 20”; (2) Volgende zonder soft-continue toonde geen waarschuwing; (3) follow-up wrong_subject → 100%; (4) werkplek Stroomtoevoer zonder wrong-subject-reden.
+- **Doel:** UI-100% alleen als klantdeel echt klaar; Volgende-blok + zichtbare soft-continue-copy; follow-up mismatch telt niet als af; installateur ziet korte reden op Aanvulling nodig.
+- **Scope:** `IntakeWizard` display-% + mismatch alerts; `FollowUpProgressCalculator`; `DecisionReadinessService`/`PhotoContentAssessment::followUpMismatchReason`; Pest. Geen templateversiebump; #115–#120-beslissingen intact.
+- **Acceptatie:** Pest voor alle vier paden; `composer check` groen; geen prod-tag/deploy.
+- **Resultaat:** stapgebaseerde balk/% (zelfde noemer als “Vraag X van Y”) + sessie-hoogwater; soft-continue-waarschuwing bij banner+footer; follow-up mismatch = “Nog te vervangen”; Stroomtoevoer-blocker met wrong-subject-reden.
 
 ### BL-118 — Klanttest 2 okt: foto-first, extractiedekking, kamernamen
 
