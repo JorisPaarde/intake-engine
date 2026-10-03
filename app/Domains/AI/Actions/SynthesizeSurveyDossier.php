@@ -11,9 +11,12 @@ use App\Domains\AI\Services\AiTracePhotoRefBuilder;
 use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\AI\Services\AiTraceSnapshotService;
 use App\Domains\AI\Services\AiValidationFailureFormatter;
+use App\Domains\AI\Services\DossierSynthesisJsonSchema;
 use App\Domains\AI\Services\DossierSynthesisOutputNormalizer;
+use App\Domains\AI\Services\DossierSynthesisPartialAcceptor;
 use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\AI\Services\SurveySynthesisContextBuilder;
+use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\Intake\Models\AircoConnection;
 use App\Domains\Intake\Models\AircoInstallationOption;
 use App\Domains\Intake\Models\AircoPlacementOption;
@@ -25,11 +28,8 @@ use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\DecisionReadinessService;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Support\CustomerFacingTaskText;
-use App\Enums\AircoConfigurationType;
-use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
 use App\Enums\AircoOptionStatus;
-use App\Enums\AircoPlacementType;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
 use App\Enums\AiTraceCallType;
@@ -37,13 +37,10 @@ use App\Enums\ContributionAudience;
 use App\Enums\ContributionTaskStatus;
 use App\Enums\DossierRecordKind;
 use App\Enums\DossierRecordStatus;
-use App\Enums\FollowUpItemType;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 use Throwable;
@@ -64,6 +61,8 @@ final class SynthesizeSurveyDossier
         private readonly DossierManager $dossierManager,
         private readonly DecisionReadinessService $decisionReadiness,
         private readonly DossierSynthesisOutputNormalizer $outputNormalizer,
+        private readonly DossierSynthesisPartialAcceptor $partialAcceptor,
+        private readonly DossierSynthesisJsonSchema $jsonSchema,
         private readonly AiValidationFailureFormatter $validationFailureFormatter,
         private readonly AiTraceRecorder $traceRecorder,
         private readonly AiTraceSnapshotService $traceSnapshots,
@@ -78,6 +77,9 @@ final class SynthesizeSurveyDossier
 
         $run = null;
         $trace = null;
+        $imageUploads = collect();
+        $result = null;
+        $model = (string) config('ai.dossier.model', 'gpt-5.6-terra');
 
         try {
             $promptName = (string) config('ai.dossier.prompt', 'dossier_synthesis');
@@ -87,6 +89,7 @@ final class SynthesizeSurveyDossier
             $input = $this->contextBuilder->build($intake);
             $imageUploads = $this->imageUploads($intake);
             $input['image_manifest'] = $this->imageManifest($imageUploads);
+            $input['synthesis_policy'] = $this->synthesisPolicy($intake, $imageUploads);
             $inputHash = $this->hash($input, $promptVersion, $model);
 
             $run = AiRun::query()->create([
@@ -135,8 +138,16 @@ final class SynthesizeSurveyDossier
                     ->values()
                     ->all(),
                 model: $model,
+                responseSchema: [
+                    'name' => 'dossier_synthesis',
+                    'schema' => $this->jsonSchema->schema(),
+                ],
+                timeoutSeconds: max(1, (int) config('ai.dossier.timeout_seconds', 45)),
             );
             $trace->recordProviderResult($result);
+
+            // Persist usage even if later validation drops everything.
+            $run->update($run->completionResultAttributes($result, $model));
 
             $normalizedDiff = $this->outputNormalizer->normalizeWithDiff($result->output);
             $normalized = $normalizedDiff['output'];
@@ -146,13 +157,29 @@ final class SynthesizeSurveyDossier
                 'normalization_count' => count($normalizations),
             ]);
 
-            try {
-                $output = $this->validateOutput($normalized, $input);
-                $trace->recordParsed($output, [], $normalizations);
-            } catch (ValidationException $exception) {
-                $trace->recordParsed($normalized, $exception->errors(), $normalizations);
-                throw $exception;
+            $acceptance = $this->partialAcceptor->accept($normalized, $input);
+            $trace->recordParsed(
+                $acceptance['accepted'],
+                $acceptance['validation_errors'],
+                $normalizations,
+            );
+            $trace->recordFieldOutcomes($acceptance['field_outcomes']);
+
+            if (! $acceptance['has_accepted_proposals']) {
+                throw ValidationException::withMessages(
+                    $acceptance['validation_errors'] !== []
+                        ? $acceptance['validation_errors']
+                        : ['output' => ['Geen geldige AI-voorstellen overgebleven.']],
+                );
             }
+
+            $output = $acceptance['accepted'];
+            $runStatus = $acceptance['had_rejections']
+                ? AiRunStatus::Partial
+                : AiRunStatus::Succeeded;
+            $partialMessage = $acceptance['had_rejections']
+                ? $acceptance['summary_message']
+                : null;
 
             try {
                 DB::transaction(function () use (
@@ -164,11 +191,15 @@ final class SynthesizeSurveyDossier
                     $promptVersion,
                     $model,
                     $trace,
+                    $runStatus,
+                    $partialMessage,
                 ): void {
                     $trace->beginBuffer();
                     $locked = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
                     $currentInput = $this->contextBuilder->build($locked);
-                    $currentInput['image_manifest'] = $this->imageManifest($this->imageUploads($locked));
+                    $currentUploads = $this->imageUploads($locked);
+                    $currentInput['image_manifest'] = $this->imageManifest($currentUploads);
+                    $currentInput['synthesis_policy'] = $this->synthesisPolicy($locked, $currentUploads);
 
                     if (! hash_equals($inputHash, $this->hash($currentInput, $promptVersion, $model))) {
                         throw new RuntimeException('Opnamedossier gewijzigd tijdens AI-synthese; resultaat niet toegepast.');
@@ -180,12 +211,15 @@ final class SynthesizeSurveyDossier
                         'placement_count' => count($output['placement_proposals']),
                         'option_count' => count($output['option_proposals']),
                         'customer_task_count' => count($output['customer_tasks']),
+                        'status' => $runStatus->value,
                     ]);
 
                     $run->update($run->completionResultAttributes($result, $model) + [
-                        'status' => AiRunStatus::Succeeded,
+                        'status' => $runStatus,
                         'output' => $output,
-                        'error_message' => null,
+                        'error_message' => $partialMessage !== null
+                            ? Str::limit($partialMessage, 1000, '')
+                            : null,
                         'finished_at' => now(),
                     ]);
                 }, 3);
@@ -227,11 +261,17 @@ final class SynthesizeSurveyDossier
             ]);
 
             if ($run !== null) {
-                $run->update([
+                $failAttributes = [
                     'status' => AiRunStatus::Failed,
                     'error_message' => $errorMessage,
                     'finished_at' => now(),
-                ]);
+                ];
+                if ($result !== null) {
+                    $failAttributes = $run->completionResultAttributes($result, $model) + $failAttributes;
+                } elseif ($run->image_count === 0 && $imageUploads->isNotEmpty()) {
+                    $failAttributes['image_count'] = $imageUploads->count();
+                }
+                $run->update($failAttributes);
                 $trace?->linkAiRun($run->fresh() ?? $run);
                 $trace?->discardBuffer();
                 $trace?->fail($errorMessage, $exception);
@@ -243,288 +283,6 @@ final class SynthesizeSurveyDossier
 
             return null;
         }
-    }
-
-    /**
-     * @param  array<string, mixed>  $output
-     * @param  array<string, mixed>  $input
-     * @return array<string, mixed>
-     */
-    private function validateOutput(array $output, array $input): array
-    {
-        $validator = Validator::make($output, [
-            'summary' => ['required', 'string', 'max:800'],
-            'placement_proposals' => ['present', 'array', 'max:20'],
-            'placement_proposals.*.key' => ['required', 'string', 'distinct', 'regex:/^proposal:[a-z0-9_]+$/'],
-            'placement_proposals.*.type' => ['required', Rule::enum(AircoPlacementType::class)],
-            'placement_proposals.*.label' => ['required', 'string', 'max:160'],
-            'placement_proposals.*.description' => ['required', 'string', 'max:1500'],
-            'placement_proposals.*.room_reference' => ['present', 'nullable', 'string', 'regex:/^room:\d+$/'],
-            'placement_proposals.*.subject_reference' => ['required', 'string', 'regex:/^subject:\d+$/'],
-            'placement_proposals.*.confidence' => ['required', 'numeric', 'between:0,1'],
-            'placement_proposals.*.evidence_references' => ['required', 'array', 'min:1', 'max:20'],
-            'placement_proposals.*.evidence_references.*' => ['required', 'string', 'max:160'],
-            'option_proposals' => ['present', 'array', 'max:3'],
-            'option_proposals.*.label' => ['required', 'string', 'max:160'],
-            'option_proposals.*.configuration_type' => ['required', Rule::enum(AircoConfigurationType::class)],
-            'option_proposals.*.summary' => ['required', 'string', 'max:2000'],
-            'option_proposals.*.cost_impact' => ['required', 'in:low,medium,high,unknown'],
-            'option_proposals.*.confidence' => ['required', 'numeric', 'between:0,1'],
-            'option_proposals.*.placement_references' => ['required', 'array', 'min:2', 'max:20'],
-            'option_proposals.*.placement_references.*' => ['required', 'string', 'regex:/^(placement:\d+|proposal:[a-z0-9_]+)$/'],
-            'option_proposals.*.connections' => ['required', 'array', 'min:3', 'max:40'],
-            'option_proposals.*.connections.*.type' => ['required', Rule::enum(AircoConnectionType::class)],
-            'option_proposals.*.connections.*.label' => ['required', 'string', 'max:180'],
-            'option_proposals.*.connections.*.from_placement_reference' => ['present', 'nullable', 'string', 'regex:/^(placement:\d+|proposal:[a-z0-9_]+)$/'],
-            'option_proposals.*.connections.*.to_placement_reference' => ['present', 'nullable', 'string', 'regex:/^(placement:\d+|proposal:[a-z0-9_]+)$/'],
-            'option_proposals.*.connections.*.status' => [
-                'required',
-                Rule::in([
-                    AircoConnectionStatus::Proposed->value,
-                    AircoConnectionStatus::NeedsEvidence->value,
-                    AircoConnectionStatus::NotRemotelyResolvable->value,
-                ]),
-            ],
-            'option_proposals.*.connections.*.length_class' => ['required', 'in:short,medium,long,unknown'],
-            'option_proposals.*.connections.*.segments' => ['present', 'array', 'max:20'],
-            'option_proposals.*.connections.*.segments.*' => ['string', 'max:200'],
-            'option_proposals.*.connections.*.obstacles' => ['present', 'array', 'max:20'],
-            'option_proposals.*.connections.*.obstacles.*' => ['string', 'max:200'],
-            'option_proposals.*.connections.*.uncertainties' => ['present', 'array', 'max:20'],
-            'option_proposals.*.connections.*.uncertainties.*' => ['string', 'max:200'],
-            'option_proposals.*.connections.*.cost_impact' => ['required', 'in:low,medium,high,unknown'],
-            'option_proposals.*.connections.*.confidence' => ['required', 'numeric', 'between:0,1'],
-            'option_proposals.*.connections.*.evidence_references' => ['present', 'array', 'min:1', 'max:20'],
-            'option_proposals.*.connections.*.evidence_references.*' => ['string', 'max:160'],
-            'exceptions' => ['present', 'array', 'max:20'],
-            'exceptions.*.code' => ['required', 'string', 'max:100', 'regex:/^[a-z0-9_]+$/'],
-            'exceptions.*.label' => ['required', 'string', 'max:500'],
-            'exceptions.*.decision_area_key' => ['required', 'in:request,capacity,placement,refrigerant,condensate,power,cost_risks'],
-            'exceptions.*.confidence' => ['required', 'in:low,medium,high'],
-            'exceptions.*.evidence_references' => ['present', 'array', 'min:1', 'max:20'],
-            'exceptions.*.evidence_references.*' => ['string', 'max:160'],
-            'customer_tasks' => ['present', 'array', 'max:3'],
-            'customer_tasks.*.type' => ['required', Rule::enum(FollowUpItemType::class)],
-            'customer_tasks.*.prompt' => ['required', 'string', 'max:500'],
-            'customer_tasks.*.decision_area_key' => ['required', 'in:request,capacity,placement,refrigerant,condensate,power,cost_risks'],
-            'customer_tasks.*.subject_reference' => ['present', 'nullable', 'string', 'regex:/^subject:\d+$/'],
-            'customer_tasks.*.reason' => ['required', 'string', 'max:500'],
-            'customer_tasks.*.evidence_references' => ['present', 'array', 'max:20'],
-            'customer_tasks.*.evidence_references.*' => ['string', 'max:160'],
-        ]);
-
-        if ($validator->fails()) {
-            throw new ValidationException($validator);
-        }
-
-        /** @var array<string, mixed> $validated */
-        $validated = $validator->validated();
-        $this->validateReferences($validated, $input);
-
-        return $validated;
-    }
-
-    /**
-     * @param  array<string, mixed>  $output
-     * @param  array<string, mixed>  $input
-     */
-    private function validateReferences(array $output, array $input): void
-    {
-        $placements = collect($this->arrayRows($input['placements'] ?? null))
-            ->keyBy('reference');
-        $rooms = collect($this->arrayRows($input['rooms'] ?? null))
-            ->keyBy('reference');
-        $subjects = $placements
-            ->pluck('subject_reference')
-            ->merge(collect($this->arrayRows($input['subjects'] ?? null))->pluck('reference'))
-            ->merge($rooms->pluck('subject_reference'))
-            ->merge(collect($this->arrayRows($input['dossier_records'] ?? null))->pluck('subject_reference'))
-            ->filter(static fn (mixed $reference): bool => is_string($reference))
-            ->unique()
-            ->values()
-            ->all();
-        $evidence = $this->allReferences($input);
-
-        foreach ($output['placement_proposals'] as $proposal) {
-            $room = $proposal['room_reference'] === null
-                ? null
-                : $rooms->get($proposal['room_reference']);
-
-            if (! in_array($proposal['subject_reference'], $subjects, true)
-                || ($proposal['room_reference'] !== null && ! is_array($room))
-                || ($proposal['type'] === AircoPlacementType::IndoorUnit->value && ! is_array($room))
-                || (is_array($room) && $room['subject_reference'] !== $proposal['subject_reference'])) {
-                throw ValidationException::withMessages([
-                    'placement_proposals' => 'Een AI-positie verwijst niet naar het bijbehorende dossieronderdeel of de gewenste ruimte.',
-                ]);
-            }
-
-            $this->assertUniqueReferences($proposal['evidence_references']);
-            $this->assertEvidenceReferences($proposal['evidence_references'], $evidence);
-            $placements->put($proposal['key'], $proposal + [
-                'reference' => $proposal['key'],
-            ]);
-        }
-
-        foreach ($output['option_proposals'] as $option) {
-            $optionReferences = $option['placement_references'];
-            $this->assertUniqueReferences($optionReferences);
-            $optionPlacements = $placements->only($optionReferences);
-            $configuration = AircoConfigurationType::from($option['configuration_type']);
-            $indoorCount = $optionPlacements->where('type', AircoPlacementType::IndoorUnit->value)->count();
-            $outdoorCount = $optionPlacements->where('type', AircoPlacementType::OutdoorUnit->value)->count();
-            $validConfiguration = match ($configuration) {
-                AircoConfigurationType::SingleSplit => $indoorCount === 1 && $outdoorCount === 1,
-                AircoConfigurationType::MultiSplit => $indoorCount >= 2 && $outdoorCount === 1,
-                AircoConfigurationType::MultipleSingleSplits => $indoorCount >= 2
-                    && $outdoorCount === $indoorCount,
-            };
-
-            if ($optionPlacements->count() !== count($optionReferences)
-                || ! $optionPlacements->contains('type', AircoPlacementType::IndoorUnit->value)
-                || ! $optionPlacements->contains('type', AircoPlacementType::OutdoorUnit->value)
-                || ! $validConfiguration) {
-                throw ValidationException::withMessages([
-                    'option_proposals' => 'Een AI-optie verwijst niet naar een geldige combinatie van onderbouwde binnen- en buitenposities.',
-                ]);
-            }
-
-            $connections = $this->arrayRows($option['connections'] ?? null);
-            $connectionTypes = collect($connections)->pluck('type');
-            foreach (AircoConnectionType::cases() as $type) {
-                if (! $connectionTypes->contains($type->value)) {
-                    throw ValidationException::withMessages([
-                        'option_proposals' => 'Iedere AI-optie moet koel-, condens- en stroomverbindingen bevatten.',
-                    ]);
-                }
-            }
-
-            foreach ([AircoConnectionType::Refrigerant, AircoConnectionType::Condensate] as $requiredType) {
-                $connectionsForType = collect($connections)->where('type', $requiredType->value);
-                $indoorReferences = $optionPlacements
-                    ->where('type', AircoPlacementType::IndoorUnit->value)
-                    ->keys();
-                $coversEveryIndoorPlacement = $indoorReferences->every(
-                    static fn (string $reference): bool => $connectionsForType->contains(
-                        static fn (array $connection): bool => in_array(
-                            $reference,
-                            [
-                                $connection['from_placement_reference'],
-                                $connection['to_placement_reference'],
-                            ],
-                            true,
-                        ),
-                    ),
-                );
-
-                if (! $coversEveryIndoorPlacement) {
-                    throw ValidationException::withMessages([
-                        'option_proposals' => 'Iedere AI-binnenpositie moet een eigen koel- en condensverbinding hebben.',
-                    ]);
-                }
-            }
-
-            foreach ($connections as $connection) {
-                foreach (['from_placement_reference', 'to_placement_reference'] as $key) {
-                    $reference = $connection[$key];
-                    if ($reference !== null && ! in_array($reference, $optionReferences, true)) {
-                        throw ValidationException::withMessages([
-                            'option_proposals' => 'Een AI-verbinding verwijst naar een positie buiten de voorgestelde optie.',
-                        ]);
-                    }
-                }
-
-                $this->assertUniqueReferences($connection['evidence_references']);
-                $this->assertEvidenceReferences($connection['evidence_references'], $evidence);
-            }
-        }
-
-        foreach ($output['exceptions'] as $exception) {
-            $this->assertUniqueReferences($exception['evidence_references']);
-            $this->assertEvidenceReferences($exception['evidence_references'], $evidence);
-        }
-
-        foreach ($output['customer_tasks'] as $task) {
-            if ($task['subject_reference'] !== null
-                && ! in_array($task['subject_reference'], $subjects, true)) {
-                throw ValidationException::withMessages([
-                    'customer_tasks' => 'Een AI-klanttaak verwijst naar een onbekend dossieronderdeel.',
-                ]);
-            }
-            $this->assertUniqueReferences($task['evidence_references']);
-            $this->assertEvidenceReferences($task['evidence_references'], $evidence);
-        }
-    }
-
-    /** @param list<string> $references */
-    private function assertUniqueReferences(array $references): void
-    {
-        if (count($references) !== count(array_unique($references, SORT_STRING))) {
-            throw ValidationException::withMessages([
-                'evidence_references' => 'Eén voorstel mag dezelfde referentie niet dubbel opnemen.',
-            ]);
-        }
-    }
-
-    /**
-     * @param  list<string>  $references
-     * @param  list<string>  $available
-     */
-    private function assertEvidenceReferences(array $references, array $available): void
-    {
-        foreach ($references as $reference) {
-            if (! in_array($reference, $available, true)) {
-                throw ValidationException::withMessages([
-                    'evidence_references' => 'AI-bewijs verwijst niet naar de verzonden dossiercontext.',
-                ]);
-            }
-        }
-    }
-
-    /**
-     * @param  array<string, mixed>  $input
-     * @return list<string>
-     */
-    private function allReferences(array $input): array
-    {
-        $references = [];
-        $remaining = [$input];
-
-        while ($remaining !== []) {
-            $value = array_pop($remaining);
-
-            foreach ($value as $key => $item) {
-                if (in_array($key, ['reference', 'subject_reference', 'room_reference'], true)
-                    && is_string($item)
-                    && $item !== '') {
-                    $references[] = $item;
-                }
-
-                if (is_array($item)) {
-                    $remaining[] = $item;
-                }
-            }
-        }
-
-        return array_values(array_unique($references));
-    }
-
-    /** @return list<array<string, mixed>> */
-    private function arrayRows(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $rows = [];
-
-        foreach ($value as $row) {
-            if (is_array($row)) {
-                $rows[] = $row;
-            }
-        }
-
-        return $rows;
     }
 
     /** @param array<string, mixed> $output */
@@ -792,18 +550,91 @@ final class SynthesizeSurveyDossier
     private function imageManifest(Collection $uploads): array
     {
         return $uploads
-            ->map(fn (IntakeUpload $upload): array => [
-                'reference' => 'dossier_image:'.$upload->id,
-                'question_key' => $upload->question_key,
-                'section_instance_key' => $upload->section_instance_key,
-                'follow_up_item_reference' => $upload->intake_follow_up_item_id === null
-                    ? null
-                    : 'follow_up_item:'.$upload->intake_follow_up_item_id,
-                'sort_order' => $upload->sort_order,
-                'image_identity' => $this->aiImageResolver->identity($upload),
-            ])
+            ->map(function (IntakeUpload $upload): array {
+                $assessment = $upload->contentAssessment();
+                $eligible = $assessment === null
+                    || $assessment->solvesContent()
+                    || $assessment->status() === PhotoContentAssessment::STATUS_NEEDS_CLEARER
+                    || $assessment->status() === PhotoContentAssessment::STATUS_NOT_ASSESSED;
+
+                return [
+                    'reference' => 'dossier_image:'.$upload->id,
+                    'question_key' => $upload->question_key,
+                    'section_instance_key' => $upload->section_instance_key,
+                    'follow_up_item_reference' => $upload->intake_follow_up_item_id === null
+                        ? null
+                        : 'follow_up_item:'.$upload->intake_follow_up_item_id,
+                    'sort_order' => $upload->sort_order,
+                    'image_identity' => $this->aiImageResolver->identity($upload),
+                    'content_assessment' => $assessment?->toArray(),
+                    // Wrong-subject photos (without “Toch doorgaan”) are never usable evidence.
+                    'evidence_eligible' => $eligible,
+                ];
+            })
             ->values()
             ->all();
+    }
+
+    /**
+     * Server-side policy hints for partial acceptance (staging intakes 76/77).
+     *
+     * @param  Collection<int, IntakeUpload>  $uploads
+     * @return array{
+     *     free_group: string|null,
+     *     subjects_with_room_photo: list<string>
+     * }
+     */
+    private function synthesisPolicy(Intake $intake, Collection $uploads): array
+    {
+        $intake->loadMissing(['answers', 'externalFacts', 'aircoRooms']);
+
+        $freeGroup = null;
+        $answer = $intake->answers->first(
+            static fn ($row): bool => $row->question_key === 'free_group_known',
+        );
+        if (is_array($answer?->value) && is_string($answer->value['value'] ?? null)) {
+            $freeGroup = $answer->value['value'];
+        }
+
+        $fact = $intake->externalFacts->first(
+            static fn ($row): bool => $row->fact_key === 'fusebox_photo_assessment',
+        );
+        if (is_array($fact?->value) && is_string($fact->value['free_group'] ?? null)) {
+            $freeGroup = $fact->value['free_group'];
+        }
+
+        $roomSubjectsByKey = [];
+        foreach ($intake->aircoRooms as $room) {
+            $roomSubjectsByKey[$room->key] = 'subject:'.$room->dossier_subject_id;
+        }
+
+        $covered = [];
+        foreach ($uploads as $upload) {
+            if (! in_array($upload->question_key, [
+                'room_photos',
+                'indoor_unit_position_photo',
+                'room_wall_outlet_photo',
+            ], true)) {
+                continue;
+            }
+
+            $assessment = $upload->contentAssessment();
+            if ($assessment instanceof PhotoContentAssessment
+                && $assessment->status() === PhotoContentAssessment::STATUS_WRONG_SUBJECT
+                && ! $assessment->customerAcceptedMismatch()) {
+                continue;
+            }
+
+            $instance = $upload->section_instance_key;
+            if (is_string($instance) && isset($roomSubjectsByKey[$instance])) {
+                $covered[] = $roomSubjectsByKey[$instance];
+            }
+        }
+
+        return [
+            'free_group' => is_string($freeGroup) ? $freeGroup : null,
+            'subjects_with_room_photo' => array_values(array_unique($covered)),
+        ];
     }
 
     /** @param array<string, mixed> $input */

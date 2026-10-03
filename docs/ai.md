@@ -67,7 +67,7 @@ App\Domains\AI\
   Services\AiBudgetGuard
   Services\PromptVersionRepository
   Services\SurveySynthesisContextBuilder
-  Services\AiEnumNormalizer | DossierSynthesisOutputNormalizer | AiValidationFailureFormatter
+  Services\AiEnumNormalizer | DossierSynthesisOutputNormalizer | DossierSynthesisPartialAcceptor | DossierSynthesisJsonSchema | AiValidationFailureFormatter
   Services\LocalRequestIntentParser | TemplateQuestionCatalogBuilder | RequestPrefillContextBuilder
   Services\RequestPrefillOutcomeClassifier | EvaluateRequestIntent
   Prompts\summary\ | attention_points\ | fusebox_assessment\
@@ -87,7 +87,7 @@ App\Domains\AI\
   Services\AiTraceRecorder | AiTraceHandle | AiTraceRedactor | AiTraceSnapshotService
 ```
 
-Provider via `.env`: `AI_PROVIDER`, `AI_API_KEY`, `AI_BASE_URL`, `AI_MODEL`, optioneel `AI_VISION_MODEL`, `AI_TIMEOUT_SECONDS`. Multimodale wizardafleiding vereist `AI_PHOTO_INFERENCE_ENABLED=true`; routeanalyse `AI_ROUTE_ANALYSIS_ENABLED=true`; integrale dossiersynthese `AI_DOSSIER_SYNTHESIS_ENABLED=true`. Alle staan standaard uit. Dossiersynthese gebruikt maximaal `AI_DOSSIER_MAX_IMAGES` (default 12) relevante analysekopieën. `AI_PROVIDER=openai` valt door de budgetguard fail-closed als er geen dag- of maandcap is gezet.
+Provider via `.env`: `AI_PROVIDER`, `AI_API_KEY`, `AI_BASE_URL`, `AI_MODEL`, optioneel `AI_VISION_MODEL`, `AI_TIMEOUT_SECONDS`, `AI_DOSSIER_TIMEOUT_SECONDS` (default 45, queue-job). Multimodale wizardafleiding vereist `AI_PHOTO_INFERENCE_ENABLED=true`; routeanalyse `AI_ROUTE_ANALYSIS_ENABLED=true`; integrale dossiersynthese `AI_DOSSIER_SYNTHESIS_ENABLED=true`. Alle staan standaard uit. Dossiersynthese gebruikt maximaal `AI_DOSSIER_MAX_IMAGES` (default 12) relevante analysekopieën. `AI_PROVIDER=openai` valt door de budgetguard fail-closed als er geen dag- of maandcap is gezet.
 
 | Provider | Gedrag |
 |----------|--------|
@@ -104,7 +104,7 @@ Kernintake hangt **niet** van AI af. Klant-, installateur- en gerichte bijdragea
 
 ## Budgetguard
 
-Alle betaalde externe calls lopen door `OpenAiClient`, dus één guard dekt samenvatting, aandachtspunten, tekstafleiding, foto-afleiding, routeanalyse/-synthese en dossiersynthese. De guard doet vóór de HTTP-call een budgetcheck en gooit een normale `AiClientException` wanneer de cap ontbreekt of bereikt is. Callers behandelen dat als soft-fail: intake, upload, dossier en review blijven bruikbaar.
+Alle betaalde externe calls lopen door `OpenAiClient`, dus één guard dekt samenvatting, aandachtspunten, tekstafleiding, foto-afleiding, routeanalyse/-synthese en dossiersynthese. De guard doet vóór de HTTP-call een budgetcheck (spent + reserve) en gooit een normale `AiClientException` wanneer de cap ontbreekt of bereikt is. Na de call wordt de **werkelijke** geschatte kost geboekt — de reserve is geen bodem meer. Callers behandelen budgetfouten als soft-fail: intake, upload, dossier en review blijven bruikbaar.
 
 Env-vars:
 
@@ -119,8 +119,10 @@ AI_BUDGET_IMAGE_CENTS_PER_IMAGE=...
 
 - `AI_BUDGET_ENFORCED=true` is de default. Zet dit alleen bewust uit voor lokale experimenten zonder echte providerkosten.
 - Minstens één van `AI_BUDGET_DAILY_CENTS` of `AI_BUDGET_MONTHLY_CENTS` moet staan voordat `AI_PROVIDER=openai` calls doet.
-- De pre-call check telt geslaagde OpenAI-runs sinds dag-/maandstart plus `AI_BUDGET_RESERVE_CENTS_PER_CALL`.
-- Na succes bewaart `ai_runs` de provider-usage (`input_tokens`, `output_tokens`, `total_tokens`), `image_count` en `estimated_cost_cents`. Als tokenusage ontbreekt, telt de reservering als minimum.
+- De pre-call check telt geslaagde/partial OpenAI-runs sinds dag-/maandstart plus `AI_BUDGET_RESERVE_CENTS_PER_CALL`.
+- Met geconfigureerde token-/beeldtarieven boekt de guard de **fractionele** kost (bijv. 0,3 cent). Opslag: `estimated_cost_microcents` (1 cent = 10_000) plus `estimated_cost_cents` als ceiling voor weergave.
+- Zonder tarieven (lege env): legacygedrag — elke call boekt de reserve; éénmalige log-warning.
+- Na (gedeeltelijk) succes bewaart `ai_runs` provider-usage (`input_tokens`, `output_tokens`, `total_tokens`), `image_count` en de kostvelden. Dossiersynthese schrijft usage ook bij validatiefouten/partials.
 - `/dev` toont provider/model/tekst-/foto-/routeflags en budgetcaps zonder API-key; `/dev/ai-runs` toont token- en kostengebruik per run; `/dev/ai-traces` toont de volledige request→response→parse→dossier-keten (BL-116).
 
 ## AI-traces (BL-116 + BL-125 + BL-132)
@@ -138,6 +140,15 @@ Doel: per mislukte/onjuiste uitkomst aantonen of de fout in model, prompt, parse
 | P2-timings | `persist_ms` / `network_upload_ms` / `queue_wait_ms` (dispatch→job-start), `preprocess_ms`, `provider_ms`, `process_ms` (`stopProcessTimer` vóór after-snapshots) |
 
 **Retentie vs demo-purge:** `ai_traces.intake_id` is nullable met `nullOnDelete`. Bij hard-delete van een demo-intake blijven traces staan met `intake_ref_id` + `is_demo`. Bewaartermijn alleen via daily `ai:purge-traces` (`AI_TRACE_RETENTION_DAYS`, default 30). **`ai_runs` blijven cascadeOnDelete** — dat zijn operationele/idempotente apply-records die zonder intake geen betekenis hebben; duurzame diagnostiek zit in `ai_traces`.
+| Identiteit | `trace_id` (UUID), `correlation_id`, `provider_request_id` (provider-`id`), optioneel `parent_trace_id`, `intake_id`, optioneel `upload_id` / `ai_run_id` / subject (kamer/onderdeel) |
+| Call | `call_type` (`text_extraction` / `photo_analysis` / `synthesis` / …), tijdstippen, status |
+| Provider | provider, werkelijk model-ID (zoals de provider teruggeeft), `model_parameters`, promptversie, fallback/retries, `finish_reason`, tokens/kosten |
+| Request | `request_snapshot` (system/user/context, geredigeerd); `photo_refs` naar beschermd origineel (geen base64; detail + dimensions) |
+| Response | gemaskeerde `raw_response`, `parsed_response`, `validation_errors`, `normalizations` (lijst `{field, from, to, rule}` via `normalizeWithDiff`), `field_outcomes` (overgenomen/afgewezen + reden/confidence/provenance/bron) |
+| Effect | `dossier_before`/`dossier_after` (+ `changed_fields`), `remaining_questions_before`/`after` via `IntakeStepBuilder::buildCatalog` (reasons + next unanswered visible) |
+| P2-timings | `persist_ms` / `network_upload_ms` (client: upload-progress → `ai-upload-stored` → `recordNetworkUploadTiming` / `recordNetworkUploadMs`), `preprocess_ms`, `provider_ms`, `process_ms` (`stopProcessTimer` vóór after-snapshots) |
+
+**Geïnstrumenteerde acties:** `PrefillAnswersFromKnownContext`, `DerivePhotoAnswers`, `AssessFuseboxPhotos`, `AssessFollowUpPhotoSubject`, `SynthesizeSurveyDossier`, `AnalyzeRoutePhoto`, `SynthesizePipeRoute`, `SuggestInstallerPhotoObservations`, `SummarizeIntake`, `SuggestAttentionPoints` (+ lokale `AssessPhotoUsability`). Foto-refs via `AiTracePhotoRefBuilder` (width/height + dossier/analyse-variant uit upload timings). Transactiestappen via `beginBuffer()`/`flushBuffer()`/`discardBuffer()`. `model_parameters` komen uit `AiCompletionResult`, niet hardcoded. `fail($msg, $exception)` bewaart `provider_ms`/raw/finish/tokens bij clientfouten. `ai_runs` krijgt dezelfde `provider_request_id` + provider-`model` via `completionResultAttributes`.
 
 **Export:** `php artisan ai:traces:export {--intake=*} {--since=} {--until=} {--demo-only} {--format=jsonl\|md} {--output=}`. `--intake` accepteert komma’s en herhaalde flags; één run bundelt meerdere intakes. Zonder `--format` schrijft beide. Output default `storage/app/exports/`. Relatief `--output` is t.o.v. die map; een voorvoegsel `exports/` of `storage/app/exports/` wordt weggestript (geen verdubbeling). Console toont aan het eind de absolute paden van alle geschreven bestanden. Per call: call type, promptversie, model/`model_parameters`, gemaskeerde request, photo refs, raw/parsed, validation/normalizations, tokens, durations (`queue_wait_ms`/`provider_ms`/…), `estimated_cost`+cents, status/error, `request_id`/`provider_response_id`/`correlation_id`, attempt/retry. Markdown: index (intakes, call count, total cost) + heading per intake + JSON-fenced subsections. JSONL: één regel per call met intake id. Masking opnieuw via `AiTraceRedactor` als safety net. Auto-split ≈1 MB of ≈200k tokens (4 chars/token) op intakegrenzen (anders callgrenzen) als `-partK-of-N` + `manifest.json`. Werkt ook voor gepurgede demo-intakes (`intake_ref_id`).
 
@@ -156,13 +167,15 @@ Beveiliging: `AiTraceRedactor` verwijdert API-keys, Bearer-headers, klantlinktok
 | `provider` | bv. `heuristic` / `fake` / `null` |
 | `model` | modelidentifier |
 | `prompt_version` | versiestring (`summary-v1`) |
+| `provider_request_id` | nullable; provider-completion-`id` (BL-125) |
 | `input_hash` | sha256 van gereduceerde input (geen raw PII in logs) |
 | `output` | json (gestructureerd, gevalideerd) |
-| `status` | `pending` / `succeeded` / `failed` |
-| `error_message` | nullable |
+| `status` | `pending` / `succeeded` / `partial` / `failed` |
+| `error_message` | nullable; bij `partial` samenvatting van afgewezen items |
 | `input_tokens` / `output_tokens` / `total_tokens` | providerusage, nullable |
 | `image_count` | aantal meegestuurde beelden |
-| `estimated_cost_cents` | budgettelling in centen of budget-units |
+| `estimated_cost_cents` | ceiling in hele centen (weergave) |
+| `estimated_cost_microcents` | fractionele budgettelling (1 cent = 10_000) |
 | `started_at` / `finished_at` | |
 
 ## Geïmplementeerde flows
@@ -194,17 +207,19 @@ Dossiersynthese loopt na iedere afgeronde klant-, installateur- of gerichte bijd
 
 1. `DossierManager` synchroniseert antwoorden, bronnen, uploads en klantbijdragen; `SurveySynthesisContextBuilder` voegt gewenste ruimtes, dossierrecords, bestaande posities, opties en verbindingen toe.
 2. Identiteit, adres, coördinaten, geometrie, opslagpaden en ongecontroleerde identifiers worden verwijderd. Maximaal twaalf relevante dossierfoto's gaan als analysevariant mee, evenwichtig over dossieronderwerpen.
-3. Prompt `dossier-synthesis-v4` mag alleen beeldgebonden kandidaatposities voorstellen met geldige onderwerp-/ruimte- en `dossier_image:*`-referenties; enumvelden (o.a. `length_class`, `cost_impact`, `status`) moeten exacte tokens zijn zonder synoniemen of haakjes. Klanttaken mogen geen technische beslissingen vragen (pomp, afschot, doorboring, route, elektrische geschiktheid) — alleen foto’s of feitelijke waarnemingen.
-4. Vóór validatie normaliseert `DossierSynthesisOutputNormalizer` afwijkende enumstrings (trim/lowercase/synoniemen; `unknown`-fallback waar toegestaan). Servervalidatie controleert daarna enumwaarden, alle evidence-referenties, configuratiecardinaliteit, positiegrenzen, drie verbindingstypen en een eigen koel-/condensroute voor iedere binnenpositie. Bij `ValidationException` schrijft `AiValidationFailureFormatter` alle attributen + afgewezen waarde (ingekort, geen beeldbytes/PII) naar log en `ai_runs.error_message`.
-5. Een geldige run vervangt alleen eerdere nog-kandidaat AI-posities/-opties en nog-voorgestelde AI-taken. Geselecteerde of menselijke objecten blijven staan.
-6. AI-klanttaken blijven `proposed`; pas na installateurscontrole maakt de app de beperkte klanttaak en activeert zij toegang. Geen AI-actie keurt verbindingen of offertebesluiten goed.
-7. Vlak vóór opslag wordt dezelfde geschoonde context inclusief beeldmanifest onder de intake-lock opnieuw gehasht. Een stale resultaat wordt niet toegepast.
+3. Prompt `dossier-synthesis-v5` mag alleen beeldgebonden kandidaatposities voorstellen met geldige onderwerp-/ruimte- en `dossier_image:*`-referenties; enumvelden (o.a. `length_class`, `cost_impact`, `status`) moeten exacte tokens zijn zonder synoniemen of haakjes. Connections gebruiken `placement:ID`/`proposal:sleutel` (nooit `room:ID`); `evidence_references` min. 1; opties min. 2 placement-refs en min. 3 connections (koel+condens+stroom). Klanttaken mogen geen technische beslissingen vragen (pomp, afschot, doorboring, route, elektrische geschiktheid) — alleen foto’s of feitelijke waarnemingen.
+4. De provider-call gebruikt strikte structured output (`response_format.json_schema`, `strict: true`) via `DossierSynthesisJsonSchema` wanneer de gateway dat doorgeeft (OpenRouter/OpenAI/Gemini); zonder schema blijft `json_object` de fallback. Timeout: `AI_DOSSIER_TIMEOUT_SECONDS` (default 45), los van de web-`AI_TIMEOUT_SECONDS`.
+5. Vóór acceptatie normaliseert `DossierSynthesisOutputNormalizer` afwijkende enumstrings. `DossierSynthesisPartialAcceptor` valideert daarna **per** placement/option/connection/exception/task: geldige items blijven, ongeldige worden gedropt met reden in `ai_traces.validation_errors`/`field_outcomes` en een samenvatting in `ai_runs.error_message`. Eenduidige `subject:N`-refs in option placement/connection-velden worden omgezet naar de bijbehorende placement (prod run-243); te weinig placements/connections blijft afgewezen. Een optie met ongeldige connections valt weg als optie; geldige placements blijven. Status `succeeded` (alles ok) of `partial` (minstens één voorstel behouden); alleen bij nul geldige voorstellen `failed`. AI maakt nooit een definitieve installateursbevinding.
+6. Een geldige/partial run vervangt alleen eerdere nog-kandidaat AI-posities/-opties en nog-voorgestelde AI-taken. Geselecteerde of menselijke objecten blijven staan.
+7. AI-klanttaken blijven `proposed`; pas na installateurscontrole maakt de app de beperkte klanttaak en activeert zij toegang. Geen AI-actie keurt verbindingen of offertebesluiten goed.
+8. Vlak vóór opslag wordt dezelfde geschoonde context inclusief beeldmanifest onder de intake-lock opnieuw gehasht. Een stale resultaat wordt niet toegepast.
 
 ## Openingszin: lokaal én catalogus-AI (ADR-0013/0014)
 
 `DeriveIntentFromRequest` volgt een hybrid pad. Eerst past de bevroren `LocalRequestIntentParser` (`request-intent-local-v4`) alleen foutloze evidente feiten toe: koel-/verwarmdoelen (inclusief `koud te krijgen`), éénduidige aantallen/ruimtetypen en “op zolder”. Zelfde kamertype twee keer noemen (vaak maten naderhand) is geen lokale high-confidence — dat bepaalt catalogus-AI. Geen lokale maat-, buitenunit- of andere keuzeheuristiek.
 
 Daarna, met `AI_TEXT_INFERENCE_ENABLED` aan en externe calls toegestaan, beoordeelt `PrefillAnswersFromKnownContext` de volledige fillable vraagenset via `request-prefill-v7`: openingszin, antwoorden, externe feiten en installateursobservaties. Per vraag alleen cataloguskeys/opties; `high` → `prefill_source=ai_text`, `medium` → `ai_text_suggestion`, `low` → niets. Fotovragen worden niet ingevuld. De prompt telt herhaalde kamernamen niet dubbel; neemt letterlijke L×B over of vult `room_area_m2` bij exact m² (geen m²→L×B). Exact AI-m² telt alleen bij hoge zekerheid + evidence (`RoomAreaAcceptance`). Ownership-synoniemen worden server-side genormaliseerd (`OwnershipNormalizer`).
+Daarna, met `AI_TEXT_INFERENCE_ENABLED` aan en externe calls toegestaan, beoordeelt `PrefillAnswersFromKnownContext` de volledige fillable vraagenset via `request-prefill-v6`: openingszin, antwoorden, externe feiten en installateursobservaties. Per fill leest de classifier optionele `provenance` (`stated`/`inferred`/`unknown`); alleen `stated` + `high` → `prefill_source=ai_text`; `inferred` of `medium` → `ai_text_suggestion`; `low`/`unknown` → niets. Ontbrekende provenance op risicokeys (`ownership`, `noise_sensitive`, technische keuzes) default naar inferred en telt nooit als bevestigd (`RiskRelevantPrefillKeys` + `PrefillSources::needsCustomerConfirmation`); dossier toont ze als **aanname** (`method=ai_assumption`) met Nederlandse veldlabels, bron en zekerheid (geen raw keys). Fotovragen worden niet ingevuld. De prompt telt herhaalde kamernamen niet dubbel; neemt letterlijke L×B over of vult `room_area_m2` bij exact m² (geen m²→L×B). Exact AI-m² telt alleen bij hoge zekerheid + evidence (`RoomAreaAcceptance`).
 
 `RequestPrefillOutcomeClassifier` verwerkt catalogusoutput **soft**: te lange top-level `evidence` (>500) of fill-evidence (>300) wordt ingekort met normalisatie + `validation_errors` in de AI-trace; één kapotte fill (ongeldige confidence, scalar `value`, onbekende key) wordt rejected met reden terwijl andere fills doorgaan. Alleen een ontbrekende `fills`-array blijft een harde `ValidationException`. Prefill-apply vangt per-veld writefouten af zodat één mislukte opslag de rest niet terugdraait; harde fouten gebruiken `AiValidationFailureFormatter` in `ai_runs.error_message`.
 
@@ -222,13 +237,15 @@ Normalisatie en classificatie (fill / voorzet / afgewezen + reden) zitten in `Re
 
 ## Structured output
 
+`OpenAiClient` stuurt standaard `response_format: {type: json_object}`. Callers die een JSON Schema meegeven (dossiersynthese) krijgen `response_format: {type: json_schema, json_schema: {name, strict: true, schema}}` — OpenRouter geeft dit door voor Gemini- en OpenAI-modellen. Servervalidatie blijft leidend voor cross-references en optie-cardinaliteit; partial acceptance vangt restfouten op.
+
 Samenvatting vereist:
 
 ```json
 { "summary": "…", "highlights": ["…"] }
 ```
 
-Server-side validatie vóór opslaan. Ongeldige output = `failed`.
+Server-side validatie vóór opslaan. Ongeldige output = `failed` (of `partial` bij dossiersynthese met nog geldige voorstellen).
 
 ## Privacy
 

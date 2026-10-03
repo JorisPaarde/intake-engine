@@ -18,6 +18,11 @@ final readonly class AiCompletionResult
         public ?int $outputTokens = null,
         public ?int $totalTokens = null,
         public int $imageCount = 0,
+        /**
+         * Coarse cost in whole cents (ceil) for display / legacy booking.
+         * Fine provider cost lives in {@see $estimatedCost}; fractional budget
+         * reconciliation uses microcents derived from that fine value.
+         */
         public ?int $estimatedCostCents = null,
         public ?string $finishReason = null,
         public ?string $rawResponse = null,
@@ -26,8 +31,8 @@ final readonly class AiCompletionResult
         /** OpenAI/OpenRouter completion `id` (e.g. gen-…). */
         public ?string $providerResponseId = null,
         /**
-         * Provider-reported cost in currency units (USD/EUR as returned),
-         * finer than integer cents — e.g. OpenRouter `usage.cost`.
+         * Unrounded provider-reported cost in currency units (USD/EUR as returned),
+         * finer than integer cents — e.g. OpenRouter `usage.cost`. Never ceil/floor here.
          */
         public ?string $estimatedCost = null,
     ) {}

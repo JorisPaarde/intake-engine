@@ -8,5 +8,6 @@ enum AiRunStatus: string
 {
     case Pending = 'pending';
     case Succeeded = 'succeeded';
+    case Partial = 'partial';
     case Failed = 'failed';
 }

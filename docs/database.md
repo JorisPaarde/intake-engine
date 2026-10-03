@@ -1,9 +1,8 @@
 # Databaseschema — Digitale Opname
 
-> **Documentversie:** 3.20 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.21 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: dit document beschrijft het **geïmplementeerde schema**, inclusief de uitbreidende dossiermigratie van BL-030 en BL-035 t/m BL-042 en de zelfstandige publieke interesse-inzendingen van BL-043. Bestaande antwoord-, bron-, upload-, review- en routetabellen blijven bewust bestaan naast de nieuwe dossierobjecten.
-
 ## Ontwerpprincipes
 
 1. **Template ≠ uitvoering.** Definities (templateversies, secties, vragen) zijn los van antwoorden van een concrete opname.
@@ -306,6 +305,7 @@ Eén actuele uitkomst per opname: `result`, actieve installateur- en klantminute
 | `section_instance_key` | string nullable | Bij repeatables: `room-1` |
 | `value` | json | Genormaliseerde waarde |
 | `prefill_source` | string nullable | Herkomst: o.a. `installer`, `pdok`, `epo`, `request_text` (sterk/lokaal uit openingszin), `ai_text` (catalogus-tekst-AI), `ai_photo` (foto-AI), legacy `ai`, `ai_text_suggestion` / `ai_photo_suggestion` (medium; legacy `ai_suggestion` = foto-suggestie), `derived_lxw` (m²/grootte uit L×B). De gepinde template bepaalt of een bronvraag zichtbaar blijft; legacy skiplijsten met alleen `ai` matchen ook `ai_text`/`ai_photo`. `null` bij normale klantinvoer. Zie [intake-engine.md § Prefill](intake-engine.md#prefill-van-bekende-gegevens-bl-016). |
+| `fact_provenance` | string nullable | BL-136: `stated` / `inferred` / `unknown` — letterlijk gezegd vs. AI-aanname. Inferred risicokeys → voorzet/`ai_assumption` in het dossier. |
 | `answered_at` | timestamp | |
 
 Unique: `(intake_id, question_key, section_instance_key)`.  
@@ -547,13 +547,14 @@ BL-026 gebruikt deze tabel samen met bestaande intake-timestamps en relaties voo
 | `prompt_version` | string | |
 | `input_hash` | string(64) | |
 | `output` | json nullable | |
-| `status` | string | `pending` / `succeeded` / `failed` |
-| `error_message` | text nullable | |
+| `status` | string | `pending` / `succeeded` / `partial` / `failed` |
+| `error_message` | text nullable | Bij `partial`: samenvatting van afgewezen voorstellen |
 | `input_tokens` | unsigned integer nullable | Providerusage; geen promptinhoud |
 | `output_tokens` | unsigned integer nullable | Providerusage; geen outputinhoud |
 | `total_tokens` | unsigned integer nullable | Providerusage |
 | `image_count` | unsigned small integer | Aantal beelden in de provider-call |
-| `estimated_cost_cents` | unsigned integer nullable | Budgettelling voor externe AI-caps |
+| `estimated_cost_cents` | unsigned integer nullable | Ceiling in hele centen (weergave/compat) |
+| `estimated_cost_microcents` | unsigned bigint nullable | Fractionele kosten; 1 cent = 10_000 microcents |
 | `started_at` / `finished_at` | timestamp nullable | |
 | `timestamps` | | |
 

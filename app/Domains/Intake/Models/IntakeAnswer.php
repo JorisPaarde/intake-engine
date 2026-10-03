@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $section_instance_key
  * @property array<string, mixed>|null $value
  * @property string|null $prefill_source
+ * @property string|null $fact_provenance
  */
 class IntakeAnswer extends Model
 {
@@ -21,6 +22,7 @@ class IntakeAnswer extends Model
         'section_instance_key',
         'value',
         'prefill_source',
+        'fact_provenance',
         'answered_at',
     ];
 
