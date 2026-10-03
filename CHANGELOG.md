@@ -4,6 +4,8 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-03
+
 ### Fixed
 
 - **Staging-retest na #115–#120 (BL-123):**

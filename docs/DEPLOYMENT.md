@@ -1,6 +1,6 @@
 # Deployment naar cPanel (staging + production)
 
-> **Documentversie:** 2.22 · **Laatste update:** 2026-10-02 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.23 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 **Statusregel:** staging en production zijn fysiek en logisch gescheiden; open handmatige acties (env/host) staan in [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
 
@@ -168,7 +168,7 @@ MySQL commit DDL-stappen zoals `ALTER TABLE` ook wanneer een latere stap in deze
 
 ### Production
 
-**Huidige productieversie:** `v1.2.0`, gedeployed 2026-10-02 via tag `v1.2.0` (Actions → **Deploy production**). Vorige: `v1.1.0` (`d6e60ea6`, 2026-09-06, [run 34046769097](https://github.com/JorisPaarde/intake-engine/actions/runs/34046769097)). Werk deze regel bij bij iedere production-deploy.
+**Huidige productieversie:** `v1.3.0` (`f8f75b3`, 2026-10-03, [Deploy production run 37130656790](https://github.com/JorisPaarde/intake-engine/actions/runs/37130656790)); vorige: `v1.2.0`. Werk deze regel bij bij iedere production-deploy.
 
 1. Zorg dat de te releasen commit op `main` staat en CI groen is.
 2. Verplaats in `CHANGELOG.md` de items onder `[Unreleased]` naar een nieuwe sectie `## [x.y.z] - JJJJ-MM-DD`.
