@@ -540,7 +540,7 @@
                                     @endif
 
                                     @if ($existingUploads->isNotEmpty())
-                                        @php($photoStatus = $existingUploads->every(fn ($uploadItem) => $uploadItem->usability_verdict !== null) ? 'Beoordeeld' : 'Ontvangen')
+                                        @php($photoStatus = $existingUploads->every(fn ($uploadItem) => $uploadItem->assessment_status instanceof \App\Enums\PhotoAssessmentStatus && $uploadItem->assessment_status->isTerminal()) ? 'Beoordeeld' : 'Ontvangen')
                                         <p class="text-xs font-medium text-[#5e6862]" data-testid="photo-receipt-status">Status: {{ $photoStatus }}</p>
                                     @endif
 

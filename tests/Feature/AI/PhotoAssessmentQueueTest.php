@@ -9,6 +9,7 @@ use App\Domains\AI\Clients\FakeAiClient;
 use App\Domains\AI\Jobs\AssessUploadedPhotoJob;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Models\AiTrace;
+use App\Domains\AI\Services\PhotoAssessmentLifecycle;
 use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\Intake\Actions\CreateCustomerContributionRequest;
 use App\Domains\Intake\Models\ContributionTask;
@@ -65,6 +66,7 @@ function runAssessUploadedPhotoJob(int $uploadId): void
         app(AssessFollowUpPhotoSubject::class),
         app(AssessFuseboxPhotos::class),
         app(DerivePhotoAnswers::class),
+        app(PhotoAssessmentLifecycle::class),
     );
 }
 
@@ -163,6 +165,7 @@ test('AI-fout of timeout leidt tot not_assessed soft-fail met klanttekst', funct
 
     $upload->refresh();
     expect($upload->contentAssessment()?->status())->toBe(PhotoContentAssessment::STATUS_NOT_ASSESSED)
+        ->and($upload->assessment_status?->value)->toBe('not_assessed')
         ->and($upload->contentAssessment()?->customerMessage())
         ->toBe('We konden je foto nu niet automatisch beoordelen; de installateur kijkt mee.');
 

@@ -7,6 +7,7 @@ namespace App\Domains\AI\Actions;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\AiTracePhotoRefBuilder;
 use App\Domains\AI\Services\AiTraceRecorder;
+use App\Domains\AI\Services\PhotoAssessmentLifecycle;
 use App\Domains\AI\Services\PhotoUsabilityHeuristic;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeUpload;
@@ -31,6 +32,7 @@ final class AssessPhotoUsability
         private readonly PhotoUsabilityHeuristic $heuristic,
         private readonly AiTraceRecorder $traceRecorder,
         private readonly AiTracePhotoRefBuilder $photoRefs,
+        private readonly PhotoAssessmentLifecycle $lifecycle,
     ) {}
 
     /**
@@ -51,6 +53,10 @@ final class AssessPhotoUsability
 
         try {
             $upload->updateQuietly(['usability_verdict' => $verdict]);
+            // Soft-fail usability blijft pending tot AI of watchdog afrondt — geen terminal skip.
+            if ($upload->assessment_status === null) {
+                app(PhotoAssessmentLifecycle::class)->markPending($upload);
+            }
         } catch (\Throwable) {
             // Persistence failure must never block the customer.
         }
@@ -63,6 +69,7 @@ final class AssessPhotoUsability
         $intake = Intake::query()->find($upload->intake_id);
         $run = AiRun::query()->create([
             'intake_id' => $upload->intake_id,
+            'upload_id' => $upload->id,
             'type' => AiRunType::PhotoQuality,
             'provider' => 'heuristic',
             'model' => 'photo-heuristic-v1',
@@ -107,6 +114,7 @@ final class AssessPhotoUsability
             $processMs = (int) round((microtime(true) - $processStarted) * 1000);
 
             $upload->update(['usability_verdict' => $verdict]);
+            $this->lifecycle->syncFromUsability($upload->fresh() ?? $upload, $verdict);
 
             $run->update([
                 'status' => AiRunStatus::Succeeded,
@@ -143,6 +151,7 @@ final class AssessPhotoUsability
             ]);
 
             $verdict = self::persistFallbackVerdict($upload);
+            $this->lifecycle->syncFromUsability($upload->fresh() ?? $upload, $verdict);
 
             $run->update([
                 'status' => AiRunStatus::Failed,

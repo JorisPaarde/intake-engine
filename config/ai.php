@@ -83,6 +83,24 @@ return [
         'observation_min_confidence' => (float) env('AI_PHOTO_OBSERVATION_MIN_CONFIDENCE', 0.65),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Foto-assessment queue (BL-121 + terminal status)
+    |--------------------------------------------------------------------------
+    |
+    | ui_soft_timeout_seconds: na zoveel seconden stopt de wizard-poll met wachten
+    | (vriendelijke melding; assessment blijft pending voor de watchdog).
+    | watchdog_after_seconds: pending langer dan dit → herdispatch.
+    | watchdog_max_attempts: daarna soft-fail not_assessed.
+    |
+    */
+
+    'photo_assessment' => [
+        'ui_soft_timeout_seconds' => (int) env('AI_PHOTO_UI_SOFT_TIMEOUT_SECONDS', 90),
+        'watchdog_after_seconds' => (int) env('AI_PHOTO_WATCHDOG_AFTER_SECONDS', 180),
+        'watchdog_max_attempts' => (int) env('AI_PHOTO_WATCHDOG_MAX_ATTEMPTS', 3),
+    ],
+
     'text_inference' => [
         'enabled' => (bool) env('AI_TEXT_INFERENCE_ENABLED', false),
     ],

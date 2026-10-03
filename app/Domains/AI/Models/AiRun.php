@@ -6,6 +6,7 @@ namespace App\Domains\AI\Models;
 
 use App\Domains\AI\DTOs\AiCompletionResult;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeUpload;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
 use Illuminate\Database\Eloquent\Model;
@@ -15,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property AiRunType $type
  * @property AiRunStatus $status
  * @property array<string, mixed>|null $output
+ * @property int|null $upload_id
  * @property int|null $input_tokens
  * @property int|null $output_tokens
  * @property int|null $total_tokens
@@ -25,6 +27,7 @@ class AiRun extends Model
 {
     protected $fillable = [
         'intake_id',
+        'upload_id',
         'type',
         'provider',
         'model',
@@ -51,6 +54,7 @@ class AiRun extends Model
             'type' => AiRunType::class,
             'status' => AiRunStatus::class,
             'output' => 'array',
+            'upload_id' => 'integer',
             'input_tokens' => 'integer',
             'output_tokens' => 'integer',
             'total_tokens' => 'integer',
@@ -65,6 +69,12 @@ class AiRun extends Model
     public function intake(): BelongsTo
     {
         return $this->belongsTo(Intake::class);
+    }
+
+    /** @return BelongsTo<IntakeUpload, $this> */
+    public function upload(): BelongsTo
+    {
+        return $this->belongsTo(IntakeUpload::class, 'upload_id');
     }
 
     /**

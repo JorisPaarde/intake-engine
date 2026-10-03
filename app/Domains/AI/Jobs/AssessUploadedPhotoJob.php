@@ -7,9 +7,11 @@ namespace App\Domains\AI\Jobs;
 use App\Domains\AI\Actions\AssessFollowUpPhotoSubject;
 use App\Domains\AI\Actions\AssessFuseboxPhotos;
 use App\Domains\AI\Actions\DerivePhotoAnswers;
+use App\Domains\AI\Services\PhotoAssessmentLifecycle;
 use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\AI\Support\PhotoDerivationProfile;
 use App\Domains\AI\Support\PhotoSubject;
+use App\Domains\Intake\Models\ContributionTask;
 use App\Domains\Intake\Models\IntakeFollowUpItem;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Enums\FollowUpItemType;
@@ -22,6 +24,7 @@ use Throwable;
 /**
  * AI foto-beoordeling buiten de webrequest (BL-121 / 503-fix).
  * Uniek per upload zodat dubbele klikken geen parallelle jobs starten.
+ * Elke exit path zet een terminale assessment_status (geen stille skip).
  */
 final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
 {
@@ -56,6 +59,7 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
         AssessFollowUpPhotoSubject $assessFollowUp,
         AssessFuseboxPhotos $assessFusebox,
         DerivePhotoAnswers $derivePhotoAnswers,
+        PhotoAssessmentLifecycle $lifecycle,
     ): void {
         $upload = IntakeUpload::query()->with(['intake', 'followUpItem'])->find($this->uploadId);
 
@@ -63,14 +67,18 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
             return;
         }
 
+        if ($lifecycle->isTerminal($upload) && ! $upload->contentAssessment()?->needsReassessment()) {
+            return;
+        }
+
         try {
             if ($upload->intake_follow_up_item_id !== null) {
-                $this->assessFollowUp($upload, $assessFollowUp);
+                $this->assessFollowUp($upload, $assessFollowUp, $lifecycle);
 
                 return;
             }
 
-            $this->assessWizardPhoto($upload, $assessFusebox, $derivePhotoAnswers);
+            $this->assessWizardPhoto($upload, $assessFusebox, $derivePhotoAnswers, $lifecycle);
         } catch (Throwable $exception) {
             Log::warning('Queued photo assessment failed', [
                 'upload_id' => $this->uploadId,
@@ -78,7 +86,7 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
                 'message' => $exception->getMessage(),
             ]);
 
-            $this->persistNotAssessed($upload);
+            $lifecycle->ensureTerminal($upload);
             throw $exception;
         }
     }
@@ -91,7 +99,7 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
             return;
         }
 
-        $this->persistNotAssessed($upload);
+        app(PhotoAssessmentLifecycle::class)->ensureTerminal($upload);
 
         Log::warning('Queued photo assessment exhausted retries', [
             'upload_id' => $this->uploadId,
@@ -99,16 +107,31 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
         ]);
     }
 
-    private function assessFollowUp(IntakeUpload $upload, AssessFollowUpPhotoSubject $assessFollowUp): void
-    {
+    private function assessFollowUp(
+        IntakeUpload $upload,
+        AssessFollowUpPhotoSubject $assessFollowUp,
+        PhotoAssessmentLifecycle $lifecycle,
+    ): void {
         $item = $upload->followUpItem;
 
         if (! $item instanceof IntakeFollowUpItem || $item->type !== FollowUpItemType::Photo) {
+            $lifecycle->markAssessed($upload);
+
             return;
         }
 
         $intake = $upload->intake;
         if ($intake === null) {
+            $lifecycle->markNotAssessed($upload);
+
+            return;
+        }
+
+        $expected = PhotoSubject::expectedFromDecisionArea(
+            $this->followUpDecisionArea($item),
+        ) ?? PhotoSubject::Other;
+
+        if ($lifecycle->tryReuseFromChecksum($upload, $expected)) {
             return;
         }
 
@@ -119,29 +142,42 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
         if ($assessment === null && ($upload->fresh()?->contentAssessment()) === null) {
             $upload->storeContentAssessment(PhotoContentAssessment::ok(PhotoSubject::Other));
         }
+
+        $lifecycle->ensureTerminal($upload->fresh() ?? $upload, $expected);
     }
 
     private function assessWizardPhoto(
         IntakeUpload $upload,
         AssessFuseboxPhotos $assessFusebox,
         DerivePhotoAnswers $derivePhotoAnswers,
+        PhotoAssessmentLifecycle $lifecycle,
     ): void {
         $intake = $upload->intake;
         if ($intake === null) {
+            $lifecycle->markNotAssessed($upload);
+
             return;
         }
 
         $profileName = $this->photoAnalysisProfileName($upload);
 
         if ($profileName === null) {
-            // Geen AI-profiel: usability was al sync; klaar zonder content_assessment.
+            // Geen AI-profiel: usability was al sync; pipeline klaar.
+            $lifecycle->markAssessed($upload);
+
+            return;
+        }
+
+        $expected = PhotoSubject::expectedForPhotoQuestion($upload->question_key, $profileName)
+            ?? PhotoSubject::Other;
+
+        if ($lifecycle->tryReuseFromChecksum($upload, $expected)) {
             return;
         }
 
         if ($profileName === 'fusebox') {
-            if ($upload->section_instance_key === null) {
-                $assessFusebox->handle($intake, correlationId: $this->correlationId);
-            }
+            $assessFusebox->handle($intake, correlationId: $this->correlationId);
+            $lifecycle->ensureTerminal($upload->fresh() ?? $upload, $expected);
 
             return;
         }
@@ -149,9 +185,8 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
         $profile = PhotoDerivationProfile::find($profileName);
 
         if (! $profile instanceof PhotoDerivationProfile) {
-            $expected = PhotoSubject::expectedForPhotoQuestion($upload->question_key, $profileName)
-                ?? PhotoSubject::Other;
             $upload->storeContentAssessment(PhotoContentAssessment::notAssessed($expected));
+            $lifecycle->ensureTerminal($upload->fresh() ?? $upload, $expected);
 
             return;
         }
@@ -163,6 +198,8 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
             $profile,
             correlationId: $this->correlationId,
         );
+
+        $lifecycle->ensureTerminal($upload->fresh() ?? $upload, $expected);
     }
 
     private function photoAnalysisProfileName(IntakeUpload $upload): ?string
@@ -195,20 +232,12 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
         return null;
     }
 
-    private function persistNotAssessed(IntakeUpload $upload): void
+    private function followUpDecisionArea(IntakeFollowUpItem $item): ?string
     {
-        $fresh = $upload->fresh() ?? $upload;
-        $existing = $fresh->contentAssessment();
+        $key = ContributionTask::query()
+            ->where('intake_follow_up_item_id', $item->id)
+            ->value('decision_area_key');
 
-        if ($existing instanceof PhotoContentAssessment
-            && $existing->status() !== PhotoContentAssessment::STATUS_NOT_ASSESSED) {
-            return;
-        }
-
-        $expected = $existing?->expectedSubject()
-            ?? PhotoSubject::expectedForPhotoQuestion($fresh->question_key)
-            ?? PhotoSubject::Other;
-
-        $fresh->storeContentAssessment(PhotoContentAssessment::notAssessed($expected));
+        return is_string($key) && $key !== '' ? $key : null;
     }
 }

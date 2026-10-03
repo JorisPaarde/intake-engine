@@ -16,6 +16,7 @@ Schedule::command('intakes:send-reminders')->daily();
 Schedule::command('intakes:purge-deleted')->daily();
 Schedule::command('product-interests:purge')->daily();
 Schedule::command('ai:purge-traces')->daily();
+Schedule::command('photos:requeue-pending-assessments')->everyMinute();
 
 /*
  * Foto-AI (queue ai-photo) + overige jobs. cPanel heeft geen Supervisor.

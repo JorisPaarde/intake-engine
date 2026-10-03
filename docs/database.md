@@ -1,6 +1,6 @@
 # Databaseschema — Digitale Opname
 
-> **Documentversie:** 3.17 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.18 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: dit document beschrijft het **geïmplementeerde schema**, inclusief de uitbreidende dossiermigratie van BL-030 en BL-035 t/m BL-042 en de zelfstandige publieke interesse-inzendingen van BL-043. Bestaande antwoord-, bron-, upload-, review- en routetabellen blijven bewust bestaan naast de nieuwe dossierobjecten.
 
@@ -360,6 +360,10 @@ BL-007 genereert voorstellen automatisch na eerste afronding en opnieuw na een a
 | `checksum` | string nullable | Optioneel SHA-256 |
 | `usability_verdict` | string nullable | BL-007: lokale fotokwaliteit-indicatie (`ok`/`too_dark`/`too_small`), `PhotoUsabilityVerdict`. Nooit blokkerend. |
 | `content_assessment` | json nullable | BL-119: categorie-/inhoudsoordeel (`ok`/`wrong_subject`/`needs_clearer`/`not_assessed`) met expected/detected subject en klantmelding. |
+| `assessment_status` | string nullable | BL-127: pipeline-status `pending` / `assessed` / `heuristic_rejected` / `not_assessed` / `reused`. Poll stopt op terminaal. |
+| `assessment_source_upload_id` | FK nullable | Bij `reused`: bron-upload met dezelfde checksum + expected subject. |
+| `assessment_attempts` | unsigned tinyint | Watchdog-pogingen (max via config). |
+| `assessment_queued_at` | timestamp nullable | Start van huidige pending-wachttijd. |
 | `sort_order` | unsigned int | |
 | `timestamps` | | |
 | `deleted_at` | soft delete | |
@@ -536,6 +540,7 @@ BL-026 gebruikt deze tabel samen met bestaande intake-timestamps en relaties voo
 |-------|------|-------------|
 | `id` | bigint PK | |
 | `intake_id` | FK, cascade | |
+| `upload_id` | FK nullable | BL-127: foto-run → `intake_uploads` (photo_quality / photo_assessment) |
 | `type` | string | o.a. `summary`, `attention_points`, `photo_quality`, `photo_assessment`, `route_analysis`, `route_synthesis`, `dossier_synthesis` |
 | `provider` | string | |
 | `model` | string nullable | |

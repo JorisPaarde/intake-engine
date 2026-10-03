@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.78 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.80 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,11 +38,12 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = fotobeoordeling via queue (#124, done). **BL-122** = soft catalogus-prefill (case 81). **BL-123** = staging-retest acceptance (#115–#120). **BL-124** = form robustness (#127, done). **BL-125** = AI-trace retentie/export + PDF-downscale (#130, done). **BL-126** = prompt/vision quality (route/ownership/kamernamen). Nieuwe items starten bij BL-127.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = fotobeoordeling via queue (#124, done). **BL-122** = soft catalogus-prefill (case 81). **BL-123** = staging-retest acceptance (#115–#120). **BL-124** = form robustness (#127, done). **BL-125** = AI-trace retentie/export + PDF-downscale (#130, done). **BL-126** = prompt/vision quality (route/ownership/kamernamen). **BL-127** = foto-assessment terminale status + watchdog. Nieuwe items starten bij BL-128.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
 | 1 | BL-117 | Installateur kan technisch open punt afhandelen vanuit de survey-werkplek | E7/E8 | backlog | high | na PR #115 · show/rapport `*_open` |
+| — | BL-127 | Foto-assessment: terminale status, soft-timeout, ai_runs.upload_id, watchdog | E4 | done | high | na #124 · staging intake 78 · PR #133 |
 | — | BL-126 | Prompt/vision quality: route-categorie, ownership, kamernamen, free_group/glas | E3/E4/E9 | in_progress | high | AI/foto · na BL-119/122 · parallel dossier-synthesis |
 | — | BL-125 | AI-trace retentie na demo-purge, export, request_id, PDF-downscale | E4/E5 | done | high | AI/ops · na BL-116 · demo-purge · PR #130 |
 | — | BL-124 | Form robustness: adresvalidatie, matenscherm L+B, optionele route-/afvoerfoto, upload-timeout | E1/E3/E7 | done | high | A · klanttest P1/P3 · airco v21 · PR #127 |
@@ -614,6 +615,14 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Doel:** alle AI-fotobeoordeling uit de webrequest naar `AssessUploadedPhotoJob` (`ai-photo`); poll in wizard; soft-fail `not_assessed`; complete ai_trace↔ai_run; cron/docs.
 - **Acceptatie:** upload dispatcht job zonder sync AI; poll toont resultaat; failure → not_assessed; `composer check` groen; hosting-cronregel in DEPLOYMENT.md.
 - **Resultaat:** queue `ai-photo` + poll; soft-fail `not_assessed`; hourly scheduler-worker + minutelijk `--queue=ai-photo,default`.
+
+### BL-127 — Foto-assessment terminale status + watchdog
+
+- **Status:** done · **Datum:** 2026-10-03 · **PR:** #133 · **Prioriteit:** high · **Epic:** E4 · **Volgt op:** BL-121 (#124) · **Ref:** staging intake 78 (uploads 187/188/190 stuck “Ontvangen”, jobs=0)
+- **Aanleiding:** na #124 bleven sommige uploads op `usability_verdict` zonder `content_assessment` / `photo_assessment` ai_run; poll wachtte oneindig. Oorzaken: job early-return zonder terminal status, `too_small` zonder pipeline-afronding, verloren queue-jobs na deploy, recover met stale relations.
+- **Doel:** elke upload precies één terminale `assessment_status`; poll stopt altijd (soft-timeout ~90 s); `ai_runs.upload_id`; watchdog herdispatch pending > ~3 min.
+- **Acceptatie:** Pest voor zelfde file/twee vragen, too_small→heuristic_rejected, AI-fout→not_assessed, watchdog; `composer check` groen.
+- **Resultaat:** PR #133; terminal `assessment_status` + soft-timeout + `ai_runs.upload_id` + watchdog.
 
 ### BL-122 — Soft catalogus-prefill (case 81 regressie)
 

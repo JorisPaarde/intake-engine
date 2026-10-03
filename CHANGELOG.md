@@ -7,10 +7,15 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 ### Added
 
 - **AI-trace retentie/export (BL-125):** `ai_traces.intake_id` nullable (`nullOnDelete`) + denormalised `intake_ref_id`/`is_demo`/`request_id` zodat traces demo-purge overleven; retentie alleen via scheduled `ai:purge-traces`. Granulaire `AiTraceCallType`s, verplichte velden (prompt/model/request/photo_refs/raw/parsed/tokens/kosten/timings) via recorder/client, uitgebreide `AiTraceRedactor` (naam/adres), `ai:traces:export` (jsonl+md, bundling, auto-split, manifest). Demo-purge verwijdert ook `intakes/{uuid}/`. PDF-embed downscaled foto’s (max 1600px, JPEG ~75) zonder originelen te wijzigen. `ai_runs` blijft cascadeOnDelete (gedocumenteerd).
+- **Photo-assessment watchdog (BL-127):** `photos:requeue-pending-assessments` (scheduler everyMinute) herdispatched `assessment_status=pending` ouder dan ~3 min, max attempts daarna soft-fail `not_assessed`. Nullable `ai_runs.upload_id` + `intake_uploads.assessment_status` pipeline.
 
 ### Fixed
 
+<<<<<<< HEAD
 - **`ai:traces:export --output` verdubbelde `exports/`:** relatief pad is t.o.v. `storage/app/exports`; een voorvoegsel `exports/` of `storage/app/exports/` wordt weggestript. Console toont aan het eind de absolute paden van alle geschreven bestanden.
+=======
+- **Foto’s blijven op “Ontvangen” / assessing (BL-127, staging intake 78):** sommige uploads kregen wel `usability_verdict` maar geen terminale pipeline-status (geen `photo_assessment` ai_run, poll bleef hangen). Elke klantfoto eindigt nu in precies één `assessment_status` (`assessed` / `heuristic_rejected` / `not_assessed` / `reused`); `AssessUploadedPhotoJob` mag niet meer stil returnen; `too_small` → `heuristic_rejected` zonder AI-wacht; UI soft-timeout (~90 s) laat de wizard door terwijl de watchdog pending > ~3 min herqueued; `ai_runs.upload_id` koppelt foto-runs; recover herlaadt uploads vers (geen stale relation).
+>>>>>>> f61582f (Fix photo assessment terminal status and stuck Ontvangen UI (BL-127))
 - **503 bij gelijktijdige fotouploads (3 okt 2026, prod LiteSpeed/LVE):** AI-fotobeoordeling (`DerivePhotoAnswers`, `AssessFuseboxPhotos`, `AssessFollowUpPhotoSubject`) liep synchroon in de Livewire-request en hield PHP-workers tot `AI_TIMEOUT_SECONDS` vast. Beoordeling draait nu in `AssessUploadedPhotoJob` op queue `ai-photo` (uniek per upload); upload doet alleen opslaan + lokale usability. Wizard toont bestaande fases en pikt het resultaat op via `wire:poll.2s` (`pollPendingAssessments`). Soft-fail → `not_assessed` met klanttekst “We konden je foto nu niet automatisch beoordelen; de installateur kijkt mee.” Elke foto-AI schrijft precies één `photo_analysis`-trace gekoppeld aan `ai_run`.
 - **Adresvalidatie blijft hangen na lookup (BL-124):** `setCustomValidity` wordt gewist/herberekend na PDOK-autofill, op input/change en vóór submit; submitknop disabled terwijl de lookup loopt.
 - **Lage-resolutie-flag op verkleinde variant (BL-124):** usability checkt `original_width/height` (grootste HEIC-frame), niet de dossier-thumbnail.

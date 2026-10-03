@@ -17,6 +17,7 @@ use App\Enums\AiTraceCallType;
 use App\Enums\FollowUpItemType;
 use App\Enums\FollowUpRoundStatus;
 use App\Enums\IntakeStatus;
+use App\Enums\PhotoAssessmentStatus;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -196,6 +197,9 @@ final class StoreFollowUpUpload
                     'analysis_checksum' => $analysisChecksum,
                     'sort_order' => $currentCount + 1,
                     'processing_timings' => $timings,
+                    'assessment_status' => $item->type === FollowUpItemType::Photo ? PhotoAssessmentStatus::Pending : null,
+                    'assessment_queued_at' => $item->type === FollowUpItemType::Photo ? now() : null,
+                    'assessment_attempts' => 0,
                 ]);
 
                 $lockedItem->update(['answered_at' => now()]);
