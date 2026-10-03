@@ -226,6 +226,47 @@ test('ai:traces:export werkt voor gepurgede demo-intakes via intake_ref_id', fun
         ->and($body)->toContain('Demo: ja');
 });
 
+test('ai:traces:export relative --output exports/ verdubbelt niet en print absolute paden', function () {
+    $intake = makeRetentionIntake();
+    seedTrace($intake);
+
+    $slug = 'staging-pathfix-'.Str::random(6);
+    Artisan::call('ai:traces:export', [
+        '--intake' => [(string) $intake->id],
+        '--format' => 'jsonl',
+        '--output' => 'exports/'.$slug.'/',
+    ]);
+
+    $expectedDir = storage_path('app/exports/'.$slug);
+    $doubledDir = storage_path('app/exports/exports/'.$slug);
+
+    expect(is_dir($expectedDir))->toBeTrue()
+        ->and(is_dir($doubledDir))->toBeFalse();
+
+    $jsonl = collect(glob($expectedDir.'/ai-traces-*.jsonl') ?: [])->first();
+    $manifest = collect(glob($expectedDir.'/ai-traces-*manifest.json') ?: [])->first();
+    expect($jsonl)->not->toBeNull()->and($manifest)->not->toBeNull();
+
+    $console = Artisan::output();
+    $jsonlAbsolute = realpath((string) $jsonl) ?: (string) $jsonl;
+    $manifestAbsolute = realpath((string) $manifest) ?: (string) $manifest;
+
+    expect($console)->toContain('Bestanden (absolute paden):')
+        ->and($console)->toContain($jsonlAbsolute)
+        ->and($console)->toContain($manifestAbsolute)
+        ->and($console)->not->toContain(storage_path('app/exports/exports/'));
+
+    $slug2 = 'staging-pathfix2-'.Str::random(6);
+    Artisan::call('ai:traces:export', [
+        '--intake' => [(string) $intake->id],
+        '--format' => 'md',
+        '--output' => 'storage/app/exports/'.$slug2.'/',
+    ]);
+
+    expect(is_dir(storage_path('app/exports/'.$slug2)))->toBeTrue()
+        ->and(is_dir(storage_path('app/exports/storage/app/exports/'.$slug2)))->toBeFalse();
+});
+
 test('AiTraceRedactor maskeert namen e-mail telefoon straat en huisnummer', function () {
     $redactor = app(AiTraceRedactor::class)->withKnownPii([
         'customer_name' => 'Sophie Vermeer',
