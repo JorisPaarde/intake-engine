@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Services;
 
+use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Models\AircoConnection;
 use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\DossierDecisionArea;
@@ -150,9 +151,14 @@ final class ContextualCustomerTaskBuilder
             default => 'placement',
         };
 
+        // Avoid doubling “Maak een nieuwe…” when the suggestion already is an action prompt.
+        $prompt = Str::startsWith(Str::lower($text), 'maak een')
+            ? $text
+            : 'Maak een nieuwe, duidelijke foto van '.$subject->label.'. '.$text;
+
         return $this->draft(
             FollowUpItemType::Photo,
-            'Maak een nieuwe, duidelijke foto van '.$subject->label.'. '.$text,
+            $prompt,
             $decisionArea,
             $subject->id,
         );
@@ -278,12 +284,18 @@ final class ContextualCustomerTaskBuilder
             return null;
         }
 
-        if (Str::contains(Str::lower($blocker), 'meterkast')) {
+        if (Str::contains(Str::lower($blocker), 'meterkast')
+            || PhotoSubject::isInstallerMismatchReason($blocker)) {
+            // Installer diagnosis stays on the decision area; customer gets an action prompt.
+            $prompt = PhotoSubject::isInstallerMismatchReason($blocker)
+                ? PhotoSubject::Fusebox->customerRetakePrompt()
+                : ($blocker !== ''
+                    ? $blocker
+                    : 'Maak een duidelijke foto van de meterkast. Daaruit volgt 1- of 3-fase.');
+
             return $this->draft(
                 FollowUpItemType::Photo,
-                $blocker !== ''
-                    ? $blocker
-                    : 'Maak een duidelijke foto van de meterkast. Daaruit volgt 1- of 3-fase.',
+                $prompt,
                 'power',
                 null,
             );
@@ -318,6 +330,7 @@ final class ContextualCustomerTaskBuilder
         }
 
         if ($blocker !== '' && Str::contains(Str::lower($blocker), ['bewijs', 'foto', 'meterkast'])) {
+            // Installer mismatch blockers already returned above; remaining text is customer-safe.
             return $this->draft(
                 FollowUpItemType::Photo,
                 $blocker,

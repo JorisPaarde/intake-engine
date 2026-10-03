@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Domains\AI\Clients\FakeAiClient;
+use App\Domains\AI\Support\PhotoContentAssessment;
+use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Actions\ApprovePipeRoute;
 use App\Domains\Intake\Actions\CompleteFollowUpRound;
 use App\Domains\Intake\Actions\CompleteInstallerSurvey;
@@ -30,6 +32,7 @@ use App\Enums\DossierRecordKind;
 use App\Enums\DossierRecordStatus;
 use App\Enums\FollowUpItemType;
 use App\Enums\IntakeStatus;
+use App\Enums\PhotoAssessmentStatus;
 use App\Enums\PipeRouteStatus;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
@@ -534,6 +537,9 @@ test('installer-only survey can temporarily expose exactly one targeted customer
         'size_bytes' => 100,
         'checksum' => hash('sha256', 'meterkast'),
         'sort_order' => 1,
+        // Queue assessment already finished (tests skip AssessUploadedPhotoJob).
+        'content_assessment' => PhotoContentAssessment::ok(PhotoSubject::Fusebox)->toArray(),
+        'assessment_status' => PhotoAssessmentStatus::Assessed,
     ]);
 
     app(CompleteFollowUpRound::class)->handle($intake, $round, []);

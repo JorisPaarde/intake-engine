@@ -149,3 +149,42 @@ test('photo suggestion drafts a retake ask for the subject', function () {
         ->and($draft['prompt'])->toContain('Slaapkamer')
         ->and($draft['prompt'])->toContain('te donker');
 });
+
+test('power mismatch blocker becomes customer retake prompt, not installer diagnosis', function () {
+    $intake = builderIntakeWithRooms();
+    $intake->setRelation('aircoInstallationOptions', collect());
+    $area = new DossierDecisionArea([
+        'key' => 'power',
+        'label' => 'Stroomtoevoer',
+        'status' => DecisionAreaStatus::Blocked,
+        'blocker' => 'Ontvangen foto lijkt een buitenunit, geen meterkast — handmatig controleren',
+        'next_action' => DossierNextAction::RequestContribution,
+    ]);
+
+    $draft = app(ContextualCustomerTaskBuilder::class)->forDecisionArea($intake, $area);
+
+    expect($draft)->not->toBeNull()
+        ->and($draft['type'])->toBe(FollowUpItemType::Photo->value)
+        ->and($draft['decision_area_key'])->toBe('power')
+        ->and($draft['prompt'])->toBe('Maak een nieuwe, duidelijke foto van je meterkast')
+        ->and($draft['prompt'])->not->toContain('handmatig controleren')
+        ->and($draft['prompt'])->not->toContain('Ontvangen foto lijkt');
+});
+
+test('photo suggestion does not double Maak-een prefix', function () {
+    $subject = (new DossierSubject)->forceFill([
+        'id' => 22,
+        'type' => 'airco_room',
+        'label' => 'Meterkast',
+        'meta' => [],
+    ]);
+    $suggestion = (new DossierRecord)->forceFill([
+        'id' => 6,
+        'value' => ['text' => 'Maak een nieuwe, duidelijke foto van je meterkast'],
+    ]);
+
+    $draft = app(ContextualCustomerTaskBuilder::class)->forPhotoSuggestion($subject, $suggestion);
+
+    expect($draft['prompt'])->toBe('Maak een nieuwe, duidelijke foto van je meterkast')
+        ->and(substr_count(mb_strtolower($draft['prompt']), 'maak een nieuwe'))->toBe(1);
+});

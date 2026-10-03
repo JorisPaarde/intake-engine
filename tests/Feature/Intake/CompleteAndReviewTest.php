@@ -2,7 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Domains\AI\Actions\AssessFollowUpPhotoSubject;
+use App\Domains\AI\Actions\AssessFuseboxPhotos;
+use App\Domains\AI\Actions\DerivePhotoAnswers;
+use App\Domains\AI\Jobs\AssessUploadedPhotoJob;
 use App\Domains\AI\Jobs\SuggestAttentionPointsJob;
+use App\Domains\AI\Services\PhotoAssessmentLifecycle;
 use App\Domains\Intake\Actions\CompleteIntake;
 use App\Domains\Intake\Actions\DeleteIntakeUpload;
 use App\Domains\Intake\Actions\GenerateIntakePdf;
@@ -373,7 +378,7 @@ test('customer completes text and photo follow up and dossier returns for review
     expect($textItem)->not->toBeNull()
         ->and($photoItem)->not->toBeNull();
 
-    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->assertSet('followUpMode', true)
         ->assertSee('Welke route heeft uw voorkeur?')
         ->set('followUpResponses.'.$textItem->id, 'Via de linker zijgevel.')
@@ -383,7 +388,18 @@ test('customer completes text and photo follow up and dossier returns for review
         ->assertHasErrors(['follow_up'])
         ->assertSee('Voeg eerst minimaal één foto toe.')
         ->set('followUpPhotoFiles.'.$photoItem->id, UploadedFile::fake()->image('doorvoer.jpg', 1280, 960))
-        ->assertHasNoErrors()
+        ->assertHasNoErrors();
+
+    $upload = $photoItem->fresh()->uploads()->latest('id')->firstOrFail();
+    (new AssessUploadedPhotoJob($upload->id))->handle(
+        app(AssessFollowUpPhotoSubject::class),
+        app(AssessFuseboxPhotos::class),
+        app(DerivePhotoAnswers::class),
+        app(PhotoAssessmentLifecycle::class),
+    );
+
+    $component
+        ->call('pollPendingAssessments')
         ->call('completeFollowUp')
         ->assertHasNoErrors()
         ->assertSet('completed', true)

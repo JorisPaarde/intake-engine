@@ -48,9 +48,11 @@
         </div>
 
         @error('follow_up')
-            <div class="mb-4 rounded-md border border-brand-ember/30 bg-white px-4 py-3 text-sm text-brand-ember" role="alert">
-                {{ $message }}
-            </div>
+            @if (empty($followUpMismatchAssessment))
+                <div class="mb-4 rounded-md border border-brand-ember/30 bg-white px-4 py-3 text-sm text-brand-ember" role="alert">
+                    {{ $message }}
+                </div>
+            @endif
         @enderror
 
         <div class="flex-1 rounded-lg bg-white p-4 shadow-sm">
@@ -132,6 +134,7 @@
                             <span class="text-sm font-semibold text-brand-ink">Foto's maken of kiezen</span>
                             <span class="text-xs text-brand-ink/55">Max {{ number_format($maxUploadKb / 1024, 0) }} MB · nog {{ $remainingSlots }}</span>
                             <input
+                                id="follow-up-photo-input-{{ $item->id }}"
                                 type="file"
                                 accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,image/*"
                                 multiple
@@ -181,9 +184,47 @@
                             <p class="mt-2 text-sm text-brand-ember">{{ $message }}</p>
                         @enderror
                     </div>
+                @elseif ($item->uploads->isNotEmpty())
+                    {{-- Keep a hidden input so “Vervang foto” can reopen the picker after delete. --}}
+                    <input
+                        id="follow-up-photo-input-{{ $item->id }}"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,image/*"
+                        multiple
+                        class="sr-only"
+                        wire:model="followUpPhotoFiles.{{ $item->id }}"
+                    >
                 @endif
 
-                @if (! empty($followUpPhotoHint))
+                @if ($followUpMismatchAssessment)
+                    <div class="mt-3 space-y-3 rounded-md border border-brand-ember/30 bg-white px-3 py-3" role="alert" data-testid="follow-up-mismatch">
+                        <p class="text-sm text-brand-ink">
+                            {{ $followUpMismatchAssessment->customerMessage() ?? 'Deze foto lijkt niet bij de vraag te horen.' }}
+                        </p>
+                        @error('follow_up')
+                            <p class="text-sm font-medium text-brand-ember" data-testid="follow-up-mismatch-warning">
+                                {{ $message }}
+                            </p>
+                        @enderror
+                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                            <button
+                                type="button"
+                                wire:click="replaceFollowUpMismatchedPhoto"
+                                class="min-h-11 rounded-md bg-brand-sea px-4 text-sm font-semibold text-white"
+                            >
+                                Vervang foto
+                            </button>
+                            <button
+                                type="button"
+                                wire:click="acceptFollowUpPhotoMismatch"
+                                class="min-h-11 rounded-md border border-brand-fog bg-brand-mist/40 px-4 text-sm font-semibold text-brand-ink"
+                                data-testid="follow-up-accept-mismatch"
+                            >
+                                Toch versturen
+                            </button>
+                        </div>
+                    </div>
+                @elseif (! empty($followUpPhotoHint))
                     <div class="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900" role="status">
                         {{ $followUpPhotoHint }}
                     </div>
