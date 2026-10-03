@@ -3,13 +3,12 @@
 declare(strict_types=1);
 
 /**
- * Klanttest 2026-10-02 — P0: technische beslissingen uit de klantvragen.
- *
- * Reproductie case 80: Condensafvoer → "Weet ik niet" mag niet leiden tot een
- * verplichte ja/nee over condenspomp. Acceptatie: klant rondt af zonder verzonnen
- * techniek; open punten blijven voor de installateur zichtbaar.
+ * Klanttest 2026-10-02 — P0: technische beslissingen uit de klantvragen (BL-116 / ADR-0015).
  */
 
+use App\Domains\AI\Actions\DerivePhotoAnswers;
+use App\Domains\AI\Clients\FakeAiClient;
+use App\Domains\AI\Support\PhotoDerivationProfile;
 use App\Domains\Intake\Actions\CompleteIntake;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
@@ -19,6 +18,7 @@ use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Domains\Intake\Services\CompletenessChecker;
 use App\Domains\Intake\Services\IntakeStepBuilder;
+use App\Domains\Intake\Support\TechnicalDecisionKeys;
 use App\Enums\IntakeStatus;
 use App\Enums\QuestionType;
 use App\Livewire\Customer\IntakeWizard;
@@ -31,12 +31,24 @@ use Livewire\Livewire;
 beforeEach(function () {
     $this->seed(IntakeTemplateSeeder::class);
     Storage::fake((string) config('filesystems.media', 'local'));
+    FakeAiClient::reset();
+    config([
+        'ai.provider' => 'fake',
+        'ai.photo_inference.enabled' => true,
+    ]);
 });
 
-function makeKlanttestP0Intake(): Intake
+afterEach(function () {
+    FakeAiClient::reset();
+});
+
+function makeKlanttestP0Intake(?int $templateVersion = null): Intake
 {
     $user = User::factory()->create();
-    $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
+    $template = IntakeTemplate::query()->where('key', 'airco')->firstOrFail();
+    $version = $templateVersion === null
+        ? $template->latestPublishedVersion()
+        : $template->versions()->where('version', $templateVersion)->firstOrFail();
 
     return Intake::factory()->create([
         'created_by' => $user->id,
@@ -95,6 +107,7 @@ function fillCustomerFacingUntilComplete(Intake $intake): void
     $save = app(SaveIntakeAnswer::class);
     $store = app(StoreIntakeUpload::class);
     $checker = app(CompletenessChecker::class);
+    $fixture = base_path('tests/fixtures/klanttest-20261002/woonkamer-720.jpg');
 
     $save->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
 
@@ -116,16 +129,14 @@ function fillCustomerFacingUntilComplete(Intake $intake): void
             }
 
             if ($question->type === QuestionType::Photo) {
-                $fixture = base_path('tests/fixtures/klanttest-20261002/woonkamer-720.jpg');
-                $upload = is_file($fixture)
-                    ? UploadedFile::fake()->createWithContent($item['question_key'].'.jpg', (string) file_get_contents($fixture))
-                    : UploadedFile::fake()->image($item['question_key'].'.jpg', 640, 480);
-
                 $store->handle(
                     $intake,
                     $item['question_key'],
                     $item['section_instance_key'],
-                    $upload,
+                    UploadedFile::fake()->createWithContent(
+                        $item['question_key'].'.jpg',
+                        (string) file_get_contents($fixture),
+                    ),
                 );
 
                 continue;
@@ -143,29 +154,38 @@ function fillCustomerFacingUntilComplete(Intake $intake): void
     throw new RuntimeException('Kon klantflow niet afronden binnen 50 pogingen.');
 }
 
-test('latest airco template marks technical decisions as installer-only', function () {
+test('technical decision keys are shared and hidden from the latest customer wizard', function () {
+    expect(TechnicalDecisionKeys::all())->toContain(
+        'natural_fall_possible',
+        'pipe_route_description',
+        'drillings_needed',
+        'free_group_known',
+    );
+
     $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
     expect($version->version)->toBe(17);
 
-    $keys = [
-        'natural_fall_possible',
-        'pipe_route_description',
-        'pipe_distance_indication',
-        'drillings_needed',
-        'free_group_known',
-    ];
-
-    foreach ($keys as $key) {
-        $question = findKlanttestQuestion($version, $key);
-        expect($question)->not->toBeNull()
-            ->and($question->meta['installer_decision'] ?? null)->toBeTrue()
-            ->and($question->is_required)->toBeFalse();
-    }
-
     $steps = klanttestP0StepKeys(makeKlanttestP0Intake());
-    foreach ($keys as $key) {
+    foreach (TechnicalDecisionKeys::all() as $key) {
         expect($steps)->not->toContain($key);
     }
+});
+
+test('v16 pinned intake also hides technical decisions after Weet ik niet on drain_location', function () {
+    $intake = makeKlanttestP0Intake(16);
+    expect($intake->templateVersion->version)->toBe(16);
+
+    app(SaveIntakeAnswer::class)->handle($intake, 'drain_location', null, [
+        'value' => 'unknown',
+    ]);
+
+    $steps = klanttestP0StepKeys($intake);
+
+    expect($steps)->not->toContain('natural_fall_possible')
+        ->and($steps)->not->toContain('pipe_route_description')
+        ->and($steps)->not->toContain('drillings_needed')
+        ->and($steps)->not->toContain('free_group_known')
+        ->and($steps)->not->toContain('pipe_distance_indication');
 });
 
 test('case 80 reproduction: Weet ik niet on drain_location does not force natural_fall ja/nee', function () {
@@ -193,7 +213,6 @@ test('case 80 reproduction: Weet ik niet on drain_location does not force natura
         ->and($drainStep['is_required'])->toBeTrue()
         ->and($drainStep['title'])->toContain('condenswater');
 
-    // Livewire: geen verplichte ja/nee over pomp na "Weet ik niet".
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
     /** @var list<array{question_key: string, key: string, title: string}> $viewSteps */
     $viewSteps = $component->viewData('steps');
@@ -218,17 +237,17 @@ test('case 80 reproduction: Weet ik niet on drain_location does not force natura
 test('acceptance: customer can complete without inventing technical answers; installer sees open points', function () {
     $intake = makeKlanttestP0Intake();
 
-    // Reproduceer: afvoer onbekend → foto i.p.v. pomp-ja/nee; rest klantgericht invullen.
     app(SaveIntakeAnswer::class)->handle($intake, 'drain_location', null, [
         'value' => 'unknown',
     ]);
 
-    $fixture = base_path('tests/fixtures/klanttest-20261002/gevel-extra.jpg');
-    $drainUpload = is_file($fixture)
-        ? UploadedFile::fake()->createWithContent('drain.jpg', (string) file_get_contents($fixture))
-        : UploadedFile::fake()->image('drain.jpg', 800, 600);
-
-    app(StoreIntakeUpload::class)->handle($intake, 'drain_photo', null, $drainUpload);
+    $drainFixture = base_path('tests/fixtures/klanttest-20261002/gevel-extra.jpg');
+    app(StoreIntakeUpload::class)->handle(
+        $intake,
+        'drain_photo',
+        null,
+        UploadedFile::fake()->createWithContent('drain.jpg', (string) file_get_contents($drainFixture)),
+    );
 
     fillCustomerFacingUntilComplete($intake->fresh());
 
@@ -239,8 +258,7 @@ test('acceptance: customer can complete without inventing technical answers; ins
 
     expect($check['is_complete'])->toBeTrue();
 
-    // Geen stilzwijgende ja/nee-defaults op technische velden.
-    foreach (['natural_fall_possible', 'pipe_route_description', 'drillings_needed', 'free_group_known'] as $key) {
+    foreach (TechnicalDecisionKeys::all() as $key) {
         expect($intake->fresh()->answers()->where('question_key', $key)->exists())->toBeFalse();
     }
 
@@ -260,4 +278,63 @@ test('acceptance: customer can complete without inventing technical answers; ins
         ->toContain('pipe_route_open')
         ->toContain('drillings_open')
         ->toContain('electrical_provision_open');
+});
+
+test('AI drillings_needed=false keeps drillings_open as proposal for the installer', function () {
+    $intake = makeKlanttestP0Intake();
+
+    FakeAiClient::alwaysReturn([
+        'pipe_route_description' => 'along_facade',
+        'pipe_distance_indication' => 'short',
+        'drillings_needed' => 'no',
+        'confidence' => 'high',
+        'evidence' => 'Leiding loopt zichtbaar langs de gevel zonder nieuwe doorboring.',
+        'retake_instruction' => null,
+    ]);
+
+    $routeFixture = base_path('tests/fixtures/klanttest-20261002/gevel-extra.jpg');
+    app(StoreIntakeUpload::class)->handle(
+        $intake,
+        'pipe_route_photos',
+        null,
+        UploadedFile::fake()->createWithContent('route.jpg', (string) file_get_contents($routeFixture)),
+    );
+
+    app(DerivePhotoAnswers::class)->handle(
+        $intake,
+        'pipe_route_photos',
+        null,
+        PhotoDerivationProfile::require('pipe_route'),
+    );
+
+    $drillings = $intake->fresh()->answers()->where('question_key', 'drillings_needed')->firstOrFail();
+    expect($drillings->value)->toBe(['bool' => false])
+        ->and($drillings->prefill_source)->toBe(DerivePhotoAnswers::SOURCE_DERIVED)
+        ->and(klanttestP0StepKeys($intake))->not->toContain('drillings_needed');
+
+    $version = $intake->fresh()->templateVersion()
+        ->with(['sections.questions.options', 'sections.questions.rules'])
+        ->firstOrFail();
+    $check = app(CompletenessChecker::class)->check($intake->fresh(), $version);
+    $drillingsPoint = collect($check['attention_points'])->firstWhere('code', 'drillings_open');
+
+    expect($drillingsPoint)->not->toBeNull()
+        ->and($drillingsPoint['label'])->toStartWith('AI-voorstel:')
+        ->and($drillingsPoint['label'])->toContain('nee')
+        ->and($drillingsPoint['label'])->toContain('nog te beoordelen')
+        ->and($drillingsPoint['label'])->toContain('bron: ai')
+        ->and($drillingsPoint['label'])->toContain('foto: pipe_route_photos#');
+
+    // Installateursbesluit sluit het open punt.
+    app(SaveIntakeAnswer::class)->handle(
+        $intake->fresh(),
+        'drillings_needed',
+        null,
+        ['bool' => false],
+        'installer',
+    );
+
+    $afterInstaller = app(CompletenessChecker::class)->check($intake->fresh(), $version);
+    expect(collect($afterInstaller['attention_points'])->pluck('code')->all())
+        ->not->toContain('drillings_open');
 });

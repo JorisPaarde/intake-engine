@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.63 · **Laatste update:** 2026-10-02 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.64 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -561,12 +561,13 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-116 — Technische beslissingen uit klantvragen (klanttest 2026-10-02 P0)
 
-- **Status:** done · **Prioriteit:** high · **Datum:** 2026-10-02 · **PR:** #115 · **Epic:** E3/E7 · **Band:** klanttest P0 · **Volgt op:** BL-077/103 · **Ref:** productregels Joris + Notion-klanttest
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-10-03 · **PR:** #115 · **Epic:** E3/E7 · **Band:** klanttest P0 · **Volgt op:** BL-077/103 · **Ref:** productregels Joris + Notion-klanttest · **ADR:** [0015](decisions/0015-runtime-filter-technical-decision-questions.md)
 - **Aanleiding:** case 80 — na Condensafvoer “Weet ik niet” kreeg de klant een verplichte ja/nee over condenspomp; hetzelfde patroon bij leidingroute, boringen en technische stroomvragen.
 - **Doel:** klant toont situatie (foto/observatie) en wensen; technische beslissingen (pomp, route, boringen, elektrische voorziening) blijven open voor installateur; AI mag voorstellen; geen stilzwijgende ja/nee-default.
-- **Scope:** airco v17 `meta.installer_decision` op `natural_fall_possible`, `pipe_route_description`, `pipe_distance_indication`, `drillings_needed`, `free_group_known`; klantwizard/progress slaat die over; condens “Weet ik niet” → verplichte afvoerfoto; systeemaandachtspunten voor open technische punten.
-- **Niet in scope:** foto-first/bekende velden (andere stroom), AI-fotoconclusie-stelligheid, interne-veldenfilter, voortgangs-UX.
-- **Acceptatie:** klant rondt af zonder verzonnen techniek; “Weet ik niet” leidt niet tot verplichte technische ja/nee; open punten zichtbaar voor installateur; Pest + `composer check` groen.
+- **Scope:** `TechnicalDecisionKeys` + runtime-klantfilter (ADR-0015); airco v17 `meta.installer_decision`; optionele `drain_location` + `drain_photo` bij leeg/onbekend; optionele `outdoor_mount_type`; AI-voorstellen sluiten open punten niet (label + bron/foto); `dossier-synthesis-v4` verbiedt technische klanttaken.
+- **Niet in scope:** foto-first/bekende velden (andere stroom), AI-fotoconclusie-stelligheid, interne-veldenfilter, voortgangs-UX; geen rebase op #117 tot gevraagd.
+- **Acceptatie:** klant rondt af zonder verzonnen techniek; “Weet ik niet” leidt niet tot verplichte technische ja/nee; open punten zichtbaar voor installateur (ook bij AI-voorstel met bron/foto); Pest + `composer check` groen.
+- **Resultaat:** PR #115; review-fixes (open bij AI, sleutelfilter v1–v16, drain/mount, prompt v4, fixtures).
 
 ### BL-115 — Gebruikte/ongeldige klantlink: NL-pagina i.p.v. 404
 

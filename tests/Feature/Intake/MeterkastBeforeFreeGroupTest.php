@@ -73,7 +73,7 @@ test('airco latest template keeps free_group_known as installer decision outside
         ->where('key', 'free_group_known')
         ->firstOrFail();
 
-    expect($freeGroup->is_required)->toBeFalse()
+    expect($freeGroup->is_required)->toBeTrue()
         ->and($freeGroup->meta['installer_decision'] ?? null)->toBeTrue()
         ->and($freeGroup->meta['skip_when_prefilled_by'] ?? null)->toBe(['ai'])
         ->and($freeGroup->rules)->toHaveCount(1)

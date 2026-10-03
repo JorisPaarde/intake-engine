@@ -136,18 +136,18 @@ test('airco template seeder publishes v1 through v17 with v17 as latest', functi
         ->where('key', 'drain_photo')
         ->firstOrFail();
 
-    expect($freeGroup->is_required)->toBeFalse()
+    expect($freeGroup->is_required)->toBeTrue()
         ->and($freeGroup->meta['installer_decision'] ?? null)->toBeTrue()
         ->and($freeGroup->label)->toBe('Is er een vrije groep in de meterkast?')
         ->and($freeGroup->meta['skip_when_prefilled_by'] ?? null)->toBe(['ai'])
         ->and($freeGroup->rules)->toHaveCount(1)
         ->and($freeGroup->rules->first()->source_question_key)->toBe('fusebox_photo')
         ->and($naturalFall->meta['installer_decision'] ?? null)->toBeTrue()
-        ->and($naturalFall->is_required)->toBeFalse()
         ->and($pipeRoute->meta['installer_decision'] ?? null)->toBeTrue()
         ->and($drillings->meta['installer_decision'] ?? null)->toBeTrue()
         ->and($drainPhoto->label)->toContain('condenswater')
-        ->and($drainPhoto->rules->pluck('effect')->map->value->all())->toContain('show', 'require')
+        ->and($drainPhoto->is_required)->toBeTrue()
+        ->and($drainPhoto->rules->pluck('operator')->map->value->all())->toContain('not_in')
         ->and($fuseboxPhoto->meta['photo_analysis'] ?? null)->toBe('fusebox')
         ->and($fuseboxPhoto->is_required)->toBeTrue()
         ->and($aroundHouse->is_required)->toBeTrue()
@@ -163,6 +163,20 @@ test('airco template seeder publishes v1 through v17 with v17 as latest', functi
                 ->where('value', 'dormer')
                 ->value('label'),
         )->toBe('Op of aan de dakkapel');
+
+    $drainLocation = $latest->sections()
+        ->where('key', 'condensate')
+        ->firstOrFail()
+        ->questions()
+        ->where('key', 'drain_location')
+        ->firstOrFail();
+    $outdoorMount = $outdoor->questions()->where('key', 'outdoor_mount_type')->firstOrFail();
+
+    expect($drainLocation->is_required)->toBeFalse()
+        ->and($drainLocation->label)->toContain('optioneel')
+        ->and($outdoorMount->is_required)->toBeFalse()
+        ->and($outdoorMount->options()->where('value', 'unknown')->value('label'))->toBe('Geen voorkeur')
+        ->and($outdoorMount->help_text)->toContain('installateur');
 
     $sunExposure = $latest->sections()
         ->where('key', 'rooms')

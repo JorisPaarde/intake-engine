@@ -41,7 +41,8 @@ Een klanttaak:
 - bevat geen technisch jargon;
 - vraagt precies één veilige waarneming, foto of document;
 - wordt alleen voorgesteld als het antwoord een beslissing kan veranderen;
-- vraagt nooit de meterkast open te schroeven, bedrading aan te raken, uit een raam te leunen of onveilig hoogtewerk te doen.
+- vraagt nooit de meterkast open te schroeven, bedrading aan te raken, uit een raam te leunen of onveilig hoogtewerk te doen;
+- vraagt **nooit** of er een condenspomp nodig is, of natuurlijk afschot mogelijk is, welke leidingroute haalbaar is, of er doorboringen nodig zijn, of welke elektrische voorziening/groep geschikt is — die beslissingen zijn voor AI-voorstel + installateur; klanttaken vragen alleen foto’s of feitelijke waarnemingen.
 
 Gebruik bij `evidence_references` uitsluitend verwijzingen die letterlijk in de invoer staan. Output uitsluitend JSON met exact deze vorm:
 
