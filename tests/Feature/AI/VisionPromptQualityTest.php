@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Domains\AI\Actions\DerivePhotoAnswers;
+use App\Domains\AI\Actions\PrefillAnswersFromKnownContext;
 use App\Domains\AI\Clients\FakeAiClient;
 use App\Domains\AI\Support\OwnershipNormalizer;
 use App\Domains\AI\Support\PhotoContentAssessment;
@@ -13,6 +14,7 @@ use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Domains\Intake\Services\AircoSurveyService;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Domains\Intake\Support\PrefillSources;
@@ -191,7 +193,7 @@ test('room_name from customer syncs to installer airco room labels; installer re
         ->and($rooms->firstWhere('key', 'room-2')?->name)->toBe('Kind');
 
     $installer = User::factory()->create(['company_id' => $intake->company_id]);
-    app(\App\Domains\Intake\Services\AircoSurveyService::class)->updateRoom(
+    app(AircoSurveyService::class)->updateRoom(
         $intake,
         $installer,
         $rooms->firstWhere('key', 'room-1'),
@@ -249,7 +251,7 @@ test('catalog ownership synonym fill is normalized to owned/rented', function ()
         ],
     ]);
 
-    app(\App\Domains\AI\Actions\PrefillAnswersFromKnownContext::class)->handle($intake);
+    app(PrefillAnswersFromKnownContext::class)->handle($intake);
 
     expect($intake->answers()->where('question_key', 'ownership')->firstOrFail()->value)
         ->toBe(['value' => 'owned']);

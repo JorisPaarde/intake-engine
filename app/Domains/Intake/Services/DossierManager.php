@@ -730,13 +730,11 @@ final class DossierManager
                 && $answer->question_key === 'room_name',
         );
         $value = $answer?->value;
-        $text = null;
-        if (is_array($value)) {
-            $text = $value['text'] ?? $value['value'] ?? null;
-        } elseif (is_string($value)) {
-            $text = $value;
+        if (! is_array($value)) {
+            return null;
         }
 
+        $text = $value['text'] ?? $value['value'] ?? null;
         if (! is_string($text)) {
             return null;
         }
