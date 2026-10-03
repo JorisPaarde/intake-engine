@@ -597,7 +597,7 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-125 — AI-trace retentie, export, request_id en PDF-downscale
 
-- **Status:** done · **Datum:** 2026-10-03 · **PR:** #130 · **Prioriteit:** high · **Epic:** E4/E5 · **Band:** AI/ops · **Volgt op:** BL-116 · **PR:** #130
+- **Status:** done · **Datum:** 2026-10-03 · **PR:** #130 · **Prioriteit:** high · **Epic:** E4/E5 · **Band:** AI/ops · **Volgt op:** BL-116
 - **Doel:** traces overleven demo-purge (`intake_id` nullOnDelete + `intake_ref_id`/`is_demo`); retentie alleen via `ai:purge-traces`; `request_id`; consistente verplichte tracevelden per call type; `ai:traces:export` (jsonl/md, bundling, split, masking); demo-purge ruimt uploadmap op; PDF embedt downscaled foto’s (max 1600px / JPEG ~75) zonder originelen te wijzigen.
 - **Waarom niet `ai_runs`:** blijven cascadeOnDelete — operationele/idempotente apply-records zonder intake; duurzame diagnostiek zit in `ai_traces`.
 
