@@ -13,6 +13,7 @@ use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\PhotoUploadNormalizer;
 use App\Domains\Intake\Services\ProgressCalculator;
 use App\Enums\IntakeStatus;
+use App\Enums\PhotoAssessmentStatus;
 use App\Enums\QuestionType;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
@@ -145,6 +146,9 @@ final class StoreIntakeUpload
                     'analysis_checksum' => $normalized->analysisChecksum,
                     'sort_order' => $currentCount + 1,
                     'processing_timings' => $timings,
+                    'assessment_status' => PhotoAssessmentStatus::Pending,
+                    'assessment_queued_at' => now(),
+                    'assessment_attempts' => 0,
                 ]);
 
                 $this->syncAnswerUploadIds($intake, $questionKey, $sectionInstanceKey);

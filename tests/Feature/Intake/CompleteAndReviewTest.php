@@ -86,7 +86,7 @@ function fillIntakeUntilComplete(Intake $intake): void
                     $intake,
                     $item['question_key'],
                     $item['section_instance_key'],
-                    UploadedFile::fake()->image($item['question_key'].'.jpg', 640, 480),
+                    UploadedFile::fake()->image($item['question_key'].'.jpg', 1280, 960),
                 );
 
                 continue;
@@ -382,7 +382,7 @@ test('customer completes text and photo follow up and dossier returns for review
         ->call('completeFollowUp')
         ->assertHasErrors(['follow_up'])
         ->assertSee('Voeg eerst minimaal één foto toe.')
-        ->set('followUpPhotoFiles.'.$photoItem->id, UploadedFile::fake()->image('doorvoer.jpg', 800, 600))
+        ->set('followUpPhotoFiles.'.$photoItem->id, UploadedFile::fake()->image('doorvoer.jpg', 1280, 960))
         ->assertHasNoErrors()
         ->call('completeFollowUp')
         ->assertHasNoErrors()
@@ -627,7 +627,7 @@ test('completed intake rejects customer answer and upload mutations', function (
         $completed,
         $photoQuestion->key,
         null,
-        UploadedFile::fake()->image('late.jpg', 640, 480),
+        UploadedFile::fake()->image('late.jpg', 1280, 960),
     ))->toThrow(ValidationException::class);
 
     expect(fn () => app(DeleteIntakeUpload::class)->handle($completed, $upload))

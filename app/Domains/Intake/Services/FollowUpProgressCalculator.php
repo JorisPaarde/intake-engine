@@ -8,6 +8,7 @@ use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\Intake\Models\IntakeFollowUpItem;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Enums\FollowUpItemType;
+use App\Enums\PhotoAssessmentStatus;
 use App\Enums\PhotoUsabilityVerdict;
 use Illuminate\Support\Collection;
 
@@ -15,10 +16,8 @@ use Illuminate\Support\Collection;
  * Voortgang van een gerichte klantaanvulling op basis van afgeronde items,
  * niet op de huidige stappositie (klanttest P2).
  *
- * Foto's tellen pas mee als ze bruikbaar beoordeeld zijn én een
- * content_assessment hebben zonder onopgeloste wrong_subject. Tijdens de
- * queue-beoordeling of bij onbruikbare / verkeerde foto's blijft het item
- * open (geen 100%).
+ * Foto's tellen pas mee als assessment_status terminaal is zonder onopgeloste
+ * wrong_subject. Tijdens queue-beoordeling blijft het item op "Ontvangen".
  */
 final class FollowUpProgressCalculator
 {
@@ -84,30 +83,23 @@ final class FollowUpProgressCalculator
             return 'assessed';
         }
 
-        $allAssessed = $item->uploads->every(
-            static fn ($upload): bool => $upload->usability_verdict instanceof PhotoUsabilityVerdict,
+        $allTerminal = $item->uploads->every(
+            static fn (IntakeUpload $upload): bool => $upload->assessment_status instanceof PhotoAssessmentStatus
+                && $upload->assessment_status->isTerminal(),
         );
 
-        if (! $allAssessed) {
+        if (! $allTerminal) {
             return 'received';
         }
 
-        $allUsable = $item->uploads->every(
-            static fn ($upload): bool => $upload->usability_verdict instanceof PhotoUsabilityVerdict
-                && $upload->usability_verdict->isUsable(),
+        $anyHeuristicRejected = $item->uploads->contains(
+            static fn (IntakeUpload $upload): bool => $upload->assessment_status === PhotoAssessmentStatus::HeuristicRejected
+                || ($upload->usability_verdict instanceof PhotoUsabilityVerdict
+                    && ! $upload->usability_verdict->isUsable()),
         );
 
-        if (! $allUsable) {
+        if ($anyHeuristicRejected) {
             return 'unusable';
-        }
-
-        // Wacht tot de queue-job content_assessment heeft geschreven (voorkomt 100% vóór AI).
-        $pendingContent = $item->uploads->contains(
-            static fn (IntakeUpload $upload): bool => $upload->contentAssessment() === null,
-        );
-
-        if ($pendingContent) {
-            return 'received';
         }
 
         // Wrong-subject zonder expliciete acceptatie telt niet als afgerond.

@@ -560,6 +560,7 @@ final class DerivePhotoAnswers
 
         $run = AiRun::query()->create([
             'intake_id' => $intake->id,
+            'upload_id' => $upload->id,
             'type' => AiRunType::PhotoAssessment,
             'provider' => (string) config('ai.provider', 'null'),
             'model' => null,
