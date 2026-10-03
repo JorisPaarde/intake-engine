@@ -14,7 +14,7 @@ use App\Enums\FollowUpItemType;
 use Illuminate\Support\Collection;
 
 /**
- * Per-round installer review of follow-up photo evidence (BL-124).
+ * Per-round installer review of follow-up photo evidence (BL-127).
  *
  * A wrong-subject upload is superseded when a later round (same decision area)
  * has usable solving evidence.
