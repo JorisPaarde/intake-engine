@@ -21,7 +21,8 @@ use Illuminate\Support\Str;
 /**
  * Local, non-blocking photo-usability assessment (BL-007). Runs a deterministic GD
  * heuristic, records a `photo_quality` AiRun for audit, and stores the verdict on the
- * upload. Soft-fail: any error leaves the upload unflagged and never breaks the flow.
+ * upload. Soft-fail: any error persists a non-blocking fallback verdict ({@see fallbackVerdict()})
+ * so recovery never loops forever, and never breaks the customer flow.
  * Traced as photo_analysis (BL-116 / P2 timings).
  */
 final class AssessPhotoUsability
@@ -31,6 +32,31 @@ final class AssessPhotoUsability
         private readonly AiTraceRecorder $traceRecorder,
         private readonly AiTracePhotoRefBuilder $photoRefs,
     ) {}
+
+    /**
+     * Fallback when assessment or persistence fails. No dedicated "unknown" case exists;
+     * Ok is usable → does not block the customer or progress.
+     */
+    public static function fallbackVerdict(): PhotoUsabilityVerdict
+    {
+        return PhotoUsabilityVerdict::Ok;
+    }
+
+    /**
+     * Persist the soft-fail verdict without events. Never throws to the caller.
+     */
+    public static function persistFallbackVerdict(IntakeUpload $upload): PhotoUsabilityVerdict
+    {
+        $verdict = self::fallbackVerdict();
+
+        try {
+            $upload->updateQuietly(['usability_verdict' => $verdict]);
+        } catch (\Throwable) {
+            // Persistence failure must never block the customer.
+        }
+
+        return $verdict;
+    }
 
     public function handle(IntakeUpload $upload, ?string $correlationId = null): PhotoUsabilityVerdict
     {
@@ -112,6 +138,8 @@ final class AssessPhotoUsability
                 'message' => $e->getMessage(),
             ]);
 
+            $verdict = self::persistFallbackVerdict($upload);
+
             $run->update([
                 'status' => AiRunStatus::Failed,
                 'error_message' => Str::limit($e->getMessage(), 1000, ''),
@@ -120,7 +148,7 @@ final class AssessPhotoUsability
 
             $trace?->fail($e->getMessage(), $e);
 
-            return PhotoUsabilityVerdict::Ok;
+            return $verdict;
         }
     }
 }

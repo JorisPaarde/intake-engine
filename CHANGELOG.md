@@ -11,6 +11,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Fixed
 
+- **Eindeloze herbeoordelingslus (BL-120):** `AssessPhotoUsability` soft-fail persistte geen verdict → `recoverUnassessedUploads` queuete bij elke render opnieuw. Catch schrijft nu altijd fallback `ok` via `updateQuietly`; vangnet in `assessPendingUploads`/`assessPendingFollowUpUploads`; recovery slaat `installer_evidence` over.
 - **Klantvoortgang misleidend (BL-120):** gerichte foto-opdracht (“Onderdeel 1 van 1”) startte op 100% via stappositie. Voortgang telt afgeronde klanttaken; 0% bij lege foto-opdracht; follow-upfoto’s pas na bruikbare beoordeling; extra-taaknotitie alleen ná analyse.
 - **Uploadfases / vastgelopen assessing (BL-120):** twee Livewire-round-trips; behoudt `rememberStoredUpload`/`processing_timings` (BL-116) en content-assessment/Vervang-foto (BL-119); remount + Alpine 120s-timeout; checksum-dedupe; geen activity-recorder.
 - **AI-conclusie uit foto te stellig:** `drillings_needed=no` → fact `unknown` + voorstelnotitie; routevelden geen klant-`intake_answers`.

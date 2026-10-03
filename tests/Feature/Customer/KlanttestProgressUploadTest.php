@@ -4,17 +4,20 @@ declare(strict_types=1);
 
 use App\Domains\Intake\Actions\CompleteIntake;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
+use App\Domains\Intake\Actions\StoreFollowUpUpload;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Actions\SubmitIntakeReview;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
+use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\CompletenessChecker;
 use App\Domains\Intake\Services\FollowUpProgressCalculator;
 use App\Domains\Intake\Services\ProgressCalculator;
 use App\Enums\FollowUpItemType;
 use App\Enums\IntakeStatus;
+use App\Enums\PhotoUsabilityVerdict;
 use App\Enums\QuestionType;
 use App\Enums\ReviewDecision;
 use App\Livewire\Customer\IntakeWizard;
@@ -348,6 +351,93 @@ test('retry na mislukte beoordeling herbeoordeelt via tweede round-trip', functi
     expect($intake->fresh()->uploads()->count())->toBe(1)
         ->and($intake->fresh()->answers()->where('question_key', 'request_reason')->value('value'))
         ->toMatchArray(['text' => 'Timeout-proof']);
+});
+
+test('ontbrekend mediabestand krijgt fallback-verdict en recovery queuet niet opnieuw', function () {
+    $intake = makeP2ProgressIntake();
+    app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
+
+    $upload = app(StoreIntakeUpload::class)->handle(
+        $intake,
+        'fusebox_photo',
+        null,
+        p2FixtureUpload(),
+    );
+
+    Storage::disk((string) $upload->disk)->delete((string) $upload->path);
+    expect(Storage::disk((string) $upload->disk)->exists((string) $upload->path))->toBeFalse()
+        ->and($upload->fresh()->usability_verdict)->toBeNull();
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->assertSet('uploadPhase', 'assessing')
+        ->call('assessPendingUploads')
+        ->assertSet('uploadPhase', '');
+
+    expect($upload->fresh()->usability_verdict)->toBe(PhotoUsabilityVerdict::Ok)
+        ->and($upload->fresh()->usability_verdict)->not->toBeNull();
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->assertSet('uploadPhase', '')
+        ->assertSet('pendingAssessUploadIds', []);
+});
+
+test('follow-up ontbrekend mediabestand krijgt fallback-verdict zonder recovery-lus', function () {
+    $intake = makeP2FollowUpIntake([
+        ['type' => FollowUpItemType::Photo, 'prompt' => 'Maak een foto van de meterkast.'],
+    ]);
+    $item = $intake->followUpRounds()->with('items')->firstOrFail()->items->firstOrFail();
+
+    $upload = app(StoreFollowUpUpload::class)->handle($intake, $item, p2BrightUpload());
+
+    Storage::disk((string) $upload->disk)->delete((string) $upload->path);
+    expect(Storage::disk((string) $upload->disk)->exists((string) $upload->path))->toBeFalse()
+        ->and($upload->fresh()->usability_verdict)->toBeNull();
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->assertSet('followUpMode', true)
+        ->assertSet('uploadPhase', 'assessing')
+        ->call('assessPendingUploads')
+        ->assertSet('uploadPhase', '');
+
+    expect($upload->fresh()->usability_verdict)->toBe(PhotoUsabilityVerdict::Ok);
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->assertSet('followUpMode', true)
+        ->assertSet('uploadPhase', '')
+        ->assertSet('pendingAssessUploadIds', []);
+});
+
+test('recovery slaat installer_evidence uploads over', function () {
+    $intake = makeP2ProgressIntake();
+    app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
+
+    $disk = (string) config('filesystems.media', 'local');
+    Storage::disk($disk)->put('evidence/installer.jpg', 'x');
+
+    IntakeUpload::query()->create([
+        'intake_id' => $intake->id,
+        'question_key' => 'installer_evidence',
+        'section_instance_key' => null,
+        'disk' => $disk,
+        'path' => 'evidence/installer.jpg',
+        'original_filename' => 'installer.jpg',
+        'mime_type' => 'image/jpeg',
+        'size_bytes' => 1,
+        'sort_order' => 1,
+        'usability_verdict' => null,
+    ]);
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->assertSet('uploadPhase', '')
+        ->assertSet('pendingAssessUploadIds', []);
+
+    expect(
+        IntakeUpload::query()
+            ->where('intake_id', $intake->id)
+            ->where('question_key', 'installer_evidence')
+            ->whereNull('usability_verdict')
+            ->exists()
+    )->toBeTrue();
 });
 
 test('progressExtraNote verdwijnt bij next na foto-analyse', function () {

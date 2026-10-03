@@ -882,6 +882,8 @@ class IntakeWizard extends Component
                 }
             }
 
+            $this->ensurePendingUploadsHaveUsabilityVerdict($uploadIds);
+
             if ($questionKey !== '') {
                 $this->runPhotoDerivation($questionKey, $instanceKey);
             }
@@ -987,6 +989,8 @@ class IntakeWizard extends Component
                 }
             }
 
+            $this->ensurePendingUploadsHaveUsabilityVerdict($uploadIds);
+
             if ($warnings !== []) {
                 $this->addError(
                     'followUpPhotoFiles.'.($composite !== '' ? $composite : '0'),
@@ -1056,6 +1060,29 @@ class IntakeWizard extends Component
     }
 
     /**
+     * Vangnet: usability_verdict mag nooit NULL blijven (voorkomt recovery-lus).
+     *
+     * @param  list<int>  $uploadIds
+     */
+    private function ensurePendingUploadsHaveUsabilityVerdict(array $uploadIds): void
+    {
+        foreach ($uploadIds as $uploadId) {
+            $upload = IntakeUpload::query()
+                ->where('intake_id', $this->intake()->id)
+                ->whereKey($uploadId)
+                ->first();
+
+            if (! $upload instanceof IntakeUpload) {
+                continue;
+            }
+
+            if ($upload->usability_verdict === null) {
+                AssessPhotoUsability::persistFallbackVerdict($upload);
+            }
+        }
+    }
+
+    /**
      * Na reload/timeout: uploads zonder usability_verdict opnieuw in de beoordelingswachtrij.
      */
     private function recoverUnassessedUploads(bool $force = false): void
@@ -1113,6 +1140,7 @@ class IntakeWizard extends Component
             ->where('intake_id', $intake->id)
             ->whereNull('intake_follow_up_item_id')
             ->whereNull('usability_verdict')
+            ->where('question_key', '!=', 'installer_evidence')
             ->orderBy('id')
             ->get();
 
