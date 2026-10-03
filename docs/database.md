@@ -1,6 +1,6 @@
 # Databaseschema — Digitale Opname
 
-> **Documentversie:** 3.18 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.19 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: dit document beschrijft het **geïmplementeerde schema**, inclusief de uitbreidende dossiermigratie van BL-030 en BL-035 t/m BL-042 en de zelfstandige publieke interesse-inzendingen van BL-043. Bestaande antwoord-, bron-, upload-, review- en routetabellen blijven bewust bestaan naast de nieuwe dossierobjecten.
 
@@ -557,9 +557,9 @@ BL-026 gebruikt deze tabel samen met bestaande intake-timestamps en relaties voo
 | `started_at` / `finished_at` | timestamp nullable | |
 | `timestamps` | | |
 
-### `ai_traces` / `ai_trace_steps` (BL-116 + BL-125)
+### `ai_traces` / `ai_trace_steps` (BL-116 + BL-125 + BL-132)
 
-Volledige AI-ketenlogging (request → response → parse → dossier/restvragen) naast de compacte `ai_runs`. Zie [docs/ai.md § AI-traces](ai.md#ai-traces-bl-116--bl-124).
+Volledige AI-ketenlogging (request → response → parse → dossier/restvragen) naast de compacte `ai_runs`. Zie [docs/ai.md § AI-traces](ai.md#ai-traces-bl-116--bl-125--bl-129).
 
 | Kolom (`ai_traces`) | Type | Toelichting |
 |---------------------|------|-------------|
@@ -567,24 +567,25 @@ Volledige AI-ketenlogging (request → response → parse → dossier/restvragen
 | `intake_id` | FK nullable, **nullOnDelete** | Overleeft demo hard-delete |
 | `intake_ref_id` | bigint nullable | Denormalised intake-id voor export/query na purge |
 | `is_demo` | bool | Denormalised demo-flag |
-| `request_id` | string nullable | HTTP/Livewire request-id of `job:{id}` |
+| `request_id` | string nullable | Eerst HTTP/Livewire/`job:{id}`; na providerresponse completion-`id` |
+| `provider_response_id` | string nullable | OpenRouter/OpenAI completion `id` (BL-132) |
 | `ai_run_id` | FK nullable | Koppeling naar bestaande run |
 | `upload_id` | bigint nullable | Foto-upload in dezelfde keten |
 | `subject_type` / `subject_id` | string nullable | Kamer/onderdeel |
 | `call_type` | string | o.a. `text_extraction`, `request_intent`, `photo_derive`, `photo_assess`, `follow_up_photo_subject`, `summary`, `attention_points`, `dossier_synthesis`, `route`, `route_review` |
 | `status` | string | `pending` / `succeeded` / `failed` |
-| `provider` / `model` / `model_parameters` | | Werkelijk gebruikte provider/model |
+| `provider` / `model` / `model_parameters` | | Werkelijk gebruikte provider/model; parameters bevatten temperature/max_tokens/response_format/schema |
 | `prompt_version` | string nullable | |
 | `correlation_id` / `parent_trace_id` | uuid nullable | Gedeelde uploadketen / escalatie-ouder |
-| `fallback_used` / `retry_count` | | |
+| `fallback_used` / `retry_count` / `attempt` | | Queue-attempt (1-based) + retries (attempt−1) |
 | `request_snapshot` / `photo_refs` | json nullable | Geredigeerd; foto-refs zonder base64 (wel filename) |
 | `raw_response` | mediumtext nullable | |
 | `finish_reason` | string nullable | |
 | `parsed_response` / `validation_errors` / `normalizations` / `field_outcomes` | json nullable | Normalizations: `{field, from, to, rule}` |
 | `dossier_before` / `dossier_after` | json nullable | Compacte antwoordsnapshots |
 | `remaining_questions_before` / `after` | json nullable | Zichtbare klantstappen |
-| `persist_ms` / `network_upload_ms` / `preprocess_ms` / `provider_ms` / `process_ms` | unsigned int nullable | P2-fasen |
-| tokens / `estimated_cost_cents` | | Indien beschikbaar (defaults 0 bij lokale calls) |
+| `persist_ms` / `network_upload_ms` / `queue_wait_ms` / `preprocess_ms` / `provider_ms` / `process_ms` | unsigned int nullable | P2-fasen + queue-wacht |
+| tokens / `estimated_cost_cents` / `estimated_cost` | | Cents voor budget; `estimated_cost` decimal (provider `usage.cost`) |
 | `error_message` / `started_at` / `finished_at` | | |
 
 `ai_trace_steps`: `step_key`, `sequence`, `payload`, `duration_ms`, `recorded_at` — o.a. `normalize`, `apply`, `customer_step` voor parallelle stromen via `AiTraceHandle::step()`.

@@ -23,5 +23,12 @@ final readonly class AiCompletionResult
         public ?string $rawResponse = null,
         public ?int $providerMs = null,
         public array $modelParameters = [],
+        /** OpenAI/OpenRouter completion `id` (e.g. gen-…). */
+        public ?string $providerResponseId = null,
+        /**
+         * Provider-reported cost in currency units (USD/EUR as returned),
+         * finer than integer cents — e.g. OpenRouter `usage.cost`.
+         */
+        public ?string $estimatedCost = null,
     ) {}
 }

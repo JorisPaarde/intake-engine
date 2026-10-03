@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace App\Domains\AI\Services;
 
+use App\Domains\AI\Models\AiTrace;
 use App\Support\Logging\AppErrorLogger;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Str;
 use Throwable;
 
 /**
- * Resolves the HTTP/Livewire request id or queued job id for AI-trace correlation.
+ * Resolves a stable HTTP/Livewire request id or queued job id for AI-trace correlation.
+ * Always returns a non-empty string (≤80 chars). Provider completion ids are stored
+ * separately as {@see AiTrace::$provider_response_id}.
  */
 final class AiTraceRequestIdResolver
 {
@@ -18,10 +21,16 @@ final class AiTraceRequestIdResolver
 
     public const JOB_CONTEXT_KEY = 'ai_trace.job_id';
 
+    public const CORRELATION_CONTEXT_KEY = 'ai_trace.correlation_id';
+
+    public const QUEUE_WAIT_CONTEXT_KEY = 'ai_trace.queue_wait_ms';
+
+    public const ATTEMPT_CONTEXT_KEY = 'ai_trace.attempt';
+
     public function resolve(?string $explicit = null): string
     {
         if (is_string($explicit) && $explicit !== '') {
-            return Str::limit($explicit, 80, '');
+            return $this->remember($explicit);
         }
 
         try {
@@ -39,12 +48,12 @@ final class AiTraceRequestIdResolver
             $request = request();
             $fromAttr = $request->attributes->get(AppErrorLogger::ATTR_REQUEST_ID);
             if (is_string($fromAttr) && $fromAttr !== '') {
-                return Str::limit($fromAttr, 80, '');
+                return $this->remember($fromAttr);
             }
 
             $header = $request->headers->get('X-Request-Id');
             if (is_string($header) && $header !== '') {
-                return Str::limit($header, 80, '');
+                return $this->remember($header);
             }
         } catch (Throwable) {
             // No HTTP request (console / early boot).
@@ -54,22 +63,30 @@ final class AiTraceRequestIdResolver
             if (Context::has(self::JOB_CONTEXT_KEY)) {
                 $jobId = Context::get(self::JOB_CONTEXT_KEY);
                 if (is_string($jobId) && $jobId !== '') {
-                    return Str::limit('job:'.$jobId, 80, '');
+                    return $this->remember('job:'.$jobId);
                 }
             }
         } catch (Throwable) {
             // Ignore.
         }
 
-        $generated = (string) Str::uuid();
+        return $this->remember((string) Str::uuid());
+    }
+
+    public function remember(string $requestId): string
+    {
+        $limited = Str::limit(trim($requestId), 80, '');
+        if ($limited === '') {
+            $limited = (string) Str::uuid();
+        }
 
         try {
-            Context::add(self::CONTEXT_KEY, $generated);
+            Context::add(self::CONTEXT_KEY, $limited);
         } catch (Throwable) {
             // Ignore.
         }
 
-        return $generated;
+        return $limited;
     }
 
     public function rememberJobId(string $jobId): void
@@ -83,6 +100,86 @@ final class AiTraceRequestIdResolver
             Context::add(self::CONTEXT_KEY, 'job:'.$jobId);
         } catch (Throwable) {
             // Ignore.
+        }
+    }
+
+    public function rememberCorrelationId(?string $correlationId): void
+    {
+        if (! is_string($correlationId) || $correlationId === '') {
+            return;
+        }
+
+        try {
+            Context::add(self::CORRELATION_CONTEXT_KEY, $correlationId);
+        } catch (Throwable) {
+            // Ignore.
+        }
+    }
+
+    public function resolveCorrelationId(?string $explicit = null): string
+    {
+        if (is_string($explicit) && $explicit !== '') {
+            $this->rememberCorrelationId($explicit);
+
+            return $explicit;
+        }
+
+        try {
+            if (Context::has(self::CORRELATION_CONTEXT_KEY)) {
+                $fromContext = Context::get(self::CORRELATION_CONTEXT_KEY);
+                if (is_string($fromContext) && $fromContext !== '') {
+                    return $fromContext;
+                }
+            }
+        } catch (Throwable) {
+            // Ignore.
+        }
+
+        $generated = (string) Str::uuid();
+        $this->rememberCorrelationId($generated);
+
+        return $generated;
+    }
+
+    public function rememberQueueMetrics(?int $queueWaitMs, ?int $attempt): void
+    {
+        try {
+            if ($queueWaitMs !== null) {
+                Context::add(self::QUEUE_WAIT_CONTEXT_KEY, max(0, $queueWaitMs));
+            }
+            if ($attempt !== null) {
+                Context::add(self::ATTEMPT_CONTEXT_KEY, max(1, $attempt));
+            }
+        } catch (Throwable) {
+            // Ignore.
+        }
+    }
+
+    public function queueWaitMs(): ?int
+    {
+        try {
+            if (! Context::has(self::QUEUE_WAIT_CONTEXT_KEY)) {
+                return null;
+            }
+            $value = Context::get(self::QUEUE_WAIT_CONTEXT_KEY);
+
+            return is_int($value) || is_numeric($value) ? max(0, (int) $value) : null;
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    public function attempt(): ?int
+    {
+        try {
+            if (! Context::has(self::ATTEMPT_CONTEXT_KEY)) {
+                return null;
+            }
+            $value = Context::get(self::ATTEMPT_CONTEXT_KEY);
+
+            return is_int($value) || is_numeric($value) ? max(1, (int) $value) : null;
+        } catch (Throwable) {
+            return null;
         }
     }
 }

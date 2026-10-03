@@ -2,14 +2,10 @@
 
 declare(strict_types=1);
 
-use App\Domains\AI\Actions\AssessFollowUpPhotoSubject;
-use App\Domains\AI\Actions\AssessFuseboxPhotos;
-use App\Domains\AI\Actions\DerivePhotoAnswers;
 use App\Domains\AI\Clients\FakeAiClient;
 use App\Domains\AI\Jobs\AssessUploadedPhotoJob;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Models\AiTrace;
-use App\Domains\AI\Services\PhotoAssessmentLifecycle;
 use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\Intake\Actions\CreateCustomerContributionRequest;
 use App\Domains\Intake\Models\ContributionTask;
@@ -58,16 +54,6 @@ function queueBrightPhoto(string $name = 'meterkast.jpg'): UploadedFile
     imagedestroy($img);
 
     return UploadedFile::fake()->createWithContent($name, $bytes);
-}
-
-function runAssessUploadedPhotoJob(int $uploadId): void
-{
-    (new AssessUploadedPhotoJob($uploadId))->handle(
-        app(AssessFollowUpPhotoSubject::class),
-        app(AssessFuseboxPhotos::class),
-        app(DerivePhotoAnswers::class),
-        app(PhotoAssessmentLifecycle::class),
-    );
 }
 
 function makeQueuePhotoFollowUpIntake(string $decisionAreaKey = 'power'): array

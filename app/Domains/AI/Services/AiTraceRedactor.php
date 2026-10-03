@@ -9,8 +9,9 @@ namespace App\Domains\AI\Services;
  * before persistence and again on export. Never logs API keys, Bearer auth
  * headers, or /o/{token} customer access tokens.
  *
- * Masks: e-mail, phone, person names (known context + Dutch voornaam+achternaam
- * patterns), street + house number (known address_line + Dutch street patterns).
+ * Masks: e-mail, phone (strict NL), person names (known context + Dutch
+ * voornaam+achternaam patterns), street + house number, GPS/EXIF location.
+ * Avoids false positives on huisnummers, m²-waarden and numeric IDs.
  */
 final class AiTraceRedactor
 {
@@ -22,8 +23,18 @@ final class AiTraceRedactor
 
     private const EMAIL = '/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/';
 
-    // NL/intl telefoonnummers: +31/0031/0 gevolgd door 8+ cijfers met optionele spaties/streepjes.
-    private const PHONE = '/(?<!\d)(?:\+31|0031|0)[\s\-]?(?:\d[\s\-]?){8,11}\d(?!\d)/';
+    /**
+     * Strict NL phone: +31/0031/0 + (mobile 6xxxxxxxx OR landline with 8–9 digits).
+     * Does not match bare house numbers, m² values, or short numeric IDs.
+     */
+    private const PHONE = '/(?<!\d)(?:(?:\+|00)31[\s\-]?|0)(?:6[\s\-]?(?:\d[\s\-]?){7}\d|[1-9]\d{1,2}[\s\-]?(?:\d[\s\-]?){5,7}\d)(?!\d)(?!\s*m[²2])/iu';
+
+    /**
+     * Decimal GPS coordinates (lat/lon pairs or single high-precision decimals in context).
+     */
+    private const GPS_COORD_PAIR = '/(?<!\d)(-?\d{1,2}\.\d{3,})\s*[,;\s]\s*(-?\d{1,3}\.\d{3,})(?!\d)/';
+
+    private const GPS_DMS = '/\b\d{1,3}°\s*\d{1,2}[\'′]\s*\d{1,2}(?:\.\d+)?["″]?\s*[NS]\b.*?\b\d{1,3}°\s*\d{1,2}[\'′]\s*\d{1,2}(?:\.\d+)?["″]?\s*[EW]\b/iu';
 
     /**
      * Dutch street + house number, including compound names like "Voorbeeldstraat 12"
@@ -87,6 +98,8 @@ final class AiTraceRedactor
         $safe = (string) preg_replace('#(/o/)[A-Za-z0-9]{32,}#', '$1[token-redacted]', $safe);
         $safe = (string) preg_replace(self::EMAIL, '[e-mail verwijderd]', $safe);
         $safe = (string) preg_replace(self::PHONE, '[telefoon verwijderd]', $safe);
+        $safe = (string) preg_replace(self::GPS_COORD_PAIR, '[locatie verwijderd]', $safe);
+        $safe = (string) preg_replace(self::GPS_DMS, '[locatie verwijderd]', $safe);
 
         foreach ($this->knownLiterals as $literal) {
             $safe = $this->replaceKnownLiteral($safe, $literal);
@@ -130,6 +143,11 @@ final class AiTraceRedactor
             return $haystack;
         }
 
+        // Never treat short numeric literals (huisnummer "12", m² "20") as PII on their own.
+        if ($this->isBenignNumericLiteral($literal)) {
+            return $haystack;
+        }
+
         $replacement = match (true) {
             str_contains($literal, '@') => '[e-mail verwijderd]',
             preg_match(self::PHONE, $literal) === 1 => '[telefoon verwijderd]',
@@ -142,6 +160,22 @@ final class AiTraceRedactor
             $replacement,
             $haystack,
         );
+    }
+
+    private function isBenignNumericLiteral(string $literal): bool
+    {
+        $trimmed = trim($literal);
+
+        // Plain house numbers / IDs / areas: "12", "22b", "16,5", "20 m²".
+        if (preg_match('/^\d{1,4}[A-Za-z]?$/u', $trimmed) === 1) {
+            return true;
+        }
+
+        if (preg_match('/^\d{1,4}([.,]\d{1,2})?\s*m[²2]?$/iu', $trimmed) === 1) {
+            return true;
+        }
+
+        return false;
     }
 
     private function walk(mixed $value): mixed
@@ -165,6 +199,12 @@ final class AiTraceRedactor
                 continue;
             }
 
+            if ($this->isLocationKey($keyString)) {
+                $out[$key] = '[locatie verwijderd]';
+
+                continue;
+            }
+
             if ($this->isNameKey($keyString) && is_string($item) && trim($item) !== '') {
                 $out[$key] = '[naam verwijderd]';
 
@@ -173,6 +213,13 @@ final class AiTraceRedactor
 
             if ($this->isAddressKey($keyString) && is_string($item) && trim($item) !== '') {
                 $out[$key] = '[adres verwijderd]';
+
+                continue;
+            }
+
+            // Keep technical numeric identifiers and area values untouched.
+            if ($this->isTechnicalIdKey($keyString)) {
+                $out[$key] = $item;
 
                 continue;
             }
@@ -203,6 +250,66 @@ final class AiTraceRedactor
             || ($key === 'token');
     }
 
+    private function isLocationKey(string $key): bool
+    {
+        if (in_array($key, [
+            'latitude',
+            'longitude',
+            'lat',
+            'lon',
+            'lng',
+            'altitude',
+            'alt',
+            'gps',
+            'gps_latitude',
+            'gps_longitude',
+            'gps_altitude',
+            'gpslatitude',
+            'gpslongitude',
+            'gpsaltitude',
+            'coordinates',
+            'coordinate',
+            'coords',
+            'geo',
+            'geolocation',
+            'exif_gps',
+            'exif_location',
+        ], true)) {
+            return true;
+        }
+
+        return str_contains($key, 'gps')
+            || str_contains($key, 'geolocation')
+            || (str_contains($key, 'exif') && (str_contains($key, 'lat') || str_contains($key, 'lon') || str_contains($key, 'location')));
+    }
+
+    private function isTechnicalIdKey(string $key): bool
+    {
+        return in_array($key, [
+            'id',
+            'intake_id',
+            'intake_ref_id',
+            'upload_id',
+            'ai_run_id',
+            'trace_id',
+            'parent_trace_id',
+            'correlation_id',
+            'request_id',
+            'provider_response_id',
+            'room_area_m2',
+            'area_m2',
+            'floor_area_m2',
+            'length_m',
+            'width_m',
+            'height_m',
+            'house_number',
+            'huisnummer',
+        ], true)
+            || str_ends_with($key, '_id')
+            || str_ends_with($key, '_m2')
+            || str_ends_with($key, '_ms');
+    }
+
     private function isNameKey(string $key): bool
     {
         return in_array($key, [
@@ -221,10 +328,9 @@ final class AiTraceRedactor
             'address',
             'street',
             'street_name',
-            'house_number',
             'huisnummer',
             'adres',
-        ], true) || str_contains($key, 'address_line') || str_contains($key, 'house_number');
+        ], true) || str_contains($key, 'address_line');
     }
 
     private function photoRefPlaceholder(string $value): string

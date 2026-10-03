@@ -2,12 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Domains\AI\Actions\AssessFollowUpPhotoSubject;
-use App\Domains\AI\Actions\AssessFuseboxPhotos;
-use App\Domains\AI\Actions\DerivePhotoAnswers;
-use App\Domains\AI\Jobs\AssessUploadedPhotoJob;
 use App\Domains\AI\Jobs\SuggestAttentionPointsJob;
-use App\Domains\AI\Services\PhotoAssessmentLifecycle;
 use App\Domains\Intake\Actions\CompleteIntake;
 use App\Domains\Intake\Actions\DeleteIntakeUpload;
 use App\Domains\Intake\Actions\GenerateIntakePdf;
@@ -391,12 +386,7 @@ test('customer completes text and photo follow up and dossier returns for review
         ->assertHasNoErrors();
 
     $upload = $photoItem->fresh()->uploads()->latest('id')->firstOrFail();
-    (new AssessUploadedPhotoJob($upload->id))->handle(
-        app(AssessFollowUpPhotoSubject::class),
-        app(AssessFuseboxPhotos::class),
-        app(DerivePhotoAnswers::class),
-        app(PhotoAssessmentLifecycle::class),
-    );
+    runAssessUploadedPhotoJob($upload->id);
 
     $component
         ->call('pollPendingAssessments')

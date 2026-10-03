@@ -84,12 +84,18 @@ final class AiTraceExporter
             'persist_ms' => $trace->persist_ms,
             'preprocess_ms' => $trace->preprocess_ms,
             'network_upload_ms' => $trace->network_upload_ms,
+            'queue_wait_ms' => $trace->queue_wait_ms,
             'estimated_cost_cents' => $trace->estimated_cost_cents,
+            'estimated_cost' => $trace->estimated_cost,
             'error_message' => is_string($trace->error_message)
                 ? $redactor->redactString($trace->error_message)
                 : $trace->error_message,
             'request_id' => $trace->request_id,
+            'provider_response_id' => $trace->provider_response_id,
             'correlation_id' => $trace->correlation_id,
+            'attempt' => $trace->attempt,
+            'retry_count' => $trace->retry_count,
+            'model_parameters' => $trace->model_parameters,
             'started_at' => $startedAt instanceof Carbon ? $startedAt->toIso8601String() : null,
             'finished_at' => $finishedAt instanceof Carbon ? $finishedAt->toIso8601String() : null,
         ];
