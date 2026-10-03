@@ -339,9 +339,7 @@ final class FakeAiClient implements AiClientInterface
                 'temperature' => $temperature,
                 'max_tokens' => config('ai.max_tokens'),
                 'response_format' => $responseFormat,
-                'response_format_type' => is_string($responseFormat['type'] ?? null)
-                    ? $responseFormat['type']
-                    : 'json_object',
+                'response_format_type' => $responseFormat['type'],
                 'schema' => $promptVersion,
                 'timeout_seconds' => $request?->timeoutSeconds,
             ],
