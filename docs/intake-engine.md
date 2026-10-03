@@ -87,9 +87,11 @@ De rapportpreview toont daarnaast alle werkelijk aangeleverde intake- en vervolg
 
 `section_instance_key` op antwoorden/uploads: `null` voor normale secties, `room-1` … `room-n` voor herhalingen.
 
-## Navigatie in de klantwizard (BL-018 / BL-023)
+## Navigatie in de klantwizard (BL-018 / BL-023 / BL-130)
 
 - **Autosave** per antwoord; hervatten via cursor (`current_question_key` / `current_section_instance_key`).
+- **Stabiele stap-id (BL-130):** `activeStepKey` is de cursor voor display, `next`/`previous`/`saveStep` en verplichte-veldcheck. Nooit een verschoven `stepIndex` als de key uit de lijst verdween (bijv. `room_name` na fill) — dan `realignToActiveStep()` naar de opvolger. Fotoverplichting via DB-uploads (`PhotoContentSatisfaction`), niet via mogelijk stale form-`upload_ids`.
+- **Foto-feedback scope (BL-130):** `photoHint` + `photoHintScope` (upload-ids + analysis-token); hints verdwijnen bij vervangen/verwijderen/nieuwe upload zonder reload. AI-resultaat blijft via BL-121 (`AssessUploadedPhotoJob` + `pollPendingAssessments`).
 - **Auto-doorgaan (BL-023):** na een keuze op `single_choice` of `boolean` gaat de wizard automatisch door naar de volgende zichtbare vraag (korte bevestiging “Opgeslagen”). Niet op de laatste stap (daar blijft **Afronden** handmatig). **Vorige** blijft altijd beschikbaar.
 - **Enter = Volgende** op `short_text` en `number` (niet op `long_text` — daar is Enter een nieuwe regel).
 - **Geen** auto-doorgaan bij `multi_choice`, foto’s of `long_text`.
