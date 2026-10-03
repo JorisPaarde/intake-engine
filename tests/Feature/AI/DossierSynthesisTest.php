@@ -589,6 +589,144 @@ test('AI synthesis partially accepts valid placements when an option fails cardi
         ->and(AircoInstallationOption::query()->where('intake_id', $intake->id)->count())->toBe(0);
 });
 
+test('AI synthesis records tokens/cost on exact prod run-243 failure shape', function () {
+    // Prod run 243 (gemini-3.1-flash-lite / OpenRouter): no tokens/cost persisted;
+    // error was placement_references min 2, connections min 3, to_placement_reference=subject:298.
+    [$intake] = synthesisSurveyWithPlacements();
+    Storage::fake('local');
+    $path = "intakes/{$intake->id}/room.jpg";
+    $analysisPath = "intakes/{$intake->id}/room-analysis.jpg";
+    Storage::disk('local')->put($path, 'room-bytes');
+    Storage::disk('local')->put($analysisPath, 'analysis-bytes');
+    $upload = IntakeUpload::query()->create([
+        'intake_id' => $intake->id,
+        'question_key' => 'room_photos',
+        'section_instance_key' => 'room-1',
+        'disk' => 'local',
+        'path' => $path,
+        'analysis_path' => $analysisPath,
+        'analysis_mime_type' => 'image/jpeg',
+        'analysis_size_bytes' => 14,
+        'analysis_checksum' => hash('sha256', 'analysis-bytes'),
+        'original_filename' => 'room.jpg',
+        'mime_type' => 'image/jpeg',
+        'size_bytes' => 10,
+        'checksum' => hash('sha256', 'room-bytes'),
+        'sort_order' => 1,
+    ]);
+
+    FakeAiClient::respondUsing(function (AiCompletionRequest $request) use ($upload): array {
+        $placements = collect($request->input['placements'] ?? [])->keyBy('type');
+        $inside = $placements->get('indoor_unit')['reference'] ?? 'placement:1';
+        $room = collect($request->input['rooms'] ?? [])->first();
+        $indoorSubject = is_array($room) ? ($room['subject_reference'] ?? 'subject:1') : 'subject:1';
+
+        return [
+            'summary' => 'Prod run-243 exacte foutvorm via OpenRouter/Gemini.',
+            'placement_proposals' => [[
+                'key' => 'proposal:indoor_extra',
+                'type' => AircoPlacementType::IndoorUnit->value,
+                'label' => 'Extra binnenpositie',
+                'description' => 'Zichtbaar op de kamerfoto.',
+                'room_reference' => is_array($room) ? $room['reference'] : 'room:1',
+                'subject_reference' => $indoorSubject,
+                'confidence' => 0.7,
+                'evidence_references' => ['dossier_image:'.$upload->id],
+            ]],
+            'option_proposals' => [[
+                'label' => 'Incomplete gemini-optie',
+                'configuration_type' => AircoConfigurationType::SingleSplit->value,
+                'summary' => 'Eén placement-ref en één connection met subject-ref als to.',
+                'cost_impact' => 'medium',
+                'confidence' => 0.55,
+                'placement_references' => [$inside], // array(1)
+                'connections' => [[
+                    'type' => 'refrigerant',
+                    'label' => 'Koel',
+                    'from_placement_reference' => $inside,
+                    'to_placement_reference' => $indoorSubject, // subject:N — prod invalid format
+                    'status' => 'proposed',
+                    'length_class' => 'short',
+                    'segments' => [],
+                    'obstacles' => [],
+                    'uncertainties' => [],
+                    'cost_impact' => 'low',
+                    'confidence' => 0.5,
+                    'evidence_references' => ['dossier_image:'.$upload->id],
+                ]], // array(1)
+            ]],
+            'exceptions' => [],
+            'customer_tasks' => [],
+        ];
+    });
+
+    $run = app(SynthesizeSurveyDossier::class)->handle($intake->fresh());
+
+    expect($run?->status)->toBe(AiRunStatus::Partial, $run?->error_message ?? '')
+        ->and($run?->prompt_version)->toBe('dossier-synthesis-v5')
+        ->and($run?->input_tokens)->toBe(100)
+        ->and($run?->output_tokens)->toBe(50)
+        ->and($run?->total_tokens)->toBe(150)
+        ->and($run?->image_count)->toBe(1)
+        ->and($run?->estimated_cost_microcents)->not->toBeNull()
+        ->and($run?->estimated_cost_cents)->not->toBeNull()
+        ->and($run?->error_message)->toContain('option_proposals.0')
+        ->and($run?->error_message)->toContain('placement_references')
+        ->and(FakeAiClient::lastRequest()?->responseSchema)->not->toBeNull()
+        ->and(AircoPlacementOption::query()->where('intake_id', $intake->id)->where('source_type', 'ai')->count())->toBe(1)
+        ->and(AircoInstallationOption::query()->where('intake_id', $intake->id)->count())->toBe(0);
+});
+
+test('AI synthesis failed-only run-243 shape still stores tokens and cost', function () {
+    [$intake] = synthesisSurveyWithPlacements();
+
+    FakeAiClient::respondUsing(function (AiCompletionRequest $request): array {
+        $placements = collect($request->input['placements'] ?? [])->keyBy('type');
+        $inside = $placements->get('indoor_unit')['reference'] ?? 'placement:1';
+        $room = collect($request->input['rooms'] ?? [])->first();
+        $indoorSubject = is_array($room) ? ($room['subject_reference'] ?? 'subject:1') : 'subject:1';
+
+        return [
+            'summary' => 'Alleen kapotte optie — hele run failed maar usage blijft.',
+            'placement_proposals' => [],
+            'option_proposals' => [[
+                'label' => 'Incomplete gemini-optie',
+                'configuration_type' => AircoConfigurationType::SingleSplit->value,
+                'summary' => 'Exacte run-243 cardinaliteit.',
+                'cost_impact' => 'medium',
+                'confidence' => 0.55,
+                'placement_references' => [$inside],
+                'connections' => [[
+                    'type' => 'refrigerant',
+                    'label' => 'Koel',
+                    'from_placement_reference' => $inside,
+                    'to_placement_reference' => $indoorSubject,
+                    'status' => 'proposed',
+                    'length_class' => 'short',
+                    'segments' => [],
+                    'obstacles' => [],
+                    'uncertainties' => [],
+                    'cost_impact' => 'low',
+                    'confidence' => 0.5,
+                    'evidence_references' => [$inside],
+                ]],
+            ]],
+            'exceptions' => [],
+            'customer_tasks' => [],
+        ];
+    });
+
+    $run = app(SynthesizeSurveyDossier::class)->handle($intake->fresh());
+
+    expect($run?->status)->toBe(AiRunStatus::Failed)
+        ->and($run?->input_tokens)->toBe(100)
+        ->and($run?->output_tokens)->toBe(50)
+        ->and($run?->estimated_cost_microcents)->not->toBeNull()
+        ->and($run?->estimated_cost_cents)->not->toBeNull()
+        ->and($run?->error_message)->toContain('option_proposals.0')
+        ->and(AircoInstallationOption::query()->where('intake_id', $intake->id)->count())->toBe(0);
+});
+
 test('installer explicitly sends an AI proposed task before customer access becomes active', function () {
     [$intake, $user] = synthesisSurveyWithPlacements();
     FakeAiClient::respondUsing(fn (AiCompletionRequest $request): array => validDossierSynthesisOutput($request));

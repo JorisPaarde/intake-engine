@@ -253,6 +253,107 @@ test('partial acceptor remaps unambiguous subject refs to placements (prod run-2
         ->and($result['accepted']['option_proposals'][0]['connections'][0]['from_placement_reference'])->toBe('placement:298');
 });
 
+test('exact prod run-243 response shape is dropped per proposal (not whole synthesis)', function () {
+    // Exact ai_runs error string from google/gemini-3.1-flash-lite via OpenRouter:
+    // option_proposals.0.placement_references: must have at least 2 items [got array(1)]
+    // | option_proposals.0.connections: must have at least 3 items [got array(1)]
+    // | option_proposals.0.connections.0.to_placement_reference: format is invalid [got: subject:298]
+    $input = partialAcceptorInput();
+    $input['placements'][] = [
+        'reference' => 'placement:298',
+        'type' => AircoPlacementType::IndoorUnit->value,
+        'subject_reference' => 'subject:298',
+    ];
+    $input['subjects'][] = ['reference' => 'subject:298'];
+    $input['rooms'][] = [
+        'reference' => 'room:98',
+        'subject_reference' => 'subject:298',
+    ];
+
+    $run243Shape = [
+        'summary' => 'Prod run-243 exacte foutvorm.',
+        'placement_proposals' => [[
+            'key' => 'proposal:indoor_extra',
+            'type' => AircoPlacementType::IndoorUnit->value,
+            'label' => 'Extra binnenpositie',
+            'description' => 'Zichtbaar op foto.',
+            'room_reference' => 'room:12',
+            'subject_reference' => 'subject:40',
+            'confidence' => 0.7,
+            'evidence_references' => ['dossier_image:101'],
+        ]],
+        'option_proposals' => [[
+            'label' => 'Incomplete gemini-optie',
+            'configuration_type' => AircoConfigurationType::SingleSplit->value,
+            'summary' => 'Eén placement-ref en één connection met subject:298 als to.',
+            'cost_impact' => 'medium',
+            'confidence' => 0.55,
+            'placement_references' => ['placement:81'], // array(1) — min 2 ontbreekt
+            'connections' => [[
+                'type' => 'refrigerant',
+                'label' => 'Koel',
+                'from_placement_reference' => 'placement:81',
+                'to_placement_reference' => 'subject:298', // exact prod invalid format
+                'status' => 'proposed',
+                'length_class' => 'short',
+                'segments' => [],
+                'obstacles' => [],
+                'uncertainties' => [],
+                'cost_impact' => 'low',
+                'confidence' => 0.5,
+                'evidence_references' => ['dossier_image:101'],
+            ]], // array(1) — min 3 ontbreekt
+        ]],
+        'exceptions' => [],
+        'customer_tasks' => [],
+    ];
+
+    $result = app(DossierSynthesisPartialAcceptor::class)->accept($run243Shape, $input);
+
+    // subject:298 remaps to placement:298 on the single connection, but cardinality
+    // still fails → option dropped; valid placement proposal remains (partial).
+    expect($result['has_accepted_proposals'])->toBeTrue()
+        ->and($result['had_rejections'])->toBeTrue()
+        ->and($result['accepted']['placement_proposals'])->toHaveCount(1)
+        ->and($result['accepted']['option_proposals'])->toBe([])
+        ->and($result['validation_errors'])->toHaveKey('option_proposals.0')
+        ->and($result['validation_errors']['option_proposals.0'][0] ?? '')->toContain('placement_references')
+        ->and($result['validation_errors']['option_proposals.0'][0] ?? '')->toContain('connections');
+});
+
+test('ambiguous subject refs drop only that connection then fail option on cardinality', function () {
+    $input = partialAcceptorInput();
+    // Two placements under subject:40 → remap is ambiguous.
+    $input['placements'][1]['subject_reference'] = 'subject:40';
+
+    $output = [
+        'summary' => 'Ambiguous subject-ref op één connection.',
+        'placement_proposals' => [],
+        'option_proposals' => [[
+            'label' => 'Anders geldige optie',
+            'configuration_type' => AircoConfigurationType::SingleSplit->value,
+            'summary' => 'Drie connections waarvan één subject:40.',
+            'cost_impact' => 'medium',
+            'confidence' => 0.8,
+            'placement_references' => ['placement:81', 'placement:82', 'placement:83', 'placement:84'],
+            'connections' => [
+                validConnection('refrigerant', 'placement:81', 'placement:82', 'dossier_image:101'),
+                validConnection('condensate', 'placement:81', 'placement:84', 'dossier_image:101'),
+                validConnection('power', 'placement:83', 'subject:40', 'dossier_image:102'),
+            ],
+        ]],
+        'exceptions' => [],
+        'customer_tasks' => [],
+    ];
+
+    $result = app(DossierSynthesisPartialAcceptor::class)->accept($output, $input);
+
+    expect($result['has_accepted_proposals'])->toBeFalse()
+        ->and($result['accepted']['option_proposals'])->toBe([])
+        ->and($result['validation_errors']['option_proposals.0'][0] ?? '')->toContain('connections')
+        ->and($result['validation_errors']['option_proposals.0'][0] ?? '')->toContain('subject-ref');
+});
+
 test('partial acceptor drops run-243 option that still has too few placements or connections after remap', function () {
     $input = partialAcceptorInput();
     $input['placements'][] = [

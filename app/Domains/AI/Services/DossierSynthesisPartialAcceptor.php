@@ -270,6 +270,9 @@ final class DossierSynthesisPartialAcceptor
     private function acceptOption(array $option, string $path, $placements, array $evidence): array
     {
         $option = $this->remapSubjectRefsToPlacements($option, $placements);
+        $stripped = $this->stripUnresolvedSubjectRefs($option);
+        $option = $stripped['option'];
+        $strippedConnectionReasons = $stripped['connection_reasons'];
 
         $validator = Validator::make(
             ['item' => $option],
@@ -309,7 +312,12 @@ final class DossierSynthesisPartialAcceptor
         );
 
         if ($validator->fails()) {
-            return ['accepted' => null, 'reason' => $this->prefixedFailure($path, $validator)];
+            $reason = $this->prefixedFailure($path, $validator);
+            if ($strippedConnectionReasons !== []) {
+                $reason .= ' | '.implode(' | ', $strippedConnectionReasons);
+            }
+
+            return ['accepted' => null, 'reason' => $reason];
         }
 
         /** @var array<string, mixed> $item */
@@ -470,6 +478,58 @@ final class DossierSynthesisPartialAcceptor
         }
 
         return $option;
+    }
+
+    /**
+     * After remap: drop unresolved subject: refs from placement_references, and
+     * drop only the connections that still carry subject: endpoints (ambiguous /
+     * unknown mapping). Cardinality is re-checked by the option validator.
+     *
+     * @param  array<string, mixed>  $option
+     * @return array{option: array<string, mixed>, connection_reasons: list<string>}
+     */
+    private function stripUnresolvedSubjectRefs(array $option): array
+    {
+        $reasons = [];
+
+        if (isset($option['placement_references']) && is_array($option['placement_references'])) {
+            $kept = [];
+            foreach ($option['placement_references'] as $reference) {
+                if (is_string($reference) && preg_match('/^subject:\d+$/', $reference) === 1) {
+                    $reasons[] = 'placement_references: subject-ref '.$reference.' kon niet eenduidig naar een placement worden omgezet.';
+
+                    continue;
+                }
+                $kept[] = $reference;
+            }
+            $option['placement_references'] = $kept;
+        }
+
+        if (isset($option['connections']) && is_array($option['connections'])) {
+            $keptConnections = [];
+            foreach ($option['connections'] as $index => $connection) {
+                if (! is_array($connection)) {
+                    continue;
+                }
+                $from = $connection['from_placement_reference'] ?? null;
+                $to = $connection['to_placement_reference'] ?? null;
+                $unresolved = [];
+                foreach (['from' => $from, 'to' => $to] as $label => $reference) {
+                    if (is_string($reference) && preg_match('/^subject:\d+$/', $reference) === 1) {
+                        $unresolved[] = $label.'_placement_reference='.$reference;
+                    }
+                }
+                if ($unresolved !== []) {
+                    $reasons[] = 'connections.'.$index.': subject-ref niet eenduidig omzetbaar ['.implode(', ', $unresolved).'] — verbinding genegeerd.';
+
+                    continue;
+                }
+                $keptConnections[] = $connection;
+            }
+            $option['connections'] = $keptConnections;
+        }
+
+        return ['option' => $option, 'connection_reasons' => $reasons];
     }
 
     /**
