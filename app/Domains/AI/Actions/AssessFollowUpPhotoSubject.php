@@ -16,7 +16,6 @@ use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Models\ContributionTask;
 use App\Domains\Intake\Models\Intake;
-use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeFollowUpItem;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Enums\AiRunStatus;
@@ -64,7 +63,6 @@ final class AssessFollowUpPhotoSubject
         if (! (bool) config('ai.photo_inference.enabled', false)) {
             $assessment = PhotoContentAssessment::notAssessed($expected);
             $upload->storeContentAssessment($assessment);
-            $this->recordAssessmentActivity($intake, $upload, $item, $assessment, $previous);
 
             return ['assessment' => $assessment, 'message' => $assessment->customerMessage()];
         }
@@ -104,7 +102,6 @@ final class AssessFollowUpPhotoSubject
                 ->preservingCustomerAcceptance($previous);
             $upload->storeContentAssessment($assessment);
             $this->ensureTraceForCachedRun($intake, $upload, $item, $existing, $promptVersion, $promptBody, $input);
-            $this->recordAssessmentActivity($intake, $upload, $item, $assessment, $previous);
 
             return [
                 'assessment' => $assessment,
@@ -192,8 +189,6 @@ final class AssessFollowUpPhotoSubject
             ]);
             $trace->succeed();
 
-            $this->recordAssessmentActivity($intake, $upload, $item, $assessment, $previous);
-
             return [
                 'assessment' => $assessment,
                 'message' => $this->customerFacingMessage($assessment),
@@ -218,7 +213,6 @@ final class AssessFollowUpPhotoSubject
 
             $assessment = PhotoContentAssessment::notAssessed($expected);
             $upload->storeContentAssessment($assessment);
-            $this->recordAssessmentActivity($intake, $upload, $item, $assessment, $previous);
 
             return ['assessment' => $assessment, 'message' => $assessment->customerMessage()];
         }
@@ -267,37 +261,6 @@ final class AssessFollowUpPhotoSubject
         );
         $trace->step('cache_hit', ['ai_run_id' => $run->id]);
         $trace->succeed('Hergebruikte eerdere foto-beoordeling');
-    }
-
-    private function recordAssessmentActivity(
-        Intake $intake,
-        IntakeUpload $upload,
-        IntakeFollowUpItem $item,
-        PhotoContentAssessment $assessment,
-        ?PhotoContentAssessment $previous,
-    ): void {
-        if ($previous !== null
-            && $previous->status() === $assessment->status()
-            && $previous->detectedSubject()?->value === $assessment->detectedSubject()?->value) {
-            return;
-        }
-
-        IntakeActivityEvent::query()->create([
-            'intake_id' => $intake->id,
-            'actor_type' => 'system',
-            'actor_id' => null,
-            'event' => 'follow_up_photo_assessed',
-            'properties' => [
-                'upload_id' => $upload->id,
-                'follow_up_item_id' => $item->id,
-                'status' => $assessment->status(),
-                'previous_status' => $previous?->status(),
-                'detected_subject' => $assessment->detectedSubject()?->value,
-                'expected_subject' => $assessment->expectedSubject()?->value,
-                'installer_reason' => $assessment->followUpMismatchReason(),
-            ],
-            'created_at' => now(),
-        ]);
     }
 
     private function customerFacingMessage(PhotoContentAssessment $assessment): ?string

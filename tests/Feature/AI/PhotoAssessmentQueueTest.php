@@ -13,9 +13,7 @@ use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\Intake\Actions\CreateCustomerContributionRequest;
 use App\Domains\Intake\Models\ContributionTask;
 use App\Domains\Intake\Models\Intake;
-use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeTemplate;
-use App\Domains\Intake\Services\DecisionReadinessService;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\FollowUpProgressCalculator;
 use App\Enums\AiRunType;
@@ -175,103 +173,6 @@ test('AI-fout of timeout leidt tot not_assessed soft-fail met klanttekst', funct
     $progress = app(FollowUpProgressCalculator::class)->calculate(collect([$item->fresh()->load('uploads')]));
     expect($progress['percent'])->toBe(100)
         ->and($progress['item_statuses'][$item->id]['status'])->toBe('assessed');
-});
-
-test('bug 81b: vervangfoto in follow-up wordt herbeoordeeld en lost wrong_subject op', function () {
-    Queue::fake([AssessUploadedPhotoJob::class]);
-
-    [$intake, $item] = makeQueuePhotoFollowUpIntake('power');
-
-    FakeAiClient::alwaysReturn([
-        'detected_subject' => 'outdoor_unit',
-        'subject_match' => 'no',
-        'evidence' => 'Foto toont een buitenunit met leiding, geen meterkast.',
-    ]);
-
-    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
-        ->set('followUpPhotoFiles.'.$item->id, queuePhotoFixture('buitenunit-leiding.jpeg'))
-        ->assertSet('uploadPhase', 'assessing');
-
-    $wrong = $item->fresh()->uploads()->firstOrFail();
-    runAssessUploadedPhotoJob($wrong->id);
-    $component->call('pollPendingAssessments')->assertSet('uploadPhase', '');
-
-    $wrong->refresh();
-    expect($wrong->contentAssessment()?->status())->toBe(PhotoContentAssessment::STATUS_WRONG_SUBJECT);
-
-    $runsAfterWrong = AiRun::query()
-        ->where('intake_id', $intake->id)
-        ->where('type', AiRunType::PhotoAssessment)
-        ->count();
-    expect($runsAfterWrong)->toBeGreaterThan(0);
-
-    $areas = app(DecisionReadinessService::class)->recalculate($intake->fresh());
-    $power = $areas->firstWhere('key', 'power');
-    expect($power?->blocker)->toContain('buitenunit');
-
-    // Correcte meterkastfoto erbij — moet nieuwe AI-run krijgen.
-    FakeAiClient::alwaysReturn([
-        'detected_subject' => 'fusebox',
-        'subject_match' => 'yes',
-        'evidence' => 'Duidelijke meterkast met groepen zichtbaar.',
-    ]);
-
-    // Zorg voor andere checksum dan de verkeerde foto.
-    $component
-        ->set('followUpPhotoFiles.'.$item->id, queueBrightPhoto('meterkast-correct.jpg'))
-        ->assertSet('uploadPhase', 'assessing');
-
-    $item->refresh()->load('uploads');
-    $correct = $item->uploads->sortByDesc('id')->first();
-    expect($correct)->not->toBeNull()
-        ->and($correct->id)->not->toBe($wrong->id)
-        ->and($correct->contentAssessment())->toBeNull();
-
-    // UI mag nog geen 100%/Beoordeeld tonen vóór reassessment.
-    $during = app(FollowUpProgressCalculator::class)->calculate(collect([$item]));
-    expect($during['percent'])->toBe(0)
-        ->and($during['item_statuses'][$item->id]['status'])->toBe('received');
-
-    runAssessUploadedPhotoJob($correct->id);
-    $correct->refresh();
-    expect($correct->contentAssessment()?->status())->toBe(PhotoContentAssessment::STATUS_OK);
-
-    $runsAfterCorrect = AiRun::query()
-        ->where('intake_id', $intake->id)
-        ->where('type', AiRunType::PhotoAssessment)
-        ->count();
-    expect($runsAfterCorrect)->toBeGreaterThan($runsAfterWrong);
-
-    $component->call('pollPendingAssessments')
-        ->assertSet('uploadPhase', '')
-        ->assertSee('Beoordeeld')
-        ->assertSeeHtml('data-testid="follow-up-progress-percent">100%');
-
-    $after = app(FollowUpProgressCalculator::class)->calculate(collect([$item->fresh()->load('uploads')]));
-    expect($after['percent'])->toBe(100)
-        ->and($after['item_statuses'][$item->id]['status'])->toBe('assessed');
-
-    // Oude reden is geen open punt meer; historie blijft.
-    $areas = app(DecisionReadinessService::class)->recalculate($intake->fresh());
-    $power = $areas->firstWhere('key', 'power');
-    expect($power?->blocker)->not->toContain('buitenunit');
-
-    expect(IntakeActivityEvent::query()
-        ->where('intake_id', $intake->id)
-        ->where('event', 'follow_up_photo_assessed')
-        ->count())->toBeGreaterThanOrEqual(2);
-
-    $trace = AiTrace::query()
-        ->where('intake_id', $intake->id)
-        ->where('call_type', AiTraceCallType::PhotoAnalysis)
-        ->where('upload_id', $correct->id)
-        ->whereNotNull('ai_run_id')
-        ->latest('id')
-        ->first();
-
-    expect($trace)->not->toBeNull()
-        ->and($trace->ai_run_id)->not->toBeNull()
-        ->and($trace->model)->not->toBeNull();
 });
 
 test('follow-up foto-assessment schrijft precies één complete photo_analysis-trace per ai_run', function () {

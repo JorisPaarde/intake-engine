@@ -13,7 +13,7 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
 | Soft catalogus-prefill multi-room (BL-122) | todo | - | Demo create met exacte case-81-tekst → werkplek toont Slaapkamer ouders + Kinderkamer met maten; klantflow vraagt koelen/verwarmen niet opnieuw; case 80 blijft werken. |
-| Fotobeoordeling via queue + herbeoordeling (BL-121) | todo | - | Twee gelijktijdige fotouploads → geen 503; wizard toont Uploaden/Foto beoordelen en resultaat zonder refresh; follow-up verkeerde+correcte meterkastfoto → nieuwe AI-run, 100% na reassessment, Stroomtoevoer zonder oude wrong-subject-reden; AI-fout → not_assessed-tekst. |
+| Fotobeoordeling via queue (BL-121) | todo | - | Twee gelijktijdige fotouploads → geen 503; wizard toont Uploaden/Foto beoordelen en resultaat zonder refresh; AI-fout → not_assessed-tekst. |
 | Staging-retest acceptance (BL-123) | todo | - | Case 80: voortgang &lt;100% tot laatste stap; Volgende bij meterkast-als-ruimtefoto toont “Vervang… of Toch doorgaan”; follow-up meterkast+buitenunitfoto blijft 0%/Nog te vervangen; na versturen Stroomtoevoer toont wrong-subject-reden. |
 | Klanttest foto-first + extractie + kamernamen (BL-118) | todo | - | Case 80/81: foto-first, known-summary, kamernamen; airco v18. |
 | Klantvoortgang/upload/je-vorm (BL-120) | todo | - | Foto-opdracht start 0%; uploadfases + timeout-herstel; template zonder u/uw; vrije-groephelp feitelijk. |

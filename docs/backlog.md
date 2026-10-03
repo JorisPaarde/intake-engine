@@ -47,7 +47,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | — | BL-122 | Soft catalogus-prefill: lange evidence / kapotte fill dumpt niet alles | E3/E9 | done | high | regressie case 81 · PR #120 · na BL-118/120 |
 | — | BL-120 | Klanttest P2: voortgang, uploadfases, je-vorm (airco v20) | E1/E5/E7 | done | high | klanttest 2 okt P2 · PR #118 · na BL-119 |
 | — | BL-119 | Klanttest 2 okt P1: foto-stelligheid, interne AI-velden, verkeerde-fotofeedback | E4/E7/E9 | in_progress | high | AI/foto · na BL-118 · airco v19 · PR #119 |
-| — | BL-121 | Follow-up + wizard fotobeoordeling async (queue ai-photo, 503-fix) | E4 | done | high | AI/foto · incident 3 okt 2026 · bug 81b · PR #124 |
+| — | BL-121 | Wizard fotobeoordeling async (queue ai-photo, 503-fix) | E4 | done | high | AI/foto · incident 3 okt 2026 · PR #124 |
 | — | BL-118 | Klanttest 2 okt: foto-first, extractiedekking, kamernamen | E3/E9 | done | high | F · bij BL-064/098/101 · na BL-116 · airco v18 · PR #116 |
 | — | BL-116 | AI-trace logging + P2 upload/analyse-timings (klanttest 2 okt) | E4/E9 | in_progress | high | AI · stap 1 herstelvolgorde · bij BL-028/104/109 · PR #117 |
 | — | BL-116 | Technische beslissingen uit klantvragen (pomp/route/boringen/stroom) | E3/E7 | done | high | klanttest 2026-10-02 P0 · airco v17 · PR #115 |
@@ -599,12 +599,12 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Acceptatie:** “Onderdeel 1 van 1” start op 0%; twee Livewire-round-trips + remount/Alpine-timeout; templatevragen zonder u/uw; vrije-groephelp zonder “lege plek = vrije groep”.
 - **Scope:** ProgressCalculator/FollowUpProgressCalculator + PrefillSources; IntakeWizard uploadfases (behoudt #117 timings/`rememberStoredUpload` en #119 content-assessment); airco v20 op v19. Geen dubbele logging of meta.internal.
 
-### BL-121 — Fotobeoordeling via queue (503-fix) + follow-up herbeoordeling
+### BL-121 — Fotobeoordeling via queue (503-fix)
 
-- **Status:** done · **Datum:** 2026-10-03 · **PR:** #124 · **Prioriteit:** high · **Epic:** E4 · **Volgt op:** BL-119/BL-123 · **Ref:** prod-incident 3 okt 2026 (5×503 / 40s, LiteSpeed LVE EP20); bug 81b vervangfoto
-- **Doel:** alle AI-fotobeoordeling uit de webrequest naar `AssessUploadedPhotoJob` (`ai-photo`); poll in wizard; soft-fail `not_assessed`; elke follow-up vervangfoto opnieuw beoordelen; complete ai_trace↔ai_run; cron/docs.
-- **Acceptatie:** upload dispatcht job zonder sync AI; poll toont resultaat; failure → not_assessed; regressie 81b; `composer check` groen; hosting-cronregel in DEPLOYMENT.md.
-- **Resultaat:** queue `ai-photo` + poll; soft-fail `not_assessed`; follow-up reassessment lost open wrong-subject-reden; hourly scheduler-worker + minutelijk `--queue=ai-photo,default`.
+- **Status:** done · **Datum:** 2026-10-03 · **PR:** #124 · **Prioriteit:** high · **Epic:** E4 · **Volgt op:** BL-119/BL-123 · **Ref:** prod-incident 3 okt 2026 (5×503 / 40s, LiteSpeed LVE EP20)
+- **Doel:** alle AI-fotobeoordeling uit de webrequest naar `AssessUploadedPhotoJob` (`ai-photo`); poll in wizard; soft-fail `not_assessed`; complete ai_trace↔ai_run; cron/docs.
+- **Acceptatie:** upload dispatcht job zonder sync AI; poll toont resultaat; failure → not_assessed; `composer check` groen; hosting-cronregel in DEPLOYMENT.md.
+- **Resultaat:** queue `ai-photo` + poll; soft-fail `not_assessed`; hourly scheduler-worker + minutelijk `--queue=ai-photo,default`.
 
 ### BL-122 — Soft catalogus-prefill (case 81 regressie)
 
