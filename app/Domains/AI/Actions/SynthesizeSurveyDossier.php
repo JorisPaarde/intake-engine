@@ -28,8 +28,6 @@ use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\DecisionReadinessService;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Support\CustomerFacingTaskText;
-use App\Enums\AircoConfigurationType;
-use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
 use App\Enums\AircoOptionStatus;
 use App\Enums\AiRunStatus;
