@@ -79,6 +79,8 @@ final class FakeAiClient implements AiClientInterface
             return $this->result([
                 'free_group' => 'yes',
                 'phase' => 'three_phase',
+                'detected_subject' => 'fusebox',
+                'subject_match' => 'yes',
                 'confidence' => 'high',
                 'evidence' => 'Fictieve testuitkomst voor de lokale fotoanalyse.',
                 'retake_instruction' => null,
@@ -92,6 +94,8 @@ final class FakeAiClient implements AiClientInterface
                 'sun_exposure' => 'high',
                 'glass_amount' => 'much',
                 'room_outlet_status' => 'present',
+                'detected_subject' => 'room',
+                'subject_match' => 'yes',
                 'confidence' => 'high',
                 'evidence' => 'Fictieve testuitkomst voor de lokale ruimteanalyse.',
                 'retake_instruction' => null,
@@ -103,6 +107,8 @@ final class FakeAiClient implements AiClientInterface
                 'outdoor_location' => 'garden',
                 'outdoor_mount_type' => 'wall',
                 'outdoor_accessibility' => 'ladder',
+                'detected_subject' => 'outdoor_location',
+                'subject_match' => 'yes',
                 'confidence' => 'high',
                 'evidence' => 'Fictieve testuitkomst voor de lokale buitenunitanalyse.',
                 'retake_instruction' => null,
@@ -113,10 +119,20 @@ final class FakeAiClient implements AiClientInterface
             return $this->result([
                 'pipe_route_description' => 'along_facade',
                 'pipe_distance_indication' => 'short',
-                'drillings_needed' => 'yes',
-                'confidence' => 'high',
+                'drillings_needed' => 'unknown',
+                'detected_subject' => 'pipe_route',
+                'subject_match' => 'yes',
+                'confidence' => 'medium',
                 'evidence' => 'Fictieve testuitkomst voor de lokale leidingrouteanalyse.',
                 'retake_instruction' => null,
+            ], 'fake-vision-v1');
+        }
+
+        if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'follow-up-photo-subject')) {
+            return $this->result([
+                'detected_subject' => 'fusebox',
+                'subject_match' => 'yes',
+                'evidence' => 'Fictieve testuitkomst voor gerichte fotocategorie.',
             ], 'fake-vision-v1');
         }
 

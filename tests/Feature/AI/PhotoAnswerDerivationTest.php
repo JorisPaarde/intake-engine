@@ -9,7 +9,6 @@ use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplate;
-use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Enums\AiRunStatus;
 use App\Enums\IntakeStatus;
@@ -52,6 +51,8 @@ function outdoorOutput(string $confidence = 'high', string $mountType = 'wall'):
         'outdoor_location' => 'garden',
         'outdoor_mount_type' => $mountType,
         'outdoor_accessibility' => 'ladder',
+        'detected_subject' => 'outdoor_location',
+        'subject_match' => 'yes',
         'confidence' => $confidence,
         'evidence' => 'De unit zou aan een gemetselde gevel op ruim twee meter hoogte komen.',
         'retake_instruction' => null,
@@ -60,40 +61,12 @@ function outdoorOutput(string $confidence = 'high', string $mountType = 'wall'):
 
 function uploadOutdoorPhoto(Intake $intake): void
 {
-    $upload = app(StoreIntakeUpload::class)->handle(
+    app(StoreIntakeUpload::class)->handle(
         $intake,
         'outdoor_location_photos',
         null,
         UploadedFile::fake()->image('buitenunit.jpg', 1200, 900),
     );
-
-    ensureUploadBytesPresent($upload);
-}
-
-function ensureUploadBytesPresent(IntakeUpload $upload): void
-{
-    $disk = Storage::disk($upload->disk);
-    $placeholder = fakeAerialJpegPlaceholder();
-
-    if (! $disk->exists($upload->path)) {
-        $disk->put($upload->path, $placeholder);
-    }
-    if (is_string($upload->analysis_path) && $upload->analysis_path !== '' && ! $disk->exists($upload->analysis_path)) {
-        $disk->put($upload->analysis_path, $placeholder);
-    }
-}
-
-function fakeAerialJpegPlaceholder(): string
-{
-    // Tiny valid JPEG so AiImageResolver/getimagesize accept restored bytes.
-    $image = imagecreatetruecolor(8, 8);
-    imagefilledrectangle($image, 0, 0, 7, 7, imagecolorallocate($image, 200, 200, 200));
-    ob_start();
-    imagejpeg($image, null, 80);
-    $binary = ob_get_clean();
-    imagedestroy($image);
-
-    return is_string($binary) && $binary !== '' ? $binary : 'jpeg-placeholder';
 }
 
 test('a high confidence derivation removes the questions it answered from the wizard', function () {
@@ -255,9 +228,6 @@ test('room photos derive per room instance without leaking into another room', f
         UploadedFile::fake()->image('woonkamer.jpg', 1200, 900),
     );
 
-    $upload = $intake->uploads()->where('question_key', 'room_photos')->latest('id')->firstOrFail();
-    ensureUploadBytesPresent($upload);
-
     app(DerivePhotoAnswers::class)->handle(
         $intake,
         'room_photos',
@@ -275,7 +245,7 @@ test('room photos derive per room instance without leaking into another room', f
         ->toBeFalse();
 });
 
-test('the pipe route profile derives a boolean question as a real boolean', function () {
+test('the pipe route profile stores route only as installer fact, never as customer answers', function () {
     $intake = makeDerivationIntake();
     FakeAiClient::reset();
 
@@ -285,7 +255,6 @@ test('the pipe route profile derives a boolean question as a real boolean', func
         null,
         UploadedFile::fake()->image('route.jpg', 1200, 900),
     );
-    ensureUploadBytesPresent($intake->uploads()->where('question_key', 'pipe_route_photos')->latest('id')->firstOrFail());
 
     app(DerivePhotoAnswers::class)->handle(
         $intake,
@@ -294,30 +263,71 @@ test('the pipe route profile derives a boolean question as a real boolean', func
         PhotoDerivationProfile::require('pipe_route'),
     );
 
-    $drillings = $intake->answers()->where('question_key', 'drillings_needed')->firstOrFail();
-    $route = $intake->answers()->where('question_key', 'pipe_route_description')->firstOrFail();
+    expect($intake->answers()->where('question_key', 'pipe_route_description')->exists())->toBeFalse()
+        ->and($intake->answers()->where('question_key', 'pipe_distance_indication')->exists())->toBeFalse()
+        ->and($intake->answers()->where('question_key', 'drillings_needed')->exists())->toBeFalse();
 
-    // 'yes' op de wire wordt een echte boolean in de opslag — niet de string 'yes'.
-    expect($drillings->value)->toBe(['bool' => true])
-        ->and($route->value)->toBe(['value' => 'along_facade']);
+    $fact = $intake->externalFacts()->where('fact_key', 'pipe_route_photos_derivation')->firstOrFail();
+
+    expect($fact->value['pipe_route_description'])->toBe('along_facade')
+        ->and($fact->confidence)->toBe('low')
+        ->and($fact->value['proposal_fields'])->toContain('pipe_route_description');
 
     $version = $intake->templateVersion()->with(['sections.questions.options', 'sections.questions.rules'])->firstOrFail();
     $stepKeys = collect(app(IntakeStepBuilder::class)->build($intake->fresh(), $version))->pluck('question_key');
 
-    expect($stepKeys)->not->toContain('drillings_needed')
-        ->and($stepKeys)->not->toContain('pipe_route_description')
-        // Een voorkeur staat niet op een foto en blijft dus staan.
+    expect($stepKeys)->not->toContain('pipe_route_description')
+        ->and($stepKeys)->not->toContain('drillings_needed')
         ->and($stepKeys)->toContain('pipe_visibility');
 });
 
-test('a boolean derivation of no is stored as false rather than dropped', function () {
+test('outdoor-unit style pipe photo never stores drillings_needed as no', function () {
+    $intake = makeDerivationIntake();
+    FakeAiClient::alwaysReturn([
+        'pipe_route_description' => 'along_facade',
+        'pipe_distance_indication' => 'short',
+        'drillings_needed' => 'no',
+        'detected_subject' => 'outdoor_unit',
+        'subject_match' => 'yes',
+        'confidence' => 'high',
+        'evidence' => 'Bestaande buitenunit met leiding langs bakstenen gevel; geen gat zichtbaar.',
+        'retake_instruction' => null,
+    ]);
+
+    app(StoreIntakeUpload::class)->handle(
+        $intake,
+        'pipe_route_photos',
+        null,
+        UploadedFile::fake()->image('buitenunit-leiding.jpg', 1200, 900),
+    );
+
+    app(DerivePhotoAnswers::class)->handle(
+        $intake,
+        'pipe_route_photos',
+        null,
+        PhotoDerivationProfile::require('pipe_route'),
+    );
+
+    expect($intake->answers()->where('question_key', 'drillings_needed')->exists())->toBeFalse();
+
+    $fact = $intake->externalFacts()->where('fact_key', 'pipe_route_photos_derivation')->firstOrFail();
+
+    expect($fact->value['drillings_needed'])->toBe('unknown')
+        ->and($fact->value['drillings_proposal_note'])->toBe('geen bewijs voor doorboring zichtbaar')
+        ->and($fact->confidence)->toBe('low')
+        ->and($fact->value['uncertainty_note'])->toContain('geen doorboring');
+});
+
+test('a boolean derivation of yes stays an installer fact proposal rather than customer answer', function () {
     $intake = makeDerivationIntake();
     FakeAiClient::alwaysReturn([
         'pipe_route_description' => 'short_direct',
         'pipe_distance_indication' => 'short',
-        'drillings_needed' => 'no',
+        'drillings_needed' => 'yes',
+        'detected_subject' => 'pipe_route',
+        'subject_match' => 'yes',
         'confidence' => 'high',
-        'evidence' => 'De binnen- en buitenunit delen dezelfde buitenmuur.',
+        'evidence' => 'De binnen- en buitenunit delen dezelfde buitenmuur met zichtbare doorvoer.',
         'retake_instruction' => null,
     ]);
 
@@ -327,7 +337,6 @@ test('a boolean derivation of no is stored as false rather than dropped', functi
         null,
         UploadedFile::fake()->image('route.jpg', 1200, 900),
     );
-    ensureUploadBytesPresent($intake->uploads()->where('question_key', 'pipe_route_photos')->latest('id')->firstOrFail());
 
     app(DerivePhotoAnswers::class)->handle(
         $intake,
@@ -336,8 +345,13 @@ test('a boolean derivation of no is stored as false rather than dropped', functi
         PhotoDerivationProfile::require('pipe_route'),
     );
 
-    expect($intake->answers()->where('question_key', 'drillings_needed')->firstOrFail()->value)
-        ->toBe(['bool' => false]);
+    expect($intake->answers()->where('question_key', 'drillings_needed')->exists())->toBeFalse();
+
+    $fact = $intake->externalFacts()->where('fact_key', 'pipe_route_photos_derivation')->firstOrFail();
+
+    expect($fact->value['drillings_needed'])->toBe('yes')
+        ->and($fact->confidence)->toBe('low')
+        ->and($fact->value['proposal_fields'])->toContain('drillings_needed');
 });
 
 test('an unknown field is skipped while its siblings are still applied', function () {

@@ -6,9 +6,11 @@ Doel — bepaal alleen wat werkelijk zichtbaar is:
 - `sun_exposure`: hoeveel directe zon de ruimte vangt, af te leiden uit oriëntatie, lichtinval, schaduw en zonwering;
 - `glass_amount`: hoeveel glasoppervlak de ruimte heeft (`little`, `average`, `much`);
 - `room_outlet_status`: of er minstens één stopcontact duidelijk op de wandfoto zichtbaar is (`present` als ja, `needs_photo` als de ruimte wel in beeld is maar het stopcontact buiten beeld valt of onduidelijk is). Dit is géén ja/nee-vraag aan de klant — alleen een signaal of een extra wandfoto nodig is. Beoordeel stopcontacten nooit op een meterkastfoto.
+- `detected_subject`: wat de foto toont (`room`, `fusebox`, `outdoor_unit`, `outdoor_location`, `pipe_route`, `other`);
+- `subject_match`: `yes` alleen bij een echte ruimte-opname; anders `no`.
 
 Regels:
-- **Toont de foto niet het gevraagde onderwerp, zeg dat dan gewoon.** Een close-up van een apparaat, een huisdier, een document of iets anders dat een ruimte-opname niet is, levert `unknown` op de ruimtedekenmerken en `needs_photo` op `room_outlet_status`, met `confidence` op `low`. Schrijf `retake_instruction` dan als een heldere vraag om de juiste opname, zonder het verkeerde onderwerp tot uitgangspunt te maken — dus niet "fotografeer de ruimte waarin het apparaat staat", maar "deze foto toont iets anders dan gevraagd; maak een foto van de hele ruimte vanuit de deuropening".
+- **Toont de foto niet het gevraagde onderwerp, zeg dat dan gewoon.** Een meterkast, buitenunit, close-up van een apparaat, huisdier of document → ruimtedekenmerken `unknown`, `room_outlet_status` = `needs_photo`, `confidence` = `low`, `subject_match` = `no`. Schrijf `retake_instruction` concreet, bijvoorbeeld “Dit is een meterkast; we hebben een foto van de hele ruimte vanuit de deuropening nodig.” — niet “fotografeer de ruimte waarin het apparaat staat”.
 - Kies `unknown` voor elk ruimtedekenmerk zodra het beeld daar geen duidelijke aanwijzing voor geeft. Een gok is schadelijker dan een extra vraag.
 - Voor `room_outlet_status`: kies `present` alleen bij een duidelijk zichtbaar stopcontact; kies anders `needs_photo` (niet `unknown`).
 - Eén `confidence` voor de hele beoordeling: `high` alleen wanneer de ruimte als geheel goed in beeld is en alle ingevulde velden op duidelijk zichtbaar bewijs rusten.
@@ -17,4 +19,4 @@ Regels:
 - Beschrijf in `evidence` kort en feitelijk waarop je je baseert.
 - Geef bij onvoldoende beeld één concrete, korte instructie voor een betere foto in `retake_instruction`, anders `null`.
 - Output uitsluitend JSON met exact deze velden:
-  `{ "room_type": "living_room|bedroom|office|attic|unknown", "room_size_indication": "small|medium|large|unknown", "sun_exposure": "low|medium|high|unknown", "glass_amount": "little|average|much|unknown", "room_outlet_status": "present|needs_photo|unknown", "confidence": "high|medium|low", "evidence": "korte omschrijving", "retake_instruction": "concrete instructie of null" }`
+  `{ "room_type": "living_room|bedroom|office|attic|unknown", "room_size_indication": "small|medium|large|unknown", "sun_exposure": "low|medium|high|unknown", "glass_amount": "little|average|much|unknown", "room_outlet_status": "present|needs_photo|unknown", "detected_subject": "room|fusebox|outdoor_unit|outdoor_location|pipe_route|other", "subject_match": "yes|no", "confidence": "high|medium|low", "evidence": "korte omschrijving", "retake_instruction": "concrete instructie of null" }`

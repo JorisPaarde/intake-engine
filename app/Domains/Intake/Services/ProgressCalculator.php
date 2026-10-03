@@ -8,6 +8,9 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeSection;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
+use App\Domains\Intake\Support\InternalCustomerQuestions;
+use App\Domains\Intake\Support\PhotoContentSatisfaction;
+use App\Domains\Intake\Support\TechnicalDecisionKeys;
 use App\Enums\QuestionType;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -58,6 +61,11 @@ final class ProgressCalculator
                 continue;
             }
 
+            if (InternalCustomerQuestions::hidesFromCustomer($question)
+                || TechnicalDecisionKeys::hidesFromCustomer($question)) {
+                continue;
+            }
+
             $compositeKey = VisibilityResolver::compositeKey(
                 $target['question_key'],
                 $target['section_instance_key'],
@@ -74,6 +82,14 @@ final class ProgressCalculator
             );
             $answerValue = $answers[$answerKey] ?? null;
             $filled = $this->answerValueReader->isFilled($answerValue, $question->type);
+
+            if ($filled && $question->type === QuestionType::Photo) {
+                $filled = PhotoContentSatisfaction::isSatisfied(
+                    $intake,
+                    $target['question_key'],
+                    $target['section_instance_key'],
+                );
+            }
 
             $totalRequired++;
 

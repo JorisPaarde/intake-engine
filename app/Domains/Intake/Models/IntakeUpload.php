@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Models;
 
+use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Enums\PhotoUsabilityVerdict;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -27,6 +28,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property int $sort_order
  * @property PhotoUsabilityVerdict|null $usability_verdict
  * @property array{persist_ms?: int, preprocess_ms?: int, network_upload_ms?: int, measured_at?: string, dossier_width?: int|null, dossier_height?: int|null, analysis_width?: int|null, analysis_height?: int|null, correlation_id?: string}|null $processing_timings
+ * @property array<string, mixed>|null $content_assessment
  * @property-read IntakeFollowUpItem|null $followUpItem
  */
 class IntakeUpload extends Model
@@ -51,6 +53,7 @@ class IntakeUpload extends Model
         'sort_order',
         'usability_verdict',
         'processing_timings',
+        'content_assessment',
     ];
 
     /**
@@ -66,7 +69,20 @@ class IntakeUpload extends Model
             'sort_order' => 'integer',
             'usability_verdict' => PhotoUsabilityVerdict::class,
             'processing_timings' => 'array',
+            'content_assessment' => 'array',
         ];
+    }
+
+    public function contentAssessment(): ?PhotoContentAssessment
+    {
+        return PhotoContentAssessment::fromArray(
+            is_array($this->content_assessment) ? $this->content_assessment : null,
+        );
+    }
+
+    public function storeContentAssessment(PhotoContentAssessment $assessment): void
+    {
+        $this->forceFill(['content_assessment' => $assessment->toArray()])->save();
     }
 
     /** @return BelongsTo<Intake, $this> */

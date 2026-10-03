@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domains\Intake\Services;
 
 use App\Domains\AI\Actions\DerivePhotoAnswers;
+use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeQuestion;
@@ -62,7 +63,7 @@ final class CompletenessChecker
      */
     private function attentionPoints(Intake $intake, IntakeTemplateVersion $version): array
     {
-        $intake->loadMissing(['answers']);
+        $intake->loadMissing(['answers', 'uploads']);
         $points = [];
 
         $indoorUnitCount = $intake->answers
@@ -78,6 +79,17 @@ final class CompletenessChecker
                 'code' => 'review_split_configuration',
                 'label' => "Beoordeel voor {$count} ruimtes: één multi-split of meerdere single-splits.",
             ];
+        }
+
+        foreach ($intake->uploads as $upload) {
+            $assessment = $upload->contentAssessment();
+
+            if ($assessment instanceof PhotoContentAssessment && $assessment->customerAcceptedMismatch()) {
+                $points[] = [
+                    'code' => 'photo_subject_mismatch_'.$upload->id,
+                    'label' => $assessment->continueAnywayAttentionLabel(),
+                ];
+            }
         }
 
         return [

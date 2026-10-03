@@ -233,6 +233,7 @@ final class IntakeAttentionContextBuilder
             'mime_type' => $upload->mime_type,
             'size_bytes' => $upload->size_bytes,
             'usability_verdict' => $upload->usability_verdict?->value,
+            'content_assessment' => $upload->contentAssessment()?->toArray(),
         ];
     }
 

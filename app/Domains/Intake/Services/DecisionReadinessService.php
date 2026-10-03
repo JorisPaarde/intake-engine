@@ -10,6 +10,7 @@ use App\Domains\Intake\Models\AircoPlacementOption;
 use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\DossierDecisionArea;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Support\PhotoContentSatisfaction;
 use App\Domains\Intake\Support\RoomDimensions;
 use App\Domains\Intake\Support\RoomHeightRequirement;
 use App\Enums\AircoConnectionStatus;
@@ -547,13 +548,15 @@ final class DecisionReadinessService
 
     private function hasFuseboxPhoto(Intake $intake): bool
     {
-        if ($intake->uploads->contains(
+        $fuseboxUploads = $intake->uploads->filter(
             static fn ($upload): bool => in_array(
                 $upload->question_key,
                 ['fusebox_photo', 'fusebox_photo_extra'],
                 true,
             ),
-        )) {
+        );
+
+        if (PhotoContentSatisfaction::uploadsSatisfy($fuseboxUploads)) {
             return true;
         }
 

@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace App\Livewire\Customer;
 
+use App\Domains\AI\Actions\AssessFollowUpPhotoSubject;
 use App\Domains\AI\Actions\AssessFuseboxPhotos;
 use App\Domains\AI\Actions\AssessPhotoUsability;
 use App\Domains\AI\Actions\DeriveIntentFromRequest;
 use App\Domains\AI\Actions\DerivePhotoAnswers;
-use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\AiTraceRecorder;
+use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\AI\Support\PhotoDerivationProfile;
 use App\Domains\Intake\Actions\CompleteFollowUpRound;
 use App\Domains\Intake\Actions\CompleteIntake;
@@ -35,8 +36,8 @@ use App\Domains\Intake\Services\ProgressCalculator;
 use App\Domains\Intake\Services\ResolveIntakeByAccessToken;
 use App\Domains\Intake\Services\VisibilityResolver;
 use App\Domains\Intake\Support\KnownSummaryCatalog;
+use App\Domains\Intake\Support\PhotoContentSatisfaction;
 use App\Domains\Intake\Support\PrefillSources;
-use App\Enums\AiRunStatus;
 use App\Enums\AttentionPointSource;
 use App\Enums\AttentionPointStatus;
 use App\Enums\FollowUpItemType;
@@ -70,6 +71,13 @@ class IntakeWizard extends Component
 
     /** Stable step identity while visibility/step list may shift after an answer. */
     public string $activeStepKey = '';
+
+    /**
+     * Previous customer step keys — used by realignToActiveStep when the step list shrinks.
+     *
+     * @var list<string>
+     */
+    public array $knownStepKeys = [];
 
     /** @var array<string, mixed> */
     public array $form = [];
@@ -217,6 +225,10 @@ class IntakeWizard extends Component
         );
         $this->clampStepIndex($steps);
         $this->syncActiveStepKey($steps);
+        $this->knownStepKeys = array_map(
+            static fn (array $step): string => $step['key'],
+            $steps,
+        );
         $this->applyPrefillForActiveStep();
     }
 
@@ -248,6 +260,7 @@ class IntakeWizard extends Component
         $visibility = [];
         $uploadsByQuestion = [];
         $displayPhotoHint = $this->photoHint;
+        $photoMismatchAssessment = null;
 
         if ($step !== null && ! $this->completed && ($step['kind'] ?? 'question') !== 'known_summary') {
             $question = app(IntakeStepBuilder::class)->questionForStep(
@@ -281,6 +294,16 @@ class IntakeWizard extends Component
                             $displayPhotoHint[$composite] = $persistentHint;
                         }
                     }
+
+                    $photoMismatchAssessment = null;
+                    $stepUploads = $uploadsByQuestion[$question->key] ?? collect();
+
+                    // Banner alleen zolang de vraag niet content-satisfait is.
+                    if (! PhotoContentSatisfaction::uploadsSatisfy($stepUploads)) {
+                        $photoMismatchAssessment = PhotoContentSatisfaction::unresolvedWrongSubject(
+                            $stepUploads,
+                        );
+                    }
                 }
             }
         }
@@ -308,6 +331,7 @@ class IntakeWizard extends Component
             'visibility' => $visibility,
             'uploadsByQuestion' => $uploadsByQuestion,
             'displayPhotoHint' => $displayPhotoHint,
+            'photoMismatchAssessment' => $photoMismatchAssessment,
             // Prop name kept for BL-076 banner sibling; value means "primary customer path".
             'demoShortCustomer' => $demoCustomerPath,
             'demoInstallerReturnUrl' => $demoCustomerPath
@@ -566,6 +590,8 @@ class IntakeWizard extends Component
             return false;
         }
 
+        // AI-contentverdict blokkeert afronden nooit; waarschuwing blijft zichtbaar via hint.
+
         return true;
     }
 
@@ -686,19 +712,18 @@ class IntakeWizard extends Component
         $item = $this->followUpItem($itemId);
         $stored = 0;
         $error = null;
+        /** @var list<IntakeUpload> $newPhotoUploads */
+        $newPhotoUploads = [];
 
         foreach ($files as $file) {
             try {
-                $upload = app(StoreFollowUpUpload::class)->handle(
-                    $this->intake(),
-                    $item,
-                    $file,
-                );
+                $upload = app(StoreFollowUpUpload::class)->handle($this->intake(), $item, $file);
                 $this->rememberStoredUpload($upload);
                 $stored++;
 
                 if ($type === FollowUpItemType::Photo) {
                     app(AssessPhotoUsability::class)->handle($upload, correlationId: $this->correlationIdForUpload($upload));
+                    $newPhotoUploads[] = $upload;
                 }
             } catch (ValidationException $exception) {
                 $error = $exception->errors()['upload'][0]
@@ -711,6 +736,22 @@ class IntakeWizard extends Component
 
         if ($type === FollowUpItemType::Photo) {
             $this->saveMessage = $stored === 1 ? 'Foto opgeslagen' : ($stored > 1 ? "{$stored} foto's opgeslagen" : '');
+
+            $item = $this->followUpItem($itemId);
+            $warnings = [];
+
+            foreach ($newPhotoUploads as $upload) {
+                $result = app(AssessFollowUpPhotoSubject::class)->handle($this->intake(), $item, $upload);
+                $message = $result['message'];
+
+                if (is_string($message) && $message !== '') {
+                    $warnings[] = $message;
+                }
+            }
+
+            if ($warnings !== []) {
+                $this->addError($errorBagKey, implode(' ', array_values(array_unique($warnings))));
+            }
         } else {
             $this->saveMessage = $stored === 1 ? 'Document opgeslagen' : ($stored > 1 ? "{$stored} documenten opgeslagen" : '');
         }
@@ -735,6 +776,8 @@ class IntakeWizard extends Component
         $errors = [];
         /** @var list<string> $hints */
         $hints = [];
+        /** @var list<IntakeUpload> $newUploads */
+        $newUploads = [];
 
         foreach ($files as $file) {
             try {
@@ -753,12 +796,10 @@ class IntakeWizard extends Component
                 );
                 $this->rememberStoredUpload($upload);
                 $stored++;
+                $newUploads[] = $upload;
 
                 // BL-007: non-blocking local usability check — a hint, never a block.
-                $verdict = app(AssessPhotoUsability::class)->handle(
-                    $upload,
-                    correlationId: $this->correlationIdForUpload($upload),
-                );
+                $verdict = app(AssessPhotoUsability::class)->handle($upload, correlationId: $this->correlationIdForUpload($upload));
                 $retakeHint = $this->photoRetakeHint($verdict, $questionKey);
 
                 if ($retakeHint !== null) {
@@ -775,11 +816,9 @@ class IntakeWizard extends Component
         }
 
         if ($stored > 0) {
-            $assessmentHint = $this->runPhotoDerivation($questionKey, $instanceKey);
-
-            if ($assessmentHint !== null) {
-                $hints[] = $assessmentHint;
-            }
+            $this->runPhotoDerivation($questionKey, $instanceKey);
+            $this->forgetIntakeDerivedCaches();
+            $this->realignToActiveStep();
         }
 
         // Alleen deze foto-composite verversen — volledige hydrate wist niet-opgeslagen velden.
@@ -787,6 +826,16 @@ class IntakeWizard extends Component
         $this->refreshAnswerInForm($composite);
         $this->showMissing = false;
         $this->resetErrorBag('photoFiles.'.$composite);
+
+        foreach ($newUploads as $upload) {
+            $fresh = $upload->fresh() ?? $upload;
+            $assessment = $fresh->contentAssessment();
+
+            if ($assessment instanceof PhotoContentAssessment
+                && ($msg = $assessment->customerMessage()) !== null) {
+                $hints[] = $msg;
+            }
+        }
 
         $this->photoHint[$composite] = $hints === [] ? null : implode(' ', array_values(array_unique($hints)));
 
@@ -852,16 +901,14 @@ class IntakeWizard extends Component
             }
         }
 
-        if ($question->key === 'fusebox_photo') {
-            $fact = $intake->externalFacts()
-                ->where('fact_key', 'fusebox_photo_assessment')
-                ->where('source', AssessFuseboxPhotos::SOURCE)
-                ->latest('id')
-                ->first();
-            $instruction = $fact?->value['retake_instruction'] ?? null;
+        // Mismatch-/retake-tekst alleen uit opgeslagen content_assessment (één bron).
+        foreach ($uploads as $upload) {
+            $assessment = $upload->contentAssessment();
 
-            if (is_string($instruction) && trim($instruction) !== '') {
-                $hints[] = 'Voor een duidelijkere foto: '.trim($instruction);
+            if ($assessment !== null
+                && $assessment->status() !== PhotoContentAssessment::STATUS_OK
+                && ($msg = $assessment->customerMessage()) !== null) {
+                $hints[] = $msg;
             }
         }
 
@@ -873,6 +920,17 @@ class IntakeWizard extends Component
         $hints = [];
 
         foreach ($item->uploads as $upload) {
+            $assessment = $upload->contentAssessment();
+
+            if ($assessment instanceof PhotoContentAssessment
+                && $assessment->status() !== PhotoContentAssessment::STATUS_OK) {
+                $contentHint = $assessment->customerMessage();
+
+                if ($contentHint !== null) {
+                    $hints[] = $contentHint;
+                }
+            }
+
             $verdict = $upload->usability_verdict;
             $qualityHint = $verdict instanceof PhotoUsabilityVerdict
                 ? $verdict->customerHint()
@@ -891,46 +949,41 @@ class IntakeWizard extends Component
      * Runs whatever photo-analysis profile the question opted into via `meta.photo_analysis`.
      * The fusebox keeps its dedicated action — it derives phase alongside the free-group answer,
      * which does not fit the generic single-shape profile.
-     *
-     * @return string|null a retake hint for the applicant, when the model asked for a better photo
+     * Customer-facing mismatch/retake text comes only from stored content_assessment.
      */
-    private function runPhotoDerivation(string $questionKey, ?string $instanceKey): ?string
+    private function runPhotoDerivation(string $questionKey, ?string $instanceKey): void
     {
         $profileName = $this->photoAnalysisProfileName($questionKey);
 
         if ($profileName === null) {
-            return null;
+            return;
         }
 
-        if ($profileName === 'fusebox') {
-            $correlationId = $this->latestUploadCorrelationId($questionKey, $instanceKey);
+        $correlationId = $this->latestUploadCorrelationId($questionKey, $instanceKey);
 
-            return $instanceKey === null
-                ? $this->applyFuseboxAssessment(
-                    app(AssessFuseboxPhotos::class)->handle($this->intake(), correlationId: $correlationId),
-                )
-                : null;
+        if ($profileName === 'fusebox') {
+            if ($instanceKey === null) {
+                app(AssessFuseboxPhotos::class)->handle($this->intake(), correlationId: $correlationId);
+                $this->applyFuseboxAssessment();
+            }
+
+            return;
         }
 
         $profile = PhotoDerivationProfile::find($profileName);
 
         if (! $profile instanceof PhotoDerivationProfile) {
-            return null;
+            return;
         }
 
-        $correlationId = $this->latestUploadCorrelationId($questionKey, $instanceKey);
-
-        return $this->applyPhotoDerivation(
-            app(DerivePhotoAnswers::class)->handle(
-                $this->intake(),
-                $questionKey,
-                $instanceKey,
-                $profile,
-                correlationId: $correlationId,
-            ),
+        app(DerivePhotoAnswers::class)->handle(
+            $this->intake(),
+            $questionKey,
             $instanceKey,
             $profile,
+            correlationId: $correlationId,
         );
+        $this->applyPhotoDerivation($instanceKey, $profile);
     }
 
     private function invalidatePhotoDerivation(string $questionKey, ?string $instanceKey): void
@@ -979,10 +1032,9 @@ class IntakeWizard extends Component
     }
 
     private function applyPhotoDerivation(
-        ?AiRun $run,
         ?string $instanceKey,
         PhotoDerivationProfile $profile,
-    ): ?string {
+    ): void {
         foreach ($profile->questionKeys() as $questionKey) {
             $composite = VisibilityResolver::compositeKey($questionKey, $instanceKey);
             $this->refreshAnswerInForm($composite);
@@ -997,44 +1049,156 @@ class IntakeWizard extends Component
                 ->first();
 
             if (PrefillSources::isPhotoSuggestion($answer?->prefill_source)) {
-                $this->prefillNotice[$composite] = 'We hebben dit uit uw foto gehaald — klopt het?';
+                $this->prefillNotice[$composite] = 'We hebben dit uit je foto gehaald — klopt het?';
             } else {
                 unset($this->prefillNotice[$composite]);
             }
         }
-
-        if ($run?->status !== AiRunStatus::Succeeded || ! is_array($run->output)) {
-            return null;
-        }
-
-        $instruction = $run->output['retake_instruction'] ?? null;
-
-        if (is_string($instruction) && trim($instruction) !== '') {
-            return 'Voor een duidelijkere foto: '.trim($instruction);
-        }
-
-        return null;
     }
 
-    private function applyFuseboxAssessment(?AiRun $run): ?string
+    private function applyFuseboxAssessment(): void
     {
         foreach (['free_group_known', 'fusebox_clarity'] as $questionKey) {
             $composite = VisibilityResolver::compositeKey($questionKey, null);
             $this->refreshAnswerInForm($composite);
             unset($this->prefillNotice[$composite]);
         }
+    }
 
-        if ($run?->status !== AiRunStatus::Succeeded || ! is_array($run->output)) {
-            return null;
+    /**
+     * Soft continue: customer accepts a wrong-subject photo and moves on.
+     * Marks the upload(s); installer attention comes from CompletenessChecker + fotobadge.
+     */
+    public function acceptPhotoMismatch(): void
+    {
+        if ($this->completed) {
+            return;
         }
 
-        $instruction = $run->output['retake_instruction'] ?? null;
-
-        if (is_string($instruction) && trim($instruction) !== '') {
-            return 'Voor een duidelijkere foto: '.trim($instruction);
+        $step = $this->currentStep();
+        if ($step === null) {
+            return;
         }
 
-        return null;
+        $question = app(IntakeStepBuilder::class)->questionForStep(
+            $this->version(),
+            $step['section_key'],
+            $step['question_key'],
+        );
+
+        if (! $question instanceof IntakeQuestion || $question->type !== QuestionType::Photo) {
+            return;
+        }
+
+        $intake = $this->intake();
+        $intake->loadMissing('uploads');
+
+        $uploads = $intake->uploads->filter(static function (IntakeUpload $upload) use ($step, $question): bool {
+            if ($upload->question_key !== $question->key) {
+                return false;
+            }
+
+            return $step['section_instance_key'] === null
+                ? $upload->section_instance_key === null
+                : $upload->section_instance_key === $step['section_instance_key'];
+        });
+
+        $acceptedAny = false;
+
+        foreach ($uploads as $upload) {
+            $assessment = $upload->contentAssessment();
+
+            if (! $assessment instanceof PhotoContentAssessment
+                || $assessment->status() !== PhotoContentAssessment::STATUS_WRONG_SUBJECT
+                || $assessment->customerAcceptedMismatch()) {
+                continue;
+            }
+
+            $upload->storeContentAssessment($assessment->withCustomerAcceptedMismatch());
+            $acceptedAny = true;
+        }
+
+        if (! $acceptedAny) {
+            return;
+        }
+
+        $composite = VisibilityResolver::compositeKey($question->key, $step['section_instance_key']);
+        $this->photoHint[$composite] = null;
+        $this->forgetIntakeDerivedCaches();
+        $this->showMissing = false;
+        $this->saveMessage = '';
+
+        $this->next();
+    }
+
+    /**
+     * Echte vervanging: verwijder onopgeloste wrong_subject-uploads en open de file picker.
+     */
+    public function replaceMismatchedPhoto(): void
+    {
+        if ($this->completed) {
+            return;
+        }
+
+        $step = $this->currentStep();
+        if ($step === null) {
+            return;
+        }
+
+        $question = app(IntakeStepBuilder::class)->questionForStep(
+            $this->version(),
+            $step['section_key'],
+            $step['question_key'],
+        );
+
+        if (! $question instanceof IntakeQuestion || $question->type !== QuestionType::Photo) {
+            return;
+        }
+
+        $intake = $this->intake();
+        $intake->loadMissing('uploads');
+
+        $removed = false;
+
+        foreach ($intake->uploads as $upload) {
+            if ($upload->question_key !== $question->key) {
+                continue;
+            }
+
+            if ($step['section_instance_key'] === null
+                ? $upload->section_instance_key !== null
+                : $upload->section_instance_key !== $step['section_instance_key']) {
+                continue;
+            }
+
+            $assessment = $upload->contentAssessment();
+
+            if (! $assessment instanceof PhotoContentAssessment
+                || $assessment->status() !== PhotoContentAssessment::STATUS_WRONG_SUBJECT
+                || $assessment->customerAcceptedMismatch()) {
+                continue;
+            }
+
+            app(DeleteIntakeUpload::class)->handle($intake, $upload);
+            $removed = true;
+        }
+
+        if (! $removed) {
+            return;
+        }
+
+        $this->invalidatePhotoDerivation($question->key, $step['section_instance_key']);
+        $this->runPhotoDerivation($question->key, $step['section_instance_key']);
+        $this->forgetIntakeDerivedCaches();
+
+        $composite = VisibilityResolver::compositeKey($question->key, $step['section_instance_key']);
+        $this->photoHint[$composite] = null;
+        $this->refreshAnswerInForm($composite);
+        $this->showMissing = false;
+        $this->saveMessage = '';
+
+        $inputId = 'photo-input-'.str_replace(['.', ' '], '-', $composite);
+        $this->js('document.getElementById('.json_encode($inputId).')?.click()');
     }
 
     /**
@@ -1536,7 +1700,7 @@ class IntakeWizard extends Component
             if ($answer->prefill_source === 'installer') {
                 $notices[$composite] = 'Uw installateur heeft dit alvast ingevuld — klopt het?';
             } elseif (PrefillSources::isPhotoSuggestion($answer->prefill_source)) {
-                $notices[$composite] = 'We hebben dit uit uw foto gehaald — klopt het?';
+                $notices[$composite] = 'We hebben dit uit je foto gehaald — klopt het?';
             }
         }
 
@@ -1835,7 +1999,20 @@ class IntakeWizard extends Component
         $reader = app(AnswerValueReader::class);
         $value = is_array($this->form[$key] ?? null) ? $this->form[$key] : null;
 
-        return $reader->isFilled($value, $question->type);
+        if (! $reader->isFilled($value, $question->type)) {
+            return false;
+        }
+
+        if ($question->type === QuestionType::Photo) {
+            return $this->photoStepContentSatisfied($question->key, $step['section_instance_key']);
+        }
+
+        return true;
+    }
+
+    private function photoStepContentSatisfied(string $questionKey, ?string $sectionInstanceKey): bool
+    {
+        return PhotoContentSatisfaction::isSatisfied($this->intake(), $questionKey, $sectionInstanceKey);
     }
 
     /**
@@ -1890,25 +2067,65 @@ class IntakeWizard extends Component
 
     /**
      * After an answer changes visibility, keep the wizard on the same question when possible.
+     * When the active question disappears, compare with the previous step list and move to
+     * the first remaining real task after the old step.
      */
     private function realignToActiveStep(): void
     {
+        $previousKeys = $this->knownStepKeys;
         $steps = $this->steps();
         if ($steps === []) {
             $this->stepIndex = 0;
             $this->activeStepKey = '';
+            $this->knownStepKeys = [];
 
             return;
         }
 
+        $newKeys = array_map(
+            static fn (array $step): string => $step['key'],
+            $steps,
+        );
+
         $preferredKey = $this->activeStepKey !== ''
             ? $this->activeStepKey
-            : ($steps[$this->stepIndex]['key'] ?? null);
+            : ($previousKeys[$this->stepIndex] ?? ($newKeys[$this->stepIndex] ?? null));
 
-        $this->stepIndex = app(IntakeStepBuilder::class)->indexForStepKey($steps, $preferredKey)
-            ?? min($this->stepIndex, count($steps) - 1);
+        $targetKey = null;
+
+        if (is_string($preferredKey) && in_array($preferredKey, $newKeys, true)) {
+            $targetKey = $preferredKey;
+        } elseif (is_string($preferredKey) && $previousKeys !== []) {
+            $oldIndex = array_search($preferredKey, $previousKeys, true);
+
+            if ($oldIndex !== false) {
+                for ($i = $oldIndex + 1; $i < count($previousKeys); $i++) {
+                    if (in_array($previousKeys[$i], $newKeys, true)) {
+                        $targetKey = $previousKeys[$i];
+                        break;
+                    }
+                }
+            }
+        }
+
+        if ($targetKey === null && $previousKeys !== []) {
+            // Geen opvolger: neem de laatste eerdere stap die nog bestaat.
+            for ($i = count($previousKeys) - 1; $i >= 0; $i--) {
+                if (in_array($previousKeys[$i], $newKeys, true)) {
+                    $targetKey = $previousKeys[$i];
+                    break;
+                }
+            }
+        }
+
+        $index = $targetKey === null
+            ? null
+            : app(IntakeStepBuilder::class)->indexForStepKey($steps, $targetKey);
+
+        $this->stepIndex = $index ?? min(max(0, $this->stepIndex), count($steps) - 1);
         $this->clampStepIndex($steps);
         $this->syncActiveStepKey($steps);
+        $this->knownStepKeys = $newKeys;
         $this->rememberCurrentCursor();
     }
 
@@ -1934,9 +2151,6 @@ class IntakeWizard extends Component
         $this->stepIndex = min(max(0, $this->stepIndex), count($steps) - 1);
     }
 
-    /**
-     * Livewire client callback: attach measured network ms to an explicit saved upload.
-     */
     public function recordNetworkUploadTiming(int $uploadId, int $ms): void
     {
         if ($ms < 0 || $uploadId <= 0) {

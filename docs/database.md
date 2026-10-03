@@ -1,6 +1,6 @@
 # Databaseschema — Digitale Opname
 
-> **Documentversie:** 3.14 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.15 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: dit document beschrijft het **geïmplementeerde schema**, inclusief de uitbreidende dossiermigratie van BL-030 en BL-035 t/m BL-042 en de zelfstandige publieke interesse-inzendingen van BL-043. Bestaande antwoord-, bron-, upload-, review- en routetabellen blijven bewust bestaan naast de nieuwe dossierobjecten.
 
@@ -359,6 +359,7 @@ BL-007 genereert voorstellen automatisch na eerste afronding en opnieuw na een a
 | `size_bytes` | unsigned bigint | |
 | `checksum` | string nullable | Optioneel SHA-256 |
 | `usability_verdict` | string nullable | BL-007: lokale fotokwaliteit-indicatie (`ok`/`too_dark`/`too_small`), `PhotoUsabilityVerdict`. Nooit blokkerend. |
+| `content_assessment` | json nullable | BL-119: categorie-/inhoudsoordeel (`ok`/`wrong_subject`/`needs_clearer`/`not_assessed`) met expected/detected subject en klantmelding. |
 | `sort_order` | unsigned int | |
 | `timestamps` | | |
 | `deleted_at` | soft delete | |
