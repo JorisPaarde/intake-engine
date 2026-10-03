@@ -15,12 +15,16 @@ use App\Domains\Intake\Models\IntakeExternalFact;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\CompletenessChecker;
+use App\Domains\Intake\Services\DecisionReadinessService;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\ExternalFactPresenter;
+use App\Domains\Intake\Services\FollowUpProgressCalculator;
 use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Domains\Intake\Services\ProgressCalculator;
+use App\Domains\Intake\Services\WorkspacePrimaryActionResolver;
 use App\Domains\Intake\Support\InternalCustomerQuestions;
 use App\Domains\Intake\Support\TechnicalDecisionKeys;
+use App\Enums\DecisionAreaStatus;
 use App\Enums\FollowUpItemType;
 use App\Enums\IntakeStatus;
 use App\Livewire\Customer\IntakeWizard;
@@ -518,13 +522,25 @@ test('P1 case 81 Stroomtoevoer: buitenunitfoto waarschuwt maar blokkeert afronde
         'evidence' => 'Foto toont een buitenunit met leiding, geen meterkast.',
     ]);
 
-    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->assertSet('followUpMode', true)
         ->set('followUpPhotoFiles.'.$item->id, klanttestLivewireUpload('buitenunit-leiding.jpeg'))
         ->call('assessPendingUploads')
         ->assertHasErrors('followUpPhotoFiles.'.$item->id)
         ->assertSee('buitenunit')
-        ->assertSee('meterkast')
+        ->assertSee('meterkast');
+
+    $item->refresh()->load('uploads');
+    $progress = app(FollowUpProgressCalculator::class)
+        ->calculate(collect([$item]));
+
+    expect($progress['percent'])->toBe(0)
+        ->and($progress['item_statuses'][$item->id]['status'])->toBe('mismatch')
+        ->and($progress['item_statuses'][$item->id]['label'])->toBe('Nog te vervangen');
+
+    $component
+        ->assertSeeHtml('data-testid="follow-up-progress-percent">0%')
+        ->assertSee('Nog te vervangen')
         ->call('completeFollowUp')
         ->assertHasNoErrors('follow_up')
         ->assertSet('completed', true);
@@ -534,7 +550,71 @@ test('P1 case 81 Stroomtoevoer: buitenunitfoto waarschuwt maar blokkeert afronde
     expect($upload)->not->toBeNull()
         ->and($upload->contentAssessment()?->status())->toBe(PhotoContentAssessment::STATUS_WRONG_SUBJECT)
         ->and($upload->contentAssessment()?->installerLabel())->toContain('AI: lijkt')
-        ->and($upload->contentAssessment()?->installerLabel())->toContain('controleer');
+        ->and($upload->contentAssessment()?->installerLabel())->toContain('controleer')
+        ->and($upload->contentAssessment()?->followUpMismatchReason())
+        ->toBe('Ontvangen foto lijkt een buitenunit, geen meterkast — handmatig controleren');
+
+    $areas = app(DecisionReadinessService::class)
+        ->recalculate($intake->fresh());
+    $power = $areas->firstWhere('key', 'power');
+
+    expect($power)->not->toBeNull()
+        ->and($power->status)->toBe(DecisionAreaStatus::Blocked)
+        ->and($power->blocker)->toBe(
+            'Ontvangen foto lijkt een buitenunit, geen meterkast — handmatig controleren',
+        );
+
+    $overview = app(WorkspacePrimaryActionResolver::class)
+        ->overviewItem($intake->fresh(), $power);
+
+    expect($overview['is_open'])->toBeTrue()
+        ->and($overview['detail'])->toBe(
+            'Ontvangen foto lijkt een buitenunit, geen meterkast — handmatig controleren',
+        );
+});
+
+test('Volgende zonder Toch doorgaan bij wrong_subject toont waarschuwing en blijft staan', function () {
+    $intake = makeKlanttestIntake();
+
+    FakeAiClient::alwaysReturn([
+        'room_type' => 'unknown',
+        'room_size_indication' => 'unknown',
+        'sun_exposure' => 'unknown',
+        'glass_amount' => 'unknown',
+        'room_outlet_status' => 'needs_photo',
+        'detected_subject' => 'fusebox',
+        'subject_match' => 'no',
+        'confidence' => 'low',
+        'evidence' => 'Foto toont een meterkast, geen ruimte.',
+        'retake_instruction' => 'Dit is een meterkast; we hebben een foto van de hele ruimte vanuit de deuropening nodig.',
+    ]);
+
+    app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
+    $intake->update([
+        'current_section_key' => 'rooms',
+        'current_question_key' => 'room_photos',
+        'current_section_instance_key' => 'room-1',
+    ]);
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('photoFiles.room-1__room_photos', klanttestLivewireUpload('meterkast-groot.jpg'))
+        ->call('assessPendingUploads')
+        ->set('activeStepKey', 'rooms::room-1::room_photos')
+        ->assertSee('Dit is een meterkastfoto')
+        ->assertSee('Vervang foto')
+        ->assertSee('Toch doorgaan');
+
+    $stepBefore = $component->get('activeStepKey');
+    $indexBefore = $component->get('stepIndex');
+
+    $component
+        ->call('next')
+        ->assertSet('showMissing', true)
+        ->assertSet('activeStepKey', $stepBefore)
+        ->assertSet('stepIndex', $indexBefore)
+        ->assertSee('Vervang de foto of kies expliciet “Toch doorgaan”')
+        ->assertSeeHtml('data-testid="mismatch-next-warning"')
+        ->assertSeeHtml('data-testid="footer-mismatch-warning"');
 });
 
 test('ExternalFactPresenter toont pipe_route-voorstel met bron en onzekerheid', function () {

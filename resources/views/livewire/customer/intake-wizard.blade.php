@@ -36,6 +36,9 @@
             </div>
             @if (! $completed && ($progressTotal ?? 0) > 0)
                 <p class="mt-1 text-xs text-[#5e6862]">{{ $progressAnswered ?? 0 }} van {{ $progressTotal }} taken afgerond</p>
+                @if (($progressPercent ?? 0) < 100 && ($progressRequiredComplete ?? false))
+                    <p class="mt-1 text-xs text-[#5e6862]">Verplicht klaar — nog enkele optionele vragen</p>
+                @endif
             @endif
             @if (! empty($progressExtraNote))
                 <p class="mt-2 rounded-lg border border-[#dde2da] bg-white px-3 py-2 text-sm text-[#414b45]" role="status" data-testid="progress-extra-note">
@@ -152,7 +155,7 @@
         </div>
 
         @if ($showMissing)
-            <div class="mb-4 rounded-xl border border-[#eac3b4] bg-white px-4 py-3 text-sm text-[#a84832]" role="alert">
+            <div class="mb-4 rounded-xl border border-[#eac3b4] bg-white px-4 py-3 text-sm text-[#a84832]" role="alert" aria-live="assertive" data-testid="step-missing-alert">
                 @if ($completionMissing !== [])
                     <p class="font-medium">Nog niet alles is ingevuld.</p>
                     <ul class="mt-2 list-none space-y-1.5 pl-0 text-[#414b45]">
@@ -425,6 +428,11 @@
                                             <p class="text-sm text-[#414b45]">
                                                 {{ $photoMismatchAssessment->customerMessage() ?? "Deze foto lijkt niet bij de vraag te horen." }}
                                             </p>
+                                            @if ($showMissing)
+                                                <p class="text-sm font-medium text-[#a84832]" data-testid="mismatch-next-warning">
+                                                    Vervang de foto of kies expliciet “Toch doorgaan”.
+                                                </p>
+                                            @endif
                                             <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
                                                 <button
                                                     type="button"
@@ -493,6 +501,11 @@
                     </button>
                 @endif
             </div>
+            @if ($showMissing && $photoMismatchAssessment)
+                <p class="mt-2 text-center text-xs font-medium text-[#a84832]" data-testid="footer-mismatch-warning" role="alert" aria-live="assertive">
+                    Vervang de foto of kies expliciet “Toch doorgaan”.
+                </p>
+            @endif
             <p class="mt-3 text-center text-xs text-[#5e6862]">
                 Je voortgang blijft bewaard via deze link tot je afrondt.
             </p>

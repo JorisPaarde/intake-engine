@@ -366,10 +366,14 @@ class IntakeWizard extends Component
             'demoInstallerReturnUrl' => $demoCustomerPath
                 ? route('intakes.show', $intake)
                 : null,
-            'progressPercent' => $this->completed ? 100 : $progress['percent'],
+            'progressPercent' => $this->displayProgressPercent(
+                $progress['percent'],
+                $this->stepIndex >= count($steps) - 1,
+            ),
             'progressAnswered' => $progress['answered_required'],
             'progressTotal' => $progress['total_required'],
             'progressExtraNote' => $this->progressExtraNote,
+            'progressRequiredComplete' => $progress['missing_required'] === [] && $progress['total_required'] > 0,
             'uploadPhase' => $this->uploadPhase,
             'uploadPhaseMessage' => $this->uploadPhaseMessage,
             'uploadPhaseComposite' => $this->uploadPhaseComposite,
@@ -1874,6 +1878,7 @@ class IntakeWizard extends Component
 
         if (! $this->currentStepRequiredSatisfied()) {
             $this->showMissing = true;
+            $this->completionMissing = [];
             $this->saveMessage = '';
 
             return;
@@ -2711,5 +2716,26 @@ class IntakeWizard extends Component
         return $upload instanceof IntakeUpload
             ? $this->correlationIdForUpload($upload)
             : null;
+    }
+
+    /**
+     * UI-percentage: taakgebaseerd (BL-120), maar 100% alleen wanneer het klantdeel
+     * echt klaar is — afgerond, of op de laatste stap met alle verplichte taken gedaan.
+     * Zo blijft de balk consistent met "Vraag X van Y" en gaat hij niet naar 100%
+     * terwijl er nog stappen openstaan.
+     */
+    private function displayProgressPercent(int $taskPercent, bool $isLastStep): int
+    {
+        if ($this->completed) {
+            return 100;
+        }
+
+        $percent = max(0, min(100, $taskPercent));
+
+        if ($percent >= 100 && ! $isLastStep) {
+            return 99;
+        }
+
+        return $percent;
     }
 }

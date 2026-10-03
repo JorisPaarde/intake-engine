@@ -2,11 +2,13 @@
 
 declare(strict_types=1);
 
+use App\Domains\AI\Clients\FakeAiClient;
 use App\Domains\Intake\Actions\CompleteIntake;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StoreFollowUpUpload;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Actions\SubmitIntakeReview;
+use App\Domains\Intake\Models\ContributionTask;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeTemplate;
@@ -448,4 +450,84 @@ test('progressExtraNote verdwijnt bij next na foto-analyse', function () {
         ->set('progressExtraNote', 'Na je foto hebben we nog één vraag: test')
         ->call('next')
         ->assertSet('progressExtraNote', '');
+});
+
+test('wizard toont geen 100% terwijl er nog stappen openstaan na verplichte taken', function () {
+    $intake = makeP2ProgressIntake();
+    fillKlanttestIntakeUntilComplete($intake);
+    $intake->refresh();
+
+    $version = $intake->templateVersion()->with(['sections.questions.rules'])->firstOrFail();
+    $progress = app(ProgressCalculator::class)->calculate($intake, $version);
+    $check = app(CompletenessChecker::class)->check($intake, $version);
+
+    expect($progress['percent'])->toBe(100)
+        ->and($progress['missing_required'])->toBe([])
+        ->and($check['is_complete'])->toBeTrue();
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+    $steps = $component->viewData('steps');
+    expect(count($steps))->toBeGreaterThan(1);
+
+    // Start niet op de laatste stap: UI-cap 99% zodat balk consistent blijft met Vraag X van Y.
+    $component
+        ->set('stepIndex', 0)
+        ->call('$refresh');
+
+    $percentAtStart = (int) $component->viewData('progressPercent');
+    $isLastAtStart = (bool) $component->viewData('isLastStep');
+
+    expect($isLastAtStart)->toBeFalse()
+        ->and($percentAtStart)->toBe(99)
+        ->and($percentAtStart)->toBeLessThan(100);
+
+    $lastIndex = count($steps) - 1;
+    $component->set('stepIndex', $lastIndex)->call('$refresh');
+
+    expect((bool) $component->viewData('isLastStep'))->toBeTrue()
+        ->and((int) $component->viewData('progressPercent'))->toBe(100)
+        ->and((bool) $component->viewData('progressRequiredComplete'))->toBeTrue();
+});
+
+test('follow-up wrong_subject telt niet mee voor 100% tot foto vervangen is', function () {
+    config([
+        'ai.provider' => 'fake',
+        'ai.photo_inference.enabled' => true,
+    ]);
+    FakeAiClient::reset();
+    FakeAiClient::alwaysReturn([
+        'detected_subject' => 'outdoor_unit',
+        'subject_match' => 'no',
+        'evidence' => 'Foto toont een buitenunit, geen meterkast.',
+    ]);
+
+    $intake = makeP2FollowUpIntake([
+        [
+            'type' => FollowUpItemType::Photo,
+            'prompt' => 'Voeg een duidelijke meterkastfoto toe',
+            'decision_area_key' => 'power',
+        ],
+    ]);
+    $item = $intake->followUpRounds()->with('items')->firstOrFail()->items->firstOrFail();
+
+    // Zorg dat contribution task de decision_area_key power heeft.
+    ContributionTask::query()
+        ->where('intake_follow_up_item_id', $item->id)
+        ->update(['decision_area_key' => 'power']);
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->assertSet('followUpMode', true)
+        ->set('followUpPhotoFiles.'.$item->id, p2FixtureUpload('buitenunit-leiding.jpeg'))
+        ->call('assessPendingUploads')
+        ->assertSeeHtml('data-testid="follow-up-progress-percent">0%')
+        ->assertSee('Nog te vervangen');
+
+    $item->refresh()->load('uploads');
+    $progress = app(FollowUpProgressCalculator::class)->calculate(collect([$item]));
+
+    expect($progress['percent'])->toBe(0)
+        ->and($progress['completed'])->toBe(0)
+        ->and($progress['item_statuses'][$item->id]['status'])->toBe('mismatch');
+
+    FakeAiClient::reset();
 });
