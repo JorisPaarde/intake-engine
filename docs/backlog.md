@@ -1,10 +1,6 @@
 # Backlog — Digitale Opname
 
-<<<<<<< HEAD
-> **Documentversie:** 4.84 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
-=======
-> **Documentversie:** 4.83 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
->>>>>>> 7967e53 (Fix show blade compile + queue assessment in follow-up tests)
+> **Documentversie:** 4.85 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -47,12 +43,8 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
 | 1 | BL-117 | Installateur kan technisch open punt afhandelen vanuit de survey-werkplek | E7/E8 | backlog | high | na PR #115 · show/rapport `*_open` |
-<<<<<<< HEAD
-| — | BL-130 | Follow-up: mismatch-override, klantcopy, review per ronde, reassessment | E1/E4/E7 | in_progress | high | na BL-123 · case 81b · PR #125 |
+| — | BL-130 | Follow-up: mismatch-override, klantcopy, review per ronde, reassessment | E1/E4/E7 | done | high | na BL-123 · case 81b · PR #125 |
 | — | BL-129 | Klant-UX review v1.3.0: bedankt, foto-feedback, één voortgang, known-data, closing | E1/E5/E7 | done | high | na BL-124 · airco v22 · views/tekst · PR #134 |
-=======
-| — | BL-129 | Follow-up: mismatch-override, klantcopy, review per ronde, reassessment | E1/E4/E7 | done | high | na BL-123 · case 81b · PR #125 |
->>>>>>> 7967e53 (Fix show blade compile + queue assessment in follow-up tests)
 | — | BL-128 | Grote telefoonfoto: inactiviteit-timeout + client-downscale + 8 MB + lege-200-retry | E1/E7 | done | high | A · na BL-124/127 · staging intake 78 · PR #131 |
 | — | BL-127 | Foto-assessment: terminale status, soft-timeout, ai_runs.upload_id, watchdog | E4 | done | high | na #124 · staging intake 78 · PR #133 |
 | — | BL-126 | Prompt/vision quality: route-categorie, ownership, kamernamen, free_group/glas | E3/E4/E9 | done | high | AI/foto · na BL-119/122 · PR #126 |
