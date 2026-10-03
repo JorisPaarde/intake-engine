@@ -31,6 +31,8 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
   2. Ronde 2 toonde de interne diagnose (“Ontvangen foto lijkt… handmatig controleren”) als klantopdracht. `ContextualCustomerTaskBuilder` zet dat om naar actiegerichte je-tekst (“Maak een nieuwe, duidelijke foto van je meterkast”); installateursreden blijft op het beslisgebied. Advies niet meer dubbel (hint herhaalt geen prompt).
   3. Installateursreview toonde na een goede ronde-2-foto alleen de oude mismatch. Per ronde nu verdict + “Bruikbaar bewijs”; eerdere mismatch gemarkeerd als **Vervangen door nieuwere ronde** (`FollowUpEvidenceReview`).
   4. Case 81b: vervangende meterkastfoto kon “Beoordeeld”/100% tonen zonder nieuwe AI-run, terwijl het open punt de oude reden hield. Nieuwe upload dispatcht `AssessUploadedPhotoJob` opnieuw; `hasFuseboxPhoto` telt solving follow-up-powerfoto’s; mismatch-reden verdwijnt na OK-bewijs.
+  5. Installateur-show (`intakes/show`): `@php($…)` short-form brak Blade-compilatie (`unexpected endif` → HTTP 500 op alle dossierpagina’s). Blokvorm `@php`/`@endphp`; tests seeden/runnen queue-assessment vóór follow-up submit.
+
 ### Changed
 
 - **Queue/cron (BL-121):** fotobeoordeling op `ai-photo`; Laravel-scheduler start elke minuut (als nodig) een lange `queue:work --queue=ai-photo,default --max-time=3300 --memory=256 --sleep=1` met `withoutOverlapping(60)` + `runInBackground` (mutex vrij via `schedule:finish`; herstart na deploy/`queue:restart` binnen ~1–3 min ondanks cPanel `RANDOM_DELAY`). Minutelijk `--stop-when-empty` blijft het vangnet — zie `docs/DEPLOYMENT.md`.
