@@ -33,10 +33,12 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = fotobeoordeling via queue (#124, done). **BL-122** = soft catalogus-prefill (case 81). **BL-123** = staging-retest acceptance (#115–#120). **BL-124** = form robustness (#127, done). **BL-125** = AI-trace retentie/export + PDF-downscale (#130, done). **BL-126** = prompt/vision quality (route/ownership/kamernamen). **BL-127** = foto-assessment terminale status + watchdog (#133, done). **BL-128** = grote telefoonfoto-upload (inactiviteit-timeout + client-downscale + lege-200-retry). Nieuwe items starten bij BL-129.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = fotobeoordeling via queue (#124, done). **BL-122** = soft catalogus-prefill (case 81). **BL-123** = staging-retest acceptance (#115–#120). **BL-124** = form robustness (#127, done). **BL-125** = AI-trace retentie/export + PDF-downscale (#130, done). **BL-126** = prompt/vision quality (route/ownership/kamernamen). **BL-127** = foto-assessment terminale status + watchdog (#133, done). **BL-128** = grote telefoonfoto-upload (inactiviteit-timeout + client-downscale + lege-200-retry). **BL-129** = strikte dossiersynthese + partial accept + budget (#123). **BL-130** = prefill-provenance + aannames (#123). Nieuwe items starten bij BL-131.
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
 | 1 | BL-117 | Installateur kan technisch open punt afhandelen vanuit de survey-werkplek | E7/E8 | backlog | high | na PR #115 · show/rapport `*_open` |
+| — | BL-130 | Prefill-provenance + aannames in dossier | E3/E4/E9 | done | high | na BL-122/116 · PR #123 |
+| — | BL-129 | AI: strikte dossiersynthese-output + partial accept + fractionele budgetteller | E4/E9 | done | high | na BL-109 · staging 76/77/run-243 · PR #123 |
 | — | BL-128 | Grote telefoonfoto: inactiviteit-timeout + client-downscale + 8 MB + lege-200-retry | E1/E7 | done | high | A · na BL-124/127 · staging intake 78 · PR #131 |
 | — | BL-127 | Foto-assessment: terminale status, soft-timeout, ai_runs.upload_id, watchdog | E4 | done | high | na #124 · staging intake 78 · PR #133 |
 | — | BL-126 | Prompt/vision quality: route-categorie, ownership, kamernamen, free_group/glas | E3/E4/E9 | in_progress | high | AI/foto · na BL-119/122 · parallel dossier-synthesis || — | BL-125 | AI-trace retentie na demo-purge, export, request_id, PDF-downscale | E4/E5 | done | high | AI/ops · na BL-116 · demo-purge · PR #130 |
@@ -634,7 +636,7 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Doel:** route-categorie mapping + prompts; OwnershipNormalizer; room_name→installer labels; unknown i.p.v. gok; classification temperature 0 via config (zonder OpenAiClient-internals).
 - **Scope:** extraction/prefill/photo-assessment prompts + PhotoSubject/PhotoContentAssessment mapping (compatibel met `AssessUploadedPhotoJob`); géén dossier-synthesis/OpenAiClient.
 - **Acceptatie:** fixture-test routefoto; ownership-phrasings; room_name sync + skip; Vervang foto/Toch doorgaan intact; lege woonkamer geen extra stopcontactvraag; `composer check` groen.
-### BL-128 — Prefill-provenance + aannames in dossier
+### BL-130 — Prefill-provenance + aannames in dossier
 
 - **Status:** done · **Datum:** 2026-10-03 · **PR:** #123 · **Prioriteit:** high · **Epic:** E3/E4/E9 · **Volgt op:** BL-122/116 · **Ref:** prod-test intakes 82/84/86 (gpt-4o-mini)
 - **Aanleiding:** `noise_sensitive` e.d. inferred als bevestigd; installateursdossier toonde raw keys zonder bron/zekerheid.
@@ -643,7 +645,7 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Acceptatie:** Pest voor balkon→aanname + NL labels; `composer check` groen.
 - **Resultaat:** `fact_provenance`, dossier aannames met veldlabel/bron/zekerheid; geen raw keys in de installateursweergave. Extra in #123: NL AI-voorstel-labels + stated ownership/room_name skip-tests.
 
-### BL-127 — AI: strikte dossiersynthese-output + fractionele budgetteller
+### BL-129 — AI: strikte dossiersynthese-output + fractionele budgetteller
 
 - **Status:** done · **Datum:** 2026-10-03 · **PR:** #123 · **Prioriteit:** high · **Epic:** E4/E9 · **Volgt op:** BL-109 · **Ref:** staging/prod Gemini+OpenRouter; ai_runs 3 okt 2026; staging intakes 76/77
 - **Aanleiding:** dossiersynthese faalde op élk model (`connections`/`placement_references`/`subject_reference`/`evidence_references`; 20s timeout bij 8–12 beelden). Budgetteller boekte min. 1 cent terwijl Gemini ~0,1–0,5 cent kost; dossier-runs misten `image_count`/tokens. Prod run-243: `subject:298` i.p.v. placement-ref. Staging 76/77: `room:ID`-refs, te korte cardinality, wrong-subject als bewijs, tegenspraak free_group, herhaalde muurfoto-taak.
