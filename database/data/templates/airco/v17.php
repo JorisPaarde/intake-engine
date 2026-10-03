@@ -1,16 +1,15 @@
 <?php
 
 declare(strict_types=1);
-use App\Domains\Intake\Support\TechnicalDecisionKeys;
 
 /**
  * Airco template v17 — technische beslissingen uit de klantflow (klanttest 2026-10-02 P0 / BL-116).
  *
- * `meta.installer_decision` markeert technische sleutels (zie TechnicalDecisionKeys).
- * De klantwizard filtert op die sleutellijst + meta (ADR-0015); geen apart is_required-mechanisme.
+ * Klantfilter: alleen TechnicalDecisionKeys (ADR-0015); geen meta.installer_decision.
  *
- * Condens: drain_location is optionele observatie; drain_photo verplicht als afvoer
- * leeg/onbekend is, verborgen bij concreet antwoord. outdoor_mount_type is optionele wens.
+ * Condens: drain_location is optionele observatie met zichtbare keuzes; drain_photo is
+ * altijd zichtbaar — verplicht bij leeg/“Weet ik niet”, anders optioneel.
+ * outdoor_mount_type is optionele wens.
  *
  * Gepubliceerde v1–v16 blijven inhoudelijk ongewijzigd (ADR-0001); runtime-filter dekt open links.
  *
@@ -21,7 +20,7 @@ use App\Domains\Intake\Support\TechnicalDecisionKeys;
 $config = require __DIR__.'/v16.php';
 
 $config['version'] = 17;
-$config['change_notes'] = 'Klanttest P0/BL-116: installer_decision-meta; optionele drain_location + afvoerfoto; optionele outdoor_mount-wens; technische sleutels uit klantflow.';
+$config['change_notes'] = 'Klanttest P0/BL-116: optionele drain_location-observatie + altijd zichtbare afvoerfoto; optionele outdoor_mount-wens; technische sleutels uit klantflow via TechnicalDecisionKeys.';
 
 /** @var list<array<string, mixed>> $sections */
 $sections = $config['sections'];
@@ -36,31 +35,41 @@ foreach ($sections as $sectionIndex => $section) {
             continue;
         }
 
-        $meta = is_array($question['meta'] ?? null) ? $question['meta'] : [];
-
-        if (TechnicalDecisionKeys::contains($key)) {
-            $meta['installer_decision'] = true;
-            $questions[$questionIndex]['meta'] = $meta;
-        }
-
         if ($key === 'drain_location') {
             $questions[$questionIndex]['label'] = 'Waar zie je in de buurt een afvoer? (optioneel)';
-            $questions[$questionIndex]['help_text'] = 'Alleen wat je ziet of vermoedt. Weet je het niet, kies dan “Weet ik niet” of sla over — daarna vragen we een foto. De installateur bepaalt pomp, afschot en route.';
+            $questions[$questionIndex]['help_text'] = 'Alleen wat je ziet of vermoedt. Weet je het niet, kies dan “Weet ik niet” of sla over — we vragen altijd een foto. De installateur bepaalt pomp, afschot en route.';
             $questions[$questionIndex]['is_required'] = false;
+            $questions[$questionIndex]['options'] = [
+                [
+                    'value' => 'outside_nearby',
+                    'label' => 'Regenpijp of putje buiten in de buurt',
+                    'sort_order' => 1,
+                ],
+                [
+                    'value' => 'indoor_nearby',
+                    'label' => 'Afvoer binnen in de buurt (keuken, badkamer, wasmachine)',
+                    'sort_order' => 2,
+                ],
+                [
+                    'value' => 'unknown',
+                    'label' => 'Weet ik niet',
+                    'sort_order' => 3,
+                ],
+            ];
         }
 
         if ($key === 'drain_photo') {
             $questions[$questionIndex]['label'] = 'Foto van de plek waar condenswater weg kan';
             $questions[$questionIndex]['help_text'] = 'Laat dakgoot, regenpijp, tuin, gevel of een andere afvoerplek zien. Je hoeft niet te beoordelen of er een pomp nodig is.';
             $questions[$questionIndex]['photo_instructions'] = 'Maak één of meer foto’s van de plek waar water weg zou kunnen. Liefst met de omgeving erbij.';
-            // Verplicht zolang zichtbaar: zichtbaar als afvoer leeg of “Weet ik niet”.
-            $questions[$questionIndex]['is_required'] = true;
+            // Altijd zichtbaar; verplicht alleen bij lege of onbekende afvoerobservatie.
+            $questions[$questionIndex]['is_required'] = false;
             $questions[$questionIndex]['rules'] = [
                 [
                     'source_question_key' => 'drain_location',
                     'operator' => 'not_in',
-                    'value' => ['values' => ['gutter', 'garden', 'sewer', 'outside_wall']],
-                    'effect' => 'show',
+                    'value' => ['values' => ['outside_nearby', 'indoor_nearby']],
+                    'effect' => 'require',
                 ],
             ];
         }

@@ -74,7 +74,7 @@ test('airco latest template keeps free_group_known as installer decision outside
         ->firstOrFail();
 
     expect($freeGroup->is_required)->toBeTrue()
-        ->and($freeGroup->meta['installer_decision'] ?? null)->toBeTrue()
+        ->and($freeGroup->meta['installer_decision'] ?? null)->toBeNull()
         ->and($freeGroup->meta['skip_when_prefilled_by'] ?? null)->toBe(['ai'])
         ->and($freeGroup->rules)->toHaveCount(1)
         ->and($freeGroup->rules->first()->source_question_key)->toBe('fusebox_photo');

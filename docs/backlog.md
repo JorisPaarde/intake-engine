@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.64 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.65 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,10 +38,11 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace logging (#117) + klanttest P0 technische beslissingen (#115, v17). Nieuwe items starten bij BL-117.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Nieuwe items starten bij BL-118.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
+| 1 | BL-117 | Installateur kan technisch open punt afhandelen vanuit de survey-werkplek | E7/E8 | backlog | high | na PR #115 · show/rapport `*_open` |
 | — | BL-116 | AI-trace logging + P2 upload/analyse-timings (klanttest 2 okt) | E4/E9 | in_progress | high | AI · stap 1 herstelvolgorde · bij BL-028/104/109 · PR #117 |
 | — | BL-116 | Technische beslissingen uit klantvragen (pomp/route/boringen/stroom) | E3/E7 | done | high | klanttest 2026-10-02 P0 · airco v17 · PR #115 |
 | — | BL-115 | Gebruikte/ongeldige klantlink: NL-pagina i.p.v. kale 404 | E7 | done | medium | UX · bij BL-038/066 · demo-walk 24 sep |
@@ -559,16 +560,24 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Resultaat:** `pointer-events-none` op sticky container, `pointer-events-auto` op interactieve kinderen.
 - **Acceptatie:** staging: file-picker onder sticky bereikbaar.
 
+### BL-117 — Installateur kan technisch open punt afhandelen vanuit de survey-werkplek
+
+- **Status:** backlog · **Prioriteit:** high · **Epic:** E7/E8 · **Band:** na BL-116 · **Volgt op:** BL-116 · **Ref:** ADR-0015
+- **Aanleiding:** na BL-116 blijven technische `*_open`-punten (pomp, route, boringen, stroom) bewust open in show/rapport; er is nog geen UI/actie om ze vanuit de survey-werkplek af te handelen. Vandaag sluit ook niets anders attention points via antwoordbron.
+- **Doel:** de installateur kan een technisch open punt beoordelen en afronden vanuit de survey-werkplek, met herleidbaar besluit in het dossier.
+- **Scope:** werkplek-UX + persistente afhandeling van system `*_open`-punten; geen heropening van klanttechnische ja/nee.
+- **Niet in scope:** klantwizard-wijzigingen; AI die zelf sluit.
+- **Acceptatie:** open technisch punt is vanuit de werkplek afhandelbaar; status zichtbaar in show/rapport; Pest + `composer check` groen.
+
 ### BL-116 — Technische beslissingen uit klantvragen (klanttest 2026-10-02 P0)
 
 - **Status:** done · **Prioriteit:** high · **Datum:** 2026-10-03 · **PR:** #115 · **Epic:** E3/E7 · **Band:** klanttest P0 · **Volgt op:** BL-077/103 · **Ref:** productregels Joris + Notion-klanttest · **ADR:** [0015](decisions/0015-runtime-filter-technical-decision-questions.md)
 - **Aanleiding:** case 80 — na Condensafvoer “Weet ik niet” kreeg de klant een verplichte ja/nee over condenspomp; hetzelfde patroon bij leidingroute, boringen en technische stroomvragen.
 - **Doel:** klant toont situatie (foto/observatie) en wensen; technische beslissingen (pomp, route, boringen, elektrische voorziening) blijven open voor installateur; AI mag voorstellen; geen stilzwijgende ja/nee-default.
-- **Scope:** `TechnicalDecisionKeys` + runtime-klantfilter (ADR-0015); airco v17 `meta.installer_decision`; optionele `drain_location` + `drain_photo` bij leeg/onbekend; optionele `outdoor_mount_type`; AI-voorstellen sluiten open punten niet (label + bron/foto); `dossier-synthesis-v4` verbiedt technische klanttaken.
-- **Niet in scope:** foto-first/bekende velden (andere stroom), AI-fotoconclusie-stelligheid, interne-veldenfilter, voortgangs-UX; geen rebase op #117 tot gevraagd.
-- **Acceptatie:** klant rondt af zonder verzonnen techniek; “Weet ik niet” leidt niet tot verplichte technische ja/nee; open punten zichtbaar voor installateur (ook bij AI-voorstel met bron/foto); Pest + `composer check` groen.
-- **Resultaat:** PR #115; review-fixes (open bij AI, sleutelfilter v1–v16, drain/mount, prompt v4, fixtures).
-
+- **Scope:** alleen `TechnicalDecisionKeys` (geen meta-flag); runtime-klantfilter + zichtbaarheidsbypass in klantmodus (ADR-0015); airco v17 optionele drain-observatie (herformuleerde opties) + altijd zichtbare `drain_photo` (verplicht bij leeg/onbekend); optionele `outdoor_mount_type`; leesbare AI-/klantlabels op `*_open`; `dossier-synthesis-v4` verbiedt technische klanttaken.
+- **Niet in scope:** foto-first/bekende velden (andere stroom); afhandelen van open punten (BL-117); herberekenen open-puntlabel na late fotoafleiding; rebase op #117 tot gevraagd.
+- **Acceptatie:** klant rondt af zonder verzonnen techniek; “Weet ik niet” → afvoerfoto (ook op v16); open punten blijven staan (ook bij AI-/klantwaarde); Pest + `composer check` groen.
+- **Resultaat:** PR #115; review-rondes 1–2.
 ### BL-115 — Gebruikte/ongeldige klantlink: NL-pagina i.p.v. 404
 
 - **Status:** done · **Prioriteit:** medium · **Datum:** 2026-10-02 · **Epic:** E7 · **Volgt op:** BL-038/066

@@ -174,12 +174,13 @@ test('conditional show rules hide questions until matched', function () {
     $whenConcrete = app(VisibilityResolver::class)->resolveQuestion(
         $drainPhoto,
         null,
-        [VisibilityResolver::compositeKey('drain_location', null) => ['value' => 'gutter']],
+        [VisibilityResolver::compositeKey('drain_location', null) => ['value' => 'outside_nearby']],
         $questionTypes,
         $sectionsByKey,
     );
 
-    expect($whenConcrete['visible'])->toBeFalse();
+    expect($whenConcrete['visible'])->toBeTrue()
+        ->and($whenConcrete['required'])->toBeFalse();
 });
 
 test('hidden conditional questions are skipped in the question-per-step list', function () {
@@ -193,15 +194,17 @@ test('hidden conditional questions are skipped in the question-per-step list', f
         ->and($emptyKeys)->not->toContain('natural_fall_possible');
 
     app(SaveIntakeAnswer::class)->handle($intake, 'drain_location', null, [
-        'value' => 'gutter',
+        'value' => 'outside_nearby',
     ]);
     $intake->refresh();
 
-    $stepsHidden = app(IntakeStepBuilder::class)->build($intake, $version);
-    $hiddenKeys = array_column($stepsHidden, 'question_key');
+    $stepsAfter = app(IntakeStepBuilder::class)->build($intake, $version);
+    $afterKeys = array_column($stepsAfter, 'question_key');
+    $drainStep = collect($stepsAfter)->firstWhere('question_key', 'drain_photo');
 
-    expect($hiddenKeys)->not->toContain('drain_photo')
-        ->and($hiddenKeys)->not->toContain('natural_fall_possible');
+    expect($afterKeys)->toContain('drain_photo')
+        ->and($afterKeys)->not->toContain('natural_fall_possible')
+        ->and($drainStep['is_required'])->toBeFalse();
 });
 
 test('livewire string booleans satisfy required checks and allow next', function () {

@@ -171,7 +171,7 @@ test('technical decision keys are shared and hidden from the latest customer wiz
     }
 });
 
-test('v16 pinned intake also hides technical decisions after Weet ik niet on drain_location', function () {
+test('v16 pinned intake shows drain_photo after Weet ik niet despite hidden natural_fall rule', function () {
     $intake = makeKlanttestP0Intake(16);
     expect($intake->templateVersion->version)->toBe(16);
 
@@ -185,7 +185,8 @@ test('v16 pinned intake also hides technical decisions after Weet ik niet on dra
         ->and($steps)->not->toContain('pipe_route_description')
         ->and($steps)->not->toContain('drillings_needed')
         ->and($steps)->not->toContain('free_group_known')
-        ->and($steps)->not->toContain('pipe_distance_indication');
+        ->and($steps)->not->toContain('pipe_distance_indication')
+        ->and($steps)->toContain('drain_photo');
 });
 
 test('case 80 reproduction: Weet ik niet on drain_location does not force natural_fall ja/nee', function () {
@@ -234,6 +235,23 @@ test('case 80 reproduction: Weet ik niet on drain_location does not force natura
         ->assertDontSee('Zijn er waarschijnlijk gaten door muren of vloeren nodig?');
 });
 
+test('drain_photo stays visible and optional after a concrete drain_location observation', function () {
+    $intake = makeKlanttestP0Intake();
+
+    app(SaveIntakeAnswer::class)->handle($intake, 'drain_location', null, [
+        'value' => 'outside_nearby',
+    ]);
+
+    $version = $intake->templateVersion()
+        ->with(['sections.questions.options', 'sections.questions.rules'])
+        ->firstOrFail();
+    $drainStep = collect(app(IntakeStepBuilder::class)->build($intake->fresh(), $version))
+        ->firstWhere('question_key', 'drain_photo');
+
+    expect($drainStep)->not->toBeNull()
+        ->and($drainStep['is_required'])->toBeFalse();
+});
+
 test('acceptance: customer can complete without inventing technical answers; installer sees open points', function () {
     $intake = makeKlanttestP0Intake();
 
@@ -267,8 +285,7 @@ test('acceptance: customer can complete without inventing technical answers; ins
     expect($codes)->toContain('condensate_pump_open')
         ->and($codes)->toContain('pipe_route_open')
         ->and($codes)->toContain('drillings_open')
-        ->and($codes)->toContain('electrical_provision_open')
-        ->and($codes)->not->toContain('condensate_pump_likely');
+        ->and($codes)->toContain('electrical_provision_open');
 
     $completed = app(CompleteIntake::class)->handle($intake->fresh());
 
@@ -280,7 +297,7 @@ test('acceptance: customer can complete without inventing technical answers; ins
         ->toContain('electrical_provision_open');
 });
 
-test('AI drillings_needed=false keeps drillings_open as proposal for the installer', function () {
+test('AI drillings_needed=false keeps drillings_open as readable proposal for the installer', function () {
     $intake = makeKlanttestP0Intake();
 
     FakeAiClient::alwaysReturn([
@@ -319,13 +336,11 @@ test('AI drillings_needed=false keeps drillings_open as proposal for the install
     $drillingsPoint = collect($check['attention_points'])->firstWhere('code', 'drillings_open');
 
     expect($drillingsPoint)->not->toBeNull()
-        ->and($drillingsPoint['label'])->toStartWith('AI-voorstel:')
-        ->and($drillingsPoint['label'])->toContain('nee')
-        ->and($drillingsPoint['label'])->toContain('nog te beoordelen')
-        ->and($drillingsPoint['label'])->toContain('bron: ai')
-        ->and($drillingsPoint['label'])->toContain('foto: pipe_route_photos#');
+        ->and($drillingsPoint['label'])->toBe(
+            'AI-voorstel: Nee, nog te beoordelen (afgeleid uit foto bij Leidingroute)',
+        );
 
-    // Installateursbesluit sluit het open punt.
+    // Installateursantwoord sluit het open punt niet (geen afhandelingskoppeling; BL-117).
     app(SaveIntakeAnswer::class)->handle(
         $intake->fresh(),
         'drillings_needed',
@@ -336,5 +351,25 @@ test('AI drillings_needed=false keeps drillings_open as proposal for the install
 
     $afterInstaller = app(CompletenessChecker::class)->check($intake->fresh(), $version);
     expect(collect($afterInstaller['attention_points'])->pluck('code')->all())
-        ->not->toContain('drillings_open');
+        ->toContain('drillings_open');
+});
+
+test('existing customer technical answer on pinned intake stays open with Klant gaf aan label', function () {
+    $intake = makeKlanttestP0Intake(16);
+
+    app(SaveIntakeAnswer::class)->handle(
+        $intake,
+        'natural_fall_possible',
+        null,
+        ['bool' => false],
+    );
+
+    $version = $intake->fresh()->templateVersion()
+        ->with(['sections.questions.options', 'sections.questions.rules'])
+        ->firstOrFail();
+    $check = app(CompletenessChecker::class)->check($intake->fresh(), $version);
+    $point = collect($check['attention_points'])->firstWhere('code', 'condensate_pump_open');
+
+    expect($point)->not->toBeNull()
+        ->and($point['label'])->toBe('Klant gaf aan: Nee, nog te beoordelen');
 });

@@ -322,6 +322,7 @@ final class IntakeStepBuilder
             $context['questionTypes'],
             $context['sectionsByQuestionKey'],
             $targets,
+            customerMode: true,
         );
     }
 

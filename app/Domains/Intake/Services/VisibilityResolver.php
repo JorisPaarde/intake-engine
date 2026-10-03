@@ -7,6 +7,7 @@ namespace App\Domains\Intake\Services;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeQuestionRule;
 use App\Domains\Intake\Models\IntakeSection;
+use App\Domains\Intake\Support\TechnicalDecisionKeys;
 use App\Enums\QuestionType;
 use App\Enums\RuleEffect;
 use App\Enums\RuleOperator;
@@ -32,6 +33,7 @@ final class VisibilityResolver
         array $questionTypes,
         array $sectionsByQuestionKey,
         array $targets,
+        bool $customerMode = false,
     ): array {
         $questionsByKey = $questions->keyBy('key');
 
@@ -53,6 +55,7 @@ final class VisibilityResolver
                 $answers,
                 $questionTypes,
                 $sectionsByQuestionKey,
+                $customerMode,
             );
         }
 
@@ -71,6 +74,7 @@ final class VisibilityResolver
         array $answers,
         array $questionTypes,
         array $sectionsByQuestionKey,
+        bool $customerMode = false,
     ): array {
         $showRules = $question->rules->filter(
             static fn (IntakeQuestionRule $rule): bool => $rule->effect === RuleEffect::Show,
@@ -84,6 +88,7 @@ final class VisibilityResolver
                 $answers,
                 $questionTypes,
                 $sectionsByQuestionKey,
+                $customerMode,
             ),
         );
 
@@ -103,6 +108,7 @@ final class VisibilityResolver
                 $answers,
                 $questionTypes,
                 $sectionsByQuestionKey,
+                $customerMode,
             ),
         );
 
@@ -133,7 +139,15 @@ final class VisibilityResolver
         array $answers,
         array $questionTypes,
         array $sectionsByQuestionKey,
+        bool $customerMode = false,
     ): bool {
+        // Klantmodus (ADR-0015): regels waarvan de bron een verborgen technische
+        // sleutel is, tellen als voldaan zodat afhankelijke klantvragen (foto's)
+        // zichtbaar blijven op gepinde v1–v16-templates.
+        if ($customerMode && TechnicalDecisionKeys::contains($rule->source_question_key)) {
+            return true;
+        }
+
         $sourceType = $questionTypes[$rule->source_question_key] ?? null;
 
         if (! $sourceType instanceof QuestionType) {

@@ -137,16 +137,17 @@ test('airco template seeder publishes v1 through v17 with v17 as latest', functi
         ->firstOrFail();
 
     expect($freeGroup->is_required)->toBeTrue()
-        ->and($freeGroup->meta['installer_decision'] ?? null)->toBeTrue()
+        ->and($freeGroup->meta['installer_decision'] ?? null)->toBeNull()
         ->and($freeGroup->label)->toBe('Is er een vrije groep in de meterkast?')
         ->and($freeGroup->meta['skip_when_prefilled_by'] ?? null)->toBe(['ai'])
         ->and($freeGroup->rules)->toHaveCount(1)
         ->and($freeGroup->rules->first()->source_question_key)->toBe('fusebox_photo')
-        ->and($naturalFall->meta['installer_decision'] ?? null)->toBeTrue()
-        ->and($pipeRoute->meta['installer_decision'] ?? null)->toBeTrue()
-        ->and($drillings->meta['installer_decision'] ?? null)->toBeTrue()
+        ->and($naturalFall->meta['installer_decision'] ?? null)->toBeNull()
+        ->and($pipeRoute->meta['installer_decision'] ?? null)->toBeNull()
+        ->and($drillings->meta['installer_decision'] ?? null)->toBeNull()
         ->and($drainPhoto->label)->toContain('condenswater')
-        ->and($drainPhoto->is_required)->toBeTrue()
+        ->and($drainPhoto->is_required)->toBeFalse()
+        ->and($drainPhoto->rules->pluck('effect')->map->value->all())->toContain('require')
         ->and($drainPhoto->rules->pluck('operator')->map->value->all())->toContain('not_in')
         ->and($fuseboxPhoto->meta['photo_analysis'] ?? null)->toBe('fusebox')
         ->and($fuseboxPhoto->is_required)->toBeTrue()
@@ -174,6 +175,11 @@ test('airco template seeder publishes v1 through v17 with v17 as latest', functi
 
     expect($drainLocation->is_required)->toBeFalse()
         ->and($drainLocation->label)->toContain('optioneel')
+        ->and($drainLocation->options()->pluck('value')->all())->toBe([
+            'outside_nearby',
+            'indoor_nearby',
+            'unknown',
+        ])
         ->and($outdoorMount->is_required)->toBeFalse()
         ->and($outdoorMount->options()->where('value', 'unknown')->value('label'))->toBe('Geen voorkeur')
         ->and($outdoorMount->help_text)->toContain('installateur');

@@ -372,7 +372,7 @@ test('pipe route and distance stay out of the customer wizard as installer decis
         ->firstWhere('key', 'pipe_distance_indication');
 
     expect($distance)->not->toBeNull()
-        ->and($distance->meta['installer_decision'] ?? null)->toBeTrue()
+        ->and($distance->meta['installer_decision'] ?? null)->toBeNull()
         ->and(intentStepKeys($intake))->not->toContain('pipe_route_description')
         ->and(intentStepKeys($intake))->not->toContain('pipe_distance_indication');
 
