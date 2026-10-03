@@ -1,6 +1,6 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 3.17 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.18 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **samenvatting, aandachtspunten, lokale fotokwaliteit, tekst-/foto-afleiding, verbindingsgebonden routeanalyse en bewijsgerichte dossiersynthese zijn geïmplementeerd**. Externe provider en tekst-/foto-/route-/dossierinferentie staan standaard uit (provider + key + featurevlaggen + budgetcaps; soft-fail zonder die config). OpenAI-compatibele gateways (o.a. OpenRouter) via `AI_BASE_URL`.
 
@@ -136,7 +136,7 @@ Doel: per mislukte/onjuiste uitkomst aantonen of de fout in model, prompt, parse
 | Effect | `dossier_before`/`dossier_after` (+ `changed_fields`), `remaining_questions_before`/`after` via `IntakeStepBuilder::buildCatalog` (reasons + next unanswered visible) |
 | P2-timings | `persist_ms` / `network_upload_ms` (client: upload-progress → `ai-upload-stored` → `recordNetworkUploadTiming` / `recordNetworkUploadMs`), `preprocess_ms`, `provider_ms`, `process_ms` (`stopProcessTimer` vóór after-snapshots) |
 
-**Geïnstrumenteerde acties:** `PrefillAnswersFromKnownContext`, `DerivePhotoAnswers`, `AssessFuseboxPhotos`, `SynthesizeSurveyDossier`, `AnalyzeRoutePhoto`, `SynthesizePipeRoute`, `SuggestInstallerPhotoObservations`, `SummarizeIntake`, `SuggestAttentionPoints` (+ lokale `AssessPhotoUsability`). Foto-refs via `AiTracePhotoRefBuilder` (width/height + dossier/analyse-variant uit upload timings). Transactiestappen via `beginBuffer()`/`flushBuffer()`/`discardBuffer()`. `model_parameters` komen uit `AiCompletionResult`, niet hardcoded. `fail($msg, $exception)` bewaart `provider_ms`/raw/finish/tokens bij clientfouten.
+**Geïnstrumenteerde acties:** `PrefillAnswersFromKnownContext`, `DerivePhotoAnswers`, `AssessFuseboxPhotos`, `AssessFollowUpPhotoSubject`, `SynthesizeSurveyDossier`, `AnalyzeRoutePhoto`, `SynthesizePipeRoute`, `SuggestInstallerPhotoObservations`, `SummarizeIntake`, `SuggestAttentionPoints` (+ lokale `AssessPhotoUsability`). Foto-refs via `AiTracePhotoRefBuilder` (width/height + dossier/analyse-variant uit upload timings). Transactiestappen via `beginBuffer()`/`flushBuffer()`/`discardBuffer()`. `model_parameters` komen uit `AiCompletionResult`, niet hardcoded. `fail($msg, $exception)` bewaart `provider_ms`/raw/finish/tokens bij clientfouten.
 
 **Helper voor parallelle stromen:** `AiTraceRecorder::start($intake, AiTraceCallType::…)` bouwt een **unsaved** `AiTrace`; `$trace->step(…)`, `recordFieldOutcomes`, `recordDossierSnapshots($before, $after, $changedFields)`, `succeed()` / `fail($msg, $exception)` schrijven pas. Zie PR-beschrijving van BL-116.
 
@@ -242,6 +242,17 @@ Server-side validatie vóór opslaan. Ongeldige output = `failed`.
 - Idempotent en database-uniek op `(intake, source, code)`: automatische heranalyse dupliceert niet en respecteert een eerdere accept/dismiss-beslissing. Queuejobs voor dezelfde intake gebruiken `WithoutOverlapping`. Alle writers van providercontext (antwoorden, uploads, follow-ups, verrijkingsfeiten, reviews, foto-afleidingen en leidingroutes), voorstelopslag en installateursbeslissingen locken eerst dezelfde intake-row en daarna pas childrecords. Externe providercalls blijven buiten transacties. Vlak vóór voorstelopslag wordt onder de intake-lock de actuele begrensde context opnieuw gehasht; wijkt die af van `ai_runs.input_hash`, dan is het providerresultaat stale en wordt niets toegepast. `SuggestAttentionPointsJob` wordt automatisch gepland bij de eerste afronding én opnieuw na iedere afgeronde aanvullende ronde. Er is geen genereer-/opnieuw-knop of handmatige endpoint; de installateur beoordeelt alleen de voorstellen. Contextbouw, hashing, providercall, validatie en opslag vallen allemaal binnen de soft-failgrens; een fout blokkeert de kernflow niet.
 - Prompt `attention_points-v3` beoordeelt het volledige dossier integraal. Elk voorstel bevat verplicht `confidence` en minimaal één concrete `evidence`-referentie. Elke combinatie van `source_type` en `reference` wordt server-side gecontroleerd tegen exact de naar de provider verzonden context; onbekende of verkeerd getypeerde modelreferenties maken de run ongeldig. Geldige provenance wordt machineleesbaar opgeslagen en vóór acceptatie getoond. Legacy AI-voorstellen zonder valide confidence/evidence worden tijdens de hardeningmigratie verwijderd en zijn ook server-side niet accepteerbaar. De prompt moet bronconflicten, onzekerheden en ontbrekende gegevens expliciet signaleren zonder afleidingen als bevestigde feiten te presenteren.
 - Rapportrebuilds en AI-samenvattingspersistentie locken de intake en laden aandachtspunten opnieuw, zodat een stale relation-cache een recente installateursbeslissing niet kan overschrijven. Na acceptatie wordt de HTML direct herbouwd en een nieuwe PDF-job ingepland.
+
+## Foto-categorie en stelligheid (BL-119)
+
+- Foto-afleiding (`DerivePhotoAnswers`, `AssessFuseboxPhotos`) beoordeelt **elke upload zonder assessment** (ook buiten het `max_images`-venster). `subject_match=no` → altijd `wrong_subject` (detected of `other`), nooit `ok`/`needs_clearer`. AI-fout of inference uit → `not_assessed` (nooit null). Fabriek: `PhotoContentAssessment::fromModelOutput`. Per-upload AiTrace (`PhotoAnalysis`) blijft (#117).
+- Klant: `wrong_subject` soft-blockt verplichte foto’s — **Vervang foto** (verwijdert wrong upload + opent picker) en **Toch doorgaan**. Banner verdwijnt zodra `PhotoContentSatisfaction` tevreden is; verkeerde foto houdt installateursbadge. Bestaande `content_assessment` wordt niet overschreven. `not_assessed` is alleen voor de installateur.
+- `retake_instruction` op een bruikbare match → `needs_clearer` (ongeacht confidence).
+- Meterkast-mismatch zet **geen** `fusebox_clarity=needs_clearer_photo`; één taak: vervang de foto.
+- Technische routeconclusies staan alleen als dossierfeit (`pipe_route_photos_derivation`). Model-`drillings_needed=no` → `unknown` + voorstelnotitie. Prompt `pipe-route-assessment-v3`.
+- Interne velden `fusebox_clarity` / `room_outlet_status` nooit in klantstappen (`InternalCustomerQuestions`). Routevoorstellen via `TechnicalDecisionKeys::ROUTE_PROPOSAL_KEYS` (één class met #115-KEYS/`aiPrefillSources()`).
+- Follow-up: accepted subjects per `decision_area_key` (power→fusebox; refrigerant→pipe_route|outdoor_unit). Async beoordeling → BL-120.
+- `DecisionReadinessService::hasFuseboxPhoto` en voortgang gebruiken `PhotoContentSatisfaction`.
 
 ## Fotokwaliteit (BL-007)
 

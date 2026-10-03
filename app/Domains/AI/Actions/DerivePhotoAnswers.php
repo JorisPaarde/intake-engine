@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\AI\Actions;
 
-use App\Domains\AI\DTOs\AiImageInput;
 use App\Domains\AI\Models\AiRun;
-use App\Domains\AI\Services\AiEnumNormalizer;
 use App\Domains\AI\Services\AiGateway;
 use App\Domains\AI\Services\AiImageResolver;
 use App\Domains\AI\Services\AiTracePhotoRefBuilder;
@@ -14,7 +12,9 @@ use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\AI\Services\AiTraceSnapshotService;
 use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\AI\Support\DerivedAnswerField;
+use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\AI\Support\PhotoDerivationProfile;
+use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
@@ -23,6 +23,7 @@ use App\Domains\Intake\Models\IntakeAttentionPoint;
 use App\Domains\Intake\Models\IntakeExternalFact;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Support\PrefillSources;
+use App\Domains\Intake\Support\TechnicalDecisionKeys;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
 use App\Enums\AiTraceCallType;
@@ -42,17 +43,8 @@ use Throwable;
  * Derives confirmable answers from an uploaded photo set, for any question that opts in
  * through `meta.photo_analysis` (BL-020 generalised beyond the fusebox).
  *
- * Confidence decides how much work the applicant is left with:
- *   - `high`   → answer stored as SOURCE_DERIVED (`ai_photo`); the step disappears via
- *                `meta.skip_when_prefilled_by` including `ai_photo`. The evidence stays visible
- *                in the dossier as an external fact, so nothing is a hidden assumption.
- *   - `medium` → answer stored as SOURCE_SUGGESTED; the question is still asked, but
- *                pre-filled as a voorzet the applicant only has to confirm.
- *   - `low` or `unknown` → nothing stored; the question is asked normally.
- *
- * Re-uploading photos invalidates every earlier *photo* derivation for that photo question
- * and section instance. Text-derived facts (`request_text` / `ai_text`) are never wiped or
- * silently overwritten; a conflicting photo value becomes an installer attention point.
+ * Each newly uploaded photo is assessed separately (one verdict per upload). Technical
+ * route conclusions never become customer intake_answers — only installer-side facts.
  */
 final class DerivePhotoAnswers
 {
@@ -81,33 +73,218 @@ final class DerivePhotoAnswers
         PhotoDerivationProfile $profile,
         ?string $correlationId = null,
     ): ?AiRun {
-        $uploads = $this->uploads($intake, $photoQuestionKey, $sectionInstanceKey);
+        $expected = PhotoSubject::expectedForPhotoQuestion($photoQuestionKey, $profile->name)
+            ?? PhotoSubject::Other;
 
-        if ($uploads->isEmpty()) {
+        $allUploads = $this->allUploads($intake, $photoQuestionKey, $sectionInstanceKey);
+
+        if ($allUploads->isEmpty()) {
             $this->invalidateDerivedState($intake, $photoQuestionKey, $sectionInstanceKey, $profile);
 
             return null;
         }
 
         if (! (bool) config('ai.photo_inference.enabled', false)) {
+            foreach ($allUploads as $upload) {
+                if ($upload->contentAssessment() === null) {
+                    $upload->storeContentAssessment(PhotoContentAssessment::notAssessed($expected));
+                }
+            }
+
             return null;
         }
 
+        $recentIds = $this->recentUploadIds($allUploads);
+        $lastRun = null;
+        $matchingOutputs = [];
+        $anyMismatch = false;
+        $assessedAny = false;
+
+        foreach ($allUploads as $upload) {
+            // Alleen uploads zonder assessment — bestaande content_assessment blijft staan.
+            if ($upload->contentAssessment() !== null) {
+                $existing = $upload->contentAssessment();
+                if ($existing->status() === PhotoContentAssessment::STATUS_WRONG_SUBJECT
+                    && ! $existing->customerAcceptedMismatch()) {
+                    $anyMismatch = true;
+                }
+
+                continue;
+            }
+
+            $assessedAny = true;
+            $run = $this->assessUpload(
+                $intake,
+                $upload,
+                $photoQuestionKey,
+                $sectionInstanceKey,
+                $profile,
+                $expected,
+                $correlationId,
+            );
+            $lastRun = $run;
+
+            $freshUpload = $upload->fresh() ?? $upload;
+            $assessment = $freshUpload->contentAssessment();
+
+            // Garantie: nooit null na beoordelingspoging.
+            if ($assessment === null) {
+                $freshUpload->storeContentAssessment(PhotoContentAssessment::notAssessed($expected));
+                $assessment = $freshUpload->fresh()?->contentAssessment()
+                    ?? PhotoContentAssessment::notAssessed($expected);
+            }
+
+            if ($assessment->status() === PhotoContentAssessment::STATUS_WRONG_SUBJECT
+                && ! $assessment->customerAcceptedMismatch()) {
+                $anyMismatch = true;
+
+                continue;
+            }
+
+            if ($run->status === AiRunStatus::Succeeded
+                && is_array($run->output)
+                && ($run->output['subject_match'] ?? 'yes') === 'yes'
+                && in_array($upload->id, $recentIds, true)) {
+                $matchingOutputs[] = $run->output;
+            }
+        }
+
+        // Geen nieuwe beoordeling én geen onopgeloste mismatch → afleidingen intact.
+        if (! $assessedAny && ! $anyMismatch) {
+            return AiRun::query()
+                ->where('intake_id', $intake->id)
+                ->where('type', AiRunType::PhotoAssessment)
+                ->where('status', AiRunStatus::Succeeded)
+                ->latest('id')
+                ->first() ?? $lastRun;
+        }
+
+        // Alleen invalideren bij succesvolle match of onopgeloste mismatch — nooit bij pure AI-fout.
+        if ($matchingOutputs === [] && ! $anyMismatch) {
+            return $lastRun;
+        }
+
+        $this->invalidateDerivedState($intake, $photoQuestionKey, $sectionInstanceKey, $profile);
+
+        if ($matchingOutputs !== []) {
+            $output = $this->mergeOutputs($matchingOutputs, $profile);
+            $matchingUploads = $allUploads->filter(static function (IntakeUpload $upload) use ($recentIds): bool {
+                if (! in_array($upload->id, $recentIds, true)) {
+                    return false;
+                }
+
+                $fresh = $upload->fresh() ?? $upload;
+                $assessment = $fresh->contentAssessment();
+
+                if ($assessment === null) {
+                    return true;
+                }
+
+                return $assessment->status() !== PhotoContentAssessment::STATUS_WRONG_SUBJECT
+                    || $assessment->customerAcceptedMismatch();
+            })->values();
+
+            if ($lastRun instanceof AiRun && is_array($output)) {
+                DB::transaction(function () use ($intake, $lastRun, $output, $matchingUploads, $photoQuestionKey, $sectionInstanceKey, $profile, $anyMismatch): void {
+                    $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
+
+                    if (! in_array($lockedIntake->status, [IntakeStatus::Sent, IntakeStatus::InProgress], true)) {
+                        throw new \RuntimeException('Opname is afgerond tijdens AI-analyse; resultaat niet toegepast.');
+                    }
+
+                    if ($this->hasRoomTypeTextConflict($intake, $output, $sectionInstanceKey, $profile)) {
+                        $this->storeObservation($intake, $lastRun, $output, $matchingUploads, $photoQuestionKey, $sectionInstanceKey, $profile);
+                        $applied = ['derived' => [], 'suggested' => []];
+                    } else {
+                        $this->storeObservation($intake, $lastRun, $output, $matchingUploads, $photoQuestionKey, $sectionInstanceKey, $profile);
+                        $applied = $this->applyDerivedAnswers($intake, $output, $sectionInstanceKey, $profile);
+                    }
+
+                    IntakeActivityEvent::query()->create([
+                        'intake_id' => $intake->id,
+                        'actor_type' => 'system',
+                        'actor_id' => null,
+                        'event' => 'photo_answers_derived',
+                        'properties' => [
+                            'ai_run_id' => $lastRun->id,
+                            'profile' => $profile->name,
+                            'question_key' => $photoQuestionKey,
+                            'section_instance_key' => $sectionInstanceKey,
+                            'confidence' => $output['confidence'],
+                            'subject_match' => $output['subject_match'] ?? null,
+                            'detected_subject' => $output['detected_subject'] ?? null,
+                            'derived_question_keys' => $applied['derived'],
+                            'suggested_question_keys' => $applied['suggested'],
+                            'content_mismatch' => $anyMismatch,
+                        ],
+                        'created_at' => now(),
+                    ]);
+                }, 3);
+            }
+        } elseif ($anyMismatch && $lastRun instanceof AiRun) {
+            IntakeActivityEvent::query()->create([
+                'intake_id' => $intake->id,
+                'actor_type' => 'system',
+                'actor_id' => null,
+                'event' => 'photo_answers_derived',
+                'properties' => [
+                    'ai_run_id' => $lastRun->id,
+                    'profile' => $profile->name,
+                    'question_key' => $photoQuestionKey,
+                    'section_instance_key' => $sectionInstanceKey,
+                    'content_mismatch' => true,
+                    'derived_question_keys' => [],
+                    'suggested_question_keys' => [],
+                ],
+                'created_at' => now(),
+            ]);
+        }
+
+        return $lastRun;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $outputs
+     * @return array<string, mixed>|null
+     */
+    private function mergeOutputs(array $outputs, PhotoDerivationProfile $profile): ?array
+    {
+        if ($outputs === []) {
+            return null;
+        }
+
+        $rank = static fn (string $confidence): int => match ($confidence) {
+            'high' => 3,
+            'medium' => 2,
+            default => 1,
+        };
+
+        usort($outputs, static function (array $a, array $b) use ($rank): int {
+            return $rank((string) ($b['confidence'] ?? 'low')) <=> $rank((string) ($a['confidence'] ?? 'low'));
+        });
+
+        return $outputs[0];
+    }
+
+    private function assessUpload(
+        Intake $intake,
+        IntakeUpload $upload,
+        string $photoQuestionKey,
+        ?string $sectionInstanceKey,
+        PhotoDerivationProfile $profile,
+        PhotoSubject $expected,
+        ?string $correlationId = null,
+    ): AiRun {
         $promptVersion = $this->promptVersions->version($profile->promptName);
         $promptBody = $this->promptVersions->body($profile->promptName);
-        $persistenceManifest = $uploads->map(fn (IntakeUpload $upload): array => [
-            'id' => $upload->id,
-            ...$this->aiImageResolver->identity($upload),
-        ])->values()->all();
 
         $input = [
             'task' => 'derive_answers_from_photos',
             'profile' => $profile->name,
             'expected_fields' => $this->schema($profile),
-            'images' => $uploads
-                ->map(fn (IntakeUpload $upload): array => $this->aiImageResolver->identity($upload))
-                ->values()
-                ->all(),
+            'expected_subject' => $expected->value,
+            'images' => [$this->aiImageResolver->identity($upload)],
+            'upload_id' => $upload->id,
         ];
 
         $inputHash = hash('sha256', (string) json_encode([
@@ -123,12 +300,11 @@ final class DerivePhotoAnswers
             ->latest('id')
             ->first();
 
-        if ($existing instanceof AiRun) {
+        if ($existing instanceof AiRun && is_array($existing->output)) {
+            $this->applyUploadAssessment($upload, $expected, $existing->output);
+
             return $existing;
         }
-
-        // Do NOT invalidate before the provider call succeeds — a failed AI call must
-        // never wipe existing dossier answers (klanttest 2026-10-02).
 
         $run = AiRun::query()->create([
             'intake_id' => $intake->id,
@@ -142,19 +318,19 @@ final class DerivePhotoAnswers
             'started_at' => now(),
         ]);
 
-        $latestUpload = $uploads->sortByDesc('id')->first();
-        $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoAnalysis, array_filter([
+        $correlationId ??= (string) Str::uuid();
+
+        $trace = $this->traceRecorder->start($intake, AiTraceCallType::PhotoAnalysis, [
             'ai_run_id' => $run->id,
-            'upload_id' => $latestUpload?->id,
+            'upload_id' => $upload->id,
             'subject_type' => 'section',
             'subject_id' => $sectionInstanceKey ?? $photoQuestionKey,
             'provider' => (string) config('ai.provider', 'null'),
             'prompt_version' => $promptVersion,
             'correlation_id' => $correlationId,
-        ], static fn (mixed $value): bool => $value !== null));
-        if ($latestUpload !== null) {
-            $trace->linkUpload($latestUpload);
-        }
+        ]);
+        $trace->linkUpload($upload);
+
         $dossierBefore = [];
         $questionsBefore = [];
         if (! $trace->isNoop()) {
@@ -165,11 +341,8 @@ final class DerivePhotoAnswers
         try {
             $photoRefs = [];
             if (! $trace->isNoop()) {
-                $photoRefs = $uploads->map(
-                    fn (IntakeUpload $upload): array => $this->photoRefBuilder->fromUpload($upload, $profile->name),
-                )->values()->all();
+                $photoRefs = [$this->photoRefBuilder->fromUpload($upload, $profile->name)];
             }
-
             $trace->recordRequest(
                 systemAndUser: [
                     'system' => $promptBody,
@@ -183,22 +356,12 @@ final class DerivePhotoAnswers
                 prompt: $promptBody,
                 input: $input,
                 promptVersion: $promptVersion,
-                images: $this->imageInputs($uploads),
+                images: [$this->aiImageResolver->input($upload)],
             );
             $trace->recordProviderResult($result);
 
-            try {
-                [$output, $normalizations] = $this->validateOutput($result->output, $profile);
-                $trace->recordParsed($output, [], $normalizations);
-            } catch (ValidationException $exception) {
-                $trace->recordParsed([], $exception->errors());
-                throw $exception;
-            }
-            $trace->step('normalize', [
-                'profile' => $profile->name,
-                'confidence' => $output['confidence'],
-                'normalization_count' => count($normalizations),
-            ]);
+            $output = $this->validateOutput($result->output, $profile);
+            $trace->recordParsed($output, []);
 
             $run->update($run->completionResultAttributes($result) + [
                 'status' => AiRunStatus::Succeeded,
@@ -207,79 +370,13 @@ final class DerivePhotoAnswers
                 'finished_at' => now(),
             ]);
 
-            $run = $run->fresh() ?? $run;
+            $this->applyUploadAssessment($upload, $expected, $output);
 
-            try {
-                DB::transaction(function () use ($intake, $run, $output, $uploads, $photoQuestionKey, $sectionInstanceKey, $profile, $persistenceManifest, $trace): void {
-                    $trace->beginBuffer();
-                    $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
-
-                    if (! in_array($lockedIntake->status, [IntakeStatus::Sent, IntakeStatus::InProgress], true)) {
-                        throw new \RuntimeException('Opname is afgerond tijdens AI-analyse; resultaat niet toegepast.');
-                    }
-
-                    $currentManifest = $this->uploads($intake, $photoQuestionKey, $sectionInstanceKey)
-                        ->map(fn (IntakeUpload $upload): array => [
-                            'id' => $upload->id,
-                            ...$this->aiImageResolver->identity($upload),
-                        ])->values()->all();
-
-                    if ($currentManifest !== $persistenceManifest) {
-                        throw new \RuntimeException('Foto’s gewijzigd tijdens AI-analyse; resultaat niet toegepast.');
-                    }
-
-                    // room_type-conflict met tekst: oude foto-velden behouden, geen klantfills.
-                    if ($this->hasRoomTypeTextConflict($intake, $output, $sectionInstanceKey, $profile)) {
-                        $this->storeObservation($intake, $run, $output, $uploads, $photoQuestionKey, $sectionInstanceKey, $profile);
-                        $applied = ['derived' => [], 'suggested' => []];
-                        $trace->step('room_type_text_conflict', [
-                            'photo_question_key' => $photoQuestionKey,
-                            'section_instance_key' => $sectionInstanceKey,
-                        ]);
-                    } else {
-                        // Invalidate only after a successful, validated provider result.
-                        $this->invalidateDerivedState($intake, $photoQuestionKey, $sectionInstanceKey, $profile);
-                        $trace->step('invalidate_previous', [
-                            'photo_question_key' => $photoQuestionKey,
-                            'section_instance_key' => $sectionInstanceKey,
-                        ]);
-                        $this->storeObservation($intake, $run, $output, $uploads, $photoQuestionKey, $sectionInstanceKey, $profile);
-                        $applied = $this->applyDerivedAnswers($intake, $output, $sectionInstanceKey, $profile);
-                        $trace->step('apply', $applied);
-                    }
-                    $trace->recordFieldOutcomes(
-                        $this->fieldOutcomesFromPhoto($intake, $output, $profile, $applied, $sectionInstanceKey),
-                    );
-
-                    IntakeActivityEvent::query()->create([
-                        'intake_id' => $intake->id,
-                        'actor_type' => 'system',
-                        'actor_id' => null,
-                        'event' => 'photo_answers_derived',
-                        // Keys and confidence only — never derived answer values in logs (ADR-0002).
-                        'properties' => [
-                            'ai_run_id' => $run->id,
-                            'ai_trace_id' => $trace->traceId(),
-                            'profile' => $profile->name,
-                            'question_key' => $photoQuestionKey,
-                            'section_instance_key' => $sectionInstanceKey,
-                            'confidence' => $output['confidence'],
-                            'derived_question_keys' => $applied['derived'],
-                            'suggested_question_keys' => $applied['suggested'],
-                        ],
-                        'created_at' => now(),
-                    ]);
-                }, 3);
-                $trace->flushBuffer();
-            } catch (Throwable $transactionException) {
-                $trace->discardBuffer();
-                throw $transactionException;
-            }
-
-            $trace->linkAiRun($run);
+            $trace->linkAiRun($run->fresh() ?? $run);
             $trace->stopProcessTimer();
             if (! $trace->isNoop()) {
-                $dossierAfter = $this->traceSnapshots->answers($intake->fresh() ?? $intake);
+                $freshIntake = $intake->fresh() ?? $intake;
+                $dossierAfter = $this->traceSnapshots->answers($freshIntake);
                 $trace->recordDossierSnapshots(
                     $dossierBefore,
                     $dossierAfter,
@@ -287,18 +384,20 @@ final class DerivePhotoAnswers
                 );
                 $trace->recordRemainingQuestions(
                     $questionsBefore,
-                    $this->traceSnapshots->remainingQuestions($intake->fresh() ?? $intake),
+                    $this->traceSnapshots->remainingQuestions($freshIntake),
                 );
             }
             $trace->succeed();
 
-            return $run;
+            return $run->fresh() ?? $run;
         } catch (Throwable $exception) {
+            $trace->linkAiRun($run->fresh() ?? $run);
+            $trace->fail($exception->getMessage(), $exception);
             Log::warning('AI photo answer derivation failed', [
                 'intake_id' => $intake->id,
                 'ai_run_id' => $run->id,
-                'ai_trace_id' => $trace->traceId(),
                 'profile' => $profile->name,
+                'upload_id' => $upload->id,
                 'exception' => $exception::class,
             ]);
 
@@ -307,9 +406,8 @@ final class DerivePhotoAnswers
                 'error_message' => Str::limit($exception->getMessage(), 1000, ''),
                 'finished_at' => now(),
             ]);
-            $trace->linkAiRun($run->fresh() ?? $run);
-            $trace->discardBuffer();
-            $trace->fail($exception->getMessage(), $exception);
+
+            $upload->storeContentAssessment(PhotoContentAssessment::notAssessed($expected));
 
             return $run->fresh() ?? $run;
         }
@@ -317,79 +415,16 @@ final class DerivePhotoAnswers
 
     /**
      * @param  array<string, mixed>  $output
-     * @param  array{derived: list<string>, suggested: list<string>}  $applied
-     * @return list<array<string, mixed>>
      */
-    private function fieldOutcomesFromPhoto(
-        Intake $intake,
-        array $output,
-        PhotoDerivationProfile $profile,
-        array $applied,
-        ?string $sectionInstanceKey,
-    ): array {
-        $outcomes = [];
-        $confidence = (string) ($output['confidence'] ?? 'low');
+    private function applyUploadAssessment(IntakeUpload $upload, PhotoSubject $expected, array $output): void
+    {
+        $previous = $upload->contentAssessment();
+        $assessment = PhotoContentAssessment::fromModelOutput($expected, $output)
+            ->preservingCustomerAcceptance($previous);
 
-        foreach ($profile->fields as $field) {
-            $key = $field->questionKey;
-            $hasKey = array_key_exists($field->outputKey, $output);
-            $rawValue = $hasKey ? (string) $output[$field->outputKey] : null;
-
-            if (in_array($key, $applied['derived'], true)) {
-                $outcomes[] = [
-                    'question_key' => $key,
-                    'output_key' => $field->outputKey,
-                    'disposition' => 'accepted',
-                    'confidence' => $confidence,
-                    'source' => self::SOURCE,
-                    'reason' => 'accepted_'.$confidence,
-                    'has_value' => true,
-                ];
-
-                continue;
-            }
-
-            if (in_array($key, $applied['suggested'], true)) {
-                $outcomes[] = [
-                    'question_key' => $key,
-                    'output_key' => $field->outputKey,
-                    'disposition' => 'suggested',
-                    'confidence' => $confidence,
-                    'source' => self::SOURCE,
-                    'reason' => 'suggested_'.$confidence,
-                    'has_value' => true,
-                ];
-
-                continue;
-            }
-
-            $reason = match (true) {
-                ! $hasKey => 'missing',
-                $rawValue === 'unknown' => 'unknown',
-                $confidence === 'low' => 'low_confidence',
-                ! $this->mayOverwrite($intake, $field, $sectionInstanceKey) => 'protected_user_edit',
-                default => 'skipped',
-            };
-
-            $outcomes[] = [
-                'question_key' => $key,
-                'output_key' => $field->outputKey,
-                'disposition' => 'rejected',
-                'confidence' => $confidence,
-                'source' => self::SOURCE,
-                'reason' => $reason,
-                'has_value' => $hasKey && $rawValue !== 'unknown',
-            ];
-        }
-
-        return $outcomes;
+        $upload->storeContentAssessment($assessment);
     }
 
-    /**
-     * Drops every answer and fact this profile previously derived for these photos, so a
-     * replaced photo never leaves a stale conclusion behind. Answers the applicant edited
-     * themselves (no AI prefill source) are left untouched.
-     */
     public function invalidateDerivedState(
         Intake $intake,
         string $photoQuestionKey,
@@ -412,16 +447,14 @@ final class DerivePhotoAnswers
                 ->where('source', self::SOURCE)
                 ->delete();
 
-            $questionKeys = $profile->questionKeys();
             $sources = PrefillSources::photoInvalidationSources();
-            // Legacy `ai`-rijen alleen wissen als er een AI-fotoanalyse-fact was (consistent met meterkast).
             if ($hadPhotoFact) {
                 $sources[] = PrefillSources::AI_LEGACY;
             }
 
             $query = IntakeAnswer::query()
                 ->where('intake_id', $intake->id)
-                ->whereIn('question_key', $questionKeys)
+                ->whereIn('question_key', $profile->questionKeys())
                 ->whereIn('prefill_source', array_values(array_unique($sources)));
 
             $sectionInstanceKey === null
@@ -447,6 +480,131 @@ final class DerivePhotoAnswers
         }
 
         return $schema;
+    }
+
+    /** @return Collection<int, IntakeUpload> */
+    private function allUploads(Intake $intake, string $photoQuestionKey, ?string $sectionInstanceKey): Collection
+    {
+        $query = IntakeUpload::query()
+            ->where('intake_id', $intake->id)
+            ->where('question_key', $photoQuestionKey);
+
+        $sectionInstanceKey === null
+            ? $query->whereNull('section_instance_key')
+            : $query->where('section_instance_key', $sectionInstanceKey);
+
+        return $query->orderBy('id')->get()->values();
+    }
+
+    /**
+     * @param  Collection<int, IntakeUpload>  $all
+     * @return list<int>
+     */
+    private function recentUploadIds(Collection $all): array
+    {
+        $maximum = max(1, min(3, (int) config('ai.photo_inference.max_images', 2)));
+
+        return $all->sortByDesc('id')->take($maximum)->pluck('id')->map(static fn ($id): int => (int) $id)->all();
+    }
+
+    /**
+     * @param  array<string, mixed>  $output
+     * @return array<string, mixed>
+     */
+    private function validateOutput(array $output, PhotoDerivationProfile $profile): array
+    {
+        $subjectValues = array_map(
+            static fn (PhotoSubject $subject): string => $subject->value,
+            PhotoSubject::cases(),
+        );
+
+        $rules = [
+            'confidence' => ['required', Rule::in(['high', 'medium', 'low'])],
+            'evidence' => ['required', 'string', 'min:3', 'max:300'],
+            'retake_instruction' => ['nullable', 'string', 'min:5', 'max:300'],
+            'detected_subject' => ['nullable', Rule::in($subjectValues)],
+            'subject_match' => ['nullable', Rule::in(['yes', 'no'])],
+        ];
+
+        foreach ($profile->fields as $field) {
+            $rules[$field->outputKey] = ['required', Rule::in($field->schemaValues())];
+        }
+
+        $validator = Validator::make($output, $rules);
+
+        if ($validator->fails()) {
+            throw ValidationException::withMessages($validator->errors()->toArray());
+        }
+
+        /** @var array<string, mixed> $validated */
+        $validated = $validator->validated();
+
+        $validated['evidence'] = trim((string) $validated['evidence']);
+        $validated['retake_instruction'] = is_string($validated['retake_instruction'] ?? null)
+            ? trim((string) $validated['retake_instruction'])
+            : null;
+        $validated['detected_subject'] = is_string($validated['detected_subject'] ?? null)
+            ? $validated['detected_subject']
+            : null;
+        $validated['subject_match'] = is_string($validated['subject_match'] ?? null)
+            ? $validated['subject_match']
+            : 'yes';
+
+        return $validated;
+    }
+
+    /**
+     * @param  array<string, mixed>  $output
+     * @param  Collection<int, IntakeUpload>  $uploads
+     */
+    private function storeObservation(
+        Intake $intake,
+        AiRun $run,
+        array $output,
+        Collection $uploads,
+        string $photoQuestionKey,
+        ?string $sectionInstanceKey,
+        PhotoDerivationProfile $profile,
+    ): void {
+        $isPipeRoute = $profile->name === 'pipe_route';
+        $factOutput = $output;
+
+        if ($isPipeRoute && ($factOutput['drillings_needed'] ?? null) === 'no') {
+            // Afwezigheid van zichtbaar gat ≠ bewijs van geen doorboring.
+            $factOutput['drillings_needed'] = 'unknown';
+            $factOutput['drillings_proposal_note'] = 'geen bewijs voor doorboring zichtbaar';
+        }
+
+        IntakeExternalFact::query()->updateOrCreate(
+            [
+                'intake_id' => $intake->id,
+                'fact_key' => $this->factKey($photoQuestionKey, $sectionInstanceKey),
+                'source' => self::SOURCE,
+            ],
+            [
+                'label' => $isPipeRoute
+                    ? 'Voorstel leidingroute uit foto'
+                    : 'Automatische beoordeling van '.$photoQuestionKey,
+                'value' => [
+                    ...$factOutput,
+                    'profile' => $profile->name,
+                    'provider' => $run->provider,
+                    'model' => $run->model,
+                    'upload_ids' => $uploads->pluck('id')->values()->all(),
+                    'proposal_fields' => $isPipeRoute
+                        ? TechnicalDecisionKeys::ROUTE_PROPOSAL_KEYS
+                        : [],
+                    'uncertainty_note' => $isPipeRoute
+                        ? 'Technische route-/doorboringconclusies zijn voorstellen voor de installateur; afwezigheid van een zichtbaar gat bewijst geen “geen doorboring”.'
+                        : null,
+                    'reason' => is_string($factOutput['evidence'] ?? null) ? $factOutput['evidence'] : null,
+                ],
+                'source_reference' => 'ai-run:'.$run->id,
+                'source_url' => null,
+                'confidence' => $this->observationConfidence($profile, $factOutput),
+                'captured_at' => now(),
+            ],
+        );
     }
 
     /**
@@ -496,80 +654,7 @@ final class DerivePhotoAnswers
     }
 
     /**
-     * @param  array<string, mixed>  $output
-     * @return array{derived: list<string>, suggested: list<string>}
-     */
-    private function applyDerivedAnswers(
-        Intake $intake,
-        array $output,
-        ?string $sectionInstanceKey,
-        PhotoDerivationProfile $profile,
-    ): array {
-        $confidence = (string) $output['confidence'];
-        $applied = [];
-
-        // Conflict is al afgehandeld vóór invalidate; hier alleen fills.
-        // BL-074: stopcontactstatus altijd vastleggen zodat een extra wandfoto kan
-        // verschijnen — ook bij lage zekerheid — zonder een ja/nee-klantvraag.
-        if ($profile->name === 'room') {
-            $outletApplied = $this->applyRoomOutletStatus(
-                $intake,
-                $output,
-                $sectionInstanceKey,
-                $confidence,
-            );
-
-            if ($outletApplied !== null) {
-                $applied[] = $outletApplied;
-            }
-        }
-
-        if ($confidence === 'low') {
-            return ['derived' => $applied, 'suggested' => []];
-        }
-
-        $source = $confidence === 'high' ? self::SOURCE_DERIVED : self::SOURCE_SUGGESTED;
-
-        foreach ($profile->fields as $field) {
-            if ($field->questionKey === 'room_outlet_status') {
-                continue;
-            }
-
-            $value = (string) ($output[$field->outputKey] ?? 'unknown');
-
-            if ($value === 'unknown') {
-                continue;
-            }
-
-            $conflict = $this->textConflict($intake, $field, $sectionInstanceKey, $value);
-            if ($conflict !== null) {
-                $this->recordPhotoTextConflict($intake, $field->questionKey, $sectionInstanceKey, $conflict, $value);
-
-                continue;
-            }
-
-            if (! $this->mayOverwrite($intake, $field, $sectionInstanceKey)) {
-                continue;
-            }
-
-            $this->saveIntakeAnswer->handle(
-                $intake,
-                $field->questionKey,
-                $sectionInstanceKey,
-                $field->answerValue($value),
-                $source,
-            );
-
-            $applied[] = $field->questionKey;
-        }
-
-        return $confidence === 'high'
-            ? ['derived' => $applied, 'suggested' => []]
-            : ['derived' => [], 'suggested' => $applied];
-    }
-
-    /**
-     * @return array{source: string, value: mixed}|null
+     * @return array{source: string, value: array<string, mixed>}|null
      */
     private function textConflict(
         Intake $intake,
@@ -618,7 +703,7 @@ final class DerivePhotoAnswers
     }
 
     /**
-     * @param  array{source: string, value: mixed}  $conflict
+     * @param  array{source: string, value: array<string, mixed>}  $conflict
      */
     private function recordPhotoTextConflict(
         Intake $intake,
@@ -663,6 +748,97 @@ final class DerivePhotoAnswers
             ],
             'is_resolved' => false,
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $output
+     */
+    private function observationConfidence(PhotoDerivationProfile $profile, array $output): string
+    {
+        if ($profile->name === 'pipe_route') {
+            return 'low';
+        }
+
+        return ($output['subject_match'] ?? 'yes') === 'no' ? 'low' : 'medium';
+    }
+
+    /**
+     * @param  array<string, mixed>  $output
+     * @return array{derived: list<string>, suggested: list<string>}
+     */
+    private function applyDerivedAnswers(
+        Intake $intake,
+        array $output,
+        ?string $sectionInstanceKey,
+        PhotoDerivationProfile $profile,
+    ): array {
+        $confidence = (string) $output['confidence'];
+        $applied = [];
+
+        if ($profile->name === 'room') {
+            $outletApplied = $this->applyRoomOutletStatus(
+                $intake,
+                $output,
+                $sectionInstanceKey,
+                $confidence,
+            );
+
+            if ($outletApplied !== null) {
+                $applied[] = $outletApplied;
+            }
+        }
+
+        if ($confidence === 'low') {
+            return ['derived' => $applied, 'suggested' => []];
+        }
+
+        $source = $confidence === 'high' ? self::SOURCE_DERIVED : self::SOURCE_SUGGESTED;
+        $suggested = [];
+        $derived = $applied;
+
+        foreach ($profile->fields as $field) {
+            if ($field->questionKey === 'room_outlet_status') {
+                continue;
+            }
+
+            // Technische routeconclusies: alleen fact/dossier, nooit klant-intake_answer.
+            if (TechnicalDecisionKeys::isRouteProposal($field->questionKey)) {
+                continue;
+            }
+
+            $value = (string) ($output[$field->outputKey] ?? 'unknown');
+
+            if ($value === 'unknown') {
+                continue;
+            }
+
+            $conflict = $this->textConflict($intake, $field, $sectionInstanceKey, $value);
+            if ($conflict !== null) {
+                $this->recordPhotoTextConflict($intake, $field->questionKey, $sectionInstanceKey, $conflict, $value);
+
+                continue;
+            }
+
+            if (! $this->mayOverwrite($intake, $field, $sectionInstanceKey)) {
+                continue;
+            }
+
+            $this->saveIntakeAnswer->handle(
+                $intake,
+                $field->questionKey,
+                $sectionInstanceKey,
+                $field->answerValue($value),
+                $source,
+            );
+
+            if ($source === self::SOURCE_DERIVED) {
+                $derived[] = $field->questionKey;
+            } else {
+                $suggested[] = $field->questionKey;
+            }
+        }
+
+        return ['derived' => $derived, 'suggested' => $suggested];
     }
 
     /**
@@ -722,10 +898,6 @@ final class DerivePhotoAnswers
         return false;
     }
 
-    /**
-     * An answer the applicant, installer or text-AI already gave always wins over a photo fill.
-     * room_type from a previous photo of the same room remains correctable by a later photo.
-     */
     private function mayOverwrite(Intake $intake, DerivedAnswerField $field, ?string $sectionInstanceKey): bool
     {
         $query = IntakeAnswer::query()
@@ -750,143 +922,5 @@ final class DerivePhotoAnswers
         return $sectionInstanceKey === null
             ? $photoQuestionKey.'_derivation'
             : $photoQuestionKey.'_derivation::'.$sectionInstanceKey;
-    }
-
-    /** @return Collection<int, IntakeUpload> */
-    private function uploads(Intake $intake, string $photoQuestionKey, ?string $sectionInstanceKey): Collection
-    {
-        $maximum = max(1, min(3, (int) config('ai.photo_inference.max_images', 2)));
-
-        $query = IntakeUpload::query()
-            ->where('intake_id', $intake->id)
-            ->where('question_key', $photoQuestionKey);
-
-        $sectionInstanceKey === null
-            ? $query->whereNull('section_instance_key')
-            : $query->where('section_instance_key', $sectionInstanceKey);
-
-        return $query
-            ->latest('id')
-            ->limit($maximum)
-            ->get()
-            ->sortBy('id')
-            ->values();
-    }
-
-    /**
-     * @param  Collection<int, IntakeUpload>  $uploads
-     * @return list<AiImageInput>
-     */
-    private function imageInputs(Collection $uploads): array
-    {
-        $images = [];
-
-        foreach ($uploads as $upload) {
-            $images[] = $this->aiImageResolver->input($upload);
-        }
-
-        return $images;
-    }
-
-    /**
-     * @param  array<string, mixed>  $output
-     * @return array{0: array<string, mixed>, 1: list<array{field: string, from: mixed, to: mixed, rule: string}>}
-     */
-    private function validateOutput(array $output, PhotoDerivationProfile $profile): array
-    {
-        $normalizations = [];
-        $enums = app(AiEnumNormalizer::class);
-
-        if (array_key_exists('confidence', $output)) {
-            $from = $output['confidence'];
-            $to = $enums->normalize(
-                $from,
-                ['high', 'medium', 'low'],
-                ['hoog' => 'high', 'middel' => 'medium', 'matig' => 'medium', 'laag' => 'low'],
-            );
-            if ($from !== $to) {
-                $normalizations[] = ['field' => 'confidence', 'from' => $from, 'to' => $to, 'rule' => 'confidence'];
-            }
-            $output['confidence'] = $to;
-        }
-
-        foreach ($profile->fields as $field) {
-            if (! array_key_exists($field->outputKey, $output)) {
-                continue;
-            }
-            $from = $output[$field->outputKey];
-            $to = $enums->normalize($from, $field->schemaValues());
-            if ($from !== $to) {
-                $normalizations[] = [
-                    'field' => $field->outputKey,
-                    'from' => $from,
-                    'to' => $to,
-                    'rule' => 'photo_field',
-                ];
-            }
-            $output[$field->outputKey] = $to;
-        }
-
-        $rules = [
-            'confidence' => ['required', Rule::in(['high', 'medium', 'low'])],
-            'evidence' => ['required', 'string', 'min:3', 'max:300'],
-            'retake_instruction' => ['nullable', 'string', 'min:5', 'max:300'],
-        ];
-
-        foreach ($profile->fields as $field) {
-            $rules[$field->outputKey] = ['required', Rule::in($field->schemaValues())];
-        }
-
-        $validator = Validator::make($output, $rules);
-
-        if ($validator->fails()) {
-            throw ValidationException::withMessages($validator->errors()->toArray());
-        }
-
-        /** @var array<string, mixed> $validated */
-        $validated = $validator->validated();
-
-        $validated['evidence'] = trim((string) $validated['evidence']);
-        $validated['retake_instruction'] = is_string($validated['retake_instruction'] ?? null)
-            ? trim((string) $validated['retake_instruction'])
-            : null;
-
-        return [$validated, $normalizations];
-    }
-
-    /**
-     * @param  array<string, mixed>  $output
-     * @param  Collection<int, IntakeUpload>  $uploads
-     */
-    private function storeObservation(
-        Intake $intake,
-        AiRun $run,
-        array $output,
-        Collection $uploads,
-        string $photoQuestionKey,
-        ?string $sectionInstanceKey,
-        PhotoDerivationProfile $profile,
-    ): void {
-        IntakeExternalFact::query()->updateOrCreate(
-            [
-                'intake_id' => $intake->id,
-                'fact_key' => $this->factKey($photoQuestionKey, $sectionInstanceKey),
-                'source' => self::SOURCE,
-            ],
-            [
-                'label' => 'Automatische beoordeling van '.$photoQuestionKey,
-                'value' => [
-                    ...$output,
-                    'profile' => $profile->name,
-                    'provider' => $run->provider,
-                    'model' => $run->model,
-                    'upload_ids' => $uploads->pluck('id')->values()->all(),
-                ],
-                'source_reference' => 'ai-run:'.$run->id,
-                'source_url' => null,
-                'confidence' => 'medium',
-                'captured_at' => now(),
-            ],
-        );
     }
 }

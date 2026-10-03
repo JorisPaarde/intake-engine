@@ -1,18 +1,14 @@
-# Fixtures — klanttest 2026-10-02
+# Klanttest fixtures — 2 oktober 2026
 
-Publieke bronfoto’s voor geautomatiseerde QA (geen klantdata / secrets).
-Alleen bestanden die de tests in deze PR gebruiken staan in git.
+Bronnen uit de Notion-klanttest. Geen secrets. Publieke/forumbeelden, geen echte klantdata.
 
-| Bestand | Gebruikt in | Bron |
-|---------|-------------|------|
-| `woonkamer-720.jpg` | `KlanttestTechnicalDecisionsP0Test` (algemene fotostappen) | Funda cloud: `http://cloud.funda.nl/valentina_media/222/635/013.jpg` (geschaald naar 720px breed) |
-| `gevel-extra.jpg` | drain-/routefoto in P0-tests | Green-Home: `https://green-home.hu/pictures/news/2/klima-normalbig606.jpg` |
+| Bestand | Bron |
+|---------|------|
+| `woonkamer-720.jpg` | Funda valentina_media/222/635/013.jpg, geschaald naar 720 px breed |
+| `woonkamer-1440.jpg` | Zelfde bron, geschaald naar 1440 px breed |
+| `meterkast-klein.jpg` | Klusidee forum attachment img_2505 / 18974 |
+| `meterkast-groot.jpg` | Tweakers gathering image XFvR3lO5C5smPNHkrqRvpqMH |
+| `buitenunit-leiding.jpeg` | VKB airconditioning-woonhuis-installeren-VKB-06.jpeg |
+| `gevel-extra.jpg` | Green-Home klima-normalbig606.jpg |
 
-## Niet gecommit (zelfde namen voor andere stromen)
-
-| Bestandsnaam | Bron-URL | Opmerking |
-|--------------|----------|-----------|
-| `woonkamer-1440.jpg` | zelfde Funda-URL, schaal 1440px | optioneel voor foto-first stroom |
-| `meterkast-klein.jpg` | `https://www.klusidee.nl/Forum/data/attachments/18/18974-1d198526ff752360b0b3ee945a4a9544.jpg?hash=HRmFJv91I2` | Klusidee img_2505 |
-| `meterkast-groot.jpg` | Tweakers Gathering `XFvR3lO5C5smPNHkrqRvpqMH` | download faalde (403) |
-| `buitenunit-leiding.jpeg` | `https://images.squarespace-cdn.com/content/v1/59de06d3f43b5531827061dc/1611065864742-QJV6VWY8TSJKFCYMGMM4/airconditioning-woonhuis-installeren-VKB-06.jpeg` | VKB |
+Download gelukt voor alle zes bestanden (2026-10-02).

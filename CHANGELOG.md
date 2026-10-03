@@ -6,6 +6,16 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Added
 
+- **Klanttest P1 foto-stelligheid / categoriefeedback (BL-119):** airco **v19** (bovenop v18). `intake_uploads.content_assessment`, `PhotoSubject` / `PhotoContentAssessment` / `PhotoContentSatisfaction`, `AssessFollowUpPhotoSubject`, `InternalCustomerQuestions`. Soft-continue verkeerde foto (**Vervang foto** / **Toch doorgaan**). `TechnicalDecisionKeys` uitgebreid met `ROUTE_PROPOSAL_KEYS` / `aiPrefillSources()` (één class met #115).
+
+### Fixed
+
+- **AI-conclusie uit foto te stellig:** `drillings_needed=no` → fact `unknown` + voorstelnotitie; routevelden geen klant-`intake_answers`.
+- **Intern AI-veld als klantvraag:** `fusebox_clarity` / `room_outlet_status` altijd verborgen.
+- **Verkeerde foto zonder feedback:** per-upload verdict; soft-block; follow-up refrigerant accepteert pipe_route+outdoor_unit.
+
+### Added
+
 - **AI-trace logging + P2-timings (BL-116):** elke tekstextractie-, fotoanalyse- en synthese-call schrijft een `ai_traces`/`ai_trace_steps`-keten (trace-ID, intake, subject, provider/model/parameters, promptversie, request+context, photo-refs met breedte/hoogte/variant zonder base64, ruwe/geparste response, validation_errors/normalizations, finish reason, tokens/kosten, field outcomes per reden, dossier values+diff en restvragen incl. hidden/next_step). P2: `network_upload_ms` (Livewire client) + `persist_ms` + `preprocess_ms` + `provider_ms` (ook bij timeout/5xx) + `process_ms` (exclusief provider). Helper `AiTraceRecorder`/`AiTraceHandle` met buffer buiten dossiertransacties, soft-fail isolatie, kill switch `AI_TRACING_ENABLED`. Geïnstrumenteerd: prefill, intent, foto-afleiding, meterkast, dossiersynthese, route foto/synthese, installateursfotoconstateringen, samenvatting, aandachtspunten, lokale fotousability, follow-up- en installateursuploads. `/dev/ai-traces` achter `DEV_ADMIN_EMAILS`-allowlist; CLI `ai:traces` / `ai:purge-traces`.
 
 ### Changed

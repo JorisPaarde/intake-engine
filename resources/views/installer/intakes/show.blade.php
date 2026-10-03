@@ -452,6 +452,15 @@
                                                 </a>
                                                 <figcaption class="space-y-2 text-xs text-gray-500">
                                                     <p>{{ $item['caption'] }}</p>
+                                                    @php
+                                                        $contentAssessment = $item['upload']->contentAssessment();
+                                                        $contentInstallerLabel = $contentAssessment?->installerLabel();
+                                                    @endphp
+                                                    @if ($contentInstallerLabel)
+                                                        <span class="inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800" title="Automatische inhoudsbeoordeling — niet bindend">
+                                                            {{ $contentInstallerLabel }}
+                                                        </span>
+                                                    @endif
                                                     @if ($item['upload']->usability_verdict && $item['upload']->usability_verdict->installerLabel())
                                                         <div class="space-y-2">
                                                             <span class="inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800" title="Automatische indicatie — niet bindend">

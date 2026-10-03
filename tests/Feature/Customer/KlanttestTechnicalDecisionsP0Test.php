@@ -164,7 +164,7 @@ test('technical decision keys are shared and hidden from the latest customer wiz
     );
 
     $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
-    expect($version->version)->toBe(18);
+    expect($version->version)->toBe(19);
 
     $steps = klanttestP0StepKeys(makeKlanttestP0Intake());
     foreach (TechnicalDecisionKeys::all() as $key) {
@@ -329,6 +329,8 @@ test('AI drillings_needed=false keeps drillings_open as readable proposal for th
         'pipe_route_description' => 'along_facade',
         'pipe_distance_indication' => 'short',
         'drillings_needed' => 'no',
+        'detected_subject' => 'pipe_route',
+        'subject_match' => 'yes',
         'confidence' => 'high',
         'evidence' => 'Leiding loopt zichtbaar langs de gevel zonder nieuwe doorboring.',
         'retake_instruction' => null,
@@ -349,10 +351,18 @@ test('AI drillings_needed=false keeps drillings_open as readable proposal for th
         PhotoDerivationProfile::require('pipe_route'),
     );
 
-    $drillings = $intake->fresh()->answers()->where('question_key', 'drillings_needed')->firstOrFail();
-    expect($drillings->value)->toBe(['bool' => false])
-        ->and($drillings->prefill_source)->toBe(DerivePhotoAnswers::SOURCE_DERIVED)
+    // BL-119: routeconclusies landen niet als klant-intake_answer.
+    expect($intake->fresh()->answers()->where('question_key', 'drillings_needed')->exists())->toBeFalse()
         ->and(klanttestP0StepKeys($intake))->not->toContain('drillings_needed');
+
+    $fact = $intake->fresh()->externalFacts()
+        ->where('fact_key', 'pipe_route_photos_derivation')
+        ->where('source', DerivePhotoAnswers::SOURCE)
+        ->first();
+
+    expect($fact)->not->toBeNull()
+        ->and($fact->value['drillings_needed'] ?? null)->toBe('unknown')
+        ->and($fact->value['drillings_proposal_note'] ?? null)->toBe('geen bewijs voor doorboring zichtbaar');
 
     $version = $intake->fresh()->templateVersion()
         ->with(['sections.questions.options', 'sections.questions.rules'])
@@ -362,7 +372,7 @@ test('AI drillings_needed=false keeps drillings_open as readable proposal for th
 
     expect($drillingsPoint)->not->toBeNull()
         ->and($drillingsPoint['label'])->toBe(
-            'AI-voorstel: Nee, nog te beoordelen (afgeleid uit foto bij Leidingroute)',
+            'Open technisch punt: doorboringen door muren/vloeren nog te beoordelen',
         );
 
     // Installateursantwoord sluit het open punt niet (geen afhandelingskoppeling; BL-117).

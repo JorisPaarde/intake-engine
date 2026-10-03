@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.68 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.69 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -43,6 +43,8 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
 | 1 | BL-117 | Installateur kan technisch open punt afhandelen vanuit de survey-werkplek | E7/E8 | backlog | high | na PR #115 · show/rapport `*_open` |
+| — | BL-119 | Klanttest 2 okt P1: foto-stelligheid, interne AI-velden, verkeerde-fotofeedback | E4/E7/E9 | in_progress | high | AI/foto · na BL-118 · airco v19 · PR #119 |
+| — | BL-120 | Follow-up fotobeoordeling async (niet sync in request) | E4 | backlog | medium | AI/foto · bij BL-119 · performance |
 | — | BL-118 | Klanttest 2 okt: foto-first, extractiedekking, kamernamen | E3/E9 | done | high | F · bij BL-064/098/101 · na BL-116 · airco v18 · PR #116 |
 | — | BL-116 | AI-trace logging + P2 upload/analyse-timings (klanttest 2 okt) | E4/E9 | in_progress | high | AI · stap 1 herstelvolgorde · bij BL-028/104/109 · PR #117 |
 | — | BL-116 | Technische beslissingen uit klantvragen (pomp/route/boringen/stroom) | E3/E7 | done | high | klanttest 2026-10-02 P0 · airco v17 · PR #115 |
@@ -579,6 +581,18 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Niet in scope:** foto-first/bekende velden (andere stroom); afhandelen van open punten (BL-117); herberekenen open-puntlabel na late fotoafleiding; rebase op #117 tot gevraagd.
 - **Acceptatie:** klant rondt af zonder verzonnen techniek; “Weet ik niet” → afvoerfoto (ook op v16); open punten blijven staan (ook bij AI-/klantwaarde); Pest + `composer check` groen.
 - **Resultaat:** PR #115; review-rondes 1–3.
+### BL-119 — Klanttest 2 okt P1: foto-stelligheid, interne velden, verkeerde-fotofeedback
+
+- **Status:** in_progress · **Prioriteit:** high · **Epic:** E4/E7/E9 · **Band:** AI/foto · **PR:** #119 · airco v19
+- **Aanleiding:** case 80 buitenunitfoto → “zeker geen doorboring”; interne velden als klantvraag; verkeerde foto’s zonder feedback.
+- **Doel:** content_assessment + soft-continue; InternalCustomerQuestions; TechnicalDecisionKeys routevoorstellen; refrigerant PipeRoute|OutdoorUnit.
+- **Acceptatie:** Pest groen; `composer check` groen.
+
+### BL-120 — Follow-up fotobeoordeling async
+
+- **Status:** backlog · **Prioriteit:** medium · **Epic:** E4 · **Volgt op:** BL-119
+- **Doel:** `AssessFollowUpPhotoSubject` async i.p.v. sync in Livewire-upload.
+
 ### BL-118 — Klanttest 2 okt: foto-first, extractiedekking, kamernamen
 
 - **Status:** done · **Prioriteit:** high · **Datum:** 2026-10-03 · **PR:** #116 · **Epic:** E3/E9 · **Band:** F · **Volgt op:** BL-064/098/101/116 · **Ref:** Notion-klanttest 2026-10-02 (stroom 3 van 5)

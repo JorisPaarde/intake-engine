@@ -163,6 +163,8 @@
                             </li>
                         @endforeach
                     </ul>
+                @elseif ($photoMismatchAssessment)
+                    <p class="font-medium">Vervang de foto of kies expliciet “Toch doorgaan”.</p>
                 @else
                     Beantwoord eerst deze verplichte vraag.
                 @endif
@@ -310,12 +312,12 @@
                                                     · camera of galerij
                                                 </span>
                                                 <input
+                                                    id="photo-input-{{ str_replace(['.', ' '], '-', $composite) }}"
                                                     type="file"
                                                     accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,image/*"
                                                     multiple
                                                     class="sr-only"
                                                     wire:model="photoFiles.{{ $composite }}"
-                                                    data-upload-timing="1"
                                                 >
                                             </label>
                                             <div wire:loading wire:target="photoFiles.{{ $composite }}" class="mt-2 text-sm font-medium text-[var(--tenant-primary)]">
@@ -330,6 +332,15 @@
                                         </div>
                                     @else
                                         <p class="text-sm text-[#5e6862]">Maximum van {{ $maxFiles }} foto's bereikt.</p>
+                                        {{-- Verborgen input zodat "Vervang foto" de picker kan openen na verwijderen. --}}
+                                        <input
+                                            id="photo-input-{{ str_replace(['.', ' '], '-', $composite) }}"
+                                            type="file"
+                                            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,image/*"
+                                            multiple
+                                            class="sr-only"
+                                            wire:model="photoFiles.{{ $composite }}"
+                                        >
                                         @error('photoFiles.'.$composite)
                                             <p class="mt-2 text-sm text-[#a84832]">{{ $message }}</p>
                                         @enderror
@@ -338,7 +349,29 @@
                                         @enderror
                                     @endif
 
-                                    @if (! empty($displayPhotoHint[$composite]))
+                                    @if ($photoMismatchAssessment)
+                                        <div class="mt-3 space-y-3 rounded-xl border border-[#eac3b4] bg-white px-3 py-3" role="alert" wire:key="mismatch-{{ $composite }}">
+                                            <p class="text-sm text-[#414b45]">
+                                                {{ $photoMismatchAssessment->customerMessage() ?? "Deze foto lijkt niet bij de vraag te horen." }}
+                                            </p>
+                                            <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                                <button
+                                                    type="button"
+                                                    wire:click="replaceMismatchedPhoto"
+                                                    class="min-h-11 rounded-xl bg-[var(--tenant-primary)] px-4 text-sm font-semibold text-[var(--tenant-on-primary)]"
+                                                >
+                                                    Vervang foto
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    wire:click="acceptPhotoMismatch"
+                                                    class="min-h-11 rounded-xl border border-[#dde2da] bg-[#eef1ec] px-4 text-sm font-semibold text-[#18201d]"
+                                                >
+                                                    Toch doorgaan
+                                                </button>
+                                            </div>
+                                        </div>
+                                    @elseif (! empty($displayPhotoHint[$composite]))
                                         <p class="mt-3 flex items-start gap-2 rounded-xl border border-[#eac3b4] bg-white px-3 py-2 text-sm text-[#414b45]" role="status" wire:key="hint-{{ $composite }}">
                                             <span aria-hidden="true">💡</span>
                                             <span>{{ $displayPhotoHint[$composite] }}</span>

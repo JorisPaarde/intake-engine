@@ -153,15 +153,72 @@ final class ExternalFactPresenter
     {
         $value = $fact->value;
 
+        if ($fact->fact_key === 'fusebox_photo_assessment') {
+            return $this->fuseboxAssessmentDisplay($value);
+        }
+
+        if ($this->isPhotoDerivationFact($fact->fact_key)) {
+            return $this->photoDerivationDisplay($fact->fact_key, $value);
+        }
+
         return match ($fact->fact_key) {
             'building_year' => isset($value['number']) ? (string) $value['number'] : null,
             'energy_label' => is_string($value['value'] ?? null) ? $value['value'] : null,
             'building_height_m' => isset($value['number']) ? (string) $value['number'].' '.($value['unit'] ?? 'm') : null,
             'roof_type' => is_string($value['label'] ?? null) ? $value['label'] : null,
             'floor_count' => isset($value['number']) ? (string) $value['number'] : null,
-            'fusebox_photo_assessment' => $this->fuseboxAssessmentDisplay($value),
             default => null,
         };
+    }
+
+    private function isPhotoDerivationFact(string $factKey): bool
+    {
+        return str_ends_with($factKey, '_derivation')
+            || str_contains($factKey, '_derivation::');
+    }
+
+    /** @param array<string, mixed> $value */
+    private function photoDerivationDisplay(string $factKey, array $value): string
+    {
+        $parts = [];
+
+        if (str_starts_with($factKey, 'pipe_route_photos')) {
+            $route = match ($value['pipe_route_description'] ?? null) {
+                'along_facade' => 'route lijkt langs gevel',
+                'through_attic' => 'route lijkt via zolder',
+                'through_room' => 'route lijkt door ruimte',
+                'short_direct' => 'korte directe route lijkt mogelijk',
+                default => null,
+            };
+            $distance = match ($value['pipe_distance_indication'] ?? null) {
+                'short' => 'korte afstand',
+                'medium' => 'middelbare afstand',
+                'long' => 'lange afstand',
+                default => null,
+            };
+            $drillingsNote = is_string($value['drillings_proposal_note'] ?? null)
+                ? trim((string) $value['drillings_proposal_note'])
+                : '';
+            $drillings = match ($value['drillings_needed'] ?? null) {
+                'yes' => 'doorboring lijkt nodig (voorstel)',
+                'unknown' => $drillingsNote !== ''
+                    ? $drillingsNote.' (voorstel)'
+                    : 'doorboring onbekend',
+                default => 'doorboring onbekend',
+            };
+            $parts = array_filter([$route, $distance, $drillings]);
+        }
+
+        $evidence = is_string($value['evidence'] ?? null) ? trim($value['evidence']) : '';
+        if ($evidence !== '') {
+            $parts[] = $evidence;
+        }
+
+        if ($parts === []) {
+            return 'Automatische foto-beoordeling beschikbaar; controleer in het dossier.';
+        }
+
+        return implode(' · ', $parts);
     }
 
     /** @param array<string, mixed> $value */
@@ -177,9 +234,15 @@ final class ExternalFactPresenter
             'three_phase' => '3-fase lijkt zichtbaar',
             default => 'fase niet betrouwbaar te bepalen',
         };
-        $evidence = is_string($value['evidence'] ?? null) ? trim($value['evidence']) : '';
 
-        return implode(' · ', array_filter([$freeGroup, $phase, $evidence]));
+        $parts = [$freeGroup, $phase];
+
+        $evidence = is_string($value['evidence'] ?? null) ? trim($value['evidence']) : '';
+        if ($evidence !== '') {
+            $parts[] = $evidence;
+        }
+
+        return implode(' · ', array_filter($parts));
     }
 
     /**
@@ -274,6 +337,15 @@ final class ExternalFactPresenter
             return 'De automatische beoordeling van de meterkastfoto is een voorzet; controleer vrije groep en fase op de foto of op locatie.';
         }
 
+        if ($this->isPhotoDerivationFact($fact->fact_key)) {
+            $note = $fact->value['uncertainty_note'] ?? null;
+            if (is_string($note) && trim($note) !== '') {
+                return trim($note);
+            }
+
+            return 'Automatische foto-afleiding is een voorstel; controleer bronfoto en conclusie vóór de offerte.';
+        }
+
         return null;
     }
 
@@ -293,6 +365,9 @@ final class ExternalFactPresenter
             'location',
             'parcel_ids',
             'fusebox_photo_assessment',
+            'pipe_route_photos_derivation',
+            'room_photos_derivation',
+            'outdoor_location_photos_derivation',
             'aerial_image',
             'aerial_image_status',
         ], true);

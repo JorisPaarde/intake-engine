@@ -8,6 +8,9 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeSection;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
+use App\Domains\Intake\Support\InternalCustomerQuestions;
+use App\Domains\Intake\Support\PhotoContentSatisfaction;
+use App\Domains\Intake\Support\TechnicalDecisionKeys;
 use App\Enums\QuestionType;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -43,7 +46,6 @@ final class ProgressCalculator
             $questionTypes,
             $sectionsByQuestionKey,
             $targets,
-            customerMode: true,
         );
 
         // BL-022: percentage over required visible questions only, so 100% ≈ afronden kan.
@@ -55,6 +57,11 @@ final class ProgressCalculator
             $question = $this->findQuestion($sections, $target['question_key']);
 
             if (! $question instanceof IntakeQuestion) {
+                continue;
+            }
+
+            if (InternalCustomerQuestions::hidesFromCustomer($question)
+                || TechnicalDecisionKeys::hidesFromCustomer($question)) {
                 continue;
             }
 
@@ -74,6 +81,14 @@ final class ProgressCalculator
             );
             $answerValue = $answers[$answerKey] ?? null;
             $filled = $this->answerValueReader->isFilled($answerValue, $question->type);
+
+            if ($filled && $question->type === QuestionType::Photo) {
+                $filled = PhotoContentSatisfaction::isSatisfied(
+                    $intake,
+                    $target['question_key'],
+                    $target['section_instance_key'],
+                );
+            }
 
             $totalRequired++;
 

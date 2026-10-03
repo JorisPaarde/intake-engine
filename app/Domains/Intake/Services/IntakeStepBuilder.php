@@ -8,6 +8,7 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeSection;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
+use App\Domains\Intake\Support\InternalCustomerQuestions;
 use App\Domains\Intake\Support\KnownSummaryCatalog;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Domains\Intake\Support\RoomLabelResolver;
@@ -399,7 +400,7 @@ final class IntakeStepBuilder
             && ! $this->shouldAskRoomName($context['answers'], $sectionInstanceKey);
         $internal = $this->isInternalQuestion($question);
         $ruleVisible = $state['visible'] === true;
-        $wizardVisible = $ruleVisible && ! $prefilledSkipped && ! $roomNameHidden;
+        $wizardVisible = $ruleVisible && ! $prefilledSkipped && ! $roomNameHidden && ! $internal;
 
         $reason = $this->catalogReason(
             wizardVisible: $wizardVisible,
@@ -448,6 +449,10 @@ final class IntakeStepBuilder
 
     private function isInternalQuestion(IntakeQuestion $question): bool
     {
+        if (InternalCustomerQuestions::hidesFromCustomer($question)) {
+            return true;
+        }
+
         $audience = is_string($question->meta['audience'] ?? null)
             ? (string) $question->meta['audience']
             : null;
