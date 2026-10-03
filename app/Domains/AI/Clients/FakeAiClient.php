@@ -258,6 +258,12 @@ final class FakeAiClient implements AiClientInterface
         $totalTokens = $inputTokens + $outputTokens;
         // Rough fake budget units: 1 cent per 1k tokens + 2 cents per image.
         $estimatedCostCents = (int) max(1, (int) ceil($totalTokens / 1000) + ($imageCount * 2));
+        // Finer than cents for export/diagnostics (fake micro-USD).
+        $estimatedCost = number_format($estimatedCostCents / 100, 6, '.', '');
+        $temperature = self::$lastRequest !== null && self::$lastRequest->temperature !== null
+            ? self::$lastRequest->temperature
+            : (float) config('ai.temperature', 0.2);
+        $promptVersion = $request !== null ? $request->promptVersion : 'fake-v1';
 
         return new AiCompletionResult(
             output: $output,
@@ -272,12 +278,15 @@ final class FakeAiClient implements AiClientInterface
             rawResponse: $raw,
             providerMs: 1,
             modelParameters: [
-                'temperature' => self::$lastRequest !== null && self::$lastRequest->temperature !== null
-                    ? self::$lastRequest->temperature
-                    : (float) config('ai.temperature', 0.2),
-                'response_format' => ['type' => 'json_object'],
                 'model' => $request !== null && $request->model !== null ? $request->model : $model,
+                'temperature' => $temperature,
+                'max_tokens' => config('ai.max_tokens'),
+                'response_format' => ['type' => 'json_object'],
+                'response_format_type' => 'json_object',
+                'schema' => $promptVersion,
             ],
+            providerResponseId: 'fake-'.substr(hash('sha256', $raw.$promptVersion), 0, 24),
+            estimatedCost: $estimatedCost,
         );
     }
 }

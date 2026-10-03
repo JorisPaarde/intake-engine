@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Support\Logging;
 
+use App\Domains\AI\Services\AiTraceRequestIdResolver;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
@@ -49,9 +51,16 @@ final class AppErrorLogger
             return;
         }
 
+        $requestId = (string) Str::uuid();
         $request->attributes->set(self::ATTR_STARTED_AT, microtime(true));
-        $request->attributes->set(self::ATTR_REQUEST_ID, (string) Str::uuid());
+        $request->attributes->set(self::ATTR_REQUEST_ID, $requestId);
         $request->attributes->set(self::ATTR_COMPLETED, false);
+
+        try {
+            Context::add(AiTraceRequestIdResolver::CONTEXT_KEY, $requestId);
+        } catch (Throwable) {
+            // Context may be unavailable; resolver still reads request attributes.
+        }
 
         register_shutdown_function(function () use ($request): void {
             if ($request->attributes->get(self::ATTR_COMPLETED) === true) {

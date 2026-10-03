@@ -57,8 +57,10 @@ final class AiTraceRecorder
      *     persist_ms?: int|null,
      *     preprocess_ms?: int|null,
      *     network_upload_ms?: int|null,
+     *     queue_wait_ms?: int|null,
      *     fallback_used?: bool|null,
      *     retry_count?: int|null,
+     *     attempt?: int|null,
      * }  $attributes
      */
     public function start(Intake $intake, AiTraceCallType $callType, array $attributes = []): AiTraceHandle
@@ -84,11 +86,24 @@ final class AiTraceRecorder
         }
 
         try {
-            $correlationId = $attributes['correlation_id'] ?? (string) Str::uuid();
+            $explicitCorrelation = $attributes['correlation_id'] ?? null;
+            $correlationId = $this->requestIdResolver->resolveCorrelationId(
+                is_string($explicitCorrelation) && $explicitCorrelation !== '' ? $explicitCorrelation : null,
+            );
             $explicitRequestId = $attributes['request_id'] ?? null;
             $requestId = $this->requestIdResolver->resolve(
                 is_string($explicitRequestId) && $explicitRequestId !== '' ? $explicitRequestId : null,
             );
+
+            $attempt = array_key_exists('attempt', $attributes)
+                ? ($attributes['attempt'] !== null ? max(1, (int) $attributes['attempt']) : null)
+                : $this->requestIdResolver->attempt();
+            $retryCount = array_key_exists('retry_count', $attributes)
+                ? max(0, (int) $attributes['retry_count'])
+                : ($attempt !== null ? max(0, $attempt - 1) : 0);
+            $queueWaitMs = array_key_exists('queue_wait_ms', $attributes)
+                ? ($attributes['queue_wait_ms'] !== null ? max(0, (int) $attributes['queue_wait_ms']) : null)
+                : $this->requestIdResolver->queueWaitMs();
 
             $trace = new AiTrace([
                 'trace_id' => (string) Str::uuid(),
@@ -110,8 +125,10 @@ final class AiTraceRecorder
                 'persist_ms' => $attributes['persist_ms'] ?? null,
                 'preprocess_ms' => $attributes['preprocess_ms'] ?? null,
                 'network_upload_ms' => $attributes['network_upload_ms'] ?? null,
+                'queue_wait_ms' => $queueWaitMs,
                 'fallback_used' => (bool) ($attributes['fallback_used'] ?? false),
-                'retry_count' => max(0, (int) ($attributes['retry_count'] ?? 0)),
+                'retry_count' => $retryCount,
+                'attempt' => $attempt,
                 'started_at' => now(),
             ]);
 
@@ -123,6 +140,9 @@ final class AiTraceRecorder
                 'is_demo' => (bool) $intake->is_demo,
                 'correlation_id' => $correlationId,
                 'request_id' => $requestId,
+                'queue_wait_ms' => $queueWaitMs,
+                'attempt' => $attempt,
+                'retry_count' => $retryCount,
                 'tracing_enabled' => true,
             ]);
 
