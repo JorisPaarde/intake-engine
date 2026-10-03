@@ -38,12 +38,12 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = fotobeoordeling via queue (#124, done). **BL-122** = soft catalogus-prefill (case 81). **BL-123** = staging-retest acceptance (#115–#120). **BL-124** = form robustness (#127, done). **BL-125** = AI-trace retentie/export + PDF-downscale (#130, done). **BL-126** = prompt/vision quality (route/ownership/kamernamen). **BL-127** = foto-assessment terminale status + watchdog (#133, done). **BL-128** = grote telefoonfoto-upload (inactiviteit-timeout + client-downscale + lege-200-retry, #131 done). **BL-129** = klant-UX review v1.3.0 (airco v22, #134 done). **BL-130** = follow-up mismatch-override + reassessment (#125). **BL-131** = wizard nav + scoped foto-feedback (#129). Nieuwe items starten bij BL-132.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = fotobeoordeling via queue (#124, done). **BL-122** = soft catalogus-prefill (case 81). **BL-123** = staging-retest acceptance (#115–#120). **BL-124** = form robustness (#127, done). **BL-125** = AI-trace retentie/export + PDF-downscale (#130, done). **BL-126** = prompt/vision quality (route/ownership/kamernamen). **BL-127** = foto-assessment terminale status + watchdog (#133, done). **BL-128** = grote telefoonfoto-upload (inactiviteit-timeout + client-downscale + lege-200-retry, #131 done). **BL-129** = klant-UX review v1.3.0 (airco v22, #134 done). **BL-130** = follow-up mismatch-override + reassessment (#125). **BL-131** = wizard nav + scoped foto-feedback (#129, done). Nieuwe items starten bij BL-132.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
 | 1 | BL-117 | Installateur kan technisch open punt afhandelen vanuit de survey-werkplek | E7/E8 | backlog | high | na PR #115 · show/rapport `*_open` |
-| — | BL-131 | Wizard: stabiele stap-id + scoped foto-feedback (geen stale hints) | E1/E4 | in_progress | high | na BL-121 (#124) · queue/poll intact · PR #129 |
+| — | BL-131 | Wizard: stabiele stap-id + scoped foto-feedback (geen stale hints) | E1/E4 | done | high | na BL-121 (#124) · queue/poll intact · PR #129 |
 | — | BL-130 | Follow-up: mismatch-override, klantcopy, review per ronde, reassessment | E1/E4/E7 | done | high | na BL-123 · case 81b · PR #125 |
 | — | BL-129 | Klant-UX review v1.3.0: bedankt, foto-feedback, één voortgang, known-data, closing | E1/E5/E7 | done | high | na BL-124 · airco v22 · views/tekst · PR #134 |
 | — | BL-128 | Grote telefoonfoto: inactiviteit-timeout + client-downscale + 8 MB + lege-200-retry | E1/E7 | done | high | A · na BL-124/127 · staging intake 78 · PR #131 |
@@ -630,11 +630,12 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-131 — Wizard: stabiele stap-id + scoped foto-feedback
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E1/E4 · **Volgt op:** BL-121 (#124) · **PR:** #129 · **Ref:** klantwizard room_name-shrink + stale foto-hints
+- **Status:** done · **Datum:** 2026-10-03 · **PR:** #129 · **Prioriteit:** high · **Epic:** E1/E4 · **Volgt op:** BL-121 (#124) · **Ref:** klantwizard room_name-shrink + stale foto-hints
 - **Aanleiding:** na `room_name` invullen kromp de stappenlijst; `Volgende`/`saveStep` valideerden via verschoven `stepIndex` (andere vraag) of stalen form-`upload_ids`. Foto-hints en “Na je foto…”-notities bleven zichtbaar na Vervang/Verwijderen zonder reload.
 - **Doel:** navigatie + verplichte-check via stabiele `activeStepKey`; foto-hints gescopeerd op upload-ids + analysis-token; clear bij delete/replace/nieuwe upload; fotovalidatie via DB (`PhotoContentSatisfaction`), niet via Livewire-form.
 - **Scope:** `IntakeWizard` (+ Pest). Bouwt op BL-121 queue/poll + BL-129 UX; **geen** sync AI in de Livewire-request. Nummering: BL-130 elders bezet (#125 follow-up) → dit item is BL-131.
 - **Acceptatie:** room_name → wall_outlet zonder index-drift; shrink/grow mid-flow stabiel; stale hints weg na replace/delete; known-facts skip + “Weet ik niet” intact; `composer check` groen.
+- **Resultaat:** `activeStepKey`/`resolveDisplayedStep`/`photoHintScope`; Pest `WizardNavigationPhotoFeedbackTest` (queue+poll); geen sync AI.
 
 ### BL-122 — Soft catalogus-prefill (case 81 regressie)
 
