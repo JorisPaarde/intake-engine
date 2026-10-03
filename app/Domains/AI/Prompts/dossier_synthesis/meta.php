@@ -6,6 +6,6 @@ declare(strict_types=1);
  * @return array{version: string, description: string}
  */
 return [
-    'version' => 'dossier-synthesis-v4',
-    'description' => 'Synthetiseert beeldgebonden kandidaatposities, airco-installatieopties, drie verbindingstypen, uitzonderingen en gerichte klanttaakvoorstellen. Strikte enumtokens; klanttaken verbieden technische beslissingen (pomp/route/boringen/stroom).',
+    'version' => 'dossier-synthesis-v5',
+    'description' => 'Synthese: geen installateursinterne notities (“handmatig controleren”) als customer_tasks; enum/technisch-verbod behouden.',
 ];

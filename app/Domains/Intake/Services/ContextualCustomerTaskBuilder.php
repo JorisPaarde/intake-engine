@@ -11,6 +11,7 @@ use App\Domains\Intake\Models\DossierDecisionArea;
 use App\Domains\Intake\Models\DossierRecord;
 use App\Domains\Intake\Models\DossierSubject;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Support\CustomerFacingTaskText;
 use App\Domains\Intake\Support\RoomDimensions;
 use App\Domains\Intake\Support\RoomHeightRequirement;
 use App\Enums\AircoConnectionStatus;
@@ -135,7 +136,7 @@ final class ContextualCustomerTaskBuilder
             ? trim((string) $suggestion->value['text'])
             : '';
 
-        if ($text === '') {
+        if ($text === '' || CustomerFacingTaskText::isInstallerInternal($text)) {
             return null;
         }
 

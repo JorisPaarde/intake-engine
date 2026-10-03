@@ -23,7 +23,7 @@ function makeBl124Intake(): Intake
     $user = User::factory()->create();
     $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
 
-    expect($version->version)->toBe(22);
+    expect($version->version)->toBe(23);
 
     return Intake::factory()->create([
         'created_by' => $user->id,

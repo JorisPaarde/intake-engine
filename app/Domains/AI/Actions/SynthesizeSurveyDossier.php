@@ -24,6 +24,7 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\DecisionReadinessService;
 use App\Domains\Intake\Services\DossierManager;
+use App\Domains\Intake\Support\CustomerFacingTaskText;
 use App\Enums\AircoConfigurationType;
 use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
@@ -693,6 +694,13 @@ final class SynthesizeSurveyDossier
         }
 
         foreach ($output['customer_tasks'] as $task) {
+            $prompt = trim((string) ($task['prompt'] ?? ''));
+            $reason = trim((string) ($task['reason'] ?? ''));
+            if (CustomerFacingTaskText::isInstallerInternal($prompt)
+                || CustomerFacingTaskText::isInstallerInternal($reason)) {
+                continue;
+            }
+
             /** @var DossierSubject|null $subject */
             $subject = $task['subject_reference'] === null ? null : $subjects->get($task['subject_reference']);
             ContributionTask::query()->create([
@@ -702,14 +710,14 @@ final class SynthesizeSurveyDossier
                 'intake_follow_up_item_id' => null,
                 'audience' => ContributionAudience::Customer,
                 'type' => $task['type'],
-                'prompt' => trim($task['prompt']),
+                'prompt' => $prompt,
                 'decision_area_key' => $task['decision_area_key'],
                 'status' => ContributionTaskStatus::Proposed,
                 'requested_by' => null,
                 'meta' => [
                     'source_type' => 'ai',
                     'source_id' => $run->id,
-                    'reason' => trim($task['reason']),
+                    'reason' => $reason,
                     'evidence_references' => $task['evidence_references'],
                 ],
             ]);

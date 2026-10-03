@@ -20,6 +20,7 @@ use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -149,7 +150,10 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
             return;
         }
 
-        $result = $assessFollowUp->handle($intake, $item, $upload->fresh() ?? $upload);
+        $upload = $upload->fresh() ?? $upload;
+        $correlationId = $this->correlationId
+            ?? $this->correlationIdForUpload($upload);
+        $result = $assessFollowUp->handle($intake, $item, $upload, $correlationId);
         $assessment = $result['assessment'] ?? null;
 
         // Gebieden zonder subject-check: markeer als beoordeeld zodat de wizardpoll kan afronden.
@@ -253,5 +257,19 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
             ->value('decision_area_key');
 
         return is_string($key) && $key !== '' ? $key : null;
+    }
+
+    private function correlationIdForUpload(IntakeUpload $upload): string
+    {
+        $timings = is_array($upload->processing_timings) ? $upload->processing_timings : [];
+        if (is_string($timings['correlation_id'] ?? null) && $timings['correlation_id'] !== '') {
+            return (string) $timings['correlation_id'];
+        }
+
+        $id = (string) Str::uuid();
+        $timings['correlation_id'] = $id;
+        $upload->update(['processing_timings' => $timings]);
+
+        return $id;
     }
 }
