@@ -6,6 +6,8 @@ namespace App\Domains\AI\Services;
 
 use App\Domains\AI\DTOs\RequestPrefillCandidate;
 use App\Domains\AI\Support\OwnershipNormalizer;
+use App\Domains\Intake\Support\FactProvenance;
+use App\Domains\Intake\Support\RiskRelevantPrefillKeys;
 use App\Enums\QuestionType;
 use Illuminate\Validation\ValidationException;
 
@@ -281,6 +283,18 @@ final class RequestPrefillOutcomeClassifier
                 continue;
             }
 
+            $provenance = $this->resolveProvenance($fill['provenance'] ?? null, $key, $confidence);
+            if (! array_key_exists('provenance', $fill) || FactProvenance::tryFromMixed($fill['provenance'] ?? null) === null) {
+                $normalizations[] = [
+                    'field' => ($instanceKey === null ? $key : $key.'|'.$instanceKey).'.provenance',
+                    'from' => $fill['provenance'] ?? null,
+                    'to' => $provenance->value,
+                    'rule' => RiskRelevantPrefillKeys::contains($key)
+                        ? 'provenance_default_inferred_risk'
+                        : ($confidence === 'high' ? 'provenance_default_stated_legacy' : 'provenance_default_inferred'),
+                ];
+            }
+
             $normalized = $this->normalizeValue($question, $rawValue);
 
             if ($normalized === null) {
@@ -294,6 +308,7 @@ final class RequestPrefillOutcomeClassifier
                     disposition: RequestPrefillCandidate::DISPOSITION_REJECTED,
                     source: RequestPrefillCandidate::SOURCE_CATALOG_AI,
                     reason: $this->invalidValueReason($question, $rawValue),
+                    provenance: $provenance,
                 );
 
                 continue;
@@ -308,7 +323,7 @@ final class RequestPrefillOutcomeClassifier
                 ];
             }
 
-            if ($confidence === 'low') {
+            if ($confidence === 'low' || $provenance === FactProvenance::Unknown) {
                 $candidates[] = new RequestPrefillCandidate(
                     questionKey: $key,
                     sectionInstanceKey: $instanceKey,
@@ -318,15 +333,35 @@ final class RequestPrefillOutcomeClassifier
                     evidence: $fillEvidence,
                     disposition: RequestPrefillCandidate::DISPOSITION_REJECTED,
                     source: RequestPrefillCandidate::SOURCE_CATALOG_AI,
-                    reason: 'Lage zekerheid — wordt niet toegepast.',
+                    reason: $provenance === FactProvenance::Unknown
+                        ? 'Provenance unknown — wordt niet toegepast.'
+                        : 'Lage zekerheid — wordt niet toegepast.',
+                    provenance: $provenance,
                 );
 
                 continue;
             }
 
-            $disposition = $confidence === 'high'
+            // Stated + high → fill; anders suggestion. Risico+inferred nooit confirmed.
+            $disposition = ($confidence === 'high' && $provenance === FactProvenance::Stated)
                 ? RequestPrefillCandidate::DISPOSITION_FILL
                 : RequestPrefillCandidate::DISPOSITION_SUGGESTION;
+
+            $reason = null;
+            if (RiskRelevantPrefillKeys::requiresConfirmation($key, $provenance)) {
+                $disposition = RequestPrefillCandidate::DISPOSITION_SUGGESTION;
+                $reason = 'Risicoveld met aanname — klantbevestiging nodig, niet als bevestigd opgeslagen.';
+            } elseif ($disposition === RequestPrefillCandidate::DISPOSITION_SUGGESTION) {
+                $reason = $provenance === FactProvenance::Inferred
+                    ? 'Afgeleide aanname — wordt als voorzet opgeslagen.'
+                    : 'Middelmatige zekerheid — wordt als voorzet opgeslagen.';
+            }
+
+            // High+stated op non-risk mag fill blijven; high+inferred → suggestion.
+            if ($confidence === 'high' && $provenance === FactProvenance::Inferred) {
+                $disposition = RequestPrefillCandidate::DISPOSITION_SUGGESTION;
+                $reason ??= 'High confidence maar inferred — voorzet, geen bevestigd feit.';
+            }
 
             $candidate = new RequestPrefillCandidate(
                 questionKey: $key,
@@ -337,9 +372,8 @@ final class RequestPrefillOutcomeClassifier
                 evidence: $fillEvidence,
                 disposition: $disposition,
                 source: RequestPrefillCandidate::SOURCE_CATALOG_AI,
-                reason: $disposition === RequestPrefillCandidate::DISPOSITION_SUGGESTION
-                    ? 'Middelmatige zekerheid — wordt als voorzet opgeslagen.'
-                    : null,
+                reason: $reason,
+                provenance: $provenance,
             );
 
             $candidates[] = $candidate;
@@ -347,6 +381,7 @@ final class RequestPrefillOutcomeClassifier
                 'question_key' => $key,
                 'section_instance_key' => $instanceKey,
                 'confidence' => $confidence,
+                'provenance' => $provenance->value,
                 'value' => $normalized,
                 'evidence' => $fillEvidence,
             ];
@@ -508,6 +543,23 @@ final class RequestPrefillOutcomeClassifier
         }
 
         return $candidates;
+    }
+
+    /**
+     * Ontbrekende provenance: risicokeys → inferred (veilig); overige high → stated (legacy v6-fills).
+     */
+    private function resolveProvenance(mixed $raw, string $questionKey, string $confidence): FactProvenance
+    {
+        $explicit = FactProvenance::tryFromMixed($raw);
+        if ($explicit instanceof FactProvenance) {
+            return $explicit;
+        }
+
+        if (RiskRelevantPrefillKeys::contains($questionKey)) {
+            return FactProvenance::Inferred;
+        }
+
+        return $confidence === 'high' ? FactProvenance::Stated : FactProvenance::Inferred;
     }
 
     /**

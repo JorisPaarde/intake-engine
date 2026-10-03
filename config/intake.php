@@ -123,6 +123,11 @@ return [
             'max_long_edge' => (int) env('INTAKE_ANALYSIS_MAX_LONG_EDGE', 1536),
             'jpeg_quality' => (int) env('INTAKE_ANALYSIS_JPEG_QUALITY', 80),
         ],
+        // PDF-only embed variant (originals on disk stay untouched).
+        'pdf' => [
+            'max_long_edge' => (int) env('INTAKE_PDF_MAX_LONG_EDGE', 1600),
+            'jpeg_quality' => (int) env('INTAKE_PDF_JPEG_QUALITY', 75),
+        ],
         'accepted_mimes' => [
             'image/jpeg',
             'image/png',

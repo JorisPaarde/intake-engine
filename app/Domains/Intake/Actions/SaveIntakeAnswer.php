@@ -12,6 +12,7 @@ use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Services\AnswerValueReader;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\ProgressCalculator;
+use App\Domains\Intake\Support\FactProvenance;
 use App\Enums\IntakeStatus;
 use App\Enums\QuestionType;
 use Illuminate\Support\Facades\DB;
@@ -30,6 +31,7 @@ final class SaveIntakeAnswer
      * @param  string|null  $prefillSource  BL-016: 'installer' when the installer pre-fills at
      *                                      creation; null for a normal answer, which also clears
      *                                      any prior prefill flag (the applicant confirmed/edited).
+     * @param  FactProvenance|string|null  $factProvenance  stated|inferred|unknown for AI fills
      */
     public function handle(
         Intake $intake,
@@ -37,6 +39,7 @@ final class SaveIntakeAnswer
         ?string $sectionInstanceKey,
         ?array $value,
         ?string $prefillSource = null,
+        FactProvenance|string|null $factProvenance = null,
     ): IntakeAnswer {
         $question = $this->findQuestion($intake, $questionKey);
 
@@ -47,13 +50,14 @@ final class SaveIntakeAnswer
         }
 
         $normalized = $this->normalizeValue($question->type, $value);
+        $provenanceValue = $this->normalizeProvenance($factProvenance, $prefillSource);
 
         if ($question->is_required && ! $this->answerValueReader->isFilled($normalized, $question->type)) {
             // Allow clearing optional; required empty saves are rejected on "next", but autosave of empty optional is ok.
             // For required fields, still persist partial drafts if user typed then cleared — progress will reflect.
         }
 
-        $answer = DB::transaction(function () use ($intake, $questionKey, $sectionInstanceKey, $normalized, $prefillSource): IntakeAnswer {
+        $answer = DB::transaction(function () use ($intake, $questionKey, $sectionInstanceKey, $normalized, $prefillSource, $provenanceValue): IntakeAnswer {
             $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
 
             $allowedStatuses = $prefillSource === null
@@ -85,12 +89,14 @@ final class SaveIntakeAnswer
                     'section_instance_key' => $sectionInstanceKey,
                     'value' => $normalized,
                     'prefill_source' => $prefillSource,
+                    'fact_provenance' => $provenanceValue,
                     'answered_at' => now(),
                 ]);
             } else {
                 $answer->update([
                     'value' => $normalized,
                     'prefill_source' => $prefillSource,
+                    'fact_provenance' => $provenanceValue,
                     'answered_at' => now(),
                 ]);
             }
@@ -123,6 +129,22 @@ final class SaveIntakeAnswer
         }
 
         return $answer;
+    }
+
+    private function normalizeProvenance(
+        FactProvenance|string|null $factProvenance,
+        ?string $prefillSource,
+    ): ?string {
+        if ($prefillSource === null) {
+            // Klantbevestiging / eigen invoer = stated.
+            return FactProvenance::Stated->value;
+        }
+
+        if ($factProvenance instanceof FactProvenance) {
+            return $factProvenance->value;
+        }
+
+        return FactProvenance::tryFromMixed($factProvenance)?->value;
     }
 
     private function touchProgress(Intake $intake, bool $allowStatusStart = true): void

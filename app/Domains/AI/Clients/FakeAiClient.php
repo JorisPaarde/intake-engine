@@ -231,6 +231,30 @@ final class FakeAiClient implements AiClientInterface
             ], 'fake-v1');
         }
 
+        if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'route-photo-analysis')) {
+            return $this->result([
+                'photo_usable' => true,
+                'visible_elements' => ['binnenwand', 'doorvoer'],
+                'route_possible' => true,
+                'route_segments' => ['doorvoer naar gevel'],
+                'confidence' => 0.85,
+                'missing_information' => [],
+                'next_photo_instruction' => 'Fotografeer de buitengevel.',
+            ], 'fake-vision-v1');
+        }
+
+        if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'route-synthesis')) {
+            return $this->result([
+                'route_continuous' => true,
+                'proposed_route' => ['binnenunit', 'doorvoer', 'buitenunit'],
+                'alternative_route' => [],
+                'uncertainties' => [],
+                'missing_checks' => [],
+                'confidence' => 0.8,
+                'next_photo_instruction' => '',
+            ], 'fake-vision-v1');
+        }
+
         $output = self::$forcedOutput ?? [
             'summary' => 'Fictieve AI-samenvatting van de intake voor testgebruik.',
             'highlights' => [
@@ -245,10 +269,10 @@ final class FakeAiClient implements AiClientInterface
     /**
      * @param  array<string, mixed>  $output
      */
-    private function result(array $output, string $model): AiCompletionResult
+    private function result(array $output, string $model, ?AiCompletionRequest $request = null): AiCompletionResult
     {
         $raw = (string) json_encode($output, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        $request = self::$lastRequest;
+        $request ??= self::$lastRequest;
         $promptChars = $request === null
             ? 0
             : strlen($request->prompt) + strlen((string) json_encode($request->input, JSON_UNESCAPED_UNICODE));
@@ -258,6 +282,24 @@ final class FakeAiClient implements AiClientInterface
         $totalTokens = $inputTokens + $outputTokens;
         // Rough fake budget units: 1 cent per 1k tokens + 2 cents per image.
         $estimatedCostCents = (int) max(1, (int) ceil($totalTokens / 1000) + ($imageCount * 2));
+
+        $responseFormat = ['type' => 'json_object'];
+        if ($request?->responseSchema !== null && $request->responseSchema !== []) {
+            $schema = is_array($request->responseSchema['schema'] ?? null)
+                ? $request->responseSchema['schema']
+                : $request->responseSchema;
+            $name = is_string($request->responseSchema['name'] ?? null)
+                ? $request->responseSchema['name']
+                : 'structured_output';
+            $responseFormat = [
+                'type' => 'json_schema',
+                'json_schema' => [
+                    'name' => $name,
+                    'strict' => true,
+                    'schema' => $schema,
+                ],
+            ];
+        }
 
         return new AiCompletionResult(
             output: $output,
@@ -272,11 +314,12 @@ final class FakeAiClient implements AiClientInterface
             rawResponse: $raw,
             providerMs: 1,
             modelParameters: [
-                'temperature' => self::$lastRequest !== null && self::$lastRequest->temperature !== null
-                    ? self::$lastRequest->temperature
-                    : (float) config('ai.temperature', 0.2),
-                'response_format' => ['type' => 'json_object'],
                 'model' => $request !== null && $request->model !== null ? $request->model : $model,
+                'temperature' => $request !== null && $request->temperature !== null
+                    ? $request->temperature
+                    : (float) config('ai.temperature', 0.2),
+                'response_format' => $responseFormat,
+                'timeout_seconds' => $request?->timeoutSeconds,
             ],
         );
     }

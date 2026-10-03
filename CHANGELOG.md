@@ -30,6 +30,27 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 - Promptversies: `pipe-route-assessment-v4`, `room-assessment-v6`, `fusebox-assessment-v3`, `request-prefill-v7`, `follow-up-photo-subject-v2` (BL-126).
 - **Uploadlimiet 8 MB (BL-128):** default `INTAKE_UPLOAD_MAX_KB=8192` (was 5120); client-downscale beperkt wat er over de draad gaat.
 
+### Fixed
+
+- **Dossiersynthese faalde op élk model (structuur + timeout + budget) (BL-129):**
+  1. `OpenAiClient` ondersteunt strikte structured output (`response_format.json_schema`, `strict: true`) wanneer de caller een schema meegeeft; zonder schema blijft `json_object`. Dossiersynthese stuurt `DossierSynthesisJsonSchema` (enums, required, referentieformats). Request-`temperature` wordt gehonoreerd (classificatie kan 0 doorgeven).
+  2. `DossierSynthesisPartialAcceptor`: valideer per placement/option/connection; geldige items blijven, ongeldige worden gedropt met reden in AI-trace/`ai_runs`. Status `partial` of `succeeded` zolang minstens één voorstel overblijft; kapotte optie-connections laten geldige placements staan. Eenduidige `subject:N` in placement/connection-refs wordt omgezet naar de bijbehorende `placement:N` (prod run-243); onduidelijke subject-refs droppen alleen die connection, daarna cardinaliteit. Exacte run-243-vorm (`placement_references`×1 + `connections`×1 + `to=subject:298`) → optie weg, tokens/kosten blijven; te weinig placements/connections blijft afgewezen. Staging intakes 76/77: `room:ID`-refs + te korte cardinality → partial; wrong-subject foto’s tellen niet als bewijs; dossier spreekt meterkast-`free_group=no` niet tegen; klanttaak voor muurfoto wordt overgeslagen als die al geüpload is.
+  3. Prompt **`dossier-synthesis-v6`**: v5-regels + evidence_eligible / free_group-policy / subjects_with_room_photo.
+  4. `AI_DOSSIER_TIMEOUT_SECONDS` (default 45) voor de queue-job, los van web-timeout 20s.
+  5. Fractionele budgetteller: `estimated_cost_microcents` (1 cent = 10_000); reserve alleen pre-call; lege tarieven → reserve + éénmalige warning. Dossier-runs schrijven `image_count`/tokens/kosten ook bij partial/fail.
+
+### Added
+
+- **AI-trace export extras + NL dossiervoorstellen + stated-skip (PR #123, naast BL-125):**
+  1. `ai:traces:export`: comma/herhaalde `--intake`, default beide formaten, auto-split (~1 MiB / part-chars) + manifest; foto’s alleen refs; gemaskeerd via `AiTraceRedactor`.
+  2. Installateursdossier: elk AI-voorstel toont NL-veldlabel, waarde, bron en zekerheid (geen raw keys/enums); meterkast-openpunt noemt de vraag.
+  3. Stated ownership / room_name worden niet opnieuw gevraagd (expliciete regressietests).
+- **AI-trace observability extras (PR #123, naast BL-125):** velddekkingstests (`AiTraceObservabilityTest`); demo-purge houdt traces via `intake_ref_id` (runs cascade).
+- **Prefill-provenance + aannames in het installateursdossier (BL-130):**
+  1. `FactProvenance` (`stated`/`inferred`/`unknown`) + `RiskRelevantPrefillKeys`; risicokeys (`ownership`, `noise_sensitive`, techniek) met inferred → `ai_text_suggestion` + dossiermethode `ai_assumption` (“aanname”); `PrefillSources::needsCustomerConfirmation()` voor de wizard (UI nog niet aangesloten). Ontbrekende provenance op risicokeys → veilig inferred (geen promptbump in deze PR).
+  2. Dossier toont aannames met Nederlandse veldlabels, bron en zekerheid (geen raw question keys). Kolom `intake_answers.fact_provenance`.
+  3. Ownership-normaliser, room_name-sync en gerelateerde promptwijzigingen → parallelle PRs (buiten scope).
+
 ## [1.3.0] - 2026-10-03
 
 

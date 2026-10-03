@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domains\AI\DTOs;
 
+use App\Domains\Intake\Support\FactProvenance;
+
 /**
  * Één geclassificeerde prefillkandidaat (lokaal of catalogus-AI).
  *
@@ -34,6 +36,7 @@ final readonly class RequestPrefillCandidate
         public string $disposition,
         public string $source,
         public ?string $reason = null,
+        public ?FactProvenance $provenance = null,
     ) {}
 
     public function compositeKey(): string
@@ -58,6 +61,7 @@ final readonly class RequestPrefillCandidate
             'disposition' => $this->disposition,
             'source' => $this->source,
             'reason' => $this->reason,
+            'provenance' => $this->provenance?->value,
         ];
     }
 }

@@ -11,7 +11,9 @@ use App\Domains\Intake\Models\DossierRecord;
 use App\Domains\Intake\Models\DossierSubject;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeAnswer;
+use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Domains\Intake\Support\FactProvenance;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Domains\Intake\Support\RoomAreaAcceptance;
 use App\Domains\Intake\Support\RoomLabelResolver;
@@ -19,6 +21,7 @@ use App\Enums\ContributionAudience;
 use App\Enums\ContributionTaskStatus;
 use App\Enums\DossierRecordKind;
 use App\Enums\DossierRecordStatus;
+use App\Enums\QuestionType;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -223,9 +226,17 @@ final class DossierManager
         ]);
 
         $roomSubjects = $this->syncRooms($intake, $root);
+        $questionIndex = $this->questionIndex($intake);
 
         foreach ($intake->answers as $answer) {
             $subject = $this->subjectForInstance($answer->section_instance_key, $roomSubjects) ?? $root;
+            $question = $questionIndex[$answer->question_key] ?? null;
+            $provenance = FactProvenance::tryFromMixed($answer->fact_provenance);
+            $isAssumption = PrefillSources::needsCustomerConfirmation(
+                $answer->prefill_source,
+                $provenance,
+                $answer->question_key,
+            );
             $record = DossierRecord::query()->updateOrCreate(
                 [
                     'intake_id' => $intake->id,
@@ -237,10 +248,10 @@ final class DossierManager
                     'dossier_subject_id' => $subject->id,
                     'kind' => DossierRecordKind::Observation,
                     'key' => $this->answerRecordKey($answer),
-                    'value' => $answer->value ?? [],
+                    'value' => $this->answerRecordValue($answer, $question, $provenance, $isAssumption),
                     'actor_type' => $answer->prefill_source === null ? 'customer' : $answer->prefill_source,
                     'actor_id' => null,
-                    'method' => $answer->prefill_source === null ? 'customer_input' : 'automatic_prefill',
+                    'method' => $this->answerRecordMethod($answer, $isAssumption),
                     'confidence' => $this->prefillConfidence($intake, $answer),
                     'status' => $this->prefillStatus($intake, $answer),
                     'observed_at' => $answer->answered_at ?? $answer->updated_at,
@@ -770,5 +781,148 @@ final class DossierManager
             $answer->section_instance_key,
             $answer->question_key,
         ], static fn (?string $value): bool => is_string($value) && $value !== ''));
+    }
+
+    private function answerRecordMethod(IntakeAnswer $answer, bool $isAssumption): string
+    {
+        if ($answer->prefill_source === null) {
+            return 'customer_input';
+        }
+
+        if ($isAssumption) {
+            return 'ai_assumption';
+        }
+
+        if (PrefillSources::isProposedAi($answer->prefill_source)) {
+            return 'ai_proposal';
+        }
+
+        return 'automatic_prefill';
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function answerRecordValue(
+        IntakeAnswer $answer,
+        ?IntakeQuestion $question,
+        ?FactProvenance $provenance,
+        bool $isAssumption,
+    ): array {
+        $value = is_array($answer->value) ? $answer->value : [];
+
+        $enrichProposal = $isAssumption || PrefillSources::isProposedAi($answer->prefill_source);
+        if (! $enrichProposal) {
+            return $value;
+        }
+
+        $fieldLabel = is_string($question?->label) && trim($question->label) !== ''
+            ? trim($question->label)
+            : 'Bekend gegeven';
+        $displayValue = $this->dutchDisplayValue($question, $value);
+        $confidence = match (true) {
+            PrefillSources::isSuggestion($answer->prefill_source) => 'middel',
+            PrefillSources::isStrongAi($answer->prefill_source) => 'hoog',
+            default => 'middel',
+        };
+
+        return array_merge($value, [
+            '_field_label' => $fieldLabel,
+            '_display_value' => $displayValue,
+            '_provenance_label' => ($provenance ?? FactProvenance::Inferred)->installerLabel(),
+            '_source_label' => PrefillSources::installerSourceLabel($answer->prefill_source, $provenance) ?? 'AI',
+            '_confidence_label' => $confidence,
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $value
+     */
+    private function dutchDisplayValue(?IntakeQuestion $question, array $value): string
+    {
+        if ($question === null) {
+            return $this->fallbackDisplayValue($value);
+        }
+
+        return match ($question->type) {
+            QuestionType::SingleChoice => $this->optionDisplayLabel($question, is_string($value['value'] ?? null) ? $value['value'] : null)
+                ?? $this->fallbackDisplayValue($value),
+            QuestionType::MultiChoice => $this->multiChoiceDisplayLabels($question, $value),
+            QuestionType::Boolean => array_key_exists('bool', $value) && is_bool($value['bool'])
+                ? ($value['bool'] ? 'ja' : 'nee')
+                : $this->fallbackDisplayValue($value),
+            QuestionType::Number => isset($value['number']) && is_numeric($value['number'])
+                ? (string) $value['number']
+                : $this->fallbackDisplayValue($value),
+            QuestionType::ShortText, QuestionType::LongText => is_string($value['text'] ?? null) && trim($value['text']) !== ''
+                ? trim($value['text'])
+                : $this->fallbackDisplayValue($value),
+            default => $this->fallbackDisplayValue($value),
+        };
+    }
+
+    private function optionDisplayLabel(IntakeQuestion $question, ?string $optionValue): ?string
+    {
+        if ($optionValue === null || $optionValue === '') {
+            return null;
+        }
+
+        $label = $question->options->firstWhere('value', $optionValue)?->label;
+
+        return is_string($label) && trim($label) !== '' ? trim($label) : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $value
+     */
+    private function multiChoiceDisplayLabels(IntakeQuestion $question, array $value): string
+    {
+        $values = is_array($value['values'] ?? null) ? $value['values'] : [];
+        $labels = [];
+        foreach ($values as $optionValue) {
+            if (! is_string($optionValue)) {
+                continue;
+            }
+            $labels[] = $this->optionDisplayLabel($question, $optionValue) ?? $optionValue;
+        }
+
+        return $labels === [] ? $this->fallbackDisplayValue($value) : implode(', ', $labels);
+    }
+
+    /**
+     * @param  array<string, mixed>  $value
+     */
+    private function fallbackDisplayValue(array $value): string
+    {
+        $bits = [];
+        foreach ($value as $key => $item) {
+            if (str_starts_with($key, '_')) {
+                continue;
+            }
+            if (is_bool($item)) {
+                $bits[] = $item ? 'ja' : 'nee';
+            } elseif (is_scalar($item) && (string) $item !== '') {
+                $bits[] = (string) $item;
+            }
+        }
+
+        return implode(' · ', $bits);
+    }
+
+    /**
+     * @return array<string, IntakeQuestion>
+     */
+    private function questionIndex(Intake $intake): array
+    {
+        $intake->loadMissing(['templateVersion.sections.questions.options']);
+        $index = [];
+
+        foreach ($intake->templateVersion->sections as $section) {
+            foreach ($section->questions as $question) {
+                $index[$question->key] = $question;
+            }
+        }
+
+        return $index;
     }
 }

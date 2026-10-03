@@ -407,5 +407,6 @@ test('existing customer technical answer on pinned intake stays open with Klant 
     $point = collect($check['attention_points'])->firstWhere('code', 'condensate_pump_open');
 
     expect($point)->not->toBeNull()
-        ->and($point['label'])->toBe('Klant gaf aan: Nee, nog te beoordelen');
+        ->and($point['label'])->toContain('klant gaf aan Nee, nog te beoordelen')
+        ->and($point['label'])->not->toContain('natural_fall_possible');
 });

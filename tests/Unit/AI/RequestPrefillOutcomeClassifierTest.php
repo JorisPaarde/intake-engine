@@ -182,3 +182,57 @@ test('ontbrekende fills-array blijft een harde validatiefout', function () {
         expect($exception->errors())->toHaveKey('fills');
     }
 });
+
+test('inferred risk key becomes suggestion not confirmed fill', function () {
+    $classifier = app(RequestPrefillOutcomeClassifier::class);
+
+    $result = $classifier->classifyCatalogOutput([
+        'evidence' => 'Balkon aan de straatkant.',
+        'fills' => [
+            [
+                'question_key' => 'ownership',
+                'section_instance_key' => null,
+                'confidence' => 'high',
+                'value' => ['value' => 'owned'],
+                'evidence' => 'koopwoning',
+                'provenance' => 'inferred',
+            ],
+            [
+                'question_key' => 'cooling_heating',
+                'section_instance_key' => null,
+                'confidence' => 'high',
+                'value' => ['value' => 'both'],
+                'evidence' => 'koelen en verwarmen',
+                'provenance' => 'stated',
+            ],
+        ],
+    ], classifierCatalog());
+
+    $byKey = collect($result['candidates'])->keyBy('questionKey');
+
+    expect($byKey['ownership']->disposition)->toBe(RequestPrefillCandidate::DISPOSITION_SUGGESTION)
+        ->and($byKey['ownership']->provenance?->value)->toBe('inferred')
+        ->and($byKey['cooling_heating']->disposition)->toBe(RequestPrefillCandidate::DISPOSITION_FILL)
+        ->and($byKey['cooling_heating']->provenance?->value)->toBe('stated');
+});
+
+test('missing provenance on risk key defaults to inferred suggestion', function () {
+    $classifier = app(RequestPrefillOutcomeClassifier::class);
+
+    $result = $classifier->classifyCatalogOutput([
+        'evidence' => 'Balkon.',
+        'fills' => [[
+            'question_key' => 'ownership',
+            'section_instance_key' => null,
+            'confidence' => 'high',
+            'value' => ['value' => 'owned'],
+            'evidence' => null,
+        ]],
+    ], classifierCatalog());
+
+    expect($result['candidates'])->toHaveCount(1)
+        ->and($result['candidates'][0]->disposition)->toBe(RequestPrefillCandidate::DISPOSITION_SUGGESTION)
+        ->and($result['candidates'][0]->provenance?->value)->toBe('inferred')
+        ->and(collect($result['normalizations'])->pluck('rule')->all())
+        ->toContain('provenance_default_inferred_risk');
+});

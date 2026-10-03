@@ -18,7 +18,8 @@ final readonly class AiCompletionResult
         public ?int $outputTokens = null,
         public ?int $totalTokens = null,
         public int $imageCount = 0,
-        public ?int $estimatedCostCents = null,
+        /** Fractional estimated cost in cents (may be < 1). */
+        public ?float $estimatedCostCents = null,
         public ?string $finishReason = null,
         public ?string $rawResponse = null,
         public ?int $providerMs = null,
