@@ -202,7 +202,8 @@ test('wizard exposes the photo prefill and a precise retake hint without blockin
     ));
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
-        ->set('photoFiles.fusebox_photo', UploadedFile::fake()->image('meterkast.jpg', 1200, 900));
+        ->set('photoFiles.fusebox_photo', UploadedFile::fake()->image('meterkast.jpg', 1200, 900))
+        ->call('assessPendingUploads');
 
     $hints = $component->get('photoHint');
 
@@ -226,7 +227,8 @@ test('wizard does not ask the customer to reconfirm a high confidence image resu
     FakeAiClient::alwaysReturn(fuseboxOutput());
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
-        ->set('photoFiles.fusebox_photo', UploadedFile::fake()->image('meterkast.jpg', 1200, 900));
+        ->set('photoFiles.fusebox_photo', UploadedFile::fake()->image('meterkast.jpg', 1200, 900))
+        ->call('assessPendingUploads');
 
     $notices = $component->get('prefillNotice');
 

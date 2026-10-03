@@ -1,14 +1,21 @@
-# Klanttest fixtures — 2 oktober 2026
+# Klanttest-fixtures 2 oktober 2026
 
-Bronnen uit de Notion-klanttest. Geen secrets. Publieke/forumbeelden, geen echte klantdata.
+Alleen bestanden die tests echt gebruiken staan in git (copyright). Overige bronnen lokaal ophalen.
 
-| Bestand | Bron |
-|---------|------|
-| `woonkamer-720.jpg` | Funda valentina_media/222/635/013.jpg, geschaald naar 720 px breed |
-| `woonkamer-1440.jpg` | Zelfde bron, geschaald naar 1440 px breed |
-| `meterkast-klein.jpg` | Klusidee forum attachment img_2505 / 18974 |
-| `meterkast-groot.jpg` | Tweakers gathering image XFvR3lO5C5smPNHkrqRvpqMH |
-| `buitenunit-leiding.jpeg` | VKB airconditioning-woonhuis-installeren-VKB-06.jpeg |
-| `gevel-extra.jpg` | Green-Home klima-normalbig606.jpg |
+## In git
 
-Download gelukt voor alle zes bestanden (2026-10-02).
+| Bestand | Gebruik | Bron |
+|---------|---------|------|
+| `woonkamer-720.jpg` | `KlanttestProgressUploadTest` upload/dedupe/retry | Funda `https://cloud.funda.nl/valentina_media/222/635/013.jpg` (geschaald naar 720px breed) |
+
+## Lokaal ophalen (niet in git)
+
+| Bestand | Bron-URL |
+|---------|----------|
+| `woonkamer-1440.jpg` | `https://cloud.funda.nl/valentina_media/222/635/013.jpg` (schalen naar 1440px breed) |
+| `meterkast-klein.jpg` | Klusidee attachment `img_2505-jpg.18974` (zoek via klusidee.nl / forum) |
+| `meterkast-groot.jpg` | Tweakers `https://tweakers.net/i/XFvR3lO5C5smPNHkrqRvpqMH.jpg` (vaak 403; Wayback als fallback) |
+| `buitenunit-leiding.jpeg` | VKB Squarespace CDN: zoek `airconditioning-woonhuis-installeren-VKB-06.jpeg` |
+| `gevel-extra.jpg` | `https://www.green-home.nl/pictures/news/2/klima-normalbig606.jpg` |
+
+Geen secrets. Alleen publieke beelden voor QA/tests.

@@ -30,6 +30,7 @@ use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\AnswerValueReader;
 use App\Domains\Intake\Services\CompletenessChecker;
+use App\Domains\Intake\Services\FollowUpProgressCalculator;
 use App\Domains\Intake\Services\IntakePrefillResolver;
 use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Domains\Intake\Services\ProgressCalculator;
@@ -129,6 +130,33 @@ class IntakeWizard extends Component
 
     /** @var list<array{question_key: string, section_instance_key: string|null, reason: string, label?: string, instance_label?: string|null}> */
     public array $completionMissing = [];
+
+
+    /**
+     * Klantzichtbare uploadfase: assessing | failed | '' (idle).
+     * Uploaden zelf toont de client via wire:loading.
+     */
+    public string $uploadPhase = '';
+
+    public string $uploadPhaseMessage = '';
+
+    #[Locked]
+    public string $uploadPhaseComposite = '';
+
+    /** Korte uitleg wanneer analyse een extra klanttaak toevoegt. */
+    public string $progressExtraNote = '';
+
+    /**
+     * Upload-ids per composite/follow-up-item die nog beoordeeld moeten worden.
+     *
+     * @var array<string, list<int>>
+     */
+    #[Locked]
+    public array $pendingAssessUploadIds = [];
+
+    /** Voorkomt herhaalde recover-js binnen één request-lifecycle. */
+    private bool $queuedUnassessedRecovery = false;
+
 
     /**
      * Composites revealed via known-summary “Wijzigen” without clearing prefill_source yet.
@@ -230,6 +258,7 @@ class IntakeWizard extends Component
             $steps,
         );
         $this->applyPrefillForActiveStep();
+        $this->recoverUnassessedUploads();
     }
 
     public function hydrate(): void
@@ -243,6 +272,7 @@ class IntakeWizard extends Component
     public function render(): View
     {
         $intake = $this->intake();
+        $this->recoverUnassessedUploads();
 
         if ($this->followUpMode) {
             return $this->renderFollowUp($intake);
@@ -338,6 +368,12 @@ class IntakeWizard extends Component
                 ? route('intakes.show', $intake)
                 : null,
             'progressPercent' => $this->completed ? 100 : $progress['percent'],
+            'progressAnswered' => $progress['answered_required'] ?? 0,
+            'progressTotal' => $progress['total_required'] ?? 0,
+            'progressExtraNote' => $this->progressExtraNote,
+            'uploadPhase' => $this->uploadPhase,
+            'uploadPhaseMessage' => $this->uploadPhaseMessage,
+            'uploadPhaseComposite' => $this->uploadPhaseComposite,
             'missingRequired' => $this->completionMissing !== []
                 ? $this->completionMissing
                 : $progress['missing_required'],
@@ -503,6 +539,10 @@ class IntakeWizard extends Component
         $items = $round->items->values();
         $this->followUpStepIndex = max(0, min($this->followUpStepIndex, max(0, $items->count() - 1)));
         $item = $items->get($this->followUpStepIndex);
+        $progress = app(FollowUpProgressCalculator::class)->calculate($items, $this->followUpResponses);
+        $currentStatus = $item instanceof IntakeFollowUpItem
+            ? ($progress['item_statuses'][$item->id] ?? null)
+            : null;
 
         return view('livewire.customer.follow-up-wizard', [
             'intake' => $intake,
@@ -510,6 +550,13 @@ class IntakeWizard extends Component
             'items' => $items,
             'item' => $item,
             'isLastStep' => $this->followUpStepIndex >= $items->count() - 1,
+            'progressPercent' => $this->completed ? 100 : $progress['percent'],
+            'progressCompleted' => $progress['completed'],
+            'progressTotal' => $progress['total'],
+            'currentItemStatus' => $currentStatus,
+            'uploadPhase' => $this->uploadPhase,
+            'uploadPhaseMessage' => $this->uploadPhaseMessage,
+            'uploadPhaseComposite' => $this->uploadPhaseComposite,
             'followUpPhotoHint' => $item instanceof IntakeFollowUpItem
                 && $item->type === FollowUpItemType::Photo
                 ? $this->persistentFollowUpPhotoHint($item)
@@ -698,6 +745,7 @@ class IntakeWizard extends Component
         }
 
         $itemId = (int) $key;
+        $composite = (string) $itemId;
         $property = $type === FollowUpItemType::Photo
             ? 'followUpPhotoFiles'
             : 'followUpDocumentFiles';
@@ -709,40 +757,231 @@ class IntakeWizard extends Component
             return;
         }
 
+        // Alleen deze item-fase resetten; pending van andere items blijft staan.
+        $this->progressExtraNote = '';
+        $this->clearPendingIdsFor($composite);
+        if ($this->uploadPhaseComposite === $composite) {
+            $this->uploadPhase = '';
+            $this->uploadPhaseMessage = '';
+        }
+
         $item = $this->followUpItem($itemId);
+        $intake = $this->intake();
+        $this->uploadPhaseComposite = $composite;
+
         $stored = 0;
         $error = null;
-        /** @var list<IntakeUpload> $newPhotoUploads */
-        $newPhotoUploads = [];
+        $duplicateNotice = false;
+        /** @var list<int> $storedUploadIds */
+        $storedUploadIds = [];
 
         foreach ($files as $file) {
             try {
-                $upload = app(StoreFollowUpUpload::class)->handle($this->intake(), $item, $file);
+                $upload = app(StoreFollowUpUpload::class)->handle($intake, $item, $file);
+
+                if (! $upload->wasRecentlyCreated) {
+                    $duplicateNotice = true;
+
+                    if ($type === FollowUpItemType::Photo && $upload->usability_verdict === null) {
+                        $storedUploadIds[] = $upload->id;
+                    }
+
+                    continue;
+                }
+
                 $this->rememberStoredUpload($upload);
                 $stored++;
-
-                if ($type === FollowUpItemType::Photo) {
-                    app(AssessPhotoUsability::class)->handle($upload, correlationId: $this->correlationIdForUpload($upload));
-                    $newPhotoUploads[] = $upload;
-                }
+                $storedUploadIds[] = $upload->id;
             } catch (ValidationException $exception) {
                 $error = $exception->errors()['upload'][0]
                     ?? $exception->errors()['photo'][0]
                     ?? 'Bestand uploaden mislukt.';
+            } catch (\Throwable $exception) {
+                report($exception);
+                $error = $this->customerThrowableMessage($exception, 'upload');
             }
         }
 
         $this->{$property}[$itemId] = null;
+        $storedUploadIds = array_values(array_unique($storedUploadIds));
 
-        if ($type === FollowUpItemType::Photo) {
-            $this->saveMessage = $stored === 1 ? 'Foto opgeslagen' : ($stored > 1 ? "{$stored} foto's opgeslagen" : '');
+        if ($storedUploadIds !== [] && $type === FollowUpItemType::Photo) {
+            $this->setPendingIdsFor($composite, $storedUploadIds);
+            $this->setUploadPhase('assessing', 'Foto beoordelen…');
+            $this->saveMessage = $duplicateNotice && $stored === 0
+                ? 'Deze foto staat er al'
+                : ($stored === 1 ? 'Foto opgeslagen' : ($stored > 1 ? "{$stored} foto's opgeslagen" : 'Deze foto staat er al'));
+            $this->js('$wire.assessPendingUploads()');
 
-            $item = $this->followUpItem($itemId);
+            return;
+        }
+
+        if ($stored > 0) {
+            $this->clearUploadPhase();
+            $this->saveMessage = $stored === 1 ? 'Document opgeslagen' : "{$stored} documenten opgeslagen";
+        } elseif ($duplicateNotice) {
+            $this->clearUploadPhase();
+            $this->saveMessage = 'Deze foto staat er al';
+        } elseif ($error !== null) {
+            $this->setUploadPhase('failed', 'Uploaden mislukt. Je eerdere antwoorden blijven bewaard.');
+            $this->addError($errorBagKey, $error);
+            $this->saveMessage = '';
+        } else {
+            $this->clearUploadPhase();
+            $this->saveMessage = '';
+        }
+    }
+
+    /**
+     * Tweede Livewire-round-trip: beoordeling + fotoanalyse na opslaan.
+     */
+    public function assessPendingUploads(): void
+    {
+        $composite = $this->uploadPhaseComposite;
+
+        if ($composite === '' || $this->pendingIdsFor($composite) === []) {
+            return;
+        }
+
+        if ($this->followUpMode) {
+            $this->assessPendingFollowUpUploads();
+
+            return;
+        }
+
+        $uploadIds = $this->pendingIdsFor($composite);
+        $intake = $this->intake();
+
+        $this->setUploadPhase('assessing', 'Foto beoordelen…');
+
+        $hints = [];
+        [$questionKey, $instanceKey] = $this->splitComposite($composite);
+
+        $previousKeys = app(ProgressCalculator::class)->calculate($intake, $this->version())['task_keys'];
+
+        try {
+            foreach ($uploadIds as $uploadId) {
+                $upload = IntakeUpload::query()
+                    ->where('intake_id', $intake->id)
+                    ->whereKey($uploadId)
+                    ->first();
+
+                if (! $upload instanceof IntakeUpload) {
+                    continue;
+                }
+
+                if ($questionKey === '') {
+                    $questionKey = $upload->question_key;
+                    $instanceKey = $upload->section_instance_key;
+                }
+
+                $verdict = app(AssessPhotoUsability::class)->handle($upload, correlationId: $this->correlationIdForUpload($upload));
+                $retakeHint = $this->photoRetakeHint($verdict, $upload->question_key);
+
+                if ($retakeHint !== null) {
+                    $hints[] = $retakeHint;
+                }
+            }
+
+            if ($questionKey !== '') {
+                $this->runPhotoDerivation($questionKey, $instanceKey);
+            }
+
+            $this->forgetIntakeDerivedCaches();
+            $this->realignToActiveStep();
+
+            foreach ($uploadIds as $uploadId) {
+                $upload = IntakeUpload::query()
+                    ->where('intake_id', $this->intake()->id)
+                    ->whereKey($uploadId)
+                    ->first();
+
+                if (! $upload instanceof IntakeUpload) {
+                    continue;
+                }
+
+                $assessment = $upload->fresh()?->contentAssessment() ?? $upload->contentAssessment();
+
+                if ($assessment instanceof PhotoContentAssessment
+                    && ($msg = $assessment->customerMessage()) !== null) {
+                    $hints[] = $msg;
+                }
+            }
+
+            $progressAfter = app(ProgressCalculator::class)->calculate($this->intake(), $this->version());
+            $this->setProgressExtraNoteFromNewTasks($previousKeys, $progressAfter);
+
+            if ($hints !== []) {
+                $this->photoHint[$composite] = implode(' ', array_values(array_unique($hints)));
+            }
+
+            $this->clearPendingIdsFor($composite);
+            $this->clearUploadPhase();
+        } catch (\Throwable $exception) {
+            report($exception);
+            $this->setUploadPhase(
+                'failed',
+                'Beoordelen mislukt. Je foto en antwoorden blijven bewaard.',
+            );
+            $this->addError(
+                'photoFiles.'.$composite,
+                $this->customerThrowableMessage($exception, 'assess'),
+            );
+        }
+    }
+
+public function retryFailedUploadPhase(): void
+    {
+        $composite = $this->uploadPhaseComposite;
+
+        if ($composite === '' || $this->pendingIdsFor($composite) === []) {
+            $this->recoverUnassessedUploads(force: true);
+
+            if ($this->uploadPhaseComposite === '' || $this->pendingIdsFor($this->uploadPhaseComposite) === []) {
+                $this->clearUploadPhase();
+                $this->saveMessage = 'Je kunt de foto opnieuw kiezen.';
+
+                return;
+            }
+
+            return;
+        }
+
+        $this->resetErrorBag();
+        $this->setUploadPhase('assessing', 'Foto beoordelen…');
+        $this->js('$wire.assessPendingUploads()');
+    }
+
+/**
+     * Beoordeel alleen de pending follow-upfoto's van het actieve item.
+     */
+    private function assessPendingFollowUpUploads(): void
+    {
+        $composite = $this->uploadPhaseComposite;
+        $uploadIds = $this->pendingIdsFor($composite);
+        $intake = $this->intake();
+
+        $this->setUploadPhase('assessing', 'Foto beoordelen…');
+
+        try {
             $warnings = [];
 
-            foreach ($newPhotoUploads as $upload) {
-                $result = app(AssessFollowUpPhotoSubject::class)->handle($this->intake(), $item, $upload);
-                $message = $result['message'];
+            foreach ($uploadIds as $uploadId) {
+                $upload = IntakeUpload::query()
+                    ->where('intake_id', $intake->id)
+                    ->whereKey($uploadId)
+                    ->first();
+
+                if (! $upload instanceof IntakeUpload) {
+                    continue;
+                }
+
+                app(AssessPhotoUsability::class)->handle($upload, correlationId: $this->correlationIdForUpload($upload));
+
+                $itemId = (int) $composite;
+                $item = $this->followUpItem($itemId);
+                $result = app(AssessFollowUpPhotoSubject::class)->handle($intake, $item, $upload);
+                $message = $result['message'] ?? null;
 
                 if (is_string($message) && $message !== '') {
                     $warnings[] = $message;
@@ -750,19 +989,232 @@ class IntakeWizard extends Component
             }
 
             if ($warnings !== []) {
-                $this->addError($errorBagKey, implode(' ', array_values(array_unique($warnings))));
+                $this->addError(
+                    'followUpPhotoFiles.'.($composite !== '' ? $composite : '0'),
+                    implode(' ', array_values(array_unique($warnings))),
+                );
             }
-        } else {
-            $this->saveMessage = $stored === 1 ? 'Document opgeslagen' : ($stored > 1 ? "{$stored} documenten opgeslagen" : '');
-        }
 
-        if ($error !== null) {
-            $this->addError($errorBagKey, $error);
+            $this->clearPendingIdsFor($composite);
+            $this->clearUploadPhase();
+        } catch (\Throwable $exception) {
+            report($exception);
+            $this->setUploadPhase(
+                'failed',
+                'Beoordelen mislukt. Je foto en antwoorden blijven bewaard.',
+            );
+            $this->addError(
+                'followUpPhotoFiles.'.($composite !== '' ? $composite : '0'),
+                $this->customerThrowableMessage($exception, 'assess'),
+            );
         }
     }
 
-    /**
+private function setUploadPhase(string $phase, string $message): void
+    {
+        $this->uploadPhase = $phase;
+        $this->uploadPhaseMessage = $message;
+    }
+
+private function clearUploadPhase(): void
+    {
+        $this->uploadPhase = '';
+        $this->uploadPhaseMessage = '';
+        $this->uploadPhaseComposite = '';
+    }
+
+/**
+     * @return list<int>
+     */
+    private function pendingIdsFor(string $key): array
+    {
+        if (! array_key_exists($key, $this->pendingAssessUploadIds)) {
+            return [];
+        }
+
+        return array_values(array_unique(array_map('intval', $this->pendingAssessUploadIds[$key])));
+    }
+
+/**
+     * @param  list<int>  $ids
+     */
+    private function setPendingIdsFor(string $key, array $ids): void
+    {
+        $normalized = array_values(array_unique(array_map('intval', $ids)));
+
+        if ($normalized === []) {
+            unset($this->pendingAssessUploadIds[$key]);
+
+            return;
+        }
+
+        $this->pendingAssessUploadIds[$key] = $normalized;
+    }
+
+private function clearPendingIdsFor(string $key): void
+    {
+        unset($this->pendingAssessUploadIds[$key]);
+    }
+
+/**
+     * Na reload/timeout: uploads zonder usability_verdict opnieuw in de beoordelingswachtrij.
+     */
+    private function recoverUnassessedUploads(bool $force = false): void
+    {
+        if ($this->queuedUnassessedRecovery || $this->completed) {
+            return;
+        }
+
+        if (! $force && $this->uploadPhase === 'failed') {
+            return;
+        }
+
+        if (
+            ! $force
+            && $this->uploadPhase === 'assessing'
+            && $this->uploadPhaseComposite !== ''
+            && $this->pendingIdsFor($this->uploadPhaseComposite) !== []
+        ) {
+            return;
+        }
+
+        if ($this->followUpMode) {
+            $items = $this->followUpRound()->items->values();
+            $item = $items->get($this->followUpStepIndex);
+
+            if (! $item instanceof IntakeFollowUpItem || $item->type !== FollowUpItemType::Photo) {
+                return;
+            }
+
+            $item->loadMissing('uploads');
+            $ids = $item->uploads
+                ->filter(static fn (IntakeUpload $upload): bool => $upload->usability_verdict === null)
+                ->pluck('id')
+                ->map(static fn ($id): int => (int) $id)
+                ->values()
+                ->all();
+
+            if ($ids === []) {
+                return;
+            }
+
+            $composite = (string) $item->id;
+            $this->setPendingIdsFor($composite, $ids);
+            $this->uploadPhaseComposite = $composite;
+            $this->setUploadPhase('assessing', 'Foto beoordelen…');
+            $this->queuedUnassessedRecovery = true;
+            $this->js('$wire.assessPendingUploads()');
+
+            return;
+        }
+
+        $intake = $this->intake();
+        /** @var Collection<int, IntakeUpload> $unassessed */
+        $unassessed = IntakeUpload::query()
+            ->where('intake_id', $intake->id)
+            ->whereNull('intake_follow_up_item_id')
+            ->whereNull('usability_verdict')
+            ->orderBy('id')
+            ->get();
+
+        if ($unassessed->isEmpty()) {
+            return;
+        }
+
+        $step = $this->currentStep();
+        $preferred = null;
+
+        if ($step !== null) {
+            $preferredComposite = VisibilityResolver::compositeKey(
+                $step['question_key'],
+                $step['section_instance_key'],
+            );
+            $matching = $unassessed->filter(
+                static fn (IntakeUpload $upload): bool => VisibilityResolver::compositeKey(
+                    $upload->question_key,
+                    $upload->section_instance_key,
+                ) === $preferredComposite,
+            );
+
+            if ($matching->isNotEmpty()) {
+                $preferred = $matching;
+            }
+        }
+
+        $group = $preferred ?? $unassessed->groupBy(
+            static fn (IntakeUpload $upload): string => VisibilityResolver::compositeKey(
+                $upload->question_key,
+                $upload->section_instance_key,
+            ),
+        )->first();
+
+        if (! $group instanceof Collection || $group->isEmpty()) {
+            return;
+        }
+
+        /** @var IntakeUpload $first */
+        $first = $group->first();
+        $composite = VisibilityResolver::compositeKey(
+            $first->question_key,
+            $first->section_instance_key,
+        );
+        $ids = $group->pluck('id')->map(static fn ($id): int => (int) $id)->values()->all();
+
+        $this->setPendingIdsFor($composite, $ids);
+        $this->uploadPhaseComposite = $composite;
+        $this->setUploadPhase('assessing', 'Foto beoordelen…');
+        $this->queuedUnassessedRecovery = true;
+        $this->js('$wire.assessPendingUploads()');
+    }
+
+/**
+     * @param  list<string>  $previousTaskKeys
+     * @param  array{
+     *     percent: int,
+     *     answered_required: int,
+     *     total_required: int,
+     *     missing_required: list<array{question_key: string, section_instance_key: string|null, label: string|null}>,
+     *     task_keys: list<string>
+     * }  $progressAfter
+     */
+    private function setProgressExtraNoteFromNewTasks(array $previousTaskKeys, array $progressAfter): void
+    {
+        $newLabels = app(ProgressCalculator::class)->newTaskLabels($previousTaskKeys, $progressAfter);
+
+        if ($newLabels === []) {
+            return;
+        }
+
+        $this->progressExtraNote = count($newLabels) === 1
+            ? 'Na je foto hebben we nog één vraag: '.$newLabels[0]
+            : 'Na je foto hebben we nog een paar vragen: '.implode('; ', $newLabels);
+    }
+
+/**
+     * Eerlijke klanttekst bij timeout vs. overige fouten; altijd na report($e).
+     */
+    private function customerThrowableMessage(\Throwable $exception, string $context): string
+    {
+        $message = strtolower($exception->getMessage());
+        $isTimeout = $exception instanceof ConnectionException
+            || str_contains($message, 'timed out')
+            || str_contains($message, 'timeout')
+            || str_contains($message, 'max_execution_time');
+
+        if ($context === 'assess') {
+            return $isTimeout
+                ? 'Beoordelen duurde te lang. Je foto is wel opgeslagen — tik op Opnieuw proberen.'
+                : 'Beoordelen mislukt. Je foto is wel opgeslagen — tik op Opnieuw proberen.';
+        }
+
+        return $isTimeout
+            ? 'Upload duurde te lang. Je eerdere antwoorden blijven bewaard — probeer het opnieuw.'
+            : 'Upload mislukt. Je eerdere antwoorden blijven bewaard — probeer het opnieuw.';
+    }
+
+/**
      * Upload each selected file independently so one failure does not block the rest (BL-021).
+     * Round-trip 1: opslaan + uploadPhase=assessing. Round-trip 2: assessPendingUploads().
      *
      * @param  list<TemporaryUploadedFile>  $files
      */
@@ -770,14 +1222,23 @@ class IntakeWizard extends Component
     {
         $maxKb = (int) config('intake.uploads.max_kilobytes', 5120);
         [$questionKey, $instanceKey] = $this->splitComposite($composite);
+        $intake = $this->intake();
+
+        // Alleen deze composite resetten; pending van andere vragen blijft staan.
+        $this->progressExtraNote = '';
+        $this->clearPendingIdsFor($composite);
+        if ($this->uploadPhaseComposite === $composite) {
+            $this->uploadPhase = '';
+            $this->uploadPhaseMessage = '';
+        }
+        $this->uploadPhaseComposite = $composite;
 
         $stored = 0;
+        $duplicateNotice = false;
         /** @var list<string> $errors */
         $errors = [];
-        /** @var list<string> $hints */
-        $hints = [];
-        /** @var list<IntakeUpload> $newUploads */
-        $newUploads = [];
+        /** @var list<int> $storedUploadIds */
+        $storedUploadIds = [];
 
         foreach ($files as $file) {
             try {
@@ -789,22 +1250,25 @@ class IntakeWizard extends Component
                 )->validate();
 
                 $upload = app(StoreIntakeUpload::class)->handle(
-                    $this->intake(),
+                    $intake,
                     $questionKey,
                     $instanceKey,
                     $file,
                 );
+
+                if (! $upload->wasRecentlyCreated) {
+                    $duplicateNotice = true;
+
+                    if ($upload->usability_verdict === null) {
+                        $storedUploadIds[] = $upload->id;
+                    }
+
+                    continue;
+                }
+
                 $this->rememberStoredUpload($upload);
                 $stored++;
-                $newUploads[] = $upload;
-
-                // BL-007: non-blocking local usability check — a hint, never a block.
-                $verdict = app(AssessPhotoUsability::class)->handle($upload, correlationId: $this->correlationIdForUpload($upload));
-                $retakeHint = $this->photoRetakeHint($verdict, $questionKey);
-
-                if ($retakeHint !== null) {
-                    $hints[] = $retakeHint;
-                }
+                $storedUploadIds[] = $upload->id;
 
                 // BL-025: invalidate request-cache after the upload changed intake state.
                 $this->forgetIntakeDerivedCaches();
@@ -812,13 +1276,10 @@ class IntakeWizard extends Component
                 $errors[] = $e->errors()['photo'][0]
                     ?? $e->errors()['photoFiles.'.$composite][0]
                     ?? 'Upload mislukt. Probeer het opnieuw.';
+            } catch (\Throwable $exception) {
+                report($exception);
+                $errors[] = $this->customerThrowableMessage($exception, 'upload');
             }
-        }
-
-        if ($stored > 0) {
-            $this->runPhotoDerivation($questionKey, $instanceKey);
-            $this->forgetIntakeDerivedCaches();
-            $this->realignToActiveStep();
         }
 
         // Alleen deze foto-composite verversen — volledige hydrate wist niet-opgeslagen velden.
@@ -827,29 +1288,32 @@ class IntakeWizard extends Component
         $this->showMissing = false;
         $this->resetErrorBag('photoFiles.'.$composite);
 
-        foreach ($newUploads as $upload) {
-            $fresh = $upload->fresh() ?? $upload;
-            $assessment = $fresh->contentAssessment();
-
-            if ($assessment instanceof PhotoContentAssessment
-                && ($msg = $assessment->customerMessage()) !== null) {
-                $hints[] = $msg;
-            }
-        }
-
-        $this->photoHint[$composite] = $hints === [] ? null : implode(' ', array_values(array_unique($hints)));
-
-        if ($stored === 1) {
-            $this->saveMessage = 'Foto opgeslagen';
-        } elseif ($stored > 1) {
-            $this->saveMessage = $stored." foto's opgeslagen";
-        } else {
-            $this->saveMessage = '';
-        }
-
         if ($errors !== []) {
-            $unique = array_values(array_unique($errors));
-            $this->addError('photoFiles.'.$composite, implode(' ', $unique));
+            $this->addError('photoFiles.'.$composite, implode(' ', array_values(array_unique($errors))));
+        }
+
+        $storedUploadIds = array_values(array_unique($storedUploadIds));
+
+        if ($storedUploadIds !== []) {
+            $this->setPendingIdsFor($composite, $storedUploadIds);
+            $this->setUploadPhase('assessing', 'Foto beoordelen…');
+            $this->saveMessage = $duplicateNotice && $stored === 0
+                ? 'Deze foto staat er al'
+                : ($stored === 1 ? 'Foto opgeslagen' : ($stored > 1 ? $stored." foto's opgeslagen" : 'Deze foto staat er al'));
+            $this->js('$wire.assessPendingUploads()');
+
+            return;
+        }
+
+        if ($duplicateNotice) {
+            $this->clearUploadPhase();
+            $this->saveMessage = 'Deze foto staat er al';
+        } elseif ($errors !== []) {
+            $this->setUploadPhase('failed', 'Uploaden mislukt. Je eerdere antwoorden blijven bewaard.');
+            $this->saveMessage = '';
+        } else {
+            $this->clearUploadPhase();
+            $this->saveMessage = '';
         }
     }
 
@@ -1698,7 +2162,7 @@ class IntakeWizard extends Component
 
             // A prefill remains editable and is only authoritative after customer confirmation.
             if ($answer->prefill_source === 'installer') {
-                $notices[$composite] = 'Uw installateur heeft dit alvast ingevuld — klopt het?';
+                $notices[$composite] = 'Je installateur heeft dit alvast ingevuld — klopt het?';
             } elseif (PrefillSources::isPhotoSuggestion($answer->prefill_source)) {
                 $notices[$composite] = 'We hebben dit uit je foto gehaald — klopt het?';
             }

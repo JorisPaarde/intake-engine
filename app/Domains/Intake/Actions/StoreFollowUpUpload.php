@@ -102,6 +102,16 @@ final class StoreFollowUpUpload
                 $analysisChecksum = null;
             }
 
+            $duplicate = IntakeUpload::query()
+                ->where('intake_id', $intake->id)
+                ->where('intake_follow_up_item_id', $item->id)
+                ->where('checksum', $checksum)
+                ->first();
+
+            if ($duplicate instanceof IntakeUpload) {
+                return $duplicate;
+            }
+
             if (! Storage::disk($disk)->put($path, File::get($absolutePath))
                 || ($normalized instanceof NormalizedPhotoUpload && ! Storage::disk($disk)->put(
                     (string) $analysisPath,

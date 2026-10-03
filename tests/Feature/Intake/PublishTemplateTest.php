@@ -7,7 +7,7 @@ use App\Domains\Intake\Services\PublishIntakeTemplateFromConfig;
 use App\Enums\TemplateVersionStatus;
 use Database\Seeders\IntakeTemplateSeeder;
 
-test('airco template seeder publishes v1 through v19 with v19 as latest', function () {
+test('airco template seeder publishes v1 through v20 with v20 as latest', function () {
     $this->seed(IntakeTemplateSeeder::class);
 
     $template = IntakeTemplate::query()->where('key', 'airco')->first();
@@ -17,14 +17,14 @@ test('airco template seeder publishes v1 through v19 with v19 as latest', functi
 
     $versions = $template->versions()->orderBy('version')->get();
 
-    expect($versions)->toHaveCount(19)
-        ->and($versions->pluck('version')->all())->toBe([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19])
+    expect($versions)->toHaveCount(20)
+        ->and($versions->pluck('version')->all())->toBe([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
         ->and($versions->every(fn ($version) => $version->status === TemplateVersionStatus::Published))->toBeTrue();
 
     $latest = $template->latestPublishedVersion();
 
     expect($latest)->not->toBeNull()
-        ->and($latest->version)->toBe(19)
+        ->and($latest->version)->toBe(20)
         ->and($latest->sections()->count())->toBeGreaterThan(5)
         ->and($latest->sections()->where('key', 'rooms')->value('is_repeatable'))->toBeTrue();
 
@@ -152,7 +152,7 @@ test('airco template seeder publishes v1 through v19 with v19 as latest', functi
 
     expect($freeGroup->is_required)->toBeTrue()
         ->and($freeGroup->meta['installer_decision'] ?? null)->toBeNull()
-        ->and($freeGroup->label)->toBe('Is er een vrije groep in de meterkast?')
+        ->and($freeGroup->label)->toBe('Is er al een aparte vrije stroomgroep beschikbaar?')
         ->and($freeGroup->meta['skip_when_prefilled_by'] ?? [])->toContain('ai')
         ->and($freeGroup->meta['skip_when_prefilled_by'] ?? [])->toContain('ai_photo')
         ->and($freeGroup->rules)->toHaveCount(1)
@@ -213,11 +213,11 @@ test('airco template seeder publishes v1 through v19 with v19 as latest', functi
         require database_path('data/templates/airco/v1.php'),
     );
     $againLatest = app(PublishIntakeTemplateFromConfig::class)->handle(
-        require database_path('data/templates/airco/v19.php'),
+        require database_path('data/templates/airco/v20.php'),
     );
 
     expect($againV1->version)->toBe(1)
         ->and($againLatest->id)->toBe($latest->id)
         ->and(IntakeTemplate::query()->where('key', 'airco')->count())->toBe(1)
-        ->and($template->versions()->count())->toBe(19);
+        ->and($template->versions()->count())->toBe(20);
 });

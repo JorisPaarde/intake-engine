@@ -50,7 +50,8 @@ test('a dark photo shows a non-blocking hint and does not block the flow', funct
     $composite = 'room-1__room_photos';
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
-        ->set('photoFiles.'.$composite, darkUpload());
+        ->set('photoFiles.'.$composite, darkUpload())
+        ->call('assessPendingUploads');
 
     $hint = $component->get('photoHint');
 

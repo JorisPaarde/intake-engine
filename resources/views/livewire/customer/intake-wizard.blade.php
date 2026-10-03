@@ -31,9 +31,20 @@
                 <span>Voortgang</span>
                 <span class="font-medium text-[#18201d]">{{ $progressPercent }}%</span>
             </div>
-            <div class="mt-2 h-1.5 overflow-hidden bg-[#dde2da]" role="progressbar" aria-valuenow="{{ $progressPercent }}" aria-valuemin="0" aria-valuemax="100">
+            <div class="mt-2 h-1.5 overflow-hidden bg-[#dde2da]" role="progressbar" aria-valuenow="{{ $progressPercent }}" aria-valuemin="0" aria-valuemax="100" aria-label="Voortgang op basis van afgeronde taken">
                 <div class="h-full bg-[var(--tenant-primary)] transition-all duration-300" style="width: {{ $progressPercent }}%"></div>
             </div>
+            @if (! $completed && ($progressTotal ?? 0) > 0)
+                <p class="mt-1 text-xs text-[#5e6862]">{{ $progressAnswered ?? 0 }} van {{ $progressTotal }} taken afgerond</p>
+            @endif
+            @if (! empty($progressExtraNote))
+                <p class="mt-2 rounded-lg border border-[#dde2da] bg-white px-3 py-2 text-sm text-[#414b45]" role="status" data-testid="progress-extra-note">
+                    {{ $progressExtraNote }}
+                </p>
+            @endif
+            @if ($completed)
+                <p class="mt-2 text-xs text-[#5e6862]">Jouw deel is compleet. Open technische restpunten bekijkt je installateur apart.</p>
+            @endif
         </div>
 
         @if ($saveMessage !== '')
@@ -303,8 +314,28 @@
                                     @endif
 
                                     @if ($remainingSlots > 0)
-                                        <div>
-                                            <label class="flex min-h-12 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-[#dde2da] bg-[#eef1ec] px-4 py-5 text-center">
+                                        <div
+                                            x-data="{ timedOut: false, timer: null }"
+                                            x-init="
+                                                const arm = () => {
+                                                    clearTimeout(timer);
+                                                    timedOut = false;
+                                                    if ($wire.uploadPhase === 'assessing' && $wire.uploadPhaseComposite === @js($composite)) {
+                                                        timer = setTimeout(() => { timedOut = true }, 120000);
+                                                    }
+                                                };
+                                                arm();
+                                                $watch(() => $wire.uploadPhase, () => arm());
+                                                $watch(() => $wire.uploadPhaseComposite, () => arm());
+                                            "
+                                        >
+                                            @php($uploadBusy = ($uploadPhase ?? '') === 'assessing' && ($uploadPhaseComposite ?? '') === $composite)
+                                            <label
+                                                class="flex min-h-12 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-[#dde2da] bg-[#eef1ec] px-4 py-5 text-center"
+                                                :class="{ 'pointer-events-none opacity-60': @js($uploadBusy) && ! timedOut }"
+                                                wire:loading.class="pointer-events-none opacity-60"
+                                                wire:target="photoFiles.{{ $composite }}"
+                                            >
                                                 <span class="text-sm font-semibold text-[#18201d]">Foto's maken of kiezen</span>
                                                 <span class="text-xs text-[#5e6862]">
                                                     JPEG, PNG, WebP of HEIC · max {{ number_format($maxUploadKb / 1024, 0) }} MB
@@ -318,10 +349,45 @@
                                                     multiple
                                                     class="sr-only"
                                                     wire:model="photoFiles.{{ $composite }}"
+                                                    wire:loading.attr="disabled"
+                                                    wire:target="photoFiles.{{ $composite }},assessPendingUploads,retryFailedUploadPhase"
+                                                    x-bind:disabled="@js($uploadBusy) && ! timedOut"
                                                 >
                                             </label>
                                             <div wire:loading wire:target="photoFiles.{{ $composite }}" class="mt-2 text-sm font-medium text-[var(--tenant-primary)]">
-                                                Bezig met uploaden…
+                                                Uploaden…
+                                            </div>
+                                            <div wire:loading.remove wire:target="photoFiles.{{ $composite }}">
+                                                @if (($uploadPhase ?? '') === 'assessing' && ($uploadPhaseComposite ?? '') === $composite)
+                                                    <div class="mt-2 space-y-1 text-sm font-medium text-[var(--tenant-primary)]" role="status" data-testid="upload-phase" wire:key="upload-phase-{{ $composite }}-assessing">
+                                                        <p>{{ $uploadPhaseMessage }}</p>
+                                                        <p class="text-xs font-normal text-[#5e6862]">Fase: Foto beoordelen</p>
+                                                        <div x-show="timedOut" x-cloak class="mt-1">
+                                                            <button
+                                                                type="button"
+                                                                wire:click="retryFailedUploadPhase"
+                                                                wire:loading.attr="disabled"
+                                                                wire:target="assessPendingUploads,retryFailedUploadPhase"
+                                                                class="text-sm font-semibold text-[var(--tenant-primary)] underline disabled:opacity-60"
+                                                            >
+                                                                Opnieuw beoordelen
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                @elseif (($uploadPhase ?? '') === 'failed' && ($uploadPhaseComposite ?? '') === $composite)
+                                                    <div class="mt-2 space-y-1 text-sm font-medium text-[var(--tenant-primary)]" role="status" data-testid="upload-phase" wire:key="upload-phase-{{ $composite }}-failed">
+                                                        <p>{{ $uploadPhaseMessage }}</p>
+                                                        <button
+                                                            type="button"
+                                                            wire:click="retryFailedUploadPhase"
+                                                            wire:loading.attr="disabled"
+                                                            wire:target="assessPendingUploads,retryFailedUploadPhase"
+                                                            class="mt-1 text-sm font-semibold text-[var(--tenant-primary)] underline disabled:opacity-60"
+                                                        >
+                                                            Opnieuw proberen
+                                                        </button>
+                                                    </div>
+                                                @endif
                                             </div>
                                             @error('photoFiles.'.$composite)
                                                 <p class="mt-2 text-sm text-[#a84832]">{{ $message }}</p>
@@ -347,6 +413,11 @@
                                         @error('photo')
                                             <p class="mt-2 text-sm text-[#a84832]">{{ $message }}</p>
                                         @enderror
+                                    @endif
+
+                                    @if ($existingUploads->isNotEmpty())
+                                        @php($photoStatus = $existingUploads->every(fn ($uploadItem) => $uploadItem->usability_verdict !== null) ? 'Beoordeeld' : 'Ontvangen')
+                                        <p class="text-xs font-medium text-[#5e6862]" data-testid="photo-receipt-status">Status: {{ $photoStatus }}</p>
                                     @endif
 
                                     @if ($photoMismatchAssessment)
