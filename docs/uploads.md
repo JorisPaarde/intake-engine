@@ -1,6 +1,6 @@
 # Uploads & mediastorage
 
-> **Documentversie:** 3.16 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.17 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: klant-, gerichte bijdrage- en installateursfoto's, private serve-routes, generieke bewijslinks en dossier-/analysevarianten zijn **geïmplementeerd**. `MEDIA_DISK=s3` is ondersteund via Laravel’s `s3`-disk (BL-013). Directe installateurs-PDF-upload is niet gebouwd; een PDF kan wel als gerichte klanttaak worden gevraagd.
 
@@ -28,7 +28,7 @@ Status: klant-, gerichte bijdrage- en installateursfoto's, private serve-routes,
    - rij in `intake_uploads`; templatefoto's synchroniseren daarnaast `intake_answers.value.upload_ids`
    - `DossierManager` koppelt bewijs aan ruimte, plaatsing, verbinding of algemene dossierroot
 4. Preview via `customer.uploads.show` / `installer.uploads.show`.
-5. AI-categoriecheck (BL-119) + queue-pipeline (BL-121/BL-127): elke klantfoto krijgt precies één terminale `assessment_status` (`pending` → `assessed` / `heuristic_rejected` / `not_assessed` / `reused`). `too_small` → `heuristic_rejected` zonder AI-wacht; AI-fout → `not_assessed`; dezelfde bytes met hetzelfde expected subject → `reused` + `assessment_source_upload_id`. `content_assessment` (`ok` / `wrong_subject` / `needs_clearer` / `not_assessed`) blijft het inhoudelijke oordeel. Wizard-poll stopt op elke terminale status; na ~90 s soft-timeout (“check volgt later”) mag de klant door terwijl pending voor de watchdog blijft. Watchdog `photos:requeue-pending-assessments` (elke minuut) herdispatched pending > ~3 min (max attempts). `ai_runs.upload_id` koppelt foto-runs. Verkeerd onderwerp: **Vervang foto** of **Toch doorgaan**. Niet-controleerbare gebieden zonder `photo_analysis` → `assessed` zonder content_assessment.
+5. AI-categoriecheck (BL-119) + queue-pipeline (BL-121/BL-127/BL-134): elke klantfoto krijgt precies één terminale `assessment_status` (`pending` → `assessed` / `heuristic_rejected` / `not_assessed` / `reused`). `too_small` → `heuristic_rejected` zonder AI-wacht; AI-fout → `not_assessed`; dezelfde bytes met hetzelfde expected subject → `reused` + `assessment_source_upload_id`. `content_assessment` (`ok` / `wrong_subject` / `needs_clearer` / `not_assessed`) blijft het inhoudelijke oordeel. Wizard-poll stopt op elke terminale status; na ~90 s soft-timeout (“check volgt later”) mag de klant door terwijl pending voor de watchdog blijft. Watchdog `photos:requeue-pending-assessments` (elke minuut) herdispatched alleen pipeline-dispatched pending (`assessment_attempts >= 1`) ouder dan ~3 min, binnen max-age (24 u), op klantfase-intakes, met cap per run; legacy backfill-pending wordt niet herqueued. Submitted/closed intakes: job zet alleen terminal, geen AI. `ai_runs.upload_id` koppelt foto-runs. Verkeerd onderwerp: **Vervang foto** of **Toch doorgaan**. Niet-controleerbare gebieden zonder `photo_analysis` → `assessed` zonder content_assessment.
 6. Verwijderen wist beide varianten; bij storagefalen neemt `DeleteStoredMediaJob` de retry over.
 7. Installateursgalerij (detailpagina): `InstallerPhotoGalleryBuilder` groepeert foto’s per sectie/instantie en toont vraaglabels uit de gepinde templateversie (geen rauwe `question_key` / `section_instance_key`) — BL-024.
 

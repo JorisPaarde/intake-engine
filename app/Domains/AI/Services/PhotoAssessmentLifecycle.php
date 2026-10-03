@@ -126,7 +126,9 @@ final class PhotoAssessmentLifecycle
     }
 
     /**
-     * Dispatch AI job idempotently. Attempts are counted when the job starts.
+     * Dispatch AI job idempotently.
+     * Sets assessment_attempts >= 1 as the pipeline marker so the watchdog
+     * only requeues uploads the app itself dispatched (BL-134).
      */
     public function dispatch(IntakeUpload $upload, ?string $correlationId = null): void
     {
@@ -144,6 +146,8 @@ final class PhotoAssessmentLifecycle
             'assessment_status' => PhotoAssessmentStatus::Pending,
             'assessment_queued_at' => now(),
             'assessment_source_upload_id' => null,
+            // Pipeline marker: watchdog requires attempts >= 1 (never revive bare backfill).
+            'assessment_attempts' => max(1, (int) $fresh->assessment_attempts),
         ])->save();
 
         AssessUploadedPhotoJob::dispatch($fresh->id, $correlationId);

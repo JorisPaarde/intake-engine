@@ -16,6 +16,7 @@ use App\Domains\Intake\Models\ContributionTask;
 use App\Domains\Intake\Models\IntakeFollowUpItem;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Enums\FollowUpItemType;
+use App\Enums\IntakeStatus;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -74,7 +75,14 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
 
         $upload = IntakeUpload::query()->with(['intake', 'followUpItem'])->find($this->uploadId);
 
-        if (! $upload instanceof IntakeUpload || $upload->intake === null) {
+        if (! $upload instanceof IntakeUpload) {
+            return;
+        }
+
+        // Soft-deleted / missing intake: terminal only, never call AI.
+        if ($upload->intake === null) {
+            $lifecycle->ensureTerminal($upload);
+
             return;
         }
 
@@ -82,6 +90,19 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
         $correlationId = $requestIdResolver->resolveCorrelationIdForUpload($upload, $this->correlationId);
 
         if ($lifecycle->isTerminal($upload) && ! $upload->contentAssessment()?->needsReassessment()) {
+            return;
+        }
+
+        // Submitted/closed intakes: never overwrite answers — terminal status only (BL-134).
+        if ($upload->intake->status instanceof IntakeStatus
+            && $upload->intake->status->isSubmittedOrClosed()) {
+            Log::info('Skipping photo assessment on submitted/closed intake', [
+                'upload_id' => $this->uploadId,
+                'intake_id' => $upload->intake_id,
+                'status' => $upload->intake->status->value,
+            ]);
+            $lifecycle->ensureTerminal($upload);
+
             return;
         }
 

@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.88 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.89 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,10 +38,11 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = fotobeoordeling via queue (#124, done). **BL-122** = soft catalogus-prefill (case 81). **BL-123** = staging-retest acceptance (#115–#120). **BL-124** = form robustness (#127, done). **BL-125** = AI-trace retentie/export + PDF-downscale (#130, done). **BL-126** = prompt/vision quality (route/ownership/kamernamen). **BL-127** = foto-assessment terminale status + watchdog (#133, done). **BL-128** = grote telefoonfoto-upload (inactiviteit-timeout + client-downscale + lege-200-retry, #131 done). **BL-129** = klant-UX review v1.3.0 (airco v22, #134 done). **BL-130** = follow-up mismatch-override + reassessment (#125). **BL-131** = wizard nav + scoped foto-feedback (#129, done). **BL-132** = AI-trace veldverbeteringen (request_id/cost/queue/redactie, #136). **BL-133** = staging AI-trace fixes (fusebox/glass/prefill/follow-up, airco v23, #135). Nieuwe items starten bij BL-134.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = fotobeoordeling via queue (#124, done). **BL-122** = soft catalogus-prefill (case 81). **BL-123** = staging-retest acceptance (#115–#120). **BL-124** = form robustness (#127, done). **BL-125** = AI-trace retentie/export + PDF-downscale (#130, done). **BL-126** = prompt/vision quality (route/ownership/kamernamen). **BL-127** = foto-assessment terminale status + watchdog (#133, done). **BL-128** = grote telefoonfoto-upload (inactiviteit-timeout + client-downscale + lege-200-retry, #131 done). **BL-129** = klant-UX review v1.3.0 (airco v22, #134 done). **BL-130** = follow-up mismatch-override + reassessment (#125). **BL-131** = wizard nav + scoped foto-feedback (#129, done). **BL-132** = AI-trace veldverbeteringen (request_id/cost/queue/redactie, #136). **BL-133** = staging AI-trace fixes (fusebox/glass/prefill/follow-up, airco v23, #135). **BL-134** = photo-assessment watchdog hotfix (legacy pending → geen AI op submitted). Nieuwe items starten bij BL-135.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
+| 1 | BL-134 | Hotfix: legacy photo-assessment pending niet herqueuen / geen AI op submitted | E4 | in_progress | high | prod v1.4.0 · na BL-127 · rebase main@2d0871e |
 | 1 | BL-117 | Installateur kan technisch open punt afhandelen vanuit de survey-werkplek | E7/E8 | backlog | high | na PR #115 · show/rapport `*_open` |
 | — | BL-133 | Staging AI-trace fixes: fusebox empty_module_space, glas/glazing, prefill, correlation | E3/E4/E9 | in_progress | high | AI/foto · na BL-126/127 · intakes 76–78 · airco v23 · PR #135 |
 | — | BL-132 | AI-trace velden: provider response id, cost, queue wait, GPS-redactie | E4/E5 | done | high | AI/ops · na BL-125 · PR #136 |
@@ -607,6 +608,13 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Status:** done · **Datum:** 2026-10-03 · **PR:** #130 · **Prioriteit:** high · **Epic:** E4/E5 · **Band:** AI/ops · **Volgt op:** BL-116- **Doel:** traces overleven demo-purge (`intake_id` nullOnDelete + `intake_ref_id`/`is_demo`); retentie alleen via `ai:purge-traces`; `request_id`; consistente verplichte tracevelden per call type; `ai:traces:export` (jsonl/md, bundling, split, masking); demo-purge ruimt uploadmap op; PDF embedt downscaled foto’s (max 1600px / JPEG ~75) zonder originelen te wijzigen.
 - **Waarom niet `ai_runs`:** blijven cascadeOnDelete — operationele/idempotente apply-records zonder intake; duurzame diagnostiek zit in `ai_traces`.
 - **Resultaat:** merge #130.
+
+### BL-134 — Hotfix: legacy photo-assessment pending niet herqueuen
+
+- **Status:** in_progress · **Prioriteit:** high · **Epic:** E4 · **Volgt op:** BL-127 (#133) · **Ref:** prod v1.4.0 (main 413b7a9) — intake 23 / upload 82 kreeg onterecht `photo_assessment`
+- **Aanleiding:** migratie `2026_10_03_200000` backfillde historische uploads zonder `content_assessment` als `pending` (+ `assessment_queued_at=now`). Watchdog `photos:requeue-pending-assessments` (everyMinute) herdispatched die naar `AssessUploadedPhotoJob` → AI-kosten + datawijziging op oude/submitted intakes.
+- **Doel:** (1) migratie legacy pending → `not_assessed`; (2) watchdog alleen pipeline-dispatched (`attempts>=1`) + max-age + klantfase + cap; (3) job op submitted/closed alleen terminal, geen AI; (4) Pest.
+- **Acceptatie:** legacy pending niet herqueued; verse stuck pending wél; submitted nooit AI; cap werkt; `composer check` groen.
 
 ### BL-132 — AI-trace veldverbeteringen (provider id, cost, queue, redactie)
 

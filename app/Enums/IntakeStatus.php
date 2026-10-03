@@ -34,4 +34,13 @@ enum IntakeStatus: string
             default => false,
         };
     }
+
+    /** Submitted, reviewed, or cancelled — photo AI must not rewrite answers. */
+    public function isSubmittedOrClosed(): bool
+    {
+        return match ($this) {
+            self::Completed, self::Reviewed, self::Cancelled => true,
+            default => false,
+        };
+    }
 }

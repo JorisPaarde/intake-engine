@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Fixed
+
+- **Photo-assessment watchdog herqueued legacy uploads (BL-134, prod v1.4.0):** migratie `2026_10_03_200000` backfillde historische uploads zonder `content_assessment` als `assessment_status=pending`, waarna `photos:requeue-pending-assessments` ze naar `AssessUploadedPhotoJob` stuurde (o.a. oude intake 23 / upload 82). Fix: migratie zet legacy pending (`attempts=0`, geen ai_run / submitted / pre-feature) om naar `not_assessed`; watchdog herqueued alleen pipeline-dispatched uploads (`attempts >= 1`), binnen max-age (24 u), op klantfase-intakes, met cap 20/run; job op submitted/closed intakes zet alleen terminal status zonder AI.
+
 ### Added
 
 - **AI-trace veldverbeteringen (BL-132):** `provider_response_id` (OpenRouter/OpenAI completion `id`), fijnmazige `estimated_cost` (provider `usage.cost`), `queue_wait_ms` + `attempt`/`retry_count` vanuit `AssessUploadedPhotoJob`, generation settings in `model_parameters` (model, temperature, max_tokens, response_format/schema). GPS/EXIF-locatie in redactie; strengere telefoonmaskering zonder huisnummer/m²/ID-false-positives.
