@@ -8,6 +8,12 @@
                 && is_string($record->value['text'] ?? null)
         )
         ->sortByDesc('id');
+    $assumptions = $subjectRecords
+        ->filter(
+            fn ($record) => $record->status === \App\Enums\DossierRecordStatus::Proposed
+                && $record->method === 'ai_assumption'
+        )
+        ->sortByDesc('id');
     $technicalNotes = $subjectRecords
         ->filter(
             fn ($record) => $record->status === \App\Enums\DossierRecordStatus::Established
@@ -53,6 +59,45 @@
                 </li>
             @endforeach
         </ul>
+    @endif
+
+    @if ($assumptions->isNotEmpty())
+        <div class="mt-4 space-y-2">
+            <p class="text-xs font-semibold uppercase tracking-[0.06em] text-amber-800">Aannames (nog bevestigen)</p>
+            <ul class="space-y-2">
+                @foreach ($assumptions as $assumption)
+                    @php
+                        $fieldLabel = is_string($assumption->value['_field_label'] ?? null)
+                            ? $assumption->value['_field_label']
+                            : 'Bekend gegeven';
+                        $displayValue = is_string($assumption->value['_display_value'] ?? null)
+                            ? $assumption->value['_display_value']
+                            : '';
+                        $provenanceLabel = is_string($assumption->value['_provenance_label'] ?? null)
+                            ? $assumption->value['_provenance_label']
+                            : 'aanname';
+                        $sourceLabel = is_string($assumption->value['_source_label'] ?? null)
+                            ? $assumption->value['_source_label']
+                            : 'aanname';
+                        $confidenceLabel = is_string($assumption->value['_confidence_label'] ?? null)
+                            ? $assumption->value['_confidence_label']
+                            : null;
+                        $metaBits = array_values(array_filter([
+                            $provenanceLabel,
+                            $sourceLabel !== $provenanceLabel ? 'bron: '.$sourceLabel : null,
+                            $confidenceLabel !== null ? 'zekerheid: '.$confidenceLabel : null,
+                        ]));
+                    @endphp
+                    <li class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+                        <p class="text-xs font-semibold text-amber-800">{{ implode(' · ', $metaBits) }}</p>
+                        <p class="mt-0.5 text-sm font-medium text-gray-950">{{ $fieldLabel }}</p>
+                        @if ($displayValue !== '')
+                            <p class="mt-0.5 text-xs text-gray-700">{{ $displayValue }}</p>
+                        @endif
+                    </li>
+                @endforeach
+            </ul>
+        </div>
     @endif
 
     @if ($photoSuggestions->isNotEmpty())

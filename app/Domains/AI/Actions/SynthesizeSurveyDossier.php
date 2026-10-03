@@ -26,12 +26,9 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\DecisionReadinessService;
 use App\Domains\Intake\Services\DossierManager;
-<<<<<<< HEAD
 use App\Domains\Intake\Support\CustomerFacingTaskText;
 use App\Enums\AircoConfigurationType;
 use App\Enums\AircoConnectionStatus;
-=======
->>>>>>> 17718eb (AI: strikte dossiersynthese-output + fractionele budgetteller (BL-124))
 use App\Enums\AircoConnectionType;
 use App\Enums\AircoOptionStatus;
 use App\Enums\AiRunStatus;
