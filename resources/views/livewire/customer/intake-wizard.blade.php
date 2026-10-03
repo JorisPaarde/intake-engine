@@ -268,13 +268,7 @@
                                                     multiple
                                                     class="sr-only"
                                                     wire:model="photoFiles.{{ $composite }}"
-                                                    x-on:livewire-upload-start="window.__intakeUploadStarted = performance.now()"
-                                                    x-on:livewire-upload-finish="
-                                                        if (window.__intakeUploadStarted) {
-                                                            $wire.set('lastNetworkUploadMs', Math.round(performance.now() - window.__intakeUploadStarted), false);
-                                                            window.__intakeUploadStarted = null;
-                                                        }
-                                                    "
+                                                    data-upload-timing="1"
                                                 >
                                             </label>
                                             <div wire:loading wire:target="photoFiles.{{ $composite }}" class="mt-2 text-sm font-medium text-[var(--tenant-primary)]">

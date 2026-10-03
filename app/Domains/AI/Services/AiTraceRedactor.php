@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace App\Domains\AI\Services;
 
 /**
- * Redacts secrets and customer-link tokens from AI-trace payloads before persistence.
- * Never logs API keys, Bearer auth headers, or /o/{token} customer access tokens.
+ * Redacts secrets, customer-link tokens, and obvious PII from AI-trace payloads
+ * before persistence. Never logs API keys, Bearer auth headers, or /o/{token}
+ * customer access tokens. Email/phone patterns mirror AiInputRedactor.
  */
 final class AiTraceRedactor
 {
@@ -15,6 +16,11 @@ final class AiTraceRedactor
         '/Bearer\s+[A-Za-z0-9\-._~+\/]+=*/i' => 'Bearer [redacted]',
         '/(api[_-]?key|authorization|x-api-key)\s*[:=]\s*["\']?[^\s"\']+/i' => '$1=[redacted]',
     ];
+
+    private const EMAIL = '/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/';
+
+    // NL/intl telefoonnummers: +31/0031/0 gevolgd door 8+ cijfers met optionele spaties/streepjes.
+    private const PHONE = '/(?<!\d)(?:\+31|0031|0)[\s\-]?(?:\d[\s\-]?){8,11}\d(?!\d)/';
 
     /**
      * @param  array<string, mixed>  $payload
@@ -37,6 +43,8 @@ final class AiTraceRedactor
         }
 
         $safe = (string) preg_replace('#(/o/)[A-Za-z0-9]{32,}#', '$1[token-redacted]', $safe);
+        $safe = (string) preg_replace(self::EMAIL, '[e-mail verwijderd]', $safe);
+        $safe = (string) preg_replace(self::PHONE, '[telefoon verwijderd]', $safe);
 
         if ($this->looksLikeBase64Blob($safe)) {
             return '[base64-omitted len='.strlen($safe).']';

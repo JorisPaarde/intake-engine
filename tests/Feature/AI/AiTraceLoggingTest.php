@@ -200,13 +200,15 @@ test('mislukte foto-AI wist geen bestaand dossierantwoord', function (string $fi
         'room_photos',
         'room-1',
         new UploadedFile($fixture, $fixtureName, 'image/jpeg', null, true),
-        networkUploadMs: 42,
     );
+    app(AiTraceRecorder::class)->recordNetworkUploadMs($upload, 42);
+    $upload->refresh();
 
     expect($upload->processing_timings)->toBeArray()
         ->and($upload->processing_timings['preprocess_ms'] ?? null)->not->toBeNull()
         ->and($upload->processing_timings['persist_ms'] ?? null)->not->toBeNull()
-        ->and($upload->processing_timings['network_upload_ms'] ?? null)->toBe(42);
+        ->and($upload->processing_timings['network_upload_ms'] ?? null)->toBe(42)
+        ->and($upload->processing_timings['dossier_width'] ?? null)->not->toBeNull();
 
     FakeAiClient::alwaysFail('Simulated provider outage for trace acceptance');
 

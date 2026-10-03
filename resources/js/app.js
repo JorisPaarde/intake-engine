@@ -112,48 +112,78 @@ function registerHashDisclosure() {
 registerHashDisclosure();
 
 /**
- * Livewire file-upload network timing (BL-116 / P2). Measures livewire-upload-start
- * → finish and stores ms on the owning component as lastNetworkUploadMs when present.
+ * Livewire file-upload network timing (BL-116 / P2).
+ * Measure start → first livewire-upload-progress at 100%, then call
+ * recordNetworkUploadTiming(uploadId, ms) on the owning component after
+ * the upload row exists (via livewire:commit / upload finish handshake).
  */
 function registerLivewireUploadTiming() {
-    let startedAt = null;
+    /** @type {Map<string, {startedAt: number, networkMs: number|null, componentId: string|null}>} */
+    const pending = new Map();
 
-    document.addEventListener('livewire-upload-start', () => {
-        startedAt = performance.now();
-        window.__intakeUploadStarted = startedAt;
+    const keyFor = (event) => {
+        const input = event.target instanceof Element ? event.target : null;
+        const name = input?.getAttribute?.('wire:model') || input?.getAttribute?.('name') || 'default';
+        const root = input?.closest?.('[wire\\:id]');
+        const id = root?.getAttribute?.('wire:id') || 'unknown';
+        return id + '::' + name;
+    };
+
+    document.addEventListener('livewire-upload-start', (event) => {
+        const key = keyFor(event);
+        const root = event.target instanceof Element ? event.target.closest('[wire\\:id]') : null;
+        pending.set(key, {
+            startedAt: performance.now(),
+            networkMs: null,
+            componentId: root?.getAttribute?.('wire:id') || null,
+        });
     });
 
-    document.addEventListener('livewire-upload-finish', (event) => {
-        const began = startedAt ?? window.__intakeUploadStarted;
-        startedAt = null;
-        window.__intakeUploadStarted = null;
-        if (began == null || typeof Livewire === 'undefined') {
+    document.addEventListener('livewire-upload-progress', (event) => {
+        const key = keyFor(event);
+        const entry = pending.get(key);
+        if (!entry || entry.networkMs !== null) {
             return;
         }
-        const ms = Math.round(performance.now() - began);
-        const root = event.target instanceof Element
-            ? event.target.closest('[wire\\:id]')
-            : null;
-        if (!root) {
-            return;
+        const detail = event.detail || {};
+        const progress = typeof detail.progress === 'number'
+            ? detail.progress
+            : (typeof detail === 'number' ? detail : null);
+        if (progress === 100) {
+            entry.networkMs = Math.max(0, Math.round(performance.now() - entry.startedAt));
         }
-        const id = root.getAttribute('wire:id');
-        if (!id) {
+    });
+
+    const deliver = (componentId, ms) => {
+        if (!componentId || ms === null || typeof Livewire === 'undefined') {
             return;
         }
         try {
-            const component = Livewire.find(id);
-            if (component && typeof component.$set === 'function') {
-                component.$set('lastNetworkUploadMs', ms, false);
+            const component = Livewire.find(componentId);
+            if (component && typeof component.call === 'function') {
+                // Pass ms; server pairs it with the latest saved upload id.
+                component.call('queueNetworkUploadTiming', ms);
             }
         } catch {
             // Soft-fail: timing is diagnostic only.
         }
+    };
+
+    document.addEventListener('livewire-upload-finish', (event) => {
+        const key = keyFor(event);
+        const entry = pending.get(key);
+        if (!entry) {
+            return;
+        }
+        if (entry.networkMs === null) {
+            entry.networkMs = Math.max(0, Math.round(performance.now() - entry.startedAt));
+        }
+        deliver(entry.componentId, entry.networkMs);
+        pending.delete(key);
     });
 
-    document.addEventListener('livewire-upload-error', () => {
-        startedAt = null;
-        window.__intakeUploadStarted = null;
+    document.addEventListener('livewire-upload-error', (event) => {
+        pending.delete(keyFor(event));
     });
 }
 

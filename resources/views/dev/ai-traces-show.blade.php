@@ -23,7 +23,7 @@
                 ])>{{ $trace->status->value }}</span>
                 <span>{{ $trace->provider }} · {{ $trace->model ?? '—' }}</span>
             </div>
-            <div>prompt/schema: {{ $trace->prompt_version ?? '—' }} / {{ $trace->schema_version ?? '—' }}</div>
+            <div>prompt: {{ $trace->prompt_version ?? '—' }} · correlation: {{ $trace->correlation_id ?? '—' }}</div>
             <div>subject: {{ $trace->subject_type ?? '—' }} {{ $trace->subject_id ?? '' }} · upload #{{ $trace->upload_id ?? '—' }} · ai_run #{{ $trace->ai_run_id ?? '—' }}</div>
             <div>fallback={{ $trace->fallback_used ? 'ja' : 'nee' }} · retries={{ $trace->retry_count }} · finish={{ $trace->finish_reason ?? '—' }}</div>
             <div>

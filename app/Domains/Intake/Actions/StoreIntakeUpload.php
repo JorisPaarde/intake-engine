@@ -35,7 +35,6 @@ final class StoreIntakeUpload
         string $questionKey,
         ?string $sectionInstanceKey,
         UploadedFile $file,
-        ?int $networkUploadMs = null,
     ): IntakeUpload {
         $question = $this->findPhotoQuestion($intake, $questionKey);
         $maxFiles = (int) ($question->meta['max_files'] ?? config('intake.uploads.max_files_per_question', 5));
@@ -77,7 +76,7 @@ final class StoreIntakeUpload
                 ]);
             }
 
-            return DB::transaction(function () use ($intake, $questionKey, $sectionInstanceKey, $disk, $path, $analysisPath, $normalized, $maxFiles, $preprocessMs, $persistStarted, $networkUploadMs): IntakeUpload {
+            return DB::transaction(function () use ($intake, $questionKey, $sectionInstanceKey, $disk, $path, $analysisPath, $normalized, $maxFiles, $preprocessMs, $persistStarted): IntakeUpload {
                 $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
 
                 if (! in_array($lockedIntake->status, [IntakeStatus::Sent, IntakeStatus::InProgress], true)) {
@@ -98,11 +97,12 @@ final class StoreIntakeUpload
                 $timings = [
                     'persist_ms' => $persistMs,
                     'preprocess_ms' => $preprocessMs,
+                    'dossier_width' => $normalized->dossierWidth,
+                    'dossier_height' => $normalized->dossierHeight,
+                    'analysis_width' => $normalized->analysisWidth,
+                    'analysis_height' => $normalized->analysisHeight,
                     'measured_at' => now()->toIso8601String(),
                 ];
-                if ($networkUploadMs !== null && $networkUploadMs >= 0) {
-                    $timings['network_upload_ms'] = $networkUploadMs;
-                }
 
                 $upload = IntakeUpload::query()->create([
                     'intake_id' => $intake->id,

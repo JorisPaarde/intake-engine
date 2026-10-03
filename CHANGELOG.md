@@ -8,6 +8,9 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 - **AI-trace logging + P2-timings (BL-116):** elke tekstextractie-, fotoanalyse- en synthese-call schrijft een `ai_traces`/`ai_trace_steps`-keten (trace-ID, intake, subject, provider/model/parameters, promptversie, request+context, photo-refs met breedte/hoogte/variant zonder base64, ruwe/geparste response, validation_errors/normalizations, finish reason, tokens/kosten, field outcomes per reden, dossier values+diff en restvragen incl. hidden/next_step). P2: `network_upload_ms` (Livewire client) + `persist_ms` + `preprocess_ms` + `provider_ms` (ook bij timeout/5xx) + `process_ms` (exclusief provider). Helper `AiTraceRecorder`/`AiTraceHandle` met buffer buiten dossiertransacties, soft-fail isolatie, kill switch `AI_TRACING_ENABLED`. Geïnstrumenteerd: prefill, intent, foto-afleiding, meterkast, dossiersynthese, route foto/synthese, installateursfotoconstateringen, samenvatting, aandachtspunten, lokale fotousability, follow-up- en installateursuploads. `/dev/ai-traces` achter `DEV_ADMIN_EMAILS`-allowlist; CLI `ai:traces` / `ai:purge-traces`.
 
+### Changed
+
+- **BL-116 review r2 (core):** deferred trace persistence (`succeed`/`fail` = één insert + bulk steps), in-memory tx buffer (`beginBuffer`/`flushBuffer`/`discardBuffer`), `correlation_id`/`parent_trace_id`, geen `schema_version`, `IntakeStepBuilder::buildCatalog`, photo dimensions in `processing_timings`, `recordNetworkUploadMs`, enriched `AiClientException`/`OpenAiClient` failure metadata, `normalizeWithDiff` voor dossiersynthese.
 ## [1.2.0] - 2026-10-02
 
 Productie-release `v1.2.0`. Bevat alles na `v1.1.0`: sitemap (BL-105), `memory_limit` (BL-106), nieuwe app-huisstijl en rustiger werkplek (BL-107), OpenRouter-ondersteuning zonder DPIA-procespoort (BL-108), enum-normalisatie in de dossiersynthese (BL-109) en de fixes uit de demo-walks van 24 september (BL-110–BL-115).

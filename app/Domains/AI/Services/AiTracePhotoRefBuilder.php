@@ -14,18 +14,21 @@ use Throwable;
 final class AiTracePhotoRefBuilder
 {
     /**
+     * @param  'auto'|'low'|'high'|null  $detail
      * @return array<string, mixed>
      */
-    public function fromUpload(IntakeUpload $upload, ?string $category = null): array
+    public function fromUpload(IntakeUpload $upload, ?string $category = null, ?string $detail = null): array
     {
         $dossierDims = $this->dimensions($upload, analysis: false);
         $analysisDims = $this->dimensions($upload, analysis: true);
+        $resolvedDetail = $this->resolveDetail($detail);
 
         return [
             'upload_id' => $upload->id,
             'question_key' => $upload->question_key,
             'section_instance_key' => $upload->section_instance_key,
             'category' => $category,
+            'detail' => $resolvedDetail,
             'mime_type' => $upload->analysis_mime_type ?? $upload->mime_type,
             'size_bytes' => $upload->size_bytes,
             'analysis_size_bytes' => $upload->analysis_size_bytes,
@@ -50,22 +53,63 @@ final class AiTracePhotoRefBuilder
     }
 
     /**
+     * @return 'auto'|'low'|'high'
+     */
+    private function resolveDetail(?string $detail): string
+    {
+        return match ($detail) {
+            'low', 'high', 'auto' => $detail,
+            default => 'auto',
+        };
+    }
+
+    /**
      * @return array{width: int|null, height: int|null}
      */
     private function dimensions(IntakeUpload $upload, bool $analysis): array
     {
+        $timings = $upload->processing_timings ?? [];
+        if ($analysis) {
+            $width = $this->intOrNull($timings['analysis_width'] ?? null);
+            $height = $this->intOrNull($timings['analysis_height'] ?? null);
+        } else {
+            $width = $this->intOrNull($timings['dossier_width'] ?? null);
+            $height = $this->intOrNull($timings['dossier_height'] ?? null);
+        }
+
+        if ($width !== null && $height !== null) {
+            return ['width' => $width, 'height' => $height];
+        }
+
+        $disk = (string) $upload->disk;
+        if ($disk !== 'local' && ! str_starts_with($disk, 'local')) {
+            return ['width' => $width, 'height' => $height];
+        }
+
         $path = $analysis ? ($upload->analysis_path ?? $upload->path) : $upload->path;
 
         try {
-            $absolute = Storage::disk((string) $upload->disk)->path($path);
+            $absolute = Storage::disk($disk)->path($path);
             $info = @getimagesize($absolute);
             if (is_array($info)) {
-                return ['width' => (int) $info[0], 'height' => (int) $info[1]];
+                return [
+                    'width' => $width ?? (int) $info[0],
+                    'height' => $height ?? (int) $info[1],
+                ];
             }
         } catch (Throwable) {
             // Soft-fail: dimensions are diagnostic only.
         }
 
-        return ['width' => null, 'height' => null];
+        return ['width' => $width, 'height' => $height];
+    }
+
+    private function intOrNull(mixed $value): ?int
+    {
+        if (! is_int($value) && ! is_numeric($value)) {
+            return null;
+        }
+
+        return max(0, (int) $value);
     }
 }

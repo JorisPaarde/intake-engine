@@ -40,7 +40,6 @@ final class StoreInstallerDossierUpload
         User $installer,
         DossierSubject $subject,
         UploadedFile $file,
-        ?int $networkUploadMs = null,
     ): IntakeUpload {
         if ($installer->company_id !== $intake->company_id
             || $subject->intake_id !== $intake->id
@@ -90,7 +89,6 @@ final class StoreInstallerDossierUpload
                 $normalized,
                 $preprocessMs,
                 $persistStarted,
-                $networkUploadMs,
             ): IntakeUpload {
                 $locked = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
 
@@ -108,11 +106,12 @@ final class StoreInstallerDossierUpload
                 $timings = [
                     'persist_ms' => $persistMs,
                     'preprocess_ms' => $preprocessMs,
+                    'dossier_width' => $normalized->dossierWidth,
+                    'dossier_height' => $normalized->dossierHeight,
+                    'analysis_width' => $normalized->analysisWidth,
+                    'analysis_height' => $normalized->analysisHeight,
                     'measured_at' => now()->toIso8601String(),
                 ];
-                if ($networkUploadMs !== null && $networkUploadMs >= 0) {
-                    $timings['network_upload_ms'] = $networkUploadMs;
-                }
 
                 $upload = IntakeUpload::query()->create([
                     'intake_id' => $intake->id,

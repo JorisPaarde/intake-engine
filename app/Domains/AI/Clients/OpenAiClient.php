@@ -10,7 +10,9 @@ use App\Domains\AI\DTOs\AiCompletionResult;
 use App\Domains\AI\Exceptions\AiClientException;
 use App\Domains\AI\Services\AiBudgetGuard;
 use App\Domains\AI\Services\AiInputRedactor;
+use App\Domains\AI\Services\AiTraceRedactor;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
 /**
@@ -22,8 +24,11 @@ use Illuminate\Support\Facades\Http;
  */
 final class OpenAiClient implements AiClientInterface
 {
+    private const RAW_RESPONSE_LIMIT = 8000;
+
     public function __construct(
         private readonly AiInputRedactor $redactor,
+        private readonly AiTraceRedactor $traceRedactor,
         private readonly AiBudgetGuard $budgetGuard,
     ) {}
 
@@ -91,22 +96,30 @@ final class OpenAiClient implements AiClientInterface
         }
 
         $providerMs = (int) round((microtime(true) - $providerStarted) * 1000);
+        $finishReason = $response->json('choices.0.finish_reason');
+        $finishReason = is_string($finishReason) ? $finishReason : null;
+        $usage = $this->usageFromResponse($response);
+        $rawBody = $this->redactedRawBody((string) $response->body());
 
         if ($response->failed()) {
             throw new AiClientException(
                 'Externe AI-provider gaf status '.$response->status().'.',
                 providerMs: $providerMs,
+                rawResponse: $rawBody,
+                finishReason: $finishReason,
+                usage: $usage,
             );
         }
 
         $content = $response->json('choices.0.message.content');
-        $finishReason = $response->json('choices.0.finish_reason');
-        $finishReason = is_string($finishReason) ? $finishReason : null;
 
         if (! is_string($content) || $content === '') {
             throw new AiClientException(
                 'Externe AI-provider gaf geen bruikbare inhoud.',
                 providerMs: $providerMs,
+                rawResponse: $rawBody,
+                finishReason: $finishReason,
+                usage: $usage,
             );
         }
 
@@ -117,12 +130,15 @@ final class OpenAiClient implements AiClientInterface
             throw new AiClientException(
                 'Externe AI-provider gaf ongeldige JSON.',
                 providerMs: $providerMs,
+                rawResponse: $this->redactedRawBody($content),
+                finishReason: $finishReason,
+                usage: $usage,
             );
         }
 
-        $inputTokens = $this->integerUsage($response->json('usage.prompt_tokens'));
-        $outputTokens = $this->integerUsage($response->json('usage.completion_tokens'));
-        $totalTokens = $this->integerUsage($response->json('usage.total_tokens'));
+        $inputTokens = $usage['input_tokens'];
+        $outputTokens = $usage['output_tokens'];
+        $totalTokens = $usage['total_tokens'];
         $imageCount = count($request->images);
         $actualModel = is_string($response->json('model')) ? $response->json('model') : $model;
 
@@ -205,5 +221,28 @@ final class OpenAiClient implements AiClientInterface
         }
 
         return max(0, (int) $value);
+    }
+
+    /**
+     * @return array{input_tokens: int|null, output_tokens: int|null, total_tokens: int|null}
+     */
+    private function usageFromResponse(Response $response): array
+    {
+        return [
+            'input_tokens' => $this->integerUsage($response->json('usage.prompt_tokens')),
+            'output_tokens' => $this->integerUsage($response->json('usage.completion_tokens')),
+            'total_tokens' => $this->integerUsage($response->json('usage.total_tokens')),
+        ];
+    }
+
+    private function redactedRawBody(string $body): string
+    {
+        $safe = $this->traceRedactor->redactString($body);
+
+        if (strlen($safe) > self::RAW_RESPONSE_LIMIT) {
+            return substr($safe, 0, self::RAW_RESPONSE_LIMIT).'…[truncated]';
+        }
+
+        return $safe;
     }
 }

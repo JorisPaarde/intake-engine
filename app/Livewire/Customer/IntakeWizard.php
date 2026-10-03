@@ -77,9 +77,14 @@ class IntakeWizard extends Component
     public array $photoFiles = [];
 
     /**
-     * Client-side Livewire network upload duration (ms), set via livewire-upload-finish.
+     * Pending client network-upload duration (ms) awaiting an upload id.
      */
-    public ?int $lastNetworkUploadMs = null;
+    public ?int $pendingNetworkUploadMs = null;
+
+    /**
+     * Most recently stored upload id in this component lifecycle (for timing attach).
+     */
+    public ?int $lastStoredUploadId = null;
 
     /**
      * Composite key → labelled prefill notice for the applicant (BL-016).
@@ -657,12 +662,12 @@ class IntakeWizard extends Component
                     $this->intake(),
                     $item,
                     $file,
-                    $this->consumeNetworkUploadMs(),
                 );
+                $this->rememberStoredUpload($upload);
                 $stored++;
 
                 if ($type === FollowUpItemType::Photo) {
-                    app(AssessPhotoUsability::class)->handle($upload);
+                    app(AssessPhotoUsability::class)->handle($upload, correlationId: $this->correlationIdForUpload($upload));
                 }
             } catch (ValidationException $exception) {
                 $error = $exception->errors()['upload'][0]
@@ -714,12 +719,15 @@ class IntakeWizard extends Component
                     $questionKey,
                     $instanceKey,
                     $file,
-                    $this->consumeNetworkUploadMs(),
                 );
+                $this->rememberStoredUpload($upload);
                 $stored++;
 
                 // BL-007: non-blocking local usability check — a hint, never a block.
-                $verdict = app(AssessPhotoUsability::class)->handle($upload);
+                $verdict = app(AssessPhotoUsability::class)->handle(
+                    $upload,
+                    correlationId: $this->correlationIdForUpload($upload),
+                );
                 $retakeHint = $this->photoRetakeHint($verdict, $questionKey);
 
                 if ($retakeHint !== null) {
@@ -1646,15 +1654,53 @@ class IntakeWizard extends Component
         $this->stepIndex = min(max(0, $this->stepIndex), count($steps) - 1);
     }
 
-    private function consumeNetworkUploadMs(): ?int
+    /**
+     * Livewire client callback: network ms measured until upload-progress=100%.
+     * Attaches to the most recently stored upload when available.
+     */
+    public function queueNetworkUploadTiming(int $ms): void
     {
-        $ms = $this->lastNetworkUploadMs;
-        $this->lastNetworkUploadMs = null;
-
-        if ($ms === null || $ms < 0) {
-            return null;
+        if ($ms < 0) {
+            return;
         }
 
-        return $ms;
+        $this->pendingNetworkUploadMs = $ms;
+        $this->flushPendingNetworkUploadTiming();
+    }
+
+    private function rememberStoredUpload(IntakeUpload $upload): void
+    {
+        $this->lastStoredUploadId = $upload->id;
+        $this->flushPendingNetworkUploadTiming();
+    }
+
+    private function flushPendingNetworkUploadTiming(): void
+    {
+        if ($this->pendingNetworkUploadMs === null || $this->lastStoredUploadId === null) {
+            return;
+        }
+
+        $upload = IntakeUpload::query()->find($this->lastStoredUploadId);
+        if ($upload instanceof IntakeUpload) {
+            app(\App\Domains\AI\Services\AiTraceRecorder::class)
+                ->recordNetworkUploadMs($upload, $this->pendingNetworkUploadMs);
+        }
+
+        $this->pendingNetworkUploadMs = null;
+        $this->lastStoredUploadId = null;
+    }
+
+    private function correlationIdForUpload(IntakeUpload $upload): string
+    {
+        $timings = $upload->processing_timings ?? [];
+        if (is_string($timings['correlation_id'] ?? null) && $timings['correlation_id'] !== '') {
+            return (string) $timings['correlation_id'];
+        }
+
+        $id = (string) \Illuminate\Support\Str::uuid();
+        $timings['correlation_id'] = $id;
+        $upload->update(['processing_timings' => $timings]);
+
+        return $id;
     }
 }

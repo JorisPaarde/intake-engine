@@ -13,7 +13,8 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 /**
- * Builds the customer wizard as one visible question per step (BL-018).
+ * Builds the customer wizard as one visible question per step (BL-018),
+ * and a full question catalog with skip reasons for AI traces (BL-116).
  *
  * @phpstan-type IntakeStep array{
  *     key: string,
@@ -26,6 +27,17 @@ use Illuminate\Support\Str;
  *     help_text: string|null,
  *     is_repeatable: bool,
  *     is_required: bool
+ * }
+ * @phpstan-type CatalogRow array{
+ *     question_key: string,
+ *     section_instance_key: string|null,
+ *     section_key: string,
+ *     title: string,
+ *     visible: bool,
+ *     required: bool,
+ *     reason: 'visible'|'prefilled'|'niet_relevant'|'intern'|'overgeslagen',
+ *     prefill_source: string|null,
+ *     answered: bool
  * }
  */
 final class IntakeStepBuilder
@@ -40,6 +52,111 @@ final class IntakeStepBuilder
      * @return list<IntakeStep>
      */
     public function build(Intake $intake, IntakeTemplateVersion $version, array $liveAnswers = []): array
+    {
+        $context = $this->buildContext($intake, $version, $liveAnswers);
+        $steps = [];
+
+        foreach ($version->sections->sortBy('sort_order') as $section) {
+            if ($section->is_repeatable) {
+                $count = $this->repeatCount($section, $context['answers'], $context['questionTypes']);
+
+                for ($i = 1; $i <= $count; $i++) {
+                    $instanceKey = Str::singular($section->key).'-'.$i;
+                    $this->appendVisibleQuestionSteps(
+                        $steps,
+                        $section,
+                        $instanceKey,
+                        $context,
+                    );
+                }
+
+                continue;
+            }
+
+            $this->appendVisibleQuestionSteps(
+                $steps,
+                $section,
+                null,
+                $context,
+            );
+        }
+
+        return $steps;
+    }
+
+    /**
+     * Full question catalog for every section instance (visible + skipped) with reasons.
+     *
+     * @param  array<string, array<string, mixed>|null>  $liveAnswers
+     * @return list<CatalogRow>
+     */
+    public function buildCatalog(Intake $intake, IntakeTemplateVersion $version, array $liveAnswers = []): array
+    {
+        $context = $this->buildContext($intake, $version, $liveAnswers);
+        $rows = [];
+
+        foreach ($version->sections->sortBy('sort_order') as $section) {
+            if ($section->is_repeatable) {
+                $count = $this->repeatCount($section, $context['answers'], $context['questionTypes']);
+                $count = max(1, $count);
+
+                for ($i = 1; $i <= $count; $i++) {
+                    $instanceKey = Str::singular($section->key).'-'.$i;
+                    $this->appendCatalogRows($rows, $section, $instanceKey, $context);
+                }
+
+                continue;
+            }
+
+            $this->appendCatalogRows($rows, $section, null, $context);
+        }
+
+        return $rows;
+    }
+
+    /**
+     * First catalog row that is visible and unanswered (wizard remaining work).
+     *
+     * @param  list<CatalogRow>  $catalog
+     * @return CatalogRow|null
+     */
+    public function nextUnansweredVisible(array $catalog): ?array
+    {
+        foreach ($catalog as $row) {
+            if ($row['visible'] === true && $row['answered'] !== true) {
+                return $row;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  list<CatalogRow>  $catalog
+     */
+    public function remainingUnansweredVisibleCount(array $catalog): int
+    {
+        $count = 0;
+        foreach ($catalog as $row) {
+            if ($row['visible'] === true && $row['answered'] !== true) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * @param  array<string, array<string, mixed>|null>  $liveAnswers
+     * @return array{
+     *     answers: array<string, array<string, mixed>|null>,
+     *     answerSources: array<string, string|null>,
+     *     questionTypes: array<string, QuestionType>,
+     *     sectionsByQuestionKey: array<string, IntakeSection>,
+     *     allQuestions: Collection<string, IntakeQuestion>
+     * }
+     */
+    private function buildContext(Intake $intake, IntakeTemplateVersion $version, array $liveAnswers = []): array
     {
         $version->loadMissing(['sections.questions.options', 'sections.questions.rules']);
         $intake->loadMissing('answers');
@@ -71,98 +188,43 @@ final class IntakeStepBuilder
             }
         }
 
-        $steps = [];
-
-        foreach ($version->sections->sortBy('sort_order') as $section) {
-            if ($section->is_repeatable) {
-                $count = $this->repeatCount($section, $answers, $questionTypes);
-
-                for ($i = 1; $i <= $count; $i++) {
-                    $instanceKey = Str::singular($section->key).'-'.$i;
-                    $this->appendVisibleQuestionSteps(
-                        $steps,
-                        $section,
-                        $instanceKey,
-                        $allQuestions,
-                        $answers,
-                        $answerSources,
-                        $questionTypes,
-                        $sectionsByQuestionKey,
-                    );
-                }
-
-                continue;
-            }
-
-            $this->appendVisibleQuestionSteps(
-                $steps,
-                $section,
-                null,
-                $allQuestions,
-                $answers,
-                $answerSources,
-                $questionTypes,
-                $sectionsByQuestionKey,
-            );
-        }
-
-        return $steps;
+        return [
+            'answers' => $answers,
+            'answerSources' => $answerSources,
+            'questionTypes' => $questionTypes,
+            'sectionsByQuestionKey' => $sectionsByQuestionKey,
+            'allQuestions' => $allQuestions,
+        ];
     }
 
     /**
      * @param  list<IntakeStep>  $steps
-     * @param  Collection<string, IntakeQuestion>  $allQuestions
-     * @param  array<string, array<string, mixed>|null>  $answers
-     * @param  array<string, string|null>  $answerSources
-     * @param  array<string, QuestionType>  $questionTypes
-     * @param  array<string, IntakeSection>  $sectionsByQuestionKey
+     * @param  array{
+     *     answers: array<string, array<string, mixed>|null>,
+     *     answerSources: array<string, string|null>,
+     *     questionTypes: array<string, QuestionType>,
+     *     sectionsByQuestionKey: array<string, IntakeSection>,
+     *     allQuestions: Collection<string, IntakeQuestion>
+     * }  $context
      */
     private function appendVisibleQuestionSteps(
         array &$steps,
         IntakeSection $section,
         ?string $sectionInstanceKey,
-        Collection $allQuestions,
-        array $answers,
-        array $answerSources,
-        array $questionTypes,
-        array $sectionsByQuestionKey,
+        array $context,
     ): void {
         $questions = $section->questions->sortBy('sort_order')->values();
-
-        $targets = [];
-        foreach ($questions as $question) {
-            $targets[] = [
-                'question_key' => $question->key,
-                'section_instance_key' => $sectionInstanceKey,
-            ];
-        }
-
-        $visibility = $this->visibilityResolver->resolve(
-            $allQuestions->values(),
-            $answers,
-            $questionTypes,
-            $sectionsByQuestionKey,
-            $targets,
-        );
+        $visibility = $this->resolveVisibilityForSection($questions, $sectionInstanceKey, $context);
 
         foreach ($questions as $question) {
-            $composite = VisibilityResolver::compositeKey($question->key, $sectionInstanceKey);
-            $state = $visibility[$composite] ?? ['visible' => false, 'required' => false];
+            $presentation = $this->questionPresentation(
+                $question,
+                $sectionInstanceKey,
+                $visibility,
+                $context,
+            );
 
-            if ($state['visible'] !== true) {
-                continue;
-            }
-
-            // Eén bron of een lijst: `building_type` kan zowel uit de BAG als uit een
-            // geregistreerd energielabel komen, en beide mogen de vraag laten vervallen.
-            $skipSources = $question->meta['skip_when_prefilled_by'] ?? null;
-            $skipSources = is_array($skipSources) ? $skipSources : [$skipSources];
-            $answerSource = $answerSources[$composite] ?? null;
-
-            // Een lokale, evidente conclusie uit de openingszin is brondata van de
-            // aanvrager zelf. Ook oudere gepinde templates kenden deze bronnaam nog niet.
-            if ($answerSource === 'request_text'
-                || ($answerSource !== null && in_array($answerSource, $skipSources, true))) {
+            if ($presentation['reason'] !== 'visible') {
                 continue;
             }
 
@@ -181,9 +243,180 @@ final class IntakeStepBuilder
                 'description' => $section->description,
                 'help_text' => $question->help_text,
                 'is_repeatable' => $section->is_repeatable,
-                'is_required' => $state['required'] === true,
+                'is_required' => $presentation['required'],
             ];
         }
+    }
+
+    /**
+     * @param  list<CatalogRow>  $rows
+     * @param  array{
+     *     answers: array<string, array<string, mixed>|null>,
+     *     answerSources: array<string, string|null>,
+     *     questionTypes: array<string, QuestionType>,
+     *     sectionsByQuestionKey: array<string, IntakeSection>,
+     *     allQuestions: Collection<string, IntakeQuestion>
+     * }  $context
+     */
+    private function appendCatalogRows(
+        array &$rows,
+        IntakeSection $section,
+        ?string $sectionInstanceKey,
+        array $context,
+    ): void {
+        $questions = $section->questions->sortBy('sort_order')->values();
+        $visibility = $this->resolveVisibilityForSection($questions, $sectionInstanceKey, $context);
+
+        foreach ($questions as $question) {
+            $presentation = $this->questionPresentation(
+                $question,
+                $sectionInstanceKey,
+                $visibility,
+                $context,
+            );
+
+            $rows[] = [
+                'question_key' => $question->key,
+                'section_instance_key' => $sectionInstanceKey,
+                'section_key' => $section->key,
+                'title' => $question->label,
+                'visible' => $presentation['visible'],
+                'required' => $presentation['required'],
+                'reason' => $presentation['reason'],
+                'prefill_source' => $presentation['prefill_source'],
+                'answered' => $presentation['answered'],
+            ];
+        }
+    }
+
+    /**
+     * Shared visibility/skip reason for wizard steps and catalog rows.
+     *
+     * @param  Collection<int, IntakeQuestion>  $questions
+     * @param  array{
+     *     answers: array<string, array<string, mixed>|null>,
+     *     answerSources: array<string, string|null>,
+     *     questionTypes: array<string, QuestionType>,
+     *     sectionsByQuestionKey: array<string, IntakeSection>,
+     *     allQuestions: Collection<string, IntakeQuestion>
+     * }  $context
+     * @return array<string, array{visible: bool, required: bool}>
+     */
+    private function resolveVisibilityForSection(
+        Collection $questions,
+        ?string $sectionInstanceKey,
+        array $context,
+    ): array {
+        $targets = [];
+        foreach ($questions as $question) {
+            $targets[] = [
+                'question_key' => $question->key,
+                'section_instance_key' => $sectionInstanceKey,
+            ];
+        }
+
+        return $this->visibilityResolver->resolve(
+            $context['allQuestions']->values(),
+            $context['answers'],
+            $context['questionTypes'],
+            $context['sectionsByQuestionKey'],
+            $targets,
+        );
+    }
+
+    /**
+     * @param  array<string, array{visible: bool, required: bool}>  $visibility
+     * @param  array{
+     *     answers: array<string, array<string, mixed>|null>,
+     *     answerSources: array<string, string|null>,
+     *     questionTypes: array<string, QuestionType>,
+     *     sectionsByQuestionKey: array<string, IntakeSection>,
+     *     allQuestions: Collection<string, IntakeQuestion>
+     * }  $context
+     * @return array{
+     *     visible: bool,
+     *     required: bool,
+     *     reason: 'visible'|'prefilled'|'niet_relevant'|'intern'|'overgeslagen',
+     *     prefill_source: string|null,
+     *     answered: bool
+     * }
+     */
+    private function questionPresentation(
+        IntakeQuestion $question,
+        ?string $sectionInstanceKey,
+        array $visibility,
+        array $context,
+    ): array {
+        $composite = VisibilityResolver::compositeKey($question->key, $sectionInstanceKey);
+        $state = $visibility[$composite] ?? ['visible' => false, 'required' => false];
+        $answerSource = $context['answerSources'][$composite] ?? null;
+        $answerValue = $context['answers'][$composite] ?? null;
+        $answered = $this->answerValueReader->isFilled(
+            is_array($answerValue) ? $answerValue : null,
+            $question->type,
+        );
+
+        $prefilledSkipped = $this->isPrefillSkipped($question, $answerSource);
+        $internal = $this->isInternalQuestion($question);
+        $ruleVisible = $state['visible'] === true;
+        $wizardVisible = $ruleVisible && ! $prefilledSkipped;
+
+        $reason = $this->catalogReason(
+            wizardVisible: $wizardVisible,
+            ruleVisible: $ruleVisible,
+            prefilledSkipped: $prefilledSkipped,
+            internal: $internal,
+        );
+
+        return [
+            'visible' => $wizardVisible,
+            'required' => $state['required'] === true,
+            'reason' => $reason,
+            'prefill_source' => $answerSource,
+            'answered' => $answered,
+        ];
+    }
+
+    /**
+     * @return 'visible'|'prefilled'|'niet_relevant'|'intern'|'overgeslagen'
+     */
+    private function catalogReason(
+        bool $wizardVisible,
+        bool $ruleVisible,
+        bool $prefilledSkipped,
+        bool $internal,
+    ): string {
+        return match (true) {
+            $wizardVisible => 'visible',
+            $prefilledSkipped => 'prefilled',
+            $internal => 'intern',
+            ! $ruleVisible => 'niet_relevant',
+            default => 'overgeslagen',
+        };
+    }
+
+    private function isPrefillSkipped(IntakeQuestion $question, ?string $answerSource): bool
+    {
+        // Eén bron of een lijst: `building_type` kan zowel uit de BAG als uit een
+        // geregistreerd energielabel komen, en beide mogen de vraag laten vervallen.
+        $skipSources = $question->meta['skip_when_prefilled_by'] ?? null;
+        $skipSources = is_array($skipSources) ? $skipSources : [$skipSources];
+
+        // Een lokale, evidente conclusie uit de openingszin is brondata van de
+        // aanvrager zelf. Ook oudere gepinde templates kenden deze bronnaam nog niet.
+        return $answerSource === 'request_text'
+            || ($answerSource !== null && in_array($answerSource, $skipSources, true));
+    }
+
+    private function isInternalQuestion(IntakeQuestion $question): bool
+    {
+        $audience = is_string($question->meta['audience'] ?? null)
+            ? (string) $question->meta['audience']
+            : null;
+
+        return ($question->meta['internal'] ?? false) === true
+            || $audience === 'installer'
+            || $audience === 'internal';
     }
 
     /**

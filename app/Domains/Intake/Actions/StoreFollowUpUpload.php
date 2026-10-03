@@ -35,7 +35,7 @@ final class StoreFollowUpUpload
         private readonly AiTracePhotoRefBuilder $photoRefs,
     ) {}
 
-    public function handle(Intake $intake, IntakeFollowUpItem $item, UploadedFile $file, ?int $networkUploadMs = null): IntakeUpload
+    public function handle(Intake $intake, IntakeFollowUpItem $item, UploadedFile $file): IntakeUpload
     {
         $item->loadMissing('round');
 
@@ -135,7 +135,6 @@ final class StoreFollowUpUpload
                 $fileLabel,
                 $preprocessMs,
                 $persistStarted,
-                $networkUploadMs,
             ): IntakeUpload {
                 $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
                 $lockedItem = IntakeFollowUpItem::query()->with('round')->lockForUpdate()->findOrFail($item->id);
@@ -163,8 +162,11 @@ final class StoreFollowUpUpload
                     'preprocess_ms' => $preprocessMs,
                     'measured_at' => now()->toIso8601String(),
                 ];
-                if ($networkUploadMs !== null && $networkUploadMs >= 0) {
-                    $timings['network_upload_ms'] = $networkUploadMs;
+                if ($normalized instanceof NormalizedPhotoUpload) {
+                    $timings['dossier_width'] = $normalized->dossierWidth;
+                    $timings['dossier_height'] = $normalized->dossierHeight;
+                    $timings['analysis_width'] = $normalized->analysisWidth;
+                    $timings['analysis_height'] = $normalized->analysisHeight;
                 }
 
                 $upload = IntakeUpload::query()->create([

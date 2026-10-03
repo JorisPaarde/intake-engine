@@ -39,7 +39,7 @@ final class PhotoUploadNormalizer
 
         try {
             if (class_exists(Imagick::class)) {
-                $this->createWithImagick($sourcePath, $dossierPath, $analysisPath);
+                $dimensions = $this->createWithImagick($sourcePath, $dossierPath, $analysisPath);
             } else {
                 if (in_array($mime, ['image/heic', 'image/heif'], true)) {
                     throw ValidationException::withMessages([
@@ -47,7 +47,7 @@ final class PhotoUploadNormalizer
                     ]);
                 }
 
-                $this->createWithGd($sourcePath, $dossierPath, $analysisPath, $mime);
+                $dimensions = $this->createWithGd($sourcePath, $dossierPath, $analysisPath, $mime);
             }
 
             $success = true;
@@ -65,6 +65,10 @@ final class PhotoUploadNormalizer
                 analysisChecksum: $this->checksum($analysisPath),
                 originalFilename: $this->originalFilename($file),
                 cleanupPaths: [$dossierPath, $analysisPath],
+                dossierWidth: $dimensions['dossier_width'],
+                dossierHeight: $dimensions['dossier_height'],
+                analysisWidth: $dimensions['analysis_width'],
+                analysisHeight: $dimensions['analysis_height'],
             );
         } catch (ValidationException $exception) {
             throw $exception;
@@ -80,7 +84,10 @@ final class PhotoUploadNormalizer
         }
     }
 
-    private function createWithImagick(string $sourcePath, string $dossierPath, string $analysisPath): void
+    /**
+     * @return array{dossier_width: int, dossier_height: int, analysis_width: int, analysis_height: int}
+     */
+    private function createWithImagick(string $sourcePath, string $dossierPath, string $analysisPath): array
     {
         $source = new Imagick;
 
@@ -92,30 +99,40 @@ final class PhotoUploadNormalizer
             $source->setImageBackgroundColor('white');
             $source = $source->mergeImageLayers(Imagick::LAYERMETHOD_FLATTEN);
 
-            $this->writeImagickVariant(
+            $dossierDims = $this->writeImagickVariant(
                 $source,
                 $dossierPath,
                 (int) config('intake.uploads.dossier.max_long_edge', 2048),
                 (int) config('intake.uploads.dossier.jpeg_quality', 82),
             );
-            $this->writeImagickVariant(
+            $analysisDims = $this->writeImagickVariant(
                 $source,
                 $analysisPath,
                 (int) config('intake.uploads.analysis.max_long_edge', 1536),
                 (int) config('intake.uploads.analysis.jpeg_quality', 80),
             );
+
+            return [
+                'dossier_width' => $dossierDims['width'],
+                'dossier_height' => $dossierDims['height'],
+                'analysis_width' => $analysisDims['width'],
+                'analysis_height' => $analysisDims['height'],
+            ];
         } finally {
             $source->clear();
             $source->destroy();
         }
     }
 
+    /**
+     * @return array{width: int, height: int}
+     */
     private function writeImagickVariant(
         Imagick $source,
         string $destination,
         int $maxLongEdge,
         int $initialQuality,
-    ): void {
+    ): array {
         $image = clone $source;
 
         try {
@@ -130,7 +147,10 @@ final class PhotoUploadNormalizer
                 clearstatcache(true, $destination);
 
                 if ($this->sizeBytes($destination) <= $this->maxBytes()) {
-                    return;
+                    return [
+                        'width' => $image->getImageWidth(),
+                        'height' => $image->getImageHeight(),
+                    ];
                 }
             }
 
@@ -165,12 +185,15 @@ final class PhotoUploadNormalizer
         );
     }
 
+    /**
+     * @return array{dossier_width: int, dossier_height: int, analysis_width: int, analysis_height: int}
+     */
     private function createWithGd(
         string $sourcePath,
         string $dossierPath,
         string $analysisPath,
         string $mime,
-    ): void {
+    ): array {
         if (! function_exists('imagecreatefromstring')) {
             throw new \RuntimeException('GD ontbreekt.');
         }
@@ -184,18 +207,25 @@ final class PhotoUploadNormalizer
 
         try {
             $image = $this->orientGd($image, $sourcePath, $mime);
-            $this->writeGdVariant(
+            $dossierDims = $this->writeGdVariant(
                 $image,
                 $dossierPath,
                 (int) config('intake.uploads.dossier.max_long_edge', 2048),
                 (int) config('intake.uploads.dossier.jpeg_quality', 82),
             );
-            $this->writeGdVariant(
+            $analysisDims = $this->writeGdVariant(
                 $image,
                 $analysisPath,
                 (int) config('intake.uploads.analysis.max_long_edge', 1536),
                 (int) config('intake.uploads.analysis.jpeg_quality', 80),
             );
+
+            return [
+                'dossier_width' => $dossierDims['width'],
+                'dossier_height' => $dossierDims['height'],
+                'analysis_width' => $analysisDims['width'],
+                'analysis_height' => $analysisDims['height'],
+            ];
         } finally {
             imagedestroy($image);
         }
@@ -242,12 +272,15 @@ final class PhotoUploadNormalizer
         return $image;
     }
 
+    /**
+     * @return array{width: int, height: int}
+     */
     private function writeGdVariant(
         GdImage $source,
         string $destination,
         int $maxLongEdge,
         int $quality,
-    ): void {
+    ): array {
         $sourceWidth = imagesx($source);
         $sourceHeight = imagesy($source);
         $longEdge = max($sourceWidth, $sourceHeight);
@@ -273,7 +306,7 @@ final class PhotoUploadNormalizer
                 clearstatcache(true, $destination);
 
                 if ($this->sizeBytes($destination) <= $this->maxBytes()) {
-                    return;
+                    return ['width' => $width, 'height' => $height];
                 }
             }
         } finally {

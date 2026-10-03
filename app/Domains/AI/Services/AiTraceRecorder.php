@@ -6,6 +6,7 @@ namespace App\Domains\AI\Services;
 
 use App\Domains\AI\Models\AiTrace;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeUpload;
 use App\Enums\AiTraceCallType;
 use App\Enums\AiTraceStatus;
 use Illuminate\Support\Str;
@@ -24,7 +25,7 @@ use Throwable;
  *   $trace->succeed();
  *
  * When {@see config('ai.tracing.enabled')} is false, {@see start()} returns a no-op handle
- * that writes nothing.
+ * that writes nothing. Persistence is deferred until succeed()/fail().
  */
 final class AiTraceRecorder
 {
@@ -43,12 +44,12 @@ final class AiTraceRecorder
      *     subject_id?: string|null,
      *     upload_id?: int|null,
      *     ai_run_id?: int|null,
+     *     correlation_id?: string|null,
+     *     parent_trace_id?: string|null,
      *     provider?: string|null,
      *     prompt_version?: string|null,
-     *     schema_version?: string|null,
      *     model_parameters?: array<string, mixed>|null,
      *     persist_ms?: int|null,
-     *     upload_ms?: int|null,
      *     preprocess_ms?: int|null,
      *     network_upload_ms?: int|null,
      * }  $attributes
@@ -67,12 +68,12 @@ final class AiTraceRecorder
         }
 
         try {
-            $persistMs = $attributes['persist_ms']
-                ?? $attributes['upload_ms']
-                ?? null;
+            $correlationId = $attributes['correlation_id'] ?? (string) Str::uuid();
 
-            $trace = AiTrace::query()->create([
+            $trace = new AiTrace([
                 'trace_id' => (string) Str::uuid(),
+                'correlation_id' => $correlationId,
+                'parent_trace_id' => $attributes['parent_trace_id'] ?? null,
                 'intake_id' => $intake->id,
                 'ai_run_id' => $attributes['ai_run_id'] ?? null,
                 'upload_id' => $attributes['upload_id'] ?? null,
@@ -82,9 +83,8 @@ final class AiTraceRecorder
                 'status' => AiTraceStatus::Pending,
                 'provider' => $attributes['provider'] ?? null,
                 'prompt_version' => $attributes['prompt_version'] ?? null,
-                'schema_version' => $attributes['schema_version'] ?? null,
                 'model_parameters' => $attributes['model_parameters'] ?? null,
-                'persist_ms' => $persistMs,
+                'persist_ms' => $attributes['persist_ms'] ?? null,
                 'preprocess_ms' => $attributes['preprocess_ms'] ?? null,
                 'network_upload_ms' => $attributes['network_upload_ms'] ?? null,
                 'started_at' => now(),
@@ -94,6 +94,7 @@ final class AiTraceRecorder
             $handle->step('start', [
                 'call_type' => $callType->value,
                 'intake_id' => $intake->id,
+                'correlation_id' => $correlationId,
                 'tracing_enabled' => true,
             ]);
 
@@ -109,6 +110,26 @@ final class AiTraceRecorder
             ]);
 
             return AiTraceHandle::disabled($placeholder, $this->redactor);
+        }
+    }
+
+    /**
+     * Record client-measured network upload time onto the upload and any existing traces.
+     */
+    public function recordNetworkUploadMs(IntakeUpload $upload, int $ms): void
+    {
+        try {
+            $ms = max(0, $ms);
+            $timings = $upload->processing_timings ?? [];
+            $timings['network_upload_ms'] = $ms;
+            $upload->processing_timings = $timings;
+            $upload->save();
+
+            AiTrace::query()
+                ->where('upload_id', $upload->id)
+                ->update(['network_upload_ms' => $ms]);
+        } catch (Throwable $exception) {
+            report($exception);
         }
     }
 }

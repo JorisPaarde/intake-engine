@@ -14,6 +14,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property string $trace_id
+ * @property string|null $correlation_id
+ * @property string|null $parent_trace_id
  * @property int $intake_id
  * @property int|null $ai_run_id
  * @property int|null $upload_id
@@ -25,7 +27,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $model
  * @property array<string, mixed>|null $model_parameters
  * @property string|null $prompt_version
- * @property string|null $schema_version
  * @property bool $fallback_used
  * @property int $retry_count
  * @property array<string, mixed>|null $request_snapshot
@@ -55,6 +56,8 @@ class AiTrace extends Model
 {
     protected $fillable = [
         'trace_id',
+        'correlation_id',
+        'parent_trace_id',
         'intake_id',
         'ai_run_id',
         'upload_id',
@@ -66,7 +69,6 @@ class AiTrace extends Model
         'model',
         'model_parameters',
         'prompt_version',
-        'schema_version',
         'fallback_used',
         'retry_count',
         'request_snapshot',

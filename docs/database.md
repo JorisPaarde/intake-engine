@@ -1,6 +1,6 @@
 # Databaseschema — Digitale Opname
 
-> **Documentversie:** 3.11 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.12 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: dit document beschrijft het **geïmplementeerde schema**, inclusief de uitbreidende dossiermigratie van BL-030 en BL-035 t/m BL-042 en de zelfstandige publieke interesse-inzendingen van BL-043. Bestaande antwoord-, bron-, upload-, review- en routetabellen blijven bewust bestaan naast de nieuwe dossierobjecten.
 
@@ -565,7 +565,8 @@ Volledige AI-ketenlogging (request → response → parse → dossier/restvragen
 | `call_type` | string | `text_extraction` / `photo_analysis` / `synthesis` / … |
 | `status` | string | `pending` / `succeeded` / `failed` |
 | `provider` / `model` / `model_parameters` | | Werkelijk gebruikte provider/model |
-| `prompt_version` / `schema_version` | string nullable | |
+| `prompt_version` | string nullable | |
+| `correlation_id` / `parent_trace_id` | uuid nullable | Gedeelde uploadketen / escalatie-ouder |
 | `fallback_used` / `retry_count` | | |
 | `request_snapshot` / `photo_refs` | json nullable | Geredigeerd; foto-refs zonder base64 |
 | `raw_response` | mediumtext nullable | |
@@ -579,7 +580,7 @@ Volledige AI-ketenlogging (request → response → parse → dossier/restvragen
 
 `ai_trace_steps`: `step_key`, `sequence`, `payload`, `duration_ms`, `recorded_at` — o.a. `normalize`, `apply`, `customer_step` voor parallelle stromen via `AiTraceHandle::step()`.
 
-`intake_uploads.processing_timings` (json nullable): `persist_ms` (+ optioneel legacy `upload_ms`), `preprocess_ms`, `network_upload_ms` gemeten bij opslaan, overgenomen in de foto-trace.
+`intake_uploads.processing_timings` (json nullable): `persist_ms`, `preprocess_ms`, `dossier_width`/`dossier_height`/`analysis_width`/`analysis_height`, optioneel `network_upload_ms` (client, via `AiTraceRecorder::recordNetworkUploadMs`) en `correlation_id`.
 
 ## Cascadegedrag
 

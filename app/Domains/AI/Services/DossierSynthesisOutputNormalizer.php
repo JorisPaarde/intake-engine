@@ -15,6 +15,9 @@ use App\Enums\FollowUpItemType;
  */
 final class DossierSynthesisOutputNormalizer
 {
+    /** @var list<array{field: string, from: mixed, to: mixed, rule: string}> */
+    private array $diffs = [];
+
     public function __construct(
         private readonly AiEnumNormalizer $enums,
     ) {}
@@ -25,60 +28,91 @@ final class DossierSynthesisOutputNormalizer
      */
     public function normalize(array $output): array
     {
+        return $this->normalizeWithDiff($output)['output'];
+    }
+
+    /**
+     * @param  array<string, mixed>  $output
+     * @return array{output: array<string, mixed>, normalizations: list<array{field: string, from: mixed, to: mixed, rule: string}>}
+     */
+    public function normalizeWithDiff(array $output): array
+    {
+        $this->diffs = [];
+
         if (isset($output['placement_proposals']) && is_array($output['placement_proposals'])) {
             $output['placement_proposals'] = array_map(
-                fn (mixed $row): mixed => is_array($row) ? $this->normalizePlacement($row) : $row,
+                fn (mixed $row, int|string $index): mixed => is_array($row)
+                    ? $this->normalizePlacement($row, 'placement_proposals.'.$index)
+                    : $row,
                 $output['placement_proposals'],
+                array_keys($output['placement_proposals']),
             );
         }
 
         if (isset($output['option_proposals']) && is_array($output['option_proposals'])) {
             $output['option_proposals'] = array_map(
-                fn (mixed $row): mixed => is_array($row) ? $this->normalizeOption($row) : $row,
+                fn (mixed $row, int|string $index): mixed => is_array($row)
+                    ? $this->normalizeOption($row, 'option_proposals.'.$index)
+                    : $row,
                 $output['option_proposals'],
+                array_keys($output['option_proposals']),
             );
         }
 
         if (isset($output['exceptions']) && is_array($output['exceptions'])) {
             $output['exceptions'] = array_map(
-                fn (mixed $row): mixed => is_array($row) ? $this->normalizeException($row) : $row,
+                fn (mixed $row, int|string $index): mixed => is_array($row)
+                    ? $this->normalizeException($row, 'exceptions.'.$index)
+                    : $row,
                 $output['exceptions'],
+                array_keys($output['exceptions']),
             );
         }
 
         if (isset($output['customer_tasks']) && is_array($output['customer_tasks'])) {
             $output['customer_tasks'] = array_map(
-                fn (mixed $row): mixed => is_array($row) ? $this->normalizeCustomerTask($row) : $row,
+                fn (mixed $row, int|string $index): mixed => is_array($row)
+                    ? $this->normalizeCustomerTask($row, 'customer_tasks.'.$index)
+                    : $row,
                 $output['customer_tasks'],
+                array_keys($output['customer_tasks']),
             );
         }
 
-        return $output;
+        return [
+            'output' => $output,
+            'normalizations' => $this->diffs,
+        ];
     }
 
     /** @param array<string, mixed> $row
      * @return array<string, mixed>
      */
-    private function normalizePlacement(array $row): array
+    private function normalizePlacement(array $row, string $path): array
     {
         if (array_key_exists('type', $row)) {
-            $row['type'] = $this->enums->normalize(
+            $row['type'] = $this->track(
+                $path.'.type',
                 $row['type'],
-                array_column(AircoPlacementType::cases(), 'value'),
-                [
-                    'indoor' => AircoPlacementType::IndoorUnit->value,
-                    'indoorunit' => AircoPlacementType::IndoorUnit->value,
-                    'binnenunit' => AircoPlacementType::IndoorUnit->value,
-                    'outdoor' => AircoPlacementType::OutdoorUnit->value,
-                    'outdoorunit' => AircoPlacementType::OutdoorUnit->value,
-                    'buitenunit' => AircoPlacementType::OutdoorUnit->value,
-                    'power' => AircoPlacementType::PowerSource->value,
-                    'powersource' => AircoPlacementType::PowerSource->value,
-                    'meterkast' => AircoPlacementType::PowerSource->value,
-                    'drain' => AircoPlacementType::DrainPoint->value,
-                    'drainpoint' => AircoPlacementType::DrainPoint->value,
-                    'afvoer' => AircoPlacementType::DrainPoint->value,
-                ],
+                $this->enums->normalize(
+                    $row['type'],
+                    array_column(AircoPlacementType::cases(), 'value'),
+                    [
+                        'indoor' => AircoPlacementType::IndoorUnit->value,
+                        'indoorunit' => AircoPlacementType::IndoorUnit->value,
+                        'binnenunit' => AircoPlacementType::IndoorUnit->value,
+                        'outdoor' => AircoPlacementType::OutdoorUnit->value,
+                        'outdoorunit' => AircoPlacementType::OutdoorUnit->value,
+                        'buitenunit' => AircoPlacementType::OutdoorUnit->value,
+                        'power' => AircoPlacementType::PowerSource->value,
+                        'powersource' => AircoPlacementType::PowerSource->value,
+                        'meterkast' => AircoPlacementType::PowerSource->value,
+                        'drain' => AircoPlacementType::DrainPoint->value,
+                        'drainpoint' => AircoPlacementType::DrainPoint->value,
+                        'afvoer' => AircoPlacementType::DrainPoint->value,
+                    ],
+                ),
+                'placement_type',
             );
         }
 
@@ -88,36 +122,47 @@ final class DossierSynthesisOutputNormalizer
     /** @param array<string, mixed> $row
      * @return array<string, mixed>
      */
-    private function normalizeOption(array $row): array
+    private function normalizeOption(array $row, string $path): array
     {
         if (array_key_exists('configuration_type', $row)) {
-            $row['configuration_type'] = $this->enums->normalize(
+            $row['configuration_type'] = $this->track(
+                $path.'.configuration_type',
                 $row['configuration_type'],
-                array_column(AircoConfigurationType::cases(), 'value'),
-                [
-                    'single' => AircoConfigurationType::SingleSplit->value,
-                    'singlesplit' => AircoConfigurationType::SingleSplit->value,
-                    'single-split' => AircoConfigurationType::SingleSplit->value,
-                    'multi' => AircoConfigurationType::MultiSplit->value,
-                    'multisplit' => AircoConfigurationType::MultiSplit->value,
-                    'multi-split' => AircoConfigurationType::MultiSplit->value,
-                    'multiple_singles' => AircoConfigurationType::MultipleSingleSplits->value,
-                    'multiple_single' => AircoConfigurationType::MultipleSingleSplits->value,
-                    'singles' => AircoConfigurationType::MultipleSingleSplits->value,
-                ],
+                $this->enums->normalize(
+                    $row['configuration_type'],
+                    array_column(AircoConfigurationType::cases(), 'value'),
+                    [
+                        'single' => AircoConfigurationType::SingleSplit->value,
+                        'singlesplit' => AircoConfigurationType::SingleSplit->value,
+                        'single-split' => AircoConfigurationType::SingleSplit->value,
+                        'multi' => AircoConfigurationType::MultiSplit->value,
+                        'multisplit' => AircoConfigurationType::MultiSplit->value,
+                        'multi-split' => AircoConfigurationType::MultiSplit->value,
+                        'multiple_singles' => AircoConfigurationType::MultipleSingleSplits->value,
+                        'multiple_single' => AircoConfigurationType::MultipleSingleSplits->value,
+                        'singles' => AircoConfigurationType::MultipleSingleSplits->value,
+                    ],
+                ),
+                'configuration_type',
             );
         }
 
         if (array_key_exists('cost_impact', $row)) {
-            $row['cost_impact'] = $this->normalizeCostImpact($row['cost_impact']);
+            $row['cost_impact'] = $this->track(
+                $path.'.cost_impact',
+                $row['cost_impact'],
+                $this->normalizeCostImpact($row['cost_impact']),
+                'cost_impact',
+            );
         }
 
         if (isset($row['connections']) && is_array($row['connections'])) {
             $row['connections'] = array_map(
-                fn (mixed $connection): mixed => is_array($connection)
-                    ? $this->normalizeConnection($connection)
+                fn (mixed $connection, int|string $index): mixed => is_array($connection)
+                    ? $this->normalizeConnection($connection, $path.'.connections.'.$index)
                     : $connection,
                 $row['connections'],
+                array_keys($row['connections']),
             );
         }
 
@@ -127,23 +172,28 @@ final class DossierSynthesisOutputNormalizer
     /** @param array<string, mixed> $row
      * @return array<string, mixed>
      */
-    private function normalizeConnection(array $row): array
+    private function normalizeConnection(array $row, string $path): array
     {
         if (array_key_exists('type', $row)) {
-            $row['type'] = $this->enums->normalize(
+            $row['type'] = $this->track(
+                $path.'.type',
                 $row['type'],
-                array_column(AircoConnectionType::cases(), 'value'),
-                [
-                    'koel' => AircoConnectionType::Refrigerant->value,
-                    'koelleiding' => AircoConnectionType::Refrigerant->value,
-                    'cooling' => AircoConnectionType::Refrigerant->value,
-                    'condens' => AircoConnectionType::Condensate->value,
-                    'condensafvoer' => AircoConnectionType::Condensate->value,
-                    'drain' => AircoConnectionType::Condensate->value,
-                    'stroom' => AircoConnectionType::Power->value,
-                    'electric' => AircoConnectionType::Power->value,
-                    'electrical' => AircoConnectionType::Power->value,
-                ],
+                $this->enums->normalize(
+                    $row['type'],
+                    array_column(AircoConnectionType::cases(), 'value'),
+                    [
+                        'koel' => AircoConnectionType::Refrigerant->value,
+                        'koelleiding' => AircoConnectionType::Refrigerant->value,
+                        'cooling' => AircoConnectionType::Refrigerant->value,
+                        'condens' => AircoConnectionType::Condensate->value,
+                        'condensafvoer' => AircoConnectionType::Condensate->value,
+                        'drain' => AircoConnectionType::Condensate->value,
+                        'stroom' => AircoConnectionType::Power->value,
+                        'electric' => AircoConnectionType::Power->value,
+                        'electrical' => AircoConnectionType::Power->value,
+                    ],
+                ),
+                'connection_type',
             );
         }
 
@@ -153,34 +203,49 @@ final class DossierSynthesisOutputNormalizer
                 AircoConnectionStatus::NeedsEvidence->value,
                 AircoConnectionStatus::NotRemotelyResolvable->value,
             ];
-            $row['status'] = $this->enums->normalize(
+            $row['status'] = $this->track(
+                $path.'.status',
                 $row['status'],
-                $allowed,
-                [
-                    'voorstel' => AircoConnectionStatus::Proposed->value,
-                    'voorgesteld' => AircoConnectionStatus::Proposed->value,
-                    'plausible' => AircoConnectionStatus::Proposed->value,
-                    'unknown' => AircoConnectionStatus::NeedsEvidence->value,
-                    'onbekend' => AircoConnectionStatus::NeedsEvidence->value,
-                    'needs evidence' => AircoConnectionStatus::NeedsEvidence->value,
-                    'evidence_needed' => AircoConnectionStatus::NeedsEvidence->value,
-                    'bewijs_nodig' => AircoConnectionStatus::NeedsEvidence->value,
-                    'aanvulling_nodig' => AircoConnectionStatus::NeedsEvidence->value,
-                    'not remotely resolvable' => AircoConnectionStatus::NotRemotelyResolvable->value,
-                    'on_site' => AircoConnectionStatus::NotRemotelyResolvable->value,
-                    'locatiebezoek' => AircoConnectionStatus::NotRemotelyResolvable->value,
-                    'site_visit' => AircoConnectionStatus::NotRemotelyResolvable->value,
-                ],
+                $this->enums->normalize(
+                    $row['status'],
+                    $allowed,
+                    [
+                        'voorstel' => AircoConnectionStatus::Proposed->value,
+                        'voorgesteld' => AircoConnectionStatus::Proposed->value,
+                        'plausible' => AircoConnectionStatus::Proposed->value,
+                        'unknown' => AircoConnectionStatus::NeedsEvidence->value,
+                        'onbekend' => AircoConnectionStatus::NeedsEvidence->value,
+                        'needs evidence' => AircoConnectionStatus::NeedsEvidence->value,
+                        'evidence_needed' => AircoConnectionStatus::NeedsEvidence->value,
+                        'bewijs_nodig' => AircoConnectionStatus::NeedsEvidence->value,
+                        'aanvulling_nodig' => AircoConnectionStatus::NeedsEvidence->value,
+                        'not remotely resolvable' => AircoConnectionStatus::NotRemotelyResolvable->value,
+                        'on_site' => AircoConnectionStatus::NotRemotelyResolvable->value,
+                        'locatiebezoek' => AircoConnectionStatus::NotRemotelyResolvable->value,
+                        'site_visit' => AircoConnectionStatus::NotRemotelyResolvable->value,
+                    ],
+                ),
+                'connection_status',
             );
             // Never coerce AI "approved" into a writable status.
         }
 
         if (array_key_exists('length_class', $row)) {
-            $row['length_class'] = $this->normalizeLengthClass($row['length_class']);
+            $row['length_class'] = $this->track(
+                $path.'.length_class',
+                $row['length_class'],
+                $this->normalizeLengthClass($row['length_class']),
+                'length_class',
+            );
         }
 
         if (array_key_exists('cost_impact', $row)) {
-            $row['cost_impact'] = $this->normalizeCostImpact($row['cost_impact']);
+            $row['cost_impact'] = $this->track(
+                $path.'.cost_impact',
+                $row['cost_impact'],
+                $this->normalizeCostImpact($row['cost_impact']),
+                'cost_impact',
+            );
         }
 
         return $row;
@@ -189,24 +254,34 @@ final class DossierSynthesisOutputNormalizer
     /** @param array<string, mixed> $row
      * @return array<string, mixed>
      */
-    private function normalizeException(array $row): array
+    private function normalizeException(array $row, string $path): array
     {
         if (array_key_exists('decision_area_key', $row)) {
-            $row['decision_area_key'] = $this->normalizeDecisionArea($row['decision_area_key']);
+            $row['decision_area_key'] = $this->track(
+                $path.'.decision_area_key',
+                $row['decision_area_key'],
+                $this->normalizeDecisionArea($row['decision_area_key']),
+                'decision_area_key',
+            );
         }
 
         if (array_key_exists('confidence', $row)) {
-            $row['confidence'] = $this->enums->normalize(
+            $row['confidence'] = $this->track(
+                $path.'.confidence',
                 $row['confidence'],
-                ['low', 'medium', 'high'],
-                [
-                    'laag' => 'low',
-                    'middel' => 'medium',
-                    'matig' => 'medium',
-                    'gemiddeld' => 'medium',
-                    'mid' => 'medium',
-                    'hoog' => 'high',
-                ],
+                $this->enums->normalize(
+                    $row['confidence'],
+                    ['low', 'medium', 'high'],
+                    [
+                        'laag' => 'low',
+                        'middel' => 'medium',
+                        'matig' => 'medium',
+                        'gemiddeld' => 'medium',
+                        'mid' => 'medium',
+                        'hoog' => 'high',
+                    ],
+                ),
+                'confidence',
             );
         }
 
@@ -216,25 +291,35 @@ final class DossierSynthesisOutputNormalizer
     /** @param array<string, mixed> $row
      * @return array<string, mixed>
      */
-    private function normalizeCustomerTask(array $row): array
+    private function normalizeCustomerTask(array $row, string $path): array
     {
         if (array_key_exists('type', $row)) {
-            $row['type'] = $this->enums->normalize(
+            $row['type'] = $this->track(
+                $path.'.type',
                 $row['type'],
-                array_column(FollowUpItemType::cases(), 'value'),
-                [
-                    'tekst' => FollowUpItemType::Text->value,
-                    'foto' => FollowUpItemType::Photo->value,
-                    'image' => FollowUpItemType::Photo->value,
-                    'pdf' => FollowUpItemType::Document->value,
-                    'document_pdf' => FollowUpItemType::Document->value,
-                    'keuze' => FollowUpItemType::Choice->value,
-                ],
+                $this->enums->normalize(
+                    $row['type'],
+                    array_column(FollowUpItemType::cases(), 'value'),
+                    [
+                        'tekst' => FollowUpItemType::Text->value,
+                        'foto' => FollowUpItemType::Photo->value,
+                        'image' => FollowUpItemType::Photo->value,
+                        'pdf' => FollowUpItemType::Document->value,
+                        'document_pdf' => FollowUpItemType::Document->value,
+                        'keuze' => FollowUpItemType::Choice->value,
+                    ],
+                ),
+                'customer_task_type',
             );
         }
 
         if (array_key_exists('decision_area_key', $row)) {
-            $row['decision_area_key'] = $this->normalizeDecisionArea($row['decision_area_key']);
+            $row['decision_area_key'] = $this->track(
+                $path.'.decision_area_key',
+                $row['decision_area_key'],
+                $this->normalizeDecisionArea($row['decision_area_key']),
+                'decision_area_key',
+            );
         }
 
         return $row;
@@ -324,5 +409,19 @@ final class DossierSynthesisOutputNormalizer
                 'cost_risk' => 'cost_risks',
             ],
         );
+    }
+
+    private function track(string $field, mixed $from, mixed $to, string $rule): mixed
+    {
+        if ($from !== $to) {
+            $this->diffs[] = [
+                'field' => $field,
+                'from' => $from,
+                'to' => $to,
+                'rule' => $rule,
+            ];
+        }
+
+        return $to;
     }
 }

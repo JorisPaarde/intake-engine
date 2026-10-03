@@ -11,18 +11,18 @@ use App\Domains\AI\Models\AiTrace;
 use App\Domains\AI\Models\AiTraceStep;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Enums\AiTraceStatus;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Throwable;
 
 /**
- * Mutable handle for one AI correlation trace.
+ * Mutable handle for one AI correlation trace with deferred persistence.
  *
- * Other feature streams should attach work via {@see self::step()}:
- *
- *   $trace->step('normalize', ['defaults' => [...]], durationMs: 12);
+ * Attributes and steps live in memory until {@see self::succeed()} / {@see self::fail()}.
+ * Use {@see self::beginBuffer()}/{@see self::flushBuffer()}/{@see self::discardBuffer()}
+ * around dossier transactions (deadlock retries: discard then begin again, or begin clears).
  *
  * Trace failures are reported and swallowed — they never break the business flow.
- * Use {@see self::beginBuffer()}/{@see self::flushBuffer()} around dossier transactions.
  */
 final class AiTraceHandle
 {
@@ -30,15 +30,21 @@ final class AiTraceHandle
 
     private float $processStartedAt;
 
+    private ?int $capturedProcessMs = null;
+
     private bool $buffering = false;
 
-    /** @var array<string, mixed> */
-    private array $pendingAttributes = [];
+    private bool $persisted = false;
 
     /**
-     * @var list<array{step_key: string, payload: array<string, mixed>|null, duration_ms: int|null}>
+     * @var list<array{step_key: string, sequence: int, payload: array<string, mixed>|null, duration_ms: int|null, recorded_at: \Illuminate\Support\Carbon}>
      */
-    private array $pendingSteps = [];
+    private array $steps = [];
+
+    /**
+     * @var list<array{step_key: string, sequence: int, payload: array<string, mixed>|null, duration_ms: int|null, recorded_at: \Illuminate\Support\Carbon}>
+     */
+    private array $txSteps = [];
 
     public function __construct(
         private AiTrace $trace,
@@ -46,9 +52,6 @@ final class AiTraceHandle
         private readonly bool $noop = false,
     ) {
         $this->processStartedAt = microtime(true);
-        if (! $this->noop && $this->trace->exists) {
-            $this->sequence = (int) ($this->trace->steps()->max('sequence') ?? 0);
-        }
     }
 
     public static function disabled(AiTrace $placeholder, AiTraceRedactor $redactor): self
@@ -72,10 +75,19 @@ final class AiTraceHandle
     }
 
     /**
-     * Collect writes in memory; flush after the dossier transaction commits.
+     * Collect subsequent steps in a transaction buffer.
+     * Clears any previous unflushed tx buffer (deadlock-retry safe).
      */
     public function beginBuffer(): self
     {
+        if ($this->noop) {
+            $this->buffering = true;
+            $this->txSteps = [];
+
+            return $this;
+        }
+
+        $this->txSteps = [];
         $this->buffering = true;
 
         return $this;
@@ -85,40 +97,62 @@ final class AiTraceHandle
     {
         if ($this->noop) {
             $this->buffering = false;
-            $this->pendingAttributes = [];
-            $this->pendingSteps = [];
+            $this->txSteps = [];
 
             return $this;
         }
 
         $this->buffering = false;
 
-        try {
-            if ($this->pendingAttributes !== []) {
-                $this->trace->fill($this->pendingAttributes);
-                $this->trace->save();
-                $this->pendingAttributes = [];
-            }
+        foreach ($this->txSteps as $step) {
+            $this->steps[] = $step;
+        }
+        $this->txSteps = [];
 
-            foreach ($this->pendingSteps as $step) {
-                $this->sequence++;
-                AiTraceStep::query()->create([
-                    'ai_trace_id' => $this->trace->id,
-                    'step_key' => $step['step_key'],
-                    'sequence' => $this->sequence,
-                    'payload' => $step['payload'],
-                    'duration_ms' => $step['duration_ms'],
-                    'recorded_at' => now(),
-                ]);
+        return $this;
+    }
+
+    /**
+     * Drop tx steps (on exception/rollback). When any apply steps existed,
+     * append one rolled_back marker into the main step list.
+     */
+    public function discardBuffer(): self
+    {
+        if ($this->noop) {
+            $this->buffering = false;
+            $this->txSteps = [];
+
+            return $this;
+        }
+
+        $hadApply = false;
+        foreach ($this->txSteps as $step) {
+            if ($step['step_key'] === 'apply') {
+                $hadApply = true;
+                break;
             }
-            $this->pendingSteps = [];
-        } catch (Throwable $exception) {
-            report($exception);
-            $this->pendingAttributes = [];
-            $this->pendingSteps = [];
+        }
+
+        $this->txSteps = [];
+        $this->buffering = false;
+
+        if ($hadApply) {
+            $this->appendStep('rolled_back', ['reason' => 'transaction_discarded']);
         }
 
         return $this;
+    }
+
+    /**
+     * Capture process_ms and stop the clock. Call BEFORE after-snapshots.
+     */
+    public function stopProcessTimer(): int
+    {
+        if ($this->capturedProcessMs === null) {
+            $this->capturedProcessMs = (int) round((microtime(true) - $this->processStartedAt) * 1000);
+        }
+
+        return $this->capturedProcessMs;
     }
 
     /**
@@ -127,27 +161,11 @@ final class AiTraceHandle
     public function step(string $key, array $payload = [], ?int $durationMs = null): self
     {
         return $this->safe(function () use ($key, $payload, $durationMs): void {
-            $row = [
-                'step_key' => Str::limit($key, 80, ''),
-                'payload' => $payload === [] ? null : $this->redactor->redact($payload),
-                'duration_ms' => $durationMs,
-            ];
-
-            if ($this->buffering) {
-                $this->pendingSteps[] = $row;
-
-                return;
-            }
-
-            $this->sequence++;
-            AiTraceStep::query()->create([
-                'ai_trace_id' => $this->trace->id,
-                'step_key' => $row['step_key'],
-                'sequence' => $this->sequence,
-                'payload' => $row['payload'],
-                'duration_ms' => $row['duration_ms'],
-                'recorded_at' => now(),
-            ]);
+            $this->appendStep(
+                Str::limit($key, 80, ''),
+                $payload === [] ? null : $this->redactor->redact($payload),
+                $durationMs,
+            );
         });
     }
 
@@ -161,7 +179,7 @@ final class AiTraceHandle
             $timings = $upload->processing_timings ?? [];
             $persistMs = array_key_exists('persist_ms', $timings)
                 ? $this->intOrNull($timings['persist_ms'])
-                : (array_key_exists('upload_ms', $timings) ? $this->intOrNull($timings['upload_ms']) : $this->trace->persist_ms);
+                : $this->trace->persist_ms;
             $preprocessMs = array_key_exists('preprocess_ms', $timings)
                 ? $this->intOrNull($timings['preprocess_ms'])
                 : $this->trace->preprocess_ms;
@@ -178,7 +196,7 @@ final class AiTraceHandle
                 'subject_id' => $this->trace->subject_id ?? $upload->question_key.($upload->section_instance_key ? '|'.$upload->section_instance_key : ''),
             ]);
 
-            $this->step('upload', [
+            $this->appendStep('upload', [
                 'upload_id' => $upload->id,
                 'question_key' => $upload->question_key,
                 'section_instance_key' => $upload->section_instance_key,
@@ -189,20 +207,24 @@ final class AiTraceHandle
                 'analysis_checksum' => $upload->analysis_checksum,
                 'sort_order' => $upload->sort_order,
                 'path_ref' => 'intake_upload:'.$upload->id,
-                'timings' => $timings,
-            ], durationMs: $persistMs);
+                'timings' => [
+                    'persist_ms' => $persistMs,
+                    'preprocess_ms' => $preprocessMs,
+                    'network_upload_ms' => $networkMs,
+                ],
+            ], $persistMs);
 
             if ($preprocessMs !== null) {
-                $this->step('preprocess', [
+                $this->appendStep('preprocess', [
                     'upload_id' => $upload->id,
                     'analysis_path_ref' => 'intake_upload_analysis:'.$upload->id,
-                ], durationMs: $preprocessMs);
+                ], $preprocessMs);
             }
 
             if ($networkMs !== null) {
-                $this->step('network_upload', [
+                $this->appendStep('network_upload', [
                     'upload_id' => $upload->id,
-                ], durationMs: $networkMs);
+                ], $networkMs);
             }
         });
     }
@@ -220,7 +242,7 @@ final class AiTraceHandle
                 'model' => $run->model ?? $this->trace->model,
                 'prompt_version' => $run->prompt_version ?: $this->trace->prompt_version,
             ]);
-            $this->step('ai_run', ['ai_run_id' => $run->id, 'type' => $run->type->value]);
+            $this->appendStep('ai_run', ['ai_run_id' => $run->id, 'type' => $run->type->value]);
         });
     }
 
@@ -228,17 +250,18 @@ final class AiTraceHandle
      * @param  array<string, mixed>  $systemAndUser
      * @param  list<array<string, mixed>>  $photoRefs
      * @param  array<string, mixed>  $modelParameters
+     * @param  string|null  $schemaVersion  Deprecated/ignored (column removed); kept for BC until action instrumentation.
      */
     public function recordRequest(
         array $systemAndUser,
         array $photoRefs = [],
         ?string $promptVersion = null,
-        ?string $schemaVersion = null,
+        ?string $schemaVersion = null, // @phpstan-ignore-line parameter.unused
         array $modelParameters = [],
         bool $fallbackUsed = false,
         int $retryCount = 0,
     ): self {
-        return $this->safe(function () use ($systemAndUser, $photoRefs, $promptVersion, $schemaVersion, $modelParameters, $fallbackUsed, $retryCount): void {
+        return $this->safe(function () use ($systemAndUser, $photoRefs, $promptVersion, $modelParameters, $fallbackUsed, $retryCount): void {
             $safeParams = $modelParameters;
             unset($safeParams['base_url']);
 
@@ -246,14 +269,12 @@ final class AiTraceHandle
                 'request_snapshot' => $this->redactor->redact($systemAndUser),
                 'photo_refs' => $photoRefs === [] ? null : ($this->redactor->redact(['refs' => $photoRefs])['refs'] ?? $photoRefs),
                 'prompt_version' => $promptVersion ?? $this->trace->prompt_version,
-                'schema_version' => $schemaVersion ?? $this->trace->schema_version,
                 'model_parameters' => $safeParams === [] ? $this->trace->model_parameters : $safeParams,
                 'fallback_used' => $fallbackUsed,
                 'retry_count' => max(0, $retryCount),
             ]);
-            $this->step('request', [
+            $this->appendStep('request', [
                 'prompt_version' => $promptVersion,
-                'schema_version' => $schemaVersion,
                 'photo_count' => count($photoRefs),
                 'fallback_used' => $fallbackUsed,
                 'retry_count' => $retryCount,
@@ -286,14 +307,14 @@ final class AiTraceHandle
                 'parsed_response' => $this->redactor->redact($result->output),
                 'model_parameters' => $params === [] ? $this->trace->model_parameters : $params,
             ]);
-            $this->step('provider', [
+            $this->appendStep('provider', [
                 'provider' => $result->provider,
                 'model' => $result->model,
                 'finish_reason' => $result->finishReason,
                 'input_tokens' => $result->inputTokens,
                 'output_tokens' => $result->outputTokens,
                 'image_count' => $result->imageCount,
-            ], durationMs: $result->providerMs);
+            ], $result->providerMs);
 
             // process_ms is exclusive of provider wait.
             $this->markProcessStarted();
@@ -303,15 +324,60 @@ final class AiTraceHandle
     public function recordProviderFailure(Throwable $exception): self
     {
         return $this->safe(function () use ($exception): void {
-            $providerMs = $exception instanceof AiClientException ? $exception->providerMs : null;
-            if ($providerMs !== null) {
-                $this->assign(['provider_ms' => $providerMs]);
-                $this->step('provider', [
-                    'failed' => true,
-                    'error' => Str::limit($this->redactor->redactString($exception->getMessage()), 300, ''),
-                ], durationMs: $providerMs);
-                $this->markProcessStarted();
+            $attributes = [];
+            $payload = [
+                'failed' => true,
+                'error' => Str::limit($this->redactor->redactString($exception->getMessage()), 300, ''),
+            ];
+
+            $providerMs = null;
+            if ($exception instanceof AiClientException) {
+                $providerMs = $exception->providerMs;
+                if ($providerMs !== null) {
+                    $attributes['provider_ms'] = $providerMs;
+                }
+
+                if (is_string($exception->rawResponse) && $exception->rawResponse !== '') {
+                    $safeRaw = $this->redactor->redactString($exception->rawResponse);
+                    if (strlen($safeRaw) > 200_000) {
+                        $safeRaw = substr($safeRaw, 0, 200_000).'…[truncated]';
+                    }
+                    $attributes['raw_response'] = $safeRaw;
+                    $payload['raw_response_present'] = true;
+                }
+
+                if ($exception->finishReason !== null) {
+                    $attributes['finish_reason'] = $exception->finishReason;
+                    $payload['finish_reason'] = $exception->finishReason;
+                }
+
+                if (is_array($exception->usage)) {
+                    $input = $this->intOrNull($exception->usage['input_tokens'] ?? null);
+                    $output = $this->intOrNull($exception->usage['output_tokens'] ?? null);
+                    $total = $this->intOrNull($exception->usage['total_tokens'] ?? null);
+                    if ($input !== null) {
+                        $attributes['input_tokens'] = $input;
+                    }
+                    if ($output !== null) {
+                        $attributes['output_tokens'] = $output;
+                    }
+                    if ($total !== null) {
+                        $attributes['total_tokens'] = $total;
+                    }
+                    $payload['tokens'] = [
+                        'input_tokens' => $input,
+                        'output_tokens' => $output,
+                        'total_tokens' => $total,
+                    ];
+                }
             }
+
+            if ($attributes !== []) {
+                $this->assign($attributes);
+            }
+
+            $this->appendStep('provider', $payload, $providerMs);
+            $this->markProcessStarted();
         });
     }
 
@@ -331,7 +397,7 @@ final class AiTraceHandle
                 'validation_errors' => $validationErrors === [] ? null : $this->redactor->redact($validationErrors),
                 'normalizations' => $normalizations === [] ? null : ($this->redactor->redact(['items' => $normalizations])['items'] ?? $normalizations),
             ]);
-            $this->step('parse', [
+            $this->appendStep('parse', [
                 'validation_error_count' => count($validationErrors),
                 'normalization_count' => count($normalizations),
             ]);
@@ -346,7 +412,7 @@ final class AiTraceHandle
         return $this->safe(function () use ($outcomes): void {
             $safe = array_map(fn (array $row): array => $this->redactor->redact($row), $outcomes);
             $this->assign(['field_outcomes' => $safe]);
-            $this->step('field_outcomes', ['count' => count($safe)]);
+            $this->appendStep('field_outcomes', ['count' => count($safe)]);
         });
     }
 
@@ -367,7 +433,7 @@ final class AiTraceHandle
                 'dossier_before' => $this->redactor->redact($before),
                 'dossier_after' => $this->redactor->redact($afterWithDiff),
             ]);
-            $this->step('dossier_update', [
+            $this->appendStep('dossier_update', [
                 'answers_before' => $before['answer_count'] ?? null,
                 'answers_after' => $after['answer_count'] ?? null,
                 'changed_field_count' => count($changedFields),
@@ -376,8 +442,8 @@ final class AiTraceHandle
     }
 
     /**
-     * @param  array{questions: list<array<string, mixed>>, next_step: array<string, mixed>|null, visible_count: int, hidden_count: int}  $before
-     * @param  array{questions: list<array<string, mixed>>, next_step: array<string, mixed>|null, visible_count: int, hidden_count: int}  $after
+     * @param  array{questions: list<array<string, mixed>>, next_step: array<string, mixed>|null, visible_count: int, hidden_count: int, remaining_count?: int}  $before
+     * @param  array{questions: list<array<string, mixed>>, next_step: array<string, mixed>|null, visible_count: int, hidden_count: int, remaining_count?: int}  $after
      */
     public function recordRemainingQuestions(array $before, array $after): self
     {
@@ -386,11 +452,13 @@ final class AiTraceHandle
                 'remaining_questions_before' => $before,
                 'remaining_questions_after' => $after,
             ]);
-            $this->step('customer_steps', [
+            $this->appendStep('customer_steps', [
                 'visible_before' => $before['visible_count'],
                 'visible_after' => $after['visible_count'],
                 'hidden_before' => $before['hidden_count'],
                 'hidden_after' => $after['hidden_count'],
+                'remaining_before' => $before['remaining_count'] ?? null,
+                'remaining_after' => $after['remaining_count'] ?? null,
                 'next_step_before' => $before['next_step']['question_key'] ?? null,
                 'next_step_after' => $after['next_step']['question_key'] ?? null,
             ]);
@@ -400,6 +468,7 @@ final class AiTraceHandle
     public function markProcessStarted(): self
     {
         $this->processStartedAt = microtime(true);
+        $this->capturedProcessMs = null;
 
         return $this;
     }
@@ -411,14 +480,15 @@ final class AiTraceHandle
                 $this->flushBuffer();
             }
 
-            $processMs = (int) round((microtime(true) - $this->processStartedAt) * 1000);
+            $processMs = $this->capturedProcessMs ?? (int) round((microtime(true) - $this->processStartedAt) * 1000);
             $this->assign([
                 'status' => AiTraceStatus::Succeeded,
                 'process_ms' => $this->trace->process_ms ?? $processMs,
                 'error_message' => $message,
                 'finished_at' => now(),
             ]);
-            $this->step('succeed', [], durationMs: $processMs);
+            $this->appendStep('succeed', null, $processMs);
+            $this->persist();
         });
 
         return $this->trace;
@@ -430,15 +500,15 @@ final class AiTraceHandle
     public function fail(string $errorMessage, ?Throwable $providerException = null): AiTrace
     {
         $this->safe(function () use ($errorMessage, $providerException): void {
+            if ($this->buffering) {
+                $this->discardBuffer();
+            }
+
             if ($providerException !== null) {
                 $this->recordProviderFailure($providerException);
             }
 
-            if ($this->buffering) {
-                $this->flushBuffer();
-            }
-
-            $processMs = (int) round((microtime(true) - $this->processStartedAt) * 1000);
+            $processMs = $this->capturedProcessMs ?? (int) round((microtime(true) - $this->processStartedAt) * 1000);
             $safe = Str::limit($this->redactor->redactString($errorMessage), 2000, '');
             $this->assign([
                 'status' => AiTraceStatus::Failed,
@@ -446,7 +516,8 @@ final class AiTraceHandle
                 'error_message' => $safe,
                 'finished_at' => now(),
             ]);
-            $this->step('fail', ['error' => Str::limit($safe, 500, '')], durationMs: $processMs);
+            $this->appendStep('fail', ['error' => Str::limit($safe, 500, '')], $processMs);
+            $this->persist();
         });
 
         return $this->trace;
@@ -464,15 +535,75 @@ final class AiTraceHandle
         foreach ($attributes as $key => $value) {
             $this->trace->setAttribute($key, $value);
         }
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $payload
+     */
+    private function appendStep(string $key, ?array $payload = null, ?int $durationMs = null): void
+    {
+        if ($this->noop) {
+            return;
+        }
+
+        $row = [
+            'step_key' => $key,
+            'sequence' => $this->sequence,
+            'payload' => $payload,
+            'duration_ms' => $durationMs,
+            'recorded_at' => now(),
+        ];
+        $this->sequence++;
 
         if ($this->buffering) {
-            $this->pendingAttributes = array_merge($this->pendingAttributes, $attributes);
+            $this->txSteps[] = $row;
 
             return;
         }
 
-        $this->trace->fill($attributes);
-        $this->trace->save();
+        $this->steps[] = $row;
+    }
+
+    private function persist(): void
+    {
+        if ($this->noop || $this->persisted) {
+            return;
+        }
+
+        $allSteps = $this->steps;
+        foreach ($this->txSteps as $step) {
+            $allSteps[] = $step;
+        }
+        $this->txSteps = [];
+        $this->steps = $allSteps;
+
+        DB::transaction(function () use ($allSteps): void {
+            $this->trace->save();
+
+            if ($allSteps === []) {
+                return;
+            }
+
+            $now = now();
+            $rows = [];
+            foreach ($allSteps as $step) {
+                $rows[] = [
+                    'ai_trace_id' => $this->trace->id,
+                    'step_key' => $step['step_key'],
+                    'sequence' => $step['sequence'],
+                    'payload' => $step['payload'] === null ? null : json_encode($step['payload'], JSON_THROW_ON_ERROR),
+                    'duration_ms' => $step['duration_ms'],
+                    'recorded_at' => $step['recorded_at'],
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+
+            AiTraceStep::query()->insert($rows);
+        });
+
+        $this->persisted = true;
+        $this->steps = [];
     }
 
     /**
