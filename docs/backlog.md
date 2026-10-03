@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.79 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.80 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -43,7 +43,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
 | 1 | BL-117 | Installateur kan technisch open punt afhandelen vanuit de survey-werkplek | E7/E8 | backlog | high | na PR #115 · show/rapport `*_open` |
-| — | BL-127 | Foto-assessment: terminale status, soft-timeout, ai_runs.upload_id, watchdog | E4 | in_progress | high | na #124 · staging intake 78 |
+| — | BL-127 | Foto-assessment: terminale status, soft-timeout, ai_runs.upload_id, watchdog | E4 | done | high | na #124 · staging intake 78 · PR #133 |
 | — | BL-126 | Prompt/vision quality: route-categorie, ownership, kamernamen, free_group/glas | E3/E4/E9 | in_progress | high | AI/foto · na BL-119/122 · parallel dossier-synthesis |
 | — | BL-125 | AI-trace retentie na demo-purge, export, request_id, PDF-downscale | E4/E5 | done | high | AI/ops · na BL-116 · demo-purge · PR #130 |
 | — | BL-124 | Form robustness: adresvalidatie, matenscherm L+B, optionele route-/afvoerfoto, upload-timeout | E1/E3/E7 | done | high | A · klanttest P1/P3 · airco v21 · PR #127 |
@@ -618,10 +618,11 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-127 — Foto-assessment terminale status + watchdog
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E4 · **Volgt op:** BL-121 (#124) · **Ref:** staging intake 78 (uploads 187/188/190 stuck “Ontvangen”, jobs=0)
+- **Status:** done · **Datum:** 2026-10-03 · **PR:** #133 · **Prioriteit:** high · **Epic:** E4 · **Volgt op:** BL-121 (#124) · **Ref:** staging intake 78 (uploads 187/188/190 stuck “Ontvangen”, jobs=0)
 - **Aanleiding:** na #124 bleven sommige uploads op `usability_verdict` zonder `content_assessment` / `photo_assessment` ai_run; poll wachtte oneindig. Oorzaken: job early-return zonder terminal status, `too_small` zonder pipeline-afronding, verloren queue-jobs na deploy, recover met stale relations.
 - **Doel:** elke upload precies één terminale `assessment_status`; poll stopt altijd (soft-timeout ~90 s); `ai_runs.upload_id`; watchdog herdispatch pending > ~3 min.
 - **Acceptatie:** Pest voor zelfde file/twee vragen, too_small→heuristic_rejected, AI-fout→not_assessed, watchdog; `composer check` groen.
+- **Resultaat:** PR #133; terminal `assessment_status` + soft-timeout + `ai_runs.upload_id` + watchdog.
 
 ### BL-122 — Soft catalogus-prefill (case 81 regressie)
 
