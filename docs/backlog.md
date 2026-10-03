@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.81 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.83 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,11 +38,12 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = fotobeoordeling via queue (#124, done). **BL-122** = soft catalogus-prefill (case 81). **BL-123** = staging-retest acceptance (#115–#120). **BL-124** = form robustness (#127, done). **BL-125** = AI-trace retentie/export + PDF-downscale (#130, done). **BL-126** = prompt/vision quality (route/ownership/kamernamen). **BL-127** = foto-assessment terminale status + watchdog (#133, done). **BL-128** = grote telefoonfoto-upload (inactiviteit-timeout + client-downscale + lege-200-retry). Nieuwe items starten bij BL-129.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = fotobeoordeling via queue (#124, done). **BL-122** = soft catalogus-prefill (case 81). **BL-123** = staging-retest acceptance (#115–#120). **BL-124** = form robustness (#127, done). **BL-125** = AI-trace retentie/export + PDF-downscale (#130, done). **BL-126** = prompt/vision quality (route/ownership/kamernamen). **BL-127** = foto-assessment terminale status + watchdog (#133, done). **BL-128** = grote telefoonfoto-upload (inactiviteit-timeout + client-downscale + lege-200-retry, #131 done). **BL-129** = klant-UX review v1.3.0 (airco v22). Nieuwe items starten bij BL-130.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
 | 1 | BL-117 | Installateur kan technisch open punt afhandelen vanuit de survey-werkplek | E7/E8 | backlog | high | na PR #115 · show/rapport `*_open` |
+| — | BL-129 | Klant-UX review v1.3.0: bedankt, foto-feedback, één voortgang, known-data, closing | E1/E5/E7 | done | high | na BL-124 · airco v22 · views/tekst · PR #134 |
 | — | BL-128 | Grote telefoonfoto: inactiviteit-timeout + client-downscale + 8 MB + lege-200-retry | E1/E7 | done | high | A · na BL-124/127 · staging intake 78 · PR #131 |
 | — | BL-127 | Foto-assessment: terminale status, soft-timeout, ai_runs.upload_id, watchdog | E4 | done | high | na #124 · staging intake 78 · PR #133 |
 | — | BL-126 | Prompt/vision quality: route-categorie, ownership, kamernamen, free_group/glas | E3/E4/E9 | in_progress | high | AI/foto · na BL-119/122 · parallel dossier-synthesis |
@@ -650,6 +651,14 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Scope:** `IntakeWizard` display-% + mismatch alerts; `FollowUpProgressCalculator`; `DecisionReadinessService`/`PhotoContentAssessment::followUpMismatchReason`; Pest. Geen templateversiebump; #115–#120-beslissingen intact.
 - **Acceptatie:** Pest voor alle vier paden; `composer check` groen; geen prod-tag/deploy.
 - **Resultaat:** stapgebaseerde balk/% (zelfde noemer als “Vraag X van Y”) + sessie-hoogwater; soft-continue-waarschuwing bij banner+footer; follow-up mismatch = “Nog te vervangen”; Stroomtoevoer-blocker met wrong-subject-reden.
+
+### BL-129 — Klant-UX review v1.3.0
+
+- **Status:** done · **Datum:** 2026-10-03 · **PR:** #134 · **Prioriteit:** high · **Epic:** E1/E5/E7 · **Volgt op:** BL-120/123/124 · **Ref:** UX-review productie v1.3.0
+- **Aanleiding:** bedanktscherm lekte aandachtspunten/keys; foto-feedback onder sticky; dubbele voortgangstellers; known-summary twee CTA’s + ontbrekende binnenunitplek; merk/planning/opmerkingen los; extra overzicht te vaag.
+- **Doel:** klantgerichte teksten/layout: bedankt zonder installateursdebug; mismatch direct onder foto + “Kies: foto vervangen of toch doorgaan”; één stappenmaat; known-summary één CTA + binnenunitplek; closing op één scherm; extra overzicht noemt wand/deur/stopcontact.
+- **Scope:** views/tekst + airco **v22** (`preferred_indoor_location`, overzichtsteksten); minimale IntakeWizard (progress display, closing_wishes, thank-you). Bouwt op BL-124 (`question_group`, `skipOptionalPhoto`) en BL-128 upload-timeouts.
+- **Acceptatie:** Pest op thank-you/keys, foto-plaatsing, één voortgang, known-summary CTA, closing-bundle, extra-overzicht; `composer check` groen; geen regressie op prefill-skip, kamernamen, uploadfases, “Weet ik niet”.
 
 ### BL-128 — Grote telefoonfoto betrouwbaar uploaden
 

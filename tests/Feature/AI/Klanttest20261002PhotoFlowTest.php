@@ -612,8 +612,9 @@ test('Volgende zonder Toch doorgaan bij wrong_subject toont waarschuwing en blij
         ->assertSet('showMissing', true)
         ->assertSet('activeStepKey', $stepBefore)
         ->assertSet('stepIndex', $indexBefore)
-        ->assertSee('Vervang de foto of kies expliciet “Toch doorgaan”')
+        ->assertSee('Kies: foto vervangen of toch doorgaan')
         ->assertSeeHtml('data-testid="mismatch-next-warning"')
+        ->assertSeeHtml('data-testid="photo-mismatch-panel"')
         ->assertSeeHtml('data-testid="footer-mismatch-warning"');
 });
 

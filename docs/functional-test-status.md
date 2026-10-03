@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.94 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.95 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -18,6 +18,7 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 | Form robustness adres/maten/upload (BL-124) | todo | - | Create: vroeg submit tijdens lookup → geen vastgezette “Controleer dit veld.”; submit disabled tijdens zoeken. Klant: L+B naast elkaar; sla-over op route/afvoer; 3024×4032 niet “lage resolutie”. airco v21. Upload-timeout aangescherpt in BL-128; assessing terminal status = BL-127. |
 | Prompt/vision quality (BL-126) | todo | - | Routefoto goot/doorvoer niet afgewezen; ownership koophuis/we huren overgenomen; Ouders/Kind op installateurslabels; meterkast free_group stabieler; Vervang foto/Toch doorgaan intact; lege woonkamer geen extra stopcontactvraag. |
 | Soft catalogus-prefill multi-room (BL-122) | todo | - | Demo create met exacte case-81-tekst → werkplek toont Slaapkamer ouders + Kinderkamer met maten; klantflow vraagt koelen/verwarmen niet opnieuw; case 80 blijft werken. |
+| Klant-UX review v1.3.0 (BL-129) | todo | - | Bedankt zonder aandachtspunten/keys; mismatch direct onder foto + “Kies: foto vervangen of toch doorgaan”; één voortgangsmaat; known-summary één CTA + binnenunitplek; merk/planning/opmerkingen één scherm; extra overzicht noemt wand/deur/stopcontact. |
 | Fotobeoordeling via queue (BL-121) | todo | - | Twee gelijktijdige fotouploads → geen 503; wizard toont Uploaden/Foto beoordelen en resultaat zonder refresh; AI-fout → not_assessed-tekst. |
 | Staging-retest acceptance (BL-123) | todo | - | Case 80: voortgang &lt;100% tot laatste stap; Volgende bij meterkast-als-ruimtefoto toont “Vervang… of Toch doorgaan”; follow-up meterkast+buitenunitfoto blijft 0%/Nog te vervangen; na versturen Stroomtoevoer toont wrong-subject-reden. |
 | Klanttest foto-first + extractie + kamernamen (BL-118) | todo | - | Case 80/81: foto-first, known-summary, kamernamen; airco v18. |

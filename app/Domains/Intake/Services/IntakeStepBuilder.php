@@ -39,10 +39,11 @@ use Illuminate\Support\Str;
  *     help_text: string|null,
  *     is_repeatable: bool,
  *     is_required: bool,
- *     kind?: 'question'|'known_summary'|'question_group',
+ *     kind?: 'question'|'known_summary'|'question_group'|'closing_wishes',
  *     known_items?: list<KnownSummaryItem>,
  *     group_key?: string,
- *     group_question_keys?: list<string>
+ *     group_question_keys?: list<string>,
+ *     bundle_question_keys?: list<string>
  * }
  * @phpstan-type CatalogRow array{
  *     question_key: string,
@@ -58,6 +59,9 @@ use Illuminate\Support\Str;
  */
 final class IntakeStepBuilder
 {
+    /** @var list<string> */
+    public const CLOSING_WISH_KEYS = ['brand_preference', 'desired_planning', 'additional_comments'];
+
     public function __construct(
         private readonly AnswerValueReader $answerValueReader,
         private readonly VisibilityResolver $visibilityResolver,
@@ -245,6 +249,35 @@ final class IntakeStepBuilder
         $visibility = $this->resolveVisibilityForSection($questions, $sectionInstanceKey, $context);
         /** @var array<string, true> $emittedGroups */
         $emittedGroups = [];
+        /** @var list<array{question: IntakeQuestion, required: bool}> $pendingClosing */
+        $pendingClosing = [];
+
+        $flushClosing = function () use (&$steps, &$pendingClosing, $intake, $section, $sectionInstanceKey): void {
+            if ($pendingClosing === []) {
+                return;
+            }
+
+            $keys = array_map(
+                static fn (array $row): string => $row['question']->key,
+                $pendingClosing,
+            );
+            $instanceSuffix = $sectionInstanceKey === null ? '' : '::'.$sectionInstanceKey;
+            $steps[] = [
+                'key' => $section->key.$instanceSuffix.'::_closing_wishes',
+                'section_key' => $section->key,
+                'section_instance_key' => $sectionInstanceKey,
+                'question_key' => '_closing_wishes',
+                'title' => 'Merk, planning en opmerkingen',
+                'section_title' => $this->sectionTitleForInstance($intake, $section, $sectionInstanceKey),
+                'description' => 'Optioneel. Zonder voorkeur kiest de installateur wat het beste past.',
+                'help_text' => 'Dit houdt de opname niet tegen. Sla over wat je niet weet.',
+                'is_repeatable' => false,
+                'is_required' => false,
+                'kind' => 'closing_wishes',
+                'bundle_question_keys' => $keys,
+            ];
+            $pendingClosing = [];
+        };
 
         foreach ($questions as $question) {
             $composite = VisibilityResolver::compositeKey($question->key, $sectionInstanceKey);
@@ -260,6 +293,20 @@ final class IntakeStepBuilder
             if ($presentation['reason'] !== 'visible') {
                 continue;
             }
+
+            if ($section->key === 'closing'
+                && $sectionInstanceKey === null
+                && in_array($question->key, self::CLOSING_WISH_KEYS, true)
+                && ! $forceShow) {
+                $pendingClosing[] = [
+                    'question' => $question,
+                    'required' => $presentation['required'],
+                ];
+
+                continue;
+            }
+
+            $flushClosing();
 
             $wizardGroup = is_string($question->meta['wizard_group'] ?? null)
                 ? (string) $question->meta['wizard_group']
@@ -343,11 +390,16 @@ final class IntakeStepBuilder
             $instanceSuffix = $sectionInstanceKey === null ? '' : '::'.$sectionInstanceKey;
             $sectionTitle = $this->sectionTitleForInstance($intake, $section, $sectionInstanceKey);
             $title = $question->label;
+            $helpText = $question->help_text;
             if ($sectionInstanceKey !== null && in_array($question->key, ['room_photos', 'indoor_unit_position_photo'], true)) {
                 $roomLabel = $this->instanceLabel($intake, $sectionInstanceKey);
                 if ($roomLabel !== null) {
                     $title = $question->label.' — '.$roomLabel;
                 }
+            }
+
+            if ($question->key === 'indoor_unit_position_photo') {
+                $helpText = $this->extraRoomOverviewHelp($context['answers'], $sectionInstanceKey, $helpText);
             }
 
             $steps[] = [
@@ -358,12 +410,44 @@ final class IntakeStepBuilder
                 'title' => $title,
                 'section_title' => $sectionTitle,
                 'description' => $section->description,
-                'help_text' => $question->help_text,
+                'help_text' => $helpText,
                 'is_repeatable' => $section->is_repeatable,
                 'is_required' => $presentation['required'],
                 'kind' => 'question',
             ];
         }
+
+        $flushClosing();
+    }
+
+    /**
+     * @param  array<string, array<string, mixed>|null>  $answers
+     */
+    private function extraRoomOverviewHelp(
+        array $answers,
+        ?string $sectionInstanceKey,
+        ?string $fallback,
+    ): string {
+        $missing = [];
+        $outlet = $answers[VisibilityResolver::compositeKey('room_outlet_status', $sectionInstanceKey)] ?? null;
+        $outletValue = is_array($outlet) ? ($outlet['value'] ?? null) : null;
+
+        if ($outletValue === 'needs_photo') {
+            $missing[] = 'stopcontact';
+        }
+
+        // Altijd wanden/deuren noemen: dit scherm bestaat juist voor ontbrekende vlakken.
+        $missing[] = 'wand';
+        $missing[] = 'deur';
+
+        $missing = array_values(array_unique($missing));
+        $list = match (count($missing)) {
+            1 => $missing[0],
+            2 => $missing[0].' of '.$missing[1],
+            default => $missing[0].', '.$missing[1].' of '.$missing[2],
+        };
+
+        return 'Laat de ontbrekende '.$list.' zien die op de eerdere ruimtefoto nog niet duidelijk in beeld was. Je hoeft zelf geen plek voor een binnenunit te kiezen.';
     }
 
     /**
@@ -739,7 +823,10 @@ final class IntakeStepBuilder
 
         $option = $question->options->firstWhere('value', $optionValue);
 
-        return is_string($option?->label) ? $option->label : $optionValue;
+        // Nooit ruwe enum-values aan de klant tonen.
+        return is_string($option?->label) && trim($option->label) !== ''
+            ? $option->label
+            : null;
     }
 
     /**
@@ -752,7 +839,10 @@ final class IntakeStepBuilder
             if (! is_string($value)) {
                 continue;
             }
-            $labels[] = $this->optionLabel($question, $value) ?? $value;
+            $label = $this->optionLabel($question, $value);
+            if ($label !== null) {
+                $labels[] = $label;
+            }
         }
 
         return $labels === [] ? null : implode(', ', $labels);
@@ -846,7 +936,13 @@ final class IntakeStepBuilder
     ): int {
         if ($questionKey !== null && $questionKey !== '') {
             foreach ($steps as $index => $step) {
-                if ($step['question_key'] !== $questionKey) {
+                $matchesKey = $step['question_key'] === $questionKey
+                    || (
+                        ($step['kind'] ?? '') === 'closing_wishes'
+                        && in_array($questionKey, $step['bundle_question_keys'] ?? [], true)
+                    );
+
+                if (! $matchesKey) {
                     continue;
                 }
 

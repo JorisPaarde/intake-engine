@@ -9,6 +9,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 - **AI-trace retentie/export (BL-125):** `ai_traces.intake_id` nullable (`nullOnDelete`) + denormalised `intake_ref_id`/`is_demo`/`request_id` zodat traces demo-purge overleven; retentie alleen via scheduled `ai:purge-traces`. Granulaire `AiTraceCallType`s, verplichte velden (prompt/model/request/photo_refs/raw/parsed/tokens/kosten/timings) via recorder/client, uitgebreide `AiTraceRedactor` (naam/adres), `ai:traces:export` (jsonl+md, bundling, auto-split, manifest). Demo-purge verwijdert ook `intakes/{uuid}/`. PDF-embed downscaled foto’s (max 1600px, JPEG ~75) zonder originelen te wijzigen. `ai_runs` blijft cascadeOnDelete (gedocumenteerd).
 - **Photo-assessment watchdog (BL-127):** `photos:requeue-pending-assessments` (scheduler everyMinute) herdispatched `assessment_status=pending` ouder dan ~3 min, max attempts daarna soft-fail `not_assessed`. Nullable `ai_runs.upload_id` + `intake_uploads.assessment_status` pipeline.
 
+### Changed
+
+- **Klant-UX review v1.3.0 (BL-129):** airco **v22** (`preferred_indoor_location`; extra overzicht noemt ontbrekende wand/deur/stopcontact). Bedanktscherm toont alleen “Jouw deel is compleet…” (geen aandachtspunten/PDF-demo-debug). Foto-mismatch direct onder de foto; Volgende zonder keuze → “Kies: foto vervangen of toch doorgaan”; goedgekeurde foto zonder oranje box. Eén voortgangsmaat (Vraag X van Y + %); known-summary één CTA (“Klopt, verder”); merk/planning/opmerkingen op één closing-scherm.
+
 ### Fixed
 
 - **`ai:traces:export --output` verdubbelde `exports/`:** relatief pad is t.o.v. `storage/app/exports`; een voorvoegsel `exports/` of `storage/app/exports/` wordt weggestript. Console toont aan het eind de absolute paden van alle geschreven bestanden.
