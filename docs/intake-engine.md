@@ -1,8 +1,8 @@
 # Vragen- en takenengine
 
-> **Documentversie:** 2.27 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.28 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: de templatewizard is **geïmplementeerd t/m airco v19** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md). UI-taal: [language.md](language.md).
+Status: de templatewizard is **geïmplementeerd t/m airco v20** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md). UI-taal: [language.md](language.md).
 
 ## Doel
 
@@ -114,7 +114,7 @@ Geen LLM in deze keten.
 
 ## Voortgang
 
-- `ProgressCalculator` (BL-022): percentage over **verplichte** zichtbare vragen/foto’s in de gepinde versie — optionele onbeantwoorde vragen tellen niet mee, zodat 100% ≈ klaar om af te ronden
+- `ProgressCalculator` (BL-022/BL-120: afgeronde klanttaken; `PrefillSources::shouldSkipPrefill`) (BL-022): percentage over **verplichte** zichtbare vragen/foto’s in de gepinde versie — optionele onbeantwoorde vragen tellen niet mee, zodat 100% ≈ klaar om af te ronden
 - `progress_percent` op `intakes` wordt bij elke save bijgewerkt (cache)
 - UI toont: huidige stap, percentage; bij geblokkeerd afronden een klikbare “Nog niet alles is ingevuld”-lijst
 
@@ -187,7 +187,7 @@ Secties (stabiele keys over versies):
 
 ### v1 → v2 (BL-017, toenmalige vragenreductie)
 
-V2 introduceerde onderstaande vraagreductie. Nieuwe intakes gebruiken inmiddels de laatste gepubliceerde **v19**; lopende/afgeronde opnames blijven op hun gepinde versie (ADR-0001). V10 verandert klanttaal en repeatable-semantiek naar gewenste ruimtes en voorkomt dat de klant een binnenunitpositie kiest; de technische single-/multi-splitkeuze staat in airco-objecten. V11 houdt die structuur en vernieuwt alleen de klantteksten naar gecontroleerd eenvoudig Nederlands. V12 herstelt offerte-kritische bewijsfoto’s (meterkast, rondom het huis) en foto-afgeleide fase/stopcontacten zonder een stapel ja/nee-vragen (BL-074). V13 zet de meterkastfoto strikt vóór `free_group_known`: geen losse vrije-groepvraag zonder foto, en geen ja/nee wanneer AI `free_group` al uit de foto haalde (BL-077). V14 kort alleen kruipruimte- en L×B×H-labels/help in (BL-082). V15 voegt de buitenunitoptie `dormer` (dakkapel) toe voor AI-catalogusprefill (BL-063/064, ADR-0013). V16 voegt optioneel `room_area_m2` toe: vloeroppervlak via L×B óf betrouwbaar m²; plafondhoogte blijft apart/optioneel (BL-101). V17 maakt `drain_location`/`outdoor_mount_type` optioneel en herformuleert afvoerobservaties; `VisibilityResolver`+`TechnicalDecisionKeys` filteren technische sleutels (ADR-0015); technische bron zonder antwoord telt in alle modi als voldaan. AI-/klantwaarden houden `*_open` open (BL-116; afhandeling BL-117). V18 (BL-118) zet foto-first sort_order + known-summary voor high-confidence tekstfeiten + `room_name`. V19 (BL-119): geen vraaggerang t.o.v. v18; pin voor P1 runtime (`content_assessment` / `InternalCustomerQuestions` / `TechnicalDecisionKeys` routevoorstellen).
+V2 introduceerde onderstaande vraagreductie. Nieuwe intakes gebruiken inmiddels de laatste gepubliceerde **v20**; lopende/afgeronde opnames blijven op hun gepinde versie (ADR-0001). V10 verandert klanttaal en repeatable-semantiek naar gewenste ruimtes en voorkomt dat de klant een binnenunitpositie kiest; de technische single-/multi-splitkeuze staat in airco-objecten. V11 houdt die structuur en vernieuwt alleen de klantteksten naar gecontroleerd eenvoudig Nederlands. V12 herstelt offerte-kritische bewijsfoto’s (meterkast, rondom het huis) en foto-afgeleide fase/stopcontacten zonder een stapel ja/nee-vragen (BL-074). V13 zet de meterkastfoto strikt vóór `free_group_known`: geen losse vrije-groepvraag zonder foto, en geen ja/nee wanneer AI `free_group` al uit de foto haalde (BL-077). V14 kort alleen kruipruimte- en L×B×H-labels/help in (BL-082). V15 voegt de buitenunitoptie `dormer` (dakkapel) toe voor AI-catalogusprefill (BL-063/064, ADR-0013). V16 voegt optioneel `room_area_m2` toe: vloeroppervlak via L×B óf betrouwbaar m²; plafondhoogte blijft apart/optioneel (BL-101). V17 maakt `drain_location`/`outdoor_mount_type` optioneel en herformuleert afvoerobservaties; `VisibilityResolver`+`TechnicalDecisionKeys` filteren technische sleutels (ADR-0015); technische bron zonder antwoord telt in alle modi als voldaan. AI-/klantwaarden houden `*_open` open (BL-116; afhandeling BL-117). V18 (BL-118) zet foto-first sort_order + known-summary voor high-confidence tekstfeiten + `room_name`. V20 zet sectie-/vraagteksten op je-vorm en past vrije-groepuitleg aan (BL-120). V19 (BL-119): geen vraaggerang t.o.v. v18; pin voor P1 runtime (`content_assessment` / `InternalCustomerQuestions` / `TechnicalDecisionKeys` routevoorstellen).
 
 | Wijziging | Was (v1) | Wordt (v2) |
 |-----------|----------|------------|

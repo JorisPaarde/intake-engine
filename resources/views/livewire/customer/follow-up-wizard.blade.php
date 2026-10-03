@@ -7,14 +7,17 @@
         <p class="text-sm font-medium text-brand-ink/60">Aanvulling voor {{ $intake->customer_name }}</p>
         <p class="mt-2 text-sm leading-5 text-brand-ink/75">Met jouw hulp kunnen we sneller je airco plaatsen. Hieronder staat alleen wat nog echt nodig is.</p>
         @if (! $completed && $items->isNotEmpty())
-            @php($progress = (int) round((($followUpStepIndex + 1) / $items->count()) * 100))
             <div class="mt-3 flex items-center justify-between text-xs text-brand-ink/55">
                 <span>Onderdeel {{ $followUpStepIndex + 1 }} van {{ $items->count() }}</span>
-                <span class="font-medium text-brand-ink">{{ $progress }}%</span>
+                <span class="font-medium text-brand-ink" data-testid="follow-up-progress-percent">{{ $progressPercent }}%</span>
             </div>
-            <div class="mt-2 h-1.5 overflow-hidden bg-brand-fog/60" role="progressbar" aria-valuenow="{{ $progress }}" aria-valuemin="0" aria-valuemax="100">
-                <div class="h-full bg-brand-sea transition-all duration-300" style="width: {{ $progress }}%"></div>
+            <div class="mt-2 h-1.5 overflow-hidden bg-brand-fog/60" role="progressbar" aria-valuenow="{{ $progressPercent }}" aria-valuemin="0" aria-valuemax="100" aria-label="Voortgang op basis van afgeronde onderdelen">
+                <div class="h-full bg-brand-sea transition-all duration-300" style="width: {{ $progressPercent }}%"></div>
             </div>
+            <p class="mt-1 text-xs text-brand-ink/55">{{ $progressCompleted }} van {{ $progressTotal }} onderdelen afgerond</p>
+            @if (! empty($currentItemStatus))
+                <p class="mt-1 text-xs font-medium text-brand-ink/70" data-testid="follow-up-item-status">Status: {{ $currentItemStatus['label'] }}</p>
+            @endif
         @endif
 
         @if ($saveMessage !== '')
@@ -100,24 +103,81 @@
                 @endif
 
                 @if ($remainingSlots > 0)
-                    <label class="mt-3 flex min-h-12 cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed border-brand-fog bg-brand-mist/40 px-4 py-5 text-center">
-                        <span class="text-sm font-semibold text-brand-ink">Foto's maken of kiezen</span>
-                        <span class="text-xs text-brand-ink/55">Max {{ number_format($maxUploadKb / 1024, 0) }} MB · nog {{ $remainingSlots }}</span>
-                        <input
-                            type="file"
-                            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,image/*"
-                            multiple
-                            class="sr-only"
-                            wire:model="followUpPhotoFiles.{{ $item->id }}"
-                            data-upload-timing="1"
+                    @php($uploadBusy = ($uploadPhase ?? '') === 'assessing' && ($uploadPhaseComposite ?? '') === (string) $item->id)
+                    <div
+                        class="mt-3"
+                        x-data="{ timedOut: false, timer: null }"
+                        x-init="
+                            const arm = () => {
+                                clearTimeout(timer);
+                                timedOut = false;
+                                if ($wire.uploadPhase === 'assessing' && $wire.uploadPhaseComposite === @js((string) $item->id)) {
+                                    timer = setTimeout(() => { timedOut = true }, 120000);
+                                }
+                            };
+                            arm();
+                            $watch(() => $wire.uploadPhase, () => arm());
+                            $watch(() => $wire.uploadPhaseComposite, () => arm());
+                        "
+                    >
+                        <label
+                            class="flex min-h-12 cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed border-brand-fog bg-brand-mist/40 px-4 py-5 text-center"
+                            :class="{ 'pointer-events-none opacity-60': @js($uploadBusy) && ! timedOut }"
+                            wire:loading.class="pointer-events-none opacity-60"
+                            wire:target="followUpPhotoFiles.{{ $item->id }}"
                         >
-                    </label>
-                    <div wire:loading wire:target="followUpPhotoFiles.{{ $item->id }}" class="mt-2 text-sm font-medium text-brand-sea">
-                        Bezig met uploaden…
+                            <span class="text-sm font-semibold text-brand-ink">Foto's maken of kiezen</span>
+                            <span class="text-xs text-brand-ink/55">Max {{ number_format($maxUploadKb / 1024, 0) }} MB · nog {{ $remainingSlots }}</span>
+                            <input
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,image/*"
+                                multiple
+                                class="sr-only"
+                                wire:model="followUpPhotoFiles.{{ $item->id }}"
+                                wire:loading.attr="disabled"
+                                wire:target="followUpPhotoFiles.{{ $item->id }},assessPendingUploads,retryFailedUploadPhase"
+                                x-bind:disabled="@js($uploadBusy) && ! timedOut"
+                            >
+                        </label>
+                        <div wire:loading wire:target="followUpPhotoFiles.{{ $item->id }}" class="mt-2 text-sm font-medium text-brand-sea">
+                            Uploaden…
+                        </div>
+                        <div wire:loading.remove wire:target="followUpPhotoFiles.{{ $item->id }}">
+                            @if (($uploadPhase ?? '') === 'assessing' && ($uploadPhaseComposite ?? '') === (string) $item->id)
+                                <div class="mt-2 space-y-1 text-sm font-medium text-brand-sea" role="status" data-testid="upload-phase">
+                                    <p>{{ $uploadPhaseMessage }}</p>
+                                    <p class="text-xs font-normal text-brand-ink/55">Fase: Foto beoordelen</p>
+                                    <div x-show="timedOut" x-cloak class="mt-1">
+                                        <button
+                                            type="button"
+                                            wire:click="retryFailedUploadPhase"
+                                            wire:loading.attr="disabled"
+                                            wire:target="assessPendingUploads,retryFailedUploadPhase"
+                                            class="text-sm font-semibold text-brand-sea underline disabled:opacity-60"
+                                        >
+                                            Opnieuw beoordelen
+                                        </button>
+                                    </div>
+                                </div>
+                            @elseif (($uploadPhase ?? '') === 'failed' && ($uploadPhaseComposite ?? '') === (string) $item->id)
+                                <div class="mt-2 space-y-1 text-sm font-medium text-brand-sea" role="status" data-testid="upload-phase">
+                                    <p>{{ $uploadPhaseMessage }}</p>
+                                    <button
+                                        type="button"
+                                        wire:click="retryFailedUploadPhase"
+                                        wire:loading.attr="disabled"
+                                        wire:target="assessPendingUploads,retryFailedUploadPhase"
+                                        class="mt-1 text-sm font-semibold text-brand-sea underline disabled:opacity-60"
+                                    >
+                                        Opnieuw proberen
+                                    </button>
+                                </div>
+                            @endif
+                        </div>
+                        @error('followUpPhotoFiles.'.$item->id)
+                            <p class="mt-2 text-sm text-brand-ember">{{ $message }}</p>
+                        @enderror
                     </div>
-                    @error('followUpPhotoFiles.'.$item->id)
-                        <p class="mt-2 text-sm text-brand-ember">{{ $message }}</p>
-                    @enderror
                 @endif
 
                 @if (! empty($followUpPhotoHint))

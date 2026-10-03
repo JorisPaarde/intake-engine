@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.70 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.71 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,11 +38,12 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118**. **BL-121** = follow-up foto async. Nieuwe items starten bij BL-122.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = follow-up foto async. Nieuwe items starten bij BL-122.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
 | 1 | BL-117 | Installateur kan technisch open punt afhandelen vanuit de survey-werkplek | E7/E8 | backlog | high | na PR #115 · show/rapport `*_open` |
+| — | BL-120 | Klanttest P2: voortgang, uploadfases, je-vorm (airco v20) | E1/E5/E7 | done | high | klanttest 2 okt P2 · PR #118 · na BL-119 |
 | — | BL-119 | Klanttest 2 okt P1: foto-stelligheid, interne AI-velden, verkeerde-fotofeedback | E4/E7/E9 | in_progress | high | AI/foto · na BL-118 · airco v19 · PR #119 |
 | — | BL-121 | Follow-up fotobeoordeling async (niet sync in request) | E4 | backlog | medium | AI/foto · bij BL-119 · performance |
 | — | BL-118 | Klanttest 2 okt: foto-first, extractiedekking, kamernamen | E3/E9 | done | high | F · bij BL-064/098/101 · na BL-116 · airco v18 · PR #116 |
@@ -587,6 +588,14 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Aanleiding:** case 80 buitenunitfoto → “zeker geen doorboring”; interne velden als klantvraag; verkeerde foto’s zonder feedback.
 - **Doel:** content_assessment + soft-continue; InternalCustomerQuestions; TechnicalDecisionKeys routevoorstellen; refrigerant PipeRoute|OutdoorUnit.
 - **Acceptatie:** Pest groen; `composer check` groen.
+
+
+### BL-120 — Klanttest P2: voortgang, uploadfases, je-vorm
+
+- **Status:** done · **Datum:** 2026-10-03 · **PR:** #118 · **Prioriteit:** high · **Epic:** E1/E5/E7 · **Volgt op:** BL-022/038/112/119 · **Ref:** klanttest 2 okt 2026 P2 · airco v20
+- **Doel:** klantvoortgang op afgeronde taken; zichtbare Uploaden/Beoordelen-fases met timeout/herstel/dedupe; je-vorm + feitelijke vrije-groepuitleg in airco v20.
+- **Acceptatie:** “Onderdeel 1 van 1” start op 0%; twee Livewire-round-trips + remount/Alpine-timeout; templatevragen zonder u/uw; vrije-groephelp zonder “lege plek = vrije groep”.
+- **Scope:** ProgressCalculator/FollowUpProgressCalculator + PrefillSources; IntakeWizard uploadfases (behoudt #117 timings/`rememberStoredUpload` en #119 content-assessment); airco v20 op v19. Geen dubbele logging of meta.internal.
 
 ### BL-121 — Follow-up fotobeoordeling async
 

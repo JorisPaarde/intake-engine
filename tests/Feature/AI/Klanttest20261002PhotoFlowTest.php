@@ -218,7 +218,8 @@ test('P1 case 80: fusebox_clarity verschijnt nooit als klantvraag na fotostatus-
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intakeForWizard->access_token])
         ->set('activeStepKey', 'electrical::fusebox_photo_extra')
-        ->set('photoFiles.fusebox_photo_extra', klanttestLivewireUpload('meterkast-groot.jpg'));
+        ->set('photoFiles.fusebox_photo_extra', klanttestLivewireUpload('meterkast-groot.jpg'))
+        ->call('assessPendingUploads');
 
     $wizard = $component->instance();
     $ref = new ReflectionClass($wizard);
@@ -264,7 +265,8 @@ test('P1 case 81: meterkastfoto als kamerfoto geeft gerichte terugkoppeling zond
     ]);
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
-        ->set('photoFiles.room-1__room_photos', klanttestLivewireUpload('meterkast-groot.jpg'));
+        ->set('photoFiles.room-1__room_photos', klanttestLivewireUpload('meterkast-groot.jpg'))
+        ->call('assessPendingUploads');
 
     $hints = $component->get('photoHint');
     $hintText = is_array($hints) ? implode(' ', array_filter($hints)) : (string) $hints;
@@ -342,6 +344,7 @@ test('acceptatie blijft na goede foto toevoegen en een foto verwijderen; geen mi
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->set('photoFiles.room-1__room_photos', klanttestLivewireUpload('meterkast-groot.jpg'))
+        ->call('assessPendingUploads')
         ->set('activeStepKey', 'rooms::room-1::room_photos')
         ->call('acceptPhotoMismatch');
 
@@ -367,7 +370,8 @@ test('acceptatie blijft na goede foto toevoegen en een foto verwijderen; geen mi
 
     $component
         ->set('activeStepKey', 'rooms::room-1::room_photos')
-        ->set('photoFiles.room-1__room_photos', klanttestLivewireUpload('buitenunit-leiding.jpeg'));
+        ->set('photoFiles.room-1__room_photos', klanttestLivewireUpload('buitenunit-leiding.jpeg'))
+        ->call('assessPendingUploads');
 
     $wrong->refresh();
     expect($wrong->contentAssessment()?->customerAcceptedMismatch())->toBeTrue();
@@ -414,6 +418,7 @@ test('Vervang foto verwijdert wrong_subject-upload; banner verdwijnt na satisfac
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->set('photoFiles.room-1__room_photos', klanttestLivewireUpload('meterkast-groot.jpg'))
+        ->call('assessPendingUploads')
         ->set('activeStepKey', 'rooms::room-1::room_photos')
         ->assertSee('Vervang foto')
         ->assertSee('Toch doorgaan');
@@ -443,6 +448,7 @@ test('Vervang foto verwijdert wrong_subject-upload; banner verdwijnt na satisfac
     $component
         ->set('activeStepKey', 'rooms::room-1::room_photos')
         ->set('photoFiles.room-1__room_photos', klanttestLivewireUpload('buitenunit-leiding.jpeg'))
+        ->call('assessPendingUploads')
         ->assertDontSee('Toch doorgaan');
 });
 
@@ -477,6 +483,7 @@ test('follow-up refrigerant accepteert outdoor_unit (gevel met leidingen) zonder
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->assertSet('followUpMode', true)
         ->set('followUpPhotoFiles.'.$item->id, klanttestLivewireUpload('buitenunit-leiding.jpeg'))
+        ->call('assessPendingUploads')
         ->assertHasNoErrors('followUpPhotoFiles.'.$item->id);
 
     $upload = $item->uploads()->first();
@@ -514,6 +521,7 @@ test('P1 case 81 Stroomtoevoer: buitenunitfoto waarschuwt maar blokkeert afronde
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->assertSet('followUpMode', true)
         ->set('followUpPhotoFiles.'.$item->id, klanttestLivewireUpload('buitenunit-leiding.jpeg'))
+        ->call('assessPendingUploads')
         ->assertHasErrors('followUpPhotoFiles.'.$item->id)
         ->assertSee('buitenunit')
         ->assertSee('meterkast')

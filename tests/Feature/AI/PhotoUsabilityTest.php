@@ -75,3 +75,31 @@ test('assess action stores the verdict and records a run', function () {
         ->and($upload->fresh()->usability_verdict)->toBe(PhotoUsabilityVerdict::TooDark)
         ->and($intake->aiRuns()->where('type', 'photo_quality')->where('status', AiRunStatus::Succeeded->value)->exists())->toBeTrue();
 });
+
+test('assess action persists fallback verdict when the media file is missing', function () {
+    Storage::fake('local');
+    $disk = (string) config('filesystems.media', 'local');
+    Storage::fake($disk);
+
+    $user = User::factory()->create();
+    $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
+    $intake = Intake::factory()->create(['created_by' => $user->id, 'intake_template_version_id' => $version->id]);
+
+    $upload = IntakeUpload::query()->create([
+        'intake_id' => $intake->id,
+        'question_key' => 'room_photos',
+        'section_instance_key' => 'room-1',
+        'disk' => $disk,
+        'path' => 'photos/missing.jpg',
+        'original_filename' => 'missing.jpg',
+        'mime_type' => 'image/jpeg',
+        'size_bytes' => 1,
+        'sort_order' => 1,
+    ]);
+
+    $verdict = app(AssessPhotoUsability::class)->handle($upload);
+
+    expect($verdict)->toBe(PhotoUsabilityVerdict::Ok)
+        ->and($upload->fresh()->usability_verdict)->toBe(PhotoUsabilityVerdict::Ok)
+        ->and($intake->aiRuns()->where('type', 'photo_quality')->where('status', AiRunStatus::Failed->value)->exists())->toBeTrue();
+});

@@ -248,8 +248,8 @@ test('livewire wizard accepts a photo upload', function () {
 test('livewire wizard accepts multiple photos in one selection', function () {
     $intake = makeUploadIntake();
     $files = [
-        UploadedFile::fake()->image('meterkast-1.jpg'),
-        UploadedFile::fake()->image('meterkast-2.jpg'),
+        UploadedFile::fake()->image('meterkast-1.jpg', 800, 600),
+        UploadedFile::fake()->image('meterkast-2.jpg', 801, 601),
     ];
 
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])

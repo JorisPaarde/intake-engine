@@ -515,6 +515,8 @@ test('follow up photo quality hint repeats the installers exact photo request', 
     $item = $intake->followUpRounds()->firstOrFail()->items()->firstOrFail();
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->set('followUpPhotoFiles.'.$item->id, darkFollowUpUpload())
+        ->assertSet('uploadPhase', 'assessing')
+        ->call('assessPendingUploads')
         ->assertHasNoErrors()
         ->assertSee('Maak een nieuwe foto met meer licht.')
         ->assertSee('Fotografeer de condensafvoer van dichtbij en met de aansluiting zichtbaar.');

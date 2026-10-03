@@ -130,7 +130,7 @@ test('metrics service calculates the product funnel per intake and in aggregate'
     expect($metrics['dropoffs'])->toBe([
         [
             'key' => 'request_reason',
-            'label' => 'Wat is de reden van uw aanvraag?',
+            'label' => 'Wat is de reden van je aanvraag?',
             'count' => 1,
         ],
     ]);

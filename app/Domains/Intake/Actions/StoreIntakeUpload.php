@@ -65,6 +65,23 @@ final class StoreIntakeUpload
         $preprocessMs = (int) round((microtime(true) - $preprocessStarted) * 1000);
 
         try {
+            $duplicateQuery = IntakeUpload::query()
+                ->where('intake_id', $intake->id)
+                ->where('question_key', $questionKey)
+                ->where('checksum', $normalized->dossierChecksum);
+
+            if ($sectionInstanceKey === null) {
+                $duplicateQuery->whereNull('section_instance_key');
+            } else {
+                $duplicateQuery->where('section_instance_key', $sectionInstanceKey);
+            }
+
+            $duplicate = $duplicateQuery->first();
+
+            if ($duplicate instanceof IntakeUpload) {
+                return $duplicate;
+            }
+
             $persistStarted = microtime(true);
             $disk = (string) config('filesystems.media', 'local');
             $directory = $this->directory($intake, $questionKey, $sectionInstanceKey);

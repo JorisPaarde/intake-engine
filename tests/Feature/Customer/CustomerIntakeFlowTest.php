@@ -44,7 +44,7 @@ test('valid customer token opens the intake wizard', function () {
         ->assertOk()
         ->assertSee('Digitale Opname')
         ->assertSee('Aanvraag')
-        ->assertSee('Wat is de reden van uw aanvraag?')
+        ->assertSee('Wat is de reden van je aanvraag?')
         ->assertSee('Vraag 1 van');
 });
 
@@ -125,8 +125,8 @@ test('wizard advances one visible question at a time', function () {
         ->assertSet('showMissing', false)
         ->assertSet('stepIndex', 1)
         ->assertSet('activeStepKey', 'request::cooling_heating')
-        ->assertSee('Wilt u koelen, verwarmen of beide?')
-        ->assertDontSee('Hoeveel ruimtes wilt u koelen of verwarmen?');
+        ->assertSee('Wil je koelen, verwarmen of beide?')
+        ->assertDontSee('Hoeveel ruimtes wil je koelen of verwarmen?');
 });
 
 test('conditional show rules hide questions until matched', function () {
@@ -229,7 +229,7 @@ test('single choice auto-advances after selecting an option', function () {
         ->set('form.cooling_heating.value', 'cooling')
         ->assertSet('activeStepKey', 'request::indoor_unit_count')
         ->assertSet('saveMessage', 'Opgeslagen')
-        ->assertSee('Hoeveel ruimtes wilt u koelen of verwarmen?');
+        ->assertSee('Hoeveel ruimtes wil je koelen of verwarmen?');
 });
 
 test('boolean auto-advances after choosing ja or nee', function () {
@@ -250,7 +250,7 @@ test('short text blur save does not auto-advance', function () {
         ->set('form.request_reason.text', 'Te warm')
         ->assertSet('activeStepKey', 'request::request_reason')
         ->assertSet('saveMessage', 'Opgeslagen')
-        ->assertSee('Wat is de reden van uw aanvraag?');
+        ->assertSee('Wat is de reden van je aanvraag?');
 });
 
 test('multi choice values update does not auto-advance', function () {
@@ -273,7 +273,7 @@ test('previous still works after an auto-advanced choice', function () {
         ->assertSet('activeStepKey', 'request::indoor_unit_count')
         ->call('previous')
         ->assertSet('activeStepKey', 'request::cooling_heating')
-        ->assertSee('Wilt u koelen, verwarmen of beide?');
+        ->assertSee('Wil je koelen, verwarmen of beide?');
 });
 
 test('enter on short text advances to the next step', function () {
@@ -284,7 +284,7 @@ test('enter on short text advances to the next step', function () {
         ->call('advanceFromEnter', 'request_reason', 'text', 'Te warm op zolder')
         ->assertSet('showMissing', false)
         ->assertSet('activeStepKey', 'request::cooling_heating')
-        ->assertSee('Wilt u koelen, verwarmen of beide?');
+        ->assertSee('Wil je koelen, verwarmen of beide?');
 });
 
 test('enter on number advances to the next step', function () {
@@ -472,7 +472,7 @@ test('wizard next still advances after request-local caching', function () {
         ->set('form.request_reason.text', 'Te warm')
         ->call('next')
         ->assertSet('activeStepKey', 'request::cooling_heating')
-        ->assertSee('Wilt u koelen, verwarmen of beide?');
+        ->assertSee('Wil je koelen, verwarmen of beide?');
 });
 
 test('repeatable room questions become separate steps after unit count', function () {

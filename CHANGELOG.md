@@ -6,10 +6,14 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Added
 
+- **Je-vorm + vrije-groepuitleg (BL-120):** airco **v20** (op v19) zet u/uw → je/jouw in sectie-/vraagteksten; feitelijke `free_group_known`; meterkastfoto zonder 1-/3-fase-oordeel; runtime notices/mails je-vorm.
 - **Klanttest P1 foto-stelligheid / categoriefeedback (BL-119):** airco **v19** (bovenop v18). `intake_uploads.content_assessment`, `PhotoSubject` / `PhotoContentAssessment` / `PhotoContentSatisfaction`, `AssessFollowUpPhotoSubject`, `InternalCustomerQuestions`. Soft-continue verkeerde foto (**Vervang foto** / **Toch doorgaan**). `TechnicalDecisionKeys` uitgebreid met `ROUTE_PROPOSAL_KEYS` / `aiPrefillSources()` (één class met #115).
 
 ### Fixed
 
+- **Eindeloze herbeoordelingslus (BL-120):** `AssessPhotoUsability` soft-fail persistte geen verdict → `recoverUnassessedUploads` queuete bij elke render opnieuw. Catch schrijft nu altijd fallback `ok` via `updateQuietly`; vangnet in `assessPendingUploads`/`assessPendingFollowUpUploads`; recovery slaat `installer_evidence` over.
+- **Klantvoortgang misleidend (BL-120):** gerichte foto-opdracht (“Onderdeel 1 van 1”) startte op 100% via stappositie. Voortgang telt afgeronde klanttaken; 0% bij lege foto-opdracht; follow-upfoto’s pas na bruikbare beoordeling; extra-taaknotitie alleen ná analyse.
+- **Uploadfases / vastgelopen assessing (BL-120):** twee Livewire-round-trips; behoudt `rememberStoredUpload`/`processing_timings` (BL-116) en content-assessment/Vervang-foto (BL-119); remount + Alpine 120s-timeout; checksum-dedupe; geen activity-recorder.
 - **AI-conclusie uit foto te stellig:** `drillings_needed=no` → fact `unknown` + voorstelnotitie; routevelden geen klant-`intake_answers`.
 - **Intern AI-veld als klantvraag:** `fusebox_clarity` / `room_outlet_status` altijd verborgen.
 - **Verkeerde foto zonder feedback:** per-upload verdict; soft-block; follow-up refrigerant accepteert pipe_route+outdoor_unit.
