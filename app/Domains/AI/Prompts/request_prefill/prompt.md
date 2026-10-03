@@ -24,6 +24,7 @@ Regels:
   - “Kinderkamer” / “Kind” / “kinderslaapkamer” → `room_name` “Kind” of “Kinderkamer” + bedroom;
   - “Woonkamer voor” → die naam letterlijk.
   Nooit twee kamers dezelfde generieke naam geven als de tekst ze onderscheidt. Zonder rolnaam mag je `room_name` weglaten.
+- Gewenste binnenunitplek letterlijk overnemen in `preferred_indoor_location` per ruimte wanneer die key bestaat: “boven de bank aan de buitenmuur”, “op de lange wand naast het raam”. Alleen bij expliciet bewijs; verzin geen plek.
 - Verdieping per kamer: “op de 1e verdieping” → `floor_level` waarde `1` (of de catalogusoptie die 1e verdieping is); “begane grond” → `ground`; “zolder” → `attic`.
 - “5 bij 7 meter” / “6x4m” / “4 bij 3 meter” → `room_length_m` en `room_width_m` van díe ruimtes.
 - Exact oppervlak zoals “20 m²” / “20m2” → `room_area_m2` van díe ruimtes wanneer die key in de catalogus staat. Leid daaruit nooit lengte of breedte af.

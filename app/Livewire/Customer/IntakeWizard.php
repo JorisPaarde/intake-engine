@@ -39,8 +39,6 @@ use App\Domains\Intake\Services\VisibilityResolver;
 use App\Domains\Intake\Support\KnownSummaryCatalog;
 use App\Domains\Intake\Support\PhotoContentSatisfaction;
 use App\Domains\Intake\Support\PrefillSources;
-use App\Enums\AttentionPointSource;
-use App\Enums\AttentionPointStatus;
 use App\Enums\FollowUpItemType;
 use App\Enums\FollowUpRoundStatus;
 use App\Enums\IntakeStatus;
@@ -215,7 +213,7 @@ class IntakeWizard extends Component
      *     help_text: string|null,
      *     is_repeatable: bool,
      *     is_required: bool,
-     *     kind?: 'question'|'known_summary'|'question_group',
+     *     kind?: 'question'|'known_summary'|'question_group'|'closing_wishes',
      *     known_items?: list<array{
      *         question_key: string,
      *         section_instance_key: string|null,
@@ -224,7 +222,8 @@ class IntakeWizard extends Component
      *         prefill_source: string
      *     }>,
      *     group_key?: string,
-     *     group_question_keys?: list<string>
+     *     group_question_keys?: list<string>,
+     *     bundle_question_keys?: list<string>
      * }>|null
      */
     private ?array $resolvedSteps = null;
@@ -306,19 +305,45 @@ class IntakeWizard extends Component
         $version = $this->version();
         $steps = $this->steps();
         $this->clampStepIndex($steps);
-        $step = $steps[$this->stepIndex] ?? null;
+
+        // Display index follows activeStepKey so numbers never skip when the list rebuilds.
+        $displayIndex = $this->stepIndex;
+        if ($this->activeStepKey !== '') {
+            $found = app(IntakeStepBuilder::class)->indexForStepKey($steps, $this->activeStepKey);
+            if ($found !== null) {
+                $displayIndex = $found;
+                $this->stepIndex = $found;
+            }
+        }
+
+        $step = $steps[$displayIndex] ?? null;
         // Banner-variant for the primary demo customer wizard (not a shortened allowlist).
         $demoCustomerPath = $intake->is_demo && ! $this->followUpMode;
-        $progress = app(ProgressCalculator::class)->calculate($intake, $version);
 
         $question = null;
         $groupQuestions = [];
+        $bundleQuestions = [];
         $visibility = [];
         $uploadsByQuestion = [];
         $displayPhotoHint = $this->photoHint;
         $photoMismatchAssessment = null;
+        $photoNeedsQualityHint = false;
+        $stepKind = is_array($step) ? ($step['kind'] ?? 'question') : 'question';
 
-        if ($step !== null && ! $this->completed && ($step['kind'] ?? 'question') !== 'known_summary') {
+        if ($step !== null && ! $this->completed && $stepKind === 'closing_wishes') {
+            $bundleKeys = $step['bundle_question_keys'] ?? IntakeStepBuilder::CLOSING_WISH_KEYS;
+            foreach ($bundleKeys as $bundleKey) {
+                $bundleQuestion = app(IntakeStepBuilder::class)->questionForStep(
+                    $version,
+                    $step['section_key'],
+                    $bundleKey,
+                );
+                if ($bundleQuestion instanceof IntakeQuestion) {
+                    $this->ensureAnswerShape($bundleQuestion, null);
+                    $bundleQuestions[] = $bundleQuestion;
+                }
+            }
+        } elseif ($step !== null && ! $this->completed && $stepKind !== 'known_summary') {
             $question = app(IntakeStepBuilder::class)->questionForStep(
                 $version,
                 $step['section_key'],
@@ -330,7 +355,7 @@ class IntakeWizard extends Component
                 $questionsForVisibility->push($question);
             }
 
-            if (($step['kind'] ?? 'question') === 'question_group') {
+            if ($stepKind === 'question_group') {
                 foreach ($step['group_question_keys'] ?? [] as $groupKey) {
                     $groupQuestion = app(IntakeStepBuilder::class)->questionForStep(
                         $version,
@@ -386,24 +411,20 @@ class IntakeWizard extends Component
                             $stepUploads,
                         );
                     }
+
+                    // Oranje waarschuwing alleen bij echte mismatch; goedgekeurde foto’s niet.
+                    $photoNeedsQualityHint = $photoMismatchAssessment === null
+                        && $this->uploadsNeedQualityHint($stepUploads);
                 }
             }
         }
 
-        $demoAiSummary = null;
-        $demoAttentionPoints = [];
-
-        if ($this->completed && $intake->is_demo) {
-            $intake->loadMissing(['report', 'attentionPoints']);
-            $meta = $intake->report?->meta;
-            $metaSummary = is_array($meta) ? ($meta['ai_summary'] ?? null) : null;
-            $demoAiSummary = is_array($metaSummary) ? $metaSummary : null;
-            $demoAttentionPoints = $intake->attentionPoints
-                ->where('status', AttentionPointStatus::Proposed)
-                ->where('source', AttentionPointSource::Ai)
-                ->values()
-                ->all();
-        }
+        $stepTotal = count($steps);
+        $progressPercent = $this->resolveStepProgressPercent($steps);
+        // Zelfde maat als “Vraag X van Y”: afgeronde stappen (huidige open telt niet mee).
+        $progressAnswered = $this->completed
+            ? $stepTotal
+            : min($displayIndex, $stepTotal);
 
         return view('livewire.customer.intake-wizard', [
             'intake' => $intake,
@@ -411,29 +432,30 @@ class IntakeWizard extends Component
             'step' => $step,
             'question' => $question,
             'groupQuestions' => $groupQuestions,
+            'bundleQuestions' => $bundleQuestions,
             'visibility' => $visibility,
             'uploadsByQuestion' => $uploadsByQuestion,
             'displayPhotoHint' => $displayPhotoHint,
             'photoMismatchAssessment' => $photoMismatchAssessment,
+            'photoNeedsQualityHint' => $photoNeedsQualityHint,
             // Prop name kept for BL-076 banner sibling; value means "primary customer path".
             'demoShortCustomer' => $demoCustomerPath,
             'demoInstallerReturnUrl' => $demoCustomerPath
                 ? route('intakes.show', $intake)
                 : null,
-            'progressPercent' => $this->resolveStepProgressPercent($steps),
-            'progressAnswered' => $progress['answered_required'],
-            'progressTotal' => $progress['total_required'],
+            'progressPercent' => $progressPercent,
+            'progressAnswered' => $progressAnswered,
+            'progressTotal' => $stepTotal,
+            'stepDisplayNumber' => $this->completed ? $stepTotal : ($displayIndex + 1),
+            'stepDisplayTotal' => max(1, $stepTotal),
             'progressExtraNote' => $this->progressExtraNote,
             'uploadPhase' => $this->uploadPhase,
             'uploadPhaseMessage' => $this->uploadPhaseMessage,
             'uploadPhaseComposite' => $this->uploadPhaseComposite,
-            'missingRequired' => $this->completionMissing !== []
-                ? $this->completionMissing
-                : $progress['missing_required'],
-            'isLastStep' => $this->stepIndex >= count($steps) - 1,
+            'missingRequired' => $this->completionMissing,
+            'isLastStep' => $displayIndex >= $stepTotal - 1,
+            'isKnownSummary' => $stepKind === 'known_summary',
             'maxUploadKb' => (int) config('intake.uploads.max_kilobytes', 8192),
-            'demoAiSummary' => $demoAiSummary,
-            'demoAttentionPoints' => $demoAttentionPoints,
         ]);
     }
 
@@ -444,6 +466,21 @@ class IntakeWizard extends Component
     public function freshSignedUploadUrl(): string
     {
         return (new GenerateSignedUploadUrl)->forLocal();
+    }
+
+    /**
+     * @param  Collection<int, IntakeUpload>  $uploads
+     */
+    private function uploadsNeedQualityHint(Collection $uploads): bool
+    {
+        foreach ($uploads as $upload) {
+            $verdict = $upload->usability_verdict;
+            if ($verdict instanceof PhotoUsabilityVerdict && $verdict->customerHint() !== null) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function updatedPhotoFiles(mixed $value, ?string $key): void
@@ -2115,6 +2152,20 @@ class IntakeWizard extends Component
             return;
         }
 
+        if (($step['kind'] ?? 'question') === 'closing_wishes') {
+            $keys = $step['bundle_question_keys'] ?? IntakeStepBuilder::CLOSING_WISH_KEYS;
+            foreach ($keys as $questionKey) {
+                $composite = VisibilityResolver::compositeKey($questionKey, null);
+                if (! isset($this->form[$composite]) || ! is_array($this->form[$composite])) {
+                    continue;
+                }
+                $this->persistComposite($composite);
+            }
+            $this->saveMessage = 'Opgeslagen';
+
+            return;
+        }
+
         if (($step['kind'] ?? 'question') === 'question_group') {
             foreach ($step['group_question_keys'] ?? [] as $groupKey) {
                 $groupQuestion = app(IntakeStepBuilder::class)->questionForStep(
@@ -2524,7 +2575,7 @@ class IntakeWizard extends Component
      *     help_text: string|null,
      *     is_repeatable: bool,
      *     is_required: bool,
-     *     kind?: 'question'|'known_summary'|'question_group',
+     *     kind?: 'question'|'known_summary'|'question_group'|'closing_wishes',
      *     known_items?: list<array{
      *         question_key: string,
      *         section_instance_key: string|null,
@@ -2533,7 +2584,8 @@ class IntakeWizard extends Component
      *         prefill_source: string,
      *     }>,
      *     group_key?: string,
-     *     group_question_keys?: list<string>
+     *     group_question_keys?: list<string>,
+     *     bundle_question_keys?: list<string>
      * }>
      */
     private function steps(): array
@@ -2651,7 +2703,9 @@ class IntakeWizard extends Component
     {
         $step = $this->currentStep();
 
-        if ($step === null) {
+        if ($step === null
+            || ($step['kind'] ?? 'question') === 'known_summary'
+            || ($step['kind'] ?? 'question') === 'closing_wishes') {
             return;
         }
 
@@ -2910,7 +2964,12 @@ class IntakeWizard extends Component
             return true;
         }
 
-        if (($step['kind'] ?? 'question') === 'question_group') {
+        $kind = $step['kind'] ?? 'question';
+        if ($kind === 'known_summary' || $kind === 'closing_wishes') {
+            return true;
+        }
+
+        if ($kind === 'question_group') {
             if (! $step['is_required']) {
                 return true;
             }
@@ -2997,7 +3056,7 @@ class IntakeWizard extends Component
      *     help_text: string|null,
      *     is_repeatable: bool,
      *     is_required: bool,
-     *     kind?: 'question'|'known_summary'|'question_group',
+     *     kind?: 'question'|'known_summary'|'question_group'|'closing_wishes',
      *     known_items?: list<array{
      *         question_key: string,
      *         section_instance_key: string|null,
@@ -3006,7 +3065,8 @@ class IntakeWizard extends Component
      *         prefill_source: string,
      *     }>,
      *     group_key?: string,
-     *     group_question_keys?: list<string>
+     *     group_question_keys?: list<string>,
+     *     bundle_question_keys?: list<string>
      * }|null
      */
     private function currentStep(): ?array
@@ -3107,6 +3167,17 @@ class IntakeWizard extends Component
     private function syncActiveStepKey(array $steps): void
     {
         $this->activeStepKey = $steps[$this->stepIndex]['key'] ?? '';
+    }
+
+    /**
+     * render() leidt de getoonde stap af uit activeStepKey; een losse stepIndex
+     * moet die sleutel dus meenemen, anders springt de wizard terug.
+     */
+    public function updatedStepIndex(mixed $value): void
+    {
+        $steps = $this->steps();
+        $this->clampStepIndex($steps);
+        $this->syncActiveStepKey($steps);
     }
 
     /**

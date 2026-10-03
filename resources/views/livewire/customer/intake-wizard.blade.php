@@ -29,13 +29,15 @@
             </p>
             <div class="flex items-center justify-between text-sm text-[#5e6862]">
                 <span>Voortgang</span>
-                <span class="font-medium text-[#18201d]">{{ $progressPercent }}%</span>
+                <span class="font-medium text-[#18201d]" data-testid="progress-percent">{{ $progressPercent }}%</span>
             </div>
             <div class="mt-2 h-1.5 overflow-hidden bg-[#dde2da]" role="progressbar" aria-valuenow="{{ $progressPercent }}" aria-valuemin="0" aria-valuemax="100" aria-label="Voortgang op basis van wizardstappen">
                 <div class="h-full bg-[var(--tenant-primary)] transition-all duration-300" style="width: {{ $progressPercent }}%"></div>
             </div>
             @if (! $completed && ($progressTotal ?? 0) > 0)
-                <p class="mt-1 text-xs text-[#5e6862]">{{ $progressAnswered ?? 0 }} van {{ $progressTotal }} taken afgerond</p>
+                <p class="mt-1 text-xs text-[#5e6862]" data-testid="progress-step-count">
+                    {{ $progressAnswered ?? 0 }} van {{ $progressTotal }} vragen
+                </p>
             @endif
             @if (! empty($progressExtraNote))
                 <p class="mt-2 rounded-lg border border-[#dde2da] bg-white px-3 py-2 text-sm text-[#414b45]" role="status" data-testid="progress-extra-note">
@@ -43,7 +45,9 @@
                 </p>
             @endif
             @if ($completed)
-                <p class="mt-2 text-xs text-[#5e6862]">Jouw deel is compleet. Open technische restpunten bekijkt je installateur apart.</p>
+                <p class="mt-2 text-xs text-[#5e6862]" data-testid="customer-complete-note">
+                    Jouw deel is compleet. Open technische restpunten bekijkt je installateur apart.
+                </p>
             @endif
         </div>
 
@@ -55,24 +59,24 @@
     </header>
 
     @if ($completed)
-        <div class="flex flex-1 flex-col justify-center rounded-xl border border-[#dde2da] bg-white p-6 shadow-sm">
+        <div class="flex flex-1 flex-col justify-center rounded-xl border border-[#dde2da] bg-white p-6 shadow-sm" data-testid="customer-thank-you">
             <h1 class="text-2xl font-extrabold tracking-tight text-[#18201d]">Bedankt</h1>
             <p class="mt-3 text-sm leading-relaxed text-[#5e6862]">
-                @if ($intake->is_demo)
-                    Dit was een demo. Er wordt geen echte offerte gemaakt en de gegevens verdwijnen automatisch.
-                @else
-                    Bedankt. Je installateur bekijkt nu of er nog iets nodig is voor de offerte.
-                    Je kunt dit venster sluiten.
-                @endif
+                Jouw deel is compleet. Open technische restpunten bekijkt je installateur apart.
             </p>
             @if ($intake->is_demo)
+                <p class="mt-3 text-sm leading-relaxed text-[#5e6862]">
+                    Dit was een demo. Er wordt geen echte offerte gemaakt en de gegevens verdwijnen automatisch.
+                </p>
                 <x-demo-scope-notice
                     variant="complete"
-                    :demo-ai-summary="$demoAiSummary"
-                    :demo-attention-points="$demoAttentionPoints"
                     :short-customer="$demoShortCustomer ?? false"
                     :installer-return-url="$demoInstallerReturnUrl"
                 />
+            @else
+                <p class="mt-3 text-sm leading-relaxed text-[#5e6862]">
+                    Je kunt dit venster sluiten.
+                </p>
             @endif
         </div>
     @elseif (($step['kind'] ?? 'question') === 'known_summary')
@@ -80,7 +84,7 @@
             <p class="eyebrow">
                 {{ $step['section_title'] }}
                 <span class="mx-1.5 text-[#838c86]">·</span>
-                Vraag {{ $stepIndex + 1 }} van {{ count($steps) }}
+                Vraag {{ $stepDisplayNumber }} van {{ $stepDisplayTotal }}
             </p>
             <h1 class="mt-1 text-2xl font-extrabold tracking-tight text-[#18201d]">
                 {{ $step['title'] }}
@@ -112,15 +116,78 @@
                 <p class="mt-3 text-xs leading-relaxed text-[#5e6862]">{{ $step['help_text'] }}</p>
             @endif
         </div>
+    @elseif (($step['kind'] ?? 'question') === 'closing_wishes')
+        <div class="mb-4">
+            <p class="eyebrow">
+                {{ $step['section_title'] }}
+                <span class="mx-1.5 text-[#838c86]">·</span>
+                Vraag {{ $stepDisplayNumber }} van {{ $stepDisplayTotal }}
+            </p>
+            <h1 class="mt-1 text-2xl font-extrabold tracking-tight text-[#18201d]">
+                {{ $step['title'] }}
+            </h1>
+            @if ($step['description'])
+                <p class="mt-2 text-sm leading-relaxed text-[#5e6862]">{{ $step['description'] }}</p>
+            @endif
+        </div>
 
-        <div class="mt-6 flex gap-3">
-            <button
-                type="button"
-                wire:click="next"
-                class="min-h-11 flex-1 rounded-xl bg-[var(--tenant-primary)] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-95"
-            >
-                Klopt, verder
-            </button>
+        <div class="flex-1 space-y-4">
+            @foreach ($bundleQuestions ?? [] as $bundleQuestion)
+                @php
+                    $bundleComposite = \App\Domains\Intake\Services\VisibilityResolver::compositeKey($bundleQuestion->key, null);
+                @endphp
+                <div class="rounded-xl border border-[#dde2da] bg-white p-4 shadow-sm" wire:key="bundle-{{ $bundleQuestion->key }}">
+                    <h2 class="text-sm font-semibold text-[#18201d]">{{ $bundleQuestion->label }}</h2>
+                    @if ($bundleQuestion->help_text)
+                        <p class="mt-1 text-xs leading-relaxed text-[#5e6862]">{{ $bundleQuestion->help_text }}</p>
+                    @endif
+                    <div class="mt-3">
+                        @switch ($bundleQuestion->type->value)
+                            @case('long_text')
+                                <textarea
+                                    id="field-{{ $bundleComposite }}"
+                                    rows="3"
+                                    wire:model.blur="form.{{ $bundleComposite }}.text"
+                                    class="block w-full rounded-xl border-[#dde2da] shadow-sm focus:border-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
+                                ></textarea>
+                                @break
+                            @case('multi_choice')
+                                <div class="space-y-2">
+                                    @foreach ($bundleQuestion->options as $option)
+                                        <label class="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border border-[#dde2da] px-3 py-2 has-[:checked]:border-[var(--tenant-primary)] has-[:checked]:bg-[#eef1ec]">
+                                            <input
+                                                type="checkbox"
+                                                wire:model.live="form.{{ $bundleComposite }}.values"
+                                                value="{{ $option->value }}"
+                                                class="rounded border-[#dde2da] text-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
+                                            >
+                                            <span class="text-sm font-medium">{{ $option->label }}</span>
+                                        </label>
+                                    @endforeach
+                                </div>
+                                @break
+                            @case('single_choice')
+                                <div class="space-y-2" role="radiogroup">
+                                    @foreach ($bundleQuestion->options as $option)
+                                        <label class="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border border-[#dde2da] px-3 py-2 has-[:checked]:border-[var(--tenant-primary)] has-[:checked]:bg-[#eef1ec]">
+                                            <input
+                                                type="radio"
+                                                wire:model.live="form.{{ $bundleComposite }}.value"
+                                                value="{{ $option->value }}"
+                                                class="border-[#dde2da] text-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
+                                            >
+                                            <span class="text-sm font-medium">{{ $option->label }}</span>
+                                        </label>
+                                    @endforeach
+                                </div>
+                                @break
+                        @endswitch
+                    </div>
+                </div>
+            @endforeach
+            @if ($step['help_text'])
+                <p class="text-xs leading-relaxed text-[#5e6862]">{{ $step['help_text'] }}</p>
+            @endif
         </div>
     @elseif ($step === null || $question === null)
         <p class="rounded-xl border border-[#dde2da] bg-white p-4 text-sm text-[#414b45] shadow-sm">
@@ -136,7 +203,7 @@
             <p class="eyebrow">
                 {{ $step['section_title'] }}
                 <span class="mx-1.5 text-[#838c86]">·</span>
-                Vraag {{ $stepIndex + 1 }} van {{ count($steps) }}
+                Vraag {{ $stepDisplayNumber }} van {{ $stepDisplayTotal }}
             </p>
             <h1 class="mt-1 text-2xl font-extrabold tracking-tight text-[#18201d]">
                 {{ $step['title'] ?? $question->label }}
@@ -144,7 +211,7 @@
                     <span class="text-[#a84832]">*</span>
                 @endif
             </h1>
-            @if (($step['kind'] ?? '') === 'question_group' && $step['help_text'])
+            @if (! empty($step['help_text']))
                 <p class="mt-2 text-sm leading-relaxed text-[#5e6862]">{{ $step['help_text'] }}</p>
             @elseif ($question->help_text)
                 <p class="mt-2 text-sm leading-relaxed text-[#5e6862]">{{ $question->help_text }}</p>
@@ -177,7 +244,7 @@
                         @endforeach
                     </ul>
                 @elseif ($photoMismatchAssessment)
-                    <p class="font-medium">Vervang de foto of kies expliciet “Toch doorgaan”.</p>
+                    <p class="font-medium">Kies: foto vervangen of toch doorgaan</p>
                 @else
                     Beantwoord eerst deze verplichte vraag.
                 @endif
@@ -342,6 +409,43 @@
                                                 </li>
                                             @endforeach
                                         </ul>
+
+                                        @php($photoStatus = $existingUploads->every(fn ($uploadItem) => $uploadItem->assessment_status instanceof \App\Enums\PhotoAssessmentStatus && $uploadItem->assessment_status->isTerminal()) ? 'Beoordeeld' : 'Ontvangen')
+                                        <p class="text-xs font-medium text-[#5e6862]" data-testid="photo-receipt-status">Status: {{ $photoStatus }}</p>
+
+                                        {{-- Direct onder de foto, boven de sticky balk (1280×800). --}}
+                                        @if ($photoMismatchAssessment)
+                                            <div class="space-y-3 rounded-xl border border-[#eac3b4] bg-white px-3 py-3" role="alert" data-testid="photo-mismatch-panel" wire:key="mismatch-{{ $composite }}">
+                                                <p class="text-sm text-[#414b45]">
+                                                    {{ $photoMismatchAssessment->customerMessage() ?? "Deze foto lijkt niet bij de vraag te horen." }}
+                                                </p>
+                                                @if ($showMissing)
+                                                    <p class="text-sm font-medium text-[#a84832]" data-testid="mismatch-next-warning">
+                                                        Kies: foto vervangen of toch doorgaan
+                                                    </p>
+                                                @endif
+                                                <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                                    <button
+                                                        type="button"
+                                                        wire:click="replaceMismatchedPhoto"
+                                                        class="min-h-11 rounded-xl bg-[var(--tenant-primary)] px-4 text-sm font-semibold text-[var(--tenant-on-primary)]"
+                                                    >
+                                                        Vervang foto
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        wire:click="acceptPhotoMismatch"
+                                                        class="min-h-11 rounded-xl border border-[#dde2da] bg-[#eef1ec] px-4 text-sm font-semibold text-[#18201d]"
+                                                    >
+                                                        Toch doorgaan
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        @elseif (! empty($displayPhotoHint[$composite]) && ! empty($photoNeedsQualityHint))
+                                            <p class="flex items-start gap-2 rounded-xl border border-[#dde2da] bg-[#eef1ec] px-3 py-2 text-sm text-[#414b45]" role="status" data-testid="photo-quality-hint" wire:key="hint-{{ $composite }}">
+                                                <span>{{ $displayPhotoHint[$composite] }}</span>
+                                            </p>
+                                        @endif
                                     @endif
 
                                     @if ($remainingSlots > 0)
@@ -605,44 +709,6 @@
                                         </div>
                                     @endif
 
-                                    @if ($existingUploads->isNotEmpty())
-                                        @php($photoStatus = $existingUploads->every(fn ($uploadItem) => $uploadItem->assessment_status instanceof \App\Enums\PhotoAssessmentStatus && $uploadItem->assessment_status->isTerminal()) ? 'Beoordeeld' : 'Ontvangen')
-                                        <p class="text-xs font-medium text-[#5e6862]" data-testid="photo-receipt-status">Status: {{ $photoStatus }}</p>
-                                    @endif
-
-                                    @if ($photoMismatchAssessment)
-                                        <div class="mt-3 space-y-3 rounded-xl border border-[#eac3b4] bg-white px-3 py-3" role="alert" wire:key="mismatch-{{ $composite }}">
-                                            <p class="text-sm text-[#414b45]">
-                                                {{ $photoMismatchAssessment->customerMessage() ?? "Deze foto lijkt niet bij de vraag te horen." }}
-                                            </p>
-                                            @if ($showMissing)
-                                                <p class="text-sm font-medium text-[#a84832]" data-testid="mismatch-next-warning">
-                                                    Vervang de foto of kies expliciet “Toch doorgaan”.
-                                                </p>
-                                            @endif
-                                            <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-                                                <button
-                                                    type="button"
-                                                    wire:click="replaceMismatchedPhoto"
-                                                    class="min-h-11 rounded-xl bg-[var(--tenant-primary)] px-4 text-sm font-semibold text-[var(--tenant-on-primary)]"
-                                                >
-                                                    Vervang foto
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    wire:click="acceptPhotoMismatch"
-                                                    class="min-h-11 rounded-xl border border-[#dde2da] bg-[#eef1ec] px-4 text-sm font-semibold text-[#18201d]"
-                                                >
-                                                    Toch doorgaan
-                                                </button>
-                                            </div>
-                                        </div>
-                                    @elseif (! empty($displayPhotoHint[$composite]))
-                                        <p class="mt-3 flex items-start gap-2 rounded-xl border border-[#eac3b4] bg-white px-3 py-2 text-sm text-[#414b45]" role="status" wire:key="hint-{{ $composite }}">
-                                            <span aria-hidden="true">💡</span>
-                                            <span>{{ $displayPhotoHint[$composite] }}</span>
-                                        </p>
-                                    @endif
                                 </div>
                                 @break
                         @endswitch
@@ -685,13 +751,13 @@
                         wire:click="next"
                         class="min-h-12 flex-[1.4] rounded-xl bg-[var(--tenant-primary)] px-4 text-sm font-semibold text-[var(--tenant-on-primary)]"
                     >
-                        Volgende
+                        {{ ! empty($isKnownSummary) ? 'Klopt, verder' : 'Volgende' }}
                     </button>
                 @endif
             </div>
             @if ($showMissing && $photoMismatchAssessment)
                 <p class="mt-2 text-center text-xs font-medium text-[#a84832]" data-testid="footer-mismatch-warning" role="alert" aria-live="assertive">
-                    Vervang de foto of kies expliciet “Toch doorgaan”.
+                    Kies: foto vervangen of toch doorgaan
                 </p>
             @endif
             <p class="mt-3 text-center text-xs text-[#5e6862]">

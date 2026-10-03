@@ -211,8 +211,8 @@ test('livewire string booleans satisfy required checks and allow next', function
     $intake = makeAccessibleIntake();
 
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
-        ->set('activeStepKey', 'outdoor_unit::noise_sensitive')
-        ->set('stepIndex', 0) // index wordt via activeStepKey herberekend bij next
+        ->set('stepIndex', 0)
+        ->set('activeStepKey', 'outdoor_unit::noise_sensitive') // index wordt via activeStepKey herberekend
         ->set('form.noise_sensitive', ['bool' => '0'])
         ->call('next')
         ->assertSet('showMissing', false)
@@ -499,13 +499,16 @@ test('an unanswered multi choice starts as an empty array so one tick does not s
 
     $version = $intake->templateVersion()->with(['sections.questions.options', 'sections.questions.rules'])->firstOrFail();
     $steps = app(IntakeStepBuilder::class)->build($intake, $version);
-    $index = collect($steps)->search(fn (array $step): bool => $step['question_key'] === 'brand_preference');
+    $index = collect($steps)->search(fn (array $step): bool => ($step['kind'] ?? '') === 'closing_wishes'
+        || $step['question_key'] === 'brand_preference'
+        || in_array('brand_preference', $step['bundle_question_keys'] ?? [], true));
 
     expect($index)->not->toBeFalse();
 
+    $step = $steps[$index];
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->set('stepIndex', $index)
-        ->set('activeStepKey', 'closing::brand_preference');
+        ->set('activeStepKey', $step['key']);
 
     // Zonder deze vorm bindt Livewire de hele checkboxgroep aan één scalair.
     expect($component->get('form')['brand_preference']['values'] ?? null)->toBe([]);

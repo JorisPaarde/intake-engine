@@ -23,7 +23,7 @@ function makeBl124Intake(): Intake
     $user = User::factory()->create();
     $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
 
-    expect($version->version)->toBe(21);
+    expect($version->version)->toBe(22);
 
     return Intake::factory()->create([
         'created_by' => $user->id,
@@ -100,7 +100,9 @@ test('pipe_route and drain photos are optional with skip on v21', function () {
         ->and($drain->meta['allow_skip'] ?? null)->toBeTrue()
         ->and($drain->rules)->toBeEmpty()
         ->and($indoor->is_required)->toBeFalse()
-        ->and($indoor->label)->toContain('binnen en buiten');
+        // v22 (BL-125) hernoemt deze vraag; de sla-over uit BL-124 blijft staan.
+        ->and($indoor->meta['allow_skip'] ?? null)->toBeTrue()
+        ->and($indoor->label)->toContain('Extra foto');
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
     $viewSteps = $component->viewData('steps');
