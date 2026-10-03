@@ -43,6 +43,7 @@ final class ProgressCalculator
             $questionTypes,
             $sectionsByQuestionKey,
             $targets,
+            customerMode: true,
         );
 
         // BL-022: percentage over required visible questions only, so 100% ≈ afronden kan.

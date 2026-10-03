@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Services;
 
+use App\Domains\AI\Actions\DerivePhotoAnswers;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeSection;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
@@ -15,6 +17,7 @@ final class CompletenessChecker
 {
     public function __construct(
         private readonly ProgressCalculator $progressCalculator,
+        private readonly AnswerValueReader $answerValueReader,
     ) {}
 
     /**
@@ -50,14 +53,14 @@ final class CompletenessChecker
         return [
             'is_complete' => $missing === [],
             'missing' => $missing,
-            'attention_points' => $this->attentionPoints($intake),
+            'attention_points' => $this->attentionPoints($intake, $version),
         ];
     }
 
     /**
      * @return list<array{code: string, label: string}>
      */
-    private function attentionPoints(Intake $intake): array
+    private function attentionPoints(Intake $intake, IntakeTemplateVersion $version): array
     {
         $intake->loadMissing(['answers']);
         $points = [];
@@ -77,40 +80,173 @@ final class CompletenessChecker
             ];
         }
 
-        $freeGroup = $intake->answers
-            ->first(static fn ($answer): bool => $answer->question_key === 'free_group_known'
-                && $answer->section_instance_key === null);
+        return [
+            ...$points,
+            ...$this->technicalDecisionAttention(
+                $intake,
+                $version,
+                'free_group_known',
+                'electrical_provision_open',
+                'Open technisch punt: stroomvoorziening / vrije groep nog te beoordelen',
+            ),
+            ...$this->technicalDecisionAttention(
+                $intake,
+                $version,
+                'natural_fall_possible',
+                'condensate_pump_open',
+                'Open technisch punt: condenspomp of natuurlijk afschot nog te bepalen',
+            ),
+            ...$this->technicalDecisionAttention(
+                $intake,
+                $version,
+                'pipe_route_description',
+                'pipe_route_open',
+                'Open technisch punt: leidingroute nog te beoordelen',
+            ),
+            ...$this->technicalDecisionAttention(
+                $intake,
+                $version,
+                'drillings_needed',
+                'drillings_open',
+                'Open technisch punt: doorboringen door muren/vloeren nog te beoordelen',
+            ),
+        ];
+    }
 
-        $value = is_array($freeGroup?->value) ? ($freeGroup->value['value'] ?? null) : null;
+    /**
+     * Technische *_open-punten blijven open als installateurs-to-do (show/rapport).
+     * AI- of klantwaarden zijn context, geen afhandeling — zie BL-117.
+     *
+     * @return list<array{code: string, label: string}>
+     */
+    private function technicalDecisionAttention(
+        Intake $intake,
+        IntakeTemplateVersion $version,
+        string $questionKey,
+        string $openCode,
+        string $openLabel,
+    ): array {
+        $answer = $intake->answers
+            ->first(static fn ($row): bool => $row->question_key === $questionKey
+                && $row->section_instance_key === null);
 
-        if ($value === 'no') {
-            $points[] = [
-                'code' => 'no_free_group',
-                'label' => 'Geen vrije groep bekend',
-            ];
+        $question = $this->findQuestion($version, $questionKey);
+        $type = $question instanceof IntakeQuestion ? $question->type : QuestionType::SingleChoice;
+        $filled = $answer instanceof IntakeAnswer
+            && $this->answerValueReader->isFilled(
+                is_array($answer->value) ? $answer->value : null,
+                $type,
+            );
+
+        if (! $filled) {
+            return [[
+                'code' => $openCode,
+                'label' => $openLabel,
+            ]];
         }
 
-        if ($value === 'unknown') {
-            $points[] = [
-                'code' => 'free_group_unknown',
-                'label' => 'Onbekend of er een vrije groep beschikbaar is',
-            ];
+        /** @var IntakeAnswer $answer */
+        $display = $this->formatDecisionValue($answer, $question);
+        $source = $answer->prefill_source;
+
+        if ($this->isAiPrefillSource($source)) {
+            $photoPlace = $this->relatedPhotoPlace($intake, $version, $questionKey);
+            $suffix = $photoPlace !== null
+                ? " (afgeleid uit foto bij {$photoPlace})"
+                : '';
+
+            return [[
+                'code' => $openCode,
+                'label' => "AI-voorstel: {$display}, nog te beoordelen{$suffix}",
+            ]];
         }
 
-        $naturalFall = $intake->answers
-            ->first(static fn ($answer): bool => $answer->question_key === 'natural_fall_possible'
-                && $answer->section_instance_key === null);
-
-        $naturalFallValue = is_array($naturalFall?->value) ? ($naturalFall->value['bool'] ?? null) : null;
-
-        if ($naturalFallValue === false) {
-            $points[] = [
-                'code' => 'condensate_pump_likely',
-                'label' => 'Natuurlijk afschot waarschijnlijk niet mogelijk — pomp mogelijk nodig',
-            ];
+        // Klantantwoord op gepinde intake (of andere niet-AI-bron): blijft open.
+        if ($source === null) {
+            return [[
+                'code' => $openCode,
+                'label' => "Klant gaf aan: {$display}, nog te beoordelen",
+            ]];
         }
 
-        return $points;
+        return [[
+            'code' => $openCode,
+            'label' => $openLabel,
+        ]];
+    }
+
+    private function isAiPrefillSource(?string $prefillSource): bool
+    {
+        return in_array($prefillSource, [
+            DerivePhotoAnswers::SOURCE_DERIVED,
+            DerivePhotoAnswers::SOURCE_SUGGESTED,
+        ], true);
+    }
+
+    /**
+     * Leesbare fotoplek voor AI-open-puntlabels (sectietitel, geen keys/upload-IDs).
+     */
+    private function relatedPhotoPlace(
+        Intake $intake,
+        IntakeTemplateVersion $version,
+        string $questionKey,
+    ): ?string {
+        $photoKey = match ($questionKey) {
+            'natural_fall_possible' => 'drain_photo',
+            'pipe_route_description', 'drillings_needed' => 'pipe_route_photos',
+            'free_group_known' => 'fusebox_photo',
+            default => null,
+        };
+
+        if ($photoKey === null) {
+            return null;
+        }
+
+        $photoAnswer = $intake->answers
+            ->first(static fn ($row): bool => $row->question_key === $photoKey
+                && $row->section_instance_key === null);
+
+        if (! $photoAnswer instanceof IntakeAnswer || ! is_array($photoAnswer->value)) {
+            return null;
+        }
+
+        $uploadIds = $photoAnswer->value['upload_ids'] ?? null;
+        if (! is_array($uploadIds) || $uploadIds === []) {
+            return null;
+        }
+
+        $section = $this->findSectionForQuestion($version, $photoKey);
+        if ($section instanceof IntakeSection && $section->title !== '') {
+            return $section->title;
+        }
+
+        return null;
+    }
+
+    private function formatDecisionValue(IntakeAnswer $answer, ?IntakeQuestion $question): string
+    {
+        $value = is_array($answer->value) ? $answer->value : [];
+
+        if (array_key_exists('bool', $value)) {
+            $raw = $value['bool'] === true ? 'Ja' : ($value['bool'] === false ? 'Nee' : 'Onbekend');
+
+            return $raw;
+        }
+
+        $choice = $value['value'] ?? null;
+        if (! is_string($choice) || $choice === '') {
+            return 'Onbekend';
+        }
+
+        if ($question !== null) {
+            $question->loadMissing('options');
+            $label = $question->options->firstWhere('value', $choice)?->label;
+            if (is_string($label) && $label !== '') {
+                return $label;
+            }
+        }
+
+        return $choice;
     }
 
     private function findQuestion(IntakeTemplateVersion $version, string $questionKey): ?IntakeQuestion

@@ -65,7 +65,10 @@ final class AnswerValueReader
             QuestionType::Number => array_key_exists('number', $ruleValue) && is_numeric($ruleValue['number'])
                 ? $this->toFloat($ruleValue['number'])
                 : null,
-            QuestionType::SingleChoice => $ruleValue['value'] ?? null,
+            QuestionType::SingleChoice => is_array($ruleValue['values'] ?? null)
+                ? array_values($ruleValue['values'])
+                : ($ruleValue['value'] ?? null),
+
             QuestionType::MultiChoice => is_array($ruleValue['values'] ?? null)
                 ? array_values($ruleValue['values'])
                 : null,

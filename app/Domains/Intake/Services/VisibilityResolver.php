@@ -7,6 +7,7 @@ namespace App\Domains\Intake\Services;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeQuestionRule;
 use App\Domains\Intake\Models\IntakeSection;
+use App\Domains\Intake\Support\TechnicalDecisionKeys;
 use App\Enums\QuestionType;
 use App\Enums\RuleEffect;
 use App\Enums\RuleOperator;
@@ -32,6 +33,7 @@ final class VisibilityResolver
         array $questionTypes,
         array $sectionsByQuestionKey,
         array $targets,
+        bool $customerMode = false,
     ): array {
         $questionsByKey = $questions->keyBy('key');
 
@@ -53,6 +55,7 @@ final class VisibilityResolver
                 $answers,
                 $questionTypes,
                 $sectionsByQuestionKey,
+                $customerMode,
             );
         }
 
@@ -71,7 +74,14 @@ final class VisibilityResolver
         array $answers,
         array $questionTypes,
         array $sectionsByQuestionKey,
+        bool $customerMode = false,
     ): array {
+        // Eén klantfilter (ADR-0015 / BL-116): technische beslisvragen verdwijnen
+        // uit wizard en klantcompleetheid via customerMode.
+        if ($customerMode && TechnicalDecisionKeys::contains($question->key)) {
+            return ['visible' => false, 'required' => false];
+        }
+
         $showRules = $question->rules->filter(
             static fn (IntakeQuestionRule $rule): bool => $rule->effect === RuleEffect::Show,
         );
@@ -149,6 +159,16 @@ final class VisibilityResolver
 
         $answerKey = self::compositeKey($rule->source_question_key, $sourceInstanceKey);
         $answerValue = $answers[$answerKey] ?? null;
+
+        // Technische bron zonder antwoord (alle modi, ADR-0015): regel telt als
+        // voldaan, zodat afhankelijke rijen (bijv. drain_photo op v16) in wizard
+        // én installateursrapport/SummarizeIntake zichtbaar blijven.
+        if (
+            TechnicalDecisionKeys::contains($rule->source_question_key)
+            && ! $this->answerValueReader->isFilled($answerValue, $sourceType)
+        ) {
+            return true;
+        }
 
         if ($rule->operator === RuleOperator::Filled) {
             return $this->answerValueReader->isFilled($answerValue, $sourceType);

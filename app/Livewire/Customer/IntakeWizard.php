@@ -1533,6 +1533,7 @@ class IntakeWizard extends Component
             $questionTypes,
             $sectionsByQuestionKey,
             $targets,
+            customerMode: true,
         );
     }
 

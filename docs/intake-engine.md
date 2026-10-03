@@ -1,8 +1,8 @@
 # Vragen- en takenengine
 
-> **Documentversie:** 2.20 · **Laatste update:** 2026-09-06 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.24 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
-Status: de templatewizard is **geïmplementeerd t/m airco v16** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md). UI-taal: [language.md](language.md).
+Status: de templatewizard is **geïmplementeerd t/m airco v17** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md). UI-taal: [language.md](language.md).
 
 ## Doel
 
@@ -187,7 +187,7 @@ Secties (stabiele keys over versies):
 
 ### v1 → v2 (BL-017, toenmalige vragenreductie)
 
-V2 introduceerde onderstaande vraagreductie. Nieuwe intakes gebruiken inmiddels de laatste gepubliceerde **v16**; lopende/afgeronde opnames blijven op hun gepinde versie (ADR-0001). V10 verandert klanttaal en repeatable-semantiek naar gewenste ruimtes en voorkomt dat de klant een binnenunitpositie kiest; de technische single-/multi-splitkeuze staat in airco-objecten. V11 houdt die structuur en vernieuwt alleen de klantteksten naar gecontroleerd eenvoudig Nederlands. V12 herstelt offerte-kritische bewijsfoto’s (meterkast, rondom het huis) en foto-afgeleide fase/stopcontacten zonder een stapel ja/nee-vragen (BL-074). V13 zet de meterkastfoto strikt vóór `free_group_known`: geen losse vrije-groepvraag zonder foto, en geen ja/nee wanneer AI `free_group` al uit de foto haalde (BL-077). V14 kort alleen kruipruimte- en L×B×H-labels/help in (BL-082). V15 voegt de buitenunitoptie `dormer` (dakkapel) toe voor AI-catalogusprefill (BL-063/064, ADR-0013). V16 voegt optioneel `room_area_m2` toe: vloeroppervlak via L×B óf betrouwbaar m²; plafondhoogte blijft apart/optioneel (BL-101).
+V2 introduceerde onderstaande vraagreductie. Nieuwe intakes gebruiken inmiddels de laatste gepubliceerde **v17**; lopende/afgeronde opnames blijven op hun gepinde versie (ADR-0001). V10 verandert klanttaal en repeatable-semantiek naar gewenste ruimtes en voorkomt dat de klant een binnenunitpositie kiest; de technische single-/multi-splitkeuze staat in airco-objecten. V11 houdt die structuur en vernieuwt alleen de klantteksten naar gecontroleerd eenvoudig Nederlands. V12 herstelt offerte-kritische bewijsfoto’s (meterkast, rondom het huis) en foto-afgeleide fase/stopcontacten zonder een stapel ja/nee-vragen (BL-074). V13 zet de meterkastfoto strikt vóór `free_group_known`: geen losse vrije-groepvraag zonder foto, en geen ja/nee wanneer AI `free_group` al uit de foto haalde (BL-077). V14 kort alleen kruipruimte- en L×B×H-labels/help in (BL-082). V15 voegt de buitenunitoptie `dormer` (dakkapel) toe voor AI-catalogusprefill (BL-063/064, ADR-0013). V16 voegt optioneel `room_area_m2` toe: vloeroppervlak via L×B óf betrouwbaar m²; plafondhoogte blijft apart/optioneel (BL-101). V17 maakt `drain_location`/`outdoor_mount_type` optioneel en herformuleert afvoerobservaties; `VisibilityResolver`+`TechnicalDecisionKeys` filteren technische sleutels (ADR-0015); technische bron zonder antwoord telt in alle modi als voldaan. AI-/klantwaarden houden `*_open` open (BL-116; afhandeling BL-117).
 
 | Wijziging | Was (v1) | Wordt (v2) |
 |-----------|----------|------------|
@@ -233,6 +233,7 @@ Vraagreductie blijft template-gestuurd:
 | `meta`-vlag | Gedrag |
 |-------------|--------|
 | `skip_when_prefilled_by: pdok` | De wizard laat de vraag weg als voor dezelfde vraag een antwoord met `prefill_source=pdok` bestaat. Zonder eenduidig bronresultaat blijft de normale vraag zichtbaar. |
+| `TechnicalDecisionKeys` | Via `VisibilityResolver` (`customerMode`): target verdwijnt uit klantwizard/compleetheid. Regelbron zonder antwoord telt in **elke** modus als voldaan (rapport/SummarizeIntake meegenomen). AI-/klantwaarden houden `*_open` open (BL-117). |
 
 Airco v4 gebruikte dit alleen voor `build_year`: BAG registreert dit direct op het eenduidig gekoppelde pand. v6 breidt het uit naar `building_type`, maar alleen voor het eenduidige geval — bevat het gebruiksdoel geen enkele `woonfunctie`, dan is `commercial` een feit. BAG onderscheidt appartement, tussenwoning, hoekwoning en vrijstaand níét, dus bij elke woonfunctie blijft de vraag gewoon staan: een fout voorzet kost de installateur meer dan één extra vraag.
 
@@ -242,7 +243,7 @@ In normale opnames wordt `EnrichIntakeAddress` direct na `IntakeController::stor
 
 Onderstaande zekerheidsladder beschrijft de wizardintegratie. `medium` blijft een uitzondering/controlepunt; `high` wordt rechtstreeks als herleidbare dossierconclusie gebruikt zonder een los bevestigingsscherm.
 
-Airco v5 markeert `fusebox_photo` met `meta.photo_analysis=fusebox` en maakt de foto-opdracht concreet: groepen, hoofdschakelaar en vrije posities recht van voren en leesbaar. De normale, optionele `free_group_known`-vraag blijft de fallback.
+Airco v5 markeert `fusebox_photo` met `meta.photo_analysis=fusebox` en maakt de foto-opdracht concreet: groepen, hoofdschakelaar en vrije posities recht van voren en leesbaar. Vanaf v17 / `TechnicalDecisionKeys` ziet de klant `free_group_known` niet meer; alleen de meterkastfoto blijft klanttaak. AI mag `free_group` nog voorstellen in het dossier.
 
 **v6 maakt dit generiek.** `meta.photo_analysis` verwijst naar een profiel uit `PhotoDerivationProfile::all()`; `DerivePhotoAnswers` draait dat profiel op de foto's van één vraag (en één sectie-instantie, dus per ruimte apart). Een profiel benoemt welke vragen het mag beantwoorden en met welke optiewaarden — een waarde buiten de template wordt afgekeurd, niet opgeslagen. Publiceren met een onbekende profielnaam faalt meteen, zodat een typefout niet stilletjes niets aflevert.
 
@@ -285,7 +286,7 @@ Na de eerste echte installateurstrial (Jamie Elderenbos, 28 aug 2026) herstelt v
 
 | Onderwerp | Aanpak |
 |-----------|--------|
-| Meterkast | Verplichte `fusebox_photo` eerst; bij lage zekerheid of onbekende fase volgt `fusebox_photo_extra`; `free_group_known` alleen als AI free_group niet kon afleiden (nooit vóór de foto) |
+| Meterkast | Verplichte `fusebox_photo` eerst; bij lage zekerheid of onbekende fase volgt `fusebox_photo_extra`; `free_group_known` is vanaf v17 installateursbeslissing (niet in klantwizard) |
 | 1-/3-fase | Alleen uit `AssessFuseboxPhotos` (`one_phase`/`three_phase`); geen losse fasevraag |
 | Stopcontacten | Uit ruimtefoto (`room_outlet_status`); anders verplichte `wall_outlet_photo` |
 | Rondom het huis | Verplichte `around_house_photos` (gevel/tuin/montageplek); geen Street View/luchtfoto-vervanging |

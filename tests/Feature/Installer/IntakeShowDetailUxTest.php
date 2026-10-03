@@ -94,8 +94,8 @@ test('installer can trigger ai attention suggestions from the detail page', func
         'intake_template_version_id' => $version->id,
     ]);
 
-    app(SaveIntakeAnswer::class)->handle($intake, 'free_group_known', null, ['value' => 'no']);
-    app(SaveIntakeAnswer::class)->handle($intake, 'natural_fall_possible', null, ['bool' => false]);
+    app(SaveIntakeAnswer::class)->handle($intake, 'free_group_known', null, ['value' => 'no'], 'installer');
+    app(SaveIntakeAnswer::class)->handle($intake, 'natural_fall_possible', null, ['bool' => false], 'installer');
 
     $this->actingAs($user)
         ->post(route('intakes.attention.suggest', $intake))
@@ -109,8 +109,8 @@ test('merged attention section keeps accept and dismiss actions for ai proposals
     $user = User::factory()->create();
     $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
     $intake = Intake::factory()->create(['created_by' => $user->id, 'intake_template_version_id' => $version->id]);
-    app(SaveIntakeAnswer::class)->handle($intake, 'free_group_known', null, ['value' => 'no']);
-    app(SaveIntakeAnswer::class)->handle($intake, 'natural_fall_possible', null, ['bool' => false]);
+    app(SaveIntakeAnswer::class)->handle($intake, 'free_group_known', null, ['value' => 'no'], 'installer');
+    app(SaveIntakeAnswer::class)->handle($intake, 'natural_fall_possible', null, ['bool' => false], 'installer');
     app(SuggestAttentionPoints::class)->handle($intake);
 
     $this->actingAs($user)

@@ -184,8 +184,8 @@ test('complete intake stores snapshot report and attention points', function () 
     $intake = makePhase5Intake();
     fillIntakeUntilComplete($intake);
 
-    app(SaveIntakeAnswer::class)->handle($intake, 'free_group_known', null, ['value' => 'no']);
-    app(SaveIntakeAnswer::class)->handle($intake, 'natural_fall_possible', null, ['bool' => false]);
+    app(SaveIntakeAnswer::class)->handle($intake, 'free_group_known', null, ['value' => 'no'], 'installer');
+    app(SaveIntakeAnswer::class)->handle($intake, 'natural_fall_possible', null, ['bool' => false], 'installer');
 
     $completed = app(CompleteIntake::class)->handle($intake->fresh());
 
@@ -199,8 +199,8 @@ test('complete intake stores snapshot report and attention points', function () 
         ->and($completed->report->html)->toContain('Opgegeven omvang: 1 ruimte voor Woonkamer.')
         ->and($completed->report->html)->toContain('Testantwoord request_reason')
         ->and($completed->attentionPoints->pluck('code')->all())
-        ->toContain('no_free_group')
-        ->toContain('condensate_pump_likely');
+        ->toContain('electrical_provision_open')
+        ->toContain('condensate_pump_open');
 });
 
 test('installer can preview the generated report through the protected endpoint', function () {

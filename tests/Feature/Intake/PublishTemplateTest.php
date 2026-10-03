@@ -7,7 +7,7 @@ use App\Domains\Intake\Services\PublishIntakeTemplateFromConfig;
 use App\Enums\TemplateVersionStatus;
 use Database\Seeders\IntakeTemplateSeeder;
 
-test('airco template seeder publishes v1 through v16 with v16 as latest', function () {
+test('airco template seeder publishes v1 through v17 with v17 as latest', function () {
     $this->seed(IntakeTemplateSeeder::class);
 
     $template = IntakeTemplate::query()->where('key', 'airco')->first();
@@ -17,14 +17,14 @@ test('airco template seeder publishes v1 through v16 with v16 as latest', functi
 
     $versions = $template->versions()->orderBy('version')->get();
 
-    expect($versions)->toHaveCount(16)
-        ->and($versions->pluck('version')->all())->toBe([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
+    expect($versions)->toHaveCount(17)
+        ->and($versions->pluck('version')->all())->toBe([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17])
         ->and($versions->every(fn ($version) => $version->status === TemplateVersionStatus::Published))->toBeTrue();
 
     $latest = $template->latestPublishedVersion();
 
     expect($latest)->not->toBeNull()
-        ->and($latest->version)->toBe(16)
+        ->and($latest->version)->toBe(17)
         ->and($latest->sections()->count())->toBeGreaterThan(5)
         ->and($latest->sections()->where('key', 'rooms')->value('is_repeatable'))->toBeTrue();
 
@@ -111,12 +111,44 @@ test('airco template seeder publishes v1 through v16 with v16 as latest', functi
         ->firstOrFail();
     $aroundHouse = $outdoor->questions()->where('key', 'around_house_photos')->firstOrFail();
 
+    $naturalFall = $latest->sections()
+        ->where('key', 'condensate')
+        ->firstOrFail()
+        ->questions()
+        ->where('key', 'natural_fall_possible')
+        ->firstOrFail();
+    $pipeRoute = $latest->sections()
+        ->where('key', 'pipe_route')
+        ->firstOrFail()
+        ->questions()
+        ->where('key', 'pipe_route_description')
+        ->firstOrFail();
+    $drillings = $latest->sections()
+        ->where('key', 'pipe_route')
+        ->firstOrFail()
+        ->questions()
+        ->where('key', 'drillings_needed')
+        ->firstOrFail();
+    $drainPhoto = $latest->sections()
+        ->where('key', 'condensate')
+        ->firstOrFail()
+        ->questions()
+        ->where('key', 'drain_photo')
+        ->firstOrFail();
+
     expect($freeGroup->is_required)->toBeTrue()
+        ->and($freeGroup->meta['installer_decision'] ?? null)->toBeNull()
         ->and($freeGroup->label)->toBe('Is er een vrije groep in de meterkast?')
         ->and($freeGroup->meta['skip_when_prefilled_by'] ?? null)->toBe(['ai'])
         ->and($freeGroup->rules)->toHaveCount(1)
         ->and($freeGroup->rules->first()->source_question_key)->toBe('fusebox_photo')
-        ->and($freeGroup->rules->first()->operator->value)->toBe('filled')
+        ->and($naturalFall->meta['installer_decision'] ?? null)->toBeNull()
+        ->and($pipeRoute->meta['installer_decision'] ?? null)->toBeNull()
+        ->and($drillings->meta['installer_decision'] ?? null)->toBeNull()
+        ->and($drainPhoto->label)->toContain('condenswater')
+        ->and($drainPhoto->is_required)->toBeFalse()
+        ->and($drainPhoto->rules->pluck('effect')->map->value->all())->toContain('require')
+        ->and($drainPhoto->rules->pluck('operator')->map->value->all())->toContain('not_in')
         ->and($fuseboxPhoto->meta['photo_analysis'] ?? null)->toBe('fusebox')
         ->and($fuseboxPhoto->is_required)->toBeTrue()
         ->and($aroundHouse->is_required)->toBeTrue()
@@ -133,6 +165,25 @@ test('airco template seeder publishes v1 through v16 with v16 as latest', functi
                 ->value('label'),
         )->toBe('Op of aan de dakkapel');
 
+    $drainLocation = $latest->sections()
+        ->where('key', 'condensate')
+        ->firstOrFail()
+        ->questions()
+        ->where('key', 'drain_location')
+        ->firstOrFail();
+    $outdoorMount = $outdoor->questions()->where('key', 'outdoor_mount_type')->firstOrFail();
+
+    expect($drainLocation->is_required)->toBeFalse()
+        ->and($drainLocation->label)->toContain('optioneel')
+        ->and($drainLocation->options()->pluck('value')->all())->toBe([
+            'outside_nearby',
+            'indoor_nearby',
+            'unknown',
+        ])
+        ->and($outdoorMount->is_required)->toBeFalse()
+        ->and($outdoorMount->options()->where('value', 'unknown')->value('label'))->toBe('Geen voorkeur')
+        ->and($outdoorMount->help_text)->toContain('installateur');
+
     $sunExposure = $latest->sections()
         ->where('key', 'rooms')
         ->firstOrFail()
@@ -146,12 +197,12 @@ test('airco template seeder publishes v1 through v16 with v16 as latest', functi
     $againV1 = app(PublishIntakeTemplateFromConfig::class)->handle(
         require database_path('data/templates/airco/v1.php'),
     );
-    $againV16 = app(PublishIntakeTemplateFromConfig::class)->handle(
-        require database_path('data/templates/airco/v16.php'),
+    $againV17 = app(PublishIntakeTemplateFromConfig::class)->handle(
+        require database_path('data/templates/airco/v17.php'),
     );
 
     expect($againV1->version)->toBe(1)
-        ->and($againV16->id)->toBe($latest->id)
+        ->and($againV17->id)->toBe($latest->id)
         ->and(IntakeTemplate::query()->where('key', 'airco')->count())->toBe(1)
-        ->and($template->versions()->count())->toBe(16);
+        ->and($template->versions()->count())->toBe(17);
 });

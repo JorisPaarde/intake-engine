@@ -11,6 +11,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 ### Changed
 
 - **BL-116 review r2:** deferred trace persistence (`succeed`/`fail`), tx-buffer, `correlation_id`/`parent_trace_id`, geen `schema_version`, `buildCatalog` + remainingQuestions, photo dims in timings, client `network_upload_ms` via progress=100 → `ai-upload-stored` + expliciet `uploadId` (`recordNetworkUploadTiming` / `recordNetworkUploadMs`, niet via Store*), `normalizeWithDiff`, kill-switch slaat snapshots over, Dev/CLI groeperen op correlation, chunked purge, idempotente media-delete job.
+- **Technische beslissingen uit de klantflow (PR #115 / klanttest 2026-10-02 P0, review ronde 3):** `VisibilityResolver` is de enige filter (`customerMode` + `TechnicalDecisionKeys`). Technische bron **zonder** antwoord telt in elke modus als voldaan (rapport/`SummarizeIntake` toont o.a. v16 `drain_photo`). Airco **v17** blijft eigenaar van deze PR. Leesbare `*_open`-labels; afhandeling → BL-117.
 
 ## [1.2.0] - 2026-10-02
 

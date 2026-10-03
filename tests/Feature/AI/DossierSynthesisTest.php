@@ -503,7 +503,7 @@ test('AI synthesis normalizes deviant length_class instead of failing soft', fun
     $lengths = $option->connections->pluck('length_class')->all();
 
     expect($run?->status)->toBe(AiRunStatus::Succeeded, $run?->error_message ?? '')
-        ->and($run?->prompt_version)->toBe('dossier-synthesis-v3')
+        ->and($run?->prompt_version)->toBe('dossier-synthesis-v4')
         ->and($option->cost_impact)->toBe('medium')
         ->and($lengths)->toBe(['short', 'short', 'unknown']);
 });
