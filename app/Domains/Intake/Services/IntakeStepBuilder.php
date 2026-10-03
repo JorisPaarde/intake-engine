@@ -358,10 +358,9 @@ final class IntakeStepBuilder
         );
 
         $prefilledSkipped = $this->isPrefillSkipped($question, $answerSource);
-        $customerFacing = CustomerFacingQuestion::isCustomerFacing($question);
-        $internal = $this->isInternalQuestion($question) || ! $customerFacing;
+        $internal = $this->isInternalQuestion($question);
         $ruleVisible = $state['visible'] === true;
-        $wizardVisible = $ruleVisible && ! $prefilledSkipped && $customerFacing;
+        $wizardVisible = $ruleVisible && ! $prefilledSkipped;
 
         $reason = $this->catalogReason(
             wizardVisible: $wizardVisible,
