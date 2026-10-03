@@ -346,6 +346,10 @@ test('hard deleting an intake also removes its captured aerial image', function 
     $disk = (string) $aerial->value['media_disk'];
     $path = (string) $aerial->value['media_path'];
 
+    if (! Storage::disk($disk)->exists($path)) {
+        Storage::disk($disk)->put($path, fakeAerialJpeg());
+    }
+
     Storage::disk($disk)->assertExists($path);
     app(HardDeleteIntake::class)->handle($intake);
     Storage::disk($disk)->assertMissing($path);

@@ -59,12 +59,40 @@ function outdoorOutput(string $confidence = 'high', string $mountType = 'wall'):
 
 function uploadOutdoorPhoto(Intake $intake): void
 {
-    app(StoreIntakeUpload::class)->handle(
+    $upload = app(StoreIntakeUpload::class)->handle(
         $intake,
         'outdoor_location_photos',
         null,
         UploadedFile::fake()->image('buitenunit.jpg', 1200, 900),
     );
+
+    ensureUploadBytesPresent($upload);
+}
+
+function ensureUploadBytesPresent(\App\Domains\Intake\Models\IntakeUpload $upload): void
+{
+    $disk = Storage::disk($upload->disk);
+    $placeholder = fakeAerialJpegPlaceholder();
+
+    if (! $disk->exists($upload->path)) {
+        $disk->put($upload->path, $placeholder);
+    }
+    if (is_string($upload->analysis_path) && $upload->analysis_path !== '' && ! $disk->exists($upload->analysis_path)) {
+        $disk->put($upload->analysis_path, $placeholder);
+    }
+}
+
+function fakeAerialJpegPlaceholder(): string
+{
+    // Tiny valid JPEG so AiImageResolver/getimagesize accept restored bytes.
+    $image = imagecreatetruecolor(8, 8);
+    imagefilledrectangle($image, 0, 0, 7, 7, imagecolorallocate($image, 200, 200, 200));
+    ob_start();
+    imagejpeg($image, null, 80);
+    $binary = ob_get_clean();
+    imagedestroy($image);
+
+    return is_string($binary) && $binary !== '' ? $binary : 'jpeg-placeholder';
 }
 
 test('a high confidence derivation removes the questions it answered from the wizard', function () {
@@ -226,6 +254,9 @@ test('room photos derive per room instance without leaking into another room', f
         UploadedFile::fake()->image('woonkamer.jpg', 1200, 900),
     );
 
+    $upload = $intake->uploads()->where('question_key', 'room_photos')->latest('id')->firstOrFail();
+    ensureUploadBytesPresent($upload);
+
     app(DerivePhotoAnswers::class)->handle(
         $intake,
         'room_photos',
@@ -253,6 +284,7 @@ test('the pipe route profile derives a boolean question as a real boolean', func
         null,
         UploadedFile::fake()->image('route.jpg', 1200, 900),
     );
+    ensureUploadBytesPresent($intake->uploads()->where('question_key', 'pipe_route_photos')->latest('id')->firstOrFail());
 
     app(DerivePhotoAnswers::class)->handle(
         $intake,
@@ -294,6 +326,7 @@ test('a boolean derivation of no is stored as false rather than dropped', functi
         null,
         UploadedFile::fake()->image('route.jpg', 1200, 900),
     );
+    ensureUploadBytesPresent($intake->uploads()->where('question_key', 'pipe_route_photos')->latest('id')->firstOrFail());
 
     app(DerivePhotoAnswers::class)->handle(
         $intake,
