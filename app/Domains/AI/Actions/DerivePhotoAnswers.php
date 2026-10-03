@@ -374,8 +374,23 @@ final class DerivePhotoAnswers
                     $trace->flushBuffer();
                 } catch (Throwable $transactionException) {
                     $trace->discardBuffer();
+                    Log::warning('AI photo answer derivation failed', [
+                        'intake_id' => $intake->id,
+                        'ai_run_id' => $run->id,
+                        'ai_trace_id' => $trace->traceId(),
+                        'profile' => $profile->name,
+                        'exception' => $transactionException::class,
+                    ]);
+
+                    $run->update([
+                        'status' => AiRunStatus::Failed,
+                        'error_message' => Str::limit($transactionException->getMessage(), 1000, ''),
+                        'finished_at' => now(),
+                    ]);
+                    $trace->linkAiRun($run->fresh() ?? $run);
                     $trace->fail($transactionException->getMessage(), $transactionException);
-                    throw $transactionException;
+
+                    return $run->fresh() ?? $run;
                 }
 
                 $trace->linkAiRun($run->fresh() ?? $run);

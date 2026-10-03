@@ -14,6 +14,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 - **Intern AI-veld als klantvraag:** `fusebox_clarity` / `room_outlet_status` altijd verborgen.
 - **Verkeerde foto zonder feedback:** per-upload verdict; soft-block; follow-up refrigerant accepteert pipe_route+outdoor_unit.
 - **Rebase #119 op main:** `rememberStoredUpload`/`ai-upload-stored`, normaliserende `validateOutput` + `persistenceManifest`, volledige #117-trace (apply/`ai_trace_id`), `customerMode: true`, async follow-up → BL-121 (niet BL-120).
+- **Persist-fout crashte klantupload:** apply-catch gooit niet meer; AiRun → Failed + soft return (gelijk main).
 
 ### Added
 

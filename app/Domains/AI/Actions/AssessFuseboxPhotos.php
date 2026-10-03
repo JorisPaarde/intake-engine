@@ -336,8 +336,22 @@ final class AssessFuseboxPhotos
                     $trace->flushBuffer();
                 } catch (Throwable $transactionException) {
                     $trace->discardBuffer();
+                    Log::warning('AI fusebox photo assessment failed', [
+                        'intake_id' => $intake->id,
+                        'ai_run_id' => $run->id,
+                        'ai_trace_id' => $trace->traceId(),
+                        'exception' => $transactionException::class,
+                    ]);
+
+                    $run->update([
+                        'status' => AiRunStatus::Failed,
+                        'error_message' => Str::limit($transactionException->getMessage(), 1000, ''),
+                        'finished_at' => now(),
+                    ]);
+                    $trace->linkAiRun($run->fresh() ?? $run);
                     $trace->fail($transactionException->getMessage(), $transactionException);
-                    throw $transactionException;
+
+                    return $run->fresh() ?? $run;
                 }
 
                 $trace->linkAiRun($run->fresh() ?? $run);

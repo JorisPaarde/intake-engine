@@ -152,12 +152,16 @@ test('changed photo during analysis does not write derived answers', function ()
         ];
     });
 
-    expect(fn () => app(DerivePhotoAnswers::class)->handle(
+    $run = app(DerivePhotoAnswers::class)->handle(
         $intake,
         'room_photos',
         'room-1',
         PhotoDerivationProfile::require('room'),
-    ))->toThrow(RuntimeException::class, 'Foto’s gewijzigd tijdens AI-analyse');
+    );
+
+    expect($run)->not->toBeNull()
+        ->and($run->status)->toBe(AiRunStatus::Failed)
+        ->and($run->error_message)->toContain('Foto’s gewijzigd tijdens AI-analyse');
 
     expect(
         IntakeAnswer::query()
