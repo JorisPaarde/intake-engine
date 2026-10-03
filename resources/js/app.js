@@ -114,12 +114,14 @@ registerHashDisclosure();
 /**
  * Livewire file-upload network timing (BL-116 / P2).
  * Measure start → first livewire-upload-progress at 100%, then call
- * queueNetworkUploadTiming(ms). The server races this against Store*Upload
- * via pendingNetworkUploadMs / lastStoredUploadId.
+ * recordNetworkUploadTiming(uploadId, ms) after the server dispatches ai-upload-stored.
  */
 function registerLivewireUploadTiming() {
-    /** @type {Map<string, {startedAt: number, queued: boolean, componentId: string|null}>} */
+    /** @type {Map<string, {startedAt: number, networkMs: number|null, componentId: string|null}>} */
     const pending = new Map();
+
+    /** @type {Map<string, number[]>} FIFO network ms per Livewire component */
+    const networkMsByComponent = new Map();
 
     const isTimedInput = (event) => {
         const input = event.target instanceof Element ? event.target : null;
@@ -137,18 +139,29 @@ function registerLivewireUploadTiming() {
         return id + '::' + name;
     };
 
-    const deliver = (componentId, ms) => {
-        if (!componentId || ms === null || typeof Livewire === 'undefined' || typeof Livewire.find !== 'function') {
+    const enqueueMs = (componentId, ms) => {
+        if (!componentId || ms === null) {
             return;
         }
-        try {
-            const component = Livewire.find(componentId);
-            if (component && typeof component.call === 'function') {
-                component.call('queueNetworkUploadTiming', ms);
+        const queue = networkMsByComponent.get(componentId) ?? [];
+        queue.push(ms);
+        networkMsByComponent.set(componentId, queue);
+    };
+
+    const dequeueAnyMs = () => {
+        for (const [componentId, queue] of networkMsByComponent) {
+            if (!queue || queue.length === 0) {
+                continue;
             }
-        } catch {
-            // Soft-fail: timing is diagnostic only.
+            const ms = queue.shift();
+            if (queue.length === 0) {
+                networkMsByComponent.delete(componentId);
+            }
+
+            return { componentId, ms: ms ?? null };
         }
+
+        return null;
     };
 
     document.addEventListener('livewire-upload-start', (event) => {
@@ -159,7 +172,7 @@ function registerLivewireUploadTiming() {
         const root = event.target instanceof Element ? event.target.closest('[wire\\:id]') : null;
         pending.set(key, {
             startedAt: performance.now(),
-            queued: false,
+            networkMs: null,
             componentId: root?.getAttribute?.('wire:id') || null,
         });
     });
@@ -170,7 +183,7 @@ function registerLivewireUploadTiming() {
         }
         const key = keyFor(event);
         const entry = pending.get(key);
-        if (!entry || entry.queued) {
+        if (!entry || entry.networkMs !== null) {
             return;
         }
         const detail = event.detail || {};
@@ -178,8 +191,7 @@ function registerLivewireUploadTiming() {
             ? detail.progress
             : (typeof detail === 'number' ? detail : null);
         if (progress === 100) {
-            entry.queued = true;
-            deliver(entry.componentId, Math.max(0, Math.round(performance.now() - entry.startedAt)));
+            entry.networkMs = Math.max(0, Math.round(performance.now() - entry.startedAt));
         }
     });
 
@@ -192,9 +204,10 @@ function registerLivewireUploadTiming() {
         if (!entry) {
             return;
         }
-        if (!entry.queued) {
-            deliver(entry.componentId, Math.max(0, Math.round(performance.now() - entry.startedAt)));
+        if (entry.networkMs === null) {
+            entry.networkMs = Math.max(0, Math.round(performance.now() - entry.startedAt));
         }
+        enqueueMs(entry.componentId, entry.networkMs);
         pending.delete(key);
     });
 
@@ -204,6 +217,38 @@ function registerLivewireUploadTiming() {
         }
         pending.delete(keyFor(event));
     });
+
+    const bindUploadStoredListener = () => {
+        if (typeof Livewire === 'undefined' || typeof Livewire.on !== 'function') {
+            return;
+        }
+        Livewire.on('ai-upload-stored', (payload) => {
+            const uploadId = payload?.uploadId ?? payload?.[0]?.uploadId;
+            if (!uploadId) {
+                return;
+            }
+            const next = dequeueAnyMs();
+            if (!next || next.ms === null) {
+                return;
+            }
+            const component = typeof Livewire.find === 'function'
+                ? Livewire.find(next.componentId)
+                : null;
+            if (!component || typeof component.call !== 'function') {
+                return;
+            }
+            try {
+                component.call('recordNetworkUploadTiming', uploadId, next.ms);
+            } catch {
+                // Soft-fail: timing is diagnostic only.
+            }
+        });
+    };
+
+    document.addEventListener('livewire:init', bindUploadStoredListener);
+    if (typeof Livewire !== 'undefined') {
+        bindUploadStoredListener();
+    }
 }
 
 registerLivewireUploadTiming();

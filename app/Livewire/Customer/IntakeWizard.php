@@ -96,12 +96,6 @@ class IntakeWizard extends Component
 
     public string $saveMessage = '';
 
-    /** Client-measured network upload ms waiting for a stored upload id (BL-116). */
-    public ?int $pendingNetworkUploadMs = null;
-
-    /** Most recent upload id waiting for client network timing (BL-116). */
-    public ?int $lastStoredUploadId = null;
-
     public bool $showMissing = false;
 
     public bool $completed = false;
@@ -1665,45 +1659,28 @@ class IntakeWizard extends Component
     }
 
     /**
-     * Livewire client callback: queue measured network ms (may arrive before or after store).
+     * Livewire client callback: attach measured network ms to an explicit saved upload.
      */
-    public function queueNetworkUploadTiming(int $ms): void
+    public function recordNetworkUploadTiming(int $uploadId, int $ms): void
     {
-        if ($ms < 0) {
-            return;
-        }
-
-        $this->pendingNetworkUploadMs = $ms;
-
-        if ($this->lastStoredUploadId === null) {
+        if ($ms < 0 || $uploadId <= 0) {
             return;
         }
 
         $upload = IntakeUpload::query()
             ->where('intake_id', $this->intake()->id)
-            ->find($this->lastStoredUploadId);
+            ->find($uploadId);
 
-        if ($upload instanceof IntakeUpload) {
-            app(AiTraceRecorder::class)->recordNetworkUploadMs($upload, $ms);
+        if (! $upload instanceof IntakeUpload) {
+            return;
         }
 
-        $this->pendingNetworkUploadMs = null;
-        $this->lastStoredUploadId = null;
+        app(AiTraceRecorder::class)->recordNetworkUploadMs($upload, $ms);
     }
 
     private function rememberStoredUpload(IntakeUpload $upload): void
     {
-        $this->lastStoredUploadId = $upload->id;
-
-        if ($this->pendingNetworkUploadMs === null) {
-            return;
-        }
-
-        app(AiTraceRecorder::class)
-            ->recordNetworkUploadMs($upload, $this->pendingNetworkUploadMs);
-
-        $this->pendingNetworkUploadMs = null;
-        $this->lastStoredUploadId = null;
+        $this->dispatch('ai-upload-stored', uploadId: $upload->id);
     }
 
     private function correlationIdForUpload(IntakeUpload $upload): string

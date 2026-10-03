@@ -233,8 +233,8 @@ final class SummarizeIntake
      */
     private function attachSummaryToReport(Intake $intake, array $summary, AiRun $run, AiTraceHandle $trace): void
     {
-        $trace->beginBuffer();
         DB::transaction(function () use ($intake, $summary, $run, $trace): void {
+            $trace->beginBuffer();
             $intake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
             $report = $intake->report()->lockForUpdate()->first();
 

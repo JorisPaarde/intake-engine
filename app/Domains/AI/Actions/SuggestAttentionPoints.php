@@ -267,8 +267,8 @@ final class SuggestAttentionPoints
         array $completionAttributes,
         AiTraceHandle $trace,
     ): void {
-        $trace->beginBuffer();
         DB::transaction(function () use ($intake, $points, $inputHash, $run, $completionAttributes, $trace): void {
+            $trace->beginBuffer();
             $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
 
             if (! hash_equals($inputHash, $this->payloadHash($this->contextBuilder->build($lockedIntake)))) {

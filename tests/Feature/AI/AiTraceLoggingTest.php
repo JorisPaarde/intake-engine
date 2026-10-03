@@ -313,7 +313,7 @@ test('fotoanalyse-succes koppelt upload timings en stappen aan dezelfde trace', 
         ->and($blob)->not->toContain('base64,');
 });
 
-test('IntakeWizard queueNetworkUploadTiming koppelt client-ms aan upload en trace', function () {
+test('IntakeWizard recordNetworkUploadTiming koppelt client-ms aan expliciete upload en trace', function () {
     $intake = makeTraceIntake(['status' => IntakeStatus::InProgress]);
     $fixture = fixturePath('woonkamer-funda-720.jpg');
 
@@ -330,12 +330,9 @@ test('IntakeWizard queueNetworkUploadTiming koppelt client-ms aan upload en trac
     $handle->linkUpload($upload);
     $handle->succeed();
 
-    // Client ms after store: lastStoredUploadId known → apply immediately.
+    // Mimic client order: store first, then record timing with explicit upload id.
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
-        ->set('lastStoredUploadId', $upload->id)
-        ->call('queueNetworkUploadTiming', 55)
-        ->assertSet('pendingNetworkUploadMs', null)
-        ->assertSet('lastStoredUploadId', null);
+        ->call('recordNetworkUploadTiming', $upload->id, 55);
 
     $upload->refresh();
     expect($upload->processing_timings['network_upload_ms'] ?? null)->toBe(55);
@@ -344,12 +341,8 @@ test('IntakeWizard queueNetworkUploadTiming koppelt client-ms aan upload en trac
     expect($trace)->not->toBeNull()
         ->and($trace->network_upload_ms)->toBe(55);
 
-    // Pending before store: queue first, then rememberStoredUpload applies.
+    // Foreign upload id must not overwrite this intake's timing.
     $otherIntake = makeTraceIntake(['status' => IntakeStatus::InProgress]);
-    $component = Livewire::test(IntakeWizard::class, ['token' => $otherIntake->access_token])
-        ->call('queueNetworkUploadTiming', 77)
-        ->assertSet('pendingNetworkUploadMs', 77);
-
     $otherUpload = app(StoreIntakeUpload::class)->handle(
         $otherIntake,
         'room_photos',
@@ -357,19 +350,13 @@ test('IntakeWizard queueNetworkUploadTiming koppelt client-ms aan upload en trac
         new UploadedFile($fixture, 'other.jpg', 'image/jpeg', null, true),
     );
 
-    $component
-        ->set('pendingNetworkUploadMs', 77)
-        ->set('lastStoredUploadId', $otherUpload->id)
-        ->call('queueNetworkUploadTiming', 77)
-        ->assertSet('pendingNetworkUploadMs', null)
-        ->assertSet('lastStoredUploadId', null);
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->call('recordNetworkUploadTiming', $otherUpload->id, 77);
 
-    $otherUpload->refresh();
-    expect($otherUpload->processing_timings['network_upload_ms'] ?? null)->toBe(77);
-
-    // Foreign upload id must not overwrite this intake's timing.
     $upload->refresh();
-    expect($upload->processing_timings['network_upload_ms'] ?? null)->toBe(55);
+    $otherUpload->refresh();
+    expect($upload->processing_timings['network_upload_ms'] ?? null)->toBe(55)
+        ->and($otherUpload->processing_timings['network_upload_ms'] ?? null)->toBeNull();
 });
 
 test('AiTraceRedactor verwijdert e-mail en telefoon uit payloads', function () {

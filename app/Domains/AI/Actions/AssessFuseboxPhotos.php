@@ -176,8 +176,8 @@ final class AssessFuseboxPhotos
             $run = $run->fresh() ?? $run;
 
             try {
-                $trace->beginBuffer();
                 DB::transaction(function () use ($intake, $run, $output, $uploads, $persistenceManifest, $trace): void {
+                    $trace->beginBuffer();
                     $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
 
                     if (! in_array($lockedIntake->status, [IntakeStatus::Sent, IntakeStatus::InProgress], true)) {

@@ -1,6 +1,6 @@
 # Uploads & mediastorage
 
-> **Documentversie:** 3.7 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.8 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: klant-, gerichte bijdrage- en installateursfoto's, private serve-routes, generieke bewijslinks en dossier-/analysevarianten zijn **geïmplementeerd**. `MEDIA_DISK=s3` is ondersteund via Laravel’s `s3`-disk (BL-013). Directe installateurs-PDF-upload is niet gebouwd; een PDF kan wel als gerichte klanttaak worden gevraagd.
 
@@ -140,7 +140,7 @@ BL-030 normaliseert iedere foto — niet alleen HEIC — naar twee private JPEG-
 | Dossier | 2048 px | 82 | Menselijke preview, galerij, HTML/PDF en installateurzoom |
 | AI-analyse | 1536 px | 80 | Vision-calls; modelescalatie krijgt alleen relevante analysekopieën |
 
-Beide worden georiënteerd en van metadata/EXIF ontdaan; het telefoonorigineel blijft niet op disk. `path` blijft de dossiervariant; `analysis_path`, `analysis_mime_type`, `analysis_size_bytes` en `analysis_checksum` wijzen naar de AI-kopie. Nieuwe uploads gebruiken altijd de analysevariant. `AiImageResolver` heeft alleen voor historische rijen van vóór BL-030 een gecontroleerde dossierfallback, zodat bestaande opnames niet breken; de variantnaam gaat mee in de inputhash. `processing_timings` bewaart `persist_ms`/`preprocess_ms`, dossier-/analyse-afmetingen, en optioneel `network_upload_ms` (client via progress=100 → `IntakeWizard::queueNetworkUploadTiming` → `AiTraceRecorder::recordNetworkUploadMs`, niet via Store*) voor AI-traces (BL-116 / P2).
+Beide worden georiënteerd en van metadata/EXIF ontdaan; het telefoonorigineel blijft niet op disk. `path` blijft de dossiervariant; `analysis_path`, `analysis_mime_type`, `analysis_size_bytes` en `analysis_checksum` wijzen naar de AI-kopie. Nieuwe uploads gebruiken altijd de analysevariant. `AiImageResolver` heeft alleen voor historische rijen van vóór BL-030 een gecontroleerde dossierfallback, zodat bestaande opnames niet breken; de variantnaam gaat mee in de inputhash. `processing_timings` bewaart `persist_ms`/`preprocess_ms`, dossier-/analyse-afmetingen, en optioneel `network_upload_ms` (client via progress=100 → event `ai-upload-stored` → `IntakeWizard::recordNetworkUploadTiming(uploadId, ms)` → `AiTraceRecorder::recordNetworkUploadMs`, niet via Store*) voor AI-traces (BL-116 / P2).
 
 Uitvoering en verificatie: [plans/bl-030-dossier-ai-image-variants.md](plans/bl-030-dossier-ai-image-variants.md).
 
