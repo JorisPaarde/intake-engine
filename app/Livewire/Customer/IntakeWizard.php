@@ -77,6 +77,11 @@ class IntakeWizard extends Component
     public array $photoFiles = [];
 
     /**
+     * Client-side Livewire network upload duration (ms), set via livewire-upload-finish.
+     */
+    public ?int $lastNetworkUploadMs = null;
+
+    /**
      * Composite key → labelled prefill notice for the applicant (BL-016).
      * A prefill is a *voorzet*: the value sits editable in the form and is only
      * persisted once the applicant advances.
@@ -648,7 +653,12 @@ class IntakeWizard extends Component
 
         foreach ($files as $file) {
             try {
-                $upload = app(StoreFollowUpUpload::class)->handle($this->intake(), $item, $file);
+                $upload = app(StoreFollowUpUpload::class)->handle(
+                    $this->intake(),
+                    $item,
+                    $file,
+                    $this->consumeNetworkUploadMs(),
+                );
                 $stored++;
 
                 if ($type === FollowUpItemType::Photo) {
@@ -704,6 +714,7 @@ class IntakeWizard extends Component
                     $questionKey,
                     $instanceKey,
                     $file,
+                    $this->consumeNetworkUploadMs(),
                 );
                 $stored++;
 
@@ -1633,5 +1644,17 @@ class IntakeWizard extends Component
         }
 
         $this->stepIndex = min(max(0, $this->stepIndex), count($steps) - 1);
+    }
+
+    private function consumeNetworkUploadMs(): ?int
+    {
+        $ms = $this->lastNetworkUploadMs;
+        $this->lastNetworkUploadMs = null;
+
+        if ($ms === null || $ms < 0) {
+            return null;
+        }
+
+        return $ms;
     }
 }

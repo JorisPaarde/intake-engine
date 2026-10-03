@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Actions;
 
+use App\Domains\AI\Services\AiTracePhotoRefBuilder;
+use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\Intake\Jobs\DeleteStoredMediaJob;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
@@ -12,6 +14,7 @@ use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\DocumentUploadNormalizer;
 use App\Domains\Intake\Services\NormalizedPhotoUpload;
 use App\Domains\Intake\Services\PhotoUploadNormalizer;
+use App\Enums\AiTraceCallType;
 use App\Enums\FollowUpItemType;
 use App\Enums\FollowUpRoundStatus;
 use App\Enums\IntakeStatus;
@@ -28,6 +31,8 @@ final class StoreFollowUpUpload
     public function __construct(
         private readonly PhotoUploadNormalizer $photoUploadNormalizer,
         private readonly DocumentUploadNormalizer $documentUploadNormalizer,
+        private readonly AiTraceRecorder $traceRecorder,
+        private readonly AiTracePhotoRefBuilder $photoRefs,
     ) {}
 
     public function handle(Intake $intake, IntakeFollowUpItem $item, UploadedFile $file, ?int $networkUploadMs = null): IntakeUpload
@@ -113,7 +118,7 @@ final class StoreFollowUpUpload
                 ]);
             }
 
-            return DB::transaction(function () use (
+            $upload = DB::transaction(function () use (
                 $intake,
                 $item,
                 $disk,
@@ -199,6 +204,10 @@ final class StoreFollowUpUpload
 
                 return $upload;
             });
+
+            $this->recordUploadTrace($intake, $upload, $item);
+
+            return $upload;
         } catch (Throwable $exception) {
             if (isset($disk, $path)) {
                 $this->cleanupFailedUpload($disk, $path);
@@ -216,6 +225,37 @@ final class StoreFollowUpUpload
                 }
             }
         }
+    }
+
+    private function recordUploadTrace(Intake $intake, IntakeUpload $upload, IntakeFollowUpItem $item): void
+    {
+        $callType = $item->type === FollowUpItemType::Photo
+            ? AiTraceCallType::PhotoAnalysis
+            : AiTraceCallType::TextExtraction;
+
+        $trace = $this->traceRecorder->start($intake, $callType, [
+            'upload_id' => $upload->id,
+            'subject_type' => 'follow_up_item',
+            'subject_id' => (string) $item->id,
+        ]);
+        $trace->linkUpload($upload);
+        if ($item->type === FollowUpItemType::Photo) {
+            $trace->recordRequest(
+                systemAndUser: [
+                    'system' => 'follow_up_upload_persist',
+                    'user' => ['follow_up_item_id' => $item->id, 'upload_id' => $upload->id],
+                ],
+                photoRefs: [$this->photoRefs->fromUpload($upload, 'follow_up')],
+            );
+        } else {
+            $trace->recordRequest(
+                systemAndUser: [
+                    'system' => 'follow_up_upload_persist',
+                    'user' => ['follow_up_item_id' => $item->id, 'upload_id' => $upload->id],
+                ],
+            );
+        }
+        $trace->succeed();
     }
 
     private function cleanupFailedUpload(string $disk, string $path): void

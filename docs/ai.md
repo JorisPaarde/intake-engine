@@ -1,6 +1,6 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 3.13 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.14 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **samenvatting, aandachtspunten, lokale fotokwaliteit, tekst-/foto-afleiding, verbindingsgebonden routeanalyse en bewijsgerichte dossiersynthese zijn geïmplementeerd**. Externe provider en tekst-/foto-/route-/dossierinferentie staan standaard uit (provider + key + featurevlaggen + budgetcaps; soft-fail zonder die config). OpenAI-compatibele gateways (o.a. OpenRouter) via `AI_BASE_URL`.
 
@@ -140,7 +140,7 @@ Doel: per mislukte/onjuiste uitkomst aantonen of de fout in model, prompt, parse
 
 **Helper voor parallelle stromen:** `AiTraceRecorder::start($intake, AiTraceCallType::…)` → `AiTraceHandle` met `$trace->step('normalize', $payload, durationMs: …)`, `recordFieldOutcomes`, `recordDossierSnapshots($before, $after, $changedFields)`, `succeed()` / `fail($msg, $exception)`. Zie PR-beschrijving van BL-116.
 
-Beveiliging: `AiTraceRedactor` verwijdert API-keys, Bearer-headers, klantlinktokens (`/o/…`) en base64-beelden. Inzage via `/dev/ai-traces` (dev-admin, local/staging) of CLI `ai:traces`. Bewaartermijn: `AI_TRACE_RETENTION_DAYS` (default 30) + dagelijkse `ai:purge-traces`. Een mislukte foto-/meterkast-call **invalideert geen** bestaande AI-antwoorden meer vóór een geslaagde providerresponse.
+Beveiliging: `AiTraceRedactor` verwijdert API-keys, Bearer-headers, klantlinktokens (`/o/…`) en base64-beelden (alleen data:-prefix of lange strings zonder whitespace). Kill switch: `AI_TRACING_ENABLED=false` → no-op handle, geen writes. Trace-fouten worden gerapporteerd en genegeerd (nooit business-flow). Inzage via `/dev/ai-traces` alleen met `DEV_ADMIN_ENABLED` **én** e-mail op `DEV_ADMIN_EMAILS` (anders 403), of CLI `ai:traces`. Bewaartermijn: `AI_TRACE_RETENTION_DAYS` (default 30) + dagelijkse `ai:purge-traces`. Een mislukte foto-/meterkast-call **invalideert geen** bestaande AI-antwoorden meer vóór een geslaagde providerresponse.
 
 ## Datastructuur `ai_runs`
 

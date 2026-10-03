@@ -35,10 +35,13 @@ test('dev-admin is a hard 404 when disabled (production)', function () {
 });
 
 test('all dev-admin pages render for an authenticated installer', function () {
-    $this->actingAs(User::factory()->create());
+    $user = User::factory()->create(['email' => 'dev-admin@example.com']);
+    config(['devadmin.emails' => ['dev-admin@example.com']]);
+    $this->actingAs($user);
 
     $this->get('/dev/health')->assertOk();
     $this->get('/dev/ai-runs')->assertOk();
+    $this->get('/dev/ai-traces')->assertOk();
     $this->get('/dev/ai-input-test')->assertOk()->assertSee('AI-invoer testen');
     $this->get('/dev/activity')->assertOk();
     $this->get('/dev/intakes')->assertOk();

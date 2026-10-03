@@ -111,4 +111,52 @@ function registerHashDisclosure() {
 
 registerHashDisclosure();
 
+/**
+ * Livewire file-upload network timing (BL-116 / P2). Measures livewire-upload-start
+ * → finish and stores ms on the owning component as lastNetworkUploadMs when present.
+ */
+function registerLivewireUploadTiming() {
+    let startedAt = null;
+
+    document.addEventListener('livewire-upload-start', () => {
+        startedAt = performance.now();
+        window.__intakeUploadStarted = startedAt;
+    });
+
+    document.addEventListener('livewire-upload-finish', (event) => {
+        const began = startedAt ?? window.__intakeUploadStarted;
+        startedAt = null;
+        window.__intakeUploadStarted = null;
+        if (began == null || typeof Livewire === 'undefined') {
+            return;
+        }
+        const ms = Math.round(performance.now() - began);
+        const root = event.target instanceof Element
+            ? event.target.closest('[wire\\:id]')
+            : null;
+        if (!root) {
+            return;
+        }
+        const id = root.getAttribute('wire:id');
+        if (!id) {
+            return;
+        }
+        try {
+            const component = Livewire.find(id);
+            if (component && typeof component.$set === 'function') {
+                component.$set('lastNetworkUploadMs', ms, false);
+            }
+        } catch {
+            // Soft-fail: timing is diagnostic only.
+        }
+    });
+
+    document.addEventListener('livewire-upload-error', () => {
+        startedAt = null;
+        window.__intakeUploadStarted = null;
+    });
+}
+
+registerLivewireUploadTiming();
+
 Alpine.start();
