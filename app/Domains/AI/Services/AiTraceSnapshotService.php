@@ -150,7 +150,7 @@ final class AiTraceSnapshotService
                     'question_key' => $next['question_key'],
                     'section_instance_key' => $next['section_instance_key'],
                     'section_key' => $next['section_key'],
-                    'title' => $next['title'] ?? null,
+                    'title' => $next['title'],
                 ],
                 'visible_count' => $visibleCount,
                 'hidden_count' => $hiddenCount,
@@ -294,7 +294,7 @@ final class AiTraceSnapshotService
                 $isVisibleInSteps => 'visible',
                 $prefilledSkipped => 'prefilled',
                 $internal => 'intern',
-                ($state['visible'] ?? false) !== true => 'niet_relevant',
+                $state['visible'] !== true => 'niet_relevant',
                 default => 'overgeslagen',
             };
 
@@ -303,7 +303,7 @@ final class AiTraceSnapshotService
                 'section_instance_key' => $sectionInstanceKey,
                 'section_key' => $section->key,
                 'visible' => $isVisibleInSteps,
-                'required' => ($state['required'] ?? false) === true,
+                'required' => $state['required'] === true,
                 'reason' => $reason,
                 'prefill_source' => $answerSource,
             ];
@@ -358,10 +358,6 @@ final class AiTraceSnapshotService
 
         $out = [];
         foreach ($value as $key => $item) {
-            if (! is_string($key) && ! is_int($key)) {
-                continue;
-            }
-
             if (is_array($item)) {
                 $out[$key] = ['keys' => array_keys($item), 'count' => count($item)];
 

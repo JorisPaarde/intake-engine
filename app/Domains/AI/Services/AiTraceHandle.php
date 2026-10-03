@@ -387,10 +387,10 @@ final class AiTraceHandle
                 'remaining_questions_after' => $after,
             ]);
             $this->step('customer_steps', [
-                'visible_before' => $before['visible_count'] ?? null,
-                'visible_after' => $after['visible_count'] ?? null,
-                'hidden_before' => $before['hidden_count'] ?? null,
-                'hidden_after' => $after['hidden_count'] ?? null,
+                'visible_before' => $before['visible_count'],
+                'visible_after' => $after['visible_count'],
+                'hidden_before' => $before['hidden_count'],
+                'hidden_after' => $after['hidden_count'],
                 'next_step_before' => $before['next_step']['question_key'] ?? null,
                 'next_step_after' => $after['next_step']['question_key'] ?? null,
             ]);

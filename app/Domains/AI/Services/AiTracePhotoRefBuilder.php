@@ -59,7 +59,7 @@ final class AiTracePhotoRefBuilder
         try {
             $absolute = Storage::disk((string) $upload->disk)->path($path);
             $info = @getimagesize($absolute);
-            if (is_array($info) && isset($info[0], $info[1])) {
+            if (is_array($info)) {
                 return ['width' => (int) $info[0], 'height' => (int) $info[1]];
             }
         } catch (Throwable) {
