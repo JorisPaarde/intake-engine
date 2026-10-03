@@ -162,9 +162,18 @@ final class OpenAiClient implements AiClientInterface
         $imageCount = count($request->images);
         $actualModel = is_string($response->json('model')) ? $response->json('model') : $model;
         $providerCost = $usage['cost'];
-        $estimatedCostCents = $providerCost !== null
-            ? max(0.0, $providerCost * 100)
-            : $this->budgetGuard->estimateCostCents($inputTokens, $outputTokens, $imageCount);
+
+        if ($providerCost !== null) {
+            // Fine currency stays unrounded; whole cents are ceil'd for display only.
+            $estimatedCost = $this->formatCost($providerCost);
+            $estimatedCostCents = max(0, (int) ceil($providerCost * 100));
+        } else {
+            $fractionalCents = $this->budgetGuard->estimateCostCents($inputTokens, $outputTokens, $imageCount);
+            $estimatedCostCents = $this->budgetGuard->ceilCents($fractionalCents) ?? 0;
+            $estimatedCost = $fractionalCents > 0.0
+                ? $this->formatCost($fractionalCents / 100.0)
+                : null;
+        }
 
         $modelParameters['model'] = $actualModel;
 
@@ -182,9 +191,7 @@ final class OpenAiClient implements AiClientInterface
             providerMs: $providerMs,
             modelParameters: $modelParameters,
             providerResponseId: $providerResponseId,
-            estimatedCost: $providerCost !== null
-                ? $this->formatCost($providerCost)
-                : null,
+            estimatedCost: $estimatedCost,
         );
     }
 

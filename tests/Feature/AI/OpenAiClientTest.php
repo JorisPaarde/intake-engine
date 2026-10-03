@@ -66,7 +66,7 @@ test('openai client parses JSON output on success', function () {
         ->and($result->inputTokens)->toBe(1000)
         ->and($result->outputTokens)->toBe(500)
         ->and($result->totalTokens)->toBe(1500)
-        ->and($result->estimatedCostCents)->toEqual(2.0);
+        ->and($result->estimatedCostCents)->toBe(2);
 });
 
 test('openai client redacts PII in the outgoing payload', function () {

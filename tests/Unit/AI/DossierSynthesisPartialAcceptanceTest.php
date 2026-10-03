@@ -570,7 +570,9 @@ test('budget guard books fractional cents when rates are configured', function (
     expect($cost)->toBeGreaterThan(0.299)
         ->and($cost)->toBeLessThan(0.301)
         ->and($guard->toMicrocents(0.3))->toBe(3000)
-        ->and($guard->ceilCents(0.3))->toBe(1);
+        ->and($guard->ceilCents(0.3))->toBe(1)
+        ->and($guard->toMicrocentsFromCurrency('0.000123456789'))->toBe(123)
+        ->and($guard->toMicrocentsFromCurrency('0.01'))->toBe(10_000);
 });
 
 test('budget guard falls back to reserve and warns once when rates are empty', function () {

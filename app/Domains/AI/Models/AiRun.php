@@ -88,6 +88,12 @@ class AiRun extends Model
     {
         $guard = app(AiBudgetGuard::class);
 
+        // Prefer fine currency → microcents; fall back to whole-cent ceil for legacy/rate paths.
+        $microcents = $guard->toMicrocentsFromCurrency($result->estimatedCost)
+            ?? $guard->toMicrocents(
+                $result->estimatedCostCents !== null ? (float) $result->estimatedCostCents : null
+            );
+
         return [
             'provider' => $result->provider,
             'model' => $result->model ?? $fallbackModel,
@@ -95,8 +101,8 @@ class AiRun extends Model
             'output_tokens' => $result->outputTokens,
             'total_tokens' => $result->totalTokens,
             'image_count' => $result->imageCount,
-            'estimated_cost_cents' => $guard->ceilCents($result->estimatedCostCents),
-            'estimated_cost_microcents' => $guard->toMicrocents($result->estimatedCostCents),
+            'estimated_cost_cents' => $result->estimatedCostCents,
+            'estimated_cost_microcents' => $microcents,
         ];
     }
 }

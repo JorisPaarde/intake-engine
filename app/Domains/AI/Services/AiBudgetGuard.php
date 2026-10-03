@@ -79,6 +79,24 @@ final class AiBudgetGuard
         return (int) max(0, (int) round($costCents * self::MICROCENTS_PER_CENT));
     }
 
+    /**
+     * Convert an unrounded currency-unit cost (e.g. OpenRouter usage.cost) to microcents.
+     * 1 currency unit = 100 cents = {@see self::MICROCENTS_PER_CENT} × 100 microcents.
+     */
+    public function toMicrocentsFromCurrency(?string $costCurrency): ?int
+    {
+        if ($costCurrency === null || $costCurrency === '' || ! is_numeric($costCurrency)) {
+            return null;
+        }
+
+        $currency = (float) $costCurrency;
+        if ($currency < 0) {
+            return null;
+        }
+
+        return (int) max(0, (int) round($currency * 100 * self::MICROCENTS_PER_CENT));
+    }
+
     public function ceilCents(?float $costCents): ?int
     {
         if ($costCents === null) {
