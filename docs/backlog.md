@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.78 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.81 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,12 +38,12 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = fotobeoordeling via queue (#124, done). **BL-122** = soft catalogus-prefill (case 81). **BL-123** = staging-retest acceptance (#115–#120). **BL-124** = form robustness (#127, done). **BL-125** = AI-trace retentie/export + PDF-downscale (#130, done). **BL-126** = prompt/vision quality (route/ownership/kamernamen). Nieuwe items starten bij BL-127.
-
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = fotobeoordeling via queue (#124, done). **BL-122** = soft catalogus-prefill (case 81). **BL-123** = staging-retest acceptance (#115–#120). **BL-124** = form robustness (#127, done). **BL-125** = AI-trace retentie/export + PDF-downscale (#130, done). **BL-126** = prompt/vision quality (#126). **BL-127** = follow-up mismatch-override + reassessment (#125). Nieuwe items starten bij BL-128.
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
 | 1 | BL-117 | Installateur kan technisch open punt afhandelen vanuit de survey-werkplek | E7/E8 | backlog | high | na PR #115 · show/rapport `*_open` |
-| — | BL-126 | Prompt/vision quality: route-categorie, ownership, kamernamen, free_group/glas | E3/E4/E9 | in_progress | high | AI/foto · na BL-119/122 · parallel dossier-synthesis |
+| — | BL-127 | Follow-up: mismatch-override, klantcopy, review per ronde, reassessment | E1/E4/E7 | done | high | na BL-123 · case 81b · PR #125 |
+| — | BL-126 | Prompt/vision quality: route-categorie, ownership, kamernamen, free_group/glas | E3/E4/E9 | done | high | AI/foto · na BL-119/122 · PR #126 |
 | — | BL-125 | AI-trace retentie na demo-purge, export, request_id, PDF-downscale | E4/E5 | done | high | AI/ops · na BL-116 · demo-purge · PR #130 |
 | — | BL-124 | Form robustness: adresvalidatie, matenscherm L+B, optionele route-/afvoerfoto, upload-timeout | E1/E3/E7 | done | high | A · klanttest P1/P3 · airco v21 · PR #127 |
 | — | BL-123 | Staging-retest: voortgang 100%, Volgende-mismatch, follow-up wrong_subject | E1/E4/E7 | done | high | na #115–#120 · case 80/81b · PR #121 |
@@ -597,8 +597,7 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-125 — AI-trace retentie, export, request_id en PDF-downscale
 
-- **Status:** done · **Datum:** 2026-10-03 · **PR:** #130 · **Prioriteit:** high · **Epic:** E4/E5 · **Band:** AI/ops · **Volgt op:** BL-116
-- **Doel:** traces overleven demo-purge (`intake_id` nullOnDelete + `intake_ref_id`/`is_demo`); retentie alleen via `ai:purge-traces`; `request_id`; consistente verplichte tracevelden per call type; `ai:traces:export` (jsonl/md, bundling, split, masking); demo-purge ruimt uploadmap op; PDF embedt downscaled foto’s (max 1600px / JPEG ~75) zonder originelen te wijzigen.
+- **Status:** done · **Datum:** 2026-10-03 · **PR:** #130 · **Prioriteit:** high · **Epic:** E4/E5 · **Band:** AI/ops · **Volgt op:** BL-116- **Doel:** traces overleven demo-purge (`intake_id` nullOnDelete + `intake_ref_id`/`is_demo`); retentie alleen via `ai:purge-traces`; `request_id`; consistente verplichte tracevelden per call type; `ai:traces:export` (jsonl/md, bundling, split, masking); demo-purge ruimt uploadmap op; PDF embedt downscaled foto’s (max 1600px / JPEG ~75) zonder originelen te wijzigen.
 - **Waarom niet `ai_runs`:** blijven cascadeOnDelete — operationele/idempotente apply-records zonder intake; duurzame diagnostiek zit in `ai_traces`.
 
 ### BL-120 — Klanttest P2: voortgang, uploadfases, je-vorm
@@ -626,7 +625,7 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-126 — Prompt/vision quality: route, ownership, kamernamen, classificatie
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E3/E4/E9 · **Band:** AI/foto · **Volgt op:** BL-119/121/122 · **PR:** #126
+- **Status:** done · **Datum:** 2026-10-03 · **PR:** #126 · **Prioriteit:** high · **Epic:** E3/E4/E9 · **Band:** AI/foto · **Volgt op:** BL-119/121/122 · **PR:** #126
 - **Aanleiding:** routefoto (goot/doorvoer) → “Dit is een andere foto”; ownership flaky; Ouders/Kind niet op labels; free_group Ja/Nee wisselend; glas leeg bij grote ramen.
 - **Doel:** route-categorie mapping + prompts; OwnershipNormalizer; room_name→installer labels; unknown i.p.v. gok; classification temperature 0 via config (zonder OpenAiClient-internals).
 - **Scope:** extraction/prefill/photo-assessment prompts + PhotoSubject/PhotoContentAssessment mapping (compatibel met `AssessUploadedPhotoJob`); géén dossier-synthesis/OpenAiClient.
@@ -641,13 +640,21 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Acceptatie:** Pest voor alle vier paden; `composer check` groen; geen prod-tag/deploy.
 - **Resultaat:** stapgebaseerde balk/% (zelfde noemer als “Vraag X van Y”) + sessie-hoogwater; soft-continue-waarschuwing bij banner+footer; follow-up mismatch = “Nog te vervangen”; Stroomtoevoer-blocker met wrong-subject-reden.
 
+### BL-127 — Follow-up mismatch-override, klantcopy, review per ronde, reassessment
+
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-10-03 · **PR:** #125 · **Epic:** E1/E4/E7 · **Volgt op:** BL-119/123 · **Ref:** case 81b follow-up meterkast
+- **Aanleiding:** (1) Aanvulling versturen bleef aan bij verkeerde categoriefoto en sloot de taak zonder override; (2) ronde 2 toonde interne diagnose als klantinstructie (dubbel advies); (3) installateursreview toonde na goede ronde-2-foto alleen de oude mismatch; (4) vervangende juiste foto → Beoordeeld/100% zonder nieuwe AI-run, open punt hield oude reden.
+- **Doel:** bekende mismatch blokkeert versturen of vereist **Toch versturen**; klant krijgt actiegerichte je-tekst; installateur ziet per ronde verdict + superseded; nieuwe upload triggert herbeoordeling en wist/vervangt de open reden.
+- **Scope:** `IntakeWizard` follow-up soft-continue (geen sync AI); submit wait/gate op queue-`content_assessment`; `CompleteFollowUpRound`; `ContextualCustomerTaskBuilder`/`PhotoSubject::customerRetakePrompt`; `FollowUpEvidenceReview` + show-view; `DecisionReadinessService` solving follow-up-powerfoto’s; reassessment via opnieuw `AssessUploadedPhotoJob`. Pest. Geen templateversiebump; conflicten blijven proposals; 100%-op-lege-taak-fix blijft.
+- **Resultaat:** submit-gate + Toch versturen; klantcopy via `customerRetakePrompt`; review per ronde + superseded; reassessment op `ai-photo`-queue (na rebase op BL-121/#124); `composer check` groen.
+
 ### BL-124 — Form robustness: adresvalidatie, matenscherm, optionele route-/upload
 
 - **Status:** done · **Datum:** 2026-10-03 · **PR:** #127 · **Prioriteit:** high · **Epic:** E1/E3/E7 · **Band:** A · **Volgt op:** BL-097/101/120 · **Ref:** klanttest P1/P3 adres + maten + route/upload
 - **Aanleiding:** (1) vroeg submit tijdens adreslookup liet `setCustomValidity` (“Controleer dit veld.”) vastzitten op autofilled straat/plaats; (2) lengte en breedte apart terwijl m² al bekend; (3) verplichte routefoto terwijl route installateursopen punt is; (4) upload “Uploaden…” >20 s zonder timeout/fout; LiteSpeed 503-Engels; lage-resolutie-flag op thumbnail i.p.v. origineel.
 - **Doel:** validity wissen/herberekenen na lookup/autofill/input/change/vóór submit; submit disabled tijdens lookup; één L+B-scherm (optioneel bij bekende m², derived m² uit L×W); optionele route-/afvoer-/muurfoto’s met “Weet ik niet / sla over”; ~15 s upload-timeout + NL-fout + Opnieuw proberen (naast BL-121 poll/120 s beoordeling, niet eroverheen); resolutie op origineel.
 - **Scope:** create-adres-JS + `app.js` validity; airco **v21**; `IntakeStepBuilder` `wizard_group`; wizard upload/skip UI; `PhotoUploadNormalizer`/`PhotoUsabilityHeuristic` original dims; Pest; docs.
-- **Acceptatie:** Pest adres-script + v21 matenscherm/skip/resolutie; `composer check` groen; “Weet ik niet” blokkeert niet; uploadfases blijven zichtbaar; 15 s-timeout raakt alleen “Uploaden…”.
+- **Resultaat:** airco v21 + adresvalidity + 15s upload-timeout + original-dims usability; `composer check` groen.
 - **Niet in scope:** wizard-navigatie/photo-queue/UX-tekst parallelwerk van andere agents; geen tweede assessing-recovery naast BL-121.
 
 ### BL-118 — Klanttest 2 okt: foto-first, extractiedekking, kamernamen
@@ -667,7 +674,7 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-116 — AI-trace logging + P2 upload/analyse-timings
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E4/E9 · **Band:** AI · **Volgt op:** BL-028/104/109 · **PR:** #117 · **Ref:** Notion-klanttest 2026-10-02 § AI-logging + P2 meetdeel
+- **Status:** done · **Datum:** 2026-10-03 · **Prioriteit:** high · **Epic:** E4/E9 · **Band:** AI · **Volgt op:** BL-028/104/109 · **PR:** #117 · **Ref:** Notion-klanttest 2026-10-02 § AI-logging + P2 meetdeel
 - **Aanleiding:** Joris eist per mislukte/onjuiste AI-uitkomst onderscheid model vs prompt vs parser vs opslag vs klantflow; trage uploads/analyse zonder aparte fase-meting.
 - **Scope (deze PR):** `ai_traces`/`ai_trace_steps`, helper `AiTraceRecorder`/`AiTraceHandle::step()`, instrumentatie tekstextractie/fotoanalyse/synthese + upload timings, redactie, `/dev/ai-traces` + CLI, retention purge. Geen vragenlijst-/klantvraagtekst-wijzigingen (stromen 2–5).
 - **Acceptatie:** cases 80/81-tekst door extractie met fake provider → volledige keten in trace; mislukte call wist geen bestaand antwoord; geen secrets in log; `composer check` groen.
@@ -704,7 +711,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 
 ### BL-001 — Demo-versie van de app
 
-- **Status:** in_progress · **Prioriteit:** medium · **Band:** A (operationeel, parallel) · **Ref:** [issue #5](https://github.com/JorisPaarde/intake-engine/issues/5)
+- **Status:** done · **Datum:** 2026-10-03 · **PR:** #125 · **Prioriteit:** medium · **Band:** A (operationeel, parallel) · **Ref:** [issue #5](https://github.com/JorisPaarde/intake-engine/issues/5)
 - **Plan:** [bl-001-interactive-installer-demo.md](plans/bl-001-interactive-installer-demo.md)
 - **Doel:** publiek of semi-publiek demopad zodat prospects/installateurs het product kunnen ervaren zonder eigen accountsetup of echte klantdata — het hoofddoel ("zo min mogelijk handelingen") toegepast op de allereerste kennismaking.
 - **Nieuwe invulling (begeleide flow):** **Probeer de demo** → tijdelijke tenant/user → dashboard met welkomstpopup → *Nieuwe opname* waarin de installateur zelf postcode/huisnummer intypt → rolkeuze-modal i.p.v. mail (*Bekijk wat de klant ziet* / *Zelf de opname doen*) → **volledige** klantwizard (zelfde airco-pad als productie) of werkplek met optioneel voorbeelddossier; coachmark-popups op elke stap.

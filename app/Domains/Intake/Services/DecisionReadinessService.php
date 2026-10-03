@@ -567,6 +567,11 @@ final class DecisionReadinessService
             return true;
         }
 
+        // Follow-up/power contribution photos that solve content also clear the meterkast gap.
+        if ($this->hasSolvingFollowUpPhoto($intake, 'power', PhotoSubject::Fusebox)) {
+            return true;
+        }
+
         foreach ($intake->aircoPlacements as $placement) {
             if ($placement->type === AircoPlacementType::PowerSource
                 && $this->subjectHasUploadEvidence($intake, (int) $placement->dossier_subject_id)) {
@@ -587,14 +592,15 @@ final class DecisionReadinessService
     }
 
     /**
-     * Reason from a completed follow-up photo task when the customer sent the wrong subject.
-     * Shown on the installer workspace open-area detail (staging 81b).
+     * True when a follow-up photo for the decision area has a solving content verdict
+     * (ok). Customer-accepted mismatches still leave the installer reason visible.
+     * not_assessed with usable photo counts as present evidence (soft).
      */
-    private function followUpWrongSubjectReason(
+    private function hasSolvingFollowUpPhoto(
         Intake $intake,
         string $decisionAreaKey,
         PhotoSubject $expected,
-    ): ?string {
+    ): bool {
         $intake->loadMissing(['contributionTasks.followUpItem.uploads', 'followUpRounds.items.uploads']);
 
         $tasks = $intake->contributionTasks
@@ -608,15 +614,94 @@ final class DecisionReadinessService
 
             foreach ($item->uploads as $upload) {
                 $assessment = $upload->contentAssessment();
+                if ($assessment instanceof PhotoContentAssessment
+                    && $assessment->status() === PhotoContentAssessment::STATUS_OK) {
+                    return true;
+                }
+
+                // not_assessed still counts as present evidence for readiness
+                // when usability is ok — installer will review; only wrong_subject blocks.
+                if ($assessment instanceof PhotoContentAssessment
+                    && $assessment->status() === PhotoContentAssessment::STATUS_NOT_ASSESSED
+                    && $upload->usability_verdict?->isUsable()) {
+                    return true;
+                }
+            }
+        }
+
+        foreach ($intake->followUpRounds as $round) {
+            foreach ($round->items as $item) {
+                if ($item->type !== FollowUpItemType::Photo) {
+                    continue;
+                }
+
+                foreach ($item->uploads as $upload) {
+                    $assessment = $upload->contentAssessment();
+                    if (! $assessment instanceof PhotoContentAssessment) {
+                        continue;
+                    }
+
+                    if ($assessment->expectedSubject() !== null
+                        && $assessment->expectedSubject() !== $expected) {
+                        continue;
+                    }
+
+                    if ($assessment->status() === PhotoContentAssessment::STATUS_OK) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Reason from a follow-up photo task when the latest evidence for the area is still
+     * a wrong subject. A later solving upload supersedes earlier mismatches (case 81b).
+     */
+    private function followUpWrongSubjectReason(
+        Intake $intake,
+        string $decisionAreaKey,
+        PhotoSubject $expected,
+    ): ?string {
+        if ($this->hasSolvingFollowUpPhoto($intake, $decisionAreaKey, $expected)) {
+            return null;
+        }
+
+        $intake->loadMissing(['contributionTasks.followUpItem.uploads', 'followUpRounds.items.uploads']);
+
+        $latestMismatch = null;
+        $latestRound = -1;
+
+        $tasks = $intake->contributionTasks
+            ->filter(static fn (ContributionTask $task): bool => $task->decision_area_key === $decisionAreaKey);
+
+        foreach ($tasks as $task) {
+            $item = $task->followUpItem;
+            if ($item === null || $item->type !== FollowUpItemType::Photo) {
+                continue;
+            }
+
+            $item->loadMissing(['round', 'uploads']);
+            $roundNumber = (int) $item->round->round_number;
+
+            foreach ($item->uploads as $upload) {
+                $assessment = $upload->contentAssessment();
                 if (! $assessment instanceof PhotoContentAssessment) {
                     continue;
                 }
 
                 $reason = $assessment->followUpMismatchReason($expected);
-                if (is_string($reason) && $reason !== '') {
-                    return $reason;
+                if (is_string($reason) && $reason !== '' && $roundNumber >= $latestRound) {
+                    $latestMismatch = $reason;
+                    $latestRound = $roundNumber;
                 }
             }
+        }
+
+        if ($latestMismatch !== null) {
+            return $latestMismatch;
         }
 
         // Fallback: any follow-up photo upload on this intake with matching expected subject.

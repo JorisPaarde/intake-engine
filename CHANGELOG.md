@@ -19,6 +19,12 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 - **Eigendom inconsistent uit openingszin (BL-126):** `OwnershipNormalizer` + promptvoorbeelden maken `owned`/`rented` deterministisch (koophuis, eigen woning, we huren, …).
 - **Kamernamen Ouders/Kind landen niet op installateurslabels (BL-126):** `room_name` sync’t naar `airco_rooms`; installateurshernoeming wint; bekende ownership/namen worden niet opnieuw gevraagd.
 - **Meterkast free_group / glas gokken (BL-126):** strengere criteria + `unknown`; `room_outlet_status=unknown` triggert geen extra stopcontactfoto; classificatie-temperatuur via config (default 0).
+- **Follow-up mismatch / reassessment (BL-127):**
+  1. **Aanvulling versturen** bij bekende `wrong_subject` (bijv. buitenunit i.p.v. meterkast) bleef actief en sloot de taak met “Bedankt” zonder override. Nu geblokkeerd tot **Vervang foto** of expliciet **Toch versturen**; `not_assessed`/AI-fout blijft soft. Zelfde soft-continue-patroon als de standaard intake.
+  2. Ronde 2 toonde de interne diagnose (“Ontvangen foto lijkt… handmatig controleren”) als klantopdracht. `ContextualCustomerTaskBuilder` zet dat om naar actiegerichte je-tekst (“Maak een nieuwe, duidelijke foto van je meterkast”); installateursreden blijft op het beslisgebied. Advies niet meer dubbel (hint herhaalt geen prompt).
+  3. Installateursreview toonde na een goede ronde-2-foto alleen de oude mismatch. Per ronde nu verdict + “Bruikbaar bewijs”; eerdere mismatch gemarkeerd als **Vervangen door nieuwere ronde** (`FollowUpEvidenceReview`).
+  4. Case 81b: vervangende meterkastfoto kon “Beoordeeld”/100% tonen zonder nieuwe AI-run, terwijl het open punt de oude reden hield. Nieuwe upload dispatcht `AssessUploadedPhotoJob` opnieuw; `hasFuseboxPhoto` telt solving follow-up-powerfoto’s; mismatch-reden verdwijnt na OK-bewijs.
+  5. Installateur-show (`intakes/show`): `@php($…)` short-form brak Blade-compilatie (`unexpected endif` → HTTP 500 op alle dossierpagina’s). Blokvorm `@php`/`@endphp`; tests seeden/runnen queue-assessment vóór follow-up submit.
 
 ### Changed
 
@@ -28,6 +34,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [1.3.0] - 2026-10-03
 
+## [1.3.0] - 2026-10-03
 
 ### Fixed
 

@@ -2,9 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Domains\AI\Actions\AssessFollowUpPhotoSubject;
 use App\Domains\AI\Actions\AssessFuseboxPhotos;
 use App\Domains\AI\Actions\DerivePhotoAnswers;
 use App\Domains\AI\Clients\FakeAiClient;
+use App\Domains\AI\Jobs\AssessUploadedPhotoJob;
+use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\AI\Support\PhotoDerivationProfile;
 use App\Domains\Intake\Actions\CreateCustomerContributionRequest;
@@ -22,8 +25,10 @@ use App\Domains\Intake\Services\FollowUpProgressCalculator;
 use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Domains\Intake\Services\ProgressCalculator;
 use App\Domains\Intake\Services\WorkspacePrimaryActionResolver;
+use App\Domains\Intake\Support\FollowUpEvidenceReview;
 use App\Domains\Intake\Support\InternalCustomerQuestions;
 use App\Domains\Intake\Support\TechnicalDecisionKeys;
+use App\Enums\AiRunType;
 use App\Enums\DecisionAreaStatus;
 use App\Enums\FollowUpItemType;
 use App\Enums\IntakeStatus;
@@ -31,7 +36,9 @@ use App\Livewire\Customer\IntakeWizard;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -79,6 +86,32 @@ function makeKlanttestIntake(array $overrides = []): Intake
         'customer_email' => 'klanttest@example.com',
         'access_token' => 'klanttest'.str_repeat('a', 56),
     ], $overrides));
+}
+
+function runKlanttestAssessUploadedPhotoJob(int $uploadId): void
+{
+    (new AssessUploadedPhotoJob($uploadId))->handle(
+        app(AssessFollowUpPhotoSubject::class),
+        app(AssessFuseboxPhotos::class),
+        app(DerivePhotoAnswers::class),
+    );
+}
+
+/**
+ * Upload → queue job (faked) → run job → poll results into Livewire state.
+ *
+ * @return array{0: Testable, 1: IntakeUpload}
+ */
+function klanttestFollowUpUploadAndAssess($component, $item, string $fixture): array
+{
+    $component->set('followUpPhotoFiles.'.$item->id, klanttestLivewireUpload($fixture))
+        ->assertSet('uploadPhase', 'assessing');
+
+    $upload = $item->fresh()->uploads()->latest('id')->firstOrFail();
+    runKlanttestAssessUploadedPhotoJob($upload->id);
+    $component->call('pollPendingAssessments');
+
+    return [$component, $upload->fresh()];
 }
 
 test('P1 case 80: buitenunitfoto leidt nooit tot zeker geen doorboring', function () {
@@ -497,7 +530,9 @@ test('follow-up refrigerant accepteert outdoor_unit (gevel met leidingen) zonder
         ->and($upload->contentAssessment()?->detectedSubject()?->value)->toBe('outdoor_unit');
 });
 
-test('P1 case 81 Stroomtoevoer: buitenunitfoto waarschuwt maar blokkeert afronden niet', function () {
+test('P1 case 81 Stroomtoevoer: buitenunitfoto blokkeert versturen tot override', function () {
+    Queue::fake([AssessUploadedPhotoJob::class]);
+
     $user = User::factory()->create();
     $intake = makeKlanttestIntake([
         'created_by' => $user->id,
@@ -523,12 +558,15 @@ test('P1 case 81 Stroomtoevoer: buitenunitfoto waarschuwt maar blokkeert afronde
     ]);
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
-        ->assertSet('followUpMode', true)
-        ->set('followUpPhotoFiles.'.$item->id, klanttestLivewireUpload('buitenunit-leiding.jpeg'))
-        ->call('assessPendingUploads')
+        ->assertSet('followUpMode', true);
+
+    [$component, $upload] = klanttestFollowUpUploadAndAssess($component, $item, 'buitenunit-leiding.jpeg');
+
+    $component
         ->assertHasErrors('followUpPhotoFiles.'.$item->id)
         ->assertSee('buitenunit')
-        ->assertSee('meterkast');
+        ->assertSee('meterkast')
+        ->assertSee('Toch versturen');
 
     $item->refresh()->load('uploads');
     $progress = app(FollowUpProgressCalculator::class)
@@ -542,10 +580,9 @@ test('P1 case 81 Stroomtoevoer: buitenunitfoto waarschuwt maar blokkeert afronde
         ->assertSeeHtml('data-testid="follow-up-progress-percent">0%')
         ->assertSee('Nog te vervangen')
         ->call('completeFollowUp')
-        ->assertHasNoErrors('follow_up')
-        ->assertSet('completed', true);
-
-    $upload = $item->uploads()->first();
+        ->assertHasErrors('follow_up')
+        ->assertSet('completed', false)
+        ->assertSee('Toch versturen');
 
     expect($upload)->not->toBeNull()
         ->and($upload->contentAssessment()?->status())->toBe(PhotoContentAssessment::STATUS_WRONG_SUBJECT)
@@ -571,6 +608,201 @@ test('P1 case 81 Stroomtoevoer: buitenunitfoto waarschuwt maar blokkeert afronde
         ->and($overview['detail'])->toBe(
             'Ontvangen foto lijkt een buitenunit, geen meterkast — handmatig controleren',
         );
+
+    // Explicit override closes the customer task; installer still sees the mismatch.
+    $component
+        ->call('acceptFollowUpPhotoMismatch')
+        ->call('completeFollowUp')
+        ->assertHasNoErrors('follow_up')
+        ->assertSet('completed', true)
+        ->assertSee('Bedankt');
+
+    expect($upload->fresh()->contentAssessment()?->customerAcceptedMismatch())->toBeTrue();
+});
+
+test('P1 follow-up not_assessed blijft soft: versturen mag met installateursvlag', function () {
+    Queue::fake([AssessUploadedPhotoJob::class]);
+
+    $user = User::factory()->create();
+    $intake = makeKlanttestIntake([
+        'created_by' => $user->id,
+        'company_id' => $user->company_id,
+        'status' => IntakeStatus::InProgress,
+    ]);
+    app(DossierManager::class)->initialize($intake);
+
+    $round = app(CreateCustomerContributionRequest::class)->handle($intake->fresh(), $user, [[
+        'type' => FollowUpItemType::Photo,
+        'prompt' => 'Maak een duidelijke foto van de meterkast.',
+        'decision_area_key' => 'power',
+    ]]);
+    $item = $round->items()->firstOrFail();
+    $intake->refresh();
+
+    config(['ai.photo_inference.enabled' => false]);
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+    [$component, $upload] = klanttestFollowUpUploadAndAssess($component, $item, 'meterkast-groot.jpg');
+
+    $component
+        ->call('completeFollowUp')
+        ->assertHasNoErrors('follow_up')
+        ->assertSet('completed', true);
+
+    expect($upload->contentAssessment()?->status())->toBe(PhotoContentAssessment::STATUS_NOT_ASSESSED)
+        ->and($upload->contentAssessment()?->installerLabel())->toContain('nog niet automatisch beoordeeld');
+});
+
+test('case 81b reassessment: juiste meterkastfoto vervangt mismatch en wist open reden', function () {
+    Queue::fake([AssessUploadedPhotoJob::class]);
+
+    $user = User::factory()->create();
+    $intake = makeKlanttestIntake([
+        'created_by' => $user->id,
+        'company_id' => $user->company_id,
+        'status' => IntakeStatus::InProgress,
+    ]);
+    app(DossierManager::class)->initialize($intake);
+
+    $round = app(CreateCustomerContributionRequest::class)->handle($intake->fresh(), $user, [[
+        'type' => FollowUpItemType::Photo,
+        'prompt' => 'Maak een nieuwe, duidelijke foto van je meterkast',
+        'decision_area_key' => 'power',
+    ]]);
+    $item = $round->items()->firstOrFail();
+    $intake->refresh();
+
+    FakeAiClient::alwaysReturn([
+        'detected_subject' => 'outdoor_unit',
+        'subject_match' => 'no',
+        'evidence' => 'Buitenunit in beeld.',
+    ]);
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+    [$component, $wrong] = klanttestFollowUpUploadAndAssess($component, $item, 'buitenunit-leiding.jpeg');
+
+    expect($wrong->contentAssessment()?->status())->toBe(PhotoContentAssessment::STATUS_WRONG_SUBJECT);
+
+    $runsBefore = AiRun::query()
+        ->where('intake_id', $intake->id)
+        ->where('type', AiRunType::PhotoAssessment)
+        ->count();
+
+    FakeAiClient::alwaysReturn([
+        'detected_subject' => 'fusebox',
+        'subject_match' => 'yes',
+        'evidence' => 'Meterkast met groepen zichtbaar.',
+    ]);
+
+    // Replace wrong photo with correct meterkast photo → new queued assessment.
+    $component->call('replaceFollowUpMismatchedPhoto');
+    [$component, $good] = klanttestFollowUpUploadAndAssess($component, $item, 'meterkast-groot.jpg');
+
+    $item->refresh()->load('uploads');
+    $runsAfter = AiRun::query()
+        ->where('intake_id', $intake->id)
+        ->where('type', AiRunType::PhotoAssessment)
+        ->count();
+
+    expect($item->uploads)->toHaveCount(1)
+        ->and($good->id)->not->toBe($wrong->id)
+        ->and($good->contentAssessment()?->status())->toBe(PhotoContentAssessment::STATUS_OK)
+        ->and($runsAfter)->toBeGreaterThan($runsBefore);
+
+    Queue::assertPushed(AssessUploadedPhotoJob::class, 2);
+
+    $progress = app(FollowUpProgressCalculator::class)->calculate(collect([$item]));
+    expect($progress['percent'])->toBe(100)
+        ->and($progress['item_statuses'][$item->id]['status'])->toBe('assessed')
+        ->and($progress['item_statuses'][$item->id]['label'])->toBe('Beoordeeld');
+
+    $component->call('completeFollowUp')->assertSet('completed', true);
+
+    $areas = app(DecisionReadinessService::class)->recalculate($intake->fresh());
+    $power = $areas->firstWhere('key', 'power');
+
+    expect($power->blocker)->not->toBe(
+        'Ontvangen foto lijkt een buitenunit, geen meterkast — handmatig controleren',
+    )
+        ->and($power->blocker ?? '')->not->toContain('handmatig controleren');
+});
+
+test('P2 ronde 2: oude mismatch superseded + nieuw bewijs zichtbaar voor installateur', function () {
+    Queue::fake([AssessUploadedPhotoJob::class]);
+
+    $user = User::factory()->create();
+    $intake = makeKlanttestIntake([
+        'created_by' => $user->id,
+        'company_id' => $user->company_id,
+        'status' => IntakeStatus::InProgress,
+    ]);
+    app(DossierManager::class)->initialize($intake);
+
+    $round1 = app(CreateCustomerContributionRequest::class)->handle($intake->fresh(), $user, [[
+        'type' => FollowUpItemType::Photo,
+        'prompt' => 'Maak een duidelijke foto van de meterkast.',
+        'decision_area_key' => 'power',
+    ]]);
+    $item1 = $round1->items()->firstOrFail();
+    $intake->refresh();
+
+    FakeAiClient::alwaysReturn([
+        'detected_subject' => 'outdoor_unit',
+        'subject_match' => 'no',
+        'evidence' => 'Buitenunit.',
+    ]);
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+    [$component, $wrongUpload] = klanttestFollowUpUploadAndAssess($component, $item1, 'buitenunit-leiding.jpeg');
+
+    $component
+        ->call('acceptFollowUpPhotoMismatch')
+        ->call('completeFollowUp')
+        ->assertSet('completed', true);
+
+    // Round 2 with correct photo.
+    $intake->update(['status' => IntakeStatus::InProgress, 'customer_access_enabled' => true]);
+    app(DossierManager::class)->initialize($intake->fresh());
+
+    $round2 = app(CreateCustomerContributionRequest::class)->handle($intake->fresh(), $user, [[
+        'type' => FollowUpItemType::Photo,
+        'prompt' => 'Maak een nieuwe, duidelijke foto van je meterkast',
+        'decision_area_key' => 'power',
+    ]]);
+    $item2 = $round2->items()->firstOrFail();
+    $intake->refresh();
+
+    FakeAiClient::alwaysReturn([
+        'detected_subject' => 'fusebox',
+        'subject_match' => 'yes',
+        'evidence' => 'Meterkast ok.',
+    ]);
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+    [$component, $goodUpload] = klanttestFollowUpUploadAndAssess($component, $item2, 'meterkast-groot.jpg');
+
+    $component
+        ->call('completeFollowUp')
+        ->assertSet('completed', true);
+
+    $intake = $intake->fresh()->load(['followUpRounds.items.uploads', 'contributionTasks']);
+
+    $review = app(FollowUpEvidenceReview::class)
+        ->present($intake, $intake->followUpRounds);
+
+    $round1Uploads = $review['rounds'][0]['items'][0]['uploads'];
+    $round2Uploads = $review['rounds'][1]['items'][0]['uploads'];
+
+    expect($round1Uploads[0]['upload']->id)->toBe($wrongUpload->id)
+        ->and($round1Uploads[0]['superseded'])->toBeTrue()
+        ->and($round1Uploads[0]['supersession_label'])->toContain('Vervangen')
+        ->and($round2Uploads[0]['upload']->id)->toBe($goodUpload->id)
+        ->and($round2Uploads[0]['superseded'])->toBeFalse()
+        ->and($round2Uploads[0]['assessment']?->status())->toBe(PhotoContentAssessment::STATUS_OK);
+
+    $areas = app(DecisionReadinessService::class)->recalculate($intake);
+    $power = $areas->firstWhere('key', 'power');
+    expect($power->blocker ?? '')->not->toContain('handmatig controleren');
 });
 
 test('Volgende zonder Toch doorgaan bij wrong_subject toont waarschuwing en blijft staan', function () {

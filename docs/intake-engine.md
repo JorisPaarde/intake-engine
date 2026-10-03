@@ -1,6 +1,6 @@
 # Vragen- en takenengine
 
-> **Documentversie:** 2.31 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.33 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: de templatewizard is **geïmplementeerd t/m airco v21** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md). UI-taal: [language.md](language.md).
 
@@ -117,6 +117,7 @@ Geen LLM in deze keten.
 - `ProgressCalculator` (BL-022/BL-120: afgeronde klanttaken; `PrefillSources::shouldSkipPrefill`): percentage over **verplichte** zichtbare vragen/foto’s — blijft de bron voor “X van Y taken afgerond” en CompletenessChecker
 - Klantwizard-balk/% (BL-123): volgt dezelfde zichtbare stappen als “Vraag X van Y” (done/total; overgeslagen of beantwoord incl. “Weet ik niet” = done); `progressHighWater` voorkomt dalen na herberekening; **100% alleen na afronden**
 - `FollowUpProgressCalculator` (BL-120/BL-123): foto-items pas “beoordeeld” na bruikbare usability **én** zonder onopgeloste `wrong_subject`; anders “Nog te vervangen” / 0%
+- Follow-up soft-continue (BL-127): bekende `wrong_subject` blokkeert **Aanvulling versturen** tot **Vervang foto** of **Toch versturen**; `not_assessed` soft
 - `progress_percent` op `intakes` wordt bij elke save bijgewerkt (cache; taakgebaseerd)
 - UI toont: huidige stap, stap-%, takenlabel; bij geblokkeerd afronden een klikbare “Nog niet alles is ingevuld”-lijst
 
