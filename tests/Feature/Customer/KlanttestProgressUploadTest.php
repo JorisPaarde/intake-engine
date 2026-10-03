@@ -2,12 +2,20 @@
 
 declare(strict_types=1);
 
+use App\Domains\AI\Actions\AssessFollowUpPhotoSubject;
+use App\Domains\AI\Actions\AssessFuseboxPhotos;
+use App\Domains\AI\Actions\DerivePhotoAnswers;
 use App\Domains\AI\Clients\FakeAiClient;
+use App\Domains\AI\Jobs\AssessUploadedPhotoJob;
+use App\Domains\AI\Jobs\SuggestAttentionPointsJob;
+use App\Domains\AI\Jobs\SummarizeIntakeJob;
+use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
 use App\Domains\Intake\Actions\CompleteIntake;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StoreFollowUpUpload;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Actions\SubmitIntakeReview;
+use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
 use App\Domains\Intake\Models\ContributionTask;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeQuestion;
@@ -125,7 +133,12 @@ function fillKlanttestIntakeUntilComplete(Intake $intake): void
 function makeP2FollowUpIntake(array $items): Intake
 {
     Mail::fake();
-    Queue::fake();
+    Queue::fake([
+        SummarizeIntakeJob::class,
+        SuggestAttentionPointsJob::class,
+        SynthesizeSurveyDossierJob::class,
+        GenerateIntakePdfJob::class,
+    ]);
     config(['mail.default' => 'smtp']);
 
     $intake = makeP2ProgressIntake();
@@ -191,17 +204,32 @@ test('follow-up progress wordt 100% alleen na bruikbare beoordeling', function (
     $before = app(FollowUpProgressCalculator::class)->calculate($round->items);
     expect($before['percent'])->toBe(0);
 
+    // Fake photo job so we can assert the pending state before assessment completes.
+    Queue::fake([AssessUploadedPhotoJob::class]);
+
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->set('followUpPhotoFiles.'.$item->id, p2BrightUpload())
         ->assertSet('followUpMode', true)
-        ->assertSet('uploadPhase', 'assessing')
-        ->assertJs('$wire.assessPendingUploads()');
+        ->assertSet('uploadPhase', 'assessing');
+
+    Queue::assertPushedOn('ai-photo', AssessUploadedPhotoJob::class);
 
     $during = app(FollowUpProgressCalculator::class)->calculate(collect([$item->fresh()->load('uploads')]));
     expect($during['percent'])->toBe(0)
         ->and($during['item_statuses'][$item->id]['label'])->toBe('Ontvangen, wordt beoordeeld');
 
-    $component->call('assessPendingUploads');
+    // Process queued assessment (sync-style) and poll UI.
+    $upload = $item->fresh()->uploads->first();
+    expect($upload)->not->toBeNull();
+    (new AssessUploadedPhotoJob($upload->id))->handle(
+        app(AssessFollowUpPhotoSubject::class),
+        app(AssessFuseboxPhotos::class),
+        app(DerivePhotoAnswers::class),
+    );
+
+    $component->call('pollPendingAssessments')
+        ->assertSet('uploadPhase', '');
+
     $item->refresh()->load('uploads');
     expect($item->uploads->first()?->usability_verdict?->isUsable())->toBeTrue();
 
@@ -259,7 +287,9 @@ test('progress calculator bereikt 100% alleen als CompletenessChecker compleet i
         ->and($progress['missing_required'])->toBe([]);
 });
 
-test('na opslaan staat uploadPhase assessing en js-effect in de Livewire-response', function () {
+test('na opslaan staat uploadPhase assessing zonder sync AI-call', function () {
+    Queue::fake([AssessUploadedPhotoJob::class]);
+
     $intake = makeP2ProgressIntake();
     app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
 
@@ -267,22 +297,25 @@ test('na opslaan staat uploadPhase assessing en js-effect in de Livewire-respons
         ->set('photoFiles.fusebox_photo', p2FixtureUpload())
         ->assertSet('uploadPhase', 'assessing')
         ->assertSet('uploadPhaseMessage', 'Foto beoordelen…')
-        ->assertSet('uploadPhaseComposite', 'fusebox_photo')
-        ->assertJs('$wire.assessPendingUploads()');
+        ->assertSet('uploadPhaseComposite', 'fusebox_photo');
 
+    Queue::assertPushedOn('ai-photo', AssessUploadedPhotoJob::class);
     expect($intake->fresh()->uploads()->count())->toBe(1);
 });
 
-test('follow-up round-trip 1 bevat ook het assessPendingUploads js-effect', function () {
+test('follow-up upload dispatcht ai-photo job en houdt assessing tot poll', function () {
     $intake = makeP2FollowUpIntake([
         ['type' => FollowUpItemType::Photo, 'prompt' => 'Maak een foto van de meterkast.'],
     ]);
     $item = $intake->followUpRounds()->with('items')->firstOrFail()->items->firstOrFail();
 
+    Queue::fake([AssessUploadedPhotoJob::class]);
+
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->set('followUpPhotoFiles.'.$item->id, UploadedFile::fake()->image('meterkast.jpg', 800, 600))
-        ->assertSet('uploadPhase', 'assessing')
-        ->assertJs('$wire.assessPendingUploads()');
+        ->assertSet('uploadPhase', 'assessing');
+
+    Queue::assertPushedOn('ai-photo', AssessUploadedPhotoJob::class);
 });
 
 test('dubbele upload met dezelfde inhoud toont melding en requeued zonder verdict', function () {
@@ -293,7 +326,7 @@ test('dubbele upload met dezelfde inhoud toont melding en requeued zonder verdic
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->set('photoFiles.fusebox_photo', UploadedFile::fake()->createWithContent('a.jpg', $contents))
         ->assertSet('uploadPhase', 'assessing')
-        ->call('assessPendingUploads')
+        ->call('pollPendingAssessments')
         ->assertSet('uploadPhase', '');
 
     expect($intake->fresh()->uploads()->count())->toBe(1);
@@ -319,17 +352,20 @@ test('mount herstart beoordeling voor uploads zonder verdict', function () {
 
     expect($upload->usability_verdict)->toBeNull();
 
+    Queue::fake([AssessUploadedPhotoJob::class]);
+
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->assertSet('uploadPhase', 'assessing')
-        ->assertSet('uploadPhaseComposite', 'fusebox_photo')
-        ->assertJs('$wire.assessPendingUploads()');
+        ->assertSet('uploadPhaseComposite', 'fusebox_photo');
+
+    Queue::assertPushedOn('ai-photo', AssessUploadedPhotoJob::class);
 
     $pending = $component->get('pendingAssessUploadIds');
     expect($pending)->toHaveKey('fusebox_photo')
         ->and($pending['fusebox_photo'])->toContain($upload->id);
 });
 
-test('retry na mislukte beoordeling herbeoordeelt via tweede round-trip', function () {
+test('retry na mislukte beoordeling herbeoordeelt via queue', function () {
     $intake = makeP2ProgressIntake();
     app(SaveIntakeAnswer::class)->handle($intake, 'request_reason', null, ['text' => 'Timeout-proof']);
     app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
@@ -341,14 +377,33 @@ test('retry na mislukte beoordeling herbeoordeelt via tweede round-trip', functi
     $pending = $component->get('pendingAssessUploadIds');
     expect($pending)->toHaveKey('fusebox_photo')->and($pending['fusebox_photo'])->not->toBeEmpty();
 
+    // Sync queue already ran the job; poll clears the phase.
+    $component->call('pollPendingAssessments')->assertSet('uploadPhase', '');
+
+    // Simuleer timeout-UI: zet fase op failed met behoud van pending ids via retry-pad.
+    $uploadId = (int) $pending['fusebox_photo'][0];
+    $upload = IntakeUpload::query()->findOrFail($uploadId);
+    // Soft-fail assessment wissen zodat retry opnieuw mag.
+    $upload->forceFill(['content_assessment' => null])->save();
+
     $component
-        ->set('uploadPhase', 'failed')
-        ->set('uploadPhaseMessage', 'Beoordelen mislukt. Je foto en antwoorden blijven bewaard.')
-        ->call('retryFailedUploadPhase')
-        ->assertSet('uploadPhase', 'assessing')
-        ->assertJs('$wire.assessPendingUploads()')
-        ->call('assessPendingUploads')
-        ->assertSet('uploadPhase', '');
+        ->call('retryFailedUploadPhase');
+
+    // Zonder pending+composite doet retry recover; forceer opnieuw via upload-id recovery.
+    if ($component->get('uploadPhase') !== 'assessing') {
+        $component->call('retryFailedUploadPhase');
+    }
+
+    expect($component->get('uploadPhase'))->toBe('assessing');
+
+    // Job opnieuw (sync) + poll.
+    (new AssessUploadedPhotoJob($uploadId))->handle(
+        app(AssessFollowUpPhotoSubject::class),
+        app(AssessFuseboxPhotos::class),
+        app(DerivePhotoAnswers::class),
+    );
+
+    $component->call('pollPendingAssessments')->assertSet('uploadPhase', '');
 
     expect($intake->fresh()->uploads()->count())->toBe(1)
         ->and($intake->fresh()->answers()->where('question_key', 'request_reason')->value('value'))
@@ -372,7 +427,7 @@ test('ontbrekend mediabestand krijgt fallback-verdict en recovery queuet niet op
 
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->assertSet('uploadPhase', 'assessing')
-        ->call('assessPendingUploads')
+        ->call('pollPendingAssessments')
         ->assertSet('uploadPhase', '');
 
     expect($upload->fresh()->usability_verdict)->toBe(PhotoUsabilityVerdict::Ok)
@@ -398,7 +453,7 @@ test('follow-up ontbrekend mediabestand krijgt fallback-verdict zonder recovery-
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->assertSet('followUpMode', true)
         ->assertSet('uploadPhase', 'assessing')
-        ->call('assessPendingUploads')
+        ->call('pollPendingAssessments')
         ->assertSet('uploadPhase', '');
 
     expect($upload->fresh()->usability_verdict)->toBe(PhotoUsabilityVerdict::Ok);

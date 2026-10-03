@@ -66,9 +66,15 @@ final class PhotoContentAssessment
             'status' => self::STATUS_NOT_ASSESSED,
             'expected_subject' => $expected?->value,
             'detected_subject' => null,
-            // Alleen voor de installateur; klant ziet geen hint/error.
-            'customer_message' => null,
+            // Soft-fail: klant mag door; installateur ziet het ook als badge.
+            'customer_message' => 'We konden je foto nu niet automatisch beoordelen; de installateur kijkt mee.',
         ]);
+    }
+
+    /** Definitief oordeel (geen herbeoordeling nodig), of nog open voor retry. */
+    public function needsReassessment(): bool
+    {
+        return $this->value['status'] === self::STATUS_NOT_ASSESSED;
     }
 
     /**
@@ -171,10 +177,6 @@ final class PhotoContentAssessment
 
     public function customerMessage(): ?string
     {
-        if ($this->value['status'] === self::STATUS_NOT_ASSESSED) {
-            return null;
-        }
-
         $message = $this->value['customer_message'] ?? null;
 
         return is_string($message) && trim($message) !== '' ? trim($message) : null;

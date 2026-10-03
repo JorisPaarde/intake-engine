@@ -106,6 +106,9 @@
                     @php($uploadBusy = ($uploadPhase ?? '') === 'assessing' && ($uploadPhaseComposite ?? '') === (string) $item->id)
                     <div
                         class="mt-3"
+                        @if ($uploadBusy)
+                            wire:poll.2s="pollPendingAssessments"
+                        @endif
                         x-data="{ timedOut: false, timer: null }"
                         x-init="
                             const arm = () => {
@@ -135,7 +138,7 @@
                                 class="sr-only"
                                 wire:model="followUpPhotoFiles.{{ $item->id }}"
                                 wire:loading.attr="disabled"
-                                wire:target="followUpPhotoFiles.{{ $item->id }},assessPendingUploads,retryFailedUploadPhase"
+                                wire:target="followUpPhotoFiles.{{ $item->id }},pollPendingAssessments,assessPendingUploads,retryFailedUploadPhase"
                                 x-bind:disabled="@js($uploadBusy) && ! timedOut"
                             >
                         </label>
@@ -152,7 +155,7 @@
                                             type="button"
                                             wire:click="retryFailedUploadPhase"
                                             wire:loading.attr="disabled"
-                                            wire:target="assessPendingUploads,retryFailedUploadPhase"
+                                            wire:target="pollPendingAssessments,assessPendingUploads,retryFailedUploadPhase"
                                             class="text-sm font-semibold text-brand-sea underline disabled:opacity-60"
                                         >
                                             Opnieuw beoordelen
@@ -166,7 +169,7 @@
                                         type="button"
                                         wire:click="retryFailedUploadPhase"
                                         wire:loading.attr="disabled"
-                                        wire:target="assessPendingUploads,retryFailedUploadPhase"
+                                        wire:target="pollPendingAssessments,assessPendingUploads,retryFailedUploadPhase"
                                         class="mt-1 text-sm font-semibold text-brand-sea underline disabled:opacity-60"
                                     >
                                         Opnieuw proberen

@@ -88,7 +88,8 @@ final class DerivePhotoAnswers
 
         if (! (bool) config('ai.photo_inference.enabled', false)) {
             foreach ($allUploads as $upload) {
-                if ($upload->contentAssessment() === null) {
+                $existing = $upload->contentAssessment();
+                if ($existing === null || $existing->needsReassessment()) {
                     $upload->storeContentAssessment(PhotoContentAssessment::notAssessed($expected));
                 }
             }
@@ -106,9 +107,9 @@ final class DerivePhotoAnswers
         $applyContext = null;
 
         foreach ($allUploads as $upload) {
-            // Alleen uploads zonder assessment — bestaande content_assessment blijft staan.
-            if ($upload->contentAssessment() !== null) {
-                $existing = $upload->contentAssessment();
+            // Bestaande definitieve assessment blijft staan; not_assessed mag opnieuw.
+            $existing = $upload->contentAssessment();
+            if ($existing !== null && ! $existing->needsReassessment()) {
                 if ($existing->status() === PhotoContentAssessment::STATUS_WRONG_SUBJECT
                     && ! $existing->customerAcceptedMismatch()) {
                     $anyMismatch = true;

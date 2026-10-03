@@ -4,7 +4,14 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
-## [1.3.0] - 2026-10-03
+### Fixed
+
+- **503 bij gelijktijdige fotouploads (3 okt 2026, prod LiteSpeed/LVE):** AI-fotobeoordeling (`DerivePhotoAnswers`, `AssessFuseboxPhotos`, `AssessFollowUpPhotoSubject`) liep synchroon in de Livewire-request en hield PHP-workers tot `AI_TIMEOUT_SECONDS` vast. Beoordeling draait nu in `AssessUploadedPhotoJob` op queue `ai-photo` (uniek per upload); upload doet alleen opslaan + lokale usability. Wizard toont bestaande fases en pikt het resultaat op via `wire:poll.2s` (`pollPendingAssessments`). Soft-fail → `not_assessed` met klanttekst “We konden je foto nu niet automatisch beoordelen; de installateur kijkt mee.” Elke foto-AI schrijft precies één `photo_analysis`-trace gekoppeld aan `ai_run`.
+
+### Changed
+
+- **Queue/cron (BL-121):** fotobeoordeling op `ai-photo`; Laravel-scheduler start elk uur een langere `queue:work --queue=ai-photo,default --max-time=3500 --sleep=1` met `withoutOverlapping`. Minutelijk `queue:work` blijft als vangnet — zie `docs/DEPLOYMENT.md`.
+
 
 ### Fixed
 

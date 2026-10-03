@@ -315,6 +315,9 @@
 
                                     @if ($remainingSlots > 0)
                                         <div
+                                            @if (($uploadPhase ?? '') === 'assessing' && ($uploadPhaseComposite ?? '') === $composite)
+                                                wire:poll.2s="pollPendingAssessments"
+                                            @endif
                                             x-data="{ timedOut: false, timer: null }"
                                             x-init="
                                                 const arm = () => {
@@ -350,7 +353,7 @@
                                                     class="sr-only"
                                                     wire:model="photoFiles.{{ $composite }}"
                                                     wire:loading.attr="disabled"
-                                                    wire:target="photoFiles.{{ $composite }},assessPendingUploads,retryFailedUploadPhase"
+                                                    wire:target="photoFiles.{{ $composite }},pollPendingAssessments,assessPendingUploads,retryFailedUploadPhase"
                                                     x-bind:disabled="@js($uploadBusy) && ! timedOut"
                                                 >
                                             </label>
@@ -367,7 +370,7 @@
                                                                 type="button"
                                                                 wire:click="retryFailedUploadPhase"
                                                                 wire:loading.attr="disabled"
-                                                                wire:target="assessPendingUploads,retryFailedUploadPhase"
+                                                                wire:target="pollPendingAssessments,assessPendingUploads,retryFailedUploadPhase"
                                                                 class="text-sm font-semibold text-[var(--tenant-primary)] underline disabled:opacity-60"
                                                             >
                                                                 Opnieuw beoordelen
@@ -381,7 +384,7 @@
                                                             type="button"
                                                             wire:click="retryFailedUploadPhase"
                                                             wire:loading.attr="disabled"
-                                                            wire:target="assessPendingUploads,retryFailedUploadPhase"
+                                                            wire:target="pollPendingAssessments,assessPendingUploads,retryFailedUploadPhase"
                                                             class="mt-1 text-sm font-semibold text-[var(--tenant-primary)] underline disabled:opacity-60"
                                                         >
                                                             Opnieuw proberen

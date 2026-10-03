@@ -15,9 +15,10 @@ use Illuminate\Support\Collection;
  * Voortgang van een gerichte klantaanvulling op basis van afgeronde items,
  * niet op de huidige stappositie (klanttest P2).
  *
- * Foto's tellen pas mee als ze bruikbaar beoordeeld zijn én geen onopgeloste
- * wrong_subject-mismatch hebben; tijdens beoordeling of bij onbruikbare /
- * verkeerde foto's blijft het item open (geen 100%).
+ * Foto's tellen pas mee als ze bruikbaar beoordeeld zijn én een
+ * content_assessment hebben zonder onopgeloste wrong_subject. Tijdens de
+ * queue-beoordeling of bij onbruikbare / verkeerde foto's blijft het item
+ * open (geen 100%).
  */
 final class FollowUpProgressCalculator
 {
@@ -100,7 +101,16 @@ final class FollowUpProgressCalculator
             return 'unusable';
         }
 
-        // Wrong-subject zonder expliciete acceptatie telt niet als afgerond (staging 81b).
+        // Wacht tot de queue-job content_assessment heeft geschreven (voorkomt 100% vóór AI).
+        $pendingContent = $item->uploads->contains(
+            static fn (IntakeUpload $upload): bool => $upload->contentAssessment() === null,
+        );
+
+        if ($pendingContent) {
+            return 'received';
+        }
+
+        // Wrong-subject zonder expliciete acceptatie telt niet als afgerond.
         if ($this->hasUnresolvedWrongSubject($item->uploads)) {
             return 'mismatch';
         }

@@ -1,6 +1,6 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 3.22 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.24 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **samenvatting, aandachtspunten, lokale fotokwaliteit, tekst-/foto-afleiding, verbindingsgebonden routeanalyse en bewijsgerichte dossiersynthese zijn geïmplementeerd**. Externe provider en tekst-/foto-/route-/dossierinferentie staan standaard uit (provider + key + featurevlaggen + budgetcaps; soft-fail zonder die config). OpenAI-compatibele gateways (o.a. OpenRouter) via `AI_BASE_URL`.
 
@@ -77,11 +77,12 @@ App\Domains\AI\
   Prompts\dossier_synthesis\
   Actions\SummarizeIntake
   Actions\SuggestAttentionPoints | AssessFuseboxPhotos | DerivePhotoAnswers
+  Actions\AssessFollowUpPhotoSubject | AssessPhotoUsability
   Actions\SuggestInstallerPhotoObservations
   Actions\DeriveIntentFromRequest | PrefillAnswersFromKnownContext
   Actions\AnalyzeRoutePhoto | SynthesizePipeRoute
   Actions\SynthesizeSurveyDossier
-  Jobs\SummarizeIntakeJob | SynthesizeSurveyDossierJob
+  Jobs\SummarizeIntakeJob | SynthesizeSurveyDossierJob | AssessUploadedPhotoJob
   Models\AiRun | AiTrace | AiTraceStep
   Services\AiTraceRecorder | AiTraceHandle | AiTraceRedactor | AiTraceSnapshotService
 ```
@@ -245,16 +246,19 @@ Server-side validatie vóór opslaan. Ongeldige output = `failed`.
 - Prompt `attention_points-v3` beoordeelt het volledige dossier integraal. Elk voorstel bevat verplicht `confidence` en minimaal één concrete `evidence`-referentie. Elke combinatie van `source_type` en `reference` wordt server-side gecontroleerd tegen exact de naar de provider verzonden context; onbekende of verkeerd getypeerde modelreferenties maken de run ongeldig. Geldige provenance wordt machineleesbaar opgeslagen en vóór acceptatie getoond. Legacy AI-voorstellen zonder valide confidence/evidence worden tijdens de hardeningmigratie verwijderd en zijn ook server-side niet accepteerbaar. De prompt moet bronconflicten, onzekerheden en ontbrekende gegevens expliciet signaleren zonder afleidingen als bevestigde feiten te presenteren.
 - Rapportrebuilds en AI-samenvattingspersistentie locken de intake en laden aandachtspunten opnieuw, zodat een stale relation-cache een recente installateursbeslissing niet kan overschrijven. Na acceptatie wordt de HTML direct herbouwd en een nieuwe PDF-job ingepland.
 
-## Foto-categorie en stelligheid (BL-119)
+## Foto-categorie en stelligheid (BL-119 / BL-121)
 
-- Foto-afleiding (`DerivePhotoAnswers`, `AssessFuseboxPhotos`) beoordeelt **elke upload zonder assessment** (ook buiten het `max_images`-venster). `subject_match=no` → altijd `wrong_subject` (detected of `other`), nooit `ok`/`needs_clearer`. AI-fout of inference uit → `not_assessed` (nooit null). Fabriek: `PhotoContentAssessment::fromModelOutput`. Per-upload AiTrace (`PhotoAnalysis`) blijft (#117).
-- Klant: `wrong_subject` soft-blockt verplichte foto’s — **Vervang foto** (verwijdert wrong upload + opent picker) en **Toch doorgaan**. Banner verdwijnt zodra `PhotoContentSatisfaction` tevreden is; verkeerde foto houdt installateursbadge. Bestaande `content_assessment` wordt niet overschreven. `not_assessed` is alleen voor de installateur.
+- Foto-afleiding (`DerivePhotoAnswers`, `AssessFuseboxPhotos`, `AssessFollowUpPhotoSubject`) draait **niet** in de Livewire-webrequest maar in `AssessUploadedPhotoJob` (queue `ai-photo`, unique per upload). De uploadrequest slaat alleen op + lokale usability (`AssessPhotoUsability`) en returnt meteen. Wizard: fases Uploaden → Foto beoordelen; resultaat via `wire:poll.2s` (`pollPendingAssessments`) zonder page refresh.
+- Beoordeelt **elke upload zonder definitieve assessment** (ook buiten het `max_images`-venster); `not_assessed` mag opnieuw. `subject_match=no` → altijd `wrong_subject` (detected of `other`), nooit `ok`/`needs_clearer`. AI-fout, timeout of inference uit → `not_assessed` (nooit null) met klanttekst “We konden je foto nu niet automatisch beoordelen; de installateur kijkt mee.” Job: `$tries=2`, backoff, timeout > `AI_TIMEOUT_SECONDS`.
+- Elke AI-fotobeoordeling schrijft precies één complete `ai_traces`-rij (`call_type=photo_analysis`) gekoppeld aan haar `ai_run` (model/provider/ms). Upload-persist traceert geen losse `photo_analysis` meer.
+- Klant: `wrong_subject` soft-blockt verplichte foto’s — **Vervang foto** / **Toch doorgaan**. Banner verdwijnt zodra `PhotoContentSatisfaction` tevreden is; verkeerde foto houdt installateursbadge. Definitieve assessments worden niet overschreven; `not_assessed` wel herbeoordeeld.
 - `retake_instruction` op een bruikbare match → `needs_clearer` (ongeacht confidence).
 - Meterkast-mismatch zet **geen** `fusebox_clarity=needs_clearer_photo`; één taak: vervang de foto.
 - Technische routeconclusies staan alleen als dossierfeit (`pipe_route_photos_derivation`). Model-`drillings_needed=no` → `unknown` + voorstelnotitie. Prompt `pipe-route-assessment-v3`.
 - Interne velden `fusebox_clarity` / `room_outlet_status` nooit in klantstappen (`InternalCustomerQuestions`). Routevoorstellen via `TechnicalDecisionKeys::ROUTE_PROPOSAL_KEYS` (één class met #115-KEYS/`aiPrefillSources()`).
-- Follow-up: accepted subjects per `decision_area_key` (power→fusebox; refrigerant→pipe_route|outdoor_unit). Async beoordeling → BL-121. Onopgeloste `wrong_subject` telt niet mee voor follow-up-100% (`FollowUpProgressCalculator` → “Nog te vervangen”); afronden mag wel. Installateur ziet dan korte reden via `followUpMismatchReason` op het open beslisgebied (BL-123).
+- Follow-up: accepted subjects per `decision_area_key` (power→fusebox; refrigerant→pipe_route|outdoor_unit). Beoordeling via `AssessUploadedPhotoJob` (queue `ai-photo`). Onopgeloste `wrong_subject` telt niet mee voor follow-up-100% (`FollowUpProgressCalculator` → “Nog te vervangen”); voortgang wacht op `content_assessment` van de job. Installateur ziet mismatch-reden via `followUpMismatchReason` (BL-123).
 - `DecisionReadinessService::hasFuseboxPhoto` en voortgang gebruiken `PhotoContentSatisfaction`.
+- Hosting/cron: zie `docs/DEPLOYMENT.md` § Cron (`--queue=ai-photo,default` + hourly scheduler-worker).
 
 ## Fotokwaliteit (BL-007)
 
