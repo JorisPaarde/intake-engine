@@ -529,7 +529,7 @@ test('wizard progress volgt Vraag X van Y, daalt niet mid-session, 100% pas na a
 
     // "Vraag 16 van N" ≈ stepIndex 15 → done = 15 (passed/skipped), current nog open.
     $targetIndex = min(15, max(1, $total - 2));
-    $component->set('stepIndex', $targetIndex);
+    $component->call('goToStep', $targetIndex);
 
     $percentMid = (int) $component->viewData('progressPercent');
     $expectedMid = min(99, (int) round(($targetIndex / $total) * 100));
@@ -539,7 +539,7 @@ test('wizard progress volgt Vraag X van Y, daalt niet mid-session, 100% pas na a
         ->and($percentMid)->toBeGreaterThan(0);
 
     // Jumping back lowers raw done/total; session high-water must not decrease.
-    $component->set('stepIndex', max(0, (int) floor($targetIndex / 3)));
+    $component->call('goToStep', max(0, (int) floor($targetIndex / 3)));
 
     expect((int) $component->viewData('progressPercent'))->toBe($percentMid)
         ->and((int) $component->get('progressHighWater'))->toBe($percentMid);
