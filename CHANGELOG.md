@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Fixed
+
+- **AI-tekstprefill dumpte multi-room extractie (BL-122 / case 81):** `RequestPrefillOutcomeClassifier` gooide bij te lange top-level `evidence` (>500, vaak een echo van een lange openingszin) of één kapotte fill de héle catalogusrespons weg. Soft-envelope: evidence inkorten, per-fill reject met reden in de AI-trace, apply vangt writefouten per veld; `AiValidationFailureFormatter` op harde fouten. Staging-regressietests case 80/81.
+
 ### Added
 
 - **Je-vorm + vrije-groepuitleg (BL-120):** airco **v20** (op v19) zet u/uw → je/jouw in sectie-/vraagteksten; feitelijke `free_group_known`; meterkastfoto zonder 1-/3-fase-oordeel; runtime notices/mails je-vorm.

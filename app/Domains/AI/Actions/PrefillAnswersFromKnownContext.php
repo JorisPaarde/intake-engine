@@ -9,6 +9,7 @@ use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\AiGateway;
 use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\AI\Services\AiTraceSnapshotService;
+use App\Domains\AI\Services\AiValidationFailureFormatter;
 use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\AI\Services\RequestPrefillContextBuilder;
 use App\Domains\AI\Services\RequestPrefillOutcomeClassifier;
@@ -26,7 +27,9 @@ use App\Enums\AiTraceCallType;
 use App\Enums\IntakeStatus;
 use App\Enums\QuestionType;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
@@ -47,6 +50,7 @@ final class PrefillAnswersFromKnownContext
         private readonly SaveIntakeAnswer $saveIntakeAnswer,
         private readonly AiTraceRecorder $traceRecorder,
         private readonly AiTraceSnapshotService $traceSnapshots,
+        private readonly AiValidationFailureFormatter $validationFailureFormatter,
     ) {}
 
     public function handle(Intake $intake): ?AiRun
@@ -147,19 +151,28 @@ final class PrefillAnswersFromKnownContext
                 'evidence' => $classified['evidence'],
                 'fills' => $classified['fills'],
             ];
-            $trace->recordParsed($output, [], $classified['normalizations']);
+            $trace->recordParsed(
+                $output,
+                $classified['validation_errors'],
+                $classified['normalizations'],
+            );
             $trace->step('normalize', [
                 'candidate_count' => count($classified['candidates']),
                 'normalization_count' => count($classified['normalizations']),
+                'validation_error_count' => count($classified['validation_errors']),
             ]);
 
             try {
-                $applied = DB::transaction(function () use ($intake, $output, $classified, $trace): array {
+                $applyResult = DB::transaction(function () use ($intake, $output, $classified, $trace): array {
                     $trace->beginBuffer();
                     Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
-                    $applied = $this->apply($intake, $output, $classified['candidates']);
-                    $trace->step('apply', ['applied_question_keys' => $applied]);
-                    $trace->recordFieldOutcomes(array_map(
+                    $applyResult = $this->apply($intake, $output, $classified['candidates']);
+                    $trace->step('apply', [
+                        'applied_question_keys' => $applyResult['applied'],
+                        'apply_failure_count' => count($applyResult['failures']),
+                    ]);
+
+                    $outcomes = array_map(
                         static fn (RequestPrefillCandidate $candidate): array => [
                             'question_key' => $candidate->questionKey,
                             'section_instance_key' => $candidate->sectionInstanceKey,
@@ -170,10 +183,15 @@ final class PrefillAnswersFromKnownContext
                             'has_value' => $candidate->value !== null,
                         ],
                         $classified['candidates'],
-                    ));
+                    );
+                    foreach ($applyResult['failures'] as $failure) {
+                        $outcomes[] = $failure;
+                    }
+                    $trace->recordFieldOutcomes($outcomes);
 
-                    return $applied;
+                    return $applyResult;
                 }, 3);
+                $applied = $applyResult['applied'];
                 $trace->flushBuffer();
             } catch (Throwable $transactionException) {
                 $trace->discardBuffer();
@@ -222,14 +240,18 @@ final class PrefillAnswersFromKnownContext
 
             return $run;
         } catch (Throwable $exception) {
+            $errorMessage = $exception instanceof ValidationException
+                ? $this->validationFailureFormatter->fromException($exception)
+                : Str::limit($exception->getMessage(), 1000, '');
+
             $run->update([
                 'status' => AiRunStatus::Failed,
-                'error_message' => Str::limit($exception->getMessage(), 1000, ''),
+                'error_message' => $errorMessage,
                 'finished_at' => now(),
             ]);
             $trace->linkAiRun($run->fresh() ?? $run);
             $trace->discardBuffer();
-            $trace->fail($exception->getMessage(), $exception);
+            $trace->fail($errorMessage, $exception);
 
             return $run->fresh() ?? $run;
         }
@@ -238,11 +260,12 @@ final class PrefillAnswersFromKnownContext
     /**
      * @param  array{evidence: string, fills: list<array<string, mixed>>}  $output
      * @param  list<RequestPrefillCandidate>  $candidates
-     * @return list<string>
+     * @return array{applied: list<string>, failures: list<array<string, mixed>>}
      */
     private function apply(Intake $intake, array $output, array $candidates): array
     {
         $applied = [];
+        $failures = [];
 
         foreach ($candidates as $candidate) {
             if (! in_array($candidate->disposition, [
@@ -283,21 +306,42 @@ final class PrefillAnswersFromKnownContext
                 }
             }
 
-            $this->saveIntakeAnswer->handle(
-                $intake,
-                $candidate->questionKey,
-                $candidate->sectionInstanceKey,
-                $candidate->value,
-                $source,
-            );
-
-            $applied[] = $candidate->compositeKey();
+            try {
+                $this->saveIntakeAnswer->handle(
+                    $intake,
+                    $candidate->questionKey,
+                    $candidate->sectionInstanceKey,
+                    $candidate->value,
+                    $source,
+                );
+                $applied[] = $candidate->compositeKey();
+            } catch (Throwable $exception) {
+                // Eén mislukte write mag andere geldige fills niet terugdraaien.
+                Log::warning('request_prefill.apply_field_failed', [
+                    'intake_id' => $intake->id,
+                    'question_key' => $candidate->questionKey,
+                    'section_instance_key' => $candidate->sectionInstanceKey,
+                    'error' => Str::limit($exception->getMessage(), 300, ''),
+                ]);
+                $failures[] = [
+                    'question_key' => $candidate->questionKey,
+                    'section_instance_key' => $candidate->sectionInstanceKey,
+                    'disposition' => RequestPrefillCandidate::DISPOSITION_REJECTED,
+                    'confidence' => $candidate->confidence,
+                    'source' => $candidate->source,
+                    'reason' => 'Opslaan mislukt: '.Str::limit($exception->getMessage(), 200, ''),
+                    'has_value' => true,
+                ];
+            }
         }
 
         $this->deriveAreaFromLengthWidth($intake);
         $this->pruneExtraPrefillRooms($intake, $applied);
 
-        return $applied;
+        return [
+            'applied' => $applied,
+            'failures' => $failures,
+        ];
     }
 
     /**

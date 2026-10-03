@@ -6,16 +6,23 @@ namespace App\Domains\AI\Services;
 
 use App\Domains\AI\DTOs\RequestPrefillCandidate;
 use App\Enums\QuestionType;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 /**
  * Deelt normalisatie- en classificatielogica voor catalogus-AI-prefill (productie + dry-run).
  * Geen DB-writes; geen eigen confidencegrenzen — dezelfde regels als PrefillAnswersFromKnownContext.
+ *
+ * Envelopefouten (te lange evidence, één kapotte fill) verwerpen nooit de hele extractie:
+ * geldige fills blijven kandidaten; afwijkingen landen als rejected + normalizations/validation_errors.
  */
 final class RequestPrefillOutcomeClassifier
 {
+    private const int EVIDENCE_MAX = 500;
+
+    private const int FILL_EVIDENCE_MAX = 300;
+
+    private const int FILLS_SOFT_MAX = 80;
+
     /**
      * @param  array<string, mixed>  $output
      * @param  array<string, mixed>  $catalog
@@ -24,40 +31,160 @@ final class RequestPrefillOutcomeClassifier
      *     evidence: string,
      *     fills: list<array<string, mixed>>,
      *     candidates: list<RequestPrefillCandidate>,
-     *     normalizations: list<array{field: string, from: mixed, to: mixed, rule: string}>
+     *     normalizations: list<array{field: string, from: mixed, to: mixed, rule: string}>,
+     *     validation_errors: array<string, list<string>>
      * }
      */
     public function classifyCatalogOutput(array $output, array $catalog, array $photoKeys = []): array
     {
-        $validator = Validator::make($output, [
-            'evidence' => ['required', 'string', 'min:3', 'max:500'],
-            'fills' => ['present', 'array', 'max:40'],
-            'fills.*.question_key' => ['required', 'string', 'max:120'],
-            'fills.*.section_instance_key' => ['nullable', 'string', 'max:80'],
-            'fills.*.confidence' => ['required', Rule::in(['high', 'medium', 'low'])],
-            'fills.*.value' => ['required', 'array'],
-            'fills.*.evidence' => ['nullable', 'string', 'max:300'],
-        ]);
-
-        if ($validator->fails()) {
-            throw ValidationException::withMessages($validator->errors()->toArray());
-        }
-
-        /** @var array{evidence: string, fills: list<array<string, mixed>>} $validated */
-        $validated = $validator->validated();
         $index = $this->catalogIndex($catalog);
         $labels = $this->catalogLabels($catalog);
         $fills = [];
         $candidates = [];
         $normalizations = [];
+        /** @var array<string, list<string>> $validationErrors */
+        $validationErrors = [];
 
-        foreach ($validated['fills'] as $fill) {
-            $key = (string) $fill['question_key'];
+        if (! array_key_exists('fills', $output) || ! is_array($output['fills'])) {
+            throw ValidationException::withMessages([
+                'fills' => ['Catalogus-AI-output mist een fills-array.'],
+            ]);
+        }
+
+        $evidence = $this->softenEvidence($output['evidence'] ?? null, $normalizations, $validationErrors);
+        /** @var list<mixed> $rawFills */
+        $rawFills = array_values($output['fills']);
+
+        foreach ($rawFills as $indexFill => $fill) {
+            if ($indexFill >= self::FILLS_SOFT_MAX) {
+                $validationErrors['fills'][] = 'Meer dan '.self::FILLS_SOFT_MAX.' fills — resterende overgeslagen.';
+                $candidates[] = new RequestPrefillCandidate(
+                    questionKey: '_fills_overflow',
+                    sectionInstanceKey: null,
+                    label: 'Extra fills',
+                    value: null,
+                    confidence: null,
+                    evidence: null,
+                    disposition: RequestPrefillCandidate::DISPOSITION_REJECTED,
+                    source: RequestPrefillCandidate::SOURCE_CATALOG_AI,
+                    reason: 'Te veel fills in één response — rest genegeerd, eerdere geldige fills blijven.',
+                );
+                break;
+            }
+
+            if (! is_array($fill)) {
+                $attr = 'fills.'.$indexFill;
+                $validationErrors[$attr][] = 'Fill is geen object.';
+                $candidates[] = new RequestPrefillCandidate(
+                    questionKey: '_malformed_fill',
+                    sectionInstanceKey: null,
+                    label: 'Ongeldige fill #'.($indexFill + 1),
+                    value: null,
+                    confidence: null,
+                    evidence: null,
+                    disposition: RequestPrefillCandidate::DISPOSITION_REJECTED,
+                    source: RequestPrefillCandidate::SOURCE_CATALOG_AI,
+                    reason: 'Fill is geen object — overgeslagen.',
+                );
+
+                continue;
+            }
+
+            $keyRaw = $fill['question_key'] ?? null;
+            if (! is_string($keyRaw) || trim($keyRaw) === '' || mb_strlen($keyRaw) > 120) {
+                $attr = 'fills.'.$indexFill.'.question_key';
+                $validationErrors[$attr][] = 'Ontbrekende of ongeldige question_key.';
+                $candidates[] = new RequestPrefillCandidate(
+                    questionKey: '_missing_key',
+                    sectionInstanceKey: null,
+                    label: 'Fill zonder vraagkey',
+                    value: is_array($fill['value'] ?? null) ? $fill['value'] : null,
+                    confidence: is_string($fill['confidence'] ?? null) ? $fill['confidence'] : null,
+                    evidence: null,
+                    disposition: RequestPrefillCandidate::DISPOSITION_REJECTED,
+                    source: RequestPrefillCandidate::SOURCE_CATALOG_AI,
+                    reason: 'Ontbrekende of ongeldige question_key — overgeslagen.',
+                );
+
+                continue;
+            }
+
+            $key = $keyRaw;
             $instanceKey = $fill['section_instance_key'] ?? null;
             $instanceKey = is_string($instanceKey) && $instanceKey !== '' ? $instanceKey : null;
-            $confidence = (string) $fill['confidence'];
-            $evidence = isset($fill['evidence']) && is_string($fill['evidence']) ? $fill['evidence'] : null;
-            $rawValue = is_array($fill['value'] ?? null) ? $fill['value'] : [];
+            if ($instanceKey !== null && mb_strlen($instanceKey) > 80) {
+                $attr = 'fills.'.$indexFill.'.section_instance_key';
+                $validationErrors[$attr][] = 'section_instance_key te lang.';
+                $candidates[] = new RequestPrefillCandidate(
+                    questionKey: $key,
+                    sectionInstanceKey: null,
+                    label: $this->questionLabel($labels, $key, null),
+                    value: is_array($fill['value'] ?? null) ? $fill['value'] : null,
+                    confidence: is_string($fill['confidence'] ?? null) ? $fill['confidence'] : null,
+                    evidence: null,
+                    disposition: RequestPrefillCandidate::DISPOSITION_REJECTED,
+                    source: RequestPrefillCandidate::SOURCE_CATALOG_AI,
+                    reason: 'section_instance_key te lang — overgeslagen.',
+                );
+
+                continue;
+            }
+
+            $confidenceRaw = $fill['confidence'] ?? null;
+            if (! is_string($confidenceRaw) || ! in_array($confidenceRaw, ['high', 'medium', 'low'], true)) {
+                $attr = 'fills.'.$indexFill.'.confidence';
+                $validationErrors[$attr][] = 'Ongeldige confidence.';
+                $candidates[] = new RequestPrefillCandidate(
+                    questionKey: $key,
+                    sectionInstanceKey: $instanceKey,
+                    label: $this->questionLabel($labels, $key, $instanceKey),
+                    value: is_array($fill['value'] ?? null) ? $fill['value'] : null,
+                    confidence: is_string($confidenceRaw) ? $confidenceRaw : null,
+                    evidence: null,
+                    disposition: RequestPrefillCandidate::DISPOSITION_REJECTED,
+                    source: RequestPrefillCandidate::SOURCE_CATALOG_AI,
+                    reason: 'Ongeldige confidence — overgeslagen.',
+                );
+
+                continue;
+            }
+            $confidence = $confidenceRaw;
+
+            if (! array_key_exists('value', $fill) || ! is_array($fill['value'])) {
+                $attr = 'fills.'.$indexFill.'.value';
+                $validationErrors[$attr][] = 'Waarde ontbreekt of is geen object.';
+                $candidates[] = new RequestPrefillCandidate(
+                    questionKey: $key,
+                    sectionInstanceKey: $instanceKey,
+                    label: $this->questionLabel($labels, $key, $instanceKey),
+                    value: null,
+                    confidence: $confidence,
+                    evidence: null,
+                    disposition: RequestPrefillCandidate::DISPOSITION_REJECTED,
+                    source: RequestPrefillCandidate::SOURCE_CATALOG_AI,
+                    reason: 'Waarde ontbreekt of is geen object — overgeslagen.',
+                );
+
+                continue;
+            }
+
+            $fillEvidence = null;
+            if (isset($fill['evidence']) && is_string($fill['evidence'])) {
+                $fillEvidence = $fill['evidence'];
+                if (mb_strlen($fillEvidence) > self::FILL_EVIDENCE_MAX) {
+                    $truncated = mb_substr($fillEvidence, 0, self::FILL_EVIDENCE_MAX);
+                    $normalizations[] = [
+                        'field' => ($instanceKey === null ? $key : $key.'|'.$instanceKey).'.evidence',
+                        'from' => mb_strlen($fillEvidence).' chars',
+                        'to' => mb_strlen($truncated).' chars',
+                        'rule' => 'truncate_fill_evidence',
+                    ];
+                    $validationErrors['fills.'.$indexFill.'.evidence'][] = 'Evidence ingekort tot '.self::FILL_EVIDENCE_MAX.' tekens.';
+                    $fillEvidence = $truncated;
+                }
+            }
+
+            $rawValue = $fill['value'];
             $label = $this->questionLabel($labels, $key, $instanceKey);
             $question = $index[$key] ?? null;
 
@@ -68,7 +195,7 @@ final class RequestPrefillOutcomeClassifier
                     label: $label,
                     value: $rawValue !== [] ? $rawValue : null,
                     confidence: $confidence,
-                    evidence: $evidence,
+                    evidence: $fillEvidence,
                     disposition: RequestPrefillCandidate::DISPOSITION_REJECTED,
                     source: RequestPrefillCandidate::SOURCE_CATALOG_AI,
                     reason: 'Fotovragen worden niet automatisch ingevuld.',
@@ -84,7 +211,7 @@ final class RequestPrefillOutcomeClassifier
                     label: $label,
                     value: $rawValue !== [] ? $rawValue : null,
                     confidence: $confidence,
-                    evidence: $evidence,
+                    evidence: $fillEvidence,
                     disposition: RequestPrefillCandidate::DISPOSITION_REJECTED,
                     source: RequestPrefillCandidate::SOURCE_CATALOG_AI,
                     reason: 'Onbekende vraagkey — staat niet in de templatecatalogus.',
@@ -100,7 +227,7 @@ final class RequestPrefillOutcomeClassifier
                     label: $label,
                     value: $rawValue !== [] ? $rawValue : null,
                     confidence: $confidence,
-                    evidence: $evidence,
+                    evidence: $fillEvidence,
                     disposition: RequestPrefillCandidate::DISPOSITION_REJECTED,
                     source: RequestPrefillCandidate::SOURCE_CATALOG_AI,
                     reason: 'Fotovragen worden niet automatisch ingevuld.',
@@ -116,7 +243,7 @@ final class RequestPrefillOutcomeClassifier
                     label: $label,
                     value: $rawValue !== [] ? $rawValue : null,
                     confidence: $confidence,
-                    evidence: $evidence,
+                    evidence: $fillEvidence,
                     disposition: RequestPrefillCandidate::DISPOSITION_REJECTED,
                     source: RequestPrefillCandidate::SOURCE_CATALOG_AI,
                     reason: 'Niet-herhaalbare vraag kreeg een sectie-instance — overgeslagen.',
@@ -132,7 +259,7 @@ final class RequestPrefillOutcomeClassifier
                     label: $label,
                     value: $rawValue !== [] ? $rawValue : null,
                     confidence: $confidence,
-                    evidence: $evidence,
+                    evidence: $fillEvidence,
                     disposition: RequestPrefillCandidate::DISPOSITION_REJECTED,
                     source: RequestPrefillCandidate::SOURCE_CATALOG_AI,
                     reason: 'Herhaalbare vraag mist een sectie-instance (bijv. room-1).',
@@ -150,7 +277,7 @@ final class RequestPrefillOutcomeClassifier
                     label: $label,
                     value: $rawValue !== [] ? $rawValue : null,
                     confidence: $confidence,
-                    evidence: $evidence,
+                    evidence: $fillEvidence,
                     disposition: RequestPrefillCandidate::DISPOSITION_REJECTED,
                     source: RequestPrefillCandidate::SOURCE_CATALOG_AI,
                     reason: $this->invalidValueReason($question, $rawValue),
@@ -175,7 +302,7 @@ final class RequestPrefillOutcomeClassifier
                     label: $label,
                     value: $normalized,
                     confidence: $confidence,
-                    evidence: $evidence,
+                    evidence: $fillEvidence,
                     disposition: RequestPrefillCandidate::DISPOSITION_REJECTED,
                     source: RequestPrefillCandidate::SOURCE_CATALOG_AI,
                     reason: 'Lage zekerheid — wordt niet toegepast.',
@@ -194,7 +321,7 @@ final class RequestPrefillOutcomeClassifier
                 label: $label,
                 value: $normalized,
                 confidence: $confidence,
-                evidence: $evidence,
+                evidence: $fillEvidence,
                 disposition: $disposition,
                 source: RequestPrefillCandidate::SOURCE_CATALOG_AI,
                 reason: $disposition === RequestPrefillCandidate::DISPOSITION_SUGGESTION
@@ -208,16 +335,66 @@ final class RequestPrefillOutcomeClassifier
                 'section_instance_key' => $instanceKey,
                 'confidence' => $confidence,
                 'value' => $normalized,
-                'evidence' => $evidence,
+                'evidence' => $fillEvidence,
             ];
         }
 
         return [
-            'evidence' => $validated['evidence'],
+            'evidence' => $evidence,
             'fills' => $fills,
             'candidates' => $candidates,
             'normalizations' => $normalizations,
+            'validation_errors' => $validationErrors,
         ];
+    }
+
+    /**
+     * Lange of ontbrekende top-level evidence mag nooit de hele extractie dumpen.
+     *
+     * @param  list<array{field: string, from: mixed, to: mixed, rule: string}>  $normalizations
+     * @param  array<string, list<string>>  $validationErrors
+     */
+    private function softenEvidence(mixed $raw, array &$normalizations, array &$validationErrors): string
+    {
+        if (! is_string($raw) || trim($raw) === '') {
+            $validationErrors['evidence'][] = 'Evidence ontbrak of was leeg — fallback gebruikt.';
+            $normalizations[] = [
+                'field' => 'evidence',
+                'from' => $raw,
+                'to' => 'Catalogus-AI zonder samenvatting.',
+                'rule' => 'evidence_fallback',
+            ];
+
+            return 'Catalogus-AI zonder samenvatting.';
+        }
+
+        $trimmed = trim($raw);
+        if (mb_strlen($trimmed) < 3) {
+            $validationErrors['evidence'][] = 'Evidence te kort — fallback gebruikt.';
+            $normalizations[] = [
+                'field' => 'evidence',
+                'from' => $trimmed,
+                'to' => 'Catalogus-AI zonder samenvatting.',
+                'rule' => 'evidence_fallback',
+            ];
+
+            return 'Catalogus-AI zonder samenvatting.';
+        }
+
+        if (mb_strlen($trimmed) > self::EVIDENCE_MAX) {
+            $truncated = mb_substr($trimmed, 0, self::EVIDENCE_MAX);
+            $validationErrors['evidence'][] = 'Evidence ingekort tot '.self::EVIDENCE_MAX.' tekens.';
+            $normalizations[] = [
+                'field' => 'evidence',
+                'from' => mb_strlen($trimmed).' chars',
+                'to' => mb_strlen($truncated).' chars',
+                'rule' => 'truncate_evidence',
+            ];
+
+            return $truncated;
+        }
+
+        return $trimmed;
     }
 
     /**

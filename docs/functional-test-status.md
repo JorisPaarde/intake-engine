@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.86 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.87 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -12,6 +12,7 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
+| Soft catalogus-prefill multi-room (BL-122) | todo | - | Demo create met exacte case-81-tekst → werkplek toont Slaapkamer ouders + Kinderkamer met maten; klantflow vraagt koelen/verwarmen niet opnieuw; case 80 blijft werken. |
 | Klanttest foto-first + extractie + kamernamen (BL-118) | todo | - | Case 80/81: foto-first, known-summary, kamernamen; airco v18. |
 | Klantvoortgang/upload/je-vorm (BL-120) | todo | - | Foto-opdracht start 0%; uploadfases + timeout-herstel; template zonder u/uw; vrije-groephelp feitelijk. |
 | Klanttest foto P1 (BL-119) | todo | - | Case 80: buitenunitfoto → fact `drillings_needed=unknown` + voorstelnotitie; geen klant-routeantwoorden. Meterkast mismatch → Vervang foto / Toch doorgaan; `fusebox_clarity`/`room_outlet_status` niet in klantflow. Follow-up refrigerant: pipe_route|outdoor_unit. airco v19. |
