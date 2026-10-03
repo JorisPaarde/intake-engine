@@ -9,6 +9,7 @@ final readonly class AiCompletionRequest
     /**
      * @param  array<string, mixed>  $input
      * @param  list<AiImageInput>  $images
+     * @param  array<string, mixed>|null  $responseSchema  JSON Schema for strict structured output
      */
     public function __construct(
         public string $prompt,
@@ -19,5 +20,7 @@ final readonly class AiCompletionRequest
         public ?string $model = null,
         /** Classification calls pass 0 via config; OpenAiClient honors this when set. */
         public ?float $temperature = null,
+        public ?array $responseSchema = null,
+        public ?int $timeoutSeconds = null,
     ) {}
 }

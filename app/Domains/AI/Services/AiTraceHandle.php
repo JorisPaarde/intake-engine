@@ -297,7 +297,9 @@ final class AiTraceHandle
                 'input_tokens' => $result->inputTokens,
                 'output_tokens' => $result->outputTokens,
                 'total_tokens' => $result->totalTokens,
-                'estimated_cost_cents' => $result->estimatedCostCents,
+                'estimated_cost_cents' => $result->estimatedCostCents === null
+                    ? null
+                    : (int) ceil($result->estimatedCostCents),
                 'estimated_cost' => $result->estimatedCost ?? $this->trace->estimated_cost,
                 'provider_response_id' => $result->providerResponseId ?? $this->trace->provider_response_id,
                 'parsed_response' => $this->redactor->redact($result->output),

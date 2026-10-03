@@ -74,8 +74,10 @@ return [
     |
     | Applies only to paid external provider calls (`AI_PROVIDER=openai`). Enforcement
     | is fail-closed by default: if OpenAI is active but no daily/monthly cap is set,
-    | the provider call soft-fails before spending. Costs are estimated from returned
-    | token usage plus optional image/run reservations; keep rates conservative.
+    | the provider call soft-fails before spending. Fractional costs land in
+    | estimated_cost_microcents (1 cent = 10_000). The reserve is only a pre-call
+    | check; after the call the real cost is booked. Empty token/image rates keep
+    | the legacy "book reserve per call" behaviour (with a one-time warning).
     |
     */
 
@@ -136,6 +138,7 @@ return [
         'enabled' => (bool) env('AI_DOSSIER_SYNTHESIS_ENABLED', false),
         'model' => env('AI_DOSSIER_MODEL', 'gpt-5.6-terra'),
         'max_images' => (int) env('AI_DOSSIER_MAX_IMAGES', 12),
+        'timeout_seconds' => (int) env('AI_DOSSIER_TIMEOUT_SECONDS', 45),
         'prompt' => 'dossier_synthesis',
     ],
 

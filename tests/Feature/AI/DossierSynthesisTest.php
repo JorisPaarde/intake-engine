@@ -508,13 +508,14 @@ test('AI synthesis normalizes deviant length_class instead of failing soft', fun
         ->and($lengths)->toBe(['short', 'short', 'unknown']);
 });
 
-test('AI synthesis stores all validation errors with rejected values when enums remain invalid', function () {
+test('AI synthesis stores rejected proposal reasons and keeps remaining valid proposals', function () {
     [$intake] = synthesisSurveyWithPlacements();
     FakeAiClient::respondUsing(function (AiCompletionRequest $request): array {
         $output = validDossierSynthesisOutput($request, 'Kapotte enums');
         // Status "approved" must never be coerced; length_class stays invalid only if we skip unknown fallback — use invalid status + invalid decision area without unknown fallback.
         $output['option_proposals'][0]['connections'][2]['status'] = 'approved';
         $output['exceptions'][0]['decision_area_key'] = 'not_a_real_area';
+        $output['customer_tasks'] = [];
 
         return $output;
     });
@@ -522,11 +523,67 @@ test('AI synthesis stores all validation errors with rejected values when enums 
     $run = app(SynthesizeSurveyDossier::class)->handle($intake->fresh());
 
     expect($run?->status)->toBe(AiRunStatus::Failed)
-        ->and($run?->error_message)->toContain('connections.2.status')
+        ->and($run?->error_message)->toContain('option_proposals.0')
         ->and($run?->error_message)->toContain('approved')
-        ->and($run?->error_message)->toContain('exceptions.0.decision_area_key')
+        ->and($run?->error_message)->toContain('exceptions.0')
         ->and($run?->error_message)->toContain('not_a_real_area')
         ->and($run?->error_message)->not->toContain('(and 1 more error)')
+        ->and($run?->input_tokens)->toBe(100)
+        ->and(AircoInstallationOption::query()->where('intake_id', $intake->id)->count())->toBe(0);
+});
+
+test('AI synthesis partially accepts valid placements when an option fails cardinality', function () {
+    [$intake] = synthesisSurveyWithPlacements();
+    Storage::fake('local');
+    $path = "intakes/{$intake->id}/room.jpg";
+    $analysisPath = "intakes/{$intake->id}/room-analysis.jpg";
+    Storage::disk('local')->put($path, 'room-bytes');
+    Storage::disk('local')->put($analysisPath, 'analysis-bytes');
+    $upload = IntakeUpload::query()->create([
+        'intake_id' => $intake->id,
+        'question_key' => 'room_photos',
+        'section_instance_key' => 'room-1',
+        'disk' => 'local',
+        'path' => $path,
+        'analysis_path' => $analysisPath,
+        'analysis_mime_type' => 'image/jpeg',
+        'analysis_size_bytes' => 14,
+        'analysis_checksum' => hash('sha256', 'analysis-bytes'),
+        'original_filename' => 'room.jpg',
+        'mime_type' => 'image/jpeg',
+        'size_bytes' => 10,
+        'checksum' => hash('sha256', 'room-bytes'),
+        'sort_order' => 1,
+    ]);
+
+    FakeAiClient::respondUsing(function (AiCompletionRequest $request) use ($upload): array {
+        $output = validDossierSynthesisOutput($request, 'Kapotte cardinaliteit');
+        $room = collect($request->input['rooms'])->first();
+        $output['placement_proposals'] = [[
+            'key' => 'proposal:indoor_extra',
+            'type' => AircoPlacementType::IndoorUnit->value,
+            'label' => 'Extra binnenpositie',
+            'description' => 'Zichtbaar op de kamerfoto.',
+            'room_reference' => $room['reference'],
+            'subject_reference' => $room['subject_reference'],
+            'confidence' => 0.7,
+            'evidence_references' => ['dossier_image:'.$upload->id],
+        ]];
+        // Drop power connection → min 3 / type set fails.
+        array_pop($output['option_proposals'][0]['connections']);
+
+        return $output;
+    });
+
+    $run = app(SynthesizeSurveyDossier::class)->handle($intake->fresh());
+
+    expect($run?->status)->toBe(AiRunStatus::Partial, $run?->error_message ?? '')
+        ->and($run?->image_count)->toBe(1)
+        ->and($run?->input_tokens)->toBe(100)
+        ->and($run?->estimated_cost_microcents)->toBe(2500)
+        ->and($run?->estimated_cost_cents)->toBe(1)
+        ->and($run?->error_message)->not->toBeNull()
+        ->and(AircoPlacementOption::query()->where('intake_id', $intake->id)->where('source_type', 'ai')->count())->toBe(1)
         ->and(AircoInstallationOption::query()->where('intake_id', $intake->id)->count())->toBe(0);
 });
 

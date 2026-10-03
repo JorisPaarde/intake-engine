@@ -22,6 +22,9 @@ use Illuminate\Support\Str;
  * and budget caps when enforced; default provider stays `null`. PII is redacted before
  * sending (AiInputRedactor). Failures raise AiClientException (soft-fail for callers).
  * API keys never appear in exception messages.
+ *
+ * When the caller passes a JSON schema, uses strict structured output
+ * (`response_format.type=json_schema`); otherwise falls back to `json_object`.
  */
 final class OpenAiClient implements AiClientInterface
 {
@@ -43,7 +46,8 @@ final class OpenAiClient implements AiClientInterface
 
         $baseUrl = rtrim((string) config('ai.base_url', 'https://api.openai.com/v1'), '/');
         $model = $this->resolveModel($request);
-        $timeout = (int) config('ai.timeout_seconds', 20);
+        $timeout = $request->timeoutSeconds
+            ?? (int) config('ai.timeout_seconds', 20);
         $temperature = $request->temperature ?? (float) config('ai.temperature', 0.2);
         $maxTokens = $this->resolveMaxTokens();
 
@@ -68,13 +72,15 @@ final class OpenAiClient implements AiClientInterface
             ];
         }
 
-        $responseFormat = ['type' => 'json_object'];
+        $responseFormat = $this->responseFormat($request);
         $modelParameters = [
             'model' => $model,
             'temperature' => $temperature,
             'max_tokens' => $maxTokens,
             'response_format' => $responseFormat,
-            'response_format_type' => $responseFormat['type'],
+            'response_format_type' => is_string($responseFormat['type'] ?? null)
+                ? $responseFormat['type']
+                : 'json_object',
             'schema' => $request->promptVersion,
             'timeout_seconds' => $timeout,
             'base_url' => $baseUrl,
@@ -157,7 +163,7 @@ final class OpenAiClient implements AiClientInterface
         $actualModel = is_string($response->json('model')) ? $response->json('model') : $model;
         $providerCost = $usage['cost'];
         $estimatedCostCents = $providerCost !== null
-            ? max(0, (int) ceil($providerCost * 100))
+            ? max(0.0, $providerCost * 100)
             : $this->budgetGuard->estimateCostCents($inputTokens, $outputTokens, $imageCount);
 
         $modelParameters['model'] = $actualModel;
@@ -180,6 +186,32 @@ final class OpenAiClient implements AiClientInterface
                 ? $this->formatCost($providerCost)
                 : null,
         );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function responseFormat(AiCompletionRequest $request): array
+    {
+        if ($request->responseSchema !== null && $request->responseSchema !== []) {
+            $name = is_string($request->responseSchema['name'] ?? null)
+                ? $request->responseSchema['name']
+                : 'structured_output';
+            $schema = is_array($request->responseSchema['schema'] ?? null)
+                ? $request->responseSchema['schema']
+                : $request->responseSchema;
+
+            return [
+                'type' => 'json_schema',
+                'json_schema' => [
+                    'name' => $name,
+                    'strict' => true,
+                    'schema' => $schema,
+                ],
+            ];
+        }
+
+        return ['type' => 'json_object'];
     }
 
     private function resolveModel(AiCompletionRequest $request): string

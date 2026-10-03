@@ -50,6 +50,15 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 - Promptversies: `pipe-route-assessment-v4`, `room-assessment-v6`, `fusebox-assessment-v3`, `request-prefill-v7`, `follow-up-photo-subject-v2` (BL-126).
 - **Uploadlimiet 8 MB (BL-128):** default `INTAKE_UPLOAD_MAX_KB=8192` (was 5120); client-downscale beperkt wat er over de draad gaat.
 
+### Fixed
+
+- **Dossiersynthese faalde op élk model (structuur + timeout + budget):**
+  1. `OpenAiClient` ondersteunt strikte structured output (`response_format.json_schema`, `strict: true`) wanneer de caller een schema meegeeft; zonder schema blijft `json_object`. Dossiersynthese stuurt `DossierSynthesisJsonSchema` (enums, required, referentieformats).
+  2. `DossierSynthesisPartialAcceptor`: valideer per placement/option/connection; geldige items blijven, ongeldige worden gedropt met reden in AI-trace/`ai_runs`. Status `partial` of `succeeded` zolang minstens één voorstel overblijft; kapotte optie-connections laten geldige placements staan.
+  3. Prompt **`dossier-synthesis-v5`**: expliciet `from`/`to` = placement/proposal-refs (niet `room:ID`), `evidence_references` min. 1, min. cardinaliteit, few-shot voorbeeld.
+  4. `AI_DOSSIER_TIMEOUT_SECONDS` (default 45) voor de queue-job, los van web-timeout 20s.
+  5. Fractionele budgetteller: `estimated_cost_microcents` (1 cent = 10_000); reserve alleen pre-call; lege tarieven → reserve + éénmalige warning. Dossier-runs schrijven `image_count`/tokens/kosten ook bij partial/fail.
+
 ## [1.3.0] - 2026-10-03
 
 ### Fixed
