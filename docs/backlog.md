@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.75 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.76 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -629,10 +629,10 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 - **Status:** in_progress · **Prioriteit:** high · **Epic:** E1/E3/E7 · **Band:** A · **Volgt op:** BL-097/101/120 · **Ref:** klanttest P1/P3 adres + maten + route/upload
 - **Aanleiding:** (1) vroeg submit tijdens adreslookup liet `setCustomValidity` (“Controleer dit veld.”) vastzitten op autofilled straat/plaats; (2) lengte en breedte apart terwijl m² al bekend; (3) verplichte routefoto terwijl route installateursopen punt is; (4) upload “Uploaden…” >20 s zonder timeout/fout; LiteSpeed 503-Engels; lage-resolutie-flag op thumbnail i.p.v. origineel.
-- **Doel:** validity wissen/herberekenen na lookup/autofill/input/change/vóór submit; submit disabled tijdens lookup; één L+B-scherm (optioneel bij bekende m², derived m² uit L×W); optionele route-/afvoer-/muurfoto’s met “Weet ik niet / sla over”; ~15 s upload-timeout + NL-fout + Opnieuw proberen; resolutie op origineel.
+- **Doel:** validity wissen/herberekenen na lookup/autofill/input/change/vóór submit; submit disabled tijdens lookup; één L+B-scherm (optioneel bij bekende m², derived m² uit L×W); optionele route-/afvoer-/muurfoto’s met “Weet ik niet / sla over”; ~15 s upload-timeout + NL-fout + Opnieuw proberen (naast BL-121 poll/120 s beoordeling, niet eroverheen); resolutie op origineel.
 - **Scope:** create-adres-JS + `app.js` validity; airco **v21**; `IntakeStepBuilder` `wizard_group`; wizard upload/skip UI; `PhotoUploadNormalizer`/`PhotoUsabilityHeuristic` original dims; Pest; docs.
-- **Acceptatie:** Pest adres-script + v21 matenscherm/skip/resolutie; `composer check` groen; “Weet ik niet” blokkeert niet; uploadfases blijven zichtbaar.
-- **Niet in scope:** wizard-navigatie/photo-queue/UX-tekst parallelwerk van andere agents.
+- **Acceptatie:** Pest adres-script + v21 matenscherm/skip/resolutie; `composer check` groen; “Weet ik niet” blokkeert niet; uploadfases blijven zichtbaar; 15 s-timeout raakt alleen “Uploaden…”.
+- **Niet in scope:** wizard-navigatie/photo-queue/UX-tekst parallelwerk van andere agents; geen tweede assessing-recovery naast BL-121.
 
 ### BL-118 — Klanttest 2 okt: foto-first, extractiedekking, kamernamen
 
