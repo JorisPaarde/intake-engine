@@ -684,7 +684,7 @@ final class DecisionReadinessService
             }
 
             $item->loadMissing(['round', 'uploads']);
-            $roundNumber = (int) ($item->round?->round_number ?? 0);
+            $roundNumber = (int) $item->round->round_number;
 
             foreach ($item->uploads as $upload) {
                 $assessment = $upload->contentAssessment();
