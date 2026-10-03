@@ -392,6 +392,152 @@ test('partial acceptor drops run-243 option that still has too few placements or
         ->and($result['validation_errors']['option_proposals.0'][0] ?? '')->toContain('placement_references');
 });
 
+test('staging intake 76 shape: room-ref + short cardinality keeps placements, drops option', function () {
+    // Exact staging errors: placement_references min 2, connections min 3, to=room:81
+    $output = [
+        'summary' => '3-fase aansluiting met vrije groepen lijkt mogelijk.',
+        'placement_proposals' => [[
+            'key' => 'proposal:indoor_extra',
+            'type' => AircoPlacementType::IndoorUnit->value,
+            'label' => 'Extra binnenpositie',
+            'description' => 'Zichtbaar op kamerfoto.',
+            'room_reference' => 'room:12',
+            'subject_reference' => 'subject:40',
+            'confidence' => 0.9,
+            'evidence_references' => ['dossier_image:101'],
+        ]],
+        'option_proposals' => [[
+            'label' => 'Incomplete optie intake 76',
+            'configuration_type' => AircoConfigurationType::SingleSplit->value,
+            'summary' => '3-fase aansluiting met vrije groepen.',
+            'cost_impact' => 'medium',
+            'confidence' => 0.7,
+            'placement_references' => ['placement:81'],
+            'connections' => [[
+                'type' => 'refrigerant',
+                'label' => 'Koel',
+                'from_placement_reference' => 'placement:81',
+                'to_placement_reference' => 'room:81',
+                'status' => 'proposed',
+                'length_class' => 'short',
+                'segments' => [],
+                'obstacles' => [],
+                'uncertainties' => [],
+                'cost_impact' => 'low',
+                'confidence' => 0.5,
+                'evidence_references' => ['dossier_image:101'],
+            ]],
+        ]],
+        'exceptions' => [],
+        'customer_tasks' => [],
+    ];
+
+    $input = partialAcceptorInput();
+    $input['synthesis_policy'] = ['free_group' => 'no', 'subjects_with_room_photo' => []];
+    $input['image_manifest'] = [
+        ['reference' => 'dossier_image:101', 'evidence_eligible' => true],
+        ['reference' => 'dossier_image:102', 'evidence_eligible' => true],
+    ];
+
+    $result = app(DossierSynthesisPartialAcceptor::class)->accept($output, $input);
+
+    expect($result['has_accepted_proposals'])->toBeTrue()
+        ->and($result['had_rejections'])->toBeTrue()
+        ->and($result['accepted']['placement_proposals'])->toHaveCount(1)
+        ->and($result['accepted']['option_proposals'])->toBe([])
+        ->and($result['accepted']['summary'])->not->toContain('vrije groep')
+        ->and($result['validation_errors'])->toHaveKey('option_proposals.0');
+});
+
+test('staging intake 76: wrong-subject outdoor photo cannot be used as evidence', function () {
+    $input = partialAcceptorInput();
+    $input['image_manifest'] = [
+        ['reference' => 'dossier_image:101', 'evidence_eligible' => true],
+        // Fusebox slot filled with outdoor unit photo (wrong_subject).
+        ['reference' => 'dossier_image:199', 'evidence_eligible' => false, 'question_key' => 'fusebox_photo'],
+    ];
+    $input['synthesis_policy'] = ['free_group' => 'no', 'subjects_with_room_photo' => []];
+
+    $output = [
+        'summary' => 'Technische voorzet op basis van beschikbare foto’s.',
+        'placement_proposals' => [[
+            'key' => 'proposal:power_claim',
+            'type' => AircoPlacementType::PowerSource->value,
+            'label' => 'Meterkastpositie',
+            'description' => 'Afgelezen vanaf de geüploade meterkastfoto.',
+            'room_reference' => null,
+            'subject_reference' => 'subject:42',
+            'confidence' => 0.9,
+            'evidence_references' => ['dossier_image:199'],
+        ]],
+        'option_proposals' => [],
+        'exceptions' => [],
+        'customer_tasks' => [],
+    ];
+
+    $result = app(DossierSynthesisPartialAcceptor::class)->accept($output, $input);
+
+    expect($result['has_accepted_proposals'])->toBeFalse()
+        ->and($result['accepted']['placement_proposals'])->toBe([])
+        ->and($result['validation_errors']['placement_proposals.0'][0] ?? '')->toContain('wrong-subject');
+});
+
+test('staging intake 77 shape: two connections drops option; wall-photo task skipped when already uploaded', function () {
+    $input = partialAcceptorInput();
+    $input['image_manifest'] = [
+        ['reference' => 'dossier_image:101', 'evidence_eligible' => true],
+        ['reference' => 'dossier_image:102', 'evidence_eligible' => true],
+    ];
+    $input['synthesis_policy'] = [
+        'free_group' => null,
+        'subjects_with_room_photo' => ['subject:40'],
+    ];
+
+    $output = [
+        'summary' => 'Single-split met gedeeltelijke verbindingen.',
+        'placement_proposals' => [[
+            'key' => 'proposal:indoor_extra',
+            'type' => AircoPlacementType::IndoorUnit->value,
+            'label' => 'Extra binnenpositie',
+            'description' => 'Zichtbaar op foto.',
+            'room_reference' => 'room:12',
+            'subject_reference' => 'subject:40',
+            'confidence' => 0.7,
+            'evidence_references' => ['dossier_image:101'],
+        ]],
+        'option_proposals' => [[
+            'label' => 'Twee connections intake 77',
+            'configuration_type' => AircoConfigurationType::SingleSplit->value,
+            'summary' => 'Mist power-connection.',
+            'cost_impact' => 'medium',
+            'confidence' => 0.6,
+            'placement_references' => ['placement:81', 'placement:82'],
+            'connections' => [
+                validConnection('refrigerant', 'placement:81', 'placement:82', 'dossier_image:101'),
+                validConnection('condensate', 'placement:81', 'placement:84', 'dossier_image:101'),
+                // power missing → min 3 / type set incomplete
+            ],
+        ]],
+        'exceptions' => [],
+        'customer_tasks' => [[
+            'type' => 'photo',
+            'prompt' => 'Maak een scherpe foto van de muur waar de binnenunit moet komen.',
+            'decision_area_key' => 'placement',
+            'subject_reference' => 'subject:40',
+            'reason' => 'Wandfoto ontbreekt nog.',
+            'evidence_references' => [],
+        ]],
+    ];
+
+    $result = app(DossierSynthesisPartialAcceptor::class)->accept($output, $input);
+
+    expect($result['has_accepted_proposals'])->toBeTrue()
+        ->and($result['accepted']['placement_proposals'])->toHaveCount(1)
+        ->and($result['accepted']['option_proposals'])->toBe([])
+        ->and($result['accepted']['customer_tasks'])->toBe([])
+        ->and($result['validation_errors']['customer_tasks.0'][0] ?? '')->toContain('al een bruikbare muur');
+});
+
 test('dossier synthesis json schema encodes enums and required reference shapes', function () {
     $schema = app(DossierSynthesisJsonSchema::class)->schema();
     $format = app(DossierSynthesisJsonSchema::class)->responseFormat();

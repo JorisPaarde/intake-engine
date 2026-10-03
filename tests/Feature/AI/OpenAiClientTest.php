@@ -325,6 +325,33 @@ test('openai client sends json_schema response_format when a schema is provided'
     });
 });
 
+test('openai client honors request temperature override', function () {
+    config([
+        'ai.provider' => 'openai',
+        'ai.api_key' => 'test-key',
+        'ai.temperature' => 0.2,
+        'ai.classification_temperature' => 0,
+    ]);
+
+    Http::fake([
+        '*/chat/completions' => Http::response([
+            'usage' => ['prompt_tokens' => 1, 'completion_tokens' => 1, 'total_tokens' => 2],
+            'choices' => [['message' => ['content' => json_encode(['summary' => 'ok', 'highlights' => []])]]],
+        ], 200),
+    ]);
+
+    app(OpenAiClient::class)->complete(new AiCompletionRequest(
+        prompt: 'Classificeer.',
+        input: ['x' => 1],
+        promptVersion: 'fusebox-assessment-v3',
+        temperature: 0.0,
+    ));
+
+    Http::assertSent(function ($request): bool {
+        return ($request->data()['temperature'] ?? null) === 0.0;
+    });
+});
+
 test('openai client uses json_object fallback without a schema', function () {
     config(['ai.provider' => 'openai', 'ai.api_key' => 'test-key']);
 

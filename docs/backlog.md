@@ -701,7 +701,7 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Doel:** `json_schema` strict structured output; partial acceptance per voorstel; prompt v5+; aparte dossier-timeout; fractionele microcents + usage op dossier-runs (ook fail).
 - **Scope:** AI-domain (`OpenAiClient`, `SynthesizeSurveyDossier`, budget, migratie, prompt, docs, tests) + subject→placement remap. Geen IntakeWizard/Livewire foto-upload.
 - **Acceptatie:** Pest voor partial fixtures + run-243 + json_schema request body + fractional budget; `composer check` groen.
-- **Resultaat:** strict schema + partial acceptance (`partial`/`succeeded`); `dossier-synthesis-v5`+; `AI_DOSSIER_TIMEOUT_SECONDS=45`; `estimated_cost_microcents`; usage/image_count op dossier-runs; run-243 remap + drop bij te weinig refs.
+- **Resultaat:** strict schema + partial acceptance (`partial`/`succeeded`); `dossier-synthesis-v6`; staging 76/77 fixtures; `AI_DOSSIER_TIMEOUT_SECONDS=45`; `estimated_cost_microcents`; usage/image_count op dossier-runs; run-243 remap + drop bij te weinig refs.
 
 ### BL-123 — Staging-retest acceptance (#115–#120)
 
