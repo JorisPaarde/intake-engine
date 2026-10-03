@@ -97,13 +97,16 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Foto-assessment queue (BL-121 + terminal status)
+    | Foto-assessment queue (BL-121 + terminal status + BL-134 watchdog safety)
     |--------------------------------------------------------------------------
     |
     | ui_soft_timeout_seconds: na zoveel seconden stopt de wizard-poll met wachten
     | (vriendelijke melding; assessment blijft pending voor de watchdog).
     | watchdog_after_seconds: pending langer dan dit → herdispatch.
     | watchdog_max_attempts: daarna soft-fail not_assessed.
+    | watchdog_max_age_hours: uploads ouder dan dit venster worden niet herqueued
+    | (legacy/backfill-bescherming).
+    | watchdog_max_per_run: harde cap per scheduler-tick.
     |
     */
 
@@ -111,6 +114,8 @@ return [
         'ui_soft_timeout_seconds' => (int) env('AI_PHOTO_UI_SOFT_TIMEOUT_SECONDS', 90),
         'watchdog_after_seconds' => (int) env('AI_PHOTO_WATCHDOG_AFTER_SECONDS', 180),
         'watchdog_max_attempts' => (int) env('AI_PHOTO_WATCHDOG_MAX_ATTEMPTS', 3),
+        'watchdog_max_age_hours' => (int) env('AI_PHOTO_WATCHDOG_MAX_AGE_HOURS', 24),
+        'watchdog_max_per_run' => (int) env('AI_PHOTO_WATCHDOG_MAX_PER_RUN', 20),
     ],
 
     'text_inference' => [

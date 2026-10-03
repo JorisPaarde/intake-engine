@@ -248,13 +248,15 @@ test('watchdog herdispatched pending uploads en markeert na max attempts', funct
         'usability_verdict' => PhotoUsabilityVerdict::Ok,
         'assessment_status' => PhotoAssessmentStatus::Pending,
         'assessment_queued_at' => now()->subMinutes(5),
-        'assessment_attempts' => 0,
+        // Pipeline marker: lifecycle::dispatch sets attempts >= 1 (BL-134).
+        'assessment_attempts' => 1,
+        'created_at' => now()->subMinutes(10),
     ]);
 
     Artisan::call('photos:requeue-pending-assessments', ['--minutes' => 3, '--max-attempts' => 3]);
 
     $upload->refresh();
-    expect($upload->assessment_attempts)->toBe(1)
+    expect($upload->assessment_attempts)->toBe(2)
         ->and($upload->assessment_status)->toBe(PhotoAssessmentStatus::Pending);
 
     Queue::assertPushed(AssessUploadedPhotoJob::class, 1);

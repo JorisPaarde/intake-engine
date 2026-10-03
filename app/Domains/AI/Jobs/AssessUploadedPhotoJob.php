@@ -74,7 +74,14 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
 
         $upload = IntakeUpload::query()->with(['intake', 'followUpItem'])->find($this->uploadId);
 
-        if (! $upload instanceof IntakeUpload || $upload->intake === null) {
+        if (! $upload instanceof IntakeUpload) {
+            return;
+        }
+
+        // Soft-deleted / missing intake: terminal only, never call AI.
+        if ($upload->intake === null) {
+            $lifecycle->ensureTerminal($upload);
+
             return;
         }
 
@@ -82,6 +89,18 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
         $correlationId = $requestIdResolver->resolveCorrelationIdForUpload($upload, $this->correlationId);
 
         if ($lifecycle->isTerminal($upload) && ! $upload->contentAssessment()?->needsReassessment()) {
+            return;
+        }
+
+        // Submitted/closed intakes: never call AI, never overwrite content_assessment (BL-134).
+        if ($upload->intake->status->isSubmittedOrClosed()) {
+            Log::info('Skipping photo assessment on submitted/closed intake', [
+                'upload_id' => $this->uploadId,
+                'intake_id' => $upload->intake_id,
+                'status' => $upload->intake->status->value,
+            ]);
+            $lifecycle->sealPreservingContent($upload);
+
             return;
         }
 
