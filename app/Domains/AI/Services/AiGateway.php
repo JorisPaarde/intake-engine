@@ -27,6 +27,7 @@ final class AiGateway
         ?string $system = null,
         array $images = [],
         ?string $model = null,
+        ?float $temperature = null,
     ): AiCompletionResult {
         try {
             return $this->client->complete(new AiCompletionRequest(
@@ -36,6 +37,7 @@ final class AiGateway
                 system: $system,
                 images: $images,
                 model: $model,
+                temperature: $temperature,
             ));
         } catch (AiClientException $e) {
             throw $e;

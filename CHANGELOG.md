@@ -14,11 +14,18 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 - **Adresvalidatie blijft hangen na lookup (BL-124):** `setCustomValidity` wordt gewist/herberekend na PDOK-autofill, op input/change en vóór submit; submitknop disabled terwijl de lookup loopt.
 - **Lage-resolutie-flag op verkleinde variant (BL-124):** usability checkt `original_width/height` (grootste HEIC-frame), niet de dossier-thumbnail.
 - **Upload blijft op “Uploaden…” (BL-124):** ~15 s timeout met NL-fout + **Opnieuw proberen** (alleen uploadfase; 120 s “Opnieuw beoordelen” voor assessing blijft); Livewire 5xx/503 toont NL-status i.p.v. Engelse LiteSpeed-overlay.
+- **Routefoto ten onrechte afgewezen (BL-126):** leidingroute accepteert wand/plafond/goot/doorvoer en buitenunit-in-context; herkende `pipe_route` blokkeert nooit; mismatch-tekst noemt het ontbrekende onderdeel. Fixture `route-pipe-duct-IMG_9885.png` + mappingtests.
+- **Eigendom inconsistent uit openingszin (BL-126):** `OwnershipNormalizer` + promptvoorbeelden maken `owned`/`rented` deterministisch (koophuis, eigen woning, we huren, …).
+- **Kamernamen Ouders/Kind landen niet op installateurslabels (BL-126):** `room_name` sync’t naar `airco_rooms`; installateurshernoeming wint; bekende ownership/namen worden niet opnieuw gevraagd.
+- **Meterkast free_group / glas gokken (BL-126):** strengere criteria + `unknown`; `room_outlet_status=unknown` triggert geen extra stopcontactfoto; classificatie-temperatuur via config (default 0).
 
 ### Changed
 
 - **Queue/cron (BL-121):** fotobeoordeling op `ai-photo`; Laravel-scheduler start elk uur een langere `queue:work --queue=ai-photo,default --max-time=3500 --sleep=1` met `withoutOverlapping`. Minutelijk `queue:work` blijft als vangnet — zie `docs/DEPLOYMENT.md`.
 - **Airco v21 / matenscherm + optionele route (BL-124):** lengte en breedte op één scherm (`wizard_group`); optioneel bij bekende m²; `pipe_route_photos`/`drain_photo`/`indoor_unit_position_photo` optioneel met “Weet ik niet / sla over”; muurfoto’s binnen/buiten op gewenste binnenunitplek; route blijft open punt voor de installateur.
+- Promptversies: `pipe-route-assessment-v4`, `room-assessment-v6`, `fusebox-assessment-v3`, `request-prefill-v7`, `follow-up-photo-subject-v2` (BL-126).
+
+## [1.3.0] - 2026-10-03
 
 
 ### Fixed

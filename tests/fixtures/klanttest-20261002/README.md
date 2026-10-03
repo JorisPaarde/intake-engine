@@ -7,6 +7,7 @@ Alleen bestanden die tests echt gebruiken staan in git (copyright). Overige bron
 | Bestand | Gebruik | Bron |
 |---------|---------|------|
 | `woonkamer-720.jpg` | `KlanttestProgressUploadTest` upload/dedupe/retry | Funda `https://cloud.funda.nl/valentina_media/222/635/013.jpg` (geschaald naar 720px breed) |
+| `route-pipe-duct-IMG_9885.png` | Route-categoriemapping (BL-126); 1477×1108 goot/leidingen/doorvoer | `https://images.microcms-assets.io/assets/9bfd0d7325f24580af90797341dd47e5/bfd4b42ff6834534bde284d6973ae687/IMG_9885.png` |
 
 ## Lokaal ophalen (niet in git)
 

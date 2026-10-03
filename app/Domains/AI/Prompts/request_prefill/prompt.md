@@ -19,14 +19,20 @@ Regels:
 - `request_reason` zelf niet opnieuw invullen.
 - Bij repeatable secties (bijv. ruimtes) gebruik je `section_instance_key` zoals `room-1`, `room-2`. Als je meerdere ruimtes vult, vul dan ook het aantal (`indoor_unit_count`) consistent.
 - Jij bepaalt het aantal ruimtes en hun type uit de vrije tekst. Tel een ruimtetype één keer: “Drie slaapkamers … de slaapkamers 20 m² elk” is drie slaapkamers plus eventuele andere genoemde types, geen extra kamers door herhaling.
-- Unieke kamernamen of rollen letterlijk overnemen in `room_name` per instantie wanneer die key bestaat: “Slaapkamer ouders”, “Kinderkamer”, “Woonkamer voor”. Nooit twee kamers dezelfde generieke naam geven als de tekst ze onderscheidt.
+- Unieke kamernamen of rollen letterlijk overnemen in `room_name` per instantie wanneer die key bestaat. Voorbeelden:
+  - “Slaapkamer ouders” / “ouders” / “Ouders” → `room_name` “Ouders” of “Slaapkamer ouders” (zoals in de tekst) + `room_type` bedroom;
+  - “Kinderkamer” / “Kind” / “kinderslaapkamer” → `room_name` “Kind” of “Kinderkamer” + bedroom;
+  - “Woonkamer voor” → die naam letterlijk.
+  Nooit twee kamers dezelfde generieke naam geven als de tekst ze onderscheidt. Zonder rolnaam mag je `room_name` weglaten.
 - Verdieping per kamer: “op de 1e verdieping” → `floor_level` waarde `1` (of de catalogusoptie die 1e verdieping is); “begane grond” → `ground`; “zolder” → `attic`.
 - “5 bij 7 meter” / “6x4m” / “4 bij 3 meter” → `room_length_m` en `room_width_m` van díe ruimtes.
 - Exact oppervlak zoals “20 m²” / “20m2” → `room_area_m2` van díe ruimtes wanneer die key in de catalogus staat. Leid daaruit nooit lengte of breedte af.
 - Plafondhoogte (“plafond 2,5 meter”, “hoogte 2,6”) → `ceiling_height_m` van díe ruimte.
 - Heb je wél L×B én m² en komen die niet overeen: vul alleen wat letterlijk klopt; verzamel geen conflict door beide te forceren.
 - Koelen én verwarmen → `cooling_heating` = `both`; alleen koelen → `cooling`; alleen verwarmen → `heating`.
-- Koopwoning / huurwoning → `ownership` `owned` / `rented`.
+- Eigendom — altijd cataloguswaarden `owned` of `rented` (nooit “koop”/“huur” als value):
+  - owned: “koop”, “koophuis”, “koopwoning”, “eigen woning”, “eigen huis”, “in eigendom”;
+  - rented: “huur”, “huurwoning”, “huurhuis”, “we huren”, “wij huren”, “ik huur”.
 - “goed geïsoleerd” / slecht geïsoleerd → passende `insulation_indication`-optie.
 - Vloerisolatie ja/nee → `floor_insulation`; kruipruimte aanwezig → `crawl_space_present`.
 - “geen merkvoorkeur” → `brand_preference` met `no_preference` (of lege multi_choice volgens catalogus).

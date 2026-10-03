@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domains\AI\Services;
 
 use App\Domains\AI\DTOs\RequestPrefillCandidate;
+use App\Domains\AI\Support\OwnershipNormalizer;
 use App\Enums\QuestionType;
 use Illuminate\Validation\ValidationException;
 
@@ -185,6 +186,18 @@ final class RequestPrefillOutcomeClassifier
             }
 
             $rawValue = $fill['value'];
+            if ($key === 'ownership') {
+                $ownershipNormalized = $this->normalizeOwnershipFill($rawValue);
+                if ($ownershipNormalized !== null && $ownershipNormalized !== $rawValue) {
+                    $normalizations[] = [
+                        'field' => 'ownership',
+                        'from' => $rawValue,
+                        'to' => $ownershipNormalized,
+                        'rule' => 'ownership_synonym',
+                    ];
+                    $rawValue = $ownershipNormalized;
+                }
+            }
             $label = $this->questionLabel($labels, $key, $instanceKey);
             $question = $index[$key] ?? null;
 
@@ -623,6 +636,27 @@ final class RequestPrefillOutcomeClassifier
             QuestionType::Boolean->value => 'Ongeldige boolean — bool ontbreekt of is geen true/false.',
             default => 'Waarde past niet bij het vraagtype.',
         };
+    }
+
+    /**
+     * @param  array<string, mixed>  $value
+     * @return array{value: string}|null
+     */
+    private function normalizeOwnershipFill(array $value): ?array
+    {
+        $choice = $value['value'] ?? null;
+        if (! is_string($choice)) {
+            // Sommige models leveren scalar text of nested label.
+            if (isset($value['text']) && is_string($value['text'])) {
+                $choice = $value['text'];
+            } else {
+                return null;
+            }
+        }
+
+        $mapped = (new OwnershipNormalizer)->normalize($choice);
+
+        return $mapped === null ? null : ['value' => $mapped];
     }
 
     /**

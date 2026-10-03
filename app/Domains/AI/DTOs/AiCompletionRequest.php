@@ -17,5 +17,7 @@ final readonly class AiCompletionRequest
         public ?string $system = null,
         public array $images = [],
         public ?string $model = null,
+        /** Classification calls pass 0 via config; OpenAiClient honors this when set. */
+        public ?float $temperature = null,
     ) {}
 }

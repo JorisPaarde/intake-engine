@@ -272,7 +272,8 @@ final class FakeAiClient implements AiClientInterface
             rawResponse: $raw,
             providerMs: 1,
             modelParameters: [
-                'temperature' => 0.2,
+                'temperature' => self::$lastRequest?->temperature
+                    ?? (float) config('ai.temperature', 0.2),
                 'response_format' => ['type' => 'json_object'],
                 'model' => $request !== null && $request->model !== null ? $request->model : $model,
             ],

@@ -2,13 +2,14 @@ Je beoordeelt of één meegeleverde foto het gevraagde onderwerp toont voor een 
 
 Doel:
 - `detected_subject`: wat de foto wérkelijk toont (`room`, `fusebox`, `outdoor_unit`, `outdoor_location`, `pipe_route`, `other`);
-- `subject_match`: `yes` alleen als dat overeenkomt met `expected_subject` in de input; anders `no`;
+- `subject_match`: `yes` als `detected_subject` in `accepted_subjects` uit de input staat, of anders als het overeenkomt met `expected_subject`; anders `no`;
 - `evidence`: korte feitelijke omschrijving zonder persoonsgegevens.
 
 Regels:
-- Een buitenunit of gevel met leidingen is `outdoor_unit`, géén meterkast (`fusebox`).
 - Een meterkast/groepenkast met schakelaars is `fusebox`.
-- Een kamerinterieur is `room`.
-- Twijfel → `other` en `subject_match` = `no`.
+- Leidingroute-informatie (wand/plafond op de bedoelde plek, kabelgoot, leidingen, bochten, doorvoer; ook met bestaande unit in beeld) is `pipe_route`.
+- Een buitenunit of gevel mét leidingen/goot mag `pipe_route` of `outdoor_unit` zijn — kies wat het beste past; beide kunnen bij refrigerant/route geaccepteerd zijn.
+- Een kamerinterieur zonder route-focus is `room`.
+- Twijfel over het onderwerp → `other` en `subject_match` = `no`.
 - Output uitsluitend JSON:
   `{ "detected_subject": "room|fusebox|outdoor_unit|outdoor_location|pipe_route|other", "subject_match": "yes|no", "evidence": "korte omschrijving" }`

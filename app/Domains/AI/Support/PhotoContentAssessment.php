@@ -80,12 +80,14 @@ final class PhotoContentAssessment
     /**
      * Eén fabriek voor Derive / Fusebox / Follow-up.
      *
-     * Derive/Fusebox (geen accepted-set): subject_match=no → altijd wrong_subject.
-     * Follow-up (accepted-set): detected in de set geldt als match (ongeacht subject_match).
-     * Bruikbare match + retake_instruction → needs_clearer (ongeacht confidence).
+     * Derive/Fusebox (geen accepted-set): subject_match=no → altijd wrong_subject,
+     * behalve route: een herkende `pipe_route` blokkeert nooit.
+     * Accepted-set (follow-up of route-derive): detected in de set geldt als match
+     * (ongeacht subject_match). Bruikbare match + retake_instruction → needs_clearer
+     * (behalve route-foto’s: die blijven ok / nooit blokkeren).
      *
      * @param  array<string, mixed>  $output
-     * @param  list<PhotoSubject>|null  $acceptedSubjects  Follow-up: geaccepteerde onderwerpen; null = niet filteren
+     * @param  list<PhotoSubject>|null  $acceptedSubjects  Follow-up/route: geaccepteerde onderwerpen; null = niet filteren
      */
     public static function fromModelOutput(
         PhotoSubject $expected,
@@ -93,6 +95,11 @@ final class PhotoContentAssessment
         ?array $acceptedSubjects = null,
     ): self {
         $detected = PhotoSubject::tryFromMixed($output['detected_subject'] ?? null) ?? PhotoSubject::Other;
+
+        // Een expliciete leidingroutefoto mag de klant nooit blokkeren.
+        if ($expected === PhotoSubject::PipeRoute && $detected === PhotoSubject::PipeRoute) {
+            return self::ok($expected, $detected);
+        }
 
         if ($acceptedSubjects !== null) {
             $accepted = false;
@@ -113,6 +120,11 @@ final class PhotoContentAssessment
         $retake = is_string($output['retake_instruction'] ?? null)
             ? trim((string) $output['retake_instruction'])
             : '';
+
+        // Routevraag: geaccepteerde categorie → nooit needs_clearer/wrong_subject-blokkade.
+        if ($expected === PhotoSubject::PipeRoute && $retake !== '') {
+            return self::ok($expected, $detected === PhotoSubject::Other ? $expected : $detected);
+        }
 
         if ($retake !== '') {
             return self::needsClearer($expected, $retake);
