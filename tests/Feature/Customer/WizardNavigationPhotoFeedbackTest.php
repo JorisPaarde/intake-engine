@@ -207,8 +207,23 @@ test('room_name opslaan + foto + Volgende zonder reload: stabiele vraag-id, geen
     $component->call('next')
         ->assertSet('showMissing', false);
 
+    $afterNameKey = $component->get('activeStepKey');
     expect(count($component->viewData('steps')))->toBe($totalBefore - 1)
-        ->and($component->get('activeStepKey'))->toBe('rooms::room-1::wall_outlet_photo');
+        ->and($afterNameKey)->not->toBe('rooms::room-1::room_name')
+        ->and($afterNameKey)->not->toBe('')
+        // v22: preferred_indoor_location precedes wall_outlet when outlets need a photo.
+        ->and(in_array($afterNameKey, [
+            'rooms::room-1::preferred_indoor_location',
+            'rooms::room-1::wall_outlet_photo',
+        ], true))->toBeTrue();
+
+    // Skip optional preferred_indoor_location to reach the photo check when present.
+    if ($afterNameKey === 'rooms::room-1::preferred_indoor_location') {
+        $component->set('form.room-1__preferred_indoor_location.text', 'Weet ik niet')
+            ->call('next')
+            ->assertSet('showMissing', false)
+            ->assertSet('activeStepKey', 'rooms::room-1::wall_outlet_photo');
+    }
 
     uploadAndPollPhotoAssessment(
         $component,
@@ -478,30 +493,32 @@ test('lege woonkamer zonder outlet-needs triggert geen extra stopcontactvraag', 
 
 test('Weet ik niet blokkeert Volgende niet op optionele korte tekst', function () {
     $intake = makeWizardNavIntake();
-    // Merkvoorkeur is optioneel in airco; cursor daarheen.
+    // v22/BL-129: merk/planning/opmerkingen zitten in één closing_wishes-scherm.
     $version = $intake->templateVersion()->with(['sections.questions.options', 'sections.questions.rules'])->firstOrFail();
     app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
     app(SaveIntakeAnswer::class)->handle($intake, 'request_reason', null, ['text' => 'Koelen']);
     app(SaveIntakeAnswer::class)->handle($intake, 'cooling_heating', null, ['value' => 'cooling']);
 
     $steps = app(IntakeStepBuilder::class)->build($intake->fresh(), $version);
-    $brand = collect($steps)->firstWhere('question_key', 'brand_preference');
-    expect($brand)->not->toBeNull()
-        ->and($brand['is_required'] ?? true)->toBeFalse();
+    $closing = collect($steps)->firstWhere('kind', 'closing_wishes');
+    expect($closing)->not->toBeNull()
+        ->and($closing['bundle_question_keys'] ?? [])->toContain('brand_preference');
 
     $intake->update([
-        'current_section_key' => $brand['section_key'],
-        'current_question_key' => 'brand_preference',
-        'current_section_instance_key' => $brand['section_instance_key'],
+        'current_section_key' => $closing['section_key'],
+        'current_question_key' => $closing['question_key'],
+        'current_section_instance_key' => $closing['section_instance_key'],
     ]);
 
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
-        ->assertSet('activeStepKey', $brand['key'])
+        ->assertSet('activeStepKey', $closing['key'])
         ->set('form.brand_preference.text', 'Weet ik niet')
+        ->set('form.planning_flexibility.text', 'Weet ik niet')
+        ->set('form.notes.text', 'Weet ik niet')
         ->call('next')
         ->assertSet('showMissing', false)
-        ->assertSet('activeStepKey', function (string $key) use ($brand): bool {
-            return $key !== $brand['key'];
+        ->assertSet('activeStepKey', function (string $key) use ($closing): bool {
+            return $key !== $closing['key'];
         });
 });
 

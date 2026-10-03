@@ -1874,6 +1874,10 @@ class IntakeWizard extends Component
             // Lokale usability-hint meteen tonen, gescopeerd op deze upload-ids (AI volgt via queue/poll).
             $this->storeScopedPhotoHint($composite, $storedUploadIds, $hints);
 
+            // Usability/assessment_status landen ná eerdere cache-forget; render moet verse uploads zien
+            // (anders blijft photoNeedsQualityHint/status op stale pending zonder klanthint).
+            $this->forgetIntakeDerivedCaches();
+
             if ($queuedIds !== []) {
                 $this->setPendingIdsFor($composite, $queuedIds);
                 $this->setUploadPhase('assessing', 'Foto beoordelen…');
