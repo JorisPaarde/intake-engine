@@ -25,6 +25,7 @@ use App\Domains\Intake\Services\PdokAddressService;
 use App\Domains\Intake\Services\PublicDemoSession;
 use App\Domains\Intake\Services\RebuildIntakeReportHtml;
 use App\Domains\Intake\Services\WorkspacePrimaryActionResolver;
+use App\Domains\Intake\Support\FollowUpEvidenceReview;
 use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoOptionStatus;
 use App\Enums\AiRunStatus;
@@ -165,6 +166,7 @@ class IntakeController extends Controller
         ExternalFactPresenter $externalFactPresenter,
         IntakeDossierSummaryBuilder $summaryBuilder,
         DossierOverviewBuilder $dossierOverviewBuilder,
+        FollowUpEvidenceReview $followUpEvidenceReview,
     ): View {
         $this->authorize('view', $intake);
 
@@ -217,6 +219,7 @@ class IntakeController extends Controller
         $attentionAiSucceeded = $intake->aiRuns
             ->where('type', AiRunType::AttentionPoints)
             ->contains(static fn ($run) => $run->status === AiRunStatus::Succeeded);
+        $followUpReview = $followUpEvidenceReview->present($intake, $intake->followUpRounds);
 
         return view('installer.intakes.show', [
             'intake' => $intake,
@@ -232,6 +235,7 @@ class IntakeController extends Controller
             'aiProvider' => $aiProvider,
             'aiAttentionAvailable' => $aiProvider !== 'null',
             'attentionAiSucceeded' => $attentionAiSucceeded,
+            'followUpReview' => $followUpReview,
         ]);
     }
 
