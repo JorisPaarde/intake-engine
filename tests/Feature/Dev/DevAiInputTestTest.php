@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Domains\AI\Actions\DeriveIntentFromRequest;
+use App\Domains\AI\Actions\PrefillAnswersFromKnownContext;
 use App\Domains\AI\Clients\FakeAiClient;
 use App\Domains\AI\DTOs\RequestPrefillCandidate;
 use App\Domains\AI\Models\AiRun;
@@ -306,8 +307,10 @@ test('contract: preview classified outcomes match CreateIntake DeriveIntent chai
         $source = $answer->prefill_source;
         $disposition = match ($source) {
             DeriveIntentFromRequest::SOURCE_DERIVED,
+            PrefillAnswersFromKnownContext::SOURCE_DERIVED,
             DeriveIntentFromRequest::SOURCE_REQUEST_TEXT => RequestPrefillCandidate::DISPOSITION_FILL,
-            DeriveIntentFromRequest::SOURCE_SUGGESTED => RequestPrefillCandidate::DISPOSITION_SUGGESTION,
+            DeriveIntentFromRequest::SOURCE_SUGGESTED,
+            PrefillAnswersFromKnownContext::SOURCE_SUGGESTED => RequestPrefillCandidate::DISPOSITION_SUGGESTION,
             default => null,
         };
 

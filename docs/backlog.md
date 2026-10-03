@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.66 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.68 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 
@@ -38,11 +38,12 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Nieuwe items starten bij BL-118.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118**. Nieuwe items starten bij BL-121.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
 | 1 | BL-117 | Installateur kan technisch open punt afhandelen vanuit de survey-werkplek | E7/E8 | backlog | high | na PR #115 · show/rapport `*_open` |
+| — | BL-118 | Klanttest 2 okt: foto-first, extractiedekking, kamernamen | E3/E9 | done | high | F · bij BL-064/098/101 · na BL-116 · airco v18 · PR #116 |
 | — | BL-116 | AI-trace logging + P2 upload/analyse-timings (klanttest 2 okt) | E4/E9 | in_progress | high | AI · stap 1 herstelvolgorde · bij BL-028/104/109 · PR #117 |
 | — | BL-116 | Technische beslissingen uit klantvragen (pomp/route/boringen/stroom) | E3/E7 | done | high | klanttest 2026-10-02 P0 · airco v17 · PR #115 |
 | — | BL-115 | Gebruikte/ongeldige klantlink: NL-pagina i.p.v. kale 404 | E7 | done | medium | UX · bij BL-038/066 · demo-walk 24 sep |
@@ -578,6 +579,14 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Niet in scope:** foto-first/bekende velden (andere stroom); afhandelen van open punten (BL-117); herberekenen open-puntlabel na late fotoafleiding; rebase op #117 tot gevraagd.
 - **Acceptatie:** klant rondt af zonder verzonnen techniek; “Weet ik niet” → afvoerfoto (ook op v16); open punten blijven staan (ook bij AI-/klantwaarde); Pest + `composer check` groen.
 - **Resultaat:** PR #115; review-rondes 1–3.
+### BL-118 — Klanttest 2 okt: foto-first, extractiedekking, kamernamen
+
+- **Status:** done · **Prioriteit:** high · **Datum:** 2026-10-03 · **PR:** #116 · **Epic:** E3/E9 · **Band:** F · **Volgt op:** BL-064/098/101/116 · **Ref:** Notion-klanttest 2026-10-02 (stroom 3 van 5)
+- **Aanleiding:** live klanttest case 80/81 — foto’s te laat; bekende maten opnieuw als losse vragen; eerste tekst slechts deels benut; beide kamers “Ruimte 1”.
+- **Doel:** foto-opdrachten vóór afleidbare vragen; bekende zekere velden in één overzicht met wijzigen; extractie dekt alle expliciete case-81-feiten met bron; unieke kamer-ID/naam/type/verdieping/hoogte blijven intact bij foto-updates.
+- **Scope:** airco **v18** (op v17), `request-prefill-v6`, known-summary, `name_source`/`dimensions_source`, `TechnicalDecisionKeys` (geen losse TextPrefillBlocklist); Pest case 80/81 + review-rondes.
+- **Resultaat:** v18 + known-summary + review-rondes 1–5; `composer check` groen; tip op `origin/main` (na squash #117+#115).
+
 ### BL-115 — Gebruikte/ongeldige klantlink: NL-pagina i.p.v. 404
 
 - **Status:** done · **Prioriteit:** medium · **Datum:** 2026-10-02 · **Epic:** E7 · **Volgt op:** BL-038/066

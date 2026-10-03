@@ -7,7 +7,7 @@ use App\Domains\Intake\Services\PublishIntakeTemplateFromConfig;
 use App\Enums\TemplateVersionStatus;
 use Database\Seeders\IntakeTemplateSeeder;
 
-test('airco template seeder publishes v1 through v17 with v17 as latest', function () {
+test('airco template seeder publishes v1 through v18 with v18 as latest', function () {
     $this->seed(IntakeTemplateSeeder::class);
 
     $template = IntakeTemplate::query()->where('key', 'airco')->first();
@@ -17,14 +17,14 @@ test('airco template seeder publishes v1 through v17 with v17 as latest', functi
 
     $versions = $template->versions()->orderBy('version')->get();
 
-    expect($versions)->toHaveCount(17)
-        ->and($versions->pluck('version')->all())->toBe([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17])
+    expect($versions)->toHaveCount(18)
+        ->and($versions->pluck('version')->all())->toBe([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18])
         ->and($versions->every(fn ($version) => $version->status === TemplateVersionStatus::Published))->toBeTrue();
 
     $latest = $template->latestPublishedVersion();
 
     expect($latest)->not->toBeNull()
-        ->and($latest->version)->toBe(17)
+        ->and($latest->version)->toBe(18)
         ->and($latest->sections()->count())->toBeGreaterThan(5)
         ->and($latest->sections()->where('key', 'rooms')->value('is_repeatable'))->toBeTrue();
 
@@ -41,7 +41,11 @@ test('airco template seeder publishes v1 through v17 with v17 as latest', functi
         ->and($roomKeys)->toContain('room_width_m')
         ->and($roomKeys)->toContain('room_area_m2')
         ->and($roomKeys)->toContain('ceiling_height_m')
+        ->and($roomKeys)->toContain('room_name')
         ->and($roomKeys)->toContain('wall_outlet_photo')
+        ->and($roomKeys[0])->toBe('room_photos')
+        ->and(array_search('room_photos', $roomKeys, true))->toBeLessThan(array_search('room_length_m', $roomKeys, true))
+        ->and(array_search('room_photos', $roomKeys, true))->toBeLessThan(array_search('sun_exposure', $roomKeys, true))
         ->and($roomQuestions->firstWhere('key', 'room_length_m')->is_required)->toBeFalse()
         ->and($roomQuestions->firstWhere('key', 'room_area_m2')->is_required)->toBeFalse()
         ->and($roomQuestions->firstWhere('key', 'room_length_m')->label)->toBe('Lengte (m)')
@@ -49,7 +53,15 @@ test('airco template seeder publishes v1 through v17 with v17 as latest', functi
         ->and($roomQuestions->firstWhere('key', 'room_area_m2')->label)->toBe('Vloeroppervlak (m²)')
         ->and($roomQuestions->firstWhere('key', 'ceiling_height_m')->label)->toBe('Hoogte (m)')
         ->and($roomQuestions->firstWhere('key', 'room_area_m2')->help_text)->toContain('lengte en breedte')
-        ->and($roomQuestions->firstWhere('key', 'ceiling_height_m')->help_text)->toContain('plafondhoogte');
+        ->and($roomQuestions->firstWhere('key', 'ceiling_height_m')->help_text)->toContain('plafondhoogte')
+        ->and($roomQuestions->firstWhere('key', 'room_length_m')->meta['skip_when_prefilled_by'] ?? [])->toContain('ai')
+        ->and($roomQuestions->firstWhere('key', 'room_length_m')->meta['skip_when_prefilled_by'] ?? [])->toContain('installer')
+        ->and($roomQuestions->firstWhere('key', 'room_name')->meta['skip_when_prefilled_by'] ?? [])->toContain('ai');
+
+    // Sectievolgorde: ruimtes (foto’s) vóór woningvragen.
+    $sectionKeys = $latest->sections()->orderBy('sort_order')->pluck('key')->all();
+    expect(array_search('rooms', $sectionKeys, true))->toBeLessThan(array_search('building', $sectionKeys, true))
+        ->and(array_search('outdoor_unit', $sectionKeys, true))->toBeLessThan(array_search('building', $sectionKeys, true));
 
     // BL-016 (v3): prefill meta flags flow through the seeder.
     $floorLevel = $roomQuestions->firstWhere('key', 'floor_level');
@@ -90,7 +102,9 @@ test('airco template seeder publishes v1 through v17 with v17 as latest', functi
     expect($building->questions()->where('key', 'building_type')->firstOrFail()->meta['skip_when_prefilled_by'])
         ->toBe(['pdok', 'epo'])
         ->and($building->questions()->where('key', 'insulation_indication')->firstOrFail()->meta['skip_when_prefilled_by'])
-        ->toBe(['epo'])
+        ->toContain('epo')
+        ->and($building->questions()->where('key', 'insulation_indication')->firstOrFail()->meta['skip_when_prefilled_by'])
+        ->toContain('ai')
         ->and($crawlSpace->label)->toBe('Is er een kruipruimte?')
         ->and($crawlSpace->help_text)->toBeNull()
         ->and($building->questions()->where('key', 'floor_insulation')->firstOrFail()->meta['skip_when_prefilled_by'])
@@ -139,7 +153,8 @@ test('airco template seeder publishes v1 through v17 with v17 as latest', functi
     expect($freeGroup->is_required)->toBeTrue()
         ->and($freeGroup->meta['installer_decision'] ?? null)->toBeNull()
         ->and($freeGroup->label)->toBe('Is er een vrije groep in de meterkast?')
-        ->and($freeGroup->meta['skip_when_prefilled_by'] ?? null)->toBe(['ai'])
+        ->and($freeGroup->meta['skip_when_prefilled_by'] ?? [])->toContain('ai')
+        ->and($freeGroup->meta['skip_when_prefilled_by'] ?? [])->toContain('ai_photo')
         ->and($freeGroup->rules)->toHaveCount(1)
         ->and($freeGroup->rules->first()->source_question_key)->toBe('fusebox_photo')
         ->and($naturalFall->meta['installer_decision'] ?? null)->toBeNull()
@@ -197,12 +212,12 @@ test('airco template seeder publishes v1 through v17 with v17 as latest', functi
     $againV1 = app(PublishIntakeTemplateFromConfig::class)->handle(
         require database_path('data/templates/airco/v1.php'),
     );
-    $againV17 = app(PublishIntakeTemplateFromConfig::class)->handle(
-        require database_path('data/templates/airco/v17.php'),
+    $againLatest = app(PublishIntakeTemplateFromConfig::class)->handle(
+        require database_path('data/templates/airco/v18.php'),
     );
 
     expect($againV1->version)->toBe(1)
-        ->and($againV17->id)->toBe($latest->id)
+        ->and($againLatest->id)->toBe($latest->id)
         ->and(IntakeTemplate::query()->where('key', 'airco')->count())->toBe(1)
-        ->and($template->versions()->count())->toBe(17);
+        ->and($template->versions()->count())->toBe(18);
 });

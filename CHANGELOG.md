@@ -13,6 +13,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 - **BL-116 review r2:** deferred trace persistence (`succeed`/`fail`), tx-buffer, `correlation_id`/`parent_trace_id`, geen `schema_version`, `buildCatalog` + remainingQuestions, photo dims in timings, client `network_upload_ms` via progress=100 → `ai-upload-stored` + expliciet `uploadId` (`recordNetworkUploadTiming` / `recordNetworkUploadMs`, niet via Store*), `normalizeWithDiff`, kill-switch slaat snapshots over, Dev/CLI groeperen op correlation, chunked purge, idempotente media-delete job.
 - **Technische beslissingen uit de klantflow (PR #115 / klanttest 2026-10-02 P0, review ronde 3):** `VisibilityResolver` is de enige filter (`customerMode` + `TechnicalDecisionKeys`). Technische bron **zonder** antwoord telt in elke modus als voldaan (rapport/`SummarizeIntake` toont o.a. v16 `drain_photo`). Airco **v17** blijft eigenaar van deze PR. Leesbare `*_open`-labels; afhandeling → BL-117.
 
+### Added
+
+- **Klanttest 2 okt — foto-first, extractie, kamernamen (BL-118 / PR #116):** airco **v18** (op v17) zet ontbrekende beelden vóór afleidbare vragen; known-summary; `room_name`; prefill `ai_text`/`ai_photo`; `dimensions_source`; Pest case 80/81 + review-rondes. Nummeringsreserve: #119 → BL-119/v19, #118 → BL-120/v20.
+
 ## [1.2.0] - 2026-10-02
 
 Productie-release `v1.2.0`. Bevat alles na `v1.1.0`: sitemap (BL-105), `memory_limit` (BL-106), nieuwe app-huisstijl en rustiger werkplek (BL-107), OpenRouter-ondersteuning zonder DPIA-procespoort (BL-108), enum-normalisatie in de dossiersynthese (BL-109) en de fixes uit de demo-walks van 24 september (BL-110–BL-115).

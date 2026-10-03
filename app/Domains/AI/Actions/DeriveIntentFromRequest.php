@@ -15,6 +15,7 @@ use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeAnswer;
+use App\Domains\Intake\Support\PrefillSources;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
 use App\Enums\AiTraceCallType;
@@ -31,11 +32,13 @@ use Throwable;
  */
 final class DeriveIntentFromRequest
 {
-    public const SOURCE_DERIVED = 'ai';
+    /** @deprecated Legacy strong fill; lokale parser gebruikt SOURCE_REQUEST_TEXT. */
+    public const SOURCE_DERIVED = PrefillSources::AI_LEGACY;
 
-    public const SOURCE_SUGGESTED = 'ai_suggestion';
+    /** Medium catalogus-suggestie (tekst). */
+    public const SOURCE_SUGGESTED = PrefillSources::AI_TEXT_SUGGESTION;
 
-    public const SOURCE_REQUEST_TEXT = 'request_text';
+    public const SOURCE_REQUEST_TEXT = PrefillSources::REQUEST_TEXT;
 
     private const SOURCE_QUESTION = 'request_reason';
 
@@ -292,6 +295,9 @@ final class DeriveIntentFromRequest
         return in_array($existing->prefill_source, [
             self::SOURCE_DERIVED,
             self::SOURCE_SUGGESTED,
+            PrefillSources::AI_SUGGESTION_LEGACY,
+            PrefillSources::AI_TEXT,
+            PrefillSources::DERIVED_LXW,
             self::SOURCE_REQUEST_TEXT,
         ], true);
     }

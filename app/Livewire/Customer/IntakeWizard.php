@@ -21,6 +21,7 @@ use App\Domains\Intake\Actions\StoreFollowUpUpload;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Models\ContributionTask;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeFollowUpItem;
 use App\Domains\Intake\Models\IntakeFollowUpRound;
 use App\Domains\Intake\Models\IntakeQuestion;
@@ -33,6 +34,8 @@ use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Domains\Intake\Services\ProgressCalculator;
 use App\Domains\Intake\Services\ResolveIntakeByAccessToken;
 use App\Domains\Intake\Services\VisibilityResolver;
+use App\Domains\Intake\Support\KnownSummaryCatalog;
+use App\Domains\Intake\Support\PrefillSources;
 use App\Enums\AiRunStatus;
 use App\Enums\AttentionPointSource;
 use App\Enums\AttentionPointStatus;
@@ -120,6 +123,20 @@ class IntakeWizard extends Component
     public array $completionMissing = [];
 
     /**
+     * Composites revealed via known-summary “Wijzigen” without clearing prefill_source yet.
+     *
+     * @var list<string>
+     */
+    public array $forceShowKnown = [];
+
+    /**
+     * Original prefill snapshot per composite while a known-summary edit is open.
+     *
+     * @var array<string, array{prefill_source: string, value: array<string, mixed>|null}>
+     */
+    public array $pendingKnownEdits = [];
+
+    /**
      * Request-local caches (BL-025). Not public — Livewire does not dehydrate these
      * across requests; they only collapse duplicate queries within one lifecycle.
      */
@@ -138,7 +155,15 @@ class IntakeWizard extends Component
      *     description: string|null,
      *     help_text: string|null,
      *     is_repeatable: bool,
-     *     is_required: bool
+     *     is_required: bool,
+     *     kind?: 'question'|'known_summary',
+     *     known_items?: list<array{
+     *         question_key: string,
+     *         section_instance_key: string|null,
+     *         label: string,
+     *         display_value: string,
+     *         prefill_source: string
+     *     }>
      * }>|null
      */
     private ?array $resolvedSteps = null;
@@ -224,7 +249,7 @@ class IntakeWizard extends Component
         $uploadsByQuestion = [];
         $displayPhotoHint = $this->photoHint;
 
-        if ($step !== null && ! $this->completed) {
+        if ($step !== null && ! $this->completed && ($step['kind'] ?? 'question') !== 'known_summary') {
             $question = app(IntakeStepBuilder::class)->questionForStep(
                 $version,
                 $step['section_key'],
@@ -595,10 +620,24 @@ class IntakeWizard extends Component
         $this->form[$composite][$field] = $value;
 
         unset($this->prefillNotice[$composite]);
+
+        $leavingForcedEdit = in_array($composite, $this->forceShowKnown, true);
         $this->persistComposite($composite);
         $this->saveMessage = 'Opgeslagen';
         $this->showMissing = false;
         $this->realignToActiveStep();
+
+        if ($leavingForcedEdit) {
+            $this->leaveForcedKnownEdit();
+
+            return;
+        }
+
+        $step = $this->currentStep();
+        if (($step['kind'] ?? 'question') === 'known_summary') {
+            return;
+        }
+
         $this->next();
     }
 
@@ -957,7 +996,7 @@ class IntakeWizard extends Component
                 )
                 ->first();
 
-            if ($answer?->prefill_source === DerivePhotoAnswers::SOURCE_SUGGESTED) {
+            if (PrefillSources::isPhotoSuggestion($answer?->prefill_source)) {
                 $this->prefillNotice[$composite] = 'We hebben dit uit uw foto gehaald — klopt het?';
             } else {
                 unset($this->prefillNotice[$composite]);
@@ -1032,7 +1071,7 @@ class IntakeWizard extends Component
         }
 
         $step = $this->currentStep();
-        if ($step === null) {
+        if ($step === null || ($step['kind'] ?? 'question') === 'known_summary') {
             return;
         }
 
@@ -1049,6 +1088,67 @@ class IntakeWizard extends Component
         $composite = VisibilityResolver::compositeKey($question->key, $step['section_instance_key']);
         $this->persistComposite($composite);
         $this->saveMessage = 'Opgeslagen';
+    }
+
+    /**
+     * Laat een eerder overgeslagen bekend veld opnieuw als klantvraag zien (wijzigen).
+     * Bron blijft staan tot de opgeslagen waarde echt verandert.
+     */
+    public function editKnownAnswer(string $questionKey, ?string $sectionInstanceKey = null): void
+    {
+        if ($this->completed || $questionKey === '' || $questionKey === '_known_summary') {
+            return;
+        }
+
+        $question = null;
+        foreach ($this->version()->sections as $section) {
+            foreach ($section->questions as $candidate) {
+                if ($candidate->key === $questionKey) {
+                    $question = $candidate;
+                    break 2;
+                }
+            }
+        }
+
+        if (! $question instanceof IntakeQuestion || ! KnownSummaryCatalog::allows($question)) {
+            return;
+        }
+
+        $answer = $this->intake()->answers()
+            ->where('question_key', $questionKey)
+            ->when(
+                $sectionInstanceKey === null,
+                static fn ($query) => $query->whereNull('section_instance_key'),
+                static fn ($query) => $query->where('section_instance_key', $sectionInstanceKey),
+            )
+            ->first();
+
+        if ($answer === null || ! KnownSummaryCatalog::allowsSource($answer->prefill_source)) {
+            return;
+        }
+
+        $composite = VisibilityResolver::compositeKey($questionKey, $sectionInstanceKey);
+        if (! in_array($composite, $this->forceShowKnown, true)) {
+            $this->forceShowKnown[] = $composite;
+        }
+        $this->pendingKnownEdits[$composite] = [
+            'prefill_source' => (string) $answer->prefill_source,
+            'value' => is_array($answer->value) ? $answer->value : null,
+        ];
+        $this->forgetIntakeDerivedCaches();
+
+        $steps = $this->steps();
+        $index = app(IntakeStepBuilder::class)->indexForCursor(
+            $steps,
+            null,
+            $questionKey,
+            $sectionInstanceKey,
+        );
+        $this->stepIndex = $index;
+        $this->syncActiveStepKey($steps);
+        $this->rememberCurrentCursor();
+        $this->hydrateFormFromAnswers();
+        $this->saveMessage = '';
     }
 
     public function complete(): void
@@ -1100,6 +1200,19 @@ class IntakeWizard extends Component
         $currentKey = $this->activeStepKey !== ''
             ? $this->activeStepKey
             : ($this->steps()[$this->stepIndex]['key'] ?? null);
+        $currentStep = $this->currentStep();
+        $leavingForcedEdit = false;
+        if ($currentStep !== null && ($currentStep['kind'] ?? 'question') !== 'known_summary') {
+            $leavingForcedEdit = in_array(
+                VisibilityResolver::compositeKey(
+                    $currentStep['question_key'],
+                    $currentStep['section_instance_key'],
+                ),
+                $this->forceShowKnown,
+                true,
+            );
+        }
+
         $this->saveCurrentStep();
 
         if (! $this->currentStepRequiredSatisfied()) {
@@ -1111,6 +1224,13 @@ class IntakeWizard extends Component
 
         $this->showMissing = false;
         $this->completionMissing = [];
+
+        // Na Wijzigen: terug naar overzicht, niet vooruit in de flow.
+        if ($leavingForcedEdit) {
+            $this->leaveForcedKnownEdit();
+
+            return;
+        }
 
         $steps = $this->steps();
         $currentIndex = app(IntakeStepBuilder::class)->indexForStepKey($steps, $currentKey) ?? $this->stepIndex;
@@ -1185,10 +1305,33 @@ class IntakeWizard extends Component
             return;
         }
 
+        $currentStep = $this->currentStep();
+        $leavingForcedEdit = false;
+        if ($currentStep !== null && ($currentStep['kind'] ?? 'question') !== 'known_summary') {
+            $leavingForcedEdit = in_array(
+                VisibilityResolver::compositeKey(
+                    $currentStep['question_key'],
+                    $currentStep['section_instance_key'],
+                ),
+                $this->forceShowKnown,
+                true,
+            );
+        }
+
+        $this->saveCurrentStep();
+
+        // Geforceerde known-edit: terug naar overzicht, niet naar de stap ervoor.
+        if ($leavingForcedEdit) {
+            $this->leaveForcedKnownEdit();
+            $this->saveMessage = '';
+            $this->showMissing = false;
+
+            return;
+        }
+
         $currentKey = $this->activeStepKey !== ''
             ? $this->activeStepKey
             : ($this->steps()[$this->stepIndex]['key'] ?? null);
-        $this->saveCurrentStep();
 
         $steps = $this->steps();
         $currentIndex = app(IntakeStepBuilder::class)->indexForStepKey($steps, $currentKey) ?? $this->stepIndex;
@@ -1208,8 +1351,17 @@ class IntakeWizard extends Component
             return;
         }
 
+        $targetKey = $steps[$index]['key'];
         $this->saveCurrentStep();
-        $this->stepIndex = $index;
+        $this->finalizeForcedKnownEditIfOnForcedStep();
+
+        $steps = $this->steps();
+        if ($steps === []) {
+            $this->stepIndex = 0;
+        } else {
+            $resolved = app(IntakeStepBuilder::class)->indexForStepKey($steps, $targetKey);
+            $this->stepIndex = $resolved ?? max(0, min($index, count($steps) - 1));
+        }
         $this->syncActiveStepKey($steps);
         $this->rememberCurrentCursor();
         $this->hydrateFormFromAnswers();
@@ -1274,12 +1426,20 @@ class IntakeWizard extends Component
      *     description: string|null,
      *     help_text: string|null,
      *     is_repeatable: bool,
-     *     is_required: bool
+     *     is_required: bool,
+     *     kind?: 'question'|'known_summary',
+     *     known_items?: list<array{
+     *         question_key: string,
+     *         section_instance_key: string|null,
+     *         label: string,
+     *         display_value: string,
+     *         prefill_source: string,
+     *     }>
      * }>
      */
     private function steps(): array
     {
-        $signature = $this->liveAnswersSignature();
+        $signature = $this->liveAnswersSignature().'|'.implode(',', $this->forceShowKnown);
 
         if ($this->resolvedSteps !== null && $this->resolvedStepsFormSignature === $signature) {
             return $this->resolvedSteps;
@@ -1289,6 +1449,7 @@ class IntakeWizard extends Component
             $this->intake(),
             $this->version(),
             $this->liveAnswers(),
+            $this->forceShowKnown,
         );
 
         $this->resolvedSteps = $steps;
@@ -1374,7 +1535,7 @@ class IntakeWizard extends Component
             // A prefill remains editable and is only authoritative after customer confirmation.
             if ($answer->prefill_source === 'installer') {
                 $notices[$composite] = 'Uw installateur heeft dit alvast ingevuld — klopt het?';
-            } elseif ($answer->prefill_source === DerivePhotoAnswers::SOURCE_SUGGESTED) {
+            } elseif (PrefillSources::isPhotoSuggestion($answer->prefill_source)) {
                 $notices[$composite] = 'We hebben dit uit uw foto gehaald — klopt het?';
             }
         }
@@ -1453,10 +1614,116 @@ class IntakeWizard extends Component
 
         // Een vraag kan via meta.text_analysis latere vragen beantwoorden — de reden van de
         // aanvraag noemt vaak al de ruimtes en of het om koelen of verwarmen gaat.
+        // Known-summary staat direct na request_reason; next() landt erop zonder sprong.
         if ($instanceKey === null && $this->hasTextAnalysis($questionKey)) {
             app(DeriveIntentFromRequest::class)->handle($this->intake());
             $this->forgetIntakeDerivedCaches();
         }
+    }
+
+    /**
+     * Na Wijzigen via Volgende/Enter/Vorige: forced edit afronden en terug naar known-summary.
+     */
+    private function leaveForcedKnownEdit(): void
+    {
+        $this->finalizeForcedKnownEditIfOnForcedStep();
+        $this->returnToKnownSummary();
+    }
+
+    /**
+     * Forced known-edit afronden (zonder navigatie). Gebruikt door leaveForcedKnownEdit en goToStep.
+     */
+    private function finalizeForcedKnownEditIfOnForcedStep(): void
+    {
+        $currentStep = $this->currentStep();
+        if ($currentStep === null || ($currentStep['kind'] ?? 'question') === 'known_summary') {
+            return;
+        }
+
+        $questionKey = $currentStep['question_key'];
+        $instanceKey = $currentStep['section_instance_key'];
+        $composite = VisibilityResolver::compositeKey($questionKey, $instanceKey);
+        if (! in_array($composite, $this->forceShowKnown, true)) {
+            return;
+        }
+
+        $saved = $this->answerForQuestion($questionKey, $instanceKey);
+        $this->finalizeForcedKnownEdit(
+            $questionKey,
+            $instanceKey,
+            is_array($saved?->value) ? $saved->value : [],
+        );
+    }
+
+    private function answerForQuestion(string $questionKey, ?string $instanceKey): ?IntakeAnswer
+    {
+        return $this->intake()->answers()
+            ->where('question_key', $questionKey)
+            ->when(
+                $instanceKey === null,
+                static fn ($query) => $query->whereNull('section_instance_key'),
+                static fn ($query) => $query->where('section_instance_key', $instanceKey),
+            )
+            ->first();
+    }
+
+    /**
+     * @param  array<string, mixed>  $normalizedSavedValue  waarde zoals SaveIntakeAnswer die opsloeg
+     */
+    private function finalizeForcedKnownEdit(
+        string $questionKey,
+        ?string $instanceKey,
+        array $normalizedSavedValue,
+    ): void {
+        $composite = VisibilityResolver::compositeKey($questionKey, $instanceKey);
+        $pending = $this->pendingKnownEdits[$composite] ?? null;
+
+        $this->forceShowKnown = array_values(array_filter(
+            $this->forceShowKnown,
+            static fn (string $key): bool => $key !== $composite,
+        ));
+        unset($this->pendingKnownEdits[$composite]);
+
+        if (! is_array($pending)) {
+            return;
+        }
+
+        $unchanged = $this->answerValuesEqual($pending['value'] ?? null, $normalizedSavedValue);
+        if (! $unchanged) {
+            // SaveIntakeAnswer already cleared prefill_source — value really changed.
+            return;
+        }
+
+        $answer = $this->answerForQuestion($questionKey, $instanceKey);
+
+        if ($answer !== null) {
+            $answer->update(['prefill_source' => $pending['prefill_source']]);
+            $this->forgetIntakeDerivedCaches();
+        }
+    }
+
+    private function returnToKnownSummary(): void
+    {
+        $steps = $this->steps();
+        foreach ($steps as $index => $step) {
+            if (($step['kind'] ?? 'question') === 'known_summary') {
+                $this->stepIndex = $index;
+                $this->syncActiveStepKey($steps);
+                $this->rememberCurrentCursor();
+                $this->hydrateFormFromAnswers();
+
+                return;
+            }
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $left
+     * @param  array<string, mixed>|null  $right
+     */
+    private function answerValuesEqual(?array $left, ?array $right): bool
+    {
+        return json_encode($left ?? []) === json_encode($right ?? []);
     }
 
     private function hasTextAnalysis(string $questionKey): bool
@@ -1582,7 +1849,15 @@ class IntakeWizard extends Component
      *     description: string|null,
      *     help_text: string|null,
      *     is_repeatable: bool,
-     *     is_required: bool
+     *     is_required: bool,
+     *     kind?: 'question'|'known_summary',
+     *     known_items?: list<array{
+     *         question_key: string,
+     *         section_instance_key: string|null,
+     *         label: string,
+     *         display_value: string,
+     *         prefill_source: string,
+     *     }>
      * }|null
      */
     private function currentStep(): ?array

@@ -64,6 +64,53 @@
                 />
             @endif
         </div>
+    @elseif (($step['kind'] ?? 'question') === 'known_summary')
+        <div class="mb-4">
+            <p class="eyebrow">
+                {{ $step['section_title'] }}
+                <span class="mx-1.5 text-[#838c86]">·</span>
+                Vraag {{ $stepIndex + 1 }} van {{ count($steps) }}
+            </p>
+            <h1 class="mt-1 text-2xl font-extrabold tracking-tight text-[#18201d]">
+                {{ $step['title'] }}
+            </h1>
+            @if ($step['description'])
+                <p class="mt-2 text-sm leading-relaxed text-[#5e6862]">{{ $step['description'] }}</p>
+            @endif
+        </div>
+
+        <div class="flex-1 rounded-xl border border-[#dde2da] bg-white p-4 shadow-sm">
+            <ul class="divide-y divide-[#dde2da]">
+                @foreach ($step['known_items'] ?? [] as $item)
+                    <li class="flex items-start justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                        <div class="min-w-0">
+                            <p class="text-sm font-medium text-[#18201d]">{{ $item['label'] }}</p>
+                            <p class="mt-0.5 text-sm text-[#414b45]">{{ $item['display_value'] }}</p>
+                        </div>
+                        <button
+                            type="button"
+                            wire:click="editKnownAnswer({{ \Illuminate\Support\Js::from($item['question_key']) }}, {{ \Illuminate\Support\Js::from($item['section_instance_key'] ?? null) }})"
+                            class="shrink-0 text-sm font-medium text-[var(--tenant-primary)] underline decoration-[var(--tenant-primary)]/40 underline-offset-2"
+                        >
+                            Wijzigen
+                        </button>
+                    </li>
+                @endforeach
+            </ul>
+            @if ($step['help_text'])
+                <p class="mt-3 text-xs leading-relaxed text-[#5e6862]">{{ $step['help_text'] }}</p>
+            @endif
+        </div>
+
+        <div class="mt-6 flex gap-3">
+            <button
+                type="button"
+                wire:click="next"
+                class="min-h-11 flex-1 rounded-xl bg-[var(--tenant-primary)] px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+            >
+                Klopt, verder
+            </button>
+        </div>
     @elseif ($step === null || $question === null)
         <p class="rounded-xl border border-[#dde2da] bg-white p-4 text-sm text-[#414b45] shadow-sm">
             Er zijn nog geen vragen. Vul eerst in hoeveel ruimtes je wilt koelen of verwarmen.
@@ -81,7 +128,7 @@
                 Vraag {{ $stepIndex + 1 }} van {{ count($steps) }}
             </p>
             <h1 class="mt-1 text-2xl font-extrabold tracking-tight text-[#18201d]">
-                {{ $question->label }}
+                {{ $step['title'] ?? $question->label }}
                 @if ($state['required'])
                     <span class="text-[#a84832]">*</span>
                 @endif

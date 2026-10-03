@@ -16,7 +16,8 @@ namespace App\Domains\Intake\Support;
  *     area_m2?: float|int|string|null,
  *     area_source?: string|null,
  *     area_confidence?: string|null,
- *     area_evidence?: string|null
+ *     area_evidence?: string|null,
+ *     dimensions_source?: string|null
  * }
  */
 final class RoomDimensions
@@ -209,7 +210,8 @@ final class RoomDimensions
      *     area_m2?: float|null,
      *     area_source?: string|null,
      *     area_confidence?: string|null,
-     *     area_evidence?: string|null
+     *     area_evidence?: string|null,
+     *     dimensions_source?: string|null
      * }  $input
      * @return array<string, float|string>
      */
@@ -238,6 +240,11 @@ final class RoomDimensions
             if (is_string($evidence) && trim($evidence) !== '') {
                 $dimensions['area_evidence'] = trim($evidence);
             }
+        }
+
+        $dimensionsSource = $input['dimensions_source'] ?? null;
+        if (is_string($dimensionsSource) && $dimensionsSource !== '') {
+            $dimensions['dimensions_source'] = $dimensionsSource;
         }
 
         return $dimensions;

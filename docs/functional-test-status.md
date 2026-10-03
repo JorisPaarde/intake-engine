@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 1.83 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.84 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -12,6 +12,7 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
+| Klanttest foto-first + extractie + kamernamen (BL-118) | todo | - | Case 80/81: foto-first, known-summary, kamernamen; airco v18. |
 | AI-traces inzage + timings (BL-116) | todo | - | Dev `/dev/ai-traces` + CLI `ai:traces`: case 80/81 tekst + fotoupload; correlation-groepering zichtbaar; timings upload/preprocess/provider zichtbaar; mislukte call wist geen antwoord. |
 | Klantwizard network_upload_ms (BL-116) | todo | - | Fotovraag met `data-upload-timing`: na opslaan verschijnt net-ms op upload/trace (client-progress + expliciet upload-id). |
 | Technische beslissingen uit klantflow (PR #115 / v17) | todo | - | Case 80: Condensafvoer → Weet ik niet → afvoerfoto i.p.v. pomp-ja/nee; klant rondt af; installateur ziet open technische punten. |

@@ -32,9 +32,9 @@ final class RoomAreaAcceptance
         $source = $source ?? 'customer';
 
         return match ($source) {
-            'installer', 'customer', 'template_bridge' => true,
-            'ai', 'ai_derived' => self::acceptsAiExactArea($confidence, $evidence, $areaM2),
-            'ai_suggestion', 'request_text' => false,
+            'installer', 'customer', 'template_bridge', 'derived_lxw' => true,
+            'ai', 'ai_text', 'ai_photo', 'ai_derived' => self::acceptsAiExactArea($confidence, $evidence, $areaM2),
+            'ai_suggestion', 'ai_text_suggestion', 'ai_photo_suggestion', 'request_text' => false,
             default => ($confidence ?? '') === 'high' && self::isPlausibleArea($areaM2),
         };
     }
@@ -73,6 +73,16 @@ final class RoomAreaAcceptance
             && $areaM2 <= self::MAX_PLAUSIBLE_AREA_M2;
     }
 
+    public static function sizeIndicationFromArea(float $areaM2): string
+    {
+        // Templateopties: <12 klein, ≤20 gemiddeld, >20 groot.
+        return match (true) {
+            $areaM2 < 12.0 => 'small',
+            $areaM2 <= 20.0 => 'medium',
+            default => 'large',
+        };
+    }
+
     /**
      * Map intake answer prefill_source to dimensions area_source / confidence.
      *
@@ -81,8 +91,9 @@ final class RoomAreaAcceptance
     public static function fromPrefillSource(?string $prefillSource): array
     {
         return match ($prefillSource) {
-            'ai' => ['source' => 'ai', 'confidence' => 'high'],
-            'ai_suggestion' => ['source' => 'ai_suggestion', 'confidence' => 'medium'],
+            'ai', 'ai_text', 'ai_photo' => ['source' => 'ai', 'confidence' => 'high'],
+            'derived_lxw' => ['source' => 'derived_lxw', 'confidence' => 'high'],
+            'ai_suggestion', 'ai_text_suggestion', 'ai_photo_suggestion' => ['source' => 'ai_suggestion', 'confidence' => 'medium'],
             'request_text' => ['source' => 'request_text', 'confidence' => 'medium'],
             'installer' => ['source' => 'installer', 'confidence' => 'high'],
             default => ['source' => 'customer', 'confidence' => 'high'],
