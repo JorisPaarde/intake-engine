@@ -2325,8 +2325,9 @@ class IntakeWizard extends Component
      *     section_key: string,
      *     section_instance_key: string|null,
      *     question_key: string,
-     *     kind?: 'question'|'known_summary'|'question_group',
-     *     group_question_keys?: list<string>
+     *     kind?: 'question'|'known_summary'|'question_group'|'closing_wishes',
+     *     group_question_keys?: list<string>,
+     *     bundle_question_keys?: list<string>
      * }|null  $step
      */
     private function saveStep(?array $step): void
@@ -3204,8 +3205,9 @@ class IntakeWizard extends Component
      *     section_instance_key: string|null,
      *     question_key: string,
      *     is_required?: bool,
-     *     kind?: 'question'|'known_summary'|'question_group',
-     *     group_question_keys?: list<string>
+     *     kind?: 'question'|'known_summary'|'question_group'|'closing_wishes',
+     *     group_question_keys?: list<string>,
+     *     bundle_question_keys?: list<string>
      * }|null  $step
      */
     private function stepRequiredSatisfied(?array $step): bool
@@ -3215,7 +3217,7 @@ class IntakeWizard extends Component
         }
 
         $kind = $step['kind'] ?? 'question';
-        if ($kind === 'known_summary' || $kind === 'closing_wishes') {
+        if ($kind === 'closing_wishes') {
             return true;
         }
 
@@ -3336,7 +3338,7 @@ class IntakeWizard extends Component
      *     help_text: string|null,
      *     is_repeatable: bool,
      *     is_required: bool,
-     *     kind?: 'question'|'known_summary'|'question_group',
+     *     kind?: 'question'|'known_summary'|'question_group'|'closing_wishes',
      *     known_items?: list<array{
      *         question_key: string,
      *         section_instance_key: string|null,
@@ -3345,7 +3347,8 @@ class IntakeWizard extends Component
      *         prefill_source: string,
      *     }>,
      *     group_key?: string,
-     *     group_question_keys?: list<string>
+     *     group_question_keys?: list<string>,
+     *     bundle_question_keys?: list<string>
      * }>  $steps
      * @return array{
      *     key: string,
@@ -3358,7 +3361,7 @@ class IntakeWizard extends Component
      *     help_text: string|null,
      *     is_repeatable: bool,
      *     is_required: bool,
-     *     kind?: 'question'|'known_summary'|'question_group',
+     *     kind?: 'question'|'known_summary'|'question_group'|'closing_wishes',
      *     known_items?: list<array{
      *         question_key: string,
      *         section_instance_key: string|null,
@@ -3367,7 +3370,8 @@ class IntakeWizard extends Component
      *         prefill_source: string,
      *     }>,
      *     group_key?: string,
-     *     group_question_keys?: list<string>
+     *     group_question_keys?: list<string>,
+     *     bundle_question_keys?: list<string>
      * }|null
      */
     private function resolveDisplayedStep(array $steps): ?array
