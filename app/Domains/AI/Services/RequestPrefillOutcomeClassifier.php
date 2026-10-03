@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Domains\AI\Services;
 
 use App\Domains\AI\DTOs\RequestPrefillCandidate;
+use App\Domains\AI\Support\OwnershipNormalizer;
 use App\Domains\Intake\Support\FactProvenance;
-use App\Domains\Intake\Support\RiskRelevantPrefillKeys;use App\Enums\QuestionType;
+use App\Domains\Intake\Support\RiskRelevantPrefillKeys;
+use App\Enums\QuestionType;
 use Illuminate\Validation\ValidationException;
 
 /**

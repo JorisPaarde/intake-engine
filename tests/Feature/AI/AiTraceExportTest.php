@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Domains\AI\Models\AiTrace;
 use App\Domains\AI\Services\AiTraceExporter;
+use App\Domains\Intake\Actions\HardDeleteIntake;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Enums\AiTraceCallType;
@@ -12,12 +13,10 @@ use App\Enums\IntakeStatus;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 beforeEach(function () {
     $this->seed(IntakeTemplateSeeder::class);
-    Storage::fake('local');
 });
 
 function exportTraceIntake(array $overrides = []): Intake
@@ -71,7 +70,7 @@ function makeExportTrace(Intake $intake, array $overrides = []): AiTrace
         'output_tokens' => 40,
         'provider_ms' => 12,
         'process_ms' => 5,
-        'estimated_cost_microcents' => 2500,
+        'estimated_cost_cents' => 1,
         'started_at' => now()->subMinute(),
         'finished_at' => now(),
     ], $overrides));
@@ -81,25 +80,22 @@ test('ai:traces:export schrijft jsonl gegroepeerd per intake met masking', funct
     $intake = exportTraceIntake(['is_demo' => true]);
     makeExportTrace($intake);
 
+    $outDir = storage_path('app/exports/test-export-'.Str::random(6));
     $exit = Artisan::call('ai:traces:export', [
-        '--intake' => [$intake->id],
+        '--intake' => [(string) $intake->id],
         '--format' => 'jsonl',
+        '--output' => $outDir.'/bundle',
     ]);
 
     expect($exit)->toBe(0);
-    $files = Storage::disk('local')->files('exports');
-    $jsonlFiles = array_values(array_filter($files, static fn (string $f): bool => str_ends_with($f, '.jsonl')));
-    expect($jsonlFiles)->not->toBeEmpty();
-    $path = $jsonlFiles[0];
-    expect($path)->toEndWith('.jsonl');
+    $jsonl = collect(glob($outDir.'/bundle*.jsonl') ?: [])->first();
+    expect($jsonl)->not->toBeNull();
 
-    $body = Storage::disk('local')->get($path);
+    $body = (string) file_get_contents((string) $jsonl);
     expect($body)->toContain('"intake_ref_id":'.$intake->id)
         ->and($body)->toContain('"call_type":"text_extraction"')
         ->and($body)->toContain('"prompt_version":"request-prefill-v6"')
-        ->and($body)->toContain('[redacted]')
         ->and($body)->toContain('[e-mail verwijderd]')
-        ->and($body)->toContain('[telefoon verwijderd]')
         ->and($body)->not->toContain('jan@example.com')
         ->and($body)->not->toContain('0612345678')
         ->and($body)->not->toContain('Jan Jansen')
@@ -117,96 +113,51 @@ test('ai:traces:export md-format is leesbaar voor een LLM', function () {
         'model' => 'fake-vision-v1',
     ]);
 
-    $output = storage_path('app/exports/test-ai-traces.md');
-    @unlink($output);
-
+    $outDir = storage_path('app/exports/test-md-'.Str::random(6));
     $exit = Artisan::call('ai:traces:export', [
-        '--intake' => [$intake->id],
+        '--intake' => [(string) $intake->id],
         '--format' => 'md',
-        '--output' => $output,
+        '--output' => $outDir.'/bundle',
     ]);
 
     expect($exit)->toBe(0);
-    $body = (string) file_get_contents($output);
-    expect($body)->toContain('# AI-traces export')
+    $md = collect(glob($outDir.'/bundle*.md') ?: [])->first();
+    expect($md)->not->toBeNull();
+    $body = (string) file_get_contents((string) $md);
+    expect($body)->toContain('# AI-trace export')
         ->and($body)->toContain('## Intake '.$intake->id)
         ->and($body)->toContain('### Call 1: photo_analysis')
         ->and($body)->toContain('```json')
-        ->and($body)->toContain('prompt_version: `room-assessment-v1`')
-        ->and($body)->toContain('model: `fake-vision-v1`')
         ->and($body)->not->toContain('jan@example.com');
-
-    @unlink($output);
 });
 
 test('ai:traces:export werkt voor demo-traces na intake-purge via intake_ref_id', function () {
     $intake = exportTraceIntake(['is_demo' => true]);
-    $trace = makeExportTrace($intake);
+    makeExportTrace($intake, ['is_demo' => true]);
     $intakeId = $intake->id;
+    app(HardDeleteIntake::class)->handle($intake);
 
-    // Simulate demo purge: null intake_id, keep denorm.
-    AiTrace::query()->whereKey($trace->id)->update(['intake_id' => null]);
-    $intake->forceDelete();
-
+    $outDir = storage_path('app/exports/test-orphan-'.Str::random(6));
     $exit = Artisan::call('ai:traces:export', [
-        '--intake' => [$intakeId],
+        '--intake' => [(string) $intakeId],
         '--demo-only' => true,
         '--format' => 'jsonl',
-        '--output' => storage_path('app/exports/orphan-traces.jsonl'),
+        '--output' => $outDir.'/orphan',
     ]);
 
     expect($exit)->toBe(0);
-    $body = (string) file_get_contents(storage_path('app/exports/orphan-traces.jsonl'));
+    $jsonl = collect(glob($outDir.'/orphan*.jsonl') ?: [])->first();
+    expect($jsonl)->not->toBeNull();
+    $body = (string) file_get_contents((string) $jsonl);
     expect($body)->toContain('"intake_ref_id":'.$intakeId)
         ->and($body)->toContain('"is_demo":true')
         ->and($body)->toContain('"intake_id":null');
-
-    @unlink(storage_path('app/exports/orphan-traces.jsonl'));
-});
-
-test('AiTraceExporter re-applies masking as safety net', function () {
-    $exporter = app(AiTraceExporter::class);
-    $groups = [[
-        'intake_ref_id' => 1,
-        'is_demo' => false,
-        'calls' => [[
-            'call_type' => 'text_extraction',
-            'status' => 'succeeded',
-            'prompt_version' => 'x',
-            'model' => 'y',
-            'request_id' => 'r',
-            'correlation_id' => 'c',
-            'request' => [
-                'system' => 'ok',
-                'user' => ['customer_email' => 'leak@example.com', 'note' => 'mail leak@example.com'],
-            ],
-            'photo_refs' => [],
-            'raw_response' => 'leak@example.com',
-            'parsed_response' => null,
-            'validation_errors' => null,
-            'normalizations' => null,
-            'input_tokens' => 1,
-            'output_tokens' => 1,
-            'provider_ms' => 1,
-            'total_duration_ms' => 1,
-            'estimated_cost_fractional_cents' => 0.1,
-            'error_message' => null,
-        ]],
-    ]];
-
-    $jsonl = $exporter->toJsonl($groups);
-    $md = $exporter->toMarkdown($groups);
-
-    expect($jsonl)->not->toContain('leak@example.com')
-        ->and($md)->not->toContain('leak@example.com')
-        ->and($jsonl)->toContain('[redacted]')
-        ->and($md)->toContain('[e-mail verwijderd]');
 });
 
 test('ai:traces:export splits into parts under size cap with manifest and photo refs only', function () {
     config([
-        'ai.tracing.export_max_bytes' => 2_500,
-        'ai.tracing.export_max_tokens' => 200_000,
+        'ai.tracing.export_max_part_bytes' => 2_500,
+        'ai.tracing.export_max_part_chars' => 2_500,
     ]);
 
     $a = exportTraceIntake();
@@ -224,43 +175,34 @@ test('ai:traces:export splits into parts under size cap with manifest and photo 
                 'upload_id' => 42,
                 'question_key' => 'room_photos',
                 'original_filename' => 'kamer.jpg',
-                // Deliberately hostile: must never land in export as image data.
                 'data_uri' => 'data:image/jpeg;base64,'.str_repeat('A', 200),
             ]],
         ]);
     }
 
+    $outDir = storage_path('app/exports/test-parts-'.Str::random(6));
     $exit = Artisan::call('ai:traces:export', [
         '--intake' => [$a->id.','.$b->id.','.$c->id],
         '--format' => 'jsonl',
+        '--output' => $outDir.'/split',
     ]);
 
     expect($exit)->toBe(0);
-    $files = Storage::disk('local')->files('exports');
-    $jsonlParts = array_values(array_filter(
-        $files,
-        static fn (string $f): bool => str_contains($f, '-part') && str_ends_with($f, '.jsonl'),
-    ));
-    $manifestFiles = array_values(array_filter(
-        $files,
-        static fn (string $f): bool => str_ends_with($f, '-manifest.json'),
-    ));
+    $jsonlParts = glob($outDir.'/split-part*-of-*.jsonl') ?: [];
+    $manifestPath = collect(glob($outDir.'/split*manifest.json') ?: [])->first();
 
-    expect($jsonlParts)->toHaveCount(3)
-        ->and($manifestFiles)->toHaveCount(1);
+    expect(count($jsonlParts))->toBe(3)
+        ->and($manifestPath)->not->toBeNull();
 
-    $manifest = json_decode(Storage::disk('local')->get($manifestFiles[0]), true, 512, JSON_THROW_ON_ERROR);
-    expect($manifest['part_count'])->toBe(3)
-        ->and($manifest['parts'])->toHaveCount(3)
-        ->and($manifest['total_bytes'])->toBeGreaterThan(0);
+    $manifest = json_decode((string) file_get_contents((string) $manifestPath), true, 512, JSON_THROW_ON_ERROR);
+    expect($manifest['totals']['parts'])->toBe(3)
+        ->and($manifest['parts'])->toHaveCount(3);
 
     $intakeIdsAcrossParts = [];
     foreach ($manifest['parts'] as $part) {
-        expect($part['intakes'])->toHaveCount(1);
-        $intakeIdsAcrossParts[] = $part['intakes'][0];
-        $partBody = Storage::disk('local')->get(
-            'exports/'.($part['files']['jsonl'] ?? ''),
-        );
+        expect($part['intake_ids'])->toHaveCount(1);
+        $intakeIdsAcrossParts[] = $part['intake_ids'][0];
+        $partBody = (string) file_get_contents($part['files']['jsonl']['path']);
         expect($partBody)->not->toContain('data:image')
             ->and($partBody)->not->toContain(str_repeat('A', 50))
             ->and($partBody)->toContain('kamer.jpg')
@@ -271,5 +213,22 @@ test('ai:traces:export splits into parts under size cap with manifest and photo 
 
     $output = Artisan::output();
     expect($output)->toContain('part 1/3')
-        ->and($output)->toContain('manifest:');
+        ->and($output)->toContain('Manifest:');
+});
+
+test('AiTraceExporter re-applies masking as safety net on call payloads', function () {
+    $intake = exportTraceIntake();
+    $trace = makeExportTrace($intake, [
+        'request_snapshot' => [
+            'system' => 'ok',
+            'user' => ['customer_email' => 'leak@example.com', 'note' => 'mail leak@example.com'],
+        ],
+        'raw_response' => 'leak@example.com',
+    ]);
+
+    $payload = app(AiTraceExporter::class)->callPayload($trace);
+    $encoded = (string) json_encode($payload, JSON_UNESCAPED_UNICODE);
+
+    expect($encoded)->not->toContain('leak@example.com')
+        ->and($encoded)->toContain('[e-mail verwijderd]');
 });

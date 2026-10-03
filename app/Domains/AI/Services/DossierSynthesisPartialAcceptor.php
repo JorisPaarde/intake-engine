@@ -63,11 +63,30 @@ final class DossierSynthesisPartialAcceptor
 
         $context = $this->buildReferenceContext($input);
         $placements = $context['placements'];
+        $disallowedEvidence = $context['disallowed_evidence'];
+        $freeGroup = $context['free_group'];
+        $subjectsWithRoomPhoto = $context['subjects_with_room_photo'];
+
+        if ($freeGroup === 'no' && $this->claimsFreeGroupAvailable($summary)) {
+            $outcomes[] = $this->outcome(
+                'summary',
+                'rejected',
+                'summary',
+                'Samenvatting spreekt vrije groep tegen de meterkastbeoordeling (geen vrije groep).',
+            );
+            $validationErrors['summary'][] = 'Samenvatting spreekt vrije groep tegen de meterkastbeoordeling (geen vrije groep).';
+            $summary = $this->stripFreeGroupClaims($summary);
+            // Keep a neutral summary so valid placements/options can still land.
+            if (trim($summary) === '') {
+                $summary = 'Technische voorzet op basis van beschikbaar bewijs; controleer stroomvoorziening op de meterkastfoto.';
+            }
+            $outcomes[] = $this->outcome('summary', 'accepted', 'summary', 'Samenvatting genormaliseerd: vrije-groepclaim verwijderd.');
+        }
 
         $acceptedPlacements = [];
         foreach ($this->arrayRows($output['placement_proposals'] ?? null) as $index => $proposal) {
             $path = 'placement_proposals.'.$index;
-            $result = $this->acceptPlacement($proposal, $path, $context, $placements);
+            $result = $this->acceptPlacement($proposal, $path, $context, $placements, $disallowedEvidence, $freeGroup);
             if ($result['accepted'] !== null) {
                 $acceptedPlacements[] = $result['accepted'];
                 $placements->put($result['accepted']['key'], $result['accepted'] + [
@@ -83,7 +102,7 @@ final class DossierSynthesisPartialAcceptor
         $acceptedOptions = [];
         foreach ($this->arrayRows($output['option_proposals'] ?? null) as $index => $option) {
             $path = 'option_proposals.'.$index;
-            $result = $this->acceptOption($option, $path, $placements, $context['evidence']);
+            $result = $this->acceptOption($option, $path, $placements, $context['evidence'], $disallowedEvidence, $freeGroup);
             if ($result['accepted'] !== null) {
                 $acceptedOptions[] = $result['accepted'];
                 $outcomes[] = $this->outcome($path, 'accepted', 'option_proposal', null);
@@ -96,7 +115,7 @@ final class DossierSynthesisPartialAcceptor
         $acceptedExceptions = [];
         foreach ($this->arrayRows($output['exceptions'] ?? null) as $index => $exception) {
             $path = 'exceptions.'.$index;
-            $result = $this->acceptException($exception, $path, $context['evidence']);
+            $result = $this->acceptException($exception, $path, $context['evidence'], $disallowedEvidence, $freeGroup);
             if ($result['accepted'] !== null) {
                 $acceptedExceptions[] = $result['accepted'];
                 $outcomes[] = $this->outcome($path, 'accepted', 'exception', null);
@@ -109,7 +128,14 @@ final class DossierSynthesisPartialAcceptor
         $acceptedTasks = [];
         foreach ($this->arrayRows($output['customer_tasks'] ?? null) as $index => $task) {
             $path = 'customer_tasks.'.$index;
-            $result = $this->acceptCustomerTask($task, $path, $context['subjects'], $context['evidence']);
+            $result = $this->acceptCustomerTask(
+                $task,
+                $path,
+                $context['subjects'],
+                $context['evidence'],
+                $disallowedEvidence,
+                $subjectsWithRoomPhoto,
+            );
             if ($result['accepted'] !== null) {
                 $acceptedTasks[] = $result['accepted'];
                 $outcomes[] = $this->outcome($path, 'accepted', 'customer_task', null);
@@ -203,11 +229,18 @@ final class DossierSynthesisPartialAcceptor
     /**
      * @param  array<string, mixed>  $proposal
      * @param  Collection<string, array<string, mixed>>  $placements
-     * @param  array{rooms: Collection<string, array<string, mixed>>, subjects: list<string>, evidence: list<string>, placements: Collection<string, array<string, mixed>>}  $context
+     * @param  array{rooms: Collection<string, array<string, mixed>>, subjects: list<string>, evidence: list<string>, placements: Collection<string, array<string, mixed>>, disallowed_evidence: list<string>, free_group: string|null, subjects_with_room_photo: list<string>}  $context
+     * @param  list<string>  $disallowedEvidence
      * @return array{accepted: array<string, mixed>|null, reason: string|null}
      */
-    private function acceptPlacement(array $proposal, string $path, array $context, $placements): array
-    {
+    private function acceptPlacement(
+        array $proposal,
+        string $path,
+        array $context,
+        $placements,
+        array $disallowedEvidence,
+        ?string $freeGroup,
+    ): array {
         $validator = Validator::make(
             ['item' => $proposal],
             [
@@ -249,9 +282,18 @@ final class DossierSynthesisPartialAcceptor
             return ['accepted' => null, 'reason' => 'Dubbele proposal-sleutel.'];
         }
 
+        if ($freeGroup === 'no' && $this->claimsFreeGroupAvailable(
+            (string) $item['label'].' '.(string) $item['description'],
+        )) {
+            return [
+                'accepted' => null,
+                'reason' => 'Positie claimt vrije groep terwijl de meterkastbeoordeling geen vrije groep zag.',
+            ];
+        }
+
         try {
             $this->assertUniqueReferences($item['evidence_references']);
-            $this->assertEvidenceReferences($item['evidence_references'], $context['evidence']);
+            $this->assertEvidenceReferences($item['evidence_references'], $context['evidence'], $disallowedEvidence);
         } catch (ValidationException $e) {
             return ['accepted' => null, 'reason' => $this->failureFormatter->fromException($e)];
         }
@@ -265,14 +307,30 @@ final class DossierSynthesisPartialAcceptor
      * @param  array<string, mixed>  $option
      * @param  Collection<string, array<string, mixed>>  $placements
      * @param  list<string>  $evidence
+     * @param  list<string>  $disallowedEvidence
      * @return array{accepted: array<string, mixed>|null, reason: string|null}
      */
-    private function acceptOption(array $option, string $path, $placements, array $evidence): array
-    {
+    private function acceptOption(
+        array $option,
+        string $path,
+        $placements,
+        array $evidence,
+        array $disallowedEvidence,
+        ?string $freeGroup,
+    ): array {
         $option = $this->remapSubjectRefsToPlacements($option, $placements);
         $stripped = $this->stripUnresolvedSubjectRefs($option);
         $option = $stripped['option'];
         $strippedConnectionReasons = $stripped['connection_reasons'];
+
+        if ($freeGroup === 'no' && $this->claimsFreeGroupAvailable(
+            (string) ($option['label'] ?? '').' '.(string) ($option['summary'] ?? ''),
+        )) {
+            return [
+                'accepted' => null,
+                'reason' => 'Installatieoptie claimt vrije groep terwijl de meterkastbeoordeling geen vrije groep zag.',
+            ];
+        }
 
         $validator = Validator::make(
             ['item' => $option],
@@ -414,9 +472,18 @@ final class DossierSynthesisPartialAcceptor
                 }
             }
 
+            if ($freeGroup === 'no' && $this->claimsFreeGroupAvailable(
+                (string) ($connection['label'] ?? ''),
+            )) {
+                return [
+                    'accepted' => null,
+                    'reason' => 'connections.'.$connectionIndex.': stroomclaim spreekt meterkastbeoordeling tegen (geen vrije groep).',
+                ];
+            }
+
             try {
                 $this->assertUniqueReferences($connection['evidence_references']);
-                $this->assertEvidenceReferences($connection['evidence_references'], $evidence);
+                $this->assertEvidenceReferences($connection['evidence_references'], $evidence, $disallowedEvidence);
             } catch (ValidationException $e) {
                 return [
                     'accepted' => null,
@@ -535,10 +602,16 @@ final class DossierSynthesisPartialAcceptor
     /**
      * @param  array<string, mixed>  $exception
      * @param  list<string>  $evidence
+     * @param  list<string>  $disallowedEvidence
      * @return array{accepted: array<string, mixed>|null, reason: string|null}
      */
-    private function acceptException(array $exception, string $path, array $evidence): array
-    {
+    private function acceptException(
+        array $exception,
+        string $path,
+        array $evidence,
+        array $disallowedEvidence,
+        ?string $freeGroup,
+    ): array {
         $validator = Validator::make(
             ['item' => $exception],
             [
@@ -558,9 +631,16 @@ final class DossierSynthesisPartialAcceptor
         /** @var array<string, mixed> $item */
         $item = $validator->validated()['item'];
 
+        if ($freeGroup === 'no' && $this->claimsFreeGroupAvailable((string) $item['label'])) {
+            return [
+                'accepted' => null,
+                'reason' => 'Uitzondering claimt vrije groep terwijl de meterkastbeoordeling geen vrije groep zag.',
+            ];
+        }
+
         try {
             $this->assertUniqueReferences($item['evidence_references']);
-            $this->assertEvidenceReferences($item['evidence_references'], $evidence);
+            $this->assertEvidenceReferences($item['evidence_references'], $evidence, $disallowedEvidence);
         } catch (ValidationException $e) {
             return ['accepted' => null, 'reason' => $this->failureFormatter->fromException($e)];
         }
@@ -572,10 +652,18 @@ final class DossierSynthesisPartialAcceptor
      * @param  array<string, mixed>  $task
      * @param  list<string>  $subjects
      * @param  list<string>  $evidence
+     * @param  list<string>  $disallowedEvidence
+     * @param  list<string>  $subjectsWithRoomPhoto
      * @return array{accepted: array<string, mixed>|null, reason: string|null}
      */
-    private function acceptCustomerTask(array $task, string $path, array $subjects, array $evidence): array
-    {
+    private function acceptCustomerTask(
+        array $task,
+        string $path,
+        array $subjects,
+        array $evidence,
+        array $disallowedEvidence,
+        array $subjectsWithRoomPhoto,
+    ): array {
         $validator = Validator::make(
             ['item' => $task],
             [
@@ -604,9 +692,20 @@ final class DossierSynthesisPartialAcceptor
             ];
         }
 
+        // Staging intake 77: don't re-ask for a wall/room photo the customer already uploaded.
+        if ($item['type'] === FollowUpItemType::Photo->value
+            && is_string($item['subject_reference'])
+            && in_array($item['subject_reference'], $subjectsWithRoomPhoto, true)
+            && $this->asksForRoomOrWallPhoto((string) $item['prompt'].' '.(string) $item['reason'])) {
+            return [
+                'accepted' => null,
+                'reason' => 'Klanttaak overgeslagen: voor dit onderwerp staat al een bruikbare muur-/ruimtefoto in het dossier.',
+            ];
+        }
+
         try {
             $this->assertUniqueReferences($item['evidence_references']);
-            $this->assertEvidenceReferences($item['evidence_references'], $evidence);
+            $this->assertEvidenceReferences($item['evidence_references'], $evidence, $disallowedEvidence);
         } catch (ValidationException $e) {
             return ['accepted' => null, 'reason' => $this->failureFormatter->fromException($e)];
         }
@@ -620,7 +719,10 @@ final class DossierSynthesisPartialAcceptor
      *     rooms: Collection<string, array<string, mixed>>,
      *     subjects: list<string>,
      *     evidence: list<string>,
-     *     placements: Collection<string, array<string, mixed>>
+     *     placements: Collection<string, array<string, mixed>>,
+     *     disallowed_evidence: list<string>,
+     *     free_group: string|null,
+     *     subjects_with_room_photo: list<string>
      * }
      */
     private function buildReferenceContext(array $input): array
@@ -637,11 +739,34 @@ final class DossierSynthesisPartialAcceptor
             ->values()
             ->all();
 
+        $disallowed = [];
+        foreach ($this->arrayRows($input['image_manifest'] ?? null) as $image) {
+            $reference = $image['reference'] ?? null;
+            if (! is_string($reference) || $reference === '') {
+                continue;
+            }
+            if (($image['evidence_eligible'] ?? true) === false) {
+                $disallowed[] = $reference;
+            }
+        }
+
+        $policy = is_array($input['synthesis_policy'] ?? null) ? $input['synthesis_policy'] : [];
+        $freeGroup = is_string($policy['free_group'] ?? null) ? $policy['free_group'] : null;
+        $covered = [];
+        foreach ($policy['subjects_with_room_photo'] ?? [] as $subjectRef) {
+            if (is_string($subjectRef) && $subjectRef !== '') {
+                $covered[] = $subjectRef;
+            }
+        }
+
         return [
             'rooms' => $rooms,
             'subjects' => $subjects,
             'evidence' => $this->allReferences($input),
             'placements' => $placements,
+            'disallowed_evidence' => array_values(array_unique($disallowed)),
+            'free_group' => $freeGroup,
+            'subjects_with_room_photo' => array_values(array_unique($covered)),
         ];
     }
 
@@ -658,16 +783,53 @@ final class DossierSynthesisPartialAcceptor
     /**
      * @param  list<string>  $references
      * @param  list<string>  $available
+     * @param  list<string>  $disallowed
      */
-    private function assertEvidenceReferences(array $references, array $available): void
+    private function assertEvidenceReferences(array $references, array $available, array $disallowed = []): void
     {
         foreach ($references as $reference) {
+            if (in_array($reference, $disallowed, true)) {
+                throw ValidationException::withMessages([
+                    'evidence_references' => 'AI-bewijs gebruikt een wrong-subject foto die niet als bewijs mag tellen.',
+                ]);
+            }
             if (! in_array($reference, $available, true)) {
                 throw ValidationException::withMessages([
                     'evidence_references' => 'AI-bewijs verwijst niet naar de verzonden dossiercontext.',
                 ]);
             }
         }
+    }
+
+    private function claimsFreeGroupAvailable(string $text): bool
+    {
+        $normalized = mb_strtolower($text);
+
+        return (bool) preg_match(
+            '/vrije\s+groep(en)?|free[_\s-]?group|met\s+vrije\s+groep/',
+            $normalized,
+        );
+    }
+
+    private function stripFreeGroupClaims(string $summary): string
+    {
+        $cleaned = preg_replace(
+            '/[^.]*vrije\s+groep[^.]*\.?/iu',
+            '',
+            $summary,
+        );
+
+        return trim(preg_replace('/\s{2,}/', ' ', is_string($cleaned) ? $cleaned : $summary) ?? $summary);
+    }
+
+    private function asksForRoomOrWallPhoto(string $text): bool
+    {
+        $normalized = mb_strtolower($text);
+
+        return (bool) preg_match(
+            '/\b(muur|wand|kamer|ruimte|plafond|indoor|binnenunitplek|plaatsingsplek)\b/',
+            $normalized,
+        );
     }
 
     /**

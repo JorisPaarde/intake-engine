@@ -70,8 +70,11 @@ final class OpenAiClient implements AiClientInterface
         }
 
         $responseFormat = $this->responseFormat($request);
+        $temperature = $request->temperature !== null
+            ? $request->temperature
+            : (float) config('ai.temperature', 0.2);
         $modelParameters = [
-            'temperature' => 0.2,
+            'temperature' => $temperature,
             'response_format' => $responseFormat,
             'timeout_seconds' => $timeout,
             'base_url' => $baseUrl,

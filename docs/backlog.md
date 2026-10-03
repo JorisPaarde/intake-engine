@@ -1,8 +1,7 @@
 # Backlog — Digitale Opname
 
 > **Documentversie:** 4.81 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
-De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).De MVP-bouwstenen staan historisch onder E1–E5. De productfase E6–E10 is op 2026-07-30 geïmplementeerd en volgt het [productmodel](product-model.md): één centrale technische opname na een bestaande aanvraag, meerdere bijdragers, beslisgereedheid en voor airco afzonderlijke koel-, condens- en stroomverbindingen.
-Status: `backlog` · `ready` · `in_progress` · `done` · `dropped` — prioriteit: `high` · `medium` · `low`
+De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).De MVP-bouwstenen staan historisch onder E1–E5. De productfase E6–E10 is op 2026-07-30 geïmplementeerd en volgt het [productmodel](product-model.md): één centrale technische opname na een bestaande aanvraag, meerdere bijdragers, beslisgereedheid en voor airco afzonderlijke koel-, condens- en stroomverbindingen.Status: `backlog` · `ready` · `in_progress` · `done` · `dropped` — prioriteit: `high` · `medium` · `low`
 
 **Leeswijzer:** scan de epictabel en de overzichtstabel hieronder; open daarna alleen de detailsectie van het item waaraan je werkt.
 
@@ -35,22 +34,14 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
 **Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = fotobeoordeling via queue (#124, done). **BL-122** = soft catalogus-prefill (case 81). **BL-123** = staging-retest acceptance (#115–#120). **BL-124** = form robustness (#127, done). **BL-125** = AI-trace retentie/export + PDF-downscale (#130, done). **BL-126** = prompt/vision quality (route/ownership/kamernamen). **BL-127** = foto-assessment terminale status + watchdog (#133, done). **BL-128** = grote telefoonfoto-upload (inactiviteit-timeout + client-downscale + lege-200-retry). Nieuwe items starten bij BL-129.
-
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
 | 1 | BL-117 | Installateur kan technisch open punt afhandelen vanuit de survey-werkplek | E7/E8 | backlog | high | na PR #115 · show/rapport `*_open` |
 | — | BL-128 | Grote telefoonfoto: inactiviteit-timeout + client-downscale + 8 MB + lege-200-retry | E1/E7 | done | high | A · na BL-124/127 · staging intake 78 · PR #131 |
 | — | BL-127 | Foto-assessment: terminale status, soft-timeout, ai_runs.upload_id, watchdog | E4 | done | high | na #124 · staging intake 78 · PR #133 |
-| — | BL-126 | Prompt/vision quality: route-categorie, ownership, kamernamen, free_group/glas | E3/E4/E9 | in_progress | high | AI/foto · na BL-119/122 · parallel dossier-synthesis |
-| — | BL-125 | AI-trace retentie na demo-purge, export, request_id, PDF-downscale | E4/E5 | done | high | AI/ops · na BL-116 · demo-purge · PR #130 |
-| — | BL-124 | Form robustness: adresvalidatie, matenscherm L+B, optionele route-/afvoerfoto, upload-timeout | E1/E3/E7 | done | high | A · klanttest P1/P3 · airco v21 · PR #127 || — | BL-123 | Staging-retest: voortgang 100%, Volgende-mismatch, follow-up wrong_subject | E1/E4/E7 | done | high | na #115–#120 · case 80/81b · PR #121 |
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99. BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = follow-up foto async. **BL-122** = soft catalogus-prefill (case 81). **BL-123** = staging-retest acceptance (#115–#120). **BL-124** = strikte dossiersynthese + fractionele budgetteller. **BL-125** = prefill-provenance + aannames in dossier (deel; ownership/room_name/traces → parallelle PRs). Nieuwe items starten bij BL-126.
-
-| # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
-|---|----|------|------|--------|------------|-------------------------|
-| 1 | BL-125 | Prefill-provenance + aannames in dossier | E3/E4/E9 | done | high | na BL-124 · deel scope PR #123; ownership/room_name/traces elders |
-| 2 | BL-124 | AI: strikte dossiersynthese-output + fractionele budgetteller | E4/E9 | done | high | na BL-109 · staging/prod Gemini+OpenRouter · PR #123 |
-| 3 | BL-117 | Installateur kan technisch open punt afhandelen vanuit de survey-werkplek | E7/E8 | backlog | high | na PR #115 · show/rapport `*_open` || — | BL-123 | Staging-retest: voortgang 100%, Volgende-mismatch, follow-up wrong_subject | E1/E4/E7 | done | high | na #115–#120 · case 80/81b · PR #121 |
+| — | BL-126 | Prompt/vision quality: route-categorie, ownership, kamernamen, free_group/glas | E3/E4/E9 | in_progress | high | AI/foto · na BL-119/122 · parallel dossier-synthesis || — | BL-125 | AI-trace retentie na demo-purge, export, request_id, PDF-downscale | E4/E5 | done | high | AI/ops · na BL-116 · demo-purge · PR #130 |
+| — | BL-124 | Form robustness: adresvalidatie, matenscherm L+B, optionele route-/afvoerfoto, upload-timeout | E1/E3/E7 | done | high | A · klanttest P1/P3 · airco v21 · PR #127 |
+| — | BL-123 | Staging-retest: voortgang 100%, Volgende-mismatch, follow-up wrong_subject | E1/E4/E7 | done | high | na #115–#120 · case 80/81b · PR #121 |
 | — | BL-122 | Soft catalogus-prefill: lange evidence / kapotte fill dumpt niet alles | E3/E9 | done | high | regressie case 81 · PR #120 · na BL-118/120 |
 | — | BL-120 | Klanttest P2: voortgang, uploadfases, je-vorm (airco v20) | E1/E5/E7 | done | high | klanttest 2 okt P2 · PR #118 · na BL-119 |
 | — | BL-119 | Klanttest 2 okt P1: foto-stelligheid, interne AI-velden, verkeerde-fotofeedback | E4/E7/E9 | in_progress | high | AI/foto · na BL-118 · airco v19 · PR #119 |
@@ -638,28 +629,28 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-126 — Prompt/vision quality: route, ownership, kamernamen, classificatie
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E3/E4/E9 · **Band:** AI/foto · **Volgt op:** BL-119/121/122 · **PR:** #126
+- **Status:** done · **Datum:** 2026-10-03 · **Prioriteit:** high · **Epic:** E3/E4/E9 · **Band:** AI/foto · **Volgt op:** BL-119/121/122 · **PR:** #126
 - **Aanleiding:** routefoto (goot/doorvoer) → “Dit is een andere foto”; ownership flaky; Ouders/Kind niet op labels; free_group Ja/Nee wisselend; glas leeg bij grote ramen.
 - **Doel:** route-categorie mapping + prompts; OwnershipNormalizer; room_name→installer labels; unknown i.p.v. gok; classification temperature 0 via config (zonder OpenAiClient-internals).
 - **Scope:** extraction/prefill/photo-assessment prompts + PhotoSubject/PhotoContentAssessment mapping (compatibel met `AssessUploadedPhotoJob`); géén dossier-synthesis/OpenAiClient.
 - **Acceptatie:** fixture-test routefoto; ownership-phrasings; room_name sync + skip; Vervang foto/Toch doorgaan intact; lege woonkamer geen extra stopcontactvraag; `composer check` groen.
-### BL-125 — Prefill-provenance + aannames in dossier
+### BL-128 — Prefill-provenance + aannames in dossier
 
-- **Status:** done · **Datum:** 2026-10-03 · **PR:** #123 · **Prioriteit:** high · **Epic:** E3/E4/E9 · **Volgt op:** BL-124/118/116 · **Ref:** prod-test intakes 82/84/86 (gpt-4o-mini)
+- **Status:** done · **Datum:** 2026-10-03 · **PR:** #123 · **Prioriteit:** high · **Epic:** E3/E4/E9 · **Volgt op:** BL-122/116 · **Ref:** prod-test intakes 82/84/86 (gpt-4o-mini)
 - **Aanleiding:** `noise_sensitive` e.d. inferred als bevestigd; installateursdossier toonde raw keys zonder bron/zekerheid.
 - **Doel:** elke fill met provenance; inferred risico ≠ confirmed; dossier toont “aanname” met NL-labels.
-- **Scope (deze PR):** `FactProvenance`/`RiskRelevantPrefillKeys`/`fact_provenance`, classifier defaults, dossier `ai_assumption` + NL UI. **Buiten scope (parallel):** ownership-normaliser/prompt, room_name-sync, trace-retention/export.
+- **Scope (deze PR):** `FactProvenance`/`RiskRelevantPrefillKeys`/`fact_provenance`, classifier defaults, dossier `ai_assumption` + NL UI. **Buiten scope (parallel):** ownership-normaliser/prompt, room_name-sync (BL-126).
 - **Acceptatie:** Pest voor balkon→aanname + NL labels; `composer check` groen.
-- **Resultaat:** `fact_provenance`, dossier aannames met veldlabel/bron/zekerheid; geen raw keys in de installateursweergave.
+- **Resultaat:** `fact_provenance`, dossier aannames met veldlabel/bron/zekerheid; geen raw keys in de installateursweergave. Extra in #123: NL AI-voorstel-labels + stated ownership/room_name skip-tests.
 
-### BL-124 — AI: strikte dossiersynthese-output + fractionele budgetteller
+### BL-127 — AI: strikte dossiersynthese-output + fractionele budgetteller
 
-- **Status:** done · **Datum:** 2026-10-03 · **PR:** #123 · **Prioriteit:** high · **Epic:** E4/E9 · **Volgt op:** BL-109 · **Ref:** staging/prod `google/gemini-3.1-flash-lite` via OpenRouter; ai_runs 3 okt 2026
-- **Aanleiding:** dossiersynthese faalde op élk model (`connections`/`placement_references`/`subject_reference`/`evidence_references`; 20s timeout bij 8–12 beelden). Budgetteller boekte min. 1 cent terwijl Gemini ~0,1–0,5 cent kost; dossier-runs misten `image_count`/tokens. Prod run-243: `subject:298` i.p.v. placement-ref + te weinig placements/connections.
-- **Doel:** `json_schema` strict structured output; partial acceptance per voorstel; prompt v5; aparte dossier-timeout; fractionele microcents + usage op dossier-runs (ook fail).
-- **Scope:** AI-domain (`OpenAiClient`, `SynthesizeSurveyDossier`, budget, migratie, prompt, docs, tests) + subject→placement remap. Geen IntakeWizard/Livewire foto-upload.
-- **Acceptatie:** Pest voor partial fixtures + run-243 + json_schema request body + fractional budget; `composer check` groen.
-- **Resultaat:** strict schema + partial acceptance (`partial`/`succeeded`); `dossier-synthesis-v5`; `AI_DOSSIER_TIMEOUT_SECONDS=45`; `estimated_cost_microcents`; usage/image_count op dossier-runs; run-243 remap + drop bij te weinig refs.
+- **Status:** done · **Datum:** 2026-10-03 · **PR:** #123 · **Prioriteit:** high · **Epic:** E4/E9 · **Volgt op:** BL-109 · **Ref:** staging/prod Gemini+OpenRouter; ai_runs 3 okt 2026; staging intakes 76/77
+- **Aanleiding:** dossiersynthese faalde op élk model (`connections`/`placement_references`/`subject_reference`/`evidence_references`; 20s timeout bij 8–12 beelden). Budgetteller boekte min. 1 cent terwijl Gemini ~0,1–0,5 cent kost; dossier-runs misten `image_count`/tokens. Prod run-243: `subject:298` i.p.v. placement-ref. Staging 76/77: `room:ID`-refs, te korte cardinality, wrong-subject als bewijs, tegenspraak free_group, herhaalde muurfoto-taak.
+- **Doel:** `json_schema` strict structured output; partial acceptance per voorstel; prompt v6; aparte dossier-timeout; fractionele microcents + usage; wrong-subject/free_group/uploaded-photo policy.
+- **Scope:** AI-domain (`OpenAiClient`, `SynthesizeSurveyDossier`, budget, migratie, prompt, docs, tests) + subject→placement remap + synthesis_policy. Geen IntakeWizard/Livewire foto-upload.
+- **Acceptatie:** Pest voor partial fixtures + run-243 + staging 76/77 + json_schema request body + fractional budget; `composer check` groen.
+- **Resultaat:** strict schema + partial acceptance (`partial`/`succeeded`); `dossier-synthesis-v6`; `AI_DOSSIER_TIMEOUT_SECONDS=45`; `estimated_cost_microcents`; usage/image_count op dossier-runs; run-243 remap; wrong-subject geen bewijs; free_group-contradictie geweerd; muurfoto-taak gepasseerd bij bestaand bewijs.
 ### BL-123 — Staging-retest acceptance (#115–#120)
 
 - **Status:** done · **Datum:** 2026-10-03 · **PR:** #121 · **Prioriteit:** high · **Epic:** E1/E4/E7 · **Volgt op:** BL-119/120/122 · **Ref:** staging retest main@7031743, case 80 + follow-up 81b intake 73

@@ -16,6 +16,7 @@ use App\Domains\AI\Services\DossierSynthesisOutputNormalizer;
 use App\Domains\AI\Services\DossierSynthesisPartialAcceptor;
 use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\AI\Services\SurveySynthesisContextBuilder;
+use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\Intake\Models\AircoConnection;
 use App\Domains\Intake\Models\AircoInstallationOption;
 use App\Domains\Intake\Models\AircoPlacementOption;
@@ -87,6 +88,7 @@ final class SynthesizeSurveyDossier
             $input = $this->contextBuilder->build($intake);
             $imageUploads = $this->imageUploads($intake);
             $input['image_manifest'] = $this->imageManifest($imageUploads);
+            $input['synthesis_policy'] = $this->synthesisPolicy($intake, $imageUploads);
             $inputHash = $this->hash($input, $promptVersion, $model);
 
             $run = AiRun::query()->create([
@@ -194,7 +196,9 @@ final class SynthesizeSurveyDossier
                     $trace->beginBuffer();
                     $locked = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
                     $currentInput = $this->contextBuilder->build($locked);
-                    $currentInput['image_manifest'] = $this->imageManifest($this->imageUploads($locked));
+                    $currentUploads = $this->imageUploads($locked);
+                    $currentInput['image_manifest'] = $this->imageManifest($currentUploads);
+                    $currentInput['synthesis_policy'] = $this->synthesisPolicy($locked, $currentUploads);
 
                     if (! hash_equals($inputHash, $this->hash($currentInput, $promptVersion, $model))) {
                         throw new RuntimeException('Opnamedossier gewijzigd tijdens AI-synthese; resultaat niet toegepast.');
@@ -538,18 +542,91 @@ final class SynthesizeSurveyDossier
     private function imageManifest(Collection $uploads): array
     {
         return $uploads
-            ->map(fn (IntakeUpload $upload): array => [
-                'reference' => 'dossier_image:'.$upload->id,
-                'question_key' => $upload->question_key,
-                'section_instance_key' => $upload->section_instance_key,
-                'follow_up_item_reference' => $upload->intake_follow_up_item_id === null
-                    ? null
-                    : 'follow_up_item:'.$upload->intake_follow_up_item_id,
-                'sort_order' => $upload->sort_order,
-                'image_identity' => $this->aiImageResolver->identity($upload),
-            ])
+            ->map(function (IntakeUpload $upload): array {
+                $assessment = $upload->contentAssessment();
+                $eligible = $assessment === null
+                    || $assessment->solvesContent()
+                    || $assessment->status() === PhotoContentAssessment::STATUS_NEEDS_CLEARER
+                    || $assessment->status() === PhotoContentAssessment::STATUS_NOT_ASSESSED;
+
+                return [
+                    'reference' => 'dossier_image:'.$upload->id,
+                    'question_key' => $upload->question_key,
+                    'section_instance_key' => $upload->section_instance_key,
+                    'follow_up_item_reference' => $upload->intake_follow_up_item_id === null
+                        ? null
+                        : 'follow_up_item:'.$upload->intake_follow_up_item_id,
+                    'sort_order' => $upload->sort_order,
+                    'image_identity' => $this->aiImageResolver->identity($upload),
+                    'content_assessment' => $assessment?->toArray(),
+                    // Wrong-subject photos (without “Toch doorgaan”) are never usable evidence.
+                    'evidence_eligible' => $eligible,
+                ];
+            })
             ->values()
             ->all();
+    }
+
+    /**
+     * Server-side policy hints for partial acceptance (staging intakes 76/77).
+     *
+     * @param  Collection<int, IntakeUpload>  $uploads
+     * @return array{
+     *     free_group: string|null,
+     *     subjects_with_room_photo: list<string>
+     * }
+     */
+    private function synthesisPolicy(Intake $intake, Collection $uploads): array
+    {
+        $intake->loadMissing(['answers', 'externalFacts', 'aircoRooms']);
+
+        $freeGroup = null;
+        $answer = $intake->answers->first(
+            static fn ($row): bool => $row->question_key === 'free_group_known',
+        );
+        if (is_array($answer?->value) && is_string($answer->value['value'] ?? null)) {
+            $freeGroup = $answer->value['value'];
+        }
+
+        $fact = $intake->externalFacts->first(
+            static fn ($row): bool => $row->fact_key === 'fusebox_photo_assessment',
+        );
+        if (is_array($fact?->value) && is_string($fact->value['free_group'] ?? null)) {
+            $freeGroup = $fact->value['free_group'];
+        }
+
+        $roomSubjectsByKey = [];
+        foreach ($intake->aircoRooms as $room) {
+            $roomSubjectsByKey[$room->key] = 'subject:'.$room->dossier_subject_id;
+        }
+
+        $covered = [];
+        foreach ($uploads as $upload) {
+            if (! in_array($upload->question_key, [
+                'room_photos',
+                'indoor_unit_position_photo',
+                'room_wall_outlet_photo',
+            ], true)) {
+                continue;
+            }
+
+            $assessment = $upload->contentAssessment();
+            if ($assessment instanceof PhotoContentAssessment
+                && $assessment->status() === PhotoContentAssessment::STATUS_WRONG_SUBJECT
+                && ! $assessment->customerAcceptedMismatch()) {
+                continue;
+            }
+
+            $instance = $upload->section_instance_key;
+            if (is_string($instance) && isset($roomSubjectsByKey[$instance])) {
+                $covered[] = $roomSubjectsByKey[$instance];
+            }
+        }
+
+        return [
+            'free_group' => is_string($freeGroup) ? $freeGroup : null,
+            'subjects_with_room_photo' => array_values(array_unique($covered)),
+        ];
     }
 
     /** @param array<string, mixed> $input */
