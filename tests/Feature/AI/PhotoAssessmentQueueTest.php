@@ -9,6 +9,7 @@ use App\Domains\AI\Clients\FakeAiClient;
 use App\Domains\AI\Jobs\AssessUploadedPhotoJob;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Models\AiTrace;
+use App\Domains\AI\Services\AiTraceRequestIdResolver;
 use App\Domains\AI\Services\PhotoAssessmentLifecycle;
 use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\Intake\Actions\CreateCustomerContributionRequest;
@@ -67,6 +68,7 @@ function runAssessUploadedPhotoJob(int $uploadId): void
         app(AssessFuseboxPhotos::class),
         app(DerivePhotoAnswers::class),
         app(PhotoAssessmentLifecycle::class),
+        app(AiTraceRequestIdResolver::class),
     );
 }
 

@@ -57,6 +57,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Max tokens (optional)
+    |--------------------------------------------------------------------------
+    |
+    | When set (>0), OpenAiClient sends max_tokens on chat/completions and logs
+    | it in ai_traces.model_parameters. Empty/null = provider default.
+    |
+    */
+
+    'max_tokens' => env('AI_MAX_TOKENS'),
+
+    /*
+    |--------------------------------------------------------------------------
     | External AI budget guard
     |--------------------------------------------------------------------------
     |

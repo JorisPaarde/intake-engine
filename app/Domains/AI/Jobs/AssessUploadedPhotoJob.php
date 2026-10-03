@@ -7,6 +7,7 @@ namespace App\Domains\AI\Jobs;
 use App\Domains\AI\Actions\AssessFollowUpPhotoSubject;
 use App\Domains\AI\Actions\AssessFuseboxPhotos;
 use App\Domains\AI\Actions\DerivePhotoAnswers;
+use App\Domains\AI\Services\AiTraceRequestIdResolver;
 use App\Domains\AI\Services\PhotoAssessmentLifecycle;
 use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\AI\Support\PhotoDerivationProfile;
@@ -41,13 +42,18 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
 
     public int $uniqueFor = 180;
 
+    /** microtime(true) at construction / dispatch — used for queue_wait_ms. */
+    public readonly float $dispatchedAt;
+
     public function __construct(
         public readonly int $uploadId,
         public readonly ?string $correlationId = null,
+        ?float $dispatchedAt = null,
     ) {
         $this->onQueue(self::QUEUE);
         // Boven AI_TIMEOUT_SECONDS zodat de worker de soft-fail van de client afwacht.
         $this->timeout = max(45, (int) config('ai.timeout_seconds', 20) + 25);
+        $this->dispatchedAt = $dispatchedAt ?? microtime(true);
     }
 
     public function uniqueId(): string
@@ -60,7 +66,13 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
         AssessFuseboxPhotos $assessFusebox,
         DerivePhotoAnswers $derivePhotoAnswers,
         PhotoAssessmentLifecycle $lifecycle,
+        AiTraceRequestIdResolver $requestIdResolver,
     ): void {
+        $queueWaitMs = (int) max(0, round((microtime(true) - $this->dispatchedAt) * 1000));
+        $attempt = max(1, $this->attempts());
+        $requestIdResolver->rememberQueueMetrics($queueWaitMs, $attempt);
+        $requestIdResolver->rememberCorrelationId($this->correlationId);
+
         $upload = IntakeUpload::query()->with(['intake', 'followUpItem'])->find($this->uploadId);
 
         if (! $upload instanceof IntakeUpload || $upload->intake === null) {
@@ -82,6 +94,8 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
         } catch (Throwable $exception) {
             Log::warning('Queued photo assessment failed', [
                 'upload_id' => $this->uploadId,
+                'attempt' => $attempt,
+                'queue_wait_ms' => $queueWaitMs,
                 'exception' => $exception::class,
                 'message' => $exception->getMessage(),
             ]);
