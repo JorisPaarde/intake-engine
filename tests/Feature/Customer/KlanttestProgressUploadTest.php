@@ -2,16 +2,11 @@
 
 declare(strict_types=1);
 
-use App\Domains\AI\Actions\AssessFollowUpPhotoSubject;
-use App\Domains\AI\Actions\AssessFuseboxPhotos;
-use App\Domains\AI\Actions\DerivePhotoAnswers;
 use App\Domains\AI\Clients\FakeAiClient;
 use App\Domains\AI\Jobs\AssessUploadedPhotoJob;
 use App\Domains\AI\Jobs\SuggestAttentionPointsJob;
 use App\Domains\AI\Jobs\SummarizeIntakeJob;
 use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
-use App\Domains\AI\Services\AiTraceRequestIdResolver;
-use App\Domains\AI\Services\PhotoAssessmentLifecycle;
 use App\Domains\Intake\Actions\CompleteIntake;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StoreFollowUpUpload;
@@ -224,13 +219,7 @@ test('follow-up progress wordt 100% alleen na bruikbare beoordeling', function (
     // Process queued assessment (sync-style) and poll UI.
     $upload = $item->fresh()->uploads->first();
     expect($upload)->not->toBeNull();
-    (new AssessUploadedPhotoJob($upload->id))->handle(
-        app(AssessFollowUpPhotoSubject::class),
-        app(AssessFuseboxPhotos::class),
-        app(DerivePhotoAnswers::class),
-        app(PhotoAssessmentLifecycle::class),
-        app(AiTraceRequestIdResolver::class),
-    );
+    runAssessUploadedPhotoJob($upload->id);
 
     $component->call('pollPendingAssessments')
         ->assertSet('uploadPhase', '');
@@ -407,13 +396,7 @@ test('retry na mislukte beoordeling herbeoordeelt via queue', function () {
     expect($component->get('uploadPhase'))->toBe('assessing');
 
     // Job opnieuw (sync) + poll.
-    (new AssessUploadedPhotoJob($uploadId))->handle(
-        app(AssessFollowUpPhotoSubject::class),
-        app(AssessFuseboxPhotos::class),
-        app(DerivePhotoAnswers::class),
-        app(PhotoAssessmentLifecycle::class),
-        app(AiTraceRequestIdResolver::class),
-    );
+    runAssessUploadedPhotoJob($uploadId);
 
     $component->call('pollPendingAssessments')->assertSet('uploadPhase', '');
 

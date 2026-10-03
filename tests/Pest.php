@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Domains\AI\Jobs\AssessUploadedPhotoJob;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -46,7 +47,13 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+/**
+ * Run AssessUploadedPhotoJob synchronously with container-resolved handle() deps.
+ * Prefer this over positional handle() arguments so new DI parameters do not break tests.
+ */
+function runAssessUploadedPhotoJob(int $uploadId, ?string $correlationId = null, ?float $dispatchedAt = null): void
 {
-    // ..
+    $job = new AssessUploadedPhotoJob($uploadId, $correlationId, $dispatchedAt);
+
+    app()->call([$job, 'handle']);
 }

@@ -2,13 +2,9 @@
 
 declare(strict_types=1);
 
-use App\Domains\AI\Actions\AssessFollowUpPhotoSubject;
-use App\Domains\AI\Actions\AssessFuseboxPhotos;
-use App\Domains\AI\Actions\DerivePhotoAnswers;
 use App\Domains\AI\Clients\FakeAiClient;
 use App\Domains\AI\Jobs\AssessUploadedPhotoJob;
 use App\Domains\AI\Models\AiRun;
-use App\Domains\AI\Services\AiTraceRequestIdResolver;
 use App\Domains\AI\Services\PhotoAssessmentLifecycle;
 use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\AI\Support\PhotoSubject;
@@ -72,13 +68,7 @@ function terminalTinyPhoto(string $name = 'tiny.jpg'): UploadedFile
 
 function runTerminalAssessJob(int $uploadId): void
 {
-    (new AssessUploadedPhotoJob($uploadId))->handle(
-        app(AssessFollowUpPhotoSubject::class),
-        app(AssessFuseboxPhotos::class),
-        app(DerivePhotoAnswers::class),
-        app(PhotoAssessmentLifecycle::class),
-        app(AiTraceRequestIdResolver::class),
-    );
+    runAssessUploadedPhotoJob($uploadId);
 }
 
 function makeTerminalWizardIntake(): Intake
