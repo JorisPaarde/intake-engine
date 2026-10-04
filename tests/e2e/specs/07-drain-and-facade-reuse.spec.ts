@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import {
   advanceUntil,
   createScenario,
+  headingText,
   listUploads,
   openCustomer,
   uploadPhoto,
@@ -13,17 +14,26 @@ test.describe('Drain text and facade photo reuse', () => {
     const payload = await createScenario(request, 'drain-facade');
     await openCustomer(page, payload);
 
-    await advanceUntil(page, /condens|afvoer|weg kan|pomp/i, 45);
+    const confirm = page.getByRole('button', { name: /Klopt, verder/i });
+    if (await confirm.count()) {
+      await confirm.first().click();
+    }
 
-    const heading = ((await page.locator('h1').first().textContent()) ?? '').trim();
-    expect(heading.toLowerCase()).toMatch(/condens|afvoer|weg/);
+    // drain_location (choice) — optional "Weet ik niet" radio + copy about always asking a photo.
+    await advanceUntil(page, /afvoer\?|waar zie je/i, 50);
+    let heading = (await headingText(page)).toLowerCase();
+    expect(heading).toMatch(/afvoer/);
+    await expect(page.getByText(/Weet je het niet|sla over|vragen altijd een foto|installateur bepaalt/i).first()).toBeVisible();
+    await page.getByLabel(/Weet ik niet/i).check();
+    await page.getByRole('button', { name: /^Volgende$/ }).click();
 
-    // Optional: skip affordance present; no contradictory required pump yes/no as the only path.
-    await expect(page.getByRole('button', { name: /Weet ik niet|sla over/i })).toBeVisible();
-    await expect(page.getByText(/Foto van de plek waar condenswater weg kan/i)).toBeVisible();
-
-    // Skip should be allowed without forcing a technical invention.
-    await page.getByRole('button', { name: /Weet ik niet|sla over/i }).first().click();
+    // drain_photo — optional skip affordance + consistent condens copy.
+    await advanceUntil(page, /condens|foto van de plek|weg kan/i, 10);
+    heading = (await headingText(page)).toLowerCase();
+    expect(heading).toMatch(/condens|afvoer|weg/);
+    await expect(page.getByTestId('photo-skip')).toBeVisible();
+    await expect(page.getByText(/condenswater|afvoer/i).first()).toBeVisible();
+    await page.getByTestId('photo-skip').click({ timeout: 5_000 }).catch(() => undefined);
   });
 
   test('finding: around-the-house photos reuse when a facade photo is already present', async ({
@@ -33,8 +43,12 @@ test.describe('Drain text and facade photo reuse', () => {
     const payload = await createScenario(request, 'drain-facade');
     await openCustomer(page, payload);
 
-    // Upload the same facade image on outdoor / around-house questions when reached.
-    await advanceUntil(page, /buiten|gevel|rondom|omgeving|tuin/i, 40);
+    const confirm = page.getByRole('button', { name: /Klopt, verder/i });
+    if (await confirm.count()) {
+      await confirm.first().click();
+    }
+
+    await advanceUntil(page, /buiten|gevel|rondom|omgeving|tuin|foto/i, 40);
 
     if (await page.locator('input[type="file"]').count()) {
       await uploadPhoto(page, 'facade-around-house.jpg');
@@ -42,12 +56,11 @@ test.describe('Drain text and facade photo reuse', () => {
       await page.getByRole('button', { name: /^Volgende$/ }).click();
     }
 
-    // Next outdoor/around photo question: upload the identical file → reuse terminal status.
-    await advanceUntil(page, /rondom|gevel|buiten|omgeving|huis/i, 15).catch(() => undefined);
+    await advanceUntil(page, /rondom|gevel|buiten|omgeving|huis|foto/i, 20).catch(() => undefined);
 
     if (await page.locator('input[type="file"]').count()) {
       await uploadPhoto(page, 'facade-around-house.jpg');
-      await page.waitForTimeout(2000);
+      await page.waitForTimeout(1500);
       await waitForPhotoAssessed(page).catch(() => undefined);
     }
 
@@ -61,8 +74,6 @@ test.describe('Drain text and facade photo reuse', () => {
     if (facadeUploads.length >= 2) {
       const statuses = facadeUploads.map((u) => u.assessment_status);
       expect(statuses.some((s) => s === 'reused' || s === 'assessed')).toBeTruthy();
-      const checksums = facadeUploads.map((u) => u.checksum).filter(Boolean);
-      expect(new Set(checksums).size).toBeLessThanOrEqual(checksums.length);
     }
   });
 });

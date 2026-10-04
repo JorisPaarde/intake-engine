@@ -35,6 +35,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'public.demo.scope' => RestrictPublicDemoSession::class,
         ]);
 
+        // Browser E2E helpers (only registered when E2E_HELPERS=true) need CSRF-free POSTs.
+        $middleware->validateCsrfTokens(except: [
+            '__e2e__/*',
+        ]);
+
         // Log Laravel-produced 5xx (incl. abort(503)) and abrupt PHP endings.
         $middleware->appendToGroup('web', LogServerErrorResponses::class);
 

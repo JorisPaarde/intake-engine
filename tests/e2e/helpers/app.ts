@@ -21,7 +21,10 @@ export async function createScenario(
   scenario: string,
 ): Promise<E2eScenarioPayload> {
   const response = await request.post(`/__e2e__/scenarios/${scenario}`);
-  expect(response.ok(), `create scenario ${scenario}: ${response.status()}`).toBeTruthy();
+  if (! response.ok()) {
+    const body = await response.text();
+    throw new Error(`create scenario ${scenario}: ${response.status()} ${body.slice(0, 400)}`);
+  }
   return (await response.json()) as E2eScenarioPayload;
 }
 
@@ -52,21 +55,15 @@ export async function openCustomer(page: Page, payload: E2eScenarioPayload): Pro
 }
 
 export async function clickNext(page: Page): Promise<void> {
-  const next = page.getByRole('button', { name: /Volgende|Klopt, verder|Afronden|Aanvulling versturen/i }).first();
+  const next = page.getByRole('button', { name: /^(Volgende|Klopt, verder|Afronden|Aanvulling versturen)$/i }).first();
   await next.click();
 }
 
-export async function chooseRadioByLabel(page: Page, label: string | RegExp): Promise<void> {
-  const option = page.locator('label').filter({ hasText: label }).first();
-  await option.click();
-  await page.getByText('Opgeslagen').first().waitFor({ state: 'visible', timeout: 15_000 }).catch(() => undefined);
-}
-
 export async function fillTextAndBlur(page: Page, value: string): Promise<void> {
-  const input = page.locator('input[type="text"], textarea, input[type="number"]').first();
+  const input = page.locator('textarea:visible, input[type="text"]:visible, input[type="number"]:visible').first();
   await input.fill(value);
   await input.blur();
-  await page.getByText('Opgeslagen').first().waitFor({ state: 'visible', timeout: 15_000 }).catch(() => undefined);
+  await page.getByText('Opgeslagen').first().waitFor({ state: 'visible', timeout: 10_000 }).catch(() => undefined);
 }
 
 export async function uploadPhoto(page: Page, fileName: string): Promise<void> {
@@ -75,17 +72,18 @@ export async function uploadPhoto(page: Page, fileName: string): Promise<void> {
 }
 
 export async function waitForPhotoAssessed(page: Page, timeoutMs = 90_000): Promise<void> {
-  await expect(page.getByTestId('photo-receipt-status')).toContainText(/Beoordeeld|Ontvangen/, {
-    timeout: timeoutMs,
-  });
-  // Prefer terminal Beoordeeld when fake AI + sync/queue worker are running.
   await expect(page.getByTestId('photo-receipt-status')).toContainText('Beoordeeld', {
     timeout: timeoutMs,
   });
 }
 
+export async function headingText(page: Page): Promise<string> {
+  return ((await page.locator('h1').first().textContent()) ?? '').replace(/\s+/g, ' ').trim();
+}
+
 /**
- * Advance the wizard until the page title/heading matches, or maxSteps is hit.
+ * Advance until the current h1 matches `match`.
+ * Fills simple fields / skips optional photos along the way.
  */
 export async function advanceUntil(
   page: Page,
@@ -93,34 +91,69 @@ export async function advanceUntil(
   maxSteps = 40,
 ): Promise<void> {
   for (let i = 0; i < maxSteps; i++) {
-    const heading = page.locator('h1').first();
-    const text = ((await heading.textContent()) ?? '').trim();
+    if (await page.getByTestId('customer-thank-you').count()) {
+      throw new Error(`Reached thank-you before matching ${match}`);
+    }
+
+    const text = await headingText(page);
     if (match.test(text)) {
       return;
     }
 
-    // Optional photo skip
-    const skip = page.getByRole('button', { name: /Weet ik niet|sla over|Overslaan/i });
-    if (await skip.count()) {
-      await skip.first().click();
-      await page.waitForTimeout(300);
+    const confirm = page.getByRole('button', { name: /^Klopt, verder$/i });
+    if (await confirm.count()) {
+      await confirm.first().click();
+      await page.waitForTimeout(200);
       continue;
     }
 
-    // Photo step without upload yet — leave for caller
-    if (await page.locator('input[type="file"]').count()) {
-      if (match.test('foto') || /foto|meterkast|gevel|ruimte|overzicht/i.test(text)) {
-        // If looking for a photo question and we are on one, stop when heading matches.
-        return;
-      }
+    const skip = page.getByTestId('photo-skip');
+    if (await skip.count()) {
+      await skip.first().click({ timeout: 5_000 }).catch(() => undefined);
+      await page.waitForTimeout(400);
+      continue;
     }
 
-    const next = page.getByRole('button', { name: /^Volgende$|^Klopt, verder$|^Afronden$/ });
-    if (!(await next.count())) {
-      throw new Error(`Stuck advancing wizard at: ${text}`);
+    const skipLabel = page.getByRole('button', { name: /Weet ik niet|sla over|Overslaan/i });
+    if (await skipLabel.count()) {
+      await skipLabel.first().click({ timeout: 5_000 }).catch(() => undefined);
+      await page.waitForTimeout(400);
+      continue;
     }
-    await next.first().click();
-    await page.waitForTimeout(250);
+
+    if (await page.locator('input[type="file"]').count()) {
+      // Optional photo without skip — upload a generic usable photo to proceed.
+      await uploadPhoto(page, 'facade-around-house.jpg');
+      await waitForPhotoAssessed(page).catch(() => undefined);
+      await clickNext(page);
+      await page.waitForTimeout(250);
+      continue;
+    }
+
+    if (await page.locator('input[type="radio"]:visible').count()) {
+      await page.locator('label').filter({ has: page.locator('input[type="radio"]') }).first().click();
+      await page.waitForTimeout(200);
+      await clickNext(page);
+      continue;
+    }
+
+    if (await page.locator('textarea:visible, input[type="text"]:visible, input[type="number"]:visible').count()) {
+      const field = page.locator('textarea:visible, input[type="text"]:visible, input[type="number"]:visible').first();
+      const type = await field.getAttribute('type');
+      await field.fill(type === 'number' ? '3' : 'E2E antwoord');
+      await field.blur();
+      await page.waitForTimeout(200);
+      await clickNext(page);
+      continue;
+    }
+
+    if (await page.getByRole('button', { name: /^Volgende$/ }).count()) {
+      await clickNext(page);
+      await page.waitForTimeout(200);
+      continue;
+    }
+
+    throw new Error(`Stuck advancing wizard at: ${text}`);
   }
-  throw new Error(`Did not reach step matching ${match} within ${maxSteps} steps`);
+  throw new Error(`Did not reach step matching ${match} within ${maxSteps} steps (last: ${await headingText(page)})`);
 }

@@ -237,6 +237,7 @@ final class E2eScenarioFactory
     private function seedLivingRoomKnown(Intake $intake): void
     {
         $pairs = [
+            ['request_reason', null, ['text' => 'Airco in de woonkamer voor koelen en verwarmen.']],
             ['indoor_unit_count', null, ['number' => 1]],
             ['cooling_heating', null, ['value' => 'both']],
             ['building_type', null, ['value' => 'detached']],

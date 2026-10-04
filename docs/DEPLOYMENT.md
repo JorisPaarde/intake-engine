@@ -23,6 +23,8 @@ Afgestemd op de huidige host:
 
 Beide workflows bouwen in GitHub Actions (Composer `--no-dev` + Vite-assets), rsyncen naar hun eigen `releases/<sha>` en roepen `deploy/activate.sh` aan. Het script controleert het verwachte `APP_ENV`, koppelt alleen de eigen shared `.env`/storage, verwijdert eventuele runtimecache uit een gekopieerde release, draait migraties + `IntakeTemplateSeeder`, seedt op staging optioneel de demo-installateur-login, cachet config/routes/views en wisselt de `current`-symlink atomisch. Per omgeving blijven de laatste drie releases bewaard.
 
+PR-CI (`ci.yml`) heeft naast **Pint, PHPStan & Pest** de job **E2E (Playwright)** (BL-138): Laravel + SQLite + `AI_PROVIDER=fake`, Chromium-klantflow in `tests/e2e`. Zie [tests/e2e/README.md](../tests/e2e/README.md).
+
 ```
 /home/intakeengine/apps/
 ├── intake-engine-staging/

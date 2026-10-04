@@ -11,52 +11,43 @@ test.describe('Targeted customer task (follow-up)', () => {
     page,
     request,
   }) => {
+    test.setTimeout(180_000);
+
     const payload = await createScenario(request, 'follow-up-mismatch');
     await setAiScenario(request, 'wrong_subject');
     await openCustomer(page, payload);
 
     await expect(page.getByText(/Aanvulling voor/i)).toBeVisible();
 
-    // Item 1: wrong subject photo (outdoor instead of meterkast).
+    // Item 1 — wrong subject blocks completion until Toch versturen / replace.
     await uploadPhoto(page, 'wrong-subject-outdoor.jpg');
-    await expect(page.getByText(/meterkast|Vervang|Toch versturen/i).first()).toBeVisible({
-      timeout: 90_000,
-    });
-
-    const submit = page.getByRole('button', { name: /Aanvulling versturen/i });
-    if (await submit.count()) {
-      await submit.click();
-      await expect(page.getByText(/Vervang de foto|Toch versturen/i).first()).toBeVisible();
-      await expect(page.getByText(/^Bedankt$/)).toHaveCount(0);
-    }
-
+    await expect(page.getByTestId('follow-up-mismatch')).toBeVisible({ timeout: 90_000 });
     await expect(page.getByRole('button', { name: /Toch versturen/i })).toBeVisible();
 
-    // Low-resolution on next item (or same flow): too-small fixture.
-    const nextItem = page.getByRole('button', { name: /Volgende/i });
-    // Accept mismatch on first item so we can exercise low-res separately if multi-item.
-    await page.getByRole('button', { name: /Toch versturen/i }).click();
-
-    if (await nextItem.count()) {
-      await nextItem.click();
+    // Not last step yet → Volgende; trying complete early is not available.
+    await page.getByRole('button', { name: /^Volgende$/ }).click();
+    // Soft-block may keep us here with warning — accept mismatch explicitly.
+    if (await page.getByRole('button', { name: /Toch versturen/i }).count()) {
+      await page.getByRole('button', { name: /Toch versturen/i }).click();
+      await page.getByRole('button', { name: /^Volgende$/ }).click();
     }
 
-    if (await page.locator('input[type="file"]').count()) {
-      await setAiScenario(request, 'good_photo');
-      await uploadPhoto(page, 'too-small-400.jpg');
-      await expect(page.getByText(/klein|resolutie|scherper|opnieuw/i).first()).toBeVisible({
-        timeout: 60_000,
-      });
-    }
+    // Item 2 — low resolution soft hint.
+    await expect(page.getByText(/Onderdeel 2 van 2/i)).toBeVisible({ timeout: 15_000 });
+    await setAiScenario(request, 'good_photo');
+    await uploadPhoto(page, 'too-small-400.jpg');
+    await expect(page.getByText(/lage resolutie|klein|scherper|dichtersbij|dichtersbij|dichterbij/i).first()).toBeVisible({
+      timeout: 60_000,
+    });
 
-    // With Toch versturen, thank-you says installer still needs to review.
-    if (await submit.count()) {
-      await submit.click();
-    } else {
-      await page.getByRole('button', { name: /Aanvulling versturen|Afronden|Versturen/i }).first().click();
-    }
+    // Replace with usable photo so the round can be sent.
+    await page.getByRole('button', { name: /Verwijderen/i }).first().click();
+    await uploadPhoto(page, 'room-overview-good.jpg');
+    await page.getByText(/Beoordeeld|Opgeslagen|Status/i).first().waitFor({ timeout: 90_000 }).catch(() => undefined);
+
+    await page.getByRole('button', { name: /Aanvulling versturen/i }).click();
 
     await expect(page.getByText(/Bedankt/i).first()).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText(/installateur kijkt|nog iets openstaat|nog.*beoord/i)).toBeVisible();
+    await expect(page.getByText(/installateur kijkt|nog iets openstaat/i)).toBeVisible();
   });
 });
