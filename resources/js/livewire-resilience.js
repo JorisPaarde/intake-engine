@@ -37,15 +37,35 @@ function csrfToken() {
     return meta?.getAttribute?.('content') || '';
 }
 
-function resolveComponent(componentId) {
-    if (typeof Livewire === 'undefined' || typeof Livewire.find !== 'function') {
-        return null;
+/**
+ * Livewire.find(id) returns the $wire proxy (not the Component instance).
+ * component.init hooks receive the Component (`component.$wire`).
+ * Note: the $wire proxy itself also exposes a nested `$wire` — do not unwrap that.
+ */
+function resolveWire(componentOrId) {
+    if (typeof componentOrId === 'string' || typeof componentOrId === 'number') {
+        if (typeof Livewire === 'undefined' || typeof Livewire.find !== 'function') {
+            return null;
+        }
+        try {
+            return Livewire.find(componentOrId) || null;
+        } catch {
+            return null;
+        }
     }
-    try {
-        return Livewire.find(componentId);
-    } catch {
-        return null;
+
+    if (componentOrId && typeof componentOrId === 'object') {
+        // Real Component instance from Livewire hooks / Livewire.all().
+        if (componentOrId.el && componentOrId.$wire && typeof componentOrId.$wire.call === 'function') {
+            return componentOrId.$wire;
+        }
+        // Already a $wire proxy from Livewire.find().
+        if (typeof componentOrId.call === 'function') {
+            return componentOrId;
+        }
     }
+
+    return null;
 }
 
 function isLivewireUploadUrl(url) {
@@ -260,10 +280,10 @@ export function registerLivewireUpdateResilience() {
                 livewireAttemptByKey.delete(key);
                 // Clear any stuck Livewire upload bags for photo properties.
                 targets.forEach((item) => {
-                    const component = resolveComponent(item.componentId);
-                    if (component?.$wire && typeof component.$wire.cancelUpload === 'function' && item.uploadName) {
+                    const wire = resolveWire(item.componentId);
+                    if (wire && typeof wire.cancelUpload === 'function' && item.uploadName) {
                         try {
-                            component.$wire.cancelUpload(item.uploadName);
+                            wire.cancelUpload(item.uploadName);
                         } catch {
                             // ignore
                         }
@@ -287,12 +307,21 @@ export function registerLivewireUpdateResilience() {
             try {
                 await gate.runExclusive(waitMs, async () => {
                     for (const item of targets) {
-                        const component = resolveComponent(item.componentId);
-                        if (! component?.$wire || typeof component.$wire.call !== 'function') {
+                        const wire = resolveWire(item.componentId);
+                        if (! wire) {
                             continue;
                         }
-                        // Idempotent: re-call _finishUpload with the same tmp paths.
-                        await component.$wire.call(item.name, ...(item.params || []));
+                        const method = String(item.name || '');
+                        if (! method || method === '$wire') {
+                            continue;
+                        }
+                        // Livewire.find() returns $wire. Prefer direct method invoke so the
+                        // request calls `_finishUpload` (not a nested `$wire.call` action).
+                        if (typeof wire[method] === 'function') {
+                            await wire[method](...(item.params || []));
+                        } else if (typeof wire.call === 'function') {
+                            await wire.call(method, ...(item.params || []));
+                        }
                     }
                 });
                 livewireAttemptByKey.delete(key);
@@ -494,16 +523,20 @@ export function registerLivewireUploadResilience() {
         request.send(formData);
     });
 
-    const clearUploadBag = async (component, name) => {
-        if (component?.$wire && typeof component.$wire.cancelUpload === 'function') {
+    const clearUploadBag = async (wire, name) => {
+        if (wire && typeof wire.cancelUpload === 'function') {
             try {
-                component.$wire.cancelUpload(name);
+                wire.cancelUpload(name);
             } catch {
                 // ignore
             }
         }
         try {
-            await component?.$wire?.call?.('_uploadErrored', name, null, true);
+            if (typeof wire?._uploadErrored === 'function') {
+                await wire._uploadErrored(name, null, true);
+            } else {
+                await wire?.call?.('_uploadErrored', name, null, true);
+            }
         } catch {
             // Soft-fail: bag may already be empty.
         }
@@ -516,8 +549,8 @@ export function registerLivewireUploadResilience() {
             return false;
         }
 
-        const component = resolveComponent(meta.componentId);
-        if (! component?.$wire || typeof component.$wire.call !== 'function') {
+        const wire = resolveWire(meta.componentId);
+        if (! wire || (typeof wire.call !== 'function' && typeof wire.freshSignedUploadUrl !== 'function')) {
             return false;
         }
 
@@ -529,7 +562,7 @@ export function registerLivewireUploadResilience() {
 
         if (! canAutoRetry(failedAttempt)) {
             attemptsByName.delete(meta.name);
-            await clearUploadBag(component, meta.name);
+            await clearUploadBag(wire, meta.name);
             dispatchFailed({ status, scope: 'upload', name: meta.name, attempt: failedAttempt });
             return false;
         }
@@ -546,20 +579,31 @@ export function registerLivewireUploadResilience() {
 
         try {
             await gate.runExclusive(waitMs, async () => {
-                const freshUrl = await component.$wire.call('freshSignedUploadUrl');
+                const freshUrl = typeof wire.freshSignedUploadUrl === 'function'
+                    ? await wire.freshSignedUploadUrl()
+                    : await wire.call('freshSignedUploadUrl');
                 if (typeof freshUrl !== 'string' || freshUrl === '') {
                     throw new Error('missing-fresh-url');
                 }
-                trackSignedUrl(component, meta.name, freshUrl);
+                trackSignedUrl({ id: meta.componentId }, meta.name, freshUrl);
 
                 const result = await postFormData(freshUrl, formData);
-                await component.$wire.call(
-                    '_finishUpload',
-                    meta.name,
-                    result.paths,
-                    meta.multiple,
-                    meta.append,
-                );
+                if (typeof wire._finishUpload === 'function') {
+                    await wire._finishUpload(
+                        meta.name,
+                        result.paths,
+                        meta.multiple,
+                        meta.append,
+                    );
+                } else {
+                    await wire.call(
+                        '_finishUpload',
+                        meta.name,
+                        result.paths,
+                        meta.multiple,
+                        meta.append,
+                    );
+                }
             });
             attemptsByName.delete(meta.name);
             dispatchRetrySucceeded({ attempt: failedAttempt, scope: 'upload', name: meta.name });
@@ -572,7 +616,7 @@ export function registerLivewireUploadResilience() {
                 return retryUploadWithFreshUrl(xhr);
             }
             attemptsByName.delete(meta.name);
-            await clearUploadBag(component, meta.name);
+            await clearUploadBag(wire, meta.name);
             dispatchFailed({ status: errStatus, scope: 'upload', name: meta.name, attempt: failedAttempt });
             return false;
         }

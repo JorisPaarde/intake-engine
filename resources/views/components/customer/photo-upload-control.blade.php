@@ -250,14 +250,15 @@
         arm();
         $watch(() => $wire.uploadPhase, () => arm());
         $watch(() => $wire.uploadPhaseComposite, () => arm());
-        window.addEventListener('intake:livewire-request-failed', (e) => onRequestFailed(e));
-        window.addEventListener('intake:upload-retrying', (e) => onUploadRetrying(e));
-        window.addEventListener('intake:upload-empty-response', (e) => onUploadRetrying(e));
-        window.addEventListener('intake:upload-retry-succeeded', () => finishUpload());
-        window.addEventListener('intake:upload-failed', (e) => onUploadFailed(e));
-        window.addEventListener('intake:photo-prep-start', () => onPrepStart());
-        window.addEventListener('intake:photo-prep-done', () => onPrepDone());
-        window.addEventListener('intake:photo-prep-failed', (e) => onPrepFailed(e));
+        // Listen on document: livewire-resilience dispatches non-bubbling CustomEvents on document (BL-143).
+        document.addEventListener('intake:livewire-request-failed', (e) => onRequestFailed(e));
+        document.addEventListener('intake:upload-retrying', (e) => onUploadRetrying(e));
+        document.addEventListener('intake:upload-empty-response', (e) => onUploadRetrying(e));
+        document.addEventListener('intake:upload-retry-succeeded', () => finishUpload());
+        document.addEventListener('intake:upload-failed', (e) => onUploadFailed(e));
+        document.addEventListener('intake:photo-prep-start', () => onPrepStart());
+        document.addEventListener('intake:photo-prep-done', () => onPrepDone());
+        document.addEventListener('intake:photo-prep-failed', (e) => onPrepFailed(e));
     "
     x-on:livewire-upload-start="armUpload()"
     x-on:livewire-upload-progress="onUploadProgress($event)"

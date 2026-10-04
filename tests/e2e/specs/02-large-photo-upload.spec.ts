@@ -33,7 +33,7 @@ test.describe('Large phone photo upload', () => {
     const height = Number(stored.height ?? 0);
     const longEdge = Math.max(width, height);
 
-    // Product max long edge is 2048 (BL-128). Finding text sometimes says ≤2000.
+    // Client downscale ≤2000 (BL-143); dossier max remains 2048.
     expect(longEdge).toBeGreaterThan(0);
     expect(longEdge).toBeLessThanOrEqual(2048);
     expect(stored.assessment_status).toBe('assessed');
