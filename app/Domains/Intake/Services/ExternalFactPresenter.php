@@ -224,10 +224,19 @@ final class ExternalFactPresenter
     /** @param array<string, mixed> $value */
     private function fuseboxAssessmentDisplay(array $value): string
     {
-        $freeGroup = match ($value['free_group'] ?? null) {
-            'yes' => 'vrije groep lijkt beschikbaar',
-            'no' => 'geen vrije groep zichtbaar',
-            default => 'vrije groep niet betrouwbaar te bepalen',
+        $emptySpace = $value['empty_module_space'] ?? null;
+        if ($emptySpace === null && isset($value['free_group'])) {
+            $emptySpace = match ((string) $value['free_group']) {
+                'yes' => 'visible',
+                'no' => 'none_visible',
+                default => 'unknown',
+            };
+        }
+
+        $moduleLabel = match ($emptySpace) {
+            'visible' => 'Vrije moduleplek lijkt zichtbaar',
+            'none_visible' => 'Geen vrije moduleplek zichtbaar (groepenkast mogelijk vol)',
+            default => 'Vrije moduleplek niet betrouwbaar te bepalen',
         };
         $phase = match ($value['phase'] ?? null) {
             'one_phase' => '1-fase lijkt zichtbaar',
@@ -235,11 +244,21 @@ final class ExternalFactPresenter
             default => 'fase niet betrouwbaar te bepalen',
         };
 
-        $parts = [$freeGroup, $phase];
+        $parts = [
+            'Meterkastbeoordeling: '.$moduleLabel,
+            $phase,
+        ];
 
         $evidence = is_string($value['evidence'] ?? null) ? trim($value['evidence']) : '';
         if ($evidence !== '') {
             $parts[] = $evidence;
+        }
+
+        $retake = is_string($value['retake_instruction'] ?? null) ? trim($value['retake_instruction']) : '';
+        if ($retake !== '') {
+            $parts[] = 'Onzekerheid: '.$retake;
+        } elseif ($emptySpace === 'unknown') {
+            $parts[] = 'Niet zeker: foto te klein of onduidelijk om het aantal vrije groepen te zien';
         }
 
         return implode(' · ', array_filter($parts));

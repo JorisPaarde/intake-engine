@@ -69,10 +69,15 @@
                     @php
                         $fieldLabel = is_string($assumption->value['_field_label'] ?? null)
                             ? $assumption->value['_field_label']
-                            : 'Bekend gegeven';
+                            : \App\Domains\Intake\Support\TechnicalProposalCopy::fallbackFieldLabel(
+                                (string) ($assumption->key ?? 'unknown')
+                            );
                         $displayValue = is_string($assumption->value['_display_value'] ?? null)
                             ? $assumption->value['_display_value']
                             : '';
+                        $uncertainty = is_string($assumption->value['_uncertainty'] ?? null)
+                            ? $assumption->value['_uncertainty']
+                            : 'Nog te beoordelen door de installateur';
                         $provenanceLabel = is_string($assumption->value['_provenance_label'] ?? null)
                             ? $assumption->value['_provenance_label']
                             : 'aanname';
@@ -88,11 +93,14 @@
                             $confidenceLabel !== null ? 'zekerheid: '.$confidenceLabel : null,
                         ]));
                     @endphp
-                    <li class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+                    <li class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2" data-testid="ai-proposal-card">
                         <p class="text-xs font-semibold text-amber-800">{{ implode(' · ', $metaBits) }}</p>
-                        <p class="mt-0.5 text-sm font-medium text-gray-950">{{ $fieldLabel }}</p>
+                        <p class="mt-0.5 text-sm font-medium text-gray-950" data-testid="ai-proposal-field">{{ $fieldLabel }}</p>
                         @if ($displayValue !== '')
-                            <p class="mt-0.5 text-xs text-gray-700">{{ $displayValue }}</p>
+                            <p class="mt-0.5 text-xs text-gray-700" data-testid="ai-proposal-value">{{ $displayValue }}</p>
+                        @endif
+                        @if ($uncertainty !== null && $uncertainty !== '')
+                            <p class="mt-0.5 text-xs text-amber-900" data-testid="ai-proposal-uncertainty">{{ $uncertainty }}</p>
                         @endif
                     </li>
                 @endforeach

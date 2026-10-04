@@ -12,7 +12,8 @@ namespace App\Domains\AI\Support;
  *     expected_subject: string|null,
  *     detected_subject: string|null,
  *     customer_message: string|null,
- *     customer_accepted_mismatch?: bool
+ *     customer_accepted_mismatch?: bool,
+ *     customer_accepted_override?: bool
  * }
  */
 final class PhotoContentAssessment
@@ -133,12 +134,12 @@ final class PhotoContentAssessment
         return self::ok($expected, $detected === PhotoSubject::Other ? $expected : $detected);
     }
 
-    /** Behoud klant-acceptatie wanneer een herbeoordeling opnieuw wrong_subject oplevert. */
+    /** Behoud klant-acceptatie wanneer een herbeoordeling opnieuw een niet-ok oordeel oplevert. */
     public function preservingCustomerAcceptance(?self $previous): self
     {
-        if ($previous?->customerAcceptedMismatch()
-            && $this->status() === self::STATUS_WRONG_SUBJECT) {
-            return $this->withCustomerAcceptedMismatch();
+        if ($previous?->customerAcceptedOverride()
+            && $this->status() !== self::STATUS_OK) {
+            return $this->withCustomerAcceptedOverride();
         }
 
         return $this;
@@ -159,6 +160,7 @@ final class PhotoContentAssessment
             'detected_subject' => is_string($raw['detected_subject'] ?? null) ? $raw['detected_subject'] : null,
             'customer_message' => is_string($raw['customer_message'] ?? null) ? $raw['customer_message'] : null,
             'customer_accepted_mismatch' => (bool) ($raw['customer_accepted_mismatch'] ?? false),
+            'customer_accepted_override' => (bool) ($raw['customer_accepted_override'] ?? false),
         ]);
     }
 
@@ -170,20 +172,39 @@ final class PhotoContentAssessment
     public function solvesContent(): bool
     {
         return $this->value['status'] === self::STATUS_OK
-            || $this->customerAcceptedMismatch();
+            || $this->customerAcceptedOverride();
     }
 
+    /**
+     * Legacy naam: alleen wrong_subject + oude flag.
+     * Nieuwe code gebruikt {@see customerAcceptedOverride()}.
+     */
     public function customerAcceptedMismatch(): bool
     {
         return ($this->value['status'] === self::STATUS_WRONG_SUBJECT)
-            && (bool) ($this->value['customer_accepted_mismatch'] ?? false);
+            && $this->customerAcceptedOverride();
+    }
+
+    /**
+     * Expliciete klantkeuze “Toch versturen/doorgaan” bij elke niet-goede foto.
+     */
+    public function customerAcceptedOverride(): bool
+    {
+        return (bool) ($this->value['customer_accepted_override'] ?? false)
+            || (bool) ($this->value['customer_accepted_mismatch'] ?? false);
     }
 
     public function withCustomerAcceptedMismatch(): self
     {
+        return $this->withCustomerAcceptedOverride();
+    }
+
+    public function withCustomerAcceptedOverride(): self
+    {
         return new self([
             ...$this->value,
             'customer_accepted_mismatch' => true,
+            'customer_accepted_override' => true,
         ]);
     }
 

@@ -413,11 +413,17 @@
                                         @php($photoStatus = $existingUploads->every(fn ($uploadItem) => $uploadItem->assessment_status instanceof \App\Enums\PhotoAssessmentStatus && $uploadItem->assessment_status->isTerminal()) ? 'Beoordeeld' : 'Ontvangen')
                                         <p class="text-xs font-medium text-[#5e6862]" data-testid="photo-receipt-status">Status: {{ $photoStatus }}</p>
 
-                                        {{-- Direct onder de foto, boven de sticky balk (1280×800). --}}
-                                        @if ($photoMismatchAssessment)
+                                        {{-- Direct onder de foto, boven de sticky balk. --}}
+                                        @if ($photoMismatchAssessment || ! empty($photoNeedsOverride))
                                             <div class="space-y-3 rounded-xl border border-[#eac3b4] bg-white px-3 py-3" role="alert" data-testid="photo-mismatch-panel" wire:key="mismatch-{{ $composite }}">
                                                 <p class="text-sm text-[#414b45]">
-                                                    {{ $photoMismatchAssessment->customerMessage() ?? "Deze foto lijkt niet bij de vraag te horen." }}
+                                                    @if ($photoMismatchAssessment)
+                                                        {{ $photoMismatchAssessment->customerMessage() ?? "Deze foto lijkt niet bij de vraag te horen." }}
+                                                    @elseif (! empty($displayPhotoHint[$composite]))
+                                                        {{ $displayPhotoHint[$composite] }}
+                                                    @else
+                                                        Deze foto is nog niet goed genoeg. Vervang hem of kies expliciet “Toch doorgaan”.
+                                                    @endif
                                                 </p>
                                                 @if ($showMissing)
                                                     <p class="text-sm font-medium text-[#a84832]" data-testid="mismatch-next-warning">

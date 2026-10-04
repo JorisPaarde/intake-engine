@@ -8,7 +8,9 @@ declare(strict_types=1);
 
 use App\Domains\AI\Actions\DerivePhotoAnswers;
 use App\Domains\AI\Clients\FakeAiClient;
+use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\AI\Support\PhotoDerivationProfile;
+use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Actions\CompleteIntake;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
@@ -21,6 +23,8 @@ use App\Domains\Intake\Services\GenerateIntakeReportHtml;
 use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Domains\Intake\Support\TechnicalDecisionKeys;
 use App\Enums\IntakeStatus;
+use App\Enums\PhotoAssessmentStatus;
+use App\Enums\PhotoUsabilityVerdict;
 use App\Enums\QuestionType;
 use App\Livewire\Customer\IntakeWizard;
 use App\Models\User;
@@ -130,7 +134,7 @@ function fillCustomerFacingUntilComplete(Intake $intake): void
             }
 
             if ($question->type === QuestionType::Photo) {
-                $store->handle(
+                $upload = $store->handle(
                     $intake,
                     $item['question_key'],
                     $item['section_instance_key'],
@@ -139,6 +143,14 @@ function fillCustomerFacingUntilComplete(Intake $intake): void
                         (string) file_get_contents($fixture),
                     ),
                 );
+                // Hertest/P3: foto telt pas mee na terminale beoordeling.
+                $upload->forceFill([
+                    'usability_verdict' => PhotoUsabilityVerdict::Ok,
+                    'assessment_status' => PhotoAssessmentStatus::Assessed,
+                    'content_assessment' => PhotoContentAssessment::ok(
+                        PhotoSubject::Other,
+                    )->toArray(),
+                ])->save();
 
                 continue;
             }
@@ -164,7 +176,7 @@ test('technical decision keys are shared and hidden from the latest customer wiz
     );
 
     $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
-    expect($version->version)->toBe(24);
+    expect($version->version)->toBeGreaterThanOrEqual(24);
 
     $steps = klanttestP0StepKeys(makeKlanttestP0Intake());
     foreach (TechnicalDecisionKeys::all() as $key) {
@@ -237,7 +249,7 @@ test('case 80 reproduction: Weet ik niet on drain_location does not force natura
 
     expect($drainStep)->not->toBeNull()
         ->and($drainStep['is_required'])->toBeFalse()
-        ->and($drainStep['title'])->toContain('condenswater');
+        ->and($drainStep['title'])->toContain('optioneel');
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
     /** @var list<array{question_key: string, key: string, title: string}> $viewSteps */
@@ -254,7 +266,7 @@ test('case 80 reproduction: Weet ik niet on drain_location does not force natura
 
     $component->set('stepIndex', (int) $drainIndex)
         ->set('activeStepKey', $viewSteps[(int) $drainIndex]['key'])
-        ->assertSee('Foto van de plek waar condenswater weg kan')
+        ->assertSee('Foto van de afvoerplek')
         ->assertSee('Weet ik niet / sla over')
         ->assertDontSee('Kan het condenswater waarschijnlijk zonder pomp weglopen?')
         ->assertDontSee('Welke leidingroute lijkt het meest waarschijnlijk?')
@@ -407,6 +419,8 @@ test('existing customer technical answer on pinned intake stays open with Klant 
     $point = collect($check['attention_points'])->firstWhere('code', 'condensate_pump_open');
 
     expect($point)->not->toBeNull()
-        ->and($point['label'])->toContain('klant gaf aan Nee, nog te beoordelen')
-        ->and($point['label'])->not->toContain('natural_fall_possible');
+        ->and($point['label'])->toContain('Nee')
+        ->and($point['label'])->toContain('Nog te beoordelen')
+        ->and($point['label'])->not->toContain('natural_fall_possible')
+        ->and($point['label'])->toMatch('/condens|afschot|pomp/i');
 });

@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.93 · **Laatste update:** 2026-10-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.94 · **Laatste update:** 2026-10-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 De MVP-bouwstenen staan historisch onder E1–E5. De productfase E6–E10 is op 2026-07-30 geïmplementeerd en volgt het [productmodel](product-model.md): één centrale technische opname na een bestaande aanvraag, meerdere bijdragers, beslisgereedheid en voor airco afzonderlijke koel-, condens- en stroomverbindingen.
@@ -40,11 +40,12 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = fotobeoordeling via queue (#124, done). **BL-122** = soft catalogus-prefill (case 81). **BL-123** = staging-retest acceptance (#115–#120). **BL-124** = form robustness (#127, done). **BL-125** = AI-trace retentie/export + PDF-downscale (#130, done). **BL-126** = prompt/vision quality (route/ownership/kamernamen). **BL-127** = foto-assessment terminale status + watchdog (#133, done). **BL-128** = grote telefoonfoto-upload (inactiviteit-timeout + client-downscale + lege-200-retry, #131 done). **BL-129** = klant-UX review v1.3.0 (airco v22, #134 done). **BL-130** = follow-up mismatch-override + reassessment (#125). **BL-131** = wizard nav + scoped foto-feedback (#129, done). **BL-132** = AI-trace veldverbeteringen (request_id/cost/queue/redactie, #136). **BL-133** = staging AI-trace fixes (fusebox/glass/prefill/follow-up, airco v23, #135). **BL-134** = photo-assessment watchdog hotfix (legacy pending → geen AI op submitted, #137). **BL-135** = strikte dossiersynthese + partial accept + budget (#123). **BL-136** = prefill-provenance + aannames (#123). **BL-137** = lege woonkamer geen altijd-extra-foto + stappenreductie (airco v24). **BL-138** = AI Gemini/OpenRouter 400 + attention_points model/truncated + connections partial (prod 94/95). Nieuwe items starten bij BL-139.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = fotobeoordeling via queue (#124, done). **BL-122** = soft catalogus-prefill (case 81). **BL-123** = staging-retest acceptance (#115–#120). **BL-124** = form robustness (#127, done). **BL-125** = AI-trace retentie/export + PDF-downscale (#130, done). **BL-126** = prompt/vision quality (route/ownership/kamernamen). **BL-127** = foto-assessment terminale status + watchdog (#133, done). **BL-128** = grote telefoonfoto-upload (inactiviteit-timeout + client-downscale + lege-200-retry, #131 done). **BL-129** = klant-UX review v1.3.0 (airco v22, #134 done). **BL-130** = follow-up mismatch-override + reassessment (#125). **BL-131** = wizard nav + scoped foto-feedback (#129, done). **BL-132** = AI-trace veldverbeteringen (request_id/cost/queue/redactie, #136). **BL-133** = staging AI-trace fixes (fusebox/glass/prefill/follow-up, airco v23, #135). **BL-134** = photo-assessment watchdog hotfix (legacy pending → geen AI op submitted, #137). **BL-135** = strikte dossiersynthese + partial accept + budget (#123). **BL-136** = prefill-provenance + aannames (#123). **BL-137** = lege woonkamer geen altijd-extra-foto + stappenreductie (airco v24). **BL-138** = AI Gemini/OpenRouter 400 + attention_points model/truncated + connections partial (prod 94/95, #139). **BL-139** = hertest 4 okt P2/P3 (photo override + AI-voorstel labels + v25 drain/around_house/progress). Nieuwe items starten bij BL-140.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| 1 | BL-138 | AI: Gemini json_object + connections partial + attention_points model/truncated | E4/E9 | in_progress | high | prod intake 94/95 · PR #139 · na BL-135 · main@d56c634 |
+| 1 | BL-139 | Hertest 4 okt P2/P3: photo override + AI-voorstel + drain/around_house/progress | E1/E2/E4 | in_progress | high | na BL-130/137 · airco v25 · prod 94/95 · PR #144 |
+| 1 | BL-138 | AI: Gemini json_object + connections partial + attention_points model/truncated | E4/E9 | done | high | prod intake 94/95 · PR #139 · na BL-135 · main@b264e11 |
 | 1 | BL-137 | Staging-retest: geen extra wand/deur-foto bij bruikbaar overzicht + stappenreductie | E1/E4 | in_progress | high | na BL-129/133 · airco v24 · main@24b7892 |
 | 1 | BL-134 | Hotfix: legacy photo-assessment pending niet herqueuen / geen AI op submitted | E4 | in_progress | high | prod v1.4.0 · na BL-127 · rebase main@2d0871e |
 | 1 | BL-117 | Installateur kan technisch open punt afhandelen vanuit de survey-werkplek | E7/E8 | backlog | high | na PR #115 · show/rapport `*_open` |
@@ -687,13 +688,22 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Acceptatie:** fixture-test routefoto; ownership-phrasings; room_name sync + skip; Vervang foto/Toch doorgaan intact; lege woonkamer geen extra stopcontactvraag; `composer check` groen.
 - **Resultaat:** merge #126.
 
+### BL-139 — Hertest 4 okt P2/P3: photo override + AI-voorstel + drain/around_house/progress
+
+- **Status:** in_progress · **Prioriteit:** high · **Epic:** E1/E2/E4 · **Volgt op:** BL-130/137 · **PR:** [#144](https://github.com/JorisPaarde/intake-engine/pull/144) · **Ref:** Notion “Hertest 4 oktober 2026”, prod intakes 94/95 op main@d56c634 (rebase op b264e11)
+- **Aanleiding:** lage-resolutiefoto in gerichte taak toonde 0/1 maar “Aanvulling versturen” rondde stil af; meterkast-AI toonde “Nee, nog te beoordelen” zonder veldlabel; dubbele fotofeedback; drain-tekst vs optionele foto; around_house dubbel; % ≠ “X van Y”.
+- **Doel:** één override-beleid voor elke niet-goede foto; AI-voorstel = label + waarde + onzekerheid; P3 UX-fixes; airco v25.
+- **Scope:** `PhotoOverridePolicy`, `TechnicalProposalCopy`, `OutdoorPhotoReuse`, airco **v25**, wizard/follow-up, Pest `Hertest4OktP2P3FixesTest`. **Buiten scope:** upload-stall; dossier/attention_points (andere agents / BL-138).
+- **Acceptatie:** Pest per item groen; bedankt geen “afgerond” bij override; geen raw keys in AI-voorstel; `composer check` groen.
+
 ### BL-138 — AI: Gemini OpenRouter 400 + connections partial + attention_points model/truncated
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E4/E9 · **Volgt op:** BL-135 · **PR:** [#139](https://github.com/JorisPaarde/intake-engine/pull/139) · **Ref:** prod intake 94 (v1.4.0) + intake 95/run 357 (v1.4.1 @ d56c634)
+- **Status:** done · **Datum:** 2026-10-04 · **PR:** #139 · **Prioriteit:** high · **Epic:** E4/E9 · **Volgt op:** BL-135 · **Ref:** prod intake 94 (v1.4.0) + intake 95/run 357 (v1.4.1 @ d56c634)
 - **Aanleiding:** (1) dossiersynthese afgewezen op `connections` min:3 (run-336 / staging 77); (2) attention_points “ongeldige JSON” op afgekapte response, trace `model=openai`; (3) op v1.4.1 Gemini HTTP 400 bij dossier `json_schema`.
 - **Doel:** incomplete options droppen partial; Gemini → `json_object`; provider-400 `error.message` in traces; attention_points zelfde model/parameters + truncated retry/`error_class`.
 - **Scope:** `OpenAiClient`, `DossierSynthesisJsonSchema`/`PartialAcceptor`, `SuggestAttentionPoints`, prompt v7, Pest, docs.
 - **Acceptatie:** run-336 fixture partial; Gemini-payload zonder unsupported schema-keywords / json_object; 400 message in exception; attention_points model gevuld; `composer check` groen.
+- **Resultaat:** merge #139 (main@b264e11).
 
 ### BL-137 — Staging-retest: geen altijd-extra ruimtefoto + stappenreductie
 

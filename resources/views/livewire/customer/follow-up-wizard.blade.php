@@ -28,11 +28,19 @@
     @if ($completed)
         <div class="flex flex-1 flex-col justify-center rounded-lg bg-white p-6 shadow-sm">
             <h1 class="font-display text-2xl font-semibold tracking-tight text-brand-ink">Bedankt</h1>
-            <p class="mt-3 text-sm leading-relaxed text-brand-ink/70">
-                Bedankt. Je installateur kijkt nu of er nog iets openstaat.
+            <p class="mt-3 text-sm leading-relaxed text-brand-ink/70" data-testid="follow-up-thank-you">
+                {{ $followUpThankYouMessage ?? 'Bedankt. Je installateur kijkt nu of er nog iets openstaat.' }}
             </p>
+            @if (! empty($followUpNeedsInstallerReview))
+                <p class="mt-2 text-sm font-medium text-amber-800" data-testid="follow-up-needs-review">
+                    De installateur moet de foto’s nog beoordelen — dit is nog geen afronding van het dossier.
+                </p>
+            @endif
             @if ($intake->is_demo)
-                <x-demo-scope-notice variant="complete" />
+                <x-demo-scope-notice
+                    variant="complete"
+                    :needs-installer-review="! empty($followUpNeedsInstallerReview)"
+                />
             @endif
         </div>
     @elseif (! $item)
@@ -48,7 +56,7 @@
         </div>
 
         @error('follow_up')
-            @if (empty($followUpMismatchAssessment))
+            @if (empty($followUpMismatchAssessment) && empty($followUpNeedsOverride))
                 <div class="mb-4 rounded-md border border-brand-ember/30 bg-white px-4 py-3 text-sm text-brand-ember" role="alert">
                     {{ $message }}
                 </div>
@@ -196,10 +204,16 @@
                     >
                 @endif
 
-                @if ($followUpMismatchAssessment)
+                @if ($followUpMismatchAssessment || ! empty($followUpNeedsOverride))
                     <div class="mt-3 space-y-3 rounded-md border border-brand-ember/30 bg-white px-3 py-3" role="alert" data-testid="follow-up-mismatch">
                         <p class="text-sm text-brand-ink">
-                            {{ $followUpMismatchAssessment->customerMessage() ?? 'Deze foto lijkt niet bij de vraag te horen.' }}
+                            @if ($followUpMismatchAssessment)
+                                {{ $followUpMismatchAssessment->customerMessage() ?? 'Deze foto lijkt niet bij de vraag te horen.' }}
+                            @elseif (! empty($followUpPhotoHint))
+                                {{ $followUpPhotoHint }}
+                            @else
+                                Deze foto is nog niet goed genoeg. Vervang hem of kies expliciet “Toch versturen”.
+                            @endif
                         </p>
                         @error('follow_up')
                             <p class="text-sm font-medium text-brand-ember" data-testid="follow-up-mismatch-warning">
@@ -223,10 +237,6 @@
                                 Toch versturen
                             </button>
                         </div>
-                    </div>
-                @elseif (! empty($followUpPhotoHint))
-                    <div class="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900" role="status">
-                        {{ $followUpPhotoHint }}
                     </div>
                 @endif
             @else

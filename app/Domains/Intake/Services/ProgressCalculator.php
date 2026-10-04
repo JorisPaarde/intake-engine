@@ -9,6 +9,7 @@ use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeSection;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Domains\Intake\Support\InternalCustomerQuestions;
+use App\Domains\Intake\Support\OutdoorPhotoReuse;
 use App\Domains\Intake\Support\PhotoContentSatisfaction;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Domains\Intake\Support\TechnicalDecisionKeys;
@@ -109,6 +110,14 @@ final class ProgressCalculator
                     $target['question_key'],
                     $target['section_instance_key'],
                 );
+            }
+
+            // Gevel-/tuinfoto’s dekken “rondom het huis” (optioneel/overslaan).
+            if (! $filled
+                && $question->type === QuestionType::Photo
+                && $target['question_key'] === OutdoorPhotoReuse::TARGET_KEY
+                && OutdoorPhotoReuse::hasUsableOutdoorContext($intake)) {
+                $filled = true;
             }
 
             $totalRequired++;

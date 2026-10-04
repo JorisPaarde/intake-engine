@@ -6,7 +6,6 @@ namespace App\Domains\Intake\Actions;
 
 use App\Domains\AI\Jobs\SuggestAttentionPointsJob;
 use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
-use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
@@ -14,7 +13,7 @@ use App\Domains\Intake\Models\IntakeFollowUpRound;
 use App\Domains\Intake\Services\DecisionReadinessService;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\RebuildIntakeReportHtml;
-use App\Domains\Intake\Support\PhotoContentSatisfaction;
+use App\Domains\Intake\Support\PhotoOverridePolicy;
 use App\Enums\FollowUpItemType;
 use App\Enums\FollowUpRoundStatus;
 use App\Enums\IntakeStatus;
@@ -90,9 +89,9 @@ final class CompleteFollowUpRound
                         ]);
                     }
 
-                    if (PhotoContentSatisfaction::unresolvedWrongSubject($item->uploads) instanceof PhotoContentAssessment) {
+                    if (PhotoOverridePolicy::hasUnresolvedOverride($item->uploads)) {
                         throw ValidationException::withMessages([
-                            'follow_up' => 'Vervang de foto of kies expliciet “Toch versturen”.',
+                            'follow_up' => PhotoOverridePolicy::OVERRIDE_MESSAGE,
                         ]);
                     }
                 }

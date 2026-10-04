@@ -160,8 +160,9 @@ test('AI-fout of timeout leidt tot not_assessed soft-fail met klanttekst', funct
         ->assertSee('We konden je foto nu niet automatisch beoordelen');
 
     $progress = app(FollowUpProgressCalculator::class)->calculate(collect([$item->fresh()->load('uploads')]));
-    expect($progress['percent'])->toBe(100)
-        ->and($progress['item_statuses'][$item->id]['status'])->toBe('assessed');
+    expect($progress['percent'])->toBe(0)
+        ->and($progress['item_statuses'][$item->id]['status'])->toBe('unusable')
+        ->and($progress['item_statuses'][$item->id]['label'])->toBe('Nieuwe foto nodig');
 });
 
 test('follow-up foto-assessment schrijft precies één complete follow_up_photo_subject-trace per ai_run', function () {

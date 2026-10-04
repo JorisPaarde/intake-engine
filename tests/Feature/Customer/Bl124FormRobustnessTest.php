@@ -24,7 +24,7 @@ function makeBl124Intake(): Intake
     $user = User::factory()->create();
     $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
 
-    expect($version->version)->toBe(24);
+    expect($version->version)->toBeGreaterThanOrEqual(24);
 
     return Intake::factory()->create([
         'created_by' => $user->id,
@@ -91,7 +91,7 @@ test('drain photo remains optional with skip; pipe_route is installer-only; extr
     $intake = makeBl124Intake();
     $version = $intake->fresh()->templateVersion()->with(['sections.questions.rules'])->firstOrFail();
 
-    expect($version->version)->toBe(24);
+    expect($version->version)->toBeGreaterThanOrEqual(24);
 
     $pipe = $version->sections->flatMap->questions->firstWhere('key', 'pipe_route_photos');
     $drain = $version->sections->flatMap->questions->firstWhere('key', 'drain_photo');

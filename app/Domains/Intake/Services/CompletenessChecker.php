@@ -12,6 +12,7 @@ use App\Domains\Intake\Models\IntakeSection;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Support\PrefillSources;
+use App\Domains\Intake\Support\TechnicalProposalCopy;
 use App\Enums\QuestionType;
 use Illuminate\Support\Str;
 
@@ -85,7 +86,7 @@ final class CompletenessChecker
         foreach ($intake->uploads as $upload) {
             $assessment = $upload->contentAssessment();
 
-            if ($assessment instanceof PhotoContentAssessment && $assessment->customerAcceptedMismatch()) {
+            if ($assessment instanceof PhotoContentAssessment && $assessment->customerAcceptedOverride()) {
                 $points[] = [
                     'code' => 'photo_subject_mismatch_'.$upload->id,
                     'label' => $assessment->continueAnywayAttentionLabel(),
@@ -163,7 +164,7 @@ final class CompletenessChecker
         $source = $answer->prefill_source;
         $fieldLabel = is_string($question?->label) && trim($question->label) !== ''
             ? trim($question->label)
-            : 'Technisch punt';
+            : TechnicalProposalCopy::fallbackFieldLabel($questionKey);
 
         if (PrefillSources::isProposedAi($source)) {
             $photoSource = $this->relatedPhotoSource($intake, $version, $questionKey);
@@ -175,13 +176,15 @@ final class CompletenessChecker
                 PrefillSources::isStrongAi($source) => 'hoog',
                 default => 'middel',
             };
+            $uncertainty = TechnicalProposalCopy::uncertainty($intake, $questionKey, $confidence);
 
             return [[
                 'code' => $openCode,
                 'label' => sprintf(
-                    'AI-voorstel · %s: %s · bron: %s · zekerheid: %s · nog te beoordelen',
+                    'AI-voorstel · %s: %s · %s · bron: %s · zekerheid: %s',
                     $fieldLabel,
                     $display,
+                    $uncertainty,
                     $sourceLabel,
                     $confidence,
                 ),
@@ -190,9 +193,11 @@ final class CompletenessChecker
 
         // Klantantwoord op gepinde intake (of andere niet-AI-bron): blijft open.
         if ($source === null) {
+            $uncertainty = TechnicalProposalCopy::uncertainty($intake, $questionKey, 'middel');
+
             return [[
                 'code' => $openCode,
-                'label' => "{$fieldLabel}: klant gaf aan {$display}, nog te beoordelen",
+                'label' => "{$fieldLabel}: {$display} · {$uncertainty}",
             ]];
         }
 
