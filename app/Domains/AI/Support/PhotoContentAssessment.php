@@ -95,7 +95,15 @@ final class PhotoContentAssessment
         array $output,
         ?array $acceptedSubjects = null,
     ): self {
-        $detected = PhotoSubject::tryFromMixed($output['detected_subject'] ?? null) ?? PhotoSubject::Other;
+        // Ontbrekend detected_subject ≠ "other": legacy outdoor/room-fixtures
+        // leveren alleen subject_match; val dan terug op expected bij match=yes.
+        $detected = PhotoSubject::tryFromMixed($output['detected_subject'] ?? null);
+        if ($detected === null) {
+            if (($output['subject_match'] ?? 'yes') !== 'yes') {
+                return self::wrongSubject($expected, PhotoSubject::Other);
+            }
+            $detected = $expected;
+        }
 
         // Een expliciete leidingroutefoto mag de klant nooit blokkeren.
         if ($expected === PhotoSubject::PipeRoute && $detected === PhotoSubject::PipeRoute) {

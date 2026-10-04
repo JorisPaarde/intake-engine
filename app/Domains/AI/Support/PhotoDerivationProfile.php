@@ -52,10 +52,22 @@ final class PhotoDerivationProfile
                 DerivedAnswerField::choice('outdoor_mount_type', 'outdoor_mount_type', ['wall', 'ground', 'roof', 'balcony']),
                 DerivedAnswerField::choice('outdoor_accessibility', 'outdoor_accessibility', ['easy_ground', 'ladder', 'scaffolding', 'restricted']),
             ]),
+            // Rondom-huis/gevel: subject + locatieklasse, géén montage-gok (P3).
+            'around_house' => new self('around_house', 'outdoor_assessment', [
+                DerivedAnswerField::choice('outdoor_location', 'outdoor_location', ['garden', 'side_passage', 'facade', 'balcony', 'flat_roof', 'pitched_roof', 'dormer']),
+            ]),
             'pipe_route' => new self('pipe_route', 'pipe_route_assessment', [
                 DerivedAnswerField::choice('pipe_route_description', 'pipe_route_description', ['along_facade', 'through_attic', 'through_room', 'short_direct']),
                 DerivedAnswerField::choice('pipe_distance_indication', 'pipe_distance_indication', ['short', 'medium', 'long']),
                 DerivedAnswerField::boolean('drillings_needed', 'drillings_needed'),
+            ]),
+            'wall_outlet' => new self('wall_outlet', 'wall_outlet_assessment', [
+                DerivedAnswerField::choice('room_outlet_status', 'room_outlet_status', ['present', 'needs_photo', 'unknown']),
+            ]),
+            // Alleen subject/bruikbaarheid; geen technische unitpositie voor de klant.
+            'indoor_position' => new self('indoor_position', 'indoor_position_assessment', []),
+            'drain' => new self('drain', 'drain_assessment', [
+                DerivedAnswerField::choice('drain_location', 'drain_location', ['outside_nearby', 'indoor_nearby', 'unknown']),
             ]),
         ];
 

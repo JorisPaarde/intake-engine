@@ -621,6 +621,7 @@ final class DerivePhotoAnswers
 
             try {
                 [$output, $normalizations] = $this->validateOutput($result->output, $profile);
+                $output = $this->sanitizeProfileOutput($output, $profile);
                 $trace->recordParsed($output, [], $normalizations);
             } catch (ValidationException $exception) {
                 $trace->recordParsed([], $exception->errors());
@@ -901,6 +902,14 @@ final class DerivePhotoAnswers
             $factOutput['drillings_proposal_note'] = 'geen bewijs voor doorboring zichtbaar';
         }
 
+        if ($isPipeRoute) {
+            $factOutput['retake_instruction'] = $this->sanitizePipeRouteRetake(
+                is_string($factOutput['retake_instruction'] ?? null)
+                    ? (string) $factOutput['retake_instruction']
+                    : null,
+            );
+        }
+
         IntakeExternalFact::query()->updateOrCreate(
             [
                 'intake_id' => $intake->id,
@@ -1153,6 +1162,69 @@ final class DerivePhotoAnswers
 
     /**
      * @param  array<string, mixed>  $output
+     * @return array<string, mixed>
+     */
+    private function sanitizeProfileOutput(array $output, PhotoDerivationProfile $profile): array
+    {
+        if (in_array($profile->name, ['outdoor', 'around_house'], true)) {
+            $location = (string) ($output['outdoor_location'] ?? 'unknown');
+            $confidence = (string) ($output['confidence'] ?? 'low');
+            $match = (string) ($output['subject_match'] ?? 'yes');
+
+            // Geen montage-/bereikbaarheidsgok bij verkeerd onderwerp, onduidelijke plek of lage zekerheid.
+            // Medium+high met bekende plek blijft een voorzet (bestaande derive-pad).
+            if ($match !== 'yes' || $location === 'unknown' || $confidence === 'low') {
+                if (array_key_exists('outdoor_mount_type', $output)) {
+                    $output['outdoor_mount_type'] = 'unknown';
+                }
+                if (array_key_exists('outdoor_accessibility', $output)) {
+                    $output['outdoor_accessibility'] = 'unknown';
+                }
+            }
+        }
+
+        if ($profile->name === 'pipe_route') {
+            $output['retake_instruction'] = $this->sanitizePipeRouteRetake(
+                is_string($output['retake_instruction'] ?? null)
+                    ? (string) $output['retake_instruction']
+                    : null,
+            );
+        }
+
+        return $output;
+    }
+
+    private function sanitizePipeRouteRetake(?string $retake): ?string
+    {
+        if ($retake === null) {
+            return null;
+        }
+
+        $trimmed = trim($retake);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        $lower = mb_strtolower($trimmed);
+        $mentionsRoute = str_contains($lower, 'leiding')
+            || str_contains($lower, 'goot')
+            || str_contains($lower, 'doorvoer')
+            || str_contains($lower, 'route')
+            || str_contains($lower, 'wand')
+            || str_contains($lower, 'plafond');
+        $mentionsOutdoorSpot = str_contains($lower, 'buitenunitplek')
+            || str_contains($lower, 'buitenplek')
+            || (str_contains($lower, 'buitenunit') && ! $mentionsRoute);
+
+        if ($mentionsOutdoorSpot && ! $mentionsRoute) {
+            return 'Maak een foto van de leidingroute: wand/plafond, kabelgoot of doorvoer.';
+        }
+
+        return $trimmed;
+    }
+
+    /**
+     * @param  array<string, mixed>  $output
      */
     private function observationConfidence(PhotoDerivationProfile $profile, array $output): string
     {
@@ -1176,7 +1248,7 @@ final class DerivePhotoAnswers
         $confidence = (string) $output['confidence'];
         $applied = [];
 
-        if ($profile->name === 'room') {
+        if ($profile->name === 'room' || $profile->name === 'wall_outlet') {
             $outletApplied = $this->applyRoomOutletStatus(
                 $intake,
                 $output,
@@ -1187,7 +1259,9 @@ final class DerivePhotoAnswers
             if ($outletApplied !== null) {
                 $applied[] = $outletApplied;
             }
+        }
 
+        if ($profile->name === 'room') {
             $overviewApplied = $this->applyRoomExtraOverviewNeeded(
                 $intake,
                 $output,

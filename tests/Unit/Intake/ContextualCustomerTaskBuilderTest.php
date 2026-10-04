@@ -125,7 +125,10 @@ test('placement around-house photo blocker is customer-suitable', function () {
         'type' => FollowUpItemType::Photo->value,
         'decision_area_key' => 'placement',
     ])
-        ->and($draft['prompt'])->toContain('rondom het huis');
+        ->and($draft['prompt'])->toContain('rondom het huis')
+        ->and($draft['meta']['photo_task_subtype'] ?? null)->toBe('around_house')
+        ->and($draft['meta']['expected_photo_subject'] ?? null)->toBe('outdoor_location')
+        ->and($draft['meta']['accepted_photo_subjects'] ?? [])->toContain('outdoor_location');
 });
 
 test('photo suggestion drafts a retake ask for the subject', function () {

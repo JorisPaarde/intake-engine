@@ -23,6 +23,7 @@ use App\Enums\AiTraceCallType;
 use App\Enums\AiTraceStatus;
 use App\Enums\FollowUpItemType;
 use App\Enums\IntakeStatus;
+use App\Enums\PhotoAssessmentStatus;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Http\UploadedFile;
@@ -125,12 +126,20 @@ test('follow-up subject assessment creates an ai_run with provider_request_id', 
 test('upload without assessment profile creates skipped ai_run with reason', function () {
     $intake = makeLoggingGapsIntake();
 
+    Queue::fake([AssessUploadedPhotoJob::class]);
+
+    // wall_outlet heeft sinds v26 een profiel; forceer een key zonder photo_analysis.
     $upload = app(StoreIntakeUpload::class)->handle(
         $intake,
         'wall_outlet_photo',
         'room-1',
-        UploadedFile::fake()->image('stopcontact.jpg', 1000, 800),
+        UploadedFile::fake()->image('zonder-profiel.jpg', 1000, 800),
     );
+    $upload->forceFill([
+        'question_key' => 'unprofiled_test_photo',
+        'assessment_status' => PhotoAssessmentStatus::Pending,
+        'content_assessment' => null,
+    ])->save();
 
     runAssessUploadedPhotoJob($upload->id);
 
