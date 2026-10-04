@@ -60,6 +60,7 @@ final class OpenAiClient implements AiClientInterface
 
         $system = trim($request->prompt."\n\n".($request->system ?? ''));
         $redactedInput = $this->redactor->redact($request->input);
+        $privacyRedactions = $this->redactor->redactions();
         $userContent = [
             [
                 'type' => 'text',
@@ -90,6 +91,13 @@ final class OpenAiClient implements AiClientInterface
             'timeout_seconds' => $timeout,
             'base_url' => $baseUrl,
         ];
+        if ($privacyRedactions !== []) {
+            $modelParameters['privacy_redaction'] = [
+                'applied' => true,
+                'count' => count($privacyRedactions),
+                'items' => $privacyRedactions,
+            ];
+        }
         if ($request->responseSchema !== null
             && $request->responseSchema !== []
             && ($responseFormat['type'] ?? null) === 'json_object'
