@@ -42,12 +42,10 @@
                     && (! $connection->routeSession
                         || $connection->routeSession->status === \App\Enums\PipeRouteStatus::Approved)
             );
-        $canApproveProposal = ! $proposalAlreadyApproved
-            && $selectedOption
-            && in_array($quoteArea?->status, [
-                \App\Enums\DecisionAreaStatus::Ready,
-                \App\Enums\DecisionAreaStatus::Review,
-            ], true);
+        $approvalAssessment = app(\App\Domains\Intake\Services\DecisionReadinessService::class)
+            ->bulkApprovalAssessment($intake);
+        $canApproveProposal = ! $proposalAlreadyApproved && ($approvalAssessment['allowed'] ?? false);
+        $approvalBlockers = $approvalAssessment['blockers'] ?? [];
         $openAreas = $dossier['areas']->filter(
             static fn ($area): bool => in_array($area->status, [
                 \App\Enums\DecisionAreaStatus::Blocked,
@@ -145,8 +143,16 @@
             @endif
 
             @if (session('error'))
-                <div class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-900" role="alert">
-                    {{ session('error') }}
+                <div class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-900" role="alert" data-testid="ai-synthesis-error">
+                    <p>{{ session('error') }}</p>
+                    @if (session('ai_synthesis_retry'))
+                        <form method="POST" action="{{ route('intakes.workspace.synthesis', $intake) }}" class="mt-3">
+                            @csrf
+                            <button type="submit" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-900 hover:bg-red-100" data-testid="ai-synthesis-retry">
+                                AI-voorstel opnieuw proberen
+                            </button>
+                        </form>
+                    @endif
                 </div>
             @endif
 
@@ -174,11 +180,11 @@
                         <div>
                             <p class="eyebrow">Demo</p>
                             <h3 class="mt-2 text-xl font-semibold text-gray-950">
-                                {{ ($demoScenarioLoaded ?? false) ? 'Voorbeelddossier geladen' : 'Bouw de opname op' }}
+                                {{ ($demoScenarioLoaded ?? false) ? 'Voorbeelddossier (demo)' : 'Bouw de opname op' }}
                             </h3>
                             <p class="mt-2 max-w-3xl text-sm leading-relaxed text-gray-700">
                                 @if ($demoScenarioLoaded ?? false)
-                                    Je bekijkt voorbeeldinhoud. Je kunt dit verder bewerken of AI opnieuw laten kijken. Geen echte klant, geen mail.
+                                    Dit is een apart gelabeld voorbeelddossier met voorbeeldinhoud. Het is geen vermenging met je eigen aanvraag. Je kunt dit verder bewerken of AI opnieuw laten kijken. Geen echte klant, geen mail.
                                 @elseif ($demoWorkStarted)
                                     Je werkt in een opname. Adresinvulling en AI werken. Geen echte klant, geen mail.
                                 @else
@@ -189,12 +195,12 @@
                             @if ($showSampleDossierCta)
                                 <form method="POST" action="{{ route('demo.scenario.load', $intake) }}" class="mt-4">
                                     @csrf
-                                    <button type="submit" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-sky-400 bg-white px-4 py-2 text-sm font-semibold text-sky-900 hover:bg-sky-100">
+                                    <button type="submit" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-sky-400 bg-white px-4 py-2 text-sm font-semibold text-sky-900 hover:bg-sky-100" data-testid="load-example-dossier">
                                         Toon voorbeelddossier
                                     </button>
                                 </form>
                                 <p class="mt-2 text-xs leading-relaxed text-sky-900/70">
-                                    Niet nodig om de demo af te ronden. Alleen als je snel een rijk eindbeeld wilt zien.
+                                    Opent een aparte, duidelijk gelabelde demo-opname. Je huidige aanvraag blijft ongewijzigd.
                                     @if ($intake->aircoRooms->isNotEmpty())
                                         Uit de aanvraag zijn al ruimtes gehaald.
                                     @endif
@@ -1254,15 +1260,22 @@
                                 Uitkomst vastleggen
                             </a>
                         @elseif ($canApproveProposal)
-                            <p class="mt-1 text-sm text-gray-500">Keurt je keuze en de routes in één keer goed.</p>
+                            <p class="mt-1 text-sm text-gray-500">Keurt je keuze en de routes in één keer goed. Open onzekerheden en niet-bedekte ruimtes blijven blokkeren.</p>
                             <form method="POST" action="{{ route('intakes.workspace.complete', $intake) }}" class="mt-4">
                                 @csrf
-                                <button class="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-marketing-green-dark px-4 py-2 text-sm font-semibold text-white hover:bg-marketing-green">
+                                <button class="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-marketing-green-dark px-4 py-2 text-sm font-semibold text-white hover:bg-marketing-green" data-testid="approve-proposal">
                                     Voorstel goedkeuren
                                 </button>
                             </form>
                         @elseif ($selectedOption)
-                            <p class="mt-1 text-sm text-gray-500">Los eerst de open punten op. Daarna kun je goedkeuren.</p>
+                            <p class="mt-1 text-sm text-gray-500">Los eerst de open punten op. Daarna kun je goedkeuren. Een locatiebezoek als uitkomst blijft mogelijk.</p>
+                            @if ($approvalBlockers !== [])
+                                <ul class="mt-3 list-disc space-y-1 pl-5 text-sm text-amber-900" data-testid="approval-blockers">
+                                    @foreach ($approvalBlockers as $blocker)
+                                        <li>{{ $blocker }}</li>
+                                    @endforeach
+                                </ul>
+                            @endif
                             <button type="button" disabled class="mt-4 inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center rounded-xl bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-500">
                                 Nog niet klaar om goed te keuren
                             </button>

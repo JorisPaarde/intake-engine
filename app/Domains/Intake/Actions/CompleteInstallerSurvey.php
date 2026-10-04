@@ -13,7 +13,6 @@ use App\Domains\Intake\Services\DecisionReadinessService;
 use App\Domains\Intake\Services\InstallerSurveyProgress;
 use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoOptionStatus;
-use App\Enums\DecisionAreaStatus;
 use App\Enums\IntakeStatus;
 use App\Enums\PipeRouteStatus;
 use App\Models\User;
@@ -36,17 +35,13 @@ final class CompleteInstallerSurvey
             ]);
         }
 
-        $quote = $this->decisionReadiness
-            ->recalculate($intake)
-            ->firstWhere('key', 'quote');
+        $this->decisionReadiness->recalculate($intake);
+        $assessment = $this->decisionReadiness->bulkApprovalAssessment($intake->fresh() ?? $intake);
 
-        if ($quote === null || in_array(
-            $quote->status,
-            [DecisionAreaStatus::Blocked, DecisionAreaStatus::Unknown],
-            true,
-        )) {
+        if (! $assessment['allowed']) {
             throw ValidationException::withMessages([
-                'intake' => 'Los eerst de beslissende open punten op voordat u het voorstel integraal goedkeurt.',
+                'intake' => $assessment['blockers'][0]
+                    ?? 'Los eerst de beslissende open punten op voordat je het voorstel integraal goedkeurt.',
             ]);
         }
 
@@ -57,6 +52,14 @@ final class CompleteInstallerSurvey
                 || in_array($intake->status, [IntakeStatus::Cancelled, IntakeStatus::AwaitingCustomer], true)) {
                 throw ValidationException::withMessages([
                     'intake' => 'Deze opname kan nu niet door de installateur worden afgerond.',
+                ]);
+            }
+
+            $assessment = $this->decisionReadiness->bulkApprovalAssessment($intake);
+            if (! $assessment['allowed']) {
+                throw ValidationException::withMessages([
+                    'intake' => $assessment['blockers'][0]
+                        ?? 'Los eerst de beslissende open punten op voordat je het voorstel integraal goedkeurt.',
                 ]);
             }
 
@@ -88,6 +91,20 @@ final class CompleteInstallerSurvey
             }
 
             foreach ($selected->connections as $connection) {
+                $uncertainties = array_values(array_filter(
+                    array_map(
+                        static fn (string $item): string => trim($item),
+                        is_array($connection->uncertainties) ? $connection->uncertainties : [],
+                    ),
+                    static fn (string $item): bool => $item !== '',
+                ));
+
+                if ($uncertainties !== [] && $connection->status !== AircoConnectionStatus::Approved) {
+                    throw ValidationException::withMessages([
+                        'intake' => 'Accepteer of los eerst de onzekerheid op bij “'.$connection->label.'”: '.$uncertainties[0],
+                    ]);
+                }
+
                 if (! in_array($connection->status, [
                     AircoConnectionStatus::Proposed,
                     AircoConnectionStatus::Plausible,

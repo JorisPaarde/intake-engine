@@ -67,20 +67,24 @@ final class DossierSynthesisPartialAcceptor
         $freeGroup = $context['free_group'];
         $subjectsWithRoomPhoto = $context['subjects_with_room_photo'];
 
-        if ($freeGroup === 'no' && $this->claimsFreeGroupAvailable($summary)) {
+        if (($freeGroup === 'no' || $freeGroup === null) && $this->claimsElectricalInvention($summary)) {
             $outcomes[] = $this->outcome(
                 'summary',
                 'rejected',
                 'summary',
-                'Samenvatting spreekt vrije groep tegen de meterkastbeoordeling (geen vrije groep).',
+                $freeGroup === 'no'
+                    ? 'Samenvatting spreekt vrije groep tegen de meterkastbeoordeling (geen vrije groep).'
+                    : 'Samenvatting verzint een elektrische conclusie zonder meterkastbeoordeling.',
             );
-            $validationErrors['summary'][] = 'Samenvatting spreekt vrije groep tegen de meterkastbeoordeling (geen vrije groep).';
+            $validationErrors['summary'][] = $freeGroup === 'no'
+                ? 'Samenvatting spreekt vrije groep tegen de meterkastbeoordeling (geen vrije groep).'
+                : 'Samenvatting verzint een elektrische conclusie zonder meterkastbeoordeling.';
             $summary = $this->stripFreeGroupClaims($summary);
             // Keep a neutral summary so valid placements/options can still land.
-            if (trim($summary) === '') {
+            if (trim($summary) === '' || $this->claimsElectricalInvention($summary)) {
                 $summary = 'Technische voorzet op basis van beschikbaar bewijs; controleer stroomvoorziening op de meterkastfoto.';
             }
-            $outcomes[] = $this->outcome('summary', 'accepted', 'summary', 'Samenvatting genormaliseerd: vrije-groepclaim verwijderd.');
+            $outcomes[] = $this->outcome('summary', 'accepted', 'summary', 'Samenvatting genormaliseerd: elektrische claim zonder meterkastbewijs verwijderd.');
         }
 
         $acceptedPlacements = [];
@@ -282,12 +286,14 @@ final class DossierSynthesisPartialAcceptor
             return ['accepted' => null, 'reason' => 'Dubbele proposal-sleutel.'];
         }
 
-        if ($freeGroup === 'no' && $this->claimsFreeGroupAvailable(
+        if (($freeGroup === 'no' || $freeGroup === null) && $this->claimsElectricalInvention(
             (string) $item['label'].' '.(string) $item['description'],
         )) {
             return [
                 'accepted' => null,
-                'reason' => 'Positie claimt vrije groep terwijl de meterkastbeoordeling geen vrije groep zag.',
+                'reason' => $freeGroup === 'no'
+                    ? 'Positie claimt vrije groep terwijl de meterkastbeoordeling geen vrije groep zag.'
+                    : 'Positie verzint een elektrische conclusie zonder meterkastbeoordeling.',
             ];
         }
 
@@ -323,12 +329,14 @@ final class DossierSynthesisPartialAcceptor
         $option = $stripped['option'];
         $strippedConnectionReasons = $stripped['connection_reasons'];
 
-        if ($freeGroup === 'no' && $this->claimsFreeGroupAvailable(
+        if (($freeGroup === 'no' || $freeGroup === null) && $this->claimsElectricalInvention(
             (string) ($option['label'] ?? '').' '.(string) ($option['summary'] ?? ''),
         )) {
             return [
                 'accepted' => null,
-                'reason' => 'Installatieoptie claimt vrije groep terwijl de meterkastbeoordeling geen vrije groep zag.',
+                'reason' => $freeGroup === 'no'
+                    ? 'Installatieoptie claimt vrije groep terwijl de meterkastbeoordeling geen vrije groep zag.'
+                    : 'Installatieoptie verzint een elektrische conclusie zonder meterkastbeoordeling.',
             ];
         }
 
@@ -479,12 +487,15 @@ final class DossierSynthesisPartialAcceptor
                 }
             }
 
-            if ($freeGroup === 'no' && $this->claimsFreeGroupAvailable(
+            if (($freeGroup === 'no' || $freeGroup === null) && $this->claimsElectricalInvention(
                 (string) ($connection['label'] ?? ''),
             )) {
                 return [
                     'accepted' => null,
-                    'reason' => 'connections.'.$connectionIndex.': stroomclaim spreekt meterkastbeoordeling tegen (geen vrije groep).',
+                    'reason' => 'connections.'.$connectionIndex.': '
+                        .($freeGroup === 'no'
+                            ? 'stroomclaim spreekt meterkastbeoordeling tegen (geen vrije groep).'
+                            : 'stroomclaim zonder meterkastbeoordeling.'),
                 ];
             }
 
@@ -638,10 +649,12 @@ final class DossierSynthesisPartialAcceptor
         /** @var array<string, mixed> $item */
         $item = $validator->validated()['item'];
 
-        if ($freeGroup === 'no' && $this->claimsFreeGroupAvailable((string) $item['label'])) {
+        if (($freeGroup === 'no' || $freeGroup === null) && $this->claimsElectricalInvention((string) $item['label'])) {
             return [
                 'accepted' => null,
-                'reason' => 'Uitzondering claimt vrije groep terwijl de meterkastbeoordeling geen vrije groep zag.',
+                'reason' => $freeGroup === 'no'
+                    ? 'Uitzondering claimt vrije groep terwijl de meterkastbeoordeling geen vrije groep zag.'
+                    : 'Uitzondering verzint een elektrische conclusie zonder meterkastbeoordeling.',
             ];
         }
 
@@ -718,6 +731,16 @@ final class DossierSynthesisPartialAcceptor
         }
 
         return ['accepted' => $item, 'reason' => null];
+    }
+
+    private function claimsElectricalInvention(string $text): bool
+    {
+        $normalized = mb_strtolower($text);
+
+        return (bool) preg_match(
+            '/\b(3[\s-]?fase|driefase|vrije\s+groep(en)?|free[_\s-]?group|groepenaanduiding\s+leesbaar)\b/u',
+            $normalized,
+        ) || $this->claimsFreeGroupAvailable($text);
     }
 
     /**
@@ -821,7 +844,7 @@ final class DossierSynthesisPartialAcceptor
     private function stripFreeGroupClaims(string $summary): string
     {
         $cleaned = preg_replace(
-            '/[^.]*vrije\s+groep[^.]*\.?/iu',
+            '/[^.]*(\bvrije\s+groep|\b3[\s-]?fase|\bdriefase)[^.]*\.?/iu',
             '',
             $summary,
         );

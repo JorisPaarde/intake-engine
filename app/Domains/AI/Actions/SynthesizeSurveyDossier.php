@@ -517,6 +517,7 @@ final class SynthesizeSurveyDossier
             ->whereIn('mime_type', ['image/jpeg', 'image/png', 'image/webp'])
             ->orderBy('id')
             ->get()
+            ->filter(static fn (IntakeUpload $upload): bool => $upload->isDossierEvidenceEligible())
             ->groupBy(
                 static fn (IntakeUpload $upload): string => $upload->question_key
                     .'|'.($upload->section_instance_key ?? 'survey'),
@@ -524,8 +525,8 @@ final class SynthesizeSurveyDossier
         /** @var Collection<int, IntakeUpload> $selected */
         $selected = collect();
 
-        // First take the newest image from every dossier part, then a second one.
-        // This keeps a twelve-image budget representative across rooms and routes.
+        // First take the newest eligible image from every dossier part, then a second one.
+        // Rejected/replaced photos never enter the vision budget or evidence set.
         for ($offset = 0; $offset < 2 && $selected->count() < $maximum; $offset++) {
             foreach ($groups as $uploads) {
                 $candidate = $uploads->reverse()->values()->get($offset);
@@ -552,10 +553,6 @@ final class SynthesizeSurveyDossier
         return $uploads
             ->map(function (IntakeUpload $upload): array {
                 $assessment = $upload->contentAssessment();
-                $eligible = $assessment === null
-                    || $assessment->solvesContent()
-                    || $assessment->status() === PhotoContentAssessment::STATUS_NEEDS_CLEARER
-                    || $assessment->status() === PhotoContentAssessment::STATUS_NOT_ASSESSED;
 
                 return [
                     'reference' => 'dossier_image:'.$upload->id,
@@ -567,8 +564,8 @@ final class SynthesizeSurveyDossier
                     'sort_order' => $upload->sort_order,
                     'image_identity' => $this->aiImageResolver->identity($upload),
                     'content_assessment' => $assessment?->toArray(),
-                    // Wrong-subject photos (without “Toch doorgaan”) are never usable evidence.
-                    'evidence_eligible' => $eligible,
+                    // Selection already filtered; keep the flag for the model + acceptor.
+                    'evidence_eligible' => true,
                 ];
             })
             ->values()

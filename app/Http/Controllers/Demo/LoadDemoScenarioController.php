@@ -20,18 +20,19 @@ final class LoadDemoScenarioController extends Controller
         $this->authorize('update', $intake);
         abort_unless($intake->is_demo, 404);
 
-        $loadDemoSurveyScenario->handle($intake, $request->user());
+        $example = $loadDemoSurveyScenario->handle($intake, $request->user());
 
         $request->session()->put([
             'public_demo_scenario_loaded' => true,
+            'public_demo_intake_id' => $example->id,
             'public_demo_guide_step' => null,
         ]);
 
         return redirect()
-            ->route('intakes.workspace', $intake)
+            ->route('intakes.workspace', $example)
             ->with(
                 'status',
-                'Voorbeelddossier geladen. Je kunt hierna AI-voorstellen vernieuwen of eigen foto’s laten analyseren. Geen echte klant, geen mail.',
+                'Voorbeelddossier geopend in een aparte demo-opname. Je eigen aanvraag blijft ongewijzigd. Geen echte klant, geen mail.',
             );
     }
 }

@@ -475,18 +475,20 @@ test('loading the demo sample dossier uses precomputed fictitious context withou
         'token_ttl_hours' => 2,
     ]);
 
-    app(LoadDemoSurveyScenario::class)->handle($intake, $user);
-    $intake->refresh();
+    $example = app(LoadDemoSurveyScenario::class)->handle($intake, $user);
 
-    $buildYear = $intake->externalFacts()->where('fact_key', 'building_year')->firstOrFail();
-    $aerial = $intake->externalFacts()->where('fact_key', 'aerial_image')->firstOrFail();
+    $buildYear = $example->externalFacts()->where('fact_key', 'building_year')->firstOrFail();
+    $aerial = $example->externalFacts()->where('fact_key', 'aerial_image')->firstOrFail();
 
-    expect($intake->exists)->toBeTrue()
-        ->and($intake->is_demo)->toBeTrue()
+    expect($example->id)->not->toBe($intake->id)
+        ->and($example->exists)->toBeTrue()
+        ->and($example->is_demo)->toBeTrue()
+        ->and($example->customer_name)->toBe('Voorbeelddossier (demo)')
         ->and($buildYear->value)->toBe(['number' => 1996])
         ->and($buildYear->source)->toContain('fictief demo-voorbeeld')
         ->and($aerial->source)->toContain('fictief demo-voorbeeld')
-        ->and($aerial->value['ground_width_meters'])->toBe(80);
+        ->and($aerial->value['ground_width_meters'])->toBe(80)
+        ->and($intake->fresh()->externalFacts()->where('fact_key', 'building_year')->exists())->toBeFalse();
 
     Http::assertNothingSent();
 });
@@ -532,20 +534,23 @@ test('demo sample dossier keeps the live PDOK aerial for the typed address', fun
         ->and($liveAerial->value['media_path'])->toContain('pdok-aerial.jpg')
         ->and($liveAerial->value['mime_type'] ?? null)->toBe('image/jpeg');
 
-    app(LoadDemoSurveyScenario::class)->handle($intake->fresh() ?? $intake, $user);
+    $example = app(LoadDemoSurveyScenario::class)->handle($intake->fresh() ?? $intake, $user);
     $intake->refresh();
 
-    expect($intake->externalFacts()->where('fact_key', 'aerial_image')->count())->toBe(1)
+    expect($example->id)->not->toBe($intake->id)
+        ->and($intake->externalFacts()->where('fact_key', 'aerial_image')->count())->toBe(1)
         ->and($intake->externalFacts()->where('fact_key', 'aerial_image')->where('source', 'like', '%fictief demo-voorbeeld%')->exists())
         ->toBeFalse()
-        ->and($intake->aircoRooms()->count())->toBeGreaterThan(0);
+        ->and($example->aircoRooms()->count())->toBeGreaterThan(0)
+        ->and($example->externalFacts()->where('fact_key', 'aerial_image')->where('source', 'PDOK Luchtfoto RGB')->exists())
+        ->toBeFalse();
 
     $liveAfter = $intake->externalFacts()
         ->where('fact_key', 'aerial_image')
         ->where('source', 'PDOK Luchtfoto RGB')
         ->firstOrFail();
 
-    // Sample load must not replace or delete the live aerial bytes.
+    // Sample load must not replace or delete the live aerial bytes on the source intake.
     if (! Storage::disk((string) $liveAfter->value['media_disk'])->exists((string) $liveAfter->value['media_path'])) {
         Storage::disk((string) $liveAfter->value['media_disk'])->put(
             (string) $liveAfter->value['media_path'],
