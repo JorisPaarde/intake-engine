@@ -7,6 +7,7 @@ namespace App\Support\E2e;
 use App\Domains\AI\Support\E2eAiScenario;
 use App\Domains\Intake\Actions\CreateCustomerContributionRequest;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
+use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeUpload;
@@ -14,8 +15,11 @@ use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Enums\FollowUpItemType;
 use App\Enums\IntakeStatus;
+use App\Enums\PhotoAssessmentStatus;
+use App\Enums\PhotoUsabilityVerdict;
 use App\Models\Company;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -29,6 +33,7 @@ final class E2eScenarioFactory
         private readonly SaveIntakeAnswer $saveAnswer,
         private readonly DossierManager $dossierManager,
         private readonly CreateCustomerContributionRequest $createContribution,
+        private readonly StoreIntakeUpload $storeUpload,
     ) {}
 
     /**
@@ -43,6 +48,7 @@ final class E2eScenarioFactory
             'progress-empty' => $this->progressEmpty(),
             'drain-facade' => $this->drainAndFacade(),
             'feedback' => $this->feedbackReady(),
+            'room-name-autosave' => $this->roomNameAutosave(),
             default => throw new \InvalidArgumentException('Unknown E2E scenario: '.$scenario),
         };
     }
@@ -183,6 +189,92 @@ final class E2eScenarioFactory
         return $this->payload($intake, 'feedback', [
             'target_question_key' => 'room_photos',
         ]);
+    }
+
+    /**
+     * Two bedrooms at room_name: blur/autosave must keep the question sticky (BL-140).
+     * preferred_indoor is prefilled so Volgende lands on wall_outlet_photo.
+     *
+     * @return array<string, mixed>
+     */
+    private function roomNameAutosave(): array
+    {
+        E2eAiScenario::set(E2eAiScenario::GOOD_PHOTO);
+
+        $intake = $this->baseIntake([
+            'customer_name' => 'E2E Kamernaam',
+            'customer_email' => 'e2e-kamernaam@example.com',
+            'request_reason' => 'Twee slaapkamers koelen',
+        ]);
+
+        $this->saveAnswer->handle($intake, 'indoor_unit_count', null, ['number' => 2], PrefillSources::REQUEST_TEXT);
+        $this->saveAnswer->handle($intake, 'cooling_heating', null, ['value' => 'both'], PrefillSources::REQUEST_TEXT);
+        $this->saveAnswer->handle($intake, 'building_type', null, ['value' => 'detached'], PrefillSources::REQUEST_TEXT);
+        $this->saveAnswer->handle($intake, 'ownership', null, ['value' => 'owned'], PrefillSources::REQUEST_TEXT);
+
+        foreach (['room-1', 'room-2'] as $instance) {
+            foreach ([
+                ['room_type', ['value' => 'bedroom'], PrefillSources::AI_TEXT],
+                ['room_size_indication', ['value' => 'medium'], PrefillSources::AI_TEXT],
+                ['room_length_m', ['number' => 4.0], PrefillSources::AI_TEXT],
+                ['room_width_m', ['number' => 3.0], PrefillSources::AI_TEXT],
+                ['room_area_m2', ['number' => 12.0], PrefillSources::AI_TEXT],
+                ['ceiling_height_m', ['number' => 2.5], PrefillSources::AI_TEXT],
+                ['sun_exposure', ['value' => 'medium'], PrefillSources::AI_TEXT],
+                ['glass_amount', ['value' => 'average'], PrefillSources::AI_TEXT],
+                ['glazing_type', ['value' => 'double'], PrefillSources::AI_TEXT],
+                ['floor_level', ['value' => '1'], PrefillSources::AI_TEXT],
+                ['room_outlet_status', ['value' => 'needs_photo'], PrefillSources::AI_PHOTO],
+                ['preferred_indoor_location', ['text' => 'Boven de deur'], PrefillSources::AI_TEXT],
+            ] as [$key, $value, $source]) {
+                $this->saveAnswer->handle($intake, $key, $instance, $value, $source);
+            }
+
+            foreach (['room_photos', 'indoor_unit_position_photo'] as $photoKey) {
+                $upload = $this->storeUpload->handle(
+                    $intake,
+                    $photoKey,
+                    $instance,
+                    $this->fixtureUpload('room-overview-good.jpg'),
+                );
+                $upload->updateQuietly([
+                    'usability_verdict' => PhotoUsabilityVerdict::Ok,
+                    'assessment_status' => PhotoAssessmentStatus::Assessed,
+                    'content_assessment' => [
+                        'status' => 'ok',
+                        'expected_subject' => 'room',
+                        'detected_subject' => 'room',
+                        'customer_message' => null,
+                    ],
+                ]);
+            }
+        }
+
+        $this->dossierManager->initialize($intake->fresh() ?? $intake);
+
+        $intake->update([
+            'current_section_key' => 'rooms',
+            'current_question_key' => 'room_name',
+            'current_section_instance_key' => 'room-1',
+        ]);
+
+        return $this->payload($intake, 'room-name-autosave', [
+            'target_question_key' => 'room_name',
+        ]);
+    }
+
+    private function fixtureUpload(string $name): UploadedFile
+    {
+        $e2ePath = base_path('tests/e2e/fixtures/'.$name);
+        $path = is_file($e2ePath)
+            ? $e2ePath
+            : base_path('tests/fixtures/klanttest-20261002/'.$name);
+
+        if (! is_file($path)) {
+            throw new \RuntimeException('E2E fixture ontbreekt: '.$name);
+        }
+
+        return UploadedFile::fake()->createWithContent($name, (string) file_get_contents($path));
     }
 
     /**

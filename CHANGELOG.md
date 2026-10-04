@@ -8,7 +8,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 - **Klanttaken bundelen vóór activeren (BL-145):** contextuele **Vraag de klant**/**Vraag nieuwe foto** voegt toe aan een zichtbare conceptlijst (`tasks.prepare` → sessie `customer_task_drafts`, max 5) met bewerkbare klanttekst; één `tasks.store` activeert de ronde. Brononderwerp per taak blijft behouden; open ronde blijft geblokkeerd. Pest + Playwright (`tests/e2e/customer-task-draft-bundle.spec.ts`).
 - **AI-trace gaps afronden (BL-144):** `ai_runs.provider_request_id` (provider completion-`id` via `completionResultAttributes`); `AiRunStatus::Skipped` / `AiTraceStatus::Skipped` + `AiSkipRecorder` voor uploads zonder AI-call (reden bv. `geen beoordelingsprofiel`); `seed` in `model_parameters` (+ optioneel `AI_SEED` naar provider); `queued_at` op traces; export bevat `finish_reason` + `queued_at`. GPS/locatie blijft geredigeerd.
-- **Playwright E2E klantflow in CI (BL-145):** job **E2E (Playwright)** start Laravel + SQLite + `AI_PROVIDER=fake` + `E2E_HELPERS`, bouwt Vite-assets, runt Chromium-specs in `tests/e2e` (happy path, 12 MP upload, 503-retry, follow-up mismatch, feedback, voortgang, drain/gevel-reuse, kamernaam-autosave). Artifacts: trace/screenshot/video bij failure. Lokaal: zie `tests/e2e/README.md`.
+- **Playwright E2E klantflow in CI (BL-145):** job **E2E (Playwright)** start Laravel + SQLite + `AI_PROVIDER=fake` + `E2E_HELPERS`, bouwt Vite-assets, runt Chromium-specs in `tests/e2e` (happy path, 12 MP upload, 503-retry, follow-up mismatch, feedback, voortgang, drain/gevel-reuse, **kamernaam-autosave sticky**). Artifacts: trace/screenshot/video bij failure. Lokaal: zie `tests/e2e/README.md`.
 
 ### Fixed
 

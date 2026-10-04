@@ -50,3 +50,12 @@ it('builds an empty living-room customer URL for Playwright', function () {
         ->and($payload['customer_url'])->toContain('/o/')
         ->and($payload['scenario'])->toBe('empty-living-room');
 });
+
+it('builds a room-name-autosave scenario starting on room_name', function () {
+    $payload = app(E2eScenarioFactory::class)->create('room-name-autosave');
+
+    expect($payload['scenario'])->toBe('room-name-autosave')
+        ->and($payload['target_question_key'])->toBe('room_name')
+        ->and($payload['access_token'])->toHaveLength(64)
+        ->and($payload['customer_url'])->toContain('/o/');
+});

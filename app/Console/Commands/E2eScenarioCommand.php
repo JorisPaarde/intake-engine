@@ -11,7 +11,7 @@ use Illuminate\Console\Command;
 final class E2eScenarioCommand extends Command
 {
     protected $signature = 'e2e:scenario
-        {scenario : wizard-happy-path|fusebox-upload|follow-up-mismatch|progress-empty|drain-facade|feedback}
+        {scenario : wizard-happy-path|fusebox-upload|follow-up-mismatch|progress-empty|drain-facade|feedback|room-name-autosave}
         {--ai= : Optional FakeAiClient scenario (good_photo|wrong_subject|…)}';
 
     protected $description = 'Create a deterministic intake for Playwright and print JSON';

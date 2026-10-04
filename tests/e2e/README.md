@@ -60,6 +60,7 @@ php artisan queue:work --queue=ai-photo,default --sleep=1 --tries=2
 | `specs/05-photo-feedback.spec.ts` | Geen dubbele/stale feedback |
 | `specs/06-progress.spec.ts` | % en Vraag X van Y consistent |
 | `specs/07-drain-and-facade-reuse.spec.ts` | Afvoer-tekst + gevel-hergebruik |
+| `specs/08-room-name-autosave.spec.ts` | Kamernaam-autosave verschuift vraag niet (BL-140 sticky) |
 
 ## Helpers
 
