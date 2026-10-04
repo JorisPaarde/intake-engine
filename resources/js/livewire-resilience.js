@@ -115,6 +115,28 @@ export function registerPollPauseWhileBusy() {
 }
 
 /**
+ * Whether wire:poll must stay cancelled while a Livewire upload-file is in flight.
+ * Exported for Vitest — after upload finishes, polling must resume (staging intake 82).
+ *
+ * @param {boolean} uploadInFlight
+ * @param {string|null|undefined} metadataType
+ * @returns {boolean}
+ */
+export function shouldCancelPollWhileUploadInFlight(uploadInFlight, metadataType) {
+    return Boolean(uploadInFlight) && metadataType === 'poll';
+}
+
+/**
+ * After upload:finished / upload:errored / successful _finishUpload, polls must run again.
+ *
+ * @param {boolean} uploadInFlight
+ * @returns {boolean}
+ */
+export function shouldResumePollAfterUpload(uploadInFlight) {
+    return ! Boolean(uploadInFlight);
+}
+
+/**
  * Prefer upload lifecycle calls when replaying a failed Livewire update.
  * Never auto-replay polls. Exported for Vitest (BL-143 staging intake 81).
  *
@@ -179,6 +201,8 @@ export function registerLivewireUpdateResilience() {
             component.__intakeUploadSerializeTracked = true;
             const id = component.id;
             component.$wire.$on('upload:generatedSignedUrl', () => markUploadInFlight(id, true));
+            // Clear in-flight as soon as bytes land so wire:poll can resume after
+            // _finishUpload (staging intake 82: poll stayed cancelled → no soft-timeout).
             component.$wire.$on('upload:finished', () => markUploadInFlight(id, false));
             component.$wire.$on('upload:errored', () => markUploadInFlight(id, false));
             component.$wire.$on('upload:removed', () => markUploadInFlight(id, false));
@@ -194,6 +218,7 @@ export function registerLivewireUpdateResilience() {
         // Serialize: while upload-file XHR is in flight, block polls and live $set
         // so they cannot race _finishUpload on a second concurrent LiteSpeed worker
         // (staging intake 81: two POSTs same second → one 503 → silent loss).
+        // After upload:finished the flag clears → pollPendingAssessments resumes.
         if (typeof Livewire.interceptAction === 'function') {
             Livewire.interceptAction(({ action }) => {
                 const componentId = action?.component?.id;
@@ -202,7 +227,7 @@ export function registerLivewireUpdateResilience() {
                 }
                 const name = String(action?.name || '');
                 const metaType = action?.metadata?.type || null;
-                if (metaType === 'poll') {
+                if (shouldCancelPollWhileUploadInFlight(true, metaType)) {
                     action.cancel();
                     return;
                 }
@@ -244,6 +269,8 @@ export function registerLivewireUpdateResilience() {
                         }
                     }
                 });
+                // Ensure polls can resume after exhausted finish retries.
+                targets.forEach((item) => markUploadInFlight(item.componentId, false));
                 dispatchFailed({ status, scope: 'livewire', attempt: failedAttempt });
                 return;
             }
@@ -269,6 +296,7 @@ export function registerLivewireUpdateResilience() {
                     }
                 });
                 livewireAttemptByKey.delete(key);
+                targets.forEach((item) => markUploadInFlight(item.componentId, false));
                 dispatchRetrySucceeded({ attempt: failedAttempt, scope: 'livewire' });
             } catch {
                 // A nested failure will re-enter this handler with an incremented attempt.
@@ -282,6 +310,12 @@ export function registerLivewireUpdateResilience() {
                     Array.from(request.messages || []).forEach((message) => {
                         Array.from(message.actions || []).forEach((action) => {
                             livewireAttemptByKey.delete(livewireAttemptKey(action.component?.id, action.name));
+                            const name = String(action?.name || '');
+                            // Safety net: clear in-flight when finish succeeds so polls resume
+                            // even if upload:finished was missed (staging intake 82).
+                            if (name === '_finishUpload' || name === '_uploadErrored') {
+                                markUploadInFlight(action.component?.id, false);
+                            }
                         });
                     });
                 });

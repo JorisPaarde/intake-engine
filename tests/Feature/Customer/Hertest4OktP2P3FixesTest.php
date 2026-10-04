@@ -315,13 +315,13 @@ test('P3-5: progress % en vragen-teller gebruiken dezelfde done-telling', functi
     expect($html)->toMatch('/data-testid="progress-percent">\d+%/')
         ->and($html)->toMatch('/Vraag\s+\d+\s+van\s+\d+/');
 
-    // Foto telt pas mee na geaccepteerde beoordeling (niet tijdens pending).
+    // Foto telt mee zodra ontvangen; assessment mag async (intake 82 soft-continue).
     $pending = new IntakeUpload([
         'usability_verdict' => PhotoUsabilityVerdict::Ok,
         'assessment_status' => PhotoAssessmentStatus::Pending,
         'content_assessment' => null,
     ]);
-    expect(PhotoContentSatisfaction::uploadsSatisfy(collect([$pending])))->toBeFalse();
+    expect(PhotoContentSatisfaction::uploadsSatisfy(collect([$pending])))->toBeTrue();
 
     $accepted = new IntakeUpload([
         'usability_verdict' => PhotoUsabilityVerdict::Ok,

@@ -289,7 +289,8 @@ test('poll soft-timeout laat wizard doorgaan terwijl status pending blijft', fun
     $upload = $item->fresh()->uploads()->firstOrFail();
     expect($upload->assessment_status)->toBe(PhotoAssessmentStatus::Pending);
 
-    // Forceer soft-timeout via assessment_queued_at (fallback in poll).
+    // Forceer soft-timeout via de assessing-faseklok (gezaghebbend zolang die actief is).
+    $component->set('uploadPhaseStartedAt', now()->subSeconds(5)->getTimestamp());
     $upload->forceFill(['assessment_queued_at' => now()->subSeconds(5)])->save();
 
     $component
