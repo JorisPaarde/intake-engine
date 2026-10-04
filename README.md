@@ -1,6 +1,6 @@
 # Intake Engine (Digitale Opname)
 
-> **Documentversie:** 2.30 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](AGENTS.md)
+> **Documentversie:** 2.31 · **Laatste update:** 2026-10-04 · Onderhoud: zie [AGENTS.md](AGENTS.md)
 
 **Werk je als agent aan dit project? Lees eerst [AGENTS.md](AGENTS.md)** — het projectgeheugen, de documentkaart en het onderhoudsprotocol.
 
@@ -95,7 +95,7 @@ Secrets nooit in git. Belangrijke vars: `APP_*`, `DB_*`, `QUEUE_CONNECTION`, `CA
 ## Runtime: storage, queues & logging
 
 - **Storage:** intakefoto's en aangeleverde documenten via `MEDIA_DISK` (privé `local` of `s3`; geen hardcoded disknamen) — [docs/uploads.md](docs/uploads.md)
-- **Queues:** `QUEUE_CONNECTION=database`; cron-worker op cPanel — [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md); sync/async-keuzes: ADR-0004
+- **Queues:** `QUEUE_CONNECTION=database`; op cPanel alleen cron `schedule:run` (die start de queue-worker) — [docs/DEPLOYMENT.md § Cron](docs/DEPLOYMENT.md); sync/async-keuzes: ADR-0004
 - **Logging:** daily stack; lokaal `debug`, staging `info`, productie `warning`; server: `shared/storage/logs/`
 
 ## Deployment

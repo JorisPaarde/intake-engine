@@ -203,10 +203,16 @@ test('merk planning en opmerkingen staan op één scherm', function () {
         ->assertSee('Aanvullende opmerkingen?');
 });
 
-test('extra ruimte-overzicht noemt ontbrekende wand deur of stopcontact', function () {
+test('extra ruimte-overzicht noemt ontbrekende wand of deur wanneer assessment dat vraagt', function () {
     $intake = uxReviewIntake();
     app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
-    app(SaveIntakeAnswer::class)->handle($intake, 'room_outlet_status', 'room-1', ['value' => 'needs_photo'], PrefillSources::AI_PHOTO);
+    app(SaveIntakeAnswer::class)->handle(
+        $intake,
+        'room_extra_overview_needed',
+        'room-1',
+        ['value' => 'needs_photo'],
+        PrefillSources::AI_PHOTO,
+    );
     app(DossierManager::class)->initialize($intake->fresh() ?? $intake);
 
     $steps = app(IntakeStepBuilder::class)->build(
@@ -216,9 +222,9 @@ test('extra ruimte-overzicht noemt ontbrekende wand deur of stopcontact', functi
     $extra = collect($steps)->firstWhere('question_key', 'indoor_unit_position_photo');
 
     expect($extra)->not->toBeNull()
-        ->and($extra['help_text'])->toContain('stopcontact')
         ->and($extra['help_text'])->toContain('wand')
         ->and($extra['help_text'])->toContain('deur')
+        ->and($extra['help_text'])->not->toContain('stopcontact')
         ->and($extra['help_text'])->toContain('geen plek voor een binnenunit');
 
     $index = collect($steps)->search(fn (array $s): bool => $s['question_key'] === 'indoor_unit_position_photo');
@@ -227,7 +233,8 @@ test('extra ruimte-overzicht noemt ontbrekende wand deur of stopcontact', functi
         ->set('stepIndex', $index)
         ->set('activeStepKey', $steps[$index]['key'])
         ->assertSee('geen plek voor een binnenunit')
-        ->assertSee('stopcontact');
+        ->assertSee('wand')
+        ->assertDontSee('stopcontact');
 });
 
 test('goedgekeurde foto toont geen oranje waarschuwingsbox', function () {

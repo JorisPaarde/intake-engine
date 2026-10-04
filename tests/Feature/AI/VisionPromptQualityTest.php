@@ -266,7 +266,9 @@ test('empty living room with unknown outlets does not trigger wall_outlet_photo'
         'room_size_indication' => 'large',
         'sun_exposure' => 'unknown',
         'glass_amount' => 'much',
+        'glazing_type' => 'unknown',
         'room_outlet_status' => 'unknown',
+        'extra_overview_needed' => 'complete',
         'detected_subject' => 'room',
         'subject_match' => 'yes',
         'confidence' => 'high',
@@ -293,6 +295,9 @@ test('empty living room with unknown outlets does not trigger wall_outlet_photo'
 
     expect($intake->answers()->where('question_key', 'room_outlet_status')->exists())->toBeFalse()
         ->and($steps)->not->toContain('wall_outlet_photo')
+        ->and($steps)->not->toContain('indoor_unit_position_photo')
+        ->and($intake->answers()->where('question_key', 'room_extra_overview_needed')->firstOrFail()->value)
+        ->toBe(['value' => 'complete'])
         ->and($intake->answers()->where('question_key', 'glass_amount')->firstOrFail()->value)
         ->toBe(['value' => 'much']);
 });

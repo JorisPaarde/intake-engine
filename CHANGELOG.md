@@ -4,15 +4,20 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Changed
+
+- **Photo-assessment watchdog + cPanel-cron (LVE 512 MB):** `photos:requeue-pending-assessments` van `everyMinute()` naar `everyFiveMinutes()` (upload dispatcht de AI-job meteen; watchdog is alleen vangnet). Docs: crontab mag **alleen** `schedule:run` bevatten — géén aparte `queue:work --stop-when-empty` (die worker start de scheduler al); dubbele minutelijke PHP-processen duwen LVE over 512 MB → 503.
+
 ### Fixed
 
+- **Lege woonkamer kreeg altijd “Extra foto: ontbrekende wand/deur/stopcontact” (BL-137):** `indoor_unit_position_photo` stond sinds v22 altijd in de klantwizard (optioneel), ongeacht assessment. Airco **v24** toont die stap alleen bij `room_extra_overview_needed=needs_photo` (room-assessment-v8 `extra_overview_needed`); bruikbaar overzicht → `complete`/`unknown` schrijft geen gap → geen extra vraag. Stopcontact-gap blijft apart via `room_outlet_status` → `wall_outlet_photo`. Daarnaast: `pipe_route_photos` en `outdoor_mount_type` zijn installateur-only (`meta.audience=installer`) — geen standaard klantstappen meer (route/bevestiging zijn installateurskeuzes; follow-up kan ze alsnog vragen).
 - **Photo-assessment watchdog herqueued legacy uploads (BL-134, prod v1.4.0):** migratie `2026_10_03_200000` backfillde historische uploads zonder `content_assessment` als `assessment_status=pending`, waarna `photos:requeue-pending-assessments` ze naar `AssessUploadedPhotoJob` stuurde (o.a. oude intake 23 / upload 82 — bestaande `content_assessment` overschreven + `photo_assessment_completed` event). Fix: migratie zet legacy pending om naar terminal (`assessed` als content bestaat, anders `not_assessed`) en laat `NULL` met rust; watchdog herqueued alleen pipeline-dispatched uploads (`attempts >= 1`), binnen max-age (24 u), op klantfase-intakes, met cap 20/run — submitted/closed worden **niet** aangeraakt; job op submitted/closed seal’t alleen pipeline-status zonder AI en zonder `content_assessment` te herschrijven.
 
 ### Added
 
 - **AI-trace veldverbeteringen (BL-132):** `provider_response_id` (OpenRouter/OpenAI completion `id`), fijnmazige `estimated_cost` (provider `usage.cost`), `queue_wait_ms` + `attempt`/`retry_count` vanuit `AssessUploadedPhotoJob`, generation settings in `model_parameters` (model, temperature, max_tokens, response_format/schema). GPS/EXIF-locatie in redactie; strengere telefoonmaskering zonder huisnummer/m²/ID-false-positives.
 - **AI-trace retentie/export (BL-125):** `ai_traces.intake_id` nullable (`nullOnDelete`) + denormalised `intake_ref_id`/`is_demo`/`request_id` zodat traces demo-purge overleven; retentie alleen via scheduled `ai:purge-traces`. Granulaire `AiTraceCallType`s, verplichte velden (prompt/model/request/photo_refs/raw/parsed/tokens/kosten/timings) via recorder/client, uitgebreide `AiTraceRedactor` (naam/adres), `ai:traces:export` (jsonl+md, bundling, auto-split, manifest). Demo-purge verwijdert ook `intakes/{uuid}/`. PDF-embed downscaled foto’s (max 1600px, JPEG ~75) zonder originelen te wijzigen. `ai_runs` blijft cascadeOnDelete (gedocumenteerd).
-- **Photo-assessment watchdog (BL-127):** `photos:requeue-pending-assessments` (scheduler everyMinute) herdispatched `assessment_status=pending` ouder dan ~3 min, max attempts daarna soft-fail `not_assessed`. Nullable `ai_runs.upload_id` + `intake_uploads.assessment_status` pipeline.
+- **Photo-assessment watchdog (BL-127):** `photos:requeue-pending-assessments` (scheduler; sinds Unreleased: everyFiveMinutes, was everyMinute) herdispatched `assessment_status=pending` ouder dan ~3 min, max attempts daarna soft-fail `not_assessed`. Nullable `ai_runs.upload_id` + `intake_uploads.assessment_status` pipeline.
 
 ### Changed
 
@@ -44,7 +49,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 - Promptversies: `fusebox-assessment-v4`, `room-assessment-v7`, `request-prefill-v9`, `dossier-synthesis-v5` (BL-133); airco **v23** (op v22 UX).
 
-- **Queue/cron (BL-121):** fotobeoordeling op `ai-photo`; Laravel-scheduler start elke minuut (als nodig) een lange `queue:work --queue=ai-photo,default --max-time=3300 --memory=256 --sleep=1` met `withoutOverlapping(60)` + `runInBackground` (mutex vrij via `schedule:finish`; herstart na deploy/`queue:restart` binnen ~1–3 min ondanks cPanel `RANDOM_DELAY`). Minutelijk `--stop-when-empty` blijft het vangnet — zie `docs/DEPLOYMENT.md`.
+- **Queue/cron (BL-121):** fotobeoordeling op `ai-photo`; Laravel-scheduler start elke minuut (als nodig) een lange `queue:work --queue=ai-photo,default --max-time=3300 --memory=256 --sleep=1` met `withoutOverlapping(60)` + `runInBackground` (mutex vrij via `schedule:finish`; herstart na deploy/`queue:restart` binnen ~1–3 min ondanks cPanel `RANDOM_DELAY`). Crontab: alleen `schedule:run` (géén aparte `--stop-when-empty`) — zie `docs/DEPLOYMENT.md`.
 - **Airco v21 / matenscherm + optionele route (BL-124):** lengte en breedte op één scherm (`wizard_group`); optioneel bij bekende m²; `pipe_route_photos`/`drain_photo`/`indoor_unit_position_photo` optioneel met “Weet ik niet / sla over”; muurfoto’s binnen/buiten op gewenste binnenunitplek; route blijft open punt voor de installateur.
 - Promptversies: `pipe-route-assessment-v4`, `room-assessment-v6`, `fusebox-assessment-v3`, `request-prefill-v7`, `follow-up-photo-subject-v2` (BL-126).
 - **Uploadlimiet 8 MB (BL-128):** default `INTAKE_UPLOAD_MAX_KB=8192` (was 5120); client-downscale beperkt wat er over de draad gaat.

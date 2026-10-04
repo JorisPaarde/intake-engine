@@ -1187,6 +1187,17 @@ final class DerivePhotoAnswers
             if ($outletApplied !== null) {
                 $applied[] = $outletApplied;
             }
+
+            $overviewApplied = $this->applyRoomExtraOverviewNeeded(
+                $intake,
+                $output,
+                $sectionInstanceKey,
+                $confidence,
+            );
+
+            if ($overviewApplied !== null) {
+                $applied[] = $overviewApplied;
+            }
         }
 
         if ($confidence === 'low') {
@@ -1198,7 +1209,8 @@ final class DerivePhotoAnswers
         $derived = $applied;
 
         foreach ($profile->fields as $field) {
-            if ($field->questionKey === 'room_outlet_status') {
+            if ($field->questionKey === 'room_outlet_status'
+                || $field->questionKey === 'room_extra_overview_needed') {
                 continue;
             }
 
@@ -1297,6 +1309,59 @@ final class DerivePhotoAnswers
         );
 
         return 'room_outlet_status';
+    }
+
+    /**
+     * @param  array<string, mixed>  $output
+     */
+    private function applyRoomExtraOverviewNeeded(
+        Intake $intake,
+        array $output,
+        ?string $sectionInstanceKey,
+        string $confidence,
+    ): ?string {
+        $field = null;
+
+        foreach (PhotoDerivationProfile::require('room')->fields as $candidate) {
+            if ($candidate->questionKey === 'room_extra_overview_needed') {
+                $field = $candidate;
+                break;
+            }
+        }
+
+        if ($field === null || ! $this->mayOverwrite($intake, $field, $sectionInstanceKey)) {
+            return null;
+        }
+
+        if (! $this->intakeHasQuestion($intake, 'room_extra_overview_needed')) {
+            return null;
+        }
+
+        $raw = (string) ($output['extra_overview_needed'] ?? $output['room_extra_overview_needed'] ?? 'unknown');
+
+        // unknown: geen answer → geen indoor_unit_position_photo (bruikbare overzichtsfoto forceert geen extra vraag).
+        if ($raw === 'unknown' || $raw === '' || $raw === 'no') {
+            return null;
+        }
+
+        if ($raw === 'complete' && $confidence === 'high') {
+            $status = 'complete';
+        } elseif ($raw === 'needs_photo' || $raw === 'yes') {
+            $status = 'needs_photo';
+        } else {
+            // complete met medium/low: geen harde claim en geen extra foto forceren.
+            return null;
+        }
+
+        $this->saveIntakeAnswer->handle(
+            $intake,
+            'room_extra_overview_needed',
+            $sectionInstanceKey,
+            ['value' => $status],
+            self::SOURCE_DERIVED,
+        );
+
+        return 'room_extra_overview_needed';
     }
 
     private function intakeHasQuestion(Intake $intake, string $questionKey): bool

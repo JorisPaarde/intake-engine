@@ -9,6 +9,7 @@ use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Enums\PhotoUsabilityVerdict;
+use App\Enums\RuleEffect;
 use App\Livewire\Customer\IntakeWizard;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
@@ -23,7 +24,7 @@ function makeBl124Intake(): Intake
     $user = User::factory()->create();
     $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
 
-    expect($version->version)->toBe(23);
+    expect($version->version)->toBe(24);
 
     return Intake::factory()->create([
         'created_by' => $user->id,
@@ -86,33 +87,41 @@ test('dimensions stay optional when floor area m² is already known', function (
         ->and($step['help_text'])->toContain('m²');
 });
 
-test('pipe_route and drain photos are optional with skip on v21', function () {
+test('drain photo remains optional with skip; pipe_route is installer-only; extra overview is assessment-gated', function () {
     $intake = makeBl124Intake();
-    $version = $intake->fresh()->templateVersion()->with(['sections.questions'])->firstOrFail();
+    $version = $intake->fresh()->templateVersion()->with(['sections.questions.rules'])->firstOrFail();
+
+    expect($version->version)->toBe(24);
 
     $pipe = $version->sections->flatMap->questions->firstWhere('key', 'pipe_route_photos');
     $drain = $version->sections->flatMap->questions->firstWhere('key', 'drain_photo');
     $indoor = $version->sections->flatMap->questions->firstWhere('key', 'indoor_unit_position_photo');
 
     expect($pipe->is_required)->toBeFalse()
-        ->and($pipe->meta['allow_skip'] ?? null)->toBeTrue()
+        ->and($pipe->meta['audience'] ?? null)->toBe('installer')
         ->and($drain->is_required)->toBeFalse()
         ->and($drain->meta['allow_skip'] ?? null)->toBeTrue()
         ->and($drain->rules)->toBeEmpty()
-        ->and($indoor->is_required)->toBeFalse()
-        // v22 (BL-125) hernoemt deze vraag; de sla-over uit BL-124 blijft staan.
-        ->and($indoor->meta['allow_skip'] ?? null)->toBeTrue()
-        ->and($indoor->label)->toContain('Extra foto');
+        ->and($indoor->is_required)->toBeTrue()
+        ->and($indoor->meta['allow_skip'] ?? null)->toBeNull()
+        ->and($indoor->label)->toContain('Extra foto')
+        ->and($indoor->rules->where('effect', RuleEffect::Show)->count())->toBeGreaterThan(0);
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
     $viewSteps = $component->viewData('steps');
-    $pipeIndex = collect($viewSteps)->search(
-        static fn (array $step): bool => ($step['question_key'] ?? null) === 'pipe_route_photos',
-    );
-    expect($pipeIndex)->not->toBeFalse();
+    $keys = array_column($viewSteps, 'question_key');
 
-    $beforeKey = $viewSteps[(int) $pipeIndex]['key'];
-    $component->set('stepIndex', (int) $pipeIndex)
+    expect($keys)->not->toContain('pipe_route_photos')
+        ->and($keys)->not->toContain('indoor_unit_position_photo')
+        ->and($keys)->toContain('drain_photo');
+
+    $drainIndex = collect($viewSteps)->search(
+        static fn (array $step): bool => ($step['question_key'] ?? null) === 'drain_photo',
+    );
+    expect($drainIndex)->not->toBeFalse();
+
+    $beforeKey = $viewSteps[(int) $drainIndex]['key'];
+    $component->set('stepIndex', (int) $drainIndex)
         ->set('activeStepKey', $beforeKey)
         ->assertSee('Weet ik niet / sla over')
         ->call('skipOptionalPhoto')

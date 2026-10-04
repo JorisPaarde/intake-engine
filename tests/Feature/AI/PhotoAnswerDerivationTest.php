@@ -122,10 +122,11 @@ test('a medium confidence derivation keeps the question but pre-fills it as a vo
     $version = $intake->templateVersion()->with(['sections.questions.options', 'sections.questions.rules'])->firstOrFail();
     $stepKeys = collect(app(IntakeStepBuilder::class)->build($intake->fresh(), $version))->pluck('question_key');
 
-    expect($stepKeys)->toContain('outdoor_mount_type');
+    // v24: outdoor_mount_type is installer-only (audience), ook bij medium confidence.
+    expect($stepKeys)->not->toContain('outdoor_mount_type');
 });
 
-test('a low confidence derivation stores nothing and leaves every question standing', function () {
+test('a low confidence derivation stores nothing and leaves customer-facing outdoor questions standing', function () {
     $intake = makeDerivationIntake();
     FakeAiClient::alwaysReturn(outdoorOutput('low'));
     uploadOutdoorPhoto($intake);
@@ -142,7 +143,7 @@ test('a low confidence derivation stores nothing and leaves every question stand
     $version = $intake->templateVersion()->with(['sections.questions.options', 'sections.questions.rules'])->firstOrFail();
     $stepKeys = collect(app(IntakeStepBuilder::class)->build($intake->fresh(), $version))->pluck('question_key');
 
-    expect($stepKeys)->toContain('outdoor_mount_type')
+    expect($stepKeys)->not->toContain('outdoor_mount_type')
         ->and($stepKeys)->toContain('outdoor_accessibility');
 });
 
