@@ -428,27 +428,17 @@ final class IntakeStepBuilder
         ?string $sectionInstanceKey,
         ?string $fallback,
     ): string {
-        // Alleen noemen wat de assessment expliciet als gap zette (geen tekstheuristiek).
-        $missing = [];
+        // Alleen tonen wanneer assessment expliciet room_extra_overview_needed=needs_photo zette.
         $overview = $answers[VisibilityResolver::compositeKey('room_extra_overview_needed', $sectionInstanceKey)] ?? null;
         $overviewValue = is_array($overview) ? ($overview['value'] ?? null) : null;
 
         if ($overviewValue === 'needs_photo') {
-            $missing[] = 'wand';
-            $missing[] = 'deur';
+            return 'Laat de ontbrekende wand of deur zien die op de eerdere ruimtefoto nog niet duidelijk in beeld was. Je hoeft zelf geen plek voor een binnenunit te kiezen.';
         }
 
-        if ($missing === []) {
-            return is_string($fallback) && trim($fallback) !== ''
-                ? $fallback
-                : 'Laat de ontbrekende wand of deur zien die op de eerdere ruimtefoto nog niet duidelijk in beeld was. Je hoeft zelf geen plek voor een binnenunit te kiezen.';
-        }
-
-        $list = count($missing) === 1
-            ? $missing[0]
-            : $missing[0].' of '.$missing[1];
-
-        return 'Laat de ontbrekende '.$list.' zien die op de eerdere ruimtefoto nog niet duidelijk in beeld was. Je hoeft zelf geen plek voor een binnenunit te kiezen.';
+        return is_string($fallback) && trim($fallback) !== ''
+            ? $fallback
+            : 'Laat de ontbrekende wand of deur zien die op de eerdere ruimtefoto nog niet duidelijk in beeld was. Je hoeft zelf geen plek voor een binnenunit te kiezen.';
     }
 
     /**
