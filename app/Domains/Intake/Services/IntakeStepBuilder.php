@@ -8,6 +8,9 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeSection;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
+use App\Domains\Intake\Support\FactAcceptance;
+use App\Domains\Intake\Support\FactProvenance;
+use App\Domains\Intake\Support\FactSource;
 use App\Domains\Intake\Support\InternalCustomerQuestions;
 use App\Domains\Intake\Support\KnownSummaryCatalog;
 use App\Domains\Intake\Support\PrefillSources;
@@ -185,6 +188,7 @@ final class IntakeStepBuilder
      * @return array{
      *     answers: array<string, array<string, mixed>|null>,
      *     answerSources: array<string, string|null>,
+     *     answerFacts: array<string, array{provenance: ?string, confidence: ?int, fact_source: ?string}>,
      *     questionTypes: array<string, QuestionType>,
      *     sectionsByQuestionKey: array<string, IntakeSection>,
      *     allQuestions: Collection<string, IntakeQuestion>
@@ -197,10 +201,16 @@ final class IntakeStepBuilder
 
         $answers = [];
         $answerSources = [];
+        $answerFacts = [];
         foreach ($intake->answers as $answer) {
             $composite = VisibilityResolver::compositeKey($answer->question_key, $answer->section_instance_key);
             $answers[$composite] = $answer->value;
             $answerSources[$composite] = $answer->prefill_source;
+            $answerFacts[$composite] = [
+                'provenance' => $answer->fact_provenance,
+                'confidence' => is_int($answer->fact_confidence) ? $answer->fact_confidence : null,
+                'fact_source' => $answer->fact_source,
+            ];
         }
 
         foreach ($liveAnswers as $key => $value) {
@@ -225,6 +235,7 @@ final class IntakeStepBuilder
         return [
             'answers' => $answers,
             'answerSources' => $answerSources,
+            'answerFacts' => $answerFacts,
             'questionTypes' => $questionTypes,
             'sectionsByQuestionKey' => $sectionsByQuestionKey,
             'allQuestions' => $allQuestions,
@@ -584,13 +595,14 @@ final class IntakeStepBuilder
         $composite = VisibilityResolver::compositeKey($question->key, $sectionInstanceKey);
         $state = $visibility[$composite] ?? ['visible' => false, 'required' => false];
         $answerSource = $context['answerSources'][$composite] ?? null;
+        $answerFact = $context['answerFacts'][$composite] ?? null;
         $answerValue = $context['answers'][$composite] ?? null;
         $answered = $this->answerValueReader->isFilled(
             is_array($answerValue) ? $answerValue : null,
             $question->type,
         );
 
-        $prefilledSkipped = ! $forceShow && $this->isPrefillSkipped($question, $answerSource);
+        $prefilledSkipped = ! $forceShow && $this->isPrefillSkipped($question, $answerSource, $answerFact);
         $roomNameHidden = ! $forceShow
             && $question->key === 'room_name'
             && ! $this->shouldAskRoomName($context['answers'], $sectionInstanceKey);
@@ -632,15 +644,49 @@ final class IntakeStepBuilder
         };
     }
 
-    private function isPrefillSkipped(IntakeQuestion $question, ?string $answerSource): bool
+    /**
+     * @param  array{provenance: ?string, confidence: ?int, fact_source: ?string}|null  $answerFact
+     */
+    private function isPrefillSkipped(IntakeQuestion $question, ?string $answerSource, ?array $answerFact = null): bool
     {
         // Eén bron of een lijst: `building_type` kan zowel uit de BAG als uit een
         // geregistreerd energielabel komen, en beide mogen de vraag laten vervallen.
         $skipSources = $question->meta['skip_when_prefilled_by'] ?? null;
         $skipSources = is_array($skipSources) ? $skipSources : [$skipSources];
 
-        // request_text / derived_lxw altijd; legacy `ai` matcht ook ai_text/ai_photo (BL-118).
-        return PrefillSources::shouldSkipPrefill($answerSource, $skipSources);
+        if (! PrefillSources::shouldSkipPrefill($answerSource, $skipSources)) {
+            return false;
+        }
+
+        // Afgeleid / onder drempel: vraag stellen (met voorzet), nooit stil overslaan.
+        $provenance = FactProvenance::tryFromMixed($answerFact['provenance'] ?? null);
+        $factSource = FactSource::tryFrom((string) ($answerFact['fact_source'] ?? ''))
+            ?? FactAcceptance::sourceFrom($answerSource, $provenance);
+        $confidence = is_int($answerFact['confidence'] ?? null)
+            ? $answerFact['confidence']
+            : null;
+
+        if ($answerSource === PrefillSources::DERIVED_LXW) {
+            return $confidence === null || $confidence >= FactAcceptance::threshold($question->key);
+        }
+
+        // Legacy fills zonder confidence/provenance: blijf op oude skipgedrag voor request_text.
+        if ($answerSource === PrefillSources::REQUEST_TEXT && $answerFact === null) {
+            return true;
+        }
+
+        if ($provenance === null && $confidence === null && ($answerFact['fact_source'] ?? null) === null) {
+            // Oude antwoorden zonder fact-meta: alleen sterke niet-suggestion bronnen skippen.
+            return ! PrefillSources::isSuggestion($answerSource)
+                && $answerSource !== PrefillSources::AI_TEXT_SUGGESTION;
+        }
+
+        return FactAcceptance::countsAsKnown(
+            $confidence ?? ($provenance === FactProvenance::Stated ? FactAcceptance::LEVEL_HIGH : null),
+            $factSource,
+            $provenance ?? FactProvenance::Inferred,
+            $question->key,
+        );
     }
 
     private function isInternalQuestion(IntakeQuestion $question): bool
@@ -693,9 +739,7 @@ final class IntakeStepBuilder
                 continue;
             }
 
-            if (! KnownSummaryCatalog::allows($question)
-                || ! KnownSummaryCatalog::allowsSource($source)
-                || ! KnownSummaryCatalog::isSkipped($source, $question)) {
+            if (! KnownSummaryCatalog::allowsAnswer($answer, $question)) {
                 continue;
             }
 

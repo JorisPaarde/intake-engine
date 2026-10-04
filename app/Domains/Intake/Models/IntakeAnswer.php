@@ -13,6 +13,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property array<string, mixed>|null $value
  * @property string|null $prefill_source
  * @property string|null $fact_provenance
+ * @property int|null $fact_confidence
+ * @property string|null $fact_evidence
+ * @property string|null $fact_source
  */
 class IntakeAnswer extends Model
 {
@@ -23,6 +26,9 @@ class IntakeAnswer extends Model
         'value',
         'prefill_source',
         'fact_provenance',
+        'fact_confidence',
+        'fact_evidence',
+        'fact_source',
         'answered_at',
     ];
 
@@ -34,6 +40,7 @@ class IntakeAnswer extends Model
         return [
             'intake_id' => 'integer',
             'value' => 'array',
+            'fact_confidence' => 'integer',
             'answered_at' => 'datetime',
         ];
     }

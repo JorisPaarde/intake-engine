@@ -37,6 +37,8 @@ use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Domains\Intake\Services\ProgressCalculator;
 use App\Domains\Intake\Services\ResolveIntakeByAccessToken;
 use App\Domains\Intake\Services\VisibilityResolver;
+use App\Domains\Intake\Support\FactProvenance;
+use App\Domains\Intake\Support\FactSource;
 use App\Domains\Intake\Support\KnownSummaryCatalog;
 use App\Domains\Intake\Support\OutdoorPhotoReuse;
 use App\Domains\Intake\Support\PhotoContentSatisfaction;
@@ -2907,6 +2909,14 @@ class IntakeWizard extends Component
                 $notices[$composite] = 'Je installateur heeft dit alvast ingevuld — klopt het?';
             } elseif (PrefillSources::isPhotoSuggestion($answer->prefill_source)) {
                 $notices[$composite] = 'We hebben dit uit je foto gehaald — klopt het?';
+            } elseif (PrefillSources::needsCustomerConfirmation(
+                $answer->prefill_source,
+                FactProvenance::tryFromMixed($answer->fact_provenance),
+                $answer->question_key,
+                is_int($answer->fact_confidence) ? $answer->fact_confidence : null,
+                FactSource::tryFrom((string) ($answer->fact_source ?? '')),
+            )) {
+                $notices[$composite] = 'We hebben dit afgeleid uit je aanvraag — klopt dit?';
             }
         }
 

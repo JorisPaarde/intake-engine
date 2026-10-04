@@ -177,12 +177,14 @@ final class PrefillSources
 
     /**
      * Wizard-hook: moet de klant dit antwoord nog bevestigen?
-     * Risicokeys met inferred/unknown of elke tekstsuggestie → ja.
+     * Suggestie, afgeleide bron, of confidence onder drempel → ja.
      */
     public static function needsCustomerConfirmation(
         ?string $prefillSource,
         ?FactProvenance $provenance = null,
         ?string $questionKey = null,
+        ?int $confidencePercent = null,
+        ?FactSource $factSource = null,
     ): bool {
         if ($prefillSource === null) {
             return false;
@@ -198,7 +200,21 @@ final class PrefillSources
             return true;
         }
 
-        return false;
+        $source = $factSource ?? FactAcceptance::sourceFrom($prefillSource, $provenance);
+        if ($confidencePercent !== null) {
+            return FactAcceptance::needsConfirmation(
+                $confidencePercent,
+                $source,
+                $provenance,
+                $questionKey,
+            );
+        }
+
+        if ($provenance === FactProvenance::Inferred || $provenance === FactProvenance::Unknown) {
+            return true;
+        }
+
+        return $source === FactSource::Derived;
     }
 
     /**
@@ -206,31 +222,12 @@ final class PrefillSources
      */
     public static function installerSourceLabel(?string $prefillSource, ?FactProvenance $provenance = null): ?string
     {
-        if (self::isAssumption($prefillSource)) {
-            return 'aanname';
+        $source = FactAcceptance::sourceFrom($prefillSource, $provenance);
+
+        if (self::isAssumption($prefillSource) || $source === FactSource::Derived) {
+            return FactSource::Derived->installerLabel(true);
         }
 
-        if ($provenance === FactProvenance::Inferred && self::isStrongAi($prefillSource)) {
-            return 'aanname';
-        }
-
-        if ($prefillSource === self::REQUEST_TEXT
-            || ($provenance === FactProvenance::Stated && self::isTextDerived($prefillSource))) {
-            return 'uit aanvraagtekst';
-        }
-
-        if ($prefillSource === self::AI_PHOTO || self::isPhotoSuggestion($prefillSource)) {
-            return 'uit foto';
-        }
-
-        if (self::isTextDerived($prefillSource)) {
-            return 'uit aanvraagtekst';
-        }
-
-        if ($prefillSource === self::DERIVED_LXW) {
-            return 'afgeleid';
-        }
-
-        return null;
+        return $source->installerLabel();
     }
 }

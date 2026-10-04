@@ -6,7 +6,9 @@ namespace App\Domains\AI\Services;
 
 use App\Domains\AI\DTOs\RequestPrefillCandidate;
 use App\Domains\AI\Support\OwnershipNormalizer;
+use App\Domains\Intake\Support\FactAcceptance;
 use App\Domains\Intake\Support\FactProvenance;
+use App\Domains\Intake\Support\FactSource;
 use App\Domains\Intake\Support\RiskRelevantPrefillKeys;
 use App\Enums\QuestionType;
 use Illuminate\Validation\ValidationException;
@@ -219,7 +221,8 @@ final class RequestPrefillOutcomeClassifier
                 continue;
             }
 
-            if ($key === 'cooling_heating' && $this->coolingInferredFromAircoAbsence($requestReason, $evidence, $fillEvidence)) {
+            // Alleen brontekst (request_reason) — verzonnen fill-evidence mag intent niet “bewijzen”.
+            if ($key === 'cooling_heating' && $this->coolingInferredFromAircoAbsence($requestReason)) {
                 $candidates[] = new RequestPrefillCandidate(
                     questionKey: $key,
                     sectionInstanceKey: $instanceKey,
@@ -230,6 +233,8 @@ final class RequestPrefillOutcomeClassifier
                     disposition: RequestPrefillCandidate::DISPOSITION_REJECTED,
                     source: RequestPrefillCandidate::SOURCE_CATALOG_AI,
                     reason: 'Geen koel-/verwarmingsintentie: alleen afwezigheid van airco is geen cooling_heating.',
+                    confidencePercent: FactAcceptance::normalizeConfidence($confidence),
+                    factSource: FactSource::Derived,
                 );
 
                 continue;
@@ -311,6 +316,29 @@ final class RequestPrefillOutcomeClassifier
                 ];
             }
 
+            $confidencePercent = FactAcceptance::normalizeConfidence($confidence) ?? FactAcceptance::LEVEL_LOW;
+            $sourceText = is_string($requestReason) ? $requestReason : '';
+
+            // Stated vereist een evidence-quote die echt in de brontekst staat; anders inferred + onder drempel.
+            // Zonder brontekst (alleen unit/dry-run zonder request_reason) geen quote-check — productie levert die altijd.
+            if ($provenance === FactProvenance::Stated && $sourceText !== '') {
+                if (! FactAcceptance::evidenceAppearsInSource($fillEvidence, $sourceText)) {
+                    $normalizations[] = [
+                        'field' => ($instanceKey === null ? $key : $key.'|'.$instanceKey).'.provenance',
+                        'from' => FactProvenance::Stated->value,
+                        'to' => FactProvenance::Inferred->value,
+                        'rule' => 'stated_evidence_not_in_source',
+                    ];
+                    $provenance = FactProvenance::Inferred;
+                    $confidencePercent = FactAcceptance::belowThresholdConfidence($key);
+                    $confidence = FactAcceptance::levelFromPercent($confidencePercent);
+                }
+            }
+
+            $factSource = $provenance === FactProvenance::Stated
+                ? FactSource::CustomerAnswer
+                : FactSource::Derived;
+
             $normalized = $this->normalizeValue($question, $rawValue);
 
             if ($normalized === null) {
@@ -325,6 +353,8 @@ final class RequestPrefillOutcomeClassifier
                     source: RequestPrefillCandidate::SOURCE_CATALOG_AI,
                     reason: $this->invalidValueReason($question, $rawValue),
                     provenance: $provenance,
+                    confidencePercent: $confidencePercent,
+                    factSource: $factSource,
                 );
 
                 continue;
@@ -353,13 +383,21 @@ final class RequestPrefillOutcomeClassifier
                         ? 'Provenance unknown — wordt niet toegepast.'
                         : 'Lage zekerheid — wordt niet toegepast.',
                     provenance: $provenance,
+                    confidencePercent: $confidencePercent,
+                    factSource: $factSource,
                 );
 
                 continue;
             }
 
-            // Stated + high → fill; anders suggestion. Risico+inferred nooit confirmed.
-            $disposition = ($confidence === 'high' && $provenance === FactProvenance::Stated)
+            $countsAsKnown = FactAcceptance::countsAsKnown(
+                $confidencePercent,
+                $factSource,
+                $provenance,
+                $key,
+            );
+
+            $disposition = $countsAsKnown
                 ? RequestPrefillCandidate::DISPOSITION_FILL
                 : RequestPrefillCandidate::DISPOSITION_SUGGESTION;
 
@@ -367,16 +405,14 @@ final class RequestPrefillOutcomeClassifier
             if (RiskRelevantPrefillKeys::requiresConfirmation($key, $provenance)) {
                 $disposition = RequestPrefillCandidate::DISPOSITION_SUGGESTION;
                 $reason = 'Risicoveld met aanname — klantbevestiging nodig, niet als bevestigd opgeslagen.';
-            } elseif ($disposition === RequestPrefillCandidate::DISPOSITION_SUGGESTION) {
-                $reason = $provenance === FactProvenance::Inferred
-                    ? 'Afgeleide aanname — wordt als voorzet opgeslagen.'
-                    : 'Middelmatige zekerheid — wordt als voorzet opgeslagen.';
-            }
-
-            // High+stated op non-risk mag fill blijven; high+inferred → suggestion.
-            if ($confidence === 'high' && $provenance === FactProvenance::Inferred) {
-                $disposition = RequestPrefillCandidate::DISPOSITION_SUGGESTION;
-                $reason ??= 'High confidence maar inferred — voorzet, geen bevestigd feit.';
+            } elseif (! $countsAsKnown) {
+                if ($factSource === FactSource::Derived || $provenance === FactProvenance::Inferred) {
+                    $reason = 'Afgeleid of niet bevestigd — voorzet, geen feit (Klopt dit?).';
+                } elseif ($confidencePercent < FactAcceptance::threshold($key)) {
+                    $reason = 'Zekerheid onder drempel ('.$confidencePercent.'% < '.FactAcceptance::threshold($key).'%) — bevestiging nodig.';
+                } else {
+                    $reason = 'Nog te bevestigen — wordt als voorzet opgeslagen.';
+                }
             }
 
             $candidate = new RequestPrefillCandidate(
@@ -390,6 +426,8 @@ final class RequestPrefillOutcomeClassifier
                 source: RequestPrefillCandidate::SOURCE_CATALOG_AI,
                 reason: $reason,
                 provenance: $provenance,
+                confidencePercent: $confidencePercent,
+                factSource: $factSource,
             );
 
             $candidates[] = $candidate;
@@ -397,7 +435,9 @@ final class RequestPrefillOutcomeClassifier
                 'question_key' => $key,
                 'section_instance_key' => $instanceKey,
                 'confidence' => $confidence,
+                'confidence_percent' => $confidencePercent,
                 'provenance' => $provenance->value,
+                'fact_source' => $factSource->value,
                 'value' => $normalized,
                 'evidence' => $fillEvidence,
             ];
@@ -768,15 +808,12 @@ final class RequestPrefillOutcomeClassifier
     }
 
     /**
-     * "Nog geen airco" without explicit cool/heat words must not yield cooling_heating (BL-129).
+     * "Nog geen airco" without explicit cool/heat words must not yield cooling_heating (BL-129/BL-142).
+     * Alleen request_reason — AI-evidence mag geen intent verzinnen.
      */
-    private function coolingInferredFromAircoAbsence(?string $requestReason, string $topEvidence, ?string $fillEvidence): bool
+    private function coolingInferredFromAircoAbsence(?string $requestReason): bool
     {
-        $corpus = mb_strtolower(trim(implode(' ', array_filter([
-            $requestReason,
-            $topEvidence,
-            $fillEvidence,
-        ], static fn (?string $part): bool => is_string($part) && trim($part) !== ''))));
+        $corpus = mb_strtolower(trim((string) $requestReason));
 
         if ($corpus === '') {
             return false;

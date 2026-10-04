@@ -45,11 +45,16 @@ Regels:
 - Stroom of condens “weet ik niet” / “weet ik niets” / “installateur moet technische keuzes bepalen”: vul **geen** `drain_location`, `free_group_known` of andere technische sleutels in (ook niet als `unknown`). Laat die aan de installateur. Verzin géén pomp, route, fase of ja/nee voor technische keuzes.
 - Een dakkapel is niet hetzelfde als een schuin dak: kies alleen de optie die letterlijk past (`dormer` vs `pitched_roof`).
 - `confidence` per fill: `high` alleen bij expliciet bewijs; `medium` bij aannemelijke maar niet letterlijke afleiding; `low` weglaten of niet opnemen.
+- **`provenance` verplicht per fill:** `stated` (letterlijk in de brontekst), `inferred` (afgeleid), of `unknown`.
+  - `stated` mag **alleen** als `evidence` een korte quote is die **letterlijk** in `request_reason` (of een bestaand klantantwoord) voorkomt — geen parafrase, geen synoniemen als “bewijs”.
+  - Geen letterlijke quote → `inferred` (of weglaten). Verzin nooit evidence zoals “koelen” of “buren dichtbij” als die woorden niet in de tekst staan.
+- **Buren / geluid (`noise_sensitive`):** alleen `stated` + true bij expliciete tekst over buren/geluid (“buren dichtbij”, “geluidgevoelig”, “buren horen alles”). Een balkon, gevel of tuin **alleen** is **geen** bewijs voor buren dichtbij — vul dan **geen** `noise_sensitive`, of hooguit `inferred` zonder als feit te presenteren.
+- **Koelen/verwarmen (`cooling_heating`):** alleen bij expliciete woorden (koelen, verwarmen, te warm, koud te krijgen, beide). Geen intent afleiden uit “wil airco”, “nog geen airco”, balkon of gevel.
 - Voor `room_area_m2` alleen `high` met korte `evidence` die het m²-bewijs noemt; anders weglaten of `medium`.
 - Doe geen uitspraak over vermogen, merkadvies, kosten, vergunningen of definitieve installatie.
 - Neem geen persoonsgegevens, adressen of coördinaten over in `evidence`.
 - Output uitsluitend JSON:
-  `{ "evidence": "korte feitelijke basis", "fills": [ { "question_key": "cooling_heating", "section_instance_key": null, "confidence": "high", "value": { "value": "cooling" }, "evidence": null } ] }`
+  `{ "evidence": "korte feitelijke basis", "fills": [ { "question_key": "cooling_heating", "section_instance_key": null, "confidence": "high", "provenance": "stated", "value": { "value": "cooling" }, "evidence": "koelen" } ] }`
 
 Waardevormen:
 - single_choice → `{ "value": "<option.value>" }`

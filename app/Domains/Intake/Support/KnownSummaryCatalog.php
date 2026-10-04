@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Support;
 
+use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Enums\QuestionType;
 
 /**
  * Welke prefill-antwoorden mogen in het klantoverzicht “Dit hebben we al uit je aanvraag”.
- * Klantgericht = template skip_when_prefilled_by (tekst-AI) minus technische blocklist.
+ * Alleen stated/confirmed feiten boven de confidence-drempel (geen afgeleide aannames).
  */
 final class KnownSummaryCatalog
 {
@@ -39,7 +40,7 @@ final class KnownSummaryCatalog
     }
 
     /**
-     * Tekst-/afgeleide bronnen die in het overzicht mogen.
+     * Tekst-/foto-/afgeleide bronnen die in het overzicht mogen (vóór confidence/provenance-check).
      * Foto-prefill (ai_photo) mag mee voor zon/glas/buitenlocatie zodat rich-text
      * én foto-afgeleide bekende feiten in hetzelfde overzicht landen.
      */
@@ -59,5 +60,37 @@ final class KnownSummaryCatalog
         $skipSources = is_array($skipSources) ? $skipSources : ($skipSources !== null ? [$skipSources] : []);
 
         return PrefillSources::shouldSkipPrefill($source, $skipSources);
+    }
+
+    /**
+     * Mag dit antwoord als “al bekend” in de known-summary?
+     */
+    public static function allowsAnswer(IntakeAnswer $answer, IntakeQuestion $question): bool
+    {
+        if (! self::allows($question)
+            || ! self::allowsSource($answer->prefill_source)
+            || ! self::isSkipped($answer->prefill_source, $question)) {
+            return false;
+        }
+
+        // Null provenance = legacy fill zonder meta — niet als inferred behandelen.
+        $provenance = FactProvenance::tryFromMixed($answer->fact_provenance);
+        $source = FactSource::tryFrom((string) ($answer->fact_source ?? ''))
+            ?? FactAcceptance::sourceFrom($answer->prefill_source, $provenance);
+        $confidence = is_int($answer->fact_confidence)
+            ? $answer->fact_confidence
+            : FactAcceptance::normalizeConfidence($answer->fact_confidence);
+
+        // derived_lxw is berekend uit L×B die al stated/confirmed zijn — mag in summary.
+        if ($answer->prefill_source === PrefillSources::DERIVED_LXW) {
+            return $confidence === null || $confidence >= FactAcceptance::threshold($answer->question_key);
+        }
+
+        return FactAcceptance::countsAsKnown(
+            $confidence,
+            $source,
+            $provenance,
+            $answer->question_key,
+        );
     }
 }

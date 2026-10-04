@@ -158,4 +158,24 @@ return [
         'queue_worker_memory_mb' => (int) env('QUEUE_WORKER_MEMORY_MB', 256),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Prefill fact acceptance (BL-142)
+    |--------------------------------------------------------------------------
+    |
+    | Confidence 0–100 (genormaliseerd uit high/medium/low of 0.0–1.0).
+    | Onder de drempel of bron=afgeleid → nooit als feit; wel bevestigingsvraag.
+    | Per-veld overrides via fact_confidence_thresholds.<question_key>.
+    |
+    */
+
+    'fact_confidence_threshold' => (int) env('INTAKE_FACT_CONFIDENCE_THRESHOLD', 80),
+
+    'fact_confidence_thresholds' => array_filter([
+        'noise_sensitive' => env('INTAKE_FACT_CONFIDENCE_THRESHOLD_NOISE_SENSITIVE'),
+        'cooling_heating' => env('INTAKE_FACT_CONFIDENCE_THRESHOLD_COOLING_HEATING'),
+        'ownership' => env('INTAKE_FACT_CONFIDENCE_THRESHOLD_OWNERSHIP'),
+        'free_group_known' => env('INTAKE_FACT_CONFIDENCE_THRESHOLD_FREE_GROUP'),
+    ], static fn (mixed $value): bool => $value !== null && $value !== ''),
+
 ];
