@@ -4,6 +4,8 @@ import {
   openCustomer,
   setAiScenario,
   uploadPhoto,
+  waitForLivewire,
+  waitForPhotoAssessed,
 } from '../helpers/app';
 
 test.describe('Targeted customer task (follow-up)', () => {
@@ -24,16 +26,18 @@ test.describe('Targeted customer task (follow-up)', () => {
     await expect(page.getByTestId('follow-up-mismatch')).toBeVisible({ timeout: 90_000 });
     await expect(page.getByRole('button', { name: /Toch versturen/i })).toBeVisible();
 
-    // Not last step yet → Volgende; trying complete early is not available.
+    // Accept mismatch explicitly before navigating away.
+    const accept = waitForLivewire(page).catch(() => undefined);
+    await page.getByRole('button', { name: /Toch versturen/i }).click();
+    await accept;
+    await expect(page.getByTestId('follow-up-mismatch')).toHaveCount(0, { timeout: 15_000 });
+
+    const next = waitForLivewire(page).catch(() => undefined);
     await page.getByRole('button', { name: /^Volgende$/ }).click();
-    // Soft-block may keep us here with warning — accept mismatch explicitly.
-    if (await page.getByRole('button', { name: /Toch versturen/i }).count()) {
-      await page.getByRole('button', { name: /Toch versturen/i }).click();
-      await page.getByRole('button', { name: /^Volgende$/ }).click();
-    }
+    await next;
+    await expect(page.getByText(/Onderdeel 2 van 2/i)).toBeVisible({ timeout: 15_000 });
 
     // Item 2 — low resolution soft hint.
-    await expect(page.getByText(/Onderdeel 2 van 2/i)).toBeVisible({ timeout: 15_000 });
     await setAiScenario(request, 'good_photo');
     await uploadPhoto(page, 'too-small-400.jpg');
     await expect(page.getByText(/lage resolutie|klein|scherper|dichtersbij|dichtersbij|dichterbij/i).first()).toBeVisible({
@@ -41,11 +45,18 @@ test.describe('Targeted customer task (follow-up)', () => {
     });
 
     // Replace with usable photo so the round can be sent.
+    const remove = waitForLivewire(page).catch(() => undefined);
     await page.getByRole('button', { name: /Verwijderen/i }).first().click();
-    await uploadPhoto(page, 'room-overview-good.jpg');
-    await page.getByText(/Beoordeeld|Opgeslagen|Status/i).first().waitFor({ timeout: 90_000 }).catch(() => undefined);
+    await remove;
+    await expect(page.getByText(/Foto's maken of kiezen/i)).toBeVisible({ timeout: 10_000 });
 
+    await uploadPhoto(page, 'room-overview-good.jpg');
+    await waitForPhotoAssessed(page);
+    await expect(page.getByTestId('follow-up-item-status')).toContainText('Beoordeeld');
+
+    const complete = waitForLivewire(page).catch(() => undefined);
     await page.getByRole('button', { name: /Aanvulling versturen/i }).click();
+    await complete;
 
     await expect(page.getByText(/Bedankt/i).first()).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/installateur kijkt|nog iets openstaat/i)).toBeVisible();

@@ -321,7 +321,7 @@ final class E2eScenarioFactory
                 $height = null;
                 $disk = $upload->disk ?: (string) config('filesystems.media', 'local');
                 $path = $upload->path;
-                if (is_string($path) && $path !== '' && Storage::disk($disk)->exists($path)) {
+                if ($path !== '' && Storage::disk($disk)->exists($path)) {
                     $bytes = Storage::disk($disk)->get($path);
                     if (is_string($bytes) && $bytes !== '') {
                         $info = @getimagesizefromstring($bytes);

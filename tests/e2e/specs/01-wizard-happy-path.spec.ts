@@ -1,12 +1,14 @@
 import { expect, test } from '@playwright/test';
 import {
+  answerCurrentStep,
   advanceUntil,
-  clickNext,
   createScenario,
   headingText,
+  isPhotoStep,
   openCustomer,
   uploadPhoto,
   waitForPhotoAssessed,
+  clickNext,
 } from '../helpers/app';
 
 test.describe('Wizard happy path', () => {
@@ -21,18 +23,32 @@ test.describe('Wizard happy path', () => {
 
     const confirm = page.getByRole('button', { name: /Klopt, verder/i });
     if (await confirm.count()) {
+      const before = await headingText(page);
       await confirm.first().click();
+      await page.waitForFunction(
+        (prev) => {
+          const h1 = document.querySelector('h1');
+          const text = (h1?.textContent ?? '').replace(/\s+/g, ' ').trim();
+
+          return text !== '' && text !== prev;
+        },
+        before,
+        { timeout: 15_000 },
+      ).catch(() => undefined);
     }
 
-    await advanceUntil(page, /ruimte|woonkamer|overzicht|foto van/i, 20);
+    // Reach the first room / overview photo when present; otherwise continue answering.
+    await advanceUntil(page, /ruimte|woonkamer|overzicht|foto van|Ik bevestig/i, 25).catch(async () => {
+      // If the seeded intake already skipped past overview copy, keep going from here.
+    });
 
-    if (await page.locator('input[type="file"]').count()) {
+    if (await isPhotoStep(page)) {
       await uploadPhoto(page, 'room-overview-good.jpg');
       await waitForPhotoAssessed(page);
       await clickNext(page);
     }
 
-    for (let i = 0; i < 45; i++) {
+    for (let i = 0; i < 50; i++) {
       if (await page.getByTestId('customer-thank-you').count()) {
         break;
       }
@@ -40,69 +56,10 @@ test.describe('Wizard happy path', () => {
       const heading = (await headingText(page)).toLowerCase();
       expect(heading).not.toMatch(/ontbrekende wand|extra foto.*deur|stopcontactfoto|foto van (het )?stopcontact/);
 
-      // Closing wishes: multi-field screen — pick "Geen voorkeur" + first planning radio.
-      if (/merk|planning|opmerkingen/i.test(heading)) {
-        const geen = page.getByLabel(/Geen voorkeur/i);
-        if (await geen.count()) {
-          await geen.first().check();
-        }
-        const plan = page.locator('input[type="radio"]:visible').first();
-        if (await plan.count()) {
-          await plan.check();
-        }
-        await clickNext(page);
-        continue;
-      }
-
-      if (await page.locator('input[type="file"]').count()) {
-        const skip = page.getByTestId('photo-skip');
-        if (await skip.count()) {
-          await skip.first().click({ timeout: 5_000 }).catch(() => undefined);
-          await page.waitForTimeout(400);
-          continue;
-        }
-        const file = heading.includes('meter') ? 'fusebox-12mp-progressive.jpg' : 'facade-around-house.jpg';
-        await uploadPhoto(page, file);
-        await waitForPhotoAssessed(page).catch(() => undefined);
-        await clickNext(page);
-        continue;
-      }
-
-      if (await page.locator('input[type="checkbox"]:visible').count()) {
-        for (const box of await page.locator('input[type="checkbox"]:visible').all()) {
-          if (!(await box.isChecked())) {
-            await box.check();
-          }
-        }
-      }
-
-      if (await page.locator('input[type="radio"]:visible').count()) {
-        await page.locator('label').filter({ has: page.locator('input[type="radio"]') }).first().click();
-        await page.waitForTimeout(150);
-      }
-
-      if (await page.locator('textarea:visible, input[type="text"]:visible, input[type="number"]:visible').count()) {
-        const field = page.locator('textarea:visible, input[type="text"]:visible, input[type="number"]:visible').first();
-        const type = await field.getAttribute('type');
-        await field.fill(type === 'number' ? '3' : 'n.v.t.');
-        await field.blur();
-        await page.waitForTimeout(150);
-      }
-
-      if (await page.getByRole('button', { name: /^Afronden$/ }).count()) {
-        await page.getByRole('button', { name: /^Afronden$/ }).click();
-        continue;
-      }
-
-      if (await page.getByRole('button', { name: /^Volgende$/ }).count()) {
-        await clickNext(page);
-        continue;
-      }
-
-      break;
+      await answerCurrentStep(page, { preferSkipPhotos: true });
     }
 
-    await expect(page.getByTestId('customer-thank-you')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('customer-thank-you')).toBeVisible({ timeout: 20_000 });
     await expect(page.getByTestId('customer-thank-you')).toContainText(/Jouw deel is compleet/i);
     await expect(page.getByTestId('customer-thank-you')).not.toContainText(
       /outdoor_mount_type|room_type|wall_outlet_photo|pipe_route_photos/i,

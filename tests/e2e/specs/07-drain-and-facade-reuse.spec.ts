@@ -1,12 +1,15 @@
 import { expect, test } from '@playwright/test';
 import {
   advanceUntil,
+  clickNext,
   createScenario,
   headingText,
+  isPhotoStep,
   listUploads,
   openCustomer,
   uploadPhoto,
   waitForPhotoAssessed,
+  waitForSaved,
 } from '../helpers/app';
 
 test.describe('Drain text and facade photo reuse', () => {
@@ -25,7 +28,8 @@ test.describe('Drain text and facade photo reuse', () => {
     expect(heading).toMatch(/afvoer/);
     await expect(page.getByText(/Weet je het niet|sla over|vragen altijd een foto|installateur bepaalt/i).first()).toBeVisible();
     await page.getByLabel(/Weet ik niet/i).check();
-    await page.getByRole('button', { name: /^Volgende$/ }).click();
+    await waitForSaved(page);
+    await clickNext(page);
 
     // drain_photo — optional skip affordance + consistent condens copy.
     await advanceUntil(page, /condens|foto van de plek|weg kan/i, 10);
@@ -33,7 +37,18 @@ test.describe('Drain text and facade photo reuse', () => {
     expect(heading).toMatch(/condens|afvoer|weg/);
     await expect(page.getByTestId('photo-skip')).toBeVisible();
     await expect(page.getByText(/condenswater|afvoer/i).first()).toBeVisible();
-    await page.getByTestId('photo-skip').click({ timeout: 5_000 }).catch(() => undefined);
+    const beforeSkip = await headingText(page);
+    await page.getByTestId('photo-skip').click({ timeout: 5_000 });
+    await page.waitForFunction(
+      (prev) => {
+        const h1 = document.querySelector('h1');
+        const text = (h1?.textContent ?? '').replace(/\s+/g, ' ').trim();
+
+        return text !== '' && text !== prev;
+      },
+      beforeSkip,
+      { timeout: 15_000 },
+    ).catch(() => undefined);
   });
 
   test('finding: around-the-house photos reuse when a facade photo is already present', async ({
@@ -50,17 +65,16 @@ test.describe('Drain text and facade photo reuse', () => {
 
     await advanceUntil(page, /buiten|gevel|rondom|omgeving|tuin|foto/i, 40);
 
-    if (await page.locator('input[type="file"]').count()) {
+    if (await isPhotoStep(page)) {
       await uploadPhoto(page, 'facade-around-house.jpg');
       await waitForPhotoAssessed(page).catch(() => undefined);
-      await page.getByRole('button', { name: /^Volgende$/ }).click();
+      await clickNext(page);
     }
 
     await advanceUntil(page, /rondom|gevel|buiten|omgeving|huis|foto/i, 20).catch(() => undefined);
 
-    if (await page.locator('input[type="file"]').count()) {
+    if (await isPhotoStep(page)) {
       await uploadPhoto(page, 'facade-around-house.jpg');
-      await page.waitForTimeout(1500);
       await waitForPhotoAssessed(page).catch(() => undefined);
     }
 

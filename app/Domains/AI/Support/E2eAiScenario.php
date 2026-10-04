@@ -39,9 +39,9 @@ final class E2eAiScenario
 
     public static function get(): string
     {
-        $fromEnv = trim((string) env('AI_E2E_SCENARIO', ''));
-        if ($fromEnv !== '' && in_array($fromEnv, self::ALL, true)) {
-            return $fromEnv;
+        $fromConfig = trim((string) config('ai.e2e_scenario', ''));
+        if ($fromConfig !== '' && in_array($fromConfig, self::ALL, true)) {
+            return $fromConfig;
         }
 
         $path = self::path();
