@@ -41,6 +41,7 @@ use App\Domains\Intake\Support\KnownSummaryCatalog;
 use App\Domains\Intake\Support\OutdoorPhotoReuse;
 use App\Domains\Intake\Support\PhotoContentSatisfaction;
 use App\Domains\Intake\Support\PhotoOverridePolicy;
+use App\Domains\Intake\Support\PhotoUploadLimits;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Enums\FollowUpItemType;
 use App\Enums\FollowUpRoundStatus;
@@ -101,6 +102,14 @@ class IntakeWizard extends Component
      * @var array<string, array<int, array<string, mixed>>>
      */
     public array $photoClientOriginals = [];
+
+    /**
+     * Follow-up item id → client-reported original capture dimensions.
+     * Same role as {@see $photoClientOriginals} for the main wizard.
+     *
+     * @var array<array-key, array<int, array<string, mixed>>>
+     */
+    public array $followUpPhotoClientOriginals = [];
 
     /**
      * Composite key → labelled prefill notice for the applicant (BL-016).
@@ -480,10 +489,15 @@ class IntakeWizard extends Component
             'uploadPhase' => $this->uploadPhase,
             'uploadPhaseMessage' => $this->uploadPhaseMessage,
             'uploadPhaseComposite' => $this->uploadPhaseComposite,
+            'pendingAssessUploadIds' => $this->pendingAssessUploadIds,
+            'assessmentUiReleased' => $this->assessmentUiReleased,
             'missingRequired' => $this->completionMissing,
             'isLastStep' => $displayIndex >= $stepTotal - 1,
             'isKnownSummary' => $stepKind === 'known_summary',
-            'maxUploadKb' => (int) config('intake.uploads.max_kilobytes', 8192),
+            'maxUploadKb' => (int) ceil(PhotoUploadLimits::hardMaxBytes() / 1024),
+            'uploadHardMaxBytes' => PhotoUploadLimits::hardMaxBytes(),
+            'uploadHardMaxMegapixels' => PhotoUploadLimits::hardMaxMegapixels(),
+            'uploadTooLargeMessage' => PhotoUploadLimits::tooLargeMessage(),
         ]);
     }
 
@@ -728,6 +742,8 @@ class IntakeWizard extends Component
             'uploadPhase' => $this->uploadPhase,
             'uploadPhaseMessage' => $this->uploadPhaseMessage,
             'uploadPhaseComposite' => $this->uploadPhaseComposite,
+            'pendingAssessUploadIds' => $this->pendingAssessUploadIds,
+            'assessmentUiReleased' => $this->assessmentUiReleased,
             'followUpPhotoHint' => $followUpFeedbackHints[0] ?? null,
             'followUpMismatchAssessment' => $followUpMismatch,
             'followUpNeedsOverride' => $followUpNeedsOverride,
@@ -739,7 +755,10 @@ class IntakeWizard extends Component
                 && $item->type === FollowUpItemType::Choice
                 ? $this->followUpChoiceOptions($item)
                 : [],
-            'maxUploadKb' => (int) config('intake.uploads.max_kilobytes', 8192),
+            'maxUploadKb' => (int) ceil(PhotoUploadLimits::hardMaxBytes() / 1024),
+            'uploadHardMaxBytes' => PhotoUploadLimits::hardMaxBytes(),
+            'uploadHardMaxMegapixels' => PhotoUploadLimits::hardMaxMegapixels(),
+            'uploadTooLargeMessage' => PhotoUploadLimits::tooLargeMessage(),
             'maxPhotos' => (int) config('intake.follow_up.max_photos_per_item', 5),
             'maxDocuments' => (int) config('intake.follow_up.max_documents_per_item', 3),
         ]);
@@ -1054,10 +1073,24 @@ class IntakeWizard extends Component
         $duplicateNotice = false;
         /** @var list<int> $storedUploadIds */
         $storedUploadIds = [];
+        /** @var array<int, array<string, mixed>> $clientOriginals */
+        $clientOriginals = $this->followUpPhotoClientOriginals[$composite] ?? [];
 
-        foreach ($files as $file) {
+        foreach ($files as $index => $file) {
             try {
-                $upload = app(StoreFollowUpUpload::class)->handle($intake, $item, $file);
+                $clientMeta = is_array($clientOriginals[$index] ?? null) ? $clientOriginals[$index] : [];
+                $rawWidth = $clientMeta['width'] ?? null;
+                $rawHeight = $clientMeta['height'] ?? null;
+                $clientWidth = is_numeric($rawWidth) ? (int) $rawWidth : null;
+                $clientHeight = is_numeric($rawHeight) ? (int) $rawHeight : null;
+
+                $upload = app(StoreFollowUpUpload::class)->handle(
+                    $intake,
+                    $item,
+                    $file,
+                    clientOriginalWidth: $clientWidth,
+                    clientOriginalHeight: $clientHeight,
+                );
 
                 if (! $upload->wasRecentlyCreated) {
                     $duplicateNotice = true;
@@ -1088,6 +1121,9 @@ class IntakeWizard extends Component
         }
 
         $this->{$property}[$itemId] = null;
+        $remainingOriginals = $this->followUpPhotoClientOriginals;
+        unset($remainingOriginals[$composite]);
+        $this->followUpPhotoClientOriginals = $remainingOriginals;
         $storedUploadIds = array_values(array_unique($storedUploadIds));
 
         if ($storedUploadIds !== [] && $type === FollowUpItemType::Photo) {
@@ -1199,11 +1235,30 @@ class IntakeWizard extends Component
         }
 
         if ($stillPending !== []) {
-            if ($this->assessmentSoftTimedOut()) {
+            $softReleased = in_array($composite, $this->assessmentUiReleased, true);
+
+            if ($this->assessmentSoftTimedOut() && ! $softReleased) {
                 $this->softReleasePendingAssessment(
                     $composite,
                     'De automatische check volgt later. Je kunt doorgaan; we kijken je foto alsnog na.',
                 );
+
+                return;
+            }
+
+            // After soft-release: quiet poll (no assessing busy UI) until terminal
+            // or absolute max wait, then drop pending ids (watchdog still covers DB).
+            if ($softReleased) {
+                if ($this->assessmentQuietPollExhausted()) {
+                    $this->clearPendingIdsFor($composite);
+                    if ($this->uploadPhaseComposite === $composite) {
+                        $this->uploadPhaseComposite = '';
+                    }
+
+                    return;
+                }
+
+                $this->setPendingIdsFor($composite, $stillPending);
 
                 return;
             }
@@ -1285,11 +1340,28 @@ class IntakeWizard extends Component
         }
 
         if ($stillPending !== []) {
-            if ($this->assessmentSoftTimedOut()) {
+            $softReleased = in_array($composite, $this->assessmentUiReleased, true);
+
+            if ($this->assessmentSoftTimedOut() && ! $softReleased) {
                 $this->softReleasePendingAssessment(
                     $composite,
                     'De automatische check volgt later. Je kunt doorgaan; we kijken je foto alsnog na.',
                 );
+
+                return;
+            }
+
+            if ($softReleased) {
+                if ($this->assessmentQuietPollExhausted()) {
+                    $this->clearPendingIdsFor($composite);
+                    if ($this->uploadPhaseComposite === $composite) {
+                        $this->uploadPhaseComposite = '';
+                    }
+
+                    return;
+                }
+
+                $this->setPendingIdsFor($composite, $stillPending);
 
                 return;
             }
@@ -1313,8 +1385,11 @@ class IntakeWizard extends Component
         $limit = $configured > 0 ? $configured : 90;
 
         $startedAt = $this->uploadPhaseStartedAt;
-        if ($startedAt !== null && (now()->getTimestamp() - (int) $startedAt) >= $limit) {
-            return true;
+        if ($startedAt !== null) {
+            // Phase clock is authoritative while assessing is active — do not also
+            // fall through to assessment_queued_at (that timestamp is set at store
+            // start and can already exceed a short test limit before poll runs).
+            return (now()->getTimestamp() - (int) $startedAt) >= $limit;
         }
 
         // Fallback: oudste pending upload.assessment_queued_at.
@@ -1328,15 +1403,44 @@ class IntakeWizard extends Component
         return false;
     }
 
+    /**
+     * Absolute ceiling for quiet background poll after soft-release (~10 min).
+     */
+    private function assessmentQuietPollExhausted(): bool
+    {
+        $maxSeconds = 600;
+
+        foreach ($this->pendingIdsFor($this->uploadPhaseComposite) as $uploadId) {
+            $queuedAt = IntakeUpload::query()->whereKey($uploadId)->value('assessment_queued_at');
+            if ($queuedAt !== null && now()->subSeconds($maxSeconds)->gte($queuedAt)) {
+                return true;
+            }
+
+            $createdAt = IntakeUpload::query()->whereKey($uploadId)->value('created_at');
+            if ($createdAt !== null && now()->subSeconds($maxSeconds)->gte($createdAt)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function softReleasePendingAssessment(string $composite, string $message): void
     {
-        // Laat assessment_status=pending staan voor de watchdog; stop alleen de UI-wacht.
+        // Keep pending ids so quiet wire:poll can pick up the terminal result
+        // (staging intake 82: backend done at ~80s but UI stayed on Ontvangen).
         if (! in_array($composite, $this->assessmentUiReleased, true)) {
             $this->assessmentUiReleased[] = $composite;
         }
 
-        $this->clearPendingIdsFor($composite);
-        $this->clearUploadPhase();
+        // Clear busy UI only — do not clear pending ids.
+        $this->uploadPhase = '';
+        $this->uploadPhaseMessage = '';
+        $this->uploadPhaseStartedAt = null;
+        // Keep uploadPhaseComposite so quiet poll stays scoped.
+        if ($this->uploadPhaseComposite === '') {
+            $this->uploadPhaseComposite = $composite;
+        }
         $this->saveMessage = $message;
 
         if ($this->followUpMode) {
@@ -1693,7 +1797,7 @@ class IntakeWizard extends Component
      */
     private function uploadPhotosForComposite(string $composite, array $files): void
     {
-        $maxKb = (int) config('intake.uploads.max_kilobytes', 8192);
+        $maxKb = (int) ceil(PhotoUploadLimits::hardMaxBytes() / 1024);
         [$questionKey, $instanceKey] = $this->splitComposite($composite);
         $intake = $this->intake();
 

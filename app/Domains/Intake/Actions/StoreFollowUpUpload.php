@@ -13,6 +13,7 @@ use App\Domains\Intake\Models\IntakeFollowUpItem;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\DocumentUploadNormalizer;
 use App\Domains\Intake\Services\UploadMimeDetector;
+use App\Domains\Intake\Support\PhotoUploadLimits;
 use App\Enums\AiTraceCallType;
 use App\Enums\FollowUpItemType;
 use App\Enums\FollowUpRoundStatus;
@@ -34,8 +35,13 @@ final class StoreFollowUpUpload
         private readonly AiTraceRecorder $traceRecorder,
     ) {}
 
-    public function handle(Intake $intake, IntakeFollowUpItem $item, UploadedFile $file): IntakeUpload
-    {
+    public function handle(
+        Intake $intake,
+        IntakeFollowUpItem $item,
+        UploadedFile $file,
+        ?int $clientOriginalWidth = null,
+        ?int $clientOriginalHeight = null,
+    ): IntakeUpload {
         $item->loadMissing('round');
 
         if ($item->round->intake_id !== $intake->id
@@ -51,7 +57,6 @@ final class StoreFollowUpUpload
         $maxFiles = $isPhoto
             ? (int) config('intake.follow_up.max_photos_per_item', 5)
             : (int) config('intake.follow_up.max_documents_per_item', 3);
-        $maxKilobytes = (int) config('intake.uploads.max_kilobytes', 8192);
         $existingCount = $item->uploads()->count();
         $fileLabel = $isPhoto ? 'foto' : 'document';
 
@@ -61,14 +66,35 @@ final class StoreFollowUpUpload
             ]);
         }
 
+        if ($isPhoto) {
+            try {
+                PhotoUploadLimits::assertUploadedFileAcceptable(
+                    $file,
+                    $clientOriginalWidth,
+                    $clientOriginalHeight,
+                );
+            } catch (ValidationException $exception) {
+                throw ValidationException::withMessages([
+                    'upload' => PhotoUploadLimits::tooLargeMessage(),
+                ]);
+            }
+
+            return $this->storePhotoLightly(
+                $intake,
+                $item,
+                $file,
+                $maxFiles,
+                $fileLabel,
+                $clientOriginalWidth,
+                $clientOriginalHeight,
+            );
+        }
+
+        $maxKilobytes = (int) config('intake.uploads.max_kilobytes', 8192);
         if ($file->getSize() !== false && $file->getSize() > $maxKilobytes * 1024) {
             throw ValidationException::withMessages([
                 'upload' => 'Dit bestand is te groot. Maximaal '.($maxKilobytes / 1024).' MB.',
             ]);
-        }
-
-        if ($isPhoto) {
-            return $this->storePhotoLightly($intake, $item, $file, $maxFiles, $fileLabel);
         }
 
         $preprocessStarted = microtime(true);
@@ -205,6 +231,8 @@ final class StoreFollowUpUpload
         UploadedFile $file,
         int $maxFiles,
         string $fileLabel,
+        ?int $clientOriginalWidth = null,
+        ?int $clientOriginalHeight = null,
     ): IntakeUpload {
         $mime = strtolower(trim($this->mimeDetector->detect($file)));
         $mime = match ($mime) {
@@ -276,6 +304,8 @@ final class StoreFollowUpUpload
                 $maxFiles,
                 $fileLabel,
                 $persistStarted,
+                $clientOriginalWidth,
+                $clientOriginalHeight,
             ): IntakeUpload {
                 $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
                 $lockedItem = IntakeFollowUpItem::query()->with('round')->lockForUpdate()->findOrFail($item->id);
@@ -321,6 +351,8 @@ final class StoreFollowUpUpload
                         'preprocess_ms' => 0,
                         'variants_pending' => true,
                         'variants_ready' => false,
+                        'original_width' => $clientOriginalWidth,
+                        'original_height' => $clientOriginalHeight,
                         'measured_at' => now()->toIso8601String(),
                     ],
                     'assessment_status' => PhotoAssessmentStatus::Pending,
@@ -348,7 +380,11 @@ final class StoreFollowUpUpload
                 return $upload;
             });
 
-            ProcessIntakePhotoVariantsJob::dispatch($upload->id);
+            ProcessIntakePhotoVariantsJob::dispatch(
+                $upload->id,
+                $clientOriginalWidth,
+                $clientOriginalHeight,
+            );
 
             // Sync queue runs the job immediately; reload attrs in place so
             // wasRecentlyCreated stays true for the wizard duplicate check.

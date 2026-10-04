@@ -88,7 +88,9 @@
                     required
                 ></textarea>
             @elseif ($item->type === \App\Enums\FollowUpItemType::Photo)
-                @php($remainingSlots = max(0, $maxPhotos - $item->uploads->count()))
+                @php
+                    $remainingSlots = max(0, $maxPhotos - $item->uploads->count());
+                @endphp
 
                 @if ($item->uploads->isNotEmpty())
                     <ul class="grid grid-cols-2 gap-3">
@@ -113,86 +115,24 @@
                 @endif
 
                 @if ($remainingSlots > 0)
-                    @php($uploadBusy = ($uploadPhase ?? '') === 'assessing' && ($uploadPhaseComposite ?? '') === (string) $item->id)
-                    <div
-                        class="mt-3"
-                        data-client-downscale="1"
-                        data-upload-timing="1"
-                        @if ($uploadBusy)
-                            wire:poll.2s="pollPendingAssessments"
-                        @endif
-                        x-data="{ timedOut: false, timer: null }"
-                        x-init="
-                            const arm = () => {
-                                clearTimeout(timer);
-                                timedOut = false;
-                                if ($wire.uploadPhase === 'assessing' && $wire.uploadPhaseComposite === @js((string) $item->id)) {
-                                    timer = setTimeout(() => { timedOut = true }, 120000);
-                                }
-                            };
-                            arm();
-                            $watch(() => $wire.uploadPhase, () => arm());
-                            $watch(() => $wire.uploadPhaseComposite, () => arm());
-                        "
-                    >
-                        <label
-                            class="flex min-h-12 cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed border-brand-fog bg-brand-mist/40 px-4 py-5 text-center"
-                            :class="{ 'pointer-events-none opacity-60': @js($uploadBusy) && ! timedOut }"
-                            wire:loading.class="pointer-events-none opacity-60"
-                            wire:target="followUpPhotoFiles.{{ $item->id }}"
-                        >
-                            <span class="text-sm font-semibold text-brand-ink">Foto's maken of kiezen</span>
-                            <span class="text-xs text-brand-ink/55">Max {{ number_format($maxUploadKb / 1024, 0) }} MB · nog {{ $remainingSlots }}</span>
-                            <input
-                                id="follow-up-photo-input-{{ $item->id }}"
-                                type="file"
-                                accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,image/*"
-                                multiple
-                                class="sr-only"
-                                wire:model="followUpPhotoFiles.{{ $item->id }}"
-                                wire:loading.attr="disabled"
-                                wire:target="followUpPhotoFiles.{{ $item->id }},pollPendingAssessments,assessPendingUploads,retryFailedUploadPhase"
-                                x-bind:disabled="@js($uploadBusy) && ! timedOut"
-                            >
-                        </label>
-                        <div wire:loading wire:target="followUpPhotoFiles.{{ $item->id }}" class="mt-2 text-sm font-medium text-brand-sea">
-                            Uploaden…
-                        </div>
-                        <div wire:loading.remove wire:target="followUpPhotoFiles.{{ $item->id }}">
-                            @if (($uploadPhase ?? '') === 'assessing' && ($uploadPhaseComposite ?? '') === (string) $item->id)
-                                <div class="mt-2 space-y-1 text-sm font-medium text-brand-sea" role="status" data-testid="upload-phase">
-                                    <p>{{ $uploadPhaseMessage }}</p>
-                                    <p class="text-xs font-normal text-brand-ink/55">Fase: Foto beoordelen</p>
-                                    <div x-show="timedOut" x-cloak class="mt-1">
-                                        <button
-                                            type="button"
-                                            wire:click="retryFailedUploadPhase"
-                                            wire:loading.attr="disabled"
-                                            wire:target="pollPendingAssessments,assessPendingUploads,retryFailedUploadPhase"
-                                            class="text-sm font-semibold text-brand-sea underline disabled:opacity-60"
-                                        >
-                                            Opnieuw beoordelen
-                                        </button>
-                                    </div>
-                                </div>
-                            @elseif (($uploadPhase ?? '') === 'failed' && ($uploadPhaseComposite ?? '') === (string) $item->id)
-                                <div class="mt-2 space-y-1 text-sm font-medium text-brand-sea" role="status" data-testid="upload-phase">
-                                    <p>{{ $uploadPhaseMessage }}</p>
-                                    <button
-                                        type="button"
-                                        wire:click="retryFailedUploadPhase"
-                                        wire:loading.attr="disabled"
-                                        wire:target="pollPendingAssessments,assessPendingUploads,retryFailedUploadPhase"
-                                        class="mt-1 text-sm font-semibold text-brand-sea underline disabled:opacity-60"
-                                    >
-                                        Opnieuw proberen
-                                    </button>
-                                </div>
-                            @endif
-                        </div>
-                        @error('followUpPhotoFiles.'.$item->id)
-                            <p class="mt-2 text-sm text-brand-ember">{{ $message }}</p>
-                        @enderror
+                    <div class="mt-3">
+                        <x-customer.photo-upload-control
+                            :composite="(string) $item->id"
+                            wire-model="followUpPhotoFiles.{{ $item->id }}"
+                            :input-id="'follow-up-photo-input-'.$item->id"
+                            :remaining-slots="$remainingSlots"
+                            :max-upload-kb="$maxUploadKb"
+                            :upload-hard-max-bytes="$uploadHardMaxBytes ?? 15728640"
+                            :upload-hard-max-megapixels="$uploadHardMaxMegapixels ?? 24"
+                            :upload-too-large-message="$uploadTooLargeMessage ?? 'Deze foto is te groot. Probeer een andere foto of maak een nieuwe.'"
+                            :upload-phase="$uploadPhase"
+                            :upload-phase-message="$uploadPhaseMessage"
+                            :upload-phase-composite="$uploadPhaseComposite"
+                            :pending-assess-upload-ids="$pendingAssessUploadIds"
+                            :assessment-ui-released="$assessmentUiReleased"
+                            tone="followup"
+                            :help-extra="'Max '.number_format($maxUploadKb / 1024, 0).' MB · nog '.$remainingSlots"
+                        />
                     </div>
                 @elseif ($item->uploads->isNotEmpty())
                     {{-- Keep a hidden input so “Vervang foto” can reopen the picker after delete. --}}
@@ -242,7 +182,9 @@
                     </div>
                 @endif
             @else
-                @php($remainingSlots = max(0, $maxDocuments - $item->uploads->count()))
+                @php
+                    $remainingSlots = max(0, $maxDocuments - $item->uploads->count());
+                @endphp
 
                 @if ($item->uploads->isNotEmpty())
                     <ul class="divide-y divide-brand-fog overflow-hidden rounded-md border border-brand-fog">

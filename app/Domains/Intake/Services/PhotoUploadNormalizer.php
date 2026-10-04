@@ -14,15 +14,35 @@ use Throwable;
 /**
  * Converts every accepted phone photo into two metadata-free JPEG variants:
  * a 2048px dossier image and a 1536px AI-analysis image (BL-030).
+ *
+ * Staging intake 82: a 12 MP JPEG took ~79 s preprocess on shared LVE when Imagick
+ * fully decoded the source. JPEG path now uses jpeg:size shrink-on-load, one decode,
+ * downscale once to dossier size, then derive the analysis variant from that.
  */
 final class PhotoUploadNormalizer
 {
+    /**
+     * Metrics from the last {@see normalize()} call (tests / diagnostics).
+     *
+     * @var array{full_decodes: int, jpeg_size_hint: string|null, library: string}|null
+     */
+    private ?array $lastDecodeMetrics = null;
+
     public function __construct(
         private readonly UploadMimeDetector $mimeDetector,
     ) {}
 
+    /**
+     * @return array{full_decodes: int, jpeg_size_hint: string|null, library: string}|null
+     */
+    public function lastDecodeMetrics(): ?array
+    {
+        return $this->lastDecodeMetrics;
+    }
+
     public function normalize(UploadedFile $file): NormalizedPhotoUpload
     {
+        $this->lastDecodeMetrics = null;
         $mime = $this->normalizeMime($this->mimeDetector->detect($file));
 
         if (! in_array($mime, $this->acceptedMimes(), true)) {
@@ -39,7 +59,7 @@ final class PhotoUploadNormalizer
 
         try {
             if (class_exists(Imagick::class)) {
-                $dimensions = $this->createWithImagick($sourcePath, $dossierPath, $analysisPath);
+                $dimensions = $this->createWithImagick($sourcePath, $dossierPath, $analysisPath, $mime);
             } else {
                 if (in_array($mime, ['image/heic', 'image/heif'], true)) {
                     throw ValidationException::withMessages([
@@ -96,37 +116,72 @@ final class PhotoUploadNormalizer
      *     original_height: int
      * }
      */
-    private function createWithImagick(string $sourcePath, string $dossierPath, string $analysisPath): array
-    {
+    private function createWithImagick(
+        string $sourcePath,
+        string $dossierPath,
+        string $analysisPath,
+        string $mime,
+    ): array {
         $this->applyImagickResourceLimits();
+        $dossierMax = (int) config('intake.uploads.dossier.max_long_edge', 2048);
+        $analysisMax = (int) config('intake.uploads.analysis.max_long_edge', 1536);
+
+        // Ping for true original dimensions without decoding pixels (cheap).
+        [$originalWidth, $originalHeight] = $this->pingImagickDimensions($sourcePath);
+
+        $jpegSizeHint = null;
         $source = new Imagick;
 
         try {
-            $source->readImage($sourcePath);
-            // HEIC/multi-frame: index 0 can be a small preview — pick the largest frame.
-            $bestIndex = 0;
-            $bestArea = 0;
-            $frameCount = max(1, $source->getNumberImages());
-            for ($index = 0; $index < $frameCount; $index++) {
-                $source->setIteratorIndex($index);
-                $area = max(1, $source->getImageWidth()) * max(1, $source->getImageHeight());
-                if ($area > $bestArea) {
-                    $bestArea = $area;
-                    $bestIndex = $index;
-                }
+            // Shrink-on-load for JPEG: libjpeg DCT-scales during decode so a 12 MP
+            // phone photo never materialises at full resolution (staging intake 82 ~79 s).
+            if ($mime === 'image/jpeg') {
+                // Hint ~2× the dossier edge — Imagick/libjpeg often decodes a bit larger
+                // than requested; we then thumbnail once to exact dossier size.
+                $hintEdge = max(64, $dossierMax * 2);
+                $jpegSizeHint = $hintEdge.'x'.$hintEdge;
+                $source->setOption('jpeg:size', $jpegSizeHint);
             }
-            $source->setIteratorIndex($bestIndex);
+
+            $source->readImage($sourcePath);
+            $this->lastDecodeMetrics = [
+                'full_decodes' => 1,
+                'jpeg_size_hint' => $jpegSizeHint,
+                'library' => 'imagick',
+            ];
+
+            // HEIC/multi-frame: index 0 can be a small preview — pick the largest frame.
+            // Skip the scan for single-frame JPEG (common phone path).
+            if ($mime !== 'image/jpeg' && $source->getNumberImages() > 1) {
+                $bestIndex = 0;
+                $bestArea = 0;
+                $frameCount = max(1, $source->getNumberImages());
+                for ($index = 0; $index < $frameCount; $index++) {
+                    $source->setIteratorIndex($index);
+                    $area = max(1, $source->getImageWidth()) * max(1, $source->getImageHeight());
+                    if ($area > $bestArea) {
+                        $bestArea = $area;
+                        $bestIndex = $index;
+                    }
+                }
+                $source->setIteratorIndex($bestIndex);
+            }
+
             $source->autoOrient();
             $source->stripImage();
-            $source->setImageBackgroundColor('white');
-            $source = $source->mergeImageLayers(Imagick::LAYERMETHOD_FLATTEN);
 
-            $originalWidth = max(1, $source->getImageWidth());
-            $originalHeight = max(1, $source->getImageHeight());
+            // Flatten only when transparency / layers exist — plain JPEG skips this.
+            if ($source->getNumberImages() > 1 || $source->getImageAlphaChannel()) {
+                $source->setImageBackgroundColor('white');
+                $source = $source->mergeImageLayers(Imagick::LAYERMETHOD_FLATTEN);
+            }
 
-            $dossierMax = (int) config('intake.uploads.dossier.max_long_edge', 2048);
-            // Shrink the working image to dossier size before cloning variants so a
-            // 12 MP source is not held alongside dossier/analysis clones (BL-141).
+            if ($originalWidth <= 1 || $originalHeight <= 1) {
+                $originalWidth = max(1, $source->getImageWidth());
+                $originalHeight = max(1, $source->getImageHeight());
+            }
+
+            // One working resize to the largest variant; analysis is derived from it.
             $this->resizeImagick($source, $dossierMax);
 
             $dossierDims = $this->writeImagickVariant(
@@ -134,12 +189,14 @@ final class PhotoUploadNormalizer
                 $dossierPath,
                 $dossierMax,
                 (int) config('intake.uploads.dossier.jpeg_quality', 82),
+                alreadySized: true,
             );
             $analysisDims = $this->writeImagickVariant(
                 $source,
                 $analysisPath,
-                (int) config('intake.uploads.analysis.max_long_edge', 1536),
+                $analysisMax,
                 (int) config('intake.uploads.analysis.jpeg_quality', 80),
+                alreadySized: false,
             );
 
             return [
@@ -153,6 +210,28 @@ final class PhotoUploadNormalizer
         } finally {
             $source->clear();
             $source->destroy();
+        }
+    }
+
+    /**
+     * @return array{0: int, 1: int}
+     */
+    private function pingImagickDimensions(string $sourcePath): array
+    {
+        $ping = new Imagick;
+
+        try {
+            $ping->pingImage($sourcePath);
+
+            return [
+                max(1, $ping->getImageWidth()),
+                max(1, $ping->getImageHeight()),
+            ];
+        } catch (Throwable) {
+            return [0, 0];
+        } finally {
+            $ping->clear();
+            $ping->destroy();
         }
     }
 
@@ -173,11 +252,17 @@ final class PhotoUploadNormalizer
         string $destination,
         int $maxLongEdge,
         int $initialQuality,
+        bool $alreadySized = false,
     ): array {
-        $image = clone $source;
+        // Dossier: write the already-resized working image (no second clone/resize).
+        // Analysis: clone once and shrink from the dossier-sized working copy.
+        $image = $alreadySized ? $source : clone $source;
+        $ownsImage = ! $alreadySized;
 
         try {
-            $this->resizeImagick($image, $maxLongEdge);
+            if (! $alreadySized) {
+                $this->resizeImagick($image, $maxLongEdge);
+            }
             $image->setImageFormat('jpeg');
             $image->setInterlaceScheme(Imagick::INTERLACE_JPEG);
             $image->stripImage();
@@ -199,8 +284,10 @@ final class PhotoUploadNormalizer
                 'photo' => 'Deze foto blijft na automatische verwerking te groot. Maximaal '.$this->maxMegabytes().' MB.',
             ]);
         } finally {
-            $image->clear();
-            $image->destroy();
+            if ($ownsImage) {
+                $image->clear();
+                $image->destroy();
+            }
         }
     }
 
@@ -254,6 +341,12 @@ final class PhotoUploadNormalizer
             throw new \RuntimeException('Foto kon niet met GD worden gelezen.');
         }
 
+        $this->lastDecodeMetrics = [
+            'full_decodes' => 1,
+            'jpeg_size_hint' => null,
+            'library' => 'gd',
+        ];
+
         try {
             $image = $this->orientGd($image, $sourcePath, $mime);
             $originalWidth = max(1, imagesx($image));
@@ -261,6 +354,7 @@ final class PhotoUploadNormalizer
 
             $dossierMax = (int) config('intake.uploads.dossier.max_long_edge', 2048);
             // Drop full-resolution pixels before writing variants (BL-141).
+            // GD has no jpeg:size equivalent — one full decode, then shrink once.
             $image = $this->downscaleGdWorkingImage($image, $dossierMax);
 
             $dossierDims = $this->writeGdVariant(
@@ -268,12 +362,14 @@ final class PhotoUploadNormalizer
                 $dossierPath,
                 $dossierMax,
                 (int) config('intake.uploads.dossier.jpeg_quality', 82),
+                alreadySized: true,
             );
             $analysisDims = $this->writeGdVariant(
                 $image,
                 $analysisPath,
                 (int) config('intake.uploads.analysis.max_long_edge', 1536),
                 (int) config('intake.uploads.analysis.jpeg_quality', 80),
+                alreadySized: false,
             );
 
             return [
@@ -369,13 +465,36 @@ final class PhotoUploadNormalizer
         string $destination,
         int $maxLongEdge,
         int $quality,
+        bool $alreadySized = false,
     ): array {
         $sourceWidth = imagesx($source);
         $sourceHeight = imagesy($source);
         $longEdge = max($sourceWidth, $sourceHeight);
-        $scale = $maxLongEdge > 0 && $longEdge > $maxLongEdge ? $maxLongEdge / $longEdge : 1.0;
+        $scale = (! $alreadySized && $maxLongEdge > 0 && $longEdge > $maxLongEdge)
+            ? $maxLongEdge / $longEdge
+            : 1.0;
         $width = max(1, (int) round($sourceWidth * $scale));
         $height = max(1, (int) round($sourceHeight * $scale));
+
+        // Dossier already matches source dims — encode in place without a second buffer.
+        if ($alreadySized || ($width === $sourceWidth && $height === $sourceHeight)) {
+            for ($currentQuality = min(100, max(50, $quality)); $currentQuality >= 50; $currentQuality -= 8) {
+                if (! imagejpeg($source, $destination, $currentQuality)) {
+                    throw new \RuntimeException('JPEG-variant kon niet worden opgeslagen.');
+                }
+
+                clearstatcache(true, $destination);
+
+                if ($this->sizeBytes($destination) <= $this->maxBytes()) {
+                    return ['width' => $sourceWidth, 'height' => $sourceHeight];
+                }
+            }
+
+            throw ValidationException::withMessages([
+                'photo' => 'Deze foto blijft na automatische verwerking te groot. Maximaal '.$this->maxMegabytes().' MB.',
+            ]);
+        }
+
         $target = imagecreatetruecolor($width, $height);
 
         if (! $target instanceof GdImage) {

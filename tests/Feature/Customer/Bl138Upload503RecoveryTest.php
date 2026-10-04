@@ -185,7 +185,9 @@ test('retry after simulated Livewire update 503 still stores photo and queues as
 });
 
 test('js encodes BL-143 update-retry reuse tmp + client 2000px + busy copy', function () {
-    $blade = (string) file_get_contents(resource_path('views/livewire/customer/intake-wizard.blade.php'));
+    $blade = (string) file_get_contents(resource_path('views/components/customer/photo-upload-control.blade.php'));
+    $intakeWizard = (string) file_get_contents(resource_path('views/livewire/customer/intake-wizard.blade.php'));
+    $followUpWizard = (string) file_get_contents(resource_path('views/livewire/customer/follow-up-wizard.blade.php'));
     $resilience = (string) file_get_contents(resource_path('js/server-resilience.js'));
     $livewireJs = (string) file_get_contents(resource_path('js/livewire-resilience.js'));
     $prepare = (string) file_get_contents(resource_path('js/photo-prepare.js'));
@@ -195,6 +197,8 @@ test('js encodes BL-143 update-retry reuse tmp + client 2000px + busy copy', fun
         ->and($prepare)->toContain('JPEG_QUALITY = 0.85')
         ->and($prepare)->toContain("imageOrientation: 'from-image'")
         ->and($prepare)->toContain('downscale-timeout')
+        ->and($prepare)->toContain('wireModelUploadTargets')
+        ->and($prepare)->toContain('followUpPhotoClientOriginals')
         ->and($resilience)->toContain('2_000')
         ->and($resilience)->toContain('20_000')
         ->and($resilience)->toContain('60_000')
@@ -208,13 +212,27 @@ test('js encodes BL-143 update-retry reuse tmp + client 2000px + busy copy', fun
         ->and($livewireJs)->toContain("name === '\$set'")
         ->and($appJs)->toContain('preparePhotoForUpload')
         ->and($appJs)->toContain('intake:photo-prep-start')
-        // Deferred set (live=false) — no concurrent Livewire update with _finishUpload.
-        ->and($appJs)->toContain('component.set(`photoClientOriginals.${composite}`, originals, false)')
+        ->and($appJs)->toContain('wireModelUploadTargets')
+        ->and($appJs)->toContain('originalsProperty')
+        ->and($appJs)->toContain('followUpPhotoFiles → followUpPhotoClientOriginals')
+        // Shared upload control used by intake + follow-up (installer test 4 / intake 100).
         ->and($blade)->toContain('clearLivewireUpload')
         ->and($blade)->toContain('clientUploading')
+        ->and($blade)->toContain('armInactivityTimer')
+        ->and($blade)->toContain('armServerWaitTimer')
         ->and($blade)->toContain('Even geduld, we proberen het opnieuw.')
         ->and($blade)->toContain('De server is even druk. Probeer het zo opnieuw.')
         ->and($blade)->toContain('data-testid="upload-retry-button"')
+        ->and($blade)->toContain('data-client-downscale="1"')
+        ->and($blade)->toContain('data-upload-timing="1"')
+        ->and($blade)->toContain("'pendingAssessUploadIds' => []")
         ->and($blade)->not->toContain('Uploaden lijkt vast te zitten')
-        ->and($blade)->toContain('x-bind:disabled="(@js($uploadBusy) && ! timedOut) || (clientUploading && ! uploadTimedOut) || prepBusy"');
+        ->and($blade)->toContain('x-bind:disabled="(clientUploading && ! uploadTimedOut) || prepBusy"')
+        ->and($intakeWizard)->toContain('x-customer.photo-upload-control')
+        ->and($intakeWizard)->toContain(':pending-assess-upload-ids="$pendingAssessUploadIds"')
+        ->and($followUpWizard)->toContain('x-customer.photo-upload-control')
+        ->and($followUpWizard)->toContain('tone="followup"')
+        ->and($followUpWizard)->toContain('wire-model="followUpPhotoFiles.{{ $item->id }}"')
+        ->and($followUpWizard)->toContain(':pending-assess-upload-ids="$pendingAssessUploadIds"')
+        ->and($followUpWizard)->toContain(':assessment-ui-released="$assessmentUiReleased"');
 });

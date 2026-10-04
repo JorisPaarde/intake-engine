@@ -13,6 +13,7 @@ use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\ProgressCalculator;
 use App\Domains\Intake\Services\UploadMimeDetector;
+use App\Domains\Intake\Support\PhotoUploadLimits;
 use App\Enums\IntakeStatus;
 use App\Enums\PhotoAssessmentStatus;
 use App\Enums\QuestionType;
@@ -47,7 +48,6 @@ final class StoreIntakeUpload
     ): IntakeUpload {
         $question = $this->findPhotoQuestion($intake, $questionKey);
         $maxFiles = (int) ($question->meta['max_files'] ?? config('intake.uploads.max_files_per_question', 5));
-        $maxKilobytes = (int) config('intake.uploads.max_kilobytes', 8192);
 
         $existingCount = $this->uploadsQuery($intake, $questionKey, $sectionInstanceKey)->count();
 
@@ -57,11 +57,11 @@ final class StoreIntakeUpload
             ]);
         }
 
-        if ($file->getSize() !== false && $file->getSize() > $maxKilobytes * 1024) {
-            throw ValidationException::withMessages([
-                'photo' => 'Deze foto is te groot. Maximaal '.($maxKilobytes / 1024).' MB.',
-            ]);
-        }
+        PhotoUploadLimits::assertUploadedFileAcceptable(
+            $file,
+            $clientOriginalWidth,
+            $clientOriginalHeight,
+        );
 
         if (! in_array($intake->status, [IntakeStatus::Sent, IntakeStatus::InProgress], true)) {
             throw ValidationException::withMessages([

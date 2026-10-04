@@ -5,7 +5,13 @@ import {
     registerLivewireUpdateResilience,
     registerPollPauseWhileBusy,
 } from './livewire-resilience';
-import { preparePhotoForUpload } from './photo-prepare';
+import {
+    preparePhotoForUpload,
+    TOO_LARGE_MESSAGE,
+    exceedsHardByteLimit,
+    exceedsHardMegapixelLimit,
+    wireModelUploadTargets,
+} from './photo-prepare';
 import { BUSY_MESSAGE } from './server-resilience';
 
 window.Alpine = Alpine;
@@ -287,8 +293,10 @@ registerPollPauseWhileBusy();
 
 /**
  * BL-128/BL-143: verklein grote telefoonfoto's in de browser vóór Livewire-upload.
- * Nooit hangen: timeout + createImageBitmap/canvas-fallbacks; origineel uploaden bij falen.
- * photoClientOriginals wordt fire-and-forget gezet zodat een trage Livewire-set de upload niet blokkeert.
+ * Nooit hangen: timeout + createImageBitmap/canvas-fallbacks; fail-closed bij te groot.
+ * wireModelUploadTargets mapteert photoFiles → photoClientOriginals en
+ * followUpPhotoFiles → followUpPhotoClientOriginals; originals worden deferred
+ * ($set false) gezet zodat een trage Livewire-set de upload niet blokkeert.
  */
 function registerClientPhotoDownscale() {
     const isPrepInput = (input) => {
@@ -299,19 +307,22 @@ function registerClientPhotoDownscale() {
         return input.closest('[data-client-downscale="1"]') !== null;
     };
 
-    const compositeFromInput = (input) => {
-        const model = input.getAttribute('wire:model') || '';
-        const prefixes = ['photoFiles.', 'followUpPhotoFiles.'];
-        for (const prefix of prefixes) {
-            if (model.startsWith(prefix)) {
-                return { prefix, composite: model.slice(prefix.length) };
-            }
-        }
+    const limitsFromInput = (input) => {
+        const root = input.closest('[data-client-downscale="1"]');
+        const maxBytes = Number(root?.getAttribute?.('data-upload-max-bytes')) || undefined;
+        const maxMp = Number(root?.getAttribute?.('data-upload-max-megapixels')) || undefined;
+        const message = root?.getAttribute?.('data-upload-too-large') || TOO_LARGE_MESSAGE;
 
-        return null;
+        return { maxBytes, maxMp, message };
     };
 
-    const setClientOriginals = (input, composite, originals) => {
+    const compositeFromInput = (input) => {
+        const model = input.getAttribute('wire:model') || '';
+
+        return wireModelUploadTargets(model);
+    };
+
+    const setClientOriginals = (input, originalsProperty, composite, originals) => {
         const root = input.closest('[wire\\:id]');
         const componentId = root?.getAttribute?.('wire:id');
         if (! componentId || typeof Livewire === 'undefined' || typeof Livewire.find !== 'function') {
@@ -325,12 +336,19 @@ function registerClientPhotoDownscale() {
                 // the same second → one LiteSpeed 503 → silent photo loss). Originals
                 // ride along in getUpdates() of the next upload/_finishUpload request.
                 Promise.resolve(
-                    component.set(`photoClientOriginals.${composite}`, originals, false),
+                    component.set(`${originalsProperty}.${composite}`, originals, false),
                 ).catch(() => {});
             }
         } catch {
             // Soft-fail: server meet dan zelf de (mogelijk verkleinde) afmetingen.
         }
+    };
+
+    const rejectTooLarge = (input, composite, message) => {
+        document.dispatchEvent(new CustomEvent('intake:photo-prep-failed', {
+            detail: { composite, message: message || TOO_LARGE_MESSAGE },
+        }));
+        input.value = '';
     };
 
     document.addEventListener('change', async (event) => {
@@ -356,15 +374,48 @@ function registerClientPhotoDownscale() {
         event.stopImmediatePropagation();
         event.preventDefault();
 
+        const limits = limitsFromInput(input);
+
         document.dispatchEvent(new CustomEvent('intake:photo-prep-start', {
             detail: { composite: parsed.composite, count: files.length },
         }));
 
         let prepared = [];
         let originals = [];
+        let prepFailed = false;
+        let failMessage = limits.message;
         try {
             for (const file of files) {
+                // Hard byte ceiling before spending time on decode (no hanging upload).
+                if (exceedsHardByteLimit(file.size, limits.maxBytes)) {
+                    prepFailed = true;
+                    failMessage = limits.message;
+                    break;
+                }
+
                 const result = await preparePhotoForUpload(file);
+                // Staging intake 82: never upload a full-size phone JPEG after a
+                // downscale timeout — that left the UI stuck while Imagick chewed 12 MP.
+                if (result?.failed) {
+                    prepFailed = true;
+                    failMessage = limits.message;
+                    break;
+                }
+
+                if (exceedsHardByteLimit(result.file?.size, limits.maxBytes)
+                    || exceedsHardMegapixelLimit(result.originalWidth, result.originalHeight, limits.maxMp)) {
+                    // After resize: still over the safety net → clear Dutch message.
+                    // Note: megapixel check uses original dims; after successful downscale
+                    // the *file* is small — only reject when the prepared file itself is huge
+                    // or when we could not downscale (original dims still apply to upload).
+                    if (exceedsHardByteLimit(result.file?.size, limits.maxBytes)
+                        || (! result.downscaled && exceedsHardMegapixelLimit(result.originalWidth, result.originalHeight, limits.maxMp))) {
+                        prepFailed = true;
+                        failMessage = limits.message;
+                        break;
+                    }
+                }
+
                 prepared.push(result.file);
                 originals.push({
                     width: result.originalWidth,
@@ -372,32 +423,27 @@ function registerClientPhotoDownscale() {
                 });
             }
         } catch {
-            prepared = files;
-            originals = files.map(() => ({ width: null, height: null }));
+            prepFailed = true;
+            failMessage = limits.message;
+            prepared = [];
+            originals = [];
         }
 
-        if (prepared.length === 0) {
-            document.dispatchEvent(new CustomEvent('intake:photo-prep-failed', {
-                detail: { composite: parsed.composite, message: BUSY_MESSAGE },
-            }));
-            input.value = '';
+        if (prepFailed || prepared.length === 0) {
+            rejectTooLarge(input, parsed.composite, failMessage);
             return;
         }
 
-        setClientOriginals(input, parsed.composite, originals);
+        setClientOriginals(input, parsed.originalsProperty, parsed.composite, originals);
 
         try {
             const transfer = new DataTransfer();
             prepared.forEach((file) => transfer.items.add(file));
             input.files = transfer.files;
         } catch {
-            // DataTransfer/file assignment failed — fall back to original FileList if still present.
-            if (! input.files || input.files.length === 0) {
-                document.dispatchEvent(new CustomEvent('intake:photo-prep-failed', {
-                    detail: { composite: parsed.composite, message: BUSY_MESSAGE },
-                }));
-                return;
-            }
+            // DataTransfer/file assignment failed — fail closed (no hang / no full original).
+            rejectTooLarge(input, parsed.composite, failMessage);
+            return;
         }
 
         input.dataset.intakeDownscaleDone = '1';

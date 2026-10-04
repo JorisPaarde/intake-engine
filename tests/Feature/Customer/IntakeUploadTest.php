@@ -173,13 +173,13 @@ test('upload rejects invalid mime types and oversized files', function () {
         UploadedFile::fake()->create('notes.pdf', 100, 'application/pdf'),
     ))->toThrow(ValidationException::class);
 
-    config(['intake.uploads.max_kilobytes' => 100]);
+    config(['intake.uploads.hard_max_bytes' => 100 * 1024]);
 
     expect(fn () => app(StoreIntakeUpload::class)->handle(
         $intake,
         'fusebox_photo',
         null,
-        UploadedFile::fake()->image('big.jpg')->size(200),
+        UploadedFile::fake()->createWithContent('big.jpg', str_repeat("\0", 200 * 1024)),
     ))->toThrow(ValidationException::class);
 });
 

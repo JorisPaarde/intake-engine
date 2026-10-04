@@ -157,7 +157,8 @@ test('wizard accepts large fixture with client originals without wall-clock uplo
         ->and($upload->processing_timings['original_width'] ?? null)->toBe(3024)
         ->and($upload->processing_timings['original_height'] ?? null)->toBe(4032);
 
-    $blade = (string) file_get_contents(resource_path('views/livewire/customer/intake-wizard.blade.php'));
+    $blade = (string) file_get_contents(resource_path('views/components/customer/photo-upload-control.blade.php'));
+    $wizard = (string) file_get_contents(resource_path('views/livewire/customer/intake-wizard.blade.php'));
     $appJs = (string) file_get_contents(resource_path('js/app.js'));
     $livewireJs = (string) file_get_contents(resource_path('js/livewire-resilience.js'));
 
@@ -169,6 +170,7 @@ test('wizard accepts large fixture with client originals without wall-clock uplo
         ->and($blade)->toContain('livewire-upload-progress')
         ->and($blade)->not->toContain('Uploaden duurde te lang')
         ->and($blade)->not->toContain(', 15000)')
+        ->and($wizard)->toContain('x-customer.photo-upload-control')
         ->and($appJs)->toContain('registerLivewireUploadResilience')
         ->and($appJs)->toContain('preparePhotoForUpload')
         ->and($livewireJs)->toContain('freshSignedUploadUrl')

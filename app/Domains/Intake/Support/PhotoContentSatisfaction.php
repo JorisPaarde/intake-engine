@@ -7,13 +7,14 @@ namespace App\Domains\Intake\Support;
 use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeUpload;
-use App\Enums\PhotoAssessmentStatus;
 use Illuminate\Support\Collection;
 
 /**
  * Shared rule: a photo does not satisfy a question while it still needs an
  * explicit override (wrong subject, unusable, not assessed, …) unless the
- * customer chose “Toch doorgaan / Toch versturen”.
+ * customer chose “Toch doorgaan / Toch versturen”. A received (pending)
+ * photo does satisfy the required question so Volgende is not blocked while
+ * assessment runs asynchronously.
  */
 final class PhotoContentSatisfaction
 {
@@ -51,12 +52,8 @@ final class PhotoContentSatisfaction
                 continue;
             }
 
-            // Pending assessment does not yet count as satisfied for progress.
-            $status = $upload->assessment_status;
-            if ($status instanceof PhotoAssessmentStatus && ! $status->isTerminal()) {
-                continue;
-            }
-
+            // Received photo: customer may continue while assessment runs async
+            // (staging intake 82 — pending must not block Volgende indefinitely).
             return true;
         }
 
