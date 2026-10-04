@@ -235,7 +235,7 @@ final class E2eScenarioFactory
                     $intake,
                     $photoKey,
                     $instance,
-                    $this->fixtureUpload('room-overview-good.jpg'),
+                    $this->fixtureUpload('woonkamer-1440.jpg'),
                 );
                 $upload->updateQuietly([
                     'usability_verdict' => PhotoUsabilityVerdict::Ok,
@@ -263,12 +263,12 @@ final class E2eScenarioFactory
         ]);
     }
 
+    /**
+     * Seed-time photo from a git-tracked fixture (not tests/e2e/fixtures/*.jpg — those are generated).
+     */
     private function fixtureUpload(string $name): UploadedFile
     {
-        $e2ePath = base_path('tests/e2e/fixtures/'.$name);
-        $path = is_file($e2ePath)
-            ? $e2ePath
-            : base_path('tests/fixtures/klanttest-20261002/'.$name);
+        $path = base_path('tests/fixtures/klanttest-20261002/'.$name);
 
         if (! is_file($path)) {
             throw new \RuntimeException('E2E fixture ontbreekt: '.$name);
