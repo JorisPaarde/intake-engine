@@ -308,6 +308,21 @@
                                     class="block min-h-11 w-full rounded-xl border-[#dde2da] shadow-sm focus:border-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
                                     @if ($state['required']) required @endif
                                 >
+                                @if (
+                                    ($question->meta['allow_skip'] ?? false) === true
+                                    && trim((string) data_get($this->form, $composite.'.text', '')) === ''
+                                )
+                                    <div class="mt-3">
+                                        <button
+                                            type="button"
+                                            wire:click="skipOptionalPhoto"
+                                            class="min-h-11 w-full rounded-xl border border-[#dde2da] bg-white px-4 text-sm font-semibold text-[#18201d]"
+                                            data-testid="text-skip"
+                                        >
+                                            {{ $question->meta['skip_label'] ?? 'Weet ik niet / sla over' }}
+                                        </button>
+                                    </div>
+                                @endif
                                 @break
 
                             @case('long_text')

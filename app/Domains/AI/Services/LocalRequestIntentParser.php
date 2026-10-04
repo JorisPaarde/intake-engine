@@ -14,7 +14,7 @@ namespace App\Domains\AI\Services;
  */
 final class LocalRequestIntentParser
 {
-    public const VERSION = 'request-intent-local-v4';
+    public const VERSION = 'request-intent-local-v5';
 
     private const MAX_ROOMS = 8;
 
@@ -22,7 +22,7 @@ final class LocalRequestIntentParser
      * @return array{
      *     cooling_heating: 'cooling'|'heating'|'both',
      *     rooms: list<'living_room'|'bedroom'|'office'|'attic'|'other'>,
-     *     floor_level: 'attic'|null,
+     *     floor_level: 'basement'|'ground'|'1'|'2'|'3_plus'|'attic'|null,
      *     confidence: 'high',
      *     evidence: string
      * }|null
@@ -91,11 +91,9 @@ final class LocalRequestIntentParser
         return [
             'cooling_heating' => $function,
             'rooms' => $rooms,
-            'floor_level' => preg_match('/\bop\s+(?:de\s+)?zolder\b/u', $normalized) === 1
-                ? 'attic'
-                : null,
+            'floor_level' => $this->detectFloorLevel($normalized),
             'confidence' => 'high',
-            'evidence' => 'Doel, aantal, gewenste ruimtes en eventuele zolderverdieping staan expliciet in de openingstekst.',
+            'evidence' => 'Doel, aantal, gewenste ruimtes en eventuele verdieping staan expliciet in de openingstekst.',
         ];
     }
 
@@ -230,5 +228,38 @@ final class LocalRequestIntentParser
             '8', 'acht' => 8,
             default => null,
         };
+    }
+
+    /**
+     * Expliciet genummerde verdieping wint van “zolder” als verdieping.
+     * “Zolderslaapkamer op de 2e verdieping” → floor_level=2 (niet attic).
+     *
+     * @return 'basement'|'ground'|'1'|'2'|'3_plus'|'attic'|null
+     */
+    private function detectFloorLevel(string $text): ?string
+    {
+        if (preg_match('/\b(?:kelder|souterrain)\b/u', $text) === 1) {
+            return 'basement';
+        }
+
+        if (preg_match('/\bbegane\s+grond\b/u', $text) === 1) {
+            return 'ground';
+        }
+
+        if (preg_match('/\b(?P<ord>1(?:e|ste)?|eerste|2(?:e|de)?|tweede|3(?:e|de)?|derde|[4-9](?:e|de)?)\s+verdieping\b/u', $text, $matches) === 1) {
+            $ord = mb_strtolower((string) $matches['ord'], 'UTF-8');
+
+            return match (true) {
+                str_starts_with($ord, '1') || $ord === 'eerste' => '1',
+                str_starts_with($ord, '2') || $ord === 'tweede' => '2',
+                default => '3_plus',
+            };
+        }
+
+        if (preg_match('/\bop\s+(?:de\s+)?zolder\b/u', $text) === 1) {
+            return 'attic';
+        }
+
+        return null;
     }
 }

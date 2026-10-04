@@ -24,8 +24,8 @@ Regels:
   - “Kinderkamer” / “Kind” / “kinderslaapkamer” → `room_name` “Kind” of “Kinderkamer” + bedroom;
   - “Woonkamer voor” → die naam letterlijk.
   Nooit twee kamers dezelfde generieke naam geven als de tekst ze onderscheidt. Zonder rolnaam mag je `room_name` weglaten.
-- Gewenste binnenunitplek letterlijk overnemen in `preferred_indoor_location` per ruimte wanneer die key bestaat: “boven de bank aan de buitenmuur”, “op de lange wand naast het raam”. Alleen bij expliciet bewijs; verzin geen plek.
-- Verdieping per kamer: “op de 1e verdieping” → `floor_level` waarde `1` (of de catalogusoptie die 1e verdieping is); “begane grond” → `ground`; “zolder” → `attic`.
+- Gewenste binnenunitplek letterlijk overnemen in `preferred_indoor_location` per ruimte wanneer die key bestaat: “boven de bank aan de buitenmuur”, “op de lange wand naast het raam”. Alleen bij expliciet bewijs; verzin geen plek. Geen voorkeur → weglaten of cataloguswaarde voor “laat installateur kiezen”.
+- Verdieping per kamer: “op de 1e verdieping” → `floor_level` waarde `1` (of de catalogusoptie die 1e verdieping is); “begane grond” → `ground`. **Genummerde verdieping wint van zolder:** staat er “2e verdieping” (of 1e/3e) én “zolder”/zolderslaapkamer in dezelfde tekst, kies dan de genummerde optie (`2` / `1` / `3_plus`) — niet `attic`. Alleen `attic` wanneer zolder de verdieping is zonder conflicterend verdiepingsnummer (“op de zolder”).
 - “5 bij 7 meter” / “6x4m” / “4 bij 3 meter” → `room_length_m` en `room_width_m` van díe ruimtes.
 - Exact oppervlak zoals “20 m²” / “20m2” → `room_area_m2` van díe ruimtes wanneer die key in de catalogus staat. Leid daaruit nooit lengte of breedte af.
 - Plafondhoogte (“plafond 2,5 meter”, “hoogte 2,6”) → `ceiling_height_m` van díe ruimte.
@@ -35,6 +35,7 @@ Regels:
 - Eigendom — altijd cataloguswaarden `owned` of `rented` (nooit “koop”/“huur” als value):
   - owned: “koop”, “koophuis”, “koopwoning”, “eigen woning”, “eigen huis”, “in eigendom”;
   - rented: “huur”, “huurwoning”, “huurhuis”, “we huren”, “wij huren”, “ik huur”.
+  - Bij letterlijke koop/huur-token in `request_reason`: `provenance=stated`, `evidence` = exact dat token (bijv. `koopwoning`), `confidence=high`. Nooit weglaten of als `inferred` markeren als het woord letterlijk staat.
 - “goed geïsoleerd” / slecht geïsoleerd → passende `insulation_indication`-optie.
 - Vloerisolatie ja/nee → `floor_insulation`; kruipruimte aanwezig → `crawl_space_present`.
 - “geen merkvoorkeur” → `brand_preference` met `no_preference` (of lege multi_choice volgens catalogus).

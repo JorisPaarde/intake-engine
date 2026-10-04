@@ -2243,7 +2243,7 @@ class IntakeWizard extends Component
     }
 
     /**
-     * Optionele fotovraag overslaan zonder upload (route/afvoer blijft open voor installateur).
+     * Optionele vraag overslaan (foto of short_text met allow_skip), zonder verplichte inhoud.
      */
     public function skipOptionalPhoto(): void
     {
@@ -2262,18 +2262,39 @@ class IntakeWizard extends Component
             $step['question_key'],
         );
 
-        if (! $question instanceof IntakeQuestion || $question->type !== QuestionType::Photo) {
+        if (! $question instanceof IntakeQuestion) {
             return;
         }
 
-        if (($question->meta['allow_skip'] ?? false) !== true && $step['is_required']) {
+        $allowSkip = ($question->meta['allow_skip'] ?? false) === true;
+        if (! $allowSkip && $step['is_required']) {
             return;
         }
 
-        // Optioneel: Volgende zonder foto; geen antwoord forceren.
-        $this->showMissing = false;
-        $this->completionMissing = [];
-        $this->next();
+        if ($question->type === QuestionType::Photo) {
+            // Optioneel: Volgende zonder foto; geen antwoord forceren.
+            $this->showMissing = false;
+            $this->completionMissing = [];
+            $this->next();
+
+            return;
+        }
+
+        if ($question->type === QuestionType::ShortText && $allowSkip) {
+            $skipValue = $question->meta['skip_value'] ?? 'Laat installateur kiezen';
+            if (! is_string($skipValue) || trim($skipValue) === '') {
+                $skipValue = 'Laat installateur kiezen';
+            }
+            $composite = VisibilityResolver::compositeKey($question->key, $step['section_instance_key'] ?? null);
+            $this->form[$composite] = array_merge($this->form[$composite] ?? [], [
+                'text' => $skipValue,
+            ]);
+            $this->persistComposite($composite);
+            $this->showMissing = false;
+            $this->completionMissing = [];
+            $this->saveMessage = 'Opgeslagen';
+            $this->next();
+        }
     }
 
     /**

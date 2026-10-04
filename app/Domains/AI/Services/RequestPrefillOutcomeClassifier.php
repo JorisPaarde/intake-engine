@@ -375,6 +375,47 @@ final class RequestPrefillOutcomeClassifier
                 ];
             }
 
+            // Genummerde verdieping in openingszin wint van AI-“attic”/zolder.
+            if ($key === 'floor_level' && is_string($requestReason)) {
+                $preferredFloor = $this->preferredFloorLevelFromRequest($requestReason, $catalog);
+                if ($preferredFloor !== null && ($normalized['value'] ?? null) !== $preferredFloor) {
+                    $normalizations[] = [
+                        'field' => $instanceKey === null ? $key : $key.'|'.$instanceKey,
+                        'from' => $normalized['value'] ?? null,
+                        'to' => $preferredFloor,
+                        'rule' => 'floor_level_prefer_numbered',
+                    ];
+                    $normalized = ['value' => $preferredFloor];
+                    $fillEvidence = $this->floorEvidenceQuote($requestReason) ?? $fillEvidence;
+                    $provenance = FactProvenance::Stated;
+                    $factSource = FactSource::CustomerAnswer;
+                    $confidence = 'high';
+                    $confidencePercent = FactAcceptance::LEVEL_HIGH;
+                }
+            }
+
+            // Letterlijke koop/huur in openingszin → stated FILL (nooit opnieuw vragen).
+            if ($key === 'ownership' && is_string($requestReason) && trim($requestReason) !== '') {
+                $ownershipUpgrade = $this->ownershipStatedFromRequest(
+                    $requestReason,
+                    is_string($normalized['value'] ?? null) ? $normalized['value'] : null,
+                );
+                if ($ownershipUpgrade !== null) {
+                    $normalizations[] = [
+                        'field' => 'ownership.provenance',
+                        'from' => $provenance->value,
+                        'to' => FactProvenance::Stated->value,
+                        'rule' => 'ownership_literal_in_request',
+                    ];
+                    $normalized = ['value' => $ownershipUpgrade['value']];
+                    $fillEvidence = $ownershipUpgrade['evidence'];
+                    $provenance = FactProvenance::Stated;
+                    $factSource = FactSource::CustomerAnswer;
+                    $confidence = 'high';
+                    $confidencePercent = FactAcceptance::LEVEL_HIGH;
+                }
+            }
+
             if ($confidence === 'low' || $provenance === FactProvenance::Unknown) {
                 $candidates[] = new RequestPrefillCandidate(
                     questionKey: $key,
@@ -448,6 +489,15 @@ final class RequestPrefillOutcomeClassifier
                 'evidence' => $fillEvidence,
             ];
         }
+
+        $this->ensureOwnershipFillFromRequest(
+            $candidates,
+            $fills,
+            $catalog,
+            $labels,
+            $requestReason,
+            $normalizations,
+        );
 
         return [
             'evidence' => $evidence,
@@ -572,7 +622,7 @@ final class RequestPrefillOutcomeClassifier
         );
 
         $floorLevel = $output['floor_level'] ?? null;
-        $floorAnswer = is_string($floorLevel) && $floorLevel === 'attic'
+        $floorAnswer = is_string($floorLevel) && $floorLevel !== ''
             ? $this->floorLevelAnswer($catalog, $floorLevel)
             : null;
 
@@ -730,7 +780,17 @@ final class RequestPrefillOutcomeClassifier
         }
 
         if (in_array($question['type'], [QuestionType::ShortText->value, QuestionType::LongText->value], true)) {
-            return ['text' => 'Zolder'];
+            $label = match ($floorLevel) {
+                'basement' => 'Kelder / souterrain',
+                'ground' => 'Begane grond',
+                '1' => '1e verdieping',
+                '2' => '2e verdieping',
+                '3_plus' => '3e verdieping of hoger',
+                'attic' => 'Zolder',
+                default => $floorLevel,
+            };
+
+            return ['text' => $label];
         }
 
         return null;
@@ -754,7 +814,7 @@ final class RequestPrefillOutcomeClassifier
 
     /**
      * @param  array<string, mixed>  $value
-     * @return array{value: string}|null
+     * @return array<string, mixed>|null
      */
     private function normalizeOwnershipFill(array $value): ?array
     {
@@ -771,6 +831,151 @@ final class RequestPrefillOutcomeClassifier
         $mapped = (new OwnershipNormalizer)->normalize($choice);
 
         return $mapped === null ? null : ['value' => $mapped];
+    }
+
+    /**
+     * @return array{value: 'owned'|'rented', evidence: string}|null
+     */
+    private function ownershipStatedFromRequest(string $requestReason, ?string $normalizedValue): ?array
+    {
+        $normalizer = new OwnershipNormalizer;
+        $fromSource = $normalizer->normalize($requestReason);
+        $quote = $normalizer->matchedEvidenceQuote($requestReason);
+
+        if ($fromSource === null || $quote === null) {
+            return null;
+        }
+
+        if ($normalizedValue !== null && $normalizedValue !== $fromSource) {
+            return null;
+        }
+
+        return [
+            'value' => $fromSource,
+            'evidence' => $quote,
+        ];
+    }
+
+    /**
+     * @param  list<RequestPrefillCandidate>  $candidates
+     * @param  list<array<string, mixed>>  $fills
+     * @param  array<string, mixed>  $catalog
+     * @param  array<string, string>  $labels
+     * @param  list<array{field: string, from: mixed, to: mixed, rule: string}>  $normalizations
+     */
+    private function ensureOwnershipFillFromRequest(
+        array &$candidates,
+        array &$fills,
+        array $catalog,
+        array $labels,
+        ?string $requestReason,
+        array &$normalizations,
+    ): void {
+        if (! is_string($requestReason) || trim($requestReason) === '') {
+            return;
+        }
+
+        $index = $this->catalogIndex($catalog);
+        if (! isset($index['ownership'])) {
+            return;
+        }
+
+        foreach ($candidates as $candidate) {
+            if ($candidate->questionKey === 'ownership'
+                && $candidate->disposition === RequestPrefillCandidate::DISPOSITION_FILL) {
+                return;
+            }
+        }
+
+        $stated = $this->ownershipStatedFromRequest($requestReason, null);
+        if ($stated === null) {
+            return;
+        }
+
+        // Vervang eerdere ownership-suggestie/reject door stated FILL.
+        $candidates = array_values(array_filter(
+            $candidates,
+            static fn (RequestPrefillCandidate $c): bool => $c->questionKey !== 'ownership',
+        ));
+        $fills = array_values(array_filter(
+            $fills,
+            static fn (array $row): bool => ($row['question_key'] ?? null) !== 'ownership',
+        ));
+
+        $normalizations[] = [
+            'field' => 'ownership',
+            'from' => null,
+            'to' => $stated['value'],
+            'rule' => 'ownership_literal_inject',
+        ];
+
+        $candidates[] = new RequestPrefillCandidate(
+            questionKey: 'ownership',
+            sectionInstanceKey: null,
+            label: $this->questionLabel($labels, 'ownership', null),
+            value: ['value' => $stated['value']],
+            confidence: 'high',
+            evidence: $stated['evidence'],
+            disposition: RequestPrefillCandidate::DISPOSITION_FILL,
+            source: RequestPrefillCandidate::SOURCE_CATALOG_AI,
+            reason: null,
+            provenance: FactProvenance::Stated,
+            confidencePercent: FactAcceptance::LEVEL_HIGH,
+            factSource: FactSource::CustomerAnswer,
+        );
+
+        $fills[] = [
+            'question_key' => 'ownership',
+            'section_instance_key' => null,
+            'confidence' => 'high',
+            'confidence_percent' => FactAcceptance::LEVEL_HIGH,
+            'provenance' => FactProvenance::Stated->value,
+            'fact_source' => FactSource::CustomerAnswer->value,
+            'value' => ['value' => $stated['value']],
+            'evidence' => $stated['evidence'],
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $catalog
+     */
+    private function preferredFloorLevelFromRequest(string $requestReason, array $catalog): ?string
+    {
+        $normalized = mb_strtolower(trim($requestReason), 'UTF-8');
+        $normalized = str_replace(['’', '‘', '´'], "'", $normalized);
+
+        $floor = null;
+        if (preg_match('/\b(?:kelder|souterrain)\b/u', $normalized) === 1) {
+            $floor = 'basement';
+        } elseif (preg_match('/\bbegane\s+grond\b/u', $normalized) === 1) {
+            $floor = 'ground';
+        } elseif (preg_match('/\b(?P<ord>1(?:e|ste)?|eerste|2(?:e|de)?|tweede|3(?:e|de)?|derde|[4-9](?:e|de)?)\s+verdieping\b/u', $normalized, $matches) === 1) {
+            $ord = mb_strtolower((string) $matches['ord'], 'UTF-8');
+            $floor = match (true) {
+                str_starts_with($ord, '1') || $ord === 'eerste' => '1',
+                str_starts_with($ord, '2') || $ord === 'tweede' => '2',
+                default => '3_plus',
+            };
+        }
+
+        if ($floor === null) {
+            return null;
+        }
+
+        $answer = $this->floorLevelAnswer($catalog, $floor);
+
+        return is_array($answer) && is_string($answer['value'] ?? null)
+            ? $answer['value']
+            : null;
+    }
+
+    private function floorEvidenceQuote(string $requestReason): ?string
+    {
+        if (preg_match('/\b(?:begane\s+grond|(?:1(?:e|ste)?|eerste|2(?:e|de)?|tweede|3(?:e|de)?|derde|[4-9](?:e|de)?)\s+verdieping)\b/iu', $requestReason, $matches) === 1) {
+            return $matches[0];
+        }
+
+        return null;
     }
 
     /**
