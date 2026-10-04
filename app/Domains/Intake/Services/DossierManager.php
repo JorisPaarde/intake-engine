@@ -330,13 +330,23 @@ final class DossierManager
                 $existingTask = ContributionTask::query()
                     ->where('intake_follow_up_item_id', $item->id)
                     ->first();
-                $subject = $existingTask->subject ?? $root;
+                // Keep an intentional null subject (area-level ask). Only default brand-new
+                // follow-up items without a task row to the survey root.
+                $dossierSubjectId = $existingTask !== null
+                    ? $existingTask->dossier_subject_id
+                    : $root->id;
+                $subject = $dossierSubjectId !== null
+                    ? (DossierSubject::query()
+                        ->where('intake_id', $intake->id)
+                        ->whereKey($dossierSubjectId)
+                        ->first() ?? $root)
+                    : $root;
                 $task = ContributionTask::query()->updateOrCreate(
                     ['intake_follow_up_item_id' => $item->id],
                     [
                         'intake_id' => $intake->id,
                         'company_id' => $intake->company_id,
-                        'dossier_subject_id' => $subject->id,
+                        'dossier_subject_id' => $dossierSubjectId,
                         'audience' => ContributionAudience::Customer,
                         'type' => $item->type,
                         'prompt' => $item->prompt,
@@ -348,9 +358,10 @@ final class DossierManager
                         'completed_by_type' => $item->answered_at === null ? null : 'customer',
                         'completed_by_id' => null,
                         'completed_at' => $item->answered_at,
-                        'meta' => array_merge($existingTask->meta ?? [], [
-                            'round_number' => $round->round_number,
-                        ]),
+                        'meta' => array_merge(
+                            ($existingTask !== null && is_array($existingTask->meta)) ? $existingTask->meta : [],
+                            ['round_number' => $round->round_number],
+                        ),
                     ],
                 );
 

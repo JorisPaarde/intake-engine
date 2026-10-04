@@ -1,6 +1,6 @@
 # Vragen- en takenengine
 
-> **Documentversie:** 2.40 · **Laatste update:** 2026-10-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.41 · **Laatste update:** 2026-10-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: de templatewizard is **geïmplementeerd t/m airco v25** en werkt als bijdrage-/takenengine binnen één centrale opname. Productmodel en rollen: [product-model.md](product-model.md). UI-taal: [language.md](language.md).
 
@@ -431,8 +431,8 @@ De volledige beperkte uitkomst (vrije groep, 1-/3-fase/unknown, zekerheid, zicht
 ## Gerichte klantbijdragen (BL-027/038)
 
 1. De installateur kan na een eerste klantflow via `need_more_info` óf rechtstreeks vanuit de technische werkplek 1–5 concrete items toevoegen: `text`, `photo` of `document` (PDF).
-2. Vanaf de werkplek kan één concrete taak ook in één tik worden gestuurd (`intakes.workspace.tasks.quick`, BL-061/062): vanuit een AI-uitzondering. Die route hergebruikt `CreateCustomerContributionRequest` + mailpad; een openstaande klantronde blokkeert een tweede snelle taak.
-3. Contextuele **Vraag de klant** / **Vraag nieuwe foto** vanuit ruimte-, foto- en verbindingsblokken en klantveilige onderdelen in **Alle onderdelen** (BL-100) gebruikt `intakes.workspace.tasks.prepare`: de taak opent vooraf ingevuld in `#demo-customer-task` (type, opdracht, `decision_area_key`, dossieronderwerp). De installateur controleert de tekst en activeert daarna via `tasks.store`. Het losse handmatige klanttaakblok blijft de algemene/meer-opdrachtenfallback. Technische keuzes (multi-split/singles, unitpositie, routegoedkeuring) krijgen geen klantactie.
+2. Vanaf de werkplek kan één concrete taak ook in één tik worden gestuurd (`intakes.workspace.tasks.quick`, BL-061/062): vanuit een AI-uitzondering. Die route hergebruikt `CreateCustomerContributionRequest` + mailpad; een openstaande klantronde blokkeert een tweede snelle taak. Prompts worden via `CustomerFacingTaskText` gesaneerd (geen installateurstekst).
+3. Contextuele **Vraag de klant** / **Vraag nieuwe foto** (BL-100/BL-145) gebruikt `intakes.workspace.tasks.prepare`: elke klik voegt toe aan een zichtbare **conceptlijst** in `#demo-customer-task` (bewerkbare klanttekst, max 5). De installateur controleert en activeert daarna één ronde via `tasks.store`. Brononderwerp per taak blijft behouden; een open ronde blokkeert versturen. Technische keuzes (multi-split/singles, unitpositie, routegoedkeuring) krijgen geen klantactie. Meterkasttekst is neutraal (leesbare groepenkast; installateur beoordeelt de aansluiting — geen 1-/3-fase-keuze voor de klant).
 4. `CreateCustomerContributionRequest` maakt naast de genummerde ronde een `contribution_task`, zet de workflow op `hybrid`, activeert klanttoegang en bewaart de status waarnaar de opname terugkeert. `SubmitIntakeReview` gebruikt dezelfde vervolgstructuur voor historische reviewrondes.
 5. `IntakeWizard` toont bij `awaiting_customer` uitsluitend de gevraagde items, één per scherm. Bestaande templatevragen worden niet opnieuw getoond.
 6. Tekst wordt tussentijds opgeslagen. Foto-items gebruiken dezelfde MIME-controle, HEIC-normalisatie, private disk en uploadlimiet als de gewone wizard. Documentitems accepteren alleen PDF na server-side MIME- en bestandssignatuurcontrole en gebruiken dezelfde private disk.

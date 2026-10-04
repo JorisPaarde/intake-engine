@@ -12,6 +12,7 @@ use App\Domains\Intake\Models\IntakeFollowUpRound;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\InstallerSurveyProgress;
 use App\Domains\Intake\Services\IntakeAccessTokenGenerator;
+use App\Domains\Intake\Support\CustomerFacingTaskText;
 use App\Enums\ContributionAudience;
 use App\Enums\ContributionMode;
 use App\Enums\ContributionTaskStatus;
@@ -81,6 +82,29 @@ final class CreateCustomerContributionRequest
                     'contribution_items' => 'Iedere klantopdracht moet concreet, kort en aan een geldig beslisgebied gekoppeld zijn.',
                 ]);
             }
+        }
+
+        $items = array_map(static function (array $item): array {
+            $item['prompt'] = CustomerFacingTaskText::ensureCustomerFacing(trim((string) $item['prompt']));
+
+            return $item;
+        }, $items);
+
+        $items = array_values(array_filter(
+            $items,
+            static fn (array $item): bool => $item['prompt'] !== '',
+        ));
+
+        if ($items === []) {
+            throw ValidationException::withMessages([
+                'contribution_items' => 'Schrijf een begrijpelijke opdracht voor de klant (geen interne installateurstekst).',
+            ]);
+        }
+
+        if (count($items) > $maxItems) {
+            throw ValidationException::withMessages([
+                'contribution_items' => "Voeg maximaal {$maxItems} klanttaken per ronde toe.",
+            ]);
         }
 
         $round = DB::transaction(function () use ($intake, $requester, $items): IntakeFollowUpRound {

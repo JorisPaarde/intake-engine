@@ -253,7 +253,7 @@ final class ContextualCustomerTaskBuilder
 
         return $this->draft(
             FollowUpItemType::Photo,
-            $blocker,
+            CustomerFacingTaskText::ensureCustomerFacing($blocker),
             'placement',
             null,
         );
@@ -290,9 +290,7 @@ final class ContextualCustomerTaskBuilder
             // Installer diagnosis stays on the decision area; customer gets an action prompt.
             $prompt = PhotoSubject::isInstallerMismatchReason($blocker)
                 ? PhotoSubject::Fusebox->customerRetakePrompt()
-                : ($blocker !== ''
-                    ? $blocker
-                    : 'Maak een duidelijke foto van de meterkast. Daaruit volgt 1- of 3-fase.');
+                : CustomerFacingTaskText::fuseboxPhotoPrompt();
 
             return $this->draft(
                 FollowUpItemType::Photo,
@@ -331,10 +329,10 @@ final class ContextualCustomerTaskBuilder
         }
 
         if ($blocker !== '' && Str::contains(Str::lower($blocker), ['bewijs', 'foto', 'meterkast'])) {
-            // Installer mismatch blockers already returned above; remaining text is customer-safe.
+            // Installer mismatch blockers already returned above; remaining text must stay customer-safe.
             return $this->draft(
                 FollowUpItemType::Photo,
-                $blocker,
+                CustomerFacingTaskText::ensureCustomerFacing($blocker),
                 $area->key,
                 null,
             );
@@ -361,7 +359,7 @@ final class ContextualCustomerTaskBuilder
 
         return [
             'type' => $type->value,
-            'prompt' => Str::limit(trim($prompt), 500, ''),
+            'prompt' => Str::limit(CustomerFacingTaskText::ensureCustomerFacing($prompt), 500, ''),
             'decision_area_key' => $decisionAreaKey,
             'dossier_subject_id' => $subjectId,
         ];

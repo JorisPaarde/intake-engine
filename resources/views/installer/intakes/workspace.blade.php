@@ -78,7 +78,15 @@
         $firstActionableOpenKey = $areaTargetResolver->firstActionableOpenArea($openAreas)?->key;
         $hasOpenPoints = $openAreas->isNotEmpty();
         $customerTaskDraft = is_array($customerTaskDraft ?? null) ? $customerTaskDraft : null;
-        $hasCustomerTaskDraft = $customerTaskDraft !== null;
+        $customerTaskDrafts = collect(is_array($customerTaskDrafts ?? null) ? $customerTaskDrafts : [])
+            ->filter(static fn (mixed $draft): bool => is_array($draft) && filled($draft['prompt'] ?? null))
+            ->values()
+            ->all();
+        if ($customerTaskDrafts === [] && $customerTaskDraft !== null) {
+            $customerTaskDrafts = [$customerTaskDraft];
+        }
+        $hasCustomerTaskDraft = $customerTaskDrafts !== [];
+        $customerTaskDraftSlotCount = min(5, max(3, count($customerTaskDrafts)));
     @endphp
 
     <div class="py-6 sm:py-8">
@@ -1073,7 +1081,7 @@
                         </details>
                     </section>
 
-                    {{-- Klanttaken maakt de app zelf ("Vraag de klant" = één klik). Dit blok toont alleen AI-voorstellen of een vooringevuld concept; handmatig maken blijft bereikbaar via #demo-customer-task. --}}
+                    {{-- Conceptlijst: Vraag de klant voegt toe; versturen activeert één ronde (max 5). --}}
                     <section id="demo-customer-task" @class([
                         'scroll-mt-24 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm',
                         'hidden target:block' => $proposedCustomerTasks->isEmpty() && ! $hasCustomerTaskDraft,
@@ -1081,7 +1089,7 @@
                         <h3 class="font-semibold text-gray-950">Taak voor de klant</h3>
                         <p class="mt-1 text-sm text-gray-500">
                             @if ($hasCustomerTaskDraft)
-                                Controleer de vooringevulde opdracht en verstuur hem daarna.
+                                Conceptlijst met {{ count($customerTaskDrafts) }} opdracht{{ count($customerTaskDrafts) === 1 ? '' : 'en' }}. Controleer de klanttekst en verstuur daarna één ronde.
                             @else
                                 Alleen wat de klant moet doen. Gebruik dit blok voor een algemene of extra opdracht.
                             @endif
@@ -1110,25 +1118,36 @@
                         @endif
                         <details class="mt-4 rounded-2xl border border-gray-200 bg-gray-50 p-4" @if ($hasCustomerTaskDraft) open @endif>
                             <summary class="cursor-pointer text-sm font-semibold text-gray-900">
-                                {{ $hasCustomerTaskDraft ? 'Vooringevulde klanttaak controleren' : 'Klanttaak maken' }}
+                                {{ $hasCustomerTaskDraft ? 'Conceptlijst controleren en versturen' : 'Klanttaak maken' }}
                             </summary>
-                            <form method="POST" action="{{ route('intakes.workspace.tasks.store', $intake) }}" class="mt-4 space-y-4">
+                            @if ($hasCustomerTaskDraft)
+                                <div class="mt-3 space-y-2" data-testid="customer-task-draft-list">
+                                    @foreach ($customerTaskDrafts as $previewIndex => $previewDraft)
+                                        <article class="rounded-xl border border-emerald-200 bg-white px-3 py-2" data-testid="customer-task-draft-preview" data-draft-index="{{ $previewIndex }}">
+                                            <p class="text-xs font-semibold text-emerald-800">Opdracht {{ $previewIndex + 1 }} · klaar om te controleren</p>
+                                            <p class="mt-1 text-sm text-gray-950">{{ $previewDraft['prompt'] }}</p>
+                                        </article>
+                                    @endforeach
+                                </div>
+                            @endif
+                            <form method="POST" action="{{ route('intakes.workspace.tasks.store', $intake) }}" class="mt-4 space-y-4" data-testid="customer-task-draft-form">
                                 @csrf
-                                @for ($index = 0; $index < 3; $index++)
+                                @for ($index = 0; $index < $customerTaskDraftSlotCount; $index++)
                                     @php
-                                        $draftType = $index === 0 ? ($customerTaskDraft['type'] ?? null) : null;
-                                        $draftPrompt = $index === 0 ? ($customerTaskDraft['prompt'] ?? '') : '';
-                                        $draftArea = $index === 0 ? ($customerTaskDraft['decision_area_key'] ?? '') : '';
-                                        $draftSubjectId = $index === 0 ? ($customerTaskDraft['dossier_subject_id'] ?? null) : null;
+                                        $slotDraft = $customerTaskDrafts[$index] ?? null;
+                                        $draftType = is_array($slotDraft) ? ($slotDraft['type'] ?? null) : null;
+                                        $draftPrompt = is_array($slotDraft) ? ($slotDraft['prompt'] ?? '') : '';
+                                        $draftArea = is_array($slotDraft) ? ($slotDraft['decision_area_key'] ?? '') : '';
+                                        $draftSubjectId = is_array($slotDraft) ? ($slotDraft['dossier_subject_id'] ?? null) : null;
                                     @endphp
-                                    <fieldset class="rounded-2xl border border-gray-200 bg-white p-3">
-                                        <legend class="px-1 text-xs font-semibold text-gray-500">Opdracht {{ $index + 1 }}{{ $index > 0 ? ' (optioneel)' : '' }}</legend>
+                                    <fieldset class="rounded-2xl border border-gray-200 bg-white p-3" @if ($draftPrompt !== '') data-testid="customer-task-draft-slot" @endif>
+                                        <legend class="px-1 text-xs font-semibold text-gray-500">Opdracht {{ $index + 1 }}{{ $index > 0 && $draftPrompt === '' ? ' (optioneel)' : '' }}</legend>
                                         <select name="contribution_items[{{ $index }}][type]" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300 text-sm">
                                             @foreach ($followUpTypes as $type)
                                                 <option value="{{ $type->value }}" @selected($draftType === $type->value)>{{ $type->label() }}</option>
                                             @endforeach
                                         </select>
-                                        <textarea name="contribution_items[{{ $index }}][prompt]" rows="3" class="mt-2 block w-full rounded-xl border-gray-300 text-sm" placeholder="{{ $index === 0 ? 'Bijv. Maak een leesbare foto van de volledige meterkast.' : 'Nog een concrete opdracht' }}">{{ $draftPrompt }}</textarea>
+                                        <textarea name="contribution_items[{{ $index }}][prompt]" rows="3" class="mt-2 block w-full rounded-xl border-gray-300 text-sm" placeholder="{{ $index === 0 ? 'Bijv. Maak een leesbare foto van de volledige meterkast.' : 'Nog een concrete opdracht' }}" @if ($draftPrompt !== '') data-testid="customer-task-draft-prompt" @endif>{{ $draftPrompt }}</textarea>
                                         <select name="contribution_items[{{ $index }}][decision_area_key]" class="mt-2 block min-h-11 w-full rounded-xl border-gray-300 text-sm">
                                             <option value="">Algemene opname</option>
                                             @foreach ($dossier['areas']->where('key', '!=', 'quote') as $area)
@@ -1140,7 +1159,7 @@
                                         @endif
                                     </fieldset>
                                 @endfor
-                                <x-primary-button class="w-full justify-center">
+                                <x-primary-button class="w-full justify-center" data-testid="customer-task-draft-send">
                                     {{ $intake->is_demo ? 'Klantweergave activeren' : 'Klanttaak maken en mailen' }}
                                 </x-primary-button>
                             </form>

@@ -359,7 +359,7 @@ final class DecisionReadinessService
                 'status' => DecisionAreaStatus::Blocked,
                 'next_action' => DossierNextAction::RequestContribution,
                 'blocker' => $mismatchReason
-                    ?? 'Voeg een duidelijke meterkastfoto toe. Daaruit volgt 1- of 3-fase.',
+                    ?? 'Voeg een duidelijke meterkastfoto toe; de groepenkast moet volledig leesbaar zijn.',
             ];
         }
 

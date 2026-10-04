@@ -1,6 +1,6 @@
 # AGENTS.md — Projectgeheugen & werkinstructies
 
-> **Documentversie:** 2.51 · **Laatste update:** 2026-10-04 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
+> **Documentversie:** 2.52 · **Laatste update:** 2026-10-04 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
 
 Dit bestand is de **centrale ingang** voor iedere agent (of mens) die aan dit project werkt. Het beschrijft waar het projectgeheugen leeft, welk document waarvoor de bron van waarheid is, en hoe je dat geheugen bijhoudt. **Lees dit bestand aan het begin van elke taak.**
 ## Hoofddoel (vast — niet door agents aan te passen)
@@ -183,7 +183,7 @@ Praktische lessen uit cloud-runs. Doel: sneller groen zonder opnieuw te ontdekke
 - **Node/npm** is meestal wél aanwezig (nvm). Voor HTTP-featuretests die layouts renderen: `npm ci && npm run build` — anders faalt Vite op ontbrekend `public/build/manifest.json`.
 - **Imagick HEIC/HEIF** is nodig voor BL-008. Snel checken: `php -r 'var_dump(class_exists("Imagick"), Imagick::queryFormats("HEIC"), Imagick::queryFormats("HEIF"));'`.
 - **Composer achter een egress-proxy die `api.github.com`-zipballs blokkeert (403 / "Could not authenticate"):** `composer install --prefer-source` (git clone werkt wel). `phpstan/phpstan` heeft in de lock alleen een dist; geef hem tijdelijk een `source` (`git`, `https://github.com/phpstan/phpstan.git`, zelfde `reference`), installeer en zet daarna `git checkout composer.lock` terug.
-- **Huisstijl (BL-107):** stock Tailwind-schalen (`gray`, `indigo/blue/sky`, `green/emerald`, `amber`, `red/rose`) zijn in `tailwind.config.js` naar de productpalet gemapt; gebruik gewoon die klassen of `marketing-*`, en `.eyebrow` voor terracotta labels. Geen Apple-hex (`#1D1D1F`, `#0071E3`, …) meer toevoegen.
+- **Huisstijl (BL-107) / klanttaken (BL-145):** stock Tailwind-schalen (`gray`, `indigo/blue/sky`, `green/emerald`, `amber`, `red/rose`) zijn in `tailwind.config.js` naar de productpalet gemapt; gebruik gewoon die klassen of `marketing-*`, en `.eyebrow` voor terracotta labels. Geen Apple-hex (`#1D1D1F`, `#0071E3`, …) meer toevoegen. Contextuele **Vraag de klant** gaat naar `tasks.prepare` (conceptlijst, max 5); versturen via `tasks.store`. AI-uitzonderingen mogen nog `tasks.quick`.
 - Lokaal/.env voor tests: `cp .env.example .env && php artisan key:generate`. Tests draaien op **sqlite `:memory:`** (zie CI); geen MySQL nodig voor `composer check`.
 - **PHP memory (BL-141):** web LSAPI = `public/.user.ini` `memory_limit=256M` (was 512M in git; selector-standaard web al 256M). CLI negeert `.user.ini` — hosting CLI al 256M; `AppServiceProvider` alleen vangnet voor `-1`/te laag. Queue-worker `--memory=256` (Laravel-restartthreshold). 12 MP-normalize-piek ≈ 39 MB: `tests/Unit/Domains/Intake/PhotoUploadNormalizerMemoryTest.php`.
 - Check of er al een async install loopt (`/tmp/cursor/async-install/`); in JIT-omgevingen kan die map leeg zijn — zelf bootstrapen is dan sneller dan wachten.

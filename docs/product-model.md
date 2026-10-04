@@ -1,6 +1,6 @@
 # Productmodel — centrale technische opname
 
-> **Documentversie:** 1.6 · **Laatste update:** 2026-09-25 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.7 · **Laatste update:** 2026-10-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **productfundament geïmplementeerd in BL-030 en BL-035 t/m BL-042**. De centrale dossierkern, drie bijdrageworkflows, airco-objecten, beslisgereedheid, beeldvarianten, AI-synthese en uitkomstregistratie zitten in dezelfde applicatie. Productief gebruik van externe beeld-AI hangt af van provider-, featurevlag- en budgetconfiguratie (standaard uit, soft-fail).
 
@@ -85,7 +85,7 @@ Alle drie vullen dezelfde ruimtes, plaatsingen, verbindingen, bewijzen, onzekerh
 3. In een mobiele werkweergave kan de installateur vrij tussen ruimtes, buitenposities, meterkast en routes bewegen.
 4. Bij iedere ruimte, positie en verbinding kan hij direct **Foto maken** of een **Technische notitie** toevoegen. Het dossieronderwerp, de sleutel, methode en herkomst volgen automatisch uit die plek in de werkweergave.
 5. Bestaande ruimtes en plaatsingen blijven bewerkbaar (naam/maten/gebruik; label/type/ruimtekoppeling), zodat open punten zoals “Maten invullen” naar `#room-{id}` springen en daar direct kunnen worden afgerond.
-6. Een notitie hoeft geen foto te hebben. Bij een foto kan AI alleen een korte, beslisrelevante constatering voorstellen; die wordt pas een gezaghebbende installateurswaarneming nadat de installateur haar bevestigt of aanpast. Bij onvoldoende beeld kan hij **Vraag nieuwe foto** als vooraf ingevulde klanttaak openen, controleren en versturen; hetzelfde geldt voor ontbrekende ruimte- of route-informatie vanuit het onderdelenoverzicht (BL-100). AI-uitzonderingen houden een snelle 1-klik-variant.
+6. Een notitie hoeft geen foto te hebben. Bij een foto kan AI alleen een korte, beslisrelevante constatering voorstellen; die wordt pas een gezaghebbende installateurswaarneming nadat de installateur haar bevestigt of aanpast. Bij onvoldoende beeld kan hij **Vraag nieuwe foto** aan de conceptlijst toevoegen, de klanttekst controleren en daarna als één ronde versturen (samen met andere ontbrekende feiten/foto’s, max 5; BL-100/BL-145). AI-uitzonderingen houden een snelle 1-klik-variant.
 7. AI kan vanuit de werkplek of bij afronding het dossier synthetiseren, tegenstrijdigheden markeren en alleen relevante open punten tonen.
 8. De installateur kan de opname in dezelfde werkgang afronden en het dossier als offerte- en werkvoorbereidingsbasis gebruiken.
 
