@@ -41,7 +41,8 @@ final class ContextualCustomerTaskBuilder
      *     type: string,
      *     prompt: string,
      *     decision_area_key: string,
-     *     dossier_subject_id: int|null
+     *     dossier_subject_id: int|null,
+     *     meta?: array<string, mixed>
      * }|null
      */
     public function forRoom(AircoRoom $room): ?array
@@ -258,11 +259,21 @@ final class ContextualCustomerTaskBuilder
             return null;
         }
 
+        // Structured photo subjects — AssessFollowUpPhotoSubject must not skip this
+        // just because decision_area_key=placement (intake 99 / empty-room-as-facade).
         return $this->draft(
             FollowUpItemType::Photo,
             CustomerFacingTaskText::ensureCustomerFacing($blocker),
             'placement',
             null,
+            [
+                'photo_task_subtype' => 'around_house',
+                'expected_photo_subject' => PhotoSubject::OutdoorLocation->value,
+                'accepted_photo_subjects' => [
+                    PhotoSubject::OutdoorLocation->value,
+                    PhotoSubject::OutdoorUnit->value,
+                ],
+            ],
         );
     }
 
@@ -349,11 +360,13 @@ final class ContextualCustomerTaskBuilder
     }
 
     /**
+     * @param  array<string, mixed>  $meta
      * @return array{
      *     type: string,
      *     prompt: string,
      *     decision_area_key: string,
-     *     dossier_subject_id: int|null
+     *     dossier_subject_id: int|null,
+     *     meta?: array<string, mixed>
      * }
      */
     private function draft(
@@ -361,14 +374,21 @@ final class ContextualCustomerTaskBuilder
         string $prompt,
         string $decisionAreaKey,
         mixed $dossierSubjectId,
+        array $meta = [],
     ): array {
         $subjectId = is_numeric($dossierSubjectId) ? (int) $dossierSubjectId : null;
 
-        return [
+        $draft = [
             'type' => $type->value,
             'prompt' => Str::limit(CustomerFacingTaskText::ensureCustomerFacing($prompt), 500, ''),
             'decision_area_key' => $decisionAreaKey,
             'dossier_subject_id' => $subjectId,
         ];
+
+        if ($meta !== []) {
+            $draft['meta'] = $meta;
+        }
+
+        return $draft;
     }
 }

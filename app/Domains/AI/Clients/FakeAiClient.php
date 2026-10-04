@@ -138,6 +138,38 @@ final class FakeAiClient implements AiClientInterface
             ], 'fake-vision-v1');
         }
 
+        if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'wall-outlet-assessment')) {
+            return $this->result([
+                'room_outlet_status' => 'present',
+                'detected_subject' => 'room',
+                'subject_match' => 'yes',
+                'confidence' => 'high',
+                'evidence' => 'Fictieve testuitkomst voor stopcontactfoto.',
+                'retake_instruction' => null,
+            ], 'fake-vision-v1');
+        }
+
+        if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'indoor-position-assessment')) {
+            return $this->result([
+                'detected_subject' => 'room',
+                'subject_match' => 'yes',
+                'confidence' => 'high',
+                'evidence' => 'Fictieve testuitkomst voor binnenunitplek-foto.',
+                'retake_instruction' => null,
+            ], 'fake-vision-v1');
+        }
+
+        if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'drain-assessment')) {
+            return $this->result([
+                'drain_location' => 'outside_nearby',
+                'detected_subject' => 'outdoor_location',
+                'subject_match' => 'yes',
+                'confidence' => 'medium',
+                'evidence' => 'Fictieve testuitkomst voor afvoerplek-foto.',
+                'retake_instruction' => null,
+            ], 'fake-vision-v1');
+        }
+
         if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'installer-photo-observation')) {
             return $this->result([
                 'observations' => [[

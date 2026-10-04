@@ -32,7 +32,8 @@ use Throwable;
 
 /**
  * Category check for targeted customer follow-up photo tasks.
- * Expected subject + accepted set from decision_area_key; unknown areas skip.
+ * Expected subject + accepted set from task metadata (preferred) or decision_area_key.
+ * Unknown areas without structured subjects skip (no free-text prompt matching).
  * AssessPhotoUsability blijft een lokale GD-heuristic (geen vision).
  * AI-beoordeling draait via AssessUploadedPhotoJob (queue ai-photo).
  */
@@ -58,12 +59,16 @@ final class AssessFollowUpPhotoSubject
         IntakeUpload $upload,
         ?string $correlationId = null,
     ): array {
-        $area = $this->decisionAreaKey($item);
-        $accepted = PhotoSubject::acceptedSubjectsForDecisionArea($area);
-        $expected = PhotoSubject::expectedFromDecisionArea($area);
+        $task = $this->contributionTask($item);
+        $area = $task?->decision_area_key;
+        $area = is_string($area) && $area !== '' ? $area : $this->decisionAreaKey($item);
+        $accepted = PhotoSubject::acceptedSubjectsForTask($task)
+            ?? PhotoSubject::acceptedSubjectsForDecisionArea($area);
+        $expected = PhotoSubject::expectedForTask($task)
+            ?? PhotoSubject::expectedFromDecisionArea($area);
 
         if ($accepted === null || $expected === null) {
-            // Gebied zonder subject-check (placement/condens/…): geen AI-call, wel skip-run.
+            // Gebied zonder subject-check (placement zonder taakmeta/condens/…): geen AI-call, wel skip-run.
             $this->skipRecorder->record(
                 $intake,
                 $upload,
@@ -299,13 +304,16 @@ final class AssessFollowUpPhotoSubject
         return $assessment->solvesContent() ? null : $assessment->customerMessage();
     }
 
-    private function decisionAreaKey(IntakeFollowUpItem $item): ?string
+    private function contributionTask(IntakeFollowUpItem $item): ?ContributionTask
     {
-        $task = ContributionTask::query()
+        return ContributionTask::query()
             ->where('intake_follow_up_item_id', $item->id)
             ->first();
+    }
 
-        $key = $task?->decision_area_key;
+    private function decisionAreaKey(IntakeFollowUpItem $item): ?string
+    {
+        $key = $this->contributionTask($item)?->decision_area_key;
 
         return is_string($key) && $key !== '' ? $key : null;
     }
