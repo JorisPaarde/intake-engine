@@ -1,6 +1,6 @@
 # Uploads & mediastorage
 
-> **Documentversie:** 3.18 · **Laatste update:** 2026-10-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.19 · **Laatste update:** 2026-10-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: klant-, gerichte bijdrage- en installateursfoto's, private serve-routes, generieke bewijslinks en dossier-/analysevarianten zijn **geïmplementeerd**. `MEDIA_DISK=s3` is ondersteund via Laravel’s `s3`-disk (BL-013). Directe installateurs-PDF-upload is niet gebouwd; een PDF kan wel als gerichte klanttaak worden gevraagd.
 
@@ -152,19 +152,27 @@ Applicatielimiet: **8 MB** per foto (`INTAKE_UPLOAD_MAX_KB`). PHP moet daarboven
 
 ### Gewenste waarden (in git)
 
-`public/.user.ini` zet voor web-requests (cPanel/LiteSpeed):
+`public/.user.ini` zet voor web-requests (cPanel/LiteSpeed LSAPI):
 
 | Setting | Waarde |
 |---------|--------|
 | `upload_max_filesize` | **10M** |
 | `post_max_size` | **12M** |
 | `max_file_uploads` | **20** |
-| `memory_limit` | **512M** |
+| `memory_limit` | **256M** |
+
+**Waarom 256M (BL-141):** het Hoasted-account heeft 512 MB PMEM; Hoasted adviseert ≈ helft daarvan per PHP-proces. Was 512M (BL-106); dat liet één PHP-proces het hele PMEM-budget opeisen.
+
+`.user.ini` geldt **niet** voor CLI (`queue:work`, `schedule:run` via cron). Op Hoasted staat CLI al op `memory_limit=256M`; `AppServiceProvider` is alleen een **vangnet** (`config('intake.php.cli_memory_limit')`) wanneer de default `-1` (unlimited) is of lager dan 256M — een hogere bewuste limiet (bijv. `phpstan --memory-limit=1G`) wordt niet verlaagd. De queue-worker blijft `--memory=256` (Laravel-restartthreshold in MB, `config('intake.php.queue_worker_memory_mb')`), gelijk aan de bestaande worker op staging/prod.
+
+### Foto-geheugenpad (12 MP)
+
+Zware decode/resize zit in `PhotoUploadNormalizer` (upload → dossier 2048 + analyse 1536 JPEG; EXIF/autoOrient/strip). Preferentie: **Imagick** (HEIC + resource limits 128M memory / 192M map; bron eerst naar dossier-max vóór clones). Fallback: **GD**. AI-vision (`AiImageResolver`) leest alleen de al verkleinde analysevariant; usability (`PhotoUsabilityHeuristic`) decodeert diezelfde kleinere JPEG. Gemeten `memory_get_peak_usage` voor 4032×3024 JPEG: ≈ **39 MB** piek (Imagick; delta ≈ 11 MB) — ruim onder 200 MB (test `PhotoUploadNormalizerMemoryTest`).
 
 ### Meten
 
-- **Remote (staging):** `GET /health` → veld `php_upload` (geen SSH nodig).
-- **Op de server (CLI):** `php -i | grep -E 'upload_max_filesize|post_max_size|max_file_uploads'` — CLI leest `.user.ini` niet; voor uploads telt de web-SAPI.
+- **Remote (staging):** `GET /health` → veld `php_upload` (inclusief `memory_limit`; geen SSH nodig).
+- **Op de server (CLI):** `php -i | grep -E 'upload_max_filesize|post_max_size|max_file_uploads|memory_limit'` — CLI leest `.user.ini` niet; voor uploads telt de web-SAPI.
 
 ### Staging gemeten (web-SAPI via `/health`, 2026-07-18)
 

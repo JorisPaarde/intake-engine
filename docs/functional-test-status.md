@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 2.04 · **Laatste update:** 2026-10-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.05 · **Laatste update:** 2026-10-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -12,6 +12,7 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
+| PHP memory_limit 256M web+CLI (BL-141) | todo | - | Na deploy: `GET /health` → `php_upload.memory_limit=256M`; CLI `php -r 'echo ini_get("memory_limit");'` via artisan tinker/boot = 256M; grote telefoonfoto-upload blijft werken zonder 503. |
 | Sticky kamernaam-autosave / Volgende (BL-140) | todo | - | Twee slaapkamers: room_name blur → scherm/teller stabiel; Volgende → stopcontact zonder “Beantwoord eerst…”; foto Beoordeeld → Volgende zonder reload. |
 | Hertest 4 okt P2/P3 (BL-139) | todo | - | Follow-up lage-res/not_assessed: blok tot Toch versturen; bedankt met installateursreview. Meterkast AI-voorstel: label+waarde+onzekerheid. Drain optioneel-tekst; around_house hergebruik; % = Vraag X van Y. airco v25. |
 | Gemini dossier 400 + attention_points model/truncated (BL-138) | todo | - | Op staging/prod met OpenRouter/Gemini: AI-voorstel vernieuwen → geen HTTP 400; bij eventuele providerfout staat `error.message` in `ai_runs.error_message`/trace; incomplete option (2 connections) → `partial` met placements; attention_points-run heeft gevulde `model` (+ retry bij afgekapte JSON). |

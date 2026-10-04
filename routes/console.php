@@ -29,7 +29,9 @@ Schedule::command('photos:requeue-pending-assessments')->everyFiveMinutes();
  * schedule:run (~1 min, cPanel RANDOM_DELAY kan tot ~3 min vertragen) weer
  * start. Mutex-expiry (60 min) > max-time (3300 s ≈ 55 min) voorkomt overlap.
  */
-Schedule::command('queue:work --queue='.AssessUploadedPhotoJob::QUEUE.',default --max-time=3300 --memory=256 --sleep=1 --tries=2')
+$queueWorkerMemoryMb = max(64, (int) config('intake.php.queue_worker_memory_mb', 256));
+
+Schedule::command('queue:work --queue='.AssessUploadedPhotoJob::QUEUE.',default --max-time=3300 --memory='.$queueWorkerMemoryMb.' --sleep=1 --tries=2')
     ->everyMinute()
     ->withoutOverlapping(60)
     ->runInBackground()

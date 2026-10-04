@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.95 · **Laatste update:** 2026-10-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.96 · **Laatste update:** 2026-10-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 De MVP-bouwstenen staan historisch onder E1–E5. De productfase E6–E10 is op 2026-07-30 geïmplementeerd en volgt het [productmodel](product-model.md): één centrale technische opname na een bestaande aanvraag, meerdere bijdragers, beslisgereedheid en voor airco afzonderlijke koel-, condens- en stroomverbindingen.
@@ -40,10 +40,11 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = fotobeoordeling via queue (#124, done). **BL-122** = soft catalogus-prefill (case 81). **BL-123** = staging-retest acceptance (#115–#120). **BL-124** = form robustness (#127, done). **BL-125** = AI-trace retentie/export + PDF-downscale (#130, done). **BL-126** = prompt/vision quality (route/ownership/kamernamen). **BL-127** = foto-assessment terminale status + watchdog (#133, done). **BL-128** = grote telefoonfoto-upload (inactiviteit-timeout + client-downscale + lege-200-retry, #131 done). **BL-129** = klant-UX review v1.3.0 (airco v22, #134 done). **BL-130** = follow-up mismatch-override + reassessment (#125). **BL-131** = wizard nav + scoped foto-feedback (#129, done). **BL-132** = AI-trace veldverbeteringen (request_id/cost/queue/redactie, #136). **BL-133** = staging AI-trace fixes (fusebox/glass/prefill/follow-up, airco v23, #135). **BL-134** = photo-assessment watchdog hotfix (legacy pending → geen AI op submitted, #137). **BL-135** = strikte dossiersynthese + partial accept + budget (#123). **BL-136** = prefill-provenance + aannames (#123). **BL-137** = lege woonkamer geen altijd-extra-foto + stappenreductie (airco v24). **BL-138** = AI Gemini/OpenRouter 400 + attention_points model/truncated + connections partial (prod 94/95, #139). **BL-139** = hertest 4 okt P2/P3 (photo override + AI-voorstel labels + v25 drain/around_house/progress). **BL-140** = sticky wizard step-id na kamernaam-autosave (#142). Nieuwe items starten bij BL-141.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = fotobeoordeling via queue (#124, done). **BL-122** = soft catalogus-prefill (case 81). **BL-123** = staging-retest acceptance (#115–#120). **BL-124** = form robustness (#127, done). **BL-125** = AI-trace retentie/export + PDF-downscale (#130, done). **BL-126** = prompt/vision quality (route/ownership/kamernamen). **BL-127** = foto-assessment terminale status + watchdog (#133, done). **BL-128** = grote telefoonfoto-upload (inactiviteit-timeout + client-downscale + lege-200-retry, #131 done). **BL-129** = klant-UX review v1.3.0 (airco v22, #134 done). **BL-130** = follow-up mismatch-override + reassessment (#125). **BL-131** = wizard nav + scoped foto-feedback (#129, done). **BL-132** = AI-trace veldverbeteringen (request_id/cost/queue/redactie, #136). **BL-133** = staging AI-trace fixes (fusebox/glass/prefill/follow-up, airco v23, #135). **BL-134** = photo-assessment watchdog hotfix (legacy pending → geen AI op submitted, #137). **BL-135** = strikte dossiersynthese + partial accept + budget (#123). **BL-136** = prefill-provenance + aannames (#123). **BL-137** = lege woonkamer geen altijd-extra-foto + stappenreductie (airco v24). **BL-138** = AI Gemini/OpenRouter 400 + attention_points model/truncated + connections partial (prod 94/95, #139). **BL-139** = hertest 4 okt P2/P3 (photo override + AI-voorstel labels + v25 drain/around_house/progress). **BL-140** = sticky wizard step-id na kamernaam-autosave (#142). **BL-141** = PHP `memory_limit` 256M + CLI/queue + 12 MP piektest (#146). Nieuwe items starten bij BL-142.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
+| — | BL-141 | PHP memory_limit 256M (web+CLI) + 12 MP normalize-piektest | E1 | done | medium | A · hosting · na BL-106 · Hoasted PMEM 512 MB · PR #146 |
 | 1 | BL-140 | Wizard: sticky step-id na kamernaam-autosave (geen Volgende-blokkade) | E1 | done | high | na BL-131 · Notion P1 intake 84/92 · PR #142 |
 | 1 | BL-139 | Hertest 4 okt P2/P3: photo override + AI-voorstel + drain/around_house/progress | E1/E2/E4 | in_progress | high | na BL-130/137 · airco v25 · prod 94/95 · PR #144 |
 | 1 | BL-138 | AI: Gemini json_object + connections partial + attention_points model/truncated | E4/E9 | done | high | prod intake 94/95 · PR #139 · na BL-135 · main@b264e11 |
@@ -1269,7 +1270,17 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 - **Scope:** één regel in `.user.ini`; docs (`uploads.md`, `DEPLOYMENT.md`, changelog). Geen app-PHP, geen tag, geen production-deploy.
 - **Niet in scope:** async-recording app-fixes; andere PHP-ini via MultiPHP.
 - **Acceptatie:** `.user.ini` bevat `memory_limit = 512M`; bestaande uploadlimieten en commentaren blijven staan.
-- **Resultaat:** limiet in git als vangnet naast de bestaande uploadsettings.
+- **Resultaat:** limiet in git als vangnet naast de bestaande uploadsettings. **Opgevolgd door BL-141** (256M + CLI).
+
+### BL-141 — PHP `memory_limit` 256M (web + CLI) + 12 MP piektest
+
+- **Status:** done · **Prioriteit:** medium · **Datum:** 2026-10-04 · **PR:** #146 · **Epic:** E1 · **Band:** A · hosting · **Volgt op:** BL-106
+- **Aanleiding:** Hoasted/LiteSpeed-account heeft 512 MB PMEM; Hoasted adviseert ≈ helft per PHP-proces. Git/`public/.user.ini` stond op 512M (BL-106) terwijl de MultiPHP-selector-standaard voor web al 256M was; CLI op de host stond al op 256M (geen `Allowed memory size exhausted` in 7 dagen).
+- **Doel:** web `memory_limit=256M` (git/.user.ini was 512M); CLI-vangnet alleen bij `-1`/te laag; queue-worker blijft `--memory=256`; bewijs dat 12 MP-normalize past (~39 MB piek); geen overlap met client-side resize-PRs.
+- **Scope:** `public/.user.ini`; `PhotoUploadNormalizer` Imagick resource limits + downscale vóór clones / GD working-image downscale; minimale `AppServiceProvider` CLI-vangnet; schedule `--memory=256`; unit-test 4032×3024 piek &lt; ~200 MB; docs.
+- **Niet in scope:** client-side resize / queue-verplaatsing van zware processing (andere open PR).
+- **Acceptatie:** `.user.ini` = 256M; CLI-limiet gezet; worker-memory bekend; 12 MP-test groen of skip met reden zonder image-extensie.
+- **Resultaat:** gemeten Imagick-piek ≈ 39 MB (`memory_get_peak_usage`); delta ≈ 11 MB.
 
 ### BL-043 — Publieke productfunnel en interesse-CTA
 
@@ -1496,6 +1507,7 @@ Historische MVP-epic: leverde rapport/PDF, demo, tenancy, branding, beheer en de
 | BL-109 | 2026-09-25 | #111 — dossiersynthese enum-normalisatie + volledige validatiefouten in ai_runs |
 | BL-108 | 2026-09-25 | #110 — DPIA-procespoort voor AI verwijderd; activering alleen via env |
 | BL-106 | 2026-09-23 | #109 — `memory_limit=512M` in `public/.user.ini` |
+| BL-141 | 2026-10-04 | #146 — `memory_limit=256M` web (.user.ini 512→256), CLI-vangnet, queue `--memory=256`, 12 MP ≈39 MB |
 | BL-098 | 2026-09-04 | #101 — herhaalde kamers naar catalogus-AI; naam per type |
 | BL-097 | 2026-09-04 | #100 — autofill breekt adreslookup-status niet meer |
 | BL-096 | 2026-09-04 | #99 — visueel browser-speelboek (`docs/browser-test-flow.md`) |
