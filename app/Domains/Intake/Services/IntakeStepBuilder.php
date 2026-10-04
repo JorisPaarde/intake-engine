@@ -247,6 +247,7 @@ final class IntakeStepBuilder
      * @param  array{
      *     answers: array<string, array<string, mixed>|null>,
      *     answerSources: array<string, string|null>,
+     *     answerFacts: array<string, array{provenance: ?string, confidence: ?int, fact_source: ?string}>,
      *     questionTypes: array<string, QuestionType>,
      *     sectionsByQuestionKey: array<string, IntakeSection>,
      *     allQuestions: Collection<string, IntakeQuestion>
@@ -472,6 +473,7 @@ final class IntakeStepBuilder
      * @param  array{
      *     answers: array<string, array<string, mixed>|null>,
      *     answerSources: array<string, string|null>,
+     *     answerFacts: array<string, array{provenance: ?string, confidence: ?int, fact_source: ?string}>,
      *     questionTypes: array<string, QuestionType>,
      *     sectionsByQuestionKey: array<string, IntakeSection>,
      *     allQuestions: Collection<string, IntakeQuestion>
@@ -495,6 +497,7 @@ final class IntakeStepBuilder
      * @param  array{
      *     answers: array<string, array<string, mixed>|null>,
      *     answerSources: array<string, string|null>,
+     *     answerFacts: array<string, array{provenance: ?string, confidence: ?int, fact_source: ?string}>,
      *     questionTypes: array<string, QuestionType>,
      *     sectionsByQuestionKey: array<string, IntakeSection>,
      *     allQuestions: Collection<string, IntakeQuestion>
@@ -539,6 +542,7 @@ final class IntakeStepBuilder
      * @param  array{
      *     answers: array<string, array<string, mixed>|null>,
      *     answerSources: array<string, string|null>,
+     *     answerFacts: array<string, array{provenance: ?string, confidence: ?int, fact_source: ?string}>,
      *     questionTypes: array<string, QuestionType>,
      *     sectionsByQuestionKey: array<string, IntakeSection>,
      *     allQuestions: Collection<string, IntakeQuestion>
@@ -573,6 +577,7 @@ final class IntakeStepBuilder
      * @param  array{
      *     answers: array<string, array<string, mixed>|null>,
      *     answerSources: array<string, string|null>,
+     *     answerFacts: array<string, array{provenance: ?string, confidence: ?int, fact_source: ?string}>,
      *     questionTypes: array<string, QuestionType>,
      *     sectionsByQuestionKey: array<string, IntakeSection>,
      *     allQuestions: Collection<string, IntakeQuestion>

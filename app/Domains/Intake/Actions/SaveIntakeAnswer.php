@@ -218,7 +218,7 @@ final class SaveIntakeAnswer
         FactSource|string|null $factSource,
         ?string $prefillSource,
         ?FactProvenance $provenance,
-    ): ?string {
+    ): string {
         if ($prefillSource === null) {
             return FactSource::CustomerAnswer->value;
         }

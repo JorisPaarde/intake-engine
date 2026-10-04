@@ -406,7 +406,7 @@ final class RequestPrefillOutcomeClassifier
                 $disposition = RequestPrefillCandidate::DISPOSITION_SUGGESTION;
                 $reason = 'Risicoveld met aanname — klantbevestiging nodig, niet als bevestigd opgeslagen.';
             } elseif (! $countsAsKnown) {
-                if ($factSource === FactSource::Derived || $provenance === FactProvenance::Inferred) {
+                if ($factSource === FactSource::Derived) {
                     $reason = 'Afgeleid of niet bevestigd — voorzet, geen feit (Klopt dit?).';
                 } elseif ($confidencePercent < FactAcceptance::threshold($key)) {
                     $reason = 'Zekerheid onder drempel ('.$confidencePercent.'% < '.FactAcceptance::threshold($key).'%) — bevestiging nodig.';

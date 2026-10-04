@@ -218,9 +218,9 @@ final class PrefillSources
     }
 
     /**
-     * Installateurslabel voor dossierweergave (null = geen badge).
+     * Installateurslabel voor dossierweergave.
      */
-    public static function installerSourceLabel(?string $prefillSource, ?FactProvenance $provenance = null): ?string
+    public static function installerSourceLabel(?string $prefillSource, ?FactProvenance $provenance = null): string
     {
         $source = FactAcceptance::sourceFrom($prefillSource, $provenance);
 

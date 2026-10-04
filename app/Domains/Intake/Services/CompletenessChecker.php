@@ -169,8 +169,7 @@ final class CompletenessChecker
         if (PrefillSources::isProposedAi($source)) {
             $photoSource = $this->relatedPhotoSource($intake, $version, $questionKey);
             $sourceLabel = $photoSource
-                ?? PrefillSources::installerSourceLabel($source)
-                ?? 'AI';
+                ?? PrefillSources::installerSourceLabel($source);
             $confidence = match (true) {
                 PrefillSources::isSuggestion($source) => 'middel',
                 PrefillSources::isStrongAi($source) => 'hoog',

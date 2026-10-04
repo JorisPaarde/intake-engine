@@ -95,7 +95,7 @@ final class FactAcceptance
 
         // Legacy fills zonder opgeslagen percentage: stated/ontbrekend op klantantwoord/foto telt als bekend.
         if ($confidencePercent === null) {
-            return $provenance === null || $provenance === FactProvenance::Stated;
+            return true;
         }
 
         return $confidencePercent >= self::threshold($questionKey);
