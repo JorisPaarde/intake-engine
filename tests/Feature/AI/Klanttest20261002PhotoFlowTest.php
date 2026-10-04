@@ -558,7 +558,6 @@ test('P1 case 81 Stroomtoevoer: buitenunitfoto blokkeert versturen tot override'
     [$component, $upload] = klanttestFollowUpUploadAndAssess($component, $item, 'buitenunit-leiding.jpeg');
 
     $component
-        ->assertHasErrors('followUpPhotoFiles.'.$item->id)
         ->assertSee('buitenunit')
         ->assertSee('meterkast')
         ->assertSee('Toch versturen');

@@ -520,9 +520,10 @@ test('follow up photo quality hint repeats the installers exact photo request', 
 
     $item = $intake->followUpRounds()->firstOrFail()->items()->firstOrFail();
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        // Sync variants: too_dark is terminal → poll-in-upload clears assessing;
+        // quality copy lives in the override panel (not the Livewire error bag).
         ->set('followUpPhotoFiles.'.$item->id, darkFollowUpUpload())
-        ->assertSet('uploadPhase', 'assessing')
-        ->call('assessPendingUploads')
+        ->assertSet('uploadPhase', '')
         ->assertHasNoErrors()
         ->assertSee('Maak een nieuwe foto met meer licht.')
         ->assertSee('Fotografeer de condensafvoer van dichtbij en met de aansluiting zichtbaar.');

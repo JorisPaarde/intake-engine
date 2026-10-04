@@ -116,6 +116,8 @@
                     @php($uploadBusy = ($uploadPhase ?? '') === 'assessing' && ($uploadPhaseComposite ?? '') === (string) $item->id)
                     <div
                         class="mt-3"
+                        data-client-downscale="1"
+                        data-upload-timing="1"
                         @if ($uploadBusy)
                             wire:poll.2s="pollPendingAssessments"
                         @endif

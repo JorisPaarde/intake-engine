@@ -1,5 +1,12 @@
 import Alpine from 'alpinejs';
 import { registerDemoGuide } from './demo-guide';
+import {
+    registerLivewireUploadResilience,
+    registerLivewireUpdateResilience,
+    registerPollPauseWhileBusy,
+} from './livewire-resilience';
+import { preparePhotoForUpload } from './photo-prepare';
+import { BUSY_MESSAGE } from './server-resilience';
 
 window.Alpine = Alpine;
 
@@ -271,239 +278,19 @@ function registerLivewireUploadTiming() {
 registerLivewireUploadTiming();
 
 /**
- * BL-128: Livewire's upload XHR treats HTTP 200 with an empty/invalid body as success,
- * then crashes on `response.paths` and never calls finish/error — the Alpine timer then
- * falsely reports a timeout while the server may still be fine. Intercept those responses,
- * retry with a fresh signed URL (do not reuse a possibly spent signature), and finish via
- * `_finishUpload` so the UploadManager can complete normally.
+ * BL-128/BL-143: upload-file + Livewire update resilience (retry gate, backoff, poll pause).
+ * Implementation lives in livewire-resilience.js / server-resilience.js.
  */
-function registerLivewireUploadEmptyResponseGuard() {
-    const MAX_RETRIES = 2;
-    /** @type {Map<string, { componentId: string, name: string, multiple: boolean, append: boolean }>} */
-    const uploadMetaByUrl = new Map();
-
-    const isLivewireUploadUrl = (url) => {
-        const value = String(url || '');
-        return value.includes('/livewire/upload-file') || /\/upload-file(\?|$)/.test(value);
-    };
-
-    const parseUploadPaths = (xhr) => {
-        const raw = typeof xhr.responseText === 'string' ? xhr.responseText : (xhr.response || '');
-        if (typeof raw !== 'string' || raw.trim() === '') {
-            return null;
-        }
-        try {
-            const json = JSON.parse(raw);
-            const paths = json?.paths;
-            if (! Array.isArray(paths) || paths.length === 0) {
-                return null;
-            }
-            return paths;
-        } catch {
-            return null;
-        }
-    };
-
-    const isEmptyOrInvalidSuccess = (xhr) => {
-        const status = String(xhr.status || '');
-        if (status[0] !== '2') {
-            return false;
-        }
-        return parseUploadPaths(xhr) === null;
-    };
-
-    const csrfToken = () => {
-        const meta = document.head?.querySelector('meta[name="csrf-token"]');
-        return meta?.getAttribute?.('content') || '';
-    };
-
-    const resolveComponent = (componentId) => {
-        if (typeof Livewire === 'undefined' || typeof Livewire.find !== 'function') {
-            return null;
-        }
-        try {
-            return Livewire.find(componentId);
-        } catch {
-            return null;
-        }
-    };
-
-    const trackSignedUrl = (component, name, url) => {
-        if (! url || ! component) {
-            return;
-        }
-        uploadMetaByUrl.set(String(url), {
-            componentId: component.id,
-            name: String(name || ''),
-            multiple: true,
-            append: true,
-        });
-    };
-
-    const bindComponentTracking = (component) => {
-        if (! component?.$wire || typeof component.$wire.$on !== 'function') {
-            return;
-        }
-        if (component.__intakeUploadUrlTracked) {
-            return;
-        }
-        component.__intakeUploadUrlTracked = true;
-        component.$wire.$on('upload:generatedSignedUrl', ({ name, url }) => {
-            trackSignedUrl(component, name, url);
-        });
-    };
-
-    const bindAllComponents = () => {
-        if (typeof Livewire === 'undefined') {
-            return;
-        }
-        if (typeof Livewire.all === 'function') {
-            Livewire.all().forEach(bindComponentTracking);
-        }
-        if (typeof Livewire.hook === 'function') {
-            Livewire.hook('component.init', ({ component }) => bindComponentTracking(component));
-        }
-    };
-
-    document.addEventListener('livewire:init', bindAllComponents);
-    if (typeof Livewire !== 'undefined') {
-        bindAllComponents();
-    }
-
-    const postFormData = (url, formData) => new Promise((resolve, reject) => {
-        const request = new XMLHttpRequest();
-        request.__intakeUploadSkipGuard = true;
-        request.open('post', url);
-        request.setRequestHeader('Accept', 'application/json');
-        const token = csrfToken();
-        if (token) {
-            request.setRequestHeader('X-CSRF-TOKEN', token);
-        }
-        request.addEventListener('load', () => {
-            if (String(request.status)[0] === '2') {
-                const paths = parseUploadPaths(request);
-                if (paths) {
-                    resolve({ url, paths });
-                    return;
-                }
-                reject(new Error('empty-upload-response'));
-                return;
-            }
-            reject(new Error('upload-http-' + request.status));
-        });
-        request.addEventListener('error', () => reject(new Error('upload-network-error')));
-        request.send(formData);
-    });
-
-    const retryWithFreshUrl = async (xhr) => {
-        const meta = uploadMetaByUrl.get(String(xhr.__intakeUploadUrl || ''));
-        const formData = xhr.__intakeFormData;
-        if (! meta || ! formData) {
-            return false;
-        }
-
-        const component = resolveComponent(meta.componentId);
-        if (! component?.$wire || typeof component.$wire.call !== 'function') {
-            return false;
-        }
-
-        const attempt = (xhr.__intakeUploadAttempt || 0) + 1;
-        if (attempt > MAX_RETRIES) {
-            try {
-                await component.$wire.call('_uploadErrored', meta.name, null, meta.multiple);
-            } catch {
-                // Soft-fail: Alpine error UI still handles livewire-upload-error if fired.
-            }
-            return false;
-        }
-
-        document.dispatchEvent(new CustomEvent('intake:upload-retrying', {
-            detail: { attempt, name: meta.name },
-        }));
-
-        try {
-            const freshUrl = await component.$wire.call('freshSignedUploadUrl');
-            if (typeof freshUrl !== 'string' || freshUrl === '') {
-                throw new Error('missing-fresh-url');
-            }
-            trackSignedUrl(component, meta.name, freshUrl);
-
-            const result = await postFormData(freshUrl, formData);
-            await component.$wire.call(
-                '_finishUpload',
-                meta.name,
-                result.paths,
-                meta.multiple,
-                meta.append,
-            );
-            document.dispatchEvent(new CustomEvent('intake:upload-retry-succeeded', {
-                detail: { attempt, name: meta.name },
-            }));
-            return true;
-        } catch {
-            if (attempt < MAX_RETRIES) {
-                xhr.__intakeUploadAttempt = attempt;
-                return retryWithFreshUrl(xhr);
-            }
-            try {
-                await component.$wire.call('_uploadErrored', meta.name, null, meta.multiple);
-            } catch {
-                // ignore
-            }
-            return false;
-        }
-    };
-
-    const proto = XMLHttpRequest.prototype;
-    const originalOpen = proto.open;
-    const originalSend = proto.send;
-    const originalAddEventListener = proto.addEventListener;
-
-    proto.open = function (method, url, ...rest) {
-        this.__intakeUploadUrl = typeof url === 'string' ? url : String(url || '');
-        this.__intakeIsLwUpload = isLivewireUploadUrl(this.__intakeUploadUrl);
-        return originalOpen.call(this, method, url, ...rest);
-    };
-
-    proto.addEventListener = function (type, listener, options) {
-        if (type === 'load' && this.__intakeIsLwUpload && ! this.__intakeUploadSkipGuard && typeof listener === 'function') {
-            const xhr = this;
-            const wrapped = function (event) {
-                if (isEmptyOrInvalidSuccess(xhr)) {
-                    document.dispatchEvent(new CustomEvent('intake:upload-empty-response', {
-                        detail: { url: xhr.__intakeUploadUrl, status: xhr.status },
-                    }));
-                    retryWithFreshUrl(xhr);
-                    return;
-                }
-                return listener.call(this, event);
-            };
-            return originalAddEventListener.call(this, type, wrapped, options);
-        }
-        return originalAddEventListener.call(this, type, listener, options);
-    };
-
-    proto.send = function (body) {
-        if (this.__intakeIsLwUpload && ! this.__intakeUploadSkipGuard) {
-            this.__intakeFormData = body;
-            this.__intakeUploadAttempt = this.__intakeUploadAttempt || 0;
-        }
-        return originalSend.call(this, body);
-    };
-}
-
-registerLivewireUploadEmptyResponseGuard();
+registerLivewireUploadResilience();
+registerLivewireUpdateResilience();
+registerPollPauseWhileBusy();
 
 /**
- * BL-128: verklein grote telefoonfoto's in de browser vóór Livewire-upload.
- * Bewaart originele breedte/hoogte in photoClientOriginals voor de resolutiecheck.
- * HEIC/HEIF blijft ongemoeid (canvas kan die niet betrouwbaar lezen).
+ * BL-128/BL-143: verklein grote telefoonfoto's in de browser vóór Livewire-upload.
+ * Nooit hangen: timeout + createImageBitmap/canvas-fallbacks; origineel uploaden bij falen.
+ * photoClientOriginals wordt fire-and-forget gezet zodat een trage Livewire-set de upload niet blokkeert.
  */
 function registerClientPhotoDownscale() {
-    const MAX_LONG_EDGE = 2048;
-    const JPEG_QUALITY = 0.82;
-    const SKIP_BELOW_BYTES = 900 * 1024;
-
     const isPrepInput = (input) => {
         if (!(input instanceof HTMLInputElement) || input.type !== 'file') {
             return false;
@@ -514,80 +301,35 @@ function registerClientPhotoDownscale() {
 
     const compositeFromInput = (input) => {
         const model = input.getAttribute('wire:model') || '';
-        const prefix = 'photoFiles.';
-        if (! model.startsWith(prefix)) {
-            return null;
+        const prefixes = ['photoFiles.', 'followUpPhotoFiles.'];
+        for (const prefix of prefixes) {
+            if (model.startsWith(prefix)) {
+                return { prefix, composite: model.slice(prefix.length) };
+            }
         }
 
-        return model.slice(prefix.length);
+        return null;
     };
 
-    const loadImage = (file) => new Promise((resolve, reject) => {
-        const url = URL.createObjectURL(file);
-        const image = new Image();
-        image.onload = () => {
-            URL.revokeObjectURL(url);
-            resolve(image);
-        };
-        image.onerror = () => {
-            URL.revokeObjectURL(url);
-            reject(new Error('image-load-failed'));
-        };
-        image.src = url;
-    });
-
-    const canvasToJpegFile = (canvas, name) => new Promise((resolve) => {
-        canvas.toBlob((blob) => {
-            if (! blob) {
-                resolve(null);
-                return;
-            }
-            const base = String(name || 'foto').replace(/\.[^.]+$/, '');
-            resolve(new File([blob], `${base}.jpg`, { type: 'image/jpeg', lastModified: Date.now() }));
-        }, 'image/jpeg', JPEG_QUALITY);
-    });
-
-    const downscaleFile = async (file) => {
-        const type = (file.type || '').toLowerCase();
-        if (type.includes('heic') || type.includes('heif')) {
-            return { file, originalWidth: null, originalHeight: null };
+    const setClientOriginals = (input, composite, originals) => {
+        const root = input.closest('[wire\\:id]');
+        const componentId = root?.getAttribute?.('wire:id');
+        if (! componentId || typeof Livewire === 'undefined' || typeof Livewire.find !== 'function') {
+            return;
         }
-        if (! type.startsWith('image/')) {
-            return { file, originalWidth: null, originalHeight: null };
-        }
-
         try {
-            const image = await loadImage(file);
-            const originalWidth = Math.max(1, image.naturalWidth || image.width || 0);
-            const originalHeight = Math.max(1, image.naturalHeight || image.height || 0);
-            const longEdge = Math.max(originalWidth, originalHeight);
-
-            if (longEdge <= MAX_LONG_EDGE && file.size <= SKIP_BELOW_BYTES) {
-                return { file, originalWidth, originalHeight };
+            const component = Livewire.find(componentId);
+            if (component && typeof component.set === 'function') {
+                // live=false: only mutate ephemeral state — no separate Livewire update.
+                // A live $set here raced _finishUpload (staging intake 81: two POSTs in
+                // the same second → one LiteSpeed 503 → silent photo loss). Originals
+                // ride along in getUpdates() of the next upload/_finishUpload request.
+                Promise.resolve(
+                    component.set(`photoClientOriginals.${composite}`, originals, false),
+                ).catch(() => {});
             }
-
-            const scale = longEdge > MAX_LONG_EDGE ? (MAX_LONG_EDGE / longEdge) : 1;
-            const width = Math.max(1, Math.round(originalWidth * scale));
-            const height = Math.max(1, Math.round(originalHeight * scale));
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            if (! ctx) {
-                return { file, originalWidth, originalHeight };
-            }
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, width, height);
-            ctx.drawImage(image, 0, 0, width, height);
-
-            const compressed = await canvasToJpegFile(canvas, file.name);
-            if (! compressed || compressed.size <= 0) {
-                return { file, originalWidth, originalHeight };
-            }
-
-            return { file: compressed, originalWidth, originalHeight };
         } catch {
-            return { file, originalWidth: null, originalHeight: null };
+            // Soft-fail: server meet dan zelf de (mogelijk verkleinde) afmetingen.
         }
     };
 
@@ -606,42 +348,62 @@ function registerClientPhotoDownscale() {
             return;
         }
 
-        const composite = compositeFromInput(input);
-        if (! composite) {
+        const parsed = compositeFromInput(input);
+        if (! parsed) {
             return;
         }
 
         event.stopImmediatePropagation();
         event.preventDefault();
 
-        const prepared = [];
-        const originals = [];
-        for (const file of files) {
-            const result = await downscaleFile(file);
-            prepared.push(result.file);
-            originals.push({
-                width: result.originalWidth,
-                height: result.originalHeight,
-            });
+        document.dispatchEvent(new CustomEvent('intake:photo-prep-start', {
+            detail: { composite: parsed.composite, count: files.length },
+        }));
+
+        let prepared = [];
+        let originals = [];
+        try {
+            for (const file of files) {
+                const result = await preparePhotoForUpload(file);
+                prepared.push(result.file);
+                originals.push({
+                    width: result.originalWidth,
+                    height: result.originalHeight,
+                });
+            }
+        } catch {
+            prepared = files;
+            originals = files.map(() => ({ width: null, height: null }));
         }
 
-        const root = input.closest('[wire\\:id]');
-        const componentId = root?.getAttribute?.('wire:id');
-        if (componentId && typeof Livewire !== 'undefined' && typeof Livewire.find === 'function') {
-            const component = Livewire.find(componentId);
-            if (component && typeof component.set === 'function') {
-                try {
-                    await component.set(`photoClientOriginals.${composite}`, originals);
-                } catch {
-                    // Soft-fail: server meet dan zelf de (mogelijk verkleinde) afmetingen.
-                }
+        if (prepared.length === 0) {
+            document.dispatchEvent(new CustomEvent('intake:photo-prep-failed', {
+                detail: { composite: parsed.composite, message: BUSY_MESSAGE },
+            }));
+            input.value = '';
+            return;
+        }
+
+        setClientOriginals(input, parsed.composite, originals);
+
+        try {
+            const transfer = new DataTransfer();
+            prepared.forEach((file) => transfer.items.add(file));
+            input.files = transfer.files;
+        } catch {
+            // DataTransfer/file assignment failed — fall back to original FileList if still present.
+            if (! input.files || input.files.length === 0) {
+                document.dispatchEvent(new CustomEvent('intake:photo-prep-failed', {
+                    detail: { composite: parsed.composite, message: BUSY_MESSAGE },
+                }));
+                return;
             }
         }
 
-        const transfer = new DataTransfer();
-        prepared.forEach((file) => transfer.items.add(file));
-        input.files = transfer.files;
         input.dataset.intakeDownscaleDone = '1';
+        document.dispatchEvent(new CustomEvent('intake:photo-prep-done', {
+            detail: { composite: parsed.composite, count: prepared.length },
+        }));
         input.dispatchEvent(new Event('change', { bubbles: true }));
     }, true);
 }
@@ -649,8 +411,8 @@ function registerClientPhotoDownscale() {
 registerClientPhotoDownscale();
 
 /**
- * Dutch Livewire request failures (e.g. LiteSpeed 503) instead of the English overlay.
- * Keeps the page/input; caller UI can offer "Opnieuw proberen".
+ * Dutch messages for non-retryable Livewire failures (419 etc.).
+ * Retryable 5xx/network are owned by livewire-resilience.js (BL-143).
  */
 function registerLivewireDutchRequestErrors() {
     const messageForStatus = (status) => {
@@ -658,10 +420,10 @@ function registerLivewireDutchRequestErrors() {
             return 'Je sessie is verlopen. Vernieuw de pagina en probeer opnieuw.';
         }
         if (status === 503 || status === 502 || status === 504) {
-            return 'De server is even niet bereikbaar. Probeer het opnieuw.';
+            return BUSY_MESSAGE;
         }
         if (status >= 500) {
-            return 'Er ging iets mis op de server. Probeer het opnieuw.';
+            return BUSY_MESSAGE;
         }
         if (status === 0) {
             return 'Geen verbinding. Controleer je netwerk en probeer opnieuw.';
@@ -669,25 +431,31 @@ function registerLivewireDutchRequestErrors() {
         return 'De aanvraag lukte niet. Probeer het opnieuw.';
     };
 
-    const dispatchError = (status) => {
-        const detail = {
-            status: typeof status === 'number' ? status : 0,
-            message: messageForStatus(typeof status === 'number' ? status : 0),
-        };
-        document.dispatchEvent(new CustomEvent('intake:livewire-request-failed', { detail }));
-    };
-
     const bind = () => {
         if (typeof Livewire === 'undefined' || typeof Livewire.hook !== 'function') {
             return;
         }
+        if (window.__intakeDutchRequestErrorsBound) {
+            return;
+        }
+        window.__intakeDutchRequestErrorsBound = true;
 
         Livewire.hook('request', ({ fail }) => {
             fail(({ status, preventDefault }) => {
+                const code = typeof status === 'number' ? status : 0;
+                // Retryable statuses: resilience module handles preventDefault + retry.
+                if (code === 0 || code === 408 || code === 429 || (code >= 500 && code <= 599)) {
+                    return;
+                }
                 if (typeof preventDefault === 'function') {
                     preventDefault();
                 }
-                dispatchError(status);
+                document.dispatchEvent(new CustomEvent('intake:livewire-request-failed', {
+                    detail: {
+                        status: code,
+                        message: messageForStatus(code),
+                    },
+                }));
             });
         });
     };

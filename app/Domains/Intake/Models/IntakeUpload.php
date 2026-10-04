@@ -29,7 +29,7 @@ use Illuminate\Support\Carbon;
  * @property int $size_bytes
  * @property int $sort_order
  * @property PhotoUsabilityVerdict|null $usability_verdict
- * @property array{persist_ms?: int, preprocess_ms?: int, network_upload_ms?: int, measured_at?: string, dossier_width?: int|null, dossier_height?: int|null, analysis_width?: int|null, analysis_height?: int|null, original_width?: int|null, original_height?: int|null, correlation_id?: string}|null $processing_timings
+ * @property array{persist_ms?: int, preprocess_ms?: int, network_upload_ms?: int, measured_at?: string, dossier_width?: int|null, dossier_height?: int|null, analysis_width?: int|null, analysis_height?: int|null, original_width?: int|null, original_height?: int|null, correlation_id?: string, variants_pending?: bool, variants_ready?: bool, variants_failed?: bool, variants_error?: string, variants_processed_at?: string, dossier_checksum?: string}|null $processing_timings
  * @property array<string, mixed>|null $content_assessment
  * @property PhotoAssessmentStatus|null $assessment_status
  * @property int|null $assessment_source_upload_id

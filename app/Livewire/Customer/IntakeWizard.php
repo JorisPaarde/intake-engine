@@ -37,8 +37,6 @@ use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Domains\Intake\Services\ProgressCalculator;
 use App\Domains\Intake\Services\ResolveIntakeByAccessToken;
 use App\Domains\Intake\Services\VisibilityResolver;
-use App\Domains\Intake\Support\FactProvenance;
-use App\Domains\Intake\Support\FactSource;
 use App\Domains\Intake\Support\KnownSummaryCatalog;
 use App\Domains\Intake\Support\OutdoorPhotoReuse;
 use App\Domains\Intake\Support\PhotoContentSatisfaction;
@@ -1093,71 +1091,27 @@ class IntakeWizard extends Component
         $storedUploadIds = array_values(array_unique($storedUploadIds));
 
         if ($storedUploadIds !== [] && $type === FollowUpItemType::Photo) {
-            $hints = [];
-            $queuedIds = [];
-            $lifecycle = app(PhotoAssessmentLifecycle::class);
-
-            foreach ($storedUploadIds as $uploadId) {
-                $upload = IntakeUpload::query()
-                    ->where('intake_id', $intake->id)
-                    ->whereKey($uploadId)
-                    ->first();
-
-                if (! $upload instanceof IntakeUpload) {
-                    continue;
-                }
-
-                // Lokale heuristic sync; AI-subjectcheck via queue (tenzij heuristic_rejected).
-                $verdict = app(AssessPhotoUsability::class)->handle(
-                    $upload,
-                    correlationId: $this->correlationIdForUpload($upload),
-                );
-                $retakeHint = $this->photoRetakeHint($verdict, $upload->question_key);
-                if ($retakeHint !== null) {
-                    $hints[] = $retakeHint;
-                }
-
-                $upload = $upload->fresh() ?? $upload;
-
-                if ($lifecycle->isTerminal($upload)) {
-                    continue;
-                }
-
-                $queuedIds[] = $upload->id;
-                $lifecycle->dispatch($upload, $this->correlationIdForUpload($upload));
-            }
-
-            $this->ensurePendingUploadsHaveUsabilityVerdict($storedUploadIds);
-
-            if ($queuedIds !== []) {
-                $this->setPendingIdsFor($composite, $queuedIds);
-                $this->setUploadPhase('assessing', 'Foto beoordelen…');
-                $this->saveMessage = $duplicateNotice && $stored === 0
-                    ? 'Deze foto staat er al'
-                    : ($stored === 1 ? 'Foto opgeslagen' : ($stored > 1 ? "{$stored} foto's opgeslagen" : 'Deze foto staat er al'));
-
-                return;
-            }
-
-            if ($hints !== []) {
-                $this->addError(
-                    'followUpPhotoFiles.'.$composite,
-                    implode(' ', array_values(array_unique($hints))),
-                );
-            }
-
-            $this->clearPendingIdsFor($composite);
-            $this->clearUploadPhase();
+            // BL-143: variants + usability + AI via ProcessIntakePhotoVariantsJob.
+            // Always enter assessing so pollPendingAssessments applies quality hints
+            // even when the sync queue already reached a terminal status.
+            $this->setPendingIdsFor($composite, $storedUploadIds);
+            $this->setUploadPhase('assessing', 'Foto beoordelen…');
             $this->saveMessage = $duplicateNotice && $stored === 0
                 ? 'Deze foto staat er al'
                 : ($stored === 1 ? 'Foto opgeslagen' : ($stored > 1 ? "{$stored} foto's opgeslagen" : 'Deze foto staat er al'));
+
+            // Sync queue (tests / local): variants may already be terminal — resolve
+            // hints/override UI in this same request instead of waiting for wire:poll.
+            $this->pollPendingAssessments();
 
             return;
         }
 
         if ($stored > 0) {
             $this->clearUploadPhase();
-            $this->saveMessage = $stored === 1 ? 'Document opgeslagen' : "{$stored} documenten opgeslagen";
+            $this->saveMessage = $type === FollowUpItemType::Photo
+                ? ($stored === 1 ? 'Foto opgeslagen' : "{$stored} foto's opgeslagen")
+                : ($stored === 1 ? 'Document opgeslagen' : "{$stored} documenten opgeslagen");
         } elseif ($duplicateNotice) {
             $this->clearUploadPhase();
             $this->saveMessage = 'Deze foto staat er al';
@@ -1314,7 +1268,6 @@ class IntakeWizard extends Component
         $lifecycle = app(PhotoAssessmentLifecycle::class);
 
         $stillPending = [];
-        $warnings = [];
 
         foreach ($uploadIds as $uploadId) {
             $upload = IntakeUpload::query()
@@ -1328,22 +1281,6 @@ class IntakeWizard extends Component
 
             if (! $lifecycle->isTerminal($upload)) {
                 $stillPending[] = $upload->id;
-
-                continue;
-            }
-
-            $assessment = $upload->contentAssessment();
-            if ($assessment instanceof PhotoContentAssessment) {
-                $message = $assessment->customerMessage();
-                if (is_string($message) && $message !== '' && ! $assessment->solvesContent()) {
-                    $warnings[] = $message;
-                }
-            } elseif ($upload->assessment_status === PhotoAssessmentStatus::HeuristicRejected
-                && $upload->usability_verdict instanceof PhotoUsabilityVerdict) {
-                $hint = $this->photoRetakeHint($upload->usability_verdict, $upload->question_key);
-                if ($hint !== null) {
-                    $warnings[] = $hint;
-                }
             }
         }
 
@@ -1363,13 +1300,8 @@ class IntakeWizard extends Component
             return;
         }
 
-        if ($warnings !== []) {
-            $this->addError(
-                'followUpPhotoFiles.'.$composite,
-                implode(' ', array_values(array_unique($warnings))),
-            );
-        }
-
+        // Override-/mismatch-panel (PhotoOverridePolicy) is the single place for
+        // quality + wrong_subject copy in follow-up — no duplicate Livewire error bag.
         $this->clearPendingIdsFor($composite);
         $this->clearUploadPhase();
     }
@@ -1853,80 +1785,27 @@ class IntakeWizard extends Component
         $storedUploadIds = array_values(array_unique($storedUploadIds));
 
         if ($storedUploadIds !== []) {
-            $hints = [];
-            $queuedIds = [];
-            $needsAi = $this->photoAnalysisProfileName($questionKey) !== null;
-            $lifecycle = app(PhotoAssessmentLifecycle::class);
-
-            foreach ($storedUploadIds as $uploadId) {
-                $upload = IntakeUpload::query()
-                    ->where('intake_id', $intake->id)
-                    ->whereKey($uploadId)
-                    ->first();
-
-                if (! $upload instanceof IntakeUpload) {
-                    continue;
-                }
-
-                $verdict = app(AssessPhotoUsability::class)->handle(
-                    $upload,
-                    correlationId: $this->correlationIdForUpload($upload),
-                );
-                $retakeHint = $this->photoRetakeHint($verdict, $upload->question_key);
-                if ($retakeHint !== null) {
-                    $hints[] = $retakeHint;
-                }
-
-                $upload = $upload->fresh() ?? $upload;
-
-                if (! $needsAi) {
-                    if (! $lifecycle->isTerminal($upload)) {
-                        if ($verdict->isUsable()) {
-                            $lifecycle->markAssessed($upload);
-                        }
-                    }
-
-                    continue;
-                }
-
-                if ($lifecycle->isTerminal($upload)) {
-                    continue;
-                }
-
-                $queuedIds[] = $upload->id;
-                $lifecycle->dispatch($upload, $this->correlationIdForUpload($upload));
-            }
-
-            $this->ensurePendingUploadsHaveUsabilityVerdict($storedUploadIds);
-
-            // Lokale usability-hint meteen tonen, gescopeerd op deze upload-ids (AI volgt via queue/poll).
-            $this->storeScopedPhotoHint($composite, $storedUploadIds, $hints);
-
-            // Usability/assessment_status landen ná eerdere cache-forget; render moet verse uploads zien
-            // (anders blijft photoNeedsQualityHint/status op stale pending zonder klanthint).
+            // BL-143: heavy decode/resize/usability/AI runs in ProcessIntakePhotoVariantsJob
+            // (ai-photo). The Livewire update only persisted source bytes.
+            $this->setPendingIdsFor($composite, $storedUploadIds);
+            $this->setUploadPhase('assessing', 'Foto beoordelen…');
             $this->forgetIntakeDerivedCaches();
-
-            if ($queuedIds !== []) {
-                $this->setPendingIdsFor($composite, $queuedIds);
-                $this->setUploadPhase('assessing', 'Foto beoordelen…');
-                $this->saveMessage = $duplicateNotice && $stored === 0
-                    ? 'Deze foto staat er al'
-                    : ($stored === 1 ? 'Foto opgeslagen' : ($stored > 1 ? $stored." foto's opgeslagen" : 'Deze foto staat er al'));
-
-                return;
-            }
-
-            // Geen AI-profiel of alles al terminaal: klaar na lokale usability.
-            $this->clearPendingIdsFor($composite);
-            $this->clearUploadPhase();
             $this->saveMessage = $duplicateNotice && $stored === 0
                 ? 'Deze foto staat er al'
                 : ($stored === 1 ? 'Foto opgeslagen' : ($stored > 1 ? $stored." foto's opgeslagen" : 'Deze foto staat er al'));
 
+            // Sync queue: resolve terminal variants in this request (quality hints / clear phase).
+            $this->pollPendingAssessments();
+
             return;
         }
 
-        if ($duplicateNotice) {
+        if ($stored > 0) {
+            // Variants/AI may already be terminal on sync queue; still clear cleanly.
+            $this->clearUploadPhase();
+            $this->forgetIntakeDerivedCaches();
+            $this->saveMessage = $stored === 1 ? 'Foto opgeslagen' : $stored." foto's opgeslagen";
+        } elseif ($duplicateNotice) {
             $this->clearUploadPhase();
             $this->saveMessage = 'Deze foto staat er al';
         } elseif ($errors !== []) {
@@ -2909,14 +2788,6 @@ class IntakeWizard extends Component
                 $notices[$composite] = 'Je installateur heeft dit alvast ingevuld — klopt het?';
             } elseif (PrefillSources::isPhotoSuggestion($answer->prefill_source)) {
                 $notices[$composite] = 'We hebben dit uit je foto gehaald — klopt het?';
-            } elseif (PrefillSources::needsCustomerConfirmation(
-                $answer->prefill_source,
-                FactProvenance::tryFromMixed($answer->fact_provenance),
-                $answer->question_key,
-                is_int($answer->fact_confidence) ? $answer->fact_confidence : null,
-                FactSource::tryFrom((string) ($answer->fact_source ?? '')),
-            )) {
-                $notices[$composite] = 'We hebben dit afgeleid uit je aanvraag — klopt dit?';
             }
         }
 

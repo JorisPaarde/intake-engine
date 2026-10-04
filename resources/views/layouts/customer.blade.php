@@ -28,21 +28,28 @@
             (function () {
                 const messageForStatus = function (status) {
                     if (status === 419) return 'Je sessie is verlopen. Vernieuw de pagina en probeer opnieuw.';
-                    if (status === 503 || status === 502 || status === 504) return 'De server is even niet bereikbaar. Probeer het opnieuw.';
-                    if (status >= 500) return 'Er ging iets mis op de server. Probeer het opnieuw.';
+                    if (status === 503 || status === 502 || status === 504) return 'De server is even druk. Probeer het zo opnieuw.';
+                    if (status >= 500) return 'De server is even druk. Probeer het zo opnieuw.';
                     if (status === 0) return 'Geen verbinding. Controleer je netwerk en probeer opnieuw.';
                     return 'De aanvraag lukte niet. Probeer het opnieuw.';
                 };
 
                 const bind = function () {
                     if (typeof Livewire === 'undefined' || typeof Livewire.hook !== 'function') return;
+                    if (window.__intakeCustomerLayoutRequestBound) return;
+                    window.__intakeCustomerLayoutRequestBound = true;
                     Livewire.hook('request', function ({ fail }) {
                         fail(function ({ status, preventDefault }) {
+                            const code = typeof status === 'number' ? status : 0;
+                            // Retryable 5xx/network: app.js livewire-resilience owns auto-retry (BL-143).
+                            if (code === 0 || code === 408 || code === 429 || (code >= 500 && code <= 599)) {
+                                return;
+                            }
                             if (typeof preventDefault === 'function') preventDefault();
                             document.dispatchEvent(new CustomEvent('intake:livewire-request-failed', {
                                 detail: {
-                                    status: typeof status === 'number' ? status : 0,
-                                    message: messageForStatus(typeof status === 'number' ? status : 0),
+                                    status: code,
+                                    message: messageForStatus(code),
                                 },
                             }));
                         });

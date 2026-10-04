@@ -5,30 +5,35 @@ declare(strict_types=1);
 namespace App\Domains\Intake\Actions;
 
 use App\Domains\Intake\Jobs\DeleteStoredMediaJob;
+use App\Domains\Intake\Jobs\ProcessIntakePhotoVariantsJob;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeUpload;
-use App\Domains\Intake\Services\PhotoUploadNormalizer;
 use App\Domains\Intake\Services\ProgressCalculator;
+use App\Domains\Intake\Services\UploadMimeDetector;
 use App\Enums\IntakeStatus;
 use App\Enums\PhotoAssessmentStatus;
 use App\Enums\QuestionType;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
+/**
+ * Stores a customer photo quickly (source bytes only) and queues heavy variant
+ * processing (BL-143). Keeps the Livewire update request light so shared-hosting
+ * 503s during GD/Imagick decode are avoided.
+ */
 final class StoreIntakeUpload
 {
     public function __construct(
         private readonly ProgressCalculator $progressCalculator,
-        private readonly PhotoUploadNormalizer $photoUploadNormalizer,
+        private readonly UploadMimeDetector $mimeDetector,
     ) {}
 
     public function handle(
@@ -38,6 +43,7 @@ final class StoreIntakeUpload
         UploadedFile $file,
         ?int $clientOriginalWidth = null,
         ?int $clientOriginalHeight = null,
+        ?string $correlationId = null,
     ): IntakeUpload {
         $question = $this->findPhotoQuestion($intake, $questionKey);
         $maxFiles = (int) ($question->meta['max_files'] ?? config('intake.uploads.max_files_per_question', 5));
@@ -63,46 +69,79 @@ final class StoreIntakeUpload
             ]);
         }
 
-        $preprocessStarted = microtime(true);
-        $normalized = $this->photoUploadNormalizer->normalize($file);
-        $preprocessMs = (int) round((microtime(true) - $preprocessStarted) * 1000);
+        $mime = $this->normalizeMime($this->mimeDetector->detect($file));
+        if (! in_array($mime, $this->acceptedMimes(), true)) {
+            throw ValidationException::withMessages([
+                'photo' => 'Alleen JPEG, PNG, WebP of HEIC/HEIF-foto’s zijn toegestaan. Foto’s worden automatisch verkleind.',
+            ]);
+        }
+
+        $persistStarted = microtime(true);
+        $realPath = $file->getRealPath();
+        if (! is_string($realPath) || $realPath === '' || ! is_file($realPath)) {
+            throw ValidationException::withMessages([
+                'photo' => 'Upload mislukt. Probeer het opnieuw.',
+            ]);
+        }
+
+        $bytes = (string) file_get_contents($realPath);
+        if ($bytes === '') {
+            throw ValidationException::withMessages([
+                'photo' => 'Upload mislukt. Probeer het opnieuw.',
+            ]);
+        }
+
+        $checksum = hash('sha256', $bytes);
+        $sizeBytes = strlen($bytes);
+        $extension = $this->extensionForMime($mime, (string) $file->getClientOriginalExtension());
+        $originalFilename = $this->safeOriginalFilename($file, $extension);
+
+        $duplicateQuery = IntakeUpload::query()
+            ->where('intake_id', $intake->id)
+            ->where('question_key', $questionKey)
+            ->where('checksum', $checksum);
+
+        if ($sectionInstanceKey === null) {
+            $duplicateQuery->whereNull('section_instance_key');
+        } else {
+            $duplicateQuery->where('section_instance_key', $sectionInstanceKey);
+        }
+
+        $duplicate = $duplicateQuery->first();
+        if ($duplicate instanceof IntakeUpload) {
+            return $duplicate;
+        }
+
+        $disk = (string) config('filesystems.media', 'local');
+        $directory = $this->directory($intake, $questionKey, $sectionInstanceKey);
+        $basename = Str::ulid()->toBase32();
+        $path = $directory.'/'.$basename.'.'.$extension;
+
+        if (! Storage::disk($disk)->put($path, $bytes)) {
+            throw ValidationException::withMessages([
+                'photo' => 'Upload mislukt. Probeer het opnieuw.',
+            ]);
+        }
 
         try {
-            $duplicateQuery = IntakeUpload::query()
-                ->where('intake_id', $intake->id)
-                ->where('question_key', $questionKey)
-                ->where('checksum', $normalized->dossierChecksum);
-
-            if ($sectionInstanceKey === null) {
-                $duplicateQuery->whereNull('section_instance_key');
-            } else {
-                $duplicateQuery->where('section_instance_key', $sectionInstanceKey);
-            }
-
-            $duplicate = $duplicateQuery->first();
-
-            if ($duplicate instanceof IntakeUpload) {
-                return $duplicate;
-            }
-
-            $persistStarted = microtime(true);
-            $disk = (string) config('filesystems.media', 'local');
-            $directory = $this->directory($intake, $questionKey, $sectionInstanceKey);
-            $basename = Str::ulid()->toBase32();
-            $path = $directory.'/'.$basename.'.'.$normalized->dossierExtension;
-            $analysisPath = $directory.'/analysis/'.$basename.'.'.$normalized->analysisExtension;
-
-            if (! Storage::disk($disk)->put($path, File::get($normalized->dossierAbsolutePath))
-                || ! Storage::disk($disk)->put($analysisPath, File::get($normalized->analysisAbsolutePath))) {
-                $this->cleanupFailedUpload($disk, $path);
-                $this->cleanupFailedUpload($disk, $analysisPath);
-
-                throw ValidationException::withMessages([
-                    'photo' => 'Upload mislukt. Probeer het opnieuw.',
-                ]);
-            }
-
-            return DB::transaction(function () use ($intake, $questionKey, $sectionInstanceKey, $disk, $path, $analysisPath, $normalized, $maxFiles, $preprocessMs, $persistStarted, $clientOriginalWidth, $clientOriginalHeight): IntakeUpload {
+            // Persist the source row first; dispatch heavy variants only after commit so
+            // database-queue workers never race an uncommitted upload (BL-143).
+            $upload = DB::transaction(function () use (
+                $intake,
+                $questionKey,
+                $sectionInstanceKey,
+                $disk,
+                $path,
+                $originalFilename,
+                $mime,
+                $sizeBytes,
+                $checksum,
+                $maxFiles,
+                $persistStarted,
+                $clientOriginalWidth,
+                $clientOriginalHeight,
+                $correlationId,
+            ): IntakeUpload {
                 $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
 
                 if (! in_array($lockedIntake->status, [IntakeStatus::Sent, IntakeStatus::InProgress], true)) {
@@ -120,26 +159,18 @@ final class StoreIntakeUpload
                 }
 
                 $persistMs = (int) round((microtime(true) - $persistStarted) * 1000);
-                $originalWidth = $normalized->originalWidth;
-                $originalHeight = $normalized->originalHeight;
-                if ($clientOriginalWidth !== null && $clientOriginalHeight !== null
-                    && $clientOriginalWidth > 0 && $clientOriginalHeight > 0) {
-                    // Browser downscale (BL-128): resolutiecheck moet het telefoonorigineel gebruiken.
-                    $originalWidth = $clientOriginalWidth;
-                    $originalHeight = $clientOriginalHeight;
-                }
-
                 $timings = [
                     'persist_ms' => $persistMs,
-                    'preprocess_ms' => $preprocessMs,
-                    'dossier_width' => $normalized->dossierWidth,
-                    'dossier_height' => $normalized->dossierHeight,
-                    'analysis_width' => $normalized->analysisWidth,
-                    'analysis_height' => $normalized->analysisHeight,
-                    'original_width' => $originalWidth,
-                    'original_height' => $originalHeight,
+                    'preprocess_ms' => 0,
+                    'variants_pending' => true,
+                    'variants_ready' => false,
+                    'original_width' => $clientOriginalWidth,
+                    'original_height' => $clientOriginalHeight,
                     'measured_at' => now()->toIso8601String(),
                 ];
+                if (is_string($correlationId) && $correlationId !== '') {
+                    $timings['correlation_id'] = $correlationId;
+                }
 
                 $upload = IntakeUpload::query()->create([
                     'intake_id' => $intake->id,
@@ -147,14 +178,14 @@ final class StoreIntakeUpload
                     'section_instance_key' => $sectionInstanceKey,
                     'disk' => $disk,
                     'path' => $path,
-                    'analysis_path' => $analysisPath,
-                    'original_filename' => $normalized->originalFilename,
-                    'mime_type' => $normalized->dossierMime,
-                    'size_bytes' => $normalized->dossierSizeBytes,
-                    'checksum' => $normalized->dossierChecksum,
-                    'analysis_mime_type' => $normalized->analysisMime,
-                    'analysis_size_bytes' => $normalized->analysisSizeBytes,
-                    'analysis_checksum' => $normalized->analysisChecksum,
+                    'analysis_path' => null,
+                    'original_filename' => $originalFilename,
+                    'mime_type' => $mime,
+                    'size_bytes' => $sizeBytes,
+                    'checksum' => $checksum,
+                    'analysis_mime_type' => null,
+                    'analysis_size_bytes' => null,
+                    'analysis_checksum' => null,
                     'sort_order' => $currentCount + 1,
                     'processing_timings' => $timings,
                     'assessment_status' => PhotoAssessmentStatus::Pending,
@@ -173,26 +204,30 @@ final class StoreIntakeUpload
                     'properties' => [
                         'upload_id' => $upload->id,
                         'question_key' => $questionKey,
+                        'variants_pending' => true,
                     ],
                     'created_at' => now(),
                 ]);
 
                 return $upload;
             });
-        } catch (Throwable $exception) {
-            if (isset($disk, $path)) {
-                $this->cleanupFailedUpload($disk, $path);
-            }
 
-            if (isset($disk, $analysisPath)) {
-                $this->cleanupFailedUpload($disk, $analysisPath);
-            }
+            ProcessIntakePhotoVariantsJob::dispatch(
+                $upload->id,
+                $clientOriginalWidth,
+                $clientOriginalHeight,
+                $correlationId,
+            );
+
+            // Sync queue runs the job immediately; reload attrs in place so
+            // wasRecentlyCreated stays true for the wizard duplicate check.
+            $upload->refresh();
+
+            return $upload;
+        } catch (Throwable $exception) {
+            $this->cleanupFailedUpload($disk, $path);
 
             throw $exception;
-        } finally {
-            foreach ($normalized->cleanupPaths as $cleanupPath) {
-                @unlink($cleanupPath);
-            }
         }
     }
 
@@ -309,5 +344,48 @@ final class StoreIntakeUpload
         }
 
         $intake->update($updates);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function acceptedMimes(): array
+    {
+        return ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+    }
+
+    private function normalizeMime(string $mime): string
+    {
+        $mime = strtolower(trim($mime));
+
+        return match ($mime) {
+            'image/jpg', 'image/pjpeg' => 'image/jpeg',
+            'image/x-png' => 'image/png',
+            default => $mime,
+        };
+    }
+
+    private function extensionForMime(string $mime, string $clientExtension): string
+    {
+        $client = strtolower($clientExtension);
+
+        return match ($mime) {
+            'image/png' => 'png',
+            'image/webp' => 'webp',
+            'image/heic', 'image/heif' => in_array($client, ['heic', 'heif'], true) ? $client : 'heic',
+            default => 'jpg',
+        };
+    }
+
+    private function safeOriginalFilename(UploadedFile $file, string $extension): string
+    {
+        $name = (string) $file->getClientOriginalName();
+        $base = pathinfo($name, PATHINFO_FILENAME);
+        $base = Str::slug($base);
+        if ($base === '') {
+            $base = 'foto';
+        }
+
+        return Str::limit($base, 80, '').'.'.$extension;
     }
 }

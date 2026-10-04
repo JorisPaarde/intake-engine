@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Domains\AI\Actions\DerivePhotoAnswers;
 use App\Domains\AI\Clients\FakeAiClient;
+use App\Domains\AI\Jobs\AssessUploadedPhotoJob;
 use App\Domains\AI\Models\AiTrace;
 use App\Domains\AI\Support\PhotoDerivationProfile;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
@@ -20,6 +21,7 @@ use App\Livewire\Customer\IntakeWizard;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
@@ -71,6 +73,8 @@ test('photo validateOutput normalizes Dutch confidence synonym and records norma
     $intake = makeBl119GuardIntake();
     $fixture = bl119GuardFixture();
 
+    Queue::fake([AssessUploadedPhotoJob::class]);
+
     $upload = app(StoreIntakeUpload::class)->handle(
         $intake,
         'room_photos',
@@ -120,6 +124,8 @@ test('photo validateOutput normalizes Dutch confidence synonym and records norma
 test('changed photo during analysis does not write derived answers', function () {
     $intake = makeBl119GuardIntake();
     $fixture = bl119GuardFixture();
+
+    Queue::fake([AssessUploadedPhotoJob::class]);
 
     $upload = app(StoreIntakeUpload::class)->handle(
         $intake,

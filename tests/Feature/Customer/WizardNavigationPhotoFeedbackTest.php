@@ -128,14 +128,19 @@ function uploadAndPollPhotoAssessment(Testable $component, string $composite, Up
         return $component->assertSet('uploadPhase', '');
     }
 
-    Queue::assertPushedOn(AssessUploadedPhotoJob::QUEUE, AssessUploadedPhotoJob::class);
-
     $pushed = [];
-    Queue::assertPushed(AssessUploadedPhotoJob::class, function (AssessUploadedPhotoJob $job) use (&$pushed): bool {
-        $pushed[] = $job->uploadId;
+    foreach (Queue::pushed(AssessUploadedPhotoJob::class) as $job) {
+        if ($job instanceof AssessUploadedPhotoJob) {
+            $pushed[] = $job->uploadId;
+        }
+    }
 
-        return true;
-    });
+    // BL-143: too_small → HeuristicRejected zonder AI-job; poll past kwaliteitshint toe.
+    if ($pushed === []) {
+        return $component
+            ->call('pollPendingAssessments')
+            ->assertSet('uploadPhase', '');
+    }
 
     foreach (array_values(array_unique($pushed)) as $uploadId) {
         runWizardNavPhotoJob($uploadId);

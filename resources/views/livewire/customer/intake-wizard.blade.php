@@ -468,8 +468,16 @@
                                                 requestError: '',
                                                 uploadProgress: null,
                                                 serverBusy: false,
+                                                autoRetrying: false,
+                                                retryMessage: '',
+                                                retryUntilMs: null,
+                                                retryCountdown: '',
+                                                countdownTimer: null,
+                                                uploadProperty: @js('photoFiles.'.$composite),
                                                 inactivityMs: 45000,
                                                 serverWaitMs: 120000,
+                                                clientUploading: false,
+                                                prepBusy: false,
                                                 arm() {
                                                     clearTimeout(this.timer);
                                                     this.timedOut = false;
@@ -478,24 +486,62 @@
                                                         this.timer = setTimeout(() => { this.timedOut = true }, 90000);
                                                     }
                                                 },
+                                                clearLivewireUpload() {
+                                                    try {
+                                                        if (typeof $wire.cancelUpload === 'function') {
+                                                            $wire.cancelUpload(this.uploadProperty);
+                                                        }
+                                                    } catch (e) {
+                                                        // Soft-fail: bag kan al leeg zijn.
+                                                    }
+                                                },
+                                                clearCountdown() {
+                                                    clearInterval(this.countdownTimer);
+                                                    this.countdownTimer = null;
+                                                    this.retryCountdown = '';
+                                                    this.retryUntilMs = null;
+                                                },
+                                                tickCountdown() {
+                                                    if (! this.retryUntilMs) {
+                                                        this.retryCountdown = '';
+                                                        return;
+                                                    }
+                                                    const left = Math.max(0, Math.ceil((this.retryUntilMs - Date.now()) / 1000));
+                                                    this.retryCountdown = left > 0 ? ('Nog ' + left + 's…') : '';
+                                                },
+                                                startCountdown(waitMs) {
+                                                    this.clearCountdown();
+                                                    const wait = Math.max(0, Number(waitMs) || 0);
+                                                    if (wait <= 0) {
+                                                        return;
+                                                    }
+                                                    this.retryUntilMs = Date.now() + wait;
+                                                    this.tickCountdown();
+                                                    this.countdownTimer = setInterval(() => this.tickCountdown(), 250);
+                                                },
                                                 armInactivityTimer() {
                                                     clearTimeout(this.uploadTimer);
                                                     this.uploadTimer = setTimeout(() => {
                                                         // Geen timeout terwijl de server nog bezig is ná 100% (lege 200 / Livewire-finish).
-                                                        if (this.serverBusy) {
+                                                        if (this.serverBusy || this.autoRetrying) {
                                                             return;
                                                         }
+                                                        this.clearLivewireUpload();
                                                         this.uploadTimedOut = true;
-                                                        this.uploadError = 'Uploaden lijkt vast te zitten. Controleer je verbinding en probeer opnieuw.';
+                                                        this.uploadError = 'De server is even druk. Probeer het zo opnieuw.';
                                                     }, this.inactivityMs);
                                                 },
                                                 armServerWaitTimer() {
                                                     clearTimeout(this.uploadTimer);
                                                     this.serverBusy = true;
                                                     this.uploadTimer = setTimeout(() => {
+                                                        if (this.autoRetrying) {
+                                                            return;
+                                                        }
+                                                        this.clearLivewireUpload();
                                                         this.uploadTimedOut = true;
                                                         this.serverBusy = false;
-                                                        this.uploadError = 'Uploaden lijkt vast te zitten. Controleer je verbinding en probeer opnieuw.';
+                                                        this.uploadError = 'De server is even druk. Probeer het zo opnieuw.';
                                                     }, this.serverWaitMs);
                                                 },
                                                 armUpload() {
@@ -505,7 +551,28 @@
                                                     this.requestError = '';
                                                     this.uploadProgress = 0;
                                                     this.serverBusy = false;
+                                                    this.clientUploading = true;
+                                                    this.prepBusy = false;
+                                                    this.autoRetrying = false;
+                                                    this.retryMessage = '';
+                                                    this.clearCountdown();
                                                     this.armInactivityTimer();
+                                                },
+                                                onPrepStart() {
+                                                    this.prepBusy = true;
+                                                    this.clientUploading = true;
+                                                    this.uploadTimedOut = false;
+                                                    this.uploadError = '';
+                                                    this.uploadProgress = 0;
+                                                    this.armInactivityTimer();
+                                                },
+                                                onPrepDone() {
+                                                    this.prepBusy = false;
+                                                },
+                                                onPrepFailed(event) {
+                                                    this.prepBusy = false;
+                                                    this.failUpload(event?.detail?.message
+                                                        || 'De server is even druk. Probeer het zo opnieuw.');
                                                 },
                                                 onUploadProgress(event) {
                                                     const detail = event?.detail;
@@ -521,50 +588,84 @@
                                                         }
                                                     }
                                                     this.serverBusy = false;
-                                                    this.armInactivityTimer();
+                                                    if (! this.autoRetrying) {
+                                                        this.armInactivityTimer();
+                                                    }
                                                 },
                                                 onServerBusy() {
                                                     this.armServerWaitTimer();
                                                 },
-                                                onUploadRetrying() {
+                                                onUploadRetrying(event) {
+                                                    this.autoRetrying = true;
                                                     this.uploadTimedOut = false;
                                                     this.uploadError = '';
+                                                    this.requestError = '';
+                                                    this.retryMessage = event?.detail?.message
+                                                        || 'Even geduld, we proberen het opnieuw.';
+                                                    this.startCountdown(event?.detail?.waitMs);
                                                     this.armServerWaitTimer();
                                                 },
                                                 finishUpload() {
                                                     clearTimeout(this.uploadTimer);
                                                     this.serverBusy = false;
+                                                    this.clientUploading = false;
+                                                    this.prepBusy = false;
+                                                    this.autoRetrying = false;
+                                                    this.retryMessage = '';
+                                                    this.clearCountdown();
                                                     this.uploadProgress = 100;
                                                     if (! this.uploadTimedOut) {
                                                         this.uploadError = '';
                                                     }
                                                 },
-                                                failUpload() {
+                                                failUpload(message) {
                                                     clearTimeout(this.uploadTimer);
+                                                    this.clearLivewireUpload();
                                                     this.serverBusy = false;
+                                                    this.clientUploading = false;
+                                                    this.prepBusy = false;
+                                                    this.autoRetrying = false;
+                                                    this.retryMessage = '';
+                                                    this.clearCountdown();
                                                     this.uploadTimedOut = true;
-                                                    this.uploadError = this.uploadError || 'Uploaden mislukt. Probeer het opnieuw.';
+                                                    this.uploadProgress = null;
+                                                    this.uploadError = message
+                                                        || this.uploadError
+                                                        || 'De server is even druk. Probeer het zo opnieuw.';
                                                 },
                                                 retryUpload() {
+                                                    this.clearLivewireUpload();
                                                     this.uploadTimedOut = false;
                                                     this.uploadError = '';
                                                     this.requestError = '';
                                                     this.uploadProgress = null;
                                                     this.serverBusy = false;
+                                                    this.clientUploading = false;
+                                                    this.prepBusy = false;
+                                                    this.autoRetrying = false;
+                                                    this.retryMessage = '';
+                                                    this.clearCountdown();
                                                     const input = document.getElementById(@js('photo-input-'.str_replace(['.', ' '], '-', $composite)));
                                                     if (input) {
+                                                        input.disabled = false;
+                                                        input.removeAttribute('disabled');
                                                         input.value = '';
                                                         input.click();
                                                     }
                                                 },
                                                 onRequestFailed(event) {
                                                     const message = event?.detail?.message
-                                                        || 'De server is even niet bereikbaar. Probeer het opnieuw.';
+                                                        || 'De server is even druk. Probeer het zo opnieuw.';
+                                                    // Tijdens auto-retry toont de rustige wachttekst; finale fout komt via intake:upload-failed.
+                                                    if (this.autoRetrying && ! event?.detail?.exhausted) {
+                                                        return;
+                                                    }
                                                     this.requestError = message;
-                                                    this.uploadTimedOut = true;
-                                                    this.serverBusy = false;
-                                                    this.uploadError = message;
-                                                    clearTimeout(this.uploadTimer);
+                                                    this.failUpload(message);
+                                                },
+                                                onUploadFailed(event) {
+                                                    this.failUpload(event?.detail?.message
+                                                        || 'De server is even druk. Probeer het zo opnieuw.');
                                                 },
                                             }"
                                             x-init="
@@ -572,22 +673,26 @@
                                                 $watch(() => $wire.uploadPhase, () => arm());
                                                 $watch(() => $wire.uploadPhaseComposite, () => arm());
                                                 window.addEventListener('intake:livewire-request-failed', (e) => onRequestFailed(e));
-                                                window.addEventListener('intake:upload-retrying', () => onUploadRetrying());
-                                                window.addEventListener('intake:upload-empty-response', () => onUploadRetrying());
+                                                window.addEventListener('intake:upload-retrying', (e) => onUploadRetrying(e));
+                                                window.addEventListener('intake:upload-empty-response', (e) => onUploadRetrying(e));
                                                 window.addEventListener('intake:upload-retry-succeeded', () => finishUpload());
+                                                window.addEventListener('intake:upload-failed', (e) => onUploadFailed(e));
+                                                window.addEventListener('intake:photo-prep-start', () => onPrepStart());
+                                                window.addEventListener('intake:photo-prep-done', () => onPrepDone());
+                                                window.addEventListener('intake:photo-prep-failed', (e) => onPrepFailed(e));
                                             "
                                             x-on:livewire-upload-start="armUpload()"
                                             x-on:livewire-upload-progress="onUploadProgress($event)"
                                             x-on:livewire-upload-finish="finishUpload()"
                                             x-on:livewire-upload-error="failUpload()"
+                                            x-on:livewire-upload-cancel="finishUpload()"
                                             data-upload-timing="1"
                                             data-client-downscale="1"
                                         >
                                             @php($uploadBusy = ($uploadPhase ?? '') === 'assessing' && ($uploadPhaseComposite ?? '') === $composite)
                                             <label
                                                 class="flex min-h-12 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-[#dde2da] bg-[#eef1ec] px-4 py-5 text-center"
-                                                :class="{ 'pointer-events-none opacity-60': (@js($uploadBusy) && ! timedOut) || (uploadTimedOut === false && $el.querySelector('[data-uploading]')?.dataset.uploading === '1') }"
-                                                wire:loading.class="pointer-events-none opacity-60"
+                                                :class="{ 'pointer-events-none opacity-60': (@js($uploadBusy) && ! timedOut) || (clientUploading && ! uploadTimedOut) || prepBusy }"
                                                 wire:target="photoFiles.{{ $composite }}"
                                             >
                                                 <span class="text-sm font-semibold text-[#18201d]">Foto's maken of kiezen</span>
@@ -603,9 +708,7 @@
                                                     multiple
                                                     class="sr-only"
                                                     wire:model="photoFiles.{{ $composite }}"
-                                                    wire:loading.attr="disabled"
-                                                    wire:target="photoFiles.{{ $composite }},pollPendingAssessments,assessPendingUploads,retryFailedUploadPhase"
-                                                    x-bind:disabled="@js($uploadBusy) && ! timedOut"
+                                                    x-bind:disabled="(@js($uploadBusy) && ! timedOut) || (clientUploading && ! uploadTimedOut) || prepBusy"
                                                 >
                                             </label>
                                             <div
@@ -618,11 +721,27 @@
                                             >
                                                 <span x-text="
                                                     uploadTimedOut ? '' : (
-                                                        serverBusy
-                                                            ? (uploadProgress >= 100 ? 'Bezig op de server…' : 'Uploaden…')
-                                                            : (uploadProgress === null || uploadProgress >= 100 ? 'Uploaden…' : ('Uploaden… ' + uploadProgress + '%'))
+                                                        autoRetrying
+                                                            ? (retryMessage + (retryCountdown ? (' ' + retryCountdown) : ''))
+                                                            : (
+                                                                serverBusy
+                                                                    ? (uploadProgress >= 100 ? 'Bezig op de server…' : 'Uploaden…')
+                                                                    : (uploadProgress === null || uploadProgress >= 100 ? 'Uploaden…' : ('Uploaden… ' + uploadProgress + '%'))
+                                                            )
                                                     )
                                                 "></span>
+                                            </div>
+                                            <div
+                                                x-show="autoRetrying && ! uploadTimedOut"
+                                                x-cloak
+                                                class="mt-2 text-sm text-[#5e6862]"
+                                                role="status"
+                                                data-testid="upload-retrying"
+                                            >
+                                                <p>
+                                                    <span x-text="retryMessage || 'Even geduld, we proberen het opnieuw.'"></span>
+                                                    <span class="ml-1 tabular-nums" x-text="retryCountdown"></span>
+                                                </p>
                                             </div>
                                             <div
                                                 x-show="uploadTimedOut && uploadError"
@@ -636,6 +755,7 @@
                                                     type="button"
                                                     class="mt-1 text-sm font-semibold text-[var(--tenant-primary)] underline"
                                                     x-on:click="retryUpload()"
+                                                    data-testid="upload-retry-button"
                                                 >
                                                     Opnieuw proberen
                                                 </button>
