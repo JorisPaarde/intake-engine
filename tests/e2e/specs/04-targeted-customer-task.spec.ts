@@ -59,6 +59,9 @@ test.describe('Targeted customer task (follow-up)', () => {
     await complete;
 
     await expect(page.getByText(/Bedankt/i).first()).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText(/installateur kijkt|nog iets openstaat/i)).toBeVisible();
+    // After PhotoOverridePolicy (#144): accepted overrides use review copy; clean rounds keep the open-items line.
+    await expect(
+      page.getByText(/installateur (kijkt|beoordeelt)|nog iets openstaat|nog geen afronding|aanvulling is ontvangen/i).first(),
+    ).toBeVisible();
   });
 });

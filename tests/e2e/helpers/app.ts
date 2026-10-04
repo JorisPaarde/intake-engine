@@ -174,14 +174,14 @@ export async function waitForPhotoAssessed(page: Page, timeoutMs = 90_000): Prom
 }
 
 export async function selectFirstRadioAndSave(page: Page): Promise<void> {
-  const label = page.locator('label').filter({ has: page.locator('input[type="radio"]') }).first();
-  const radio = label.locator('input[type="radio"]');
-  await expect(label).toBeVisible();
+  const radio = page.getByRole('radio').first();
+  await expect(radio).toBeVisible({ timeout: 10_000 });
   const livewire = waitForLivewire(page).catch(() => undefined);
-  await label.click();
+  await radio.check({ force: true });
   await livewire;
   await expect(radio).toBeChecked({ timeout: 5_000 });
 }
+
 
 export async function answerCurrentStep(page: Page, options?: { preferSkipPhotos?: boolean }): Promise<void> {
   const preferSkip = options?.preferSkipPhotos ?? true;

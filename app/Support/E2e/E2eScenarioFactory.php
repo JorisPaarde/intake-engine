@@ -154,10 +154,15 @@ final class E2eScenarioFactory
         $this->seedLivingRoomKnown($intake);
         $this->seedThroughFusebox($intake);
 
-        $this->saveAnswer->handle($intake, 'drain_location', null, ['value' => 'unknown']);
+        // Start on the drain questions — do not prefill drain_location (test answers it).
+        $intake->update([
+            'current_section_key' => 'condensate',
+            'current_question_key' => 'drain_location',
+            'current_section_instance_key' => null,
+        ]);
 
         return $this->payload($intake, 'drain-facade', [
-            'target_question_key' => 'drain_photo',
+            'target_question_key' => 'drain_location',
         ]);
     }
 
