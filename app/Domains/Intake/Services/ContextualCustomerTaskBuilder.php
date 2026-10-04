@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domains\Intake\Services;
 
 use App\Domains\AI\Support\PhotoSubject;
+use App\Domains\Intake\Actions\ApplyFollowUpTextContribution;
 use App\Domains\Intake\Models\AircoConnection;
 use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\DossierDecisionArea;
@@ -34,6 +35,7 @@ final class ContextualCustomerTaskBuilder
     public function __construct(
         private readonly RoomHeightRequirement $heightRequirement,
         private readonly PhotoObservationRelevance $photoObservationRelevance,
+        private readonly ApplyFollowUpTextContribution $followUpTextContribution,
     ) {}
 
     /**
@@ -66,7 +68,10 @@ final class ContextualCustomerTaskBuilder
         } elseif ($needsFloor) {
             $prompt = "Meet of noteer de lengte en breedte van {$roomLabel}, of het vloeroppervlak in m².";
         } elseif ($needsHeight) {
-            $prompt = "Meet of noteer de hoogte van {$roomLabel}.";
+            // Attic / sloped roof: ask for the measurements that matter, not a single average.
+            $prompt = $room->use_type === 'attic'
+                ? "Meet of noteer de hoogte van {$roomLabel}: hoogste punt onder de nok én de hoogte bij de knieschotten (schuin dak). Schrijf beide maten op."
+                : "Meet of noteer de hoogte van {$roomLabel}.";
         } else {
             $prompt = "Geef aan waarvoor {$roomLabel} vooral gebruikt wordt (bijvoorbeeld slaapkamer of woonkamer).";
         }
@@ -76,7 +81,39 @@ final class ContextualCustomerTaskBuilder
             $prompt,
             'capacity',
             $room->dossier_subject_id,
+            $needsHeight && ! $needsFloor && ! $missingUse
+                ? [ApplyFollowUpTextContribution::META_REQUESTED_FIELD => ApplyFollowUpTextContribution::FIELD_HEIGHT]
+                : [],
         );
+    }
+
+    /**
+     * Like forRoom(), but suppresses identical height re-asks when a proposal awaits review.
+     *
+     * @return array{
+     *     type: string,
+     *     prompt: string,
+     *     decision_area_key: string,
+     *     dossier_subject_id: int|null,
+     *     meta?: array<string, mixed>
+     * }|null
+     */
+    public function forRoomWithIntake(Intake $intake, AircoRoom $room): ?array
+    {
+        $dimensions = RoomDimensions::from(is_array($room->dimensions) ? $room->dimensions : null);
+        $needsFloor = ! $dimensions->hasReliableFloorArea()
+            || $dimensions->hasFloorAreaConflict()
+            || ($dimensions->hasUntrustedAreaM2() && ! $dimensions->hasLengthAndWidth());
+        $needsHeight = $this->heightRequirement->missingRequiredHeight($room);
+
+        if ($needsHeight
+            && ! $needsFloor
+            && $room->use_type !== null
+            && $this->followUpTextContribution->hasPendingHeightProposal($intake, $room)) {
+            return null;
+        }
+
+        return $this->forRoom($room);
     }
 
     /**
@@ -209,7 +246,7 @@ final class ContextualCustomerTaskBuilder
     private function capacityAreaAsk(Intake $intake): ?array
     {
         $incomplete = $intake->aircoRooms->first(
-            function (AircoRoom $room): bool {
+            function (AircoRoom $room) use ($intake): bool {
                 $dimensions = RoomDimensions::from(is_array($room->dimensions) ? $room->dimensions : null);
 
                 if ($room->use_type === null) {
@@ -224,12 +261,17 @@ final class ContextualCustomerTaskBuilder
                     return true;
                 }
 
-                return $this->heightRequirement->missingRequiredHeight($room);
+                if (! $this->heightRequirement->missingRequiredHeight($room)) {
+                    return false;
+                }
+
+                // Pending height proposal → no identical re-ask via capacityAreaAsk.
+                return ! $this->followUpTextContribution->hasPendingHeightProposal($intake, $room);
             },
         );
 
         return $incomplete instanceof AircoRoom
-            ? $this->forRoom($incomplete)
+            ? $this->forRoomWithIntake($intake, $incomplete)
             : null;
     }
 
@@ -261,11 +303,25 @@ final class ContextualCustomerTaskBuilder
 
         // Structured photo subjects — AssessFollowUpPhotoSubject must not skip this
         // just because decision_area_key=placement (intake 99 / empty-room-as-facade).
+        // Link evidence to the survey root so received facade photos attach to the dossier
+        // (same pattern as room/connection asks with an explicit subject).
+        $rootSubjectId = null;
+        if ($intake->relationLoaded('dossierSubjects')) {
+            $rootSubjectId = $intake->dossierSubjects
+                ->first(static fn (DossierSubject $subject): bool => $subject->key === 'survey')
+                ?->id;
+        } elseif ($intake->exists) {
+            $intake->loadMissing('dossierSubjects');
+            $rootSubjectId = $intake->dossierSubjects
+                ->first(static fn (DossierSubject $subject): bool => $subject->key === 'survey')
+                ?->id;
+        }
+
         return $this->draft(
             FollowUpItemType::Photo,
             CustomerFacingTaskText::ensureCustomerFacing($blocker),
             'placement',
-            null,
+            $rootSubjectId,
             [
                 'photo_task_subtype' => 'around_house',
                 'expected_photo_subject' => PhotoSubject::OutdoorLocation->value,

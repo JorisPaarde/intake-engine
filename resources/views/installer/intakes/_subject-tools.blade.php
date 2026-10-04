@@ -14,7 +14,8 @@
     $assumptions = $subjectRecords
         ->filter(
             fn ($record) => $record->status === \App\Enums\DossierRecordStatus::Proposed
-                && in_array($record->method, ['ai_assumption', 'ai_proposal'], true)
+                && $record->superseded_by_id === null
+                && in_array($record->method, ['ai_assumption', 'ai_proposal', 'targeted_customer_task'], true)
         )
         ->sortByDesc('id');
     $technicalNotes = $subjectRecords
@@ -25,9 +26,10 @@
                     'installer_note',
                     'installer_confirmed',
                     'installer_adjusted',
+                    'installer_corrected',
                     'on_site',
                 ], true)
-                && is_string($record->value['text'] ?? null)
+                && is_string($record->value['text'] ?? $record->value['_display_value'] ?? null)
         )
         ->sortByDesc('id');
     $fieldPrefix = 'subject-'.$subject?->id;
@@ -40,9 +42,45 @@
             ->take(4)
             ->values()
         : collect();
+    $subjectContributions = $subject
+        ? app(\App\Domains\Intake\Support\FollowUpContributionPresenter::class)
+            ->forSubject($intake, (int) $subject->id)
+        : [];
 @endphp
 
 @if ($subject)
+    @if ($subjectContributions !== [])
+        <div class="mt-4 space-y-2" data-testid="subject-contribution-evidence">
+            <p class="text-xs font-semibold uppercase tracking-[0.06em] text-emerald-800">Nieuwe aanvulling bij dit onderdeel</p>
+            @foreach ($subjectContributions as $contribution)
+                <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2" data-testid="contribution-item">
+                    @if (is_string($contribution['response_text'] ?? null) && trim((string) $contribution['response_text']) !== '')
+                        <p class="text-sm font-medium text-gray-950" data-testid="contribution-response">{{ $contribution['response_text'] }}</p>
+                    @endif
+                    @if (($contribution['uploads'] ?? []) !== [])
+                        <ul class="mt-2 grid grid-cols-4 gap-2">
+                            @foreach ($contribution['uploads'] as $contributionUpload)
+                                <li>
+                                    <a href="{{ route('installer.uploads.show', [$intake, $contributionUpload]) }}" target="_blank" rel="noopener" class="block overflow-hidden rounded-lg border border-emerald-200 bg-white">
+                                        <img src="{{ route('installer.uploads.show', [$intake, $contributionUpload]) }}" alt="Aanvullende foto" class="aspect-square w-full object-cover">
+                                    </a>
+                                </li>
+                            @endforeach
+                        </ul>
+                    @endif
+                    @if (($contribution['ai_facts'] ?? []) !== [])
+                        <ul class="mt-2 space-y-0.5">
+                            @foreach ($contribution['ai_facts'] as $fact)
+                                <li class="text-xs text-gray-700">{{ $fact }}</li>
+                            @endforeach
+                        </ul>
+                    @endif
+                    <p class="mt-2 text-xs text-emerald-900">{{ $contribution['installer_decides'] }}</p>
+                </div>
+            @endforeach
+        </div>
+    @endif
+
     @if ($subjectPhotos->isNotEmpty())
         <ul class="mt-4 grid grid-cols-4 gap-2">
             @foreach ($subjectPhotos as $photo)
@@ -175,11 +213,12 @@
             <p class="text-xs font-extrabold uppercase tracking-[0.06em] text-gray-600">Notities</p>
             @foreach ($technicalNotes as $note)
                 <div class="rounded-xl bg-gray-50 px-3 py-2">
-                    <p class="text-sm leading-relaxed text-gray-800">{{ $note->value['text'] }}</p>
+                    <p class="text-sm leading-relaxed text-gray-800">{{ $note->value['text'] ?? $note->value['_display_value'] ?? '' }}</p>
                     <p class="mt-1 text-xs text-gray-500">
                         {{ match ($note->method) {
                             'installer_confirmed' => 'Door installateur bevestigd',
                             'installer_adjusted' => 'Door installateur aangepast en bevestigd',
+                            'installer_corrected' => 'Vervangen door installateurscorrectie',
                             'on_site' => 'Ter plaatse vastgesteld',
                             default => 'Door installateur toegevoegd',
                         } }}

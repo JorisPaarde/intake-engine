@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domains\Intake\Support;
 
 use App\Domains\AI\Support\PhotoContentAssessment;
+use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Models\ContributionTask;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeFollowUpItem;
@@ -14,10 +15,12 @@ use App\Enums\FollowUpItemType;
 use Illuminate\Support\Collection;
 
 /**
- * Per-round installer review of follow-up photo evidence (BL-130).
+ * Per-round installer review of follow-up photo evidence (BL-130 / BL-146).
  *
- * A wrong-subject upload is superseded when a later round (same decision area)
- * has usable solving evidence.
+ * A wrong-subject upload is superseded when a later round with the same evidence
+ * scope (decision area + dossier subject + expected photo subject) has usable
+ * solving evidence. Matching only on decision area is too broad when multiple
+ * rooms or placement asks share one area key.
  */
 final class FollowUpEvidenceReview
 {
@@ -42,7 +45,7 @@ final class FollowUpEvidenceReview
     public function present(Intake $intake, Collection $rounds): array
     {
         $intake->loadMissing(['contributionTasks']);
-        $solvingRoundByArea = $this->latestSolvingRoundByArea($intake, $rounds);
+        $solvingRoundByScope = $this->latestSolvingRoundByScope($intake, $rounds);
 
         $presented = [];
 
@@ -50,7 +53,7 @@ final class FollowUpEvidenceReview
             $items = [];
 
             foreach ($round->items as $item) {
-                $areaKey = $this->decisionAreaKey($intake, $item);
+                $scopeKey = $this->evidenceScopeKey($intake, $item);
                 $uploads = [];
 
                 foreach ($item->uploads as $upload) {
@@ -59,16 +62,20 @@ final class FollowUpEvidenceReview
 
                     if ($assessment instanceof PhotoContentAssessment
                         && $assessment->status() === PhotoContentAssessment::STATUS_WRONG_SUBJECT
-                        && is_string($areaKey)
-                        && isset($solvingRoundByArea[$areaKey])
-                        && $solvingRoundByArea[$areaKey] > (int) $round->round_number) {
+                        && is_string($scopeKey)
+                        && isset($solvingRoundByScope[$scopeKey])
+                        && $solvingRoundByScope[$scopeKey] > (int) $round->round_number) {
                         $superseded = true;
                     }
+
+                    // After a solving contribution, do not let the old mismatch
+                    // label stay dominant in the installer review.
+                    $installerLabel = $superseded ? null : $assessment?->installerLabel();
 
                     $uploads[] = [
                         'upload' => $upload,
                         'assessment' => $assessment,
-                        'installer_label' => $assessment?->installerLabel(),
+                        'installer_label' => $installerLabel,
                         'superseded' => $superseded,
                         'supersession_label' => $superseded
                             ? 'Vervangen door nieuwere ronde'
@@ -79,6 +86,7 @@ final class FollowUpEvidenceReview
                 $items[] = [
                     'item' => $item,
                     'uploads' => $uploads,
+                    'scope_key' => $scopeKey,
                 ];
             }
 
@@ -93,9 +101,9 @@ final class FollowUpEvidenceReview
 
     /**
      * @param  Collection<int, IntakeFollowUpRound>  $rounds
-     * @return array<string, int> decision_area_key => latest solving round_number
+     * @return array<string, int> evidence_scope_key => latest solving round_number
      */
-    private function latestSolvingRoundByArea(Intake $intake, Collection $rounds): array
+    private function latestSolvingRoundByScope(Intake $intake, Collection $rounds): array
     {
         $latest = [];
 
@@ -105,8 +113,8 @@ final class FollowUpEvidenceReview
                     continue;
                 }
 
-                $areaKey = $this->decisionAreaKey($intake, $item);
-                if ($areaKey === null) {
+                $scopeKey = $this->evidenceScopeKey($intake, $item);
+                if ($scopeKey === null) {
                     continue;
                 }
 
@@ -115,7 +123,7 @@ final class FollowUpEvidenceReview
                     if ($assessment instanceof PhotoContentAssessment
                         && $assessment->status() === PhotoContentAssessment::STATUS_OK) {
                         $roundNumber = (int) $round->round_number;
-                        $latest[$areaKey] = max($latest[$areaKey] ?? 0, $roundNumber);
+                        $latest[$scopeKey] = max($latest[$scopeKey] ?? 0, $roundNumber);
                     }
                 }
             }
@@ -124,13 +132,47 @@ final class FollowUpEvidenceReview
         return $latest;
     }
 
-    private function decisionAreaKey(Intake $intake, IntakeFollowUpItem $item): ?string
+    /**
+     * Stable scope for supersession: area + subject + expected photo subject.
+     * Falls back to area alone only when subject and expected subject are unknown.
+     */
+    private function evidenceScopeKey(Intake $intake, IntakeFollowUpItem $item): ?string
     {
-        $task = $intake->contributionTasks
+        $task = $this->taskForItem($intake, $item);
+        $areaKey = is_string($task?->decision_area_key) && $task->decision_area_key !== ''
+            ? $task->decision_area_key
+            : null;
+
+        if ($areaKey === null) {
+            return null;
+        }
+
+        $subjectId = $task->dossier_subject_id;
+        $expected = PhotoSubject::expectedFromDecisionArea($areaKey);
+
+        // Prefer expected subject from a stored assessment when the area itself
+        // is not category-checkable (e.g. placement facade asks).
+        if ($expected === null) {
+            foreach ($item->uploads as $upload) {
+                $assessment = $upload->contentAssessment();
+                if ($assessment instanceof PhotoContentAssessment
+                    && $assessment->expectedSubject() instanceof PhotoSubject) {
+                    $expected = $assessment->expectedSubject();
+                    break;
+                }
+            }
+        }
+
+        $parts = [$areaKey];
+        $parts[] = $subjectId !== null ? 'subject:'.$subjectId : 'subject:none';
+        $parts[] = $expected instanceof PhotoSubject ? 'photo:'.$expected->value : 'photo:any';
+
+        return implode('|', $parts);
+    }
+
+    private function taskForItem(Intake $intake, IntakeFollowUpItem $item): ?ContributionTask
+    {
+        return $intake->contributionTasks
             ->first(static fn (ContributionTask $task): bool => $task->intake_follow_up_item_id === $item->id);
-
-        $key = $task?->decision_area_key;
-
-        return is_string($key) && $key !== '' ? $key : null;
     }
 }

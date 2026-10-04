@@ -111,6 +111,9 @@ test('placement multi-split blocker is not customer-suitable', function () {
 
 test('placement around-house photo blocker is customer-suitable', function () {
     $intake = builderIntakeWithRooms();
+    $intake->setRelation('dossierSubjects', collect([
+        (new DossierSubject)->forceFill(['id' => 77, 'key' => 'survey', 'type' => 'survey', 'label' => 'Technische opname']),
+    ]));
     $area = new DossierDecisionArea([
         'key' => 'placement',
         'label' => 'Plaatsing',
@@ -124,11 +127,29 @@ test('placement around-house photo blocker is customer-suitable', function () {
     expect($draft)->toMatchArray([
         'type' => FollowUpItemType::Photo->value,
         'decision_area_key' => 'placement',
+        'dossier_subject_id' => 77,
     ])
         ->and($draft['prompt'])->toContain('rondom het huis')
         ->and($draft['meta']['photo_task_subtype'] ?? null)->toBe('around_house')
         ->and($draft['meta']['expected_photo_subject'] ?? null)->toBe('outdoor_location')
         ->and($draft['meta']['accepted_photo_subjects'] ?? [])->toContain('outdoor_location');
+});
+
+test('attic height ask requests peak and knee-wall, not a single average', function () {
+    $room = (new AircoRoom)->forceFill([
+        'id' => 11,
+        'name' => 'Zolder 1',
+        'use_type' => 'attic',
+        'dimensions' => ['area_m2' => 15, 'area_source' => 'request', 'area_confidence' => 'high'],
+        'dossier_subject_id' => 55,
+    ]);
+
+    $draft = app(ContextualCustomerTaskBuilder::class)->forRoom($room);
+
+    expect($draft)->not->toBeNull()
+        ->and($draft['prompt'])->toContain('hoogste punt')
+        ->and($draft['prompt'])->toContain('knieschotten')
+        ->and($draft['meta']['requested_field'] ?? null)->toBe('height_m');
 });
 
 test('photo suggestion drafts a retake ask for the subject', function () {

@@ -7,6 +7,7 @@ namespace App\Domains\Intake\Actions;
 use App\Domains\AI\Jobs\SuggestAttentionPointsJob;
 use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
 use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
+use App\Domains\Intake\Models\ContributionTask;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeFollowUpRound;
@@ -27,6 +28,7 @@ final class CompleteFollowUpRound
         private readonly RebuildIntakeReportHtml $rebuildIntakeReportHtml,
         private readonly DossierManager $dossierManager,
         private readonly DecisionReadinessService $decisionReadiness,
+        private readonly ApplyFollowUpTextContribution $applyFollowUpTextContribution,
     ) {}
 
     /** @param array<int, string|null> $textResponses */
@@ -94,6 +96,11 @@ final class CompleteFollowUpRound
                             'follow_up' => PhotoOverridePolicy::OVERRIDE_MESSAGE,
                         ]);
                     }
+
+                    // Photo answered when uploads present and assessment/override resolved.
+                    if ($item->answered_at === null) {
+                        $item->update(['answered_at' => now()]);
+                    }
                 }
             }
 
@@ -138,6 +145,7 @@ final class CompleteFollowUpRound
         });
 
         $this->dossierManager->initialize($completed);
+        $this->applyTextContributions($completed, $round->fresh()?->load('items') ?? $round);
         $this->decisionReadiness->recalculate($completed);
 
         SynthesizeSurveyDossierJob::dispatch($completed->id);
@@ -156,5 +164,27 @@ final class CompleteFollowUpRound
         }
 
         return $completed;
+    }
+
+    private function applyTextContributions(Intake $intake, IntakeFollowUpRound $round): void
+    {
+        $intake->loadMissing(['contributionTasks', 'aircoRooms']);
+        $round->loadMissing('items');
+
+        foreach ($round->items as $item) {
+            if ($item->type !== FollowUpItemType::Text || $item->answered_at === null) {
+                continue;
+            }
+
+            $task = $intake->contributionTasks->first(
+                static fn (ContributionTask $candidate): bool => $candidate->intake_follow_up_item_id === $item->id,
+            );
+
+            if (! $task instanceof ContributionTask) {
+                continue;
+            }
+
+            $this->applyFollowUpTextContribution->handle($intake, $item, $task);
+        }
     }
 }

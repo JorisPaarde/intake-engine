@@ -6,6 +6,7 @@ namespace App\Domains\Intake\Services;
 
 use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\AI\Support\PhotoSubject;
+use App\Domains\Intake\Actions\ApplyFollowUpTextContribution;
 use App\Domains\Intake\Models\AircoConnection;
 use App\Domains\Intake\Models\AircoInstallationOption;
 use App\Domains\Intake\Models\AircoPlacementOption;
@@ -31,6 +32,7 @@ final class DecisionReadinessService
     public function __construct(
         private readonly RoomHeightRequirement $heightRequirement,
         private readonly AircoUnitCouplingValidator $couplingValidator,
+        private readonly ApplyFollowUpTextContribution $followUpTextContribution,
     ) {}
 
     /** @var array<string, string> */
@@ -208,6 +210,14 @@ final class DecisionReadinessService
         );
 
         if ($missingHeight instanceof AircoRoom) {
+            if ($this->followUpTextContribution->hasPendingHeightProposal($intake, $missingHeight)) {
+                return [
+                    'status' => DecisionAreaStatus::Review,
+                    'blocker' => 'Beoordeel de door de klant opgegeven hoogte van '.$missingHeight->name.'. Neem het hoogste punt niet blind over als gemiddelde hoogte.',
+                    'evidence_summary' => $this->capacityEvidence($intake),
+                ];
+            }
+
             return [
                 'status' => DecisionAreaStatus::Review,
                 'next_action' => DossierNextAction::RequestContribution,
@@ -759,6 +769,12 @@ final class DecisionReadinessService
                 true,
             ),
         )) {
+            return true;
+        }
+
+        // Targeted follow-up facade / around-house photos clear the same gap as meterkast
+        // does for power — without treating technical unit placement as solved.
+        if ($this->hasSolvingFollowUpPhoto($intake, 'placement', PhotoSubject::OutdoorLocation)) {
             return true;
         }
 

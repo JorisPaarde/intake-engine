@@ -75,6 +75,8 @@
         $primarySummary = $primaryAction['summary'];
         $areaTargetResolver = app(\App\Domains\Intake\Services\WorkspacePrimaryActionResolver::class);
         $customerTaskBuilder = app(\App\Domains\Intake\Services\ContextualCustomerTaskBuilder::class);
+        $contributionPresenter = app(\App\Domains\Intake\Support\FollowUpContributionPresenter::class);
+        $receivedContribution = $contributionPresenter->present($intake);
         $firstActionableOpenKey = $areaTargetResolver->firstActionableOpenArea($openAreas)?->key;
         $hasOpenPoints = $openAreas->isNotEmpty();
         $customerTaskDraft = is_array($customerTaskDraft ?? null) ? $customerTaskDraft : null;
@@ -94,6 +96,51 @@
             @if (session('status'))
                 <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-900" role="status">
                     {{ session('status') }}
+                </div>
+            @endif
+
+            @if ($receivedContribution['has_new'])
+                <div class="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-4" role="status" data-testid="new-contribution-banner">
+                    <p class="text-sm font-bold text-emerald-950">{{ $receivedContribution['banner_label'] }}</p>
+                    <ul class="mt-3 space-y-3">
+                        @foreach ($receivedContribution['items'] as $contribution)
+                            <li class="rounded-xl border border-emerald-200 bg-white px-3 py-3" data-testid="new-contribution-item">
+                                <div class="flex flex-wrap items-start justify-between gap-2">
+                                    <div class="min-w-0">
+                                        @if (is_string($contribution['response_text'] ?? null) && trim((string) $contribution['response_text']) !== '')
+                                            <p class="text-sm font-medium text-gray-950">{{ $contribution['response_text'] }}</p>
+                                        @elseif (($contribution['uploads'] ?? []) !== [])
+                                            <p class="text-sm font-medium text-gray-950">Foto-aanvulling ontvangen (ronde {{ $contribution['round_number'] }})</p>
+                                        @else
+                                            <p class="text-sm font-medium text-gray-950">Aanvulling ontvangen</p>
+                                        @endif
+                                        @if (($contribution['ai_facts'] ?? []) !== [])
+                                            <ul class="mt-1 space-y-0.5">
+                                                @foreach ($contribution['ai_facts'] as $fact)
+                                                    <li class="text-xs text-gray-600">{{ $fact }}</li>
+                                                @endforeach
+                                            </ul>
+                                        @endif
+                                        <p class="mt-1 text-xs text-emerald-900">{{ $contribution['installer_decides'] }}</p>
+                                    </div>
+                                    <a href="{{ $contribution['review_href'] }}" class="inline-flex min-h-10 items-center rounded-lg bg-marketing-green-dark px-3 py-2 text-xs font-semibold text-white hover:bg-marketing-green" data-testid="contribution-review-action">
+                                        Beoordeel
+                                    </a>
+                                </div>
+                                @if (($contribution['uploads'] ?? []) !== [])
+                                    <ul class="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-6">
+                                        @foreach ($contribution['uploads'] as $contributionUpload)
+                                            <li>
+                                                <a href="{{ route('installer.uploads.show', [$intake, $contributionUpload]) }}" target="_blank" rel="noopener" class="block overflow-hidden rounded-lg border border-gray-200">
+                                                    <img src="{{ route('installer.uploads.show', [$intake, $contributionUpload]) }}" alt="Ontvangen foto" class="aspect-square w-full object-cover">
+                                                </a>
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                @endif
+                            </li>
+                        @endforeach
+                    </ul>
                 </div>
             @endif
 
@@ -250,9 +297,39 @@
                                         ])>{{ $area->status->label() }}</span>
                                     </summary>
                                     <div class="min-w-0 space-y-3 border-t border-gray-200/70 px-4 pb-4 pt-3 pl-[2.375rem]">
+                                        @php
+                                            $areaContributions = $contributionPresenter->forDecisionArea($intake, $area->key);
+                                        @endphp
+                                        @if ($areaContributions !== [])
+                                            <div class="space-y-2 rounded-xl border border-emerald-200 bg-emerald-50/80 px-3 py-2" data-testid="area-contribution-{{ $area->key }}">
+                                                <p class="text-xs font-semibold text-emerald-900">Nieuwe aanvulling ontvangen</p>
+                                                @foreach ($areaContributions as $contribution)
+                                                    <div class="text-xs text-gray-700">
+                                                        @if (is_string($contribution['response_text'] ?? null) && trim((string) $contribution['response_text']) !== '')
+                                                            <p class="font-medium text-gray-900">{{ $contribution['response_text'] }}</p>
+                                                        @elseif (($contribution['uploads'] ?? []) !== [])
+                                                            <ul class="mt-1 grid grid-cols-3 gap-1">
+                                                                @foreach ($contribution['uploads'] as $contributionUpload)
+                                                                    <li>
+                                                                        <a href="{{ route('installer.uploads.show', [$intake, $contributionUpload]) }}" target="_blank" rel="noopener" class="block overflow-hidden rounded border border-emerald-200">
+                                                                            <img src="{{ route('installer.uploads.show', [$intake, $contributionUpload]) }}" alt="Aanvulling" class="aspect-square w-full object-cover">
+                                                                        </a>
+                                                                    </li>
+                                                                @endforeach
+                                                            </ul>
+                                                        @endif
+                                                        @foreach ($contribution['ai_facts'] as $fact)
+                                                            <p class="mt-1">{{ $fact }}</p>
+                                                        @endforeach
+                                                        <p class="mt-1 text-emerald-900">{{ $contribution['installer_decides'] }}</p>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        @endif
+
                                         @if ($overviewItem['detail'])
                                             <p class="break-words text-xs leading-relaxed text-gray-600">{{ $overviewItem['detail'] }}</p>
-                                        @elseif (! $overviewItem['is_open'])
+                                        @elseif (! $overviewItem['is_open'] && $areaContributions === [])
                                             <p class="text-xs text-gray-500">Geen open detail voor dit onderdeel.</p>
                                         @endif
 
@@ -293,7 +370,7 @@
                                     $hasAnyDimension = $roomMeasures->hasAnyMeasure();
                                     $floorConflict = $roomMeasures->hasFloorAreaConflict();
                                     $heightNeeded = $room->use_type === 'attic';
-                                    $roomCustomerAsk = $customerTaskBuilder->forRoom($room);
+                                    $roomCustomerAsk = $customerTaskBuilder->forRoomWithIntake($intake, $room);
                                 @endphp
                                 <article id="room-{{ $room->id }}" class="scroll-mt-28 border border-gray-200 bg-white p-4 sm:p-5">
                                     <div class="flex flex-wrap items-start justify-between gap-3">
