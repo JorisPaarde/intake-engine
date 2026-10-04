@@ -686,10 +686,11 @@ final class IntakeStepBuilder
                 && $answerSource !== PrefillSources::AI_TEXT_SUGGESTION;
         }
 
+        // Null provenance = legacy fill zonder meta: niet als inferred behandelen.
         return FactAcceptance::countsAsKnown(
             $confidence ?? ($provenance === FactProvenance::Stated ? FactAcceptance::LEVEL_HIGH : null),
             $factSource,
-            $provenance ?? FactProvenance::Inferred,
+            $provenance,
             $question->key,
         );
     }

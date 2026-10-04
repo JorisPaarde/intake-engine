@@ -304,8 +304,9 @@ final class RequestPrefillOutcomeClassifier
                 continue;
             }
 
+            $explicitProvenance = FactProvenance::tryFromMixed($fill['provenance'] ?? null);
             $provenance = $this->resolveProvenance($fill['provenance'] ?? null, $key, $confidence);
-            if (! array_key_exists('provenance', $fill) || FactProvenance::tryFromMixed($fill['provenance'] ?? null) === null) {
+            if (! array_key_exists('provenance', $fill) || $explicitProvenance === null) {
                 $normalizations[] = [
                     'field' => ($instanceKey === null ? $key : $key.'|'.$instanceKey).'.provenance',
                     'from' => $fill['provenance'] ?? null,
@@ -318,11 +319,16 @@ final class RequestPrefillOutcomeClassifier
 
             $confidencePercent = FactAcceptance::normalizeConfidence($confidence) ?? FactAcceptance::LEVEL_LOW;
             $sourceText = is_string($requestReason) ? $requestReason : '';
+            $hasEvidenceQuote = is_string($fillEvidence) && trim($fillEvidence) !== '';
 
-            // Stated vereist een evidence-quote die echt in de brontekst staat; anders inferred + onder drempel.
-            // Zonder brontekst (alleen unit/dry-run zonder request_reason) geen quote-check — productie levert die altijd.
+            // Expliciet stated (of stated mét evidence-claim) vereist een quote in de brontekst.
+            // Legacy high zonder provenance én zonder evidence blijft stated (bestaande Fake/fixtures).
             if ($provenance === FactProvenance::Stated && $sourceText !== '') {
-                if (! FactAcceptance::evidenceAppearsInSource($fillEvidence, $sourceText)) {
+                $mustValidateQuote = $explicitProvenance === FactProvenance::Stated || $hasEvidenceQuote;
+                if ($explicitProvenance === FactProvenance::Stated && ! $hasEvidenceQuote) {
+                    $mustValidateQuote = true;
+                }
+                if ($mustValidateQuote && ! FactAcceptance::evidenceAppearsInSource($fillEvidence, $sourceText)) {
                     $normalizations[] = [
                         'field' => ($instanceKey === null ? $key : $key.'|'.$instanceKey).'.provenance',
                         'from' => FactProvenance::Stated->value,

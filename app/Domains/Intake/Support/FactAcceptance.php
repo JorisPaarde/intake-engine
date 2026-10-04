@@ -128,7 +128,9 @@ final class FactAcceptance
             return FactSource::Photo;
         }
 
-        if (PrefillSources::isTextDerived($prefillSource) || $prefillSource === 'installer') {
+        if (PrefillSources::isTextDerived($prefillSource)
+            || $prefillSource === 'installer'
+            || in_array($prefillSource, ['pdok', 'epo', 'bag'], true)) {
             return FactSource::CustomerAnswer;
         }
 
