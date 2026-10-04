@@ -70,6 +70,8 @@ final class IntakeStepBuilder
     /**
      * @param  array<string, array<string, mixed>|null>  $liveAnswers  optional in-memory form answers for live visibility
      * @param  list<string>  $forceShowComposites  composites that must stay visible (known-summary “Wijzigen”)
+     * @param  list<string>  $stickyStepKeys  full wizard step keys kept visible while the customer is still on them
+     *                                        (e.g. room_name after autosave until Volgende)
      * @return list<IntakeStep>
      */
     public function build(
@@ -77,6 +79,7 @@ final class IntakeStepBuilder
         IntakeTemplateVersion $version,
         array $liveAnswers = [],
         array $forceShowComposites = [],
+        array $stickyStepKeys = [],
     ): array {
         $context = $this->buildContext($intake, $version, $liveAnswers);
         $steps = [];
@@ -94,6 +97,7 @@ final class IntakeStepBuilder
                         $instanceKey,
                         $context,
                         $forceShowComposites,
+                        $stickyStepKeys,
                     );
                 }
 
@@ -107,6 +111,7 @@ final class IntakeStepBuilder
                 null,
                 $context,
                 $forceShowComposites,
+                $stickyStepKeys,
             );
         }
 
@@ -236,6 +241,7 @@ final class IntakeStepBuilder
      *     allQuestions: Collection<string, IntakeQuestion>
      * }  $context
      * @param  list<string>  $forceShowComposites
+     * @param  list<string>  $stickyStepKeys
      */
     private function appendVisibleQuestionSteps(
         array &$steps,
@@ -244,6 +250,7 @@ final class IntakeStepBuilder
         ?string $sectionInstanceKey,
         array $context,
         array $forceShowComposites,
+        array $stickyStepKeys = [],
     ): void {
         $questions = $section->questions->sortBy('sort_order')->values();
         $visibility = $this->resolveVisibilityForSection($questions, $sectionInstanceKey, $context);
@@ -290,14 +297,27 @@ final class IntakeStepBuilder
                 $forceShow,
             );
 
-            if ($presentation['reason'] !== 'visible') {
+            $instanceSuffix = $sectionInstanceKey === null ? '' : '::'.$sectionInstanceKey;
+            $wizardGroup = is_string($question->meta['wizard_group'] ?? null)
+                ? (string) $question->meta['wizard_group']
+                : null;
+            $candidateStepKey = $wizardGroup !== null && $wizardGroup !== ''
+                ? $section->key.$instanceSuffix.'::'.$wizardGroup
+                : $section->key.$instanceSuffix.'::'.$question->key;
+            // Sticky only for “answered/prefilled” hides (e.g. room_name after fill), never for
+            // rule-invisible steps (e.g. fusebox_photo_extra after a clear meterkastfoto).
+            $stickyKeep = in_array($candidateStepKey, $stickyStepKeys, true)
+                && in_array($presentation['reason'], ['prefilled', 'overgeslagen'], true);
+
+            if ($presentation['reason'] !== 'visible' && ! $stickyKeep) {
                 continue;
             }
 
             if ($section->key === 'closing'
                 && $sectionInstanceKey === null
                 && in_array($question->key, self::CLOSING_WISH_KEYS, true)
-                && ! $forceShow) {
+                && ! $forceShow
+                && ! $stickyKeep) {
                 $pendingClosing[] = [
                     'question' => $question,
                     'required' => $presentation['required'],
@@ -307,10 +327,6 @@ final class IntakeStepBuilder
             }
 
             $flushClosing();
-
-            $wizardGroup = is_string($question->meta['wizard_group'] ?? null)
-                ? (string) $question->meta['wizard_group']
-                : null;
 
             if ($wizardGroup !== null && $wizardGroup !== '') {
                 if (isset($emittedGroups[$wizardGroup])) {

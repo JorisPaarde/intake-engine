@@ -2541,6 +2541,8 @@ class IntakeWizard extends Component
                 $this->knownStepKeys = $knownBeforeSave;
             }
             $this->activeStepKey = $currentKey;
+            $this->resolvedSteps = null;
+            $this->resolvedStepsFormSignature = null;
             $this->realignToActiveStep();
             $this->showMissing = false;
             $this->completionMissing = [];
@@ -2556,7 +2558,8 @@ class IntakeWizard extends Component
             $this->activeStepKey = $currentKey ?? '';
         }
 
-        if (! $this->stepRequiredSatisfied($steps[$this->stepIndex] ?? null)) {
+        $stepToValidate = $currentIndex !== null ? ($steps[$currentIndex] ?? null) : null;
+        if (! $this->stepRequiredSatisfied($stepToValidate)) {
             $this->showMissing = true;
             $this->completionMissing = [];
             $this->saveMessage = '';
@@ -2802,7 +2805,10 @@ class IntakeWizard extends Component
      */
     private function steps(): array
     {
-        $signature = $this->liveAnswersSignature().'|'.implode(',', $this->forceShowKnown);
+        $stickyStepKeys = $this->activeStepKey !== '' ? [$this->activeStepKey] : [];
+        $signature = $this->liveAnswersSignature()
+            .'|'.implode(',', $this->forceShowKnown)
+            .'|'.implode(',', $stickyStepKeys);
 
         if ($this->resolvedSteps !== null && $this->resolvedStepsFormSignature === $signature) {
             return $this->resolvedSteps;
@@ -2813,6 +2819,7 @@ class IntakeWizard extends Component
             $this->version(),
             $this->liveAnswers(),
             $this->forceShowKnown,
+            $stickyStepKeys,
         );
 
         $this->resolvedSteps = $steps;
@@ -3482,7 +3489,15 @@ class IntakeWizard extends Component
      */
     private function syncActiveStepKey(array $steps): void
     {
+        $previousKey = $this->activeStepKey;
         $this->activeStepKey = $steps[$this->stepIndex]['key'] ?? '';
+
+        // Sticky step keys are derived from activeStepKey; drop the cached list when it changes
+        // so the previous question can leave the wizard after Volgende.
+        if ($previousKey !== $this->activeStepKey) {
+            $this->resolvedSteps = null;
+            $this->resolvedStepsFormSignature = null;
+        }
     }
 
     /**
