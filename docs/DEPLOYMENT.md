@@ -1,6 +1,6 @@
 # Deployment naar cPanel (staging + production)
 
-> **Documentversie:** 2.25 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.26 · **Laatste update:** 2026-10-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 **Statusregel:** staging en production zijn fysiek en logisch gescheiden; open handmatige acties (env/host) staan in [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
 
@@ -127,25 +127,25 @@ Repo → Settings → Environments → `staging` / `production`. Gebruik dezelfd
 
 De workflows weigeren een deploypad dat niet eindigt op de verwachte omgevingsnaam. `activate.sh` weigert daarnaast een `.env` waarvan `APP_ENV` niet overeenkomt met `staging` of `production`.
 
-### 7. Cron: scheduler + queue-worker
+### 7. Cron: alleen `schedule:run`
 
-cPanel → **Cron Jobs**. Per omgeving zijn dit de **verplichte** regels (staging-voorbeeld; production: vervang het pad):
+cPanel → **Cron Jobs**. Per omgeving hoort **één** regel in crontab (staging-voorbeeld; production: vervang het pad):
 
 ```
 * * * * * cd /home/intakeengine/apps/intake-engine-staging/current && /usr/local/bin/php artisan schedule:run >> /dev/null 2>&1
-* * * * * cd /home/intakeengine/apps/intake-engine-staging/current && /usr/local/bin/php artisan queue:work --queue=ai-photo,default --stop-when-empty --max-time=50 >> /dev/null 2>&1
 ```
 
 Production (identiek, ander pad):
 
 ```
 * * * * * cd /home/intakeengine/apps/intake-engine-production/current && /usr/local/bin/php artisan schedule:run >> /dev/null 2>&1
-* * * * * cd /home/intakeengine/apps/intake-engine-production/current && /usr/local/bin/php artisan queue:work --queue=ai-photo,default --stop-when-empty --max-time=50 >> /dev/null 2>&1
 ```
+
+**Geen aparte `queue:work --stop-when-empty`-cron.** De scheduler start zelf de lange queue-worker (zie hieronder). Een tweede minutelijke `queue:work` verdubbelt PHP-processen en duwt cPanel/LVE (512 MB) sneller tegen de limiet → 503.
 
 **Let op cPanel `RANDOM_DELAY`:** de host zet vaak `RANDOM_DELAY=180`, waardoor een minutelijke cron tot ~3 minuten later kan starten. Plan daar rekening mee bij latency-verwachtingen na deploy/`queue:restart`.
 
-**Primaire worker:** `schedule:run` (via `routes/console.php`, elke minuut) start een lange background-worker zolang er geen overlap-lock is:
+**Queue-worker (via scheduler):** `schedule:run` (via `routes/console.php`, elke minuut) start een lange background-worker zolang er geen overlap-lock is:
 
 ```text
 php artisan queue:work --queue=ai-photo,default --max-time=3300 --memory=256 --sleep=1 --tries=2
@@ -153,11 +153,11 @@ php artisan queue:work --queue=ai-photo,default --max-time=3300 --memory=256 --s
 
 met `everyMinute()`, `withoutOverlapping(60)` (mutex-expiry > max-time) en `runInBackground()`. Laravel roept na afloop `schedule:finish` aan en geeft de mutex vrij — na `queue:restart` (deploy) start de volgende `schedule:run` dus weer een worker (binnen ~1 min, of tot ~3 min met `RANDOM_DELAY`).
 
-**Fallback:** de minutelijke `--stop-when-empty`-cron hierboven blijft het vangnet wanneer de scheduler-worker even stil ligt. Zonder `ai-photo` in die queue-lijst blijven fotojobs liggen tot de lange worker weer draait.
+**Photo-assessment watchdog:** `photos:requeue-pending-assessments` draait via dezelfde scheduler op `everyFiveMinutes()` (niet elke minuut). Upload dispatcht de AI-job meteen; de watchdog is alleen een vangnet voor verloren pending.
 
 Geen supervisor op cPanel. `queue:restart` in de deploy zorgt dat workers na een release verse code draaien. `QUEUE_CONNECTION=database`.
 
-`schedule:run` dekt o.a. hourly `intakes:purge-demos`, daily `intakes:send-reminders` (BL-015), daily `intakes:purge-deleted` (BL-009), daily `product-interests:purge` (BL-043), daily `ai:purge-traces`, en de minutelijk beheerde `ai-photo`-worker. De queue verwerkt AI-fotobeoordeling (`AssessUploadedPhotoJob`), AI-samenvatting, PDF-export (BL-005) en optionele interne interesse-notificaties.
+`schedule:run` dekt o.a. hourly `intakes:purge-demos`, daily `intakes:send-reminders` (BL-015), daily `intakes:purge-deleted` (BL-009), daily `product-interests:purge` (BL-043), daily `ai:purge-traces`, elke vijf minuten `photos:requeue-pending-assessments`, en de minutelijk beheerde `ai-photo`-worker. De queue verwerkt AI-fotobeoordeling (`AssessUploadedPhotoJob`), AI-samenvatting, PDF-export (BL-005) en optionele interne interesse-notificaties.
 
 ## Database bij deploy
 

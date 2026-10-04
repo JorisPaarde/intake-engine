@@ -32,3 +32,11 @@ test('queue-ai-photo-worker background command finishes with schedule:finish to 
     expect($built)->toContain('schedule:finish')
         ->and($built)->toContain($event->mutexName());
 });
+
+test('photos requeue watchdog runs every five minutes not every minute', function () {
+    $event = collect(app(Schedule::class)->events())
+        ->first(fn (Event $event): bool => str_contains((string) $event->command, 'photos:requeue-pending-assessments'));
+
+    expect($event)->toBeInstanceOf(Event::class)
+        ->and($event->expression)->toBe('*/5 * * * *');
+});

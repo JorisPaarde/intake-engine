@@ -16,16 +16,18 @@ Schedule::command('intakes:send-reminders')->daily();
 Schedule::command('intakes:purge-deleted')->daily();
 Schedule::command('product-interests:purge')->daily();
 Schedule::command('ai:purge-traces')->daily();
-Schedule::command('photos:requeue-pending-assessments')->everyMinute();
+// Watchdog alleen: upload dispatcht AssessUploadedPhotoJob meteen. Elke 5 min i.p.v.
+// elke minuut beperkt PHP/LVE-geheugenpieken op cPanel (512 MB).
+Schedule::command('photos:requeue-pending-assessments')->everyFiveMinutes();
 
 /*
  * Foto-AI (queue ai-photo) + overige jobs. cPanel heeft geen Supervisor.
+ * Alleen `schedule:run` hoort in crontab — géén aparte queue:work --stop-when-empty.
  * schedule:run start elke minuut deze lange worker opnieuw als hij niet
  * draait (withoutOverlapping + runInBackground). Bij queue:restart (deploy)
  * eindigt de worker; schedule:finish geeft de mutex vrij, zodat de volgende
  * schedule:run (~1 min, cPanel RANDOM_DELAY kan tot ~3 min vertragen) weer
  * start. Mutex-expiry (60 min) > max-time (3300 s ≈ 55 min) voorkomt overlap.
- * De minutelijke stop-when-empty-cron blijft het vangnet.
  */
 Schedule::command('queue:work --queue='.AssessUploadedPhotoJob::QUEUE.',default --max-time=3300 --memory=256 --sleep=1 --tries=2')
     ->everyMinute()
