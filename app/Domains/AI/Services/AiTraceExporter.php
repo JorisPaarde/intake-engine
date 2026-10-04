@@ -85,6 +85,7 @@ final class AiTraceExporter
             'preprocess_ms' => $trace->preprocess_ms,
             'network_upload_ms' => $trace->network_upload_ms,
             'queue_wait_ms' => $trace->queue_wait_ms,
+            'queued_at' => $trace->queued_at instanceof Carbon ? $trace->queued_at->toIso8601String() : null,
             'estimated_cost_cents' => $trace->estimated_cost_cents,
             'estimated_cost' => $trace->estimated_cost,
             'error_message' => is_string($trace->error_message)
@@ -95,6 +96,7 @@ final class AiTraceExporter
             'correlation_id' => $trace->correlation_id,
             'attempt' => $trace->attempt,
             'retry_count' => $trace->retry_count,
+            'finish_reason' => $trace->finish_reason,
             'model_parameters' => $trace->model_parameters,
             'started_at' => $startedAt instanceof Carbon ? $startedAt->toIso8601String() : null,
             'finished_at' => $finishedAt instanceof Carbon ? $finishedAt->toIso8601String() : null,

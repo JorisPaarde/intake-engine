@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.98 · **Laatste update:** 2026-10-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.99 · **Laatste update:** 2026-10-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 De MVP-bouwstenen staan historisch onder E1–E5. De productfase E6–E10 is op 2026-07-30 geïmplementeerd en volgt het [productmodel](product-model.md): één centrale technische opname na een bestaande aanvraag, meerdere bijdragers, beslisgereedheid en voor airco afzonderlijke koel-, condens- en stroomverbindingen.
@@ -40,16 +40,17 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = fotobeoordeling via queue (#124, done). **BL-122** = soft catalogus-prefill (case 81). **BL-123** = staging-retest acceptance (#115–#120). **BL-124** = form robustness (#127, done). **BL-125** = AI-trace retentie/export + PDF-downscale (#130, done). **BL-126** = prompt/vision quality (route/ownership/kamernamen). **BL-127** = foto-assessment terminale status + watchdog (#133, done). **BL-128** = grote telefoonfoto-upload (inactiviteit-timeout + client-downscale + lege-200-retry, #131 done). **BL-129** = klant-UX review v1.3.0 (airco v22, #134 done). **BL-130** = follow-up mismatch-override + reassessment (#125). **BL-131** = wizard nav + scoped foto-feedback (#129, done). **BL-132** = AI-trace veldverbeteringen (request_id/cost/queue/redactie, #136). **BL-133** = staging AI-trace fixes (fusebox/glass/prefill/follow-up, airco v23, #135). **BL-134** = photo-assessment watchdog hotfix (legacy pending → geen AI op submitted, #137). **BL-135** = strikte dossiersynthese + partial accept + budget (#123). **BL-136** = prefill-provenance + aannames (#123). **BL-137** = lege woonkamer geen altijd-extra-foto + stappenreductie (airco v24). **BL-138** = AI Gemini/OpenRouter 400 + attention_points model/truncated + connections partial (prod 94/95, #139). **BL-139** = hertest 4 okt P2/P3 (photo override + AI-voorstel labels + v25 drain/around_house/progress). **BL-140** = sticky wizard step-id na kamernaam-autosave (#142). **BL-141** = PHP `memory_limit` 256M + CLI/queue + 12 MP piektest (#146). **BL-142** = prefill confidence % + stated-quote validatie (buren/cooling). **BL-143** = upload 503-recovery + async variants (client 2000px, update-retry, ProcessIntakePhotoVariantsJob; #140). Nieuwe items starten bij BL-144.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = fotobeoordeling via queue (#124, done). **BL-122** = soft catalogus-prefill (case 81). **BL-123** = staging-retest acceptance (#115–#120). **BL-124** = form robustness (#127, done). **BL-125** = AI-trace retentie/export + PDF-downscale (#130, done). **BL-126** = prompt/vision quality (route/ownership/kamernamen). **BL-127** = foto-assessment terminale status + watchdog (#133, done). **BL-128** = grote telefoonfoto-upload (inactiviteit-timeout + client-downscale + lege-200-retry, #131 done). **BL-129** = klant-UX review v1.3.0 (airco v22, #134 done). **BL-130** = follow-up mismatch-override + reassessment (#125). **BL-131** = wizard nav + scoped foto-feedback (#129, done). **BL-132** = AI-trace veldverbeteringen (request_id/cost/queue/redactie, #136). **BL-133** = staging AI-trace fixes (fusebox/glass/prefill/follow-up, airco v23, #135). **BL-134** = photo-assessment watchdog hotfix (legacy pending → geen AI op submitted, #137). **BL-135** = strikte dossiersynthese + partial accept + budget (#123). **BL-136** = prefill-provenance + aannames (#123). **BL-137** = lege woonkamer geen altijd-extra-foto + stappenreductie (airco v24). **BL-138** = AI Gemini/OpenRouter 400 + attention_points model/truncated + connections partial (prod 94/95, #139). **BL-139** = hertest 4 okt P2/P3 (photo override + AI-voorstel labels + v25, #144). **BL-140** = sticky wizard step-id na kamernaam-autosave (#142). **BL-141** = PHP `memory_limit` 256M + CLI/queue + 12 MP piektest (#146). **BL-142** = prefill confidence % + stated-quote validatie (buren/cooling, #143). **BL-143** = upload 503-recovery + async variants (#140). **BL-144** = AI-trace gaps afronden (provider_request_id/skip/seed/queued_at/export). Nieuwe items starten bij BL-145.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| 1 | BL-143 | Upload vast na 503 op Livewire-update + grote progressive JPEG | E1/E7 | in_progress | high | na BL-128 · prod intakes 94/95 · staging 78/80/81/92 · PR #140 |
-| 1 | BL-142 | Prefill: confidence % + stated-quote; geen onbevestigde buren/cooling als feit | E3/E4/E9 | done | high | na BL-136 · intakes 78/84 · request-prefill-v10 · PR #143 |
+| 1 | BL-144 | AI-trace gaps: provider_request_id, skip-runs, seed/queued_at, export finish_reason | E4/E5 | in_progress | high | na BL-125/132/133 · intakes 76–78/94–95 · rebase main@ba83825 |
+| — | BL-143 | Upload vast na 503 op Livewire-update + grote progressive JPEG | E1/E7 | done | high | na BL-128 · prod intakes 94/95 · staging 78/80/81/92 · PR #140 |
+| — | BL-142 | Prefill: confidence % + stated-quote; geen onbevestigde buren/cooling als feit | E3/E4/E9 | done | high | na BL-136 · intakes 78/84 · request-prefill-v10 · PR #143 |
 | — | BL-141 | PHP memory_limit 256M (web+CLI) + 12 MP normalize-piektest | E1 | done | medium | A · hosting · na BL-106 · Hoasted PMEM 512 MB · PR #146 |
-| 1 | BL-140 | Wizard: sticky step-id na kamernaam-autosave (geen Volgende-blokkade) | E1 | done | high | na BL-131 · Notion P1 intake 84/92 · PR #142 |
-| 1 | BL-139 | Hertest 4 okt P2/P3: photo override + AI-voorstel + drain/around_house/progress | E1/E2/E4 | done | high | na BL-130/137 · airco v25 · prod 94/95 · PR #144 |
-| 1 | BL-138 | AI: Gemini json_object + connections partial + attention_points model/truncated | E4/E9 | done | high | prod intake 94/95 · PR #139 · na BL-135 · main@b264e11 |
+| — | BL-140 | Wizard: sticky step-id na kamernaam-autosave (geen Volgende-blokkade) | E1 | done | high | na BL-131 · Notion P1 intake 84/92 · PR #142 |
+| — | BL-139 | Hertest 4 okt P2/P3: photo override + AI-voorstel + drain/around_house/progress | E1/E2/E4 | done | high | na BL-130/137 · airco v25 · prod 94/95 · PR #144 |
+| — | BL-138 | AI: Gemini json_object + connections partial + attention_points model/truncated | E4/E9 | done | high | prod intake 94/95 · PR #139 · na BL-135 · main@b264e11 |
 | 1 | BL-137 | Staging-retest: geen extra wand/deur-foto bij bruikbaar overzicht + stappenreductie | E1/E4 | in_progress | high | na BL-129/133 · airco v24 · main@24b7892 |
 | 1 | BL-134 | Hotfix: legacy photo-assessment pending niet herqueuen / geen AI op submitted | E4 | in_progress | high | prod v1.4.0 · na BL-127 · rebase main@2d0871e |
 | 1 | BL-117 | Installateur kan technisch open punt afhandelen vanuit de survey-werkplek | E7/E8 | backlog | high | na PR #115 · show/rapport `*_open` |
@@ -629,9 +630,10 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-132 — AI-trace veldverbeteringen (provider id, cost, queue, redactie)
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E4/E5 · **Band:** AI/ops · **Volgt op:** BL-125 · **Ref:** follow-up lege `request_id` / grove kosten na #130/#132 · PR #136
+- **Status:** done · **Datum:** 2026-10-03 · **PR:** #136 · **Prioriteit:** high · **Epic:** E4/E5 · **Band:** AI/ops · **Volgt op:** BL-125 · **Ref:** follow-up lege `request_id` / grove kosten na #130
 - **Doel:** `request_id` + `provider_response_id` (OpenRouter completion `id`) en stabiele `correlation_id` per request/upload; generation settings in `model_parameters`; `queue_wait_ms` + `attempt`/`retry_count`; fijnmazige `estimated_cost` (provider `usage.cost`); GPS/EXIF-redactie; minder false positives (huisnummer/m²/IDs).
 - **Acceptatie:** Pest voor OpenRouter-id/cost/queue/GPS/false-positives; `composer check` groen; docs/ai.md + database.md bijgewerkt.
+- **Resultaat:** merge #136. Resterende gaten (ai_runs.provider_request_id, skip-runs, seed/queued_at, export finish_reason) → **BL-144**.
 
 ### BL-120 — Klanttest P2: voortgang, uploadfases, je-vorm
 
@@ -692,6 +694,14 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Acceptatie:** fixture-test routefoto; ownership-phrasings; room_name sync + skip; Vervang foto/Toch doorgaan intact; lege woonkamer geen extra stopcontactvraag; `composer check` groen.
 - **Resultaat:** merge #126.
 
+### BL-144 — AI-trace gaps afronden (provider_request_id, skip, seed, queued_at, export)
+
+- **Status:** in_progress · **Prioriteit:** high · **Epic:** E4/E5 · **Band:** AI/ops · **Volgt op:** BL-125 (#130) / BL-132 (#136) / BL-133 (#135) · **Ref:** AI-loganalyse intakes 76–78 / 94–95 · rebase main@ba83825 (#140)
+- **Aanleiding:** na merge van #130/#136 bleven gaten: `ai_runs.provider_request_id` ontbrak (docs claimden hem al), uploads zonder AI-call lieten geen `skipped`-run achter, `seed`/`queued_at`/`finish_reason` ontbraken in model_parameters/export, correlatie per upload was deels al gefixt in #135.
+- **Doel:** elke AI-actie (prefill, foto, follow-up subject, dossier, attention_points) logt prompt/response/provider-id/gen-settings/queue/finish_reason/retries/tokens/fijnmazige kosten; skip zonder AI-call → `ai_runs`+trace `skipped` + reden; unieke `correlation_id` per upload; export zonder `exports/exports`.
+- **Scope:** trace/run-velden + `AiSkipRecorder` + export payload; **geen** dossier/attention_points request-logica (#139), hertest-UX (#144), wizard-nav (#142), memory_limit (#146), prefill-facts (#143), upload-503 (#140).
+- **Acceptatie:** Pest per gap (follow-up `provider_request_id`, skip-reden, correlatie-uniekheid, seed/finish_reason/queued_at in export); `composer check` groen.
+
 ### BL-140 — Wizard: sticky step-id na kamernaam-autosave
 
 - **Status:** done · **Datum:** 2026-10-04 · **PR:** #142 · **Prioriteit:** high · **Epic:** E1 · **Volgt op:** BL-131 · **Ref:** Notion P1 intakes 84/92
@@ -708,6 +718,7 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Doel:** één override-beleid voor elke niet-goede foto; AI-voorstel = label + waarde + onzekerheid; P3 UX-fixes; airco v25.
 - **Scope:** `PhotoOverridePolicy`, `TechnicalProposalCopy`, `OutdoorPhotoReuse`, airco **v25**, wizard/follow-up, Pest `Hertest4OktP2P3FixesTest`. **Buiten scope:** upload-stall; dossier/attention_points (andere agents / BL-138).
 - **Acceptatie:** Pest per item groen; bedankt geen “afgerond” bij override; geen raw keys in AI-voorstel; `composer check` groen.
+- **Resultaat:** merge #144.
 
 ### BL-138 — AI: Gemini OpenRouter 400 + connections partial + attention_points model/truncated
 

@@ -8,6 +8,7 @@ use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Models\AiTrace;
 use App\Domains\AI\Services\AiGateway;
 use App\Domains\AI\Services\AiImageResolver;
+use App\Domains\AI\Services\AiSkipRecorder;
 use App\Domains\AI\Services\AiTracePhotoRefBuilder;
 use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\AI\Services\AiTraceRequestIdResolver;
@@ -45,6 +46,7 @@ final class AssessFollowUpPhotoSubject
         private readonly AiTraceSnapshotService $traceSnapshots,
         private readonly AiTracePhotoRefBuilder $photoRefBuilder,
         private readonly AiTraceRequestIdResolver $requestIdResolver,
+        private readonly AiSkipRecorder $skipRecorder,
     ) {}
 
     /**
@@ -61,13 +63,32 @@ final class AssessFollowUpPhotoSubject
         $expected = PhotoSubject::expectedFromDecisionArea($area);
 
         if ($accepted === null || $expected === null) {
-            // Gebied zonder subject-check (placement/condens/…): geen AI-call.
+            // Gebied zonder subject-check (placement/condens/…): geen AI-call, wel skip-run.
+            $this->skipRecorder->record(
+                $intake,
+                $upload,
+                AiTraceCallType::FollowUpPhotoSubject,
+                'geen beoordelingsprofiel',
+                $correlationId,
+                subjectType: 'follow_up_item',
+                subjectId: (string) $item->id,
+            );
+
             return ['assessment' => null, 'message' => null];
         }
 
         $previous = $upload->contentAssessment();
 
         if (! (bool) config('ai.photo_inference.enabled', false)) {
+            $this->skipRecorder->record(
+                $intake,
+                $upload,
+                AiTraceCallType::FollowUpPhotoSubject,
+                'foto-inferentie uitgeschakeld',
+                $correlationId,
+                subjectType: 'follow_up_item',
+                subjectId: (string) $item->id,
+            );
             $assessment = PhotoContentAssessment::notAssessed($expected);
             $upload->storeContentAssessment($assessment);
 

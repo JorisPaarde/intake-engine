@@ -49,6 +49,7 @@ use Illuminate\Support\Carbon;
  * @property array<string, mixed>|null $remaining_questions_after
  * @property int|null $network_upload_ms
  * @property int|null $queue_wait_ms
+ * @property Carbon|null $queued_at
  * @property int|null $persist_ms
  * @property int|null $preprocess_ms
  * @property int|null $provider_ms
@@ -102,6 +103,7 @@ class AiTrace extends Model
         'remaining_questions_after',
         'network_upload_ms',
         'queue_wait_ms',
+        'queued_at',
         'persist_ms',
         'preprocess_ms',
         'provider_ms',
@@ -142,6 +144,7 @@ class AiTrace extends Model
             'intake_ref_id' => 'integer',
             'network_upload_ms' => 'integer',
             'queue_wait_ms' => 'integer',
+            'queued_at' => 'datetime',
             'persist_ms' => 'integer',
             'preprocess_ms' => 'integer',
             'provider_ms' => 'integer',

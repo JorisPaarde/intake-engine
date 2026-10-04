@@ -4,6 +4,10 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Added
+
+- **AI-trace gaps afronden (BL-144):** `ai_runs.provider_request_id` (provider completion-`id` via `completionResultAttributes`); `AiRunStatus::Skipped` / `AiTraceStatus::Skipped` + `AiSkipRecorder` voor uploads zonder AI-call (reden bv. `geen beoordelingsprofiel`); `seed` in `model_parameters` (+ optioneel `AI_SEED` naar provider); `queued_at` op traces; export bevat `finish_reason` + `queued_at`. GPS/locatie blijft geredigeerd.
+
 ### Fixed
 
 - **Grote progressive JPEG blijft op Uploaden… / stille loss na LiteSpeed 503 (BL-143, prod 94/95; staging 81):** upload-file 200 + tmp, daarna concurrente Livewire-updates (`photoClientOriginals` `$set` naast `_finishUpload`) → één 503 → geen `photo_quality`. Fix: deferred `$set(..., false)` + block live `$set`/poll tijdens upload-in-flight; update-retry zelfde tmp (backoff ~2/20/60s); client-resize ≤2000 px; `ProcessIntakePhotoVariantsJob` (`ai-photo`); poll-in-upload na store; follow-up quality alleen via override-panel. Vitest + Pest.

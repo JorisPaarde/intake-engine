@@ -69,6 +69,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Seed (optional)
+    |--------------------------------------------------------------------------
+    |
+    | When set, OpenAiClient sends `seed` on chat/completions and always logs it
+    | in ai_traces.model_parameters (null when unset). Useful for reproducible
+    | classification diagnostics.
+    |
+    */
+
+    'seed' => env('AI_SEED'),
+
+    /*
+    |--------------------------------------------------------------------------
     | External AI budget guard
     |--------------------------------------------------------------------------
     |

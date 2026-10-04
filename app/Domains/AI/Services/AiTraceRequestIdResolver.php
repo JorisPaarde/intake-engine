@@ -32,6 +32,8 @@ final class AiTraceRequestIdResolver
 
     public const ATTEMPT_CONTEXT_KEY = 'ai_trace.attempt';
 
+    public const QUEUED_AT_CONTEXT_KEY = 'ai_trace.queued_at';
+
     public function resolve(?string $explicit = null): string
     {
         if (is_string($explicit) && $explicit !== '') {
@@ -184,7 +186,7 @@ final class AiTraceRequestIdResolver
         $upload->update(['processing_timings' => $timings]);
     }
 
-    public function rememberQueueMetrics(?int $queueWaitMs, ?int $attempt): void
+    public function rememberQueueMetrics(?int $queueWaitMs, ?int $attempt, ?float $dispatchedAt = null): void
     {
         try {
             if ($queueWaitMs !== null) {
@@ -193,8 +195,29 @@ final class AiTraceRequestIdResolver
             if ($attempt !== null) {
                 Context::add(self::ATTEMPT_CONTEXT_KEY, max(1, $attempt));
             }
+            if ($dispatchedAt !== null && $dispatchedAt > 0) {
+                Context::add(self::QUEUED_AT_CONTEXT_KEY, $dispatchedAt);
+            } elseif ($queueWaitMs !== null) {
+                Context::add(self::QUEUED_AT_CONTEXT_KEY, microtime(true) - (max(0, $queueWaitMs) / 1000));
+            }
         } catch (Throwable) {
             // Ignore.
+        }
+    }
+
+    public function queuedAtUnix(): ?float
+    {
+        try {
+            if (! Context::has(self::QUEUED_AT_CONTEXT_KEY)) {
+                return null;
+            }
+            $value = Context::get(self::QUEUED_AT_CONTEXT_KEY);
+
+            return is_float($value) || is_int($value) || is_numeric($value)
+                ? (float) $value
+                : null;
+        } catch (Throwable) {
+            return null;
         }
     }
 

@@ -7,6 +7,7 @@ namespace App\Domains\AI\Jobs;
 use App\Domains\AI\Actions\AssessFollowUpPhotoSubject;
 use App\Domains\AI\Actions\AssessFuseboxPhotos;
 use App\Domains\AI\Actions\DerivePhotoAnswers;
+use App\Domains\AI\Services\AiSkipRecorder;
 use App\Domains\AI\Services\AiTraceRequestIdResolver;
 use App\Domains\AI\Services\PhotoAssessmentLifecycle;
 use App\Domains\AI\Support\PhotoContentAssessment;
@@ -15,6 +16,7 @@ use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Models\ContributionTask;
 use App\Domains\Intake\Models\IntakeFollowUpItem;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Enums\AiTraceCallType;
 use App\Enums\FollowUpItemType;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -67,10 +69,11 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
         DerivePhotoAnswers $derivePhotoAnswers,
         PhotoAssessmentLifecycle $lifecycle,
         AiTraceRequestIdResolver $requestIdResolver,
+        AiSkipRecorder $skipRecorder,
     ): void {
         $queueWaitMs = (int) max(0, round((microtime(true) - $this->dispatchedAt) * 1000));
         $attempt = max(1, $this->attempts());
-        $requestIdResolver->rememberQueueMetrics($queueWaitMs, $attempt);
+        $requestIdResolver->rememberQueueMetrics($queueWaitMs, $attempt, $this->dispatchedAt);
 
         $upload = IntakeUpload::query()->with(['intake', 'followUpItem'])->find($this->uploadId);
 
@@ -111,7 +114,7 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
                 return;
             }
 
-            $this->assessWizardPhoto($upload, $assessFusebox, $derivePhotoAnswers, $lifecycle, $correlationId);
+            $this->assessWizardPhoto($upload, $assessFusebox, $derivePhotoAnswers, $lifecycle, $skipRecorder, $correlationId);
         } catch (Throwable $exception) {
             Log::warning('Queued photo assessment failed', [
                 'upload_id' => $this->uploadId,
@@ -188,6 +191,7 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
         AssessFuseboxPhotos $assessFusebox,
         DerivePhotoAnswers $derivePhotoAnswers,
         PhotoAssessmentLifecycle $lifecycle,
+        AiSkipRecorder $skipRecorder,
         string $correlationId,
     ): void {
         $intake = $upload->intake;
@@ -200,7 +204,13 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
         $profileName = $this->photoAnalysisProfileName($upload);
 
         if ($profileName === null) {
-            // Geen AI-profiel: usability was al sync; pipeline klaar.
+            $skipRecorder->record(
+                $intake,
+                $upload,
+                AiTraceCallType::PhotoAssess,
+                'geen beoordelingsprofiel',
+                $correlationId,
+            );
             $lifecycle->markAssessed($upload);
 
             return;
@@ -225,6 +235,13 @@ final class AssessUploadedPhotoJob implements ShouldBeUnique, ShouldQueue
         $profile = PhotoDerivationProfile::find($profileName);
 
         if (! $profile instanceof PhotoDerivationProfile) {
+            $skipRecorder->record(
+                $intake,
+                $upload,
+                AiTraceCallType::PhotoDerive,
+                'geen beoordelingsprofiel',
+                $correlationId,
+            );
             $upload->storeContentAssessment(PhotoContentAssessment::notAssessed($expected));
             $lifecycle->ensureTerminal($upload->fresh() ?? $upload, $expected);
 
