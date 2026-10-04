@@ -262,7 +262,18 @@ final class AiTraceExporter
 
     private function redactorFor(AiTrace $trace): AiTraceRedactor
     {
-        // Re-apply masking as a safety net; known intake PII may be gone after demo purge.
-        return $this->redactor;
+        // Re-apply masking as a safety net. Prefer known intake PII when the
+        // intake still exists; after demo purge only pattern-based PII remains.
+        $intake = $trace->intake;
+        if ($intake === null) {
+            return $this->redactor;
+        }
+
+        return $this->redactor->withKnownPii([
+            'customer_name' => $intake->customer_name,
+            'customer_email' => $intake->customer_email,
+            'customer_phone' => $intake->customer_phone ?? null,
+            'address_line' => $intake->address_line,
+        ]);
     }
 }

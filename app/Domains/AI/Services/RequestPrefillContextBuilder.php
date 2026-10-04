@@ -12,7 +12,9 @@ use App\Enums\DossierRecordKind;
 use App\Enums\DossierRecordStatus;
 
 /**
- * Verzamelt al bekende intakecontext voor AI-prefill zonder identiteit of ruwe coördinaten (ADR-0013/0014).
+ * Verzamelt al bekende intakecontext voor AI-prefill zonder identiteit of ruwe
+ * coördinaten (ADR-0013/0014). Precieze lat/lng, parcel-IDs en luchtfoto’s
+ * worden uitgesloten; {@see lastPrivacyRedactions()} documenteert dat voor de trace.
  */
 final class RequestPrefillContextBuilder
 {
@@ -25,7 +27,14 @@ final class RequestPrefillContextBuilder
         'customer_email',
         'customer_name',
         'customer_phone',
+        // Align with IntakeAttentionContextBuilder: precise location / parcel / aerial.
+        'location',
+        'parcel_ids',
+        'aerial_image',
     ];
+
+    /** @var list<array{field: string, action: string}> */
+    private array $privacyRedactions = [];
 
     /**
      * @return array{
@@ -37,16 +46,23 @@ final class RequestPrefillContextBuilder
      */
     public function build(Intake $intake): array
     {
+        $this->privacyRedactions = [];
+
         $answers = IntakeAnswer::query()
             ->where('intake_id', $intake->id)
             ->orderBy('id')
             ->get()
-            ->map(static function (IntakeAnswer $answer): array {
+            ->map(function (IntakeAnswer $answer): array {
+                $value = $answer->value;
+                if (is_array($value)) {
+                    $value = $this->scrubLocationFields($value, 'answers.'.$answer->question_key);
+                }
+
                 return [
                     'question_key' => $answer->question_key,
                     'section_instance_key' => $answer->section_instance_key,
                     'prefill_source' => $answer->prefill_source,
-                    'value' => $answer->value,
+                    'value' => $value,
                 ];
             })
             ->all();
@@ -68,18 +84,25 @@ final class RequestPrefillContextBuilder
                 $key = strtolower((string) $fact->fact_key);
 
                 foreach (self::BLOCKED_FACT_KEYS as $blocked) {
-                    if (str_contains($key, $blocked)) {
+                    if ($key === $blocked || str_contains($key, $blocked)) {
+                        $this->privacyRedactions[] = [
+                            'field' => 'external_facts.'.$fact->fact_key,
+                            'action' => 'fact_excluded',
+                        ];
+
                         return false;
                     }
                 }
 
                 return true;
             })
-            ->map(static function (IntakeExternalFact $fact): array {
+            ->map(function (IntakeExternalFact $fact): array {
+                $value = $this->scrubLocationFields($fact->value, 'external_facts.'.$fact->fact_key);
+
                 return [
                     'fact_key' => $fact->fact_key,
                     'source' => $fact->source,
-                    'value' => $fact->value,
+                    'value' => $value,
                     'confidence' => $fact->confidence,
                 ];
             })
@@ -120,5 +143,71 @@ final class RequestPrefillContextBuilder
             'external_facts' => $facts,
             'installer_observations' => $observations,
         ];
+    }
+
+    /**
+     * @return list<array{field: string, action: string}>
+     */
+    public function lastPrivacyRedactions(): array
+    {
+        return $this->privacyRedactions;
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $value
+     * @return array<array-key, mixed>
+     */
+    private function scrubLocationFields(array $value, string $path): array
+    {
+        $clean = [];
+
+        foreach ($value as $key => $item) {
+            $keyString = is_string($key) ? strtolower($key) : (string) $key;
+            $childPath = $path.'.'.$key;
+
+            if ($this->isLocationKey($keyString)) {
+                $this->privacyRedactions[] = [
+                    'field' => $childPath,
+                    'action' => 'location_removed',
+                ];
+
+                continue;
+            }
+
+            $clean[$key] = is_array($item)
+                ? $this->scrubLocationFields($item, $childPath)
+                : $item;
+        }
+
+        return $clean;
+    }
+
+    private function isLocationKey(string $key): bool
+    {
+        return in_array($key, [
+            'latitude',
+            'longitude',
+            'lat',
+            'lon',
+            'lng',
+            'altitude',
+            'alt',
+            'gps',
+            'coordinates',
+            'coordinate',
+            'coords',
+            'geo',
+            'geolocation',
+            'center_latitude',
+            'center_longitude',
+            'geometry',
+            'bbox',
+            'bounding_box',
+            'centroid',
+        ], true)
+            || str_contains($key, 'gps')
+            || str_contains($key, 'geolocation')
+            || str_starts_with($key, 'coordinate')
+            || str_starts_with($key, 'bbox');
     }
 }

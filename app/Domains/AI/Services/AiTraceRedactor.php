@@ -9,9 +9,10 @@ namespace App\Domains\AI\Services;
  * before persistence and again on export. Never logs API keys, Bearer auth
  * headers, or /o/{token} customer access tokens.
  *
- * Masks: e-mail, phone (strict NL), person names (known context + Dutch
- * voornaam+achternaam patterns), street + house number, GPS/EXIF location.
- * Avoids false positives on huisnummers, m²-waarden and numeric IDs.
+ * Masks only real personal data: e-mail, phone (strict NL), known person names
+ * from intake context, street + house number, GPS/EXIF location. Technical
+ * fields (room_name, answers, brand labels, “Weet ik niet”, IDs, m²) stay
+ * readable for debugging.
  */
 final class AiTraceRedactor
 {
@@ -41,11 +42,6 @@ final class AiTraceRedactor
      * and spaced forms like "Van Speijkstraat 10-II".
      */
     private const STREET_HOUSE = '/\b(?:[A-ZÀ-Ý][A-Za-zÀ-ÿ\'\-]*(?:straat|laan|weg|plein|pad|singel|kade|gracht|dijk|dreef|hof|park|steeg|markt|boulevard|allee)|(?:[A-ZÀ-Ý][A-Za-zÀ-ÿ\'\-]+(?:\s+(?:van|de|den|der|het|ten|ter))?\s+)+(?:straat|laan|weg|plein|pad|singel|kade|gracht|dijk|dreef|hof|park|steeg|markt|boulevard|allee))\s+\d+[A-Za-z]?(?:\s*[-–]\s*[A-Za-z0-9]+)?\b/u';
-
-    /**
-     * Voornaam + achternaam (2–4 capitalized words), excluding common non-name starts.
-     */
-    private const PERSON_NAME = '/\b(?!(?:Airco|Meterkast|Woonkamer|Slaapkamer|Keuken|Zolder|Badkamer|Hal|Gang|Kantoor|Buitenunit|Artikel|Sectie|Vraag)\b)(?:[A-ZÀ-Ý][a-zà-ÿ\'\-]+)(?:\s+(?:van|de|den|der|het|ten|ter))?(?:\s+[A-ZÀ-Ý][a-zà-ÿ\'\-]+){1,3}\b/u';
 
     /** @var list<string> */
     private array $knownLiterals = [];
@@ -106,7 +102,10 @@ final class AiTraceRedactor
         }
 
         $safe = (string) preg_replace(self::STREET_HOUSE, '[adres verwijderd]', $safe);
-        $safe = (string) preg_replace(self::PERSON_NAME, '[naam verwijderd]', $safe);
+
+        // No blind voornaam+achternaam pattern: brands ("Mitsubishi Electric"),
+        // title-cased answers ("Weet Ik Niet") and room labels must stay readable.
+        // Person names come from known intake PII via withKnownPii().
 
         if ($this->looksLikeBase64Blob($safe)) {
             return '[base64-omitted len='.strlen($safe).']';
@@ -274,6 +273,8 @@ final class AiTraceRedactor
             'geolocation',
             'exif_gps',
             'exif_location',
+            'center_latitude',
+            'center_longitude',
         ], true)) {
             return true;
         }
@@ -304,21 +305,29 @@ final class AiTraceRedactor
             'height_m',
             'house_number',
             'huisnummer',
+            'room_name',
+            'question_key',
+            'section_key',
+            'section_instance_key',
+            'fact_key',
+            'brand_preference',
         ], true)
             || str_ends_with($key, '_id')
             || str_ends_with($key, '_m2')
             || str_ends_with($key, '_ms');
     }
 
+    /**
+     * Only real person-identity keys — not room_name, file_name, model_name, or generic "name".
+     */
     private function isNameKey(string $key): bool
     {
         return in_array($key, [
             'customer_name',
-            'name',
             'full_name',
             'contact_name',
             'installer_name',
-        ], true) || (str_ends_with($key, '_name') && ! str_contains($key, 'file') && ! str_contains($key, 'model'));
+        ], true);
     }
 
     private function isAddressKey(string $key): bool
@@ -328,7 +337,6 @@ final class AiTraceRedactor
             'address',
             'street',
             'street_name',
-            'huisnummer',
             'adres',
         ], true) || str_contains($key, 'address_line');
     }

@@ -139,6 +139,15 @@ final class PrefillAnswersFromKnownContext
                 promptVersion: $promptVersion,
             );
 
+            $privacyRedactions = $this->contextBuilder->lastPrivacyRedactions();
+            if ($privacyRedactions !== []) {
+                $trace->step('privacy_redaction', [
+                    'applied' => true,
+                    'count' => count($privacyRedactions),
+                    'items' => $privacyRedactions,
+                ]);
+            }
+
             $result = $this->aiGateway->complete(
                 prompt: $promptBody,
                 input: $input,
