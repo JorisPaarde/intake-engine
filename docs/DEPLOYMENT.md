@@ -388,7 +388,7 @@ Minima via `.user.ini`: `upload_max_filesize=10M`, `post_max_size=12M`. Staging 
 
 ## Bekende beperkingen
 
-- Geen Supervisor — queue via cron
+- Geen Supervisor — queue via crontab `schedule:run` (géén aparte `queue:work --stop-when-empty`)
 - Rollback zet alleen de code-symlink terug, niet de database
 - De hosting heeft 1 GB diskquotum; beide omgevingen bewaren daarom maximaal drie releases
 - `MEDIA_DISK` moet een **private** disk zijn voor intakefoto’s en aangeleverde documenten: default `local`, of `s3` na BL-013 — nooit `public`
