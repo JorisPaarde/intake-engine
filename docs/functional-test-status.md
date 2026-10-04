@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 2.8 · **Laatste update:** 2026-10-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.9 · **Laatste update:** 2026-10-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -12,6 +12,7 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
+| Klanttaken bundelen + conceptlijst (BL-145) | todo | - | Werkplek: zolderhoogte + meterkast → conceptlijst met 2 bewerkbare teksten (geen “1- of 3-fase”, geen “handmatig controleren”); versturen activeert één ronde/één klantlink; tweede prepare bij open ronde bouwt concept maar store blijft geblokkeerd. |
 | AI-trace gaps afronden (BL-144) | todo | - | Follow-up subject: ai_run.provider_request_id gevuld; upload zonder photo_analysis → skipped + “geen beoordelingsprofiel”; twee uploads → verschillende correlation_id; export toont finish_reason/queued_at/seed + fijnmazige estimated_cost; geen exports/exports. |
 | Upload 503-recovery / concurrent Livewire (BL-143) | todo | - | Staging/demo: grote meterkastfoto → geen hang op 0%/Bezig; bij LiteSpeed 503 op update verschijnt “Even geduld…” + foto komt toch in beoordeling; geen stille loss bij twee POSTs. |
 | PHP memory_limit 256M web+CLI (BL-141) | todo | - | Na deploy: `GET /health` → `php_upload.memory_limit=256M`; CLI `php -r 'echo ini_get("memory_limit");'` via artisan tinker/boot = 256M; grote telefoonfoto-upload blijft werken zonder 503. |

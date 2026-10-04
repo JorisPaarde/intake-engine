@@ -34,6 +34,7 @@ use App\Domains\Intake\Services\DossierOverviewBuilder;
 use App\Domains\Intake\Services\ExternalFactPresenter;
 use App\Domains\Intake\Services\InstallationOptionPreferenceService;
 use App\Domains\Intake\Services\InstallerPhotoGalleryBuilder;
+use App\Domains\Intake\Support\CustomerFacingTaskText;
 use App\Enums\AircoConfigurationType;
 use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
@@ -53,6 +54,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 final class SurveyWorkspaceController extends Controller
@@ -90,13 +92,8 @@ final class SurveyWorkspaceController extends Controller
                 ->where('event', 'demo_scenario_loaded')
                 ->exists();
 
-        $customerTaskDraft = $request->session()->pull('customer_task_draft');
-        if (! is_array($customerTaskDraft)
-            || ! is_string($customerTaskDraft['type'] ?? null)
-            || ! is_string($customerTaskDraft['prompt'] ?? null)
-            || trim((string) $customerTaskDraft['prompt']) === '') {
-            $customerTaskDraft = null;
-        }
+        $customerTaskDrafts = $this->sessionCustomerTaskDrafts($request);
+        $customerTaskDraft = $customerTaskDrafts[0] ?? null;
 
         return view('installer.intakes.workspace', [
             'intake' => $intake,
@@ -112,6 +109,7 @@ final class SurveyWorkspaceController extends Controller
             'proposalDeltas' => InstallationProposalDelta::cases(),
             'demoScenarioLoaded' => $demoScenarioLoaded,
             'customerTaskDraft' => $customerTaskDraft,
+            'customerTaskDrafts' => $customerTaskDrafts,
             'preferenceState' => $preferenceService->workspaceState($intake),
         ]);
     }
@@ -142,19 +140,64 @@ final class SurveyWorkspaceController extends Controller
             'prompt' => 'opdrachttekst',
         ]);
 
+        $draft = [
+            'type' => $data['type'] instanceof FollowUpItemType
+                ? $data['type']->value
+                : (string) $data['type'],
+            'prompt' => CustomerFacingTaskText::ensureCustomerFacing(trim((string) $data['prompt'])),
+            'decision_area_key' => $data['decision_area_key'] ?? null,
+            'dossier_subject_id' => isset($data['dossier_subject_id'])
+                ? (int) $data['dossier_subject_id']
+                : null,
+        ];
+
+        if ($draft['prompt'] === '') {
+            return redirect()
+                ->to(route('intakes.workspace', $intake).'#demo-customer-task')
+                ->withErrors([
+                    'contribution_items' => 'Schrijf een begrijpelijke opdracht voor de klant (geen interne installateurstekst).',
+                ]);
+        }
+
+        $maxItems = (int) config('intake.follow_up.max_items_per_round', 5);
+        $drafts = $this->sessionCustomerTaskDrafts($request);
+        $fingerprint = $this->customerTaskDraftFingerprint($draft);
+        $replaced = false;
+
+        foreach ($drafts as $index => $existing) {
+            if ($this->customerTaskDraftFingerprint($existing) === $fingerprint) {
+                $drafts[$index] = $draft;
+                $replaced = true;
+                break;
+            }
+        }
+
+        if (! $replaced) {
+            if (count($drafts) >= $maxItems) {
+                return redirect()
+                    ->to(route('intakes.workspace', $intake).'#demo-customer-task')
+                    ->withErrors([
+                        'contribution_items' => "Je conceptlijst heeft al {$maxItems} taken. Verstuur of pas ze aan vóór je er meer toevoegt.",
+                    ])
+                    ->with('customer_task_drafts', $drafts);
+            }
+
+            $drafts[] = $draft;
+        }
+
+        $request->session()->put('customer_task_drafts', $drafts);
+        $request->session()->forget('customer_task_draft');
+
+        $count = count($drafts);
+        $status = $replaced
+            ? 'Concepttaak bijgewerkt. Controleer de klanttekst en verstuur daarna de ronde.'
+            : ($count === 1
+                ? 'Concepttaak toegevoegd. Controleer de klanttekst. Voeg desgewenst meer taken toe en verstuur daarna één ronde.'
+                : "Concepttaak toegevoegd ({$count} in deze ronde). Controleer de klantteksten en verstuur daarna.");
+
         return redirect()
             ->to(route('intakes.workspace', $intake).'#demo-customer-task')
-            ->with('status', 'Controleer de vooringevulde klanttaak en verstuur hem daarna.')
-            ->with('customer_task_draft', [
-                'type' => $data['type'] instanceof FollowUpItemType
-                    ? $data['type']->value
-                    : (string) $data['type'],
-                'prompt' => trim((string) $data['prompt']),
-                'decision_area_key' => $data['decision_area_key'] ?? null,
-                'dossier_subject_id' => isset($data['dossier_subject_id'])
-                    ? (int) $data['dossier_subject_id']
-                    : null,
-            ]);
+            ->with('status', $status);
     }
 
     /** @return list<FollowUpItemType> */
@@ -584,9 +627,26 @@ final class SurveyWorkspaceController extends Controller
             ],
         );
         $validated = $validator->validate();
+        $items = array_map(static function (array $item): array {
+            $item['prompt'] = CustomerFacingTaskText::ensureCustomerFacing(trim((string) $item['prompt']));
+
+            return $item;
+        }, $validated['contribution_items']);
+        $items = array_values(array_filter(
+            $items,
+            static fn (array $item): bool => $item['prompt'] !== '',
+        ));
+
+        if ($items === []) {
+            throw ValidationException::withMessages([
+                'contribution_items' => 'Schrijf een begrijpelijke opdracht voor de klant (geen interne installateurstekst).',
+            ]);
+        }
+
         $user = $this->user($request);
-        $round = $createRequest->handle($intake, $user, $validated['contribution_items']);
+        $round = $createRequest->handle($intake, $user, $items);
         $mailResult = $sendRequest->handle($intake->fresh() ?? $intake, $round, $user);
+        $request->session()->forget(['customer_task_drafts', 'customer_task_draft']);
 
         return $this->back($intake, $this->contributionMailMessage($mailResult));
     }
@@ -620,14 +680,23 @@ final class SurveyWorkspaceController extends Controller
             'type' => 'type opdracht',
             'prompt' => 'opdrachttekst',
         ]);
+        $prompt = CustomerFacingTaskText::ensureCustomerFacing(trim((string) $data['prompt']));
+
+        if ($prompt === '') {
+            throw ValidationException::withMessages([
+                'prompt' => 'Schrijf een begrijpelijke opdracht voor de klant (geen interne installateurstekst).',
+            ]);
+        }
+
         $user = $this->user($request);
         $round = $createRequest->handle($intake, $user, [[
             'type' => $data['type'],
-            'prompt' => $data['prompt'],
+            'prompt' => $prompt,
             'decision_area_key' => $data['decision_area_key'] ?? null,
             'dossier_subject_id' => $data['dossier_subject_id'] ?? null,
         ]]);
         $mailResult = $sendRequest->handle($intake->fresh() ?? $intake, $round, $user);
+        $request->session()->forget(['customer_task_drafts', 'customer_task_draft']);
 
         return $this->back($intake, $this->contributionMailMessage($mailResult));
     }
@@ -702,7 +771,7 @@ final class SurveyWorkspaceController extends Controller
         $user = $this->user($request);
         $round = $createRequest->handle($intake, $user, [[
             'type' => $task->type,
-            'prompt' => $task->prompt,
+            'prompt' => CustomerFacingTaskText::ensureCustomerFacing((string) $task->prompt),
             'decision_area_key' => $task->decision_area_key,
             'dossier_subject_id' => $task->dossier_subject_id,
         ]]);
@@ -827,5 +896,81 @@ final class SurveyWorkspaceController extends Controller
         return redirect()
             ->route('intakes.workspace', $intake)
             ->with('status', $status);
+    }
+
+    /**
+     * @return list<array{
+     *     type: string,
+     *     prompt: string,
+     *     decision_area_key: string|null,
+     *     dossier_subject_id: int|null
+     * }>
+     */
+    private function sessionCustomerTaskDrafts(Request $request): array
+    {
+        $raw = $request->session()->get('customer_task_drafts');
+
+        if (! is_array($raw) || $raw === []) {
+            $legacy = $request->session()->get('customer_task_draft');
+            if (is_array($legacy)
+                && is_string($legacy['type'] ?? null)
+                && is_string($legacy['prompt'] ?? null)
+                && trim((string) $legacy['prompt']) !== '') {
+                $raw = [$legacy];
+            } else {
+                return [];
+            }
+        }
+
+        $maxItems = (int) config('intake.follow_up.max_items_per_round', 5);
+        $drafts = [];
+
+        foreach ($raw as $item) {
+            if (! is_array($item)
+                || ! is_string($item['type'] ?? null)
+                || ! is_string($item['prompt'] ?? null)) {
+                continue;
+            }
+
+            $prompt = CustomerFacingTaskText::ensureCustomerFacing(trim((string) $item['prompt']));
+
+            if ($prompt === '') {
+                continue;
+            }
+
+            $drafts[] = [
+                'type' => (string) $item['type'],
+                'prompt' => $prompt,
+                'decision_area_key' => isset($item['decision_area_key']) && is_string($item['decision_area_key'])
+                    ? $item['decision_area_key']
+                    : null,
+                'dossier_subject_id' => isset($item['dossier_subject_id']) && is_numeric($item['dossier_subject_id'])
+                    ? (int) $item['dossier_subject_id']
+                    : null,
+            ];
+
+            if (count($drafts) >= $maxItems) {
+                break;
+            }
+        }
+
+        return $drafts;
+    }
+
+    /**
+     * @param  array{
+     *     type?: mixed,
+     *     prompt?: mixed,
+     *     decision_area_key?: mixed,
+     *     dossier_subject_id?: mixed
+     * }  $draft
+     */
+    private function customerTaskDraftFingerprint(array $draft): string
+    {
+        return implode('|', [
+            (string) ($draft['type'] ?? ''),
+            (string) ($draft['decision_area_key'] ?? ''),
+            (string) ($draft['dossier_subject_id'] ?? ''),
+        ]);
     }
 }

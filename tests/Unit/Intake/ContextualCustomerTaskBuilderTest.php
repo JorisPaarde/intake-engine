@@ -9,6 +9,7 @@ use App\Domains\Intake\Models\DossierRecord;
 use App\Domains\Intake\Models\DossierSubject;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Services\ContextualCustomerTaskBuilder;
+use App\Domains\Intake\Support\CustomerFacingTaskText;
 use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
 use App\Enums\DecisionAreaStatus;
@@ -169,6 +170,27 @@ test('power mismatch blocker becomes customer retake prompt, not installer diagn
         ->and($draft['prompt'])->toBe('Maak een nieuwe, duidelijke foto van je meterkast')
         ->and($draft['prompt'])->not->toContain('handmatig controleren')
         ->and($draft['prompt'])->not->toContain('Ontvangen foto lijkt');
+});
+
+test('power meterkast blocker uses neutral customer text without phase choice', function () {
+    $intake = builderIntakeWithRooms();
+    $intake->setRelation('aircoInstallationOptions', collect());
+    $area = new DossierDecisionArea([
+        'key' => 'power',
+        'label' => 'Stroomtoevoer',
+        'status' => DecisionAreaStatus::Blocked,
+        'blocker' => 'Voeg een duidelijke meterkastfoto toe; de groepenkast moet volledig leesbaar zijn.',
+        'next_action' => DossierNextAction::RequestContribution,
+    ]);
+
+    $draft = app(ContextualCustomerTaskBuilder::class)->forDecisionArea($intake, $area);
+
+    expect($draft)->not->toBeNull()
+        ->and($draft['prompt'])->toBe(CustomerFacingTaskText::fuseboxPhotoPrompt())
+        ->and($draft['prompt'])->toContain('groepenkast volledig leesbaar')
+        ->and($draft['prompt'])->toContain('installateur beoordeelt de aansluiting')
+        ->and($draft['prompt'])->not->toContain('1- of 3-fase')
+        ->and($draft['prompt'])->not->toContain('Daaruit volgt');
 });
 
 test('photo suggestion does not double Maak-een prefix', function () {

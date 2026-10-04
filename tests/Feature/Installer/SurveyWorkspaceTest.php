@@ -20,6 +20,7 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\AircoSurveyService;
 use App\Domains\Intake\Services\DecisionReadinessService;
+use App\Domains\Intake\Support\CustomerFacingTaskText;
 use App\Enums\AircoConfigurationType;
 use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
@@ -31,6 +32,7 @@ use App\Enums\DecisionAreaStatus;
 use App\Enums\DossierRecordKind;
 use App\Enums\DossierRecordStatus;
 use App\Enums\FollowUpItemType;
+use App\Enums\FollowUpRoundStatus;
 use App\Enums\IntakeStatus;
 use App\Enums\PhotoAssessmentStatus;
 use App\Enums\PipeRouteStatus;
@@ -1176,9 +1178,10 @@ test('room block offers contextual customer task that opens prefilled for review
         ->assertSee('Vraag de klant')
         ->getContent();
 
-    // BL-107: "Vraag de klant" maakt en verstuurt de taak in één klik via het quick-pad.
-    expect($html)->toContain(route('intakes.workspace.tasks.quick', $intake, false))
-        ->and($html)->toContain('dossier_subject_id='.$room->dossier_subject_id);
+    // BL-145: "Vraag de klant" voegt toe aan de conceptlijst (prepare), activeert niet meteen.
+    expect($html)->toContain(route('intakes.workspace.tasks.prepare', $intake, false))
+        ->and($html)->toContain('dossier_subject_id='.$room->dossier_subject_id)
+        ->and($html)->not->toContain('/customer-tasks/quick?');
 
     $this->actingAs($user)
         ->get(route('intakes.workspace.tasks.prepare', [
@@ -1189,9 +1192,9 @@ test('room block offers contextual customer task that opens prefilled for review
             'dossier_subject_id' => $room->dossier_subject_id,
         ]))
         ->assertRedirect(route('intakes.workspace', $intake).'#demo-customer-task')
-        ->assertSessionHas('customer_task_draft.prompt', 'Meet of noteer de lengte en breedte van Slaapkamer ouders, of het vloeroppervlak in m².')
-        ->assertSessionHas('customer_task_draft.decision_area_key', 'capacity')
-        ->assertSessionHas('customer_task_draft.dossier_subject_id', $room->dossier_subject_id);
+        ->assertSessionHas('customer_task_drafts.0.prompt', 'Meet of noteer de lengte en breedte van Slaapkamer ouders, of het vloeroppervlak in m².')
+        ->assertSessionHas('customer_task_drafts.0.decision_area_key', 'capacity')
+        ->assertSessionHas('customer_task_drafts.0.dossier_subject_id', $room->dossier_subject_id);
 
     $this->actingAs($user)
         ->followingRedirects()
@@ -1203,7 +1206,7 @@ test('room block offers contextual customer task that opens prefilled for review
             'dossier_subject_id' => $room->dossier_subject_id,
         ]))
         ->assertOk()
-        ->assertSee('Vooringevulde klanttaak controleren')
+        ->assertSee('Conceptlijst controleren en versturen')
         ->assertSee('Meet of noteer de lengte en breedte van Slaapkamer ouders, of het vloeroppervlak in m².')
         ->assertSee('value="capacity"', false)
         ->assertSee('name="contribution_items[0][dossier_subject_id]"', false);
@@ -1243,7 +1246,7 @@ test('photo suggestion offers prepare link that prefills a retake task', functio
         ->get(route('intakes.workspace', $intake))
         ->assertOk()
         ->assertSee('Vraag nieuwe foto')
-        ->assertSee(route('intakes.workspace.tasks.quick', $intake), false);
+        ->assertSee(route('intakes.workspace.tasks.prepare', $intake), false);
 
     $this->actingAs($user)
         ->followingRedirects()
@@ -1255,7 +1258,7 @@ test('photo suggestion offers prepare link that prefills a retake task', functio
             'dossier_subject_id' => $subject->id,
         ]))
         ->assertOk()
-        ->assertSee('Vooringevulde klanttaak controleren')
+        ->assertSee('Conceptlijst controleren en versturen')
         ->assertSee('Maak een nieuwe, duidelijke foto van Woonkamer')
         ->assertSee('value="photo"', false);
 
@@ -1303,7 +1306,7 @@ test('connection needing evidence offers contextual customer photo task', functi
         ->getContent();
 
     expect($html)->toContain('Koelleiding slaapkamer')
-        ->and($html)->toContain('/customer-tasks/quick');
+        ->and($html)->toContain('/customer-tasks/prepare');
 
     $this->actingAs($user)
         ->followingRedirects()
@@ -1315,7 +1318,7 @@ test('connection needing evidence offers contextual customer photo task', functi
             'dossier_subject_id' => $connection->dossier_subject_id,
         ]))
         ->assertOk()
-        ->assertSee('Vooringevulde klanttaak controleren')
+        ->assertSee('Conceptlijst controleren en versturen')
         ->assertSee('Koelleiding slaapkamer')
         ->assertSee('value="refrigerant"', false);
 
@@ -1375,4 +1378,154 @@ test('multi-split configuration choice does not show a misleading customer ask',
         '/id="demo-proposal"[^>]*>.*?Vraag de klant/s',
         $html,
     ))->toBe(0);
+});
+
+test('ask-customer actions accumulate into one editable draft round with two tasks', function () {
+    $this->withoutVite();
+
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'bundle-draft@example.com');
+    $survey = app(AircoSurveyService::class);
+    $attic = $survey->createRoom($intake, $user, [
+        'name' => 'Zolder 1',
+        'use_type' => 'attic',
+        'area_m2' => 15,
+    ]);
+
+    $heightPrompt = 'Meet of noteer de hoogte van Zolder 1.';
+    $fuseboxPrompt = CustomerFacingTaskText::fuseboxPhotoPrompt();
+
+    $this->actingAs($user)
+        ->get(route('intakes.workspace.tasks.prepare', [
+            'intake' => $intake,
+            'type' => FollowUpItemType::Text->value,
+            'prompt' => $heightPrompt,
+            'decision_area_key' => 'capacity',
+            'dossier_subject_id' => $attic->dossier_subject_id,
+        ]))
+        ->assertRedirect(route('intakes.workspace', $intake).'#demo-customer-task');
+
+    expect(session('customer_task_drafts'))->toBeArray()->toHaveCount(1)
+        ->and(session('customer_task_drafts.0.prompt'))->toBe($heightPrompt)
+        ->and((int) session('customer_task_drafts.0.dossier_subject_id'))->toBe((int) $attic->dossier_subject_id);
+
+    $this->actingAs($user)
+        ->get(route('intakes.workspace.tasks.prepare', [
+            'intake' => $intake,
+            'type' => FollowUpItemType::Photo->value,
+            'prompt' => 'Maak een duidelijke foto van de meterkast. Daaruit volgt 1- of 3-fase.',
+            'decision_area_key' => 'power',
+        ]))
+        ->assertRedirect(route('intakes.workspace', $intake).'#demo-customer-task');
+
+    $drafts = session('customer_task_drafts');
+    expect($drafts)->toBeArray()->toHaveCount(2)
+        ->and($drafts[0]['prompt'] ?? null)->toBe($heightPrompt)
+        ->and((int) ($drafts[0]['dossier_subject_id'] ?? 0))->toBe((int) $attic->dossier_subject_id)
+        ->and($drafts[1]['prompt'] ?? null)->toBe($fuseboxPrompt)
+        ->and($drafts[1]['decision_area_key'] ?? null)->toBe('power')
+        ->and($drafts[1]['dossier_subject_id'] ?? null)->toBeNull();
+
+    $preview = $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertSee('Conceptlijst controleren en versturen')
+        ->assertSee($heightPrompt)
+        ->assertSee('groepenkast volledig leesbaar')
+        ->assertSee('installateur beoordeelt de aansluiting')
+        ->assertDontSee('Daaruit volgt 1- of 3-fase')
+        ->assertDontSee('handmatig controleren')
+        ->assertSee('data-testid="customer-task-draft-list"', false);
+
+    expect($preview->getContent())->toContain('name="contribution_items[0][dossier_subject_id]"')
+        ->and($preview->getContent())->toContain('value="'.$attic->dossier_subject_id.'"')
+        ->and($intake->fresh()->customer_access_enabled)->toBeFalse()
+        ->and($intake->fresh()->contributionTasks()->count())->toBe(0);
+
+    $this->actingAs($user)
+        ->from(route('intakes.workspace', $intake))
+        ->post(route('intakes.workspace.tasks.store', $intake), [
+            'contribution_items' => [
+                [
+                    'type' => FollowUpItemType::Text->value,
+                    'prompt' => $heightPrompt,
+                    'decision_area_key' => 'capacity',
+                    'dossier_subject_id' => $attic->dossier_subject_id,
+                ],
+                [
+                    'type' => FollowUpItemType::Photo->value,
+                    'prompt' => $fuseboxPrompt,
+                    'decision_area_key' => 'power',
+                ],
+            ],
+        ])
+        ->assertRedirect(route('intakes.workspace', $intake))
+        ->assertSessionHas('status')
+        ->assertSessionMissing('customer_task_drafts');
+
+    $intake->refresh();
+    $tasks = $intake->contributionTasks()->where('status', ContributionTaskStatus::Open)->orderBy('id')->get();
+
+    expect($intake->customer_access_enabled)->toBeTrue()
+        ->and($intake->status)->toBe(IntakeStatus::AwaitingCustomer)
+        ->and($intake->followUpRounds()->where('status', FollowUpRoundStatus::Open)->count())->toBe(1)
+        ->and($tasks)->toHaveCount(2)
+        ->and($tasks[0]->prompt)->toBe($heightPrompt)
+        ->and($tasks[0]->decision_area_key)->toBe('capacity')
+        ->and($tasks[0]->dossier_subject_id)->toBe($attic->dossier_subject_id)
+        ->and($tasks[1]->prompt)->toBe($fuseboxPrompt)
+        ->and($tasks[1]->decision_area_key)->toBe('power')
+        ->and($tasks[1]->dossier_subject_id)->toBeNull();
+});
+
+test('create contribution request rewrites installer diagnosis to customer text', function () {
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'installer-text-leak@example.com');
+
+    $round = app(CreateCustomerContributionRequest::class)->handle($intake, $user, [[
+        'type' => FollowUpItemType::Photo,
+        'prompt' => 'Ontvangen foto lijkt een buitenunit, geen meterkast — handmatig controleren',
+        'decision_area_key' => 'power',
+    ]]);
+
+    $prompt = $round->items()->first()?->prompt;
+
+    expect($prompt)->toBe('Maak een nieuwe, duidelijke foto van je meterkast')
+        ->and($prompt)->not->toContain('handmatig controleren')
+        ->and($intake->fresh()->contributionTasks()->first()?->prompt)->toBe($prompt);
+});
+
+test('second prepare while open round still builds draft but store stays blocked', function () {
+    $this->withoutVite();
+
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'draft-while-open@example.com');
+
+    app(CreateCustomerContributionRequest::class)->handle($intake, $user, [[
+        'type' => FollowUpItemType::Photo,
+        'prompt' => 'Eerste open taak.',
+        'decision_area_key' => 'power',
+    ]]);
+
+    $this->actingAs($user)
+        ->get(route('intakes.workspace.tasks.prepare', [
+            'intake' => $intake,
+            'type' => FollowUpItemType::Text->value,
+            'prompt' => 'Meet of noteer de hoogte van Zolder 1.',
+            'decision_area_key' => 'capacity',
+        ]))
+        ->assertRedirect(route('intakes.workspace', $intake).'#demo-customer-task')
+        ->assertSessionHas('customer_task_drafts.0.prompt', 'Meet of noteer de hoogte van Zolder 1.');
+
+    $this->actingAs($user)
+        ->from(route('intakes.workspace', $intake))
+        ->post(route('intakes.workspace.tasks.store', $intake), [
+            'contribution_items' => [[
+                'type' => FollowUpItemType::Text->value,
+                'prompt' => 'Meet of noteer de hoogte van Zolder 1.',
+                'decision_area_key' => 'capacity',
+            ]],
+        ])
+        ->assertRedirect(route('intakes.workspace', $intake))
+        ->assertSessionHasErrors('contribution_items');
 });
