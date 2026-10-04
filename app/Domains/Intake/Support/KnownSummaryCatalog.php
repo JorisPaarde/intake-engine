@@ -23,6 +23,10 @@ final class KnownSummaryCatalog
             return false;
         }
 
+        if (InternalCustomerQuestions::hidesFromCustomer($question)) {
+            return false;
+        }
+
         $skipSources = $question->meta['skip_when_prefilled_by'] ?? null;
         if ($skipSources === null) {
             return false;

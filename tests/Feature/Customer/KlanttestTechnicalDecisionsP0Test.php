@@ -8,9 +8,7 @@ declare(strict_types=1);
 
 use App\Domains\AI\Actions\DerivePhotoAnswers;
 use App\Domains\AI\Clients\FakeAiClient;
-use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\AI\Support\PhotoDerivationProfile;
-use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Actions\CompleteIntake;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
@@ -23,8 +21,6 @@ use App\Domains\Intake\Services\GenerateIntakeReportHtml;
 use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Domains\Intake\Support\TechnicalDecisionKeys;
 use App\Enums\IntakeStatus;
-use App\Enums\PhotoAssessmentStatus;
-use App\Enums\PhotoUsabilityVerdict;
 use App\Enums\QuestionType;
 use App\Livewire\Customer\IntakeWizard;
 use App\Models\User;
@@ -134,7 +130,7 @@ function fillCustomerFacingUntilComplete(Intake $intake): void
             }
 
             if ($question->type === QuestionType::Photo) {
-                $upload = $store->handle(
+                markTestUploadSatisfied($store->handle(
                     $intake,
                     $item['question_key'],
                     $item['section_instance_key'],
@@ -142,15 +138,7 @@ function fillCustomerFacingUntilComplete(Intake $intake): void
                         $item['question_key'].'.jpg',
                         (string) file_get_contents($fixture),
                     ),
-                );
-                // Hertest/P3: foto telt pas mee na terminale beoordeling.
-                $upload->forceFill([
-                    'usability_verdict' => PhotoUsabilityVerdict::Ok,
-                    'assessment_status' => PhotoAssessmentStatus::Assessed,
-                    'content_assessment' => PhotoContentAssessment::ok(
-                        PhotoSubject::Other,
-                    )->toArray(),
-                ])->save();
+                ));
 
                 continue;
             }

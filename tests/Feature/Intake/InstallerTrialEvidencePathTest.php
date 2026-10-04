@@ -261,12 +261,14 @@ test('decision readiness blocks power without meterkast photo and placement with
         null,
         UploadedFile::fake()->image('meterkast.jpg', 800, 600),
     );
+    markTestUploadSatisfied($intake->uploads()->where('question_key', 'fusebox_photo')->latest('id')->firstOrFail());
     app(StoreIntakeUpload::class)->handle(
         $intake,
         'around_house_photos',
         null,
         UploadedFile::fake()->image('gevel.jpg', 800, 600),
     );
+    markTestUploadSatisfied($intake->uploads()->where('question_key', 'around_house_photos')->latest('id')->firstOrFail());
 
     $areas = app(DecisionReadinessService::class)->recalculate($intake->fresh());
 

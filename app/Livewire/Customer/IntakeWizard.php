@@ -441,7 +441,6 @@ class IntakeWizard extends Component
 
                     // Oranje kwaliteitshint alleen zonder override-panel (anders dubbel).
                     $photoNeedsQualityHint = ! $photoNeedsOverride
-                        && $photoMismatchAssessment === null
                         && $this->uploadsNeedQualityHint($stepUploads);
                 }
             }
@@ -2016,37 +2015,6 @@ class IntakeWizard extends Component
                 && $assessment->status() !== PhotoContentAssessment::STATUS_OK
                 && ($msg = $assessment->customerMessage()) !== null) {
                 $hints[] = $msg;
-            }
-        }
-
-        return $hints === [] ? null : implode(' ', array_values(array_unique($hints)));
-    }
-
-    private function persistentFollowUpPhotoHint(IntakeFollowUpItem $item): ?string
-    {
-        $hints = [];
-
-        foreach ($item->uploads as $upload) {
-            $assessment = $upload->contentAssessment();
-
-            // Wrong-subject feedback is shown once via the mismatch banner, not again here.
-            if ($assessment instanceof PhotoContentAssessment
-                && $assessment->status() === PhotoContentAssessment::STATUS_NEEDS_CLEARER) {
-                $contentHint = $assessment->customerMessage();
-
-                if ($contentHint !== null) {
-                    $hints[] = $contentHint;
-                }
-            }
-
-            $verdict = $upload->usability_verdict;
-            $qualityHint = $verdict instanceof PhotoUsabilityVerdict
-                ? $verdict->customerHint()
-                : null;
-
-            // Do not repeat the item prompt (already the page title).
-            if ($qualityHint !== null) {
-                $hints[] = $qualityHint;
             }
         }
 

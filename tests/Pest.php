@@ -3,6 +3,11 @@
 declare(strict_types=1);
 
 use App\Domains\AI\Jobs\AssessUploadedPhotoJob;
+use App\Domains\AI\Support\PhotoContentAssessment;
+use App\Domains\AI\Support\PhotoSubject;
+use App\Domains\Intake\Models\IntakeUpload;
+use App\Enums\PhotoAssessmentStatus;
+use App\Enums\PhotoUsabilityVerdict;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -56,4 +61,21 @@ function runAssessUploadedPhotoJob(int $uploadId, ?string $correlationId = null,
     $job = new AssessUploadedPhotoJob($uploadId, $correlationId, $dispatchedAt);
 
     app()->call([$job, 'handle']);
+}
+
+/**
+ * Mark a stored upload as terminaal beoordeeld/geaccepteerd zodat
+ * PhotoContentSatisfaction/ProgressCalculator hem als gedaan tellen in fill-helpers.
+ */
+function markTestUploadSatisfied(IntakeUpload $upload): IntakeUpload
+{
+    $upload->forceFill([
+        'usability_verdict' => PhotoUsabilityVerdict::Ok,
+        'assessment_status' => PhotoAssessmentStatus::Assessed,
+        'content_assessment' => PhotoContentAssessment::ok(
+            PhotoSubject::Other,
+        )->toArray(),
+    ])->save();
+
+    return $upload->fresh();
 }
