@@ -24,6 +24,8 @@ require __DIR__.'/../../vendor/autoload.php';
 $app = require __DIR__.'/../../bootstrap/app.php';
 $app->make(Kernel::class)->bootstrap();
 
+// Latest published airco template only — same convention as phpunit (#156).
+config(['intake.seed_latest_template_only' => true]);
 $app->make(IntakeTemplateSeeder::class)->run();
 
 $password = 'password';
