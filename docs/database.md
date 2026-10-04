@@ -548,10 +548,11 @@ BL-026 gebruikt deze tabel samen met bestaande intake-timestamps en relaties voo
 | `provider` | string | |
 | `model` | string nullable | |
 | `prompt_version` | string | |
+| `provider_request_id` | string nullable | Provider completion-`id` (OpenRouter/OpenAI); BL-144 |
 | `input_hash` | string(64) | |
 | `output` | json nullable | |
-| `status` | string | `pending` / `succeeded` / `partial` / `failed` |
-| `error_message` | text nullable | Bij `partial`: samenvatting van afgewezen voorstellen |
+| `status` | string | `pending` / `succeeded` / `partial` / `failed` / `skipped` |
+| `error_message` | text nullable | Bij `partial`: samenvatting van afgewezen voorstellen; bij `skipped`: reden |
 | `input_tokens` | unsigned integer nullable | Providerusage; geen promptinhoud |
 | `output_tokens` | unsigned integer nullable | Providerusage; geen outputinhoud |
 | `total_tokens` | unsigned integer nullable | Providerusage |
@@ -561,9 +562,9 @@ BL-026 gebruikt deze tabel samen met bestaande intake-timestamps en relaties voo
 | `started_at` / `finished_at` | timestamp nullable | |
 | `timestamps` | | |
 
-### `ai_traces` / `ai_trace_steps` (BL-116 + BL-125 + BL-132)
+### `ai_traces` / `ai_trace_steps` (BL-116 + BL-125 + BL-132 + BL-144)
 
-Volledige AI-ketenlogging (request → response → parse → dossier/restvragen) naast de compacte `ai_runs`. Zie [docs/ai.md § AI-traces](ai.md#ai-traces-bl-116--bl-125--bl-129).
+Volledige AI-ketenlogging (request → response → parse → dossier/restvragen) naast de compacte `ai_runs`. Zie [docs/ai.md § AI-traces](ai.md#ai-traces-bl-116--bl-125--bl-132--bl-140).
 
 | Kolom (`ai_traces`) | Type | Toelichting |
 |---------------------|------|-------------|
@@ -577,20 +578,20 @@ Volledige AI-ketenlogging (request → response → parse → dossier/restvragen
 | `upload_id` | bigint nullable | Foto-upload in dezelfde keten |
 | `subject_type` / `subject_id` | string nullable | Kamer/onderdeel |
 | `call_type` | string | o.a. `text_extraction`, `request_intent`, `photo_derive`, `photo_assess`, `follow_up_photo_subject`, `summary`, `attention_points`, `dossier_synthesis`, `route`, `route_review` |
-| `status` | string | `pending` / `succeeded` / `failed` |
-| `provider` / `model` / `model_parameters` | | Werkelijk gebruikte provider/model; parameters bevatten temperature/max_tokens/response_format/schema |
+| `status` | string | `pending` / `succeeded` / `failed` / `skipped` |
+| `provider` / `model` / `model_parameters` | | Werkelijk gebruikte provider/model; parameters bevatten temperature/max_tokens/seed/response_format/schema |
 | `prompt_version` | string nullable | |
 | `correlation_id` / `parent_trace_id` | uuid nullable | Gedeelde uploadketen / escalatie-ouder |
 | `fallback_used` / `retry_count` / `attempt` | | Queue-attempt (1-based) + retries (attempt−1) |
 | `request_snapshot` / `photo_refs` | json nullable | Geredigeerd; foto-refs zonder base64 (wel filename) |
 | `raw_response` | mediumtext nullable | |
-| `finish_reason` | string nullable | |
+| `finish_reason` | string nullable | Ook in export (BL-144) |
 | `parsed_response` / `validation_errors` / `normalizations` / `field_outcomes` | json nullable | Normalizations: `{field, from, to, rule}` |
 | `dossier_before` / `dossier_after` | json nullable | Compacte antwoordsnapshots |
 | `remaining_questions_before` / `after` | json nullable | Zichtbare klantstappen |
-| `persist_ms` / `network_upload_ms` / `queue_wait_ms` / `preprocess_ms` / `provider_ms` / `process_ms` | unsigned int nullable | P2-fasen + queue-wacht |
+| `persist_ms` / `network_upload_ms` / `queue_wait_ms` / `queued_at` / `preprocess_ms` / `provider_ms` / `process_ms` | | P2-fasen + queue-wacht; `queued_at` = dispatchtijdstip |
 | tokens / `estimated_cost_cents` / `estimated_cost` | | Cents voor budget; `estimated_cost` decimal (provider `usage.cost`) |
-| `error_message` / `started_at` / `finished_at` | | |
+| `error_message` / `started_at` / `finished_at` | | Bij `skipped`: reden |
 
 `ai_trace_steps`: `step_key`, `sequence`, `payload`, `duration_ms`, `recorded_at` — o.a. `normalize`, `apply`, `customer_step` voor parallelle stromen via `AiTraceHandle::step()`.
 

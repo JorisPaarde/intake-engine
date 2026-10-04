@@ -531,6 +531,35 @@ final class AiTraceHandle
     }
 
     /**
+     * Persist a deliberate no-provider-call outcome (status=skipped) with reason.
+     */
+    public function skip(string $reason): AiTrace
+    {
+        $this->safe(function () use ($reason): void {
+            if ($this->buffering) {
+                $this->flushBuffer();
+            }
+
+            $processMs = $this->capturedProcessMs ?? (int) round((microtime(true) - $this->processStartedAt) * 1000);
+            $safe = Str::limit($this->redactor->redactString($reason), 2000, '');
+            $this->assign([
+                'status' => AiTraceStatus::Skipped,
+                'process_ms' => $this->trace->process_ms ?? $processMs,
+                'error_message' => $safe,
+                'provider' => $this->trace->provider ?? 'none',
+                'model' => $this->trace->model ?? 'none',
+                'prompt_version' => $this->trace->prompt_version ?? 'skip',
+                'finished_at' => now(),
+            ]);
+            $this->ensureRequiredFields();
+            $this->appendStep('skip', ['reason' => $safe], $processMs);
+            $this->persist();
+        });
+
+        return $this->trace;
+    }
+
+    /**
      * Persist failure metadata. Never throws — original business exceptions stay intact.
      */
     public function fail(string $errorMessage, ?Throwable $providerException = null): AiTrace

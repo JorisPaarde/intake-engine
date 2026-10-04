@@ -112,6 +112,13 @@ final class OpenAiClient implements AiClientInterface
         if ($maxTokens !== null) {
             $payload['max_tokens'] = $maxTokens;
         }
+        $seed = $this->resolveSeed();
+        if ($seed !== null) {
+            $payload['seed'] = $seed;
+            $modelParameters['seed'] = $seed;
+        } else {
+            $modelParameters['seed'] = null;
+        }
 
         $lastTruncated = null;
 
@@ -389,6 +396,16 @@ final class OpenAiClient implements AiClientInterface
         $int = (int) $value;
 
         return $int > 0 ? $int : null;
+    }
+
+    private function resolveSeed(): ?int
+    {
+        $value = config('ai.seed');
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return (int) $value;
     }
 
     private function httpClient(string $baseUrl, string $apiKey, int $timeout): PendingRequest

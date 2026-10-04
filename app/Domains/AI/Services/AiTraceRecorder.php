@@ -9,6 +9,7 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Enums\AiTraceCallType;
 use App\Enums\AiTraceStatus;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -59,6 +60,7 @@ final class AiTraceRecorder
      *     preprocess_ms?: int|null,
      *     network_upload_ms?: int|null,
      *     queue_wait_ms?: int|null,
+     *     queued_at?: Carbon|string|float|int|null,
      *     fallback_used?: bool|null,
      *     retry_count?: int|null,
      *     attempt?: int|null,
@@ -105,6 +107,7 @@ final class AiTraceRecorder
             $queueWaitMs = array_key_exists('queue_wait_ms', $attributes)
                 ? ($attributes['queue_wait_ms'] !== null ? max(0, (int) $attributes['queue_wait_ms']) : null)
                 : $this->requestIdResolver->queueWaitMs();
+            $queuedAt = $this->resolveQueuedAt($attributes['queued_at'] ?? null);
 
             $trace = new AiTrace([
                 'trace_id' => (string) Str::uuid(),
@@ -128,6 +131,7 @@ final class AiTraceRecorder
                 'preprocess_ms' => $attributes['preprocess_ms'] ?? null,
                 'network_upload_ms' => $attributes['network_upload_ms'] ?? null,
                 'queue_wait_ms' => $queueWaitMs,
+                'queued_at' => $queuedAt,
                 'fallback_used' => (bool) ($attributes['fallback_used'] ?? false),
                 'retry_count' => $retryCount,
                 'attempt' => $attempt,
@@ -143,6 +147,7 @@ final class AiTraceRecorder
                 'correlation_id' => $correlationId,
                 'request_id' => $requestId,
                 'queue_wait_ms' => $queueWaitMs,
+                'queued_at' => $queuedAt?->toIso8601String(),
                 'attempt' => $attempt,
                 'retry_count' => $retryCount,
                 'tracing_enabled' => true,
@@ -163,6 +168,33 @@ final class AiTraceRecorder
 
             return AiTraceHandle::disabled($placeholder, $redactor);
         }
+    }
+
+    /**
+     * @param  Carbon|string|float|int|null  $explicit
+     */
+    private function resolveQueuedAt(mixed $explicit): ?Carbon
+    {
+        if ($explicit instanceof Carbon) {
+            return $explicit;
+        }
+        if (is_string($explicit) && $explicit !== '') {
+            try {
+                return Carbon::parse($explicit);
+            } catch (Throwable) {
+                // fall through
+            }
+        }
+        if (is_int($explicit) || is_float($explicit)) {
+            return Carbon::createFromTimestamp((int) $explicit);
+        }
+
+        $unix = $this->requestIdResolver->queuedAtUnix();
+        if ($unix === null) {
+            return null;
+        }
+
+        return Carbon::createFromTimestamp((int) floor($unix));
     }
 
     /**

@@ -22,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int|null $output_tokens
  * @property int|null $total_tokens
  * @property int $image_count
+ * @property string|null $provider_request_id
  * @property int|null $estimated_cost_cents
  * @property int|null $estimated_cost_microcents
  */
@@ -34,6 +35,7 @@ class AiRun extends Model
         'provider',
         'model',
         'prompt_version',
+        'provider_request_id',
         'input_hash',
         'output',
         'status',
@@ -97,6 +99,7 @@ class AiRun extends Model
         return [
             'provider' => $result->provider,
             'model' => $result->model ?? $fallbackModel,
+            'provider_request_id' => $result->providerResponseId,
             'input_tokens' => $result->inputTokens,
             'output_tokens' => $result->outputTokens,
             'total_tokens' => $result->totalTokens,

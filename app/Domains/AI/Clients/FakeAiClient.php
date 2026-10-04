@@ -339,6 +339,7 @@ final class FakeAiClient implements AiClientInterface
                 'model' => $request !== null && $request->model !== null ? $request->model : $model,
                 'temperature' => $temperature,
                 'max_tokens' => config('ai.max_tokens'),
+                'seed' => ($seed = config('ai.seed')) === null || $seed === '' ? null : (int) $seed,
                 'response_format' => $responseFormat,
                 'response_format_type' => $responseFormat['type'],
                 'schema' => $promptVersion,
