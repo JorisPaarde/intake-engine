@@ -331,7 +331,8 @@ final class CompletenessChecker
             }
         }
 
-        return $choice;
+        // Nooit Engelse enum-keys naar klant of dossierlabels lekken.
+        return 'Onbekend';
     }
 
     private function findQuestion(IntakeTemplateVersion $version, string $questionKey): ?IntakeQuestion

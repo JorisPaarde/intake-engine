@@ -37,7 +37,7 @@ final class PhotoDerivationProfile
 
         $profiles = [
             'room' => new self('room', 'room_assessment', [
-                DerivedAnswerField::choice('room_type', 'room_type', ['living_room', 'bedroom', 'office', 'attic']),
+                DerivedAnswerField::choice('room_type', 'room_type', ['living_room', 'bedroom', 'office', 'attic', 'unknown']),
                 DerivedAnswerField::choice('room_size_indication', 'room_size_indication', ['small', 'medium', 'large', 'unknown']),
                 DerivedAnswerField::choice('sun_exposure', 'sun_exposure', ['low', 'medium', 'high', 'unknown']),
                 DerivedAnswerField::choice('glass_amount', 'glass_amount', ['little', 'average', 'much', 'unknown']),
@@ -48,6 +48,7 @@ final class PhotoDerivationProfile
                 DerivedAnswerField::choice('extra_overview_needed', 'room_extra_overview_needed', ['complete', 'needs_photo', 'unknown']),
             ]),
             'outdoor' => new self('outdoor', 'outdoor_assessment', [
+                // unknown blijft schema-escape (niet persist): klant moet bereikbaarheid/plaatsing nog beantwoorden.
                 DerivedAnswerField::choice('outdoor_location', 'outdoor_location', ['garden', 'side_passage', 'facade', 'balcony', 'flat_roof', 'pitched_roof', 'dormer']),
                 DerivedAnswerField::choice('outdoor_mount_type', 'outdoor_mount_type', ['wall', 'ground', 'roof', 'balcony']),
                 DerivedAnswerField::choice('outdoor_accessibility', 'outdoor_accessibility', ['easy_ground', 'ladder', 'scaffolding', 'restricted']),

@@ -25,7 +25,9 @@ use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeAttentionPoint;
 use App\Domains\Intake\Models\IntakeExternalFact;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Domains\Intake\Support\FactAcceptance;
 use App\Domains\Intake\Support\PrefillSources;
+use App\Domains\Intake\Support\RoomAreaAcceptance;
 use App\Domains\Intake\Support\TechnicalDecisionKeys;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
@@ -1072,9 +1074,8 @@ final class DerivePhotoAnswers
         ?string $sectionInstanceKey,
         string $photoValue,
     ): ?array {
-        // Afgeleide grootte uit L×B telt niet als tekstfeit tegen foto-size.
         if ($field->questionKey === 'room_size_indication') {
-            return null;
+            return $this->roomSizeIndicationConflict($intake, $sectionInstanceKey, $photoValue);
         }
 
         $query = IntakeAnswer::query()
@@ -1113,6 +1114,86 @@ final class DerivePhotoAnswers
     }
 
     /**
+     * Foto-size vs klant-/installateursantwoord of trusted m² — markeer conflict (tekst blijft leidend).
+     *
+     * @return array{source: string, value: array<string, mixed>}|null
+     */
+    private function roomSizeIndicationConflict(
+        Intake $intake,
+        ?string $sectionInstanceKey,
+        string $photoValue,
+    ): ?array {
+        if ($photoValue === 'unknown' || $photoValue === '') {
+            return null;
+        }
+
+        $sizeQuery = IntakeAnswer::query()
+            ->where('intake_id', $intake->id)
+            ->where('question_key', 'room_size_indication');
+        $sectionInstanceKey === null
+            ? $sizeQuery->whereNull('section_instance_key')
+            : $sizeQuery->where('section_instance_key', $sectionInstanceKey);
+        $existingSize = $sizeQuery->first();
+
+        if ($existingSize instanceof IntakeAnswer
+            && $existingSize->prefill_source !== PrefillSources::DERIVED_LXW) {
+            $existingValue = $existingSize->value['value'] ?? null;
+            if (is_string($existingValue) && $existingValue !== '' && $existingValue !== 'unknown'
+                && $existingValue !== $photoValue) {
+                return [
+                    'source' => (string) ($existingSize->prefill_source ?? 'customer'),
+                    'value' => ['value' => $existingValue],
+                ];
+            }
+        }
+
+        $areaQuery = IntakeAnswer::query()
+            ->where('intake_id', $intake->id)
+            ->where('question_key', 'room_area_m2');
+        $sectionInstanceKey === null
+            ? $areaQuery->whereNull('section_instance_key')
+            : $areaQuery->where('section_instance_key', $sectionInstanceKey);
+        $areaAnswer = $areaQuery->first();
+
+        if (! $areaAnswer instanceof IntakeAnswer) {
+            return null;
+        }
+
+        $areaM2 = isset($areaAnswer->value['number']) && is_numeric($areaAnswer->value['number'])
+            ? (float) $areaAnswer->value['number']
+            : null;
+        $meta = is_array($areaAnswer->value) ? $areaAnswer->value : [];
+        $confidence = is_string($meta['confidence'] ?? null) ? $meta['confidence'] : null;
+        $evidence = is_string($meta['evidence'] ?? null) ? $meta['evidence'] : null;
+        if ($evidence === null && is_string($areaAnswer->fact_evidence)) {
+            $evidence = $areaAnswer->fact_evidence;
+        }
+
+        if ($confidence === null && is_int($areaAnswer->fact_confidence)) {
+            $confidence = FactAcceptance::levelFromPercent($areaAnswer->fact_confidence);
+        }
+
+        if ($areaM2 === null || ! RoomAreaAcceptance::isTrusted(
+            $areaAnswer->prefill_source,
+            $confidence,
+            $evidence,
+            $areaM2,
+        )) {
+            return null;
+        }
+
+        $fromArea = RoomAreaAcceptance::sizeIndicationFromArea($areaM2);
+        if ($fromArea === $photoValue) {
+            return null;
+        }
+
+        return [
+            'source' => (string) ($areaAnswer->prefill_source ?? 'customer'),
+            'value' => ['value' => $fromArea, 'area_m2' => $areaM2],
+        ];
+    }
+
+    /**
      * @param  array{source: string, value: array<string, mixed>}  $conflict
      */
     private function recordPhotoTextConflict(
@@ -1130,9 +1211,12 @@ final class DerivePhotoAnswers
             ->where('status', AttentionPointStatus::Proposed)
             ->first();
 
-        $label = 'Foto wijkt af van de aanvraagtekst bij “'.$questionKey.'”'
-            .($sectionInstanceKey !== null ? ' ('.$sectionInstanceKey.')' : '')
-            .'. Tekst blijft leidend; foto-uitkomst is voorstel ('.$photoValue.').';
+        $questionLabel = $this->dutchQuestionLabel($intake, $questionKey) ?? 'deze vraag';
+        $textDisplay = $this->dutchConflictValue($intake, $questionKey, $conflict['value']);
+        $photoDisplay = $this->dutchConflictValue($intake, $questionKey, ['value' => $photoValue]);
+
+        $label = 'Foto wijkt af van het eerder vastgelegde antwoord bij “'.$questionLabel.'”'
+            .'. Tekst/antwoord blijft leidend ('.$textDisplay.'); foto-uitkomst is voorstel ('.$photoDisplay.').';
 
         if ($existingPoint instanceof IntakeAttentionPoint) {
             $existingPoint->update([
@@ -1158,6 +1242,65 @@ final class DerivePhotoAnswers
             ],
             'is_resolved' => false,
         ]);
+    }
+
+    private function dutchQuestionLabel(Intake $intake, string $questionKey): ?string
+    {
+        $intake->loadMissing(['templateVersion.sections.questions']);
+        $version = $intake->templateVersion;
+        if ($version === null) {
+            return null;
+        }
+
+        foreach ($version->sections as $section) {
+            foreach ($section->questions as $question) {
+                $label = trim($question->label);
+                if ($question->key === $questionKey && $label !== '') {
+                    return $label;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $value
+     */
+    private function dutchConflictValue(Intake $intake, string $questionKey, array $value): string
+    {
+        $choice = $value['value'] ?? null;
+        if (! is_string($choice) || $choice === '') {
+            if (isset($value['area_m2']) && is_numeric($value['area_m2'])) {
+                return RoomAreaAcceptance::sizeIndicationFromArea((float) $value['area_m2']);
+            }
+
+            return 'onbekend';
+        }
+
+        $intake->loadMissing(['templateVersion.sections.questions.options']);
+        $version = $intake->templateVersion;
+        if ($version !== null) {
+            foreach ($version->sections as $section) {
+                foreach ($section->questions as $question) {
+                    if ($question->key !== $questionKey) {
+                        continue;
+                    }
+                    $label = $question->options->firstWhere('value', $choice)?->label;
+                    if (is_string($label) && $label !== '') {
+                        return $label;
+                    }
+                }
+            }
+        }
+
+        return match ($choice) {
+            'small' => 'Klein',
+            'medium' => 'Gemiddeld',
+            'large' => 'Groot',
+            'unknown' => 'Weet ik niet',
+            default => 'onbekend',
+        };
     }
 
     /**
