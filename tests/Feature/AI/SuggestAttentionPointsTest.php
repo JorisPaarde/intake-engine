@@ -76,8 +76,39 @@ test('heuristic skips a free-group proposal when the source answer is absent', f
         ->and($intake->attentionPoints()->whereIn('code', ['no_free_group', 'free_group_unknown'])->exists())->toBeFalse();
 });
 
+test('attention points stores configured model and parameters on the run', function () {
+    config([
+        'ai.provider' => 'fake',
+        'ai.model' => 'google/gemini-3.1-flash-lite',
+        'ai.temperature' => 0.2,
+        'ai.timeout_seconds' => 20,
+    ]);
+    FakeAiClient::reset();
+    FakeAiClient::alwaysReturn(['points' => [[
+        'code' => 'verify_building_type',
+        'label' => 'Controleer het afgeleide woningtype.',
+        'confidence' => 'medium',
+        'evidence' => [[
+            'source_type' => 'answer',
+            'reference' => 'free_group_known',
+        ]],
+    ]]]);
+    $intake = makeSuggestIntake();
+
+    $run = app(SuggestAttentionPoints::class)->handle($intake);
+
+    expect($run)->not->toBeNull()
+        ->and($run->status)->toBe(AiRunStatus::Succeeded)
+        ->and($run->model)->not->toBeNull()
+        ->and($run->model)->not->toBe('')
+        ->and(FakeAiClient::lastRequest()?->model)->toBe('google/gemini-3.1-flash-lite')
+        ->and(FakeAiClient::lastRequest()?->temperature)->toBe(0.2)
+        ->and(FakeAiClient::lastRequest()?->timeoutSeconds)->toBe(20);
+});
+
 test('AI proposals retain confidence and evidence references', function () {
     config(['ai.provider' => 'fake']);
+
     FakeAiClient::reset();
     FakeAiClient::alwaysReturn(['points' => [[
         'code' => 'verify_building_type',

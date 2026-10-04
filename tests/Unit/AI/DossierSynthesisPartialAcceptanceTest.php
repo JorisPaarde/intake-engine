@@ -77,6 +77,63 @@ function validConnection(string $type, string $from, string $to, string $evidenc
     ];
 }
 
+test('prod run-336 two connections drops option but keeps placements (partial accept)', function () {
+    // Prod intake 94 / ai_run ~336 (also staging intake 77): valid JSON with
+    // option_proposals.0.connections = array(2). Hard min:3 used to reject the
+    // entire synthesis; partial accept must keep placements and only drop the option.
+    $output = [
+        'summary' => 'Run-336: twee connections, geldige placements.',
+        'placement_proposals' => [
+            [
+                'key' => 'proposal:indoor_woonkamer',
+                'type' => AircoPlacementType::IndoorUnit->value,
+                'label' => 'Binnenunit woonkamer',
+                'description' => 'Vrije muur zichtbaar op kamerfoto.',
+                'room_reference' => 'room:12',
+                'subject_reference' => 'subject:40',
+                'confidence' => 0.8,
+                'evidence_references' => ['dossier_image:101'],
+            ],
+            [
+                'key' => 'proposal:outdoor_gevel',
+                'type' => AircoPlacementType::OutdoorUnit->value,
+                'label' => 'Buitenunit gevel',
+                'description' => 'Gevelruimte zichtbaar.',
+                'room_reference' => null,
+                'subject_reference' => 'subject:41',
+                'confidence' => 0.75,
+                'evidence_references' => ['dossier_image:102'],
+            ],
+        ],
+        'option_proposals' => [[
+            'label' => 'Single-split incompleet',
+            'configuration_type' => AircoConfigurationType::SingleSplit->value,
+            'summary' => 'Koel en condens aanwezig; stroom ontbreekt (array van 2).',
+            'cost_impact' => 'medium',
+            'confidence' => 0.7,
+            'placement_references' => ['proposal:indoor_woonkamer', 'proposal:outdoor_gevel', 'placement:83', 'placement:84'],
+            'connections' => [
+                validConnection('refrigerant', 'proposal:indoor_woonkamer', 'proposal:outdoor_gevel', 'dossier_image:101'),
+                validConnection('condensate', 'proposal:indoor_woonkamer', 'placement:84', 'dossier_image:101'),
+                // power missing → type set incomplete (got: array(2))
+            ],
+        ]],
+        'exceptions' => [],
+        'customer_tasks' => [],
+    ];
+
+    $result = app(DossierSynthesisPartialAcceptor::class)->accept($output, partialAcceptorInput());
+
+    expect($result['has_accepted_proposals'])->toBeTrue()
+        ->and($result['had_rejections'])->toBeTrue()
+        ->and($result['accepted']['placement_proposals'])->toHaveCount(2)
+        ->and($result['accepted']['option_proposals'])->toHaveCount(0)
+        ->and($result['validation_errors'])->toHaveKey('option_proposals.0')
+        ->and($result['validation_errors']['option_proposals.0'][0] ?? '')
+        ->toContain('koel-, condens- en stroomverbindingen')
+        ->and($result['summary_message'] ?? '')->not->toContain('must have at least 3 items');
+});
+
 test('partial acceptor keeps valid placements when option has only two connections (staging gemini error)', function () {
     $output = [
         'summary' => 'Gedeeltelijk geldig voorstel.',
@@ -317,8 +374,7 @@ test('exact prod run-243 response shape is dropped per proposal (not whole synth
         ->and($result['accepted']['placement_proposals'])->toHaveCount(1)
         ->and($result['accepted']['option_proposals'])->toBe([])
         ->and($result['validation_errors'])->toHaveKey('option_proposals.0')
-        ->and($result['validation_errors']['option_proposals.0'][0] ?? '')->toContain('placement_references')
-        ->and($result['validation_errors']['option_proposals.0'][0] ?? '')->toContain('connections');
+        ->and($result['validation_errors']['option_proposals.0'][0] ?? '')->toContain('placement_references');
 });
 
 test('ambiguous subject refs drop only that connection then fail option on cardinality', function () {
@@ -350,7 +406,7 @@ test('ambiguous subject refs drop only that connection then fail option on cardi
 
     expect($result['has_accepted_proposals'])->toBeFalse()
         ->and($result['accepted']['option_proposals'])->toBe([])
-        ->and($result['validation_errors']['option_proposals.0'][0] ?? '')->toContain('connections')
+        ->and($result['validation_errors']['option_proposals.0'][0] ?? '')->toContain('koel-, condens- en stroomverbindingen')
         ->and($result['validation_errors']['option_proposals.0'][0] ?? '')->toContain('subject-ref');
 });
 
@@ -546,13 +602,14 @@ test('dossier synthesis json schema encodes enums and required reference shapes'
         ->and($format['json_schema']['strict'])->toBeTrue()
         ->and($format['json_schema']['name'])->toBe('dossier_synthesis')
         ->and($schema['required'])->toContain('option_proposals')
-        ->and($schema['properties']['option_proposals']['items']['properties']['connections']['minItems'])->toBe(3)
-        ->and($schema['properties']['option_proposals']['items']['properties']['placement_references']['minItems'])->toBe(2)
-        ->and($schema['properties']['option_proposals']['items']['properties']['connections']['items']['properties']['evidence_references']['minItems'])->toBe(1)
-        ->and($schema['properties']['option_proposals']['items']['properties']['connections']['items']['properties']['from_placement_reference']['pattern'])
-        ->toContain('placement:')
+        ->and($schema['properties']['option_proposals']['items']['properties']['connections'])->toHaveKey('items')
+        ->and($schema['properties']['option_proposals']['items']['properties']['connections'])->not->toHaveKey('minItems')
+        ->and($schema['properties']['option_proposals']['items']['properties']['placement_references'])->not->toHaveKey('minItems')
+        ->and($schema['properties']['option_proposals']['items']['properties']['connections']['items']['properties']['evidence_references'])->not->toHaveKey('minItems')
+        ->and($schema['properties']['option_proposals']['items']['properties']['connections']['items']['properties']['from_placement_reference'])->not->toHaveKey('pattern')
         ->and($schema['properties']['placement_proposals']['items']['properties']['type']['enum'])
-        ->toContain(AircoPlacementType::IndoorUnit->value);
+        ->toContain(AircoPlacementType::IndoorUnit->value)
+        ->and(app(DossierSynthesisJsonSchema::class)->unsupportedKeywordsIn($schema))->toBe([]);
 });
 
 test('budget guard books fractional cents when rates are configured', function () {

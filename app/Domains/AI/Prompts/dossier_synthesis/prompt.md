@@ -30,7 +30,7 @@ Harde referentie- en cardinaliteitsregels (fouten hierop maken een voorstel onge
 2. Iedere connection heeft `evidence_references` met **minimaal 1** geldige referentie uit de invoer (mag `dossier_image:ID`, `placement:ID`, `proposal:sleutel`, … zijn die letterlijk in de context staan).
 3. Iedere `option_proposals[]` heeft:
    - `placement_references`: **minimaal 2** (minstens één binnen- en één buitenpositie);
-   - `connections`: **minimaal 3**, met alle drie de typen `refrigerant`, `condensate` en `power` aanwezig;
+   - `connections`: streef naar **alle drie** de typen `refrigerant`, `condensate` en `power` (één of meer items per type waar nodig). Ontbreekt een type, dan dropte de server **alleen die optie** (partial accept); geldige `placement_proposals` blijven staan — een te korte connection-lijst is geen reden om de hele voorzet te verwerpen;
    - per binnenpositie in die optie: een eigen `refrigerant`- én `condensate`-verbinding waarvan `from` of `to` die binnenpositie is.
 4. `placement_proposals[].subject_reference` is verplicht (`subject:ID`); voor `indoor_unit` ook `room_reference` (`room:ID`).
 5. `placement_proposals[].evidence_references` heeft **minimaal 1** `dossier_image:ID`.

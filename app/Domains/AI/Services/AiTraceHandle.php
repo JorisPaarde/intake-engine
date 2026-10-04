@@ -349,6 +349,29 @@ final class AiTraceHandle
                     $attributes['provider_ms'] = $providerMs;
                 }
 
+                if (is_string($exception->model) && $exception->model !== '') {
+                    $attributes['model'] = $exception->model;
+                    $payload['model'] = $exception->model;
+                }
+
+                if ($exception->modelParameters !== []) {
+                    $params = $exception->modelParameters;
+                    unset($params['base_url']);
+                    if ($exception->errorClass !== null) {
+                        $params['error_class'] = $exception->errorClass;
+                    }
+                    $attributes['model_parameters'] = $params;
+                    $payload['model_parameters'] = $params;
+                } elseif ($exception->errorClass !== null) {
+                    $existing = is_array($this->trace->model_parameters) ? $this->trace->model_parameters : [];
+                    $existing['error_class'] = $exception->errorClass;
+                    $attributes['model_parameters'] = $existing;
+                }
+
+                if ($exception->errorClass !== null) {
+                    $payload['error_class'] = $exception->errorClass;
+                }
+
                 if (is_string($exception->rawResponse) && $exception->rawResponse !== '') {
                     $safeRaw = $this->redactor->redactString($exception->rawResponse);
                     if (strlen($safeRaw) > 200_000) {
@@ -523,6 +546,9 @@ final class AiTraceHandle
 
             $processMs = $this->capturedProcessMs ?? (int) round((microtime(true) - $this->processStartedAt) * 1000);
             $safe = Str::limit($this->redactor->redactString($errorMessage), 2000, '');
+            $errorClass = $providerException instanceof AiClientException
+                ? $providerException->errorClass
+                : null;
             $this->assign([
                 'status' => AiTraceStatus::Failed,
                 'process_ms' => $this->trace->process_ms ?? $processMs,
@@ -530,7 +556,10 @@ final class AiTraceHandle
                 'finished_at' => now(),
             ]);
             $this->ensureRequiredFields();
-            $this->appendStep('fail', ['error' => Str::limit($safe, 500, '')], $processMs);
+            $this->appendStep('fail', array_filter([
+                'error' => Str::limit($safe, 500, ''),
+                'error_class' => $errorClass,
+            ], static fn (mixed $value): bool => $value !== null), $processMs);
             $this->persist();
         });
 
@@ -549,7 +578,8 @@ final class AiTraceHandle
 
         $defaults = [
             'prompt_version' => $this->trace->prompt_version ?? 'unknown',
-            'model' => $this->trace->model ?? ($this->trace->provider ?? 'unknown'),
+            // Never fall back to provider name (was: model="openai" when model unset).
+            'model' => $this->trace->model ?? 'unknown',
             'request_snapshot' => $this->trace->request_snapshot ?? ['system' => null, 'user' => null],
             'photo_refs' => $this->trace->photo_refs ?? [],
             'raw_response' => $this->trace->raw_response ?? '',

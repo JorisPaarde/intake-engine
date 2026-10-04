@@ -11,6 +11,7 @@ final class AiClientException extends RuntimeException
 {
     /**
      * @param  array{input_tokens?: int|null, output_tokens?: int|null, total_tokens?: int|null}|null  $usage
+     * @param  array<string, mixed>  $modelParameters
      */
     public function __construct(
         string $message = '',
@@ -20,6 +21,9 @@ final class AiClientException extends RuntimeException
         public readonly ?string $rawResponse = null,
         public readonly ?string $finishReason = null,
         public readonly ?array $usage = null,
+        public readonly ?string $errorClass = null,
+        public readonly ?string $model = null,
+        public readonly array $modelParameters = [],
     ) {
         parent::__construct($message, $code, $previous);
     }

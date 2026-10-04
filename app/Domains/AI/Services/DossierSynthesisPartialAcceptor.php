@@ -342,7 +342,9 @@ final class DossierSynthesisPartialAcceptor
                 'item.confidence' => ['required', 'numeric', 'between:0,1'],
                 'item.placement_references' => ['required', 'array', 'min:2', 'max:20'],
                 'item.placement_references.*' => ['required', 'string', 'regex:/^(placement:\d+|proposal:[a-z0-9_]+)$/'],
-                'item.connections' => ['required', 'array', 'min:3', 'max:40'],
+                // Soft min: incomplete connection sets fail the type-completeness check
+                // below and drop only this option (partial accept keeps placements).
+                'item.connections' => ['required', 'array', 'min:1', 'max:40'],
                 'item.connections.*.type' => ['required', Rule::enum(AircoConnectionType::class)],
                 'item.connections.*.label' => ['required', 'string', 'max:180'],
                 'item.connections.*.from_placement_reference' => ['present', 'nullable', 'string', 'regex:/^(placement:\d+|proposal:[a-z0-9_]+)$/'],
@@ -422,9 +424,14 @@ final class DossierSynthesisPartialAcceptor
 
         foreach (AircoConnectionType::cases() as $type) {
             if (! $connectionTypes->contains($type->value)) {
+                $reason = 'Iedere AI-optie moet koel-, condens- en stroomverbindingen bevatten.';
+                if ($strippedConnectionReasons !== []) {
+                    $reason .= ' | '.implode(' | ', $strippedConnectionReasons);
+                }
+
                 return [
                     'accepted' => null,
-                    'reason' => 'Iedere AI-optie moet koel-, condens- en stroomverbindingen bevatten.',
+                    'reason' => $reason,
                 ];
             }
         }

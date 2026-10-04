@@ -503,7 +503,7 @@ test('AI synthesis normalizes deviant length_class instead of failing soft', fun
     $lengths = $option->connections->pluck('length_class')->all();
 
     expect($run?->status)->toBe(AiRunStatus::Succeeded, $run?->error_message ?? '')
-        ->and($run?->prompt_version)->toBe('dossier-synthesis-v6')
+        ->and($run?->prompt_version)->toBe('dossier-synthesis-v7')
         ->and($option->cost_impact)->toBe('medium')
         ->and($lengths)->toBe(['short', 'short', 'unknown']);
 });
@@ -663,7 +663,7 @@ test('AI synthesis records tokens/cost on exact prod run-243 failure shape', fun
     $run = app(SynthesizeSurveyDossier::class)->handle($intake->fresh());
 
     expect($run?->status)->toBe(AiRunStatus::Partial, $run?->error_message ?? '')
-        ->and($run?->prompt_version)->toBe('dossier-synthesis-v6')
+        ->and($run?->prompt_version)->toBe('dossier-synthesis-v7')
         ->and($run?->input_tokens)->toBeGreaterThan(0)
         ->and($run?->output_tokens)->toBeGreaterThan(0)
         ->and($run?->total_tokens)->toBeGreaterThan(0)

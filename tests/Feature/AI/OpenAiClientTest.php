@@ -8,6 +8,7 @@ use App\Domains\AI\DTOs\AiImageInput;
 use App\Domains\AI\Exceptions\AiClientException;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\AiInputRedactor;
+use App\Domains\AI\Services\DossierSynthesisJsonSchema;
 use App\Domains\Intake\Models\Intake;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
@@ -385,4 +386,154 @@ test('openai client never puts the api key in exception messages', function () {
         expect($e->getMessage())->not->toContain('super-secret-openrouter-key')
             ->and($e->getMessage())->toContain('[redacted]');
     }
+});
+
+test('openai client uses json_object for Google/Gemini models even when a schema is provided', function () {
+    config([
+        'ai.provider' => 'openai',
+        'ai.api_key' => 'test-key',
+        'ai.base_url' => 'https://openrouter.ai/api/v1',
+        'ai.model' => 'google/gemini-3.1-flash-lite',
+    ]);
+
+    Http::fake([
+        '*/chat/completions' => Http::response([
+            'model' => 'google/gemini-3.1-flash-lite',
+            'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
+            'choices' => [['message' => ['content' => json_encode(['summary' => 'ok'])]]],
+        ], 200),
+    ]);
+
+    $schema = app(DossierSynthesisJsonSchema::class)->schema();
+
+    $result = app(OpenAiClient::class)->complete(new AiCompletionRequest(
+        prompt: 'Synthetiseer als JSON.',
+        input: ['rooms' => []],
+        promptVersion: 'dossier-synthesis-v7',
+        model: 'google/gemini-3.1-flash-lite',
+        responseSchema: [
+            'name' => 'dossier_synthesis',
+            'schema' => $schema,
+        ],
+    ));
+
+    Http::assertSent(function ($request) use ($schema): bool {
+        $data = $request->data();
+        $format = $data['response_format'] ?? null;
+
+        // Gemini path must not send json_schema (prod 400 on unsupported keywords).
+        return ($data['model'] ?? null) === 'google/gemini-3.1-flash-lite'
+            && is_array($format)
+            && ($format['type'] ?? null) === 'json_object'
+            && ! isset($format['json_schema'])
+            && app(DossierSynthesisJsonSchema::class)->unsupportedKeywordsIn($schema) === [];
+    });
+
+    expect($result->modelParameters['response_format_type'] ?? null)->toBe('json_object')
+        ->and($result->modelParameters['structured_output_mode'] ?? null)->toBe('json_object_for_google_model');
+});
+
+test('openai client keeps json_schema for non-Google models with a Gemini-safe schema payload', function () {
+    config(['ai.provider' => 'openai', 'ai.api_key' => 'test-key', 'ai.model' => 'openai/gpt-4o-mini']);
+
+    Http::fake([
+        '*/chat/completions' => Http::response([
+            'model' => 'openai/gpt-4o-mini',
+            'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 5, 'total_tokens' => 15],
+            'choices' => [['message' => ['content' => json_encode(['summary' => 'ok'])]]],
+        ], 200),
+    ]);
+
+    $schemaService = app(DossierSynthesisJsonSchema::class);
+    $schema = $schemaService->schema();
+
+    app(OpenAiClient::class)->complete(new AiCompletionRequest(
+        prompt: 'Synthetiseer als JSON.',
+        input: ['rooms' => []],
+        promptVersion: 'dossier-synthesis-v7',
+        model: 'openai/gpt-4o-mini',
+        responseSchema: [
+            'name' => 'dossier_synthesis',
+            'schema' => $schema,
+        ],
+    ));
+
+    Http::assertSent(function ($request) use ($schemaService): bool {
+        $format = $request->data()['response_format'] ?? null;
+        $wireSchema = is_array($format) ? ($format['json_schema']['schema'] ?? null) : null;
+
+        return is_array($format)
+            && ($format['type'] ?? null) === 'json_schema'
+            && ($format['json_schema']['strict'] ?? null) === true
+            && is_array($wireSchema)
+            && $schemaService->unsupportedKeywordsIn($wireSchema) === [];
+    });
+});
+
+test('openai client includes provider error.message on HTTP 400 without PII', function () {
+    config([
+        'ai.provider' => 'openai',
+        'ai.api_key' => 'test-key',
+        'ai.model' => 'google/gemini-3.1-flash-lite',
+    ]);
+
+    Http::fake([
+        '*/chat/completions' => Http::response([
+            'error' => [
+                'message' => 'Invalid schema for response_format \'json_schema\': schema must be a valid JSON schema containing `pattern`.',
+                'code' => 400,
+            ],
+        ], 400),
+    ]);
+
+    try {
+        app(OpenAiClient::class)->complete(new AiCompletionRequest(
+            prompt: 'Synthetiseer.',
+            input: ['rooms' => []],
+            promptVersion: 'dossier-synthesis-v7',
+            model: 'google/gemini-3.1-flash-lite',
+        ));
+        expect(false)->toBeTrue();
+    } catch (AiClientException $e) {
+        expect($e->getMessage())->toContain('status 400')
+            ->and($e->getMessage())->toContain('Invalid schema for response_format')
+            ->and($e->errorClass)->toBe('provider_error')
+            ->and($e->rawResponse)->toContain('Invalid schema')
+            ->and($e->model)->toBe('google/gemini-3.1-flash-lite');
+    }
+});
+
+test('openai client retries once on truncated JSON then classifies truncated/provider_error', function () {
+    config(['ai.provider' => 'openai', 'ai.api_key' => 'test-key', 'ai.model' => 'gpt-test']);
+
+    Http::fake([
+        '*/chat/completions' => Http::sequence()
+            ->push([
+                'model' => 'gpt-test',
+                'usage' => ['prompt_tokens' => 0, 'completion_tokens' => 0, 'total_tokens' => 0],
+                'choices' => [[
+                    'finish_reason' => 'length',
+                    'message' => ['content' => "{\n  \"points\":"],
+                ]],
+            ], 200)
+            ->push([
+                'model' => 'gpt-test',
+                'usage' => ['prompt_tokens' => 0, 'completion_tokens' => 0, 'total_tokens' => 0],
+                'choices' => [[
+                    'finish_reason' => 'length',
+                    'message' => ['content' => "{\n  \"points\":"],
+                ]],
+            ], 200),
+    ]);
+
+    try {
+        app(OpenAiClient::class)->complete(aiRequest());
+        expect(false)->toBeTrue();
+    } catch (AiClientException $e) {
+        expect($e->errorClass)->toBe('truncated/provider_error')
+            ->and($e->getMessage())->toContain('afgekapte JSON')
+            ->and($e->getMessage())->not->toContain('ongeldige JSON');
+    }
+
+    Http::assertSentCount(2);
 });

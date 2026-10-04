@@ -25,10 +25,15 @@ use Illuminate\Support\Str;
  *
  * When the caller passes a JSON schema, uses strict structured output
  * (`response_format.type=json_schema`); otherwise falls back to `json_object`.
+ *
+ * Truncated / cut-off JSON responses get one automatic retry and are classified as
+ * `truncated/provider_error` (not "invalid JSON").
  */
 final class OpenAiClient implements AiClientInterface
 {
     private const RAW_RESPONSE_LIMIT = 8000;
+
+    private const MAX_ATTEMPTS = 2;
 
     public function __construct(
         private readonly AiInputRedactor $redactor,
@@ -85,6 +90,15 @@ final class OpenAiClient implements AiClientInterface
             'timeout_seconds' => $timeout,
             'base_url' => $baseUrl,
         ];
+        if ($request->responseSchema !== null
+            && $request->responseSchema !== []
+            && ($responseFormat['type'] ?? null) === 'json_object'
+            && $this->isGoogleModel($model)) {
+            $modelParameters['structured_output_mode'] = 'json_object_for_google_model';
+            $modelParameters['structured_output_schema_name'] = is_string($request->responseSchema['name'] ?? null)
+                ? $request->responseSchema['name']
+                : 'structured_output';
+        }
 
         $payload = [
             'model' => $model,
@@ -99,100 +113,178 @@ final class OpenAiClient implements AiClientInterface
             $payload['max_tokens'] = $maxTokens;
         }
 
-        $providerStarted = microtime(true);
+        $lastTruncated = null;
 
-        try {
-            $response = $this->httpClient($baseUrl, $apiKey, $timeout)
-                ->post('/chat/completions', $payload);
-        } catch (\Throwable $e) {
+        for ($attempt = 1; $attempt <= self::MAX_ATTEMPTS; $attempt++) {
+            $providerStarted = microtime(true);
+
+            try {
+                $response = $this->httpClient($baseUrl, $apiKey, $timeout)
+                    ->post('/chat/completions', $payload);
+            } catch (\Throwable $e) {
+                $providerMs = (int) round((microtime(true) - $providerStarted) * 1000);
+
+                throw new AiClientException(
+                    'Externe AI-aanroep mislukt: '.$this->safeExceptionMessage($e->getMessage(), $apiKey),
+                    previous: $e,
+                    providerMs: $providerMs,
+                    errorClass: 'provider_error',
+                    model: $model,
+                    modelParameters: $modelParameters,
+                );
+            }
+
             $providerMs = (int) round((microtime(true) - $providerStarted) * 1000);
+            $finishReason = $response->json('choices.0.finish_reason');
+            $finishReason = is_string($finishReason) ? $finishReason : null;
+            $usage = $this->usageFromResponse($response);
+            $providerResponseId = $this->providerResponseId($response);
+            $rawBody = $this->redactedRawBody((string) $response->body());
 
-            throw new AiClientException(
-                'Externe AI-aanroep mislukt: '.$this->safeExceptionMessage($e->getMessage(), $apiKey),
-                previous: $e,
-                providerMs: $providerMs,
-            );
-        }
+            if ($response->failed()) {
+                $providerMessage = $this->providerErrorMessage($response);
+                $status = $response->status();
+                $message = 'Externe AI-provider gaf status '.$status.'.';
+                if ($providerMessage !== null) {
+                    $message .= ' '.$providerMessage;
+                }
 
-        $providerMs = (int) round((microtime(true) - $providerStarted) * 1000);
-        $finishReason = $response->json('choices.0.finish_reason');
-        $finishReason = is_string($finishReason) ? $finishReason : null;
-        $usage = $this->usageFromResponse($response);
-        $providerResponseId = $this->providerResponseId($response);
-        $rawBody = $this->redactedRawBody((string) $response->body());
+                throw new AiClientException(
+                    $message,
+                    providerMs: $providerMs,
+                    rawResponse: $rawBody,
+                    finishReason: $finishReason,
+                    usage: $usage,
+                    errorClass: 'provider_error',
+                    model: $model,
+                    modelParameters: $modelParameters,
+                );
+            }
 
-        if ($response->failed()) {
-            throw new AiClientException(
-                'Externe AI-provider gaf status '.$response->status().'.',
-                providerMs: $providerMs,
-                rawResponse: $rawBody,
+            $content = $response->json('choices.0.message.content');
+
+            if (! is_string($content) || $content === '') {
+                throw new AiClientException(
+                    'Externe AI-provider gaf geen bruikbare inhoud.',
+                    providerMs: $providerMs,
+                    rawResponse: $rawBody,
+                    finishReason: $finishReason,
+                    usage: $usage,
+                    errorClass: 'provider_error',
+                    model: $model,
+                    modelParameters: $modelParameters,
+                );
+            }
+
+            /** @var array<string, mixed>|null $output */
+            $output = json_decode($content, true);
+
+            if (! is_array($output)) {
+                $truncated = $this->looksTruncated($content, $finishReason);
+                $exception = new AiClientException(
+                    $truncated
+                        ? 'Externe AI-provider gaf afgekapte JSON-respons.'
+                        : 'Externe AI-provider gaf ongeldige JSON.',
+                    providerMs: $providerMs,
+                    rawResponse: $this->redactedRawBody($content),
+                    finishReason: $finishReason,
+                    usage: $usage,
+                    errorClass: $truncated ? 'truncated/provider_error' : 'invalid_json',
+                    model: is_string($response->json('model')) ? $response->json('model') : $model,
+                    modelParameters: $modelParameters,
+                );
+
+                if ($truncated && $attempt < self::MAX_ATTEMPTS) {
+                    $lastTruncated = $exception;
+                    $modelParameters['retry_count'] = $attempt;
+                    $modelParameters['retry_reason'] = 'truncated/provider_error';
+
+                    continue;
+                }
+
+                throw $exception;
+            }
+
+            $inputTokens = $usage['input_tokens'];
+            $outputTokens = $usage['output_tokens'];
+            $totalTokens = $usage['total_tokens'];
+            $imageCount = count($request->images);
+            $actualModel = is_string($response->json('model')) ? $response->json('model') : $model;
+            $providerCost = $usage['cost'];
+
+            if ($providerCost !== null) {
+                // Fine currency stays unrounded; whole cents are ceil'd for display only.
+                $estimatedCost = $this->formatCost($providerCost);
+                $estimatedCostCents = max(0, (int) ceil($providerCost * 100));
+            } else {
+                $fractionalCents = $this->budgetGuard->estimateCostCents($inputTokens, $outputTokens, $imageCount);
+                $estimatedCostCents = $this->budgetGuard->ceilCents($fractionalCents) ?? 0;
+                $estimatedCost = $fractionalCents > 0.0
+                    ? $this->formatCost($fractionalCents / 100.0)
+                    : null;
+            }
+
+            $modelParameters['model'] = $actualModel;
+            if ($attempt > 1) {
+                $modelParameters['retry_count'] = $attempt - 1;
+                $modelParameters['retry_reason'] = 'truncated/provider_error';
+            }
+
+            return new AiCompletionResult(
+                output: $output,
+                provider: 'openai',
+                model: $actualModel,
+                inputTokens: $inputTokens,
+                outputTokens: $outputTokens,
+                totalTokens: $totalTokens,
+                imageCount: $imageCount,
+                estimatedCostCents: $estimatedCostCents,
                 finishReason: $finishReason,
-                usage: $usage,
-            );
-        }
-
-        $content = $response->json('choices.0.message.content');
-
-        if (! is_string($content) || $content === '') {
-            throw new AiClientException(
-                'Externe AI-provider gaf geen bruikbare inhoud.',
+                rawResponse: $content,
                 providerMs: $providerMs,
-                rawResponse: $rawBody,
-                finishReason: $finishReason,
-                usage: $usage,
+                modelParameters: $modelParameters,
+                providerResponseId: $providerResponseId,
+                estimatedCost: $estimatedCost,
             );
         }
 
-        /** @var array<string, mixed>|null $output */
-        $output = json_decode($content, true);
-
-        if (! is_array($output)) {
-            throw new AiClientException(
-                'Externe AI-provider gaf ongeldige JSON.',
-                providerMs: $providerMs,
-                rawResponse: $this->redactedRawBody($content),
-                finishReason: $finishReason,
-                usage: $usage,
-            );
-        }
-
-        $inputTokens = $usage['input_tokens'];
-        $outputTokens = $usage['output_tokens'];
-        $totalTokens = $usage['total_tokens'];
-        $imageCount = count($request->images);
-        $actualModel = is_string($response->json('model')) ? $response->json('model') : $model;
-        $providerCost = $usage['cost'];
-
-        if ($providerCost !== null) {
-            // Fine currency stays unrounded; whole cents are ceil'd for display only.
-            $estimatedCost = $this->formatCost($providerCost);
-            $estimatedCostCents = max(0, (int) ceil($providerCost * 100));
-        } else {
-            $fractionalCents = $this->budgetGuard->estimateCostCents($inputTokens, $outputTokens, $imageCount);
-            $estimatedCostCents = $this->budgetGuard->ceilCents($fractionalCents) ?? 0;
-            $estimatedCost = $fractionalCents > 0.0
-                ? $this->formatCost($fractionalCents / 100.0)
-                : null;
-        }
-
-        $modelParameters['model'] = $actualModel;
-
-        return new AiCompletionResult(
-            output: $output,
-            provider: 'openai',
-            model: $actualModel,
-            inputTokens: $inputTokens,
-            outputTokens: $outputTokens,
-            totalTokens: $totalTokens,
-            imageCount: $imageCount,
-            estimatedCostCents: $estimatedCostCents,
-            finishReason: $finishReason,
-            rawResponse: $content,
-            providerMs: $providerMs,
+        throw $lastTruncated ?? new AiClientException(
+            'Externe AI-provider gaf afgekapte JSON-respons.',
+            errorClass: 'truncated/provider_error',
+            model: $model,
             modelParameters: $modelParameters,
-            providerResponseId: $providerResponseId,
-            estimatedCost: $estimatedCost,
         );
+    }
+
+    /**
+     * Detect cut-off JSON (empty tokens + partial body, finish_reason=length,
+     * unbalanced braces, or content that starts like JSON but does not close).
+     */
+    private function looksTruncated(string $content, ?string $finishReason): bool
+    {
+        if ($finishReason === 'length') {
+            return true;
+        }
+
+        $trimmed = trim($content);
+        if ($trimmed === '') {
+            return false;
+        }
+
+        $first = $trimmed[0];
+        if ($first !== '{' && $first !== '[') {
+            return false;
+        }
+
+        $open = substr_count($trimmed, '{') + substr_count($trimmed, '[');
+        $close = substr_count($trimmed, '}') + substr_count($trimmed, ']');
+        if ($open > $close) {
+            return true;
+        }
+
+        $last = substr(rtrim($trimmed), -1);
+
+        return $last !== '}' && $last !== ']';
     }
 
     /**
@@ -201,6 +293,16 @@ final class OpenAiClient implements AiClientInterface
     private function responseFormat(AiCompletionRequest $request): array
     {
         if ($request->responseSchema !== null && $request->responseSchema !== []) {
+            $model = $this->resolveModel($request);
+
+            // Gemini via OpenRouter often 400s on OpenAI-style json_schema with
+            // pattern/minItems/maxLength/strict combinations (prod intake 95 /
+            // run 357). Prefer json_object; server-side partial accept remains
+            // the source of truth for structure.
+            if ($this->isGoogleModel($model)) {
+                return ['type' => 'json_object'];
+            }
+
             $name = is_string($request->responseSchema['name'] ?? null)
                 ? $request->responseSchema['name']
                 : 'structured_output';
@@ -219,6 +321,45 @@ final class OpenAiClient implements AiClientInterface
         }
 
         return ['type' => 'json_object'];
+    }
+
+    private function isGoogleModel(string $model): bool
+    {
+        $normalized = strtolower(trim($model));
+
+        return str_starts_with($normalized, 'google/')
+            || str_starts_with($normalized, 'gemini')
+            || str_contains($normalized, '/gemini');
+    }
+
+    /**
+     * Extract a short provider error.message from a failed chat/completions body.
+     * Never includes request payloads or PII — only the provider's error text.
+     */
+    private function providerErrorMessage(Response $response): ?string
+    {
+        $candidates = [
+            $response->json('error.message'),
+            $response->json('error.metadata.raw'),
+            $response->json('message'),
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (! is_string($candidate)) {
+                continue;
+            }
+            $trimmed = trim($candidate);
+            if ($trimmed === '') {
+                continue;
+            }
+
+            // Cap length; strip obvious key-looking tokens.
+            $safe = $this->safeExceptionMessage($trimmed, (string) config('ai.api_key'));
+
+            return Str::limit($safe, 500, '');
+        }
+
+        return null;
     }
 
     private function resolveModel(AiCompletionRequest $request): string
