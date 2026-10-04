@@ -44,6 +44,8 @@ final class PhotoDerivationProfile
                 DerivedAnswerField::choice('glazing_type', 'glazing_type', ['single', 'double', 'hr_plus_plus', 'unknown']),
                 // Stopcontacten: alleen status voor extra-wandfoto-fallback (geen ja/nee-klantvraag).
                 DerivedAnswerField::choice('room_outlet_status', 'room_outlet_status', ['present', 'needs_photo', 'unknown']),
+                // Extra overzicht: alleen status voor indoor_unit_position_photo (BL-137).
+                DerivedAnswerField::choice('extra_overview_needed', 'room_extra_overview_needed', ['complete', 'needs_photo', 'unknown']),
             ]),
             'outdoor' => new self('outdoor', 'outdoor_assessment', [
                 DerivedAnswerField::choice('outdoor_location', 'outdoor_location', ['garden', 'side_passage', 'facade', 'balcony', 'flat_roof', 'pitched_roof', 'dormer']),

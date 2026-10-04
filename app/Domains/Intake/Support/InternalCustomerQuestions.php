@@ -19,6 +19,7 @@ final class InternalCustomerQuestions
     public const KEYS = [
         'fusebox_clarity',
         'room_outlet_status',
+        'room_extra_overview_needed',
     ];
 
     public static function hidesFromCustomer(IntakeQuestion $question): bool

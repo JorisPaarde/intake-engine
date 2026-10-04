@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.90 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.91 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 De MVP-bouwstenen staan historisch onder E1–E5. De productfase E6–E10 is op 2026-07-30 geïmplementeerd en volgt het [productmodel](product-model.md): één centrale technische opname na een bestaande aanvraag, meerdere bijdragers, beslisgereedheid en voor airco afzonderlijke koel-, condens- en stroomverbindingen.
@@ -40,10 +40,11 @@ BL-030 en BL-035 t/m BL-042 zijn in één uitbreidende implementatie geleverd. H
 
 Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid en veilige stapsgewijze migratie. `done`/`dropped` staan zonder volgnummer.
 
-**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = fotobeoordeling via queue (#124, done). **BL-122** = soft catalogus-prefill (case 81). **BL-123** = staging-retest acceptance (#115–#120). **BL-124** = form robustness (#127, done). **BL-125** = AI-trace retentie/export + PDF-downscale (#130, done). **BL-126** = prompt/vision quality (route/ownership/kamernamen). **BL-127** = foto-assessment terminale status + watchdog (#133, done). **BL-128** = grote telefoonfoto-upload (inactiviteit-timeout + client-downscale + lege-200-retry, #131 done). **BL-129** = klant-UX review v1.3.0 (airco v22, #134 done). **BL-130** = follow-up mismatch-override + reassessment (#125). **BL-131** = wizard nav + scoped foto-feedback (#129, done). **BL-132** = AI-trace veldverbeteringen (request_id/cost/queue/redactie, #136). **BL-133** = staging AI-trace fixes (fusebox/glass/prefill/follow-up, airco v23, #135). **BL-134** = photo-assessment watchdog hotfix (legacy pending → geen AI op submitted, #137). **BL-135** = strikte dossiersynthese + partial accept + budget (#123). **BL-136** = prefill-provenance + aannames (#123). Nieuwe items starten bij BL-137.
+**Nummering:** BL-063–065 in #97. BL-091–095 done in #93–#96. BL-096 in #99, BL-097 in #100. BL-098 in #101. BL-099 in #102. BL-100 in #106. BL-101 done in #103. BL-102 in #104. BL-104 done in #105. BL-103 in #107. BL-105 sitemap. BL-106 `memory_limit` in `.user.ini`. BL-107 huisstijl + rustiger werkplek. BL-108 DPIA-poort AI verwijderd. BL-109 dossiersynthese-enums. BL-110–115 demo-kritiek 24 sep. BL-116 AI-trace (#117) + technische beslissingen (#115, v17). BL-117 open technisch punt afhandelen. Gereserveerd (klanttest-stack): **BL-118 + airco v18 = PR #116**; **BL-119 + v19 = PR #119**; **BL-120 + v20 = PR #118 (done)**. **BL-121** = fotobeoordeling via queue (#124, done). **BL-122** = soft catalogus-prefill (case 81). **BL-123** = staging-retest acceptance (#115–#120). **BL-124** = form robustness (#127, done). **BL-125** = AI-trace retentie/export + PDF-downscale (#130, done). **BL-126** = prompt/vision quality (route/ownership/kamernamen). **BL-127** = foto-assessment terminale status + watchdog (#133, done). **BL-128** = grote telefoonfoto-upload (inactiviteit-timeout + client-downscale + lege-200-retry, #131 done). **BL-129** = klant-UX review v1.3.0 (airco v22, #134 done). **BL-130** = follow-up mismatch-override + reassessment (#125). **BL-131** = wizard nav + scoped foto-feedback (#129, done). **BL-132** = AI-trace veldverbeteringen (request_id/cost/queue/redactie, #136). **BL-133** = staging AI-trace fixes (fusebox/glass/prefill/follow-up, airco v23, #135). **BL-134** = photo-assessment watchdog hotfix (legacy pending → geen AI op submitted, #137). **BL-135** = strikte dossiersynthese + partial accept + budget (#123). **BL-136** = prefill-provenance + aannames (#123). **BL-137** = lege woonkamer geen altijd-extra-foto + stappenreductie (airco v24). Nieuwe items starten bij BL-138.
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
+| 1 | BL-137 | Staging-retest: geen extra wand/deur-foto bij bruikbaar overzicht + stappenreductie | E1/E4 | in_progress | high | na BL-129/133 · airco v24 · main@24b7892 |
 | 1 | BL-134 | Hotfix: legacy photo-assessment pending niet herqueuen / geen AI op submitted | E4 | in_progress | high | prod v1.4.0 · na BL-127 · rebase main@2d0871e |
 | 1 | BL-117 | Installateur kan technisch open punt afhandelen vanuit de survey-werkplek | E7/E8 | backlog | high | na PR #115 · show/rapport `*_open` |
 | — | BL-136 | Prefill-provenance + aannames in dossier | E3/E4/E9 | done | high | na BL-122/116 · PR #123 |
@@ -684,6 +685,14 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Scope:** extraction/prefill/photo-assessment prompts + PhotoSubject/PhotoContentAssessment mapping (compatibel met `AssessUploadedPhotoJob`); géén dossier-synthesis/OpenAiClient.
 - **Acceptatie:** fixture-test routefoto; ownership-phrasings; room_name sync + skip; Vervang foto/Toch doorgaan intact; lege woonkamer geen extra stopcontactvraag; `composer check` groen.
 - **Resultaat:** merge #126.
+
+### BL-137 — Staging-retest: geen altijd-extra ruimtefoto + stappenreductie
+
+- **Status:** in_progress · **Prioriteit:** high · **Epic:** E1/E4 · **Volgt op:** BL-129/133 · **Ref:** staging demo intake (1 lege woonkamer, woonkamer-1440.jpg) op main@24b7892
+- **Aanleiding:** na ruimtefoto kreeg de klant altijd “Extra foto: ontbrekende wand, deur of stopcontact”; known-summary/wizard toonde ~26–30 stappen i.p.v. ~14.
+- **Doel:** extra overzicht alleen bij expliciete assessment-gap; verwijder installateurs-/duplicaatstappen uit de klantwizard; pin Pest voor lege woonkamer + referentie-keylijst.
+- **Scope:** airco **v24**, `room_extra_overview_needed` + room-assessment-v8, `pipe_route_photos`/`outdoor_mount_type` audience=installer, Pest, docs.
+- **Acceptatie:** lege woonkamer + bruikbaar overzicht → geen `indoor_unit_position_photo`/`wall_outlet_photo`; needs_photo → wel extra overzicht; referentie-keys zonder pipe_route/outdoor_mount/altijd-extra; `composer check` groen.
 
 ### BL-136 — Prefill-provenance + aannames in dossier
 

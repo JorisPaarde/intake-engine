@@ -1,6 +1,6 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 3.34 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.35 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **samenvatting, aandachtspunten, lokale fotokwaliteit, tekst-/foto-afleiding, verbindingsgebonden routeanalyse en bewijsgerichte dossiersynthese zijn geïmplementeerd**. Externe provider en tekst-/foto-/route-/dossierinferentie staan standaard uit (provider + key + featurevlaggen + budgetcaps; soft-fail zonder die config). OpenAI-compatibele gateways (o.a. OpenRouter) via `AI_BASE_URL`.
 
@@ -279,7 +279,7 @@ Server-side validatie vóór opslaan. Ongeldige output = `failed` (of `partial` 
 - `retake_instruction` op een bruikbare match → `needs_clearer` (ongeacht confidence), behalve op een geaccepteerde routefoto.
 - Meterkast-mismatch zet **geen** `fusebox_clarity=needs_clearer_photo`; één taak: vervang de foto.
 - Meterkastprompt `fusebox-assessment-v4` (BL-133): `empty_module_space` i.p.v. free_group-gok; wrong-subject → `confidence=low`; **nooit** `free_group_known` uit foto.
-- Ruimteprompt `room-assessment-v7` (BL-133): `glazing_type`; glas/zon mogen `unknown`; size-banden = `RoomAreaAcceptance`. `room_outlet_status=unknown` schrijft geen antwoord en triggert geen `wall_outlet_photo`.
+- Ruimteprompt `room-assessment-v7` (BL-133): `glazing_type`; glas/zon mogen `unknown`; size-banden = `RoomAreaAcceptance`. `room_outlet_status=unknown` schrijft geen antwoord en triggert geen `wall_outlet_photo`. Ruimteprompt `room-assessment-v8` (BL-137): `extra_overview_needed` → interne `room_extra_overview_needed`; alleen `needs_photo` toont `indoor_unit_position_photo` (airco v24).
 - Technische routeconclusies staan alleen als dossierfeit (`pipe_route_photos_derivation`). Model-`drillings_needed=no` → `unknown` + voorstelnotitie.
 - Interne velden `fusebox_clarity` / `room_outlet_status` nooit in klantstappen (`InternalCustomerQuestions`). Routevoorstellen via `TechnicalDecisionKeys::ROUTE_PROPOSAL_KEYS` (één class met #115-KEYS/`aiPrefillSources()`).
 - Follow-up: accepted subjects per `decision_area_key` (power→fusebox; refrigerant→pipe_route|outdoor_unit|room|outdoor_location). Prompt `follow-up-photo-subject-v2`. Beoordeling via `AssessUploadedPhotoJob` (queue `ai-photo`). Onopgeloste `wrong_subject` telt niet mee voor follow-up-100% (`FollowUpProgressCalculator` → “Nog te vervangen”); voortgang wacht op `content_assessment` van de job. Installateur ziet mismatch-reden via `followUpMismatchReason` (BL-123). **Aanvulling versturen** blokkeert tot vervangen of **Toch versturen** (BL-130); `not_assessed` blijft soft; na latere OK-foto verdwijnt mismatch-reden en telt follow-up-powerfoto voor `hasFuseboxPhoto` (BL-130). Klantprompt bij mismatch-blocker = `customerRetakePrompt` (nooit de interne diagnose).

@@ -95,6 +95,7 @@ final class FakeAiClient implements AiClientInterface
                 'glass_amount' => 'much',
                 'glazing_type' => 'unknown',
                 'room_outlet_status' => 'present',
+                'extra_overview_needed' => 'complete',
                 'detected_subject' => 'room',
                 'subject_match' => 'yes',
                 'confidence' => 'high',

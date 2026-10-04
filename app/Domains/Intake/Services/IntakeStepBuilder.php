@@ -428,24 +428,25 @@ final class IntakeStepBuilder
         ?string $sectionInstanceKey,
         ?string $fallback,
     ): string {
+        // Alleen noemen wat de assessment expliciet als gap zette (geen tekstheuristiek).
         $missing = [];
-        $outlet = $answers[VisibilityResolver::compositeKey('room_outlet_status', $sectionInstanceKey)] ?? null;
-        $outletValue = is_array($outlet) ? ($outlet['value'] ?? null) : null;
+        $overview = $answers[VisibilityResolver::compositeKey('room_extra_overview_needed', $sectionInstanceKey)] ?? null;
+        $overviewValue = is_array($overview) ? ($overview['value'] ?? null) : null;
 
-        if ($outletValue === 'needs_photo') {
-            $missing[] = 'stopcontact';
+        if ($overviewValue === 'needs_photo') {
+            $missing[] = 'wand';
+            $missing[] = 'deur';
         }
 
-        // Altijd wanden/deuren noemen: dit scherm bestaat juist voor ontbrekende vlakken.
-        $missing[] = 'wand';
-        $missing[] = 'deur';
+        if ($missing === []) {
+            return is_string($fallback) && trim($fallback) !== ''
+                ? $fallback
+                : 'Laat de ontbrekende wand of deur zien die op de eerdere ruimtefoto nog niet duidelijk in beeld was. Je hoeft zelf geen plek voor een binnenunit te kiezen.';
+        }
 
-        $missing = array_values(array_unique($missing));
-        $list = match (count($missing)) {
-            1 => $missing[0],
-            2 => $missing[0].' of '.$missing[1],
-            default => $missing[0].', '.$missing[1].' of '.$missing[2],
-        };
+        $list = count($missing) === 1
+            ? $missing[0]
+            : $missing[0].' of '.$missing[1];
 
         return 'Laat de ontbrekende '.$list.' zien die op de eerdere ruimtefoto nog niet duidelijk in beeld was. Je hoeft zelf geen plek voor een binnenunit te kiezen.';
     }
