@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 4.92 · **Laatste update:** 2026-10-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 4.93 · **Laatste update:** 2026-10-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 De MVP-bouwstenen staan historisch onder E1–E5. De productfase E6–E10 is op 2026-07-30 geïmplementeerd en volgt het [productmodel](product-model.md): één centrale technische opname na een bestaande aanvraag, meerdere bijdragers, beslisgereedheid en voor airco afzonderlijke koel-, condens- en stroomverbindingen.
@@ -44,7 +44,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| 1 | BL-138 | AI: Gemini json_object + connections partial + attention_points model/truncated | E4/E9 | in_progress | high | prod intake 94/95 · na BL-135 · main@d56c634 |
+| 1 | BL-138 | AI: Gemini json_object + connections partial + attention_points model/truncated | E4/E9 | in_progress | high | prod intake 94/95 · PR #139 · na BL-135 · main@d56c634 |
 | 1 | BL-137 | Staging-retest: geen extra wand/deur-foto bij bruikbaar overzicht + stappenreductie | E1/E4 | in_progress | high | na BL-129/133 · airco v24 · main@24b7892 |
 | 1 | BL-134 | Hotfix: legacy photo-assessment pending niet herqueuen / geen AI op submitted | E4 | in_progress | high | prod v1.4.0 · na BL-127 · rebase main@2d0871e |
 | 1 | BL-117 | Installateur kan technisch open punt afhandelen vanuit de survey-werkplek | E7/E8 | backlog | high | na PR #115 · show/rapport `*_open` |
@@ -689,7 +689,7 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-138 — AI: Gemini OpenRouter 400 + connections partial + attention_points model/truncated
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E4/E9 · **Volgt op:** BL-135 · **Ref:** prod intake 94 (v1.4.0) + intake 95/run 357 (v1.4.1 @ d56c634)
+- **Status:** in_progress · **Prioriteit:** high · **Epic:** E4/E9 · **Volgt op:** BL-135 · **PR:** [#139](https://github.com/JorisPaarde/intake-engine/pull/139) · **Ref:** prod intake 94 (v1.4.0) + intake 95/run 357 (v1.4.1 @ d56c634)
 - **Aanleiding:** (1) dossiersynthese afgewezen op `connections` min:3 (run-336 / staging 77); (2) attention_points “ongeldige JSON” op afgekapte response, trace `model=openai`; (3) op v1.4.1 Gemini HTTP 400 bij dossier `json_schema`.
 - **Doel:** incomplete options droppen partial; Gemini → `json_object`; provider-400 `error.message` in traces; attention_points zelfde model/parameters + truncated retry/`error_class`.
 - **Scope:** `OpenAiClient`, `DossierSynthesisJsonSchema`/`PartialAcceptor`, `SuggestAttentionPoints`, prompt v7, Pest, docs.
