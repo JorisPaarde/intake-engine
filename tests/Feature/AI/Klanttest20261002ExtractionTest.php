@@ -228,7 +228,7 @@ test('case 80: tekstfeit grond achtertuin overleeft buitenfoto', function () {
 
     app(DeriveIntentFromRequest::class)->handle($intake);
 
-    $fixture = base_path('tests/fixtures/klanttest-20261002/buitenunit-leiding.jpeg');
+    $fixture = base_path('tests/fixtures/klanttest-20261002/buitenunit-flow.jpeg');
     expect(is_file($fixture))->toBeTrue();
 
     FakeAiClient::reset();
@@ -682,6 +682,7 @@ test('v18 skip-lijst bevat ai_text/ai_photo zonder installer-dubbel', function (
 });
 
 test('v16 legacy skip ai matcht ai_text/ai_photo in stepbuilder en known-summary', function () {
+    seedAircoTemplateVersion(16);
     $template = IntakeTemplate::query()->where('key', 'airco')->firstOrFail();
     $v16 = $template->versions()->where('version', 16)->whereNotNull('published_at')->firstOrFail();
 

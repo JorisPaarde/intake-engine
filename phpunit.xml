@@ -28,6 +28,7 @@
         <env name="DB_URL" value=""/>
         <env name="DEMO_ENABLED" value="true"/>
         <env name="E2E_HELPERS" value="false"/>
+        <env name="INTAKE_SEED_LATEST_TEMPLATE_ONLY" value="true"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="PDOK_ENABLED" value="false"/>
         <env name="QUEUE_CONNECTION" value="sync"/>

@@ -7,9 +7,11 @@ use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Jobs\ProcessIntakePhotoVariantsJob;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Domains\Intake\Services\PublishIntakeTemplateFromConfig;
 use App\Enums\PhotoAssessmentStatus;
 use App\Enums\PhotoUsabilityVerdict;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Database\Seeders\IntakeTemplateSeeder;
+use Illuminate\Foundation\Testing\LazilyRefreshDatabase;
 use Tests\TestCase;
 
 /*
@@ -24,8 +26,35 @@ use Tests\TestCase;
 */
 
 pest()->extend(TestCase::class)
-    ->use(RefreshDatabase::class)
+    ->use(LazilyRefreshDatabase::class)
     ->in('Feature');
+
+/**
+ * Seed the full airco template history (v1–latest). Use when a test pins an older
+ * published version. Default Feature seeding is latest-only via phpunit.xml.
+ */
+function seedAllAircoTemplateVersions(): void
+{
+    config(['intake.seed_latest_template_only' => false]);
+    test()->seed(IntakeTemplateSeeder::class);
+}
+
+/**
+ * Ensure a specific published airco template version exists (idempotent).
+ */
+function seedAircoTemplateVersion(int $version): void
+{
+    $relativePath = "data/templates/airco/v{$version}.php";
+    $absolutePath = database_path($relativePath);
+
+    if (! is_file($absolutePath)) {
+        throw new RuntimeException("Airco template file missing: {$relativePath}");
+    }
+
+    /** @var array<string, mixed> $config */
+    $config = require $absolutePath;
+    app(PublishIntakeTemplateFromConfig::class)->handle($config);
+}
 
 /*
 |--------------------------------------------------------------------------

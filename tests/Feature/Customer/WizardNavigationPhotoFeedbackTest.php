@@ -40,7 +40,12 @@ afterEach(function () {
 
 function wizardNavFixture(string $name): UploadedFile
 {
-    $path = base_path('tests/fixtures/klanttest-20261002/'.$name);
+    $mapped = match ($name) {
+        'meterkast-groot.jpg' => 'meterkast-flow.jpg',
+        'buitenunit-leiding.jpeg' => 'buitenunit-flow.jpeg',
+        default => $name,
+    };
+    $path = base_path('tests/fixtures/klanttest-20261002/'.$mapped);
     expect(is_file($path))->toBeTrue("Fixture ontbreekt: {$name}");
 
     return UploadedFile::fake()->createWithContent($name, (string) file_get_contents($path));

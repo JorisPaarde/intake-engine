@@ -184,4 +184,17 @@ return [
         'free_group_known' => env('INTAKE_FACT_CONFIDENCE_THRESHOLD_FREE_GROUP'),
     ], static fn (mixed $value): bool => $value !== null && $value !== ''),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Template seeding (tests)
+    |--------------------------------------------------------------------------
+    |
+    | Feature tests almost always need only the latest published airco template.
+    | Seeding v1–vN on every test is ~20× slower. phpunit.xml enables latest-only;
+    | PublishTemplateTest and legacy-version tests opt back into full history.
+    |
+    */
+
+    'seed_latest_template_only' => (bool) env('INTAKE_SEED_LATEST_TEMPLATE_ONLY', false),
+
 ];

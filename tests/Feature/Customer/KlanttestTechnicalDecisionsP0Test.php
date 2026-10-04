@@ -47,6 +47,9 @@ function makeKlanttestP0Intake(?int $templateVersion = null): Intake
 {
     $user = User::factory()->create();
     $template = IntakeTemplate::query()->where('key', 'airco')->firstOrFail();
+    if ($templateVersion !== null) {
+        seedAircoTemplateVersion($templateVersion);
+    }
     $version = $templateVersion === null
         ? $template->latestPublishedVersion()
         : $template->versions()->where('version', $templateVersion)->firstOrFail();
