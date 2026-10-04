@@ -304,7 +304,10 @@ final class IntakeStepBuilder
             $candidateStepKey = $wizardGroup !== null && $wizardGroup !== ''
                 ? $section->key.$instanceSuffix.'::'.$wizardGroup
                 : $section->key.$instanceSuffix.'::'.$question->key;
-            $stickyKeep = in_array($candidateStepKey, $stickyStepKeys, true);
+            // Sticky only for “answered/prefilled” hides (e.g. room_name after fill), never for
+            // rule-invisible steps (e.g. fusebox_photo_extra after a clear meterkastfoto).
+            $stickyKeep = in_array($candidateStepKey, $stickyStepKeys, true)
+                && in_array($presentation['reason'], ['prefilled', 'overgeslagen'], true);
 
             if ($presentation['reason'] !== 'visible' && ! $stickyKeep) {
                 continue;
