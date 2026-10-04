@@ -41,6 +41,7 @@ use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
 use App\Enums\AircoOptionStatus;
 use App\Enums\AircoPlacementType;
+use App\Enums\AiRunStatus;
 use App\Enums\ContributionTaskStatus;
 use App\Enums\CustomerLinkMailResult;
 use App\Enums\DossierRecordStatus;
@@ -743,16 +744,37 @@ final class SurveyWorkspaceController extends Controller
         if ($run === null) {
             return redirect()
                 ->route('intakes.workspace', $intake)
-                ->with('error', 'AI-dossiersynthese is in deze omgeving uitgeschakeld; de handmatige werkplek blijft volledig beschikbaar.');
+                ->with('error', 'AI-dossiersynthese is in deze omgeving uitgeschakeld; de handmatige werkplek blijft volledig beschikbaar.')
+                ->with('ai_synthesis_retry', true);
         }
 
-        if ($run->status->value === 'succeeded') {
+        if ($run->status === AiRunStatus::Succeeded) {
             return $this->back($intake, 'AI-voorstel vernieuwd. Controleer de keuzes en uitzonderingen als geheel.');
         }
 
+        if ($run->status === AiRunStatus::Partial) {
+            $detail = is_string($run->error_message) && trim($run->error_message) !== ''
+                ? trim($run->error_message)
+                : 'Een deel van de AI-voorstellen is overgenomen; controleer wat ontbreekt.';
+
+            return redirect()
+                ->route('intakes.workspace', $intake)
+                ->with('status', 'AI-voorstel deels vernieuwd. '.$detail)
+                ->with('ai_synthesis_partial', true);
+        }
+
+        $detail = is_string($run->error_message) && trim($run->error_message) !== ''
+            ? trim($run->error_message)
+            : 'De AI-aanbieder gaf geen bruikbaar voorstel terug.';
+
         return redirect()
             ->route('intakes.workspace', $intake)
-            ->with('error', 'AI-synthese kon niet worden afgerond; het bestaande dossier is ongewijzigd gebleven.');
+            ->with(
+                'error',
+                'AI-synthese kon niet worden afgerond: '.$detail.' Het bestaande dossier is ongewijzigd gebleven.',
+            )
+            ->with('ai_synthesis_retry', true)
+            ->with('ai_synthesis_error', $detail);
     }
 
     public function sendProposedTask(

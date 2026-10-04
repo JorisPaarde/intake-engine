@@ -95,6 +95,32 @@ class IntakeUpload extends Model
         );
     }
 
+    /**
+     * Whether this upload may be sent to dossier AI or cited as synthesis evidence.
+     * Rejected (wrong_subject without override), heuristic rejects, and soft-deleted
+     * replacements must never count.
+     */
+    public function isDossierEvidenceEligible(): bool
+    {
+        if ($this->assessment_status === PhotoAssessmentStatus::HeuristicRejected) {
+            return false;
+        }
+
+        $assessment = $this->contentAssessment();
+        if ($assessment === null) {
+            return true;
+        }
+
+        if ($assessment->status() === PhotoContentAssessment::STATUS_WRONG_SUBJECT
+            && ! $assessment->customerAcceptedOverride()) {
+            return false;
+        }
+
+        return $assessment->solvesContent()
+            || $assessment->status() === PhotoContentAssessment::STATUS_NEEDS_CLEARER
+            || $assessment->status() === PhotoContentAssessment::STATUS_NOT_ASSESSED;
+    }
+
     public function storeContentAssessment(
         PhotoContentAssessment $assessment,
         ?PhotoAssessmentStatus $pipelineStatus = null,

@@ -175,8 +175,8 @@ test('staging case 81: lange evidence + één kapotte fill dumpt niet de multi-r
     $rooms = $intake->fresh()->aircoRooms()->orderBy('sort_order')->get();
 
     expect($rooms)->toHaveCount(2)
-        ->and($rooms[0]->name)->toBe('Slaapkamer ouders')
-        ->and($rooms[1]->name)->toBe('Kinderkamer');
+        ->and($rooms[0]->name)->toBe('Slaapkamer ouders, 1e verdieping')
+        ->and($rooms[1]->name)->toBe('Kinderkamer, 1e verdieping');
 
     $trace = AiTrace::query()
         ->where('intake_id', $intake->id)

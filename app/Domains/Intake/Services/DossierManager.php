@@ -516,7 +516,7 @@ final class DossierManager
             $typeIsAi = PrefillSources::isProposedAi($typeSource);
             $typeIsCustomer = $typeAnswer !== null && $typeSource === null;
 
-            // Installateur > klant (expliciete naam) > AI/gegenereerd.
+            // Installateur > klant (expliciete naam + verdieping) > AI/gegenereerd.
             // room_name-antwoord (klant of AI-prefill) wint altijd van Slaapkamer N, tenzij installateur.
             if ($existing !== null && $existing->name_source === 'installer' && $existing->name !== '') {
                 $name = $existing->name;
@@ -529,6 +529,12 @@ final class DossierManager
                     $name = $this->resolveRoomName($existing->name, null, $generatedName);
                     $name = RoomLabelResolver::uniqueAmong($name, $usedNames);
                 }
+
+                $floorLabel = $this->floorLabelFromAnswers($intake, $instanceKey);
+                if ($floorLabel !== null) {
+                    $name = $this->appendFloorLabel($name, $floorLabel);
+                }
+
                 $usedNames[] = $name;
             }
 
@@ -848,6 +854,55 @@ final class DossierManager
         $trimmed = trim($text);
 
         return $trimmed !== '' ? $trimmed : null;
+    }
+
+    private function floorLabelFromAnswers(Intake $intake, string $instanceKey): ?string
+    {
+        $answer = $intake->answers->first(
+            static fn (IntakeAnswer $answer): bool => $answer->section_instance_key === $instanceKey
+                && $answer->question_key === 'floor_level',
+        );
+        $value = $answer?->value;
+        if (! is_array($value)) {
+            return null;
+        }
+
+        $raw = $value['value'] ?? $value['text'] ?? null;
+        if (! is_string($raw) || trim($raw) === '') {
+            return null;
+        }
+
+        return match (trim($raw)) {
+            'basement' => 'kelder / souterrain',
+            'ground' => 'begane grond',
+            '1' => '1e verdieping',
+            '2' => '2e verdieping',
+            '3_plus' => '3e verdieping of hoger',
+            'attic' => 'zolder',
+            default => null,
+        };
+    }
+
+    private function appendFloorLabel(string $name, string $floorLabel): string
+    {
+        $name = trim($name);
+        $floorLabel = trim($floorLabel);
+        if ($name === '' || $floorLabel === '') {
+            return $name;
+        }
+
+        $haystack = mb_strtolower($name);
+        $needle = mb_strtolower($floorLabel);
+        if (str_contains($haystack, $needle)) {
+            return $name;
+        }
+
+        // Avoid "Zolder, zolder" when the generated label already is the floor.
+        if ($needle === 'zolder' && preg_match('/\bzolder\b/u', $haystack) === 1) {
+            return $name;
+        }
+
+        return $name.', '.$floorLabel;
     }
 
     private function resolveRoomName(?string $existingName, ?string $explicitName, string $generatedName): string

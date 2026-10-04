@@ -107,12 +107,14 @@ final class IntakeAttentionContextBuilder
             // Rich, provenance-aware context for the integral analysis.
             'answer_context' => $answerContext,
             'external_fact_context' => $externalFactContext,
-            'uploads' => $intake->uploads->map(
-                fn (IntakeUpload $upload): array => $this->uploadContext(
-                    $upload,
-                    $questions[$upload->question_key] ?? null,
-                ),
-            )->values()->all(),
+            'uploads' => $intake->uploads
+                ->filter(static fn (IntakeUpload $upload): bool => $upload->isDossierEvidenceEligible())
+                ->map(
+                    fn (IntakeUpload $upload): array => $this->uploadContext(
+                        $upload,
+                        $questions[$upload->question_key] ?? null,
+                    ),
+                )->values()->all(),
             'follow_up' => $this->followUpContext($intake),
             'system_attention_points' => $intake->attentionPoints
                 ->reject(fn ($point): bool => $point->source === AttentionPointSource::Ai)

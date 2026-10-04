@@ -7,6 +7,8 @@ namespace App\Domains\Intake\Services;
 use App\Domains\Intake\Models\AircoConnection;
 use App\Domains\Intake\Models\AircoInstallationOption;
 use App\Domains\Intake\Models\AircoPlacementOption;
+use App\Domains\Intake\Models\AircoRoom;
+use App\Domains\Intake\Models\Intake;
 use App\Enums\AircoConfigurationType;
 use App\Enums\AircoConnectionType;
 use App\Enums\AircoPlacementType;
@@ -79,6 +81,49 @@ final class AircoUnitCouplingValidator
             $option->connections,
             $requireComplete,
         );
+    }
+
+    /**
+     * Requested rooms that have no indoor unit in the selected installation option.
+     *
+     * @return Collection<int, AircoRoom>
+     */
+    public function uncoveredRequestedRooms(Intake $intake, AircoInstallationOption $option): Collection
+    {
+        $intake->loadMissing('aircoRooms');
+        $option->loadMissing('placements');
+
+        $coveredRoomIds = $option->placements
+            ->filter(static fn (AircoPlacementOption $placement): bool => $placement->type === AircoPlacementType::IndoorUnit)
+            ->pluck('airco_room_id')
+            ->filter()
+            ->unique()
+            ->all();
+
+        return $intake->aircoRooms
+            ->reject(static fn (AircoRoom $room): bool => in_array($room->id, $coveredRoomIds, true))
+            ->values();
+    }
+
+    /**
+     * Human-readable coverage problems for bulk approval / readiness.
+     *
+     * @return list<string>
+     */
+    public function roomCoverageProblems(Intake $intake, AircoInstallationOption $option): array
+    {
+        $uncovered = $this->uncoveredRequestedRooms($intake, $option);
+        if ($uncovered->isEmpty()) {
+            return [];
+        }
+
+        $names = $uncovered
+            ->map(static fn (AircoRoom $room): string => trim($room->name) !== '' ? $room->name : 'Ruimte '.$room->id)
+            ->all();
+
+        return [
+            'De gekozen oplossing bedient niet alle aangevraagde ruimtes (ontbreekt: '.implode(', ', $names).').',
+        ];
     }
 
     /**

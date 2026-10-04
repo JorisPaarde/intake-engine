@@ -126,6 +126,115 @@ final class DecisionReadinessService
         return $intake->decisionAreas()->orderBy('id')->get();
     }
 
+    /**
+     * One set of rules for overview, "Voorstel goedkeuren" button and CompleteInstallerSurvey.
+     * Unresolved connection uncertainties and uncovered requested rooms block bulk approval;
+     * a site visit as outcome remains possible separately.
+     *
+     * @return array{
+     *     allowed: bool,
+     *     blockers: list<string>,
+     *     uncovered_room_names: list<string>,
+     *     unresolved_uncertainties: list<array{connection_id: int, label: string, uncertainties: list<string>}>,
+     *     site_visit_possible: bool,
+     *     quote_status: string|null
+     * }
+     */
+    public function bulkApprovalAssessment(Intake $intake): array
+    {
+        $intake->loadMissing([
+            'aircoRooms',
+            'aircoInstallationOptions.placements',
+            'aircoInstallationOptions.connections',
+            'decisionAreas',
+            'uploads',
+        ]);
+
+        $selected = $intake->aircoInstallationOptions->first(
+            static fn (AircoInstallationOption $option): bool => $option->status === AircoOptionStatus::Selected,
+        );
+
+        $quote = $intake->decisionAreas->firstWhere('key', 'quote')
+            ?? $this->recalculate($intake)->firstWhere('key', 'quote');
+
+        $blockers = [];
+        $uncoveredNames = [];
+        $unresolved = [];
+        $siteVisitPossible = ($quote?->next_action === DossierNextAction::PlanSiteVisit)
+            || ($quote?->status === DecisionAreaStatus::Blocked);
+
+        if ($selected === null) {
+            $blockers[] = 'Selecteer eerst één installatievoorstel om integraal goed te keuren.';
+        }
+
+        if ($quote !== null && in_array(
+            $quote->status,
+            [DecisionAreaStatus::Blocked, DecisionAreaStatus::Unknown],
+            true,
+        )) {
+            $blockers[] = $quote->blocker
+                ?? 'Los eerst de beslissende open punten op voordat je het voorstel integraal goedkeurt.';
+            $siteVisitPossible = $siteVisitPossible
+                || ($quote->next_action === DossierNextAction::PlanSiteVisit);
+        }
+
+        if ($selected instanceof AircoInstallationOption) {
+            foreach ($this->couplingValidator->roomCoverageProblems($intake, $selected) as $problem) {
+                $blockers[] = $problem;
+            }
+            $uncoveredNames = $this->couplingValidator
+                ->uncoveredRequestedRooms($intake, $selected)
+                ->map(static fn (AircoRoom $room): string => $room->name)
+                ->all();
+
+            foreach ($selected->connections as $connection) {
+                $uncertainties = array_values(array_filter(
+                    array_map(
+                        static fn (string $item): string => trim($item),
+                        is_array($connection->uncertainties) ? $connection->uncertainties : [],
+                    ),
+                    static fn (string $item): bool => $item !== '',
+                ));
+
+                if ($uncertainties === []) {
+                    continue;
+                }
+
+                if ($connection->status === AircoConnectionStatus::Approved) {
+                    // Individual route approval = explicit acceptance of remaining uncertainty.
+                    continue;
+                }
+
+                $unresolved[] = [
+                    'connection_id' => $connection->id,
+                    'label' => $connection->label,
+                    'uncertainties' => $uncertainties,
+                ];
+                $blockers[] = 'Accepteer of los eerst de onzekerheid op bij “'.$connection->label.'”: '.$uncertainties[0];
+            }
+
+            foreach ($this->couplingValidator->optionProblems($selected, requireComplete: true) as $problem) {
+                $blockers[] = $problem;
+            }
+        }
+
+        $blockers = array_values(array_unique($blockers));
+
+        return [
+            'allowed' => $selected !== null && $blockers === [],
+            'blockers' => $blockers,
+            'uncovered_room_names' => $uncoveredNames,
+            'unresolved_uncertainties' => $unresolved,
+            'site_visit_possible' => $siteVisitPossible,
+            'quote_status' => $quote?->status?->value,
+        ];
+    }
+
+    public function canBulkApprove(Intake $intake): bool
+    {
+        return $this->bulkApprovalAssessment($intake)['allowed'];
+    }
+
     /** @return array<string, mixed> */
     private function requestArea(Intake $intake): array
     {
@@ -286,6 +395,24 @@ final class DecisionReadinessService
                 'next_action' => DossierNextAction::RequestContribution,
                 'blocker' => 'Kies eerst multi-split of singles met binnenunit en buitenunit.',
             ];
+        }
+
+        if ($selected instanceof AircoInstallationOption) {
+            $coverageProblems = $this->couplingValidator->roomCoverageProblems($intake, $selected);
+            if ($coverageProblems !== []) {
+                return [
+                    'status' => DecisionAreaStatus::Review,
+                    'next_action' => DossierNextAction::RequestContribution,
+                    'blocker' => $coverageProblems[0],
+                    'evidence_summary' => [
+                        'option_id' => $selected->id,
+                        'uncovered_room_ids' => $this->couplingValidator
+                            ->uncoveredRequestedRooms($intake, $selected)
+                            ->pluck('id')
+                            ->all(),
+                    ],
+                ];
+            }
         }
 
         $indoorsWithoutRoom = $candidate->placements
@@ -468,6 +595,28 @@ final class DecisionReadinessService
         $allApproved = $connections->every(
             static fn (AircoConnection $connection): bool => $connection->status === AircoConnectionStatus::Approved,
         );
+
+        $openUncertainties = $connections
+            ->reject(static fn (AircoConnection $connection): bool => $connection->status === AircoConnectionStatus::Approved)
+            ->flatMap(static fn (AircoConnection $connection): array => is_array($connection->uncertainties)
+                ? $connection->uncertainties
+                : [])
+            ->filter(static fn (string $item): bool => trim($item) !== '')
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($openUncertainties !== []) {
+            return [
+                'status' => DecisionAreaStatus::Review,
+                'blocker' => 'Er staat nog een open onzekerheid op deze route: '.$openUncertainties[0],
+                'evidence_summary' => [
+                    'connections' => $connections->count(),
+                    'approved' => $connections->where('status', AircoConnectionStatus::Approved)->count(),
+                    'open_uncertainties' => $openUncertainties,
+                ],
+            ];
+        }
 
         return [
             'status' => $allApproved ? DecisionAreaStatus::Ready : DecisionAreaStatus::Review,

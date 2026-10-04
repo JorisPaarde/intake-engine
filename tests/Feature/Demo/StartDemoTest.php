@@ -316,9 +316,17 @@ it('continues as installer and can load the sample dossier', function () {
     $this->actingAs($user)
         ->withSession(demoSessionFor($user, $intake))
         ->post(route('demo.scenario.load', $intake))
-        ->assertRedirect(route('intakes.workspace', $intake));
+        ->assertRedirect();
 
-    $intake->refresh()->load([
+    $exampleId = (int) session('public_demo_intake_id');
+    expect($exampleId)->not->toBe($intake->id);
+
+    $example = Intake::query()->findOrFail($exampleId);
+    expect($example->customer_name)->toBe('Voorbeelddossier (demo)')
+        ->and($example->aircoRooms)->toHaveCount(2)
+        ->and($intake->fresh()->aircoRooms)->toHaveCount(2);
+
+    $example->load([
         'externalFacts',
         'uploads',
         'aiRuns',
@@ -328,15 +336,15 @@ it('continues as installer and can load the sample dossier', function () {
         'contributionTasks',
     ]);
 
-    expect($intake->externalFacts)->toHaveCount(10)
-        ->and($intake->aircoRooms)->toHaveCount(2)
-        ->and($intake->aircoPlacements)->toHaveCount(5)
-        ->and($intake->aircoInstallationOptions)->toHaveCount(1)
-        ->and($intake->aircoInstallationOptions->first()?->connections)->toHaveCount(5)
-        ->and($intake->uploads)->toHaveCount(4)
-        ->and($intake->contributionTasks->where('status', ContributionTaskStatus::Proposed))->toHaveCount(1);
+    expect($example->externalFacts)->toHaveCount(10)
+        ->and($example->aircoRooms)->toHaveCount(2)
+        ->and($example->aircoPlacements)->toHaveCount(5)
+        ->and($example->aircoInstallationOptions)->toHaveCount(1)
+        ->and($example->aircoInstallationOptions->first()?->connections)->toHaveCount(5)
+        ->and($example->uploads)->toHaveCount(4)
+        ->and($example->contributionTasks->where('status', ContributionTaskStatus::Proposed))->toHaveCount(1);
 
-    expect($intake->aircoInstallationOptions->first()?->connections
+    expect($example->aircoInstallationOptions->first()?->connections
         ->groupBy(fn ($connection) => $connection->type->value)
         ->map->count()
         ->all())->toBe([
@@ -345,15 +353,12 @@ it('continues as installer and can load the sample dossier', function () {
             AircoConnectionType::Power->value => 1,
         ]);
 
-    $run = $intake->aiRuns->firstWhere('provider', 'demo_precomputed');
+    $run = $example->aiRuns->firstWhere('provider', 'demo_precomputed');
     expect($run?->type)->toBe(AiRunType::DossierSynthesis)
         ->and($run?->provider)->toBe('demo_precomputed')
-        ->and($run?->estimated_cost_cents)->toBe(0)
-        ->and($intake->aiRuns->contains(
-            fn (AiRun $aiRun): bool => $aiRun->type === AiRunType::RequestIntent,
-        ))->toBeTrue();
+        ->and($run?->estimated_cost_cents)->toBe(0);
 
-    foreach ($intake->uploads as $upload) {
+    foreach ($example->uploads as $upload) {
         expect($upload->path)->not->toBeEmpty()
             ->and($upload->analysis_path)->not->toBeNull()
             ->and($upload->disk)->not->toBeEmpty();
@@ -369,10 +374,10 @@ it('continues as installer and can load the sample dossier', function () {
     }
 
     $this->actingAs($user)
-        ->withSession(demoSessionFor($user, $intake))
-        ->get(route('intakes.workspace', $intake))
+        ->withSession(demoSessionFor($user, $example))
+        ->get(route('intakes.workspace', $example))
         ->assertOk()
-        ->assertSee('Voorbeelddossier geladen')
+        ->assertSee('Voorbeelddossier (demo)')
         ->assertSee('Volgende stap')
         ->assertSee('Woninggegevens')
         ->assertSee('Controleren en klantweergave activeren')
@@ -665,28 +670,32 @@ it('activates a simulated customer view without sending mail', function () {
     $this->actingAs($user)->withSession($session)->post(route('demo.path.choose', $intake), ['path' => 'installer']);
     $this->actingAs($user)->withSession($session)->post(route('demo.scenario.load', $intake));
 
+    $exampleId = (int) session('public_demo_intake_id');
+    $example = Intake::query()->findOrFail($exampleId);
+    $session = demoSessionFor($user, $example);
+
     $task = ContributionTask::query()
-        ->where('intake_id', $intake->id)
+        ->where('intake_id', $example->id)
         ->where('status', ContributionTaskStatus::Proposed)
         ->firstOrFail();
 
     $this->actingAs($user)
         ->withSession($session)
-        ->post(route('intakes.workspace.tasks.send', [$intake, $task]))
-        ->assertRedirect(route('intakes.workspace', $intake))
+        ->post(route('intakes.workspace.tasks.send', [$example, $task]))
+        ->assertRedirect(route('intakes.workspace', $example))
         ->assertSessionHas('status', 'Klantweergave geactiveerd. In de demo sturen we geen e-mail.');
 
-    $intake->refresh();
-    expect($intake->workflow_mode)->toBe(ContributionMode::Hybrid)
-        ->and($intake->status)->toBe(IntakeStatus::AwaitingCustomer)
-        ->and($intake->customer_access_enabled)->toBeTrue()
-        ->and($intake->token_expires_at?->lessThanOrEqualTo(now()->addHours(2)->addMinute()))->toBeTrue()
+    $example->refresh();
+    expect($example->workflow_mode)->toBe(ContributionMode::Hybrid)
+        ->and($example->status)->toBe(IntakeStatus::AwaitingCustomer)
+        ->and($example->customer_access_enabled)->toBeTrue()
+        ->and($example->token_expires_at?->lessThanOrEqualTo(now()->addHours(2)->addMinute()))->toBeTrue()
         ->and($task->fresh()?->status)->toBe(ContributionTaskStatus::Cancelled)
-        ->and($intake->contributionTasks()->where('status', ContributionTaskStatus::Open)->count())->toBe(1);
+        ->and($example->contributionTasks()->where('status', ContributionTaskStatus::Open)->count())->toBe(1);
 
     Mail::assertNothingSent();
 
-    $this->get($intake->customerUrl())
+    $this->get($example->customerUrl())
         ->assertOk()
         ->assertSee('Demo — aanvulling door de klant')
         ->assertSee('Je bekijkt één opdracht uit de tijdelijke opname')
@@ -790,13 +799,17 @@ it('allows live AI synthesis from the interactive demo when AI is enabled', func
     $this->actingAs($user)->withSession($demoSession)->post(route('demo.path.choose', $intake), ['path' => 'installer']);
     $this->actingAs($user)->withSession($demoSession)->post(route('demo.scenario.load', $intake));
 
+    $exampleId = (int) session('public_demo_intake_id');
+    $example = Intake::query()->findOrFail($exampleId);
+    $demoSession = demoSessionFor($user, $example);
+
     $this->actingAs($user)
         ->withSession($demoSession)
-        ->post(route('intakes.workspace.synthesis', $intake))
-        ->assertRedirect(route('intakes.workspace', $intake));
+        ->post(route('intakes.workspace.synthesis', $example))
+        ->assertRedirect(route('intakes.workspace', $example));
 
     // Demo synthesis is no longer short-circuited; the gateway may be called.
-    expect(Http::recorded()->isNotEmpty() || AiRun::query()->where('intake_id', $intake->id)->exists())->toBeTrue();
+    expect(Http::recorded()->isNotEmpty() || AiRun::query()->where('intake_id', $example->id)->exists())->toBeTrue();
 });
 
 it('purges expired demo data media and ephemeral accounts while keeping active sessions', function () {
@@ -806,6 +819,7 @@ it('purges expired demo data media and ephemeral accounts while keeping active s
     $activeSession = demoSessionFor($activeUser, $active);
     $this->actingAs($activeUser)->withSession($activeSession)->post(route('demo.path.choose', $active), ['path' => 'installer']);
     $this->actingAs($activeUser)->withSession($activeSession)->post(route('demo.scenario.load', $active));
+    $activeExampleId = (int) session('public_demo_intake_id');
     $activeUserId = (int) $active->created_by;
     $activeCompanyId = (int) $active->company_id;
 
@@ -814,23 +828,28 @@ it('purges expired demo data media and ephemeral accounts while keeping active s
     $expiredSession = demoSessionFor($expiredUser, $expired);
     $this->actingAs($expiredUser)->withSession($expiredSession)->post(route('demo.path.choose', $expired), ['path' => 'installer']);
     $this->actingAs($expiredUser)->withSession($expiredSession)->post(route('demo.scenario.load', $expired));
+    $expiredExampleId = (int) session('public_demo_intake_id');
     $expiredUserId = (int) $expired->created_by;
     $expiredCompanyId = (int) $expired->company_id;
-    $expired->refresh();
-    $expiredFiles = $expired->uploads()->get()->flatMap(
+    $expiredExample = Intake::query()->findOrFail($expiredExampleId);
+    $expiredFiles = $expiredExample->uploads()->get()->flatMap(
         static fn ($upload): array => array_values(array_filter([$upload->path, $upload->analysis_path])),
     )->all();
-    $expiredAerial = $expired->externalFacts()->where('fact_key', 'aerial_image')->firstOrFail();
+    $expiredAerial = $expiredExample->externalFacts()->where('fact_key', 'aerial_image')->firstOrFail();
     $expiredFiles[] = $expiredAerial->value['media_path'];
-    $expired->forceFill([
-        'created_at' => Carbon::now()->subHours(3),
-        'token_expires_at' => Carbon::now()->subHour(),
-    ])->save();
+    foreach ([$expired, $expiredExample] as $toExpire) {
+        $toExpire->forceFill([
+            'created_at' => Carbon::now()->subHours(3),
+            'token_expires_at' => Carbon::now()->subHour(),
+        ])->save();
+    }
 
     Artisan::call('intakes:purge-demos');
 
-    expect(Intake::query()->whereKey($active->id)->exists())->toBeTrue();
+    expect(Intake::query()->whereKey($active->id)->exists())->toBeTrue()
+        ->and(Intake::query()->whereKey($activeExampleId)->exists())->toBeTrue();
     expect(Intake::withTrashed()->whereKey($expired->id)->exists())->toBeFalse()
+        ->and(Intake::withTrashed()->whereKey($expiredExampleId)->exists())->toBeFalse()
         ->and(User::query()->whereKey($expiredUserId)->exists())->toBeFalse()
         ->and(Company::query()->whereKey($expiredCompanyId)->exists())->toBeFalse()
         ->and(User::query()->whereKey($activeUserId)->exists())->toBeTrue()

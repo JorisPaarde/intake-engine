@@ -346,8 +346,8 @@ test('case 81: alle expliciete feiten opgeslagen met bron; stroom/condens niet u
     $rooms = $intake->fresh()->aircoRooms()->orderBy('sort_order')->get();
 
     expect($rooms)->toHaveCount(2)
-        ->and($rooms[0]->name)->toBe('Slaapkamer ouders')
-        ->and($rooms[1]->name)->toBe('Kinderkamer')
+        ->and($rooms[0]->name)->toBe('Slaapkamer ouders, 1e verdieping')
+        ->and($rooms[1]->name)->toBe('Kinderkamer, 1e verdieping')
         ->and($rooms[0]->name)->not->toBe($rooms[1]->name)
         ->and($rooms->pluck('name')->all())->not->toContain('Ruimte 1');
 
@@ -359,8 +359,8 @@ test('case 81: alle expliciete feiten opgeslagen met bron; stroom/condens niet u
     expect($photoSteps)->toHaveCount(2)
         ->and($photoSteps[0]['title'])->toContain('Slaapkamer ouders')
         ->and($photoSteps[1]['title'])->toContain('Kinderkamer')
-        ->and($photoSteps[0]['section_title'])->toBe('Slaapkamer ouders')
-        ->and($photoSteps[1]['section_title'])->toBe('Kinderkamer')
+        ->and($photoSteps[0]['section_title'])->toBe('Slaapkamer ouders, 1e verdieping')
+        ->and($photoSteps[1]['section_title'])->toBe('Kinderkamer, 1e verdieping')
         ->and($summaryKeys)->not->toContain('fusebox_clarity')
         ->and($summaryKeys)->not->toContain('drain_location')
         ->and($summaryKeys)->not->toContain('free_group_known');

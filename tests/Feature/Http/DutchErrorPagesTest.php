@@ -66,7 +66,7 @@ test('failed AI dossier synthesis flashes an error style message not success', f
 
     $this->actingAs($user)
         ->withSession([
-            'error' => 'AI-synthese kon niet worden afgerond; het bestaande dossier is ongewijzigd gebleven.',
+            'error' => 'AI-synthese kon niet worden afgerond: providerfout; het bestaande dossier is ongewijzigd gebleven.',
         ])
         ->get(route('intakes.workspace', $intake))
         ->assertOk()
