@@ -100,7 +100,7 @@ final class InstallerPhotoGalleryBuilder
 
                 $groups[$bucketKey]['uploads'][] = [
                     'upload' => $upload,
-                    'caption' => $upload->followUpItem->prompt,
+                    'caption' => 'Ronde '.$round->round_number,
                     'question_sort' => $upload->followUpItem->id,
                 ];
 

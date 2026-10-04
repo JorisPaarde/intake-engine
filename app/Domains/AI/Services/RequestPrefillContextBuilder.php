@@ -118,7 +118,7 @@ final class RequestPrefillContextBuilder
             ->limit(20)
             ->get()
             ->map(static function (DossierRecord $record): ?array {
-                $text = $record->value['text'] ?? null;
+                $text = $record->value['text'] ?? $record->value['response_text'] ?? null;
                 if (! is_string($text)) {
                     return null;
                 }

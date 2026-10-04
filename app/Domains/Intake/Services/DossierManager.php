@@ -24,8 +24,10 @@ use App\Enums\ContributionAudience;
 use App\Enums\ContributionTaskStatus;
 use App\Enums\DossierRecordKind;
 use App\Enums\DossierRecordStatus;
+use App\Enums\FollowUpItemType;
 use App\Enums\QuestionType;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 final class DossierManager
@@ -250,6 +252,23 @@ final class DossierManager
                 $provenance,
                 $answer->question_key,
             );
+
+            $recordKey = $this->answerRecordKey($answer);
+            $existingAnswerRecord = DossierRecord::query()
+                ->where('intake_id', $intake->id)
+                ->where('source_type', 'intake_answer')
+                ->where('source_id', $answer->id)
+                ->first();
+
+            // Do not revive records that a later correction already superseded
+            // (legacy bridge used to reset superseded_by_id to null every sync).
+            if ($existingAnswerRecord?->status === DossierRecordStatus::Superseded
+                && $existingAnswerRecord->superseded_by_id !== null) {
+                $this->linkEvidence($intake, $subject, 'intake_answer', $answer->id, $existingAnswerRecord);
+
+                continue;
+            }
+
             $record = DossierRecord::query()->updateOrCreate(
                 [
                     'intake_id' => $intake->id,
@@ -260,7 +279,7 @@ final class DossierManager
                     'company_id' => $intake->company_id,
                     'dossier_subject_id' => $subject->id,
                     'kind' => DossierRecordKind::Observation,
-                    'key' => $this->answerRecordKey($answer),
+                    'key' => $recordKey,
                     'value' => $this->answerRecordValue(
                         $intake,
                         $answer,
@@ -276,7 +295,7 @@ final class DossierManager
                     'confidence' => $this->prefillConfidence($intake, $answer, $confidencePercent),
                     'status' => $this->prefillStatus($intake, $answer, $isAssumption),
                     'observed_at' => $answer->answered_at ?? $answer->updated_at,
-                    'superseded_by_id' => null,
+                    'superseded_by_id' => $existingAnswerRecord?->superseded_by_id,
                 ],
             );
             $this->linkEvidence($intake, $subject, 'intake_answer', $answer->id, $record);
@@ -341,6 +360,16 @@ final class DossierManager
                         ->whereKey($dossierSubjectId)
                         ->first() ?? $root)
                     : $root;
+
+                // Photo items answered when the round completed with uploads, even if
+                // older code left answered_at null.
+                $answeredAt = $item->answered_at
+                    ?? ($item->type === FollowUpItemType::Photo
+                        && $round->completed_at !== null
+                        && $item->uploads()->exists()
+                        ? $round->completed_at
+                        : null);
+
                 $task = ContributionTask::query()->updateOrCreate(
                     ['intake_follow_up_item_id' => $item->id],
                     [
@@ -351,13 +380,13 @@ final class DossierManager
                         'type' => $item->type,
                         'prompt' => $item->prompt,
                         'decision_area_key' => $existingTask?->decision_area_key,
-                        'status' => $item->answered_at === null
+                        'status' => $answeredAt === null
                             ? ContributionTaskStatus::Open
                             : ContributionTaskStatus::Completed,
                         'requested_by' => $round->requested_by,
-                        'completed_by_type' => $item->answered_at === null ? null : 'customer',
+                        'completed_by_type' => $answeredAt === null ? null : 'customer',
                         'completed_by_id' => null,
-                        'completed_at' => $item->answered_at,
+                        'completed_at' => $answeredAt,
                         'meta' => array_merge(
                             ($existingTask !== null && is_array($existingTask->meta)) ? $existingTask->meta : [],
                             ['round_number' => $round->round_number],
@@ -366,7 +395,7 @@ final class DossierManager
                 );
 
                 $record = null;
-                if ($item->answered_at !== null) {
+                if ($answeredAt !== null) {
                     $taskMeta = is_array($task->meta) ? $task->meta : [];
                     $value = [
                         'prompt' => $item->prompt,
@@ -387,6 +416,23 @@ final class DossierManager
                         $value['auto_selected'] = false;
                     }
 
+                    // Stable unique key per follow-up item (never reuse another item's id).
+                    $recordKey = ($taskMeta['kind'] ?? null) === InstallationOptionPreferenceService::META_KIND
+                        ? 'customer_installation_preference'
+                        : 'customer_contribution.'.$item->id;
+
+                    $existingRecord = DossierRecord::query()
+                        ->where('intake_id', $intake->id)
+                        ->where('source_type', 'intake_follow_up_item')
+                        ->where('source_id', $item->id)
+                        ->first();
+
+                    // Preserve an intentional supersession (installer correction / later record).
+                    $preserveSupersededBy = $existingRecord?->superseded_by_id;
+                    $preserveStatus = $existingRecord?->status === DossierRecordStatus::Superseded
+                        ? DossierRecordStatus::Superseded
+                        : DossierRecordStatus::Established;
+
                     $record = DossierRecord::query()->updateOrCreate(
                         [
                             'intake_id' => $intake->id,
@@ -397,25 +443,26 @@ final class DossierManager
                             'company_id' => $intake->company_id,
                             'dossier_subject_id' => $subject->id,
                             'kind' => DossierRecordKind::Observation,
-                            'key' => ($taskMeta['kind'] ?? null) === InstallationOptionPreferenceService::META_KIND
-                                ? 'customer_installation_preference'
-                                : 'customer_contribution.'.$item->id,
+                            'key' => $recordKey,
                             'value' => $value,
                             'actor_type' => 'customer',
                             'actor_id' => null,
                             'method' => 'targeted_customer_task',
                             'confidence' => 1.0,
-                            'status' => DossierRecordStatus::Established,
-                            'observed_at' => $item->answered_at,
-                            'superseded_by_id' => null,
+                            'status' => $preserveStatus,
+                            'observed_at' => $answeredAt,
+                            'superseded_by_id' => $preserveSupersededBy,
                         ],
                     );
+
+                    // Collapse accidental duplicate keys on the same subject (finding: .8 twice).
+                    $this->dedupeActiveRecordsByKey($intake, $subject, $recordKey, $record);
                 }
 
                 $this->linkEvidence($intake, $subject, 'intake_follow_up_item', $item->id, $record);
 
                 if ($task->status === ContributionTaskStatus::Completed) {
-                    $task->update(['completed_at' => $item->answered_at ?? $round->completed_at]);
+                    $task->update(['completed_at' => $answeredAt ?? $round->completed_at]);
                 }
             }
         }
@@ -997,5 +1044,49 @@ final class DossierManager
         }
 
         return $index;
+    }
+
+    /**
+     * When two active records share a dossier key on the same subject, keep the
+     * canonical follow-up-item record and supersede the duplicate (BL-146).
+     */
+    private function dedupeActiveRecordsByKey(
+        Intake $intake,
+        DossierSubject $subject,
+        string $key,
+        DossierRecord $canonical,
+    ): void {
+        $duplicates = DossierRecord::query()
+            ->where('intake_id', $intake->id)
+            ->where('dossier_subject_id', $subject->id)
+            ->where('key', $key)
+            ->whereIn('status', [
+                DossierRecordStatus::Proposed,
+                DossierRecordStatus::Established,
+                DossierRecordStatus::Conflicted,
+            ])
+            ->where('id', '!=', $canonical->id)
+            ->get();
+
+        foreach ($duplicates as $duplicate) {
+            // Prefer keeping the record whose source_id matches the key suffix.
+            $canonicalSourceId = $canonical->source_id;
+            $keySuffix = Str::afterLast($key, '.');
+            if (is_numeric($keySuffix)
+                && (int) $keySuffix === (int) $duplicate->source_id
+                && (int) $keySuffix !== (int) $canonicalSourceId) {
+                $canonical->update([
+                    'status' => DossierRecordStatus::Superseded,
+                    'superseded_by_id' => $duplicate->id,
+                ]);
+
+                continue;
+            }
+
+            $duplicate->update([
+                'status' => DossierRecordStatus::Superseded,
+                'superseded_by_id' => $canonical->id,
+            ]);
+        }
     }
 }

@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Services;
 
+use App\Domains\Intake\Actions\ApplyFollowUpTextContribution;
 use App\Domains\Intake\Models\AircoConnection;
 use App\Domains\Intake\Models\AircoInstallationOption;
 use App\Domains\Intake\Models\AircoPlacementOption;
 use App\Domains\Intake\Models\AircoRoom;
+use App\Domains\Intake\Models\DossierRecord;
 use App\Domains\Intake\Models\DossierSubject;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
@@ -18,6 +20,8 @@ use App\Enums\AircoConnectionType;
 use App\Enums\AircoOptionFeasibility;
 use App\Enums\AircoOptionStatus;
 use App\Enums\AircoPlacementType;
+use App\Enums\DossierRecordKind;
+use App\Enums\DossierRecordStatus;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -144,11 +148,147 @@ final class AircoSurveyService
             ->where('intake_id', $intake->id)
             ->update(['label' => $name]);
 
+        if (isset($updates['dimensions'])) {
+            $this->supersedeAiDimensionProposals(
+                $intake,
+                $installer,
+                $room->fresh() ?? $room,
+                $updates['dimensions'],
+            );
+        }
+
+        // Confirming height also closes a pending customer height proposal.
+        $freshRoom = $room->fresh() ?? $room;
+        if (RoomDimensions::from(is_array($freshRoom->dimensions) ? $freshRoom->dimensions : null)->hasHeight()) {
+            DossierRecord::query()
+                ->where('intake_id', $intake->id)
+                ->where('dossier_subject_id', $freshRoom->dossier_subject_id)
+                ->where('key', ApplyFollowUpTextContribution::RECORD_KEY_HEIGHT)
+                ->where('status', DossierRecordStatus::Proposed)
+                ->whereNull('superseded_by_id')
+                ->update([
+                    'status' => DossierRecordStatus::Superseded,
+                ]);
+        }
+
         $this->activity($intake, $installer, 'airco_room_updated', ['room_id' => $room->id]);
         $this->surveyProgress->markStarted($intake);
         $this->decisionReadiness->recalculate($intake->fresh() ?? $intake);
 
         return $room->fresh() ?? $room;
+    }
+
+    /**
+     * Mark prior AI/proposal dimension records as superseded when the installer
+     * corrects effective room measures (reuse DossierManager::record).
+     *
+     * @param  array<string, float|string>  $dimensions
+     */
+    private function supersedeAiDimensionProposals(
+        Intake $intake,
+        User $installer,
+        AircoRoom $room,
+        array $dimensions,
+    ): void {
+        $subject = $room->subject
+            ?? DossierSubject::query()
+                ->whereKey($room->dossier_subject_id)
+                ->where('intake_id', $intake->id)
+                ->first();
+
+        if (! $subject instanceof DossierSubject) {
+            return;
+        }
+
+        $mapping = [
+            'length_m' => 'room_length_m',
+            'width_m' => 'room_width_m',
+            'height_m' => 'ceiling_height_m',
+            'area_m2' => 'room_area_m2',
+        ];
+
+        foreach ($mapping as $dimensionKey => $questionKey) {
+            if (! isset($dimensions[$dimensionKey]) || ! is_numeric($dimensions[$dimensionKey])) {
+                continue;
+            }
+
+            $value = (float) $dimensions[$dimensionKey];
+            $answerKeySuffix = $questionKey;
+            $dimensionLabels = [
+                'length_m' => 'Lengte (m)',
+                'width_m' => 'Breedte (m)',
+                'height_m' => 'Hoogte (m)',
+                'area_m2' => 'Oppervlak (m²)',
+            ];
+            // Prefill answer keys look like answer.room-1.room_length_m or answer.room_length_m.
+            $prior = DossierRecord::query()
+                ->where('intake_id', $intake->id)
+                ->where('dossier_subject_id', $subject->id)
+                ->whereIn('status', [
+                    DossierRecordStatus::Proposed,
+                    DossierRecordStatus::Established,
+                    DossierRecordStatus::Conflicted,
+                ])
+                ->where(function ($query) use ($answerKeySuffix): void {
+                    $query->where('key', 'like', '%.'.$answerKeySuffix)
+                        ->orWhere('key', 'answer.'.$answerKeySuffix);
+                })
+                ->whereNull('superseded_by_id')
+                ->get();
+
+            if ($prior->isEmpty()) {
+                continue;
+            }
+
+            $this->dossierManager->record(
+                intake: $intake,
+                subject: $subject,
+                kind: DossierRecordKind::Observation,
+                key: 'dimensions.'.$dimensionKey,
+                value: [
+                    'number' => $value,
+                    'unit' => 'm',
+                    '_field_label' => $dimensionLabels[$dimensionKey],
+                    '_display_value' => (string) $value,
+                    '_source_label' => 'installateur',
+                    '_provenance_label' => 'gezegd',
+                ],
+                actorType: 'installer',
+                actorId: $installer->id,
+                sourceType: 'installer',
+                sourceId: $installer->id,
+                method: 'installer_corrected',
+                confidence: 1.0,
+                status: DossierRecordStatus::Established,
+            );
+
+            // Also supersede answer.* keys that share the same measure but a
+            // different dossier key than dimensions.* — record() only supersedes
+            // identical keys, so mark the AI answer proposals explicitly.
+            foreach ($prior as $old) {
+                if ($old->key === 'dimensions.'.$dimensionKey) {
+                    continue;
+                }
+
+                $replacement = DossierRecord::query()
+                    ->where('intake_id', $intake->id)
+                    ->where('dossier_subject_id', $subject->id)
+                    ->where('key', 'dimensions.'.$dimensionKey)
+                    ->where('status', DossierRecordStatus::Established)
+                    ->whereNull('superseded_by_id')
+                    ->latest('id')
+                    ->first();
+
+                if ($replacement === null) {
+                    continue;
+                }
+
+                $old->update([
+                    'status' => DossierRecordStatus::Superseded,
+                    'superseded_by_id' => $replacement->id,
+                ]);
+            }
+        }
     }
 
     /**

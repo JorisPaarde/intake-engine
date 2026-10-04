@@ -21,8 +21,9 @@ export default defineConfig({
   },
   projects: [
     {
+      // Align with CI job "E2E (Playwright)" / tests/e2e/playwright.config.ts
       name: 'e2e',
-      testDir: './tests/e2e',
+      testDir: './tests/e2e/specs',
       use: { ...devices['Desktop Chrome'] },
     },
     {
