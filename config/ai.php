@@ -21,6 +21,17 @@ return [
 
     'provider' => env('AI_PROVIDER', 'null'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Browser E2E helpers
+    |--------------------------------------------------------------------------
+    |
+    | When true, /__e2e__/* routes and E2eAiScenario file switching are available.
+    | Never enable on production. CI and local Playwright set E2E_HELPERS=true.
+    |
+    */
+    'e2e_helpers_enabled' => (bool) env('E2E_HELPERS', false),
+
     'api_key' => env('AI_API_KEY'),
 
     // OpenAI-compatible base URL. OpenRouter: https://openrouter.ai/api/v1

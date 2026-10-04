@@ -8,6 +8,7 @@ use App\Domains\AI\Contracts\AiClientInterface;
 use App\Domains\AI\DTOs\AiCompletionRequest;
 use App\Domains\AI\DTOs\AiCompletionResult;
 use App\Domains\AI\Exceptions\AiClientException;
+use App\Domains\AI\Support\E2eAiScenario;
 use Closure;
 
 final class FakeAiClient implements AiClientInterface
@@ -73,6 +74,14 @@ final class FakeAiClient implements AiClientInterface
 
         if ($callbackOutput !== null) {
             return $this->result($callbackOutput, 'fake-v1');
+        }
+
+        // Browser E2E: deterministic scenarios via storage/framework/e2e-ai-scenario.txt.
+        if (self::$forcedOutput === null) {
+            $e2e = E2eAiScenario::resolve($request->promptVersion);
+            if ($e2e !== null) {
+                return $this->result($e2e['output'], $e2e['model']);
+            }
         }
 
         if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'fusebox-assessment')) {

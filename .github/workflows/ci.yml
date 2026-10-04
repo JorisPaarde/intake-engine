@@ -97,3 +97,105 @@ jobs:
           QUEUE_CONNECTION: sync
           CACHE_STORE: array
         run: vendor/bin/pest --ci
+
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo, pdo_sqlite, sqlite3, intl, gd, zip, imagick
+          coverage: none
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Build frontend assets
+        run: npm run build
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Generate E2E photo fixtures
+        run: npm run e2e:fixtures
+
+      - name: Prepare E2E environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          mkdir -p database
+          touch database/e2e.sqlite
+          {
+            echo "APP_ENV=local"
+            echo "APP_URL=http://127.0.0.1:8000"
+            echo "DB_CONNECTION=sqlite"
+            echo "DB_DATABASE=${GITHUB_WORKSPACE}/database/e2e.sqlite"
+            echo "SESSION_DRIVER=file"
+            echo "CACHE_STORE=file"
+            echo "QUEUE_CONNECTION=sync"
+            echo "AI_PROVIDER=fake"
+            echo "AI_PHOTO_INFERENCE_ENABLED=true"
+            echo "E2E_HELPERS=true"
+            echo "DEMO_ENABLED=true"
+            echo "PDOK_ENABLED=false"
+            echo "MAIL_MAILER=array"
+          } >> .env
+          php artisan e2e:prepare --fresh
+
+      - name: Start Laravel server
+        run: |
+          php artisan serve --host=127.0.0.1 --port=8000 > /tmp/e2e-artisan-serve.log 2>&1 &
+          echo $! > /tmp/e2e-artisan-serve.pid
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8000/__e2e__/health >/dev/null; then
+              echo "E2E server ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Server failed to start"; cat /tmp/e2e-artisan-serve.log; exit 1
+
+      - name: Run Playwright E2E
+        env:
+          E2E_BASE_URL: http://127.0.0.1:8000
+          CI: true
+        run: npm run test:e2e
+
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-e2e
+          path: |
+            tests/e2e/test-results/
+            tests/e2e/playwright-report/
+          if-no-files-found: ignore
+
+      - name: Stop Laravel server
+        if: always()
+        run: |
+          if [ -f /tmp/e2e-artisan-serve.pid ]; then
+            kill "$(cat /tmp/e2e-artisan-serve.pid)" || true
+          fi
