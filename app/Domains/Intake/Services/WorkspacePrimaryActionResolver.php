@@ -13,9 +13,11 @@ use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
 use App\Enums\AircoOptionFeasibility;
 use App\Enums\AircoOptionStatus;
+use App\Enums\AircoPlacementType;
 use App\Enums\DecisionAreaStatus;
 use App\Enums\DossierNextAction;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 /**
  * Resolves the sticky primary CTA and per-area deep links for the installer workspace (BL-054/055).
@@ -94,14 +96,13 @@ final class WorkspacePrimaryActionResolver
 
         $actionable = $this->firstActionableOpenArea($openAreas);
         if ($actionable !== null) {
-            $target = $this->targetForArea($intake, $actionable->key);
+            $target = $this->targetForOpenArea($intake, $actionable);
 
+            // Summary and CTA label come from the same missing-info target.
             return [
                 'href' => $target['href'],
                 'label' => $target['label'],
-                'summary' => $actionable->blocker
-                    ?? $actionable->next_action?->label()
-                    ?? $actionable->label,
+                'summary' => $target['summary'],
             ];
         }
 
@@ -155,6 +156,29 @@ final class WorkspacePrimaryActionResolver
     }
 
     /**
+     * Deep-link + CTA for an open decision area. Text and href share one missing-info source.
+     *
+     * @return array{href: string, label: string, summary: string}
+     */
+    public function targetForOpenArea(Intake $intake, DossierDecisionArea $area): array
+    {
+        $target = match ($area->key) {
+            'placement' => $this->placementTarget($intake, $area),
+            'cost_risks' => $this->costRisksTarget($area),
+            default => $this->targetForArea($intake, $area->key),
+        };
+
+        $summary = $area->blocker
+            ?? $target['label'];
+
+        return [
+            'href' => $target['href'],
+            'label' => $target['label'],
+            'summary' => $summary,
+        ];
+    }
+
+    /**
      * @return array{href: string, label: string}
      */
     public function targetForArea(Intake $intake, string $areaKey): array
@@ -165,9 +189,7 @@ final class WorkspacePrimaryActionResolver
                 'label' => 'Ruimte toevoegen',
             ],
             'capacity' => $this->capacityTarget($intake),
-            'placement' => $intake->aircoPlacements->isEmpty()
-                ? ['href' => '#demo-placements', 'label' => 'Binnen- of buitenunit toevoegen']
-                : ['href' => '#demo-proposal', 'label' => 'Kies multi-split of singles'],
+            'placement' => $this->placementTarget($intake, null),
             'refrigerant' => $this->connectionTarget($intake, AircoConnectionType::Refrigerant, 'Koelroute vastleggen'),
             'condensate' => $this->connectionTarget($intake, AircoConnectionType::Condensate, 'Condensroute vastleggen'),
             'power' => $this->connectionTarget($intake, AircoConnectionType::Power, 'Stroomroute vastleggen'),
@@ -204,7 +226,7 @@ final class WorkspacePrimaryActionResolver
      */
     public function overviewItem(Intake $intake, DossierDecisionArea $area): array
     {
-        $target = $this->targetForArea($intake, $area->key);
+        $target = $this->targetForOpenArea($intake, $area);
         $isOpen = in_array(
             $area->status,
             [DecisionAreaStatus::Blocked, DecisionAreaStatus::Review],
@@ -213,7 +235,7 @@ final class WorkspacePrimaryActionResolver
 
         $detail = $area->blocker
             ?? $area->next_action?->label()
-            ?? null;
+            ?? $this->readyBasisDetail($area);
 
         return [
             'href' => $target['href'],
@@ -224,6 +246,133 @@ final class WorkspacePrimaryActionResolver
                 ? $this->customerTaskBuilder->forDecisionArea($intake, $area)
                 : null,
         ];
+    }
+
+    /**
+     * Visible basis for a Ready judgement (no extra required questions).
+     */
+    private function readyBasisDetail(DossierDecisionArea $area): ?string
+    {
+        if ($area->status !== DecisionAreaStatus::Ready) {
+            return null;
+        }
+
+        $summary = $area->evidence_summary;
+        if (is_array($summary) && is_string($summary['basis'] ?? null) && $summary['basis'] !== '') {
+            return $summary['basis'];
+        }
+
+        if ($area->key === 'cost_risks') {
+            return 'Geen gemarkeerde obstakels of onzekerheden in de routes.';
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{href: string, label: string}
+     */
+    private function placementTarget(Intake $intake, ?DossierDecisionArea $area): array
+    {
+        $blocker = $area === null
+            ? ''
+            : Str::lower(trim((string) ($area->blocker ?? '')));
+
+        if ($blocker !== '' && Str::contains($blocker, ['foto', 'rondom', 'gevel', 'tuin', 'montageplek'])) {
+            return [
+                'href' => '#demo-placements',
+                'label' => 'Foto’s rondom huis toevoegen',
+            ];
+        }
+
+        if ($blocker !== '' && Str::contains($blocker, ['koppel', 'ruimte'])) {
+            return [
+                'href' => '#demo-placements',
+                'label' => 'Binnenunit koppelen aan ruimte',
+            ];
+        }
+
+        if ($intake->aircoPlacements->isEmpty()) {
+            return [
+                'href' => '#demo-placements',
+                'label' => 'Binnen- of buitenunit toevoegen',
+            ];
+        }
+
+        if (! $this->hasAroundHousePhoto($intake)) {
+            return [
+                'href' => '#demo-placements',
+                'label' => 'Foto’s rondom huis toevoegen',
+            ];
+        }
+
+        if ($intake->aircoInstallationOptions->isEmpty()
+            || ($area !== null && Str::contains($blocker, ['multi-split', 'singles', 'keuze']))) {
+            return [
+                'href' => '#demo-proposal',
+                'label' => 'Kies multi-split of singles',
+            ];
+        }
+
+        return [
+            'href' => '#demo-proposal',
+            'label' => 'Kies multi-split of singles',
+        ];
+    }
+
+    /**
+     * @return array{href: string, label: string}
+     */
+    private function costRisksTarget(DossierDecisionArea $area): array
+    {
+        if ($area->status === DecisionAreaStatus::Ready) {
+            return [
+                'href' => '#dossier-area-cost_risks',
+                'label' => 'Prijsrisico’s bekijken',
+            ];
+        }
+
+        return [
+            'href' => '#demo-proposal',
+            'label' => 'Risico’s controleren',
+        ];
+    }
+
+    private function hasAroundHousePhoto(Intake $intake): bool
+    {
+        if (! $intake->relationLoaded('uploads')) {
+            $intake->loadMissing('uploads');
+        }
+        if (! $intake->relationLoaded('aircoPlacements')) {
+            $intake->loadMissing('aircoPlacements');
+        }
+
+        if ($intake->uploads->contains(
+            static fn ($upload): bool => in_array(
+                $upload->question_key,
+                ['around_house_photos', 'facade_overview_photo', 'outdoor_location_photos'],
+                true,
+            ),
+        )) {
+            return true;
+        }
+
+        foreach ($intake->aircoPlacements as $placement) {
+            if ($placement->type !== AircoPlacementType::OutdoorUnit) {
+                continue;
+            }
+
+            $subjectId = (int) $placement->dossier_subject_id;
+            $instanceKey = 'subject-'.$subjectId;
+            if ($intake->uploads->contains(
+                static fn ($upload): bool => $upload->question_key === 'installer_evidence'
+                    && $upload->section_instance_key === $instanceKey,
+            )) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

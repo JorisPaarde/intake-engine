@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Domains\Intake\Models\AircoPlacementOption;
 use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\DossierDecisionArea;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Services\WorkspacePrimaryActionResolver;
+use App\Enums\AircoPlacementType;
 use App\Enums\DecisionAreaStatus;
 use App\Enums\DossierNextAction;
 use Illuminate\Support\Collection;
@@ -78,6 +80,97 @@ test('open area targets deep-link to the matching work block', function () {
         ->and($resolver->targetForArea($intake, 'placement')['href'])->toBe('#demo-placements')
         ->and($resolver->targetForArea($intake, 'placement')['label'])->toBe('Binnen- of buitenunit toevoegen')
         ->and($resolver->targetForArea($intake, 'quote')['href'])->toBe('#workspace-complete');
+});
+
+test('placement CTA matches missing around-house photos instead of multi-split choice', function () {
+    $intake = bareIntake();
+    $intake->setRelation('aircoRooms', collect([(new AircoRoom)->forceFill(['id' => 1])]));
+    $intake->setRelation('aircoPlacements', collect([
+        (new AircoPlacementOption)->forceFill([
+            'id' => 10,
+            'type' => AircoPlacementType::IndoorUnit,
+            'label' => 'Binnenunit',
+            'dossier_subject_id' => 99,
+        ]),
+    ]));
+    $intake->setRelation('uploads', collect());
+    $intake->setRelation('aircoInstallationOptions', collect());
+
+    $area = fakeOpenArea(
+        'placement',
+        DecisionAreaStatus::Blocked,
+        'Voeg foto’s rondom het huis toe (gevel, tuin of montageplek). Een luchtfoto volstaat niet.',
+    );
+
+    $action = app(WorkspacePrimaryActionResolver::class)->resolve(
+        $intake,
+        null,
+        false,
+        false,
+        collect(),
+        collect([$area]),
+    );
+
+    expect($action['summary'])->toContain('foto’s rondom')
+        ->and($action['label'])->toBe('Foto’s rondom huis toevoegen')
+        ->and($action['href'])->toBe('#demo-placements')
+        ->and($action['label'])->not->toContain('multi-split');
+});
+
+test('placement CTA after around-house photo points to multi-split choice', function () {
+    $intake = bareIntake();
+    $intake->setRelation('aircoRooms', collect([(new AircoRoom)->forceFill(['id' => 1])]));
+    $intake->setRelation('aircoPlacements', collect([
+        (new AircoPlacementOption)->forceFill([
+            'id' => 10,
+            'type' => AircoPlacementType::IndoorUnit,
+            'label' => 'Binnenunit',
+            'dossier_subject_id' => 99,
+        ]),
+    ]));
+    $intake->setRelation('uploads', collect([
+        (object) ['question_key' => 'around_house_photos', 'section_instance_key' => null],
+    ]));
+    $intake->setRelation('aircoInstallationOptions', collect());
+
+    $area = fakeOpenArea(
+        'placement',
+        DecisionAreaStatus::Blocked,
+        'Kies eerst multi-split of singles met binnenunit en buitenunit.',
+    );
+
+    $action = app(WorkspacePrimaryActionResolver::class)->resolve(
+        $intake,
+        null,
+        false,
+        false,
+        collect(),
+        collect([$area]),
+    );
+
+    expect($action['summary'])->toContain('multi-split')
+        ->and($action['label'])->toBe('Kies multi-split of singles')
+        ->and($action['href'])->toBe('#demo-proposal');
+});
+
+test('ready cost risks overview exposes the judgement basis', function () {
+    $intake = bareIntake();
+    $area = new DossierDecisionArea([
+        'key' => 'cost_risks',
+        'label' => 'Risico’s voor de prijs',
+        'status' => DecisionAreaStatus::Ready,
+        'blocker' => null,
+        'next_action' => null,
+        'evidence_summary' => [
+            'basis' => 'Geen gemarkeerde obstakels of onzekerheden in de routes.',
+            'risk_count' => 0,
+        ],
+    ]);
+
+    $item = app(WorkspacePrimaryActionResolver::class)->overviewItem($intake, $area);
+
+    expect($item['is_open'])->toBeFalse()
+        ->and($item['detail'])->toBe('Geen gemarkeerde obstakels of onzekerheden in de routes.');
 });
 
 test('capacity target deep-links to the first room missing dimensions', function () {

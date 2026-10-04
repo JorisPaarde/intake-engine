@@ -166,7 +166,7 @@
                 <div class="pointer-events-auto flex items-center justify-between gap-3">
                     <div class="min-w-0">
                         <p class="eyebrow">Volgende stap</p>
-                        <p class="mt-0.5 truncate text-base font-bold text-gray-950">{{ $primarySummary }}</p>
+                        <p class="mt-0.5 truncate text-base font-bold text-gray-950" data-testid="primary-step-summary">{{ $primarySummary }}</p>
                     </div>
                     <div class="shrink-0 text-right">
                         <p class="text-xs font-semibold tabular-nums text-gray-700">{{ $dossier['filled_count'] }}/{{ $dossier['total_count'] }}</p>
@@ -178,6 +178,7 @@
                 </div>
                 <a
                     href="{{ $primaryCtaHref }}"
+                    data-testid="primary-step-cta"
                     class="pointer-events-auto mt-2 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-marketing-green-dark px-4 text-sm font-semibold text-white hover:bg-marketing-green"
                 >
                     {{ $primaryCtaLabel }}
@@ -347,10 +348,10 @@
                                         <p class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
                                             Oppervlak {{ number_format((float) $areaM2, 1, ',', '.') }} m² is nog niet betrouwbaar genoeg
                                             @if ($roomMeasures->areaConfidence())
-                                                ({{ $roomMeasures->areaConfidence() === 'high' ? 'hoge' : ($roomMeasures->areaConfidence() === 'medium' ? 'middelmatige' : 'lage') }} zekerheid)
+                                                ({{ \App\Domains\Intake\Support\InstallerDisplayLabels::confidence($roomMeasures->areaConfidence()) }} zekerheid)
                                             @endif
                                             @if ($roomMeasures->areaSource())
-                                                · bron: {{ $roomMeasures->areaSource() }}
+                                                · bron: {{ \App\Domains\Intake\Support\InstallerDisplayLabels::source($roomMeasures->areaSource()) }}
                                             @endif
                                             . Bevestig of vul lengte en breedte in.
                                         </p>
@@ -419,10 +420,10 @@
                                         @if ($roomMeasures->hasTrustedAreaM2() || $roomMeasures->areaSource())
                                             <div class="sm:col-span-2 text-xs text-gray-500">
                                                 @if ($roomMeasures->areaSource())
-                                                    Bron oppervlak: {{ $roomMeasures->areaSource() }}
+                                                    Bron oppervlak: {{ \App\Domains\Intake\Support\InstallerDisplayLabels::source($roomMeasures->areaSource()) }}
                                                 @endif
                                                 @if ($roomMeasures->areaConfidence())
-                                                    · zekerheid: {{ $roomMeasures->areaConfidence() }}
+                                                    · zekerheid: {{ \App\Domains\Intake\Support\InstallerDisplayLabels::confidence($roomMeasures->areaConfidence()) }}
                                                 @endif
                                                 @if ($roomMeasures->areaEvidence())
                                                     · {{ $roomMeasures->areaEvidence() }}
@@ -877,7 +878,7 @@
                                                             →
                                                             {{ $connection->toPlacement?->label ?? 'Eindpunt open' }}
                                                             @if ($connection->length_class)
-                                                                · {{ $connection->length_class }}
+                                                                · {{ \App\Domains\Intake\Support\InstallerDisplayLabels::lengthClass($connection->length_class) }}
                                                             @endif
                                                         </p>
                                                     </div>
@@ -1382,20 +1383,31 @@
 
                 <aside class="space-y-6">
                     {{-- Voorlopig verborgen (producteigenaar); blijft bereikbaar via de CTA-link #workspace-outcome. --}}
-                    <section id="workspace-outcome" class="hidden scroll-mt-24 rounded-3xl border border-gray-200 bg-white shadow-sm target:block">
-                        <details>
+                    <section id="workspace-outcome" class="hidden scroll-mt-24 rounded-3xl border border-gray-200 bg-white shadow-sm target:block" data-testid="workspace-outcome">
+                        <details @if ($intake->outcome) open @endif>
                             <summary class="cursor-pointer list-none px-5 py-4 [&::-webkit-details-marker]:hidden">
                                 <h3 class="text-base font-semibold text-gray-950">Uitkomst na offerte of plaatsing</h3>
-                                <p class="mt-1 text-sm text-gray-500">Later invullen · tik om te openen</p>
+                                @if ($intake->outcome)
+                                    <p class="mt-1 text-sm text-gray-500" data-testid="outcome-summary-label">
+                                        Opgeslagen
+                                        @if ($intake->outcome->active_installer_minutes === null && $intake->outcome->customer_minutes === null)
+                                            · minuten later invullen
+                                        @endif
+                                        · tik om te wijzigen
+                                    </p>
+                                @else
+                                    <p class="mt-1 text-sm text-gray-500" data-testid="outcome-summary-label">Later invullen · tik om te openen</p>
+                                @endif
                             </summary>
                             <div class="border-t border-gray-100 px-5 py-4">
                         @php
                             $recordedVisitReasons = old('site_visit_reasons', $intake->outcome?->site_visit_reasons ?? []);
                             $recordedProposalDeltas = old('proposal_delta_codes', $intake->outcome?->proposal_delta['codes'] ?? []);
+                            $recordedSiteVisitOccurred = old('site_visit_occurred', $intake->outcome?->site_visit_occurred);
                         @endphp
-                        <form method="POST" action="{{ route('intakes.workspace.outcome', $intake) }}" class="mt-4 space-y-3">
+                        <form method="POST" action="{{ route('intakes.workspace.outcome', $intake) }}" class="mt-4 space-y-3" data-testid="outcome-form">
                             @csrf
-                            <select name="result" class="block min-h-11 w-full rounded-xl border-gray-300" required>
+                            <select name="result" class="block min-h-11 w-full rounded-xl border-gray-300" required data-testid="outcome-result">
                                 <option value="remote_quote" @selected(old('result', $intake->outcome?->result) === 'remote_quote')>Op afstand geoffreerd</option>
                                 <option value="estimate" @selected(old('result', $intake->outcome?->result) === 'estimate')>Prijsindicatie</option>
                                 <option value="site_visit" @selected(old('result', $intake->outcome?->result) === 'site_visit')>Locatiebezoek</option>
@@ -1405,15 +1417,16 @@
                             <div class="grid grid-cols-2 gap-2">
                                 <div>
                                     <x-input-label value="Installateur min." />
-                                    <x-text-input name="active_installer_minutes" type="number" min="0" class="mt-1 block w-full" :value="old('active_installer_minutes', $intake->outcome?->active_installer_minutes)" />
+                                    <x-text-input name="active_installer_minutes" type="number" min="0" class="mt-1 block w-full" :value="old('active_installer_minutes', $intake->outcome?->active_installer_minutes)" data-testid="outcome-installer-minutes" />
                                 </div>
                                 <div>
                                     <x-input-label value="Klant min." />
-                                    <x-text-input name="customer_minutes" type="number" min="0" class="mt-1 block w-full" :value="old('customer_minutes', $intake->outcome?->customer_minutes)" />
+                                    <x-text-input name="customer_minutes" type="number" min="0" class="mt-1 block w-full" :value="old('customer_minutes', $intake->outcome?->customer_minutes)" data-testid="outcome-customer-minutes" />
                                 </div>
                             </div>
+                            <p class="text-xs text-gray-500">Resultaat “Locatiebezoek” betekent dat een bezoek nodig is. Vink hieronder apart aan of het bezoek al is uitgevoerd.</p>
                             <label class="flex min-h-11 items-center gap-3 rounded-xl border border-gray-200 px-3 text-sm">
-                                <input type="checkbox" name="site_visit_occurred" value="1" class="rounded border-gray-300" @checked(old('site_visit_occurred', $intake->outcome?->site_visit_occurred))>
+                                <input type="checkbox" name="site_visit_occurred" value="1" class="rounded border-gray-300" data-testid="outcome-site-visit-occurred" @checked($recordedSiteVisitOccurred)>
                                 Locatiebezoek uitgevoerd
                             </label>
                             <fieldset class="rounded-xl border border-gray-200 p-3">

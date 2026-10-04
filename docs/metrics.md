@@ -1,6 +1,6 @@
 # Productmetrics — Digitale Opname
 
-> **Documentversie:** 3.0 · **Laatste update:** 2026-07-30 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.1 · **Laatste update:** 2026-10-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: de BL-026-procesmetrics én de BL-042-uitkomstmetrics op de interne route `/metrics` zijn **geïmplementeerd**. Alleen geauthenticeerde, geverifieerde installateurs met `viewAny`-toegang tot opnames kunnen de pagina openen.
 
@@ -29,8 +29,8 @@ De installateur legt na offerte, bezoek of plaatsing één actuele `installation
 |--------|---------------------------|
 | Op afstand geoffreerd | Uitkomsten zonder locatiebezoek met `result=remote_quote` óf `quote_type=remote`, gedeeld door alle vastgelegde uitkomsten. Een geplaatste installatie zonder bezoek krijgt automatisch `quote_type=remote`. |
 | Alleen prijsindicatie | `result=estimate` of `quote_type=estimate`, gedeeld door alle vastgelegde uitkomsten. Deze categorie telt niet mee als definitieve offerte op afstand. |
-| Locatiebezoek | `site_visit_occurred=true`, gedeeld door alle vastgelegde uitkomsten. `result=site_visit` zet dit altijd waar. |
-| Reden locatiebezoek | Aantallen per gecontroleerde code: onzekere stroom, condens of route; bereikbaarheid; constructie/wandopbouw; klantvoorkeur; anders. Per uitkomst maximaal drie; minimaal één wanneer een bezoek is vastgelegd. |
+| Locatiebezoek | `site_visit_occurred=true`, gedeeld door alle vastgelegde uitkomsten. Resultaat `site_visit` betekent dat een bezoek **nodig** is; de checkbox **Locatiebezoek uitgevoerd** zet `site_visit_occurred` (BL-145). |
+| Reden locatiebezoek | Aantallen per gecontroleerde code: onzekere stroom, condens of route; bereikbaarheid; constructie/wandopbouw; klantvoorkeur; anders. Per uitkomst maximaal drie; minimaal één wanneer een bezoek nodig is of is uitgevoerd. |
 | Actieve installateurstijd | Handmatig vastgelegde `active_installer_minutes`; mediaan over uitkomsten met een waarde. Het is nadrukkelijk geen wandkloktijd en nog geen automatische sessietimer. |
 | Handmatig gemeten klanttijd | `customer_minutes`; mediaan over uitkomsten met een waarde. De bestaande eventgebaseerde klantacties blijven daarnaast zichtbaar. De oude maat **invultijd** wordt alleen voor de volledige klantworkflow berekend, omdat `started_at` in installer-/hybride flows ook installateurswerk of wachttijd kan omvatten. |
 | Voorstel aangepast | Uitkomsten waarbij **voorstel vergeleken** is aangevinkt en minimaal één gecontroleerde deltacode staat, gedeeld door alle uitkomsten waarbij het voorstel daadwerkelijk is vergeleken. Codes: configuratie, binnen-/buitenpositie, koel-/condens-/stroomroute en kosten. |

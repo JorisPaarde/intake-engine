@@ -8,6 +8,9 @@
                 && is_string($record->value['text'] ?? null)
         )
         ->sortByDesc('id');
+    $photoSuggestions = app(\App\Domains\Intake\Support\PhotoObservationRelevance::class)
+        ->filterForDisplay($intake, $photoSuggestions);
+    $photoObservationRelevance = app(\App\Domains\Intake\Support\PhotoObservationRelevance::class);
     $assumptions = $subjectRecords
         ->filter(
             fn ($record) => $record->status === \App\Enums\DossierRecordStatus::Proposed
@@ -132,8 +135,10 @@
                             </button>
                         </form>
                         @php
-                            $photoAsk = app(\App\Domains\Intake\Services\ContextualCustomerTaskBuilder::class)
-                                ->forPhotoSuggestion($subject, $suggestion);
+                            $photoAsk = $photoObservationRelevance->warrantsPhotoTask($suggestion)
+                                ? app(\App\Domains\Intake\Services\ContextualCustomerTaskBuilder::class)
+                                    ->forPhotoSuggestion($subject, $suggestion)
+                                : null;
                         @endphp
                         @if ($photoAsk !== null)
                             <x-ask-customer-button :intake="$intake" :ask="$photoAsk" label="Vraag nieuwe foto" class="inline-flex min-h-10 items-center rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-800 hover:bg-indigo-50" />
