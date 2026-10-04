@@ -489,10 +489,27 @@ final class DecisionReadinessService
             ->values()
             ->all();
 
+        if ($risks === []) {
+            return [
+                'status' => DecisionAreaStatus::Ready,
+                'cost_risks' => [],
+                'blocker' => null,
+                'evidence_summary' => [
+                    'basis' => 'Geen gemarkeerde obstakels of onzekerheden in de routes.',
+                    'risk_count' => 0,
+                ],
+            ];
+        }
+
         return [
-            'status' => $risks === [] ? DecisionAreaStatus::Ready : DecisionAreaStatus::Review,
+            'status' => DecisionAreaStatus::Review,
             'cost_risks' => $risks,
-            'blocker' => $risks === [] ? null : 'Neem de gemarkeerde risico’s mee in de offerte of in een voorbehoud.',
+            'blocker' => 'Neem de gemarkeerde risico’s mee in de offerte of in een voorbehoud.',
+            'evidence_summary' => [
+                'basis' => 'Gebaseerd op gemarkeerde route-obstakels en onzekerheden ('.count($risks).').',
+                'risk_count' => count($risks),
+                'risks' => $risks,
+            ],
         ];
     }
 

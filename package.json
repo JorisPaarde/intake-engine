@@ -8,7 +8,8 @@
         "test:js": "vitest run",
         "test:js:watch": "vitest",
         "test:e2e": "playwright test",
-        "test:e2e:customer-tasks": "playwright test tests/e2e/customer-task-draft-bundle.spec.ts"
+        "test:e2e:customer-tasks": "playwright test tests/e2e/customer-task-draft-bundle.spec.ts",
+        "test:e2e:cta-outcome": "playwright test tests/e2e/installer-workspace.spec.ts"
     },
     "devDependencies": {
         "@playwright/test": "^1.63.0",

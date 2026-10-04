@@ -1,6 +1,6 @@
 # UI-taal — gecontroleerd eenvoudig Nederlands
 
-> **Documentversie:** 1.12 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.13 · **Laatste update:** 2026-10-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: bron van waarheid voor gebruikersgerichte teksten in de app (UI, mails, templatevragen, flash-/foutmeldingen). Productdocumentatie mag technischer blijven.
 
@@ -60,6 +60,11 @@ Schrijf zodat klant en installateur snel begrijpen wat ze moeten doen. Volg de p
 | electrical phase question | 1- of 3-fase (uit meterkastfoto; geen aparte vraag) |
 | vrije-groepvraag vóór meterkastfoto | meterkastfoto eerst; ja/nee alleen als de foto free_group niet toont |
 | Lengte/Breedte/Hoogte van de ruimte … als u die weet | Lengte (m) / Breedte (m) / Hoogte (m) (v14) |
+| length_class `short` / `medium` / `long` | Kort / Middel / Lang (`InstallerDisplayLabels`) |
+| bron `derived_lxw` | berekend uit L×B |
+| zekerheid `high` / `medium` / `low` | hoge / middelmatige / lage |
+| Later invullen (uitkomst, na opslaan zonder minuten) | Opgeslagen · minuten later invullen · tik om te wijzigen |
+| Locatiebezoek (resultaat) = uitgevoerd | Nee: resultaat = nodig; checkbox = uitgevoerd |
 
 Productnaam **Digitale Opname** mag als merknaam blijven. In lopende UI-tekst mag “opname” volstaan. Vermijd gemengde branding (“Intake Engine”) in gebruikers-UI.
 

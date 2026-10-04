@@ -12,6 +12,7 @@ use App\Domains\Intake\Models\DossierRecord;
 use App\Domains\Intake\Models\DossierSubject;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Support\CustomerFacingTaskText;
+use App\Domains\Intake\Support\PhotoObservationRelevance;
 use App\Domains\Intake\Support\RoomDimensions;
 use App\Domains\Intake\Support\RoomHeightRequirement;
 use App\Enums\AircoConnectionStatus;
@@ -32,6 +33,7 @@ final class ContextualCustomerTaskBuilder
 {
     public function __construct(
         private readonly RoomHeightRequirement $heightRequirement,
+        private readonly PhotoObservationRelevance $photoObservationRelevance,
     ) {}
 
     /**
@@ -137,6 +139,11 @@ final class ContextualCustomerTaskBuilder
             : '';
 
         if ($text === '' || CustomerFacingTaskText::isInstallerInternal($text)) {
+            return null;
+        }
+
+        // Only when the note points to concrete missing evidence that changes a decision.
+        if (! $this->photoObservationRelevance->warrantsPhotoTask($suggestion)) {
             return null;
         }
 

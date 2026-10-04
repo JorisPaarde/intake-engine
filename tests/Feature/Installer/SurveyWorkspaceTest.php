@@ -992,7 +992,7 @@ test('installer can save trusted floor area without length and width', function 
         ->get(route('intakes.workspace', $intake))
         ->assertOk()
         ->assertSee('16,5 m²')
-        ->assertSee('Bron oppervlak: installer');
+        ->assertSee('Bron oppervlak: installateur');
 });
 
 test('conflicting length width and area_m2 show as control point on the room card', function () {
@@ -1528,4 +1528,222 @@ test('second prepare while open round still builds draft but store stays blocked
         ])
         ->assertRedirect(route('intakes.workspace', $intake))
         ->assertSessionHasErrors('contribution_items');
+});
+
+test('primary CTA matches missing around-house photos after indoor unit is added', function () {
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'cta-fotos@example.com');
+    $survey = app(AircoSurveyService::class);
+    $room = $survey->createRoom($intake, $user, [
+        'name' => 'Woonkamer',
+        'use_type' => 'living_room',
+        'length_m' => 6,
+        'width_m' => 4,
+        'height_m' => 2.5,
+    ]);
+    $survey->createPlacement($intake, $user, [
+        'airco_room_id' => $room->id,
+        'type' => AircoPlacementType::IndoorUnit,
+        'label' => 'Binnenunit boven deur',
+        'description' => 'Wandmodel hoog',
+    ]);
+    app(DecisionReadinessService::class)->recalculate($intake->fresh());
+
+    $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertSee('data-testid="primary-step-summary"', false)
+        ->assertSee('data-testid="primary-step-cta"', false)
+        ->assertSee('Voeg foto’s rondom')
+        ->assertSee('Foto’s rondom huis toevoegen')
+        ->assertDontSee('>Kies multi-split of singles</a>', false);
+});
+
+test('route length class and derived area source are shown in Dutch', function () {
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'labels-nl@example.com');
+    $survey = app(AircoSurveyService::class);
+    $room = $survey->createRoom($intake, $user, [
+        'name' => 'Woonkamer',
+        'use_type' => 'living_room',
+        'length_m' => 6,
+        'width_m' => 4,
+        'height_m' => 2.5,
+        'area_m2' => 24,
+    ]);
+    $dims = is_array($room->dimensions) ? $room->dimensions : [];
+    $dims['area_source'] = 'derived_lxw';
+    $dims['area_confidence'] = 'high';
+    $room->forceFill(['dimensions' => $dims])->save();
+
+    $inside = $survey->createPlacement($intake, $user, [
+        'airco_room_id' => $room->id,
+        'type' => AircoPlacementType::IndoorUnit,
+        'label' => 'Binnen',
+    ]);
+    $outside = $survey->createPlacement($intake, $user, [
+        'type' => AircoPlacementType::OutdoorUnit,
+        'label' => 'Buiten',
+    ]);
+    $disk = (string) config('filesystems.media', 'local');
+    Storage::fake($disk);
+    Storage::disk($disk)->put('photos/gevel.jpg', 'fake');
+    IntakeUpload::query()->create([
+        'intake_id' => $intake->id,
+        'question_key' => 'around_house_photos',
+        'section_instance_key' => null,
+        'disk' => $disk,
+        'path' => 'photos/gevel.jpg',
+        'original_filename' => 'gevel.jpg',
+        'mime_type' => 'image/jpeg',
+        'size_bytes' => 10,
+        'sort_order' => 1,
+    ]);
+    $option = $survey->createInstallationOption($intake, $user, [
+        'label' => 'Single-split',
+        'configuration_type' => AircoConfigurationType::SingleSplit,
+        'summary' => 'Eén binnen- en buitenunit.',
+        'cost_impact' => 'low',
+        'placement_ids' => [$inside->id, $outside->id],
+    ]);
+    $survey->createConnection($intake, $user, $option, [
+        'type' => AircoConnectionType::Refrigerant,
+        'label' => 'Koelleiding',
+        'from_placement_id' => $inside->id,
+        'to_placement_id' => $outside->id,
+        'status' => AircoConnectionStatus::Proposed,
+        'length_class' => 'short',
+        'segments' => ['Korte route'],
+        'cost_impact' => 'low',
+        'confidence' => 0.9,
+    ]);
+    $survey->markInstallationOptionFeasible($intake, $user, $option);
+    $survey->selectInstallationOption($intake, $user, $option);
+
+    $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertSee('berekend uit L×B')
+        ->assertSee('· Kort')
+        ->assertDontSee('derived_lxw')
+        ->assertDontSee('· short');
+});
+
+test('visible glass photo note does not offer Vraag nieuwe foto; dark wall does', function () {
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'photo-notes@example.com');
+    $room = app(AircoSurveyService::class)->createRoom($intake, $user, [
+        'name' => 'Woonkamer',
+        'use_type' => 'living_room',
+        'length_m' => 4,
+        'width_m' => 3,
+        'height_m' => 2.5,
+    ]);
+    $subject = $room->subject;
+    expect($subject)->not->toBeNull();
+
+    DossierRecord::query()->create([
+        'intake_id' => $intake->id,
+        'company_id' => $intake->company_id,
+        'dossier_subject_id' => $subject->id,
+        'kind' => DossierRecordKind::Observation,
+        'key' => 'photo_observation.glass',
+        'value' => ['text' => 'Grote glaspartij zichtbaar aan de zuidkant.', 'impact' => 'cost'],
+        'status' => DossierRecordStatus::Proposed,
+        'source_type' => 'ai',
+        'method' => 'photo_inference',
+        'confidence' => 0.9,
+        'actor_type' => 'ai',
+        'observed_at' => now(),
+    ]);
+    DossierRecord::query()->create([
+        'intake_id' => $intake->id,
+        'company_id' => $intake->company_id,
+        'dossier_subject_id' => $subject->id,
+        'kind' => DossierRecordKind::Observation,
+        'key' => 'photo_observation.dark',
+        'value' => ['text' => 'De muur is te donker zichtbaar.', 'impact' => 'installation'],
+        'status' => DossierRecordStatus::Proposed,
+        'source_type' => 'ai',
+        'method' => 'photo_inference',
+        'confidence' => 0.9,
+        'actor_type' => 'ai',
+        'observed_at' => now(),
+    ]);
+
+    $html = $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertSee('Grote glaspartij zichtbaar')
+        ->assertSee('te donker zichtbaar')
+        ->assertSee('Vraag nieuwe foto')
+        ->getContent();
+
+    expect(substr_count($html, 'Vraag nieuwe foto'))->toBe(1);
+});
+
+test('outcome form separates site visit needed from occurred and keeps Later invullen until minutes exist', function () {
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'outcome-form@example.com');
+
+    $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake).'#workspace-outcome')
+        ->assertOk()
+        ->assertSee('Later invullen · tik om te openen')
+        ->assertSee('Locatiebezoek uitgevoerd');
+
+    $this->actingAs($user)
+        ->from(route('intakes.workspace', $intake))
+        ->post(route('intakes.workspace.outcome', $intake), [
+            'result' => 'site_visit',
+            'site_visit_reasons' => ['power_uncertain', 'construction_uncertain'],
+        ])
+        ->assertRedirect();
+
+    $intake->refresh();
+    expect($intake->outcome)->not->toBeNull()
+        ->and($intake->outcome->result)->toBe('site_visit')
+        ->and($intake->outcome->site_visit_occurred)->toBeFalse()
+        ->and($intake->outcome->site_visit_reasons)->toBe(['power_uncertain', 'construction_uncertain']);
+
+    $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertSee('Opgeslagen')
+        ->assertSee('minuten later invullen')
+        ->assertSee('locatiebezoek nodig (nog niet gemarkeerd als uitgevoerd)')
+        ->assertDontSee('De tijd- en ritbesparing telt nu mee in Resultaten.')
+        ->assertSee('zonder tijden telt de besparing nog niet mee');
+
+    // Checkbox must not be auto-checked merely because result is site_visit.
+    $html = $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->getContent();
+    expect(preg_match(
+        '/name="site_visit_occurred"[^>]*checked/',
+        $html,
+    ))->toBe(0);
+
+    $this->actingAs($user)
+        ->from(route('intakes.workspace', $intake))
+        ->post(route('intakes.workspace.outcome', $intake), [
+            'result' => 'site_visit',
+            'active_installer_minutes' => 35,
+            'customer_minutes' => 10,
+            'site_visit_occurred' => '1',
+            'site_visit_reasons' => ['power_uncertain'],
+        ])
+        ->assertRedirect();
+
+    $intake->refresh();
+    expect($intake->outcome->site_visit_occurred)->toBeTrue()
+        ->and($intake->outcome->active_installer_minutes)->toBe(35);
+
+    $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertSee('Opgeslagen')
+        ->assertDontSee('minuten later invullen')
+        ->assertSee('De tijd- en ritbesparing telt nu mee in Resultaten.');
 });

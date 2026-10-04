@@ -42,8 +42,9 @@ final class RecordInstallationOutcome
 
         $optionId = $data['selected_installation_option_id'] ?? null;
         $result = (string) $data['result'];
-        $siteVisitOccurred = $result === 'site_visit'
-            || (bool) ($data['site_visit_occurred'] ?? false);
+        // "Locatiebezoek" as result = visit needed; checkbox = visit actually performed.
+        $siteVisitOccurred = (bool) ($data['site_visit_occurred'] ?? false);
+        $siteVisitNeeded = $result === 'site_visit' || $siteVisitOccurred;
         $quoteType = match ($result) {
             'remote_quote' => 'remote',
             'estimate' => 'estimate',
@@ -86,9 +87,9 @@ final class RecordInstallationOutcome
             ]);
         }
 
-        if (! $siteVisitOccurred && $siteVisitReasons !== []) {
+        if (! $siteVisitNeeded && $siteVisitReasons !== []) {
             throw ValidationException::withMessages([
-                'site_visit_reasons' => 'Markeer eerst dat een locatiebezoek is uitgevoerd of nodig was.',
+                'site_visit_reasons' => 'Markeer eerst dat een locatiebezoek nodig is of is uitgevoerd.',
             ]);
         }
 
@@ -110,7 +111,7 @@ final class RecordInstallationOutcome
             ]);
         }
 
-        if ($siteVisitOccurred && $siteVisitReasons === []) {
+        if ($siteVisitNeeded && $siteVisitReasons === []) {
             throw ValidationException::withMessages([
                 'site_visit_reasons' => 'Kies minimaal één reden voor het locatiebezoek.',
             ]);
@@ -160,6 +161,7 @@ final class RecordInstallationOutcome
             $optionId,
             $result,
             $siteVisitOccurred,
+            $siteVisitNeeded,
             $siteVisitReasons,
             $quoteType,
             $proposalAssessed,
@@ -178,7 +180,7 @@ final class RecordInstallationOutcome
                     'active_installer_minutes' => $data['active_installer_minutes'] ?? null,
                     'customer_minutes' => $data['customer_minutes'] ?? null,
                     'site_visit_occurred' => $siteVisitOccurred,
-                    'site_visit_reasons' => $siteVisitOccurred ? $siteVisitReasons : null,
+                    'site_visit_reasons' => $siteVisitNeeded ? $siteVisitReasons : null,
                     'quote_type' => $quoteType,
                     'installation_surprise' => $installationSurprise,
                     'surprise_notes' => $installationSurprise === null ? null : ($data['surprise_notes'] ?? null),

@@ -25,6 +25,7 @@ use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\ContributionTask;
 use App\Domains\Intake\Models\DossierRecord;
 use App\Domains\Intake\Models\DossierSubject;
+use App\Domains\Intake\Models\InstallationOutcome;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\PipeRouteSession;
 use App\Domains\Intake\Services\AircoSurveyService;
@@ -837,9 +838,39 @@ final class SurveyWorkspaceController extends Controller
         ]);
         $data['site_visit_occurred'] = $request->boolean('site_visit_occurred');
         $data['proposal_assessed'] = $request->boolean('proposal_assessed');
-        $recordOutcome->handle($intake, $this->user($request), $data);
+        $outcome = $recordOutcome->handle($intake, $this->user($request), $data);
 
-        return $this->back($intake, 'Uitkomst opgeslagen. De tijd- en ritbesparing telt nu mee in Resultaten.');
+        return $this->back($intake, $this->outcomeStatusMessage($outcome));
+    }
+
+    private function outcomeStatusMessage(InstallationOutcome $outcome): string
+    {
+        $hasInstallerMinutes = $outcome->active_installer_minutes !== null;
+        $hasCustomerMinutes = $outcome->customer_minutes !== null;
+        $hasMinutes = $hasInstallerMinutes || $hasCustomerMinutes;
+
+        $resultLabel = match ($outcome->result) {
+            'remote_quote' => 'op afstand geoffreerd',
+            'estimate' => 'prijsindicatie',
+            'site_visit' => 'locatiebezoek nodig',
+            'installed' => 'geplaatst',
+            'rejected' => 'afgewezen',
+            default => 'uitkomst',
+        };
+
+        if ($outcome->result === 'site_visit' && ! $outcome->site_visit_occurred) {
+            $base = 'Uitkomst opgeslagen: locatiebezoek nodig (nog niet gemarkeerd als uitgevoerd).';
+        } elseif ($outcome->site_visit_occurred) {
+            $base = 'Uitkomst opgeslagen: locatiebezoek uitgevoerd ('.$resultLabel.').';
+        } else {
+            $base = 'Uitkomst opgeslagen: '.$resultLabel.'.';
+        }
+
+        if ($hasMinutes) {
+            return $base.' De tijd- en ritbesparing telt nu mee in Resultaten.';
+        }
+
+        return $base.' Minuten kun je later invullen; zonder tijden telt de besparing nog niet mee in Resultaten.';
     }
 
     private function user(Request $request): User
