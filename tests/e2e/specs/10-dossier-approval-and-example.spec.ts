@@ -5,18 +5,22 @@
  * Requires DEMO_ENABLED and a prepared app (php artisan e2e:prepare --fresh).
  */
 
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+
+async function startPublicDemo(page: Page): Promise<void> {
+  await page.goto('/');
+  // Homepage CTA is a POST form button, not a link.
+  const demoCta = page.getByRole('button', { name: /Probeer de demo|Start demo/i }).first();
+  if (!(await demoCta.count())) {
+    test.skip(true, 'Public demo CTA not visible in this environment');
+  }
+  await demoCta.click();
+  await page.waitForURL(/dashboard|intakes|demo/i);
+}
 
 test.describe('Fix bundle D — approval + example dossier', () => {
   test('demo example dossier opens a separate labelled intake', async ({ page }) => {
-    await page.goto('/');
-    const demoCta = page.getByRole('link', { name: /Probeer de demo|Start demo/i }).first();
-    if (!(await demoCta.count())) {
-      test.skip(true, 'Public demo CTA not visible in this environment');
-    }
-
-    await demoCta.click();
-    await page.waitForURL(/dashboard|intakes|demo/i);
+    await startPublicDemo(page);
 
     const newIntake = page.getByRole('link', { name: /Nieuwe opname/i }).first();
     if (await newIntake.count()) {
@@ -42,12 +46,7 @@ test.describe('Fix bundle D — approval + example dossier', () => {
   });
 
   test('bulk approval shows blockers when uncertainty remains', async ({ page }) => {
-    await page.goto('/');
-    const demoCta = page.getByRole('link', { name: /Probeer de demo|Start demo/i }).first();
-    if (!(await demoCta.count())) {
-      test.skip(true, 'Public demo CTA not visible in this environment');
-    }
-    await demoCta.click();
+    await startPublicDemo(page);
 
     const newIntake = page.getByRole('link', { name: /Nieuwe opname/i }).first();
     if (await newIntake.count()) {
