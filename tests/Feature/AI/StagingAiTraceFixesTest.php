@@ -105,7 +105,7 @@ test('BL-133 fusebox never fills free_group_known and forces low confidence on w
 
 test('BL-133 room photo can persist glass_amount unknown and glazing_type', function () {
     $intake = bl133Intake();
-    expect($intake->templateVersion->version)->toBe(24);
+    expect($intake->templateVersion->version)->toBeGreaterThanOrEqual(24);
 
     FakeAiClient::alwaysReturn([
         'room_type' => 'living_room',

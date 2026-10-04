@@ -701,7 +701,7 @@ it('keeps the demo thank-you notice short without a feature checklist', function
 
     expect($html)
         ->toContain('Wat je net hebt gedaan')
-        ->toContain('Je hebt één aanvulling afgerond')
+        ->toContain('Je hebt één aanvulling verstuurd')
         ->toContain('Geen echte klant, er ging geen mail uit')
         ->toContain('De gegevens verdwijnen vanzelf')
         ->toContain('terug naar de website')
@@ -1012,12 +1012,12 @@ function fillDemoIntakeUntilComplete(Intake $intake): void
             }
 
             if ($question->type === QuestionType::Photo) {
-                $store->handle(
+                markTestUploadSatisfied($store->handle(
                     $intake,
                     $item['question_key'],
                     $item['section_instance_key'],
                     UploadedFile::fake()->image($item['question_key'].'.jpg', 640, 480),
-                );
+                ));
 
                 continue;
             }

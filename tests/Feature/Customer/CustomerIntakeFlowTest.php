@@ -357,12 +357,12 @@ test('progress percent reaches 100 when all required questions are answered even
             }
 
             if ($question->type === QuestionType::Photo) {
-                $store->handle(
+                markTestUploadSatisfied($store->handle(
                     $intake,
                     $item['question_key'],
                     $item['section_instance_key'],
                     UploadedFile::fake()->image($item['question_key'].'.jpg'),
-                );
+                ));
             } elseif ($question->type === QuestionType::Boolean) {
                 $save->handle($intake, $item['question_key'], $item['section_instance_key'], ['bool' => false]);
             } elseif ($question->type === QuestionType::Number) {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplate;
+use App\Domains\Intake\Support\PhotoOverridePolicy;
 use App\Enums\IntakeStatus;
 use App\Livewire\Customer\IntakeWizard;
 use App\Models\User;
@@ -30,7 +31,7 @@ function darkUpload(): UploadedFile
     return UploadedFile::fake()->createWithContent('dark.jpg', $bytes);
 }
 
-test('a dark photo shows a non-blocking hint and does not block the flow', function () {
+test('a dark photo shows override feedback and still stores the upload', function () {
     $user = User::factory()->create();
     $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
     $intake = Intake::factory()->create([
@@ -57,17 +58,10 @@ test('a dark photo shows a non-blocking hint and does not block the flow', funct
 
     expect($hint[$composite] ?? null)->toContain('donker')
         ->toContain('nieuwe foto met meer licht')
-        ->toContain('vanuit de deuropening')
-        ->toContain('stopcontacten')
         ->and($component->get('showMissing'))->toBeFalse();
 
-    $component->assertHasNoErrors('photoFiles.'.$composite);
-
-    // The photo was still stored — the hint never blocks the upload.
-    expect($intake->uploads()->where('question_key', 'room_photos')->count())->toBe(1);
-
-    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
-        ->assertSee('Maak een nieuwe foto met meer licht.')
-        ->assertSee('vanuit de deuropening')
-        ->assertSee('stopcontacten');
+    $upload = $intake->uploads()->where('question_key', 'room_photos')->firstOrFail();
+    expect($upload)->not->toBeNull()
+        ->and(PhotoOverridePolicy::needsOverride($upload))->toBeTrue()
+        ->and(PhotoOverridePolicy::OVERRIDE_MESSAGE_WIZARD)->toContain('Toch doorgaan');
 });

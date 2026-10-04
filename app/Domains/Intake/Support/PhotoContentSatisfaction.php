@@ -7,12 +7,13 @@ namespace App\Domains\Intake\Support;
 use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Enums\PhotoAssessmentStatus;
 use Illuminate\Support\Collection;
 
 /**
- * Shared rule: a wrong-subject upload does not satisfy a photo question unless the
- * customer explicitly chose “Toch doorgaan”. Quality retakes (needs_clearer) and
- * not_assessed still count as a present photo.
+ * Shared rule: a photo does not satisfy a question while it still needs an
+ * explicit override (wrong subject, unusable, not assessed, …) unless the
+ * customer chose “Toch doorgaan / Toch versturen”.
  */
 final class PhotoContentSatisfaction
 {
@@ -46,11 +47,13 @@ final class PhotoContentSatisfaction
         }
 
         foreach ($uploads as $upload) {
-            $assessment = $upload->contentAssessment();
+            if (PhotoOverridePolicy::needsOverride($upload)) {
+                continue;
+            }
 
-            if ($assessment instanceof PhotoContentAssessment
-                && $assessment->status() === PhotoContentAssessment::STATUS_WRONG_SUBJECT
-                && ! $assessment->customerAcceptedMismatch()) {
+            // Pending assessment does not yet count as satisfied for progress.
+            $status = $upload->assessment_status;
+            if ($status instanceof PhotoAssessmentStatus && ! $status->isTerminal()) {
                 continue;
             }
 
@@ -70,11 +73,21 @@ final class PhotoContentSatisfaction
 
             if ($assessment instanceof PhotoContentAssessment
                 && $assessment->status() === PhotoContentAssessment::STATUS_WRONG_SUBJECT
-                && ! $assessment->customerAcceptedMismatch()) {
+                && ! $assessment->customerAcceptedOverride()) {
                 return $assessment;
             }
         }
 
         return null;
+    }
+
+    /**
+     * Any unresolved photo issue that requires replace / “Toch versturen”.
+     *
+     * @param  Collection<int, IntakeUpload>  $uploads
+     */
+    public static function unresolvedOverride(Collection $uploads): ?IntakeUpload
+    {
+        return PhotoOverridePolicy::unresolvedOverride($uploads);
     }
 }

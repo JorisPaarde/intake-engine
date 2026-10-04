@@ -17,6 +17,7 @@ use App\Domains\Intake\Support\FactProvenance;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Domains\Intake\Support\RoomAreaAcceptance;
 use App\Domains\Intake\Support\RoomLabelResolver;
+use App\Domains\Intake\Support\TechnicalProposalCopy;
 use App\Enums\ContributionAudience;
 use App\Enums\ContributionTaskStatus;
 use App\Enums\DossierRecordKind;
@@ -248,7 +249,7 @@ final class DossierManager
                     'dossier_subject_id' => $subject->id,
                     'kind' => DossierRecordKind::Observation,
                     'key' => $this->answerRecordKey($answer),
-                    'value' => $this->answerRecordValue($answer, $question, $provenance, $isAssumption),
+                    'value' => $this->answerRecordValue($intake, $answer, $question, $provenance, $isAssumption),
                     'actor_type' => $answer->prefill_source === null ? 'customer' : $answer->prefill_source,
                     'actor_id' => null,
                     'method' => $this->answerRecordMethod($answer, $isAssumption),
@@ -804,6 +805,7 @@ final class DossierManager
      * @return array<string, mixed>
      */
     private function answerRecordValue(
+        Intake $intake,
         IntakeAnswer $answer,
         ?IntakeQuestion $question,
         ?FactProvenance $provenance,
@@ -818,17 +820,23 @@ final class DossierManager
 
         $fieldLabel = is_string($question?->label) && trim($question->label) !== ''
             ? trim($question->label)
-            : 'Bekend gegeven';
+            : TechnicalProposalCopy::fallbackFieldLabel((string) $answer->question_key);
         $displayValue = $this->dutchDisplayValue($question, $value);
         $confidence = match (true) {
             PrefillSources::isSuggestion($answer->prefill_source) => 'middel',
             PrefillSources::isStrongAi($answer->prefill_source) => 'hoog',
             default => 'middel',
         };
+        $uncertainty = TechnicalProposalCopy::uncertainty(
+            $intake,
+            (string) $answer->question_key,
+            $confidence,
+        );
 
         return array_merge($value, [
             '_field_label' => $fieldLabel,
             '_display_value' => $displayValue,
+            '_uncertainty' => $uncertainty,
             '_provenance_label' => ($provenance ?? FactProvenance::Inferred)->installerLabel(),
             '_source_label' => PrefillSources::installerSourceLabel($answer->prefill_source, $provenance) ?? 'AI',
             '_confidence_label' => $confidence,

@@ -42,7 +42,7 @@ function bl137ReferenceIntake(): Intake
     $user = User::factory()->create();
     $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
 
-    expect($version->version)->toBe(24);
+    expect($version->version)->toBeGreaterThanOrEqual(24);
 
     $intake = Intake::factory()->create([
         'created_by' => $user->id,

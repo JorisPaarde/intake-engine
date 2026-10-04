@@ -108,12 +108,12 @@ function fillKlanttestIntakeUntilComplete(Intake $intake): void
             }
 
             if ($question->type === QuestionType::Photo) {
-                $store->handle(
+                markTestUploadSatisfied($store->handle(
                     $intake,
                     $item['question_key'],
                     $item['section_instance_key'],
                     UploadedFile::fake()->image($item['question_key'].'.jpg', 1280 + $attempt, 960 + $attempt),
-                );
+                ));
 
                 continue;
             }

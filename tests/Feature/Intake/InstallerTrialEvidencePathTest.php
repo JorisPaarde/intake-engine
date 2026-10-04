@@ -63,7 +63,7 @@ function bl074StepKeys(Intake $intake): array
 test('airco latest template requires meterkast and around-house photos without a standalone phase question', function () {
     $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
 
-    expect($version->version)->toBe(24);
+    expect($version->version)->toBeGreaterThanOrEqual(24);
 
     $electrical = $version->sections()->where('key', 'electrical')->firstOrFail();
     $outdoor = $version->sections()->where('key', 'outdoor_unit')->firstOrFail();
@@ -261,12 +261,14 @@ test('decision readiness blocks power without meterkast photo and placement with
         null,
         UploadedFile::fake()->image('meterkast.jpg', 800, 600),
     );
+    markTestUploadSatisfied($intake->uploads()->where('question_key', 'fusebox_photo')->latest('id')->firstOrFail());
     app(StoreIntakeUpload::class)->handle(
         $intake,
         'around_house_photos',
         null,
         UploadedFile::fake()->image('gevel.jpg', 800, 600),
     );
+    markTestUploadSatisfied($intake->uploads()->where('question_key', 'around_house_photos')->latest('id')->firstOrFail());
 
     $areas = app(DecisionReadinessService::class)->recalculate($intake->fresh());
 

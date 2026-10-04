@@ -38,7 +38,9 @@ use App\Domains\Intake\Services\ProgressCalculator;
 use App\Domains\Intake\Services\ResolveIntakeByAccessToken;
 use App\Domains\Intake\Services\VisibilityResolver;
 use App\Domains\Intake\Support\KnownSummaryCatalog;
+use App\Domains\Intake\Support\OutdoorPhotoReuse;
 use App\Domains\Intake\Support\PhotoContentSatisfaction;
+use App\Domains\Intake\Support\PhotoOverridePolicy;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Enums\FollowUpItemType;
 use App\Enums\FollowUpRoundStatus;
@@ -137,6 +139,9 @@ class IntakeWizard extends Component
     public bool $showMissing = false;
 
     public bool $completed = false;
+
+    /** Follow-up danktekst: true wanneer minstens één foto met override is verstuurd. */
+    public bool $followUpNeedsInstallerReview = false;
 
     public bool $followUpMode = false;
 
@@ -419,16 +424,23 @@ class IntakeWizard extends Component
                     }
 
                     $photoMismatchAssessment = null;
+                    $photoNeedsOverride = false;
 
-                    // Banner alleen zolang de vraag niet content-satisfait is.
-                    if (! PhotoContentSatisfaction::uploadsSatisfy($stepUploads)) {
+                    // Banner zolang de foto een expliciete override nodig heeft.
+                    if (PhotoOverridePolicy::hasUnresolvedOverride($stepUploads)) {
+                        $photoNeedsOverride = true;
                         $photoMismatchAssessment = PhotoContentSatisfaction::unresolvedWrongSubject(
                             $stepUploads,
                         );
+                        // Dedup: één unieke hinttekst (categorie óf kwaliteit, niet beide).
+                        $uniqueHints = PhotoOverridePolicy::uniqueCustomerFeedback($stepUploads);
+                        if ($uniqueHints !== []) {
+                            $displayPhotoHint[$composite] = $uniqueHints[0];
+                        }
                     }
 
-                    // Oranje waarschuwing alleen bij echte mismatch; goedgekeurde foto’s niet.
-                    $photoNeedsQualityHint = $photoMismatchAssessment === null
+                    // Oranje kwaliteitshint alleen zonder override-panel (anders dubbel).
+                    $photoNeedsQualityHint = ! $photoNeedsOverride
                         && $this->uploadsNeedQualityHint($stepUploads);
                 }
             }
@@ -436,10 +448,10 @@ class IntakeWizard extends Component
 
         $stepTotal = count($steps);
         $progressPercent = $this->resolveStepProgressPercent($steps);
-        // Zelfde maat als “Vraag X van Y”: afgeronde stappen (huidige open telt niet mee).
+        // Zelfde bron als de %-balk: afgeronde stappen / totaal (huidige open telt niet mee).
         $progressAnswered = $this->completed
             ? $stepTotal
-            : min($displayIndex, $stepTotal);
+            : $this->countDoneSteps($steps);
 
         return view('livewire.customer.intake-wizard', [
             'intake' => $intake,
@@ -452,6 +464,7 @@ class IntakeWizard extends Component
             'uploadsByQuestion' => $uploadsByQuestion,
             'displayPhotoHint' => $displayPhotoHint,
             'photoMismatchAssessment' => $photoMismatchAssessment,
+            'photoNeedsOverride' => $photoNeedsOverride ?? false,
             'photoNeedsQualityHint' => $photoNeedsQualityHint,
             // Prop name kept for BL-076 banner sibling; value means "primary customer path".
             'demoShortCustomer' => $demoCustomerPath,
@@ -530,6 +543,8 @@ class IntakeWizard extends Component
 
         try {
             app(DeleteFollowUpUpload::class)->handle($this->intake(), $item, $upload);
+            $this->forgetIntakeDerivedCaches();
+            $this->resetErrorBag('follow_up');
             $this->saveMessage = $item->type === FollowUpItemType::Photo
                 ? 'Foto verwijderd'
                 : 'Document verwijderd';
@@ -635,23 +650,36 @@ class IntakeWizard extends Component
             return;
         }
 
-        // Hard gate: unresolved category mismatch never closes the task silently.
-        if ($this->followUpRoundHasUnresolvedMismatch()) {
+        // Hard gate: elke niet-goede foto vereist Vervang of Toch versturen.
+        if ($this->followUpRoundHasUnresolvedOverride()) {
             $this->addError(
                 'follow_up',
-                'Vervang de foto of kies expliciet “Toch versturen”.',
+                PhotoOverridePolicy::OVERRIDE_MESSAGE,
             );
 
             return;
         }
 
         try {
+            $round = $this->followUpRound();
+            $hadAcceptedOverride = false;
+            foreach ($round->items as $item) {
+                if ($item->type !== FollowUpItemType::Photo) {
+                    continue;
+                }
+                if (PhotoOverridePolicy::hasAcceptedOverride($item->uploads)) {
+                    $hadAcceptedOverride = true;
+                    break;
+                }
+            }
+
             app(CompleteFollowUpRound::class)->handle(
                 $this->intake(),
-                $this->followUpRound(),
+                $round,
                 $this->followUpResponses,
             );
             $this->forgetIntakeDerivedCaches();
+            $this->followUpNeedsInstallerReview = $hadAcceptedOverride;
             $this->completed = true;
             $this->saveMessage = '';
         } catch (ValidationException $exception) {
@@ -669,10 +697,23 @@ class IntakeWizard extends Component
         $currentStatus = $item instanceof IntakeFollowUpItem
             ? ($progress['item_statuses'][$item->id] ?? null)
             : null;
-        $followUpMismatch = $item instanceof IntakeFollowUpItem
+        $followUpOverrideUpload = $item instanceof IntakeFollowUpItem
             && $item->type === FollowUpItemType::Photo
-            ? PhotoContentSatisfaction::unresolvedWrongSubject($item->uploads)
+            ? PhotoOverridePolicy::unresolvedOverride($item->uploads)
             : null;
+        $followUpMismatch = $followUpOverrideUpload instanceof IntakeUpload
+            ? $followUpOverrideUpload->contentAssessment()
+            : null;
+        // Alleen wrong_subject-assessment voor mismatch-bannertekst; overige issues via hint/panel.
+        if ($followUpMismatch instanceof PhotoContentAssessment
+            && $followUpMismatch->status() !== PhotoContentAssessment::STATUS_WRONG_SUBJECT) {
+            $followUpMismatch = null;
+        }
+        $followUpNeedsOverride = $followUpOverrideUpload instanceof IntakeUpload;
+        $followUpFeedbackHints = $item instanceof IntakeFollowUpItem
+            && $item->type === FollowUpItemType::Photo
+            ? PhotoOverridePolicy::uniqueCustomerFeedback($item->uploads)
+            : [];
 
         return view('livewire.customer.follow-up-wizard', [
             'intake' => $intake,
@@ -687,11 +728,13 @@ class IntakeWizard extends Component
             'uploadPhase' => $this->uploadPhase,
             'uploadPhaseMessage' => $this->uploadPhaseMessage,
             'uploadPhaseComposite' => $this->uploadPhaseComposite,
-            'followUpPhotoHint' => $item instanceof IntakeFollowUpItem
-                && $item->type === FollowUpItemType::Photo
-                ? $this->persistentFollowUpPhotoHint($item)
-                : null,
+            'followUpPhotoHint' => $followUpFeedbackHints[0] ?? null,
             'followUpMismatchAssessment' => $followUpMismatch,
+            'followUpNeedsOverride' => $followUpNeedsOverride,
+            'followUpNeedsInstallerReview' => $this->followUpNeedsInstallerReview,
+            'followUpThankYouMessage' => PhotoOverridePolicy::thankYouNeedsReviewCopy(
+                $this->followUpNeedsInstallerReview,
+            ),
             'choiceOptions' => $item instanceof IntakeFollowUpItem
                 && $item->type === FollowUpItemType::Choice
                 ? $this->followUpChoiceOptions($item)
@@ -782,13 +825,12 @@ class IntakeWizard extends Component
             return false;
         }
 
-        // Known category mismatch: block next/complete unless explicitly overridden.
-        // not_assessed / AI-failure remains soft (send allowed; installer flag).
+        // Known photo issues: block next/complete unless explicitly overridden.
         if ($item->type === FollowUpItemType::Photo
-            && PhotoContentSatisfaction::unresolvedWrongSubject($item->uploads) instanceof PhotoContentAssessment) {
+            && PhotoOverridePolicy::hasUnresolvedOverride($item->uploads)) {
             $this->addError(
                 'follow_up',
-                'Vervang de foto of kies expliciet “Toch versturen”.',
+                PhotoOverridePolicy::OVERRIDE_MESSAGE,
             );
 
             return false;
@@ -797,14 +839,14 @@ class IntakeWizard extends Component
         return true;
     }
 
-    private function followUpRoundHasUnresolvedMismatch(): bool
+    private function followUpRoundHasUnresolvedOverride(): bool
     {
         foreach ($this->followUpRound()->items as $item) {
             if ($item->type !== FollowUpItemType::Photo) {
                 continue;
             }
 
-            if (PhotoContentSatisfaction::unresolvedWrongSubject($item->uploads) instanceof PhotoContentAssessment) {
+            if (PhotoOverridePolicy::hasUnresolvedOverride($item->uploads)) {
                 return true;
             }
         }
@@ -813,8 +855,9 @@ class IntakeWizard extends Component
     }
 
     /**
-     * Soft continue for follow-up: customer explicitly overrides a wrong-subject photo.
-     * Task may then be sent; installer still sees the mismatch badge/reason.
+     * Soft continue for follow-up: customer explicitly overrides a non-good photo
+     * (wrong subject, low resolution, unusable, not_assessed).
+     * Task may then be sent; installer still sees that review is needed.
      */
     public function acceptFollowUpPhotoMismatch(): void
     {
@@ -829,20 +872,7 @@ class IntakeWizard extends Component
         }
 
         $item->loadMissing('uploads');
-        $acceptedAny = false;
-
-        foreach ($item->uploads as $upload) {
-            $assessment = $upload->contentAssessment();
-
-            if (! $assessment instanceof PhotoContentAssessment
-                || $assessment->status() !== PhotoContentAssessment::STATUS_WRONG_SUBJECT
-                || $assessment->customerAcceptedMismatch()) {
-                continue;
-            }
-
-            $upload->storeContentAssessment($assessment->withCustomerAcceptedMismatch());
-            $acceptedAny = true;
-        }
+        $acceptedAny = PhotoOverridePolicy::acceptOverrides($item->uploads) > 0;
 
         if (! $acceptedAny) {
             return;
@@ -854,7 +884,7 @@ class IntakeWizard extends Component
     }
 
     /**
-     * Replace wrong-subject follow-up photos and open the file picker.
+     * Replace non-good follow-up photos and open the file picker.
      */
     public function replaceFollowUpMismatchedPhoto(): void
     {
@@ -873,11 +903,7 @@ class IntakeWizard extends Component
         $removed = false;
 
         foreach ($item->uploads as $upload) {
-            $assessment = $upload->contentAssessment();
-
-            if (! $assessment instanceof PhotoContentAssessment
-                || $assessment->status() !== PhotoContentAssessment::STATUS_WRONG_SUBJECT
-                || $assessment->customerAcceptedMismatch()) {
+            if (! PhotoOverridePolicy::needsOverride($upload)) {
                 continue;
             }
 
@@ -1995,37 +2021,6 @@ class IntakeWizard extends Component
         return $hints === [] ? null : implode(' ', array_values(array_unique($hints)));
     }
 
-    private function persistentFollowUpPhotoHint(IntakeFollowUpItem $item): ?string
-    {
-        $hints = [];
-
-        foreach ($item->uploads as $upload) {
-            $assessment = $upload->contentAssessment();
-
-            // Wrong-subject feedback is shown once via the mismatch banner, not again here.
-            if ($assessment instanceof PhotoContentAssessment
-                && $assessment->status() === PhotoContentAssessment::STATUS_NEEDS_CLEARER) {
-                $contentHint = $assessment->customerMessage();
-
-                if ($contentHint !== null) {
-                    $hints[] = $contentHint;
-                }
-            }
-
-            $verdict = $upload->usability_verdict;
-            $qualityHint = $verdict instanceof PhotoUsabilityVerdict
-                ? $verdict->customerHint()
-                : null;
-
-            // Do not repeat the item prompt (already the page title).
-            if ($qualityHint !== null) {
-                $hints[] = $qualityHint;
-            }
-        }
-
-        return $hints === [] ? null : implode(' ', array_values(array_unique($hints)));
-    }
-
     /**
      * Runs whatever photo-analysis profile the question opted into via `meta.photo_analysis`.
      * The fusebox keeps its dedicated action — it derives phase alongside the free-group answer,
@@ -2147,7 +2142,7 @@ class IntakeWizard extends Component
     }
 
     /**
-     * Soft continue: customer accepts a wrong-subject photo and moves on.
+     * Soft continue: customer accepts a non-good photo and moves on.
      * Marks the upload(s); installer attention comes from CompletenessChecker + fotobadge.
      */
     public function acceptPhotoMismatch(): void
@@ -2184,20 +2179,7 @@ class IntakeWizard extends Component
                 : $upload->section_instance_key === $step['section_instance_key'];
         });
 
-        $acceptedAny = false;
-
-        foreach ($uploads as $upload) {
-            $assessment = $upload->contentAssessment();
-
-            if (! $assessment instanceof PhotoContentAssessment
-                || $assessment->status() !== PhotoContentAssessment::STATUS_WRONG_SUBJECT
-                || $assessment->customerAcceptedMismatch()) {
-                continue;
-            }
-
-            $upload->storeContentAssessment($assessment->withCustomerAcceptedMismatch());
-            $acceptedAny = true;
-        }
+        $acceptedAny = PhotoOverridePolicy::acceptOverrides($uploads) > 0;
 
         if (! $acceptedAny) {
             return;
@@ -2213,7 +2195,7 @@ class IntakeWizard extends Component
     }
 
     /**
-     * Echte vervanging: verwijder onopgeloste wrong_subject-uploads en open de file picker.
+     * Echte vervanging: verwijder uploads die een override nodig hebben en open de file picker.
      */
     public function replaceMismatchedPhoto(): void
     {
@@ -2252,11 +2234,7 @@ class IntakeWizard extends Component
                 continue;
             }
 
-            $assessment = $upload->contentAssessment();
-
-            if (! $assessment instanceof PhotoContentAssessment
-                || $assessment->status() !== PhotoContentAssessment::STATUS_WRONG_SUBJECT
-                || $assessment->customerAcceptedMismatch()) {
+            if (! PhotoOverridePolicy::needsOverride($upload)) {
                 continue;
             }
 
@@ -3290,6 +3268,11 @@ class IntakeWizard extends Component
 
     private function photoStepContentSatisfied(string $questionKey, ?string $sectionInstanceKey): bool
     {
+        if ($questionKey === OutdoorPhotoReuse::TARGET_KEY
+            && OutdoorPhotoReuse::aroundHouseSatisfiedByReuse($this->intake())) {
+            return true;
+        }
+
         return PhotoContentSatisfaction::isSatisfied($this->intake(), $questionKey, $sectionInstanceKey);
     }
 
@@ -3712,6 +3695,22 @@ class IntakeWizard extends Component
     }
 
     /**
+     * @param  list<array<string, mixed>>  $steps
+     */
+    private function countDoneSteps(array $steps): int
+    {
+        $done = 0;
+
+        foreach ($steps as $index => $step) {
+            if ($this->stepCountsAsDone($step, $index)) {
+                $done++;
+            }
+        }
+
+        return $done;
+    }
+
+    /**
      * Customer-facing bar % follows the same step list as "Vraag X van Y" (BL-123):
      * done steps / total visible steps. Passed/skipped steps and answered steps
      * (including "Weet ik niet") count as done. 100% only after afronden.
@@ -3744,14 +3743,7 @@ class IntakeWizard extends Component
             return 0;
         }
 
-        $done = 0;
-
-        foreach ($steps as $index => $step) {
-            if ($this->stepCountsAsDone($step, $index)) {
-                $done++;
-            }
-        }
-
+        $done = $this->countDoneSteps($steps);
         $percent = (int) round(($done / $total) * 100);
 
         // 100% is reserved for a completed customer part (afronden).
@@ -3802,19 +3794,8 @@ class IntakeWizard extends Component
         $intake->loadMissing(['answers', 'uploads']);
 
         if ($question->type === QuestionType::Photo) {
-            $hasUpload = $intake->uploads->contains(
-                static function (IntakeUpload $upload) use ($questionKey, $instanceKey): bool {
-                    if ($upload->question_key !== $questionKey) {
-                        return false;
-                    }
-
-                    return $instanceKey === null
-                        ? $upload->section_instance_key === null
-                        : $upload->section_instance_key === $instanceKey;
-                },
-            );
-
-            return $hasUpload;
+            // Foto telt pas mee na opgeslagen + geaccepteerde/goedgekeurde beoordeling.
+            return PhotoContentSatisfaction::isSatisfied($intake, $questionKey, $instanceKey);
         }
 
         $answer = $intake->answers->first(

@@ -23,6 +23,10 @@ final class KnownSummaryCatalog
             return false;
         }
 
+        if (InternalCustomerQuestions::hidesFromCustomer($question)) {
+            return false;
+        }
+
         $skipSources = $question->meta['skip_when_prefilled_by'] ?? null;
         if ($skipSources === null) {
             return false;
@@ -36,12 +40,15 @@ final class KnownSummaryCatalog
 
     /**
      * Tekst-/afgeleide bronnen die in het overzicht mogen.
+     * Foto-prefill (ai_photo) mag mee voor zon/glas/buitenlocatie zodat rich-text
+     * én foto-afgeleide bekende feiten in hetzelfde overzicht landen.
      */
     public static function allowsSource(?string $source): bool
     {
         return in_array($source, [
             PrefillSources::REQUEST_TEXT,
             PrefillSources::AI_TEXT,
+            PrefillSources::AI_PHOTO,
             PrefillSources::DERIVED_LXW,
         ], true);
     }

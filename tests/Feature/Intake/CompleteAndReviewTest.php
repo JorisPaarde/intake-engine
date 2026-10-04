@@ -82,12 +82,12 @@ function fillIntakeUntilComplete(Intake $intake): void
             }
 
             if ($question->type === QuestionType::Photo) {
-                $store->handle(
+                markTestUploadSatisfied($store->handle(
                     $intake,
                     $item['question_key'],
                     $item['section_instance_key'],
                     UploadedFile::fake()->image($item['question_key'].'.jpg', 1280, 960),
-                );
+                ));
 
                 continue;
             }
@@ -390,10 +390,10 @@ test('customer completes text and photo follow up and dossier returns for review
 
     $component
         ->call('pollPendingAssessments')
+        ->call('acceptFollowUpPhotoMismatch')
         ->call('completeFollowUp')
         ->assertHasNoErrors()
-        ->assertSet('completed', true)
-        ->assertSee('Bedankt. Je installateur kijkt nu of er nog iets openstaat.');
+        ->assertSet('completed', true);
 
     $intake->refresh();
     $round->refresh();

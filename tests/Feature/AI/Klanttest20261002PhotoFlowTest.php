@@ -615,7 +615,7 @@ test('P1 case 81 Stroomtoevoer: buitenunitfoto blokkeert versturen tot override'
     expect($upload->fresh()->contentAssessment()?->customerAcceptedMismatch())->toBeTrue();
 });
 
-test('P1 follow-up not_assessed blijft soft: versturen mag met installateursvlag', function () {
+test('P1 follow-up not_assessed vereist Toch versturen (zelfde override als mismatch)', function () {
     Queue::fake([AssessUploadedPhotoJob::class]);
 
     $user = User::factory()->create();
@@ -641,11 +641,20 @@ test('P1 follow-up not_assessed blijft soft: versturen mag met installateursvlag
 
     $component
         ->call('completeFollowUp')
-        ->assertHasNoErrors('follow_up')
-        ->assertSet('completed', true);
+        ->assertHasErrors('follow_up')
+        ->assertSet('completed', false)
+        ->assertSee('Toch versturen');
 
     expect($upload->contentAssessment()?->status())->toBe(PhotoContentAssessment::STATUS_NOT_ASSESSED)
         ->and($upload->contentAssessment()?->installerLabel())->toContain('nog niet automatisch beoordeeld');
+
+    $component
+        ->call('acceptFollowUpPhotoMismatch')
+        ->call('completeFollowUp')
+        ->assertHasNoErrors('follow_up')
+        ->assertSet('completed', true)
+        ->assertSet('followUpNeedsInstallerReview', true)
+        ->assertSee('installateur beoordeelt');
 });
 
 test('case 81b reassessment: juiste meterkastfoto vervangt mismatch en wist open reden', function () {
