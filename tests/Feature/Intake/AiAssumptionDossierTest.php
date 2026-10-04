@@ -52,8 +52,9 @@ test('inferred risk prefill syncs as ai_assumption with Dutch labels and no raw 
         ->and($record->value['_field_label'])->toContain('geluid')
         ->and($record->value['_display_value'] ?? null)->toBe('ja')
         ->and($record->value['_provenance_label'] ?? null)->toBe('aanname')
-        ->and($record->value['_source_label'] ?? null)->toBe('aanname')
-        ->and($record->value['_confidence_label'] ?? null)->toBe('middel')
+        ->and($record->value['_source_label'] ?? null)->toBe('afgeleid, niet bevestigd')
+        ->and($record->value['_confidence_label'] ?? null)->toContain('%')
+        ->and($record->value['_status_label'] ?? null)->toBe('nog te bevestigen')
         ->and(json_encode($record->value, JSON_UNESCAPED_UNICODE))->not->toContain('noise_sensitive');
 });
 
@@ -91,8 +92,8 @@ test('AI proposals for installer show Dutch field label value source confidence 
         ->and(mb_strtolower((string) $record->value['_field_label']))->toContain('vrije')
         ->and($record->value['_display_value'] ?? null)->toBe('Ja')
         ->and($record->value['_display_value'])->not->toBe('yes')
-        ->and($record->value['_source_label'] ?? null)->toBe('uit foto')
-        ->and($record->value['_confidence_label'] ?? null)->toBe('hoog');
+        ->and($record->value['_source_label'] ?? null)->toBe('foto')
+        ->and($record->value['_confidence_label'] ?? null)->toContain('%');
 
     $version = $intake->fresh()->templateVersion()
         ->with(['sections.questions.options', 'sections.questions.rules'])

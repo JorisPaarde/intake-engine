@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Domains\AI\DTOs;
 
 use App\Domains\Intake\Support\FactProvenance;
+use App\Domains\Intake\Support\FactSource;
 
 /**
  * Één geclassificeerde prefillkandidaat (lokaal of catalogus-AI).
  *
  * Disposition is diagnostiek: productie past alleen fill/suggestion toe.
+ * confidence blijft high/medium/low (bestaand); confidencePercent is 0–100.
  */
 final readonly class RequestPrefillCandidate
 {
@@ -37,6 +39,8 @@ final readonly class RequestPrefillCandidate
         public string $source,
         public ?string $reason = null,
         public ?FactProvenance $provenance = null,
+        public ?int $confidencePercent = null,
+        public ?FactSource $factSource = null,
     ) {}
 
     public function compositeKey(): string
@@ -57,9 +61,11 @@ final readonly class RequestPrefillCandidate
             'label' => $this->label,
             'value' => $this->value,
             'confidence' => $this->confidence,
+            'confidence_percent' => $this->confidencePercent,
             'evidence' => $this->evidence,
             'disposition' => $this->disposition,
             'source' => $this->source,
+            'fact_source' => $this->factSource?->value,
             'reason' => $this->reason,
             'provenance' => $this->provenance?->value,
         ];

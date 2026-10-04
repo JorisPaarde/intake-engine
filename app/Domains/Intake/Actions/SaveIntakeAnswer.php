@@ -12,7 +12,10 @@ use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Services\AnswerValueReader;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\ProgressCalculator;
+use App\Domains\Intake\Support\FactAcceptance;
 use App\Domains\Intake\Support\FactProvenance;
+use App\Domains\Intake\Support\FactSource;
+use App\Domains\Intake\Support\PrefillSources;
 use App\Enums\IntakeStatus;
 use App\Enums\QuestionType;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +35,9 @@ final class SaveIntakeAnswer
      *                                      creation; null for a normal answer, which also clears
      *                                      any prior prefill flag (the applicant confirmed/edited).
      * @param  FactProvenance|string|null  $factProvenance  stated|inferred|unknown for AI fills
+     * @param  int|string|float|null  $factConfidence  0–100 of high/medium/low / 0.0–1.0
+     * @param  string|null  $factEvidence  korte quote of bewijsregel
+     * @param  FactSource|string|null  $factSource  klantantwoord|foto|afgeleid
      */
     public function handle(
         Intake $intake,
@@ -40,6 +46,9 @@ final class SaveIntakeAnswer
         ?array $value,
         ?string $prefillSource = null,
         FactProvenance|string|null $factProvenance = null,
+        int|string|float|null $factConfidence = null,
+        ?string $factEvidence = null,
+        FactSource|string|null $factSource = null,
     ): IntakeAnswer {
         $question = $this->findQuestion($intake, $questionKey);
 
@@ -51,13 +60,30 @@ final class SaveIntakeAnswer
 
         $normalized = $this->normalizeValue($question->type, $value);
         $provenanceValue = $this->normalizeProvenance($factProvenance, $prefillSource);
+        $confidenceValue = $this->normalizeConfidence($factConfidence, $prefillSource);
+        $evidenceValue = $this->normalizeEvidence($factEvidence, $prefillSource);
+        $sourceValue = $this->normalizeFactSource(
+            $factSource,
+            $prefillSource,
+            FactProvenance::tryFromMixed($provenanceValue),
+        );
 
         if ($question->is_required && ! $this->answerValueReader->isFilled($normalized, $question->type)) {
             // Allow clearing optional; required empty saves are rejected on "next", but autosave of empty optional is ok.
             // For required fields, still persist partial drafts if user typed then cleared — progress will reflect.
         }
 
-        $answer = DB::transaction(function () use ($intake, $questionKey, $sectionInstanceKey, $normalized, $prefillSource, $provenanceValue): IntakeAnswer {
+        $answer = DB::transaction(function () use (
+            $intake,
+            $questionKey,
+            $sectionInstanceKey,
+            $normalized,
+            $prefillSource,
+            $provenanceValue,
+            $confidenceValue,
+            $evidenceValue,
+            $sourceValue,
+        ): IntakeAnswer {
             $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
 
             $allowedStatuses = $prefillSource === null
@@ -80,6 +106,16 @@ final class SaveIntakeAnswer
                 $query->where('section_instance_key', $sectionInstanceKey);
             }
 
+            $payload = [
+                'value' => $normalized,
+                'prefill_source' => $prefillSource,
+                'fact_provenance' => $provenanceValue,
+                'fact_confidence' => $confidenceValue,
+                'fact_evidence' => $evidenceValue,
+                'fact_source' => $sourceValue,
+                'answered_at' => now(),
+            ];
+
             $answer = $query->first();
 
             if ($answer === null) {
@@ -87,18 +123,9 @@ final class SaveIntakeAnswer
                     'intake_id' => $intake->id,
                     'question_key' => $questionKey,
                     'section_instance_key' => $sectionInstanceKey,
-                    'value' => $normalized,
-                    'prefill_source' => $prefillSource,
-                    'fact_provenance' => $provenanceValue,
-                    'answered_at' => now(),
-                ]);
+                ] + $payload);
             } else {
-                $answer->update([
-                    'value' => $normalized,
-                    'prefill_source' => $prefillSource,
-                    'fact_provenance' => $provenanceValue,
-                    'answered_at' => now(),
-                ]);
+                $answer->update($payload);
             }
 
             // An installer prefill at creation must not "start" the intake for the customer.
@@ -145,6 +172,69 @@ final class SaveIntakeAnswer
         }
 
         return FactProvenance::tryFromMixed($factProvenance)?->value;
+    }
+
+    private function normalizeConfidence(int|string|float|null $factConfidence, ?string $prefillSource): ?int
+    {
+        if ($prefillSource === null) {
+            return 100;
+        }
+
+        $normalized = FactAcceptance::normalizeConfidence($factConfidence);
+        if ($normalized !== null) {
+            return $normalized;
+        }
+
+        if (PrefillSources::isSuggestion($prefillSource)) {
+            return FactAcceptance::LEVEL_MEDIUM;
+        }
+
+        if (PrefillSources::isStrongAi($prefillSource)
+            || $prefillSource === PrefillSources::REQUEST_TEXT
+            || $prefillSource === PrefillSources::DERIVED_LXW
+            || $prefillSource === 'installer') {
+            return FactAcceptance::LEVEL_HIGH;
+        }
+
+        return null;
+    }
+
+    private function normalizeEvidence(?string $factEvidence, ?string $prefillSource): ?string
+    {
+        if ($prefillSource === null) {
+            return null;
+        }
+
+        if (! is_string($factEvidence)) {
+            return null;
+        }
+
+        $trimmed = trim($factEvidence);
+
+        return $trimmed === '' ? null : mb_substr($trimmed, 0, 500);
+    }
+
+    private function normalizeFactSource(
+        FactSource|string|null $factSource,
+        ?string $prefillSource,
+        ?FactProvenance $provenance,
+    ): string {
+        if ($prefillSource === null) {
+            return FactSource::CustomerAnswer->value;
+        }
+
+        if ($factSource instanceof FactSource) {
+            return $factSource->value;
+        }
+
+        if (is_string($factSource)) {
+            $explicit = FactSource::tryFrom(strtolower(trim($factSource)));
+            if ($explicit instanceof FactSource) {
+                return $explicit->value;
+            }
+        }
+
+        return FactAcceptance::sourceFrom($prefillSource, $provenance)->value;
     }
 
     private function touchProgress(Intake $intake, bool $allowStatusStart = true): void

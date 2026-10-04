@@ -13,7 +13,9 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Domains\Intake\Support\FactAcceptance;
 use App\Domains\Intake\Support\FactProvenance;
+use App\Domains\Intake\Support\FactSource;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Domains\Intake\Support\RoomAreaAcceptance;
 use App\Domains\Intake\Support\RoomLabelResolver;
@@ -233,8 +235,18 @@ final class DossierManager
             $subject = $this->subjectForInstance($answer->section_instance_key, $roomSubjects) ?? $root;
             $question = $questionIndex[$answer->question_key] ?? null;
             $provenance = FactProvenance::tryFromMixed($answer->fact_provenance);
+            $factSource = FactSource::tryFrom((string) ($answer->fact_source ?? ''))
+                ?? FactAcceptance::sourceFrom($answer->prefill_source, $provenance);
+            $confidencePercent = is_int($answer->fact_confidence)
+                ? $answer->fact_confidence
+                : FactAcceptance::normalizeConfidence($answer->fact_confidence);
             $isAssumption = PrefillSources::needsCustomerConfirmation(
                 $answer->prefill_source,
+                $provenance,
+                $answer->question_key,
+            ) || FactAcceptance::needsConfirmation(
+                $confidencePercent,
+                $factSource,
                 $provenance,
                 $answer->question_key,
             );
@@ -249,12 +261,20 @@ final class DossierManager
                     'dossier_subject_id' => $subject->id,
                     'kind' => DossierRecordKind::Observation,
                     'key' => $this->answerRecordKey($answer),
-                    'value' => $this->answerRecordValue($intake, $answer, $question, $provenance, $isAssumption),
+                    'value' => $this->answerRecordValue(
+                        $intake,
+                        $answer,
+                        $question,
+                        $provenance,
+                        $isAssumption,
+                        $confidencePercent,
+                        $factSource,
+                    ),
                     'actor_type' => $answer->prefill_source === null ? 'customer' : $answer->prefill_source,
                     'actor_id' => null,
                     'method' => $this->answerRecordMethod($answer, $isAssumption),
-                    'confidence' => $this->prefillConfidence($intake, $answer),
-                    'status' => $this->prefillStatus($intake, $answer),
+                    'confidence' => $this->prefillConfidence($intake, $answer, $confidencePercent),
+                    'status' => $this->prefillStatus($intake, $answer, $isAssumption),
                     'observed_at' => $answer->answered_at ?? $answer->updated_at,
                     'superseded_by_id' => null,
                 ],
@@ -595,33 +615,49 @@ final class DossierManager
     /**
      * @return array{0: float, 1: DossierRecordStatus}
      */
-    private function prefillConfidenceAndStatus(Intake $intake, IntakeAnswer $answer): array
+    private function prefillConfidenceAndStatus(Intake $intake, IntakeAnswer $answer, bool $isAssumption = false): array
     {
         $source = $answer->prefill_source;
+        $percent = is_int($answer->fact_confidence)
+            ? $answer->fact_confidence
+            : FactAcceptance::normalizeConfidence($answer->fact_confidence);
 
         if ($source === PrefillSources::DERIVED_LXW) {
             return $this->derivedLxwConfidenceStatus($intake, $answer->section_instance_key);
         }
 
-        if (PrefillSources::isSuggestion($source)) {
-            return [0.7, DossierRecordStatus::Proposed];
+        if ($isAssumption || PrefillSources::isSuggestion($source)) {
+            return [
+                $percent !== null ? FactAcceptance::dossierFloat($percent) : 0.7,
+                DossierRecordStatus::Proposed,
+            ];
         }
 
         if (PrefillSources::isStrongAi($source)) {
-            return [0.9, DossierRecordStatus::Proposed];
+            return [
+                $percent !== null ? FactAcceptance::dossierFloat($percent) : 0.9,
+                DossierRecordStatus::Proposed,
+            ];
         }
 
-        return [1.0, DossierRecordStatus::Established];
+        return [
+            $percent !== null ? FactAcceptance::dossierFloat($percent) : 1.0,
+            DossierRecordStatus::Established,
+        ];
     }
 
-    private function prefillConfidence(Intake $intake, IntakeAnswer $answer): float
+    private function prefillConfidence(Intake $intake, IntakeAnswer $answer, ?int $confidencePercent = null): float
     {
+        if ($confidencePercent !== null) {
+            return FactAcceptance::dossierFloat($confidencePercent);
+        }
+
         return $this->prefillConfidenceAndStatus($intake, $answer)[0];
     }
 
-    private function prefillStatus(Intake $intake, IntakeAnswer $answer): DossierRecordStatus
+    private function prefillStatus(Intake $intake, IntakeAnswer $answer, bool $isAssumption = false): DossierRecordStatus
     {
-        return $this->prefillConfidenceAndStatus($intake, $answer)[1];
+        return $this->prefillConfidenceAndStatus($intake, $answer, $isAssumption)[1];
     }
 
     /**
@@ -810,6 +846,8 @@ final class DossierManager
         ?IntakeQuestion $question,
         ?FactProvenance $provenance,
         bool $isAssumption,
+        ?int $confidencePercent = null,
+        ?FactSource $factSource = null,
     ): array {
         $value = is_array($answer->value) ? $answer->value : [];
 
@@ -822,24 +860,40 @@ final class DossierManager
             ? trim($question->label)
             : TechnicalProposalCopy::fallbackFieldLabel((string) $answer->question_key);
         $displayValue = $this->dutchDisplayValue($question, $value);
-        $confidence = match (true) {
-            PrefillSources::isSuggestion($answer->prefill_source) => 'middel',
-            PrefillSources::isStrongAi($answer->prefill_source) => 'hoog',
-            default => 'middel',
+        $resolvedSource = $factSource
+            ?? FactAcceptance::sourceFrom($answer->prefill_source, $provenance);
+        $percent = $confidencePercent
+            ?? (is_int($answer->fact_confidence) ? $answer->fact_confidence : null)
+            ?? FactAcceptance::normalizeConfidence($answer->fact_confidence)
+            ?? (PrefillSources::isSuggestion($answer->prefill_source)
+                ? FactAcceptance::LEVEL_MEDIUM
+                : FactAcceptance::LEVEL_HIGH);
+        $confidenceBand = FactAcceptance::levelFromPercent($percent);
+        $confidenceNl = match ($confidenceBand) {
+            'high' => 'hoog',
+            'medium' => 'middel',
+            default => 'laag',
         };
         $uncertainty = TechnicalProposalCopy::uncertainty(
             $intake,
             (string) $answer->question_key,
-            $confidence,
+            $confidenceNl,
         );
+        $sourceLabel = $resolvedSource->installerLabel($isAssumption);
+        if ($isAssumption && $resolvedSource === FactSource::Derived) {
+            $sourceLabel = 'afgeleid, niet bevestigd';
+        }
 
         return array_merge($value, [
             '_field_label' => $fieldLabel,
             '_display_value' => $displayValue,
             '_uncertainty' => $uncertainty,
             '_provenance_label' => ($provenance ?? FactProvenance::Inferred)->installerLabel(),
-            '_source_label' => PrefillSources::installerSourceLabel($answer->prefill_source, $provenance) ?? 'AI',
-            '_confidence_label' => $confidence,
+            '_source_label' => $sourceLabel,
+            '_confidence_percent' => $percent,
+            '_confidence_label' => $percent.'%',
+            '_status_label' => $isAssumption ? 'nog te bevestigen' : null,
+            '_evidence' => $answer->fact_evidence,
         ]);
     }
 

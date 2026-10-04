@@ -33,7 +33,7 @@ describe('FactProvenance and risk confirmation', function () {
                 'ownership',
             ))->toBeFalse()
             ->and(PrefillSources::needsCustomerConfirmation(null))->toBeFalse()
-            ->and(PrefillSources::installerSourceLabel(PrefillSources::AI_TEXT_SUGGESTION))->toBe('aanname')
+            ->and(PrefillSources::installerSourceLabel(PrefillSources::AI_TEXT_SUGGESTION))->toBe('afgeleid, niet bevestigd')
             ->and(PrefillSources::isAssumption(PrefillSources::AI_TEXT_SUGGESTION))->toBeTrue();
     });
 });

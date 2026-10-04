@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 2.05 · **Laatste update:** 2026-10-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.6 · **Laatste update:** 2026-10-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -27,6 +27,7 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 | Form robustness adres/maten/upload (BL-124) | todo | - | Create: vroeg submit tijdens lookup → geen vastgezette “Controleer dit veld.”; submit disabled tijdens zoeken. Klant: L+B naast elkaar; sla-over op route/afvoer; 3024×4032 niet “lage resolutie”. airco v21. Upload-timeout aangescherpt in BL-128; assessing terminal status = BL-127. |
 | Prompt/vision quality (BL-126) | todo | - | Routefoto goot/doorvoer niet afgewezen; ownership koophuis/we huren overgenomen; Ouders/Kind op installateurslabels; meterkast free_group stabieler; Vervang foto/Toch doorgaan intact; lege woonkamer geen extra stopcontactvraag. |
 | Strikte dossiersynthese + fractionele budgetteller (BL-135) | todo | - | Op staging met OpenRouter/Gemini: AI-voorstel vernieuwen na foto’s → run `succeeded` of `partial` (niet altijd failed); `ai_runs.image_count` > 0 en tokens/kosten gevuld ook bij fail; partial run toont geldige placements zonder kapotte option; subject:N-refs remappen of netjes afwijzen; budgetteling in microcents plausibel (&lt; 1 cent per flash-lite call); staging 76/77 fixtures. |
+| Prefill confidence % + stated-quote (BL-142) | todo | - | Create met alleen “balkon”: known-summary toont géén “Buren dichtbij = Ja”; cooling zonder koel-woorden niet als feit; dossier toont “afgeleid, niet bevestigd” + percentage; bevestigingsvraag “Klopt dit?”. |
 | Prefill-provenance + aannames in dossier (BL-136) | todo | - | Create met balkon-tekst: buren dichtbij niet als bevestigd; werkplek toont “aanname” met NL-veldlabel + bron + zekerheid (geen raw keys). |
 | Soft catalogus-prefill multi-room (BL-122) | todo | - | Demo create met exacte case-81-tekst → werkplek toont Slaapkamer ouders + Kinderkamer met maten; klantflow vraagt koelen/verwarmen niet opnieuw; case 80 blijft werken. |
 | Klant-UX review v1.3.0 (BL-129) | todo | - | Bedankt zonder aandachtspunten/keys; mismatch direct onder foto + “Kies: foto vervangen of toch doorgaan”; één voortgangsmaat; known-summary één CTA + binnenunitplek; merk/planning/opmerkingen één scherm; extra overzicht noemt wand/deur/stopcontact. |

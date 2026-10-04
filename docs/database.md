@@ -1,6 +1,6 @@
 # Databaseschema — Digitale Opname
 
-> **Documentversie:** 3.21 · **Laatste update:** 2026-10-03 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.22 · **Laatste update:** 2026-10-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: dit document beschrijft het **geïmplementeerde schema**, inclusief de uitbreidende dossiermigratie van BL-030 en BL-035 t/m BL-042 en de zelfstandige publieke interesse-inzendingen van BL-043. Bestaande antwoord-, bron-, upload-, review- en routetabellen blijven bewust bestaan naast de nieuwe dossierobjecten.
 ## Ontwerpprincipes
@@ -305,7 +305,10 @@ Eén actuele uitkomst per opname: `result`, actieve installateur- en klantminute
 | `section_instance_key` | string nullable | Bij repeatables: `room-1` |
 | `value` | json | Genormaliseerde waarde |
 | `prefill_source` | string nullable | Herkomst: o.a. `installer`, `pdok`, `epo`, `request_text` (sterk/lokaal uit openingszin), `ai_text` (catalogus-tekst-AI), `ai_photo` (foto-AI), legacy `ai`, `ai_text_suggestion` / `ai_photo_suggestion` (medium; legacy `ai_suggestion` = foto-suggestie), `derived_lxw` (m²/grootte uit L×B). De gepinde template bepaalt of een bronvraag zichtbaar blijft; legacy skiplijsten met alleen `ai` matchen ook `ai_text`/`ai_photo`. `null` bij normale klantinvoer. Zie [intake-engine.md § Prefill](intake-engine.md#prefill-van-bekende-gegevens-bl-016). |
-| `fact_provenance` | string nullable | BL-136: `stated` / `inferred` / `unknown` — letterlijk gezegd vs. AI-aanname. Inferred risicokeys → voorzet/`ai_assumption` in het dossier. |
+| `fact_provenance` | string nullable | BL-136/138: `stated` / `inferred` / `unknown` — letterlijk gezegd vs. AI-aanname. |
+| `fact_confidence` | unsignedTinyInteger nullable | BL-142: zekerheid 0–100 (genormaliseerd uit high/medium/low of 0.0–1.0). |
+| `fact_evidence` | text nullable | BL-142: korte evidence-quote (voor stated: moet in brontekst staan). |
+| `fact_source` | string nullable | BL-142: `klantantwoord` / `foto` / `afgeleid`. |
 | `answered_at` | timestamp | |
 
 Unique: `(intake_id, question_key, section_instance_key)`.  

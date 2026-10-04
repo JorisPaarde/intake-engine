@@ -18,7 +18,9 @@ use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeAnswer;
+use App\Domains\Intake\Support\FactAcceptance;
 use App\Domains\Intake\Support\FactProvenance;
+use App\Domains\Intake\Support\FactSource;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Domains\Intake\Support\RiskRelevantPrefillKeys;
 use App\Domains\Intake\Support\RoomAreaAcceptance;
@@ -181,7 +183,9 @@ final class PrefillAnswersFromKnownContext
                             'section_instance_key' => $candidate->sectionInstanceKey,
                             'disposition' => $candidate->disposition,
                             'confidence' => $candidate->confidence,
+                            'confidence_percent' => $candidate->confidencePercent,
                             'provenance' => $candidate->provenance?->value,
+                            'fact_source' => $candidate->factSource?->value,
                             'source' => $candidate->source,
                             'reason' => $candidate->reason,
                             'has_value' => $candidate->value !== null,
@@ -296,10 +300,23 @@ final class PrefillAnswersFromKnownContext
                 : self::SOURCE_SUGGESTED;
 
             $provenance = $candidate->provenance ?? FactProvenance::Inferred;
+            $confidencePercent = $candidate->confidencePercent
+                ?? FactAcceptance::normalizeConfidence($candidate->confidence);
+            $factSource = $candidate->factSource
+                ?? FactAcceptance::sourceFrom($source, $provenance);
 
-            // Risicokeys met aanname: altijd suggestion-bron, nooit confirmed skip.
-            if (RiskRelevantPrefillKeys::requiresConfirmation($candidate->questionKey, $provenance)) {
+            // Risicokeys met aanname / onder drempel: altijd suggestion-bron, nooit confirmed skip.
+            if (RiskRelevantPrefillKeys::requiresConfirmation($candidate->questionKey, $provenance)
+                || FactAcceptance::needsConfirmation(
+                    $confidencePercent,
+                    $factSource,
+                    $provenance,
+                    $candidate->questionKey,
+                )) {
                 $source = self::SOURCE_SUGGESTED;
+                if ($factSource !== FactSource::Photo) {
+                    $factSource = FactSource::Derived;
+                }
             }
 
             if ($candidate->questionKey === 'room_area_m2') {
@@ -314,6 +331,7 @@ final class PrefillAnswersFromKnownContext
                 if (! RoomAreaAcceptance::acceptsAiExactArea($candidate->confidence, $effectiveEvidence, $area)) {
                     // Keep as reviewable suggestion; never invent L×B and never trust weak m².
                     $source = self::SOURCE_SUGGESTED;
+                    $factSource = FactSource::Derived;
                 }
             }
 
@@ -325,6 +343,9 @@ final class PrefillAnswersFromKnownContext
                     $candidate->value,
                     $source,
                     $provenance,
+                    $confidencePercent,
+                    $candidate->evidence,
+                    $factSource,
                 );
                 $applied[] = $candidate->compositeKey();
             } catch (Throwable $exception) {
@@ -340,6 +361,9 @@ final class PrefillAnswersFromKnownContext
                     'section_instance_key' => $candidate->sectionInstanceKey,
                     'disposition' => RequestPrefillCandidate::DISPOSITION_REJECTED,
                     'confidence' => $candidate->confidence,
+                    'confidence_percent' => $confidencePercent,
+                    'provenance' => $provenance->value,
+                    'fact_source' => $factSource->value,
                     'source' => $candidate->source,
                     'reason' => 'Opslaan mislukt: '.Str::limit($exception->getMessage(), 200, ''),
                     'has_value' => true,
