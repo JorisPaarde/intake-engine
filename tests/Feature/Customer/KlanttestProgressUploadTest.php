@@ -154,7 +154,12 @@ function makeP2FollowUpIntake(array $items): Intake
 
 function p2FixtureUpload(string $name = 'woonkamer-720.jpg'): UploadedFile
 {
-    $fixture = base_path('tests/fixtures/klanttest-20261002/'.$name);
+    $mapped = match ($name) {
+        'meterkast-groot.jpg' => 'meterkast-flow.jpg',
+        'buitenunit-leiding.jpeg' => 'buitenunit-flow.jpeg',
+        default => $name,
+    };
+    $fixture = base_path('tests/fixtures/klanttest-20261002/'.$mapped);
     expect(is_file($fixture))->toBeTrue();
 
     return UploadedFile::fake()->createWithContent($name, (string) file_get_contents($fixture));

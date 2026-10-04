@@ -9,10 +9,46 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  quality:
-    name: Pint, PHPStan & Pest
+  quality-lint:
+    name: quality-lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo, pdo_mysql, pdo_sqlite, sqlite3, intl, gd, zip, imagick
+          coverage: none
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Pint (code style)
+        run: vendor/bin/pint --test
+
+      - name: PHPStan (static analysis)
+        run: vendor/bin/phpstan analyse --memory-limit=1G --no-progress
+
+  quality-pest:
+    name: quality-pest (${{ matrix.shard }}/2)
     runs-on: ubuntu-latest
     timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
 
     services:
       mysql:
@@ -60,7 +96,7 @@ jobs:
         run: |
           cp .env.example .env
           php artisan key:generate
-          # Tests draaien op sqlite in-memory
+          # Tests draaien op sqlite in-memory (per parallel process geïsoleerd)
           echo "DB_CONNECTION=sqlite" >> .env
           echo "DB_DATABASE=:memory:" >> .env
 
@@ -70,6 +106,8 @@ jobs:
           npm run build
 
       - name: MySQL fresh and resumed migration smoke
+        # Alleen op shard 1 — dezelfde check hoeft niet twee keer.
+        if: matrix.shard == 1
         env:
           APP_ENV: testing
           DB_CONNECTION: mysql
@@ -83,20 +121,38 @@ jobs:
           php artisan tinker --execute="\Illuminate\Support\Facades\DB::table('migrations')->where('migration', '2026_07_30_120000_create_central_survey_dossier_tables')->delete();"
           php artisan migrate --force
 
-      - name: Pint (code style)
-        run: vendor/bin/pint --test
-
-      - name: PHPStan (static analysis)
-        run: vendor/bin/phpstan analyse --memory-limit=1G --no-progress
-
-      - name: Pest (tests)
+      - name: Pest (tests, parallel + shard)
         env:
           DB_CONNECTION: sqlite
           DB_DATABASE: ':memory:'
           SESSION_DRIVER: array
           QUEUE_CONNECTION: sync
           CACHE_STORE: array
-        run: vendor/bin/pest --ci
+        # ubuntu-latest ≈ 4 vCPU; default --parallel uses nproc.
+        # --shard splits the suite across matrix runners (time-balanced via tests/.pest/shards.json).
+        # Pest tests stay on sqlite :memory: (per-process isolation). MySQL is migration smoke only.
+        run: vendor/bin/pest --ci --parallel --shard=${{ matrix.shard }}/2
+
+  quality:
+    name: Pint, PHPStan & Pest
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [quality-lint, quality-pest]
+    if: always()
+    steps:
+      - name: Require lint and all Pest shards
+        run: |
+          echo "quality-lint: ${{ needs.quality-lint.result }}"
+          echo "quality-pest: ${{ needs.quality-pest.result }}"
+          if [ "${{ needs.quality-lint.result }}" != "success" ]; then
+            echo "Lint job failed"
+            exit 1
+          fi
+          if [ "${{ needs.quality-pest.result }}" != "success" ]; then
+            echo "Pest shard job(s) failed"
+            exit 1
+          fi
+          echo "All quality checks passed"
 
   e2e:
     name: E2E (Playwright)

@@ -54,9 +54,9 @@ afterEach(function () {
     FakeAiClient::reset();
 });
 
-function klanttestFixture(string $name): UploadedFile
+function klanttestFixture(string $name, bool $fullSize = false): UploadedFile
 {
-    $path = base_path('tests/fixtures/klanttest-20261002/'.$name);
+    $path = base_path('tests/fixtures/klanttest-20261002/'.klanttestFlowFixtureName($name, $fullSize));
 
     expect(is_file($path))->toBeTrue("Fixture ontbreekt: {$name}");
 
@@ -64,13 +64,30 @@ function klanttestFixture(string $name): UploadedFile
 }
 
 /** Livewire-compatible upload built from the same fixture bytes. */
-function klanttestLivewireUpload(string $name): UploadedFile
+function klanttestLivewireUpload(string $name, bool $fullSize = false): UploadedFile
 {
-    $path = base_path('tests/fixtures/klanttest-20261002/'.$name);
+    $path = base_path('tests/fixtures/klanttest-20261002/'.klanttestFlowFixtureName($name, $fullSize));
 
     expect(is_file($path))->toBeTrue("Fixture ontbreekt: {$name}");
 
     return UploadedFile::fake()->createWithContent($name, (string) file_get_contents($path));
+}
+
+/**
+ * Map multi-megapixel klanttest fixtures to compact flow variants (≥640px) unless
+ * the test explicitly needs full-resolution bytes (megapixel / normalize asserts).
+ */
+function klanttestFlowFixtureName(string $name, bool $fullSize = false): string
+{
+    if ($fullSize) {
+        return $name;
+    }
+
+    return match ($name) {
+        'meterkast-groot.jpg' => 'meterkast-flow.jpg',
+        'buitenunit-leiding.jpeg' => 'buitenunit-flow.jpeg',
+        default => $name,
+    };
 }
 
 function makeKlanttestIntake(array $overrides = []): Intake

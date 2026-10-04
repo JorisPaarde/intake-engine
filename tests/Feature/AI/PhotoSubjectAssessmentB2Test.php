@@ -65,7 +65,12 @@ function b2Intake(array $overrides = []): Intake
 
 function b2Fixture(string $name): UploadedFile
 {
-    $path = base_path('tests/fixtures/klanttest-20261002/'.$name);
+    $mapped = match ($name) {
+        'meterkast-groot.jpg' => 'meterkast-flow.jpg',
+        'buitenunit-leiding.jpeg' => 'buitenunit-flow.jpeg',
+        default => $name,
+    };
+    $path = base_path('tests/fixtures/klanttest-20261002/'.$mapped);
     expect(is_file($path))->toBeTrue("Fixture ontbreekt: {$name}");
 
     return new UploadedFile($path, $name, mime_content_type($path) ?: 'image/png', null, true);

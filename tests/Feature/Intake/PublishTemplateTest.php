@@ -5,10 +5,9 @@ declare(strict_types=1);
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Services\PublishIntakeTemplateFromConfig;
 use App\Enums\TemplateVersionStatus;
-use Database\Seeders\IntakeTemplateSeeder;
 
 test('airco template seeder publishes v1 through v26 with v26 as latest', function () {
-    $this->seed(IntakeTemplateSeeder::class);
+    seedAllAircoTemplateVersions();
 
     $template = IntakeTemplate::query()->where('key', 'airco')->first();
 
