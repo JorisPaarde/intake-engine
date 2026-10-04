@@ -192,6 +192,8 @@ test('js encodes BL-143 update-retry reuse tmp + client 2000px + busy copy', fun
     $livewireJs = (string) file_get_contents(resource_path('js/livewire-resilience.js'));
     $prepare = (string) file_get_contents(resource_path('js/photo-prepare.js'));
     $appJs = (string) file_get_contents(resource_path('js/app.js'));
+    $customerJs = (string) file_get_contents(resource_path('js/customer.js'));
+    $downscaleJs = (string) file_get_contents(resource_path('js/photo-downscale.js'));
 
     expect($prepare)->toContain('MAX_LONG_EDGE = 2000')
         ->and($prepare)->toContain('JPEG_QUALITY = 0.85')
@@ -210,11 +212,14 @@ test('js encodes BL-143 update-retry reuse tmp + client 2000px + busy copy', fun
         ->and($livewireJs)->toContain('selectReplayTargets')
         ->and($livewireJs)->toContain('uploadInFlightByComponent')
         ->and($livewireJs)->toContain("name === '\$set'")
-        ->and($appJs)->toContain('preparePhotoForUpload')
-        ->and($appJs)->toContain('intake:photo-prep-start')
-        ->and($appJs)->toContain('wireModelUploadTargets')
-        ->and($appJs)->toContain('originalsProperty')
-        ->and($appJs)->toContain('followUpPhotoFiles → followUpPhotoClientOriginals')
+        ->and($appJs)->toContain('registerClientPhotoDownscale')
+        ->and($customerJs)->toContain('registerLivewireUpdateResilience')
+        ->and($customerJs)->toContain('registerClientPhotoDownscale')
+        ->and($downscaleJs)->toContain('preparePhotoForUpload')
+        ->and($downscaleJs)->toContain('intake:photo-prep-start')
+        ->and($downscaleJs)->toContain('wireModelUploadTargets')
+        ->and($downscaleJs)->toContain('originalsProperty')
+        ->and($downscaleJs)->toContain('followUpPhotoFiles → followUpPhotoClientOriginals')
         // Shared upload control used by intake + follow-up (installer test 4 / intake 100).
         ->and($blade)->toContain('clearLivewireUpload')
         ->and($blade)->toContain('clientUploading')
@@ -224,6 +229,7 @@ test('js encodes BL-143 update-retry reuse tmp + client 2000px + busy copy', fun
         ->and($blade)->toContain('De server is even druk. Probeer het zo opnieuw.')
         ->and($blade)->toContain('data-testid="upload-retry-button"')
         ->and($blade)->toContain('data-client-downscale="1"')
+        ->and($blade)->toContain("document.addEventListener('intake:upload-retrying'")
         ->and($blade)->toContain('data-upload-timing="1"')
         ->and($blade)->toContain("'pendingAssessUploadIds' => []")
         ->and($blade)->not->toContain('Uploaden lijkt vast te zitten')

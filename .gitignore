@@ -30,3 +30,10 @@ yarn-error.log
 /test-results/
 /playwright-report/
 /blob-report/
+/database/e2e.sqlite
+/tests/e2e/test-results/
+/tests/e2e/playwright-report/
+/tests/e2e/blob-report/
+/tests/e2e/fixtures/*.jpg
+!/tests/e2e/fixtures/generate-fixtures.mjs
+/storage/framework/e2e-ai-scenario.txt

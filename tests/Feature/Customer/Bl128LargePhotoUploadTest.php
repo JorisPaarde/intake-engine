@@ -160,6 +160,8 @@ test('wizard accepts large fixture with client originals without wall-clock uplo
     $blade = (string) file_get_contents(resource_path('views/components/customer/photo-upload-control.blade.php'));
     $wizard = (string) file_get_contents(resource_path('views/livewire/customer/intake-wizard.blade.php'));
     $appJs = (string) file_get_contents(resource_path('js/app.js'));
+    $customerJs = (string) file_get_contents(resource_path('js/customer.js'));
+    $downscaleJs = (string) file_get_contents(resource_path('js/photo-downscale.js'));
     $livewireJs = (string) file_get_contents(resource_path('js/livewire-resilience.js'));
 
     expect($blade)->toContain('armInactivityTimer')
@@ -172,7 +174,10 @@ test('wizard accepts large fixture with client originals without wall-clock uplo
         ->and($blade)->not->toContain(', 15000)')
         ->and($wizard)->toContain('x-customer.photo-upload-control')
         ->and($appJs)->toContain('registerLivewireUploadResilience')
-        ->and($appJs)->toContain('preparePhotoForUpload')
+        ->and($appJs)->toContain('registerClientPhotoDownscale')
+        ->and($customerJs)->toContain('registerLivewireUploadResilience')
+        ->and($customerJs)->toContain('registerClientPhotoDownscale')
+        ->and($downscaleJs)->toContain('preparePhotoForUpload')
         ->and($livewireJs)->toContain('freshSignedUploadUrl')
         ->and($livewireJs)->toContain('empty-upload-response');
 });

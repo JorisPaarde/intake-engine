@@ -21,6 +21,21 @@ return [
 
     'provider' => env('AI_PROVIDER', 'null'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Browser E2E helpers
+    |--------------------------------------------------------------------------
+    |
+    | When true, /__e2e__/* routes and E2eAiScenario file switching are available.
+    | Never enable on production. CI and local Playwright set E2E_HELPERS=true.
+    |
+    */
+    'e2e_helpers_enabled' => (bool) env('E2E_HELPERS', false),
+
+    // Optional override for FakeAiClient E2E scenarios (good_photo|wrong_subject|…).
+    // Prefer the runtime file via E2eAiScenario::set(); this is for process-wide defaults.
+    'e2e_scenario' => env('AI_E2E_SCENARIO', ''),
+
     'api_key' => env('AI_API_KEY'),
 
     // OpenAI-compatible base URL. OpenRouter: https://openrouter.ai/api/v1

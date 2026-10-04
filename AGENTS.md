@@ -1,6 +1,6 @@
 # AGENTS.md — Projectgeheugen & werkinstructies
 
-> **Documentversie:** 2.52 · **Laatste update:** 2026-10-04 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
+> **Documentversie:** 2.53 · **Laatste update:** 2026-10-04 · Onderhoud: zie [§ Onderhoudsprotocol](#onderhoudsprotocol-verplicht-voor-agents)
 
 Dit bestand is de **centrale ingang** voor iedere agent (of mens) die aan dit project werkt. Het beschrijft waar het projectgeheugen leeft, welk document waarvoor de bron van waarheid is, en hoe je dat geheugen bijhoudt. **Lees dit bestand aan het begin van elke taak.**
 ## Hoofddoel (vast — niet door agents aan te passen)
@@ -46,6 +46,7 @@ Lees **níet** standaard alle docs integraal door. De geheugenkaart, versieheade
 | AI-functionaliteit | `docs/ai.md` + ADR-0005/0011/0012 | deploy |
 | Deploy, staging, CI, server | `docs/DEPLOYMENT.md` | engine-, AI- en database-docs |
 | Functioneel testen op staging | `docs/browser-test-flow.md` (stappen) + `docs/functional-test-status.md` (uitslag) | architectuur-docs |
+| CI browser E2E (klantflow) | `tests/e2e/README.md` + CI-job `E2E (Playwright)` | staging browser-speelboek |
 | Architectuurbrede keuze / nieuw domein | `docs/ARCHITECTURE.md` + relevante ADRs | — |
 | Docs/geheugen zelf onderhouden | dit bestand volledig | — |
 
@@ -74,6 +75,7 @@ Twijfel je onder welk taaktype je werk valt, gebruik dan de geheugenkaart hieron
 | Uitgewerkte implementatieplannen bij een BL-item? | [docs/plans/](docs/plans/) (alleen detail; status blijft in de backlog) |
 | Wat is functioneel getest (handmatig)? | [docs/functional-test-status.md](docs/functional-test-status.md) |
 | Hoe voert een agent visuele browser-QA uit? | [docs/browser-test-flow.md](docs/browser-test-flow.md) (stappen + kopieerprompt); uitslag in functional-test-status |
+| Hoe draaien CI Playwright-E2E’s voor de klantflow? | [tests/e2e/README.md](tests/e2e/README.md) (job **E2E (Playwright)**) |
 | Welke werkafspraken gelden (branching, taal, kwaliteit, privacy)? | [§ Werkafspraken](#werkafspraken) in dit bestand |
 | Hoe schrijf ik gebruikersgerichte UI-teksten? | [docs/language.md](docs/language.md) |
 | Hoe werk ik als agent, hoe onderhoud ik dit geheugen? | dit bestand (AGENTS.md) |
@@ -222,7 +224,7 @@ Praktische lessen uit cloud-runs. Doel: sneller groen zonder opnieuw te ontdekke
 - **LiteSpeed 503:** kale host-pagina “temporarily busy” ≠ Laravel-errorpage. App-log (BL-092): `AppErrorLogger` + `HTTP server error response` / `HTTP request ended without clean response` in `shared/storage/logs/`. Geen PHP-regel → cPanel/LiteSpeed-errorlog. Vaak bij zware sync-POSTs (`POST /intakes` + adresverrijking). Domeinfouten: `app(AppErrorLogger::class)->error($msg, $ctx, $e)`.
 - **cPanel cron:** alleen `* * * * * … php artisan schedule:run` — géén aparte `queue:work --stop-when-empty` (scheduler start de lange worker al). Extra minutelijke PHP-processen → LVE 512 MB → 503.
 - Branchnaam: `cursor/<korte-naam>-<suffix>` zoals de run voorschrijft; base `main`; PR via de cloud-PR-tool (niet `gh pr create` tenzij dat de enige optie is).
-
+- **Playwright E2E (BL-145):** `tests/e2e` + job **E2E (Playwright)**. Lokaal: `E2E_HELPERS=true AI_PROVIDER=fake QUEUE_CONNECTION=sync`, `php artisan e2e:prepare --fresh`, `npm run e2e:fixtures`, `php artisan serve`, `npm run test:e2e`. Nooit echte AI; scenario’s via `storage/framework/e2e-ai-scenario.txt` / `POST /__e2e__/ai-scenario`. Inclusief `room-name-autosave` (sticky kamernaam, BL-140) en 503-retry (BL-143).
 ### Staging-testen (browser / Playwright)
 
 - **Speelboek:** visuele QA (echte browser, kijken als een mens) volgt [docs/browser-test-flow.md](docs/browser-test-flow.md). Pest/Livewire/HTTP tellen niet als uitvoering. Uitslag alleen in `docs/functional-test-status.md` voor stappen die je zelf zag.
