@@ -127,8 +127,8 @@ test('job schrijft assessment; poll toont resultaat en wrong_subject-feedback', 
 
     $component->call('pollPendingAssessments')
         ->assertSet('uploadPhase', '')
-        ->assertHasErrors('followUpPhotoFiles.'.$item->id)
-        ->assertSee('Nog te vervangen');
+        ->assertSee('Nog te vervangen')
+        ->assertSee('Toch versturen');
 
     $progress = app(FollowUpProgressCalculator::class)->calculate(collect([$item->fresh()->load('uploads')]));
     expect($progress['percent'])->toBe(0)

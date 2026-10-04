@@ -7,6 +7,7 @@ use App\Domains\AI\Actions\AssessFuseboxPhotos;
 use App\Domains\AI\Actions\DerivePhotoAnswers;
 use App\Domains\AI\Actions\PrefillAnswersFromKnownContext;
 use App\Domains\AI\Clients\FakeAiClient;
+use App\Domains\AI\Jobs\AssessUploadedPhotoJob;
 use App\Domains\AI\Models\AiTrace;
 use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\AI\Support\PhotoDerivationProfile;
@@ -30,6 +31,7 @@ use App\Enums\IntakeStatus;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -87,6 +89,9 @@ test('BL-133 fusebox never fills free_group_known and forces low confidence on w
         'evidence' => 'Groepsruimtes lijken bezet; dit is een buitenunit.',
         'retake_instruction' => 'Dit is een buitenunit; we hebben een foto van de meterkast nodig.',
     ]);
+
+    // BL-143: variants run sync; keep AI for the explicit AssessFuseboxPhotos call below.
+    Queue::fake([AssessUploadedPhotoJob::class]);
 
     app(StoreIntakeUpload::class)->handle(
         $intake,
@@ -261,13 +266,19 @@ test('BL-133 each fusebox upload gets its own correlation_id', function () {
     $firstCorrelation = (string) Str::uuid();
     $secondCorrelation = (string) Str::uuid();
 
+    // BL-143: delay AI until after we stamp per-upload correlation ids.
+    Queue::fake([AssessUploadedPhotoJob::class]);
+
     $first = app(StoreIntakeUpload::class)->handle(
         $intake,
         'fusebox_photo',
         null,
         UploadedFile::fake()->image('meter-1.jpg', 1200, 900),
     );
-    $first->forceFill(['processing_timings' => ['correlation_id' => $firstCorrelation]])->save();
+    $first->forceFill(['processing_timings' => array_merge(
+        is_array($first->processing_timings) ? $first->processing_timings : [],
+        ['correlation_id' => $firstCorrelation],
+    )])->save();
 
     $second = app(StoreIntakeUpload::class)->handle(
         $intake,
@@ -275,7 +286,10 @@ test('BL-133 each fusebox upload gets its own correlation_id', function () {
         null,
         UploadedFile::fake()->image('meter-2.jpg', 1400, 1000),
     );
-    $second->forceFill(['processing_timings' => ['correlation_id' => $secondCorrelation]])->save();
+    $second->forceFill(['processing_timings' => array_merge(
+        is_array($second->processing_timings) ? $second->processing_timings : [],
+        ['correlation_id' => $secondCorrelation],
+    )])->save();
 
     app(AssessFuseboxPhotos::class)->handle($intake, correlationId: 'shared-batch-correlation');
 
@@ -309,10 +323,14 @@ test('BL-133 follow-up without decision area still gets content_assessment via j
     ]]);
     $item = $round->items()->firstOrFail();
 
+    // BL-143: variants sync; run AI assessment explicitly via the job helper.
+    Queue::fake([AssessUploadedPhotoJob::class]);
+
     $upload = app(StoreFollowUpUpload::class)->handle(
         $intake->fresh(),
         $item,
-        UploadedFile::fake()->image('extra.jpg', 800, 600),
+        // Shortest side must be >= 640px (PhotoUsabilityHeuristic::MIN_DIMENSION).
+        UploadedFile::fake()->image('extra.jpg', 1280, 960),
     );
 
     runAssessUploadedPhotoJob($upload->id);

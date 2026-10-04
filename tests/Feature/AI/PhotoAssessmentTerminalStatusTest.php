@@ -189,6 +189,7 @@ test('heuristic too_small zet heuristic_rejected zonder AI-queue-wacht', functio
 
     [$intake, $item] = makeTerminalFollowUpIntake();
 
+    // Sync variants already terminal (too_small) → wizard poll-in-upload clears assessing.
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->set('followUpPhotoFiles.'.$item->id, terminalTinyPhoto())
         ->assertSet('uploadPhase', '');

@@ -7,6 +7,7 @@ use App\Domains\AI\Actions\DerivePhotoAnswers;
 use App\Domains\AI\Actions\PrefillAnswersFromKnownContext;
 use App\Domains\AI\Clients\FakeAiClient;
 use App\Domains\AI\Exceptions\AiClientException;
+use App\Domains\AI\Jobs\AssessUploadedPhotoJob;
 use App\Domains\AI\Models\AiTrace;
 use App\Domains\AI\Services\AiTraceHandle;
 use App\Domains\AI\Services\AiTraceRecorder;
@@ -28,6 +29,7 @@ use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -198,6 +200,9 @@ test('mislukte foto-AI wist geen bestaand dossierantwoord', function (string $fi
 
     $fixture = fixturePath($fixtureName);
     expect(is_file($fixture))->toBeTrue();
+
+    // BL-143: variants sync; keep AI for the explicit DerivePhotoAnswers failure below.
+    Queue::fake([AssessUploadedPhotoJob::class]);
 
     $upload = app(StoreIntakeUpload::class)->handle(
         $intake,

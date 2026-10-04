@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Domains\AI\Actions\AssessFuseboxPhotos;
 use App\Domains\AI\Clients\FakeAiClient;
+use App\Domains\AI\Jobs\AssessUploadedPhotoJob;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\Intake\Actions\DeleteIntakeUpload;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
@@ -19,6 +20,7 @@ use App\Livewire\Customer\IntakeWizard;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
@@ -168,6 +170,10 @@ test('assessment is idempotent and deleting its evidence removes the derived sta
 
 test('replacing identical photo bytes during analysis rejects stale upload provenance', function () {
     $intake = makeFuseboxAssessmentIntake();
+
+    // BL-143: keep AI for the explicit AssessFuseboxPhotos call with respondUsing.
+    Queue::fake([AssessUploadedPhotoJob::class]);
+
     $upload = app(StoreIntakeUpload::class)->handle(
         $intake,
         'fusebox_photo',
@@ -201,9 +207,16 @@ test('wizard exposes the photo prefill and a precise retake hint without blockin
         retakeInstruction: 'Neem één foto recht van voren waarop alle groepen en de hoofdschakelaar leesbaar zijn.',
     ));
 
+    Queue::fake([AssessUploadedPhotoJob::class]);
+
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->set('photoFiles.fusebox_photo', UploadedFile::fake()->image('meterkast.jpg', 1200, 900))
-        ->call('assessPendingUploads');
+        ->assertSet('uploadPhase', 'assessing');
+
+    $upload = $intake->fresh()->uploads()->where('question_key', 'fusebox_photo')->firstOrFail();
+    runAssessUploadedPhotoJob($upload->id);
+
+    $component->call('assessPendingUploads');
 
     $hints = $component->get('photoHint');
 
@@ -226,9 +239,16 @@ test('wizard does not ask the customer to reconfirm a high confidence image resu
     $intake = makeFuseboxAssessmentIntake();
     FakeAiClient::alwaysReturn(fuseboxOutput());
 
+    Queue::fake([AssessUploadedPhotoJob::class]);
+
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->set('photoFiles.fusebox_photo', UploadedFile::fake()->image('meterkast.jpg', 1200, 900))
-        ->call('assessPendingUploads');
+        ->assertSet('uploadPhase', 'assessing');
+
+    $upload = $intake->fresh()->uploads()->where('question_key', 'fusebox_photo')->firstOrFail();
+    runAssessUploadedPhotoJob($upload->id);
+
+    $component->call('assessPendingUploads');
 
     $notices = $component->get('prefillNotice');
 

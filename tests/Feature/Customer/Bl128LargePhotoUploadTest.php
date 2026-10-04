@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Domains\AI\Jobs\AssessUploadedPhotoJob;
 use App\Domains\AI\Services\PhotoUsabilityHeuristic;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
+use App\Domains\Intake\Jobs\ProcessIntakePhotoVariantsJob;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeUpload;
@@ -56,6 +57,7 @@ function bl125MeterkastGroot(): UploadedFile
 }
 
 test('large phone photo fixture uploads and keeps original capture resolution', function () {
+    Queue::fake([AssessUploadedPhotoJob::class]);
     $intake = makeBl128Intake();
     $file = bl125MeterkastGroot();
 
@@ -64,7 +66,14 @@ test('large phone photo fixture uploads and keeps original capture resolution', 
         'fusebox_photo',
         null,
         $file,
+        clientOriginalWidth: 3024,
+        clientOriginalHeight: 4032,
     );
+
+    // BL-143: variants are async; run the job to materialize dossier dims.
+    $job = new ProcessIntakePhotoVariantsJob($upload->id, 3024, 4032);
+    app()->call([$job, 'handle']);
+    $upload = $upload->fresh();
 
     expect($upload->processing_timings['original_width'] ?? null)->toBe(3024)
         ->and($upload->processing_timings['original_height'] ?? null)->toBe(4032)
@@ -83,6 +92,7 @@ test('large phone photo fixture uploads and keeps original capture resolution', 
 });
 
 test('client original dimensions survive browser downscale metadata', function () {
+    Queue::fake([AssessUploadedPhotoJob::class]);
     $intake = makeBl128Intake();
 
     // Simuleer een al verkleinde upload (zoals na canvas-downscale) met client-meta van het telefoonorigineel.
@@ -103,6 +113,9 @@ test('client original dimensions survive browser downscale metadata', function (
         clientOriginalWidth: 3024,
         clientOriginalHeight: 4032,
     );
+
+    // variants job runs sync (only Assess is faked)
+    $upload = $upload->fresh();
 
     expect($upload->processing_timings['original_width'] ?? null)->toBe(3024)
         ->and($upload->processing_timings['original_height'] ?? null)->toBe(4032)
@@ -146,6 +159,7 @@ test('wizard accepts large fixture with client originals without wall-clock uplo
 
     $blade = (string) file_get_contents(resource_path('views/livewire/customer/intake-wizard.blade.php'));
     $appJs = (string) file_get_contents(resource_path('js/app.js'));
+    $livewireJs = (string) file_get_contents(resource_path('js/livewire-resilience.js'));
 
     expect($blade)->toContain('armInactivityTimer')
         ->and($blade)->toContain('inactivityMs: 45000')
@@ -155,9 +169,10 @@ test('wizard accepts large fixture with client originals without wall-clock uplo
         ->and($blade)->toContain('livewire-upload-progress')
         ->and($blade)->not->toContain('Uploaden duurde te lang')
         ->and($blade)->not->toContain(', 15000)')
-        ->and($appJs)->toContain('registerLivewireUploadEmptyResponseGuard')
-        ->and($appJs)->toContain('freshSignedUploadUrl')
-        ->and($appJs)->toContain('empty-upload-response');
+        ->and($appJs)->toContain('registerLivewireUploadResilience')
+        ->and($appJs)->toContain('preparePhotoForUpload')
+        ->and($livewireJs)->toContain('freshSignedUploadUrl')
+        ->and($livewireJs)->toContain('empty-upload-response');
 });
 
 test('app upload limit allows up to 8 MB phone photos', function () {

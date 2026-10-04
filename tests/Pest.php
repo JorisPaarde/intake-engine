@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Domains\AI\Jobs\AssessUploadedPhotoJob;
 use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\AI\Support\PhotoSubject;
+use App\Domains\Intake\Jobs\ProcessIntakePhotoVariantsJob;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Enums\PhotoAssessmentStatus;
 use App\Enums\PhotoUsabilityVerdict;
@@ -78,4 +79,24 @@ function markTestUploadSatisfied(IntakeUpload $upload): IntakeUpload
     ])->save();
 
     return $upload->fresh();
+}
+
+/**
+ * Run ProcessIntakePhotoVariantsJob synchronously (BL-143 async decode/resize).
+ * Use after StoreIntakeUpload when Queue::fake() prevented the job from running.
+ */
+function runProcessIntakePhotoVariantsJob(
+    int $uploadId,
+    ?int $clientOriginalWidth = null,
+    ?int $clientOriginalHeight = null,
+    ?string $correlationId = null,
+): void {
+    $job = new ProcessIntakePhotoVariantsJob(
+        $uploadId,
+        $clientOriginalWidth,
+        $clientOriginalHeight,
+        $correlationId,
+    );
+
+    app()->call([$job, 'handle']);
 }
