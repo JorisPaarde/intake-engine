@@ -11,19 +11,39 @@ use App\Enums\AircoPlacementType;
 use App\Enums\FollowUpItemType;
 
 /**
- * JSON Schema for OpenAI/OpenRouter strict structured output (dossier synthesis).
- * Encodes enums, required fields and reference formats. Cardinality and
- * cross-references remain server-validated (partial acceptance).
+ * JSON Schema for structured dossier-synthesis output.
+ *
+ * Wire format is intentionally a Gemini/OpenRouter-safe subset: type, enum,
+ * properties, required, additionalProperties, items, minimum/maximum.
+ * Cardinality (minItems), patterns and maxLength stay server-validated via
+ * {@see DossierSynthesisPartialAcceptor} — those keywords 400 on several
+ * Google endpoints when sent under response_format.json_schema.
  */
 final class DossierSynthesisJsonSchema
 {
-    private const string PLACEMENT_REF = '^(placement:[0-9]+|proposal:[a-z0-9_]+)$';
-
-    private const string PROPOSAL_KEY = '^proposal:[a-z0-9_]+$';
-
-    private const string ROOM_REF = '^room:[0-9]+$';
-
-    private const string SUBJECT_REF = '^subject:[0-9]+$';
+    /**
+     * Keywords rejected by Gemini structured-output endpoints (via OpenRouter).
+     * Kept as documentation for the payload contract tests.
+     *
+     * @var list<string>
+     */
+    public const UNSUPPORTED_WIRE_KEYWORDS = [
+        'pattern',
+        'maxLength',
+        'minLength',
+        'minItems',
+        'maxItems',
+        'format',
+        'oneOf',
+        'anyOf',
+        'allOf',
+        '$ref',
+        '$defs',
+        'definitions',
+        'unevaluatedProperties',
+        'propertyNames',
+        'patternProperties',
+    ];
 
     /**
      * @return array<string, mixed>
@@ -41,25 +61,21 @@ final class DossierSynthesisJsonSchema
                 'customer_tasks',
             ],
             'properties' => [
-                'summary' => ['type' => 'string', 'maxLength' => 800],
+                'summary' => ['type' => 'string'],
                 'placement_proposals' => [
                     'type' => 'array',
-                    'maxItems' => 20,
                     'items' => $this->placementProposal(),
                 ],
                 'option_proposals' => [
                     'type' => 'array',
-                    'maxItems' => 3,
                     'items' => $this->optionProposal(),
                 ],
                 'exceptions' => [
                     'type' => 'array',
-                    'maxItems' => 20,
                     'items' => $this->exceptionItem(),
                 ],
                 'customer_tasks' => [
                     'type' => 'array',
-                    'maxItems' => 3,
                     'items' => $this->customerTask(),
                 ],
             ],
@@ -81,6 +97,32 @@ final class DossierSynthesisJsonSchema
         ];
     }
 
+    /**
+     * Recursively assert the schema contains no Gemini-unsupported keywords.
+     *
+     * @param  array<string, mixed>  $node
+     * @return list<string>
+     */
+    public function unsupportedKeywordsIn(array $node): array
+    {
+        $found = [];
+        $stack = [$node];
+
+        while ($stack !== []) {
+            $current = array_pop($stack);
+            foreach ($current as $key => $value) {
+                if (is_string($key) && in_array($key, self::UNSUPPORTED_WIRE_KEYWORDS, true)) {
+                    $found[] = $key;
+                }
+                if (is_array($value)) {
+                    $stack[] = $value;
+                }
+            }
+        }
+
+        return array_values(array_unique($found));
+    }
+
     /** @return array<string, mixed> */
     private function placementProposal(): array
     {
@@ -98,24 +140,20 @@ final class DossierSynthesisJsonSchema
                 'evidence_references',
             ],
             'properties' => [
-                'key' => ['type' => 'string', 'pattern' => self::PROPOSAL_KEY],
+                'key' => ['type' => 'string'],
                 'type' => ['type' => 'string', 'enum' => array_map(
                     static fn (AircoPlacementType $case): string => $case->value,
                     AircoPlacementType::cases(),
                 )],
-                'label' => ['type' => 'string', 'maxLength' => 160],
-                'description' => ['type' => 'string', 'maxLength' => 1500],
-                'room_reference' => [
-                    'type' => ['string', 'null'],
-                    'pattern' => self::ROOM_REF,
-                ],
-                'subject_reference' => ['type' => 'string', 'pattern' => self::SUBJECT_REF],
+                'label' => ['type' => 'string'],
+                'description' => ['type' => 'string'],
+                // Nullable as type union (Gemini-supported); pattern enforced server-side.
+                'room_reference' => ['type' => ['string', 'null']],
+                'subject_reference' => ['type' => 'string'],
                 'confidence' => ['type' => 'number', 'minimum' => 0, 'maximum' => 1],
                 'evidence_references' => [
                     'type' => 'array',
-                    'minItems' => 1,
-                    'maxItems' => 20,
-                    'items' => ['type' => 'string', 'maxLength' => 160],
+                    'items' => ['type' => 'string'],
                 ],
             ],
         ];
@@ -137,24 +175,20 @@ final class DossierSynthesisJsonSchema
                 'connections',
             ],
             'properties' => [
-                'label' => ['type' => 'string', 'maxLength' => 160],
+                'label' => ['type' => 'string'],
                 'configuration_type' => ['type' => 'string', 'enum' => array_map(
                     static fn (AircoConfigurationType $case): string => $case->value,
                     AircoConfigurationType::cases(),
                 )],
-                'summary' => ['type' => 'string', 'maxLength' => 2000],
+                'summary' => ['type' => 'string'],
                 'cost_impact' => ['type' => 'string', 'enum' => ['low', 'medium', 'high', 'unknown']],
                 'confidence' => ['type' => 'number', 'minimum' => 0, 'maximum' => 1],
                 'placement_references' => [
                     'type' => 'array',
-                    'minItems' => 2,
-                    'maxItems' => 20,
-                    'items' => ['type' => 'string', 'pattern' => self::PLACEMENT_REF],
+                    'items' => ['type' => 'string'],
                 ],
                 'connections' => [
                     'type' => 'array',
-                    'minItems' => 3,
-                    'maxItems' => 40,
                     'items' => $this->connection(),
                 ],
             ],
@@ -186,15 +220,9 @@ final class DossierSynthesisJsonSchema
                     static fn (AircoConnectionType $case): string => $case->value,
                     AircoConnectionType::cases(),
                 )],
-                'label' => ['type' => 'string', 'maxLength' => 180],
-                'from_placement_reference' => [
-                    'type' => ['string', 'null'],
-                    'pattern' => self::PLACEMENT_REF,
-                ],
-                'to_placement_reference' => [
-                    'type' => ['string', 'null'],
-                    'pattern' => self::PLACEMENT_REF,
-                ],
+                'label' => ['type' => 'string'],
+                'from_placement_reference' => ['type' => ['string', 'null']],
+                'to_placement_reference' => ['type' => ['string', 'null']],
                 'status' => ['type' => 'string', 'enum' => [
                     AircoConnectionStatus::Proposed->value,
                     AircoConnectionStatus::NeedsEvidence->value,
@@ -203,26 +231,21 @@ final class DossierSynthesisJsonSchema
                 'length_class' => ['type' => 'string', 'enum' => ['short', 'medium', 'long', 'unknown']],
                 'segments' => [
                     'type' => 'array',
-                    'maxItems' => 20,
-                    'items' => ['type' => 'string', 'maxLength' => 200],
+                    'items' => ['type' => 'string'],
                 ],
                 'obstacles' => [
                     'type' => 'array',
-                    'maxItems' => 20,
-                    'items' => ['type' => 'string', 'maxLength' => 200],
+                    'items' => ['type' => 'string'],
                 ],
                 'uncertainties' => [
                     'type' => 'array',
-                    'maxItems' => 20,
-                    'items' => ['type' => 'string', 'maxLength' => 200],
+                    'items' => ['type' => 'string'],
                 ],
                 'cost_impact' => ['type' => 'string', 'enum' => ['low', 'medium', 'high', 'unknown']],
                 'confidence' => ['type' => 'number', 'minimum' => 0, 'maximum' => 1],
                 'evidence_references' => [
                     'type' => 'array',
-                    'minItems' => 1,
-                    'maxItems' => 20,
-                    'items' => ['type' => 'string', 'maxLength' => 160],
+                    'items' => ['type' => 'string'],
                 ],
             ],
         ];
@@ -242,17 +265,15 @@ final class DossierSynthesisJsonSchema
                 'evidence_references',
             ],
             'properties' => [
-                'code' => ['type' => 'string', 'maxLength' => 100, 'pattern' => '^[a-z0-9_]+$'],
-                'label' => ['type' => 'string', 'maxLength' => 500],
+                'code' => ['type' => 'string'],
+                'label' => ['type' => 'string'],
                 'decision_area_key' => ['type' => 'string', 'enum' => [
                     'request', 'capacity', 'placement', 'refrigerant', 'condensate', 'power', 'cost_risks',
                 ]],
                 'confidence' => ['type' => 'string', 'enum' => ['low', 'medium', 'high']],
                 'evidence_references' => [
                     'type' => 'array',
-                    'minItems' => 1,
-                    'maxItems' => 20,
-                    'items' => ['type' => 'string', 'maxLength' => 160],
+                    'items' => ['type' => 'string'],
                 ],
             ],
         ];
@@ -277,19 +298,15 @@ final class DossierSynthesisJsonSchema
                     static fn (FollowUpItemType $case): string => $case->value,
                     FollowUpItemType::cases(),
                 )],
-                'prompt' => ['type' => 'string', 'maxLength' => 500],
+                'prompt' => ['type' => 'string'],
                 'decision_area_key' => ['type' => 'string', 'enum' => [
                     'request', 'capacity', 'placement', 'refrigerant', 'condensate', 'power', 'cost_risks',
                 ]],
-                'subject_reference' => [
-                    'type' => ['string', 'null'],
-                    'pattern' => self::SUBJECT_REF,
-                ],
-                'reason' => ['type' => 'string', 'maxLength' => 500],
+                'subject_reference' => ['type' => ['string', 'null']],
+                'reason' => ['type' => 'string'],
                 'evidence_references' => [
                     'type' => 'array',
-                    'maxItems' => 20,
-                    'items' => ['type' => 'string', 'maxLength' => 160],
+                    'items' => ['type' => 'string'],
                 ],
             ],
         ];

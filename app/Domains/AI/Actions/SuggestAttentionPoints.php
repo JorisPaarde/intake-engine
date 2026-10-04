@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\AI\Actions;
 
+use App\Domains\AI\Exceptions\AiClientException;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\AiGateway;
 use App\Domains\AI\Services\AiTraceHandle;
@@ -43,6 +44,9 @@ final class SuggestAttentionPoints
     {
         $run = null;
         $trace = null;
+        $model = (string) config('ai.model', 'gpt-4o-mini');
+        $temperature = (float) config('ai.temperature', 0.2);
+        $timeoutSeconds = max(1, (int) config('ai.timeout_seconds', 20));
 
         try {
             $promptName = (string) config('ai.attention_points_prompt', 'attention_points');
@@ -51,12 +55,19 @@ final class SuggestAttentionPoints
             $provider = (string) config('ai.provider', 'null');
             $payload = $this->contextBuilder->build($intake);
             $inputHash = $this->payloadHash($payload);
+            $modelParameters = [
+                'model' => $model,
+                'temperature' => $temperature,
+                'timeout_seconds' => $timeoutSeconds,
+                'response_format_type' => 'json_object',
+                'schema' => $promptVersion,
+            ];
 
             $run = AiRun::query()->create([
                 'intake_id' => $intake->id,
                 'type' => AiRunType::AttentionPoints,
                 'provider' => $provider,
-                'model' => null,
+                'model' => $model,
                 'prompt_version' => $promptVersion,
                 'input_hash' => $inputHash,
                 'output' => null,
@@ -67,7 +78,9 @@ final class SuggestAttentionPoints
             $trace = $this->traceRecorder->start($intake, AiTraceCallType::AttentionPoints, [
                 'ai_run_id' => $run->id,
                 'provider' => $provider,
+                'model' => $model,
                 'prompt_version' => $promptVersion,
+                'model_parameters' => $modelParameters,
             ]);
 
             $trace->recordRequest(
@@ -76,12 +89,16 @@ final class SuggestAttentionPoints
                     'user' => $payload,
                 ],
                 promptVersion: $promptVersion,
+                modelParameters: $modelParameters,
             );
 
             $result = $this->aiGateway->complete(
                 prompt: $promptBody,
                 input: $payload,
                 promptVersion: $promptVersion,
+                model: $model,
+                temperature: $temperature,
+                timeoutSeconds: $timeoutSeconds,
             );
             $trace->recordProviderResult($result);
 
@@ -93,7 +110,7 @@ final class SuggestAttentionPoints
                 throw $exception;
             }
 
-            $completionAttributes = $run->completionResultAttributes($result) + [
+            $completionAttributes = $run->completionResultAttributes($result, $model) + [
                 'status' => AiRunStatus::Succeeded,
                 'output' => ['points' => $points],
                 'finished_at' => now(),
@@ -112,19 +129,36 @@ final class SuggestAttentionPoints
 
             return $run->fresh() ?? $run;
         } catch (Throwable $e) {
+            $errorClass = $e instanceof AiClientException
+                ? ($e->errorClass ?? class_basename($e))
+                : ($e instanceof ValidationException ? 'validation' : class_basename($e));
+
             Log::warning('AI attention points failed', [
                 'intake_id' => $intake->id,
                 'ai_run_id' => $run?->id,
                 'ai_trace_id' => $trace?->traceId(),
+                'error_class' => $errorClass,
                 'message' => $e->getMessage(),
             ]);
 
             if ($run !== null) {
-                $run->update([
+                $failAttributes = [
                     'status' => AiRunStatus::Failed,
+                    'model' => $model,
                     'error_message' => Str::limit($e->getMessage(), 1000, ''),
                     'finished_at' => now(),
-                ]);
+                ];
+                if ($e instanceof AiClientException) {
+                    if (is_string($e->model) && $e->model !== '') {
+                        $failAttributes['model'] = $e->model;
+                    }
+                    if (is_array($e->usage)) {
+                        $failAttributes['input_tokens'] = $e->usage['input_tokens'] ?? null;
+                        $failAttributes['output_tokens'] = $e->usage['output_tokens'] ?? null;
+                        $failAttributes['total_tokens'] = $e->usage['total_tokens'] ?? null;
+                    }
+                }
+                $run->update($failAttributes);
                 $trace?->linkAiRun($run->fresh() ?? $run);
                 $trace?->discardBuffer();
                 $trace?->fail($e->getMessage(), $e);

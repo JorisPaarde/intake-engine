@@ -4,6 +4,11 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Fixed
+
+- **Dossiersynthese HTTP 400 op Gemini/OpenRouter (prod intake 95 / run 357) + incomplete connections (intake 94 / run-336):** `OpenAiClient` stuurt voor Google/Gemini-modellen `response_format: json_object` i.p.v. strikte `json_schema` (keywords als `pattern`/`minItems`/`maxLength` → 400). Wire-schema is Gemini-veilige subset; cardinaliteit blijft server-side. Incomplete options (2 connections) droppen alleen die optie (`partial`); geldige placements blijven (run-336 fixture). Provider-`error.message` komt in de exception/`ai_runs.error_message`. Prompt `dossier-synthesis-v7`.
+- **Aandachtspunten: verkeerd model in trace + afgekapte JSON als “ongeldige JSON” (prod intake 94):** `SuggestAttentionPoints` gaf geen model/temperature/timeout door → `ai_runs.model` null en trace-fallback `model=provider` (“openai”). Nu dezelfde `AI_MODEL`/parameters als overige calls; afgekapte JSON krijgt 1 retry en `error_class=truncated/provider_error`.
+
 ### Changed
 
 - **Photo-assessment watchdog + cPanel-cron (LVE 512 MB):** `photos:requeue-pending-assessments` van `everyMinute()` naar `everyFiveMinutes()` (upload dispatcht de AI-job meteen; watchdog is alleen vangnet). Docs: crontab mag **alleen** `schedule:run` bevatten — géén aparte `queue:work --stop-when-empty` (die worker start de scheduler al); dubbele minutelijke PHP-processen duwen LVE over 512 MB → 503.
