@@ -37,6 +37,7 @@ final class HealthController extends Controller
                 'upload_max_filesize' => (string) ini_get('upload_max_filesize'),
                 'post_max_size' => (string) ini_get('post_max_size'),
                 'max_file_uploads' => (int) ini_get('max_file_uploads'),
+                'memory_limit' => (string) ini_get('memory_limit'),
                 'app_max_kilobytes' => (int) config('intake.uploads.max_kilobytes'),
             ],
             'image_conversion' => [

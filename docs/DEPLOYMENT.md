@@ -1,6 +1,6 @@
 # Deployment naar cPanel (staging + production)
 
-> **Documentversie:** 2.26 · **Laatste update:** 2026-10-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.27 · **Laatste update:** 2026-10-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 **Statusregel:** staging en production zijn fysiek en logisch gescheiden; open handmatige acties (env/host) staan in [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
 
@@ -151,7 +151,7 @@ Production (identiek, ander pad):
 php artisan queue:work --queue=ai-photo,default --max-time=3300 --memory=256 --sleep=1 --tries=2
 ```
 
-met `everyMinute()`, `withoutOverlapping(60)` (mutex-expiry > max-time) en `runInBackground()`. Laravel roept na afloop `schedule:finish` aan en geeft de mutex vrij — na `queue:restart` (deploy) start de volgende `schedule:run` dus weer een worker (binnen ~1 min, of tot ~3 min met `RANDOM_DELAY`).
+met `everyMinute()`, `withoutOverlapping(60)` (mutex-expiry > max-time) en `runInBackground()`. `--memory=256` is Laravel’s worker-restartthreshold (MB), geconfigureerd via `intake.php.queue_worker_memory_mb` — gelijk aan de bestaande staging/prod-worker. CLI negeert `public/.user.ini`; hosting CLI staat al op 256M, dus `AppServiceProvider` is alleen een vangnet voor `-1`/te lage defaults (`intake.php.cli_memory_limit`). Laravel roept na afloop `schedule:finish` aan en geeft de mutex vrij — na `queue:restart` (deploy) start de volgende `schedule:run` dus weer een worker (binnen ~1 min, of tot ~3 min met `RANDOM_DELAY`).
 
 **Photo-assessment watchdog:** `photos:requeue-pending-assessments` draait via dezelfde scheduler op `everyFiveMinutes()` (niet elke minuut). Upload dispatcht de AI-job meteen; de watchdog is alleen een vangnet voor verloren pending.
 
@@ -373,7 +373,7 @@ Volledige checklist van open host-/env-acties: [§ Handmatige acties producteige
 
 Foto-uploads (Fase 4) vereisen limieten ≥ applicatielimiet (8 MB per bestand).
 
-**Voorkeur (in git):** `public/.user.ini` zet `upload_max_filesize=10M`, `post_max_size=12M`, `max_file_uploads=20`, `memory_limit=512M`. Die file gaat mee met elke release naar de document root.
+**Voorkeur (in git):** `public/.user.ini` zet `upload_max_filesize=10M`, `post_max_size=12M`, `max_file_uploads=20`, `memory_limit=256M` (BL-141; was 512M in git terwijl selector-standaard web al 256M was). Die file gaat mee met elke release naar de document root. CLI (queue/cron) leest `.user.ini` niet; hosting CLI is al 256M — app-vangnet + queue `--memory=256`.
 
 **Meten na deploy (geen SSH):**
 

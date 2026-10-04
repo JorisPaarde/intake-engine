@@ -98,6 +98,7 @@ final class PhotoUploadNormalizer
      */
     private function createWithImagick(string $sourcePath, string $dossierPath, string $analysisPath): array
     {
+        $this->applyImagickResourceLimits();
         $source = new Imagick;
 
         try {
@@ -123,10 +124,15 @@ final class PhotoUploadNormalizer
             $originalWidth = max(1, $source->getImageWidth());
             $originalHeight = max(1, $source->getImageHeight());
 
+            $dossierMax = (int) config('intake.uploads.dossier.max_long_edge', 2048);
+            // Shrink the working image to dossier size before cloning variants so a
+            // 12 MP source is not held alongside dossier/analysis clones (BL-141).
+            $this->resizeImagick($source, $dossierMax);
+
             $dossierDims = $this->writeImagickVariant(
                 $source,
                 $dossierPath,
-                (int) config('intake.uploads.dossier.max_long_edge', 2048),
+                $dossierMax,
                 (int) config('intake.uploads.dossier.jpeg_quality', 82),
             );
             $analysisDims = $this->writeImagickVariant(
@@ -148,6 +154,15 @@ final class PhotoUploadNormalizer
             $source->clear();
             $source->destroy();
         }
+    }
+
+    private function applyImagickResourceLimits(): void
+    {
+        $memory = max(32 * 1024 * 1024, (int) config('intake.uploads.imagick_memory_bytes', 128 * 1024 * 1024));
+        $map = max($memory, (int) config('intake.uploads.imagick_map_bytes', 192 * 1024 * 1024));
+
+        Imagick::setResourceLimit(Imagick::RESOURCETYPE_MEMORY, $memory);
+        Imagick::setResourceLimit(Imagick::RESOURCETYPE_MAP, $map);
     }
 
     /**
@@ -233,6 +248,7 @@ final class PhotoUploadNormalizer
 
         $binary = file_get_contents($sourcePath);
         $image = $binary === false ? false : @imagecreatefromstring($binary);
+        unset($binary);
 
         if (! $image instanceof GdImage) {
             throw new \RuntimeException('Foto kon niet met GD worden gelezen.');
@@ -242,10 +258,15 @@ final class PhotoUploadNormalizer
             $image = $this->orientGd($image, $sourcePath, $mime);
             $originalWidth = max(1, imagesx($image));
             $originalHeight = max(1, imagesy($image));
+
+            $dossierMax = (int) config('intake.uploads.dossier.max_long_edge', 2048);
+            // Drop full-resolution pixels before writing variants (BL-141).
+            $image = $this->downscaleGdWorkingImage($image, $dossierMax);
+
             $dossierDims = $this->writeGdVariant(
                 $image,
                 $dossierPath,
-                (int) config('intake.uploads.dossier.max_long_edge', 2048),
+                $dossierMax,
                 (int) config('intake.uploads.dossier.jpeg_quality', 82),
             );
             $analysisDims = $this->writeGdVariant(
@@ -266,6 +287,37 @@ final class PhotoUploadNormalizer
         } finally {
             imagedestroy($image);
         }
+    }
+
+    private function downscaleGdWorkingImage(GdImage $image, int $maxLongEdge): GdImage
+    {
+        if ($maxLongEdge <= 0) {
+            return $image;
+        }
+
+        $sourceWidth = imagesx($image);
+        $sourceHeight = imagesy($image);
+        $longEdge = max($sourceWidth, $sourceHeight);
+
+        if ($longEdge <= $maxLongEdge) {
+            return $image;
+        }
+
+        $scale = $maxLongEdge / $longEdge;
+        $width = max(1, (int) round($sourceWidth * $scale));
+        $height = max(1, (int) round($sourceHeight * $scale));
+        $scaled = imagecreatetruecolor($width, $height);
+
+        if (! $scaled instanceof GdImage) {
+            throw new \RuntimeException('JPEG-variant kon niet worden aangemaakt.');
+        }
+
+        $white = imagecolorallocate($scaled, 255, 255, 255);
+        imagefill($scaled, 0, 0, $white);
+        imagecopyresampled($scaled, $image, 0, 0, 0, 0, $width, $height, $sourceWidth, $sourceHeight);
+        imagedestroy($image);
+
+        return $scaled;
     }
 
     private function orientGd(GdImage $image, string $sourcePath, string $mime): GdImage

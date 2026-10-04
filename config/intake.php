@@ -123,6 +123,9 @@ return [
             'max_long_edge' => (int) env('INTAKE_ANALYSIS_MAX_LONG_EDGE', 1536),
             'jpeg_quality' => (int) env('INTAKE_ANALYSIS_JPEG_QUALITY', 80),
         ],
+        // Imagick pixel-cache caps (bytes). Outside PHP memory_get_peak_usage; keeps RSS under host PMEM.
+        'imagick_memory_bytes' => (int) env('INTAKE_IMAGICK_MEMORY_BYTES', 128 * 1024 * 1024),
+        'imagick_map_bytes' => (int) env('INTAKE_IMAGICK_MAP_BYTES', 192 * 1024 * 1024),
         'accepted_mimes' => [
             'image/jpeg',
             'image/png',
@@ -136,6 +139,23 @@ return [
         'stored_mimes' => ['image/jpeg'],
         'stored_extensions' => ['jpg', 'jpeg'],
         'document_mimes' => ['application/pdf'],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | PHP memory (web vs CLI)
+    |--------------------------------------------------------------------------
+    |
+    | Web (LSAPI): public/.user.ini memory_limit=256M (BL-141). CLI ignores .user.ini.
+    | Hosting CLI is already 256M; AppServiceProvider only caps unlimited (-1) or
+    | raises a too-low default (vangnet). Queue --memory is Laravel's worker restart
+    | threshold in MB (not PHP memory_limit); keep aligned with CLI at 256.
+    |
+    */
+
+    'php' => [
+        'cli_memory_limit' => (string) env('PHP_CLI_MEMORY_LIMIT', '256M'),
+        'queue_worker_memory_mb' => (int) env('QUEUE_WORKER_MEMORY_MB', 256),
     ],
 
 ];
