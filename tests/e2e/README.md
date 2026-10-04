@@ -55,7 +55,7 @@ php artisan queue:work --queue=ai-photo,default --sleep=1 --tries=2
 |---------|--------|
 | `specs/01-wizard-happy-path.spec.ts` | Lege woonkamer → bedankt, geen raw keys |
 | `specs/02-large-photo-upload.spec.ts` | 12 MP progressive JPEG meterkast + client-downscale |
-| `specs/03-livewire-503-retry.spec.ts` | 503-retry (momenteel `test.fail` tot upload-robustness landt) |
+| `specs/03-livewire-503-retry.spec.ts` | 503-retry (`test.fail` = expected-fail; telt als passed, breekt CI niet) |
 | `specs/04-targeted-customer-task.spec.ts` | Follow-up wrong/low-res + Toch versturen |
 | `specs/05-photo-feedback.spec.ts` | Geen dubbele/stale feedback |
 | `specs/06-progress.spec.ts` | % en Vraag X van Y consistent |
