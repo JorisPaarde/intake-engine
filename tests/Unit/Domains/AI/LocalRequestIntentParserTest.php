@@ -13,6 +13,7 @@ test('it reads the explicit installer sentence without treating the attic as a t
         ->and($result['cooling_heating'])->toBe('cooling')
         ->and($result['rooms'])->toBe(['bedroom', 'bedroom'])
         ->and($result['floor_level'])->toBe('attic')
+        ->and($result['room_floors'])->toBe(['attic', 'attic'])
         ->and($result['confidence'])->toBe('high')
         ->and($result)->not->toHaveKey('outdoor_location');
 });
@@ -29,7 +30,8 @@ test('it reads two separately named physical rooms', function () {
     expect($result)->not->toBeNull()
         ->and($result['cooling_heating'])->toBe('cooling')
         ->and($result['rooms'])->toBe(['bedroom', 'living_room'])
-        ->and($result['floor_level'])->toBeNull();
+        ->and($result['floor_level'])->toBeNull()
+        ->and($result['room_floors'])->toBe([null, null]);
 });
 
 test('it does not guess the count from an unquantified plural room', function () {

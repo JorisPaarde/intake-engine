@@ -6,6 +6,7 @@ namespace App\Domains\AI\Services;
 
 use App\Domains\AI\DTOs\RequestPrefillCandidate;
 use App\Domains\AI\Support\OwnershipNormalizer;
+use App\Domains\AI\Support\RoomFloorLevelExtractor;
 use App\Domains\Intake\Support\FactAcceptance;
 use App\Domains\Intake\Support\FactProvenance;
 use App\Domains\Intake\Support\FactSource;
@@ -27,6 +28,10 @@ final class RequestPrefillOutcomeClassifier
     private const int FILL_EVIDENCE_MAX = 300;
 
     private const int FILLS_SOFT_MAX = 80;
+
+    public function __construct(
+        private readonly RoomFloorLevelExtractor $floorExtractor = new RoomFloorLevelExtractor,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $output
@@ -375,22 +380,71 @@ final class RequestPrefillOutcomeClassifier
                 ];
             }
 
-            // Genummerde verdieping in openingszin wint van AI-“attic”/zolder.
-            if ($key === 'floor_level' && is_string($requestReason)) {
-                $preferredFloor = $this->preferredFloorLevelFromRequest($requestReason, $catalog);
-                if ($preferredFloor !== null && ($normalized['value'] ?? null) !== $preferredFloor) {
+            // Verdieping alleen per duidelijk gekoppelde ruimte — nooit globaal of begane-grond-default.
+            if ($key === 'floor_level' && is_string($requestReason) && $instanceKey !== null) {
+                $roomsResolvable = $this->roomTypesFromFills($rawFills) !== [];
+                $linkedFloor = $this->linkedFloorLevelForInstance(
+                    $requestReason,
+                    $instanceKey,
+                    $rawFills,
+                    $catalog,
+                );
+                $hasFloorCue = $this->requestHasFloorCue($requestReason);
+                $numbered = $this->floorExtractor->numberedFloorFromText($requestReason);
+
+                if ($linkedFloor !== null && ($normalized['value'] ?? null) !== $linkedFloor) {
                     $normalizations[] = [
-                        'field' => $instanceKey === null ? $key : $key.'|'.$instanceKey,
+                        'field' => $key.'|'.$instanceKey,
                         'from' => $normalized['value'] ?? null,
-                        'to' => $preferredFloor,
-                        'rule' => 'floor_level_prefer_numbered',
+                        'to' => $linkedFloor,
+                        'rule' => 'floor_level_per_room_link',
                     ];
-                    $normalized = ['value' => $preferredFloor];
+                    $normalized = ['value' => $linkedFloor];
                     $fillEvidence = $this->floorEvidenceQuote($requestReason) ?? $fillEvidence;
                     $provenance = FactProvenance::Stated;
                     $factSource = FactSource::CustomerAnswer;
                     $confidence = 'high';
                     $confidencePercent = FactAcceptance::LEVEL_HIGH;
+                } elseif (
+                    ($normalized['value'] ?? null) === 'attic'
+                    && $numbered !== null
+                ) {
+                    $numberedAnswer = $this->floorLevelAnswer($catalog, $numbered);
+                    $numberedValue = is_array($numberedAnswer) ? ($numberedAnswer['value'] ?? null) : null;
+                    if (is_string($numberedValue) && $numberedValue !== 'attic') {
+                        $normalizations[] = [
+                            'field' => $key.'|'.$instanceKey,
+                            'from' => 'attic',
+                            'to' => $numberedValue,
+                            'rule' => 'floor_level_prefer_numbered',
+                        ];
+                        $normalized = ['value' => $numberedValue];
+                        $fillEvidence = $this->floorEvidenceQuote($requestReason) ?? $fillEvidence;
+                        $provenance = FactProvenance::Stated;
+                        $factSource = FactSource::CustomerAnswer;
+                        $confidence = 'high';
+                        $confidencePercent = FactAcceptance::LEVEL_HIGH;
+                    }
+                } elseif (! $hasFloorCue || ($roomsResolvable && $linkedFloor === null)) {
+                    $reason = ! $hasFloorCue
+                        ? 'Geen verdieping in de openingszin — niet stil invullen (geen begane-grond-default).'
+                        : 'Verdieping niet eenduidig aan deze ruimte gekoppeld — leeg laten voor klantbevestiging.';
+                    $candidates[] = new RequestPrefillCandidate(
+                        questionKey: $key,
+                        sectionInstanceKey: $instanceKey,
+                        label: $label,
+                        value: $normalized,
+                        confidence: $confidence,
+                        evidence: $fillEvidence,
+                        disposition: RequestPrefillCandidate::DISPOSITION_REJECTED,
+                        source: RequestPrefillCandidate::SOURCE_CATALOG_AI,
+                        reason: $reason,
+                        provenance: $provenance,
+                        confidencePercent: $confidencePercent,
+                        factSource: $factSource,
+                    );
+
+                    continue;
                 }
             }
 
@@ -562,6 +616,7 @@ final class RequestPrefillOutcomeClassifier
      *     cooling_heating: string,
      *     rooms: list<string>,
      *     floor_level: string|null,
+     *     room_floors?: list<string|null>,
      *     confidence: string,
      *     evidence?: string
      * }  $output
@@ -621,10 +676,12 @@ final class RequestPrefillOutcomeClassifier
             source: RequestPrefillCandidate::SOURCE_LOCAL,
         );
 
-        $floorLevel = $output['floor_level'] ?? null;
-        $floorAnswer = is_string($floorLevel) && $floorLevel !== ''
-            ? $this->floorLevelAnswer($catalog, $floorLevel)
-            : null;
+        /** @var list<string|null> $roomFloors */
+        $roomFloors = $output['room_floors'] ?? [];
+        if ($roomFloors === [] && is_string($output['floor_level'] ?? null) && $output['floor_level'] !== '') {
+            // Legacy local output zonder room_floors: alleen delen als elke ruimte dezelfde floor heeft.
+            $roomFloors = array_fill(0, count($rooms), $output['floor_level']);
+        }
 
         foreach ($rooms as $index => $roomType) {
             $instanceKey = 'room-'.($index + 1);
@@ -639,6 +696,11 @@ final class RequestPrefillOutcomeClassifier
                 disposition: RequestPrefillCandidate::DISPOSITION_FILL,
                 source: RequestPrefillCandidate::SOURCE_LOCAL,
             );
+
+            $floorLevel = $roomFloors[$index] ?? null;
+            $floorAnswer = is_string($floorLevel) && $floorLevel !== ''
+                ? $this->floorLevelAnswer($catalog, $floorLevel)
+                : null;
 
             if ($floorAnswer !== null) {
                 $candidates[] = new RequestPrefillCandidate(
@@ -937,28 +999,67 @@ final class RequestPrefillOutcomeClassifier
     }
 
     /**
-     * @param  array<string, mixed>  $catalog
+     * @param  list<mixed>  $rawFills
+     * @return array<string, string> section_instance_key => room_type
      */
-    private function preferredFloorLevelFromRequest(string $requestReason, array $catalog): ?string
+    private function roomTypesFromFills(array $rawFills): array
     {
-        $normalized = mb_strtolower(trim($requestReason), 'UTF-8');
-        $normalized = str_replace(['’', '‘', '´'], "'", $normalized);
-
-        $floor = null;
-        if (preg_match('/\b(?:kelder|souterrain)\b/u', $normalized) === 1) {
-            $floor = 'basement';
-        } elseif (preg_match('/\bbegane\s+grond\b/u', $normalized) === 1) {
-            $floor = 'ground';
-        } elseif (preg_match('/\b(?P<ord>1(?:e|ste)?|eerste|2(?:e|de)?|tweede|3(?:e|de)?|derde|[4-9](?:e|de)?)\s+verdieping\b/u', $normalized, $matches) === 1) {
-            $ord = mb_strtolower((string) $matches['ord'], 'UTF-8');
-            $floor = match (true) {
-                str_starts_with($ord, '1') || $ord === 'eerste' => '1',
-                str_starts_with($ord, '2') || $ord === 'tweede' => '2',
-                default => '3_plus',
-            };
+        $roomsByInstance = [];
+        foreach ($rawFills as $fill) {
+            if (! is_array($fill)) {
+                continue;
+            }
+            if (($fill['question_key'] ?? null) !== 'room_type') {
+                continue;
+            }
+            $fillInstance = $fill['section_instance_key'] ?? null;
+            if (! is_string($fillInstance) || $fillInstance === '') {
+                continue;
+            }
+            $value = $fill['value']['value'] ?? null;
+            if (is_string($value) && $value !== '') {
+                $roomsByInstance[$fillInstance] = $value;
+            }
         }
 
-        if ($floor === null) {
+        ksort($roomsByInstance, SORT_NATURAL);
+
+        return $roomsByInstance;
+    }
+
+    /**
+     * @param  list<mixed>  $rawFills
+     * @param  array<string, mixed>  $catalog
+     */
+    private function linkedFloorLevelForInstance(
+        string $requestReason,
+        string $instanceKey,
+        array $rawFills,
+        array $catalog,
+    ): ?string {
+        if (preg_match('/^room-(\d+)$/', $instanceKey, $matches) !== 1) {
+            return null;
+        }
+
+        $roomIndex = ((int) $matches[1]) - 1;
+        if ($roomIndex < 0) {
+            return null;
+        }
+
+        $roomsByInstance = $this->roomTypesFromFills($rawFills);
+        if ($roomsByInstance === []) {
+            return null;
+        }
+
+        /** @var list<'living_room'|'bedroom'|'office'|'attic'|'other'> $rooms */
+        $rooms = array_values($roomsByInstance);
+        if ($roomIndex >= count($rooms)) {
+            return null;
+        }
+
+        $floors = $this->floorExtractor->floorsForRooms($requestReason, $rooms);
+        $floor = $floors[$roomIndex] ?? null;
+        if (! is_string($floor)) {
             return null;
         }
 
@@ -969,9 +1070,20 @@ final class RequestPrefillOutcomeClassifier
             : null;
     }
 
+    private function requestHasFloorCue(string $requestReason): bool
+    {
+        $normalized = mb_strtolower(trim($requestReason), 'UTF-8');
+        $normalized = str_replace(['’', '‘', '´'], "'", $normalized);
+
+        return preg_match(
+            '/\b(?:kelder|souterrain|begane\s+grond|(?:1(?:e|ste)?|eerste|2(?:e|de)?|tweede|3(?:e|de)?|derde|[4-9](?:e|de)?)\s+verdieping|op\s+(?:de\s+)?zolder)\b/u',
+            $normalized,
+        ) === 1;
+    }
+
     private function floorEvidenceQuote(string $requestReason): ?string
     {
-        if (preg_match('/\b(?:begane\s+grond|(?:1(?:e|ste)?|eerste|2(?:e|de)?|tweede|3(?:e|de)?|derde|[4-9](?:e|de)?)\s+verdieping)\b/iu', $requestReason, $matches) === 1) {
+        if (preg_match('/\b(?:begane\s+grond|(?:1(?:e|ste)?|eerste|2(?:e|de)?|tweede|3(?:e|de)?|derde|[4-9](?:e|de)?)\s+verdieping|op\s+(?:de\s+)?zolder)\b/iu', $requestReason, $matches) === 1) {
             return $matches[0];
         }
 
