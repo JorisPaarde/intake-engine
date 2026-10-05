@@ -330,32 +330,13 @@ final class SynthesizeSurveyDossier
                 ->whereIn('id', $candidateOptionIds)
                 ->delete();
 
-            if ($replacePlacements) {
-                $obsoletePlacements = AircoPlacementOption::query()
-                    ->where('intake_id', $intake->id)
-                    ->where('source_type', 'ai')
-                    ->where('status', AircoOptionStatus::Candidate)
-                    ->whereDoesntHave('installationOptions')
-                    ->get(['id', 'dossier_subject_id']);
-                $obsoleteSubjectIds = $obsoleteSubjectIds
-                    ->merge($obsoletePlacements->pluck('dossier_subject_id'))
-                    ->filter()
-                    ->unique()
-                    ->values();
-
-                AircoPlacementOption::query()
-                    ->whereIn('id', $obsoletePlacements->pluck('id'))
-                    ->delete();
-                DossierSubject::query()
-                    ->where('intake_id', $intake->id)
-                    ->whereIn('id', $obsoleteSubjectIds)
-                    ->delete();
-            } else {
-                DossierSubject::query()
-                    ->where('intake_id', $intake->id)
-                    ->whereIn('id', $obsoleteSubjectIds->filter()->unique()->values())
-                    ->delete();
-            }
+            // Placement candidates are upserted below by stable identity (type + room).
+            // Only clean connection subjects from the deleted options here.
+            DossierSubject::query()
+                ->where('intake_id', $intake->id)
+                ->whereIn('id', $obsoleteSubjectIds->filter()->unique()->values())
+                ->where('type', 'airco_connection')
+                ->delete();
         }
 
         if ($replaceTasks) {
@@ -384,43 +365,72 @@ final class SynthesizeSurveyDossier
             ->keyBy(static fn (AircoPlacementOption $placement): string => 'placement:'.$placement->id);
 
         if ($replacePlacements || $addPlacementsOnly) {
-            foreach ($acceptedPlacements as $proposalIndex => $proposal) {
+            $upsertedPlacementIds = [];
+            foreach ($acceptedPlacements as $proposal) {
                 /** @var DossierSubject $parent */
                 $parent = $subjects->get($proposal['subject_reference']) ?? $root;
+                // Never nest under a prior AI placement subject.
+                if ($parent->type === 'airco_placement') {
+                    $parent = $parent->parent ?? $root;
+                }
                 /** @var AircoRoom|null $room */
                 $room = $proposal['room_reference'] === null
                     ? null
                     : $rooms->get($proposal['room_reference']);
-                $subject = $this->dossierManager->subject(
+
+                $placement = $this->upsertAiPlacementCandidate(
                     $intake,
-                    'airco.placement.ai.'.$run->id.'.'.$proposalIndex,
-                    'airco_placement',
-                    trim($proposal['label']),
+                    $run,
+                    $proposal,
                     $parent,
-                    [
-                        'placement_type' => $proposal['type'],
-                        'ai_run_id' => $run->id,
-                        'evidence_references' => $proposal['evidence_references'],
-                    ],
+                    $room,
                 );
-                $placement = AircoPlacementOption::query()->create([
-                    'intake_id' => $intake->id,
-                    'company_id' => $intake->company_id,
-                    'airco_room_id' => $room?->id,
-                    'dossier_subject_id' => $subject->id,
-                    'type' => $proposal['type'],
-                    'label' => trim($proposal['label']),
-                    'description' => trim($proposal['description']),
-                    'location_data' => [
-                        'evidence_references' => $proposal['evidence_references'],
-                    ],
-                    'status' => AircoOptionStatus::Candidate,
-                    'source_type' => 'ai',
-                    'source_id' => $run->id,
-                    'confidence' => round((float) $proposal['confidence'], 3),
-                    'cost_risks' => null,
-                ]);
+                $upsertedPlacementIds[] = $placement->id;
                 $placements->put($proposal['key'], $placement);
+                $placements->put('placement:'.$placement->id, $placement);
+            }
+
+            // Drop stale AI candidates not refreshed in this run.
+            // Full replace: any AI candidate outside the upserted set.
+            // Add-only: only duplicates of the upserted identities (type + room).
+            $staleQuery = AircoPlacementOption::query()
+                ->where('intake_id', $intake->id)
+                ->where('source_type', 'ai')
+                ->where('status', AircoOptionStatus::Candidate)
+                ->whereDoesntHave('installationOptions')
+                ->whereNotIn('id', $upsertedPlacementIds);
+
+            if ($replacePlacements) {
+                // Keep the base filter: all non-upserted orphan AI candidates.
+            } else {
+                // addPlacementsOnly: only remove duplicates of upserted identities.
+                $staleQuery->where(function ($query) use ($acceptedPlacements): void {
+                    foreach ($acceptedPlacements as $proposal) {
+                        $roomId = null;
+                        if (is_string($proposal['room_reference'] ?? null)
+                            && preg_match('/^room:(\d+)$/', (string) $proposal['room_reference'], $match) === 1) {
+                            $roomId = (int) $match[1];
+                        }
+                        $query->orWhere(function ($inner) use ($proposal, $roomId): void {
+                            $inner->where('type', $proposal['type']);
+                            if ($roomId === null) {
+                                $inner->whereNull('airco_room_id');
+                            } else {
+                                $inner->where('airco_room_id', $roomId);
+                            }
+                        });
+                    }
+                });
+            }
+
+            $stale = $staleQuery->get(['id', 'dossier_subject_id']);
+            if ($stale->isNotEmpty()) {
+                AircoPlacementOption::query()->whereIn('id', $stale->pluck('id'))->delete();
+                DossierSubject::query()
+                    ->where('intake_id', $intake->id)
+                    ->whereIn('id', $stale->pluck('dossier_subject_id')->filter()->unique()->values())
+                    ->where('type', 'airco_placement')
+                    ->delete();
             }
         }
 
@@ -548,6 +558,86 @@ final class SynthesizeSurveyDossier
             confidence: null,
             status: DossierRecordStatus::Proposed,
         );
+    }
+
+    /**
+     * Upsert an AI placement candidate by stable identity: type + room (or site).
+     *
+     * @param  array<string, mixed>  $proposal
+     */
+    private function upsertAiPlacementCandidate(
+        Intake $intake,
+        AiRun $run,
+        array $proposal,
+        DossierSubject $parent,
+        ?AircoRoom $room,
+    ): AircoPlacementOption {
+        $type = is_string($proposal['type']) ? $proposal['type'] : (string) $proposal['type'];
+        $stableKey = $room instanceof AircoRoom
+            ? 'airco.placement.ai.'.$type.'.room.'.$room->id
+            : 'airco.placement.ai.'.$type.'.site';
+
+        $existingQuery = AircoPlacementOption::query()
+            ->where('intake_id', $intake->id)
+            ->where('source_type', 'ai')
+            ->where('status', AircoOptionStatus::Candidate)
+            ->where('type', $type);
+        if ($room instanceof AircoRoom) {
+            $existingQuery->where('airco_room_id', $room->id);
+        } else {
+            $existingQuery->whereNull('airco_room_id');
+        }
+        $existing = $existingQuery->orderBy('id')->first();
+
+        $subject = $this->dossierManager->subject(
+            $intake,
+            $stableKey,
+            'airco_placement',
+            trim((string) $proposal['label']),
+            $parent,
+            [
+                'placement_type' => $type,
+                'ai_run_id' => $run->id,
+                'evidence_references' => $proposal['evidence_references'],
+            ],
+        );
+
+        $attributes = [
+            'company_id' => $intake->company_id,
+            'airco_room_id' => $room?->id,
+            'dossier_subject_id' => $subject->id,
+            'type' => $type,
+            'label' => trim((string) $proposal['label']),
+            'description' => trim((string) $proposal['description']),
+            'location_data' => [
+                'evidence_references' => $proposal['evidence_references'],
+            ],
+            'status' => AircoOptionStatus::Candidate,
+            'source_type' => 'ai',
+            'source_id' => $run->id,
+            'confidence' => round((float) $proposal['confidence'], 3),
+            'cost_risks' => null,
+        ];
+
+        if ($existing instanceof AircoPlacementOption) {
+            // Retire a previous nested/run-scoped subject if the stable key moved.
+            $previousSubjectId = (int) $existing->dossier_subject_id;
+            $existing->update($attributes);
+            if ($previousSubjectId !== $subject->id
+                && ! AircoPlacementOption::query()->where('dossier_subject_id', $previousSubjectId)->exists()) {
+                DossierSubject::query()
+                    ->where('intake_id', $intake->id)
+                    ->whereKey($previousSubjectId)
+                    ->where('type', 'airco_placement')
+                    ->delete();
+            }
+
+            return $existing->fresh() ?? $existing;
+        }
+
+        return AircoPlacementOption::query()->create($attributes + [
+            'intake_id' => $intake->id,
+        ]);
     }
 
     /** @return Collection<int, IntakeUpload> */

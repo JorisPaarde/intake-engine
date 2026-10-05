@@ -11,6 +11,7 @@ use App\Domains\AI\Services\AiTraceHandle;
 use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\AI\Services\IntakeAttentionContextBuilder;
 use App\Domains\AI\Services\PromptVersionRepository;
+use App\Domains\AI\Support\DerivedClaimConfidenceGuard;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeAttentionPoint;
 use App\Enums\AiRunStatus;
@@ -38,6 +39,7 @@ final class SuggestAttentionPoints
         private readonly PromptVersionRepository $promptVersions,
         private readonly IntakeAttentionContextBuilder $contextBuilder,
         private readonly AiTraceRecorder $traceRecorder,
+        private readonly DerivedClaimConfidenceGuard $claimGuard,
     ) {}
 
     public function handle(Intake $intake): ?AiRun
@@ -214,10 +216,17 @@ final class SuggestAttentionPoints
                 }
             }
 
+            $ceiling = $this->claimGuard->ceilingFromAttentionEvidence($point['evidence'], $payload);
+            // Soft observation wording in the claim itself also caps confidence.
+            if ($this->claimGuard->textLooksHedged($point['label']) || $this->claimGuard->claimsOverconfidentFact($point['label'])) {
+                $ceiling = $this->claimGuard->mergeCeilings($ceiling, 'medium');
+            }
+            $normalized = $this->claimGuard->normalizeDerivedText(trim($point['label']), $ceiling);
+
             $points[] = [
                 'code' => $code,
-                'label' => trim($point['label']),
-                'confidence' => $point['confidence'],
+                'label' => $normalized['text'],
+                'confidence' => $this->claimGuard->capConfidence($point['confidence'], $ceiling),
                 'evidence' => $point['evidence'],
             ];
         }

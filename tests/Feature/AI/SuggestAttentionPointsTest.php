@@ -42,23 +42,49 @@ function makeSuggestIntake(): Intake
     return $intake->fresh();
 }
 
-test('heuristic derives attention points as proposed', function () {
-    config(['ai.provider' => 'heuristic']);
+test('attention points cap confidence when source observation is hedged', function () {
+    config(['ai.provider' => 'fake']);
     $intake = makeSuggestIntake();
 
-    $run = app(SuggestAttentionPoints::class)->handle($intake);
+    $fact = IntakeExternalFact::query()->create([
+        'intake_id' => $intake->id,
+        'fact_key' => 'fusebox_photo_assessment',
+        'label' => 'Meterkastfoto',
+        'value' => [
+            'phase' => 'three_phase',
+            'empty_module_space' => 'none_visible',
+            'confidence' => 'medium',
+            'evidence' => '3-fase lijkt zichtbaar',
+        ],
+        'source' => 'ai',
+        'confidence' => 'medium',
+        'captured_at' => now(),
+    ]);
 
-    expect($run->status)->toBe(AiRunStatus::Succeeded);
+    $payload = app(IntakeAttentionContextBuilder::class)->build($intake->fresh());
+    $factRef = collect($payload['external_fact_context'] ?? [])
+        ->first(fn (array $row): bool => str_contains((string) ($row['reference'] ?? ''), 'fusebox_photo_assessment'));
+    expect($factRef)->not->toBeNull();
 
-    $points = $intake->fresh()->attentionPoints;
-    $codes = $points->pluck('code')->all();
+    FakeAiClient::reset();
+    FakeAiClient::alwaysReturn(['points' => [[
+        'code' => 'verify_three_phase_groups',
+        'label' => 'Meterkast is volledig gevuld; controleer vrije groepen voor 3-fase aansluiting.',
+        'confidence' => 'high',
+        'evidence' => [[
+            'source_type' => 'external_fact',
+            'reference' => $factRef['reference'],
+        ]],
+    ]]]);
 
-    expect($codes)->toContain('no_free_group')
-        ->and($codes)->toContain('condensate_pump_maybe')
-        ->and($points->every(fn ($p) => $p->source === AttentionPointSource::Ai))
-        ->and($points->every(fn ($p) => $p->status === AttentionPointStatus::Proposed))->toBeTrue()
-        ->and($points->every(fn ($p) => in_array($p->ai_confidence, ['medium', 'high'], true)))->toBeTrue()
-        ->and($points->every(fn ($p) => is_array($p->evidence) && $p->evidence !== []))->toBeTrue();
+    $run = app(SuggestAttentionPoints::class)->handle($intake->fresh());
+    $point = $intake->fresh()->attentionPoints()->where('code', 'verify_three_phase_groups')->first();
+
+    expect($run?->status)->toBe(AiRunStatus::Succeeded)
+        ->and($point)->not->toBeNull()
+        ->and($point->ai_confidence)->not->toBe('high')
+        ->and($point->label)->toMatch('/lijkt|te controleren/i')
+        ->and($fact->id)->toBeInt();
 });
 
 test('heuristic skips a free-group proposal when the source answer is absent', function () {

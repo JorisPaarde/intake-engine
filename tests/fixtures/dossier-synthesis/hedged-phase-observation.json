@@ -1,0 +1,13 @@
+{
+  "_comment": "Hedged fusebox observation must cap derived claim confidence and wording.",
+  "source_observation": "3-fase lijkt zichtbaar op de meterkastfoto",
+  "source_confidence": "medium",
+  "derived_exception": {
+    "code": "verify_three_phase_capacity",
+    "label": "Meterkast is volledig gevuld; controleer vrije groepen voor 3-fase aansluiting.",
+    "decision_area_key": "power",
+    "confidence": "high",
+    "evidence_references": ["dossier_image:212"]
+  },
+  "derived_summary": "Elektrische aansluiting: 3-fase aanwezig. Multi-split kandidaat voor woonkamer en slaapkamer."
+}

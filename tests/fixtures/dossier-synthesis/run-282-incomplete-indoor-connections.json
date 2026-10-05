@@ -1,0 +1,97 @@
+{
+  "_comment": "Staging intake 84 / ai_run 282: two indoor placements accepted, but option only had refrigerant+condensate for woonkamer (not slaapkamer) and power outdoor→outdoor.",
+  "summary": "Multi-split voorzet voor woonkamer en slaapkamer; stroom nog te controleren.",
+  "placement_proposals": [
+    {
+      "key": "proposal:indoor_woonkamer",
+      "type": "indoor_unit",
+      "label": "Binnenunit woonkamer",
+      "description": "Vrije muur zichtbaar op kamerfoto.",
+      "room_reference": "room:91",
+      "subject_reference": "subject:241",
+      "confidence": 0.82,
+      "evidence_references": ["dossier_image:210"]
+    },
+    {
+      "key": "proposal:indoor_slaapkamer",
+      "type": "indoor_unit",
+      "label": "Binnenunit slaapkamer",
+      "description": "Wandruimte zichtbaar op kamerfoto.",
+      "room_reference": "room:92",
+      "subject_reference": "subject:242",
+      "confidence": 0.8,
+      "evidence_references": ["dossier_image:211"]
+    },
+    {
+      "key": "proposal:outdoor_achtertuin",
+      "type": "outdoor_unit",
+      "label": "Buitenunit achtertuin",
+      "description": "Opstelplek zichtbaar op buitenfoto.",
+      "room_reference": null,
+      "subject_reference": "subject:240",
+      "confidence": 0.78,
+      "evidence_references": ["dossier_image:212"]
+    }
+  ],
+  "option_proposals": [
+    {
+      "label": "Multi-split woonkamer + slaapkamer",
+      "configuration_type": "multi_split",
+      "summary": "Twee binnenunits op één buitenunit.",
+      "cost_impact": "medium",
+      "confidence": 0.7,
+      "placement_references": [
+        "proposal:indoor_woonkamer",
+        "proposal:indoor_slaapkamer",
+        "proposal:outdoor_achtertuin",
+        "placement:83"
+      ],
+      "connections": [
+        {
+          "type": "refrigerant",
+          "label": "Koelleiding woonkamer",
+          "from_placement_reference": "proposal:indoor_woonkamer",
+          "to_placement_reference": "proposal:outdoor_achtertuin",
+          "status": "proposed",
+          "length_class": "medium",
+          "segments": ["Via gevel"],
+          "obstacles": [],
+          "uncertainties": [],
+          "cost_impact": "medium",
+          "confidence": 0.7,
+          "evidence_references": ["dossier_image:210", "dossier_image:212"]
+        },
+        {
+          "type": "condensate",
+          "label": "Condensafvoer woonkamer",
+          "from_placement_reference": "proposal:indoor_woonkamer",
+          "to_placement_reference": "proposal:outdoor_achtertuin",
+          "status": "needs_evidence",
+          "length_class": "short",
+          "segments": [],
+          "obstacles": [],
+          "uncertainties": ["Afschot niet volledig zichtbaar"],
+          "cost_impact": "unknown",
+          "confidence": 0.55,
+          "evidence_references": ["dossier_image:210"]
+        },
+        {
+          "type": "power",
+          "label": "Stroomtoevoer buitenunit",
+          "from_placement_reference": "proposal:outdoor_achtertuin",
+          "to_placement_reference": "proposal:outdoor_achtertuin",
+          "status": "needs_evidence",
+          "length_class": "unknown",
+          "segments": [],
+          "obstacles": [],
+          "uncertainties": [],
+          "cost_impact": "unknown",
+          "confidence": 0.4,
+          "evidence_references": ["dossier_image:212"]
+        }
+      ]
+    }
+  ],
+  "exceptions": [],
+  "customer_tasks": []
+}

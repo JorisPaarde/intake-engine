@@ -1,0 +1,125 @@
+{
+  "_comment": "Staging intake 84 / ai_run 283: after first synthesis, model reuses airco_placement subjects 243/244/245 as subject_reference instead of room/survey parents 241/242/240.",
+  "summary": "Vernieuwde voorzet met bestaande AI-posities hergebruikt.",
+  "placement_proposals": [
+    {
+      "key": "proposal:indoor_woonkamer",
+      "type": "indoor_unit",
+      "label": "Binnenunit woonkamer",
+      "description": "Vrije muur zichtbaar.",
+      "room_reference": "room:91",
+      "subject_reference": "subject:243",
+      "confidence": 0.8,
+      "evidence_references": ["dossier_image:210"]
+    },
+    {
+      "key": "proposal:indoor_slaapkamer",
+      "type": "indoor_unit",
+      "label": "Binnenunit slaapkamer",
+      "description": "Wandruimte zichtbaar.",
+      "room_reference": "room:92",
+      "subject_reference": "subject:244",
+      "confidence": 0.78,
+      "evidence_references": ["dossier_image:211"]
+    },
+    {
+      "key": "proposal:outdoor_achtertuin",
+      "type": "outdoor_unit",
+      "label": "Buitenunit achtertuin",
+      "description": "Opstelplek zichtbaar op buitenfoto.",
+      "room_reference": null,
+      "subject_reference": "subject:245",
+      "confidence": 0.75,
+      "evidence_references": ["dossier_image:211"]
+    }
+  ],
+  "option_proposals": [
+    {
+      "label": "Multi-split vernieuwd",
+      "configuration_type": "multi_split",
+      "summary": "Twee binnenunits op één buitenunit.",
+      "cost_impact": "medium",
+      "confidence": 0.7,
+      "placement_references": [
+        "proposal:indoor_woonkamer",
+        "proposal:indoor_slaapkamer",
+        "proposal:outdoor_achtertuin",
+        "placement:83"
+      ],
+      "connections": [
+        {
+          "type": "refrigerant",
+          "label": "Koelleiding woonkamer",
+          "from_placement_reference": "proposal:indoor_woonkamer",
+          "to_placement_reference": "proposal:outdoor_achtertuin",
+          "status": "proposed",
+          "length_class": "medium",
+          "segments": [],
+          "obstacles": [],
+          "uncertainties": [],
+          "cost_impact": "medium",
+          "confidence": 0.7,
+          "evidence_references": ["dossier_image:210"]
+        },
+        {
+          "type": "condensate",
+          "label": "Condensafvoer woonkamer",
+          "from_placement_reference": "proposal:indoor_woonkamer",
+          "to_placement_reference": "proposal:outdoor_achtertuin",
+          "status": "needs_evidence",
+          "length_class": "short",
+          "segments": [],
+          "obstacles": [],
+          "uncertainties": ["Nog te bepalen"],
+          "cost_impact": "unknown",
+          "confidence": 0.5,
+          "evidence_references": ["dossier_image:210"]
+        },
+        {
+          "type": "refrigerant",
+          "label": "Koelleiding slaapkamer",
+          "from_placement_reference": "proposal:indoor_slaapkamer",
+          "to_placement_reference": "proposal:outdoor_achtertuin",
+          "status": "proposed",
+          "length_class": "medium",
+          "segments": [],
+          "obstacles": [],
+          "uncertainties": [],
+          "cost_impact": "medium",
+          "confidence": 0.68,
+          "evidence_references": ["dossier_image:211"]
+        },
+        {
+          "type": "condensate",
+          "label": "Condensafvoer slaapkamer",
+          "from_placement_reference": "proposal:indoor_slaapkamer",
+          "to_placement_reference": "proposal:outdoor_achtertuin",
+          "status": "needs_evidence",
+          "length_class": "short",
+          "segments": [],
+          "obstacles": [],
+          "uncertainties": ["Nog te bepalen"],
+          "cost_impact": "unknown",
+          "confidence": 0.5,
+          "evidence_references": ["dossier_image:211"]
+        },
+        {
+          "type": "power",
+          "label": "Stroomtoevoer buitenunit",
+          "from_placement_reference": "placement:83",
+          "to_placement_reference": "proposal:outdoor_achtertuin",
+          "status": "needs_evidence",
+          "length_class": "medium",
+          "segments": [],
+          "obstacles": [],
+          "uncertainties": ["Groepscapaciteit nog niet leesbaar"],
+          "cost_impact": "unknown",
+          "confidence": 0.55,
+          "evidence_references": ["dossier_image:212"]
+        }
+      ]
+    }
+  ],
+  "exceptions": [],
+  "customer_tasks": []
+}

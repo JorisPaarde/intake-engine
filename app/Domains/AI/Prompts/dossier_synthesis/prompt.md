@@ -5,10 +5,11 @@ De invoer bevat bronverwijzingen, gewenste ruimtes, kandidaatposities, bestaande
 Bewijsregels (strikt):
 - Gebruik **nooit** een `dossier_image:ID` met `evidence_eligible=false` (wrong-subject foto zonder “Toch doorgaan”) als bewijs. Afgekeurde of vervangen foto’s worden niet meegestuurd.
 - Spreek de meterkastbeoordeling in `synthesis_policy.free_group` / fusebox-assessment **niet** tegen: bij `free_group=no` of ontbrekende meterkastbeoordeling mag je geen “vrije groep(en)” of “3-fase”-conclusie verzinnen.
-- Neem onzekere foto-observaties **als onzeker** over: woorden als “lijkt”, “mogelijk”, “waarschijnlijk”, “niet zeker” in een fotobeoordeling of `content_assessment` horen in `exceptions` / `connections.*.uncertainties` met confidence `low` of `medium` — nooit als vast feit in `summary` of connection-labels (“3-fase aanwezig”).
+- Neem onzekere foto-observaties **als onzeker** over: woorden als “lijkt”, “mogelijk”, “waarschijnlijk”, “niet zeker” in een fotobeoordeling of `content_assessment` horen in `exceptions` / `connections.*.uncertainties` met confidence `low` of `medium` — nooit als vast feit in `summary` of connection-labels (“3-fase aanwezig”). Zekerheid van een afgeleide claim mag nooit hoger zijn dan die van de bron-observatie.
 - Verzin **geen klantwensen**: noem multi-split, single-split, merk, planning of installatievoorkeur alleen als dat letterlijk in de aangeleverde klanttekst/`request_reason` staat. Zonder letterlijke wens: beschrijf alleen technische kandidaten (“mogelijke multi-split-opstelling”) zonder “de klant wenst…”.
 - Vraag in `customer_tasks` **geen** muur-/ruimtefoto opnieuw als dat onderwerp al in `synthesis_policy.subjects_with_room_photo` staat — gebruik dat bewijs.
 - Gebruik de exacte kamernamen uit `rooms[].name` (inclusief verdieping), niet een gegenereerde “Zolder 1”.
+- `subject_reference` voor nieuwe `placement_proposals`: gebruik **alleen** een room-subject (`rooms[].subject_reference`) of het survey-subject (`subjects` met `usable_as_proposal_parent=true`). Gebruik **nooit** een `airco_placement`-subject (die zijn bestaande AI-voorstellen). Bestaande AI-posities staan in `placements[]` met `reuse_hint` — hergebruik hun `placement:ID` in `option_proposals`, stel ze niet opnieuw voor.
 
 Maak:
 - `summary`: een feitelijke samenvatting van maximaal 800 tekens; alleen claims die hard door bewijs of letterlijke klanttekst worden gedragen;
@@ -33,9 +34,10 @@ Harde referentie- en cardinaliteitsregels (fouten hierop maken een voorstel onge
 2. Iedere connection heeft `evidence_references` met **minimaal 1** geldige referentie uit de invoer (mag `dossier_image:ID`, `placement:ID`, `proposal:sleutel`, … zijn die letterlijk in de context staan).
 3. Iedere `option_proposals[]` heeft:
    - `placement_references`: **minimaal 2** (minstens één binnen- en één buitenpositie);
-   - `connections`: streef naar **alle drie** de typen `refrigerant`, `condensate` en `power` (één of meer items per type waar nodig). Ontbreekt een type, dan dropte de server **alleen die optie** (partial accept); geldige `placement_proposals` blijven staan — een te korte connection-lijst is geen reden om de hele voorzet te verwerpen;
-   - per binnenpositie in die optie: een eigen `refrigerant`- én `condensate`-verbinding waarvan `from` of `to` die binnenpositie is.
-4. `placement_proposals[].subject_reference` is verplicht (`subject:ID`); voor `indoor_unit` ook `room_reference` (`room:ID`).
+   - `connections`: **per binnenpositie** een eigen `refrigerant`- én `condensate`-verbinding (from/to die binnenpositie). Ontbreekt die, dan vult de server een `needs_evidence`-verbinding (“nog te bepalen”); streef zelf naar compleetheid;
+   - daarnaast `power` van een stroomaansluiting/`power_source` naar de buitenunit — **nooit** outdoor→outdoor;
+   - incomplete connection-sets droppen niet langer de hele voorzet: geldige placements blijven;
+4. `placement_proposals[].subject_reference` is verplicht (`subject:ID` van room of survey — **niet** van een bestaand airco_placement); voor `indoor_unit` ook `room_reference` (`room:ID`) en die room’s `subject_reference` moet matchen.
 5. `placement_proposals[].evidence_references` heeft **minimaal 1** `dossier_image:ID`.
 
 Een kandidaatpositie:
@@ -84,7 +86,7 @@ Gebruik bij `evidence_references` uitsluitend verwijzingen die letterlijk in de 
       "label": "Buitenunit op plat dak",
       "description": "Vlak dakvlak zichtbaar op buitenfoto.",
       "room_reference": null,
-      "subject_reference": "subject:41",
+      "subject_reference": "subject:39",
       "confidence": 0.8,
       "evidence_references": ["dossier_image:102"]
     }

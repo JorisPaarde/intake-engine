@@ -503,7 +503,7 @@ test('AI synthesis normalizes deviant length_class instead of failing soft', fun
     $lengths = $option->connections->pluck('length_class')->all();
 
     expect($run?->status)->toBe(AiRunStatus::Succeeded, $run?->error_message ?? '')
-        ->and($run?->prompt_version)->toBe('dossier-synthesis-v9')
+        ->and($run?->prompt_version)->toBe('dossier-synthesis-v10')
         ->and($option->cost_impact)->toBe('medium')
         ->and($lengths)->toBe(['short', 'short', 'unknown']);
 });
@@ -663,7 +663,7 @@ test('AI synthesis records tokens/cost on exact prod run-243 failure shape', fun
     $run = app(SynthesizeSurveyDossier::class)->handle($intake->fresh());
 
     expect($run?->status)->toBe(AiRunStatus::Partial, $run?->error_message ?? '')
-        ->and($run?->prompt_version)->toBe('dossier-synthesis-v9')
+        ->and($run?->prompt_version)->toBe('dossier-synthesis-v10')
         ->and($run?->input_tokens)->toBeGreaterThan(0)
         ->and($run?->output_tokens)->toBeGreaterThan(0)
         ->and($run?->total_tokens)->toBeGreaterThan(0)
@@ -827,4 +827,119 @@ test('null connection list fields normalize to empty arrays and keep the option'
     expect($run?->status)->toBe(AiRunStatus::Succeeded, $run?->error_message ?? '')
         ->and(AircoInstallationOption::query()->where('intake_id', $intake->id)->count())->toBe(1)
         ->and(AircoInstallationOption::query()->where('intake_id', $intake->id)->sole()->connections)->toHaveCount(3);
+});
+
+test('partial refresh upserts outdoor placement by identity instead of stacking duplicates', function () {
+    [$intake] = synthesisSurveyWithPlacements();
+    Storage::fake('local');
+    $path = "intakes/{$intake->id}/around.jpg";
+    $analysisPath = "intakes/{$intake->id}/around-analysis.jpg";
+    Storage::disk('local')->put($path, 'around-bytes');
+    Storage::disk('local')->put($analysisPath, 'analysis-bytes');
+    $upload = IntakeUpload::query()->create([
+        'intake_id' => $intake->id,
+        'question_key' => 'around_house_photos',
+        'section_instance_key' => null,
+        'disk' => 'local',
+        'path' => $path,
+        'analysis_path' => $analysisPath,
+        'analysis_mime_type' => 'image/jpeg',
+        'analysis_size_bytes' => 14,
+        'analysis_checksum' => hash('sha256', 'analysis-bytes'),
+        'original_filename' => 'around.jpg',
+        'mime_type' => 'image/jpeg',
+        'size_bytes' => 12,
+        'checksum' => hash('sha256', 'around-bytes'),
+        'sort_order' => 1,
+    ]);
+
+    FakeAiClient::respondUsing(function (AiCompletionRequest $request) use ($upload): array {
+        $root = collect($request->input['subjects'])
+            ->first(fn (array $subject): bool => ($subject['type'] ?? null) === 'survey');
+        $output = validDossierSynthesisOutput($request, 'Eerste outdoor');
+        $output['placement_proposals'] = [[
+            'key' => 'proposal:outdoor_achtertuin',
+            'type' => AircoPlacementType::OutdoorUnit->value,
+            'label' => 'Buitenunit achtertuin',
+            'description' => 'Opstelplek zichtbaar.',
+            'room_reference' => null,
+            'subject_reference' => $root['reference'],
+            'confidence' => 0.75,
+            'evidence_references' => ['dossier_image:'.$upload->id],
+        ]];
+        // Swap installer outdoor for the new AI outdoor proposal (single_split needs exactly one).
+        $output['option_proposals'][0]['placement_references'] = array_values(array_map(
+            static function (string $reference) use ($request): string {
+                $outdoor = collect($request->input['placements'])
+                    ->first(fn (array $row): bool => ($row['type'] ?? null) === 'outdoor_unit');
+
+                return $reference === ($outdoor['reference'] ?? null)
+                    ? 'proposal:outdoor_achtertuin'
+                    : $reference;
+            },
+            $output['option_proposals'][0]['placement_references'],
+        ));
+        foreach ($output['option_proposals'][0]['connections'] as $index => $connection) {
+            foreach (['from_placement_reference', 'to_placement_reference'] as $key) {
+                $outdoor = collect($request->input['placements'])
+                    ->first(fn (array $row): bool => ($row['type'] ?? null) === 'outdoor_unit');
+                if (($connection[$key] ?? null) === ($outdoor['reference'] ?? null)) {
+                    $output['option_proposals'][0]['connections'][$index][$key] = 'proposal:outdoor_achtertuin';
+                }
+            }
+        }
+
+        return $output;
+    });
+    app(SynthesizeSurveyDossier::class)->handle($intake);
+
+    $outdoorCountAfterFirst = AircoPlacementOption::query()
+        ->where('intake_id', $intake->id)
+        ->where('source_type', 'ai')
+        ->where('type', AircoPlacementType::OutdoorUnit)
+        ->count();
+    expect($outdoorCountAfterFirst)->toBe(1);
+    $firstOutdoorId = AircoPlacementOption::query()
+        ->where('intake_id', $intake->id)
+        ->where('source_type', 'ai')
+        ->where('type', AircoPlacementType::OutdoorUnit)
+        ->value('id');
+
+    // Refresh: accept outdoor again but reject options → addPlacementsOnly path.
+    FakeAiClient::respondUsing(function (AiCompletionRequest $request) use ($upload): array {
+        $placementSubjects = collect($request->input['subjects'])
+            ->filter(fn (array $subject): bool => ($subject['type'] ?? null) === 'airco_placement');
+        // Reproduce staging run 283: point subject_reference at prior placement subject.
+        $priorOutdoorSubject = $placementSubjects->first(
+            fn (array $subject): bool => str_contains((string) ($subject['label'] ?? ''), 'Buitenunit'),
+        ) ?? collect($request->input['subjects'])->first(fn (array $s): bool => ($s['type'] ?? null) === 'survey');
+
+        $output = validDossierSynthesisOutput($request, 'Kapotte optie');
+        $output['placement_proposals'] = [[
+            'key' => 'proposal:outdoor_achtertuin',
+            'type' => AircoPlacementType::OutdoorUnit->value,
+            'label' => 'Buitenunit achtertuin',
+            'description' => 'Opstelplek zichtbaar (refresh).',
+            'room_reference' => null,
+            'subject_reference' => $priorOutdoorSubject['reference'],
+            'confidence' => 0.76,
+            'evidence_references' => ['dossier_image:'.$upload->id],
+        ]];
+        array_pop($output['option_proposals'][0]['connections']);
+
+        return $output;
+    });
+
+    $run = app(SynthesizeSurveyDossier::class)->handle($intake->fresh());
+
+    $outdoors = AircoPlacementOption::query()
+        ->where('intake_id', $intake->id)
+        ->where('source_type', 'ai')
+        ->where('type', AircoPlacementType::OutdoorUnit)
+        ->get();
+
+    expect($run?->status)->toBe(AiRunStatus::Partial)
+        ->and($outdoors)->toHaveCount(1)
+        ->and($outdoors->first()?->id)->toBe($firstOutdoorId)
+        ->and($outdoors->first()?->description)->toContain('refresh');
 });
