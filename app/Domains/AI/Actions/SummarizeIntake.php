@@ -220,33 +220,9 @@ final class SummarizeIntake
         /** @var array{summary: string, highlights: list<string>} $validated */
         $validated = $validator->validated();
 
-        $ceiling = $this->claimGuard->ceilingFromAttentionEvidence(
-            $this->allPayloadEvidenceRefs($payload),
-            $payload,
-        );
-        // Also scan free-text observation fields in the payload.
-        foreach ([
-            $payload['external_fact_context'] ?? null,
-            $payload['uploads'] ?? null,
-            $payload['answer_context'] ?? null,
-        ] as $bucket) {
-            if (! is_array($bucket)) {
-                continue;
-            }
-            foreach ($bucket as $row) {
-                if (! is_array($row)) {
-                    continue;
-                }
-                foreach (['display', 'evidence', 'label', 'value'] as $field) {
-                    if (is_string($row[$field] ?? null)) {
-                        $ceiling = $this->claimGuard->mergeCeilings(
-                            $ceiling,
-                            $this->claimGuard->ceilingFromObservationText((string) $row[$field]),
-                        );
-                    }
-                }
-            }
-        }
+        // Cap derived report copy ("AI-voorstel (niet bindend)") to hedged meter/
+        // fusebox source observations — same guard as attention points / synthesis.
+        $ceiling = $this->claimGuard->ceilingFromSummaryPayload($payload);
 
         $summaryNormalized = $this->claimGuard->normalizeDerivedText(trim($validated['summary']), $ceiling);
         $highlights = [];
@@ -259,35 +235,6 @@ final class SummarizeIntake
             'summary' => $summaryNormalized['text'],
             'highlights' => $highlights,
         ];
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     * @return list<array{source_type: string, reference: string}>
-     */
-    private function allPayloadEvidenceRefs(array $payload): array
-    {
-        $refs = [];
-        $map = [
-            'answer' => $payload['answer_context'] ?? [],
-            'external_fact' => $payload['external_fact_context'] ?? [],
-            'upload' => $payload['uploads'] ?? [],
-        ];
-        foreach ($map as $sourceType => $rows) {
-            if (! is_array($rows)) {
-                continue;
-            }
-            foreach ($rows as $row) {
-                if (is_array($row) && is_string($row['reference'] ?? null)) {
-                    $refs[] = [
-                        'source_type' => $sourceType,
-                        'reference' => $row['reference'],
-                    ];
-                }
-            }
-        }
-
-        return $refs;
     }
 
     /**

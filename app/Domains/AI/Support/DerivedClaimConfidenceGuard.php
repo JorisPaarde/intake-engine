@@ -8,13 +8,25 @@ namespace App\Domains\AI\Support;
  * Caps confidence and hedges wording of derived claims so they never sound
  * stronger than their source observations (e.g. "lijkt" → never "aanwezig" at high).
  *
- * Applies to dossier synthesis, attention points and AI summary highlights alike.
+ * Applies to dossier synthesis, attention points, AI summary / report copy
+ * ("AI-voorstel (niet bindend)") and assistant summaries alike.
  */
 final class DerivedClaimConfidenceGuard
 {
     private const HEDGE_PATTERN = '/\b(lijkt|mogelijk|waarschijnlijk|vermoedelijk|niet\s+zeker|onduidelijk|te\s+controleren)\b/u';
 
-    private const OVERCONFIDENT_FACT_PATTERN = '/\b(1[\s-]?fase|3[\s-]?fase|driefase|vrije\s+groep(en)?)\s+(aanwezig|is\s+aanwezig|vastgesteld|bevestigd|aanwezig\s+is)\b/iu';
+    /**
+     * Matches 1-/3-fase(n) and free-group mentions, including Dutch plural "fasen".
+     */
+    private const PHASE_OR_GROUP_PATTERN = '/\b(1[\s-]?fasen?|3[\s-]?fasen?|driefasen?|vrije\s+groep(?:en)?)\b/u';
+
+    /**
+     * Hard factual phrasing: phase/group + certainty verb, optionally with words in between
+     * (e.g. "3-fase aansluiting aanwezig", "voorzien van een 3-fasen hoofdschakelaar").
+     */
+    private const OVERCONFIDENT_FACT_PATTERN = '/\b(1[\s-]?fasen?|3[\s-]?fasen?|driefasen?|vrije\s+groep(?:en)?)((?:\s+\w+){0,6})\s+(?:aanwezig|is\s+aanwezig|vastgesteld|bevestigd|aanwezig\s+is)\b/iu';
+
+    private const OVERCONFIDENT_CONSTRUCTION_PATTERN = '/\b(?:is\s+)?(?:uitgevoerd\s+met|voorzien\s+van(?:\s+een)?)\s+(?:een\s+)?((?:1[\s-]?|3[\s-]?|drie)fasen?(?:\s+\w+){0,2})\b/iu';
 
     /**
      * @param  'low'|'medium'|'high'|null  $sourceCeiling
@@ -43,7 +55,8 @@ final class DerivedClaimConfidenceGuard
 
     public function claimsOverconfidentFact(string $text): bool
     {
-        return (bool) preg_match(self::OVERCONFIDENT_FACT_PATTERN, $text);
+        return (bool) preg_match(self::OVERCONFIDENT_FACT_PATTERN, $text)
+            || (bool) preg_match(self::OVERCONFIDENT_CONSTRUCTION_PATTERN, $text);
     }
 
     /**
@@ -56,7 +69,12 @@ final class DerivedClaimConfidenceGuard
             return false;
         }
 
-        return (bool) preg_match('/\b(1[\s-]?fase|3[\s-]?fase|driefase|vrije\s+groep(en)?)\b/u', $normalized)
+        // Absence / check-instructions about free groups are not positive electrical claims.
+        if ((bool) preg_match('/\bgeen\s+vrije\s+groep(?:en)?\b/u', $normalized)) {
+            return $this->claimsOverconfidentFact($text);
+        }
+
+        return (bool) preg_match(self::PHASE_OR_GROUP_PATTERN, $normalized)
             || $this->claimsOverconfidentFact($text);
     }
 
@@ -67,15 +85,22 @@ final class DerivedClaimConfidenceGuard
     {
         $hedged = preg_replace(
             self::OVERCONFIDENT_FACT_PATTERN,
-            '$1 lijkt zichtbaar — te controleren',
+            '$1$2 lijkt zichtbaar — te controleren',
             $text,
         );
         $result = trim(is_string($hedged) ? $hedged : $text);
 
+        $constructionHedged = preg_replace(
+            self::OVERCONFIDENT_CONSTRUCTION_PATTERN,
+            '$1 lijkt zichtbaar — te controleren',
+            $result,
+        );
+        $result = trim(is_string($constructionHedged) ? $constructionHedged : $result);
+
         if (! $this->textLooksHedged($result)
-            && (bool) preg_match('/\b(1[\s-]?fase|3[\s-]?fase|driefase)\b/u', mb_strtolower($result))) {
+            && (bool) preg_match(self::PHASE_OR_GROUP_PATTERN, mb_strtolower($result))) {
             $withPhaseHedge = preg_replace(
-                '/\b(1[\s-]?fase|3[\s-]?fase|driefase)\b/iu',
+                '/\b(1[\s-]?fasen?|3[\s-]?fasen?|driefasen?|vrije\s+groep(?:en)?)\b/iu',
                 '$1 lijkt zichtbaar — te controleren',
                 $result,
             );
@@ -87,7 +112,7 @@ final class DerivedClaimConfidenceGuard
         }
 
         $softened = preg_replace(
-            '/\b(aanwezig|vastgesteld|bevestigd)\b/iu',
+            '/\b(aanwezig|vastgesteld|bevestigd|uitgevoerd|voorzien)\b/iu',
             'lijkt zichtbaar — te controleren',
             $result,
         );
@@ -165,6 +190,73 @@ final class DerivedClaimConfidenceGuard
     }
 
     /**
+     * Resolve ceiling from the SummarizeIntake payload shape (answers + external_facts).
+     * Used so "AI-voorstel (niet bindend)" never hardens hedged meter observations.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return 'low'|'medium'|'high'|null
+     */
+    public function ceilingFromSummaryPayload(array $payload): ?string
+    {
+        $ceilings = [];
+
+        $externalFacts = is_array($payload['external_facts'] ?? null) ? $payload['external_facts'] : [];
+        foreach ($externalFacts as $factKey => $fact) {
+            if (! is_array($fact)) {
+                continue;
+            }
+
+            $confidence = $fact['confidence'] ?? null;
+            if (is_string($confidence) && in_array($confidence, ['low', 'medium', 'high'], true)) {
+                // Fusebox / electrical assessments always cap derived phase claims.
+                if (is_string($factKey) && str_contains($factKey, 'fusebox')) {
+                    $ceilings[] = $confidence;
+                }
+            }
+
+            foreach ($this->stringLeaves($fact['value'] ?? null) as $text) {
+                $ceilings[] = $this->ceilingFromObservationText($text);
+            }
+            if (is_string($fact['label'] ?? null)) {
+                $ceilings[] = $this->ceilingFromObservationText((string) $fact['label']);
+            }
+        }
+
+        foreach ([
+            $payload['external_fact_context'] ?? null,
+            $payload['uploads'] ?? null,
+            $payload['answer_context'] ?? null,
+        ] as $bucket) {
+            if (! is_array($bucket)) {
+                continue;
+            }
+            foreach ($bucket as $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                foreach (['display', 'evidence', 'label', 'value', 'summary'] as $field) {
+                    if (is_string($row[$field] ?? null)) {
+                        $ceilings[] = $this->ceilingFromObservationText((string) $row[$field]);
+                    } elseif (is_array($row[$field] ?? null)) {
+                        foreach ($this->stringLeaves($row[$field]) as $leaf) {
+                            $ceilings[] = $this->ceilingFromObservationText($leaf);
+                        }
+                    }
+                }
+                $rowConfidence = $row['confidence'] ?? null;
+                if (is_string($rowConfidence) && in_array($rowConfidence, ['low', 'medium', 'high'], true)) {
+                    $reference = (string) ($row['reference'] ?? '');
+                    if (str_contains($reference, 'fusebox')) {
+                        $ceilings[] = $rowConfidence;
+                    }
+                }
+            }
+        }
+
+        return $this->mergeCeilings(...$ceilings);
+    }
+
+    /**
      * Resolve ceiling from attention-points payload for the cited evidence refs.
      *
      * @param  list<array{source_type: string, reference: string}>  $evidence
@@ -206,7 +298,8 @@ final class DerivedClaimConfidenceGuard
         $shouldHedge = $this->claimsOverconfidentFact($text)
             || ($sourceIsSoft && $this->claimsUnequivocalElectricalFact($text))
             || ($sourceIsSoft && ! $this->textLooksHedged($text)
-                && (bool) preg_match('/\b(aanwezig|vastgesteld|bevestigd)\b/iu', $text));
+                && (bool) preg_match('/\b(aanwezig|vastgesteld|bevestigd)\b/iu', $text)
+                && (bool) preg_match(self::PHASE_OR_GROUP_PATTERN, mb_strtolower($text)));
 
         if (! $shouldHedge) {
             return ['text' => $text, 'hedged' => false];

@@ -966,3 +966,36 @@ test('hedged source observation caps exception confidence and wording', function
         ->and($result['accepted']['exceptions'][0]['confidence'])->not->toBe('high')
         ->and($result['accepted']['exceptions'][0]['label'])->toMatch('/lijkt|te controleren/i');
 });
+
+test('intake 85 hedged meter observation cannot harden into certain assistant summary', function () {
+    $fixture = json_decode(
+        (string) file_get_contents(base_path('tests/fixtures/dossier-synthesis/intake-85-hedged-phase-certain-copy.json')),
+        true,
+        512,
+        JSON_THROW_ON_ERROR,
+    );
+
+    $output = [
+        'summary' => $fixture['assistant_summary_raw'],
+        'placement_proposals' => [[
+            'key' => 'proposal:outdoor_achtertuin',
+            'type' => AircoPlacementType::OutdoorUnit->value,
+            'label' => 'Buitenunit achtertuin',
+            'description' => 'Zichtbaar.',
+            'room_reference' => null,
+            'subject_reference' => 'subject:240',
+            'confidence' => 0.7,
+            'evidence_references' => ['dossier_image:212'],
+        ]],
+        'option_proposals' => [],
+        'exceptions' => [],
+        'customer_tasks' => [],
+    ];
+
+    $result = app(DossierSynthesisPartialAcceptor::class)->accept($output, intake84StyleAcceptorInput());
+
+    expect($result['has_accepted_proposals'])->toBeTrue()
+        ->and($result['accepted']['summary'])->not->toMatch('/voorzien van een 3[\s-]?fasen/i')
+        ->and($result['accepted']['summary'])->not->toMatch('/\b3[\s-]?fasen\b(?!.*lijkt)/iu')
+        ->and($result['accepted']['summary'])->toMatch('/lijkt|te controleren|mogelijk/i');
+});

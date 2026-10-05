@@ -886,12 +886,10 @@ final class DossierSynthesisPartialAcceptor
 
     private function claimsElectricalInvention(string $text): bool
     {
-        $normalized = mb_strtolower($text);
-
-        return (bool) preg_match(
-            '/\b(3[\s-]?fase|driefase|vrije\s+groep(en)?|free[_\s-]?group|groepenaanduiding\s+leesbaar)\b/u',
-            $normalized,
-        ) || $this->claimsFreeGroupAvailable($text);
+        return $this->claimGuard->claimsUnequivocalElectricalFact($text)
+            || $this->claimGuard->claimsOverconfidentFact($text)
+            || $this->claimsFreeGroupAvailable($text)
+            || (bool) preg_match('/\bfree[_\s-]?group|groepenaanduiding\s+leesbaar\b/u', mb_strtolower($text));
     }
 
     /**
@@ -1213,23 +1211,12 @@ final class DossierSynthesisPartialAcceptor
      */
     private function claimsOverstatedPhotoFact(string $text): bool
     {
-        $normalized = mb_strtolower($text);
-
-        return (bool) preg_match(
-            '/\b(3[\s-]?fase|driefase)\s+(aanwezig|is\s+aanwezig|vastgesteld|bevestigd|aanwezig\s+is)\b/u',
-            $normalized,
-        );
+        return $this->claimGuard->claimsOverconfidentFact($text);
     }
 
     private function hedgeOverstatedPhotoFacts(string $summary): string
     {
-        $hedged = preg_replace(
-            '/\b(3[\s-]?fase|driefase)\s+(aanwezig|is\s+aanwezig|vastgesteld|bevestigd)/iu',
-            '$1 lijkt zichtbaar',
-            $summary,
-        );
-
-        return trim(is_string($hedged) ? $hedged : $summary);
+        return $this->claimGuard->hedgeOverconfidentClaim($summary);
     }
 
     private function claimsFreeGroupAvailable(string $text): bool
@@ -1245,7 +1232,7 @@ final class DossierSynthesisPartialAcceptor
     private function stripFreeGroupClaims(string $summary): string
     {
         $cleaned = preg_replace(
-            '/[^.]*(\bvrije\s+groep|\b3[\s-]?fase|\bdriefase)[^.]*\.?/iu',
+            '/[^.]*(\bvrije\s+groep|\b1[\s-]?fasen?|\b3[\s-]?fasen?|\bdriefasen?)[^.]*\.?/iu',
             '',
             $summary,
         );
