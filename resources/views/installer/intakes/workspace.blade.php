@@ -1267,7 +1267,8 @@
                                     Voorstel goedkeuren
                                 </button>
                             </form>
-                        @elseif ($selectedOption)
+                        @elseif ($intake->aircoInstallationOptions->isNotEmpty())
+                            {{-- Show blockers for AI Candidate proposals too (synthesis does not auto-select). --}}
                             <p class="mt-1 text-sm text-gray-500">Los eerst de open punten op. Daarna kun je goedkeuren. Een locatiebezoek als uitkomst blijft mogelijk.</p>
                             @if ($approvalBlockers !== [])
                                 <ul class="mt-3 list-disc space-y-1 pl-5 text-sm text-amber-900" data-testid="approval-blockers">
@@ -1276,7 +1277,7 @@
                                     @endforeach
                                 </ul>
                             @endif
-                            <button type="button" disabled class="mt-4 inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center rounded-xl bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-500">
+                            <button type="button" disabled class="mt-4 inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center rounded-xl bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-500" data-testid="approval-not-ready">
                                 Nog niet klaar om goed te keuren
                             </button>
                         @else
