@@ -307,6 +307,13 @@
                                         @if ($point->source === \App\Enums\AttentionPointSource::Ai)
                                             <span class="text-gray-400">· overgenomen AI-voorstel</span>
                                         @endif
+                                        @if (is_array($point->evidence) && $point->evidence !== [])
+                                            @php
+                                                $authoritativeEvidence = app(\App\Domains\Intake\Support\InstallerEvidencePresenter::class)
+                                                    ->presentAttentionEvidence($intake, $point->evidence);
+                                            @endphp
+                                            <x-evidence-citations :citations="$authoritativeEvidence" class="mt-1 list-none pl-0" />
+                                        @endif
                                     </li>
                                 @endforeach
                             </ul>
@@ -327,22 +334,11 @@
                                                 </p>
                                             @endif
                                             @if (is_array($point->evidence) && $point->evidence !== [])
-                                                <ul class="mt-1 space-y-0.5 text-xs text-gray-500">
-                                                    @foreach ($point->evidence as $evidence)
-                                                        <li>
-                                                            {{ match ($evidence['source_type'] ?? '') {
-                                                                'answer' => 'klantantwoord',
-                                                                'external_fact' => 'extern feit',
-                                                                'upload' => 'upload',
-                                                                'follow_up' => 'aanvulling',
-                                                                'installer_review' => 'installateursbeoordeling',
-                                                                'pipe_route' => 'leidingroute',
-                                                                'system_attention_point' => 'systeemsignaal',
-                                                                default => 'dossierbron',
-                                                            } }} · <code>{{ $evidence['reference'] ?? 'onbekend' }}</code>
-                                                        </li>
-                                                    @endforeach
-                                                </ul>
+                                                @php
+                                                    $evidenceCitations = app(\App\Domains\Intake\Support\InstallerEvidencePresenter::class)
+                                                        ->presentAttentionEvidence($intake, $point->evidence);
+                                                @endphp
+                                                <x-evidence-citations :citations="$evidenceCitations" class="mt-1" />
                                             @endif
                                         </div>
                                         <span class="flex shrink-0 gap-2">
@@ -478,7 +474,7 @@
                                 <div class="grid grid-cols-2 gap-4 sm:grid-cols-3">
                                     @foreach ($group['uploads'] as $item)
                                         @if (str_starts_with($item['upload']->mime_type, 'image/'))
-                                            <figure class="space-y-2">
+                                            <figure @class(['space-y-2', 'opacity-60' => ($item['superseded'] ?? false) === true]) data-testid="gallery-upload-{{ $item['upload']->id }}" @if (($item['superseded'] ?? false) === true) data-superseded="1" @endif>
                                                 <a href="{{ route('installer.uploads.show', [$intake, $item['upload']]) }}" target="_blank" rel="noopener" class="block overflow-hidden rounded-md border border-gray-200">
                                                     <img
                                                         src="{{ route('installer.uploads.show', [$intake, $item['upload']]) }}"
@@ -488,16 +484,23 @@
                                                 </a>
                                                 <figcaption class="space-y-2 text-xs text-gray-500">
                                                     <p>{{ $item['caption'] }}</p>
+                                                    @if (($item['superseded'] ?? false) === true && ! empty($item['supersession_label']))
+                                                        <span class="inline-flex items-center rounded bg-gray-200 px-1.5 py-0.5 text-[11px] font-medium text-gray-700" data-testid="gallery-superseded">
+                                                            {{ $item['supersession_label'] }}
+                                                        </span>
+                                                    @endif
                                                     @php
                                                         $contentAssessment = $item['upload']->contentAssessment();
-                                                        $contentInstallerLabel = $contentAssessment?->installerLabel();
+                                                        $contentInstallerLabel = ($item['superseded'] ?? false) === true
+                                                            ? null
+                                                            : $contentAssessment?->installerLabel();
                                                     @endphp
                                                     @if ($contentInstallerLabel)
                                                         <span class="inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800" title="Automatische inhoudsbeoordeling — niet bindend">
                                                             {{ $contentInstallerLabel }}
                                                         </span>
                                                     @endif
-                                                    @if ($item['upload']->usability_verdict && $item['upload']->usability_verdict->installerLabel())
+                                                    @if (($item['superseded'] ?? false) !== true && $item['upload']->usability_verdict && $item['upload']->usability_verdict->installerLabel())
                                                         <div class="space-y-2">
                                                             <span class="inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800" title="Automatische indicatie — niet bindend">
                                                                 ⚠ {{ $item['upload']->usability_verdict->installerLabel() }}
