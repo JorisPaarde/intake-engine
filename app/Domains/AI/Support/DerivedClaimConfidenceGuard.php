@@ -21,6 +21,11 @@ final class DerivedClaimConfidenceGuard
     private const PHASE_OR_GROUP_PATTERN = '/\b(1[\s-]?fasen?|3[\s-]?fasen?|driefasen?|vrije\s+groep(?:en)?)\b/u';
 
     /**
+     * Hard phase mention only (not free-group check instructions).
+     */
+    private const PHASE_PATTERN = '/\b(1[\s-]?fasen?|3[\s-]?fasen?|driefasen?)\b/u';
+
+    /**
      * Hard factual phrasing: phase/group + certainty verb, optionally with words in between
      * (e.g. "3-fase aansluiting aanwezig", "voorzien van een 3-fasen hoofdschakelaar").
      */
@@ -61,6 +66,7 @@ final class DerivedClaimConfidenceGuard
 
     /**
      * Mentions phase/electrical capacity without hedging language.
+     * Check-instructions ("controleer op vrije groepen") are not positive claims.
      */
     public function claimsUnequivocalElectricalFact(string $text): bool
     {
@@ -70,16 +76,22 @@ final class DerivedClaimConfidenceGuard
         }
 
         // Absence / check-instructions about free groups are not positive electrical claims.
-        if ((bool) preg_match('/\bgeen\s+vrije\s+groep(?:en)?\b/u', $normalized)) {
+        if ((bool) preg_match('/\bgeen\s+vrije\s+groep(?:en)?\b/u', $normalized)
+            || (bool) preg_match('/\b(controleer|check|nagaan)\b.*\bvrije\s+groep(?:en)?\b/u', $normalized)
+            || (bool) preg_match('/\bvrije\s+groep(?:en)?\b.*\b(controleer|te\s+controleren|nagaan)\b/u', $normalized)) {
             return $this->claimsOverconfidentFact($text);
         }
 
-        return (bool) preg_match(self::PHASE_OR_GROUP_PATTERN, $normalized)
+        // Bare "vrije groepen" without presence language is not an unequivocal fact;
+        // only hard phase mentions or overconfident presence constructions qualify.
+        return (bool) preg_match(self::PHASE_PATTERN, $normalized)
             || $this->claimsOverconfidentFact($text);
     }
 
     /**
      * Rewrite hard factual electrical claims into hedged "lijkt / te controleren" form.
+     * Only rewrites actual hard phase/group presence claims — never splices the hedge
+     * suffix onto check-instructions like "controleer op vrije groepen".
      */
     public function hedgeOverconfidentClaim(string $text): string
     {
@@ -95,29 +107,8 @@ final class DerivedClaimConfidenceGuard
             '$1 lijkt zichtbaar — te controleren',
             $result,
         );
-        $result = trim(is_string($constructionHedged) ? $constructionHedged : $result);
 
-        if (! $this->textLooksHedged($result)
-            && (bool) preg_match(self::PHASE_OR_GROUP_PATTERN, mb_strtolower($result))) {
-            $withPhaseHedge = preg_replace(
-                '/\b(1[\s-]?fasen?|3[\s-]?fasen?|driefasen?|vrije\s+groep(?:en)?)\b/iu',
-                '$1 lijkt zichtbaar — te controleren',
-                $result,
-            );
-            $result = trim(is_string($withPhaseHedge) ? $withPhaseHedge : $result);
-        }
-
-        if ($this->textLooksHedged($result)) {
-            return $result;
-        }
-
-        $softened = preg_replace(
-            '/\b(aanwezig|vastgesteld|bevestigd|uitgevoerd|voorzien)\b/iu',
-            'lijkt zichtbaar — te controleren',
-            $result,
-        );
-
-        return trim(is_string($softened) ? $softened : $result);
+        return trim(is_string($constructionHedged) ? $constructionHedged : $result);
     }
 
     /**

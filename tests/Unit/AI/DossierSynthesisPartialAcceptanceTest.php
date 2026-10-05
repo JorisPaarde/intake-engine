@@ -1001,7 +1001,12 @@ test('hedged source observation caps exception confidence and wording', function
         ->and($result['accepted']['summary'])->toMatch('/lijkt|te controleren/i')
         ->and($result['accepted']['exceptions'])->toHaveCount(1)
         ->and($result['accepted']['exceptions'][0]['confidence'])->not->toBe('high')
-        ->and($result['accepted']['exceptions'][0]['label'])->toMatch('/lijkt|te controleren/i');
+        // Check-instruction stays grammatical; soft source still caps confidence.
+        ->and($result['accepted']['exceptions'][0]['label'])->toBe(
+            'Meterkast is volledig gevuld; controleer vrije groepen voor 3-fase aansluiting.',
+        )
+        ->and($result['accepted']['exceptions'][0]['label'])->not->toMatch('/vrije groepen lijkt zichtbaar/i')
+        ->and($result['accepted']['exceptions'][0]['label'])->not->toMatch('/3[\s-]?fase lijkt zichtbaar — te controleren aansluiting/i');
 });
 
 test('intake 85 hedged meter observation cannot harden into certain assistant summary', function () {

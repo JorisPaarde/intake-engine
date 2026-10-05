@@ -19,16 +19,45 @@ test('overconfident electrical claims are rewritten to lijkt / te controleren', 
         'Elektrische aansluiting: 3-fase aanwezig',
         'medium',
     );
-    $exception = $guard->normalizeDerivedText(
+    $checkInstruction = $guard->normalizeDerivedText(
         'Meterkast is volledig gevuld; controleer vrije groepen voor 3-fase aansluiting.',
         'medium',
     );
 
     expect($summary['hedged'])->toBeTrue()
         ->and($summary['text'])->not->toMatch('/3[\s-]?fase aanwezig/i')
-        ->and($summary['text'])->toMatch('/lijkt|te controleren/i')
-        ->and($exception['hedged'])->toBeTrue()
-        ->and($exception['text'])->toMatch('/lijkt|te controleren/i');
+        ->and($summary['text'])->toBe('Elektrische aansluiting: 3-fase lijkt zichtbaar — te controleren')
+        // Check-instructions stay grammatical; do not splice hedge onto "vrije groepen" / bare "3-fase".
+        ->and($checkInstruction['hedged'])->toBeFalse()
+        ->and($checkInstruction['text'])->toBe(
+            'Meterkast is volledig gevuld; controleer vrije groepen voor 3-fase aansluiting.',
+        )
+        ->and($checkInstruction['text'])->not->toMatch('/vrije groepen lijkt zichtbaar/i')
+        ->and($checkInstruction['text'])->not->toMatch('/3[\s-]?fase lijkt zichtbaar/i');
+});
+
+test('intake 87 free-group check-instruction is not garbled by soft meter phase hedge', function () {
+    $fixture = json_decode(
+        (string) file_get_contents(__DIR__.'/../../fixtures/dossier-synthesis/intake-87-attention-free-groups-hedge.json'),
+        true,
+        512,
+        JSON_THROW_ON_ERROR,
+    );
+    $guard = new DerivedClaimConfidenceGuard;
+    $ceiling = $guard->ceilingFromObservationText((string) $fixture['source_observation']);
+
+    $attention = $guard->normalizeDerivedText((string) $fixture['attention_label_raw'], $ceiling);
+    $hardPhase = $guard->normalizeDerivedText((string) $fixture['hard_phase_claim'], $ceiling);
+
+    expect($ceiling)->toBe('medium')
+        ->and($guard->claimsUnequivocalElectricalFact((string) $fixture['attention_label_raw']))->toBeFalse()
+        ->and($guard->claimsOverconfidentFact((string) $fixture['attention_label_raw']))->toBeFalse()
+        ->and($attention['hedged'])->toBeFalse()
+        ->and($attention['text'])->toBe((string) $fixture['attention_label_raw'])
+        ->and($attention['text'])->not->toBe((string) $fixture['attention_label_garbled'])
+        ->and($attention['text'])->not->toMatch('/vrije groepen lijkt zichtbaar/i')
+        ->and($hardPhase['hedged'])->toBeTrue()
+        ->and($hardPhase['text'])->toBe((string) $fixture['hard_phase_hedged']);
 });
 
 test('intake 85/86 certain phase report and assistant copy are hedged from soft meter source', function () {

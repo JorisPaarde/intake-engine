@@ -1,0 +1,9 @@
+{
+  "_comment": "Staging intake 87: soft meter phase observation must not splice hedge onto free-group check-instructions.",
+  "source_observation": "3-fase lijkt zichtbaar",
+  "source_confidence": "medium",
+  "attention_label_raw": "Meterkast is volledig bezet; controleer op vrije groepen voor nieuwe installatie",
+  "attention_label_garbled": "Meterkast is volledig bezet; controleer op vrije groepen lijkt zichtbaar — te controleren voor nieuwe installatie",
+  "hard_phase_claim": "Elektrische aansluiting: 3-fase aanwezig",
+  "hard_phase_hedged": "Elektrische aansluiting: 3-fase lijkt zichtbaar — te controleren"
+}
