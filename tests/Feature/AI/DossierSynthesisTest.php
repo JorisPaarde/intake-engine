@@ -5,12 +5,16 @@ declare(strict_types=1);
 use App\Domains\AI\Actions\SynthesizeSurveyDossier;
 use App\Domains\AI\Clients\FakeAiClient;
 use App\Domains\AI\DTOs\AiCompletionRequest;
+use App\Domains\AI\Exceptions\DossierContextChangedException;
+use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
+use App\Domains\AI\Models\AiRun;
 use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Models\AircoInstallationOption;
 use App\Domains\Intake\Models\AircoPlacementOption;
 use App\Domains\Intake\Models\ContributionTask;
 use App\Domains\Intake\Models\DossierRecord;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeAttentionPoint;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\AircoSurveyService;
 use App\Domains\Intake\Services\DossierManager;
@@ -18,6 +22,8 @@ use App\Enums\AircoConfigurationType;
 use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoPlacementType;
 use App\Enums\AiRunStatus;
+use App\Enums\AiRunType;
+use App\Enums\AttentionPointSource;
 use App\Enums\ContributionMode;
 use App\Enums\ContributionTaskStatus;
 use App\Models\User;
@@ -956,4 +962,83 @@ test('partial refresh upserts outdoor placement by identity instead of stacking 
         ->and($outdoors)->toHaveCount(1)
         ->and($outdoors->first()?->id)->toBe($firstOutdoorId)
         ->and($outdoors->first()?->description)->toContain('refresh');
+});
+
+test('synthesis apply skips when context mutates between hash capture and apply', function () {
+    [$intake] = synthesisSurveyWithPlacements();
+
+    FakeAiClient::respondUsing(function (AiCompletionRequest $request) use ($intake): array {
+        // Mutate a field that is part of the synthesis input hash (system attention).
+        IntakeAttentionPoint::query()->create([
+            'intake_id' => $intake->id,
+            'source' => AttentionPointSource::System,
+            'code' => 'race_during_provider',
+            'label' => 'Context gewijzigd tijdens provider-call',
+            'is_resolved' => false,
+        ]);
+
+        return validDossierSynthesisOutput($request, 'Race-resultaat');
+    });
+
+    expect(fn () => app(SynthesizeSurveyDossier::class)->handle($intake->fresh()))
+        ->toThrow(DossierContextChangedException::class);
+
+    $run = AiRun::query()
+        ->where('intake_id', $intake->id)
+        ->where('type', AiRunType::DossierSynthesis)
+        ->latest('id')
+        ->first();
+
+    expect($run)->not->toBeNull()
+        ->and($run?->status)->toBe(AiRunStatus::Failed)
+        ->and($run?->error_message)->toContain('Opnamedossier gewijzigd tijdens AI-synthese')
+        ->and(AircoInstallationOption::query()->where('intake_id', $intake->id)->count())->toBe(0);
+});
+
+test('synthesis job retries once after context-change apply skip and then applies', function () {
+    [$intake] = synthesisSurveyWithPlacements();
+    $attempt = 0;
+
+    FakeAiClient::respondUsing(function (AiCompletionRequest $request) use ($intake, &$attempt): array {
+        $attempt++;
+        if ($attempt === 1) {
+            IntakeAttentionPoint::query()->create([
+                'intake_id' => $intake->id,
+                'source' => AttentionPointSource::System,
+                'code' => 'race_retry_once',
+                'label' => 'Eerste poging stale',
+                'is_resolved' => false,
+            ]);
+        }
+
+        return validDossierSynthesisOutput($request, 'Na retry toegepast');
+    });
+
+    $job = new SynthesizeSurveyDossierJob($intake->id);
+    $synthesize = app(SynthesizeSurveyDossier::class);
+
+    expect(fn () => $job->handle($synthesize))
+        ->toThrow(DossierContextChangedException::class);
+
+    expect(AiRun::query()
+        ->where('intake_id', $intake->id)
+        ->where('type', AiRunType::DossierSynthesis)
+        ->where('status', AiRunStatus::Failed)
+        ->count())->toBe(1)
+        ->and($job->tries)->toBe(2);
+
+    // Second attempt uses the stable post-mutation context (same as queue retry).
+    $job->handle($synthesize);
+
+    $runs = AiRun::query()
+        ->where('intake_id', $intake->id)
+        ->where('type', AiRunType::DossierSynthesis)
+        ->orderBy('id')
+        ->get();
+
+    expect($runs)->toHaveCount(2)
+        ->and($runs[0]->status)->toBe(AiRunStatus::Failed)
+        ->and($runs[1]->status)->toBe(AiRunStatus::Succeeded)
+        ->and(AircoInstallationOption::query()->where('intake_id', $intake->id)->sole()->label)
+        ->toBe('Na retry toegepast');
 });

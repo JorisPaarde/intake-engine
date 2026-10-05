@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\AI\Actions;
 
+use App\Domains\AI\Exceptions\DossierContextChangedException;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\AiGateway;
 use App\Domains\AI\Services\AiImageResolver;
@@ -42,7 +43,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use RuntimeException;
 use Throwable;
 
 /**
@@ -202,7 +202,9 @@ final class SynthesizeSurveyDossier
                     $currentInput['synthesis_policy'] = $this->synthesisPolicy($locked, $currentUploads);
 
                     if (! hash_equals($inputHash, $this->hash($currentInput, $promptVersion, $model))) {
-                        throw new RuntimeException('Opnamedossier gewijzigd tijdens AI-synthese; resultaat niet toegepast.');
+                        throw new DossierContextChangedException(
+                            'Opnamedossier gewijzigd tijdens AI-synthese; resultaat niet toegepast.',
+                        );
                     }
 
                     $this->replaceProposals($locked, $run, $output);
@@ -276,10 +278,19 @@ final class SynthesizeSurveyDossier
                 $trace?->discardBuffer();
                 $trace?->fail($errorMessage, $exception);
 
+                // Let the queue job retry once on optimistic-lock races (tries=2).
+                if ($exception instanceof DossierContextChangedException) {
+                    throw $exception;
+                }
+
                 return $run->fresh() ?? $run;
             }
 
             $trace?->fail($errorMessage, $exception);
+
+            if ($exception instanceof DossierContextChangedException) {
+                throw $exception;
+            }
 
             return null;
         }
