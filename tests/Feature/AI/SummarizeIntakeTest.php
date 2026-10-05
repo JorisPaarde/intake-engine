@@ -240,6 +240,54 @@ test('heuristic provider produces a local summary without external API', functio
         ->and($intake->fresh()->report->html)->toContain('AI-voorstel (niet bindend)');
 });
 
+test('intake 85/86 hedged fusebox observation keeps AI-voorstel report summary from stating certain phase', function () {
+    $fixture = json_decode(
+        (string) file_get_contents(base_path('tests/fixtures/dossier-synthesis/intake-85-hedged-phase-certain-copy.json')),
+        true,
+        512,
+        JSON_THROW_ON_ERROR,
+    );
+
+    FakeAiClient::alwaysReturn([
+        // Exact intake-86 report wording that landed in "AI-voorstel (niet bindend)".
+        'summary' => $fixture['intake_86_report_summary_raw'],
+        'highlights' => [
+            $fixture['report_highlight_raw'],
+            'Controleer de buitenunitplek.',
+        ],
+    ]);
+
+    $intake = makeAiIntake();
+    fillAiIntakeUntilComplete($intake);
+    IntakeExternalFact::query()->create([
+        'intake_id' => $intake->id,
+        'fact_key' => 'fusebox_photo_assessment',
+        'label' => 'Meterkastfoto',
+        'value' => [
+            'phase' => 'three_phase',
+            'empty_module_space' => 'none_visible',
+            'confidence' => 'medium',
+            'evidence' => $fixture['source_observation'],
+        ],
+        'source' => 'ai',
+        'confidence' => 'medium',
+        'captured_at' => now(),
+    ]);
+    app(CompleteIntake::class)->handle($intake->fresh());
+
+    $run = app(SummarizeIntake::class)->handle($intake->fresh());
+    $report = $intake->fresh()->report;
+    $summary = $report->meta['ai_summary']['summary'] ?? '';
+    $highlights = $report->meta['ai_summary']['highlights'] ?? [];
+
+    expect($run->status)->toBe(AiRunStatus::Succeeded)
+        ->and($summary)->not->toMatch('/3[\s-]?fase aansluiting aanwezig/i')
+        ->and($summary)->toMatch('/lijkt|te controleren|mogelijk/i')
+        ->and($report->html)->toContain('AI-voorstel (niet bindend)')
+        ->and($report->html)->not->toMatch('/3[\s-]?fase aansluiting aanwezig/i')
+        ->and(implode(' ', is_array($highlights) ? $highlights : []))->toMatch('/lijkt|te controleren|mogelijk/i');
+});
+
 test('external summary payload strips internal ids and sensitive facts recursively', function () {
     FakeAiClient::alwaysReturn([
         'summary' => 'Veilige technische samenvatting.',

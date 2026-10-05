@@ -1,0 +1,9 @@
+{
+  "_comment": "Staging intake 85/86: hedged meter observation must not harden into AI-voorstel (niet bindend) / assistant certainty.",
+  "source_observation": "3-fase lijkt zichtbaar",
+  "source_confidence": "medium",
+  "assistant_summary_raw": "De meterkast is voorzien van een 3-fasen hoofdschakelaar. Multi-split blijft een kandidaat na controle van de groepenkast.",
+  "installer_report_summary_raw": "Groepenkast is uitgevoerd met 3-fasen aansluiting. Controleer of een multi-split technisch past.",
+  "report_highlight_raw": "Meterkast: 3-fasen hoofdschakelaar aanwezig.",
+  "intake_86_report_summary_raw": "3-fase aansluiting aanwezig in de groepenkast. Controleer of multi-split technisch past."
+}
