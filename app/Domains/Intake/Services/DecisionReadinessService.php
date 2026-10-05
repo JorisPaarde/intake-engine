@@ -153,6 +153,9 @@ final class DecisionReadinessService
         $selected = $intake->aircoInstallationOptions->first(
             static fn (AircoInstallationOption $option): bool => $option->status === AircoOptionStatus::Selected,
         );
+        // Real synthesis leaves options as Candidate; still assess that proposal so
+        // blockers (uncertainty, coverage) are visible before the installer selects.
+        $proposal = $selected ?? $this->primaryApprovalCandidate($intake);
 
         $quote = $intake->decisionAreas->firstWhere('key', 'quote')
             ?? $this->recalculate($intake)->firstWhere('key', 'quote');
@@ -178,16 +181,16 @@ final class DecisionReadinessService
                 || ($quote->next_action === DossierNextAction::PlanSiteVisit);
         }
 
-        if ($selected instanceof AircoInstallationOption) {
-            foreach ($this->couplingValidator->roomCoverageProblems($intake, $selected) as $problem) {
+        if ($proposal instanceof AircoInstallationOption) {
+            foreach ($this->couplingValidator->roomCoverageProblems($intake, $proposal) as $problem) {
                 $blockers[] = $problem;
             }
             $uncoveredNames = $this->couplingValidator
-                ->uncoveredRequestedRooms($intake, $selected)
+                ->uncoveredRequestedRooms($intake, $proposal)
                 ->map(static fn (AircoRoom $room): string => $room->name)
                 ->all();
 
-            foreach ($selected->connections as $connection) {
+            foreach ($proposal->connections as $connection) {
                 $uncertainties = array_values(array_filter(
                     array_map(
                         static fn (string $item): string => trim($item),
@@ -213,7 +216,7 @@ final class DecisionReadinessService
                 $blockers[] = 'Accepteer of los eerst de onzekerheid op bij “'.$connection->label.'”: '.$uncertainties[0];
             }
 
-            foreach ($this->couplingValidator->optionProblems($selected, requireComplete: true) as $problem) {
+            foreach ($this->couplingValidator->optionProblems($proposal, requireComplete: true) as $problem) {
                 $blockers[] = $problem;
             }
         }
@@ -228,6 +231,26 @@ final class DecisionReadinessService
             'site_visit_possible' => $siteVisitPossible,
             'quote_status' => $quote?->status?->value,
         ];
+    }
+
+    /**
+     * Prefer AI candidate options (post-synthesis), then any non-rejected option by rank.
+     */
+    private function primaryApprovalCandidate(Intake $intake): ?AircoInstallationOption
+    {
+        return $intake->aircoInstallationOptions
+            ->filter(
+                static fn (AircoInstallationOption $option): bool => $option->status !== AircoOptionStatus::Rejected,
+            )
+            ->sortBy(static function (AircoInstallationOption $option): string {
+                return sprintf(
+                    '%d-%010d-%010d',
+                    $option->source_type === 'ai' ? 0 : 1,
+                    $option->rank ?? PHP_INT_MAX,
+                    $option->id,
+                );
+            })
+            ->first();
     }
 
     public function canBulkApprove(Intake $intake): bool

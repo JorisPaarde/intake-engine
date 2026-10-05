@@ -17,6 +17,7 @@ use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeAttentionPoint;
 use App\Domains\Intake\Models\IntakeTemplate;
+use App\Domains\Intake\Services\DecisionReadinessService;
 use App\Domains\Intake\Services\DossierOverviewBuilder;
 use App\Domains\Intake\Services\ExternalFactPresenter;
 use App\Domains\Intake\Services\InstallerPhotoGalleryBuilder;
@@ -35,7 +36,6 @@ use App\Enums\AttentionPointStatus;
 use App\Enums\ContributionMode;
 use App\Enums\ContributionTaskStatus;
 use App\Enums\CustomerLinkMailResult;
-use App\Enums\DecisionAreaStatus;
 use App\Enums\IntakeStatus;
 use App\Enums\PipeRouteStatus;
 use App\Enums\ReviewDecision;
@@ -202,9 +202,9 @@ class IntakeController extends Controller
                     && (! $connection->routeSession
                         || $connection->routeSession->status === PipeRouteStatus::Approved),
             );
-        $canApproveProposal = ! $proposalAlreadyApproved
-            && $selectedOption
-            && in_array($quoteArea?->status, [DecisionAreaStatus::Ready, DecisionAreaStatus::Review], true);
+        $approvalAssessment = app(DecisionReadinessService::class)->bulkApprovalAssessment($intake);
+        $canApproveProposal = ! $proposalAlreadyApproved && $approvalAssessment['allowed'];
+        $approvalBlockers = $approvalAssessment['blockers'];
         $proposedCustomerTasks = $intake->contributionTasks
             ->where('status', ContributionTaskStatus::Proposed);
         $primaryAction = app(WorkspacePrimaryActionResolver::class)->resolve(
@@ -236,6 +236,9 @@ class IntakeController extends Controller
             'aiAttentionAvailable' => $aiProvider !== 'null',
             'attentionAiSucceeded' => $attentionAiSucceeded,
             'followUpReview' => $followUpReview,
+            'canApproveProposal' => $canApproveProposal,
+            'proposalAlreadyApproved' => $proposalAlreadyApproved,
+            'approvalBlockers' => $approvalBlockers,
         ]);
     }
 
