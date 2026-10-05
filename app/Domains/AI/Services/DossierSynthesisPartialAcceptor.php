@@ -87,6 +87,33 @@ final class DossierSynthesisPartialAcceptor
             $outcomes[] = $this->outcome('summary', 'accepted', 'summary', 'Samenvatting genormaliseerd: elektrische claim zonder meterkastbewijs verwijderd.');
         }
 
+        if ($this->claimsInventedCustomerWish($summary)) {
+            $outcomes[] = $this->outcome(
+                'summary',
+                'rejected',
+                'summary',
+                'Samenvatting verzint een klantwens (bijv. multi-split) zonder letterlijke klanttekst.',
+            );
+            $validationErrors['summary'][] = 'Samenvatting verzint een klantwens zonder letterlijke klanttekst.';
+            $summary = $this->stripInventedCustomerWishes($summary);
+            if (trim($summary) === '' || $this->claimsInventedCustomerWish($summary)) {
+                $summary = 'Technische voorzet op basis van beschikbaar bewijs; controleer gewenste opstelling met de klant.';
+            }
+            $outcomes[] = $this->outcome('summary', 'accepted', 'summary', 'Samenvatting genormaliseerd: verzonnen klantwens verwijderd.');
+        }
+
+        if ($this->claimsOverstatedPhotoFact($summary)) {
+            $outcomes[] = $this->outcome(
+                'summary',
+                'rejected',
+                'summary',
+                'Samenvatting stelt een onzekere foto-observatie als feit (bijv. 3-fase aanwezig).',
+            );
+            $validationErrors['summary'][] = 'Samenvatting stelt een onzekere foto-observatie als feit.';
+            $summary = $this->hedgeOverstatedPhotoFacts($summary);
+            $outcomes[] = $this->outcome('summary', 'accepted', 'summary', 'Samenvatting genormaliseerd: foto-observatie als onzeker geformuleerd.');
+        }
+
         $acceptedPlacements = [];
         foreach ($this->arrayRows($output['placement_proposals'] ?? null) as $index => $proposal) {
             $path = 'placement_proposals.'.$index;
@@ -402,6 +429,13 @@ final class DossierSynthesisPartialAcceptor
             return ['accepted' => null, 'reason' => $this->failureFormatter->fromException($e)];
         }
 
+        // Remap connection endpoints that still point at older placement:IDs onto
+        // matching proposal: keys in this option (same subject), so a refresh with
+        // new placement proposals is not rejected while refrigerant/condensate
+        // still cite the previous ids.
+        $item = $this->remapStaleConnectionPlacementRefs($item, $optionReferences, $placements);
+        $optionReferences = $item['placement_references'];
+
         $optionPlacements = $placements->only($optionReferences);
         $configuration = AircoConfigurationType::from($configurationType);
         $indoorCount = $optionPlacements->where('type', AircoPlacementType::IndoorUnit->value)->count();
@@ -517,6 +551,70 @@ final class DossierSynthesisPartialAcceptor
         $item['connections'] = $connections;
 
         return ['accepted' => $item, 'reason' => null];
+    }
+
+    /**
+     * When placement_references use proposal:keys but connections still cite
+     * placement:N from a prior run, remap each endpoint onto the unique
+     * proposal in this option that shares the same subject_reference.
+     *
+     * @param  array<string, mixed>  $option
+     * @param  list<string>  $optionReferences
+     * @param  Collection<string, array<string, mixed>>  $placements
+     * @return array<string, mixed>
+     */
+    private function remapStaleConnectionPlacementRefs(
+        array $option,
+        array $optionReferences,
+        $placements,
+    ): array {
+        if (! isset($option['connections']) || ! is_array($option['connections'])) {
+            return $option;
+        }
+
+        $proposalBySubject = [];
+        foreach ($optionReferences as $reference) {
+            if (! str_starts_with($reference, 'proposal:')) {
+                continue;
+            }
+            $placement = $placements->get($reference);
+            $subject = is_array($placement) ? ($placement['subject_reference'] ?? null) : null;
+            if (! is_string($subject) || $subject === '') {
+                continue;
+            }
+            if (array_key_exists($subject, $proposalBySubject)) {
+                // Ambiguous: more than one proposal for this subject — skip remap.
+                $proposalBySubject[$subject] = null;
+
+                continue;
+            }
+            $proposalBySubject[$subject] = $reference;
+        }
+
+        foreach ($option['connections'] as $index => $connection) {
+            if (! is_array($connection)) {
+                continue;
+            }
+            foreach (['from_placement_reference', 'to_placement_reference'] as $key) {
+                $reference = $connection[$key] ?? null;
+                if (! is_string($reference)
+                    || ! str_starts_with($reference, 'placement:')
+                    || in_array($reference, $optionReferences, true)) {
+                    continue;
+                }
+                $existing = $placements->get($reference);
+                $subject = is_array($existing) ? ($existing['subject_reference'] ?? null) : null;
+                if (! is_string($subject) || ! array_key_exists($subject, $proposalBySubject)) {
+                    continue;
+                }
+                $mapped = $proposalBySubject[$subject];
+                if ($mapped !== null) {
+                    $option['connections'][$index][$key] = $mapped;
+                }
+            }
+        }
+
+        return $option;
     }
 
     /**
@@ -829,6 +927,52 @@ final class DossierSynthesisPartialAcceptor
                 ]);
             }
         }
+    }
+
+    private function claimsInventedCustomerWish(string $text): bool
+    {
+        $normalized = mb_strtolower($text);
+
+        return (bool) preg_match(
+            '/\b(de\s+klant\s+(wenst|wil|kiest|vraagt)|klant\s+wenst|wenst\s+een\s+multi[-\s]?split|wil\s+een\s+multi[-\s]?split)\b/u',
+            $normalized,
+        );
+    }
+
+    private function stripInventedCustomerWishes(string $summary): string
+    {
+        $cleaned = preg_replace(
+            '/[^.]*\b(de\s+klant\s+(wenst|wil|kiest|vraagt)|klant\s+wenst|wenst\s+een\s+multi[-\s]?split)[^.]*\.?/iu',
+            '',
+            $summary,
+        );
+
+        return trim(preg_replace('/\s{2,}/', ' ', is_string($cleaned) ? $cleaned : $summary) ?? $summary);
+    }
+
+    /**
+     * Hard factual claims about phase/electrical capacity that should stay hedged
+     * unless the meterkast assessment already established them (handled separately).
+     */
+    private function claimsOverstatedPhotoFact(string $text): bool
+    {
+        $normalized = mb_strtolower($text);
+
+        return (bool) preg_match(
+            '/\b(3[\s-]?fase|driefase)\s+(aanwezig|is\s+aanwezig|vastgesteld|bevestigd|aanwezig\s+is)\b/u',
+            $normalized,
+        );
+    }
+
+    private function hedgeOverstatedPhotoFacts(string $summary): string
+    {
+        $hedged = preg_replace(
+            '/\b(3[\s-]?fase|driefase)\s+(aanwezig|is\s+aanwezig|vastgesteld|bevestigd)/iu',
+            '$1 lijkt zichtbaar',
+            $summary,
+        );
+
+        return trim(is_string($hedged) ? $hedged : $summary);
     }
 
     private function claimsFreeGroupAvailable(string $text): bool

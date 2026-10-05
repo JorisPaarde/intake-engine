@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Domains\AI\Services\AiBudgetGuard;
 use App\Domains\AI\Services\DossierSynthesisJsonSchema;
+use App\Domains\AI\Services\DossierSynthesisOutputNormalizer;
 use App\Domains\AI\Services\DossierSynthesisPartialAcceptor;
 use App\Enums\AircoConfigurationType;
 use App\Enums\AircoPlacementType;
@@ -649,4 +650,129 @@ test('budget guard falls back to reserve and warns once when rates are empty', f
     Log::shouldHaveReceived('warning')
         ->once()
         ->withArgs(fn (string $message): bool => str_contains($message, 'AI budget rates empty'));
+});
+
+test('null segments/obstacles/uncertainties default to empty lists before option validation', function () {
+    $output = [
+        'summary' => 'Optie met null-lijsten.',
+        'placement_proposals' => [],
+        'option_proposals' => [[
+            'label' => 'Single-split',
+            'configuration_type' => AircoConfigurationType::SingleSplit->value,
+            'summary' => 'Volledige verbindingen.',
+            'cost_impact' => 'medium',
+            'confidence' => 0.7,
+            'placement_references' => ['placement:81', 'placement:82', 'placement:83', 'placement:84'],
+            'connections' => [
+                array_merge(validConnection('refrigerant', 'placement:81', 'placement:82', 'dossier_image:101'), [
+                    'segments' => null,
+                    'obstacles' => null,
+                    'uncertainties' => null,
+                ]),
+                validConnection('condensate', 'placement:81', 'placement:84', 'dossier_image:101'),
+                validConnection('power', 'placement:83', 'placement:82', 'dossier_image:102'),
+            ],
+        ]],
+        'exceptions' => [],
+        'customer_tasks' => [],
+    ];
+
+    $normalized = app(DossierSynthesisOutputNormalizer::class)->normalize($output);
+    $result = app(DossierSynthesisPartialAcceptor::class)->accept($normalized, partialAcceptorInput());
+
+    expect($result['has_accepted_proposals'])->toBeTrue()
+        ->and($result['accepted']['option_proposals'])->toHaveCount(1)
+        ->and($normalized['option_proposals'][0]['connections'][0]['segments'])->toBe([])
+        ->and($normalized['option_proposals'][0]['connections'][0]['obstacles'])->toBe([])
+        ->and($normalized['option_proposals'][0]['connections'][0]['uncertainties'])->toBe([]);
+});
+
+test('stale placement ids in connections remap onto matching proposal keys by subject', function () {
+    $output = [
+        'summary' => 'Refresh met nieuwe proposals en oude connection-ids.',
+        'placement_proposals' => [
+            [
+                'key' => 'proposal:indoor_woonkamer',
+                'type' => AircoPlacementType::IndoorUnit->value,
+                'label' => 'Binnenunit woonkamer',
+                'description' => 'Vrije muur.',
+                'room_reference' => 'room:12',
+                'subject_reference' => 'subject:40',
+                'confidence' => 0.8,
+                'evidence_references' => ['dossier_image:101'],
+            ],
+            [
+                'key' => 'proposal:outdoor_gevel',
+                'type' => AircoPlacementType::OutdoorUnit->value,
+                'label' => 'Buitenunit gevel',
+                'description' => 'Gevelruimte.',
+                'room_reference' => null,
+                'subject_reference' => 'subject:41',
+                'confidence' => 0.75,
+                'evidence_references' => ['dossier_image:102'],
+            ],
+        ],
+        'option_proposals' => [[
+            'label' => 'Multi met stale refs',
+            'configuration_type' => AircoConfigurationType::SingleSplit->value,
+            'summary' => 'Connections wijzen nog naar placement:81/82.',
+            'cost_impact' => 'medium',
+            'confidence' => 0.7,
+            'placement_references' => [
+                'proposal:indoor_woonkamer',
+                'proposal:outdoor_gevel',
+                'placement:83',
+                'placement:84',
+            ],
+            // Stale: placement:81/82 are the prior indoor/outdoor for the same subjects.
+            'connections' => [
+                validConnection('refrigerant', 'placement:81', 'placement:82', 'dossier_image:101'),
+                validConnection('condensate', 'placement:81', 'placement:84', 'dossier_image:101'),
+                validConnection('power', 'placement:83', 'placement:82', 'dossier_image:102'),
+            ],
+        ]],
+        'exceptions' => [],
+        'customer_tasks' => [],
+    ];
+
+    $result = app(DossierSynthesisPartialAcceptor::class)->accept($output, partialAcceptorInput());
+
+    expect($result['has_accepted_proposals'])->toBeTrue()
+        ->and($result['accepted']['option_proposals'])->toHaveCount(1)
+        ->and($result['accepted']['option_proposals'][0]['connections'][0]['from_placement_reference'])
+        ->toBe('proposal:indoor_woonkamer')
+        ->and($result['accepted']['option_proposals'][0]['connections'][0]['to_placement_reference'])
+        ->toBe('proposal:outdoor_gevel');
+});
+
+test('summary strips invented customer wishes and hedges overstated phase facts', function () {
+    $output = [
+        'summary' => 'De klant wenst een multi-split systeem. 3-fase aanwezig in de meterkast.',
+        'placement_proposals' => [],
+        'option_proposals' => [[
+            'label' => 'Single-split',
+            'configuration_type' => AircoConfigurationType::SingleSplit->value,
+            'summary' => 'Technische kandidaat.',
+            'cost_impact' => 'medium',
+            'confidence' => 0.7,
+            'placement_references' => ['placement:81', 'placement:82', 'placement:83', 'placement:84'],
+            'connections' => [
+                validConnection('refrigerant', 'placement:81', 'placement:82', 'dossier_image:101'),
+                validConnection('condensate', 'placement:81', 'placement:84', 'dossier_image:101'),
+                validConnection('power', 'placement:83', 'placement:82', 'dossier_image:102'),
+            ],
+        ]],
+        'exceptions' => [],
+        'customer_tasks' => [],
+    ];
+
+    $input = partialAcceptorInput();
+    $input['synthesis_policy'] = ['free_group' => 'yes', 'subjects_with_room_photo' => []];
+
+    $result = app(DossierSynthesisPartialAcceptor::class)->accept($output, $input);
+
+    expect($result['has_accepted_proposals'])->toBeTrue()
+        ->and($result['accepted']['summary'])->not->toContain('De klant wenst')
+        ->and($result['accepted']['summary'])->not->toMatch('/3[\s-]?fase aanwezig/i')
+        ->and($result['had_rejections'])->toBeTrue();
 });

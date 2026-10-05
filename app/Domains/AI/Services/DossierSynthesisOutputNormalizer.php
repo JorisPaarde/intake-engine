@@ -263,6 +263,19 @@ final class DossierSynthesisOutputNormalizer
             );
         }
 
+        // Models often omit list fields or emit null; treat as empty lists so a
+        // otherwise valid option is not rejected for missing segments/obstacles.
+        foreach (['segments', 'obstacles', 'uncertainties'] as $listKey) {
+            if (! array_key_exists($listKey, $row) || $row[$listKey] === null) {
+                $row[$listKey] = $this->track(
+                    $path.'.'.$listKey,
+                    $row[$listKey] ?? null,
+                    [],
+                    'null_list_to_empty',
+                );
+            }
+        }
+
         return $row;
     }
 

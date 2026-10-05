@@ -7,6 +7,7 @@ namespace App\Domains\Intake\Jobs;
 use App\Domains\AI\Actions\AssessPhotoUsability;
 use App\Domains\AI\Jobs\AssessUploadedPhotoJob;
 use App\Domains\AI\Services\PhotoAssessmentLifecycle;
+use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\PhotoUploadNormalizer;
 use App\Enums\PhotoAssessmentStatus;
@@ -68,6 +69,10 @@ final class ProcessIntakePhotoVariantsJob implements ShouldBeUnique, ShouldQueue
 
         $timings = is_array($upload->processing_timings) ? $upload->processing_timings : [];
         if (($timings['variants_ready'] ?? false) === true) {
+            return;
+        }
+
+        if ($this->tryReuseExistingVariants($upload, $lifecycle, $timings)) {
             return;
         }
 
@@ -229,6 +234,120 @@ final class ProcessIntakePhotoVariantsJob implements ShouldBeUnique, ShouldQueue
             'upload_id' => $this->uploadId,
             'exception' => $exception !== null ? $exception::class : null,
         ]);
+    }
+
+    /**
+     * Same checksum as an already-processed twin: copy dossier/analysis variants
+     * without Imagick decode and reuse the prior assessment (staging upload 208).
+     *
+     * @param  array<string, mixed>  $timings
+     */
+    private function tryReuseExistingVariants(
+        IntakeUpload $upload,
+        PhotoAssessmentLifecycle $lifecycle,
+        array $timings,
+    ): bool {
+        $checksum = $upload->checksum;
+        if (! is_string($checksum) || $checksum === '') {
+            return false;
+        }
+
+        $source = IntakeUpload::query()
+            ->where('intake_id', $upload->intake_id)
+            ->where('checksum', $checksum)
+            ->where('id', '!=', $upload->id)
+            ->whereNotNull('analysis_path')
+            ->orderByDesc('id')
+            ->get()
+            ->first(static function (IntakeUpload $candidate): bool {
+                $candidateTimings = is_array($candidate->processing_timings) ? $candidate->processing_timings : [];
+
+                return ($candidateTimings['variants_ready'] ?? false) === true
+                    && is_string($candidate->analysis_path)
+                    && $candidate->analysis_path !== '';
+            });
+
+        if (! $source instanceof IntakeUpload) {
+            return false;
+        }
+
+        $disk = (string) $upload->disk;
+        $directory = dirname((string) $upload->path);
+        $extension = pathinfo((string) $source->path, PATHINFO_EXTENSION) ?: 'jpg';
+        $analysisExtension = pathinfo((string) $source->analysis_path, PATHINFO_EXTENSION) ?: 'jpg';
+        $basename = Str::ulid()->toBase32();
+        $newPath = $directory.'/'.$basename.'.'.$extension;
+        $newAnalysisPath = $directory.'/analysis/'.$basename.'.'.$analysisExtension;
+
+        try {
+            $dossierBytes = Storage::disk((string) $source->disk)->get((string) $source->path);
+            $analysisBytes = Storage::disk((string) $source->disk)->get((string) $source->analysis_path);
+            if (! is_string($dossierBytes) || $dossierBytes === ''
+                || ! is_string($analysisBytes) || $analysisBytes === '') {
+                return false;
+            }
+
+            if (! Storage::disk($disk)->put($newPath, $dossierBytes)
+                || ! Storage::disk($disk)->put($newAnalysisPath, $analysisBytes)) {
+                $this->cleanupPath($disk, $newPath);
+                $this->cleanupPath($disk, $newAnalysisPath);
+
+                return false;
+            }
+        } catch (Throwable) {
+            $this->cleanupPath($disk, $newPath);
+            $this->cleanupPath($disk, $newAnalysisPath);
+
+            return false;
+        }
+
+        $sourceTimings = is_array($source->processing_timings) ? $source->processing_timings : [];
+        $oldPath = (string) $upload->path;
+        $oldAnalysis = $upload->analysis_path;
+
+        $upload->forceFill([
+            'path' => $newPath,
+            'analysis_path' => $newAnalysisPath,
+            'mime_type' => $source->mime_type,
+            'size_bytes' => $source->size_bytes,
+            'analysis_mime_type' => $source->analysis_mime_type,
+            'analysis_size_bytes' => $source->analysis_size_bytes,
+            'analysis_checksum' => $source->analysis_checksum,
+            'usability_verdict' => $source->usability_verdict,
+            'processing_timings' => array_merge($timings, [
+                'variants_pending' => false,
+                'variants_ready' => true,
+                'preprocess_ms' => 0,
+                'variants_reused_from_upload_id' => $source->id,
+                'dossier_checksum' => $sourceTimings['dossier_checksum'] ?? null,
+                'dossier_width' => $sourceTimings['dossier_width'] ?? null,
+                'dossier_height' => $sourceTimings['dossier_height'] ?? null,
+                'analysis_width' => $sourceTimings['analysis_width'] ?? null,
+                'analysis_height' => $sourceTimings['analysis_height'] ?? null,
+                'original_width' => $this->clientOriginalWidth
+                    ?? $sourceTimings['original_width']
+                    ?? null,
+                'original_height' => $this->clientOriginalHeight
+                    ?? $sourceTimings['original_height']
+                    ?? null,
+                'variants_processed_at' => now()->toIso8601String(),
+            ]),
+        ])->save();
+
+        if ($oldPath !== '' && $oldPath !== $newPath) {
+            $this->cleanupPath($disk, $oldPath);
+        }
+        if (is_string($oldAnalysis) && $oldAnalysis !== '' && $oldAnalysis !== $newAnalysisPath) {
+            $this->cleanupPath($disk, $oldAnalysis);
+        }
+
+        $expected = PhotoSubject::expectedForPhotoQuestion($upload->question_key) ?? PhotoSubject::Other;
+        if (! $lifecycle->tryReuseFromChecksum($upload->fresh() ?? $upload, $expected)) {
+            // Variants reused; assessment may still need a queue pass.
+            $lifecycle->dispatch($upload->fresh() ?? $upload, $this->correlationId);
+        }
+
+        return true;
     }
 
     private function materializeSource(string $disk, string $path, string $filename, string $mime): string
