@@ -20,12 +20,15 @@ use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Actions\LoadDemoSurveyScenario;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
+use App\Domains\Intake\Models\IntakeAttentionPoint;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\AircoSurveyService;
 use App\Domains\Intake\Services\DecisionReadinessService;
 use App\Domains\Intake\Services\DossierManager;
 use App\Enums\AircoConfigurationType;
 use App\Enums\AircoPlacementType;
+use App\Enums\AttentionPointSource;
+use App\Enums\AttentionPointStatus;
 use App\Enums\ContributionMode;
 use App\Enums\IntakeStatus;
 use App\Enums\PhotoAssessmentStatus;
@@ -243,6 +246,36 @@ if ($synthesisOption->status->value === 'selected') {
 
 $synthesisAssessment = app(DecisionReadinessService::class)->bulkApprovalAssessment($synthesis);
 
+// --- No-option path: open AI attention points, synthesis rejected all options ---
+$noOption = app(CreateIntake::class)->handle($user, [
+    'template_key' => 'airco',
+    'workflow_mode' => ContributionMode::Installer,
+    'customer_name' => 'Playwright No Option Approval',
+    'customer_email' => 'playwright-no-option@example.com',
+    'address_line' => 'Geenoptiestraat 3',
+    'address_postal_code' => '2011CC',
+    'address_house_number' => 3,
+    'address_city' => 'Haarlem',
+    'is_demo' => false,
+]);
+$noOption->update(['status' => IntakeStatus::InProgress]);
+app(DossierManager::class)->initialize($noOption->fresh());
+
+IntakeAttentionPoint::query()->create([
+    'intake_id' => $noOption->id,
+    'source' => AttentionPointSource::Ai,
+    'code' => 'verify_power_no_option',
+    'label' => 'Controleer de meterkastcapaciteit handmatig.',
+    'status' => AttentionPointStatus::Proposed,
+    'ai_confidence' => 'medium',
+    'evidence' => [[
+        'source_type' => 'system_attention_point',
+        'reference' => 'manual:meterkast-check',
+    ]],
+]);
+
+$noOptionAssessment = app(DecisionReadinessService::class)->bulkApprovalAssessment($noOption->fresh() ?? $noOption);
+
 $baseUrl = rtrim((string) (getenv('E2E_BASE_URL') ?: getenv('PLAYWRIGHT_BASE_URL') ?: config('app.url') ?: 'http://127.0.0.1:8000'), '/');
 
 echo json_encode([
@@ -252,14 +285,18 @@ echo json_encode([
     'sourceIntakeId' => $source->id,
     'exampleIntakeId' => $example->id,
     'synthesisIntakeId' => $synthesis->id,
+    'noOptionIntakeId' => $noOption->id,
     'sourceWorkspaceUrl' => $baseUrl.'/intakes/'.$source->id.'/opname',
     'exampleWorkspaceUrl' => $baseUrl.'/intakes/'.$example->id.'/opname',
     'synthesisWorkspaceUrl' => $baseUrl.'/intakes/'.$synthesis->id.'/opname',
     'synthesisShowUrl' => $baseUrl.'/intakes/'.$synthesis->id,
+    'noOptionWorkspaceUrl' => $baseUrl.'/intakes/'.$noOption->id.'/opname',
+    'noOptionShowUrl' => $baseUrl.'/intakes/'.$noOption->id,
     'exampleApprovalAllowed' => $exampleAssessment['allowed'],
     'exampleApprovalBlockers' => $exampleAssessment['blockers'],
     'approvalAllowed' => $synthesisAssessment['allowed'],
     'approvalBlockers' => $synthesisAssessment['blockers'],
+    'noOptionApprovalBlockers' => $noOptionAssessment['blockers'],
     'optionStatus' => $synthesisOption->status->value,
     'optionSource' => $synthesisOption->source_type,
 ], JSON_THROW_ON_ERROR).PHP_EOL;

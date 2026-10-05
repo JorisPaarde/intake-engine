@@ -46,6 +46,9 @@
             ->bulkApprovalAssessment($intake);
         $canApproveProposal = ! $proposalAlreadyApproved && ($approvalAssessment['allowed'] ?? false);
         $approvalBlockers = $approvalAssessment['blockers'] ?? [];
+        $hasOpenAiProposals = app(\App\Domains\Intake\Services\DecisionReadinessService::class)
+            ->hasOpenAiProposals($intake);
+        $showBulkApprovalPanel = $intake->aircoInstallationOptions->isNotEmpty() || $hasOpenAiProposals;
         $openAreas = $dossier['areas']->filter(
             static fn ($area): bool => in_array($area->status, [
                 \App\Enums\DecisionAreaStatus::Blocked,
@@ -92,8 +95,14 @@
     <div class="py-6 sm:py-8">
         <div class="mx-auto max-w-4xl space-y-6 px-4 sm:px-6 lg:px-8">
             @if (session('status'))
-                <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-900" role="status">
-                    {{ session('status') }}
+                <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-900" role="status" data-testid="workspace-status">
+                    <p>{{ session('status') }}</p>
+                    @if (session('ai_synthesis_partial_detail'))
+                        <details class="mt-2 text-xs font-normal text-emerald-900/80" data-testid="ai-synthesis-partial-detail">
+                            <summary class="cursor-pointer font-semibold">Technisch detail (beheer)</summary>
+                            <p class="mt-1 break-words font-mono leading-relaxed">{{ session('ai_synthesis_partial_detail') }}</p>
+                        </details>
+                    @endif
                 </div>
             @endif
 
@@ -1282,9 +1291,9 @@
                                     Voorstel goedkeuren
                                 </button>
                             </form>
-                        @elseif ($intake->aircoInstallationOptions->isNotEmpty())
-                            {{-- Show blockers for AI Candidate proposals too (synthesis does not auto-select). --}}
-                            <p class="mt-1 text-sm text-gray-500">Los eerst de open punten op. Daarna kun je goedkeuren. Een locatiebezoek als uitkomst blijft mogelijk.</p>
+                        @elseif ($showBulkApprovalPanel)
+                            {{-- Visible for AI Candidate options AND when synthesis left only attention/placement proposals (no option). --}}
+                            <p class="mt-1 text-sm text-gray-500">Los eerst de open punten op. Daarna kun je goedkeuren. Een locatiebezoek als uitkomst blijft mogelijk. Losse AI-voorstellen kun je hierboven per stuk accepteren of verwijderen.</p>
                             @if ($approvalBlockers !== [])
                                 <ul class="mt-3 list-disc space-y-1 pl-5 text-sm text-amber-900" data-testid="approval-blockers">
                                     @foreach ($approvalBlockers as $blocker)

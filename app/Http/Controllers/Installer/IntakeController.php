@@ -205,6 +205,7 @@ class IntakeController extends Controller
         $approvalAssessment = app(DecisionReadinessService::class)->bulkApprovalAssessment($intake);
         $canApproveProposal = ! $proposalAlreadyApproved && $approvalAssessment['allowed'];
         $approvalBlockers = $approvalAssessment['blockers'];
+        $hasOpenAiProposals = app(DecisionReadinessService::class)->hasOpenAiProposals($intake);
         $proposedCustomerTasks = $intake->contributionTasks
             ->where('status', ContributionTaskStatus::Proposed);
         $primaryAction = app(WorkspacePrimaryActionResolver::class)->resolve(
@@ -239,6 +240,7 @@ class IntakeController extends Controller
             'canApproveProposal' => $canApproveProposal,
             'proposalAlreadyApproved' => $proposalAlreadyApproved,
             'approvalBlockers' => $approvalBlockers,
+            'hasOpenAiProposals' => $hasOpenAiProposals,
         ]);
     }
 

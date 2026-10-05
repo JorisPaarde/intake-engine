@@ -11,6 +11,7 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeAttentionPoint;
 use App\Domains\Intake\Models\IntakeExternalFact;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Domains\Intake\Services\ExternalFactPresenter;
 use App\Domains\Intake\Services\InstallerPhotoGalleryBuilder;
 use App\Domains\Intake\Support\InstallerEvidencePresenter;
 use App\Domains\Intake\Support\UploadSupersessionResolver;
@@ -268,4 +269,42 @@ test('synthesis dossier_image references render as Dutch photo labels', function
         ->and($citations[0]['url'])->not->toBeNull()
         ->and($citations[1]['label'])->toBe('Foto')
         ->and($citations[0]['label'])->not->toContain('dossier_image:');
+});
+
+test('legacy outdoor photo assessment label is humanized in the installer fact list', function () {
+    $user = User::factory()->create();
+    $intake = evidenceLabelIntake($user);
+
+    IntakeExternalFact::query()->create([
+        'intake_id' => $intake->id,
+        'fact_key' => 'outdoor_location_photos_derivation',
+        'label' => 'Automatische beoordeling van outdoor_location_photos',
+        'value' => [
+            'outdoor_location' => 'garden',
+            'outdoor_mount_type' => 'wall',
+            'confidence' => 'high',
+            'evidence' => 'Gevel met ruimte voor een buitenunit.',
+        ],
+        'source' => 'AI-fotoanalyse',
+        'confidence' => 'high',
+        'captured_at' => now(),
+    ]);
+
+    $presented = app(ExternalFactPresenter::class)->present($intake->fresh());
+    $labels = collect($presented['facts'])->pluck('label');
+
+    expect($labels->implode(' | '))->not->toContain('outdoor_location_photos')
+        ->and($labels->contains(fn (string $label): bool => str_contains(mb_strtolower($label), 'buiten')))
+        ->toBeTrue();
+
+    $this->actingAs($user)
+        ->get(route('intakes.show', $intake))
+        ->assertOk()
+        ->assertDontSee('outdoor_location_photos', false)
+        ->assertDontSee('Automatische beoordeling van outdoor_location_photos', false);
+
+    $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertDontSee('outdoor_location_photos', false);
 });

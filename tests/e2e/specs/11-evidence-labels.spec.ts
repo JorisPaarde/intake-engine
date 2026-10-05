@@ -53,6 +53,11 @@ test.describe('Installer evidence labels and superseded gallery', () => {
     await expect(page.getByTestId('evidence-citation').first()).toContainText(/meterkast/i);
     await expect(page.locator('body')).not.toContainText(data.rawReference);
     await expect(page.locator('body')).not.toContainText('fusebox_photo_assessment@fact:');
+    await expect(page.locator('body')).not.toContainText('outdoor_location_photos');
+    await expect(page.locator('body')).not.toContainText('Automatische beoordeling van outdoor_location_photos');
+
+    // No snake_case question/section keys in visible installer copy (whitelist known-safe tokens).
+    await assertNoSnakeCaseKeys(page);
 
     // Gallery lives in a collapsed <details> on the show page.
     await page.getByText('Foto’s en bestanden', { exact: false }).first().click();
@@ -71,5 +76,20 @@ test.describe('Installer evidence labels and superseded gallery', () => {
     await expect(workspaceOld).toBeVisible({ timeout: 15_000 });
     await expect(workspaceOld).toHaveAttribute('data-superseded', '1');
     await expect(workspaceOld.getByTestId('gallery-superseded')).toContainText(/Vervangen door ronde 1/i);
+    await expect(page.locator('body')).not.toContainText('outdoor_location_photos');
+    await assertNoSnakeCaseKeys(page);
   });
 });
+
+/** Tokens that may legitimately appear with underscores in installer-visible text. */
+const SNAKE_CASE_WHITELIST = new Set([
+  // Opaque citation hashes use type_prefix + hex (never shown as primary labels, but be safe).
+]);
+
+async function assertNoSnakeCaseKeys(page: import('@playwright/test').Page): Promise<void> {
+  // Prefer the outermost page main; nested <main> exists inside the content column.
+  const text = await page.locator('body').innerText();
+  const matches = text.match(/[a-z]+_[a-z0-9_]+/g) ?? [];
+  const offenders = [...new Set(matches)].filter((token) => !SNAKE_CASE_WHITELIST.has(token));
+  expect(offenders, `Unexpected snake_case in installer UI: ${offenders.join(', ')}`).toEqual([]);
+}

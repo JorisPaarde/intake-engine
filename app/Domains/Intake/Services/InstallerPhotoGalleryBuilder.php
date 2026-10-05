@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Services;
 
+use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Models\DossierSubject;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeQuestion;
@@ -231,11 +232,23 @@ final class InstallerPhotoGalleryBuilder
 
     private function captionForUnknown(IntakeUpload $upload): string
     {
-        if ($upload->section_instance_key) {
-            return $upload->question_key.' · '.$upload->section_instance_key;
+        $subject = PhotoSubject::expectedForPhotoQuestion($upload->question_key)
+            ?? $upload->contentAssessment()?->expectedSubject();
+
+        $base = match ($subject) {
+            PhotoSubject::Fusebox => 'Meterkastfoto',
+            PhotoSubject::Room => 'Ruimtefoto',
+            PhotoSubject::OutdoorUnit, PhotoSubject::OutdoorLocation => 'Foto van de plek voor de buitenunit',
+            PhotoSubject::PipeRoute => 'Leidingroutefoto',
+            PhotoSubject::IndoorUnit => 'Binnenunitfoto',
+            default => 'Foto',
+        };
+
+        if ($upload->followUpItem?->round !== null) {
+            return $base.' (ronde '.(int) $upload->followUpItem->round->round_number.')';
         }
 
-        return $upload->question_key;
+        return $base;
     }
 
     /**

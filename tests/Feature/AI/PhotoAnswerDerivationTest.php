@@ -9,6 +9,7 @@ use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplate;
+use App\Domains\Intake\Services\ExternalFactPresenter;
 use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Enums\AiRunStatus;
 use App\Enums\IntakeStatus;
@@ -94,7 +95,14 @@ test('a high confidence derivation removes the questions it answered from the wi
     $fact = $intake->externalFacts()->where('fact_key', 'outdoor_location_photos_derivation')->firstOrFail();
 
     expect($fact->source)->toBe(DerivePhotoAnswers::SOURCE)
-        ->and($fact->value['evidence'])->toContain('gemetselde gevel');
+        ->and($fact->value['evidence'])->toContain('gemetselde gevel')
+        ->and($fact->label)->not->toContain('outdoor_location_photos')
+        ->and($fact->label)->not->toMatch('/^[a-z]+_[a-z0-9_]+$/');
+
+    $presented = app(ExternalFactPresenter::class)->present($intake->fresh());
+    $presentedLabels = collect($presented['facts'])->pluck('label')->implode(' | ');
+    expect($presentedLabels)->not->toContain('outdoor_location_photos')
+        ->and($presentedLabels)->not->toContain('Automatische beoordeling van outdoor');
 
     $version = $intake->templateVersion()->with(['sections.questions.options', 'sections.questions.rules'])->firstOrFail();
     $stepKeys = collect(app(IntakeStepBuilder::class)->build($intake->fresh(), $version))->pluck('question_key');

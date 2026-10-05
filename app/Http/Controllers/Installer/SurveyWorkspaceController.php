@@ -8,6 +8,7 @@ use App\Domains\AI\Actions\DeriveIntentFromRequest;
 use App\Domains\AI\Actions\SuggestInstallerPhotoObservations;
 use App\Domains\AI\Actions\SynthesizePipeRoute;
 use App\Domains\AI\Actions\SynthesizeSurveyDossier;
+use App\Domains\AI\Support\DossierSynthesisRefreshPresenter;
 use App\Domains\Intake\Actions\AddPipeRoutePhoto;
 use App\Domains\Intake\Actions\ApprovePipeRoute;
 use App\Domains\Intake\Actions\CompleteInstallerSurvey;
@@ -736,6 +737,7 @@ final class SurveyWorkspaceController extends Controller
     public function synthesizeDossier(
         Intake $intake,
         SynthesizeSurveyDossier $synthesize,
+        DossierSynthesisRefreshPresenter $refreshPresenter,
     ): RedirectResponse {
         $this->authorize('update', $intake);
 
@@ -753,25 +755,29 @@ final class SurveyWorkspaceController extends Controller
         }
 
         if ($run->status === AiRunStatus::Partial) {
-            $detail = is_string($run->error_message) && trim($run->error_message) !== ''
-                ? trim($run->error_message)
-                : 'Een deel van de AI-voorstellen is overgenomen; controleer wat ontbreekt.';
+            $flash = $refreshPresenter->partialFlash($run);
 
             return redirect()
                 ->route('intakes.workspace', $intake)
-                ->with('status', 'AI-voorstel deels vernieuwd. '.$detail)
-                ->with('ai_synthesis_partial', true);
+                ->with('status', $flash['message'])
+                ->with('ai_synthesis_partial', true)
+                ->with('ai_synthesis_partial_detail', $flash['technical_detail']);
         }
 
         $detail = is_string($run->error_message) && trim($run->error_message) !== ''
             ? trim($run->error_message)
             : 'De AI-aanbieder gaf geen bruikbaar voorstel terug.';
 
+        // Keep failure flashes free of internal section keys when possible.
+        $safeDetail = preg_match('/\b[a-z]+_[a-z0-9_.]+\b/i', $detail) === 1
+            ? 'De AI-aanbieder gaf geen bruikbaar voorstel terug.'
+            : $detail;
+
         return redirect()
             ->route('intakes.workspace', $intake)
             ->with(
                 'error',
-                'AI-synthese kon niet worden afgerond: '.$detail.' Het bestaande dossier is ongewijzigd gebleven.',
+                'AI-synthese kon niet worden afgerond: '.$safeDetail.' Het bestaande dossier is ongewijzigd gebleven.',
             )
             ->with('ai_synthesis_retry', true)
             ->with('ai_synthesis_error', $detail);
