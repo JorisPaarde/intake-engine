@@ -1,0 +1,76 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Domains\AI\Services\LocalRequestIntentParser;
+use App\Domains\AI\Support\RoomFloorLevelExtractor;
+
+test('RoomFloorLevelExtractor koppelt verdieping alleen aan de genoemde ruimte', function (
+    string $text,
+    array $rooms,
+    array $expectedFloors,
+) {
+    $floors = (new RoomFloorLevelExtractor)->floorsForRooms($text, $rooms);
+
+    expect($floors)->toBe($expectedFloors);
+})->with([
+    'woonkamer begane grond, slaapkamer eerste verdieping' => [
+        'woonkamer op de begane grond en de slaapkamer op de eerste verdieping',
+        ['living_room', 'bedroom'],
+        ['ground', '1'],
+    ],
+    'slaapkamer boven, woonkamer beneden' => [
+        'slaapkamer boven, woonkamer beneden',
+        ['bedroom', 'living_room'],
+        ['1', 'ground'],
+    ],
+    'geen verdiepingsinformatie blijft leeg' => [
+        'De slaapkamer en de woonkamer worden te warm in de zomer.',
+        ['bedroom', 'living_room'],
+        [null, null],
+    ],
+    'gedeelde zolder voor twee slaapkamers' => [
+        "Ik wil twee airco's om m'n slaapkamers op zolder te koelen.",
+        ['bedroom', 'bedroom'],
+        ['attic', 'attic'],
+    ],
+    'genummerde verdieping wint van zolder' => [
+        'Ik wil de slaapkamer op zolder op de 2e verdieping koelen.',
+        ['bedroom'],
+        ['2'],
+    ],
+]);
+
+test('lokale parser vult room_floors per ruimte en deelt floor_level niet globaal', function () {
+    $parser = new LocalRequestIntentParser(new RoomFloorLevelExtractor);
+
+    $mixed = $parser->parse(
+        'Ik wil de woonkamer op de begane grond en de slaapkamer op de eerste verdieping koelen.',
+    );
+    expect($mixed)->not->toBeNull()
+        ->and($mixed['rooms'])->toBe(['living_room', 'bedroom'])
+        ->and($mixed['room_floors'])->toBe(['ground', '1'])
+        ->and($mixed['floor_level'])->toBeNull();
+
+    $relative = $parser->parse(
+        'Slaapkamer boven, woonkamer beneden koelen omdat het te warm wordt.',
+    );
+    expect($relative)->not->toBeNull()
+        ->and($relative['rooms'])->toBe(['bedroom', 'living_room'])
+        ->and($relative['room_floors'])->toBe(['1', 'ground'])
+        ->and($relative['floor_level'])->toBeNull();
+
+    $none = $parser->parse(
+        'De slaapkamer en de woonkamer worden te warm in de zomer.',
+    );
+    expect($none)->not->toBeNull()
+        ->and($none['room_floors'])->toBe([null, null])
+        ->and($none['floor_level'])->toBeNull();
+
+    $attic = $parser->parse(
+        "Ik wil twee airco's om m'n slaapkamers op zolder te koelen.",
+    );
+    expect($attic)->not->toBeNull()
+        ->and($attic['room_floors'])->toBe(['attic', 'attic'])
+        ->and($attic['floor_level'])->toBe('attic');
+});

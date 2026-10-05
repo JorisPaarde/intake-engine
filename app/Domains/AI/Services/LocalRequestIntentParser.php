@@ -4,25 +4,33 @@ declare(strict_types=1);
 
 namespace App\Domains\AI\Services;
 
+use App\Domains\AI\Support\RoomFloorLevelExtractor;
+
 /**
  * Haalt alleen evidente aanvraagfeiten lokaal uit een Nederlandse openingszin.
  *
  * Offline én hybrid met catalogus-AI (ADR-0013/0014). Bewust klein en bevroren:
- * alleen functie, ruimtetype/aantal en expliciete zolderligging. Geen uitbreiding
- * met buitenunit-, maat- of andere keuzeheuristieken — die horen in de AI-catalogusprefill.
- * Zelfde kamertype twee keer noemen (vaak toelichting) is geen lokale high-confidence.
+ * alleen functie, ruimtetype/aantal en expliciete verdieping per gekoppelde ruimte.
+ * Geen uitbreiding met buitenunit-, maat- of andere keuzeheuristieken — die horen
+ * in de AI-catalogusprefill. Zelfde kamertype twee keer noemen (vaak toelichting)
+ * is geen lokale high-confidence. Verdieping nooit globaal of als begane-grond-default.
  */
 final class LocalRequestIntentParser
 {
-    public const VERSION = 'request-intent-local-v5';
+    public const VERSION = 'request-intent-local-v6';
 
     private const MAX_ROOMS = 8;
+
+    public function __construct(
+        private readonly RoomFloorLevelExtractor $floorExtractor = new RoomFloorLevelExtractor,
+    ) {}
 
     /**
      * @return array{
      *     cooling_heating: 'cooling'|'heating'|'both',
      *     rooms: list<'living_room'|'bedroom'|'office'|'attic'|'other'>,
      *     floor_level: 'basement'|'ground'|'1'|'2'|'3_plus'|'attic'|null,
+     *     room_floors: list<'basement'|'ground'|'1'|'2'|'3_plus'|'attic'|null>,
      *     confidence: 'high',
      *     evidence: string
      * }|null
@@ -88,12 +96,16 @@ final class LocalRequestIntentParser
             return null;
         }
 
+        $roomFloors = $this->floorExtractor->floorsForRooms($normalized, $rooms);
+        $sharedFloor = $this->sharedFloorLevel($roomFloors);
+
         return [
             'cooling_heating' => $function,
             'rooms' => $rooms,
-            'floor_level' => $this->detectFloorLevel($normalized),
+            'floor_level' => $sharedFloor,
+            'room_floors' => $roomFloors,
             'confidence' => 'high',
-            'evidence' => 'Doel, aantal, gewenste ruimtes en eventuele verdieping staan expliciet in de openingstekst.',
+            'evidence' => 'Doel, aantal, gewenste ruimtes en eventuele verdieping per ruimte staan expliciet in de openingstekst.',
         ];
     }
 
@@ -231,35 +243,25 @@ final class LocalRequestIntentParser
     }
 
     /**
-     * Expliciet genummerde verdieping wint van “zolder” als verdieping.
-     * “Zolderslaapkamer op de 2e verdieping” → floor_level=2 (niet attic).
+     * Gedeelde floor_level alleen wanneer elke ruimte dezelfde niet-null verdieping heeft.
      *
+     * @param  list<'basement'|'ground'|'1'|'2'|'3_plus'|'attic'|null>  $roomFloors
      * @return 'basement'|'ground'|'1'|'2'|'3_plus'|'attic'|null
      */
-    private function detectFloorLevel(string $text): ?string
+    private function sharedFloorLevel(array $roomFloors): ?string
     {
-        if (preg_match('/\b(?:kelder|souterrain)\b/u', $text) === 1) {
-            return 'basement';
+        if ($roomFloors === []) {
+            return null;
         }
 
-        if (preg_match('/\bbegane\s+grond\b/u', $text) === 1) {
-            return 'ground';
+        $unique = [];
+        foreach ($roomFloors as $floor) {
+            if ($floor === null) {
+                return null;
+            }
+            $unique[$floor] = true;
         }
 
-        if (preg_match('/\b(?P<ord>1(?:e|ste)?|eerste|2(?:e|de)?|tweede|3(?:e|de)?|derde|[4-9](?:e|de)?)\s+verdieping\b/u', $text, $matches) === 1) {
-            $ord = mb_strtolower((string) $matches['ord'], 'UTF-8');
-
-            return match (true) {
-                str_starts_with($ord, '1') || $ord === 'eerste' => '1',
-                str_starts_with($ord, '2') || $ord === 'tweede' => '2',
-                default => '3_plus',
-            };
-        }
-
-        if (preg_match('/\bop\s+(?:de\s+)?zolder\b/u', $text) === 1) {
-            return 'attic';
-        }
-
-        return null;
+        return count($unique) === 1 ? (string) array_key_first($unique) : null;
     }
 }
