@@ -776,3 +776,193 @@ test('summary strips invented customer wishes and hedges overstated phase facts'
         ->and($result['accepted']['summary'])->not->toMatch('/3[\s-]?fase aanwezig/i')
         ->and($result['had_rejections'])->toBeTrue();
 });
+
+/** @return array<string, mixed> */
+function intake84StyleAcceptorInput(): array
+{
+    return [
+        'subjects' => [
+            [
+                'reference' => 'subject:240',
+                'type' => 'survey',
+                'parent_reference' => null,
+                'usable_as_proposal_parent' => true,
+            ],
+            [
+                'reference' => 'subject:241',
+                'type' => 'airco_room',
+                'parent_reference' => 'subject:240',
+                'usable_as_proposal_parent' => true,
+            ],
+            [
+                'reference' => 'subject:242',
+                'type' => 'airco_room',
+                'parent_reference' => 'subject:240',
+                'usable_as_proposal_parent' => true,
+            ],
+            [
+                'reference' => 'subject:243',
+                'type' => 'airco_placement',
+                'parent_reference' => 'subject:241',
+                'usable_as_proposal_parent' => false,
+            ],
+            [
+                'reference' => 'subject:244',
+                'type' => 'airco_placement',
+                'parent_reference' => 'subject:242',
+                'usable_as_proposal_parent' => false,
+            ],
+            [
+                'reference' => 'subject:245',
+                'type' => 'airco_placement',
+                'parent_reference' => 'subject:240',
+                'usable_as_proposal_parent' => false,
+            ],
+        ],
+        'rooms' => [
+            [
+                'reference' => 'room:91',
+                'subject_reference' => 'subject:241',
+                'name' => 'Woonkamer',
+            ],
+            [
+                'reference' => 'room:92',
+                'subject_reference' => 'subject:242',
+                'name' => 'Slaapkamer',
+            ],
+        ],
+        'placements' => [
+            [
+                'reference' => 'placement:83',
+                'type' => AircoPlacementType::PowerSource->value,
+                'subject_reference' => 'subject:240',
+            ],
+        ],
+        'image_manifest' => [
+            [
+                'reference' => 'dossier_image:210',
+                'content_assessment' => ['evidence' => 'Kamerwand zichtbaar'],
+                'evidence_eligible' => true,
+            ],
+            [
+                'reference' => 'dossier_image:211',
+                'content_assessment' => ['evidence' => 'Kamerwand zichtbaar'],
+                'evidence_eligible' => true,
+            ],
+            [
+                'reference' => 'dossier_image:212',
+                'content_assessment' => ['evidence' => '3-fase lijkt zichtbaar'],
+                'evidence_eligible' => true,
+            ],
+        ],
+        'legacy_evidence' => [
+            'external_fact_context' => [[
+                'reference' => 'external_fact:fusebox',
+                'display' => 'Meterkastbeoordeling: 3-fase lijkt zichtbaar',
+                'confidence' => 'medium',
+            ]],
+        ],
+        'synthesis_policy' => [
+            'free_group' => 'unknown',
+            'subjects_with_room_photo' => ['subject:241', 'subject:242'],
+        ],
+    ];
+}
+
+test('run-282 fixture: missing per-indoor connections are filled instead of rejecting the option', function () {
+    $fixture = json_decode(
+        (string) file_get_contents(base_path('tests/fixtures/dossier-synthesis/run-282-incomplete-indoor-connections.json')),
+        true,
+        512,
+        JSON_THROW_ON_ERROR,
+    );
+    unset($fixture['_comment']);
+
+    $result = app(DossierSynthesisPartialAcceptor::class)->accept($fixture, intake84StyleAcceptorInput());
+
+    expect($result['has_accepted_proposals'])->toBeTrue()
+        ->and($result['accepted']['placement_proposals'])->toHaveCount(3)
+        ->and($result['accepted']['option_proposals'])->toHaveCount(1);
+
+    $option = $result['accepted']['option_proposals'][0];
+    $indoorRefs = ['proposal:indoor_woonkamer', 'proposal:indoor_slaapkamer'];
+    foreach (['refrigerant', 'condensate'] as $type) {
+        foreach ($indoorRefs as $indoorRef) {
+            $covered = collect($option['connections'])->contains(
+                fn (array $connection): bool => ($connection['type'] ?? null) === $type
+                    && in_array($indoorRef, [
+                        $connection['from_placement_reference'] ?? null,
+                        $connection['to_placement_reference'] ?? null,
+                    ], true),
+            );
+            expect($covered)->toBeTrue("Missing {$type} for {$indoorRef}");
+        }
+    }
+
+    $power = collect($option['connections'])->firstWhere('type', 'power');
+    expect($power)->not->toBeNull()
+        ->and($power['from_placement_reference'])->not->toBe($power['to_placement_reference'])
+        ->and($power['from_placement_reference'])->toBe('placement:83');
+});
+
+test('run-283 fixture: airco_placement subject refs remap to room/survey parents', function () {
+    $fixture = json_decode(
+        (string) file_get_contents(base_path('tests/fixtures/dossier-synthesis/run-283-placement-subject-refs.json')),
+        true,
+        512,
+        JSON_THROW_ON_ERROR,
+    );
+    unset($fixture['_comment']);
+
+    $result = app(DossierSynthesisPartialAcceptor::class)->accept($fixture, intake84StyleAcceptorInput());
+
+    expect($result['has_accepted_proposals'])->toBeTrue()
+        ->and($result['accepted']['placement_proposals'])->toHaveCount(3)
+        ->and($result['accepted']['option_proposals'])->toHaveCount(1)
+        ->and($result['validation_errors'])->not->toHaveKey('placement_proposals.0')
+        ->and($result['validation_errors'])->not->toHaveKey('placement_proposals.1')
+        ->and($result['validation_errors'])->not->toHaveKey('placement_proposals.2');
+
+    $byKey = collect($result['accepted']['placement_proposals'])->keyBy('key');
+    expect($byKey['proposal:indoor_woonkamer']['subject_reference'])->toBe('subject:241')
+        ->and($byKey['proposal:indoor_slaapkamer']['subject_reference'])->toBe('subject:242')
+        ->and($byKey['proposal:outdoor_achtertuin']['subject_reference'])->toBe('subject:240');
+});
+
+test('hedged source observation caps exception confidence and wording', function () {
+    $hedge = json_decode(
+        (string) file_get_contents(base_path('tests/fixtures/dossier-synthesis/hedged-phase-observation.json')),
+        true,
+        512,
+        JSON_THROW_ON_ERROR,
+    );
+
+    $output = [
+        'summary' => $hedge['derived_summary'],
+        'placement_proposals' => [[
+            'key' => 'proposal:outdoor_achtertuin',
+            'type' => AircoPlacementType::OutdoorUnit->value,
+            'label' => 'Buitenunit achtertuin',
+            'description' => 'Zichtbaar.',
+            'room_reference' => null,
+            'subject_reference' => 'subject:240',
+            'confidence' => 0.7,
+            'evidence_references' => ['dossier_image:212'],
+        ]],
+        'option_proposals' => [],
+        'exceptions' => [$hedge['derived_exception']],
+        'customer_tasks' => [],
+    ];
+
+    $input = intake84StyleAcceptorInput();
+    // Without placements for a valid option, exceptions alone are dropped unless
+    // we keep a placement — has_accepted_proposals requires placements or options.
+    $result = app(DossierSynthesisPartialAcceptor::class)->accept($output, $input);
+
+    expect($result['has_accepted_proposals'])->toBeTrue()
+        ->and($result['accepted']['summary'])->not->toMatch('/3[\s-]?fase aanwezig/i')
+        ->and($result['accepted']['summary'])->toMatch('/lijkt|te controleren/i')
+        ->and($result['accepted']['exceptions'])->toHaveCount(1)
+        ->and($result['accepted']['exceptions'][0]['confidence'])->not->toBe('high')
+        ->and($result['accepted']['exceptions'][0]['label'])->toMatch('/lijkt|te controleren/i');
+});

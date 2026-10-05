@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\AI\Services;
 
+use App\Domains\AI\Support\DerivedClaimConfidenceGuard;
 use App\Enums\AircoConfigurationType;
 use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
@@ -23,6 +24,7 @@ final class DossierSynthesisPartialAcceptor
 {
     public function __construct(
         private readonly AiValidationFailureFormatter $failureFormatter,
+        private readonly DerivedClaimConfidenceGuard $claimGuard,
     ) {}
 
     /**
@@ -102,7 +104,9 @@ final class DossierSynthesisPartialAcceptor
             $outcomes[] = $this->outcome('summary', 'accepted', 'summary', 'Samenvatting genormaliseerd: verzonnen klantwens verwijderd.');
         }
 
-        if ($this->claimsOverstatedPhotoFact($summary)) {
+        $sourceCeiling = $this->claimGuard->ceilingFromSynthesisInput($input);
+        $summaryNormalized = $this->claimGuard->normalizeDerivedText($summary, $sourceCeiling);
+        if ($summaryNormalized['hedged'] || $this->claimsOverstatedPhotoFact($summary)) {
             $outcomes[] = $this->outcome(
                 'summary',
                 'rejected',
@@ -110,7 +114,9 @@ final class DossierSynthesisPartialAcceptor
                 'Samenvatting stelt een onzekere foto-observatie als feit (bijv. 3-fase aanwezig).',
             );
             $validationErrors['summary'][] = 'Samenvatting stelt een onzekere foto-observatie als feit.';
-            $summary = $this->hedgeOverstatedPhotoFacts($summary);
+            $summary = $summaryNormalized['hedged']
+                ? $summaryNormalized['text']
+                : $this->hedgeOverstatedPhotoFacts($summary);
             $outcomes[] = $this->outcome('summary', 'accepted', 'summary', 'Samenvatting genormaliseerd: foto-observatie als onzeker geformuleerd.');
         }
 
@@ -146,7 +152,14 @@ final class DossierSynthesisPartialAcceptor
         $acceptedExceptions = [];
         foreach ($this->arrayRows($output['exceptions'] ?? null) as $index => $exception) {
             $path = 'exceptions.'.$index;
-            $result = $this->acceptException($exception, $path, $context['evidence'], $disallowedEvidence, $freeGroup);
+            $result = $this->acceptException(
+                $exception,
+                $path,
+                $context['evidence'],
+                $disallowedEvidence,
+                $freeGroup,
+                $sourceCeiling,
+            );
             if ($result['accepted'] !== null) {
                 $acceptedExceptions[] = $result['accepted'];
                 $outcomes[] = $this->outcome($path, 'accepted', 'exception', null);
@@ -259,8 +272,17 @@ final class DossierSynthesisPartialAcceptor
 
     /**
      * @param  array<string, mixed>  $proposal
-     * @param  Collection<string, array<string, mixed>>  $placements
-     * @param  array{rooms: Collection<string, array<string, mixed>>, subjects: list<string>, evidence: list<string>, placements: Collection<string, array<string, mixed>>, disallowed_evidence: list<string>, free_group: string|null, subjects_with_room_photo: list<string>}  $context
+     * @param  array{
+     *     rooms: Collection<array-key, array<string, mixed>>,
+     *     subjects: list<string>,
+     *     subjects_by_ref: array<string, array<string, mixed>>,
+     *     evidence: list<string>,
+     *     placements: Collection<array-key, array<string, mixed>>,
+     *     disallowed_evidence: list<string>,
+     *     free_group: string|null,
+     *     subjects_with_room_photo: list<string>
+     * }  $context
+     * @param  Collection<array-key, array<string, mixed>>  $placements
      * @param  list<string>  $disallowedEvidence
      * @return array{accepted: array<string, mixed>|null, reason: string|null}
      */
@@ -294,6 +316,13 @@ final class DossierSynthesisPartialAcceptor
         /** @var array<string, mixed> $item */
         $item = $validator->validated()['item'];
         $type = is_string($item['type']) ? $item['type'] : (string) $item['type'];
+
+        // Staging intake 84 / runs 283–285: models reuse prior airco_placement
+        // subject refs. Canonicalize to the parent room/survey subject first.
+        $item['subject_reference'] = $this->canonicalizeSubjectReference(
+            (string) $item['subject_reference'],
+            $context,
+        );
 
         $room = $item['room_reference'] === null
             ? null
@@ -458,6 +487,21 @@ final class DossierSynthesisPartialAcceptor
         }
 
         $connections = $this->arrayRows($item['connections'] ?? null);
+
+        // Rewrite outdoor→outdoor power (run 282) onto a power_source endpoint when possible.
+        $connections = $this->repairInvalidPowerEndpoints($connections, $optionPlacements);
+        $item['connections'] = $connections;
+
+        // Run 282: model covered only one indoor with refrigerant/condensate.
+        // Fill missing per-indoor links deterministically as needs_evidence.
+        $connections = $this->ensurePerIndoorConnections(
+            $connections,
+            $optionPlacements,
+            $optionReferences,
+            $evidence,
+        );
+        $item['connections'] = $connections;
+
         $connectionTypes = collect($connections)->map(
             static fn (array $connection): string => is_string($connection['type'] ?? null)
                 ? $connection['type']
@@ -719,6 +763,7 @@ final class DossierSynthesisPartialAcceptor
      * @param  array<string, mixed>  $exception
      * @param  list<string>  $evidence
      * @param  list<string>  $disallowedEvidence
+     * @param  'low'|'medium'|'high'|null  $sourceCeiling
      * @return array{accepted: array<string, mixed>|null, reason: string|null}
      */
     private function acceptException(
@@ -727,6 +772,7 @@ final class DossierSynthesisPartialAcceptor
         array $evidence,
         array $disallowedEvidence,
         ?string $freeGroup,
+        ?string $sourceCeiling = null,
     ): array {
         $validator = Validator::make(
             ['item' => $exception],
@@ -762,6 +808,13 @@ final class DossierSynthesisPartialAcceptor
         } catch (ValidationException $e) {
             return ['accepted' => null, 'reason' => $this->failureFormatter->fromException($e)];
         }
+
+        $normalized = $this->claimGuard->normalizeDerivedText((string) $item['label'], $sourceCeiling);
+        $item['label'] = $normalized['text'];
+        $item['confidence'] = $this->claimGuard->capConfidence(
+            is_string($item['confidence']) ? $item['confidence'] : 'medium',
+            $sourceCeiling,
+        );
 
         return ['accepted' => $item, 'reason' => null];
     }
@@ -844,10 +897,11 @@ final class DossierSynthesisPartialAcceptor
     /**
      * @param  array<string, mixed>  $input
      * @return array{
-     *     rooms: Collection<string, array<string, mixed>>,
+     *     rooms: Collection<array-key, array<string, mixed>>,
      *     subjects: list<string>,
+     *     subjects_by_ref: array<string, array<string, mixed>>,
      *     evidence: list<string>,
-     *     placements: Collection<string, array<string, mixed>>,
+     *     placements: Collection<array-key, array<string, mixed>>,
      *     disallowed_evidence: list<string>,
      *     free_group: string|null,
      *     subjects_with_room_photo: list<string>
@@ -857,9 +911,17 @@ final class DossierSynthesisPartialAcceptor
     {
         $placements = collect($this->arrayRows($input['placements'] ?? null))->keyBy('reference');
         $rooms = collect($this->arrayRows($input['rooms'] ?? null))->keyBy('reference');
+        $subjectsByRef = [];
+        foreach ($this->arrayRows($input['subjects'] ?? null) as $row) {
+            $reference = $row['reference'] ?? null;
+            if (! is_string($reference) || $reference === '') {
+                continue;
+            }
+            $subjectsByRef[$reference] = $row;
+        }
         $subjects = $placements
             ->pluck('subject_reference')
-            ->merge(collect($this->arrayRows($input['subjects'] ?? null))->pluck('reference'))
+            ->merge(array_keys($subjectsByRef))
             ->merge($rooms->pluck('subject_reference'))
             ->merge(collect($this->arrayRows($input['dossier_records'] ?? null))->pluck('subject_reference'))
             ->filter(static fn (mixed $reference): bool => is_string($reference))
@@ -890,12 +952,207 @@ final class DossierSynthesisPartialAcceptor
         return [
             'rooms' => $rooms,
             'subjects' => $subjects,
+            'subjects_by_ref' => $subjectsByRef,
             'evidence' => $this->allReferences($input),
             'placements' => $placements,
             'disallowed_evidence' => array_values(array_unique($disallowed)),
             'free_group' => $freeGroup,
             'subjects_with_room_photo' => array_values(array_unique($covered)),
         ];
+    }
+
+    /**
+     * Walk airco_placement subjects up to their room/survey parent.
+     *
+     * @param  array{subjects_by_ref: array<string, array<string, mixed>>}  $context
+     */
+    private function canonicalizeSubjectReference(string $reference, array $context): string
+    {
+        $subjectsByRef = $context['subjects_by_ref'];
+        $current = $reference;
+        for ($i = 0; $i < 10; $i++) {
+            $subject = $subjectsByRef[$current] ?? null;
+            if (! is_array($subject)) {
+                break;
+            }
+            $type = is_string($subject['type'] ?? null) ? $subject['type'] : null;
+            if ($type !== 'airco_placement') {
+                break;
+            }
+            $parent = $subject['parent_reference'] ?? null;
+            if (! is_string($parent) || $parent === '') {
+                break;
+            }
+            $current = $parent;
+        }
+
+        return $current;
+    }
+
+    /**
+     * Outdoor→outdoor power is invalid; remap from to a power_source in the option
+     * when available, otherwise drop the broken connection (ensurePerIndoor /
+     * type-completeness will synthesize or fail cleanly).
+     *
+     * @param  list<array<string, mixed>>  $connections
+     * @param  Collection<string, array<string, mixed>>  $optionPlacements
+     * @return list<array<string, mixed>>
+     */
+    private function repairInvalidPowerEndpoints(array $connections, $optionPlacements): array
+    {
+        $powerSourceRef = $optionPlacements
+            ->filter(static fn (array $placement): bool => ($placement['type'] ?? null) === AircoPlacementType::PowerSource->value)
+            ->keys()
+            ->first();
+        $outdoorRef = $optionPlacements
+            ->filter(static fn (array $placement): bool => ($placement['type'] ?? null) === AircoPlacementType::OutdoorUnit->value)
+            ->keys()
+            ->first();
+
+        $repaired = [];
+        foreach ($connections as $connection) {
+            $connectionType = is_string($connection['type'] ?? null)
+                ? $connection['type']
+                : (string) ($connection['type'] ?? '');
+            if ($connectionType !== AircoConnectionType::Power->value) {
+                $repaired[] = $connection;
+
+                continue;
+            }
+
+            $fromRef = is_string($connection['from_placement_reference'] ?? null)
+                ? $connection['from_placement_reference']
+                : null;
+            $toRef = is_string($connection['to_placement_reference'] ?? null)
+                ? $connection['to_placement_reference']
+                : null;
+            $from = $fromRef !== null ? $optionPlacements->get($fromRef) : null;
+            $to = $toRef !== null ? $optionPlacements->get($toRef) : null;
+            $fromType = is_array($from) ? ($from['type'] ?? null) : null;
+            $toType = is_array($to) ? ($to['type'] ?? null) : null;
+
+            if ($fromType === AircoPlacementType::OutdoorUnit->value
+                && $toType === AircoPlacementType::OutdoorUnit->value) {
+                if (! is_string($powerSourceRef) || ! is_string($outdoorRef)) {
+                    // Drop invalid connection; type check may still fail without power.
+                    continue;
+                }
+                $connection['from_placement_reference'] = $powerSourceRef;
+                $connection['to_placement_reference'] = $outdoorRef;
+                $connection['status'] = AircoConnectionStatus::NeedsEvidence->value;
+                $uncertainties = is_array($connection['uncertainties'] ?? null)
+                    ? $connection['uncertainties']
+                    : [];
+                $uncertainties[] = 'Stroomroute nog te bepalen (model koppelde buitenunit aan buitenunit).';
+                $connection['uncertainties'] = array_values(array_unique(array_filter(
+                    $uncertainties,
+                    static fn (mixed $row): bool => is_string($row) && $row !== '',
+                )));
+            }
+
+            $repaired[] = $connection;
+        }
+
+        return $repaired;
+    }
+
+    /**
+     * Deterministically add missing refrigerant/condensate links per indoor unit.
+     *
+     * @param  list<array<string, mixed>>  $connections
+     * @param  Collection<string, array<string, mixed>>  $optionPlacements
+     * @param  list<string>  $optionReferences
+     * @param  list<string>  $evidence
+     * @return list<array<string, mixed>>
+     */
+    private function ensurePerIndoorConnections(
+        array $connections,
+        $optionPlacements,
+        array $optionReferences,
+        array $evidence,
+    ): array {
+        $outdoorRef = $optionPlacements
+            ->filter(static fn (array $placement): bool => ($placement['type'] ?? null) === AircoPlacementType::OutdoorUnit->value)
+            ->keys()
+            ->first();
+        $drainRef = $optionPlacements
+            ->filter(static fn (array $placement): bool => ($placement['type'] ?? null) === AircoPlacementType::DrainPoint->value)
+            ->keys()
+            ->first();
+        $indoorRefs = $optionPlacements
+            ->filter(static fn (array $placement): bool => ($placement['type'] ?? null) === AircoPlacementType::IndoorUnit->value)
+            ->keys()
+            ->values();
+
+        $fallbackEvidence = [];
+        foreach ($optionReferences as $reference) {
+            if (in_array($reference, $evidence, true)) {
+                $fallbackEvidence[] = $reference;
+            }
+        }
+        if ($fallbackEvidence === []) {
+            foreach ($evidence as $reference) {
+                if (str_starts_with($reference, 'dossier_image:')) {
+                    $fallbackEvidence[] = $reference;
+                    break;
+                }
+            }
+        }
+        if ($fallbackEvidence === [] && $evidence !== []) {
+            $fallbackEvidence[] = $evidence[0];
+        }
+
+        foreach ([AircoConnectionType::Refrigerant, AircoConnectionType::Condensate] as $requiredType) {
+            foreach ($indoorRefs as $indoorRef) {
+                $covered = collect($connections)->contains(
+                    static function (array $connection) use ($requiredType, $indoorRef): bool {
+                        $type = is_string($connection['type'] ?? null)
+                            ? $connection['type']
+                            : (string) ($connection['type'] ?? '');
+                        if ($type !== $requiredType->value) {
+                            return false;
+                        }
+
+                        return in_array($indoorRef, [
+                            $connection['from_placement_reference'] ?? null,
+                            $connection['to_placement_reference'] ?? null,
+                        ], true);
+                    },
+                );
+                if ($covered) {
+                    continue;
+                }
+
+                $to = $requiredType === AircoConnectionType::Refrigerant
+                    ? (is_string($outdoorRef) ? $outdoorRef : null)
+                    : (is_string($drainRef) ? $drainRef : (is_string($outdoorRef) ? $outdoorRef : null));
+
+                if ($to === null || $fallbackEvidence === []) {
+                    continue;
+                }
+
+                $label = $requiredType === AircoConnectionType::Refrigerant
+                    ? 'Koelleiding (nog te bepalen)'
+                    : 'Condensafvoer (nog te bepalen)';
+
+                $connections[] = [
+                    'type' => $requiredType->value,
+                    'label' => $label,
+                    'from_placement_reference' => $indoorRef,
+                    'to_placement_reference' => $to,
+                    'status' => AircoConnectionStatus::NeedsEvidence->value,
+                    'length_class' => 'unknown',
+                    'segments' => [],
+                    'obstacles' => [],
+                    'uncertainties' => ['Route en eindpunt nog te bepalen op basis van aanvullend bewijs.'],
+                    'cost_impact' => 'unknown',
+                    'confidence' => 0.35,
+                    'evidence_references' => array_values(array_unique($fallbackEvidence)),
+                ];
+            }
+        }
+
+        return $connections;
     }
 
     /** @param list<string> $references */

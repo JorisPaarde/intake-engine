@@ -10,6 +10,7 @@ use App\Domains\AI\Services\AiTraceHandle;
 use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\AI\Services\IntakeAttentionContextBuilder;
 use App\Domains\AI\Services\PromptVersionRepository;
+use App\Domains\AI\Support\DerivedClaimConfidenceGuard;
 use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Services\GenerateIntakeReportHtml;
@@ -32,6 +33,7 @@ final class SummarizeIntake
         private readonly GenerateIntakeReportHtml $generateIntakeReportHtml,
         private readonly IntakeAttentionContextBuilder $contextBuilder,
         private readonly AiTraceRecorder $traceRecorder,
+        private readonly DerivedClaimConfidenceGuard $claimGuard,
     ) {}
 
     public function handle(Intake $intake): AiRun
@@ -81,7 +83,7 @@ final class SummarizeIntake
             $trace->recordProviderResult($result);
 
             try {
-                $validated = $this->validateOutput($result->output);
+                $validated = $this->validateOutput($result->output, $payload);
                 $trace->recordParsed($validated);
             } catch (ValidationException $exception) {
                 $trace->recordParsed([], $exception->errors());
@@ -200,9 +202,10 @@ final class SummarizeIntake
 
     /**
      * @param  array<string, mixed>  $output
+     * @param  array<string, mixed>  $payload
      * @return array{summary: string, highlights: list<string>}
      */
-    private function validateOutput(array $output): array
+    private function validateOutput(array $output, array $payload): array
     {
         $validator = Validator::make($output, [
             'summary' => ['required', 'string', 'min:10', 'max:4000'],
@@ -217,15 +220,74 @@ final class SummarizeIntake
         /** @var array{summary: string, highlights: list<string>} $validated */
         $validated = $validator->validated();
 
+        $ceiling = $this->claimGuard->ceilingFromAttentionEvidence(
+            $this->allPayloadEvidenceRefs($payload),
+            $payload,
+        );
+        // Also scan free-text observation fields in the payload.
+        foreach ([
+            $payload['external_fact_context'] ?? null,
+            $payload['uploads'] ?? null,
+            $payload['answer_context'] ?? null,
+        ] as $bucket) {
+            if (! is_array($bucket)) {
+                continue;
+            }
+            foreach ($bucket as $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                foreach (['display', 'evidence', 'label', 'value'] as $field) {
+                    if (is_string($row[$field] ?? null)) {
+                        $ceiling = $this->claimGuard->mergeCeilings(
+                            $ceiling,
+                            $this->claimGuard->ceilingFromObservationText((string) $row[$field]),
+                        );
+                    }
+                }
+            }
+        }
+
+        $summaryNormalized = $this->claimGuard->normalizeDerivedText(trim($validated['summary']), $ceiling);
         $highlights = [];
         foreach ($validated['highlights'] as $item) {
-            $highlights[] = trim($item);
+            $highlightNormalized = $this->claimGuard->normalizeDerivedText(trim($item), $ceiling);
+            $highlights[] = $highlightNormalized['text'];
         }
 
         return [
-            'summary' => trim($validated['summary']),
+            'summary' => $summaryNormalized['text'],
             'highlights' => $highlights,
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return list<array{source_type: string, reference: string}>
+     */
+    private function allPayloadEvidenceRefs(array $payload): array
+    {
+        $refs = [];
+        $map = [
+            'answer' => $payload['answer_context'] ?? [],
+            'external_fact' => $payload['external_fact_context'] ?? [],
+            'upload' => $payload['uploads'] ?? [],
+        ];
+        foreach ($map as $sourceType => $rows) {
+            if (! is_array($rows)) {
+                continue;
+            }
+            foreach ($rows as $row) {
+                if (is_array($row) && is_string($row['reference'] ?? null)) {
+                    $refs[] = [
+                        'source_type' => $sourceType,
+                        'reference' => $row['reference'],
+                    ];
+                }
+            }
+        }
+
+        return $refs;
     }
 
     /**

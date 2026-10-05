@@ -55,6 +55,11 @@ final class SurveySynthesisContextBuilder
                     'reference' => 'subject:'.$subject->id,
                     'type' => $subject->type,
                     'label' => $subject->label,
+                    'parent_reference' => $subject->parent_id === null
+                        ? null
+                        : 'subject:'.$subject->parent_id,
+                    // airco_placement subjects are prior AI proposals — not parents for new ones.
+                    'usable_as_proposal_parent' => $subject->type !== 'airco_placement',
                 ])
                 ->values()
                 ->all(),
@@ -101,6 +106,9 @@ final class SurveySynthesisContextBuilder
                     'source_type' => $placement->source_type,
                     'confidence' => $placement->confidence,
                     'cost_risks' => $placement->cost_risks ?? [],
+                    'reuse_hint' => $placement->source_type === 'ai'
+                        ? 'Bestaand AI-voorstel — hergebruik placement:'.$placement->id.' in option_proposals; zet subject_reference op de room-/survey-parent, niet op dit placement-subject.'
+                        : null,
                 ])
                 ->values()
                 ->all(),
