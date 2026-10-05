@@ -7,6 +7,7 @@ namespace App\Domains\Intake\Services;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeExternalFact;
+use App\Domains\Intake\Support\InstallerDisplayLabels;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
 
@@ -62,9 +63,9 @@ final class ExternalFactPresenter
 
             if ($display !== null) {
                 $facts[] = [
-                    'label' => $fact->label,
+                    'label' => $this->presentLabel($intake, $fact),
                     'display' => $display,
-                    'source' => $fact->source,
+                    'source' => $this->presentSource($fact->source),
                     'source_url' => $fact->source_url,
                     'confidence' => $fact->confidence === 'high' ? 'hoge zekerheid' : 'te controleren',
                 ];
@@ -137,7 +138,7 @@ final class ExternalFactPresenter
         return [
             'label' => $fact->label,
             'data_uri' => 'data:image/jpeg;base64,'.base64_encode($binary),
-            'source' => $fact->source,
+            'source' => $this->presentSource($fact->source),
             'source_url' => $fact->source_url,
             'confidence' => $fact->confidence === 'high' ? 'hoge zekerheid' : 'te controleren',
             'ground_width_meters' => is_numeric($fact->value['ground_width_meters'] ?? null)
@@ -147,6 +148,20 @@ final class ExternalFactPresenter
                 ? (int) $fact->value['ground_height_meters']
                 : null,
         ];
+    }
+
+    private function presentSource(string $source): string
+    {
+        if (InstallerDisplayLabels::isTranslated('source', $source)) {
+            return (string) InstallerDisplayLabels::source($source);
+        }
+
+        // Already human Dutch labels (PDOK, AI-fotoanalyse, …) pass through.
+        if (preg_match('/^[a-z]+(?:_[a-z0-9]+)+$/', $source) === 1) {
+            return 'externe bron';
+        }
+
+        return $source;
     }
 
     private function display(IntakeExternalFact $fact): ?string
@@ -168,6 +183,71 @@ final class ExternalFactPresenter
             'roof_type' => is_string($value['label'] ?? null) ? $value['label'] : null,
             'floor_count' => isset($value['number']) ? (string) $value['number'] : null,
             default => null,
+        };
+    }
+
+    /**
+     * Never surface snake_case question keys in the installer fact list
+     * (legacy rows used “Automatische beoordeling van outdoor_location_photos”).
+     */
+    private function presentLabel(Intake $intake, IntakeExternalFact $fact): string
+    {
+        $label = trim($fact->label);
+
+        if (preg_match('/^Automatische beoordeling van ([a-z][a-z0-9_]*)$/u', $label, $matches) === 1) {
+            return $this->questionLabelForKey($intake, $matches[1])
+                ?? $this->fallbackPhotoQuestionLabel($matches[1]);
+        }
+
+        if (preg_match('/^[a-z]+(?:_[a-z0-9]+)+$/', $label) === 1) {
+            return $this->questionLabelForKey($intake, $label)
+                ?? $this->fallbackPhotoQuestionLabel($label);
+        }
+
+        if ($label !== '') {
+            return $label;
+        }
+
+        if ($this->isPhotoDerivationFact($fact->fact_key)) {
+            $questionKey = preg_replace('/_derivation(?:::.*)?$/', '', $fact->fact_key) ?: $fact->fact_key;
+
+            return $this->questionLabelForKey($intake, $questionKey)
+                ?? $this->fallbackPhotoQuestionLabel($questionKey);
+        }
+
+        return $this->fallbackPhotoQuestionLabel($fact->fact_key);
+    }
+
+    private function questionLabelForKey(Intake $intake, string $questionKey): ?string
+    {
+        $intake->loadMissing(['templateVersion.sections.questions']);
+        $version = $intake->templateVersion;
+        if ($version === null) {
+            return null;
+        }
+
+        foreach ($version->sections as $section) {
+            foreach ($section->questions as $question) {
+                $candidate = trim((string) $question->label);
+                if ($question->key === $questionKey && $candidate !== '') {
+                    return $candidate;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function fallbackPhotoQuestionLabel(string $questionKey): string
+    {
+        return match ($questionKey) {
+            'outdoor_location_photos', 'around_house_photos', 'outdoor_unit_photo' => 'Foto van de plek voor de buitenunit',
+            'room_photos', 'indoor_unit_position_photo' => 'Ruimtefoto',
+            'facade_overview_photo' => 'Geveloverzichtsfoto',
+            'fusebox_photo', 'fusebox_photo_extra', 'fusebox_photo_assessment' => 'Meterkastfoto',
+            'pipe_route_photos' => 'Leidingroutefoto',
+            'drain_photo' => 'Foto van de plek waar condenswater weg kan',
+            default => 'Automatische fotobeoordeling',
         };
     }
 
@@ -309,7 +389,7 @@ final class ExternalFactPresenter
         return [
             'label' => 'Isolatie-indicatie',
             'display' => $display,
-            'source' => $sourceFact->source,
+            'source' => $this->presentSource($sourceFact->source),
             'source_url' => $sourceFact->source_url,
             'confidence' => $sourceFact->confidence === 'high' ? 'hoge zekerheid' : 'te controleren',
         ];

@@ -921,7 +921,7 @@ final class DerivePhotoAnswers
             [
                 'label' => $isPipeRoute
                     ? 'Voorstel leidingroute uit foto'
-                    : 'Automatische beoordeling van '.$photoQuestionKey,
+                    : $this->photoAssessmentFactLabel($intake, $photoQuestionKey),
                 'value' => array_filter([
                     ...$factOutput,
                     'profile' => $profile->name,
@@ -1262,6 +1262,27 @@ final class DerivePhotoAnswers
         }
 
         return null;
+    }
+
+    /**
+     * Installer-facing label for photo-derivation facts. Never embeds snake_case keys.
+     */
+    private function photoAssessmentFactLabel(Intake $intake, string $photoQuestionKey): string
+    {
+        $questionLabel = $this->dutchQuestionLabel($intake, $photoQuestionKey);
+        if ($questionLabel !== null) {
+            return $questionLabel;
+        }
+
+        return match ($photoQuestionKey) {
+            'outdoor_location_photos', 'around_house_photos', 'outdoor_unit_photo' => 'Foto van de plek voor de buitenunit',
+            'room_photos', 'indoor_unit_position_photo' => 'Ruimtefoto',
+            'facade_overview_photo' => 'Geveloverzichtsfoto',
+            'fusebox_photo', 'fusebox_photo_extra' => 'Meterkastfoto',
+            'pipe_route_photos' => 'Leidingroutefoto',
+            'drain_photo' => 'Foto van de plek waar condenswater weg kan',
+            default => 'Automatische fotobeoordeling',
+        };
     }
 
     /**

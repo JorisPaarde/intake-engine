@@ -13,6 +13,7 @@ use App\Domains\Intake\Actions\LoadDemoSurveyScenario;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Models\AircoConnection;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeAttentionPoint;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\AircoSurveyService;
 use App\Domains\Intake\Services\DecisionReadinessService;
@@ -24,6 +25,8 @@ use App\Enums\AircoOptionFeasibility;
 use App\Enums\AircoOptionStatus;
 use App\Enums\AircoPlacementType;
 use App\Enums\AiRunStatus;
+use App\Enums\AttentionPointSource;
+use App\Enums\AttentionPointStatus;
 use App\Enums\ContributionMode;
 use App\Enums\IntakeStatus;
 use App\Enums\PhotoAssessmentStatus;
@@ -442,6 +445,49 @@ test('P2: bulk approval blockers are visible for unslected AI candidate options 
         ->assertSee('data-testid="approval-blocked-panel"', false)
         ->assertSee('data-testid="approval-blockers"', false)
         ->assertSee('onzekerheid');
+});
+
+test('P2: bulk approval panel stays visible when AI attention points exist but option was rejected', function () {
+    $user = User::factory()->create();
+    $intake = bundleDCreateRichIntake($user, 'approve-no-option@example.com');
+
+    // No installation options — synthesis rejected option_proposals entirely.
+    expect($intake->aircoInstallationOptions)->toBeEmpty();
+
+    IntakeAttentionPoint::query()->create([
+        'intake_id' => $intake->id,
+        'code' => 'ai:test-exception',
+        'label' => 'Controleer de meterkastcapaciteit handmatig.',
+        'source' => AttentionPointSource::Ai,
+        'status' => AttentionPointStatus::Proposed,
+        'ai_confidence' => 'medium',
+        'evidence' => [[
+            'source_type' => 'system_attention_point',
+            'reference' => 'manual:meterkast-check',
+        ]],
+    ]);
+
+    $assessment = app(DecisionReadinessService::class)->bulkApprovalAssessment($intake->fresh());
+
+    expect($assessment['allowed'])->toBeFalse()
+        ->and(app(DecisionReadinessService::class)->hasOpenAiProposals($intake->fresh()))->toBeTrue()
+        ->and(collect($assessment['blockers'])->implode(' '))
+        ->toContain('Nog geen bruikbaar installatievoorstel');
+
+    $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertSee('Nog niet klaar om goed te keuren')
+        ->assertSee('data-testid="approval-blockers"', false)
+        ->assertSee('Nog geen bruikbaar installatievoorstel')
+        ->assertDontSee('data-testid="approve-proposal"', false);
+
+    $this->actingAs($user)
+        ->get(route('intakes.show', $intake))
+        ->assertOk()
+        ->assertSee('data-testid="approval-blocked-panel"', false)
+        ->assertSee('Nog geen bruikbaar installatievoorstel')
+        ->assertSee('Accepteren');
 });
 
 test('P2: customer room names and floor reach the installer dossier exactly', function () {

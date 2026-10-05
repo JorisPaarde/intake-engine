@@ -83,6 +83,23 @@ $fact = IntakeExternalFact::query()->create([
     'captured_at' => now(),
 ]);
 
+// Legacy photo-derivation label that used to leak the question key into the UI.
+IntakeExternalFact::query()->create([
+    'intake_id' => $intake->id,
+    'fact_key' => 'outdoor_location_photos_derivation',
+    'label' => 'Automatische beoordeling van outdoor_location_photos',
+    'value' => [
+        'outdoor_location' => 'garden',
+        'outdoor_mount_type' => 'wall',
+        'confidence' => 'high',
+        'evidence' => 'Gevel met ruimte voor een buitenunit.',
+        'upload_ids' => [],
+    ],
+    'source' => 'AI-fotoanalyse',
+    'confidence' => 'high',
+    'captured_at' => now(),
+]);
+
 $opaque = 'fact_'.substr(hash_hmac('sha256', (string) $fact->id, (string) config('app.key')), 0, 16);
 $rawReference = 'fusebox_photo_assessment@fact:'.$opaque;
 

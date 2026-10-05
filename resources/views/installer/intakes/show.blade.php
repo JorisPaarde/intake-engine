@@ -100,10 +100,10 @@
                             Naar goedkeuren in de opname
                         </a>
                     </div>
-                @elseif ($intake->aircoInstallationOptions->isNotEmpty())
+                @elseif (($intake->aircoInstallationOptions->isNotEmpty()) || ($hasOpenAiProposals ?? false))
                     <div class="rounded-xl border border-amber-200 bg-white p-4" data-testid="approval-blocked-panel">
                         <p class="text-sm font-semibold text-amber-950">Voorstel nog niet klaar om goed te keuren</p>
-                        <p class="mt-1 text-sm text-gray-600">Open onzekerheden en niet-bedekte ruimtes blijven blokkeren. Een locatiebezoek als uitkomst blijft mogelijk.</p>
+                        <p class="mt-1 text-sm text-gray-600">Open onzekerheden en niet-bedekte ruimtes blijven blokkeren. Een locatiebezoek als uitkomst blijft mogelijk. Losse AI-voorstellen kun je hieronder per stuk accepteren of verwijderen.</p>
                         @if (($approvalBlockers ?? []) !== [])
                             <ul class="mt-3 list-disc space-y-1 pl-5 text-sm text-amber-900" data-testid="approval-blockers">
                                 @foreach ($approvalBlockers as $blocker)

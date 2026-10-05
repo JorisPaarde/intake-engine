@@ -22,6 +22,8 @@ use App\Enums\AircoConnectionType;
 use App\Enums\AircoOptionFeasibility;
 use App\Enums\AircoOptionStatus;
 use App\Enums\AircoPlacementType;
+use App\Enums\AttentionPointSource;
+use App\Enums\AttentionPointStatus;
 use App\Enums\DecisionAreaStatus;
 use App\Enums\DossierNextAction;
 use App\Enums\FollowUpItemType;
@@ -167,7 +169,11 @@ final class DecisionReadinessService
             || ($quote?->status === DecisionAreaStatus::Blocked);
 
         if ($selected === null) {
-            $blockers[] = 'Selecteer eerst één installatievoorstel om integraal goed te keuren.';
+            // No usable option at all (e.g. synthesis rejected option_proposals) → clear Dutch
+            // blocker so bulk-approval UI stays visible next to loose Accept/Dismiss actions.
+            $blockers[] = $proposal === null
+                ? 'Nog geen bruikbaar installatievoorstel: kies of vernieuw eerst een systeemkeuze'
+                : 'Selecteer eerst één installatievoorstel om integraal goed te keuren.';
         }
 
         if ($quote !== null && in_array(
@@ -256,6 +262,39 @@ final class DecisionReadinessService
     public function canBulkApprove(Intake $intake): bool
     {
         return $this->bulkApprovalAssessment($intake)['allowed'];
+    }
+
+    /**
+     * True when the installer still has open AI proposals to review — attention
+     * points, placement candidates, and/or installation options. Used to keep
+     * bulk-approval UI + blockers visible even when synthesis dropped options.
+     */
+    public function hasOpenAiProposals(Intake $intake): bool
+    {
+        $intake->loadMissing([
+            'attentionPoints',
+            'aircoPlacements',
+            'aircoInstallationOptions',
+        ]);
+
+        if ($intake->attentionPoints->contains(
+            static fn ($point): bool => $point->source === AttentionPointSource::Ai
+                && $point->status === AttentionPointStatus::Proposed,
+        )) {
+            return true;
+        }
+
+        if ($intake->aircoPlacements->contains(
+            static fn (AircoPlacementOption $placement): bool => $placement->source_type === 'ai'
+                && $placement->status !== AircoOptionStatus::Rejected,
+        )) {
+            return true;
+        }
+
+        return $intake->aircoInstallationOptions->contains(
+            static fn (AircoInstallationOption $option): bool => $option->source_type === 'ai'
+                && $option->status !== AircoOptionStatus::Rejected,
+        );
     }
 
     /** @return array<string, mixed> */

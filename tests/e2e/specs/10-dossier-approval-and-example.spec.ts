@@ -18,12 +18,16 @@ type Bootstrap = {
   sourceIntakeId: number;
   exampleIntakeId: number;
   synthesisIntakeId: number;
+  noOptionIntakeId: number;
   sourceWorkspaceUrl: string;
   exampleWorkspaceUrl: string;
   synthesisWorkspaceUrl: string;
   synthesisShowUrl: string;
+  noOptionWorkspaceUrl: string;
+  noOptionShowUrl: string;
   approvalAllowed: boolean;
   approvalBlockers: string[];
+  noOptionApprovalBlockers: string[];
   optionStatus: string;
   optionSource: string;
 };
@@ -111,6 +115,23 @@ test.describe('Fix bundle D — approval + example dossier', () => {
     await expect(page.getByTestId('approval-not-ready')).toBeVisible();
     await expect(page.getByText('Nog niet klaar om goed te keuren')).toBeVisible();
     await expect(page.getByTestId('approval-blockers')).toBeVisible();
+    await expect(page.getByTestId('approve-proposal')).toHaveCount(0);
+  });
+
+  test('bulk approval stays visible when AI proposals exist but no installation option', async ({ page }) => {
+    expect(data.noOptionApprovalBlockers.some((b) => /bruikbaar installatievoorstel/i.test(b))).toBe(true);
+
+    await login(page, data);
+
+    await page.goto(data.noOptionShowUrl);
+    await expect(page.getByTestId('approval-blocked-panel')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('approval-blockers')).toContainText(/bruikbaar installatievoorstel/i);
+    await expect(page.getByRole('button', { name: 'Accepteren' })).toBeVisible();
+
+    await page.goto(data.noOptionWorkspaceUrl);
+    await page.locator('#workspace-complete').scrollIntoViewIfNeeded();
+    await expect(page.getByTestId('approval-not-ready')).toBeVisible();
+    await expect(page.getByTestId('approval-blockers')).toContainText(/bruikbaar installatievoorstel/i);
     await expect(page.getByTestId('approve-proposal')).toHaveCount(0);
   });
 });
