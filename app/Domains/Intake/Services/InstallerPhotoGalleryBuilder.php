@@ -9,6 +9,7 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeSection;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Domains\Intake\Support\UploadSupersessionResolver;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
@@ -16,13 +17,19 @@ use Illuminate\Support\Str;
  * Builds a labeled, section-grouped media gallery for the installer detail page (BL-024).
  *
  * Labels come from the intake's pinned template version — no hardcoded airco copy.
+ * Superseded uploads (replaced by a later follow-up round) are marked for the UI.
  */
 final class InstallerPhotoGalleryBuilder
 {
     /**
      * @return list<array{
      *     heading: string,
-     *     uploads: list<array{upload: IntakeUpload, caption: string}>
+     *     uploads: list<array{
+     *         upload: IntakeUpload,
+     *         caption: string,
+     *         superseded: bool,
+     *         supersession_label: string|null
+     *     }>
      * }>
      */
     public function handle(Intake $intake): array
@@ -31,6 +38,8 @@ final class InstallerPhotoGalleryBuilder
             'uploads.followUpItem.round',
             'templateVersion.sections.questions',
             'dossierSubjects',
+            'followUpRounds.items.uploads',
+            'contributionTasks',
         ]);
 
         /** @var Collection<int, IntakeUpload> $uploads */
@@ -40,10 +49,12 @@ final class InstallerPhotoGalleryBuilder
             return [];
         }
 
+        $supersessions = app(UploadSupersessionResolver::class)->resolve($intake);
+
         $version = $intake->templateVersion;
 
         if ($version === null) {
-            return $this->ungroupedFallback($uploads);
+            return $this->ungroupedFallback($uploads, $supersessions);
         }
 
         /** @var array<string, array{question: IntakeQuestion, section: IntakeSection}> $byQuestionKey */
@@ -166,10 +177,19 @@ final class InstallerPhotoGalleryBuilder
             $result[] = [
                 'heading' => $group['heading'],
                 'uploads' => array_map(
-                    static fn (array $item): array => [
-                        'upload' => $item['upload'],
-                        'caption' => $item['caption'],
-                    ],
+                    static function (array $item) use ($supersessions): array {
+                        $uploadId = (int) $item['upload']->id;
+                        $info = $supersessions[$uploadId] ?? null;
+
+                        return [
+                            'upload' => $item['upload'],
+                            'caption' => $item['caption'],
+                            'superseded' => is_array($info) && $info['superseded'] === true,
+                            'supersession_label' => is_array($info)
+                                ? $info['supersession_label']
+                                : null,
+                        ];
+                    },
                     $group['uploads'],
                 ),
             ];
@@ -220,16 +240,25 @@ final class InstallerPhotoGalleryBuilder
 
     /**
      * @param  Collection<int, IntakeUpload>  $uploads
-     * @return list<array{heading: string, uploads: list<array{upload: IntakeUpload, caption: string}>}>
+     * @param  array<int, array{superseded: bool, supersession_label: string|null, replaced_by_upload_id: int|null}>  $supersessions
+     * @return list<array{heading: string, uploads: list<array{upload: IntakeUpload, caption: string, superseded: bool, supersession_label: string|null}>}>
      */
-    private function ungroupedFallback(Collection $uploads): array
+    private function ungroupedFallback(Collection $uploads, array $supersessions): array
     {
         return [[
             'heading' => 'Bestanden',
-            'uploads' => $uploads->map(fn (IntakeUpload $upload): array => [
-                'upload' => $upload,
-                'caption' => $this->captionForUnknown($upload),
-            ])->all(),
+            'uploads' => $uploads->map(function (IntakeUpload $upload) use ($supersessions): array {
+                $info = $supersessions[(int) $upload->id] ?? null;
+
+                return [
+                    'upload' => $upload,
+                    'caption' => $this->captionForUnknown($upload),
+                    'superseded' => is_array($info) && $info['superseded'] === true,
+                    'supersession_label' => is_array($info)
+                        ? $info['supersession_label']
+                        : null,
+                ];
+            })->all(),
         ]];
     }
 }

@@ -719,6 +719,21 @@
                                         @if ($placement->description)
                                             <p class="mt-2 text-sm leading-relaxed text-gray-600">{{ $placement->description }}</p>
                                         @endif
+                                        @php
+                                            $placementEvidenceRefs = is_array($placement->location_data['evidence_references'] ?? null)
+                                                ? $placement->location_data['evidence_references']
+                                                : [];
+                                            $placementEvidence = $placementEvidenceRefs !== []
+                                                ? app(\App\Domains\Intake\Support\InstallerEvidencePresenter::class)
+                                                    ->presentSynthesisReferences($intake, $placementEvidenceRefs)
+                                                : [];
+                                        @endphp
+                                        @if ($placementEvidence !== [])
+                                            <div class="mt-2" data-testid="placement-evidence">
+                                                <p class="text-xs font-semibold text-gray-600">Bewijs</p>
+                                                <x-evidence-citations :citations="$placementEvidence" />
+                                            </div>
+                                        @endif
                                         <p class="mt-2 text-xs text-gray-500">
                                             {{ match ($placement->source_type) {
                                                 'installer' => 'Door installateur toegevoegd',
@@ -1345,6 +1360,20 @@
                                                             @endif
                                                             {{ $exceptionConfidence }}
                                                         </span>
+                                                        @php
+                                                            $exceptionEvidenceRefs = is_array($exception['evidence_references'] ?? null)
+                                                                ? $exception['evidence_references']
+                                                                : [];
+                                                            $exceptionEvidence = $exceptionEvidenceRefs !== []
+                                                                ? app(\App\Domains\Intake\Support\InstallerEvidencePresenter::class)
+                                                                    ->presentSynthesisReferences($intake, $exceptionEvidenceRefs)
+                                                                : [];
+                                                        @endphp
+                                                        @if ($exceptionEvidence !== [])
+                                                            <div class="mt-2" data-testid="synthesis-exception-evidence">
+                                                                <x-evidence-citations :citations="$exceptionEvidence" />
+                                                            </div>
+                                                        @endif
                                                         <form method="POST" action="{{ route('intakes.workspace.tasks.quick', $intake) }}" class="mt-2">
                                                             @csrf
                                                             <input type="hidden" name="type" value="{{ $exceptionType }}">
@@ -1442,7 +1471,7 @@
                                         <h4 class="text-sm font-semibold text-gray-800">{{ $group['heading'] }}</h4>
                                         <ul class="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
                                             @foreach ($group['uploads'] as $item)
-                                                <li>
+                                                <li @class(['opacity-60' => ($item['superseded'] ?? false) === true]) data-testid="gallery-upload-{{ $item['upload']->id }}" @if (($item['superseded'] ?? false) === true) data-superseded="1" @endif>
                                                     <a
                                                         href="{{ route('installer.uploads.show', [$intake, $item['upload']]) }}"
                                                         target="_blank"
@@ -1455,6 +1484,9 @@
                                                             class="aspect-[4/3] w-full object-cover transition group-hover:scale-[1.02]"
                                                         >
                                                         <span class="block truncate px-3 py-2 text-xs font-medium text-gray-700">{{ $item['caption'] }}</span>
+                                                        @if (($item['superseded'] ?? false) === true && ! empty($item['supersession_label']))
+                                                            <span class="block px-3 pb-2 text-[11px] font-medium text-gray-500" data-testid="gallery-superseded">{{ $item['supersession_label'] }}</span>
+                                                        @endif
                                                     </a>
                                                 </li>
                                             @endforeach

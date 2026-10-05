@@ -93,8 +93,9 @@ test('installer sees AI confidence and dossier evidence before deciding', functi
         ->get(route('intakes.show', $intake))
         ->assertOk()
         ->assertSee('Zekerheid: hoog')
-        ->assertSee('extern feit')
-        ->assertSee('building_type_inference');
+        ->assertSee('Extern feit')
+        ->assertDontSee('building_type_inference')
+        ->assertDontSee('@fact:');
 });
 
 test('installer page safely renders a legacy AI proposal without provenance', function () {
