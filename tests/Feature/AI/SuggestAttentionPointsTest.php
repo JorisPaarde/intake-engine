@@ -69,7 +69,7 @@ test('attention points cap confidence when source observation is hedged', functi
     FakeAiClient::reset();
     FakeAiClient::alwaysReturn(['points' => [[
         'code' => 'verify_three_phase_groups',
-        'label' => 'Meterkast is volledig gevuld; controleer vrije groepen voor 3-fase aansluiting.',
+        'label' => 'Meterkast is volledig bezet; controleer op vrije groepen voor nieuwe installatie',
         'confidence' => 'high',
         'evidence' => [[
             'source_type' => 'external_fact',
@@ -83,8 +83,54 @@ test('attention points cap confidence when source observation is hedged', functi
     expect($run?->status)->toBe(AiRunStatus::Succeeded)
         ->and($point)->not->toBeNull()
         ->and($point->ai_confidence)->not->toBe('high')
-        ->and($point->label)->toMatch('/lijkt|te controleren/i')
+        // Soft meter observation caps confidence, but must not splice hedge onto the check-instruction.
+        ->and($point->label)->toBe('Meterkast is volledig bezet; controleer op vrije groepen voor nieuwe installatie')
+        ->and($point->label)->not->toMatch('/vrije groepen lijkt zichtbaar/i')
         ->and($fact->id)->toBeInt();
+});
+
+test('attention points still hedge hard phase presence claims from soft meter source', function () {
+    config(['ai.provider' => 'fake']);
+    $intake = makeSuggestIntake();
+
+    IntakeExternalFact::query()->create([
+        'intake_id' => $intake->id,
+        'fact_key' => 'fusebox_photo_assessment',
+        'label' => 'Meterkastfoto',
+        'value' => [
+            'phase' => 'three_phase',
+            'empty_module_space' => 'none_visible',
+            'confidence' => 'medium',
+            'evidence' => '3-fase lijkt zichtbaar',
+        ],
+        'source' => 'ai',
+        'confidence' => 'medium',
+        'captured_at' => now(),
+    ]);
+
+    $payload = app(IntakeAttentionContextBuilder::class)->build($intake->fresh());
+    $factRef = collect($payload['external_fact_context'] ?? [])
+        ->first(fn (array $row): bool => str_contains((string) ($row['reference'] ?? ''), 'fusebox_photo_assessment'));
+    expect($factRef)->not->toBeNull();
+
+    FakeAiClient::reset();
+    FakeAiClient::alwaysReturn(['points' => [[
+        'code' => 'verify_three_phase_present',
+        'label' => 'Elektrische aansluiting: 3-fase aanwezig',
+        'confidence' => 'high',
+        'evidence' => [[
+            'source_type' => 'external_fact',
+            'reference' => $factRef['reference'],
+        ]],
+    ]]]);
+
+    $run = app(SuggestAttentionPoints::class)->handle($intake->fresh());
+    $point = $intake->fresh()->attentionPoints()->where('code', 'verify_three_phase_present')->first();
+
+    expect($run?->status)->toBe(AiRunStatus::Succeeded)
+        ->and($point)->not->toBeNull()
+        ->and($point->ai_confidence)->not->toBe('high')
+        ->and($point->label)->toBe('Elektrische aansluiting: 3-fase lijkt zichtbaar — te controleren');
 });
 
 test('heuristic skips a free-group proposal when the source answer is absent', function () {
