@@ -8,6 +8,7 @@ use App\Domains\AI\Clients\HeuristicAiClient;
 use App\Domains\AI\Contracts\AiClientInterface;
 use App\Domains\AI\Jobs\SuggestAttentionPointsJob;
 use App\Domains\AI\Jobs\SummarizeIntakeJob;
+use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\Intake\Actions\CompleteIntake;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
@@ -28,7 +29,7 @@ use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
-use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
@@ -133,8 +134,8 @@ function sampleAiAnswerForQuestion(IntakeQuestion $question): array
     };
 }
 
-test('complete intake dispatches summarize job and still finishes when AI fails', function () {
-    Queue::fake();
+test('complete intake chains summarize then attention then dossier synthesis', function () {
+    Bus::fake();
     FakeAiClient::alwaysFail('provider down');
 
     $intake = makeAiIntake();
@@ -147,8 +148,11 @@ test('complete intake dispatches summarize job and still finishes when AI fails'
         ->and($completed->report->html)->toContain('AI Klant')
         ->and($completed->report->html)->not->toContain('AI-voorstel');
 
-    Queue::assertPushed(SummarizeIntakeJob::class, fn (SummarizeIntakeJob $job): bool => $job->intakeId === $completed->id);
-    Queue::assertPushed(SuggestAttentionPointsJob::class, fn (SuggestAttentionPointsJob $job): bool => $job->intakeId === $completed->id);
+    Bus::assertChained([
+        new SummarizeIntakeJob($completed->id),
+        new SuggestAttentionPointsJob($completed->id),
+        new SynthesizeSurveyDossierJob($completed->id),
+    ]);
 
     $run = app(SummarizeIntake::class)->handle($completed->fresh());
 

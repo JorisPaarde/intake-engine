@@ -18,6 +18,7 @@ use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\GenerateIntakeReportHtml;
 use App\Enums\AttentionPointSource;
 use App\Enums\IntakeStatus;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -121,9 +122,13 @@ final class CompleteIntake
 
         // Demo mag dezelfde AI-jobs draaien als productie zodat prospects foto-/tekst-AI zien.
         // Mail en PDF blijven uit.
-        SummarizeIntakeJob::dispatch($completed->id);
-        SuggestAttentionPointsJob::dispatch($completed->id);
-        SynthesizeSurveyDossierJob::dispatch($completed->id);
+        // Chain: summary → attention → synthesis so the apply-hash runs on a stable
+        // post-attention context (parallel dispatch raced on staging intakes 86/87).
+        Bus::chain([
+            new SummarizeIntakeJob($completed->id),
+            new SuggestAttentionPointsJob($completed->id),
+            new SynthesizeSurveyDossierJob($completed->id),
+        ])->dispatch();
 
         if (! $completed->is_demo) {
             GenerateIntakePdfJob::dispatch($completed->id);
