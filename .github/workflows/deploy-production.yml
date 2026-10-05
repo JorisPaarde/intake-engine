@@ -4,6 +4,9 @@ name: Deploy production
 # secrets, deploypad, .env, database en storage. Alleen een v*-tag of een
 # bewuste handmatige dispatch kan deze workflow starten.
 #
+# SSH: één ControlMaster-verbinding per deploy; rsync en activate hergebruiken
+# die multiplexed sessie (minder kans op Hoasted rate-limit / kex reset).
+#
 # Vereiste environment secrets (production):
 #   PRODUCTION_SSH_HOST
 #   PRODUCTION_SSH_PORT
@@ -11,6 +14,10 @@ name: Deploy production
 #   PRODUCTION_SSH_KEY
 #   PRODUCTION_DEPLOY_PATH   /home/intakeengine/apps/intake-engine-production
 #   PRODUCTION_PHP_BIN      /usr/local/bin/php
+#
+# Optioneel:
+#   SSH_KNOWN_HOSTS       vaste known_hosts-inhoud (voorkomt ssh-keyscan).
+#                         Als leeg: fallback op ssh-keyscan met retry/backoff.
 
 on:
   push:
@@ -55,11 +62,82 @@ jobs:
           npm run build
 
       - name: Prepare SSH
+        env:
+          HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
+          PORT: ${{ secrets.PRODUCTION_SSH_PORT }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.PRODUCTION_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -p "${{ secrets.PRODUCTION_SSH_PORT }}" "${{ secrets.PRODUCTION_SSH_HOST }}" >> ~/.ssh/known_hosts
+
+          CONTROL_PATH="$HOME/.ssh/cm-deploy.sock"
+          echo "SSH_CONTROL_PATH=$CONTROL_PATH" >> "$GITHUB_ENV"
+
+          if [ -n "${SSH_KNOWN_HOSTS//[[:space:]]/}" ]; then
+            printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+            echo "known_hosts gezet vanuit secret SSH_KNOWN_HOSTS"
+          else
+            echo "SSH_KNOWN_HOSTS leeg — fallback ssh-keyscan"
+            : > ~/.ssh/known_hosts
+            ok=0
+            for attempt in 1 2 3; do
+              if ssh-keyscan -p "$PORT" "$HOST" >> ~/.ssh/known_hosts 2>keyscan.err \
+                && [ -s ~/.ssh/known_hosts ]; then
+                ok=1
+                break
+              fi
+              cat keyscan.err >&2 || true
+              : > ~/.ssh/known_hosts
+              if [ "$attempt" -lt 3 ]; then
+                sleep_for=$(( attempt * 20 ))
+                echo "ssh-keyscan mislukt (poging $attempt/3); opnieuw over ${sleep_for}s…"
+                sleep "$sleep_for"
+              fi
+            done
+            if [ "$ok" -ne 1 ]; then
+              echo "ssh-keyscan mislukt na 3 pogingen"
+              exit 1
+            fi
+          fi
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Open SSH ControlMaster
+        env:
+          HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
+          PORT: ${{ secrets.PRODUCTION_SSH_PORT }}
+          USER: ${{ secrets.PRODUCTION_SSH_USER }}
+        run: |
+          ok=0
+          for attempt in 1 2 3; do
+            if ssh -fNM \
+              -i ~/.ssh/deploy_key \
+              -p "$PORT" \
+              -o ControlMaster=yes \
+              -o "ControlPath=$SSH_CONTROL_PATH" \
+              -o ControlPersist=10m \
+              -o StrictHostKeyChecking=yes \
+              "$USER@$HOST" 2>ssh-master.err; then
+              echo "SSH ControlMaster geopend"
+              ok=1
+              break
+            fi
+            err="$(cat ssh-master.err 2>/dev/null || true)"
+            printf '%s\n' "$err" >&2
+            if ! printf '%s\n' "$err" | grep -qiE 'kex_exchange_identification|Connection reset by peer|Connection closed by'; then
+              echo "SSH ControlMaster mislukt (geen retrybare fout)"
+              exit 1
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              sleep_for=$(( attempt * 30 ))
+              echo "SSH ControlMaster kex/reset (poging $attempt/3); opnieuw over ${sleep_for}s…"
+              sleep "$sleep_for"
+            fi
+          done
+          if [ "$ok" -ne 1 ]; then
+            echo "SSH ControlMaster mislukt na 3 pogingen"
+            exit 1
+          fi
 
       - name: Rsync release naar server
         env:
@@ -74,9 +152,10 @@ jobs:
           esac
           RELEASE="releases/${GITHUB_SHA::12}"
           echo "RELEASE=$RELEASE" >> "$GITHUB_ENV"
-          ssh -i ~/.ssh/deploy_key -p "$PORT" "$USER@$HOST" "mkdir -p '$DEPLOY_PATH/$RELEASE' '$DEPLOY_PATH/shared/storage'"
+          SSH_BASE=(ssh -i ~/.ssh/deploy_key -p "$PORT" -o "ControlPath=$SSH_CONTROL_PATH" -o ControlMaster=no)
+          "${SSH_BASE[@]}" "$USER@$HOST" "mkdir -p '$DEPLOY_PATH/$RELEASE' '$DEPLOY_PATH/shared/storage'"
           rsync -az --delete \
-            -e "ssh -i ~/.ssh/deploy_key -p $PORT" \
+            -e "ssh -i ~/.ssh/deploy_key -p $PORT -o ControlPath=$SSH_CONTROL_PATH -o ControlMaster=no" \
             --exclude '.git' \
             --exclude '.github' \
             --exclude 'node_modules' \
@@ -93,8 +172,21 @@ jobs:
           DEPLOY_PATH: ${{ secrets.PRODUCTION_DEPLOY_PATH }}
           PHP_BIN: ${{ secrets.PRODUCTION_PHP_BIN }}
         run: |
-          ssh -i ~/.ssh/deploy_key -p "$PORT" "$USER@$HOST" \
+          ssh -i ~/.ssh/deploy_key -p "$PORT" \
+            -o "ControlPath=$SSH_CONTROL_PATH" -o ControlMaster=no \
+            "$USER@$HOST" \
             "bash '$DEPLOY_PATH/$RELEASE/deploy/activate.sh' '$DEPLOY_PATH' '$RELEASE' '$PHP_BIN' 3 production"
 
       - name: Verify production health
         run: curl --fail --silent --show-error --retry 5 --retry-delay 3 https://intake-engine.nl/health
+
+      - name: Close SSH ControlMaster
+        if: always()
+        env:
+          HOST: ${{ secrets.PRODUCTION_SSH_HOST }}
+          PORT: ${{ secrets.PRODUCTION_SSH_PORT }}
+          USER: ${{ secrets.PRODUCTION_SSH_USER }}
+        run: |
+          if [ -n "${SSH_CONTROL_PATH:-}" ]; then
+            ssh -O exit -p "$PORT" -o "ControlPath=$SSH_CONTROL_PATH" "$USER@$HOST" || true
+          fi
