@@ -503,7 +503,7 @@ test('AI synthesis normalizes deviant length_class instead of failing soft', fun
     $lengths = $option->connections->pluck('length_class')->all();
 
     expect($run?->status)->toBe(AiRunStatus::Succeeded, $run?->error_message ?? '')
-        ->and($run?->prompt_version)->toBe('dossier-synthesis-v8')
+        ->and($run?->prompt_version)->toBe('dossier-synthesis-v9')
         ->and($option->cost_impact)->toBe('medium')
         ->and($lengths)->toBe(['short', 'short', 'unknown']);
 });
@@ -663,7 +663,7 @@ test('AI synthesis records tokens/cost on exact prod run-243 failure shape', fun
     $run = app(SynthesizeSurveyDossier::class)->handle($intake->fresh());
 
     expect($run?->status)->toBe(AiRunStatus::Partial, $run?->error_message ?? '')
-        ->and($run?->prompt_version)->toBe('dossier-synthesis-v8')
+        ->and($run?->prompt_version)->toBe('dossier-synthesis-v9')
         ->and($run?->input_tokens)->toBeGreaterThan(0)
         ->and($run?->output_tokens)->toBeGreaterThan(0)
         ->and($run?->total_tokens)->toBeGreaterThan(0)
@@ -744,4 +744,87 @@ test('installer explicitly sends an AI proposed task before customer access beco
         ->and($intake->fresh()->customer_access_enabled)->toBeTrue()
         ->and($task->fresh()->status)->toBe(ContributionTaskStatus::Cancelled)
         ->and($intake->followUpRounds()->where('purpose', 'contribution')->exists())->toBeTrue();
+});
+
+test('partial refresh keeps prior AI options when new option proposals are all rejected', function () {
+    [$intake] = synthesisSurveyWithPlacements();
+    Storage::fake('local');
+    $path = "intakes/{$intake->id}/room.jpg";
+    $analysisPath = "intakes/{$intake->id}/room-analysis.jpg";
+    Storage::disk('local')->put($path, 'room-bytes');
+    Storage::disk('local')->put($analysisPath, 'analysis-bytes');
+    $upload = IntakeUpload::query()->create([
+        'intake_id' => $intake->id,
+        'question_key' => 'room_photos',
+        'section_instance_key' => 'room-1',
+        'disk' => 'local',
+        'path' => $path,
+        'analysis_path' => $analysisPath,
+        'analysis_mime_type' => 'image/jpeg',
+        'analysis_size_bytes' => 14,
+        'analysis_checksum' => hash('sha256', 'analysis-bytes'),
+        'original_filename' => 'room.jpg',
+        'mime_type' => 'image/jpeg',
+        'size_bytes' => 10,
+        'checksum' => hash('sha256', 'room-bytes'),
+        'sort_order' => 1,
+    ]);
+
+    FakeAiClient::respondUsing(fn (AiCompletionRequest $request): array => validDossierSynthesisOutput($request, 'Eerste voorstel'));
+    app(SynthesizeSurveyDossier::class)->handle($intake);
+
+    $firstOption = AircoInstallationOption::query()->where('intake_id', $intake->id)->sole();
+    $firstConnections = $firstOption->connections()->count();
+    expect($firstConnections)->toBeGreaterThan(0);
+
+    FakeAiClient::respondUsing(function (AiCompletionRequest $request) use ($upload): array {
+        $output = validDossierSynthesisOutput($request, 'Kapot vernieuwd voorstel');
+        $room = collect($request->input['rooms'])->first();
+        // Accepted placement keeps has_accepted_proposals true so replaceProposals runs.
+        $output['placement_proposals'] = [[
+            'key' => 'proposal:indoor_extra',
+            'type' => AircoPlacementType::IndoorUnit->value,
+            'label' => 'Extra binnenpositie',
+            'description' => 'Zichtbaar op de kamerfoto.',
+            'room_reference' => $room['reference'],
+            'subject_reference' => $room['subject_reference'],
+            'confidence' => 0.7,
+            'evidence_references' => ['dossier_image:'.$upload->id],
+        ]];
+        // Reject option via incomplete connection set (staging intake 83 / run 266).
+        array_pop($output['option_proposals'][0]['connections']);
+
+        return $output;
+    });
+
+    $run = app(SynthesizeSurveyDossier::class)->handle($intake->fresh());
+
+    expect($run?->status)->toBe(AiRunStatus::Partial)
+        ->and(AircoInstallationOption::query()->where('intake_id', $intake->id)->count())->toBe(1)
+        ->and(AircoInstallationOption::query()->where('intake_id', $intake->id)->sole()->id)->toBe($firstOption->id)
+        ->and(AircoInstallationOption::query()->where('intake_id', $intake->id)->sole()->label)->toBe('Eerste voorstel')
+        ->and(AircoInstallationOption::query()->where('intake_id', $intake->id)->sole()->connections()->count())
+        ->toBe($firstConnections)
+        ->and(AircoPlacementOption::query()->where('intake_id', $intake->id)->where('source_type', 'ai')->count())
+        ->toBe(1);
+});
+
+test('null connection list fields normalize to empty arrays and keep the option', function () {
+    [$intake] = synthesisSurveyWithPlacements();
+    FakeAiClient::respondUsing(function (AiCompletionRequest $request): array {
+        $output = validDossierSynthesisOutput($request, 'Null lists ok');
+        foreach ($output['option_proposals'][0]['connections'] as $index => $connection) {
+            $output['option_proposals'][0]['connections'][$index]['segments'] = null;
+            $output['option_proposals'][0]['connections'][$index]['obstacles'] = null;
+            $output['option_proposals'][0]['connections'][$index]['uncertainties'] = null;
+        }
+
+        return $output;
+    });
+
+    $run = app(SynthesizeSurveyDossier::class)->handle($intake->fresh());
+
+    expect($run?->status)->toBe(AiRunStatus::Succeeded, $run?->error_message ?? '')
+        ->and(AircoInstallationOption::query()->where('intake_id', $intake->id)->count())->toBe(1)
+        ->and(AircoInstallationOption::query()->where('intake_id', $intake->id)->sole()->connections)->toHaveCount(3);
 });

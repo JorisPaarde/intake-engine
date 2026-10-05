@@ -285,50 +285,89 @@ final class SynthesizeSurveyDossier
         }
     }
 
-    /** @param array<string, mixed> $output */
+    /**
+     * Apply accepted synthesis sections without silently wiping prior proposals.
+     *
+     * Per section (placements / options / customer tasks): only replace when the
+     * new run accepted at least one item in that section. An empty accepted
+     * section keeps the previous AI candidates. Installer-accepted (non-candidate)
+     * items are never deleted. v1.4.1 (d56c634) used the same unconditional
+     * delete-all-candidates path that caused staging intake 83 data loss.
+     *
+     * @param  array<string, mixed>  $output
+     */
     private function replaceProposals(Intake $intake, AiRun $run, array $output): void
     {
-        $candidateOptionIds = AircoInstallationOption::query()
-            ->where('intake_id', $intake->id)
-            ->where('source_type', 'ai')
-            ->where('status', AircoOptionStatus::Candidate)
-            ->pluck('id');
-        $obsoleteSubjectIds = AircoConnection::query()
-            ->whereIn('airco_installation_option_id', $candidateOptionIds)
-            ->pluck('dossier_subject_id');
+        $acceptedPlacements = is_array($output['placement_proposals'] ?? null)
+            ? $output['placement_proposals']
+            : [];
+        $acceptedOptions = is_array($output['option_proposals'] ?? null)
+            ? $output['option_proposals']
+            : [];
+        $acceptedTasks = is_array($output['customer_tasks'] ?? null)
+            ? $output['customer_tasks']
+            : [];
+        $acceptedExceptions = is_array($output['exceptions'] ?? null)
+            ? $output['exceptions']
+            : [];
 
-        AircoInstallationOption::query()
-            ->whereIn('id', $candidateOptionIds)
-            ->delete();
+        $replaceOptions = $acceptedOptions !== [];
+        $replacePlacements = $acceptedPlacements !== [] && $replaceOptions;
+        $addPlacementsOnly = $acceptedPlacements !== [] && ! $replaceOptions;
+        $replaceTasks = $acceptedTasks !== [];
 
-        $obsoletePlacements = AircoPlacementOption::query()
-            ->where('intake_id', $intake->id)
-            ->where('source_type', 'ai')
-            ->where('status', AircoOptionStatus::Candidate)
-            ->whereDoesntHave('installationOptions')
-            ->get(['id', 'dossier_subject_id']);
-        $obsoleteSubjectIds = $obsoleteSubjectIds
-            ->merge($obsoletePlacements->pluck('dossier_subject_id'))
-            ->filter()
-            ->unique()
-            ->values();
+        if ($replaceOptions) {
+            $candidateOptionIds = AircoInstallationOption::query()
+                ->where('intake_id', $intake->id)
+                ->where('source_type', 'ai')
+                ->where('status', AircoOptionStatus::Candidate)
+                ->pluck('id');
+            $obsoleteSubjectIds = AircoConnection::query()
+                ->whereIn('airco_installation_option_id', $candidateOptionIds)
+                ->pluck('dossier_subject_id');
 
-        AircoPlacementOption::query()
-            ->whereIn('id', $obsoletePlacements->pluck('id'))
-            ->delete();
-        DossierSubject::query()
-            ->where('intake_id', $intake->id)
-            ->whereIn('id', $obsoleteSubjectIds)
-            ->delete();
+            AircoInstallationOption::query()
+                ->whereIn('id', $candidateOptionIds)
+                ->delete();
 
-        ContributionTask::query()
-            ->where('intake_id', $intake->id)
-            ->where('status', ContributionTaskStatus::Proposed)
-            ->get()
-            ->filter(static fn (ContributionTask $task): bool => ($task->meta['source_type'] ?? null) === 'ai')
-            ->each(static fn (ContributionTask $task) => $task->update([
-                'status' => ContributionTaskStatus::Cancelled,
-            ]));
+            if ($replacePlacements) {
+                $obsoletePlacements = AircoPlacementOption::query()
+                    ->where('intake_id', $intake->id)
+                    ->where('source_type', 'ai')
+                    ->where('status', AircoOptionStatus::Candidate)
+                    ->whereDoesntHave('installationOptions')
+                    ->get(['id', 'dossier_subject_id']);
+                $obsoleteSubjectIds = $obsoleteSubjectIds
+                    ->merge($obsoletePlacements->pluck('dossier_subject_id'))
+                    ->filter()
+                    ->unique()
+                    ->values();
+
+                AircoPlacementOption::query()
+                    ->whereIn('id', $obsoletePlacements->pluck('id'))
+                    ->delete();
+                DossierSubject::query()
+                    ->where('intake_id', $intake->id)
+                    ->whereIn('id', $obsoleteSubjectIds)
+                    ->delete();
+            } else {
+                DossierSubject::query()
+                    ->where('intake_id', $intake->id)
+                    ->whereIn('id', $obsoleteSubjectIds->filter()->unique()->values())
+                    ->delete();
+            }
+        }
+
+        if ($replaceTasks) {
+            ContributionTask::query()
+                ->where('intake_id', $intake->id)
+                ->where('status', ContributionTaskStatus::Proposed)
+                ->get()
+                ->filter(static fn (ContributionTask $task): bool => ($task->meta['source_type'] ?? null) === 'ai')
+                ->each(static fn (ContributionTask $task) => $task->update([
+                    'status' => ContributionTaskStatus::Cancelled,
+                ]));
+        }
 
         $subjects = DossierSubject::query()
             ->where('intake_id', $intake->id)
@@ -344,141 +383,147 @@ final class SynthesizeSurveyDossier
             ->get()
             ->keyBy(static fn (AircoPlacementOption $placement): string => 'placement:'.$placement->id);
 
-        foreach ($output['placement_proposals'] as $proposalIndex => $proposal) {
-            /** @var DossierSubject $parent */
-            $parent = $subjects->get($proposal['subject_reference']) ?? $root;
-            /** @var AircoRoom|null $room */
-            $room = $proposal['room_reference'] === null
-                ? null
-                : $rooms->get($proposal['room_reference']);
-            $subject = $this->dossierManager->subject(
-                $intake,
-                'airco.placement.ai.'.$run->id.'.'.$proposalIndex,
-                'airco_placement',
-                trim($proposal['label']),
-                $parent,
-                [
-                    'placement_type' => $proposal['type'],
-                    'ai_run_id' => $run->id,
-                    'evidence_references' => $proposal['evidence_references'],
-                ],
-            );
-            $placement = AircoPlacementOption::query()->create([
-                'intake_id' => $intake->id,
-                'company_id' => $intake->company_id,
-                'airco_room_id' => $room?->id,
-                'dossier_subject_id' => $subject->id,
-                'type' => $proposal['type'],
-                'label' => trim($proposal['label']),
-                'description' => trim($proposal['description']),
-                'location_data' => [
-                    'evidence_references' => $proposal['evidence_references'],
-                ],
-                'status' => AircoOptionStatus::Candidate,
-                'source_type' => 'ai',
-                'source_id' => $run->id,
-                'confidence' => round((float) $proposal['confidence'], 3),
-                'cost_risks' => null,
-            ]);
-            $placements->put($proposal['key'], $placement);
-        }
-
-        foreach ($output['option_proposals'] as $optionIndex => $proposal) {
-            $option = AircoInstallationOption::query()->create([
-                'intake_id' => $intake->id,
-                'company_id' => $intake->company_id,
-                'label' => trim($proposal['label']),
-                'configuration_type' => $proposal['configuration_type'],
-                'rank' => $optionIndex + 1,
-                'status' => AircoOptionStatus::Candidate,
-                'summary' => trim($proposal['summary']),
-                'cost_impact' => $proposal['cost_impact'],
-                'source_type' => 'ai',
-                'source_id' => $run->id,
-                'confidence' => round((float) $proposal['confidence'], 3),
-                'created_by' => null,
-            ]);
-
-            foreach ($proposal['placement_references'] as $sortOrder => $reference) {
-                /** @var AircoPlacementOption $placement */
-                $placement = $placements->get($reference);
-                $option->placements()->attach($placement->id, [
-                    'role' => $placement->type->value,
-                    'sort_order' => $sortOrder + 1,
-                ]);
-            }
-
-            foreach ($proposal['connections'] as $connectionIndex => $proposalConnection) {
+        if ($replacePlacements || $addPlacementsOnly) {
+            foreach ($acceptedPlacements as $proposalIndex => $proposal) {
+                /** @var DossierSubject $parent */
+                $parent = $subjects->get($proposal['subject_reference']) ?? $root;
+                /** @var AircoRoom|null $room */
+                $room = $proposal['room_reference'] === null
+                    ? null
+                    : $rooms->get($proposal['room_reference']);
                 $subject = $this->dossierManager->subject(
                     $intake,
-                    'airco.connection.ai.'.$run->id.'.'.$optionIndex.'.'.$connectionIndex,
-                    'airco_connection',
-                    trim($proposalConnection['label']),
-                    $root,
+                    'airco.placement.ai.'.$run->id.'.'.$proposalIndex,
+                    'airco_placement',
+                    trim($proposal['label']),
+                    $parent,
                     [
-                        'connection_type' => $proposalConnection['type'],
-                        'installation_option_id' => $option->id,
+                        'placement_type' => $proposal['type'],
                         'ai_run_id' => $run->id,
+                        'evidence_references' => $proposal['evidence_references'],
                     ],
                 );
-                $from = $proposalConnection['from_placement_reference'] === null
-                    ? null
-                    : $placements->get($proposalConnection['from_placement_reference']);
-                $to = $proposalConnection['to_placement_reference'] === null
-                    ? null
-                    : $placements->get($proposalConnection['to_placement_reference']);
-
-                AircoConnection::query()->create([
+                $placement = AircoPlacementOption::query()->create([
                     'intake_id' => $intake->id,
                     'company_id' => $intake->company_id,
-                    'airco_installation_option_id' => $option->id,
-                    'from_placement_id' => $from?->id,
-                    'to_placement_id' => $to?->id,
+                    'airco_room_id' => $room?->id,
                     'dossier_subject_id' => $subject->id,
-                    'type' => $proposalConnection['type'],
-                    'label' => trim($proposalConnection['label']),
-                    'status' => $proposalConnection['status'],
-                    'length_class' => $proposalConnection['length_class'],
-                    'segments' => $proposalConnection['segments'],
-                    'obstacles' => $proposalConnection['obstacles'],
-                    'uncertainties' => $proposalConnection['uncertainties'],
-                    'cost_impact' => $proposalConnection['cost_impact'],
-                    'confidence' => round((float) $proposalConnection['confidence'], 3),
+                    'type' => $proposal['type'],
+                    'label' => trim($proposal['label']),
+                    'description' => trim($proposal['description']),
+                    'location_data' => [
+                        'evidence_references' => $proposal['evidence_references'],
+                    ],
+                    'status' => AircoOptionStatus::Candidate,
                     'source_type' => 'ai',
                     'source_id' => $run->id,
-                    'safety_check_required' => $proposalConnection['type'] === AircoConnectionType::Power->value,
+                    'confidence' => round((float) $proposal['confidence'], 3),
+                    'cost_risks' => null,
                 ]);
+                $placements->put($proposal['key'], $placement);
             }
         }
 
-        foreach ($output['customer_tasks'] as $task) {
-            $prompt = trim((string) ($task['prompt'] ?? ''));
-            $reason = trim((string) ($task['reason'] ?? ''));
-            if (CustomerFacingTaskText::isInstallerInternal($prompt)
-                || CustomerFacingTaskText::isInstallerInternal($reason)) {
-                continue;
-            }
-
-            /** @var DossierSubject|null $subject */
-            $subject = $task['subject_reference'] === null ? null : $subjects->get($task['subject_reference']);
-            ContributionTask::query()->create([
-                'intake_id' => $intake->id,
-                'company_id' => $intake->company_id,
-                'dossier_subject_id' => $subject?->id,
-                'intake_follow_up_item_id' => null,
-                'audience' => ContributionAudience::Customer,
-                'type' => $task['type'],
-                'prompt' => $prompt,
-                'decision_area_key' => $task['decision_area_key'],
-                'status' => ContributionTaskStatus::Proposed,
-                'requested_by' => null,
-                'meta' => [
+        if ($replaceOptions) {
+            foreach ($acceptedOptions as $optionIndex => $proposal) {
+                $option = AircoInstallationOption::query()->create([
+                    'intake_id' => $intake->id,
+                    'company_id' => $intake->company_id,
+                    'label' => trim($proposal['label']),
+                    'configuration_type' => $proposal['configuration_type'],
+                    'rank' => $optionIndex + 1,
+                    'status' => AircoOptionStatus::Candidate,
+                    'summary' => trim($proposal['summary']),
+                    'cost_impact' => $proposal['cost_impact'],
                     'source_type' => 'ai',
                     'source_id' => $run->id,
-                    'reason' => $reason,
-                    'evidence_references' => $task['evidence_references'],
-                ],
-            ]);
+                    'confidence' => round((float) $proposal['confidence'], 3),
+                    'created_by' => null,
+                ]);
+
+                foreach ($proposal['placement_references'] as $sortOrder => $reference) {
+                    /** @var AircoPlacementOption $placement */
+                    $placement = $placements->get($reference);
+                    $option->placements()->attach($placement->id, [
+                        'role' => $placement->type->value,
+                        'sort_order' => $sortOrder + 1,
+                    ]);
+                }
+
+                foreach ($proposal['connections'] as $connectionIndex => $proposalConnection) {
+                    $subject = $this->dossierManager->subject(
+                        $intake,
+                        'airco.connection.ai.'.$run->id.'.'.$optionIndex.'.'.$connectionIndex,
+                        'airco_connection',
+                        trim($proposalConnection['label']),
+                        $root,
+                        [
+                            'connection_type' => $proposalConnection['type'],
+                            'installation_option_id' => $option->id,
+                            'ai_run_id' => $run->id,
+                        ],
+                    );
+                    $from = $proposalConnection['from_placement_reference'] === null
+                        ? null
+                        : $placements->get($proposalConnection['from_placement_reference']);
+                    $to = $proposalConnection['to_placement_reference'] === null
+                        ? null
+                        : $placements->get($proposalConnection['to_placement_reference']);
+
+                    AircoConnection::query()->create([
+                        'intake_id' => $intake->id,
+                        'company_id' => $intake->company_id,
+                        'airco_installation_option_id' => $option->id,
+                        'from_placement_id' => $from?->id,
+                        'to_placement_id' => $to?->id,
+                        'dossier_subject_id' => $subject->id,
+                        'type' => $proposalConnection['type'],
+                        'label' => trim($proposalConnection['label']),
+                        'status' => $proposalConnection['status'],
+                        'length_class' => $proposalConnection['length_class'],
+                        'segments' => $proposalConnection['segments'] ?? [],
+                        'obstacles' => $proposalConnection['obstacles'] ?? [],
+                        'uncertainties' => $proposalConnection['uncertainties'] ?? [],
+                        'cost_impact' => $proposalConnection['cost_impact'],
+                        'confidence' => round((float) $proposalConnection['confidence'], 3),
+                        'source_type' => 'ai',
+                        'source_id' => $run->id,
+                        'safety_check_required' => $proposalConnection['type'] === AircoConnectionType::Power->value,
+                    ]);
+                }
+            }
+        }
+
+        if ($replaceTasks) {
+            foreach ($acceptedTasks as $task) {
+                $prompt = trim((string) ($task['prompt'] ?? ''));
+                $reason = trim((string) ($task['reason'] ?? ''));
+                if (CustomerFacingTaskText::isInstallerInternal($prompt)
+                    || CustomerFacingTaskText::isInstallerInternal($reason)) {
+                    continue;
+                }
+
+                /** @var DossierSubject|null $subject */
+                $subject = $task['subject_reference'] === null ? null : $subjects->get($task['subject_reference']);
+                ContributionTask::query()->create([
+                    'intake_id' => $intake->id,
+                    'company_id' => $intake->company_id,
+                    'dossier_subject_id' => $subject?->id,
+                    'intake_follow_up_item_id' => null,
+                    'audience' => ContributionAudience::Customer,
+                    'type' => $task['type'],
+                    'prompt' => $prompt,
+                    'decision_area_key' => $task['decision_area_key'],
+                    'status' => ContributionTaskStatus::Proposed,
+                    'requested_by' => null,
+                    'meta' => [
+                        'source_type' => 'ai',
+                        'source_id' => $run->id,
+                        'reason' => $reason,
+                        'evidence_references' => $task['evidence_references'],
+                    ],
+                ]);
+            }
         }
 
         $this->dossierManager->record(
@@ -487,11 +532,13 @@ final class SynthesizeSurveyDossier
             kind: DossierRecordKind::Conclusion,
             key: 'ai_dossier_synthesis',
             value: [
-                'summary' => trim($output['summary']),
-                'exceptions' => $output['exceptions'],
-                'placement_count' => count($output['placement_proposals']),
-                'option_count' => count($output['option_proposals']),
-                'customer_task_count' => count($output['customer_tasks']),
+                'summary' => trim((string) ($output['summary'] ?? '')),
+                'exceptions' => $acceptedExceptions,
+                'placement_count' => count($acceptedPlacements),
+                'option_count' => count($acceptedOptions),
+                'customer_task_count' => count($acceptedTasks),
+                'retained_prior_options' => ! $replaceOptions,
+                'retained_prior_placements' => ! $replacePlacements && ! $addPlacementsOnly,
             ],
             actorType: 'ai',
             actorId: null,

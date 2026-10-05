@@ -344,3 +344,70 @@ test('checksum-reuse markeert reused met bron-upload bij zelfde expected subject
         ->and($target->assessment_source_upload_id)->toBe($source->id)
         ->and($target->contentAssessment()?->status())->toBe(PhotoContentAssessment::STATUS_OK);
 });
+
+test('ProcessIntakePhotoVariantsJob skips Imagick preprocess when checksum twin already has variants', function () {
+    $intake = makeTerminalWizardIntake();
+    $disk = (string) config('filesystems.media', 'local');
+    $bytes = (string) file_get_contents(base_path('tests/fixtures/klanttest-20261002/woonkamer-720.jpg'));
+    $checksum = hash('sha256', $bytes);
+
+    Storage::disk($disk)->put('intakes/reuse/source.jpg', $bytes);
+    Storage::disk($disk)->put('intakes/reuse/analysis/source.jpg', $bytes);
+
+    $source = IntakeUpload::query()->create([
+        'intake_id' => $intake->id,
+        'question_key' => 'fusebox_photo',
+        'disk' => $disk,
+        'path' => 'intakes/reuse/source.jpg',
+        'analysis_path' => 'intakes/reuse/analysis/source.jpg',
+        'analysis_mime_type' => 'image/jpeg',
+        'analysis_size_bytes' => strlen($bytes),
+        'analysis_checksum' => hash('sha256', $bytes),
+        'original_filename' => 'source.jpg',
+        'mime_type' => 'image/jpeg',
+        'size_bytes' => strlen($bytes),
+        'checksum' => $checksum,
+        'sort_order' => 1,
+        'usability_verdict' => PhotoUsabilityVerdict::Ok,
+        'assessment_status' => PhotoAssessmentStatus::Assessed,
+        'content_assessment' => PhotoContentAssessment::ok(PhotoSubject::Fusebox)->toArray(),
+        'processing_timings' => [
+            'variants_ready' => true,
+            'preprocess_ms' => 37000,
+            'dossier_width' => 720,
+            'dossier_height' => 960,
+        ],
+    ]);
+
+    Storage::disk($disk)->put('intakes/reuse/target-raw.jpg', $bytes);
+    $target = IntakeUpload::query()->create([
+        'intake_id' => $intake->id,
+        'question_key' => 'fusebox_photo',
+        'disk' => $disk,
+        'path' => 'intakes/reuse/target-raw.jpg',
+        'original_filename' => 'target.jpg',
+        'mime_type' => 'image/jpeg',
+        'size_bytes' => strlen($bytes),
+        'checksum' => $checksum,
+        'sort_order' => 2,
+        'assessment_status' => PhotoAssessmentStatus::Pending,
+        'processing_timings' => [
+            'variants_pending' => true,
+            'variants_ready' => false,
+            'preprocess_ms' => 0,
+        ],
+    ]);
+
+    Queue::fake([AssessUploadedPhotoJob::class]);
+    runProcessIntakePhotoVariantsJob($target->id);
+
+    $target->refresh();
+    $timings = is_array($target->processing_timings) ? $target->processing_timings : [];
+
+    expect($timings['variants_ready'] ?? false)->toBeTrue()
+        ->and($timings['preprocess_ms'] ?? null)->toBe(0)
+        ->and($timings['variants_reused_from_upload_id'] ?? null)->toBe($source->id)
+        ->and($target->assessment_status)->toBe(PhotoAssessmentStatus::Reused)
+        ->and($target->assessment_source_upload_id)->toBe($source->id)
+        ->and($target->analysis_path)->not->toBeNull();
+});

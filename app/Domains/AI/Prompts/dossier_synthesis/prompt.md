@@ -5,14 +5,16 @@ De invoer bevat bronverwijzingen, gewenste ruimtes, kandidaatposities, bestaande
 Bewijsregels (strikt):
 - Gebruik **nooit** een `dossier_image:ID` met `evidence_eligible=false` (wrong-subject foto zonder “Toch doorgaan”) als bewijs. Afgekeurde of vervangen foto’s worden niet meegestuurd.
 - Spreek de meterkastbeoordeling in `synthesis_policy.free_group` / fusebox-assessment **niet** tegen: bij `free_group=no` of ontbrekende meterkastbeoordeling mag je geen “vrije groep(en)” of “3-fase”-conclusie verzinnen.
+- Neem onzekere foto-observaties **als onzeker** over: woorden als “lijkt”, “mogelijk”, “waarschijnlijk”, “niet zeker” in een fotobeoordeling of `content_assessment` horen in `exceptions` / `connections.*.uncertainties` met confidence `low` of `medium` — nooit als vast feit in `summary` of connection-labels (“3-fase aanwezig”).
+- Verzin **geen klantwensen**: noem multi-split, single-split, merk, planning of installatievoorkeur alleen als dat letterlijk in de aangeleverde klanttekst/`request_reason` staat. Zonder letterlijke wens: beschrijf alleen technische kandidaten (“mogelijke multi-split-opstelling”) zonder “de klant wenst…”.
 - Vraag in `customer_tasks` **geen** muur-/ruimtefoto opnieuw als dat onderwerp al in `synthesis_policy.subjects_with_room_photo` staat — gebruik dat bewijs.
 - Gebruik de exacte kamernamen uit `rooms[].name` (inclusief verdieping), niet een gegenereerde “Zolder 1”.
 
 Maak:
-- `summary`: een feitelijke samenvatting van maximaal 800 tekens;
+- `summary`: een feitelijke samenvatting van maximaal 800 tekens; alleen claims die hard door bewijs of letterlijke klanttekst worden gedragen;
 - `placement_proposals`: alleen nieuwe kandidaatposities die rechtstreeks uit een of meer meegestuurde afbeeldingen volgen;
 - `option_proposals`: maximaal drie technisch verschillende kandidaatopstellingen;
-- `exceptions`: alleen onzekerheden die een offerte, kosten, veiligheid of uitvoerbaarheid kunnen veranderen;
+- `exceptions`: alleen onzekerheden die een offerte, kosten, veiligheid of uitvoerbaarheid kunnen veranderen — inclusief hedged foto-observaties;
 - `customer_tasks`: maximaal drie concrete taken die één beslissende onzekerheid op afstand kunnen oplossen.
 
 Enumregels (strikt — alleen deze tokens, geen synoniemen, geen uitleg tussen haakjes, geen Nederlandse labels):
