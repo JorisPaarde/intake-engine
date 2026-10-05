@@ -488,7 +488,8 @@ final class DossierSynthesisPartialAcceptor
 
         $connections = $this->arrayRows($item['connections'] ?? null);
 
-        // Rewrite outdoor→outdoor power (run 282) onto a power_source endpoint when possible.
+        // Rewrite outdoor→outdoor power onto power_source when present (run 282),
+        // otherwise keep as needs_evidence with null from (intake 85).
         $connections = $this->repairInvalidPowerEndpoints($connections, $optionPlacements);
         $item['connections'] = $connections;
 
@@ -988,9 +989,10 @@ final class DossierSynthesisPartialAcceptor
     }
 
     /**
-     * Outdoor→outdoor power is invalid; remap from to a power_source in the option
-     * when available, otherwise drop the broken connection (ensurePerIndoor /
-     * type-completeness will synthesize or fail cleanly).
+     * Outdoor→outdoor power is invalid. Prefer remapping onto a power_source in
+     * the option when available (run 282). When no power_source exists (intake 85),
+     * keep the connection as needs_evidence with a null from-endpoint so
+     * type-completeness still passes and the installer sees an open stroomroute.
      *
      * @param  list<array<string, mixed>>  $connections
      * @param  Collection<string, array<string, mixed>>  $optionPlacements
@@ -1031,17 +1033,27 @@ final class DossierSynthesisPartialAcceptor
 
             if ($fromType === AircoPlacementType::OutdoorUnit->value
                 && $toType === AircoPlacementType::OutdoorUnit->value) {
-                if (! is_string($powerSourceRef) || ! is_string($outdoorRef)) {
-                    // Drop invalid connection; type check may still fail without power.
+                // Prefer the connection's own outdoor endpoint when present.
+                $targetOutdoor = is_string($toRef) ? $toRef : (is_string($fromRef) ? $fromRef : $outdoorRef);
+                if (! is_string($targetOutdoor)) {
+                    // Cannot repair without an outdoor endpoint — drop.
                     continue;
                 }
-                $connection['from_placement_reference'] = $powerSourceRef;
-                $connection['to_placement_reference'] = $outdoorRef;
+
+                if (is_string($powerSourceRef)) {
+                    $connection['from_placement_reference'] = $powerSourceRef;
+                } else {
+                    // No power_source in this option: keep power as open evidence.
+                    $connection['from_placement_reference'] = null;
+                }
+                $connection['to_placement_reference'] = $targetOutdoor;
                 $connection['status'] = AircoConnectionStatus::NeedsEvidence->value;
                 $uncertainties = is_array($connection['uncertainties'] ?? null)
                     ? $connection['uncertainties']
                     : [];
-                $uncertainties[] = 'Stroomroute nog te bepalen (model koppelde buitenunit aan buitenunit).';
+                $uncertainties[] = is_string($powerSourceRef)
+                    ? 'Stroomroute nog te bepalen (model koppelde buitenunit aan buitenunit).'
+                    : 'Stroomroute nog te bepalen';
                 $connection['uncertainties'] = array_values(array_unique(array_filter(
                     $uncertainties,
                     static fn (mixed $row): bool => is_string($row) && $row !== '',
