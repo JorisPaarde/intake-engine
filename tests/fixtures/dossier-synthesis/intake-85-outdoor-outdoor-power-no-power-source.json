@@ -1,0 +1,124 @@
+{
+  "_comment": "Staging intake 85 / ai_runs 299–302: complete multi-split connections (2 refrigerant, 2 condensate, 1 power) but power is outdoor→outdoor and the option has no power_source placement. Pre-fix acceptor dropped power then failed type-completeness.",
+  "summary": "Multi-split voorzet voor woonkamer en slaapkamer; stroomroute nog open.",
+  "placement_proposals": [
+    {
+      "key": "proposal:indoor_woonkamer",
+      "type": "indoor_unit",
+      "label": "Binnenunit woonkamer",
+      "description": "Vrije muur zichtbaar op kamerfoto.",
+      "room_reference": "room:91",
+      "subject_reference": "subject:241",
+      "confidence": 0.82,
+      "evidence_references": ["dossier_image:210"]
+    },
+    {
+      "key": "proposal:indoor_slaapkamer",
+      "type": "indoor_unit",
+      "label": "Binnenunit slaapkamer",
+      "description": "Wandruimte zichtbaar op kamerfoto.",
+      "room_reference": "room:92",
+      "subject_reference": "subject:242",
+      "confidence": 0.8,
+      "evidence_references": ["dossier_image:211"]
+    },
+    {
+      "key": "proposal:outdoor_tuin",
+      "type": "outdoor_unit",
+      "label": "Buitenunit tuin",
+      "description": "Opstelplek zichtbaar op buitenfoto.",
+      "room_reference": null,
+      "subject_reference": "subject:240",
+      "confidence": 0.78,
+      "evidence_references": ["dossier_image:212"]
+    }
+  ],
+  "option_proposals": [
+    {
+      "label": "Multi-split woonkamer + slaapkamer",
+      "configuration_type": "multi_split",
+      "summary": "Twee binnenunits op één buitenunit.",
+      "cost_impact": "medium",
+      "confidence": 0.7,
+      "placement_references": [
+        "proposal:indoor_woonkamer",
+        "proposal:indoor_slaapkamer",
+        "proposal:outdoor_tuin"
+      ],
+      "connections": [
+        {
+          "type": "refrigerant",
+          "label": "Koelleiding woonkamer",
+          "from_placement_reference": "proposal:indoor_woonkamer",
+          "to_placement_reference": "proposal:outdoor_tuin",
+          "status": "proposed",
+          "length_class": "medium",
+          "segments": [],
+          "obstacles": [],
+          "uncertainties": [],
+          "cost_impact": "medium",
+          "confidence": 0.7,
+          "evidence_references": ["dossier_image:210", "dossier_image:212"]
+        },
+        {
+          "type": "refrigerant",
+          "label": "Koelleiding slaapkamer",
+          "from_placement_reference": "proposal:indoor_slaapkamer",
+          "to_placement_reference": "proposal:outdoor_tuin",
+          "status": "proposed",
+          "length_class": "medium",
+          "segments": [],
+          "obstacles": [],
+          "uncertainties": [],
+          "cost_impact": "medium",
+          "confidence": 0.68,
+          "evidence_references": ["dossier_image:211", "dossier_image:212"]
+        },
+        {
+          "type": "condensate",
+          "label": "Condensafvoer woonkamer",
+          "from_placement_reference": "proposal:indoor_woonkamer",
+          "to_placement_reference": "proposal:outdoor_tuin",
+          "status": "needs_evidence",
+          "length_class": "short",
+          "segments": [],
+          "obstacles": [],
+          "uncertainties": ["Afschot niet volledig zichtbaar"],
+          "cost_impact": "unknown",
+          "confidence": 0.55,
+          "evidence_references": ["dossier_image:210"]
+        },
+        {
+          "type": "condensate",
+          "label": "Condensafvoer slaapkamer",
+          "from_placement_reference": "proposal:indoor_slaapkamer",
+          "to_placement_reference": "proposal:outdoor_tuin",
+          "status": "needs_evidence",
+          "length_class": "short",
+          "segments": [],
+          "obstacles": [],
+          "uncertainties": ["Afschot niet volledig zichtbaar"],
+          "cost_impact": "unknown",
+          "confidence": 0.52,
+          "evidence_references": ["dossier_image:211"]
+        },
+        {
+          "type": "power",
+          "label": "Stroomtoevoer buitenunit",
+          "from_placement_reference": "proposal:outdoor_tuin",
+          "to_placement_reference": "proposal:outdoor_tuin",
+          "status": "needs_evidence",
+          "length_class": "unknown",
+          "segments": [],
+          "obstacles": [],
+          "uncertainties": [],
+          "cost_impact": "unknown",
+          "confidence": 0.4,
+          "evidence_references": ["dossier_image:212"]
+        }
+      ]
+    }
+  ],
+  "exceptions": [],
+  "customer_tasks": []
+}

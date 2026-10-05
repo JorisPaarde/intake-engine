@@ -905,6 +905,43 @@ test('run-282 fixture: missing per-indoor connections are filled instead of reje
         ->and($power['from_placement_reference'])->toBe('placement:83');
 });
 
+test('intake-85 fixture: outdoor→outdoor power without power_source is kept as needs_evidence', function () {
+    $fixture = json_decode(
+        (string) file_get_contents(base_path('tests/fixtures/dossier-synthesis/intake-85-outdoor-outdoor-power-no-power-source.json')),
+        true,
+        512,
+        JSON_THROW_ON_ERROR,
+    );
+    unset($fixture['_comment']);
+
+    // Same subject/room graph as intake 84, but no power_source in existing placements
+    // and none in the option placement_references (staging intake 85 shape).
+    $input = intake84StyleAcceptorInput();
+    $input['placements'] = [];
+
+    $result = app(DossierSynthesisPartialAcceptor::class)->accept($fixture, $input);
+
+    expect($result['has_accepted_proposals'])->toBeTrue()
+        ->and($result['accepted']['placement_proposals'])->toHaveCount(3)
+        ->and($result['accepted']['option_proposals'])->toHaveCount(1)
+        ->and($result['validation_errors'])->not->toHaveKey('option_proposals.0');
+
+    $option = $result['accepted']['option_proposals'][0];
+    $types = collect($option['connections'])->pluck('type');
+    expect($types)->toContain('refrigerant')
+        ->and($types)->toContain('condensate')
+        ->and($types)->toContain('power')
+        ->and($types->filter(fn ($type) => $type === 'refrigerant')->count())->toBe(2)
+        ->and($types->filter(fn ($type) => $type === 'condensate')->count())->toBe(2);
+
+    $power = collect($option['connections'])->firstWhere('type', 'power');
+    expect($power)->not->toBeNull()
+        ->and($power['from_placement_reference'])->toBeNull()
+        ->and($power['to_placement_reference'])->toBe('proposal:outdoor_tuin')
+        ->and($power['status'])->toBe('needs_evidence')
+        ->and($power['uncertainties'])->toContain('Stroomroute nog te bepalen');
+});
+
 test('run-283 fixture: airco_placement subject refs remap to room/survey parents', function () {
     $fixture = json_decode(
         (string) file_get_contents(base_path('tests/fixtures/dossier-synthesis/run-283-placement-subject-refs.json')),
