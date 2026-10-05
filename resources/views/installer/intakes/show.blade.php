@@ -84,6 +84,42 @@
                     {{ $primaryAction['label'] }}
                 </a>
 
+                @if ($proposalAlreadyApproved ?? false)
+                    <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-900" data-testid="approval-already-done">
+                        Voorstel is goedgekeurd. Leg zo nodig de uitkomst vast in de opname.
+                    </div>
+                @elseif ($canApproveProposal ?? false)
+                    <div class="rounded-xl border border-emerald-200 bg-white p-4" data-testid="approval-ready">
+                        <p class="text-sm font-semibold text-gray-950">Voorstel goedkeuren</p>
+                        <p class="mt-1 text-sm text-gray-600">Keurt je keuze en de routes in één keer goed.</p>
+                        <a
+                            href="{{ $workspaceUrl }}#workspace-complete"
+                            class="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-marketing-green-dark px-4 text-sm font-semibold text-white hover:bg-marketing-green"
+                            data-testid="approve-proposal-link"
+                        >
+                            Naar goedkeuren in de opname
+                        </a>
+                    </div>
+                @elseif ($intake->aircoInstallationOptions->isNotEmpty())
+                    <div class="rounded-xl border border-amber-200 bg-white p-4" data-testid="approval-blocked-panel">
+                        <p class="text-sm font-semibold text-amber-950">Voorstel nog niet klaar om goed te keuren</p>
+                        <p class="mt-1 text-sm text-gray-600">Open onzekerheden en niet-bedekte ruimtes blijven blokkeren. Een locatiebezoek als uitkomst blijft mogelijk.</p>
+                        @if (($approvalBlockers ?? []) !== [])
+                            <ul class="mt-3 list-disc space-y-1 pl-5 text-sm text-amber-900" data-testid="approval-blockers">
+                                @foreach ($approvalBlockers as $blocker)
+                                    <li>{{ $blocker }}</li>
+                                @endforeach
+                            </ul>
+                        @endif
+                        <a
+                            href="{{ $workspaceUrl }}#workspace-complete"
+                            class="mt-3 inline-flex min-h-10 items-center text-sm font-semibold text-indigo-700 hover:text-indigo-900"
+                        >
+                            Open goedkeuring in de opname →
+                        </a>
+                    </div>
+                @endif
+
                 @if ($openAreas->isNotEmpty())
                     <div class="rounded-xl border border-amber-200 bg-white p-4">
                         <div class="flex flex-wrap items-center justify-between gap-2">

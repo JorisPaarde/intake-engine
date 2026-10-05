@@ -20,6 +20,8 @@ use App\Domains\Intake\Services\DossierManager;
 use App\Enums\AircoConfigurationType;
 use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
+use App\Enums\AircoOptionFeasibility;
+use App\Enums\AircoOptionStatus;
 use App\Enums\AircoPlacementType;
 use App\Enums\AiRunStatus;
 use App\Enums\ContributionMode;
@@ -402,6 +404,44 @@ test('P2: bulk approval blocks unresolved uncertainty and uncovered rooms with o
     $after = app(DecisionReadinessService::class)->bulkApprovalAssessment($intake->fresh());
     expect($after['allowed'])->toBeFalse()
         ->and(collect($after['blockers'])->implode(' '))->toContain('niet alle aangevraagde ruimtes');
+});
+
+test('P2: bulk approval blockers are visible for unslected AI candidate options (real synthesis path)', function () {
+    $user = User::factory()->create();
+    $intake = bundleDCreateRichIntake($user, 'approve-candidate@example.com');
+    $power = bundleDSeedPartialSolution($intake, $user, withUncertainty: true);
+
+    // Mimic post-synthesis state: AI Candidate, not Selected (demo bootstrap auto-selects; real runs do not).
+    $option = $power->installationOption ?? $intake->fresh()->aircoInstallationOptions->first();
+    expect($option)->not->toBeNull();
+    $option->update([
+        'status' => AircoOptionStatus::Candidate,
+        'source_type' => 'ai',
+        'selected_at' => null,
+        'feasibility' => AircoOptionFeasibility::Pending,
+    ]);
+
+    $assessment = app(DecisionReadinessService::class)->bulkApprovalAssessment($intake->fresh());
+
+    expect($assessment['allowed'])->toBeFalse()
+        ->and($assessment['unresolved_uncertainties'])->not->toBeEmpty()
+        ->and(collect($assessment['blockers'])->implode(' '))->toContain('Selecteer eerst')
+        ->and(collect($assessment['blockers'])->implode(' '))->toContain('onzekerheid');
+
+    $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertSee('Nog niet klaar om goed te keuren')
+        ->assertSee('data-testid="approval-blockers"', false)
+        ->assertSee('data-testid="approval-not-ready"', false)
+        ->assertDontSee('data-testid="approve-proposal"', false);
+
+    $this->actingAs($user)
+        ->get(route('intakes.show', $intake))
+        ->assertOk()
+        ->assertSee('data-testid="approval-blocked-panel"', false)
+        ->assertSee('data-testid="approval-blockers"', false)
+        ->assertSee('onzekerheid');
 });
 
 test('P2: customer room names and floor reach the installer dossier exactly', function () {
