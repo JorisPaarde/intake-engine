@@ -22,7 +22,8 @@ use Illuminate\Queue\Middleware\WithoutOverlapping;
  * Preserve (auto): Reviewed/AwaitingCustomer/Cancelled overslaan.
  * Replace (Complete*): alleen Cancelled — Reviewed na follow-up moet wél draaien (T1/#167).
  *
- * Overlap-releases tellen niet als exceptions: retryUntil + maxExceptions i.p.v. tries=2.
+ * Overlap-releases tellen niet als exceptions: retryUntil (30 min) + maxExceptions i.p.v. tries=2.
+ * Venster ruim genoeg voor ai-photo-voorrang en worker-herstartgat na deploy/max-time.
  */
 final class SynthesizeSurveyDossierJob implements ShouldBeUniqueUntilProcessing, ShouldQueue
 {
@@ -59,7 +60,7 @@ final class SynthesizeSurveyDossierJob implements ShouldBeUniqueUntilProcessing,
 
     public function retryUntil(): DateTimeInterface
     {
-        return now()->addMinutes(5);
+        return now()->addMinutes(30);
     }
 
     /** @return list<object> */

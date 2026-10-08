@@ -71,7 +71,7 @@ final class PrefillAnswersFromKnownContext
             return null;
         }
 
-        // Vroege guard ook hier; race tijdens model-call → hercheck na lockForUpdate.
+        // Vroege guard zit in DeriveIntentFromRequest; hier alleen hercheck na lockForUpdate (race tijdens model-call).
 
         $catalog = $this->catalogBuilder->build($intake);
         $context = $this->contextBuilder->build($intake);
