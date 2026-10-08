@@ -212,7 +212,15 @@
 
                     <div>
                         <x-input-label for="customer_phone" value="Telefoonnummer (optioneel)" />
-                        <x-text-input id="customer_phone" name="customer_phone" class="mt-1 block w-full" type="text" :value="old('customer_phone')" />
+                        <x-text-input
+                            id="customer_phone"
+                            name="customer_phone"
+                            class="mt-1 block w-full"
+                            type="tel"
+                            inputmode="tel"
+                            autocomplete="tel"
+                            :value="old('customer_phone')"
+                        />
                         <x-input-error :messages="$errors->get('customer_phone')" class="mt-2" />
                     </div>
 
@@ -742,6 +750,25 @@
                 }
 
                 startListening();
+            });
+        })();
+
+        // Clear server-side field errors as soon as the user edits that field.
+        (function () {
+            const form = document.querySelector('[data-demo-anchor="create-form"] form');
+            if (!form) return;
+
+            function clearNearbyErrors(el) {
+                const group = el.closest('div, fieldset') || el.parentElement;
+                if (!group) return;
+                group.querySelectorAll('ul.text-red-600').forEach(function (list) {
+                    list.remove();
+                });
+            }
+
+            form.querySelectorAll('input, select, textarea').forEach(function (el) {
+                el.addEventListener('input', function () { clearNearbyErrors(el); });
+                el.addEventListener('change', function () { clearNearbyErrors(el); });
             });
         })();
     </script>

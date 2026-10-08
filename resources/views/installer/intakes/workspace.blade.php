@@ -173,11 +173,33 @@
                 </div>
             @endif
 
-            @if ($errors->any())
-                <div class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900" role="alert">
+            @php
+                $errorFormKey = old('form_key');
+                $placementInlineErrorKeys = ['type', 'airco_room_id', 'label', 'description'];
+                $couplingInlineErrorKeys = ['indoor_label', 'configuration_type', 'outdoor_placement_id', 'outdoor_label'];
+                $inlineErrorKeys = [];
+                if (is_string($errorFormKey)) {
+                    if (str_starts_with($errorFormKey, 'placement-')) {
+                        $inlineErrorKeys = $placementInlineErrorKeys;
+                    } elseif (str_starts_with($errorFormKey, 'coupling-')) {
+                        $inlineErrorKeys = $couplingInlineErrorKeys;
+                    }
+                }
+                $topErrors = [];
+                foreach ($errors->getMessages() as $key => $messages) {
+                    if (in_array($key, $inlineErrorKeys, true)) {
+                        continue;
+                    }
+                    foreach ($messages as $message) {
+                        $topErrors[] = $message;
+                    }
+                }
+            @endphp
+            @if ($topErrors !== [])
+                <div class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900" role="alert" data-testid="workspace-top-errors">
                     <p class="font-semibold">Dit onderdeel kon nog niet worden opgeslagen.</p>
                     <ul class="mt-2 list-disc space-y-1 pl-5">
-                        @foreach ($errors->all() as $error)
+                        @foreach ($topErrors as $error)
                             <li>{{ $error }}</li>
                         @endforeach
                     </ul>
@@ -564,9 +586,21 @@
                                         }
                                         $outdoorChoices = $intake->aircoPlacements
                                             ->filter(static fn ($p) => $p->type === \App\Enums\AircoPlacementType::OutdoorUnit);
+                                        $couplingFormKey = 'coupling-'.$room->id;
+                                        $couplingFormActive = old('form_key') === $couplingFormKey;
+                                        $couplingIndoorLabel = $couplingFormActive
+                                            ? old('indoor_label', $roomIndoor?->label ?? ('Binnenunit '.$room->name))
+                                            : ($roomIndoor?->label ?? ('Binnenunit '.$room->name));
+                                        $couplingConfiguration = $couplingFormActive
+                                            ? old('configuration_type', $activeOption?->configuration_type?->value)
+                                            : $activeOption?->configuration_type?->value;
+                                        $couplingOutdoorId = $couplingFormActive
+                                            ? old('outdoor_placement_id', $linkedOutdoor?->id)
+                                            : $linkedOutdoor?->id;
+                                        $couplingOutdoorLabel = $couplingFormActive ? old('outdoor_label') : null;
                                     @endphp
 
-                                    <details class="group/units border-t border-gray-100 pt-3 mt-3">
+                                    <details class="group/units border-t border-gray-100 pt-3 mt-3" @if ($couplingFormActive) open x-init="$el.scrollIntoView({block:'center'})" @endif data-form-key="{{ $couplingFormKey }}">
                                         <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-sm [&::-webkit-details-marker]:hidden">
                                             <span class="font-semibold text-gray-800">Binnen- en buitenunit</span>
                                             @php
@@ -601,8 +635,9 @@
                                             </dl>
                                         @endif
 
-                                        <form method="POST" action="{{ route('intakes.workspace.rooms.unit-coupling', [$intake, $room]) }}" class="mt-3 grid gap-3 sm:grid-cols-2">
+                                        <form method="POST" action="{{ route('intakes.workspace.rooms.unit-coupling', [$intake, $room]) }}" class="mt-3 grid gap-3 sm:grid-cols-2" data-form-key="{{ $couplingFormKey }}">
                                             @csrf
+                                            <input type="hidden" name="form_key" value="{{ $couplingFormKey }}">
                                             @if ($activeOption)
                                                 <input type="hidden" name="installation_option_id" value="{{ $activeOption->id }}">
                                             @endif
@@ -612,30 +647,33 @@
                                                     id="room-{{ $room->id }}-indoor-label"
                                                     name="indoor_label"
                                                     class="mt-1 block w-full"
-                                                    value="{{ old('indoor_label', $roomIndoor?->label ?? ('Binnenunit '.$room->name)) }}"
+                                                    value="{{ $couplingIndoorLabel }}"
                                                     required
                                                 />
+                                                <x-input-error :messages="$couplingFormActive ? $errors->get('indoor_label') : []" class="mt-2" />
                                             </div>
                                             <div>
                                                 <x-input-label for="room-{{ $room->id }}-config" value="Configuratie" />
                                                 <select id="room-{{ $room->id }}-config" name="configuration_type" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300" required>
                                                     @foreach ($configurationTypes as $type)
-                                                        <option value="{{ $type->value }}" @selected(old('configuration_type', $activeOption?->configuration_type?->value) === $type->value)>
+                                                        <option value="{{ $type->value }}" @selected($couplingConfiguration === $type->value)>
                                                             {{ $type->label() }}
                                                         </option>
                                                     @endforeach
                                                 </select>
+                                                <x-input-error :messages="$couplingFormActive ? $errors->get('configuration_type') : []" class="mt-2" />
                                             </div>
                                             <div>
                                                 <x-input-label for="room-{{ $room->id }}-outdoor" value="Buitenunit" />
                                                 <select id="room-{{ $room->id }}-outdoor" name="outdoor_placement_id" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300">
                                                     <option value="">Nieuwe buitenunit…</option>
                                                     @foreach ($outdoorChoices as $outdoor)
-                                                        <option value="{{ $outdoor->id }}" @selected((int) old('outdoor_placement_id', $linkedOutdoor?->id) === $outdoor->id)>
+                                                        <option value="{{ $outdoor->id }}" @selected((int) $couplingOutdoorId === $outdoor->id)>
                                                             {{ $outdoor->label }}
                                                         </option>
                                                     @endforeach
                                                 </select>
+                                                <x-input-error :messages="$couplingFormActive ? $errors->get('outdoor_placement_id') : []" class="mt-2" />
                                             </div>
                                             <div>
                                                 <x-input-label for="room-{{ $room->id }}-outdoor-label" value="Nieuwe buitenunit (naam)" />
@@ -643,9 +681,10 @@
                                                     id="room-{{ $room->id }}-outdoor-label"
                                                     name="outdoor_label"
                                                     class="mt-1 block w-full"
-                                                    value="{{ old('outdoor_label') }}"
+                                                    value="{{ $couplingOutdoorLabel }}"
                                                     placeholder="Bijv. plat dak aanbouw"
                                                 />
+                                                <x-input-error :messages="$couplingFormActive ? $errors->get('outdoor_label') : []" class="mt-2" />
                                             </div>
                                             <div class="sm:col-span-2">
                                                 <x-primary-button>Koppeling opslaan</x-primary-button>
@@ -774,12 +813,28 @@
                                             } }}
                                         </p>
 
-                                        <details class="mt-4 rounded-xl border border-gray-200 bg-gray-50">
+                                        @php
+                                            $placementFormKey = 'placement-'.$placement->id;
+                                            $placementFormActive = old('form_key') === $placementFormKey;
+                                            $placementFormType = $placementFormActive ? old('type', $placement->type->value) : $placement->type->value;
+                                            $placementFormType = \App\Enums\AircoPlacementType::tryFrom((string) $placementFormType)?->value
+                                                ?? $placement->type->value;
+                                            $placementFormRoomId = $placementFormActive ? old('airco_room_id', $placement->airco_room_id) : $placement->airco_room_id;
+                                            $placementFormLabel = $placementFormActive ? old('label', $placement->label) : $placement->label;
+                                            $placementFormDescription = $placementFormActive ? old('description', $placement->description) : $placement->description;
+                                        @endphp
+                                        <details class="mt-4 rounded-xl border border-gray-200 bg-gray-50" @if ($placementFormActive) open x-init="$el.scrollIntoView({block:'center'})" @endif data-form-key="{{ $placementFormKey }}">
                                             <summary class="flex min-h-11 cursor-pointer list-none items-center px-3 py-2 text-sm font-semibold text-gray-800">
                                                 Bewerken
                                             </summary>
-                                            <form method="POST" action="{{ route('intakes.workspace.placements.update', [$intake, $placement]) }}" class="grid gap-3 border-t border-gray-200 p-3">
+                                            <form
+                                                method="POST"
+                                                action="{{ route('intakes.workspace.placements.update', [$intake, $placement]) }}"
+                                                class="grid gap-3 border-t border-gray-200 p-3"
+                                                x-data="{ type: @js($placementFormType) }"
+                                            >
                                                 @csrf
+                                                <input type="hidden" name="form_key" value="{{ $placementFormKey }}">
                                                 <fieldset class="sm:col-span-2">
                                                     <legend class="sr-only">Soort unit of aansluiting</legend>
                                                     <div class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,max(11rem,calc(50%_-_0.25rem))),1fr))] gap-2">
@@ -791,30 +846,48 @@
                                                                     name="type"
                                                                     value="{{ $type->value }}"
                                                                     class="border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                                                    @checked($placement->type === $type)
+                                                                    @checked($placementFormType === $type->value)
+                                                                    x-model="type"
                                                                     required
                                                                 >
                                                                 <span class="min-w-0 break-words hyphens-auto">{{ $type->label() }}</span>
                                                             </label>
                                                         @endforeach
                                                     </div>
+                                                    <x-input-error :messages="$placementFormActive ? $errors->get('type') : []" class="mt-2" />
                                                 </fieldset>
                                                 <div>
                                                     <x-input-label for="placement-{{ $placement->id }}-room" value="Ruimte (verplicht bij binnenunit)" />
-                                                    <select id="placement-{{ $placement->id }}-room" name="airco_room_id" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300">
-                                                        <option value="">Algemeen / buitenzijde</option>
+                                                    <select
+                                                        id="placement-{{ $placement->id }}-room"
+                                                        name="airco_room_id"
+                                                        class="mt-1 block min-h-11 w-full rounded-xl border-gray-300"
+                                                    >
+                                                        <option value="" x-text="type === 'indoor_unit' ? 'Kies een ruimte' : 'Algemeen / buitenzijde'">
+                                                            {{ $placementFormType === 'indoor_unit' ? 'Kies een ruimte' : 'Algemeen / buitenzijde' }}
+                                                        </option>
                                                         @foreach ($intake->aircoRooms as $room)
-                                                            <option value="{{ $room->id }}" @selected($placement->airco_room_id === $room->id)>{{ $room->name }}</option>
+                                                            <option value="{{ $room->id }}" @selected((string) $placementFormRoomId === (string) $room->id)>{{ $room->name }}</option>
                                                         @endforeach
                                                     </select>
+                                                    <x-input-error :messages="$placementFormActive ? $errors->get('airco_room_id') : []" class="mt-2" />
                                                 </div>
                                                 <div>
-                                                    <x-input-label for="placement-{{ $placement->id }}-label" value="Naam" />
-                                                    <x-text-input id="placement-{{ $placement->id }}-label" name="label" class="mt-1 block w-full" value="{{ $placement->label }}" required />
+                                                    <x-input-label for="placement-{{ $placement->id }}-label" value="Naam (verplicht)" />
+                                                    <x-text-input
+                                                        id="placement-{{ $placement->id }}-label"
+                                                        name="label"
+                                                        class="mt-1 block w-full"
+                                                        value="{{ $placementFormLabel }}"
+                                                        placeholder="Bijv. Unit slaapkamer 1"
+                                                        required
+                                                    />
+                                                    <x-input-error :messages="$placementFormActive ? $errors->get('label') : []" class="mt-2" />
                                                 </div>
                                                 <div>
                                                     <x-input-label for="placement-{{ $placement->id }}-description" value="Notitie" />
-                                                    <textarea id="placement-{{ $placement->id }}-description" name="description" rows="3" class="mt-1 block w-full rounded-xl border-gray-300">{{ $placement->description }}</textarea>
+                                                    <textarea id="placement-{{ $placement->id }}-description" name="description" rows="3" class="mt-1 block w-full rounded-xl border-gray-300">{{ $placementFormDescription }}</textarea>
+                                                    <x-input-error :messages="$placementFormActive ? $errors->get('description') : []" class="mt-2" />
                                                 </div>
                                                 <div>
                                                     <x-primary-button>Wijzigingen opslaan</x-primary-button>
@@ -832,10 +905,25 @@
                             </div>
                         @endif
 
-                        <details class="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                        @php
+                            $newPlacementFormKey = 'placement-new';
+                            $newPlacementFormActive = old('form_key') === $newPlacementFormKey;
+                            $newPlacementFormType = $newPlacementFormActive
+                                ? old('type', \App\Enums\AircoPlacementType::IndoorUnit->value)
+                                : \App\Enums\AircoPlacementType::IndoorUnit->value;
+                            $newPlacementFormType = \App\Enums\AircoPlacementType::tryFrom((string) $newPlacementFormType)?->value
+                                ?? \App\Enums\AircoPlacementType::IndoorUnit->value;
+                        @endphp
+                        <details class="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-4" @if ($newPlacementFormActive) open x-init="$el.scrollIntoView({block:'center'})" @endif data-form-key="{{ $newPlacementFormKey }}">
                             <summary class="-my-3 cursor-pointer py-3 text-sm font-semibold text-gray-900">Binnen- of buitenunit toevoegen</summary>
-                            <form method="POST" action="{{ route('intakes.workspace.placements.store', $intake) }}" class="mt-4 grid gap-4 sm:grid-cols-2">
+                            <form
+                                method="POST"
+                                action="{{ route('intakes.workspace.placements.store', $intake) }}"
+                                class="mt-4 grid gap-4 sm:grid-cols-2"
+                                x-data="{ type: @js($newPlacementFormType) }"
+                            >
                                 @csrf
+                                <input type="hidden" name="form_key" value="{{ $newPlacementFormKey }}">
                                 <fieldset class="sm:col-span-2">
                                     <legend class="sr-only">Soort unit of aansluiting</legend>
                                     <div class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,max(11rem,calc(50%_-_0.25rem))),1fr))] gap-2">
@@ -847,30 +935,44 @@
                                                     name="type"
                                                     value="{{ $type->value }}"
                                                     class="border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                                    @checked($loop->first)
+                                                    @checked($newPlacementFormType === $type->value)
+                                                    x-model="type"
                                                     required
                                                 >
                                                 <span class="min-w-0 break-words hyphens-auto">{{ $type->label() }}</span>
                                             </label>
                                         @endforeach
                                     </div>
+                                    <x-input-error :messages="$newPlacementFormActive ? $errors->get('type') : []" class="mt-2" />
                                 </fieldset>
                                 <div>
                                     <x-input-label for="placement_room" value="Ruimte (verplicht bij binnenunit)" />
                                     <select id="placement_room" name="airco_room_id" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300">
-                                        <option value="">Algemeen / buitenzijde</option>
+                                        <option value="" x-text="type === 'indoor_unit' ? 'Kies een ruimte' : 'Algemeen / buitenzijde'">
+                                            {{ $newPlacementFormType === 'indoor_unit' ? 'Kies een ruimte' : 'Algemeen / buitenzijde' }}
+                                        </option>
                                         @foreach ($intake->aircoRooms as $room)
-                                            <option value="{{ $room->id }}">{{ $room->name }}</option>
+                                            <option value="{{ $room->id }}" @selected($newPlacementFormActive && (string) old('airco_room_id') === (string) $room->id)>{{ $room->name }}</option>
                                         @endforeach
                                     </select>
+                                    <x-input-error :messages="$newPlacementFormActive ? $errors->get('airco_room_id') : []" class="mt-2" />
                                 </div>
                                 <div class="sm:col-span-2">
-                                    <x-input-label for="placement_label" value="Naam" />
-                                    <x-text-input id="placement_label" name="label" class="mt-1 block w-full" placeholder="Binnenunit boven de deur" required />
+                                    <x-input-label for="placement_label" value="Naam (verplicht)" />
+                                    <x-text-input
+                                        id="placement_label"
+                                        name="label"
+                                        class="mt-1 block w-full"
+                                        value="{{ $newPlacementFormActive ? old('label') : '' }}"
+                                        placeholder="Bijv. Unit slaapkamer 1"
+                                        required
+                                    />
+                                    <x-input-error :messages="$newPlacementFormActive ? $errors->get('label') : []" class="mt-2" />
                                 </div>
                                 <div class="sm:col-span-2">
                                     <x-input-label for="placement_description" value="Notitie" />
-                                    <textarea id="placement_description" name="description" rows="3" class="mt-1 block w-full rounded-xl border-gray-300" placeholder="Vrije wand, bereikbaarheid, obstakels…"></textarea>
+                                    <textarea id="placement_description" name="description" rows="3" class="mt-1 block w-full rounded-xl border-gray-300" placeholder="Vrije wand, bereikbaarheid, obstakels…">{{ $newPlacementFormActive ? old('description') : '' }}</textarea>
+                                    <x-input-error :messages="$newPlacementFormActive ? $errors->get('description') : []" class="mt-2" />
                                 </div>
                                 <div class="sm:col-span-2">
                                     <x-primary-button>Opslaan</x-primary-button>

@@ -755,84 +755,152 @@ final class AircoSurveyService
             ]);
         }
 
-        $indoor = $room->placements()
-            ->where('type', AircoPlacementType::IndoorUnit)
-            ->orderBy('id')
-            ->first();
-
-        if ($indoor instanceof AircoPlacementOption) {
-            $indoor = $this->updatePlacement($intake, $installer, $indoor, [
-                'airco_room_id' => $room->id,
-                'type' => AircoPlacementType::IndoorUnit,
-                'label' => $indoorLabel,
-                'description' => $indoor->description,
-            ]);
-        } else {
-            $indoor = $this->createPlacement($intake, $installer, [
-                'airco_room_id' => $room->id,
-                'type' => AircoPlacementType::IndoorUnit,
-                'label' => $indoorLabel,
-            ]);
-        }
-
         $outdoorId = $data['outdoor_placement_id'] ?? null;
-        if (is_numeric($outdoorId) && (int) $outdoorId > 0) {
-            $outdoor = AircoPlacementOption::query()
-                ->where('intake_id', $intake->id)
-                ->where('type', AircoPlacementType::OutdoorUnit)
-                ->findOrFail((int) $outdoorId);
-            if ($outdoor->airco_room_id !== null) {
-                $outdoor->update(['airco_room_id' => null]);
-            }
-        } else {
+        if (! is_numeric($outdoorId) || (int) $outdoorId <= 0) {
             $outdoorLabel = trim((string) ($data['outdoor_label'] ?? ''));
             if ($outdoorLabel === '') {
                 throw ValidationException::withMessages([
                     'outdoor_label' => 'Kies een bestaande buitenunit of geef een nieuwe naam.',
                 ]);
             }
-            $outdoor = $this->createPlacement($intake, $installer, [
-                'type' => AircoPlacementType::OutdoorUnit,
-                'label' => $outdoorLabel,
+        }
+
+        return DB::transaction(function () use ($intake, $installer, $room, $data, $configuration, $indoorLabel, $outdoorId): AircoInstallationOption {
+            $indoor = $room->placements()
+                ->where('type', AircoPlacementType::IndoorUnit)
+                ->orderBy('id')
+                ->first();
+
+            if ($indoor instanceof AircoPlacementOption) {
+                $indoor = $this->updatePlacement($intake, $installer, $indoor, [
+                    'airco_room_id' => $room->id,
+                    'type' => AircoPlacementType::IndoorUnit,
+                    'label' => $indoorLabel,
+                    'description' => $indoor->description,
+                ]);
+            } else {
+                $indoor = $this->createPlacement($intake, $installer, [
+                    'airco_room_id' => $room->id,
+                    'type' => AircoPlacementType::IndoorUnit,
+                    'label' => $indoorLabel,
+                ]);
+            }
+
+            if (is_numeric($outdoorId) && (int) $outdoorId > 0) {
+                $outdoor = AircoPlacementOption::query()
+                    ->where('intake_id', $intake->id)
+                    ->where('type', AircoPlacementType::OutdoorUnit)
+                    ->findOrFail((int) $outdoorId);
+                if ($outdoor->airco_room_id !== null) {
+                    $outdoor->update(['airco_room_id' => null]);
+                }
+            } else {
+                $outdoor = $this->createPlacement($intake, $installer, [
+                    'type' => AircoPlacementType::OutdoorUnit,
+                    'label' => trim((string) ($data['outdoor_label'] ?? '')),
+                ]);
+            }
+
+            $option = $this->resolveOptionForRoomCoupling(
+                $intake,
+                $installer,
+                $configuration,
+                isset($data['installation_option_id']) ? (int) $data['installation_option_id'] : null,
+                $indoor,
+                $outdoor,
+            );
+
+            $this->ensurePlacementOnOption($option, $indoor);
+            $this->ensurePlacementOnOption($option, $outdoor);
+
+            $previousConfiguration = $option->configuration_type;
+
+            if ($option->configuration_type !== $configuration) {
+                $option->update(['configuration_type' => $configuration]);
+            }
+
+            $option->load(['placements', 'connections.fromPlacement', 'connections.toPlacement']);
+            $this->upsertRefrigerantLink($intake, $installer, $option, $indoor, $outdoor);
+
+            $option->load(['placements', 'connections.fromPlacement', 'connections.toPlacement']);
+            $problems = $this->couplingValidator->optionProblems($option, requireComplete: false);
+            if ($problems !== []) {
+                $message = $this->singleSplitConflictsWithOtherRoomLinks(
+                    $previousConfiguration,
+                    $configuration,
+                    $option,
+                    $room,
+                    $outdoor,
+                )
+                    ? AircoUnitCouplingValidator::OUTDOOR_ALREADY_ON_MULTI_SPLIT
+                    : $problems[0];
+
+                throw ValidationException::withMessages([
+                    'outdoor_placement_id' => $message,
+                ]);
+            }
+
+            $this->activity($intake, $installer, 'airco_room_unit_coupling_synced', [
+                'room_id' => $room->id,
+                'option_id' => $option->id,
+                'configuration_type' => $configuration->value,
             ]);
+            $this->surveyProgress->markStarted($intake);
+            $this->decisionReadiness->recalculate($intake->fresh() ?? $intake);
+
+            return $option->fresh(['placements', 'connections.fromPlacement', 'connections.toPlacement']) ?? $option;
+        });
+    }
+
+    /**
+     * True when the installer is choosing SingleSplit, the option was already
+     * MultiSplit, and another room's indoor already shares a refrigerant link to
+     * this same outdoor — the UX cue for "outdoor already on a multi-split".
+     */
+    private function singleSplitConflictsWithOtherRoomLinks(
+        AircoConfigurationType $previousConfiguration,
+        AircoConfigurationType $configuration,
+        AircoInstallationOption $option,
+        AircoRoom $room,
+        AircoPlacementOption $outdoor,
+    ): bool {
+        if ($configuration !== AircoConfigurationType::SingleSplit) {
+            return false;
         }
 
-        $option = $this->resolveOptionForRoomCoupling(
-            $intake,
-            $installer,
-            $configuration,
-            isset($data['installation_option_id']) ? (int) $data['installation_option_id'] : null,
-            $indoor,
-            $outdoor,
-        );
-
-        $this->ensurePlacementOnOption($option, $indoor);
-        $this->ensurePlacementOnOption($option, $outdoor);
-
-        if ($option->configuration_type !== $configuration) {
-            $option->update(['configuration_type' => $configuration]);
+        if ($previousConfiguration !== AircoConfigurationType::MultiSplit) {
+            return false;
         }
 
-        $option->load(['placements', 'connections']);
-        $this->upsertRefrigerantLink($intake, $installer, $option, $indoor, $outdoor);
+        foreach ($option->connections as $connection) {
+            if ($connection->type !== AircoConnectionType::Refrigerant) {
+                continue;
+            }
 
-        $option->load(['placements', 'connections']);
-        $problems = $this->couplingValidator->optionProblems($option, requireComplete: false);
-        if ($problems !== []) {
-            throw ValidationException::withMessages([
-                'outdoor_placement_id' => $problems[0],
-            ]);
+            $from = $connection->fromPlacement;
+            $to = $connection->toPlacement;
+
+            $indoor = null;
+            $linkedOutdoor = null;
+            if ($from instanceof AircoPlacementOption && $from->type === AircoPlacementType::IndoorUnit) {
+                $indoor = $from;
+                $linkedOutdoor = $to;
+            } elseif ($to instanceof AircoPlacementOption && $to->type === AircoPlacementType::IndoorUnit) {
+                $indoor = $to;
+                $linkedOutdoor = $from;
+            }
+
+            if (
+                $indoor instanceof AircoPlacementOption
+                && (int) $indoor->airco_room_id !== (int) $room->id
+                && $linkedOutdoor instanceof AircoPlacementOption
+                && (int) $linkedOutdoor->id === (int) $outdoor->id
+            ) {
+                return true;
+            }
         }
 
-        $this->activity($intake, $installer, 'airco_room_unit_coupling_synced', [
-            'room_id' => $room->id,
-            'option_id' => $option->id,
-            'configuration_type' => $configuration->value,
-        ]);
-        $this->surveyProgress->markStarted($intake);
-        $this->decisionReadiness->recalculate($intake->fresh() ?? $intake);
-
-        return $option->fresh(['placements', 'connections.fromPlacement', 'connections.toPlacement']) ?? $option;
+        return false;
     }
 
     /**

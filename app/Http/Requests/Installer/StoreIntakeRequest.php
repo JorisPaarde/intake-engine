@@ -12,6 +12,8 @@ use Illuminate\Validation\Rule;
 
 class StoreIntakeRequest extends FormRequest
 {
+    private const CUSTOMER_PHONE_INVALID = 'Vul een geldig telefoonnummer in, bijvoorbeeld 06 12345678.';
+
     public function authorize(): bool
     {
         return $this->user()?->can('create', Intake::class) ?? false;
@@ -25,7 +27,7 @@ class StoreIntakeRequest extends FormRequest
         return [
             'customer_name' => ['required', 'string', 'max:255'],
             'customer_email' => ['required', 'email', 'max:255'],
-            'customer_phone' => ['nullable', 'string', 'max:50'],
+            'customer_phone' => ['nullable', 'string', 'max:50', $this->customerPhoneRule()],
             'address_postal_code' => ['required', 'string', 'regex:/^[1-9]\d{3}[A-Z]{2}$/'],
             'address_house_number' => ['required', 'integer', 'min:1', 'max:999999'],
             'address_house_number_addition' => ['nullable', 'string', 'max:20', 'regex:/^[A-Za-z0-9\-\s]+$/'],
@@ -61,6 +63,31 @@ class StoreIntakeRequest extends FormRequest
             'template_key' => 'type opname',
             'workflow_mode' => 'manier van opnemen',
         ];
+    }
+
+    /**
+     * Optional phone: digits, spaces, +, - and parentheses; at least 10 digits when filled.
+     */
+    private function customerPhoneRule(): \Closure
+    {
+        $invalid = self::CUSTOMER_PHONE_INVALID;
+
+        return static function (string $attribute, mixed $value, \Closure $fail) use ($invalid): void {
+            if ($value === null || (is_string($value) && trim($value) === '')) {
+                return;
+            }
+
+            if (! is_string($value) || preg_match('/^[0-9+\-\s()]+$/u', $value) !== 1) {
+                $fail($invalid);
+
+                return;
+            }
+
+            $digits = preg_replace('/\D+/', '', $value) ?? '';
+            if (strlen($digits) < 10) {
+                $fail($invalid);
+            }
+        };
     }
 
     protected function prepareForValidation(): void
