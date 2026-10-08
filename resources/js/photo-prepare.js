@@ -348,7 +348,7 @@ function failClosed(file, reason, originalWidth = null, originalHeight = null) {
  * @param {number} height
  * @returns {HTMLCanvasElement|OffscreenCanvas}
  */
-function defaultCreateCanvas(width, height) {
+function createCanvas(width, height) {
     if (typeof OffscreenCanvas !== 'undefined') {
         return new OffscreenCanvas(width, height);
     }
@@ -360,7 +360,7 @@ function defaultCreateCanvas(width, height) {
 
 /**
  * @param {File} file
- * @param {{ loadImage?: (file: File) => Promise<CanvasImageSource & { naturalWidth?: number, width?: number, naturalHeight?: number, height?: number }>, createBitmap?: typeof decodeWithCreateImageBitmap, toJpeg?: typeof canvasToJpegFile, createCanvas?: typeof defaultCreateCanvas, now?: () => number, readSize?: typeof readImageSizeFromFile }} [deps]
+ * @param {{ loadImage?: (file: File) => Promise<CanvasImageSource & { naturalWidth?: number, width?: number, naturalHeight?: number, height?: number }>, createBitmap?: typeof decodeWithCreateImageBitmap, toJpeg?: typeof canvasToJpegFile, now?: () => number, readSize?: typeof readImageSizeFromFile }} [deps]
  * @returns {Promise<{ file: File, originalWidth: number|null, originalHeight: number|null, downscaled: boolean, reason?: string, failed?: boolean }>}
  */
 export async function preparePhotoForUpload(file, deps = {}) {
@@ -372,7 +372,6 @@ export async function preparePhotoForUpload(file, deps = {}) {
     const loadImage = deps.loadImage || defaultLoadImage;
     const createBitmap = deps.createBitmap || decodeWithCreateImageBitmap;
     const toJpeg = deps.toJpeg || canvasToJpegFile;
-    const createCanvas = deps.createCanvas || defaultCreateCanvas;
     const readSize = deps.readSize || readImageSizeFromFile;
     const requireDownscale = mustDownscaleOrFail(file);
 
@@ -426,8 +425,10 @@ export async function preparePhotoForUpload(file, deps = {}) {
         let srcH = originalHeight;
 
         try {
+            // Always pass a single long-edge resize so a buggy browser cannot
+            // stretch to a placeholder square; verify bitmap aspect against header.
             const decodeTarget = hasSourceDims
-                ? { width: target.width, height: target.height }
+                ? { width: target.width, height: target.height, longEdgeOnly: true }
                 : { width: MAX_LONG_EDGE, height: 0, longEdgeOnly: true };
             const decoded = await createBitmap(file, decodeTarget);
             source = decoded.bitmap;
@@ -435,6 +436,27 @@ export async function preparePhotoForUpload(file, deps = {}) {
             if (hasSourceDims) {
                 srcW = originalWidth;
                 srcH = originalHeight;
+                if (! aspectRatiosMatch(
+                    originalWidth,
+                    originalHeight,
+                    decoded.bitmap.width,
+                    decoded.bitmap.height,
+                )) {
+                    if (typeof decoded.bitmap.close === 'function') {
+                        decoded.bitmap.close();
+                    }
+
+                    return requireDownscale
+                        ? failClosed(file, 'aspect-mismatch', originalWidth, originalHeight)
+                        : {
+                            file,
+                            originalWidth,
+                            originalHeight,
+                            downscaled: false,
+                            reason: 'aspect-mismatch',
+                            failed: false,
+                        };
+                }
             } else {
                 // Header missing: bitmap may already be long-edge-capped; treat as source.
                 srcW = Math.max(1, decoded.originalWidth);
@@ -473,16 +495,6 @@ export async function preparePhotoForUpload(file, deps = {}) {
             };
         }
 
-        if (! aspectRatiosMatch(srcW, srcH, finalTarget.width, finalTarget.height)) {
-            if (source && typeof source.close === 'function') {
-                source.close();
-            }
-
-            return requireDownscale
-                ? failClosed(file, 'aspect-mismatch', srcW, srcH)
-                : { file, originalWidth: srcW, originalHeight: srcH, downscaled: false, reason: 'aspect-mismatch', failed: false };
-        }
-
         let canvas;
         try {
             canvas = createCanvas(finalTarget.width, finalTarget.height);
@@ -500,7 +512,7 @@ export async function preparePhotoForUpload(file, deps = {}) {
             canvas.height = finalTarget.height;
         }
 
-        const ctx = typeof canvas.getContext === 'function' ? canvas.getContext('2d') : null;
+        const ctx = canvas.getContext('2d');
         if (! ctx) {
             if (source && typeof source.close === 'function') {
                 source.close();
@@ -509,21 +521,12 @@ export async function preparePhotoForUpload(file, deps = {}) {
                 ? failClosed(file, 'no-ctx', srcW || null, srcH || null)
                 : { file, originalWidth: srcW, originalHeight: srcH, downscaled: false, reason: 'no-ctx', failed: false };
         }
-        if (typeof ctx.fillRect === 'function') {
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, finalTarget.width, finalTarget.height);
-        }
-        if (typeof ctx.drawImage === 'function') {
-            ctx.drawImage(source, 0, 0, finalTarget.width, finalTarget.height);
-        }
+        // Always draw — a missing drawImage must never yield a blank JPEG.
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, finalTarget.width, finalTarget.height);
+        ctx.drawImage(source, 0, 0, finalTarget.width, finalTarget.height);
         if (source && typeof source.close === 'function') {
             source.close();
-        }
-
-        if (! aspectRatiosMatch(srcW, srcH, canvas.width, canvas.height)) {
-            return requireDownscale
-                ? failClosed(file, 'aspect-mismatch', srcW, srcH)
-                : { file, originalWidth: srcW, originalHeight: srcH, downscaled: false, reason: 'aspect-mismatch', failed: false };
         }
 
         const compressed = await toJpeg(canvas, file.name);

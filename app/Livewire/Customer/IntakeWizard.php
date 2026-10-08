@@ -1066,9 +1066,15 @@ class IntakeWizard extends Component
         // Alleen deze item-fase resetten; pending van andere items blijft staan.
         $this->clearProgressExtraNote();
         $this->clearPendingIdsFor($composite);
+        // New upload into this composite gets its own soft-timeout clock.
+        $this->assessmentUiReleased = array_values(array_filter(
+            $this->assessmentUiReleased,
+            static fn (string $key): bool => $key !== $composite,
+        ));
         if ($this->uploadPhaseComposite === $composite) {
             $this->uploadPhase = '';
             $this->uploadPhaseMessage = '';
+            $this->uploadPhaseStartedAt = null;
         }
 
         $item = $this->followUpItem($itemId);
@@ -1474,12 +1480,8 @@ class IntakeWizard extends Component
         }
         $this->saveMessage = $message;
 
-        if ($this->followUpMode) {
-            // Soft-timeout is informational; keep Volgende usable (no hard error bag).
-            $this->saveMessage = $message;
-        } else {
+        if (! $this->followUpMode) {
             $this->photoHint[$composite] = $message;
-            $this->saveMessage = $message;
         }
     }
 
@@ -1840,9 +1842,15 @@ class IntakeWizard extends Component
         $this->clearProgressExtraNote();
         $this->clearPhotoFeedbackForComposite($composite);
         $this->clearPendingIdsFor($composite);
+        // New upload into this composite gets its own soft-timeout clock.
+        $this->assessmentUiReleased = array_values(array_filter(
+            $this->assessmentUiReleased,
+            static fn (string $key): bool => $key !== $composite,
+        ));
         if ($this->uploadPhaseComposite === $composite) {
             $this->uploadPhase = '';
             $this->uploadPhaseMessage = '';
+            $this->uploadPhaseStartedAt = null;
         }
         $this->uploadPhaseComposite = $composite;
 

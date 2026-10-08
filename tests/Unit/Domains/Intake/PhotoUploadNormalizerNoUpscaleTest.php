@@ -61,8 +61,9 @@ it('shrinks a large JPEG to dossier max without exceeding source', function () {
     try {
         writeFixtureJpeg($path, $width, $height, quality: 85);
 
+        $normalizer = app(PhotoUploadNormalizer::class);
         $file = new UploadedFile($path, 'large.jpg', 'image/jpeg', null, true);
-        $result = app(PhotoUploadNormalizer::class)->normalize($file);
+        $result = $normalizer->normalize($file);
 
         expect($result->originalWidth)->toBe($width)
             ->and($result->originalHeight)->toBe($height)
@@ -72,12 +73,44 @@ it('shrinks a large JPEG to dossier max without exceeding source', function () {
             ->and($result->dossierWidth)->toBeLessThanOrEqual($width)
             ->and($result->dossierHeight)->toBeLessThanOrEqual($height);
 
+        // Per-axis jpeg:size hint (never a square larger than the short side).
+        $metrics = $normalizer->lastDecodeMetrics();
+        if (($metrics['library'] ?? null) === 'imagick') {
+            expect($metrics['jpeg_size_hint'])->toBe('4032x3024');
+        }
+
         foreach ($result->cleanupPaths as $cleanupPath) {
             @unlink($cleanupPath);
         }
     } finally {
         @unlink($path);
     }
+});
+
+it('clampImagickToOriginal compares long/short edges after EXIF swap (not 900×1200)', function () {
+    if (! class_exists(Imagick::class)) {
+        test()->markTestSkipped('Imagick required');
+    }
+
+    // Simulate autoOrient of 1600×1200 + orientation 6 → upright 1200×1600,
+    // while ping still reports the unrotated 1600×1200.
+    $image = new Imagick;
+    $image->newImage(1200, 1600, new ImagickPixel('steelblue'));
+    $image->setImageFormat('jpeg');
+
+    $normalizer = app(PhotoUploadNormalizer::class);
+    $method = new ReflectionMethod(PhotoUploadNormalizer::class, 'clampImagickToOriginal');
+
+    $method->invoke($normalizer, $image, 1600, 1200);
+
+    expect($image->getImageWidth())->toBe(1200)
+        ->and($image->getImageHeight())->toBe(1600);
+
+    // Old axis-aligned clamp would have bestfit-thumbnailed to 900×1200.
+    expect($image->getImageWidth())->not->toBe(900);
+
+    $image->clear();
+    $image->destroy();
 });
 
 function writeFixtureJpeg(string $path, int $width, int $height, int $quality = 85): void

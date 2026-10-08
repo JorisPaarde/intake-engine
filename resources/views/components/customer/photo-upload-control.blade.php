@@ -60,13 +60,20 @@
         serverWaitMs: 120000,
         clientUploading: false,
         prepBusy: false,
+        prepSkipMessage: '',
+        softTimeoutMs: @js(max(1, (int) config('ai.photo_assessment.ui_soft_timeout_seconds', 15)) * 1000),
         arm() {
             clearTimeout(this.timer);
             this.timedOut = false;
-            // UX 8 okt: soft-timeout 15 s (same as ai.photo_assessment.ui_soft_timeout_seconds).
             if ($wire.uploadPhase === 'assessing' && $wire.uploadPhaseComposite === @js($composite)) {
-                this.timer = setTimeout(() => { this.timedOut = true }, 15000);
+                this.timer = setTimeout(() => { this.timedOut = true }, this.softTimeoutMs);
             }
+        },
+        onPrepSkipped(event) {
+            if (event?.detail?.composite && event.detail.composite !== @js($composite)) {
+                return;
+            }
+            this.prepSkipMessage = event?.detail?.message || this.prepSkipMessage;
         },
         clearLivewireUpload() {
             try {
@@ -144,6 +151,7 @@
             this.clientUploading = true;
             this.uploadTimedOut = false;
             this.uploadError = '';
+            this.prepSkipMessage = '';
             this.uploadProgress = 0;
             this.armInactivityTimer();
         },
@@ -152,8 +160,16 @@
         },
         onPrepFailed(event) {
             this.prepBusy = false;
-            this.failUpload(event?.detail?.message
-                || 'De server is even druk. Probeer het zo opnieuw.');
+            const message = event?.detail?.message
+                || 'De server is even druk. Probeer het zo opnieuw.';
+            // Skip-only selections reuse prep-failed with a skip message — show that, not "te groot".
+            if (typeof message === 'string' && message.includes('geen foto')) {
+                this.prepSkipMessage = message;
+                this.clientUploading = false;
+                this.uploadProgress = null;
+                return;
+            }
+            this.failUpload(message);
         },
         onUploadProgress(event) {
             const detail = event?.detail;
@@ -260,6 +276,7 @@
         document.addEventListener('intake:photo-prep-start', () => onPrepStart());
         document.addEventListener('intake:photo-prep-done', () => onPrepDone());
         document.addEventListener('intake:photo-prep-failed', (e) => onPrepFailed(e));
+        document.addEventListener('intake:photo-prep-skipped', (e) => onPrepSkipped(e));
     "
     x-on:livewire-upload-start="armUpload()"
     x-on:livewire-upload-progress="onUploadProgress($event)"
@@ -346,6 +363,15 @@
         >
             Opnieuw proberen
         </button>
+    </div>
+    <div
+        x-show="prepSkipMessage && ! uploadTimedOut"
+        x-cloak
+        class="{{ $errorClass }}"
+        role="status"
+        data-testid="photo-prep-skipped"
+    >
+        <p x-text="prepSkipMessage"></p>
     </div>
     <div wire:loading.remove wire:target="{{ $wireModel }}">
         @if ($isAssessing)

@@ -237,10 +237,11 @@ test('livewire wizard accepts a photo upload', function () {
     $intake = makeUploadIntake();
     $file = UploadedFile::fake()->image('kamer.jpg');
 
+    // Per-foto status under thumbnails; no top "Foto opgeslagen" banner.
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->set('photoFiles.fusebox_photo', $file)
         ->assertHasNoErrors()
-        ->assertSet('saveMessage', 'Foto opgeslagen');
+        ->assertSet('saveMessage', '');
 
     expect(IntakeUpload::query()->where('intake_id', $intake->id)->count())->toBe(1);
 });
@@ -255,7 +256,7 @@ test('livewire wizard accepts multiple photos in one selection', function () {
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->set('photoFiles.fusebox_photo', $files)
         ->assertHasNoErrors()
-        ->assertSet('saveMessage', "2 foto's opgeslagen");
+        ->assertSet('saveMessage', '');
 
     expect(IntakeUpload::query()->where('intake_id', $intake->id)->count())->toBe(2)
         ->and($intake->fresh()->answers()->where('question_key', 'fusebox_photo')->value('value'))
@@ -274,7 +275,7 @@ test('livewire wizard keeps successful photos when one file in a batch fails', f
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->set('photoFiles.fusebox_photo', $files)
         ->assertHasErrors(['photoFiles.fusebox_photo'])
-        ->assertSet('saveMessage', 'Foto opgeslagen');
+        ->assertSet('saveMessage', '');
 
     expect(IntakeUpload::query()->where('intake_id', $intake->id)->count())->toBe(1);
 });
@@ -306,7 +307,7 @@ test('livewire wizard accepts a heic photo upload', function () {
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->set('photoFiles.fusebox_photo', $file)
         ->assertHasNoErrors()
-        ->assertSet('saveMessage', 'Foto opgeslagen');
+        ->assertSet('saveMessage', '');
 
     $upload = IntakeUpload::query()->where('intake_id', $intake->id)->firstOrFail();
 

@@ -11,6 +11,7 @@ use App\Support\Logging\AppErrorLogger;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\PostTooLargeException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -83,6 +84,20 @@ return Application::configure(basePath: dirname(__DIR__))
             return response()->view('errors.customer-link-unavailable', [
                 'reason' => $e->reason,
             ], 410);
+        });
+
+        // ValidatePostSize throws before the controller; only rewrite the installer
+        // workspace photo route to a Dutch redirect (demotest 8 okt review #3).
+        $exceptions->render(function (PostTooLargeException $e, Request $request) {
+            if (! $request->is('intakes/*/opname/subjects/*/photos')) {
+                return null;
+            }
+
+            return redirect()
+                ->back()
+                ->withErrors([
+                    'photo' => 'Deze foto is te groot voor één upload. De foto wordt automatisch verkleind — probeer het opnieuw, of stuur minder foto\'s tegelijk.',
+                ]);
         });
 
         $exceptions->context(function () {

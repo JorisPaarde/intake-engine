@@ -136,17 +136,15 @@ final class PhotoUploadNormalizer
         try {
             // Shrink-on-load for JPEG: libjpeg DCT-scales during decode so a 12 MP
             // phone photo never materialises at full resolution (staging intake 82 ~79 s).
-            // Only hint when the source is larger than the hint — otherwise libjpeg may
-            // upsample small JPEGs (demotest 8 okt: 1600×1200 → 2048×1536).
+            // Cap each axis independently (never a square hint larger than the source
+            // width/height — that upscales 4032×3024 on the short side).
             if ($mime === 'image/jpeg') {
                 $hintEdge = max(64, $dossierMax * 2);
                 $sourceLongEdge = max($originalWidth, $originalHeight);
-                // Only shrink-on-load when the source exceeds the dossier edge.
-                // Cap the hint at the source long edge so libjpeg never upscales
-                // (demotest 8 okt: 1600×1200 stayed 1600; 4032 still hints ≤4032).
-                if ($sourceLongEdge > $dossierMax) {
-                    $effectiveHint = min($hintEdge, $sourceLongEdge);
-                    $jpegSizeHint = $effectiveHint.'x'.$effectiveHint;
+                if ($sourceLongEdge > $dossierMax && $originalWidth > 1 && $originalHeight > 1) {
+                    $hintW = min($hintEdge, $originalWidth);
+                    $hintH = min($hintEdge, $originalHeight);
+                    $jpegSizeHint = $hintW.'x'.$hintH;
                     $source->setOption('jpeg:size', $jpegSizeHint);
                 }
             }
@@ -326,7 +324,9 @@ final class PhotoUploadNormalizer
     }
 
     /**
-     * If decode produced more pixels than the source, shrink back to original dims.
+     * If decode produced more pixels than the source, shrink back.
+     * Compare long/short edges so EXIF autoOrient (5–8) does not clamp against
+     * unrotated ping dimensions (1600×1200 + orient 6 → 1200×1600, not 900×1200).
      */
     private function clampImagickToOriginal(Imagick $image, int $originalWidth, int $originalHeight): void
     {
@@ -337,11 +337,25 @@ final class PhotoUploadNormalizer
         $width = $image->getImageWidth();
         $height = $image->getImageHeight();
 
-        if ($width <= $originalWidth && $height <= $originalHeight) {
+        $origLong = max($originalWidth, $originalHeight);
+        $origShort = min($originalWidth, $originalHeight);
+        $imgLong = max($width, $height);
+        $imgShort = min($width, $height);
+
+        if ($imgLong <= $origLong && $imgShort <= $origShort) {
             return;
         }
 
-        $image->thumbnailImage($originalWidth, $originalHeight, true);
+        $scale = min($origLong / max(1, $imgLong), $origShort / max(1, $imgShort), 1.0);
+        if ($scale >= 1.0) {
+            return;
+        }
+
+        $image->thumbnailImage(
+            max(1, (int) round($width * $scale)),
+            max(1, (int) round($height * $scale)),
+            true,
+        );
     }
 
     /**

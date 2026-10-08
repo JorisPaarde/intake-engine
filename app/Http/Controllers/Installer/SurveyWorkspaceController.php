@@ -544,14 +544,6 @@ final class SurveyWorkspaceController extends Controller
         $this->authorize('update', $intake);
         $this->guardWorkspaceSubject($intake, $subject);
 
-        // PHP emptied $_POST/$_FILES when the request exceeded post_max_size
-        // (public/.user.ini ≈ 12M) — give a clear Dutch message, not 419/500.
-        if ($this->installerPhotoPostLikelyTruncated($request)) {
-            throw ValidationException::withMessages([
-                'photo' => 'Deze foto is te groot voor één upload. De foto wordt automatisch verkleind — probeer het opnieuw, of stuur minder foto\'s tegelijk.',
-            ]);
-        }
-
         $maxFiles = max(1, (int) config('intake.uploads.max_files_per_question', 5));
 
         $data = $request->validate(
@@ -607,30 +599,49 @@ final class SurveyWorkspaceController extends Controller
         $stored = 0;
         $hasSuggestion = false;
         $session = null;
+        /** @var list<string> $failedNames */
+        $failedNames = [];
+        $total = count($photos);
 
         foreach ($photos as $photo) {
-            $upload = $storeUpload->handle(
-                $intake,
-                $this->user($request),
-                $subject,
-                $photo,
-            );
-            $stored++;
+            try {
+                $upload = $storeUpload->handle(
+                    $intake,
+                    $this->user($request),
+                    $subject,
+                    $photo,
+                );
+                $stored++;
 
-            if ($connection instanceof AircoConnection) {
-                $session ??= $startRoute->handle($intake, $connection);
-                $addRoutePhoto->handle($session, $upload, $data['route_segment_label'] ?? null);
-            } else {
-                $run = $suggestPhotoObservations->handle($intake, $subject, $upload);
-                if ($run !== null) {
-                    $hasSuggestion = $hasSuggestion || DossierRecord::query()
-                        ->where('intake_id', $intake->id)
-                        ->where('source_type', 'ai')
-                        ->where('source_id', $run->id)
-                        ->where('status', DossierRecordStatus::Proposed)
-                        ->exists();
+                if ($connection instanceof AircoConnection) {
+                    $session ??= $startRoute->handle($intake, $connection);
+                    $addRoutePhoto->handle($session, $upload, $data['route_segment_label'] ?? null);
+                } else {
+                    $run = $suggestPhotoObservations->handle($intake, $subject, $upload);
+                    if ($run !== null) {
+                        $hasSuggestion = $hasSuggestion || DossierRecord::query()
+                            ->where('intake_id', $intake->id)
+                            ->where('source_type', 'ai')
+                            ->where('source_id', $run->id)
+                            ->where('status', DossierRecordStatus::Proposed)
+                            ->exists();
+                    }
                 }
+            } catch (ValidationException $exception) {
+                $failedNames[] = $photo->getClientOriginalName() ?: 'foto';
+                report($exception);
+            } catch (\Throwable $exception) {
+                $failedNames[] = $photo->getClientOriginalName() ?: 'foto';
+                report($exception);
             }
+        }
+
+        if ($stored === 0) {
+            $failed = $failedNames[0] ?? 'foto';
+
+            throw ValidationException::withMessages([
+                'photo' => $failed.' kon niet worden opgeslagen. Probeer het opnieuw.',
+            ]);
         }
 
         if ($connection instanceof AircoConnection) {
@@ -645,6 +656,11 @@ final class SurveyWorkspaceController extends Controller
             $message = $stored === 1
                 ? 'Foto opgeslagen bij '.$subject->label.'.'
                 : $stored.' foto\'s opgeslagen bij '.$subject->label.'.';
+        }
+
+        if ($failedNames !== []) {
+            $failedLabel = implode(', ', array_values(array_unique($failedNames)));
+            $message = $stored.' van '.$total.' foto\'s opgeslagen. '.$failedLabel.' lukte niet.';
         }
 
         return $this->back($intake, $message);
@@ -668,43 +684,6 @@ final class SurveyWorkspaceController extends Controller
         }
 
         return array_values($raw);
-    }
-
-    /**
-     * Detect PHP truncating an oversized multipart POST (CONTENT_LENGTH set,
-     * but no files/input left for a workspace photo form).
-     */
-    private function installerPhotoPostLikelyTruncated(Request $request): bool
-    {
-        $contentLength = (int) $request->server('CONTENT_LENGTH', 0);
-        if ($contentLength <= 0) {
-            return false;
-        }
-
-        $postMax = $this->phpSizeToBytes((string) ini_get('post_max_size'));
-        if ($postMax <= 0 || $contentLength <= $postMax) {
-            return false;
-        }
-
-        return $request->file('photo') === null && $request->all() === [];
-    }
-
-    private function phpSizeToBytes(string $value): int
-    {
-        $trimmed = trim($value);
-        if ($trimmed === '' || $trimmed === '0') {
-            return 0;
-        }
-
-        $unit = strtolower(substr($trimmed, -1));
-        $number = (float) $trimmed;
-
-        return (int) match ($unit) {
-            'g' => $number * 1024 * 1024 * 1024,
-            'm' => $number * 1024 * 1024,
-            'k' => $number * 1024,
-            default => (int) $number,
-        };
     }
 
     public function requestContribution(

@@ -9,6 +9,9 @@ use App\Domains\Intake\Support\PhotoUploadLimits;
 use App\Enums\ContributionMode;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
+use Illuminate\Contracts\Debug\ExceptionHandler;
+use Illuminate\Http\Exceptions\PostTooLargeException;
+use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
@@ -134,4 +137,68 @@ test('installer downloadfilename gebruikt .jpg na PNG-conversie', function () {
     $disposition = (string) $response->headers->get('content-disposition');
     expect($disposition)->toContain('unitplek.jpg')
         ->and($disposition)->not->toContain('.png');
+});
+
+test('installer storeEvidence houdt geslaagde foto\'s bij als latere foto faalt', function () {
+    $user = User::factory()->create();
+    [$intake, $room] = createPhotoLimitSurvey($user);
+
+    $corruptPath = tempnam(sys_get_temp_dir(), 'kapot-').'.jpg';
+    // Valid JPEG SOI/EOI so mime checks pass; Imagick/GD cannot decode pixels.
+    file_put_contents($corruptPath, "\xFF\xD8\xFF\xD9");
+    $corrupt = new UploadedFile($corruptPath, 'kapot.jpg', 'image/jpeg', null, true);
+
+    try {
+        $this->actingAs($user)
+            ->from(route('intakes.workspace', $intake))
+            ->post(route('intakes.workspace.photos.store', [$intake, $room->subject]), [
+                'photo' => [
+                    UploadedFile::fake()->image('goed.jpg', 800, 600),
+                    $corrupt,
+                ],
+            ])
+            ->assertRedirect(route('intakes.workspace', $intake))
+            ->assertSessionHas('status');
+
+        expect($intake->uploads()->count())->toBe(1)
+            ->and((string) session('status'))->toContain('1 van 2 foto')
+            ->and((string) session('status'))->toContain('kapot.jpg');
+    } finally {
+        @unlink($corruptPath);
+    }
+});
+
+test('PostTooLargeException op installer foto-route geeft Nederlandse redirect', function () {
+    $user = User::factory()->create();
+    [$intake, $room] = createPhotoLimitSurvey($user);
+
+    $url = route('intakes.workspace.photos.store', [$intake, $room->subject], absolute: false);
+    $request = Request::create($url, 'POST');
+    $request->headers->set('referer', route('intakes.workspace', $intake));
+    $request->setLaravelSession(app('session.store'));
+
+    $response = app(ExceptionHandler::class)->render(
+        $request,
+        new PostTooLargeException,
+    );
+
+    expect($response->getStatusCode())->toBe(302);
+
+    $session = app('session.store');
+    $errors = $session->get('errors');
+    expect($errors)->not->toBeNull()
+        ->and($errors->first('photo'))->toContain('te groot voor één upload');
+});
+
+test('PostTooLargeException op andere route blijft standaard (geen photo-redirect)', function () {
+    $request = Request::create('/intakes', 'POST');
+    $request->setLaravelSession(app('session.store'));
+
+    $response = app(ExceptionHandler::class)->render(
+        $request,
+        new PostTooLargeException,
+    );
+
+    // Default Laravel handler → 413, not a workspace photo redirect.
+    expect($response->getStatusCode())->toBe(413);
 });

@@ -22,6 +22,35 @@ import {
     selectReplayTargets,
 } from './livewire-resilience.js';
 
+/**
+ * Stub OffscreenCanvas so preparePhotoForUpload can draw without DOM
+ * (createCanvas is no longer injectable — review #11).
+ *
+ * @param {{ drawImage?: (...args: unknown[]) => void }} [overrides]
+ */
+function stubOffscreenCanvas(overrides = {}) {
+    class FakeOffscreenCanvas {
+        /**
+         * @param {number} width
+         * @param {number} height
+         */
+        constructor(width, height) {
+            this.width = width;
+            this.height = height;
+        }
+
+        getContext() {
+            return {
+                fillStyle: '',
+                fillRect() {},
+                drawImage: overrides.drawImage || (() => {}),
+            };
+        }
+    }
+
+    vi.stubGlobal('OffscreenCanvas', FakeOffscreenCanvas);
+}
+
 describe('photo-prepare hard limits + fail-closed (intake 82)', () => {
     beforeEach(() => {
         vi.useFakeTimers();
@@ -29,6 +58,7 @@ describe('photo-prepare hard limits + fail-closed (intake 82)', () => {
 
     afterEach(() => {
         vi.useRealTimers();
+        vi.unstubAllGlobals();
     });
 
     it('targets max long edge 2000 at jpeg quality 0.85', () => {
@@ -176,10 +206,12 @@ describe('image header size reader', () => {
 describe('preparePhotoForUpload aspect ratio (demotest 8 okt)', () => {
     beforeEach(() => {
         vi.useFakeTimers();
+        stubOffscreenCanvas();
     });
 
     afterEach(() => {
         vi.useRealTimers();
+        vi.unstubAllGlobals();
     });
 
     /**
@@ -191,23 +223,20 @@ describe('preparePhotoForUpload aspect ratio (demotest 8 okt)', () => {
         const original = new File([new Uint8Array(2_200_000)], name, { type: 'image/jpeg' });
         Object.defineProperty(original, 'size', { value: 2_200_000 });
 
+        const expected = computeTargetSize(srcW, srcH);
+
         const resultPromise = preparePhotoForUpload(original, {
             readSize: async () => ({ width: srcW, height: srcH, orientation: 1 }),
-            createCanvas: (width, height) => ({
-                width,
-                height,
-                getContext: () => ({
-                    fillStyle: '',
-                    fillRect() {},
-                    drawImage() {},
-                }),
-            }),
             createBitmap: async (_file, target) => {
-                const tw = Math.round(Number(target.width) || 0);
-                const th = Math.round(Number(target.height) || 0);
-                // Mimic a browser that stretches to the exact resizeWidth×resizeHeight.
-                const width = tw > 0 ? tw : MAX_LONG_EDGE;
-                const height = th > 0 ? th : Math.round(width * (srcH / srcW));
+                expect(target.longEdgeOnly).toBe(true);
+                // Mimic a browser that preserves aspect when only resizeWidth is set.
+                const longEdge = Math.max(
+                    Math.round(Number(target.width) || 0),
+                    Math.round(Number(target.height) || 0),
+                );
+                const scale = longEdge / Math.max(srcW, srcH);
+                const width = Math.round(srcW * scale);
+                const height = Math.round(srcH * scale);
                 return {
                     bitmap: {
                         width,
@@ -235,8 +264,6 @@ describe('preparePhotoForUpload aspect ratio (demotest 8 okt)', () => {
         expect(result.downscaled).toBe(true);
         expect(result.originalWidth).toBe(srcW);
         expect(result.originalHeight).toBe(srcH);
-
-        const expected = computeTargetSize(srcW, srcH);
         expect(expected.width / expected.height).toBeCloseTo(srcW / srcH, 2);
     }
 
@@ -265,29 +292,28 @@ describe('preparePhotoForUpload aspect ratio (demotest 8 okt)', () => {
         await assertDownscaleKeepsRatio(3024, 4032, 'phone-exif6.jpg');
     });
 
-    it('passes non-square resize targets to createBitmap (never 2000×2000 for 4:3)', async () => {
+    it('passes longEdgeOnly decode target (single resize edge, never 2000×2000 for 4:3)', async () => {
         const original = new File([new Uint8Array(2_200_000)], 'landscape.jpg', { type: 'image/jpeg' });
         Object.defineProperty(original, 'size', { value: 2_200_000 });
-        /** @type {{ width?: number, height?: number }|null} */
+        /** @type {{ width?: number, height?: number, longEdgeOnly?: boolean }|null} */
         let seenTarget = null;
 
         const resultPromise = preparePhotoForUpload(original, {
             readSize: async () => ({ width: 4032, height: 3024, orientation: 1 }),
-            createCanvas: (width, height) => ({
-                width,
-                height,
-                getContext: () => ({ fillStyle: '', fillRect() {}, drawImage() {} }),
-            }),
             createBitmap: async (_file, target) => {
-                seenTarget = { width: target.width, height: target.height };
+                seenTarget = {
+                    width: target.width,
+                    height: target.height,
+                    longEdgeOnly: target.longEdgeOnly,
+                };
                 return {
                     bitmap: {
-                        width: target.width,
-                        height: target.height,
+                        width: 2000,
+                        height: 1500,
                         close() {},
                     },
-                    originalWidth: target.width,
-                    originalHeight: target.height,
+                    originalWidth: 2000,
+                    originalHeight: 1500,
                 };
             },
             toJpeg: async () => new File(
@@ -301,9 +327,39 @@ describe('preparePhotoForUpload aspect ratio (demotest 8 okt)', () => {
         const result = await resultPromise;
 
         expect(result.failed).toBe(false);
-        expect(seenTarget).toEqual({ width: 2000, height: 1500 });
+        expect(seenTarget?.longEdgeOnly).toBe(true);
+        expect(seenTarget?.width).toBe(2000);
+        expect(seenTarget?.height).toBe(1500);
         expect(aspectRatiosMatch(4032, 3024, 2000, 1500)).toBe(true);
         expect(aspectRatiosMatch(4032, 3024, 2000, 2000)).toBe(false);
+    });
+
+    it('fails closed when bitmap aspect does not match header (wrong-aspect)', async () => {
+        const original = new File([new Uint8Array(2_200_000)], 'stretched.jpg', { type: 'image/jpeg' });
+        Object.defineProperty(original, 'size', { value: 2_200_000 });
+
+        const resultPromise = preparePhotoForUpload(original, {
+            readSize: async () => ({ width: 4032, height: 3024, orientation: 1 }),
+            createBitmap: async () => ({
+                // Buggy browser stretched to a square.
+                bitmap: {
+                    width: 2000,
+                    height: 2000,
+                    close() {},
+                },
+                originalWidth: 2000,
+                originalHeight: 2000,
+            }),
+        });
+
+        await vi.advanceTimersByTimeAsync(0);
+        const result = await resultPromise;
+
+        expect(result.failed).toBe(true);
+        expect(result.downscaled).toBe(false);
+        expect(result.reason).toBe('aspect-mismatch');
+        expect(result.originalWidth).toBe(4032);
+        expect(result.originalHeight).toBe(3024);
     });
 });
 

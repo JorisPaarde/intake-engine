@@ -145,3 +145,32 @@ test('PhotoCustomerStatus labels matchen UX-teksten', function () {
         ->and(PhotoCustomerStatus::SOFT_TIMEOUT)->toBe('Dit duurt langer dan normaal. Je kunt alvast verder.')
         ->and(PhotoCustomerStatus::UPLOADING)->toBe('Foto uploaden…');
 });
+
+test('nieuwe upload wist assessmentUiReleased zodat soft-timeout opnieuw loopt', function () {
+    Queue::fake([AssessUploadedPhotoJob::class, ProcessIntakePhotoVariantsJob::class]);
+
+    [$intake, $item] = softTimeoutFollowUpIntake();
+    $composite = (string) $item->id;
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('followUpPhotoFiles.'.$item->id, UploadedFile::fake()->image('eerste.jpg', 800, 600))
+        ->assertSet('uploadPhase', 'assessing');
+
+    $first = $item->fresh()->uploads()->firstOrFail();
+    $component->set('uploadPhaseStartedAt', now()->subSeconds(16)->getTimestamp());
+    $first->forceFill(['assessment_queued_at' => now()->subSeconds(16)])->save();
+
+    $component
+        ->call('pollPendingAssessments')
+        ->assertSet('uploadPhase', '');
+
+    expect($component->instance()->assessmentUiReleased)->toContain($composite);
+
+    // Vervang foto: soft-timeout clock must restart (not immediately "ontvangen").
+    $component
+        ->set('followUpPhotoFiles.'.$item->id, UploadedFile::fake()->image('tweede.jpg', 800, 600))
+        ->assertSet('uploadPhase', 'assessing');
+
+    expect($component->instance()->assessmentUiReleased)->not->toContain($composite)
+        ->and($component->instance()->uploadPhaseStartedAt)->not->toBeNull();
+});

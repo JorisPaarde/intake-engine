@@ -104,14 +104,18 @@ export function registerClientPhotoDownscale() {
         let originals = [];
         let prepFailed = false;
         let failMessage = limits.message;
+        /** @type {string[]} */
+        const skippedMessages = [];
         try {
             for (const file of files) {
                 const type = String(file.type || '').toLowerCase();
                 const name = String(file.name || 'bestand');
                 if (! type.startsWith('image/')) {
                     // Non-images are skipped with a clear notice (demotest 8 okt taak 4).
+                    const skipMessage = `${name} is geen foto en is niet meegenomen.`;
+                    skippedMessages.push(skipMessage);
                     document.dispatchEvent(new CustomEvent('intake:photo-prep-skipped', {
-                        detail: { composite, name, message: `${name} is geen foto en is niet meegenomen.` },
+                        detail: { composite, name, message: skipMessage },
                     }));
                     continue;
                 }
@@ -159,8 +163,17 @@ export function registerClientPhotoDownscale() {
             originals = [];
         }
 
-        if (prepFailed || prepared.length === 0) {
+        if (prepFailed) {
             rejectTooLarge(input, composite, failMessage);
+            return;
+        }
+
+        if (prepared.length === 0) {
+            // Only non-images were selected — never pretend they were "too large".
+            const skipOnlyMessage = skippedMessages.length > 0
+                ? skippedMessages.join(' ')
+                : failMessage;
+            rejectTooLarge(input, composite, skipOnlyMessage);
             return;
         }
 

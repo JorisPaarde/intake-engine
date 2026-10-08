@@ -250,17 +250,41 @@
                 data-upload-too-large="{{ $installerTooLarge }}"
                 x-data="{
                     names: [],
+                    prepError: '',
+                    prepBusy: false,
                     onPick(event) {
                         const files = Array.from(event.target.files || []);
                         this.names = files.map((file) => file.name);
-                    }
+                        this.prepError = '';
+                    },
+                    onPrepStart() {
+                        this.prepBusy = true;
+                        this.prepError = '';
+                    },
+                    onPrepDone() {
+                        this.prepBusy = false;
+                    },
+                    onPrepFailed(event) {
+                        this.prepBusy = false;
+                        this.prepError = event?.detail?.message
+                            || 'Deze foto is te groot. Probeer een andere foto of maak een nieuwe.';
+                        this.names = [];
+                    },
+                    onPrepSkipped(event) {
+                        this.prepError = event?.detail?.message || this.prepError;
+                    },
                 }"
+                x-on:intake:photo-prep-start.window="onPrepStart()"
+                x-on:intake:photo-prep-done.window="onPrepDone()"
+                x-on:intake:photo-prep-failed.window="onPrepFailed($event)"
+                x-on:intake:photo-prep-skipped.window="onPrepSkipped($event)"
             >
                 @csrf
                 <div>
                     <label
                         for="{{ $fieldPrefix }}-photo"
                         class="flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white px-3 text-center"
+                        :class="{ 'pointer-events-none opacity-60': prepBusy }"
                     >
                         <span class="text-sm font-semibold text-gray-900">Camera openen of foto's kiezen</span>
                         <span class="mt-1 text-xs text-gray-500">
@@ -276,6 +300,7 @@
                         class="sr-only"
                         multiple
                         required
+                        x-bind:disabled="prepBusy"
                         x-on:change="onPick($event)"
                     >
                     <ul
@@ -289,6 +314,13 @@
                         </template>
                     </ul>
                 </div>
+                <p
+                    x-show="prepError"
+                    x-cloak
+                    class="text-sm font-medium text-red-700"
+                    data-testid="installer-photo-prep-error"
+                    x-text="prepError"
+                ></p>
                 @error('photo')
                     <p class="text-sm font-medium text-red-700">{{ $message }}</p>
                 @enderror
@@ -305,7 +337,11 @@
                         >
                     </div>
                 @endif
-                <button class="inline-flex min-h-10 items-center rounded-lg bg-marketing-green-dark px-3 py-2 text-xs font-semibold text-white hover:bg-marketing-green">
+                <button
+                    type="submit"
+                    class="inline-flex min-h-10 items-center rounded-lg bg-marketing-green-dark px-3 py-2 text-xs font-semibold text-white hover:bg-marketing-green disabled:cursor-not-allowed disabled:opacity-60"
+                    x-bind:disabled="prepBusy"
+                >
                     Foto's opslaan
                 </button>
             </form>

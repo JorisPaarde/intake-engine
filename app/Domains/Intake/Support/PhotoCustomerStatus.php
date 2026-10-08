@@ -55,12 +55,9 @@ final class PhotoCustomerStatus
         }
 
         if (PhotoOverridePolicy::needsOverride($upload)) {
-            $assessment = $upload->contentAssessment();
-            $message = $assessment instanceof PhotoContentAssessment
-                ? trim((string) ($assessment->customerMessage() ?? ''))
-                : '';
-
-            return $message !== '' ? $message : self::RECEIVED;
+            // Detailed mismatch/quality copy lives in the override panels — keep
+            // the thumbnail status short so the same sentence is not shown twice.
+            return self::RECEIVED;
         }
 
         if ($status === PhotoAssessmentStatus::NotAssessed
