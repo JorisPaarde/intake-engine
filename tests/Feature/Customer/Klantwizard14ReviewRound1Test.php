@@ -294,7 +294,7 @@ test('R1-12: van klant alleen bij echte klantmaten; installer/prefill zonder bro
         'dimensions_source' => 'customer',
     ]);
     expect($customer)->toContain('van klant')
-        ->and($customer)->toContain('3,5 × 3,0 m');
+        ->and($customer)->toContain('3,5 × 3 m');
 
     $installer = CustomerAnswerBlocks::roomDimensionsCaption([
         'length_m' => 4.0,
@@ -303,7 +303,7 @@ test('R1-12: van klant alleen bij echte klantmaten; installer/prefill zonder bro
     ]);
     expect($installer)->not->toContain('van klant')
         ->and($installer)->not->toContain('van installateur')
-        ->and($installer)->toContain('4,0 × 3,0 m');
+        ->and($installer)->toContain('4 × 3 m');
 
     $legacyAreaInstaller = CustomerAnswerBlocks::roomDimensionsCaption([
         'area_m2' => 12.0,
@@ -311,7 +311,7 @@ test('R1-12: van klant alleen bij echte klantmaten; installer/prefill zonder bro
         'area_confidence' => 'high',
     ]);
     expect($legacyAreaInstaller)->not->toContain('van installateur')
-        ->and($legacyAreaInstaller)->toContain('12,0 m²');
+        ->and($legacyAreaInstaller)->toContain('12 m²');
 
     $prefill = CustomerAnswerBlocks::roomDimensionsCaption([
         'length_m' => 3.5,
@@ -320,5 +320,5 @@ test('R1-12: van klant alleen bij echte klantmaten; installer/prefill zonder bro
     ]);
     expect($prefill)->not->toContain('van klant')
         ->and($prefill)->not->toContain('van installateur')
-        ->and($prefill)->toContain('3,5 × 3,0 m');
+        ->and($prefill)->toContain('3,5 × 3 m');
 });

@@ -126,7 +126,7 @@ test('A5: werkplek en overzicht tonen klantmaten met van klant', function () {
     $this->actingAs($user)
         ->get(route('intakes.workspace', $intake))
         ->assertOk()
-        ->assertSee('3,5 × 3,0 m')
+        ->assertSee('3,5 × 3 m')
         ->assertSee('(10,5 m²)')
         ->assertSee('van klant')
         ->assertDontSee('Maten nog leeg')
@@ -135,7 +135,7 @@ test('A5: werkplek en overzicht tonen klantmaten met van klant', function () {
     $this->actingAs($user)
         ->get(route('intakes.show', $intake))
         ->assertOk()
-        ->assertSee('3,5 × 3,0 m')
+        ->assertSee('3,5 × 3 m')
         ->assertSee('(10,5 m²)')
         ->assertSee('van klant')
         ->assertSee('Antwoorden van de klant');

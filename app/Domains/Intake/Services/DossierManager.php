@@ -683,10 +683,8 @@ final class DossierManager
 
         $merged = array_merge($existing, $fromAnswers);
 
-        // Lege installer-shell zonder clear-marker: laat klantmaten toe.
-        if ($installerOwned && ! $this->dimensionsHavePositiveMeasures($existing)) {
-            unset($merged['dimensions_cleared_by_installer']);
-            // Behoud dimensions_source uit antwoorden (customer/prefill); valse shell-marker weg.
+        // Lege installer-shell (positieve maten returnen eerder): laat klantmaten toe.
+        if ($installerOwned) {
             if (array_key_exists('dimensions_source', $fromAnswers)) {
                 $merged['dimensions_source'] = $fromAnswers['dimensions_source'];
             } else {
@@ -903,12 +901,8 @@ final class DossierManager
      */
     private function dimensionsSourceFromAnswers(array $answers): string
     {
-        $sources = [];
         foreach ($answers as $answer) {
-            $sources[] = $answer->prefill_source;
-        }
-
-        foreach ($sources as $source) {
+            $source = $answer->prefill_source;
             if ($source !== null && $source !== '') {
                 return (string) $source;
             }

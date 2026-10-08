@@ -73,7 +73,7 @@ final class CustomerAnswerBlocks
             ->sortBy('sort_order')
             ->keyBy('key');
 
-        /** @var array<string, array{heading: string, sort: float, items: list<array{label: string, value: string}>}> $grouped */
+        /** @var array<string, array{heading: string, sort: float, items: list<array{label: string, value: string, sort: int}>}> $grouped */
         $grouped = [];
 
         foreach ($intake->answers as $answer) {
@@ -81,13 +81,17 @@ final class CustomerAnswerBlocks
                 continue;
             }
 
-            // Alleen echte klantantwoorden (geen prefill, ook niet stated-from-request).
             if ($answer->prefill_source !== null) {
                 continue;
             }
 
             $question = $questions->get($answer->question_key);
             if (! $question instanceof IntakeQuestion) {
+                continue;
+            }
+
+            $section = $sectionByQuestionKey->get($answer->question_key);
+            if (! $section instanceof IntakeSection) {
                 continue;
             }
 
@@ -100,26 +104,20 @@ final class CustomerAnswerBlocks
                 continue;
             }
 
-            $section = $sectionByQuestionKey->get($answer->question_key);
-            $sectionSort = $section instanceof IntakeSection ? (float) $section->sort_order : 9999.0;
-
+            $sectionSort = (float) $section->sort_order;
             $instanceKey = $answer->section_instance_key;
+
             if (is_string($instanceKey) && $instanceKey !== '') {
                 $room = $roomsByInstance->get($instanceKey);
-                $heading = $room instanceof AircoRoom
-                    ? $room->name
-                    : $instanceKey;
-                $roomSort = $room instanceof AircoRoom ? (float) $room->sort_order : 0.0;
-                $groupKey = 'room:'.$instanceKey;
-                $sort = $sectionSort + ($roomSort / 1000.0);
-            } else {
-                if ($section instanceof IntakeSection) {
-                    $heading = $section->title !== '' ? $section->title : $section->key;
-                    $groupKey = 'section:'.$section->key;
-                } else {
-                    $heading = $answer->question_key;
-                    $groupKey = 'section:'.$heading;
+                if (! $room instanceof AircoRoom) {
+                    continue;
                 }
+                $heading = $room->name;
+                $groupKey = 'room:'.$instanceKey;
+                $sort = $sectionSort + ((float) $room->sort_order / 1000.0);
+            } else {
+                $heading = $section->title !== '' ? $section->title : $section->key;
+                $groupKey = 'section:'.$section->key;
                 $sort = $sectionSort;
             }
 
@@ -134,6 +132,7 @@ final class CustomerAnswerBlocks
             $grouped[$groupKey]['items'][] = [
                 'label' => $question->label,
                 'value' => $display,
+                'sort' => (int) $question->sort_order,
             ];
         }
 
@@ -147,9 +146,22 @@ final class CustomerAnswerBlocks
             if ($group['items'] === []) {
                 continue;
             }
+
+            $items = $group['items'];
+            usort(
+                $items,
+                static fn (array $a, array $b): int => $a['sort'] <=> $b['sort'],
+            );
+
             $blocks[] = [
                 'heading' => $group['heading'],
-                'items' => $group['items'],
+                'items' => array_map(
+                    static fn (array $item): array => [
+                        'label' => $item['label'],
+                        'value' => $item['value'],
+                    ],
+                    $items,
+                ),
             ];
         }
 
@@ -157,12 +169,32 @@ final class CustomerAnswerBlocks
     }
 
     /**
-     * Ruimtekaart-/overzichtlabel — één bron voor werkplek en overzicht.
+     * Altijd een label voor werkplek én overzicht (één bron).
+     *
+     * @param  array<string, float|string|null>|null  $dimensions
+     */
+    public static function roomDimensionsLabel(?array $dimensions): string
+    {
+        $caption = self::roomDimensionsCaption($dimensions);
+        if ($caption !== null) {
+            return $caption;
+        }
+
+        $measures = RoomDimensions::from($dimensions);
+        if ($measures->hasAnyMeasure()) {
+            return 'Maten deels ingevuld';
+        }
+
+        return 'Maten nog leeg';
+    }
+
+    /**
+     * Ruimtekaart-/overzichtlabel — meetwaarden of null bij leeg/deels.
      *
      * - vloerconflict → "Controleer maten…"
-     * - L×B of trusted m² → "3,5 × 3,0 m (10,5 m²) · H 2,6 m" (+ " · van klant" bij customer)
-     * - untrusted m² → "14,0 m² — nog controleren"
-     * - leeg / alleen deels → null (views: "Maten nog leeg" / "Maten deels ingevuld")
+     * - L×B of trusted m² → "3,5 × 3 m (10,5 m²) · H 2,6 m" (+ " · van klant" bij customer)
+     * - untrusted m² → "14 m² — nog controleren" (trailing ,0 weg)
+     * - leeg / alleen deels → null (zie {@see roomDimensionsLabel()})
      *
      * @param  array<string, float|string|null>|null  $dimensions
      */
@@ -179,18 +211,18 @@ final class CustomerAnswerBlocks
 
         $parts = [];
         if ($measures->hasLengthAndWidth()) {
-            $parts[] = number_format((float) $measures->lengthM(), 1, ',', '.')
+            $parts[] = self::formatMeasure((float) $measures->lengthM())
                 .' × '
-                .number_format((float) $measures->widthM(), 1, ',', '.')
+                .self::formatMeasure((float) $measures->widthM())
                 .' m';
             $computed = $measures->areaFromLengthWidth();
             if ($computed !== null) {
-                $parts[] = '('.number_format($computed, 1, ',', '.').' m²)';
+                $parts[] = '('.self::formatMeasure($computed).' m²)';
             }
         } elseif ($measures->hasTrustedAreaM2()) {
-            $parts[] = number_format((float) $measures->declaredAreaM2(), 1, ',', '.').' m²';
+            $parts[] = self::formatMeasure((float) $measures->declaredAreaM2()).' m²';
         } elseif ($measures->hasUntrustedAreaM2()) {
-            return number_format((float) $measures->declaredAreaM2(), 1, ',', '.').' m² — nog controleren';
+            return self::formatMeasure((float) $measures->declaredAreaM2()).' m² — nog controleren';
         }
 
         if ($parts === []) {
@@ -198,7 +230,7 @@ final class CustomerAnswerBlocks
         }
 
         if ($measures->hasHeight()) {
-            $parts[] = '· H '.number_format((float) $measures->heightM(), 1, ',', '.').' m';
+            $parts[] = '· H '.self::formatMeasure((float) $measures->heightM()).' m';
         }
 
         $caption = implode(' ', $parts);
@@ -208,8 +240,17 @@ final class CustomerAnswerBlocks
             return $caption.' · van klant';
         }
 
-        // Installateur / AI / request-text: maten zonder bronlabel.
         return $caption;
+    }
+
+    /** "3,5" blijft; "3,0" wordt "3". */
+    private static function formatMeasure(float $value): string
+    {
+        $formatted = number_format($value, 1, ',', '.');
+
+        return str_ends_with($formatted, ',0')
+            ? substr($formatted, 0, -2)
+            : $formatted;
     }
 
     private static function displayValue(IntakeQuestion $question, IntakeAnswer $answer): ?string

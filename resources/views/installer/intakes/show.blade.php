@@ -217,44 +217,22 @@
                         <h4 class="text-sm font-semibold text-gray-900">Ruimtematen</h4>
                         <ul class="mt-2 space-y-1 text-sm text-gray-700">
                             @foreach ($intake->aircoRooms as $showRoom)
-                                @php
-                                    $showCaption = \App\Domains\Intake\Support\CustomerAnswerBlocks::roomDimensionsCaption(
-                                        is_array($showRoom->dimensions) ? $showRoom->dimensions : null,
-                                    );
-                                @endphp
                                 <li>
                                     <span class="font-medium text-gray-900">{{ $showRoom->name }}</span>
                                     —
-                                    {{ $showCaption ?? 'Maten nog leeg' }}
+                                    {{ \App\Domains\Intake\Support\CustomerAnswerBlocks::roomDimensionsLabel(
+                                        is_array($showRoom->dimensions) ? $showRoom->dimensions : null,
+                                    ) }}
                                 </li>
                             @endforeach
                         </ul>
                     </div>
                 @endif
 
-                @php
-                    $showCustomerAnswers = \App\Domains\Intake\Support\CustomerAnswerBlocks::forIntake($intake);
-                @endphp
-                @if ($showCustomerAnswers !== [])
-                    <div class="border-t border-indigo-100 pt-4" data-testid="customer-answers-block">
-                        <h4 class="text-sm font-semibold text-gray-900">Antwoorden van de klant</h4>
-                        <div class="mt-3 space-y-4">
-                            @foreach ($showCustomerAnswers as $block)
-                                <div>
-                                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ $block['heading'] }}</p>
-                                    <dl class="mt-2 space-y-2 text-sm">
-                                        @foreach ($block['items'] as $item)
-                                            <div>
-                                                <dt class="text-gray-500">{{ $item['label'] }}</dt>
-                                                <dd class="text-gray-900">{{ $item['value'] }}</dd>
-                                            </div>
-                                        @endforeach
-                                    </dl>
-                                </div>
-                            @endforeach
-                        </div>
-                    </div>
-                @endif
+                @include('installer.intakes.partials.customer-answers', [
+                    'intake' => $intake,
+                    'wrapperClass' => 'border-t border-indigo-100 pt-4',
+                ])
             </section>
 
             <details class="min-w-0 rounded-2xl border border-gray-200 bg-white shadow-sm">

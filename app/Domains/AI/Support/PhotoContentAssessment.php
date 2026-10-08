@@ -86,10 +86,10 @@ final class PhotoContentAssessment
      *
      * Derive/Fusebox (geen accepted-set): subject_match=no → altijd wrong_subject,
      * behalve route: een herkende `pipe_route` blokkeert nooit.
-     * Accepted-set (follow-up of route-derive): detected in de set geldt als match
-     * (ongeacht subject_match), behalve outdoor_location / around_house / drain
-     * (`expected === OutdoorLocation`): subject_match=no → wrong_subject.
-     * wall_outlet, indoor_unit_position en overige follow-up blijven accepted-set-wint.
+     * Accepted-set: detected in de set geldt als match (ongeacht subject_match),
+     * behalve op het derive-pad (`$questionKey !== null`) voor outdoor_location /
+     * around_house / drain (`expected === OutdoorLocation`): subject_match=no →
+     * wrong_subject. Follow-up (geen questionKey) blijft accepted-set-wint.
      * Bruikbare match + retake_instruction → needs_clearer
      * (behalve route-foto’s: die blijven ok / nooit blokkeren).
      *
@@ -130,9 +130,10 @@ final class PhotoContentAssessment
                 return self::wrongSubject($expected, $detected, $questionKey);
             }
 
-            // Alleen outdoor_location / around_house / drain (expected OutdoorLocation):
-            // subject_match=no → mismatch, ook als detected in de accepted set zit.
-            if ($expected === PhotoSubject::OutdoorLocation
+            // Derive-pad alleen: outdoor/around_house/drain + subject_match=no → mismatch.
+            // Follow-up (questionKey null) houdt accepted-set-wint.
+            if ($questionKey !== null
+                && $expected === PhotoSubject::OutdoorLocation
                 && ($output['subject_match'] ?? 'yes') !== 'yes') {
                 return self::wrongSubject(
                     $expected,

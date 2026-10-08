@@ -63,20 +63,20 @@ test('R2-1: onvertrouwde m² toont nog controleren in werkplek en overzicht', fu
 
     $caption = CustomerAnswerBlocks::roomDimensionsCaption($room->fresh()->dimensions);
     expect($caption)->toContain('nog controleren')
-        ->and($caption)->toContain('14,0 m²')
-        ->and($caption)->not->toMatch('/^14,0 m²$/');
+        ->and($caption)->toContain('14 m²')
+        ->and($caption)->not->toMatch('/^14 m²$/');
 
     $this->actingAs($user)
         ->get(route('intakes.workspace', $intake))
         ->assertOk()
-        ->assertSee('14,0 m² — nog controleren')
-        ->assertDontSee('14,0 m² · van klant', false);
+        ->assertSee('14 m² — nog controleren')
+        ->assertDontSee('14 m² · van klant', false);
 
     $this->actingAs($user)
         ->get(route('intakes.show', $intake))
         ->assertOk()
-        ->assertSee('14,0 m² — nog controleren')
-        ->assertDontSeeText('14,0 m² ·');
+        ->assertSee('14 m² — nog controleren')
+        ->assertDontSeeText('14 m² ·');
 });
 
 test('R2-1: vloerconflict in overzicht en werkplek via dezelfde helper', function () {
@@ -139,7 +139,7 @@ test('R2-2: alleen van klant; installer en AI zonder bronlabel', function () {
     ]);
     expect($installer)->not->toContain('van klant')
         ->and($installer)->not->toContain('van installateur')
-        ->and($installer)->toContain('4,0 × 3,0 m');
+        ->and($installer)->toContain('4 × 3 m');
 
     $legacyArea = CustomerAnswerBlocks::roomDimensionsCaption([
         'area_m2' => 12.0,
@@ -148,7 +148,7 @@ test('R2-2: alleen van klant; installer en AI zonder bronlabel', function () {
     ]);
     expect($legacyArea)->not->toContain('van installateur')
         ->and($legacyArea)->not->toContain('van klant')
-        ->and($legacyArea)->toContain('12,0 m²');
+        ->and($legacyArea)->toContain('12 m²');
 
     $ai = CustomerAnswerBlocks::roomDimensionsCaption([
         'length_m' => 3.5,

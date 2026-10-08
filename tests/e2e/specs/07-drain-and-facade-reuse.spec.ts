@@ -24,25 +24,22 @@ test.describe('Drain text and facade photo reuse', () => {
       await confirm.first().click();
     }
 
-    // drain_location — condensafvoer choice + help that matches optional drain_photo (v25).
-    await advanceUntil(page, /afvoer|condenswater|waar kan condens/i, 20);
-    let heading = (await headingText(page)).toLowerCase();
-    expect(heading).toMatch(/afvoer|condens/);
+    // v27: drain_location + drain_photo op één scherm (wizard_group drain_nearby).
+    await advanceUntil(page, /Afvoer in de buurt/i, 30);
+    const heading = await headingText(page);
+    expect(heading).toMatch(/Afvoer in de buurt/i);
+    await expect(page.getByTestId('drain-nearby-group')).toBeVisible();
+    await expect(page.getByRole('radio').first()).toBeVisible();
+    await expect(page.locator('input[type="file"]').first()).toBeVisible();
+    await expect(page.getByTestId('photo-skip')).toHaveCount(0);
     await expect(
-      page.getByText(/Weet je het niet|sla over|installateur bepaalt|Heb je een foto van de plek/i).first(),
+      page.getByText(/Een foto helpt de installateur\. Weet je het niet\? Ga gewoon verder\./i).first(),
     ).toBeVisible();
+
     await page.getByLabel(/Weet ik niet/i).check();
     await waitForSaved(page);
+    const beforeNext = await headingText(page);
     await clickNext(page);
-
-    // drain_photo — optional skip + consistent condens/afvoer copy.
-    await advanceUntil(page, /afvoerplek|condens|foto van de plek|weg kan/i, 10);
-    heading = (await headingText(page)).toLowerCase();
-    expect(heading).toMatch(/afvoer|condens|plek/);
-    await expect(page.getByTestId('photo-skip')).toBeVisible();
-    await expect(page.getByText(/condenswater|afvoer|optioneel/i).first()).toBeVisible();
-    const beforeSkip = await headingText(page);
-    await page.getByTestId('photo-skip').click({ timeout: 5_000 });
     await page.waitForFunction(
       (prev) => {
         const h1 = document.querySelector('h1');
@@ -50,9 +47,10 @@ test.describe('Drain text and facade photo reuse', () => {
 
         return text !== '' && text !== prev;
       },
-      beforeSkip,
+      beforeNext,
       { timeout: 15_000 },
-    ).catch(() => undefined);
+    );
+    expect(await headingText(page)).not.toBe(beforeNext);
   });
 
   test('finding: around-the-house photos reuse when a facade photo is already present', async ({

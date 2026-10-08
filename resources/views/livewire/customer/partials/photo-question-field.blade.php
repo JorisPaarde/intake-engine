@@ -16,7 +16,7 @@
     $remainingSlots = max(0, $maxFiles - $existingUploads->count());
 
     $assessmentPollPending = ! empty($pendingAssessUploadIds[$composite] ?? []);
-    $assessmentPollActive = in_array((string) ($uploadPhase ?? ''), ['assessing', 'failed'], true)
+    $assessmentPollActive = (string) ($uploadPhase ?? '') === 'assessing'
         && (string) ($uploadPhaseComposite ?? '') === $composite;
     $assessmentQuietPoll = in_array($composite, $assessmentUiReleased ?? [], true);
     $assessmentPollInterval = $assessmentQuietPoll ? '5s' : '2s';
@@ -30,11 +30,14 @@
         <p class="text-sm text-[#5e6862]">{{ $question->photo_instructions }}</p>
     @endif
 
+    {{-- Eén poll per fotovraag; blijft draaien bij max foto's (drain-groep) zolang assessing/pending. --}}
     @if ($assessmentPollPending || $assessmentPollActive)
         <div
-            wire:poll.{{ $assessmentPollInterval }}="pollPendingAssessments"
+            wire:key="assessment-poll-{{ $composite }}-{{ $assessmentPollInterval }}"
+            wire:poll.{{ $assessmentPollInterval }}='pollPendingAssessments(@json($composite))'
             class="hidden"
             data-testid="assessment-poll"
+            data-poll-composite="{{ $composite }}"
             aria-hidden="true"
         ></div>
     @endif

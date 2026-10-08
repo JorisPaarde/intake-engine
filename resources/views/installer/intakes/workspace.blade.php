@@ -412,11 +412,10 @@
                                     $height = $roomMeasures->heightM();
                                     $areaM2 = $roomMeasures->declaredAreaM2();
                                     $computedArea = $roomMeasures->areaFromLengthWidth();
-                                    $hasAnyDimension = $roomMeasures->hasAnyMeasure();
                                     $floorConflict = $roomMeasures->hasFloorAreaConflict();
                                     $heightNeeded = $room->use_type === 'attic';
                                     $roomCustomerAsk = $customerTaskBuilder->forRoomWithIntake($intake, $room);
-                                    $customerDimCaption = \App\Domains\Intake\Support\CustomerAnswerBlocks::roomDimensionsCaption(
+                                    $customerDimLabel = \App\Domains\Intake\Support\CustomerAnswerBlocks::roomDimensionsLabel(
                                         is_array($room->dimensions) ? $room->dimensions : null,
                                     );
                                 @endphp
@@ -425,13 +424,7 @@
                                         <div class="min-w-0">
                                         <p class="text-base font-bold text-gray-950">{{ $room->name }}</p>
                                         <p class="mt-0.5 text-sm text-gray-500">
-                                            @if ($customerDimCaption !== null)
-                                                {{ $customerDimCaption }}
-                                            @elseif ($hasAnyDimension)
-                                                Maten deels ingevuld
-                                            @else
-                                                Maten nog leeg
-                                            @endif
+                                            {{ $customerDimLabel }}
                                         </p>
                                         </div>
                                         <div class="flex flex-wrap items-center gap-2">
@@ -752,29 +745,10 @@
                             </form>
                         </details>
 
-                        @php
-                            $customerAnswerBlocks = \App\Domains\Intake\Support\CustomerAnswerBlocks::forIntake($intake);
-                        @endphp
-                        @if ($customerAnswerBlocks !== [])
-                            <div class="mt-6 border-t border-gray-100 pt-5" data-testid="customer-answers-block">
-                                <h4 class="text-sm font-semibold text-gray-900">Antwoorden van de klant</h4>
-                                <div class="mt-3 space-y-4">
-                                    @foreach ($customerAnswerBlocks as $block)
-                                        <div>
-                                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ $block['heading'] }}</p>
-                                            <dl class="mt-2 space-y-2 text-sm">
-                                                @foreach ($block['items'] as $item)
-                                                    <div>
-                                                        <dt class="text-gray-500">{{ $item['label'] }}</dt>
-                                                        <dd class="text-gray-900">{{ $item['value'] }}</dd>
-                                                    </div>
-                                                @endforeach
-                                            </dl>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            </div>
-                        @endif
+                        @include('installer.intakes.partials.customer-answers', [
+                            'intake' => $intake,
+                            'wrapperClass' => 'mt-6 border-t border-gray-100 pt-5',
+                        ])
                     </section>
 
                     <section id="demo-placements" class="scroll-mt-36 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
