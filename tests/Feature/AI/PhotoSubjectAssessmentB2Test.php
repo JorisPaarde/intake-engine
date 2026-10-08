@@ -192,7 +192,7 @@ test('P2: wall_outlet, indoor_position, around_house and drain photos get AI ass
     expect(PhotoDerivationProfile::find($profileName))->not->toBeNull();
 
     $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
-    expect($version->version)->toBe(26);
+    expect($version->version)->toBe(27);
 
     $question = $version->sections->flatMap->questions->firstWhere('key', $questionKey);
     expect($question)->not->toBeNull()

@@ -207,7 +207,7 @@ test('P3 preferred_indoor_location heeft expliciete optie laat installateur kiez
     app(SaveIntakeAnswer::class)->handle($intake, 'room_type', 'room-1', ['value' => 'bedroom'], PrefillSources::REQUEST_TEXT);
 
     $version = $intake->fresh()->templateVersion()->with(['sections.questions.options', 'sections.questions.rules'])->firstOrFail();
-    expect($version->version)->toBe(26);
+    expect($version->version)->toBeGreaterThanOrEqual(26);
 
     $preferred = null;
     foreach ($version->sections as $section) {
@@ -280,7 +280,7 @@ test('P3 genummerde verdieping wint van zolder in samenvatting', function () {
 
 test('P3 catalogus bevat unknown-opties en glazing_type', function () {
     $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
-    expect($version->version)->toBe(26);
+    expect($version->version)->toBeGreaterThanOrEqual(26);
     $version->load(['sections.questions.options']);
 
     $byKey = [];

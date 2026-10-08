@@ -367,6 +367,7 @@ class IntakeWizard extends Component
         $uploadsByQuestion = [];
         $displayPhotoHint = [];
         $photoMismatchAssessment = null;
+        $photoNeedsOverride = false;
         $photoNeedsQualityHint = false;
         $stepKind = is_array($step) ? ($step['kind'] ?? 'question') : 'question';
 
@@ -424,12 +425,25 @@ class IntakeWizard extends Component
                     $this->ensureAnswerShape($visibleQuestion, $step['section_instance_key']);
                 }
 
+                /** @var list<IntakeQuestion> $photoQuestionsForStep */
+                $photoQuestionsForStep = [];
                 if ($question instanceof IntakeQuestion && $question->type === QuestionType::Photo) {
+                    $photoQuestionsForStep[] = $question;
+                }
+                if ($stepKind === 'question_group') {
+                    foreach ($groupQuestions as $groupQuestion) {
+                        if ($groupQuestion->type === QuestionType::Photo) {
+                            $photoQuestionsForStep[] = $groupQuestion;
+                        }
+                    }
+                }
+
+                foreach ($photoQuestionsForStep as $photoQuestion) {
                     $composite = VisibilityResolver::compositeKey(
-                        $question->key,
+                        $photoQuestion->key,
                         $step['section_instance_key'],
                     );
-                    $stepUploads = $uploadsByQuestion[$question->key] ?? collect();
+                    $stepUploads = $uploadsByQuestion[$photoQuestion->key] ?? collect();
 
                     $scopedHint = $this->scopedPhotoHintMessage($composite, $stepUploads);
                     if ($scopedHint !== null) {
@@ -437,7 +451,7 @@ class IntakeWizard extends Component
                     } else {
                         $persistentHint = $this->persistentIntakePhotoHint(
                             $intake,
-                            $question,
+                            $photoQuestion,
                             $stepUploads,
                         );
 
@@ -445,9 +459,6 @@ class IntakeWizard extends Component
                             $displayPhotoHint[$composite] = $persistentHint;
                         }
                     }
-
-                    $photoMismatchAssessment = null;
-                    $photoNeedsOverride = false;
 
                     // Banner zolang de foto een expliciete override nodig heeft.
                     if (PhotoOverridePolicy::hasUnresolvedOverride($stepUploads)) {
@@ -487,7 +498,7 @@ class IntakeWizard extends Component
             'uploadsByQuestion' => $uploadsByQuestion,
             'displayPhotoHint' => $displayPhotoHint,
             'photoMismatchAssessment' => $photoMismatchAssessment,
-            'photoNeedsOverride' => $photoNeedsOverride ?? false,
+            'photoNeedsOverride' => $photoNeedsOverride,
             'photoNeedsQualityHint' => $photoNeedsQualityHint,
             // Prop name kept for BL-076 banner sibling; value means "primary customer path".
             'demoShortCustomer' => $demoCustomerPath,

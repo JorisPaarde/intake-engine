@@ -230,35 +230,32 @@ test('case 80 reproduction: Weet ik niet on drain_location does not force natura
         ->firstOrFail();
 
     expect($steps)->not->toContain('natural_fall_possible')
-        ->and($steps)->toContain('drain_photo')
         ->and($steps)->not->toContain('pipe_route_description')
         ->and($steps)->not->toContain('drillings_needed')
         ->and($steps)->not->toContain('free_group_known');
 
-    $drainStep = collect(app(IntakeStepBuilder::class)->build($intake->fresh(), $version))
-        ->firstWhere('question_key', 'drain_photo');
+    $built = collect(app(IntakeStepBuilder::class)->build($intake->fresh(), $version));
+    $drainStep = $built->firstWhere('group_key', 'drain_nearby')
+        ?? $built->firstWhere('question_key', 'drain_photo');
 
     expect($drainStep)->not->toBeNull()
-        ->and($drainStep['is_required'])->toBeFalse()
-        ->and($drainStep['title'])->toContain('optioneel');
+        ->and($drainStep['is_required'])->toBeFalse();
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
-    /** @var list<array{question_key: string, key: string, title: string}> $viewSteps */
+    /** @var list<array{question_key: string, key: string, title: string, group_key?: string}> $viewSteps */
     $viewSteps = $component->viewData('steps');
-    $viewKeys = collect($viewSteps)->pluck('question_key')->all();
 
-    expect($viewKeys)->not->toContain('natural_fall_possible')
-        ->and($viewKeys)->toContain('drain_photo');
+    expect(collect($viewSteps)->pluck('question_key')->all())->not->toContain('natural_fall_possible');
 
     $drainIndex = collect($viewSteps)->search(
-        static fn (array $step): bool => $step['question_key'] === 'drain_photo',
+        static fn (array $step): bool => ($step['group_key'] ?? null) === 'drain_nearby'
+            || ($step['question_key'] ?? null) === 'drain_photo',
     );
     expect($drainIndex)->not->toBeFalse();
 
     $component->set('stepIndex', (int) $drainIndex)
         ->set('activeStepKey', $viewSteps[(int) $drainIndex]['key'])
-        ->assertSee('Foto van de afvoerplek')
-        ->assertSee('Weet ik niet / sla over')
+        ->assertSee('Afvoer')
         ->assertDontSee('Kan het condenswater waarschijnlijk zonder pomp weglopen?')
         ->assertDontSee('Welke leidingroute lijkt het meest waarschijnlijk?')
         ->assertDontSee('Zijn er waarschijnlijk gaten door muren of vloeren nodig?');
@@ -274,8 +271,9 @@ test('drain_photo stays visible and optional after a concrete drain_location obs
     $version = $intake->templateVersion()
         ->with(['sections.questions.options', 'sections.questions.rules'])
         ->firstOrFail();
-    $drainStep = collect(app(IntakeStepBuilder::class)->build($intake->fresh(), $version))
-        ->firstWhere('question_key', 'drain_photo');
+    $built = collect(app(IntakeStepBuilder::class)->build($intake->fresh(), $version));
+    $drainStep = $built->firstWhere('group_key', 'drain_nearby')
+        ?? $built->firstWhere('question_key', 'drain_photo');
 
     expect($drainStep)->not->toBeNull()
         ->and($drainStep['is_required'])->toBeFalse();

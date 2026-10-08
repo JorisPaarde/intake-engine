@@ -122,6 +122,16 @@ final class PhotoContentAssessment
             if (! $accepted) {
                 return self::wrongSubject($expected, $detected);
             }
+
+            // Route houdt: accepted-set wint ongeacht subject_match.
+            // Overige (gevel/rondom/afvoer/…): subject_match=no → zelfde mismatch-advies.
+            if ($expected !== PhotoSubject::PipeRoute
+                && ($output['subject_match'] ?? 'yes') !== 'yes') {
+                return self::wrongSubject(
+                    $expected,
+                    $detected === $expected ? PhotoSubject::Other : $detected,
+                );
+            }
         } elseif (($output['subject_match'] ?? 'yes') !== 'yes') {
             return self::wrongSubject($expected, $detected);
         }

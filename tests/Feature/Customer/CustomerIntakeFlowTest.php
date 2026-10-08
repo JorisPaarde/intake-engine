@@ -189,8 +189,13 @@ test('hidden conditional questions are skipped in the question-per-step list', f
 
     $stepsEmpty = app(IntakeStepBuilder::class)->build($intake, $version);
     $emptyKeys = array_column($stepsEmpty, 'question_key');
+    $hasDrainGroup = collect($stepsEmpty)->contains(
+        static fn (array $step): bool => ($step['group_key'] ?? null) === 'drain_nearby',
+    );
 
-    expect($emptyKeys)->toContain('drain_photo')
+    // v27: drain_photo zit in wizard_group; primary key is drain_location.
+    expect($emptyKeys)->toContain('drain_location')
+        ->and($hasDrainGroup || in_array('drain_photo', $emptyKeys, true))->toBeTrue()
         ->and($emptyKeys)->not->toContain('natural_fall_possible');
 
     app(SaveIntakeAnswer::class)->handle($intake, 'drain_location', null, [
@@ -199,11 +204,11 @@ test('hidden conditional questions are skipped in the question-per-step list', f
     $intake->refresh();
 
     $stepsAfter = app(IntakeStepBuilder::class)->build($intake, $version);
-    $afterKeys = array_column($stepsAfter, 'question_key');
-    $drainStep = collect($stepsAfter)->firstWhere('question_key', 'drain_photo');
+    $drainStep = collect($stepsAfter)->firstWhere('group_key', 'drain_nearby')
+        ?? collect($stepsAfter)->firstWhere('question_key', 'drain_photo');
 
-    expect($afterKeys)->toContain('drain_photo')
-        ->and($afterKeys)->not->toContain('natural_fall_possible')
+    expect($drainStep)->not->toBeNull()
+        ->and(array_column($stepsAfter, 'question_key'))->not->toContain('natural_fall_possible')
         ->and($drainStep['is_required'])->toBeFalse();
 });
 

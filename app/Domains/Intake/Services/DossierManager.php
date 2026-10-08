@@ -651,6 +651,9 @@ final class DossierManager
      * gescheiden routes — geen area_* bij L×B, geen L/W bij area_m2).
      * Legacy: `area_source=installer` is tijdelijk voor rijen van vóór de backfill.
      *
+     * Lege werkplekmaten (null / 0 / lege string) blokkeren klantmaten niet — alleen een
+     * echte installateurscorrectie met meetwaarden wint.
+     *
      * @param  array<string, float|string>|null  $existing
      * @param  array<string, float|string>  $fromAnswers
      * @return array<string, float|string>
@@ -665,7 +668,7 @@ final class DossierManager
             // Tijdelijk: rijen van vóór dimensions_source-backfill.
             || ($existing['area_source'] ?? null) === 'installer';
 
-        if ($installerOwned) {
+        if ($installerOwned && $this->dimensionsHavePositiveMeasures($existing)) {
             return $existing;
         }
 
@@ -673,7 +676,42 @@ final class DossierManager
             return $existing;
         }
 
-        return array_merge($existing, $fromAnswers);
+        $merged = array_merge($existing, $fromAnswers);
+
+        // Lege installer-shell: laat klantmaten toe en laat valse eigendomsmarker vallen.
+        if ($installerOwned && ! $this->dimensionsHavePositiveMeasures($existing)) {
+            unset($merged['dimensions_source']);
+            if (($existing['area_source'] ?? null) === 'installer'
+                && ! $this->dimensionValueIsPositive($existing['area_m2'] ?? null)
+                && ! array_key_exists('area_source', $fromAnswers)) {
+                unset($merged['area_source'], $merged['area_confidence'], $merged['area_evidence']);
+            }
+        }
+
+        return $merged;
+    }
+
+    /**
+     * @param  array<string, float|string|null>  $dimensions
+     */
+    private function dimensionsHavePositiveMeasures(array $dimensions): bool
+    {
+        foreach (['length_m', 'width_m', 'height_m', 'area_m2'] as $key) {
+            if ($this->dimensionValueIsPositive($dimensions[$key] ?? null)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function dimensionValueIsPositive(mixed $value): bool
+    {
+        if ($value === null || $value === '') {
+            return false;
+        }
+
+        return is_numeric($value) && (float) $value > 0;
     }
 
     /**

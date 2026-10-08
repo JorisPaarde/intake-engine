@@ -255,7 +255,12 @@ enum PhotoSubject: string
         }
 
         if ($this === self::OutdoorLocation) {
-            return 'Dit is '.$detected->dutchNoun().'; we hebben '.$needed.' nodig.';
+            // Zelfde klanttaal voor outdoor / around_house / drain (onherkenbaar of verkeerd).
+            if ($detected === self::Other) {
+                return 'Dit lijkt geen foto van de gevel of tuin.';
+            }
+
+            return 'Dit lijkt geen foto van de gevel of tuin. Dit is '.$detected->dutchNoun().'.';
         }
 
         return 'Dit is '.$detected->dutchNoun().'; we hebben '.$needed.' nodig.';

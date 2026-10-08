@@ -416,6 +416,9 @@
                                     $floorConflict = $roomMeasures->hasFloorAreaConflict();
                                     $heightNeeded = $room->use_type === 'attic';
                                     $roomCustomerAsk = $customerTaskBuilder->forRoomWithIntake($intake, $room);
+                                    $customerDimCaption = \App\Domains\Intake\Support\CustomerAnswerBlocks::roomDimensionsCaption(
+                                        is_array($room->dimensions) ? $room->dimensions : null,
+                                    );
                                 @endphp
                                 <article id="room-{{ $room->id }}" class="scroll-mt-36 border border-gray-200 bg-white p-4 sm:p-5">
                                     <div class="flex flex-wrap items-start justify-between gap-3">
@@ -424,7 +427,7 @@
                                         <p class="mt-0.5 text-sm text-gray-500">
                                             @if ($floorConflict)
                                                 Controleer maten: L×B en m² komen niet overeen
-                                            @elseif ($roomMeasures->hasLengthAndWidth())
+                                            @elseif ($customerDimCaption !== null && $roomMeasures->hasLengthAndWidth())
                                                 {{ number_format((float) $length, 1, ',', '.').' × '.number_format((float) $width, 1, ',', '.') }} m
                                                 @if ($computedArea !== null)
                                                     <span class="text-gray-400">({{ number_format($computedArea, 1, ',', '.') }} m²)</span>
@@ -432,10 +435,18 @@
                                                 @if (is_numeric($height))
                                                     <span class="text-gray-400">· H {{ number_format((float) $height, 1, ',', '.') }} m</span>
                                                 @endif
+                                                @if (! str_contains($customerDimCaption, 'van installateur'))
+                                                    <span class="text-gray-400">· van klant</span>
+                                                @else
+                                                    <span class="text-gray-400">· van installateur</span>
+                                                @endif
                                             @elseif ($roomMeasures->hasTrustedAreaM2())
                                                 {{ number_format((float) $areaM2, 1, ',', '.') }} m²
                                                 @if (is_numeric($height))
                                                     <span class="text-gray-400">· H {{ number_format((float) $height, 1, ',', '.') }} m</span>
+                                                @endif
+                                                @if (($room->dimensions['dimensions_source'] ?? null) !== 'installer' && ($room->dimensions['area_source'] ?? null) !== 'installer')
+                                                    <span class="text-gray-400">· van klant</span>
                                                 @endif
                                             @elseif ($roomMeasures->hasUntrustedAreaM2())
                                                 {{ number_format((float) $areaM2, 1, ',', '.') }} m² — nog controleren
@@ -763,6 +774,30 @@
                                 </div>
                             </form>
                         </details>
+
+                        @php
+                            $customerAnswerBlocks = \App\Domains\Intake\Support\CustomerAnswerBlocks::forIntake($intake);
+                        @endphp
+                        @if ($customerAnswerBlocks !== [])
+                            <div class="mt-6 border-t border-gray-100 pt-5" data-testid="customer-answers-block">
+                                <h4 class="text-sm font-semibold text-gray-900">Antwoorden van de klant</h4>
+                                <div class="mt-3 space-y-4">
+                                    @foreach ($customerAnswerBlocks as $block)
+                                        <div>
+                                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">{{ $block['heading'] }}</p>
+                                            <dl class="mt-2 space-y-2 text-sm">
+                                                @foreach ($block['items'] as $item)
+                                                    <div>
+                                                        <dt class="text-gray-500">{{ $item['label'] }}</dt>
+                                                        <dd class="text-gray-900">{{ $item['value'] }}</dd>
+                                                    </div>
+                                                @endforeach
+                                            </dl>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
                     </section>
 
                     <section id="demo-placements" class="scroll-mt-36 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">

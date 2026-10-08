@@ -262,7 +262,7 @@ test('P3-1/2: follow-up feedback is uniek en verdwijnt direct na verwijderen', f
         ->assertDontSee((string) $mismatchMsg);
 });
 
-test('P3-3: drain_location tekst noemt geen altijd-verplichte foto (airco v25)', function () {
+test('P3-3: drain_location tekst noemt geen altijd-verplichte foto (airco v25+)', function () {
     $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
     expect($version->version)->toBeGreaterThanOrEqual(25);
 
@@ -271,10 +271,17 @@ test('P3-3: drain_location tekst noemt geen altijd-verplichte foto (airco v25)',
 
     expect($drainLocation)->not->toBeNull()
         ->and($drainLocation->help_text)->not->toContain('we vragen altijd een foto')
-        ->and($drainLocation->help_text)->toContain('sla dan over')
         ->and($drainPhoto->is_required)->toBeFalse()
-        ->and($drainPhoto->label)->toContain('optioneel')
-        ->and($drainPhoto->help_text)->toContain('sla dan over');
+        ->and($drainPhoto->label)->toContain('optioneel');
+
+    if ($version->version >= 27) {
+        expect($drainLocation->help_text)->toContain('Ga gewoon verder')
+            ->and($drainPhoto->meta['wizard_group'] ?? null)->toBe('drain_nearby')
+            ->and($drainPhoto->meta['allow_skip'] ?? null)->toBeNull();
+    } else {
+        expect($drainLocation->help_text)->toContain('sla dan over')
+            ->and($drainPhoto->help_text)->toContain('sla dan over');
+    }
 });
 
 test('P3-4: bruikbare outdoor-foto maakt around_house optioneel via OutdoorPhotoReuse', function () {
