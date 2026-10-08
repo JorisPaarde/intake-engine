@@ -897,24 +897,22 @@ final class DossierManager
     }
 
     /**
-     * Klantantwoord (geen prefill) wint van prefill-bronnen: één gecorrigeerde
-     * maat maakt de ruimte «van klant», ook als de andere maat nog prefill is.
+     * Prefill/AI wint: zodra één L×B-antwoord een prefill-bron heeft, is de
+     * bron niet «customer». Alleen puur klantantwoord (geen prefill) → customer
+     * (nodig voor het «· van klant»-label).
      *
      * @param  list<IntakeAnswer>  $answers
      */
     private function dimensionsSourceFromAnswers(array $answers): string
     {
-        $prefillSource = null;
-
         foreach ($answers as $answer) {
             $source = $answer->prefill_source;
-            if ($source === null || $source === '') {
-                return 'customer';
+            if ($source !== null && $source !== '') {
+                return (string) $source;
             }
-            $prefillSource ??= (string) $source;
         }
 
-        return $prefillSource ?? 'customer';
+        return 'customer';
     }
 
     private function roomNameFromAnswers(Intake $intake, string $instanceKey): ?string

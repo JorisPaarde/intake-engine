@@ -114,31 +114,50 @@ test('R3-4: caption drop trailing ,0', function () {
         ->and($caption)->not->toContain('3,0');
 });
 
-test('R3-7: onzichtbare vraag (free_group zonder meterkastfoto) ontbreekt in forIntake', function () {
+test('R3-7: outdoor_accessibility verdwijnt uit forIntake als mount_type=ground', function () {
     $intake = makeReview14R3Intake();
 
-    app(SaveIntakeAnswer::class)->handle($intake, 'ownership', null, ['value' => 'owned']);
-    // free_group_known heeft show-regel: fusebox_photo filled — zonder foto onzichtbaar.
-    app(SaveIntakeAnswer::class)->handle($intake, 'free_group_known', null, ['value' => 'yes']);
-
-    $version = $intake->fresh()->templateVersion()->with(['sections.questions'])->firstOrFail();
+    $version = $intake->fresh()->templateVersion()->with(['sections.questions.rules'])->firstOrFail();
     $questions = $version->sections->flatMap->questions->keyBy('key');
-    $freeGroupLabel = $questions->get('free_group_known')?->label;
-    $ownershipLabel = $questions->get('ownership')?->label;
+    $accessibility = $questions->get('outdoor_accessibility');
+    $mountType = $questions->get('outdoor_mount_type');
 
-    expect($freeGroupLabel)->not->toBeNull()
-        ->and($ownershipLabel)->not->toBeNull();
+    expect($accessibility)->not->toBeNull()
+        ->and($mountType)->not->toBeNull();
 
-    $blocks = CustomerAnswerBlocks::forIntake($intake->fresh());
-    $labels = [];
-    foreach ($blocks as $block) {
+    // Show-regel: outdoor_accessibility alleen zichtbaar als mount_type ≠ ground.
+    $showRule = $accessibility->rules->first(
+        static fn ($rule): bool => $rule->effect->value === 'show'
+            && $rule->source_question_key === 'outdoor_mount_type',
+    );
+    expect($showRule)->not->toBeNull()
+        ->and($showRule->operator->value)->toBe('not_equals');
+
+    app(SaveIntakeAnswer::class)->handle($intake, 'ownership', null, ['value' => 'owned']);
+    // Eerst bereikbaarheid beantwoorden terwijl die nog zichtbaar is (geen ground).
+    app(SaveIntakeAnswer::class)->handle($intake, 'outdoor_accessibility', null, ['value' => 'easy']);
+
+    $labelsVisible = [];
+    foreach (CustomerAnswerBlocks::forIntake($intake->fresh()) as $block) {
         foreach ($block['items'] as $item) {
-            $labels[] = $item['label'];
+            $labelsVisible[] = $item['label'];
+        }
+    }
+    expect($labelsVisible)->toContain($accessibility->label)
+        ->and($labelsVisible)->toContain($questions->get('ownership')->label);
+
+    // Daarna ground → VisibilityResolver verbergt outdoor_accessibility.
+    app(SaveIntakeAnswer::class)->handle($intake, 'outdoor_mount_type', null, ['value' => 'ground']);
+
+    $labelsHidden = [];
+    foreach (CustomerAnswerBlocks::forIntake($intake->fresh()) as $block) {
+        foreach ($block['items'] as $item) {
+            $labelsHidden[] = $item['label'];
         }
     }
 
-    expect($labels)->toContain($ownershipLabel)
-        ->and($labels)->not->toContain($freeGroupLabel);
+    expect($labelsHidden)->toContain($questions->get('ownership')->label)
+        ->and($labelsHidden)->not->toContain($accessibility->label);
 });
 
 test('R3-6: items binnen een groep volgen question sort_order', function () {
