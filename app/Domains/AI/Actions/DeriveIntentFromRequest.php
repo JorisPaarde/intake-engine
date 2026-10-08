@@ -50,6 +50,7 @@ final class DeriveIntentFromRequest
         private readonly RequestPrefillOutcomeClassifier $classifier,
         private readonly AiTraceRecorder $traceRecorder,
         private readonly AiTraceSnapshotService $traceSnapshots,
+        private readonly RecordExistingAircoFromRequest $recordExistingAirco,
     ) {}
 
     public function handle(Intake $intake, bool $allowExternal = true): ?AiRun
@@ -73,13 +74,18 @@ final class DeriveIntentFromRequest
             }
         }
 
+        $run = $localRun;
+
         if ($allowExternal && (bool) config('ai.text_inference.enabled', false)) {
             $aiRun = $this->prefillFromKnownContext->handle($intake);
-
-            return $aiRun ?? $localRun;
+            $run = $aiRun ?? $localRun;
         }
 
-        return $localRun;
+        if ($reason !== null) {
+            $this->recordExistingAirco->handle($intake->fresh() ?? $intake, $reason);
+        }
+
+        return $run;
     }
 
     /**

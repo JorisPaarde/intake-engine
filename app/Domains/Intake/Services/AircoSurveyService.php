@@ -101,6 +101,7 @@ final class AircoSurveyService
      * @param  array{
      *     name: string,
      *     use_type?: string|null,
+     *     floor_level?: string|null,
      *     length_m?: float|null,
      *     width_m?: float|null,
      *     height_m?: float|null,
@@ -128,6 +129,26 @@ final class AircoSurveyService
         if ($this->dimensionMeasuresDiffer($existingDimensions, $dimensions)) {
             $dimensions['dimensions_source'] = 'installer';
             $updates['dimensions'] = $dimensions;
+        }
+
+        if (array_key_exists('floor_level', $data)) {
+            $floorLevel = is_string($data['floor_level'] ?? null) && $data['floor_level'] !== ''
+                ? $data['floor_level']
+                : null;
+            $previousFloor = is_string($existingDimensions['floor_level'] ?? null)
+                ? $existingDimensions['floor_level']
+                : null;
+            if ($floorLevel !== $previousFloor) {
+                $merged = $updates['dimensions'] ?? $existingDimensions;
+                if ($floorLevel === null) {
+                    unset($merged['floor_level'], $merged['floor_level_source']);
+                } else {
+                    $merged['floor_level'] = $floorLevel;
+                    $merged['floor_level_source'] = 'installer';
+                }
+                $updates['dimensions'] = $merged;
+                $this->recordFloorLevelOverride($intake, $installer, $room, $floorLevel, $previousFloor);
+            }
         }
 
         if (array_key_exists('use_type', $data)) {
@@ -176,6 +197,113 @@ final class AircoSurveyService
         $this->decisionReadiness->recalculate($intake->fresh() ?? $intake);
 
         return $room->fresh() ?? $room;
+    }
+
+    private function recordFloorLevelOverride(
+        Intake $intake,
+        User $installer,
+        AircoRoom $room,
+        ?string $floorLevel,
+        ?string $previousFloor,
+    ): void {
+        $subject = $room->subject
+            ?? DossierSubject::query()
+                ->whereKey($room->dossier_subject_id)
+                ->where('intake_id', $intake->id)
+                ->first();
+
+        if (! $subject instanceof DossierSubject) {
+            return;
+        }
+
+        $labels = [
+            'basement' => 'Kelder / souterrain',
+            'ground' => 'Begane grond',
+            '1' => '1e verdieping',
+            '2' => '2e verdieping',
+            '3_plus' => '3e verdieping of hoger',
+            'attic' => 'Zolder',
+        ];
+
+        if ($previousFloor !== null && isset($labels[$previousFloor])) {
+            // Bewaar de oorspronkelijke waarde in de historie voordat we overschrijven.
+            $prior = DossierRecord::query()
+                ->where('intake_id', $intake->id)
+                ->where('dossier_subject_id', $subject->id)
+                ->where('key', 'floor_level')
+                ->whereNull('superseded_by_id')
+                ->whereIn('status', [
+                    DossierRecordStatus::Proposed,
+                    DossierRecordStatus::Established,
+                    DossierRecordStatus::Conflicted,
+                ])
+                ->latest('id')
+                ->first();
+
+            if ($prior === null) {
+                $this->dossierManager->record(
+                    intake: $intake,
+                    subject: $subject,
+                    kind: DossierRecordKind::Observation,
+                    key: 'floor_level',
+                    value: [
+                        'value' => $previousFloor,
+                        '_field_label' => 'Verdieping',
+                        '_display_value' => $labels[$previousFloor],
+                        '_source_label' => 'aanvraag (installateur)',
+                        '_provenance_label' => 'gezegd',
+                    ],
+                    actorType: 'system',
+                    actorId: null,
+                    sourceType: 'request_text',
+                    sourceId: null,
+                    method: 'prefill_baseline',
+                    confidence: 0.9,
+                    status: DossierRecordStatus::Established,
+                );
+            }
+        }
+
+        if ($floorLevel === null || ! isset($labels[$floorLevel])) {
+            return;
+        }
+
+        $this->dossierManager->record(
+            intake: $intake,
+            subject: $subject,
+            kind: DossierRecordKind::Observation,
+            key: 'floor_level',
+            value: [
+                'value' => $floorLevel,
+                '_field_label' => 'Verdieping',
+                '_display_value' => $labels[$floorLevel],
+                '_source_label' => 'installateur',
+                '_provenance_label' => 'gezegd',
+            ],
+            actorType: 'installer',
+            actorId: $installer->id,
+            sourceType: 'installer',
+            sourceId: $installer->id,
+            method: 'installer_corrected',
+            confidence: 1.0,
+            status: DossierRecordStatus::Established,
+        );
+
+        // Houd het intake-antwoord in sync zodat syncRooms/fotoanalyse de correctie niet terugzet.
+        if (preg_match('/^room-\d+$/', $room->key) === 1) {
+            $answer = $intake->answers()
+                ->where('question_key', 'floor_level')
+                ->where('section_instance_key', $room->key)
+                ->first();
+            if ($answer !== null) {
+                $answer->update([
+                    'value' => ['value' => $floorLevel],
+                    'prefill_source' => null,
+                    'fact_source' => null,
+                    'fact_provenance' => null,
+                ]);
+            }
+        }
     }
 
     /**

@@ -673,7 +673,15 @@ final class DossierManager
             return $existing;
         }
 
-        return array_merge($existing, $fromAnswers);
+        $merged = array_merge($existing, $fromAnswers);
+
+        // Verdiepingscorrectie door installateur blijft staan na sync/fotoanalyse.
+        if (($existing['floor_level_source'] ?? null) === 'installer') {
+            $merged['floor_level'] = $existing['floor_level'] ?? null;
+            $merged['floor_level_source'] = 'installer';
+        }
+
+        return $merged;
     }
 
     /**
@@ -858,6 +866,17 @@ final class DossierManager
 
     private function floorLabelFromAnswers(Intake $intake, string $instanceKey): ?string
     {
+        // Installateurscorrectie op de werkplek wint van prefill-antwoord.
+        $room = AircoRoom::query()
+            ->where('intake_id', $intake->id)
+            ->where('key', $instanceKey)
+            ->first();
+        $roomFloor = is_array($room?->dimensions) ? ($room->dimensions['floor_level'] ?? null) : null;
+        $roomFloorSource = is_array($room?->dimensions) ? ($room->dimensions['floor_level_source'] ?? null) : null;
+        if ($roomFloorSource === 'installer' && is_string($roomFloor) && $roomFloor !== '') {
+            return $this->floorLevelDisplayLabel($roomFloor);
+        }
+
         $answer = $intake->answers->first(
             static fn (IntakeAnswer $answer): bool => $answer->section_instance_key === $instanceKey
                 && $answer->question_key === 'floor_level',
@@ -872,7 +891,12 @@ final class DossierManager
             return null;
         }
 
-        return match (trim($raw)) {
+        return $this->floorLevelDisplayLabel(trim($raw));
+    }
+
+    private function floorLevelDisplayLabel(string $raw): ?string
+    {
+        return match ($raw) {
             'basement' => 'kelder / souterrain',
             'ground' => 'begane grond',
             '1' => '1e verdieping',

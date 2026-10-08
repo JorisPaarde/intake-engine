@@ -394,7 +394,7 @@ it('continues as installer and can load the sample dossier', function () {
         ->assertSee('Volgende stap')
         ->assertSee('Woninggegevens')
         ->assertSee('Controleren en klantweergave activeren')
-        ->assertSee('AI-voorstel vernieuwen');
+        ->assertDontSee('AI-voorstel vernieuwen');
 });
 
 it('hides the sample dossier CTA once the installer starts real workspace work', function () {

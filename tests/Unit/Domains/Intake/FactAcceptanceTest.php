@@ -54,8 +54,9 @@ test('derived or below-threshold values never count as known facts', function ()
         ))->toBeTrue();
 });
 
-test('maps prefill sources to klantantwoord foto or afgeleid', function () {
-    expect(FactAcceptance::sourceFrom(PrefillSources::AI_TEXT, FactProvenance::Stated)->value)->toBe('klantantwoord')
+test('maps prefill sources to aanvraag foto or afgeleid', function () {
+    expect(FactAcceptance::sourceFrom(PrefillSources::AI_TEXT, FactProvenance::Stated)->value)->toBe('aanvraag (installateur)')
+        ->and(FactAcceptance::sourceFrom(PrefillSources::REQUEST_TEXT, FactProvenance::Stated)->value)->toBe('aanvraag (installateur)')
         ->and(FactAcceptance::sourceFrom(PrefillSources::AI_PHOTO, FactProvenance::Stated)->value)->toBe('foto')
         ->and(FactAcceptance::sourceFrom(PrefillSources::AI_TEXT_SUGGESTION, FactProvenance::Inferred)->value)->toBe('afgeleid')
         ->and(FactAcceptance::sourceFrom(PrefillSources::AI_TEXT, FactProvenance::Inferred)->value)->toBe('afgeleid')

@@ -346,9 +346,30 @@ final class RequestPrefillOutcomeClassifier
                 }
             }
 
+            // Aanvraagtekst van de installateur ≠ klantantwoord.
             $factSource = $provenance === FactProvenance::Stated
-                ? FactSource::CustomerAnswer
+                ? FactSource::InstallerRequest
                 : FactSource::Derived;
+
+            // Floor stated-evidence moet bij díé ruimte horen, niet alleen letterlijk in de tekst.
+            if (
+                $key === 'floor_level'
+                && $provenance === FactProvenance::Stated
+                && is_string($requestReason)
+                && $instanceKey !== null
+                && ! $this->floorEvidenceScopedToRoom($fillEvidence, $requestReason, $instanceKey, $rawFills)
+            ) {
+                $normalizations[] = [
+                    'field' => $key.'|'.$instanceKey.'.provenance',
+                    'from' => FactProvenance::Stated->value,
+                    'to' => FactProvenance::Inferred->value,
+                    'rule' => 'floor_level_evidence_not_scoped_to_room',
+                ];
+                $provenance = FactProvenance::Inferred;
+                $factSource = FactSource::Derived;
+                $confidencePercent = FactAcceptance::belowThresholdConfidence($key);
+                $confidence = FactAcceptance::levelFromPercent($confidencePercent);
+            }
 
             $normalized = $this->normalizeValue($question, $rawValue);
 
@@ -400,9 +421,15 @@ final class RequestPrefillOutcomeClassifier
                         'rule' => 'floor_level_per_room_link',
                     ];
                     $normalized = ['value' => $linkedFloor];
-                    $fillEvidence = $this->floorEvidenceQuote($requestReason) ?? $fillEvidence;
+                    $fillEvidence = $this->floorEvidenceQuote($requestReason, $linkedFloor) ?? $fillEvidence;
                     $provenance = FactProvenance::Stated;
-                    $factSource = FactSource::CustomerAnswer;
+                    $factSource = FactSource::InstallerRequest;
+                    $confidence = 'high';
+                    $confidencePercent = FactAcceptance::LEVEL_HIGH;
+                } elseif ($linkedFloor !== null && ($normalized['value'] ?? null) === $linkedFloor) {
+                    $fillEvidence = $this->floorEvidenceQuote($requestReason, $linkedFloor) ?? $fillEvidence;
+                    $provenance = FactProvenance::Stated;
+                    $factSource = FactSource::InstallerRequest;
                     $confidence = 'high';
                     $confidencePercent = FactAcceptance::LEVEL_HIGH;
                 } elseif (
@@ -419,9 +446,9 @@ final class RequestPrefillOutcomeClassifier
                             'rule' => 'floor_level_prefer_numbered',
                         ];
                         $normalized = ['value' => $numberedValue];
-                        $fillEvidence = $this->floorEvidenceQuote($requestReason) ?? $fillEvidence;
+                        $fillEvidence = $this->floorEvidenceQuote($requestReason, $numberedValue) ?? $fillEvidence;
                         $provenance = FactProvenance::Stated;
-                        $factSource = FactSource::CustomerAnswer;
+                        $factSource = FactSource::InstallerRequest;
                         $confidence = 'high';
                         $confidencePercent = FactAcceptance::LEVEL_HIGH;
                     }
@@ -464,7 +491,7 @@ final class RequestPrefillOutcomeClassifier
                     $normalized = ['value' => $ownershipUpgrade['value']];
                     $fillEvidence = $ownershipUpgrade['evidence'];
                     $provenance = FactProvenance::Stated;
-                    $factSource = FactSource::CustomerAnswer;
+                    $factSource = FactSource::InstallerRequest;
                     $confidence = 'high';
                     $confidencePercent = FactAcceptance::LEVEL_HIGH;
                 }
@@ -983,7 +1010,7 @@ final class RequestPrefillOutcomeClassifier
             reason: null,
             provenance: FactProvenance::Stated,
             confidencePercent: FactAcceptance::LEVEL_HIGH,
-            factSource: FactSource::CustomerAnswer,
+            factSource: FactSource::InstallerRequest,
         );
 
         $fills[] = [
@@ -992,7 +1019,7 @@ final class RequestPrefillOutcomeClassifier
             'confidence' => 'high',
             'confidence_percent' => FactAcceptance::LEVEL_HIGH,
             'provenance' => FactProvenance::Stated->value,
-            'fact_source' => FactSource::CustomerAnswer->value,
+            'fact_source' => FactSource::InstallerRequest->value,
             'value' => ['value' => $stated['value']],
             'evidence' => $stated['evidence'],
         ];
@@ -1076,18 +1103,109 @@ final class RequestPrefillOutcomeClassifier
         $normalized = str_replace(['’', '‘', '´'], "'", $normalized);
 
         return preg_match(
-            '/\b(?:kelder|souterrain|begane\s+grond|(?:1(?:e|ste)?|eerste|2(?:e|de)?|tweede|3(?:e|de)?|derde|[4-9](?:e|de)?)\s+verdieping|op\s+(?:de\s+)?zolder)\b/u',
+            '/\b(?:kelder|souterrain|begane\s+grond|(?:1(?:e|ste)?|eerste|2(?:e|de)?|tweede|3(?:e|de)?|derde|[4-9](?:e|de)?)\s+verdieping|op\s+(?:de\s+)?zolder|beneden|boven)\b/u',
             $normalized,
         ) === 1;
     }
 
-    private function floorEvidenceQuote(string $requestReason): ?string
+    private function floorEvidenceQuote(string $requestReason, ?string $preferredFloor = null): ?string
     {
-        if (preg_match('/\b(?:begane\s+grond|(?:1(?:e|ste)?|eerste|2(?:e|de)?|tweede|3(?:e|de)?|derde|[4-9](?:e|de)?)\s+verdieping|op\s+(?:de\s+)?zolder)\b/iu', $requestReason, $matches) === 1) {
+        $patterns = [
+            'ground' => '/\b(?:begane\s+grond|beneden)\b/iu',
+            '1' => '/\b(?:1(?:e|ste)?|eerste)\s+verdieping\b|\bboven\b/iu',
+            '2' => '/\b(?:2(?:e|de)?|tweede)\s+verdieping\b/iu',
+            '3_plus' => '/\b(?:3(?:e|de)?|derde|[4-9](?:e|de)?)\s+verdieping\b/iu',
+            'attic' => '/\bop\s+(?:de\s+)?zolder\b/iu',
+            'basement' => '/\b(?:kelder|souterrain)\b/iu',
+        ];
+
+        if (is_string($preferredFloor) && isset($patterns[$preferredFloor])) {
+            if (preg_match($patterns[$preferredFloor], $requestReason, $matches) === 1) {
+                return $matches[0];
+            }
+        }
+
+        if (preg_match('/\b(?:begane\s+grond|(?:1(?:e|ste)?|eerste|2(?:e|de)?|tweede|3(?:e|de)?|derde|[4-9](?:e|de)?)\s+verdieping|op\s+(?:de\s+)?zolder|beneden|boven)\b/iu', $requestReason, $matches) === 1) {
             return $matches[0];
         }
 
         return null;
+    }
+
+    /**
+     * Stated floor-evidence mag alleen tellen als de quote in het zinsdeel van díé ruimte valt.
+     *
+     * @param  list<mixed>  $rawFills
+     */
+    private function floorEvidenceScopedToRoom(
+        ?string $evidence,
+        string $requestReason,
+        string $instanceKey,
+        array $rawFills,
+    ): bool {
+        if (! is_string($evidence) || trim($evidence) === '') {
+            return false;
+        }
+
+        if (! FactAcceptance::evidenceAppearsInSource($evidence, $requestReason)) {
+            return false;
+        }
+
+        $roomsByInstance = $this->roomTypesFromFills($rawFills);
+        $roomType = $roomsByInstance[$instanceKey] ?? null;
+        if (! is_string($roomType) || $roomType === '') {
+            return false;
+        }
+
+        $clause = $this->roomClauseFromRequest($requestReason, $roomType, $roomsByInstance, $instanceKey);
+
+        return $clause !== null && FactAcceptance::evidenceAppearsInSource($evidence, $clause);
+    }
+
+    /**
+     * @param  array<string, string>  $roomsByInstance
+     */
+    private function roomClauseFromRequest(
+        string $requestReason,
+        string $roomType,
+        array $roomsByInstance,
+        string $instanceKey,
+    ): ?string {
+        $orderedKeys = array_keys($roomsByInstance);
+        if (! in_array($instanceKey, $orderedKeys, true)) {
+            return null;
+        }
+
+        $roomWords = match ($roomType) {
+            'living_room' => 'woonkamer|huiskamer',
+            'bedroom' => 'slaapkamer|kinderkamer|kinderslaapkamer',
+            'office' => 'werkkamer|kantoor|kantoren',
+            'attic' => 'zolder',
+            default => 'kamer',
+        };
+
+        if (preg_match_all('/\b(?:'.$roomWords.')\w*\b/iu', $requestReason, $matches, PREG_OFFSET_CAPTURE) === false
+            || $matches[0] === []) {
+            return null;
+        }
+
+        $occurrence = 0;
+        foreach ($orderedKeys as $key) {
+            if (($roomsByInstance[$key] ?? null) !== $roomType) {
+                continue;
+            }
+            if ($key === $instanceKey) {
+                break;
+            }
+            $occurrence++;
+        }
+
+        $match = $matches[0][$occurrence] ?? $matches[0][0];
+        $byteStart = (int) $match[1];
+        $start = max(0, $byteStart - 20);
+        $end = min(strlen($requestReason), $byteStart + strlen($match[0]) + 80);
+
+        return substr($requestReason, $start, $end - $start);
     }
 
     /**

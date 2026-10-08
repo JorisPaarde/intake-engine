@@ -17,7 +17,7 @@ use App\Domains\AI\Support\RoomFloorLevelExtractor;
  */
 final class LocalRequestIntentParser
 {
-    public const VERSION = 'request-intent-local-v6';
+    public const VERSION = 'request-intent-local-v7';
 
     private const MAX_ROOMS = 8;
 

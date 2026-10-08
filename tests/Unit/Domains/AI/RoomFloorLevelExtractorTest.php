@@ -39,6 +39,21 @@ test('RoomFloorLevelExtractor koppelt verdieping alleen aan de genoemde ruimte',
         ['bedroom'],
         ['2'],
     ],
+    'werkkamer eerste verdieping, woonkamer beneden' => [
+        'Werkkamer op de eerste verdieping van 3 bij 3 meter en de woonkamer beneden van 6 bij 4 meter.',
+        ['office', 'living_room'],
+        ['1', 'ground'],
+    ],
+    'slaapkamers op zolder lekken niet naar woonkamer' => [
+        'Ik wil twee slaapkamers op zolder koelen en de woonkamer ook verwarmen.',
+        ['bedroom', 'bedroom', 'living_room'],
+        ['attic', 'attic', null],
+    ],
+    'omgekeerde volgorde woonkamer beneden dan werkkamer' => [
+        'De woonkamer beneden van 6 bij 4 meter en de werkkamer op de eerste verdieping.',
+        ['living_room', 'office'],
+        ['ground', '1'],
+    ],
 ]);
 
 test('lokale parser vult room_floors per ruimte en deelt floor_level niet globaal', function () {

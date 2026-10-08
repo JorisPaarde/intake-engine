@@ -128,9 +128,19 @@ final class FactAcceptance
             return FactSource::Photo;
         }
 
+        if ($prefillSource === PrefillSources::REQUEST_TEXT) {
+            return FactSource::InstallerRequest;
+        }
+
         if (PrefillSources::isTextDerived($prefillSource)
             || $prefillSource === 'installer'
             || in_array($prefillSource, ['pdok', 'epo', 'bag'], true)) {
+            // AI_TEXT / legacy sterke tekstfills: behandel als installateursaanvraag
+            // wanneer provenance stated is (openingszin), anders klantantwoord-pad voor BAG e.d.
+            if (in_array($prefillSource, [PrefillSources::AI_TEXT, PrefillSources::AI_LEGACY], true)) {
+                return FactSource::InstallerRequest;
+            }
+
             return FactSource::CustomerAnswer;
         }
 

@@ -59,6 +59,17 @@
             ? $aiSynthesis->value['exceptions']
             : [];
         $aiSectionOpen = $aiExceptions !== [];
+        $aiSynthesisPending = \App\Domains\AI\Models\AiRun::query()
+            ->where('intake_id', $intake->id)
+            ->where('type', \App\Enums\AiRunType::DossierSynthesis)
+            ->where('status', \App\Enums\AiRunStatus::Pending)
+            ->exists();
+        $aiIntentPending = \App\Domains\AI\Models\AiRun::query()
+            ->where('intake_id', $intake->id)
+            ->where('type', \App\Enums\AiRunType::RequestIntent)
+            ->where('status', \App\Enums\AiRunStatus::Pending)
+            ->exists();
+        $aiProcessing = $aiSynthesisPending || $aiIntentPending;
         $photoCount = collect($photoGroups ?? [])->sum(
             static fn (array $group): int => count($group['uploads'] ?? []),
         );
@@ -162,14 +173,6 @@
             @if (session('error'))
                 <div class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-900" role="alert" data-testid="ai-synthesis-error">
                     <p>{{ session('error') }}</p>
-                    @if (session('ai_synthesis_retry'))
-                        <form method="POST" action="{{ route('intakes.workspace.synthesis', $intake) }}" class="mt-3">
-                            @csrf
-                            <button type="submit" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-900 hover:bg-red-100" data-testid="ai-synthesis-retry">
-                                AI-voorstel opnieuw proberen
-                            </button>
-                        </form>
-                    @endif
                 </div>
             @endif
 
@@ -517,6 +520,30 @@
                                                 <option value="office" @selected($room->use_type === 'office')>Werkkamer</option>
                                                 <option value="attic" @selected($room->use_type === 'attic')>Zolder</option>
                                                 <option value="other" @selected($room->use_type === 'other')>Anders</option>
+                                            </select>
+                                        </div>
+                                        @php
+                                            $roomFloorLevel = is_array($room->dimensions) ? ($room->dimensions['floor_level'] ?? null) : null;
+                                            if (! is_string($roomFloorLevel) || $roomFloorLevel === '') {
+                                                $floorAnswer = $intake->answers->first(
+                                                    static fn ($answer): bool => $answer->section_instance_key === $room->key
+                                                        && $answer->question_key === 'floor_level',
+                                                );
+                                                $roomFloorLevel = is_array($floorAnswer?->value)
+                                                    ? ($floorAnswer->value['value'] ?? null)
+                                                    : null;
+                                            }
+                                        @endphp
+                                        <div>
+                                            <x-input-label for="room-{{ $room->id }}-floor" value="Verdieping" />
+                                            <select id="room-{{ $room->id }}-floor" name="floor_level" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300" data-testid="room-floor-level">
+                                                <option value="" @selected($roomFloorLevel === null || $roomFloorLevel === '')>Nog niet vastgesteld</option>
+                                                <option value="basement" @selected($roomFloorLevel === 'basement')>Kelder / souterrain</option>
+                                                <option value="ground" @selected($roomFloorLevel === 'ground')>Begane grond</option>
+                                                <option value="1" @selected($roomFloorLevel === '1')>1e verdieping</option>
+                                                <option value="2" @selected($roomFloorLevel === '2')>2e verdieping</option>
+                                                <option value="3_plus" @selected($roomFloorLevel === '3_plus')>3e verdieping of hoger</option>
+                                                <option value="attic" @selected($roomFloorLevel === 'attic')>Zolder</option>
                                             </select>
                                         </div>
                                         <div class="sm:col-span-2">
@@ -1457,17 +1484,14 @@
                                 </div>
                             </summary>
                             <div class="space-y-4 border-t border-indigo-100 px-5 py-4 sm:px-6">
-                                <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                    <p class="text-sm leading-relaxed text-gray-600">
-                                        Het voorstel gebruikt alleen gegevens uit deze opname.
+                                <p class="text-sm leading-relaxed text-gray-600">
+                                    Het voorstel gebruikt alleen gegevens uit deze opname en wordt automatisch bijgewerkt wanneer je units, notities of klantaanvullingen vastlegt.
+                                </p>
+                                @if ($aiProcessing)
+                                    <p class="rounded-xl bg-indigo-100/70 px-3 py-2 text-sm text-indigo-950" data-testid="ai-processing-status">
+                                        AI is bezig met bijwerken. Het laatste geldige voorstel blijft zichtbaar tot er een nieuw resultaat is.
                                     </p>
-                                    <form method="POST" action="{{ route('intakes.workspace.synthesis', $intake) }}">
-                                        @csrf
-                                        <button class="inline-flex min-h-11 shrink-0 items-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500">
-                                            AI-voorstel vernieuwen
-                                        </button>
-                                    </form>
-                                </div>
+                                @endif
                                 @if ($aiSynthesis)
                                     <div class="rounded-2xl border border-indigo-100 bg-white p-4">
                                         <p class="text-sm font-medium leading-relaxed text-gray-900">{{ $aiSynthesis->value['summary'] ?? 'Synthese beschikbaar.' }}</p>
@@ -1530,8 +1554,10 @@
                                     <p class="text-sm text-indigo-900">
                                         Nog geen keuze. Eerst binnen- en buitenunit.
                                     </p>
+                                @elseif ($aiProcessing)
+                                    <p class="text-sm text-indigo-900">Het AI-voorstel wordt nog opgesteld.</p>
                                 @else
-                                    <p class="text-sm text-indigo-900">Er is nog geen AI-voorstel opgeslagen. Tik op vernieuwen om er een te maken.</p>
+                                    <p class="text-sm text-indigo-900">Nog geen AI-voorstel. Dat komt automatisch na units of een notitie.</p>
                                 @endif
                             </div>
                         </details>

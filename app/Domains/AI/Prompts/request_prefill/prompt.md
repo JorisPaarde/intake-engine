@@ -25,12 +25,15 @@ Regels:
   - “Woonkamer voor” → die naam letterlijk.
   Nooit twee kamers dezelfde generieke naam geven als de tekst ze onderscheidt. Zonder rolnaam mag je `room_name` weglaten.
 - Gewenste binnenunitplek letterlijk overnemen in `preferred_indoor_location` per ruimte wanneer die key bestaat: “boven de bank aan de buitenmuur”, “op de lange wand naast het raam”. Alleen bij expliciet bewijs; verzin geen plek. Geen voorkeur → weglaten of cataloguswaarde voor “laat installateur kiezen”.
-- Verdieping per kamer: koppel `floor_level` **alleen** aan de ruimte waar de tekst die verdieping noemt.
+- Verdieping per kamer: koppel `floor_level` **alleen** aan de ruimte waar de tekst die verdieping noemt. Evidence-quote mag niet van een andere ruimte komen.
   - “woonkamer op de begane grond en de slaapkamer op de eerste verdieping” → woonkamer `ground`, slaapkamer `1` — nooit dezelfde verdieping op beide.
+  - “werkkamer op de eerste verdieping … woonkamer beneden” → werkkamer `1`, woonkamer `ground` — **niet** `1` op de woonkamer lekken.
+  - “twee slaapkamers op zolder … de woonkamer ook verwarmen” → slaapkamers `attic`, woonkamer **zonder** `floor_level`.
   - “slaapkamer boven, woonkamer beneden” → slaapkamer `1`, woonkamer `ground`.
-  - “op de 1e verdieping” → `1`; “begane grond” → `ground`.
+  - “op de 1e verdieping” → `1`; “begane grond” / “beneden” → `ground`.
   - **Genummerde verdieping wint van zolder:** “2e verdieping” én “zolder”/zolderslaapkamer → genummerde optie (`2` / `1` / `3_plus`), niet `attic`. Alleen `attic` wanneer zolder de verdieping is zonder conflicterend nummer (“op de zolder”).
   - Onduidelijk of geen verdieping in de tekst → **laat `floor_level` weg** (klant bevestigt). Vul **nooit** stilzwijgend `ground` / begane grond in als default of gok.
+- Bestaande airco: “oude airco”, “er hangt al een airco”, “vervangen moet worden” → noem dit in `additional_comments` (of vergelijkbare vrije-tekstkey) met ruimte + vervanging/demontage wanneer letterlijk in de tekst. Verzin geen merk of vermogen.
 - “5 bij 7 meter” / “6x4m” / “4 bij 3 meter” → `room_length_m` en `room_width_m` van díe ruimtes.
 - Exact oppervlak zoals “20 m²” / “20m2” → `room_area_m2` van díe ruimtes wanneer die key in de catalogus staat. Leid daaruit nooit lengte of breedte af.
 - Plafondhoogte (“plafond 2,5 meter”, “hoogte 2,6”) → `ceiling_height_m` van díe ruimte.

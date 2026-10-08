@@ -41,32 +41,51 @@ final class RoomFloorLevelExtractor
 
         /** @var array<int, 'basement'|'ground'|'1'|'2'|'3_plus'|'attic'|null> $mentionFloors */
         $mentionFloors = [];
+        /** @var array<int, true> $claimedCueStarts */
+        $claimedCueStarts = [];
 
+        // 1) Alleen trailing cues (ná deze kamer, vóór de volgende) — voorkomt lek van
+        //    "werkkamer op de 1e … woonkamer beneden" naar de woonkamer via before-cues.
         foreach ($roomMentions as $index => $mention) {
-            $prevEnd = $index === 0 ? -1 : $roomMentions[$index - 1]['end'];
             $nextStart = $roomMentions[$index + 1]['start'] ?? mb_strlen($normalized);
-
             $candidates = [];
-            foreach ($floorCues as $cue) {
-                // Cue direct na deze kamer, vóór de volgende kamer.
+
+            foreach ($floorCues as $cueIndex => $cue) {
                 if ($cue['start'] >= $mention['end'] && $cue['start'] < $nextStart) {
                     $candidates[] = $cue['value'];
-                }
-            }
-
-            // Cue vlak vóór de kamer: "op de begane grond de woonkamer".
-            if ($candidates === []) {
-                foreach ($floorCues as $cue) {
-                    if ($cue['end'] <= $mention['start'] && $cue['start'] > $prevEnd) {
-                        $candidates[] = $cue['value'];
-                    }
+                    $claimedCueStarts[$cueIndex] = true;
                 }
             }
 
             $mentionFloors[$index] = $this->pickBestFloor($candidates);
         }
 
+        // 2) Relatief ("beneden"/"boven") vóór before-cues, zodat die niet door een
+        //    gelekte absolute cue van de vorige kamer worden geblokkeerd.
         $this->applyRelativeFloors($normalized, $roomMentions, $mentionFloors);
+
+        // 3) Before-cues alleen voor nog lege kamers én ongeclaimde cues
+        //    ("op de begane grond de woonkamer").
+        foreach ($roomMentions as $index => $mention) {
+            if (($mentionFloors[$index] ?? null) !== null) {
+                continue;
+            }
+
+            $prevEnd = $index === 0 ? -1 : $roomMentions[$index - 1]['end'];
+            $candidates = [];
+
+            foreach ($floorCues as $cueIndex => $cue) {
+                if (isset($claimedCueStarts[$cueIndex])) {
+                    continue;
+                }
+                if ($cue['end'] <= $mention['start'] && $cue['start'] > $prevEnd) {
+                    $candidates[] = $cue['value'];
+                    $claimedCueStarts[$cueIndex] = true;
+                }
+            }
+
+            $mentionFloors[$index] = $this->pickBestFloor($candidates);
+        }
 
         // "woonkamer en slaapkamer op de 1e verdieping" → gedeelde trailing floor terugvullen.
         $this->propagateTrailingFloors($mentionFloors);
