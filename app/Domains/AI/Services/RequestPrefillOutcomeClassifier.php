@@ -10,6 +10,7 @@ use App\Domains\AI\Support\RoomFloorLevelExtractor;
 use App\Domains\Intake\Support\FactAcceptance;
 use App\Domains\Intake\Support\FactProvenance;
 use App\Domains\Intake\Support\FactSource;
+use App\Domains\Intake\Support\PrefillSources;
 use App\Domains\Intake\Support\RiskRelevantPrefillKeys;
 use App\Enums\QuestionType;
 use Illuminate\Validation\ValidationException;
@@ -45,8 +46,13 @@ final class RequestPrefillOutcomeClassifier
      *     validation_errors: array<string, list<string>>
      * }
      */
-    public function classifyCatalogOutput(array $output, array $catalog, array $photoKeys = [], ?string $requestReason = null): array
-    {
+    public function classifyCatalogOutput(
+        array $output,
+        array $catalog,
+        array $photoKeys = [],
+        ?string $requestReason = null,
+        ?string $requestReasonPrefillSource = 'installer',
+    ): array {
         $index = $this->catalogIndex($catalog);
         $labels = $this->catalogLabels($catalog);
         $fills = [];
@@ -54,6 +60,11 @@ final class RequestPrefillOutcomeClassifier
         $normalizations = [];
         /** @var array<string, list<string>> $validationErrors */
         $validationErrors = [];
+        $requestTextFactSource = FactAcceptance::sourceFrom(
+            PrefillSources::AI_TEXT,
+            FactProvenance::Stated,
+            $requestReasonPrefillSource,
+        );
 
         if (! array_key_exists('fills', $output) || ! is_array($output['fills'])) {
             throw ValidationException::withMessages([
@@ -346,8 +357,9 @@ final class RequestPrefillOutcomeClassifier
                 }
             }
 
+            // Bron volgt request_reason.prefill_source (installateur vs klant-first).
             $factSource = $provenance === FactProvenance::Stated
-                ? FactSource::CustomerAnswer
+                ? $requestTextFactSource
                 : FactSource::Derived;
 
             $normalized = $this->normalizeValue($question, $rawValue);
@@ -402,7 +414,7 @@ final class RequestPrefillOutcomeClassifier
                     $normalized = ['value' => $linkedFloor];
                     $fillEvidence = $this->floorEvidenceQuote($requestReason) ?? $fillEvidence;
                     $provenance = FactProvenance::Stated;
-                    $factSource = FactSource::CustomerAnswer;
+                    $factSource = $requestTextFactSource;
                     $confidence = 'high';
                     $confidencePercent = FactAcceptance::LEVEL_HIGH;
                 } elseif (
@@ -421,7 +433,7 @@ final class RequestPrefillOutcomeClassifier
                         $normalized = ['value' => $numberedValue];
                         $fillEvidence = $this->floorEvidenceQuote($requestReason) ?? $fillEvidence;
                         $provenance = FactProvenance::Stated;
-                        $factSource = FactSource::CustomerAnswer;
+                        $factSource = $requestTextFactSource;
                         $confidence = 'high';
                         $confidencePercent = FactAcceptance::LEVEL_HIGH;
                     }
@@ -464,7 +476,7 @@ final class RequestPrefillOutcomeClassifier
                     $normalized = ['value' => $ownershipUpgrade['value']];
                     $fillEvidence = $ownershipUpgrade['evidence'];
                     $provenance = FactProvenance::Stated;
-                    $factSource = FactSource::CustomerAnswer;
+                    $factSource = $requestTextFactSource;
                     $confidence = 'high';
                     $confidencePercent = FactAcceptance::LEVEL_HIGH;
                 }
@@ -551,6 +563,7 @@ final class RequestPrefillOutcomeClassifier
             $labels,
             $requestReason,
             $normalizations,
+            $requestTextFactSource,
         );
 
         return [
@@ -932,6 +945,7 @@ final class RequestPrefillOutcomeClassifier
         array $labels,
         ?string $requestReason,
         array &$normalizations,
+        FactSource $requestTextFactSource = FactSource::InstallerRequest,
     ): void {
         if (! is_string($requestReason) || trim($requestReason) === '') {
             return;
@@ -983,7 +997,7 @@ final class RequestPrefillOutcomeClassifier
             reason: null,
             provenance: FactProvenance::Stated,
             confidencePercent: FactAcceptance::LEVEL_HIGH,
-            factSource: FactSource::CustomerAnswer,
+            factSource: $requestTextFactSource,
         );
 
         $fills[] = [
@@ -992,7 +1006,7 @@ final class RequestPrefillOutcomeClassifier
             'confidence' => 'high',
             'confidence_percent' => FactAcceptance::LEVEL_HIGH,
             'provenance' => FactProvenance::Stated->value,
-            'fact_source' => FactSource::CustomerAnswer->value,
+            'fact_source' => $requestTextFactSource->value,
             'value' => ['value' => $stated['value']],
             'evidence' => $stated['evidence'],
         ];

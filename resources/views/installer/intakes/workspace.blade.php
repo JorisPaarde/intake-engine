@@ -59,6 +59,16 @@
             ? $aiSynthesis->value['exceptions']
             : [];
         $aiSectionOpen = $aiExceptions !== [];
+        $aiSynthesisPending = \App\Domains\AI\Support\AiRunPendingQuery::hasRecent(
+            $intake->id,
+            \App\Enums\AiRunType::DossierSynthesis,
+        );
+        $aiIntentPending = \App\Domains\AI\Support\AiRunPendingQuery::hasRecent(
+            $intake->id,
+            \App\Enums\AiRunType::RequestIntent,
+        );
+        $aiProcessing = $aiSynthesisPending || $aiIntentPending;
+        $promisesAutoUpdate = \App\Domains\AI\Support\DossierSynthesisEligibility::promisesAutoUpdate($intake->status);
         $photoCount = collect($photoGroups ?? [])->sum(
             static fn (array $group): int => count($group['uploads'] ?? []),
         );
@@ -97,12 +107,6 @@
             @if (session('status'))
                 <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-900" role="status" data-testid="workspace-status">
                     <p>{{ session('status') }}</p>
-                    @if (session('ai_synthesis_partial_detail'))
-                        <details class="mt-2 text-xs font-normal text-emerald-900/80" data-testid="ai-synthesis-partial-detail">
-                            <summary class="cursor-pointer font-semibold">Technisch detail (beheer)</summary>
-                            <p class="mt-1 break-words font-mono leading-relaxed">{{ session('ai_synthesis_partial_detail') }}</p>
-                        </details>
-                    @endif
                 </div>
             @endif
 
@@ -162,14 +166,6 @@
             @if (session('error'))
                 <div class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-900" role="alert" data-testid="ai-synthesis-error">
                     <p>{{ session('error') }}</p>
-                    @if (session('ai_synthesis_retry'))
-                        <form method="POST" action="{{ route('intakes.workspace.synthesis', $intake) }}" class="mt-3">
-                            @csrf
-                            <button type="submit" class="inline-flex min-h-11 items-center justify-center rounded-xl border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-900 hover:bg-red-100" data-testid="ai-synthesis-retry">
-                                AI-voorstel opnieuw proberen
-                            </button>
-                        </form>
-                    @endif
                 </div>
             @endif
 
@@ -1440,17 +1436,23 @@
                                 </div>
                             </summary>
                             <div class="space-y-4 border-t border-indigo-100 px-5 py-4 sm:px-6">
-                                <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                    <p class="text-sm leading-relaxed text-gray-600">
+                                @php
+                                    $autoAfterNotes = (bool) config('ai.dossier_synthesis.auto_after_notes', false);
+                                @endphp
+                                <p class="text-sm leading-relaxed text-gray-600">
+                                    @if ($promisesAutoUpdate && $autoAfterNotes)
+                                        Het voorstel gebruikt alleen gegevens uit deze opname en wordt automatisch bijgewerkt na een installatiekeuze en wanneer je notities of klantaanvullingen vastlegt.
+                                    @elseif ($promisesAutoUpdate)
+                                        Het voorstel gebruikt alleen gegevens uit deze opname en wordt automatisch bijgewerkt na een installatiekeuze.
+                                    @else
                                         Het voorstel gebruikt alleen gegevens uit deze opname.
+                                    @endif
+                                </p>
+                                @if ($aiProcessing)
+                                    <p class="rounded-xl bg-indigo-100/70 px-3 py-2 text-sm text-indigo-950" data-testid="ai-processing-status">
+                                        AI is bezig met bijwerken. Het laatste geldige voorstel blijft zichtbaar tot er een nieuw resultaat is.
                                     </p>
-                                    <form method="POST" action="{{ route('intakes.workspace.synthesis', $intake) }}">
-                                        @csrf
-                                        <button class="inline-flex min-h-11 shrink-0 items-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500">
-                                            AI-voorstel vernieuwen
-                                        </button>
-                                    </form>
-                                </div>
+                                @endif
                                 @if ($aiSynthesis)
                                     <div class="rounded-2xl border border-indigo-100 bg-white p-4">
                                         <p class="text-sm font-medium leading-relaxed text-gray-900">{{ $aiSynthesis->value['summary'] ?? 'Synthese beschikbaar.' }}</p>
@@ -1513,8 +1515,10 @@
                                     <p class="text-sm text-indigo-900">
                                         Nog geen keuze. Eerst binnen- en buitenunit.
                                     </p>
+                                @elseif ($aiSynthesisPending)
+                                    <p class="text-sm text-indigo-900">Het AI-voorstel wordt zo opgesteld.</p>
                                 @else
-                                    <p class="text-sm text-indigo-900">Er is nog geen AI-voorstel opgeslagen. Tik op vernieuwen om er een te maken.</p>
+                                    <p class="text-sm text-indigo-900">Er is nog geen AI-voorstel.</p>
                                 @endif
                             </div>
                         </details>

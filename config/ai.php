@@ -163,12 +163,43 @@ return [
 
     'request_prefill_prompt' => 'request_prefill',
 
+    /*
+    |--------------------------------------------------------------------------
+    | Request-prefill (openingszin → antwoorden)
+    |--------------------------------------------------------------------------
+    |
+    | sync_on_create=true: create draait DeriveIntent synchroon (oude gedrag);
+    | wizard-wacht triggert dan nooit. Default false = async + wizard wacht ≤
+    | wizard_wait_seconds op een recente Pending RequestIntent AiRun.
+    |
+    */
+
+    'request_prefill' => [
+        'sync_on_create' => filter_var(env('AI_PREFILL_SYNC_ON_CREATE', false), FILTER_VALIDATE_BOOLEAN),
+        'wizard_wait_seconds' => (int) env('AI_PREFILL_WIZARD_WAIT_SECONDS', 20),
+    ],
+
     'dossier' => [
         'enabled' => (bool) env('AI_DOSSIER_SYNTHESIS_ENABLED', false),
         'model' => env('AI_DOSSIER_MODEL', 'gpt-5.6-terra'),
         'max_images' => (int) env('AI_DOSSIER_MAX_IMAGES', 12),
         'timeout_seconds' => (int) env('AI_DOSSIER_TIMEOUT_SECONDS', 45),
         'prompt' => 'dossier_synthesis',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Automatische dossiersynthese (keuze 1A)
+    |--------------------------------------------------------------------------
+    |
+    | Na installatiekeuze: SynthesizeSurveyDossierJob::dispatchDebounced (preserve,
+    | delay 20s, unique until processing). auto_after_notes=true laat notities
+    | dezelfde path starten (alternatief B). CompleteIntake-keten blijft replace.
+    |
+    */
+
+    'dossier_synthesis' => [
+        'auto_after_notes' => filter_var(env('AI_SYNTHESIS_AUTO_AFTER_NOTES', false), FILTER_VALIDATE_BOOLEAN),
     ],
 
     /*

@@ -15,11 +15,14 @@ use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeAnswer;
+use App\Domains\Intake\Support\FactAcceptance;
+use App\Domains\Intake\Support\FactProvenance;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
 use App\Enums\AiTraceCallType;
 use App\Enums\IntakeStatus;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -52,8 +55,11 @@ final class DeriveIntentFromRequest
         private readonly AiTraceSnapshotService $traceSnapshots,
     ) {}
 
-    public function handle(Intake $intake, bool $allowExternal = true): ?AiRun
-    {
+    public function handle(
+        Intake $intake,
+        bool $allowExternal = true,
+        bool $skipIfCustomerStarted = false,
+    ): ?AiRun {
         if (! in_array($intake->status, [
             IntakeStatus::Draft,
             IntakeStatus::Sent,
@@ -63,6 +69,18 @@ final class DeriveIntentFromRequest
         }
 
         $reason = $this->requestReason($intake);
+
+        // Alleen late/async pad (job + wizard mount): geen fills/prune na klantstart.
+        // Wizard persistComposite (request_reason Wijzigen) zet deze vlag niet.
+        if ($skipIfCustomerStarted && $this->customerHasStarted($intake)) {
+            Log::info('request_prefill.skipped', [
+                'intake_id' => $intake->id,
+                'reason' => 'customer_started',
+            ]);
+
+            return null;
+        }
+
         $localRun = null;
 
         if ($reason !== null) {
@@ -73,13 +91,33 @@ final class DeriveIntentFromRequest
             }
         }
 
-        if ($allowExternal && (bool) config('ai.text_inference.enabled', false)) {
-            $aiRun = $this->prefillFromKnownContext->handle($intake);
+        $run = $localRun;
 
-            return $aiRun ?? $localRun;
+        if ($allowExternal && (bool) config('ai.text_inference.enabled', false)) {
+            $aiRun = $this->prefillFromKnownContext->handle(
+                $intake,
+                skipIfCustomerStarted: $skipIfCustomerStarted,
+            );
+            $run = $aiRun ?? $localRun;
         }
 
-        return $localRun;
+        return $run;
+    }
+
+    /**
+     * Klant is begonnen: cursor gezet of een eigen antwoord (prefill_source null).
+     * request_reason telt niet mee — dat is installateursaanvraag (ook zonder bron-label).
+     */
+    public function customerHasStarted(Intake $intake): bool
+    {
+        if (is_string($intake->current_question_key) && $intake->current_question_key !== '') {
+            return true;
+        }
+
+        return $intake->answers()
+            ->whereNull('prefill_source')
+            ->where('question_key', '!=', self::SOURCE_QUESTION)
+            ->exists();
     }
 
     /**
@@ -249,6 +287,16 @@ final class DeriveIntentFromRequest
         $candidates = $this->classifier->classifyLocalOutput($output, $catalog);
         $applied = [];
 
+        $reasonPrefillSource = $intake->answers()
+            ->where('question_key', self::SOURCE_QUESTION)
+            ->whereNull('section_instance_key')
+            ->value('prefill_source');
+        $factSource = FactAcceptance::sourceFrom(
+            $source,
+            FactProvenance::Stated,
+            is_string($reasonPrefillSource) ? $reasonPrefillSource : null,
+        );
+
         foreach ($candidates as $candidate) {
             if ($candidate->disposition !== RequestPrefillCandidate::DISPOSITION_FILL) {
                 continue;
@@ -268,6 +316,10 @@ final class DeriveIntentFromRequest
                 $candidate->sectionInstanceKey,
                 $candidate->value,
                 $source,
+                FactProvenance::Stated,
+                null,
+                null,
+                $factSource,
             );
 
             $applied[] = $candidate->compositeKey();

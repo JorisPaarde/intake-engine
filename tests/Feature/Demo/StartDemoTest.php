@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Domains\AI\Actions\SynthesizeSurveyDossier;
 use App\Domains\AI\Jobs\SummarizeIntakeJob;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\Intake\Actions\CompleteIntake;
@@ -394,7 +395,7 @@ it('continues as installer and can load the sample dossier', function () {
         ->assertSee('Volgende stap')
         ->assertSee('Woninggegevens')
         ->assertSee('Controleren en klantweergave activeren')
-        ->assertSee('AI-voorstel vernieuwen');
+        ->assertDontSee('AI-voorstel vernieuwen');
 });
 
 it('hides the sample dossier CTA once the installer starts real workspace work', function () {
@@ -816,12 +817,10 @@ it('allows live AI synthesis from the interactive demo when AI is enabled', func
 
     $exampleId = (int) session('public_demo_intake_id');
     $example = Intake::query()->findOrFail($exampleId);
-    $demoSession = demoSessionFor($user, $example);
 
-    $this->actingAs($user)
-        ->withSession($demoSession)
-        ->post(route('intakes.workspace.synthesis', $example))
-        ->assertRedirect(route('intakes.workspace', $example));
+    // Geen handmatige synthesis-route meer (T1); demo triggert synthese via de actie.
+    $this->actingAs($user)->withSession(demoSessionFor($user, $example));
+    app(SynthesizeSurveyDossier::class)->handle($example->fresh() ?? $example);
 
     // Demo synthesis is no longer short-circuited; the gateway may be called.
     expect(Http::recorded()->isNotEmpty() || AiRun::query()->where('intake_id', $example->id)->exists())->toBeTrue();

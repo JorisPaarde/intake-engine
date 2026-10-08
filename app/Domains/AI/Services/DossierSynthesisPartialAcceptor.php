@@ -36,6 +36,7 @@ final class DossierSynthesisPartialAcceptor
      *     validation_errors: array<string, list<string>>,
      *     has_accepted_proposals: bool,
      *     had_rejections: bool,
+     *     customer_tasks_had_rejections: bool,
      *     summary_message: string|null
      * }
      */
@@ -59,6 +60,7 @@ final class DossierSynthesisPartialAcceptor
                 'validation_errors' => $validationErrors,
                 'has_accepted_proposals' => false,
                 'had_rejections' => true,
+                'customer_tasks_had_rejections' => count($this->arrayRows($output['customer_tasks'] ?? null)) > 0,
                 'summary_message' => $this->summarizeErrors($validationErrors),
             ];
         }
@@ -232,6 +234,7 @@ final class DossierSynthesisPartialAcceptor
             'validation_errors' => $validationErrors,
             'has_accepted_proposals' => $hasAccepted,
             'had_rejections' => $hadRejections,
+            'customer_tasks_had_rejections' => count($acceptedTasks) < $rawTaskCount,
             'summary_message' => $hasAccepted
                 ? ($hadRejections ? $this->summarizeErrors($validationErrors) : null)
                 : ($this->summarizeErrors($validationErrors) ?? 'Geen geldige AI-voorstellen overgebleven.'),

@@ -329,43 +329,6 @@ test('P1 intake-101: rejected photos are excluded from synthesis budget and inve
         ->and(strtolower((string) data_get($run->output, 'summary', '')))->not->toContain('3-fase');
 });
 
-test('P1: failed synthesis shows concrete error and retry CTA to the installer', function () {
-    config([
-        'ai.provider' => 'fake',
-        'ai.dossier.enabled' => true,
-    ]);
-
-    $user = User::factory()->create();
-    $intake = bundleDCreateRichIntake($user, 'fail-ux@example.com');
-
-    FakeAiClient::alwaysFail('Provider timeout na 45s (rich 4-room context).');
-
-    $this->actingAs($user)
-        ->from(route('intakes.workspace', $intake))
-        ->post(route('intakes.workspace.synthesis', $intake))
-        ->assertRedirect(route('intakes.workspace', $intake))
-        ->assertSessionHas('error')
-        ->assertSessionHas('ai_synthesis_retry', true);
-
-    $error = session('error');
-    expect($error)->toContain('Provider timeout na 45s')
-        ->and($error)->toContain('AI-synthese kon niet worden afgerond');
-
-    $html = $this->actingAs($user)
-        ->withSession([
-            'error' => 'AI-synthese kon niet worden afgerond: Provider timeout na 45s (rich 4-room context). Het bestaande dossier is ongewijzigd gebleven.',
-            'ai_synthesis_retry' => true,
-        ])
-        ->get(route('intakes.workspace', $intake))
-        ->assertOk()
-        ->assertSee('data-testid="ai-synthesis-error"', false)
-        ->assertSee('Provider timeout na 45s')
-        ->assertSee('AI-voorstel opnieuw proberen')
-        ->getContent();
-
-    expect($html)->toContain('data-testid="ai-synthesis-retry"');
-});
-
 test('P2: bulk approval blocks unresolved uncertainty and uncovered rooms with one shared rule set', function () {
     $user = User::factory()->create();
     $intake = bundleDCreateRichIntake($user, 'approve-101@example.com');

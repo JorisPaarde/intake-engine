@@ -58,7 +58,23 @@
         @endif
     </header>
 
-    @if ($completed)
+    @if ($waitingForPrefill ?? false)
+        <div
+            class="flex flex-1 flex-col justify-center rounded-xl border border-[#dde2da] bg-white p-6 shadow-sm"
+            data-testid="prefill-wait"
+            wire:poll.2s="pollPrefillWait"
+        >
+            <h1 class="text-2xl font-extrabold tracking-tight text-[#18201d]">
+                Even geduld, we zetten je vragen klaar
+            </h1>
+            <p class="mt-3 text-sm leading-relaxed text-[#5e6862]">
+                We nemen even de aanvraaggegevens door. Dit duurt meestal maar een paar seconden.
+            </p>
+            <div class="mt-6 h-1.5 w-full overflow-hidden rounded-full bg-[#dde2da]" aria-hidden="true">
+                <div class="h-full w-1/3 animate-pulse rounded-full bg-[var(--tenant-primary)]"></div>
+            </div>
+        </div>
+    @elseif ($completed)
         <div class="flex flex-1 flex-col justify-center rounded-xl border border-[#dde2da] bg-white p-6 shadow-sm" data-testid="customer-thank-you">
             <h1 class="text-2xl font-extrabold tracking-tight text-[#18201d]">Bedankt</h1>
             <p class="mt-3 text-sm leading-relaxed text-[#5e6862]">
@@ -466,7 +482,7 @@
         </div>
     @endif
 
-    @unless ($completed)
+    @unless ($completed || ($waitingForPrefill ?? false))
         <footer class="sticky bottom-0 -mx-4 mt-8 border-t border-[#dde2da] bg-[#eef1ec] px-4 py-4 sm:-mx-6 sm:px-6">
             <div class="flex gap-3">
                 <button

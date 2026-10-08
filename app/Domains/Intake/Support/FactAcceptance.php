@@ -110,8 +110,16 @@ final class FactAcceptance
         return ! self::countsAsKnown($confidencePercent, $source, $provenance, $questionKey);
     }
 
-    public static function sourceFrom(?string $prefillSource, ?FactProvenance $provenance = null): FactSource
-    {
+    /**
+     * @param  string|null  $requestReasonPrefillSource  prefill_source van request_reason
+     *                                                   ('installer' → aanvraag; null → klantantwoord).
+     *                                                   Default 'installer' voor callers zonder context.
+     */
+    public static function sourceFrom(
+        ?string $prefillSource,
+        ?FactProvenance $provenance = null,
+        ?string $requestReasonPrefillSource = 'installer',
+    ): FactSource {
         if ($prefillSource === null) {
             return FactSource::CustomerAnswer;
         }
@@ -128,8 +136,24 @@ final class FactAcceptance
             return FactSource::Photo;
         }
 
+        // Directe installateursbron (antwoorden met prefill_source=installer).
+        if ($prefillSource === 'installer') {
+            return FactSource::InstallerRequest;
+        }
+
+        // Lokale parse (request_text) én catalogus-fills: bron volgt request_reason.
+        if (in_array($prefillSource, [
+            PrefillSources::AI_TEXT,
+            PrefillSources::AI_LEGACY,
+            PrefillSources::REQUEST_TEXT,
+        ], true)) {
+            return ($requestReasonPrefillSource === 'installer'
+                || $requestReasonPrefillSource === PrefillSources::REQUEST_TEXT)
+                ? FactSource::InstallerRequest
+                : FactSource::CustomerAnswer;
+        }
+
         if (PrefillSources::isTextDerived($prefillSource)
-            || $prefillSource === 'installer'
             || in_array($prefillSource, ['pdok', 'epo', 'bag'], true)) {
             return FactSource::CustomerAnswer;
         }

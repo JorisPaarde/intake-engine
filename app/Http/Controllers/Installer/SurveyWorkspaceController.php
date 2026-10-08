@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Installer;
 
-use App\Domains\AI\Actions\DeriveIntentFromRequest;
 use App\Domains\AI\Actions\SuggestInstallerPhotoObservations;
 use App\Domains\AI\Actions\SynthesizePipeRoute;
-use App\Domains\AI\Actions\SynthesizeSurveyDossier;
-use App\Domains\AI\Support\DossierSynthesisRefreshPresenter;
+use App\Domains\AI\Jobs\DeriveIntentFromRequestJob;
+use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
 use App\Domains\Intake\Actions\AddPipeRoutePhoto;
 use App\Domains\Intake\Actions\ApprovePipeRoute;
 use App\Domains\Intake\Actions\CompleteInstallerSurvey;
@@ -43,7 +42,6 @@ use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
 use App\Enums\AircoOptionStatus;
 use App\Enums\AircoPlacementType;
-use App\Enums\AiRunStatus;
 use App\Enums\ContributionTaskStatus;
 use App\Enums\CustomerLinkMailResult;
 use App\Enums\DossierRecordStatus;
@@ -87,6 +85,7 @@ final class SurveyWorkspaceController extends Controller
             'contributionTasks.followUpItem.uploads',
             'contributionTasks.subject',
             'followUpRounds.items.uploads',
+            'answers',
             'uploads',
             'outcome',
         ]);
@@ -356,6 +355,8 @@ final class SurveyWorkspaceController extends Controller
         ]);
         $aircoSurvey->createInstallationOption($intake, $this->user($request), $data);
 
+        SynthesizeSurveyDossierJob::dispatchDebounced(($intake->fresh() ?? $intake)->id);
+
         return $this->back($intake, 'Keuze toegevoegd.');
     }
 
@@ -481,7 +482,6 @@ final class SurveyWorkspaceController extends Controller
         Intake $intake,
         DossierSubject $subject,
         SaveInstallerObservation $saveObservation,
-        DeriveIntentFromRequest $deriveIntentFromRequest,
     ): RedirectResponse {
         $this->authorize('update', $intake);
         $this->guardWorkspaceSubject($intake, $subject);
@@ -497,7 +497,10 @@ final class SurveyWorkspaceController extends Controller
             'installer_note',
         );
 
-        $deriveIntentFromRequest->handle($intake->fresh() ?? $intake);
+        DeriveIntentFromRequestJob::dispatch(
+            ($intake->fresh() ?? $intake)->id,
+            allowExternal: true,
+        );
 
         return $this->back($intake, 'Notitie toegevoegd.');
     }
@@ -507,7 +510,6 @@ final class SurveyWorkspaceController extends Controller
         Intake $intake,
         DossierRecord $record,
         ConfirmInstallerObservation $confirmObservation,
-        DeriveIntentFromRequest $deriveIntentFromRequest,
     ): RedirectResponse {
         $this->authorize('update', $intake);
         abort_unless($record->intake_id === $intake->id, 404);
@@ -522,7 +524,10 @@ final class SurveyWorkspaceController extends Controller
             $adjustedText,
         );
 
-        $deriveIntentFromRequest->handle($intake->fresh() ?? $intake);
+        DeriveIntentFromRequestJob::dispatch(
+            ($intake->fresh() ?? $intake)->id,
+            allowExternal: true,
+        );
 
         return $this->back(
             $intake,
@@ -856,55 +861,6 @@ final class SurveyWorkspaceController extends Controller
         return $this->back($intake, 'Route en gekoppelde verbinding goedgekeurd.');
     }
 
-    public function synthesizeDossier(
-        Intake $intake,
-        SynthesizeSurveyDossier $synthesize,
-        DossierSynthesisRefreshPresenter $refreshPresenter,
-    ): RedirectResponse {
-        $this->authorize('update', $intake);
-
-        $run = $synthesize->handle($intake);
-
-        if ($run === null) {
-            return redirect()
-                ->route('intakes.workspace', $intake)
-                ->with('error', 'AI-dossiersynthese is in deze omgeving uitgeschakeld; de handmatige werkplek blijft volledig beschikbaar.')
-                ->with('ai_synthesis_retry', true);
-        }
-
-        if ($run->status === AiRunStatus::Succeeded) {
-            return $this->back($intake, 'AI-voorstel vernieuwd. Controleer de keuzes en uitzonderingen als geheel.');
-        }
-
-        if ($run->status === AiRunStatus::Partial) {
-            $flash = $refreshPresenter->partialFlash($run);
-
-            return redirect()
-                ->route('intakes.workspace', $intake)
-                ->with('status', $flash['message'])
-                ->with('ai_synthesis_partial', true)
-                ->with('ai_synthesis_partial_detail', $flash['technical_detail']);
-        }
-
-        $detail = is_string($run->error_message) && trim($run->error_message) !== ''
-            ? trim($run->error_message)
-            : 'De AI-aanbieder gaf geen bruikbaar voorstel terug.';
-
-        // Keep failure flashes free of internal section keys when possible.
-        $safeDetail = preg_match('/\b[a-z]+_[a-z0-9_.]+\b/i', $detail) === 1
-            ? 'De AI-aanbieder gaf geen bruikbaar voorstel terug.'
-            : $detail;
-
-        return redirect()
-            ->route('intakes.workspace', $intake)
-            ->with(
-                'error',
-                'AI-synthese kon niet worden afgerond: '.$safeDetail.' Het bestaande dossier is ongewijzigd gebleven.',
-            )
-            ->with('ai_synthesis_retry', true)
-            ->with('ai_synthesis_error', $detail);
-    }
-
     public function sendProposedTask(
         Request $request,
         Intake $intake,
@@ -913,12 +869,15 @@ final class SurveyWorkspaceController extends Controller
         SendCustomerFollowUpRequest $sendRequest,
     ): RedirectResponse {
         $this->authorize('update', $intake);
-        abort_unless(
-            $task->intake_id === $intake->id
-            && $task->status === ContributionTaskStatus::Proposed
-            && ($task->meta['source_type'] ?? null) === 'ai',
-            404,
-        );
+        abort_unless($task->intake_id === $intake->id, 404);
+
+        if ($task->status !== ContributionTaskStatus::Proposed) {
+            return redirect()
+                ->route('intakes.workspace', $intake)
+                ->with('status', 'Dit AI-voorstel is intussen bijgewerkt. Controleer de nieuwe taak.');
+        }
+
+        abort_unless(($task->meta['source_type'] ?? null) === 'ai', 404);
         $user = $this->user($request);
         $round = $createRequest->handle($intake, $user, [[
             'type' => $task->type,

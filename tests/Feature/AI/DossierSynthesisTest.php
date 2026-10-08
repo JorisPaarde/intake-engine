@@ -29,6 +29,7 @@ use App\Enums\ContributionTaskStatus;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
@@ -813,20 +814,6 @@ test('partial refresh keeps prior AI options when new option proposals are all r
         ->toBe($firstConnections)
         ->and(AircoPlacementOption::query()->where('intake_id', $intake->id)->where('source_type', 'ai')->count())
         ->toBe(1);
-
-    $user = User::query()->findOrFail($intake->created_by);
-    $this->actingAs($user)
-        ->from(route('intakes.workspace', $intake))
-        ->post(route('intakes.workspace.synthesis', $intake))
-        ->assertRedirect(route('intakes.workspace', $intake))
-        ->assertSessionHas('status')
-        ->assertSessionHas('ai_synthesis_partial', true);
-
-    $status = (string) session('status');
-    expect($status)->toStartWith('AI-voorstel deels vernieuwd')
-        ->not->toContain('placement_proposals')
-        ->not->toContain('option_proposals')
-        ->and(session('ai_synthesis_partial_detail'))->toBeString();
 });
 
 test('null connection list fields normalize to empty arrays and keep the option', function () {
@@ -1025,7 +1012,8 @@ test('synthesis job retries once after context-change apply skip and then applie
         ->where('type', AiRunType::DossierSynthesis)
         ->where('status', AiRunStatus::Failed)
         ->count())->toBe(1)
-        ->and($job->tries)->toBe(2);
+        ->and($job->maxExceptions)->toBe(2)
+        ->and($job->retryUntil()->getTimestamp())->toBeGreaterThan(now()->addMinutes(4)->getTimestamp());
 
     // Second attempt uses the stable post-mutation context (same as queue retry).
     $job->handle($synthesize);
