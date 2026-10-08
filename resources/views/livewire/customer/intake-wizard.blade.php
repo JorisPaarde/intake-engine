@@ -239,7 +239,7 @@
                                     @if (($item['reason'] ?? '') === 'required_photo')
                                         <span class="font-normal text-[#5e6862]"> — foto verplicht</span>
                                     @elseif (($item['reason'] ?? '') === 'must_accept')
-                                        <span class="font-normal text-[#5e6862]"> — toestemming vereist</span>
+                                        <span class="font-normal text-[#5e6862]"> — {{ \App\Domains\Intake\Support\MustAcceptQuestions::missingRequirementHint($item['question_key'] ?? null) }}</span>
                                     @endif
                                 </button>
                             </li>
@@ -393,7 +393,7 @@
                                     </label>
                                     @if ($showMissing && ! \App\Domains\Intake\Support\MustAcceptQuestions::isAccepted($form[$composite] ?? null))
                                         <p class="mt-2 text-sm text-[#a84832]" data-testid="must-accept-refusal">
-                                            {{ \App\Domains\Intake\Support\MustAcceptQuestions::refusalMessage() }}
+                                            {{ \App\Domains\Intake\Support\MustAcceptQuestions::refusalMessage($question->key) }}
                                         </p>
                                     @endif
                                 @else

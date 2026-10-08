@@ -611,6 +611,7 @@ final class IntakeStepBuilder
         if ($answered && MustAcceptQuestions::requiresAcceptance($question)) {
             $answered = MustAcceptQuestions::isAccepted(
                 is_array($answerValue) ? $answerValue : null,
+                $answerSource,
             );
         }
 

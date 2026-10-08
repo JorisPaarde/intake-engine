@@ -17,6 +17,22 @@ use Carbon\CarbonInterface;
  */
 final class CustomerConsentPresenter
 {
+    /** @var array<int, string> */
+    private const SHORT_MONTHS = [
+        1 => 'jan',
+        2 => 'feb',
+        3 => 'mrt',
+        4 => 'apr',
+        5 => 'mei',
+        6 => 'jun',
+        7 => 'jul',
+        8 => 'aug',
+        9 => 'sep',
+        10 => 'okt',
+        11 => 'nov',
+        12 => 'dec',
+    ];
+
     /**
      * @return array{given: bool, asked: bool, label: string, detail: string, answered_at: CarbonInterface|null}
      */
@@ -46,7 +62,7 @@ final class CustomerConsentPresenter
                 ];
             }
 
-            $formatted = $at->timezone(config('app.timezone'))->translatedFormat('j M, H:i');
+            $formatted = $this->formatConsentTimestamp($at);
 
             return [
                 'given' => true,
@@ -76,13 +92,37 @@ final class CustomerConsentPresenter
         ];
     }
 
+    private function formatConsentTimestamp(CarbonInterface $at): string
+    {
+        $local = $at->timezone(config('app.timezone'));
+        $month = self::SHORT_MONTHS[(int) $local->month] ?? rtrim($local->translatedFormat('M'), '.');
+
+        return $local->day.' '.$month.', '.$local->format('H:i');
+    }
+
     private function customerWasAsked(Intake $intake, ?IntakeAnswer $customerAnswer): bool
     {
         return match ($intake->workflow_mode) {
             ContributionMode::Installer => false,
             ContributionMode::Customer => true,
-            // Hybrid: only when the customer actually answered privacy_consent.
-            ContributionMode::Hybrid => $customerAnswer instanceof IntakeAnswer,
+            // Hybrid: asked when consent row exists OR any customer-sourced answer.
+            ContributionMode::Hybrid => $customerAnswer instanceof IntakeAnswer
+                || $this->customerHasActed($intake),
         };
+    }
+
+    private function customerHasActed(Intake $intake): bool
+    {
+        return $intake->answers->contains(
+            static function (IntakeAnswer $answer): bool {
+                if ($answer->prefill_source !== null && $answer->prefill_source !== '') {
+                    return false;
+                }
+
+                $value = is_array($answer->value) ? $answer->value : null;
+
+                return $value !== null && $value !== [];
+            },
+        );
     }
 }

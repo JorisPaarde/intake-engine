@@ -13,6 +13,7 @@ use App\Enums\FollowUpItemType;
 use App\Enums\FollowUpRoundStatus;
 use App\Enums\IntakeStatus;
 use App\Models\User;
+use Carbon\Carbon;
 use Database\Seeders\IntakeTemplateSeeder;
 
 beforeEach(function () {
@@ -156,24 +157,22 @@ test('consent presenter formats given timestamp and show uses it', function () {
         'address_city' => 'Amsterdam',
     ]);
 
-    $answeredAt = now()->setTimezone(config('app.timezone'))->setTime(10, 12);
+    $answeredAt = Carbon::parse('2026-10-08 10:12:00', config('app.timezone'));
     app(SaveIntakeAnswer::class)->handle($intake, 'privacy_consent', null, ['bool' => true]);
     $intake->answers()->where('question_key', 'privacy_consent')->update(['answered_at' => $answeredAt]);
 
     $consent = app(CustomerConsentPresenter::class)->present($intake->fresh('answers'));
 
     expect($consent['given'])->toBeTrue()
-        ->and($consent['label'])->toContain('Toestemming klant: gegeven op')
-        ->and($consent['label'])->toContain('10:12')
-        ->and($consent['detail'])->toContain('gegeven op')
-        ->and($consent['detail'])->not->toStartWith('Toestemming');
+        ->and($consent['label'])->toBe('Toestemming klant: gegeven op 8 okt, 10:12')
+        ->and($consent['detail'])->toBe('gegeven op 8 okt, 10:12');
 
     $intake->forceFill(['status' => IntakeStatus::Completed, 'completed_at' => now()])->save();
 
     $this->actingAs($user)
         ->get(route('intakes.show', $intake))
         ->assertOk()
-        ->assertSee('Toestemming klant: gegeven op', false);
+        ->assertSee('Toestemming klant: gegeven op 8 okt, 10:12', false);
 
     $installer = app(CreateIntake::class)->handle($user, [
         'template_key' => 'airco',

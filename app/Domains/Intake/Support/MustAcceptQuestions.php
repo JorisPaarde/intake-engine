@@ -51,9 +51,20 @@ final class MustAcceptQuestions
         return $comparable === true;
     }
 
-    public static function refusalMessage(): string
+    public static function refusalMessage(?string $questionKey = null): string
     {
-        return 'Zonder je toestemming kunnen we je gegevens niet gebruiken. Neem contact op met je installateur.';
+        return match ($questionKey) {
+            'truth_confirmation' => 'Bevestig dat je de gegevens naar waarheid hebt ingevuld.',
+            default => 'Zonder je toestemming kunnen we je gegevens niet gebruiken. Neem contact op met je installateur.',
+        };
+    }
+
+    public static function missingRequirementHint(?string $questionKey = null): string
+    {
+        return match ($questionKey) {
+            'truth_confirmation' => 'bevestiging vereist',
+            default => 'toestemming vereist',
+        };
     }
 
     public static function checkboxLabel(IntakeQuestion $question): string

@@ -39,16 +39,8 @@ final class CustomerTaskStatusPresenter
             ->first();
 
         if ($openRound instanceof IntakeFollowUpRound) {
-            $progress = $this->followUpProgress->calculate($openRound->items);
-            $label = sprintf(
-                'Ronde %d: %d van %d ontvangen',
-                $openRound->round_number,
-                $progress['completed'],
-                $progress['total'],
-            );
-
             return [
-                'label' => $label,
+                'label' => $this->roundLabel($openRound),
                 'link_active' => $linkActive,
             ];
         }
@@ -60,16 +52,8 @@ final class CustomerTaskStatusPresenter
             ->first();
 
         if ($completedRound instanceof IntakeFollowUpRound) {
-            $progress = $this->followUpProgress->calculate($completedRound->items);
-            $label = sprintf(
-                'Ronde %d: %d van %d ontvangen',
-                $completedRound->round_number,
-                $progress['completed'],
-                $progress['total'],
-            );
-
             return [
-                'label' => $label,
+                'label' => $this->roundLabel($completedRound),
                 'link_active' => $linkActive,
             ];
         }
@@ -96,6 +80,22 @@ final class CustomerTaskStatusPresenter
             'label' => $percent.'% beantwoord',
             'link_active' => $linkActive,
         ];
+    }
+
+    private function roundLabel(?IntakeFollowUpRound $round): string
+    {
+        if (! $round instanceof IntakeFollowUpRound) {
+            return 'Nog niet gestart';
+        }
+
+        $progress = $this->followUpProgress->calculate($round->items);
+
+        return sprintf(
+            'Ronde %d: %d van %d ontvangen',
+            $round->round_number,
+            $progress['completed'],
+            $progress['total'],
+        );
     }
 
     private function customerHasActed(Intake $intake): bool

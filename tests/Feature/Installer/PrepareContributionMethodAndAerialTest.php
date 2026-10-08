@@ -46,9 +46,11 @@ test('ask-customer-button puts caller classes on the button and keeps form inlin
         ->and($html)->toContain('border-indigo-200')
         ->and($html)->toContain('text-indigo-800')
         ->and($html)->toContain('w-full')
-        ->and($html)->toContain('Vraag nieuwe foto');
+        ->and($html)->toContain('Vraag nieuwe foto')
+        ->and($html)->not->toContain('border-gray-300')
+        ->and($html)->not->toContain('text-gray-900');
 
-    // Caller classes must land on the button, not only the form.
+    // Caller classes replace defaults on the button (no conflicting utilities).
     expect($html)->toMatch('/<button[^>]*border-indigo-200[^>]*>/')
         ->and($html)->toMatch('/<button[^>]*w-full[^>]*>/');
 });

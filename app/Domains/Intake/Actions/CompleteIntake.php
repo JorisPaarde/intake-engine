@@ -51,11 +51,11 @@ final class CompleteIntake
 
             if (! $check['is_complete']) {
                 $mustAcceptMissing = collect($check['missing'])
-                    ->contains(static fn (array $item): bool => $item['reason'] === 'must_accept');
+                    ->first(static fn (array $item): bool => $item['reason'] === 'must_accept');
 
                 throw ValidationException::withMessages([
-                    'completeness' => $mustAcceptMissing
-                        ? MustAcceptQuestions::refusalMessage()
+                    'completeness' => is_array($mustAcceptMissing)
+                        ? MustAcceptQuestions::refusalMessage($mustAcceptMissing['question_key'])
                         : 'Nog niet alles is ingevuld. Controleer de ontbrekende onderdelen.',
                 ]);
             }

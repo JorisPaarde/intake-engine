@@ -11,12 +11,14 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Domains\Intake\Services\CompletenessChecker;
+use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Domains\Intake\Support\CustomerConsentPresenter;
 use App\Domains\Intake\Support\MustAcceptQuestions;
 use App\Enums\ContributionMode;
 use App\Enums\QuestionType;
 use App\Livewire\Customer\IntakeWizard;
 use App\Models\User;
+use Carbon\Carbon;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -125,6 +127,15 @@ test('must_accept helpers recognise true-only acceptance and reject prefill', fu
         ->and(MustAcceptQuestions::isAccepted(['bool' => true], 'request_prefill'))->toBeFalse();
 });
 
+test('refusal messages and missing hints differ per must-accept key', function () {
+    expect(MustAcceptQuestions::refusalMessage('privacy_consent'))
+        ->toBe('Zonder je toestemming kunnen we je gegevens niet gebruiken. Neem contact op met je installateur.')
+        ->and(MustAcceptQuestions::refusalMessage('truth_confirmation'))
+        ->toBe('Bevestig dat je de gegevens naar waarheid hebt ingevuld.')
+        ->and(MustAcceptQuestions::missingRequirementHint('privacy_consent'))->toBe('toestemming vereist')
+        ->and(MustAcceptQuestions::missingRequirementHint('truth_confirmation'))->toBe('bevestiging vereist');
+});
+
 test('AI question catalog excludes must-accept keys', function () {
     $intake = makeConsentIntake();
     $catalog = app(TemplateQuestionCatalogBuilder::class)->build($intake);
@@ -199,14 +210,55 @@ test('privacy_consent false blocks completeness and CompleteIntake', function ()
         ->toThrow(ValidationException::class);
 });
 
-test('truth_confirmation false blocks CompleteIntake', function () {
+test('truth_confirmation false blocks CompleteIntake with truth refusal text', function () {
     $intake = makeConsentIntake();
     fillConsentIntakeComplete($intake);
 
     app(SaveIntakeAnswer::class)->handle($intake, 'truth_confirmation', null, ['bool' => false]);
 
-    expect(fn () => app(CompleteIntake::class)->handle($intake->fresh()))
-        ->toThrow(ValidationException::class);
+    try {
+        app(CompleteIntake::class)->handle($intake->fresh());
+        expect(false)->toBeTrue('Expected ValidationException');
+    } catch (ValidationException $e) {
+        expect($e->errors()['completeness'][0] ?? null)
+            ->toBe(MustAcceptQuestions::refusalMessage('truth_confirmation'));
+    }
+});
+
+test('privacy_consent false blocks CompleteIntake with consent refusal text', function () {
+    $intake = makeConsentIntake();
+    fillConsentIntakeComplete($intake);
+
+    app(SaveIntakeAnswer::class)->handle($intake, 'privacy_consent', null, ['bool' => false]);
+
+    try {
+        app(CompleteIntake::class)->handle($intake->fresh());
+        expect(false)->toBeTrue('Expected ValidationException');
+    } catch (ValidationException $e) {
+        expect($e->errors()['completeness'][0] ?? null)
+            ->toBe(MustAcceptQuestions::refusalMessage('privacy_consent'));
+    }
+});
+
+test('legacy prefilled true is not answered in IntakeStepBuilder', function () {
+    $intake = makeConsentIntake();
+    app(SaveIntakeAnswer::class)->handle(
+        $intake,
+        'privacy_consent',
+        null,
+        ['bool' => true],
+        'request_prefill',
+    );
+
+    $version = $intake->templateVersion()
+        ->with(['sections.questions.options', 'sections.questions.rules'])
+        ->firstOrFail();
+    $catalog = app(IntakeStepBuilder::class)->buildCatalog($intake->fresh(), $version);
+    $row = collect($catalog)->firstWhere('question_key', 'privacy_consent');
+
+    expect($row)->not->toBeNull()
+        ->and($row['answered'])->toBeFalse()
+        ->and($row['prefill_source'])->toBe('request_prefill');
 });
 
 test('accepted consent allows wizard completion', function () {
@@ -258,22 +310,46 @@ test('ticked consent does not show refusal text when another field is missing', 
         ->html();
 
     expect($html)->toContain('data-testid="must-accept-checkbox"')
-        ->and($html)->not->toContain(MustAcceptQuestions::refusalMessage())
+        ->and($html)->not->toContain(MustAcceptQuestions::refusalMessage('privacy_consent'))
         ->and($html)->not->toContain('data-testid="must-accept-refusal"');
 });
 
-test('unticked consent shows refusal text when showMissing', function () {
+test('unticked consent shows privacy refusal text when showMissing', function () {
     $intake = makeConsentIntake();
 
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->call('goToMissing', 'privacy_consent', null)
         ->set('form.privacy_consent.bool', false)
         ->set('showMissing', true)
-        ->assertSee(MustAcceptQuestions::refusalMessage())
+        ->assertSee(MustAcceptQuestions::refusalMessage('privacy_consent'))
         ->assertSeeHtml('data-testid="must-accept-refusal"');
 });
 
-test('consent presenter has three states: given, not given, not asked', function () {
+test('complete missing list shows bevestiging vereist for truth_confirmation', function () {
+    $intake = makeConsentIntake();
+    fillConsentIntakeComplete($intake);
+    app(SaveIntakeAnswer::class)->handle($intake, 'truth_confirmation', null, ['bool' => false]);
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->fresh()->access_token])
+        ->call('complete')
+        ->assertSee('bevestiging vereist')
+        ->assertDontSee('toestemming vereist');
+});
+
+test('unticked truth_confirmation shows truth refusal text when showMissing', function () {
+    $intake = makeConsentIntake();
+    fillConsentIntakeComplete($intake);
+    app(SaveIntakeAnswer::class)->handle($intake, 'truth_confirmation', null, ['bool' => false]);
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->fresh()->access_token])
+        ->call('goToMissing', 'truth_confirmation', null)
+        ->set('form.truth_confirmation.bool', false)
+        ->set('showMissing', true)
+        ->assertSee(MustAcceptQuestions::refusalMessage('truth_confirmation'))
+        ->assertSeeHtml('data-testid="must-accept-refusal"');
+});
+
+test('consent presenter has three states with exact given-on date string', function () {
     $presenter = app(CustomerConsentPresenter::class);
 
     $installer = makeConsentIntake(ContributionMode::Installer);
@@ -283,10 +359,19 @@ test('consent presenter has three states: given, not given, not asked', function
         ->and($installerConsent['label'])->toBe('Toestemming klant: niet gevraagd (installateursopname)')
         ->and($installerConsent['detail'])->toBe('niet gevraagd (installateursopname)');
 
-    $hybrid = makeConsentIntake(ContributionMode::Hybrid);
-    $hybridConsent = $presenter->present($hybrid->fresh('answers'));
-    expect($hybridConsent['asked'])->toBeFalse()
-        ->and($hybridConsent['label'])->toBe('Toestemming klant: niet gevraagd (installateursopname)');
+    $hybridEmpty = makeConsentIntake(ContributionMode::Hybrid);
+    $hybridEmptyConsent = $presenter->present($hybridEmpty->fresh('answers'));
+    expect($hybridEmptyConsent['asked'])->toBeFalse()
+        ->and($hybridEmptyConsent['label'])->toBe('Toestemming klant: niet gevraagd (installateursopname)');
+
+    // Hybrid with customer answers but never reached consent → niet gegeven.
+    $hybridActed = makeConsentIntake(ContributionMode::Hybrid);
+    app(SaveIntakeAnswer::class)->handle($hybridActed, 'indoor_unit_count', null, ['number' => 1]);
+    $hybridActedConsent = $presenter->present($hybridActed->fresh('answers'));
+    expect($hybridActedConsent['asked'])->toBeTrue()
+        ->and($hybridActedConsent['given'])->toBeFalse()
+        ->and($hybridActedConsent['label'])->toBe('Toestemming klant: niet gegeven')
+        ->and($hybridActedConsent['detail'])->toBe('niet gegeven');
 
     $customer = makeConsentIntake(ContributionMode::Customer);
     $openConsent = $presenter->present($customer->fresh('answers'));
@@ -295,16 +380,14 @@ test('consent presenter has three states: given, not given, not asked', function
         ->and($openConsent['label'])->toBe('Toestemming klant: niet gegeven')
         ->and($openConsent['detail'])->toBe('niet gegeven');
 
-    $answeredAt = now()->setTimezone(config('app.timezone'))->setTime(10, 12);
+    $answeredAt = Carbon::parse('2026-10-08 10:12:00', config('app.timezone'));
     app(SaveIntakeAnswer::class)->handle($customer, 'privacy_consent', null, ['bool' => true]);
     $customer->answers()->where('question_key', 'privacy_consent')->update(['answered_at' => $answeredAt]);
 
     $given = $presenter->present($customer->fresh('answers'));
     expect($given['given'])->toBeTrue()
-        ->and($given['label'])->toContain('Toestemming klant: gegeven op')
-        ->and($given['label'])->toContain('10:12')
-        ->and($given['detail'])->toContain('gegeven op')
-        ->and($given['detail'])->not->toContain('Toestemming klant:');
+        ->and($given['label'])->toBe('Toestemming klant: gegeven op 8 okt, 10:12')
+        ->and($given['detail'])->toBe('gegeven op 8 okt, 10:12');
 
     app(SaveIntakeAnswer::class)->handle($customer, 'privacy_consent', null, ['bool' => false]);
     $refused = $presenter->present($customer->fresh('answers'));
