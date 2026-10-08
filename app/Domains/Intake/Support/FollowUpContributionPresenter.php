@@ -12,6 +12,7 @@ use App\Domains\Intake\Models\DossierRecord;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeFollowUpRound;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Domains\Intake\Services\DecisionReadinessService;
 use App\Enums\ContributionTaskStatus;
 use App\Enums\DossierRecordStatus;
 use App\Enums\FollowUpItemType;
@@ -47,6 +48,7 @@ final class FollowUpContributionPresenter
      *         uploads: list<IntakeUpload>,
      *         ai_facts: list<string>,
      *         installer_decides: string,
+     *         heading: string,
      *         review_href: string,
      *         review_label: string,
      *         room_id: int|null,
@@ -132,6 +134,7 @@ final class FollowUpContributionPresenter
 
             $room = $this->roomFor($intake, $task);
             $requestedKey = $this->requestedKey($task, $item->prompt);
+            $review = $this->reviewTarget($task, $room, $requestedKey);
 
             $items[] = [
                 'task' => $task,
@@ -143,11 +146,12 @@ final class FollowUpContributionPresenter
                 'uploads' => $uploads,
                 'ai_facts' => array_values(array_unique($aiFacts)),
                 'installer_decides' => $this->installerDecidesCopy($task->decision_area_key, $requestedKey),
-                'review_href' => $room !== null ? '#room-'.$room->id : $this->reviewHref($task),
-                'review_label' => $room !== null ? 'Beoordeel bij '.$room->name : 'Beoordeel in opname',
+                'heading' => $review['heading'],
+                'review_href' => $review['href'],
+                'review_label' => $review['label'],
                 'room_id' => $room?->id,
                 'room_name' => $room?->name,
-                'highlight_field_ids' => $room !== null ? $this->highlightFieldIds($room, $requestedKey) : [],
+                'highlight_field_ids' => $review['highlight_ids'],
             ];
         }
 
@@ -265,15 +269,42 @@ final class FollowUpContributionPresenter
         };
     }
 
-    private function reviewHref(ContributionTask $task): string
+    /**
+     * Where “Beoordeel …” jumps to and what lights up there (UX-uitkomst #15.1).
+     * Room → the room card (Maten en gebruik opens; only the asked fields flash).
+     * No room → the decision area block (expands; “Nieuwe aanvulling ontvangen” flashes).
+     * Neither → the overview “Alle onderdelen”.
+     *
+     * @return array{heading: string, href: string, label: string, highlight_ids: list<string>}
+     */
+    private function reviewTarget(ContributionTask $task, ?AircoRoom $room, ?string $requestedKey): array
     {
-        return match ($task->decision_area_key) {
-            'capacity' => '#workspace-rooms',
-            'placement' => '#dossier-area-placement',
-            'power' => '#dossier-area-power',
-            'refrigerant' => '#dossier-area-refrigerant',
-            'condensate' => '#dossier-area-condensate',
-            default => '#workspace-open-items',
-        };
+        if ($room !== null) {
+            return [
+                'heading' => 'Nieuw van klant · '.$room->name,
+                'href' => '#room-'.$room->id,
+                'label' => 'Beoordeel bij '.$room->name,
+                'highlight_ids' => $this->highlightFieldIds($room, $requestedKey),
+            ];
+        }
+
+        $areaKey = $task->decision_area_key;
+        if (is_string($areaKey) && DecisionReadinessService::hasArea($areaKey)) {
+            $areaLabel = DecisionReadinessService::areaLabel($areaKey);
+
+            return [
+                'heading' => 'Nieuw van klant · '.$areaLabel,
+                'href' => '#dossier-area-'.$areaKey,
+                'label' => 'Beoordeel bij '.$areaLabel,
+                'highlight_ids' => ['dossier-area-'.$areaKey.'-contribution'],
+            ];
+        }
+
+        return [
+            'heading' => 'Nieuw van klant',
+            'href' => '#workspace-open-items',
+            'label' => 'Beoordeel in opname',
+            'highlight_ids' => [],
+        ];
     }
 }

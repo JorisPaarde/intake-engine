@@ -29,11 +29,15 @@ final class CompleteFollowUpRound
         private readonly DossierManager $dossierManager,
         private readonly DecisionReadinessService $decisionReadiness,
         private readonly ApplyFollowUpTextContribution $applyFollowUpTextContribution,
+        private readonly DeleteFollowUpUpload $deleteFollowUpUpload,
     ) {}
 
     /** @param array<int, string|null> $textResponses */
     public function handle(Intake $intake, IntakeFollowUpRound $round, array $textResponses): Intake
     {
+        // “Aanvulling versturen”: weggehaalde foto's gaan nu echt weg (BL-147, UX #16.4).
+        $this->deleteFollowUpUpload->purgePendingFor($intake);
+
         $completed = DB::transaction(function () use ($intake, $round, $textResponses): Intake {
             $intake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
             $round = IntakeFollowUpRound::query()

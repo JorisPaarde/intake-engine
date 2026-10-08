@@ -114,9 +114,7 @@
                             <li class="rounded-xl border border-emerald-200 bg-white px-3 py-3" data-testid="new-contribution-item">
                                 <div class="flex flex-wrap items-start justify-between gap-2">
                                     <div class="min-w-0">
-                                        @if (is_string($contribution['room_name'] ?? null))
-                                            <p class="text-xs font-semibold text-emerald-900" data-testid="contribution-room-heading">Nieuw van klant · {{ $contribution['room_name'] }}</p>
-                                        @endif
+                                        <p class="text-xs font-semibold text-emerald-900" data-testid="contribution-heading">{{ $contribution['heading'] }}</p>
                                         @if (is_string($contribution['response_text'] ?? null) && trim((string) $contribution['response_text']) !== '')
                                             <p class="text-sm font-medium text-gray-950">{{ $contribution['response_text'] }}</p>
                                         @elseif (($contribution['uploads'] ?? []) !== [])
@@ -326,7 +324,7 @@
                                             $areaContributions = $contributionPresenter->forDecisionArea($intake, $area->key);
                                         @endphp
                                         @if ($areaContributions !== [])
-                                            <div class="space-y-2 rounded-xl border border-emerald-200 bg-emerald-50/80 px-3 py-2" data-testid="area-contribution-{{ $area->key }}">
+                                            <div id="dossier-area-{{ $area->key }}-contribution" class="space-y-2 rounded-xl border border-emerald-200 bg-emerald-50/80 px-3 py-2" data-testid="area-contribution-{{ $area->key }}">
                                                 <p class="text-xs font-semibold text-emerald-900">Nieuwe aanvulling ontvangen</p>
                                                 @foreach ($areaContributions as $contribution)
                                                     <div class="text-xs text-gray-700">
@@ -784,7 +782,7 @@
                                                 @csrf
                                                 <fieldset class="sm:col-span-2">
                                                     <legend class="sr-only">Soort unit of aansluiting</legend>
-                                                    <div class="grid grid-cols-2 gap-2">
+                                                    <div class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,max(11rem,calc(50%_-_0.25rem))),1fr))] gap-2">
                                                         @foreach ($placementTypes as $type)
                                                             <label class="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50">
                                                                 <input
@@ -796,7 +794,7 @@
                                                                     @checked($placement->type === $type)
                                                                     required
                                                                 >
-                                                                <span>{{ $type->label() }}</span>
+                                                                <span class="min-w-0 break-words hyphens-auto">{{ $type->label() }}</span>
                                                             </label>
                                                         @endforeach
                                                     </div>
@@ -840,7 +838,7 @@
                                 @csrf
                                 <fieldset class="sm:col-span-2">
                                     <legend class="sr-only">Soort unit of aansluiting</legend>
-                                    <div class="grid grid-cols-2 gap-2">
+                                    <div class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,max(11rem,calc(50%_-_0.25rem))),1fr))] gap-2">
                                         @foreach ($placementTypes as $type)
                                             <label class="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-900 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50">
                                                 <input
@@ -852,7 +850,7 @@
                                                     @checked($loop->first)
                                                     required
                                                 >
-                                                <span>{{ $type->label() }}</span>
+                                                <span class="min-w-0 break-words hyphens-auto">{{ $type->label() }}</span>
                                             </label>
                                         @endforeach
                                     </div>

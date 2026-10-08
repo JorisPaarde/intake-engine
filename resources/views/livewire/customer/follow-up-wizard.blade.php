@@ -37,7 +37,6 @@
             @if ($intake->is_demo)
                 <x-demo-scope-notice
                     variant="complete"
-                    :needs-installer-review="! empty($followUpNeedsInstallerReview)"
                     :installer-return-url="$followUpDemoReturnUrl ?? null"
                 />
             @else

@@ -1,6 +1,6 @@
 # Browser-testflow (agent-speelboek)
 
-> **Documentversie:** 1.0 · **Laatste update:** 2026-09-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.1 · **Laatste update:** 2026-10-08 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 **Status:** dit is het **enige** stapsgewijze speelboek voor visuele browser-QA. [docs/functional-test-status.md](functional-test-status.md) is de uitslagentabel (wat écht gezien is), geen stappenlijst. Pest/Livewire/HTTP-tests tellen **niet** als uitvoering van dit document.
 
@@ -173,8 +173,8 @@ Alleen als A7 stabiel is en je nog ~10 minuten hebt:
 ### A12. Demo beëindigen
 
 - [ ] Klik **Demo beëindigen** in de app-nav (niet het gewone `/logout` van een vast account).
-- [ ] Bevestig de browser-`confirm`: “Weet je zeker dat je de demo wilt beëindigen? Demogegevens verdwijnen.”
-- [ ] Land op `/demo/beeindigd` met kop **Demo beëindigd** (of **Deze demo is verlopen**). CTA’s: **Naar de homepage** / **Nieuwe demo starten**.
+- [ ] Bevestig in de dialoog **Demo beëindigen?** (focus op Annuleren; Esc annuleert).
+- [ ] Land op `/demo/beeindigd` met kop **De demo is beëindigd** (of **Deze demo is verlopen**). CTA’s: **Naar de homepage** / **Nieuwe demo starten**.
 - [ ] **Geen** Laravel-404, **geen** echt `/login` als eindscherm.
 - Screenshot: `A12-beeindigd.png`
 

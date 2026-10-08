@@ -670,7 +670,6 @@ test('P1 follow-up not_assessed vereist Toch doorgaan (zelfde override als misma
         ->call('completeFollowUp')
         ->assertHasNoErrors('follow_up')
         ->assertSet('completed', true)
-        ->assertSet('followUpNeedsInstallerReview', true)
         ->assertSee(PhotoOverridePolicy::THANK_YOU_COPY);
 });
 

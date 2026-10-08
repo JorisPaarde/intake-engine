@@ -74,8 +74,8 @@
                     :installer-return-url="$demoInstallerReturnUrl"
                 />
             @else
-                <p class="mt-3 text-sm leading-relaxed text-[#5e6862]">
-                    Je kunt dit venster sluiten.
+                <p class="mt-3 text-sm leading-relaxed text-[#5e6862]" data-testid="customer-close-hint">
+                    Je kunt dit venster nu sluiten.
                 </p>
             @endif
         </div>

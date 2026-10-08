@@ -118,7 +118,6 @@ test('P2-a: lage-resolutiefoto in follow-up blokkeert Aanvulling versturen tot T
         ->call('completeFollowUp')
         ->assertHasNoErrors('follow_up')
         ->assertSet('completed', true)
-        ->assertSet('followUpNeedsInstallerReview', true)
         ->assertSee('Bedankt, je aanvulling is binnen')
         ->assertSee(PhotoOverridePolicy::THANK_YOU_COPY)
         ->assertDontSee('nog geen afronding')
@@ -259,7 +258,7 @@ test('P3-1/2: follow-up feedback is uniek en verdwijnt direct na verwijderen', f
 
     $component
         ->call('removeFollowUpUpload', $item->id, $upload->id)
-        ->assertSee('Foto verwijderd')
+        ->assertSee('Foto verwijderd.')
         ->assertDontSee((string) $mismatchMsg);
 });
 

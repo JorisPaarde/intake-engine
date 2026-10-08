@@ -714,7 +714,7 @@ it('keeps the demo thank-you notice short without a feature checklist', function
 
     expect($html)
         ->toContain('Wat je net hebt gedaan')
-        ->toContain('Je hebt één aanvulling verstuurd')
+        ->toContain('Je hebt als klant een aanvulling verstuurd')
         ->toContain('Geen echte klant, er ging geen mail uit')
         ->toContain('De gegevens verdwijnen vanzelf')
         ->toContain('Naar de homepage')
@@ -970,7 +970,7 @@ it('asks for confirmation copy on end-demo controls and lands on a Dutch ended p
 
     $this->get(route('demo.ended', ['reason' => 'ended']))
         ->assertOk()
-        ->assertSee('Demo beëindigd')
+        ->assertSee('De demo is beëindigd')
         ->assertSee('Naar de homepage')
         ->assertSee('Nieuwe demo starten')
         ->assertDontSee('404 | Not Found');

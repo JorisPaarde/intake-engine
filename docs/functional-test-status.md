@@ -1,6 +1,6 @@
 # Functionele teststatus
 
-> **Documentversie:** 2.10 · **Laatste update:** 2026-10-08 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.11 · **Laatste update:** 2026-10-08 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Handmatig bijgehouden overzicht van wat functioneel is getest (en wat nog niet).
 
@@ -12,7 +12,7 @@ Laatste testsessie: 2026-09-03 (staging; opnamedetail BL-084–090 op 1280×800 
 
 | Onderdeel | Status | Getest op | Notities |
 |-----------|--------|-----------|----------|
-| UX-pakket werkplek/klantkant (BL-147) | todo | - | Werkplek: klantantwoord over Slaapkamer 2 → “Nieuw van klant · Slaapkamer 2”, knop “Beoordeel bij Slaapkamer 2” springt naar die kaart en laat lengte/breedte 2 s oplichten; ruimtekaart “Binnenunit: … · buitenunit nog kiezen” / “Gekoppeld: … → …”; stroomaansluiting toevoegen → “Stroomaansluiting toegevoegd.” in het blok; Demo beëindigen → eigen dialoog (Esc/buiten klikken annuleert). Klant: bedankscherm één kop + zin + knop “Terug naar de opname”; prullenbak op foto → 8 s “Ongedaan maken”. |
+| UX-pakket werkplek/klantkant (BL-147) | todo | - | Werkplek: klantantwoord over Slaapkamer 2 → “Nieuw van klant · Slaapkamer 2”, knop “Beoordeel bij Slaapkamer 2” springt naar die kaart en laat lengte/breedte 2 s oplichten; ruimtekaart “Binnenunit: … · buitenunit nog kiezen” / “Gekoppeld: … → …”; stroomaansluiting toevoegen → “Stroomaansluiting toegevoegd.” in het blok; Demo beëindigen → eigen dialoog (Esc/buiten klikken annuleert). Klant: bedankscherm één kop + zin + knop “Terug naar de opname”; prullenbak op foto → 8 s “Ongedaan maken”. Ronde 3: klantantwoord zonder ruimte → “Beoordeel bij Stroomtoevoer” springt naar dat beslisgebied en licht “Nieuwe aanvulling ontvangen” op; foto weghalen + tabblad sluiten → bij heropenen klantlink weg; `/demo/beeindigd` kop “De demo is beëindigd”; “Stroomaansluiting” op 390 px niet afgekapt. |
 | Klanttaken bundelen + conceptlijst (BL-145) | todo | - | Werkplek: zolderhoogte + meterkast → conceptlijst met 2 bewerkbare teksten (geen “1- of 3-fase”, geen “handmatig controleren”); versturen activeert één ronde/één klantlink; tweede prepare bij open ronde bouwt concept maar store blijft geblokkeerd. |
 | AI-trace gaps afronden (BL-144) | todo | - | Follow-up subject: ai_run.provider_request_id gevuld; upload zonder photo_analysis → skipped + “geen beoordelingsprofiel”; twee uploads → verschillende correlation_id; export toont finish_reason/queued_at/seed + fijnmazige estimated_cost; geen exports/exports. |
 | Upload 503-recovery / concurrent Livewire (BL-143) | todo | - | Staging/demo: grote meterkastfoto → geen hang op 0%/Bezig; bij LiteSpeed 503 op update verschijnt “Even geduld…” + foto komt toch in beoordeling; geen stille loss bij twee POSTs. |

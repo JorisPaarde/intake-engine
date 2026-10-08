@@ -7,6 +7,7 @@ use App\Domains\Intake\Actions\CreateCustomerContributionRequest;
 use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
+use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\AircoSurveyService;
 use App\Domains\Intake\Services\DossierManager;
@@ -15,10 +16,12 @@ use App\Enums\AircoConfigurationType;
 use App\Enums\AircoPlacementType;
 use App\Enums\ContributionMode;
 use App\Enums\FollowUpItemType;
+use App\Enums\IntakeStatus;
 use App\Livewire\Customer\IntakeWizard;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
@@ -111,25 +114,92 @@ test('#15.2: hoogte-, oppervlak- en overige capaciteitsvragen krijgen hun eigen 
     'overig' => ['Geef aan waarvoor Zolder vooral gebruikt wordt.', [], 'Jij beslist wat dit betekent voor de capaciteit.'],
 ]);
 
-test('#15.1: taak zonder ruimte linkt naar het beslisgebied met Beoordeel in opname', function () {
+test('ronde 3 punt 7: taak zonder ruimte springt naar het beslisgebied en licht “Nieuwe aanvulling ontvangen” op', function (string $areaKey, string $areaLabel, string $prompt) {
     $user = User::factory()->create();
     $intake = bl147Intake($user);
     app(DossierManager::class)->initialize($intake);
 
     $intake = bl147CompleteTextTask($intake, $user, [
-        'prompt' => 'Hoeveel groepen heeft je meterkast?',
-        'decision_area_key' => 'power',
+        'prompt' => $prompt,
+        'decision_area_key' => $areaKey,
         'dossier_subject_id' => app(DossierManager::class)->root($intake)->id,
-    ], 'Zes groepen');
+    ], 'Antwoord van de klant');
 
     $item = app(FollowUpContributionPresenter::class)->present($intake)['items'][0];
-    expect($item['review_href'])->toBe('#dossier-area-power')
-        ->and($item['review_label'])->toBe('Beoordeel in opname')
+    expect($item['heading'])->toBe('Nieuw van klant · '.$areaLabel)
+        ->and($item['review_href'])->toBe('#dossier-area-'.$areaKey)
+        ->and($item['review_label'])->toBe('Beoordeel bij '.$areaLabel)
+        ->and($item['highlight_field_ids'])->toBe(['dossier-area-'.$areaKey.'-contribution'])
         ->and($item['room_name'])->toBeNull();
 
     $html = $this->actingAs($user)->get(route('intakes.workspace', $intake))->assertOk()->getContent();
+    expect($html)->toContain('Nieuw van klant · '.$areaLabel)
+        ->toContain('Beoordeel bij '.$areaLabel)
+        ->toContain('href="#dossier-area-'.$areaKey.'"')
+        ->toContain('data-highlight-fields="dossier-area-'.$areaKey.'-contribution"')
+        ->toContain('id="dossier-area-'.$areaKey.'"')
+        ->toContain('id="dossier-area-'.$areaKey.'-contribution"');
+})->with([
+    'stroom' => ['power', 'Stroomtoevoer', 'Hoeveel groepen heeft je meterkast?'],
+    // Was #workspace-rooms; besluit 8 okt: naar het capaciteitsblok.
+    'capaciteit' => ['capacity', 'Benodigd vermogen', 'Hoe warm wordt het huis in de zomer?'],
+]);
+
+test('ronde 3 punt 7: taak zonder beslisgebied gaat naar de open punten', function () {
+    $user = User::factory()->create();
+    $intake = bl147Intake($user);
+    app(DossierManager::class)->initialize($intake);
+
+    $intake = bl147CompleteTextTask($intake, $user, [
+        'prompt' => 'Is er nog iets dat we moeten weten?',
+        'dossier_subject_id' => app(DossierManager::class)->root($intake)->id,
+    ], 'De kat is bang voor boren.');
+
+    $item = app(FollowUpContributionPresenter::class)->present($intake)['items'][0];
+    expect($item['heading'])->toBe('Nieuw van klant')
+        ->and($item['review_href'])->toBe('#workspace-open-items')
+        ->and($item['review_label'])->toBe('Beoordeel in opname')
+        ->and($item['highlight_field_ids'])->toBe([]);
+
+    $html = $this->actingAs($user)->get(route('intakes.workspace', $intake))->assertOk()->getContent();
     expect($html)->toContain('Beoordeel in opname')
+        ->toContain('href="#workspace-open-items"')
+        ->toContain('id="workspace-open-items"')
         ->not->toContain('Nieuw van klant ·');
+});
+
+test('ronde 3 punt 7: ruimtevraag over iets anders dan maten opent het paneel zonder oplichten', function () {
+    $user = User::factory()->create();
+    $intake = bl147Intake($user);
+    $room = app(AircoSurveyService::class)->createRoom($intake, $user, ['name' => 'Slaapkamer 1', 'use_type' => 'bedroom']);
+
+    $intake = bl147CompleteTextTask($intake, $user, [
+        'prompt' => 'Geef aan waarvoor Slaapkamer 1 vooral gebruikt wordt.',
+        'decision_area_key' => 'capacity',
+        'dossier_subject_id' => $room->dossier_subject_id,
+    ], 'Slapen en thuiswerken');
+
+    $item = app(FollowUpContributionPresenter::class)->present($intake)['items'][0];
+    expect($item['heading'])->toBe('Nieuw van klant · Slaapkamer 1')
+        ->and($item['review_href'])->toBe('#room-'.$room->id)
+        ->and($item['highlight_field_ids'])->toBe([]);
+});
+
+test('ronde 3 punt 8: stroomaansluiting-keuzes lopen door of gaan naar één kolom (bewerken én toevoegen)', function () {
+    $user = User::factory()->create();
+    $intake = bl147Intake($user);
+    $room = app(AircoSurveyService::class)->createRoom($intake, $user, ['name' => 'Woonkamer', 'use_type' => 'living_room']);
+    app(AircoSurveyService::class)->createPlacement($intake, $user, [
+        'airco_room_id' => $room->id,
+        'type' => AircoPlacementType::IndoorUnit,
+        'label' => 'Binnenunit woonkamer',
+    ]);
+
+    $html = $this->actingAs($user)->get(route('intakes.workspace', $intake))->assertOk()->getContent();
+    $grid = 'grid-cols-[repeat(auto-fit,minmax(min(100%,max(11rem,calc(50%_-_0.25rem))),1fr))]';
+    expect(substr_count($html, $grid))->toBeGreaterThanOrEqual(2)
+        ->and($html)->toContain('min-w-0 break-words hyphens-auto')
+        ->toContain('Stroomaansluiting');
 });
 
 test('#15.3: ruimtekaart leest binnenunit en koppeling', function () {
@@ -245,4 +315,45 @@ test('#16.4: foto weghalen is 8 s ongedaan te maken en wordt pas daarna echt gew
             ->where('intake_id', $intake->id)
             ->where('event', 'follow_up_upload_deleted')
             ->count())->toBe(1);
+});
+
+test('ronde 3 punt 1+2: bedankscherm hoofdwizard zegt hetzelfde als de aanvulflow, zonder websiteknop', function () {
+    $intake = Intake::factory()->create([
+        'created_by' => User::factory()->create()->id,
+        'intake_template_version_id' => IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion()->id,
+        'status' => IntakeStatus::Sent,
+        'is_demo' => false,
+    ]);
+
+    // Alleen de weergave van het bedankscherm; het afronden zelf testen CompleteAndReview/Klanttest.
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('completed', true)
+        ->assertSee('Je kunt dit venster nu sluiten.')
+        ->assertDontSee('Je kunt dit venster sluiten.')
+        ->assertDontSee('Naar de website van')
+        ->assertDontSee('verwijderd.');
+});
+
+test('ronde 3 punt 3: demo beëindigd heeft de nieuwe kop en tekst; verlopen blijft gelijk', function () {
+    $this->get(route('demo.ended'))
+        ->assertOk()
+        ->assertSee('<title>De demo is beëindigd — Digitale Opname</title>', false)
+        ->assertSee('De demo is beëindigd')
+        ->assertSee('Je demogegevens worden automatisch gewist. Je kunt altijd een nieuwe demo starten.')
+        ->assertSee('Naar de homepage')
+        ->assertSee('Nieuwe demo starten');
+
+    $this->get(route('demo.ended', ['reason' => 'expired']))
+        ->assertOk()
+        ->assertSee('<title>Demo beëindigd — Digitale Opname</title>', false)
+        ->assertSee('Deze demo is verlopen')
+        ->assertSee('De demosessie is verlopen. Demogegevens verdwijnen automatisch. Je kunt opnieuw beginnen met een schone demo.')
+        ->assertDontSee('De demo is beëindigd');
+});
+
+test('ronde 3 punt 6: demostrook na een aanvulling heeft altijd één zin', function () {
+    $html = Blade::render('<x-demo-scope-notice variant="complete" />');
+    expect($html)->toContain('Je hebt als klant een aanvulling verstuurd. Geen echte klant, er ging geen mail uit. De gegevens verdwijnen vanzelf.')
+        ->not->toContain('beoordeelt de foto')
+        ->not->toContain('Je hebt één aanvulling verstuurd');
 });

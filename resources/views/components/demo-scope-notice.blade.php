@@ -2,7 +2,6 @@
     'variant' => 'banner',
     'shortCustomer' => false,
     'installerReturnUrl' => null,
-    'needsInstallerReview' => false,
 ])
 
 @if ($variant === 'banner')
@@ -24,10 +23,8 @@
         <p class="mt-1 leading-relaxed">
             @if ($shortCustomer)
                 Je hebt afgerond wat de klant na de link invult. Geen echte klant, er ging geen mail uit. De gegevens verdwijnen vanzelf.
-            @elseif ($needsInstallerReview)
-                Je hebt een aanvulling verstuurd; de installateur beoordeelt de foto’s nog. Geen echte klant, er ging geen mail uit. De gegevens verdwijnen vanzelf.
             @else
-                Je hebt één aanvulling verstuurd. Geen echte klant, er ging geen mail uit. De gegevens verdwijnen vanzelf.
+                Je hebt als klant een aanvulling verstuurd. Geen echte klant, er ging geen mail uit. De gegevens verdwijnen vanzelf.
             @endif
         </p>
 

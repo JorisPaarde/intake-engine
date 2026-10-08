@@ -151,9 +151,6 @@ class IntakeWizard extends Component
 
     public bool $completed = false;
 
-    /** Follow-up danktekst: true wanneer minstens één foto met override is verstuurd. */
-    public bool $followUpNeedsInstallerReview = false;
-
     /**
      * Foto die net is weggehaald en 8 s ongedaan gemaakt kan worden (BL-147, UX #16.4).
      *
@@ -280,6 +277,10 @@ class IntakeWizard extends Component
         }
 
         $this->intakeId = $intake->id;
+
+        // Volgend bezoek aan de klantlink: foto's die nog in de prullenbak staan
+        // (tabblad binnen 8 s gesloten) gaan nu echt weg (BL-147, UX #16.4).
+        app(DeleteFollowUpUpload::class)->purgePendingFor($intake);
 
         if ($intake->status === IntakeStatus::AwaitingCustomer) {
             $this->resolvedIntake = $intake->loadMissing(['answers', 'uploads']);
@@ -652,7 +653,7 @@ class IntakeWizard extends Component
             $this->clearPhotoFeedbackForComposite($composite);
             $this->clearProgressExtraNoteIfRelatedToUpload($upload->id);
             $this->refreshAnswerInForm($composite);
-            $this->saveMessage = 'Foto verwijderd';
+            $this->saveMessage = 'Foto verwijderd.';
             $this->showMissing = false;
         } catch (ValidationException $e) {
             $this->addError('photo', $e->errors()['photo'][0] ?? 'Verwijderen mislukt.');
@@ -745,25 +746,12 @@ class IntakeWizard extends Component
         }
 
         try {
-            $round = $this->followUpRound();
-            $hadAcceptedOverride = false;
-            foreach ($round->items as $item) {
-                if ($item->type !== FollowUpItemType::Photo) {
-                    continue;
-                }
-                if (PhotoOverridePolicy::hasAcceptedOverride($item->uploads)) {
-                    $hadAcceptedOverride = true;
-                    break;
-                }
-            }
-
             app(CompleteFollowUpRound::class)->handle(
                 $this->intake(),
-                $round,
+                $this->followUpRound(),
                 $this->followUpResponses,
             );
             $this->forgetIntakeDerivedCaches();
-            $this->followUpNeedsInstallerReview = $hadAcceptedOverride;
             $this->completed = true;
             $this->saveMessage = '';
         } catch (ValidationException $exception) {
@@ -817,7 +805,6 @@ class IntakeWizard extends Component
             'followUpPhotoHint' => $followUpFeedbackHints[0] ?? null,
             'followUpMismatchAssessment' => $followUpMismatch,
             'followUpNeedsOverride' => $followUpNeedsOverride,
-            'followUpNeedsInstallerReview' => $this->followUpNeedsInstallerReview,
             'followUpThankYouMessage' => PhotoOverridePolicy::THANK_YOU_COPY,
             'followUpDemoReturnUrl' => app(PublicDemoSession::class)->workspaceReturnUrl(request(), $intake),
             'choiceOptions' => $item instanceof IntakeFollowUpItem

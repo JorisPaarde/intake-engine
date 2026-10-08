@@ -19,6 +19,8 @@ Schedule::command('ai:purge-traces')->daily();
 // Watchdog alleen: upload dispatcht AssessUploadedPhotoJob meteen. Elke 5 min i.p.v.
 // elke minuut beperkt PHP/LVE-geheugenpieken op cPanel (512 MB).
 Schedule::command('photos:requeue-pending-assessments')->everyFiveMinutes();
+// Aanvulfoto's die de klant weghaalde en niet meer terugzette (tabblad dicht binnen 8 s): na 10 min wissen.
+Schedule::command('photos:purge-removed')->hourly();
 
 /*
  * Foto-AI (queue ai-photo) + overige jobs. cPanel heeft geen Supervisor.

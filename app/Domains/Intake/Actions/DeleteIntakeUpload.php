@@ -53,6 +53,8 @@ final class DeleteIntakeUpload
                 ->where('evidence_type', 'intake_upload')
                 ->where('evidence_id', $lockedUpload->id)
                 ->delete();
+            // Hoofdwizard wist direct (geen prullenbak): media gaan hieronder meteen weg.
+            $lockedUpload->forceFill(['purged_at' => now()])->saveQuietly();
             $lockedUpload->delete();
 
             $this->syncAnswerUploadIds($intake, $questionKey, $sectionInstanceKey);
