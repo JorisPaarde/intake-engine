@@ -2291,6 +2291,77 @@ class IntakeWizard extends Component
     }
 
     /**
+     * Vervang één probleemfoto (per-thumbnail knop) en open de file picker.
+     */
+    public function replaceSinglePhoto(int $uploadId): void
+    {
+        if ($this->completed) {
+            return;
+        }
+
+        $upload = IntakeUpload::query()->find($uploadId);
+        if (! $upload instanceof IntakeUpload || $upload->intake_id !== $this->intake()->id) {
+            return;
+        }
+
+        if (! PhotoOverridePolicy::needsOverride($upload)) {
+            return;
+        }
+
+        $questionKey = $upload->question_key;
+        $instanceKey = $upload->section_instance_key;
+
+        app(DeleteIntakeUpload::class)->handle($this->intake(), $upload);
+
+        $this->invalidatePhotoDerivation($questionKey, $instanceKey);
+        $this->runPhotoDerivation($questionKey, $instanceKey);
+        $this->forgetIntakeDerivedCaches();
+
+        $composite = VisibilityResolver::compositeKey($questionKey, $instanceKey);
+        $this->clearPhotoFeedbackForComposite($composite);
+        $this->clearProgressExtraNote();
+        $this->refreshAnswerInForm($composite);
+        $this->showMissing = false;
+        $this->saveMessage = '';
+
+        $inputId = 'photo-input-'.str_replace(['.', ' '], '-', $composite);
+        $this->js('document.getElementById('.json_encode($inputId).')?.click()');
+    }
+
+    /**
+     * Vervang één follow-up probleemfoto en open de file picker.
+     */
+    public function replaceFollowUpSinglePhoto(int $itemId, int $uploadId): void
+    {
+        if ($this->completed || ! $this->followUpMode) {
+            return;
+        }
+
+        $item = $this->followUpItem($itemId);
+        if ($item->type !== FollowUpItemType::Photo) {
+            return;
+        }
+
+        $upload = $item->uploads->firstWhere('id', $uploadId);
+        if (! $upload instanceof IntakeUpload) {
+            return;
+        }
+
+        if (! PhotoOverridePolicy::needsOverride($upload)) {
+            return;
+        }
+
+        app(DeleteFollowUpUpload::class)->handle($this->intake(), $item, $upload);
+
+        $this->resetErrorBag('follow_up');
+        $this->forgetIntakeDerivedCaches();
+        $this->saveMessage = '';
+
+        $inputId = 'follow-up-photo-input-'.$item->id;
+        $this->js('document.getElementById('.json_encode($inputId).')?.click()');
+    }
+
+    /**
      * @return array<string, Collection<int, IntakeUpload>>
      */
     private function uploadsForStep(?string $sectionInstanceKey): array

@@ -146,6 +146,52 @@ test('PhotoCustomerStatus labels matchen UX-teksten', function () {
         ->and(PhotoCustomerStatus::UPLOADING)->toBe('Foto uploaden…');
 });
 
+test('mixed photos show advice under the bad thumb and keep GOOD on the good one', function () {
+    Queue::fake([AssessUploadedPhotoJob::class, ProcessIntakePhotoVariantsJob::class]);
+    [$intake, $item] = softTimeoutFollowUpIntake();
+
+    $good = $item->uploads()->create([
+        'intake_id' => $intake->id,
+        'question_key' => 'follow_up_photo',
+        'disk' => (string) config('filesystems.media', 'local'),
+        'path' => 'intakes/test/good.jpg',
+        'original_filename' => 'good.jpg',
+        'mime_type' => 'image/jpeg',
+        'size_bytes' => 1000,
+        'checksum' => hash('sha256', 'good'),
+        'sort_order' => 1,
+        'assessment_status' => PhotoAssessmentStatus::Assessed,
+        'usability_verdict' => PhotoUsabilityVerdict::Ok,
+        'content_assessment' => [
+            'status' => 'ok',
+            'detected_subject' => 'fusebox',
+            'customer_message' => null,
+        ],
+    ]);
+    $bad = $item->uploads()->create([
+        'intake_id' => $intake->id,
+        'question_key' => 'follow_up_photo',
+        'disk' => (string) config('filesystems.media', 'local'),
+        'path' => 'intakes/test/bad.jpg',
+        'original_filename' => 'bad.jpg',
+        'mime_type' => 'image/jpeg',
+        'size_bytes' => 500,
+        'checksum' => hash('sha256', 'bad'),
+        'sort_order' => 2,
+        'assessment_status' => PhotoAssessmentStatus::HeuristicRejected,
+        'usability_verdict' => PhotoUsabilityVerdict::TooSmall,
+        'content_assessment' => null,
+    ]);
+
+    $html = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])->html();
+
+    expect($html)->toContain(PhotoCustomerStatus::GOOD)
+        ->and($html)->toContain((string) PhotoUsabilityVerdict::TooSmall->customerHint())
+        ->and($html)->toContain('data-testid="photo-replace-one"')
+        ->and($html)->toContain('data-upload-id="'.$bad->id.'"')
+        ->and($html)->toContain('data-upload-id="'.$good->id.'"');
+});
+
 test('nieuwe upload wist assessmentUiReleased zodat soft-timeout opnieuw loopt', function () {
     Queue::fake([AssessUploadedPhotoJob::class, ProcessIntakePhotoVariantsJob::class]);
 

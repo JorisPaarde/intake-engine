@@ -10,7 +10,8 @@ use App\Enums\PhotoAssessmentStatus;
 
 /**
  * Per-foto statuslabels voor klantwizard en vervolgronde (UX 8 okt 2026).
- * Teksten zijn vast; override-knoppen blijven in de bestaande mismatch-panels.
+ * Probleemfoto’s tonen het advies onder die thumbnail; override-knoppen
+ * (“Toch doorgaan”) blijven op compositeniveau.
  */
 final class PhotoCustomerStatus
 {
@@ -54,20 +55,25 @@ final class PhotoCustomerStatus
             return self::RECEIVED;
         }
 
-        if (PhotoOverridePolicy::needsOverride($upload)) {
-            // Detailed mismatch/quality copy lives in the override panels — keep
-            // the thumbnail status short so the same sentence is not shown twice.
-            return self::RECEIVED;
-        }
+        // Judged problem (accepted override or not) → never "Goed te zien".
+        // Show the advice under THIS photo so mixed batches stay scannable.
+        if (PhotoOverridePolicy::hasQualityOrContentIssue($upload)) {
+            $feedback = PhotoOverridePolicy::customerFeedback($upload);
+            if (is_string($feedback) && trim($feedback) !== '') {
+                return $feedback;
+            }
 
-        if ($status === PhotoAssessmentStatus::NotAssessed
-            || $status === PhotoAssessmentStatus::HeuristicRejected) {
+            // Terminal without a specific hint (rare) — still not GOOD.
             return self::RECEIVED;
         }
 
         $assessment = $upload->contentAssessment();
         if ($assessment instanceof PhotoContentAssessment
             && $assessment->status() === PhotoContentAssessment::STATUS_NOT_ASSESSED) {
+            return self::RECEIVED;
+        }
+
+        if ($status === PhotoAssessmentStatus::NotAssessed) {
             return self::RECEIVED;
         }
 

@@ -69,8 +69,21 @@
                 this.timer = setTimeout(() => { this.timedOut = true }, this.softTimeoutMs);
             }
         },
+        matchesPrepScope(event) {
+            const detail = event?.detail;
+            if (! detail) {
+                return true;
+            }
+            if (detail.inputId && detail.inputId !== @js($inputId)) {
+                return false;
+            }
+            if (detail.composite && detail.composite !== @js($composite)) {
+                return false;
+            }
+            return true;
+        },
         onPrepSkipped(event) {
-            if (event?.detail?.composite && event.detail.composite !== @js($composite)) {
+            if (! this.matchesPrepScope(event)) {
                 return;
             }
             this.prepSkipMessage = event?.detail?.message || this.prepSkipMessage;
@@ -146,7 +159,10 @@
             this.clearCountdown();
             this.armInactivityTimer();
         },
-        onPrepStart() {
+        onPrepStart(event) {
+            if (! this.matchesPrepScope(event)) {
+                return;
+            }
             this.prepBusy = true;
             this.clientUploading = true;
             this.uploadTimedOut = false;
@@ -155,15 +171,21 @@
             this.uploadProgress = 0;
             this.armInactivityTimer();
         },
-        onPrepDone() {
+        onPrepDone(event) {
+            if (! this.matchesPrepScope(event)) {
+                return;
+            }
             this.prepBusy = false;
         },
         onPrepFailed(event) {
+            if (! this.matchesPrepScope(event)) {
+                return;
+            }
             this.prepBusy = false;
             const message = event?.detail?.message
                 || 'De server is even druk. Probeer het zo opnieuw.';
-            // Skip-only selections reuse prep-failed with a skip message — show that, not "te groot".
-            if (typeof message === 'string' && message.includes('geen foto')) {
+            // Skip-only selections reuse prep-failed with skipped=true — show that, not "te groot".
+            if (event?.detail?.skipped) {
                 this.prepSkipMessage = message;
                 this.clientUploading = false;
                 this.uploadProgress = null;
@@ -273,8 +295,8 @@
         document.addEventListener('intake:upload-empty-response', (e) => onUploadRetrying(e));
         document.addEventListener('intake:upload-retry-succeeded', () => finishUpload());
         document.addEventListener('intake:upload-failed', (e) => onUploadFailed(e));
-        document.addEventListener('intake:photo-prep-start', () => onPrepStart());
-        document.addEventListener('intake:photo-prep-done', () => onPrepDone());
+        document.addEventListener('intake:photo-prep-start', (e) => onPrepStart(e));
+        document.addEventListener('intake:photo-prep-done', (e) => onPrepDone(e));
         document.addEventListener('intake:photo-prep-failed', (e) => onPrepFailed(e));
         document.addEventListener('intake:photo-prep-skipped', (e) => onPrepSkipped(e));
     "

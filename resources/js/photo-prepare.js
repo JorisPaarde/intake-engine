@@ -301,8 +301,15 @@ export async function decodeWithCreateImageBitmap(file, target) {
     const longEdgeOnly = Boolean(target?.longEdgeOnly);
 
     if (longEdgeOnly && Math.max(width, height) > 0) {
-        // Single-dimension resize preserves aspect ratio in supporting browsers.
-        options.resizeWidth = Math.max(width, height);
+        // One axis only: browsers scale that edge and keep aspect. Portrait must
+        // use resizeHeight — resizeWidth alone leaves the long edge > max.
+        // Unknown orientation (height 0) keeps resizeWidth. Never pass both.
+        const longEdge = Math.max(width, height);
+        if (height > width && width > 0) {
+            options.resizeHeight = longEdge;
+        } else {
+            options.resizeWidth = longEdge;
+        }
     } else if (width > 0 && height > 0) {
         options.resizeWidth = width;
         options.resizeHeight = height;

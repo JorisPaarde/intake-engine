@@ -86,18 +86,23 @@ return Application::configure(basePath: dirname(__DIR__))
             ], 410);
         });
 
-        // ValidatePostSize throws before the controller; only rewrite the installer
-        // workspace photo route to a Dutch redirect (demotest 8 okt review #3).
+        // ValidatePostSize throws before the controller (no session yet) — render a
+        // Dutch 413 page for the installer workspace photo route only.
         $exceptions->render(function (PostTooLargeException $e, Request $request) {
             if (! $request->is('intakes/*/opname/subjects/*/photos')) {
                 return null;
             }
 
-            return redirect()
-                ->back()
-                ->withErrors([
-                    'photo' => 'Deze foto is te groot voor één upload. De foto wordt automatisch verkleind — probeer het opnieuw, of stuur minder foto\'s tegelijk.',
-                ]);
+            // Prefer the exception request referer — session is often not started yet.
+            $referer = $request->headers->get('referer');
+            $backUrl = is_string($referer) && $referer !== ''
+                ? $referer
+                : url('/');
+
+            return response()->view('errors.post-too-large-photo', [
+                'message' => 'Deze foto is te groot voor één upload. De foto wordt automatisch verkleind — probeer het opnieuw, of stuur minder foto\'s tegelijk.',
+                'backUrl' => $backUrl,
+            ], 413);
         });
 
         $exceptions->context(function () {

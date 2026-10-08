@@ -252,32 +252,41 @@
                     names: [],
                     prepError: '',
                     prepBusy: false,
+                    inputId: @js($fieldPrefix.'-photo'),
+                    matchesScope(event) {
+                        const id = event?.detail?.inputId;
+                        return ! id || id === this.inputId;
+                    },
                     onPick(event) {
                         const files = Array.from(event.target.files || []);
                         this.names = files.map((file) => file.name);
                         this.prepError = '';
                     },
-                    onPrepStart() {
+                    onPrepStart(event) {
+                        if (! this.matchesScope(event)) return;
                         this.prepBusy = true;
                         this.prepError = '';
                     },
-                    onPrepDone() {
+                    onPrepDone(event) {
+                        if (! this.matchesScope(event)) return;
                         this.prepBusy = false;
                     },
                     onPrepFailed(event) {
+                        if (! this.matchesScope(event)) return;
                         this.prepBusy = false;
                         this.prepError = event?.detail?.message
                             || 'Deze foto is te groot. Probeer een andere foto of maak een nieuwe.';
                         this.names = [];
                     },
                     onPrepSkipped(event) {
+                        if (! this.matchesScope(event)) return;
                         this.prepError = event?.detail?.message || this.prepError;
                     },
                 }"
-                x-on:intake:photo-prep-start.window="onPrepStart()"
-                x-on:intake:photo-prep-done.window="onPrepDone()"
-                x-on:intake:photo-prep-failed.window="onPrepFailed($event)"
-                x-on:intake:photo-prep-skipped.window="onPrepSkipped($event)"
+                x-on:intake:photo-prep-start.document="onPrepStart($event)"
+                x-on:intake:photo-prep-done.document="onPrepDone($event)"
+                x-on:intake:photo-prep-failed.document="onPrepFailed($event)"
+                x-on:intake:photo-prep-skipped.document="onPrepSkipped($event)"
             >
                 @csrf
                 <div>
@@ -309,7 +318,7 @@
                         class="mt-2 space-y-1 text-xs text-gray-600"
                         data-testid="installer-photo-preview"
                     >
-                        <template x-for="name in names" :key="name">
+                        <template x-for="(name, index) in names" :key="index">
                             <li class="truncate" x-text="name"></li>
                         </template>
                     </ul>
@@ -321,9 +330,6 @@
                     data-testid="installer-photo-prep-error"
                     x-text="prepError"
                 ></p>
-                @error('photo')
-                    <p class="text-sm font-medium text-red-700">{{ $message }}</p>
-                @enderror
                 @if ($connection)
                     <div>
                         <label for="{{ $fieldPrefix }}-segment-label" class="block text-xs font-semibold text-gray-700">

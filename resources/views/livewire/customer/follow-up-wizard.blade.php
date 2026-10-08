@@ -105,7 +105,7 @@
                                     $assessmentUiReleased ?? [],
                                 );
                             @endphp
-                            <li class="overflow-hidden rounded-md border border-brand-fog bg-brand-mist/30" data-testid="photo-thumb-status">
+                            <li class="overflow-hidden rounded-md border border-brand-fog bg-brand-mist/30" data-testid="photo-thumb-status" data-upload-id="{{ $upload->id }}">
                                 <div class="relative">
                                     <img
                                         src="{{ route('customer.uploads.show', ['token' => $token, 'upload' => $upload]) }}"
@@ -124,6 +124,17 @@
                                 <p class="px-2 py-1.5 text-xs font-medium text-brand-ink/80" data-photo-status="1">
                                     {{ $photoStatusLabel }}
                                 </p>
+                                @if (\App\Domains\Intake\Support\PhotoOverridePolicy::needsOverride($upload))
+                                    <button
+                                        type="button"
+                                        wire:click="replaceFollowUpSinglePhoto({{ $item->id }}, {{ $upload->id }})"
+                                        wire:loading.attr="disabled"
+                                        class="w-full border-t border-brand-fog bg-white px-2 py-1.5 text-xs font-semibold text-brand-sea"
+                                        data-testid="photo-replace-one"
+                                    >
+                                        Vervang foto
+                                    </button>
+                                @endif
                             </li>
                         @endforeach
                     </ul>
@@ -164,13 +175,7 @@
                 @if ($followUpMismatchAssessment || ! empty($followUpNeedsOverride))
                     <div class="mt-3 space-y-3 rounded-md border border-brand-ember/30 bg-white px-3 py-3" role="alert" data-testid="follow-up-mismatch">
                         <p class="text-sm text-brand-ink">
-                            @if ($followUpMismatchAssessment)
-                                {{ $followUpMismatchAssessment->customerMessage() ?? 'Deze foto lijkt niet bij de vraag te horen.' }}
-                            @elseif (! empty($followUpPhotoHint))
-                                {{ $followUpPhotoHint }}
-                            @else
-                                Deze foto is nog niet goed genoeg. Vervang hem of kies expliciet “Toch versturen”.
-                            @endif
+                            {{ \App\Domains\Intake\Support\PhotoOverridePolicy::OVERRIDE_MESSAGE }}
                         </p>
                         @error('follow_up')
                             <p class="text-sm font-medium text-brand-ember" data-testid="follow-up-mismatch-warning">
@@ -178,13 +183,6 @@
                             </p>
                         @enderror
                         <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-                            <button
-                                type="button"
-                                wire:click="replaceFollowUpMismatchedPhoto"
-                                class="min-h-11 rounded-md bg-brand-sea px-4 text-sm font-semibold text-white"
-                            >
-                                Vervang foto
-                            </button>
                             <button
                                 type="button"
                                 wire:click="acceptFollowUpPhotoMismatch"

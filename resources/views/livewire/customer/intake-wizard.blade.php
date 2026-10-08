@@ -417,7 +417,7 @@
                                                         $assessmentUiReleased ?? [],
                                                     );
                                                 @endphp
-                                                <li class="overflow-hidden rounded-xl border border-[#dde2da] bg-[#eef1ec]" data-testid="photo-thumb-status">
+                                                <li class="overflow-hidden rounded-xl border border-[#dde2da] bg-[#eef1ec]" data-testid="photo-thumb-status" data-upload-id="{{ $upload->id }}">
                                                     <div class="relative">
                                                         <img
                                                             src="{{ route('customer.uploads.show', ['token' => $token, 'upload' => $upload]) }}"
@@ -436,6 +436,17 @@
                                                     <p class="px-2 py-1.5 text-xs font-medium text-[#414b45]" data-photo-status="1">
                                                         {{ $photoStatusLabel }}
                                                     </p>
+                                                    @if (\App\Domains\Intake\Support\PhotoOverridePolicy::needsOverride($upload))
+                                                        <button
+                                                            type="button"
+                                                            wire:click="replaceSinglePhoto({{ $upload->id }})"
+                                                            wire:loading.attr="disabled"
+                                                            class="w-full border-t border-[#dde2da] bg-white px-2 py-1.5 text-xs font-semibold text-[var(--tenant-primary)]"
+                                                            data-testid="photo-replace-one"
+                                                        >
+                                                            Vervang foto
+                                                        </button>
+                                                    @endif
                                                 </li>
                                             @endforeach
                                         </ul>
@@ -453,13 +464,7 @@
                                         @if ($photoMismatchAssessment || ! empty($photoNeedsOverride))
                                             <div class="space-y-3 rounded-xl border border-[#eac3b4] bg-white px-3 py-3" role="alert" data-testid="photo-mismatch-panel" wire:key="mismatch-{{ $composite }}">
                                                 <p class="text-sm text-[#414b45]">
-                                                    @if ($photoMismatchAssessment)
-                                                        {{ $photoMismatchAssessment->customerMessage() ?? "Deze foto lijkt niet bij de vraag te horen." }}
-                                                    @elseif (! empty($displayPhotoHint[$composite]))
-                                                        {{ $displayPhotoHint[$composite] }}
-                                                    @else
-                                                        Deze foto is nog niet goed genoeg. Vervang hem of kies expliciet “Toch doorgaan”.
-                                                    @endif
+                                                    {{ \App\Domains\Intake\Support\PhotoOverridePolicy::OVERRIDE_MESSAGE_WIZARD }}
                                                 </p>
                                                 @if ($showMissing)
                                                     <p class="text-sm font-medium text-[#a84832]" data-testid="mismatch-next-warning">
@@ -469,15 +474,9 @@
                                                 <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
                                                     <button
                                                         type="button"
-                                                        wire:click="replaceMismatchedPhoto"
-                                                        class="min-h-11 rounded-xl bg-[var(--tenant-primary)] px-4 text-sm font-semibold text-[var(--tenant-on-primary)]"
-                                                    >
-                                                        Vervang foto
-                                                    </button>
-                                                    <button
-                                                        type="button"
                                                         wire:click="acceptPhotoMismatch"
                                                         class="min-h-11 rounded-xl border border-[#dde2da] bg-[#eef1ec] px-4 text-sm font-semibold text-[#18201d]"
+                                                        data-testid="photo-accept-mismatch"
                                                     >
                                                         Toch doorgaan
                                                     </button>

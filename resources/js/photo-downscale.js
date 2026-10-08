@@ -14,6 +14,72 @@ import {
     wireModelUploadTargets,
 } from './photo-prepare';
 
+const IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif']);
+
+/**
+ * @param {File} file
+ * @returns {boolean}
+ */
+export function isLikelyImageFile(file) {
+    const type = String(file?.type || '').toLowerCase();
+    if (type.startsWith('image/')) {
+        return true;
+    }
+
+    const name = String(file?.name || '');
+    const dot = name.lastIndexOf('.');
+    if (dot < 0) {
+        return false;
+    }
+
+    return IMAGE_EXTENSIONS.has(name.slice(dot + 1).toLowerCase());
+}
+
+/**
+ * @param {HTMLInputElement} input
+ * @returns {{ composite: string, inputId: string }}
+ */
+export function photoPrepEventScope(input) {
+    const parsed = wireModelUploadTargets(input.getAttribute('wire:model') || '');
+
+    return {
+        composite: parsed?.composite || 'installer',
+        inputId: String(input.id || ''),
+    };
+}
+
+/**
+ * Alpine / listener filter: event belongs to this input (or is unscoped).
+ *
+ * @param {{ inputId?: string, composite?: string }|null|undefined} detail
+ * @param {{ inputId?: string, composite?: string }} scope
+ * @returns {boolean}
+ */
+export function photoPrepEventMatchesScope(detail, scope) {
+    if (! detail) {
+        return true;
+    }
+
+    const eventInputId = String(detail.inputId || '');
+    const scopeInputId = String(scope.inputId || '');
+    if (eventInputId !== '' && scopeInputId !== '' && eventInputId !== scopeInputId) {
+        return false;
+    }
+
+    const eventComposite = String(detail.composite || '');
+    const scopeComposite = String(scope.composite || '');
+    if (eventComposite !== '' && scopeComposite !== '' && eventComposite !== scopeComposite) {
+        // Installer native forms share composite "installer" — inputId is the real scope.
+        if (eventComposite === 'installer' && scopeComposite === 'installer') {
+            return eventInputId === '' || scopeInputId === '' || eventInputId === scopeInputId;
+        }
+
+        return false;
+    }
+
+    return true;
+}
+
 export function registerClientPhotoDownscale() {
     const isPrepInput = (input) => {
         if (!(input instanceof HTMLInputElement) || input.type !== 'file') {
@@ -60,10 +126,16 @@ export function registerClientPhotoDownscale() {
         }
     };
 
-    const rejectTooLarge = (input, composite, message) => {
-        document.dispatchEvent(new CustomEvent('intake:photo-prep-failed', {
-            detail: { composite, message: message || TOO_LARGE_MESSAGE },
-        }));
+    const dispatchPrep = (name, detail) => {
+        document.dispatchEvent(new CustomEvent(name, { detail }));
+    };
+
+    const rejectTooLarge = (input, scope, message, extra = {}) => {
+        dispatchPrep('intake:photo-prep-failed', {
+            ...scope,
+            message: message || TOO_LARGE_MESSAGE,
+            ...extra,
+        });
         input.value = '';
     };
 
@@ -94,11 +166,12 @@ export function registerClientPhotoDownscale() {
         event.preventDefault();
 
         const limits = limitsFromInput(input);
-        const composite = parsed?.composite || 'installer';
+        const scope = photoPrepEventScope(input);
 
-        document.dispatchEvent(new CustomEvent('intake:photo-prep-start', {
-            detail: { composite, count: files.length },
-        }));
+        dispatchPrep('intake:photo-prep-start', {
+            ...scope,
+            count: files.length,
+        });
 
         let prepared = [];
         let originals = [];
@@ -108,15 +181,17 @@ export function registerClientPhotoDownscale() {
         const skippedMessages = [];
         try {
             for (const file of files) {
-                const type = String(file.type || '').toLowerCase();
                 const name = String(file.name || 'bestand');
-                if (! type.startsWith('image/')) {
+                if (! isLikelyImageFile(file)) {
                     // Non-images are skipped with a clear notice (demotest 8 okt taak 4).
                     const skipMessage = `${name} is geen foto en is niet meegenomen.`;
                     skippedMessages.push(skipMessage);
-                    document.dispatchEvent(new CustomEvent('intake:photo-prep-skipped', {
-                        detail: { composite, name, message: skipMessage },
-                    }));
+                    dispatchPrep('intake:photo-prep-skipped', {
+                        ...scope,
+                        name,
+                        message: skipMessage,
+                        skipped: true,
+                    });
                     continue;
                 }
 
@@ -164,7 +239,7 @@ export function registerClientPhotoDownscale() {
         }
 
         if (prepFailed) {
-            rejectTooLarge(input, composite, failMessage);
+            rejectTooLarge(input, scope, failMessage);
             return;
         }
 
@@ -173,7 +248,7 @@ export function registerClientPhotoDownscale() {
             const skipOnlyMessage = skippedMessages.length > 0
                 ? skippedMessages.join(' ')
                 : failMessage;
-            rejectTooLarge(input, composite, skipOnlyMessage);
+            rejectTooLarge(input, scope, skipOnlyMessage, { skipped: true });
             return;
         }
 
@@ -187,14 +262,15 @@ export function registerClientPhotoDownscale() {
             input.files = transfer.files;
         } catch {
             // DataTransfer/file assignment failed — fail closed (no hang / no full original).
-            rejectTooLarge(input, composite, failMessage);
+            rejectTooLarge(input, scope, failMessage);
             return;
         }
 
         input.dataset.intakeDownscaleDone = '1';
-        document.dispatchEvent(new CustomEvent('intake:photo-prep-done', {
-            detail: { composite, count: prepared.length },
-        }));
+        dispatchPrep('intake:photo-prep-done', {
+            ...scope,
+            count: prepared.length,
+        });
         input.dispatchEvent(new Event('change', { bubbles: true }));
     }, true);
 }

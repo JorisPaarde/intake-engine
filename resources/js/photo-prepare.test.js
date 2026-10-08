@@ -7,6 +7,7 @@ import {
     TOO_LARGE_MESSAGE,
     aspectRatiosMatch,
     computeTargetSize,
+    decodeWithCreateImageBitmap,
     exceedsHardByteLimit,
     exceedsHardMegapixelLimit,
     mustDownscaleOrFail,
@@ -215,6 +216,44 @@ describe('preparePhotoForUpload aspect ratio (demotest 8 okt)', () => {
     });
 
     /**
+     * Real browser behaviour: resizeWidth scales width only; resizeHeight scales height only.
+     *
+     * @param {number} srcW
+     * @param {number} srcH
+     * @param {{ width?: number, height?: number, longEdgeOnly?: boolean }} target
+     */
+    function browserLikeBitmap(srcW, srcH, target) {
+        const tw = Math.round(Number(target.width) || 0);
+        const th = Math.round(Number(target.height) || 0);
+        let width = srcW;
+        let height = srcH;
+
+        if (target.longEdgeOnly) {
+            const longEdge = Math.max(tw, th);
+            if (th > tw && tw > 0) {
+                // resizeHeight only
+                const scale = longEdge / srcH;
+                width = Math.round(srcW * scale);
+                height = longEdge;
+            } else if (longEdge > 0) {
+                // resizeWidth only
+                const scale = longEdge / srcW;
+                width = longEdge;
+                height = Math.round(srcH * scale);
+            }
+        } else if (tw > 0 && th > 0) {
+            width = tw;
+            height = th;
+        }
+
+        return {
+            bitmap: { width, height, close() {} },
+            originalWidth: width,
+            originalHeight: height,
+        };
+    }
+
+    /**
      * @param {number} srcW
      * @param {number} srcH
      * @param {string} name
@@ -229,23 +268,7 @@ describe('preparePhotoForUpload aspect ratio (demotest 8 okt)', () => {
             readSize: async () => ({ width: srcW, height: srcH, orientation: 1 }),
             createBitmap: async (_file, target) => {
                 expect(target.longEdgeOnly).toBe(true);
-                // Mimic a browser that preserves aspect when only resizeWidth is set.
-                const longEdge = Math.max(
-                    Math.round(Number(target.width) || 0),
-                    Math.round(Number(target.height) || 0),
-                );
-                const scale = longEdge / Math.max(srcW, srcH);
-                const width = Math.round(srcW * scale);
-                const height = Math.round(srcH * scale);
-                return {
-                    bitmap: {
-                        width,
-                        height,
-                        close() {},
-                    },
-                    originalWidth: width,
-                    originalHeight: height,
-                };
+                return browserLikeBitmap(srcW, srcH, target);
             },
             toJpeg: async (canvas) => {
                 const w = canvas.width;
@@ -360,6 +383,61 @@ describe('preparePhotoForUpload aspect ratio (demotest 8 okt)', () => {
         expect(result.reason).toBe('aspect-mismatch');
         expect(result.originalWidth).toBe(4032);
         expect(result.originalHeight).toBe(3024);
+    });
+
+    it('keeps tall panorama 1500×4500 via resizeHeight', async () => {
+        await assertDownscaleKeepsRatio(1500, 4500, 'tall-pano.jpg');
+    });
+});
+
+describe('decodeWithCreateImageBitmap longEdgeOnly axes', () => {
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    it('uses resizeHeight for portrait 3024×4032', async () => {
+        /** @type {Record<string, number>|null} */
+        let seen = null;
+        vi.stubGlobal('createImageBitmap', async (_file, options) => {
+            seen = options;
+            return { width: 1500, height: 2000, close() {} };
+        });
+
+        const file = new File([new Uint8Array(100)], 'p.jpg', { type: 'image/jpeg' });
+        await decodeWithCreateImageBitmap(file, { width: 1500, height: 2000, longEdgeOnly: true });
+
+        expect(seen?.resizeHeight).toBe(2000);
+        expect(seen?.resizeWidth).toBeUndefined();
+    });
+
+    it('uses resizeHeight for 1500×4500', async () => {
+        /** @type {Record<string, number>|null} */
+        let seen = null;
+        vi.stubGlobal('createImageBitmap', async (_file, options) => {
+            seen = options;
+            return { width: 667, height: 2000, close() {} };
+        });
+
+        const file = new File([new Uint8Array(100)], 'tall.jpg', { type: 'image/jpeg' });
+        await decodeWithCreateImageBitmap(file, { width: 667, height: 2000, longEdgeOnly: true });
+
+        expect(seen?.resizeHeight).toBe(2000);
+        expect(seen?.resizeWidth).toBeUndefined();
+    });
+
+    it('keeps resizeWidth when orientation is unknown (height 0)', async () => {
+        /** @type {Record<string, number>|null} */
+        let seen = null;
+        vi.stubGlobal('createImageBitmap', async (_file, options) => {
+            seen = options;
+            return { width: 2000, height: 1500, close() {} };
+        });
+
+        const file = new File([new Uint8Array(100)], 'u.jpg', { type: 'image/jpeg' });
+        await decodeWithCreateImageBitmap(file, { width: MAX_LONG_EDGE, height: 0, longEdgeOnly: true });
+
+        expect(seen?.resizeWidth).toBe(MAX_LONG_EDGE);
+        expect(seen?.resizeHeight).toBeUndefined();
     });
 });
 

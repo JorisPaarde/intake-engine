@@ -568,6 +568,13 @@ final class SurveyWorkspaceController extends Controller
 
         foreach ($photos as $photo) {
             if (! $photo->isValid()) {
+                $uploadError = $photo->getError();
+                if (in_array($uploadError, [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)) {
+                    throw ValidationException::withMessages([
+                        'photo' => PhotoUploadLimits::tooLargeMessage(),
+                    ]);
+                }
+
                 throw ValidationException::withMessages([
                     'photo' => 'Kies een geldige foto.',
                 ]);
@@ -580,13 +587,7 @@ final class SurveyWorkspaceController extends Controller
                 ]);
             }
 
-            try {
-                PhotoUploadLimits::assertUploadedFileAcceptable($photo);
-            } catch (ValidationException) {
-                throw ValidationException::withMessages([
-                    'photo' => PhotoUploadLimits::tooLargeMessage(),
-                ]);
-            }
+            PhotoUploadLimits::assertUploadedFileAcceptable($photo);
         }
 
         $connection = $subject->type === 'airco_connection'
@@ -599,11 +600,14 @@ final class SurveyWorkspaceController extends Controller
         $stored = 0;
         $hasSuggestion = false;
         $session = null;
-        /** @var list<string> $failedNames */
-        $failedNames = [];
+        /** @var list<array{name: string, reason: string|null}> $failures */
+        $failures = [];
         $total = count($photos);
+        $suggestRan = false;
 
         foreach ($photos as $photo) {
+            $photoName = $photo->getClientOriginalName() ?: 'foto';
+
             try {
                 $upload = $storeUpload->handle(
                     $intake,
@@ -616,10 +620,13 @@ final class SurveyWorkspaceController extends Controller
                 if ($connection instanceof AircoConnection) {
                     $session ??= $startRoute->handle($intake, $connection);
                     $addRoutePhoto->handle($session, $upload, $data['route_segment_label'] ?? null);
-                } else {
+                } elseif (! $suggestRan) {
+                    // Narrowest multi-upload option: sync AI only for the first stored
+                    // photo in this request (max 5 files). Later photos skip the call.
+                    $suggestRan = true;
                     $run = $suggestPhotoObservations->handle($intake, $subject, $upload);
                     if ($run !== null) {
-                        $hasSuggestion = $hasSuggestion || DossierRecord::query()
+                        $hasSuggestion = DossierRecord::query()
                             ->where('intake_id', $intake->id)
                             ->where('source_type', 'ai')
                             ->where('source_id', $run->id)
@@ -628,19 +635,28 @@ final class SurveyWorkspaceController extends Controller
                     }
                 }
             } catch (ValidationException $exception) {
-                $failedNames[] = $photo->getClientOriginalName() ?: 'foto';
+                $reason = $exception->errors()['photo'][0] ?? null;
+                $failures[] = [
+                    'name' => $photoName,
+                    'reason' => is_string($reason) && $reason !== '' ? $reason : null,
+                ];
                 report($exception);
             } catch (\Throwable $exception) {
-                $failedNames[] = $photo->getClientOriginalName() ?: 'foto';
+                $failures[] = [
+                    'name' => $photoName,
+                    'reason' => null,
+                ];
                 report($exception);
             }
         }
 
         if ($stored === 0) {
-            $failed = $failedNames[0] ?? 'foto';
+            $first = $failures[0] ?? ['name' => 'foto', 'reason' => null];
+            $message = $first['reason']
+                ?? ($first['name'].' kon niet worden opgeslagen. Probeer het opnieuw.');
 
             throw ValidationException::withMessages([
-                'photo' => $failed.' kon niet worden opgeslagen. Probeer het opnieuw.',
+                'photo' => $message,
             ]);
         }
 
@@ -658,9 +674,14 @@ final class SurveyWorkspaceController extends Controller
                 : $stored.' foto\'s opgeslagen bij '.$subject->label.'.';
         }
 
-        if ($failedNames !== []) {
-            $failedLabel = implode(', ', array_values(array_unique($failedNames)));
-            $message = $stored.' van '.$total.' foto\'s opgeslagen. '.$failedLabel.' lukte niet.';
+        if ($failures !== []) {
+            $parts = [];
+            foreach ($failures as $failure) {
+                $parts[] = $failure['reason'] !== null
+                    ? $failure['name'].': '.$failure['reason']
+                    : $failure['name'].' lukte niet. Probeer het opnieuw.';
+            }
+            $message = $stored.' van '.$total.' foto\'s opgeslagen. '.implode(' ', $parts);
         }
 
         return $this->back($intake, $message);

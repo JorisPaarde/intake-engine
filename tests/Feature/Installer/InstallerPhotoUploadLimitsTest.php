@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Domains\AI\Clients\FakeAiClient;
+use App\Domains\AI\Models\AiRun;
 use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\AircoSurveyService;
@@ -160,45 +162,121 @@ test('installer storeEvidence houdt geslaagde foto\'s bij als latere foto faalt'
             ->assertRedirect(route('intakes.workspace', $intake))
             ->assertSessionHas('status');
 
+        $status = (string) session('status');
         expect($intake->uploads()->count())->toBe(1)
-            ->and((string) session('status'))->toContain('1 van 2 foto')
-            ->and((string) session('status'))->toContain('kapot.jpg');
+            ->and($status)->toContain('1 van 2 foto')
+            ->and($status)->toContain('kapot.jpg')
+            ->and($status)->toContain('kon niet automatisch worden verwerkt');
     } finally {
         @unlink($corruptPath);
     }
 });
 
-test('PostTooLargeException op installer foto-route geeft Nederlandse redirect', function () {
+test('installer storeEvidence toont te-groot-melding bij UPLOAD_ERR_INI_SIZE', function () {
     $user = User::factory()->create();
     [$intake, $room] = createPhotoLimitSurvey($user);
 
-    $url = route('intakes.workspace.photos.store', [$intake, $room->subject], absolute: false);
-    $request = Request::create($url, 'POST');
-    $request->headers->set('referer', route('intakes.workspace', $intake));
-    $request->setLaravelSession(app('session.store'));
+    $path = tempnam(sys_get_temp_dir(), 'ini-size-').'.jpg';
+    file_put_contents($path, 'x');
+    $tooLarge = new UploadedFile($path, 'huge.jpg', 'image/jpeg', UPLOAD_ERR_INI_SIZE, true);
 
-    $response = app(ExceptionHandler::class)->render(
-        $request,
-        new PostTooLargeException,
-    );
+    try {
+        $this->actingAs($user)
+            ->from(route('intakes.workspace', $intake))
+            ->post(route('intakes.workspace.photos.store', [$intake, $room->subject]), [
+                'photo' => [$tooLarge],
+            ])
+            ->assertRedirect(route('intakes.workspace', $intake))
+            ->assertSessionHasErrors('photo');
 
-    expect($response->getStatusCode())->toBe(302);
-
-    $session = app('session.store');
-    $errors = $session->get('errors');
-    expect($errors)->not->toBeNull()
-        ->and($errors->first('photo'))->toContain('te groot voor één upload');
+        expect(session('errors')->first('photo'))->toBe(PhotoUploadLimits::tooLargeMessage());
+    } finally {
+        @unlink($path);
+    }
 });
 
-test('PostTooLargeException op andere route blijft standaard (geen photo-redirect)', function () {
-    $request = Request::create('/intakes', 'POST');
-    $request->setLaravelSession(app('session.store'));
+test('PostTooLargeException op installer foto-route geeft Nederlandse 413-pagina', function () {
+    $user = User::factory()->create();
+    [$intake, $room] = createPhotoLimitSurvey($user);
+
+    $workspaceUrl = route('intakes.workspace', $intake);
+    $url = route('intakes.workspace.photos.store', [$intake, $room->subject], absolute: false);
+    // No session — production ValidatePostSize path has none either.
+    $request = Request::create($url, 'POST', server: [
+        'HTTP_REFERER' => $workspaceUrl,
+    ]);
+    $this->app->instance('request', $request);
 
     $response = app(ExceptionHandler::class)->render(
         $request,
         new PostTooLargeException,
     );
 
-    // Default Laravel handler → 413, not a workspace photo redirect.
-    expect($response->getStatusCode())->toBe(413);
+    $content = (string) $response->getContent();
+    expect($response->getStatusCode())->toBe(413)
+        ->and($content)->toContain('data-testid="post-too-large-back"')
+        ->and($content)->toContain('te groot voor één upload')
+        ->and($content)->toContain('Terug naar opname')
+        ->and($content)->toContain(parse_url($workspaceUrl, PHP_URL_PATH) ?: $workspaceUrl);
+});
+
+test('PostTooLargeException op andere route blijft standaard (geen photo-pagina)', function () {
+    $request = Request::create('/dashboard', 'POST');
+    $this->app->instance('request', $request);
+
+    expect($request->path())->toBe('dashboard')
+        ->and($request->is('intakes/*/opname/subjects/*/photos'))->toBeFalse();
+
+    $response = app(ExceptionHandler::class)->render(
+        $request,
+        new PostTooLargeException,
+    );
+
+    $content = (string) $response->getContent();
+    // Default Laravel/Ignition 413 — not our Dutch workspace photo page
+    // (Ignition may embed bootstrap/app.php source that mentions the Dutch copy).
+    expect($response->getStatusCode())->toBe(413)
+        ->and($content)->not->toContain('data-testid="post-too-large-back"')
+        ->and($content)->toContain('PostTooLargeException');
+});
+
+test('installer multi-foto runt sync AI alleen voor de eerste opgeslagen foto', function () {
+    config([
+        'ai.provider' => 'fake',
+        'ai.photo_inference.enabled' => true,
+    ]);
+    FakeAiClient::reset();
+    FakeAiClient::alwaysReturn([
+        'observations' => [[
+            'text' => 'Muur lijkt bereikbaar vanaf de grond.',
+            'impact' => 'installation',
+            'confidence' => 0.9,
+        ]],
+    ]);
+
+    $user = User::factory()->create();
+    [$intake, $room] = createPhotoLimitSurvey($user);
+
+    $this->actingAs($user)
+        ->post(route('intakes.workspace.photos.store', [$intake, $room->subject]), [
+            'photo' => [
+                UploadedFile::fake()->image('een.jpg', 800, 600),
+                UploadedFile::fake()->image('twee.jpg', 800, 600),
+            ],
+        ])
+        ->assertRedirect();
+
+    expect($intake->uploads()->count())->toBe(2)
+        ->and(AiRun::query()->where('intake_id', $intake->id)->count())->toBe(1);
+});
+
+test('installer photo form listens on document and scopes prep by input id', function () {
+    $blade = (string) file_get_contents(resource_path('views/installer/intakes/_subject-tools.blade.php'));
+
+    expect($blade)->toContain('intake:photo-prep-start.document')
+        ->and($blade)->toContain('matchesScope(event)')
+        ->and($blade)->toContain('inputId')
+        ->and($blade)->toContain('x-bind:disabled="prepBusy"')
+        ->and($blade)->not->toContain('@error(\'photo\')')
+        ->and($blade)->toContain(':key="index"');
 });
