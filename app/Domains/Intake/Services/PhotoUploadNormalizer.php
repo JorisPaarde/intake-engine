@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Services;
 
+use App\Domains\Intake\Support\PhotoUploadLimits;
 use GdImage;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
@@ -135,12 +136,17 @@ final class PhotoUploadNormalizer
         try {
             // Shrink-on-load for JPEG: libjpeg DCT-scales during decode so a 12 MP
             // phone photo never materialises at full resolution (staging intake 82 ~79 s).
+            // Cap each axis independently (never a square hint larger than the source
+            // width/height — that upscales 4032×3024 on the short side).
             if ($mime === 'image/jpeg') {
-                // Hint ~2× the dossier edge — Imagick/libjpeg often decodes a bit larger
-                // than requested; we then thumbnail once to exact dossier size.
                 $hintEdge = max(64, $dossierMax * 2);
-                $jpegSizeHint = $hintEdge.'x'.$hintEdge;
-                $source->setOption('jpeg:size', $jpegSizeHint);
+                $sourceLongEdge = max($originalWidth, $originalHeight);
+                if ($sourceLongEdge > $dossierMax && $originalWidth > 1 && $originalHeight > 1) {
+                    $hintW = min($hintEdge, $originalWidth);
+                    $hintH = min($hintEdge, $originalHeight);
+                    $jpegSizeHint = $hintW.'x'.$hintH;
+                    $source->setOption('jpeg:size', $jpegSizeHint);
+                }
             }
 
             $source->readImage($sourcePath);
@@ -180,6 +186,10 @@ final class PhotoUploadNormalizer
                 $originalWidth = max(1, $source->getImageWidth());
                 $originalHeight = max(1, $source->getImageHeight());
             }
+
+            // Safety net: never keep pixels larger than the true original
+            // (jpeg:size / decoder quirks must not upscale).
+            $this->clampImagickToOriginal($source, $originalWidth, $originalHeight);
 
             // One working resize to the largest variant; analysis is derived from it.
             $this->resizeImagick($source, $dossierMax);
@@ -314,6 +324,41 @@ final class PhotoUploadNormalizer
     }
 
     /**
+     * If decode produced more pixels than the source, shrink back.
+     * Compare long/short edges so EXIF autoOrient (5–8) does not clamp against
+     * unrotated ping dimensions (1600×1200 + orient 6 → 1200×1600, not 900×1200).
+     */
+    private function clampImagickToOriginal(Imagick $image, int $originalWidth, int $originalHeight): void
+    {
+        if ($originalWidth <= 1 || $originalHeight <= 1) {
+            return;
+        }
+
+        $width = $image->getImageWidth();
+        $height = $image->getImageHeight();
+
+        $origLong = max($originalWidth, $originalHeight);
+        $origShort = min($originalWidth, $originalHeight);
+        $imgLong = max($width, $height);
+        $imgShort = min($width, $height);
+
+        if ($imgLong <= $origLong && $imgShort <= $origShort) {
+            return;
+        }
+
+        $scale = min($origLong / max(1, $imgLong), $origShort / max(1, $imgShort), 1.0);
+        if ($scale >= 1.0) {
+            return;
+        }
+
+        $image->thumbnailImage(
+            max(1, (int) round($width * $scale)),
+            max(1, (int) round($height * $scale)),
+            true,
+        );
+    }
+
+    /**
      * @return array{
      *     dossier_width: int,
      *     dossier_height: int,
@@ -355,7 +400,11 @@ final class PhotoUploadNormalizer
             $dossierMax = (int) config('intake.uploads.dossier.max_long_edge', 2048);
             // Drop full-resolution pixels before writing variants (BL-141).
             // GD has no jpeg:size equivalent — one full decode, then shrink once.
-            $image = $this->downscaleGdWorkingImage($image, $dossierMax);
+            // Never enlarge: cap at min(dossierMax, original long edge).
+            $image = $this->downscaleGdWorkingImage(
+                $image,
+                min($dossierMax, max($originalWidth, $originalHeight)),
+            );
 
             $dossierDims = $this->writeGdVariant(
                 $image,
@@ -588,13 +637,9 @@ final class PhotoUploadNormalizer
 
     private function ensureWithinMaxSize(int $sizeBytes): void
     {
-        if ($sizeBytes <= $this->maxBytes()) {
-            return;
-        }
-
-        throw ValidationException::withMessages([
-            'photo' => 'Deze foto is te groot. Maximaal '.$this->maxMegabytes().' MB.',
-        ]);
+        // Incoming source may be a phone original (≤ hard max); processed variants
+        // are still capped by max_kilobytes in write*Variant (demotest 8 okt taak 3).
+        PhotoUploadLimits::assertAcceptable($sizeBytes);
     }
 
     private function maxBytes(): int

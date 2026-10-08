@@ -13,6 +13,7 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\FollowUpProgressCalculator;
+use App\Domains\Intake\Support\PhotoCustomerStatus;
 use App\Enums\AiRunType;
 use App\Enums\AiTraceCallType;
 use App\Enums\FollowUpItemType;
@@ -155,9 +156,13 @@ test('AI-fout of timeout leidt tot not_assessed soft-fail met klanttekst', funct
         ->and($upload->contentAssessment()?->customerMessage())
         ->toBe('We konden je foto nu niet automatisch beoordelen; de installateur kijkt mee.');
 
+    // Per-thumb status is "Foto ontvangen." for not_assessed; override UI stays.
     $component->call('pollPendingAssessments')
         ->assertSet('uploadPhase', '')
-        ->assertSee('We konden je foto nu niet automatisch beoordelen');
+        ->assertSee(PhotoCustomerStatus::RECEIVED)
+        ->assertSee('Vervang foto')
+        ->assertSee('Toch versturen')
+        ->assertSee('Nieuwe foto nodig');
 
     $progress = app(FollowUpProgressCalculator::class)->calculate(collect([$item->fresh()->load('uploads')]));
     expect($progress['percent'])->toBe(0)

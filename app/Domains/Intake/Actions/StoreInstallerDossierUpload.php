@@ -14,6 +14,7 @@ use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\InstallerSurveyProgress;
 use App\Domains\Intake\Services\PhotoUploadNormalizer;
+use App\Domains\Intake\Support\PhotoUploadLimits;
 use App\Enums\AiTraceCallType;
 use App\Enums\IntakeStatus;
 use App\Models\User;
@@ -50,13 +51,7 @@ final class StoreInstallerDossierUpload
             ]);
         }
 
-        $maxKilobytes = (int) config('intake.uploads.max_kilobytes', 8192);
-
-        if ($file->getSize() !== false && $file->getSize() > $maxKilobytes * 1024) {
-            throw ValidationException::withMessages([
-                'photo' => 'Deze foto is te groot. Maximaal '.($maxKilobytes / 1024).' MB.',
-            ]);
-        }
+        PhotoUploadLimits::assertUploadedFileAcceptable($file);
 
         $preprocessStarted = microtime(true);
         $normalized = $this->normalizer->normalize($file);

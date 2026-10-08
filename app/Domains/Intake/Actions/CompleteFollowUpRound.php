@@ -14,11 +14,11 @@ use App\Domains\Intake\Models\IntakeFollowUpRound;
 use App\Domains\Intake\Services\DecisionReadinessService;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\RebuildIntakeReportHtml;
+use App\Domains\Intake\Support\PhotoAssessmentSoftTimeout;
 use App\Domains\Intake\Support\PhotoOverridePolicy;
 use App\Enums\FollowUpItemType;
 use App\Enums\FollowUpRoundStatus;
 use App\Enums\IntakeStatus;
-use App\Enums\PhotoAssessmentStatus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -76,13 +76,10 @@ final class CompleteFollowUpRound
                 }
 
                 if ($item->type === FollowUpItemType::Photo) {
+                    // Soft-timeout matches the client (ui_soft_timeout_seconds): after that
+                    // the customer may send; pending assessment finishes in the background.
                     $pendingAssessment = $item->uploads->contains(
-                        static function ($upload): bool {
-                            $status = $upload->assessment_status;
-
-                            // BL-127: wait until terminal pipeline status (not only content_assessment).
-                            return ! ($status instanceof PhotoAssessmentStatus && $status->isTerminal());
-                        },
+                        static fn ($upload): bool => PhotoAssessmentSoftTimeout::blocksCustomerProgress($upload),
                     );
 
                     if ($pendingAssessment) {

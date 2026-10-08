@@ -37,6 +37,7 @@ use App\Domains\Intake\Services\ExternalFactPresenter;
 use App\Domains\Intake\Services\InstallationOptionPreferenceService;
 use App\Domains\Intake\Services\InstallerPhotoGalleryBuilder;
 use App\Domains\Intake\Support\CustomerFacingTaskText;
+use App\Domains\Intake\Support\PhotoUploadLimits;
 use App\Enums\AircoConfigurationType;
 use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
@@ -542,47 +543,168 @@ final class SurveyWorkspaceController extends Controller
     ): RedirectResponse {
         $this->authorize('update', $intake);
         $this->guardWorkspaceSubject($intake, $subject);
-        $data = $request->validate([
-            'photo' => ['required', 'file', 'max:'.config('intake.uploads.max_kilobytes', 8192)],
-            'route_segment_label' => ['nullable', 'string', 'max:160'],
-        ]);
+
+        $maxFiles = max(1, (int) config('intake.uploads.max_files_per_question', 5));
+
+        $data = $request->validate(
+            ['route_segment_label' => ['nullable', 'string', 'max:160']],
+            [],
+            ['route_segment_label' => 'omschrijving'],
+        );
+
+        $photos = $this->normalizeInstallerPhotoUploads($request);
+
+        if ($photos === []) {
+            throw ValidationException::withMessages([
+                'photo' => 'Kies minstens één foto.',
+            ]);
+        }
+
+        if (count($photos) > $maxFiles) {
+            throw ValidationException::withMessages([
+                'photo' => 'Je kunt maximaal '.$maxFiles.' foto\'s tegelijk uploaden.',
+            ]);
+        }
+
+        foreach ($photos as $photo) {
+            if (! $photo->isValid()) {
+                $uploadError = $photo->getError();
+                if (in_array($uploadError, [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)) {
+                    throw ValidationException::withMessages([
+                        'photo' => PhotoUploadLimits::tooLargeMessage(),
+                    ]);
+                }
+
+                throw ValidationException::withMessages([
+                    'photo' => 'Kies een geldige foto.',
+                ]);
+            }
+
+            if (! str_starts_with((string) $photo->getMimeType(), 'image/')
+                && ! in_array(strtolower((string) $photo->getClientOriginalExtension()), ['heic', 'heif', 'jpg', 'jpeg', 'png', 'webp'], true)) {
+                throw ValidationException::withMessages([
+                    'photo' => $photo->getClientOriginalName().' is geen foto en is niet meegenomen.',
+                ]);
+            }
+
+            PhotoUploadLimits::assertUploadedFileAcceptable($photo);
+        }
+
         $connection = $subject->type === 'airco_connection'
             ? AircoConnection::query()
                 ->where('intake_id', $intake->id)
                 ->where('dossier_subject_id', $subject->id)
                 ->firstOrFail()
             : null;
-        $photo = $request->file('photo');
-        abort_unless($photo instanceof UploadedFile, 422);
-        $upload = $storeUpload->handle(
-            $intake,
-            $this->user($request),
-            $subject,
-            $photo,
-        );
 
-        if ($connection instanceof AircoConnection) {
-            $session = $startRoute->handle($intake, $connection);
-            $addRoutePhoto->handle($session, $upload, $data['route_segment_label'] ?? null);
-        } else {
-            $run = $suggestPhotoObservations->handle($intake, $subject, $upload);
+        $stored = 0;
+        $hasSuggestion = false;
+        $session = null;
+        /** @var list<array{name: string, reason: string|null}> $failures */
+        $failures = [];
+        $total = count($photos);
+        $suggestRan = false;
+
+        foreach ($photos as $photo) {
+            $photoName = $photo->getClientOriginalName() ?: 'foto';
+
+            try {
+                $upload = $storeUpload->handle(
+                    $intake,
+                    $this->user($request),
+                    $subject,
+                    $photo,
+                );
+                $stored++;
+
+                if ($connection instanceof AircoConnection) {
+                    $session ??= $startRoute->handle($intake, $connection);
+                    $addRoutePhoto->handle($session, $upload, $data['route_segment_label'] ?? null);
+                } elseif (! $suggestRan) {
+                    // Narrowest multi-upload option: sync AI only for the first stored
+                    // photo in this request (max 5 files). Later photos skip the call.
+                    $suggestRan = true;
+                    $run = $suggestPhotoObservations->handle($intake, $subject, $upload);
+                    if ($run !== null) {
+                        $hasSuggestion = DossierRecord::query()
+                            ->where('intake_id', $intake->id)
+                            ->where('source_type', 'ai')
+                            ->where('source_id', $run->id)
+                            ->where('status', DossierRecordStatus::Proposed)
+                            ->exists();
+                    }
+                }
+            } catch (ValidationException $exception) {
+                $reason = $exception->errors()['photo'][0] ?? null;
+                $failures[] = [
+                    'name' => $photoName,
+                    'reason' => is_string($reason) && $reason !== '' ? $reason : null,
+                ];
+                report($exception);
+            } catch (\Throwable $exception) {
+                $failures[] = [
+                    'name' => $photoName,
+                    'reason' => null,
+                ];
+                report($exception);
+            }
         }
 
-        $hasSuggestion = isset($run) && DossierRecord::query()
-            ->where('intake_id', $intake->id)
-            ->where('source_type', 'ai')
-            ->where('source_id', $run->id)
-            ->where('status', DossierRecordStatus::Proposed)
-            ->exists();
+        if ($stored === 0) {
+            $first = $failures[0] ?? ['name' => 'foto', 'reason' => null];
+            $message = $first['reason']
+                ?? ($first['name'].' kon niet worden opgeslagen. Probeer het opnieuw.');
 
-        return $this->back(
-            $intake,
-            $connection instanceof AircoConnection
+            throw ValidationException::withMessages([
+                'photo' => $message,
+            ]);
+        }
+
+        if ($connection instanceof AircoConnection) {
+            $message = $stored === 1
                 ? 'Foto opgeslagen als routesegment.'
-                : ($hasSuggestion
-                    ? 'Foto opgeslagen. Controleer wat de AI voorstelt.'
-                    : 'Foto opgeslagen bij '.$subject->label.'.'),
-        );
+                : $stored.' foto\'s opgeslagen als routesegment.';
+        } elseif ($hasSuggestion) {
+            $message = $stored === 1
+                ? 'Foto opgeslagen. Controleer wat de AI voorstelt.'
+                : $stored.' foto\'s opgeslagen. Controleer wat de AI voorstelt.';
+        } else {
+            $message = $stored === 1
+                ? 'Foto opgeslagen bij '.$subject->label.'.'
+                : $stored.' foto\'s opgeslagen bij '.$subject->label.'.';
+        }
+
+        if ($failures !== []) {
+            $parts = [];
+            foreach ($failures as $failure) {
+                $parts[] = $failure['reason'] !== null
+                    ? $failure['name'].': '.$failure['reason']
+                    : $failure['name'].' lukte niet. Probeer het opnieuw.';
+            }
+            $message = $stored.' van '.$total.' foto\'s opgeslagen. '.implode(' ', $parts);
+        }
+
+        return $this->back($intake, $message);
+    }
+
+    /**
+     * Accept both legacy single `photo` and multi `photo[]` uploads.
+     *
+     * @return list<UploadedFile>
+     */
+    private function normalizeInstallerPhotoUploads(Request $request): array
+    {
+        $raw = $request->file('photo');
+
+        if ($raw instanceof UploadedFile) {
+            return [$raw];
+        }
+
+        if (! is_array($raw) || $raw === []) {
+            return [];
+        }
+
+        return array_values($raw);
     }
 
     public function requestContribution(

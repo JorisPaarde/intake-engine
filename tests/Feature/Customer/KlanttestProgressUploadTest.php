@@ -295,7 +295,7 @@ test('na opslaan staat uploadPhase assessing zonder sync AI-call', function () {
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->set('photoFiles.fusebox_photo', p2BrightUpload())
         ->assertSet('uploadPhase', 'assessing')
-        ->assertSet('uploadPhaseMessage', 'Foto beoordelen…')
+        ->assertSet('uploadPhaseMessage', 'We bekijken je foto…')
         ->assertSet('uploadPhaseComposite', 'fusebox_photo');
 
     Queue::assertPushedOn('ai-photo', AssessUploadedPhotoJob::class);

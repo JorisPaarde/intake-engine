@@ -92,30 +92,75 @@
                     $remainingSlots = max(0, $maxPhotos - $item->uploads->count());
                 @endphp
 
+                @php
+                    $followUpComposite = (string) $item->id;
+                    $assessmentPollPending = ! empty($pendingAssessUploadIds[$followUpComposite] ?? []);
+                    $assessmentPollActive = (string) ($uploadPhase ?? '') === 'assessing'
+                        && (string) ($uploadPhaseComposite ?? '') === $followUpComposite;
+                    $assessmentQuietPoll = in_array($followUpComposite, $assessmentUiReleased ?? [], true);
+                    $assessmentPollInterval = $assessmentQuietPoll ? '5s' : '2s';
+                @endphp
+                @if ($assessmentPollPending || $assessmentPollActive)
+                    <div
+                        wire:key="assessment-poll-{{ $followUpComposite }}-{{ $assessmentPollInterval }}"
+                        wire:poll.{{ $assessmentPollInterval }}='pollPendingAssessments(@json($followUpComposite))'
+                        class="hidden"
+                        data-testid="assessment-poll"
+                        data-poll-composite="{{ $followUpComposite }}"
+                        aria-hidden="true"
+                    ></div>
+                @endif
+
                 @if ($item->uploads->isNotEmpty())
                     <ul class="grid grid-cols-2 gap-3">
                         @foreach ($item->uploads as $upload)
-                            <li class="relative overflow-hidden rounded-md border border-brand-fog bg-brand-mist/30">
-                                <img
-                                    src="{{ route('customer.uploads.show', ['token' => $token, 'upload' => $upload]) }}"
-                                    alt="Aanvullende foto"
-                                    class="aspect-square w-full object-cover"
-                                >
-                                <button
-                                    type="button"
-                                    wire:click="removeFollowUpUpload({{ $item->id }}, {{ $upload->id }})"
-                                    wire:loading.attr="disabled"
-                                    class="absolute inset-x-0 bottom-0 bg-brand-ink/75 px-2 py-1.5 text-xs font-semibold text-white"
-                                >
-                                    Verwijderen
-                                </button>
+                            @php
+                                $photoStatusLabel = \App\Domains\Intake\Support\PhotoCustomerStatus::forUpload(
+                                    $upload,
+                                    (string) $item->id,
+                                    (string) ($uploadPhase ?? ''),
+                                    (string) ($uploadPhaseComposite ?? ''),
+                                    $pendingAssessUploadIds[(string) $item->id] ?? [],
+                                    $assessmentUiReleased ?? [],
+                                );
+                            @endphp
+                            <li class="overflow-hidden rounded-md border border-brand-fog bg-brand-mist/30" data-testid="photo-thumb-status" data-upload-id="{{ $upload->id }}">
+                                <div class="relative">
+                                    <img
+                                        src="{{ route('customer.uploads.show', ['token' => $token, 'upload' => $upload]) }}"
+                                        alt="Aanvullende foto"
+                                        class="aspect-square w-full object-cover"
+                                    >
+                                    <button
+                                        type="button"
+                                        wire:click="removeFollowUpUpload({{ $item->id }}, {{ $upload->id }})"
+                                        wire:loading.attr="disabled"
+                                        class="absolute inset-x-0 bottom-0 bg-brand-ink/75 px-2 py-1.5 text-xs font-semibold text-white"
+                                    >
+                                        Verwijderen
+                                    </button>
+                                </div>
+                                <p class="px-2 py-1.5 text-xs font-medium text-brand-ink/80" data-photo-status="1">
+                                    {{ $photoStatusLabel }}
+                                </p>
+                                @if (\App\Domains\Intake\Support\PhotoOverridePolicy::needsOverride($upload))
+                                    <button
+                                        type="button"
+                                        wire:click="replaceFollowUpSinglePhoto({{ $item->id }}, {{ $upload->id }})"
+                                        wire:loading.attr="disabled"
+                                        class="w-full border-t border-brand-fog bg-white px-2 py-1.5 text-xs font-semibold text-brand-sea"
+                                        data-testid="photo-replace-one"
+                                    >
+                                        Vervang foto
+                                    </button>
+                                @endif
                             </li>
                         @endforeach
                     </ul>
                 @endif
 
                 @if ($remainingSlots > 0)
-                    <div class="mt-3">
+                    <div class="mt-3" wire:key="follow-up-photo-control-{{ $item->id }}">
                         <x-customer.photo-upload-control
                             :composite="(string) $item->id"
                             wire-model="followUpPhotoFiles.{{ $item->id }}"
@@ -149,13 +194,7 @@
                 @if ($followUpMismatchAssessment || ! empty($followUpNeedsOverride))
                     <div class="mt-3 space-y-3 rounded-md border border-brand-ember/30 bg-white px-3 py-3" role="alert" data-testid="follow-up-mismatch">
                         <p class="text-sm text-brand-ink">
-                            @if ($followUpMismatchAssessment)
-                                {{ $followUpMismatchAssessment->customerMessage() ?? 'Deze foto lijkt niet bij de vraag te horen.' }}
-                            @elseif (! empty($followUpPhotoHint))
-                                {{ $followUpPhotoHint }}
-                            @else
-                                Deze foto is nog niet goed genoeg. Vervang hem of kies expliciet “Toch versturen”.
-                            @endif
+                            {{ \App\Domains\Intake\Support\PhotoOverridePolicy::OVERRIDE_MESSAGE }}
                         </p>
                         @error('follow_up')
                             <p class="text-sm font-medium text-brand-ember" data-testid="follow-up-mismatch-warning">
@@ -163,13 +202,6 @@
                             </p>
                         @enderror
                         <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-                            <button
-                                type="button"
-                                wire:click="replaceFollowUpMismatchedPhoto"
-                                class="min-h-11 rounded-md bg-brand-sea px-4 text-sm font-semibold text-white"
-                            >
-                                Vervang foto
-                            </button>
                             <button
                                 type="button"
                                 wire:click="acceptFollowUpPhotoMismatch"

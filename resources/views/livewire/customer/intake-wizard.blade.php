@@ -422,41 +422,85 @@
                                         $remainingSlots = max(0, $maxFiles - $existingUploads->count());
                                     @endphp
 
+                                    @php
+                                        $assessmentPollPending = ! empty($pendingAssessUploadIds[$composite] ?? []);
+                                        $assessmentPollActive = (string) ($uploadPhase ?? '') === 'assessing'
+                                            && (string) ($uploadPhaseComposite ?? '') === $composite;
+                                        $assessmentQuietPoll = in_array($composite, $assessmentUiReleased ?? [], true);
+                                        $assessmentPollInterval = $assessmentQuietPoll ? '5s' : '2s';
+                                    @endphp
+                                    @if ($assessmentPollPending || $assessmentPollActive)
+                                        <div
+                                            wire:key="assessment-poll-{{ $composite }}-{{ $assessmentPollInterval }}"
+                                            wire:poll.{{ $assessmentPollInterval }}='pollPendingAssessments(@json($composite))'
+                                            class="hidden"
+                                            data-testid="assessment-poll"
+                                            data-poll-composite="{{ $composite }}"
+                                            aria-hidden="true"
+                                        ></div>
+                                    @endif
+
                                     @if ($existingUploads->isNotEmpty())
                                         <ul class="grid grid-cols-2 gap-3">
                                             @foreach ($existingUploads as $upload)
-                                                <li class="relative overflow-hidden rounded-xl border border-[#dde2da] bg-[#eef1ec]">
-                                                    <img
-                                                        src="{{ route('customer.uploads.show', ['token' => $token, 'upload' => $upload]) }}"
-                                                        alt="{{ $upload->original_filename }}"
-                                                        class="aspect-square w-full object-cover"
-                                                    >
-                                                    <button
-                                                        type="button"
-                                                        wire:click="removePhoto({{ $upload->id }})"
-                                                        wire:loading.attr="disabled"
-                                                        class="absolute inset-x-0 bottom-0 bg-[#18201d] px-2 py-1.5 text-xs font-semibold text-white"
-                                                    >
-                                                        Verwijderen
-                                                    </button>
+                                                @php
+                                                    $photoStatusLabel = \App\Domains\Intake\Support\PhotoCustomerStatus::forUpload(
+                                                        $upload,
+                                                        $composite,
+                                                        (string) ($uploadPhase ?? ''),
+                                                        (string) ($uploadPhaseComposite ?? ''),
+                                                        $pendingAssessUploadIds[$composite] ?? [],
+                                                        $assessmentUiReleased ?? [],
+                                                    );
+                                                @endphp
+                                                <li class="overflow-hidden rounded-xl border border-[#dde2da] bg-[#eef1ec]" data-testid="photo-thumb-status" data-upload-id="{{ $upload->id }}">
+                                                    <div class="relative">
+                                                        <img
+                                                            src="{{ route('customer.uploads.show', ['token' => $token, 'upload' => $upload]) }}"
+                                                            alt="{{ $upload->original_filename }}"
+                                                            class="aspect-square w-full object-cover"
+                                                        >
+                                                        <button
+                                                            type="button"
+                                                            wire:click="removePhoto({{ $upload->id }})"
+                                                            wire:loading.attr="disabled"
+                                                            class="absolute inset-x-0 bottom-0 bg-[#18201d] px-2 py-1.5 text-xs font-semibold text-white"
+                                                        >
+                                                            Verwijderen
+                                                        </button>
+                                                    </div>
+                                                    <p class="px-2 py-1.5 text-xs font-medium text-[#414b45]" data-photo-status="1">
+                                                        {{ $photoStatusLabel }}
+                                                    </p>
+                                                    @if (\App\Domains\Intake\Support\PhotoOverridePolicy::needsOverride($upload))
+                                                        <button
+                                                            type="button"
+                                                            wire:click="replaceSinglePhoto({{ $upload->id }})"
+                                                            wire:loading.attr="disabled"
+                                                            class="w-full border-t border-[#dde2da] bg-white px-2 py-1.5 text-xs font-semibold text-[var(--tenant-primary)]"
+                                                            data-testid="photo-replace-one"
+                                                        >
+                                                            Vervang foto
+                                                        </button>
+                                                    @endif
                                                 </li>
                                             @endforeach
                                         </ul>
 
-                                        @php($photoStatus = $existingUploads->every(fn ($uploadItem) => $uploadItem->assessment_status instanceof \App\Enums\PhotoAssessmentStatus && $uploadItem->assessment_status->isTerminal()) ? 'Beoordeeld' : 'Ontvangen')
-                                        <p class="text-xs font-medium text-[#5e6862]" data-testid="photo-receipt-status">Status: {{ $photoStatus }}</p>
+                                        @php
+                                            $allTerminal = $existingUploads->every(
+                                                fn ($uploadItem) => $uploadItem->assessment_status instanceof \App\Enums\PhotoAssessmentStatus
+                                                    && $uploadItem->assessment_status->isTerminal()
+                                            );
+                                            $photoReceiptStatus = $allTerminal ? 'Beoordeeld' : 'Ontvangen';
+                                        @endphp
+                                        <p class="text-xs font-medium text-[#5e6862]" data-testid="photo-receipt-status">Status: {{ $photoReceiptStatus }}</p>
 
                                         {{-- Direct onder de foto, boven de sticky balk. --}}
                                         @if ($photoMismatchAssessment || ! empty($photoNeedsOverride))
                                             <div class="space-y-3 rounded-xl border border-[#eac3b4] bg-white px-3 py-3" role="alert" data-testid="photo-mismatch-panel" wire:key="mismatch-{{ $composite }}">
                                                 <p class="text-sm text-[#414b45]">
-                                                    @if ($photoMismatchAssessment)
-                                                        {{ $photoMismatchAssessment->customerMessage() ?? "Deze foto lijkt niet bij de vraag te horen." }}
-                                                    @elseif (! empty($displayPhotoHint[$composite]))
-                                                        {{ $displayPhotoHint[$composite] }}
-                                                    @else
-                                                        Deze foto is nog niet goed genoeg. Vervang hem of kies expliciet “Toch doorgaan”.
-                                                    @endif
+                                                    {{ \App\Domains\Intake\Support\PhotoOverridePolicy::OVERRIDE_MESSAGE_WIZARD }}
                                                 </p>
                                                 @if ($showMissing)
                                                     <p class="text-sm font-medium text-[#a84832]" data-testid="mismatch-next-warning">
@@ -466,15 +510,9 @@
                                                 <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
                                                     <button
                                                         type="button"
-                                                        wire:click="replaceMismatchedPhoto"
-                                                        class="min-h-11 rounded-xl bg-[var(--tenant-primary)] px-4 text-sm font-semibold text-[var(--tenant-on-primary)]"
-                                                    >
-                                                        Vervang foto
-                                                    </button>
-                                                    <button
-                                                        type="button"
                                                         wire:click="acceptPhotoMismatch"
                                                         class="min-h-11 rounded-xl border border-[#dde2da] bg-[#eef1ec] px-4 text-sm font-semibold text-[#18201d]"
+                                                        data-testid="photo-accept-mismatch"
                                                     >
                                                         Toch doorgaan
                                                     </button>
