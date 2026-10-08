@@ -32,10 +32,12 @@ class IntakeUploadController extends Controller
             'X-Content-Type-Options' => 'nosniff',
         ];
 
+        $filename = $upload->downloadFilename();
+
         if (! str_starts_with($upload->mime_type, 'image/')) {
-            return $disk->download($upload->path, $upload->original_filename, $headers);
+            return $disk->download($upload->path, $filename, $headers);
         }
 
-        return $disk->response($upload->path, $upload->original_filename, $headers);
+        return $disk->response($upload->path, $filename, $headers);
     }
 }
