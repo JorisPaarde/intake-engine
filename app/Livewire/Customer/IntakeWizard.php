@@ -353,7 +353,12 @@ class IntakeWizard extends Component
         // Herstelt ook eerder aangemaakte opnames waarvan de installateur de openingszin
         // al invulde. Alleen de lokale, evidente parser draait hier; een externe call
         // hoort niet stil bij iedere geopende klantlink te starten.
-        app(DeriveIntentFromRequest::class)->handle($intake, allowExternal: false);
+        // skipIfCustomerStarted: mount mag late prefill niet herhalen na klantstart.
+        app(DeriveIntentFromRequest::class)->handle(
+            $intake,
+            allowExternal: false,
+            skipIfCustomerStarted: true,
+        );
         $intake = $intake->fresh() ?? $intake;
         $this->resolvedIntake = $intake->loadMissing(['answers', 'uploads']);
 

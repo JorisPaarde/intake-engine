@@ -177,7 +177,6 @@ return [
     'request_prefill' => [
         'sync_on_create' => filter_var(env('AI_PREFILL_SYNC_ON_CREATE', false), FILTER_VALIDATE_BOOLEAN),
         'wizard_wait_seconds' => (int) env('AI_PREFILL_WIZARD_WAIT_SECONDS', 20),
-        'pending_window_seconds' => (int) env('AI_PREFILL_PENDING_WINDOW_SECONDS', 300),
     ],
 
     'dossier' => [
@@ -193,16 +192,14 @@ return [
     | Automatische dossiersynthese (keuze 1A)
     |--------------------------------------------------------------------------
     |
-    | Na installatiekeuze: DebouncedSynthesizeSurveyDossierJob (~delay_seconds,
-    | unique until processing). auto_after_notes=true laat notities/observaties
-    | dezelfde debounced path starten (alternatief B). CompleteIntake-keten blijft
-    | SynthesizeSurveyDossierJob zonder uniqueness.
+    | Na installatiekeuze: SynthesizeSurveyDossierJob::dispatchDebounced (preserve,
+    | delay 20s, unique until processing). auto_after_notes=true laat notities
+    | dezelfde path starten (alternatief B). CompleteIntake-keten blijft replace.
     |
     */
 
     'dossier_synthesis' => [
         'auto_after_notes' => filter_var(env('AI_SYNTHESIS_AUTO_AFTER_NOTES', false), FILTER_VALIDATE_BOOLEAN),
-        'delay_seconds' => (int) env('AI_SYNTHESIS_DELAY_SECONDS', 20),
     ],
 
     /*

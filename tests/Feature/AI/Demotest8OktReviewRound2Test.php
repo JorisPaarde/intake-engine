@@ -8,8 +8,8 @@ use App\Domains\AI\Actions\SynthesizeSurveyDossier;
 use App\Domains\AI\Clients\FakeAiClient;
 use App\Domains\AI\DTOs\AiCompletionRequest;
 use App\Domains\AI\DTOs\RequestPrefillCandidate;
-use App\Domains\AI\Jobs\DebouncedSynthesizeSurveyDossierJob;
 use App\Domains\AI\Jobs\DeriveIntentFromRequestJob;
+use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\AI\Services\RequestPrefillOutcomeClassifier;
 use App\Domains\Intake\Actions\CreateIntake;
@@ -250,25 +250,28 @@ test('preserve-modus: twee debounced runs geven geen dubbele Proposed taken', fu
         ->and(ContributionTask::query()->find($taskId)?->prompt)->toBe('Maak een foto van de buitenmuur bij de woonkamer.');
 });
 
-test('debounced job na Completed/AwaitingCustomer maakt geen extra Proposed set', function () {
+test('debounced job slaat Reviewed/AwaitingCustomer/Cancelled over; Completed mag', function () {
     config(['ai.dossier.enabled' => true, 'ai.provider' => 'fake']);
 
     $user = User::factory()->create();
-    $intake = reviewRound2ReadyForSynthesis(reviewRound2Intake($user, 'skip-completed@example.com'), $user);
+    $intake = reviewRound2ReadyForSynthesis(reviewRound2Intake($user, 'skip-terminal@example.com'), $user);
 
     FakeAiClient::respondUsing(static fn (AiCompletionRequest $request): array => reviewRound2SynthesisOutput($request));
 
-    // CompleteIntake-keten (zonder preserve) → eerste Proposed set.
     app(SynthesizeSurveyDossier::class)->handle($intake->fresh() ?? $intake);
     $before = ContributionTask::query()
         ->where('intake_id', $intake->id)
         ->where('status', ContributionTaskStatus::Proposed)
         ->count();
     expect($before)->toBeGreaterThan(0);
+    $taskId = ContributionTask::query()
+        ->where('intake_id', $intake->id)
+        ->where('status', ContributionTaskStatus::Proposed)
+        ->value('id');
 
-    foreach ([IntakeStatus::Completed, IntakeStatus::Reviewed, IntakeStatus::AwaitingCustomer, IntakeStatus::Cancelled] as $status) {
+    foreach ([IntakeStatus::Reviewed, IntakeStatus::AwaitingCustomer, IntakeStatus::Cancelled] as $status) {
         $intake->forceFill(['status' => $status])->save();
-        (new DebouncedSynthesizeSurveyDossierJob($intake->id))
+        (new SynthesizeSurveyDossierJob($intake->id, preserveProposedCustomerTasks: true))
             ->handle(app(SynthesizeSurveyDossier::class));
 
         expect(ContributionTask::query()
@@ -276,34 +279,17 @@ test('debounced job na Completed/AwaitingCustomer maakt geen extra Proposed set'
             ->where('status', ContributionTaskStatus::Proposed)
             ->count())->toBe($before, 'status '.$status->value);
     }
-});
 
-test('auto_after_notes B: debounced na Completed maakt geen extra Proposed set', function () {
-    config([
-        'ai.dossier.enabled' => true,
-        'ai.provider' => 'fake',
-        'ai.dossier_synthesis.auto_after_notes' => true,
-    ]);
-
-    $user = User::factory()->create();
-    $intake = reviewRound2ReadyForSynthesis(reviewRound2Intake($user, 'auto-notes-skip@example.com'), $user);
-
-    FakeAiClient::respondUsing(static fn (AiCompletionRequest $request): array => reviewRound2SynthesisOutput($request));
-    app(SynthesizeSurveyDossier::class)->handle($intake->fresh() ?? $intake);
-
-    $before = ContributionTask::query()
-        ->where('intake_id', $intake->id)
-        ->where('status', ContributionTaskStatus::Proposed)
-        ->count();
-
+    // Completed: synthese mag draaien; preserve upsert houdt zelfde Proposed-id.
     $intake->forceFill(['status' => IntakeStatus::Completed])->save();
-    (new DebouncedSynthesizeSurveyDossierJob($intake->id))
+    (new SynthesizeSurveyDossierJob($intake->id, preserveProposedCustomerTasks: true))
         ->handle(app(SynthesizeSurveyDossier::class));
 
     expect(ContributionTask::query()
         ->where('intake_id', $intake->id)
         ->where('status', ContributionTaskStatus::Proposed)
-        ->count())->toBe($before);
+        ->count())->toBe($before)
+        ->and(ContributionTask::query()->find($taskId)?->status)->toBe(ContributionTaskStatus::Proposed);
 });
 
 test('RecordExistingAirco is idempotent bij herhaalde handle en raakt installer-record niet', function () {
@@ -570,6 +556,8 @@ test('late prefill na klantstart: geen fills en geen prune', function () {
 });
 
 test('workspace-tekst volgt auto_after_notes A/B en toont zo-opgesteld bij opties zonder synthese', function () {
+    config(['ai.dossier.enabled' => true]);
+
     $user = User::factory()->create();
     $intake = reviewRound2ReadyForSynthesis(reviewRound2Intake($user, 'workspace-copy@example.com'), $user);
     $survey = app(AircoSurveyService::class);

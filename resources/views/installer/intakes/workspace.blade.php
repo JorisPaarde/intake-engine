@@ -59,32 +59,16 @@
             ? $aiSynthesis->value['exceptions']
             : [];
         $aiSectionOpen = $aiExceptions !== [];
-        $aiPendingWindow = now()->subMinutes(5);
-        $aiSynthesisPending = \App\Domains\AI\Models\AiRun::query()
-            ->where('intake_id', $intake->id)
-            ->where('type', \App\Enums\AiRunType::DossierSynthesis)
-            ->where('status', \App\Enums\AiRunStatus::Pending)
-            ->where(function ($query) use ($aiPendingWindow): void {
-                $query->where('started_at', '>=', $aiPendingWindow)
-                    ->orWhere(function ($inner) use ($aiPendingWindow): void {
-                        $inner->whereNull('started_at')
-                            ->where('created_at', '>=', $aiPendingWindow);
-                    });
-            })
-            ->exists();
-        $aiIntentPending = \App\Domains\AI\Models\AiRun::query()
-            ->where('intake_id', $intake->id)
-            ->where('type', \App\Enums\AiRunType::RequestIntent)
-            ->where('status', \App\Enums\AiRunStatus::Pending)
-            ->where(function ($query) use ($aiPendingWindow): void {
-                $query->where('started_at', '>=', $aiPendingWindow)
-                    ->orWhere(function ($inner) use ($aiPendingWindow): void {
-                        $inner->whereNull('started_at')
-                            ->where('created_at', '>=', $aiPendingWindow);
-                    });
-            })
-            ->exists();
+        $aiSynthesisPending = \App\Domains\AI\Support\AiRunPendingQuery::hasRecent(
+            $intake->id,
+            \App\Enums\AiRunType::DossierSynthesis,
+        );
+        $aiIntentPending = \App\Domains\AI\Support\AiRunPendingQuery::hasRecent(
+            $intake->id,
+            \App\Enums\AiRunType::RequestIntent,
+        );
         $aiProcessing = $aiSynthesisPending || $aiIntentPending;
+        $promisesAutoUpdate = \App\Domains\AI\Support\DossierSynthesisEligibility::promisesAutoUpdate($intake->status);
         $photoCount = collect($photoGroups ?? [])->sum(
             static fn (array $group): int => count($group['uploads'] ?? []),
         );
@@ -1502,10 +1486,12 @@
                                     $autoAfterNotes = (bool) config('ai.dossier_synthesis.auto_after_notes', false);
                                 @endphp
                                 <p class="text-sm leading-relaxed text-gray-600">
-                                    @if ($autoAfterNotes)
+                                    @if ($promisesAutoUpdate && $autoAfterNotes)
                                         Het voorstel gebruikt alleen gegevens uit deze opname en wordt automatisch bijgewerkt na een installatiekeuze en wanneer je notities of klantaanvullingen vastlegt.
-                                    @else
+                                    @elseif ($promisesAutoUpdate)
                                         Het voorstel gebruikt alleen gegevens uit deze opname en wordt automatisch bijgewerkt na een installatiekeuze.
+                                    @else
+                                        Het voorstel gebruikt alleen gegevens uit deze opname.
                                     @endif
                                 </p>
                                 @if ($aiProcessing)
@@ -1577,8 +1563,10 @@
                                     </p>
                                 @elseif ($aiProcessing)
                                     <p class="text-sm text-indigo-900">Het AI-voorstel wordt nog opgesteld.</p>
-                                @else
+                                @elseif ($promisesAutoUpdate)
                                     <p class="text-sm text-indigo-900">Het AI-voorstel wordt zo opgesteld.</p>
+                                @else
+                                    <p class="text-sm text-indigo-900">Nog geen AI-voorstel.</p>
                                 @endif
                             </div>
                         </details>

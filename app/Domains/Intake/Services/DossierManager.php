@@ -16,6 +16,7 @@ use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Support\FactAcceptance;
 use App\Domains\Intake\Support\FactProvenance;
 use App\Domains\Intake\Support\FactSource;
+use App\Domains\Intake\Support\FloorLevelLabels;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Domains\Intake\Support\RoomAreaAcceptance;
 use App\Domains\Intake\Support\RoomLabelResolver;
@@ -905,15 +906,7 @@ final class DossierManager
 
     private function floorLevelDisplayLabel(string $raw): ?string
     {
-        return match ($raw) {
-            'basement' => 'kelder / souterrain',
-            'ground' => 'begane grond',
-            '1' => '1e verdieping',
-            '2' => '2e verdieping',
-            '3_plus' => '3e verdieping of hoger',
-            'attic' => 'zolder',
-            default => null,
-        };
+        return FloorLevelLabels::shortLabel($raw);
     }
 
     private function appendFloorLabel(string $name, string $floorLabel): string

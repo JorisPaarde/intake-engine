@@ -521,7 +521,12 @@ final class SynthesizeSurveyDossier
             }
         }
 
-        if ($replaceTasks) {
+        // Preserve: ook bij lege customer_tasks (stale AI-Proposed cancelen).
+        // Full-replace: alleen taken schrijven/annuleren als er nieuwe zijn.
+        if ($replaceTasks || $this->preserveProposedCustomerTasks) {
+            /** @var list<int> $touchedProposedIds */
+            $touchedProposedIds = [];
+
             foreach ($acceptedTasks as $task) {
                 $prompt = trim((string) ($task['prompt'] ?? ''));
                 $reason = trim((string) ($task['reason'] ?? ''));
@@ -562,14 +567,16 @@ final class SynthesizeSurveyDossier
                                 'source_id' => $run->id,
                                 'reason' => $reason,
                                 'evidence_references' => $task['evidence_references'],
+                                'ai_prompt' => $prompt,
                             ],
                         ]);
+                        $touchedProposedIds[] = $existing->id;
 
                         continue;
                     }
                 }
 
-                ContributionTask::query()->create([
+                $created = ContributionTask::query()->create([
                     'intake_id' => $intake->id,
                     'company_id' => $intake->company_id,
                     'dossier_subject_id' => $subjectId,
@@ -585,8 +592,33 @@ final class SynthesizeSurveyDossier
                         'source_id' => $run->id,
                         'reason' => $reason,
                         'evidence_references' => $task['evidence_references'],
+                        'ai_prompt' => $prompt,
                     ],
                 ]);
+                $touchedProposedIds[] = $created->id;
+            }
+
+            // Preserve: cancel AI-Proposed die deze run niet meer voorstelt.
+            // Geen edit-marker: alleen source_type=ai + Proposed waarvan de prompt
+            // nog gelijk is aan de AI-snapshot (ai_prompt); anders met rust laten.
+            if ($this->preserveProposedCustomerTasks) {
+                ContributionTask::query()
+                    ->where('intake_id', $intake->id)
+                    ->where('status', ContributionTaskStatus::Proposed)
+                    ->whereNotIn('id', $touchedProposedIds)
+                    ->get()
+                    ->filter(static function (ContributionTask $task): bool {
+                        if (($task->meta['source_type'] ?? null) !== 'ai') {
+                            return false;
+                        }
+                        $aiPrompt = $task->meta['ai_prompt'] ?? null;
+
+                        // Legacy zonder snapshot: behandel als ongewijzigde AI-inhoud.
+                        return $aiPrompt === null || $task->prompt === $aiPrompt;
+                    })
+                    ->each(static fn (ContributionTask $task) => $task->update([
+                        'status' => ContributionTaskStatus::Cancelled,
+                    ]));
             }
         }
 

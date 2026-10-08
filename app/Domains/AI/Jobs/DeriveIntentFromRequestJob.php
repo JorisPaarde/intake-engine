@@ -6,6 +6,7 @@ namespace App\Domains\AI\Jobs;
 
 use App\Domains\AI\Actions\DeriveIntentFromRequest;
 use App\Domains\AI\Models\AiRun;
+use App\Domains\AI\Support\AiRunPendingQuery;
 use App\Domains\Intake\Models\Intake;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
@@ -70,20 +71,7 @@ final class DeriveIntentFromRequestJob implements ShouldBeUniqueUntilProcessing,
 
     public static function hasRecentPending(int $intakeId): bool
     {
-        $windowSeconds = max(30, (int) config('ai.request_prefill.pending_window_seconds', 300));
-
-        return AiRun::query()
-            ->where('intake_id', $intakeId)
-            ->where('type', AiRunType::RequestIntent)
-            ->where('status', AiRunStatus::Pending)
-            ->where(function ($query) use ($windowSeconds): void {
-                $query->where('started_at', '>=', now()->subSeconds($windowSeconds))
-                    ->orWhere(function ($inner) use ($windowSeconds): void {
-                        $inner->whereNull('started_at')
-                            ->where('created_at', '>=', now()->subSeconds($windowSeconds));
-                    });
-            })
-            ->exists();
+        return AiRunPendingQuery::hasRecent($intakeId, AiRunType::RequestIntent);
     }
 
     public function handle(DeriveIntentFromRequest $derive): void
@@ -97,7 +85,11 @@ final class DeriveIntentFromRequestJob implements ShouldBeUniqueUntilProcessing,
         }
 
         try {
-            $derive->handle($intake, $this->allowExternal);
+            $derive->handle(
+                $intake,
+                $this->allowExternal,
+                skipIfCustomerStarted: true,
+            );
             $this->finalizePlaceholders($this->intakeId, failed: false);
         } catch (Throwable $exception) {
             $this->finalizePlaceholders(
@@ -115,7 +107,7 @@ final class DeriveIntentFromRequestJob implements ShouldBeUniqueUntilProcessing,
 
         $fresh = $intake->fresh() ?? $intake;
         if ($fresh->aircoInstallationOptions()->exists()) {
-            DebouncedSynthesizeSurveyDossierJob::dispatch($fresh->id);
+            SynthesizeSurveyDossierJob::dispatchDebounced($fresh->id);
         }
     }
 

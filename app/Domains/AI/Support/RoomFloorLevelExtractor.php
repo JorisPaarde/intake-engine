@@ -46,12 +46,19 @@ final class RoomFloorLevelExtractor
 
         // 1) Alleen trailing cues (ná deze kamer, vóór de volgende) — voorkomt lek van
         //    "werkkamer op de 1e … woonkamer beneden" naar de woonkamer via before-cues.
+        //    Cue direct gevolgd door de volgende kamernaam ("… 1e verdieping de slaapkamer")
+        //    telt als before-cue van die volgende kamer, niet als trailing van deze.
         foreach ($roomMentions as $index => $mention) {
-            $nextStart = $roomMentions[$index + 1]['start'] ?? mb_strlen($normalized);
+            $nextMention = $roomMentions[$index + 1] ?? null;
+            $nextStart = $nextMention['start'] ?? mb_strlen($normalized);
             $candidates = [];
 
             foreach ($floorCues as $cueIndex => $cue) {
                 if ($cue['start'] >= $mention['end'] && $cue['start'] < $nextStart) {
+                    if ($nextMention !== null
+                        && $this->cueDirectlyFollowedByRoom($normalized, $cue, $nextMention)) {
+                        continue;
+                    }
                     $candidates[] = $cue['value'];
                     $claimedCueStarts[$cueIndex] = true;
                 }
@@ -287,13 +294,32 @@ final class RoomFloorLevelExtractor
                 continue;
             }
 
-            $window = mb_substr($text, $mention['end'], 20, 'UTF-8');
-            if (preg_match('/^\s*,?\s*boven\b/u', $window) === 1) {
+            $window = mb_substr($text, $mention['end'], 24, 'UTF-8');
+            // Negatieve lookahead: "boven de/het/een …" is plaatsing, geen verdieping.
+            if (preg_match('/^\s*,?\s*boven(?!\s+(?:de|het|een)\b)\b/u', $window) === 1) {
                 $mentionFloors[$index] = '1';
-            } elseif (preg_match('/^\s*,?\s*beneden\b/u', $window) === 1) {
+            } elseif (preg_match('/^\s*,?\s*beneden(?!\s+(?:de|het|een)\b)\b/u', $window) === 1) {
                 $mentionFloors[$index] = 'ground';
             }
         }
+    }
+
+    /**
+     * Cue eindigt net vóór de volgende kamernaam (alleen lidwoorden/voorzetsels ertussen).
+     *
+     * @param  array{value: string, start: int, end: int}  $cue
+     * @param  array{type: string, start: int, end: int}  $nextMention
+     */
+    private function cueDirectlyFollowedByRoom(string $text, array $cue, array $nextMention): bool
+    {
+        if ($cue['end'] > $nextMention['start']) {
+            return false;
+        }
+
+        $between = trim(mb_substr($text, $cue['end'], $nextMention['start'] - $cue['end'], 'UTF-8'));
+
+        return $between === ''
+            || preg_match('/^(?:de|het|een|en|op|van|voor|naar)(?:\s+(?:de|het|een))?$/u', $between) === 1;
     }
 
     /**

@@ -110,8 +110,16 @@ final class FactAcceptance
         return ! self::countsAsKnown($confidencePercent, $source, $provenance, $questionKey);
     }
 
-    public static function sourceFrom(?string $prefillSource, ?FactProvenance $provenance = null): FactSource
-    {
+    /**
+     * @param  string|null  $requestReasonPrefillSource  prefill_source van request_reason
+     *                                                   ('installer' → aanvraag; null → klantantwoord).
+     *                                                   Default 'installer' voor callers zonder context.
+     */
+    public static function sourceFrom(
+        ?string $prefillSource,
+        ?FactProvenance $provenance = null,
+        ?string $requestReasonPrefillSource = 'installer',
+    ): FactSource {
         if ($prefillSource === null) {
             return FactSource::CustomerAnswer;
         }
@@ -128,14 +136,17 @@ final class FactAcceptance
             return FactSource::Photo;
         }
 
-        // Alleen installateursaanvraag / openingszin — niet klanttekst of BAG/EPO.
+        // Installateursaanvraag / openingszin-bron.
         if ($prefillSource === PrefillSources::REQUEST_TEXT || $prefillSource === 'installer') {
             return FactSource::InstallerRequest;
         }
 
         if (in_array($prefillSource, [PrefillSources::AI_TEXT, PrefillSources::AI_LEGACY], true)) {
-            // Catalogus-fills uit de openingszin (stated) = aanvraag; anders afgeleid.
-            return FactSource::InstallerRequest;
+            // Catalogus-fills: bron volgt request_reason (installateur vs klant-first).
+            return ($requestReasonPrefillSource === 'installer'
+                || $requestReasonPrefillSource === PrefillSources::REQUEST_TEXT)
+                ? FactSource::InstallerRequest
+                : FactSource::CustomerAnswer;
         }
 
         if (PrefillSources::isTextDerived($prefillSource)

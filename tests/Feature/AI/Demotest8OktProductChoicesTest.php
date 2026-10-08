@@ -5,7 +5,6 @@ declare(strict_types=1);
 use App\Domains\AI\Actions\SynthesizeSurveyDossier;
 use App\Domains\AI\Clients\FakeAiClient;
 use App\Domains\AI\DTOs\AiCompletionRequest;
-use App\Domains\AI\Jobs\DebouncedSynthesizeSurveyDossierJob;
 use App\Domains\AI\Jobs\DeriveIntentFromRequestJob;
 use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
 use App\Domains\AI\Models\AiRun;
@@ -190,12 +189,13 @@ test('1A: achtergrond-synthese behoudt Proposed taak zodat send-by-id werkt', fu
     expect(ContributionTask::query()->find($taskId)?->status)->toBe(ContributionTaskStatus::Cancelled);
 });
 
-test('1A: debounced job unique-id is per intake en los van CompleteIntake-job', function () {
-    $debounced = new DebouncedSynthesizeSurveyDossierJob(42);
-    $chain = new SynthesizeSurveyDossierJob(42);
+test('1A: preserve en replace hebben aparte unique-ids op dezelfde jobklasse', function () {
+    $preserve = new SynthesizeSurveyDossierJob(42, preserveProposedCustomerTasks: true);
+    $replace = new SynthesizeSurveyDossierJob(42, preserveProposedCustomerTasks: false);
 
-    expect($debounced->uniqueId())->toBe('debounced-dossier-synthesis:42')
-        ->and(method_exists($chain, 'uniqueId'))->toBeFalse();
+    expect($preserve->uniqueId())->toBe('dossier-synthesis:42:preserve')
+        ->and($replace->uniqueId())->toBe('dossier-synthesis:42:replace')
+        ->and(SynthesizeSurveyDossierJob::DELAY_SECONDS)->toBe(20);
 });
 
 test('2A: sync_on_create false dispatcht job + placeholder; true draait synchroon', function () {

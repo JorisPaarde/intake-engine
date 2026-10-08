@@ -15,13 +15,13 @@ use App\Domains\AI\Services\RequestPrefillContextBuilder;
 use App\Domains\AI\Services\RequestPrefillOutcomeClassifier;
 use App\Domains\AI\Services\TemplateQuestionCatalogBuilder;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
-use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Support\FactAcceptance;
 use App\Domains\Intake\Support\FactProvenance;
 use App\Domains\Intake\Support\FactSource;
+use App\Domains\Intake\Support\InstallerFloorMarker;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Domains\Intake\Support\RiskRelevantPrefillKeys;
 use App\Domains\Intake\Support\RoomAreaAcceptance;
@@ -72,14 +72,7 @@ final class PrefillAnswersFromKnownContext
             return null;
         }
 
-        if (app(DeriveIntentFromRequest::class)->customerHasStarted($intake)) {
-            Log::info('request_prefill.skipped', [
-                'intake_id' => $intake->id,
-                'reason' => 'customer_started',
-            ]);
-
-            return null;
-        }
+        // customer_started-guard zit alleen op DeriveIntent (late/async); hier niet dubbel.
 
         $catalog = $this->catalogBuilder->build($intake);
         $context = $this->contextBuilder->build($intake);
@@ -165,11 +158,17 @@ final class PrefillAnswersFromKnownContext
             );
             $trace->recordProviderResult($result);
 
+            $reasonAnswer = IntakeAnswer::query()
+                ->where('intake_id', $intake->id)
+                ->where('question_key', 'request_reason')
+                ->whereNull('section_instance_key')
+                ->first();
             $classified = $this->classifier->classifyCatalogOutput(
                 $result->output,
                 $catalog,
                 $this->photoKeys($intake),
                 $reason,
+                $reasonAnswer?->prefill_source,
             );
             $output = [
                 'evidence' => $classified['evidence'],
@@ -595,7 +594,7 @@ final class PrefillAnswersFromKnownContext
     private function mayWrite(Intake $intake, string $questionKey, ?string $sectionInstanceKey): bool
     {
         if ($questionKey === 'floor_level'
-            && $this->installerFloorMarkerBlocksPrefill($intake, $sectionInstanceKey)) {
+            && InstallerFloorMarker::blocksPrefill($intake, $sectionInstanceKey)) {
             return false;
         }
 
@@ -621,23 +620,5 @@ final class PrefillAnswersFromKnownContext
             PrefillSources::DERIVED_LXW,
             DeriveIntentFromRequest::SOURCE_REQUEST_TEXT,
         ], true);
-    }
-
-    private function installerFloorMarkerBlocksPrefill(Intake $intake, ?string $sectionInstanceKey): bool
-    {
-        if (! is_string($sectionInstanceKey) || $sectionInstanceKey === '') {
-            return false;
-        }
-
-        $room = AircoRoom::query()
-            ->where('intake_id', $intake->id)
-            ->where('key', $sectionInstanceKey)
-            ->first();
-
-        if (! $room instanceof AircoRoom || ! is_array($room->dimensions)) {
-            return false;
-        }
-
-        return ($room->dimensions['floor_level_source'] ?? null) === 'installer';
     }
 }

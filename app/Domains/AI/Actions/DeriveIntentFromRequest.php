@@ -12,10 +12,10 @@ use App\Domains\AI\Services\LocalRequestIntentParser;
 use App\Domains\AI\Services\RequestPrefillOutcomeClassifier;
 use App\Domains\AI\Services\TemplateQuestionCatalogBuilder;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
-use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeAnswer;
+use App\Domains\Intake\Support\InstallerFloorMarker;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
@@ -55,8 +55,11 @@ final class DeriveIntentFromRequest
         private readonly RecordExistingAircoFromRequest $recordExistingAirco,
     ) {}
 
-    public function handle(Intake $intake, bool $allowExternal = true): ?AiRun
-    {
+    public function handle(
+        Intake $intake,
+        bool $allowExternal = true,
+        bool $skipIfCustomerStarted = false,
+    ): ?AiRun {
         if (! in_array($intake->status, [
             IntakeStatus::Draft,
             IntakeStatus::Sent,
@@ -67,8 +70,9 @@ final class DeriveIntentFromRequest
 
         $reason = $this->requestReason($intake);
 
-        // Late create-job / notes: geen fills of prune meer zodra de klant is begonnen.
-        if ($this->customerHasStarted($intake)) {
+        // Alleen late/async pad (job + wizard mount): geen fills/prune na klantstart.
+        // Wizard persistComposite (request_reason Wijzigen) zet deze vlag niet.
+        if ($skipIfCustomerStarted && $this->customerHasStarted($intake)) {
             Log::info('request_prefill.skipped', [
                 'intake_id' => $intake->id,
                 'reason' => 'customer_started',
@@ -317,7 +321,7 @@ final class DeriveIntentFromRequest
     private function mayWrite(Intake $intake, string $questionKey, ?string $sectionInstanceKey): bool
     {
         if ($questionKey === 'floor_level'
-            && $this->installerFloorMarkerBlocksPrefill($intake, $sectionInstanceKey)) {
+            && InstallerFloorMarker::blocksPrefill($intake, $sectionInstanceKey)) {
             return false;
         }
 
@@ -343,23 +347,5 @@ final class DeriveIntentFromRequest
             PrefillSources::DERIVED_LXW,
             self::SOURCE_REQUEST_TEXT,
         ], true);
-    }
-
-    private function installerFloorMarkerBlocksPrefill(Intake $intake, ?string $sectionInstanceKey): bool
-    {
-        if (! is_string($sectionInstanceKey) || $sectionInstanceKey === '') {
-            return false;
-        }
-
-        $room = AircoRoom::query()
-            ->where('intake_id', $intake->id)
-            ->where('key', $sectionInstanceKey)
-            ->first();
-
-        if (! $room instanceof AircoRoom || ! is_array($room->dimensions)) {
-            return false;
-        }
-
-        return ($room->dimensions['floor_level_source'] ?? null) === 'installer';
     }
 }

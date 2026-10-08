@@ -5,21 +5,49 @@ declare(strict_types=1);
 namespace App\Domains\AI\Jobs;
 
 use App\Domains\AI\Actions\SynthesizeSurveyDossier;
+use App\Domains\AI\Support\DossierSynthesisEligibility;
 use App\Domains\Intake\Models\Intake;
-use App\Enums\IntakeStatus;
+use Illuminate\Contracts\Queue\ShouldBeUniqueUntilProcessing;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
 
-final class SynthesizeSurveyDossierJob implements ShouldQueue
+/**
+ * Dossiersynthese: CompleteIntake-keten (preserve=false) of debounced na optie/notities
+ * (preserve=true + delay). Uniek tot processing per intake+modus; WithoutOverlapping deelt
+ * de uitvoeringsslot. Completed mag; Reviewed/AwaitingCustomer/Cancelled niet.
+ */
+final class SynthesizeSurveyDossierJob implements ShouldBeUniqueUntilProcessing, ShouldQueue
 {
     use Queueable;
 
     public int $tries = 2;
 
+    public int $uniqueFor = 120;
+
+    /** Vaste debounce-vertraging; geen aparte env-knop meer. */
+    public const DELAY_SECONDS = 20;
+
     public function __construct(
         public readonly int $intakeId,
+        public readonly bool $preserveProposedCustomerTasks = false,
     ) {}
+
+    /**
+     * Achtergrond na installatiekeuze / auto_after_notes: delay + preserve upsert.
+     */
+    public static function dispatchDebounced(int $intakeId): void
+    {
+        self::dispatch($intakeId, preserveProposedCustomerTasks: true)
+            ->delay(now()->addSeconds(self::DELAY_SECONDS));
+    }
+
+    public function uniqueId(): string
+    {
+        // Preserve/debounce en full-replace (CompleteIntake) hebben aparte slots.
+        return 'dossier-synthesis:'.$this->intakeId.':'
+            .($this->preserveProposedCustomerTasks ? 'preserve' : 'replace');
+    }
 
     /** @return list<object> */
     public function middleware(): array
@@ -33,10 +61,13 @@ final class SynthesizeSurveyDossierJob implements ShouldQueue
     {
         $intake = Intake::query()->find($this->intakeId);
 
-        if ($intake === null || $intake->status === IntakeStatus::Cancelled) {
+        if ($intake === null || ! DossierSynthesisEligibility::allowsStatus($intake->status)) {
             return;
         }
 
-        $synthesize->handle($intake);
+        $synthesize->handle(
+            $intake,
+            preserveProposedCustomerTasks: $this->preserveProposedCustomerTasks,
+        );
     }
 }

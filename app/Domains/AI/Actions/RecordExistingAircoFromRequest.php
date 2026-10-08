@@ -12,6 +12,9 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeAttentionPoint;
 use App\Domains\Intake\Services\DossierManager;
+use App\Domains\Intake\Support\FactAcceptance;
+use App\Domains\Intake\Support\FactProvenance;
+use App\Domains\Intake\Support\PrefillSources;
 use App\Enums\AttentionPointSource;
 use App\Enums\AttentionPointStatus;
 use App\Enums\DossierRecordKind;
@@ -102,6 +105,16 @@ final class RecordExistingAircoFromRequest
             return;
         }
 
+        $reasonAnswer = $intake->answers
+            ->first(static fn (IntakeAnswer $a): bool => $a->question_key === 'request_reason'
+                && $a->section_instance_key === null)
+            ?? $intake->answers()->where('question_key', 'request_reason')->whereNull('section_instance_key')->first();
+        $sourceLabel = FactAcceptance::sourceFrom(
+            PrefillSources::AI_TEXT,
+            FactProvenance::Stated,
+            $reasonAnswer?->prefill_source,
+        )->installerLabel();
+
         $this->dossierManager->record(
             intake: $intake,
             subject: $subject,
@@ -114,7 +127,7 @@ final class RecordExistingAircoFromRequest
                 'room_type' => $extracted['room_type'],
                 '_field_label' => 'Bestaande airco',
                 '_display_value' => $summary,
-                '_source_label' => 'aanvraag (installateur)',
+                '_source_label' => $sourceLabel,
                 '_provenance_label' => 'gezegd',
                 '_evidence' => $extracted['evidence'],
             ],

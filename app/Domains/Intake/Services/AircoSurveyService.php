@@ -13,6 +13,7 @@ use App\Domains\Intake\Models\DossierRecord;
 use App\Domains\Intake\Models\DossierSubject;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
+use App\Domains\Intake\Support\FloorLevelLabels;
 use App\Domains\Intake\Support\RoomDimensions;
 use App\Enums\AircoConfigurationType;
 use App\Enums\AircoConnectionStatus;
@@ -129,13 +130,19 @@ final class AircoSurveyService
         $existingDimensions = is_array($room->dimensions) ? $room->dimensions : [];
         if ($this->dimensionMeasuresDiffer($existingDimensions, $dimensions)) {
             $dimensions['dimensions_source'] = 'installer';
-            // Bewaar bestaande verdieping bij pure maatwijziging (geen floor in dit request-pad).
-            if (! array_key_exists('floor_level', $data)
-                && is_string($existingDimensions['floor_level'] ?? null)
-                && $existingDimensions['floor_level'] !== '') {
-                $dimensions['floor_level'] = $existingDimensions['floor_level'];
-                if (isset($existingDimensions['floor_level_source'])) {
-                    $dimensions['floor_level_source'] = $existingDimensions['floor_level_source'];
+            // Pure maatwijziging: draag floor-marker mee (ook gewist: null + installer).
+            if (! array_key_exists('floor_level', $data)) {
+                if (($existingDimensions['floor_level_source'] ?? null) === 'installer') {
+                    $dimensions['floor_level'] = array_key_exists('floor_level', $existingDimensions)
+                        ? $existingDimensions['floor_level']
+                        : null;
+                    $dimensions['floor_level_source'] = 'installer';
+                } elseif (is_string($existingDimensions['floor_level'] ?? null)
+                    && $existingDimensions['floor_level'] !== '') {
+                    $dimensions['floor_level'] = $existingDimensions['floor_level'];
+                    if (isset($existingDimensions['floor_level_source'])) {
+                        $dimensions['floor_level_source'] = $existingDimensions['floor_level_source'];
+                    }
                 }
             }
             $updates['dimensions'] = $dimensions;
@@ -155,12 +162,19 @@ final class AircoSurveyService
                 $merged['floor_level_source'] = 'installer';
                 $updates['dimensions'] = $merged;
                 $this->recordFloorLevelOverride($intake, $installer, $room, $floorLevel, $previousFloor);
-            } elseif ($measuresChanged && $floorLevel !== null) {
-                // Maatwijziging + ongewijzigde floor: behoud bron, schrijf floor terug.
+            } elseif ($measuresChanged) {
+                // Maatwijziging + ongewijzigde floor (ook gewiste null + installer-marker).
                 $merged = $updates['dimensions'];
-                $merged['floor_level'] = $floorLevel;
-                if (isset($existingDimensions['floor_level_source'])) {
-                    $merged['floor_level_source'] = $existingDimensions['floor_level_source'];
+                if (($existingDimensions['floor_level_source'] ?? null) === 'installer') {
+                    $merged['floor_level'] = array_key_exists('floor_level', $existingDimensions)
+                        ? $existingDimensions['floor_level']
+                        : null;
+                    $merged['floor_level_source'] = 'installer';
+                } elseif ($floorLevel !== null) {
+                    $merged['floor_level'] = $floorLevel;
+                    if (isset($existingDimensions['floor_level_source'])) {
+                        $merged['floor_level_source'] = $existingDimensions['floor_level_source'];
+                    }
                 }
                 $updates['dimensions'] = $merged;
             }
@@ -267,16 +281,9 @@ final class AircoSurveyService
             return;
         }
 
-        $labels = [
-            'basement' => 'Kelder / souterrain',
-            'ground' => 'Begane grond',
-            '1' => '1e verdieping',
-            '2' => '2e verdieping',
-            '3_plus' => '3e verdieping of hoger',
-            'attic' => 'Zolder',
-        ];
+        $floorLabel = $floorLevel !== null ? FloorLevelLabels::label($floorLevel) : null;
 
-        if ($floorLevel !== null && isset($labels[$floorLevel])) {
+        if ($floorLevel !== null && $floorLabel !== null) {
             $this->dossierManager->record(
                 intake: $intake,
                 subject: $subject,
@@ -285,7 +292,7 @@ final class AircoSurveyService
                 value: [
                     'value' => $floorLevel,
                     '_field_label' => 'Verdieping',
-                    '_display_value' => $labels[$floorLevel],
+                    '_display_value' => $floorLabel,
                     '_source_label' => 'installateur',
                     '_provenance_label' => 'gezegd',
                     '_previous_value' => $previousFloor,
@@ -323,9 +330,10 @@ final class AircoSurveyService
                 if ($floorLevel === null) {
                     $answer->delete();
                 } else {
+                    // BL-016: installer-bron, niet null (null = klantantwoord → customerHasStarted).
                     $answer->update([
                         'value' => ['value' => $floorLevel],
-                        'prefill_source' => null,
+                        'prefill_source' => 'installer',
                         'fact_source' => null,
                         'fact_provenance' => null,
                     ]);

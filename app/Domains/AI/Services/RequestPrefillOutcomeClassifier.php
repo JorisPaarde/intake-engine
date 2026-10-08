@@ -10,6 +10,7 @@ use App\Domains\AI\Support\RoomFloorLevelExtractor;
 use App\Domains\Intake\Support\FactAcceptance;
 use App\Domains\Intake\Support\FactProvenance;
 use App\Domains\Intake\Support\FactSource;
+use App\Domains\Intake\Support\PrefillSources;
 use App\Domains\Intake\Support\RiskRelevantPrefillKeys;
 use App\Enums\QuestionType;
 use Illuminate\Validation\ValidationException;
@@ -45,8 +46,13 @@ final class RequestPrefillOutcomeClassifier
      *     validation_errors: array<string, list<string>>
      * }
      */
-    public function classifyCatalogOutput(array $output, array $catalog, array $photoKeys = [], ?string $requestReason = null): array
-    {
+    public function classifyCatalogOutput(
+        array $output,
+        array $catalog,
+        array $photoKeys = [],
+        ?string $requestReason = null,
+        ?string $requestReasonPrefillSource = 'installer',
+    ): array {
         $index = $this->catalogIndex($catalog);
         $labels = $this->catalogLabels($catalog);
         $fills = [];
@@ -54,6 +60,11 @@ final class RequestPrefillOutcomeClassifier
         $normalizations = [];
         /** @var array<string, list<string>> $validationErrors */
         $validationErrors = [];
+        $requestTextFactSource = FactAcceptance::sourceFrom(
+            PrefillSources::AI_TEXT,
+            FactProvenance::Stated,
+            $requestReasonPrefillSource,
+        );
 
         if (! array_key_exists('fills', $output) || ! is_array($output['fills'])) {
             throw ValidationException::withMessages([
@@ -346,9 +357,9 @@ final class RequestPrefillOutcomeClassifier
                 }
             }
 
-            // Aanvraagtekst van de installateur ≠ klantantwoord.
+            // Bron volgt request_reason.prefill_source (installateur vs klant-first).
             $factSource = $provenance === FactProvenance::Stated
-                ? FactSource::InstallerRequest
+                ? $requestTextFactSource
                 : FactSource::Derived;
 
             $normalized = $this->normalizeValue($question, $rawValue);
@@ -403,13 +414,13 @@ final class RequestPrefillOutcomeClassifier
                     $normalized = ['value' => $linkedFloor];
                     $fillEvidence = $this->floorEvidenceQuote($requestReason, $linkedFloor) ?? $fillEvidence;
                     $provenance = FactProvenance::Stated;
-                    $factSource = FactSource::InstallerRequest;
+                    $factSource = $requestTextFactSource;
                     $confidence = 'high';
                     $confidencePercent = FactAcceptance::LEVEL_HIGH;
                 } elseif ($linkedFloor !== null && ($normalized['value'] ?? null) === $linkedFloor) {
                     $fillEvidence = $this->floorEvidenceQuote($requestReason, $linkedFloor) ?? $fillEvidence;
                     $provenance = FactProvenance::Stated;
-                    $factSource = FactSource::InstallerRequest;
+                    $factSource = $requestTextFactSource;
                     $confidence = 'high';
                     $confidencePercent = FactAcceptance::LEVEL_HIGH;
                 } elseif (
@@ -428,7 +439,7 @@ final class RequestPrefillOutcomeClassifier
                         $normalized = ['value' => $numberedValue];
                         $fillEvidence = $this->floorEvidenceQuote($requestReason, $numberedValue) ?? $fillEvidence;
                         $provenance = FactProvenance::Stated;
-                        $factSource = FactSource::InstallerRequest;
+                        $factSource = $requestTextFactSource;
                         $confidence = 'high';
                         $confidencePercent = FactAcceptance::LEVEL_HIGH;
                     }
@@ -476,7 +487,7 @@ final class RequestPrefillOutcomeClassifier
                     $normalized = ['value' => $ownershipUpgrade['value']];
                     $fillEvidence = $ownershipUpgrade['evidence'];
                     $provenance = FactProvenance::Stated;
-                    $factSource = FactSource::InstallerRequest;
+                    $factSource = $requestTextFactSource;
                     $confidence = 'high';
                     $confidencePercent = FactAcceptance::LEVEL_HIGH;
                 }
@@ -563,6 +574,7 @@ final class RequestPrefillOutcomeClassifier
             $labels,
             $requestReason,
             $normalizations,
+            $requestTextFactSource,
         );
 
         return [
@@ -944,6 +956,7 @@ final class RequestPrefillOutcomeClassifier
         array $labels,
         ?string $requestReason,
         array &$normalizations,
+        FactSource $requestTextFactSource = FactSource::InstallerRequest,
     ): void {
         if (! is_string($requestReason) || trim($requestReason) === '') {
             return;
@@ -995,7 +1008,7 @@ final class RequestPrefillOutcomeClassifier
             reason: null,
             provenance: FactProvenance::Stated,
             confidencePercent: FactAcceptance::LEVEL_HIGH,
-            factSource: FactSource::InstallerRequest,
+            factSource: $requestTextFactSource,
         );
 
         $fills[] = [
@@ -1004,7 +1017,7 @@ final class RequestPrefillOutcomeClassifier
             'confidence' => 'high',
             'confidence_percent' => FactAcceptance::LEVEL_HIGH,
             'provenance' => FactProvenance::Stated->value,
-            'fact_source' => FactSource::InstallerRequest->value,
+            'fact_source' => $requestTextFactSource->value,
             'value' => ['value' => $stated['value']],
             'evidence' => $stated['evidence'],
         ];
@@ -1095,9 +1108,9 @@ final class RequestPrefillOutcomeClassifier
             return true;
         }
 
-        // Relatief alleen als RoomFloorLevelExtractor: kamernaam + boven/beneden.
+        // Relatief alleen kamernaam + boven/beneden, nooit "boven de/het/een …" (plaatsing).
         return preg_match(
-            '/\b(?:kinderslaapkamers?|kinderkamers?|slaapkamers?|woonkamers?|huiskamers?|werkkamers?|kantoor|kantoren|zolders?)\s*,?\s*(?:boven|beneden)\b/u',
+            '/\b(?:kinderslaapkamers?|kinderkamers?|slaapkamers?|woonkamers?|huiskamers?|werkkamers?|kantoor|kantoren|zolders?)\s*,?\s*(?:boven(?!\s+(?:de|het|een)\b)|beneden(?!\s+(?:de|het|een)\b))\b/u',
             $normalized,
         ) === 1;
     }
@@ -1120,17 +1133,14 @@ final class RequestPrefillOutcomeClassifier
         }
 
         // Relatief: alleen "woonkamer beneden" / "slaapkamer boven", nooit "boven de bank".
+        $relative = '(?:kinderslaapkamers?|kinderkamers?|slaapkamers?|woonkamers?|huiskamers?|werkkamers?|kantoor|kantoren|zolders?)\s*,?\s*(?:boven(?!\s+(?:de|het|een)\b)|beneden(?!\s+(?:de|het|een)\b))';
         if (in_array($preferredFloor, ['ground', '1'], true)
-            && preg_match(
-                '/\b(?:(?:kinderslaapkamers?|kinderkamers?|slaapkamers?|woonkamers?|huiskamers?|werkkamers?|kantoor|kantoren|zolders?)\s*,?\s*(?:boven|beneden))\b/iu',
-                $requestReason,
-                $matches,
-            ) === 1) {
+            && preg_match('/\b(?:'.$relative.')\b/iu', $requestReason, $matches) === 1) {
             return $matches[0];
         }
 
         if (preg_match(
-            '/\b(?:begane\s+grond|(?:1(?:e|ste)?|eerste|2(?:e|de)?|tweede|3(?:e|de)?|derde|[4-9](?:e|de)?)\s+verdieping|op\s+(?:de\s+)?zolder|(?:(?:kinderslaapkamers?|kinderkamers?|slaapkamers?|woonkamers?|huiskamers?|werkkamers?|kantoor|kantoren|zolders?)\s*,?\s*(?:boven|beneden)))\b/iu',
+            '/\b(?:begane\s+grond|(?:1(?:e|ste)?|eerste|2(?:e|de)?|tweede|3(?:e|de)?|derde|[4-9](?:e|de)?)\s+verdieping|op\s+(?:de\s+)?zolder|(?:'.$relative.'))\b/iu',
             $requestReason,
             $matches,
         ) === 1) {
