@@ -220,6 +220,29 @@ test('PostTooLargeException op installer foto-route geeft Nederlandse 413-pagina
         ->and($content)->toContain(parse_url($workspaceUrl, PHP_URL_PATH) ?: $workspaceUrl);
 });
 
+test('PostTooLargeException met vreemde Referer valt terug op home', function () {
+    $user = User::factory()->create();
+    [$intake, $room] = createPhotoLimitSurvey($user);
+
+    $url = route('intakes.workspace.photos.store', [$intake, $room->subject], absolute: false);
+    $request = Request::create($url, 'POST', server: [
+        'HTTP_HOST' => 'staging.intake-engine.nl',
+        'HTTP_REFERER' => 'https://evil.example/phishing',
+    ]);
+    $this->app->instance('request', $request);
+
+    $response = app(ExceptionHandler::class)->render(
+        $request,
+        new PostTooLargeException,
+    );
+
+    $content = (string) $response->getContent();
+    expect($response->getStatusCode())->toBe(413)
+        ->and($content)->toContain('data-testid="post-too-large-back"')
+        ->and($content)->not->toContain('evil.example')
+        ->and($content)->toContain('href="'.e(url('/')).'"');
+});
+
 test('PostTooLargeException op andere route blijft standaard (geen photo-pagina)', function () {
     $request = Request::create('/dashboard', 'POST');
     $this->app->instance('request', $request);
@@ -277,6 +300,20 @@ test('installer photo form listens on document and scopes prep by input id', fun
         ->and($blade)->toContain('matchesScope(event)')
         ->and($blade)->toContain('inputId')
         ->and($blade)->toContain('x-bind:disabled="prepBusy"')
+        ->and($blade)->toContain('event.isTrusted')
+        ->and($blade)->toContain('this.prepError + \' \' + message')
         ->and($blade)->not->toContain('@error(\'photo\')')
         ->and($blade)->toContain(':key="index"');
+});
+
+test('assessment poll lives on wizards not only on photo-upload-control', function () {
+    $control = (string) file_get_contents(resource_path('views/components/customer/photo-upload-control.blade.php'));
+    $intake = (string) file_get_contents(resource_path('views/livewire/customer/intake-wizard.blade.php'));
+    $followUp = (string) file_get_contents(resource_path('views/livewire/customer/follow-up-wizard.blade.php'));
+
+    expect($control)->not->toContain('wire:poll')
+        ->and($intake)->toContain('data-testid="assessment-poll"')
+        ->and($intake)->toContain('wire:poll')
+        ->and($followUp)->toContain('data-testid="assessment-poll"')
+        ->and($followUp)->toContain('pollPendingAssessments');
 });

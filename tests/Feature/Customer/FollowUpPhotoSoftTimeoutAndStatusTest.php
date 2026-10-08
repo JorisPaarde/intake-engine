@@ -3,14 +3,21 @@
 declare(strict_types=1);
 
 use App\Domains\AI\Jobs\AssessUploadedPhotoJob;
+use App\Domains\AI\Jobs\SuggestAttentionPointsJob;
+use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
+use App\Domains\Intake\Actions\CompleteFollowUpRound;
 use App\Domains\Intake\Actions\CreateCustomerContributionRequest;
+use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
 use App\Domains\Intake\Jobs\ProcessIntakePhotoVariantsJob;
 use App\Domains\Intake\Models\ContributionTask;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplate;
+use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\DossierManager;
+use App\Domains\Intake\Support\PhotoAssessmentSoftTimeout;
 use App\Domains\Intake\Support\PhotoCustomerStatus;
 use App\Enums\FollowUpItemType;
+use App\Enums\FollowUpRoundStatus;
 use App\Enums\IntakeStatus;
 use App\Enums\PhotoAssessmentStatus;
 use App\Enums\PhotoUsabilityVerdict;
@@ -20,6 +27,7 @@ use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -190,6 +198,126 @@ test('mixed photos show advice under the bad thumb and keep GOOD on the good one
         ->and($html)->toContain('data-testid="photo-replace-one"')
         ->and($html)->toContain('data-upload-id="'.$bad->id.'"')
         ->and($html)->toContain('data-upload-id="'.$good->id.'"');
+});
+
+test('bij maximum aantal foto\'s blijft poll actief en soft-timeout-melding zichtbaar', function () {
+    Queue::fake([AssessUploadedPhotoJob::class, ProcessIntakePhotoVariantsJob::class]);
+    config(['intake.follow_up.max_photos_per_item' => 2]);
+
+    [$intake, $item] = softTimeoutFollowUpIntake();
+    $composite = (string) $item->id;
+
+    // Distinct pixels → distinct checksums (identical fakes would collapse to 1).
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('followUpPhotoFiles.'.$item->id, [
+            UploadedFile::fake()->image('een.jpg', 800, 600),
+            UploadedFile::fake()->image('twee.jpg', 801, 601),
+        ])
+        ->assertSet('uploadPhase', 'assessing');
+
+    expect($item->fresh()->uploads()->count())->toBe(2);
+
+    // Max slots filled → upload-control is gone; poll must still render on the wizard.
+    $html = $component->html();
+    expect($html)->toContain('data-testid="assessment-poll"')
+        ->and($html)->toContain('wire:poll')
+        ->and($html)->toContain('pollPendingAssessments')
+        ->and($html)->not->toContain("Foto's maken of kiezen");
+
+    $component->set('uploadPhaseStartedAt', now()->subSeconds(16)->getTimestamp());
+    foreach ($item->fresh()->uploads as $upload) {
+        $upload->forceFill(['assessment_queued_at' => now()->subSeconds(16)])->save();
+    }
+
+    $component
+        ->call('pollPendingAssessments')
+        ->assertSet('uploadPhase', '')
+        ->assertSee(PhotoCustomerStatus::SOFT_TIMEOUT);
+
+    expect($component->instance()->assessmentUiReleased)->toContain($composite)
+        ->and($component->instance()->pendingAssessUploadIds[$composite] ?? [])->not->toBeEmpty();
+});
+
+test('CompleteFollowUpRound blokkeert jonge pending foto en laat soft-timeout door', function () {
+    Queue::fake([
+        AssessUploadedPhotoJob::class,
+        ProcessIntakePhotoVariantsJob::class,
+        SynthesizeSurveyDossierJob::class,
+        SuggestAttentionPointsJob::class,
+        GenerateIntakePdfJob::class,
+    ]);
+    config(['ai.photo_assessment.ui_soft_timeout_seconds' => 15]);
+
+    [$intake, $item] = softTimeoutFollowUpIntake();
+    $round = $intake->followUpRounds()->latest('round_number')->firstOrFail();
+
+    $young = $item->uploads()->create([
+        'intake_id' => $intake->id,
+        'question_key' => 'follow_up_photo',
+        'disk' => (string) config('filesystems.media', 'local'),
+        'path' => 'intakes/test/young.jpg',
+        'original_filename' => 'young.jpg',
+        'mime_type' => 'image/jpeg',
+        'size_bytes' => 1000,
+        'checksum' => hash('sha256', 'young-soft-timeout'),
+        'sort_order' => 1,
+        'assessment_status' => PhotoAssessmentStatus::Pending,
+        'assessment_queued_at' => now()->subSeconds(5),
+        'usability_verdict' => PhotoUsabilityVerdict::Ok,
+        'created_at' => now()->subSeconds(5),
+    ]);
+
+    expect(fn () => app(CompleteFollowUpRound::class)->handle(
+        $intake->fresh(),
+        $round->fresh()->load('items.uploads'),
+        [],
+    ))->toThrow(
+        ValidationException::class,
+        'Even geduld: we beoordelen je foto nog.',
+    );
+
+    $young->forceFill([
+        'assessment_queued_at' => now()->subSeconds(16),
+        'created_at' => now()->subSeconds(16),
+    ])->save();
+
+    app(CompleteFollowUpRound::class)->handle(
+        $intake->fresh(),
+        $round->fresh()->load('items.uploads'),
+        [],
+    );
+
+    expect($young->fresh()->assessment_status)->toBe(PhotoAssessmentStatus::Pending)
+        ->and($round->fresh()->status)->toBe(FollowUpRoundStatus::Completed);
+});
+
+test('wizard follow-up gate volgt soft-timeout-leeftijd (niet alleen assessmentUiReleased)', function () {
+    Queue::fake([AssessUploadedPhotoJob::class, ProcessIntakePhotoVariantsJob::class]);
+    config(['ai.photo_assessment.ui_soft_timeout_seconds' => 15]);
+
+    [$intake, $item] = softTimeoutFollowUpIntake();
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('followUpPhotoFiles.'.$item->id, UploadedFile::fake()->image('gate.jpg', 820, 620))
+        ->assertSet('uploadPhase', 'assessing')
+        ->set('assessmentUiReleased', []);
+
+    $upload = $item->fresh()->uploads()->firstOrFail();
+    expect($upload->assessment_status)->toBe(PhotoAssessmentStatus::Pending);
+
+    // Just uploaded → younger than soft-timeout → blocked.
+    $component->call('nextFollowUp')->assertSee('Even geduld: we beoordelen je foto nog.');
+
+    // Past soft-timeout → may continue while assessment stays pending.
+    IntakeUpload::query()->whereKey($upload->id)->update([
+        'assessment_queued_at' => now()->subSeconds(20),
+        'created_at' => now()->subSeconds(20),
+    ]);
+
+    expect(PhotoAssessmentSoftTimeout::blocksCustomerProgress($upload->fresh()))->toBeFalse();
+
+    $component->call('nextFollowUp')->assertHasNoErrors('follow_up');
+    expect($upload->fresh()->assessment_status)->toBe(PhotoAssessmentStatus::Pending);
 });
 
 test('nieuwe upload wist assessmentUiReleased zodat soft-timeout opnieuw loopt', function () {

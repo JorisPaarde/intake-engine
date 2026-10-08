@@ -92,6 +92,23 @@
                     $remainingSlots = max(0, $maxPhotos - $item->uploads->count());
                 @endphp
 
+                @php
+                    $followUpComposite = (string) $item->id;
+                    $assessmentPollPending = ! empty($pendingAssessUploadIds[$followUpComposite] ?? []);
+                    $assessmentPollActive = in_array((string) ($uploadPhase ?? ''), ['assessing', 'failed'], true)
+                        && (string) ($uploadPhaseComposite ?? '') === $followUpComposite;
+                    $assessmentQuietPoll = in_array($followUpComposite, $assessmentUiReleased ?? [], true);
+                    $assessmentPollInterval = $assessmentQuietPoll ? '5s' : '2s';
+                @endphp
+                @if ($assessmentPollPending || $assessmentPollActive)
+                    <div
+                        wire:poll.{{ $assessmentPollInterval }}="pollPendingAssessments"
+                        class="hidden"
+                        data-testid="assessment-poll"
+                        aria-hidden="true"
+                    ></div>
+                @endif
+
                 @if ($item->uploads->isNotEmpty())
                     <ul class="grid grid-cols-2 gap-3">
                         @foreach ($item->uploads as $upload)

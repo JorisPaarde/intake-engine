@@ -93,11 +93,16 @@ return Application::configure(basePath: dirname(__DIR__))
                 return null;
             }
 
-            // Prefer the exception request referer — session is often not started yet.
+            // Prefer same-host Referer — session is often not started yet.
+            // Foreign hosts must not become the back link (open redirect).
             $referer = $request->headers->get('referer');
-            $backUrl = is_string($referer) && $referer !== ''
-                ? $referer
-                : url('/');
+            $backUrl = url('/');
+            if (is_string($referer) && $referer !== '') {
+                $refererHost = parse_url($referer, PHP_URL_HOST);
+                if (is_string($refererHost) && strcasecmp($refererHost, $request->getHost()) === 0) {
+                    $backUrl = $referer;
+                }
+            }
 
             return response()->view('errors.post-too-large-photo', [
                 'message' => 'Deze foto is te groot voor één upload. De foto wordt automatisch verkleind — probeer het opnieuw, of stuur minder foto\'s tegelijk.',

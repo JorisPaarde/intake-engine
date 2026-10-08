@@ -48,38 +48,6 @@ export function photoPrepEventScope(input) {
     };
 }
 
-/**
- * Alpine / listener filter: event belongs to this input (or is unscoped).
- *
- * @param {{ inputId?: string, composite?: string }|null|undefined} detail
- * @param {{ inputId?: string, composite?: string }} scope
- * @returns {boolean}
- */
-export function photoPrepEventMatchesScope(detail, scope) {
-    if (! detail) {
-        return true;
-    }
-
-    const eventInputId = String(detail.inputId || '');
-    const scopeInputId = String(scope.inputId || '');
-    if (eventInputId !== '' && scopeInputId !== '' && eventInputId !== scopeInputId) {
-        return false;
-    }
-
-    const eventComposite = String(detail.composite || '');
-    const scopeComposite = String(scope.composite || '');
-    if (eventComposite !== '' && scopeComposite !== '' && eventComposite !== scopeComposite) {
-        // Installer native forms share composite "installer" — inputId is the real scope.
-        if (eventComposite === 'installer' && scopeComposite === 'installer') {
-            return eventInputId === '' || scopeInputId === '' || eventInputId === scopeInputId;
-        }
-
-        return false;
-    }
-
-    return true;
-}
-
 export function registerClientPhotoDownscale() {
     const isPrepInput = (input) => {
         if (!(input instanceof HTMLInputElement) || input.type !== 'file') {

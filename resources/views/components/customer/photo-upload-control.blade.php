@@ -19,9 +19,6 @@
 @php
     $isAssessing = $uploadPhase === 'assessing' && $uploadPhaseComposite === $composite;
     $isFailed = $uploadPhase === 'failed' && $uploadPhaseComposite === $composite;
-    $hasPending = ! empty($pendingAssessUploadIds[$composite] ?? []);
-    $quietPoll = in_array($composite, $assessmentUiReleased ?? [], true);
-    $pollInterval = $quietPoll ? '5s' : '2s';
 
     $labelClass = $tone === 'followup'
         ? 'flex min-h-12 cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed border-brand-fog bg-brand-mist/40 px-4 py-5 text-center'
@@ -37,10 +34,8 @@
     $bagErrorClass = $tone === 'followup' ? 'mt-2 text-sm text-brand-ember' : 'mt-2 text-sm text-[#a84832]';
 @endphp
 
+{{-- Assessment polling is on the wizard so it keeps running at max photos. --}}
 <div
-    @if ($isAssessing || $hasPending)
-        wire:poll.{{ $pollInterval }}="pollPendingAssessments"
-    @endif
     x-data="{
         timedOut: false,
         timer: null,

@@ -53,6 +53,27 @@ it('never shows GOOD after Toch doorgaan on a judged problem', function () {
         ->toBe((string) $wrong->customerMessage());
 });
 
+it('shows RECEIVED for not_assessed before the quality/content issue branch', function () {
+    $withContent = statusUpload([
+        'assessment_status' => PhotoAssessmentStatus::NotAssessed,
+        'usability_verdict' => PhotoUsabilityVerdict::Ok,
+        'content_assessment' => PhotoContentAssessment::notAssessed(PhotoSubject::Fusebox)->toArray(),
+    ]);
+    $statusOnly = statusUpload([
+        'assessment_status' => PhotoAssessmentStatus::NotAssessed,
+        'usability_verdict' => PhotoUsabilityVerdict::Ok,
+        'content_assessment' => null,
+    ]);
+
+    expect(PhotoOverridePolicy::hasQualityOrContentIssue($withContent))->toBeTrue()
+        ->and(PhotoCustomerStatus::forUpload($withContent, 'fusebox_photo', '', '', [], []))
+        ->toBe(PhotoCustomerStatus::RECEIVED)
+        ->and(PhotoCustomerStatus::forUpload($statusOnly, 'fusebox_photo', '', '', [], []))
+        ->toBe(PhotoCustomerStatus::RECEIVED)
+        ->and(PhotoCustomerStatus::forUpload($withContent, 'fusebox_photo', '', '', [], []))
+        ->not->toBe(PhotoCustomerStatus::GOOD);
+});
+
 it('puts advice under the bad photo in a mixed batch', function () {
     $good = statusUpload([
         'id' => 1,

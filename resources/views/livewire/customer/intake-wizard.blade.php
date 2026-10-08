@@ -404,6 +404,22 @@
                                         $remainingSlots = max(0, $maxFiles - $existingUploads->count());
                                     @endphp
 
+                                    @php
+                                        $assessmentPollPending = ! empty($pendingAssessUploadIds[$composite] ?? []);
+                                        $assessmentPollActive = in_array((string) ($uploadPhase ?? ''), ['assessing', 'failed'], true)
+                                            && (string) ($uploadPhaseComposite ?? '') === $composite;
+                                        $assessmentQuietPoll = in_array($composite, $assessmentUiReleased ?? [], true);
+                                        $assessmentPollInterval = $assessmentQuietPoll ? '5s' : '2s';
+                                    @endphp
+                                    @if ($assessmentPollPending || $assessmentPollActive)
+                                        <div
+                                            wire:poll.{{ $assessmentPollInterval }}="pollPendingAssessments"
+                                            class="hidden"
+                                            data-testid="assessment-poll"
+                                            aria-hidden="true"
+                                        ></div>
+                                    @endif
+
                                     @if ($existingUploads->isNotEmpty())
                                         <ul class="grid grid-cols-2 gap-3">
                                             @foreach ($existingUploads as $upload)

@@ -39,6 +39,7 @@ use App\Domains\Intake\Services\ResolveIntakeByAccessToken;
 use App\Domains\Intake\Services\VisibilityResolver;
 use App\Domains\Intake\Support\KnownSummaryCatalog;
 use App\Domains\Intake\Support\OutdoorPhotoReuse;
+use App\Domains\Intake\Support\PhotoAssessmentSoftTimeout;
 use App\Domains\Intake\Support\PhotoContentSatisfaction;
 use App\Domains\Intake\Support\PhotoCustomerStatus;
 use App\Domains\Intake\Support\PhotoOverridePolicy;
@@ -834,17 +835,11 @@ class IntakeWizard extends Component
             return false;
         }
 
-        // Wacht tot assessment_status terminaal is — tenzij soft-timeout (UX 8 okt: 15 s).
-        $composite = (string) $item->id;
-        $softReleased = in_array($composite, $this->assessmentUiReleased, true);
+        // Soft-timeout matches the client (ui_soft_timeout_seconds): after that the
+        // customer may continue; pending assessment finishes in the background.
         if ($item->type === FollowUpItemType::Photo
-            && ! $softReleased
             && $item->uploads->contains(
-                static function (IntakeUpload $upload): bool {
-                    $status = $upload->assessment_status;
-
-                    return ! ($status instanceof PhotoAssessmentStatus && $status->isTerminal());
-                },
+                static fn (IntakeUpload $upload): bool => PhotoAssessmentSoftTimeout::blocksCustomerProgress($upload),
             )) {
             $this->addError('follow_up', 'Even geduld: we beoordelen je foto nog.');
 
@@ -1186,9 +1181,6 @@ class IntakeWizard extends Component
         } elseif ($error !== null) {
             $this->setUploadPhase('failed', 'Uploaden mislukt. Je eerdere antwoorden blijven bewaard.');
             $this->addError($errorBagKey, $error);
-            $this->saveMessage = '';
-        } elseif ($skippedNames !== []) {
-            $this->clearUploadPhase();
             $this->saveMessage = '';
         } else {
             $this->clearUploadPhase();

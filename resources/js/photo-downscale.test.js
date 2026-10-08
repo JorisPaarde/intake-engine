@@ -2,7 +2,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     isLikelyImageFile,
-    photoPrepEventMatchesScope,
     photoPrepEventScope,
     registerClientPhotoDownscale,
 } from './photo-downscale.js';
@@ -37,17 +36,6 @@ describe('photo-downscale prep event scoping', () => {
         expect(isLikelyImageFile({ type: '', name: 'meterkast.JPG' })).toBe(true);
         expect(isLikelyImageFile({ type: '', name: 'notes.txt' })).toBe(false);
         expect(isLikelyImageFile({ type: 'image/png', name: 'x' })).toBe(true);
-    });
-
-    it('scopes prep events to the originating input id', () => {
-        expect(photoPrepEventMatchesScope(
-            { inputId: 'subject-1-photo', composite: 'installer' },
-            { inputId: 'subject-1-photo', composite: 'installer' },
-        )).toBe(true);
-        expect(photoPrepEventMatchesScope(
-            { inputId: 'subject-1-photo', composite: 'installer' },
-            { inputId: 'subject-2-photo', composite: 'installer' },
-        )).toBe(false);
     });
 
     it('dispatches inputId + disables only the matching form during prep-failed', async () => {

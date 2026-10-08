@@ -260,7 +260,11 @@
                     onPick(event) {
                         const files = Array.from(event.target.files || []);
                         this.names = files.map((file) => file.name);
-                        this.prepError = '';
+                        // Synthetic change after downscale is not trusted — keep prepError
+                        // (skip notices) so they are not wiped by photo-downscale.js.
+                        if (event.isTrusted) {
+                            this.prepError = '';
+                        }
                     },
                     onPrepStart(event) {
                         if (! this.matchesScope(event)) return;
@@ -280,7 +284,12 @@
                     },
                     onPrepSkipped(event) {
                         if (! this.matchesScope(event)) return;
-                        this.prepError = event?.detail?.message || this.prepError;
+                        const message = event?.detail?.message;
+                        if (! message) return;
+                        // Collect per-file skip notices (same idea as customer prepSkipMessage).
+                        this.prepError = this.prepError
+                            ? (this.prepError + ' ' + message)
+                            : message;
                     },
                 }"
                 x-on:intake:photo-prep-start.document="onPrepStart($event)"

@@ -55,6 +55,18 @@ final class PhotoCustomerStatus
             return self::RECEIVED;
         }
 
+        // not_assessed is also "hasQualityOrContentIssue" for the override panel,
+        // but the per-thumb status stays "Foto ontvangen." (no check ran).
+        $assessment = $upload->contentAssessment();
+        if ($assessment instanceof PhotoContentAssessment
+            && $assessment->status() === PhotoContentAssessment::STATUS_NOT_ASSESSED) {
+            return self::RECEIVED;
+        }
+
+        if ($status === PhotoAssessmentStatus::NotAssessed) {
+            return self::RECEIVED;
+        }
+
         // Judged problem (accepted override or not) → never "Goed te zien".
         // Show the advice under THIS photo so mixed batches stay scannable.
         if (PhotoOverridePolicy::hasQualityOrContentIssue($upload)) {
@@ -64,16 +76,6 @@ final class PhotoCustomerStatus
             }
 
             // Terminal without a specific hint (rare) — still not GOOD.
-            return self::RECEIVED;
-        }
-
-        $assessment = $upload->contentAssessment();
-        if ($assessment instanceof PhotoContentAssessment
-            && $assessment->status() === PhotoContentAssessment::STATUS_NOT_ASSESSED) {
-            return self::RECEIVED;
-        }
-
-        if ($status === PhotoAssessmentStatus::NotAssessed) {
             return self::RECEIVED;
         }
 
