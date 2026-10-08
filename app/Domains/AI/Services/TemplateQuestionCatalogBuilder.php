@@ -6,6 +6,7 @@ namespace App\Domains\AI\Services;
 
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
+use App\Domains\Intake\Support\MustAcceptQuestions;
 use App\Enums\QuestionType;
 
 /**
@@ -61,6 +62,11 @@ final class TemplateQuestionCatalogBuilder
                 }
 
                 if ($question->key === 'request_reason') {
+                    continue;
+                }
+
+                // Consent / truth confirmation must never be AI-prefilled.
+                if (MustAcceptQuestions::requiresAcceptance($question)) {
                     continue;
                 }
 

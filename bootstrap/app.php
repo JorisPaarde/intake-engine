@@ -54,6 +54,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 && (
                     (bool) $session->get('public_demo_mode', false)
                     || $session->has('public_demo_intake_id')
+                    || $session->has('public_demo_intake_ids')
                 )) {
                 return route('demo.ended', ['reason' => 'expired']);
             }

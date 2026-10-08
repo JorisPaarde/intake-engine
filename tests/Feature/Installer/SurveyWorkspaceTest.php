@@ -298,7 +298,7 @@ test('workspace attaches photos and notes to the relevant object without exposin
         'use_type' => 'bedroom',
     ]);
 
-    $this->actingAs($user)
+    $workspaceResponse = $this->actingAs($user)
         ->get(route('intakes.workspace', $intake))
         ->assertOk()
         ->assertSee('Woninggegevens')
@@ -339,8 +339,16 @@ test('workspace attaches photos and notes to the relevant object without exposin
         ->assertDontSee('Telefonisch vastgesteld')
         ->assertDontSee('open punten bekijken')
         ->assertDontSee('name="key"', false)
-        ->assertDontSee('name="method"', false)
-        ->assertDontSee('name="dossier_subject_id"', false);
+        ->assertDontSee('name="method"', false);
+
+    // GET→POST prepare (Taak 17) puts dossier_subject_id on ask-customer as a hidden
+    // field. That is intentional; notes must still not expose it as an editable control.
+    $workspaceHtml = $workspaceResponse->getContent();
+    expect(preg_match(
+        '/<(?:input(?![^>]*\btype=["\']hidden["\'])|select|textarea)[^>]*\bname=["\']dossier_subject_id["\']/i',
+        $workspaceHtml,
+    ))->toBe(0)
+        ->and(substr_count($workspaceHtml, 'name="dossier_subject_id"'))->toBeGreaterThan(0);
 
     $this->actingAs($user)
         ->post(route('intakes.workspace.notes.store', [$intake, $room->subject]), [
@@ -518,7 +526,13 @@ test('installer-only survey can temporarily expose exactly one targeted customer
         ->and($intake->access_token)->not->toBe($inactiveToken)
         ->and($round->return_status)->toBe(IntakeStatus::InProgress);
 
-    $this->get(route('customer.intake.show', $inactiveToken))->assertNotFound();
+    // Replaced tokens are remembered as SHA-256 hashes → 410 with the “nieuwere link”
+    // copy. No intake content is shown (reason=replaced only); still not a bare 404.
+    $this->get(route('customer.intake.show', $inactiveToken))
+        ->assertGone()
+        ->assertSee('Deze link werkt niet meer')
+        ->assertSee('Je installateur heeft je een nieuwere link gestuurd')
+        ->assertDontSee('Maak een leesbare foto van de volledige meterkast');
     $this->get(route('customer.intake.show', $intake->access_token))
         ->assertOk()
         ->assertSee('Maak een leesbare foto van de volledige meterkast')
@@ -1180,11 +1194,12 @@ test('room block offers contextual customer task that opens prefilled for review
 
     // BL-145: "Vraag de klant" voegt toe aan de conceptlijst (prepare), activeert niet meteen.
     expect($html)->toContain(route('intakes.workspace.tasks.prepare', $intake, false))
-        ->and($html)->toContain('dossier_subject_id='.$room->dossier_subject_id)
+        ->and($html)->toContain('name="dossier_subject_id"')
+        ->and($html)->toContain('value="'.$room->dossier_subject_id.'"')
         ->and($html)->not->toContain('/customer-tasks/quick?');
 
     $this->actingAs($user)
-        ->get(route('intakes.workspace.tasks.prepare', [
+        ->post(route('intakes.workspace.tasks.prepare', [
             'intake' => $intake,
             'type' => FollowUpItemType::Text->value,
             'prompt' => 'Meet of noteer de lengte en breedte van Slaapkamer ouders, of het vloeroppervlak in m².',
@@ -1198,7 +1213,7 @@ test('room block offers contextual customer task that opens prefilled for review
 
     $this->actingAs($user)
         ->followingRedirects()
-        ->get(route('intakes.workspace.tasks.prepare', [
+        ->post(route('intakes.workspace.tasks.prepare', [
             'intake' => $intake,
             'type' => FollowUpItemType::Text->value,
             'prompt' => 'Meet of noteer de lengte en breedte van Slaapkamer ouders, of het vloeroppervlak in m².',
@@ -1250,7 +1265,7 @@ test('photo suggestion offers prepare link that prefills a retake task', functio
 
     $this->actingAs($user)
         ->followingRedirects()
-        ->get(route('intakes.workspace.tasks.prepare', [
+        ->post(route('intakes.workspace.tasks.prepare', [
             'intake' => $intake,
             'type' => FollowUpItemType::Photo->value,
             'prompt' => 'Maak een nieuwe, duidelijke foto van Woonkamer. De muur is te donker zichtbaar.',
@@ -1310,7 +1325,7 @@ test('connection needing evidence offers contextual customer photo task', functi
 
     $this->actingAs($user)
         ->followingRedirects()
-        ->get(route('intakes.workspace.tasks.prepare', [
+        ->post(route('intakes.workspace.tasks.prepare', [
             'intake' => $intake,
             'type' => FollowUpItemType::Photo->value,
             'prompt' => 'Maak een duidelijke foto van de Koelleiding “Koelleiding slaapkamer” (Binnenpositie → Buitenpositie). Laat zien waar de leiding of kabel zichtbaar loopt.',
@@ -1396,7 +1411,7 @@ test('ask-customer actions accumulate into one editable draft round with two tas
     $fuseboxPrompt = CustomerFacingTaskText::fuseboxPhotoPrompt();
 
     $this->actingAs($user)
-        ->get(route('intakes.workspace.tasks.prepare', [
+        ->post(route('intakes.workspace.tasks.prepare', [
             'intake' => $intake,
             'type' => FollowUpItemType::Text->value,
             'prompt' => $heightPrompt,
@@ -1410,7 +1425,7 @@ test('ask-customer actions accumulate into one editable draft round with two tas
         ->and((int) session('customer_task_drafts.0.dossier_subject_id'))->toBe((int) $attic->dossier_subject_id);
 
     $this->actingAs($user)
-        ->get(route('intakes.workspace.tasks.prepare', [
+        ->post(route('intakes.workspace.tasks.prepare', [
             'intake' => $intake,
             'type' => FollowUpItemType::Photo->value,
             'prompt' => 'Maak een duidelijke foto van de meterkast. Daaruit volgt 1- of 3-fase.',
@@ -1508,7 +1523,7 @@ test('second prepare while open round still builds draft but store stays blocked
     ]]);
 
     $this->actingAs($user)
-        ->get(route('intakes.workspace.tasks.prepare', [
+        ->post(route('intakes.workspace.tasks.prepare', [
             'intake' => $intake,
             'type' => FollowUpItemType::Text->value,
             'prompt' => 'Meet of noteer de hoogte van Zolder 1.',

@@ -29,6 +29,7 @@ final class CreateCustomerContributionRequest
         private readonly DossierManager $dossierManager,
         private readonly InstallerSurveyProgress $surveyProgress,
         private readonly IntakeAccessTokenGenerator $tokenGenerator,
+        private readonly RecordReplacedAccessToken $recordReplacedAccessToken,
     ) {}
 
     /**
@@ -187,6 +188,8 @@ final class CreateCustomerContributionRequest
                     ),
                 ]);
             }
+
+            $this->recordReplacedAccessToken->handle($intake, $intake->access_token);
 
             $intake->update([
                 'status' => IntakeStatus::AwaitingCustomer,

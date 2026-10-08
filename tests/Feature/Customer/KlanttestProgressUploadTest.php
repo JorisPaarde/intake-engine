@@ -75,7 +75,7 @@ function p2FindQuestion(IntakeTemplateVersion $version, string $key): ?IntakeQue
 function p2SampleAnswer(IntakeQuestion $question): array
 {
     return match ($question->type) {
-        QuestionType::Boolean => ['bool' => false],
+        QuestionType::Boolean => ['bool' => in_array($question->key, ['privacy_consent', 'truth_confirmation'], true)],
         QuestionType::Number => ['number' => 1],
         QuestionType::SingleChoice => ['value' => $question->options->first()?->value ?? 'unknown'],
         QuestionType::MultiChoice => ['values' => array_filter([$question->options->first()?->value])],

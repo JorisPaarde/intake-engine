@@ -199,4 +199,21 @@ return [
 
     'seed_latest_template_only' => (bool) env('INTAKE_SEED_LATEST_TEMPLATE_ONLY', false),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Must-accept boolean questions (AVG / waarheidsverklaring)
+    |--------------------------------------------------------------------------
+    |
+    | These keys must be explicitly true before the customer can finish.
+    | A false answer counts as unanswered. Also honours question meta
+    | `must_accept: true` when a future template version sets it (no new
+    | template version required here — pinned intakes stay protected).
+    |
+    */
+
+    'must_accept_question_keys' => [
+        'privacy_consent',
+        'truth_confirmation',
+    ],
+
 ];

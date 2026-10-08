@@ -26,6 +26,8 @@ use App\Domains\Intake\Services\PdokAddressService;
 use App\Domains\Intake\Services\PublicDemoSession;
 use App\Domains\Intake\Services\RebuildIntakeReportHtml;
 use App\Domains\Intake\Services\WorkspacePrimaryActionResolver;
+use App\Domains\Intake\Support\CustomerConsentPresenter;
+use App\Domains\Intake\Support\CustomerTaskStatusPresenter;
 use App\Domains\Intake\Support\FollowUpEvidenceReview;
 use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoOptionStatus;
@@ -132,8 +134,8 @@ class IntakeController extends Controller
                 'status' => IntakeStatus::Draft,
             ])->save();
 
+            $publicDemoSession->rememberIntake($request, (int) $intake->id, setActive: true);
             $request->session()->put([
-                'public_demo_intake_id' => $intake->id,
                 'public_demo_guide_step' => 'branch',
                 'public_demo_path_chosen' => null,
             ]);
@@ -221,6 +223,8 @@ class IntakeController extends Controller
             ->where('type', AiRunType::AttentionPoints)
             ->contains(static fn ($run) => $run->status === AiRunStatus::Succeeded);
         $followUpReview = $followUpEvidenceReview->present($intake, $intake->followUpRounds);
+        $customerTaskStatus = app(CustomerTaskStatusPresenter::class)->present($intake);
+        $customerConsent = app(CustomerConsentPresenter::class)->present($intake);
 
         return view('installer.intakes.show', [
             'intake' => $intake,
@@ -237,6 +241,8 @@ class IntakeController extends Controller
             'aiAttentionAvailable' => $aiProvider !== 'null',
             'attentionAiSucceeded' => $attentionAiSucceeded,
             'followUpReview' => $followUpReview,
+            'customerTaskStatus' => $customerTaskStatus,
+            'customerConsent' => $customerConsent,
             'canApproveProposal' => $canApproveProposal,
             'proposalAlreadyApproved' => $proposalAlreadyApproved,
             'approvalBlockers' => $approvalBlockers,

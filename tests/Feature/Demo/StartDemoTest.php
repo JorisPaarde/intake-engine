@@ -78,6 +78,7 @@ function createDemoIntakeViaForm(?User $user = null): array
         'public_demo_expires_at' => now()->addHours(2)->toIso8601String(),
         'public_demo_guide_step' => 'welcome',
         'public_demo_intake_id' => null,
+        'public_demo_intake_ids' => [],
     ];
 
     test()->actingAs($user)
@@ -107,13 +108,21 @@ function createDemoIntakeViaForm(?User $user = null): array
 /**
  * @return array<string, mixed>
  */
-function demoSessionFor(User $user, ?Intake $intake = null): array
+function demoSessionFor(User $user, ?Intake $intake = null, array $extraIntakeIds = []): array
 {
+    $ids = $intake !== null ? [(int) $intake->id] : [];
+    foreach ($extraIntakeIds as $extraId) {
+        if (is_numeric($extraId)) {
+            $ids[] = (int) $extraId;
+        }
+    }
+
     return [
         'public_demo_mode' => true,
         'public_demo_company_id' => $user->company_id,
         'public_demo_expires_at' => now()->addHours(2)->toIso8601String(),
         'public_demo_intake_id' => $intake?->id,
+        'public_demo_intake_ids' => array_values(array_unique($ids)),
         'public_demo_guide_step' => $intake ? 'branch' : 'welcome',
     ];
 }
@@ -439,6 +448,7 @@ it('creates a separate tenant and user for every public demo session', function 
         ->withSession([
             'public_demo_mode' => true,
             'public_demo_intake_id' => $firstIntake->id,
+            'public_demo_intake_ids' => [$firstIntake->id],
             'public_demo_expires_at' => now()->addHour()->toIso8601String(),
         ])
         ->get(route('intakes.workspace', $secondIntake))
@@ -994,6 +1004,7 @@ it('never claims email send on the demo create form', function () {
 
 it('does not present questionnaire percent as a finished opname', function () {
     ['intake' => $intake, 'user' => $user] = createDemoIntakeViaForm();
+    // Prefill/% alone is not customer progress — installer label stays "Nog niet gestart".
     $intake->forceFill(['progress_percent' => 100])->save();
 
     $this->actingAs($user)
@@ -1001,7 +1012,8 @@ it('does not present questionnaire percent as a finished opname', function () {
         ->get(route('intakes.show', $intake))
         ->assertOk()
         ->assertDontSee('100% compleet')
-        ->assertSee('Klanttaak: 100% beantwoord')
+        ->assertSee('Klanttaak: Nog niet gestart')
+        ->assertDontSee('Klanttaak: 100% beantwoord')
         ->assertSee('Klaar voor offerte:')
         ->assertSee('Opname openen')
         ->assertDontSee('Open technische opname')
@@ -1142,4 +1154,76 @@ it('shows a visible return button on the demo follow-up thank-you screen (BL-147
         ->set('completed', true)
         ->assertSee('Naar de homepage')
         ->assertDontSee('Terug naar de opname');
+});
+
+it('keeps the own demo intake reachable after loading the sample dossier', function () {
+    ['intake' => $own, 'user' => $user] = createDemoIntakeViaForm();
+
+    $this->actingAs($user)
+        ->withSession(demoSessionFor($user, $own))
+        ->post(route('demo.path.choose', $own), ['path' => 'installer'])
+        ->assertRedirect();
+
+    $this->actingAs($user)
+        ->withSession(demoSessionFor($user, $own))
+        ->post(route('demo.scenario.load', $own))
+        ->assertRedirect();
+
+    $exampleId = (int) session('public_demo_intake_id');
+    $allowed = session('public_demo_intake_ids');
+
+    expect($exampleId)->not->toBe($own->id)
+        ->and($allowed)->toBeArray()
+        ->and($allowed)->toContain($own->id)
+        ->and($allowed)->toContain($exampleId);
+
+    $example = Intake::query()->findOrFail($exampleId);
+    $session = demoSessionFor($user, $example, [(int) $own->id]);
+
+    $this->actingAs($user)
+        ->withSession($session)
+        ->get(route('intakes.show', $own))
+        ->assertOk();
+
+    $this->actingAs($user)
+        ->withSession($session)
+        ->get(route('intakes.workspace', $own))
+        ->assertOk();
+
+    $this->actingAs($user)
+        ->withSession($session)
+        ->get(route('intakes.show', $example))
+        ->assertOk()
+        ->assertSee('Voorbeelddossier');
+
+    // Second demo session must start as guest (demo.start is guest-only).
+    auth()->logout();
+    $otherUser = startPublicDemoSession();
+    ['intake' => $other] = createDemoIntakeViaForm($otherUser);
+
+    expect((int) $other->created_by)->not->toBe((int) $user->id);
+
+    $this->actingAs($user)
+        ->withSession($session)
+        ->get(route('intakes.show', $other))
+        ->assertNotFound();
+});
+
+it('migrates legacy single public_demo_intake_id into the allowlist', function () {
+    ['intake' => $intake, 'user' => $user] = createDemoIntakeViaForm();
+
+    $legacy = [
+        'public_demo_mode' => true,
+        'public_demo_company_id' => $user->company_id,
+        'public_demo_expires_at' => now()->addHours(2)->toIso8601String(),
+        'public_demo_intake_id' => $intake->id,
+        'public_demo_guide_step' => 'branch',
+    ];
+
+    $this->actingAs($user)
+        ->withSession($legacy)
+        ->get(route('intakes.show', $intake))
+        ->assertOk();
+
+    expect(session('public_demo_intake_ids'))->toContain($intake->id);
 });

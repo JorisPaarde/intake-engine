@@ -28,7 +28,9 @@ class IntakeUploadController extends Controller
 
         $headers = [
             'Content-Type' => $upload->mime_type,
-            'Cache-Control' => 'private, max-age=3600',
+            // no-store: private photos must not linger in browser cache after logout
+            // on a shared device (gallery reloads are acceptable).
+            'Cache-Control' => 'private, no-store',
             'X-Content-Type-Options' => 'nosniff',
         ];
 

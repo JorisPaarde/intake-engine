@@ -20,6 +20,7 @@ use App\Http\Controllers\HealthController;
 use App\Http\Controllers\Installer\AddressSuggestionController;
 use App\Http\Controllers\Installer\CompanySettingsController;
 use App\Http\Controllers\Installer\DashboardController;
+use App\Http\Controllers\Installer\IntakeAerialImageController;
 use App\Http\Controllers\Installer\IntakeController;
 use App\Http\Controllers\Installer\IntakeUploadController as InstallerIntakeUploadController;
 use App\Http\Controllers\Installer\MetricsController;
@@ -110,7 +111,7 @@ Route::middleware(['auth', 'verified', 'public.demo.scope'])->group(function () 
     Route::post('/intakes/{intake}/opname/subjects/{subject}/notes', [SurveyWorkspaceController::class, 'storeNote'])->name('intakes.workspace.notes.store');
     Route::post('/intakes/{intake}/opname/subjects/{subject}/photos', [SurveyWorkspaceController::class, 'storeEvidence'])->name('intakes.workspace.photos.store');
     Route::post('/intakes/{intake}/opname/photo-observations/{record}/confirm', [SurveyWorkspaceController::class, 'confirmObservation'])->name('intakes.workspace.photo-observations.confirm');
-    Route::get('/intakes/{intake}/opname/customer-tasks/prepare', [SurveyWorkspaceController::class, 'prepareContribution'])->name('intakes.workspace.tasks.prepare');
+    Route::post('/intakes/{intake}/opname/customer-tasks/prepare', [SurveyWorkspaceController::class, 'prepareContribution'])->name('intakes.workspace.tasks.prepare');
     Route::post('/intakes/{intake}/opname/customer-tasks', [SurveyWorkspaceController::class, 'requestContribution'])->name('intakes.workspace.tasks.store');
     Route::post('/intakes/{intake}/opname/customer-tasks/quick', [SurveyWorkspaceController::class, 'requestQuickContribution'])->name('intakes.workspace.tasks.quick');
     Route::post('/intakes/{intake}/opname/routes/{session}/synthesize', [SurveyWorkspaceController::class, 'synthesizeRoute'])->name('intakes.workspace.routes.synthesize');
@@ -131,6 +132,8 @@ Route::middleware(['auth', 'verified', 'public.demo.scope'])->group(function () 
     Route::post('/intakes/{intake}/pdf', [IntakeController::class, 'regeneratePdf'])->name('intakes.pdf.regenerate');
     Route::get('/intakes/{intake}/uploads/{upload}', [InstallerIntakeUploadController::class, 'show'])
         ->name('installer.uploads.show');
+    Route::get('/intakes/{intake}/luchtfoto', [IntakeAerialImageController::class, 'show'])
+        ->name('intakes.aerial.show');
 });
 
 Route::middleware(['auth', 'verified', 'public.demo.scope', 'dev.access'])

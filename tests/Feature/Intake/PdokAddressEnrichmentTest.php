@@ -248,7 +248,9 @@ test('selected address stores BAG facts and removes the redundant build-year ste
         ->assertSee('Luchtfoto rond de BAG-locatie van deze opname')
         ->assertSee('Luchtfoto van de omgeving bekijken')
         ->assertSee('PDOK Luchtfoto RGB')
-        ->assertSee('data:image/jpeg;base64,', false);
+        // Web views serve the aerial via an authorized route (no inline base64 in HTML).
+        ->assertSee(route('intakes.aerial.show', $intake), false)
+        ->assertDontSee('data:image/jpeg;base64,', false);
 });
 
 test('generated dossier contains contact data external sources uncertainty and next step', function () {

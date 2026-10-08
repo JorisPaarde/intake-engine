@@ -9,6 +9,7 @@ use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeSection;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Domains\Intake\Support\InternalCustomerQuestions;
+use App\Domains\Intake\Support\MustAcceptQuestions;
 use App\Domains\Intake\Support\OutdoorPhotoReuse;
 use App\Domains\Intake\Support\PhotoContentSatisfaction;
 use App\Domains\Intake\Support\PrefillSources;
@@ -103,6 +104,10 @@ final class ProgressCalculator
 
             $answerValue = $answers[$compositeKey] ?? null;
             $filled = $this->answerValueReader->isFilled($answerValue, $question->type);
+
+            if ($filled && MustAcceptQuestions::requiresAcceptance($question)) {
+                $filled = MustAcceptQuestions::isAccepted($answerValue, $answerSource);
+            }
 
             if ($filled && $question->type === QuestionType::Photo) {
                 $filled = PhotoContentSatisfaction::isSatisfied(

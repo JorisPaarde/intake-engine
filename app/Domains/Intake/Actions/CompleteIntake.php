@@ -16,6 +16,7 @@ use App\Domains\Intake\Services\CompletenessChecker;
 use App\Domains\Intake\Services\DecisionReadinessService;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\GenerateIntakeReportHtml;
+use App\Domains\Intake\Support\MustAcceptQuestions;
 use App\Enums\AttentionPointSource;
 use App\Enums\IntakeStatus;
 use Illuminate\Support\Facades\Bus;
@@ -49,8 +50,13 @@ final class CompleteIntake
             $check = $this->completenessChecker->check($intake, $version);
 
             if (! $check['is_complete']) {
+                $mustAcceptMissing = collect($check['missing'])
+                    ->first(static fn (array $item): bool => $item['reason'] === 'must_accept');
+
                 throw ValidationException::withMessages([
-                    'completeness' => 'Nog niet alles is ingevuld. Controleer de ontbrekende onderdelen.',
+                    'completeness' => is_array($mustAcceptMissing)
+                        ? MustAcceptQuestions::refusalMessage($mustAcceptMissing['question_key'])
+                        : 'Nog niet alles is ingevuld. Controleer de ontbrekende onderdelen.',
                 ]);
             }
 

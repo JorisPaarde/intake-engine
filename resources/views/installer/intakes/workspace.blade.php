@@ -1468,7 +1468,7 @@
                                     <details class="mt-4 overflow-hidden rounded-2xl border border-gray-200 bg-gray-50">
                                         <summary class="cursor-pointer px-4 py-3 text-sm font-semibold text-gray-800">Luchtfoto van de omgeving bekijken</summary>
                                         <figure class="border-t border-gray-200 bg-white">
-                                            <img src="{{ $externalData['aerial_image']['data_uri'] }}" alt="Luchtfoto van de woningomgeving" class="aspect-[3/2] w-full object-cover">
+                                            <img src="{{ route('intakes.aerial.show', $intake) }}" alt="Luchtfoto van de woningomgeving" class="aspect-[3/2] w-full object-cover" loading="lazy">
                                             <figcaption class="px-3 py-2 text-xs text-gray-500">{{ $externalData['aerial_image']['source'] }} · {{ $externalData['aerial_image']['confidence'] }}</figcaption>
                                         </figure>
                                     </details>
