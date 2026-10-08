@@ -814,16 +814,6 @@ test('partial refresh keeps prior AI options when new option proposals are all r
         ->toBe($firstConnections)
         ->and(AircoPlacementOption::query()->where('intake_id', $intake->id)->where('source_type', 'ai')->count())
         ->toBe(1);
-
-    $user = User::query()->findOrFail($intake->created_by);
-    Queue::fake();
-    $this->actingAs($user)
-        ->from(route('intakes.workspace', $intake))
-        ->post(route('intakes.workspace.synthesis', $intake))
-        ->assertRedirect(route('intakes.workspace', $intake))
-        ->assertSessionHas('status', 'AI-voorstel wordt op de achtergrond bijgewerkt.');
-
-    Queue::assertPushed(SynthesizeSurveyDossierJob::class);
 });
 
 test('null connection list fields normalize to empty arrays and keep the option', function () {

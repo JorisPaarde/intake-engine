@@ -183,18 +183,3 @@ test('workspace toont geen AI-voorstel vernieuwen knop', function () {
         ->assertDontSee('AI-voorstel vernieuwen')
         ->assertDontSee('Tik op vernieuwen');
 });
-
-test('synthesis-route dispatcht job i.p.v. synchrone AI', function () {
-    Queue::fake();
-    config(['ai.dossier.enabled' => true, 'ai.provider' => 'fake']);
-
-    $user = User::factory()->create();
-    $intake = asyncNoteSurvey($user, 'synth-async@example.com');
-
-    $this->actingAs($user)
-        ->post(route('intakes.workspace.synthesis', $intake))
-        ->assertRedirect(route('intakes.workspace', $intake))
-        ->assertSessionHas('status', 'AI-voorstel wordt op de achtergrond bijgewerkt.');
-
-    Queue::assertPushed(SynthesizeSurveyDossierJob::class, fn (SynthesizeSurveyDossierJob $job): bool => $job->intakeId === $intake->id);
-});

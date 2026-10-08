@@ -167,9 +167,11 @@ class IntakeWizard extends Component
     /**
      * Wacht op async request-prefill (keuze 2A) vóór de steplijst wordt gebouwd.
      */
+    #[Locked]
     public bool $waitingForPrefill = false;
 
     /** Unix-timestamp waarop de wizard-wacht begon. */
+    #[Locked]
     public ?int $prefillWaitStartedAt = null;
 
     #[Locked]
@@ -313,8 +315,10 @@ class IntakeWizard extends Component
         }
 
         // Async prefill nog bezig → kalm wachtscherm; steplijst pas ná afronden (BL-140).
+        // Geen wacht als de klant al begonnen is (cursor/eigen antwoord).
         if (! (bool) config('ai.request_prefill.sync_on_create', false)
-            && DeriveIntentFromRequestJob::hasRecentPending($intake->id)) {
+            && DeriveIntentFromRequestJob::hasRecentPending($intake->id)
+            && ! app(DeriveIntentFromRequest::class)->customerHasStarted($intake)) {
             $this->waitingForPrefill = true;
             $this->prefillWaitStartedAt = now()->getTimestamp();
             $this->resolvedIntake = $intake->loadMissing(['answers', 'uploads']);

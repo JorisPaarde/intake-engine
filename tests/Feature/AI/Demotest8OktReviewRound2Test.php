@@ -383,6 +383,82 @@ test('late prefill na klantstart: geen fills en geen prune', function () {
         ->and(config('ai.request_prefill.wizard_wait_seconds'))->toBe(20);
 });
 
+test('prefill: klantstart tijdens model-call → geen fills/prune na lock', function () {
+    config([
+        'ai.text_inference.enabled' => true,
+        'ai.provider' => 'fake',
+        'ai.request_prefill.sync_on_create' => false,
+    ]);
+
+    $user = User::factory()->create();
+    $intake = reviewRound2Intake(
+        $user,
+        'race-during-model@example.com',
+        'Woonkamer en slaapkamer koelen op de begane grond.',
+    );
+
+    expect(app(DeriveIntentFromRequest::class)->customerHasStarted($intake))->toBeFalse();
+
+    $callbackHit = false;
+
+    FakeAiClient::respondUsing(function () use ($intake, &$callbackHit): array {
+        $callbackHit = true;
+        // Alleen cursor zetten: genoeg voor customerHasStarted; Draft staat geen null-prefill toe.
+        $intake->forceFill([
+            'status' => IntakeStatus::InProgress,
+            'current_question_key' => 'ownership',
+        ])->save();
+
+        return [
+            'evidence' => 'Woonkamer en slaapkamer',
+            'fills' => [
+                [
+                    'question_key' => 'indoor_unit_count',
+                    'section_instance_key' => null,
+                    'confidence' => 'high',
+                    'value' => ['number' => 2],
+                    'evidence' => 'Woonkamer en slaapkamer',
+                    'provenance' => 'stated',
+                ],
+                [
+                    'question_key' => 'room_type',
+                    'section_instance_key' => 'room-99',
+                    'confidence' => 'high',
+                    'value' => ['value' => 'office'],
+                    'evidence' => 'Woonkamer',
+                    'provenance' => 'stated',
+                ],
+            ],
+        ];
+    });
+
+    Event::fake([MessageLogged::class]);
+
+    $run = app(DeriveIntentFromRequest::class)->handle(
+        $intake->fresh() ?? $intake,
+        allowExternal: true,
+        skipIfCustomerStarted: true,
+    );
+
+    expect($callbackHit)->toBeTrue('catalogus-AI callback moet draaien')
+        ->and($run)->not->toBeNull()
+        ->and($run->type)->toBe(AiRunType::RequestIntent)
+        ->and($run->status)->toBe(AiRunStatus::Skipped, $run->error_message ?? 'no error')
+        ->and(data_get($run->output, 'skipped'))->toBe('customer_started');
+
+    Event::assertDispatched(MessageLogged::class, static function (MessageLogged $event) use ($intake): bool {
+        return $event->message === 'request_prefill.skipped'
+            && ($event->context['reason'] ?? null) === 'customer_started'
+            && ($event->context['intake_id'] ?? null) === $intake->id;
+    });
+
+    // room-99 komt alleen uit de catalogus-callback — lokale parse vult die niet.
+    expect(Intake::query()->findOrFail($intake->id)->answers()
+        ->where('section_instance_key', 'room-99')
+        ->exists())->toBeFalse()
+        ->and(data_get($run->output, 'applied_question_keys'))->toBe([]);
+});
+
 test('workspace-tekst volgt auto_after_notes A/B; zonder pending run neutrale AI-tekst', function () {
     config(['ai.dossier.enabled' => true]);
 

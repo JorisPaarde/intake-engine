@@ -4,10 +4,6 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
-### Changed
-
-- **AI-tekstinterpretatie terug naar het model (koerswijziging ADR-0013, demotest 8 okt):** `ExistingAircoExtractor` / `RecordExistingAircoFromRequest` en de branch-uitbreidingen van `RoomFloorLevelExtractor` (bare-verb, numeral, boven/onder, relatief) plus installer-floor-carry/`stripKnownFloorLabels` zijn verwijderd. Code bewaakt schema/enum/`evidence_quote`; betekenis (verdieping, bestaande airco, …) hoort in prompt/evaluatie. Behouden: async request-prefill + dossiersynthese (debounce, eligibility, wizard-wacht, config-switches) en bronlabel `aanvraag (installateur)`.
-
 ### Added
 
 - **Klanttaken bundelen vóór activeren (BL-145):** contextuele **Vraag de klant**/**Vraag nieuwe foto** voegt toe aan een zichtbare conceptlijst (`tasks.prepare` → sessie `customer_task_drafts`, max 5) met bewerkbare klanttekst; één `tasks.store` activeert de ronde. Brononderwerp per taak blijft behouden; open ronde blijft geblokkeerd. Pest + Playwright (`tests/e2e/customer-task-draft-bundle.spec.ts`).

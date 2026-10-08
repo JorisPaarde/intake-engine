@@ -5,7 +5,6 @@ declare(strict_types=1);
 use App\Domains\AI\Actions\SynthesizeSurveyDossier;
 use App\Domains\AI\Clients\FakeAiClient;
 use App\Domains\AI\DTOs\AiCompletionRequest;
-use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
 use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Actions\CompleteInstallerSurvey;
@@ -33,7 +32,6 @@ use App\Enums\IntakeStatus;
 use App\Enums\PhotoAssessmentStatus;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
-use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
@@ -329,40 +327,6 @@ test('P1 intake-101: rejected photos are excluded from synthesis budget and inve
         ->and($rejected->fresh()->isDossierEvidenceEligible())->toBeFalse()
         ->and(strtolower((string) data_get($run->output, 'summary', '')))->not->toContain('vrije groep')
         ->and(strtolower((string) data_get($run->output, 'summary', '')))->not->toContain('3-fase');
-});
-
-test('P1: synthesis route queues job; failure keeps dossier and has no manual retry CTA', function () {
-    config([
-        'ai.provider' => 'fake',
-        'ai.dossier.enabled' => true,
-    ]);
-
-    $user = User::factory()->create();
-    $intake = bundleDCreateRichIntake($user, 'fail-ux@example.com');
-
-    Queue::fake();
-
-    $this->actingAs($user)
-        ->from(route('intakes.workspace', $intake))
-        ->post(route('intakes.workspace.synthesis', $intake))
-        ->assertRedirect(route('intakes.workspace', $intake))
-        ->assertSessionHas('status', 'AI-voorstel wordt op de achtergrond bijgewerkt.');
-
-    Queue::assertPushed(SynthesizeSurveyDossierJob::class);
-
-    $html = $this->actingAs($user)
-        ->withSession([
-            'error' => 'AI-synthese kon niet worden afgerond: Provider timeout na 45s (rich 4-room context). Het bestaande dossier is ongewijzigd gebleven.',
-        ])
-        ->get(route('intakes.workspace', $intake))
-        ->assertOk()
-        ->assertSee('data-testid="ai-synthesis-error"', false)
-        ->assertSee('Provider timeout na 45s')
-        ->assertDontSee('AI-voorstel opnieuw proberen')
-        ->assertDontSee('AI-voorstel vernieuwen')
-        ->getContent();
-
-    expect($html)->not->toContain('data-testid="ai-synthesis-retry"');
 });
 
 test('P2: bulk approval blocks unresolved uncertainty and uncovered rooms with one shared rule set', function () {

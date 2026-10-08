@@ -94,7 +94,10 @@ final class DeriveIntentFromRequest
         $run = $localRun;
 
         if ($allowExternal && (bool) config('ai.text_inference.enabled', false)) {
-            $aiRun = $this->prefillFromKnownContext->handle($intake);
+            $aiRun = $this->prefillFromKnownContext->handle(
+                $intake,
+                skipIfCustomerStarted: $skipIfCustomerStarted,
+            );
             $run = $aiRun ?? $localRun;
         }
 

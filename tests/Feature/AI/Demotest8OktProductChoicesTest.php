@@ -246,6 +246,29 @@ test('2A: sync_on_create false dispatcht job + placeholder; true draait synchroo
     expect(DeriveIntentFromRequestJob::hasRecentPending($syncIntake->id))->toBeFalse();
 });
 
+test('2A: wizard toont geen wachtscherm als klant al begonnen is', function () {
+    config([
+        'ai.request_prefill.sync_on_create' => false,
+        'ai.request_prefill.wizard_wait_seconds' => 20,
+    ]);
+
+    $user = User::factory()->create();
+    $intake = productChoiceIntake($user, 'wizard-no-wait-started@example.com');
+    $intake->forceFill([
+        'customer_access_enabled' => true,
+        'access_token' => str_repeat('c', 64),
+        'token_expires_at' => now()->addDay(),
+        'status' => IntakeStatus::InProgress,
+        'current_question_key' => 'ownership',
+    ])->save();
+
+    DeriveIntentFromRequestJob::markPending($intake);
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->assertSet('waitingForPrefill', false)
+        ->assertDontSee('Even geduld, we zetten je vragen klaar');
+});
+
 test('2A: wizard toont wachtscherm bij pending prefill en start na afronden', function () {
     config([
         'ai.request_prefill.sync_on_create' => false,
@@ -299,9 +322,14 @@ test('2A: wizard-wacht stopt na timeout ook als prefill nog pending is', functio
 
     DeriveIntentFromRequestJob::markPending($intake);
 
-    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
-        ->assertSet('waitingForPrefill', true)
-        ->set('prefillWaitStartedAt', now()->subSeconds(5)->getTimestamp())
-        ->call('pollPrefillWait')
+    $started = now();
+    $this->travelTo($started);
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->assertSet('waitingForPrefill', true);
+
+    $this->travelTo($started->copy()->addSeconds(5));
+
+    $component->call('pollPrefillWait')
         ->assertSet('waitingForPrefill', false);
 });

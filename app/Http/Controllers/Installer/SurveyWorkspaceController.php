@@ -861,22 +861,6 @@ final class SurveyWorkspaceController extends Controller
         return $this->back($intake, 'Route en gekoppelde verbinding goedgekeurd.');
     }
 
-    public function synthesizeDossier(
-        Intake $intake,
-    ): RedirectResponse {
-        $this->authorize('update', $intake);
-
-        if (! (bool) config('ai.dossier.enabled', false)) {
-            return redirect()
-                ->route('intakes.workspace', $intake)
-                ->with('error', 'AI-dossiersynthese is in deze omgeving uitgeschakeld; de handmatige werkplek blijft volledig beschikbaar.');
-        }
-
-        SynthesizeSurveyDossierJob::dispatch($intake->id);
-
-        return $this->back($intake, 'AI-voorstel wordt op de achtergrond bijgewerkt.');
-    }
-
     public function sendProposedTask(
         Request $request,
         Intake $intake,
@@ -885,12 +869,15 @@ final class SurveyWorkspaceController extends Controller
         SendCustomerFollowUpRequest $sendRequest,
     ): RedirectResponse {
         $this->authorize('update', $intake);
-        abort_unless(
-            $task->intake_id === $intake->id
-            && $task->status === ContributionTaskStatus::Proposed
-            && ($task->meta['source_type'] ?? null) === 'ai',
-            404,
-        );
+        abort_unless($task->intake_id === $intake->id, 404);
+
+        if ($task->status !== ContributionTaskStatus::Proposed) {
+            return redirect()
+                ->route('intakes.workspace', $intake)
+                ->with('status', 'Dit AI-voorstel is intussen bijgewerkt. Controleer de nieuwe taak.');
+        }
+
+        abort_unless(($task->meta['source_type'] ?? null) === 'ai', 404);
         $user = $this->user($request);
         $round = $createRequest->handle($intake, $user, [[
             'type' => $task->type,

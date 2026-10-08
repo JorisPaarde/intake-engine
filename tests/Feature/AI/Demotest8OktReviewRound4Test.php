@@ -236,7 +236,7 @@ test('partial met afgewezen klanttaak cancelt bestaande AI-Proposed niet', funct
         ->and(ContributionTask::query()->find($existingId)?->prompt)->toBe('Blijf staan.');
 });
 
-test('preserve: gewijzigde prompt cancelt oud id; send geeft 404 zonder mail', function () {
+test('preserve: gewijzigde prompt cancelt oud id; send redirect zonder mail', function () {
     config(['ai.dossier.enabled' => true, 'ai.provider' => 'fake']);
 
     $user = User::factory()->create();
@@ -263,7 +263,8 @@ test('preserve: gewijzigde prompt cancelt oud id; send geeft 404 zonder mail', f
 
     $this->actingAs($user)
         ->post(route('intakes.workspace.tasks.send', [$intake, $oldId]))
-        ->assertNotFound();
+        ->assertRedirect(route('intakes.workspace', $intake))
+        ->assertSessionHas('status', 'Dit AI-voorstel is intussen bijgewerkt. Controleer de nieuwe taak.');
 
     Mail::assertNothingSent();
 });

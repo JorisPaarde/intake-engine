@@ -43,8 +43,6 @@ test('dutch branded pages render for common http errors', function (int $status,
 ]);
 
 test('failed AI dossier synthesis flashes an error style message not success', function () {
-    config(['ai.dossier.enabled' => false]);
-
     $user = User::factory()->create();
     $intake = app(CreateIntake::class)->handle($user, [
         'template_key' => 'airco',
@@ -56,13 +54,6 @@ test('failed AI dossier synthesis flashes an error style message not success', f
         'address_house_number' => 1,
         'address_city' => 'Amsterdam',
     ]);
-
-    $this->actingAs($user)
-        ->from(route('intakes.workspace', $intake))
-        ->post(route('intakes.workspace.synthesis', $intake))
-        ->assertRedirect(route('intakes.workspace', $intake))
-        ->assertSessionHas('error')
-        ->assertSessionMissing('status');
 
     $this->actingAs($user)
         ->withSession([

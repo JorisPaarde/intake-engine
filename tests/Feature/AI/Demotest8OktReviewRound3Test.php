@@ -318,7 +318,7 @@ test('klant-first openingszin geeft FactSource klantantwoord', function () {
         ->and($fill->factSource)->toBe(FactSource::CustomerAnswer);
 });
 
-test('preserve annuleert stale AI-Proposed; send-by-id geeft bestaande fout', function () {
+test('preserve annuleert stale AI-Proposed; send-by-id redirect naar werkplek', function () {
     config(['ai.dossier.enabled' => true, 'ai.provider' => 'fake']);
 
     $user = User::factory()->create();
@@ -361,5 +361,6 @@ test('preserve annuleert stale AI-Proposed; send-by-id geeft bestaande fout', fu
 
     $this->actingAs($user)
         ->post(route('intakes.workspace.tasks.send', [$intake, $firstId]))
-        ->assertNotFound();
+        ->assertRedirect(route('intakes.workspace', $intake))
+        ->assertSessionHas('status', 'Dit AI-voorstel is intussen bijgewerkt. Controleer de nieuwe taak.');
 });

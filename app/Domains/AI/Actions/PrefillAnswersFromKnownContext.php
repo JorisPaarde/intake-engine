@@ -57,7 +57,7 @@ final class PrefillAnswersFromKnownContext
         private readonly AiValidationFailureFormatter $validationFailureFormatter,
     ) {}
 
-    public function handle(Intake $intake): ?AiRun
+    public function handle(Intake $intake, bool $skipIfCustomerStarted = false): ?AiRun
     {
         if (! in_array($intake->status, [
             IntakeStatus::Draft,
@@ -71,7 +71,7 @@ final class PrefillAnswersFromKnownContext
             return null;
         }
 
-        // customer_started-guard zit alleen op DeriveIntent (late/async); hier niet dubbel.
+        // Vroege guard ook hier; race tijdens model-call → hercheck na lockForUpdate.
 
         $catalog = $this->catalogBuilder->build($intake);
         $context = $this->contextBuilder->build($intake);
@@ -185,10 +185,31 @@ final class PrefillAnswersFromKnownContext
             ]);
 
             try {
-                $applyResult = DB::transaction(function () use ($intake, $output, $classified, $trace): array {
+                $applyResult = DB::transaction(function () use ($intake, $output, $classified, $trace, $skipIfCustomerStarted): array {
                     $trace->beginBuffer();
-                    Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
-                    $applyResult = $this->apply($intake, $output, $classified['candidates']);
+                    $locked = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
+
+                    // Race: klant startte tijdens de model-call → geen fills/prune.
+                    if ($skipIfCustomerStarted && $this->customerHasStarted($locked)) {
+                        Log::info('request_prefill.skipped', [
+                            'intake_id' => $locked->id,
+                            'reason' => 'customer_started',
+                        ]);
+                        $trace->step('apply', [
+                            'applied_question_keys' => [],
+                            'apply_failure_count' => 0,
+                            'skipped' => 'customer_started',
+                        ]);
+                        $trace->recordFieldOutcomes([]);
+
+                        return [
+                            'applied' => [],
+                            'failures' => [],
+                            'skipped_customer_started' => true,
+                        ];
+                    }
+
+                    $applyResult = $this->apply($locked, $output, $classified['candidates']);
                     $trace->step('apply', [
                         'applied_question_keys' => $applyResult['applied'],
                         'apply_failure_count' => count($applyResult['failures']),
@@ -214,7 +235,7 @@ final class PrefillAnswersFromKnownContext
                     }
                     $trace->recordFieldOutcomes($outcomes);
 
-                    return $applyResult;
+                    return $applyResult + ['skipped_customer_started' => false];
                 }, 3);
                 $applied = $applyResult['applied'];
                 $trace->flushBuffer();
@@ -223,9 +244,13 @@ final class PrefillAnswersFromKnownContext
                 throw $transactionException;
             }
 
+            $skippedCustomerStarted = $applyResult['skipped_customer_started'] === true;
             $run->update($run->completionResultAttributes($result) + [
-                'status' => AiRunStatus::Succeeded,
-                'output' => $output + ['applied_question_keys' => $applied],
+                'status' => $skippedCustomerStarted ? AiRunStatus::Skipped : AiRunStatus::Succeeded,
+                'output' => $output + [
+                    'applied_question_keys' => $applied,
+                    'skipped' => $skippedCustomerStarted ? 'customer_started' : null,
+                ],
                 'error_message' => null,
                 'finished_at' => now(),
             ]);
@@ -614,5 +639,20 @@ final class PrefillAnswersFromKnownContext
             PrefillSources::DERIVED_LXW,
             DeriveIntentFromRequest::SOURCE_REQUEST_TEXT,
         ], true);
+    }
+
+    /**
+     * Zelfde regel als DeriveIntentFromRequest::customerHasStarted (geen circulaire DI).
+     */
+    private function customerHasStarted(Intake $intake): bool
+    {
+        if (is_string($intake->current_question_key) && $intake->current_question_key !== '') {
+            return true;
+        }
+
+        return $intake->answers()
+            ->whereNull('prefill_source')
+            ->where('question_key', '!=', 'request_reason')
+            ->exists();
     }
 }
