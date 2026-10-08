@@ -104,7 +104,7 @@
                 return;
             }
             const left = Math.max(0, Math.ceil((this.retryUntilMs - Date.now()) / 1000));
-            this.retryCountdown = left > 0 ? ('Nog ' + left + 's…') : '';
+            this.retryCountdown = left ? ('Nog ' + left + 's…') : '';
         },
         startCountdown(waitMs) {
             this.clearCountdown();
@@ -179,7 +179,7 @@
             this.prepBusy = false;
             const message = event?.detail?.message
                 || 'De server is even druk. Probeer het zo opnieuw.';
-            // Skip-only selections reuse prep-failed with skipped=true — show that, not "te groot".
+            // Skip-only selections reuse prep-failed with skipped=true — show that, not te-groot copy.
             if (event?.detail?.skipped) {
                 this.prepSkipMessage = message;
                 this.clientUploading = false;
@@ -195,7 +195,8 @@
                 : (typeof detail === 'number' ? detail : null);
             if (typeof progress === 'number') {
                 this.uploadProgress = progress;
-                if (progress >= 100) {
+                // Prefer === so a broken x-data quote cannot let HTML treat a comparison as tag end.
+                if (progress === 100) {
                     this.armServerWaitTimer();
                     return;
                 }
@@ -346,8 +347,8 @@
                     ? (retryMessage + (retryCountdown ? (' ' + retryCountdown) : ''))
                     : (
                         serverBusy
-                            ? (uploadProgress >= 100 ? 'Bezig op de server…' : 'Uploaden…')
-                            : (uploadProgress === null || uploadProgress >= 100 ? 'Uploaden…' : ('Uploaden… ' + uploadProgress + '%'))
+                            ? (uploadProgress === 100 ? 'Bezig op de server…' : 'Uploaden…')
+                            : (uploadProgress === null || uploadProgress === 100 ? 'Uploaden…' : ('Uploaden… ' + uploadProgress + '%'))
                     )
             )
         "></span>

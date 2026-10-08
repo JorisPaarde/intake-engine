@@ -160,7 +160,7 @@
                 @endif
 
                 @if ($remainingSlots > 0)
-                    <div class="mt-3">
+                    <div class="mt-3" wire:key="follow-up-photo-control-{{ $item->id }}">
                         <x-customer.photo-upload-control
                             :composite="(string) $item->id"
                             wire-model="followUpPhotoFiles.{{ $item->id }}"

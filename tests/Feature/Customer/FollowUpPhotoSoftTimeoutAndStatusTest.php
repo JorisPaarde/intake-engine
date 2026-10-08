@@ -25,6 +25,7 @@ use App\Livewire\Customer\IntakeWizard;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -38,6 +39,10 @@ beforeEach(function () {
         'ai.photo_inference.enabled' => true,
         'ai.photo_assessment.ui_soft_timeout_seconds' => 15,
     ]);
+});
+
+afterEach(function () {
+    Carbon::setTestNow();
 });
 
 function softTimeoutFollowUpIntake(): array
@@ -567,6 +572,129 @@ test('herladen seed soft-timeout-klok vanaf created_at van pending foto', functi
         ->call('pollPendingAssessments', $composite)
         ->assertSet('uploadPhase', '')
         ->assertSee(PhotoCustomerStatus::SOFT_TIMEOUT);
+});
+
+test('poll B→A→B houdt soft-timeout-deadline op created_at(B)+15s', function () {
+    Queue::fake([AssessUploadedPhotoJob::class, ProcessIntakePhotoVariantsJob::class]);
+    config([
+        'ai.provider' => 'fake',
+        'ai.photo_inference.enabled' => true,
+        'ai.photo_assessment.ui_soft_timeout_seconds' => 15,
+    ]);
+
+    $t0 = now()->startOfSecond();
+    Carbon::setTestNow($t0);
+
+    $user = User::factory()->create();
+    $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
+    $intake = Intake::factory()->create([
+        'created_by' => $user->id,
+        'company_id' => $user->company_id,
+        'intake_template_version_id' => $version->id,
+        'status' => IntakeStatus::InProgress,
+        'access_token' => 'clockbab'.str_repeat('b', 56),
+    ]);
+    app(DossierManager::class)->initialize($intake);
+
+    $version->load(['sections.questions']);
+    $photoQuestions = [];
+    foreach ($version->sections as $section) {
+        foreach ($section->questions as $question) {
+            if (($question->meta['photo_analysis'] ?? null) !== null) {
+                $photoQuestions[] = $question->key;
+            }
+        }
+    }
+    expect(count($photoQuestions))->toBeGreaterThanOrEqual(2);
+
+    $stepA = $photoQuestions[0];
+    $stepB = $photoQuestions[1];
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('photoFiles.'.$stepB, UploadedFile::fake()->image('slow-b.jpg', 880, 680))
+        ->assertSet('uploadPhase', 'assessing')
+        ->assertSet('uploadPhaseComposite', $stepB);
+
+    $uploadB = IntakeUpload::query()
+        ->where('intake_id', $intake->id)
+        ->where('question_key', $stepB)
+        ->firstOrFail();
+    $deadlineB = Carbon::parse($uploadB->created_at)->getTimestamp();
+
+    // t=5: upload on A (switches active composite away from B).
+    Carbon::setTestNow($t0->copy()->addSeconds(5));
+    $component
+        ->set('photoFiles.'.$stepA, UploadedFile::fake()->image('slow-a.jpg', 890, 690))
+        ->assertSet('uploadPhaseComposite', $stepA);
+
+    // t=8: poll B again — must re-anchor to created_at(B), not now().
+    Carbon::setTestNow($t0->copy()->addSeconds(8));
+    $component->call('pollPendingAssessments', $stepB);
+
+    expect($component->get('uploadPhase'))->toBe('assessing')
+        ->and($component->get('uploadPhaseComposite'))->toBe($stepB)
+        ->and($component->instance()->uploadPhaseStartedAt)->toBe($deadlineB)
+        ->and($component->instance()->assessmentUiReleased)->not->toContain($stepB);
+
+    // t=14: still before created_at(B)+15 → no soft-timeout.
+    Carbon::setTestNow($t0->copy()->addSeconds(14));
+    $component->call('pollPendingAssessments', $stepB);
+    expect($component->get('uploadPhase'))->toBe('assessing')
+        ->and($component->instance()->assessmentUiReleased)->not->toContain($stepB);
+
+    // t=15: soft-timeout fires on B's original deadline.
+    Carbon::setTestNow($t0->copy()->addSeconds(15));
+    $component
+        ->call('pollPendingAssessments', $stepB)
+        ->assertSet('uploadPhase', '')
+        ->assertSee(PhotoCustomerStatus::SOFT_TIMEOUT);
+
+    expect($component->instance()->assessmentUiReleased)->toContain($stepB);
+
+    Carbon::setTestNow();
+});
+
+test('follow-up photo-upload-control heeft unieke wire:key per item', function () {
+    Queue::fake([AssessUploadedPhotoJob::class, ProcessIntakePhotoVariantsJob::class]);
+
+    [$intake, $first] = softTimeoutFollowUpIntake();
+    $round = $intake->followUpRounds()->latest('round_number')->firstOrFail();
+    $second = $round->items()->create([
+        'type' => FollowUpItemType::Photo,
+        'prompt' => 'Maak een foto van de buitenunit.',
+    ]);
+
+    $blade = (string) file_get_contents(resource_path('views/livewire/customer/follow-up-wizard.blade.php'));
+    expect($blade)->toContain('wire:key="follow-up-photo-control-{{ $item->id }}"');
+
+    // Satisfy first so Volgende reaches item 2; both keys must appear across steps.
+    $first->uploads()->create([
+        'intake_id' => $intake->id,
+        'question_key' => 'follow_up_photo',
+        'disk' => (string) config('filesystems.media', 'local'),
+        'path' => 'intakes/test/key-1.jpg',
+        'original_filename' => 'key-1.jpg',
+        'mime_type' => 'image/jpeg',
+        'size_bytes' => 1000,
+        'checksum' => hash('sha256', 'key-1'),
+        'sort_order' => 1,
+        'assessment_status' => PhotoAssessmentStatus::Assessed,
+        'usability_verdict' => PhotoUsabilityVerdict::Ok,
+        'content_assessment' => [
+            'status' => 'ok',
+            'detected_subject' => 'fusebox',
+            'customer_message' => null,
+        ],
+    ]);
+
+    $step1 = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+    expect($step1->html())->toContain('wire:key="follow-up-photo-control-'.$first->id.'"')
+        ->and($step1->html())->toContain('id="follow-up-photo-input-'.$first->id.'"');
+
+    $step2 = $step1->call('nextFollowUp')->assertSet('followUpStepIndex', 1);
+    expect($step2->html())->toContain('wire:key="follow-up-photo-control-'.$second->id.'"')
+        ->and($step2->html())->toContain('id="follow-up-photo-input-'.$second->id.'"')
+        ->and($step2->html())->not->toContain('wire:key="follow-up-photo-control-'.$first->id.'"');
 });
 
 test('main wizard: upload op stap B na verstrijken klok A toont LOOKING geen soft-timeout', function () {

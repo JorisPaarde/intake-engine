@@ -320,5 +320,6 @@ test('assessment poll lives on wizards not only on photo-upload-control', functi
         ->and($followUp)->toContain('data-testid="assessment-poll"')
         ->and($followUp)->toContain('pollPendingAssessments(@json($followUpComposite))')
         ->and($followUp)->toContain('wire:key="assessment-poll-{{ $followUpComposite }}-{{ $assessmentPollInterval }}"')
+        ->and($followUp)->toContain('wire:key="follow-up-photo-control-{{ $item->id }}"')
         ->and($followUp)->not->toContain("['assessing', 'failed']");
 });

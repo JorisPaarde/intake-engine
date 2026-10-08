@@ -21,7 +21,10 @@ test.describe('Large phone photo upload', () => {
     await advanceUntil(page, /meterkast|groepenkast|fusebox/i, 40);
 
     await uploadPhoto(page, 'fusebox-12mp-progressive.jpg');
-    await expect(page.getByText(/Foto opgeslagen|Uploaden/i).first()).toBeVisible({ timeout: 60_000 });
+    // 12 MP downscale + sync store can finish before wire:loading "Uploaden…" is observable.
+    await expect(
+      page.getByText(/Foto ontvangen|Goed te zien|Beoordeeld|Uploaden/i).first(),
+    ).toBeVisible({ timeout: 60_000 });
     await waitForPhotoAssessed(page, 120_000);
 
     const uploads = await listUploads(request, payload.intake_id);
@@ -36,10 +39,10 @@ test.describe('Large phone photo upload', () => {
     // Client downscale ≤2000 (BL-143); dossier max remains 2048.
     expect(longEdge).toBeGreaterThan(0);
     expect(longEdge).toBeLessThanOrEqual(2048);
-    // Demotest 8 okt: keep source aspect (12 MP fixture is 4032×3024 → 4:3), not a square.
+    // Demotest 8 okt: keep source aspect (12 MP fixture is 3024×4032 → 3:4 portrait), not a square.
     expect(width).toBeGreaterThan(0);
     expect(height).toBeGreaterThan(0);
-    expect(Math.abs(width / height - 4032 / 3024)).toBeLessThan(0.02);
+    expect(Math.abs(width / height - 3024 / 4032)).toBeLessThan(0.02);
     expect(stored.assessment_status).toBe('assessed');
   });
 });

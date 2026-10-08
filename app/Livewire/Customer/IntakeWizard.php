@@ -1298,12 +1298,8 @@ class IntakeWizard extends Component
             }
 
             $this->setPendingIdsFor($composite, $stillPending);
-            if ($this->uploadPhaseComposite !== $composite) {
-                // Different composite → do not inherit the previous soft-timeout clock.
-                $this->uploadPhaseStartedAt = null;
-            }
-            $this->uploadPhaseComposite = $composite;
-            $this->setUploadPhase('assessing', PhotoCustomerStatus::LOOKING);
+            // Re-anchor to oldest pending created_at (not now()) when poll switches composite.
+            $this->beginAssessingFromPendingCreatedAt($composite, $stillPending);
 
             return;
         }
@@ -1409,12 +1405,8 @@ class IntakeWizard extends Component
             }
 
             $this->setPendingIdsFor($composite, $stillPending);
-            if ($this->uploadPhaseComposite !== $composite) {
-                // Different composite → do not inherit the previous soft-timeout clock.
-                $this->uploadPhaseStartedAt = null;
-            }
-            $this->uploadPhaseComposite = $composite;
-            $this->setUploadPhase('assessing', PhotoCustomerStatus::LOOKING);
+            // Re-anchor to oldest pending created_at (not now()) when poll switches composite.
+            $this->beginAssessingFromPendingCreatedAt($composite, $stillPending);
 
             return;
         }
