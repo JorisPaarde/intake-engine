@@ -298,7 +298,7 @@ test('workspace attaches photos and notes to the relevant object without exposin
         'use_type' => 'bedroom',
     ]);
 
-    $this->actingAs($user)
+    $workspaceResponse = $this->actingAs($user)
         ->get(route('intakes.workspace', $intake))
         ->assertOk()
         ->assertSee('Woninggegevens')
@@ -339,8 +339,16 @@ test('workspace attaches photos and notes to the relevant object without exposin
         ->assertDontSee('Telefonisch vastgesteld')
         ->assertDontSee('open punten bekijken')
         ->assertDontSee('name="key"', false)
-        ->assertDontSee('name="method"', false)
-        ->assertDontSee('name="dossier_subject_id"', false);
+        ->assertDontSee('name="method"', false);
+
+    // GET→POST prepare (Taak 17) puts dossier_subject_id on ask-customer as a hidden
+    // field. That is intentional; notes must still not expose it as an editable control.
+    $workspaceHtml = $workspaceResponse->getContent();
+    expect(preg_match(
+        '/<(?:input(?![^>]*\btype=["\']hidden["\'])|select|textarea)[^>]*\bname=["\']dossier_subject_id["\']/i',
+        $workspaceHtml,
+    ))->toBe(0)
+        ->and(substr_count($workspaceHtml, 'name="dossier_subject_id"'))->toBeGreaterThan(0);
 
     $this->actingAs($user)
         ->post(route('intakes.workspace.notes.store', [$intake, $room->subject]), [
@@ -518,7 +526,13 @@ test('installer-only survey can temporarily expose exactly one targeted customer
         ->and($intake->access_token)->not->toBe($inactiveToken)
         ->and($round->return_status)->toBe(IntakeStatus::InProgress);
 
-    $this->get(route('customer.intake.show', $inactiveToken))->assertNotFound();
+    // Replaced tokens are remembered as SHA-256 hashes → 410 with the “nieuwere link”
+    // copy. No intake content is shown (reason=replaced only); still not a bare 404.
+    $this->get(route('customer.intake.show', $inactiveToken))
+        ->assertGone()
+        ->assertSee('Deze link werkt niet meer')
+        ->assertSee('Je installateur heeft je een nieuwere link gestuurd')
+        ->assertDontSee('Maak een leesbare foto van de volledige meterkast');
     $this->get(route('customer.intake.show', $intake->access_token))
         ->assertOk()
         ->assertSee('Maak een leesbare foto van de volledige meterkast')
