@@ -164,14 +164,8 @@ return [
         'label' => [
             'required' => 'Vul een naam in.',
         ],
-        'name' => [
-            'required' => 'Vul een naam in.',
-        ],
         'airco_room_id' => [
             'required' => 'Kies bij welke ruimte deze binnenunit hoort.',
-        ],
-        'customer_phone' => [
-            'regex' => 'Vul een geldig telefoonnummer in, bijvoorbeeld 06 12345678.',
         ],
     ],
     'attributes' => [

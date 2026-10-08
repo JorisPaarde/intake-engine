@@ -165,6 +165,7 @@ test('indoor unit without room returns Dutch custom message and keeps old input'
     $response = $this->actingAs($user)
         ->from(route('intakes.workspace', $intake))
         ->post(route('intakes.workspace.placements.store', $intake), [
+            'form_key' => 'placement-new',
             'type' => AircoPlacementType::IndoorUnit->value,
             'airco_room_id' => '',
             'label' => 'Unit slaapkamer 1',
@@ -172,6 +173,7 @@ test('indoor unit without room returns Dutch custom message and keeps old input'
         ]);
 
     $response->assertSessionHasErrors(['airco_room_id'])
+        ->assertSessionHasInput('form_key', 'placement-new')
         ->assertSessionHasInput('label', 'Unit slaapkamer 1')
         ->assertSessionHasInput('description', 'Boven de deur');
 
@@ -191,6 +193,7 @@ test('placement without name returns Vul een naam in', function () {
     $response = $this->actingAs($user)
         ->from(route('intakes.workspace', $intake))
         ->post(route('intakes.workspace.placements.store', $intake), [
+            'form_key' => 'placement-new',
             'type' => AircoPlacementType::IndoorUnit->value,
             'airco_room_id' => $room->id,
             'label' => '',
@@ -198,6 +201,49 @@ test('placement without name returns Vul een naam in', function () {
 
     $response->assertSessionHasErrors(['label']);
     expect((string) session('errors')->first('label'))->toBe('Vul een naam in.');
+});
+
+test('failed placement edit keeps old input scoped to that form only', function () {
+    $this->withoutVite();
+    $user = User::factory()->create();
+    $intake = createIntakeForDutchValidation($user, 'form-key-scope@example.com');
+    $survey = app(AircoSurveyService::class);
+    $room = $survey->createRoom($intake, $user, [
+        'name' => 'Slaapkamer',
+        'use_type' => 'bedroom',
+    ]);
+    $unitA = $survey->createPlacement($intake, $user, [
+        'airco_room_id' => $room->id,
+        'type' => AircoPlacementType::IndoorUnit,
+        'label' => 'Unit A origineel',
+    ]);
+    $unitB = $survey->createPlacement($intake, $user, [
+        'type' => AircoPlacementType::OutdoorUnit,
+        'label' => 'Unit B buiten',
+    ]);
+
+    $html = $this->actingAs($user)
+        ->from(route('intakes.workspace', $intake))
+        ->followingRedirects()
+        ->post(route('intakes.workspace.placements.update', [$intake, $unitA]), [
+            'form_key' => 'placement-'.$unitA->id,
+            'type' => AircoPlacementType::IndoorUnit->value,
+            'airco_room_id' => '',
+            'label' => 'Unit A foutpoging',
+            'description' => 'Alleen voor A',
+        ])
+        ->assertOk()
+        ->assertSee('Unit A foutpoging')
+        ->assertSee('Kies bij welke ruimte deze binnenunit hoort.')
+        ->getContent();
+
+    expect($html)
+        ->toMatch('/<details[^>]*\bopen\b[^>]*data-form-key="placement-'.$unitA->id.'"|<details[^>]*data-form-key="placement-'.$unitA->id.'"[^>]*\bopen\b/')
+        ->not->toMatch('/<details[^>]*\bopen\b[^>]*data-form-key="placement-new"|<details[^>]*data-form-key="placement-new"[^>]*\bopen\b/')
+        ->and(preg_match('/id="placement_label"[^>]*value="Unit A foutpoging"/', $html))->toBe(0)
+        ->and(preg_match('/id="placement-'.$unitA->id.'-label"[^>]*value="Unit A foutpoging"/', $html))->toBe(1)
+        ->and(preg_match('/id="placement-'.$unitB->id.'-label"[^>]*value="Unit A foutpoging"/', $html))->toBe(0)
+        ->and(preg_match('/id="placement-'.$unitB->id.'-label"[^>]*value="Unit B buiten"/', $html))->toBe(1);
 });
 
 test('unit coupling validation messages are Dutch', function () {

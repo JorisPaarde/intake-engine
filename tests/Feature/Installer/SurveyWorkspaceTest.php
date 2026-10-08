@@ -1037,6 +1037,7 @@ test('installer can update an existing placement', function () {
     $this->actingAs($user)
         ->from(route('intakes.workspace', $intake))
         ->post(route('intakes.workspace.placements.update', [$intake, $placement]), [
+            'form_key' => 'placement-'.$placement->id,
             'airco_room_id' => $room->id,
             'type' => AircoPlacementType::IndoorUnit->value,
             'label' => 'Naast het raam',

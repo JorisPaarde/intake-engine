@@ -31,6 +31,8 @@ use Illuminate\Validation\ValidationException;
 
 final class AircoSurveyService
 {
+    private const OUTDOOR_ALREADY_ON_MULTI_SPLIT = 'Deze buitenunit hoort al bij een multi-split. Kies multi-split of een nieuwe buitenunit.';
+
     public function __construct(
         private readonly DossierManager $dossierManager,
         private readonly DecisionReadinessService $decisionReadiness,
@@ -756,14 +758,7 @@ final class AircoSurveyService
         }
 
         $outdoorId = $data['outdoor_placement_id'] ?? null;
-        $existingOutdoor = null;
-        if (is_numeric($outdoorId) && (int) $outdoorId > 0) {
-            $existingOutdoor = AircoPlacementOption::query()
-                ->where('intake_id', $intake->id)
-                ->where('type', AircoPlacementType::OutdoorUnit)
-                ->findOrFail((int) $outdoorId);
-            $this->assertOutdoorAllowsConfiguration($existingOutdoor, $configuration);
-        } else {
+        if (! is_numeric($outdoorId) || (int) $outdoorId <= 0) {
             $outdoorLabel = trim((string) ($data['outdoor_label'] ?? ''));
             if ($outdoorLabel === '') {
                 throw ValidationException::withMessages([
@@ -772,7 +767,7 @@ final class AircoSurveyService
             }
         }
 
-        return DB::transaction(function () use ($intake, $installer, $room, $data, $configuration, $indoorLabel, $existingOutdoor): AircoInstallationOption {
+        return DB::transaction(function () use ($intake, $installer, $room, $data, $configuration, $indoorLabel, $outdoorId): AircoInstallationOption {
             $indoor = $room->placements()
                 ->where('type', AircoPlacementType::IndoorUnit)
                 ->orderBy('id')
@@ -793,8 +788,12 @@ final class AircoSurveyService
                 ]);
             }
 
-            if ($existingOutdoor instanceof AircoPlacementOption) {
-                $outdoor = $existingOutdoor;
+            if (is_numeric($outdoorId) && (int) $outdoorId > 0) {
+                $outdoor = AircoPlacementOption::query()
+                    ->where('intake_id', $intake->id)
+                    ->where('type', AircoPlacementType::OutdoorUnit)
+                    ->findOrFail((int) $outdoorId);
+                $this->assertOutdoorAllowsConfiguration($outdoor, $configuration, $room);
                 if ($outdoor->airco_room_id !== null) {
                     $outdoor->update(['airco_room_id' => null]);
                 }
@@ -817,6 +816,7 @@ final class AircoSurveyService
             $this->ensurePlacementOnOption($option, $indoor);
             $this->ensurePlacementOnOption($option, $outdoor);
 
+            $previouslyMulti = $option->configuration_type === AircoConfigurationType::MultiSplit;
             if ($option->configuration_type !== $configuration) {
                 $option->update(['configuration_type' => $configuration]);
             }
@@ -827,8 +827,15 @@ final class AircoSurveyService
             $option->load(['placements', 'connections']);
             $problems = $this->couplingValidator->optionProblems($option, requireComplete: false);
             if ($problems !== []) {
+                $message = $problems[0];
+                if ($previouslyMulti
+                    && $message === 'Single-split mag maar één koelleiding hebben.'
+                    && $this->outdoorLinkedOutsideRoom($outdoor, $room)) {
+                    $message = self::OUTDOOR_ALREADY_ON_MULTI_SPLIT;
+                }
+
                 throw ValidationException::withMessages([
-                    'outdoor_placement_id' => $problems[0],
+                    'outdoor_placement_id' => $message,
                 ]);
             }
 
@@ -841,29 +848,83 @@ final class AircoSurveyService
             $this->decisionReadiness->recalculate($intake->fresh() ?? $intake);
 
             return $option->fresh(['placements', 'connections.fromPlacement', 'connections.toPlacement']) ?? $option;
-        }, 3);
+        });
     }
 
     /**
-     * Reject single-split reuse of an outdoor that already belongs to a multi-split.
+     * Reject single-split only when a multi-split already links this outdoor to another room.
      */
     private function assertOutdoorAllowsConfiguration(
         AircoPlacementOption $outdoor,
         AircoConfigurationType $configuration,
+        AircoRoom $room,
     ): void {
         if ($configuration !== AircoConfigurationType::SingleSplit) {
             return;
         }
 
-        $belongsToMulti = $outdoor->installationOptions()
+        $multiOptions = $outdoor->installationOptions()
             ->where('airco_installation_options.configuration_type', AircoConfigurationType::MultiSplit->value)
-            ->exists();
+            ->with(['connections.fromPlacement', 'connections.toPlacement'])
+            ->get();
 
-        if ($belongsToMulti) {
-            throw ValidationException::withMessages([
-                'outdoor_placement_id' => 'Deze buitenunit hoort al bij een multi-split. Kies multi-split of een nieuwe buitenunit.',
-            ]);
+        foreach ($multiOptions as $option) {
+            foreach ($option->connections as $connection) {
+                if ($connection->type !== AircoConnectionType::Refrigerant) {
+                    continue;
+                }
+
+                $from = $connection->fromPlacement;
+                $to = $connection->toPlacement;
+                $indoor = null;
+                if ($from instanceof AircoPlacementOption && $from->type === AircoPlacementType::IndoorUnit
+                    && (int) $connection->to_placement_id === $outdoor->id) {
+                    $indoor = $from;
+                } elseif ($to instanceof AircoPlacementOption && $to->type === AircoPlacementType::IndoorUnit
+                    && (int) $connection->from_placement_id === $outdoor->id) {
+                    $indoor = $to;
+                }
+
+                if ($indoor instanceof AircoPlacementOption && (int) $indoor->airco_room_id !== (int) $room->id) {
+                    throw ValidationException::withMessages([
+                        'outdoor_placement_id' => self::OUTDOOR_ALREADY_ON_MULTI_SPLIT,
+                    ]);
+                }
+            }
         }
+    }
+
+    /**
+     * True when a refrigerant link already ties this outdoor to an indoor outside the room.
+     */
+    private function outdoorLinkedOutsideRoom(AircoPlacementOption $outdoor, AircoRoom $room): bool
+    {
+        $outdoor->loadMissing(['installationOptions.connections.fromPlacement', 'installationOptions.connections.toPlacement']);
+
+        foreach ($outdoor->installationOptions as $option) {
+            foreach ($option->connections as $connection) {
+                if ($connection->type !== AircoConnectionType::Refrigerant) {
+                    continue;
+                }
+
+                $from = $connection->fromPlacement;
+                $to = $connection->toPlacement;
+                $indoor = null;
+                if ($from instanceof AircoPlacementOption && $from->type === AircoPlacementType::IndoorUnit
+                    && (int) $connection->to_placement_id === $outdoor->id) {
+                    $indoor = $from;
+                } elseif ($to instanceof AircoPlacementOption && $to->type === AircoPlacementType::IndoorUnit
+                    && (int) $connection->from_placement_id === $outdoor->id) {
+                    $indoor = $to;
+                }
+
+                if ($indoor instanceof AircoPlacementOption && (int) $indoor->airco_room_id !== (int) $room->id) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**

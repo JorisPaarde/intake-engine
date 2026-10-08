@@ -12,6 +12,8 @@ use Illuminate\Validation\Rule;
 
 class StoreIntakeRequest extends FormRequest
 {
+    private const CUSTOMER_PHONE_INVALID = 'Vul een geldig telefoonnummer in, bijvoorbeeld 06 12345678.';
+
     public function authorize(): bool
     {
         return $this->user()?->can('create', Intake::class) ?? false;
@@ -45,16 +47,6 @@ class StoreIntakeRequest extends FormRequest
     /**
      * @return array<string, string>
      */
-    public function messages(): array
-    {
-        return [
-            'customer_phone.max' => 'Vul een geldig telefoonnummer in, bijvoorbeeld 06 12345678.',
-        ];
-    }
-
-    /**
-     * @return array<string, string>
-     */
     public function attributes(): array
     {
         return [
@@ -78,20 +70,22 @@ class StoreIntakeRequest extends FormRequest
      */
     private function customerPhoneRule(): \Closure
     {
-        return static function (string $attribute, mixed $value, \Closure $fail): void {
+        $invalid = self::CUSTOMER_PHONE_INVALID;
+
+        return static function (string $attribute, mixed $value, \Closure $fail) use ($invalid): void {
             if ($value === null || (is_string($value) && trim($value) === '')) {
                 return;
             }
 
             if (! is_string($value) || preg_match('/^[0-9+\-\s()]+$/u', $value) !== 1) {
-                $fail('Vul een geldig telefoonnummer in, bijvoorbeeld 06 12345678.');
+                $fail($invalid);
 
                 return;
             }
 
             $digits = preg_replace('/\D+/', '', $value) ?? '';
             if (strlen($digits) < 10) {
-                $fail('Vul een geldig telefoonnummer in, bijvoorbeeld 06 12345678.');
+                $fail($invalid);
             }
         };
     }

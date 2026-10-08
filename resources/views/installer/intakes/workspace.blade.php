@@ -752,7 +752,15 @@
                                             } }}
                                         </p>
 
-                                        <details class="mt-4 rounded-xl border border-gray-200 bg-gray-50">
+                                        @php
+                                            $placementFormKey = 'placement-'.$placement->id;
+                                            $placementFormActive = old('form_key') === $placementFormKey;
+                                            $placementFormType = $placementFormActive ? old('type', $placement->type->value) : $placement->type->value;
+                                            $placementFormRoomId = $placementFormActive ? old('airco_room_id', $placement->airco_room_id) : $placement->airco_room_id;
+                                            $placementFormLabel = $placementFormActive ? old('label', $placement->label) : $placement->label;
+                                            $placementFormDescription = $placementFormActive ? old('description', $placement->description) : $placement->description;
+                                        @endphp
+                                        <details class="mt-4 rounded-xl border border-gray-200 bg-gray-50" @if ($placementFormActive) open @endif data-form-key="{{ $placementFormKey }}">
                                             <summary class="flex min-h-11 cursor-pointer list-none items-center px-3 py-2 text-sm font-semibold text-gray-800">
                                                 Bewerken
                                             </summary>
@@ -760,9 +768,10 @@
                                                 method="POST"
                                                 action="{{ route('intakes.workspace.placements.update', [$intake, $placement]) }}"
                                                 class="grid gap-3 border-t border-gray-200 p-3"
-                                                x-data="{ type: '{{ old('type', $placement->type->value) }}' }"
+                                                x-data="{ type: '{{ $placementFormType }}' }"
                                             >
                                                 @csrf
+                                                <input type="hidden" name="form_key" value="{{ $placementFormKey }}">
                                                 <fieldset class="sm:col-span-2">
                                                     <legend class="sr-only">Soort unit of aansluiting</legend>
                                                     <div class="grid grid-cols-2 gap-2">
@@ -774,7 +783,7 @@
                                                                     name="type"
                                                                     value="{{ $type->value }}"
                                                                     class="border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                                                    @checked(old('type', $placement->type->value) === $type->value)
+                                                                    @checked($placementFormType === $type->value)
                                                                     x-model="type"
                                                                     required
                                                                 >
@@ -791,13 +800,13 @@
                                                         class="mt-1 block min-h-11 w-full rounded-xl border-gray-300"
                                                     >
                                                         <option value="" x-text="type === 'indoor_unit' ? 'Kies een ruimte' : 'Algemeen / buitenzijde'">
-                                                            {{ old('type', $placement->type->value) === 'indoor_unit' ? 'Kies een ruimte' : 'Algemeen / buitenzijde' }}
+                                                            {{ $placementFormType === 'indoor_unit' ? 'Kies een ruimte' : 'Algemeen / buitenzijde' }}
                                                         </option>
                                                         @foreach ($intake->aircoRooms as $room)
-                                                            <option value="{{ $room->id }}" @selected((string) old('airco_room_id', $placement->airco_room_id) === (string) $room->id)>{{ $room->name }}</option>
+                                                            <option value="{{ $room->id }}" @selected((string) $placementFormRoomId === (string) $room->id)>{{ $room->name }}</option>
                                                         @endforeach
                                                     </select>
-                                                    <x-input-error :messages="$errors->get('airco_room_id')" class="mt-2" />
+                                                    <x-input-error :messages="$placementFormActive ? $errors->get('airco_room_id') : []" class="mt-2" />
                                                 </div>
                                                 <div>
                                                     <x-input-label for="placement-{{ $placement->id }}-label" value="Naam (verplicht)" />
@@ -805,16 +814,16 @@
                                                         id="placement-{{ $placement->id }}-label"
                                                         name="label"
                                                         class="mt-1 block w-full"
-                                                        value="{{ old('label', $placement->label) }}"
+                                                        value="{{ $placementFormLabel }}"
                                                         placeholder="Bijv. Unit slaapkamer 1"
                                                         required
                                                     />
-                                                    <x-input-error :messages="$errors->get('label')" class="mt-2" />
+                                                    <x-input-error :messages="$placementFormActive ? $errors->get('label') : []" class="mt-2" />
                                                 </div>
                                                 <div>
                                                     <x-input-label for="placement-{{ $placement->id }}-description" value="Notitie" />
-                                                    <textarea id="placement-{{ $placement->id }}-description" name="description" rows="3" class="mt-1 block w-full rounded-xl border-gray-300">{{ old('description', $placement->description) }}</textarea>
-                                                    <x-input-error :messages="$errors->get('description')" class="mt-2" />
+                                                    <textarea id="placement-{{ $placement->id }}-description" name="description" rows="3" class="mt-1 block w-full rounded-xl border-gray-300">{{ $placementFormDescription }}</textarea>
+                                                    <x-input-error :messages="$placementFormActive ? $errors->get('description') : []" class="mt-2" />
                                                 </div>
                                                 <div>
                                                     <x-primary-button>Wijzigingen opslaan</x-primary-button>
@@ -832,15 +841,23 @@
                             </div>
                         @endif
 
-                        <details class="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-4" @if ($errors->hasAny(['airco_room_id', 'label', 'type', 'description'])) open @endif>
+                        @php
+                            $newPlacementFormKey = 'placement-new';
+                            $newPlacementFormActive = old('form_key') === $newPlacementFormKey;
+                            $newPlacementFormType = $newPlacementFormActive
+                                ? old('type', \App\Enums\AircoPlacementType::IndoorUnit->value)
+                                : \App\Enums\AircoPlacementType::IndoorUnit->value;
+                        @endphp
+                        <details class="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-4" @if ($newPlacementFormActive) open @endif data-form-key="{{ $newPlacementFormKey }}">
                             <summary class="cursor-pointer text-sm font-semibold text-gray-900">Binnen- of buitenunit toevoegen</summary>
                             <form
                                 method="POST"
                                 action="{{ route('intakes.workspace.placements.store', $intake) }}"
                                 class="mt-4 grid gap-4 sm:grid-cols-2"
-                                x-data="{ type: '{{ old('type', \App\Enums\AircoPlacementType::IndoorUnit->value) }}' }"
+                                x-data="{ type: '{{ $newPlacementFormType }}' }"
                             >
                                 @csrf
+                                <input type="hidden" name="form_key" value="{{ $newPlacementFormKey }}">
                                 <fieldset class="sm:col-span-2">
                                     <legend class="sr-only">Soort unit of aansluiting</legend>
                                     <div class="grid grid-cols-2 gap-2">
@@ -852,7 +869,7 @@
                                                     name="type"
                                                     value="{{ $type->value }}"
                                                     class="border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                                    @checked(old('type', \App\Enums\AircoPlacementType::IndoorUnit->value) === $type->value)
+                                                    @checked($newPlacementFormType === $type->value)
                                                     x-model="type"
                                                     required
                                                 >
@@ -860,19 +877,19 @@
                                             </label>
                                         @endforeach
                                     </div>
-                                    <x-input-error :messages="$errors->get('type')" class="mt-2" />
+                                    <x-input-error :messages="$newPlacementFormActive ? $errors->get('type') : []" class="mt-2" />
                                 </fieldset>
                                 <div>
                                     <x-input-label for="placement_room" value="Ruimte (verplicht bij binnenunit)" />
                                     <select id="placement_room" name="airco_room_id" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300">
                                         <option value="" x-text="type === 'indoor_unit' ? 'Kies een ruimte' : 'Algemeen / buitenzijde'">
-                                            {{ old('type', \App\Enums\AircoPlacementType::IndoorUnit->value) === 'indoor_unit' ? 'Kies een ruimte' : 'Algemeen / buitenzijde' }}
+                                            {{ $newPlacementFormType === 'indoor_unit' ? 'Kies een ruimte' : 'Algemeen / buitenzijde' }}
                                         </option>
                                         @foreach ($intake->aircoRooms as $room)
-                                            <option value="{{ $room->id }}" @selected((string) old('airco_room_id') === (string) $room->id)>{{ $room->name }}</option>
+                                            <option value="{{ $room->id }}" @selected($newPlacementFormActive && (string) old('airco_room_id') === (string) $room->id)>{{ $room->name }}</option>
                                         @endforeach
                                     </select>
-                                    <x-input-error :messages="$errors->get('airco_room_id')" class="mt-2" />
+                                    <x-input-error :messages="$newPlacementFormActive ? $errors->get('airco_room_id') : []" class="mt-2" />
                                 </div>
                                 <div class="sm:col-span-2">
                                     <x-input-label for="placement_label" value="Naam (verplicht)" />
@@ -880,16 +897,16 @@
                                         id="placement_label"
                                         name="label"
                                         class="mt-1 block w-full"
-                                        value="{{ old('label') }}"
+                                        value="{{ $newPlacementFormActive ? old('label') : '' }}"
                                         placeholder="Bijv. Unit slaapkamer 1"
                                         required
                                     />
-                                    <x-input-error :messages="$errors->get('label')" class="mt-2" />
+                                    <x-input-error :messages="$newPlacementFormActive ? $errors->get('label') : []" class="mt-2" />
                                 </div>
                                 <div class="sm:col-span-2">
                                     <x-input-label for="placement_description" value="Notitie" />
-                                    <textarea id="placement_description" name="description" rows="3" class="mt-1 block w-full rounded-xl border-gray-300" placeholder="Vrije wand, bereikbaarheid, obstakels…">{{ old('description') }}</textarea>
-                                    <x-input-error :messages="$errors->get('description')" class="mt-2" />
+                                    <textarea id="placement_description" name="description" rows="3" class="mt-1 block w-full rounded-xl border-gray-300" placeholder="Vrije wand, bereikbaarheid, obstakels…">{{ $newPlacementFormActive ? old('description') : '' }}</textarea>
+                                    <x-input-error :messages="$newPlacementFormActive ? $errors->get('description') : []" class="mt-2" />
                                 </div>
                                 <div class="sm:col-span-2">
                                     <x-primary-button>Opslaan</x-primary-button>
