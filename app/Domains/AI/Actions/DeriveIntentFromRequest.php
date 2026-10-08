@@ -12,6 +12,7 @@ use App\Domains\AI\Services\LocalRequestIntentParser;
 use App\Domains\AI\Services\RequestPrefillOutcomeClassifier;
 use App\Domains\AI\Services\TemplateQuestionCatalogBuilder;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
+use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeAnswer;
@@ -20,6 +21,7 @@ use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
 use App\Enums\AiTraceCallType;
 use App\Enums\IntakeStatus;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -64,6 +66,20 @@ final class DeriveIntentFromRequest
         }
 
         $reason = $this->requestReason($intake);
+
+        // Late create-job / notes: geen fills of prune meer zodra de klant is begonnen.
+        if ($this->customerHasStarted($intake)) {
+            Log::info('request_prefill.skipped', [
+                'intake_id' => $intake->id,
+                'reason' => 'customer_started',
+            ]);
+            if ($reason !== null) {
+                $this->recordExistingAirco->handle($intake->fresh() ?? $intake, $reason);
+            }
+
+            return null;
+        }
+
         $localRun = null;
 
         if ($reason !== null) {
@@ -86,6 +102,22 @@ final class DeriveIntentFromRequest
         }
 
         return $run;
+    }
+
+    /**
+     * Klant is begonnen: cursor gezet of een eigen antwoord (prefill_source null).
+     * request_reason telt niet mee — dat is installateursaanvraag (ook zonder bron-label).
+     */
+    public function customerHasStarted(Intake $intake): bool
+    {
+        if (is_string($intake->current_question_key) && $intake->current_question_key !== '') {
+            return true;
+        }
+
+        return $intake->answers()
+            ->whereNull('prefill_source')
+            ->where('question_key', '!=', self::SOURCE_QUESTION)
+            ->exists();
     }
 
     /**
@@ -284,6 +316,11 @@ final class DeriveIntentFromRequest
 
     private function mayWrite(Intake $intake, string $questionKey, ?string $sectionInstanceKey): bool
     {
+        if ($questionKey === 'floor_level'
+            && $this->installerFloorMarkerBlocksPrefill($intake, $sectionInstanceKey)) {
+            return false;
+        }
+
         $existing = IntakeAnswer::query()
             ->where('intake_id', $intake->id)
             ->where('question_key', $questionKey)
@@ -306,5 +343,23 @@ final class DeriveIntentFromRequest
             PrefillSources::DERIVED_LXW,
             self::SOURCE_REQUEST_TEXT,
         ], true);
+    }
+
+    private function installerFloorMarkerBlocksPrefill(Intake $intake, ?string $sectionInstanceKey): bool
+    {
+        if (! is_string($sectionInstanceKey) || $sectionInstanceKey === '') {
+            return false;
+        }
+
+        $room = AircoRoom::query()
+            ->where('intake_id', $intake->id)
+            ->where('key', $sectionInstanceKey)
+            ->first();
+
+        if (! $room instanceof AircoRoom || ! is_array($room->dimensions)) {
+            return false;
+        }
+
+        return ($room->dimensions['floor_level_source'] ?? null) === 'installer';
     }
 }

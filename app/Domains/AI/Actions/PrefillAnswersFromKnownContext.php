@@ -15,6 +15,7 @@ use App\Domains\AI\Services\RequestPrefillContextBuilder;
 use App\Domains\AI\Services\RequestPrefillOutcomeClassifier;
 use App\Domains\AI\Services\TemplateQuestionCatalogBuilder;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
+use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeAnswer;
@@ -68,6 +69,15 @@ final class PrefillAnswersFromKnownContext
         }
 
         if (! (bool) config('ai.text_inference.enabled', false)) {
+            return null;
+        }
+
+        if (app(DeriveIntentFromRequest::class)->customerHasStarted($intake)) {
+            Log::info('request_prefill.skipped', [
+                'intake_id' => $intake->id,
+                'reason' => 'customer_started',
+            ]);
+
             return null;
         }
 
@@ -584,6 +594,11 @@ final class PrefillAnswersFromKnownContext
 
     private function mayWrite(Intake $intake, string $questionKey, ?string $sectionInstanceKey): bool
     {
+        if ($questionKey === 'floor_level'
+            && $this->installerFloorMarkerBlocksPrefill($intake, $sectionInstanceKey)) {
+            return false;
+        }
+
         $existing = IntakeAnswer::query()
             ->where('intake_id', $intake->id)
             ->where('question_key', $questionKey)
@@ -606,5 +621,23 @@ final class PrefillAnswersFromKnownContext
             PrefillSources::DERIVED_LXW,
             DeriveIntentFromRequest::SOURCE_REQUEST_TEXT,
         ], true);
+    }
+
+    private function installerFloorMarkerBlocksPrefill(Intake $intake, ?string $sectionInstanceKey): bool
+    {
+        if (! is_string($sectionInstanceKey) || $sectionInstanceKey === '') {
+            return false;
+        }
+
+        $room = AircoRoom::query()
+            ->where('intake_id', $intake->id)
+            ->where('key', $sectionInstanceKey)
+            ->first();
+
+        if (! $room instanceof AircoRoom || ! is_array($room->dimensions)) {
+            return false;
+        }
+
+        return ($room->dimensions['floor_level_source'] ?? null) === 'installer';
     }
 }

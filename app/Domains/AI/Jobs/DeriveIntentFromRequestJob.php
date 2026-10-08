@@ -13,6 +13,8 @@ use App\Enums\IntakeStatus;
 use Illuminate\Contracts\Queue\ShouldBeUniqueUntilProcessing;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Str;
+use Throwable;
 
 /**
  * Leidt aanvraagintent af buiten de webrequest (notities, create, adresretry).
@@ -89,13 +91,22 @@ final class DeriveIntentFromRequestJob implements ShouldBeUniqueUntilProcessing,
         $intake = Intake::query()->find($this->intakeId);
 
         if ($intake === null || $intake->status === IntakeStatus::Cancelled) {
+            $this->finalizePlaceholders($this->intakeId, failed: true, error: 'intake_unavailable');
+
             return;
         }
 
         try {
             $derive->handle($intake, $this->allowExternal);
-        } finally {
-            $this->completePlaceholders($this->intakeId);
+            $this->finalizePlaceholders($this->intakeId, failed: false);
+        } catch (Throwable $exception) {
+            $this->finalizePlaceholders(
+                $this->intakeId,
+                failed: true,
+                error: Str::limit($exception->getMessage(), 1000, ''),
+            );
+
+            throw $exception;
         }
 
         if (! (bool) config('ai.dossier_synthesis.auto_after_notes', false)) {
@@ -108,7 +119,18 @@ final class DeriveIntentFromRequestJob implements ShouldBeUniqueUntilProcessing,
         }
     }
 
-    private function completePlaceholders(int $intakeId): void
+    public function failed(?Throwable $exception): void
+    {
+        $this->finalizePlaceholders(
+            $this->intakeId,
+            failed: true,
+            error: $exception !== null
+                ? Str::limit($exception->getMessage(), 1000, '')
+                : 'job_failed',
+        );
+    }
+
+    private function finalizePlaceholders(int $intakeId, bool $failed, ?string $error = null): void
     {
         AiRun::query()
             ->where('intake_id', $intakeId)
@@ -117,9 +139,9 @@ final class DeriveIntentFromRequestJob implements ShouldBeUniqueUntilProcessing,
             ->where('provider', self::PLACEHOLDER_PROVIDER)
             ->where('model', self::PLACEHOLDER_MODEL)
             ->update([
-                'status' => AiRunStatus::Succeeded,
+                'status' => $failed ? AiRunStatus::Failed : AiRunStatus::Succeeded,
                 'finished_at' => now(),
-                'error_message' => null,
+                'error_message' => $failed ? ($error ?? 'job_failed') : null,
             ]);
     }
 }

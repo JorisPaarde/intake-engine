@@ -532,15 +532,52 @@ final class SynthesizeSurveyDossier
 
                 /** @var DossierSubject|null $subject */
                 $subject = $task['subject_reference'] === null ? null : $subjects->get($task['subject_reference']);
+                $subjectId = $subject?->id;
+                $decisionArea = is_string($task['decision_area_key'] ?? null)
+                    ? $task['decision_area_key']
+                    : null;
+                $taskType = $task['type'];
+
+                // Preserve-modus: upsert op (type, decision_area_key, dossier_subject_id)
+                // zodat send-by-id van bestaande Proposed taken blijft werken.
+                if ($this->preserveProposedCustomerTasks) {
+                    $existing = ContributionTask::query()
+                        ->where('intake_id', $intake->id)
+                        ->where('status', ContributionTaskStatus::Proposed)
+                        ->where('type', $taskType)
+                        ->where('decision_area_key', $decisionArea)
+                        ->when(
+                            $subjectId === null,
+                            static fn ($query) => $query->whereNull('dossier_subject_id'),
+                            static fn ($query) => $query->where('dossier_subject_id', $subjectId),
+                        )
+                        ->get()
+                        ->first(static fn (ContributionTask $row): bool => ($row->meta['source_type'] ?? null) === 'ai');
+
+                    if ($existing instanceof ContributionTask) {
+                        $existing->update([
+                            'prompt' => $prompt,
+                            'meta' => [
+                                'source_type' => 'ai',
+                                'source_id' => $run->id,
+                                'reason' => $reason,
+                                'evidence_references' => $task['evidence_references'],
+                            ],
+                        ]);
+
+                        continue;
+                    }
+                }
+
                 ContributionTask::query()->create([
                     'intake_id' => $intake->id,
                     'company_id' => $intake->company_id,
-                    'dossier_subject_id' => $subject?->id,
+                    'dossier_subject_id' => $subjectId,
                     'intake_follow_up_item_id' => null,
                     'audience' => ContributionAudience::Customer,
-                    'type' => $task['type'],
+                    'type' => $taskType,
                     'prompt' => $prompt,
-                    'decision_area_key' => $task['decision_area_key'],
+                    'decision_area_key' => $decisionArea,
                     'status' => ContributionTaskStatus::Proposed,
                     'requested_by' => null,
                     'meta' => [

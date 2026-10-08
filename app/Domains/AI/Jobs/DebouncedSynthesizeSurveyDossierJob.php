@@ -15,6 +15,7 @@ use Illuminate\Foundation\Queue\Queueable;
  * Debounced workspace-synthese na installatiekeuze (niet de CompleteIntake-keten).
  * Uniek tot processing start: snelle opeenvolgende option-wijzigingen → één run.
  * preserveProposedCustomerTasks=true zodat send-by-id van Proposed taken blijft werken.
+ * Slaat terminal/klantfase-statussen over (Completed/Reviewed/AwaitingCustomer/Cancelled).
  */
 final class DebouncedSynthesizeSurveyDossierJob implements ShouldBeUniqueUntilProcessing, ShouldQueue
 {
@@ -23,6 +24,14 @@ final class DebouncedSynthesizeSurveyDossierJob implements ShouldBeUniqueUntilPr
     public int $tries = 2;
 
     public int $uniqueFor = 120;
+
+    /** @var list<IntakeStatus> */
+    private const SKIP_STATUSES = [
+        IntakeStatus::Completed,
+        IntakeStatus::Reviewed,
+        IntakeStatus::AwaitingCustomer,
+        IntakeStatus::Cancelled,
+    ];
 
     public function __construct(
         public readonly int $intakeId,
@@ -42,7 +51,7 @@ final class DebouncedSynthesizeSurveyDossierJob implements ShouldBeUniqueUntilPr
     {
         $intake = Intake::query()->find($this->intakeId);
 
-        if ($intake === null || $intake->status === IntakeStatus::Cancelled) {
+        if ($intake === null || in_array($intake->status, self::SKIP_STATUSES, true)) {
             return;
         }
 

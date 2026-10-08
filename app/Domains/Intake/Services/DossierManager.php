@@ -673,7 +673,18 @@ final class DossierManager
             return $existing;
         }
 
-        return array_merge($existing, $fromAnswers);
+        $merged = array_merge($existing, $fromAnswers);
+
+        // floor_level / floor_level_source zijn los van dimensions_source (stroom 5):
+        // installateursmarker (ook null = gewist) overleeft merges vanuit antwoorden.
+        if (($existing['floor_level_source'] ?? null) === 'installer') {
+            $merged['floor_level'] = array_key_exists('floor_level', $existing)
+                ? $existing['floor_level']
+                : null;
+            $merged['floor_level_source'] = 'installer';
+        }
+
+        return $merged;
     }
 
     /**
@@ -858,14 +869,20 @@ final class DossierManager
 
     private function floorLabelFromAnswers(Intake $intake, string $instanceKey): ?string
     {
-        // Installateurscorrectie op de werkplek wint van prefill-antwoord.
+        // Installateurscorrectie (ook wissen met null) wint van prefill-antwoord.
         $room = AircoRoom::query()
             ->where('intake_id', $intake->id)
             ->where('key', $instanceKey)
             ->first();
         $roomFloor = is_array($room?->dimensions) ? ($room->dimensions['floor_level'] ?? null) : null;
         $roomFloorSource = is_array($room?->dimensions) ? ($room->dimensions['floor_level_source'] ?? null) : null;
-        if ($roomFloorSource === 'installer' && is_string($roomFloor) && $roomFloor !== '') {
+        if ($roomFloorSource === 'installer') {
+            return is_string($roomFloor) && $roomFloor !== ''
+                ? $this->floorLevelDisplayLabel($roomFloor)
+                : null;
+        }
+
+        if (is_string($roomFloor) && $roomFloor !== '') {
             return $this->floorLevelDisplayLabel($roomFloor);
         }
 

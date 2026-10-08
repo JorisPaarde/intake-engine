@@ -6,6 +6,7 @@ namespace App\Domains\AI\Actions;
 
 use App\Domains\AI\Support\ExistingAircoExtractor;
 use App\Domains\Intake\Models\AircoRoom;
+use App\Domains\Intake\Models\DossierRecord;
 use App\Domains\Intake\Models\DossierSubject;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeAnswer;
@@ -18,6 +19,7 @@ use App\Enums\DossierRecordStatus;
 
 /**
  * Legt bestaande airco + vervanging vast als dossierfeit en aandachtspunt.
+ * Idempotent: zelfde open system-record → geen herschrijven; installer-record → nooit overschrijven.
  */
 final class RecordExistingAircoFromRequest
 {
@@ -50,15 +52,6 @@ final class RecordExistingAircoFromRequest
             return;
         }
 
-        $this->dossierManager->initialize($intake);
-        $intake->refresh();
-        $intake->loadMissing(['dossierSubjects', 'aircoRooms', 'answers']);
-
-        $subject = $this->resolveSubject($intake, $extracted['room_type']);
-        if (! $subject instanceof DossierSubject) {
-            return;
-        }
-
         $label = $extracted['replacement']
             ? 'Bestaande airco vervangen'
             : 'Bestaande airco aanwezig';
@@ -70,6 +63,44 @@ final class RecordExistingAircoFromRequest
             default => null,
         };
         $summary = $label.($roomLabel !== null ? ' ('.$roomLabel.')' : '');
+
+        $open = DossierRecord::query()
+            ->where('intake_id', $intake->id)
+            ->where('key', self::RECORD_KEY)
+            ->whereNull('superseded_by_id')
+            ->whereIn('status', [
+                DossierRecordStatus::Proposed,
+                DossierRecordStatus::Established,
+                DossierRecordStatus::Conflicted,
+            ])
+            ->latest('id')
+            ->first();
+
+        if ($open instanceof DossierRecord) {
+            // Installateur/menselijke vastlegging nooit overschrijven.
+            if ($open->actor_type !== 'system') {
+                return;
+            }
+
+            $existingValue = $open->value;
+            if (
+                ($existingValue['present'] ?? null) === true
+                && ($existingValue['replacement'] ?? null) === $extracted['replacement']
+                && ($existingValue['room_type'] ?? null) === $extracted['room_type']
+                && ($existingValue['text'] ?? null) === $summary
+            ) {
+                return;
+            }
+        }
+
+        $this->dossierManager->initialize($intake);
+        $intake->refresh();
+        $intake->loadMissing(['dossierSubjects', 'aircoRooms', 'answers']);
+
+        $subject = $this->resolveSubject($intake, $extracted['room_type']);
+        if (! $subject instanceof DossierSubject) {
+            return;
+        }
 
         $this->dossierManager->record(
             intake: $intake,

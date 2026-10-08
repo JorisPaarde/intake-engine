@@ -150,12 +150,9 @@ final class AircoSurveyService
             $previousFloor = $this->effectiveFloorLevel($intake, $room, $existingDimensions);
             if ($floorLevel !== $previousFloor) {
                 $merged = $updates['dimensions'] ?? $existingDimensions;
-                if ($floorLevel === null) {
-                    unset($merged['floor_level'], $merged['floor_level_source']);
-                } else {
-                    $merged['floor_level'] = $floorLevel;
-                    $merged['floor_level_source'] = 'installer';
-                }
+                // Wissen: houd installer-marker met null zodat prefill/sync niet terugzet.
+                $merged['floor_level'] = $floorLevel;
+                $merged['floor_level_source'] = 'installer';
                 $updates['dimensions'] = $merged;
                 $this->recordFloorLevelOverride($intake, $installer, $room, $floorLevel, $previousFloor);
             } elseif ($measuresChanged && $floorLevel !== null) {
@@ -220,11 +217,18 @@ final class AircoSurveyService
 
     /**
      * Effectieve verdieping: dimensions eerst, anders room-N intake-antwoord.
+     * Installateur-marker (ook met null) wint — geen fallback naar antwoord.
      *
      * @param  array<string, mixed>  $existingDimensions
      */
     private function effectiveFloorLevel(Intake $intake, AircoRoom $room, array $existingDimensions): ?string
     {
+        if (($existingDimensions['floor_level_source'] ?? null) === 'installer') {
+            $cleared = $existingDimensions['floor_level'] ?? null;
+
+            return is_string($cleared) && $cleared !== '' ? $cleared : null;
+        }
+
         $fromDimensions = is_string($existingDimensions['floor_level'] ?? null)
             && $existingDimensions['floor_level'] !== ''
             ? $existingDimensions['floor_level']

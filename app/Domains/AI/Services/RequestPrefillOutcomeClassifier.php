@@ -436,13 +436,18 @@ final class RequestPrefillOutcomeClassifier
                     $reason = ! $hasFloorCue
                         ? 'Geen verdieping in de openingszin — niet stil invullen (geen begane-grond-default).'
                         : 'Verdieping niet eenduidig aan deze ruimte gekoppeld — leeg laten voor klantbevestiging.';
+                    // Nooit losse "boven"/"beneden" als evidence (plaatsing: "boven de bank").
+                    $rejectEvidence = is_string($fillEvidence)
+                        && preg_match('/^(?:boven|beneden)$/iu', trim($fillEvidence)) === 1
+                        ? null
+                        : $fillEvidence;
                     $candidates[] = new RequestPrefillCandidate(
                         questionKey: $key,
                         sectionInstanceKey: $instanceKey,
                         label: $label,
                         value: $normalized,
                         confidence: $confidence,
-                        evidence: $fillEvidence,
+                        evidence: $rejectEvidence,
                         disposition: RequestPrefillCandidate::DISPOSITION_REJECTED,
                         source: RequestPrefillCandidate::SOURCE_CATALOG_AI,
                         reason: $reason,
@@ -1082,8 +1087,17 @@ final class RequestPrefillOutcomeClassifier
         $normalized = mb_strtolower(trim($requestReason), 'UTF-8');
         $normalized = str_replace(['’', '‘', '´'], "'", $normalized);
 
+        // Absolute cues — géén losse "boven"/"beneden" (plaatsing: "boven de bank").
+        if (preg_match(
+            '/\b(?:kelder|souterrain|begane\s+grond|(?:1(?:e|ste)?|eerste|2(?:e|de)?|tweede|3(?:e|de)?|derde|[4-9](?:e|de)?)\s+verdieping|op\s+(?:de\s+)?zolder)\b/u',
+            $normalized,
+        ) === 1) {
+            return true;
+        }
+
+        // Relatief alleen als RoomFloorLevelExtractor: kamernaam + boven/beneden.
         return preg_match(
-            '/\b(?:kelder|souterrain|begane\s+grond|(?:1(?:e|ste)?|eerste|2(?:e|de)?|tweede|3(?:e|de)?|derde|[4-9](?:e|de)?)\s+verdieping|op\s+(?:de\s+)?zolder|beneden|boven)\b/u',
+            '/\b(?:kinderslaapkamers?|kinderkamers?|slaapkamers?|woonkamers?|huiskamers?|werkkamers?|kantoor|kantoren|zolders?)\s*,?\s*(?:boven|beneden)\b/u',
             $normalized,
         ) === 1;
     }
@@ -1091,8 +1105,8 @@ final class RequestPrefillOutcomeClassifier
     private function floorEvidenceQuote(string $requestReason, ?string $preferredFloor = null): ?string
     {
         $patterns = [
-            'ground' => '/\b(?:begane\s+grond|beneden)\b/iu',
-            '1' => '/\b(?:1(?:e|ste)?|eerste)\s+verdieping\b|\bboven\b/iu',
+            'ground' => '/\b(?:begane\s+grond)\b/iu',
+            '1' => '/\b(?:1(?:e|ste)?|eerste)\s+verdieping\b/iu',
             '2' => '/\b(?:2(?:e|de)?|tweede)\s+verdieping\b/iu',
             '3_plus' => '/\b(?:3(?:e|de)?|derde|[4-9](?:e|de)?)\s+verdieping\b/iu',
             'attic' => '/\bop\s+(?:de\s+)?zolder\b/iu',
@@ -1105,7 +1119,21 @@ final class RequestPrefillOutcomeClassifier
             }
         }
 
-        if (preg_match('/\b(?:begane\s+grond|(?:1(?:e|ste)?|eerste|2(?:e|de)?|tweede|3(?:e|de)?|derde|[4-9](?:e|de)?)\s+verdieping|op\s+(?:de\s+)?zolder|beneden|boven)\b/iu', $requestReason, $matches) === 1) {
+        // Relatief: alleen "woonkamer beneden" / "slaapkamer boven", nooit "boven de bank".
+        if (in_array($preferredFloor, ['ground', '1'], true)
+            && preg_match(
+                '/\b(?:(?:kinderslaapkamers?|kinderkamers?|slaapkamers?|woonkamers?|huiskamers?|werkkamers?|kantoor|kantoren|zolders?)\s*,?\s*(?:boven|beneden))\b/iu',
+                $requestReason,
+                $matches,
+            ) === 1) {
+            return $matches[0];
+        }
+
+        if (preg_match(
+            '/\b(?:begane\s+grond|(?:1(?:e|ste)?|eerste|2(?:e|de)?|tweede|3(?:e|de)?|derde|[4-9](?:e|de)?)\s+verdieping|op\s+(?:de\s+)?zolder|(?:(?:kinderslaapkamers?|kinderkamers?|slaapkamers?|woonkamers?|huiskamers?|werkkamers?|kantoor|kantoren|zolders?)\s*,?\s*(?:boven|beneden)))\b/iu',
+            $requestReason,
+            $matches,
+        ) === 1) {
             return $matches[0];
         }
 

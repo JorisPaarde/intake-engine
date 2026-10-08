@@ -123,12 +123,6 @@
             @if (session('status'))
                 <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-900" role="status" data-testid="workspace-status">
                     <p>{{ session('status') }}</p>
-                    @if (session('ai_synthesis_partial_detail'))
-                        <details class="mt-2 text-xs font-normal text-emerald-900/80" data-testid="ai-synthesis-partial-detail">
-                            <summary class="cursor-pointer font-semibold">Technisch detail (beheer)</summary>
-                            <p class="mt-1 break-words font-mono leading-relaxed">{{ session('ai_synthesis_partial_detail') }}</p>
-                        </details>
-                    @endif
                 </div>
             @endif
 
@@ -538,8 +532,13 @@
                                             </select>
                                         </div>
                                         @php
-                                            $roomFloorLevel = is_array($room->dimensions) ? ($room->dimensions['floor_level'] ?? null) : null;
-                                            if (! is_string($roomFloorLevel) || $roomFloorLevel === '') {
+                                            $roomDims = is_array($room->dimensions) ? $room->dimensions : [];
+                                            $roomFloorLevel = is_string($roomDims['floor_level'] ?? null) && $roomDims['floor_level'] !== ''
+                                                ? $roomDims['floor_level']
+                                                : null;
+                                            // Installateur-marker (ook null = gewist) wint van prefill-antwoord.
+                                            if (($roomDims['floor_level_source'] ?? null) !== 'installer'
+                                                && $roomFloorLevel === null) {
                                                 $floorAnswer = $intake->answers->first(
                                                     static fn ($answer): bool => $answer->section_instance_key === $room->key
                                                         && $answer->question_key === 'floor_level',
@@ -1499,8 +1498,15 @@
                                 </div>
                             </summary>
                             <div class="space-y-4 border-t border-indigo-100 px-5 py-4 sm:px-6">
+                                @php
+                                    $autoAfterNotes = (bool) config('ai.dossier_synthesis.auto_after_notes', false);
+                                @endphp
                                 <p class="text-sm leading-relaxed text-gray-600">
-                                    Het voorstel gebruikt alleen gegevens uit deze opname en wordt automatisch bijgewerkt wanneer je units, notities of klantaanvullingen vastlegt.
+                                    @if ($autoAfterNotes)
+                                        Het voorstel gebruikt alleen gegevens uit deze opname en wordt automatisch bijgewerkt na een installatiekeuze en wanneer je notities of klantaanvullingen vastlegt.
+                                    @else
+                                        Het voorstel gebruikt alleen gegevens uit deze opname en wordt automatisch bijgewerkt na een installatiekeuze.
+                                    @endif
                                 </p>
                                 @if ($aiProcessing)
                                     <p class="rounded-xl bg-indigo-100/70 px-3 py-2 text-sm text-indigo-950" data-testid="ai-processing-status">
@@ -1572,7 +1578,7 @@
                                 @elseif ($aiProcessing)
                                     <p class="text-sm text-indigo-900">Het AI-voorstel wordt nog opgesteld.</p>
                                 @else
-                                    <p class="text-sm text-indigo-900">Nog geen AI-voorstel. Dat komt automatisch na een installatiekeuze.</p>
+                                    <p class="text-sm text-indigo-900">Het AI-voorstel wordt zo opgesteld.</p>
                                 @endif
                             </div>
                         </details>
