@@ -84,6 +84,16 @@ test('RoomFloorLevelExtractor koppelt verdieping alleen aan de genoemde ruimte',
         ['bedroom', 'living_room'],
         ['1', null],
     ],
+    'Onder + begane grond is ambigu: beide null' => [
+        'Onder de slaapkamer, op de begane grond, ligt de woonkamer',
+        ['bedroom', 'living_room'],
+        [null, null],
+    ],
+    'Boven + eerste verdieping is ambigu: beide null' => [
+        'Boven de woonkamer, op de eerste verdieping, ligt de slaapkamer',
+        ['living_room', 'bedroom'],
+        [null, null],
+    ],
     'slaapkamer boven, woonkamer beneden' => [
         'slaapkamer boven, woonkamer beneden',
         ['bedroom', 'living_room'],

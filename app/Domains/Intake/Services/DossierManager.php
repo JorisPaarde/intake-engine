@@ -926,14 +926,13 @@ final class DossierManager
      */
     private function stripKnownFloorLabels(string $name): string
     {
-        $labels = [
-            'kelder / souterrain',
-            'begane grond',
-            '1e verdieping',
-            '2e verdieping',
-            '3e verdieping of hoger',
-            'zolder',
-        ];
+        $labels = [];
+        foreach (['basement', 'ground', '1', '2', '3_plus', 'attic'] as $key) {
+            $short = FloorLevelLabels::shortLabel($key);
+            if (is_string($short) && $short !== '') {
+                $labels[] = $short;
+            }
+        }
 
         do {
             $before = $name;

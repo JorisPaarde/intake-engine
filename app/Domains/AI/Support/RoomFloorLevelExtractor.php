@@ -55,13 +55,27 @@ final class RoomFloorLevelExtractor
 
             foreach ($floorCues as $cueIndex => $cue) {
                 if ($cue['start'] >= $mention['end'] && $cue['start'] < $nextStart) {
-                    // "Boven/Onder de woonkamer op de begane grond liggen …": cue hoort
-                    // bij de vorige kamer, niet als before-cue naar de volgende.
-                    if ($nextMention !== null
-                        && $this->cueDirectlyFollowedByRoom($normalized, $cue, $nextMention)
-                        && ! $this->roomPrecededByAboveOrBelow($normalized, $mention)) {
+                    $aboveBelow = $this->aboveOrBelowBeforeRoom($normalized, $mention);
+                    $followedByNext = $nextMention !== null
+                        && $this->cueDirectlyFollowedByRoom($normalized, $cue, $nextMention);
+
+                    // Zonder boven/onder: before-cue handoff naar volgende kamer.
+                    if ($followedByNext && $aboveBelow === null) {
                         continue;
                     }
+
+                    // Boven/onder X: alleen toekennen als richting eenduidig is
+                    // (boven + ground/basement, onder + 1/2/3_plus/attic). Anders
+                    // claimen zonder toekenning → beide kamers null.
+                    if ($aboveBelow !== null) {
+                        $claimedCueStarts[$cueIndex] = true;
+                        if ($this->aboveBelowCueIsUnambiguous($aboveBelow, $cue['value'])) {
+                            $candidates[] = $cue['value'];
+                        }
+
+                        continue;
+                    }
+
                     $candidates[] = $cue['value'];
                     $claimedCueStarts[$cueIndex] = true;
                 }
@@ -336,21 +350,40 @@ final class RoomFloorLevelExtractor
     }
 
     /**
-     * Kamer direct voorafgegaan door "boven/onder (de/het/een)": relatieve ligging,
-     * geen floor-cue-overdracht naar de volgende kamer.
+     * Kamer direct voorafgegaan door "boven/onder (de/het/een)".
      *
      * @param  array{type: string, start: int, end: int}  $mention
+     * @return 'boven'|'onder'|null
      */
-    private function roomPrecededByAboveOrBelow(string $text, array $mention): bool
+    private function aboveOrBelowBeforeRoom(string $text, array $mention): ?string
     {
         $lookback = min(24, $mention['start']);
         if ($lookback <= 0) {
-            return false;
+            return null;
         }
 
         $before = mb_substr($text, $mention['start'] - $lookback, $lookback, 'UTF-8');
+        if (preg_match('/(?:^|[^\p{L}])(boven|onder)\s+(?:(?:de|het|een)\s+)?$/u', $before, $m) !== 1) {
+            return null;
+        }
 
-        return preg_match('/(?:^|[^\p{L}])(?:boven|onder)\s+(?:(?:de|het|een)\s+)?$/u', $before) === 1;
+        return $m[1] === 'boven' ? 'boven' : 'onder';
+    }
+
+    /**
+     * Eenduidig: "boven X" + begane grond/kelder, of "onder X" + verdieping/zolder.
+     */
+    private function aboveBelowCueIsUnambiguous(string $direction, string $cueValue): bool
+    {
+        if ($direction === 'boven') {
+            return in_array($cueValue, ['ground', 'basement'], true);
+        }
+
+        if ($direction === 'onder') {
+            return in_array($cueValue, ['1', '2', '3_plus', 'attic'], true);
+        }
+
+        return false;
     }
 
     /**
