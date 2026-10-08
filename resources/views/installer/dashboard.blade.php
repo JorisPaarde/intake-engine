@@ -79,7 +79,7 @@
                                             {{ $intake->status->label() }}
                                         </span>
                                     </td>
-                                    <td class="px-4 py-3 text-gray-600">{{ ($customerTaskStatuses[$intake->id] ?? null)['short_label'] ?? 'Nog niet gestart' }}</td>
+                                    <td class="px-4 py-3 text-gray-600">{{ ($customerTaskStatuses[$intake->id] ?? null)['label'] ?? 'Nog niet gestart' }}</td>
                                     <td class="px-4 py-3 text-gray-600">{{ $intake->created_at?->timezone(config('app.timezone'))->format('d-m-Y H:i') }}</td>
                                     <td class="px-4 py-3 text-gray-600">{{ $intake->completed_at?->timezone(config('app.timezone'))->format('d-m-Y H:i') ?? '—' }}</td>
                                     <td class="px-4 py-3 text-right">

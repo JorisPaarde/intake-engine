@@ -14,6 +14,31 @@ use Throwable;
 final class ExternalFactPresenter
 {
     /**
+     * Prefer live PDOK over fictive demo overlays. Shared by web route and caption present().
+     */
+    public function selectAerialFact(Intake $intake): ?IntakeExternalFact
+    {
+        $intake->loadMissing('externalFacts');
+
+        $selected = null;
+        $selectedPreference = PHP_INT_MAX;
+
+        foreach ($intake->externalFacts as $fact) {
+            if ($fact->fact_key !== 'aerial_image') {
+                continue;
+            }
+
+            $preference = $this->aerialSourcePreference($fact->source);
+            if ($preference < $selectedPreference) {
+                $selected = $fact;
+                $selectedPreference = $preference;
+            }
+        }
+
+        return $selected;
+    }
+
+    /**
      * @return array{
      *     facts: list<array{label: string, display: string, source: string, source_url: string|null, confidence: string}>,
      *     uncertainties: list<string>,
@@ -37,9 +62,6 @@ final class ExternalFactPresenter
             ];
         }
 
-        $selectedAerialFact = null;
-        $selectedAerialPreference = PHP_INT_MAX;
-
         foreach ($intake->externalFacts->sortBy(fn (IntakeExternalFact $fact): int => $this->order($fact->fact_key)) as $fact) {
             $uncertainty = $this->uncertainty($fact);
 
@@ -48,14 +70,6 @@ final class ExternalFactPresenter
             }
 
             if ($fact->fact_key === 'aerial_image') {
-                $preference = $this->aerialSourcePreference($fact->source);
-
-                // Prefer live PDOK over fictive demo overlays; never let last-wins hide the typed address.
-                if ($preference < $selectedAerialPreference) {
-                    $selectedAerialFact = $fact;
-                    $selectedAerialPreference = $preference;
-                }
-
                 continue;
             }
 
@@ -78,6 +92,8 @@ final class ExternalFactPresenter
                 $insulationAdded = true;
             }
         }
+
+        $selectedAerialFact = $this->selectAerialFact($intake);
 
         if ($selectedAerialFact instanceof IntakeExternalFact) {
             $aerialImage = $this->aerialImage($selectedAerialFact, $includeAerialDataUri);

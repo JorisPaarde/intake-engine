@@ -24,16 +24,11 @@ final class CustomerTaskStatusPresenter
     ) {}
 
     /**
-     * @return array{
-     *     label: string,
-     *     short_label: string,
-     *     link_active: bool,
-     *     percent: int|null
-     * }
+     * @return array{label: string, link_active: bool}
      */
     public function present(Intake $intake): array
     {
-        $intake->loadMissing(['followUpRounds.items', 'answers']);
+        $intake->loadMissing(['followUpRounds.items.uploads']);
 
         $linkActive = $intake->isTokenValid();
 
@@ -54,9 +49,7 @@ final class CustomerTaskStatusPresenter
 
             return [
                 'label' => $label,
-                'short_label' => $label,
                 'link_active' => $linkActive,
-                'percent' => $progress['percent'],
             ];
         }
 
@@ -67,14 +60,17 @@ final class CustomerTaskStatusPresenter
             ->first();
 
         if ($completedRound instanceof IntakeFollowUpRound) {
-            $total = $completedRound->items->count();
-            $label = sprintf('Ronde %d: %d van %d ontvangen', $completedRound->round_number, $total, $total);
+            $progress = $this->followUpProgress->calculate($completedRound->items);
+            $label = sprintf(
+                'Ronde %d: %d van %d ontvangen',
+                $completedRound->round_number,
+                $progress['completed'],
+                $progress['total'],
+            );
 
             return [
                 'label' => $label,
-                'short_label' => $label,
                 'link_active' => $linkActive,
-                'percent' => $total === 0 ? null : 100,
             ];
         }
 
@@ -82,9 +78,7 @@ final class CustomerTaskStatusPresenter
             && $intake->completed_at !== null) {
             return [
                 'label' => 'Afgerond',
-                'short_label' => 'Afgerond',
                 'link_active' => $linkActive,
-                'percent' => 100,
             ];
         }
 
@@ -92,9 +86,7 @@ final class CustomerTaskStatusPresenter
         if ($intake->status === IntakeStatus::Draft || ! $this->customerHasActed($intake)) {
             return [
                 'label' => 'Nog niet gestart',
-                'short_label' => 'Nog niet gestart',
                 'link_active' => $linkActive,
-                'percent' => 0,
             ];
         }
 
@@ -102,14 +94,18 @@ final class CustomerTaskStatusPresenter
 
         return [
             'label' => $percent.'% beantwoord',
-            'short_label' => $percent.'% beantwoord',
             'link_active' => $linkActive,
-            'percent' => $percent,
         ];
     }
 
     private function customerHasActed(Intake $intake): bool
     {
+        if (array_key_exists('has_customer_acted', $intake->getAttributes())) {
+            return (bool) $intake->getAttribute('has_customer_acted');
+        }
+
+        $intake->loadMissing('answers');
+
         return $intake->answers->contains(
             static function (IntakeAnswer $answer): bool {
                 if ($answer->prefill_source !== null && $answer->prefill_source !== '') {

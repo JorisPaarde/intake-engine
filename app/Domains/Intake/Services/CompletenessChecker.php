@@ -55,8 +55,9 @@ final class CompletenessChecker
                 $value = $answer instanceof IntakeAnswer && is_array($answer->value)
                     ? $answer->value
                     : null;
+                $prefillSource = $answer instanceof IntakeAnswer ? $answer->prefill_source : null;
                 if ($this->answerValueReader->isFilled($value, QuestionType::Boolean)
-                    && ! MustAcceptQuestions::isAccepted($value)) {
+                    && ! MustAcceptQuestions::isAccepted($value, $prefillSource)) {
                     $reason = 'must_accept';
                 }
             }

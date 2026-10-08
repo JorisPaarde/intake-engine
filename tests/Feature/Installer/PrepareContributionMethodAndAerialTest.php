@@ -9,11 +9,48 @@ use App\Enums\ContributionMode;
 use App\Enums\FollowUpItemType;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
     $this->seed(IntakeTemplateSeeder::class);
     Storage::fake((string) config('filesystems.media', 'local'));
+});
+
+test('ask-customer-button puts caller classes on the button and keeps form inline', function () {
+    $user = User::factory()->create();
+    $intake = app(CreateIntake::class)->handle($user, [
+        'template_key' => 'airco',
+        'workflow_mode' => ContributionMode::Installer->value,
+        'customer_name' => 'Ask Button',
+        'customer_email' => 'ask-button@example.com',
+        'address_line' => 'Test 0',
+        'address_postal_code' => '1234AB',
+        'address_house_number' => 10,
+        'address_city' => 'Amsterdam',
+    ]);
+
+    $html = Blade::render(
+        '<x-ask-customer-button :intake="$intake" :ask="$ask" label="Vraag nieuwe foto" class="inline-flex min-h-10 w-full items-center rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-800 hover:bg-indigo-50" />',
+        [
+            'intake' => $intake,
+            'ask' => [
+                'type' => FollowUpItemType::Photo->value,
+                'prompt' => 'Maak een nieuwe foto van de meterkast.',
+                'decision_area_key' => 'power',
+            ],
+        ],
+    );
+
+    expect($html)->toMatch('/<form[^>]*class="inline"/')
+        ->and($html)->toContain('border-indigo-200')
+        ->and($html)->toContain('text-indigo-800')
+        ->and($html)->toContain('w-full')
+        ->and($html)->toContain('Vraag nieuwe foto');
+
+    // Caller classes must land on the button, not only the form.
+    expect($html)->toMatch('/<button[^>]*border-indigo-200[^>]*>/')
+        ->and($html)->toMatch('/<button[^>]*w-full[^>]*>/');
 });
 
 test('prepare contribution rejects GET and accepts POST', function () {

@@ -4,11 +4,12 @@
     Voegt toe aan de zichtbare conceptlijst (#demo-customer-task) met bewerkbare
     klanttekst. Versturen gebeurt pas via één ronde (max 5), niet meteen activeren.
     POST + CSRF: prepare mag geen side-effect via GET hebben.
+    Caller $attributes (incl. class) landen op de button zodat indigo/w-full werken.
 --}}
 <form
     method="POST"
     action="{{ route('intakes.workspace.tasks.prepare', $intake) }}"
-    {{ $attributes->has('class') ? $attributes : $attributes->merge(['class' => 'inline']) }}
+    class="inline"
 >
     @csrf
     <input type="hidden" name="type" value="{{ $ask['type'] }}">
@@ -22,7 +23,7 @@
     <button
         type="submit"
         title="{{ $ask['prompt'] }}"
-        class="inline-flex min-h-10 items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-900 hover:bg-gray-50"
+        {{ $attributes->class('inline-flex min-h-10 items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-900 hover:bg-gray-50') }}
     >
         {{ $label }}
     </button>

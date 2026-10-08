@@ -106,7 +106,7 @@ final class ProgressCalculator
             $filled = $this->answerValueReader->isFilled($answerValue, $question->type);
 
             if ($filled && MustAcceptQuestions::requiresAcceptance($question)) {
-                $filled = MustAcceptQuestions::isAccepted($answerValue);
+                $filled = MustAcceptQuestions::isAccepted($answerValue, $answerSource);
             }
 
             if ($filled && $question->type === QuestionType::Photo) {

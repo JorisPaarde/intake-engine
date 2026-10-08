@@ -393,7 +393,7 @@
                 </div>
             @endif
 
-            @if (($customerTaskStatus['link_active'] ?? false) || $intake->customer_access_enabled)
+            @if ($intake->customer_access_enabled)
             <details class="rounded-2xl border border-gray-200 bg-white shadow-sm" x-data="{ copied: false }" data-testid="customer-link-block">
                 <summary class="cursor-pointer list-none px-6 py-4 text-base font-semibold text-gray-900 [&::-webkit-details-marker]:hidden">
                     Klantlink

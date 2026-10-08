@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Domains\Intake\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 
 /**
@@ -32,12 +31,6 @@ class IntakeReplacedAccessToken extends Model
             'intake_id' => 'integer',
             'replaced_at' => 'datetime',
         ];
-    }
-
-    /** @return BelongsTo<Intake, $this> */
-    public function intake(): BelongsTo
-    {
-        return $this->belongsTo(Intake::class);
     }
 
     public static function hashToken(string $token): string

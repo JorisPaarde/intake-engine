@@ -6,7 +6,7 @@ namespace App\Http\Controllers\Installer;
 
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeExternalFact;
-use App\Domains\Intake\Services\PdokAerialImageService;
+use App\Domains\Intake\Services\ExternalFactPresenter;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -17,11 +17,15 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 final class IntakeAerialImageController extends Controller
 {
+    public function __construct(
+        private readonly ExternalFactPresenter $externalFactPresenter,
+    ) {}
+
     public function show(Intake $intake): StreamedResponse
     {
         $this->authorize('view', $intake);
 
-        $fact = $this->selectAerialFact($intake);
+        $fact = $this->externalFactPresenter->selectAerialFact($intake);
 
         if (! $fact instanceof IntakeExternalFact) {
             abort(404);
@@ -50,40 +54,5 @@ final class IntakeAerialImageController extends Controller
             'Cache-Control' => 'private, max-age=300',
             'X-Content-Type-Options' => 'nosniff',
         ]);
-    }
-
-    private function selectAerialFact(Intake $intake): ?IntakeExternalFact
-    {
-        $intake->loadMissing('externalFacts');
-
-        $selected = null;
-        $selectedPreference = PHP_INT_MAX;
-
-        foreach ($intake->externalFacts as $fact) {
-            if ($fact->fact_key !== 'aerial_image') {
-                continue;
-            }
-
-            $preference = $this->aerialSourcePreference($fact->source);
-            if ($preference < $selectedPreference) {
-                $selected = $fact;
-                $selectedPreference = $preference;
-            }
-        }
-
-        return $selected;
-    }
-
-    private function aerialSourcePreference(string $source): int
-    {
-        if ($source === PdokAerialImageService::sourceName()) {
-            return 0;
-        }
-
-        if (str_contains($source, 'fictief demo-voorbeeld')) {
-            return 20;
-        }
-
-        return 10;
     }
 }

@@ -13,6 +13,7 @@ use App\Enums\QuestionType;
  *
  * Keys come from config/intake.php; templates may also set meta.must_accept.
  * No template version bump required — applies to all pinned versions.
+ * Prefill never counts as acceptance (customer must tick explicitly).
  */
 final class MustAcceptQuestions
 {
@@ -32,19 +33,15 @@ final class MustAcceptQuestions
         return in_array($question->key, $keys, true);
     }
 
-    public static function isKey(string $questionKey): bool
-    {
-        /** @var list<string> $keys */
-        $keys = config('intake.must_accept_question_keys', []);
-
-        return in_array($questionKey, $keys, true);
-    }
-
     /**
      * @param  array<string, mixed>|null  $value
      */
-    public static function isAccepted(?array $value): bool
+    public static function isAccepted(?array $value, ?string $prefillSource = null): bool
     {
+        if ($prefillSource !== null && $prefillSource !== '') {
+            return false;
+        }
+
         if ($value === null || ! array_key_exists('bool', $value)) {
             return false;
         }

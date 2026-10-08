@@ -5,10 +5,12 @@ declare(strict_types=1);
 use App\Domains\Intake\Actions\CreateCustomerContributionRequest;
 use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
+use App\Domains\Intake\Models\IntakeFollowUpItem;
 use App\Domains\Intake\Support\CustomerConsentPresenter;
 use App\Domains\Intake\Support\CustomerTaskStatusPresenter;
 use App\Enums\ContributionMode;
 use App\Enums\FollowUpItemType;
+use App\Enums\FollowUpRoundStatus;
 use App\Enums\IntakeStatus;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
@@ -36,7 +38,8 @@ test('new intake without customer action shows nog niet gestart on dashboard and
     $status = app(CustomerTaskStatusPresenter::class)->present($intake->fresh(['answers', 'followUpRounds.items']));
 
     expect($status['label'])->toBe('Nog niet gestart')
-        ->and($status['percent'])->toBe(0);
+        ->and($status)->not->toHaveKey('short_label')
+        ->and($status)->not->toHaveKey('percent');
 
     $this->actingAs($user)
         ->get(route('dashboard'))
@@ -77,7 +80,7 @@ test('active follow-up round shows received counts and active link', function ()
         ],
     ]);
 
-    $intake = $intake->fresh(['answers', 'followUpRounds.items']);
+    $intake = $intake->fresh(['answers', 'followUpRounds.items.uploads']);
     $status = app(CustomerTaskStatusPresenter::class)->present($intake);
 
     expect($status['label'])->toBe('Ronde 1: 0 van 2 ontvangen')
@@ -90,7 +93,57 @@ test('active follow-up round shows received counts and active link', function ()
         ->assertSee('Actieve klantlink', false);
 });
 
-test('consent presenter formats given timestamp', function () {
+test('completed round uses follow-up progress calculator not hardcoded X van X', function () {
+    $user = User::factory()->create();
+    $intake = app(CreateIntake::class)->handle($user, [
+        'template_key' => 'airco',
+        'workflow_mode' => ContributionMode::Installer->value,
+        'customer_name' => 'Status Afgeronde Ronde',
+        'customer_email' => 'status-closed@example.com',
+        'address_line' => 'Test 4',
+        'address_postal_code' => '1234AB',
+        'address_house_number' => 4,
+        'address_city' => 'Amsterdam',
+    ]);
+
+    app(CreateCustomerContributionRequest::class)->handle($intake, $user, [
+        [
+            'type' => FollowUpItemType::Text->value,
+            'prompt' => 'Meet de hoogte.',
+            'decision_area_key' => 'capacity',
+        ],
+        [
+            'type' => FollowUpItemType::Text->value,
+            'prompt' => 'Beschrijf de gevel.',
+            'decision_area_key' => 'power',
+        ],
+    ]);
+
+    $round = $intake->fresh(['followUpRounds.items'])->followUpRounds->first();
+    expect($round)->not->toBeNull();
+
+    /** @var IntakeFollowUpItem $answered */
+    $answered = $round->items->first();
+    $answered->forceFill([
+        'response_text' => '2,40 meter',
+        'answered_at' => now(),
+    ])->save();
+
+    // Second item stays empty/received while the round is closed.
+    $round->forceFill([
+        'status' => FollowUpRoundStatus::Completed,
+        'completed_at' => now(),
+    ])->save();
+
+    $status = app(CustomerTaskStatusPresenter::class)->present(
+        $intake->fresh(['followUpRounds.items.uploads', 'answers']),
+    );
+
+    expect($status['label'])->toBe('Ronde 1: 1 van 2 ontvangen')
+        ->and($status['label'])->not->toBe('Ronde 1: 2 van 2 ontvangen');
+});
+
+test('consent presenter formats given timestamp and show uses it', function () {
     $user = User::factory()->create();
     $intake = app(CreateIntake::class)->handle($user, [
         'template_key' => 'airco',
@@ -111,7 +164,9 @@ test('consent presenter formats given timestamp', function () {
 
     expect($consent['given'])->toBeTrue()
         ->and($consent['label'])->toContain('Toestemming klant: gegeven op')
-        ->and($consent['label'])->toContain('10:12');
+        ->and($consent['label'])->toContain('10:12')
+        ->and($consent['detail'])->toContain('gegeven op')
+        ->and($consent['detail'])->not->toStartWith('Toestemming');
 
     $intake->forceFill(['status' => IntakeStatus::Completed, 'completed_at' => now()])->save();
 
@@ -119,4 +174,20 @@ test('consent presenter formats given timestamp', function () {
         ->get(route('intakes.show', $intake))
         ->assertOk()
         ->assertSee('Toestemming klant: gegeven op', false);
+
+    $installer = app(CreateIntake::class)->handle($user, [
+        'template_key' => 'airco',
+        'workflow_mode' => ContributionMode::Installer->value,
+        'customer_name' => 'Installer Consent',
+        'customer_email' => 'installer-consent@example.com',
+        'address_line' => 'Test 5',
+        'address_postal_code' => '1234AB',
+        'address_house_number' => 5,
+        'address_city' => 'Amsterdam',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('intakes.show', $installer))
+        ->assertOk()
+        ->assertSee('Toestemming klant: niet gevraagd (installateursopname)');
 });

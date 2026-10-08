@@ -26,7 +26,6 @@ final class ResolveIntakeByAccessToken
             if ($replaced instanceof IntakeReplacedAccessToken) {
                 throw new CustomerLinkUnavailableException(
                     reason: 'replaced',
-                    intake: Intake::query()->find($replaced->intake_id),
                     message: 'Deze link werkt niet meer.',
                 );
             }

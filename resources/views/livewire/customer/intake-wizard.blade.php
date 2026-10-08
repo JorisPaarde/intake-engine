@@ -391,7 +391,7 @@
                                         >
                                         <span class="text-sm font-semibold">{{ \App\Domains\Intake\Support\MustAcceptQuestions::checkboxLabel($question) }}</span>
                                     </label>
-                                    @if ($showMissing)
+                                    @if ($showMissing && ! \App\Domains\Intake\Support\MustAcceptQuestions::isAccepted($form[$composite] ?? null))
                                         <p class="mt-2 text-sm text-[#a84832]" data-testid="must-accept-refusal">
                                             {{ \App\Domains\Intake\Support\MustAcceptQuestions::refusalMessage() }}
                                         </p>

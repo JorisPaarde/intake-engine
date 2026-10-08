@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Domains\AI\Services\TemplateQuestionCatalogBuilder;
 use App\Domains\Intake\Actions\CompleteIntake;
 use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
@@ -10,6 +11,7 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Domains\Intake\Services\CompletenessChecker;
+use App\Domains\Intake\Support\CustomerConsentPresenter;
 use App\Domains\Intake\Support\MustAcceptQuestions;
 use App\Enums\ContributionMode;
 use App\Enums\QuestionType;
@@ -26,13 +28,13 @@ beforeEach(function () {
     Storage::fake((string) config('filesystems.media', 'local'));
 });
 
-function makeConsentIntake(): Intake
+function makeConsentIntake(ContributionMode $mode = ContributionMode::Customer): Intake
 {
     $user = User::factory()->create();
 
     return app(CreateIntake::class)->handle($user, [
         'template_key' => 'airco',
-        'workflow_mode' => ContributionMode::Customer,
+        'workflow_mode' => $mode,
         'customer_name' => 'Toestemming Test',
         'customer_email' => 'toestemming@example.com',
         'address_line' => 'Teststraat 1',
@@ -114,13 +116,65 @@ function fillConsentIntakeComplete(Intake $intake): void
     throw new RuntimeException('Could not fill consent intake to completion.');
 }
 
-test('must_accept helpers recognise keys and true-only acceptance', function () {
-    expect(MustAcceptQuestions::isKey('privacy_consent'))->toBeTrue()
-        ->and(MustAcceptQuestions::isKey('truth_confirmation'))->toBeTrue()
-        ->and(MustAcceptQuestions::isAccepted(['bool' => false]))->toBeFalse()
+test('must_accept helpers recognise true-only acceptance and reject prefill', function () {
+    expect(MustAcceptQuestions::isAccepted(['bool' => false]))->toBeFalse()
         ->and(MustAcceptQuestions::isAccepted(['bool' => true]))->toBeTrue()
         ->and(MustAcceptQuestions::isAccepted(['bool' => '1']))->toBeTrue()
-        ->and(MustAcceptQuestions::isAccepted(['bool' => '0']))->toBeFalse();
+        ->and(MustAcceptQuestions::isAccepted(['bool' => '0']))->toBeFalse()
+        ->and(MustAcceptQuestions::isAccepted(['bool' => true], 'ai_catalog'))->toBeFalse()
+        ->and(MustAcceptQuestions::isAccepted(['bool' => true], 'request_prefill'))->toBeFalse();
+});
+
+test('AI question catalog excludes must-accept keys', function () {
+    $intake = makeConsentIntake();
+    $catalog = app(TemplateQuestionCatalogBuilder::class)->build($intake);
+
+    $keys = collect($catalog['sections'])
+        ->flatMap(static fn (array $section): array => $section['questions'])
+        ->pluck('key')
+        ->all();
+
+    expect($keys)->not->toContain('privacy_consent')
+        ->and($keys)->not->toContain('truth_confirmation');
+
+    foreach (config('intake.must_accept_question_keys', []) as $mustAcceptKey) {
+        expect($keys)->not->toContain($mustAcceptKey);
+    }
+});
+
+test('prefilled true consent is not acceptance and blocks completion', function () {
+    $intake = makeConsentIntake();
+    fillConsentIntakeComplete($intake);
+
+    app(SaveIntakeAnswer::class)->handle(
+        $intake,
+        'privacy_consent',
+        null,
+        ['bool' => true],
+        'request_prefill',
+    );
+    $intake->refresh();
+
+    /** @var IntakeTemplateVersion $version */
+    $version = $intake->templateVersion()
+        ->with(['sections.questions.options', 'sections.questions.rules'])
+        ->firstOrFail();
+    $check = app(CompletenessChecker::class)->check($intake, $version);
+
+    expect($check['is_complete'])->toBeFalse();
+    $privacyMissing = collect($check['missing'])->firstWhere('question_key', 'privacy_consent');
+    expect($privacyMissing)->not->toBeNull()
+        ->and($privacyMissing['reason'])->toBe('must_accept');
+
+    expect(fn () => app(CompleteIntake::class)->handle($intake))
+        ->toThrow(ValidationException::class);
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->call('goToMissing', 'privacy_consent', null);
+
+    // Prefill must not tick the checkbox in the customer form.
+    expect(data_get($component->get('form'), 'privacy_consent.bool'))->toBeNull()
+        ->and(data_get($component->get('form'), 'privacy_consent'))->toBeNull();
 });
 
 test('privacy_consent false blocks completeness and CompleteIntake', function () {
@@ -185,4 +239,76 @@ test('wizard shows checkbox UI for privacy_consent', function () {
         ->call('goToMissing', 'privacy_consent', null)
         ->assertSee('Ik geef toestemming')
         ->assertSeeHtml('data-testid="must-accept-checkbox"');
+});
+
+test('ticked consent does not show refusal text when another field is missing', function () {
+    $intake = makeConsentIntake();
+    fillConsentIntakeComplete($intake);
+
+    // Leave a photo missing elsewhere while consent stays accepted.
+    $upload = $intake->uploads()->where('question_key', 'fusebox_photo')->first()
+        ?? $intake->uploads()->first();
+    expect($upload)->not->toBeNull();
+    $upload->delete();
+
+    $html = Livewire::test(IntakeWizard::class, ['token' => $intake->fresh()->access_token])
+        ->call('goToMissing', 'privacy_consent', null)
+        ->set('form.privacy_consent.bool', true)
+        ->set('showMissing', true)
+        ->html();
+
+    expect($html)->toContain('data-testid="must-accept-checkbox"')
+        ->and($html)->not->toContain(MustAcceptQuestions::refusalMessage())
+        ->and($html)->not->toContain('data-testid="must-accept-refusal"');
+});
+
+test('unticked consent shows refusal text when showMissing', function () {
+    $intake = makeConsentIntake();
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->call('goToMissing', 'privacy_consent', null)
+        ->set('form.privacy_consent.bool', false)
+        ->set('showMissing', true)
+        ->assertSee(MustAcceptQuestions::refusalMessage())
+        ->assertSeeHtml('data-testid="must-accept-refusal"');
+});
+
+test('consent presenter has three states: given, not given, not asked', function () {
+    $presenter = app(CustomerConsentPresenter::class);
+
+    $installer = makeConsentIntake(ContributionMode::Installer);
+    $installerConsent = $presenter->present($installer->fresh('answers'));
+    expect($installerConsent['asked'])->toBeFalse()
+        ->and($installerConsent['given'])->toBeFalse()
+        ->and($installerConsent['label'])->toBe('Toestemming klant: niet gevraagd (installateursopname)')
+        ->and($installerConsent['detail'])->toBe('niet gevraagd (installateursopname)');
+
+    $hybrid = makeConsentIntake(ContributionMode::Hybrid);
+    $hybridConsent = $presenter->present($hybrid->fresh('answers'));
+    expect($hybridConsent['asked'])->toBeFalse()
+        ->and($hybridConsent['label'])->toBe('Toestemming klant: niet gevraagd (installateursopname)');
+
+    $customer = makeConsentIntake(ContributionMode::Customer);
+    $openConsent = $presenter->present($customer->fresh('answers'));
+    expect($openConsent['asked'])->toBeTrue()
+        ->and($openConsent['given'])->toBeFalse()
+        ->and($openConsent['label'])->toBe('Toestemming klant: niet gegeven')
+        ->and($openConsent['detail'])->toBe('niet gegeven');
+
+    $answeredAt = now()->setTimezone(config('app.timezone'))->setTime(10, 12);
+    app(SaveIntakeAnswer::class)->handle($customer, 'privacy_consent', null, ['bool' => true]);
+    $customer->answers()->where('question_key', 'privacy_consent')->update(['answered_at' => $answeredAt]);
+
+    $given = $presenter->present($customer->fresh('answers'));
+    expect($given['given'])->toBeTrue()
+        ->and($given['label'])->toContain('Toestemming klant: gegeven op')
+        ->and($given['label'])->toContain('10:12')
+        ->and($given['detail'])->toContain('gegeven op')
+        ->and($given['detail'])->not->toContain('Toestemming klant:');
+
+    app(SaveIntakeAnswer::class)->handle($customer, 'privacy_consent', null, ['bool' => false]);
+    $refused = $presenter->present($customer->fresh('answers'));
+    expect($refused['given'])->toBeFalse()
+        ->and($refused['asked'])->toBeTrue()
+        ->and($refused['label'])->toBe('Toestemming klant: niet gegeven');
 });

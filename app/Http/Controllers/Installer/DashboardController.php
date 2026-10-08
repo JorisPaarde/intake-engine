@@ -27,7 +27,10 @@ class DashboardController extends Controller
 
         $query = Intake::query()
             ->where('company_id', $user?->company_id)
-            ->with(['templateVersion.template', 'followUpRounds.items', 'answers']);
+            ->with(['templateVersion.template', 'followUpRounds.items.uploads'])
+            ->withExists([
+                'answers as has_customer_acted' => static fn ($answers) => $answers->whereNull('prefill_source'),
+            ]);
 
         if ($showingDemoIntakes && $user !== null) {
             $query
@@ -43,7 +46,7 @@ class DashboardController extends Controller
             ->latest()
             ->paginate(20);
 
-        /** @var Collection<int, array{label: string, short_label: string, link_active: bool, percent: int|null}> $taskStatuses */
+        /** @var Collection<int, array{label: string, link_active: bool}> $taskStatuses */
         $taskStatuses = $intakes->getCollection()->mapWithKeys(
             static fn (Intake $intake): array => [$intake->id => $customerTaskStatus->present($intake)],
         );
