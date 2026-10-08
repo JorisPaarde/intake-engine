@@ -210,7 +210,8 @@ test('airco template seeder publishes v1 through v27 with v27 as latest', functi
 
     expect($drainLocation->is_required)->toBeFalse()
         ->and($drainLocation->meta['wizard_group'] ?? null)->toBe('drain_nearby')
-        ->and($drainLocation->label)->toBe('Afvoer in de buurt')
+        ->and($drainLocation->meta['wizard_group_title'] ?? null)->toBe('Afvoer in de buurt')
+        ->and($drainLocation->label)->toBe('Waar zie je in de buurt een afvoer? (optioneel)')
         ->and($drainLocation->options()->pluck('value')->all())->toBe([
             'outside_nearby',
             'indoor_nearby',

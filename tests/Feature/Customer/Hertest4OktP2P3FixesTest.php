@@ -275,9 +275,12 @@ test('P3-3: drain_location tekst noemt geen altijd-verplichte foto (airco v25+)'
         ->and($drainPhoto->label)->toContain('optioneel');
 
     if ($version->version >= 27) {
-        expect($drainLocation->help_text)->toContain('Ga gewoon verder')
+        // Schermhelp zit in wizard_group_help; vraag-help_text blijft v26.
+        expect($drainLocation->meta['wizard_group_help'] ?? null)->toContain('Ga gewoon verder')
+            ->and($drainLocation->help_text)->toContain('sla dan over')
             ->and($drainPhoto->meta['wizard_group'] ?? null)->toBe('drain_nearby')
-            ->and($drainPhoto->meta['allow_skip'] ?? null)->toBeNull();
+            ->and($drainPhoto->meta['allow_skip'] ?? null)->toBeNull()
+            ->and($drainPhoto->help_text)->toContain('sla dan over');
     } else {
         expect($drainLocation->help_text)->toContain('sla dan over')
             ->and($drainPhoto->help_text)->toContain('sla dan over');

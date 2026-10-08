@@ -6,7 +6,7 @@ declare(strict_types=1);
  * Airco template v27 — afvoerkeuze + optionele foto op één wizardscherm (#14 A1).
  *
  * - `drain_location` + `drain_photo` delen `meta.wizard_group = drain_nearby`.
- * - Titel: "Afvoer in de buurt"; help: foto is optioneel, geen aparte skip-knop.
+ * - Schermtitel/help via group-meta («Afvoer in de buurt»); vraaglabel blijft v26.
  * - Foto blijft optioneel; bestaande v1–v26 ongewijzigd (ADR-0001).
  *
  * @return array<string, mixed>
@@ -32,8 +32,7 @@ foreach ($sections as $sectionIndex => $section) {
         }
 
         if ($key === 'drain_location') {
-            $questions[$questionIndex]['label'] = 'Afvoer in de buurt';
-            $questions[$questionIndex]['help_text'] = 'Een foto helpt de installateur. Weet je het niet? Ga gewoon verder.';
+            // Label/help_text blijven v26 (gewone vraagtaal in Antwoorden van de klant / aria).
             $questions[$questionIndex]['is_required'] = false;
             $meta = is_array($question['meta'] ?? null) ? $question['meta'] : [];
             $meta['wizard_group'] = 'drain_nearby';
@@ -43,8 +42,8 @@ foreach ($sections as $sectionIndex => $section) {
         }
 
         if ($key === 'drain_photo') {
+            // help_text blijft v26; schermhelp zit in wizard_group_help.
             $questions[$questionIndex]['label'] = 'Foto van de afvoerplek (optioneel)';
-            $questions[$questionIndex]['help_text'] = 'Een foto helpt de installateur. Weet je het niet? Ga gewoon verder.';
             $questions[$questionIndex]['photo_instructions'] = 'Optioneel: dakgoot, regenpijp, tuin, gevel of een andere afvoerplek, liefst met omgeving.';
             $questions[$questionIndex]['is_required'] = false;
             $meta = is_array($question['meta'] ?? null) ? $question['meta'] : [];
