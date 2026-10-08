@@ -114,6 +114,33 @@ test('R3-4: caption drop trailing ,0', function () {
         ->and($caption)->not->toContain('3,0');
 });
 
+test('R3-7: onzichtbare vraag (free_group zonder meterkastfoto) ontbreekt in forIntake', function () {
+    $intake = makeReview14R3Intake();
+
+    app(SaveIntakeAnswer::class)->handle($intake, 'ownership', null, ['value' => 'owned']);
+    // free_group_known heeft show-regel: fusebox_photo filled — zonder foto onzichtbaar.
+    app(SaveIntakeAnswer::class)->handle($intake, 'free_group_known', null, ['value' => 'yes']);
+
+    $version = $intake->fresh()->templateVersion()->with(['sections.questions'])->firstOrFail();
+    $questions = $version->sections->flatMap->questions->keyBy('key');
+    $freeGroupLabel = $questions->get('free_group_known')?->label;
+    $ownershipLabel = $questions->get('ownership')?->label;
+
+    expect($freeGroupLabel)->not->toBeNull()
+        ->and($ownershipLabel)->not->toBeNull();
+
+    $blocks = CustomerAnswerBlocks::forIntake($intake->fresh());
+    $labels = [];
+    foreach ($blocks as $block) {
+        foreach ($block['items'] as $item) {
+            $labels[] = $item['label'];
+        }
+    }
+
+    expect($labels)->toContain($ownershipLabel)
+        ->and($labels)->not->toContain($freeGroupLabel);
+});
+
 test('R3-6: items binnen een groep volgen question sort_order', function () {
     $intake = makeReview14R3Intake();
 

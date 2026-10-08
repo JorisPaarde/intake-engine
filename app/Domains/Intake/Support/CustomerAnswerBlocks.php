@@ -9,6 +9,7 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeSection;
+use App\Domains\Intake\Services\VisibilityResolver;
 use App\Enums\QuestionType;
 use Illuminate\Support\Collection;
 
@@ -44,8 +45,10 @@ final class CustomerAnswerBlocks
     {
         $intake->loadMissing([
             'answers',
+            'uploads',
             'aircoRooms',
             'templateVersion.sections.questions.options',
+            'templateVersion.sections.questions.rules',
         ]);
         $version = $intake->templateVersion;
         if ($version === null) {
@@ -60,13 +63,20 @@ final class CustomerAnswerBlocks
             ->flatMap(static fn (IntakeSection $section) => $section->questions)
             ->keyBy('key');
 
-        /** @var Collection<string, IntakeSection> $sectionByQuestionKey */
-        $sectionByQuestionKey = collect();
+        /** @var array<string, QuestionType> $questionTypes */
+        $questionTypes = [];
+        /** @var array<string, IntakeSection> $sectionsByQuestionKey */
+        $sectionsByQuestionKey = [];
         foreach ($sections as $section) {
             foreach ($section->questions as $question) {
-                $sectionByQuestionKey->put($question->key, $section);
+                $questionTypes[$question->key] = $question->type;
+                $sectionsByQuestionKey[$question->key] = $section;
+                $question->setRelation('section', $section);
             }
         }
+
+        $answerMap = self::buildAnswerMap($intake);
+        $visibilityResolver = app(VisibilityResolver::class);
 
         $roomsByInstance = $intake->aircoRooms
             ->filter(static fn (AircoRoom $room): bool => str_starts_with($room->key, 'room-'))
@@ -90,12 +100,24 @@ final class CustomerAnswerBlocks
                 continue;
             }
 
-            $section = $sectionByQuestionKey->get($answer->question_key);
+            $section = $sectionsByQuestionKey[$answer->question_key] ?? null;
             if (! $section instanceof IntakeSection) {
                 continue;
             }
 
             if ($question->type === QuestionType::Photo) {
+                continue;
+            }
+
+            $visibility = $visibilityResolver->resolveQuestion(
+                $question,
+                $answer->section_instance_key,
+                $answerMap,
+                $questionTypes,
+                $sectionsByQuestionKey,
+                customerMode: true,
+            );
+            if (! $visibility['visible']) {
                 continue;
             }
 
@@ -166,6 +188,40 @@ final class CustomerAnswerBlocks
         }
 
         return $blocks;
+    }
+
+    /**
+     * Antwoordkaart voor VisibilityResolver (inclusief upload_ids voor filled-regels).
+     *
+     * @return array<string, array<string, mixed>|null>
+     */
+    private static function buildAnswerMap(Intake $intake): array
+    {
+        $answers = [];
+
+        foreach ($intake->answers as $answer) {
+            $key = VisibilityResolver::compositeKey(
+                $answer->question_key,
+                $answer->section_instance_key,
+            );
+            $answers[$key] = is_array($answer->value) ? $answer->value : null;
+        }
+
+        /** @var array<string, list<int>> $uploadIdsByKey */
+        $uploadIdsByKey = [];
+        foreach ($intake->uploads as $upload) {
+            $key = VisibilityResolver::compositeKey(
+                $upload->question_key,
+                $upload->section_instance_key,
+            );
+            $uploadIdsByKey[$key][] = $upload->id;
+        }
+
+        foreach ($uploadIdsByKey as $key => $ids) {
+            $answers[$key] = ['upload_ids' => $ids];
+        }
+
+        return $answers;
     }
 
     /**

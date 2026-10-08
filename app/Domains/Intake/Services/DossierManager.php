@@ -897,18 +897,24 @@ final class DossierManager
     }
 
     /**
+     * Klantantwoord (geen prefill) wint van prefill-bronnen: één gecorrigeerde
+     * maat maakt de ruimte «van klant», ook als de andere maat nog prefill is.
+     *
      * @param  list<IntakeAnswer>  $answers
      */
     private function dimensionsSourceFromAnswers(array $answers): string
     {
+        $prefillSource = null;
+
         foreach ($answers as $answer) {
             $source = $answer->prefill_source;
-            if ($source !== null && $source !== '') {
-                return (string) $source;
+            if ($source === null || $source === '') {
+                return 'customer';
             }
+            $prefillSource ??= (string) $source;
         }
 
-        return 'customer';
+        return $prefillSource ?? 'customer';
     }
 
     private function roomNameFromAnswers(Intake $intake, string $instanceKey): ?string

@@ -407,9 +407,6 @@
                                 @php
                                     $roomSubject = $intake->dossierSubjects->firstWhere('id', $room->dossier_subject_id);
                                     $roomMeasures = \App\Domains\Intake\Support\RoomDimensions::from(is_array($room->dimensions) ? $room->dimensions : null);
-                                    $length = $roomMeasures->lengthM();
-                                    $width = $roomMeasures->widthM();
-                                    $height = $roomMeasures->heightM();
                                     $areaM2 = $roomMeasures->declaredAreaM2();
                                     $computedArea = $roomMeasures->areaFromLengthWidth();
                                     $floorConflict = $roomMeasures->hasFloorAreaConflict();
