@@ -74,8 +74,8 @@
                     :installer-return-url="$demoInstallerReturnUrl"
                 />
             @else
-                <p class="mt-3 text-sm leading-relaxed text-[#5e6862]">
-                    Je kunt dit venster sluiten.
+                <p class="mt-3 text-sm leading-relaxed text-[#5e6862]" data-testid="customer-close-hint">
+                    Je kunt dit venster nu sluiten.
                 </p>
             @endif
         </div>
@@ -500,11 +500,11 @@
                                         @if ($photoMismatchAssessment || ! empty($photoNeedsOverride))
                                             <div class="space-y-3 rounded-xl border border-[#eac3b4] bg-white px-3 py-3" role="alert" data-testid="photo-mismatch-panel" wire:key="mismatch-{{ $composite }}">
                                                 <p class="text-sm text-[#414b45]">
-                                                    {{ \App\Domains\Intake\Support\PhotoOverridePolicy::OVERRIDE_MESSAGE_WIZARD }}
+                                                    Deze foto is nog niet goed genoeg. Vervang de foto of ga toch door.
                                                 </p>
                                                 @if ($showMissing)
                                                     <p class="text-sm font-medium text-[#a84832]" data-testid="mismatch-next-warning">
-                                                        Kies: foto vervangen of toch doorgaan
+                                                        {{ \App\Domains\Intake\Support\PhotoOverridePolicy::OVERRIDE_MESSAGE }}
                                                     </p>
                                                 @endif
                                                 <div class="flex flex-col gap-2 sm:flex-row sm:items-center">

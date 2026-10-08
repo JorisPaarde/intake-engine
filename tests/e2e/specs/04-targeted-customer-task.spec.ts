@@ -9,7 +9,7 @@ import {
 } from '../helpers/app';
 
 test.describe('Targeted customer task (follow-up)', () => {
-  test('finding: wrong + low-res photos block Aanvulling versturen until replace or Toch versturen', async ({
+  test('finding: wrong + low-res photos block Aanvulling versturen until replace or Toch doorgaan', async ({
     page,
     request,
   }) => {
@@ -21,14 +21,14 @@ test.describe('Targeted customer task (follow-up)', () => {
 
     await expect(page.getByText(/Aanvulling voor/i)).toBeVisible();
 
-    // Item 1 — wrong subject blocks completion until Toch versturen / replace.
+    // Item 1 — wrong subject blocks completion until Toch doorgaan / replace.
     await uploadPhoto(page, 'wrong-subject-outdoor.jpg');
     await expect(page.getByTestId('follow-up-mismatch')).toBeVisible({ timeout: 90_000 });
-    await expect(page.getByRole('button', { name: /Toch versturen/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Toch doorgaan/i })).toBeVisible();
 
     // Accept mismatch explicitly before navigating away.
     const accept = waitForLivewire(page).catch(() => undefined);
-    await page.getByRole('button', { name: /Toch versturen/i }).click();
+    await page.getByRole('button', { name: /Toch doorgaan/i }).click();
     await accept;
     await expect(page.getByTestId('follow-up-mismatch')).toHaveCount(0, { timeout: 15_000 });
 
@@ -59,9 +59,8 @@ test.describe('Targeted customer task (follow-up)', () => {
     await complete;
 
     await expect(page.getByText(/Bedankt/i).first()).toBeVisible({ timeout: 30_000 });
-    // After PhotoOverridePolicy (#144): accepted overrides use review copy; clean rounds keep the open-items line.
-    await expect(
-      page.getByText(/installateur (kijkt|beoordeelt)|nog iets openstaat|nog geen afronding|aanvulling is ontvangen/i).first(),
-    ).toBeVisible();
+    // BL-147 (#16.1): one heading + one sentence for every follow-up round.
+    await expect(page.getByText(/Bedankt, je aanvulling is binnen/i).first()).toBeVisible();
+    await expect(page.getByText(/Je installateur bekijkt je antwoorden/i).first()).toBeVisible();
   });
 });

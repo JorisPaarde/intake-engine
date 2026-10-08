@@ -54,6 +54,11 @@ final class DecisionReadinessService
         return self::LABELS[$key] ?? $key;
     }
 
+    public static function hasArea(string $key): bool
+    {
+        return array_key_exists($key, self::LABELS);
+    }
+
     /**
      * Plain-Dutch phrase for AI confidence (BL-071). Never expose raw floats or keys.
      */

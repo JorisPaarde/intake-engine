@@ -74,3 +74,12 @@
             url("../demo/evidence/fusebox.jpg");
     }
 }
+
+/* Veld of aanvullingsblok licht 2 s op na “Beoordeel bij …” (BL-147, UX #15.1). Buiten @layer:
+   de class staat alleen in resources/js, en Tailwind purget @layer-classes die niet in content
+   voorkomen. Outline 3 + 1 px = de 4 px (mt-1) tussen label en veld: raakt het label niet. */
+.field-flash {
+    outline: 3px solid theme('colors.amber.400');
+    outline-offset: 1px;
+    background-color: theme('colors.amber.50');
+}

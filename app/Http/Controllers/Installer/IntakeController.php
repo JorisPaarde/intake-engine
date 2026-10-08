@@ -145,14 +145,14 @@ class IntakeController extends Controller
                 ->with('demo_coachmark', 'branch')
                 ->with(
                     'status',
-                    'Opname aangemaakt. Adresgegevens zijn opgehaald. Kies hieronder hoe u verder wilt kijken — er gaat geen e-mail uit in de demo.',
+                    'Opname aangemaakt. De adresgegevens zijn opgehaald. Kies hieronder hoe je verder wilt. In de demo gaat er geen e-mail uit.',
                 );
         }
 
         if ($intake->workflow_mode === ContributionMode::Installer) {
             return redirect()
                 ->route('intakes.workspace', $intake)
-                ->with('status', 'Opname aangemaakt. Er is geen klantlink verstuurd; u kunt direct zelf beginnen.');
+                ->with('status', 'Opname aangemaakt. Er is geen klantlink verstuurd; je kunt direct zelf beginnen.');
         }
 
         $mailResult = $sendCustomerIntakeLink->handle($intake, $request->user());

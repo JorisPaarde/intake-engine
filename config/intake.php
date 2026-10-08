@@ -32,6 +32,8 @@ return [
         'max_items_per_round' => (int) env('INTAKE_FOLLOW_UP_MAX_ITEMS', 5),
         'max_photos_per_item' => (int) env('INTAKE_FOLLOW_UP_MAX_PHOTOS', 5),
         'max_documents_per_item' => (int) env('INTAKE_FOLLOW_UP_MAX_DOCUMENTS', 3),
+        // Weggehaalde aanvulfoto (prullenbak, BL-147): uurlijkse opruiming na zoveel minuten.
+        'removed_upload_purge_minutes' => (int) env('INTAKE_FOLLOW_UP_REMOVED_UPLOAD_PURGE_MINUTES', 10),
     ],
 
     /*

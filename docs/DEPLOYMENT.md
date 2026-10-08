@@ -1,6 +1,6 @@
 # Deployment naar cPanel (staging + production)
 
-> **Documentversie:** 2.29 · **Laatste update:** 2026-10-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.30 · **Laatste update:** 2026-10-08 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 **Statusregel:** staging en production zijn fysiek en logisch gescheiden; open handmatige acties (env/host) staan in [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
 
@@ -159,7 +159,7 @@ met `everyMinute()`, `withoutOverlapping(60)` (mutex-expiry > max-time) en `runI
 
 Geen supervisor op cPanel. `queue:restart` in de deploy zorgt dat workers na een release verse code draaien. `QUEUE_CONNECTION=database`.
 
-`schedule:run` dekt o.a. hourly `intakes:purge-demos`, daily `intakes:send-reminders` (BL-015), daily `intakes:purge-deleted` (BL-009), daily `product-interests:purge` (BL-043), daily `ai:purge-traces`, elke vijf minuten `photos:requeue-pending-assessments`, en de minutelijk beheerde `ai-photo`-worker. De queue verwerkt AI-fotobeoordeling (`AssessUploadedPhotoJob`), AI-samenvatting, PDF-export (BL-005) en optionele interne interesse-notificaties.
+`schedule:run` dekt o.a. hourly `intakes:purge-demos`, daily `intakes:send-reminders` (BL-015), daily `intakes:purge-deleted` (BL-009), daily `product-interests:purge` (BL-043), daily `ai:purge-traces`, elke vijf minuten `photos:requeue-pending-assessments`, hourly `photos:purge-removed` (aanvulfoto's die de klant > 10 min geleden weghaalde echt wissen, BL-147), en de minutelijk beheerde `ai-photo`-worker. De queue verwerkt AI-fotobeoordeling (`AssessUploadedPhotoJob`), AI-samenvatting, PDF-export (BL-005) en optionele interne interesse-notificaties.
 
 ## Database bij deploy
 

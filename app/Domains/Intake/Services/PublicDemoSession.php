@@ -32,6 +32,25 @@ final class PublicDemoSession
         return $this->expiresAt($request) === null || $this->expiresAt($request)->isFuture();
     }
 
+    /**
+     * Werkruimte-URL voor de "Terug naar de opname"-knop op het bedankscherm (BL-147, #16.2):
+     * alleen als deze browser een actieve demosessie heeft van hetzelfde (demo)bedrijf.
+     */
+    public function workspaceReturnUrl(Request $request, Intake $intake): ?string
+    {
+        if (! $intake->is_demo || ! $request->hasSession() || ! $this->isActive($request)) {
+            return null;
+        }
+
+        $user = $request->user();
+
+        if (! $user instanceof User || $user->company_id !== $intake->company_id) {
+            return null;
+        }
+
+        return route('intakes.workspace', $intake);
+    }
+
     public function expiresAt(Request $request): ?Carbon
     {
         $raw = $request->session()->get('public_demo_expires_at');

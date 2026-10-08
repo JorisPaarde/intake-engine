@@ -129,7 +129,7 @@ test('job schrijft assessment; poll toont resultaat en wrong_subject-feedback', 
     $component->call('pollPendingAssessments')
         ->assertSet('uploadPhase', '')
         ->assertSee('Nog te vervangen')
-        ->assertSee('Toch versturen');
+        ->assertSee('Toch doorgaan');
 
     $progress = app(FollowUpProgressCalculator::class)->calculate(collect([$item->fresh()->load('uploads')]));
     expect($progress['percent'])->toBe(0)
@@ -161,7 +161,8 @@ test('AI-fout of timeout leidt tot not_assessed soft-fail met klanttekst', funct
         ->assertSet('uploadPhase', '')
         ->assertSee(PhotoCustomerStatus::RECEIVED)
         ->assertSee('Vervang foto')
-        ->assertSee('Toch versturen')
+        // BL-147 #16.3: knop heet overal “Toch doorgaan”.
+        ->assertSee('Toch doorgaan')
         ->assertSee('Nieuwe foto nodig');
 
     $progress = app(FollowUpProgressCalculator::class)->calculate(collect([$item->fresh()->load('uploads')]));

@@ -347,6 +347,31 @@ test('need more information creates a targeted customer round and sends the exis
         ->assertDontSee('Wat is de reden van uw aanvraag?');
 });
 
+test('follow-up text field is labelled by its visible prompt', function () {
+    Mail::fake();
+    Queue::fake();
+
+    $intake = makePhase5Intake();
+    fillIntakeUntilComplete($intake);
+    app(CompleteIntake::class)->handle($intake->fresh());
+    $reviewer = User::factory()->create(['company_id' => $intake->company_id]);
+
+    app(SubmitIntakeReview::class)->handle($intake->fresh(), $reviewer, [
+        'decision' => ReviewDecision::NeedMoreInfo,
+        'follow_up_items' => [
+            ['type' => FollowUpItemType::Text, 'prompt' => 'Hoe lang en breed is slaapkamer 2?'],
+        ],
+    ]);
+
+    $textItem = $intake->fresh()->followUpRounds()->with('items')->firstOrFail()->items->firstOrFail();
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->assertSet('followUpMode', true)
+        ->assertSeeHtml('id="follow-up-prompt-'.$textItem->id.'"')
+        ->assertSeeHtml('id="follow-up-response-'.$textItem->id.'"')
+        ->assertSeeHtml('aria-labelledby="follow-up-prompt-'.$textItem->id.'"');
+});
+
 test('customer completes text and photo follow up and dossier returns for review', function () {
     Mail::fake();
     Queue::fake();
@@ -502,7 +527,9 @@ test('customer can add a requested PDF document to the protected dossier', funct
         ->assertDownload('plattegrond.pdf')
         ->assertHeader('X-Content-Type-Options', 'nosniff');
 
-    $component->assertSee('Bedankt. Je installateur kijkt nu of er nog iets openstaat.');
+    $component->assertSee('Bedankt, je aanvulling is binnen')
+        ->assertSee('Je installateur bekijkt je antwoorden en neemt contact met je op als er nog iets nodig is.')
+        ->assertSee('Je kunt dit venster nu sluiten.');
 });
 
 test('follow up photo quality hint repeats the installers exact photo request', function () {

@@ -70,7 +70,7 @@
                         @csrf
                         <button
                             type="submit"
-                            onclick="return confirm('Weet je zeker dat je de demo wilt beëindigen? Demogegevens verdwijnen.')"
+                            data-confirm-dialog-open="demo-end-dialog"
                             class="inline-flex min-h-11 items-center justify-center rounded-xl border border-sky-300 bg-sky-50 px-3 text-sm font-semibold text-sky-800 transition hover:border-sky-400 hover:bg-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2"
                         >
                             Demo beëindigen
@@ -104,7 +104,7 @@
                                 <form method="POST" action="{{ route('logout') }}">
                                     @csrf
                                     <x-dropdown-link :href="route('logout')"
-                                            onclick="event.preventDefault(); if (!confirm('Weet je zeker dat je de demo wilt beëindigen? Demogegevens verdwijnen.')) return false; this.closest('form').submit();">
+                                            data-confirm-dialog-open="demo-end-dialog">
                                         {{ __('Demo beëindigen') }}
                                     </x-dropdown-link>
                                 </form>
@@ -184,7 +184,7 @@
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
                         <x-responsive-nav-link :href="route('logout')"
-                                onclick="event.preventDefault(); if (!confirm('Weet je zeker dat je de demo wilt beëindigen? Demogegevens verdwijnen.')) return false; this.closest('form').submit();">
+                                data-confirm-dialog-open="demo-end-dialog">
                             {{ __('Demo beëindigen') }}
                         </x-responsive-nav-link>
                     </form>
@@ -200,4 +200,14 @@
             </div>
         </div>
     </div>
+
+    @if ($isPublicDemo)
+        <x-confirm-dialog
+            id="demo-end-dialog"
+            title="Demo beëindigen?"
+            body="Je demogegevens worden gewist. Dit kun je niet ongedaan maken."
+            :action="route('logout')"
+            confirm-label="Demo beëindigen"
+        />
+    @endif
 </nav>

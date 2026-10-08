@@ -26,6 +26,7 @@ use App\Domains\Intake\Services\ProgressCalculator;
 use App\Domains\Intake\Services\WorkspacePrimaryActionResolver;
 use App\Domains\Intake\Support\FollowUpEvidenceReview;
 use App\Domains\Intake\Support\InternalCustomerQuestions;
+use App\Domains\Intake\Support\PhotoOverridePolicy;
 use App\Domains\Intake\Support\TechnicalDecisionKeys;
 use App\Enums\AiRunType;
 use App\Enums\DecisionAreaStatus;
@@ -577,7 +578,7 @@ test('P1 case 81 Stroomtoevoer: buitenunitfoto blokkeert versturen tot override'
     $component
         ->assertSee('buitenunit')
         ->assertSee('meterkast')
-        ->assertSee('Toch versturen');
+        ->assertSee('Toch doorgaan');
 
     $item->refresh()->load('uploads');
     $progress = app(FollowUpProgressCalculator::class)
@@ -593,7 +594,7 @@ test('P1 case 81 Stroomtoevoer: buitenunitfoto blokkeert versturen tot override'
         ->call('completeFollowUp')
         ->assertHasErrors('follow_up')
         ->assertSet('completed', false)
-        ->assertSee('Toch versturen');
+        ->assertSee('Toch doorgaan');
 
     expect($upload)->not->toBeNull()
         ->and($upload->contentAssessment()?->status())->toBe(PhotoContentAssessment::STATUS_WRONG_SUBJECT)
@@ -631,7 +632,7 @@ test('P1 case 81 Stroomtoevoer: buitenunitfoto blokkeert versturen tot override'
     expect($upload->fresh()->contentAssessment()?->customerAcceptedMismatch())->toBeTrue();
 });
 
-test('P1 follow-up not_assessed vereist Toch versturen (zelfde override als mismatch)', function () {
+test('P1 follow-up not_assessed vereist Toch doorgaan (zelfde override als mismatch)', function () {
     Queue::fake([AssessUploadedPhotoJob::class]);
 
     $user = User::factory()->create();
@@ -659,7 +660,7 @@ test('P1 follow-up not_assessed vereist Toch versturen (zelfde override als mism
         ->call('completeFollowUp')
         ->assertHasErrors('follow_up')
         ->assertSet('completed', false)
-        ->assertSee('Toch versturen');
+        ->assertSee('Toch doorgaan');
 
     expect($upload->contentAssessment()?->status())->toBe(PhotoContentAssessment::STATUS_NOT_ASSESSED)
         ->and($upload->contentAssessment()?->installerLabel())->toContain('nog niet automatisch beoordeeld');
@@ -669,8 +670,7 @@ test('P1 follow-up not_assessed vereist Toch versturen (zelfde override als mism
         ->call('completeFollowUp')
         ->assertHasNoErrors('follow_up')
         ->assertSet('completed', true)
-        ->assertSet('followUpNeedsInstallerReview', true)
-        ->assertSee('installateur beoordeelt');
+        ->assertSee(PhotoOverridePolicy::THANK_YOU_COPY);
 });
 
 test('case 81b reassessment: juiste meterkastfoto vervangt mismatch en wist open reden', function () {

@@ -35,6 +35,7 @@ use App\Domains\Intake\Services\FollowUpProgressCalculator;
 use App\Domains\Intake\Services\IntakePrefillResolver;
 use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Domains\Intake\Services\ProgressCalculator;
+use App\Domains\Intake\Services\PublicDemoSession;
 use App\Domains\Intake\Services\ResolveIntakeByAccessToken;
 use App\Domains\Intake\Services\VisibilityResolver;
 use App\Domains\Intake\Support\KnownSummaryCatalog;
@@ -153,8 +154,12 @@ class IntakeWizard extends Component
 
     public bool $completed = false;
 
-    /** Follow-up danktekst: true wanneer minstens één foto met override is verstuurd. */
-    public bool $followUpNeedsInstallerReview = false;
+    /**
+     * Foto die net is weggehaald en 8 s ongedaan gemaakt kan worden (BL-147, UX #16.4).
+     *
+     * @var array{item_id: int, upload_id: int, answered_at: string|null}|null
+     */
+    public ?array $pendingFollowUpRemoval = null;
 
     public bool $followUpMode = false;
 
@@ -275,6 +280,10 @@ class IntakeWizard extends Component
         }
 
         $this->intakeId = $intake->id;
+
+        // Volgend bezoek aan de klantlink: foto's die nog in de prullenbak staan
+        // (tabblad binnen 8 s gesloten) gaan nu echt weg (BL-147, UX #16.4).
+        app(DeleteFollowUpUpload::class)->purgePendingFor($intake);
 
         if ($intake->status === IntakeStatus::AwaitingCustomer) {
             $this->resolvedIntake = $intake->loadMissing(['answers', 'uploads']);
@@ -557,21 +566,76 @@ class IntakeWizard extends Component
 
     public function removeFollowUpUpload(int $itemId, int $uploadId): void
     {
+        $this->finalizePendingFollowUpRemoval();
+
         $item = $this->followUpItem($itemId);
         $upload = IntakeUpload::query()->findOrFail($uploadId);
+        $action = app(DeleteFollowUpUpload::class);
 
         try {
-            app(DeleteFollowUpUpload::class)->handle($this->intake(), $item, $upload);
+            if ($item->type === FollowUpItemType::Photo) {
+                // Eerst alleen verbergen; echt wissen na 8 s of bij Volgende (UX #16.4).
+                $previousAnsweredAt = $action->softRemove($this->intake(), $item, $upload);
+                $this->pendingFollowUpRemoval = [
+                    'item_id' => $item->id,
+                    'upload_id' => $upload->id,
+                    'answered_at' => $previousAnsweredAt?->toIso8601String(),
+                ];
+                $this->saveMessage = '';
+            } else {
+                $action->handle($this->intake(), $item, $upload);
+                $this->saveMessage = 'Document verwijderd';
+            }
             $this->forgetIntakeDerivedCaches();
             $this->resetErrorBag('follow_up');
-            $this->saveMessage = $item->type === FollowUpItemType::Photo
-                ? 'Foto verwijderd'
-                : 'Document verwijderd';
         } catch (ValidationException $exception) {
             $this->addError('follow_up', $exception->errors()['upload'][0]
                 ?? $exception->errors()['photo'][0]
                 ?? 'Verwijderen mislukt.');
         }
+    }
+
+    /**
+     * “Ongedaan maken”: zet de foto en de beoordeling terug.
+     */
+    public function undoFollowUpUploadRemoval(): void
+    {
+        $pending = $this->pendingFollowUpRemoval;
+        $this->pendingFollowUpRemoval = null;
+
+        if ($pending === null) {
+            return;
+        }
+
+        try {
+            app(DeleteFollowUpUpload::class)->restore(
+                $this->intake(),
+                $this->followUpItem((int) $pending['item_id']),
+                (int) $pending['upload_id'],
+                is_string($pending['answered_at']) ? Carbon::parse($pending['answered_at']) : null,
+            );
+            $this->forgetIntakeDerivedCaches();
+            $this->resetErrorBag('follow_up');
+        } catch (ValidationException $exception) {
+            $this->addError('follow_up', $exception->errors()['upload'][0] ?? 'Ongedaan maken mislukt.');
+        }
+    }
+
+    /**
+     * Echt wissen van de weggehaalde foto (na 8 s vanuit de melding, of bij navigatie).
+     */
+    public function finalizePendingFollowUpRemoval(?int $uploadId = null): void
+    {
+        $pending = $this->pendingFollowUpRemoval;
+
+        // A late timer from an earlier toast must not wipe a newer pending removal.
+        if ($pending === null || ($uploadId !== null && (int) $pending['upload_id'] !== $uploadId)) {
+            return;
+        }
+
+        $this->pendingFollowUpRemoval = null;
+
+        app(DeleteFollowUpUpload::class)->finalize($this->intake(), (int) $pending['upload_id']);
     }
 
     public function removePhoto(int $uploadId): void
@@ -593,7 +657,7 @@ class IntakeWizard extends Component
             $this->clearPhotoFeedbackForComposite($composite);
             $this->clearProgressExtraNoteIfRelatedToUpload($upload->id);
             $this->refreshAnswerInForm($composite);
-            $this->saveMessage = 'Foto verwijderd';
+            $this->saveMessage = 'Foto verwijderd.';
             $this->showMissing = false;
         } catch (ValidationException $e) {
             $this->addError('photo', $e->errors()['photo'][0] ?? 'Verwijderen mislukt.');
@@ -648,6 +712,8 @@ class IntakeWizard extends Component
 
     public function nextFollowUp(): void
     {
+        $this->finalizePendingFollowUpRemoval();
+
         if (! $this->currentFollowUpSatisfied()) {
             return;
         }
@@ -660,6 +726,8 @@ class IntakeWizard extends Component
 
     public function previousFollowUp(): void
     {
+        $this->finalizePendingFollowUpRemoval();
+
         $this->followUpStepIndex = max(0, $this->followUpStepIndex - 1);
         $this->saveMessage = '';
         $this->persistFollowUpStepIndex();
@@ -667,11 +735,13 @@ class IntakeWizard extends Component
 
     public function completeFollowUp(): void
     {
+        $this->finalizePendingFollowUpRemoval();
+
         if (! $this->currentFollowUpSatisfied()) {
             return;
         }
 
-        // Hard gate: elke niet-goede foto vereist Vervang of Toch versturen.
+        // Hard gate: elke niet-goede foto vereist Vervang of Toch doorgaan.
         if ($this->followUpRoundHasUnresolvedOverride()) {
             $this->addError(
                 'follow_up',
@@ -682,25 +752,12 @@ class IntakeWizard extends Component
         }
 
         try {
-            $round = $this->followUpRound();
-            $hadAcceptedOverride = false;
-            foreach ($round->items as $item) {
-                if ($item->type !== FollowUpItemType::Photo) {
-                    continue;
-                }
-                if (PhotoOverridePolicy::hasAcceptedOverride($item->uploads)) {
-                    $hadAcceptedOverride = true;
-                    break;
-                }
-            }
-
             app(CompleteFollowUpRound::class)->handle(
                 $this->intake(),
-                $round,
+                $this->followUpRound(),
                 $this->followUpResponses,
             );
             $this->forgetIntakeDerivedCaches();
-            $this->followUpNeedsInstallerReview = $hadAcceptedOverride;
             $this->completed = true;
             $this->saveMessage = '';
         } catch (ValidationException $exception) {
@@ -754,10 +811,8 @@ class IntakeWizard extends Component
             'followUpPhotoHint' => $followUpFeedbackHints[0] ?? null,
             'followUpMismatchAssessment' => $followUpMismatch,
             'followUpNeedsOverride' => $followUpNeedsOverride,
-            'followUpNeedsInstallerReview' => $this->followUpNeedsInstallerReview,
-            'followUpThankYouMessage' => PhotoOverridePolicy::thankYouNeedsReviewCopy(
-                $this->followUpNeedsInstallerReview,
-            ),
+            'followUpThankYouMessage' => PhotoOverridePolicy::THANK_YOU_COPY,
+            'followUpDemoReturnUrl' => app(PublicDemoSession::class)->workspaceReturnUrl(request(), $intake),
             'choiceOptions' => $item instanceof IntakeFollowUpItem
                 && $item->type === FollowUpItemType::Choice
                 ? $this->followUpChoiceOptions($item)
@@ -911,6 +966,8 @@ class IntakeWizard extends Component
      */
     public function replaceFollowUpMismatchedPhoto(): void
     {
+        $this->finalizePendingFollowUpRemoval();
+
         if ($this->completed || ! $this->followUpMode) {
             return;
         }
@@ -1043,6 +1100,8 @@ class IntakeWizard extends Component
 
     private function uploadFollowUpFiles(mixed $value, ?string $key, FollowUpItemType $type): void
     {
+        $this->finalizePendingFollowUpRemoval();
+
         if (! $this->followUpMode || $key === null || ! ctype_digit($key)) {
             return;
         }

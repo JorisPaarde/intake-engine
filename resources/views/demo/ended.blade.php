@@ -3,20 +3,20 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Demo beëindigd — Digitale Opname</title>
+        <title>{{ ($reason ?? 'ended') === 'expired' ? 'Demo beëindigd' : 'De demo is beëindigd' }} — Digitale Opname</title>
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="min-h-screen bg-[#eef1ec] font-sans text-[#18201d] antialiased">
         <main class="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-5 py-12">
             <p class="eyebrow">Digitale Opname</p>
             <h1 class="mt-3 text-3xl font-semibold tracking-tight text-gray-950">
-                {{ ($reason ?? 'ended') === 'expired' ? 'Deze demo is verlopen' : 'Demo beëindigd' }}
+                {{ ($reason ?? 'ended') === 'expired' ? 'Deze demo is verlopen' : 'De demo is beëindigd' }}
             </h1>
             <p class="mt-3 text-base leading-relaxed text-gray-600">
                 @if (($reason ?? 'ended') === 'expired')
                     De demosessie is verlopen. Demogegevens verdwijnen automatisch. Je kunt opnieuw beginnen met een schone demo.
                 @else
-                    Je hebt de demosessie afgesloten. Demogegevens verdwijnen. Je kunt opnieuw beginnen wanneer je wilt.
+                    Je demogegevens worden automatisch gewist. Je kunt altijd een nieuwe demo starten.
                 @endif
             </p>
             <div class="mt-8 flex flex-col gap-3 sm:flex-row">

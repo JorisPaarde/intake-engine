@@ -18,6 +18,7 @@ use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Domains\Intake\Services\AircoSurveyService;
 use App\Domains\Intake\Services\CompletenessChecker;
 use App\Domains\Intake\Services\IntakeStepBuilder;
+use App\Domains\Intake\Services\PublicDemoSession;
 use App\Enums\AircoConnectionType;
 use App\Enums\AircoPlacementType;
 use App\Enums\AiRunType;
@@ -30,6 +31,7 @@ use App\Models\Company;
 use App\Models\User;
 use Database\Seeders\DemoInstallerSeeder;
 use Database\Seeders\IntakeTemplateSeeder;
+use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
@@ -213,7 +215,7 @@ it('creates one demo intake from the normal create form and opens the role branc
         ->withSession(demoSessionFor($user, $intake))
         ->get(route('intakes.show', $intake))
         ->assertOk()
-        ->assertSee('Kies hieronder hoe u verder wilt kijken', false)
+        ->assertSee('Opname aangemaakt. De adresgegevens zijn opgehaald. Kies hieronder hoe je verder wilt. In de demo gaat er geen e-mail uit.', false)
         ->assertSee('Er gaat geen e-mail uit in de demo', false)
         ->assertSee('Zelf de opname doen')
         ->assertSee('Bekijk wat de klant ziet')
@@ -303,7 +305,9 @@ it('continues as installer and can load the sample dossier', function () {
     $this->actingAs($user)
         ->withSession(demoSessionFor($user, $intake))
         ->post(route('demo.path.choose', $intake), ['path' => 'installer'])
-        ->assertRedirect(route('intakes.workspace', $intake));
+        ->assertRedirect(route('intakes.workspace', $intake))
+        // Geen tweede melding na de keuze (BL-147, UX #15.11).
+        ->assertSessionMissing('status');
 
     $intake->refresh();
     expect($intake->workflow_mode)->toBe(ContributionMode::Installer)
@@ -720,10 +724,11 @@ it('keeps the demo thank-you notice short without a feature checklist', function
 
     expect($html)
         ->toContain('Wat je net hebt gedaan')
-        ->toContain('Je hebt één aanvulling verstuurd')
+        ->toContain('Je hebt als klant een aanvulling verstuurd')
         ->toContain('Geen echte klant, er ging geen mail uit')
         ->toContain('De gegevens verdwijnen vanzelf')
-        ->toContain('terug naar de website')
+        ->toContain('Naar de homepage')
+        ->not->toContain('andere tabblad')
         ->not->toContain('een PDF gaat alleen als je die aanvraagt')
         ->not->toContain('Voorgestelde aandachtspunten')
         ->not->toContain('Bewust uitgeschakeld')
@@ -959,7 +964,12 @@ it('asks for confirmation copy on end-demo controls and lands on a Dutch ended p
         ->withSession(demoSessionFor($user))
         ->get(route('dashboard'))
         ->assertOk()
-        ->assertSee('Weet je zeker dat je de demo wilt beëindigen?', false);
+        ->assertSee('data-confirm-dialog-open="demo-end-dialog"', false)
+        ->assertSee('<dialog', false)
+        ->assertSee('Demo beëindigen?')
+        ->assertSee('Je demogegevens worden gewist. Dit kun je niet ongedaan maken.')
+        ->assertSee('Annuleren')
+        ->assertDontSee('confirm(', false);
 
     $this->actingAs($user)
         ->withSession(demoSessionFor($user))
@@ -970,7 +980,7 @@ it('asks for confirmation copy on end-demo controls and lands on a Dutch ended p
 
     $this->get(route('demo.ended', ['reason' => 'ended']))
         ->assertOk()
-        ->assertSee('Demo beëindigd')
+        ->assertSee('De demo is beëindigd')
         ->assertSee('Naar de homepage')
         ->assertSee('Nieuwe demo starten')
         ->assertDontSee('404 | Not Found');
@@ -1092,6 +1102,59 @@ function sampleDemoAnswerForQuestion(IntakeQuestion $question): array
         QuestionType::Photo => ['upload_ids' => []],
     };
 }
+
+it('shows a visible return button on the demo follow-up thank-you screen (BL-147)', function () {
+    Mail::fake();
+
+    ['intake' => $intake, 'user' => $user] = createDemoIntakeViaForm();
+    $session = demoSessionFor($user, $intake);
+    $this->actingAs($user)->withSession($session)->post(route('demo.path.choose', $intake), ['path' => 'installer']);
+    $this->actingAs($user)->withSession($session)->post(route('demo.scenario.load', $intake));
+
+    $example = Intake::query()->findOrFail((int) session('public_demo_intake_id'));
+    $task = ContributionTask::query()
+        ->where('intake_id', $example->id)
+        ->where('status', ContributionTaskStatus::Proposed)
+        ->firstOrFail();
+    $this->actingAs($user)
+        ->withSession(demoSessionFor($user, $example))
+        ->post(route('intakes.workspace.tasks.send', [$example, $task]));
+    $example->refresh();
+
+    $session = app('session.store');
+    $session->flush();
+    foreach (demoSessionFor($user, $example) as $key => $value) {
+        $session->put($key, $value);
+    }
+    $request = Request::create('/');
+    $request->setLaravelSession($session);
+    $request->setUserResolver(fn () => $user);
+
+    // Active demo session in this browser (also when the link opened in a new tab).
+    $returnUrl = app(PublicDemoSession::class)->workspaceReturnUrl($request, $example);
+    expect($returnUrl)->toBe(route('intakes.workspace', $example));
+
+    Livewire::test(IntakeWizard::class, ['token' => $example->access_token])
+        ->set('completed', true)
+        ->assertSee('Bedankt, je aanvulling is binnen')
+        ->assertDontSee('Je kunt dit venster nu sluiten.');
+
+    $this->blade('<x-demo-scope-notice variant="complete" :installer-return-url="$url" />', ['url' => $returnUrl])
+        ->assertSee('Terug naar de opname')
+        ->assertSee($returnUrl, false)
+        ->assertDontSee('andere tabblad')
+        ->assertDontSee('Naar de homepage');
+
+    // No demo session (e.g. another browser): no return URL, homepage button.
+    expect(app(PublicDemoSession::class)->workspaceReturnUrl(Request::create('/'), $example))->toBeNull();
+    $session->flush();
+    expect(app(PublicDemoSession::class)->workspaceReturnUrl($request, $example))->toBeNull();
+
+    Livewire::test(IntakeWizard::class, ['token' => $example->access_token])
+        ->set('completed', true)
+        ->assertSee('Naar de homepage')
+        ->assertDontSee('Terug naar de opname');
+});
 
 it('keeps the own demo intake reachable after loading the sample dossier', function () {
     ['intake' => $own, 'user' => $user] = createDemoIntakeViaForm();

@@ -255,7 +255,7 @@ final class SurveyWorkspaceController extends Controller
         ]);
         $aircoSurvey->updateRoom($intake, $this->user($request), $room, $data);
 
-        return $this->back($intake, 'Ruimte bijgewerkt.');
+        return $this->back($intake, 'Ruimte bijgewerkt.', 'room-'.$room->id);
     }
 
     public function syncRoomUnitCoupling(
@@ -306,9 +306,9 @@ final class SurveyWorkspaceController extends Controller
             'description' => ['nullable', 'string', 'max:1500'],
             'status' => ['nullable', Rule::enum(AircoOptionStatus::class)],
         ]);
-        $aircoSurvey->createPlacement($intake, $this->user($request), $data);
+        $placement = $aircoSurvey->createPlacement($intake, $this->user($request), $data);
 
-        return $this->back($intake, 'Unit toegevoegd.');
+        return $this->back($intake, $placement->type->label().' toegevoegd.', 'placement-'.$placement->id);
     }
 
     public function updatePlacement(
@@ -330,9 +330,9 @@ final class SurveyWorkspaceController extends Controller
             'label' => ['required', 'string', 'max:160'],
             'description' => ['nullable', 'string', 'max:1500'],
         ]);
-        $aircoSurvey->updatePlacement($intake, $this->user($request), $placement, $data);
+        $placement = $aircoSurvey->updatePlacement($intake, $this->user($request), $placement, $data);
 
-        return $this->back($intake, 'Unit bijgewerkt.');
+        return $this->back($intake, $placement->type->label().' bijgewerkt.', 'placement-'.$placement->id);
     }
 
     public function storeInstallationOption(
@@ -1072,11 +1072,22 @@ final class SurveyWorkspaceController extends Controller
             ->all();
     }
 
-    private function back(Intake $intake, string $status): RedirectResponse
+    /**
+     * @param  string|null  $fragment  Anchor of the edited block, so the installer lands back on it
+     *                                 instead of at the top of the page (UX-pakket #15). With a fragment
+     *                                 the status message is shown inside that block (BL-147, UX #15.4/#15.6).
+     */
+    private function back(Intake $intake, string $status, ?string $fragment = null): RedirectResponse
     {
-        return redirect()
-            ->route('intakes.workspace', $intake)
-            ->with('status', $status);
+        $redirect = redirect()->route('intakes.workspace', $intake);
+
+        if ($fragment === null) {
+            return $redirect->with('status', $status);
+        }
+
+        return $redirect
+            ->with('block_status', ['target' => $fragment, 'message' => $status])
+            ->withFragment($fragment);
     }
 
     /**

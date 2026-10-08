@@ -6,16 +6,19 @@ namespace App\Domains\Intake\Support;
 
 use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\Intake\Actions\ApplyFollowUpTextContribution;
+use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\ContributionTask;
 use App\Domains\Intake\Models\DossierRecord;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeFollowUpRound;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Domains\Intake\Services\DecisionReadinessService;
 use App\Enums\ContributionTaskStatus;
 use App\Enums\DossierRecordStatus;
 use App\Enums\FollowUpItemType;
 use App\Enums\FollowUpRoundStatus;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 /**
  * Presenter for “Nieuwe aanvulling ontvangen” on the installer workspace (BL-146).
@@ -25,6 +28,12 @@ use Illuminate\Support\Collection;
  */
 final class FollowUpContributionPresenter
 {
+    private const KEY_LENGTH_WIDTH = 'length_width';
+
+    private const KEY_HEIGHT = 'height';
+
+    private const KEY_AREA = 'area';
+
     /**
      * @return array{
      *     has_new: bool,
@@ -39,13 +48,19 @@ final class FollowUpContributionPresenter
      *         uploads: list<IntakeUpload>,
      *         ai_facts: list<string>,
      *         installer_decides: string,
-     *         review_href: string
+     *         heading: string,
+     *         review_href: string,
+     *         review_label: string,
+     *         room_id: int|null,
+     *         room_name: string|null,
+     *         highlight_field_ids: list<string>
      *     }>
      * }
      */
     public function present(Intake $intake): array
     {
         $intake->loadMissing([
+            'aircoRooms',
             'contributionTasks.followUpItem.uploads',
             'contributionTasks.followUpItem.round',
             'followUpRounds.items.uploads',
@@ -117,6 +132,10 @@ final class FollowUpContributionPresenter
                 }
             }
 
+            $room = $this->roomFor($intake, $task);
+            $requestedKey = $this->requestedKey($task, $item->prompt);
+            $review = $this->reviewTarget($task, $room, $requestedKey);
+
             $items[] = [
                 'task' => $task,
                 'round_number' => (int) $latestRound->round_number,
@@ -126,8 +145,13 @@ final class FollowUpContributionPresenter
                 'response_text' => $item->response_text,
                 'uploads' => $uploads,
                 'ai_facts' => array_values(array_unique($aiFacts)),
-                'installer_decides' => $this->installerDecidesCopy($task->decision_area_key),
-                'review_href' => $this->reviewHref($task),
+                'installer_decides' => $this->installerDecidesCopy($task->decision_area_key, $requestedKey),
+                'heading' => $review['heading'],
+                'review_href' => $review['href'],
+                'review_label' => $review['label'],
+                'room_id' => $room?->id,
+                'room_name' => $room?->name,
+                'highlight_field_ids' => $review['highlight_ids'],
             ];
         }
 
@@ -168,31 +192,119 @@ final class FollowUpContributionPresenter
         ));
     }
 
-    private function installerDecidesCopy(?string $decisionAreaKey): string
+    /**
+     * Capacity hints follow the requested key of the task (UX-uitkomst #15.2), not only the area.
+     */
+    private function installerDecidesCopy(?string $decisionAreaKey, ?string $requestedKey): string
     {
+        if ($decisionAreaKey === 'capacity') {
+            return match ($requestedKey) {
+                self::KEY_LENGTH_WIDTH => 'Jij beslist of deze maten kloppen voor de capaciteit.',
+                self::KEY_HEIGHT => 'Jij beslist welke hoogte telt voor de capaciteit.',
+                self::KEY_AREA => 'Jij beslist of dit oppervlak klopt voor de capaciteit.',
+                default => 'Jij beslist wat dit betekent voor de capaciteit.',
+            };
+        }
+
         return match ($decisionAreaKey) {
             'power' => 'Jij beslist of de meterkast leesbaar genoeg is voor 1- of 3-fase en de technische route.',
             'placement' => 'Jij beslist over unitplaats en montage; dit bewijs vult alleen de gevel-/tuincontext.',
-            'capacity' => 'Jij beslist welke hoogte voor capaciteit telt — niet blind het hoogste punt overnemen.',
             'refrigerant', 'condensate' => 'Jij beslist over de technische route en of er nog een controle op locatie nodig is.',
             default => 'Jij beslist wat dit bewijs betekent voor offerte en plaatsing.',
         };
     }
 
-    private function reviewHref(ContributionTask $task): string
+    /**
+     * Requested key: explicit task meta first, otherwise derived from the (editable) prompt.
+     */
+    private function requestedKey(ContributionTask $task, string $itemPrompt): ?string
     {
-        if ($task->dossier_subject_id !== null) {
-            $roomId = $task->subject?->meta['airco_room_id'] ?? null;
-            // Room subjects use key airco.room.* — link via area when room unknown.
+        if ($task->decision_area_key !== 'capacity') {
+            return null;
         }
 
-        return match ($task->decision_area_key) {
-            'capacity' => '#workspace-rooms',
-            'placement' => '#dossier-area-placement',
-            'power' => '#dossier-area-power',
-            'refrigerant' => '#dossier-area-refrigerant',
-            'condensate' => '#dossier-area-condensate',
-            default => '#workspace-open-items',
+        $meta = is_array($task->meta) ? $task->meta : [];
+        $fromMeta = $meta[ApplyFollowUpTextContribution::META_REQUESTED_FIELD] ?? null;
+        if ($fromMeta === ApplyFollowUpTextContribution::FIELD_HEIGHT) {
+            return self::KEY_HEIGHT;
+        }
+
+        $prompt = Str::lower($itemPrompt.' '.$task->prompt);
+
+        return match (true) {
+            Str::contains($prompt, ['lengte', 'breedte']) => self::KEY_LENGTH_WIDTH,
+            Str::contains($prompt, ['hoogte', 'knieschot', 'nok', 'schuin dak']) => self::KEY_HEIGHT,
+            Str::contains($prompt, ['oppervlak', 'm²', 'm2']) => self::KEY_AREA,
+            default => null,
         };
+    }
+
+    private function roomFor(Intake $intake, ContributionTask $task): ?AircoRoom
+    {
+        if ($task->dossier_subject_id === null) {
+            return null;
+        }
+
+        $room = $intake->aircoRooms->first(
+            static fn (AircoRoom $room): bool => $room->dossier_subject_id === $task->dossier_subject_id,
+        );
+
+        return $room instanceof AircoRoom ? $room : null;
+    }
+
+    /**
+     * Field ids in the room card (workspace) that light up after “Beoordeel bij (ruimte)”.
+     *
+     * @return list<string>
+     */
+    private function highlightFieldIds(AircoRoom $room, ?string $requestedKey): array
+    {
+        $prefix = 'room-'.$room->id;
+
+        return match ($requestedKey) {
+            self::KEY_LENGTH_WIDTH => [$prefix.'-length', $prefix.'-width'],
+            self::KEY_HEIGHT => [$prefix.'-height'],
+            self::KEY_AREA => [$prefix.'-area'],
+            default => [],
+        };
+    }
+
+    /**
+     * Where “Beoordeel …” jumps to and what lights up there (UX-uitkomst #15.1).
+     * Room → the room card (Maten en gebruik opens; only the asked fields flash).
+     * No room → the decision area block (expands; “Nieuwe aanvulling ontvangen” flashes).
+     * Neither → the overview “Alle onderdelen”.
+     *
+     * @return array{heading: string, href: string, label: string, highlight_ids: list<string>}
+     */
+    private function reviewTarget(ContributionTask $task, ?AircoRoom $room, ?string $requestedKey): array
+    {
+        if ($room !== null) {
+            return [
+                'heading' => 'Nieuw van klant · '.$room->name,
+                'href' => '#room-'.$room->id,
+                'label' => 'Beoordeel bij '.$room->name,
+                'highlight_ids' => $this->highlightFieldIds($room, $requestedKey),
+            ];
+        }
+
+        $areaKey = $task->decision_area_key;
+        if (is_string($areaKey) && DecisionReadinessService::hasArea($areaKey)) {
+            $areaLabel = DecisionReadinessService::areaLabel($areaKey);
+
+            return [
+                'heading' => 'Nieuw van klant · '.$areaLabel,
+                'href' => '#dossier-area-'.$areaKey,
+                'label' => 'Beoordeel bij '.$areaLabel,
+                'highlight_ids' => ['dossier-area-'.$areaKey.'-contribution'],
+            ];
+        }
+
+        return [
+            'heading' => 'Nieuw van klant',
+            'href' => '#workspace-open-items',
+            'label' => 'Beoordeel in opname',
+            'highlight_ids' => [],
+        ];
     }
 }

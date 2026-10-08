@@ -47,11 +47,11 @@ final class StoreProductInterestRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'company_name.required' => 'Vul uw bedrijfsnaam in.',
+            'company_name.required' => 'Vul je bedrijfsnaam in.',
             'company_name.max' => 'De bedrijfsnaam mag maximaal 120 tekens bevatten.',
-            'contact_name.required' => 'Vul uw naam in.',
+            'contact_name.required' => 'Vul je naam in.',
             'contact_name.max' => 'De naam mag maximaal 120 tekens bevatten.',
-            'email.required' => 'Vul uw e-mailadres in.',
+            'email.required' => 'Vul je e-mailadres in.',
             'email.email' => 'Vul een geldig e-mailadres in.',
             'email.max' => 'Het e-mailadres mag maximaal 254 tekens bevatten.',
             'phone.max' => 'Het telefoonnummer mag maximaal 40 tekens bevatten.',

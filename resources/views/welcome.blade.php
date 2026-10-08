@@ -94,7 +94,7 @@
                             @csrf
                             <button
                                 type="submit"
-                                onclick="return confirm('Weet je zeker dat je de demo wilt beëindigen? Demogegevens verdwijnen.')"
+                                data-confirm-dialog-open="demo-end-dialog"
                                 class="px-3 py-2 text-sm font-bold text-white/90 transition hover:text-white"
                             >
                                 Demo beëindigen
@@ -783,7 +783,7 @@
                     @if ($isPublicDemo)
                         <form method="POST" action="{{ route('logout') }}" class="inline">
                             @csrf
-                            <button type="submit" onclick="return confirm('Weet je zeker dat je de demo wilt beëindigen? Demogegevens verdwijnen.')" class="hover:text-marketing-ink">Demo beëindigen</button>
+                            <button type="submit" data-confirm-dialog-open="demo-end-dialog" class="hover:text-marketing-ink">Demo beëindigen</button>
                         </form>
                     @elseif ($isRealAccount)
                         <a href="{{ route('dashboard') }}" class="hover:text-marketing-ink">Mijn opnames</a>
@@ -793,5 +793,14 @@
                 </div>
             </div>
         </footer>
+        @if ($isPublicDemo)
+            <x-confirm-dialog
+                id="demo-end-dialog"
+                title="Demo beëindigen?"
+                body="Je demogegevens worden gewist. Dit kun je niet ongedaan maken."
+                :action="route('logout')"
+                confirm-label="Demo beëindigen"
+            />
+        @endif
     </body>
 </html>

@@ -14,15 +14,19 @@ use Illuminate\Support\Collection;
 /**
  * Centrale regel: een foto die niet als goed is beoordeeld (verkeerde categorie,
  * te lage resolutie, onbruikbaar, not_assessed) blokkeert afronden tot de klant
- * expliciet vervangt of “Toch versturen / Toch doorgaan” kiest.
+ * expliciet vervangt of “Toch doorgaan” kiest.
  *
  * Gedeeld door klantwizard en gerichte bijdrage-/follow-up-taak.
  */
 final class PhotoOverridePolicy
 {
-    public const OVERRIDE_MESSAGE = 'Vervang de foto of kies expliciet “Toch versturen”.';
+    /** Melding bij Volgende/versturen zonder keuze; één term “Toch doorgaan” (BL-147, UX #16.3). */
+    public const OVERRIDE_MESSAGE = 'Kies: foto vervangen of toch doorgaan.';
 
-    public const OVERRIDE_MESSAGE_WIZARD = 'Vervang de foto of kies expliciet “Toch doorgaan”.';
+    /** Eén kop + één zin op het bedankscherm, ook na “Toch doorgaan” (BL-147, UX #16.1). */
+    public const THANK_YOU_HEADING = 'Bedankt, je aanvulling is binnen';
+
+    public const THANK_YOU_COPY = 'Je installateur bekijkt je antwoorden en neemt contact met je op als er nog iets nodig is.';
 
     /**
      * @param  Collection<int, IntakeUpload>  $uploads
@@ -194,14 +198,5 @@ final class PhotoOverridePolicy
         }
 
         return array_values($hints);
-    }
-
-    public static function thankYouNeedsReviewCopy(bool $hadAcceptedOverride): string
-    {
-        if ($hadAcceptedOverride) {
-            return 'Bedankt. Je aanvulling is ontvangen; de installateur beoordeelt de foto’s nog voordat het dossier rond is.';
-        }
-
-        return 'Bedankt. Je installateur kijkt nu of er nog iets openstaat.';
     }
 }

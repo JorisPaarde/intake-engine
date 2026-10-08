@@ -35,6 +35,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $assessment_source_upload_id
  * @property int $assessment_attempts
  * @property Carbon|null $assessment_queued_at
+ * @property Carbon|null $purged_at Media wiped after a soft delete (BL-147); null while still in the bin.
  * @property-read IntakeFollowUpItem|null $followUpItem
  * @property-read IntakeUpload|null $assessmentSource
  */
@@ -85,6 +86,7 @@ class IntakeUpload extends Model
             'assessment_source_upload_id' => 'integer',
             'assessment_attempts' => 'integer',
             'assessment_queued_at' => 'datetime',
+            'purged_at' => 'datetime',
         ];
     }
 
