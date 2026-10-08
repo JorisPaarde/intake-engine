@@ -8,6 +8,7 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeSection;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
+use App\Domains\Intake\Support\CustomerConsentPresenter;
 use App\Enums\QuestionType;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -20,6 +21,7 @@ final class GenerateIntakeReportHtml
         private readonly ExternalFactPresenter $externalFactPresenter,
         private readonly IntakeDossierSummaryBuilder $summaryBuilder,
         private readonly InstallerPhotoGalleryBuilder $photoGalleryBuilder,
+        private readonly CustomerConsentPresenter $customerConsentPresenter,
     ) {}
 
     /**
@@ -36,7 +38,8 @@ final class GenerateIntakeReportHtml
         $intake->loadMissing(['answers', 'uploads', 'externalFacts', 'followUpRounds.items.uploads']);
 
         $sections = $this->buildReportSections($intake, $version);
-        $externalData = $this->externalFactPresenter->present($intake);
+        // PDF needs inline data_uri; web workspace/show use intakes.aerial.show.
+        $externalData = $this->externalFactPresenter->present($intake, includeAerialDataUri: true);
         $followUpRounds = $intake->followUpRounds
             ->filter(static fn ($round): bool => $round->completed_at !== null)
             ->values();
@@ -61,6 +64,7 @@ final class GenerateIntakeReportHtml
             'photoGroups' => $this->photoGalleryBuilder->handle($intake),
             'followUpRounds' => $followUpRounds,
             'nextStep' => $nextStep,
+            'customerConsent' => $this->customerConsentPresenter->present($intake),
             'generatedAt' => now(),
         ])->render();
     }

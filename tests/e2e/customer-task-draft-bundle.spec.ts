@@ -60,8 +60,7 @@ test.describe('Customer task draft bundle (BL-145)', () => {
     test.setTimeout(180_000);
     await openInstallerWorkspaceViaDemo(page);
 
-    // Prepare height + fusebox drafts via direct prepare URLs extracted from page links when present,
-    // otherwise seed through the prepare endpoint using the intake id in the URL.
+    // Prepare height + fusebox drafts via POST (prepare is no longer a GET side-effect).
     const match = page.url().match(/\/intakes\/(\d+)/);
     expect(match).not.toBeNull();
     const intakeId = match![1];
@@ -70,14 +69,30 @@ test.describe('Customer task draft bundle (BL-145)', () => {
     const fuseboxPrompt =
       'Maak een duidelijke foto van de meterkast; maak de groepenkast volledig leesbaar. De installateur beoordeelt de aansluiting.';
 
-    await page.goto(
-      `${baseURL}/intakes/${intakeId}/opname/customer-tasks/prepare?type=text&prompt=${encodeURIComponent(heightPrompt)}&decision_area_key=capacity`,
-    );
+    const csrf =
+      (await page.locator('meta[name="csrf-token"]').getAttribute('content')) ??
+      (await page.locator('input[name="_token"]').first().inputValue());
+
+    await page.request.post(`${baseURL}/intakes/${intakeId}/opname/customer-tasks/prepare`, {
+      form: {
+        _token: csrf!,
+        type: 'text',
+        prompt: heightPrompt,
+        decision_area_key: 'capacity',
+      },
+    });
+    await page.goto(`${baseURL}/intakes/${intakeId}/opname`);
     await page.waitForURL(new RegExp(`/intakes/${intakeId}/opname`));
 
-    await page.goto(
-      `${baseURL}/intakes/${intakeId}/opname/customer-tasks/prepare?type=photo&prompt=${encodeURIComponent('Maak een duidelijke foto van de meterkast. Daaruit volgt 1- of 3-fase.')}&decision_area_key=power`,
-    );
+    await page.request.post(`${baseURL}/intakes/${intakeId}/opname/customer-tasks/prepare`, {
+      form: {
+        _token: csrf!,
+        type: 'photo',
+        prompt: 'Maak een duidelijke foto van de meterkast. Daaruit volgt 1- of 3-fase.',
+        decision_area_key: 'power',
+      },
+    });
+    await page.goto(`${baseURL}/intakes/${intakeId}/opname`);
     await page.waitForURL(new RegExp(`/intakes/${intakeId}/opname`));
 
     const draftSection = page.locator('#demo-customer-task');

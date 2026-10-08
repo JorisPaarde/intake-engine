@@ -14,11 +14,15 @@ final class RegenerateIntakeAccessToken
 {
     public function __construct(
         private readonly IntakeAccessTokenGenerator $tokenGenerator,
+        private readonly RecordReplacedAccessToken $recordReplacedAccessToken,
     ) {}
 
     public function handle(Intake $intake, User $actor): Intake
     {
         return DB::transaction(function () use ($intake, $actor): Intake {
+            $previousToken = $intake->access_token;
+            $this->recordReplacedAccessToken->handle($intake, $previousToken);
+
             $intake->update([
                 'access_token' => $this->tokenGenerator->generate(),
                 'token_expires_at' => $intake->is_demo

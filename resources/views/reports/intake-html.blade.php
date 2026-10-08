@@ -48,6 +48,8 @@
         <dd>{{ $intake->customer_name }}</dd>
         <dt>E-mail</dt>
         <dd>{{ $intake->customer_email }}</dd>
+        <dt>Toestemming</dt>
+        <dd>{{ ($customerConsent ?? null)['label'] ?? 'Toestemming klant: niet gegeven' }}</dd>
         <dt>Telefoon</dt>
         <dd>{{ $intake->customer_phone ?: '—' }}</dd>
         <dt>Adres</dt>

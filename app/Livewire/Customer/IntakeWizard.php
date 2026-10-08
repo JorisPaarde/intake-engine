@@ -38,6 +38,7 @@ use App\Domains\Intake\Services\ProgressCalculator;
 use App\Domains\Intake\Services\ResolveIntakeByAccessToken;
 use App\Domains\Intake\Services\VisibilityResolver;
 use App\Domains\Intake\Support\KnownSummaryCatalog;
+use App\Domains\Intake\Support\MustAcceptQuestions;
 use App\Domains\Intake\Support\OutdoorPhotoReuse;
 use App\Domains\Intake\Support\PhotoContentSatisfaction;
 use App\Domains\Intake\Support\PhotoOverridePolicy;
@@ -3276,7 +3277,15 @@ class IntakeWizard extends Component
         $reader = app(AnswerValueReader::class);
         $value = is_array($this->form[$key] ?? null) ? $this->form[$key] : null;
 
-        return $reader->isFilled($value, $question->type);
+        if (! $reader->isFilled($value, $question->type)) {
+            return false;
+        }
+
+        if (MustAcceptQuestions::requiresAcceptance($question)) {
+            return MustAcceptQuestions::isAccepted($value);
+        }
+
+        return true;
     }
 
     private function photoStepContentSatisfied(string $questionKey, ?string $sectionInstanceKey): bool

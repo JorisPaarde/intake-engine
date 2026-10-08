@@ -73,9 +73,13 @@
                     <span class="inline-flex rounded bg-white px-2.5 py-0.5 text-xs font-medium text-gray-800">
                         {{ $intake->status->label() }}
                     </span>
-                    <span class="text-gray-500">Klanttaak: {{ $intake->progress_percent }}% beantwoord</span>
+                    <span class="text-gray-500">Klanttaak: {{ ($customerTaskStatus ?? null)['label'] ?? 'Nog niet gestart' }}</span>
                     <span class="text-gray-500">{{ $intake->workflow_mode->label() }}</span>
                 </div>
+
+                <p class="text-sm text-gray-600" data-testid="customer-consent-status">
+                    {{ ($customerConsent ?? null)['label'] ?? 'Toestemming klant: niet gegeven' }}
+                </p>
 
                 <a
                     href="{{ $workspaceUrl }}{{ $primaryAction['href'] }}"
@@ -248,9 +252,10 @@
                         <figure class="space-y-2 border-t border-gray-200 p-4">
                             <div class="relative aspect-[3/2] max-w-3xl overflow-hidden rounded-md border border-gray-200 bg-gray-100">
                                 <img
-                                    src="{{ $externalData['aerial_image']['data_uri'] }}"
+                                    src="{{ route('intakes.aerial.show', $intake) }}"
                                     alt="Luchtfoto rond de BAG-locatie van deze opname"
                                     class="h-full w-full object-cover"
+                                    loading="lazy"
                                 >
                                 <span class="pointer-events-none absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-red-600 shadow" aria-hidden="true"></span>
                             </div>
@@ -388,11 +393,17 @@
                 </div>
             @endif
 
-            @if ($intake->customer_access_enabled)
-            <details class="rounded-2xl border border-gray-200 bg-white shadow-sm" x-data="{ copied: false }">
+            @if (($customerTaskStatus['link_active'] ?? false) || $intake->customer_access_enabled)
+            <details class="rounded-2xl border border-gray-200 bg-white shadow-sm" x-data="{ copied: false }" data-testid="customer-link-block">
                 <summary class="cursor-pointer list-none px-6 py-4 text-base font-semibold text-gray-900 [&::-webkit-details-marker]:hidden">
                     Klantlink
-                    <span class="mt-1 block text-xs font-normal text-gray-500">Kopieer of beheer de link · tik om te openen</span>
+                    <span class="mt-1 block text-xs font-normal text-gray-500">
+                        @if ($customerTaskStatus['link_active'] ?? false)
+                            Actieve klantlink · kopieer of beheer · tik om te openen
+                        @else
+                            Kopieer of beheer de link · tik om te openen
+                        @endif
+                    </span>
                 </summary>
                 <div class="space-y-4 border-t border-gray-100 px-6 pb-6 pt-4">
                     <p class="text-sm text-gray-600">
@@ -451,9 +462,14 @@
                 </div>
             </details>
             @else
-                <div class="rounded-lg border border-indigo-100 bg-indigo-50 p-6">
+                <div class="rounded-lg border border-indigo-100 bg-indigo-50 p-6" data-testid="customer-link-inactive">
                     <h3 class="text-base font-semibold text-indigo-950">Geen klantlink actief</h3>
-                    <p class="mt-1 text-sm text-indigo-900">Deze opname wordt door de installateur uitgevoerd. Vanuit de opname kun je later één of meer concrete klantopdrachten sturen; pas dan wordt de beveiligde link geactiveerd.</p>
+                    <p class="mt-1 text-sm text-indigo-900">
+                        @if (($customerTaskStatus['label'] ?? '') !== '' && ($customerTaskStatus['label'] ?? '') !== 'Nog niet gestart')
+                            {{ $customerTaskStatus['label'] }}.
+                        @endif
+                        Deze opname wordt door de installateur uitgevoerd. Vanuit de opname kun je later één of meer concrete klantopdrachten sturen; pas dan wordt de beveiligde link geactiveerd.
+                    </p>
                     <a href="{{ $workspaceUrl }}{{ $primaryAction['href'] }}" class="mt-4 inline-flex min-h-10 items-center rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-500">{{ $primaryAction['label'] }}</a>
                 </div>
             @endif

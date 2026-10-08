@@ -11,6 +11,7 @@ use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeSection;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Domains\Intake\Support\MustAcceptQuestions;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Domains\Intake\Support\TechnicalProposalCopy;
 use App\Enums\QuestionType;
@@ -37,12 +38,28 @@ final class CompletenessChecker
         $progress = $this->progressCalculator->calculate($intake, $version);
         $missing = [];
 
+        $intake->loadMissing('answers');
+
         foreach ($progress['missing_required'] as $item) {
             $question = $this->findQuestion($version, $item['question_key']);
             $section = $this->findSectionForQuestion($version, $item['question_key']);
             $reason = $question !== null && $question->type === QuestionType::Photo
                 ? 'required_photo'
                 : 'required_answer';
+
+            if ($question !== null && MustAcceptQuestions::requiresAcceptance($question)) {
+                $answer = $intake->answers->first(
+                    static fn (IntakeAnswer $row): bool => $row->question_key === $item['question_key']
+                        && $row->section_instance_key === $item['section_instance_key'],
+                );
+                $value = $answer instanceof IntakeAnswer && is_array($answer->value)
+                    ? $answer->value
+                    : null;
+                if ($this->answerValueReader->isFilled($value, QuestionType::Boolean)
+                    && ! MustAcceptQuestions::isAccepted($value)) {
+                    $reason = 'must_accept';
+                }
+            }
 
             $missing[] = [
                 'question_key' => $item['question_key'],

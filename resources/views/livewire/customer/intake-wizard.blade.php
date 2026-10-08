@@ -238,6 +238,8 @@
                                     @endif
                                     @if (($item['reason'] ?? '') === 'required_photo')
                                         <span class="font-normal text-[#5e6862]"> — foto verplicht</span>
+                                    @elseif (($item['reason'] ?? '') === 'must_accept')
+                                        <span class="font-normal text-[#5e6862]"> — toestemming vereist</span>
                                     @endif
                                 </button>
                             </li>
@@ -380,16 +382,32 @@
                                 @break
 
                             @case('boolean')
-                                <div class="grid grid-cols-2 gap-2">
-                                    <label class="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#dde2da] px-3 py-2 has-[:checked]:border-[var(--tenant-primary)] has-[:checked]:bg-[#eef1ec]">
-                                        <input type="radio" wire:model.live="form.{{ $composite }}.bool" value="1" class="border-[#dde2da] text-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]">
-                                        <span class="text-sm font-semibold">Ja</span>
+                                @if (\App\Domains\Intake\Support\MustAcceptQuestions::requiresAcceptance($question))
+                                    <label class="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border border-[#dde2da] px-4 py-3 has-[:checked]:border-[var(--tenant-primary)] has-[:checked]:bg-[#eef1ec]" data-testid="must-accept-checkbox">
+                                        <input
+                                            type="checkbox"
+                                            wire:model.live="form.{{ $composite }}.bool"
+                                            class="rounded border-[#dde2da] text-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
+                                        >
+                                        <span class="text-sm font-semibold">{{ \App\Domains\Intake\Support\MustAcceptQuestions::checkboxLabel($question) }}</span>
                                     </label>
-                                    <label class="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#dde2da] px-3 py-2 has-[:checked]:border-[var(--tenant-primary)] has-[:checked]:bg-[#eef1ec]">
-                                        <input type="radio" wire:model.live="form.{{ $composite }}.bool" value="0" class="border-[#dde2da] text-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]">
-                                        <span class="text-sm font-semibold">Nee</span>
-                                    </label>
-                                </div>
+                                    @if ($showMissing)
+                                        <p class="mt-2 text-sm text-[#a84832]" data-testid="must-accept-refusal">
+                                            {{ \App\Domains\Intake\Support\MustAcceptQuestions::refusalMessage() }}
+                                        </p>
+                                    @endif
+                                @else
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <label class="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#dde2da] px-3 py-2 has-[:checked]:border-[var(--tenant-primary)] has-[:checked]:bg-[#eef1ec]">
+                                            <input type="radio" wire:model.live="form.{{ $composite }}.bool" value="1" class="border-[#dde2da] text-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]">
+                                            <span class="text-sm font-semibold">Ja</span>
+                                        </label>
+                                        <label class="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#dde2da] px-3 py-2 has-[:checked]:border-[var(--tenant-primary)] has-[:checked]:bg-[#eef1ec]">
+                                            <input type="radio" wire:model.live="form.{{ $composite }}.bool" value="0" class="border-[#dde2da] text-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]">
+                                            <span class="text-sm font-semibold">Nee</span>
+                                        </label>
+                                    </div>
+                                @endif
                                 @break
 
                             @case('photo')

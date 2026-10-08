@@ -4,6 +4,10 @@
             'title' => 'Deze link is al gebruikt',
             'body' => 'Je hebt deze opname al afgerond. Je installateur bekijkt de gegevens. Je hoeft niets meer te doen.',
         ],
+        'replaced' => [
+            'title' => 'Deze link werkt niet meer',
+            'body' => 'Je installateur heeft je een nieuwere link gestuurd. Gebruik de link uit het laatste bericht.',
+        ],
         'revoked', 'disabled' => [
             'title' => 'Deze link werkt niet meer',
             'body' => 'De installateur heeft deze link uitgeschakeld. Vraag om een nieuwe link als er nog iets openstaat.',

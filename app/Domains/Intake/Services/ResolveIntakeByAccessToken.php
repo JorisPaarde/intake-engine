@@ -6,6 +6,7 @@ namespace App\Domains\Intake\Services;
 
 use App\Domains\Intake\Exceptions\CustomerLinkUnavailableException;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeReplacedAccessToken;
 use App\Enums\IntakeStatus;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -18,6 +19,18 @@ final class ResolveIntakeByAccessToken
             ->first();
 
         if ($intake === null) {
+            $replaced = IntakeReplacedAccessToken::query()
+                ->where('token_hash', IntakeReplacedAccessToken::hashToken($token))
+                ->first();
+
+            if ($replaced instanceof IntakeReplacedAccessToken) {
+                throw new CustomerLinkUnavailableException(
+                    reason: 'replaced',
+                    intake: Intake::query()->find($replaced->intake_id),
+                    message: 'Deze link werkt niet meer.',
+                );
+            }
+
             throw new NotFoundHttpException('Deze intake-link is ongeldig of verlopen.');
         }
 

@@ -6,14 +6,19 @@ namespace App\Http\Controllers\Installer;
 
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Services\PublicDemoSession;
+use App\Domains\Intake\Support\CustomerTaskStatusPresenter;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function __invoke(Request $request, PublicDemoSession $publicDemoSession): View
-    {
+    public function __invoke(
+        Request $request,
+        PublicDemoSession $publicDemoSession,
+        CustomerTaskStatusPresenter $customerTaskStatus,
+    ): View {
         $this->authorize('viewAny', Intake::class);
 
         $user = $request->user();
@@ -22,7 +27,7 @@ class DashboardController extends Controller
 
         $query = Intake::query()
             ->where('company_id', $user?->company_id)
-            ->with(['templateVersion.template']);
+            ->with(['templateVersion.template', 'followUpRounds.items', 'answers']);
 
         if ($showingDemoIntakes && $user !== null) {
             $query
@@ -38,11 +43,17 @@ class DashboardController extends Controller
             ->latest()
             ->paginate(20);
 
+        /** @var Collection<int, array{label: string, short_label: string, link_active: bool, percent: int|null}> $taskStatuses */
+        $taskStatuses = $intakes->getCollection()->mapWithKeys(
+            static fn (Intake $intake): array => [$intake->id => $customerTaskStatus->present($intake)],
+        );
+
         return view('installer.dashboard', [
             'intakes' => $intakes,
+            'customerTaskStatuses' => $taskStatuses,
             'showingDemoIntakes' => $showingDemoIntakes,
             'isPublicDemo' => $isPublicDemo,
-            'publicDemoHasIntake' => $publicDemoSession->intakeId($request) !== null,
+            'publicDemoHasIntake' => $publicDemoSession->hasAnyIntake($request),
         ]);
     }
 

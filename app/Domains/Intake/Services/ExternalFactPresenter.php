@@ -17,10 +17,10 @@ final class ExternalFactPresenter
      * @return array{
      *     facts: list<array{label: string, display: string, source: string, source_url: string|null, confidence: string}>,
      *     uncertainties: list<string>,
-     *     aerial_image: array{label: string, data_uri: string, source: string, source_url: string|null, confidence: string, ground_width_meters: int|null, ground_height_meters: int|null}|null
+     *     aerial_image: array{label: string, data_uri: string|null, source: string, source_url: string|null, confidence: string, ground_width_meters: int|null, ground_height_meters: int|null}|null
      * }
      */
-    public function present(Intake $intake): array
+    public function present(Intake $intake, bool $includeAerialDataUri = false): array
     {
         $intake->loadMissing(['externalFacts', 'answers']);
         $facts = [];
@@ -80,7 +80,7 @@ final class ExternalFactPresenter
         }
 
         if ($selectedAerialFact instanceof IntakeExternalFact) {
-            $aerialImage = $this->aerialImage($selectedAerialFact);
+            $aerialImage = $this->aerialImage($selectedAerialFact, $includeAerialDataUri);
 
             if ($aerialImage === null) {
                 $uncertainties[] = 'De opgeslagen luchtfoto kon niet worden geladen; gebruik de klantfoto’s en controleer de omgeving.';
@@ -111,9 +111,9 @@ final class ExternalFactPresenter
     }
 
     /**
-     * @return array{label: string, data_uri: string, source: string, source_url: string|null, confidence: string, ground_width_meters: int|null, ground_height_meters: int|null}|null
+     * @return array{label: string, data_uri: string|null, source: string, source_url: string|null, confidence: string, ground_width_meters: int|null, ground_height_meters: int|null}|null
      */
-    private function aerialImage(IntakeExternalFact $fact): ?array
+    private function aerialImage(IntakeExternalFact $fact, bool $includeDataUri = false): ?array
     {
         $disk = $fact->value['media_disk'] ?? null;
         $path = $fact->value['media_path'] ?? null;
@@ -129,15 +129,24 @@ final class ExternalFactPresenter
             if (! Storage::disk($disk)->exists($path)) {
                 return null;
             }
-
-            $binary = Storage::disk($disk)->get($path);
         } catch (Throwable) {
             return null;
         }
 
+        $dataUri = null;
+        if ($includeDataUri) {
+            // PDF/rapport needs an inline image; web views use intakes.aerial.show instead.
+            try {
+                $binary = Storage::disk($disk)->get($path);
+                $dataUri = 'data:image/jpeg;base64,'.base64_encode($binary);
+            } catch (Throwable) {
+                return null;
+            }
+        }
+
         return [
             'label' => $fact->label,
-            'data_uri' => 'data:image/jpeg;base64,'.base64_encode($binary),
+            'data_uri' => $dataUri,
             'source' => $this->presentSource($fact->source),
             'source_url' => $fact->source_url,
             'confidence' => $fact->confidence === 'high' ? 'hoge zekerheid' : 'te controleren',
