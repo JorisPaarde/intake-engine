@@ -1,0 +1,36 @@
+{
+  "id": "var-reversed",
+  "kind": "request_text",
+  "origin": "variant Stroom 2: omgekeerde volgorde",
+  "source_kind": "variant",
+  "text": "Beneden de woonkamer van 6 bij 4 meter en op de eerste verdieping de werkkamer van 3 bij 3 meter. Alleen koelen.",
+  "expected": {
+    "cooling_heating": "cooling",
+    "indoor_unit_count": 2,
+    "rooms": [
+      {
+        "name": "Woonkamer",
+        "room_type": "living_room",
+        "floor_level": "ground",
+        "length_m": 6,
+        "width_m": 4
+      },
+      {
+        "name": "Werkkamer",
+        "room_type": "office",
+        "floor_level": "1",
+        "length_m": 3,
+        "width_m": 3
+      }
+    ]
+  },
+  "components": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C8"
+  ],
+  "note": null,
+  "disputed_facts": {}
+}

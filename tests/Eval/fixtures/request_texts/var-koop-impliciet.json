@@ -1,0 +1,30 @@
+{
+  "id": "var-koop-impliciet",
+  "kind": "request_text",
+  "origin": "variant: geen eigendom genoemd",
+  "source_kind": "variant",
+  "text": "Ik wil mijn werkkamer koelen, 3 bij 3 meter.",
+  "expected": {
+    "cooling_heating": "cooling",
+    "indoor_unit_count": 1,
+    "ownership": null,
+    "rooms": [
+      {
+        "name": "Werkkamer",
+        "room_type": "office",
+        "floor_level": null,
+        "length_m": 3,
+        "width_m": 3
+      }
+    ]
+  },
+  "components": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C8"
+  ],
+  "note": null,
+  "disputed_facts": {}
+}

@@ -1,0 +1,21 @@
+{
+  "id": "obs-084-livingroom",
+  "kind": "photo_observation",
+  "origin": "staging 84 room_photos room-1",
+  "source_kind": "verbatim_trace",
+  "slot": "room_photos",
+  "room": "Woonkamer",
+  "text": "De foto toont een ruime woonkamer met een zithoek, eethoek en trap. Een stopcontact is zichtbaar op de wand bij de kast.",
+  "model_fields": {},
+  "expected": {
+    "room_type": "living_room",
+    "outlet_present": true
+  },
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
+  "note": null,
+  "disputed_facts": {}
+}

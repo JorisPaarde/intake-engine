@@ -1,0 +1,20 @@
+{
+  "id": "ans-111-dims",
+  "kind": "customer_answer",
+  "origin": "prod demo intake 111 ronde 1: maten Slaapkamer 2",
+  "source_kind": "verbatim_notion",
+  "task_prompt": "Wat zijn de lengte en breedte van Slaapkamer 2?",
+  "room": "Slaapkamer 2",
+  "text": "3,5 bij 3 meter, schuin dak",
+  "expected": {
+    "length_m": 3.5,
+    "width_m": 3,
+    "sloped_roof": true,
+    "ceiling_height_m": null
+  },
+  "components": [
+    "C6"
+  ],
+  "note": null,
+  "disputed_facts": {}
+}

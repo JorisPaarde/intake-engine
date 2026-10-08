@@ -1,0 +1,22 @@
+{
+  "id": "obs-078-outdoor-in-fusebox-slot",
+  "kind": "photo_observation",
+  "origin": "staging 78 fusebox-assessment-v2",
+  "source_kind": "verbatim_trace",
+  "slot": "fusebox_photo",
+  "room": null,
+  "text": "De foto toont een buitenunit van een warmtepomp of airco, geen meterkast.",
+  "model_fields": {},
+  "expected": {
+    "subject_match": false,
+    "phase": null,
+    "free_group": null
+  },
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
+  "note": null,
+  "disputed_facts": {}
+}

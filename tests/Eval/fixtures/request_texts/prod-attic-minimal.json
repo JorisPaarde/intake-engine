@@ -1,0 +1,39 @@
+{
+  "id": "prod-attic-minimal",
+  "kind": "request_text",
+  "origin": "prod intakes 86/94/99 (minimale zolderaanvraag), Notion 3/4 okt",
+  "source_kind": "reconstructed",
+  "text": "Zolderslaapkamer wordt te warm, circa 15 m², schuin dak, tweede verdieping. Graag koelen. Maten, isolatie, stroom en afvoer weet ik niet. Koopwoning, buren dichtbij, geen merkvoorkeur en geen haast.",
+  "expected": {
+    "cooling_heating": "cooling",
+    "indoor_unit_count": 1,
+    "ownership": "owned",
+    "rooms": [
+      {
+        "name": "Zolderslaapkamer",
+        "room_type": "bedroom",
+        "floor_level": "2",
+        "area_m2": 15,
+        "length_m": null,
+        "width_m": null,
+        "ceiling_height_m": null
+      }
+    ]
+  },
+  "components": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C8"
+  ],
+  "note": "Tester rekende 'Zolder' i.p.v. '2' als verlies van verdiepingsnummer (94/99).",
+  "disputed_facts": {
+    "rooms.Zolderslaapkamer.floor_level": {
+      "reason": "Open vraag: tester rekende 'attic'/'Zolder' i.p.v. '2' als verlies.",
+      "acceptable_alternates": [
+        "attic"
+      ]
+    }
+  }
+}

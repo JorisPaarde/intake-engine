@@ -1,0 +1,21 @@
+{
+  "id": "obs-078-facade-front",
+  "kind": "photo_observation",
+  "origin": "staging 78 outdoor-assessment-v5",
+  "source_kind": "verbatim_trace",
+  "slot": "outdoor_location_photos",
+  "room": null,
+  "text": "De foto toont de voorgevel van een rijtjeswoning vanaf de straatkant.",
+  "model_fields": {},
+  "expected": {
+    "outdoor_location": "facade",
+    "existing_outdoor_unit_visible": false
+  },
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
+  "note": null,
+  "disputed_facts": {}
+}

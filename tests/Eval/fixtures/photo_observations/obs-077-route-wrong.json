@@ -1,0 +1,21 @@
+{
+  "id": "obs-077-route-wrong",
+  "kind": "photo_observation",
+  "origin": "staging 77 pipe-route-assessment-v3",
+  "source_kind": "verbatim_trace",
+  "slot": "pipe_route_photos",
+  "room": null,
+  "text": "De foto toont een reeds geïnstalleerde buitenunit aan een bakstenen gevel, maar niet de leidingroute naar de binnenunit.",
+  "model_fields": {},
+  "expected": {
+    "pipe_route_visible": false,
+    "existing_outdoor_unit_visible": true
+  },
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
+  "note": null,
+  "disputed_facts": {}
+}
