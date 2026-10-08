@@ -83,7 +83,10 @@ export function registerClientPhotoDownscale() {
         }
 
         const parsed = compositeFromInput(input);
-        if (! parsed) {
+        // Livewire path needs wire:model mapping; native installer forms only need
+        // downscale + file replacement (demotest 8 okt taak 3).
+        const isNativeForm = parsed === null && input.closest('form[data-client-downscale="1"]') !== null;
+        if (! parsed && ! isNativeForm) {
             return;
         }
 
@@ -91,9 +94,10 @@ export function registerClientPhotoDownscale() {
         event.preventDefault();
 
         const limits = limitsFromInput(input);
+        const composite = parsed?.composite || 'installer';
 
         document.dispatchEvent(new CustomEvent('intake:photo-prep-start', {
-            detail: { composite: parsed.composite, count: files.length },
+            detail: { composite, count: files.length },
         }));
 
         let prepared = [];
@@ -102,6 +106,16 @@ export function registerClientPhotoDownscale() {
         let failMessage = limits.message;
         try {
             for (const file of files) {
+                const type = String(file.type || '').toLowerCase();
+                const name = String(file.name || 'bestand');
+                if (! type.startsWith('image/')) {
+                    // Non-images are skipped with a clear notice (demotest 8 okt taak 4).
+                    document.dispatchEvent(new CustomEvent('intake:photo-prep-skipped', {
+                        detail: { composite, name, message: `${name} is geen foto en is niet meegenomen.` },
+                    }));
+                    continue;
+                }
+
                 // Hard byte ceiling before spending time on decode (no hanging upload).
                 if (exceedsHardByteLimit(file.size, limits.maxBytes)) {
                     prepFailed = true;
@@ -146,11 +160,13 @@ export function registerClientPhotoDownscale() {
         }
 
         if (prepFailed || prepared.length === 0) {
-            rejectTooLarge(input, parsed.composite, failMessage);
+            rejectTooLarge(input, composite, failMessage);
             return;
         }
 
-        setClientOriginals(input, parsed.originalsProperty, parsed.composite, originals);
+        if (parsed) {
+            setClientOriginals(input, parsed.originalsProperty, parsed.composite, originals);
+        }
 
         try {
             const transfer = new DataTransfer();
@@ -158,13 +174,13 @@ export function registerClientPhotoDownscale() {
             input.files = transfer.files;
         } catch {
             // DataTransfer/file assignment failed — fail closed (no hang / no full original).
-            rejectTooLarge(input, parsed.composite, failMessage);
+            rejectTooLarge(input, composite, failMessage);
             return;
         }
 
         input.dataset.intakeDownscaleDone = '1';
         document.dispatchEvent(new CustomEvent('intake:photo-prep-done', {
-            detail: { composite: parsed.composite, count: prepared.length },
+            detail: { composite, count: prepared.length },
         }));
         input.dispatchEvent(new Event('change', { bubbles: true }));
     }, true);

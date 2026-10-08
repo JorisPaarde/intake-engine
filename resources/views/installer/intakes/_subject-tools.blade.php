@@ -233,11 +233,28 @@
             <summary class="flex min-h-11 cursor-pointer list-none items-center px-3 py-2 text-sm font-semibold text-gray-800">
                 Foto maken
             </summary>
+            @php
+                $installerHardMaxBytes = (int) config('intake.uploads.hard_max_bytes', 15 * 1024 * 1024);
+                $installerHardMaxMp = (float) config('intake.uploads.hard_max_megapixels', 24);
+                $installerTooLarge = (string) (config('intake.uploads.too_large_message') ?: 'Deze foto is te groot. Probeer een andere foto of maak een nieuwe.');
+                $installerMaxFiles = max(1, (int) config('intake.uploads.max_files_per_question', 5));
+            @endphp
             <form
                 method="POST"
                 enctype="multipart/form-data"
                 action="{{ route('intakes.workspace.photos.store', [$intake, $subject]) }}"
                 class="space-y-3 border-t border-gray-200 p-3"
+                data-client-downscale="1"
+                data-upload-max-bytes="{{ $installerHardMaxBytes }}"
+                data-upload-max-megapixels="{{ $installerHardMaxMp }}"
+                data-upload-too-large="{{ $installerTooLarge }}"
+                x-data="{
+                    names: [],
+                    onPick(event) {
+                        const files = Array.from(event.target.files || []);
+                        this.names = files.map((file) => file.name);
+                    }
+                }"
             >
                 @csrf
                 <div>
@@ -245,18 +262,36 @@
                         for="{{ $fieldPrefix }}-photo"
                         class="flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white px-3 text-center"
                     >
-                        <span class="text-sm font-semibold text-gray-900">Camera openen of foto kiezen</span>
-                        <span class="mt-1 text-xs text-gray-500">JPEG, PNG, WebP of HEIC</span>
+                        <span class="text-sm font-semibold text-gray-900">Camera openen of foto's kiezen</span>
+                        <span class="mt-1 text-xs text-gray-500">
+                            JPEG, PNG, WebP of HEIC · max {{ number_format($installerHardMaxBytes / 1048576, 0) }} MB
+                            · tot {{ $installerMaxFiles }} foto's · worden automatisch verkleind
+                        </span>
                     </label>
                     <input
                         id="{{ $fieldPrefix }}-photo"
                         type="file"
-                        name="photo"
-                        accept="image/*,.heic,.heif"
+                        name="photo[]"
+                        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,image/*"
                         class="sr-only"
+                        multiple
                         required
+                        x-on:change="onPick($event)"
                     >
+                    <ul
+                        x-show="names.length > 0"
+                        x-cloak
+                        class="mt-2 space-y-1 text-xs text-gray-600"
+                        data-testid="installer-photo-preview"
+                    >
+                        <template x-for="name in names" :key="name">
+                            <li class="truncate" x-text="name"></li>
+                        </template>
+                    </ul>
                 </div>
+                @error('photo')
+                    <p class="text-sm font-medium text-red-700">{{ $message }}</p>
+                @enderror
                 @if ($connection)
                     <div>
                         <label for="{{ $fieldPrefix }}-segment-label" class="block text-xs font-semibold text-gray-700">
@@ -271,7 +306,7 @@
                     </div>
                 @endif
                 <button class="inline-flex min-h-10 items-center rounded-lg bg-marketing-green-dark px-3 py-2 text-xs font-semibold text-white hover:bg-marketing-green">
-                    Foto opslaan
+                    Foto's opslaan
                 </button>
             </form>
         </details>
