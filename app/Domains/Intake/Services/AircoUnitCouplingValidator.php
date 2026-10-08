@@ -23,6 +23,10 @@ use Illuminate\Support\Collection;
  */
 final class AircoUnitCouplingValidator
 {
+    public const SINGLE_SPLIT_TOO_MANY_REFRIGERANT_LINKS = 'Single-split mag maar één koelleiding hebben.';
+
+    public const OUTDOOR_ALREADY_ON_MULTI_SPLIT = 'Deze buitenunit hoort al bij een multi-split. Kies multi-split of een nieuwe buitenunit.';
+
     /**
      * @param  Collection<int, AircoPlacementOption>  $placements
      * @param  Collection<int, AircoConnection>  $connections
@@ -283,7 +287,7 @@ final class AircoUnitCouplingValidator
         }
 
         if (count($links) > 1) {
-            $problems[] = 'Single-split mag maar één koelleiding hebben.';
+            $problems[] = self::SINGLE_SPLIT_TOO_MANY_REFRIGERANT_LINKS;
         }
 
         if ($requireComplete && count($links) !== 1 && $indoorCount === 1 && $outdoorCount === 1) {

@@ -235,6 +235,8 @@ test('failed placement edit keeps old input scoped to that form only', function 
         ->assertOk()
         ->assertSee('Unit A foutpoging')
         ->assertSee('Kies bij welke ruimte deze binnenunit hoort.')
+        ->assertDontSee('data-testid="workspace-top-errors"', false)
+        ->assertDontSee('Dit onderdeel kon nog niet worden opgeslagen.')
         ->getContent();
 
     expect($html)
@@ -244,6 +246,26 @@ test('failed placement edit keeps old input scoped to that form only', function 
         ->and(preg_match('/id="placement-'.$unitA->id.'-label"[^>]*value="Unit A foutpoging"/', $html))->toBe(1)
         ->and(preg_match('/id="placement-'.$unitB->id.'-label"[^>]*value="Unit A foutpoging"/', $html))->toBe(0)
         ->and(preg_match('/id="placement-'.$unitB->id.'-label"[^>]*value="Unit B buiten"/', $html))->toBe(1);
+});
+
+test('non-placement form errors still appear in the top workspace alert', function () {
+    $this->withoutVite();
+    $user = User::factory()->create();
+    $intake = createIntakeForDutchValidation($user, 'top-errors@example.com');
+
+    $html = $this->actingAs($user)
+        ->from(route('intakes.workspace', $intake))
+        ->followingRedirects()
+        ->post(route('intakes.workspace.rooms.store', $intake), [
+            'name' => '',
+            'use_type' => 'living_room',
+        ])
+        ->assertOk()
+        ->assertSee('data-testid="workspace-top-errors"', false)
+        ->assertSee('Dit onderdeel kon nog niet worden opgeslagen.')
+        ->getContent();
+
+    expect($html)->toContain('workspace-top-errors');
 });
 
 test('unit coupling validation messages are Dutch', function () {

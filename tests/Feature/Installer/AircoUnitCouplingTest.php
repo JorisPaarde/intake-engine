@@ -6,6 +6,7 @@ use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Models\DossierDecisionArea;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Services\AircoSurveyService;
+use App\Domains\Intake\Services\AircoUnitCouplingValidator;
 use App\Domains\Intake\Services\DecisionReadinessService;
 use App\Enums\AircoConfigurationType;
 use App\Enums\AircoConnectionStatus;
@@ -303,6 +304,68 @@ test('same room can switch from multi-split to single-split with the same outdoo
         ->and($living->fresh()?->placements()->where('type', AircoPlacementType::IndoorUnit)->count())->toBe(1);
 });
 
+test('re-saving single-split on selected option stays allowed when outdoor also sits on a multi option', function () {
+    $this->withoutVite();
+    $user = User::factory()->create();
+    $intake = createIntakeForUnitCoupling($user, 'twee-opties@example.com');
+    $survey = app(AircoSurveyService::class);
+
+    $living = $survey->createRoom($intake, $user, ['name' => 'Woonkamer', 'use_type' => 'living_room']);
+    $bedroom = $survey->createRoom($intake, $user, ['name' => 'Slaapkamer', 'use_type' => 'bedroom']);
+    $indoorLiving = $survey->createPlacement($intake, $user, [
+        'airco_room_id' => $living->id,
+        'type' => AircoPlacementType::IndoorUnit,
+        'label' => 'Binnenunit woonkamer',
+    ]);
+    $indoorBedroom = $survey->createPlacement($intake, $user, [
+        'airco_room_id' => $bedroom->id,
+        'type' => AircoPlacementType::IndoorUnit,
+        'label' => 'Binnenunit slaapkamer',
+    ]);
+    $outdoor = $survey->createPlacement($intake, $user, [
+        'type' => AircoPlacementType::OutdoorUnit,
+        'label' => 'Buitenunit X',
+    ]);
+
+    $multi = $survey->createInstallationOption($intake, $user, [
+        'label' => 'Keuze · multi-split',
+        'configuration_type' => AircoConfigurationType::MultiSplit,
+        'placement_ids' => [$indoorLiving->id, $indoorBedroom->id, $outdoor->id],
+        'refrigerant_links' => [
+            ['from_placement_id' => $indoorLiving->id, 'to_placement_id' => $outdoor->id],
+            ['from_placement_id' => $indoorBedroom->id, 'to_placement_id' => $outdoor->id],
+        ],
+    ]);
+    $single = $survey->createInstallationOption($intake, $user, [
+        'label' => 'Keuze · single-split woonkamer',
+        'configuration_type' => AircoConfigurationType::SingleSplit,
+        'placement_ids' => [$indoorLiving->id, $outdoor->id],
+        'refrigerant_links' => [
+            ['from_placement_id' => $indoorLiving->id, 'to_placement_id' => $outdoor->id],
+        ],
+    ]);
+
+    $survey->markInstallationOptionFeasible($intake, $user, $single);
+    $survey->selectInstallationOption($intake, $user, $single);
+
+    $this->actingAs($user)
+        ->from(route('intakes.workspace', $intake))
+        ->post(route('intakes.workspace.rooms.unit-coupling', [$intake, $living]), [
+            'indoor_label' => 'Binnenunit woonkamer',
+            'outdoor_placement_id' => $outdoor->id,
+            'configuration_type' => AircoConfigurationType::SingleSplit->value,
+            'installation_option_id' => $single->id,
+        ])
+        ->assertRedirect(route('intakes.workspace', $intake))
+        ->assertSessionHasNoErrors()
+        ->assertSessionHas('status', 'Binnen- en buitenunit gekoppeld.');
+
+    expect($single->fresh()?->configuration_type)->toBe(AircoConfigurationType::SingleSplit)
+        ->and($single->fresh()?->connections()->where('type', AircoConnectionType::Refrigerant)->count())->toBe(1)
+        ->and($multi->fresh()?->configuration_type)->toBe(AircoConfigurationType::MultiSplit)
+        ->and($multi->fresh()?->connections()->where('type', AircoConnectionType::Refrigerant)->count())->toBe(2);
+});
+
 test('single-split on outdoor already used by multi-split is rejected without partial saves', function () {
     $this->withoutVite();
     $user = User::factory()->create();
@@ -337,7 +400,7 @@ test('single-split on outdoor already used by multi-split is rejected without pa
         ->assertSessionHasErrors('outdoor_placement_id');
 
     $error = (string) session('errors')->first('outdoor_placement_id');
-    expect($error)->toBe('Deze buitenunit hoort al bij een multi-split. Kies multi-split of een nieuwe buitenunit.')
+    expect($error)->toBe(AircoUnitCouplingValidator::OUTDOOR_ALREADY_ON_MULTI_SPLIT)
         ->and($error)->not->toContain('The ')
         ->and($intake->fresh()?->aircoPlacements()->count())->toBe($placementCountBefore)
         ->and($option->fresh()?->connections()->count())->toBe($connectionCountBefore)
@@ -382,7 +445,8 @@ test('rejected second single-split on shared outdoor rolls back transactionally'
         ->and($option->fresh()?->connections()->count())->toBe($connectionCountBefore)
         ->and($option->fresh()?->configuration_type)->toBe($optionTypeBefore)
         ->and($office->fresh()?->placements()->where('type', AircoPlacementType::IndoorUnit)->count())->toBe($officeIndoorBefore)
-        ->and((string) session('errors')->first('outdoor_placement_id'))->toContain('Single-split');
+        ->and((string) session('errors')->first('outdoor_placement_id'))
+        ->toBe(AircoUnitCouplingValidator::OUTDOOR_ALREADY_ON_MULTI_SPLIT);
 });
 
 test('cross links for multi-split to different outdoors are rejected', function () {

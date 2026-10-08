@@ -165,11 +165,16 @@
                 </div>
             @endif
 
-            @if ($errors->any())
-                <div class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900" role="alert">
+            @php
+                $errorFormKey = old('form_key');
+                $suppressTopPlacementErrors = is_string($errorFormKey) && str_starts_with($errorFormKey, 'placement-');
+                $topErrors = $suppressTopPlacementErrors ? [] : $errors->all();
+            @endphp
+            @if ($topErrors !== [])
+                <div class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900" role="alert" data-testid="workspace-top-errors">
                     <p class="font-semibold">Dit onderdeel kon nog niet worden opgeslagen.</p>
                     <ul class="mt-2 list-disc space-y-1 pl-5">
-                        @foreach ($errors->all() as $error)
+                        @foreach ($topErrors as $error)
                             <li>{{ $error }}</li>
                         @endforeach
                     </ul>
@@ -756,6 +761,8 @@
                                             $placementFormKey = 'placement-'.$placement->id;
                                             $placementFormActive = old('form_key') === $placementFormKey;
                                             $placementFormType = $placementFormActive ? old('type', $placement->type->value) : $placement->type->value;
+                                            $placementFormType = \App\Enums\AircoPlacementType::tryFrom((string) $placementFormType)?->value
+                                                ?? $placement->type->value;
                                             $placementFormRoomId = $placementFormActive ? old('airco_room_id', $placement->airco_room_id) : $placement->airco_room_id;
                                             $placementFormLabel = $placementFormActive ? old('label', $placement->label) : $placement->label;
                                             $placementFormDescription = $placementFormActive ? old('description', $placement->description) : $placement->description;
@@ -768,7 +775,7 @@
                                                 method="POST"
                                                 action="{{ route('intakes.workspace.placements.update', [$intake, $placement]) }}"
                                                 class="grid gap-3 border-t border-gray-200 p-3"
-                                                x-data="{ type: '{{ $placementFormType }}' }"
+                                                x-data="{ type: @js($placementFormType) }"
                                             >
                                                 @csrf
                                                 <input type="hidden" name="form_key" value="{{ $placementFormKey }}">
@@ -847,6 +854,8 @@
                             $newPlacementFormType = $newPlacementFormActive
                                 ? old('type', \App\Enums\AircoPlacementType::IndoorUnit->value)
                                 : \App\Enums\AircoPlacementType::IndoorUnit->value;
+                            $newPlacementFormType = \App\Enums\AircoPlacementType::tryFrom((string) $newPlacementFormType)?->value
+                                ?? \App\Enums\AircoPlacementType::IndoorUnit->value;
                         @endphp
                         <details class="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-4" @if ($newPlacementFormActive) open @endif data-form-key="{{ $newPlacementFormKey }}">
                             <summary class="cursor-pointer text-sm font-semibold text-gray-900">Binnen- of buitenunit toevoegen</summary>
@@ -854,7 +863,7 @@
                                 method="POST"
                                 action="{{ route('intakes.workspace.placements.store', $intake) }}"
                                 class="mt-4 grid gap-4 sm:grid-cols-2"
-                                x-data="{ type: '{{ $newPlacementFormType }}' }"
+                                x-data="{ type: @js($newPlacementFormType) }"
                             >
                                 @csrf
                                 <input type="hidden" name="form_key" value="{{ $newPlacementFormKey }}">
