@@ -813,6 +813,8 @@ final class AircoSurveyService
             $this->ensurePlacementOnOption($option, $indoor);
             $this->ensurePlacementOnOption($option, $outdoor);
 
+            $previousConfiguration = $option->configuration_type;
+
             if ($option->configuration_type !== $configuration) {
                 $option->update(['configuration_type' => $configuration]);
             }
@@ -823,7 +825,12 @@ final class AircoSurveyService
             $option->load(['placements', 'connections.fromPlacement', 'connections.toPlacement']);
             $problems = $this->couplingValidator->optionProblems($option, requireComplete: false);
             if ($problems !== []) {
-                $message = $this->singleSplitConflictsWithOtherRoomLinks($option, $room, $configuration)
+                $message = $this->singleSplitConflictsWithOtherRoomLinks(
+                    $previousConfiguration,
+                    $option,
+                    $room,
+                    $outdoor,
+                )
                     ? AircoUnitCouplingValidator::OUTDOOR_ALREADY_ON_MULTI_SPLIT
                     : $problems[0];
 
@@ -845,43 +852,49 @@ final class AircoSurveyService
     }
 
     /**
-     * True when this option (only) has more than one refrigerant link and at least one
-     * indoor outside the room — the UX cue for "outdoor already on a multi-split".
+     * True when the option was already MultiSplit and another room's indoor already
+     * shares a refrigerant link to this same outdoor — the UX cue for
+     * "outdoor already on a multi-split".
      */
     private function singleSplitConflictsWithOtherRoomLinks(
+        AircoConfigurationType $previousConfiguration,
         AircoInstallationOption $option,
         AircoRoom $room,
-        AircoConfigurationType $configuration,
+        AircoPlacementOption $outdoor,
     ): bool {
-        if ($configuration !== AircoConfigurationType::SingleSplit) {
+        if ($previousConfiguration !== AircoConfigurationType::MultiSplit) {
             return false;
         }
-
-        $refrigerantCount = 0;
-        $linksOtherRoom = false;
 
         foreach ($option->connections as $connection) {
             if ($connection->type !== AircoConnectionType::Refrigerant) {
                 continue;
             }
 
-            $refrigerantCount++;
-
             $from = $connection->fromPlacement;
             $to = $connection->toPlacement;
+
             $indoor = null;
+            $linkedOutdoor = null;
             if ($from instanceof AircoPlacementOption && $from->type === AircoPlacementType::IndoorUnit) {
                 $indoor = $from;
+                $linkedOutdoor = $to;
             } elseif ($to instanceof AircoPlacementOption && $to->type === AircoPlacementType::IndoorUnit) {
                 $indoor = $to;
+                $linkedOutdoor = $from;
             }
 
-            if ($indoor instanceof AircoPlacementOption && (int) $indoor->airco_room_id !== (int) $room->id) {
-                $linksOtherRoom = true;
+            if (
+                $indoor instanceof AircoPlacementOption
+                && (int) $indoor->airco_room_id !== (int) $room->id
+                && $linkedOutdoor instanceof AircoPlacementOption
+                && (int) $linkedOutdoor->id === (int) $outdoor->id
+            ) {
+                return true;
             }
         }
 
-        return $refrigerantCount > 1 && $linksOtherRoom;
+        return false;
     }
 
     /**

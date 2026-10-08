@@ -25,7 +25,7 @@ final class AircoUnitCouplingValidator
 {
     public const SINGLE_SPLIT_TOO_MANY_REFRIGERANT_LINKS = 'Single-split mag maar één koelleiding hebben.';
 
-    public const OUTDOOR_ALREADY_ON_MULTI_SPLIT = 'Deze buitenunit hoort al bij een multi-split. Kies multi-split of een nieuwe buitenunit.';
+    public const OUTDOOR_ALREADY_ON_MULTI_SPLIT = 'Deze buitenunit hoort al bij een multi-split. Kies multi-split of meerdere single-splits.';
 
     /**
      * @param  Collection<int, AircoPlacementOption>  $placements

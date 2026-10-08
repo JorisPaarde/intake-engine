@@ -167,7 +167,10 @@
 
             @php
                 $errorFormKey = old('form_key');
-                $suppressTopPlacementErrors = is_string($errorFormKey) && str_starts_with($errorFormKey, 'placement-');
+                $suppressTopPlacementErrors = is_string($errorFormKey) && (
+                    str_starts_with($errorFormKey, 'placement-')
+                    || str_starts_with($errorFormKey, 'coupling-')
+                );
                 $topErrors = $suppressTopPlacementErrors ? [] : $errors->all();
             @endphp
             @if ($topErrors !== [])
@@ -587,8 +590,23 @@
                                             </dl>
                                         @endif
 
-                                        <form method="POST" action="{{ route('intakes.workspace.rooms.unit-coupling', [$intake, $room]) }}" class="mt-3 grid gap-3 sm:grid-cols-2">
+                                        @php
+                                            $couplingFormKey = 'coupling-'.$room->id;
+                                            $couplingFormActive = old('form_key') === $couplingFormKey;
+                                            $couplingIndoorLabel = $couplingFormActive
+                                                ? old('indoor_label', $roomIndoor?->label ?? ('Binnenunit '.$room->name))
+                                                : ($roomIndoor?->label ?? ('Binnenunit '.$room->name));
+                                            $couplingConfiguration = $couplingFormActive
+                                                ? old('configuration_type', $activeOption?->configuration_type?->value)
+                                                : $activeOption?->configuration_type?->value;
+                                            $couplingOutdoorId = $couplingFormActive
+                                                ? old('outdoor_placement_id', $linkedOutdoor?->id)
+                                                : $linkedOutdoor?->id;
+                                            $couplingOutdoorLabel = $couplingFormActive ? old('outdoor_label') : null;
+                                        @endphp
+                                        <form method="POST" action="{{ route('intakes.workspace.rooms.unit-coupling', [$intake, $room]) }}" class="mt-3 grid gap-3 sm:grid-cols-2" data-form-key="{{ $couplingFormKey }}">
                                             @csrf
+                                            <input type="hidden" name="form_key" value="{{ $couplingFormKey }}">
                                             @if ($activeOption)
                                                 <input type="hidden" name="installation_option_id" value="{{ $activeOption->id }}">
                                             @endif
@@ -598,30 +616,33 @@
                                                     id="room-{{ $room->id }}-indoor-label"
                                                     name="indoor_label"
                                                     class="mt-1 block w-full"
-                                                    value="{{ old('indoor_label', $roomIndoor?->label ?? ('Binnenunit '.$room->name)) }}"
+                                                    value="{{ $couplingIndoorLabel }}"
                                                     required
                                                 />
+                                                <x-input-error :messages="$couplingFormActive ? $errors->get('indoor_label') : []" class="mt-2" />
                                             </div>
                                             <div>
                                                 <x-input-label for="room-{{ $room->id }}-config" value="Configuratie" />
                                                 <select id="room-{{ $room->id }}-config" name="configuration_type" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300" required>
                                                     @foreach ($configurationTypes as $type)
-                                                        <option value="{{ $type->value }}" @selected(old('configuration_type', $activeOption?->configuration_type?->value) === $type->value)>
+                                                        <option value="{{ $type->value }}" @selected($couplingConfiguration === $type->value)>
                                                             {{ $type->label() }}
                                                         </option>
                                                     @endforeach
                                                 </select>
+                                                <x-input-error :messages="$couplingFormActive ? $errors->get('configuration_type') : []" class="mt-2" />
                                             </div>
                                             <div>
                                                 <x-input-label for="room-{{ $room->id }}-outdoor" value="Buitenunit" />
                                                 <select id="room-{{ $room->id }}-outdoor" name="outdoor_placement_id" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300">
                                                     <option value="">Nieuwe buitenunit…</option>
                                                     @foreach ($outdoorChoices as $outdoor)
-                                                        <option value="{{ $outdoor->id }}" @selected((int) old('outdoor_placement_id', $linkedOutdoor?->id) === $outdoor->id)>
+                                                        <option value="{{ $outdoor->id }}" @selected((int) $couplingOutdoorId === $outdoor->id)>
                                                             {{ $outdoor->label }}
                                                         </option>
                                                     @endforeach
                                                 </select>
+                                                <x-input-error :messages="$couplingFormActive ? $errors->get('outdoor_placement_id') : []" class="mt-2" />
                                             </div>
                                             <div>
                                                 <x-input-label for="room-{{ $room->id }}-outdoor-label" value="Nieuwe buitenunit (naam)" />
@@ -629,9 +650,10 @@
                                                     id="room-{{ $room->id }}-outdoor-label"
                                                     name="outdoor_label"
                                                     class="mt-1 block w-full"
-                                                    value="{{ old('outdoor_label') }}"
+                                                    value="{{ $couplingOutdoorLabel }}"
                                                     placeholder="Bijv. plat dak aanbouw"
                                                 />
+                                                <x-input-error :messages="$couplingFormActive ? $errors->get('outdoor_label') : []" class="mt-2" />
                                             </div>
                                             <div class="sm:col-span-2">
                                                 <x-primary-button>Koppeling opslaan</x-primary-button>
@@ -767,7 +789,7 @@
                                             $placementFormLabel = $placementFormActive ? old('label', $placement->label) : $placement->label;
                                             $placementFormDescription = $placementFormActive ? old('description', $placement->description) : $placement->description;
                                         @endphp
-                                        <details class="mt-4 rounded-xl border border-gray-200 bg-gray-50" @if ($placementFormActive) open @endif data-form-key="{{ $placementFormKey }}">
+                                        <details class="mt-4 rounded-xl border border-gray-200 bg-gray-50" @if ($placementFormActive) open x-init="$el.scrollIntoView({block:'center'})" @endif data-form-key="{{ $placementFormKey }}">
                                             <summary class="flex min-h-11 cursor-pointer list-none items-center px-3 py-2 text-sm font-semibold text-gray-800">
                                                 Bewerken
                                             </summary>

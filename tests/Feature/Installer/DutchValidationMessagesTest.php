@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Services\AircoSurveyService;
+use App\Enums\AircoConfigurationType;
 use App\Enums\AircoPlacementType;
 use App\Enums\ContributionMode;
 use App\Models\User;
@@ -241,11 +242,60 @@ test('failed placement edit keeps old input scoped to that form only', function 
 
     expect($html)
         ->toMatch('/<details[^>]*\bopen\b[^>]*data-form-key="placement-'.$unitA->id.'"|<details[^>]*data-form-key="placement-'.$unitA->id.'"[^>]*\bopen\b/')
+        ->toMatch('/x-init="\$el\.scrollIntoView\(\{block:\'center\'\}\)"/')
         ->not->toMatch('/<details[^>]*\bopen\b[^>]*data-form-key="placement-new"|<details[^>]*data-form-key="placement-new"[^>]*\bopen\b/')
         ->and(preg_match('/id="placement_label"[^>]*value="Unit A foutpoging"/', $html))->toBe(0)
         ->and(preg_match('/id="placement-'.$unitA->id.'-label"[^>]*value="Unit A foutpoging"/', $html))->toBe(1)
         ->and(preg_match('/id="placement-'.$unitB->id.'-label"[^>]*value="Unit A foutpoging"/', $html))->toBe(0)
         ->and(preg_match('/id="placement-'.$unitB->id.'-label"[^>]*value="Unit B buiten"/', $html))->toBe(1);
+
+    expect(preg_match(
+        '/<details[^>]*data-form-key="placement-'.$unitA->id.'"[^>]*x-init="\$el\.scrollIntoView\(\{block:\'center\'\}\)"|<details[^>]*x-init="\$el\.scrollIntoView\(\{block:\'center\'\}\)"[^>]*data-form-key="placement-'.$unitA->id.'"/',
+        $html,
+    ))->toBe(1);
+});
+
+test('rejected coupling for room A does not leak old input into room B form', function () {
+    $this->withoutVite();
+    $user = User::factory()->create();
+    $intake = createIntakeForDutchValidation($user, 'coupling-form-key@example.com');
+    $survey = app(AircoSurveyService::class);
+
+    $living = $survey->createRoom($intake, $user, ['name' => 'Woonkamer', 'use_type' => 'living_room']);
+    $office = $survey->createRoom($intake, $user, ['name' => 'Werkkamer', 'use_type' => 'office']);
+
+    $option = $survey->syncRoomUnitCoupling($intake, $user, $living, [
+        'indoor_label' => 'Binnenunit woonkamer',
+        'outdoor_label' => 'Buitenunit tuin',
+        'configuration_type' => AircoConfigurationType::SingleSplit,
+    ]);
+
+    $outdoor = $intake->fresh()?->aircoPlacements()->where('type', AircoPlacementType::OutdoorUnit)->firstOrFail();
+
+    $html = $this->actingAs($user)
+        ->from(route('intakes.workspace', $intake))
+        ->followingRedirects()
+        ->post(route('intakes.workspace.rooms.unit-coupling', [$intake, $office]), [
+            'form_key' => 'coupling-'.$office->id,
+            'indoor_label' => 'Lekkende naam voor werkkamer',
+            'outdoor_placement_id' => $outdoor->id,
+            'configuration_type' => AircoConfigurationType::SingleSplit->value,
+            'installation_option_id' => $option->id,
+            'outdoor_label' => 'Lekkende buitennaam',
+        ])
+        ->assertOk()
+        ->assertSee('Lekkende naam voor werkkamer')
+        ->assertDontSee('data-testid="workspace-top-errors"', false)
+        ->getContent();
+
+    expect(preg_match('/id="room-'.$office->id.'-indoor-label"[^>]*value="Lekkende naam voor werkkamer"/', $html))->toBe(1)
+        ->and(preg_match('/id="room-'.$living->id.'-indoor-label"[^>]*value="Lekkende naam voor werkkamer"/', $html))->toBe(0)
+        ->and(preg_match('/id="room-'.$living->id.'-indoor-label"[^>]*value="Binnenunit woonkamer"/', $html))->toBe(1)
+        ->and(preg_match('/id="room-'.$office->id.'-outdoor-label"[^>]*value="Lekkende buitennaam"/', $html))->toBe(1)
+        ->and(preg_match('/id="room-'.$living->id.'-outdoor-label"[^>]*value="Lekkende buitennaam"/', $html))->toBe(0)
+        ->and(preg_match('/id="room-'.$office->id.'-outdoor"[^>]*>[\s\S]*?<option[^>]*value="'.$outdoor->id.'"[^>]*selected/', $html))->toBe(1)
+        ->and(preg_match('/name="form_key" value="coupling-'.$office->id.'"/', $html))->toBe(1)
+        ->and(preg_match('/name="form_key" value="coupling-'.$living->id.'"/', $html))->toBe(1);
 });
 
 test('non-placement form errors still appear in the top workspace alert', function () {
