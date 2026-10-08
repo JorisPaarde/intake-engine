@@ -1022,7 +1022,8 @@ test('synthesis job retries once after context-change apply skip and then applie
         ->where('type', AiRunType::DossierSynthesis)
         ->where('status', AiRunStatus::Failed)
         ->count())->toBe(1)
-        ->and($job->tries)->toBe(2);
+        ->and($job->maxExceptions)->toBe(2)
+        ->and($job->retryUntil()->getTimestamp())->toBeGreaterThan(now()->addMinutes(4)->getTimestamp());
 
     // Second attempt uses the stable post-mutation context (same as queue retry).
     $job->handle($synthesize);

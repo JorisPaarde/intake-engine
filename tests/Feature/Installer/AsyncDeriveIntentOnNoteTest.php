@@ -66,7 +66,8 @@ test('notitie opslaan dispatcht DeriveIntentJob zonder synthese (default 1A)', f
 
     Queue::assertPushed(DeriveIntentFromRequestJob::class, function (DeriveIntentFromRequestJob $job) use ($intake): bool {
         return $job->intakeId === $intake->id
-            && $job->allowExternal === true;
+            && $job->allowExternal === true
+            && $job->skipIfCustomerStarted === false;
     });
     Queue::assertNotPushed(SynthesizeSurveyDossierJob::class);
 

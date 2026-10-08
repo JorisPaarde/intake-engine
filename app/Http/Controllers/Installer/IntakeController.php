@@ -128,10 +128,18 @@ class IntakeController extends Controller
         $enrichIntakeAddress->handle($intake, $request->validated('address_lookup_id'));
         $freshIntake = $intake->fresh() ?? $intake;
         if ((bool) config('ai.request_prefill.sync_on_create', false)) {
-            app(DeriveIntentFromRequest::class)->handle($freshIntake, allowExternal: true);
+            app(DeriveIntentFromRequest::class)->handle(
+                $freshIntake,
+                allowExternal: true,
+                skipIfCustomerStarted: true,
+            );
         } else {
             DeriveIntentFromRequestJob::markPending($freshIntake);
-            DeriveIntentFromRequestJob::dispatch($freshIntake->id, allowExternal: true);
+            DeriveIntentFromRequestJob::dispatch(
+                $freshIntake->id,
+                allowExternal: true,
+                skipIfCustomerStarted: true,
+            );
         }
 
         if ($isPublicDemo) {

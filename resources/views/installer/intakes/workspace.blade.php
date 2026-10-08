@@ -1562,11 +1562,9 @@
                                         Nog geen keuze. Eerst binnen- en buitenunit.
                                     </p>
                                 @elseif ($aiProcessing)
-                                    <p class="text-sm text-indigo-900">Het AI-voorstel wordt nog opgesteld.</p>
-                                @elseif ($promisesAutoUpdate)
                                     <p class="text-sm text-indigo-900">Het AI-voorstel wordt zo opgesteld.</p>
                                 @else
-                                    <p class="text-sm text-indigo-900">Nog geen AI-voorstel.</p>
+                                    <p class="text-sm text-indigo-900">Er is nog geen AI-voorstel.</p>
                                 @endif
                             </div>
                         </details>

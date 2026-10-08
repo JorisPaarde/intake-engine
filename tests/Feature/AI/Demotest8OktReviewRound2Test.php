@@ -532,7 +532,7 @@ test('late prefill na klantstart: geen fills en geen prune', function () {
     ]);
 
     Event::fake([MessageLogged::class]);
-    (new DeriveIntentFromRequestJob($intake->id, allowExternal: true))
+    (new DeriveIntentFromRequestJob($intake->id, allowExternal: true, skipIfCustomerStarted: true))
         ->handle(app(DeriveIntentFromRequest::class));
 
     Event::assertDispatched(MessageLogged::class, static function (MessageLogged $event) use ($intake): bool {
@@ -555,7 +555,7 @@ test('late prefill na klantstart: geen fills en geen prune', function () {
         ->and(config('ai.request_prefill.wizard_wait_seconds'))->toBe(20);
 });
 
-test('workspace-tekst volgt auto_after_notes A/B en toont zo-opgesteld bij opties zonder synthese', function () {
+test('workspace-tekst volgt auto_after_notes A/B; zonder pending run neutrale AI-tekst', function () {
     config(['ai.dossier.enabled' => true]);
 
     $user = User::factory()->create();
@@ -575,7 +575,8 @@ test('workspace-tekst volgt auto_after_notes A/B en toont zo-opgesteld bij optie
         ->assertOk()
         ->assertSee('automatisch bijgewerkt na een installatiekeuze', false)
         ->assertDontSee('en wanneer je notities of klantaanvullingen vastlegt', false)
-        ->assertSee('Het AI-voorstel wordt zo opgesteld.', false)
+        ->assertSee('Er is nog geen AI-voorstel.', false)
+        ->assertDontSee('Het AI-voorstel wordt zo opgesteld.', false)
         ->assertDontSee('Dat komt automatisch na een installatiekeuze', false);
 
     config(['ai.dossier_synthesis.auto_after_notes' => true]);
@@ -583,7 +584,7 @@ test('workspace-tekst volgt auto_after_notes A/B en toont zo-opgesteld bij optie
         ->get(route('intakes.workspace', $intake))
         ->assertOk()
         ->assertSee('na een installatiekeuze en wanneer je notities of klantaanvullingen vastlegt', false)
-        ->assertSee('Het AI-voorstel wordt zo opgesteld.', false);
+        ->assertSee('Er is nog geen AI-voorstel.', false);
 });
 
 test('placeholder AiRun wordt Failed bij intake_unavailable en via failed-hook', function () {

@@ -34,6 +34,26 @@ test('RoomFloorLevelExtractor koppelt verdieping alleen aan de genoemde ruimte',
         ['living_room', 'bedroom'],
         ['ground', '1'],
     ],
+    'telwoord voor slaapkamers lekt niet naar woonkamer' => [
+        'Op de begane grond de woonkamer en op de eerste verdieping drie slaapkamers',
+        ['living_room', 'bedroom'],
+        ['ground', '1'],
+    ],
+    'woonkamer beneden + eerste verdieping twee slaapkamers' => [
+        'De woonkamer beneden en op de eerste verdieping twee slaapkamers',
+        ['living_room', 'bedroom'],
+        ['ground', '1'],
+    ],
+    'cijfer-prefix 2 slaapkamers' => [
+        'Op de begane grond de woonkamer en op de eerste verdieping 2 slaapkamers',
+        ['living_room', 'bedroom'],
+        ['ground', '1'],
+    ],
+    'werkwoord in gap: zijn de slaapkamers' => [
+        'De woonkamer beneden, op de eerste verdieping zijn de slaapkamers',
+        ['living_room', 'bedroom'],
+        ['ground', '1'],
+    ],
     'slaapkamer boven, woonkamer beneden' => [
         'slaapkamer boven, woonkamer beneden',
         ['bedroom', 'living_room'],

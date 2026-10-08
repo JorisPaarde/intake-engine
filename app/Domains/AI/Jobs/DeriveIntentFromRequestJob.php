@@ -40,6 +40,7 @@ final class DeriveIntentFromRequestJob implements ShouldBeUniqueUntilProcessing,
     public function __construct(
         public readonly int $intakeId,
         public readonly bool $allowExternal = true,
+        public readonly bool $skipIfCustomerStarted = false,
     ) {}
 
     public function uniqueId(): string
@@ -88,7 +89,7 @@ final class DeriveIntentFromRequestJob implements ShouldBeUniqueUntilProcessing,
             $derive->handle(
                 $intake,
                 $this->allowExternal,
-                skipIfCustomerStarted: true,
+                skipIfCustomerStarted: $this->skipIfCustomerStarted,
             );
             $this->finalizePlaceholders($this->intakeId, failed: false);
         } catch (Throwable $exception) {

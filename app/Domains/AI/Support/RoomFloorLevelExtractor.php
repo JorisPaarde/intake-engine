@@ -185,9 +185,13 @@ final class RoomFloorLevelExtractor
                 continue;
             }
 
-            $byteStart = (int) $match['room'][1];
+            // Volledige match (incl. cijfer/telwoord) zodat "drie slaapkamers" niet
+            // een gap "drie" laat die cueDirectlyFollowedByRoom als trailing van de
+            // vorige kamer misbruikt.
+            $full = $match[0][0];
+            $byteStart = (int) $match[0][1];
             $start = mb_strlen(substr($text, 0, $byteStart), 'UTF-8');
-            $end = $start + mb_strlen($roomWord, 'UTF-8');
+            $end = $start + mb_strlen($full, 'UTF-8');
 
             $result[] = [
                 'type' => $type,
@@ -320,8 +324,9 @@ final class RoomFloorLevelExtractor
 
         $between = trim(mb_substr($text, $cue['end'], $nextMention['start'] - $cue['end'], 'UTF-8'));
 
+        // Leeg, lidwoord, of kort koppelwerkwoord + lidwoord ("zijn de slaapkamers").
         return $between === ''
-            || preg_match('/^(?:de|het|een)$/u', $between) === 1;
+            || preg_match('/^(?:(?:is|zijn|staat|staan|ligt|liggen)\s+)?(?:de|het|een)$/u', $between) === 1;
     }
 
     /**

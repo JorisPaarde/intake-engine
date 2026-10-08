@@ -877,14 +877,12 @@ final class DossierManager
             ->first();
         $roomFloor = is_array($room?->dimensions) ? ($room->dimensions['floor_level'] ?? null) : null;
         $roomFloorSource = is_array($room?->dimensions) ? ($room->dimensions['floor_level_source'] ?? null) : null;
+        // Alleen installateursmarker in dimensions wint; prefill-kopie zonder marker
+        // mag niet boven een latere klantcorrectie in het antwoord uitkomen.
         if ($roomFloorSource === 'installer') {
             return is_string($roomFloor) && $roomFloor !== ''
                 ? $this->floorLevelDisplayLabel($roomFloor)
                 : null;
-        }
-
-        if (is_string($roomFloor) && $roomFloor !== '') {
-            return $this->floorLevelDisplayLabel($roomFloor);
         }
 
         $answer = $intake->answers->first(
@@ -911,7 +909,7 @@ final class DossierManager
 
     private function appendFloorLabel(string $name, string $floorLabel): string
     {
-        $name = trim($name);
+        $name = $this->stripKnownFloorLabels(trim($name));
         $floorLabel = trim($floorLabel);
         if ($name === '' || $floorLabel === '') {
             return $name;
@@ -929,6 +927,27 @@ final class DossierManager
         }
 
         return $name.', '.$floorLabel;
+    }
+
+    /**
+     * Verwijder bekende verdieping-suffixen vóór opnieuw plakken, zodat een
+     * klantcorrectie niet naast een stale "begane grond" blijft staan.
+     */
+    private function stripKnownFloorLabels(string $name): string
+    {
+        foreach ([
+            'kelder / souterrain',
+            'begane grond',
+            '1e verdieping',
+            '2e verdieping',
+            '3e verdieping of hoger',
+            'zolder',
+        ] as $label) {
+            $quoted = preg_quote($label, '/');
+            $name = preg_replace('/,\s*'.$quoted.'/ui', '', $name) ?? $name;
+        }
+
+        return trim($name, " \t,");
     }
 
     private function resolveRoomName(?string $existingName, ?string $explicitName, string $generatedName): string

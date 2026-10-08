@@ -7,6 +7,7 @@ namespace App\Domains\AI\Jobs;
 use App\Domains\AI\Actions\SynthesizeSurveyDossier;
 use App\Domains\AI\Support\DossierSynthesisEligibility;
 use App\Domains\Intake\Models\Intake;
+use DateTimeInterface;
 use Illuminate\Contracts\Queue\ShouldBeUniqueUntilProcessing;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -16,12 +17,15 @@ use Illuminate\Queue\Middleware\WithoutOverlapping;
  * Dossiersynthese: CompleteIntake-keten (preserve=false) of debounced na optie/notities
  * (preserve=true + delay). Uniek tot processing per intake+modus; WithoutOverlapping deelt
  * de uitvoeringsslot. Completed mag; Reviewed/AwaitingCustomer/Cancelled niet.
+ *
+ * Overlap-releases tellen niet als exceptions: retryUntil + maxExceptions i.p.v. tries=2.
  */
 final class SynthesizeSurveyDossierJob implements ShouldBeUniqueUntilProcessing, ShouldQueue
 {
     use Queueable;
 
-    public int $tries = 2;
+    /** Alleen echte exceptions; overlap-release brandt dit niet op. */
+    public int $maxExceptions = 2;
 
     public int $uniqueFor = 120;
 
@@ -47,6 +51,11 @@ final class SynthesizeSurveyDossierJob implements ShouldBeUniqueUntilProcessing,
         // Preserve/debounce en full-replace (CompleteIntake) hebben aparte slots.
         return 'dossier-synthesis:'.$this->intakeId.':'
             .($this->preserveProposedCustomerTasks ? 'preserve' : 'replace');
+    }
+
+    public function retryUntil(): DateTimeInterface
+    {
+        return now()->addMinutes(5);
     }
 
     /** @return list<object> */
