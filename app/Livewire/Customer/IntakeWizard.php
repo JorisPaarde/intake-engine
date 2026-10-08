@@ -1782,8 +1782,12 @@ class IntakeWizard extends Component
         $preferred = null;
 
         if ($step !== null) {
+            $photoQuestion = $this->photoQuestionForStep($step);
+            $preferredKey = $photoQuestion instanceof IntakeQuestion
+                ? $photoQuestion->key
+                : $step['question_key'];
             $preferredComposite = VisibilityResolver::compositeKey(
-                $step['question_key'],
+                $preferredKey,
                 $step['section_instance_key'],
             );
             $matching = $unassessed->filter(

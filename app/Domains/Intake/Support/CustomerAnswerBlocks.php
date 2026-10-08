@@ -8,11 +8,12 @@ use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeQuestion;
+use App\Domains\Intake\Models\IntakeSection;
 use App\Enums\QuestionType;
 use Illuminate\Support\Collection;
 
 /**
- * Antwoorden van de klant voor overzicht/werkplek — gewone taal, per ruimte of algemeen.
+ * Antwoorden van de klant voor overzicht/werkplek — gewone taal, per ruimte of onderdeel.
  *
  * Alleen antwoorden zonder eigen veld: maten, kamernaam, type, verdieping en
  * toestemming horen elders (ruimtekaart / stroom 3).
@@ -41,22 +42,38 @@ final class CustomerAnswerBlocks
      */
     public static function forIntake(Intake $intake): array
     {
-        $intake->loadMissing(['answers', 'aircoRooms', 'templateVersion.sections.questions.options']);
+        $intake->loadMissing([
+            'answers',
+            'aircoRooms',
+            'templateVersion.sections.questions.options',
+        ]);
         $version = $intake->templateVersion;
         if ($version === null) {
             return [];
         }
 
+        /** @var Collection<int, IntakeSection> $sections */
+        $sections = $version->sections->sortBy('sort_order')->values();
+
         /** @var Collection<string, IntakeQuestion> $questions */
-        $questions = $version->sections
-            ->flatMap(static fn ($section) => $section->questions)
+        $questions = $sections
+            ->flatMap(static fn (IntakeSection $section) => $section->questions)
             ->keyBy('key');
+
+        /** @var Collection<string, IntakeSection> $sectionByQuestionKey */
+        $sectionByQuestionKey = collect();
+        foreach ($sections as $section) {
+            foreach ($section->questions as $question) {
+                $sectionByQuestionKey->put($question->key, $section);
+            }
+        }
 
         $roomsByInstance = $intake->aircoRooms
             ->filter(static fn (AircoRoom $room): bool => str_starts_with($room->key, 'room-'))
+            ->sortBy('sort_order')
             ->keyBy('key');
 
-        /** @var array<string, list<array{label: string, value: string}>> $grouped */
+        /** @var array<string, array{heading: string, sort: float, items: list<array{label: string, value: string}>}> $grouped */
         $grouped = [];
 
         foreach ($intake->answers as $answer) {
@@ -83,29 +100,56 @@ final class CustomerAnswerBlocks
                 continue;
             }
 
+            $section = $sectionByQuestionKey->get($answer->question_key);
+            $sectionSort = $section instanceof IntakeSection ? (float) $section->sort_order : 9999.0;
+
             $instanceKey = $answer->section_instance_key;
-            $heading = 'Algemeen';
             if (is_string($instanceKey) && $instanceKey !== '') {
                 $room = $roomsByInstance->get($instanceKey);
                 $heading = $room instanceof AircoRoom
                     ? $room->name
                     : $instanceKey;
+                $roomSort = $room instanceof AircoRoom ? (float) $room->sort_order : 0.0;
+                $groupKey = 'room:'.$instanceKey;
+                $sort = $sectionSort + ($roomSort / 1000.0);
+            } else {
+                if ($section instanceof IntakeSection) {
+                    $heading = $section->title !== '' ? $section->title : $section->key;
+                    $groupKey = 'section:'.$section->key;
+                } else {
+                    $heading = $answer->question_key;
+                    $groupKey = 'section:'.$heading;
+                }
+                $sort = $sectionSort;
             }
 
-            $grouped[$heading][] = [
+            if (! isset($grouped[$groupKey])) {
+                $grouped[$groupKey] = [
+                    'heading' => $heading,
+                    'sort' => $sort,
+                    'items' => [],
+                ];
+            }
+
+            $grouped[$groupKey]['items'][] = [
                 'label' => $question->label,
                 'value' => $display,
             ];
         }
 
+        uasort(
+            $grouped,
+            static fn (array $a, array $b): int => $a['sort'] <=> $b['sort'],
+        );
+
         $blocks = [];
-        foreach ($grouped as $heading => $items) {
-            if ($items === []) {
+        foreach ($grouped as $group) {
+            if ($group['items'] === []) {
                 continue;
             }
             $blocks[] = [
-                'heading' => $heading,
-                'items' => $items,
+                'heading' => $group['heading'],
+                'items' => $group['items'],
             ];
         }
 
@@ -113,11 +157,12 @@ final class CustomerAnswerBlocks
     }
 
     /**
-     * Ruimtekaart-label: "3,5 × 3 m (10,5 m²) · van klant" of zonder bronlabel.
+     * Ruimtekaart-/overzichtlabel — één bron voor werkplek en overzicht.
      *
-     * - dimensions_source=customer → · van klant
-     * - dimensions_source=installer of area_source=installer → · van installateur
-     * - AI / request-text prefill → alleen de maten, geen bronlabel
+     * - vloerconflict → "Controleer maten…"
+     * - L×B of trusted m² → "3,5 × 3,0 m (10,5 m²) · H 2,6 m" (+ " · van klant" bij customer)
+     * - untrusted m² → "14,0 m² — nog controleren"
+     * - leeg / alleen deels → null (views: "Maten nog leeg" / "Maten deels ingevuld")
      *
      * @param  array<string, float|string|null>|null  $dimensions
      */
@@ -126,6 +171,10 @@ final class CustomerAnswerBlocks
         $measures = RoomDimensions::from($dimensions);
         if (! $measures->hasAnyMeasure()) {
             return null;
+        }
+
+        if ($measures->hasFloorAreaConflict()) {
+            return 'Controleer maten: L×B en m² komen niet overeen';
         }
 
         $parts = [];
@@ -138,31 +187,28 @@ final class CustomerAnswerBlocks
             if ($computed !== null) {
                 $parts[] = '('.number_format($computed, 1, ',', '.').' m²)';
             }
-        } elseif ($measures->declaredAreaM2() !== null) {
+        } elseif ($measures->hasTrustedAreaM2()) {
             $parts[] = number_format((float) $measures->declaredAreaM2(), 1, ',', '.').' m²';
-        }
-
-        if ($measures->hasHeight()) {
-            $parts[] = 'H '.number_format((float) $measures->heightM(), 1, ',', '.').' m';
+        } elseif ($measures->hasUntrustedAreaM2()) {
+            return number_format((float) $measures->declaredAreaM2(), 1, ',', '.').' m² — nog controleren';
         }
 
         if ($parts === []) {
             return null;
         }
 
+        if ($measures->hasHeight()) {
+            $parts[] = '· H '.number_format((float) $measures->heightM(), 1, ',', '.').' m';
+        }
+
         $caption = implode(' ', $parts);
         $source = is_array($dimensions) ? ($dimensions['dimensions_source'] ?? null) : null;
-        $areaSource = is_array($dimensions) ? ($dimensions['area_source'] ?? null) : null;
-
-        if ($source === 'installer' || $areaSource === 'installer') {
-            return $caption.' · van installateur';
-        }
 
         if ($source === 'customer') {
             return $caption.' · van klant';
         }
 
-        // AI / request-text / onbekend: maten zonder bronlabel.
+        // Installateur / AI / request-text: maten zonder bronlabel.
         return $caption;
     }
 

@@ -211,10 +211,9 @@ final class RoomDimensions
      *     area_source?: string|null,
      *     area_confidence?: string|null,
      *     area_evidence?: string|null,
-     *     dimensions_source?: string|null,
-     *     dimensions_cleared_by_installer?: bool|null
+     *     dimensions_source?: string|null
      * }  $input
-     * @return array<string, float|string|bool>
+     * @return array<string, float|string>
      */
     public static function normalizeWritable(array $input): array
     {
@@ -246,11 +245,6 @@ final class RoomDimensions
         $dimensionsSource = $input['dimensions_source'] ?? null;
         if (is_string($dimensionsSource) && $dimensionsSource !== '') {
             $dimensions['dimensions_source'] = $dimensionsSource;
-        }
-
-        if (array_key_exists('dimensions_cleared_by_installer', $input)
-            && $input['dimensions_cleared_by_installer'] === true) {
-            $dimensions['dimensions_cleared_by_installer'] = true;
         }
 
         return $dimensions;

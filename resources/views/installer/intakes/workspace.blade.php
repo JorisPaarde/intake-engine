@@ -425,12 +425,8 @@
                                         <div class="min-w-0">
                                         <p class="text-base font-bold text-gray-950">{{ $room->name }}</p>
                                         <p class="mt-0.5 text-sm text-gray-500">
-                                            @if ($floorConflict)
-                                                Controleer maten: L×B en m² komen niet overeen
-                                            @elseif ($customerDimCaption !== null)
+                                            @if ($customerDimCaption !== null)
                                                 {{ $customerDimCaption }}
-                                            @elseif ($roomMeasures->hasUntrustedAreaM2())
-                                                {{ number_format((float) $areaM2, 1, ',', '.') }} m² — nog controleren
                                             @elseif ($hasAnyDimension)
                                                 Maten deels ingevuld
                                             @else

@@ -286,7 +286,7 @@ test('R1-11: bewuste installateur-clear blijft leeg na workspace-reload', functi
         ->assertSee('Maten nog leeg');
 });
 
-test('R1-12: van klant alleen bij echte klantmaten; installer/prefill anders', function () {
+test('R1-12: van klant alleen bij echte klantmaten; installer/prefill zonder bronlabel', function () {
     $customer = CustomerAnswerBlocks::roomDimensionsCaption([
         'length_m' => 3.5,
         'width_m' => 3.0,
@@ -301,14 +301,17 @@ test('R1-12: van klant alleen bij echte klantmaten; installer/prefill anders', f
         'width_m' => 3.0,
         'dimensions_source' => 'installer',
     ]);
-    expect($installer)->toContain('van installateur')
-        ->and($installer)->not->toContain('van klant');
+    expect($installer)->not->toContain('van klant')
+        ->and($installer)->not->toContain('van installateur')
+        ->and($installer)->toContain('4,0 × 3,0 m');
 
     $legacyAreaInstaller = CustomerAnswerBlocks::roomDimensionsCaption([
         'area_m2' => 12.0,
         'area_source' => 'installer',
+        'area_confidence' => 'high',
     ]);
-    expect($legacyAreaInstaller)->toContain('van installateur');
+    expect($legacyAreaInstaller)->not->toContain('van installateur')
+        ->and($legacyAreaInstaller)->toContain('12,0 m²');
 
     $prefill = CustomerAnswerBlocks::roomDimensionsCaption([
         'length_m' => 3.5,
