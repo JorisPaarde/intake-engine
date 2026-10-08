@@ -38,6 +38,7 @@ use App\Domains\Intake\Services\ProgressCalculator;
 use App\Domains\Intake\Services\ResolveIntakeByAccessToken;
 use App\Domains\Intake\Services\VisibilityResolver;
 use App\Domains\Intake\Support\KnownSummaryCatalog;
+use App\Domains\Intake\Support\MustAcceptQuestions;
 use App\Domains\Intake\Support\OutdoorPhotoReuse;
 use App\Domains\Intake\Support\PhotoContentSatisfaction;
 use App\Domains\Intake\Support\PhotoOverridePolicy;
@@ -2901,11 +2902,30 @@ class IntakeWizard extends Component
     {
         $intake = $this->intake();
         $intake->loadMissing('answers');
+        $version = $this->version();
+        $version->loadMissing('sections.questions');
+
+        $mustAcceptKeys = [];
+        foreach ($version->sections as $section) {
+            foreach ($section->questions as $question) {
+                if (MustAcceptQuestions::requiresAcceptance($question)) {
+                    $mustAcceptKeys[$question->key] = true;
+                }
+            }
+        }
+
         $form = [];
         $notices = [];
 
         foreach ($intake->answers as $answer) {
             $composite = VisibilityResolver::compositeKey($answer->question_key, $answer->section_instance_key);
+            $isPrefill = $answer->prefill_source !== null && $answer->prefill_source !== '';
+
+            // Must-accept never enters the form from a prefill — customer must tick explicitly.
+            if ($isPrefill && isset($mustAcceptKeys[$answer->question_key])) {
+                continue;
+            }
+
             $form[$composite] = $answer->value ?? [];
 
             // A prefill remains editable and is only authoritative after customer confirmation.
@@ -3276,7 +3296,15 @@ class IntakeWizard extends Component
         $reader = app(AnswerValueReader::class);
         $value = is_array($this->form[$key] ?? null) ? $this->form[$key] : null;
 
-        return $reader->isFilled($value, $question->type);
+        if (! $reader->isFilled($value, $question->type)) {
+            return false;
+        }
+
+        if (MustAcceptQuestions::requiresAcceptance($question)) {
+            return MustAcceptQuestions::isAccepted($value);
+        }
+
+        return true;
     }
 
     private function photoStepContentSatisfied(string $questionKey, ?string $sectionInstanceKey): bool

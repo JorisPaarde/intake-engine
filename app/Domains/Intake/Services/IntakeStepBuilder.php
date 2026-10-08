@@ -13,6 +13,7 @@ use App\Domains\Intake\Support\FactProvenance;
 use App\Domains\Intake\Support\FactSource;
 use App\Domains\Intake\Support\InternalCustomerQuestions;
 use App\Domains\Intake\Support\KnownSummaryCatalog;
+use App\Domains\Intake\Support\MustAcceptQuestions;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Domains\Intake\Support\RoomLabelResolver;
 use App\Enums\QuestionType;
@@ -606,6 +607,13 @@ final class IntakeStepBuilder
             is_array($answerValue) ? $answerValue : null,
             $question->type,
         );
+
+        if ($answered && MustAcceptQuestions::requiresAcceptance($question)) {
+            $answered = MustAcceptQuestions::isAccepted(
+                is_array($answerValue) ? $answerValue : null,
+                $answerSource,
+            );
+        }
 
         $prefilledSkipped = ! $forceShow && $this->isPrefillSkipped($question, $answerSource, $answerFact);
         $roomNameHidden = ! $forceShow

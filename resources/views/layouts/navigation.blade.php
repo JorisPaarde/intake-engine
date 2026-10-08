@@ -4,7 +4,9 @@
         && str_starts_with((string) Auth::user()?->email, 'installateur+')
         && str_ends_with((string) Auth::user()?->email, '@demo.invalid')
         && str_starts_with((string) $navCompany?->slug, 'publieke-demo-');
-    $publicDemoNeedsCreate = $isPublicDemo && ! session()->has('public_demo_intake_id');
+    $publicDemoNeedsCreate = $isPublicDemo
+        && ! session()->has('public_demo_intake_id')
+        && (! is_array(session('public_demo_intake_ids')) || session('public_demo_intake_ids') === []);
 @endphp
 <nav x-data="{ open: false }" class="border-b border-[#dde2da] bg-white">
     <!-- Primary Navigation Menu -->

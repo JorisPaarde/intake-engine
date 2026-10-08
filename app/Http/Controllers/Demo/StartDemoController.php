@@ -32,6 +32,7 @@ final class StartDemoController extends Controller
             'public_demo_expires_at' => now()->addHours($ttlHours)->toIso8601String(),
             'public_demo_guide_step' => 'welcome',
             'public_demo_intake_id' => null,
+            'public_demo_intake_ids' => [],
             'public_demo_path_chosen' => null,
             'public_demo_scenario_loaded' => false,
         ]);

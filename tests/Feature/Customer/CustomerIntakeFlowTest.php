@@ -364,7 +364,9 @@ test('progress percent reaches 100 when all required questions are answered even
                     UploadedFile::fake()->image($item['question_key'].'.jpg'),
                 ));
             } elseif ($question->type === QuestionType::Boolean) {
-                $save->handle($intake, $item['question_key'], $item['section_instance_key'], ['bool' => false]);
+                // must_accept keys (privacy/truth) require true; other booleans may be false.
+                $accept = in_array($item['question_key'], ['privacy_consent', 'truth_confirmation'], true);
+                $save->handle($intake, $item['question_key'], $item['section_instance_key'], ['bool' => $accept]);
             } elseif ($question->type === QuestionType::Number) {
                 $save->handle($intake, $item['question_key'], $item['section_instance_key'], ['number' => 1]);
             } elseif ($question->type === QuestionType::SingleChoice) {

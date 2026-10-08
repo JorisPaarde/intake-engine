@@ -22,6 +22,9 @@ use Symfony\Component\HttpFoundation\Response;
  * Dossier detail actions that are visible in the demo (adres opnieuw, AI-
  * aandachtspunten, beoordeling, rapport/PDF) must stay on the allowlist so a
  * save does not 404 or bounce the visitor to /login (BL-091).
+ *
+ * Own intake + sample dossier may both be reachable once loaded; membership
+ * is checked via public_demo_intake_ids (with legacy single-id migration).
  */
 final class RestrictPublicDemoSession
 {
@@ -50,8 +53,7 @@ final class RestrictPublicDemoSession
 
         $route = $request->route();
         $routeName = $route instanceof Route ? (string) $route->getName() : '';
-        $intakeId = $this->publicDemoSession->intakeId($request);
-        $hasIntake = $intakeId !== null;
+        $hasIntake = $this->publicDemoSession->hasAnyIntake($request);
 
         $allowedWithoutIntake = in_array($routeName, [
             'dashboard',
@@ -75,6 +77,7 @@ final class RestrictPublicDemoSession
             || $routeName === 'intakes.regenerate-token'
             || $routeName === 'intakes.revoke'
             || $routeName === 'installer.uploads.show'
+            || $routeName === 'intakes.aerial.show'
             || $routeName === 'logout'
             || $routeName === 'demo.path.choose'
             || $routeName === 'demo.scenario.load'
@@ -94,16 +97,35 @@ final class RestrictPublicDemoSession
 
         abort_unless($allowedWithIntake, 404);
 
-        $demoIntake = $this->publicDemoSession->resolveIntake($request);
-
-        if ($demoIntake === null) {
-            return $this->expireSession($request);
-        }
-
         $routeIntake = $request->route('intake');
 
         if ($routeIntake instanceof Intake) {
-            abort_unless($routeIntake->is($demoIntake), 404);
+            // Outside the allowlist → hard 404 (never open another demo's dossier).
+            abort_unless(
+                $this->publicDemoSession->allowsIntake($request, (int) $routeIntake->id),
+                404,
+            );
+
+            $resolved = $this->publicDemoSession->resolveIntake($request, (int) $routeIntake->id);
+
+            if ($resolved === null) {
+                // Listed but no longer resolvable (TTL / ownership) — end the demo.
+                return $this->expireSession($request);
+            }
+
+            abort_unless($routeIntake->is($resolved), 404);
+
+            // Keep coach/rapport pointed at the intake the visitor is viewing.
+            $this->publicDemoSession->rememberIntake($request, (int) $routeIntake->id, setActive: true);
+
+            return $next($request);
+        }
+
+        $demoIntake = $this->publicDemoSession->resolveIntake($request);
+
+        if ($demoIntake === null) {
+            // Allowed list may still hold a stale id after TTL — expire cleanly.
+            return $this->expireSession($request);
         }
 
         return $next($request);
