@@ -1,6 +1,6 @@
 {{--
   Gedeelde fotovraag-UI voor standalone @case('photo') én question_group.
-  Gebouwd ná rebase op stroom 1 (per-foto status, replaceSinglePhoto, mismatch-panel).
+  Ná rebase op stroom 1: assessment-poll blijft zichtbaar bij max foto's (ook in drain-groep).
   Verwacht uit de parent: uploadsByQuestion, token, uploadPhase*, pendingAssessUploadIds,
   assessmentUiReleased, photoMismatchAssessment, photoNeedsOverride, displayPhotoHint,
   showMissing, photoNeedsQualityHint, maxUploadKb, uploadHardMax*.
@@ -14,6 +14,12 @@
     $existingUploads = $uploadsByQuestion[$question->key] ?? collect();
     $maxFiles = (int) ($question->meta['max_files'] ?? config('intake.uploads.max_files_per_question', 5));
     $remainingSlots = max(0, $maxFiles - $existingUploads->count());
+
+    $assessmentPollPending = ! empty($pendingAssessUploadIds[$composite] ?? []);
+    $assessmentPollActive = in_array((string) ($uploadPhase ?? ''), ['assessing', 'failed'], true)
+        && (string) ($uploadPhaseComposite ?? '') === $composite;
+    $assessmentQuietPoll = in_array($composite, $assessmentUiReleased ?? [], true);
+    $assessmentPollInterval = $assessmentQuietPoll ? '5s' : '2s';
 @endphp
 <div class="space-y-3" @if ($wrapperTestId) data-testid="{{ $wrapperTestId }}" @endif>
     @if ($showQuestionLabel)
@@ -22,6 +28,15 @@
 
     @if ($question->photo_instructions)
         <p class="text-sm text-[#5e6862]">{{ $question->photo_instructions }}</p>
+    @endif
+
+    @if ($assessmentPollPending || $assessmentPollActive)
+        <div
+            wire:poll.{{ $assessmentPollInterval }}="pollPendingAssessments"
+            class="hidden"
+            data-testid="assessment-poll"
+            aria-hidden="true"
+        ></div>
     @endif
 
     @if ($existingUploads->isNotEmpty())
