@@ -5,11 +5,14 @@ import {
     JPEG_QUALITY,
     MAX_LONG_EDGE,
     TOO_LARGE_MESSAGE,
+    aspectRatiosMatch,
     computeTargetSize,
     exceedsHardByteLimit,
     exceedsHardMegapixelLimit,
     mustDownscaleOrFail,
+    orientationSwapsAxes,
     preparePhotoForUpload,
+    readImageSizeFromBytes,
     shouldDownscale,
     withTimeout,
 } from './photo-prepare.js';
@@ -110,6 +113,197 @@ describe('photo-prepare hard limits + fail-closed (intake 82)', () => {
         expect(intake?.originalsProperty).toBe('photoClientOriginals');
         expect(followUp?.originalsProperty).toBe('followUpPhotoClientOriginals');
         expect(intake?.originalsProperty).not.toBe(followUp?.originalsProperty);
+    });
+});
+
+describe('image header size reader', () => {
+    it('reads PNG IHDR width/height', () => {
+        const bytes = new Uint8Array([
+            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+            0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
+            0x00, 0x00, 0x0F, 0xC0, // 4032
+            0x00, 0x00, 0x0B, 0xD0, // 3024
+            0x08, 0x02, 0x00, 0x00, 0x00,
+        ]);
+        expect(readImageSizeFromBytes(bytes)).toEqual({
+            width: 4032,
+            height: 3024,
+            orientation: 1,
+        });
+    });
+
+    it('reads JPEG SOF0 and swaps axes for EXIF orientation 6', () => {
+        // Minimal JPEG: SOI + APP1(Exif orient 6) + SOF0 3024×4032 + EOI-ish padding
+        const sof = [
+            0xFF, 0xC0, 0x00, 0x0B, 0x08,
+            0x0B, 0xD0, // height 3024
+            0x0F, 0xC0, // width 4032
+            0x03, 0x01, 0x22, 0x00,
+        ];
+        // APP1 with Exif orientation 6 (MM endian)
+        const app1Body = [
+            0x45, 0x78, 0x69, 0x66, 0x00, 0x00, // Exif\0\0
+            0x4D, 0x4D, 0x00, 0x2A, // MM + magic
+            0x00, 0x00, 0x00, 0x08, // IFD0 offset
+            0x00, 0x01, // 1 entry
+            0x01, 0x12, 0x00, 0x03, 0x00, 0x00, 0x00, 0x01, 0x00, 0x06, 0x00, 0x00, // tag 0x0112 = 6
+        ];
+        const app1 = [0xFF, 0xE1, (app1Body.length + 2) >> 8, (app1Body.length + 2) & 0xFF, ...app1Body];
+        const bytes = new Uint8Array([0xFF, 0xD8, ...app1, ...sof]);
+        const size = readImageSizeFromBytes(bytes);
+        expect(orientationSwapsAxes(6)).toBe(true);
+        expect(size).toEqual({ width: 3024, height: 4032, orientation: 6 });
+    });
+
+    it('reads WebP VP8X canvas size', () => {
+        // RIFF + WEBP + VP8X with width-1=1919, height-1=1079 → 1920×1080
+        const bytes = new Uint8Array([
+            0x52, 0x49, 0x46, 0x46, 0x2A, 0x00, 0x00, 0x00,
+            0x57, 0x45, 0x42, 0x50,
+            0x56, 0x50, 0x38, 0x58, 0x0A, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00,
+            0x7F, 0x07, 0x00, // 1919 LE 24-bit
+            0x37, 0x04, 0x00, // 1079 LE 24-bit
+        ]);
+        expect(readImageSizeFromBytes(bytes)).toEqual({
+            width: 1920,
+            height: 1080,
+            orientation: 1,
+        });
+    });
+});
+
+describe('preparePhotoForUpload aspect ratio (demotest 8 okt)', () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    /**
+     * @param {number} srcW
+     * @param {number} srcH
+     * @param {string} name
+     */
+    async function assertDownscaleKeepsRatio(srcW, srcH, name) {
+        const original = new File([new Uint8Array(2_200_000)], name, { type: 'image/jpeg' });
+        Object.defineProperty(original, 'size', { value: 2_200_000 });
+
+        const resultPromise = preparePhotoForUpload(original, {
+            readSize: async () => ({ width: srcW, height: srcH, orientation: 1 }),
+            createCanvas: (width, height) => ({
+                width,
+                height,
+                getContext: () => ({
+                    fillStyle: '',
+                    fillRect() {},
+                    drawImage() {},
+                }),
+            }),
+            createBitmap: async (_file, target) => {
+                const tw = Math.round(Number(target.width) || 0);
+                const th = Math.round(Number(target.height) || 0);
+                // Mimic a browser that stretches to the exact resizeWidth×resizeHeight.
+                const width = tw > 0 ? tw : MAX_LONG_EDGE;
+                const height = th > 0 ? th : Math.round(width * (srcH / srcW));
+                return {
+                    bitmap: {
+                        width,
+                        height,
+                        close() {},
+                    },
+                    originalWidth: width,
+                    originalHeight: height,
+                };
+            },
+            toJpeg: async (canvas) => {
+                const w = canvas.width;
+                const h = canvas.height;
+                expect(aspectRatiosMatch(srcW, srcH, w, h)).toBe(true);
+                return new File([new Uint8Array(50_000)], name.replace(/\.[^.]+$/, '.jpg'), {
+                    type: 'image/jpeg',
+                });
+            },
+        });
+
+        await vi.advanceTimersByTimeAsync(0);
+        const result = await resultPromise;
+
+        expect(result.failed).toBe(false);
+        expect(result.downscaled).toBe(true);
+        expect(result.originalWidth).toBe(srcW);
+        expect(result.originalHeight).toBe(srcH);
+
+        const expected = computeTargetSize(srcW, srcH);
+        expect(expected.width / expected.height).toBeCloseTo(srcW / srcH, 2);
+    }
+
+    it('keeps 4:3 (4032×3024)', async () => {
+        await assertDownscaleKeepsRatio(4032, 3024, 'landscape.jpg');
+    });
+
+    it('keeps 3:4 (3024×4032)', async () => {
+        await assertDownscaleKeepsRatio(3024, 4032, 'portrait.jpg');
+    });
+
+    it('keeps 16:9', async () => {
+        await assertDownscaleKeepsRatio(3840, 2160, 'wide.jpg');
+    });
+
+    it('keeps 1:1', async () => {
+        await assertDownscaleKeepsRatio(3000, 3000, 'square.jpg');
+    });
+
+    it('keeps panorama 3:1', async () => {
+        await assertDownscaleKeepsRatio(6000, 2000, 'pano.jpg');
+    });
+
+    it('keeps EXIF 6 upright dims (header already swapped)', async () => {
+        // Header reader swaps axes for orientation 6 → upright 3024×4032.
+        await assertDownscaleKeepsRatio(3024, 4032, 'phone-exif6.jpg');
+    });
+
+    it('passes non-square resize targets to createBitmap (never 2000×2000 for 4:3)', async () => {
+        const original = new File([new Uint8Array(2_200_000)], 'landscape.jpg', { type: 'image/jpeg' });
+        Object.defineProperty(original, 'size', { value: 2_200_000 });
+        /** @type {{ width?: number, height?: number }|null} */
+        let seenTarget = null;
+
+        const resultPromise = preparePhotoForUpload(original, {
+            readSize: async () => ({ width: 4032, height: 3024, orientation: 1 }),
+            createCanvas: (width, height) => ({
+                width,
+                height,
+                getContext: () => ({ fillStyle: '', fillRect() {}, drawImage() {} }),
+            }),
+            createBitmap: async (_file, target) => {
+                seenTarget = { width: target.width, height: target.height };
+                return {
+                    bitmap: {
+                        width: target.width,
+                        height: target.height,
+                        close() {},
+                    },
+                    originalWidth: target.width,
+                    originalHeight: target.height,
+                };
+            },
+            toJpeg: async () => new File(
+                [new Uint8Array(40_000)],
+                'landscape.jpg',
+                { type: 'image/jpeg' },
+            ),
+        });
+
+        await vi.advanceTimersByTimeAsync(0);
+        const result = await resultPromise;
+
+        expect(result.failed).toBe(false);
+        expect(seenTarget).toEqual({ width: 2000, height: 1500 });
+        expect(aspectRatiosMatch(4032, 3024, 2000, 1500)).toBe(true);
+        expect(aspectRatiosMatch(4032, 3024, 2000, 2000)).toBe(false);
     });
 });
 

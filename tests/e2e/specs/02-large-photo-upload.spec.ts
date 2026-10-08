@@ -36,6 +36,10 @@ test.describe('Large phone photo upload', () => {
     // Client downscale ≤2000 (BL-143); dossier max remains 2048.
     expect(longEdge).toBeGreaterThan(0);
     expect(longEdge).toBeLessThanOrEqual(2048);
+    // Demotest 8 okt: keep source aspect (12 MP fixture is 4032×3024 → 4:3), not a square.
+    expect(width).toBeGreaterThan(0);
+    expect(height).toBeGreaterThan(0);
+    expect(Math.abs(width / height - 4032 / 3024)).toBeLessThan(0.02);
     expect(stored.assessment_status).toBe('assessed');
   });
 });
