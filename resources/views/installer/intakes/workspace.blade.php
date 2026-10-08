@@ -114,6 +114,9 @@
                             <li class="rounded-xl border border-emerald-200 bg-white px-3 py-3" data-testid="new-contribution-item">
                                 <div class="flex flex-wrap items-start justify-between gap-2">
                                     <div class="min-w-0">
+                                        @if (is_string($contribution['room_name'] ?? null))
+                                            <p class="text-xs font-semibold text-emerald-900" data-testid="contribution-room-heading">Nieuw van klant · {{ $contribution['room_name'] }}</p>
+                                        @endif
                                         @if (is_string($contribution['response_text'] ?? null) && trim((string) $contribution['response_text']) !== '')
                                             <p class="text-sm font-medium text-gray-950">{{ $contribution['response_text'] }}</p>
                                         @elseif (($contribution['uploads'] ?? []) !== [])
@@ -130,8 +133,15 @@
                                         @endif
                                         <p class="mt-1 text-xs text-emerald-900">{{ $contribution['installer_decides'] }}</p>
                                     </div>
-                                    <a href="{{ $contribution['review_href'] }}" class="inline-flex min-h-10 items-center rounded-lg bg-marketing-green-dark px-3 py-2 text-xs font-semibold text-white hover:bg-marketing-green" data-testid="contribution-review-action">
-                                        Beoordeel
+                                    <a
+                                        href="{{ $contribution['review_href'] }}"
+                                        class="inline-flex min-h-11 items-center rounded-lg bg-marketing-green-dark px-3 py-2 text-xs font-semibold text-white hover:bg-marketing-green"
+                                        data-testid="contribution-review-action"
+                                        @if (($contribution['highlight_field_ids'] ?? []) !== [])
+                                            data-highlight-fields="{{ implode(' ', $contribution['highlight_field_ids']) }}"
+                                        @endif
+                                    >
+                                        {{ $contribution['review_label'] }}
                                     </a>
                                 </div>
                                 @if (($contribution['uploads'] ?? []) !== [])
@@ -432,6 +442,10 @@
                                         </div>
                                     </div>
 
+                                    @if (session('block_status.target') === 'room-'.$room->id)
+                                        <p class="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-900" role="status" data-testid="block-status">{{ session('block_status.message') }}</p>
+                                    @endif
+
                                     @if ($floorConflict)
                                         <p class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
                                             Lengte×breedte ({{ number_format((float) $computedArea, 1, ',', '.') }} m²) en opgegeven oppervlak ({{ number_format((float) $areaM2, 1, ',', '.') }} m²) komen niet overeen. Kies één betrouwbare grondslag.
@@ -557,9 +571,16 @@
                                     <details class="group/units border-t border-gray-100 pt-3 mt-3">
                                         <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-sm [&::-webkit-details-marker]:hidden">
                                             <span class="font-semibold text-gray-800">Binnen- en buitenunit</span>
-                                            <span class="flex items-center gap-2 text-xs font-medium">
-                                                <span aria-hidden="true" @class(['h-2 w-2 rounded-full', 'bg-emerald-500' => $linkedOutdoor, 'bg-amber-400' => ! $linkedOutdoor])></span>
-                                                <span class="text-gray-600">{{ $linkedOutdoor ? 'Gekoppeld aan '.$linkedOutdoor->label : 'Nog niet gekoppeld' }}</span>
+                                            @php
+                                                $unitCouplingSummary = match (true) {
+                                                    $roomIndoor === null => 'Binnenunit nog kiezen',
+                                                    $linkedOutdoor === null => 'Binnenunit: '.$roomIndoor->label.' · buitenunit nog kiezen',
+                                                    default => 'Gekoppeld: '.$roomIndoor->label.' → '.$linkedOutdoor->label,
+                                                };
+                                            @endphp
+                                            <span class="flex min-w-0 items-center gap-2 text-xs font-medium">
+                                                <span aria-hidden="true" @class(['h-2 w-2 shrink-0 rounded-full', 'bg-emerald-500' => $roomIndoor && $linkedOutdoor, 'bg-amber-400' => ! ($roomIndoor && $linkedOutdoor)])></span>
+                                                <span class="min-w-0 break-words text-right text-gray-600" data-testid="room-unit-coupling-summary">{{ $unitCouplingSummary }}</span>
                                             </span>
                                         </summary>
                                         <div class="mt-2 bg-gray-50 p-3">
@@ -569,15 +590,15 @@
                                             <dl class="mt-3 grid gap-2 text-sm sm:grid-cols-3">
                                                 <div>
                                                     <dt class="text-xs text-gray-500">Binnenunit</dt>
-                                                    <dd class="font-medium text-gray-900">{{ $roomIndoor?->label ?? 'Nog open' }}</dd>
+                                                    <dd class="font-medium text-gray-900">{{ $roomIndoor?->label ?? 'Nog kiezen' }}</dd>
                                                 </div>
                                                 <div>
                                                     <dt class="text-xs text-gray-500">Buitenunit</dt>
-                                                    <dd class="font-medium text-gray-900">{{ $linkedOutdoor?->label ?? 'Nog niet gekoppeld' }}</dd>
+                                                    <dd class="font-medium text-gray-900">{{ $linkedOutdoor?->label ?? 'Nog kiezen' }}</dd>
                                                 </div>
                                                 <div>
                                                     <dt class="text-xs text-gray-500">Configuratie</dt>
-                                                    <dd class="font-medium text-gray-900">{{ $activeOption?->configuration_type->label() ?? 'Nog geen keuze' }}</dd>
+                                                    <dd class="font-medium text-gray-900">{{ $activeOption?->configuration_type->label() ?? 'Nog kiezen' }}</dd>
                                                 </div>
                                             </dl>
                                         @endif
@@ -724,6 +745,9 @@
                                         <h4 class="mt-1 font-semibold text-gray-950">{{ $placement->label }}</h4>
                                         @if ($placement->room)
                                             <p class="mt-1 text-xs text-gray-500">{{ $placement->room->name }}</p>
+                                        @endif
+                                        @if (session('block_status.target') === 'placement-'.$placement->id)
+                                            <p class="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-900" role="status" data-testid="block-status">{{ session('block_status.message') }}</p>
                                         @endif
                                         @if ($placement->description)
                                             <p class="mt-2 text-sm leading-relaxed text-gray-600">{{ $placement->description }}</p>

@@ -38,15 +38,11 @@ final class ChooseDemoPathController extends Controller
                 ->to($intake->customerUrl())
                 ->with(
                     'status',
-                    'U bekijkt nu wat de klant ziet. In productie zou de klant een e-mail met deze link krijgen.',
+                    'Je bekijkt nu wat de klant ziet. In productie zou de klant een e-mail met deze link krijgen.',
                 );
         }
 
-        return redirect()
-            ->route('intakes.workspace', $intake)
-            ->with(
-                'status',
-                'U doet de opname zelf. De klanttoegang blijft uit totdat u een taak voor de klant activeert.',
-            );
+        // Geen succesmelding: de keuze is net gemaakt (BL-147, UX #15.11).
+        return redirect()->route('intakes.workspace', $intake);
     }
 }

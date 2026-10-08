@@ -1,6 +1,6 @@
 # Backlog — Digitale Opname
 
-> **Documentversie:** 5.01 · **Laatste update:** 2026-10-08 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 5.02 · **Laatste update:** 2026-10-08 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 De **enige backlog** van dit project: al het werk dat bewust niet in de afgeronde MVP-fasen 1–6 zit (zie `docs/implementation-plan.md`), plus nieuw ontdekt werk. Proces en statusregels: zie [AGENTS.md § Backlogproces](../AGENTS.md#backlogproces).
 De MVP-bouwstenen staan historisch onder E1–E5. De productfase E6–E10 is op 2026-07-30 geïmplementeerd en volgt het [productmodel](product-model.md): één centrale technische opname na een bestaande aanvraag, meerdere bijdragers, beslisgereedheid en voor airco afzonderlijke koel-, condens- en stroomverbindingen.
@@ -44,7 +44,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| 1 | BL-147 | UX-pakket werkplek/klantkant: layout/a11y nu, tekst- en gedragskeuzes na UX-expert | E6/E7 | in_progress | low | Notion #15/#16 (QA 8 okt) · deel (a) in PR · deel (b) wacht op UX-expert |
+| 1 | BL-147 | UX-pakket werkplek/klantkant: layout/a11y + UX-uitkomst 8 okt (tekst/gedrag) | E6/E7 | in_progress | low | Notion #15/#16 (QA 8 okt) · PR #168 · open vragen zie detail |
 | — | BL-145 | Klanttaken bundelen in conceptlijst + neutrale meterkasttekst (geen installateurstekst) | E7 | done | high | na BL-100/107 · Notion P2 test4/codeonderzoek-4 · 2026-10-04 |
 | 1 | BL-144 | AI-trace gaps: provider_request_id, skip-runs, seed/queued_at, export finish_reason | E4/E5 | in_progress | high | na BL-125/132/133 · intakes 76–78/94–95 · rebase main@ba83825 |
 | — | BL-143 | Upload vast na 503 op Livewire-update + grote progressive JPEG | E1/E7 | done | high | na BL-128 · prod intakes 94/95 · staging 78/80/81/92 · PR #140 |
@@ -701,8 +701,10 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 - **Status:** in_progress · **Prioriteit:** low · **Epic:** E6/E7 · **Ref:** Notion *IE: UX-pakket installateurswerkplek* (#15) en *IE: UX-pakket klantkant* (#16), demotest 8 okt 2026
 - **Aanleiding:** losse P3-punten uit de demotest. Een deel is puur layout/toegankelijkheid; de rest vraagt een tekst- of gedragskeuze van de UX-expert.
 - **Deel (a), in PR:** ankers onder sticky balk (`scroll-mt-36`, ook `#dossier-area-*`); inklapknoppen ≥ 44 px tikvlak zonder visuele verschuiving; terug naar bewerkt blok na **Wijzigingen opslaan** (ruimte/unit); tekstveld vervolgronde gekoppeld aan zichtbare opdracht (`aria-labelledby`).
-- **Deel (b), wacht op UX-expert (tekst/gedrag):** #15 Beoordeel-sprong naar `#room-{id}` + ruimtenaam bij antwoord; maten-hint per vraag; ruimtekaart binnenunit/buitenunit-tekst; flashmelding per unittype; naam bij unit als verplicht markeren; keuzemodal *Hoe wil je verder?* op `/opname`; eigen bevestiging i.p.v. `confirm()` bij **Demo beëindigen**; u → je; telefoonvalidatie. #16 bedankscherm (één kop + zin, link/tabblad-tekst); *Toch doorgaan* vs *Toch versturen*; foto **Verwijderen** + ongedaan maken; tegenstrijdige meldingen tijdens *Foto beoordelen…*.
-- **Acceptatie (a):** 390/768/1440 geen horizontale overflow; ankerdoel ≥ 12 px onder de sticky balk; tikvlak inklapknoppen ≥ 44 px en binnen het eigen kader (raakt geen andere inhoud); ingeklapte kaders pixel-gelijk; Pest groen.
+- **Deel (b), UX-uitkomst 8 okt, in PR #168:** #15.1 kop “Nieuw van klant · (ruimte)”, knop “Beoordeel bij (ruimte)” / “Beoordeel in opname”, sprong naar `#room-{id}` + veld 2 s oplichten (`data-highlight-fields`, `.field-flash`); #15.2 capaciteitshint per gevraagde sleutel (`meta.requested_field` of trefwoorden in de taaktekst); #15.3 ruimtekaart-samenvatting + “Nog kiezen”; #15.4 flash per `AircoPlacementType` in het blok (`session('block_status')`); #15.10 `<x-confirm-dialog>` voor **Demo beëindigen**; #15.11 je-vorm + tweede melding weg; #16.1 bedankscherm één kop + één zin; #16.2 knop terug (demo) of “Je kunt dit venster nu sluiten.”; #16.3 “Toch doorgaan” + één `OVERRIDE_MESSAGE`; #16.4 prullenbakicoon + 8 s ongedaan maken (soft delete, `DeleteFollowUpUpload::softRemove/restore/finalize`).
+- **Niet in deze PR (andere stromen):** #15.7 + #15.12 (stroom 4), #16.6 (stroom 1), copy verlopen klantlink + “Toestemming gegeven op” (stroom 3). #15.9 niet gereproduceerd.
+- **Open (wacht op UX-expert/product):** “(type) verwijderd.” (geen verwijderroute voor units); “Naar de website van (bedrijf)” (geen websiteveld bij bedrijf); “De demo is beëindigd.” (vervangt die de kop van de eindpagina of is het een extra melding?); verzendknop “Versturen” vs huidige “Aanvulling versturen”; ongedaan maken ook in de hoofdwizard?; demostrook herhaalt “de installateur beoordeelt de foto’s nog”.
+- **Acceptatie (a+b):** 390/768/1440 geen horizontale overflow; meldingen en gemarkeerde velden onder de sticky balk; ankerdoel ≥ 12 px onder de sticky balk; tikvlak inklapknoppen ≥ 44 px en binnen het eigen kader (raakt geen andere inhoud); ingeklapte kaders pixel-gelijk; Pest groen.
 
 ### BL-145 — Klanttaken bundelen in conceptlijst + neutrale meterkasttekst
 

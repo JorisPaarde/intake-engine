@@ -527,7 +527,9 @@ test('customer can add a requested PDF document to the protected dossier', funct
         ->assertDownload('plattegrond.pdf')
         ->assertHeader('X-Content-Type-Options', 'nosniff');
 
-    $component->assertSee('Bedankt. Je installateur kijkt nu of er nog iets openstaat.');
+    $component->assertSee('Bedankt, je aanvulling is binnen')
+        ->assertSee('Je installateur bekijkt je antwoorden en neemt contact met je op als er nog iets nodig is.')
+        ->assertSee('Je kunt dit venster nu sluiten.');
 });
 
 test('follow up photo quality hint repeats the installers exact photo request', function () {

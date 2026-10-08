@@ -1,6 +1,6 @@
 # Productmodel — centrale technische opname
 
-> **Documentversie:** 1.7 · **Laatste update:** 2026-10-04 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.8 · **Laatste update:** 2026-10-08 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **productfundament geïmplementeerd in BL-030 en BL-035 t/m BL-042**. De centrale dossierkern, drie bijdrageworkflows, airco-objecten, beslisgereedheid, beeldvarianten, AI-synthese en uitkomstregistratie zitten in dezelfde applicatie. Productief gebruik van externe beeld-AI hangt af van provider-, featurevlag- en budgetconfiguratie (standaard uit, soft-fail).
 
@@ -69,9 +69,9 @@ Alle drie vullen dezelfde ruimtes, plaatsingen, verbindingen, bewijzen, onzekerh
 2. Bekende aanvraaggegevens en de reeds gebouwde openbare-data-verrijking vullen het dossier.
 3. De klant ontvangt:
 
-   > **Met uw hulp kunnen we uw airco sneller plaatsen.**
+   > **Met je hulp kunnen we je airco sneller plaatsen.**
    >
-   > Wij halen bekende gegevens van uw woning zelf op. U laat ons met een paar gerichte foto's zien wat we niet op afstand kunnen weten. Zo kan de installateur vooraf bepalen wat nodig is en de plaatsing goed voorbereiden.
+   > Wij halen bekende gegevens van je woning zelf op. Je laat ons met een paar gerichte foto's zien wat we niet op afstand kunnen weten. Zo kan de installateur vooraf bepalen wat nodig is en de plaatsing goed voorbereiden.
 
 4. De klant krijgt steeds één concrete opdracht, bijvoorbeeld een kameroverzicht, buitenzijde of veilige foto van de meterkast.
 5. De app controleert direct of het gevraagde zichtbaar is. Alleen ontbrekende, tegenstrijdige of beslissende informatie leidt tot een vervolgvraag.

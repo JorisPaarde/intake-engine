@@ -77,7 +77,7 @@ function hertest4TinyJpeg(string $name = 'tiny-600.jpg'): UploadedFile
     return UploadedFile::fake()->createWithContent($name, $bytes);
 }
 
-test('P2-a: lage-resolutiefoto in follow-up blokkeert Aanvulling versturen tot Toch versturen', function () {
+test('P2-a: lage-resolutiefoto in follow-up blokkeert Aanvulling versturen tot Toch doorgaan', function () {
     Queue::fake([AssessUploadedPhotoJob::class]);
 
     $intake = hertest4Intake();
@@ -107,11 +107,11 @@ test('P2-a: lage-resolutiefoto in follow-up blokkeert Aanvulling versturen tot T
         ->and($progress['item_statuses'][$item->id]['label'])->toBe('Nieuwe foto nodig');
 
     $component
-        ->assertSee('Toch versturen')
+        ->assertSee('Toch doorgaan')
         ->call('completeFollowUp')
         ->assertHasErrors('follow_up')
         ->assertSet('completed', false)
-        ->assertSee('Vervang de foto');
+        ->assertSee(PhotoOverridePolicy::OVERRIDE_MESSAGE);
 
     $component
         ->call('acceptFollowUpPhotoMismatch')
@@ -119,7 +119,10 @@ test('P2-a: lage-resolutiefoto in follow-up blokkeert Aanvulling versturen tot T
         ->assertHasNoErrors('follow_up')
         ->assertSet('completed', true)
         ->assertSet('followUpNeedsInstallerReview', true)
-        ->assertSee('installateur beoordeelt')
+        ->assertSee('Bedankt, je aanvulling is binnen')
+        ->assertSee(PhotoOverridePolicy::THANK_YOU_COPY)
+        ->assertDontSee('nog geen afronding')
+        ->assertDontSee('Hieronder staat alleen wat nog echt nodig is')
         ->assertDontSee('één aanvulling afgerond');
 });
 
@@ -131,8 +134,7 @@ test('P2-a: PhotoOverridePolicy is gedeelde bron voor wizard en follow-up', func
     ]);
 
     expect(PhotoOverridePolicy::needsOverride($upload))->toBeTrue()
-        ->and(PhotoOverridePolicy::OVERRIDE_MESSAGE)->toContain('Toch versturen')
-        ->and(PhotoOverridePolicy::OVERRIDE_MESSAGE_WIZARD)->toContain('Toch doorgaan');
+        ->and(PhotoOverridePolicy::OVERRIDE_MESSAGE)->toBe('Kies: foto vervangen of toch doorgaan.');
 
     // Persistente acceptatie vereist een opgeslagen upload; hier alleen de gedeelde flag-path.
     $assessment = PhotoContentAssessment::needsClearer(PhotoSubject::Fusebox, 'lage resolutie')

@@ -63,5 +63,5 @@ test('a dark photo shows override feedback and still stores the upload', functio
     $upload = $intake->uploads()->where('question_key', 'room_photos')->firstOrFail();
     expect($upload)->not->toBeNull()
         ->and(PhotoOverridePolicy::needsOverride($upload))->toBeTrue()
-        ->and(PhotoOverridePolicy::OVERRIDE_MESSAGE_WIZARD)->toContain('Toch doorgaan');
+        ->and(PhotoOverridePolicy::OVERRIDE_MESSAGE)->toContain('toch doorgaan');
 });

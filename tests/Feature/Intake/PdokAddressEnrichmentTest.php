@@ -433,7 +433,7 @@ test('creating a public demo intake runs live PDOK enrichment like production', 
             'internal_note' => 'Demo met live verrijking',
         ])
         ->assertRedirect()
-        ->assertSessionHas('status', fn (mixed $status): bool => is_string($status) && str_contains($status, 'Adresgegevens zijn opgehaald'));
+        ->assertSessionHas('status', fn (mixed $status): bool => is_string($status) && str_contains($status, 'De adresgegevens zijn opgehaald'));
 
     $intake = Intake::query()->where('is_demo', true)->where('created_by', $user->id)->firstOrFail();
 

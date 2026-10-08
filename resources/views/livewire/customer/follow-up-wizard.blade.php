@@ -5,7 +5,10 @@
 
     <header class="mb-5">
         <p class="text-sm font-medium text-brand-ink/60">Aanvulling voor {{ $intake->customer_name }}</p>
-        <p class="mt-2 text-sm leading-5 text-brand-ink/75">Met jouw hulp kunnen we sneller je airco plaatsen. Hieronder staat alleen wat nog echt nodig is.</p>
+        {{-- Bedankscherm: één kop + één zin (BL-147, UX #16.1); de intro herhaalt zich anders. --}}
+        @unless ($completed)
+            <p class="mt-2 text-sm leading-5 text-brand-ink/75">Met jouw hulp kunnen we sneller je airco plaatsen. Hieronder staat alleen wat nog echt nodig is.</p>
+        @endunless
         @if (! $completed && $items->isNotEmpty())
             <div class="mt-3 flex items-center justify-between text-xs text-brand-ink/55">
                 <span>Onderdeel {{ $followUpStepIndex + 1 }} van {{ $items->count() }}</span>
@@ -27,20 +30,18 @@
 
     @if ($completed)
         <div class="flex flex-1 flex-col justify-center rounded-lg bg-white p-6 shadow-sm">
-            <h1 class="font-display text-2xl font-semibold tracking-tight text-brand-ink">Bedankt</h1>
+            <h1 class="font-display text-2xl font-semibold tracking-tight text-brand-ink">{{ \App\Domains\Intake\Support\PhotoOverridePolicy::THANK_YOU_HEADING }}</h1>
             <p class="mt-3 text-sm leading-relaxed text-brand-ink/70" data-testid="follow-up-thank-you">
-                {{ $followUpThankYouMessage ?? 'Bedankt. Je installateur kijkt nu of er nog iets openstaat.' }}
+                {{ $followUpThankYouMessage ?? \App\Domains\Intake\Support\PhotoOverridePolicy::THANK_YOU_COPY }}
             </p>
-            @if (! empty($followUpNeedsInstallerReview))
-                <p class="mt-2 text-sm font-medium text-amber-800" data-testid="follow-up-needs-review">
-                    De installateur moet de foto’s nog beoordelen — dit is nog geen afronding van het dossier.
-                </p>
-            @endif
             @if ($intake->is_demo)
                 <x-demo-scope-notice
                     variant="complete"
                     :needs-installer-review="! empty($followUpNeedsInstallerReview)"
+                    :installer-return-url="$followUpDemoReturnUrl ?? null"
                 />
+            @else
+                <p class="mt-3 text-sm leading-relaxed text-brand-ink/70" data-testid="follow-up-close-hint">Je kunt dit venster nu sluiten.</p>
             @endif
         </div>
     @elseif (! $item)
@@ -94,10 +95,32 @@
                     $remainingSlots = max(0, $maxPhotos - $item->uploads->count());
                 @endphp
 
+                {{-- Eén live-regio: “Foto verwijderd.” + Ongedaan maken, 8 s (BL-147, UX #16.4). --}}
+                <div role="status" aria-live="polite" data-testid="follow-up-undo-region">
+                    @if (($pendingFollowUpRemoval['item_id'] ?? null) === $item->id)
+                        <div
+                            wire:key="follow-up-undo-{{ $pendingFollowUpRemoval['upload_id'] }}"
+                            x-data
+                            x-init="setTimeout(() => $wire.finalizePendingFollowUpRemoval({{ (int) $pendingFollowUpRemoval['upload_id'] }}), 8000)"
+                            class="mb-3 flex items-center justify-between gap-3 rounded-md border border-brand-fog bg-brand-mist/40 py-1 pl-3 pr-1 text-sm text-brand-ink"
+                            data-testid="follow-up-undo-toast"
+                        >
+                            <span>Foto verwijderd.</span>
+                            <button
+                                type="button"
+                                wire:click="undoFollowUpUploadRemoval"
+                                class="min-h-11 shrink-0 rounded-md px-3 text-sm font-semibold text-brand-sea underline decoration-brand-sea/30 underline-offset-2"
+                            >
+                                Ongedaan maken
+                            </button>
+                        </div>
+                    @endif
+                </div>
+
                 @if ($item->uploads->isNotEmpty())
                     <ul class="grid grid-cols-2 gap-3">
                         @foreach ($item->uploads as $upload)
-                            <li class="relative overflow-hidden rounded-md border border-brand-fog bg-brand-mist/30">
+                            <li class="relative overflow-hidden rounded-md border border-brand-fog bg-brand-mist/30" wire:key="follow-up-upload-{{ $upload->id }}">
                                 <img
                                     src="{{ route('customer.uploads.show', ['token' => $token, 'upload' => $upload]) }}"
                                     alt="Aanvullende foto"
@@ -107,9 +130,15 @@
                                     type="button"
                                     wire:click="removeFollowUpUpload({{ $item->id }}, {{ $upload->id }})"
                                     wire:loading.attr="disabled"
-                                    class="absolute inset-x-0 bottom-0 bg-brand-ink/75 px-2 py-1.5 text-xs font-semibold text-white"
+                                    class="absolute right-0 top-0 flex h-11 w-11 items-center justify-center"
+                                    data-testid="follow-up-remove-photo"
                                 >
-                                    Verwijderen
+                                    <span class="flex h-8 w-8 items-center justify-center rounded-full bg-brand-ink/75 text-white shadow-sm">
+                                        <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z" clip-rule="evenodd" />
+                                        </svg>
+                                    </span>
+                                    <span class="sr-only">Foto verwijderen</span>
                                 </button>
                             </li>
                         @endforeach
@@ -156,7 +185,7 @@
                             @elseif (! empty($followUpPhotoHint))
                                 {{ $followUpPhotoHint }}
                             @else
-                                Deze foto is nog niet goed genoeg. Vervang hem of kies expliciet “Toch versturen”.
+                                Deze foto is nog niet goed genoeg. Vervang de foto of ga toch door.
                             @endif
                         </p>
                         @error('follow_up')
@@ -178,7 +207,7 @@
                                 class="min-h-11 rounded-md border border-brand-fog bg-brand-mist/40 px-4 text-sm font-semibold text-brand-ink"
                                 data-testid="follow-up-accept-mismatch"
                             >
-                                Toch versturen
+                                Toch doorgaan
                             </button>
                         </div>
                     </div>

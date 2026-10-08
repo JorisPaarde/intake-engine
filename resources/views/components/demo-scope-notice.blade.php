@@ -33,15 +33,13 @@
 
         {{-- Aandachtspunten en AI-debug blijven bij de installateur; niet tonen aan de klant. --}}
 
-        <p class="mt-4 leading-relaxed">
+        {{-- Altijd een zichtbare knop, geen tekstlink midden in een zin (BL-147, UX #16.2). --}}
+        <div class="mt-4">
             @if ($installerReturnUrl)
-                <a href="{{ $installerReturnUrl }}" class="font-semibold text-brand-sea underline">Terug naar de opname</a>
-                of ga
-                <a href="{{ url('/') }}" class="font-semibold text-brand-sea underline">terug naar de website</a>.
+                <a href="{{ $installerReturnUrl }}" class="inline-flex min-h-11 items-center justify-center rounded-md bg-brand-sea px-4 text-sm font-semibold text-white hover:bg-brand-sea/90" data-testid="demo-return-to-workspace">Terug naar de opname</a>
             @else
-                Ga terug naar het andere tabblad om de bijgewerkte opname te bekijken, of ga
-                <a href="{{ url('/') }}" class="font-semibold text-brand-sea underline">terug naar de website</a>.
+                <a href="{{ url('/') }}" class="inline-flex min-h-11 items-center justify-center rounded-md border border-brand-fog bg-white px-4 text-sm font-semibold text-brand-ink hover:bg-brand-mist/40" data-testid="demo-return-home">Naar de homepage</a>
             @endif
-        </p>
+        </div>
     </div>
 @endif

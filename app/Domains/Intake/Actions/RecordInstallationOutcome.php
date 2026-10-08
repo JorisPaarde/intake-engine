@@ -36,7 +36,7 @@ final class RecordInstallationOutcome
     {
         if ($installer->company_id !== $intake->company_id) {
             throw ValidationException::withMessages([
-                'outcome' => 'Deze uitkomst hoort niet bij uw installatiebedrijf.',
+                'outcome' => 'Deze uitkomst hoort niet bij je installatiebedrijf.',
             ]);
         }
 

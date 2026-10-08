@@ -437,12 +437,12 @@
                                                     @elseif (! empty($displayPhotoHint[$composite]))
                                                         {{ $displayPhotoHint[$composite] }}
                                                     @else
-                                                        Deze foto is nog niet goed genoeg. Vervang hem of kies expliciet “Toch doorgaan”.
+                                                        Deze foto is nog niet goed genoeg. Vervang de foto of ga toch door.
                                                     @endif
                                                 </p>
                                                 @if ($showMissing)
                                                     <p class="text-sm font-medium text-[#a84832]" data-testid="mismatch-next-warning">
-                                                        Kies: foto vervangen of toch doorgaan
+                                                        {{ \App\Domains\Intake\Support\PhotoOverridePolicy::OVERRIDE_MESSAGE }}
                                                     </p>
                                                 @endif
                                                 <div class="flex flex-col gap-2 sm:flex-row sm:items-center">

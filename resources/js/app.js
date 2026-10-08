@@ -136,6 +136,75 @@ function registerHashDisclosure() {
 registerHashDisclosure();
 
 /**
+ * “Beoordeel bij (ruimte)” (BL-147, UX #15.1): na de sprong lichten de velden
+ * waar de klanttaak over ging 2 s op. Ids staan in data-highlight-fields.
+ */
+function registerFieldFlashOnReview() {
+    document.addEventListener('click', (event) => {
+        const link = event.target instanceof Element ? event.target.closest('a[data-highlight-fields]') : null;
+        if (!link) {
+            return;
+        }
+        const ids = (link.getAttribute('data-highlight-fields') || '').split(/\s+/).filter(Boolean);
+        window.setTimeout(() => {
+            ids.forEach((id) => {
+                const field = document.getElementById(id);
+                if (!field) {
+                    return;
+                }
+                field.classList.add('field-flash');
+                window.setTimeout(() => field.classList.remove('field-flash'), 2000);
+            });
+        }, 50);
+    });
+}
+
+registerFieldFlashOnReview();
+
+/**
+ * Eigen bevestigingsdialoog (BL-147, UX #15.10) i.p.v. native confirm().
+ * Trigger: [data-confirm-dialog-open="<dialog-id>"]. Focus start op Annuleren;
+ * Esc (native cancel) of een klik buiten de dialoog annuleert.
+ */
+function registerConfirmDialogs() {
+    document.addEventListener('click', (event) => {
+        const target = event.target instanceof Element ? event.target : null;
+        if (!target) {
+            return;
+        }
+
+        const trigger = target.closest('[data-confirm-dialog-open]');
+        if (trigger) {
+            const dialog = document.getElementById(trigger.getAttribute('data-confirm-dialog-open') || '');
+            if (!(dialog instanceof HTMLDialogElement) || typeof dialog.showModal !== 'function') {
+                return;
+            }
+            event.preventDefault();
+            dialog.showModal();
+            dialog.querySelector('[data-confirm-dialog-cancel]')?.focus();
+            return;
+        }
+
+        if (target.closest('[data-confirm-dialog-cancel]')) {
+            target.closest('dialog')?.close();
+            return;
+        }
+
+        // Klik op de backdrop: het event-doel is de <dialog> zelf.
+        if (target instanceof HTMLDialogElement && target.hasAttribute('data-confirm-dialog') && target.open) {
+            const rect = target.getBoundingClientRect();
+            const inside = event.clientX >= rect.left && event.clientX <= rect.right
+                && event.clientY >= rect.top && event.clientY <= rect.bottom;
+            if (!inside) {
+                target.close();
+            }
+        }
+    });
+}
+
+registerConfirmDialogs();
+
+/**
  * Livewire file-upload network timing (BL-116 / P2).
  * Measure start → first livewire-upload-progress at 100%, then call
  * recordNetworkUploadTiming(uploadId, ms) after the server dispatches ai-upload-stored.
