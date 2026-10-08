@@ -271,12 +271,13 @@ test('rejected coupling for room A does not leak old input into room B form', fu
     ]);
 
     $outdoor = $intake->fresh()?->aircoPlacements()->where('type', AircoPlacementType::OutdoorUnit)->firstOrFail();
+    $couplingKey = 'coupling-'.$office->id;
 
     $html = $this->actingAs($user)
         ->from(route('intakes.workspace', $intake))
         ->followingRedirects()
         ->post(route('intakes.workspace.rooms.unit-coupling', [$intake, $office]), [
-            'form_key' => 'coupling-'.$office->id,
+            'form_key' => $couplingKey,
             'indoor_label' => 'Lekkende naam voor werkkamer',
             'outdoor_placement_id' => $outdoor->id,
             'configuration_type' => AircoConfigurationType::SingleSplit->value,
@@ -288,7 +289,13 @@ test('rejected coupling for room A does not leak old input into room B form', fu
         ->assertDontSee('data-testid="workspace-top-errors"', false)
         ->getContent();
 
-    expect(preg_match('/id="room-'.$office->id.'-indoor-label"[^>]*value="Lekkende naam voor werkkamer"/', $html))->toBe(1)
+    expect($html)
+        ->toMatch('/<details[^>]*\bopen\b[^>]*data-form-key="'.preg_quote($couplingKey, '/').'"|<details[^>]*data-form-key="'.preg_quote($couplingKey, '/').'"[^>]*\bopen\b/')
+        ->and(preg_match(
+            '/<details[^>]*data-form-key="'.preg_quote($couplingKey, '/').'"[^>]*x-init="\$el\.scrollIntoView\(\{block:\'center\'\}\)"|<details[^>]*x-init="\$el\.scrollIntoView\(\{block:\'center\'\}\)"[^>]*data-form-key="'.preg_quote($couplingKey, '/').'"/',
+            $html,
+        ))->toBe(1)
+        ->and(preg_match('/id="room-'.$office->id.'-indoor-label"[^>]*value="Lekkende naam voor werkkamer"/', $html))->toBe(1)
         ->and(preg_match('/id="room-'.$living->id.'-indoor-label"[^>]*value="Lekkende naam voor werkkamer"/', $html))->toBe(0)
         ->and(preg_match('/id="room-'.$living->id.'-indoor-label"[^>]*value="Binnenunit woonkamer"/', $html))->toBe(1)
         ->and(preg_match('/id="room-'.$office->id.'-outdoor-label"[^>]*value="Lekkende buitennaam"/', $html))->toBe(1)
@@ -296,6 +303,67 @@ test('rejected coupling for room A does not leak old input into room B form', fu
         ->and(preg_match('/id="room-'.$office->id.'-outdoor"[^>]*>[\s\S]*?<option[^>]*value="'.$outdoor->id.'"[^>]*selected/', $html))->toBe(1)
         ->and(preg_match('/name="form_key" value="coupling-'.$office->id.'"/', $html))->toBe(1)
         ->and(preg_match('/name="form_key" value="coupling-'.$living->id.'"/', $html))->toBe(1);
+});
+
+test('new placement without room opens details with scrollIntoView so the error is visible', function () {
+    $this->withoutVite();
+    $user = User::factory()->create();
+    $intake = createIntakeForDutchValidation($user, 'new-placement-scroll@example.com');
+    app(AircoSurveyService::class)->createRoom($intake, $user, [
+        'name' => 'Slaapkamer',
+        'use_type' => 'bedroom',
+    ]);
+
+    $html = $this->actingAs($user)
+        ->from(route('intakes.workspace', $intake))
+        ->followingRedirects()
+        ->post(route('intakes.workspace.placements.store', $intake), [
+            'form_key' => 'placement-new',
+            'type' => AircoPlacementType::IndoorUnit->value,
+            'airco_room_id' => '',
+            'label' => 'Unit zonder ruimte',
+            'description' => 'Moet zichtbaar blijven',
+        ])
+        ->assertOk()
+        ->assertDontSee('data-testid="workspace-top-errors"', false)
+        ->getContent();
+
+    expect($html)
+        ->toMatch('/<details[^>]*\bopen\b[^>]*data-form-key="placement-new"|<details[^>]*data-form-key="placement-new"[^>]*\bopen\b/')
+        ->and(preg_match(
+            '/<details[^>]*data-form-key="placement-new"[^>]*x-init="\$el\.scrollIntoView\(\{block:\'center\'\}\)"|<details[^>]*x-init="\$el\.scrollIntoView\(\{block:\'center\'\}\)"[^>]*data-form-key="placement-new"/',
+            $html,
+        ))->toBe(1)
+        ->and($html)->toContain('Kies bij welke ruimte deze binnenunit hoort.');
+});
+
+test('stale installation_option_id on coupling stays visible in the top alert', function () {
+    $this->withoutVite();
+    $user = User::factory()->create();
+    $intake = createIntakeForDutchValidation($user, 'stale-option@example.com');
+    $survey = app(AircoSurveyService::class);
+    $room = $survey->createRoom($intake, $user, [
+        'name' => 'Woonkamer',
+        'use_type' => 'living_room',
+    ]);
+
+    $html = $this->actingAs($user)
+        ->from(route('intakes.workspace', $intake))
+        ->followingRedirects()
+        ->post(route('intakes.workspace.rooms.unit-coupling', [$intake, $room]), [
+            'form_key' => 'coupling-'.$room->id,
+            'indoor_label' => 'Binnenunit woonkamer',
+            'outdoor_label' => 'Buitenunit tuin',
+            'configuration_type' => AircoConfigurationType::SingleSplit->value,
+            'installation_option_id' => 999999,
+        ])
+        ->assertOk()
+        ->assertSee('data-testid="workspace-top-errors"', false)
+        ->assertSee('Dit onderdeel kon nog niet worden opgeslagen.')
+        ->getContent();
+
+    expect($html)->toContain('workspace-top-errors')
+        ->and($html)->toMatch('/data-testid="workspace-top-errors"[\s\S]*?<li>/');
 });
 
 test('non-placement form errors still appear in the top workspace alert', function () {

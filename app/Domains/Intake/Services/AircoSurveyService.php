@@ -827,6 +827,7 @@ final class AircoSurveyService
             if ($problems !== []) {
                 $message = $this->singleSplitConflictsWithOtherRoomLinks(
                     $previousConfiguration,
+                    $configuration,
                     $option,
                     $room,
                     $outdoor,
@@ -852,16 +853,21 @@ final class AircoSurveyService
     }
 
     /**
-     * True when the option was already MultiSplit and another room's indoor already
-     * shares a refrigerant link to this same outdoor — the UX cue for
-     * "outdoor already on a multi-split".
+     * True when the installer is choosing SingleSplit, the option was already
+     * MultiSplit, and another room's indoor already shares a refrigerant link to
+     * this same outdoor — the UX cue for "outdoor already on a multi-split".
      */
     private function singleSplitConflictsWithOtherRoomLinks(
         AircoConfigurationType $previousConfiguration,
+        AircoConfigurationType $configuration,
         AircoInstallationOption $option,
         AircoRoom $room,
         AircoPlacementOption $outdoor,
     ): bool {
+        if ($configuration !== AircoConfigurationType::SingleSplit) {
+            return false;
+        }
+
         if ($previousConfiguration !== AircoConfigurationType::MultiSplit) {
             return false;
         }

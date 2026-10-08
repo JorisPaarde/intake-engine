@@ -167,11 +167,25 @@
 
             @php
                 $errorFormKey = old('form_key');
-                $suppressTopPlacementErrors = is_string($errorFormKey) && (
-                    str_starts_with($errorFormKey, 'placement-')
-                    || str_starts_with($errorFormKey, 'coupling-')
-                );
-                $topErrors = $suppressTopPlacementErrors ? [] : $errors->all();
+                $placementInlineErrorKeys = ['type', 'airco_room_id', 'label', 'description'];
+                $couplingInlineErrorKeys = ['indoor_label', 'configuration_type', 'outdoor_placement_id', 'outdoor_label'];
+                $inlineErrorKeys = [];
+                if (is_string($errorFormKey)) {
+                    if (str_starts_with($errorFormKey, 'placement-')) {
+                        $inlineErrorKeys = $placementInlineErrorKeys;
+                    } elseif (str_starts_with($errorFormKey, 'coupling-')) {
+                        $inlineErrorKeys = $couplingInlineErrorKeys;
+                    }
+                }
+                $topErrors = [];
+                foreach ($errors->getMessages() as $key => $messages) {
+                    if (in_array($key, $inlineErrorKeys, true)) {
+                        continue;
+                    }
+                    foreach ($messages as $message) {
+                        $topErrors[] = $message;
+                    }
+                }
             @endphp
             @if ($topErrors !== [])
                 <div class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900" role="alert" data-testid="workspace-top-errors">
@@ -560,9 +574,21 @@
                                         }
                                         $outdoorChoices = $intake->aircoPlacements
                                             ->filter(static fn ($p) => $p->type === \App\Enums\AircoPlacementType::OutdoorUnit);
+                                        $couplingFormKey = 'coupling-'.$room->id;
+                                        $couplingFormActive = old('form_key') === $couplingFormKey;
+                                        $couplingIndoorLabel = $couplingFormActive
+                                            ? old('indoor_label', $roomIndoor?->label ?? ('Binnenunit '.$room->name))
+                                            : ($roomIndoor?->label ?? ('Binnenunit '.$room->name));
+                                        $couplingConfiguration = $couplingFormActive
+                                            ? old('configuration_type', $activeOption?->configuration_type?->value)
+                                            : $activeOption?->configuration_type?->value;
+                                        $couplingOutdoorId = $couplingFormActive
+                                            ? old('outdoor_placement_id', $linkedOutdoor?->id)
+                                            : $linkedOutdoor?->id;
+                                        $couplingOutdoorLabel = $couplingFormActive ? old('outdoor_label') : null;
                                     @endphp
 
-                                    <details class="group/units border-t border-gray-100 pt-3 mt-3">
+                                    <details class="group/units border-t border-gray-100 pt-3 mt-3" @if ($couplingFormActive) open x-init="$el.scrollIntoView({block:'center'})" @endif data-form-key="{{ $couplingFormKey }}">
                                         <summary class="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 text-sm [&::-webkit-details-marker]:hidden">
                                             <span class="font-semibold text-gray-800">Binnen- en buitenunit</span>
                                             <span class="flex items-center gap-2 text-xs font-medium">
@@ -590,20 +616,6 @@
                                             </dl>
                                         @endif
 
-                                        @php
-                                            $couplingFormKey = 'coupling-'.$room->id;
-                                            $couplingFormActive = old('form_key') === $couplingFormKey;
-                                            $couplingIndoorLabel = $couplingFormActive
-                                                ? old('indoor_label', $roomIndoor?->label ?? ('Binnenunit '.$room->name))
-                                                : ($roomIndoor?->label ?? ('Binnenunit '.$room->name));
-                                            $couplingConfiguration = $couplingFormActive
-                                                ? old('configuration_type', $activeOption?->configuration_type?->value)
-                                                : $activeOption?->configuration_type?->value;
-                                            $couplingOutdoorId = $couplingFormActive
-                                                ? old('outdoor_placement_id', $linkedOutdoor?->id)
-                                                : $linkedOutdoor?->id;
-                                            $couplingOutdoorLabel = $couplingFormActive ? old('outdoor_label') : null;
-                                        @endphp
                                         <form method="POST" action="{{ route('intakes.workspace.rooms.unit-coupling', [$intake, $room]) }}" class="mt-3 grid gap-3 sm:grid-cols-2" data-form-key="{{ $couplingFormKey }}">
                                             @csrf
                                             <input type="hidden" name="form_key" value="{{ $couplingFormKey }}">
@@ -820,6 +832,7 @@
                                                             </label>
                                                         @endforeach
                                                     </div>
+                                                    <x-input-error :messages="$placementFormActive ? $errors->get('type') : []" class="mt-2" />
                                                 </fieldset>
                                                 <div>
                                                     <x-input-label for="placement-{{ $placement->id }}-room" value="Ruimte (verplicht bij binnenunit)" />
@@ -879,7 +892,7 @@
                             $newPlacementFormType = \App\Enums\AircoPlacementType::tryFrom((string) $newPlacementFormType)?->value
                                 ?? \App\Enums\AircoPlacementType::IndoorUnit->value;
                         @endphp
-                        <details class="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-4" @if ($newPlacementFormActive) open @endif data-form-key="{{ $newPlacementFormKey }}">
+                        <details class="mt-5 rounded-2xl border border-gray-200 bg-gray-50 p-4" @if ($newPlacementFormActive) open x-init="$el.scrollIntoView({block:'center'})" @endif data-form-key="{{ $newPlacementFormKey }}">
                             <summary class="cursor-pointer text-sm font-semibold text-gray-900">Binnen- of buitenunit toevoegen</summary>
                             <form
                                 method="POST"

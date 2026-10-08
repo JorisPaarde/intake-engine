@@ -453,6 +453,43 @@ test('rejected second single-split on shared outdoor rolls back transactionally'
         ->toBe(AircoUnitCouplingValidator::SINGLE_SPLIT_TOO_MANY_REFRIGERANT_LINKS);
 });
 
+test('multiple single-splits onto shared multi outdoor keeps cardinality message', function () {
+    $this->withoutVite();
+    $user = User::factory()->create();
+    $intake = createIntakeForUnitCoupling($user, 'multi-to-mss@example.com');
+    $survey = app(AircoSurveyService::class);
+
+    $living = $survey->createRoom($intake, $user, ['name' => 'Woonkamer', 'use_type' => 'living_room']);
+    $office = $survey->createRoom($intake, $user, ['name' => 'Werkkamer', 'use_type' => 'office']);
+
+    $option = $survey->syncRoomUnitCoupling($intake, $user, $living, [
+        'indoor_label' => 'Binnenunit woonkamer',
+        'outdoor_label' => 'Buitenunit tuin',
+        'configuration_type' => AircoConfigurationType::MultiSplit,
+    ]);
+
+    $outdoor = $intake->fresh()?->aircoPlacements()->where('type', AircoPlacementType::OutdoorUnit)->firstOrFail();
+    $optionTypeBefore = $option->fresh()?->configuration_type;
+
+    $response = $this->actingAs($user)
+        ->from(route('intakes.workspace', $intake))
+        ->post(route('intakes.workspace.rooms.unit-coupling', [$intake, $office]), [
+            'form_key' => 'coupling-'.$office->id,
+            'indoor_label' => 'Binnenunit werkkamer',
+            'outdoor_placement_id' => $outdoor->id,
+            'configuration_type' => AircoConfigurationType::MultipleSingleSplits->value,
+            'installation_option_id' => $option->id,
+        ]);
+
+    $response->assertRedirect(route('intakes.workspace', $intake))
+        ->assertSessionHasErrors('outdoor_placement_id');
+
+    $error = (string) session('errors')->first('outdoor_placement_id');
+    expect($error)->not->toBe(AircoUnitCouplingValidator::OUTDOOR_ALREADY_ON_MULTI_SPLIT)
+        ->and($error)->toBe('Bij meerdere single-splits deelt geen buitenunit twee binnenunits.')
+        ->and($option->fresh()?->configuration_type)->toBe($optionTypeBefore);
+});
+
 test('rejected single-split onto unused outdoor on multi option gets cardinality message', function () {
     $this->withoutVite();
     $user = User::factory()->create();
