@@ -2268,13 +2268,8 @@ class IntakeWizard extends Component
             return;
         }
 
-        $question = app(IntakeStepBuilder::class)->questionForStep(
-            $this->version(),
-            $step['section_key'],
-            $step['question_key'],
-        );
-
-        if (! $question instanceof IntakeQuestion || $question->type !== QuestionType::Photo) {
+        $question = $this->photoQuestionForStep($step);
+        if (! $question instanceof IntakeQuestion) {
             return;
         }
 
@@ -2320,13 +2315,8 @@ class IntakeWizard extends Component
             return;
         }
 
-        $question = app(IntakeStepBuilder::class)->questionForStep(
-            $this->version(),
-            $step['section_key'],
-            $step['question_key'],
-        );
-
-        if (! $question instanceof IntakeQuestion || $question->type !== QuestionType::Photo) {
+        $question = $this->photoQuestionForStep($step);
+        if (! $question instanceof IntakeQuestion) {
             return;
         }
 
@@ -2442,6 +2432,46 @@ class IntakeWizard extends Component
 
         $inputId = 'follow-up-photo-input-'.$item->id;
         $this->js('document.getElementById('.json_encode($inputId).')?.click()');
+    }
+
+    /**
+     * Foto-vraag van de huidige stap — ook binnen question_group (group_question_keys).
+     *
+     * @param  array{
+     *     kind?: string,
+     *     section_key: string,
+     *     question_key: string,
+     *     group_question_keys?: list<string>
+     * }  $step
+     */
+    private function photoQuestionForStep(array $step): ?IntakeQuestion
+    {
+        $version = $this->version();
+
+        if (($step['kind'] ?? 'question') === 'question_group') {
+            foreach ($step['group_question_keys'] ?? [] as $groupKey) {
+                $groupQuestion = app(IntakeStepBuilder::class)->questionForStep(
+                    $version,
+                    $step['section_key'],
+                    $groupKey,
+                );
+                if ($groupQuestion instanceof IntakeQuestion && $groupQuestion->type === QuestionType::Photo) {
+                    return $groupQuestion;
+                }
+            }
+
+            return null;
+        }
+
+        $question = app(IntakeStepBuilder::class)->questionForStep(
+            $version,
+            $step['section_key'],
+            $step['question_key'],
+        );
+
+        return $question instanceof IntakeQuestion && $question->type === QuestionType::Photo
+            ? $question
+            : null;
     }
 
     /**
@@ -2804,6 +2834,11 @@ class IntakeWizard extends Component
 
         $step = $this->currentStep();
         if ($step === null) {
+            return;
+        }
+
+        // Groepscherm (maten, afvoer+foto): keuze mag de optionele foto niet overslaan.
+        if (($step['kind'] ?? 'question') === 'question_group') {
             return;
         }
 

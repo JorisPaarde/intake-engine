@@ -45,18 +45,19 @@ function makeKlantwizard14PhotoIntake(): Intake
     ]);
 }
 
-test('A4: dezelfde onherkenbare foto geeft advies bij outdoor, around_house en drain', function () {
+test('A4: subject_match=no met detected outdoor_location geeft advies bij outdoor, around_house en drain', function () {
     $intake = makeKlantwizard14PhotoIntake();
 
+    // Pin de echte A4-fix: detected in accepted set + subject_match=no.
     FakeAiClient::alwaysReturn([
         'outdoor_location' => 'unknown',
         'outdoor_mount_type' => 'wall',
         'outdoor_accessibility' => 'easy_ground',
         'drain_location' => 'unknown',
-        'detected_subject' => 'other',
+        'detected_subject' => 'outdoor_location',
         'subject_match' => 'no',
         'confidence' => 'low',
-        'evidence' => 'Grijs vlak, geen gevel of tuin herkenbaar.',
+        'evidence' => 'Gevel/tuin niet betrouwbaar herkenbaar.',
         'retake_instruction' => null,
     ]);
 
@@ -68,12 +69,20 @@ test('A4: dezelfde onherkenbare foto geeft advies bij outdoor, around_house en d
 
     Queue::fake([AssessUploadedPhotoJob::class]);
 
+    // Verschillende afmetingen → andere checksum (geen reuse van outdoor-advies op drain).
+    $sizes = [
+        'outdoor_location_photos' => [1200, 900],
+        'around_house_photos' => [1210, 910],
+        'drain_photo' => [1220, 920],
+    ];
+
     foreach ($questionKeys as $questionKey) {
+        [$w, $h] = $sizes[$questionKey];
         $upload = app(StoreIntakeUpload::class)->handle(
             $intake,
             $questionKey,
             null,
-            UploadedFile::fake()->image($questionKey.'-grey.jpg', 1200, 900),
+            UploadedFile::fake()->image($questionKey.'-grey.jpg', $w, $h),
         );
         runAssessUploadedPhotoJob($upload->id);
     }
@@ -88,12 +97,13 @@ test('A4: dezelfde onherkenbare foto geeft advies bij outdoor, around_house en d
         $assessment = $upload->contentAssessment();
         expect($assessment)->not->toBeNull()
             ->and($assessment?->status())->toBe(PhotoContentAssessment::STATUS_WRONG_SUBJECT)
-            ->and($assessment?->customerMessage())->not->toBeNull()
-            ->and($assessment?->customerMessage())->toContain('gevel');
+            ->and($assessment?->customerMessage())->not->toBeNull();
 
         $messages[$questionKey] = $assessment?->customerMessage();
     }
 
-    expect($messages['outdoor_location_photos'])->toBe($messages['around_house_photos'])
-        ->and($messages['around_house_photos'])->toBe($messages['drain_photo']);
+    expect($messages['outdoor_location_photos'])->toContain('gevel')
+        ->and($messages['around_house_photos'])->toBe($messages['outdoor_location_photos'])
+        ->and($messages['drain_photo'])->not->toBe($messages['outdoor_location_photos'])
+        ->and($messages['drain_photo'])->toContain('we hebben');
 });

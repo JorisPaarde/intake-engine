@@ -651,17 +651,22 @@ final class DossierManager
      * gescheiden routes — geen area_* bij L×B, geen L/W bij area_m2).
      * Legacy: `area_source=installer` is tijdelijk voor rijen van vóór de backfill.
      *
-     * Lege werkplekmaten (null / 0 / lege string) blokkeren klantmaten niet — alleen een
-     * echte installateurscorrectie met meetwaarden wint.
+     * `dimensions_cleared_by_installer=true`: bewuste leegmaking — blijft leeg, geen
+     * klantmaten. Lege shell zónder die marker geeft wel mee aan klantmaten.
      *
-     * @param  array<string, float|string>|null  $existing
+     * @param  array<string, float|string|bool>|null  $existing
      * @param  array<string, float|string>  $fromAnswers
-     * @return array<string, float|string>
+     * @return array<string, float|string|bool>
      */
     private function mergeRoomDimensions(?array $existing, array $fromAnswers): array
     {
         if ($existing === null || $existing === []) {
             return $fromAnswers;
+        }
+
+        // Bewuste installateur-clear wint altijd van klantantwoorden.
+        if (($existing['dimensions_cleared_by_installer'] ?? false) === true) {
+            return $existing;
         }
 
         $installerOwned = ($existing['dimensions_source'] ?? null) === 'installer'
@@ -678,9 +683,15 @@ final class DossierManager
 
         $merged = array_merge($existing, $fromAnswers);
 
-        // Lege installer-shell: laat klantmaten toe en laat valse eigendomsmarker vallen.
+        // Lege installer-shell zonder clear-marker: laat klantmaten toe.
         if ($installerOwned && ! $this->dimensionsHavePositiveMeasures($existing)) {
-            unset($merged['dimensions_source']);
+            unset($merged['dimensions_cleared_by_installer']);
+            // Behoud dimensions_source uit antwoorden (customer/prefill); valse shell-marker weg.
+            if (array_key_exists('dimensions_source', $fromAnswers)) {
+                $merged['dimensions_source'] = $fromAnswers['dimensions_source'];
+            } else {
+                unset($merged['dimensions_source']);
+            }
             if (($existing['area_source'] ?? null) === 'installer'
                 && ! $this->dimensionValueIsPositive($existing['area_m2'] ?? null)
                 && ! array_key_exists('area_source', $fromAnswers)) {
@@ -837,6 +848,8 @@ final class DossierManager
         ];
         $dimensions = [];
         $areaAnswer = null;
+        /** @var list<IntakeAnswer> $lengthWidthAnswers */
+        $lengthWidthAnswers = [];
 
         foreach ($mapping as $questionKey => $dimensionKey) {
             $answer = $intake->answers->first(
@@ -854,6 +867,10 @@ final class DossierManager
             if ($questionKey === 'room_area_m2') {
                 $areaAnswer = $answer;
             }
+
+            if (in_array($questionKey, ['room_length_m', 'room_width_m'], true)) {
+                $lengthWidthAnswers[] = $answer;
+            }
         }
 
         if ($areaAnswer instanceof IntakeAnswer) {
@@ -869,8 +886,35 @@ final class DossierManager
             }
         }
 
+        if ($lengthWidthAnswers !== []) {
+            $dimensions['dimensions_source'] = $this->dimensionsSourceFromAnswers($lengthWidthAnswers);
+        } elseif ($areaAnswer instanceof IntakeAnswer && $dimensions['area_source'] !== 'installer') {
+            $dimensions['dimensions_source'] = $areaAnswer->prefill_source === null
+                ? 'customer'
+                : (string) $areaAnswer->prefill_source;
+        }
+
         // Never invent length/width from area alone — leave L×B empty when only m² is known.
         return $dimensions;
+    }
+
+    /**
+     * @param  list<IntakeAnswer>  $answers
+     */
+    private function dimensionsSourceFromAnswers(array $answers): string
+    {
+        $sources = [];
+        foreach ($answers as $answer) {
+            $sources[] = $answer->prefill_source;
+        }
+
+        foreach ($sources as $source) {
+            if ($source !== null && $source !== '') {
+                return (string) $source;
+            }
+        }
+
+        return 'customer';
     }
 
     private function roomNameFromAnswers(Intake $intake, string $instanceKey): ?string

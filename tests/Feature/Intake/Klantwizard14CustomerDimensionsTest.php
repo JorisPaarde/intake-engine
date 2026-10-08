@@ -68,7 +68,7 @@ test('A5: lege werkplekmaten blokkeren klantmaten niet in syncRooms', function (
     expect((float) ($room->dimensions['length_m'] ?? 0))->toBe(3.5)
         ->and((float) ($room->dimensions['width_m'] ?? 0))->toBe(3.0)
         ->and((float) ($room->dimensions['area_m2'] ?? 0))->toBe(10.5)
-        ->and($room->dimensions['dimensions_source'] ?? null)->not->toBe('installer');
+        ->and($room->dimensions['dimensions_source'] ?? null)->toBe('customer');
 });
 
 test('A5: echte installateurscorrectie wint van klantmaten', function () {

@@ -427,27 +427,8 @@
                                         <p class="mt-0.5 text-sm text-gray-500">
                                             @if ($floorConflict)
                                                 Controleer maten: L×B en m² komen niet overeen
-                                            @elseif ($customerDimCaption !== null && $roomMeasures->hasLengthAndWidth())
-                                                {{ number_format((float) $length, 1, ',', '.').' × '.number_format((float) $width, 1, ',', '.') }} m
-                                                @if ($computedArea !== null)
-                                                    <span class="text-gray-400">({{ number_format($computedArea, 1, ',', '.') }} m²)</span>
-                                                @endif
-                                                @if (is_numeric($height))
-                                                    <span class="text-gray-400">· H {{ number_format((float) $height, 1, ',', '.') }} m</span>
-                                                @endif
-                                                @if (! str_contains($customerDimCaption, 'van installateur'))
-                                                    <span class="text-gray-400">· van klant</span>
-                                                @else
-                                                    <span class="text-gray-400">· van installateur</span>
-                                                @endif
-                                            @elseif ($roomMeasures->hasTrustedAreaM2())
-                                                {{ number_format((float) $areaM2, 1, ',', '.') }} m²
-                                                @if (is_numeric($height))
-                                                    <span class="text-gray-400">· H {{ number_format((float) $height, 1, ',', '.') }} m</span>
-                                                @endif
-                                                @if (($room->dimensions['dimensions_source'] ?? null) !== 'installer' && ($room->dimensions['area_source'] ?? null) !== 'installer')
-                                                    <span class="text-gray-400">· van klant</span>
-                                                @endif
+                                            @elseif ($customerDimCaption !== null)
+                                                {{ $customerDimCaption }}
                                             @elseif ($roomMeasures->hasUntrustedAreaM2())
                                                 {{ number_format((float) $areaM2, 1, ',', '.') }} m² — nog controleren
                                             @elseif ($hasAnyDimension)

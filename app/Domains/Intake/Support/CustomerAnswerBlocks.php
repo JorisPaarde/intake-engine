@@ -14,16 +14,23 @@ use Illuminate\Support\Collection;
 /**
  * Antwoorden van de klant voor overzicht/werkplek — gewone taal, per ruimte of algemeen.
  *
- * Maten (L/B/H/m²) horen op de ruimtekaart; die keys blijven hier buiten.
+ * Alleen antwoorden zonder eigen veld: maten, kamernaam, type, verdieping en
+ * toestemming horen elders (ruimtekaart / stroom 3).
  */
 final class CustomerAnswerBlocks
 {
     /** @var list<string> */
-    private const DIMENSION_KEYS = [
+    private const EXCLUDED_KEYS = [
         'room_length_m',
         'room_width_m',
         'room_area_m2',
         'ceiling_height_m',
+        'room_name',
+        'room_type',
+        'use_type',
+        'floor_level',
+        'privacy_consent',
+        'truth_confirmation',
     ];
 
     /**
@@ -53,14 +60,12 @@ final class CustomerAnswerBlocks
         $grouped = [];
 
         foreach ($intake->answers as $answer) {
-            if (in_array($answer->question_key, self::DIMENSION_KEYS, true)) {
+            if (in_array($answer->question_key, self::EXCLUDED_KEYS, true)) {
                 continue;
             }
 
-            // Alleen klantantwoorden (eigen invoer of bevestigd stated).
-            $isCustomer = $answer->prefill_source === null
-                || $answer->fact_provenance === FactProvenance::Stated->value;
-            if (! $isCustomer) {
+            // Alleen echte klantantwoorden (geen prefill, ook niet stated-from-request).
+            if ($answer->prefill_source !== null) {
                 continue;
             }
 
@@ -108,7 +113,11 @@ final class CustomerAnswerBlocks
     }
 
     /**
-     * Ruimtekaart-label: "3,5 × 3 m (10,5 m²) · van klant" of null als leeg.
+     * Ruimtekaart-label: "3,5 × 3 m (10,5 m²) · van klant" of zonder bronlabel.
+     *
+     * - dimensions_source=customer → · van klant
+     * - dimensions_source=installer of area_source=installer → · van installateur
+     * - AI / request-text prefill → alleen de maten, geen bronlabel
      *
      * @param  array<string, float|string|null>|null  $dimensions
      */
@@ -143,11 +152,18 @@ final class CustomerAnswerBlocks
 
         $caption = implode(' ', $parts);
         $source = is_array($dimensions) ? ($dimensions['dimensions_source'] ?? null) : null;
-        if ($source === 'installer') {
+        $areaSource = is_array($dimensions) ? ($dimensions['area_source'] ?? null) : null;
+
+        if ($source === 'installer' || $areaSource === 'installer') {
             return $caption.' · van installateur';
         }
 
-        return $caption.' · van klant';
+        if ($source === 'customer') {
+            return $caption.' · van klant';
+        }
+
+        // AI / request-text / onbekend: maten zonder bronlabel.
+        return $caption;
     }
 
     private static function displayValue(IntakeQuestion $question, IntakeAnswer $answer): ?string

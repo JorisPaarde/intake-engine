@@ -41,13 +41,16 @@ final class PhotoContentAssessment
         ]);
     }
 
-    public static function wrongSubject(PhotoSubject $expected, PhotoSubject $detected): self
-    {
+    public static function wrongSubject(
+        PhotoSubject $expected,
+        PhotoSubject $detected,
+        ?string $questionKey = null,
+    ): self {
         return new self([
             'status' => self::STATUS_WRONG_SUBJECT,
             'expected_subject' => $expected->value,
             'detected_subject' => $detected->value,
-            'customer_message' => $expected->mismatchMessage($detected),
+            'customer_message' => $expected->mismatchMessage($detected, $questionKey),
         ]);
     }
 
@@ -84,7 +87,10 @@ final class PhotoContentAssessment
      * Derive/Fusebox (geen accepted-set): subject_match=no → altijd wrong_subject,
      * behalve route: een herkende `pipe_route` blokkeert nooit.
      * Accepted-set (follow-up of route-derive): detected in de set geldt als match
-     * (ongeacht subject_match). Bruikbare match + retake_instruction → needs_clearer
+     * (ongeacht subject_match), behalve outdoor_location / around_house / drain
+     * (`expected === OutdoorLocation`): subject_match=no → wrong_subject.
+     * wall_outlet, indoor_unit_position en overige follow-up blijven accepted-set-wint.
+     * Bruikbare match + retake_instruction → needs_clearer
      * (behalve route-foto’s: die blijven ok / nooit blokkeren).
      *
      * @param  array<string, mixed>  $output
@@ -94,13 +100,14 @@ final class PhotoContentAssessment
         PhotoSubject $expected,
         array $output,
         ?array $acceptedSubjects = null,
+        ?string $questionKey = null,
     ): self {
         // Ontbrekend detected_subject ≠ "other": legacy outdoor/room-fixtures
         // leveren alleen subject_match; val dan terug op expected bij match=yes.
         $detected = PhotoSubject::tryFromMixed($output['detected_subject'] ?? null);
         if ($detected === null) {
             if (($output['subject_match'] ?? 'yes') !== 'yes') {
-                return self::wrongSubject($expected, PhotoSubject::Other);
+                return self::wrongSubject($expected, PhotoSubject::Other, $questionKey);
             }
             $detected = $expected;
         }
@@ -120,20 +127,21 @@ final class PhotoContentAssessment
             }
 
             if (! $accepted) {
-                return self::wrongSubject($expected, $detected);
+                return self::wrongSubject($expected, $detected, $questionKey);
             }
 
-            // Route houdt: accepted-set wint ongeacht subject_match.
-            // Overige (gevel/rondom/afvoer/…): subject_match=no → zelfde mismatch-advies.
-            if ($expected !== PhotoSubject::PipeRoute
+            // Alleen outdoor_location / around_house / drain (expected OutdoorLocation):
+            // subject_match=no → mismatch, ook als detected in de accepted set zit.
+            if ($expected === PhotoSubject::OutdoorLocation
                 && ($output['subject_match'] ?? 'yes') !== 'yes') {
                 return self::wrongSubject(
                     $expected,
                     $detected === $expected ? PhotoSubject::Other : $detected,
+                    $questionKey,
                 );
             }
         } elseif (($output['subject_match'] ?? 'yes') !== 'yes') {
-            return self::wrongSubject($expected, $detected);
+            return self::wrongSubject($expected, $detected, $questionKey);
         }
 
         $retake = is_string($output['retake_instruction'] ?? null)

@@ -127,6 +127,20 @@ final class AircoSurveyService
         $existingDimensions = is_array($room->dimensions) ? $room->dimensions : [];
         if ($this->dimensionMeasuresDiffer($existingDimensions, $dimensions)) {
             $dimensions['dimensions_source'] = 'installer';
+            // Bewuste leegmaking: syncRooms mag klantmaten niet terugzetten.
+            $hasPositive = false;
+            foreach (['length_m', 'width_m', 'height_m', 'area_m2'] as $measureKey) {
+                $value = $dimensions[$measureKey] ?? null;
+                if (is_numeric($value) && (float) $value > 0) {
+                    $hasPositive = true;
+                    break;
+                }
+            }
+            if ($hasPositive) {
+                unset($dimensions['dimensions_cleared_by_installer']);
+            } else {
+                $dimensions['dimensions_cleared_by_installer'] = true;
+            }
             $updates['dimensions'] = $dimensions;
         }
 

@@ -705,7 +705,7 @@ final class DerivePhotoAnswers
         $accepted = $photoQuestionKey !== null
             ? PhotoSubject::acceptedSubjectsForPhotoQuestion($photoQuestionKey, $profileName)
             : null;
-        $assessment = PhotoContentAssessment::fromModelOutput($expected, $output, $accepted)
+        $assessment = PhotoContentAssessment::fromModelOutput($expected, $output, $accepted, $photoQuestionKey)
             ->preservingCustomerAcceptance($previous);
 
         $upload->storeContentAssessment($assessment);
