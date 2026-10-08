@@ -11,6 +11,7 @@ use App\Support\Logging\AppErrorLogger;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\PostTooLargeException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -84,6 +85,30 @@ return Application::configure(basePath: dirname(__DIR__))
             return response()->view('errors.customer-link-unavailable', [
                 'reason' => $e->reason,
             ], 410);
+        });
+
+        // ValidatePostSize throws before the controller (no session yet) — render a
+        // Dutch 413 page for the installer workspace photo route only.
+        $exceptions->render(function (PostTooLargeException $e, Request $request) {
+            if (! $request->is('intakes/*/opname/subjects/*/photos')) {
+                return null;
+            }
+
+            // Prefer same-host Referer — session is often not started yet.
+            // Foreign hosts must not become the back link (open redirect).
+            $referer = $request->headers->get('referer');
+            $backUrl = url('/');
+            if (is_string($referer) && $referer !== '') {
+                $refererHost = parse_url($referer, PHP_URL_HOST);
+                if (is_string($refererHost) && strcasecmp($refererHost, $request->getHost()) === 0) {
+                    $backUrl = $referer;
+                }
+            }
+
+            return response()->view('errors.post-too-large-photo', [
+                'message' => 'Deze foto is te groot voor één upload. De foto wordt automatisch verkleind — probeer het opnieuw, of stuur minder foto\'s tegelijk.',
+                'backUrl' => $backUrl,
+            ], 413);
         });
 
         $exceptions->context(function () {

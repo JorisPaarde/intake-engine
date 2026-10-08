@@ -41,7 +41,9 @@ use App\Domains\Intake\Services\VisibilityResolver;
 use App\Domains\Intake\Support\KnownSummaryCatalog;
 use App\Domains\Intake\Support\MustAcceptQuestions;
 use App\Domains\Intake\Support\OutdoorPhotoReuse;
+use App\Domains\Intake\Support\PhotoAssessmentSoftTimeout;
 use App\Domains\Intake\Support\PhotoContentSatisfaction;
+use App\Domains\Intake\Support\PhotoCustomerStatus;
 use App\Domains\Intake\Support\PhotoOverridePolicy;
 use App\Domains\Intake\Support\PhotoUploadLimits;
 use App\Domains\Intake\Support\PrefillSources;
@@ -296,6 +298,7 @@ class IntakeWizard extends Component
             $this->followUpResponses = $round->items
                 ->mapWithKeys(static fn (IntakeFollowUpItem $item): array => [$item->id => $item->response_text])
                 ->all();
+            $this->restoreFollowUpStepIndex($round);
 
             return;
         }
@@ -718,6 +721,7 @@ class IntakeWizard extends Component
         $count = $this->followUpRound()->items->count();
         $this->followUpStepIndex = min($this->followUpStepIndex + 1, max(0, $count - 1));
         $this->saveMessage = '';
+        $this->persistFollowUpStepIndex();
     }
 
     public function previousFollowUp(): void
@@ -726,6 +730,7 @@ class IntakeWizard extends Component
 
         $this->followUpStepIndex = max(0, $this->followUpStepIndex - 1);
         $this->saveMessage = '';
+        $this->persistFollowUpStepIndex();
     }
 
     public function completeFollowUp(): void
@@ -887,14 +892,11 @@ class IntakeWizard extends Component
             return false;
         }
 
-        // Wacht tot assessment_status terminaal is (BL-121/BL-127).
+        // Soft-timeout matches the client (ui_soft_timeout_seconds): after that the
+        // customer may continue; pending assessment finishes in the background.
         if ($item->type === FollowUpItemType::Photo
             && $item->uploads->contains(
-                static function (IntakeUpload $upload): bool {
-                    $status = $upload->assessment_status;
-
-                    return ! ($status instanceof PhotoAssessmentStatus && $status->isTerminal());
-                },
+                static fn (IntakeUpload $upload): bool => PhotoAssessmentSoftTimeout::blocksCustomerProgress($upload),
             )) {
             $this->addError('follow_up', 'Even geduld: we beoordelen je foto nog.');
 
@@ -1120,10 +1122,14 @@ class IntakeWizard extends Component
         // Alleen deze item-fase resetten; pending van andere items blijft staan.
         $this->clearProgressExtraNote();
         $this->clearPendingIdsFor($composite);
-        if ($this->uploadPhaseComposite === $composite) {
-            $this->uploadPhase = '';
-            $this->uploadPhaseMessage = '';
-        }
+        // New upload always gets a fresh soft-timeout clock (even when switching composite).
+        $this->assessmentUiReleased = array_values(array_filter(
+            $this->assessmentUiReleased,
+            static fn (string $key): bool => $key !== $composite,
+        ));
+        $this->uploadPhase = '';
+        $this->uploadPhaseMessage = '';
+        $this->uploadPhaseStartedAt = null;
 
         $item = $this->followUpItem($itemId);
         $intake = $this->intake();
@@ -1132,6 +1138,8 @@ class IntakeWizard extends Component
         $stored = 0;
         $error = null;
         $duplicateNotice = false;
+        /** @var list<string> $skippedNames */
+        $skippedNames = [];
         /** @var list<int> $storedUploadIds */
         $storedUploadIds = [];
         /** @var array<int, array<string, mixed>> $clientOriginals */
@@ -1139,6 +1147,12 @@ class IntakeWizard extends Component
 
         foreach ($files as $index => $file) {
             try {
+                if ($type === FollowUpItemType::Photo && ! $this->temporaryUploadLooksLikePhoto($file)) {
+                    $skippedNames[] = $file->getClientOriginalName() ?: 'bestand';
+
+                    continue;
+                }
+
                 $clientMeta = is_array($clientOriginals[$index] ?? null) ? $clientOriginals[$index] : [];
                 $rawWidth = $clientMeta['width'] ?? null;
                 $rawHeight = $clientMeta['height'] ?? null;
@@ -1187,15 +1201,25 @@ class IntakeWizard extends Component
         $this->followUpPhotoClientOriginals = $remainingOriginals;
         $storedUploadIds = array_values(array_unique($storedUploadIds));
 
+        if ($skippedNames !== []) {
+            $skipMessage = collect($skippedNames)
+                ->unique()
+                ->map(static fn (string $name): string => $name.' is geen foto en is niet meegenomen.')
+                ->implode(' ');
+            $this->addError($errorBagKey, $skipMessage);
+        }
+
         if ($storedUploadIds !== [] && $type === FollowUpItemType::Photo) {
             // BL-143: variants + usability + AI via ProcessIntakePhotoVariantsJob.
             // Always enter assessing so pollPendingAssessments applies quality hints
             // even when the sync queue already reached a terminal status.
             $this->setPendingIdsFor($composite, $storedUploadIds);
-            $this->setUploadPhase('assessing', 'Foto beoordelen…');
+            $this->setUploadPhase('assessing', PhotoCustomerStatus::LOOKING);
+            // UX: no top "Foto opgeslagen" banner while assessment is still running.
             $this->saveMessage = $duplicateNotice && $stored === 0
                 ? 'Deze foto staat er al'
-                : ($stored === 1 ? 'Foto opgeslagen' : ($stored > 1 ? "{$stored} foto's opgeslagen" : 'Deze foto staat er al'));
+                : '';
+            $this->persistFollowUpStepIndex();
 
             // Sync queue (tests / local): variants may already be terminal — resolve
             // hints/override UI in this same request instead of waiting for wire:poll.
@@ -1209,6 +1233,7 @@ class IntakeWizard extends Component
             $this->saveMessage = $type === FollowUpItemType::Photo
                 ? ($stored === 1 ? 'Foto opgeslagen' : "{$stored} foto's opgeslagen")
                 : ($stored === 1 ? 'Document opgeslagen' : "{$stored} documenten opgeslagen");
+            $this->persistFollowUpStepIndex();
         } elseif ($duplicateNotice) {
             $this->clearUploadPhase();
             $this->saveMessage = 'Deze foto staat er al';
@@ -1231,13 +1256,21 @@ class IntakeWizard extends Component
         $this->pollPendingAssessments();
     }
 
-    public function pollPendingAssessments(): void
+    /**
+     * @param  string|null  $composite  Wizard step composite (wire:poll passes this). Defaults to uploadPhaseComposite.
+     */
+    public function pollPendingAssessments(?string $composite = null): void
     {
-        $composite = $this->uploadPhaseComposite;
+        $composite = is_string($composite) && $composite !== ''
+            ? $composite
+            : $this->uploadPhaseComposite;
 
         if ($composite === '' || $this->pendingIdsFor($composite) === []) {
-            // Geen pending ids maar wel assessing → vastgelopen fase opruimen.
-            if ($this->uploadPhase === 'assessing' || $this->uploadPhase === 'failed') {
+            // Geen pending ids maar wel assessing op deze composite → vastgelopen fase opruimen.
+            // Do not clear a failed panel via poll (failed is not a poll trigger).
+            if ($composite !== ''
+                && $composite === $this->uploadPhaseComposite
+                && $this->uploadPhase === 'assessing') {
                 $this->clearUploadPhase();
             }
 
@@ -1245,7 +1278,7 @@ class IntakeWizard extends Component
         }
 
         if ($this->followUpMode) {
-            $this->pollPendingFollowUpAssessments();
+            $this->pollPendingFollowUpAssessments($composite);
 
             return;
         }
@@ -1298,10 +1331,10 @@ class IntakeWizard extends Component
         if ($stillPending !== []) {
             $softReleased = in_array($composite, $this->assessmentUiReleased, true);
 
-            if ($this->assessmentSoftTimedOut() && ! $softReleased) {
+            if ($this->assessmentSoftTimedOut($composite) && ! $softReleased) {
                 $this->softReleasePendingAssessment(
                     $composite,
-                    'De automatische check volgt later. Je kunt doorgaan; we kijken je foto alsnog na.',
+                    PhotoCustomerStatus::SOFT_TIMEOUT,
                 );
 
                 return;
@@ -1310,7 +1343,7 @@ class IntakeWizard extends Component
             // After soft-release: quiet poll (no assessing busy UI) until terminal
             // or absolute max wait, then drop pending ids (watchdog still covers DB).
             if ($softReleased) {
-                if ($this->assessmentQuietPollExhausted()) {
+                if ($this->assessmentQuietPollExhausted($composite)) {
                     $this->clearPendingIdsFor($composite);
                     if ($this->uploadPhaseComposite === $composite) {
                         $this->uploadPhaseComposite = '';
@@ -1325,7 +1358,8 @@ class IntakeWizard extends Component
             }
 
             $this->setPendingIdsFor($composite, $stillPending);
-            $this->setUploadPhase('assessing', 'Foto beoordelen…');
+            // Re-anchor to oldest pending created_at (not now()) when poll switches composite.
+            $this->beginAssessingFromPendingCreatedAt($composite, $stillPending);
 
             return;
         }
@@ -1344,7 +1378,9 @@ class IntakeWizard extends Component
         $this->storeScopedPhotoHint($composite, $uploadIds, $hints);
 
         $this->clearPendingIdsFor($composite);
-        $this->clearUploadPhase();
+        if ($this->uploadPhaseComposite === $composite) {
+            $this->clearUploadPhase();
+        }
     }
 
     public function retryFailedUploadPhase(): void
@@ -1369,16 +1405,17 @@ class IntakeWizard extends Component
             $this->assessmentUiReleased,
             static fn (string $key): bool => $key !== $composite,
         ));
+        // Explicit retry = new assessing clock.
+        $this->uploadPhaseStartedAt = null;
         $this->redispatchPendingAssessments($composite);
-        $this->setUploadPhase('assessing', 'Foto beoordelen…');
+        $this->setUploadPhase('assessing', PhotoCustomerStatus::LOOKING);
     }
 
     /**
-     * Beoordeel alleen de pending follow-upfoto's van het actieve item (poll).
+     * Beoordeel alleen de pending follow-upfoto's van de gepollde composite.
      */
-    private function pollPendingFollowUpAssessments(): void
+    private function pollPendingFollowUpAssessments(string $composite): void
     {
-        $composite = $this->uploadPhaseComposite;
         $uploadIds = $this->pendingIdsFor($composite);
         $intake = $this->intake();
         $lifecycle = app(PhotoAssessmentLifecycle::class);
@@ -1403,17 +1440,17 @@ class IntakeWizard extends Component
         if ($stillPending !== []) {
             $softReleased = in_array($composite, $this->assessmentUiReleased, true);
 
-            if ($this->assessmentSoftTimedOut() && ! $softReleased) {
+            if ($this->assessmentSoftTimedOut($composite) && ! $softReleased) {
                 $this->softReleasePendingAssessment(
                     $composite,
-                    'De automatische check volgt later. Je kunt doorgaan; we kijken je foto alsnog na.',
+                    PhotoCustomerStatus::SOFT_TIMEOUT,
                 );
 
                 return;
             }
 
             if ($softReleased) {
-                if ($this->assessmentQuietPollExhausted()) {
+                if ($this->assessmentQuietPollExhausted($composite)) {
                     $this->clearPendingIdsFor($composite);
                     if ($this->uploadPhaseComposite === $composite) {
                         $this->uploadPhaseComposite = '';
@@ -1428,7 +1465,8 @@ class IntakeWizard extends Component
             }
 
             $this->setPendingIdsFor($composite, $stillPending);
-            $this->setUploadPhase('assessing', 'Foto beoordelen…');
+            // Re-anchor to oldest pending created_at (not now()) when poll switches composite.
+            $this->beginAssessingFromPendingCreatedAt($composite, $stillPending);
 
             return;
         }
@@ -1436,27 +1474,25 @@ class IntakeWizard extends Component
         // Override-/mismatch-panel (PhotoOverridePolicy) is the single place for
         // quality + wrong_subject copy in follow-up — no duplicate Livewire error bag.
         $this->clearPendingIdsFor($composite);
-        $this->clearUploadPhase();
+        if ($this->uploadPhaseComposite === $composite) {
+            $this->clearUploadPhase();
+        }
     }
 
-    private function assessmentSoftTimedOut(): bool
+    private function assessmentSoftTimedOut(string $composite): bool
     {
-        // Tests mogen een kortere limiet zetten; 0 of negatief valt terug op 90.
-        $configured = (int) config('ai.photo_assessment.ui_soft_timeout_seconds', 90);
-        $limit = $configured > 0 ? $configured : 90;
+        $limit = PhotoAssessmentSoftTimeout::seconds();
 
         $startedAt = $this->uploadPhaseStartedAt;
-        if ($startedAt !== null) {
-            // Phase clock is authoritative while assessing is active — do not also
-            // fall through to assessment_queued_at (that timestamp is set at store
-            // start and can already exceed a short test limit before poll runs).
+        if ($startedAt !== null && $composite === $this->uploadPhaseComposite) {
+            // Phase clock is authoritative while assessing is active for this composite.
             return (now()->getTimestamp() - (int) $startedAt) >= $limit;
         }
 
-        // Fallback: oudste pending upload.assessment_queued_at.
-        foreach ($this->pendingIdsFor($this->uploadPhaseComposite) as $uploadId) {
-            $queuedAt = IntakeUpload::query()->whereKey($uploadId)->value('assessment_queued_at');
-            if ($queuedAt !== null && now()->subSeconds($limit)->gte($queuedAt)) {
+        // Fallback: oudste pending upload.created_at (not assessment_queued_at — that resets).
+        foreach ($this->pendingIdsFor($composite) as $uploadId) {
+            $createdAt = IntakeUpload::query()->whereKey($uploadId)->value('created_at');
+            if ($createdAt !== null && now()->subSeconds($limit)->gte($createdAt)) {
                 return true;
             }
         }
@@ -1465,18 +1501,14 @@ class IntakeWizard extends Component
     }
 
     /**
-     * Absolute ceiling for quiet background poll after soft-release (~10 min).
+     * Absolute ceiling for quiet background poll after soft-release (~10 min), per composite.
+     * Uses created_at so pipeline resets of assessment_queued_at cannot stall forever.
      */
-    private function assessmentQuietPollExhausted(): bool
+    private function assessmentQuietPollExhausted(string $composite): bool
     {
         $maxSeconds = 600;
 
-        foreach ($this->pendingIdsFor($this->uploadPhaseComposite) as $uploadId) {
-            $queuedAt = IntakeUpload::query()->whereKey($uploadId)->value('assessment_queued_at');
-            if ($queuedAt !== null && now()->subSeconds($maxSeconds)->gte($queuedAt)) {
-                return true;
-            }
-
+        foreach ($this->pendingIdsFor($composite) as $uploadId) {
             $createdAt = IntakeUpload::query()->whereKey($uploadId)->value('created_at');
             if ($createdAt !== null && now()->subSeconds($maxSeconds)->gte($createdAt)) {
                 return true;
@@ -1504,9 +1536,7 @@ class IntakeWizard extends Component
         }
         $this->saveMessage = $message;
 
-        if ($this->followUpMode) {
-            $this->addError('followUpPhotoFiles.'.$composite, $message);
-        } else {
+        if (! $this->followUpMode) {
             $this->photoHint[$composite] = $message;
         }
     }
@@ -1626,7 +1656,9 @@ class IntakeWizard extends Component
         }
 
         $this->setPendingIdsFor($composite, $ids);
-        $this->uploadPhaseStartedAt = now()->getTimestamp();
+        // Do NOT reset uploadPhaseStartedAt here — Alpine "Opnieuw beoordelen" /
+        // quiet redispatch must not postpone the soft-timeout indefinitely
+        // (demotest 8 okt taak 4).
     }
 
     /**
@@ -1696,8 +1728,7 @@ class IntakeWizard extends Component
             }
             $this->ensurePendingUploadsHaveUsabilityVerdict($ids);
             $this->redispatchPendingAssessments($composite, $ids);
-            $this->uploadPhaseComposite = $composite;
-            $this->setUploadPhase('assessing', 'Foto beoordelen…');
+            $this->beginAssessingFromPendingCreatedAt($composite, $ids);
             $this->queuedUnassessedRecovery = true;
 
             return;
@@ -1790,9 +1821,28 @@ class IntakeWizard extends Component
         }
         $this->ensurePendingUploadsHaveUsabilityVerdict($ids);
         $this->redispatchPendingAssessments($composite, $ids);
-        $this->uploadPhaseComposite = $composite;
-        $this->setUploadPhase('assessing', 'Foto beoordelen…');
+        $this->beginAssessingFromPendingCreatedAt($composite, $ids);
         $this->queuedUnassessedRecovery = true;
+    }
+
+    /**
+     * Reload/recover: seed the UI soft-timeout clock from the oldest pending created_at
+     * so a long-pending photo soft-releases immediately instead of restarting at now().
+     *
+     * @param  list<int>  $uploadIds
+     */
+    private function beginAssessingFromPendingCreatedAt(string $composite, array $uploadIds): void
+    {
+        $oldest = IntakeUpload::query()
+            ->whereIn('id', $uploadIds)
+            ->orderBy('created_at')
+            ->value('created_at');
+
+        $this->uploadPhaseComposite = $composite;
+        $this->uploadPhaseStartedAt = $oldest !== null
+            ? Carbon::parse($oldest)->getTimestamp()
+            : null;
+        $this->setUploadPhase('assessing', PhotoCustomerStatus::LOOKING);
     }
 
     /**
@@ -1866,10 +1916,14 @@ class IntakeWizard extends Component
         $this->clearProgressExtraNote();
         $this->clearPhotoFeedbackForComposite($composite);
         $this->clearPendingIdsFor($composite);
-        if ($this->uploadPhaseComposite === $composite) {
-            $this->uploadPhase = '';
-            $this->uploadPhaseMessage = '';
-        }
+        // New upload always gets a fresh soft-timeout clock (even when switching composite).
+        $this->assessmentUiReleased = array_values(array_filter(
+            $this->assessmentUiReleased,
+            static fn (string $key): bool => $key !== $composite,
+        ));
+        $this->uploadPhase = '';
+        $this->uploadPhaseMessage = '';
+        $this->uploadPhaseStartedAt = null;
         $this->uploadPhaseComposite = $composite;
 
         $stored = 0;
@@ -1953,11 +2007,12 @@ class IntakeWizard extends Component
             // BL-143: heavy decode/resize/usability/AI runs in ProcessIntakePhotoVariantsJob
             // (ai-photo). The Livewire update only persisted source bytes.
             $this->setPendingIdsFor($composite, $storedUploadIds);
-            $this->setUploadPhase('assessing', 'Foto beoordelen…');
+            $this->setUploadPhase('assessing', PhotoCustomerStatus::LOOKING);
             $this->forgetIntakeDerivedCaches();
+            // UX: no top "Foto opgeslagen" banner while assessment is still running.
             $this->saveMessage = $duplicateNotice && $stored === 0
                 ? 'Deze foto staat er al'
-                : ($stored === 1 ? 'Foto opgeslagen' : ($stored > 1 ? $stored." foto's opgeslagen" : 'Deze foto staat er al'));
+                : '';
 
             // Sync queue: resolve terminal variants in this request (quality hints / clear phase).
             $this->pollPendingAssessments();
@@ -2304,6 +2359,77 @@ class IntakeWizard extends Component
         $this->saveMessage = '';
 
         $inputId = 'photo-input-'.str_replace(['.', ' '], '-', $composite);
+        $this->js('document.getElementById('.json_encode($inputId).')?.click()');
+    }
+
+    /**
+     * Vervang één probleemfoto (per-thumbnail knop) en open de file picker.
+     */
+    public function replaceSinglePhoto(int $uploadId): void
+    {
+        if ($this->completed) {
+            return;
+        }
+
+        $upload = IntakeUpload::query()->find($uploadId);
+        if (! $upload instanceof IntakeUpload || $upload->intake_id !== $this->intake()->id) {
+            return;
+        }
+
+        if (! PhotoOverridePolicy::needsOverride($upload)) {
+            return;
+        }
+
+        $questionKey = $upload->question_key;
+        $instanceKey = $upload->section_instance_key;
+
+        app(DeleteIntakeUpload::class)->handle($this->intake(), $upload);
+
+        $this->invalidatePhotoDerivation($questionKey, $instanceKey);
+        $this->runPhotoDerivation($questionKey, $instanceKey);
+        $this->forgetIntakeDerivedCaches();
+
+        $composite = VisibilityResolver::compositeKey($questionKey, $instanceKey);
+        $this->clearPhotoFeedbackForComposite($composite);
+        $this->clearProgressExtraNote();
+        $this->refreshAnswerInForm($composite);
+        $this->showMissing = false;
+        $this->saveMessage = '';
+
+        $inputId = 'photo-input-'.str_replace(['.', ' '], '-', $composite);
+        $this->js('document.getElementById('.json_encode($inputId).')?.click()');
+    }
+
+    /**
+     * Vervang één follow-up probleemfoto en open de file picker.
+     */
+    public function replaceFollowUpSinglePhoto(int $itemId, int $uploadId): void
+    {
+        if ($this->completed || ! $this->followUpMode) {
+            return;
+        }
+
+        $item = $this->followUpItem($itemId);
+        if ($item->type !== FollowUpItemType::Photo) {
+            return;
+        }
+
+        $upload = $item->uploads->firstWhere('id', $uploadId);
+        if (! $upload instanceof IntakeUpload) {
+            return;
+        }
+
+        if (! PhotoOverridePolicy::needsOverride($upload)) {
+            return;
+        }
+
+        app(DeleteFollowUpUpload::class)->handle($this->intake(), $item, $upload);
+
+        $this->resetErrorBag('follow_up');
+        $this->forgetIntakeDerivedCaches();
+        $this->saveMessage = '';
+
+        $inputId = 'follow-up-photo-input-'.$item->id;
         $this->js('document.getElementById('.json_encode($inputId).')?.click()');
     }
 
@@ -3927,5 +4053,57 @@ class IntakeWizard extends Component
         }
 
         return app(AnswerValueReader::class)->isFilled($value, $question->type);
+    }
+
+    private function temporaryUploadLooksLikePhoto(TemporaryUploadedFile $file): bool
+    {
+        $mime = strtolower((string) $file->getMimeType());
+        if (str_starts_with($mime, 'image/')) {
+            return true;
+        }
+
+        $extension = strtolower((string) $file->getClientOriginalExtension());
+
+        return in_array($extension, ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'], true);
+    }
+
+    private function persistFollowUpStepIndex(): void
+    {
+        if (! $this->followUpMode || $this->followUpRoundId <= 0) {
+            return;
+        }
+
+        $round = $this->followUpRound();
+        $item = $round->items->get($this->followUpStepIndex);
+        if (! $item instanceof IntakeFollowUpItem) {
+            return;
+        }
+
+        session([
+            $this->followUpStepSessionKey($round->id) => $item->id,
+        ]);
+    }
+
+    private function restoreFollowUpStepIndex(IntakeFollowUpRound $round): void
+    {
+        $savedItemId = session($this->followUpStepSessionKey($round->id));
+        if (! is_numeric($savedItemId)) {
+            return;
+        }
+
+        $index = $round->items->values()->search(
+            static fn (IntakeFollowUpItem $item): bool => $item->id === (int) $savedItemId,
+        );
+
+        if ($index === false) {
+            return;
+        }
+
+        $this->followUpStepIndex = (int) $index;
+    }
+
+    private function followUpStepSessionKey(int $roundId): string
+    {
+        return 'follow_up_active_item.'.$roundId;
     }
 }

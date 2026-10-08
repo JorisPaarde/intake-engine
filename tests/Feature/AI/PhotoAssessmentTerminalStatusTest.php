@@ -296,7 +296,7 @@ test('poll soft-timeout laat wizard doorgaan terwijl status pending blijft', fun
     $component
         ->call('pollPendingAssessments')
         ->assertSet('uploadPhase', '')
-        ->assertSee('De automatische check volgt later');
+        ->assertSee('Dit duurt langer dan normaal. Je kunt alvast verder.');
 
     $upload->refresh();
     expect($upload->assessment_status)->toBe(PhotoAssessmentStatus::Pending);

@@ -98,6 +98,27 @@ class IntakeUpload extends Model
     }
 
     /**
+     * Filename for Content-Disposition / downloads. Stored dossier variants are JPEG;
+     * keep the original basename but force .jpg when the served mime is JPEG
+     * (demotest 8 okt: PNG/HEIC converted yet still offered as .png).
+     */
+    public function downloadFilename(): string
+    {
+        $name = trim((string) $this->original_filename);
+        if ($name === '') {
+            $name = 'foto';
+        }
+
+        if ($this->mime_type === 'image/jpeg') {
+            $base = pathinfo($name, PATHINFO_FILENAME);
+
+            return ($base !== '' ? $base : 'foto').'.jpg';
+        }
+
+        return $name;
+    }
+
+    /**
      * Whether this upload may be sent to dossier AI or cited as synthesis evidence.
      * Rejected (wrong_subject without override), heuristic rejects, and soft-deleted
      * replacements must never count.

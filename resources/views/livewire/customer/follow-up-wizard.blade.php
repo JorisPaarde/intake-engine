@@ -116,36 +116,81 @@
                     @endif
                 </div>
 
+                @php
+                    $followUpComposite = (string) $item->id;
+                    $assessmentPollPending = ! empty($pendingAssessUploadIds[$followUpComposite] ?? []);
+                    $assessmentPollActive = (string) ($uploadPhase ?? '') === 'assessing'
+                        && (string) ($uploadPhaseComposite ?? '') === $followUpComposite;
+                    $assessmentQuietPoll = in_array($followUpComposite, $assessmentUiReleased ?? [], true);
+                    $assessmentPollInterval = $assessmentQuietPoll ? '5s' : '2s';
+                @endphp
+                @if ($assessmentPollPending || $assessmentPollActive)
+                    <div
+                        wire:key="assessment-poll-{{ $followUpComposite }}-{{ $assessmentPollInterval }}"
+                        wire:poll.{{ $assessmentPollInterval }}='pollPendingAssessments(@json($followUpComposite))'
+                        class="hidden"
+                        data-testid="assessment-poll"
+                        data-poll-composite="{{ $followUpComposite }}"
+                        aria-hidden="true"
+                    ></div>
+                @endif
+
                 @if ($item->uploads->isNotEmpty())
                     <ul class="grid grid-cols-2 gap-3">
                         @foreach ($item->uploads as $upload)
-                            <li class="relative overflow-hidden rounded-md border border-brand-fog bg-brand-mist/30" wire:key="follow-up-upload-{{ $upload->id }}">
-                                <img
-                                    src="{{ route('customer.uploads.show', ['token' => $token, 'upload' => $upload]) }}"
-                                    alt="Aanvullende foto"
-                                    class="aspect-square w-full object-cover"
-                                >
-                                <button
-                                    type="button"
-                                    wire:click="removeFollowUpUpload({{ $item->id }}, {{ $upload->id }})"
-                                    wire:loading.attr="disabled"
-                                    class="absolute right-0 top-0 flex h-11 w-11 items-center justify-center"
-                                    data-testid="follow-up-remove-photo"
-                                >
-                                    <span class="flex h-8 w-8 items-center justify-center rounded-full bg-brand-ink/75 text-white shadow-sm">
-                                        <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z" clip-rule="evenodd" />
-                                        </svg>
-                                    </span>
-                                    <span class="sr-only">Foto verwijderen</span>
-                                </button>
+                            @php
+                                $photoStatusLabel = \App\Domains\Intake\Support\PhotoCustomerStatus::forUpload(
+                                    $upload,
+                                    (string) $item->id,
+                                    (string) ($uploadPhase ?? ''),
+                                    (string) ($uploadPhaseComposite ?? ''),
+                                    $pendingAssessUploadIds[(string) $item->id] ?? [],
+                                    $assessmentUiReleased ?? [],
+                                );
+                            @endphp
+                            <li class="overflow-hidden rounded-md border border-brand-fog bg-brand-mist/30" data-testid="photo-thumb-status" data-upload-id="{{ $upload->id }}" wire:key="follow-up-upload-{{ $upload->id }}">
+                                <div class="relative">
+                                    <img
+                                        src="{{ route('customer.uploads.show', ['token' => $token, 'upload' => $upload]) }}"
+                                        alt="Aanvullende foto"
+                                        class="aspect-square w-full object-cover"
+                                    >
+                                    <button
+                                        type="button"
+                                        wire:click="removeFollowUpUpload({{ $item->id }}, {{ $upload->id }})"
+                                        wire:loading.attr="disabled"
+                                        class="absolute right-0 top-0 flex h-11 w-11 items-center justify-center"
+                                        data-testid="follow-up-remove-photo"
+                                    >
+                                        <span class="flex h-8 w-8 items-center justify-center rounded-full bg-brand-ink/75 text-white shadow-sm">
+                                            <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 0 0 6 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 1 0 .23 1.482l.149-.022.841 10.518A2.75 2.75 0 0 0 7.596 19h4.807a2.75 2.75 0 0 0 2.742-2.53l.841-10.52.149.023a.75.75 0 0 0 .23-1.482A41.03 41.03 0 0 0 14 4.193V3.75A2.75 2.75 0 0 0 11.25 1h-2.5ZM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4ZM8.58 7.72a.75.75 0 0 0-1.5.06l.3 7.5a.75.75 0 1 0 1.5-.06l-.3-7.5Zm4.34.06a.75.75 0 1 0-1.5-.06l-.3 7.5a.75.75 0 1 0 1.5.06l.3-7.5Z" clip-rule="evenodd" />
+                                            </svg>
+                                        </span>
+                                        <span class="sr-only">Foto verwijderen</span>
+                                    </button>
+                                </div>
+                                <p class="px-2 py-1.5 text-xs font-medium text-brand-ink/80" data-photo-status="1">
+                                    {{ $photoStatusLabel }}
+                                </p>
+                                @if (\App\Domains\Intake\Support\PhotoOverridePolicy::needsOverride($upload))
+                                    <button
+                                        type="button"
+                                        wire:click="replaceFollowUpSinglePhoto({{ $item->id }}, {{ $upload->id }})"
+                                        wire:loading.attr="disabled"
+                                        class="w-full border-t border-brand-fog bg-white px-2 py-1.5 text-xs font-semibold text-brand-sea"
+                                        data-testid="photo-replace-one"
+                                    >
+                                        Vervang foto
+                                    </button>
+                                @endif
                             </li>
                         @endforeach
                     </ul>
                 @endif
 
                 @if ($remainingSlots > 0)
-                    <div class="mt-3">
+                    <div class="mt-3" wire:key="follow-up-photo-control-{{ $item->id }}">
                         <x-customer.photo-upload-control
                             :composite="(string) $item->id"
                             wire-model="followUpPhotoFiles.{{ $item->id }}"
@@ -179,13 +224,7 @@
                 @if ($followUpMismatchAssessment || ! empty($followUpNeedsOverride))
                     <div class="mt-3 space-y-3 rounded-md border border-brand-ember/30 bg-white px-3 py-3" role="alert" data-testid="follow-up-mismatch">
                         <p class="text-sm text-brand-ink">
-                            @if ($followUpMismatchAssessment)
-                                {{ $followUpMismatchAssessment->customerMessage() ?? 'Deze foto lijkt niet bij de vraag te horen.' }}
-                            @elseif (! empty($followUpPhotoHint))
-                                {{ $followUpPhotoHint }}
-                            @else
-                                Deze foto is nog niet goed genoeg. Vervang de foto of ga toch door.
-                            @endif
+                            Deze foto is nog niet goed genoeg. Vervang de foto of ga toch door.
                         </p>
                         @error('follow_up')
                             <p class="text-sm font-medium text-brand-ember" data-testid="follow-up-mismatch-warning">
@@ -193,13 +232,6 @@
                             </p>
                         @enderror
                         <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-                            <button
-                                type="button"
-                                wire:click="replaceFollowUpMismatchedPhoto"
-                                class="min-h-11 rounded-md bg-brand-sea px-4 text-sm font-semibold text-white"
-                            >
-                                Vervang foto
-                            </button>
                             <button
                                 type="button"
                                 wire:click="acceptFollowUpPhotoMismatch"

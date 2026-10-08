@@ -233,30 +233,112 @@
             <summary class="flex min-h-11 cursor-pointer list-none items-center px-3 py-2 text-sm font-semibold text-gray-800">
                 Foto maken
             </summary>
+            @php
+                $installerHardMaxBytes = (int) config('intake.uploads.hard_max_bytes', 15 * 1024 * 1024);
+                $installerHardMaxMp = (float) config('intake.uploads.hard_max_megapixels', 24);
+                $installerTooLarge = (string) (config('intake.uploads.too_large_message') ?: 'Deze foto is te groot. Probeer een andere foto of maak een nieuwe.');
+                $installerMaxFiles = max(1, (int) config('intake.uploads.max_files_per_question', 5));
+            @endphp
             <form
                 method="POST"
                 enctype="multipart/form-data"
                 action="{{ route('intakes.workspace.photos.store', [$intake, $subject]) }}"
                 class="space-y-3 border-t border-gray-200 p-3"
+                data-client-downscale="1"
+                data-upload-max-bytes="{{ $installerHardMaxBytes }}"
+                data-upload-max-megapixels="{{ $installerHardMaxMp }}"
+                data-upload-too-large="{{ $installerTooLarge }}"
+                x-data="{
+                    names: [],
+                    prepError: '',
+                    prepBusy: false,
+                    inputId: @js($fieldPrefix.'-photo'),
+                    matchesScope(event) {
+                        const id = event?.detail?.inputId;
+                        return ! id || id === this.inputId;
+                    },
+                    onPick(event) {
+                        const files = Array.from(event.target.files || []);
+                        this.names = files.map((file) => file.name);
+                        // Synthetic change after downscale is not trusted — keep prepError
+                        // (skip notices) so they are not wiped by photo-downscale.js.
+                        if (event.isTrusted) {
+                            this.prepError = '';
+                        }
+                    },
+                    onPrepStart(event) {
+                        if (! this.matchesScope(event)) return;
+                        this.prepBusy = true;
+                        this.prepError = '';
+                    },
+                    onPrepDone(event) {
+                        if (! this.matchesScope(event)) return;
+                        this.prepBusy = false;
+                    },
+                    onPrepFailed(event) {
+                        if (! this.matchesScope(event)) return;
+                        this.prepBusy = false;
+                        this.prepError = event?.detail?.message
+                            || 'Deze foto is te groot. Probeer een andere foto of maak een nieuwe.';
+                        this.names = [];
+                    },
+                    onPrepSkipped(event) {
+                        if (! this.matchesScope(event)) return;
+                        const message = event?.detail?.message;
+                        if (! message) return;
+                        // Collect per-file skip notices (same idea as customer prepSkipMessage).
+                        this.prepError = this.prepError
+                            ? (this.prepError + ' ' + message)
+                            : message;
+                    },
+                }"
+                x-on:intake:photo-prep-start.document="onPrepStart($event)"
+                x-on:intake:photo-prep-done.document="onPrepDone($event)"
+                x-on:intake:photo-prep-failed.document="onPrepFailed($event)"
+                x-on:intake:photo-prep-skipped.document="onPrepSkipped($event)"
             >
                 @csrf
                 <div>
                     <label
                         for="{{ $fieldPrefix }}-photo"
                         class="flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white px-3 text-center"
+                        :class="{ 'pointer-events-none opacity-60': prepBusy }"
                     >
-                        <span class="text-sm font-semibold text-gray-900">Camera openen of foto kiezen</span>
-                        <span class="mt-1 text-xs text-gray-500">JPEG, PNG, WebP of HEIC</span>
+                        <span class="text-sm font-semibold text-gray-900">Camera openen of foto's kiezen</span>
+                        <span class="mt-1 text-xs text-gray-500">
+                            JPEG, PNG, WebP of HEIC · max {{ number_format($installerHardMaxBytes / 1048576, 0) }} MB
+                            · tot {{ $installerMaxFiles }} foto's · worden automatisch verkleind
+                        </span>
                     </label>
                     <input
                         id="{{ $fieldPrefix }}-photo"
                         type="file"
-                        name="photo"
-                        accept="image/*,.heic,.heif"
+                        name="photo[]"
+                        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,image/*"
                         class="sr-only"
+                        multiple
                         required
+                        x-bind:disabled="prepBusy"
+                        x-on:change="onPick($event)"
                     >
+                    <ul
+                        x-show="names.length > 0"
+                        x-cloak
+                        class="mt-2 space-y-1 text-xs text-gray-600"
+                        data-testid="installer-photo-preview"
+                    >
+                        <template x-for="(name, index) in names" :key="index">
+                            <li class="truncate" x-text="name"></li>
+                        </template>
+                    </ul>
                 </div>
+                <p
+                    x-show="prepError"
+                    x-cloak
+                    class="text-sm font-medium text-red-700"
+                    data-testid="installer-photo-prep-error"
+                    x-text="prepError"
+                ></p>
                 @if ($connection)
                     <div>
                         <label for="{{ $fieldPrefix }}-segment-label" class="block text-xs font-semibold text-gray-700">
@@ -270,8 +352,12 @@
                         >
                     </div>
                 @endif
-                <button class="inline-flex min-h-10 items-center rounded-lg bg-marketing-green-dark px-3 py-2 text-xs font-semibold text-white hover:bg-marketing-green">
-                    Foto opslaan
+                <button
+                    type="submit"
+                    class="inline-flex min-h-10 items-center rounded-lg bg-marketing-green-dark px-3 py-2 text-xs font-semibold text-white hover:bg-marketing-green disabled:cursor-not-allowed disabled:opacity-60"
+                    x-bind:disabled="prepBusy"
+                >
+                    Foto's opslaan
                 </button>
             </form>
         </details>

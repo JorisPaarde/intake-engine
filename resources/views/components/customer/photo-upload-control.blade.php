@@ -19,9 +19,6 @@
 @php
     $isAssessing = $uploadPhase === 'assessing' && $uploadPhaseComposite === $composite;
     $isFailed = $uploadPhase === 'failed' && $uploadPhaseComposite === $composite;
-    $hasPending = ! empty($pendingAssessUploadIds[$composite] ?? []);
-    $quietPoll = in_array($composite, $assessmentUiReleased ?? [], true);
-    $pollInterval = $quietPoll ? '5s' : '2s';
 
     $labelClass = $tone === 'followup'
         ? 'flex min-h-12 cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed border-brand-fog bg-brand-mist/40 px-4 py-5 text-center'
@@ -37,10 +34,8 @@
     $bagErrorClass = $tone === 'followup' ? 'mt-2 text-sm text-brand-ember' : 'mt-2 text-sm text-[#a84832]';
 @endphp
 
+{{-- Assessment polling is on the wizard so it keeps running at max photos. --}}
 <div
-    @if ($isAssessing || $hasPending)
-        wire:poll.{{ $pollInterval }}="pollPendingAssessments"
-    @endif
     x-data="{
         timedOut: false,
         timer: null,
@@ -60,12 +55,33 @@
         serverWaitMs: 120000,
         clientUploading: false,
         prepBusy: false,
+        prepSkipMessage: '',
+        softTimeoutMs: @js(max(1, \App\Domains\Intake\Support\PhotoAssessmentSoftTimeout::seconds()) * 1000),
         arm() {
             clearTimeout(this.timer);
             this.timedOut = false;
             if ($wire.uploadPhase === 'assessing' && $wire.uploadPhaseComposite === @js($composite)) {
-                this.timer = setTimeout(() => { this.timedOut = true }, 90000);
+                this.timer = setTimeout(() => { this.timedOut = true }, this.softTimeoutMs);
             }
+        },
+        matchesPrepScope(event) {
+            const detail = event?.detail;
+            if (! detail) {
+                return true;
+            }
+            if (detail.inputId && detail.inputId !== @js($inputId)) {
+                return false;
+            }
+            if (detail.composite && detail.composite !== @js($composite)) {
+                return false;
+            }
+            return true;
+        },
+        onPrepSkipped(event) {
+            if (! this.matchesPrepScope(event)) {
+                return;
+            }
+            this.prepSkipMessage = event?.detail?.message || this.prepSkipMessage;
         },
         clearLivewireUpload() {
             try {
@@ -88,7 +104,7 @@
                 return;
             }
             const left = Math.max(0, Math.ceil((this.retryUntilMs - Date.now()) / 1000));
-            this.retryCountdown = left > 0 ? ('Nog ' + left + 's…') : '';
+            this.retryCountdown = left ? ('Nog ' + left + 's…') : '';
         },
         startCountdown(waitMs) {
             this.clearCountdown();
@@ -138,21 +154,39 @@
             this.clearCountdown();
             this.armInactivityTimer();
         },
-        onPrepStart() {
+        onPrepStart(event) {
+            if (! this.matchesPrepScope(event)) {
+                return;
+            }
             this.prepBusy = true;
             this.clientUploading = true;
             this.uploadTimedOut = false;
             this.uploadError = '';
+            this.prepSkipMessage = '';
             this.uploadProgress = 0;
             this.armInactivityTimer();
         },
-        onPrepDone() {
+        onPrepDone(event) {
+            if (! this.matchesPrepScope(event)) {
+                return;
+            }
             this.prepBusy = false;
         },
         onPrepFailed(event) {
+            if (! this.matchesPrepScope(event)) {
+                return;
+            }
             this.prepBusy = false;
-            this.failUpload(event?.detail?.message
-                || 'De server is even druk. Probeer het zo opnieuw.');
+            const message = event?.detail?.message
+                || 'De server is even druk. Probeer het zo opnieuw.';
+            // Skip-only selections reuse prep-failed with skipped=true — show that, not te-groot copy.
+            if (event?.detail?.skipped) {
+                this.prepSkipMessage = message;
+                this.clientUploading = false;
+                this.uploadProgress = null;
+                return;
+            }
+            this.failUpload(message);
         },
         onUploadProgress(event) {
             const detail = event?.detail;
@@ -161,7 +195,8 @@
                 : (typeof detail === 'number' ? detail : null);
             if (typeof progress === 'number') {
                 this.uploadProgress = progress;
-                if (progress >= 100) {
+                // Prefer === so a broken x-data quote cannot let HTML treat a comparison as tag end.
+                if (progress === 100) {
                     this.armServerWaitTimer();
                     return;
                 }
@@ -256,9 +291,10 @@
         document.addEventListener('intake:upload-empty-response', (e) => onUploadRetrying(e));
         document.addEventListener('intake:upload-retry-succeeded', () => finishUpload());
         document.addEventListener('intake:upload-failed', (e) => onUploadFailed(e));
-        document.addEventListener('intake:photo-prep-start', () => onPrepStart());
-        document.addEventListener('intake:photo-prep-done', () => onPrepDone());
+        document.addEventListener('intake:photo-prep-start', (e) => onPrepStart(e));
+        document.addEventListener('intake:photo-prep-done', (e) => onPrepDone(e));
         document.addEventListener('intake:photo-prep-failed', (e) => onPrepFailed(e));
+        document.addEventListener('intake:photo-prep-skipped', (e) => onPrepSkipped(e));
     "
     x-on:livewire-upload-start="armUpload()"
     x-on:livewire-upload-progress="onUploadProgress($event)"
@@ -311,8 +347,8 @@
                     ? (retryMessage + (retryCountdown ? (' ' + retryCountdown) : ''))
                     : (
                         serverBusy
-                            ? (uploadProgress >= 100 ? 'Bezig op de server…' : 'Uploaden…')
-                            : (uploadProgress === null || uploadProgress >= 100 ? 'Uploaden…' : ('Uploaden… ' + uploadProgress + '%'))
+                            ? (uploadProgress === 100 ? 'Bezig op de server…' : 'Uploaden…')
+                            : (uploadProgress === null || uploadProgress === 100 ? 'Uploaden…' : ('Uploaden… ' + uploadProgress + '%'))
                     )
             )
         "></span>
@@ -346,12 +382,23 @@
             Opnieuw proberen
         </button>
     </div>
+    <div
+        x-show="prepSkipMessage && ! uploadTimedOut"
+        x-cloak
+        class="{{ $errorClass }}"
+        role="status"
+        data-testid="photo-prep-skipped"
+    >
+        <p x-text="prepSkipMessage"></p>
+    </div>
     <div wire:loading.remove wire:target="{{ $wireModel }}">
         @if ($isAssessing)
             <div class="{{ $phaseClass }}" role="status" data-testid="upload-phase" wire:key="upload-phase-{{ $composite }}-assessing">
-                <p>{{ $uploadPhaseMessage }}</p>
-                <p class="{{ $phaseHintClass }}">Fase: Foto beoordelen</p>
-                <div x-show="timedOut" x-cloak class="mt-1">
+                <p>{{ $uploadPhaseMessage !== '' ? $uploadPhaseMessage : 'We bekijken je foto…' }}</p>
+                <div x-show="timedOut" x-cloak class="mt-1 space-y-1">
+                    <p class="{{ $phaseHintClass }}" data-testid="assessment-soft-timeout">
+                        Dit duurt langer dan normaal. Je kunt alvast verder.
+                    </p>
                     <button
                         type="button"
                         wire:click="retryFailedUploadPhase"
