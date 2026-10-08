@@ -63,8 +63,9 @@
         arm() {
             clearTimeout(this.timer);
             this.timedOut = false;
+            // UX 8 okt: soft-timeout 15 s (same as ai.photo_assessment.ui_soft_timeout_seconds).
             if ($wire.uploadPhase === 'assessing' && $wire.uploadPhaseComposite === @js($composite)) {
-                this.timer = setTimeout(() => { this.timedOut = true }, 90000);
+                this.timer = setTimeout(() => { this.timedOut = true }, 15000);
             }
         },
         clearLivewireUpload() {
@@ -349,9 +350,11 @@
     <div wire:loading.remove wire:target="{{ $wireModel }}">
         @if ($isAssessing)
             <div class="{{ $phaseClass }}" role="status" data-testid="upload-phase" wire:key="upload-phase-{{ $composite }}-assessing">
-                <p>{{ $uploadPhaseMessage }}</p>
-                <p class="{{ $phaseHintClass }}">Fase: Foto beoordelen</p>
-                <div x-show="timedOut" x-cloak class="mt-1">
+                <p>{{ $uploadPhaseMessage !== '' ? $uploadPhaseMessage : 'We bekijken je foto…' }}</p>
+                <div x-show="timedOut" x-cloak class="mt-1 space-y-1">
+                    <p class="{{ $phaseHintClass }}" data-testid="assessment-soft-timeout">
+                        Dit duurt langer dan normaal. Je kunt alvast verder.
+                    </p>
                     <button
                         type="button"
                         wire:click="retryFailedUploadPhase"

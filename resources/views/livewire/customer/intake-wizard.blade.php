@@ -407,26 +407,47 @@
                                     @if ($existingUploads->isNotEmpty())
                                         <ul class="grid grid-cols-2 gap-3">
                                             @foreach ($existingUploads as $upload)
-                                                <li class="relative overflow-hidden rounded-xl border border-[#dde2da] bg-[#eef1ec]">
-                                                    <img
-                                                        src="{{ route('customer.uploads.show', ['token' => $token, 'upload' => $upload]) }}"
-                                                        alt="{{ $upload->original_filename }}"
-                                                        class="aspect-square w-full object-cover"
-                                                    >
-                                                    <button
-                                                        type="button"
-                                                        wire:click="removePhoto({{ $upload->id }})"
-                                                        wire:loading.attr="disabled"
-                                                        class="absolute inset-x-0 bottom-0 bg-[#18201d] px-2 py-1.5 text-xs font-semibold text-white"
-                                                    >
-                                                        Verwijderen
-                                                    </button>
+                                                @php
+                                                    $photoStatusLabel = \App\Domains\Intake\Support\PhotoCustomerStatus::forUpload(
+                                                        $upload,
+                                                        $composite,
+                                                        (string) ($uploadPhase ?? ''),
+                                                        (string) ($uploadPhaseComposite ?? ''),
+                                                        $pendingAssessUploadIds[$composite] ?? [],
+                                                        $assessmentUiReleased ?? [],
+                                                    );
+                                                @endphp
+                                                <li class="overflow-hidden rounded-xl border border-[#dde2da] bg-[#eef1ec]" data-testid="photo-thumb-status">
+                                                    <div class="relative">
+                                                        <img
+                                                            src="{{ route('customer.uploads.show', ['token' => $token, 'upload' => $upload]) }}"
+                                                            alt="{{ $upload->original_filename }}"
+                                                            class="aspect-square w-full object-cover"
+                                                        >
+                                                        <button
+                                                            type="button"
+                                                            wire:click="removePhoto({{ $upload->id }})"
+                                                            wire:loading.attr="disabled"
+                                                            class="absolute inset-x-0 bottom-0 bg-[#18201d] px-2 py-1.5 text-xs font-semibold text-white"
+                                                        >
+                                                            Verwijderen
+                                                        </button>
+                                                    </div>
+                                                    <p class="px-2 py-1.5 text-xs font-medium text-[#414b45]" data-photo-status="1">
+                                                        {{ $photoStatusLabel }}
+                                                    </p>
                                                 </li>
                                             @endforeach
                                         </ul>
 
-                                        @php($photoStatus = $existingUploads->every(fn ($uploadItem) => $uploadItem->assessment_status instanceof \App\Enums\PhotoAssessmentStatus && $uploadItem->assessment_status->isTerminal()) ? 'Beoordeeld' : 'Ontvangen')
-                                        <p class="text-xs font-medium text-[#5e6862]" data-testid="photo-receipt-status">Status: {{ $photoStatus }}</p>
+                                        @php
+                                            $allTerminal = $existingUploads->every(
+                                                fn ($uploadItem) => $uploadItem->assessment_status instanceof \App\Enums\PhotoAssessmentStatus
+                                                    && $uploadItem->assessment_status->isTerminal()
+                                            );
+                                            $photoReceiptStatus = $allTerminal ? 'Beoordeeld' : 'Ontvangen';
+                                        @endphp
+                                        <p class="text-xs font-medium text-[#5e6862]" data-testid="photo-receipt-status">Status: {{ $photoReceiptStatus }}</p>
 
                                         {{-- Direct onder de foto, boven de sticky balk. --}}
                                         @if ($photoMismatchAssessment || ! empty($photoNeedsOverride))

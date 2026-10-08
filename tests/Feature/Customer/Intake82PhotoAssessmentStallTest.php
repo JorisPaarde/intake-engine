@@ -251,7 +251,7 @@ test('soft-release keeps quiet poll until terminal status is applied', function 
     $component
         ->call('pollPendingAssessments')
         ->assertSet('uploadPhase', '')
-        ->assertSee('De automatische check volgt later');
+        ->assertSee('Dit duurt langer dan normaal. Je kunt alvast verder.');
 
     // Pending ids kept for quiet poll (staging intake 82).
     expect($component->instance()->pendingAssessUploadIds['fusebox_photo'] ?? [])->toContain($upload->id)

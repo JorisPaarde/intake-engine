@@ -95,20 +95,35 @@
                 @if ($item->uploads->isNotEmpty())
                     <ul class="grid grid-cols-2 gap-3">
                         @foreach ($item->uploads as $upload)
-                            <li class="relative overflow-hidden rounded-md border border-brand-fog bg-brand-mist/30">
-                                <img
-                                    src="{{ route('customer.uploads.show', ['token' => $token, 'upload' => $upload]) }}"
-                                    alt="Aanvullende foto"
-                                    class="aspect-square w-full object-cover"
-                                >
-                                <button
-                                    type="button"
-                                    wire:click="removeFollowUpUpload({{ $item->id }}, {{ $upload->id }})"
-                                    wire:loading.attr="disabled"
-                                    class="absolute inset-x-0 bottom-0 bg-brand-ink/75 px-2 py-1.5 text-xs font-semibold text-white"
-                                >
-                                    Verwijderen
-                                </button>
+                            @php
+                                $photoStatusLabel = \App\Domains\Intake\Support\PhotoCustomerStatus::forUpload(
+                                    $upload,
+                                    (string) $item->id,
+                                    (string) ($uploadPhase ?? ''),
+                                    (string) ($uploadPhaseComposite ?? ''),
+                                    $pendingAssessUploadIds[(string) $item->id] ?? [],
+                                    $assessmentUiReleased ?? [],
+                                );
+                            @endphp
+                            <li class="overflow-hidden rounded-md border border-brand-fog bg-brand-mist/30" data-testid="photo-thumb-status">
+                                <div class="relative">
+                                    <img
+                                        src="{{ route('customer.uploads.show', ['token' => $token, 'upload' => $upload]) }}"
+                                        alt="Aanvullende foto"
+                                        class="aspect-square w-full object-cover"
+                                    >
+                                    <button
+                                        type="button"
+                                        wire:click="removeFollowUpUpload({{ $item->id }}, {{ $upload->id }})"
+                                        wire:loading.attr="disabled"
+                                        class="absolute inset-x-0 bottom-0 bg-brand-ink/75 px-2 py-1.5 text-xs font-semibold text-white"
+                                    >
+                                        Verwijderen
+                                    </button>
+                                </div>
+                                <p class="px-2 py-1.5 text-xs font-medium text-brand-ink/80" data-photo-status="1">
+                                    {{ $photoStatusLabel }}
+                                </p>
                             </li>
                         @endforeach
                     </ul>
