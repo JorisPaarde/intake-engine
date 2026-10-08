@@ -857,7 +857,7 @@ test('installer can update an existing room including dimensions', function () {
             'width_m' => 3.1,
             'height_m' => 2.5,
         ])
-        ->assertRedirect(route('intakes.workspace', $intake))
+        ->assertRedirect(route('intakes.workspace', $intake).'#room-'.$room->id)
         ->assertSessionHas('status', 'Ruimte bijgewerkt.');
 
     $room->refresh();
@@ -931,7 +931,7 @@ test('saved room dimensions survive workspace reload for template-bridge rooms',
             'length_m' => 4.2,
             'width_m' => 3.1,
         ])
-        ->assertRedirect(route('intakes.workspace', $intake))
+        ->assertRedirect(route('intakes.workspace', $intake).'#room-'.$room->id)
         ->assertSessionHas('status', 'Ruimte bijgewerkt.');
 
     $room->refresh();
@@ -973,7 +973,7 @@ test('installer can save trusted floor area without length and width', function 
             'use_type' => 'bedroom',
             'area_m2' => 16.5,
         ])
-        ->assertRedirect(route('intakes.workspace', $intake));
+        ->assertRedirect(route('intakes.workspace', $intake).'#room-'.$room->id);
 
     $room->refresh();
     expect($room->dimensions)->toMatchArray([
@@ -1042,7 +1042,7 @@ test('installer can update an existing placement', function () {
             'label' => 'Naast het raam',
             'description' => 'Vrije wand van 90 cm',
         ])
-        ->assertRedirect(route('intakes.workspace', $intake))
+        ->assertRedirect(route('intakes.workspace', $intake).'#placement-'.$placement->id)
         ->assertSessionHas('status', 'Unit bijgewerkt.');
 
     $placement->refresh();

@@ -52,7 +52,7 @@
             <p class="text-xs font-medium uppercase tracking-wide text-brand-ink/50">
                 Ronde {{ $round->round_number }}
             </p>
-            <h1 class="mt-1 break-words font-display text-2xl font-semibold tracking-tight text-brand-ink">{{ $item->prompt }}</h1>
+            <h1 id="follow-up-prompt-{{ $item->id }}" class="mt-1 break-words font-display text-2xl font-semibold tracking-tight text-brand-ink">{{ $item->prompt }}</h1>
         </div>
 
         @error('follow_up')
@@ -82,6 +82,8 @@
                 </fieldset>
             @elseif ($item->type === \App\Enums\FollowUpItemType::Text)
                 <textarea
+                    id="follow-up-response-{{ $item->id }}"
+                    aria-labelledby="follow-up-prompt-{{ $item->id }}"
                     rows="6"
                     wire:model.blur="followUpResponses.{{ $item->id }}"
                     class="block w-full rounded-md border-brand-fog shadow-sm focus:border-brand-sea focus:ring-brand-sea"

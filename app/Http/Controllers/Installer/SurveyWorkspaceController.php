@@ -254,7 +254,7 @@ final class SurveyWorkspaceController extends Controller
         ]);
         $aircoSurvey->updateRoom($intake, $this->user($request), $room, $data);
 
-        return $this->back($intake, 'Ruimte bijgewerkt.');
+        return $this->back($intake, 'Ruimte bijgewerkt.', 'room-'.$room->id);
     }
 
     public function syncRoomUnitCoupling(
@@ -331,7 +331,7 @@ final class SurveyWorkspaceController extends Controller
         ]);
         $aircoSurvey->updatePlacement($intake, $this->user($request), $placement, $data);
 
-        return $this->back($intake, 'Unit bijgewerkt.');
+        return $this->back($intake, 'Unit bijgewerkt.', 'placement-'.$placement->id);
     }
 
     public function storeInstallationOption(
@@ -950,11 +950,17 @@ final class SurveyWorkspaceController extends Controller
             ->all();
     }
 
-    private function back(Intake $intake, string $status): RedirectResponse
+    /**
+     * @param  string|null  $fragment  Anchor of the edited block, so the installer lands back on it
+     *                                 instead of at the top of the page (UX-pakket #15).
+     */
+    private function back(Intake $intake, string $status, ?string $fragment = null): RedirectResponse
     {
-        return redirect()
+        $redirect = redirect()
             ->route('intakes.workspace', $intake)
             ->with('status', $status);
+
+        return $fragment !== null ? $redirect->withFragment($fragment) : $redirect;
     }
 
     /**
