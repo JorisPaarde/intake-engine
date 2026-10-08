@@ -6,7 +6,7 @@ use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Services\PublishIntakeTemplateFromConfig;
 use App\Enums\TemplateVersionStatus;
 
-test('airco template seeder publishes v1 through v26 with v26 as latest', function () {
+test('airco template seeder publishes v1 through v27 with v27 as latest', function () {
     seedAllAircoTemplateVersions();
 
     $template = IntakeTemplate::query()->where('key', 'airco')->first();
@@ -16,14 +16,14 @@ test('airco template seeder publishes v1 through v26 with v26 as latest', functi
 
     $versions = $template->versions()->orderBy('version')->get();
 
-    expect($versions)->toHaveCount(26)
-        ->and($versions->pluck('version')->all())->toBe([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26])
+    expect($versions)->toHaveCount(27)
+        ->and($versions->pluck('version')->all())->toBe([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27])
         ->and($versions->every(fn ($version) => $version->status === TemplateVersionStatus::Published))->toBeTrue();
 
     $latest = $template->latestPublishedVersion();
 
     expect($latest)->not->toBeNull()
-        ->and($latest->version)->toBe(26)
+        ->and($latest->version)->toBe(27)
         ->and($latest->sections()->count())->toBeGreaterThan(5)
         ->and($latest->sections()->where('key', 'rooms')->value('is_repeatable'))->toBeTrue();
 
@@ -179,7 +179,8 @@ test('airco template seeder publishes v1 through v26 with v26 as latest', functi
         ->and($drainPhoto->label)->toContain('optioneel')
         ->and($drainPhoto->is_required)->toBeFalse()
         ->and($drainPhoto->rules)->toBeEmpty()
-        ->and($drainPhoto->meta['allow_skip'] ?? null)->toBeTrue()
+        ->and($drainPhoto->meta['wizard_group'] ?? null)->toBe('drain_nearby')
+        ->and($drainPhoto->meta['allow_skip'] ?? null)->toBeNull()
         ->and($drainPhoto->meta['reuse_from_photo_keys'] ?? null)->toBeNull()
         ->and($aroundHouse->meta['allow_skip'] ?? null)->toBeTrue()
         ->and($aroundHouse->meta['reuse_from_photo_keys'] ?? [])->toContain('outdoor_location_photos')
@@ -208,7 +209,9 @@ test('airco template seeder publishes v1 through v26 with v26 as latest', functi
     $outdoorMount = $outdoor->questions()->where('key', 'outdoor_mount_type')->firstOrFail();
 
     expect($drainLocation->is_required)->toBeFalse()
-        ->and($drainLocation->label)->toContain('optioneel')
+        ->and($drainLocation->meta['wizard_group'] ?? null)->toBe('drain_nearby')
+        ->and($drainLocation->meta['wizard_group_title'] ?? null)->toBe('Afvoer in de buurt')
+        ->and($drainLocation->label)->toBe('Waar zie je in de buurt een afvoer? (optioneel)')
         ->and($drainLocation->options()->pluck('value')->all())->toBe([
             'outside_nearby',
             'indoor_nearby',
@@ -254,11 +257,11 @@ test('airco template seeder publishes v1 through v26 with v26 as latest', functi
         require database_path('data/templates/airco/v1.php'),
     );
     $againLatest = app(PublishIntakeTemplateFromConfig::class)->handle(
-        require database_path('data/templates/airco/v26.php'),
+        require database_path('data/templates/airco/v27.php'),
     );
 
     expect($againV1->version)->toBe(1)
         ->and($againLatest->id)->toBe($latest->id)
         ->and(IntakeTemplate::query()->where('key', 'airco')->count())->toBe(1)
-        ->and($template->versions()->count())->toBe(26);
+        ->and($template->versions()->count())->toBe(27);
 });

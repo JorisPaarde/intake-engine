@@ -87,7 +87,7 @@ test('dimensions stay optional when floor area m² is already known', function (
         ->and($step['help_text'])->toContain('m²');
 });
 
-test('drain photo remains optional with skip; pipe_route is installer-only; extra overview is assessment-gated', function () {
+test('drain photo remains optional; pipe_route is installer-only; extra overview is assessment-gated', function () {
     $intake = makeBl124Intake();
     $version = $intake->fresh()->templateVersion()->with(['sections.questions.rules'])->firstOrFail();
 
@@ -100,7 +100,6 @@ test('drain photo remains optional with skip; pipe_route is installer-only; extr
     expect($pipe->is_required)->toBeFalse()
         ->and($pipe->meta['audience'] ?? null)->toBe('installer')
         ->and($drain->is_required)->toBeFalse()
-        ->and($drain->meta['allow_skip'] ?? null)->toBeTrue()
         ->and($drain->rules)->toBeEmpty()
         ->and($indoor->is_required)->toBeTrue()
         ->and($indoor->meta['allow_skip'] ?? null)->toBeNull()
@@ -112,22 +111,43 @@ test('drain photo remains optional with skip; pipe_route is installer-only; extr
     $keys = array_column($viewSteps, 'question_key');
 
     expect($keys)->not->toContain('pipe_route_photos')
-        ->and($keys)->not->toContain('indoor_unit_position_photo')
-        ->and($keys)->toContain('drain_photo');
+        ->and($keys)->not->toContain('indoor_unit_position_photo');
 
-    $drainIndex = collect($viewSteps)->search(
-        static fn (array $step): bool => ($step['question_key'] ?? null) === 'drain_photo',
-    );
-    expect($drainIndex)->not->toBeFalse();
+    // v27+: afvoerkeuze + foto in één groep zonder aparte skip-knop.
+    if ($version->version >= 27) {
+        expect($drain->meta['wizard_group'] ?? null)->toBe('drain_nearby')
+            ->and($drain->meta['allow_skip'] ?? null)->toBeNull()
+            ->and($keys)->toContain('drain_location');
 
-    $beforeKey = $viewSteps[(int) $drainIndex]['key'];
-    $component->set('stepIndex', (int) $drainIndex)
-        ->set('activeStepKey', $beforeKey)
-        ->assertSee('Weet ik niet / sla over')
-        ->call('skipOptionalPhoto')
-        ->assertSet('showMissing', false);
+        $drainIndex = collect($viewSteps)->search(
+            static fn (array $step): bool => ($step['group_key'] ?? null) === 'drain_nearby',
+        );
+        expect($drainIndex)->not->toBeFalse();
 
-    expect($component->get('activeStepKey'))->not->toBe($beforeKey);
+        $component->set('stepIndex', (int) $drainIndex)
+            ->set('activeStepKey', $viewSteps[(int) $drainIndex]['key'])
+            ->assertSee('Afvoer in de buurt')
+            ->assertDontSee('data-testid="photo-skip"', false)
+            ->call('next')
+            ->assertSet('showMissing', false);
+    } else {
+        expect($drain->meta['allow_skip'] ?? null)->toBeTrue()
+            ->and($keys)->toContain('drain_photo');
+
+        $drainIndex = collect($viewSteps)->search(
+            static fn (array $step): bool => ($step['question_key'] ?? null) === 'drain_photo',
+        );
+        expect($drainIndex)->not->toBeFalse();
+
+        $beforeKey = $viewSteps[(int) $drainIndex]['key'];
+        $component->set('stepIndex', (int) $drainIndex)
+            ->set('activeStepKey', $beforeKey)
+            ->assertSee('Weet ik niet / sla over')
+            ->call('skipOptionalPhoto')
+            ->assertSet('showMissing', false);
+
+        expect($component->get('activeStepKey'))->not->toBe($beforeKey);
+    }
 });
 
 test('usability resolution uses original dimensions not a small resized frame', function () {

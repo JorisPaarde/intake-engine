@@ -308,15 +308,18 @@ test('installer photo form listens on document and scopes prep by input id', fun
 
 test('assessment poll lives on wizards not only on photo-upload-control', function () {
     $control = (string) file_get_contents(resource_path('views/components/customer/photo-upload-control.blade.php'));
+    // Intake-wizard delegeert fotovragen (standalone + drain-groep) naar de partial.
+    $photoField = (string) file_get_contents(resource_path('views/livewire/customer/partials/photo-question-field.blade.php'));
     $intake = (string) file_get_contents(resource_path('views/livewire/customer/intake-wizard.blade.php'));
     $followUp = (string) file_get_contents(resource_path('views/livewire/customer/follow-up-wizard.blade.php'));
 
     expect($control)->not->toContain('wire:poll')
         ->and($control)->toContain('PhotoAssessmentSoftTimeout::seconds()')
-        ->and($intake)->toContain('data-testid="assessment-poll"')
-        ->and($intake)->toContain('pollPendingAssessments(@json($composite))')
-        ->and($intake)->toContain('wire:key="assessment-poll-{{ $composite }}-{{ $assessmentPollInterval }}"')
-        ->and($intake)->not->toContain("['assessing', 'failed']")
+        ->and($intake)->toContain('livewire.customer.partials.photo-question-field')
+        ->and($photoField)->toContain('data-testid="assessment-poll"')
+        ->and($photoField)->toContain('pollPendingAssessments(@json($composite))')
+        ->and($photoField)->toContain('wire:key="assessment-poll-{{ $composite }}-{{ $assessmentPollInterval }}"')
+        ->and($photoField)->not->toContain("['assessing', 'failed']")
         ->and($followUp)->toContain('data-testid="assessment-poll"')
         ->and($followUp)->toContain('pollPendingAssessments(@json($followUpComposite))')
         ->and($followUp)->toContain('wire:key="assessment-poll-{{ $followUpComposite }}-{{ $assessmentPollInterval }}"')

@@ -200,8 +200,7 @@ test('reference case wizard keys: geen route-foto, geen outdoor_mount, geen alti
         'crawl_space_present',
         'pipe_visibility',
         'fusebox_photo',
-        'drain_location',
-        'drain_photo',
+        'drain_location', // v27: drain_photo zit in dezelfde wizard_group
         '_closing_wishes',
         'truth_confirmation',
         'privacy_consent',

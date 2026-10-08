@@ -891,7 +891,7 @@ test('installer can update an existing room including dimensions', function () {
         ->assertSee('id="room-'.$room->id.'-length"', false)
         ->assertSee('Wijzigingen opslaan')
         ->assertSee('4,2 × 3,1 m')
-        ->assertSee('(13,0 m²)')
+        ->assertSee('(13 m²)')
         ->assertSee('H 2,5 m')
         ->assertDontSee('Herkenbare naam')
         ->assertDontSee('Maten L×B×H')
@@ -960,7 +960,7 @@ test('saved room dimensions survive workspace reload for template-bridge rooms',
         ->get(route('intakes.workspace', $intake))
         ->assertOk()
         ->assertSee('4,2 × 3,1 m')
-        ->assertSee('(13,0 m²)')
+        ->assertSee('(13 m²)')
         ->assertDontSee('Maten nog leeg');
 
     $room->refresh();

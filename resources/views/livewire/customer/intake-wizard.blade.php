@@ -272,29 +272,65 @@
                 <div class="rounded-xl border border-[#dde2da] bg-white p-4 shadow-sm">
                     <div>
                         @if (($step['kind'] ?? 'question') === 'question_group' && ($groupQuestions ?? []) !== [])
-                            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2" data-testid="dimensions-group">
+                            @php
+                                $groupKeyName = $step['group_key'] ?? 'group';
+                                $isDrainNearbyGroup = $groupKeyName === 'drain_nearby';
+                                $isDimensionsGroup = $groupKeyName === 'room_dimensions';
+                            @endphp
+                            <div
+                                class="{{ $isDimensionsGroup ? 'grid grid-cols-1 gap-4 sm:grid-cols-2' : 'space-y-5' }}"
+                                data-testid="{{ $isDrainNearbyGroup ? 'drain-nearby-group' : ($isDimensionsGroup ? 'dimensions-group' : 'question-group') }}"
+                            >
                                 @foreach ($groupQuestions as $groupQuestion)
                                     @php
                                         $groupComposite = \App\Domains\Intake\Services\VisibilityResolver::compositeKey($groupQuestion->key, $step['section_instance_key']);
                                         $groupState = $visibility[$groupComposite] ?? ['visible' => false, 'required' => false];
+                                        $groupType = $groupQuestion->type->value;
                                     @endphp
                                     <div wire:key="group-field-{{ $groupComposite }}">
-                                        <label for="field-{{ $groupComposite }}" class="mb-1 block text-sm font-medium text-[#18201d]">
-                                            {{ $groupQuestion->label }}
-                                            @if ($groupState['required'] || ($step['is_required'] ?? false))
-                                                <span class="text-[#a84832]">*</span>
+                                        @if ($groupType === 'number')
+                                            <label for="field-{{ $groupComposite }}" class="mb-1 block text-sm font-medium text-[#18201d]">
+                                                {{ $groupQuestion->label }}
+                                                @if ($groupState['required'] || ($step['is_required'] ?? false))
+                                                    <span class="text-[#a84832]">*</span>
+                                                @endif
+                                            </label>
+                                            <input
+                                                id="field-{{ $groupComposite }}"
+                                                type="number"
+                                                inputmode="decimal"
+                                                wire:model.blur="form.{{ $groupComposite }}.number"
+                                                class="block min-h-11 w-full rounded-xl border-[#dde2da] shadow-sm focus:border-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
+                                                @if ($groupState['required']) required @endif
+                                            >
+                                            @if ($groupQuestion->help_text && ! $isDrainNearbyGroup)
+                                                <p class="mt-1 text-xs text-[#5e6862]">{{ $groupQuestion->help_text }}</p>
                                             @endif
-                                        </label>
-                                        <input
-                                            id="field-{{ $groupComposite }}"
-                                            type="number"
-                                            inputmode="decimal"
-                                            wire:model.blur="form.{{ $groupComposite }}.number"
-                                            class="block min-h-11 w-full rounded-xl border-[#dde2da] shadow-sm focus:border-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
-                                            @if ($groupState['required']) required @endif
-                                        >
-                                        @if ($groupQuestion->help_text)
-                                            <p class="mt-1 text-xs text-[#5e6862]">{{ $groupQuestion->help_text }}</p>
+                                        @elseif ($groupType === 'single_choice')
+                                            @unless ($isDrainNearbyGroup)
+                                                <p class="mb-2 text-sm font-medium text-[#18201d]">{{ $groupQuestion->label }}</p>
+                                            @endunless
+                                            <div class="space-y-2" role="radiogroup" aria-label="{{ $groupQuestion->label }}">
+                                                @foreach ($groupQuestion->options as $option)
+                                                    <label class="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border border-[#dde2da] px-3 py-2 has-[:checked]:border-[var(--tenant-primary)] has-[:checked]:bg-[#eef1ec]">
+                                                        <input
+                                                            type="radio"
+                                                            wire:model.live="form.{{ $groupComposite }}.value"
+                                                            value="{{ $option->value }}"
+                                                            class="border-[#dde2da] text-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
+                                                        >
+                                                        <span class="text-sm font-medium">{{ $option->label }}</span>
+                                                    </label>
+                                                @endforeach
+                                            </div>
+                                        @elseif ($groupType === 'photo')
+                                            @include('livewire.customer.partials.photo-question-field', [
+                                                'question' => $groupQuestion,
+                                                'composite' => $groupComposite,
+                                                'fieldRequired' => $groupState['required'] || ($step['is_required'] ?? false),
+                                                'showQuestionLabel' => true,
+                                                'wrapperTestId' => 'group-photo-field',
+                                            ])
                                         @endif
                                     </div>
                                 @endforeach
@@ -411,177 +447,12 @@
                                 @break
 
                             @case('photo')
-                                <div class="space-y-3">
-                                    @if ($question->photo_instructions)
-                                        <p class="text-sm text-[#5e6862]">{{ $question->photo_instructions }}</p>
-                                    @endif
-
-                                    @php
-                                        $existingUploads = $uploadsByQuestion[$question->key] ?? collect();
-                                        $maxFiles = (int) ($question->meta['max_files'] ?? config('intake.uploads.max_files_per_question', 5));
-                                        $remainingSlots = max(0, $maxFiles - $existingUploads->count());
-                                    @endphp
-
-                                    @php
-                                        $assessmentPollPending = ! empty($pendingAssessUploadIds[$composite] ?? []);
-                                        $assessmentPollActive = (string) ($uploadPhase ?? '') === 'assessing'
-                                            && (string) ($uploadPhaseComposite ?? '') === $composite;
-                                        $assessmentQuietPoll = in_array($composite, $assessmentUiReleased ?? [], true);
-                                        $assessmentPollInterval = $assessmentQuietPoll ? '5s' : '2s';
-                                    @endphp
-                                    @if ($assessmentPollPending || $assessmentPollActive)
-                                        <div
-                                            wire:key="assessment-poll-{{ $composite }}-{{ $assessmentPollInterval }}"
-                                            wire:poll.{{ $assessmentPollInterval }}='pollPendingAssessments(@json($composite))'
-                                            class="hidden"
-                                            data-testid="assessment-poll"
-                                            data-poll-composite="{{ $composite }}"
-                                            aria-hidden="true"
-                                        ></div>
-                                    @endif
-
-                                    @if ($existingUploads->isNotEmpty())
-                                        <ul class="grid grid-cols-2 gap-3">
-                                            @foreach ($existingUploads as $upload)
-                                                @php
-                                                    $photoStatusLabel = \App\Domains\Intake\Support\PhotoCustomerStatus::forUpload(
-                                                        $upload,
-                                                        $composite,
-                                                        (string) ($uploadPhase ?? ''),
-                                                        (string) ($uploadPhaseComposite ?? ''),
-                                                        $pendingAssessUploadIds[$composite] ?? [],
-                                                        $assessmentUiReleased ?? [],
-                                                    );
-                                                @endphp
-                                                <li class="overflow-hidden rounded-xl border border-[#dde2da] bg-[#eef1ec]" data-testid="photo-thumb-status" data-upload-id="{{ $upload->id }}">
-                                                    <div class="relative">
-                                                        <img
-                                                            src="{{ route('customer.uploads.show', ['token' => $token, 'upload' => $upload]) }}"
-                                                            alt="{{ $upload->original_filename }}"
-                                                            class="aspect-square w-full object-cover"
-                                                        >
-                                                        <button
-                                                            type="button"
-                                                            wire:click="removePhoto({{ $upload->id }})"
-                                                            wire:loading.attr="disabled"
-                                                            class="absolute inset-x-0 bottom-0 bg-[#18201d] px-2 py-1.5 text-xs font-semibold text-white"
-                                                        >
-                                                            Verwijderen
-                                                        </button>
-                                                    </div>
-                                                    <p class="px-2 py-1.5 text-xs font-medium text-[#414b45]" data-photo-status="1">
-                                                        {{ $photoStatusLabel }}
-                                                    </p>
-                                                    @if (\App\Domains\Intake\Support\PhotoOverridePolicy::needsOverride($upload))
-                                                        <button
-                                                            type="button"
-                                                            wire:click="replaceSinglePhoto({{ $upload->id }})"
-                                                            wire:loading.attr="disabled"
-                                                            class="w-full border-t border-[#dde2da] bg-white px-2 py-1.5 text-xs font-semibold text-[var(--tenant-primary)]"
-                                                            data-testid="photo-replace-one"
-                                                        >
-                                                            Vervang foto
-                                                        </button>
-                                                    @endif
-                                                </li>
-                                            @endforeach
-                                        </ul>
-
-                                        @php
-                                            $allTerminal = $existingUploads->every(
-                                                fn ($uploadItem) => $uploadItem->assessment_status instanceof \App\Enums\PhotoAssessmentStatus
-                                                    && $uploadItem->assessment_status->isTerminal()
-                                            );
-                                            $photoReceiptStatus = $allTerminal ? 'Beoordeeld' : 'Ontvangen';
-                                        @endphp
-                                        <p class="text-xs font-medium text-[#5e6862]" data-testid="photo-receipt-status">Status: {{ $photoReceiptStatus }}</p>
-
-                                        {{-- Direct onder de foto, boven de sticky balk. --}}
-                                        @if ($photoMismatchAssessment || ! empty($photoNeedsOverride))
-                                            <div class="space-y-3 rounded-xl border border-[#eac3b4] bg-white px-3 py-3" role="alert" data-testid="photo-mismatch-panel" wire:key="mismatch-{{ $composite }}">
-                                                <p class="text-sm text-[#414b45]">
-                                                    Deze foto is nog niet goed genoeg. Vervang de foto of ga toch door.
-                                                </p>
-                                                @if ($showMissing)
-                                                    <p class="text-sm font-medium text-[#a84832]" data-testid="mismatch-next-warning">
-                                                        {{ \App\Domains\Intake\Support\PhotoOverridePolicy::OVERRIDE_MESSAGE }}
-                                                    </p>
-                                                @endif
-                                                <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-                                                    <button
-                                                        type="button"
-                                                        wire:click="acceptPhotoMismatch"
-                                                        class="min-h-11 rounded-xl border border-[#dde2da] bg-[#eef1ec] px-4 text-sm font-semibold text-[#18201d]"
-                                                        data-testid="photo-accept-mismatch"
-                                                    >
-                                                        Toch doorgaan
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        @elseif (! empty($displayPhotoHint[$composite]) && ! empty($photoNeedsQualityHint))
-                                            <p class="flex items-start gap-2 rounded-xl border border-[#dde2da] bg-[#eef1ec] px-3 py-2 text-sm text-[#414b45]" role="status" data-testid="photo-quality-hint" wire:key="hint-{{ $composite }}">
-                                                <span>{{ $displayPhotoHint[$composite] }}</span>
-                                            </p>
-                                        @endif
-                                    @endif
-
-                                    @if ($remainingSlots > 0)
-                                        <x-customer.photo-upload-control
-                                            :composite="$composite"
-                                            wire-model="photoFiles.{{ $composite }}"
-                                            :input-id="'photo-input-'.str_replace(['.', ' '], '-', $composite)"
-                                            :remaining-slots="$remainingSlots"
-                                            :max-upload-kb="$maxUploadKb"
-                                            :upload-hard-max-bytes="$uploadHardMaxBytes ?? 15728640"
-                                            :upload-hard-max-megapixels="$uploadHardMaxMegapixels ?? 24"
-                                            :upload-too-large-message="$uploadTooLargeMessage ?? 'Deze foto is te groot. Probeer een andere foto of maak een nieuwe.'"
-                                            :upload-phase="$uploadPhase"
-                                            :upload-phase-message="$uploadPhaseMessage"
-                                            :upload-phase-composite="$uploadPhaseComposite"
-                                            :pending-assess-upload-ids="$pendingAssessUploadIds"
-                                            :assessment-ui-released="$assessmentUiReleased"
-                                            tone="intake"
-                                        />
-                                        @error('photo')
-                                            <p class="mt-2 text-sm text-[#a84832]">{{ $message }}</p>
-                                        @enderror
-                                    @else
-                                        <p class="text-sm text-[#5e6862]">Maximum van {{ $maxFiles }} foto's bereikt.</p>
-                                        {{-- Verborgen input zodat "Vervang foto" de picker kan openen na verwijderen. --}}
-                                        <input
-                                            id="photo-input-{{ str_replace(['.', ' '], '-', $composite) }}"
-                                            type="file"
-                                            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,image/*"
-                                            multiple
-                                            class="sr-only"
-                                            wire:model="photoFiles.{{ $composite }}"
-                                        >
-                                        @error('photoFiles.'.$composite)
-                                            <p class="mt-2 text-sm text-[#a84832]">{{ $message }}</p>
-                                        @enderror
-                                        @error('photo')
-                                            <p class="mt-2 text-sm text-[#a84832]">{{ $message }}</p>
-                                        @enderror
-                                    @endif
-
-                                    @if (
-                                        ($question->meta['allow_skip'] ?? false) === true
-                                        && $existingUploads->isEmpty()
-                                        && ! ($state['required'] ?? false)
-                                    )
-                                        <div class="mt-3">
-                                            <button
-                                                type="button"
-                                                wire:click="skipOptionalPhoto"
-                                                class="min-h-11 w-full rounded-xl border border-[#dde2da] bg-white px-4 text-sm font-semibold text-[#18201d]"
-                                                data-testid="photo-skip"
-                                            >
-                                                {{ $question->meta['skip_label'] ?? 'Weet ik niet / sla over' }}
-                                            </button>
-                                        </div>
-                                    @endif
-
-                                </div>
+                                @include('livewire.customer.partials.photo-question-field', [
+                                    'question' => $question,
+                                    'composite' => $composite,
+                                    'fieldRequired' => $state['required'] ?? false,
+                                    'showQuestionLabel' => false,
+                                ])
                                 @break
                         @endswitch
                         @endif

@@ -116,6 +116,16 @@ enum PhotoSubject: string
             ];
         }
 
+        // Vóór OutdoorLocation-generic: indoor drain op hetzelfde scherm (Room/PipeRoute).
+        if ($questionKey === 'drain_photo' || $profileName === 'drain') {
+            return [
+                self::OutdoorLocation,
+                self::OutdoorUnit,
+                self::PipeRoute,
+                self::Room,
+            ];
+        }
+
         if ($expected === self::OutdoorLocation) {
             return [
                 self::OutdoorLocation,
@@ -129,10 +139,6 @@ enum PhotoSubject: string
 
         if ($questionKey === 'indoor_unit_position_photo' || $profileName === 'indoor_position') {
             return [self::Room, self::IndoorUnit];
-        }
-
-        if ($questionKey === 'drain_photo' || $profileName === 'drain') {
-            return [self::OutdoorLocation, self::OutdoorUnit, self::PipeRoute];
         }
 
         return null;
@@ -238,7 +244,7 @@ enum PhotoSubject: string
      * Concrete customer message when the uploaded image does not match the ask.
      * Noemt altijd wat er wél nodig is (ontbrekend onderdeel).
      */
-    public function mismatchMessage(self $detected): string
+    public function mismatchMessage(self $detected, ?string $questionKey = null): string
     {
         $needed = match ($this) {
             self::Fusebox => 'een foto van de meterkast (groepenkast open, recht van voren)',
@@ -254,8 +260,15 @@ enum PhotoSubject: string
             return 'Vervang deze foto door '.$needed.'. Dit lijkt '.$detected->dutchNoun().'.';
         }
 
-        if ($this === self::OutdoorLocation) {
-            return 'Dit is '.$detected->dutchNoun().'; we hebben '.$needed.' nodig.';
+        // Gevel/tuin-advies alleen outdoor_location_photos + around_house_photos.
+        // drain_photo behoudt de bestaande generieke OutdoorLocation-tekst.
+        if ($this === self::OutdoorLocation
+            && in_array($questionKey, ['outdoor_location_photos', 'around_house_photos'], true)) {
+            if ($detected === self::Other) {
+                return 'Dit lijkt geen foto van de gevel of tuin.';
+            }
+
+            return 'Dit lijkt geen foto van de gevel of tuin. Dit is '.$detected->dutchNoun().'.';
         }
 
         return 'Dit is '.$detected->dutchNoun().'; we hebben '.$needed.' nodig.';

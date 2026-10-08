@@ -407,43 +407,21 @@
                                 @php
                                     $roomSubject = $intake->dossierSubjects->firstWhere('id', $room->dossier_subject_id);
                                     $roomMeasures = \App\Domains\Intake\Support\RoomDimensions::from(is_array($room->dimensions) ? $room->dimensions : null);
-                                    $length = $roomMeasures->lengthM();
-                                    $width = $roomMeasures->widthM();
-                                    $height = $roomMeasures->heightM();
                                     $areaM2 = $roomMeasures->declaredAreaM2();
                                     $computedArea = $roomMeasures->areaFromLengthWidth();
-                                    $hasAnyDimension = $roomMeasures->hasAnyMeasure();
                                     $floorConflict = $roomMeasures->hasFloorAreaConflict();
                                     $heightNeeded = $room->use_type === 'attic';
                                     $roomCustomerAsk = $customerTaskBuilder->forRoomWithIntake($intake, $room);
+                                    $customerDimLabel = \App\Domains\Intake\Support\CustomerAnswerBlocks::roomDimensionsLabel(
+                                        is_array($room->dimensions) ? $room->dimensions : null,
+                                    );
                                 @endphp
                                 <article id="room-{{ $room->id }}" class="scroll-mt-36 border border-gray-200 bg-white p-4 sm:p-5">
                                     <div class="flex flex-wrap items-start justify-between gap-3">
                                         <div class="min-w-0">
                                         <p class="text-base font-bold text-gray-950">{{ $room->name }}</p>
                                         <p class="mt-0.5 text-sm text-gray-500">
-                                            @if ($floorConflict)
-                                                Controleer maten: L×B en m² komen niet overeen
-                                            @elseif ($roomMeasures->hasLengthAndWidth())
-                                                {{ number_format((float) $length, 1, ',', '.').' × '.number_format((float) $width, 1, ',', '.') }} m
-                                                @if ($computedArea !== null)
-                                                    <span class="text-gray-400">({{ number_format($computedArea, 1, ',', '.') }} m²)</span>
-                                                @endif
-                                                @if (is_numeric($height))
-                                                    <span class="text-gray-400">· H {{ number_format((float) $height, 1, ',', '.') }} m</span>
-                                                @endif
-                                            @elseif ($roomMeasures->hasTrustedAreaM2())
-                                                {{ number_format((float) $areaM2, 1, ',', '.') }} m²
-                                                @if (is_numeric($height))
-                                                    <span class="text-gray-400">· H {{ number_format((float) $height, 1, ',', '.') }} m</span>
-                                                @endif
-                                            @elseif ($roomMeasures->hasUntrustedAreaM2())
-                                                {{ number_format((float) $areaM2, 1, ',', '.') }} m² — nog controleren
-                                            @elseif ($hasAnyDimension)
-                                                Maten deels ingevuld
-                                            @else
-                                                Maten nog leeg
-                                            @endif
+                                            {{ $customerDimLabel }}
                                         </p>
                                         </div>
                                         <div class="flex flex-wrap items-center gap-2">
@@ -763,6 +741,11 @@
                                 </div>
                             </form>
                         </details>
+
+                        @include('installer.intakes.partials.customer-answers', [
+                            'intake' => $intake,
+                            'wrapperClass' => 'mt-6 border-t border-gray-100 pt-5',
+                        ])
                     </section>
 
                     <section id="demo-placements" class="scroll-mt-36 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">

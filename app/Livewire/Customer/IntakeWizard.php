@@ -367,6 +367,7 @@ class IntakeWizard extends Component
         $uploadsByQuestion = [];
         $displayPhotoHint = [];
         $photoMismatchAssessment = null;
+        $photoNeedsOverride = false;
         $photoNeedsQualityHint = false;
         $stepKind = is_array($step) ? ($step['kind'] ?? 'question') : 'question';
 
@@ -424,12 +425,25 @@ class IntakeWizard extends Component
                     $this->ensureAnswerShape($visibleQuestion, $step['section_instance_key']);
                 }
 
+                /** @var list<IntakeQuestion> $photoQuestionsForStep */
+                $photoQuestionsForStep = [];
                 if ($question instanceof IntakeQuestion && $question->type === QuestionType::Photo) {
+                    $photoQuestionsForStep[] = $question;
+                }
+                if ($stepKind === 'question_group') {
+                    foreach ($groupQuestions as $groupQuestion) {
+                        if ($groupQuestion->type === QuestionType::Photo) {
+                            $photoQuestionsForStep[] = $groupQuestion;
+                        }
+                    }
+                }
+
+                foreach ($photoQuestionsForStep as $photoQuestion) {
                     $composite = VisibilityResolver::compositeKey(
-                        $question->key,
+                        $photoQuestion->key,
                         $step['section_instance_key'],
                     );
-                    $stepUploads = $uploadsByQuestion[$question->key] ?? collect();
+                    $stepUploads = $uploadsByQuestion[$photoQuestion->key] ?? collect();
 
                     $scopedHint = $this->scopedPhotoHintMessage($composite, $stepUploads);
                     if ($scopedHint !== null) {
@@ -437,7 +451,7 @@ class IntakeWizard extends Component
                     } else {
                         $persistentHint = $this->persistentIntakePhotoHint(
                             $intake,
-                            $question,
+                            $photoQuestion,
                             $stepUploads,
                         );
 
@@ -445,9 +459,6 @@ class IntakeWizard extends Component
                             $displayPhotoHint[$composite] = $persistentHint;
                         }
                     }
-
-                    $photoMismatchAssessment = null;
-                    $photoNeedsOverride = false;
 
                     // Banner zolang de foto een expliciete override nodig heeft.
                     if (PhotoOverridePolicy::hasUnresolvedOverride($stepUploads)) {
@@ -487,7 +498,7 @@ class IntakeWizard extends Component
             'uploadsByQuestion' => $uploadsByQuestion,
             'displayPhotoHint' => $displayPhotoHint,
             'photoMismatchAssessment' => $photoMismatchAssessment,
-            'photoNeedsOverride' => $photoNeedsOverride ?? false,
+            'photoNeedsOverride' => $photoNeedsOverride,
             'photoNeedsQualityHint' => $photoNeedsQualityHint,
             // Prop name kept for BL-076 banner sibling; value means "primary customer path".
             'demoShortCustomer' => $demoCustomerPath,
@@ -1771,8 +1782,12 @@ class IntakeWizard extends Component
         $preferred = null;
 
         if ($step !== null) {
+            $photoQuestion = $this->photoQuestionForStep($step);
+            $preferredKey = $photoQuestion instanceof IntakeQuestion
+                ? $photoQuestion->key
+                : $step['question_key'];
             $preferredComposite = VisibilityResolver::compositeKey(
-                $step['question_key'],
+                $preferredKey,
                 $step['section_instance_key'],
             );
             $matching = $unassessed->filter(
@@ -2257,13 +2272,8 @@ class IntakeWizard extends Component
             return;
         }
 
-        $question = app(IntakeStepBuilder::class)->questionForStep(
-            $this->version(),
-            $step['section_key'],
-            $step['question_key'],
-        );
-
-        if (! $question instanceof IntakeQuestion || $question->type !== QuestionType::Photo) {
+        $question = $this->photoQuestionForStep($step);
+        if (! $question instanceof IntakeQuestion) {
             return;
         }
 
@@ -2309,13 +2319,8 @@ class IntakeWizard extends Component
             return;
         }
 
-        $question = app(IntakeStepBuilder::class)->questionForStep(
-            $this->version(),
-            $step['section_key'],
-            $step['question_key'],
-        );
-
-        if (! $question instanceof IntakeQuestion || $question->type !== QuestionType::Photo) {
+        $question = $this->photoQuestionForStep($step);
+        if (! $question instanceof IntakeQuestion) {
             return;
         }
 
@@ -2431,6 +2436,46 @@ class IntakeWizard extends Component
 
         $inputId = 'follow-up-photo-input-'.$item->id;
         $this->js('document.getElementById('.json_encode($inputId).')?.click()');
+    }
+
+    /**
+     * Foto-vraag van de huidige stap — ook binnen question_group (group_question_keys).
+     *
+     * @param  array{
+     *     kind?: string,
+     *     section_key: string,
+     *     question_key: string,
+     *     group_question_keys?: list<string>
+     * }  $step
+     */
+    private function photoQuestionForStep(array $step): ?IntakeQuestion
+    {
+        $version = $this->version();
+
+        if (($step['kind'] ?? 'question') === 'question_group') {
+            foreach ($step['group_question_keys'] ?? [] as $groupKey) {
+                $groupQuestion = app(IntakeStepBuilder::class)->questionForStep(
+                    $version,
+                    $step['section_key'],
+                    $groupKey,
+                );
+                if ($groupQuestion instanceof IntakeQuestion && $groupQuestion->type === QuestionType::Photo) {
+                    return $groupQuestion;
+                }
+            }
+
+            return null;
+        }
+
+        $question = app(IntakeStepBuilder::class)->questionForStep(
+            $version,
+            $step['section_key'],
+            $step['question_key'],
+        );
+
+        return $question instanceof IntakeQuestion && $question->type === QuestionType::Photo
+            ? $question
+            : null;
     }
 
     /**
@@ -2793,6 +2838,11 @@ class IntakeWizard extends Component
 
         $step = $this->currentStep();
         if ($step === null) {
+            return;
+        }
+
+        // Groepscherm (maten, afvoer+foto): keuze mag de optionele foto niet overslaan.
+        if (($step['kind'] ?? 'question') === 'question_group') {
             return;
         }
 

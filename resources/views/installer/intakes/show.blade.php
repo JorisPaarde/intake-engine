@@ -211,6 +211,28 @@
                     <h4 class="text-sm font-semibold text-gray-900">Korte samenvatting</h4>
                     <p class="mt-1 break-words text-sm text-gray-700">{{ $dossierSummary }}</p>
                 </div>
+
+                @if ($intake->aircoRooms->isNotEmpty())
+                    <div class="border-t border-indigo-100 pt-4" data-testid="show-room-dimensions">
+                        <h4 class="text-sm font-semibold text-gray-900">Ruimtematen</h4>
+                        <ul class="mt-2 space-y-1 text-sm text-gray-700">
+                            @foreach ($intake->aircoRooms as $showRoom)
+                                <li>
+                                    <span class="font-medium text-gray-900">{{ $showRoom->name }}</span>
+                                    —
+                                    {{ \App\Domains\Intake\Support\CustomerAnswerBlocks::roomDimensionsLabel(
+                                        is_array($showRoom->dimensions) ? $showRoom->dimensions : null,
+                                    ) }}
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+
+                @include('installer.intakes.partials.customer-answers', [
+                    'intake' => $intake,
+                    'wrapperClass' => 'border-t border-indigo-100 pt-4',
+                ])
             </section>
 
             <details class="min-w-0 rounded-2xl border border-gray-200 bg-white shadow-sm">

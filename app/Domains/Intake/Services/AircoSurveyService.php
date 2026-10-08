@@ -127,6 +127,10 @@ final class AircoSurveyService
         $existingDimensions = is_array($room->dimensions) ? $room->dimensions : [];
         if ($this->dimensionMeasuresDiffer($existingDimensions, $dimensions)) {
             $dimensions['dimensions_source'] = 'installer';
+            // Bewuste leegmaking: syncRooms mag klantmaten niet terugzetten.
+            if (! RoomDimensions::from($dimensions)->hasAnyMeasure()) {
+                $dimensions['dimensions_cleared_by_installer'] = true;
+            }
             $updates['dimensions'] = $dimensions;
         }
 

@@ -651,9 +651,12 @@ final class DossierManager
      * gescheiden routes — geen area_* bij L×B, geen L/W bij area_m2).
      * Legacy: `area_source=installer` is tijdelijk voor rijen van vóór de backfill.
      *
-     * @param  array<string, float|string>|null  $existing
+     * `dimensions_cleared_by_installer=true`: bewuste leegmaking — blijft leeg, geen
+     * klantmaten. Lege shell zónder die marker geeft wel mee aan klantmaten.
+     *
+     * @param  array<string, float|string|bool>|null  $existing
      * @param  array<string, float|string>  $fromAnswers
-     * @return array<string, float|string>
+     * @return array<string, float|string|bool>
      */
     private function mergeRoomDimensions(?array $existing, array $fromAnswers): array
     {
@@ -661,11 +664,16 @@ final class DossierManager
             return $fromAnswers;
         }
 
+        // Bewuste installateur-clear wint altijd van klantantwoorden.
+        if (($existing['dimensions_cleared_by_installer'] ?? false) === true) {
+            return $existing;
+        }
+
         $installerOwned = ($existing['dimensions_source'] ?? null) === 'installer'
             // Tijdelijk: rijen van vóór dimensions_source-backfill.
             || ($existing['area_source'] ?? null) === 'installer';
 
-        if ($installerOwned) {
+        if ($installerOwned && $this->dimensionsHavePositiveMeasures($existing)) {
             return $existing;
         }
 
@@ -673,7 +681,46 @@ final class DossierManager
             return $existing;
         }
 
-        return array_merge($existing, $fromAnswers);
+        $merged = array_merge($existing, $fromAnswers);
+
+        // Lege installer-shell (positieve maten returnen eerder): laat klantmaten toe.
+        if ($installerOwned) {
+            if (array_key_exists('dimensions_source', $fromAnswers)) {
+                $merged['dimensions_source'] = $fromAnswers['dimensions_source'];
+            } else {
+                unset($merged['dimensions_source']);
+            }
+            if (($existing['area_source'] ?? null) === 'installer'
+                && ! $this->dimensionValueIsPositive($existing['area_m2'] ?? null)
+                && ! array_key_exists('area_source', $fromAnswers)) {
+                unset($merged['area_source'], $merged['area_confidence'], $merged['area_evidence']);
+            }
+        }
+
+        return $merged;
+    }
+
+    /**
+     * @param  array<string, float|string|null>  $dimensions
+     */
+    private function dimensionsHavePositiveMeasures(array $dimensions): bool
+    {
+        foreach (['length_m', 'width_m', 'height_m', 'area_m2'] as $key) {
+            if ($this->dimensionValueIsPositive($dimensions[$key] ?? null)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function dimensionValueIsPositive(mixed $value): bool
+    {
+        if ($value === null || $value === '') {
+            return false;
+        }
+
+        return is_numeric($value) && (float) $value > 0;
     }
 
     /**
@@ -799,6 +846,8 @@ final class DossierManager
         ];
         $dimensions = [];
         $areaAnswer = null;
+        /** @var list<IntakeAnswer> $lengthWidthAnswers */
+        $lengthWidthAnswers = [];
 
         foreach ($mapping as $questionKey => $dimensionKey) {
             $answer = $intake->answers->first(
@@ -816,6 +865,10 @@ final class DossierManager
             if ($questionKey === 'room_area_m2') {
                 $areaAnswer = $answer;
             }
+
+            if (in_array($questionKey, ['room_length_m', 'room_width_m'], true)) {
+                $lengthWidthAnswers[] = $answer;
+            }
         }
 
         if ($areaAnswer instanceof IntakeAnswer) {
@@ -831,8 +884,35 @@ final class DossierManager
             }
         }
 
+        if ($lengthWidthAnswers !== []) {
+            $dimensions['dimensions_source'] = $this->dimensionsSourceFromAnswers($lengthWidthAnswers);
+        } elseif ($areaAnswer instanceof IntakeAnswer && $dimensions['area_source'] !== 'installer') {
+            $dimensions['dimensions_source'] = $areaAnswer->prefill_source === null
+                ? 'customer'
+                : (string) $areaAnswer->prefill_source;
+        }
+
         // Never invent length/width from area alone — leave L×B empty when only m² is known.
         return $dimensions;
+    }
+
+    /**
+     * Prefill/AI wint: zodra één L×B-antwoord een prefill-bron heeft, is de
+     * bron niet «customer». Alleen puur klantantwoord (geen prefill) → customer
+     * (nodig voor het «· van klant»-label).
+     *
+     * @param  list<IntakeAnswer>  $answers
+     */
+    private function dimensionsSourceFromAnswers(array $answers): string
+    {
+        foreach ($answers as $answer) {
+            $source = $answer->prefill_source;
+            if ($source !== null && $source !== '') {
+                return (string) $source;
+            }
+        }
+
+        return 'customer';
     }
 
     private function roomNameFromAnswers(Intake $intake, string $instanceKey): ?string

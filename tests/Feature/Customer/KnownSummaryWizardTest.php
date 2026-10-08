@@ -249,10 +249,11 @@ test('hernoemen zonder maatwijziging bevriest maten niet; echte maatwijziging we
     $room = $intake->fresh()->aircoRooms()->where('key', 'room-1')->firstOrFail();
     $installer = User::factory()->create(['company_id' => $intake->company_id]);
 
-    expect($room->dimensions['dimensions_source'] ?? null)->toBeNull()
+    // AI-prefill zet dimensions_source op de prefill-bron (niet installer-bevroren).
+    expect($room->dimensions['dimensions_source'] ?? null)->toBe('ai_text')
         ->and((float) ($room->dimensions['length_m'] ?? 0))->toBe(4.0);
 
-    // Pure hernoeming met dezelfde maten → geen dimensions_source.
+    // Pure hernoeming met dezelfde maten → bron ongewijzigd (geen installer-freeze).
     app(AircoSurveyService::class)->updateRoom($intake, $installer, $room, [
         'name' => 'Slaapkamer hernoemd',
         'use_type' => $room->use_type,
@@ -264,15 +265,22 @@ test('hernoemen zonder maatwijziging bevriest maten niet; echte maatwijziging we
 
     $room->refresh();
     expect($room->name)->toBe('Slaapkamer hernoemd')
-        ->and($room->dimensions['dimensions_source'] ?? null)->toBeNull();
+        ->and($room->dimensions['dimensions_source'] ?? null)->toBe('ai_text');
 
-    // Klantcorrectie van de lengte volgt door naar het dossier.
+    // Klantcorrectie van alleen de lengte: breedte blijft AI-prefill → bron blijft prefill.
     app(SaveIntakeAnswer::class)->handle($intake, 'room_length_m', 'room-1', ['number' => 6], null);
     app(DossierManager::class)->initialize($intake->fresh() ?? $intake);
 
     $room = $intake->fresh()->aircoRooms()->where('key', 'room-1')->firstOrFail();
     expect((float) ($room->dimensions['length_m'] ?? 0))->toBe(6.0)
-        ->and($room->dimensions['dimensions_source'] ?? null)->toBeNull();
+        ->and($room->dimensions['dimensions_source'] ?? null)->toBe('ai_text');
+
+    // Beide maten zonder prefill → écht klantantwoord → «van klant».
+    app(SaveIntakeAnswer::class)->handle($intake, 'room_width_m', 'room-1', ['number' => 3], null);
+    app(DossierManager::class)->initialize($intake->fresh() ?? $intake);
+
+    $room = $intake->fresh()->aircoRooms()->where('key', 'room-1')->firstOrFail();
+    expect($room->dimensions['dimensions_source'] ?? null)->toBe('customer');
 
     // Echte maatwijziging zet wel de marker.
     app(AircoSurveyService::class)->updateRoom($intake, $installer, $room, [
