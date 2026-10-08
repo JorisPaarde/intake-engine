@@ -55,8 +55,11 @@ final class RoomFloorLevelExtractor
 
             foreach ($floorCues as $cueIndex => $cue) {
                 if ($cue['start'] >= $mention['end'] && $cue['start'] < $nextStart) {
+                    // "Boven/Onder de woonkamer op de begane grond liggen …": cue hoort
+                    // bij de vorige kamer, niet als before-cue naar de volgende.
                     if ($nextMention !== null
-                        && $this->cueDirectlyFollowedByRoom($normalized, $cue, $nextMention)) {
+                        && $this->cueDirectlyFollowedByRoom($normalized, $cue, $nextMention)
+                        && ! $this->roomPrecededByAboveOrBelow($normalized, $mention)) {
                         continue;
                     }
                     $candidates[] = $cue['value'];
@@ -330,6 +333,24 @@ final class RoomFloorLevelExtractor
             '/^(?:(?:is|zijn|staat|staan|ligt|liggen)(?:\s+(?:de|het|een))?|de|het|een)?$/u',
             $between,
         ) === 1;
+    }
+
+    /**
+     * Kamer direct voorafgegaan door "boven/onder (de/het/een)": relatieve ligging,
+     * geen floor-cue-overdracht naar de volgende kamer.
+     *
+     * @param  array{type: string, start: int, end: int}  $mention
+     */
+    private function roomPrecededByAboveOrBelow(string $text, array $mention): bool
+    {
+        $lookback = min(24, $mention['start']);
+        if ($lookback <= 0) {
+            return false;
+        }
+
+        $before = mb_substr($text, $mention['start'] - $lookback, $lookback, 'UTF-8');
+
+        return preg_match('/(?:^|[^\p{L}])(?:boven|onder)\s+(?:(?:de|het|een)\s+)?$/u', $before) === 1;
     }
 
     /**

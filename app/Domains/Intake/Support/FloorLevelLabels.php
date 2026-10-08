@@ -27,14 +27,8 @@ final class FloorLevelLabels
      */
     public static function shortLabel(string $raw): ?string
     {
-        return match ($raw) {
-            'basement' => 'kelder / souterrain',
-            'ground' => 'begane grond',
-            '1' => '1e verdieping',
-            '2' => '2e verdieping',
-            '3_plus' => '3e verdieping of hoger',
-            'attic' => 'zolder',
-            default => null,
-        };
+        $label = self::label($raw);
+
+        return $label === null ? null : mb_lcfirst($label, 'UTF-8');
     }
 }

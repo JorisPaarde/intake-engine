@@ -10,6 +10,8 @@ namespace App\Domains\AI\Support;
  */
 final class ExistingAircoExtractor
 {
+    private const MENTION = 'oude\s+airco|bestaande\s+airco|huidige\s+airco|er\s+hangt\s+al\s+(?:een\s+)?(?:oude\s+)?airco';
+
     /**
      * @return array{
      *     present: bool,
@@ -25,12 +27,20 @@ final class ExistingAircoExtractor
             return null;
         }
 
-        $mentionsExisting = preg_match(
-            '/\b(?:oude\s+airco|bestaande\s+airco|huidige\s+airco|er\s+hangt\s+al\s+(?:een\s+)?(?:oude\s+)?airco|al\s+een\s+airco)\b/u',
-            $normalized,
-        ) === 1;
+        if (preg_match('/\b(?:'.self::MENTION.')\b/u', $normalized, $match, PREG_OFFSET_CAPTURE) !== 1) {
+            return null;
+        }
 
-        if (! $mentionsExisting) {
+        $byteStart = (int) $match[0][1];
+        $charStart = mb_strlen(substr($normalized, 0, $byteStart), 'UTF-8');
+        $matched = $match[0][0];
+
+        // Negatie vlak vóór de match: "geen bestaande airco", "zonder oude airco", …
+        $lookback = min(40, $charStart);
+        $before = $lookback > 0
+            ? mb_substr($normalized, $charStart - $lookback, $lookback, 'UTF-8')
+            : '';
+        if (preg_match('/(?:geen|zonder|niet)(?:\s+\S+){0,4}\s*$/u', $before) === 1) {
             return null;
         }
 
@@ -39,9 +49,13 @@ final class ExistingAircoExtractor
             $text,
             $evidenceMatch,
         );
-        $evidence = trim((string) ($evidenceMatch[0] ?? 'bestaande airco'));
+        $evidence = trim((string) ($evidenceMatch[0] ?? ''));
         if ($evidence === '') {
-            $evidence = 'bestaande airco';
+            // Altijd een echt citaat uit de brontekst — nooit een verzonnen fallback.
+            $evidence = mb_substr($text, $charStart, mb_strlen($matched, 'UTF-8'), 'UTF-8');
+        }
+        if (trim($evidence) === '') {
+            return null;
         }
 
         $evidenceNormalized = mb_strtolower($evidence, 'UTF-8');
