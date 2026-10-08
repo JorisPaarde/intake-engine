@@ -1197,13 +1197,21 @@ class IntakeWizard extends Component
         $this->pollPendingAssessments();
     }
 
-    public function pollPendingAssessments(): void
+    /**
+     * @param  string|null  $composite  Wizard step composite (wire:poll passes this). Defaults to uploadPhaseComposite.
+     */
+    public function pollPendingAssessments(?string $composite = null): void
     {
-        $composite = $this->uploadPhaseComposite;
+        $composite = is_string($composite) && $composite !== ''
+            ? $composite
+            : $this->uploadPhaseComposite;
 
         if ($composite === '' || $this->pendingIdsFor($composite) === []) {
-            // Geen pending ids maar wel assessing → vastgelopen fase opruimen.
-            if ($this->uploadPhase === 'assessing' || $this->uploadPhase === 'failed') {
+            // Geen pending ids maar wel assessing op deze composite → vastgelopen fase opruimen.
+            // Do not clear a failed panel via poll (failed is not a poll trigger).
+            if ($composite !== ''
+                && $composite === $this->uploadPhaseComposite
+                && $this->uploadPhase === 'assessing') {
                 $this->clearUploadPhase();
             }
 
@@ -1211,7 +1219,7 @@ class IntakeWizard extends Component
         }
 
         if ($this->followUpMode) {
-            $this->pollPendingFollowUpAssessments();
+            $this->pollPendingFollowUpAssessments($composite);
 
             return;
         }
@@ -1264,7 +1272,7 @@ class IntakeWizard extends Component
         if ($stillPending !== []) {
             $softReleased = in_array($composite, $this->assessmentUiReleased, true);
 
-            if ($this->assessmentSoftTimedOut() && ! $softReleased) {
+            if ($this->assessmentSoftTimedOut($composite) && ! $softReleased) {
                 $this->softReleasePendingAssessment(
                     $composite,
                     PhotoCustomerStatus::SOFT_TIMEOUT,
@@ -1276,7 +1284,7 @@ class IntakeWizard extends Component
             // After soft-release: quiet poll (no assessing busy UI) until terminal
             // or absolute max wait, then drop pending ids (watchdog still covers DB).
             if ($softReleased) {
-                if ($this->assessmentQuietPollExhausted()) {
+                if ($this->assessmentQuietPollExhausted($composite)) {
                     $this->clearPendingIdsFor($composite);
                     if ($this->uploadPhaseComposite === $composite) {
                         $this->uploadPhaseComposite = '';
@@ -1291,6 +1299,7 @@ class IntakeWizard extends Component
             }
 
             $this->setPendingIdsFor($composite, $stillPending);
+            $this->uploadPhaseComposite = $composite;
             $this->setUploadPhase('assessing', PhotoCustomerStatus::LOOKING);
 
             return;
@@ -1310,7 +1319,9 @@ class IntakeWizard extends Component
         $this->storeScopedPhotoHint($composite, $uploadIds, $hints);
 
         $this->clearPendingIdsFor($composite);
-        $this->clearUploadPhase();
+        if ($this->uploadPhaseComposite === $composite) {
+            $this->clearUploadPhase();
+        }
     }
 
     public function retryFailedUploadPhase(): void
@@ -1342,11 +1353,10 @@ class IntakeWizard extends Component
     }
 
     /**
-     * Beoordeel alleen de pending follow-upfoto's van het actieve item (poll).
+     * Beoordeel alleen de pending follow-upfoto's van de gepollde composite.
      */
-    private function pollPendingFollowUpAssessments(): void
+    private function pollPendingFollowUpAssessments(string $composite): void
     {
-        $composite = $this->uploadPhaseComposite;
         $uploadIds = $this->pendingIdsFor($composite);
         $intake = $this->intake();
         $lifecycle = app(PhotoAssessmentLifecycle::class);
@@ -1371,7 +1381,7 @@ class IntakeWizard extends Component
         if ($stillPending !== []) {
             $softReleased = in_array($composite, $this->assessmentUiReleased, true);
 
-            if ($this->assessmentSoftTimedOut() && ! $softReleased) {
+            if ($this->assessmentSoftTimedOut($composite) && ! $softReleased) {
                 $this->softReleasePendingAssessment(
                     $composite,
                     PhotoCustomerStatus::SOFT_TIMEOUT,
@@ -1381,7 +1391,7 @@ class IntakeWizard extends Component
             }
 
             if ($softReleased) {
-                if ($this->assessmentQuietPollExhausted()) {
+                if ($this->assessmentQuietPollExhausted($composite)) {
                     $this->clearPendingIdsFor($composite);
                     if ($this->uploadPhaseComposite === $composite) {
                         $this->uploadPhaseComposite = '';
@@ -1396,6 +1406,7 @@ class IntakeWizard extends Component
             }
 
             $this->setPendingIdsFor($composite, $stillPending);
+            $this->uploadPhaseComposite = $composite;
             $this->setUploadPhase('assessing', PhotoCustomerStatus::LOOKING);
 
             return;
@@ -1404,27 +1415,25 @@ class IntakeWizard extends Component
         // Override-/mismatch-panel (PhotoOverridePolicy) is the single place for
         // quality + wrong_subject copy in follow-up — no duplicate Livewire error bag.
         $this->clearPendingIdsFor($composite);
-        $this->clearUploadPhase();
+        if ($this->uploadPhaseComposite === $composite) {
+            $this->clearUploadPhase();
+        }
     }
 
-    private function assessmentSoftTimedOut(): bool
+    private function assessmentSoftTimedOut(string $composite): bool
     {
-        // Tests mogen een kortere limiet zetten; 0 of negatief valt terug op 15 (UX 8 okt).
-        $configured = (int) config('ai.photo_assessment.ui_soft_timeout_seconds', 15);
-        $limit = $configured > 0 ? $configured : 15;
+        $limit = PhotoAssessmentSoftTimeout::seconds();
 
         $startedAt = $this->uploadPhaseStartedAt;
-        if ($startedAt !== null) {
-            // Phase clock is authoritative while assessing is active — do not also
-            // fall through to assessment_queued_at (that timestamp is set at store
-            // start and can already exceed a short test limit before poll runs).
+        if ($startedAt !== null && $composite === $this->uploadPhaseComposite) {
+            // Phase clock is authoritative while assessing is active for this composite.
             return (now()->getTimestamp() - (int) $startedAt) >= $limit;
         }
 
-        // Fallback: oudste pending upload.assessment_queued_at.
-        foreach ($this->pendingIdsFor($this->uploadPhaseComposite) as $uploadId) {
-            $queuedAt = IntakeUpload::query()->whereKey($uploadId)->value('assessment_queued_at');
-            if ($queuedAt !== null && now()->subSeconds($limit)->gte($queuedAt)) {
+        // Fallback: oudste pending upload.created_at (not assessment_queued_at — that resets).
+        foreach ($this->pendingIdsFor($composite) as $uploadId) {
+            $createdAt = IntakeUpload::query()->whereKey($uploadId)->value('created_at');
+            if ($createdAt !== null && now()->subSeconds($limit)->gte($createdAt)) {
                 return true;
             }
         }
@@ -1433,18 +1442,14 @@ class IntakeWizard extends Component
     }
 
     /**
-     * Absolute ceiling for quiet background poll after soft-release (~10 min).
+     * Absolute ceiling for quiet background poll after soft-release (~10 min), per composite.
+     * Uses created_at so pipeline resets of assessment_queued_at cannot stall forever.
      */
-    private function assessmentQuietPollExhausted(): bool
+    private function assessmentQuietPollExhausted(string $composite): bool
     {
         $maxSeconds = 600;
 
-        foreach ($this->pendingIdsFor($this->uploadPhaseComposite) as $uploadId) {
-            $queuedAt = IntakeUpload::query()->whereKey($uploadId)->value('assessment_queued_at');
-            if ($queuedAt !== null && now()->subSeconds($maxSeconds)->gte($queuedAt)) {
-                return true;
-            }
-
+        foreach ($this->pendingIdsFor($composite) as $uploadId) {
             $createdAt = IntakeUpload::query()->whereKey($uploadId)->value('created_at');
             if ($createdAt !== null && now()->subSeconds($maxSeconds)->gte($createdAt)) {
                 return true;

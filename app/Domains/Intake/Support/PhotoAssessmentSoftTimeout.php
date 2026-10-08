@@ -11,6 +11,9 @@ use Carbon\CarbonInterface;
 /**
  * Shared soft-timeout for customer photo gates (wizard + CompleteFollowUpRound).
  * Uses config('ai.photo_assessment.ui_soft_timeout_seconds') — same key as the UI.
+ *
+ * Anchor is upload created_at only: assessment_queued_at is reset by the pipeline
+ * (variants job, lifecycle dispatch, watchdog, recover) and must not re-block the customer.
  */
 final class PhotoAssessmentSoftTimeout
 {
@@ -37,7 +40,7 @@ final class PhotoAssessmentSoftTimeout
 
     public static function hasElapsed(IntakeUpload $upload): bool
     {
-        $anchor = $upload->assessment_queued_at ?? $upload->created_at;
+        $anchor = $upload->created_at;
         if (! $anchor instanceof CarbonInterface) {
             return false;
         }

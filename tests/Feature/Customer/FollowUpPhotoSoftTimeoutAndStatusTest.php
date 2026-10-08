@@ -81,10 +81,13 @@ test('follow-up soft-timeout na 15s toont UX-melding en laat Volgende toe', func
     expect($upload->assessment_status)->toBe(PhotoAssessmentStatus::Pending);
 
     $component->set('uploadPhaseStartedAt', now()->subSeconds(16)->getTimestamp());
-    $upload->forceFill(['assessment_queued_at' => now()->subSeconds(16)])->save();
+    $upload->forceFill([
+        'created_at' => now()->subSeconds(16),
+        'assessment_queued_at' => now()->subSeconds(16),
+    ])->save();
 
     $component
-        ->call('pollPendingAssessments')
+        ->call('pollPendingAssessments', (string) $item->id)
         ->assertSet('uploadPhase', '')
         ->assertSee(PhotoCustomerStatus::SOFT_TIMEOUT);
 
@@ -226,11 +229,14 @@ test('bij maximum aantal foto\'s blijft poll actief en soft-timeout-melding zich
 
     $component->set('uploadPhaseStartedAt', now()->subSeconds(16)->getTimestamp());
     foreach ($item->fresh()->uploads as $upload) {
-        $upload->forceFill(['assessment_queued_at' => now()->subSeconds(16)])->save();
+        $upload->forceFill([
+            'created_at' => now()->subSeconds(16),
+            'assessment_queued_at' => now()->subSeconds(16),
+        ])->save();
     }
 
     $component
-        ->call('pollPendingAssessments')
+        ->call('pollPendingAssessments', $composite)
         ->assertSet('uploadPhase', '')
         ->assertSee(PhotoCustomerStatus::SOFT_TIMEOUT);
 
@@ -277,8 +283,9 @@ test('CompleteFollowUpRound blokkeert jonge pending foto en laat soft-timeout do
     );
 
     $young->forceFill([
-        'assessment_queued_at' => now()->subSeconds(16),
         'created_at' => now()->subSeconds(16),
+        // Pipeline-style reset must not re-block after soft-timeout.
+        'assessment_queued_at' => now(),
     ])->save();
 
     app(CompleteFollowUpRound::class)->handle(
@@ -289,6 +296,20 @@ test('CompleteFollowUpRound blokkeert jonge pending foto en laat soft-timeout do
 
     expect($young->fresh()->assessment_status)->toBe(PhotoAssessmentStatus::Pending)
         ->and($round->fresh()->status)->toBe(FollowUpRoundStatus::Completed);
+});
+
+test('soft-timeout gate negeert verse assessment_queued_at als created_at oud genoeg is', function () {
+    config(['ai.photo_assessment.ui_soft_timeout_seconds' => 15]);
+
+    $upload = new IntakeUpload;
+    $upload->forceFill([
+        'assessment_status' => PhotoAssessmentStatus::Pending,
+        'created_at' => now()->subSeconds(20),
+        'assessment_queued_at' => now(),
+    ]);
+
+    expect(PhotoAssessmentSoftTimeout::hasElapsed($upload))->toBeTrue()
+        ->and(PhotoAssessmentSoftTimeout::blocksCustomerProgress($upload))->toBeFalse();
 });
 
 test('wizard follow-up gate volgt soft-timeout-leeftijd (niet alleen assessmentUiReleased)', function () {
@@ -309,9 +330,10 @@ test('wizard follow-up gate volgt soft-timeout-leeftijd (niet alleen assessmentU
     $component->call('nextFollowUp')->assertSee('Even geduld: we beoordelen je foto nog.');
 
     // Past soft-timeout → may continue while assessment stays pending.
+    // Fresh assessment_queued_at (pipeline reset) must not re-block.
     IntakeUpload::query()->whereKey($upload->id)->update([
-        'assessment_queued_at' => now()->subSeconds(20),
         'created_at' => now()->subSeconds(20),
+        'assessment_queued_at' => now(),
     ]);
 
     expect(PhotoAssessmentSoftTimeout::blocksCustomerProgress($upload->fresh()))->toBeFalse();
@@ -332,10 +354,13 @@ test('nieuwe upload wist assessmentUiReleased zodat soft-timeout opnieuw loopt',
 
     $first = $item->fresh()->uploads()->firstOrFail();
     $component->set('uploadPhaseStartedAt', now()->subSeconds(16)->getTimestamp());
-    $first->forceFill(['assessment_queued_at' => now()->subSeconds(16)])->save();
+    $first->forceFill([
+        'created_at' => now()->subSeconds(16),
+        'assessment_queued_at' => now()->subSeconds(16),
+    ])->save();
 
     $component
-        ->call('pollPendingAssessments')
+        ->call('pollPendingAssessments', $composite)
         ->assertSet('uploadPhase', '');
 
     expect($component->instance()->assessmentUiReleased)->toContain($composite);
@@ -347,4 +372,112 @@ test('nieuwe upload wist assessmentUiReleased zodat soft-timeout opnieuw loopt',
 
     expect($component->instance()->assessmentUiReleased)->not->toContain($composite)
         ->and($component->instance()->uploadPhaseStartedAt)->not->toBeNull();
+});
+
+test('failed upload phase blijft staan na poll; assessing zonder pending wordt wel opgeruimd', function () {
+    Queue::fake([AssessUploadedPhotoJob::class, ProcessIntakePhotoVariantsJob::class]);
+
+    [$intake, $item] = softTimeoutFollowUpIntake();
+    $composite = (string) $item->id;
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+    $wizard = $component->instance();
+    $wizard->uploadPhaseComposite = $composite;
+    $wizard->pendingAssessUploadIds = [];
+
+    $setPhase = new ReflectionMethod(IntakeWizard::class, 'setUploadPhase');
+    $setPhase->invoke($wizard, 'failed', 'Uploaden mislukt. Je eerdere antwoorden blijven bewaard.');
+
+    $wizard->pollPendingAssessments($composite);
+    expect($wizard->uploadPhase)->toBe('failed')
+        ->and($wizard->uploadPhaseMessage)->toContain('Uploaden mislukt');
+
+    // Blade: failed is not a poll trigger (no endless clear of the retry panel).
+    $followUpBlade = (string) file_get_contents(resource_path('views/livewire/customer/follow-up-wizard.blade.php'));
+    expect($followUpBlade)->toContain("\$uploadPhase ?? '') === 'assessing'")
+        ->and($followUpBlade)->not->toContain("['assessing', 'failed']");
+
+    $setPhase->invoke($wizard, 'assessing', PhotoCustomerStatus::LOOKING);
+    $wizard->pollPendingAssessments($composite);
+    expect($wizard->uploadPhase)->toBe('');
+});
+
+test('poll stopt op soft-released item zodra foto\'s terminaal zijn (per composite)', function () {
+    Queue::fake([
+        AssessUploadedPhotoJob::class,
+        ProcessIntakePhotoVariantsJob::class,
+        SynthesizeSurveyDossierJob::class,
+        SuggestAttentionPointsJob::class,
+        GenerateIntakePdfJob::class,
+    ]);
+
+    [$intake, $first] = softTimeoutFollowUpIntake();
+    $round = $intake->followUpRounds()->latest('round_number')->firstOrFail();
+    $second = $round->items()->create([
+        'type' => FollowUpItemType::Photo,
+        'prompt' => 'Maak een foto van de buitenunit.',
+    ]);
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('followUpPhotoFiles.'.$first->id, UploadedFile::fake()->image('item1.jpg', 810, 610))
+        ->assertSet('uploadPhase', 'assessing');
+
+    $firstUpload = $first->fresh()->uploads()->firstOrFail();
+    $firstComposite = (string) $first->id;
+    $component->set('uploadPhaseStartedAt', now()->subSeconds(16)->getTimestamp());
+    $firstUpload->forceFill([
+        'created_at' => now()->subSeconds(16),
+        'assessment_queued_at' => now()->subSeconds(16),
+    ])->save();
+
+    $component
+        ->call('pollPendingAssessments', $firstComposite)
+        ->assertSet('uploadPhase', '');
+
+    expect($component->instance()->assessmentUiReleased)->toContain($firstComposite)
+        ->and($component->instance()->pendingAssessUploadIds[$firstComposite] ?? [])->not->toBeEmpty();
+
+    // Soft-release unlocks next; upload on item 2 until terminal.
+    $component->call('nextFollowUp')->assertSet('followUpStepIndex', 1);
+
+    $component
+        ->set('followUpPhotoFiles.'.$second->id, UploadedFile::fake()->image('item2.jpg', 820, 620))
+        ->assertSet('uploadPhase', 'assessing');
+
+    $secondUpload = $second->fresh()->uploads()->firstOrFail();
+    $secondComposite = (string) $second->id;
+    $secondUpload->forceFill([
+        'assessment_status' => PhotoAssessmentStatus::Assessed,
+        'usability_verdict' => PhotoUsabilityVerdict::Ok,
+        'content_assessment' => [
+            'status' => 'ok',
+            'detected_subject' => 'outdoor_unit',
+            'customer_message' => null,
+        ],
+        'assessment_queued_at' => null,
+    ])->save();
+
+    $component->call('pollPendingAssessments', $secondComposite);
+    expect($component->instance()->pendingAssessUploadIds[$secondComposite] ?? [])->toBeEmpty();
+
+    // Item 1 finishes in the background while customer was on item 2.
+    $firstUpload->forceFill([
+        'assessment_status' => PhotoAssessmentStatus::Assessed,
+        'usability_verdict' => PhotoUsabilityVerdict::Ok,
+        'content_assessment' => [
+            'status' => 'ok',
+            'detected_subject' => 'fusebox',
+            'customer_message' => null,
+        ],
+        'assessment_queued_at' => null,
+    ])->save();
+
+    $component->call('previousFollowUp')->assertSet('followUpStepIndex', 0);
+    expect($component->html())->toContain('data-testid="assessment-poll"')
+        ->and($component->html())->toContain('data-poll-composite="'.$firstComposite.'"');
+
+    $component->call('pollPendingAssessments', $firstComposite);
+
+    expect($component->instance()->pendingAssessUploadIds[$firstComposite] ?? [])->toBeEmpty()
+        ->and($component->html())->not->toContain('data-testid="assessment-poll"');
 });

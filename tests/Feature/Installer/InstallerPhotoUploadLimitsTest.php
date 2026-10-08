@@ -313,7 +313,9 @@ test('assessment poll lives on wizards not only on photo-upload-control', functi
 
     expect($control)->not->toContain('wire:poll')
         ->and($intake)->toContain('data-testid="assessment-poll"')
-        ->and($intake)->toContain('wire:poll')
+        ->and($intake)->toContain('pollPendingAssessments(@json($composite))')
+        ->and($intake)->not->toContain("['assessing', 'failed']")
         ->and($followUp)->toContain('data-testid="assessment-poll"')
-        ->and($followUp)->toContain('pollPendingAssessments');
+        ->and($followUp)->toContain('pollPendingAssessments(@json($followUpComposite))')
+        ->and($followUp)->not->toContain("['assessing', 'failed']");
 });

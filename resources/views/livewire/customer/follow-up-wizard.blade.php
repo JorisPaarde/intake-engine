@@ -95,16 +95,17 @@
                 @php
                     $followUpComposite = (string) $item->id;
                     $assessmentPollPending = ! empty($pendingAssessUploadIds[$followUpComposite] ?? []);
-                    $assessmentPollActive = in_array((string) ($uploadPhase ?? ''), ['assessing', 'failed'], true)
+                    $assessmentPollActive = (string) ($uploadPhase ?? '') === 'assessing'
                         && (string) ($uploadPhaseComposite ?? '') === $followUpComposite;
                     $assessmentQuietPoll = in_array($followUpComposite, $assessmentUiReleased ?? [], true);
                     $assessmentPollInterval = $assessmentQuietPoll ? '5s' : '2s';
                 @endphp
                 @if ($assessmentPollPending || $assessmentPollActive)
                     <div
-                        wire:poll.{{ $assessmentPollInterval }}="pollPendingAssessments"
+                        wire:poll.{{ $assessmentPollInterval }}='pollPendingAssessments(@json($followUpComposite))'
                         class="hidden"
                         data-testid="assessment-poll"
+                        data-poll-composite="{{ $followUpComposite }}"
                         aria-hidden="true"
                     ></div>
                 @endif
