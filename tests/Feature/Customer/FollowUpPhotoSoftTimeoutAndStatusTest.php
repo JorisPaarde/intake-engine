@@ -481,3 +481,147 @@ test('poll stopt op soft-released item zodra foto\'s terminaal zijn (per composi
     expect($component->instance()->pendingAssessUploadIds[$firstComposite] ?? [])->toBeEmpty()
         ->and($component->html())->not->toContain('data-testid="assessment-poll"');
 });
+
+test('nieuwe upload op andere follow-up composite start verse soft-timeout-klok', function () {
+    Queue::fake([AssessUploadedPhotoJob::class, ProcessIntakePhotoVariantsJob::class]);
+
+    [$intake, $first] = softTimeoutFollowUpIntake();
+    $round = $intake->followUpRounds()->latest('round_number')->firstOrFail();
+    $second = $round->items()->create([
+        'type' => FollowUpItemType::Photo,
+        'prompt' => 'Maak een foto van de buitenunit.',
+    ]);
+
+    // Satisfy item 1 so we can leave it without soft-timeout block.
+    $first->uploads()->create([
+        'intake_id' => $intake->id,
+        'question_key' => 'follow_up_photo',
+        'disk' => (string) config('filesystems.media', 'local'),
+        'path' => 'intakes/test/clock-1.jpg',
+        'original_filename' => 'clock-1.jpg',
+        'mime_type' => 'image/jpeg',
+        'size_bytes' => 1000,
+        'checksum' => hash('sha256', 'clock-1'),
+        'sort_order' => 1,
+        'assessment_status' => PhotoAssessmentStatus::Assessed,
+        'usability_verdict' => PhotoUsabilityVerdict::Ok,
+        'content_assessment' => [
+            'status' => 'ok',
+            'detected_subject' => 'fusebox',
+            'customer_message' => null,
+        ],
+        'created_at' => now()->subSeconds(30),
+    ]);
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->call('nextFollowUp')
+        ->assertSet('followUpStepIndex', 1)
+        ->set('followUpPhotoFiles.'.$second->id, UploadedFile::fake()->image('item2-clock.jpg', 830, 630))
+        ->assertSet('uploadPhase', 'assessing');
+
+    // Stale clock from item 2 (as if assessing for >15s).
+    $component->set('uploadPhaseStartedAt', now()->subSeconds(20)->getTimestamp());
+
+    $component->call('previousFollowUp')->assertSet('followUpStepIndex', 0);
+
+    // More than 15s after item-2 assessing started: new photo on item 1 must not soft-timeout immediately.
+    $component
+        ->set('followUpPhotoFiles.'.$first->id, UploadedFile::fake()->image('item1-nieuw.jpg', 840, 640))
+        ->assertSet('uploadPhase', 'assessing')
+        ->assertSet('uploadPhaseMessage', PhotoCustomerStatus::LOOKING);
+
+    expect($component->instance()->uploadPhaseStartedAt)->toBeGreaterThan(now()->subSeconds(5)->getTimestamp())
+        ->and($component->get('saveMessage'))->not->toBe(PhotoCustomerStatus::SOFT_TIMEOUT);
+
+    $component->call('pollPendingAssessments', (string) $first->id);
+
+    expect($component->get('uploadPhase'))->toBe('assessing')
+        ->and($component->instance()->assessmentUiReleased)->not->toContain((string) $first->id)
+        ->and($component->get('saveMessage'))->not->toBe(PhotoCustomerStatus::SOFT_TIMEOUT);
+});
+
+test('herladen seed soft-timeout-klok vanaf created_at van pending foto', function () {
+    Queue::fake([AssessUploadedPhotoJob::class, ProcessIntakePhotoVariantsJob::class]);
+    config(['ai.photo_assessment.ui_soft_timeout_seconds' => 15]);
+
+    [$intake, $item] = softTimeoutFollowUpIntake();
+    $composite = (string) $item->id;
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('followUpPhotoFiles.'.$item->id, UploadedFile::fake()->image('reload.jpg', 850, 650))
+        ->assertSet('uploadPhase', 'assessing');
+
+    $upload = $item->fresh()->uploads()->firstOrFail();
+    $upload->forceFill([
+        'created_at' => now()->subSeconds(60),
+        'assessment_queued_at' => now()->subSeconds(60),
+    ])->save();
+
+    // Reload: recover seeds uploadPhaseStartedAt from created_at (T-60), not now().
+    $reloaded = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+
+    expect($reloaded->get('uploadPhase'))->toBe('assessing')
+        ->and($reloaded->instance()->uploadPhaseStartedAt)->toBeLessThanOrEqual(now()->subSeconds(50)->getTimestamp());
+
+    $reloaded
+        ->call('pollPendingAssessments', $composite)
+        ->assertSet('uploadPhase', '')
+        ->assertSee(PhotoCustomerStatus::SOFT_TIMEOUT);
+});
+
+test('main wizard: upload op stap B na verstrijken klok A toont LOOKING geen soft-timeout', function () {
+    Queue::fake([AssessUploadedPhotoJob::class, ProcessIntakePhotoVariantsJob::class]);
+    config([
+        'ai.provider' => 'fake',
+        'ai.photo_inference.enabled' => true,
+        'ai.photo_assessment.ui_soft_timeout_seconds' => 15,
+    ]);
+
+    $user = User::factory()->create();
+    $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
+    $intake = Intake::factory()->create([
+        'created_by' => $user->id,
+        'company_id' => $user->company_id,
+        'intake_template_version_id' => $version->id,
+        'status' => IntakeStatus::InProgress,
+        'access_token' => 'clockmain'.str_repeat('m', 55),
+    ]);
+    app(DossierManager::class)->initialize($intake);
+
+    $version->load(['sections.questions']);
+    $photoQuestions = [];
+    foreach ($version->sections as $section) {
+        foreach ($section->questions as $question) {
+            if (($question->meta['photo_analysis'] ?? null) !== null) {
+                $photoQuestions[] = $question->key;
+            }
+        }
+    }
+    expect(count($photoQuestions))->toBeGreaterThanOrEqual(2);
+
+    $q1 = $photoQuestions[0];
+    $q2 = $photoQuestions[1];
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('photoFiles.'.$q1, UploadedFile::fake()->image('stap-a.jpg', 860, 660))
+        ->assertSet('uploadPhase', 'assessing');
+
+    // Simulate >15s on step A, then upload on step B (as after Volgende).
+    $component->set('uploadPhaseStartedAt', now()->subSeconds(20)->getTimestamp());
+
+    $component
+        ->set('photoFiles.'.$q2, UploadedFile::fake()->image('stap-b.jpg', 870, 670))
+        ->assertSet('uploadPhase', 'assessing')
+        ->assertSet('uploadPhaseMessage', PhotoCustomerStatus::LOOKING)
+        ->assertSet('uploadPhaseComposite', $q2);
+
+    expect($component->instance()->uploadPhaseStartedAt)->toBeGreaterThan(now()->subSeconds(5)->getTimestamp())
+        ->and($component->get('saveMessage'))->not->toBe(PhotoCustomerStatus::SOFT_TIMEOUT);
+
+    $component->call('pollPendingAssessments', $q2);
+
+    expect($component->get('uploadPhase'))->toBe('assessing')
+        ->and($component->get('uploadPhaseMessage'))->toBe(PhotoCustomerStatus::LOOKING)
+        ->and($component->instance()->assessmentUiReleased)->not->toContain($q2)
+        ->and($component->get('saveMessage'))->not->toBe(PhotoCustomerStatus::SOFT_TIMEOUT);
+});

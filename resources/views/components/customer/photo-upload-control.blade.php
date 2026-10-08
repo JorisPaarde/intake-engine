@@ -56,7 +56,7 @@
         clientUploading: false,
         prepBusy: false,
         prepSkipMessage: '',
-        softTimeoutMs: @js(max(1, (int) config('ai.photo_assessment.ui_soft_timeout_seconds', 15)) * 1000),
+        softTimeoutMs: @js(max(1, \App\Domains\Intake\Support\PhotoAssessmentSoftTimeout::seconds()) * 1000),
         arm() {
             clearTimeout(this.timer);
             this.timedOut = false;

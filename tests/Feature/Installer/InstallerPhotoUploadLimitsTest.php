@@ -312,10 +312,13 @@ test('assessment poll lives on wizards not only on photo-upload-control', functi
     $followUp = (string) file_get_contents(resource_path('views/livewire/customer/follow-up-wizard.blade.php'));
 
     expect($control)->not->toContain('wire:poll')
+        ->and($control)->toContain('PhotoAssessmentSoftTimeout::seconds()')
         ->and($intake)->toContain('data-testid="assessment-poll"')
         ->and($intake)->toContain('pollPendingAssessments(@json($composite))')
+        ->and($intake)->toContain('wire:key="assessment-poll-{{ $composite }}-{{ $assessmentPollInterval }}"')
         ->and($intake)->not->toContain("['assessing', 'failed']")
         ->and($followUp)->toContain('data-testid="assessment-poll"')
         ->and($followUp)->toContain('pollPendingAssessments(@json($followUpComposite))')
+        ->and($followUp)->toContain('wire:key="assessment-poll-{{ $followUpComposite }}-{{ $assessmentPollInterval }}"')
         ->and($followUp)->not->toContain("['assessing', 'failed']");
 });

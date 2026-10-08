@@ -53,6 +53,7 @@ use App\Enums\PhotoUsabilityVerdict;
 use App\Enums\QuestionType;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -1061,16 +1062,14 @@ class IntakeWizard extends Component
         // Alleen deze item-fase resetten; pending van andere items blijft staan.
         $this->clearProgressExtraNote();
         $this->clearPendingIdsFor($composite);
-        // New upload into this composite gets its own soft-timeout clock.
+        // New upload always gets a fresh soft-timeout clock (even when switching composite).
         $this->assessmentUiReleased = array_values(array_filter(
             $this->assessmentUiReleased,
             static fn (string $key): bool => $key !== $composite,
         ));
-        if ($this->uploadPhaseComposite === $composite) {
-            $this->uploadPhase = '';
-            $this->uploadPhaseMessage = '';
-            $this->uploadPhaseStartedAt = null;
-        }
+        $this->uploadPhase = '';
+        $this->uploadPhaseMessage = '';
+        $this->uploadPhaseStartedAt = null;
 
         $item = $this->followUpItem($itemId);
         $intake = $this->intake();
@@ -1299,6 +1298,10 @@ class IntakeWizard extends Component
             }
 
             $this->setPendingIdsFor($composite, $stillPending);
+            if ($this->uploadPhaseComposite !== $composite) {
+                // Different composite → do not inherit the previous soft-timeout clock.
+                $this->uploadPhaseStartedAt = null;
+            }
             $this->uploadPhaseComposite = $composite;
             $this->setUploadPhase('assessing', PhotoCustomerStatus::LOOKING);
 
@@ -1406,6 +1409,10 @@ class IntakeWizard extends Component
             }
 
             $this->setPendingIdsFor($composite, $stillPending);
+            if ($this->uploadPhaseComposite !== $composite) {
+                // Different composite → do not inherit the previous soft-timeout clock.
+                $this->uploadPhaseStartedAt = null;
+            }
             $this->uploadPhaseComposite = $composite;
             $this->setUploadPhase('assessing', PhotoCustomerStatus::LOOKING);
 
@@ -1669,8 +1676,7 @@ class IntakeWizard extends Component
             }
             $this->ensurePendingUploadsHaveUsabilityVerdict($ids);
             $this->redispatchPendingAssessments($composite, $ids);
-            $this->uploadPhaseComposite = $composite;
-            $this->setUploadPhase('assessing', PhotoCustomerStatus::LOOKING);
+            $this->beginAssessingFromPendingCreatedAt($composite, $ids);
             $this->queuedUnassessedRecovery = true;
 
             return;
@@ -1763,9 +1769,28 @@ class IntakeWizard extends Component
         }
         $this->ensurePendingUploadsHaveUsabilityVerdict($ids);
         $this->redispatchPendingAssessments($composite, $ids);
-        $this->uploadPhaseComposite = $composite;
-        $this->setUploadPhase('assessing', PhotoCustomerStatus::LOOKING);
+        $this->beginAssessingFromPendingCreatedAt($composite, $ids);
         $this->queuedUnassessedRecovery = true;
+    }
+
+    /**
+     * Reload/recover: seed the UI soft-timeout clock from the oldest pending created_at
+     * so a long-pending photo soft-releases immediately instead of restarting at now().
+     *
+     * @param  list<int>  $uploadIds
+     */
+    private function beginAssessingFromPendingCreatedAt(string $composite, array $uploadIds): void
+    {
+        $oldest = IntakeUpload::query()
+            ->whereIn('id', $uploadIds)
+            ->orderBy('created_at')
+            ->value('created_at');
+
+        $this->uploadPhaseComposite = $composite;
+        $this->uploadPhaseStartedAt = $oldest !== null
+            ? Carbon::parse($oldest)->getTimestamp()
+            : null;
+        $this->setUploadPhase('assessing', PhotoCustomerStatus::LOOKING);
     }
 
     /**
@@ -1839,16 +1864,14 @@ class IntakeWizard extends Component
         $this->clearProgressExtraNote();
         $this->clearPhotoFeedbackForComposite($composite);
         $this->clearPendingIdsFor($composite);
-        // New upload into this composite gets its own soft-timeout clock.
+        // New upload always gets a fresh soft-timeout clock (even when switching composite).
         $this->assessmentUiReleased = array_values(array_filter(
             $this->assessmentUiReleased,
             static fn (string $key): bool => $key !== $composite,
         ));
-        if ($this->uploadPhaseComposite === $composite) {
-            $this->uploadPhase = '';
-            $this->uploadPhaseMessage = '';
-            $this->uploadPhaseStartedAt = null;
-        }
+        $this->uploadPhase = '';
+        $this->uploadPhaseMessage = '';
+        $this->uploadPhaseStartedAt = null;
         $this->uploadPhaseComposite = $composite;
 
         $stored = 0;

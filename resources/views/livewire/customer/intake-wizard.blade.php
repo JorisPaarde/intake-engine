@@ -413,6 +413,7 @@
                                     @endphp
                                     @if ($assessmentPollPending || $assessmentPollActive)
                                         <div
+                                            wire:key="assessment-poll-{{ $composite }}-{{ $assessmentPollInterval }}"
                                             wire:poll.{{ $assessmentPollInterval }}='pollPendingAssessments(@json($composite))'
                                             class="hidden"
                                             data-testid="assessment-poll"
