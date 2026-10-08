@@ -213,7 +213,7 @@ test('mislukte dossiersynthese toont neutrale workspace-tekst, geen zo-opgesteld
         ->assertDontSee('Het AI-voorstel wordt zo opgesteld.', false);
 });
 
-test('pending dossiersynthese toont zo-opgesteld', function () {
+test('pending dossiersynthese toont zo-opgesteld; RequestIntent-pending niet', function () {
     config(['ai.dossier.enabled' => true]);
 
     $user = User::factory()->create();
@@ -226,6 +226,24 @@ test('pending dossiersynthese toont zo-opgesteld', function () {
         'configuration_type' => AircoConfigurationType::SingleSplit,
         'placement_ids' => [$indoor->id, $outdoor->id],
     ]);
+
+    AiRun::query()->create([
+        'intake_id' => $intake->id,
+        'type' => AiRunType::RequestIntent,
+        'provider' => 'fake',
+        'model' => 'test',
+        'prompt_version' => 'test',
+        'input_hash' => 'pending-intent',
+        'output' => null,
+        'status' => AiRunStatus::Pending,
+        'started_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertSee('Er is nog geen AI-voorstel.', false)
+        ->assertDontSee('Het AI-voorstel wordt zo opgesteld.', false);
 
     AiRun::query()->create([
         'intake_id' => $intake->id,

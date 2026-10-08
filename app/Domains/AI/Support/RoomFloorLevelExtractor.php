@@ -324,9 +324,12 @@ final class RoomFloorLevelExtractor
 
         $between = trim(mb_substr($text, $cue['end'], $nextMention['start'] - $cue['end'], 'UTF-8'));
 
-        // Leeg, lidwoord, of kort koppelwerkwoord + lidwoord ("zijn de slaapkamers").
-        return $between === ''
-            || preg_match('/^(?:(?:is|zijn|staat|staan|ligt|liggen)\s+)?(?:de|het|een)$/u', $between) === 1;
+        // Leeg, lidwoord, bare verb ("zijn twee slaapkamers" — telwoord zit in mention),
+        // of verb + lidwoord ("zijn de slaapkamers").
+        return preg_match(
+            '/^(?:(?:is|zijn|staat|staan|ligt|liggen)(?:\s+(?:de|het|een))?|de|het|een)?$/u',
+            $between,
+        ) === 1;
     }
 
     /**

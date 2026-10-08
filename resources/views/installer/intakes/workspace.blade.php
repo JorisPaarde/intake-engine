@@ -1561,7 +1561,7 @@
                                     <p class="text-sm text-indigo-900">
                                         Nog geen keuze. Eerst binnen- en buitenunit.
                                     </p>
-                                @elseif ($aiProcessing)
+                                @elseif ($aiSynthesisPending)
                                     <p class="text-sm text-indigo-900">Het AI-voorstel wordt zo opgesteld.</p>
                                 @else
                                     <p class="text-sm text-indigo-900">Er is nog geen AI-voorstel.</p>

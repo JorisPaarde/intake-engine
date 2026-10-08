@@ -128,17 +128,10 @@ final class AircoSurveyService
         $measuresChanged = false;
 
         $existingDimensions = is_array($room->dimensions) ? $room->dimensions : [];
+        $floorOverridden = false;
+
         if ($this->dimensionMeasuresDiffer($existingDimensions, $dimensions)) {
             $dimensions['dimensions_source'] = 'installer';
-            // Pure maatwijziging: alleen bestaande installer-marker meenemen (ook null).
-            // Prefill-floor niet naar dimensions kopiëren — anders wint die over latere klantcorrecties.
-            if (! array_key_exists('floor_level', $data)
-                && ($existingDimensions['floor_level_source'] ?? null) === 'installer') {
-                $dimensions['floor_level'] = array_key_exists('floor_level', $existingDimensions)
-                    ? $existingDimensions['floor_level']
-                    : null;
-                $dimensions['floor_level_source'] = 'installer';
-            }
             $updates['dimensions'] = $dimensions;
             $measuresChanged = true;
         }
@@ -155,17 +148,22 @@ final class AircoSurveyService
                 $merged['floor_level'] = $floorLevel;
                 $merged['floor_level_source'] = 'installer';
                 $updates['dimensions'] = $merged;
+                $floorOverridden = true;
                 $this->recordFloorLevelOverride($intake, $installer, $room, $floorLevel, $previousFloor);
-            } elseif ($measuresChanged
-                && ($existingDimensions['floor_level_source'] ?? null) === 'installer') {
-                // Maatwijziging + ongewijzigde installer-floor (ook gewiste null).
-                $merged = $updates['dimensions'];
-                $merged['floor_level'] = array_key_exists('floor_level', $existingDimensions)
-                    ? $existingDimensions['floor_level']
-                    : null;
-                $merged['floor_level_source'] = 'installer';
-                $updates['dimensions'] = $merged;
             }
+        }
+
+        // Maatwijziging zonder floor-override: alleen bestaande installer-marker meenemen.
+        // Prefill-floor niet naar dimensions kopiëren (klantcorrectie moet winnen).
+        if ($measuresChanged
+            && ! $floorOverridden
+            && ($existingDimensions['floor_level_source'] ?? null) === 'installer') {
+            $merged = $updates['dimensions'] ?? $existingDimensions;
+            $merged['floor_level'] = array_key_exists('floor_level', $existingDimensions)
+                ? $existingDimensions['floor_level']
+                : null;
+            $merged['floor_level_source'] = 'installer';
+            $updates['dimensions'] = $merged;
         }
 
         if (array_key_exists('use_type', $data)) {

@@ -674,18 +674,9 @@ final class DossierManager
             return $existing;
         }
 
-        $merged = array_merge($existing, $fromAnswers);
-
-        // floor_level / floor_level_source zijn los van dimensions_source (stroom 5):
-        // installateursmarker (ook null = gewist) overleeft merges vanuit antwoorden.
-        if (($existing['floor_level_source'] ?? null) === 'installer') {
-            $merged['floor_level'] = array_key_exists('floor_level', $existing)
-                ? $existing['floor_level']
-                : null;
-            $merged['floor_level_source'] = 'installer';
-        }
-
-        return $merged;
+        // floor_level / floor_level_source zitten niet in roomDimensions(); array_merge
+        // houdt bestaande installer-markers al in stand (geen aparte copy nodig; stroom 5).
+        return array_merge($existing, $fromAnswers);
     }
 
     /**
@@ -930,24 +921,30 @@ final class DossierManager
     }
 
     /**
-     * Verwijder bekende verdieping-suffixen vóór opnieuw plakken, zodat een
-     * klantcorrectie niet naast een stale "begane grond" blijft staan.
+     * Verwijder alleen trailing verdieping-suffixen (`, begane grond`), herhaal
+     * tot stabiel — nooit midden-in (`zolderverdieping`, `begane grond voorzijde`).
      */
     private function stripKnownFloorLabels(string $name): string
     {
-        foreach ([
+        $labels = [
             'kelder / souterrain',
             'begane grond',
             '1e verdieping',
             '2e verdieping',
             '3e verdieping of hoger',
             'zolder',
-        ] as $label) {
-            $quoted = preg_quote($label, '/');
-            $name = preg_replace('/,\s*'.$quoted.'/ui', '', $name) ?? $name;
-        }
+        ];
 
-        return trim($name, " \t,");
+        do {
+            $before = $name;
+            foreach ($labels as $label) {
+                $quoted = preg_quote($label, '/');
+                $name = preg_replace('/,\s*'.$quoted.'\s*$/ui', '', $name) ?? $name;
+            }
+            $name = trim($name, " \t,");
+        } while ($name !== $before);
+
+        return $name;
     }
 
     private function resolveRoomName(?string $existingName, ?string $explicitName, string $generatedName): string

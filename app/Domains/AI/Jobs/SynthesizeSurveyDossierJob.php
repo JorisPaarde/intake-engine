@@ -7,6 +7,7 @@ namespace App\Domains\AI\Jobs;
 use App\Domains\AI\Actions\SynthesizeSurveyDossier;
 use App\Domains\AI\Support\DossierSynthesisEligibility;
 use App\Domains\Intake\Models\Intake;
+use App\Enums\IntakeStatus;
 use DateTimeInterface;
 use Illuminate\Contracts\Queue\ShouldBeUniqueUntilProcessing;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -14,9 +15,12 @@ use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
 
 /**
- * Dossiersynthese: CompleteIntake-keten (preserve=false) of debounced na optie/notities
+ * Dossiersynthese: CompleteIntake/follow-up (preserve=false) of debounced na optie/notities
  * (preserve=true + delay). Uniek tot processing per intake+modus; WithoutOverlapping deelt
- * de uitvoeringsslot. Completed mag; Reviewed/AwaitingCustomer/Cancelled niet.
+ * de uitvoeringsslot.
+ *
+ * Preserve (auto): Reviewed/AwaitingCustomer/Cancelled overslaan.
+ * Replace (Complete*): alleen Cancelled — Reviewed na follow-up moet wél draaien (T1/#167).
  *
  * Overlap-releases tellen niet als exceptions: retryUntil + maxExceptions i.p.v. tries=2.
  */
@@ -70,7 +74,15 @@ final class SynthesizeSurveyDossierJob implements ShouldBeUniqueUntilProcessing,
     {
         $intake = Intake::query()->find($this->intakeId);
 
-        if ($intake === null || ! DossierSynthesisEligibility::allowsStatus($intake->status)) {
+        if ($intake === null) {
+            return;
+        }
+
+        if ($this->preserveProposedCustomerTasks) {
+            if (! DossierSynthesisEligibility::allowsStatus($intake->status)) {
+                return;
+            }
+        } elseif ($intake->status === IntakeStatus::Cancelled) {
             return;
         }
 
