@@ -25,7 +25,7 @@ class StoreIntakeRequest extends FormRequest
         return [
             'customer_name' => ['required', 'string', 'max:255'],
             'customer_email' => ['required', 'email', 'max:255'],
-            'customer_phone' => ['nullable', 'string', 'max:50'],
+            'customer_phone' => ['nullable', 'string', 'max:50', $this->customerPhoneRule()],
             'address_postal_code' => ['required', 'string', 'regex:/^[1-9]\d{3}[A-Z]{2}$/'],
             'address_house_number' => ['required', 'integer', 'min:1', 'max:999999'],
             'address_house_number_addition' => ['nullable', 'string', 'max:20', 'regex:/^[A-Za-z0-9\-\s]+$/'],
@@ -39,6 +39,16 @@ class StoreIntakeRequest extends FormRequest
             // whitelists these against the pinned version's installer_prefillable questions.
             'prefill' => ['nullable', 'array'],
             'prefill.*' => ['nullable'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'customer_phone.max' => 'Vul een geldig telefoonnummer in, bijvoorbeeld 06 12345678.',
         ];
     }
 
@@ -61,6 +71,29 @@ class StoreIntakeRequest extends FormRequest
             'template_key' => 'type opname',
             'workflow_mode' => 'manier van opnemen',
         ];
+    }
+
+    /**
+     * Optional phone: digits, spaces, +, - and parentheses; at least 10 digits when filled.
+     */
+    private function customerPhoneRule(): \Closure
+    {
+        return static function (string $attribute, mixed $value, \Closure $fail): void {
+            if ($value === null || (is_string($value) && trim($value) === '')) {
+                return;
+            }
+
+            if (! is_string($value) || preg_match('/^[0-9+\-\s()]+$/u', $value) !== 1) {
+                $fail('Vul een geldig telefoonnummer in, bijvoorbeeld 06 12345678.');
+
+                return;
+            }
+
+            $digits = preg_replace('/\D+/', '', $value) ?? '';
+            if (strlen($digits) < 10) {
+                $fail('Vul een geldig telefoonnummer in, bijvoorbeeld 06 12345678.');
+            }
+        };
     }
 
     protected function prepareForValidation(): void
