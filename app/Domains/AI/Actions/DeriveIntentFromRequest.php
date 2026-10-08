@@ -17,7 +17,6 @@ use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Support\FactAcceptance;
 use App\Domains\Intake\Support\FactProvenance;
-use App\Domains\Intake\Support\InstallerFloorMarker;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
@@ -54,7 +53,6 @@ final class DeriveIntentFromRequest
         private readonly RequestPrefillOutcomeClassifier $classifier,
         private readonly AiTraceRecorder $traceRecorder,
         private readonly AiTraceSnapshotService $traceSnapshots,
-        private readonly RecordExistingAircoFromRequest $recordExistingAirco,
     ) {}
 
     public function handle(
@@ -79,9 +77,6 @@ final class DeriveIntentFromRequest
                 'intake_id' => $intake->id,
                 'reason' => 'customer_started',
             ]);
-            if ($reason !== null) {
-                $this->recordExistingAirco->handle($intake->fresh() ?? $intake, $reason);
-            }
 
             return null;
         }
@@ -101,10 +96,6 @@ final class DeriveIntentFromRequest
         if ($allowExternal && (bool) config('ai.text_inference.enabled', false)) {
             $aiRun = $this->prefillFromKnownContext->handle($intake);
             $run = $aiRun ?? $localRun;
-        }
-
-        if ($reason !== null) {
-            $this->recordExistingAirco->handle($intake->fresh() ?? $intake, $reason);
         }
 
         return $run;
@@ -336,11 +327,6 @@ final class DeriveIntentFromRequest
 
     private function mayWrite(Intake $intake, string $questionKey, ?string $sectionInstanceKey): bool
     {
-        if ($questionKey === 'floor_level'
-            && InstallerFloorMarker::blocksPrefill($intake, $sectionInstanceKey)) {
-            return false;
-        }
-
         $existing = IntakeAnswer::query()
             ->where('intake_id', $intake->id)
             ->where('question_key', $questionKey)

@@ -21,7 +21,6 @@ use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Support\FactAcceptance;
 use App\Domains\Intake\Support\FactProvenance;
 use App\Domains\Intake\Support\FactSource;
-use App\Domains\Intake\Support\InstallerFloorMarker;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Domains\Intake\Support\RiskRelevantPrefillKeys;
 use App\Domains\Intake\Support\RoomAreaAcceptance;
@@ -593,11 +592,6 @@ final class PrefillAnswersFromKnownContext
 
     private function mayWrite(Intake $intake, string $questionKey, ?string $sectionInstanceKey): bool
     {
-        if ($questionKey === 'floor_level'
-            && InstallerFloorMarker::blocksPrefill($intake, $sectionInstanceKey)) {
-            return false;
-        }
-
         $existing = IntakeAnswer::query()
             ->where('intake_id', $intake->id)
             ->where('question_key', $questionKey)

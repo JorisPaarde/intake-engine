@@ -247,7 +247,6 @@ final class SurveyWorkspaceController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'use_type' => ['nullable', 'in:bedroom,living_room,office,attic,other'],
-            'floor_level' => ['nullable', 'in:basement,ground,1,2,3_plus,attic'],
             'length_m' => ['nullable', 'numeric', 'between:0.5,100'],
             'width_m' => ['nullable', 'numeric', 'between:0.5,100'],
             'height_m' => ['nullable', 'numeric', 'between:1.5,10'],

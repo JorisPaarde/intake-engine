@@ -515,35 +515,6 @@
                                                 <option value="other" @selected($room->use_type === 'other')>Anders</option>
                                             </select>
                                         </div>
-                                        @php
-                                            $roomDims = is_array($room->dimensions) ? $room->dimensions : [];
-                                            $roomFloorLevel = is_string($roomDims['floor_level'] ?? null) && $roomDims['floor_level'] !== ''
-                                                ? $roomDims['floor_level']
-                                                : null;
-                                            // Installateur-marker (ook null = gewist) wint van prefill-antwoord.
-                                            if (($roomDims['floor_level_source'] ?? null) !== 'installer'
-                                                && $roomFloorLevel === null) {
-                                                $floorAnswer = $intake->answers->first(
-                                                    static fn ($answer): bool => $answer->section_instance_key === $room->key
-                                                        && $answer->question_key === 'floor_level',
-                                                );
-                                                $roomFloorLevel = is_array($floorAnswer?->value)
-                                                    ? ($floorAnswer->value['value'] ?? null)
-                                                    : null;
-                                            }
-                                        @endphp
-                                        <div>
-                                            <x-input-label for="room-{{ $room->id }}-floor" value="Verdieping" />
-                                            <select id="room-{{ $room->id }}-floor" name="floor_level" class="mt-1 block min-h-11 w-full rounded-xl border-gray-300" data-testid="room-floor-level">
-                                                <option value="" @selected($roomFloorLevel === null || $roomFloorLevel === '')>Nog niet vastgesteld</option>
-                                                <option value="basement" @selected($roomFloorLevel === 'basement')>Kelder / souterrain</option>
-                                                <option value="ground" @selected($roomFloorLevel === 'ground')>Begane grond</option>
-                                                <option value="1" @selected($roomFloorLevel === '1')>1e verdieping</option>
-                                                <option value="2" @selected($roomFloorLevel === '2')>2e verdieping</option>
-                                                <option value="3_plus" @selected($roomFloorLevel === '3_plus')>3e verdieping of hoger</option>
-                                                <option value="attic" @selected($roomFloorLevel === 'attic')>Zolder</option>
-                                            </select>
-                                        </div>
                                         <div class="sm:col-span-2">
                                             <p class="text-xs text-gray-500">Vloeroppervlak: vul lengte en breedte in, of een betrouwbaar aantal m² — niet allebei nodig.</p>
                                         </div>

@@ -41,75 +41,32 @@ final class RoomFloorLevelExtractor
 
         /** @var array<int, 'basement'|'ground'|'1'|'2'|'3_plus'|'attic'|null> $mentionFloors */
         $mentionFloors = [];
-        /** @var array<int, true> $claimedCueStarts */
-        $claimedCueStarts = [];
 
-        // 1) Alleen trailing cues (ná deze kamer, vóór de volgende) — voorkomt lek van
-        //    "werkkamer op de 1e … woonkamer beneden" naar de woonkamer via before-cues.
-        //    Cue direct gevolgd door de volgende kamernaam ("… 1e verdieping de slaapkamer")
-        //    telt als before-cue van die volgende kamer, niet als trailing van deze.
         foreach ($roomMentions as $index => $mention) {
-            $nextMention = $roomMentions[$index + 1] ?? null;
-            $nextStart = $nextMention['start'] ?? mb_strlen($normalized);
-            $candidates = [];
-
-            foreach ($floorCues as $cueIndex => $cue) {
-                if ($cue['start'] >= $mention['end'] && $cue['start'] < $nextStart) {
-                    $aboveBelow = $this->aboveOrBelowBeforeRoom($normalized, $mention);
-                    $followedByNext = $nextMention !== null
-                        && $this->cueDirectlyFollowedByRoom($normalized, $cue, $nextMention);
-
-                    // Zonder boven/onder: before-cue handoff naar volgende kamer.
-                    if ($followedByNext && $aboveBelow === null) {
-                        continue;
-                    }
-
-                    // Boven/onder X: alleen toekennen als richting eenduidig is
-                    // (boven + ground/basement, onder + 1/2/3_plus/attic). Anders
-                    // claimen zonder toekenning → beide kamers null.
-                    if ($aboveBelow !== null) {
-                        $claimedCueStarts[$cueIndex] = true;
-                        if ($this->aboveBelowCueIsUnambiguous($aboveBelow, $cue['value'])) {
-                            $candidates[] = $cue['value'];
-                        }
-
-                        continue;
-                    }
-
-                    $candidates[] = $cue['value'];
-                    $claimedCueStarts[$cueIndex] = true;
-                }
-            }
-
-            $mentionFloors[$index] = $this->pickBestFloor($candidates);
-        }
-
-        // 2) Relatief ("beneden"/"boven") vóór before-cues, zodat die niet door een
-        //    gelekte absolute cue van de vorige kamer worden geblokkeerd.
-        $this->applyRelativeFloors($normalized, $roomMentions, $mentionFloors);
-
-        // 3) Before-cues alleen voor nog lege kamers én ongeclaimde cues
-        //    ("op de begane grond de woonkamer").
-        foreach ($roomMentions as $index => $mention) {
-            if (($mentionFloors[$index] ?? null) !== null) {
-                continue;
-            }
-
             $prevEnd = $index === 0 ? -1 : $roomMentions[$index - 1]['end'];
-            $candidates = [];
+            $nextStart = $roomMentions[$index + 1]['start'] ?? mb_strlen($normalized);
 
-            foreach ($floorCues as $cueIndex => $cue) {
-                if (isset($claimedCueStarts[$cueIndex])) {
-                    continue;
-                }
-                if ($cue['end'] <= $mention['start'] && $cue['start'] > $prevEnd) {
+            $candidates = [];
+            foreach ($floorCues as $cue) {
+                // Cue direct na deze kamer, vóór de volgende kamer.
+                if ($cue['start'] >= $mention['end'] && $cue['start'] < $nextStart) {
                     $candidates[] = $cue['value'];
-                    $claimedCueStarts[$cueIndex] = true;
+                }
+            }
+
+            // Cue vlak vóór de kamer: "op de begane grond de woonkamer".
+            if ($candidates === []) {
+                foreach ($floorCues as $cue) {
+                    if ($cue['end'] <= $mention['start'] && $cue['start'] > $prevEnd) {
+                        $candidates[] = $cue['value'];
+                    }
                 }
             }
 
             $mentionFloors[$index] = $this->pickBestFloor($candidates);
         }
+
+        $this->applyRelativeFloors($normalized, $roomMentions, $mentionFloors);
 
         // "woonkamer en slaapkamer op de 1e verdieping" → gedeelde trailing floor terugvullen.
         $this->propagateTrailingFloors($mentionFloors);
@@ -202,13 +159,9 @@ final class RoomFloorLevelExtractor
                 continue;
             }
 
-            // Volledige match (incl. cijfer/telwoord) zodat "drie slaapkamers" niet
-            // een gap "drie" laat die cueDirectlyFollowedByRoom als trailing van de
-            // vorige kamer misbruikt.
-            $full = $match[0][0];
-            $byteStart = (int) $match[0][1];
+            $byteStart = (int) $match['room'][1];
             $start = mb_strlen(substr($text, 0, $byteStart), 'UTF-8');
-            $end = $start + mb_strlen($full, 'UTF-8');
+            $end = $start + mb_strlen($roomWord, 'UTF-8');
 
             $result[] = [
                 'type' => $type,
@@ -315,75 +268,13 @@ final class RoomFloorLevelExtractor
                 continue;
             }
 
-            $window = mb_substr($text, $mention['end'], 24, 'UTF-8');
-            // Negatieve lookahead: "boven de/het/een …" is plaatsing, geen verdieping.
-            if (preg_match('/^\s*,?\s*boven(?!\s+(?:de|het|een)\b)\b/u', $window) === 1) {
+            $window = mb_substr($text, $mention['end'], 20, 'UTF-8');
+            if (preg_match('/^\s*,?\s*boven\b/u', $window) === 1) {
                 $mentionFloors[$index] = '1';
-            } elseif (preg_match('/^\s*,?\s*beneden(?!\s+(?:de|het|een)\b)\b/u', $window) === 1) {
+            } elseif (preg_match('/^\s*,?\s*beneden\b/u', $window) === 1) {
                 $mentionFloors[$index] = 'ground';
             }
         }
-    }
-
-    /**
-     * Cue eindigt net vóór de volgende kamernaam (alleen leeg of lidwoord de/het/een).
-     * Geen en/op/van/voor/naar — die horen bij trailing van de vorige kamer
-     * ("woonkamer op de begane grond en de slaapkamer…").
-     *
-     * @param  array{value: string, start: int, end: int}  $cue
-     * @param  array{type: string, start: int, end: int}  $nextMention
-     */
-    private function cueDirectlyFollowedByRoom(string $text, array $cue, array $nextMention): bool
-    {
-        if ($cue['end'] > $nextMention['start']) {
-            return false;
-        }
-
-        $between = trim(mb_substr($text, $cue['end'], $nextMention['start'] - $cue['end'], 'UTF-8'));
-
-        // Leeg, lidwoord, bare verb ("zijn twee slaapkamers" — telwoord zit in mention),
-        // of verb + lidwoord ("zijn de slaapkamers").
-        return preg_match(
-            '/^(?:(?:is|zijn|staat|staan|ligt|liggen)(?:\s+(?:de|het|een))?|de|het|een)?$/u',
-            $between,
-        ) === 1;
-    }
-
-    /**
-     * Kamer direct voorafgegaan door "boven/onder (de/het/een)".
-     *
-     * @param  array{type: string, start: int, end: int}  $mention
-     * @return 'boven'|'onder'|null
-     */
-    private function aboveOrBelowBeforeRoom(string $text, array $mention): ?string
-    {
-        $lookback = min(24, $mention['start']);
-        if ($lookback <= 0) {
-            return null;
-        }
-
-        $before = mb_substr($text, $mention['start'] - $lookback, $lookback, 'UTF-8');
-        if (preg_match('/(?:^|[^\p{L}])(boven|onder)\s+(?:(?:de|het|een)\s+)?$/u', $before, $m) !== 1) {
-            return null;
-        }
-
-        return $m[1] === 'boven' ? 'boven' : 'onder';
-    }
-
-    /**
-     * Eenduidig: "boven X" + begane grond/kelder, of "onder X" + verdieping/zolder.
-     */
-    private function aboveBelowCueIsUnambiguous(string $direction, string $cueValue): bool
-    {
-        if ($direction === 'boven') {
-            return in_array($cueValue, ['ground', 'basement'], true);
-        }
-
-        if ($direction === 'onder') {
-            return in_array($cueValue, ['1', '2', '3_plus', 'attic'], true);
-        }
-
-        return false;
     }
 
     /**

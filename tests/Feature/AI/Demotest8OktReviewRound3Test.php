@@ -9,13 +9,11 @@ use App\Domains\AI\DTOs\AiCompletionRequest;
 use App\Domains\AI\DTOs\RequestPrefillCandidate;
 use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
 use App\Domains\AI\Services\RequestPrefillOutcomeClassifier;
-use App\Domains\AI\Support\RoomFloorLevelExtractor;
 use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Models\ContributionTask;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Services\AircoSurveyService;
-use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Support\FactAcceptance;
 use App\Domains\Intake\Support\FactProvenance;
 use App\Domains\Intake\Support\FactSource;
@@ -286,103 +284,6 @@ test('workspace belooft geen automatische update als AI-dossier uit staat', func
         ->assertDontSee('automatisch bijgewerkt', false);
 });
 
-test('floor_level override schrijft prefill_source installer', function () {
-    $user = User::factory()->create();
-    $intake = reviewRound3Intake($user, 'floor-installer-source@example.com');
-    config(['ai.text_inference.enabled' => false]);
-    app(DeriveIntentFromRequest::class)->handle($intake->fresh() ?? $intake, allowExternal: false);
-    app(DossierManager::class)->initialize($intake->fresh() ?? $intake);
-
-    $room = $intake->fresh()->aircoRooms()->where('key', 'room-1')->firstOrFail();
-
-    $this->actingAs($user)
-        ->post(route('intakes.workspace.rooms.update', [$intake, $room]), [
-            'name' => $room->name,
-            'use_type' => 'living_room',
-            'floor_level' => '1',
-            'length_m' => 5,
-            'width_m' => 4,
-        ])
-        ->assertRedirect();
-
-    $answer = $intake->fresh()->answers()
-        ->where('question_key', 'floor_level')
-        ->where('section_instance_key', 'room-1')
-        ->first();
-
-    expect($answer)->not->toBeNull()
-        ->and($answer->prefill_source)->toBe('installer')
-        ->and(app(DeriveIntentFromRequest::class)->customerHasStarted($intake->fresh() ?? $intake))->toBeFalse();
-});
-
-test('gewiste floor blijft leeg na maatwijziging + note-prefill', function () {
-    config(['ai.text_inference.enabled' => true, 'ai.provider' => 'fake']);
-
-    $user = User::factory()->create();
-    $intake = reviewRound3Intake(
-        $user,
-        'floor-clear-measures@example.com',
-        'Woonkamer koelen op de begane grond, ca. 25 m².',
-    );
-    app(DeriveIntentFromRequest::class)->handle($intake->fresh() ?? $intake, allowExternal: false);
-    app(DossierManager::class)->initialize($intake->fresh() ?? $intake);
-    $room = $intake->fresh()->aircoRooms()->where('key', 'room-1')->firstOrFail();
-
-    $this->actingAs($user)
-        ->post(route('intakes.workspace.rooms.update', [$intake, $room]), [
-            'name' => $room->name,
-            'use_type' => 'living_room',
-            'floor_level' => 'ground',
-            'length_m' => 5,
-            'width_m' => 4,
-        ])
-        ->assertRedirect();
-
-    $this->actingAs($user)
-        ->post(route('intakes.workspace.rooms.update', [$intake, $room]), [
-            'name' => $room->name,
-            'use_type' => 'living_room',
-            'floor_level' => '',
-            'length_m' => 5,
-            'width_m' => 4,
-        ])
-        ->assertRedirect();
-
-    // Maatwijziging met lege floor in request (formulier stuurt select altijd mee).
-    $this->actingAs($user)
-        ->post(route('intakes.workspace.rooms.update', [$intake, $room]), [
-            'name' => $room->name,
-            'use_type' => 'living_room',
-            'floor_level' => '',
-            'length_m' => 6,
-            'width_m' => 4.5,
-        ])
-        ->assertRedirect();
-
-    $dims = $room->fresh()->dimensions;
-    expect(($dims['floor_level_source'] ?? null))->toBe('installer')
-        ->and(array_key_exists('floor_level', $dims))->toBeTrue()
-        ->and($dims['floor_level'])->toBeNull();
-
-    FakeAiClient::alwaysReturn([
-        'evidence' => 'begane grond',
-        'fills' => [[
-            'question_key' => 'floor_level',
-            'section_instance_key' => 'room-1',
-            'confidence' => 'high',
-            'value' => ['value' => 'ground'],
-            'evidence' => 'begane grond',
-            'provenance' => 'stated',
-        ]],
-    ]);
-    app(DeriveIntentFromRequest::class)->handle($intake->fresh() ?? $intake, allowExternal: true);
-    app(DossierManager::class)->initialize($intake->fresh() ?? $intake);
-
-    $after = $room->fresh()->dimensions;
-    expect(($after['floor_level_source'] ?? null))->toBe('installer')
-        ->and($after['floor_level'])->toBeNull();
-});
-
 test('klant-first openingszin geeft FactSource klantantwoord', function () {
     expect(FactAcceptance::sourceFrom(PrefillSources::AI_TEXT, FactProvenance::Stated, null))
         ->toBe(FactSource::CustomerAnswer)
@@ -415,50 +316,6 @@ test('klant-first openingszin geeft FactSource klantantwoord', function () {
 
     expect($fill)->not->toBeNull()
         ->and($fill->factSource)->toBe(FactSource::CustomerAnswer);
-});
-
-test('woonkamer boven de bank is geen floor-cue', function () {
-    $text = 'Airco in de woonkamer boven de bank, ca. 25 m²';
-    $extractor = new RoomFloorLevelExtractor;
-    expect($extractor->floorsForRooms($text, ['living_room']))->toBe([null]);
-
-    $result = app(RequestPrefillOutcomeClassifier::class)->classifyCatalogOutput([
-        'evidence' => $text,
-        'fills' => [
-            [
-                'question_key' => 'room_type',
-                'section_instance_key' => 'room-1',
-                'confidence' => 'high',
-                'value' => ['value' => 'living_room'],
-                'evidence' => 'woonkamer',
-                'provenance' => 'stated',
-            ],
-            [
-                'question_key' => 'floor_level',
-                'section_instance_key' => 'room-1',
-                'confidence' => 'high',
-                'value' => ['value' => '1'],
-                'evidence' => 'boven',
-                'provenance' => 'inferred',
-            ],
-        ],
-    ], reviewRound3FloorCatalog(), [], $text);
-
-    $floor = collect($result['candidates'])->first(
-        static fn (RequestPrefillCandidate $c): bool => $c->questionKey === 'floor_level',
-    );
-
-    expect($floor)->not->toBeNull()
-        ->and($floor->disposition)->toBe(RequestPrefillCandidate::DISPOSITION_REJECTED);
-});
-
-test('cue direct gevolgd door kamernaam is before-cue van die kamer', function () {
-    $floors = (new RoomFloorLevelExtractor)->floorsForRooms(
-        'Op de begane grond de woonkamer en op de eerste verdieping de slaapkamer',
-        ['living_room', 'bedroom'],
-    );
-
-    expect($floors)->toBe(['ground', '1']);
 });
 
 test('preserve annuleert stale AI-Proposed; send-by-id geeft bestaande fout', function () {

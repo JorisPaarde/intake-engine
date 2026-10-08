@@ -412,13 +412,7 @@ final class RequestPrefillOutcomeClassifier
                         'rule' => 'floor_level_per_room_link',
                     ];
                     $normalized = ['value' => $linkedFloor];
-                    $fillEvidence = $this->floorEvidenceQuote($requestReason, $linkedFloor) ?? $fillEvidence;
-                    $provenance = FactProvenance::Stated;
-                    $factSource = $requestTextFactSource;
-                    $confidence = 'high';
-                    $confidencePercent = FactAcceptance::LEVEL_HIGH;
-                } elseif ($linkedFloor !== null && ($normalized['value'] ?? null) === $linkedFloor) {
-                    $fillEvidence = $this->floorEvidenceQuote($requestReason, $linkedFloor) ?? $fillEvidence;
+                    $fillEvidence = $this->floorEvidenceQuote($requestReason) ?? $fillEvidence;
                     $provenance = FactProvenance::Stated;
                     $factSource = $requestTextFactSource;
                     $confidence = 'high';
@@ -437,7 +431,7 @@ final class RequestPrefillOutcomeClassifier
                             'rule' => 'floor_level_prefer_numbered',
                         ];
                         $normalized = ['value' => $numberedValue];
-                        $fillEvidence = $this->floorEvidenceQuote($requestReason, $numberedValue) ?? $fillEvidence;
+                        $fillEvidence = $this->floorEvidenceQuote($requestReason) ?? $fillEvidence;
                         $provenance = FactProvenance::Stated;
                         $factSource = $requestTextFactSource;
                         $confidence = 'high';
@@ -447,18 +441,13 @@ final class RequestPrefillOutcomeClassifier
                     $reason = ! $hasFloorCue
                         ? 'Geen verdieping in de openingszin — niet stil invullen (geen begane-grond-default).'
                         : 'Verdieping niet eenduidig aan deze ruimte gekoppeld — leeg laten voor klantbevestiging.';
-                    // Nooit losse "boven"/"beneden" als evidence (plaatsing: "boven de bank").
-                    $rejectEvidence = is_string($fillEvidence)
-                        && preg_match('/^(?:boven|beneden)$/iu', trim($fillEvidence)) === 1
-                        ? null
-                        : $fillEvidence;
                     $candidates[] = new RequestPrefillCandidate(
                         questionKey: $key,
                         sectionInstanceKey: $instanceKey,
                         label: $label,
                         value: $normalized,
                         confidence: $confidence,
-                        evidence: $rejectEvidence,
+                        evidence: $fillEvidence,
                         disposition: RequestPrefillCandidate::DISPOSITION_REJECTED,
                         source: RequestPrefillCandidate::SOURCE_CATALOG_AI,
                         reason: $reason,
@@ -1100,50 +1089,15 @@ final class RequestPrefillOutcomeClassifier
         $normalized = mb_strtolower(trim($requestReason), 'UTF-8');
         $normalized = str_replace(['’', '‘', '´'], "'", $normalized);
 
-        // Absolute cues — géén losse "boven"/"beneden" (plaatsing: "boven de bank").
-        if (preg_match(
-            '/\b(?:kelder|souterrain|begane\s+grond|(?:1(?:e|ste)?|eerste|2(?:e|de)?|tweede|3(?:e|de)?|derde|[4-9](?:e|de)?)\s+verdieping|op\s+(?:de\s+)?zolder)\b/u',
-            $normalized,
-        ) === 1) {
-            return true;
-        }
-
-        // Relatief alleen kamernaam + boven/beneden, nooit "boven de/het/een …" (plaatsing).
         return preg_match(
-            '/\b(?:kinderslaapkamers?|kinderkamers?|slaapkamers?|woonkamers?|huiskamers?|werkkamers?|kantoor|kantoren|zolders?)\s*,?\s*(?:boven(?!\s+(?:de|het|een)\b)|beneden(?!\s+(?:de|het|een)\b))\b/u',
+            '/\b(?:kelder|souterrain|begane\s+grond|(?:1(?:e|ste)?|eerste|2(?:e|de)?|tweede|3(?:e|de)?|derde|[4-9](?:e|de)?)\s+verdieping|op\s+(?:de\s+)?zolder)\b/u',
             $normalized,
         ) === 1;
     }
 
-    private function floorEvidenceQuote(string $requestReason, ?string $preferredFloor = null): ?string
+    private function floorEvidenceQuote(string $requestReason): ?string
     {
-        $patterns = [
-            'ground' => '/\b(?:begane\s+grond)\b/iu',
-            '1' => '/\b(?:1(?:e|ste)?|eerste)\s+verdieping\b/iu',
-            '2' => '/\b(?:2(?:e|de)?|tweede)\s+verdieping\b/iu',
-            '3_plus' => '/\b(?:3(?:e|de)?|derde|[4-9](?:e|de)?)\s+verdieping\b/iu',
-            'attic' => '/\bop\s+(?:de\s+)?zolder\b/iu',
-            'basement' => '/\b(?:kelder|souterrain)\b/iu',
-        ];
-
-        if (is_string($preferredFloor) && isset($patterns[$preferredFloor])) {
-            if (preg_match($patterns[$preferredFloor], $requestReason, $matches) === 1) {
-                return $matches[0];
-            }
-        }
-
-        // Relatief: alleen "woonkamer beneden" / "slaapkamer boven", nooit "boven de bank".
-        $relative = '(?:kinderslaapkamers?|kinderkamers?|slaapkamers?|woonkamers?|huiskamers?|werkkamers?|kantoor|kantoren|zolders?)\s*,?\s*(?:boven(?!\s+(?:de|het|een)\b)|beneden(?!\s+(?:de|het|een)\b))';
-        if (in_array($preferredFloor, ['ground', '1'], true)
-            && preg_match('/\b(?:'.$relative.')\b/iu', $requestReason, $matches) === 1) {
-            return $matches[0];
-        }
-
-        if (preg_match(
-            '/\b(?:begane\s+grond|(?:1(?:e|ste)?|eerste|2(?:e|de)?|tweede|3(?:e|de)?|derde|[4-9](?:e|de)?)\s+verdieping|op\s+(?:de\s+)?zolder|(?:'.$relative.'))\b/iu',
-            $requestReason,
-            $matches,
-        ) === 1) {
+        if (preg_match('/\b(?:begane\s+grond|(?:1(?:e|ste)?|eerste|2(?:e|de)?|tweede|3(?:e|de)?|derde|[4-9](?:e|de)?)\s+verdieping|op\s+(?:de\s+)?zolder)\b/iu', $requestReason, $matches) === 1) {
             return $matches[0];
         }
 

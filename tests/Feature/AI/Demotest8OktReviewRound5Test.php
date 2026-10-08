@@ -2,15 +2,12 @@
 
 declare(strict_types=1);
 
-use App\Domains\AI\Actions\DeriveIntentFromRequest;
 use App\Domains\AI\Jobs\DeriveIntentFromRequestJob;
 use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
 use App\Domains\AI\Models\AiRun;
 use App\Domains\Intake\Actions\CreateIntake;
-use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Services\AircoSurveyService;
-use App\Domains\Intake\Services\DossierManager;
 use App\Enums\AircoConfigurationType;
 use App\Enums\AircoPlacementType;
 use App\Enums\AiRunStatus;
@@ -75,49 +72,6 @@ function reviewRound5Ready(Intake $intake, User $user): Intake
 
     return $intake->fresh() ?? $intake;
 }
-
-test('maatwijziging zonder installer-floor-marker laat klantcorrectie op het label winnen', function () {
-    config(['ai.text_inference.enabled' => false]);
-
-    $user = User::factory()->create();
-    $intake = reviewRound5Intake($user, 'floor-measure-carry@example.com');
-    app(DeriveIntentFromRequest::class)->handle($intake->fresh() ?? $intake, allowExternal: false);
-    app(DossierManager::class)->initialize($intake->fresh() ?? $intake);
-
-    $room = $intake->fresh()->aircoRooms()->where('key', 'room-1')->firstOrFail();
-    expect($intake->fresh()->answers()
-        ->where('question_key', 'floor_level')
-        ->where('section_instance_key', 'room-1')
-        ->value('value'))->toBe(['value' => 'ground']);
-
-    // Installateur wijzigt alleen maat; zelfde floor gepost (formulier).
-    $this->actingAs($user)
-        ->post(route('intakes.workspace.rooms.update', [$intake, $room]), [
-            'name' => $room->name,
-            'use_type' => 'living_room',
-            'floor_level' => 'ground',
-            'length_m' => 6.1,
-            'width_m' => 4,
-        ])
-        ->assertRedirect();
-
-    $dims = $room->fresh()->dimensions;
-    expect($dims['floor_level_source'] ?? null)->not->toBe('installer')
-        ->and($dims['floor_level'] ?? null)->toBeNull();
-
-    // Klant corrigeert floor-antwoord → label volgt klant, niet een stale dimensions-copy.
-    app(SaveIntakeAnswer::class)->handle(
-        $intake->fresh() ?? $intake,
-        'floor_level',
-        'room-1',
-        ['value' => '1'],
-    );
-    app(DossierManager::class)->initialize($intake->fresh() ?? $intake);
-
-    $subject = $intake->fresh()->aircoRooms()->where('key', 'room-1')->firstOrFail()->subject;
-    expect($subject?->label)->toContain('1e verdieping')
-        ->and($subject?->label)->not->toContain('begane grond');
-});
 
 test('SynthesizeSurveyDossierJob: overlap-release brandt maxExceptions niet op via tries', function () {
     $job = new SynthesizeSurveyDossierJob(1, preserveProposedCustomerTasks: true);

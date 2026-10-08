@@ -3,22 +3,17 @@
 declare(strict_types=1);
 
 use App\Domains\AI\Actions\DeriveIntentFromRequest;
-use App\Domains\AI\Actions\RecordExistingAircoFromRequest;
 use App\Domains\AI\Actions\SynthesizeSurveyDossier;
 use App\Domains\AI\Clients\FakeAiClient;
 use App\Domains\AI\DTOs\AiCompletionRequest;
-use App\Domains\AI\DTOs\RequestPrefillCandidate;
 use App\Domains\AI\Jobs\DeriveIntentFromRequestJob;
 use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
 use App\Domains\AI\Models\AiRun;
-use App\Domains\AI\Services\RequestPrefillOutcomeClassifier;
 use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Models\ContributionTask;
-use App\Domains\Intake\Models\DossierRecord;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Services\AircoSurveyService;
-use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Enums\AircoConfigurationType;
 use App\Enums\AircoPlacementType;
@@ -26,8 +21,6 @@ use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
 use App\Enums\ContributionMode;
 use App\Enums\ContributionTaskStatus;
-use App\Enums\DossierRecordKind;
-use App\Enums\DossierRecordStatus;
 use App\Enums\IntakeStatus;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
@@ -290,171 +283,6 @@ test('debounced job slaat Reviewed/AwaitingCustomer/Cancelled over; Completed ma
         ->where('status', ContributionTaskStatus::Proposed)
         ->count())->toBe($before)
         ->and(ContributionTask::query()->find($taskId)?->status)->toBe(ContributionTaskStatus::Proposed);
-});
-
-test('RecordExistingAirco is idempotent bij herhaalde handle en raakt installer-record niet', function () {
-    config(['ai.text_inference.enabled' => false]);
-
-    $user = User::factory()->create();
-    $reason = 'Er hangt al een oude airco in de woonkamer die vervangen moet worden.';
-    $intake = reviewRound2Intake($user, 'airco-idempotent@example.com', $reason);
-
-    $action = app(RecordExistingAircoFromRequest::class);
-    $action->handle($intake->fresh() ?? $intake, $reason);
-    $action->handle($intake->fresh() ?? $intake, $reason);
-    $action->handle($intake->fresh() ?? $intake, $reason);
-
-    $records = DossierRecord::query()
-        ->where('intake_id', $intake->id)
-        ->where('key', RecordExistingAircoFromRequest::RECORD_KEY)
-        ->get();
-
-    expect($records)->toHaveCount(1)
-        ->and($records->first()->actor_type)->toBe('system')
-        ->and($records->first()->superseded_by_id)->toBeNull();
-
-    // Installateur-record nooit overschrijven.
-    $installerIntake = reviewRound2Intake($user, 'airco-installer-lock@example.com', $reason);
-    app(DossierManager::class)->initialize($installerIntake);
-    $root = app(DossierManager::class)->root($installerIntake->fresh() ?? $installerIntake);
-    app(DossierManager::class)->record(
-        intake: $installerIntake,
-        subject: $root,
-        kind: DossierRecordKind::Observation,
-        key: RecordExistingAircoFromRequest::RECORD_KEY,
-        value: [
-            'text' => 'Handmatig: bestaande airco blijft',
-            'present' => true,
-            'replacement' => false,
-            'room_type' => 'living_room',
-        ],
-        actorType: 'installer',
-        actorId: $user->id,
-        sourceType: 'installer',
-        sourceId: $user->id,
-        method: 'installer_observation',
-        confidence: 1.0,
-        status: DossierRecordStatus::Established,
-    );
-
-    $action->handle($installerIntake->fresh() ?? $installerIntake, $reason);
-
-    $open = DossierRecord::query()
-        ->where('intake_id', $installerIntake->id)
-        ->where('key', RecordExistingAircoFromRequest::RECORD_KEY)
-        ->whereNull('superseded_by_id')
-        ->get();
-
-    expect($open)->toHaveCount(1)
-        ->and($open->first()->actor_type)->toBe('installer')
-        ->and($open->first()->value['replacement'] ?? null)->toBeFalse();
-});
-
-test('bare boven/beneden in plaatsing is geen floor-cue', function () {
-    $text = 'Airco boven de bank, ca. 25 m²';
-    $result = app(RequestPrefillOutcomeClassifier::class)->classifyCatalogOutput([
-        'evidence' => $text,
-        'fills' => [
-            [
-                'question_key' => 'room_type',
-                'section_instance_key' => 'room-1',
-                'confidence' => 'high',
-                'value' => ['value' => 'living_room'],
-                'evidence' => 'Airco',
-                'provenance' => 'inferred',
-            ],
-            [
-                'question_key' => 'floor_level',
-                'section_instance_key' => 'room-1',
-                'confidence' => 'high',
-                'value' => ['value' => 'ground'],
-                'evidence' => 'boven',
-                'provenance' => 'inferred',
-            ],
-        ],
-    ], reviewRound2FloorCatalog(), [], $text);
-
-    $floor = collect($result['candidates'])->first(
-        static fn (RequestPrefillCandidate $c): bool => $c->questionKey === 'floor_level',
-    );
-
-    expect($floor)->not->toBeNull()
-        ->and($floor->disposition)->toBe(RequestPrefillCandidate::DISPOSITION_REJECTED)
-        ->and($floor->evidence)->not->toBe('boven')
-        ->and($floor->evidence === null || ! preg_match('/^(?:boven|beneden)$/iu', trim((string) $floor->evidence)))->toBeTrue()
-        ->and(collect($result['candidates'])
-            ->where('questionKey', 'floor_level')
-            ->where('disposition', RequestPrefillCandidate::DISPOSITION_FILL)
-            ->count())->toBe(0);
-});
-
-test('wissen van verdieping houdt installer-marker; prefill zet niet terug', function () {
-    config(['ai.text_inference.enabled' => true, 'ai.provider' => 'fake']);
-
-    $user = User::factory()->create();
-    $intake = reviewRound2Intake(
-        $user,
-        'floor-clear-marker@example.com',
-        'Woonkamer koelen op de begane grond, ca. 25 m².',
-    );
-
-    app(DeriveIntentFromRequest::class)->handle($intake->fresh() ?? $intake, allowExternal: false);
-    app(DossierManager::class)->initialize($intake->fresh() ?? $intake);
-
-    $room = $intake->fresh()->aircoRooms()->where('key', 'room-1')->firstOrFail();
-
-    $this->actingAs($user)
-        ->post(route('intakes.workspace.rooms.update', [$intake, $room]), [
-            'name' => $room->name,
-            'use_type' => 'living_room',
-            'floor_level' => 'ground',
-            'length_m' => 5,
-            'width_m' => 4,
-        ])
-        ->assertRedirect();
-
-    $this->actingAs($user)
-        ->post(route('intakes.workspace.rooms.update', [$intake, $room]), [
-            'name' => $room->name,
-            'use_type' => 'living_room',
-            'floor_level' => '',
-            'length_m' => 5,
-            'width_m' => 4,
-        ])
-        ->assertRedirect();
-
-    $cleared = $room->fresh();
-    $clearedDims = is_array($cleared->dimensions) ? $cleared->dimensions : [];
-    expect(array_key_exists('floor_level', $clearedDims))->toBeTrue()
-        ->and($clearedDims['floor_level'])->toBeNull()
-        ->and($clearedDims['floor_level_source'] ?? null)->toBe('installer');
-
-    FakeAiClient::alwaysReturn([
-        'evidence' => 'Woonkamer koelen op de begane grond',
-        'fills' => [
-            [
-                'question_key' => 'floor_level',
-                'section_instance_key' => 'room-1',
-                'confidence' => 'high',
-                'value' => ['value' => 'ground'],
-                'evidence' => 'begane grond',
-                'provenance' => 'stated',
-            ],
-        ],
-    ]);
-
-    app(DeriveIntentFromRequest::class)->handle($intake->fresh() ?? $intake, allowExternal: true);
-    app(DossierManager::class)->initialize($intake->fresh() ?? $intake);
-
-    $after = $room->fresh();
-    $afterDims = is_array($after->dimensions) ? $after->dimensions : [];
-    expect(array_key_exists('floor_level', $afterDims))->toBeTrue()
-        ->and($afterDims['floor_level'])->toBeNull()
-        ->and($afterDims['floor_level_source'] ?? null)->toBe('installer')
-        ->and($intake->fresh()->answers()
-            ->where('question_key', 'floor_level')
-            ->where('section_instance_key', 'room-1')
-            ->exists())->toBeFalse();
 });
 
 test('late prefill na klantstart: geen fills en geen prune', function () {

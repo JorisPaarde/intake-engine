@@ -16,7 +16,6 @@ use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Support\FactAcceptance;
 use App\Domains\Intake\Support\FactProvenance;
 use App\Domains\Intake\Support\FactSource;
-use App\Domains\Intake\Support\FloorLevelLabels;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Domains\Intake\Support\RoomAreaAcceptance;
 use App\Domains\Intake\Support\RoomLabelResolver;
@@ -674,8 +673,6 @@ final class DossierManager
             return $existing;
         }
 
-        // floor_level / floor_level_source zitten niet in roomDimensions(); array_merge
-        // houdt bestaande installer-markers al in stand (geen aparte copy nodig; stroom 5).
         return array_merge($existing, $fromAnswers);
     }
 
@@ -861,21 +858,6 @@ final class DossierManager
 
     private function floorLabelFromAnswers(Intake $intake, string $instanceKey): ?string
     {
-        // Installateurscorrectie (ook wissen met null) wint van prefill-antwoord.
-        $room = AircoRoom::query()
-            ->where('intake_id', $intake->id)
-            ->where('key', $instanceKey)
-            ->first();
-        $roomFloor = is_array($room?->dimensions) ? ($room->dimensions['floor_level'] ?? null) : null;
-        $roomFloorSource = is_array($room?->dimensions) ? ($room->dimensions['floor_level_source'] ?? null) : null;
-        // Alleen installateursmarker in dimensions wint; prefill-kopie zonder marker
-        // mag niet boven een latere klantcorrectie in het antwoord uitkomen.
-        if ($roomFloorSource === 'installer') {
-            return is_string($roomFloor) && $roomFloor !== ''
-                ? $this->floorLevelDisplayLabel($roomFloor)
-                : null;
-        }
-
         $answer = $intake->answers->first(
             static fn (IntakeAnswer $answer): bool => $answer->section_instance_key === $instanceKey
                 && $answer->question_key === 'floor_level',
@@ -890,17 +872,20 @@ final class DossierManager
             return null;
         }
 
-        return $this->floorLevelDisplayLabel(trim($raw));
-    }
-
-    private function floorLevelDisplayLabel(string $raw): ?string
-    {
-        return FloorLevelLabels::shortLabel($raw);
+        return match (trim($raw)) {
+            'basement' => 'kelder / souterrain',
+            'ground' => 'begane grond',
+            '1' => '1e verdieping',
+            '2' => '2e verdieping',
+            '3_plus' => '3e verdieping of hoger',
+            'attic' => 'zolder',
+            default => null,
+        };
     }
 
     private function appendFloorLabel(string $name, string $floorLabel): string
     {
-        $name = $this->stripKnownFloorLabels(trim($name));
+        $name = trim($name);
         $floorLabel = trim($floorLabel);
         if ($name === '' || $floorLabel === '') {
             return $name;
@@ -918,32 +903,6 @@ final class DossierManager
         }
 
         return $name.', '.$floorLabel;
-    }
-
-    /**
-     * Verwijder alleen trailing verdieping-suffixen (`, begane grond`), herhaal
-     * tot stabiel — nooit midden-in (`zolderverdieping`, `begane grond voorzijde`).
-     */
-    private function stripKnownFloorLabels(string $name): string
-    {
-        $labels = [];
-        foreach (['basement', 'ground', '1', '2', '3_plus', 'attic'] as $key) {
-            $short = FloorLevelLabels::shortLabel($key);
-            if (is_string($short) && $short !== '') {
-                $labels[] = $short;
-            }
-        }
-
-        do {
-            $before = $name;
-            foreach ($labels as $label) {
-                $quoted = preg_quote($label, '/');
-                $name = preg_replace('/,\s*'.$quoted.'\s*$/ui', '', $name) ?? $name;
-            }
-            $name = trim($name, " \t,");
-        } while ($name !== $before);
-
-        return $name;
     }
 
     private function resolveRoomName(?string $existingName, ?string $explicitName, string $generatedName): string
