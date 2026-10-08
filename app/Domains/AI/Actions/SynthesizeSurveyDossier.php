@@ -185,6 +185,8 @@ final class SynthesizeSurveyDossier
                 ? $acceptance['summary_message']
                 : null;
 
+            $customerTasksHadRejections = $acceptance['customer_tasks_had_rejections'];
+
             try {
                 DB::transaction(function () use (
                     $intake,
@@ -197,6 +199,7 @@ final class SynthesizeSurveyDossier
                     $trace,
                     $runStatus,
                     $partialMessage,
+                    $customerTasksHadRejections,
                 ): void {
                     $trace->beginBuffer();
                     $locked = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
@@ -211,7 +214,12 @@ final class SynthesizeSurveyDossier
                         );
                     }
 
-                    $this->replaceProposals($locked, $run, $output);
+                    $this->replaceProposals(
+                        $locked,
+                        $run,
+                        $output,
+                        customerTasksHadRejections: $customerTasksHadRejections,
+                    );
                     $this->decisionReadiness->recalculate($locked);
                     $trace->step('apply', [
                         'placement_count' => count($output['placement_proposals']),
@@ -311,8 +319,12 @@ final class SynthesizeSurveyDossier
      *
      * @param  array<string, mixed>  $output
      */
-    private function replaceProposals(Intake $intake, AiRun $run, array $output): void
-    {
+    private function replaceProposals(
+        Intake $intake,
+        AiRun $run,
+        array $output,
+        bool $customerTasksHadRejections = false,
+    ): void {
         $acceptedPlacements = is_array($output['placement_proposals'] ?? null)
             ? $output['placement_proposals']
             : [];
@@ -543,14 +555,16 @@ final class SynthesizeSurveyDossier
                     : null;
                 $taskType = $task['type'];
 
-                // Preserve-modus: upsert op (type, decision_area_key, dossier_subject_id)
-                // zodat send-by-id van bestaande Proposed taken blijft werken.
+                // Preserve-modus: upsert op (type, decision_area_key, dossier_subject_id).
+                // Zelfde sleutel twee keer in één run: whereNotIn houdt beide in leven.
+                // Inhoud gewijzigd → cancel oud + nieuw id (send oude id → 404).
                 if ($this->preserveProposedCustomerTasks) {
                     $existing = ContributionTask::query()
                         ->where('intake_id', $intake->id)
                         ->where('status', ContributionTaskStatus::Proposed)
                         ->where('type', $taskType)
                         ->where('decision_area_key', $decisionArea)
+                        ->whereNotIn('id', $touchedProposedIds)
                         ->when(
                             $subjectId === null,
                             static fn ($query) => $query->whereNull('dossier_subject_id'),
@@ -560,19 +574,25 @@ final class SynthesizeSurveyDossier
                         ->first(static fn (ContributionTask $row): bool => ($row->meta['source_type'] ?? null) === 'ai');
 
                     if ($existing instanceof ContributionTask) {
-                        $existing->update([
-                            'prompt' => $prompt,
-                            'meta' => [
-                                'source_type' => 'ai',
-                                'source_id' => $run->id,
-                                'reason' => $reason,
-                                'evidence_references' => $task['evidence_references'],
-                                'ai_prompt' => $prompt,
-                            ],
-                        ]);
-                        $touchedProposedIds[] = $existing->id;
+                        $existingReason = trim((string) ($existing->meta['reason'] ?? ''));
+                        $contentUnchanged = $existing->prompt === $prompt
+                            && $existingReason === $reason;
 
-                        continue;
+                        if ($contentUnchanged) {
+                            $existing->update([
+                                'meta' => [
+                                    'source_type' => 'ai',
+                                    'source_id' => $run->id,
+                                    'reason' => $reason,
+                                    'evidence_references' => $task['evidence_references'],
+                                ],
+                            ]);
+                            $touchedProposedIds[] = $existing->id;
+
+                            continue;
+                        }
+
+                        $existing->update(['status' => ContributionTaskStatus::Cancelled]);
                     }
                 }
 
@@ -592,30 +612,21 @@ final class SynthesizeSurveyDossier
                         'source_id' => $run->id,
                         'reason' => $reason,
                         'evidence_references' => $task['evidence_references'],
-                        'ai_prompt' => $prompt,
                     ],
                 ]);
                 $touchedProposedIds[] = $created->id;
             }
 
             // Preserve: cancel AI-Proposed die deze run niet meer voorstelt.
-            // Geen edit-marker: alleen source_type=ai + Proposed waarvan de prompt
-            // nog gelijk is aan de AI-snapshot (ai_prompt); anders met rust laten.
-            if ($this->preserveProposedCustomerTasks) {
+            // Bij gedeeltelijke task-rejects (intake-83): niet cancelen — zelfde
+            // invariant als replaceProposals (lege/partial sectie houdt prior).
+            if ($this->preserveProposedCustomerTasks && ! $customerTasksHadRejections) {
                 ContributionTask::query()
                     ->where('intake_id', $intake->id)
                     ->where('status', ContributionTaskStatus::Proposed)
                     ->whereNotIn('id', $touchedProposedIds)
                     ->get()
-                    ->filter(static function (ContributionTask $task): bool {
-                        if (($task->meta['source_type'] ?? null) !== 'ai') {
-                            return false;
-                        }
-                        $aiPrompt = $task->meta['ai_prompt'] ?? null;
-
-                        // Legacy zonder snapshot: behandel als ongewijzigde AI-inhoud.
-                        return $aiPrompt === null || $task->prompt === $aiPrompt;
-                    })
+                    ->filter(static fn (ContributionTask $task): bool => ($task->meta['source_type'] ?? null) === 'ai')
                     ->each(static fn (ContributionTask $task) => $task->update([
                         'status' => ContributionTaskStatus::Cancelled,
                     ]));

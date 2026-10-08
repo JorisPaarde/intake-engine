@@ -15,6 +15,8 @@ use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeAnswer;
+use App\Domains\Intake\Support\FactAcceptance;
+use App\Domains\Intake\Support\FactProvenance;
 use App\Domains\Intake\Support\InstallerFloorMarker;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Enums\AiRunStatus;
@@ -291,6 +293,16 @@ final class DeriveIntentFromRequest
         $candidates = $this->classifier->classifyLocalOutput($output, $catalog);
         $applied = [];
 
+        $reasonPrefillSource = $intake->answers()
+            ->where('question_key', self::SOURCE_QUESTION)
+            ->whereNull('section_instance_key')
+            ->value('prefill_source');
+        $factSource = FactAcceptance::sourceFrom(
+            $source,
+            FactProvenance::Stated,
+            is_string($reasonPrefillSource) ? $reasonPrefillSource : null,
+        );
+
         foreach ($candidates as $candidate) {
             if ($candidate->disposition !== RequestPrefillCandidate::DISPOSITION_FILL) {
                 continue;
@@ -310,6 +322,10 @@ final class DeriveIntentFromRequest
                 $candidate->sectionInstanceKey,
                 $candidate->value,
                 $source,
+                FactProvenance::Stated,
+                null,
+                null,
+                $factSource,
             );
 
             $applied[] = $candidate->compositeKey();

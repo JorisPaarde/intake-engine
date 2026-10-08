@@ -136,13 +136,17 @@ final class FactAcceptance
             return FactSource::Photo;
         }
 
-        // Installateursaanvraag / openingszin-bron.
-        if ($prefillSource === PrefillSources::REQUEST_TEXT || $prefillSource === 'installer') {
+        // Directe installateursbron (antwoorden met prefill_source=installer).
+        if ($prefillSource === 'installer') {
             return FactSource::InstallerRequest;
         }
 
-        if (in_array($prefillSource, [PrefillSources::AI_TEXT, PrefillSources::AI_LEGACY], true)) {
-            // Catalogus-fills: bron volgt request_reason (installateur vs klant-first).
+        // Lokale parse (request_text) én catalogus-fills: bron volgt request_reason.
+        if (in_array($prefillSource, [
+            PrefillSources::AI_TEXT,
+            PrefillSources::AI_LEGACY,
+            PrefillSources::REQUEST_TEXT,
+        ], true)) {
             return ($requestReasonPrefillSource === 'installer'
                 || $requestReasonPrefillSource === PrefillSources::REQUEST_TEXT)
                 ? FactSource::InstallerRequest

@@ -30,12 +30,4 @@ final class InstallerFloorMarker
 
         return ($room->dimensions['floor_level_source'] ?? null) === 'installer';
     }
-
-    /**
-     * @param  array<string, mixed>  $dimensions
-     */
-    public static function present(array $dimensions): bool
-    {
-        return ($dimensions['floor_level_source'] ?? null) === 'installer';
-    }
 }

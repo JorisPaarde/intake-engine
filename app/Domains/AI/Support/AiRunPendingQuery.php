@@ -16,9 +16,9 @@ final class AiRunPendingQuery
     /** Vaste pending-window; geen aparte env-knop meer. */
     public const WINDOW_SECONDS = 300;
 
-    public static function hasRecent(int $intakeId, AiRunType $type, ?int $windowSeconds = null): bool
+    public static function hasRecent(int $intakeId, AiRunType $type): bool
     {
-        $window = max(30, $windowSeconds ?? self::WINDOW_SECONDS);
+        $window = self::WINDOW_SECONDS;
 
         return AiRun::query()
             ->where('intake_id', $intakeId)

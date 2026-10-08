@@ -305,7 +305,9 @@ final class RoomFloorLevelExtractor
     }
 
     /**
-     * Cue eindigt net vóór de volgende kamernaam (alleen lidwoorden/voorzetsels ertussen).
+     * Cue eindigt net vóór de volgende kamernaam (alleen leeg of lidwoord de/het/een).
+     * Geen en/op/van/voor/naar — die horen bij trailing van de vorige kamer
+     * ("woonkamer op de begane grond en de slaapkamer…").
      *
      * @param  array{value: string, start: int, end: int}  $cue
      * @param  array{type: string, start: int, end: int}  $nextMention
@@ -319,7 +321,7 @@ final class RoomFloorLevelExtractor
         $between = trim(mb_substr($text, $cue['end'], $nextMention['start'] - $cue['end'], 'UTF-8'));
 
         return $between === ''
-            || preg_match('/^(?:de|het|een|en|op|van|voor|naar)(?:\s+(?:de|het|een))?$/u', $between) === 1;
+            || preg_match('/^(?:de|het|een)$/u', $between) === 1;
     }
 
     /**

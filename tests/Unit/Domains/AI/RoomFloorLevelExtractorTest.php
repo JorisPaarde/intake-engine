@@ -19,6 +19,21 @@ test('RoomFloorLevelExtractor koppelt verdieping alleen aan de genoemde ruimte',
         ['living_room', 'bedroom'],
         ['ground', '1'],
     ],
+    'werkkamer eerste verdieping en woonkamer beneden (en is geen before-cue)' => [
+        'Werkkamer op de eerste verdieping en de woonkamer beneden',
+        ['office', 'living_room'],
+        ['1', 'ground'],
+    ],
+    'slaapkamer 1e verdieping en woonkamer zonder floor' => [
+        'slaapkamer op de 1e verdieping en de woonkamer',
+        ['bedroom', 'living_room'],
+        ['1', null],
+    ],
+    'leading cues: begane grond woonkamer, eerste verdieping slaapkamer' => [
+        'Op de begane grond de woonkamer en op de eerste verdieping de slaapkamer',
+        ['living_room', 'bedroom'],
+        ['ground', '1'],
+    ],
     'slaapkamer boven, woonkamer beneden' => [
         'slaapkamer boven, woonkamer beneden',
         ['bedroom', 'living_room'],
