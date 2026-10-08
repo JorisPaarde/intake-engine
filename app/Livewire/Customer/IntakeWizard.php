@@ -8,6 +8,7 @@ use App\Domains\AI\Actions\AssessFuseboxPhotos;
 use App\Domains\AI\Actions\AssessPhotoUsability;
 use App\Domains\AI\Actions\DeriveIntentFromRequest;
 use App\Domains\AI\Actions\DerivePhotoAnswers;
+use App\Domains\AI\Jobs\DeriveIntentFromRequestJob;
 use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\AI\Services\AiTraceRequestIdResolver;
 use App\Domains\AI\Services\PhotoAssessmentLifecycle;
@@ -163,6 +164,14 @@ class IntakeWizard extends Component
 
     public bool $followUpMode = false;
 
+    /**
+     * Wacht op async request-prefill (keuze 2A) vóór de steplijst wordt gebouwd.
+     */
+    public bool $waitingForPrefill = false;
+
+    /** Unix-timestamp waarop de wizard-wacht begon. */
+    public ?int $prefillWaitStartedAt = null;
+
     #[Locked]
     public int $followUpRoundId = 0;
 
@@ -303,6 +312,44 @@ class IntakeWizard extends Component
             return;
         }
 
+        // Async prefill nog bezig → kalm wachtscherm; steplijst pas ná afronden (BL-140).
+        if (! (bool) config('ai.request_prefill.sync_on_create', false)
+            && DeriveIntentFromRequestJob::hasRecentPending($intake->id)) {
+            $this->waitingForPrefill = true;
+            $this->prefillWaitStartedAt = now()->getTimestamp();
+            $this->resolvedIntake = $intake->loadMissing(['answers', 'uploads']);
+
+            return;
+        }
+
+        $this->beginWizardAfterPrefill($intake);
+    }
+
+    /**
+     * Poll tijdens prefill-wacht: klaar of timeout → lokale parse + steplijst.
+     */
+    public function pollPrefillWait(): void
+    {
+        if (! $this->waitingForPrefill) {
+            return;
+        }
+
+        $maxWait = max(0, (int) config('ai.request_prefill.wizard_wait_seconds', 20));
+        $started = $this->prefillWaitStartedAt ?? now()->getTimestamp();
+        $timedOut = (now()->getTimestamp() - $started) >= $maxWait;
+        $stillPending = DeriveIntentFromRequestJob::hasRecentPending($this->intakeId);
+
+        if ($stillPending && ! $timedOut) {
+            return;
+        }
+
+        $this->waitingForPrefill = false;
+        $this->prefillWaitStartedAt = null;
+        $this->beginWizardAfterPrefill($this->intake());
+    }
+
+    private function beginWizardAfterPrefill(Intake $intake): void
+    {
         // Herstelt ook eerder aangemaakte opnames waarvan de installateur de openingszin
         // al invulde. Alleen de lokale, evidente parser draait hier; een externe call
         // hoort niet stil bij iedere geopende klantlink te starten.
@@ -344,6 +391,48 @@ class IntakeWizard extends Component
 
         if ($this->followUpMode) {
             return $this->renderFollowUp($intake);
+        }
+
+        if ($this->waitingForPrefill) {
+            return view('livewire.customer.intake-wizard', [
+                'intake' => $intake,
+                'token' => $this->token,
+                'waitingForPrefill' => true,
+                'completed' => false,
+                'demoShortCustomer' => false,
+                'demoCustomerPath' => false,
+                'demoInstallerReturnUrl' => null,
+                'progressPercent' => 0,
+                'progressAnswered' => 0,
+                'progressTotal' => 0,
+                'progressExtraNote' => '',
+                'step' => null,
+                'steps' => [],
+                'question' => null,
+                'groupQuestions' => [],
+                'bundleQuestions' => [],
+                'visibility' => [],
+                'uploadsByQuestion' => [],
+                'displayPhotoHint' => [],
+                'photoMismatchAssessment' => null,
+                'photoNeedsOverride' => false,
+                'photoNeedsQualityHint' => false,
+                'stepDisplayNumber' => 0,
+                'stepDisplayTotal' => 0,
+                'saveMessage' => '',
+                'isLastStep' => false,
+                'isKnownSummary' => false,
+                'missingRequired' => [],
+                'uploadPhase' => '',
+                'uploadPhaseMessage' => '',
+                'uploadPhaseComposite' => '',
+                'pendingAssessUploadIds' => [],
+                'assessmentUiReleased' => [],
+                'maxUploadKb' => (int) ceil(PhotoUploadLimits::hardMaxBytes() / 1024),
+                'uploadHardMaxBytes' => PhotoUploadLimits::hardMaxBytes(),
+                'uploadHardMaxMegapixels' => PhotoUploadLimits::hardMaxMegapixels(),
+                'uploadTooLargeMessage' => PhotoUploadLimits::tooLargeMessage(),
+            ]);
         }
 
         $version = $this->version();

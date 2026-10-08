@@ -53,6 +53,8 @@ use Throwable;
  */
 final class SynthesizeSurveyDossier
 {
+    private bool $preserveProposedCustomerTasks = false;
+
     public function __construct(
         private readonly AiGateway $aiGateway,
         private readonly AiImageResolver $aiImageResolver,
@@ -69,11 +71,13 @@ final class SynthesizeSurveyDossier
         private readonly AiTracePhotoRefBuilder $photoRefBuilder,
     ) {}
 
-    public function handle(Intake $intake): ?AiRun
+    public function handle(Intake $intake, bool $preserveProposedCustomerTasks = false): ?AiRun
     {
         if (! (bool) config('ai.dossier.enabled', false)) {
             return null;
         }
+
+        $this->preserveProposedCustomerTasks = $preserveProposedCustomerTasks;
 
         $run = null;
         $trace = null;
@@ -350,7 +354,9 @@ final class SynthesizeSurveyDossier
                 ->delete();
         }
 
-        if ($replaceTasks) {
+        // Achtergrond-synthese (optiekeuze) mag Proposed taken die de installateur
+        // nog kan versturen niet cancelen — send-by-id blijft dan 404-vrij.
+        if ($replaceTasks && ! $this->preserveProposedCustomerTasks) {
             ContributionTask::query()
                 ->where('intake_id', $intake->id)
                 ->where('status', ContributionTaskStatus::Proposed)

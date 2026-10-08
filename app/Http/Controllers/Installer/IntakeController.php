@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Installer;
 
+use App\Domains\AI\Actions\DeriveIntentFromRequest;
 use App\Domains\AI\Actions\SuggestAttentionPoints;
 use App\Domains\AI\Jobs\DeriveIntentFromRequestJob;
 use App\Domains\Intake\Actions\CreateIntake;
@@ -122,13 +123,16 @@ class IntakeController extends Controller
 
         $intake = $createIntake->handle($request->user(), $payload);
 
-        // Eerst bronnen verrijken, daarna prefill async (ADR-0014): AI ziet BAG/EP-feiten mee.
+        // Eerst bronnen verrijken, daarna prefill (ADR-0014): AI ziet BAG/EP-feiten mee.
+        // sync_on_create=true herstelt de oude synchrone create; default = async + wizard-wacht.
         $enrichIntakeAddress->handle($intake, $request->validated('address_lookup_id'));
-        DeriveIntentFromRequestJob::dispatch(
-            ($intake->fresh() ?? $intake)->id,
-            allowExternal: true,
-            chainDossierSynthesis: false,
-        );
+        $freshIntake = $intake->fresh() ?? $intake;
+        if ((bool) config('ai.request_prefill.sync_on_create', false)) {
+            app(DeriveIntentFromRequest::class)->handle($freshIntake, allowExternal: true);
+        } else {
+            DeriveIntentFromRequestJob::markPending($freshIntake);
+            DeriveIntentFromRequestJob::dispatch($freshIntake->id, allowExternal: true);
+        }
 
         if ($isPublicDemo) {
             // Keep the link ready but inactive until the visitor picks a path.
@@ -277,11 +281,9 @@ class IntakeController extends Controller
         $this->authorize('update', $intake);
 
         $enrichIntakeAddress->handle($intake);
-        DeriveIntentFromRequestJob::dispatch(
-            ($intake->fresh() ?? $intake)->id,
-            allowExternal: true,
-            chainDossierSynthesis: false,
-        );
+        $freshIntake = $intake->fresh() ?? $intake;
+        DeriveIntentFromRequestJob::markPending($freshIntake);
+        DeriveIntentFromRequestJob::dispatch($freshIntake->id, allowExternal: true);
 
         $verification = $intake->externalFacts()
             ->where('fact_key', 'address_verification')

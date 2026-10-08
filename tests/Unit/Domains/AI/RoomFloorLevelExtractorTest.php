@@ -54,6 +54,16 @@ test('RoomFloorLevelExtractor koppelt verdieping alleen aan de genoemde ruimte',
         ['living_room', 'office'],
         ['ground', '1'],
     ],
+    'leading cue: op de begane grond de woonkamer' => [
+        'Op de begane grond de woonkamer koelen.',
+        ['living_room'],
+        ['ground'],
+    ],
+    'leading cue: op de eerste verdieping de werkkamer, woonkamer beneden' => [
+        'Op de eerste verdieping de werkkamer en de woonkamer beneden.',
+        ['office', 'living_room'],
+        ['1', 'ground'],
+    ],
 ]);
 
 test('lokale parser vult room_floors per ruimte en deelt floor_level niet globaal', function () {

@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Installer;
 
 use App\Domains\AI\Actions\SuggestInstallerPhotoObservations;
 use App\Domains\AI\Actions\SynthesizePipeRoute;
+use App\Domains\AI\Jobs\DebouncedSynthesizeSurveyDossierJob;
 use App\Domains\AI\Jobs\DeriveIntentFromRequestJob;
 use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
 use App\Domains\Intake\Actions\AddPipeRoutePhoto;
@@ -357,7 +358,7 @@ final class SurveyWorkspaceController extends Controller
         ]);
         $aircoSurvey->createInstallationOption($intake, $this->user($request), $data);
 
-        SynthesizeSurveyDossierJob::dispatch(($intake->fresh() ?? $intake)->id);
+        DebouncedSynthesizeSurveyDossierJob::dispatch(($intake->fresh() ?? $intake)->id);
 
         return $this->back($intake, 'Keuze toegevoegd.');
     }
@@ -502,7 +503,6 @@ final class SurveyWorkspaceController extends Controller
         DeriveIntentFromRequestJob::dispatch(
             ($intake->fresh() ?? $intake)->id,
             allowExternal: true,
-            chainDossierSynthesis: true,
         );
 
         return $this->back($intake, 'Notitie toegevoegd.');
@@ -530,7 +530,6 @@ final class SurveyWorkspaceController extends Controller
         DeriveIntentFromRequestJob::dispatch(
             ($intake->fresh() ?? $intake)->id,
             allowExternal: true,
-            chainDossierSynthesis: true,
         );
 
         return $this->back(

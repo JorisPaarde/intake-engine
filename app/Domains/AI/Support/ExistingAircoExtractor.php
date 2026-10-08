@@ -6,6 +6,7 @@ namespace App\Domains\AI\Support;
 
 /**
  * Detecteert bestaande airco + vervanging/demontage in de aanvraagtekst.
+ * Room/replacement alleen op de evidence-zin, niet op de hele tekst.
  */
 final class ExistingAircoExtractor
 {
@@ -33,15 +34,27 @@ final class ExistingAircoExtractor
             return null;
         }
 
+        preg_match(
+            '/[^.?!]*(?:oude\s+airco|bestaande\s+airco|huidige\s+airco|er\s+hangt\s+al)[^.?!]*/iu',
+            $text,
+            $evidenceMatch,
+        );
+        $evidence = trim((string) ($evidenceMatch[0] ?? 'bestaande airco'));
+        if ($evidence === '') {
+            $evidence = 'bestaande airco';
+        }
+
+        $evidenceNormalized = mb_strtolower($evidence, 'UTF-8');
+
         $replacement = preg_match(
             '/\b(?:vervangen|vervanging|demonteren|demontage|weghalen|verwijderen)\b/u',
-            $normalized,
+            $evidenceNormalized,
         ) === 1;
 
         $roomType = null;
         if (preg_match(
             '/\b(?:oude\s+airco|bestaande\s+airco|huidige\s+airco|airco)\b.{0,40}?\b(woonkamer|huiskamer|slaapkamer|werkkamer|kantoor|zolder)\b|\b(woonkamer|huiskamer|slaapkamer|werkkamer|kantoor|zolder)\b.{0,40}?\b(?:oude\s+airco|bestaande\s+airco|huidige\s+airco|airco)\b/u',
-            $normalized,
+            $evidenceNormalized,
             $matches,
         ) === 1) {
             $roomWord = $matches[1] !== '' ? $matches[1] : $matches[2];
@@ -54,18 +67,11 @@ final class ExistingAircoExtractor
             };
         }
 
-        preg_match(
-            '/[^.?!]*(?:oude\s+airco|bestaande\s+airco|huidige\s+airco|er\s+hangt\s+al)[^.?!]*/u',
-            $text,
-            $evidenceMatch,
-        );
-        $evidence = trim((string) ($evidenceMatch[0] ?? 'bestaande airco'));
-
         return [
             'present' => true,
             'replacement' => $replacement,
             'room_type' => $roomType,
-            'evidence' => $evidence !== '' ? $evidence : 'bestaande airco',
+            'evidence' => $evidence,
         ];
     }
 }

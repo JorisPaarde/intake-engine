@@ -59,15 +59,30 @@
             ? $aiSynthesis->value['exceptions']
             : [];
         $aiSectionOpen = $aiExceptions !== [];
+        $aiPendingWindow = now()->subMinutes(5);
         $aiSynthesisPending = \App\Domains\AI\Models\AiRun::query()
             ->where('intake_id', $intake->id)
             ->where('type', \App\Enums\AiRunType::DossierSynthesis)
             ->where('status', \App\Enums\AiRunStatus::Pending)
+            ->where(function ($query) use ($aiPendingWindow): void {
+                $query->where('started_at', '>=', $aiPendingWindow)
+                    ->orWhere(function ($inner) use ($aiPendingWindow): void {
+                        $inner->whereNull('started_at')
+                            ->where('created_at', '>=', $aiPendingWindow);
+                    });
+            })
             ->exists();
         $aiIntentPending = \App\Domains\AI\Models\AiRun::query()
             ->where('intake_id', $intake->id)
             ->where('type', \App\Enums\AiRunType::RequestIntent)
             ->where('status', \App\Enums\AiRunStatus::Pending)
+            ->where(function ($query) use ($aiPendingWindow): void {
+                $query->where('started_at', '>=', $aiPendingWindow)
+                    ->orWhere(function ($inner) use ($aiPendingWindow): void {
+                        $inner->whereNull('started_at')
+                            ->where('created_at', '>=', $aiPendingWindow);
+                    });
+            })
             ->exists();
         $aiProcessing = $aiSynthesisPending || $aiIntentPending;
         $photoCount = collect($photoGroups ?? [])->sum(
@@ -1557,7 +1572,7 @@
                                 @elseif ($aiProcessing)
                                     <p class="text-sm text-indigo-900">Het AI-voorstel wordt nog opgesteld.</p>
                                 @else
-                                    <p class="text-sm text-indigo-900">Nog geen AI-voorstel. Dat komt automatisch na units of een notitie.</p>
+                                    <p class="text-sm text-indigo-900">Nog geen AI-voorstel. Dat komt automatisch na een installatiekeuze.</p>
                                 @endif
                             </div>
                         </details>

@@ -673,15 +673,7 @@ final class DossierManager
             return $existing;
         }
 
-        $merged = array_merge($existing, $fromAnswers);
-
-        // Verdiepingscorrectie door installateur blijft staan na sync/fotoanalyse.
-        if (($existing['floor_level_source'] ?? null) === 'installer') {
-            $merged['floor_level'] = $existing['floor_level'] ?? null;
-            $merged['floor_level_source'] = 'installer';
-        }
-
-        return $merged;
+        return array_merge($existing, $fromAnswers);
     }
 
     /**

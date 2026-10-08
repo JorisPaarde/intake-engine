@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Domains\AI\Actions\DeriveIntentFromRequest;
+use App\Domains\AI\Jobs\DebouncedSynthesizeSurveyDossierJob;
 use App\Domains\AI\Jobs\DeriveIntentFromRequestJob;
 use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
 use App\Domains\AI\Models\AiRun;
@@ -38,9 +40,14 @@ function asyncNoteSurvey(User $user, string $email): Intake
     return $intake->fresh() ?? $intake;
 }
 
-test('notitie opslaan dispatcht DeriveIntentJob zonder synchrone AI-call', function () {
+test('notitie opslaan dispatcht DeriveIntentJob zonder synthese (default 1A)', function () {
     Queue::fake();
-    config(['ai.text_inference.enabled' => true, 'ai.provider' => 'fake']);
+    config([
+        'ai.text_inference.enabled' => true,
+        'ai.provider' => 'fake',
+        'ai.dossier.enabled' => true,
+        'ai.dossier_synthesis.auto_after_notes' => false,
+    ]);
 
     $user = User::factory()->create();
     $intake = asyncNoteSurvey($user, 'async-note@example.com');
@@ -60,13 +67,46 @@ test('notitie opslaan dispatcht DeriveIntentJob zonder synchrone AI-call', funct
 
     Queue::assertPushed(DeriveIntentFromRequestJob::class, function (DeriveIntentFromRequestJob $job) use ($intake): bool {
         return $job->intakeId === $intake->id
-            && $job->allowExternal === true
-            && $job->chainDossierSynthesis === true;
+            && $job->allowExternal === true;
     });
+    Queue::assertNotPushed(DebouncedSynthesizeSurveyDossierJob::class);
+    Queue::assertNotPushed(SynthesizeSurveyDossierJob::class);
 
-    // Job staat in de queue (fake) → geen AiRun tijdens de request.
     expect(AiRun::query()->where('intake_id', $intake->id)->count())
         ->toBe($aiRunsBefore);
+});
+
+test('auto_after_notes true: DeriveIntentJob chaint debounced synthese na optie', function () {
+    Queue::fake();
+    config([
+        'ai.dossier.enabled' => true,
+        'ai.dossier_synthesis.auto_after_notes' => true,
+        'ai.dossier_synthesis.delay_seconds' => 20,
+    ]);
+
+    $user = User::factory()->create();
+    $intake = asyncNoteSurvey($user, 'async-notes-synth@example.com');
+    $survey = app(AircoSurveyService::class);
+    $room = $survey->createRoom($intake, $user, ['name' => 'Woonkamer', 'use_type' => 'living_room']);
+    $indoor = $survey->createPlacement($intake, $user, [
+        'type' => AircoPlacementType::IndoorUnit,
+        'label' => 'Binnenunit',
+        'airco_room_id' => $room->id,
+    ]);
+    $outdoor = $survey->createPlacement($intake, $user, [
+        'type' => AircoPlacementType::OutdoorUnit,
+        'label' => 'Buitenunit',
+    ]);
+    $survey->createInstallationOption($intake, $user, [
+        'label' => 'Single-split',
+        'configuration_type' => AircoConfigurationType::SingleSplit,
+        'placement_ids' => [$indoor->id, $outdoor->id],
+    ]);
+
+    $job = new DeriveIntentFromRequestJob($intake->id, allowExternal: false);
+    $job->handle(app(DeriveIntentFromRequest::class));
+
+    Queue::assertPushed(DebouncedSynthesizeSurveyDossierJob::class, fn (DebouncedSynthesizeSurveyDossierJob $j): bool => $j->intakeId === $intake->id);
 });
 
 test('twee snelle notities delen één unieke DeriveIntentJob per intake', function () {
@@ -91,15 +131,17 @@ test('twee snelle notities delen één unieke DeriveIntentJob per intake', funct
         ])
         ->assertRedirect();
 
-    // ShouldBeUnique: tweede dispatch binnen uniqueFor wordt genegeerd.
     Queue::assertPushed(DeriveIntentFromRequestJob::class, 1);
     expect((new DeriveIntentFromRequestJob($intake->id))->uniqueId())
         ->toBe('derive-intent:'.$intake->id);
 });
 
-test('installatiekeuze dispatcht dossiersynthese-job', function () {
+test('installatiekeuze dispatcht debounced dossiersynthese-job', function () {
     Queue::fake();
-    config(['ai.dossier.enabled' => true]);
+    config([
+        'ai.dossier.enabled' => true,
+        'ai.dossier_synthesis.delay_seconds' => 20,
+    ]);
 
     $user = User::factory()->create();
     $intake = asyncNoteSurvey($user, 'async-option@example.com');
@@ -123,7 +165,11 @@ test('installatiekeuze dispatcht dossiersynthese-job', function () {
         ])
         ->assertRedirect();
 
-    Queue::assertPushed(SynthesizeSurveyDossierJob::class, fn (SynthesizeSurveyDossierJob $job): bool => $job->intakeId === $intake->id);
+    Queue::assertPushed(DebouncedSynthesizeSurveyDossierJob::class, function (DebouncedSynthesizeSurveyDossierJob $job) use ($intake): bool {
+        return $job->intakeId === $intake->id
+            && $job->uniqueId() === 'debounced-dossier-synthesis:'.$intake->id;
+    });
+    Queue::assertNotPushed(SynthesizeSurveyDossierJob::class);
 });
 
 test('workspace toont geen AI-voorstel vernieuwen knop', function () {

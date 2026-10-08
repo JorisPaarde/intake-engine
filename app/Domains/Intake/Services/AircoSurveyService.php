@@ -124,20 +124,30 @@ final class AircoSurveyService
 
         $name = trim($data['name']);
         $updates = [];
+        $measuresChanged = false;
 
         $existingDimensions = is_array($room->dimensions) ? $room->dimensions : [];
         if ($this->dimensionMeasuresDiffer($existingDimensions, $dimensions)) {
             $dimensions['dimensions_source'] = 'installer';
+            // Bewaar bestaande verdieping bij pure maatwijziging (geen floor in dit request-pad).
+            if (! array_key_exists('floor_level', $data)
+                && is_string($existingDimensions['floor_level'] ?? null)
+                && $existingDimensions['floor_level'] !== '') {
+                $dimensions['floor_level'] = $existingDimensions['floor_level'];
+                if (isset($existingDimensions['floor_level_source'])) {
+                    $dimensions['floor_level_source'] = $existingDimensions['floor_level_source'];
+                }
+            }
             $updates['dimensions'] = $dimensions;
+            $measuresChanged = true;
         }
 
         if (array_key_exists('floor_level', $data)) {
             $floorLevel = is_string($data['floor_level'] ?? null) && $data['floor_level'] !== ''
                 ? $data['floor_level']
                 : null;
-            $previousFloor = is_string($existingDimensions['floor_level'] ?? null)
-                ? $existingDimensions['floor_level']
-                : null;
+            // Effectieve verdieping = dimensions, anders intake-antwoord (AI-prefill).
+            $previousFloor = $this->effectiveFloorLevel($intake, $room, $existingDimensions);
             if ($floorLevel !== $previousFloor) {
                 $merged = $updates['dimensions'] ?? $existingDimensions;
                 if ($floorLevel === null) {
@@ -148,6 +158,14 @@ final class AircoSurveyService
                 }
                 $updates['dimensions'] = $merged;
                 $this->recordFloorLevelOverride($intake, $installer, $room, $floorLevel, $previousFloor);
+            } elseif ($measuresChanged && $floorLevel !== null) {
+                // Maatwijziging + ongewijzigde floor: behoud bron, schrijf floor terug.
+                $merged = $updates['dimensions'];
+                $merged['floor_level'] = $floorLevel;
+                if (isset($existingDimensions['floor_level_source'])) {
+                    $merged['floor_level_source'] = $existingDimensions['floor_level_source'];
+                }
+                $updates['dimensions'] = $merged;
             }
         }
 
@@ -169,7 +187,8 @@ final class AircoSurveyService
             ->where('intake_id', $intake->id)
             ->update(['label' => $name]);
 
-        if (isset($updates['dimensions'])) {
+        // Alleen maten superseden — niet bij pure floor/naam-edit.
+        if ($measuresChanged && isset($updates['dimensions'])) {
             $this->supersedeAiDimensionProposals(
                 $intake,
                 $installer,
@@ -199,6 +218,34 @@ final class AircoSurveyService
         return $room->fresh() ?? $room;
     }
 
+    /**
+     * Effectieve verdieping: dimensions eerst, anders room-N intake-antwoord.
+     *
+     * @param  array<string, mixed>  $existingDimensions
+     */
+    private function effectiveFloorLevel(Intake $intake, AircoRoom $room, array $existingDimensions): ?string
+    {
+        $fromDimensions = is_string($existingDimensions['floor_level'] ?? null)
+            && $existingDimensions['floor_level'] !== ''
+            ? $existingDimensions['floor_level']
+            : null;
+        if ($fromDimensions !== null) {
+            return $fromDimensions;
+        }
+
+        if (preg_match('/^room-\d+$/', $room->key) !== 1) {
+            return null;
+        }
+
+        $answer = $intake->answers()
+            ->where('question_key', 'floor_level')
+            ->where('section_instance_key', $room->key)
+            ->first();
+        $value = is_array($answer?->value) ? ($answer->value['value'] ?? null) : null;
+
+        return is_string($value) && $value !== '' ? $value : null;
+    }
+
     private function recordFloorLevelOverride(
         Intake $intake,
         User $installer,
@@ -225,9 +272,31 @@ final class AircoSurveyService
             'attic' => 'Zolder',
         ];
 
-        if ($previousFloor !== null && isset($labels[$previousFloor])) {
-            // Bewaar de oorspronkelijke waarde in de historie voordat we overschrijven.
-            $prior = DossierRecord::query()
+        if ($floorLevel !== null && isset($labels[$floorLevel])) {
+            $this->dossierManager->record(
+                intake: $intake,
+                subject: $subject,
+                kind: DossierRecordKind::Observation,
+                key: 'floor_level',
+                value: [
+                    'value' => $floorLevel,
+                    '_field_label' => 'Verdieping',
+                    '_display_value' => $labels[$floorLevel],
+                    '_source_label' => 'installateur',
+                    '_provenance_label' => 'gezegd',
+                    '_previous_value' => $previousFloor,
+                ],
+                actorType: 'installer',
+                actorId: $installer->id,
+                sourceType: 'installer',
+                sourceId: $installer->id,
+                method: 'installer_corrected',
+                confidence: 1.0,
+                status: DossierRecordStatus::Established,
+            );
+        } else {
+            // Wissen: supersede open floor_level-records zonder nieuwe waarde.
+            DossierRecord::query()
                 ->where('intake_id', $intake->id)
                 ->where('dossier_subject_id', $subject->id)
                 ->where('key', 'floor_level')
@@ -237,71 +306,26 @@ final class AircoSurveyService
                     DossierRecordStatus::Established,
                     DossierRecordStatus::Conflicted,
                 ])
-                ->latest('id')
-                ->first();
-
-            if ($prior === null) {
-                $this->dossierManager->record(
-                    intake: $intake,
-                    subject: $subject,
-                    kind: DossierRecordKind::Observation,
-                    key: 'floor_level',
-                    value: [
-                        'value' => $previousFloor,
-                        '_field_label' => 'Verdieping',
-                        '_display_value' => $labels[$previousFloor],
-                        '_source_label' => 'aanvraag (installateur)',
-                        '_provenance_label' => 'gezegd',
-                    ],
-                    actorType: 'system',
-                    actorId: null,
-                    sourceType: 'request_text',
-                    sourceId: null,
-                    method: 'prefill_baseline',
-                    confidence: 0.9,
-                    status: DossierRecordStatus::Established,
-                );
-            }
+                ->update(['status' => DossierRecordStatus::Superseded]);
         }
 
-        if ($floorLevel === null || ! isset($labels[$floorLevel])) {
-            return;
-        }
-
-        $this->dossierManager->record(
-            intake: $intake,
-            subject: $subject,
-            kind: DossierRecordKind::Observation,
-            key: 'floor_level',
-            value: [
-                'value' => $floorLevel,
-                '_field_label' => 'Verdieping',
-                '_display_value' => $labels[$floorLevel],
-                '_source_label' => 'installateur',
-                '_provenance_label' => 'gezegd',
-            ],
-            actorType: 'installer',
-            actorId: $installer->id,
-            sourceType: 'installer',
-            sourceId: $installer->id,
-            method: 'installer_corrected',
-            confidence: 1.0,
-            status: DossierRecordStatus::Established,
-        );
-
-        // Houd het intake-antwoord in sync zodat syncRooms/fotoanalyse de correctie niet terugzet.
+        // Houd het intake-antwoord in sync (ook bij wissen) zodat syncRooms niet terugzet.
         if (preg_match('/^room-\d+$/', $room->key) === 1) {
             $answer = $intake->answers()
                 ->where('question_key', 'floor_level')
                 ->where('section_instance_key', $room->key)
                 ->first();
             if ($answer !== null) {
-                $answer->update([
-                    'value' => ['value' => $floorLevel],
-                    'prefill_source' => null,
-                    'fact_source' => null,
-                    'fact_provenance' => null,
-                ]);
+                if ($floorLevel === null) {
+                    $answer->delete();
+                } else {
+                    $answer->update([
+                        'value' => ['value' => $floorLevel],
+                        'prefill_source' => null,
+                        'fact_source' => null,
+                        'fact_provenance' => null,
+                    ]);
+                }
             }
         }
     }

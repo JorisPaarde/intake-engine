@@ -351,26 +351,6 @@ final class RequestPrefillOutcomeClassifier
                 ? FactSource::InstallerRequest
                 : FactSource::Derived;
 
-            // Floor stated-evidence moet bij díé ruimte horen, niet alleen letterlijk in de tekst.
-            if (
-                $key === 'floor_level'
-                && $provenance === FactProvenance::Stated
-                && is_string($requestReason)
-                && $instanceKey !== null
-                && ! $this->floorEvidenceScopedToRoom($fillEvidence, $requestReason, $instanceKey, $rawFills)
-            ) {
-                $normalizations[] = [
-                    'field' => $key.'|'.$instanceKey.'.provenance',
-                    'from' => FactProvenance::Stated->value,
-                    'to' => FactProvenance::Inferred->value,
-                    'rule' => 'floor_level_evidence_not_scoped_to_room',
-                ];
-                $provenance = FactProvenance::Inferred;
-                $factSource = FactSource::Derived;
-                $confidencePercent = FactAcceptance::belowThresholdConfidence($key);
-                $confidence = FactAcceptance::levelFromPercent($confidencePercent);
-            }
-
             $normalized = $this->normalizeValue($question, $rawValue);
 
             if ($normalized === null) {
@@ -1130,82 +1110,6 @@ final class RequestPrefillOutcomeClassifier
         }
 
         return null;
-    }
-
-    /**
-     * Stated floor-evidence mag alleen tellen als de quote in het zinsdeel van díé ruimte valt.
-     *
-     * @param  list<mixed>  $rawFills
-     */
-    private function floorEvidenceScopedToRoom(
-        ?string $evidence,
-        string $requestReason,
-        string $instanceKey,
-        array $rawFills,
-    ): bool {
-        if (! is_string($evidence) || trim($evidence) === '') {
-            return false;
-        }
-
-        if (! FactAcceptance::evidenceAppearsInSource($evidence, $requestReason)) {
-            return false;
-        }
-
-        $roomsByInstance = $this->roomTypesFromFills($rawFills);
-        $roomType = $roomsByInstance[$instanceKey] ?? null;
-        if (! is_string($roomType) || $roomType === '') {
-            return false;
-        }
-
-        $clause = $this->roomClauseFromRequest($requestReason, $roomType, $roomsByInstance, $instanceKey);
-
-        return $clause !== null && FactAcceptance::evidenceAppearsInSource($evidence, $clause);
-    }
-
-    /**
-     * @param  array<string, string>  $roomsByInstance
-     */
-    private function roomClauseFromRequest(
-        string $requestReason,
-        string $roomType,
-        array $roomsByInstance,
-        string $instanceKey,
-    ): ?string {
-        $orderedKeys = array_keys($roomsByInstance);
-        if (! in_array($instanceKey, $orderedKeys, true)) {
-            return null;
-        }
-
-        $roomWords = match ($roomType) {
-            'living_room' => 'woonkamer|huiskamer',
-            'bedroom' => 'slaapkamer|kinderkamer|kinderslaapkamer',
-            'office' => 'werkkamer|kantoor|kantoren',
-            'attic' => 'zolder',
-            default => 'kamer',
-        };
-
-        if (preg_match_all('/\b(?:'.$roomWords.')\w*\b/iu', $requestReason, $matches, PREG_OFFSET_CAPTURE) === false
-            || $matches[0] === []) {
-            return null;
-        }
-
-        $occurrence = 0;
-        foreach ($orderedKeys as $key) {
-            if (($roomsByInstance[$key] ?? null) !== $roomType) {
-                continue;
-            }
-            if ($key === $instanceKey) {
-                break;
-            }
-            $occurrence++;
-        }
-
-        $match = $matches[0][$occurrence] ?? $matches[0][0];
-        $byteStart = (int) $match[1];
-        $start = max(0, $byteStart - 20);
-        $end = min(strlen($requestReason), $byteStart + strlen($match[0]) + 80);
-
-        return substr($requestReason, $start, $end - $start);
     }
 
     /**

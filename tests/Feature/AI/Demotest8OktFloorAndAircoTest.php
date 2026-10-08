@@ -143,6 +143,16 @@ test('bestaande airco-extractie herkent vervanging in woonkamer', function () {
         ->and($extracted['room_type'])->toBe('living_room');
 });
 
+test('bestaande airco: vervangen in andere zin telt niet als replacement', function () {
+    $text = 'Er hangt al een oude airco in de woonkamer. We willen de radiator later vervangen.';
+    $extracted = (new ExistingAircoExtractor)->extract($text);
+
+    expect($extracted)->not->toBeNull()
+        ->and($extracted['present'])->toBeTrue()
+        ->and($extracted['replacement'])->toBeFalse()
+        ->and($extracted['room_type'])->toBe('living_room');
+});
+
 test('DeriveIntent legt bestaande airco vast als dossierfeit en aandachtspunt', function () {
     config(['ai.text_inference.enabled' => false]);
 
@@ -179,6 +189,48 @@ test('DeriveIntent legt bestaande airco vast als dossierfeit en aandachtspunt', 
         ->and($record->value['text'] ?? '')->toContain('vervangen')
         ->and($attention)->not->toBeNull()
         ->and($attention->label)->toContain('vervanging');
+});
+
+test('naam-edit zonder floor-wijziging markeert AI-floor niet als installateur', function () {
+    $user = User::factory()->create();
+    $intake = app(CreateIntake::class)->handle($user, [
+        'template_key' => 'airco',
+        'workflow_mode' => ContributionMode::Installer,
+        'customer_name' => 'Floor Keep',
+        'customer_email' => 'floor-keep@example.com',
+        'address_line' => 'Testlaan 10',
+        'address_postal_code' => '1000AA',
+        'address_house_number' => 10,
+        'address_city' => 'Amsterdam',
+    ]);
+
+    $room = app(AircoSurveyService::class)->createRoom($intake, $user, [
+        'name' => 'Woonkamer',
+        'use_type' => 'living_room',
+        'length_m' => 6,
+        'width_m' => 4,
+    ]);
+    $room->update([
+        'dimensions' => array_merge($room->dimensions ?? [], [
+            'floor_level' => '1',
+            'floor_level_source' => 'ai',
+        ]),
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('intakes.workspace.rooms.update', [$intake, $room]), [
+            'name' => 'Woonkamer voor',
+            'use_type' => 'living_room',
+            'floor_level' => '1',
+            'length_m' => 6,
+            'width_m' => 4,
+        ])
+        ->assertRedirect();
+
+    $fresh = $room->fresh();
+    expect($fresh->name)->toBe('Woonkamer voor')
+        ->and($fresh->dimensions['floor_level'] ?? null)->toBe('1')
+        ->and($fresh->dimensions['floor_level_source'] ?? null)->toBe('ai');
 });
 
 test('verdieping is corrigeerbaar op werkplek en blijft in historie', function () {

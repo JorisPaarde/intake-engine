@@ -128,19 +128,18 @@ final class FactAcceptance
             return FactSource::Photo;
         }
 
-        if ($prefillSource === PrefillSources::REQUEST_TEXT) {
+        // Alleen installateursaanvraag / openingszin — niet klanttekst of BAG/EPO.
+        if ($prefillSource === PrefillSources::REQUEST_TEXT || $prefillSource === 'installer') {
+            return FactSource::InstallerRequest;
+        }
+
+        if (in_array($prefillSource, [PrefillSources::AI_TEXT, PrefillSources::AI_LEGACY], true)) {
+            // Catalogus-fills uit de openingszin (stated) = aanvraag; anders afgeleid.
             return FactSource::InstallerRequest;
         }
 
         if (PrefillSources::isTextDerived($prefillSource)
-            || $prefillSource === 'installer'
             || in_array($prefillSource, ['pdok', 'epo', 'bag'], true)) {
-            // AI_TEXT / legacy sterke tekstfills: behandel als installateursaanvraag
-            // wanneer provenance stated is (openingszin), anders klantantwoord-pad voor BAG e.d.
-            if (in_array($prefillSource, [PrefillSources::AI_TEXT, PrefillSources::AI_LEGACY], true)) {
-                return FactSource::InstallerRequest;
-            }
-
             return FactSource::CustomerAnswer;
         }
 
