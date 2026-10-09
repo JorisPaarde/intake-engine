@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Demo;
 
 use App\Domains\Intake\Actions\StartDemoIntake;
+use App\Domains\Intake\Services\PublicDemoWorkspaceProvisioner;
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -13,10 +15,23 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 final class StartDemoController extends Controller
 {
-    public function __invoke(Request $request, StartDemoIntake $startDemoIntake): RedirectResponse
-    {
+    public function __invoke(
+        Request $request,
+        StartDemoIntake $startDemoIntake,
+        PublicDemoWorkspaceProvisioner $workspaceProvisioner,
+    ): RedirectResponse {
         if (! (bool) config('intake.demo.enabled', true)) {
             throw new NotFoundHttpException;
+        }
+
+        $current = $request->user();
+
+        if ($current instanceof User && ! $workspaceProvisioner->isEphemeralUser($current)) {
+            return redirect()->route('dashboard');
+        }
+
+        if ($current instanceof User) {
+            Auth::logout();
         }
 
         $creator = $startDemoIntake->handle();
