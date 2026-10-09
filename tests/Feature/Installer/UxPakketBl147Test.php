@@ -31,6 +31,7 @@ use Livewire\Livewire;
  */
 
 beforeEach(function () {
+    $this->withoutVite();
     $this->seed(IntakeTemplateSeeder::class);
     Storage::fake((string) config('filesystems.media', 'local'));
     config(['ai.provider' => 'fake', 'ai.dossier.enabled' => false]);
@@ -356,4 +357,41 @@ test('ronde 3 punt 6: demostrook na een aanvulling heeft altijd één zin', func
     expect($html)->toContain('Je hebt als klant een aanvulling verstuurd. Geen echte klant, er ging geen mail uit. De gegevens verdwijnen vanzelf.')
         ->not->toContain('beoordeelt de foto')
         ->not->toContain('Je hebt één aanvulling verstuurd');
+});
+
+test('#16 extra: vervolgronde toont Opdracht x van y en geen intern woord Ronde', function () {
+    $user = User::factory()->create();
+    $intake = bl147Intake($user);
+    app(DossierManager::class)->initialize($intake);
+
+    app(CreateCustomerContributionRequest::class)->handle($intake->fresh(), $user, [
+        [
+            'type' => FollowUpItemType::Text,
+            'prompt' => 'Hoe lang is slaapkamer 2?',
+            'decision_area_key' => 'capacity',
+        ],
+        [
+            'type' => FollowUpItemType::Text,
+            'prompt' => 'Hoe hoog is slaapkamer 2?',
+            'decision_area_key' => 'capacity',
+        ],
+    ]);
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->fresh()->access_token])
+        ->assertSee('Opdracht 1 van 2')
+        ->assertDontSee('Ronde 1')
+        ->assertDontSee('Onderdeel 1 van 2')
+        ->assertSee('Je antwoord')
+        ->assertSeeHtml('placeholder="Typ hier je antwoord"');
+});
+
+test('#15.9: aanmaakscherm gebruikt de vaste term Zelf de opname doen', function () {
+    $this->withoutVite();
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get(route('intakes.create'))
+        ->assertOk()
+        ->assertSee('Zelf de opname doen')
+        ->assertDontSee('Zelf de opname uitvoeren');
 });

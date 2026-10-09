@@ -1003,7 +1003,7 @@ class IntakeWizard extends Component
                     'follow_up',
                     $item->type === FollowUpItemType::Choice
                         ? 'Kies eerst één van de opties.'
-                        : 'Vul eerst een antwoord in.',
+                        : 'Typ eerst je antwoord.',
                 );
 
                 return false;
