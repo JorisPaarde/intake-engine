@@ -66,8 +66,8 @@ final class StoreInstallerDossierUpload
         try {
             if (! Storage::disk($disk)->put($path, File::get($normalized->dossierAbsolutePath))
                 || ! Storage::disk($disk)->put($analysisPath, File::get($normalized->analysisAbsolutePath))) {
-                $this->delete($disk, $path);
-                $this->delete($disk, $analysisPath);
+                DeleteStoredMediaJob::deleteNowOrQueue($disk, $path);
+                DeleteStoredMediaJob::deleteNowOrQueue($disk, $analysisPath);
 
                 throw ValidationException::withMessages([
                     'photo' => 'Upload mislukt. Probeer het opnieuw.',
@@ -151,8 +151,8 @@ final class StoreInstallerDossierUpload
                 return $upload;
             }, 3);
         } catch (Throwable $exception) {
-            $this->delete($disk, $path);
-            $this->delete($disk, $analysisPath);
+            DeleteStoredMediaJob::deleteNowOrQueue($disk, $path);
+            DeleteStoredMediaJob::deleteNowOrQueue($disk, $analysisPath);
 
             throw $exception;
         } finally {
@@ -182,18 +182,5 @@ final class StoreInstallerDossierUpload
             photoRefs: [$this->photoRefs->fromUpload($upload, 'installer_evidence')],
         );
         $trace->succeed();
-    }
-
-    private function delete(string $disk, string $path): void
-    {
-        try {
-            if (Storage::disk($disk)->delete($path)) {
-                return;
-            }
-        } catch (Throwable) {
-            // Retry asynchronously.
-        }
-
-        DeleteStoredMediaJob::dispatch($disk, $path);
     }
 }

@@ -192,7 +192,7 @@ final class EnrichIntakeAddress
 
             $this->upsertFact($intake, 'building_year', 'Bouwjaar', ['number' => $data->buildYear], 'high', $data->bagBuildingId, $buildingUrl);
 
-            if ($this->hasQuestion($intake, 'build_year')) {
+            if ($intake->templateVersion->hasQuestion('build_year')) {
                 $this->saveIntakeAnswer->handle($intake, 'build_year', null, ['number' => $data->buildYear], 'pdok');
             }
         } elseif ($data->buildingCount !== 1) {
@@ -286,12 +286,12 @@ final class EnrichIntakeAddress
     {
         $insulation = $label->insulationIndication();
 
-        if ($insulation !== null && $this->hasQuestion($intake, 'insulation_indication')) {
+        if ($insulation !== null && $intake->templateVersion->hasQuestion('insulation_indication')) {
             $this->saveIntakeAnswer->handle($intake, 'insulation_indication', null, ['value' => $insulation], 'epo');
         }
 
         // BL-074: vloerisolatie alleen vragen als EP-Online geen label leverde (fail-soft).
-        if ($insulation !== null && $this->hasQuestion($intake, 'floor_insulation')) {
+        if ($insulation !== null && $intake->templateVersion->hasQuestion('floor_insulation')) {
             $floor = match ($insulation) {
                 'good' => 'yes',
                 'poor' => 'no',
@@ -302,7 +302,7 @@ final class EnrichIntakeAddress
 
         $buildingType = $label->buildingTypeOption();
 
-        if ($buildingType !== null && $this->hasQuestion($intake, 'building_type')) {
+        if ($buildingType !== null && $intake->templateVersion->hasQuestion('building_type')) {
             $this->saveIntakeAnswer->handle($intake, 'building_type', null, ['value' => $buildingType], 'epo');
         }
     }
@@ -389,7 +389,7 @@ final class EnrichIntakeAddress
     {
         if ($data->bagBuildingId === null
             || $data->buildingCount !== 1
-            || ! $this->hasQuestion($intake, 'building_type')
+            || ! $intake->templateVersion->hasQuestion('building_type')
             || $intake->answers()->where('question_key', 'building_type')->exists()) {
             return;
         }
@@ -444,7 +444,7 @@ final class EnrichIntakeAddress
      */
     private function prefillBuildingType(Intake $intake, array $usagePurposes): void
     {
-        if (! $this->hasQuestion($intake, 'building_type')) {
+        if (! $intake->templateVersion->hasQuestion('building_type')) {
             return;
         }
 
@@ -468,15 +468,6 @@ final class EnrichIntakeAddress
             null,
             'https://api.pdok.nl/',
         );
-    }
-
-    private function hasQuestion(Intake $intake, string $questionKey): bool
-    {
-        $intake->loadMissing('templateVersion.sections.questions');
-
-        return $intake->templateVersion->sections
-            ->flatMap(fn ($section) => $section->questions)
-            ->contains('key', $questionKey);
     }
 
     /** @param array<string, mixed> $value */

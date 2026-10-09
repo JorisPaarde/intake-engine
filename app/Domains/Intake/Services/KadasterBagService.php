@@ -185,12 +185,6 @@ final class KadasterBagService
         return [null, $this->blankToNull(implode('-', $parts))];
     }
 
-    public function addressUrl(string $addressableObjectId): string
-    {
-        return rtrim((string) config('services.bag_api.base_url'), '/')
-            .'/adressenuitgebreid?adresseerbaarObjectIdentificatie='.$addressableObjectId;
-    }
-
     /**
      * `oorspronkelijkBouwjaar` is een array van jaarstrings — één per pand waar het
      * verblijfsobject deel van uitmaakt. Alleen een eenduidig jaar is bruikbaar.

@@ -8,7 +8,6 @@ use App\Domains\AI\Actions\PrefillAnswersFromKnownContext;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeAnswer;
-use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Services\AnswerValueReader;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\ProgressCalculator;
@@ -50,7 +49,10 @@ final class SaveIntakeAnswer
         ?string $factEvidence = null,
         FactSource|string|null $factSource = null,
     ): IntakeAnswer {
-        $question = $this->findQuestion($intake, $questionKey);
+        $question = $intake->templateVersion->findQuestion($questionKey)
+            ?? throw ValidationException::withMessages([
+                'question_key' => 'Onbekende vraag.',
+            ]);
 
         if ($question->type === QuestionType::Photo) {
             throw ValidationException::withMessages([
@@ -257,23 +259,6 @@ final class SaveIntakeAnswer
         }
 
         $intake->update($updates);
-    }
-
-    private function findQuestion(Intake $intake, string $questionKey): IntakeQuestion
-    {
-        $intake->loadMissing(['templateVersion.sections.questions']);
-
-        foreach ($intake->templateVersion->sections as $section) {
-            foreach ($section->questions as $question) {
-                if ($question->key === $questionKey) {
-                    return $question;
-                }
-            }
-        }
-
-        throw ValidationException::withMessages([
-            'question_key' => 'Onbekende vraag.',
-        ]);
     }
 
     /**

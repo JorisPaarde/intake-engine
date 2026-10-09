@@ -11,12 +11,12 @@ use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Domains\Intake\Support\CustomerConsentPresenter;
 use App\Enums\QuestionType;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
 
 final class GenerateIntakeReportHtml
 {
     public function __construct(
         private readonly AnswerValueReader $answerValueReader,
+        private readonly IntakeAnswerTargets $answerTargets,
         private readonly VisibilityResolver $visibilityResolver,
         private readonly ExternalFactPresenter $externalFactPresenter,
         private readonly IntakeDossierSummaryBuilder $summaryBuilder,
@@ -77,7 +77,7 @@ final class GenerateIntakeReportHtml
         /** @var Collection<int, IntakeSection> $sections */
         $sections = $version->sections;
         $questions = $sections->flatMap(static fn (IntakeSection $section): Collection => $section->questions)->values();
-        $answers = $this->buildAnswerMap($intake);
+        $answers = $this->answerTargets->answerMap($intake);
         $questionTypes = [];
         $sectionsByQuestionKey = [];
 
@@ -89,7 +89,7 @@ final class GenerateIntakeReportHtml
             }
         }
 
-        $targets = $this->buildTargets($sections, $answers, $questionTypes);
+        $targets = $this->answerTargets->targets($sections, $answers, $questionTypes);
         $visibility = $this->visibilityResolver->resolve(
             $questions,
             $answers,
@@ -101,7 +101,7 @@ final class GenerateIntakeReportHtml
         $reportSections = [];
 
         foreach ($targets as $target) {
-            $question = $this->findQuestion($sections, $target['question_key']);
+            $question = $version->findQuestion($target['question_key']);
 
             if (! $question instanceof IntakeQuestion) {
                 continue;
@@ -144,121 +144,6 @@ final class GenerateIntakeReportHtml
         }
 
         return array_values($reportSections);
-    }
-
-    /**
-     * @return array<string, array<string, mixed>|null>
-     */
-    private function buildAnswerMap(Intake $intake): array
-    {
-        $answers = [];
-
-        foreach ($intake->answers as $answer) {
-            $key = VisibilityResolver::compositeKey(
-                $answer->question_key,
-                $answer->section_instance_key,
-            );
-            $answers[$key] = $answer->value;
-        }
-
-        $uploadIdsByKey = [];
-
-        foreach ($intake->uploads as $upload) {
-            $key = VisibilityResolver::compositeKey(
-                $upload->question_key,
-                $upload->section_instance_key,
-            );
-            $uploadIdsByKey[$key][] = $upload->id;
-        }
-
-        foreach ($uploadIdsByKey as $key => $ids) {
-            $answers[$key] = ['upload_ids' => $ids];
-        }
-
-        return $answers;
-    }
-
-    /**
-     * @param  Collection<int, IntakeSection>  $sections
-     * @param  array<string, array<string, mixed>|null>  $answers
-     * @param  array<string, QuestionType>  $questionTypes
-     * @return list<array{question_key: string, section_instance_key: string|null}>
-     */
-    private function buildTargets(Collection $sections, array $answers, array $questionTypes): array
-    {
-        $targets = [];
-
-        foreach ($sections as $section) {
-            if ($section->is_repeatable) {
-                $count = $this->repeatInstanceCount($section, $answers, $questionTypes);
-
-                for ($index = 1; $index <= $count; $index++) {
-                    $instanceKey = Str::singular($section->key).'-'.$index;
-
-                    foreach ($section->questions as $question) {
-                        $targets[] = [
-                            'question_key' => $question->key,
-                            'section_instance_key' => $instanceKey,
-                        ];
-                    }
-                }
-
-                continue;
-            }
-
-            foreach ($section->questions as $question) {
-                $targets[] = [
-                    'question_key' => $question->key,
-                    'section_instance_key' => null,
-                ];
-            }
-        }
-
-        return $targets;
-    }
-
-    /**
-     * @param  array<string, array<string, mixed>|null>  $answers
-     * @param  array<string, QuestionType>  $questionTypes
-     */
-    private function repeatInstanceCount(IntakeSection $section, array $answers, array $questionTypes): int
-    {
-        $countQuestionKey = $section->repeat_count_question_key;
-
-        if ($countQuestionKey === null || $countQuestionKey === '') {
-            return 0;
-        }
-
-        $type = $questionTypes[$countQuestionKey] ?? null;
-
-        if ($type !== QuestionType::Number) {
-            return 0;
-        }
-
-        $answerKey = VisibilityResolver::compositeKey($countQuestionKey, null);
-        $number = $this->answerValueReader->readComparable($answers[$answerKey] ?? null, $type);
-
-        if (! is_numeric($number)) {
-            return 0;
-        }
-
-        return max(0, (int) $number);
-    }
-
-    /**
-     * @param  Collection<int, IntakeSection>  $sections
-     */
-    private function findQuestion(Collection $sections, string $questionKey): ?IntakeQuestion
-    {
-        foreach ($sections as $section) {
-            foreach ($section->questions as $question) {
-                if ($question->key === $questionKey) {
-                    return $question;
-                }
-            }
-        }
-
-        return null;
     }
 
     /**

@@ -9,7 +9,6 @@ use App\Domains\Intake\Jobs\ProcessIntakePhotoVariantsJob;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeAnswer;
-use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\ProgressCalculator;
 use App\Domains\Intake\Services\UploadMimeDetector;
@@ -46,7 +45,14 @@ final class StoreIntakeUpload
         ?int $clientOriginalHeight = null,
         ?string $correlationId = null,
     ): IntakeUpload {
-        $question = $this->findPhotoQuestion($intake, $questionKey);
+        $question = $intake->templateVersion->findQuestion($questionKey);
+
+        if ($question?->type !== QuestionType::Photo) {
+            throw ValidationException::withMessages([
+                'photo' => 'Onbekende foto-vraag.',
+            ]);
+        }
+
         $maxFiles = (int) ($question->meta['max_files'] ?? config('intake.uploads.max_files_per_question', 5));
 
         $existingCount = $this->uploadsQuery($intake, $questionKey, $sectionInstanceKey)->count();
@@ -225,40 +231,10 @@ final class StoreIntakeUpload
 
             return $upload;
         } catch (Throwable $exception) {
-            $this->cleanupFailedUpload($disk, $path);
+            DeleteStoredMediaJob::deleteNowOrQueue($disk, $path);
 
             throw $exception;
         }
-    }
-
-    private function cleanupFailedUpload(string $disk, string $path): void
-    {
-        try {
-            if (Storage::disk($disk)->delete($path)) {
-                return;
-            }
-        } catch (Throwable) {
-            // Retry asynchronously below.
-        }
-
-        DeleteStoredMediaJob::dispatch($disk, $path);
-    }
-
-    private function findPhotoQuestion(Intake $intake, string $questionKey): IntakeQuestion
-    {
-        $intake->loadMissing(['templateVersion.sections.questions']);
-
-        foreach ($intake->templateVersion->sections as $section) {
-            foreach ($section->questions as $question) {
-                if ($question->key === $questionKey && $question->type === QuestionType::Photo) {
-                    return $question;
-                }
-            }
-        }
-
-        throw ValidationException::withMessages([
-            'photo' => 'Onbekende foto-vraag.',
-        ]);
     }
 
     /**

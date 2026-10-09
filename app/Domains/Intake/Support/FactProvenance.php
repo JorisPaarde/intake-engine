@@ -32,19 +32,6 @@ enum FactProvenance: string
         return self::tryFrom($normalized);
     }
 
-    /**
-     * Ontbrekende of ongeldige herkomst → inferred (veilige default: niet als “gezegd” tellen).
-     */
-    public static function fromFillOrInferred(mixed $value): self
-    {
-        return self::tryFromMixed($value) ?? self::Inferred;
-    }
-
-    public function isConfirmedStatement(): bool
-    {
-        return $this === self::Stated;
-    }
-
     public function installerLabel(): string
     {
         return match ($this) {

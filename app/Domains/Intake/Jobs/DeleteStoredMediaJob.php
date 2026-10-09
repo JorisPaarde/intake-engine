@@ -7,6 +7,7 @@ namespace App\Domains\Intake\Jobs;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 final class DeleteStoredMediaJob implements ShouldQueue
 {
@@ -18,6 +19,22 @@ final class DeleteStoredMediaJob implements ShouldQueue
         public readonly string $disk,
         public readonly string $path,
     ) {}
+
+    /**
+     * Delete right away; when that fails (false or exception), retry asynchronously via this job.
+     */
+    public static function deleteNowOrQueue(string $disk, string $path): void
+    {
+        try {
+            if (Storage::disk($disk)->delete($path)) {
+                return;
+            }
+        } catch (Throwable) {
+            // Retry asynchronously below.
+        }
+
+        self::dispatch($disk, $path);
+    }
 
     /** @return list<int> */
     public function backoff(): array

@@ -149,7 +149,7 @@ final class DerivePhotoAnswers
                 && ! $assessment->customerAcceptedMismatch()) {
                 $anyMismatch = true;
                 if ($assessed['trace'] instanceof AiTraceHandle) {
-                    $this->finalizeContentOnlyTrace(
+                    $this->traceSnapshots->succeedWithSnapshots(
                         $assessed['trace'],
                         $intake,
                         $assessed['dossier_before'],
@@ -170,7 +170,7 @@ final class DerivePhotoAnswers
                 if ($assessed['trace'] instanceof AiTraceHandle) {
                     // Eerdere apply-kandidaat sluiten zonder apply — alleen de laatste krijgt apply.
                     if ($applyContext !== null) {
-                        $this->finalizeContentOnlyTrace(
+                        $this->traceSnapshots->succeedWithSnapshots(
                             $applyContext['trace'],
                             $intake,
                             $applyContext['dossier_before'],
@@ -180,7 +180,7 @@ final class DerivePhotoAnswers
                     $applyContext = $assessed;
                 }
             } elseif ($assessed['trace'] instanceof AiTraceHandle) {
-                $this->finalizeContentOnlyTrace(
+                $this->traceSnapshots->succeedWithSnapshots(
                     $assessed['trace'],
                     $intake,
                     $assessed['dossier_before'],
@@ -401,21 +401,7 @@ final class DerivePhotoAnswers
                 }
 
                 $trace->linkAiRun($run->fresh() ?? $run);
-                $trace->stopProcessTimer();
-                if (! $trace->isNoop()) {
-                    $freshIntake = $intake->fresh() ?? $intake;
-                    $dossierAfter = $this->traceSnapshots->answers($freshIntake);
-                    $trace->recordDossierSnapshots(
-                        $dossierBefore,
-                        $dossierAfter,
-                        $this->traceSnapshots->changedFields($dossierBefore, $dossierAfter),
-                    );
-                    $trace->recordRemainingQuestions(
-                        $questionsBefore,
-                        $this->traceSnapshots->remainingQuestions($freshIntake),
-                    );
-                }
-                $trace->succeed();
+                $this->traceSnapshots->succeedWithSnapshots($trace, $intake, $dossierBefore, $questionsBefore);
 
                 return $run->fresh() ?? $run;
             }
@@ -446,33 +432,6 @@ final class DerivePhotoAnswers
         }
 
         return $lastRun;
-    }
-
-    /**
-     * @param  array<string, mixed>  $dossierBefore
-     * @param  array<string, mixed>  $questionsBefore
-     */
-    private function finalizeContentOnlyTrace(
-        AiTraceHandle $trace,
-        Intake $intake,
-        array $dossierBefore,
-        array $questionsBefore,
-    ): void {
-        $trace->stopProcessTimer();
-        if (! $trace->isNoop()) {
-            $freshIntake = $intake->fresh() ?? $intake;
-            $dossierAfter = $this->traceSnapshots->answers($freshIntake);
-            $trace->recordDossierSnapshots(
-                $dossierBefore,
-                $dossierAfter,
-                $this->traceSnapshots->changedFields($dossierBefore, $dossierAfter),
-            );
-            $trace->recordRemainingQuestions(
-                $questionsBefore,
-                $this->traceSnapshots->remainingQuestions($freshIntake),
-            );
-        }
-        $trace->succeed();
     }
 
     /**
@@ -653,7 +612,7 @@ final class DerivePhotoAnswers
             $freshRun = $run->fresh() ?? $run;
             $trace->linkAiRun($freshRun);
 
-            // Trace blijft open: handle() doet apply (of finalizeContentOnlyTrace).
+            // Trace blijft open: handle() doet apply (of AiTraceSnapshotService::succeedWithSnapshots).
             return [
                 'run' => $freshRun,
                 'trace' => $trace,
@@ -1518,7 +1477,7 @@ final class DerivePhotoAnswers
             return null;
         }
 
-        if (! $this->intakeHasQuestion($intake, 'room_outlet_status')) {
+        if (! $intake->templateVersion->hasQuestion('room_outlet_status')) {
             return null;
         }
 
@@ -1571,7 +1530,7 @@ final class DerivePhotoAnswers
             return null;
         }
 
-        if (! $this->intakeHasQuestion($intake, 'room_extra_overview_needed')) {
+        if (! $intake->templateVersion->hasQuestion('room_extra_overview_needed')) {
             return null;
         }
 
@@ -1600,21 +1559,6 @@ final class DerivePhotoAnswers
         );
 
         return 'room_extra_overview_needed';
-    }
-
-    private function intakeHasQuestion(Intake $intake, string $questionKey): bool
-    {
-        $intake->loadMissing('templateVersion.sections.questions');
-
-        foreach ($intake->templateVersion->sections as $section) {
-            foreach ($section->questions as $question) {
-                if ($question->key === $questionKey) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
     }
 
     private function mayOverwrite(Intake $intake, DerivedAnswerField $field, ?string $sectionInstanceKey): bool

@@ -257,21 +257,7 @@ final class PrefillAnswersFromKnownContext
 
             $run = $run->fresh() ?? $run;
             $trace->linkAiRun($run);
-            $trace->stopProcessTimer();
-            if (! $trace->isNoop()) {
-                $freshIntake = $intake->fresh() ?? $intake;
-                $dossierAfter = $this->traceSnapshots->answers($freshIntake);
-                $trace->recordDossierSnapshots(
-                    $dossierBefore,
-                    $dossierAfter,
-                    $this->traceSnapshots->changedFields($dossierBefore, $dossierAfter),
-                );
-                $trace->recordRemainingQuestions(
-                    $questionsBefore,
-                    $this->traceSnapshots->remainingQuestions($freshIntake),
-                );
-            }
-            $trace->succeed();
+            $this->traceSnapshots->succeedWithSnapshots($trace, $intake, $dossierBefore, $questionsBefore);
 
             IntakeActivityEvent::query()->create([
                 'intake_id' => $intake->id,

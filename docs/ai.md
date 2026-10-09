@@ -1,6 +1,6 @@
 # AI — Digitale Opname
 
-> **Documentversie:** 3.44 · **Laatste update:** 2026-10-08 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 3.45 · **Laatste update:** 2026-10-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **samenvatting, aandachtspunten, lokale fotokwaliteit, tekst-/foto-afleiding, verbindingsgebonden routeanalyse en bewijsgerichte dossiersynthese zijn geïmplementeerd**. Externe provider en tekst-/foto-/route-/dossierinferentie staan standaard uit (provider + key + featurevlaggen + budgetcaps; soft-fail zonder die config). OpenAI-compatibele gateways (o.a. OpenRouter) via `AI_BASE_URL`.
 
@@ -272,7 +272,7 @@ Server-side validatie vóór opslaan. Ongeldige output = `failed` (of `partial` 
 - Meterkastprompt `fusebox-assessment-v4` (BL-133): `empty_module_space` i.p.v. free_group-gok; wrong-subject → `confidence=low`; **nooit** `free_group_known` uit foto.
 - Ruimteprompt `room-assessment-v7` (BL-133): `glazing_type`; glas/zon mogen `unknown`; size-banden = `RoomAreaAcceptance`. `room_outlet_status=unknown` schrijft geen antwoord en triggert geen `wall_outlet_photo`. Ruimteprompt `room-assessment-v8` (BL-137): `extra_overview_needed` → interne `room_extra_overview_needed`; alleen `needs_photo` toont `indoor_unit_position_photo` (airco v24).
 - Technische routeconclusies staan alleen als dossierfeit (`pipe_route_photos_derivation`). Model-`drillings_needed=no` → `unknown` + voorstelnotitie.
-- Interne velden `fusebox_clarity` / `room_outlet_status` nooit in klantstappen (`InternalCustomerQuestions`). Routevoorstellen via `TechnicalDecisionKeys::ROUTE_PROPOSAL_KEYS` (één class met #115-KEYS/`aiPrefillSources()`).
+- Interne velden `fusebox_clarity` / `room_outlet_status` nooit in klantstappen (`InternalCustomerQuestions`). Routevoorstellen via `TechnicalDecisionKeys::ROUTE_PROPOSAL_KEYS` (één class met de #115-KEYS).
 - Follow-up: accepted subjects per `decision_area_key` (power→fusebox; refrigerant→pipe_route|outdoor_unit|room|outdoor_location). Prompt `follow-up-photo-subject-v2`. Beoordeling via `AssessUploadedPhotoJob` (queue `ai-photo`). Onopgeloste `wrong_subject` telt niet mee voor follow-up-100% (`FollowUpProgressCalculator` → “Nog te vervangen”); voortgang wacht op `content_assessment` van de job. Installateur ziet mismatch-reden via `followUpMismatchReason` (BL-123). **Aanvulling versturen** blokkeert tot vervangen of **Toch doorgaan** (BL-130; label sinds BL-147 gelijk aan de hoofdwizard); `not_assessed` blijft soft; na latere OK-foto verdwijnt mismatch-reden en telt follow-up-powerfoto voor `hasFuseboxPhoto` (BL-130). Klantprompt bij mismatch-blocker = `customerRetakePrompt` (nooit de interne diagnose).
 - Classificatiecalls (foto-afleiding, meterkast, follow-up subject) zetten `AiCompletionRequest::$temperature` op `config('ai.classification_temperature')` (default `0`). Standaardtekst blijft `config('ai.temperature')` (default `0.2`). OpenAiClient gebruikt `$request->temperature` wanneer gezet.
 - `DecisionReadinessService::hasFuseboxPhoto` en voortgang gebruiken `PhotoContentSatisfaction`; follow-up OK-foto’s tellen mee.- Hosting/cron: zie `docs/DEPLOYMENT.md` § Cron (`--queue=ai-photo,default` + hourly scheduler-worker).

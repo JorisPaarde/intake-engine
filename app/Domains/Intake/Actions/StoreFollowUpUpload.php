@@ -124,7 +124,7 @@ final class StoreFollowUpUpload
             }
 
             if (! Storage::disk($disk)->put($path, File::get($absolutePath))) {
-                $this->cleanupFailedUpload($disk, $path);
+                DeleteStoredMediaJob::deleteNowOrQueue($disk, $path);
 
                 throw ValidationException::withMessages([
                     'upload' => 'Upload mislukt. Probeer het opnieuw.',
@@ -218,7 +218,7 @@ final class StoreFollowUpUpload
             return $upload;
         } catch (Throwable $exception) {
             if (isset($disk, $path)) {
-                $this->cleanupFailedUpload($disk, $path);
+                DeleteStoredMediaJob::deleteNowOrQueue($disk, $path);
             }
 
             throw $exception;
@@ -392,7 +392,7 @@ final class StoreFollowUpUpload
 
             return $upload;
         } catch (Throwable $exception) {
-            $this->cleanupFailedUpload($disk, $path);
+            DeleteStoredMediaJob::deleteNowOrQueue($disk, $path);
 
             throw $exception;
         }
@@ -418,18 +418,5 @@ final class StoreFollowUpUpload
             ],
         );
         $trace->succeed();
-    }
-
-    private function cleanupFailedUpload(string $disk, string $path): void
-    {
-        try {
-            if (Storage::disk($disk)->delete($path)) {
-                return;
-            }
-        } catch (Throwable) {
-            // Retry asynchronously below.
-        }
-
-        DeleteStoredMediaJob::dispatch($disk, $path);
     }
 }

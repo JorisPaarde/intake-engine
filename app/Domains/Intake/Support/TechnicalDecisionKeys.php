@@ -55,25 +55,4 @@ final class TechnicalDecisionKeys
     {
         return self::contains($question->key);
     }
-
-    /**
-     * Prefill-bronnen die een AI-voorstel zijn, geen installateursbesluit.
-     *
-     * @return list<string>
-     */
-    public static function aiPrefillSources(): array
-    {
-        return ['ai', 'ai_suggestion'];
-    }
-
-    public static function isAiPrefillSource(?string $prefillSource): bool
-    {
-        return $prefillSource !== null
-            && in_array($prefillSource, self::aiPrefillSources(), true);
-    }
-
-    public static function isInstallerPrefillSource(?string $prefillSource): bool
-    {
-        return $prefillSource === 'installer';
-    }
 }

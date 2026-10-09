@@ -60,15 +60,7 @@ final class HardDeleteIntake
             return;
         }
 
-        try {
-            if (Storage::disk($disk)->delete($path)) {
-                return;
-            }
-        } catch (Throwable) {
-            // Retry asynchronously below.
-        }
-
-        DeleteStoredMediaJob::dispatch($disk, $path);
+        DeleteStoredMediaJob::deleteNowOrQueue($disk, $path);
     }
 
     private function deleteStorageDirectory(string $disk, string $directory): void

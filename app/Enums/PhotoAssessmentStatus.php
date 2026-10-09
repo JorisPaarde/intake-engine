@@ -29,13 +29,4 @@ enum PhotoAssessmentStatus: string
     {
         return $this !== self::Pending;
     }
-
-    /** @return list<string> */
-    public static function terminalValues(): array
-    {
-        return array_values(array_map(
-            static fn (self $case): string => $case->value,
-            array_filter(self::cases(), static fn (self $case): bool => $case->isTerminal()),
-        ));
-    }
 }

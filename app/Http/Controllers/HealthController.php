@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Support\DevAdmin\SystemHealthReport;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -42,23 +43,9 @@ final class HealthController extends Controller
             ],
             'image_conversion' => [
                 'imagick_loaded' => class_exists(\Imagick::class),
-                'heic_read' => $this->imagickSupportsHeicRead(),
+                'heic_read' => SystemHealthReport::imagickSupportsHeicRead(),
             ],
             'time' => now()->toIso8601String(),
         ], 200, [], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-    }
-
-    private function imagickSupportsHeicRead(): bool
-    {
-        if (! class_exists(\Imagick::class)) {
-            return false;
-        }
-
-        try {
-            return \Imagick::queryFormats('HEIC') !== []
-                || \Imagick::queryFormats('HEIF') !== [];
-        } catch (Throwable) {
-            return false;
-        }
     }
 }

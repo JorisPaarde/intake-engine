@@ -1052,16 +1052,6 @@ final class IntakeStepBuilder
         return null;
     }
 
-    /**
-     * @deprecated Use indexForCursor(); kept for callers that only know a section.
-     *
-     * @param  list<IntakeStep>  $steps
-     */
-    public function indexForSectionKey(array $steps, ?string $sectionKey, ?string $sectionInstanceKey = null): int
-    {
-        return $this->indexForCursor($steps, $sectionKey, null, $sectionInstanceKey);
-    }
-
     public function questionForStep(IntakeTemplateVersion $version, string $sectionKey, string $questionKey): ?IntakeQuestion
     {
         $version->loadMissing(['sections.questions.options', 'sections.questions.rules']);
