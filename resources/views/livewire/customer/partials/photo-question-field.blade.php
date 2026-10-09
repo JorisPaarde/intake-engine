@@ -94,9 +94,13 @@
                 fn ($uploadItem) => $uploadItem->assessment_status instanceof \App\Enums\PhotoAssessmentStatus
                     && $uploadItem->assessment_status->isTerminal()
             );
+            $showReceipt = $allTerminal
+                || (! $assessmentPollPending && ! $assessmentPollActive && ! $assessmentQuietPoll);
             $photoReceiptStatus = $allTerminal ? 'Beoordeeld' : 'Ontvangen';
         @endphp
-        <p class="text-xs font-medium text-[#5e6862]" data-testid="photo-receipt-status">Status: {{ $photoReceiptStatus }}</p>
+        @if ($showReceipt)
+            <p class="text-xs font-medium text-[#5e6862]" data-testid="photo-receipt-status">Status: {{ $photoReceiptStatus }}</p>
+        @endif
 
         {{-- Direct onder de foto, boven de sticky balk. (BL-147 / #168: één OVERRIDE_MESSAGE). --}}
         @if ($photoMismatchAssessment || ! empty($photoNeedsOverride))

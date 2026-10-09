@@ -1780,10 +1780,18 @@
     </script>
 
     @if ($intake->is_demo && (bool) session('public_demo_mode', false))
-        <x-demo-guide
-            :step="session('demo_coachmark', session('public_demo_guide_step'))"
-            :has-intake="true"
-            :intake="$intake"
-        />
+        @php
+            $workspaceGuideStep = session('demo_coachmark', session('public_demo_guide_step'));
+            if ($workspaceGuideStep === 'branch') {
+                $workspaceGuideStep = null;
+            }
+        @endphp
+        @if (is_string($workspaceGuideStep) && $workspaceGuideStep !== '')
+            <x-demo-guide
+                :step="$workspaceGuideStep"
+                :has-intake="true"
+                :intake="$intake"
+            />
+        @endif
     @endif
 </x-app-layout>

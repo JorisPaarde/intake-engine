@@ -1,6 +1,6 @@
 # Productmodel — centrale technische opname
 
-> **Documentversie:** 1.8 · **Laatste update:** 2026-10-08 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.9 · **Laatste update:** 2026-10-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: **productfundament geïmplementeerd in BL-030 en BL-035 t/m BL-042**. De centrale dossierkern, drie bijdrageworkflows, airco-objecten, beslisgereedheid, beeldvarianten, AI-synthese en uitkomstregistratie zitten in dezelfde applicatie. Productief gebruik van externe beeld-AI hangt af van provider-, featurevlag- en budgetconfiguratie (standaard uit, soft-fail).
 
@@ -58,7 +58,7 @@ Bij het starten kiest de installateur hoe de opname wordt gevuld. Die keuze mag 
 | Workflow | Start | Werkwijze | Klantlink |
 |----------|-------|-----------|-----------|
 | Klant voert uit | Installateur kiest **Klant laten opnemen** | Lineaire, eenvoudige opdrachten; AI begeleidt en vraagt alleen beslissende aanvullingen. | Direct aangemaakt en verzonden. |
-| Installateur voert uit | Installateur kiest **Zelf de opname uitvoeren** | Mobiele, camera-first werkweergave; vrije volgorde; foto’s en technische notities direct bij ruimtes, posities en routes vastleggen. | Token bestaat als intern lifecycle-anker, maar klanttoegang staat uit en niets wordt verzonden. |
+| Installateur voert uit | Installateur kiest **Zelf de opname doen** | Mobiele, camera-first werkweergave; vrije volgorde; foto’s en technische notities direct bij ruimtes, posities en routes vastleggen. | Token bestaat als intern lifecycle-anker, maar klanttoegang staat uit en niets wordt verzonden. |
 | Hybride | Eén van beide workflows is al gestart | Installateur vult zelf aan of stuurt later één of meer heel specifieke klantopdrachten. | Alleen geactiveerd en verzonden wanneer de klant werkelijk iets moet bijdragen. |
 
 Alle drie vullen dezelfde ruimtes, plaatsingen, verbindingen, bewijzen, onzekerheden en beslissingen. Er ontstaan geen aparte klant- en installateursdossiers.
@@ -80,7 +80,7 @@ Alle drie vullen dezelfde ruimtes, plaatsingen, verbindingen, bewijzen, onzekerh
 
 ### Installateurworkflow
 
-1. De installateur kiest bij de start **Zelf de opname uitvoeren**; er wordt geen klantlink verstuurd.
+1. De installateur kiest bij de start **Zelf de opname doen**; er wordt geen klantlink verstuurd.
 2. De aanvraaggegevens en automatische bronnen staan al in het dossier.
 3. In een mobiele werkweergave kan de installateur vrij tussen ruimtes, buitenposities, meterkast en routes bewegen.
 4. Bij iedere ruimte, positie en verbinding kan hij direct **Foto maken** of een **Technische notitie** toevoegen. Het dossieronderwerp, de sleutel, methode en herkomst volgen automatisch uit die plek in de werkweergave.

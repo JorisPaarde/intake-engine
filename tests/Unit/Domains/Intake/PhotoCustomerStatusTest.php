@@ -23,7 +23,7 @@ function statusUpload(array $attrs = []): IntakeUpload
     return $upload;
 }
 
-it('shows LOOKING while assessing and RECEIVED after soft-timeout', function () {
+it('shows LOOKING while assessing and SOFT_TIMEOUT after soft-timeout', function () {
     $pending = statusUpload([
         'id' => 7,
         'assessment_status' => PhotoAssessmentStatus::Pending,
@@ -32,7 +32,7 @@ it('shows LOOKING while assessing and RECEIVED after soft-timeout', function () 
     expect(PhotoCustomerStatus::forUpload($pending, 'fusebox_photo', 'assessing', 'fusebox_photo', [7], []))
         ->toBe(PhotoCustomerStatus::LOOKING)
         ->and(PhotoCustomerStatus::forUpload($pending, 'fusebox_photo', '', 'fusebox_photo', [7], ['fusebox_photo']))
-        ->toBe(PhotoCustomerStatus::RECEIVED);
+        ->toBe(PhotoCustomerStatus::SOFT_TIMEOUT);
 });
 
 it('never shows GOOD after Toch doorgaan on a judged problem', function () {

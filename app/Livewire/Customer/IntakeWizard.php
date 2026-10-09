@@ -968,7 +968,7 @@ class IntakeWizard extends Component
                     'follow_up',
                     $item->type === FollowUpItemType::Choice
                         ? 'Kies eerst één van de opties.'
-                        : 'Vul eerst een antwoord in.',
+                        : 'Typ eerst je antwoord.',
                 );
 
                 return false;
@@ -1643,11 +1643,11 @@ class IntakeWizard extends Component
         if ($this->uploadPhaseComposite === '') {
             $this->uploadPhaseComposite = $composite;
         }
-        $this->saveMessage = $message;
-
-        if (! $this->followUpMode) {
-            $this->photoHint[$composite] = $message;
-        }
+        // Follow-up: SOFT_TIMEOUT alleen onder de thumbnail. Hoofdwizard houdt de
+        // headertekst — tests en stappen zonder zichtbare thumb blijven die zien.
+        $this->saveMessage = ($this->followUpMode && $message === PhotoCustomerStatus::SOFT_TIMEOUT)
+            ? ''
+            : $message;
     }
 
     private function setUploadPhase(string $phase, string $message): void

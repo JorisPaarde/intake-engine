@@ -19,8 +19,24 @@
 
             @if ($intake->is_demo && ! session('public_demo_path_chosen'))
                 <div class="rounded-2xl border border-sky-200 bg-sky-50 px-5 py-4 text-sm text-sky-950" data-demo-anchor="branch-panel">
-                    <p class="font-semibold">Demo: adresgegevens staan al in de opname</p>
-                    <p class="mt-1 text-sky-900/80">Bekijk hieronder de opgehaalde woninggegevens. Doe de opname zelf, of bekijk wat de klant ziet. Er gaat geen e-mail uit in de demo.</p>
+                    <p class="font-semibold">Adresgegevens staan al in de opname</p>
+                    <p class="mt-1 text-sky-900/80">Doe de opname zelf, of bekijk wat de klant ziet. Er gaat geen e-mail uit in de demo.</p>
+                    <div class="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-row-reverse">
+                        <form method="POST" action="{{ route('demo.path.choose', $intake) }}" class="flex-1">
+                            @csrf
+                            <input type="hidden" name="path" value="installer">
+                            <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-500">
+                                Zelf de opname doen
+                            </button>
+                        </form>
+                        <form method="POST" action="{{ route('demo.path.choose', $intake) }}" class="flex-1">
+                            @csrf
+                            <input type="hidden" name="path" value="customer">
+                            <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-900 hover:bg-gray-50">
+                                Bekijk wat de klant ziet
+                            </button>
+                        </form>
+                    </div>
                 </div>
             @endif
 

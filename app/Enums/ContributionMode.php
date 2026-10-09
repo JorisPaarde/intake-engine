@@ -14,7 +14,7 @@ enum ContributionMode: string
     {
         return match ($this) {
             self::Customer => 'Klant laten opnemen',
-            self::Installer => 'Zelf de opname uitvoeren',
+            self::Installer => 'Zelf de opname doen',
             self::Hybrid => 'Samen met de klant',
         };
     }
