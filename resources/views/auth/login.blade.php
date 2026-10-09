@@ -1,6 +1,26 @@
 <x-guest-layout>
-    <!-- Session Status -->
-    <x-auth-session-status class="mb-4" :status="session('status')" />
+    @if (session('session_expired'))
+        <div class="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950" role="status">
+            <p class="font-semibold">Je sessie is verlopen.</p>
+            <p class="mt-1">Log opnieuw in om verder te gaan.</p>
+            @if (config('intake.demo.enabled', true))
+                <p class="mt-1">Was je in de demo? Start een nieuwe demo.</p>
+            @endif
+        </div>
+        @if (config('intake.demo.enabled', true))
+            <form method="POST" action="{{ route('demo.start') }}" class="mb-6">
+                @csrf
+                <button
+                    type="submit"
+                    class="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-sky-300 bg-white px-5 text-sm font-semibold text-sky-900 hover:bg-sky-50"
+                >
+                    Nieuwe demo starten
+                </button>
+            </form>
+        @endif
+    @else
+        <x-auth-session-status class="mb-4" :status="session('status')" />
+    @endif
 
     <form method="POST" action="{{ route('login') }}">
         @csrf

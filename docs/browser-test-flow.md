@@ -1,6 +1,6 @@
 # Browser-testflow (agent-speelboek)
 
-> **Documentversie:** 1.1 · **Laatste update:** 2026-10-08 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.2 · **Laatste update:** 2026-10-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 **Status:** dit is het **enige** stapsgewijze speelboek voor visuele browser-QA. [docs/functional-test-status.md](functional-test-status.md) is de uitslagentabel (wat écht gezien is), geen stappenlijst. Pest/Livewire/HTTP-tests tellen **niet** als uitvoering van dit document.
 
@@ -103,12 +103,13 @@ Testdata (fictief):
 - [ ] Tipkader: **Tip om te proberen:** **2037GR** + **273** (Bernadottelaan 273, Haarlem).
 - [ ] **E-mailadres** mag leeg (in de demo geen mail; HTML-`required` staat uit).
 - [ ] Sectie **AI vult de vragen in (optioneel)** met veld **Beschrijf wat de klant wil**.
+- [ ] Dat veld is **leeg** (geen vooringevulde zin over twee slaapkamers). Placeholder **Bijv. …** mag.
 - [ ] Hulptekst: “Schrijf of dicteer wat de klant wil. De AI vult in wat zeker genoeg is. Alleen open vragen blijven over.”
 - [ ] Geen aparte keuzelijst Merk / type woning / binnen-unit als hoofdinvoer.
 - [ ] Knop **Dicteren** mag verschijnen na paginaload (Chrome/Edge, Web Speech); in Firefox blijft hij `hidden` — geen fail van Flow A.
 - Screenshot: `A4-create-leeg.png`
 
-**Fail als:** adres of klantnaam in het `value` van het veld staat, of oude multi-keuze-intentvelden i.p.v. één beschrijvingsveld.
+**Fail als:** adres, klantnaam of **Beschrijf wat de klant wil** in het `value` van het veld staat (placeholder telt niet), of oude multi-keuze-intentvelden i.p.v. één beschrijvingsveld.
 
 ### A5. Invullen en opslaan
 
@@ -172,6 +173,7 @@ Alleen als A7 stabiel is en je nog ~10 minuten hebt:
 
 ### A12. Demo beëindigen
 
+- [ ] Open `/` in dezelfde sessie: **Verder in demo** én **Nieuwe demo starten** naast **Demo beëindigen**. Dialoog **Nieuwe demo starten?** mag je Annuleren (niet bevestigen in deze flow).
 - [ ] Klik **Demo beëindigen** in de app-nav (niet het gewone `/logout` van een vast account).
 - [ ] Bevestig in de dialoog **Demo beëindigen?** (focus op Annuleren; Esc annuleert).
 - [ ] Land op `/demo/beeindigd` met kop **De demo is beëindigd** (of **Deze demo is verlopen**). CTA’s: **Naar de homepage** / **Nieuwe demo starten**.

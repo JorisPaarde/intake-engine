@@ -192,6 +192,7 @@ it('leaves postcode and house number empty so the installer types them', functio
         ->assertDontSee('value="Voorbeeldklant"', false)
         ->assertDontSee('value="Familie de Vries"', false)
         ->assertSee('placeholder="Bijv. Familie de Vries"', false)
+        ->assertSee('placeholder="Bijv. Twee slaapkamers op zolder koelen; het wordt daar te warm in de zomer."', false)
         ->assertDontSee('Toevoeging')
         ->assertDontSee('Handmatig invoeren')
         ->assertDontSee('Handmatig ingevoerd')
@@ -201,7 +202,28 @@ it('leaves postcode and house number empty so the installer types them', functio
 
     expect($html)
         ->not->toContain('voorbeeld+')
-        ->and(preg_match('/id="customer_email"[^>]*value="[^"]*@demo\.invalid"/', $html))->toBe(0);
+        ->and(preg_match('/id="customer_email"[^>]*value="[^"]*@demo\.invalid"/', $html))->toBe(0)
+        ->and(preg_match('/id="prefill_request_reason"[^>]*>\s*[^<\s]/', $html))->toBe(0);
+});
+
+it('does not inject the demo example request when the installer leaves it empty', function () {
+    ['intake' => $intake, 'user' => $user] = createDemoIntakeViaForm();
+
+    expect($intake->answers()->where('question_key', 'request_reason')->exists())->toBeFalse()
+        ->and($intake->aircoRooms)->toHaveCount(0);
+
+    $this->actingAs($user)
+        ->withSession(demoSessionFor($user, $intake))
+        ->post(route('demo.path.choose', $intake), ['path' => 'customer']);
+
+    $html = Livewire::test(IntakeWizard::class, [
+        'token' => $intake->fresh()->access_token,
+    ])->html();
+
+    expect($html)
+        ->not->toContain('Dit hebben we al uit je aanvraag')
+        ->not->toContain('Slaapkamer 1')
+        ->not->toContain('Slaapkamer 2');
 });
 
 it('creates one demo intake from the normal create form and opens the role branch', function () {
@@ -313,8 +335,8 @@ it('continues as installer and can load the sample dossier', function () {
     $intake->refresh();
     expect($intake->workflow_mode)->toBe(ContributionMode::Installer)
         ->and($intake->customer_access_enabled)->toBeFalse()
-        // Tekstinterpretatie van de demo-openingszin levert al gewenste ruimtes op.
-        ->and($intake->aircoRooms)->toHaveCount(2);
+        // Lege aanvraag blijft leeg: geen stille voorbeeldtekst, dus geen afgeleide ruimtes.
+        ->and($intake->aircoRooms)->toHaveCount(0);
 
     $this->actingAs($user)
         ->withSession(demoSessionFor($user, $intake))
@@ -338,7 +360,7 @@ it('continues as installer and can load the sample dossier', function () {
     $example = Intake::query()->findOrFail($exampleId);
     expect($example->customer_name)->toBe('Voorbeelddossier (demo)')
         ->and($example->aircoRooms)->toHaveCount(2)
-        ->and($intake->fresh()->aircoRooms)->toHaveCount(2);
+        ->and($intake->fresh()->aircoRooms)->toHaveCount(0);
 
     $example->load([
         'externalFacts',
@@ -656,9 +678,51 @@ it('shows continue-demo CTAs on the homepage during a public demo session', func
         ->assertDontSee('Mijn opnames', false)
         ->assertDontSee('Inloggen', false)
         ->assertSee('Verder in demo', false)
+        ->assertSee('Nieuwe demo starten', false)
         ->assertSee('Demo beëindigen', false)
         ->assertSee('Ik wil een pilot', false)
-        ->assertSee(route('dashboard'), false);
+        ->assertSee('data-confirm-dialog-open="demo-restart-dialog"', false)
+        ->assertSee(route('dashboard'), false)
+        ->assertSee(route('demo.start'), false);
+});
+
+it('restarts a public demo from the homepage and replaces the old session', function () {
+    config(['intake.demo.enabled' => true]);
+
+    $firstUser = startPublicDemoSession();
+    $firstCompanyId = (int) $firstUser->company_id;
+
+    $this->actingAs($firstUser)
+        ->withSession(demoSessionFor($firstUser))
+        ->from('/')
+        ->post(route('demo.start'))
+        ->assertRedirect(route('dashboard'))
+        ->assertSessionHas('public_demo_mode', true);
+
+    expect(session('public_demo_intake_id'))->toBeNull();
+
+    $secondUser = User::query()
+        ->where('email', 'like', 'installateur+%@demo.invalid')
+        ->latest('id')
+        ->firstOrFail();
+
+    $this->assertAuthenticatedAs($secondUser);
+    expect($secondUser->id)->not->toBe($firstUser->id)
+        ->and((int) $secondUser->company_id)->not->toBe($firstCompanyId);
+});
+
+it('does not start a public demo for a real installer account', function () {
+    config(['intake.demo.enabled' => true]);
+
+    $user = User::factory()->create();
+    $before = User::query()->where('email', 'like', 'installateur+%@demo.invalid')->count();
+
+    $this->actingAs($user)
+        ->post(route('demo.start'))
+        ->assertRedirect(route('dashboard'));
+
+    $this->assertAuthenticatedAs($user);
+    expect(User::query()->where('email', 'like', 'installateur+%@demo.invalid')->count())->toBe($before);
 });
 
 it('shows end-demo action in the app navigation during a public demo session', function () {

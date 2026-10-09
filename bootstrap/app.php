@@ -60,6 +60,12 @@ return Application::configure(basePath: dirname(__DIR__))
                 return route('demo.ended', ['reason' => 'expired']);
             }
 
+            // Protected URL without a live session (TTL, idle timeout, bookmark).
+            // Direct GET /login stays a quiet form.
+            if ($session !== null && ! $request->routeIs('login', 'demo.start', 'demo.ended')) {
+                $session->flash('session_expired', true);
+            }
+
             return route('login');
         });
     })

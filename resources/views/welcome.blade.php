@@ -88,7 +88,7 @@
                     <a class="text-sm font-bold text-white/90 transition hover:text-white" href="#vragen">Vragen</a>
                 </nav>
 
-                <div class="flex items-center gap-2 sm:gap-3">
+                <div class="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
                     @if ($isPublicDemo)
                         <form method="POST" action="{{ route('logout') }}">
                             @csrf
@@ -100,6 +100,13 @@
                                 Demo beëindigen
                             </button>
                         </form>
+                        <button
+                            type="button"
+                            data-confirm-dialog-open="demo-restart-dialog"
+                            class="px-3 py-2 text-sm font-bold text-white/90 transition hover:text-white"
+                        >
+                            Nieuwe demo starten
+                        </button>
                         <a
                             href="{{ route('dashboard') }}"
                             class="inline-flex min-h-10 items-center justify-center bg-marketing-amber px-4 text-sm font-extrabold text-marketing-ink transition hover:brightness-105"
@@ -157,6 +164,13 @@
                                         <path d="M3.5 8h9m-3.5-3.5L12.5 8 9 11.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
                                     </svg>
                                 </a>
+                                <button
+                                    type="button"
+                                    data-confirm-dialog-open="demo-restart-dialog"
+                                    class="inline-flex min-h-[52px] items-center justify-center border border-white/55 px-6 text-base font-extrabold text-white transition hover:border-white hover:bg-white/5 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-marketing-amber"
+                                >
+                                    Nieuwe demo starten
+                                </button>
                                 <a
                                     href="#interesse"
                                     class="inline-flex min-h-[52px] items-center justify-center border border-white/55 px-6 text-base font-extrabold text-white transition hover:border-white hover:bg-white/5 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-marketing-amber"
@@ -539,6 +553,13 @@
                             >
                                 Verder in demo
                             </a>
+                            <button
+                                type="button"
+                                data-confirm-dialog-open="demo-restart-dialog"
+                                class="inline-flex min-h-[52px] items-center justify-center border border-white/55 px-6 text-base font-extrabold text-white transition hover:border-white"
+                            >
+                                Nieuwe demo starten
+                            </button>
                             <a
                                 href="#interesse"
                                 class="inline-flex min-h-[52px] items-center justify-center border border-white/55 px-6 text-base font-extrabold text-white transition hover:border-white"
@@ -800,6 +821,13 @@
                 body="Je demogegevens worden gewist. Dit kun je niet ongedaan maken."
                 :action="route('logout')"
                 confirm-label="Demo beëindigen"
+            />
+            <x-confirm-dialog
+                id="demo-restart-dialog"
+                title="Nieuwe demo starten?"
+                body="Je huidige demo wordt beëindigd. Demogegevens verdwijnen. Daarna start een schone demo."
+                :action="route('demo.start')"
+                confirm-label="Nieuwe demo starten"
             />
         @endif
     </body>
