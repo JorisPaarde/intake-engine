@@ -382,8 +382,9 @@ test('vraaglijst krimpt en groeit mid-flow zonder index-drift (beide richtingen)
     $component
         ->set('activeStepKey', 'rooms::room-1::room_photos')
         ->call('removePhoto', $existingRoomPhoto->id)
-        // Hoofdwizard wist direct; melding mét punt (BL-147 ronde 3, punt 5).
-        ->assertSet('saveMessage', 'Foto verwijderd.');
+        ->assertSee('Foto verwijderd.')
+        ->assertSee('Ongedaan maken')
+        ->assertSet('saveMessage', '');
 
     uploadAndPollPhotoAssessment(
         $component,

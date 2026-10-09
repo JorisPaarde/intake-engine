@@ -101,6 +101,7 @@ Route::middleware(['auth', 'verified', 'public.demo.scope'])->group(function () 
     Route::post('/intakes/{intake}/opname/rooms/{room}/unit-coupling', [SurveyWorkspaceController::class, 'syncRoomUnitCoupling'])->name('intakes.workspace.rooms.unit-coupling');
     Route::post('/intakes/{intake}/opname/placements', [SurveyWorkspaceController::class, 'storePlacement'])->name('intakes.workspace.placements.store');
     Route::post('/intakes/{intake}/opname/placements/{placement}', [SurveyWorkspaceController::class, 'updatePlacement'])->name('intakes.workspace.placements.update');
+    Route::post('/intakes/{intake}/opname/placements/{placement}/verwijderen', [SurveyWorkspaceController::class, 'destroyPlacement'])->name('intakes.workspace.placements.destroy');
     Route::post('/intakes/{intake}/opname/options', [SurveyWorkspaceController::class, 'storeInstallationOption'])->name('intakes.workspace.options.store');
     Route::post('/intakes/{intake}/opname/options/{option}/select', [SurveyWorkspaceController::class, 'selectInstallationOption'])->name('intakes.workspace.options.select');
     Route::post('/intakes/{intake}/opname/options/{option}/feasible', [SurveyWorkspaceController::class, 'markInstallationOptionFeasible'])->name('intakes.workspace.options.feasible');

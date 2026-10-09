@@ -2,9 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Domains\AI\Actions\AssessFuseboxPhotos;
+use App\Domains\AI\Clients\FakeAiClient;
 use App\Domains\AI\Jobs\AssessUploadedPhotoJob;
 use App\Domains\Intake\Actions\CreateCustomerContributionRequest;
 use App\Domains\Intake\Actions\CreateIntake;
+use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeTemplate;
@@ -18,6 +21,7 @@ use App\Enums\ContributionMode;
 use App\Enums\FollowUpItemType;
 use App\Enums\IntakeStatus;
 use App\Livewire\Customer\IntakeWizard;
+use App\Models\Company;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Http\UploadedFile;
@@ -333,6 +337,112 @@ test('ronde 3 punt 1+2: bedankscherm hoofdwizard zegt hetzelfde als de aanvulflo
         ->assertDontSee('Je kunt dit venster sluiten.')
         ->assertDontSee('Naar de website van')
         ->assertDontSee('verwijderd.');
+});
+
+test('bedankscherm echte klant toont websiteknop als het bedrijf een website heeft; demo niet', function () {
+    $company = Company::factory()->create([
+        'name' => 'Lente Koeling',
+        'website' => 'https://www.lentekoeling.nl',
+    ]);
+    $user = User::factory()->for($company)->create();
+    $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
+    $intake = Intake::factory()->create([
+        'company_id' => $company->id,
+        'created_by' => $user->id,
+        'intake_template_version_id' => $version->id,
+        'status' => IntakeStatus::Sent,
+        'is_demo' => false,
+    ]);
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('completed', true)
+        ->assertSee('Naar de website van Lente Koeling')
+        ->assertSee('href="https://www.lentekoeling.nl"', false)
+        ->assertSee('Je kunt dit venster nu sluiten.');
+
+    $demo = Intake::factory()->create([
+        'company_id' => $company->id,
+        'created_by' => $user->id,
+        'intake_template_version_id' => $version->id,
+        'status' => IntakeStatus::Sent,
+        'is_demo' => true,
+    ]);
+
+    Livewire::test(IntakeWizard::class, ['token' => $demo->access_token])
+        ->set('completed', true)
+        ->assertDontSee('Naar de website van')
+        ->assertDontSee('Je kunt dit venster nu sluiten.');
+});
+
+test('hoofdwizard-foto is 8 s ongedaan te maken en zet afgeleide antwoorden terug', function () {
+    Queue::fake([AssessUploadedPhotoJob::class]);
+    FakeAiClient::reset();
+    config(['ai.provider' => 'fake', 'ai.photo_inference.enabled' => true]);
+    FakeAiClient::alwaysReturn([
+        'empty_module_space' => 'visible',
+        'phase' => 'three_phase',
+        'confidence' => 'high',
+        'detected_subject' => 'fusebox',
+        'subject_match' => 'yes',
+        'evidence' => 'Een lege modulepositie is zichtbaar.',
+        'retake_instruction' => null,
+    ]);
+
+    $intake = Intake::factory()->create([
+        'created_by' => User::factory()->create()->id,
+        'intake_template_version_id' => IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion()->id,
+        'status' => IntakeStatus::Sent,
+    ]);
+    $upload = app(StoreIntakeUpload::class)->handle(
+        $intake,
+        'fusebox_photo',
+        null,
+        UploadedFile::fake()->image('meterkast.jpg', 1200, 900),
+    );
+    app(AssessFuseboxPhotos::class)->handle($intake);
+    $factBefore = $intake->externalFacts()->where('fact_key', 'fusebox_photo_assessment')->first();
+    $derivedBefore = $intake->answers()
+        ->whereIn('prefill_source', ['ai_photo', 'ai_photo_suggestion', 'ai'])
+        ->get(['question_key', 'value', 'prefill_source']);
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+    $fuseboxStep = collect($component->viewData('steps'))->firstWhere('question_key', 'fusebox_photo');
+    expect($fuseboxStep)->not->toBeNull();
+
+    $component->set('activeStepKey', $fuseboxStep['key'])
+        ->call('removePhoto', $upload->id)
+        ->assertSee('Foto verwijderd.')
+        ->assertSee('Ongedaan maken')
+        ->assertSet('saveMessage', '')
+        ->assertSet('pendingWizardRemoval.upload_id', $upload->id);
+    expect(IntakeUpload::withTrashed()->find($upload->id)?->trashed())->toBeTrue()
+        ->and(Storage::disk($upload->disk)->exists($upload->path))->toBeTrue();
+
+    $component->call('undoWizardUploadRemoval')
+        ->assertDontSee('Ongedaan maken')
+        ->assertSet('pendingWizardRemoval', null);
+    expect(IntakeUpload::query()->find($upload->id))->not->toBeNull();
+    if ($factBefore !== null) {
+        expect($intake->fresh()->externalFacts()->where('fact_key', 'fusebox_photo_assessment')->exists())->toBeTrue();
+    }
+    foreach ($derivedBefore as $row) {
+        $restored = $intake->fresh()->answers()
+            ->where('question_key', $row->question_key)
+            ->whereNull('section_instance_key')
+            ->first();
+        expect($restored?->value)->toBe($row->value)
+            ->and($restored?->prefill_source)->toBe($row->prefill_source);
+    }
+
+    $component->call('removePhoto', $upload->id)
+        ->call('finalizePendingWizardRemoval', $upload->id)
+        ->assertDontSee('Ongedaan maken');
+    expect(Storage::disk($upload->disk)->exists($upload->path))->toBeFalse()
+        ->and(IntakeActivityEvent::query()
+            ->where('intake_id', $intake->id)
+            ->where('event', 'upload_deleted')
+            ->count())->toBe(1);
+    FakeAiClient::reset();
 });
 
 test('ronde 3 punt 3: demo beëindigd heeft de nieuwe kop en tekst; verlopen blijft gelijk', function () {

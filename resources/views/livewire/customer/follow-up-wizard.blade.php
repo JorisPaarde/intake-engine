@@ -44,6 +44,19 @@
                     :installer-return-url="$followUpDemoReturnUrl ?? null"
                 />
             @else
+                @php
+                    $thankYouWebsiteUrl = $intake->company?->publicWebsiteUrl();
+                @endphp
+                @if (is_string($thankYouWebsiteUrl))
+                    <a
+                        href="{{ $thankYouWebsiteUrl }}"
+                        rel="noopener noreferrer"
+                        class="mt-5 inline-flex min-h-11 items-center justify-center rounded-md bg-brand-sea px-4 text-sm font-semibold text-white hover:bg-brand-sea/90"
+                        data-testid="customer-company-website"
+                    >
+                        Naar de website van {{ $intake->company->name }}
+                    </a>
+                @endif
                 <p class="mt-3 text-sm leading-relaxed text-brand-ink/70" data-testid="follow-up-close-hint">Je kunt dit venster nu sluiten.</p>
             @endif
         </div>

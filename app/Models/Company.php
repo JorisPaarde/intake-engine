@@ -16,6 +16,7 @@ use Illuminate\Support\Str;
     'uuid',
     'slug',
     'name',
+    'website',
     'logo_disk',
     'logo_path',
     'logo_original_filename',
@@ -115,6 +116,51 @@ class Company extends Model
         $hex = strtoupper(trim($hex));
 
         return preg_match('/^#[0-9A-F]{6}$/', $hex) === 1 ? $hex : null;
+    }
+
+    /**
+     * Public http(s) URL for the customer thank-you button, or null when empty/invalid.
+     */
+    public function publicWebsiteUrl(): ?string
+    {
+        return self::normalizeWebsite($this->website);
+    }
+
+    public static function normalizeWebsite(?string $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $raw = trim($value);
+        if ($raw === '') {
+            return null;
+        }
+
+        if (! preg_match('#^https?://#i', $raw)) {
+            $raw = 'https://'.$raw;
+        }
+
+        if (filter_var($raw, FILTER_VALIDATE_URL) === false) {
+            return null;
+        }
+
+        $parts = parse_url($raw);
+        if (! is_array($parts)) {
+            return null;
+        }
+
+        $scheme = strtolower((string) ($parts['scheme'] ?? ''));
+        $host = strtolower((string) ($parts['host'] ?? ''));
+        if (! in_array($scheme, ['http', 'https'], true) || $host === '' || isset($parts['user']) || isset($parts['pass'])) {
+            return null;
+        }
+
+        $path = $parts['path'] ?? '';
+        $queryPart = $parts['query'] ?? '';
+        $query = $queryPart !== '' ? '?'.$queryPart : '';
+
+        return $scheme.'://'.$host.$path.$query;
     }
 
     private static function generateSlug(string $name, string $uuid): string

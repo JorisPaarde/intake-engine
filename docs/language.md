@@ -1,6 +1,6 @@
 # UI-taal — gecontroleerd eenvoudig Nederlands
 
-> **Documentversie:** 1.14 · **Laatste update:** 2026-10-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 1.15 · **Laatste update:** 2026-10-09 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 Status: bron van waarheid voor gebruikersgerichte teksten in de app (UI, mails, templatevragen, flash-/foutmeldingen). Productdocumentatie mag technischer blijven.
 
@@ -67,6 +67,8 @@ Schrijf zodat klant en installateur snel begrijpen wat ze moeten doen. Volg de p
 | Locatiebezoek (resultaat) = uitgevoerd | Nee: resultaat = nodig; checkbox = uitgevoerd |
 | Zelf de opname uitvoeren | **Zelf de opname doen** (aanmaakscherm, demokeuze, workflowlabel) |
 | Ronde N (klant-vervolgronde) | geen intern “Ronde”; bij meer dan één opdracht **Opdracht 1 van 2** |
+| Unit verwijderen (werkplek) | **(type) verwijderen?** / “(naam) en de koppelingen ervan verdwijnen uit de opname.” / flash **(type) verwijderd.** |
+| Bedrijfswebsite (bedankt) | knop **Naar de website van (bedrijf)** (alleen echte klant, alleen als ingevuld); daarna “Je kunt dit venster nu sluiten.” |
 
 Productnaam **Digitale Opname** mag als merknaam blijven. In lopende UI-tekst mag “opname” volstaan. Vermijd gemengde branding (“Intake Engine”) in gebruikers-UI.
 

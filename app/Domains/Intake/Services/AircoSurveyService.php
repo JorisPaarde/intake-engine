@@ -426,6 +426,109 @@ final class AircoSurveyService
     }
 
     /**
+     * Remove a unit and every coupling/route attached to it (BL-147).
+     * Installation choices that no longer have both an indoor and an outdoor unit go too.
+     */
+    public function deletePlacement(
+        Intake $intake,
+        User $installer,
+        AircoPlacementOption $placement,
+    ): void {
+        $this->guardTenant($intake, $installer);
+        $this->guardModel($intake, $placement);
+
+        $placementId = $placement->id;
+        $type = $placement->type;
+
+        DB::transaction(function () use ($intake, $placement): void {
+            $placement->loadMissing(['installationOptions']);
+            $optionIds = $placement->installationOptions
+                ->pluck('id')
+                ->map(static fn (mixed $id): int => (int) $id)
+                ->all();
+
+            $connections = AircoConnection::query()
+                ->where('intake_id', $intake->id)
+                ->where(function ($query) use ($placement): void {
+                    $query->where('from_placement_id', $placement->id)
+                        ->orWhere('to_placement_id', $placement->id);
+                })
+                ->get();
+
+            /** @var list<int> $subjectIds */
+            $subjectIds = array_values(array_filter(
+                [
+                    (int) $placement->dossier_subject_id,
+                    ...$connections->pluck('dossier_subject_id')->map(static fn (mixed $id): int => (int) $id)->all(),
+                ],
+                static fn (int $id): bool => $id > 0,
+            ));
+
+            foreach ($connections as $connection) {
+                $connection->delete();
+            }
+
+            $placement->delete();
+
+            if ($optionIds === []) {
+                $this->deleteOrphanSubjects($intake, $subjectIds);
+
+                return;
+            }
+
+            $options = AircoInstallationOption::query()
+                ->where('intake_id', $intake->id)
+                ->whereIn('id', $optionIds)
+                ->with(['placements', 'connections'])
+                ->get();
+
+            foreach ($options as $option) {
+                $hasIndoor = $option->placements->contains('type', AircoPlacementType::IndoorUnit);
+                $hasOutdoor = $option->placements->contains('type', AircoPlacementType::OutdoorUnit);
+                if ($hasIndoor && $hasOutdoor) {
+                    continue;
+                }
+
+                foreach ($option->connections as $leftover) {
+                    $subjectIds[] = (int) $leftover->dossier_subject_id;
+                }
+
+                $option->delete();
+            }
+
+            $this->deleteOrphanSubjects($intake, $subjectIds);
+        }, 3);
+
+        $this->activity($intake, $installer, 'airco_placement_deleted', [
+            'placement_id' => $placementId,
+            'type' => $type->value,
+        ]);
+        $this->preferenceService->invalidateIfFeasibleSetChanged($intake->fresh() ?? $intake, $installer);
+        $this->surveyProgress->markStarted($intake);
+        $this->decisionReadiness->recalculate($intake->fresh() ?? $intake);
+    }
+
+    /**
+     * @param  list<int>  $subjectIds
+     */
+    private function deleteOrphanSubjects(Intake $intake, array $subjectIds): void
+    {
+        $ids = array_values(array_unique(array_filter(
+            $subjectIds,
+            static fn (int $id): bool => $id > 0,
+        )));
+
+        if ($ids === []) {
+            return;
+        }
+
+        DossierSubject::query()
+            ->where('intake_id', $intake->id)
+            ->whereIn('id', $ids)
+            ->delete();
+    }
+
+    /**
      * @param  array{
      *     label: string,
      *     configuration_type: AircoConfigurationType|string,

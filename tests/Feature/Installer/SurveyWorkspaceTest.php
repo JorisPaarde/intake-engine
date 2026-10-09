@@ -13,6 +13,9 @@ use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StartPipeRouteSession;
 use App\Domains\Intake\Mail\CustomerIntakeLinkMail;
+use App\Domains\Intake\Models\AircoConnection;
+use App\Domains\Intake\Models\AircoInstallationOption;
+use App\Domains\Intake\Models\AircoPlacementOption;
 use App\Domains\Intake\Models\ContributionTask;
 use App\Domains\Intake\Models\DossierEvidenceLink;
 use App\Domains\Intake\Models\DossierRecord;
@@ -1029,6 +1032,66 @@ test('conflicting length width and area_m2 show as control point on the room car
         ->assertOk()
         ->assertSee('Controleer maten')
         ->assertSee('komen niet overeen');
+});
+
+test('installer can delete a placement and its couplings', function () {
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'plek-delete@example.com');
+    $survey = app(AircoSurveyService::class);
+    $room = $survey->createRoom($intake, $user, [
+        'name' => 'Slaapkamer',
+        'use_type' => 'bedroom',
+        'length_m' => 4,
+        'width_m' => 3,
+        'height_m' => 2.5,
+    ]);
+    $indoor = $survey->createPlacement($intake, $user, [
+        'airco_room_id' => $room->id,
+        'type' => AircoPlacementType::IndoorUnit,
+        'label' => 'Boven de deur',
+    ]);
+    $outdoor = $survey->createPlacement($intake, $user, [
+        'type' => AircoPlacementType::OutdoorUnit,
+        'label' => 'Aan de achtergevel',
+    ]);
+    $option = $survey->createInstallationOption($intake, $user, [
+        'label' => 'Single-split slaapkamer',
+        'configuration_type' => AircoConfigurationType::SingleSplit,
+        'placement_ids' => [$indoor->id, $outdoor->id],
+        'refrigerant_links' => [[
+            'from_placement_id' => $indoor->id,
+            'to_placement_id' => $outdoor->id,
+        ]],
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertSee('Binnenunit verwijderen?')
+        ->assertSee('Boven de deur en de koppelingen ervan verdwijnen uit de opname.')
+        ->assertSee('data-testid="placement-delete"', false);
+
+    $this->actingAs($user)
+        ->from(route('intakes.workspace', $intake))
+        ->post(route('intakes.workspace.placements.destroy', [$intake, $indoor]))
+        ->assertRedirect(route('intakes.workspace', $intake).'#demo-placements')
+        ->assertSessionHas('block_status', [
+            'target' => 'demo-placements',
+            'message' => 'Binnenunit verwijderd.',
+        ]);
+
+    expect(AircoPlacementOption::query()->whereKey($indoor->id)->exists())->toBeFalse()
+        ->and(AircoPlacementOption::query()->whereKey($outdoor->id)->exists())->toBeTrue()
+        ->and(AircoInstallationOption::query()->whereKey($option->id)->exists())->toBeFalse()
+        ->and(AircoConnection::query()->where('intake_id', $intake->id)->exists())->toBeFalse();
+
+    $html = $this->actingAs($user)
+        ->withSession(['block_status' => ['target' => 'demo-placements', 'message' => 'Binnenunit verwijderd.']])
+        ->get(route('intakes.workspace', $intake))
+        ->getContent();
+    $block = substr($html, (int) strpos($html, 'id="demo-placements"'));
+    expect($block)->toContain('Binnenunit verwijderd.')
+        ->toContain('Aan de achtergevel');
 });
 
 test('installer can update an existing placement', function () {
