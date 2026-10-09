@@ -407,7 +407,7 @@ test('pipe route and distance stay out of the customer wizard as installer decis
         ->and($visible['visible'])->toBeTrue();
 });
 
-test('hybrid path keeps local heuristic fills when AI returns nothing useful', function () {
+test('with text-AI on the local parser does not fill when the model returns nothing', function () {
     $intake = makeIntentIntake();
     FakeAiClient::alwaysReturn([
         'evidence' => 'Geen harde catalogusvulling.',
@@ -418,11 +418,9 @@ test('hybrid path keeps local heuristic fills when AI returns nothing useful', f
     $run = app(DeriveIntentFromRequest::class)->handle($intake);
 
     expect($run?->status)->toBe(AiRunStatus::Succeeded)
-        ->and($intake->answers()->where('question_key', 'cooling_heating')->firstOrFail()->value)->toBe(['value' => 'cooling'])
-        ->and($intake->answers()->where('question_key', 'cooling_heating')->firstOrFail()->prefill_source)
-        ->toBe(DeriveIntentFromRequest::SOURCE_REQUEST_TEXT)
-        ->and($intake->answers()->where('question_key', 'floor_level')->where('section_instance_key', 'room-1')->firstOrFail()->value)
-        ->toBe(['value' => 'attic'])
+        ->and($run?->provider)->not->toBe('local')
+        ->and($intake->answers()->where('question_key', 'cooling_heating')->exists())->toBeFalse()
+        ->and($intake->answers()->where('question_key', 'floor_level')->exists())->toBeFalse()
         ->and($intake->answers()->where('question_key', 'outdoor_location')->exists())->toBeFalse();
 });
 

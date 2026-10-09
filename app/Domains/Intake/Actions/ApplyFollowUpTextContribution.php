@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Actions;
 
+use App\Domains\AI\Actions\InterpretFollowUpText;
 use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\ContributionTask;
 use App\Domains\Intake\Models\DossierRecord;
@@ -63,7 +64,7 @@ final class ApplyFollowUpTextContribution
             return null;
         }
 
-        $hints = $this->parseHeightHints(trim($item->response_text));
+        $hints = resolve(InterpretFollowUpText::class)->extractHeightHints(trim($item->response_text));
 
         return $this->dossierManager->record(
             intake: $intake,
@@ -165,35 +166,5 @@ final class ApplyFollowUpTextContribution
         return $intake->aircoRooms->first(
             fn (AircoRoom $room): bool => $this->heightRequirement->missingRequiredHeight($room),
         );
-    }
-
-    /**
-     * Extract mentioned measurements as hints only — never as the effective average.
-     *
-     * @return array{
-     *     peak_height_m: float|null,
-     *     knee_wall_height_m: float|null,
-     *     mentions_sloped_roof: bool
-     * }
-     */
-    private function parseHeightHints(string $text): array
-    {
-        $normalized = Str::lower(str_replace(',', '.', $text));
-        $peak = null;
-        $knee = null;
-
-        if (preg_match('/hoogste\s+punt[^0-9]{0,20}(\d+(?:\.\d+)?)\s*m/u', $normalized, $match) === 1) {
-            $peak = (float) $match[1];
-        }
-
-        if (preg_match('/knieschot(?:ten)?[^0-9]{0,20}(\d+(?:\.\d+)?)\s*m/u', $normalized, $match) === 1) {
-            $knee = (float) $match[1];
-        }
-
-        return [
-            'peak_height_m' => $peak,
-            'knee_wall_height_m' => $knee,
-            'mentions_sloped_roof' => Str::contains($normalized, ['schuin', 'knieschot', 'nok']),
-        ];
     }
 }

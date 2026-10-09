@@ -189,6 +189,22 @@ final class FakeAiClient implements AiClientInterface
             ], 'fake-vision-v1');
         }
 
+        if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'follow-up-text')) {
+            $customerText = is_string($request->input['customer_text'] ?? null)
+                ? (string) $request->input['customer_text']
+                : '';
+            $lower = mb_strtolower($customerText);
+
+            return $this->result([
+                'peak_height_m' => $this->firstNumberNear($customerText, ['hoogste punt', 'nok']),
+                'knee_wall_height_m' => $this->firstNumberNear($customerText, ['knieschot']),
+                'mentions_sloped_roof' => str_contains($lower, 'schuin')
+                    || str_contains($lower, 'knieschot')
+                    || str_contains($lower, 'nok'),
+                'evidence' => $customerText === '' ? null : mb_substr($customerText, 0, 120),
+            ], 'fake-v1');
+        }
+
         if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'request-prefill')) {
             $reason = is_string($request->input['known_context']['request_reason'] ?? null)
                 ? mb_strtolower((string) $request->input['known_context']['request_reason'])
@@ -252,6 +268,26 @@ final class FakeAiClient implements AiClientInterface
                     'confidence' => 'high',
                     'value' => ['value' => 'bedroom'],
                     'evidence' => null,
+                ];
+            }
+
+            if (str_contains($corpus, 'koopwoning') || str_contains($corpus, 'koophuis') || str_contains($corpus, 'eigen woning')) {
+                $fills[] = [
+                    'question_key' => 'ownership',
+                    'section_instance_key' => null,
+                    'confidence' => 'high',
+                    'provenance' => 'stated',
+                    'value' => ['value' => 'owned'],
+                    'evidence' => str_contains($corpus, 'koopwoning') ? 'koopwoning' : (str_contains($corpus, 'koophuis') ? 'koophuis' : 'eigen woning'),
+                ];
+            } elseif (str_contains($corpus, 'we huren') || str_contains($corpus, 'wij huren') || str_contains($corpus, 'huurwoning')) {
+                $fills[] = [
+                    'question_key' => 'ownership',
+                    'section_instance_key' => null,
+                    'confidence' => 'high',
+                    'provenance' => 'stated',
+                    'value' => ['value' => 'rented'],
+                    'evidence' => str_contains($corpus, 'huurwoning') ? 'huurwoning' : 'we huren',
                 ];
             }
 
@@ -321,6 +357,28 @@ final class FakeAiClient implements AiClientInterface
         ];
 
         return $this->result($output, 'fake-v1');
+    }
+
+    /**
+     * Fake-model number extraction next to a Dutch height keyword.
+     *
+     * @param  list<string>  $keywords
+     */
+    private function firstNumberNear(string $text, array $keywords): ?float
+    {
+        $normalized = str_replace(',', '.', $text);
+
+        foreach ($keywords as $keyword) {
+            $quoted = preg_quote($keyword, '/');
+            if (preg_match('/'.$quoted.'[^0-9]{0,24}(\d+(?:\.\d+)?)/iu', $normalized, $matches) === 1) {
+                return round((float) $matches[1], 2);
+            }
+            if (preg_match('/(\d+(?:\.\d+)?)[^\d]{0,12}'.$quoted.'/iu', $normalized, $matches) === 1) {
+                return round((float) $matches[1], 2);
+            }
+        }
+
+        return null;
     }
 
     /**

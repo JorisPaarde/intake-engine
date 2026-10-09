@@ -163,6 +163,8 @@ return [
 
     'request_prefill_prompt' => 'request_prefill',
 
+    'follow_up_text_prompt' => 'follow_up_text',
+
     /*
     |--------------------------------------------------------------------------
     | Request-prefill (openingszin → antwoorden)

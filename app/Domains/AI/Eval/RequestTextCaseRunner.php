@@ -10,7 +10,6 @@ use App\Domains\AI\Services\LocalRequestIntentParser;
 use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\AI\Services\RequestPrefillOutcomeClassifier;
 use App\Domains\AI\Services\TemplateQuestionCatalogBuilder;
-use App\Domains\AI\Support\OwnershipNormalizer;
 use App\Domains\AI\Support\RoomFloorLevelExtractor;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
@@ -30,7 +29,6 @@ final class RequestTextCaseRunner
         private readonly LocalRequestIntentParser $localParser,
         private readonly PrefillFactExtractor $factExtractor,
         private readonly FactScorer $scorer,
-        private readonly OwnershipNormalizer $ownershipNormalizer,
         private readonly RoomFloorLevelExtractor $floorExtractor,
     ) {}
 
@@ -118,16 +116,11 @@ final class RequestTextCaseRunner
             }
         }
 
-        // Merge local writable + catalog pipeline (zelfde idee als EvaluateRequestIntent).
-        $merged = $this->mergeCandidateArrays($localCandidates, $pipelineCandidates);
-
         $rawFacts = is_array($modelRaw)
             ? $this->factExtractor->fromModelRaw($modelRaw)
             : $this->factExtractor->fromModelRaw(['fills' => []]);
-        $finalFacts = $this->factExtractor->fromCandidates($merged);
+        $finalFacts = $this->factExtractor->fromCandidates($pipelineCandidates);
 
-        // Code-interpretatie signalen (meting, geen nieuwe logica): ownership/floor extractors.
-        $ownershipCue = $this->ownershipNormalizer->matchedEvidenceQuote($text);
         $roomTypes = array_values(array_filter(array_map(
             static fn (array $r): ?string => is_string($r['room_type'] ?? null) ? $r['room_type'] : null,
             is_array($expected['rooms'] ?? null) ? $expected['rooms'] : [],
@@ -155,9 +148,9 @@ final class RequestTextCaseRunner
             'model_raw' => $modelRaw,
             'pipeline_fills' => $classifiedFills,
             'pipeline_normalizations' => $pipelineNormalizations,
-            'pipeline_candidates' => $merged,
-            'code_signals' => [
-                'ownership_evidence_quote' => $ownershipCue,
+            'pipeline_candidates' => $pipelineCandidates,
+            'fallback_signals' => [
+                'local_candidates' => $localCandidates,
                 'floor_links_for_expected_room_types' => $floorLinks,
             ],
             'facts' => [
@@ -261,31 +254,6 @@ final class RequestTextCaseRunner
         }
 
         return $rooms[$index] ?? null;
-    }
-
-    /**
-     * @param  list<array<string, mixed>>  $local
-     * @param  list<array<string, mixed>>  $ai
-     * @return list<array<string, mixed>>
-     */
-    private function mergeCandidateArrays(array $local, array $ai): array
-    {
-        $merged = [];
-        foreach ($local as $candidate) {
-            $key = ($candidate['question_key'] ?? '').'@'.($candidate['section_instance_key'] ?? '');
-            $merged[$key] = $candidate;
-        }
-        foreach ($ai as $candidate) {
-            $disposition = $candidate['disposition'] ?? null;
-            $key = ($candidate['question_key'] ?? '').'@'.($candidate['section_instance_key'] ?? '');
-            if (in_array($disposition, ['fill', 'suggestion'], true)) {
-                $merged[$key] = $candidate;
-            } elseif (! isset($merged[$key]) || ($merged[$key]['disposition'] ?? null) === 'rejected') {
-                $merged[$key] = $candidate;
-            }
-        }
-
-        return array_values($merged);
     }
 
     private function publishedAircoVersion(): IntakeTemplateVersion

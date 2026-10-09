@@ -29,9 +29,9 @@ use Throwable;
 /**
  * Leidt uit bekende aanvraagcontext af welke templatevragen al beantwoord zijn.
  *
- * Hybrid (ADR-0014): eerst foutloze lokale heuristiek (koelen/ruimtes/zolder),
- * daarna catalogus-AI wanneer tekst-AI aan is. Opnieuw aanroepen bij latere
- * contextgroei (BAG, notities, bijgewerkte openingszin).
+ * ADR-0016: met tekst-AI aan alleen catalogus-AI. Lokale parser alleen als
+ * fallback wanneer tekst-AI uit staat of externe calls verboden zijn.
+ * Opnieuw aanroepen bij latere contextgroei (BAG, notities, openingszin).
  */
 final class DeriveIntentFromRequest
 {
@@ -81,27 +81,24 @@ final class DeriveIntentFromRequest
             return null;
         }
 
-        $localRun = null;
+        $textAiOn = $allowExternal && (bool) config('ai.text_inference.enabled', false);
 
-        if ($reason !== null) {
-            $localOutput = $this->localParser->parse($reason);
-
-            if ($localOutput !== null) {
-                $localRun = $this->recordLocalResult($intake, $reason, $localOutput);
-            }
-        }
-
-        $run = $localRun;
-
-        if ($allowExternal && (bool) config('ai.text_inference.enabled', false)) {
-            $aiRun = $this->prefillFromKnownContext->handle(
+        if ($textAiOn) {
+            return $this->prefillFromKnownContext->handle(
                 $intake,
                 skipIfCustomerStarted: $skipIfCustomerStarted,
             );
-            $run = $aiRun ?? $localRun;
         }
 
-        return $run;
+        if ($reason === null) {
+            return null;
+        }
+
+        $localOutput = $this->localParser->parse($reason);
+
+        return $localOutput === null
+            ? null
+            : $this->recordLocalResult($intake, $reason, $localOutput);
     }
 
     /**

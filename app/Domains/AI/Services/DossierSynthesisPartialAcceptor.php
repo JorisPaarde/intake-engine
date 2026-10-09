@@ -116,10 +116,8 @@ final class DossierSynthesisPartialAcceptor
                 'Samenvatting stelt een onzekere foto-observatie als feit (bijv. 3-fase aanwezig).',
             );
             $validationErrors['summary'][] = 'Samenvatting stelt een onzekere foto-observatie als feit.';
-            $summary = $summaryNormalized['hedged']
-                ? $summaryNormalized['text']
-                : $this->hedgeOverstatedPhotoFacts($summary);
-            $outcomes[] = $this->outcome('summary', 'accepted', 'summary', 'Samenvatting genormaliseerd: foto-observatie als onzeker geformuleerd.');
+            $summary = $summaryNormalized['text'];
+            $outcomes[] = $this->outcome('summary', 'accepted', 'summary', 'Samenvatting behouden; onzekere foto-observatie gemarkeerd (geen tekstherschrijving).');
         }
 
         $acceptedPlacements = [];
@@ -1227,11 +1225,6 @@ final class DossierSynthesisPartialAcceptor
     private function claimsOverstatedPhotoFact(string $text): bool
     {
         return $this->claimGuard->claimsOverconfidentFact($text);
-    }
-
-    private function hedgeOverstatedPhotoFacts(string $summary): string
-    {
-        return $this->claimGuard->hedgeOverconfidentClaim($summary);
     }
 
     private function claimsFreeGroupAvailable(string $text): bool

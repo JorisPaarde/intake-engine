@@ -153,7 +153,7 @@ final class PhotoObservationCaseRunner
             return $facts;
         }
 
-        // Pipeline: DerivedClaimConfidenceGuard + pipe-route retake keyword routing (C5/C7).
+        // Pipeline: DerivedClaimConfidenceGuard (cap/mark, geen tekstherschrijving) (C5).
         $ceiling = $this->confidenceGuard->ceilingFromObservationText($text);
         if ($facts['certainty'] !== null || $this->confidenceGuard->textLooksHedged($text)) {
             $facts['certainty'] = "hedged ('lijken')";

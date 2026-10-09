@@ -1,6 +1,6 @@
-# Evaluatieset tekstinterpretatie (P1 stap 1)
+# Evaluatieset tekstinterpretatie (BL-148)
 
-Alleen **meten**. Geen nieuwe regex/keyword-logica, geen promptwijzigingen in deze PR (ADR-0013).
+Meet `model_raw` vs `pipeline_final` op fixtures. Productpad: betekenis zit in het model (ADR-0016); code bewaakt schema/citaat/enums. Nieuwe formulering → prompt/schema/deze set, geen regex in productie. FakeAiClient is **geen** baseline.
 
 ## Fixtures
 

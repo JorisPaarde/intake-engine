@@ -89,26 +89,11 @@ final class DerivedClaimConfidenceGuard
     }
 
     /**
-     * Rewrite hard factual electrical claims into hedged "lijkt / te controleren" form.
-     * Only rewrites actual hard phase/group presence claims — never splices the hedge
-     * suffix onto check-instructions like "controleer op vrije groepen".
+     * ADR-0016: code does not rewrite claim wording. Callers cap confidence or refuse.
      */
     public function hedgeOverconfidentClaim(string $text): string
     {
-        $hedged = preg_replace(
-            self::OVERCONFIDENT_FACT_PATTERN,
-            '$1$2 lijkt zichtbaar — te controleren',
-            $text,
-        );
-        $result = trim(is_string($hedged) ? $hedged : $text);
-
-        $constructionHedged = preg_replace(
-            self::OVERCONFIDENT_CONSTRUCTION_PATTERN,
-            '$1 lijkt zichtbaar — te controleren',
-            $result,
-        );
-
-        return trim(is_string($constructionHedged) ? $constructionHedged : $result);
+        return $text;
     }
 
     /**
@@ -277,8 +262,7 @@ final class DerivedClaimConfidenceGuard
     }
 
     /**
-     * Apply hedge to a free-text derived claim when the source is soft or the
-     * claim itself states an overconfident electrical fact.
+     * Mark an overconfident derived claim without rewriting the model text (ADR-0016).
      *
      * @param  'low'|'medium'|'high'|null  $sourceCeiling
      * @return array{text: string, hedged: bool}
@@ -286,19 +270,13 @@ final class DerivedClaimConfidenceGuard
     public function normalizeDerivedText(string $text, ?string $sourceCeiling): array
     {
         $sourceIsSoft = $sourceCeiling !== null && $sourceCeiling !== 'high';
-        $shouldHedge = $this->claimsOverconfidentFact($text)
+        $shouldMarkUncertain = $this->claimsOverconfidentFact($text)
             || ($sourceIsSoft && $this->claimsUnequivocalElectricalFact($text))
             || ($sourceIsSoft && ! $this->textLooksHedged($text)
                 && (bool) preg_match('/\b(aanwezig|vastgesteld|bevestigd)\b/iu', $text)
                 && (bool) preg_match(self::PHASE_OR_GROUP_PATTERN, mb_strtolower($text)));
 
-        if (! $shouldHedge) {
-            return ['text' => $text, 'hedged' => false];
-        }
-
-        $hedged = $this->hedgeOverconfidentClaim($text);
-
-        return ['text' => $hedged, 'hedged' => $hedged !== $text];
+        return ['text' => $text, 'hedged' => $shouldMarkUncertain];
     }
 
     /**

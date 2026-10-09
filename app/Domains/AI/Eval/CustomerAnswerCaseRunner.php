@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace App\Domains\AI\Eval;
 
-use App\Domains\Intake\Actions\ApplyFollowUpTextContribution;
-use ReflectionMethod;
+use App\Domains\AI\Actions\InterpretFollowUpText;
 
 /**
- * Meet C6: nok-/knieschothoogte uit klantantwoord (bestaande regex via reflection, geen nieuwe regels).
+ * Meet C6: hoogtehints uit klantantwoord via het AI-pad (ADR-0016).
  */
 final class CustomerAnswerCaseRunner
 {
     public function __construct(
         private readonly FactScorer $scorer,
+        private readonly InterpretFollowUpText $interpretFollowUpText,
     ) {}
 
     /**
@@ -25,26 +25,18 @@ final class CustomerAnswerCaseRunner
         $text = is_string($fixture['text'] ?? null) ? $fixture['text'] : '';
         $expected = is_array($fixture['expected'] ?? null) ? $fixture['expected'] : [];
 
-        // model_raw: geen AI-call — de "ruwe" extractie is wat de regex ziet (code-interpretatie).
-        // Voor C6 is model_raw = not_supported (geen model); pipeline_final = parseHeightHints.
-        $hints = $this->invokeParseHeightHints($text);
+        $hints = $this->interpretFollowUpText->extractHeightHints($text);
 
-        $pipelineFacts = [
+        $facts = [
             'ridge_height_m' => $hints['peak_height_m'],
             'knee_wall_height_m' => $hints['knee_wall_height_m'],
             'sloped_roof' => $hints['mentions_sloped_roof'] ? true : null,
-            'ceiling_height_m' => null, // expliciet: nooit als gemiddelde plafondhoogte
+            'ceiling_height_m' => null,
         ];
 
-        // Varianten die "Nok" gebruiken i.p.v. "hoogste punt" → huidige regex mist die (meten).
         $scores = [
-            'model_raw' => $this->scoreLayer($expected, [
-                'ridge_height_m' => null,
-                'knee_wall_height_m' => null,
-                'sloped_roof' => null,
-                'ceiling_height_m' => null,
-            ], supported: false),
-            'pipeline_final' => $this->scoreLayer($expected, $pipelineFacts, supported: true),
+            'model_raw' => $this->scoreLayer($expected, $facts, supported: true),
+            'pipeline_final' => $this->scoreLayer($expected, $facts, supported: true),
         ];
 
         return [
@@ -57,31 +49,16 @@ final class CustomerAnswerCaseRunner
             'error' => null,
             'task_prompt' => $fixture['task_prompt'] ?? null,
             'room' => $fixture['room'] ?? null,
-            'model_raw' => null,
-            'pipeline_final' => $pipelineFacts,
+            'model_raw' => $hints,
+            'pipeline_final' => $facts,
             'facts' => [
-                'model_raw' => null,
-                'pipeline_final' => $pipelineFacts,
+                'model_raw' => $facts,
+                'pipeline_final' => $facts,
             ],
             'scores' => $scores,
             'note' => $fixture['note'] ?? null,
             'runnable' => true,
         ];
-    }
-
-    /**
-     * @return array{peak_height_m: float|null, knee_wall_height_m: float|null, mentions_sloped_roof: bool}
-     */
-    private function invokeParseHeightHints(string $text): array
-    {
-        $method = new ReflectionMethod(ApplyFollowUpTextContribution::class, 'parseHeightHints');
-        $method->setAccessible(true);
-        /** @var ApplyFollowUpTextContribution $instance */
-        $instance = app(ApplyFollowUpTextContribution::class);
-        /** @var array{peak_height_m: float|null, knee_wall_height_m: float|null, mentions_sloped_roof: bool} $hints */
-        $hints = $method->invoke($instance, $text);
-
-        return $hints;
     }
 
     /**

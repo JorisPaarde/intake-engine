@@ -6,6 +6,6 @@ declare(strict_types=1);
  * @return array{version: string, description: string}
  */
 return [
-    'version' => 'request-prefill-v12',
-    'description' => 'Catalogusprefill: verdieping alleen per gekoppelde ruimte; geen begane-grond-default; genummerde verdieping wint van zolder.',
+    'version' => 'request-prefill-v13',
+    'description' => 'ADR-0016: model levert verdieping/eigendom/koelen; code bewaakt alleen schema en citaat.',
 ];
