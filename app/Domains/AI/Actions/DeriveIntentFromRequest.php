@@ -204,20 +204,7 @@ final class DeriveIntentFromRequest
 
             $run = $run->fresh() ?? $run;
             $trace->linkAiRun($run);
-            $trace->stopProcessTimer();
-            if (! $trace->isNoop()) {
-                $freshIntake = $intake->fresh() ?? $intake;
-                $trace->recordDossierSnapshots(
-                    $dossierBefore,
-                    $this->traceSnapshots->answers($freshIntake),
-                    $this->traceSnapshots->changedFields($dossierBefore, $this->traceSnapshots->answers($freshIntake)),
-                );
-                $trace->recordRemainingQuestions(
-                    $questionsBefore,
-                    $this->traceSnapshots->remainingQuestions($freshIntake),
-                );
-            }
-            $trace->succeed();
+            $this->traceSnapshots->succeedWithSnapshots($trace, $intake, $dossierBefore, $questionsBefore);
             $this->recordActivity($intake, $run, $output, $applied, $trace->traceId());
 
             return $run;

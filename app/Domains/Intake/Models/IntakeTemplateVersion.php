@@ -64,4 +64,27 @@ class IntakeTemplateVersion extends Model
     {
         return $this->hasMany(Intake::class);
     }
+
+    /**
+     * Question with this key in any section of this version; null when the template does not know it.
+     */
+    public function findQuestion(string $questionKey): ?IntakeQuestion
+    {
+        $this->loadMissing('sections.questions');
+
+        foreach ($this->sections as $section) {
+            foreach ($section->questions as $question) {
+                if ($question->key === $questionKey) {
+                    return $question;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    public function hasQuestion(string $questionKey): bool
+    {
+        return $this->findQuestion($questionKey) !== null;
+    }
 }

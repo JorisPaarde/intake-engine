@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Support;
 
+use App\Domains\AI\Services\IntakeAttentionContextBuilder;
 use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Models\Intake;
@@ -390,10 +391,8 @@ final class InstallerEvidencePresenter
     private function resolveFact(Intake $intake, string $reference, ?string $factKey): ?IntakeExternalFact
     {
         foreach ($intake->externalFacts as $fact) {
-            $opaque = $fact->fact_key.'@fact:'.$this->opaqueReference('fact', $fact->id);
-            if (hash_equals($opaque, $reference)
-                || hash_equals($this->opaqueReference('fact', $fact->id), $reference)
-                || str_ends_with($reference, '@fact:'.$this->opaqueReference('fact', $fact->id))) {
+            $opaque = IntakeAttentionContextBuilder::opaqueReference('fact', $fact->id);
+            if (hash_equals($opaque, $reference) || str_ends_with($reference, '@fact:'.$opaque)) {
                 return $fact;
             }
         }
@@ -414,18 +413,13 @@ final class InstallerEvidencePresenter
         string $type = 'upload',
     ): ?IntakeUpload {
         foreach ($intake->uploads as $upload) {
-            $opaque = $this->opaqueReference($type, $upload->id);
-            if (str_ends_with($reference, $opaque)
-                || hash_equals($opaque, $reference)
-                || str_contains($reference, $type.':'.$opaque)
-                || str_ends_with($reference, '@upload:'.$opaque)
-                || str_ends_with($reference, '@'.$opaque)) {
+            $opaque = IntakeAttentionContextBuilder::opaqueReference($type, $upload->id);
+            if (str_ends_with($reference, $opaque) || str_contains($reference, $type.':'.$opaque)) {
                 return $upload;
             }
 
             // Also match follow_up_upload opaque tokens.
-            $followOpaque = $this->opaqueReference('follow_up_upload', $upload->id);
-            if (str_ends_with($reference, $followOpaque) || hash_equals($followOpaque, $reference)) {
+            if (str_ends_with($reference, IntakeAttentionContextBuilder::opaqueReference('follow_up_upload', $upload->id))) {
                 return $upload;
             }
         }
@@ -476,9 +470,7 @@ final class InstallerEvidencePresenter
     {
         foreach ($intake->followUpRounds as $round) {
             foreach ($round->items as $item) {
-                $opaque = 'round_'.$round->round_number.'@'.$this->opaqueReference('item', $item->id);
-                if (hash_equals($opaque, $reference)
-                    || str_ends_with($reference, $this->opaqueReference('item', $item->id))) {
+                if (str_ends_with($reference, IntakeAttentionContextBuilder::opaqueReference('item', $item->id))) {
                     return $item;
                 }
             }
@@ -672,11 +664,6 @@ final class InstallerEvidencePresenter
             'system_attention_point' => 'Systeemsignaal',
             default => 'Dossierbron',
         };
-    }
-
-    private function opaqueReference(string $type, int $id): string
-    {
-        return $type.'_'.substr(hash_hmac('sha256', (string) $id, (string) config('app.key')), 0, 16);
     }
 
     /**

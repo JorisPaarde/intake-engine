@@ -13,9 +13,7 @@ use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\ProgressCalculator;
 use App\Enums\IntakeStatus;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
-use Throwable;
 
 final class DeleteIntakeUpload
 {
@@ -75,24 +73,11 @@ final class DeleteIntakeUpload
             return [$disk, $path, $analysisPath];
         }, 3);
 
-        $this->deleteStoredMedia($disk, $path);
+        DeleteStoredMediaJob::deleteNowOrQueue($disk, $path);
 
         if (is_string($analysisPath) && $analysisPath !== '') {
-            $this->deleteStoredMedia($disk, $analysisPath);
+            DeleteStoredMediaJob::deleteNowOrQueue($disk, $analysisPath);
         }
-    }
-
-    private function deleteStoredMedia(string $disk, string $path): void
-    {
-        try {
-            if (Storage::disk($disk)->delete($path)) {
-                return;
-            }
-        } catch (Throwable) {
-            // Retry asynchronously after the database mutation has committed.
-        }
-
-        DeleteStoredMediaJob::dispatch($disk, $path);
     }
 
     private function syncAnswerUploadIds(Intake $intake, string $questionKey, ?string $sectionInstanceKey): void

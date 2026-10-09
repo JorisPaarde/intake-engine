@@ -264,11 +264,6 @@ final class DecisionReadinessService
             ->first();
     }
 
-    public function canBulkApprove(Intake $intake): bool
-    {
-        return $this->bulkApprovalAssessment($intake)['allowed'];
-    }
-
     /**
      * True when the installer still has open AI proposals to review — attention
      * points, placement candidates, and/or installation options. Used to keep

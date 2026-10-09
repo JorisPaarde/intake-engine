@@ -109,8 +109,8 @@ final class ProcessIntakePhotoVariantsJob implements ShouldBeUnique, ShouldQueue
 
             if (! Storage::disk($disk)->put($newPath, File::get($normalized->dossierAbsolutePath))
                 || ! Storage::disk($disk)->put($newAnalysisPath, File::get($normalized->analysisAbsolutePath))) {
-                $this->cleanupPath($disk, $newPath);
-                $this->cleanupPath($disk, $newAnalysisPath);
+                DeleteStoredMediaJob::deleteNowOrQueue($disk, $newPath);
+                DeleteStoredMediaJob::deleteNowOrQueue($disk, $newAnalysisPath);
                 throw new \RuntimeException('Variant storage failed for upload '.$upload->id);
             }
 
@@ -153,10 +153,10 @@ final class ProcessIntakePhotoVariantsJob implements ShouldBeUnique, ShouldQueue
             ])->save();
 
             if ($oldPath !== '' && $oldPath !== $newPath) {
-                $this->cleanupPath($disk, $oldPath);
+                DeleteStoredMediaJob::deleteNowOrQueue($disk, $oldPath);
             }
             if (is_string($oldAnalysis) && $oldAnalysis !== '' && $oldAnalysis !== $newAnalysisPath) {
-                $this->cleanupPath($disk, $oldAnalysis);
+                DeleteStoredMediaJob::deleteNowOrQueue($disk, $oldAnalysis);
             }
 
             $correlationId = $this->correlationId
@@ -184,10 +184,10 @@ final class ProcessIntakePhotoVariantsJob implements ShouldBeUnique, ShouldQueue
             ]);
 
             if ($newPath !== null) {
-                $this->cleanupPath($disk, $newPath);
+                DeleteStoredMediaJob::deleteNowOrQueue($disk, $newPath);
             }
             if ($newAnalysisPath !== null) {
-                $this->cleanupPath($disk, $newAnalysisPath);
+                DeleteStoredMediaJob::deleteNowOrQueue($disk, $newAnalysisPath);
             }
 
             $upload->forceFill([
@@ -289,14 +289,14 @@ final class ProcessIntakePhotoVariantsJob implements ShouldBeUnique, ShouldQueue
 
             if (! Storage::disk($disk)->put($newPath, $dossierBytes)
                 || ! Storage::disk($disk)->put($newAnalysisPath, $analysisBytes)) {
-                $this->cleanupPath($disk, $newPath);
-                $this->cleanupPath($disk, $newAnalysisPath);
+                DeleteStoredMediaJob::deleteNowOrQueue($disk, $newPath);
+                DeleteStoredMediaJob::deleteNowOrQueue($disk, $newAnalysisPath);
 
                 return false;
             }
         } catch (Throwable) {
-            $this->cleanupPath($disk, $newPath);
-            $this->cleanupPath($disk, $newAnalysisPath);
+            DeleteStoredMediaJob::deleteNowOrQueue($disk, $newPath);
+            DeleteStoredMediaJob::deleteNowOrQueue($disk, $newAnalysisPath);
 
             return false;
         }
@@ -335,10 +335,10 @@ final class ProcessIntakePhotoVariantsJob implements ShouldBeUnique, ShouldQueue
         ])->save();
 
         if ($oldPath !== '' && $oldPath !== $newPath) {
-            $this->cleanupPath($disk, $oldPath);
+            DeleteStoredMediaJob::deleteNowOrQueue($disk, $oldPath);
         }
         if (is_string($oldAnalysis) && $oldAnalysis !== '' && $oldAnalysis !== $newAnalysisPath) {
-            $this->cleanupPath($disk, $oldAnalysis);
+            DeleteStoredMediaJob::deleteNowOrQueue($disk, $oldAnalysis);
         }
 
         $expected = PhotoSubject::expectedForPhotoQuestion($upload->question_key) ?? PhotoSubject::Other;
@@ -370,18 +370,5 @@ final class ProcessIntakePhotoVariantsJob implements ShouldBeUnique, ShouldQueue
         File::put($temp, $bytes);
 
         return $temp;
-    }
-
-    private function cleanupPath(string $disk, string $path): void
-    {
-        try {
-            if (Storage::disk($disk)->delete($path)) {
-                return;
-            }
-        } catch (Throwable) {
-            // Async cleanup below.
-        }
-
-        DeleteStoredMediaJob::dispatch($disk, $path);
     }
 }

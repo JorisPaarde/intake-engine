@@ -15,9 +15,7 @@ use App\Enums\IntakeStatus;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
-use Throwable;
 
 /**
  * Removing a follow-up upload happens in two steps (BL-147, UX #16.4):
@@ -180,10 +178,10 @@ final class DeleteFollowUpUpload
         }
 
         [$disk, $path, $analysisPath] = $result;
-        $this->deleteStoredMedia($disk, $path);
+        DeleteStoredMediaJob::deleteNowOrQueue($disk, $path);
 
         if (is_string($analysisPath) && $analysisPath !== '') {
-            $this->deleteStoredMedia($disk, $analysisPath);
+            DeleteStoredMediaJob::deleteNowOrQueue($disk, $analysisPath);
         }
     }
 
@@ -222,18 +220,5 @@ final class DeleteFollowUpUpload
         }
 
         return [$lockedItem, $lockedUpload];
-    }
-
-    private function deleteStoredMedia(string $disk, string $path): void
-    {
-        try {
-            if (Storage::disk($disk)->delete($path)) {
-                return;
-            }
-        } catch (Throwable) {
-            // Retry asynchronously after the database mutation has committed.
-        }
-
-        DeleteStoredMediaJob::dispatch($disk, $path);
     }
 }

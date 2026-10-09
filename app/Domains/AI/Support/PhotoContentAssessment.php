@@ -221,11 +221,6 @@ final class PhotoContentAssessment
             || (bool) ($this->value['customer_accepted_mismatch'] ?? false);
     }
 
-    public function withCustomerAcceptedMismatch(): self
-    {
-        return $this->withCustomerAcceptedOverride();
-    }
-
     public function withCustomerAcceptedOverride(): self
     {
         return new self([

@@ -60,6 +60,33 @@ class AiTraceSnapshotService
     }
 
     /**
+     * Close a successful trace: stop the process timer, record dossier and remaining-question
+     * snapshots against the state before the AI step (skipped for no-op traces) and succeed.
+     *
+     * @param  array{answers: list<array<string, mixed>>, answer_count: int, values?: array<string, mixed>}  $dossierBefore
+     * @param  array{questions: list<array<string, mixed>>, next_step: array<string, mixed>|null, visible_count: int, hidden_count: int, remaining_count?: int}  $questionsBefore
+     */
+    public function succeedWithSnapshots(
+        AiTraceHandle $trace,
+        Intake $intake,
+        array $dossierBefore,
+        array $questionsBefore,
+    ): void {
+        $trace->stopProcessTimer();
+        if (! $trace->isNoop()) {
+            $freshIntake = $intake->fresh() ?? $intake;
+            $dossierAfter = $this->answers($freshIntake);
+            $trace->recordDossierSnapshots(
+                $dossierBefore,
+                $dossierAfter,
+                $this->changedFields($dossierBefore, $dossierAfter),
+            );
+            $trace->recordRemainingQuestions($questionsBefore, $this->remainingQuestions($freshIntake));
+        }
+        $trace->succeed();
+    }
+
+    /**
      * @param  array{answers: list<array<string, mixed>>, answer_count: int, values?: array<string, mixed>}  $before
      * @param  array{answers: list<array<string, mixed>>, answer_count: int, values?: array<string, mixed>}  $after
      * @return list<array{question_key: string, section_instance_key: string|null, change: string, before: mixed, after: mixed}>

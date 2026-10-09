@@ -41,7 +41,7 @@ final class CompletenessChecker
         $intake->loadMissing('answers');
 
         foreach ($progress['missing_required'] as $item) {
-            $question = $this->findQuestion($version, $item['question_key']);
+            $question = $version->findQuestion($item['question_key']);
             $section = $this->findSectionForQuestion($version, $item['question_key']);
             $reason = $question !== null && $question->type === QuestionType::Photo
                 ? 'required_photo'
@@ -162,7 +162,7 @@ final class CompletenessChecker
             ->first(static fn ($row): bool => $row->question_key === $questionKey
                 && $row->section_instance_key === null);
 
-        $question = $this->findQuestion($version, $questionKey);
+        $question = $version->findQuestion($questionKey);
         $type = $question instanceof IntakeQuestion ? $question->type : QuestionType::SingleChoice;
         $filled = $answer instanceof IntakeAnswer
             && $this->answerValueReader->isFilled(
@@ -243,7 +243,7 @@ final class CompletenessChecker
             return null;
         }
 
-        $photoQuestion = $this->findQuestion($version, $photoKey);
+        $photoQuestion = $version->findQuestion($photoKey);
         $photoQuestionLabel = is_string($photoQuestion?->label) && trim($photoQuestion->label) !== ''
             ? trim($photoQuestion->label)
             : null;
@@ -351,19 +351,6 @@ final class CompletenessChecker
 
         // Nooit Engelse enum-keys naar klant of dossierlabels lekken.
         return 'Onbekend';
-    }
-
-    private function findQuestion(IntakeTemplateVersion $version, string $questionKey): ?IntakeQuestion
-    {
-        foreach ($version->sections as $section) {
-            foreach ($section->questions as $question) {
-                if ($question->key === $questionKey) {
-                    return $question;
-                }
-            }
-        }
-
-        return null;
     }
 
     private function findSectionForQuestion(IntakeTemplateVersion $version, string $questionKey): ?IntakeSection

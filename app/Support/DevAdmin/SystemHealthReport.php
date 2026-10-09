@@ -44,7 +44,7 @@ final class SystemHealthReport
             ],
             'image_conversion' => [
                 'imagick_loaded' => class_exists(\Imagick::class),
-                'heic_read' => $this->imagickSupportsHeicRead(),
+                'heic_read' => self::imagickSupportsHeicRead(),
             ],
         ];
     }
@@ -150,7 +150,7 @@ final class SystemHealthReport
         return $disks;
     }
 
-    private function imagickSupportsHeicRead(): bool
+    public static function imagickSupportsHeicRead(): bool
     {
         if (! class_exists(\Imagick::class)) {
             return false;

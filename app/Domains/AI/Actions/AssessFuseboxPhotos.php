@@ -130,7 +130,7 @@ final class AssessFuseboxPhotos
             if ($assessment->status() === PhotoContentAssessment::STATUS_WRONG_SUBJECT
                 && ! $assessment->customerAcceptedMismatch()) {
                 if ($assessed['trace'] instanceof AiTraceHandle) {
-                    $this->finalizeContentOnlyTrace(
+                    $this->traceSnapshots->succeedWithSnapshots(
                         $assessed['trace'],
                         $intake,
                         $assessed['dossier_before'],
@@ -161,7 +161,7 @@ final class AssessFuseboxPhotos
                 $matchingOutputs[] = $run->output;
                 if ($assessed['trace'] instanceof AiTraceHandle) {
                     if ($applyContext !== null) {
-                        $this->finalizeContentOnlyTrace(
+                        $this->traceSnapshots->succeedWithSnapshots(
                             $applyContext['trace'],
                             $intake,
                             $applyContext['dossier_before'],
@@ -171,7 +171,7 @@ final class AssessFuseboxPhotos
                     $applyContext = $assessed;
                 }
             } elseif ($assessed['trace'] instanceof AiTraceHandle) {
-                $this->finalizeContentOnlyTrace(
+                $this->traceSnapshots->succeedWithSnapshots(
                     $assessed['trace'],
                     $intake,
                     $assessed['dossier_before'],
@@ -361,21 +361,7 @@ final class AssessFuseboxPhotos
                 }
 
                 $trace->linkAiRun($run->fresh() ?? $run);
-                $trace->stopProcessTimer();
-                if (! $trace->isNoop()) {
-                    $freshIntake = $intake->fresh() ?? $intake;
-                    $dossierAfter = $this->traceSnapshots->answers($freshIntake);
-                    $trace->recordDossierSnapshots(
-                        $dossierBefore,
-                        $dossierAfter,
-                        $this->traceSnapshots->changedFields($dossierBefore, $dossierAfter),
-                    );
-                    $trace->recordRemainingQuestions(
-                        $questionsBefore,
-                        $this->traceSnapshots->remainingQuestions($freshIntake),
-                    );
-                }
-                $trace->succeed();
+                $this->traceSnapshots->succeedWithSnapshots($trace, $intake, $dossierBefore, $questionsBefore);
 
                 return $run->fresh() ?? $run;
             }
@@ -401,33 +387,6 @@ final class AssessFuseboxPhotos
         }
 
         return $lastRun;
-    }
-
-    /**
-     * @param  array<string, mixed>  $dossierBefore
-     * @param  array<string, mixed>  $questionsBefore
-     */
-    private function finalizeContentOnlyTrace(
-        AiTraceHandle $trace,
-        Intake $intake,
-        array $dossierBefore,
-        array $questionsBefore,
-    ): void {
-        $trace->stopProcessTimer();
-        if (! $trace->isNoop()) {
-            $freshIntake = $intake->fresh() ?? $intake;
-            $dossierAfter = $this->traceSnapshots->answers($freshIntake);
-            $trace->recordDossierSnapshots(
-                $dossierBefore,
-                $dossierAfter,
-                $this->traceSnapshots->changedFields($dossierBefore, $dossierAfter),
-            );
-            $trace->recordRemainingQuestions(
-                $questionsBefore,
-                $this->traceSnapshots->remainingQuestions($freshIntake),
-            );
-        }
-        $trace->succeed();
     }
 
     /**
@@ -835,7 +794,7 @@ final class AssessFuseboxPhotos
             'has_value' => ($output['empty_module_space'] ?? 'unknown') !== 'unknown',
         ];
 
-        if ($this->hasQuestion($intake, self::CLARITY_QUESTION)) {
+        if ($intake->templateVersion->hasQuestion(self::CLARITY_QUESTION)) {
             $clarityExisting = IntakeAnswer::query()
                 ->where('intake_id', $intake->id)
                 ->where('question_key', self::CLARITY_QUESTION)
@@ -868,7 +827,7 @@ final class AssessFuseboxPhotos
 
     private function prefillClarity(Intake $intake, string $clarity): void
     {
-        if (! $this->hasQuestion($intake, self::CLARITY_QUESTION)) {
+        if (! $intake->templateVersion->hasQuestion(self::CLARITY_QUESTION)) {
             return;
         }
 
@@ -906,20 +865,5 @@ final class AssessFuseboxPhotos
         }
 
         return 'needs_clearer_photo';
-    }
-
-    private function hasQuestion(Intake $intake, string $questionKey): bool
-    {
-        $intake->loadMissing('templateVersion.sections.questions');
-
-        foreach ($intake->templateVersion->sections as $section) {
-            foreach ($section->questions as $question) {
-                if ($question->key === $questionKey) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
     }
 }

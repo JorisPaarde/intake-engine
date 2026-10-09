@@ -90,7 +90,7 @@ final class IntakeAttentionContextBuilder
                 'confidence' => $fact->confidence,
             ];
             $externalFactContext[] = [
-                'reference' => $fact->fact_key.'@fact:'.$this->opaqueReference('fact', $fact->id),
+                'reference' => $fact->fact_key.'@fact:'.self::opaqueReference('fact', $fact->id),
                 'fact_key' => $fact->fact_key,
                 'label' => $fact->label,
                 'value' => $value,
@@ -200,7 +200,7 @@ final class IntakeAttentionContextBuilder
             }
 
             $routes[] = [
-                'reference' => $this->opaqueReference('route', $session->id),
+                'reference' => self::opaqueReference('route', $session->id),
                 'status' => $session->status->value,
                 'confidence' => $session->confidence,
                 'proposed_route' => $session->proposed_route,
@@ -225,8 +225,8 @@ final class IntakeAttentionContextBuilder
 
         return [
             'reference' => $isFollowUp
-                ? $this->opaqueReference('follow_up_upload', $upload->id)
-                : $this->questionReference($upload->question_key, $upload->section_instance_key).'@upload:'.$this->opaqueReference('upload', $upload->id),
+                ? self::opaqueReference('follow_up_upload', $upload->id)
+                : $this->questionReference($upload->question_key, $upload->section_instance_key).'@upload:'.self::opaqueReference('upload', $upload->id),
             'question_key' => $isFollowUp ? 'follow_up_upload' : $upload->question_key,
             'question_label' => $question['question_label'] ?? null,
             'section_label' => $question['section_label'] ?? null,
@@ -249,7 +249,7 @@ final class IntakeAttentionContextBuilder
 
             foreach ($round->items as $item) {
                 $items[] = [
-                    'reference' => 'round_'.$round->round_number.'@'.$this->opaqueReference('item', $item->id),
+                    'reference' => 'round_'.$round->round_number.'@'.self::opaqueReference('item', $item->id),
                     'type' => $item->type->value,
                     'prompt' => $item->prompt,
                     'response_text' => $item->response_text,
@@ -277,7 +277,10 @@ final class IntakeAttentionContextBuilder
             : $questionKey.'@section:'.$sectionInstanceKey;
     }
 
-    private function opaqueReference(string $type, int $id): string
+    /**
+     * Stable, non-reversible reference for a database row in AI context; {@see InstallerEvidencePresenter} resolves it back.
+     */
+    public static function opaqueReference(string $type, int $id): string
     {
         return $type.'_'.substr(hash_hmac('sha256', (string) $id, (string) config('app.key')), 0, 16);
     }
