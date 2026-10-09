@@ -44,7 +44,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| 1 | BL-148 | Klantwizard: around_house verbergen + maten L×B+m² op één scherm | E1/E7 | in_progress | high | Notion #14 punten 2/3 · airco v28 · rest van #171 |
+| — | BL-148 | Klantwizard: around_house verbergen + maten L×B+m² op één scherm | E1/E7 | done | high | Notion #14 punten 2/3 · airco v28 · rest van #171 · PR #176 |
 | 1 | BL-147 | UX-pakket werkplek/klantkant: layout/a11y + UX-uitkomst 8 okt (tekst/gedrag) | E6/E7 | in_progress | low | Notion #15/#16 (QA 8 okt) · PR #168 · open vragen zie detail |
 | — | BL-145 | Klanttaken bundelen in conceptlijst + neutrale meterkasttekst (geen installateurstekst) | E7 | done | high | na BL-100/107 · Notion P2 test4/codeonderzoek-4 · 2026-10-04 |
 | 1 | BL-144 | AI-trace gaps: provider_request_id, skip-runs, seed/queued_at, export finish_reason | E4/E5 | in_progress | high | na BL-125/132/133 · intakes 76–78/94–95 · rebase main@ba83825 |
@@ -699,11 +699,12 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-148 — Klantwizard overbodige vragen (Notion #14 punten 2/3)
 
-- **Status:** in_progress · **Prioriteit:** high · **Epic:** E1/E7 · **Ref:** Notion *IE: Klantwizard stelt vragen die overbodig lijken* (#14) · rest van PR #171
+- **Status:** done · **Datum:** 2026-10-09 · **PR:** #176 · **Prioriteit:** high · **Epic:** E1/E7 · **Ref:** Notion *IE: Klantwizard stelt vragen die overbodig lijken* (#14) · rest van PR #171
 - **Aanleiding:** #171 leverde punten 1 (afvoer één scherm, v27), 4 (categorieconsistentie) en 5 (klantmaten in werkplek). Punt 2: bruikbare buitenfoto liet `around_house_photos` optioneel in beeld. Punt 3: m² stond nog als apart scherm i.p.v. op het matenscherm.
 - **Doel:** (2) bruikbare outdoor/gevel-foto → stap verbergen en niet meetellen; anders gerichte vervolgvraag met **Foto maken** / **Weet ik niet / sla over**. (3) L×B + optioneel m² op één scherm, live oppervlak, link “Weet je alleen het oppervlak in m²?”.
 - **Scope:** airco **v28**; `OutdoorPhotoReuse` + `IntakeStepBuilder`; matenscherm Livewire/Blade; leeg `room_area_m2` persist’t niet over `derived_lxw`. **Buiten scope:** demo-leftovers, tekstinterpretatie, UX-pakketten, punten 1/4/5.
 - **Acceptatie:** bruikbare `outdoor_location_photos` → geen around_house-stap; zonder foto vervolgvraag + skip; L+B → volgende stap is geen m²; live m² + reveal-link; Pest groen.
+- **Resultaat:** airco v28; `OutdoorPhotoReuse` verbergt de stap; matenscherm L×B+m². Punten 1/4/5 blijven in #171.
 
 ### BL-147 — UX-pakket werkplek/klantkant (Notion #15/#16)
 
