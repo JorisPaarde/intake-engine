@@ -47,7 +47,7 @@ Route::post('/interesse', ProductInterestController::class)
 Route::get('/health', HealthController::class)->name('health');
 
 Route::post('/demo/start', StartDemoController::class)
-    ->middleware(['guest', 'throttle:demo-start'])
+    ->middleware(['throttle:demo-start'])
     ->name('demo.start');
 
 Route::get('/demo/beeindigd', function (Request $request, PublicDemoSession $publicDemoSession) {
