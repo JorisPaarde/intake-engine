@@ -336,6 +336,7 @@ final class SurveyWorkspaceController extends Controller
         return $this->back($intake, $placement->type->label().' bijgewerkt.', 'placement-'.$placement->id);
     }
 
+
     public function storeInstallationOption(
         Request $request,
         Intake $intake,

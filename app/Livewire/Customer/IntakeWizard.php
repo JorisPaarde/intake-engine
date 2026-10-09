@@ -176,6 +176,20 @@ class IntakeWizard extends Component
      */
     public ?array $pendingFollowUpRemoval = null;
 
+    /**
+     * Hoofdwizard-foto in de prullenbak (8 s ongedaan maken, BL-147).
+     *
+     * @var array{
+     *     upload_id: int,
+     *     question_key: string,
+     *     section_instance_key: string|null,
+     *     composite: string,
+     *     answers: list<array<string, mixed>>,
+     *     facts: list<array<string, mixed>>
+     * }|null
+     */
+    public ?array $pendingWizardRemoval = null;
+
     public bool $followUpMode = false;
 
     /**
@@ -312,6 +326,7 @@ class IntakeWizard extends Component
         // Volgend bezoek aan de klantlink: foto's die nog in de prullenbak staan
         // (tabblad binnen 8 s gesloten) gaan nu echt weg (BL-147, UX #16.4).
         app(DeleteFollowUpUpload::class)->purgePendingFor($intake);
+        app(DeleteIntakeUpload::class)->purgePendingFor($intake);
 
         if ($intake->status === IntakeStatus::AwaitingCustomer) {
             $this->resolvedIntake = $intake->loadMissing(['answers', 'uploads']);
@@ -420,6 +435,7 @@ class IntakeWizard extends Component
     public function render(): View
     {
         $intake = $this->intake();
+        $intake->loadMissing('company');
         $this->recoverUnassessedUploads();
 
         if ($this->followUpMode) {
@@ -784,28 +800,82 @@ class IntakeWizard extends Component
 
     public function removePhoto(int $uploadId): void
     {
+        $this->finalizePendingWizardRemoval();
+
         $upload = IntakeUpload::query()->findOrFail($uploadId);
+        $action = app(DeleteIntakeUpload::class);
 
         try {
-            app(DeleteIntakeUpload::class)->handle($this->intake(), $upload);
+            $snapshot = $action->snapshotDerivedState($this->intake(), $upload);
+            $action->softRemove($this->intake(), $upload);
+
+            $composite = VisibilityResolver::compositeKey(
+                $upload->question_key,
+                $upload->section_instance_key,
+            );
+            $this->pendingWizardRemoval = [
+                'upload_id' => $upload->id,
+                'question_key' => $upload->question_key,
+                'section_instance_key' => $upload->section_instance_key,
+                'composite' => $composite,
+                'answers' => $snapshot['answers'],
+                'facts' => $snapshot['facts'],
+            ];
 
             // Een weggehaalde foto mag geen conclusie achterlaten die eruit was afgeleid.
             $this->invalidatePhotoDerivation($upload->question_key, $upload->section_instance_key);
             $this->runPhotoDerivation($upload->question_key, $upload->section_instance_key);
 
             $this->forgetIntakeDerivedCaches();
-            $composite = VisibilityResolver::compositeKey(
-                $upload->question_key,
-                $upload->section_instance_key,
-            );
             $this->clearPhotoFeedbackForComposite($composite);
             $this->clearProgressExtraNoteIfRelatedToUpload($upload->id);
             $this->refreshAnswerInForm($composite);
-            $this->saveMessage = 'Foto verwijderd.';
+            $this->saveMessage = '';
             $this->showMissing = false;
         } catch (ValidationException $e) {
             $this->addError('photo', $e->errors()['photo'][0] ?? 'Verwijderen mislukt.');
         }
+    }
+
+    public function undoWizardUploadRemoval(): void
+    {
+        $pending = $this->pendingWizardRemoval;
+        $this->pendingWizardRemoval = null;
+
+        if ($pending === null) {
+            return;
+        }
+
+        try {
+            $action = app(DeleteIntakeUpload::class);
+            $action->restore($this->intake(), (int) $pending['upload_id']);
+            $this->invalidatePhotoDerivation(
+                (string) $pending['question_key'],
+                $pending['section_instance_key'],
+            );
+            $action->restoreDerivedState($this->intake(), [
+                'answers' => $pending['answers'],
+                'facts' => $pending['facts'],
+            ]);
+            $this->forgetIntakeDerivedCaches();
+            $this->refreshAnswerInForm((string) $pending['composite']);
+            $this->resetErrorBag('photo');
+        } catch (ValidationException $exception) {
+            $this->addError('photo', $exception->errors()['photo'][0] ?? 'Ongedaan maken mislukt.');
+        }
+    }
+
+    public function finalizePendingWizardRemoval(?int $uploadId = null): void
+    {
+        $pending = $this->pendingWizardRemoval;
+
+        if ($pending === null || ($uploadId !== null && (int) $pending['upload_id'] !== $uploadId)) {
+            return;
+        }
+
+        $this->pendingWizardRemoval = null;
+
+        app(DeleteIntakeUpload::class)->finalize($this->intake(), (int) $pending['upload_id']);
     }
 
     public function updated(string $property): void
@@ -2072,6 +2142,8 @@ class IntakeWizard extends Component
      */
     private function uploadPhotosForComposite(string $composite, array $files): void
     {
+        $this->finalizePendingWizardRemoval();
+
         $maxKb = (int) ceil(PhotoUploadLimits::hardMaxBytes() / 1024);
         [$questionKey, $instanceKey] = $this->splitComposite($composite);
         $intake = $this->intake();
@@ -2632,6 +2704,7 @@ class IntakeWizard extends Component
         $questionKey = $upload->question_key;
         $instanceKey = $upload->section_instance_key;
 
+        $this->finalizePendingWizardRemoval();
         app(DeleteIntakeUpload::class)->handle($this->intake(), $upload);
 
         $this->invalidatePhotoDerivation($questionKey, $instanceKey);
@@ -2847,6 +2920,8 @@ class IntakeWizard extends Component
             return;
         }
 
+        $this->finalizePendingWizardRemoval();
+
         $step = $this->currentStep();
         if ($step === null || ($step['kind'] ?? 'question') === 'known_summary') {
             return;
@@ -2977,6 +3052,7 @@ class IntakeWizard extends Component
             return;
         }
 
+        $this->finalizePendingWizardRemoval();
         $this->saveCurrentStep();
 
         if (! $this->currentStepRequiredSatisfied()) {
@@ -3022,6 +3098,7 @@ class IntakeWizard extends Component
             return;
         }
 
+        $this->finalizePendingWizardRemoval();
         $this->clearProgressExtraNote();
 
         $knownBeforeSave = $this->knownStepKeys;
@@ -3186,6 +3263,7 @@ class IntakeWizard extends Component
             return;
         }
 
+        $this->finalizePendingWizardRemoval();
         $this->clearProgressExtraNote();
         $this->photoFixReturnStepKey = '';
 
@@ -3315,7 +3393,7 @@ class IntakeWizard extends Component
     {
         if ($this->resolvedIntake === null) {
             $this->resolvedIntake = Intake::query()
-                ->with(['answers', 'uploads'])
+                ->with(['answers', 'uploads', 'company'])
                 ->findOrFail($this->intakeId);
         }
 
