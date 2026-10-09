@@ -36,7 +36,7 @@ test('A1: v27 combineert drain_location en drain_photo in één wizardstap', fun
     $intake = makeKlantwizard14Intake();
     $version = $intake->fresh()->templateVersion()->with(['sections.questions'])->firstOrFail();
 
-    expect($version->version)->toBe(27);
+    expect($version->version)->toBeGreaterThanOrEqual(27);
 
     $drainLocation = $version->sections->flatMap->questions->firstWhere('key', 'drain_location');
     $drainPhoto = $version->sections->flatMap->questions->firstWhere('key', 'drain_photo');

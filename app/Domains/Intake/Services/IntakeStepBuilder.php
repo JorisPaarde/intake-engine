@@ -14,6 +14,7 @@ use App\Domains\Intake\Support\FactSource;
 use App\Domains\Intake\Support\InternalCustomerQuestions;
 use App\Domains\Intake\Support\KnownSummaryCatalog;
 use App\Domains\Intake\Support\MustAcceptQuestions;
+use App\Domains\Intake\Support\OutdoorPhotoReuse;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Domains\Intake\Support\RoomLabelResolver;
 use App\Enums\QuestionType;
@@ -192,13 +193,14 @@ final class IntakeStepBuilder
      *     answerFacts: array<string, array{provenance: ?string, confidence: ?int, fact_source: ?string}>,
      *     questionTypes: array<string, QuestionType>,
      *     sectionsByQuestionKey: array<string, IntakeSection>,
-     *     allQuestions: Collection<string, IntakeQuestion>
+     *     allQuestions: Collection<string, IntakeQuestion>,
+     *     hasUsableOutdoorContext?: bool
      * }
      */
     private function buildContext(Intake $intake, IntakeTemplateVersion $version, array $liveAnswers = []): array
     {
         $version->loadMissing(['sections.questions.options', 'sections.questions.rules']);
-        $intake->loadMissing(['answers', 'aircoRooms']);
+        $intake->loadMissing(['answers', 'aircoRooms', 'uploads']);
 
         $answers = [];
         $answerSources = [];
@@ -240,6 +242,7 @@ final class IntakeStepBuilder
             'questionTypes' => $questionTypes,
             'sectionsByQuestionKey' => $sectionsByQuestionKey,
             'allQuestions' => $allQuestions,
+            'hasUsableOutdoorContext' => OutdoorPhotoReuse::hasUsableOutdoorContext($intake),
         ];
     }
 
@@ -251,7 +254,8 @@ final class IntakeStepBuilder
      *     answerFacts: array<string, array{provenance: ?string, confidence: ?int, fact_source: ?string}>,
      *     questionTypes: array<string, QuestionType>,
      *     sectionsByQuestionKey: array<string, IntakeSection>,
-     *     allQuestions: Collection<string, IntakeQuestion>
+     *     allQuestions: Collection<string, IntakeQuestion>,
+     *     hasUsableOutdoorContext?: bool
      * }  $context
      * @param  list<string>  $forceShowComposites
      * @param  list<string>  $stickyStepKeys
@@ -317,10 +321,14 @@ final class IntakeStepBuilder
             $candidateStepKey = $wizardGroup !== null && $wizardGroup !== ''
                 ? $section->key.$instanceSuffix.'::'.$wizardGroup
                 : $section->key.$instanceSuffix.'::'.$question->key;
+            $aroundHouseHidden = $question->key === OutdoorPhotoReuse::TARGET_KEY
+                && ($context['hasUsableOutdoorContext'] ?? false) === true;
             // Sticky only for “answered/prefilled” hides (e.g. room_name after fill), never for
-            // rule-invisible steps (e.g. fusebox_photo_extra after a clear meterkastfoto).
+            // rule-invisible steps (e.g. fusebox_photo_extra after a clear meterkastfoto)
+            // nor for around_house hidden by a usable outdoor photo.
             $stickyKeep = in_array($candidateStepKey, $stickyStepKeys, true)
-                && in_array($presentation['reason'], ['prefilled', 'overgeslagen'], true);
+                && in_array($presentation['reason'], ['prefilled', 'overgeslagen'], true)
+                && ! $aroundHouseHidden;
 
             if ($presentation['reason'] !== 'visible' && ! $stickyKeep) {
                 continue;
@@ -477,7 +485,8 @@ final class IntakeStepBuilder
      *     answerFacts: array<string, array{provenance: ?string, confidence: ?int, fact_source: ?string}>,
      *     questionTypes: array<string, QuestionType>,
      *     sectionsByQuestionKey: array<string, IntakeSection>,
-     *     allQuestions: Collection<string, IntakeQuestion>
+     *     allQuestions: Collection<string, IntakeQuestion>,
+     *     hasUsableOutdoorContext?: bool
      * }  $context
      */
     private function roomAreaKnown(array $context, ?string $sectionInstanceKey): bool
@@ -501,7 +510,8 @@ final class IntakeStepBuilder
      *     answerFacts: array<string, array{provenance: ?string, confidence: ?int, fact_source: ?string}>,
      *     questionTypes: array<string, QuestionType>,
      *     sectionsByQuestionKey: array<string, IntakeSection>,
-     *     allQuestions: Collection<string, IntakeQuestion>
+     *     allQuestions: Collection<string, IntakeQuestion>,
+     *     hasUsableOutdoorContext?: bool
      * }  $context
      */
     private function appendCatalogRows(
@@ -546,7 +556,8 @@ final class IntakeStepBuilder
      *     answerFacts: array<string, array{provenance: ?string, confidence: ?int, fact_source: ?string}>,
      *     questionTypes: array<string, QuestionType>,
      *     sectionsByQuestionKey: array<string, IntakeSection>,
-     *     allQuestions: Collection<string, IntakeQuestion>
+     *     allQuestions: Collection<string, IntakeQuestion>,
+     *     hasUsableOutdoorContext?: bool
      * }  $context
      * @return array<string, array{visible: bool, required: bool}>
      */
@@ -581,7 +592,8 @@ final class IntakeStepBuilder
      *     answerFacts: array<string, array{provenance: ?string, confidence: ?int, fact_source: ?string}>,
      *     questionTypes: array<string, QuestionType>,
      *     sectionsByQuestionKey: array<string, IntakeSection>,
-     *     allQuestions: Collection<string, IntakeQuestion>
+     *     allQuestions: Collection<string, IntakeQuestion>,
+     *     hasUsableOutdoorContext?: bool
      * }  $context
      * @return array{
      *     visible: bool,
@@ -619,14 +631,21 @@ final class IntakeStepBuilder
         $roomNameHidden = ! $forceShow
             && $question->key === 'room_name'
             && ! $this->shouldAskRoomName($context['answers'], $sectionInstanceKey);
+        $aroundHouseReused = ! $forceShow
+            && $question->key === OutdoorPhotoReuse::TARGET_KEY
+            && ($context['hasUsableOutdoorContext'] ?? false) === true;
         $internal = $this->isInternalQuestion($question);
         $ruleVisible = $state['visible'] === true;
-        $wizardVisible = $ruleVisible && ! $prefilledSkipped && ! $roomNameHidden && ! $internal;
+        $wizardVisible = $ruleVisible
+            && ! $prefilledSkipped
+            && ! $roomNameHidden
+            && ! $aroundHouseReused
+            && ! $internal;
 
         $reason = $this->catalogReason(
             wizardVisible: $wizardVisible,
             ruleVisible: $ruleVisible,
-            prefilledSkipped: $prefilledSkipped || $roomNameHidden,
+            prefilledSkipped: $prefilledSkipped || $roomNameHidden || $aroundHouseReused,
             internal: $internal,
         );
 

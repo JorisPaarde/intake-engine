@@ -27,6 +27,8 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
+- **Klantwizard overbodige vragen (BL-148, Notion #14 punten 2/3):** airco **v28**. Bruikbare gevel-/tuinfoto (`OutdoorPhotoReuse`) verbergt `around_house_photos` en telt de stap niet mee; zonder bruikbare foto is het een gerichte vervolgvraag (“We zien de buitenkant nog niet goed”, knoppen **Foto maken** en **Weet ik niet / sla over**). Maten: L×B en optioneel m² op hetzelfde scherm, live “Oppervlak: … m²”, link “Weet je alleen het oppervlak in m²?”; leeg m² overschrijft `derived_lxw` niet. Punten 1/4/5 staan in #171.
+
 - **PHP `memory_limit` 256M (BL-141):** `public/.user.ini` van **512M → 256M** (Hoasted PMEM 512 MB; selector-standaard web was al 256M, git/.user.ini stond op 512M). CLI op de host is al 256M; `AppServiceProvider` is alleen een vangnet voor `-1`/te lage defaults (verlaagt geen hogere limieten). Queue-worker blijft `--memory=256` (Laravel-restartthreshold). `PhotoUploadNormalizer` zet Imagick resource limits en verkleint de werkbuffer naar dossier-max vóór variant-clones (GD idem). Test: 12 MP JPEG (4032×3024) assert `memory_get_peak_usage` &lt; ~200 MB (**gemeten ≈ 39 MB piek** / ≈ 11 MB delta met Imagick). `/health` toont `php_upload.memory_limit`.
 
 - **Photo-assessment watchdog + cPanel-cron (LVE 512 MB):** `photos:requeue-pending-assessments` van `everyMinute()` naar `everyFiveMinutes()` (upload dispatcht de AI-job meteen; watchdog is alleen vangnet). Docs: crontab mag **alleen** `schedule:run` bevatten — géén aparte `queue:work --stop-when-empty` (die worker start de scheduler al); dubbele minutelijke PHP-processen duwen LVE over 512 MB → 503.

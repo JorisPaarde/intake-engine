@@ -6,7 +6,7 @@ use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Services\PublishIntakeTemplateFromConfig;
 use App\Enums\TemplateVersionStatus;
 
-test('airco template seeder publishes v1 through v27 with v27 as latest', function () {
+test('airco template seeder publishes v1 through v28 with v28 as latest', function () {
     seedAllAircoTemplateVersions();
 
     $template = IntakeTemplate::query()->where('key', 'airco')->first();
@@ -16,14 +16,14 @@ test('airco template seeder publishes v1 through v27 with v27 as latest', functi
 
     $versions = $template->versions()->orderBy('version')->get();
 
-    expect($versions)->toHaveCount(27)
-        ->and($versions->pluck('version')->all())->toBe([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27])
+    expect($versions)->toHaveCount(28)
+        ->and($versions->pluck('version')->all())->toBe([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28])
         ->and($versions->every(fn ($version) => $version->status === TemplateVersionStatus::Published))->toBeTrue();
 
     $latest = $template->latestPublishedVersion();
 
     expect($latest)->not->toBeNull()
-        ->and($latest->version)->toBe(27)
+        ->and($latest->version)->toBe(28)
         ->and($latest->sections()->count())->toBeGreaterThan(5)
         ->and($latest->sections()->where('key', 'rooms')->value('is_repeatable'))->toBeTrue();
 
@@ -53,7 +53,7 @@ test('airco template seeder publishes v1 through v27 with v27 as latest', functi
         ->and($roomQuestions->firstWhere('key', 'room_area_m2')->is_required)->toBeFalse()
         ->and($roomQuestions->firstWhere('key', 'room_length_m')->label)->toBe('Lengte (m)')
         ->and($roomQuestions->firstWhere('key', 'room_width_m')->label)->toBe('Breedte (m)')
-        ->and($roomQuestions->firstWhere('key', 'room_area_m2')->label)->toBe('Vloeroppervlak (m²)')
+        ->and($roomQuestions->firstWhere('key', 'room_area_m2')->label)->toBe('Oppervlak (m²)')
         ->and($roomQuestions->firstWhere('key', 'ceiling_height_m')->label)->toBe('Hoogte (m)')
         ->and($roomQuestions->firstWhere('key', 'room_area_m2')->help_text)->toContain('lengte en breedte')
         ->and($roomQuestions->firstWhere('key', 'ceiling_height_m')->help_text)->toContain('plafondhoogte')
@@ -100,7 +100,8 @@ test('airco template seeder publishes v1 through v27 with v27 as latest', functi
     expect($pipeRoute->is_required)->toBeFalse()
         ->and($pipeRoute->meta['audience'] ?? null)->toBe('installer')
         ->and($roomQuestions->firstWhere('key', 'room_length_m')->meta['wizard_group'] ?? null)->toBe('room_dimensions')
-        ->and($roomQuestions->firstWhere('key', 'room_width_m')->meta['wizard_group'] ?? null)->toBe('room_dimensions');
+        ->and($roomQuestions->firstWhere('key', 'room_width_m')->meta['wizard_group'] ?? null)->toBe('room_dimensions')
+        ->and($roomQuestions->firstWhere('key', 'room_area_m2')->meta['wizard_group'] ?? null)->toBe('room_dimensions');
 
     $buildYear = $latest->sections()
         ->where('key', 'building')
@@ -183,10 +184,13 @@ test('airco template seeder publishes v1 through v27 with v27 as latest', functi
         ->and($drainPhoto->meta['allow_skip'] ?? null)->toBeNull()
         ->and($drainPhoto->meta['reuse_from_photo_keys'] ?? null)->toBeNull()
         ->and($aroundHouse->meta['allow_skip'] ?? null)->toBeTrue()
+        ->and($aroundHouse->meta['skip_label'] ?? null)->toBe('Weet ik niet / sla over')
         ->and($aroundHouse->meta['reuse_from_photo_keys'] ?? [])->toContain('outdoor_location_photos')
+        ->and($aroundHouse->label)->toBe('We zien de buitenkant nog niet goed')
+        ->and($aroundHouse->help_text)->toContain('gevel of tuin')
         ->and($fuseboxPhoto->meta['photo_analysis'] ?? null)->toBe('fusebox')
         ->and($fuseboxPhoto->is_required)->toBeTrue()
-        ->and($aroundHouse->is_required)->toBeTrue()
+        ->and($aroundHouse->is_required)->toBeFalse()
         ->and($outdoor->questions()->where('key', 'distance_to_indoor')->exists())->toBeFalse()
         // v7 schrapt de losse gevelfoto: de PDOK-luchtfoto levert het overzicht al.
         ->and($outdoor->questions()->where('key', 'facade_overview_photo')->exists())->toBeFalse()
@@ -257,11 +261,11 @@ test('airco template seeder publishes v1 through v27 with v27 as latest', functi
         require database_path('data/templates/airco/v1.php'),
     );
     $againLatest = app(PublishIntakeTemplateFromConfig::class)->handle(
-        require database_path('data/templates/airco/v27.php'),
+        require database_path('data/templates/airco/v28.php'),
     );
 
     expect($againV1->version)->toBe(1)
         ->and($againLatest->id)->toBe($latest->id)
         ->and(IntakeTemplate::query()->where('key', 'airco')->count())->toBe(1)
-        ->and($template->versions()->count())->toBe(27);
+        ->and($template->versions()->count())->toBe(28);
 });
