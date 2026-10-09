@@ -44,7 +44,7 @@ Geprioriteerd op totale installateurstijd, vermeden ritten, technische zekerheid
 
 | # | ID | Item | Epic | Status | Prioriteit | Band / afhankelijkheid |
 |---|----|------|------|--------|------------|-------------------------|
-| 1 | BL-148 | Publieke demo leftovers: nieuwe demo bij actieve sessie, login-verlopen, geen stille aanvraagtekst | E5 | in_progress | medium | A · bij BL-001/066/091 · Notion QA 24 sep #5/#9 + 8 okt P2 |
+| — | BL-148 | Publieke demo leftovers: nieuwe demo bij actieve sessie, login-verlopen, geen stille aanvraagtekst | E5 | done | medium | A · bij BL-001/066/091 · Notion QA 24 sep #5/#9 + 8 okt P2 · 2026-10-09 · PR #177 |
 | 1 | BL-147 | UX-pakket werkplek/klantkant: layout/a11y + UX-uitkomst 8 okt (tekst/gedrag) | E6/E7 | in_progress | low | Notion #15/#16 (QA 8 okt) · PR #168 · open vragen zie detail |
 | — | BL-145 | Klanttaken bundelen in conceptlijst + neutrale meterkasttekst (geen installateurstekst) | E7 | done | high | na BL-100/107 · Notion P2 test4/codeonderzoek-4 · 2026-10-04 |
 | 1 | BL-144 | AI-trace gaps: provider_request_id, skip-runs, seed/queued_at, export finish_reason | E4/E5 | in_progress | high | na BL-125/132/133 · intakes 76–78/94–95 · rebase main@ba83825 |
@@ -699,11 +699,12 @@ Historische MVP-epic: leverde samenvatting, aandachtspunten, fotokwaliteit/-afle
 
 ### BL-148 — Publieke demo leftovers (nieuwe demo, login-verlopen, lege aanvraag)
 
-- **Status:** in_progress · **Prioriteit:** medium · **Epic:** E5 · **Band:** A · **Volgt op:** BL-001/066/091 · **Ref:** Notion *IE: Homepage: nieuwe demo starten bij actieve sessie*, *IE: Login-redirect na verlopen sessie*, *IE: Demo vult lege aanvraag stil met standaardtekst*
+- **Status:** done · **Datum:** 2026-10-09 · **PR:** #177 · **Prioriteit:** medium · **Epic:** E5 · **Band:** A · **Volgt op:** BL-001/066/091 · **Ref:** Notion *IE: Homepage: nieuwe demo starten bij actieve sessie*, *IE: Login-redirect na verlopen sessie*, *IE: Demo vult lege aanvraag stil met standaardtekst*
 - **Doel:** terugkerende demobezoeker kan een schone demo starten; verlopen sessie legt uit wat er gebeurde; lege aanvraag blijft leeg.
 - **Scope:** homepage-CTA **Nieuwe demo starten** (bevestigen → `POST demo.start` sluit de oude sessie af); `demo.start` mag van een demogebruiker (niet `guest`-only; echte accounts gaan naar dashboard); `/login` na gast-redirect toont **Je sessie is verlopen** + inloggen / nieuwe demo; geen stille `prefill.request_reason` uit `DEMO_REQUEST_REASON` (alleen placeholder).
 - **Acceptatie:** actieve sessie op `/` toont **Verder in demo** én **Nieuwe demo starten**; restart maakt een nieuwe ephemeral user; gast op `/dashboard` → login met de melding; lege demo-create slaat geen `request_reason` op en toont geen known-summary “uit je aanvraag”.
-- **Niet in deze PR:** tekstinterpretatie, UX-pakketten BL-147, klantwizard-leftovers.
+- **Resultaat:** `StartDemoController` herstart lopende demosessies; login toont amber **Je sessie is verlopen**; `IntakeController` injecteert geen voorbeeld-`request_reason`. Pest in `StartDemoTest` / `AuthenticationTest` / PDOK-demo-create.
+- **Niet in deze PR:** tekstinterpretatie, UX-pakketten BL-147, klantwizard-leftovers. Notion-taken niet zelf gesloten.
 
 ### BL-147 — UX-pakket werkplek/klantkant (Notion #15/#16)
 
