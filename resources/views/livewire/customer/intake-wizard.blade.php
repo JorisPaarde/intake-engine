@@ -293,10 +293,129 @@
                                 $isDrainNearbyGroup = $groupKeyName === 'drain_nearby';
                                 $isDimensionsGroup = $groupKeyName === 'room_dimensions';
                             @endphp
+                            @php
+                                $lengthQuestion = collect($groupQuestions)->firstWhere('key', 'room_length_m');
+                                $widthQuestion = collect($groupQuestions)->firstWhere('key', 'room_width_m');
+                                $areaQuestion = collect($groupQuestions)->firstWhere('key', 'room_area_m2');
+                                $lengthComposite = $lengthQuestion
+                                    ? \App\Domains\Intake\Services\VisibilityResolver::compositeKey($lengthQuestion->key, $step['section_instance_key'])
+                                    : null;
+                                $widthComposite = $widthQuestion
+                                    ? \App\Domains\Intake\Services\VisibilityResolver::compositeKey($widthQuestion->key, $step['section_instance_key'])
+                                    : null;
+                                $areaComposite = $areaQuestion
+                                    ? \App\Domains\Intake\Services\VisibilityResolver::compositeKey($areaQuestion->key, $step['section_instance_key'])
+                                    : null;
+                                $lengthNumber = $lengthComposite ? data_get($this->form, $lengthComposite.'.number') : null;
+                                $widthNumber = $widthComposite ? data_get($this->form, $widthComposite.'.number') : null;
+                                $areaNumber = $areaComposite ? data_get($this->form, $areaComposite.'.number') : null;
+                                $hasLxB = is_numeric($lengthNumber) && (float) $lengthNumber > 0
+                                    && is_numeric($widthNumber) && (float) $widthNumber > 0;
+                                $hasTypedArea = is_numeric($areaNumber) && (float) $areaNumber > 0;
+                                $showAreaField = $areaQuestion
+                                    && ! $hasLxB
+                                    && ($this->showAreaOnlyField || $hasTypedArea);
+                            @endphp
                             <div
-                                class="{{ $isDimensionsGroup ? 'grid grid-cols-1 gap-4 sm:grid-cols-2' : 'space-y-5' }}"
+                                class="{{ $isDimensionsGroup ? 'space-y-4' : ($isDrainNearbyGroup ? 'space-y-5' : 'space-y-5') }}"
                                 data-testid="{{ $isDrainNearbyGroup ? 'drain-nearby-group' : ($isDimensionsGroup ? 'dimensions-group' : 'question-group') }}"
+                                @if ($isDimensionsGroup)
+                                    x-data="{
+                                        length: {{ \Illuminate\Support\Js::from($lengthNumber) }},
+                                        width: {{ \Illuminate\Support\Js::from($widthNumber) }},
+                                        format(value) {
+                                            const rounded = Math.round(Number(value) * 10) / 10;
+                                            if (! Number.isFinite(rounded)) {
+                                                return '';
+                                            }
+                                            const formatted = rounded.toFixed(1).replace('.', ',');
+                                            return formatted.endsWith(',0') ? formatted.slice(0, -2) : formatted;
+                                        },
+                                        get areaLabel() {
+                                            const length = parseFloat(this.length);
+                                            const width = parseFloat(this.width);
+                                            if (! (length > 0) || ! (width > 0)) {
+                                                return '';
+                                            }
+                                            return 'Oppervlak: ' + this.format(length * width) + ' m²';
+                                        }
+                                    }"
+                                @endif
                             >
+                                @if ($isDimensionsGroup)
+                                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                        @foreach ([$lengthQuestion, $widthQuestion] as $dimQuestion)
+                                            @continue(! $dimQuestion)
+                                            @php
+                                                $groupComposite = \App\Domains\Intake\Services\VisibilityResolver::compositeKey($dimQuestion->key, $step['section_instance_key']);
+                                                $groupState = $visibility[$groupComposite] ?? ['visible' => false, 'required' => false];
+                                                $alpineModel = $dimQuestion->key === 'room_length_m' ? 'length' : 'width';
+                                            @endphp
+                                            <div wire:key="group-field-{{ $groupComposite }}">
+                                                <label for="field-{{ $groupComposite }}" class="mb-1 block text-sm font-medium text-[#18201d]">
+                                                    {{ $dimQuestion->label }}
+                                                    @if ($groupState['required'] || ($step['is_required'] ?? false))
+                                                        <span class="text-[#a84832]">*</span>
+                                                    @endif
+                                                </label>
+                                                <input
+                                                    id="field-{{ $groupComposite }}"
+                                                    type="number"
+                                                    inputmode="decimal"
+                                                    wire:model.blur="form.{{ $groupComposite }}.number"
+                                                    x-model="{{ $alpineModel }}"
+                                                    class="block min-h-11 w-full rounded-xl border-[#dde2da] shadow-sm focus:border-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
+                                                    @if ($groupState['required']) required @endif
+                                                >
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                    <p
+                                        class="text-sm font-medium text-[#18201d]"
+                                        data-testid="live-room-area"
+                                        x-show="areaLabel !== ''"
+                                        x-text="areaLabel"
+                                        x-cloak
+                                    ></p>
+                                    @if ($areaQuestion && $areaComposite)
+                                        @if ($showAreaField)
+                                            <div wire:key="group-field-{{ $areaComposite }}" data-testid="area-only-field">
+                                                <label for="field-{{ $areaComposite }}" class="mb-1 block text-sm font-medium text-[#18201d]">
+                                                    {{ $areaQuestion->label }}
+                                                </label>
+                                                <input
+                                                    id="field-{{ $areaComposite }}"
+                                                    type="number"
+                                                    inputmode="decimal"
+                                                    wire:model.blur="form.{{ $areaComposite }}.number"
+                                                    class="block min-h-11 w-full rounded-xl border-[#dde2da] shadow-sm focus:border-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
+                                                >
+                                                @if ($areaQuestion->help_text)
+                                                    <p class="mt-1 text-xs text-[#5e6862]">{{ $areaQuestion->help_text }}</p>
+                                                @endif
+                                            </div>
+                                        @elseif (! $hasLxB)
+                                            <button
+                                                type="button"
+                                                wire:click="revealAreaOnlyField"
+                                                class="text-sm font-semibold text-[var(--tenant-primary)] underline decoration-[var(--tenant-primary)]/40 underline-offset-2 hover:decoration-[var(--tenant-primary)]"
+                                                data-testid="reveal-area-only"
+                                            >
+                                                Weet je alleen het oppervlak in m²?
+                                            </button>
+                                        @endif
+                                    @endif
+                                    @if (! $hasLxB && ! $hasTypedArea)
+                                        <button
+                                            type="button"
+                                            wire:click="skipOptionalPhoto"
+                                            class="min-h-11 w-full rounded-xl border border-[#dde2da] bg-white px-4 text-sm font-semibold text-[#18201d]"
+                                            data-testid="dimensions-skip"
+                                        >
+                                            Weet ik niet / sla over
+                                        </button>
+                                    @endif
+                                @else
                                 @foreach ($groupQuestions as $groupQuestion)
                                     @php
                                         $groupComposite = \App\Domains\Intake\Services\VisibilityResolver::compositeKey($groupQuestion->key, $step['section_instance_key']);
@@ -350,6 +469,7 @@
                                         @endif
                                     </div>
                                 @endforeach
+                                @endif
                             </div>
                         @else
                         @switch ($question->type->value)

@@ -47,9 +47,10 @@ test('v21 combines length and width on one dimensions wizard screen', function (
     )->values();
 
     expect($dimensionSteps)->toHaveCount(1)
-        ->and($dimensionSteps[0]['group_question_keys'])->toBe(['room_length_m', 'room_width_m'])
+        ->and($dimensionSteps[0]['group_question_keys'])->toBe(['room_length_m', 'room_width_m', 'room_area_m2'])
         ->and($keys)->toContain('room_length_m')
-        ->and($keys)->not->toContain('room_width_m'); // width folded into the group primary
+        ->and($keys)->not->toContain('room_width_m') // width folded into the group primary
+        ->and($keys)->not->toContain('room_area_m2'); // m² folded onto the same screen
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
     $viewSteps = $component->viewData('steps');
@@ -63,8 +64,13 @@ test('v21 combines length and width on one dimensions wizard screen', function (
         ->set('activeStepKey', $viewSteps[(int) $index]['key'])
         ->assertSee('Lengte en breedte van de ruimte')
         ->assertSee('data-testid="dimensions-group"', false)
+        ->assertSee('data-testid="live-room-area"', false)
+        ->assertSee('data-testid="reveal-area-only"', false)
+        ->assertSee('data-testid="dimensions-skip"', false)
         ->assertSee('Lengte (m)')
-        ->assertSee('Breedte (m)');
+        ->assertSee('Breedte (m)')
+        ->assertSee('Weet je alleen het oppervlak in m²?')
+        ->assertDontSee('data-testid="area-only-field"', false);
 });
 
 test('dimensions stay optional when floor area m² is already known', function () {
