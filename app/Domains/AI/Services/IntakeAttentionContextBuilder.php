@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace App\Domains\AI\Services;
 
-use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Support\PhotoContinueAnywayAttention;
-use App\Domains\Intake\Support\UploadSupersessionResolver;
 use App\Enums\AttentionPointSource;
 use Illuminate\Support\Str;
 
@@ -118,7 +116,6 @@ final class IntakeAttentionContextBuilder
                         $questions[$upload->question_key] ?? null,
                     ),
                 )->values()->all(),
-            'photo_question_stats' => $this->photoQuestionStats($intake, $questions),
             'follow_up' => $this->followUpContext($intake),
             'system_attention_points' => $intake->attentionPoints
                 ->reject(fn ($point): bool => $point->source === AttentionPointSource::Ai)
@@ -193,60 +190,6 @@ final class IntakeAttentionContextBuilder
         }
 
         return $context;
-    }
-
-    /**
-     * Per fotovraag + plek: tellingen inclusief afgekeurde foto’s (geen beeldbytes).
-     *
-     * @param  array<string, array{question_label: string, section_key: string|null, section_label: string|null}>  $questions
-     * @return list<array<string, mixed>>
-     */
-    private function photoQuestionStats(Intake $intake, array $questions): array
-    {
-        $supersessions = app(UploadSupersessionResolver::class)->resolve($intake);
-
-        /** @var array<string, array{question_key: string, section_instance_key: string|null, uploads: list<IntakeUpload>, customer_continued_anyway: bool}> $groups */
-        $groups = [];
-
-        foreach ($intake->uploads as $upload) {
-            if (! PhotoContinueAnywayAttention::isCurrentWizardUpload($upload, $supersessions)) {
-                continue;
-            }
-
-            $key = $upload->question_key.'|'.(string) ($upload->section_instance_key ?? '');
-            if (! isset($groups[$key])) {
-                $groups[$key] = [
-                    'question_key' => $upload->question_key,
-                    'section_instance_key' => $upload->section_instance_key,
-                    'uploads' => [],
-                    'customer_continued_anyway' => false,
-                ];
-            }
-
-            $groups[$key]['uploads'][] = $upload;
-            $assessment = $upload->contentAssessment();
-            if ($assessment instanceof PhotoContentAssessment && $assessment->customerAcceptedOverride()) {
-                $groups[$key]['customer_continued_anyway'] = true;
-            }
-        }
-
-        $stats = [];
-        foreach ($groups as $group) {
-            $meta = $questions[$group['question_key']] ?? null;
-            $counts = PhotoContinueAnywayAttention::countStatuses($group['uploads']);
-            // Geen `reference`: tellingen zijn context, geen citeerbaar bewijs.
-            $stats[] = [
-                'question_key' => $group['question_key'],
-                'question_label' => $meta['question_label'] ?? $group['question_key'],
-                'section_instance_key' => $group['section_instance_key'],
-                'photo_count' => $counts['total'],
-                'rejected_count' => $counts['rejected'],
-                'not_assessed_count' => $counts['not_assessed'],
-                'customer_continued_anyway' => $group['customer_continued_anyway'],
-            ];
-        }
-
-        return $stats;
     }
 
     /** @return list<array<string, mixed>> */

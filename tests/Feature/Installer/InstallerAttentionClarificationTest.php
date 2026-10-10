@@ -300,7 +300,7 @@ test('AI-voorstel dat alleen een systeempunt herhaalt wordt verborgen; extra bew
         ->assertDontSee('Alleen systeembewijs', false);
 });
 
-test('context bevat fototellingen voor afgekeurde uploads zonder option_label', function () {
+test('AI-context heeft geen photo_question_stats en geen option_label', function () {
     $intake = clarificationIntake();
     clarificationRoom($intake, 'room-1', 'Woonkamer', 1);
     app(SaveIntakeAnswer::class)->handle(
@@ -316,24 +316,10 @@ test('context bevat fototellingen voor afgekeurde uploads zonder option_label', 
         'room-1',
         PhotoContentAssessment::wrongSubject(PhotoSubject::Room, PhotoSubject::Fusebox),
     );
-    clarificationOverrideUpload(
-        $intake,
-        'room_photos',
-        'room-1',
-        PhotoContentAssessment::notAssessed(PhotoSubject::Room),
-    );
 
     $payload = app(IntakeAttentionContextBuilder::class)->build($intake->fresh());
-    $stats = collect($payload['photo_question_stats'] ?? [])
-        ->first(fn (array $row): bool => ($row['question_key'] ?? null) === 'room_photos'
-            && ($row['section_instance_key'] ?? null) === 'room-1');
 
-    expect($stats)->not->toBeNull()
-        ->and($stats['photo_count'])->toBe(2)
-        ->and($stats['rejected_count'])->toBe(1)
-        ->and($stats['not_assessed_count'])->toBe(1)
-        ->and($stats['customer_continued_anyway'])->toBeTrue()
-        ->and(array_key_exists('reference', $stats))->toBeFalse();
+    expect(array_key_exists('photo_question_stats', $payload))->toBeFalse();
 
     $floorAnswer = collect($payload['answer_context'] ?? [])
         ->first(fn (array $row): bool => ($row['question_key'] ?? null) === 'floor_level');
@@ -371,10 +357,12 @@ test('alle foto’s afgekeurd met Toch doorgaan: attention-points-run slaagt met
     app(SaveIntakeAnswer::class)->handle($intake, 'free_group_known', null, ['value' => 'unknown'], 'customer');
 
     $payload = app(IntakeAttentionContextBuilder::class)->build($intake->fresh());
-    $stats = collect($payload['photo_question_stats'] ?? []);
-    expect($stats)->not->toBeEmpty()
-        ->and($stats->every(fn (array $row): bool => ! array_key_exists('reference', $row)))->toBeTrue()
-        ->and($stats->sum('rejected_count'))->toBeGreaterThan(0);
+    expect(array_key_exists('photo_question_stats', $payload))->toBeFalse();
+
+    $systemPoint = collect($payload['system_attention_points'] ?? [])
+        ->first(fn (array $row): bool => ($row['code'] ?? null) === 'photo_continue_anyway__room_photos__room-1');
+    expect($systemPoint)->not->toBeNull()
+        ->and($systemPoint['label'])->toContain('Toch doorgaan');
 
     $answerRef = collect($payload['answer_context'] ?? [])
         ->first(fn (array $row): bool => ($row['question_key'] ?? null) === 'free_group_known');
@@ -532,15 +520,13 @@ test('Accepteren-knop is omlijnd en niet gevuld groen', function () {
         ->and($html)->not->toContain('bg-emerald-600');
 });
 
-test('attention_points prompt blijft v3 met alleen citeer-verbod voor photo_question_stats', function () {
+test('attention_points prompt en meta zijn gelijk aan main (v3)', function () {
     $meta = require app_path('Domains/AI/Prompts/attention_points/meta.php');
     $prompt = file_get_contents(app_path('Domains/AI/Prompts/attention_points/prompt.md'));
 
     expect($meta['version'])->toBe('attention_points-v3')
-        ->and($prompt)->toContain('Citeer nooit `photo_question_stats`')
-        ->and($prompt)->not->toContain('option_label')
-        ->and($prompt)->not->toContain('4 m²')
-        ->and($prompt)->not->toContain('customer_continued_anyway');
+        ->and($prompt)->not->toContain('photo_question_stats')
+        ->and($prompt)->not->toContain('option_label');
 });
 
 test('hernoemde ruimte toont nieuwe naam in Actueel-fotomelding (live label)', function () {
