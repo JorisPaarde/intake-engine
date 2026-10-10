@@ -13,8 +13,10 @@ use Illuminate\Support\Collection;
 
 /**
  * Centrale regel: een foto die niet als goed is beoordeeld (verkeerde categorie,
- * te lage resolutie, onbruikbaar, not_assessed) blokkeert afronden tot de klant
+ * te lage resolutie, onbruikbaar) blokkeert afronden tot de klant
  * expliciet vervangt of “Toch doorgaan” kiest.
+ *
+ * not_assessed telt als ontvangen zonder keuze (UX voorlopige keuze 10 okt 2026).
  *
  * Gedeeld door klantwizard en gerichte bijdrage-/follow-up-taak.
  */
@@ -27,6 +29,12 @@ final class PhotoOverridePolicy
     public const THANK_YOU_HEADING = 'Bedankt, je aanvulling is binnen';
 
     public const THANK_YOU_COPY = 'Je installateur bekijkt je antwoorden en neemt contact met je op als er nog iets nodig is.';
+
+    public const PANEL_HEADING_ONE = 'Deze foto is nog niet goed.';
+
+    public const PANEL_EXPLAIN_ONE = 'Vervang de foto of ga toch door. Je installateur krijgt de foto dan wel en kijkt er zelf naar.';
+
+    public const PANEL_EXPLAIN_MANY = 'Vervang de foto’s of ga toch door. Je installateur krijgt de foto’s dan wel en kijkt er zelf naar.';
 
     /**
      * @param  Collection<int, IntakeUpload>  $uploads
@@ -48,6 +56,22 @@ final class PhotoOverridePolicy
     public static function hasUnresolvedOverride(Collection $uploads): bool
     {
         return self::unresolvedOverride($uploads) instanceof IntakeUpload;
+    }
+
+    /**
+     * @param  Collection<int, IntakeUpload>  $uploads
+     */
+    public static function unresolvedOverrideCount(Collection $uploads): int
+    {
+        $count = 0;
+
+        foreach ($uploads as $upload) {
+            if (self::needsOverride($upload)) {
+                $count++;
+            }
+        }
+
+        return $count;
     }
 
     /**
@@ -89,6 +113,8 @@ final class PhotoOverridePolicy
             return false;
         }
 
+        // Bruikbaarheidsproblemen (te donker/klein) vragen altijd een keuze,
+        // ook als de AI-status not_assessed is.
         $verdict = $upload->usability_verdict;
         if ($verdict instanceof PhotoUsabilityVerdict && ! $verdict->isUsable()) {
             return true;
@@ -98,15 +124,23 @@ final class PhotoOverridePolicy
             return true;
         }
 
+        // Alleen AI-soft-fail zonder bruikbaarheidsfout: ontvangen, geen keuze.
+        if ($status === PhotoAssessmentStatus::NotAssessed) {
+            return false;
+        }
+
         $assessment = $upload->contentAssessment();
         if (! $assessment instanceof PhotoContentAssessment) {
+            return false;
+        }
+
+        if ($assessment->status() === PhotoContentAssessment::STATUS_NOT_ASSESSED) {
             return false;
         }
 
         return in_array($assessment->status(), [
             PhotoContentAssessment::STATUS_WRONG_SUBJECT,
             PhotoContentAssessment::STATUS_NEEDS_CLEARER,
-            PhotoContentAssessment::STATUS_NOT_ASSESSED,
         ], true);
     }
 
@@ -163,7 +197,8 @@ final class PhotoOverridePolicy
         if ($assessment instanceof PhotoContentAssessment) {
             $message = $assessment->customerMessage();
             if ($message !== null
-                && $assessment->status() !== PhotoContentAssessment::STATUS_OK) {
+                && $assessment->status() !== PhotoContentAssessment::STATUS_OK
+                && $assessment->status() !== PhotoContentAssessment::STATUS_NOT_ASSESSED) {
                 return $message;
             }
         }
@@ -177,7 +212,37 @@ final class PhotoOverridePolicy
     }
 
     /**
-     * Dedupliceerde klanthinzen voor een set uploads (één keer per unieke tekst).
+     * Gestructureerde groepsleutel voor klanthinzen (geen tekstvergelijking).
+     */
+    public static function feedbackGroupKey(IntakeUpload $upload): ?string
+    {
+        $assessment = $upload->contentAssessment();
+        if ($assessment instanceof PhotoContentAssessment) {
+            $status = $assessment->status();
+            if (in_array($status, [
+                PhotoContentAssessment::STATUS_WRONG_SUBJECT,
+                PhotoContentAssessment::STATUS_NEEDS_CLEARER,
+            ], true)) {
+                $expected = $assessment->expectedSubject();
+
+                return 'content:'.$status.':'.($expected instanceof PhotoSubject ? $expected->value : '');
+            }
+        }
+
+        $verdict = $upload->usability_verdict;
+        if ($verdict instanceof PhotoUsabilityVerdict && ! $verdict->isUsable()) {
+            return 'usability:'.$verdict->value;
+        }
+
+        if ($upload->assessment_status === PhotoAssessmentStatus::HeuristicRejected) {
+            return 'heuristic_rejected';
+        }
+
+        return null;
+    }
+
+    /**
+     * Dedupliceerde klanthinzen gegroepeerd op status/enum/onderwerp (niet op tekst).
      *
      * @param  Collection<int, IntakeUpload>  $uploads
      * @return list<string>
@@ -191,12 +256,37 @@ final class PhotoOverridePolicy
                 continue;
             }
 
+            if (! self::needsOverride($upload) && ! self::hasQualityOrContentIssue($upload)) {
+                continue;
+            }
+
+            $groupKey = self::feedbackGroupKey($upload);
+            if ($groupKey === null || isset($hints[$groupKey])) {
+                continue;
+            }
+
             $feedback = self::customerFeedback($upload);
             if ($feedback !== null) {
-                $hints[$feedback] = $feedback;
+                $hints[$groupKey] = $feedback;
             }
         }
 
         return array_values($hints);
+    }
+
+    public static function panelHeading(int $unresolvedCount): string
+    {
+        if ($unresolvedCount <= 1) {
+            return self::PANEL_HEADING_ONE;
+        }
+
+        return $unresolvedCount.' foto’s zijn nog niet goed.';
+    }
+
+    public static function panelExplanation(int $unresolvedCount): string
+    {
+        return $unresolvedCount <= 1
+            ? self::PANEL_EXPLAIN_ONE
+            : self::PANEL_EXPLAIN_MANY;
     }
 }

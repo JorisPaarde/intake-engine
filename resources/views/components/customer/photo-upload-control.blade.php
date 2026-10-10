@@ -14,10 +14,13 @@
     'uploadPhaseComposite' => '',
     'pendingAssessUploadIds' => [],
     'assessmentUiReleased' => [],
+    'hideAssessingPhase' => false,
 ])
 
 @php
-    $isAssessing = $uploadPhase === 'assessing' && $uploadPhaseComposite === $composite;
+    $isAssessing = ! $hideAssessingPhase
+        && $uploadPhase === 'assessing'
+        && $uploadPhaseComposite === $composite;
     $isFailed = $uploadPhase === 'failed' && $uploadPhaseComposite === $composite;
 
     $labelClass = $tone === 'followup'
@@ -313,13 +316,13 @@
         :class="{ 'pointer-events-none opacity-60': (clientUploading && ! uploadTimedOut) || prepBusy }"
         wire:target="{{ $wireModel }}"
     >
-        <span class="{{ $titleClass }}">Foto's maken of kiezen</span>
+        <span class="{{ $titleClass }}">Foto’s maken of kiezen</span>
         <span class="{{ $hintClass }}">
             @if ($helpExtra)
                 {{ $helpExtra }}
             @else
                 JPEG, PNG, WebP of HEIC · max {{ number_format($maxUploadKb / 1024, 0) }} MB
-                · tot {{ $remainingSlots }} {{ $remainingSlots === 1 ? 'foto' : "foto's" }}
+                · tot {{ $remainingSlots }} {{ $remainingSlots === 1 ? 'foto' : 'foto’s' }}
                 · camera of galerij
             @endif
         </span>

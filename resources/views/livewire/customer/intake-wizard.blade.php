@@ -236,35 +236,78 @@
             @endif
         </div>
 
-        @if ($showMissing)
+        {{-- Afronden-lijst of gewone validatiefout. Geen tweede alert als het fotomeldingsvak al openstaat. --}}
+        @if ($showMissing && $completionMissing !== [])
             <div class="mb-4 rounded-xl border border-[#eac3b4] bg-white px-4 py-3 text-sm text-[#a84832]" role="alert" aria-live="assertive" data-testid="step-missing-alert">
-                @if ($completionMissing !== [])
-                    <p class="font-medium">Nog niet alles is ingevuld.</p>
-                    <ul class="mt-2 list-none space-y-1.5 pl-0 text-[#414b45]">
-                        @foreach ($completionMissing as $item)
-                            <li>
-                                <button
-                                    type="button"
-                                    wire:click="goToMissing({{ \Illuminate\Support\Js::from($item['question_key']) }}, {{ \Illuminate\Support\Js::from($item['section_instance_key'] ?? null) }})"
-                                    class="text-left text-sm font-medium text-[var(--tenant-primary)] underline decoration-[var(--tenant-primary)]/40 underline-offset-2 hover:decoration-[var(--tenant-primary)]"
-                                >
-                                    {{ $item['label'] ?? $item['question_key'] }}
-                                    @if (! empty($item['instance_label']))
-                                        <span class="font-normal text-[#5e6862]">({{ $item['instance_label'] }})</span>
-                                    @endif
-                                    @if (($item['reason'] ?? '') === 'required_photo')
-                                        <span class="font-normal text-[#5e6862]"> — foto verplicht</span>
-                                    @elseif (($item['reason'] ?? '') === 'must_accept')
-                                        <span class="font-normal text-[#5e6862]"> — {{ \App\Domains\Intake\Support\MustAcceptQuestions::missingRequirementHint($item['question_key'] ?? null) }}</span>
-                                    @endif
-                                </button>
-                            </li>
-                        @endforeach
-                    </ul>
-                @elseif ($photoMismatchAssessment)
-                    <p class="font-medium">Kies: foto vervangen of toch doorgaan</p>
+                <p class="font-medium">Nog niet alles is klaar.</p>
+                <ul class="mt-2 list-none space-y-1.5 pl-0 text-[#414b45]">
+                    @foreach ($completionMissing as $item)
+                        <li>
+                            <button
+                                type="button"
+                                wire:click="goToMissing({{ \Illuminate\Support\Js::from($item['question_key']) }}, {{ \Illuminate\Support\Js::from($item['section_instance_key'] ?? null) }})"
+                                class="text-left text-sm font-medium text-[var(--tenant-primary)] underline decoration-[var(--tenant-primary)]/40 underline-offset-2 hover:decoration-[var(--tenant-primary)]"
+                            >
+                                {{ $item['label'] ?? $item['question_key'] }}
+                                @if (! empty($item['instance_label']))
+                                    <span class="font-normal text-[#5e6862]">({{ $item['instance_label'] }})</span>
+                                @endif
+                                @if (($item['reason'] ?? '') === 'required_photo_not_good')
+                                    <span class="font-normal text-[#5e6862]"> — foto nog niet goed</span>
+                                @elseif (($item['reason'] ?? '') === 'required_photo')
+                                    <span class="font-normal text-[#5e6862]"> — nog geen foto</span>
+                                @elseif (($item['reason'] ?? '') === 'must_accept')
+                                    <span class="font-normal text-[#5e6862]"> — {{ \App\Domains\Intake\Support\MustAcceptQuestions::missingRequirementHint($item['question_key'] ?? null) }}</span>
+                                @endif
+                            </button>
+                        </li>
+                    @endforeach
+                </ul>
+            </div>
+        @elseif ($showMissing && empty($photoNeedsOverride))
+            <div class="mb-4 rounded-xl border border-[#eac3b4] bg-white px-4 py-3 text-sm text-[#a84832]" role="alert" aria-live="assertive" data-testid="step-missing-alert">
+                Beantwoord eerst deze verplichte vraag.
+            </div>
+        @elseif (! $showMissing && ($distantPhotoIssues ?? []) !== [] && empty($isLastStep))
+            @php
+                $distantCount = count($distantPhotoIssues);
+                $firstDistant = $distantPhotoIssues[0];
+                $distantRoom = $firstDistant['room_label'] ?? null;
+                $distantLabel = $firstDistant['label'] ?? '';
+                if (is_string($distantRoom) && $distantRoom !== '') {
+                    $distantLabel .= ' ('.$distantRoom.')';
+                }
+            @endphp
+            <div
+                class="mb-4 rounded-xl border border-[#eac3b4] bg-white px-4 py-3 text-sm text-[#414b45]"
+                role="status"
+                aria-live="polite"
+                data-testid="distant-photo-banner"
+            >
+                @if ($distantCount === 1)
+                    <p>
+                        Je foto bij ‘{{ $distantLabel }}’ is nog niet goed.
+                        <button
+                            type="button"
+                            wire:click="goToMissing({{ \Illuminate\Support\Js::from($firstDistant['question_key']) }}, {{ \Illuminate\Support\Js::from($firstDistant['section_instance_key'] ?? null) }})"
+                            class="ml-1 font-medium text-[var(--tenant-primary)] underline decoration-[var(--tenant-primary)]/40 underline-offset-2"
+                            data-testid="distant-photo-link"
+                        >
+                            Bekijk de foto
+                        </button>
+                    </p>
                 @else
-                    Beantwoord eerst deze verplichte vraag.
+                    <p>
+                        Bij {{ $distantCount }} vragen is een foto nog niet goed.
+                        <button
+                            type="button"
+                            wire:click="goToMissing({{ \Illuminate\Support\Js::from($firstDistant['question_key']) }}, {{ \Illuminate\Support\Js::from($firstDistant['section_instance_key'] ?? null) }})"
+                            class="ml-1 font-medium text-[var(--tenant-primary)] underline decoration-[var(--tenant-primary)]/40 underline-offset-2"
+                            data-testid="distant-photo-link"
+                        >
+                            Bekijk de eerste
+                        </button>
+                    </p>
                 @endif
             </div>
         @endif
@@ -483,6 +526,24 @@
     @endif
 
     @unless ($completed || ($waitingForPrefill ?? false))
+        {{-- Stille poll voor foto’s die op eerdere stappen nog beoordeling krijgen (banner §1.5). --}}
+        @foreach (($pendingAssessUploadIds ?? []) as $pendingComposite => $pendingIds)
+            @if (! empty($pendingIds))
+                @php
+                    $bgQuiet = in_array($pendingComposite, $assessmentUiReleased ?? [], true);
+                    $bgInterval = $bgQuiet ? '5s' : '2s';
+                @endphp
+                <div
+                    wire:key="bg-assessment-poll-{{ $pendingComposite }}-{{ $bgInterval }}"
+                    wire:poll.{{ $bgInterval }}='pollPendingAssessments(@json((string) $pendingComposite))'
+                    class="hidden"
+                    data-testid="bg-assessment-poll"
+                    data-poll-composite="{{ $pendingComposite }}"
+                    aria-hidden="true"
+                ></div>
+            @endif
+        @endforeach
+
         <footer class="sticky bottom-0 -mx-4 mt-8 border-t border-[#dde2da] bg-[#eef1ec] px-4 py-4 sm:-mx-6 sm:px-6">
             <div class="flex gap-3">
                 <button
@@ -504,24 +565,48 @@
                         <span wire:loading.remove wire:target="complete">Afronden</span>
                         <span wire:loading wire:target="complete">Bezig…</span>
                     </button>
+                @elseif (! empty($photoNextBlockedByAssessment))
+                    <button
+                        type="button"
+                        aria-disabled="true"
+                        data-testid="next-blocked-assessing"
+                        class="min-h-12 flex-[1.4] rounded-xl bg-[var(--tenant-primary)] px-4 text-sm font-semibold text-[var(--tenant-on-primary)] opacity-60"
+                        x-on:click.prevent="
+                            const tile = document.querySelector('[data-photo-looking=&quot;1&quot;]');
+                            if (tile) {
+                                tile.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }
+                        "
+                    >
+                        {{ ! empty($isKnownSummary) ? 'Klopt, verder' : 'Volgende' }}
+                    </button>
                 @else
                     <button
                         type="button"
                         wire:click="next"
+                        data-testid="next-button"
                         class="min-h-12 flex-[1.4] rounded-xl bg-[var(--tenant-primary)] px-4 text-sm font-semibold text-[var(--tenant-on-primary)]"
                     >
                         {{ ! empty($isKnownSummary) ? 'Klopt, verder' : 'Volgende' }}
                     </button>
                 @endif
             </div>
-            @if ($showMissing && $photoMismatchAssessment)
-                <p class="mt-2 text-center text-xs font-medium text-[#a84832]" data-testid="footer-mismatch-warning" role="alert" aria-live="assertive">
-                    Kies: foto vervangen of toch doorgaan
-                </p>
-            @endif
             <p class="mt-3 text-center text-xs text-[#5e6862]">
                 Je voortgang blijft bewaard via deze link tot je afrondt.
             </p>
         </footer>
     @endunless
 </div>
+
+@script
+<script>
+    $wire.on('scroll-to-photo-mismatch', () => {
+        queueMicrotask(() => {
+            const panel = document.querySelector('[data-testid="photo-mismatch-panel"]');
+            if (panel) {
+                panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
+    });
+</script>
+@endscript

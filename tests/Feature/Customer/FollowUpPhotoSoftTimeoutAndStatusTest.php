@@ -162,7 +162,7 @@ test('PhotoCustomerStatus labels matchen UX-teksten', function () {
         ->and(PhotoCustomerStatus::UPLOADING)->toBe('Foto uploaden…');
 });
 
-test('mixed photos show advice under the bad thumb and keep GOOD on the good one', function () {
+test('mixed photos show short status on the bad thumb and advice once in the panel', function () {
     Queue::fake([AssessUploadedPhotoJob::class, ProcessIntakePhotoVariantsJob::class]);
     [$intake, $item] = softTimeoutFollowUpIntake();
 
@@ -202,10 +202,13 @@ test('mixed photos show advice under the bad thumb and keep GOOD on the good one
     $html = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])->html();
 
     expect($html)->toContain(PhotoCustomerStatus::GOOD)
+        ->and($html)->toContain(PhotoCustomerStatus::UNCLEAR)
         ->and($html)->toContain((string) PhotoUsabilityVerdict::TooSmall->customerHint())
+        ->and($html)->toContain('data-testid="follow-up-mismatch"')
         ->and($html)->toContain('data-testid="photo-replace-one"')
         ->and($html)->toContain('data-upload-id="'.$bad->id.'"')
-        ->and($html)->toContain('data-upload-id="'.$good->id.'"');
+        ->and($html)->toContain('data-upload-id="'.$good->id.'"')
+        ->and(substr_count($html, (string) PhotoUsabilityVerdict::TooSmall->customerHint()))->toBe(1);
 });
 
 test('bij maximum aantal foto\'s blijft poll actief en soft-timeout-melding zichtbaar', function () {
@@ -643,11 +646,12 @@ test('poll B→A→B houdt soft-timeout-deadline op created_at(B)+15s', function
         ->and($component->instance()->assessmentUiReleased)->not->toContain($stepB);
 
     // t=15: soft-timeout fires on B's original deadline.
+    // Soft-timeoutregel staat in het fotomeldingsvak op die stap (niet als saveMessage).
     Carbon::setTestNow($t0->copy()->addSeconds(15));
     $component
         ->call('pollPendingAssessments', $stepB)
         ->assertSet('uploadPhase', '')
-        ->assertSee(PhotoCustomerStatus::SOFT_TIMEOUT);
+        ->assertSet('saveMessage', '');
 
     expect($component->instance()->assessmentUiReleased)->toContain($stepB);
 

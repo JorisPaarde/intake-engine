@@ -158,19 +158,14 @@ export async function uploadPhoto(page: Page, fileName: string): Promise<void> {
 }
 
 export async function waitForPhotoAssessed(page: Page, timeoutMs = 90_000): Promise<void> {
-  const receipt = page.getByTestId('photo-receipt-status');
-  const followUp = page.getByTestId('follow-up-item-status');
-  if (await receipt.count()) {
-    await expect(receipt).toContainText('Beoordeeld', { timeout: timeoutMs });
-
-    return;
-  }
-  if (await followUp.count()) {
-    await expect(followUp).toContainText('Beoordeeld', { timeout: timeoutMs });
-
-    return;
-  }
-  await expect(page.getByText(/Status:\s*Beoordeeld/i)).toBeVisible({ timeout: timeoutMs });
+  // Per-tile status (UX 10 okt 2026): terminal labels, never "Status: Beoordeeld".
+  const tile = page.locator('[data-photo-status="1"]').first();
+  await expect(tile).toBeVisible({ timeout: timeoutMs });
+  await expect(tile).not.toHaveText(/We bekijken je foto/i, { timeout: timeoutMs });
+  await expect(tile).toHaveText(
+    /Goed te zien|Foto ontvangen|Niet goed te zien|Niet de gevraagde foto|Je installateur kijkt hier zelf naar/i,
+    { timeout: timeoutMs },
+  );
 }
 
 export async function selectFirstRadioAndSave(page: Page): Promise<void> {

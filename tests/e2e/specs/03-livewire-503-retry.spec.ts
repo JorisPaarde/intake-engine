@@ -58,8 +58,9 @@ test.describe('Livewire 503 after upload', () => {
       await uploadPhoto(page, 'room-overview-good.jpg');
     }
 
-    await expect(page.getByTestId('photo-receipt-status')).toContainText(/Beoordeeld|Ontvangen/, {
-      timeout: 90_000,
-    });
+    await expect(page.locator('[data-photo-status="1"]').first()).toContainText(
+      /Goed te zien|Foto ontvangen|Niet goed te zien|Niet de gevraagde foto|Je installateur kijkt hier zelf naar/i,
+      { timeout: 90_000 },
+    );
   });
 });

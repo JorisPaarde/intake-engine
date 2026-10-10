@@ -1,6 +1,6 @@
 {{--
   Gedeelde fotovraag-UI voor standalone @case('photo') én question_group.
-  Ná rebase op stroom 1: assessment-poll blijft zichtbaar bij max foto's (ook in drain-groep).
+  Eén status per tegel + één melding per vraag (UX scout brief 10 okt 2026).
   Verwacht uit de parent: uploadsByQuestion, token, uploadPhase*, pendingAssessUploadIds,
   assessmentUiReleased, photoMismatchAssessment, photoNeedsOverride, displayPhotoHint,
   showMissing, photoNeedsQualityHint, maxUploadKb, uploadHardMax*.
@@ -20,6 +20,12 @@
         && (string) ($uploadPhaseComposite ?? '') === $composite;
     $assessmentQuietPoll = in_array($composite, $assessmentUiReleased ?? [], true);
     $assessmentPollInterval = $assessmentQuietPoll ? '5s' : '2s';
+
+    $unresolvedOverrideCount = \App\Domains\Intake\Support\PhotoOverridePolicy::unresolvedOverrideCount($existingUploads);
+    $panelAdvice = \App\Domains\Intake\Support\PhotoOverridePolicy::uniqueCustomerFeedback($existingUploads);
+    $showSoftTimeoutLine = $assessmentQuietPoll
+        && $assessmentPollPending
+        && $unresolvedOverrideCount === 0;
 @endphp
 <div class="space-y-3" @if ($wrapperTestId) data-testid="{{ $wrapperTestId }}" @endif>
     @if ($showQuestionLabel)
@@ -30,7 +36,7 @@
         <p class="text-sm text-[#5e6862]">{{ $question->photo_instructions }}</p>
     @endif
 
-    {{-- Eén poll per fotovraag; blijft draaien bij max foto's (drain-groep) zolang assessing/pending. --}}
+    {{-- Eén poll per fotovraag; blijft draaien bij max foto’s (drain-groep) zolang assessing/pending. --}}
     @if ($assessmentPollPending || $assessmentPollActive)
         <div
             wire:key="assessment-poll-{{ $composite }}-{{ $assessmentPollInterval }}"
@@ -54,8 +60,15 @@
                         $pendingAssessUploadIds[$composite] ?? [],
                         $assessmentUiReleased ?? [],
                     );
+                    $isLooking = $photoStatusLabel === \App\Domains\Intake\Support\PhotoCustomerStatus::LOOKING;
+                    $needsReplace = \App\Domains\Intake\Support\PhotoOverridePolicy::needsOverride($upload);
                 @endphp
-                <li class="overflow-hidden rounded-xl border border-[#dde2da] bg-[#eef1ec]" data-testid="photo-thumb-status" data-upload-id="{{ $upload->id }}">
+                <li
+                    class="overflow-hidden rounded-xl border border-[#dde2da] bg-[#eef1ec]"
+                    data-testid="photo-thumb-status"
+                    data-upload-id="{{ $upload->id }}"
+                    @if ($isLooking) data-photo-looking="1" @endif
+                >
                     <div class="relative">
                         <img
                             src="{{ route('customer.uploads.show', ['token' => $token, 'upload' => $upload]) }}"
@@ -74,12 +87,12 @@
                     <p class="px-2 py-1.5 text-xs font-medium text-[#414b45]" data-photo-status="1">
                         {{ $photoStatusLabel }}
                     </p>
-                    @if (\App\Domains\Intake\Support\PhotoOverridePolicy::needsOverride($upload))
+                    @if ($needsReplace)
                         <button
                             type="button"
                             wire:click="replaceSinglePhoto({{ $upload->id }})"
                             wire:loading.attr="disabled"
-                            class="w-full border-t border-[#dde2da] bg-white px-2 py-1.5 text-xs font-semibold text-[var(--tenant-primary)]"
+                            class="flex min-h-11 w-full items-center justify-center border-t border-[#dde2da] bg-white px-2 py-1.5 text-xs font-semibold text-[var(--tenant-primary)]"
                             data-testid="photo-replace-one"
                         >
                             Vervang foto
@@ -89,20 +102,23 @@
             @endforeach
         </ul>
 
-        @php
-            $allTerminal = $existingUploads->every(
-                fn ($uploadItem) => $uploadItem->assessment_status instanceof \App\Enums\PhotoAssessmentStatus
-                    && $uploadItem->assessment_status->isTerminal()
-            );
-            $photoReceiptStatus = $allTerminal ? 'Beoordeeld' : 'Ontvangen';
-        @endphp
-        <p class="text-xs font-medium text-[#5e6862]" data-testid="photo-receipt-status">Status: {{ $photoReceiptStatus }}</p>
-
-        {{-- Direct onder de foto, boven de sticky balk. (BL-147 / #168: één OVERRIDE_MESSAGE). --}}
-        @if ($photoMismatchAssessment || ! empty($photoNeedsOverride))
-            <div class="space-y-3 rounded-xl border border-[#eac3b4] bg-white px-3 py-3" role="alert" data-testid="photo-mismatch-panel" wire:key="mismatch-{{ $composite }}">
-                <p class="text-sm text-[#414b45]">
-                    Deze foto is nog niet goed genoeg. Vervang de foto of ga toch door.
+        {{-- Eén melding per fotovraag: soft-timeout óf override-keuze. --}}
+        @if ($photoMismatchAssessment || $unresolvedOverrideCount > 0)
+            <div
+                class="space-y-3 rounded-xl border border-[#eac3b4] bg-white px-3 py-3"
+                role="alert"
+                data-testid="photo-mismatch-panel"
+                id="photo-mismatch-panel-{{ str_replace(['.', ' '], '-', $composite) }}"
+                wire:key="mismatch-{{ $composite }}"
+            >
+                <p class="text-sm font-semibold text-[#18201d]" data-testid="photo-mismatch-heading">
+                    {{ \App\Domains\Intake\Support\PhotoOverridePolicy::panelHeading($unresolvedOverrideCount) }}
+                </p>
+                @foreach ($panelAdvice as $advice)
+                    <p class="text-sm text-[#414b45]" data-testid="photo-mismatch-advice">{{ $advice }}</p>
+                @endforeach
+                <p class="text-sm text-[#414b45]" data-testid="photo-mismatch-explain">
+                    {{ \App\Domains\Intake\Support\PhotoOverridePolicy::panelExplanation($unresolvedOverrideCount) }}
                 </p>
                 @if ($showMissing)
                     <p class="text-sm font-medium text-[#a84832]" data-testid="mismatch-next-warning">
@@ -113,12 +129,23 @@
                     <button
                         type="button"
                         wire:click="acceptPhotoMismatch"
-                        class="min-h-11 rounded-xl border border-[#dde2da] bg-[#eef1ec] px-4 text-sm font-semibold text-[#18201d]"
+                        class="flex min-h-11 items-center justify-center rounded-xl border border-[#dde2da] bg-[#eef1ec] px-4 text-sm font-semibold text-[#18201d]"
                         data-testid="photo-accept-mismatch"
                     >
                         Toch doorgaan
                     </button>
                 </div>
+            </div>
+        @elseif ($showSoftTimeoutLine)
+            <div
+                class="rounded-xl border border-[#dde2da] bg-white px-3 py-3"
+                role="status"
+                data-testid="photo-soft-timeout-panel"
+                wire:key="soft-timeout-{{ $composite }}"
+            >
+                <p class="text-sm text-[#414b45]">
+                    {{ \App\Domains\Intake\Support\PhotoCustomerStatus::SOFT_TIMEOUT }}
+                </p>
             </div>
         @elseif (! empty($displayPhotoHint[$composite]) && ! empty($photoNeedsQualityHint))
             <p class="flex items-start gap-2 rounded-xl border border-[#dde2da] bg-[#eef1ec] px-3 py-2 text-sm text-[#414b45]" role="status" data-testid="photo-quality-hint" wire:key="hint-{{ $composite }}">
@@ -142,13 +169,14 @@
             :upload-phase-composite="$uploadPhaseComposite"
             :pending-assess-upload-ids="$pendingAssessUploadIds"
             :assessment-ui-released="$assessmentUiReleased"
+            :hide-assessing-phase="true"
             tone="intake"
         />
         @error('photo')
             <p class="mt-2 text-sm text-[#a84832]">{{ $message }}</p>
         @enderror
     @else
-        <p class="text-sm text-[#5e6862]">Maximum van {{ $maxFiles }} foto's bereikt.</p>
+        <p class="text-sm text-[#5e6862]">Maximum van {{ $maxFiles }} foto’s bereikt.</p>
         {{-- Verborgen input zodat "Vervang foto" de picker kan openen na verwijderen. --}}
         <input
             id="photo-input-{{ str_replace(['.', ' '], '-', $composite) }}"
