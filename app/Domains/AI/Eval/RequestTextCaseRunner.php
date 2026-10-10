@@ -127,9 +127,11 @@ final class RequestTextCaseRunner
         )));
         $floorLinks = $roomTypes === [] ? [] : $this->floorExtractor->floorsForRooms($text, $roomTypes);
 
+        $matchRooms = is_string($fixture['match_rooms'] ?? null) ? $fixture['match_rooms'] : 'by_name';
+
         $scores = [
-            'model_raw' => $this->scoreFacts($expected, $rawFacts, $disputed, supportedExisting: false),
-            'pipeline_final' => $this->scoreFacts($expected, $finalFacts, $disputed, supportedExisting: false),
+            'model_raw' => $this->scoreFacts($expected, $rawFacts, $disputed, supportedExisting: false, matchRooms: $matchRooms),
+            'pipeline_final' => $this->scoreFacts($expected, $finalFacts, $disputed, supportedExisting: false, matchRooms: $matchRooms),
         ];
 
         return [
@@ -168,7 +170,7 @@ final class RequestTextCaseRunner
      * @param  array<string, mixed>  $disputed
      * @return array<string, array<string, mixed>>
      */
-    private function scoreFacts(array $expected, array $got, array $disputed, bool $supportedExisting): array
+    private function scoreFacts(array $expected, array $got, array $disputed, bool $supportedExisting, string $matchRooms = 'by_name'): array
     {
         $out = [];
 
@@ -211,13 +213,18 @@ final class RequestTextCaseRunner
 
         $expectedRooms = is_array($expected['rooms'] ?? null) ? $expected['rooms'] : [];
         $gotRooms = is_array($got['rooms'] ?? null) ? $got['rooms'] : [];
+        $matchedByIndex = $matchRooms === 'unordered_by_type'
+            ? $this->matchRoomsUnorderedByType($expectedRooms, $gotRooms)
+            : null;
 
         foreach ($expectedRooms as $index => $expRoom) {
             if (! is_array($expRoom)) {
                 continue;
             }
             $name = is_string($expRoom['name'] ?? null) ? $expRoom['name'] : ('room-'.($index + 1));
-            $matched = $this->matchRoom($gotRooms, $name, $index);
+            $matched = $matchedByIndex !== null
+                ? ($matchedByIndex[$index] ?? null)
+                : $this->matchRoom($gotRooms, $name, $index);
             foreach (['room_type' => ['C1'], 'floor_level' => ['C2', 'C3'], 'length_m' => ['C1'], 'width_m' => ['C1'], 'area_m2' => ['C1'], 'ceiling_height_m' => ['C1']] as $field => $components) {
                 if (! array_key_exists($field, $expRoom)) {
                     continue;
@@ -254,6 +261,111 @@ final class RequestTextCaseRunner
         }
 
         return $rooms[$index] ?? null;
+    }
+
+    /**
+     * Match expected rooms to got rooms without relying on order for same room_type
+     * (e.g. two anonymous bedrooms with floors {ground, 1}).
+     *
+     * @param  list<mixed>  $expectedRooms
+     * @param  list<array<string, mixed>>  $gotRooms
+     * @return array<int, array<string, mixed>|null>
+     */
+    private function matchRoomsUnorderedByType(array $expectedRooms, array $gotRooms): array
+    {
+        $used = [];
+        $matched = [];
+
+        // Prefer expected rooms with an explicit floor_level so {ground,1} pairs correctly.
+        $order = array_keys($expectedRooms);
+        usort($order, function (int $a, int $b) use ($expectedRooms): int {
+            $floorA = is_array($expectedRooms[$a] ?? null) ? ($expectedRooms[$a]['floor_level'] ?? null) : null;
+            $floorB = is_array($expectedRooms[$b] ?? null) ? ($expectedRooms[$b]['floor_level'] ?? null) : null;
+            $rankA = $floorA === null ? 1 : 0;
+            $rankB = $floorB === null ? 1 : 0;
+
+            return $rankA <=> $rankB ?: $a <=> $b;
+        });
+
+        foreach ($order as $index) {
+            $expRoom = $expectedRooms[$index] ?? null;
+            if (! is_array($expRoom)) {
+                $matched[$index] = null;
+
+                continue;
+            }
+
+            $bestIdx = null;
+            $bestScore = PHP_INT_MIN;
+            foreach ($gotRooms as $gotIdx => $gotRoom) {
+                if (isset($used[$gotIdx])) {
+                    continue;
+                }
+                $score = $this->roomMatchScore($expRoom, $gotRoom, $index, $gotIdx);
+                if ($score > $bestScore) {
+                    $bestScore = $score;
+                    $bestIdx = $gotIdx;
+                }
+            }
+
+            if ($bestIdx === null) {
+                $matched[$index] = null;
+
+                continue;
+            }
+
+            $used[$bestIdx] = true;
+            $matched[$index] = $gotRooms[$bestIdx];
+        }
+
+        ksort($matched);
+
+        return $matched;
+    }
+
+    /**
+     * @param  array<string, mixed>  $expected
+     * @param  array<string, mixed>  $got
+     */
+    private function roomMatchScore(array $expected, array $got, int $expectedIndex, int $gotIndex): int
+    {
+        $score = 0;
+
+        $expType = is_string($expected['room_type'] ?? null) ? $expected['room_type'] : null;
+        $gotType = is_string($got['room_type'] ?? null) ? $got['room_type'] : null;
+        if ($expType !== null && $gotType !== null) {
+            $score += $expType === $gotType ? 50 : -100;
+        }
+
+        $expName = is_string($expected['name'] ?? null) ? mb_strtolower($expected['name']) : '';
+        $gotName = is_string($got['name'] ?? null) ? mb_strtolower($got['name']) : '';
+        if ($expName !== '' && $gotName !== '') {
+            if ($expName === $gotName) {
+                $score += 30;
+            } elseif (str_contains($gotName, $expName) || str_contains($expName, $gotName)) {
+                $score += 15;
+            }
+        }
+
+        $expFloor = is_string($expected['floor_level'] ?? null) ? $expected['floor_level'] : null;
+        $gotFloorRaw = $got['floor_level'] ?? null;
+        $gotFloor = is_string($gotFloorRaw) && $gotFloorRaw !== '' ? $gotFloorRaw : null;
+        if ($expFloor === null && $gotFloor === null) {
+            $score += 20;
+        } elseif ($expFloor === null) {
+            $score -= 15;
+        } elseif ($gotFloor === null) {
+            $score -= 5;
+        } elseif ($expFloor === $gotFloor) {
+            $score += 40;
+        } else {
+            $score -= 20;
+        }
+
+        // Stable tie-break: prefer same index.
+        $score -= abs($expectedIndex - $gotIndex);
+
+        return $score;
     }
 
     private function publishedAircoVersion(): IntakeTemplateVersion

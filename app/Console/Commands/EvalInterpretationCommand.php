@@ -27,18 +27,18 @@ final class EvalInterpretationCommand extends Command
 
     protected $description = 'Evalueer tekstinterpretatie (request prefill, follow-up hoogte, foto-observaties)';
 
-    public function handle(
-        InterpretationEvalRunner $runner,
-        EvalComparer $comparer,
-        TraceFixtureImporter $privacy,
-    ): int {
+    public function handle(): int
+    {
         $forceFake = (bool) $this->option('fake');
         $keyPresent = $this->apiKeyPresent();
 
-        if (! $keyPresent) {
+        if (! $keyPresent || $forceFake) {
             $forceFake = true;
-            $this->warn('blokker: env var AI_API_KEY ontbreekt in de cloud-agent-omgeving');
-            $this->warn('Draai tegen FakeAiClient — rapport wordt gemarkeerd als GEEN baseline.');
+            if (! $keyPresent) {
+                $this->warn('blokker: env var AI_API_KEY ontbreekt in de cloud-agent-omgeving');
+                $this->warn('Draai tegen FakeAiClient — rapport wordt gemarkeerd als GEEN baseline.');
+            }
+            // Config vóór container-resolve van AiGateway/AiClientInterface, anders blijft NullAiClient hangen.
             config([
                 'ai.provider' => 'fake',
                 'ai.text_inference.enabled' => true,
@@ -47,6 +47,13 @@ final class EvalInterpretationCommand extends Command
             ]);
             FakeAiClient::reset();
         }
+
+        /** @var InterpretationEvalRunner $runner */
+        $runner = $this->laravel->make(InterpretationEvalRunner::class);
+        /** @var EvalComparer $comparer */
+        $comparer = $this->laravel->make(EvalComparer::class);
+        /** @var TraceFixtureImporter $privacy */
+        $privacy = $this->laravel->make(TraceFixtureImporter::class);
 
         if ((bool) $this->option('migrate') || $this->needsTemplates()) {
             $this->info('Database voorbereiden (migrate + IntakeTemplateSeeder)…');

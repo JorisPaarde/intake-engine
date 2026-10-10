@@ -188,10 +188,15 @@ test('request-prefill prompt vereist per-ruimte verdieping zonder begane-grond-d
     $prompt = $repo->body('request_prefill');
     $version = $repo->version('request_prefill');
 
-    expect($version)->toBe('request-prefill-v13')
+    expect($version)->toBe('request-prefill-v14')
         ->and($prompt)->toContain('woonkamer op de begane grond en de slaapkamer op de eerste verdieping')
         ->and($prompt)->toContain('slaapkamer boven, woonkamer beneden')
+        ->and($prompt)->toContain('waarvan één op de eerste verdieping')
+        ->and($prompt)->toContain('1 boven, 1 op de begane grond')
+        ->and($prompt)->toContain('Nooit')
         ->and($prompt)->toContain('stilzwijgend')
         ->and($prompt)->toContain('ground')
-        ->and($prompt)->toContain('default');
+        ->and($prompt)->toContain('default')
+        ->and($prompt)->toContain('ongeveer 25 m2')
+        ->and($prompt)->toContain('grootteklasse');
 });

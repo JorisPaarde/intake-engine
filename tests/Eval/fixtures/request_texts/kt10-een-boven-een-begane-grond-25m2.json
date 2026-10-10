@@ -1,0 +1,48 @@
+{
+  "id": "kt10-een-boven-een-begane-grond-25m2",
+  "kind": "request_text",
+  "origin": "klanttest 10 okt 2026 prod v1.4.8",
+  "source_kind": "variant",
+  "text": "Hallo, wij zoeken een airco voor onze woonkamer en twee slaapkamers (1 boven, 1 op de begane grond). Alleen koelen in de zomer. Woonkamer is ongeveer 25 m2. Graag een prijsindicatie.",
+  "expected": {
+    "cooling_heating": "cooling",
+    "indoor_unit_count": 3,
+    "rooms": [
+      {
+        "name": "Woonkamer",
+        "room_type": "living_room",
+        "floor_level": null,
+        "area_m2": 25,
+        "length_m": null,
+        "width_m": null
+      },
+      {
+        "name": "Slaapkamer 1",
+        "room_type": "bedroom",
+        "floor_level": "1"
+      },
+      {
+        "name": "Slaapkamer 2",
+        "room_type": "bedroom",
+        "floor_level": "ground"
+      }
+    ]
+  },
+  "components": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C8"
+  ],
+  "note": "Case B (Claude mobiel, opname 132): '1 boven, 1 op de begane grond' + woonkamer 25 m². Prod zette beide slaapkamers op begane grond; m² moet stated/high blijven zonder L×B.",
+  "disputed_facts": {
+    "rooms.Slaapkamer 1.floor_level": {
+      "reason": "Open vraag: 'boven' → '1' is aanname; is null ook goed?",
+      "acceptable_alternates": [
+        null
+      ]
+    }
+  },
+  "match_rooms": "unordered_by_type"
+}
