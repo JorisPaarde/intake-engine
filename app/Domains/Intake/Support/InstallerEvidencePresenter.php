@@ -51,6 +51,8 @@ final class InstallerEvidencePresenter
 
         $supersessions = app(UploadSupersessionResolver::class)->resolve($intake);
         $presented = [];
+        /** @var array<int, true> $mergeableUploadIndexes only source_type=upload may merge per place */
+        $mergeableUploadIndexes = [];
 
         foreach ($evidence as $item) {
             $sourceType = is_string($item['source_type'] ?? null) ? $item['source_type'] : '';
@@ -78,9 +80,13 @@ final class InstallerEvidencePresenter
                 'system_attention_point' => $this->presentSystemAttentionCitation($intake, $reference),
                 default => $this->presentLooseReference($intake, $reference, $supersessions, $sourceType),
             };
+
+            if ($sourceType === 'upload') {
+                $mergeableUploadIndexes[array_key_last($presented)] = true;
+            }
         }
 
-        return $this->mergeUploadCitationsByPlace($intake, $presented);
+        return $this->mergeUploadCitationsByPlace($intake, $presented, $mergeableUploadIndexes);
     }
 
     /**
@@ -327,19 +333,30 @@ final class InstallerEvidencePresenter
     }
 
     /**
-     * Eén link per (question_key, section_instance_key); groepeert op keys, nooit op tekst.
+     * Eén upload-link per (question_key, section_instance_key). Alleen source_type=upload
+     * mag mergen — een external_fact of antwoord dat naar dezelfde foto wijst blijft staan.
      *
      * @param  list<array{label: string, url: string|null, superseded: bool, supersession_label: string|null, upload_id: int|null, testid: string}>  $presented
+     * @param  array<int, true>  $mergeableUploadIndexes
      * @return list<array{label: string, url: string|null, superseded: bool, supersession_label: string|null, upload_id: int|null, testid: string}>
      */
-    private function mergeUploadCitationsByPlace(Intake $intake, array $presented): array
-    {
+    private function mergeUploadCitationsByPlace(
+        Intake $intake,
+        array $presented,
+        array $mergeableUploadIndexes,
+    ): array {
         /** @var array<int, array{label: string, url: string|null, superseded: bool, supersession_label: string|null, upload_id: int|null, testid: string}> $chosen */
         $chosen = [];
         /** @var array<string, int> $placeIndexes */
         $placeIndexes = [];
 
         foreach ($presented as $index => $citation) {
+            if (! isset($mergeableUploadIndexes[$index])) {
+                $chosen[$index] = $citation;
+
+                continue;
+            }
+
             $uploadId = $citation['upload_id'] ?? null;
             if (! is_int($uploadId)) {
                 $chosen[$index] = $citation;
