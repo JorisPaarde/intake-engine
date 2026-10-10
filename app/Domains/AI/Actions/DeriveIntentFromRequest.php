@@ -29,9 +29,11 @@ use Throwable;
 /**
  * Leidt uit bekende aanvraagcontext af welke templatevragen al beantwoord zijn.
  *
- * Hybrid (ADR-0014): eerst foutloze lokale heuristiek (koelen/ruimtes/zolder),
- * daarna catalogus-AI wanneer tekst-AI aan is. Opnieuw aanroepen bij latere
- * contextgroei (BAG, notities, bijgewerkte openingszin).
+ * ADR-0016 / ADR-0013: met tekst-AI aan alleen catalogus-AI. De lokale parser
+ * draait uitsluitend wanneer `ai.text_inference.enabled` uit staat (offline
+ * fallback). `allowExternal: false` (wizard-mount) is géén reden om lokaal te
+ * parsen — dat overschreef modelantwoorden met regex-verdieping.
+ * Opnieuw aanroepen bij latere contextgroei (BAG, notities, openingszin).
  */
 final class DeriveIntentFromRequest
 {
@@ -81,27 +83,30 @@ final class DeriveIntentFromRequest
             return null;
         }
 
-        $localRun = null;
+        $textAiOn = (bool) config('ai.text_inference.enabled', false);
 
-        if ($reason !== null) {
-            $localOutput = $this->localParser->parse($reason);
-
-            if ($localOutput !== null) {
-                $localRun = $this->recordLocalResult($intake, $reason, $localOutput);
+        if ($textAiOn) {
+            // Catalogus-AI alleen bij toegestane externe call. Wizard-mount
+            // (allowExternal: false) is een no-op — nooit lokale regex-fallback.
+            if (! $allowExternal) {
+                return null;
             }
-        }
 
-        $run = $localRun;
-
-        if ($allowExternal && (bool) config('ai.text_inference.enabled', false)) {
-            $aiRun = $this->prefillFromKnownContext->handle(
+            return $this->prefillFromKnownContext->handle(
                 $intake,
                 skipIfCustomerStarted: $skipIfCustomerStarted,
             );
-            $run = $aiRun ?? $localRun;
         }
 
-        return $run;
+        if ($reason === null) {
+            return null;
+        }
+
+        $localOutput = $this->localParser->parse($reason);
+
+        return $localOutput === null
+            ? null
+            : $this->recordLocalResult($intake, $reason, $localOutput);
     }
 
     /**

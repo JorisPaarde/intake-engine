@@ -1,0 +1,22 @@
+{
+  "id": "obs-077-fusebox-blurry",
+  "kind": "photo_observation",
+  "origin": "staging 77 fusebox-assessment-v2",
+  "source_kind": "verbatim_trace",
+  "slot": "fusebox_photo",
+  "room": null,
+  "text": "De foto is te onscherp om de individuele groepen, de hoofdschakelaar of de bedrading te kunnen identificeren.",
+  "model_fields": {},
+  "expected": {
+    "phase": null,
+    "free_group": null,
+    "needs_retake": true
+  },
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
+  "note": null,
+  "disputed_facts": {}
+}

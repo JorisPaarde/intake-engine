@@ -6,7 +6,6 @@ namespace App\Domains\AI\Services;
 
 use App\Domains\AI\DTOs\RequestPrefillCandidate;
 use App\Domains\AI\Support\OwnershipNormalizer;
-use App\Domains\AI\Support\RoomFloorLevelExtractor;
 use App\Domains\Intake\Support\FactAcceptance;
 use App\Domains\Intake\Support\FactProvenance;
 use App\Domains\Intake\Support\FactSource;
@@ -29,10 +28,6 @@ final class RequestPrefillOutcomeClassifier
     private const int FILL_EVIDENCE_MAX = 300;
 
     private const int FILLS_SOFT_MAX = 80;
-
-    public function __construct(
-        private readonly RoomFloorLevelExtractor $floorExtractor = new RoomFloorLevelExtractor,
-    ) {}
 
     /**
      * @param  array<string, mixed>  $output
@@ -237,25 +232,6 @@ final class RequestPrefillOutcomeClassifier
                 continue;
             }
 
-            // Alleen brontekst (request_reason) — verzonnen fill-evidence mag intent niet “bewijzen”.
-            if ($key === 'cooling_heating' && $this->coolingInferredFromAircoAbsence($requestReason)) {
-                $candidates[] = new RequestPrefillCandidate(
-                    questionKey: $key,
-                    sectionInstanceKey: $instanceKey,
-                    label: $label,
-                    value: $rawValue !== [] ? $rawValue : null,
-                    confidence: $confidence,
-                    evidence: $fillEvidence,
-                    disposition: RequestPrefillCandidate::DISPOSITION_REJECTED,
-                    source: RequestPrefillCandidate::SOURCE_CATALOG_AI,
-                    reason: 'Geen koel-/verwarmingsintentie: alleen afwezigheid van airco is geen cooling_heating.',
-                    confidencePercent: FactAcceptance::normalizeConfidence($confidence),
-                    factSource: FactSource::Derived,
-                );
-
-                continue;
-            }
-
             if ($question === null) {
                 $candidates[] = new RequestPrefillCandidate(
                     questionKey: $key,
@@ -392,96 +368,6 @@ final class RequestPrefillOutcomeClassifier
                 ];
             }
 
-            // Verdieping alleen per duidelijk gekoppelde ruimte — nooit globaal of begane-grond-default.
-            if ($key === 'floor_level' && is_string($requestReason) && $instanceKey !== null) {
-                $roomsResolvable = $this->roomTypesFromFills($rawFills) !== [];
-                $linkedFloor = $this->linkedFloorLevelForInstance(
-                    $requestReason,
-                    $instanceKey,
-                    $rawFills,
-                    $catalog,
-                );
-                $hasFloorCue = $this->requestHasFloorCue($requestReason);
-                $numbered = $this->floorExtractor->numberedFloorFromText($requestReason);
-
-                if ($linkedFloor !== null && ($normalized['value'] ?? null) !== $linkedFloor) {
-                    $normalizations[] = [
-                        'field' => $key.'|'.$instanceKey,
-                        'from' => $normalized['value'] ?? null,
-                        'to' => $linkedFloor,
-                        'rule' => 'floor_level_per_room_link',
-                    ];
-                    $normalized = ['value' => $linkedFloor];
-                    $fillEvidence = $this->floorEvidenceQuote($requestReason) ?? $fillEvidence;
-                    $provenance = FactProvenance::Stated;
-                    $factSource = $requestTextFactSource;
-                    $confidence = 'high';
-                    $confidencePercent = FactAcceptance::LEVEL_HIGH;
-                } elseif (
-                    ($normalized['value'] ?? null) === 'attic'
-                    && $numbered !== null
-                ) {
-                    $numberedAnswer = $this->floorLevelAnswer($catalog, $numbered);
-                    $numberedValue = is_array($numberedAnswer) ? ($numberedAnswer['value'] ?? null) : null;
-                    if (is_string($numberedValue) && $numberedValue !== 'attic') {
-                        $normalizations[] = [
-                            'field' => $key.'|'.$instanceKey,
-                            'from' => 'attic',
-                            'to' => $numberedValue,
-                            'rule' => 'floor_level_prefer_numbered',
-                        ];
-                        $normalized = ['value' => $numberedValue];
-                        $fillEvidence = $this->floorEvidenceQuote($requestReason) ?? $fillEvidence;
-                        $provenance = FactProvenance::Stated;
-                        $factSource = $requestTextFactSource;
-                        $confidence = 'high';
-                        $confidencePercent = FactAcceptance::LEVEL_HIGH;
-                    }
-                } elseif (! $hasFloorCue || ($roomsResolvable && $linkedFloor === null)) {
-                    $reason = ! $hasFloorCue
-                        ? 'Geen verdieping in de openingszin — niet stil invullen (geen begane-grond-default).'
-                        : 'Verdieping niet eenduidig aan deze ruimte gekoppeld — leeg laten voor klantbevestiging.';
-                    $candidates[] = new RequestPrefillCandidate(
-                        questionKey: $key,
-                        sectionInstanceKey: $instanceKey,
-                        label: $label,
-                        value: $normalized,
-                        confidence: $confidence,
-                        evidence: $fillEvidence,
-                        disposition: RequestPrefillCandidate::DISPOSITION_REJECTED,
-                        source: RequestPrefillCandidate::SOURCE_CATALOG_AI,
-                        reason: $reason,
-                        provenance: $provenance,
-                        confidencePercent: $confidencePercent,
-                        factSource: $factSource,
-                    );
-
-                    continue;
-                }
-            }
-
-            // Letterlijke koop/huur in openingszin → stated FILL (nooit opnieuw vragen).
-            if ($key === 'ownership' && is_string($requestReason) && trim($requestReason) !== '') {
-                $ownershipUpgrade = $this->ownershipStatedFromRequest(
-                    $requestReason,
-                    is_string($normalized['value'] ?? null) ? $normalized['value'] : null,
-                );
-                if ($ownershipUpgrade !== null) {
-                    $normalizations[] = [
-                        'field' => 'ownership.provenance',
-                        'from' => $provenance->value,
-                        'to' => FactProvenance::Stated->value,
-                        'rule' => 'ownership_literal_in_request',
-                    ];
-                    $normalized = ['value' => $ownershipUpgrade['value']];
-                    $fillEvidence = $ownershipUpgrade['evidence'];
-                    $provenance = FactProvenance::Stated;
-                    $factSource = $requestTextFactSource;
-                    $confidence = 'high';
-                    $confidencePercent = FactAcceptance::LEVEL_HIGH;
-                }
-            }
-
             if ($confidence === 'low' || $provenance === FactProvenance::Unknown) {
                 $candidates[] = new RequestPrefillCandidate(
                     questionKey: $key,
@@ -555,16 +441,6 @@ final class RequestPrefillOutcomeClassifier
                 'evidence' => $fillEvidence,
             ];
         }
-
-        $this->ensureOwnershipFillFromRequest(
-            $candidates,
-            $fills,
-            $catalog,
-            $labels,
-            $requestReason,
-            $normalizations,
-            $requestTextFactSource,
-        );
 
         return [
             'evidence' => $evidence,
@@ -909,202 +785,6 @@ final class RequestPrefillOutcomeClassifier
     }
 
     /**
-     * @return array{value: 'owned'|'rented', evidence: string}|null
-     */
-    private function ownershipStatedFromRequest(string $requestReason, ?string $normalizedValue): ?array
-    {
-        $normalizer = new OwnershipNormalizer;
-        $fromSource = $normalizer->normalize($requestReason);
-        $quote = $normalizer->matchedEvidenceQuote($requestReason);
-
-        if ($fromSource === null || $quote === null) {
-            return null;
-        }
-
-        if ($normalizedValue !== null && $normalizedValue !== $fromSource) {
-            return null;
-        }
-
-        return [
-            'value' => $fromSource,
-            'evidence' => $quote,
-        ];
-    }
-
-    /**
-     * @param  list<RequestPrefillCandidate>  $candidates
-     * @param  list<array<string, mixed>>  $fills
-     * @param  array<string, mixed>  $catalog
-     * @param  array<string, string>  $labels
-     * @param  list<array{field: string, from: mixed, to: mixed, rule: string}>  $normalizations
-     */
-    private function ensureOwnershipFillFromRequest(
-        array &$candidates,
-        array &$fills,
-        array $catalog,
-        array $labels,
-        ?string $requestReason,
-        array &$normalizations,
-        FactSource $requestTextFactSource = FactSource::InstallerRequest,
-    ): void {
-        if (! is_string($requestReason) || trim($requestReason) === '') {
-            return;
-        }
-
-        $index = $this->catalogIndex($catalog);
-        if (! isset($index['ownership'])) {
-            return;
-        }
-
-        foreach ($candidates as $candidate) {
-            if ($candidate->questionKey === 'ownership'
-                && $candidate->disposition === RequestPrefillCandidate::DISPOSITION_FILL) {
-                return;
-            }
-        }
-
-        $stated = $this->ownershipStatedFromRequest($requestReason, null);
-        if ($stated === null) {
-            return;
-        }
-
-        // Vervang eerdere ownership-suggestie/reject door stated FILL.
-        $candidates = array_values(array_filter(
-            $candidates,
-            static fn (RequestPrefillCandidate $c): bool => $c->questionKey !== 'ownership',
-        ));
-        $fills = array_values(array_filter(
-            $fills,
-            static fn (array $row): bool => ($row['question_key'] ?? null) !== 'ownership',
-        ));
-
-        $normalizations[] = [
-            'field' => 'ownership',
-            'from' => null,
-            'to' => $stated['value'],
-            'rule' => 'ownership_literal_inject',
-        ];
-
-        $candidates[] = new RequestPrefillCandidate(
-            questionKey: 'ownership',
-            sectionInstanceKey: null,
-            label: $this->questionLabel($labels, 'ownership', null),
-            value: ['value' => $stated['value']],
-            confidence: 'high',
-            evidence: $stated['evidence'],
-            disposition: RequestPrefillCandidate::DISPOSITION_FILL,
-            source: RequestPrefillCandidate::SOURCE_CATALOG_AI,
-            reason: null,
-            provenance: FactProvenance::Stated,
-            confidencePercent: FactAcceptance::LEVEL_HIGH,
-            factSource: $requestTextFactSource,
-        );
-
-        $fills[] = [
-            'question_key' => 'ownership',
-            'section_instance_key' => null,
-            'confidence' => 'high',
-            'confidence_percent' => FactAcceptance::LEVEL_HIGH,
-            'provenance' => FactProvenance::Stated->value,
-            'fact_source' => $requestTextFactSource->value,
-            'value' => ['value' => $stated['value']],
-            'evidence' => $stated['evidence'],
-        ];
-    }
-
-    /**
-     * @param  list<mixed>  $rawFills
-     * @return array<string, string> section_instance_key => room_type
-     */
-    private function roomTypesFromFills(array $rawFills): array
-    {
-        $roomsByInstance = [];
-        foreach ($rawFills as $fill) {
-            if (! is_array($fill)) {
-                continue;
-            }
-            if (($fill['question_key'] ?? null) !== 'room_type') {
-                continue;
-            }
-            $fillInstance = $fill['section_instance_key'] ?? null;
-            if (! is_string($fillInstance) || $fillInstance === '') {
-                continue;
-            }
-            $value = $fill['value']['value'] ?? null;
-            if (is_string($value) && $value !== '') {
-                $roomsByInstance[$fillInstance] = $value;
-            }
-        }
-
-        ksort($roomsByInstance, SORT_NATURAL);
-
-        return $roomsByInstance;
-    }
-
-    /**
-     * @param  list<mixed>  $rawFills
-     * @param  array<string, mixed>  $catalog
-     */
-    private function linkedFloorLevelForInstance(
-        string $requestReason,
-        string $instanceKey,
-        array $rawFills,
-        array $catalog,
-    ): ?string {
-        if (preg_match('/^room-(\d+)$/', $instanceKey, $matches) !== 1) {
-            return null;
-        }
-
-        $roomIndex = ((int) $matches[1]) - 1;
-        if ($roomIndex < 0) {
-            return null;
-        }
-
-        $roomsByInstance = $this->roomTypesFromFills($rawFills);
-        if ($roomsByInstance === []) {
-            return null;
-        }
-
-        /** @var list<'living_room'|'bedroom'|'office'|'attic'|'other'> $rooms */
-        $rooms = array_values($roomsByInstance);
-        if ($roomIndex >= count($rooms)) {
-            return null;
-        }
-
-        $floors = $this->floorExtractor->floorsForRooms($requestReason, $rooms);
-        $floor = $floors[$roomIndex] ?? null;
-        if (! is_string($floor)) {
-            return null;
-        }
-
-        $answer = $this->floorLevelAnswer($catalog, $floor);
-
-        return is_array($answer) && is_string($answer['value'] ?? null)
-            ? $answer['value']
-            : null;
-    }
-
-    private function requestHasFloorCue(string $requestReason): bool
-    {
-        $normalized = mb_strtolower(trim($requestReason), 'UTF-8');
-        $normalized = str_replace(['’', '‘', '´'], "'", $normalized);
-
-        return preg_match(
-            '/\b(?:kelder|souterrain|begane\s+grond|(?:1(?:e|ste)?|eerste|2(?:e|de)?|tweede|3(?:e|de)?|derde|[4-9](?:e|de)?)\s+verdieping|op\s+(?:de\s+)?zolder)\b/u',
-            $normalized,
-        ) === 1;
-    }
-
-    private function floorEvidenceQuote(string $requestReason): ?string
-    {
-        if (preg_match('/\b(?:begane\s+grond|(?:1(?:e|ste)?|eerste|2(?:e|de)?|tweede|3(?:e|de)?|derde|[4-9](?:e|de)?)\s+verdieping|op\s+(?:de\s+)?zolder)\b/iu', $requestReason, $matches) === 1) {
-            return $matches[0];
-        }
-
-        return null;
-    }
-
-    /**
      * @param  list<string>  $options
      * @param  array<string, mixed>  $value
      * @return array{value: string}|null
@@ -1142,38 +822,5 @@ final class RequestPrefillOutcomeClassifier
         }
 
         return ['values' => array_values(array_unique($normalized))];
-    }
-
-    /**
-     * "Nog geen airco" without explicit cool/heat words must not yield cooling_heating (BL-129/BL-142).
-     * Alleen request_reason — AI-evidence mag geen intent verzinnen.
-     */
-    private function coolingInferredFromAircoAbsence(?string $requestReason): bool
-    {
-        $corpus = mb_strtolower(trim((string) $requestReason));
-
-        if ($corpus === '') {
-            return false;
-        }
-
-        $mentionsAbsence = str_contains($corpus, 'geen airco')
-            || str_contains($corpus, 'nog geen airco')
-            || str_contains($corpus, 'nog geen unit')
-            || str_contains($corpus, 'nog geen installatie');
-
-        if (! $mentionsAbsence) {
-            return false;
-        }
-
-        $mentionsIntent = str_contains($corpus, 'koelen')
-            || str_contains($corpus, 'koud te krijgen')
-            || str_contains($corpus, 'te warm')
-            || str_contains($corpus, 'afkoelen')
-            || str_contains($corpus, 'verwarmen')
-            || str_contains($corpus, 'verwarming')
-            || str_contains($corpus, 'heating')
-            || str_contains($corpus, 'cooling');
-
-        return ! $mentionsIntent;
     }
 }

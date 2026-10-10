@@ -1,0 +1,40 @@
+{
+  "id": "ho-beneden-en-overloop",
+  "kind": "request_text",
+  "origin": "held-out paraphrase P1 review (niet in prompt)",
+  "source_kind": "variant",
+  "text": "We willen koelen in de slaapkamer beneden en het kantoor op de overloop.",
+  "expected": {
+    "cooling_heating": "cooling",
+    "indoor_unit_count": 2,
+    "rooms": [
+      {
+        "name": "Slaapkamer",
+        "room_type": "bedroom",
+        "floor_level": "ground"
+      },
+      {
+        "name": "Kantoor",
+        "room_type": "office",
+        "floor_level": "1"
+      }
+    ]
+  },
+  "components": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C8"
+  ],
+  "note": "Held-out: 'beneden' + 'op de overloop'. Overloop → 1 (zelfde lijn als boven → 1).",
+  "disputed_facts": {
+    "rooms.Kantoor.floor_level": {
+      "reason": "Open vraag: mag 'overloop' ook null blijven i.p.v. 1?",
+      "acceptable_alternates": [
+        null
+      ]
+    }
+  },
+  "match_rooms": "unordered_by_type"
+}

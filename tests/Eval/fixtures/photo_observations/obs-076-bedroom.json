@@ -1,0 +1,21 @@
+{
+  "id": "obs-076-bedroom",
+  "kind": "photo_observation",
+  "origin": "staging 76",
+  "source_kind": "verbatim_trace",
+  "slot": "room_photos",
+  "room": "Kinderkamer",
+  "text": "De ruimte bevat een bed en een ladekast, wat duidt op een slaapkamer. Er is een stopcontact zichtbaar op de muur naast de deur.",
+  "model_fields": {},
+  "expected": {
+    "room_type": "bedroom",
+    "outlet_present": true
+  },
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
+  "note": null,
+  "disputed_facts": {}
+}

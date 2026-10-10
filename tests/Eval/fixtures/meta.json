@@ -1,0 +1,37 @@
+{
+  "purpose": "Seed voor P1 stap 1 evaluatieset (IntakeEngine). Verwachte uitkomst per feit. null = niet genoemd in de bron, mag NIET ingevuld worden.",
+  "privacy": "Geen namen, adressen, postcodes, e-mail, telefoon, perceel-ID's. Testadres en klantnamen zijn weggelaten. Alleen ruimtenamen die in de tekst staan.",
+  "floor_level_enum": [
+    "basement",
+    "ground",
+    "1",
+    "2",
+    "3_plus",
+    "attic"
+  ],
+  "ownership_enum": [
+    "owned",
+    "rented"
+  ],
+  "cooling_heating_enum": [
+    "cooling",
+    "heating",
+    "both"
+  ],
+  "room_type_enum": [
+    "living_room",
+    "bedroom",
+    "office",
+    "attic",
+    "other",
+    "unknown"
+  ],
+  "source_kinds": {
+    "verbatim_trace": "letterlijk uit AI-trace-export op de box (staging)",
+    "verbatim_notion": "letterlijk geciteerd in een Notion-testverslag",
+    "verbatim_config": "letterlijk uit repo-config (demo-standaardtekst)",
+    "reconstructed": "tekst gereconstrueerd uit een Notion-parafrase; NIET de echte tekst. Vervangen zodra de prod-export binnen is",
+    "variant": "door ons geschreven variant uit de Stroom 2-taak"
+  },
+  "disputed_policy": "Feiten gemarkeerd disputed worden apart gescoord; niet meegenomen in hoofdscore."
+}

@@ -1,0 +1,38 @@
+{
+  "id": "kt10-een-beneden-een-eerste",
+  "kind": "request_text",
+  "origin": "klanttest 10 okt 2026 prod v1.4.8",
+  "source_kind": "variant",
+  "text": "Airco voor woonkamer op de begane grond en twee slaapkamers: één beneden, één op de eerste verdieping. Koelen en eventueel verwarmen. Buitenunit in de achtertuin.",
+  "expected": {
+    "cooling_heating": "both",
+    "indoor_unit_count": 3,
+    "rooms": [
+      {
+        "name": "Woonkamer",
+        "room_type": "living_room",
+        "floor_level": "ground"
+      },
+      {
+        "name": "Slaapkamer 1",
+        "room_type": "bedroom",
+        "floor_level": "ground"
+      },
+      {
+        "name": "Slaapkamer 2",
+        "room_type": "bedroom",
+        "floor_level": "1"
+      }
+    ]
+  },
+  "components": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C8"
+  ],
+  "note": "Case C (Codex desktop): woonkamer ground; slaapkamers ongeordend {ground, 1}. Prod zette beide slaapkamers op 1e verdieping.",
+  "disputed_facts": {},
+  "match_rooms": "unordered_by_type"
+}

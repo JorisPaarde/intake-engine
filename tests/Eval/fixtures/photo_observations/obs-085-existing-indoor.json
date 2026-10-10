@@ -1,0 +1,32 @@
+{
+  "id": "obs-085-existing-indoor",
+  "kind": "photo_observation",
+  "origin": "staging 85 room_photos room-1 (tekst zegt 'nog geen airco')",
+  "source_kind": "verbatim_trace",
+  "slot": "room_photos",
+  "room": "Woonkamer",
+  "text": "De foto toont een ruime woonkamer met een zithoek en eethoek. Een stopcontact is zichtbaar bij de trap en een airco-unit is reeds aanwezig.",
+  "model_fields": {},
+  "expected": {
+    "room_type": "living_room",
+    "outlet_present": true,
+    "existing_indoor_unit_visible": true,
+    "conflict_with_request_text": true
+  },
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
+  "note": "Tekst (nog geen airco) en foto (airco aanwezig) spreken elkaar tegen. Verwachte afhandeling (tekst leidend + conflict tonen?) is een open vraag.",
+  "disputed_facts": {
+    "existing_indoor_unit_visible": {
+      "reason": "Open vraag: tekst 'nog geen airco' vs foto airco aanwezig — verwachte afhandeling onbeslist.",
+      "acceptable_alternates": []
+    },
+    "conflict_with_request_text": {
+      "reason": "Open vraag: conflict tekst/foto — hoe tonen?",
+      "acceptable_alternates": []
+    }
+  }
+}

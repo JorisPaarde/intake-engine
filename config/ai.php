@@ -163,6 +163,8 @@ return [
 
     'request_prefill_prompt' => 'request_prefill',
 
+    'follow_up_text_prompt' => 'follow_up_text',
+
     /*
     |--------------------------------------------------------------------------
     | Request-prefill (openingszin → antwoorden)
@@ -249,6 +251,21 @@ return [
         // Soft caps for ai:traces:export part splitting (~1 MiB / ~200k tokens @ 4 chars/token).
         'export_max_part_bytes' => (int) env('AI_TRACE_EXPORT_MAX_PART_BYTES', 1048576),
         'export_max_part_chars' => (int) env('AI_TRACE_EXPORT_MAX_PART_CHARS', 800000),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Evaluatieset (eval:interpretation)
+    |--------------------------------------------------------------------------
+    |
+    | output_dir: root voor results/ + baseline/ + HISTORY.md.
+    | Leeg = base_path('tests/Eval'). Relatief pad = t.o.v. base_path.
+    | Pest zet AI_EVAL_OUTPUT_DIR op storage/framework/testing/eval.
+    |
+    */
+
+    'eval' => [
+        'output_dir' => env('AI_EVAL_OUTPUT_DIR', ''),
     ],
 
 ];

@@ -79,8 +79,6 @@ test('OwnershipNormalizer maps typical Dutch ownership phrasings', function (str
     ['we huren', 'rented'],
     ['wij huren', 'rented'],
     ['ik huur', 'rented'],
-    ['Het is een goed geïsoleerde koopwoning', 'owned'],
-    ['We huren een appartement', 'rented'],
 ]);
 
 test('OwnershipNormalizer returns null for ambiguous text', function () {

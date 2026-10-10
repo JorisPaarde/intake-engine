@@ -1,0 +1,40 @@
+{
+  "id": "ho-zolderkamer-bovenverdieping",
+  "kind": "request_text",
+  "origin": "held-out paraphrase P1 review (niet in prompt)",
+  "source_kind": "variant",
+  "text": "Graag airco in de zolderkamer op de bovenverdieping en in de werkkamer. Alleen koelen in de zomer.",
+  "expected": {
+    "cooling_heating": "cooling",
+    "indoor_unit_count": 2,
+    "rooms": [
+      {
+        "name": "Zolderkamer",
+        "room_type": "attic",
+        "floor_level": "1"
+      },
+      {
+        "name": "Werkkamer",
+        "room_type": "office",
+        "floor_level": null
+      }
+    ]
+  },
+  "components": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C8"
+  ],
+  "note": "Held-out: 'zolderkamer' + 'bovenverdieping'. Genummerde/boven-verdieping → floor 1; room_type attic. Werkkamer zonder verdieping.",
+  "disputed_facts": {
+    "rooms.Zolderkamer.floor_level": {
+      "reason": "Open vraag: is 'attic' ook acceptabel naast '1' bij zolderkamer op bovenverdieping?",
+      "acceptable_alternates": [
+        "attic"
+      ]
+    }
+  },
+  "match_rooms": "unordered_by_type"
+}

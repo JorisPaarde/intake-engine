@@ -354,9 +354,9 @@ class IntakeWizard extends Component
 
     private function beginWizardAfterPrefill(Intake $intake): void
     {
-        // Herstelt ook eerder aangemaakte opnames waarvan de installateur de openingszin
-        // al invulde. Alleen de lokale, evidente parser draait hier; een externe call
-        // hoort niet stil bij iedere geopende klantlink te starten.
+        // Herstelpass: zonder externe AI-call. Met tekst-AI aan is dit een no-op
+        // (modelantwoorden blijven staan; lokale regex mag ze niet overschrijven).
+        // Met tekst-AI uit draait alleen de bevroren lokale offline-fallback.
         // skipIfCustomerStarted: mount mag late prefill niet herhalen na klantstart.
         app(DeriveIntentFromRequest::class)->handle(
             $intake,

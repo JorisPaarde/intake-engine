@@ -1,0 +1,22 @@
+{
+  "id": "obs-077-fusebox-full",
+  "kind": "photo_observation",
+  "origin": "staging 77",
+  "source_kind": "verbatim_trace",
+  "slot": "fusebox_photo",
+  "room": null,
+  "text": "De meterkast toont een 3-fasen hoofdschakelaar (drie hendels) en alle groepsruimtes in de verdeelkast lijken bezet.",
+  "model_fields": {},
+  "expected": {
+    "phase": "three_phase",
+    "free_group": "no",
+    "certainty": "hedged ('lijken')"
+  },
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
+  "note": null,
+  "disputed_facts": {}
+}

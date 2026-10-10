@@ -1,0 +1,31 @@
+{
+  "id": "var-geen-airco",
+  "kind": "request_text",
+  "origin": "variant Stroom 2: geen airco",
+  "source_kind": "variant",
+  "text": "We hebben nog geen airco. De woonkamer van 30 m² op de begane grond wil ik koelen.",
+  "expected": {
+    "cooling_heating": "cooling",
+    "indoor_unit_count": 1,
+    "existing_installation": {
+      "present": false
+    },
+    "rooms": [
+      {
+        "name": "Woonkamer",
+        "room_type": "living_room",
+        "floor_level": "ground",
+        "area_m2": 30
+      }
+    ]
+  },
+  "components": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C8"
+  ],
+  "note": null,
+  "disputed_facts": {}
+}

@@ -1,0 +1,30 @@
+{
+  "id": "var-we-huren",
+  "kind": "request_text",
+  "origin": "variant Stroom 2: we huren",
+  "source_kind": "variant",
+  "text": "We huren de woning; de verhuurder vindt een airco goed. Slaapkamer op de eerste verdieping koelen, 3 bij 4 meter.",
+  "expected": {
+    "cooling_heating": "cooling",
+    "indoor_unit_count": 1,
+    "ownership": "rented",
+    "rooms": [
+      {
+        "name": "Slaapkamer",
+        "room_type": "bedroom",
+        "floor_level": "1",
+        "length_m": 3,
+        "width_m": 4
+      }
+    ]
+  },
+  "components": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C8"
+  ],
+  "note": null,
+  "disputed_facts": {}
+}

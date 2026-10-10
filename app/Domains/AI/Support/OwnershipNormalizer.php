@@ -5,12 +5,35 @@ declare(strict_types=1);
 namespace App\Domains\AI\Support;
 
 /**
- * Maps Dutch ownership phrasings to catalog option values (`owned` / `rented`).
- * Deterministic code-side normaliser for catalogus-prefill (prompt examples alone
- * are not enough — models sometimes return `koop` / `huurwoning` instead of tokens).
+ * Maps short model fill-tokens onto catalog values (`owned` / `rented`).
+ *
+ * ADR-0016: enum synonym mapping only — does not scan request_reason or
+ * inject/upgrade stated ownership from source text.
  */
 final class OwnershipNormalizer
 {
+    /** @var array<string, 'owned'|'rented'> */
+    private const TOKENS = [
+        'owned' => 'owned',
+        'rented' => 'rented',
+        'koop' => 'owned',
+        'koophuis' => 'owned',
+        'koopwoning' => 'owned',
+        'koopappartement' => 'owned',
+        'eigen woning' => 'owned',
+        'eigen huis' => 'owned',
+        'in eigendom' => 'owned',
+        'eigendom' => 'owned',
+        'huur' => 'rented',
+        'huurwoning' => 'rented',
+        'huurhuis' => 'rented',
+        'huurappartement' => 'rented',
+        'gehuurd' => 'rented',
+        'we huren' => 'rented',
+        'wij huren' => 'rented',
+        'ik huur' => 'rented',
+    ];
+
     /**
      * @return 'owned'|'rented'|null
      */
@@ -26,76 +49,7 @@ final class OwnershipNormalizer
             return null;
         }
 
-        if (in_array($value, ['owned', 'rented'], true)) {
-            return $value;
-        }
-
-        if ($this->matchesOwned($value)) {
-            return 'owned';
-        }
-
-        if ($this->matchesRented($value)) {
-            return 'rented';
-        }
-
-        return null;
-    }
-
-    /**
-     * Short literal quote from the source text that proves owned/rented (for stated evidence).
-     */
-    public function matchedEvidenceQuote(string $sourceText): ?string
-    {
-        $normalized = $this->prepare($sourceText);
-        if ($normalized === '') {
-            return null;
-        }
-
-        if (preg_match('/'.$this->ownedPattern().'/u', $normalized, $matches) === 1) {
-            return $this->originalCaseQuote($sourceText, $matches[0]);
-        }
-
-        if (preg_match('/'.$this->rentedPattern().'/u', $normalized, $matches) === 1) {
-            return $this->originalCaseQuote($sourceText, $matches[0]);
-        }
-
-        return null;
-    }
-
-    private function matchesOwned(string $value): bool
-    {
-        return (bool) preg_match('/'.$this->ownedPattern().'/u', $value);
-    }
-
-    private function matchesRented(string $value): bool
-    {
-        return (bool) preg_match('/'.$this->rentedPattern().'/u', $value);
-    }
-
-    private function ownedPattern(): string
-    {
-        return '\b(?:'
-            .'koop(?:woning|huis|appartement)?'
-            .'|eigen\s+(?:woning|huis|appartement)'
-            .'|in\s+eigendom'
-            .'|eigendom'
-            .'|wij\s+bezitten'
-            .'|we\s+bezitten'
-            .'|ons\s+eigen\s+huis'
-            .')\b';
-    }
-
-    private function rentedPattern(): string
-    {
-        return '\b(?:'
-            .'huur(?:woning|huis|appartement)?'
-            .'|gehuurd'
-            .'|wij\s+huren'
-            .'|we\s+huren'
-            .'|ik\s+huur'
-            .'|van\s+de\s+verhuurder'
-            .'|huurders?'
-            .')\b';
+        return self::TOKENS[$value] ?? null;
     }
 
     private function prepare(string $raw): string
@@ -104,15 +58,5 @@ final class OwnershipNormalizer
         $value = str_replace(['’', '‘', '´'], "'", $value);
 
         return (string) preg_replace('/\s+/u', ' ', $value);
-    }
-
-    private function originalCaseQuote(string $sourceText, string $normalizedMatch): string
-    {
-        $pattern = '/'.preg_quote($normalizedMatch, '/').'/iu';
-        if (preg_match($pattern, $sourceText, $matches) === 1) {
-            return $matches[0];
-        }
-
-        return $normalizedMatch;
     }
 }

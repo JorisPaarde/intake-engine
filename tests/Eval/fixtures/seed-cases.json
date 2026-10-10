@@ -1,0 +1,787 @@
+{
+  "_meta": {
+    "purpose": "Seed voor P1 stap 1 evaluatieset (IntakeEngine). Verwachte uitkomst per feit. null = niet genoemd in de bron, mag NIET ingevuld worden.",
+    "privacy": "Geen namen, adressen, postcodes, e-mail, telefoon, perceel-ID's. Testadres en klantnamen zijn weggelaten. Alleen ruimtenamen die in de tekst staan.",
+    "floor_level_enum": [
+      "basement",
+      "ground",
+      "1",
+      "2",
+      "3_plus",
+      "attic"
+    ],
+    "ownership_enum": [
+      "owned",
+      "rented"
+    ],
+    "cooling_heating_enum": [
+      "cooling",
+      "heating",
+      "both"
+    ],
+    "room_type_enum": [
+      "living_room",
+      "bedroom",
+      "office",
+      "attic",
+      "other",
+      "unknown"
+    ],
+    "source_kinds": {
+      "verbatim_trace": "letterlijk uit AI-trace-export op de box (staging)",
+      "verbatim_notion": "letterlijk geciteerd in een Notion-testverslag",
+      "verbatim_config": "letterlijk uit repo-config (demo-standaardtekst)",
+      "reconstructed": "tekst gereconstrueerd uit een Notion-parafrase; NIET de echte tekst. Vervangen zodra de prod-export binnen is",
+      "variant": "door ons geschreven variant uit de Stroom 2-taak"
+    },
+    "disputed_policy": "Feiten gemarkeerd disputed worden apart gescoord; niet meegenomen in hoofdscore."
+  },
+  "request_texts": [
+    {
+      "id": "stg-076",
+      "origin": "staging intake 76 (= hertest-case 81-tekst), trace request-prefill-v6",
+      "source_kind": "verbatim_trace",
+      "text": "Fictieve QA-test. Ik wil twee slaapkamers koelen en verwarmen. Slaapkamer ouders op de 1e verdieping: 4 bij 3 meter, plafond 2,5 meter. Kinderkamer op de 1e verdieping: 3 bij 3 meter, plafond 2,5 meter. Het is een goed geïsoleerde koopwoning met vloerisolatie en een kruipruimte. Ik heb geen merkvoorkeur en geen haast. Een buitenunit tegen de achtergevel; de buren zitten dichtbij. Zichtbare leidingen in een goot vind ik prima. Over de stroomvoorziening en condensafvoer weet ik niets. De installateur moet technische keuzes bepalen.",
+      "expected": {
+        "cooling_heating": "both",
+        "indoor_unit_count": 2,
+        "ownership": "owned",
+        "existing_installation": {
+          "present": null
+        },
+        "rooms": [
+          {
+            "name": "Slaapkamer ouders",
+            "room_type": "bedroom",
+            "floor_level": "1",
+            "length_m": 4,
+            "width_m": 3,
+            "ceiling_height_m": 2.5
+          },
+          {
+            "name": "Kinderkamer",
+            "room_type": "bedroom",
+            "floor_level": "1",
+            "length_m": 3,
+            "width_m": 3,
+            "ceiling_height_m": 2.5
+          }
+        ]
+      }
+    },
+    {
+      "id": "stg-077",
+      "origin": "staging intake 77 (= hertest-case 80-tekst)",
+      "source_kind": "verbatim_trace",
+      "text": "Fictieve QA-test. Ik wil alleen koelen in de woonkamer. De woonkamer is 6 bij 4 meter en het plafond is 2,6 meter hoog. De binnenunit wil ik boven de bank aan de buitenmuur. De buitenunit het liefst op de grond in de achtertuin. Over de stroomvoorziening weet ik niets.",
+      "expected": {
+        "cooling_heating": "cooling",
+        "indoor_unit_count": 1,
+        "ownership": null,
+        "existing_installation": {
+          "present": null
+        },
+        "rooms": [
+          {
+            "name": "Woonkamer",
+            "room_type": "living_room",
+            "floor_level": null,
+            "length_m": 6,
+            "width_m": 4,
+            "ceiling_height_m": 2.6
+          }
+        ]
+      }
+    },
+    {
+      "id": "stg-078",
+      "origin": "staging intake 78 (= prod case6/intake 90-achtige tekst)",
+      "source_kind": "verbatim_trace",
+      "text": "Nog geen airco. Woonkamer 5 bij 4 meter, 2,6 m hoog, begane grond, koopwoning, goed geïsoleerd, veel zon en groot glas. Buren dichtbij. Plek buitenunit in de achtertuin, nog niet gekozen. Techniek laat ik aan de installateur.",
+      "expected": {
+        "cooling_heating": null,
+        "indoor_unit_count": 1,
+        "ownership": "owned",
+        "existing_installation": {
+          "present": false
+        },
+        "rooms": [
+          {
+            "name": "Woonkamer",
+            "room_type": "living_room",
+            "floor_level": "ground",
+            "length_m": 5,
+            "width_m": 4,
+            "ceiling_height_m": 2.6
+          }
+        ]
+      },
+      "note": "Model vulde in de trace cooling_heating=cooling zonder dat koelen/verwarmen genoemd wordt: verwacht null."
+    },
+    {
+      "id": "stg-084",
+      "origin": "staging intake 84 (QA v142b), dossier-synthesis snapshot",
+      "source_kind": "verbatim_trace",
+      "text": "Fictieve test. Bestaande tussenwoning, koop, nog geen airco. Wij willen de woonkamer op de begane grond (ca. 6 bij 4 meter) en de slaapkamer op de 1e verdieping (ca. 4 bij 3 meter) koelen en verwarmen. Buitenunit liefst in de achtertuin. Techniek laten we aan de installateur.",
+      "expected": {
+        "cooling_heating": "both",
+        "indoor_unit_count": 2,
+        "ownership": "owned",
+        "existing_installation": {
+          "present": false
+        },
+        "rooms": [
+          {
+            "name": "Woonkamer",
+            "room_type": "living_room",
+            "floor_level": "ground",
+            "length_m": 6,
+            "width_m": 4,
+            "ceiling_height_m": null
+          },
+          {
+            "name": "Slaapkamer",
+            "room_type": "bedroom",
+            "floor_level": "1",
+            "length_m": 4,
+            "width_m": 3,
+            "ceiling_height_m": null
+          }
+        ]
+      },
+      "note": "Staging gaf de slaapkamer 'begane grond' (fout). Staging 83 had de omgekeerde fout."
+    },
+    {
+      "id": "stg-085",
+      "origin": "staging intake 85 (QA v142c)",
+      "source_kind": "verbatim_trace",
+      "text": "Fictieve test. Bestaande tussenwoning, koopwoning, nog geen airco. Wij willen de woonkamer op de begane grond (ca. 6 bij 4 meter) en de slaapkamer op de 1e verdieping (ca. 4 bij 3 meter) koelen en verwarmen. Buitenunit liefst in de achtertuin. Techniek laten we aan de installateur.",
+      "expected": {
+        "cooling_heating": "both",
+        "indoor_unit_count": 2,
+        "ownership": "owned",
+        "existing_installation": {
+          "present": false
+        },
+        "rooms": [
+          {
+            "name": "Woonkamer",
+            "room_type": "living_room",
+            "floor_level": "ground",
+            "length_m": 6,
+            "width_m": 4
+          },
+          {
+            "name": "Slaapkamer",
+            "room_type": "bedroom",
+            "floor_level": "1",
+            "length_m": 4,
+            "width_m": 3
+          }
+        ]
+      }
+    },
+    {
+      "id": "prod-112",
+      "origin": "prod demo intake 112 (8 okt), Notion Stroom 2-taak",
+      "source_kind": "verbatim_notion",
+      "text": "Werkkamer op de eerste verdieping van 3 bij 3 meter en de woonkamer beneden van 6 bij 4 meter. Alleen koelen. Er hangt al een oude airco in de woonkamer die vervangen moet worden. Buitenunit liefst in de achtertuin.",
+      "expected": {
+        "cooling_heating": "cooling",
+        "indoor_unit_count": 2,
+        "ownership": null,
+        "existing_installation": {
+          "present": true,
+          "room": "Woonkamer",
+          "replace": true
+        },
+        "rooms": [
+          {
+            "name": "Werkkamer",
+            "room_type": "office",
+            "floor_level": "1",
+            "length_m": 3,
+            "width_m": 3
+          },
+          {
+            "name": "Woonkamer",
+            "room_type": "living_room",
+            "floor_level": "ground",
+            "length_m": 6,
+            "width_m": 4
+          }
+        ]
+      },
+      "note": "Prod: woonkamer kreeg '1e verdieping' (gezegd, klantantwoord, 90%); bestaande airco verdween."
+    },
+    {
+      "id": "prod-115",
+      "origin": "prod demo intake 115: lege aanvraag, gevuld met config('intake.demo.request_reason')",
+      "source_kind": "verbatim_config",
+      "text": "Twee slaapkamers op zolder koelen; het wordt daar te warm in de zomer.",
+      "expected": {
+        "cooling_heating": "cooling",
+        "indoor_unit_count": 2,
+        "ownership": null,
+        "existing_installation": {
+          "present": null
+        },
+        "rooms": [
+          {
+            "name": "Slaapkamer 1",
+            "room_type": "bedroom",
+            "floor_level": "attic"
+          },
+          {
+            "name": "Slaapkamer 2",
+            "room_type": "bedroom",
+            "floor_level": "attic"
+          }
+        ]
+      }
+    },
+    {
+      "id": "prod-111-partial",
+      "origin": "prod demo intake 111: Notion citeert alleen 'twee slaapkamers op zolder … de woonkamer ook verwarmen'",
+      "source_kind": "reconstructed",
+      "text": "Twee slaapkamers op zolder koelen, en de woonkamer ook verwarmen. Tussenwoning.",
+      "expected": {
+        "cooling_heating": "both",
+        "indoor_unit_count": 3,
+        "ownership": null,
+        "rooms": [
+          {
+            "name": "Slaapkamer 1",
+            "room_type": "bedroom",
+            "floor_level": "attic"
+          },
+          {
+            "name": "Slaapkamer 2",
+            "room_type": "bedroom",
+            "floor_level": "attic"
+          },
+          {
+            "name": "Woonkamer",
+            "room_type": "living_room",
+            "floor_level": null
+          }
+        ]
+      },
+      "note": "Prod: woonkamer kreeg 'zolder'. Echte volledige tekst nodig uit prod-export."
+    },
+    {
+      "id": "prod-two-room-floor-leak",
+      "origin": "prod intakes 100/101/104/106/108/110 (zelfde aanvraagpatroon), Notion 4/5/8 okt",
+      "source_kind": "reconstructed",
+      "text": "Woonkamer op de begane grond, 24 m², plafond 2,5 meter. Zolderslaapkamer op de tweede verdieping, ongeveer 15 m², schuin dak, hoogte weet ik niet. Alleen koelen, nog geen airco.",
+      "expected": {
+        "cooling_heating": "cooling",
+        "indoor_unit_count": 2,
+        "existing_installation": {
+          "present": false
+        },
+        "rooms": [
+          {
+            "name": "Woonkamer",
+            "room_type": "living_room",
+            "floor_level": "ground",
+            "area_m2": 24,
+            "ceiling_height_m": 2.5
+          },
+          {
+            "name": "Zolderslaapkamer",
+            "room_type": "bedroom",
+            "floor_level": "2",
+            "area_m2": 15,
+            "ceiling_height_m": null
+          }
+        ]
+      },
+      "note": "Prod: woonkamer kreeg '2e verdieping', zolder geen verdieping (104/106/108/110). Of 'attic' ook goed is voor de zolderslaapkamer: open vraag aan Joris."
+    },
+    {
+      "id": "prod-attic-minimal",
+      "origin": "prod intakes 86/94/99 (minimale zolderaanvraag), Notion 3/4 okt",
+      "source_kind": "reconstructed",
+      "text": "Zolderslaapkamer wordt te warm, circa 15 m², schuin dak, tweede verdieping. Graag koelen. Maten, isolatie, stroom en afvoer weet ik niet. Koopwoning, buren dichtbij, geen merkvoorkeur en geen haast.",
+      "expected": {
+        "cooling_heating": "cooling",
+        "indoor_unit_count": 1,
+        "ownership": "owned",
+        "rooms": [
+          {
+            "name": "Zolderslaapkamer",
+            "room_type": "bedroom",
+            "floor_level": "2",
+            "area_m2": 15,
+            "length_m": null,
+            "width_m": null,
+            "ceiling_height_m": null
+          }
+        ]
+      },
+      "note": "Tester rekende 'Zolder' i.p.v. '2' als verlies van verdiepingsnummer (94/99)."
+    },
+    {
+      "id": "prod-rich-livingroom",
+      "origin": "prod intakes 82/97/102/109 (rijke woonkameraanvraag), Notion",
+      "source_kind": "reconstructed",
+      "text": "Nog geen airco. We willen alleen de woonkamer koelen, 6 bij 4 meter, plafond 2,5 meter, begane grond. Koopwoning, goed geïsoleerd met kruipruimte. Veel glas aan de tuinkant. Binnenunit liefst boven de deur, buitenunit in de achtertuin.",
+      "expected": {
+        "cooling_heating": "cooling",
+        "indoor_unit_count": 1,
+        "ownership": "owned",
+        "existing_installation": {
+          "present": false
+        },
+        "rooms": [
+          {
+            "name": "Woonkamer",
+            "room_type": "living_room",
+            "floor_level": "ground",
+            "length_m": 6,
+            "width_m": 4,
+            "ceiling_height_m": 2.5
+          }
+        ]
+      }
+    },
+    {
+      "id": "prod-two-bedrooms-floors",
+      "origin": "prod intakes 84/92 (Ouders 1e, Kind 2e verdieping), Notion 3 okt",
+      "source_kind": "reconstructed",
+      "text": "Twee slaapkamers: Ouders 4 bij 3 meter, 2,5 meter hoog, op de eerste verdieping; Kind 3 bij 3 meter, 2,4 meter hoog, op de tweede verdieping. Koopwoning, redelijk geïsoleerd, geen kruipruimte. Voorkeur Daikin, voor volgende zomer. Stroom en afvoer weet ik niet.",
+      "expected": {
+        "cooling_heating": null,
+        "indoor_unit_count": 2,
+        "ownership": "owned",
+        "existing_installation": {
+          "present": null
+        },
+        "rooms": [
+          {
+            "name": "Ouders",
+            "room_type": "bedroom",
+            "floor_level": "1",
+            "length_m": 4,
+            "width_m": 3,
+            "ceiling_height_m": 2.5
+          },
+          {
+            "name": "Kind",
+            "room_type": "bedroom",
+            "floor_level": "2",
+            "length_m": 3,
+            "width_m": 3,
+            "ceiling_height_m": 2.4
+          }
+        ]
+      },
+      "note": "'Voorkeur Daikin' is een merkwens, GEEN bestaande installatie."
+    },
+    {
+      "id": "var-reversed",
+      "origin": "variant Stroom 2: omgekeerde volgorde",
+      "source_kind": "variant",
+      "text": "Beneden de woonkamer van 6 bij 4 meter en op de eerste verdieping de werkkamer van 3 bij 3 meter. Alleen koelen.",
+      "expected": {
+        "cooling_heating": "cooling",
+        "indoor_unit_count": 2,
+        "rooms": [
+          {
+            "name": "Woonkamer",
+            "room_type": "living_room",
+            "floor_level": "ground",
+            "length_m": 6,
+            "width_m": 4
+          },
+          {
+            "name": "Werkkamer",
+            "room_type": "office",
+            "floor_level": "1",
+            "length_m": 3,
+            "width_m": 3
+          }
+        ]
+      }
+    },
+    {
+      "id": "var-boven-onder",
+      "origin": "variant Stroom 2: boven/onder",
+      "source_kind": "variant",
+      "text": "De slaapkamer boven is 4 bij 3 meter en de woonkamer onder is 7 bij 4 meter. Koelen en verwarmen.",
+      "expected": {
+        "cooling_heating": "both",
+        "indoor_unit_count": 2,
+        "rooms": [
+          {
+            "name": "Slaapkamer",
+            "room_type": "bedroom",
+            "floor_level": "1",
+            "length_m": 4,
+            "width_m": 3
+          },
+          {
+            "name": "Woonkamer",
+            "room_type": "living_room",
+            "floor_level": "ground",
+            "length_m": 7,
+            "width_m": 4
+          }
+        ]
+      },
+      "note": "'boven' → '1' is een aanname (tussenwoning). Open vraag aan Joris: is null ook goed?"
+    },
+    {
+      "id": "var-zolderkamer",
+      "origin": "variant Stroom 2: zolderkamer",
+      "source_kind": "variant",
+      "text": "Onze zolderkamer van 5 bij 4 meter met schuin dak wordt veel te warm. Graag koelen.",
+      "expected": {
+        "cooling_heating": "cooling",
+        "indoor_unit_count": 1,
+        "rooms": [
+          {
+            "name": "Zolderkamer",
+            "room_type": "attic",
+            "floor_level": "attic",
+            "length_m": 5,
+            "width_m": 4
+          }
+        ]
+      },
+      "note": "room_type 'attic' vs 'bedroom': tekst zegt geen slaapkamer, dus attic."
+    },
+    {
+      "id": "var-daikin-hangt-al",
+      "origin": "variant Stroom 2: split-unit van Daikin hangt al",
+      "source_kind": "variant",
+      "text": "In de woonkamer hangt al een split-unit van Daikin, die is twaalf jaar oud en moet eruit. We willen daar een nieuwe en er een slaapkamer bij. Koelen en verwarmen.",
+      "expected": {
+        "cooling_heating": "both",
+        "indoor_unit_count": 2,
+        "existing_installation": {
+          "present": true,
+          "room": "Woonkamer",
+          "replace": true
+        },
+        "rooms": [
+          {
+            "name": "Woonkamer",
+            "room_type": "living_room",
+            "floor_level": null
+          },
+          {
+            "name": "Slaapkamer",
+            "room_type": "bedroom",
+            "floor_level": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "var-geen-airco",
+      "origin": "variant Stroom 2: geen airco",
+      "source_kind": "variant",
+      "text": "We hebben nog geen airco. De woonkamer van 30 m² op de begane grond wil ik koelen.",
+      "expected": {
+        "cooling_heating": "cooling",
+        "indoor_unit_count": 1,
+        "existing_installation": {
+          "present": false
+        },
+        "rooms": [
+          {
+            "name": "Woonkamer",
+            "room_type": "living_room",
+            "floor_level": "ground",
+            "area_m2": 30
+          }
+        ]
+      }
+    },
+    {
+      "id": "var-geen-airco-mixed",
+      "origin": "variant: negatie per ruimte",
+      "source_kind": "variant",
+      "text": "In de slaapkamer is geen airco, in de woonkamer hangt er wel een die blijft. Alleen de slaapkamer erbij, 4 bij 3 meter, eerste verdieping.",
+      "expected": {
+        "indoor_unit_count": 1,
+        "existing_installation": {
+          "present": true,
+          "room": "Woonkamer",
+          "replace": false
+        },
+        "rooms": [
+          {
+            "name": "Slaapkamer",
+            "room_type": "bedroom",
+            "floor_level": "1",
+            "length_m": 4,
+            "width_m": 3
+          }
+        ]
+      }
+    },
+    {
+      "id": "var-we-huren",
+      "origin": "variant Stroom 2: we huren",
+      "source_kind": "variant",
+      "text": "We huren de woning; de verhuurder vindt een airco goed. Slaapkamer op de eerste verdieping koelen, 3 bij 4 meter.",
+      "expected": {
+        "cooling_heating": "cooling",
+        "indoor_unit_count": 1,
+        "ownership": "rented",
+        "rooms": [
+          {
+            "name": "Slaapkamer",
+            "room_type": "bedroom",
+            "floor_level": "1",
+            "length_m": 3,
+            "width_m": 4
+          }
+        ]
+      }
+    },
+    {
+      "id": "var-koop-impliciet",
+      "origin": "variant: geen eigendom genoemd",
+      "source_kind": "variant",
+      "text": "Ik wil mijn werkkamer koelen, 3 bij 3 meter.",
+      "expected": {
+        "cooling_heating": "cooling",
+        "indoor_unit_count": 1,
+        "ownership": null,
+        "rooms": [
+          {
+            "name": "Werkkamer",
+            "room_type": "office",
+            "floor_level": null,
+            "length_m": 3,
+            "width_m": 3
+          }
+        ]
+      }
+    }
+  ],
+  "customer_answers": [
+    {
+      "id": "ans-attic-heights",
+      "origin": "prod intakes 100/104/108/110: klantantwoord op hoogtevraag zolder",
+      "source_kind": "verbatim_notion",
+      "task_prompt": "Meet of noteer de hoogte van de zolder (nok en knieschotten).",
+      "room": "Zolderslaapkamer",
+      "text": "hoogste punt 2,6m, knieschotten 1,2m, schuin dak",
+      "expected": {
+        "ridge_height_m": 2.6,
+        "knee_wall_height_m": 1.2,
+        "sloped_roof": true,
+        "ceiling_height_m": null
+      },
+      "note": "Nokhoogte mag NIET als gemiddelde plafondhoogte worden overgenomen."
+    },
+    {
+      "id": "ans-111-dims",
+      "origin": "prod demo intake 111 ronde 1: maten Slaapkamer 2",
+      "source_kind": "verbatim_notion",
+      "task_prompt": "Wat zijn de lengte en breedte van Slaapkamer 2?",
+      "room": "Slaapkamer 2",
+      "text": "3,5 bij 3 meter, schuin dak",
+      "expected": {
+        "length_m": 3.5,
+        "width_m": 3,
+        "sloped_roof": true,
+        "ceiling_height_m": null
+      }
+    },
+    {
+      "id": "ans-var-nok-knie",
+      "origin": "variant",
+      "source_kind": "variant",
+      "task_prompt": "Meet of noteer de hoogte van de zolder.",
+      "room": "Zolder",
+      "text": "Nok ongeveer 2.70, bij de knieschotten 1 meter.",
+      "expected": {
+        "ridge_height_m": 2.7,
+        "knee_wall_height_m": 1.0,
+        "ceiling_height_m": null
+      }
+    },
+    {
+      "id": "ans-var-flat",
+      "origin": "variant",
+      "source_kind": "variant",
+      "task_prompt": "Hoe hoog is het plafond in de slaapkamer?",
+      "room": "Slaapkamer",
+      "text": "Overal 2,40 m, plat plafond.",
+      "expected": {
+        "ceiling_height_m": 2.4,
+        "ridge_height_m": null,
+        "knee_wall_height_m": null
+      }
+    },
+    {
+      "id": "ans-var-unknown",
+      "origin": "variant",
+      "source_kind": "variant",
+      "task_prompt": "Meet of noteer de hoogte van de zolder.",
+      "room": "Zolder",
+      "text": "Weet ik niet, ik kan er niet goed bij.",
+      "expected": {
+        "ceiling_height_m": null,
+        "ridge_height_m": null,
+        "knee_wall_height_m": null
+      }
+    }
+  ],
+  "photo_observations": [
+    {
+      "id": "obs-076-fusebox-in-room",
+      "origin": "staging 76 room-assessment-v5",
+      "source_kind": "verbatim_trace",
+      "slot": "room_photos",
+      "room": "Slaapkamer ouders",
+      "text": "De foto toont een meterkast en geen leefruimte.",
+      "model_fields": {
+        "detected_subject": "fusebox",
+        "subject_match": "no"
+      },
+      "expected": {
+        "subject_match": false,
+        "route_to": "none (verkeerde foto)",
+        "outlet_present": null
+      }
+    },
+    {
+      "id": "obs-076-bedroom",
+      "origin": "staging 76",
+      "source_kind": "verbatim_trace",
+      "slot": "room_photos",
+      "room": "Kinderkamer",
+      "text": "De ruimte bevat een bed en een ladekast, wat duidt op een slaapkamer. Er is een stopcontact zichtbaar op de muur naast de deur.",
+      "expected": {
+        "room_type": "bedroom",
+        "outlet_present": true
+      }
+    },
+    {
+      "id": "obs-077-existing-outdoor",
+      "origin": "staging 77 outdoor-assessment-v5",
+      "source_kind": "verbatim_trace",
+      "slot": "outdoor_location_photos",
+      "text": "De foto toont een reeds geïnstalleerde buitenunit aan een bakstenen gevel in een tuin.",
+      "expected": {
+        "existing_outdoor_unit_visible": true,
+        "outdoor_location": "garden",
+        "mount": "wall"
+      }
+    },
+    {
+      "id": "obs-077-route-wrong",
+      "origin": "staging 77 pipe-route-assessment-v3",
+      "source_kind": "verbatim_trace",
+      "slot": "pipe_route_photos",
+      "text": "De foto toont een reeds geïnstalleerde buitenunit aan een bakstenen gevel, maar niet de leidingroute naar de binnenunit.",
+      "expected": {
+        "pipe_route_visible": false,
+        "existing_outdoor_unit_visible": true
+      }
+    },
+    {
+      "id": "obs-077-fusebox-blurry",
+      "origin": "staging 77 fusebox-assessment-v2",
+      "source_kind": "verbatim_trace",
+      "slot": "fusebox_photo",
+      "text": "De foto is te onscherp om de individuele groepen, de hoofdschakelaar of de bedrading te kunnen identificeren.",
+      "expected": {
+        "phase": null,
+        "free_group": null,
+        "needs_retake": true
+      }
+    },
+    {
+      "id": "obs-077-fusebox-full",
+      "origin": "staging 77",
+      "source_kind": "verbatim_trace",
+      "slot": "fusebox_photo",
+      "text": "De meterkast toont een 3-fasen hoofdschakelaar (drie hendels) en alle groepsruimtes in de verdeelkast lijken bezet.",
+      "expected": {
+        "phase": "three_phase",
+        "free_group": "no",
+        "certainty": "hedged ('lijken')"
+      }
+    },
+    {
+      "id": "obs-078-facade-front",
+      "origin": "staging 78 outdoor-assessment-v5",
+      "source_kind": "verbatim_trace",
+      "slot": "outdoor_location_photos",
+      "text": "De foto toont de voorgevel van een rijtjeswoning vanaf de straatkant.",
+      "expected": {
+        "outdoor_location": "facade",
+        "existing_outdoor_unit_visible": false
+      }
+    },
+    {
+      "id": "obs-078-outdoor-in-fusebox-slot",
+      "origin": "staging 78 fusebox-assessment-v2",
+      "source_kind": "verbatim_trace",
+      "slot": "fusebox_photo",
+      "text": "De foto toont een buitenunit van een warmtepomp of airco, geen meterkast.",
+      "expected": {
+        "subject_match": false,
+        "phase": null,
+        "free_group": null
+      }
+    },
+    {
+      "id": "obs-084-livingroom",
+      "origin": "staging 84 room_photos room-1",
+      "source_kind": "verbatim_trace",
+      "slot": "room_photos",
+      "room": "Woonkamer",
+      "text": "De foto toont een ruime woonkamer met een zithoek, eethoek en trap. Een stopcontact is zichtbaar op de wand bij de kast.",
+      "expected": {
+        "room_type": "living_room",
+        "outlet_present": true
+      }
+    },
+    {
+      "id": "obs-084-backfacade",
+      "origin": "staging 84 outdoor",
+      "source_kind": "verbatim_trace",
+      "slot": "outdoor_location_photos",
+      "text": "De foto toont de achtergevel van een woning met een uitbouw, wat een geschikte locatie is voor een buitenunit, maar er is geen specifieke montageplek of bevestigingsvlak aangewezen.",
+      "expected": {
+        "outdoor_location": "facade (achtergevel)",
+        "mount_position_known": false
+      }
+    },
+    {
+      "id": "obs-084-fusebox-3ph",
+      "origin": "staging 84 fusebox",
+      "source_kind": "verbatim_trace",
+      "slot": "fusebox_photo",
+      "text": "De groepenkast is volledig gevuld met automaten en componenten; de hoofdschakelaar toont drie zekeringen, wat duidt op een 3-fase aansluiting.",
+      "expected": {
+        "phase": "three_phase",
+        "free_group": "no"
+      }
+    },
+    {
+      "id": "obs-085-existing-indoor",
+      "origin": "staging 85 room_photos room-1 (tekst zegt 'nog geen airco')",
+      "source_kind": "verbatim_trace",
+      "slot": "room_photos",
+      "room": "Woonkamer",
+      "text": "De foto toont een ruime woonkamer met een zithoek en eethoek. Een stopcontact is zichtbaar bij de trap en een airco-unit is reeds aanwezig.",
+      "expected": {
+        "room_type": "living_room",
+        "outlet_present": true,
+        "existing_indoor_unit_visible": true,
+        "conflict_with_request_text": true
+      },
+      "note": "Tekst (nog geen airco) en foto (airco aanwezig) spreken elkaar tegen. Verwachte afhandeling (tekst leidend + conflict tonen?) is een open vraag."
+    }
+  ]
+}

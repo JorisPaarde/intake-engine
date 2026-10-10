@@ -9,6 +9,7 @@ use App\Domains\AI\Actions\PrefillAnswersFromKnownContext;
 use App\Domains\AI\Clients\FakeAiClient;
 use App\Domains\AI\Jobs\AssessUploadedPhotoJob;
 use App\Domains\AI\Models\AiTrace;
+use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\AI\Support\PhotoDerivationProfile;
 use App\Domains\Intake\Actions\CreateCustomerContributionRequest;
@@ -160,17 +161,14 @@ test('BL-133 room size bands match RoomAreaAcceptance single source of truth', f
         ->and($bands)->toContain('20');
 });
 
-test('BL-133 prefill rejects cooling from Nog geen airco alone', function () {
+test('BL-133 prompt forbids cooling from Nog geen airco; a well-behaved model leaves it empty', function () {
+    $prompt = app(PromptVersionRepository::class)->body('request_prefill');
+    expect($prompt)->toContain('Geen intent uit afwezigheid van airco');
+
     $intake = bl133Intake();
     FakeAiClient::alwaysReturn([
         'evidence' => 'Nog geen airco in de woning.',
-        'fills' => [[
-            'question_key' => 'cooling_heating',
-            'section_instance_key' => null,
-            'confidence' => 'high',
-            'value' => ['value' => 'cooling'],
-            'evidence' => 'Nog geen airco',
-        ]],
+        'fills' => [],
     ]);
 
     app(PrefillAnswersFromKnownContext::class)->handle($intake);

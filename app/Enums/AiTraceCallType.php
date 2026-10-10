@@ -11,6 +11,7 @@ enum AiTraceCallType: string
     case PhotoDerive = 'photo_derive';
     case PhotoAssess = 'photo_assess';
     case FollowUpPhotoSubject = 'follow_up_photo_subject';
+    case FollowUpText = 'follow_up_text';
     case Summary = 'summary';
     case AttentionPoints = 'attention_points';
     case DossierSynthesis = 'dossier_synthesis';

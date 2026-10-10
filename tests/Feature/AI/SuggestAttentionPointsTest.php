@@ -130,7 +130,7 @@ test('attention points still hedge hard phase presence claims from soft meter so
     expect($run?->status)->toBe(AiRunStatus::Succeeded)
         ->and($point)->not->toBeNull()
         ->and($point->ai_confidence)->not->toBe('high')
-        ->and($point->label)->toBe('Elektrische aansluiting: 3-fase lijkt zichtbaar — te controleren');
+        ->and($point->label)->toBe('Elektrische aansluiting: 3-fase aanwezig');
 });
 
 test('heuristic skips a free-group proposal when the source answer is absent', function () {

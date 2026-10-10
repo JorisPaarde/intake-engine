@@ -207,7 +207,10 @@ final class EvaluateRequestIntent
             }
         }
 
-        $candidates = $this->mergeCandidates($localCandidates, $aiCandidates);
+        // ADR-0016: with text-AI on, local parser is diagnostic only — not merged as meaning.
+        $candidates = ($textEnabled && $allowExternal)
+            ? $aiCandidates
+            : $localCandidates;
         $hypothetical = $this->hypotheticalAnswers($candidates);
         $openQuestions = $this->openQuestions($version, $hypothetical, $intake);
 
@@ -223,46 +226,6 @@ final class EvaluateRequestIntent
             aiError: $aiError,
             aiAttempted: $aiAttempted,
         );
-    }
-
-    /**
-     * @param  list<RequestPrefillCandidate>  $local
-     * @param  list<RequestPrefillCandidate>  $ai
-     * @return list<RequestPrefillCandidate>
-     */
-    private function mergeCandidates(array $local, array $ai): array
-    {
-        // Productie: lokaal eerst, AI mag AI-/request_text-bronnen overschrijven.
-        // Voor classificatie: AI-writable/rejected vervangt lokale writable op dezelfde key.
-        $merged = [];
-
-        foreach ($local as $candidate) {
-            $merged[$candidate->compositeKey()] = $candidate;
-        }
-
-        foreach ($ai as $candidate) {
-            $key = $candidate->compositeKey();
-
-            if (in_array($candidate->disposition, [
-                RequestPrefillCandidate::DISPOSITION_FILL,
-                RequestPrefillCandidate::DISPOSITION_SUGGESTION,
-            ], true)) {
-                $merged[$key] = $candidate;
-
-                continue;
-            }
-
-            // Afwijzing alleen tonen als er nog geen lokale fill op die key staat.
-            if (! isset($merged[$key])
-                || $merged[$key]->disposition === RequestPrefillCandidate::DISPOSITION_REJECTED) {
-                $merged[$key] = $candidate;
-            } else {
-                // Bewaar afwijzing als apart diagnostisch item met unieke sleutel.
-                $merged[$key.'#rejected'] = $candidate;
-            }
-        }
-
-        return array_values($merged);
     }
 
     /**
