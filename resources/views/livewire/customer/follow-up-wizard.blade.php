@@ -12,7 +12,7 @@
         @if (! $completed && $items->isNotEmpty())
             <div class="mt-3 flex items-center justify-between text-xs text-brand-ink/55">
                 @if ($items->count() > 1)
-                    <span>Opdracht {{ $followUpStepIndex + 1 }} van {{ $items->count() }}</span>
+                    <span data-testid="follow-up-step-label">Opdracht {{ $followUpStepIndex + 1 }} van {{ $items->count() }}</span>
                 @else
                     <span></span>
                 @endif

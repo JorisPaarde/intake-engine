@@ -489,6 +489,7 @@ test('#16 extra: vervolgronde toont Opdracht x van y en geen intern woord Ronde'
 
     Livewire::test(IntakeWizard::class, ['token' => $intake->fresh()->access_token])
         ->assertSee('Opdracht 1 van 2')
+        ->assertSeeHtml('data-testid="follow-up-step-label"')
         ->assertDontSee('Ronde 1')
         ->assertDontSee('Onderdeel 1 van 2')
         ->assertSee('Je antwoord')
