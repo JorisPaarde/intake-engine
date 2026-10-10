@@ -56,21 +56,30 @@
             </div>
             <div class="flex flex-col gap-2 border-t border-gray-100 bg-gray-50 px-5 py-4 sm:flex-row sm:justify-end">
                 <template x-if="mode === 'branch'">
-                    <div class="flex w-full flex-col gap-2 sm:flex-row sm:flex-row-reverse">
-                        <form method="POST" :action="pathChooseUrl" class="flex-1">
-                            <input type="hidden" name="_token" :value="csrf">
-                            <input type="hidden" name="path" value="installer">
-                            <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-500">
-                                Zelf de opname doen
-                            </button>
-                        </form>
-                        <form method="POST" :action="pathChooseUrl" class="flex-1">
-                            <input type="hidden" name="_token" :value="csrf">
-                            <input type="hidden" name="path" value="customer">
-                            <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-900 hover:bg-gray-50">
-                                Bekijk wat de klant ziet
-                            </button>
-                        </form>
+                    <div class="flex w-full flex-col gap-2">
+                        <div class="flex w-full flex-col gap-2 sm:flex-row sm:flex-row-reverse">
+                            <form method="POST" :action="pathChooseUrl" class="flex-1">
+                                <input type="hidden" name="_token" :value="csrf">
+                                <input type="hidden" name="path" value="installer">
+                                <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-500">
+                                    Zelf de opname doen
+                                </button>
+                            </form>
+                            <form method="POST" :action="pathChooseUrl" class="flex-1">
+                                <input type="hidden" name="_token" :value="csrf">
+                                <input type="hidden" name="path" value="customer">
+                                <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-900 hover:bg-gray-50">
+                                    Bekijk wat de klant ziet
+                                </button>
+                            </form>
+                        </div>
+                        <button
+                            type="button"
+                            class="inline-flex min-h-11 w-full items-center justify-center rounded-xl px-4 text-sm font-semibold text-gray-600 hover:bg-gray-100 sm:w-auto sm:self-center"
+                            @click="close()"
+                        >
+                            Sluiten
+                        </button>
                     </div>
                 </template>
                 <template x-if="mode !== 'branch'">

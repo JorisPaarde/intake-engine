@@ -453,7 +453,7 @@ test('creating a public demo intake runs live PDOK enrichment like production', 
         ->assertOk()
         ->assertSee('Woninggegevens')
         ->assertSee('1890')
-        ->assertSee('adresgegevens staan al in de opname');
+        ->assertSee('Adresgegevens staan al in de opname');
 
     Http::assertSent(fn (Request $request): bool => str_contains($request->url(), '/lookup')
         || str_contains($request->url(), '/free'));

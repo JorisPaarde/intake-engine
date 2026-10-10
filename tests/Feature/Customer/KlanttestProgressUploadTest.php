@@ -191,7 +191,9 @@ test('lege foto-opdracht in follow-up start op 0% niet op 100%', function () {
 
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->assertSet('followUpMode', true)
-        ->assertSee('Onderdeel 1 van 1')
+        ->assertDontSee('Onderdeel 1 van 1')
+        ->assertDontSee('Opdracht 1 van 1')
+        ->assertDontSee('Ronde 1')
         ->assertSeeHtml('data-testid="follow-up-progress-percent">0%')
         ->assertSee('0 van 1 onderdelen afgerond')
         ->assertSee('Status: Nog te doen');

@@ -334,6 +334,20 @@ final class SurveyWorkspaceController extends Controller
         return $this->back($intake, $placement->type->label().' bijgewerkt.', 'placement-'.$placement->id);
     }
 
+    public function destroyPlacement(
+        Request $request,
+        Intake $intake,
+        AircoPlacementOption $placement,
+        AircoSurveyService $aircoSurvey,
+    ): RedirectResponse {
+        $this->authorize('update', $intake);
+        abort_unless($placement->intake_id === $intake->id, 404);
+        $label = $placement->type->label();
+        $aircoSurvey->deletePlacement($intake, $this->user($request), $placement);
+
+        return $this->back($intake, $label.' verwijderd.', 'demo-placements');
+    }
+
     public function storeInstallationOption(
         Request $request,
         Intake $intake,

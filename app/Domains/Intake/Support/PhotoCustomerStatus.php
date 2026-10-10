@@ -46,12 +46,15 @@ final class PhotoCustomerStatus
         $status = $upload->assessment_status;
         $terminal = $status instanceof PhotoAssessmentStatus && $status->isTerminal();
 
-        if (! $terminal && ($isPending || $assessingHere) && ! $softReleased) {
-            return self::LOOKING;
-        }
-
         if (! $terminal) {
-            // Soft-timeout / not yet judged → never block with "Nog te vervangen".
+            if ($softReleased) {
+                return self::SOFT_TIMEOUT;
+            }
+
+            if ($isPending || $assessingHere) {
+                return self::LOOKING;
+            }
+
             return self::RECEIVED;
         }
 

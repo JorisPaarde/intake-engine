@@ -34,9 +34,20 @@ final class CompanySettingsController extends Controller
     ): RedirectResponse {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
+            'website' => ['nullable', 'string', 'max:255'],
             'primary_color' => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'logo' => ['nullable', 'file', 'max:2048'],
+        ], [
+            'website.max' => 'Vul een geldige website in, bijvoorbeeld https://www.voorbeeld.nl.',
         ]);
+
+        $websiteInput = trim((string) ($validated['website'] ?? ''));
+        $website = $websiteInput === '' ? null : Company::normalizeWebsite($websiteInput);
+        if ($websiteInput !== '' && $website === null) {
+            throw ValidationException::withMessages([
+                'website' => 'Vul een geldige website in, bijvoorbeeld https://www.voorbeeld.nl.',
+            ]);
+        }
 
         $company = $request->user()?->company()->firstOrFail();
         abort_unless($company instanceof Company, 403);
@@ -77,6 +88,7 @@ final class CompanySettingsController extends Controller
             [$oldDisk, $oldPath] = DB::transaction(function () use (
                 $company,
                 $validated,
+                $website,
                 $logoFile,
                 $logoMeta,
                 $tokens,
@@ -97,6 +109,7 @@ final class CompanySettingsController extends Controller
                 }
 
                 $lockedCompany->name = (string) $validated['name'];
+                $lockedCompany->website = $website;
 
                 if ($tokens !== null) {
                     $lockedCompany->primary_color = $tokens['primary'];

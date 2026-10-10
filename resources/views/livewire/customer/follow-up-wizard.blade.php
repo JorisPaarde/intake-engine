@@ -11,14 +11,18 @@
         @endunless
         @if (! $completed && $items->isNotEmpty())
             <div class="mt-3 flex items-center justify-between text-xs text-brand-ink/55">
-                <span>Onderdeel {{ $followUpStepIndex + 1 }} van {{ $items->count() }}</span>
+                @if ($items->count() > 1)
+                    <span data-testid="follow-up-step-label">Opdracht {{ $followUpStepIndex + 1 }} van {{ $items->count() }}</span>
+                @else
+                    <span></span>
+                @endif
                 <span class="font-medium text-brand-ink" data-testid="follow-up-progress-percent">{{ $progressPercent }}%</span>
             </div>
             <div class="mt-2 h-1.5 overflow-hidden bg-brand-fog/60" role="progressbar" aria-valuenow="{{ $progressPercent }}" aria-valuemin="0" aria-valuemax="100" aria-label="Voortgang op basis van afgeronde onderdelen">
                 <div class="h-full bg-brand-sea transition-all duration-300" style="width: {{ $progressPercent }}%"></div>
             </div>
             <p class="mt-1 text-xs text-brand-ink/55">{{ $progressCompleted }} van {{ $progressTotal }} onderdelen afgerond</p>
-            @if (! empty($currentItemStatus))
+            @if (! empty($currentItemStatus) && ($currentItemStatus['status'] ?? '') !== 'received')
                 <p class="mt-1 text-xs font-medium text-brand-ink/70" data-testid="follow-up-item-status">Status: {{ $currentItemStatus['label'] }}</p>
             @endif
         @endif
@@ -40,6 +44,19 @@
                     :installer-return-url="$followUpDemoReturnUrl ?? null"
                 />
             @else
+                @php
+                    $thankYouWebsiteUrl = $intake->company?->publicWebsiteUrl();
+                @endphp
+                @if (is_string($thankYouWebsiteUrl))
+                    <a
+                        href="{{ $thankYouWebsiteUrl }}"
+                        rel="noopener noreferrer"
+                        class="mt-5 inline-flex min-h-11 items-center justify-center rounded-md bg-brand-sea px-4 text-sm font-semibold text-white hover:bg-brand-sea/90"
+                        data-testid="customer-company-website"
+                    >
+                        Naar de website van {{ $intake->company->name }}
+                    </a>
+                @endif
                 <p class="mt-3 text-sm leading-relaxed text-brand-ink/70" data-testid="follow-up-close-hint">Je kunt dit venster nu sluiten.</p>
             @endif
         </div>
@@ -49,14 +66,11 @@
         </div>
     @else
         <div class="mb-4">
-            <p class="text-xs font-medium uppercase tracking-wide text-brand-ink/50">
-                Ronde {{ $round->round_number }}
-            </p>
-            <h1 id="follow-up-prompt-{{ $item->id }}" class="mt-1 break-words font-display text-2xl font-semibold tracking-tight text-brand-ink">{{ $item->prompt }}</h1>
+            <h1 id="follow-up-prompt-{{ $item->id }}" class="break-words font-display text-2xl font-semibold tracking-tight text-brand-ink">{{ $item->prompt }}</h1>
         </div>
 
         @error('follow_up')
-            @if (empty($followUpMismatchAssessment) && empty($followUpNeedsOverride))
+            @if ($item->type !== \App\Enums\FollowUpItemType::Text && empty($followUpMismatchAssessment) && empty($followUpNeedsOverride))
                 <div class="mb-4 rounded-md border border-brand-ember/30 bg-white px-4 py-3 text-sm text-brand-ember" role="alert">
                     {{ $message }}
                 </div>
@@ -81,14 +95,26 @@
                     @endforeach
                 </fieldset>
             @elseif ($item->type === \App\Enums\FollowUpItemType::Text)
+                @php
+                    $textErrorId = 'follow-up-response-error-'.$item->id;
+                    $textDescribedBy = 'follow-up-prompt-'.$item->id;
+                    if ($errors->has('follow_up')) {
+                        $textDescribedBy .= ' '.$textErrorId;
+                    }
+                @endphp
+                <label for="follow-up-response-{{ $item->id }}" class="block text-sm font-medium text-brand-ink">Je antwoord</label>
                 <textarea
                     id="follow-up-response-{{ $item->id }}"
-                    aria-labelledby="follow-up-prompt-{{ $item->id }}"
+                    aria-describedby="{{ $textDescribedBy }}"
                     rows="6"
                     wire:model.blur="followUpResponses.{{ $item->id }}"
-                    class="block w-full rounded-md border-brand-fog shadow-sm focus:border-brand-sea focus:ring-brand-sea"
+                    class="mt-1 block w-full rounded-md border-brand-fog shadow-sm focus:border-brand-sea focus:ring-brand-sea"
+                    placeholder="Typ hier je antwoord"
                     required
                 ></textarea>
+                @error('follow_up')
+                    <p id="{{ $textErrorId }}" class="mt-2 text-sm text-brand-ember" role="alert">{{ $message }}</p>
+                @enderror
             @elseif ($item->type === \App\Enums\FollowUpItemType::Photo)
                 @php
                     $remainingSlots = max(0, $maxPhotos - $item->uploads->count());

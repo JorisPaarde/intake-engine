@@ -163,8 +163,11 @@ it('welcome popup explains how the app helps the installer', function () {
         ->toContain('vaak zonder voorbezoek')
         ->toContain('Geen echte klant, geen mail')
         ->toContain("cta: 'Start met nieuwe opname'")
+        ->toContain("title: 'Adresgegevens staan al in de opname'")
+        ->toContain('Doe de opname zelf, of bekijk wat de klant ziet.')
         ->not->toContain('Welkom in de installateursdemo')
-        ->not->toContain('beoordeelt het dossier');
+        ->not->toContain('beoordeelt het dossier')
+        ->not->toContain('net als in de praktijk');
 });
 
 it('leaves postcode and house number empty so the installer types them', function () {
@@ -205,6 +208,7 @@ it('leaves postcode and house number empty so the installer types them', functio
 });
 
 it('creates one demo intake from the normal create form and opens the role branch', function () {
+    $this->withoutVite();
     ['intake' => $intake, 'user' => $user] = createDemoIntakeViaForm();
 
     expect($intake->is_demo)->toBeTrue()
@@ -218,8 +222,11 @@ it('creates one demo intake from the normal create form and opens the role branc
         ->assertOk()
         ->assertSee('Opname aangemaakt. De adresgegevens zijn opgehaald. Kies hieronder hoe je verder wilt. In de demo gaat er geen e-mail uit.', false)
         ->assertSee('Er gaat geen e-mail uit in de demo', false)
+        ->assertSee('Adresgegevens staan al in de opname')
+        ->assertSee('Doe de opname zelf, of bekijk wat de klant ziet.')
         ->assertSee('Zelf de opname doen')
         ->assertSee('Bekijk wat de klant ziet')
+        ->assertSee('Sluiten')
         ->assertDontSee('Doorgaan als klant')
         ->assertDontSee('In productie mailen we nu de klantlink')
         ->assertSee('Opname openen')
@@ -227,6 +234,13 @@ it('creates one demo intake from the normal create form and opens the role branc
         ->assertDontSee('% compleet')
         ->assertSee('Klanttaak:')
         ->assertSee('Klaar voor offerte:');
+
+    $this->actingAs($user)
+        ->withSession(demoSessionFor($user, $intake))
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertDontSee('Hoe wil je verder?')
+        ->assertDontSee("initialStep: 'branch'", false);
 
     $this->actingAs($user)
         ->withSession(demoSessionFor($user, $intake))

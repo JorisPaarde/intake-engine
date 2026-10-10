@@ -367,9 +367,14 @@ test('follow-up text field is labelled by its visible prompt', function () {
 
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->assertSet('followUpMode', true)
+        ->assertSee('Je antwoord')
         ->assertSeeHtml('id="follow-up-prompt-'.$textItem->id.'"')
         ->assertSeeHtml('id="follow-up-response-'.$textItem->id.'"')
-        ->assertSeeHtml('aria-labelledby="follow-up-prompt-'.$textItem->id.'"');
+        ->assertSeeHtml('for="follow-up-response-'.$textItem->id.'"')
+        ->assertSeeHtml('aria-describedby="follow-up-prompt-'.$textItem->id.'"')
+        ->assertSeeHtml('placeholder="Typ hier je antwoord"')
+        ->call('completeFollowUp')
+        ->assertSee('Typ eerst je antwoord.');
 });
 
 test('customer completes text and photo follow up and dossier returns for review', function () {

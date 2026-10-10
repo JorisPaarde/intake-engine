@@ -35,7 +35,7 @@ test.describe('Targeted customer task (follow-up)', () => {
     const next = waitForLivewire(page).catch(() => undefined);
     await page.getByRole('button', { name: /^Volgende$/ }).click();
     await next;
-    await expect(page.getByText(/Onderdeel 2 van 2/i)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('follow-up-step-label')).toHaveText(/Opdracht 2 van 2/, { timeout: 15_000 });
 
     // Item 2 — low resolution soft hint.
     await setAiScenario(request, 'good_photo');
@@ -46,7 +46,7 @@ test.describe('Targeted customer task (follow-up)', () => {
 
     // Replace with usable photo so the round can be sent.
     const remove = waitForLivewire(page).catch(() => undefined);
-    await page.getByRole('button', { name: /Verwijderen/i }).first().click();
+    await page.getByTestId('follow-up-remove-photo').click();
     await remove;
     await expect(page.getByText(/Foto's maken of kiezen/i)).toBeVisible({ timeout: 10_000 });
 

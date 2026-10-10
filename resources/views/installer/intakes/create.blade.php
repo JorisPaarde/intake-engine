@@ -62,7 +62,7 @@
                                             @checked(old('workflow_mode') === \App\Enums\ContributionMode::Installer->value)
                                         >
                                         <span>
-                                            <span class="block text-sm font-semibold text-gray-900">Zelf de opname uitvoeren</span>
+                                            <span class="block text-sm font-semibold text-gray-900">Zelf de opname doen</span>
                                             <span class="mt-1 block text-xs leading-5 text-gray-600">Je gaat meteen zelf aan de slag. De klant krijgt geen link.</span>
                                         </span>
                                     </span>
