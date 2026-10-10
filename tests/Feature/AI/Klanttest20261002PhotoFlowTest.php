@@ -363,10 +363,13 @@ test('P1 case 81: meterkastfoto als kamerfoto geeft gerichte terugkoppeling zond
         ->not->toContain('room_photos');
 
     $check = app(CompletenessChecker::class)->check($intake->fresh(), $version);
+    $photoCode = 'photo_continue_anyway__room_photos__room-1';
     expect(collect($check['attention_points'])->pluck('code'))
-        ->toContain('photo_subject_mismatch_'.$upload->id)
-        ->and(collect($check['attention_points'])->firstWhere('code', 'photo_subject_mismatch_'.$upload->id)['label'])
-        ->toBe('Foto lijkt meterkast, controleer');
+        ->toContain($photoCode)
+        ->and(collect($check['attention_points'])->firstWhere('code', $photoCode)['label'])
+        ->toContain('Toch doorgaan')
+        ->and(collect($check['attention_points'])->pluck('code'))
+        ->not->toContain('photo_subject_mismatch_'.$upload->id);
 });
 
 test('acceptatie blijft na goede foto toevoegen en een foto verwijderen; geen mismatch-banner', function () {

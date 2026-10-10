@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace App\Domains\AI\Services;
 
+use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Domains\Intake\Support\UploadSupersessionResolver;
 use App\Enums\AttentionPointSource;
+use App\Enums\QuestionType;
 use Illuminate\Support\Str;
 
 /**
@@ -63,7 +67,7 @@ final class IntakeAttentionContextBuilder
                 'section_label' => null,
             ];
 
-            $answerContext[] = [
+            $row = [
                 'reference' => $this->questionReference($answer->question_key, $answer->section_instance_key),
                 'question_key' => $answer->question_key,
                 'question_label' => $question['question_label'],
@@ -73,6 +77,16 @@ final class IntakeAttentionContextBuilder
                 'answer' => $safeValue,
                 'prefill_source' => $answer->prefill_source,
             ];
+
+            $optionLabel = $this->optionLabelForAnswer(
+                $questions[$answer->question_key]['question'] ?? null,
+                is_array($safeValue) ? $safeValue : null,
+            );
+            if ($optionLabel !== null) {
+                $row['option_label'] = $optionLabel;
+            }
+
+            $answerContext[] = $row;
         }
 
         $externalFacts = [];
@@ -115,6 +129,7 @@ final class IntakeAttentionContextBuilder
                         $questions[$upload->question_key] ?? null,
                     ),
                 )->values()->all(),
+            'photo_question_stats' => $this->photoQuestionStats($intake, $questions),
             'follow_up' => $this->followUpContext($intake),
             'system_attention_points' => $intake->attentionPoints
                 ->reject(fn ($point): bool => $point->source === AttentionPointSource::Ai)
@@ -159,11 +174,13 @@ final class IntakeAttentionContextBuilder
     }
 
     /**
-     * @return array<string, array{question_label: string, section_key: string|null, section_label: string|null}>
+     * @return array<string, array{question_label: string, section_key: string|null, section_label: string|null, question: IntakeQuestion|null}>
      */
     private function questionContext(Intake $intake): array
     {
         $context = [];
+
+        $intake->loadMissing(['templateVersion.sections.questions.options']);
 
         foreach ($intake->templateVersion->sections as $section) {
             foreach ($section->questions as $question) {
@@ -171,11 +188,125 @@ final class IntakeAttentionContextBuilder
                     'question_label' => (string) $question->label,
                     'section_key' => $section->key,
                     'section_label' => (string) $section->title,
+                    'question' => $question,
                 ];
             }
         }
 
         return $context;
+    }
+
+    /**
+     * Per fotovraag + plek: tellingen inclusief afgekeurde foto’s (geen beeldbytes).
+     *
+     * @param  array<string, array{question_label: string, section_key: string|null, section_label: string|null, question: IntakeQuestion|null}>  $questions
+     * @return list<array<string, mixed>>
+     */
+    private function photoQuestionStats(Intake $intake, array $questions): array
+    {
+        $supersessions = app(UploadSupersessionResolver::class)->resolve($intake);
+
+        /** @var array<string, array{question_key: string, section_instance_key: string|null, photo_count: int, rejected_count: int, not_assessed_count: int, customer_continued_anyway: bool}> $groups */
+        $groups = [];
+
+        foreach ($intake->uploads as $upload) {
+            if ($upload->intake_follow_up_item_id !== null
+                || $upload->question_key === 'installer_evidence'
+                || ! str_starts_with((string) $upload->mime_type, 'image/')) {
+                continue;
+            }
+
+            $info = $supersessions[(int) $upload->id] ?? null;
+            if (is_array($info) && $info['superseded'] === true) {
+                continue;
+            }
+
+            $key = $upload->question_key.'|'.(string) ($upload->section_instance_key ?? '');
+            if (! isset($groups[$key])) {
+                $groups[$key] = [
+                    'question_key' => $upload->question_key,
+                    'section_instance_key' => $upload->section_instance_key,
+                    'photo_count' => 0,
+                    'rejected_count' => 0,
+                    'not_assessed_count' => 0,
+                    'customer_continued_anyway' => false,
+                ];
+            }
+
+            $groups[$key]['photo_count']++;
+            $assessment = $upload->contentAssessment();
+            $status = $assessment?->status();
+            if ($status === PhotoContentAssessment::STATUS_WRONG_SUBJECT
+                || $status === PhotoContentAssessment::STATUS_NEEDS_CLEARER) {
+                $groups[$key]['rejected_count']++;
+            } elseif ($status === PhotoContentAssessment::STATUS_NOT_ASSESSED) {
+                $groups[$key]['not_assessed_count']++;
+            }
+            if ($assessment instanceof PhotoContentAssessment && $assessment->customerAcceptedOverride()) {
+                $groups[$key]['customer_continued_anyway'] = true;
+            }
+        }
+
+        $stats = [];
+        foreach ($groups as $group) {
+            $meta = $questions[$group['question_key']] ?? null;
+            $stats[] = [
+                'reference' => $this->questionReference($group['question_key'], $group['section_instance_key']),
+                'question_key' => $group['question_key'],
+                'question_label' => $meta['question_label'] ?? $group['question_key'],
+                'section_instance_key' => $group['section_instance_key'],
+                'photo_count' => $group['photo_count'],
+                'rejected_count' => $group['rejected_count'],
+                'not_assessed_count' => $group['not_assessed_count'],
+                'customer_continued_anyway' => $group['customer_continued_anyway'],
+            ];
+        }
+
+        return $stats;
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $value
+     * @return string|list<string>|null
+     */
+    private function optionLabelForAnswer(?IntakeQuestion $question, ?array $value): string|array|null
+    {
+        if (! $question instanceof IntakeQuestion || $value === null) {
+            return null;
+        }
+
+        $question->loadMissing('options');
+
+        if ($question->type === QuestionType::SingleChoice) {
+            $raw = $value['value'] ?? null;
+            if (! is_string($raw) || $raw === '') {
+                return null;
+            }
+            $label = $question->options->firstWhere('value', $raw)?->label;
+
+            return is_string($label) && $label !== '' ? $label : null;
+        }
+
+        if ($question->type === QuestionType::MultiChoice) {
+            $rawValues = $value['values'] ?? null;
+            if (! is_array($rawValues) || $rawValues === []) {
+                return null;
+            }
+            $labels = [];
+            foreach ($rawValues as $raw) {
+                if (! is_string($raw) || $raw === '') {
+                    continue;
+                }
+                $label = $question->options->firstWhere('value', $raw)?->label;
+                if (is_string($label) && $label !== '') {
+                    $labels[] = $label;
+                }
+            }
+
+            return $labels === [] ? null : $labels;
+        }
+
+        return null;
     }
 
     /** @return list<array<string, mixed>> */

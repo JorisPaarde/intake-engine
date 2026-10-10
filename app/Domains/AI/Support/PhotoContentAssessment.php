@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domains\AI\Support;
 
+use App\Domains\Intake\Support\PhotoContinueAnywayAttention;
+
 /**
  * Structured content verdict stored on `intake_uploads.content_assessment`.
  *
@@ -303,7 +305,10 @@ final class PhotoContentAssessment
         return PhotoSubject::tryFromMixed($this->value['expected_subject'] ?? null);
     }
 
-    /** System attention-point label after the customer continues despite a mismatch. */
+    /**
+     * Legacy per-upload label (ouder dan groepering op vraag+plek).
+     * Nieuwe systeempunten gebruiken {@see PhotoContinueAnywayAttention}.
+     */
     public function continueAnywayAttentionLabel(): string
     {
         return 'Foto lijkt '.$this->detectedLabel().', controleer';

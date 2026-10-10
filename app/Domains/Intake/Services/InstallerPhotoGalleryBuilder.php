@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Services;
 
+use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Models\DossierSubject;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeSection;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Domains\Intake\Support\PhotoContinueAnywayAttention;
 use App\Domains\Intake\Support\UploadSupersessionResolver;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -25,6 +27,7 @@ final class InstallerPhotoGalleryBuilder
     /**
      * @return list<array{
      *     heading: string,
+     *     anchor: string|null,
      *     uploads: list<array{
      *         upload: IntakeUpload,
      *         caption: string,
@@ -39,6 +42,8 @@ final class InstallerPhotoGalleryBuilder
             'uploads.followUpItem.round',
             'templateVersion.sections.questions',
             'dossierSubjects',
+            'aircoRooms',
+            'answers',
             'followUpRounds.items.uploads',
             'contributionTasks',
         ]);
@@ -84,6 +89,7 @@ final class InstallerPhotoGalleryBuilder
                 if (! isset($groups[$bucketKey])) {
                     $groups[$bucketKey] = [
                         'heading' => $subject->label ?? 'Dossierbewijs',
+                        'anchor' => null,
                         'sort' => [PHP_INT_MAX - 2, $subjectId ?? PHP_INT_MAX],
                         'uploads' => [],
                     ];
@@ -105,6 +111,7 @@ final class InstallerPhotoGalleryBuilder
                 if (! isset($groups[$bucketKey])) {
                     $groups[$bucketKey] = [
                         'heading' => 'Aanvulling ronde '.$round->round_number,
+                        'anchor' => null,
                         'sort' => [PHP_INT_MAX - 1, $round->round_number],
                         'uploads' => [],
                     ];
@@ -125,6 +132,7 @@ final class InstallerPhotoGalleryBuilder
             if ($meta === null) {
                 $bucketKey = 'unknown|'.$upload->question_key.'|'.($instanceKey ?? '');
                 $heading = $this->captionForUnknown($upload);
+                $anchor = PhotoContinueAnywayAttention::galleryAnchor($upload->question_key, $instanceKey);
                 $sectionSort = PHP_INT_MAX;
                 $instanceSort = 0;
                 $questionLabel = $upload->question_key;
@@ -133,7 +141,8 @@ final class InstallerPhotoGalleryBuilder
                 $section = $meta['section'];
                 $question = $meta['question'];
                 $bucketKey = $section->key.'|'.($instanceKey ?? '');
-                $heading = $this->sectionHeading($section, $instanceKey);
+                $heading = $this->sectionHeading($intake, $section, $instanceKey);
+                $anchor = PhotoContinueAnywayAttention::galleryAnchor($question->key, $instanceKey);
                 $sectionSort = (int) $section->sort_order;
                 $instanceSort = $this->instanceSortValue($instanceKey);
                 $questionLabel = $question->label;
@@ -143,6 +152,7 @@ final class InstallerPhotoGalleryBuilder
             if (! isset($groups[$bucketKey])) {
                 $groups[$bucketKey] = [
                     'heading' => $heading,
+                    'anchor' => $anchor,
                     'sort' => [$sectionSort, $instanceSort],
                     'uploads' => [],
                 ];
@@ -177,6 +187,7 @@ final class InstallerPhotoGalleryBuilder
 
             $result[] = [
                 'heading' => $group['heading'],
+                'anchor' => $group['anchor'] ?? null,
                 'uploads' => array_map(
                     static function (array $item) use ($supersessions): array {
                         $uploadId = (int) $item['upload']->id;
@@ -199,6 +210,52 @@ final class InstallerPhotoGalleryBuilder
         return $result;
     }
 
+    /**
+     * Samenvatting onder "Foto’s en bestanden" (alleen niet-vervangen fotobestanden).
+     */
+    public function summaryLine(Intake $intake): string
+    {
+        $intake->loadMissing([
+            'uploads.followUpItem.round',
+            'followUpRounds.items.uploads',
+            'contributionTasks',
+            'dossierSubjects.records',
+        ]);
+
+        $supersessions = app(UploadSupersessionResolver::class)->resolve($intake);
+        $photoCount = 0;
+        $rejectedCount = 0;
+
+        foreach ($intake->uploads as $upload) {
+            if (! str_starts_with((string) $upload->mime_type, 'image/')) {
+                continue;
+            }
+
+            $info = $supersessions[(int) $upload->id] ?? null;
+            if (is_array($info) && $info['superseded'] === true) {
+                continue;
+            }
+
+            $photoCount++;
+            $status = $upload->contentAssessment()?->status();
+            if ($status === PhotoContentAssessment::STATUS_WRONG_SUBJECT
+                || $status === PhotoContentAssessment::STATUS_NEEDS_CLEARER) {
+                $rejectedCount++;
+            }
+        }
+
+        if ($photoCount === 0) {
+            return 'Nog geen foto’s · tik om te openen';
+        }
+
+        $photoWord = $photoCount === 1 ? 'foto' : 'foto’s';
+        if ($rejectedCount > 0) {
+            return "{$photoCount} {$photoWord} · {$rejectedCount} afgekeurd door de AI · tik om te openen";
+        }
+
+        return "{$photoCount} {$photoWord} · tik om te openen";
+    }
+
     private function dossierSubjectId(?string $instanceKey): ?int
     {
         if (! is_string($instanceKey)
@@ -209,13 +266,17 @@ final class InstallerPhotoGalleryBuilder
         return (int) $matches[1];
     }
 
-    private function sectionHeading(IntakeSection $section, ?string $instanceKey): string
+    private function sectionHeading(Intake $intake, IntakeSection $section, ?string $instanceKey): string
     {
         if ($instanceKey === null || $instanceKey === '') {
             return $section->title;
         }
 
-        // Same pattern as IntakeStepBuilder / IntakePrefillResolver: "Ruimtes 2".
+        if (str_starts_with($instanceKey, 'room-')) {
+            return PhotoContinueAnywayAttention::roomPlaceLabel($intake, $instanceKey);
+        }
+
+        // Niet-ruimte-instanties: sectietitel + volgnummer.
         return $section->title.' '.Str::afterLast($instanceKey, '-');
     }
 
@@ -254,12 +315,13 @@ final class InstallerPhotoGalleryBuilder
     /**
      * @param  Collection<int, IntakeUpload>  $uploads
      * @param  array<int, array{superseded: bool, supersession_label: string|null, replaced_by_upload_id: int|null}>  $supersessions
-     * @return list<array{heading: string, uploads: list<array{upload: IntakeUpload, caption: string, superseded: bool, supersession_label: string|null}>}>
+     * @return list<array{heading: string, anchor: string|null, uploads: list<array{upload: IntakeUpload, caption: string, superseded: bool, supersession_label: string|null}>}>
      */
     private function ungroupedFallback(Collection $uploads, array $supersessions): array
     {
         return [[
             'heading' => 'Bestanden',
+            'anchor' => null,
             'uploads' => $uploads->map(function (IntakeUpload $upload) use ($supersessions): array {
                 $info = $supersessions[(int) $upload->id] ?? null;
 

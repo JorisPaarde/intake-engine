@@ -51,12 +51,12 @@ test('installer detail page shows question labels and groups photos by section i
         ->get(route('intakes.show', $intake))
         ->assertOk()
         ->assertSee('Foto’s van de ruimte', false)
-        ->assertSee('Ruimtes 2', false)
+        ->assertSee('Ruimte 2', false)
         ->assertSee('Foto van de meterkast', false)
         ->assertSee('Elektrische installatie', false)
-        ->assertDontSee('room_photos', false)
-        ->assertDontSee('room-2', false)
-        ->assertDontSee('fusebox_photo', false);
+        // Interne keys mogen niet als zichtbare kop/caption; ankers mogen de key bevatten.
+        ->assertDontSee('>room_photos<', false)
+        ->assertDontSee('>fusebox_photo<', false);
 });
 
 test('photo gallery builder orders groups by template section and instance', function () {
@@ -86,9 +86,9 @@ test('photo gallery builder orders groups by template section and instance', fun
     $groups = app(InstallerPhotoGalleryBuilder::class)->handle($intake->fresh());
 
     expect($groups)->toHaveCount(3)
-        ->and($groups[0]['heading'])->toBe('Ruimtes 1')
+        ->and($groups[0]['heading'])->toBe('Ruimte 1')
         ->and($groups[0]['uploads'][0]['caption'])->toBe('Foto’s van de ruimte')
-        ->and($groups[1]['heading'])->toBe('Ruimtes 2')
+        ->and($groups[1]['heading'])->toBe('Ruimte 2')
         ->and($groups[2]['heading'])->toBe('Elektrische installatie')
         ->and($groups[2]['uploads'][0]['caption'])->toBe('Foto van de meterkast');
 });

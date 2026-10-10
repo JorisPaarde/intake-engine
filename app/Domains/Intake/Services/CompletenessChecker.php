@@ -12,8 +12,10 @@ use App\Domains\Intake\Models\IntakeSection;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Support\MustAcceptQuestions;
+use App\Domains\Intake\Support\PhotoContinueAnywayAttention;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Domains\Intake\Support\TechnicalProposalCopy;
+use App\Domains\Intake\Support\UploadSupersessionResolver;
 use App\Enums\QuestionType;
 use Illuminate\Support\Str;
 
@@ -28,7 +30,7 @@ final class CompletenessChecker
      * @return array{
      *     is_complete: bool,
      *     missing: list<array{question_key: string, section_instance_key: string|null, reason: string, label: string, instance_label: string|null}>,
-     *     attention_points: list<array{code: string, label: string}>
+     *     attention_points: list<array{code: string, label: string, gallery_anchor?: string, photo_link_count?: int}>
      * }
      */
     public function check(Intake $intake, IntakeTemplateVersion $version): array
@@ -79,11 +81,11 @@ final class CompletenessChecker
     }
 
     /**
-     * @return list<array{code: string, label: string}>
+     * @return list<array{code: string, label: string, gallery_anchor?: string, photo_link_count?: int}>
      */
     private function attentionPoints(Intake $intake, IntakeTemplateVersion $version): array
     {
-        $intake->loadMissing(['answers', 'uploads']);
+        $intake->loadMissing(['answers', 'uploads', 'aircoRooms', 'followUpRounds.items.uploads', 'contributionTasks', 'dossierSubjects.records']);
         $points = [];
 
         $indoorUnitCount = $intake->answers
@@ -101,16 +103,10 @@ final class CompletenessChecker
             ];
         }
 
-        foreach ($intake->uploads as $upload) {
-            $assessment = $upload->contentAssessment();
-
-            if ($assessment instanceof PhotoContentAssessment && $assessment->customerAcceptedOverride()) {
-                $points[] = [
-                    'code' => 'photo_subject_mismatch_'.$upload->id,
-                    'label' => $assessment->continueAnywayAttentionLabel(),
-                ];
-            }
-        }
+        $points = [
+            ...$points,
+            ...$this->photoContinueAnywayPoints($intake, $version),
+        ];
 
         return [
             ...$points,
@@ -143,6 +139,82 @@ final class CompletenessChecker
                 'Open technisch punt: doorboringen door muren/vloeren nog te beoordelen',
             ),
         ];
+    }
+
+    /**
+     * Eén systeempunt per fotovraag + plek (niet per upload). Oude codes
+     * `photo_subject_mismatch_{id}` verdwijnen bij de volgende afronding/sync;
+     * bestaande opnames worden niet gemigreerd.
+     *
+     * @return list<array{code: string, label: string, gallery_anchor: string, photo_link_count: int}>
+     */
+    private function photoContinueAnywayPoints(Intake $intake, IntakeTemplateVersion $version): array
+    {
+        $supersessions = app(UploadSupersessionResolver::class)->resolve($intake);
+
+        /** @var array<string, list<IntakeUpload>> $byPlace */
+        $byPlace = [];
+        /** @var array<string, bool> $hasOverride */
+        $hasOverride = [];
+
+        foreach ($intake->uploads as $upload) {
+            if ($upload->question_key === 'installer_evidence'
+                || $upload->intake_follow_up_item_id !== null) {
+                continue;
+            }
+
+            $info = $supersessions[(int) $upload->id] ?? null;
+            if (is_array($info) && $info['superseded'] === true) {
+                continue;
+            }
+
+            $groupKey = $upload->question_key.'|'.(string) ($upload->section_instance_key ?? '');
+            $byPlace[$groupKey] ??= [];
+            $byPlace[$groupKey][] = $upload;
+
+            $assessment = $upload->contentAssessment();
+            if ($assessment instanceof PhotoContentAssessment && $assessment->customerAcceptedOverride()) {
+                $hasOverride[$groupKey] = true;
+            }
+        }
+
+        $points = [];
+
+        // Ruimtes in natuurlijke volgorde, daarna gebieden (niet-ruimte).
+        uksort($byPlace, static function (string $a, string $b): int {
+            [$aKey, $aInstance] = array_pad(explode('|', $a, 2), 2, '');
+            [$bKey, $bInstance] = array_pad(explode('|', $b, 2), 2, '');
+            $aIsRoom = str_starts_with((string) $aInstance, 'room-');
+            $bIsRoom = str_starts_with((string) $bInstance, 'room-');
+            if ($aIsRoom !== $bIsRoom) {
+                return $aIsRoom ? -1 : 1;
+            }
+            $instanceCmp = strnatcmp((string) $aInstance, (string) $bInstance);
+            if ($instanceCmp !== 0) {
+                return $instanceCmp;
+            }
+
+            return strcmp((string) $aKey, (string) $bKey);
+        });
+
+        foreach ($byPlace as $groupKey => $uploads) {
+            if (! ($hasOverride[$groupKey] ?? false)) {
+                continue;
+            }
+
+            [$questionKey, $instanceRaw] = array_pad(explode('|', $groupKey, 2), 2, '');
+            $sectionInstanceKey = $instanceRaw === '' ? null : $instanceRaw;
+
+            $points[] = PhotoContinueAnywayAttention::buildPoint(
+                $intake,
+                $version,
+                (string) $questionKey,
+                $sectionInstanceKey,
+                $uploads,
+            );
+        }
+
+        return $points;
     }
 
     /**
