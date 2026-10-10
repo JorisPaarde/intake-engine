@@ -10,6 +10,7 @@ use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\PhotoUploadNormalizer;
 use App\Domains\Intake\Support\PhotoContentSatisfaction;
+use App\Domains\Intake\Support\PhotoCustomerStatus;
 use App\Domains\Intake\Support\PhotoUploadLimits;
 use App\Enums\IntakeStatus;
 use App\Enums\PhotoAssessmentStatus;
@@ -271,4 +272,52 @@ test('soft-release keeps quiet poll until terminal status is applied', function 
 
     $component->call('pollPendingAssessments');
     expect($component->instance()->pendingAssessUploadIds['fusebox_photo'] ?? [])->toBeEmpty();
+});
+
+test('Opnieuw beoordelen na soft-timeout dispatcht nieuwe assessment', function () {
+    Queue::fake([
+        ProcessIntakePhotoVariantsJob::class,
+        AssessUploadedPhotoJob::class,
+    ]);
+    config(['ai.photo_assessment.ui_soft_timeout_seconds' => 1]);
+
+    $intake = makeIntake82Intake();
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('photoFiles.fusebox_photo', UploadedFile::fake()->image('retry.jpg', 800, 600))
+        ->assertSet('uploadPhase', 'assessing');
+
+    $upload = $intake->fresh()->uploads()->firstOrFail();
+
+    $component->set('uploadPhaseStartedAt', now()->subSeconds(5)->getTimestamp());
+    $upload->forceFill([
+        'created_at' => now()->subSeconds(5),
+        'assessment_queued_at' => now()->subSeconds(5),
+        'assessment_status' => PhotoAssessmentStatus::Pending,
+    ])->save();
+
+    $component
+        ->call('pollPendingAssessments', 'fusebox_photo')
+        ->assertSet('uploadPhase', '');
+
+    expect($component->instance()->assessmentUiReleased)->toContain('fusebox_photo')
+        ->and($component->instance()->pendingAssessUploadIds['fusebox_photo'] ?? [])
+        ->toContain($upload->id);
+
+    $pushedBeforeRetry = Queue::pushed(AssessUploadedPhotoJob::class)->count();
+
+    $component
+        ->set('activeStepKey', 'electrical::fusebox_photo')
+        ->assertSeeHtml('data-testid="photo-soft-timeout-panel"')
+        ->assertSeeHtml('data-testid="photo-retry-assessment"')
+        ->assertSee('Opnieuw beoordelen')
+        ->call('retryFailedUploadPhase', 'fusebox_photo')
+        ->assertSet('uploadPhase', 'assessing')
+        ->assertSet('uploadPhaseComposite', 'fusebox_photo')
+        ->assertSet('uploadPhaseMessage', PhotoCustomerStatus::LOOKING);
+
+    expect($component->instance()->assessmentUiReleased)->not->toContain('fusebox_photo');
+
+    Queue::assertPushed(AssessUploadedPhotoJob::class);
+    expect(Queue::pushed(AssessUploadedPhotoJob::class)->count())
+        ->toBeGreaterThan($pushedBeforeRetry);
 });

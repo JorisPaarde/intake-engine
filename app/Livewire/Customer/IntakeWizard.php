@@ -158,6 +158,7 @@ class IntakeWizard extends Component
     /**
      * Stapwaarheen terugkeren na “Toch doorgaan” / goede vervangfoto via banner of Afronden-link.
      */
+    #[Locked]
     public string $photoFixReturnStepKey = '';
 
     /**
@@ -165,6 +166,7 @@ class IntakeWizard extends Component
      *
      * @var list<array{question_key: string, instance_key: string|null}>
      */
+    #[Locked]
     public array $deferredPhotoDerivations = [];
 
     /**
@@ -1517,32 +1519,51 @@ class IntakeWizard extends Component
         }
     }
 
-    public function retryFailedUploadPhase(): void
+    public function retryFailedUploadPhase(?string $composite = null): void
     {
-        $composite = $this->uploadPhaseComposite;
+        $composite = is_string($composite) && $composite !== ''
+            ? $composite
+            : $this->uploadPhaseComposite;
+
+        $this->resetErrorBag();
+        $this->clearSoftReleaseForComposite($composite);
 
         if ($composite === '' || $this->pendingIdsFor($composite) === []) {
             $this->recoverUnassessedUploads(force: true);
 
-            if ($this->uploadPhaseComposite === '' || $this->pendingIdsFor($this->uploadPhaseComposite) === []) {
+            $recovered = $this->uploadPhaseComposite;
+            if ($recovered === '' || $this->pendingIdsFor($recovered) === []) {
                 $this->clearUploadPhase();
                 $this->saveMessage = 'Je kunt de foto opnieuw kiezen.';
 
                 return;
             }
 
+            // Soft-released composites must re-enter assessing after force-recover.
+            $this->clearSoftReleaseForComposite($recovered);
+            $this->uploadPhaseStartedAt = null;
+            $this->setUploadPhase('assessing', PhotoCustomerStatus::LOOKING);
+
             return;
         }
 
-        $this->resetErrorBag();
+        $this->uploadPhaseComposite = $composite;
+        // Explicit retry = new assessing clock (also after soft-release).
+        $this->uploadPhaseStartedAt = null;
+        $this->redispatchPendingAssessments($composite);
+        $this->setUploadPhase('assessing', PhotoCustomerStatus::LOOKING);
+    }
+
+    private function clearSoftReleaseForComposite(string $composite): void
+    {
+        if ($composite === '') {
+            return;
+        }
+
         $this->assessmentUiReleased = array_values(array_filter(
             $this->assessmentUiReleased,
             static fn (string $key): bool => $key !== $composite,
         ));
-        // Explicit retry = new assessing clock.
-        $this->uploadPhaseStartedAt = null;
-        $this->redispatchPendingAssessments($composite);
-        $this->setUploadPhase('assessing', PhotoCustomerStatus::LOOKING);
     }
 
     /**
@@ -4018,32 +4039,12 @@ class IntakeWizard extends Component
         $intake = $this->intake();
         $intake->loadMissing('uploads');
         $entries = [];
-        $instanceKey = $step['section_instance_key'] ?? null;
-        $photoQuestions = [];
 
-        $kind = $step['kind'] ?? 'question';
-        if ($kind === 'question_group') {
-            foreach ($step['group_question_keys'] ?? [] as $groupKey) {
-                $groupQuestion = app(IntakeStepBuilder::class)->questionForStep(
-                    $this->version(),
-                    (string) ($step['section_key'] ?? ''),
-                    $groupKey,
-                );
-                if ($groupQuestion instanceof IntakeQuestion && $groupQuestion->type === QuestionType::Photo) {
-                    $photoQuestions[] = $groupQuestion;
-                }
-            }
-        } else {
-            $photoQuestion = $this->photoQuestionForStep($step);
-            if ($photoQuestion instanceof IntakeQuestion) {
-                $photoQuestions[] = $photoQuestion;
-            }
-        }
+        foreach ($this->photoCompositesForStep($step) as $composite) {
+            [$questionKey, $instanceKey] = $this->splitComposite($composite);
 
-        foreach ($photoQuestions as $photoQuestion) {
-            $composite = VisibilityResolver::compositeKey($photoQuestion->key, $instanceKey);
             foreach ($intake->uploads as $upload) {
-                if ($upload->question_key !== $photoQuestion->key) {
+                if ($upload->question_key !== $questionKey) {
                     continue;
                 }
                 if ($instanceKey === null

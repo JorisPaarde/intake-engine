@@ -360,13 +360,13 @@ test('photoFixReturnStepKey wist bij Vorige/goToStep en bij goToMissing zonder d
         ->call('previous')
         ->assertSet('photoFixReturnStepKey', '');
 
+    $component->instance()->photoFixReturnStepKey = 'some-return';
     $component
-        ->set('photoFixReturnStepKey', 'some-return')
         ->call('goToStep', $laterIndex)
         ->assertSet('photoFixReturnStepKey', '');
 
+    $component->instance()->photoFixReturnStepKey = 'stale';
     $component
-        ->set('photoFixReturnStepKey', 'stale')
         ->call('goToMissing', 'does_not_exist_photo', null)
         ->assertSet('photoFixReturnStepKey', '');
 });

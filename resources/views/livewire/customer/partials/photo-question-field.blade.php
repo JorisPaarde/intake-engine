@@ -146,6 +146,16 @@
                 <p class="text-sm text-[#414b45]">
                     {{ \App\Domains\Intake\Support\PhotoCustomerStatus::SOFT_TIMEOUT }}
                 </p>
+                <button
+                    type="button"
+                    wire:click="retryFailedUploadPhase(@js($composite))"
+                    wire:loading.attr="disabled"
+                    wire:target="pollPendingAssessments,assessPendingUploads,retryFailedUploadPhase"
+                    class="mt-1 text-sm font-semibold text-[var(--tenant-primary)] underline disabled:opacity-60"
+                    data-testid="photo-retry-assessment"
+                >
+                    Opnieuw beoordelen
+                </button>
             </div>
         @elseif (! empty($displayPhotoHint[$composite]) && ! empty($photoNeedsQualityHint))
             <p class="flex items-start gap-2 rounded-xl border border-[#dde2da] bg-[#eef1ec] px-3 py-2 text-sm text-[#414b45]" role="status" data-testid="photo-quality-hint" wire:key="hint-{{ $composite }}">

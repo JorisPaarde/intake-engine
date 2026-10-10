@@ -233,6 +233,16 @@
                         <p class="text-sm text-brand-ink">
                             {{ \App\Domains\Intake\Support\PhotoCustomerStatus::SOFT_TIMEOUT }}
                         </p>
+                        <button
+                            type="button"
+                            wire:click="retryFailedUploadPhase(@js($followUpComposite))"
+                            wire:loading.attr="disabled"
+                            wire:target="pollPendingAssessments,assessPendingUploads,retryFailedUploadPhase"
+                            class="mt-1 text-sm font-semibold text-brand-sea underline disabled:opacity-60"
+                            data-testid="photo-retry-assessment"
+                        >
+                            Opnieuw beoordelen
+                        </button>
                     </div>
                 @endif
 
