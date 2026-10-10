@@ -50,7 +50,7 @@ test.describe('Photo feedback', () => {
       await expect(page.getByText(/We bekijken je foto/i)).toHaveCount(0);
       await expect(page.getByTestId('upload-phase')).toHaveCount(0);
       await expect(page.locator('[data-photo-status="1"]').first()).toContainText(
-        /Goed te zien|Foto ontvangen|Je installateur kijkt hier zelf naar/i,
+        /Goed te zien|Je installateur kijkt hier zelf naar/i,
       );
       await expect(page.getByText(/klein|resolutie|scherper|duidelijker/i)).toHaveCount(0);
     }

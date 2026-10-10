@@ -26,6 +26,7 @@ use App\Domains\Intake\Services\ProgressCalculator;
 use App\Domains\Intake\Services\WorkspacePrimaryActionResolver;
 use App\Domains\Intake\Support\FollowUpEvidenceReview;
 use App\Domains\Intake\Support\InternalCustomerQuestions;
+use App\Domains\Intake\Support\PhotoCustomerStatus;
 use App\Domains\Intake\Support\PhotoOverridePolicy;
 use App\Domains\Intake\Support\TechnicalDecisionKeys;
 use App\Enums\AiRunType;
@@ -590,7 +591,8 @@ test('P1 case 81 Stroomtoevoer: buitenunitfoto blokkeert versturen tot override'
 
     $component
         ->assertSeeHtml('data-testid="follow-up-progress-percent">0%')
-        ->assertSee('Nog te vervangen')
+        ->assertDontSeeHtml('data-testid="follow-up-item-status"')
+        ->assertSee(PhotoCustomerStatus::WRONG_SUBJECT)
         ->call('completeFollowUp')
         ->assertHasErrors('follow_up')
         ->assertSet('completed', false)
@@ -632,7 +634,7 @@ test('P1 case 81 Stroomtoevoer: buitenunitfoto blokkeert versturen tot override'
     expect($upload->fresh()->contentAssessment()?->customerAcceptedMismatch())->toBeTrue();
 });
 
-test('P1 follow-up not_assessed vereist Toch doorgaan (zelfde override als mismatch)', function () {
+test('P1 follow-up not_assessed blokkeert versturen niet (ontvangen zonder override)', function () {
     Queue::fake([AssessUploadedPhotoJob::class]);
 
     $user = User::factory()->create();
@@ -656,17 +658,13 @@ test('P1 follow-up not_assessed vereist Toch doorgaan (zelfde override als misma
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
     [$component, $upload] = klanttestFollowUpUploadAndAssess($component, $item, 'meterkast-groot.jpg');
 
-    $component
-        ->call('completeFollowUp')
-        ->assertHasErrors('follow_up')
-        ->assertSet('completed', false)
-        ->assertSee('Toch doorgaan');
-
     expect($upload->contentAssessment()?->status())->toBe(PhotoContentAssessment::STATUS_NOT_ASSESSED)
-        ->and($upload->contentAssessment()?->installerLabel())->toContain('nog niet automatisch beoordeeld');
+        ->and($upload->contentAssessment()?->installerLabel())->toContain('nog niet automatisch beoordeeld')
+        ->and(PhotoOverridePolicy::needsOverride($upload))->toBeFalse();
 
     $component
-        ->call('acceptFollowUpPhotoMismatch')
+        ->assertSee(PhotoCustomerStatus::RECEIVED)
+        ->assertDontSeeHtml('data-testid="follow-up-mismatch"')
         ->call('completeFollowUp')
         ->assertHasNoErrors('follow_up')
         ->assertSet('completed', true)
@@ -867,7 +865,7 @@ test('Volgende zonder Toch doorgaan bij wrong_subject toont waarschuwing en blij
         ->assertSee('Kies: foto vervangen of toch doorgaan')
         ->assertSeeHtml('data-testid="mismatch-next-warning"')
         ->assertSeeHtml('data-testid="photo-mismatch-panel"')
-        ->assertSeeHtml('data-testid="footer-mismatch-warning"');
+        ->assertDontSeeHtml('data-testid="footer-mismatch-warning"');
 });
 
 test('ExternalFactPresenter toont pipe_route-voorstel met bron en onzekerheid', function () {

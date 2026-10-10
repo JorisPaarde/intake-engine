@@ -250,12 +250,18 @@ test('soft-release keeps quiet poll until terminal status is applied', function 
 
     $component
         ->call('pollPendingAssessments')
-        ->assertSet('uploadPhase', '')
-        ->assertSee('Dit duurt langer dan normaal. Je kunt alvast verder.');
+        ->assertSet('uploadPhase', '');
 
     // Pending ids kept for quiet poll (staging intake 82).
     expect($component->instance()->pendingAssessUploadIds['fusebox_photo'] ?? [])->toContain($upload->id)
         ->and($component->instance()->assessmentUiReleased)->toContain('fusebox_photo');
+
+    // Soft-timeoutregel staat in het fotomeldingsvak op de fotostap (niet als saveMessage).
+    $component
+        ->set('activeStepKey', 'electrical::fusebox_photo')
+        ->assertSeeHtml('data-testid="photo-soft-timeout-panel"')
+        ->assertSee('Dit duurt langer dan normaal. Je kunt alvast verder.')
+        ->assertSet('saveMessage', '');
 
     // Backend finishes → quiet poll picks up terminal status.
     $upload->forceFill([

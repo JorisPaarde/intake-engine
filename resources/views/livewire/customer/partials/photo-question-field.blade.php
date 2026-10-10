@@ -169,7 +169,6 @@
             :upload-phase-composite="$uploadPhaseComposite"
             :pending-assess-upload-ids="$pendingAssessUploadIds"
             :assessment-ui-released="$assessmentUiReleased"
-            :hide-assessing-phase="true"
             tone="intake"
         />
         @error('photo')

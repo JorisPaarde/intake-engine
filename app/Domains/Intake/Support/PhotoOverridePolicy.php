@@ -256,7 +256,7 @@ final class PhotoOverridePolicy
                 continue;
             }
 
-            if (! self::needsOverride($upload) && ! self::hasQualityOrContentIssue($upload)) {
+            if (! self::hasQualityOrContentIssue($upload)) {
                 continue;
             }
 

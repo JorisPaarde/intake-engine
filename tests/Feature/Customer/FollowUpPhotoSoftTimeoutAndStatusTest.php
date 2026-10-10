@@ -94,6 +94,7 @@ test('follow-up soft-timeout na 15s toont UX-melding en laat Volgende toe', func
     $component
         ->call('pollPendingAssessments', (string) $item->id)
         ->assertSet('uploadPhase', '')
+        ->assertSet('saveMessage', '')
         ->assertSee(PhotoCustomerStatus::SOFT_TIMEOUT);
 
     // Soft-release: Volgende mag door ondanks pending assessment.
@@ -160,6 +161,47 @@ test('PhotoCustomerStatus labels matchen UX-teksten', function () {
         ->and(PhotoCustomerStatus::RECEIVED)->toBe('Foto ontvangen.')
         ->and(PhotoCustomerStatus::SOFT_TIMEOUT)->toBe('Dit duurt langer dan normaal. Je kunt alvast verder.')
         ->and(PhotoCustomerStatus::UPLOADING)->toBe('Foto uploaden…');
+});
+
+test('follow-up foto-item toont geen Status-regel; tekst-item wel', function () {
+    Queue::fake([AssessUploadedPhotoJob::class, ProcessIntakePhotoVariantsJob::class]);
+    [$intake, $photoItem] = softTimeoutFollowUpIntake();
+    $round = $intake->followUpRounds()->latest('round_number')->firstOrFail();
+
+    $photoItem->uploads()->create([
+        'intake_id' => $intake->id,
+        'question_key' => 'follow_up_photo',
+        'disk' => (string) config('filesystems.media', 'local'),
+        'path' => 'intakes/test/status-photo.jpg',
+        'original_filename' => 'status-photo.jpg',
+        'mime_type' => 'image/jpeg',
+        'size_bytes' => 1000,
+        'checksum' => hash('sha256', 'status-photo'),
+        'sort_order' => 1,
+        'assessment_status' => PhotoAssessmentStatus::Assessed,
+        'usability_verdict' => PhotoUsabilityVerdict::Ok,
+        'content_assessment' => [
+            'status' => 'ok',
+            'detected_subject' => 'outdoor_unit',
+            'customer_message' => null,
+        ],
+    ]);
+
+    $textItem = $round->items()->create([
+        'type' => FollowUpItemType::Text,
+        'prompt' => 'Hoe hoog hangt de buitenunit ongeveer?',
+    ]);
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->assertSet('followUpStepIndex', 0)
+        ->assertDontSeeHtml('data-testid="follow-up-item-status"')
+        ->call('nextFollowUp')
+        ->assertSet('followUpStepIndex', 1)
+        ->assertSeeHtml('data-testid="follow-up-item-status"')
+        ->assertSee('Status:');
+
+    expect($textItem->fresh()->type)->toBe(FollowUpItemType::Text)
+        ->and($photoItem->fresh()->type)->toBe(FollowUpItemType::Photo);
 });
 
 test('mixed photos show short status on the bad thumb and advice once in the panel', function () {

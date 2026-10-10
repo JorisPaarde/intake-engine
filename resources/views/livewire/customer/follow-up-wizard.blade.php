@@ -18,7 +18,7 @@
                 <div class="h-full bg-brand-sea transition-all duration-300" style="width: {{ $progressPercent }}%"></div>
             </div>
             <p class="mt-1 text-xs text-brand-ink/55">{{ $progressCompleted }} van {{ $progressTotal }} onderdelen afgerond</p>
-            @if (! empty($currentItemStatus))
+            @if (! empty($currentItemStatus) && $item->type !== \App\Enums\FollowUpItemType::Photo)
                 <p class="mt-1 text-xs font-medium text-brand-ink/70" data-testid="follow-up-item-status">Status: {{ $currentItemStatus['label'] }}</p>
             @endif
         @endif
@@ -252,7 +252,6 @@
                             :upload-phase-composite="$uploadPhaseComposite"
                             :pending-assess-upload-ids="$pendingAssessUploadIds"
                             :assessment-ui-released="$assessmentUiReleased"
-                            :hide-assessing-phase="true"
                             tone="followup"
                             :help-extra="'Max '.number_format($maxUploadKb / 1024, 0).' MB · nog '.$remainingSlots"
                         />

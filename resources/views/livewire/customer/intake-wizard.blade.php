@@ -526,9 +526,9 @@
     @endif
 
     @unless ($completed || ($waitingForPrefill ?? false))
-        {{-- Stille poll voor foto’s die op eerdere stappen nog beoordeling krijgen (banner §1.5). --}}
+        {{-- Stille poll voor foto’s op ándere stappen (huidige stap polt via photo-question-field). --}}
         @foreach (($pendingAssessUploadIds ?? []) as $pendingComposite => $pendingIds)
-            @if (! empty($pendingIds))
+            @if (! empty($pendingIds) && ! in_array((string) $pendingComposite, $currentStepPhotoComposites ?? [], true))
                 @php
                     $bgQuiet = in_array($pendingComposite, $assessmentUiReleased ?? [], true);
                     $bgInterval = $bgQuiet ? '5s' : '2s';

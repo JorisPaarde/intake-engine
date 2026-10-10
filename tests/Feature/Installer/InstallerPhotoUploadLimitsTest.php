@@ -314,7 +314,10 @@ test('assessment poll lives on wizards not only on photo-upload-control', functi
     $followUp = (string) file_get_contents(resource_path('views/livewire/customer/follow-up-wizard.blade.php'));
 
     expect($control)->not->toContain('wire:poll')
-        ->and($control)->toContain('PhotoAssessmentSoftTimeout::seconds()')
+        ->and($control)->not->toContain('hideAssessingPhase')
+        ->and($control)->not->toContain('upload-phase-{{ $composite }}-assessing')
+        ->and($photoField)->toContain('data-testid="photo-soft-timeout-panel"')
+        ->and($photoField)->toContain('PhotoCustomerStatus::SOFT_TIMEOUT')
         ->and($intake)->toContain('livewire.customer.partials.photo-question-field')
         ->and($photoField)->toContain('data-testid="assessment-poll"')
         ->and($photoField)->toContain('pollPendingAssessments(@json($composite))')

@@ -52,7 +52,9 @@ test.describe('Targeted customer task (follow-up)', () => {
 
     await uploadPhoto(page, 'room-overview-good.jpg');
     await waitForPhotoAssessed(page);
-    await expect(page.getByTestId('follow-up-item-status')).toContainText('Beoordeeld');
+    // Foto-items tonen status op de tegel, niet als "Status: …"-regel.
+    await expect(page.getByTestId('follow-up-item-status')).toHaveCount(0);
+    await expect(page.locator('[data-photo-status="1"]').first()).toContainText(/Goed te zien/i);
 
     const complete = waitForLivewire(page).catch(() => undefined);
     await page.getByRole('button', { name: /Aanvulling versturen/i }).click();

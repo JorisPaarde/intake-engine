@@ -158,12 +158,12 @@ export async function uploadPhoto(page: Page, fileName: string): Promise<void> {
 }
 
 export async function waitForPhotoAssessed(page: Page, timeoutMs = 90_000): Promise<void> {
-  // Per-tile status (UX 10 okt 2026): terminal labels, never "Status: Beoordeeld".
+  // Per-tile status (UX 10 okt 2026): terminal-only; "Foto ontvangen" is soft/not_assessed.
   const tile = page.locator('[data-photo-status="1"]').first();
   await expect(tile).toBeVisible({ timeout: timeoutMs });
   await expect(tile).not.toHaveText(/We bekijken je foto/i, { timeout: timeoutMs });
   await expect(tile).toHaveText(
-    /Goed te zien|Foto ontvangen|Niet goed te zien|Niet de gevraagde foto|Je installateur kijkt hier zelf naar/i,
+    /Goed te zien|Niet goed te zien|Niet de gevraagde foto|Je installateur kijkt hier zelf naar/i,
     { timeout: timeoutMs },
   );
 }

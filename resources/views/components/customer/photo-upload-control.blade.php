@@ -14,13 +14,9 @@
     'uploadPhaseComposite' => '',
     'pendingAssessUploadIds' => [],
     'assessmentUiReleased' => [],
-    'hideAssessingPhase' => false,
 ])
 
 @php
-    $isAssessing = ! $hideAssessingPhase
-        && $uploadPhase === 'assessing'
-        && $uploadPhaseComposite === $composite;
     $isFailed = $uploadPhase === 'failed' && $uploadPhaseComposite === $composite;
 
     $labelClass = $tone === 'followup'
@@ -33,15 +29,12 @@
     $errorClass = $tone === 'followup' ? 'mt-2 space-y-1 text-sm font-medium text-brand-ember' : 'mt-2 space-y-1 text-sm font-medium text-[#a84832]';
     $linkClass = $tone === 'followup' ? 'mt-1 text-sm font-semibold text-brand-sea underline disabled:opacity-60' : 'mt-1 text-sm font-semibold text-[var(--tenant-primary)] underline disabled:opacity-60';
     $phaseClass = $tone === 'followup' ? 'mt-2 space-y-1 text-sm font-medium text-brand-sea' : 'mt-2 space-y-1 text-sm font-medium text-[var(--tenant-primary)]';
-    $phaseHintClass = $tone === 'followup' ? 'text-xs font-normal text-brand-ink/55' : 'text-xs font-normal text-[#5e6862]';
     $bagErrorClass = $tone === 'followup' ? 'mt-2 text-sm text-brand-ember' : 'mt-2 text-sm text-[#a84832]';
 @endphp
 
 {{-- Assessment polling is on the wizard so it keeps running at max photos. --}}
 <div
     x-data="{
-        timedOut: false,
-        timer: null,
         uploadTimedOut: false,
         uploadTimer: null,
         uploadError: '',
@@ -59,14 +52,6 @@
         clientUploading: false,
         prepBusy: false,
         prepSkipMessage: '',
-        softTimeoutMs: @js(max(1, \App\Domains\Intake\Support\PhotoAssessmentSoftTimeout::seconds()) * 1000),
-        arm() {
-            clearTimeout(this.timer);
-            this.timedOut = false;
-            if ($wire.uploadPhase === 'assessing' && $wire.uploadPhaseComposite === @js($composite)) {
-                this.timer = setTimeout(() => { this.timedOut = true }, this.softTimeoutMs);
-            }
-        },
         matchesPrepScope(event) {
             const detail = event?.detail;
             if (! detail) {
@@ -285,9 +270,6 @@
         },
     }"
     x-init="
-        arm();
-        $watch(() => $wire.uploadPhase, () => arm());
-        $watch(() => $wire.uploadPhaseComposite, () => arm());
         // Listen on document: livewire-resilience dispatches non-bubbling CustomEvents on document (BL-143).
         document.addEventListener('intake:livewire-request-failed', (e) => onRequestFailed(e));
         document.addEventListener('intake:upload-retrying', (e) => onUploadRetrying(e));
@@ -395,25 +377,7 @@
         <p x-text="prepSkipMessage"></p>
     </div>
     <div wire:loading.remove wire:target="{{ $wireModel }}">
-        @if ($isAssessing)
-            <div class="{{ $phaseClass }}" role="status" data-testid="upload-phase" wire:key="upload-phase-{{ $composite }}-assessing">
-                <p>{{ $uploadPhaseMessage !== '' ? $uploadPhaseMessage : 'We bekijken je foto…' }}</p>
-                <div x-show="timedOut" x-cloak class="mt-1 space-y-1">
-                    <p class="{{ $phaseHintClass }}" data-testid="assessment-soft-timeout">
-                        Dit duurt langer dan normaal. Je kunt alvast verder.
-                    </p>
-                    <button
-                        type="button"
-                        wire:click="retryFailedUploadPhase"
-                        wire:loading.attr="disabled"
-                        wire:target="pollPendingAssessments,assessPendingUploads,retryFailedUploadPhase"
-                        class="{{ $linkClass }}"
-                    >
-                        Opnieuw beoordelen
-                    </button>
-                </div>
-            </div>
-        @elseif ($isFailed)
+        @if ($isFailed)
             <div class="{{ $phaseClass }}" role="status" data-testid="upload-phase" wire:key="upload-phase-{{ $composite }}-failed">
                 <p>{{ $uploadPhaseMessage }}</p>
                 <button

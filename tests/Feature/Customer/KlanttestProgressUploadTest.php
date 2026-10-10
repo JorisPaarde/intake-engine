@@ -23,6 +23,7 @@ use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\CompletenessChecker;
 use App\Domains\Intake\Services\FollowUpProgressCalculator;
 use App\Domains\Intake\Services\ProgressCalculator;
+use App\Domains\Intake\Support\PhotoCustomerStatus;
 use App\Enums\FollowUpItemType;
 use App\Enums\IntakeStatus;
 use App\Enums\PhotoAssessmentStatus;
@@ -194,7 +195,7 @@ test('lege foto-opdracht in follow-up start op 0% niet op 100%', function () {
         ->assertSee('Onderdeel 1 van 1')
         ->assertSeeHtml('data-testid="follow-up-progress-percent">0%')
         ->assertSee('0 van 1 onderdelen afgerond')
-        ->assertSee('Status: Nog te doen');
+        ->assertDontSeeHtml('data-testid="follow-up-item-status"');
 });
 
 test('follow-up progress wordt 100% alleen na bruikbare beoordeling', function () {
@@ -618,14 +619,16 @@ test('follow-up wrong_subject telt niet mee voor 100% tot foto vervangen is', fu
         ->set('followUpPhotoFiles.'.$item->id, p2FixtureUpload('buitenunit-leiding.jpeg'))
         ->call('assessPendingUploads')
         ->assertSeeHtml('data-testid="follow-up-progress-percent">0%')
-        ->assertSee('Nog te vervangen');
+        ->assertDontSeeHtml('data-testid="follow-up-item-status"')
+        ->assertSee(PhotoCustomerStatus::WRONG_SUBJECT);
 
     $item->refresh()->load('uploads');
     $progress = app(FollowUpProgressCalculator::class)->calculate(collect([$item]));
 
     expect($progress['percent'])->toBe(0)
         ->and($progress['completed'])->toBe(0)
-        ->and($progress['item_statuses'][$item->id]['status'])->toBe('mismatch');
+        ->and($progress['item_statuses'][$item->id]['status'])->toBe('mismatch')
+        ->and($progress['item_statuses'][$item->id]['label'])->toBe('Nog te vervangen');
 
     FakeAiClient::reset();
 });

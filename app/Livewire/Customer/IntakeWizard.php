@@ -161,6 +161,13 @@ class IntakeWizard extends Component
     public string $photoFixReturnStepKey = '';
 
     /**
+     * Foto-afleidingen die off-step terminaal werden; toepassen wanneer die fotostap weer zichtbaar is.
+     *
+     * @var list<array{question_key: string, instance_key: string|null}>
+     */
+    public array $deferredPhotoDerivations = [];
+
+    /**
      * Foto die net is weggehaald en 8 s ongedaan gemaakt kan worden (BL-147, UX #16.4).
      *
      * @var array{item_id: int, upload_id: int, answered_at: string|null}|null
@@ -629,6 +636,7 @@ class IntakeWizard extends Component
             'uploadPhaseComposite' => $this->uploadPhaseComposite,
             'pendingAssessUploadIds' => $this->pendingAssessUploadIds,
             'assessmentUiReleased' => $this->assessmentUiReleased,
+            'currentStepPhotoComposites' => $this->photoCompositesForStep($step),
             'missingRequired' => $this->completionMissing,
             'isLastStep' => $isLastStep,
             'isKnownSummary' => $stepKind === 'known_summary',
@@ -1456,10 +1464,7 @@ class IntakeWizard extends Component
             $softReleased = in_array($composite, $this->assessmentUiReleased, true);
 
             if ($this->assessmentSoftTimedOut($composite) && ! $softReleased) {
-                $this->softReleasePendingAssessment(
-                    $composite,
-                    PhotoCustomerStatus::SOFT_TIMEOUT,
-                );
+                $this->softReleasePendingAssessment($composite);
 
                 return;
             }
@@ -1488,9 +1493,14 @@ class IntakeWizard extends Component
             return;
         }
 
-        // Prefill/afgeleide antwoorden door AI-job; ververs formulier.
+        // Prefill/afgeleide antwoorden: alleen form verversen als deze fotostap zichtbaar is,
+        // anders klantinvoer op de huidige stap overschrijven.
         if ($questionKey !== '') {
-            $this->applyPhotoDerivationResults($questionKey, $instanceKey);
+            if ($this->photoCompositeIsOnCurrentStep($composite)) {
+                $this->applyPhotoDerivationResults($questionKey, $instanceKey);
+            } else {
+                $this->deferPhotoDerivation($questionKey, $instanceKey);
+            }
         }
 
         $this->forgetIntakeDerivedCaches();
@@ -1565,10 +1575,7 @@ class IntakeWizard extends Component
             $softReleased = in_array($composite, $this->assessmentUiReleased, true);
 
             if ($this->assessmentSoftTimedOut($composite) && ! $softReleased) {
-                $this->softReleasePendingAssessment(
-                    $composite,
-                    PhotoCustomerStatus::SOFT_TIMEOUT,
-                );
+                $this->softReleasePendingAssessment($composite);
 
                 return;
             }
@@ -1642,7 +1649,7 @@ class IntakeWizard extends Component
         return false;
     }
 
-    private function softReleasePendingAssessment(string $composite, string $message): void
+    private function softReleasePendingAssessment(string $composite): void
     {
         // Keep pending ids so quiet wire:poll can pick up the terminal result
         // (staging intake 82: backend done at ~80s but UI stayed on Ontvangen).
@@ -1660,11 +1667,7 @@ class IntakeWizard extends Component
         }
 
         // Soft-timeoutregel staat in het fotomeldingsvak (niet als saveMessage / tegeltekst).
-        if ($this->followUpMode) {
-            $this->saveMessage = $message;
-        } else {
-            $this->saveMessage = '';
-        }
+        $this->saveMessage = '';
     }
 
     private function setUploadPhase(string $phase, string $message): void
@@ -2188,6 +2191,97 @@ class IntakeWizard extends Component
         if ($profile instanceof PhotoDerivationProfile) {
             $this->applyPhotoDerivation($instanceKey, $profile);
         }
+    }
+
+    private function deferPhotoDerivation(string $questionKey, ?string $instanceKey): void
+    {
+        foreach ($this->deferredPhotoDerivations as $entry) {
+            if ($entry['question_key'] === $questionKey
+                && $entry['instance_key'] === $instanceKey) {
+                return;
+            }
+        }
+
+        $this->deferredPhotoDerivations[] = [
+            'question_key' => $questionKey,
+            'instance_key' => $instanceKey,
+        ];
+    }
+
+    private function flushDeferredPhotoDerivationsForCurrentStep(): void
+    {
+        if ($this->deferredPhotoDerivations === []) {
+            return;
+        }
+
+        $remaining = [];
+
+        foreach ($this->deferredPhotoDerivations as $entry) {
+            $composite = VisibilityResolver::compositeKey(
+                $entry['question_key'],
+                $entry['instance_key'],
+            );
+
+            if ($this->photoCompositeIsOnCurrentStep($composite)) {
+                $this->applyPhotoDerivationResults(
+                    $entry['question_key'],
+                    $entry['instance_key'],
+                );
+            } else {
+                $remaining[] = $entry;
+            }
+        }
+
+        $this->deferredPhotoDerivations = $remaining;
+    }
+
+    private function photoCompositeIsOnCurrentStep(string $composite): bool
+    {
+        return in_array($composite, $this->photoCompositesForStep($this->currentStep()), true);
+    }
+
+    /**
+     * @param  array{
+     *     key?: string,
+     *     section_key?: string,
+     *     section_instance_key?: string|null,
+     *     question_key?: string,
+     *     kind?: string,
+     *     group_question_keys?: list<string>
+     * }|null  $step
+     * @return list<string>
+     */
+    private function photoCompositesForStep(?array $step): array
+    {
+        if ($step === null) {
+            return [];
+        }
+
+        $instanceKey = $step['section_instance_key'] ?? null;
+        $composites = [];
+        $kind = $step['kind'] ?? 'question';
+
+        if ($kind === 'question_group') {
+            foreach ($step['group_question_keys'] ?? [] as $groupKey) {
+                $groupQuestion = app(IntakeStepBuilder::class)->questionForStep(
+                    $this->version(),
+                    (string) ($step['section_key'] ?? ''),
+                    $groupKey,
+                );
+                if ($groupQuestion instanceof IntakeQuestion && $groupQuestion->type === QuestionType::Photo) {
+                    $composites[] = VisibilityResolver::compositeKey($groupQuestion->key, $instanceKey);
+                }
+            }
+
+            return array_values(array_unique($composites));
+        }
+
+        $photoQuestion = $this->photoQuestionForStep($step);
+        if ($photoQuestion instanceof IntakeQuestion) {
+            $composites[] = VisibilityResolver::compositeKey($photoQuestion->key, $instanceKey);
+        }
+
+        return $composites;
     }
 
     private function photoRetakeHint(PhotoUsabilityVerdict $verdict, string $questionKey): ?string
@@ -2905,6 +2999,7 @@ class IntakeWizard extends Component
             $this->completionMissing = [];
             $this->hydrateFormFromAnswers();
             $this->applyPrefillForActiveStep();
+            $this->flushDeferredPhotoDerivationsForCurrentStep();
             $this->saveMessage = '';
 
             return;
@@ -2951,6 +3046,7 @@ class IntakeWizard extends Component
             $this->rememberCurrentCursor();
             $this->hydrateFormFromAnswers();
             $this->applyPrefillForActiveStep();
+            $this->flushDeferredPhotoDerivationsForCurrentStep();
             $this->saveMessage = '';
         }
     }
@@ -3021,6 +3117,7 @@ class IntakeWizard extends Component
         }
 
         $this->clearProgressExtraNote();
+        $this->photoFixReturnStepKey = '';
 
         $stepsBeforeSave = $this->steps();
         $currentKey = $this->displayedStepKey($stepsBeforeSave);
@@ -3064,6 +3161,7 @@ class IntakeWizard extends Component
             $this->realignToActiveStep();
             $this->hydrateFormFromAnswers();
             $this->applyPrefillForActiveStep();
+            $this->flushDeferredPhotoDerivationsForCurrentStep();
             $this->saveMessage = '';
             $this->showMissing = false;
 
@@ -3076,6 +3174,7 @@ class IntakeWizard extends Component
         $this->rememberCurrentCursor();
         $this->hydrateFormFromAnswers();
         $this->applyPrefillForActiveStep();
+        $this->flushDeferredPhotoDerivationsForCurrentStep();
         $this->saveMessage = '';
         $this->showMissing = false;
     }
@@ -3086,6 +3185,8 @@ class IntakeWizard extends Component
         if ($index < 0 || $index >= count($steps)) {
             return;
         }
+
+        $this->photoFixReturnStepKey = '';
 
         $targetKey = $steps[$index]['key'];
         $this->saveCurrentStep();
@@ -3102,6 +3203,7 @@ class IntakeWizard extends Component
         $this->rememberCurrentCursor();
         $this->hydrateFormFromAnswers();
         $this->applyPrefillForActiveStep();
+        $this->flushDeferredPhotoDerivationsForCurrentStep();
         $this->saveMessage = '';
         $this->showMissing = false;
     }
@@ -3114,9 +3216,6 @@ class IntakeWizard extends Component
     {
         $steps = $this->steps();
         $returnKey = $this->displayedStepKey($steps);
-        if (is_string($returnKey) && $returnKey !== '') {
-            $this->photoFixReturnStepKey = $returnKey;
-        }
 
         foreach ($steps as $index => $step) {
             if ($step['question_key'] !== $questionKey) {
@@ -3128,10 +3227,16 @@ class IntakeWizard extends Component
             }
 
             $this->goToStep($index);
+            // goToStep wist de return-key; herstel alleen bij een gevonden doel.
+            if (is_string($returnKey) && $returnKey !== '') {
+                $this->photoFixReturnStepKey = $returnKey;
+            }
             $this->dispatch('scroll-to-photo-mismatch');
 
             return;
         }
+
+        $this->photoFixReturnStepKey = '';
     }
 
     private function intake(): Intake
@@ -3808,19 +3913,8 @@ class IntakeWizard extends Component
         }
 
         $sectionTitle = trim($step['section_title']);
-        if ($sectionTitle !== '') {
-            return $sectionTitle;
-        }
 
-        $title = $step['title'];
-        if (str_contains($title, ' — ')) {
-            $parts = explode(' — ', $title, 2);
-            $suffix = trim($parts[1] ?? '');
-
-            return $suffix !== '' ? $suffix : null;
-        }
-
-        return null;
+        return $sectionTitle !== '' ? $sectionTitle : null;
     }
 
     /**
@@ -3902,6 +3996,7 @@ class IntakeWizard extends Component
         $this->rememberCurrentCursor();
         $this->hydrateFormFromAnswers();
         $this->applyPrefillForActiveStep();
+        $this->flushDeferredPhotoDerivationsForCurrentStep();
         $this->saveMessage = '';
         $this->showMissing = false;
 

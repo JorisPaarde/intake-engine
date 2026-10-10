@@ -59,7 +59,7 @@ test.describe('Livewire 503 after upload', () => {
     }
 
     await expect(page.locator('[data-photo-status="1"]').first()).toContainText(
-      /Goed te zien|Foto ontvangen|Niet goed te zien|Niet de gevraagde foto|Je installateur kijkt hier zelf naar/i,
+      /Goed te zien|Niet goed te zien|Niet de gevraagde foto|Je installateur kijkt hier zelf naar/i,
       { timeout: 90_000 },
     );
   });

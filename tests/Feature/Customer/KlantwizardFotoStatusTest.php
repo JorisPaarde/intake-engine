@@ -21,6 +21,7 @@ use App\Livewire\Customer\IntakeWizard;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
@@ -269,4 +270,103 @@ test('Toch doorgaan markeert alle niet-goede uploads van de vraag', function () 
     expect($a->fresh()->contentAssessment()?->customerAcceptedOverride())->toBeTrue()
         ->and($b->fresh()->contentAssessment()?->customerAcceptedOverride())->toBeTrue()
         ->and($a->fresh()->isDossierEvidenceEligible())->toBeTrue();
+});
+
+test('achtergrondpoll slaat composites van de huidige stap over', function () {
+    Queue::fake();
+    $intake = fotoStatusIntake();
+    seedOneRoomForPhotos($intake);
+
+    [$steps, $roomIndex] = goToRoomPhotosStep($intake);
+    $composite = 'room-1__room_photos';
+    $laterIndex = min($roomIndex + 2, count($steps) - 1);
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('stepIndex', $roomIndex)
+        ->set('activeStepKey', $steps[$roomIndex]['key'])
+        ->set('photoFiles.'.$composite, UploadedFile::fake()->image('bg-poll.jpg', 1200, 900));
+
+    expect($component->instance()->pendingAssessUploadIds[$composite] ?? [])->not->toBeEmpty();
+
+    $onHtml = $component->html();
+    expect($onHtml)->toContain('data-testid="assessment-poll"')
+        ->and($onHtml)->toContain('data-poll-composite="'.$composite.'"')
+        ->and($onHtml)->not->toContain('data-testid="bg-assessment-poll"');
+
+    $component->call('goToStep', $laterIndex);
+
+    $offHtml = $component->html();
+    expect($offHtml)->toContain('data-testid="bg-assessment-poll"')
+        ->and($offHtml)->toContain('data-poll-composite="'.$composite.'"')
+        ->and($offHtml)->not->toContain('data-testid="assessment-poll"');
+});
+
+test('terminale poll off-step stelt foto-afleiding uit tot die stap zichtbaar is', function () {
+    Queue::fake();
+    $intake = fotoStatusIntake();
+    seedOneRoomForPhotos($intake);
+
+    [$steps, $roomIndex] = goToRoomPhotosStep($intake);
+    $laterIndex = min($roomIndex + 2, count($steps) - 1);
+    $composite = 'room-1__room_photos';
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('stepIndex', $roomIndex)
+        ->set('activeStepKey', $steps[$roomIndex]['key'])
+        ->set('photoFiles.'.$composite, UploadedFile::fake()->image('pending-derive.jpg', 1200, 900));
+
+    $uploadId = (int) ($component->instance()->pendingAssessUploadIds[$composite][0] ?? 0);
+    expect($uploadId)->toBeGreaterThan(0);
+
+    $component->call('goToStep', $laterIndex);
+
+    IntakeUpload::query()->whereKey($uploadId)->update([
+        'usability_verdict' => PhotoUsabilityVerdict::Ok,
+        'assessment_status' => PhotoAssessmentStatus::Assessed,
+        'content_assessment' => PhotoContentAssessment::ok(PhotoSubject::Room)->toArray(),
+    ]);
+
+    $component->instance()->pollPendingAssessments($composite);
+
+    expect($component->instance()->deferredPhotoDerivations)->toContain([
+        'question_key' => 'room_photos',
+        'instance_key' => 'room-1',
+    ]);
+
+    $component
+        ->call('goToStep', $roomIndex)
+        ->assertSet('activeStepKey', $steps[$roomIndex]['key']);
+
+    expect($component->get('deferredPhotoDerivations'))->toBe([]);
+});
+
+test('photoFixReturnStepKey wist bij Vorige/goToStep en bij goToMissing zonder doel', function () {
+    $intake = fotoStatusIntake();
+    seedOneRoomForPhotos($intake);
+    seedRejectedRoomPhoto($intake);
+
+    [$steps, $roomIndex] = goToRoomPhotosStep($intake);
+    $laterIndex = min($roomIndex + 2, count($steps) - 1);
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('stepIndex', $laterIndex)
+        ->set('activeStepKey', $steps[$laterIndex]['key']);
+
+    $component
+        ->call('goToMissing', 'room_photos', 'room-1')
+        ->assertSet('photoFixReturnStepKey', $steps[$laterIndex]['key']);
+
+    $component
+        ->call('previous')
+        ->assertSet('photoFixReturnStepKey', '');
+
+    $component
+        ->set('photoFixReturnStepKey', 'some-return')
+        ->call('goToStep', $laterIndex)
+        ->assertSet('photoFixReturnStepKey', '');
+
+    $component
+        ->set('photoFixReturnStepKey', 'stale')
+        ->call('goToMissing', 'does_not_exist_photo', null)
+        ->assertSet('photoFixReturnStepKey', '');
 });

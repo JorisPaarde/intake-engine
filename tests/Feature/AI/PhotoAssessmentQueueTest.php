@@ -128,12 +128,14 @@ test('job schrijft assessment; poll toont resultaat en wrong_subject-feedback', 
 
     $component->call('pollPendingAssessments')
         ->assertSet('uploadPhase', '')
-        ->assertSee('Nog te vervangen')
+        ->assertDontSeeHtml('data-testid="follow-up-item-status"')
+        ->assertSee(PhotoCustomerStatus::WRONG_SUBJECT)
         ->assertSee('Toch doorgaan');
 
     $progress = app(FollowUpProgressCalculator::class)->calculate(collect([$item->fresh()->load('uploads')]));
     expect($progress['percent'])->toBe(0)
-        ->and($progress['item_statuses'][$item->id]['status'])->toBe('mismatch');
+        ->and($progress['item_statuses'][$item->id]['status'])->toBe('mismatch')
+        ->and($progress['item_statuses'][$item->id]['label'])->toBe('Nog te vervangen');
 });
 
 test('AI-fout of timeout leidt tot not_assessed soft-fail met klanttekst', function () {
@@ -156,19 +158,17 @@ test('AI-fout of timeout leidt tot not_assessed soft-fail met klanttekst', funct
         ->and($upload->contentAssessment()?->customerMessage())
         ->toBe('We konden je foto nu niet automatisch beoordelen; de installateur kijkt mee.');
 
-    // Per-thumb status is "Foto ontvangen." for not_assessed; override UI stays.
+    // Per-thumb status is "Foto ontvangen."; not_assessed vraagt geen override.
     $component->call('pollPendingAssessments')
         ->assertSet('uploadPhase', '')
         ->assertSee(PhotoCustomerStatus::RECEIVED)
-        ->assertSee('Vervang foto')
-        // BL-147 #16.3: knop heet overal “Toch doorgaan”.
-        ->assertSee('Toch doorgaan')
-        ->assertSee('Nieuwe foto nodig');
+        ->assertDontSeeHtml('data-testid="follow-up-mismatch"')
+        ->assertDontSee('Vervang foto');
 
     $progress = app(FollowUpProgressCalculator::class)->calculate(collect([$item->fresh()->load('uploads')]));
-    expect($progress['percent'])->toBe(0)
-        ->and($progress['item_statuses'][$item->id]['status'])->toBe('unusable')
-        ->and($progress['item_statuses'][$item->id]['label'])->toBe('Nieuwe foto nodig');
+    expect($progress['percent'])->toBe(100)
+        ->and($progress['item_statuses'][$item->id]['status'])->toBe('assessed')
+        ->and($progress['item_statuses'][$item->id]['label'])->toBe('Beoordeeld');
 });
 
 test('follow-up foto-assessment schrijft precies één complete follow_up_photo_subject-trace per ai_run', function () {

@@ -289,7 +289,7 @@ test('livewire wizard photo input allows gallery without capture attribute', fun
     ]);
 
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
-        ->assertSee('Foto\'s maken of kiezen', false)
+        ->assertSee('Foto’s maken of kiezen', false)
         ->assertSee('camera of galerij', false)
         ->assertDontSee('capture="environment"', false)
         ->assertSee('multiple', false);
