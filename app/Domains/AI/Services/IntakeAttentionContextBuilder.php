@@ -250,8 +250,8 @@ final class IntakeAttentionContextBuilder
         $stats = [];
         foreach ($groups as $group) {
             $meta = $questions[$group['question_key']] ?? null;
+            // Geen `reference`: tellingen zijn context, geen citeerbaar bewijs.
             $stats[] = [
-                'reference' => $this->questionReference($group['question_key'], $group['section_instance_key']),
                 'question_key' => $group['question_key'],
                 'question_label' => $meta['question_label'] ?? $group['question_key'],
                 'section_instance_key' => $group['section_instance_key'],

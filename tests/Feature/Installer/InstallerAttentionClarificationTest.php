@@ -15,10 +15,12 @@ use App\Domains\Intake\Models\IntakeAttentionPoint;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\CompletenessChecker;
+use App\Domains\Intake\Services\DecisionReadinessService;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\InstallerPhotoGalleryBuilder;
 use App\Domains\Intake\Support\AttentionProposalVisibility;
 use App\Domains\Intake\Support\PhotoContinueAnywayAttention;
+use App\Enums\AiRunStatus;
 use App\Enums\AttentionPointSource;
 use App\Enums\AttentionPointStatus;
 use App\Enums\IntakeStatus;
@@ -142,24 +144,11 @@ test('groepeert Toch-doorgaan-foto’s per vraag en plek met ruimtenaam en aanta
         ->not->toContain('Foto lijkt andere categorie');
 });
 
-test('twee ruimtes met dezelfde fotovraag geven twee regels; gelijke namen krijgen verdieping', function () {
+test('twee ruimtes met dezelfde fotovraag geven twee regels met opgeslagen ruimtenamen', function () {
     $intake = clarificationIntake();
-    clarificationRoom($intake, 'room-1', 'Slaapkamer 2', 1);
-    clarificationRoom($intake, 'room-2', 'Slaapkamer 2', 2);
-    app(SaveIntakeAnswer::class)->handle(
-        $intake,
-        'floor_level',
-        'room-1',
-        ['value' => 'basement'],
-        'customer',
-    );
-    app(SaveIntakeAnswer::class)->handle(
-        $intake,
-        'floor_level',
-        'room-2',
-        ['value' => '1'],
-        'customer',
-    );
+    // DossierManager plakt verdieping al in de opgeslagen naam — hier de enige bron.
+    clarificationRoom($intake, 'room-1', 'Slaapkamer 2, kelder', 1);
+    clarificationRoom($intake, 'room-2', 'Slaapkamer 2, 1e verdieping', 2);
 
     $rejected = PhotoContentAssessment::wrongSubject(PhotoSubject::Room, PhotoSubject::Fusebox);
     clarificationOverrideUpload($intake, 'room_photos', 'room-1', $rejected);
@@ -333,7 +322,8 @@ test('context bevat fototellingen voor afgekeurde uploads en Nederlandse optiela
         ->and($stats['photo_count'])->toBe(2)
         ->and($stats['rejected_count'])->toBe(1)
         ->and($stats['not_assessed_count'])->toBe(1)
-        ->and($stats['customer_continued_anyway'])->toBeTrue();
+        ->and($stats['customer_continued_anyway'])->toBeTrue()
+        ->and(array_key_exists('reference', $stats))->toBeFalse();
 
     $floorAnswer = collect($payload['answer_context'] ?? [])
         ->first(fn (array $row): bool => ($row['question_key'] ?? null) === 'floor_level');
@@ -341,6 +331,97 @@ test('context bevat fototellingen voor afgekeurde uploads en Nederlandse optiela
     expect($floorAnswer)->not->toBeNull()
         ->and($floorAnswer['option_label'] ?? null)->not->toBeNull()
         ->and(mb_strtolower((string) $floorAnswer['option_label']))->toContain('kelder');
+});
+
+test('alle foto’s afgekeurd met Toch doorgaan: attention-points-run slaagt met geldige citaties', function () {
+    config(['ai.provider' => 'fake']);
+    $intake = clarificationIntake();
+    clarificationRoom($intake, 'room-1', 'Woonkamer', 1);
+
+    clarificationOverrideUpload(
+        $intake,
+        'room_photos',
+        'room-1',
+        PhotoContentAssessment::wrongSubject(PhotoSubject::Room, PhotoSubject::OutdoorUnit),
+    );
+    clarificationOverrideUpload(
+        $intake,
+        'room_photos',
+        'room-1',
+        PhotoContentAssessment::wrongSubject(PhotoSubject::Room, PhotoSubject::Fusebox),
+    );
+
+    IntakeAttentionPoint::query()->create([
+        'intake_id' => $intake->id,
+        'source' => AttentionPointSource::System,
+        'code' => 'photo_continue_anyway__room_photos__room-1',
+        'label' => 'Woonkamer · Foto’s van de ruimte: de AI keurde 2 foto’s af. De klant koos ‘Toch doorgaan’.',
+        'is_resolved' => false,
+    ]);
+
+    app(SaveIntakeAnswer::class)->handle($intake, 'free_group_known', null, ['value' => 'unknown'], 'customer');
+
+    $payload = app(IntakeAttentionContextBuilder::class)->build($intake->fresh());
+    $stats = collect($payload['photo_question_stats'] ?? []);
+    expect($stats)->not->toBeEmpty()
+        ->and($stats->every(fn (array $row): bool => ! array_key_exists('reference', $row)))->toBeTrue()
+        ->and($stats->sum('rejected_count'))->toBeGreaterThan(0);
+
+    $answerRef = collect($payload['answer_context'] ?? [])
+        ->first(fn (array $row): bool => ($row['question_key'] ?? null) === 'free_group_known');
+    expect($answerRef)->not->toBeNull();
+
+    FakeAiClient::reset();
+    FakeAiClient::alwaysReturn(['points' => [[
+        'code' => 'check_rejected_room_photos',
+        'label' => 'Foto van de ruimte ontvangen, maar de AI vindt die niet bruikbaar. Controleer de foto zelf.',
+        'confidence' => 'high',
+        'evidence' => [
+            [
+                'source_type' => 'answer',
+                'reference' => $answerRef['reference'],
+            ],
+            [
+                'source_type' => 'system_attention_point',
+                'reference' => 'photo_continue_anyway__room_photos__room-1',
+            ],
+        ],
+    ]]]);
+
+    $run = app(SuggestAttentionPoints::class)->handle($intake->fresh());
+    $point = $intake->fresh()->attentionPoints()->where('code', 'check_rejected_room_photos')->first();
+
+    expect($run?->status)->toBe(AiRunStatus::Succeeded)
+        ->and($run?->error_message)->toBeNull()
+        ->and($point)->not->toBeNull()
+        ->and($point->evidence)->toHaveCount(2);
+});
+
+test('verborgen herhaal-voorstellen tellen niet mee in hasOpenAiProposals', function () {
+    $intake = clarificationIntake();
+
+    IntakeAttentionPoint::query()->create([
+        'intake_id' => $intake->id,
+        'source' => AttentionPointSource::System,
+        'code' => 'electrical_provision_open',
+        'label' => 'Open technisch punt: stroomvoorziening / vrije groep nog te beoordelen',
+        'is_resolved' => false,
+    ]);
+    IntakeAttentionPoint::query()->create([
+        'intake_id' => $intake->id,
+        'source' => AttentionPointSource::Ai,
+        'code' => 'electrical_provision_open',
+        'label' => 'Herhaald systeempunt',
+        'status' => AttentionPointStatus::Proposed,
+        'ai_confidence' => 'high',
+        'evidence' => [[
+            'source_type' => 'system_attention_point',
+            'reference' => 'electrical_provision_open',
+        ]],
+    ]);
+
+    expect(app(DecisionReadinessService::class)->hasOpenAiProposals($intake->fresh()))
+        ->toBeFalse();
 });
 
 test('galerij toont ruimtenamen en samenvattingstelling; demo-klantlink zonder auto-mail', function () {
@@ -450,5 +531,32 @@ test('attention_points prompt meta staat op v4', function () {
         ->and($prompt)->toContain('photo_question_stats')
         ->and($prompt)->toContain('4 m²')
         ->and($prompt)->toContain('Kelder')
-        ->and($prompt)->toContain('customer_continued_anyway');
+        ->and($prompt)->toContain('customer_continued_anyway')
+        ->and($prompt)->toContain('Citeer nooit `photo_question_stats`')
+        ->and($prompt)->not->toContain('minstens één ander bewijs');
+});
+
+test('galerijanker voor niet-ruimte komt uit sectie, gelijk aan Actueel-link', function () {
+    $intake = clarificationIntake();
+    clarificationOverrideUpload(
+        $intake,
+        'fusebox_photo',
+        null,
+        PhotoContentAssessment::wrongSubject(PhotoSubject::Fusebox, PhotoSubject::Room),
+    );
+
+    $groups = app(InstallerPhotoGalleryBuilder::class)->handle($intake->fresh());
+    $electrical = collect($groups)->first(
+        fn (array $group): bool => ($group['heading'] ?? null) === 'Elektrische installatie',
+    );
+    expect($electrical)->not->toBeNull()
+        ->and($electrical['anchor'])->toBe('gallery-electrical');
+
+    $link = PhotoContinueAnywayAttention::linkForPoint(
+        $intake->fresh(['uploads', 'templateVersion.sections.questions']),
+        'photo_continue_anyway__fusebox_photo__site',
+    );
+    expect($link)->not->toBeNull()
+        ->and($link['anchor'])->toBe('gallery-electrical')
+        ->and($link['link_label'])->toBe('Bekijk foto');
 });

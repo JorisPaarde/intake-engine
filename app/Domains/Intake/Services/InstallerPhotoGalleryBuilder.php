@@ -132,7 +132,7 @@ final class InstallerPhotoGalleryBuilder
             if ($meta === null) {
                 $bucketKey = 'unknown|'.$upload->question_key.'|'.($instanceKey ?? '');
                 $heading = $this->captionForUnknown($upload);
-                $anchor = PhotoContinueAnywayAttention::galleryAnchor($upload->question_key, $instanceKey);
+                $anchor = PhotoContinueAnywayAttention::galleryAnchor(null, $instanceKey);
                 $sectionSort = PHP_INT_MAX;
                 $instanceSort = 0;
                 $questionLabel = $upload->question_key;
@@ -142,7 +142,7 @@ final class InstallerPhotoGalleryBuilder
                 $question = $meta['question'];
                 $bucketKey = $section->key.'|'.($instanceKey ?? '');
                 $heading = $this->sectionHeading($intake, $section, $instanceKey);
-                $anchor = PhotoContinueAnywayAttention::galleryAnchor($question->key, $instanceKey);
+                $anchor = PhotoContinueAnywayAttention::galleryAnchor($section->key, $instanceKey);
                 $sectionSort = (int) $section->sort_order;
                 $instanceSort = $this->instanceSortValue($instanceKey);
                 $questionLabel = $question->label;

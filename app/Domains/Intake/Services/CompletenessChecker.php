@@ -30,7 +30,7 @@ final class CompletenessChecker
      * @return array{
      *     is_complete: bool,
      *     missing: list<array{question_key: string, section_instance_key: string|null, reason: string, label: string, instance_label: string|null}>,
-     *     attention_points: list<array{code: string, label: string, gallery_anchor?: string, photo_link_count?: int}>
+     *     attention_points: list<array{code: string, label: string}>
      * }
      */
     public function check(Intake $intake, IntakeTemplateVersion $version): array
@@ -81,7 +81,7 @@ final class CompletenessChecker
     }
 
     /**
-     * @return list<array{code: string, label: string, gallery_anchor?: string, photo_link_count?: int}>
+     * @return list<array{code: string, label: string}>
      */
     private function attentionPoints(Intake $intake, IntakeTemplateVersion $version): array
     {
@@ -146,7 +146,7 @@ final class CompletenessChecker
      * `photo_subject_mismatch_{id}` verdwijnen bij de volgende afronding/sync;
      * bestaande opnames worden niet gemigreerd.
      *
-     * @return list<array{code: string, label: string, gallery_anchor: string, photo_link_count: int}>
+     * @return list<array{code: string, label: string}>
      */
     private function photoContinueAnywayPoints(Intake $intake, IntakeTemplateVersion $version): array
     {

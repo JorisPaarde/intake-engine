@@ -14,6 +14,7 @@ use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\ContributionTask;
 use App\Domains\Intake\Models\DossierDecisionArea;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Support\AttentionProposalVisibility;
 use App\Domains\Intake\Support\PhotoContentSatisfaction;
 use App\Domains\Intake\Support\RoomDimensions;
 use App\Domains\Intake\Support\RoomHeightRequirement;
@@ -22,8 +23,6 @@ use App\Enums\AircoConnectionType;
 use App\Enums\AircoOptionFeasibility;
 use App\Enums\AircoOptionStatus;
 use App\Enums\AircoPlacementType;
-use App\Enums\AttentionPointSource;
-use App\Enums\AttentionPointStatus;
 use App\Enums\DecisionAreaStatus;
 use App\Enums\DossierNextAction;
 use App\Enums\FollowUpItemType;
@@ -282,10 +281,7 @@ final class DecisionReadinessService
             'aircoInstallationOptions',
         ]);
 
-        if ($intake->attentionPoints->contains(
-            static fn ($point): bool => $point->source === AttentionPointSource::Ai
-                && $point->status === AttentionPointStatus::Proposed,
-        )) {
+        if (AttentionProposalVisibility::visibleProposed($intake->attentionPoints)->isNotEmpty()) {
             return true;
         }
 

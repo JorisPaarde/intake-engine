@@ -7,12 +7,11 @@ namespace App\Domains\Intake\Support;
 use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\Intake;
-use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeQuestion;
+use App\Domains\Intake\Models\IntakeSection;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\DecisionReadinessService;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 /**
@@ -72,19 +71,59 @@ final class PhotoContinueAnywayAttention
         ];
     }
 
-    public static function galleryAnchor(string $questionKey, ?string $sectionInstanceKey): string
+    /**
+     * Stabiel anker voor galerijgroep én Actueel-link: sectie + instantie, niet de vraag.
+     */
+    public static function galleryAnchor(?string $sectionKey, ?string $sectionInstanceKey): string
     {
         if (is_string($sectionInstanceKey) && str_starts_with($sectionInstanceKey, 'room-')) {
             return 'gallery-'.$sectionInstanceKey;
         }
 
-        $area = self::QUESTION_AREA[$questionKey] ?? 'photos';
+        $section = is_string($sectionKey) && $sectionKey !== '' ? $sectionKey : 'photos';
+        if ($sectionInstanceKey === null || $sectionInstanceKey === '') {
+            return 'gallery-'.$section;
+        }
 
-        return 'gallery-'.$area.'-'.$questionKey;
+        return 'gallery-'.$section.'-'.$sectionInstanceKey;
+    }
+
+    public static function sectionKeyForQuestion(IntakeTemplateVersion $version, string $questionKey): ?string
+    {
+        $section = self::findSectionForQuestion($version, $questionKey);
+
+        return $section instanceof IntakeSection ? $section->key : null;
+    }
+
+    /**
+     * @param  list<IntakeUpload>  $uploads
+     * @return array{total: int, rejected: int, not_assessed: int}
+     */
+    public static function countStatuses(array $uploads): array
+    {
+        $rejected = 0;
+        $notAssessed = 0;
+
+        foreach ($uploads as $upload) {
+            $status = $upload->contentAssessment()?->status();
+            if ($status === PhotoContentAssessment::STATUS_WRONG_SUBJECT
+                || $status === PhotoContentAssessment::STATUS_NEEDS_CLEARER) {
+                $rejected++;
+            } elseif ($status === PhotoContentAssessment::STATUS_NOT_ASSESSED) {
+                $notAssessed++;
+            }
+        }
+
+        return [
+            'total' => count($uploads),
+            'rejected' => $rejected,
+            'not_assessed' => $notAssessed,
+        ];
     }
 
     /**
      * Link onder een Actueel-fotomelding: anker + meervoud.
+     * Geen link als er geen huidige (niet-vervangen) uploads meer zijn.
      *
      * @return array{anchor: string, count: int, link_label: string}|null
      */
@@ -95,11 +134,11 @@ final class PhotoContinueAnywayAttention
             return null;
         }
 
-        $intake->loadMissing(['uploads']);
+        $intake->loadMissing(['uploads', 'templateVersion.sections.questions']);
         $supersessions = app(UploadSupersessionResolver::class)->resolve($intake);
 
-        $rejectedOrPending = 0;
-        $total = 0;
+        /** @var list<IntakeUpload> $uploads */
+        $uploads = [];
         foreach ($intake->uploads as $upload) {
             if ($upload->question_key !== $parsed['question_key']
                 || $upload->section_instance_key !== $parsed['section_instance_key']
@@ -112,21 +151,29 @@ final class PhotoContinueAnywayAttention
                 continue;
             }
 
-            $total++;
-            $status = $upload->contentAssessment()?->status();
-            if ($status === PhotoContentAssessment::STATUS_WRONG_SUBJECT
-                || $status === PhotoContentAssessment::STATUS_NEEDS_CLEARER
-                || $status === PhotoContentAssessment::STATUS_NOT_ASSESSED) {
-                $rejectedOrPending++;
-            }
+            $uploads[] = $upload;
         }
 
-        $count = $rejectedOrPending > 0 ? $rejectedOrPending : max(1, $total);
+        $counts = self::countStatuses($uploads);
+        if ($counts['total'] === 0) {
+            return null;
+        }
+
+        $linkCount = $counts['rejected'] + $counts['not_assessed'];
+        if ($linkCount === 0) {
+            $linkCount = $counts['total'];
+        }
+
+        $sectionKey = null;
+        $version = $intake->templateVersion;
+        if ($version !== null) {
+            $sectionKey = self::sectionKeyForQuestion($version, $parsed['question_key']);
+        }
 
         return [
-            'anchor' => self::galleryAnchor($parsed['question_key'], $parsed['section_instance_key']),
-            'count' => $count,
-            'link_label' => $count === 1 ? 'Bekijk foto' : 'Bekijk foto’s',
+            'anchor' => self::galleryAnchor($sectionKey, $parsed['section_instance_key']),
+            'count' => $linkCount,
+            'link_label' => $linkCount === 1 ? 'Bekijk foto' : 'Bekijk foto’s',
         ];
     }
 
@@ -156,42 +203,28 @@ final class PhotoContinueAnywayAttention
         return 'Opname';
     }
 
+    /**
+     * Eén bron: opgeslagen AircoRoom.name (DossierManager plakt verdieping al).
+     */
     public static function roomPlaceLabel(Intake $intake, string $sectionInstanceKey): string
     {
-        $intake->loadMissing(['aircoRooms', 'answers']);
+        $intake->loadMissing('aircoRooms');
 
-        /** @var Collection<int, AircoRoom> $rooms */
-        $rooms = $intake->aircoRooms
-            ->filter(static fn (AircoRoom $room): bool => str_starts_with($room->key, 'room-'))
-            ->values();
-
-        $room = $rooms->firstWhere('key', $sectionInstanceKey);
+        $room = $intake->aircoRooms->firstWhere('key', $sectionInstanceKey);
         $name = $room instanceof AircoRoom ? trim($room->name) : '';
 
-        if ($name === '') {
-            $suffix = Str::afterLast($sectionInstanceKey, '-');
-
-            return 'Ruimte '.(is_numeric($suffix) ? $suffix : $sectionInstanceKey);
+        if ($name !== '') {
+            return $name;
         }
 
-        $normalized = mb_strtolower($name);
-        $duplicateCount = $rooms->filter(
-            static fn (AircoRoom $other): bool => mb_strtolower(trim($other->name)) === $normalized,
-        )->count();
+        $suffix = Str::afterLast($sectionInstanceKey, '-');
 
-        if ($duplicateCount > 1) {
-            $floor = self::floorLabelFromAnswers($intake, $sectionInstanceKey);
-            if ($floor !== null && ! str_contains($normalized, mb_strtolower($floor))) {
-                return $name.', '.$floor;
-            }
-        }
-
-        return $name;
+        return 'Ruimte '.(is_numeric($suffix) ? $suffix : $sectionInstanceKey);
     }
 
     /**
      * @param  list<IntakeUpload>  $uploadsAtPlace  niet-vervangen uploads bij deze vraag+plek
-     * @return array{code: string, label: string, gallery_anchor: string, photo_link_count: int}
+     * @return array{code: string, label: string}
      */
     public static function buildPoint(
         Intake $intake,
@@ -200,19 +233,7 @@ final class PhotoContinueAnywayAttention
         ?string $sectionInstanceKey,
         array $uploadsAtPlace,
     ): array {
-        $rejected = 0;
-        $notAssessed = 0;
-        $total = count($uploadsAtPlace);
-
-        foreach ($uploadsAtPlace as $upload) {
-            $status = $upload->contentAssessment()?->status();
-            if ($status === PhotoContentAssessment::STATUS_WRONG_SUBJECT
-                || $status === PhotoContentAssessment::STATUS_NEEDS_CLEARER) {
-                $rejected++;
-            } elseif ($status === PhotoContentAssessment::STATUS_NOT_ASSESSED) {
-                $notAssessed++;
-            }
-        }
+        $counts = self::countStatuses($uploadsAtPlace);
 
         $place = self::placeLabel($intake, $version, $questionKey, $sectionInstanceKey);
         $question = self::findQuestion($version, $questionKey);
@@ -220,16 +241,16 @@ final class PhotoContinueAnywayAttention
             ? trim((string) $question->label)
             : $questionKey;
 
-        $sentences = self::buildSentences($rejected, $notAssessed, $total);
+        $sentences = self::buildSentences(
+            $counts['rejected'],
+            $counts['not_assessed'],
+            $counts['total'],
+        );
         $label = $place.' · '.$questionLabel.': '.$sentences;
 
         return [
             'code' => self::buildCode($questionKey, $sectionInstanceKey),
             'label' => $label,
-            'gallery_anchor' => self::galleryAnchor($questionKey, $sectionInstanceKey),
-            'photo_link_count' => $rejected + $notAssessed > 0
-                ? $rejected + $notAssessed
-                : $total,
         ];
     }
 
@@ -237,64 +258,27 @@ final class PhotoContinueAnywayAttention
     {
         $parts = [];
 
-        if ($notAssessed > 0 && $rejected === 0) {
+        if ($rejected > 0) {
+            if ($rejected === $total) {
+                $parts[] = $rejected === 1
+                    ? 'de AI keurde 1 foto af.'
+                    : "de AI keurde {$rejected} foto’s af.";
+            } else {
+                $parts[] = $rejected === 1
+                    ? "de AI keurde 1 van de {$total} foto’s af."
+                    : "de AI keurde {$rejected} van de {$total} foto’s af.";
+            }
+        }
+
+        if ($notAssessed > 0) {
             $parts[] = $notAssessed === 1
                 ? 'De AI kon 1 foto niet beoordelen.'
                 : "De AI kon {$notAssessed} foto’s niet beoordelen.";
-        } else {
-            if ($rejected > 0) {
-                if ($rejected === $total) {
-                    $parts[] = $rejected === 1
-                        ? 'de AI keurde 1 foto af.'
-                        : "de AI keurde {$rejected} foto’s af.";
-                } else {
-                    $parts[] = $rejected === 1
-                        ? "de AI keurde 1 van de {$total} foto’s af."
-                        : "de AI keurde {$rejected} van de {$total} foto’s af.";
-                }
-            }
-
-            if ($notAssessed > 0) {
-                $parts[] = $notAssessed === 1
-                    ? 'De AI kon 1 foto niet beoordelen.'
-                    : "De AI kon {$notAssessed} foto’s niet beoordelen.";
-            }
         }
 
         $parts[] = 'De klant koos ‘Toch doorgaan’.';
 
-        $text = implode(' ', $parts);
-
-        // Eerste zin mag met kleine letter beginnen na de dubbele punt in het label,
-        // behalve wanneer die met "De AI" begint.
-        return $text;
-    }
-
-    private static function floorLabelFromAnswers(Intake $intake, string $instanceKey): ?string
-    {
-        $answer = $intake->answers->first(
-            static fn (IntakeAnswer $row): bool => $row->section_instance_key === $instanceKey
-                && $row->question_key === 'floor_level',
-        );
-        $value = $answer?->value;
-        if (! is_array($value)) {
-            return null;
-        }
-
-        $raw = $value['value'] ?? $value['text'] ?? null;
-        if (! is_string($raw) || trim($raw) === '') {
-            return null;
-        }
-
-        return match (trim($raw)) {
-            'basement' => 'kelder',
-            'ground' => 'begane grond',
-            '1' => '1e verdieping',
-            '2' => '2e verdieping',
-            '3_plus' => '3e verdieping of hoger',
-            'attic' => 'zolder',
-            default => null,
-        };
+        return implode(' ', $parts);
     }
 
     private static function findQuestion(IntakeTemplateVersion $version, string $questionKey): ?IntakeQuestion
@@ -303,6 +287,19 @@ final class PhotoContinueAnywayAttention
             foreach ($section->questions as $question) {
                 if ($question->key === $questionKey) {
                     return $question;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static function findSectionForQuestion(IntakeTemplateVersion $version, string $questionKey): ?IntakeSection
+    {
+        foreach ($version->sections as $section) {
+            foreach ($section->questions as $question) {
+                if ($question->key === $questionKey) {
+                    return $section;
                 }
             }
         }
