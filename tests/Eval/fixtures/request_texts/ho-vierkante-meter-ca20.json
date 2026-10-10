@@ -1,0 +1,46 @@
+{
+  "id": "ho-vierkante-meter-ca20",
+  "kind": "request_text",
+  "origin": "held-out paraphrase P1 review (niet in prompt)",
+  "source_kind": "variant",
+  "text": "De woonkamer is 25 vierkante meter en de speelkamer ca. 20m². Alleen koelen, geen verdieping genoemd.",
+  "expected": {
+    "cooling_heating": "cooling",
+    "indoor_unit_count": 2,
+    "rooms": [
+      {
+        "name": "Woonkamer",
+        "room_type": "living_room",
+        "floor_level": null,
+        "area_m2": 25,
+        "length_m": null,
+        "width_m": null
+      },
+      {
+        "name": "Speelkamer",
+        "room_type": "other",
+        "floor_level": null,
+        "area_m2": 20,
+        "length_m": null,
+        "width_m": null
+      }
+    ]
+  },
+  "components": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C8"
+  ],
+  "note": "Held-out: oppervlakte als 'vierkante meter' en 'ca. 20m²' — stated/high m², geen L×B, geen floor_level.",
+  "disputed_facts": {
+    "rooms.Speelkamer.room_type": {
+      "reason": "Speelkamer kan other of unknown; bedroom is te specifiek.",
+      "acceptable_alternates": [
+        "unknown"
+      ]
+    }
+  },
+  "match_rooms": "unordered_by_type"
+}

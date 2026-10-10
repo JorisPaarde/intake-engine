@@ -23,7 +23,12 @@ final class EvalRuntimeBootstrap
     public const int EVAL_DEFAULT_DAILY_BUDGET_CENTS = 200;
 
     /**
-     * @return array{mode: 'fake'|'openai', api_key_present: bool, applied: list<string>}
+     * @return array{
+     *     mode: 'fake'|'openai',
+     *     api_key_present: bool,
+     *     applied: list<string>,
+     *     warnings: list<string>
+     * }
      */
     public function activate(bool $forceFake): array
     {
@@ -37,15 +42,17 @@ final class EvalRuntimeBootstrap
                 'mode' => 'fake',
                 'api_key_present' => $keyPresent,
                 'applied' => ['provider=fake', 'inference flags on'],
+                'warnings' => [],
             ];
         }
 
-        $applied = $this->activateReal($key);
+        $real = $this->activateReal($key);
 
         return [
             'mode' => 'openai',
             'api_key_present' => true,
-            'applied' => $applied,
+            'applied' => $real['applied'],
+            'warnings' => $real['warnings'],
         ];
     }
 
@@ -61,11 +68,12 @@ final class EvalRuntimeBootstrap
     }
 
     /**
-     * @return list<string>
+     * @return array{applied: list<string>, warnings: list<string>}
      */
     public function activateReal(string $apiKey): array
     {
         $applied = ['api_key from env'];
+        $warnings = [];
 
         config(['ai.api_key' => $apiKey]);
 
@@ -89,6 +97,9 @@ final class EvalRuntimeBootstrap
                 'ai.dossier.model' => self::EVAL_DEFAULT_MODEL,
             ]);
             $applied[] = 'model='.self::EVAL_DEFAULT_MODEL;
+            $warnings[] = 'AI_MODEL ontbrak of was inerte default (leeg/gpt-4o-mini); eval gebruikt '
+                .self::EVAL_DEFAULT_MODEL
+                .' i.p.v. AI_MODEL uit env. Zet AI_MODEL expliciet als je een ander model wilt.';
         }
 
         config([
@@ -105,7 +116,7 @@ final class EvalRuntimeBootstrap
             $applied[] = 'budget.daily_cents='.self::EVAL_DEFAULT_DAILY_BUDGET_CENTS;
         }
 
-        return $applied;
+        return ['applied' => $applied, 'warnings' => $warnings];
     }
 
     public function resolveApiKey(): ?string

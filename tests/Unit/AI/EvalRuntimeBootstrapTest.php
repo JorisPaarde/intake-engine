@@ -31,12 +31,13 @@ test('zonder AI_API_KEY activeert fake runtime', function () {
 
     expect($result['mode'])->toBe('fake')
         ->and($result['api_key_present'])->toBeFalse()
+        ->and($result['warnings'])->toBe([])
         ->and(config('ai.provider'))->toBe('fake')
         ->and(config('ai.text_inference.enabled'))->toBeTrue()
         ->and(config('ai.dossier.enabled'))->toBeTrue();
 });
 
-test('alleen AI_API_KEY in env activeert openai met eval-defaults voor inerte config', function () {
+test('alleen AI_API_KEY in env activeert openai met eval-defaults en waarschuwing', function () {
     config([
         'ai.provider' => 'null',
         'ai.api_key' => null,
@@ -66,7 +67,10 @@ test('alleen AI_API_KEY in env activeert openai met eval-defaults voor inerte co
         ->and(config('ai.text_inference.enabled'))->toBeTrue()
         ->and(config('ai.photo_inference.enabled'))->toBeTrue()
         ->and(config('ai.dossier.enabled'))->toBeTrue()
-        ->and(config('ai.budget.daily_cents'))->toBe(EvalRuntimeBootstrap::EVAL_DEFAULT_DAILY_BUDGET_CENTS);
+        ->and(config('ai.budget.daily_cents'))->toBe(EvalRuntimeBootstrap::EVAL_DEFAULT_DAILY_BUDGET_CENTS)
+        ->and($result['warnings'])->not->toBeEmpty()
+        ->and($result['warnings'][0])->toContain(EvalRuntimeBootstrap::EVAL_DEFAULT_MODEL)
+        ->and($result['warnings'][0])->toContain('AI_MODEL');
 });
 
 test('bestaande prod model en base_url blijven staan bij AI_API_KEY', function () {
@@ -74,9 +78,9 @@ test('bestaande prod model en base_url blijven staan bij AI_API_KEY', function (
         'ai.provider' => 'openai',
         'ai.api_key' => null,
         'ai.base_url' => 'https://openrouter.ai/api/v1',
-        'ai.model' => 'google/gemini-2.5-flash-lite',
-        'ai.vision_model' => 'google/gemini-2.5-flash-lite',
-        'ai.dossier.model' => 'google/gemini-2.5-flash-lite',
+        'ai.model' => EvalRuntimeBootstrap::EVAL_DEFAULT_MODEL,
+        'ai.vision_model' => EvalRuntimeBootstrap::EVAL_DEFAULT_MODEL,
+        'ai.dossier.model' => EvalRuntimeBootstrap::EVAL_DEFAULT_MODEL,
         'ai.text_inference.enabled' => false,
         'ai.budget.daily_cents' => 500,
         'ai.budget.monthly_cents' => null,
@@ -89,10 +93,11 @@ test('bestaande prod model en base_url blijven staan bij AI_API_KEY', function (
     expect($result['mode'])->toBe('openai')
         ->and(config('ai.api_key'))->toBe('sk-or-prod-mirror')
         ->and(config('ai.base_url'))->toBe('https://openrouter.ai/api/v1')
-        ->and(config('ai.model'))->toBe('google/gemini-2.5-flash-lite')
-        ->and(config('ai.dossier.model'))->toBe('google/gemini-2.5-flash-lite')
+        ->and(config('ai.model'))->toBe(EvalRuntimeBootstrap::EVAL_DEFAULT_MODEL)
+        ->and(config('ai.dossier.model'))->toBe(EvalRuntimeBootstrap::EVAL_DEFAULT_MODEL)
         ->and(config('ai.budget.daily_cents'))->toBe(500)
-        ->and(config('ai.text_inference.enabled'))->toBeTrue();
+        ->and(config('ai.text_inference.enabled'))->toBeTrue()
+        ->and($result['warnings'])->toBe([]);
 });
 
 test('--fake wint van aanwezige AI_API_KEY', function () {

@@ -1,0 +1,33 @@
+{
+  "id": "ho-begane-grond-en-1e",
+  "kind": "request_text",
+  "origin": "held-out paraphrase P1 review (niet in prompt)",
+  "source_kind": "variant",
+  "text": "Airco gewenst: werkkamer op de begane grond en slaapkamer op de 1e. Koelen en verwarmen.",
+  "expected": {
+    "cooling_heating": "both",
+    "indoor_unit_count": 2,
+    "rooms": [
+      {
+        "name": "Werkkamer",
+        "room_type": "office",
+        "floor_level": "ground"
+      },
+      {
+        "name": "Slaapkamer",
+        "room_type": "bedroom",
+        "floor_level": "1"
+      }
+    ]
+  },
+  "components": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C8"
+  ],
+  "note": "Held-out: compacte 'begane grond en 1e'-formulering met werkkamer + slaapkamer.",
+  "disputed_facts": {},
+  "match_rooms": "unordered_by_type"
+}

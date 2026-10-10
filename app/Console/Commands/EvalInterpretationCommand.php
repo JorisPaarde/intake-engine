@@ -17,8 +17,8 @@ use Throwable;
 /**
  * Meet tekstinterpretatie (model_raw vs pipeline_final).
  *
- * Echte baseline: zet alleen AI_API_KEY (of OPENROUTER_API_KEY) in de omgeving;
- * bestaande prod-model/base_url/budget uit .env blijven leidend. Zonder key → fake.
+ * Echte baseline: AI_API_KEY (+ optioneel AI_MODEL/AI_BASE_URL/budget uit lokale
+ * throwaway-.env). migrate:fresh alleen op sqlite en nooit op production/staging.
  */
 final class EvalInterpretationCommand extends Command
 {
@@ -26,7 +26,7 @@ final class EvalInterpretationCommand extends Command
         {--repeats=3 : Aantal herhalingen per case (echte model-run); fake=1}
         {--fake : Forceer FakeAiClient (GEEN baseline)}
         {--compare= : Pad of bestandsstempel van een vorige run (JSON)}
-        {--migrate : Draai migrate:fresh --seed voor templates (sqlite/local)}';
+        {--migrate : Draai migrate:fresh --seed (ALLEEN lokale sqlite; nooit prod/staging)}';
 
     protected $description = 'Evalueer tekstinterpretatie (request prefill, follow-up hoogte, foto-observaties)';
 
@@ -50,6 +50,9 @@ final class EvalInterpretationCommand extends Command
                 (string) config('ai.model'),
                 (string) config('ai.base_url'),
             ));
+            foreach ($activation['warnings'] as $warning) {
+                $this->warn($warning);
+            }
         }
 
         // Resolve ná runtime-config, anders blijft NullAiClient/FakeAiClient verkeerd hangen.
@@ -60,8 +63,17 @@ final class EvalInterpretationCommand extends Command
         /** @var TraceFixtureImporter $privacy */
         $privacy = $this->laravel->make(TraceFixtureImporter::class);
 
-        if ((bool) $this->option('migrate') || $this->needsTemplates()) {
-            $this->info('Database voorbereiden (migrate + IntakeTemplateSeeder)…');
+        $wantsFresh = (bool) $this->option('migrate') || $this->needsTemplates();
+        if ($wantsFresh) {
+            $block = $this->freshMigrateBlockReason();
+            if ($block !== null) {
+                $this->error($block);
+                $this->line('Gebruik een lokale throwaway sqlite-DB (DB_CONNECTION=sqlite). Kopieer hooguit AI_MODEL / AI_BASE_URL / budget uit prod — nooit de prod/staging-database.');
+
+                return self::FAILURE;
+            }
+
+            $this->info('Database voorbereiden (migrate:fresh + IntakeTemplateSeeder op sqlite)…');
             Artisan::call('migrate:fresh', ['--force' => true]);
             $this->output->write(Artisan::output());
             $this->call('db:seed', ['--class' => IntakeTemplateSeeder::class, '--force' => true]);
@@ -145,6 +157,33 @@ final class EvalInterpretationCommand extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Weiger migrate:fresh op production/staging of niet-sqlite (dataverlies).
+     */
+    public function freshMigrateBlockReason(): ?string
+    {
+        $appEnv = strtolower(trim((string) config('app.env', env('APP_ENV', ''))));
+        if (in_array($appEnv, ['production', 'staging', 'prod'], true)) {
+            return 'Geweigerd: migrate:fresh mag niet op APP_ENV='.$appEnv.' (production/staging).';
+        }
+
+        try {
+            if (app()->environment('production', 'staging', 'prod')) {
+                return 'Geweigerd: migrate:fresh mag niet op APP_ENV='.app()->environment().' (production/staging).';
+            }
+        } catch (Throwable) {
+            // Unit tests zonder gebootstrapte env-helper: config hierboven volstaat.
+        }
+
+        $connection = strtolower(trim((string) config('database.default', '')));
+        if ($connection !== 'sqlite') {
+            return 'Geweigerd: migrate:fresh alleen op DB_CONNECTION=sqlite (nu: '
+                .($connection !== '' ? $connection : '(leeg)').').';
+        }
+
+        return null;
     }
 
     private function needsTemplates(): bool

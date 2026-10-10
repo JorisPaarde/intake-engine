@@ -32,14 +32,7 @@
     "C4",
     "C8"
   ],
-  "note": "Case D (Claude desktop, opname 129): controlecase die op prod goed ging — één slaapkamer 1e verdieping, overige ruimtes zonder floor_level.",
-  "disputed_facts": {
-    "rooms.Slaapkamer 1.floor_level": {
-      "reason": "Open vraag: 'boven' tussen haakjes naast 'eerste verdieping'; is null ook goed?",
-      "acceptable_alternates": [
-        null
-      ]
-    }
-  },
+  "note": "Case D (Claude desktop, opname 129): controlecase — letterlijk 'eerste verdieping (boven)' → floor 1 verplicht; geen null-acceptatie.",
+  "disputed_facts": {},
   "match_rooms": "unordered_by_type"
 }
