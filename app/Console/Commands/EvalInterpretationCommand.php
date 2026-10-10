@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Domains\AI\Clients\FakeAiClient;
 use App\Domains\AI\Eval\EvalComparer;
+use App\Domains\AI\Eval\EvalRuntimeBootstrap;
 use App\Domains\AI\Eval\InterpretationEvalRunner;
 use App\Domains\AI\Eval\TraceFixtureImporter;
 use App\Domains\Intake\Models\IntakeTemplate;
@@ -15,7 +15,10 @@ use Illuminate\Support\Facades\Artisan;
 use Throwable;
 
 /**
- * P1 stap 1: meet tekstinterpretatie (model_raw vs pipeline_final). Wijzigt geen prompts/regex.
+ * Meet tekstinterpretatie (model_raw vs pipeline_final).
+ *
+ * Echte baseline: zet alleen AI_API_KEY (of OPENROUTER_API_KEY) in de omgeving;
+ * bestaande prod-model/base_url/budget uit .env blijven leidend. Zonder key → fake.
  */
 final class EvalInterpretationCommand extends Command
 {
@@ -27,27 +30,29 @@ final class EvalInterpretationCommand extends Command
 
     protected $description = 'Evalueer tekstinterpretatie (request prefill, follow-up hoogte, foto-observaties)';
 
-    public function handle(): int
+    public function handle(EvalRuntimeBootstrap $runtime): int
     {
         $forceFake = (bool) $this->option('fake');
-        $keyPresent = $this->apiKeyPresent();
+        $activation = $runtime->activate($forceFake);
+        $forceFake = $activation['mode'] === 'fake';
 
-        if (! $keyPresent || $forceFake) {
-            $forceFake = true;
-            if (! $keyPresent) {
-                $this->warn('blokker: env var AI_API_KEY ontbreekt in de cloud-agent-omgeving');
+        if ($forceFake) {
+            if (! $activation['api_key_present']) {
+                $this->warn('blokker: env var AI_API_KEY ontbreekt');
                 $this->warn('Draai tegen FakeAiClient — rapport wordt gemarkeerd als GEEN baseline.');
+            } elseif ((bool) $this->option('fake')) {
+                $this->warn('AI_API_KEY aanwezig maar --fake gezet — GEEN baseline.');
             }
-            // Config vóór container-resolve van AiGateway/AiClientInterface, anders blijft NullAiClient hangen.
-            config([
-                'ai.provider' => 'fake',
-                'ai.text_inference.enabled' => true,
-                'ai.photo_inference.enabled' => true,
-                'ai.dossier_synthesis.enabled' => true,
-            ]);
-            FakeAiClient::reset();
+        } else {
+            $this->info('Echte eval (openai): '.implode(', ', $activation['applied']));
+            $this->line(sprintf(
+                '  model=%s  base_url=%s',
+                (string) config('ai.model'),
+                (string) config('ai.base_url'),
+            ));
         }
 
+        // Resolve ná runtime-config, anders blijft NullAiClient/FakeAiClient verkeerd hangen.
         /** @var InterpretationEvalRunner $runner */
         $runner = $this->laravel->make(InterpretationEvalRunner::class);
         /** @var EvalComparer $comparer */
@@ -92,6 +97,18 @@ final class EvalInterpretationCommand extends Command
             $this->line("  [{$label}] {$path}");
         }
 
+        $promptHash = is_string($report['prompt_fingerprint']['combined_hash'] ?? null)
+            ? $report['prompt_fingerprint']['combined_hash']
+            : '?';
+        $prefillVersion = '?';
+        foreach (($report['prompt_fingerprint']['prompts'] ?? []) as $prompt) {
+            if (is_array($prompt) && ($prompt['name'] ?? null) === 'request_prefill') {
+                $prefillVersion = is_string($prompt['version'] ?? null) ? $prompt['version'] : '?';
+                break;
+            }
+        }
+        $this->line("Prompt: {$prefillVersion} — hash {$promptHash} → tests/Eval/results/<datum>-{$promptHash}.{json,md} + HISTORY.md");
+
         if (! ($report['is_baseline'] ?? false)) {
             $this->warn('GEEN baseline — mode='.($report['mode'] ?? '?'));
             if (is_string($report['blocker'] ?? null)) {
@@ -128,24 +145,6 @@ final class EvalInterpretationCommand extends Command
         }
 
         return self::SUCCESS;
-    }
-
-    private function apiKeyPresent(): bool
-    {
-        $configKey = config('ai.api_key');
-        if (is_string($configKey) && trim($configKey) !== '') {
-            return true;
-        }
-
-        // OpenRouter-alias zonder env()-helper (config-cache veilig).
-        foreach (['AI_API_KEY', 'OPENROUTER_API_KEY'] as $name) {
-            $value = $_ENV[$name] ?? $_SERVER[$name] ?? null;
-            if (is_string($value) && trim($value) !== '') {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private function needsTemplates(): bool

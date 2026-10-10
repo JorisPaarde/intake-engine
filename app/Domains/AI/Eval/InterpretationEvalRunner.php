@@ -98,7 +98,7 @@ final class InterpretationEvalRunner
             'prompt_fingerprint' => $fingerprint,
             'template_version_target' => 'airco v26 enums',
             'api_key_present' => $this->apiKeyPresent(),
-            'blocker' => $isBaseline ? null : 'blokker: env var AI_API_KEY ontbreekt in de cloud-agent-omgeving',
+            'blocker' => $isBaseline ? null : 'blokker: env var AI_API_KEY ontbreekt (of --fake); echte baseline vereist AI_API_KEY',
             'scores_by_component' => $aggregated['scores_by_component'],
             'scores_by_fact_type' => $aggregated['scores_by_fact_type'],
             'disputed_scores' => $aggregated['disputed_scores'],
