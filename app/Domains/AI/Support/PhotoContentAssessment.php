@@ -303,12 +303,6 @@ final class PhotoContentAssessment
         return PhotoSubject::tryFromMixed($this->value['expected_subject'] ?? null);
     }
 
-    /** System attention-point label after the customer continues despite a mismatch. */
-    public function continueAnywayAttentionLabel(): string
-    {
-        return 'Foto lijkt '.$this->detectedLabel().', controleer';
-    }
-
     private function detectedLabel(): string
     {
         $detected = $this->detectedSubject();
