@@ -199,24 +199,13 @@ final class PhotoContinueAnywayAttention
             return null;
         }
 
-        $place = self::placeLabel(
+        return self::formatLabel(
             $intake,
             $version,
             $parsed['question_key'],
             $parsed['section_instance_key'],
+            $counts,
         );
-        $question = self::findQuestion($version, $parsed['question_key']);
-        $questionLabel = $question instanceof IntakeQuestion && trim((string) $question->label) !== ''
-            ? trim((string) $question->label)
-            : $parsed['question_key'];
-
-        $sentences = self::buildSentences(
-            $counts['rejected'],
-            $counts['not_assessed'],
-            $counts['total'],
-        );
-
-        return $place.' · '.$questionLabel.': '.$sentences;
     }
 
     /**
@@ -317,6 +306,28 @@ final class PhotoContinueAnywayAttention
     ): array {
         $counts = self::countStatuses($uploadsAtPlace);
 
+        return [
+            'code' => self::buildCode($questionKey, $sectionInstanceKey),
+            'label' => self::formatLabel(
+                $intake,
+                $version,
+                $questionKey,
+                $sectionInstanceKey,
+                $counts,
+            ),
+        ];
+    }
+
+    /**
+     * @param  array{total: int, rejected: int, not_assessed: int}  $counts
+     */
+    private static function formatLabel(
+        Intake $intake,
+        IntakeTemplateVersion $version,
+        string $questionKey,
+        ?string $sectionInstanceKey,
+        array $counts,
+    ): string {
         $place = self::placeLabel($intake, $version, $questionKey, $sectionInstanceKey);
         $question = self::findQuestion($version, $questionKey);
         $questionLabel = $question instanceof IntakeQuestion && trim((string) $question->label) !== ''
@@ -328,12 +339,8 @@ final class PhotoContinueAnywayAttention
             $counts['not_assessed'],
             $counts['total'],
         );
-        $label = $place.' · '.$questionLabel.': '.$sentences;
 
-        return [
-            'code' => self::buildCode($questionKey, $sectionInstanceKey),
-            'label' => $label,
-        ];
+        return $place.' · '.$questionLabel.': '.$sentences;
     }
 
     private static function buildSentences(int $rejected, int $notAssessed, int $total): string

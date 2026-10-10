@@ -6,12 +6,10 @@ namespace App\Domains\AI\Services;
 
 use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\Intake\Models\Intake;
-use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Support\PhotoContinueAnywayAttention;
 use App\Domains\Intake\Support\UploadSupersessionResolver;
 use App\Enums\AttentionPointSource;
-use App\Enums\QuestionType;
 use Illuminate\Support\Str;
 
 /**
@@ -68,7 +66,7 @@ final class IntakeAttentionContextBuilder
                 'section_label' => null,
             ];
 
-            $row = [
+            $answerContext[] = [
                 'reference' => $this->questionReference($answer->question_key, $answer->section_instance_key),
                 'question_key' => $answer->question_key,
                 'question_label' => $question['question_label'],
@@ -78,16 +76,6 @@ final class IntakeAttentionContextBuilder
                 'answer' => $safeValue,
                 'prefill_source' => $answer->prefill_source,
             ];
-
-            $optionLabel = $this->optionLabelForAnswer(
-                $questions[$answer->question_key]['question'] ?? null,
-                is_array($safeValue) ? $safeValue : null,
-            );
-            if ($optionLabel !== null) {
-                $row['option_label'] = $optionLabel;
-            }
-
-            $answerContext[] = $row;
         }
 
         $externalFacts = [];
@@ -134,13 +122,26 @@ final class IntakeAttentionContextBuilder
             'follow_up' => $this->followUpContext($intake),
             'system_attention_points' => $intake->attentionPoints
                 ->reject(fn ($point): bool => $point->source === AttentionPointSource::Ai)
-                ->map(fn ($point): array => [
-                    'reference' => $point->code,
-                    'source' => $point->source->value,
-                    'code' => $point->code,
-                    'label' => $point->label,
-                    'is_resolved' => $point->is_resolved,
-                ])
+                ->map(function ($point) use ($intake): ?array {
+                    $code = is_string($point->code) ? $point->code : '';
+                    $label = $point->label;
+                    if (PhotoContinueAnywayAttention::isContinueAnywayCode($code)) {
+                        $live = PhotoContinueAnywayAttention::liveLabel($intake, $code);
+                        if ($live === null) {
+                            return null;
+                        }
+                        $label = $live;
+                    }
+
+                    return [
+                        'reference' => $point->code,
+                        'source' => $point->source->value,
+                        'code' => $point->code,
+                        'label' => $label,
+                        'is_resolved' => $point->is_resolved,
+                    ];
+                })
+                ->filter()
                 ->values()
                 ->all(),
             'completeness' => $intake->completeness_snapshot ?? [],
@@ -175,13 +176,11 @@ final class IntakeAttentionContextBuilder
     }
 
     /**
-     * @return array<string, array{question_label: string, section_key: string|null, section_label: string|null, question: IntakeQuestion|null}>
+     * @return array<string, array{question_label: string, section_key: string|null, section_label: string|null}>
      */
     private function questionContext(Intake $intake): array
     {
         $context = [];
-
-        $intake->loadMissing(['templateVersion.sections.questions.options']);
 
         foreach ($intake->templateVersion->sections as $section) {
             foreach ($section->questions as $question) {
@@ -189,7 +188,6 @@ final class IntakeAttentionContextBuilder
                     'question_label' => (string) $question->label,
                     'section_key' => $section->key,
                     'section_label' => (string) $section->title,
-                    'question' => $question,
                 ];
             }
         }
@@ -200,7 +198,7 @@ final class IntakeAttentionContextBuilder
     /**
      * Per fotovraag + plek: tellingen inclusief afgekeurde foto’s (geen beeldbytes).
      *
-     * @param  array<string, array{question_label: string, section_key: string|null, section_label: string|null, question: IntakeQuestion|null}>  $questions
+     * @param  array<string, array{question_label: string, section_key: string|null, section_label: string|null}>  $questions
      * @return list<array<string, mixed>>
      */
     private function photoQuestionStats(Intake $intake, array $questions): array
@@ -249,50 +247,6 @@ final class IntakeAttentionContextBuilder
         }
 
         return $stats;
-    }
-
-    /**
-     * @param  array<string, mixed>|null  $value
-     * @return string|list<string>|null
-     */
-    private function optionLabelForAnswer(?IntakeQuestion $question, ?array $value): string|array|null
-    {
-        if (! $question instanceof IntakeQuestion || $value === null) {
-            return null;
-        }
-
-        $question->loadMissing('options');
-
-        if ($question->type === QuestionType::SingleChoice) {
-            $raw = $value['value'] ?? null;
-            if (! is_string($raw) || $raw === '') {
-                return null;
-            }
-            $label = $question->options->firstWhere('value', $raw)?->label;
-
-            return is_string($label) && $label !== '' ? $label : null;
-        }
-
-        if ($question->type === QuestionType::MultiChoice) {
-            $rawValues = $value['values'] ?? null;
-            if (! is_array($rawValues) || $rawValues === []) {
-                return null;
-            }
-            $labels = [];
-            foreach ($rawValues as $raw) {
-                if (! is_string($raw) || $raw === '') {
-                    continue;
-                }
-                $label = $question->options->firstWhere('value', $raw)?->label;
-                if (is_string($label) && $label !== '') {
-                    $labels[] = $label;
-                }
-            }
-
-            return $labels === [] ? null : $labels;
-        }
-
-        return null;
     }
 
     /** @return list<array<string, mixed>> */

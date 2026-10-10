@@ -4,13 +4,18 @@ declare(strict_types=1);
 
 use App\Domains\AI\Actions\SuggestAttentionPoints;
 use App\Domains\AI\Clients\FakeAiClient;
+use App\Domains\AI\Jobs\AssessUploadedPhotoJob;
+use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
 use App\Domains\AI\Services\IntakeAttentionContextBuilder;
 use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\AI\Support\PhotoSubject;
+use App\Domains\Intake\Actions\CompleteFollowUpRound;
 use App\Domains\Intake\Actions\CreateCustomerContributionRequest;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
+use App\Domains\Intake\Actions\StoreFollowUpUpload;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Models\AircoRoom;
+use App\Domains\Intake\Models\GeneratedReport;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeAttentionPoint;
 use App\Domains\Intake\Models\IntakeTemplate;
@@ -26,13 +31,13 @@ use App\Enums\AiRunStatus;
 use App\Enums\AttentionPointSource;
 use App\Enums\AttentionPointStatus;
 use App\Enums\FollowUpItemType;
-use App\Enums\FollowUpRoundStatus;
 use App\Enums\IntakeStatus;
 use App\Enums\PhotoAssessmentStatus;
 use App\Enums\PhotoUsabilityVerdict;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
@@ -295,7 +300,7 @@ test('AI-voorstel dat alleen een systeempunt herhaalt wordt verborgen; extra bew
         ->assertDontSee('Alleen systeembewijs', false);
 });
 
-test('context bevat fototellingen voor afgekeurde uploads en Nederlandse optielabels', function () {
+test('context bevat fototellingen voor afgekeurde uploads zonder option_label', function () {
     $intake = clarificationIntake();
     clarificationRoom($intake, 'room-1', 'Woonkamer', 1);
     app(SaveIntakeAnswer::class)->handle(
@@ -334,8 +339,7 @@ test('context bevat fototellingen voor afgekeurde uploads en Nederlandse optiela
         ->first(fn (array $row): bool => ($row['question_key'] ?? null) === 'floor_level');
 
     expect($floorAnswer)->not->toBeNull()
-        ->and($floorAnswer['option_label'] ?? null)->not->toBeNull()
-        ->and(mb_strtolower((string) $floorAnswer['option_label']))->toContain('kelder');
+        ->and(array_key_exists('option_label', $floorAnswer))->toBeFalse();
 });
 
 test('alle foto’s afgekeurd met Toch doorgaan: attention-points-run slaagt met geldige citaties', function () {
@@ -575,6 +579,8 @@ test('hernoemde ruimte toont nieuwe naam in Actueel-fotomelding (live label)', f
 });
 
 test('follow-up die foto’s vervangt verbergt de Toch-doorgaan-melding', function () {
+    Queue::fake([AssessUploadedPhotoJob::class, SynthesizeSurveyDossierJob::class]);
+
     $intake = clarificationIntake();
     clarificationRoom($intake, 'room-1', 'Woonkamer', 1);
     $owner = User::query()->findOrFail($intake->created_by);
@@ -585,12 +591,19 @@ test('follow-up die foto’s vervangt verbergt de Toch-doorgaan-melding', functi
         PhotoContentAssessment::wrongSubject(PhotoSubject::Room, PhotoSubject::OutdoorUnit),
     );
 
+    $staleLabel = 'Woonkamer · Foto’s van de ruimte: de AI keurde 1 foto af. De klant koos ‘Toch doorgaan’.';
     IntakeAttentionPoint::query()->create([
         'intake_id' => $intake->id,
         'source' => AttentionPointSource::System,
         'code' => 'photo_continue_anyway__room_photos__room-1',
-        'label' => 'Woonkamer · Foto’s van de ruimte: de AI keurde 1 foto af. De klant koos ‘Toch doorgaan’.',
+        'label' => $staleLabel,
         'is_resolved' => false,
+    ]);
+    GeneratedReport::query()->create([
+        'intake_id' => $intake->id,
+        'html' => '<html><body><ul><li>'.$staleLabel.'</li></ul></body></html>',
+        'meta' => ['attention_point_codes' => ['photo_continue_anyway__room_photos__room-1']],
+        'generated_at' => now(),
     ]);
 
     expect(PhotoContinueAnywayAttention::liveLabel(
@@ -605,32 +618,21 @@ test('follow-up die foto’s vervangt verbergt de Toch-doorgaan-melding', functi
         'dossier_subject_id' => null,
     ]]);
     $item = $round->items()->firstOrFail();
-    $disk = (string) config('filesystems.media', 'local');
-    $path = 'private/intakes/'.$intake->id.'/follow-up-room.jpg';
-    Storage::disk($disk)->put($path, 'fake-jpeg-bytes');
 
-    $replacement = IntakeUpload::query()->create([
-        'intake_id' => $intake->id,
-        'question_key' => 'follow_up_upload',
-        'section_instance_key' => 'room-1',
-        'intake_follow_up_item_id' => $item->id,
-        'disk' => $disk,
-        'path' => $path,
-        'original_filename' => 'ruimte-nieuw.jpg',
-        'mime_type' => 'image/jpeg',
-        'size_bytes' => 1200,
-        'sort_order' => 0,
-    ]);
+    $replacement = app(StoreFollowUpUpload::class)->handle(
+        $intake->fresh(),
+        $item,
+        clarificationFakeImage('ruimte-nieuw.jpg'),
+    );
+    expect($replacement->question_key)->toBe('follow_up_'.$item->id);
+
     $replacement->forceFill([
         'assessment_status' => PhotoAssessmentStatus::Assessed,
         'content_assessment' => PhotoContentAssessment::ok(PhotoSubject::Room)->toArray(),
         'usability_verdict' => PhotoUsabilityVerdict::Ok,
     ])->save();
-    $item->update(['answered_at' => now()]);
-    $round->update([
-        'status' => FollowUpRoundStatus::Completed,
-        'completed_at' => now(),
-    ]);
+
+    app(CompleteFollowUpRound::class)->handle($intake->fresh(), $round->fresh(), []);
 
     $fresh = $intake->fresh([
         'uploads.followUpItem.round',
@@ -639,6 +641,7 @@ test('follow-up die foto’s vervangt verbergt de Toch-doorgaan-melding', functi
         'followUpRounds.items.uploads',
         'contributionTasks',
         'attentionPoints',
+        'report',
     ]);
     expect(PhotoContinueAnywayAttention::liveLabel(
         $fresh,
@@ -648,6 +651,15 @@ test('follow-up die foto’s vervangt verbergt de Toch-doorgaan-melding', functi
             $fresh,
             'photo_continue_anyway__room_photos__room-1',
         ))->toBeNull();
+
+    expect($fresh->report?->html)->not->toBeNull()
+        ->and($fresh->report->html)->not->toContain('Toch doorgaan')
+        ->and($fresh->report->html)->not->toContain($staleLabel);
+
+    $payload = app(IntakeAttentionContextBuilder::class)->build($fresh);
+    $systemCodes = collect($payload['system_attention_points'] ?? [])->pluck('code')->all();
+    expect($systemCodes)->not->toContain('photo_continue_anyway__room_photos__room-1')
+        ->and(json_encode($payload['system_attention_points'] ?? []))->not->toContain('Toch doorgaan');
 
     $this->actingAs($owner)
         ->get(route('intakes.show', $intake))

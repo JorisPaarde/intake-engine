@@ -85,7 +85,14 @@ final class CompletenessChecker
      */
     private function attentionPoints(Intake $intake, IntakeTemplateVersion $version): array
     {
-        $intake->loadMissing(['answers', 'uploads', 'aircoRooms', 'followUpRounds.items.uploads', 'contributionTasks', 'dossierSubjects.records']);
+        $intake->loadMissing([
+            'answers',
+            'uploads.followUpItem.round',
+            'aircoRooms',
+            'followUpRounds.items.uploads',
+            'contributionTasks',
+            'dossierSubjects.records',
+        ]);
         $points = [];
 
         $indoorUnitCount = $intake->answers
@@ -150,12 +157,6 @@ final class CompletenessChecker
      */
     private function photoContinueAnywayPoints(Intake $intake, IntakeTemplateVersion $version): array
     {
-        $intake->loadMissing([
-            'uploads.followUpItem.round',
-            'followUpRounds.items.uploads',
-            'contributionTasks',
-            'dossierSubjects.records',
-        ]);
         $supersessions = app(UploadSupersessionResolver::class)->resolve($intake);
 
         /** @var array<string, list<IntakeUpload>> $byPlace */

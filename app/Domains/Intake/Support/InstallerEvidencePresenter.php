@@ -334,35 +334,47 @@ final class InstallerEvidencePresenter
      */
     private function mergeUploadCitationsByPlace(Intake $intake, array $presented): array
     {
-        $merged = [];
-        /** @var array<string, true> $seenPlaces */
-        $seenPlaces = [];
+        /** @var array<int, array{label: string, url: string|null, superseded: bool, supersession_label: string|null, upload_id: int|null, testid: string}> $chosen */
+        $chosen = [];
+        /** @var array<string, int> $placeIndexes */
+        $placeIndexes = [];
 
-        foreach ($presented as $citation) {
+        foreach ($presented as $index => $citation) {
             $uploadId = $citation['upload_id'] ?? null;
             if (! is_int($uploadId)) {
-                $merged[] = $citation;
+                $chosen[$index] = $citation;
 
                 continue;
             }
 
             $upload = $intake->uploads->firstWhere('id', $uploadId);
             if (! $upload instanceof IntakeUpload) {
-                $merged[] = $citation;
+                $chosen[$index] = $citation;
 
                 continue;
             }
 
             $placeKey = $upload->question_key.'|'.(string) ($upload->section_instance_key ?? '');
-            if (isset($seenPlaces[$placeKey])) {
+            $existingIndex = $placeIndexes[$placeKey] ?? null;
+            if ($existingIndex === null) {
+                $placeIndexes[$placeKey] = $index;
+                $chosen[$index] = $citation;
+
                 continue;
             }
 
-            $seenPlaces[$placeKey] = true;
-            $merged[] = $citation;
+            $existing = $chosen[$existingIndex];
+            // Prefereer een niet-vervangen citatie voor dezelfde plek.
+            if ($existing['superseded'] === true && $citation['superseded'] === false) {
+                unset($chosen[$existingIndex]);
+                $placeIndexes[$placeKey] = $index;
+                $chosen[$index] = $citation;
+            }
         }
 
-        return $merged;
+        ksort($chosen);
+
+        return array_values($chosen);
     }
 
     /**
