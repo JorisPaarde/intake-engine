@@ -117,7 +117,7 @@ final class EvalRuntimeBootstrap
             return trim($configKey);
         }
 
-        foreach (['AI_API_KEY', 'OPENROUTER_API_KEY'] as $name) {
+        foreach (['AI_API_KEY'] as $name) {
             $value = $_ENV[$name] ?? $_SERVER[$name] ?? getenv($name);
             if (is_string($value) && trim($value) !== '') {
                 return trim($value);

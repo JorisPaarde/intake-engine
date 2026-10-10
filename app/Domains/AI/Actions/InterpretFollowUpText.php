@@ -222,15 +222,16 @@ final class InterpretFollowUpText
             number_format($number, 2, ',', ''),
         ]);
 
+        // Digit or either decimal separator — so "2" does not match inside "2,6" / "2.6".
+        $boundary = '0-9.,';
+
         foreach ($variants as $variant) {
             if ($variant === '') {
                 continue;
             }
 
             $escaped = preg_quote($variant, '/');
-            // Standalone: not preceded/followed by a digit or the same decimal separator.
-            $boundaryClass = str_contains($variant, ',') ? '0-9,' : '0-9.';
-            $pattern = '/(?<!['.$boundaryClass.'])'.$escaped.'(?!['.$boundaryClass.'])/u';
+            $pattern = '/(?<!['.$boundary.'])'.$escaped.'(?!['.$boundary.'])/u';
 
             if (preg_match($pattern, $source) === 1) {
                 return true;
@@ -242,8 +243,7 @@ final class InterpretFollowUpText
                 : str_replace('.', ',', $variant);
             if ($alt !== $variant) {
                 $altEscaped = preg_quote($alt, '/');
-                $altClass = str_contains($alt, ',') ? '0-9,' : '0-9.';
-                $altPattern = '/(?<!['.$altClass.'])'.$altEscaped.'(?!['.$altClass.'])/u';
+                $altPattern = '/(?<!['.$boundary.'])'.$altEscaped.'(?!['.$boundary.'])/u';
                 if (preg_match($altPattern, $source) === 1) {
                     return true;
                 }

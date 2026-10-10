@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Domains\AI\Eval\EvalComparer;
+use App\Domains\AI\Eval\EvalFixturePrivacyScan;
 use App\Domains\AI\Eval\EvalRuntimeBootstrap;
 use App\Domains\AI\Eval\InterpretationEvalRunner;
-use App\Domains\AI\Eval\TraceFixtureImporter;
 use App\Domains\Intake\Models\IntakeTemplate;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Console\Command;
@@ -19,7 +19,7 @@ use Throwable;
  *
  * Echte baseline: AI_API_KEY (+ optioneel AI_MODEL/AI_BASE_URL/budget uit lokale
  * throwaway-.env). Nooit op production/staging (geen AI-runs/traces op live DB,
- * geen shared daily budget). migrate:fresh alleen op sqlite.
+ * geen shared daily budget). migrate:fresh alleen met --migrate op sqlite.
  */
 final class EvalInterpretationCommand extends Command
 {
@@ -69,19 +69,10 @@ final class EvalInterpretationCommand extends Command
         $runner = $this->laravel->make(InterpretationEvalRunner::class);
         /** @var EvalComparer $comparer */
         $comparer = $this->laravel->make(EvalComparer::class);
-        /** @var TraceFixtureImporter $privacy */
-        $privacy = $this->laravel->make(TraceFixtureImporter::class);
+        /** @var EvalFixturePrivacyScan $privacy */
+        $privacy = $this->laravel->make(EvalFixturePrivacyScan::class);
 
-        // --migrate én auto-seed via needsTemplates() delen dezelfde guards.
-        $wantsFresh = (bool) $this->option('migrate') || $this->needsTemplates();
-        if ($wantsFresh) {
-            $liveBlock = $this->liveEnvBlockReason();
-            if ($liveBlock !== null) {
-                $this->error($liveBlock);
-
-                return self::FAILURE;
-            }
-
+        if ((bool) $this->option('migrate')) {
             $block = $this->freshMigrateBlockReason();
             if ($block !== null) {
                 $this->error($block);
@@ -94,6 +85,10 @@ final class EvalInterpretationCommand extends Command
             Artisan::call('migrate:fresh', ['--force' => true]);
             $this->output->write(Artisan::output());
             $this->call('db:seed', ['--class' => IntakeTemplateSeeder::class, '--force' => true]);
+        } elseif ($this->needsTemplates()) {
+            $this->error('Geweigerd: airco-template ontbreekt. Draai met --migrate op een lokale sqlite-DB (migrate:fresh + seed).');
+
+            return self::FAILURE;
         }
 
         $scanHits = $this->scanFixtures($privacy);
@@ -203,7 +198,7 @@ final class EvalInterpretationCommand extends Command
         return null;
     }
 
-    private function needsTemplates(): bool
+    public function needsTemplates(): bool
     {
         try {
             return IntakeTemplate::query()->where('key', 'airco')->doesntExist();
@@ -215,7 +210,7 @@ final class EvalInterpretationCommand extends Command
     /**
      * @return list<string>
      */
-    private function scanFixtures(TraceFixtureImporter $privacy): array
+    private function scanFixtures(EvalFixturePrivacyScan $privacy): array
     {
         $hits = [];
         $root = base_path('tests/Eval/fixtures');
@@ -226,7 +221,7 @@ final class EvalInterpretationCommand extends Command
                     continue;
                 }
                 $text = is_string($data['text'] ?? null) ? $data['text'] : '';
-                foreach ($privacy->privacyScan($text) as $hit) {
+                foreach ($privacy->hits($text) as $hit) {
                     $hits[] = basename($file).': '.$hit;
                 }
             }

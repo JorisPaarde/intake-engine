@@ -8,15 +8,15 @@ Meet `model_raw` vs `pipeline_final` op fixtures. Productpad: betekenis zit in h
 - `fixtures/customer_answers/` — klantantwoorden (hoogte/nok/knieschot)
 - `fixtures/photo_observations/` — observatietekst + model_fields uit traces
 - `fixtures/meta.json` — enumwaarden / source_kinds
-- `source_kind=reconstructed` → later vervangen via `eval:import-traces`
+- `source_kind=reconstructed` → later vervangen door echte geanonimiseerde prod-tekst (aparte importstap)
 
 ## Draaien (echte baseline) — lokale throwaway sqlite
 
-**Nooit** tegen production/staging. De command weigert **volledig** als `APP_ENV` production of staging is (geen AI-runs/traces op live DB, geen shared daily budget). `migrate:fresh` (ook via ontbrekende templates) daarnaast alleen op `DB_CONNECTION=sqlite`.
+**Nooit** tegen production/staging. De command weigert **volledig** als `APP_ENV` production of staging is (geen AI-runs/traces op live DB, geen shared daily budget). `migrate:fresh` alleen met expliciet `--migrate` en alleen op `DB_CONNECTION=sqlite`. Zonder `--migrate` én zonder airco-template: exit 1 met duidelijke fout.
 
 1. Gebruik een **lokale throwaway sqlite** (leeg bestand is genoeg).
 2. Kopieer uit prod/staging **alleen** AI-settings: `AI_MODEL`, `AI_BASE_URL`, budgetcaps — **niet** `DB_*` / app-key / storage van die omgeving.
-3. Zet de OpenRouter-key in de shell:
+3. Zet de OpenRouter-key als `AI_API_KEY` in de shell (geen `OPENROUTER_API_KEY`-alias):
 
 ```bash
 # Voorbeeld lokale .env (fragment):
@@ -67,14 +67,6 @@ AI_API_KEY=… php artisan eval:interpretation --migrate --repeats=1
 | `tests/Eval/results/<datum>-<prompt-hash>.{json,md}` | Lokale volledige run (JSON **niet** committen) |
 | `storage/app/eval/<datum>-<sha>.{json,md}` | Lokale kopie onder storage (niet in git) |
 
-## Import traces
-
-```bash
-php artisan eval:import-traces /pad/naar/export.jsonl
-```
-
-Niet tegen staging/prod draaien. Expected-feiten na import handmatig zetten.
-
 ## CI
 
-Workflow `.github/workflows/eval-interpretation.yml` (`workflow_dispatch`, `permissions: contents: read`). Normale `ci.yml` hangt hier niet van af. Ontbreekt secret `AI_API_KEY` → job stopt.
+Workflow `.github/workflows/eval-interpretation.yml` (`workflow_dispatch`, `permissions: contents: read`). `repeats` via env, alleen gehele getallen 1–10. Normale `ci.yml` hangt hier niet van af. Ontbreekt secret `AI_API_KEY` → job stopt.

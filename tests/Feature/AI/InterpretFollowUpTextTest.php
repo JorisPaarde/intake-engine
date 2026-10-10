@@ -139,3 +139,36 @@ test('number quote check requires a standalone digit token', function () {
 
     expect($ok['peak_height_m'])->toBe(2.6);
 });
+
+test('integer part of a comma decimal is not a standalone number', function () {
+    FakeAiClient::alwaysReturn([
+        'peak_height_m' => 2,
+        'knee_wall_height_m' => 1,
+        'mentions_sloped_roof' => true,
+    ]);
+
+    $rejected = app(InterpretFollowUpText::class)->extractHeightHints('nok 2,6 m, knieschot 1,2');
+
+    expect($rejected['peak_height_m'])->toBeNull()
+        ->and($rejected['knee_wall_height_m'])->toBeNull();
+
+    FakeAiClient::alwaysReturn([
+        'peak_height_m' => 2.6,
+        'knee_wall_height_m' => null,
+        'mentions_sloped_roof' => true,
+    ]);
+
+    $decimal = app(InterpretFollowUpText::class)->extractHeightHints('nok 2,6 m');
+
+    expect($decimal['peak_height_m'])->toBe(2.6);
+
+    FakeAiClient::alwaysReturn([
+        'peak_height_m' => 2,
+        'knee_wall_height_m' => null,
+        'mentions_sloped_roof' => false,
+    ]);
+
+    $whole = app(InterpretFollowUpText::class)->extractHeightHints('nok 2 m');
+
+    expect($whole['peak_height_m'])->toBe(2.0);
+});

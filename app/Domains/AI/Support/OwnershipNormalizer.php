@@ -12,8 +12,6 @@ namespace App\Domains\AI\Support;
  */
 final class OwnershipNormalizer
 {
-    private const int MAX_TOKEN_LENGTH = 40;
-
     /** @var array<string, 'owned'|'rented'> */
     private const TOKENS = [
         'owned' => 'owned',
@@ -47,7 +45,7 @@ final class OwnershipNormalizer
 
         $value = $this->prepare($raw);
 
-        if ($value === '' || mb_strlen($value) > self::MAX_TOKEN_LENGTH) {
+        if ($value === '') {
             return null;
         }
 

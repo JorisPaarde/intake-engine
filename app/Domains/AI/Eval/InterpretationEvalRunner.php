@@ -288,7 +288,7 @@ final class InterpretationEvalRunner
             if ($kind === 'reconstructed') {
                 $out[] = [
                     'id' => (string) ($fixture['id'] ?? ''),
-                    'reason' => 'reconstructed — echte prod-tekst nog niet geëxporteerd; vervangen via eval:import-traces',
+                    'reason' => 'reconstructed — echte prod-tekst nog niet geëxporteerd (aparte import later)',
                 ];
             }
         }

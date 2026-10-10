@@ -81,8 +81,13 @@ jobs:
       - name: Run eval:interpretation
         env:
           AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          EVAL_REPEATS: ${{ github.event.inputs.repeats || '3' }}
         run: |
-          php artisan eval:interpretation --migrate --repeats=${{ github.event.inputs.repeats || '3' }}
+          if ! [[ "${EVAL_REPEATS}" =~ ^[1-9]$|^10$ ]]; then
+            echo "::error::EVAL_REPEATS moet een geheel getal 1–10 zijn (nu: '${EVAL_REPEATS}')."
+            exit 1
+          fi
+          php artisan eval:interpretation --migrate --repeats="${EVAL_REPEATS}"
 
       - name: Upload eval artifacts
         if: always()
