@@ -40,25 +40,15 @@ Dat is genoeg. De command:
 
 Zonder `AI_API_KEY`: automatisch FakeAiClient, rapport = **GEEN baseline** (niet committen).
 
-## Twee promptversies meten (v13 baseline vs huidige prompt)
+## Meten op deze branch
 
-Op deze branch. Scores landen per **prompt-hash** (overschrijven elkaar niet). Alleen op **lokale sqlite**.
-
-### 1) Baseline = request-prefill-v13 (#173)
+`request_prefill` staat op **v13** (identiek aan #173). Geen aparte promptversie: de winst van deze branch zit in fixtures + eval-harness (migrate-guard, key-only bootstrap), niet in een promptbump. Floor-regressie uit de klanttest zit in de classifier-rewrite op main; #173 haalt die weg.
 
 ```bash
-git checkout origin/cursor/eval-interpretation-p1-eb52 -- app/Domains/AI/Prompts/request_prefill/
 AI_API_KEY=… php artisan eval:interpretation --migrate --repeats=1
 ```
 
-### 2) Huidige prompt (request-prefill-v15) terugzetten + opnieuw
-
-```bash
-git checkout HEAD -- app/Domains/AI/Prompts/request_prefill/
-AI_API_KEY=… php artisan eval:interpretation --migrate --repeats=1
-```
-
-`--repeats=1` houdt kosten laag; voor spreiding later `--repeats=3`.
+`--repeats=1` houdt kosten laag; voor spreiding later `--repeats=3`. Prompt-hash bij v13: typisch `40149ec64c94`.
 
 ## Promptwijziging meten (stap-voor-stap)
 

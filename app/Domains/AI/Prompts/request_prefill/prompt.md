@@ -25,22 +25,14 @@ Regels:
   - “Woonkamer voor” → die naam letterlijk.
   Nooit twee kamers dezelfde generieke naam geven als de tekst ze onderscheidt. Zonder rolnaam mag je `room_name` weglaten.
 - Gewenste binnenunitplek letterlijk overnemen in `preferred_indoor_location` per ruimte wanneer die key bestaat: “boven de bank aan de buitenmuur”, “op de lange wand naast het raam”. Alleen bij expliciet bewijs; verzin geen plek. Geen voorkeur → weglaten of cataloguswaarde voor “laat installateur kiezen”.
-- Verdieping per kamer: koppel `floor_level` **alleen** aan de ruimte waar de tekst die verdieping noemt. De server corrigeert dit **niet**. **Nooit** dezelfde verdieping naar alle ruimtes kopiëren.
-  - “eetkamer op de begane grond en de werkkamer op de eerste verdieping” → eetkamer `ground`, werkkamer `1` — nooit dezelfde verdieping op beide.
-  - “kinderkamer boven, keuken beneden” → kinderkamer `1`, keuken `ground`. **“boven” → altijd `1`** (niet weglaten).
-  - “op de 1e verdieping” → `1`; “begane grond” / “beneden” / “parterre” → `ground`.
+- Verdieping per kamer: koppel `floor_level` **alleen** aan de ruimte waar de tekst die verdieping noemt. De server corrigeert dit **niet**.
+  - “woonkamer op de begane grond en de slaapkamer op de eerste verdieping” → woonkamer `ground`, slaapkamer `1` — nooit dezelfde verdieping op beide.
+  - “slaapkamer boven, woonkamer beneden” → slaapkamer `1`, woonkamer `ground`.
+  - “op de 1e verdieping” → `1`; “begane grond” → `ground`.
   - **Genummerde verdieping wint van zolder:** “2e verdieping” én “zolder”/zolderslaapkamer → genummerde optie (`2` / `1` / `3_plus`), niet `attic`. Alleen `attic` wanneer zolder de verdieping is zonder conflicterend nummer (“op de zolder”).
   - Onduidelijk of geen verdieping in de tekst → **laat `floor_level` weg** (klant bevestigt). Vul **nooit** stilzwijgend `ground` / begane grond in als default of gok.
-  - **Gedeeltelijke verdieping:** de verdieping geldt **alleen** voor de ruimte(s) die de zin aanwijst. Andere genoemde ruimtes krijgen **geen** `floor_level`.
-    - Voorbeeld A — “keuken en twee kinderkamers, waarvan één op de 2e etage” → één kinderkamer `floor_level=2` (`provenance=stated`, `evidence` = letterlijk “2e etage”); keuken én de andere kinderkamer: **geen** `floor_level`-fill.
-    - Voorbeeld B — “eetkamer plus studeerkamer en speelkamer; de studeerkamer ligt boven, de speelkamer op de begane grond” → studeerkamer `1` (boven = `1`), speelkamer `ground`; eetkamer: **geen** `floor_level`.
-    - Voorbeeld C — “kantoor op de begane grond en twee logeerkamers: één beneden, één op de tweede verdieping” → kantoor `ground`; logeerkamers `{ground, 2}` (volgorde vrij); nooit beide logeerkamers op `2`.
-    - Voorbeeld D — “keuken en twee kinderkamers, waarvan één op de 2e etage (boven)” → één kinderkamer `2` (genummerde etage wint; “boven” bevestigt niet `1` als er al een nummer staat); overige ruimtes zonder `floor_level`.
 - “5 bij 7 meter” / “6x4m” / “4 bij 3 meter” → `room_length_m` en `room_width_m` van díe ruimtes.
-- Exact oppervlak zoals “18 m²” / “30m2” / “circa 14 m²” → `room_area_m2` van **die** ruimte wanneer die key in de catalogus staat.
-  - Alleen bij letterlijk oppervlaktebewijs: `confidence=high`, `provenance=stated`, `evidence` = korte letterlijke quote (bijv. `18 m²` of `30m2`).
-  - Leid daaruit **nooit** lengte of breedte af. Verzin **geen** grootteklasse (`small`/`medium`/`large` / Klein/Gemiddeld/Groot) uit m².
-  - Ontbreekt L×B in de tekst → vul geen `room_length_m` / `room_width_m`.
+- Exact oppervlak zoals “20 m²” / “20m2” → `room_area_m2` van díe ruimtes wanneer die key in de catalogus staat. Leid daaruit nooit lengte of breedte af.
 - Plafondhoogte (“plafond 2,5 meter”, “hoogte 2,6”) → `ceiling_height_m` van díe ruimte.
 - Heb je wél L×B én m² en komen die niet overeen: vul alleen wat letterlijk klopt; verzamel geen conflict door beide te forceren.
 - Koelen én verwarmen → `cooling_heating` = `both`; alleen koelen → `cooling`; alleen verwarmen → `heating`.
@@ -65,7 +57,7 @@ Regels:
   - Geen letterlijke quote → `inferred` (of weglaten). Verzin nooit evidence zoals “koelen” of “buren dichtbij” als die woorden niet in de tekst staan.
 - **Buren / geluid (`noise_sensitive`):** alleen `stated` + true bij expliciete tekst over buren/geluid (“buren dichtbij”, “geluidgevoelig”, “buren horen alles”). Een balkon, gevel of tuin **alleen** is **geen** bewijs voor buren dichtbij — vul dan **geen** `noise_sensitive`, of hooguit `inferred` zonder als feit te presenteren.
 - **Koelen/verwarmen (`cooling_heating`):** alleen bij expliciete woorden (koelen, verwarmen, te warm, koud te krijgen, beide). Geen intent afleiden uit “wil airco”, “nog geen airco”, balkon of gevel.
-- Voor `room_area_m2`: letterlijk oppervlak in de tekst → altijd `high` + `stated` + letterlijke quote als `evidence` (anders weglaten of hooguit `medium`/`inferred`). Geen L×B en geen grootteklasse verzinnen.
+- Voor `room_area_m2` alleen `high` met korte `evidence` die het m²-bewijs noemt; anders weglaten of `medium`.
 - Doe geen uitspraak over vermogen, merkadvies, kosten, vergunningen of definitieve installatie.
 - Neem geen persoonsgegevens, adressen of coördinaten over in `evidence`.
 - Output uitsluitend JSON:

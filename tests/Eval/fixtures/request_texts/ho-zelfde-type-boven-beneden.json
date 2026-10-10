@@ -1,0 +1,33 @@
+{
+  "id": "ho-zelfde-type-boven-beneden",
+  "kind": "request_text",
+  "origin": "held-out paraphrase P1 review r2 (niet in prompt)",
+  "source_kind": "variant",
+  "text": "Twee werkkamers koelen: eentje begane grond, eentje een verdieping hoger.",
+  "expected": {
+    "cooling_heating": "cooling",
+    "indoor_unit_count": 2,
+    "rooms": [
+      {
+        "name": "Werkkamer 1",
+        "room_type": "office",
+        "floor_level": "ground"
+      },
+      {
+        "name": "Werkkamer 2",
+        "room_type": "office",
+        "floor_level": "1"
+      }
+    ]
+  },
+  "components": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C8"
+  ],
+  "note": "Held-out: twee ruimtes van hetzelfde type, split begane grond / een verdieping hoger (=1). Woording komt niet in de prompt voor.",
+  "disputed_facts": {},
+  "match_rooms": "unordered_by_type"
+}

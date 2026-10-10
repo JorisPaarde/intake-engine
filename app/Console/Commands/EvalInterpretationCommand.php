@@ -164,17 +164,9 @@ final class EvalInterpretationCommand extends Command
      */
     public function freshMigrateBlockReason(): ?string
     {
-        $appEnv = strtolower(trim((string) config('app.env', env('APP_ENV', ''))));
+        $appEnv = strtolower(trim((string) config('app.env', '')));
         if (in_array($appEnv, ['production', 'staging', 'prod'], true)) {
             return 'Geweigerd: migrate:fresh mag niet op APP_ENV='.$appEnv.' (production/staging).';
-        }
-
-        try {
-            if (app()->environment('production', 'staging', 'prod')) {
-                return 'Geweigerd: migrate:fresh mag niet op APP_ENV='.app()->environment().' (production/staging).';
-            }
-        } catch (Throwable) {
-            // Unit tests zonder gebootstrapte env-helper: config hierboven volstaat.
         }
 
         $connection = strtolower(trim((string) config('database.default', '')));

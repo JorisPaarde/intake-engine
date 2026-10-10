@@ -35,14 +35,7 @@
     "C4",
     "C8"
   ],
-  "note": "Case B (Claude mobiel, opname 132): '1 boven, 1 op de begane grond' + woonkamer 25 m². Prod zette beide slaapkamers op begane grond; m² moet stated/high blijven zonder L×B.",
-  "disputed_facts": {
-    "rooms.Slaapkamer 1.floor_level": {
-      "reason": "Open vraag: 'boven' → '1' is aanname; is null ook goed?",
-      "acceptable_alternates": [
-        null
-      ]
-    }
-  },
+  "note": "Case B: '1 boven, 1 op de begane grond' → één slaapkamer floor 1 (promptregel boven=1), één ground; woonkamer 25 m² stated/high zonder L×B.",
+  "disputed_facts": {},
   "match_rooms": "unordered_by_type"
 }

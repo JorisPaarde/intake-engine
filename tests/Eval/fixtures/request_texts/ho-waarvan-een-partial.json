@@ -1,0 +1,57 @@
+{
+  "id": "ho-waarvan-een-partial",
+  "kind": "request_text",
+  "origin": "held-out paraphrase P1 review r2 (niet in prompt)",
+  "source_kind": "variant",
+  "text": "Hobbyruimte plus twee speelkamers willen we koelen, waarvan één hoog in huis op de derde verdieping.",
+  "expected": {
+    "cooling_heating": "cooling",
+    "indoor_unit_count": 3,
+    "rooms": [
+      {
+        "name": "Hobbyruimte",
+        "room_type": "other",
+        "floor_level": null
+      },
+      {
+        "name": "Speelkamer 1",
+        "room_type": "other",
+        "floor_level": "3_plus"
+      },
+      {
+        "name": "Speelkamer 2",
+        "room_type": "other",
+        "floor_level": null
+      }
+    ]
+  },
+  "components": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C8"
+  ],
+  "note": "Held-out partial-floor: 'waarvan één … op de derde verdieping' — alleen één speelkamer 3_plus; overige ruimtes zonder floor_level.",
+  "disputed_facts": {
+    "rooms.Hobbyruimte.room_type": {
+      "reason": "Hobbyruimte kan other of unknown.",
+      "acceptable_alternates": [
+        "unknown"
+      ]
+    },
+    "rooms.Speelkamer 1.room_type": {
+      "reason": "Speelkamer kan other of unknown.",
+      "acceptable_alternates": [
+        "unknown"
+      ]
+    },
+    "rooms.Speelkamer 2.room_type": {
+      "reason": "Speelkamer kan other of unknown.",
+      "acceptable_alternates": [
+        "unknown"
+      ]
+    }
+  },
+  "match_rooms": "unordered_by_type"
+}

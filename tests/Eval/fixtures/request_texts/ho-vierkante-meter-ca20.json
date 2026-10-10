@@ -3,7 +3,7 @@
   "kind": "request_text",
   "origin": "held-out paraphrase P1 review (niet in prompt)",
   "source_kind": "variant",
-  "text": "De woonkamer is 25 vierkante meter en de speelkamer ca. 20m². Alleen koelen, geen verdieping genoemd.",
+  "text": "De woonkamer is 25 vierkante meter en de speelkamer ca. 20m². Alleen koelen.",
   "expected": {
     "cooling_heating": "cooling",
     "indoor_unit_count": 2,
