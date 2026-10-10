@@ -1,6 +1,6 @@
 # Evaluatieset tekstinterpretatie (BL-148)
 
-Meet `model_raw` vs `pipeline_final` op fixtures. Productpad: betekenis zit in het model (ADR-0016); code bewaakt schema/citaat/enums. Nieuwe formulering → prompt/schema/deze set, geen regex in productie. FakeAiClient is **geen** baseline. **Alleen echte modelruns** committen naar `tests/Eval/results/` / `baseline/` / `HISTORY.md`.
+Meet `model_raw` vs `pipeline_final` op fixtures. Productpad: betekenis zit in het model (ADR-0016); code bewaakt schema/citaat/enums. Nieuwe formulering → prompt/schema/deze set, geen regex in productie. FakeAiClient is **geen** baseline. **Alleen echte modelruns** committen naar `tests/Eval/baseline/*.md` + `HISTORY.md`-regel (geen JSON).
 
 ## Fixtures
 
@@ -12,7 +12,7 @@ Meet `model_raw` vs `pipeline_final` op fixtures. Productpad: betekenis zit in h
 
 ## Draaien (echte baseline) — lokale throwaway sqlite
 
-**Nooit** `--migrate` tegen een prod/staging-database. `migrate:fresh` wist alles. De command weigert fresh-migrate als `APP_ENV` production/staging is of `DB_CONNECTION` niet `sqlite` is.
+**Nooit** tegen production/staging. De command weigert **volledig** als `APP_ENV` production of staging is (geen AI-runs/traces op live DB, geen shared daily budget). `migrate:fresh` (ook via ontbrekende templates) daarnaast alleen op `DB_CONNECTION=sqlite`.
 
 1. Gebruik een **lokale throwaway sqlite** (leeg bestand is genoeg).
 2. Kopieer uit prod/staging **alleen** AI-settings: `AI_MODEL`, `AI_BASE_URL`, budgetcaps — **niet** `DB_*` / app-key / storage van die omgeving.
@@ -34,7 +34,7 @@ Dat is genoeg. De command:
 
 - zet `AI_PROVIDER=openai` als die nog `null`/`fake` is;
 - vult OpenRouter + `google/gemini-3.1-flash-lite` alleen in bij inerte defaults (`api.openai.com` / `gpt-4o-mini`) en **waarschuwt** dan duidelijk;
-- zet tekst-/foto-/dossier-inferentie aan voor de run;
+- zet tekst-inferentie aan voor de run (geen photo/dossier-overrides);
 - zet een dagbudget van 200 cent als er geen budgetcap in config staat;
 - laat bestaande prod-`AI_MODEL` / `AI_BASE_URL` / budget **ongewijzigd** als die al gezet zijn.
 
@@ -54,7 +54,7 @@ AI_API_KEY=… php artisan eval:interpretation --migrate --repeats=1
 
 1. Wijzig alleen `app/Domains/AI/Prompts/<naam>/prompt.md` (+ bump `meta.php` versie). Geen code-regels als vangnet.
 2. Draai tegen het echte model op lokale sqlite (`--migrate --repeats=1`).
-3. Vergelijk: `--compare=tests/Eval/results/<bestand>.json`.
+3. Vergelijk: `--compare=tests/Eval/results/<bestand>.json` (lokaal; JSON niet committen).
 4. Bekijk `tests/Eval/results/HISTORY.md` voor score per component per prompt-hash.
 5. Alleen mergen als `model_raw` én `pipeline_final` verbeteren (of gelijk blijven) op de geraakte feiten.
 
@@ -62,10 +62,10 @@ AI_API_KEY=… php artisan eval:interpretation --migrate --repeats=1
 
 | Bestand | Inhoud |
 |---------|--------|
-| `tests/Eval/results/<datum>-<prompt-hash>.{json,md}` | Volledige **echte** run per prompt-vingerafdruk |
+| `tests/Eval/baseline/<datum>-<sha>.md` | Gecommitte **echte** baseline (alleen markdown) |
 | `tests/Eval/results/HISTORY.md` | Samenvatting per prompt-hash (alleen echte runs) |
-| `storage/app/eval/<datum>-<sha>.{json,md}` | Lokale kopie onder storage (niet verplicht in git) |
-| `tests/Eval/baseline/<datum>-<sha>.{json,md}` | Kopie voor PR (alleen echte baseline) |
+| `tests/Eval/results/<datum>-<prompt-hash>.{json,md}` | Lokale volledige run (JSON **niet** committen) |
+| `storage/app/eval/<datum>-<sha>.{json,md}` | Lokale kopie onder storage (niet in git) |
 
 ## Import traces
 
@@ -77,4 +77,4 @@ Niet tegen staging/prod draaien. Expected-feiten na import handmatig zetten.
 
 ## CI
 
-Workflow `.github/workflows/eval-interpretation.yml` (`workflow_dispatch`). Normale `ci.yml` hangt hier niet van af. Ontbreekt secret `AI_API_KEY` → job stopt. **Let op:** workflow staat nog niet op `main`.
+Workflow `.github/workflows/eval-interpretation.yml` (`workflow_dispatch`, `permissions: contents: read`). Normale `ci.yml` hangt hier niet van af. Ontbreekt secret `AI_API_KEY` → job stopt.

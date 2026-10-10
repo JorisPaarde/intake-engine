@@ -16,18 +16,19 @@ test('liveEnvBlockReason weigert production en staging', function () {
 
     config(['app.env' => 'staging', 'database.default' => 'sqlite']);
     expect($command->liveEnvBlockReason())->toContain('staging');
-
-    config(['app.env' => 'prod', 'database.default' => 'sqlite']);
-    expect($command->liveEnvBlockReason())->toContain('prod');
 });
 
-test('liveEnvBlockReason staat local en testing toe', function () {
+test('liveEnvBlockReason staat local, testing en prod-alias toe', function () {
     $command = app(EvalInterpretationCommand::class);
 
     config(['app.env' => 'local']);
     expect($command->liveEnvBlockReason())->toBeNull();
 
     config(['app.env' => 'testing']);
+    expect($command->liveEnvBlockReason())->toBeNull();
+
+    // Alleen production/staging — geen 'prod'-alias.
+    config(['app.env' => 'prod']);
     expect($command->liveEnvBlockReason())->toBeNull();
 });
 

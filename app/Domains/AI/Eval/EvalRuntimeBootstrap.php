@@ -41,7 +41,7 @@ final class EvalRuntimeBootstrap
             return [
                 'mode' => 'fake',
                 'api_key_present' => $keyPresent,
-                'applied' => ['provider=fake', 'inference flags on'],
+                'applied' => ['provider=fake', 'text_inference on'],
                 'warnings' => [],
             ];
         }
@@ -61,8 +61,6 @@ final class EvalRuntimeBootstrap
         config([
             'ai.provider' => 'fake',
             'ai.text_inference.enabled' => true,
-            'ai.photo_inference.enabled' => true,
-            'ai.dossier.enabled' => true,
         ]);
         FakeAiClient::reset();
     }
@@ -91,23 +89,16 @@ final class EvalRuntimeBootstrap
 
         $model = trim((string) config('ai.model', ''));
         if ($model === '' || $model === 'gpt-4o-mini') {
-            config([
-                'ai.model' => self::EVAL_DEFAULT_MODEL,
-                'ai.vision_model' => self::EVAL_DEFAULT_MODEL,
-                'ai.dossier.model' => self::EVAL_DEFAULT_MODEL,
-            ]);
+            config(['ai.model' => self::EVAL_DEFAULT_MODEL]);
             $applied[] = 'model='.self::EVAL_DEFAULT_MODEL;
             $warnings[] = 'AI_MODEL ontbrak of was inerte default (leeg/gpt-4o-mini); eval gebruikt '
                 .self::EVAL_DEFAULT_MODEL
                 .' i.p.v. AI_MODEL uit env. Zet AI_MODEL expliciet als je een ander model wilt.';
         }
 
-        config([
-            'ai.text_inference.enabled' => true,
-            'ai.photo_inference.enabled' => true,
-            'ai.dossier.enabled' => true,
-        ]);
-        $applied[] = 'inference flags on';
+        // Alleen tekst-inferentie: eval-runners gebruiken geen photo/dossier.
+        config(['ai.text_inference.enabled' => true]);
+        $applied[] = 'text_inference on';
 
         $daily = config('ai.budget.daily_cents');
         $monthly = config('ai.budget.monthly_cents');

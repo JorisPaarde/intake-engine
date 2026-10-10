@@ -29,8 +29,10 @@ use Throwable;
 /**
  * Leidt uit bekende aanvraagcontext af welke templatevragen al beantwoord zijn.
  *
- * ADR-0016: met tekst-AI aan alleen catalogus-AI. Lokale parser alleen als
- * fallback wanneer tekst-AI uit staat of externe calls verboden zijn.
+ * ADR-0016 / ADR-0013: met tekst-AI aan alleen catalogus-AI. De lokale parser
+ * draait uitsluitend wanneer `ai.text_inference.enabled` uit staat (offline
+ * fallback). `allowExternal: false` (wizard-mount) is géén reden om lokaal te
+ * parsen — dat overschreef modelantwoorden met regex-verdieping.
  * Opnieuw aanroepen bij latere contextgroei (BAG, notities, openingszin).
  */
 final class DeriveIntentFromRequest
@@ -81,9 +83,15 @@ final class DeriveIntentFromRequest
             return null;
         }
 
-        $textAiOn = $allowExternal && (bool) config('ai.text_inference.enabled', false);
+        $textAiOn = (bool) config('ai.text_inference.enabled', false);
 
         if ($textAiOn) {
+            // Catalogus-AI alleen bij toegestane externe call. Wizard-mount
+            // (allowExternal: false) is een no-op — nooit lokale regex-fallback.
+            if (! $allowExternal) {
+                return null;
+            }
+
             return $this->prefillFromKnownContext->handle(
                 $intake,
                 skipIfCustomerStarted: $skipIfCustomerStarted,

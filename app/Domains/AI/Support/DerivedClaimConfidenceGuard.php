@@ -31,6 +31,10 @@ final class DerivedClaimConfidenceGuard
      */
     private const OVERCONFIDENT_FACT_PATTERN = '/\b(1[\s-]?fasen?|3[\s-]?fasen?|driefasen?|vrije\s+groep(?:en)?)((?:\s+\w+){0,6})\s+(?:aanwezig|is\s+aanwezig|vastgesteld|bevestigd|aanwezig\s+is)\b/iu';
 
+    /**
+     * "voorzien van / uitgevoerd met … fase" — positive electrical claim without
+     * the presence verb that OVERCONFIDENT_FACT_PATTERN requires.
+     */
     private const OVERCONFIDENT_CONSTRUCTION_PATTERN = '/\b(?:is\s+)?(?:uitgevoerd\s+met|voorzien\s+van(?:\s+een)?)\s+(?:een\s+)?((?:1[\s-]?|3[\s-]?|drie)fasen?(?:\s+\w+){0,2})\b/iu';
 
     /**
@@ -86,14 +90,6 @@ final class DerivedClaimConfidenceGuard
         // only hard phase mentions or overconfident presence constructions qualify.
         return (bool) preg_match(self::PHASE_PATTERN, $normalized)
             || $this->claimsOverconfidentFact($text);
-    }
-
-    /**
-     * ADR-0016: code does not rewrite claim wording. Callers cap confidence or refuse.
-     */
-    public function hedgeOverconfidentClaim(string $text): string
-    {
-        return $text;
     }
 
     /**

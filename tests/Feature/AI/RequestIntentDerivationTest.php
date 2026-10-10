@@ -353,6 +353,65 @@ test('opening an older customer link repairs an installer sentence before buildi
         ->and(intentStepKeys($intake))->not->toContain('floor_level');
 });
 
+test('with text AI on, allowExternal false is a no-op (no local parse)', function () {
+    config(['ai.text_inference.enabled' => true, 'ai.provider' => 'fake']);
+
+    $intake = makeIntentIntake();
+    answerReason($intake, 'Ik wil twee airco’s om m’n slaapkamers op zolder te koelen.');
+
+    $run = app(DeriveIntentFromRequest::class)->handle($intake, allowExternal: false);
+
+    expect($run)->toBeNull()
+        ->and($intake->answers()->where('question_key', 'floor_level')->exists())->toBeFalse()
+        ->and($intake->answers()->where('question_key', 'indoor_unit_count')->exists())->toBeFalse()
+        ->and(FakeAiClient::lastRequest())->toBeNull();
+});
+
+test('wizard mount keeps model floor_level when text AI is on', function () {
+    config(['ai.text_inference.enabled' => true, 'ai.provider' => 'fake']);
+
+    $intake = makeIntentIntake();
+    // Local parser would map "op zolder" → attic on both rooms; model chose floor 1.
+    answerReason($intake, 'Ik wil twee airco’s om m’n slaapkamers op zolder te koelen.');
+    app(SaveIntakeAnswer::class)->handle(
+        $intake,
+        'indoor_unit_count',
+        null,
+        ['number' => 2],
+        DeriveIntentFromRequest::SOURCE_DERIVED,
+    );
+    foreach (['room-1', 'room-2'] as $room) {
+        app(SaveIntakeAnswer::class)->handle(
+            $intake,
+            'room_type',
+            $room,
+            ['value' => 'bedroom'],
+            DeriveIntentFromRequest::SOURCE_DERIVED,
+        );
+        app(SaveIntakeAnswer::class)->handle(
+            $intake,
+            'floor_level',
+            $room,
+            ['value' => '1'],
+            DeriveIntentFromRequest::SOURCE_DERIVED,
+        );
+    }
+
+    FakeAiClient::reset();
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->assertSet('intakeId', $intake->id);
+
+    $floors = $intake->answers()
+        ->where('question_key', 'floor_level')
+        ->get()
+        ->mapWithKeys(fn ($a) => [(string) $a->section_instance_key => $a->value['value'] ?? null])
+        ->all();
+
+    expect($floors)->toBe(['room-1' => '1', 'room-2' => '1'])
+        ->and(FakeAiClient::lastRequest())->toBeNull()
+        ->and($intake->aiRuns()->where('provider', 'local')->count())->toBe(0);
+});
+
 test('a ground-mounted outdoor unit drops the ladder question', function () {
     $intake = makeIntentIntake();
     app(SaveIntakeAnswer::class)->handle($intake, 'outdoor_mount_type', null, ['value' => 'ground']);

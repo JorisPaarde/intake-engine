@@ -4,8 +4,17 @@ declare(strict_types=1);
 
 use App\Domains\AI\Actions\InterpretFollowUpText;
 use App\Domains\AI\Clients\FakeAiClient;
+use App\Domains\AI\Models\AiRun;
+use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeTemplate;
+use App\Enums\AiRunStatus;
+use App\Enums\AiRunType;
+use App\Enums\IntakeStatus;
+use App\Models\User;
+use Database\Seeders\IntakeTemplateSeeder;
 
 beforeEach(function () {
+    $this->seed(IntakeTemplateSeeder::class);
     FakeAiClient::reset();
     config([
         'ai.provider' => 'fake',
@@ -16,6 +25,18 @@ beforeEach(function () {
 afterEach(function () {
     FakeAiClient::reset();
 });
+
+function followUpTextIntake(): Intake
+{
+    $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
+
+    return Intake::factory()->create([
+        'created_by' => User::factory()->create()->id,
+        'intake_template_version_id' => $version->id,
+        'status' => IntakeStatus::InProgress,
+        'customer_email' => 'follow-up-text@example.com',
+    ]);
+}
 
 test('empty text yields empty height hints without an AI call', function () {
     $hints = app(InterpretFollowUpText::class)->extractHeightHints('   ');
@@ -47,14 +68,26 @@ test('null provider skips the model', function () {
 });
 
 test('fake model extracts nok and knieschot numbers that appear in the source', function () {
+    $intake = followUpTextIntake();
     $hints = app(InterpretFollowUpText::class)->extractHeightHints(
         'hoogste punt 2,6m, knieschotten 1,2m, schuin dak',
+        $intake,
     );
 
     expect($hints['peak_height_m'])->toBe(2.6)
         ->and($hints['knee_wall_height_m'])->toBe(1.2)
         ->and($hints['mentions_sloped_roof'])->toBeTrue()
-        ->and(FakeAiClient::lastRequest()?->promptVersion)->toStartWith('follow-up-text');
+        ->and(FakeAiClient::lastRequest()?->promptVersion)->toStartWith('follow-up-text')
+        ->and(FakeAiClient::lastRequest()?->timeoutSeconds)->toBe(InterpretFollowUpText::TIMEOUT_SECONDS);
+
+    $run = AiRun::query()
+        ->where('intake_id', $intake->id)
+        ->where('type', AiRunType::FollowUpText)
+        ->first();
+
+    expect($run)->not->toBeNull()
+        ->and($run?->status)->toBe(AiRunStatus::Succeeded)
+        ->and($run?->output)->toMatchArray($hints);
 });
 
 test('invented numbers that are not in the source are dropped', function () {
@@ -79,4 +112,30 @@ test('flat ceiling without nok or knie is not treated as peak height', function 
     expect($hints['peak_height_m'])->toBeNull()
         ->and($hints['knee_wall_height_m'])->toBeNull()
         ->and($hints['mentions_sloped_roof'])->toBeFalse();
+});
+
+test('number quote check requires a standalone digit token', function () {
+    FakeAiClient::alwaysReturn([
+        'peak_height_m' => 2.6,
+        'knee_wall_height_m' => 2,
+        'mentions_sloped_roof' => true,
+    ]);
+
+    // "2" is only a substring of "12.6" — must not accept knee_wall=2.
+    $hints = app(InterpretFollowUpText::class)->extractHeightHints(
+        'nok 12,6 meter, knieschot niet genoemd',
+    );
+
+    expect($hints['peak_height_m'])->toBeNull()
+        ->and($hints['knee_wall_height_m'])->toBeNull();
+
+    FakeAiClient::alwaysReturn([
+        'peak_height_m' => 2.6,
+        'knee_wall_height_m' => null,
+        'mentions_sloped_roof' => true,
+    ]);
+
+    $ok = app(InterpretFollowUpText::class)->extractHeightHints('nokhoogte 2.6 meter');
+
+    expect($ok['peak_height_m'])->toBe(2.6);
 });

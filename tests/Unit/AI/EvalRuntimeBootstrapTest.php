@@ -25,6 +25,7 @@ test('zonder AI_API_KEY activeert fake runtime', function () {
         'ai.api_key' => null,
         'ai.text_inference.enabled' => false,
         'ai.dossier.enabled' => false,
+        'ai.photo_inference.enabled' => false,
     ]);
 
     $result = app(EvalRuntimeBootstrap::class)->activate(forceFake: false);
@@ -34,7 +35,9 @@ test('zonder AI_API_KEY activeert fake runtime', function () {
         ->and($result['warnings'])->toBe([])
         ->and(config('ai.provider'))->toBe('fake')
         ->and(config('ai.text_inference.enabled'))->toBeTrue()
-        ->and(config('ai.dossier.enabled'))->toBeTrue();
+        // Photo/dossier blijven uit — eval gebruikt ze niet.
+        ->and(config('ai.dossier.enabled'))->toBeFalse()
+        ->and(config('ai.photo_inference.enabled'))->toBeFalse();
 });
 
 test('alleen AI_API_KEY in env activeert openai met eval-defaults en waarschuwing', function () {
@@ -43,8 +46,8 @@ test('alleen AI_API_KEY in env activeert openai met eval-defaults en waarschuwin
         'ai.api_key' => null,
         'ai.base_url' => 'https://api.openai.com/v1',
         'ai.model' => 'gpt-4o-mini',
-        'ai.vision_model' => null,
-        'ai.dossier.model' => 'gpt-5.6-terra',
+        'ai.vision_model' => 'keep-vision',
+        'ai.dossier.model' => 'keep-dossier',
         'ai.text_inference.enabled' => false,
         'ai.photo_inference.enabled' => false,
         'ai.dossier.enabled' => false,
@@ -62,11 +65,11 @@ test('alleen AI_API_KEY in env activeert openai met eval-defaults en waarschuwin
         ->and(config('ai.api_key'))->toBe('sk-or-test-eval-only')
         ->and(config('ai.base_url'))->toBe(EvalRuntimeBootstrap::EVAL_OPENROUTER_BASE_URL)
         ->and(config('ai.model'))->toBe(EvalRuntimeBootstrap::EVAL_DEFAULT_MODEL)
-        ->and(config('ai.vision_model'))->toBe(EvalRuntimeBootstrap::EVAL_DEFAULT_MODEL)
-        ->and(config('ai.dossier.model'))->toBe(EvalRuntimeBootstrap::EVAL_DEFAULT_MODEL)
+        ->and(config('ai.vision_model'))->toBe('keep-vision')
+        ->and(config('ai.dossier.model'))->toBe('keep-dossier')
         ->and(config('ai.text_inference.enabled'))->toBeTrue()
-        ->and(config('ai.photo_inference.enabled'))->toBeTrue()
-        ->and(config('ai.dossier.enabled'))->toBeTrue()
+        ->and(config('ai.photo_inference.enabled'))->toBeFalse()
+        ->and(config('ai.dossier.enabled'))->toBeFalse()
         ->and(config('ai.budget.daily_cents'))->toBe(EvalRuntimeBootstrap::EVAL_DEFAULT_DAILY_BUDGET_CENTS)
         ->and($result['warnings'])->not->toBeEmpty()
         ->and($result['warnings'][0])->toContain(EvalRuntimeBootstrap::EVAL_DEFAULT_MODEL)
@@ -79,8 +82,8 @@ test('bestaande prod model en base_url blijven staan bij AI_API_KEY', function (
         'ai.api_key' => null,
         'ai.base_url' => 'https://openrouter.ai/api/v1',
         'ai.model' => EvalRuntimeBootstrap::EVAL_DEFAULT_MODEL,
-        'ai.vision_model' => EvalRuntimeBootstrap::EVAL_DEFAULT_MODEL,
-        'ai.dossier.model' => EvalRuntimeBootstrap::EVAL_DEFAULT_MODEL,
+        'ai.vision_model' => 'prod-vision',
+        'ai.dossier.model' => 'prod-dossier',
         'ai.text_inference.enabled' => false,
         'ai.budget.daily_cents' => 500,
         'ai.budget.monthly_cents' => null,
@@ -94,7 +97,8 @@ test('bestaande prod model en base_url blijven staan bij AI_API_KEY', function (
         ->and(config('ai.api_key'))->toBe('sk-or-prod-mirror')
         ->and(config('ai.base_url'))->toBe('https://openrouter.ai/api/v1')
         ->and(config('ai.model'))->toBe(EvalRuntimeBootstrap::EVAL_DEFAULT_MODEL)
-        ->and(config('ai.dossier.model'))->toBe(EvalRuntimeBootstrap::EVAL_DEFAULT_MODEL)
+        ->and(config('ai.vision_model'))->toBe('prod-vision')
+        ->and(config('ai.dossier.model'))->toBe('prod-dossier')
         ->and(config('ai.budget.daily_cents'))->toBe(500)
         ->and(config('ai.text_inference.enabled'))->toBeTrue()
         ->and($result['warnings'])->toBe([]);

@@ -64,7 +64,10 @@ final class ApplyFollowUpTextContribution
             return null;
         }
 
-        $hints = resolve(InterpretFollowUpText::class)->extractHeightHints(trim($item->response_text));
+        $hints = resolve(InterpretFollowUpText::class)->extractHeightHints(
+            trim($item->response_text),
+            $intake,
+        );
 
         return $this->dossierManager->record(
             intake: $intake,

@@ -72,8 +72,16 @@ final class EvalInterpretationCommand extends Command
         /** @var TraceFixtureImporter $privacy */
         $privacy = $this->laravel->make(TraceFixtureImporter::class);
 
+        // --migrate én auto-seed via needsTemplates() delen dezelfde guards.
         $wantsFresh = (bool) $this->option('migrate') || $this->needsTemplates();
         if ($wantsFresh) {
+            $liveBlock = $this->liveEnvBlockReason();
+            if ($liveBlock !== null) {
+                $this->error($liveBlock);
+
+                return self::FAILURE;
+            }
+
             $block = $this->freshMigrateBlockReason();
             if ($block !== null) {
                 $this->error($block);
@@ -174,7 +182,7 @@ final class EvalInterpretationCommand extends Command
     public function liveEnvBlockReason(): ?string
     {
         $appEnv = strtolower(trim((string) config('app.env', '')));
-        if (in_array($appEnv, ['production', 'staging', 'prod'], true)) {
+        if (in_array($appEnv, ['production', 'staging'], true)) {
             return 'Geweigerd: eval:interpretation mag niet op APP_ENV='.$appEnv.' (production/staging).';
         }
 
