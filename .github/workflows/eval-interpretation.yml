@@ -7,9 +7,6 @@ on:
         description: 'Herhalingen per case (echte model-run)'
         required: false
         default: '3'
-  schedule:
-    # Optioneel nachtelijke run (UTC); vereist secret AI_API_KEY
-    - cron: '17 2 * * *'
 
 concurrency:
   group: eval-interpretation

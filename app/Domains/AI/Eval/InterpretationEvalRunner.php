@@ -27,6 +27,7 @@ final class InterpretationEvalRunner
         private readonly CustomerAnswerCaseRunner $customerAnswerRunner,
         private readonly PhotoObservationCaseRunner $photoObservationRunner,
         private readonly EvalReportWriter $reportWriter,
+        private readonly EvalRuntimeBootstrap $runtimeBootstrap,
     ) {}
 
     /**
@@ -129,19 +130,7 @@ final class InterpretationEvalRunner
 
     private function apiKeyPresent(): bool
     {
-        $key = config('ai.api_key');
-        if (is_string($key) && trim($key) !== '') {
-            return true;
-        }
-
-        foreach (['AI_API_KEY', 'OPENROUTER_API_KEY'] as $name) {
-            $value = $_ENV[$name] ?? $_SERVER[$name] ?? null;
-            if (is_string($value) && trim($value) !== '') {
-                return true;
-            }
-        }
-
-        return false;
+        return $this->runtimeBootstrap->resolveApiKey() !== null;
     }
 
     /**

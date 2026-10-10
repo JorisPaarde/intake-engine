@@ -18,7 +18,8 @@ use Throwable;
  * Meet tekstinterpretatie (model_raw vs pipeline_final).
  *
  * Echte baseline: AI_API_KEY (+ optioneel AI_MODEL/AI_BASE_URL/budget uit lokale
- * throwaway-.env). migrate:fresh alleen op sqlite en nooit op production/staging.
+ * throwaway-.env). Nooit op production/staging (geen AI-runs/traces op live DB,
+ * geen shared daily budget). migrate:fresh alleen op sqlite.
  */
 final class EvalInterpretationCommand extends Command
 {
@@ -32,6 +33,14 @@ final class EvalInterpretationCommand extends Command
 
     public function handle(EvalRuntimeBootstrap $runtime): int
     {
+        $liveBlock = $this->liveEnvBlockReason();
+        if ($liveBlock !== null) {
+            $this->error($liveBlock);
+            $this->line('Draai alleen lokaal of in CI (APP_ENV=local/testing) op een throwaway sqlite-DB. Nooit op production/staging: eval schrijft AI-runs/traces en deelt het daily budget.');
+
+            return self::FAILURE;
+        }
+
         $forceFake = (bool) $this->option('fake');
         $activation = $runtime->activate($forceFake);
         $forceFake = $activation['mode'] === 'fake';
@@ -160,15 +169,23 @@ final class EvalInterpretationCommand extends Command
     }
 
     /**
-     * Weiger migrate:fresh op production/staging of niet-sqlite (dataverlies).
+     * Weiger de hele eval op production/staging (live DB + shared budget).
      */
-    public function freshMigrateBlockReason(): ?string
+    public function liveEnvBlockReason(): ?string
     {
         $appEnv = strtolower(trim((string) config('app.env', '')));
         if (in_array($appEnv, ['production', 'staging', 'prod'], true)) {
-            return 'Geweigerd: migrate:fresh mag niet op APP_ENV='.$appEnv.' (production/staging).';
+            return 'Geweigerd: eval:interpretation mag niet op APP_ENV='.$appEnv.' (production/staging).';
         }
 
+        return null;
+    }
+
+    /**
+     * Weiger migrate:fresh op niet-sqlite (dataverlies). Live-env is al geblokkeerd.
+     */
+    public function freshMigrateBlockReason(): ?string
+    {
         $connection = strtolower(trim((string) config('database.default', '')));
         if ($connection !== 'sqlite') {
             return 'Geweigerd: migrate:fresh alleen op DB_CONNECTION=sqlite (nu: '

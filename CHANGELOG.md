@@ -6,7 +6,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Added
 
-- **Evaluatieset tekstinterpretatie (BL-148):** `php artisan eval:interpretation` meet model_raw vs pipeline_final op fixtures (`tests/Eval/`); nachtjob `.github/workflows/eval-interpretation.yml`. Zonder `AI_API_KEY` draait FakeAiClient — dat is geen baseline.
+- **Evaluatieset tekstinterpretatie (BL-148):** `php artisan eval:interpretation` meet model_raw vs pipeline_final op fixtures (`tests/Eval/`); handmatige CI via `workflow_dispatch` (`.github/workflows/eval-interpretation.yml`, geen cron). Commando geweigerd op production/staging; `migrate:fresh` alleen op sqlite. Zonder `AI_API_KEY` draait FakeAiClient — dat is geen baseline.
 - **Klanttaken bundelen vóór activeren (BL-145):** contextuele **Vraag de klant**/**Vraag nieuwe foto** voegt toe aan een zichtbare conceptlijst (`tasks.prepare` → sessie `customer_task_drafts`, max 5) met bewerkbare klanttekst; één `tasks.store` activeert de ronde. Brononderwerp per taak blijft behouden; open ronde blijft geblokkeerd. Pest + Playwright (`tests/e2e/customer-task-draft-bundle.spec.ts`).
 - **AI-trace gaps afronden (BL-144):** `ai_runs.provider_request_id` (provider completion-`id` via `completionResultAttributes`); `AiRunStatus::Skipped` / `AiTraceStatus::Skipped` + `AiSkipRecorder` voor uploads zonder AI-call (reden bv. `geen beoordelingsprofiel`); `seed` in `model_parameters` (+ optioneel `AI_SEED` naar provider); `queued_at` op traces; export bevat `finish_reason` + `queued_at`. GPS/locatie blijft geredigeerd.
 

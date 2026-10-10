@@ -7,14 +7,28 @@ use Tests\TestCase;
 
 uses(TestCase::class);
 
-test('freshMigrateBlockReason weigert production en staging', function () {
+test('liveEnvBlockReason weigert production en staging', function () {
     $command = app(EvalInterpretationCommand::class);
 
     config(['app.env' => 'production', 'database.default' => 'sqlite']);
-    expect($command->freshMigrateBlockReason())->toContain('production');
+    expect($command->liveEnvBlockReason())->toContain('production')
+        ->and($command->liveEnvBlockReason())->toContain('eval:interpretation');
 
     config(['app.env' => 'staging', 'database.default' => 'sqlite']);
-    expect($command->freshMigrateBlockReason())->toContain('staging');
+    expect($command->liveEnvBlockReason())->toContain('staging');
+
+    config(['app.env' => 'prod', 'database.default' => 'sqlite']);
+    expect($command->liveEnvBlockReason())->toContain('prod');
+});
+
+test('liveEnvBlockReason staat local en testing toe', function () {
+    $command = app(EvalInterpretationCommand::class);
+
+    config(['app.env' => 'local']);
+    expect($command->liveEnvBlockReason())->toBeNull();
+
+    config(['app.env' => 'testing']);
+    expect($command->liveEnvBlockReason())->toBeNull();
 });
 
 test('freshMigrateBlockReason weigert niet-sqlite', function () {
