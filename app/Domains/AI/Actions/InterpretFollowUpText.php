@@ -222,18 +222,12 @@ final class InterpretFollowUpText
             number_format($number, 2, ',', ''),
         ]);
 
-        // Digit or either decimal separator — so "2" does not match inside "2,6" / "2.6".
-        $boundary = '0-9.,';
-
         foreach ($variants as $variant) {
             if ($variant === '') {
                 continue;
             }
 
-            $escaped = preg_quote($variant, '/');
-            $pattern = '/(?<!['.$boundary.'])'.$escaped.'(?!['.$boundary.'])/u';
-
-            if (preg_match($pattern, $source) === 1) {
+            if ($this->variantAppearsStandalone($variant, $source)) {
                 return true;
             }
 
@@ -241,15 +235,24 @@ final class InterpretFollowUpText
             $alt = str_contains($variant, ',')
                 ? str_replace(',', '.', $variant)
                 : str_replace('.', ',', $variant);
-            if ($alt !== $variant) {
-                $altEscaped = preg_quote($alt, '/');
-                $altPattern = '/(?<!['.$boundary.'])'.$altEscaped.'(?!['.$boundary.'])/u';
-                if (preg_match($altPattern, $source) === 1) {
-                    return true;
-                }
+            if ($alt !== $variant && $this->variantAppearsStandalone($alt, $source)) {
+                return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * Standalone number token: [.,] only blocks when a digit sits on the other side
+     * (so "2,6" rejects bare 2, but "nok 2." / "nok 2, knie 1" accept 2 and 1).
+     */
+    private function variantAppearsStandalone(string $variant, string $source): bool
+    {
+        $escaped = preg_quote($variant, '/');
+        // lookbehind: not digit; not (digit + separator). lookahead: not digit; not (separator + digit).
+        $pattern = '/(?<![0-9])(?<![0-9][.,])'.$escaped.'(?![0-9])(?![.,][0-9])/u';
+
+        return preg_match($pattern, $source) === 1;
     }
 }

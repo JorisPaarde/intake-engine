@@ -7,13 +7,21 @@ namespace App\Domains\AI\Eval;
 use Illuminate\Support\Facades\File;
 
 /**
- * Schrijft JSON+MD rapporten naar storage/app/eval én tests/Eval/results (+ HISTORY).
+ * Schrijft JSON+MD rapporten naar storage/app/eval én {output}/results.
+ * Baseline + HISTORY alleen bij echte runs (`is_baseline`).
  */
 final class EvalReportWriter
 {
     /**
      * @param  array<string, mixed>  $report
-     * @return array{json: string, md: string, results_json: string, results_md: string}
+     * @return array{
+     *     json: string,
+     *     md: string,
+     *     results_json: string,
+     *     results_md: string,
+     *     baseline_json: string|null,
+     *     baseline_md: string|null
+     * }
      */
     public function write(array $report): array
     {
@@ -22,6 +30,7 @@ final class EvalReportWriter
         $promptHash = is_string($report['prompt_fingerprint']['combined_hash'] ?? null)
             ? $report['prompt_fingerprint']['combined_hash']
             : 'noprompt';
+        $isBaseline = (bool) ($report['is_baseline'] ?? false);
 
         $storageDir = storage_path('app/eval');
         File::ensureDirectoryExists($storageDir);
@@ -29,16 +38,12 @@ final class EvalReportWriter
         $jsonPath = $storageBase.'.json';
         $mdPath = $storageBase.'.md';
 
-        $resultsDir = base_path('tests/Eval/results');
+        $outputRoot = $this->outputRoot();
+        $resultsDir = $outputRoot.'/results';
         File::ensureDirectoryExists($resultsDir);
         $resultsBase = $resultsDir.'/'.$date.'-'.$promptHash;
         $resultsJson = $resultsBase.'.json';
         $resultsMd = $resultsBase.'.md';
-
-        $baselineDir = base_path('tests/Eval/baseline');
-        File::ensureDirectoryExists($baselineDir);
-        $baselineJson = $baselineDir.'/'.$date.'-'.$sha.'.json';
-        $baselineMd = $baselineDir.'/'.$date.'-'.$sha.'.md';
 
         $json = json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if ($json === false) {
@@ -51,10 +56,18 @@ final class EvalReportWriter
         File::put($mdPath, $md);
         File::put($resultsJson, $json."\n");
         File::put($resultsMd, $md);
-        File::put($baselineJson, $json."\n");
-        File::put($baselineMd, $md);
 
-        $this->appendHistory($report, $date, $promptHash, $sha);
+        $baselineJson = null;
+        $baselineMd = null;
+        if ($isBaseline) {
+            $baselineDir = $outputRoot.'/baseline';
+            File::ensureDirectoryExists($baselineDir);
+            $baselineJson = $baselineDir.'/'.$date.'-'.$sha.'.json';
+            $baselineMd = $baselineDir.'/'.$date.'-'.$sha.'.md';
+            File::put($baselineJson, $json."\n");
+            File::put($baselineMd, $md);
+            $this->appendHistory($report, $date, $promptHash, $sha, $resultsDir.'/HISTORY.md');
+        }
 
         return [
             'json' => $jsonPath,
@@ -64,6 +77,20 @@ final class EvalReportWriter
             'baseline_json' => $baselineJson,
             'baseline_md' => $baselineMd,
         ];
+    }
+
+    public function outputRoot(): string
+    {
+        $configured = trim((string) config('ai.eval.output_dir', ''));
+        if ($configured === '') {
+            return base_path('tests/Eval');
+        }
+
+        if (str_starts_with($configured, '/')) {
+            return rtrim($configured, '/');
+        }
+
+        return base_path(rtrim($configured, '/'));
     }
 
     /**
@@ -197,9 +224,8 @@ final class EvalReportWriter
     /**
      * @param  array<string, mixed>  $report
      */
-    private function appendHistory(array $report, string $date, string $promptHash, string $sha): void
+    private function appendHistory(array $report, string $date, string $promptHash, string $sha, string $historyPath): void
     {
-        $historyPath = base_path('tests/Eval/results/HISTORY.md');
         if (! File::exists($historyPath)) {
             File::put($historyPath, "# Eval resultaatgeschiedenis (prompt-versies)\n\n| Datum | Prompt-hash | Commit | Mode | Model | Opmerking |\n|-------|-------------|--------|------|-------|-----------|\n");
         }
@@ -213,8 +239,7 @@ final class EvalReportWriter
             $compSummary[] = $comp.':'.(int) ($final['correct'] ?? 0).'/'.(int) ($final['total'] ?? 0);
         }
 
-        $note = ((bool) ($report['is_baseline'] ?? false) ? 'baseline' : 'GEEN baseline')
-            .' — '.implode(' ', $compSummary);
+        $note = 'baseline — '.implode(' ', $compSummary);
         $line = sprintf(
             '| %s | `%s` | `%s` | %s | `%s` | %s |',
             $date,
@@ -227,7 +252,6 @@ final class EvalReportWriter
 
         File::append($historyPath, $line."\n");
 
-        // Componentdetailblok
         $detail = "\n### {$date} / {$promptHash}\n\n";
         $detail .= "| Component | model_raw | pipeline_final |\n|-----------|-----------|----------------|\n";
         foreach (($report['scores_by_component'] ?? []) as $comp => $layers) {

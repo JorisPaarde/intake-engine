@@ -253,4 +253,19 @@ return [
         'export_max_part_chars' => (int) env('AI_TRACE_EXPORT_MAX_PART_CHARS', 800000),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Evaluatieset (eval:interpretation)
+    |--------------------------------------------------------------------------
+    |
+    | output_dir: root voor results/ + baseline/ + HISTORY.md.
+    | Leeg = base_path('tests/Eval'). Relatief pad = t.o.v. base_path.
+    | Pest zet AI_EVAL_OUTPUT_DIR op storage/framework/testing/eval.
+    |
+    */
+
+    'eval' => [
+        'output_dir' => env('AI_EVAL_OUTPUT_DIR', ''),
+    ],
+
 ];

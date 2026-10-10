@@ -172,3 +172,36 @@ test('integer part of a comma decimal is not a standalone number', function () {
 
     expect($whole['peak_height_m'])->toBe(2.0);
 });
+
+test('sentence-end and list separators do not block a whole number', function () {
+    FakeAiClient::alwaysReturn([
+        'peak_height_m' => 2,
+        'knee_wall_height_m' => null,
+        'mentions_sloped_roof' => false,
+    ]);
+
+    expect(app(InterpretFollowUpText::class)->extractHeightHints('nok 2.')['peak_height_m'])->toBe(2.0);
+
+    FakeAiClient::alwaysReturn([
+        'peak_height_m' => 2,
+        'knee_wall_height_m' => 1,
+        'mentions_sloped_roof' => false,
+    ]);
+
+    $list = app(InterpretFollowUpText::class)->extractHeightHints('nok 2, knie 1');
+
+    expect($list['peak_height_m'])->toBe(2.0)
+        ->and($list['knee_wall_height_m'])->toBe(1.0);
+
+    // Still reject integer part of a real decimal.
+    FakeAiClient::alwaysReturn([
+        'peak_height_m' => 2,
+        'knee_wall_height_m' => 1,
+        'mentions_sloped_roof' => true,
+    ]);
+
+    $decimalParts = app(InterpretFollowUpText::class)->extractHeightHints('nok 2,6 m en knieschot 1,2');
+
+    expect($decimalParts['peak_height_m'])->toBeNull()
+        ->and($decimalParts['knee_wall_height_m'])->toBeNull();
+});

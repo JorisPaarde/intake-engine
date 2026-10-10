@@ -31,7 +31,17 @@ final class InterpretationEvalRunner
     ) {}
 
     /**
-     * @return array{report: array<string, mixed>, paths: array<string, string>}
+     * @return array{
+     *     report: array<string, mixed>,
+     *     paths: array{
+     *         json: string,
+     *         md: string,
+     *         results_json: string,
+     *         results_md: string,
+     *         baseline_json: string|null,
+     *         baseline_md: string|null
+     *     }
+     * }
      */
     public function run(int $repeats = 3, bool $forceFake = false): array
     {

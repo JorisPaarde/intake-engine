@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Domains\AI\Eval\EvalComparer;
 use App\Domains\AI\Eval\EvalFixturePrivacyScan;
+use App\Domains\AI\Eval\EvalReportWriter;
 use App\Domains\AI\Eval\EvalRuntimeBootstrap;
 use App\Domains\AI\Eval\InterpretationEvalRunner;
 use App\Domains\Intake\Models\IntakeTemplate;
@@ -27,7 +28,8 @@ final class EvalInterpretationCommand extends Command
         {--repeats=3 : Aantal herhalingen per case (echte model-run); fake=1}
         {--fake : Forceer FakeAiClient (GEEN baseline)}
         {--compare= : Pad of bestandsstempel van een vorige run (JSON)}
-        {--migrate : Draai migrate:fresh --seed (ALLEEN lokale sqlite; nooit prod/staging)}';
+        {--migrate : Draai migrate:fresh --seed (ALLEEN lokale sqlite; nooit prod/staging)}
+        {--output= : Root voor results/baseline/HISTORY (default: tests/Eval of AI_EVAL_OUTPUT_DIR)}';
 
     protected $description = 'Evalueer tekstinterpretatie (request prefill, follow-up hoogte, foto-observaties)';
 
@@ -39,6 +41,11 @@ final class EvalInterpretationCommand extends Command
             $this->line('Draai alleen lokaal of in CI (APP_ENV=local/testing) op een throwaway sqlite-DB. Nooit op production/staging: eval schrijft AI-runs/traces en deelt het daily budget.');
 
             return self::FAILURE;
+        }
+
+        $outputOpt = $this->option('output');
+        if (is_string($outputOpt) && trim($outputOpt) !== '') {
+            config(['ai.eval.output_dir' => trim($outputOpt)]);
         }
 
         $forceFake = (bool) $this->option('fake');
@@ -118,6 +125,9 @@ final class EvalInterpretationCommand extends Command
         $this->newLine();
         $this->info('Rapport geschreven:');
         foreach ($paths as $label => $path) {
+            if ($path === null || $path === '') {
+                continue;
+            }
             $this->line("  [{$label}] {$path}");
         }
 
@@ -131,10 +141,11 @@ final class EvalInterpretationCommand extends Command
                 break;
             }
         }
-        $this->line("Prompt: {$prefillVersion} — hash {$promptHash} → tests/Eval/results/<datum>-{$promptHash}.{json,md} + HISTORY.md");
+        $outputRoot = app(EvalReportWriter::class)->outputRoot();
+        $this->line("Prompt: {$prefillVersion} — hash {$promptHash} → {$outputRoot}/results/<datum>-{$promptHash}.{json,md}");
 
         if (! ($report['is_baseline'] ?? false)) {
-            $this->warn('GEEN baseline — mode='.($report['mode'] ?? '?'));
+            $this->warn('GEEN baseline — mode='.($report['mode'] ?? '?').' (geen baseline/ of HISTORY-append)');
             if (is_string($report['blocker'] ?? null)) {
                 $this->warn($report['blocker']);
             }

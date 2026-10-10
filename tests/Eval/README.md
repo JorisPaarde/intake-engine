@@ -36,9 +36,10 @@ Dat is genoeg. De command:
 - vult OpenRouter + `google/gemini-3.1-flash-lite` alleen in bij inerte defaults (`api.openai.com` / `gpt-4o-mini`) en **waarschuwt** dan duidelijk;
 - zet tekst-inferentie aan voor de run (geen photo/dossier-overrides);
 - zet een dagbudget van 200 cent als er geen budgetcap in config staat;
-- laat bestaande prod-`AI_MODEL` / `AI_BASE_URL` / budget **ongewijzigd** als die al gezet zijn.
+- laat bestaande prod-`AI_MODEL` / `AI_BASE_URL` / budget **ongewijzigd** als die al gezet zijn;
+- schrijft naar `tests/Eval` (of `--output=` / `AI_EVAL_OUTPUT_DIR`); **alleen echte baselines** vullen `baseline/` en appenden `HISTORY.md` — fake runs doen dat nooit.
 
-Zonder `AI_API_KEY`: automatisch FakeAiClient, rapport = **GEEN baseline** (niet committen).
+Zonder `AI_API_KEY`: automatisch FakeAiClient, rapport = **GEEN baseline** (niet committen; Pest gebruikt `storage/framework/testing/eval`).
 
 ## Meten op deze branch
 
