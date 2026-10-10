@@ -80,7 +80,7 @@ final class InstallerEvidencePresenter
             };
         }
 
-        return $presented;
+        return $this->mergeUploadCitationsByPlace($intake, $presented);
     }
 
     /**
@@ -292,14 +292,26 @@ final class InstallerEvidencePresenter
     private function presentSystemAttentionCitation(Intake $intake, string $reference): array
     {
         $intake->loadMissing('attentionPoints');
-        // Prefereer het systeempunt: AI mag dezelfde code herhalen als voorstel.
         $point = $intake->attentionPoints->first(
             static fn ($row): bool => $row->source === AttentionPointSource::System
                 && is_string($row->code)
                 && $row->code === $reference,
-        ) ?? $intake->attentionPoints->first(
-            static fn ($row): bool => is_string($row->code) && $row->code === $reference,
         );
+
+        if ($point !== null && PhotoContinueAnywayAttention::isContinueAnywayCode($reference)) {
+            $live = PhotoContinueAnywayAttention::liveLabel($intake, $reference);
+            if (is_string($live) && $live !== '') {
+                return $this->citation(
+                    'Automatische controle: '.$live,
+                    null,
+                    false,
+                    null,
+                    null,
+                );
+            }
+
+            return $this->citation('Automatische controle', null, false, null, null);
+        }
 
         if ($point !== null && trim((string) $point->label) !== '') {
             return $this->citation(
@@ -312,6 +324,45 @@ final class InstallerEvidencePresenter
         }
 
         return $this->citation('Automatische controle', null, false, null, null);
+    }
+
+    /**
+     * Eén link per (question_key, section_instance_key); groepeert op keys, nooit op tekst.
+     *
+     * @param  list<array{label: string, url: string|null, superseded: bool, supersession_label: string|null, upload_id: int|null, testid: string}>  $presented
+     * @return list<array{label: string, url: string|null, superseded: bool, supersession_label: string|null, upload_id: int|null, testid: string}>
+     */
+    private function mergeUploadCitationsByPlace(Intake $intake, array $presented): array
+    {
+        $merged = [];
+        /** @var array<string, true> $seenPlaces */
+        $seenPlaces = [];
+
+        foreach ($presented as $citation) {
+            $uploadId = $citation['upload_id'] ?? null;
+            if (! is_int($uploadId)) {
+                $merged[] = $citation;
+
+                continue;
+            }
+
+            $upload = $intake->uploads->firstWhere('id', $uploadId);
+            if (! $upload instanceof IntakeUpload) {
+                $merged[] = $citation;
+
+                continue;
+            }
+
+            $placeKey = $upload->question_key.'|'.(string) ($upload->section_instance_key ?? '');
+            if (isset($seenPlaces[$placeKey])) {
+                continue;
+            }
+
+            $seenPlaces[$placeKey] = true;
+            $merged[] = $citation;
+        }
+
+        return $merged;
     }
 
     /**

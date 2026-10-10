@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Services;
 
-use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Models\DossierSubject;
 use App\Domains\Intake\Models\Intake;
@@ -223,8 +222,8 @@ final class InstallerPhotoGalleryBuilder
         ]);
 
         $supersessions = app(UploadSupersessionResolver::class)->resolve($intake);
-        $photoCount = 0;
-        $rejectedCount = 0;
+        /** @var list<IntakeUpload> $currentPhotos */
+        $currentPhotos = [];
 
         foreach ($intake->uploads as $upload) {
             if (! str_starts_with((string) $upload->mime_type, 'image/')) {
@@ -236,24 +235,20 @@ final class InstallerPhotoGalleryBuilder
                 continue;
             }
 
-            $photoCount++;
-            $status = $upload->contentAssessment()?->status();
-            if ($status === PhotoContentAssessment::STATUS_WRONG_SUBJECT
-                || $status === PhotoContentAssessment::STATUS_NEEDS_CLEARER) {
-                $rejectedCount++;
-            }
+            $currentPhotos[] = $upload;
         }
 
-        if ($photoCount === 0) {
+        $counts = PhotoContinueAnywayAttention::countStatuses($currentPhotos);
+        if ($counts['total'] === 0) {
             return 'Nog geen foto’s · tik om te openen';
         }
 
-        $photoWord = $photoCount === 1 ? 'foto' : 'foto’s';
-        if ($rejectedCount > 0) {
-            return "{$photoCount} {$photoWord} · {$rejectedCount} afgekeurd door de AI · tik om te openen";
+        $photoWord = $counts['total'] === 1 ? 'foto' : 'foto’s';
+        if ($counts['rejected'] > 0) {
+            return "{$counts['total']} {$photoWord} · {$counts['rejected']} afgekeurd door de AI · tik om te openen";
         }
 
-        return "{$photoCount} {$photoWord} · tik om te openen";
+        return "{$counts['total']} {$photoWord} · tik om te openen";
     }
 
     private function dossierSubjectId(?string $instanceKey): ?int

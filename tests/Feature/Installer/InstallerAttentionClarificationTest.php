@@ -7,6 +7,7 @@ use App\Domains\AI\Clients\FakeAiClient;
 use App\Domains\AI\Services\IntakeAttentionContextBuilder;
 use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\AI\Support\PhotoSubject;
+use App\Domains\Intake\Actions\CreateCustomerContributionRequest;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Models\AircoRoom;
@@ -19,12 +20,16 @@ use App\Domains\Intake\Services\DecisionReadinessService;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\InstallerPhotoGalleryBuilder;
 use App\Domains\Intake\Support\AttentionProposalVisibility;
+use App\Domains\Intake\Support\InstallerEvidencePresenter;
 use App\Domains\Intake\Support\PhotoContinueAnywayAttention;
 use App\Enums\AiRunStatus;
 use App\Enums\AttentionPointSource;
 use App\Enums\AttentionPointStatus;
+use App\Enums\FollowUpItemType;
+use App\Enums\FollowUpRoundStatus;
 use App\Enums\IntakeStatus;
 use App\Enums\PhotoAssessmentStatus;
+use App\Enums\PhotoUsabilityVerdict;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Http\UploadedFile;
@@ -523,17 +528,168 @@ test('Accepteren-knop is omlijnd en niet gevuld groen', function () {
         ->and($html)->not->toContain('bg-emerald-600');
 });
 
-test('attention_points prompt meta staat op v4', function () {
+test('attention_points prompt blijft v3 met alleen citeer-verbod voor photo_question_stats', function () {
     $meta = require app_path('Domains/AI/Prompts/attention_points/meta.php');
     $prompt = file_get_contents(app_path('Domains/AI/Prompts/attention_points/prompt.md'));
 
-    expect($meta['version'])->toBe('attention_points-v4')
-        ->and($prompt)->toContain('photo_question_stats')
-        ->and($prompt)->toContain('4 m²')
-        ->and($prompt)->toContain('Kelder')
-        ->and($prompt)->toContain('customer_continued_anyway')
+    expect($meta['version'])->toBe('attention_points-v3')
         ->and($prompt)->toContain('Citeer nooit `photo_question_stats`')
-        ->and($prompt)->not->toContain('minstens één ander bewijs');
+        ->and($prompt)->not->toContain('option_label')
+        ->and($prompt)->not->toContain('4 m²')
+        ->and($prompt)->not->toContain('customer_continued_anyway');
+});
+
+test('hernoemde ruimte toont nieuwe naam in Actueel-fotomelding (live label)', function () {
+    $intake = clarificationIntake();
+    $room = clarificationRoom($intake, 'room-1', 'Woonkamer', 1);
+    clarificationOverrideUpload(
+        $intake,
+        'room_photos',
+        'room-1',
+        PhotoContentAssessment::wrongSubject(PhotoSubject::Room, PhotoSubject::OutdoorUnit),
+    );
+
+    IntakeAttentionPoint::query()->create([
+        'intake_id' => $intake->id,
+        'source' => AttentionPointSource::System,
+        'code' => 'photo_continue_anyway__room_photos__room-1',
+        'label' => 'Woonkamer · Foto’s van de ruimte: de AI keurde 1 foto af. De klant koos ‘Toch doorgaan’.',
+        'is_resolved' => false,
+    ]);
+
+    $room->update(['name' => 'Hobbykamer, begane grond']);
+    $owner = User::query()->findOrFail($intake->created_by);
+
+    $live = PhotoContinueAnywayAttention::liveLabel(
+        $intake->fresh(['uploads', 'aircoRooms', 'templateVersion.sections.questions']),
+        'photo_continue_anyway__room_photos__room-1',
+    );
+    expect($live)->toContain('Hobbykamer, begane grond')
+        ->and($live)->not->toContain('Woonkamer ·');
+
+    $this->actingAs($owner)
+        ->get(route('intakes.show', $intake))
+        ->assertOk()
+        ->assertSee('Hobbykamer, begane grond', false)
+        ->assertDontSee('Woonkamer · Foto’s van de ruimte', false);
+});
+
+test('follow-up die foto’s vervangt verbergt de Toch-doorgaan-melding', function () {
+    $intake = clarificationIntake();
+    clarificationRoom($intake, 'room-1', 'Woonkamer', 1);
+    $owner = User::query()->findOrFail($intake->created_by);
+    clarificationOverrideUpload(
+        $intake,
+        'room_photos',
+        'room-1',
+        PhotoContentAssessment::wrongSubject(PhotoSubject::Room, PhotoSubject::OutdoorUnit),
+    );
+
+    IntakeAttentionPoint::query()->create([
+        'intake_id' => $intake->id,
+        'source' => AttentionPointSource::System,
+        'code' => 'photo_continue_anyway__room_photos__room-1',
+        'label' => 'Woonkamer · Foto’s van de ruimte: de AI keurde 1 foto af. De klant koos ‘Toch doorgaan’.',
+        'is_resolved' => false,
+    ]);
+
+    expect(PhotoContinueAnywayAttention::liveLabel(
+        $intake->fresh(['uploads', 'aircoRooms', 'templateVersion.sections.questions', 'followUpRounds.items.uploads', 'contributionTasks']),
+        'photo_continue_anyway__room_photos__room-1',
+    ))->not->toBeNull();
+
+    $round = app(CreateCustomerContributionRequest::class)->handle($intake->fresh(), $owner, [[
+        'type' => FollowUpItemType::Photo,
+        'prompt' => 'Maak een duidelijke foto van de hele ruimte.',
+        'decision_area_key' => 'capacity',
+        'dossier_subject_id' => null,
+    ]]);
+    $item = $round->items()->firstOrFail();
+    $disk = (string) config('filesystems.media', 'local');
+    $path = 'private/intakes/'.$intake->id.'/follow-up-room.jpg';
+    Storage::disk($disk)->put($path, 'fake-jpeg-bytes');
+
+    $replacement = IntakeUpload::query()->create([
+        'intake_id' => $intake->id,
+        'question_key' => 'follow_up_upload',
+        'section_instance_key' => 'room-1',
+        'intake_follow_up_item_id' => $item->id,
+        'disk' => $disk,
+        'path' => $path,
+        'original_filename' => 'ruimte-nieuw.jpg',
+        'mime_type' => 'image/jpeg',
+        'size_bytes' => 1200,
+        'sort_order' => 0,
+    ]);
+    $replacement->forceFill([
+        'assessment_status' => PhotoAssessmentStatus::Assessed,
+        'content_assessment' => PhotoContentAssessment::ok(PhotoSubject::Room)->toArray(),
+        'usability_verdict' => PhotoUsabilityVerdict::Ok,
+    ])->save();
+    $item->update(['answered_at' => now()]);
+    $round->update([
+        'status' => FollowUpRoundStatus::Completed,
+        'completed_at' => now(),
+    ]);
+
+    $fresh = $intake->fresh([
+        'uploads.followUpItem.round',
+        'aircoRooms',
+        'templateVersion.sections.questions',
+        'followUpRounds.items.uploads',
+        'contributionTasks',
+        'attentionPoints',
+    ]);
+    expect(PhotoContinueAnywayAttention::liveLabel(
+        $fresh,
+        'photo_continue_anyway__room_photos__room-1',
+    ))->toBeNull()
+        ->and(PhotoContinueAnywayAttention::linkForPoint(
+            $fresh,
+            'photo_continue_anyway__room_photos__room-1',
+        ))->toBeNull();
+
+    $this->actingAs($owner)
+        ->get(route('intakes.show', $intake))
+        ->assertOk()
+        ->assertDontSee('De klant koos ‘Toch doorgaan’', false)
+        ->assertDontSee('Woonkamer · Foto’s van de ruimte', false);
+});
+
+test('twee geciteerde foto’s van dezelfde vraag en plek worden één link', function () {
+    $intake = clarificationIntake();
+    clarificationRoom($intake, 'room-1', 'Woonkamer', 1);
+    clarificationOverrideUpload(
+        $intake,
+        'room_photos',
+        'room-1',
+        PhotoContentAssessment::wrongSubject(PhotoSubject::Room, PhotoSubject::OutdoorUnit),
+    );
+    clarificationOverrideUpload(
+        $intake,
+        'room_photos',
+        'room-1',
+        PhotoContentAssessment::wrongSubject(PhotoSubject::Room, PhotoSubject::Fusebox),
+    );
+
+    $payload = app(IntakeAttentionContextBuilder::class)->build($intake->fresh());
+    $uploadRefs = collect($payload['uploads'] ?? [])
+        ->filter(fn (array $row): bool => ($row['question_key'] ?? null) === 'room_photos'
+            && ($row['section_instance_key'] ?? null) === 'room-1')
+        ->pluck('reference')
+        ->values()
+        ->all();
+
+    expect($uploadRefs)->toHaveCount(2);
+
+    $citations = app(InstallerEvidencePresenter::class)->presentAttentionEvidence($intake->fresh(), [
+        ['source_type' => 'upload', 'reference' => $uploadRefs[0]],
+        ['source_type' => 'upload', 'reference' => $uploadRefs[1]],
+    ]);
+
+    expect($citations)->toHaveCount(1)
+        ->and($citations[0]['label'])->toContain('Woonkamer')
+        ->and($citations[0]['url'])->not->toBeNull();
 });
 
 test('galerijanker voor niet-ruimte komt uit sectie, gelijk aan Actueel-link', function () {

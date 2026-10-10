@@ -54,9 +54,10 @@ test('installer detail page shows question labels and groups photos by section i
         ->assertSee('Ruimte 2', false)
         ->assertSee('Foto van de meterkast', false)
         ->assertSee('Elektrische installatie', false)
-        // Interne keys mogen niet als zichtbare kop/caption; ankers mogen de key bevatten.
-        ->assertDontSee('>room_photos<', false)
-        ->assertDontSee('>fusebox_photo<', false);
+        // Interne keys niet in zichtbare tekst; ankers mogen de key bevatten.
+        ->assertDontSeeText('room_photos')
+        ->assertDontSeeText('room-2')
+        ->assertDontSeeText('fusebox_photo');
 });
 
 test('photo gallery builder orders groups by template section and instance', function () {

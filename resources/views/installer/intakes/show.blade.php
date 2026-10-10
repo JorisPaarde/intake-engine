@@ -32,8 +32,19 @@
                     ? $areaTargetResolver->targetForArea($intake, $firstOpenArea->key)
                     : null;
                 $authoritativePoints = $intake->attentionPoints->filter(
-                    fn ($p) => ($p->status === null || $p->status === \App\Enums\AttentionPointStatus::Accepted)
-                        && ! $p->is_resolved,
+                    function ($p) use ($intake) {
+                        if (($p->status !== null && $p->status !== \App\Enums\AttentionPointStatus::Accepted)
+                            || $p->is_resolved) {
+                            return false;
+                        }
+                        if (! is_string($p->code)
+                            || ! \App\Domains\Intake\Support\PhotoContinueAnywayAttention::isContinueAnywayCode($p->code)) {
+                            return true;
+                        }
+
+                        // Live zichtbaarheid: verberg als er geen afgekeurde/not_assessed uploads meer zijn.
+                        return \App\Domains\Intake\Support\PhotoContinueAnywayAttention::liveLabel($intake, $p->code) !== null;
+                    },
                 );
                 $resolvedPoints = $intake->attentionPoints->filter(
                     fn ($p) => ($p->status === null || $p->status === \App\Enums\AttentionPointStatus::Accepted)
@@ -331,15 +342,20 @@
                             <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-800">
                                 @foreach ($authoritativePoints as $point)
                                     <li>
-                                        {{ $point->label }}
-                                        @if ($point->source === \App\Enums\AttentionPointSource::Ai)
-                                            <span class="text-gray-400">· overgenomen AI-voorstel</span>
-                                        @endif
                                         @php
-                                            $continueLink = is_string($point->code)
+                                            $continueAnyway = is_string($point->code)
+                                                && \App\Domains\Intake\Support\PhotoContinueAnywayAttention::isContinueAnywayCode($point->code);
+                                            $displayLabel = $continueAnyway
+                                                ? \App\Domains\Intake\Support\PhotoContinueAnywayAttention::liveLabel($intake, $point->code)
+                                                : $point->label;
+                                            $continueLink = $continueAnyway
                                                 ? \App\Domains\Intake\Support\PhotoContinueAnywayAttention::linkForPoint($intake, $point->code)
                                                 : null;
                                         @endphp
+                                        {{ $displayLabel }}
+                                        @if ($point->source === \App\Enums\AttentionPointSource::Ai)
+                                            <span class="text-gray-400">· overgenomen AI-voorstel</span>
+                                        @endif
                                         @if (is_array($continueLink))
                                             <div class="mt-1">
                                                 <a

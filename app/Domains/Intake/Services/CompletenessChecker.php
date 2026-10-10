@@ -150,6 +150,12 @@ final class CompletenessChecker
      */
     private function photoContinueAnywayPoints(Intake $intake, IntakeTemplateVersion $version): array
     {
+        $intake->loadMissing([
+            'uploads.followUpItem.round',
+            'followUpRounds.items.uploads',
+            'contributionTasks',
+            'dossierSubjects.records',
+        ]);
         $supersessions = app(UploadSupersessionResolver::class)->resolve($intake);
 
         /** @var array<string, list<IntakeUpload>> $byPlace */
@@ -158,13 +164,7 @@ final class CompletenessChecker
         $hasOverride = [];
 
         foreach ($intake->uploads as $upload) {
-            if ($upload->question_key === 'installer_evidence'
-                || $upload->intake_follow_up_item_id !== null) {
-                continue;
-            }
-
-            $info = $supersessions[(int) $upload->id] ?? null;
-            if (is_array($info) && $info['superseded'] === true) {
+            if (! PhotoContinueAnywayAttention::isCurrentWizardUpload($upload, $supersessions)) {
                 continue;
             }
 

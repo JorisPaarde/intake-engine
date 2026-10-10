@@ -8,6 +8,7 @@ use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Domains\Intake\Support\PhotoContinueAnywayAttention;
 use App\Domains\Intake\Support\UploadSupersessionResolver;
 use App\Enums\AttentionPointSource;
 use App\Enums\QuestionType;
@@ -206,18 +207,11 @@ final class IntakeAttentionContextBuilder
     {
         $supersessions = app(UploadSupersessionResolver::class)->resolve($intake);
 
-        /** @var array<string, array{question_key: string, section_instance_key: string|null, photo_count: int, rejected_count: int, not_assessed_count: int, customer_continued_anyway: bool}> $groups */
+        /** @var array<string, array{question_key: string, section_instance_key: string|null, uploads: list<IntakeUpload>, customer_continued_anyway: bool}> $groups */
         $groups = [];
 
         foreach ($intake->uploads as $upload) {
-            if ($upload->intake_follow_up_item_id !== null
-                || $upload->question_key === 'installer_evidence'
-                || ! str_starts_with((string) $upload->mime_type, 'image/')) {
-                continue;
-            }
-
-            $info = $supersessions[(int) $upload->id] ?? null;
-            if (is_array($info) && $info['superseded'] === true) {
+            if (! PhotoContinueAnywayAttention::isCurrentWizardUpload($upload, $supersessions)) {
                 continue;
             }
 
@@ -226,22 +220,13 @@ final class IntakeAttentionContextBuilder
                 $groups[$key] = [
                     'question_key' => $upload->question_key,
                     'section_instance_key' => $upload->section_instance_key,
-                    'photo_count' => 0,
-                    'rejected_count' => 0,
-                    'not_assessed_count' => 0,
+                    'uploads' => [],
                     'customer_continued_anyway' => false,
                 ];
             }
 
-            $groups[$key]['photo_count']++;
+            $groups[$key]['uploads'][] = $upload;
             $assessment = $upload->contentAssessment();
-            $status = $assessment?->status();
-            if ($status === PhotoContentAssessment::STATUS_WRONG_SUBJECT
-                || $status === PhotoContentAssessment::STATUS_NEEDS_CLEARER) {
-                $groups[$key]['rejected_count']++;
-            } elseif ($status === PhotoContentAssessment::STATUS_NOT_ASSESSED) {
-                $groups[$key]['not_assessed_count']++;
-            }
             if ($assessment instanceof PhotoContentAssessment && $assessment->customerAcceptedOverride()) {
                 $groups[$key]['customer_continued_anyway'] = true;
             }
@@ -250,14 +235,15 @@ final class IntakeAttentionContextBuilder
         $stats = [];
         foreach ($groups as $group) {
             $meta = $questions[$group['question_key']] ?? null;
+            $counts = PhotoContinueAnywayAttention::countStatuses($group['uploads']);
             // Geen `reference`: tellingen zijn context, geen citeerbaar bewijs.
             $stats[] = [
                 'question_key' => $group['question_key'],
                 'question_label' => $meta['question_label'] ?? $group['question_key'],
                 'section_instance_key' => $group['section_instance_key'],
-                'photo_count' => $group['photo_count'],
-                'rejected_count' => $group['rejected_count'],
-                'not_assessed_count' => $group['not_assessed_count'],
+                'photo_count' => $counts['total'],
+                'rejected_count' => $counts['rejected'],
+                'not_assessed_count' => $counts['not_assessed'],
                 'customer_continued_anyway' => $group['customer_continued_anyway'],
             ];
         }

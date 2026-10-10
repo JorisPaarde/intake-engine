@@ -18,6 +18,7 @@ use Illuminate\Support\Str;
  * Systeemaandachtspunt wanneer de klant ‘Toch doorgaan’ koos bij afgekeurde foto’s.
  *
  * Groepeert uitsluitend op question_key + section_instance_key (geen tekstvergelijking).
+ * Opgeslagen labels zijn een record; zichtbare tekst bouwt live vanaf de code.
  */
 final class PhotoContinueAnywayAttention
 {
@@ -31,7 +32,6 @@ final class PhotoContinueAnywayAttention
         'around_house_photos' => 'placement',
         'drain_photo' => 'condensate',
         'pipe_route_photos' => 'refrigerant',
-        'indoor_unit_position_photo' => 'placement',
     ];
 
     public static function isContinueAnywayCode(string $code): bool
@@ -96,6 +96,56 @@ final class PhotoContinueAnywayAttention
     }
 
     /**
+     * Huidige wizard-uploads: geen follow-up, geen installer_evidence, geen niet-beelden, niet superseded.
+     *
+     * @param  array<int, array{superseded: bool, supersession_label?: string|null, replaced_by_upload_id?: int|null}>  $supersessions
+     */
+    public static function isCurrentWizardUpload(IntakeUpload $upload, array $supersessions): bool
+    {
+        if ($upload->intake_follow_up_item_id !== null
+            || $upload->question_key === 'installer_evidence'
+            || ! str_starts_with((string) $upload->mime_type, 'image/')) {
+            return false;
+        }
+
+        $info = $supersessions[(int) $upload->id] ?? null;
+
+        return ! (is_array($info) && $info['superseded'] === true);
+    }
+
+    /**
+     * @return list<IntakeUpload>
+     */
+    public static function currentWizardUploadsAt(
+        Intake $intake,
+        string $questionKey,
+        ?string $sectionInstanceKey,
+    ): array {
+        $intake->loadMissing([
+            'uploads.followUpItem.round',
+            'followUpRounds.items.uploads',
+            'contributionTasks',
+            'dossierSubjects.records',
+        ]);
+        $supersessions = app(UploadSupersessionResolver::class)->resolve($intake);
+
+        /** @var list<IntakeUpload> $uploads */
+        $uploads = [];
+        foreach ($intake->uploads as $upload) {
+            if (! self::isCurrentWizardUpload($upload, $supersessions)) {
+                continue;
+            }
+            if ($upload->question_key !== $questionKey
+                || $upload->section_instance_key !== $sectionInstanceKey) {
+                continue;
+            }
+            $uploads[] = $upload;
+        }
+
+        return $uploads;
+    }
+
+    /**
      * @param  list<IntakeUpload>  $uploads
      * @return array{total: int, rejected: int, not_assessed: int}
      */
@@ -122,8 +172,56 @@ final class PhotoContinueAnywayAttention
     }
 
     /**
+     * Live zichtbare tekst voor Actueel. Null = verberg (geen afgekeurde/not_assessed meer).
+     * Gebruikt dezelfde ruimtenaambron als de galerijkop (AircoRoom.name).
+     */
+    public static function liveLabel(Intake $intake, string $code): ?string
+    {
+        $parsed = self::parseCode($code);
+        if ($parsed === null) {
+            return null;
+        }
+
+        $intake->loadMissing(['uploads', 'templateVersion.sections.questions', 'aircoRooms']);
+        $uploads = self::currentWizardUploadsAt(
+            $intake,
+            $parsed['question_key'],
+            $parsed['section_instance_key'],
+        );
+        $counts = self::countStatuses($uploads);
+
+        if ($counts['rejected'] + $counts['not_assessed'] === 0) {
+            return null;
+        }
+
+        $version = $intake->templateVersion;
+        if ($version === null) {
+            return null;
+        }
+
+        $place = self::placeLabel(
+            $intake,
+            $version,
+            $parsed['question_key'],
+            $parsed['section_instance_key'],
+        );
+        $question = self::findQuestion($version, $parsed['question_key']);
+        $questionLabel = $question instanceof IntakeQuestion && trim((string) $question->label) !== ''
+            ? trim((string) $question->label)
+            : $parsed['question_key'];
+
+        $sentences = self::buildSentences(
+            $counts['rejected'],
+            $counts['not_assessed'],
+            $counts['total'],
+        );
+
+        return $place.' · '.$questionLabel.': '.$sentences;
+    }
+
+    /**
      * Link onder een Actueel-fotomelding: anker + meervoud.
-     * Geen link als er geen huidige (niet-vervangen) uploads meer zijn.
+     * Geen link als er geen huidige afgekeurde/not_assessed uploads meer zijn.
      *
      * @return array{anchor: string, count: int, link_label: string}|null
      */
@@ -135,33 +233,15 @@ final class PhotoContinueAnywayAttention
         }
 
         $intake->loadMissing(['uploads', 'templateVersion.sections.questions']);
-        $supersessions = app(UploadSupersessionResolver::class)->resolve($intake);
-
-        /** @var list<IntakeUpload> $uploads */
-        $uploads = [];
-        foreach ($intake->uploads as $upload) {
-            if ($upload->question_key !== $parsed['question_key']
-                || $upload->section_instance_key !== $parsed['section_instance_key']
-                || $upload->intake_follow_up_item_id !== null) {
-                continue;
-            }
-
-            $info = $supersessions[(int) $upload->id] ?? null;
-            if ($info !== null && $info['superseded'] === true) {
-                continue;
-            }
-
-            $uploads[] = $upload;
-        }
-
+        $uploads = self::currentWizardUploadsAt(
+            $intake,
+            $parsed['question_key'],
+            $parsed['section_instance_key'],
+        );
         $counts = self::countStatuses($uploads);
-        if ($counts['total'] === 0) {
-            return null;
-        }
-
         $linkCount = $counts['rejected'] + $counts['not_assessed'];
         if ($linkCount === 0) {
-            $linkCount = $counts['total'];
+            return null;
         }
 
         $sectionKey = null;
@@ -223,7 +303,9 @@ final class PhotoContinueAnywayAttention
     }
 
     /**
-     * @param  list<IntakeUpload>  $uploadsAtPlace  niet-vervangen uploads bij deze vraag+plek
+     * Snapshot bij afronden (record). Zichtbare UI gebruikt {@see liveLabel()}.
+     *
+     * @param  list<IntakeUpload>  $uploadsAtPlace  huidige wizard-uploads bij deze vraag+plek
      * @return array{code: string, label: string}
      */
     public static function buildPoint(
