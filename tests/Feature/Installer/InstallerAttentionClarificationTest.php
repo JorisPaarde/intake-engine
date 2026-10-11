@@ -176,6 +176,84 @@ test('twee ruimtes met dezelfde fotovraag geven twee regels met opgeslagen ruimt
         ->and($labels[1])->toContain('Slaapkamer 2, 1e verdieping');
 });
 
+test('alle not_assessed zonder override geven één Actueel-punt met het juiste aantal', function () {
+    $intake = clarificationIntake();
+    clarificationRoom($intake, 'room-1', 'Woonkamer', 1);
+    $version = $intake->templateVersion()->with(['sections.questions.options'])->firstOrFail();
+
+    foreach (range(1, 3) as $i) {
+        $upload = app(StoreIntakeUpload::class)->handle(
+            $intake,
+            'room_photos',
+            'room-1',
+            clarificationFakeImage("not-assessed-{$i}.jpg"),
+        );
+        $upload->forceFill([
+            'content_assessment' => PhotoContentAssessment::notAssessed(PhotoSubject::Room)->toArray(),
+            'assessment_status' => PhotoAssessmentStatus::NotAssessed,
+        ])->save();
+        expect($upload->fresh()->contentAssessment()?->customerAcceptedOverride())->toBeFalse();
+    }
+
+    $check = app(CompletenessChecker::class)->check($intake->fresh(['uploads', 'aircoRooms']), $version);
+    $photoPoints = collect($check['attention_points'])
+        ->filter(fn (array $point): bool => PhotoContinueAnywayAttention::isContinueAnywayCode($point['code']))
+        ->values();
+
+    expect($photoPoints)->toHaveCount(1)
+        ->and($photoPoints[0]['code'])->toBe('photo_continue_anyway__room_photos__room-1')
+        ->and($photoPoints[0]['label'])->toBe(
+            'Woonkamer · Foto’s van de ruimte: De AI kon 3 foto’s niet beoordelen. De klant koos ‘Toch doorgaan’.',
+        );
+
+    $live = PhotoContinueAnywayAttention::liveLabel(
+        $intake->fresh(['uploads', 'aircoRooms', 'templateVersion.sections.questions']),
+        'photo_continue_anyway__room_photos__room-1',
+    );
+    expect($live)->toBe($photoPoints[0]['label']);
+});
+
+test('Actueel-punt voor not_assessed verdwijnt na geslaagde herbeoordeling', function () {
+    $intake = clarificationIntake();
+    clarificationRoom($intake, 'room-1', 'Woonkamer', 1);
+    $version = $intake->templateVersion()->with(['sections.questions.options'])->firstOrFail();
+
+    $upload = app(StoreIntakeUpload::class)->handle(
+        $intake,
+        'room_photos',
+        'room-1',
+        clarificationFakeImage('later-ok.jpg'),
+    );
+    $upload->forceFill([
+        'content_assessment' => PhotoContentAssessment::notAssessed(PhotoSubject::Room)->toArray(),
+        'assessment_status' => PhotoAssessmentStatus::NotAssessed,
+    ])->save();
+
+    $before = collect(app(CompletenessChecker::class)->check($intake->fresh(['uploads', 'aircoRooms']), $version)['attention_points'])
+        ->filter(fn (array $point): bool => PhotoContinueAnywayAttention::isContinueAnywayCode($point['code']))
+        ->values();
+    expect($before)->toHaveCount(1)
+        ->and(PhotoContinueAnywayAttention::liveLabel(
+            $intake->fresh(['uploads', 'aircoRooms', 'templateVersion.sections.questions']),
+            'photo_continue_anyway__room_photos__room-1',
+        ))->not->toBeNull();
+
+    $upload->forceFill([
+        'content_assessment' => PhotoContentAssessment::ok(PhotoSubject::Room)->toArray(),
+        'assessment_status' => PhotoAssessmentStatus::Assessed,
+    ])->save();
+
+    $after = collect(app(CompletenessChecker::class)->check($intake->fresh(['uploads', 'aircoRooms']), $version)['attention_points'])
+        ->filter(fn (array $point): bool => PhotoContinueAnywayAttention::isContinueAnywayCode($point['code']))
+        ->values();
+
+    expect($after)->toHaveCount(0)
+        ->and(PhotoContinueAnywayAttention::liveLabel(
+            $intake->fresh(['uploads', 'aircoRooms', 'templateVersion.sections.questions']),
+            'photo_continue_anyway__room_photos__room-1',
+        ))->toBeNull();
+});
+
 test('deels afgekeurd en not_assessed formuleren aparte zinnen', function () {
     $intake = clarificationIntake();
     clarificationRoom($intake, 'room-1', 'Woonkamer', 1);

@@ -15,10 +15,11 @@ use App\Domains\Intake\Services\DecisionReadinessService;
 use Illuminate\Support\Str;
 
 /**
- * Systeemaandachtspunt wanneer de klant ‘Toch doorgaan’ koos bij afgekeurde foto’s.
+ * Systeemaandachtspunt voor Actueel bij Toch-doorgaan-override en/of not_assessed.
  *
  * Groepeert uitsluitend op question_key + section_instance_key (geen tekstvergelijking).
- * Opgeslagen labels zijn een record; zichtbare tekst bouwt live vanaf de code.
+ * Opgeslagen labels zijn een record; zichtbare tekst bouwt live vanaf de code
+ * (verdwijnt als er geen afgekeurde/not_assessed uploads meer zijn).
  */
 final class PhotoContinueAnywayAttention
 {

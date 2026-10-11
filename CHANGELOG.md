@@ -6,6 +6,8 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Fixed
 
+- **Actueel toont not_assessed-foto’s zonder Toch-doorgaan-override:** `CompletenessChecker::photoContinueAnywayPoints` maakt ook een `photo_continue_anyway__…`-punt per vraag+plek wanneer er huidige `not_assessed`-uploads zijn zonder `customerAcceptedOverride` (fotostatus: not_assessed vraagt geen Toch doorgaan). Label via `PhotoContinueAnywayAttention` (live); verdwijnt bij geslaagde herbeoordeling zoals bij #179. Groep blijft op keys, niet op tekst.
+
 - **Wizard-mount overschreef model-verdieping met lokale regex (BL-148 / #173 review):** `DeriveIntentFromRequest` gated de lokale parser alleen op `ai.text_inference.enabled`. Met tekst-AI aan is `allowExternal: false` (klantwizard-mount) een no-op; offline-fallback alleen als tekst-AI uit staat. `InterpretFollowUpText` registreert `AiRun` (timeout ≤ 8 s); standalone-getal: `[.,]` telt alleen als boundary naast een digit (dus `2,6` weigert bare `2`, `nok 2.` / `nok 2, knie 1` accepteren). Eval: configureerbare output-dir; fake runs schrijven geen `baseline/`/HISTORY; bootstrap alleen `AI_API_KEY`; live-env `production`/`staging`; `migrate:fresh` alleen met `--migrate`.
 
 ### Added
