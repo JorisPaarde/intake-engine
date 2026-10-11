@@ -1,0 +1,79 @@
+{
+  "id": "rc-no-fusebox-photo",
+  "kind": "report_claims",
+  "origin": "Control — no fusebox assessment present",
+  "source_kind": "variant",
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
+  "note": "No fusebox photo/assessment; summary uploads=[] matches prod. Must not invent phase or capacity_full.",
+  "summary_input": {
+    "answers": {
+      "request_reason": {
+        "text": "Airco gewenst in de woonkamer."
+      }
+    },
+    "external_facts": {},
+    "follow_up": [],
+    "attention_point_codes": [],
+    "uploads": [],
+    "template_key": "airco",
+    "template_version": 26
+  },
+  "attention_input": {
+    "answers": {
+      "request_reason": {
+        "text": "Airco gewenst in de woonkamer."
+      }
+    },
+    "external_facts": {},
+    "answer_context": [
+      {
+        "reference": "request_reason",
+        "question_key": "request_reason",
+        "question_label": "Waarom airco?",
+        "section_key": "intro",
+        "section_label": "Start",
+        "section_instance_key": null,
+        "answer": {
+          "text": "Airco gewenst in de woonkamer."
+        },
+        "prefill_source": "installer"
+      }
+    ],
+    "external_fact_context": [],
+    "uploads": [],
+    "follow_up": [],
+    "system_attention_points": [],
+    "completeness": {},
+    "installer_review": null,
+    "pipe_routes": [],
+    "template_key": "airco",
+    "template_version": 26,
+    "intake_status": "submitted"
+  },
+  "expected": {
+    "claims": [
+      {
+        "id": "phase_3",
+        "concept": "phase_3",
+        "allowed": "forbidden"
+      },
+      {
+        "id": "phase_1",
+        "concept": "phase_1",
+        "allowed": "forbidden"
+      },
+      {
+        "id": "capacity_full",
+        "concept": "capacity_full",
+        "allowed": "forbidden"
+      }
+    ],
+    "must_not_invent_phase": true,
+    "require_evidence_on_points": true
+  },
+  "disputed_facts": {}
+}

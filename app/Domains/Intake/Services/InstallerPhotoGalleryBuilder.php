@@ -210,6 +210,48 @@ final class InstallerPhotoGalleryBuilder
     }
 
     /**
+     * 1-based gallery order per upload within (question_key, section_instance_key).
+     *
+     * Counts every upload in that scope (including wrong-subject / replaced /
+     * ineligible), sorted by sort_order then id — same ordering the gallery uses
+     * within a question. Callers that filter for AI evidence still get the gallery
+     * number of the surviving photo (e.g. rejected #1 + new #2 → new is 2).
+     *
+     * @return array<int, int> upload_id => order
+     */
+    public function photoOrdersByUploadId(Intake $intake): array
+    {
+        $intake->loadMissing(['uploads']);
+
+        /** @var array<string, list<IntakeUpload>> $groups */
+        $groups = [];
+
+        $sorted = $intake->uploads
+            ->sortBy([
+                ['sort_order', 'asc'],
+                ['id', 'asc'],
+            ])
+            ->values();
+
+        foreach ($sorted as $upload) {
+            $groupKey = $upload->question_key.'|'.(string) ($upload->section_instance_key ?? '');
+            $groups[$groupKey][] = $upload;
+        }
+
+        /** @var array<int, int> $orders */
+        $orders = [];
+        foreach ($groups as $uploads) {
+            $order = 1;
+            foreach ($uploads as $upload) {
+                $orders[(int) $upload->id] = $order;
+                $order++;
+            }
+        }
+
+        return $orders;
+    }
+
+    /**
      * Samenvatting onder "Foto’s en bestanden" (alleen niet-vervangen fotobestanden).
      */
     public function summaryLine(Intake $intake): string

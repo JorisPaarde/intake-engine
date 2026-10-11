@@ -59,3 +59,10 @@ it('builds a room-name-autosave scenario starting on room_name', function () {
         ->and($payload['access_token'])->toHaveLength(64)
         ->and($payload['customer_url'])->toContain('/o/');
 });
+
+it('builds resume-after-known-edit scenario', function () {
+    $resume = app(E2eScenarioFactory::class)->create('resume-after-known-edit');
+    expect($resume['scenario'])->toBe('resume-after-known-edit')
+        ->and($resume['target_question_key'])->toBe('cooling_heating')
+        ->and($resume['access_token'])->toHaveLength(64);
+});
