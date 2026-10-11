@@ -1,0 +1,186 @@
+{
+  "id": "rc-n14-phase-unknown-vs-ai",
+  "kind": "report_claims",
+  "origin": "N14 / opname #139 (desktop) — reconstructed Testmans: klant weet 3-fase niet, AI bevestigt 3-fase",
+  "source_kind": "reconstructed",
+  "components": ["C5", "C7", "C8"],
+  "note": "Klant antwoordt 'Weet ik niet' op 3-fase. Meterkastfoto-AI zegt three_phase. Onwetendheid is geen tegengestelde bewering. Verboden: 'Tegenstrijdigheid' tussen niet-weten en AI-fase. AI-fase mag hedged observatie/te controleren zijn.",
+  "summary_input": {
+    "answers": {
+      "electrical_phase_known": {
+        "value": "unknown",
+        "label": "Weet ik niet"
+      },
+      "fusebox_photo": {
+        "upload_ids": ["eval-upload-fusebox-n14"]
+      }
+    },
+    "external_facts": {
+      "fusebox_photo_assessment": {
+        "value": {
+          "phase": "three_phase",
+          "empty_module_space": "visible",
+          "confidence": "medium",
+          "evidence": "Hoofdschakelaar toont drie fasen.",
+          "retake_instruction": null,
+          "subject_match": "yes",
+          "provider": "openai",
+          "model": "eval-fixture",
+          "upload_ids": [1]
+        },
+        "source": "ai",
+        "confidence": "medium"
+      }
+    },
+    "follow_up": [],
+    "attention_point_codes": [],
+    "template_key": "airco",
+    "template_version": 26
+  },
+  "attention_input": {
+    "answers": {
+      "electrical_phase_known": {
+        "value": "unknown",
+        "label": "Weet ik niet"
+      },
+      "fusebox_photo": {
+        "upload_ids": ["eval-upload-fusebox-n14"]
+      }
+    },
+    "external_facts": {
+      "fusebox_photo_assessment": {
+        "value": {
+          "phase": "three_phase",
+          "empty_module_space": "visible",
+          "confidence": "medium",
+          "evidence": "Hoofdschakelaar toont drie fasen."
+        },
+        "source": "ai",
+        "confidence": "medium"
+      }
+    },
+    "answer_context": [
+      {
+        "reference": "electrical_phase_known@answer:survey",
+        "question_key": "electrical_phase_known",
+        "question_label": "Weet je of er 3-fase (krachtstroom) is?",
+        "section_key": "power",
+        "section_label": "Stroom",
+        "section_instance_key": null,
+        "answer": {
+          "value": "unknown",
+          "label": "Weet ik niet"
+        },
+        "prefill_source": null
+      }
+    ],
+    "external_fact_context": [
+      {
+        "reference": "fusebox_photo_assessment@fact:fact_eval_n14_phase",
+        "fact_key": "fusebox_photo_assessment",
+        "label": "Automatische beoordeling meterkastfoto",
+        "value": {
+          "phase": "three_phase",
+          "empty_module_space": "visible",
+          "confidence": "medium",
+          "evidence": "Hoofdschakelaar toont drie fasen."
+        },
+        "source": "ai",
+        "confidence": "medium",
+        "captured_at": "2026-10-11T10:05:00+00:00"
+      }
+    ],
+    "uploads": [
+      {
+        "reference": "fusebox_photo@upload:upload_n14_3ph",
+        "question_key": "fusebox_photo",
+        "question_label": "Foto van de meterkast",
+        "section_label": "Stroom",
+        "section_instance_key": null,
+        "context": "intake",
+        "mime_type": "image/jpeg",
+        "size_bytes": 1100000,
+        "usability_verdict": "usable",
+        "content_assessment": {
+          "status": "ok",
+          "expected_subject": "fusebox",
+          "detected_subject": "fusebox",
+          "customer_message": null,
+          "phase": "three_phase",
+          "empty_module_space": "visible",
+          "confidence": "medium",
+          "retake_requested": false,
+          "evidence": "Hoofdschakelaar toont drie fasen."
+        }
+      }
+    ],
+    "follow_up": [],
+    "system_attention_points": [],
+    "completeness": {},
+    "installer_review": null,
+    "pipe_routes": [],
+    "template_key": "airco",
+    "template_version": 26,
+    "intake_status": "submitted"
+  },
+  "expected": {
+    "claims": [
+      {
+        "id": "false_unknown_phase_contradiction",
+        "concept": "false_unknown_phase_contradiction",
+        "allowed": "forbidden",
+        "terms": [
+          "/tegenstrijdig\\w*.{0,140}(niet te weten|weet (het )?niet|weet ik niet|onbekend)/iu",
+          "/(niet te weten|weet (het )?niet|weet ik niet|onbekend).{0,140}tegenstrijdig/iu",
+          "/tegenstrijdig\\w*.{0,80}3-fase/iu",
+          "source_conflict_phase_unknown"
+        ]
+      },
+      {
+        "id": "phase_3",
+        "concept": "phase_3",
+        "allowed": "hedged_only"
+      }
+    ],
+    "attention_confidence_ceiling": "medium",
+    "require_evidence_on_points": true
+  },
+  "fake_attention_output": {
+    "points": [
+      {
+        "code": "source_conflict_phase_unknown",
+        "label": "Tegenstrijdigheid: klant geeft aan 3-fase niet te weten, AI-analyse meterkastfoto lijkt 3-fase te bevestigen.",
+        "confidence": "medium",
+        "evidence": [
+          {
+            "source_type": "answer",
+            "reference": "electrical_phase_known@answer:survey"
+          },
+          {
+            "source_type": "external_fact",
+            "reference": "fusebox_photo_assessment@fact:fact_eval_n14_phase"
+          }
+        ]
+      },
+      {
+        "code": "verify_phase",
+        "label": "3-fase lijkt zichtbaar op de meterkastfoto (klant wist het niet).",
+        "confidence": "medium",
+        "evidence": [
+          {
+            "source_type": "external_fact",
+            "reference": "fusebox_photo_assessment@fact:fact_eval_n14_phase"
+          }
+        ]
+      }
+    ]
+  },
+  "fake_summary_output": {
+    "summary": "Familie Testmans weet niet of er 3-fase is. Op de meterkastfoto lijkt een 3-fase aansluiting zichtbaar.",
+    "highlights": [
+      "Klant: 3-fase onbekend",
+      "3-fase lijkt zichtbaar op meterkastfoto"
+    ]
+  },
+  "disputed_facts": {}
+}

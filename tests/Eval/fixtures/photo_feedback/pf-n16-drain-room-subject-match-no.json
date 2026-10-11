@@ -1,0 +1,35 @@
+{
+  "id": "pf-n16-drain-room-subject-match-no",
+  "kind": "photo_feedback",
+  "origin": "N16 variant — drain_photo met detected=room en subject_match=no (derive OutdoorLocation-pad)",
+  "source_kind": "variant",
+  "components": ["C5", "C7"],
+  "note": "Room zit in acceptedSubjects voor drain, maar PhotoContentAssessment.fromModelOutput forceert wrong_subject bij OutdoorLocation + subject_match=no op het derive-pad. Message blijft OutdoorLocation-copy.",
+  "question_key": "drain_photo",
+  "profile_name": "drain",
+  "prompt_name": "drain_assessment",
+  "is_optional": true,
+  "model_output": {
+    "drain_location": "unknown",
+    "detected_subject": "room",
+    "subject_match": "no",
+    "confidence": "low",
+    "evidence": "Kameroverzicht zonder regenpijp, putje of goot.",
+    "retake_instruction": null
+  },
+  "code_path": {
+    "expected_subject": "outdoor_location",
+    "accepted_subjects": ["outdoor_location", "outdoor_unit", "pipe_route", "room"],
+    "assessment_status": "wrong_subject",
+    "current_customer_message": "Dit is een kamer-/ruimtefoto; we hebben een foto van de gevel, tuin of buitenplek voor de unit (zonder bestaande airco is prima) nodig."
+  },
+  "expected": {
+    "customer_message_must_contain": ["afvoer"],
+    "customer_message_must_not_contain": [
+      "buitenplek voor de unit",
+      "gevel, tuin of buitenplek voor de unit"
+    ],
+    "assessment_status": "wrong_subject",
+    "optional_tone": "soft"
+  }
+}

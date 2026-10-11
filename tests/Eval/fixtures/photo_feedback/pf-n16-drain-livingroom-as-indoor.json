@@ -1,0 +1,40 @@
+{
+  "id": "pf-n16-drain-livingroom-as-indoor",
+  "kind": "photo_feedback",
+  "origin": "N16 / opname #138 (mobiel) — Q29 Afvoer in de buurt, optionele drain_photo; woonkamerfoto als indoor_unit gemarkeerd",
+  "source_kind": "reconstructed",
+  "components": ["C5", "C7"],
+  "note": "Context bereikt de evaluator wél (question_key=drain_photo, profile=drain). Bug: expected subject = OutdoorLocation → mismatchMessage praat over gevel/tuin/buitenplek voor de unit. Verwacht: afvoerplek-taal; optionele foto geen 'verplicht afgekeurd'-toon.",
+  "question_key": "drain_photo",
+  "profile_name": "drain",
+  "prompt_name": "drain_assessment",
+  "is_optional": true,
+  "model_output": {
+    "drain_location": "unknown",
+    "detected_subject": "indoor_unit",
+    "subject_match": "no",
+    "confidence": "low",
+    "evidence": "Woonkamerinterieur met meubels; geen afvoerplek zichtbaar.",
+    "retake_instruction": null
+  },
+  "code_path": {
+    "expected_subject": "outdoor_location",
+    "accepted_subjects": ["outdoor_location", "outdoor_unit", "pipe_route", "room"],
+    "assessment_status": "wrong_subject",
+    "current_customer_message": "Dit is een binnenunit; we hebben een foto van de gevel, tuin of buitenplek voor de unit (zonder bestaande airco is prima) nodig."
+  },
+  "expected": {
+    "customer_message_must_contain": ["afvoer"],
+    "customer_message_must_not_contain": [
+      "buitenplek voor de unit",
+      "gevel, tuin of buitenplek voor de unit",
+      "buitenunit"
+    ],
+    "assessment_status": "wrong_subject",
+    "optional_tone": "soft",
+    "optional_tone_must_not_contain": [
+      "niet goed genoeg",
+      "verplicht"
+    ]
+  }
+}

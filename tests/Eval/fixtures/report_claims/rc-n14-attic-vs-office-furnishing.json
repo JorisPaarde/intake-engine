@@ -1,0 +1,191 @@
+{
+  "id": "rc-n14-attic-vs-office-furnishing",
+  "kind": "report_claims",
+  "origin": "N14 / opname #139 (desktop) — reconstructed Testmans: zolderslaapkamer vs bureau-inrichting",
+  "source_kind": "reconstructed",
+  "components": ["C5", "C7", "C8"],
+  "note": "Klant noemt ruimte 'zolderslaapkamer' (gewenst gebruik). Overzichtsfoto toont bureau/computer; AI noemt 'werkkamer'. Inrichting ≠ tegenspraak van gewenst gebruik. Verboden: 'Tegenstrijdigheid' tussen kamernaam en inrichting. Observatie van bureau mag wél (niet als conflict).",
+  "summary_input": {
+    "answers": {
+      "room_name": {
+        "text": "zolderslaapkamer"
+      },
+      "room_type": {
+        "value": "bedroom"
+      },
+      "floor_level": {
+        "value": "2"
+      }
+    },
+    "external_facts": {
+      "room_photo_assessment": {
+        "value": {
+          "room_type": "office",
+          "confidence": "medium",
+          "evidence": "Bureau met computer zichtbaar; lijkt op een werkkamerinrichting.",
+          "detected_subject": "room",
+          "subject_match": "yes"
+        },
+        "source": "ai",
+        "confidence": "medium"
+      }
+    },
+    "follow_up": [],
+    "attention_point_codes": [],
+    "template_key": "airco",
+    "template_version": 26
+  },
+  "attention_input": {
+    "answers": {
+      "room_name": {
+        "text": "zolderslaapkamer"
+      },
+      "room_type": {
+        "value": "bedroom"
+      }
+    },
+    "external_facts": {
+      "room_photo_assessment": {
+        "value": {
+          "room_type": "office",
+          "confidence": "medium",
+          "evidence": "Bureau met computer zichtbaar; lijkt op een werkkamerinrichting."
+        },
+        "source": "ai",
+        "confidence": "medium"
+      }
+    },
+    "answer_context": [
+      {
+        "reference": "room_name@answer:room-1",
+        "question_key": "room_name",
+        "question_label": "Naam van de ruimte",
+        "section_key": "rooms",
+        "section_label": "Ruimtes",
+        "section_instance_key": "room-1",
+        "answer": {
+          "text": "zolderslaapkamer"
+        },
+        "prefill_source": null
+      },
+      {
+        "reference": "room_type@answer:room-1",
+        "question_key": "room_type",
+        "question_label": "Soort ruimte",
+        "section_key": "rooms",
+        "section_label": "Ruimtes",
+        "section_instance_key": "room-1",
+        "answer": {
+          "value": "bedroom",
+          "label": "Slaapkamer"
+        },
+        "prefill_source": null
+      },
+      {
+        "reference": "floor_level@answer:room-1",
+        "question_key": "floor_level",
+        "question_label": "Verdieping",
+        "section_key": "rooms",
+        "section_label": "Ruimtes",
+        "section_instance_key": "room-1",
+        "answer": {
+          "value": "2",
+          "label": "2e verdieping"
+        },
+        "prefill_source": null
+      }
+    ],
+    "external_fact_context": [
+      {
+        "reference": "room_photo_assessment@fact:fact_eval_room_overview",
+        "fact_key": "room_photo_assessment",
+        "label": "Automatische beoordeling overzichtsfoto ruimte",
+        "value": {
+          "room_type": "office",
+          "confidence": "medium",
+          "evidence": "Bureau met computer zichtbaar; lijkt op een werkkamerinrichting.",
+          "detected_subject": "room",
+          "subject_match": "yes"
+        },
+        "source": "ai",
+        "confidence": "medium",
+        "captured_at": "2026-10-11T10:00:00+00:00"
+      }
+    ],
+    "uploads": [
+      {
+        "reference": "room_photos@upload:upload_attic_desk",
+        "question_key": "room_photos",
+        "question_label": "Overzichtsfoto van de ruimte",
+        "section_label": "Ruimtes",
+        "section_instance_key": "room-1",
+        "context": "intake",
+        "mime_type": "image/jpeg",
+        "size_bytes": 900000,
+        "usability_verdict": "usable",
+        "content_assessment": {
+          "status": "ok",
+          "expected_subject": "room",
+          "detected_subject": "room",
+          "customer_message": null,
+          "room_type": "office",
+          "confidence": "medium",
+          "retake_requested": false,
+          "evidence": "Bureau met computer zichtbaar; lijkt op een werkkamerinrichting."
+        }
+      }
+    ],
+    "follow_up": [],
+    "system_attention_points": [],
+    "completeness": {},
+    "installer_review": null,
+    "pipe_routes": [],
+    "template_key": "airco",
+    "template_version": 26,
+    "intake_status": "submitted"
+  },
+  "expected": {
+    "claims": [
+      {
+        "id": "false_room_use_contradiction",
+        "concept": "false_room_use_contradiction",
+        "allowed": "forbidden",
+        "terms": [
+          "/tegenstrijdig\\w*.{0,120}(zolder|slaapkamer|werkkamer|inrichting|bureau)/iu",
+          "/(zolder|slaapkamer|werkkamer).{0,80}tegenstrijdig/iu",
+          "/conflict.{0,80}(zolder|slaapkamer|werkkamer)/iu",
+          "source_conflict_room_type",
+          "room_name_conflict"
+        ]
+      }
+    ],
+    "require_evidence_on_points": true
+  },
+  "fake_attention_output": {
+    "points": [
+      {
+        "code": "source_conflict_room_type",
+        "label": "Tegenstrijdigheid: klant noemt ruimte 'zolderslaapkamer', AI-analyse identificeert ruimte als 'werkkamer'.",
+        "confidence": "medium",
+        "evidence": [
+          {
+            "source_type": "answer",
+            "reference": "room_name@answer:room-1"
+          },
+          {
+            "source_type": "upload",
+            "reference": "room_photos@upload:upload_attic_desk"
+          }
+        ]
+      }
+    ]
+  },
+  "fake_summary_output": {
+    "summary": "Familie Testmans wil airco op de 2e verdieping in de zolderslaapkamer. Op de overzichtsfoto lijkt een bureau met computer zichtbaar.",
+    "highlights": [
+      "Gewenste ruimte: zolderslaapkamer (2e verdieping)",
+      "Overzichtsfoto: bureau/computer lijkt zichtbaar"
+    ]
+  },
+  "disputed_facts": {}
+}

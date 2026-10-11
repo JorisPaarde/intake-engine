@@ -1,0 +1,35 @@
+{
+  "id": "pf-n16-drain-correct-downspout",
+  "kind": "photo_feedback",
+  "origin": "N16 control — geldige afvoerplek (regenpijp) mag ok blijven",
+  "source_kind": "variant",
+  "components": ["C5", "C7"],
+  "note": "Controle: juiste afvoercontext → geen mismatch-feedback. Voorkomt dat een prompt/codefix te streng wordt.",
+  "question_key": "drain_photo",
+  "profile_name": "drain",
+  "prompt_name": "drain_assessment",
+  "is_optional": true,
+  "model_output": {
+    "drain_location": "outside_nearby",
+    "detected_subject": "outdoor_location",
+    "subject_match": "yes",
+    "confidence": "high",
+    "evidence": "Regenpijp en gevelgoot zichtbaar naast de achtergevel.",
+    "retake_instruction": null
+  },
+  "code_path": {
+    "expected_subject": "outdoor_location",
+    "accepted_subjects": ["outdoor_location", "outdoor_unit", "pipe_route", "room"],
+    "assessment_status": "ok",
+    "current_customer_message": null
+  },
+  "expected": {
+    "customer_message_must_contain": [],
+    "customer_message_must_not_contain": [
+      "buitenplek voor de unit",
+      "binnenunit"
+    ],
+    "assessment_status": "ok",
+    "optional_tone": "none"
+  }
+}
