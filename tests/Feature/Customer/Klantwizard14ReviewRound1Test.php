@@ -219,8 +219,7 @@ test('R1-9: gevel/tuin-advies alleen outdoor/around_house; drain blijft A4-wrong
         ->and($drainWrong->customerMessage())->toBe(
             'Dit lijkt geen foto van de afvoer; we zien de binnenunit. Maak een foto van de plek waar de condensafvoer kan lozen, zoals een regenpijp, putje of goot.'
         )
-        ->and($drainWrong->customerMessage())->not->toContain('gevel, tuin of buitenplek')
-        ->and($drainWrong->customerRetakePrompt())->toBe('Maak een nieuwe, duidelijke foto van de afvoerplek');
+        ->and($drainWrong->customerMessage())->not->toContain('gevel, tuin of buitenplek');
 });
 
 test('N16: drain_photo expected_subject payload stays outdoor_location like main', function () {

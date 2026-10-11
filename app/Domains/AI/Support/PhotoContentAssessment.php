@@ -12,7 +12,6 @@ namespace App\Domains\AI\Support;
  *     expected_subject: string|null,
  *     detected_subject: string|null,
  *     customer_message: string|null,
- *     question_key?: string,
  *     customer_accepted_mismatch?: bool,
  *     customer_accepted_override?: bool
  * }
@@ -47,18 +46,13 @@ final class PhotoContentAssessment
         PhotoSubject $detected,
         ?string $questionKey = null,
     ): self {
-        $payload = [
+        return new self([
             'status' => self::STATUS_WRONG_SUBJECT,
             'expected_subject' => $expected->value,
             'detected_subject' => $detected->value,
+            // questionKey shapes customer_message only; never stored in the verdict.
             'customer_message' => $expected->mismatchMessage($detected, $questionKey),
-        ];
-        // Structured question key for drain retake copy — not sent to the model.
-        if (is_string($questionKey) && $questionKey !== '') {
-            $payload['question_key'] = $questionKey;
-        }
-
-        return new self($payload);
+        ]);
     }
 
     public static function needsClearer(PhotoSubject $expected, string $message): self
@@ -188,21 +182,14 @@ final class PhotoContentAssessment
             return null;
         }
 
-        $payload = [
+        return new self([
             'status' => (string) $raw['status'],
             'expected_subject' => is_string($raw['expected_subject'] ?? null) ? $raw['expected_subject'] : null,
             'detected_subject' => is_string($raw['detected_subject'] ?? null) ? $raw['detected_subject'] : null,
             'customer_message' => is_string($raw['customer_message'] ?? null) ? $raw['customer_message'] : null,
             'customer_accepted_mismatch' => (bool) ($raw['customer_accepted_mismatch'] ?? false),
             'customer_accepted_override' => (bool) ($raw['customer_accepted_override'] ?? false),
-        ];
-
-        // Structured question key for drain retake copy (not model input).
-        if (is_string($raw['question_key'] ?? null) && $raw['question_key'] !== '') {
-            $payload['question_key'] = $raw['question_key'];
-        }
-
-        return new self($payload);
+        ]);
     }
 
     public function status(): string
@@ -306,12 +293,9 @@ final class PhotoContentAssessment
         }
 
         $expected = $this->expectedSubject();
-        $questionKey = is_string($this->value['question_key'] ?? null)
-            ? (string) $this->value['question_key']
-            : null;
 
         return $expected instanceof PhotoSubject
-            ? $expected->customerRetakePrompt($questionKey)
+            ? $expected->customerRetakePrompt()
             : 'Maak een nieuwe, duidelijke foto van wat we vroegen';
     }
 

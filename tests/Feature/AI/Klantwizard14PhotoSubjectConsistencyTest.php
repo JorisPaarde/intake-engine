@@ -147,6 +147,43 @@ test('N16: drain_photo mismatch never shows outdoor-unit place sentence', functi
             'Dit lijkt geen foto van de afvoer; we zien de binnenunit. Maak een foto van de plek waar de condensafvoer kan lozen, zoals een regenpijp, putje of goot.'
         )
         ->and($assessment?->customerMessage())->not->toContain('gevel, tuin of buitenplek')
-        ->and($assessment?->customerMessage())->not->toContain('buitenplek voor de unit')
-        ->and($assessment?->customerRetakePrompt())->toBe('Maak een nieuwe, duidelijke foto van de afvoerplek');
+        ->and($assessment?->customerMessage())->not->toContain('buitenplek voor de unit');
+});
+
+test('N16: drain_photo model input expected_subject outdoor_location; stored verdict keys match main', function () {
+    $intake = makeKlantwizard14PhotoIntake();
+
+    FakeAiClient::alwaysReturn([
+        'drain_location' => 'unknown',
+        'detected_subject' => 'indoor_unit',
+        'subject_match' => 'no',
+        'confidence' => 'low',
+        'evidence' => 'Woonkamerinterieur; geen afvoerplek zichtbaar.',
+        'retake_instruction' => null,
+    ]);
+
+    Queue::fake([AssessUploadedPhotoJob::class]);
+
+    $upload = app(StoreIntakeUpload::class)->handle(
+        $intake,
+        'drain_photo',
+        null,
+        UploadedFile::fake()->image('drain-model-input.jpg', 1240, 940),
+    );
+    runAssessUploadedPhotoJob($upload->id);
+
+    $request = FakeAiClient::lastRequest();
+    expect($request)->not->toBeNull()
+        ->and($request?->input['expected_subject'] ?? null)->toBe('outdoor_location');
+
+    $raw = $upload->fresh()?->content_assessment;
+    expect($raw)->toBeArray()
+        ->and(array_keys($raw ?? []))->toEqualCanonicalizing([
+            'status',
+            'expected_subject',
+            'detected_subject',
+            'customer_message',
+        ])
+        ->and($raw)->not->toHaveKey('question_key')
+        ->and($raw['expected_subject'] ?? null)->toBe('outdoor_location');
 });

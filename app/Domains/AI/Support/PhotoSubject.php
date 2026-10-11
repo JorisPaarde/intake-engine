@@ -285,12 +285,8 @@ enum PhotoSubject: string
     /**
      * Action-oriented customer retake prompt (je/jouw). Installer diagnosis stays separate.
      */
-    public function customerRetakePrompt(?string $questionKey = null): string
+    public function customerRetakePrompt(): string
     {
-        if ($questionKey === 'drain_photo') {
-            return 'Maak een nieuwe, duidelijke foto van de afvoerplek';
-        }
-
         return match ($this) {
             self::Fusebox => 'Maak een nieuwe, duidelijke foto van je meterkast',
             self::Room => 'Maak een nieuwe, duidelijke foto van de hele ruimte',
