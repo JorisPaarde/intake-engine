@@ -16,12 +16,11 @@ final class ConnectionRouteDecisionPresenter
 {
     /**
      * @return array{
-     *     show_panel: bool,
      *     title: string,
-     *     guidance: string,
      *     steps: list<array{label: string, state: 'done'|'current'|'todo'}>,
      *     can_approve: bool,
      *     approve_blocked_reason: string|null,
+     *     approve_warning: string|null,
      *     can_site_visit: bool,
      *     show_summarize: bool,
      *     photo_label: string
@@ -31,87 +30,92 @@ final class ConnectionRouteDecisionPresenter
     {
         $session = $connection->routeSession;
         $status = $connection->status;
-        $hasSegments = is_array($connection->segments) && $connection->segments !== [];
         $sessionStatus = $session?->status;
         $collecting = $sessionStatus === PipeRouteStatus::Collecting;
         $proposedSession = $sessionStatus === PipeRouteStatus::Proposed;
+        $segmentCount = $session?->segments->count() ?? 0;
         $alreadyDone = in_array($status, [
             AircoConnectionStatus::Approved,
             AircoConnectionStatus::NotRemotelyResolvable,
         ], true);
 
-        $canApprove = ! $alreadyDone
-            && in_array($status, [
-                AircoConnectionStatus::Proposed,
-                AircoConnectionStatus::Plausible,
-            ], true)
-            && ($session === null || $proposedSession);
+        // Same gate as ApprovePipeRoute: a Proposed session may be approved even when
+        // synthesis left the connection on NeedsEvidence (route_continuous=false).
+        $canApprove = ! $alreadyDone && (
+            $proposedSession
+            || (
+                $session === null
+                && in_array($status, [
+                    AircoConnectionStatus::Proposed,
+                    AircoConnectionStatus::Plausible,
+                ], true)
+            )
+        );
 
         $approveBlockedReason = null;
         if (! $canApprove && ! $alreadyDone) {
             if ($collecting) {
-                $approveBlockedReason = 'Vat de routesegmenten eerst samen met “Route samenvatten”.';
+                $approveBlockedReason = 'Vat eerst de route samen.';
             } elseif (in_array($status, [
                 AircoConnectionStatus::Unknown,
                 AircoConnectionStatus::NeedsEvidence,
             ], true)) {
-                $approveBlockedReason = 'Er mist nog bewijs. Voeg een eigen installateursfoto toe, vraag de klant, of kies locatiebezoek.';
+                $approveBlockedReason = 'Er mist nog bewijs. Voeg een foto toe, vraag de klant of kies locatiebezoek.';
             } else {
-                $approveBlockedReason = 'Deze route is nog niet klaar om goed te keuren.';
+                $approveBlockedReason = 'Deze route kun je nog niet goedkeuren.';
             }
         }
 
-        $steps = [];
-        if ($hasSegments || in_array($status, [
-            AircoConnectionStatus::Proposed,
-            AircoConnectionStatus::Plausible,
-        ], true)) {
-            $steps[] = [
-                'label' => 'Klantfoto’s en AI-route zijn al beschikbaar',
-                'state' => 'done',
-            ];
-        } else {
-            $steps[] = [
-                'label' => 'Bekijk klantfoto’s en de huidige route',
-                'state' => 'current',
-            ];
-        }
+        $uncertainties = array_values(array_filter(
+            array_map(
+                static fn (string $item): string => trim($item),
+                is_array($connection->uncertainties) ? $connection->uncertainties : [],
+            ),
+            static fn (string $item): bool => $item !== '',
+        ));
+        $approveWarning = ($canApprove && $uncertainties !== [])
+            ? implode(' · ', $uncertainties)
+            : null;
 
-        if ($collecting) {
-            $steps[] = [
-                'label' => 'Eigen installateursfoto’s verzamelen',
-                'state' => 'current',
-            ];
-            $steps[] = [
-                'label' => 'Route samenvatten',
-                'state' => 'todo',
-            ];
-        } elseif ($proposedSession) {
-            $steps[] = [
-                'label' => 'Route is samengevat — controleer hem als geheel',
-                'state' => 'current',
-            ];
-        } else {
-            $steps[] = [
-                'label' => 'Eigen installateursfoto is optioneel',
-                'state' => $canApprove ? 'todo' : 'current',
-            ];
-        }
+        $currentIndex = match (true) {
+            $alreadyDone => 4,
+            $collecting && $segmentCount > 0 => 2,
+            $collecting => 1,
+            $proposedSession, $canApprove => 3,
+            in_array($status, [
+                AircoConnectionStatus::Unknown,
+                AircoConnectionStatus::NeedsEvidence,
+            ], true) => 1,
+            default => 0,
+        };
 
-        $steps[] = [
-            'label' => 'Beslis: goedkeuren, locatiebezoek, of meer foto',
-            'state' => $alreadyDone ? 'done' : ($canApprove || $approveBlockedReason !== null ? 'current' : 'todo'),
+        $labels = [
+            'Bekijk de route en de foto’s',
+            'Maak je eigen foto’s',
+            'Vat de route samen',
+            'Keur goed of kies locatiebezoek',
         ];
 
+        $steps = [];
+        foreach ($labels as $index => $label) {
+            $steps[] = [
+                'label' => $label,
+                'state' => match (true) {
+                    $index < $currentIndex => 'done',
+                    $index === $currentIndex => 'current',
+                    default => 'todo',
+                },
+            ];
+        }
+
         return [
-            'show_panel' => true,
-            'title' => 'Beoordelen in stappen',
-            'guidance' => 'Klantfoto’s staan bij aanvullingen of in de fotogalerij. Een eigen foto hieronder is van jou als installateur — niet hetzelfde als een klantfoto.',
+            'title' => 'Route beoordelen',
             'steps' => $steps,
             'can_approve' => $canApprove,
             'approve_blocked_reason' => $approveBlockedReason,
+            'approve_warning' => $approveWarning,
             'can_site_visit' => ! $alreadyDone,
-            'show_summarize' => $session !== null && ! $alreadyDone,
+            'show_summarize' => $collecting || ($session !== null && ! $alreadyDone),
             'photo_label' => 'Eigen foto toevoegen',
         ];
     }

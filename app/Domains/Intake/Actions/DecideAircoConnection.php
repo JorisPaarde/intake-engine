@@ -81,27 +81,27 @@ final class DecideAircoConnection
                     'created_at' => now(),
                 ]);
 
-                return $connection->fresh() ?? $connection;
+                return $connection->fresh(['routeSession']) ?? $connection;
             }
 
             if ($session?->status === PipeRouteStatus::Collecting) {
                 throw ValidationException::withMessages([
-                    'decision' => 'Vat de routesegmenten eerst samen met “Route samenvatten”.',
+                    'decision' => 'Vat eerst de route samen.',
                 ]);
             }
 
-            if (! in_array($connection->status, [
+            if ($session !== null) {
+                if ($session->status !== PipeRouteStatus::Proposed) {
+                    throw ValidationException::withMessages([
+                        'decision' => 'Deze leidingroute kan niet worden beoordeeld.',
+                    ]);
+                }
+            } elseif (! in_array($connection->status, [
                 AircoConnectionStatus::Proposed,
                 AircoConnectionStatus::Plausible,
             ], true)) {
                 throw ValidationException::withMessages([
-                    'decision' => 'Er mist nog bewijs. Voeg een eigen installateursfoto toe, vraag de klant, of kies locatiebezoek.',
-                ]);
-            }
-
-            if ($session !== null && $session->status !== PipeRouteStatus::Proposed) {
-                throw ValidationException::withMessages([
-                    'decision' => 'Deze leidingroute kan niet worden beoordeeld.',
+                    'decision' => 'Er mist nog bewijs. Voeg een foto toe, vraag de klant of kies locatiebezoek.',
                 ]);
             }
 

@@ -683,7 +683,7 @@ final class DecisionReadinessService
 
         return [
             'status' => $allApproved ? DecisionAreaStatus::Ready : DecisionAreaStatus::Review,
-            'blocker' => $allApproved ? null : 'De route lijkt te kloppen. Keur hem goed, kies locatiebezoek, of voeg een eigen foto toe.',
+            'blocker' => $allApproved ? null : 'De route lijkt te kloppen. Keur hem goed, kies locatiebezoek of voeg een eigen foto toe.',
             'evidence_summary' => [
                 'connections' => $connections->count(),
                 'approved' => $connections->where('status', AircoConnectionStatus::Approved)->count(),

@@ -1116,64 +1116,64 @@
                                                     </div>
                                                 @endif
 
-                                                @if ($routeDecision['show_panel'])
-                                                    <div class="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-3" data-testid="connection-route-decision">
-                                                        <p class="text-xs font-semibold text-gray-800">{{ $routeDecision['title'] }}</p>
-                                                        <p class="mt-1 text-xs text-gray-600">{{ $routeDecision['guidance'] }}</p>
-                                                        <ol class="mt-3 list-decimal space-y-1 pl-5 text-xs text-gray-700">
-                                                            @foreach ($routeDecision['steps'] as $step)
-                                                                <li @class([
-                                                                    'font-semibold text-gray-950' => $step['state'] === 'current',
-                                                                    'text-gray-500' => $step['state'] === 'todo',
-                                                                    'text-emerald-800' => $step['state'] === 'done',
-                                                                ])>{{ $step['label'] }}</li>
-                                                            @endforeach
-                                                        </ol>
+                                                <div class="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-3" data-testid="connection-route-decision">
+                                                    <p class="text-xs font-semibold text-gray-800">{{ $routeDecision['title'] }}</p>
+                                                    <ol class="mt-3 list-decimal space-y-1 pl-5 text-xs text-gray-700">
+                                                        @foreach ($routeDecision['steps'] as $step)
+                                                            <li @class([
+                                                                'font-semibold text-gray-950' => $step['state'] === 'current',
+                                                                'text-gray-500' => $step['state'] === 'todo',
+                                                                'text-emerald-800' => $step['state'] === 'done',
+                                                            ])>{{ $step['label'] }}</li>
+                                                        @endforeach
+                                                    </ol>
 
-                                                        @if ($connection->routeSession)
-                                                            <div class="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 pt-3">
-                                                                <p class="text-xs font-semibold text-gray-700">{{ $connection->routeSession->segments->count() }} routesegment(en)</p>
-                                                                <p class="text-xs text-gray-500">{{ $connection->routeSession->status->label() }}</p>
-                                                            </div>
-                                                            @if ($connection->routeSession->next_photo_instruction)
-                                                                <p class="mt-2 text-xs font-medium text-gray-800">{{ $connection->routeSession->next_photo_instruction }}</p>
-                                                            @endif
-                                                        @endif
-
-                                                        <div class="mt-3 flex flex-wrap gap-2">
-                                                            @if ($routeDecision['show_summarize'] && $connection->routeSession)
-                                                                <form method="POST" action="{{ route('intakes.workspace.routes.synthesize', [$intake, $connection->routeSession]) }}">
-                                                                    @csrf
-                                                                    <button class="min-h-10 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700">Route samenvatten</button>
-                                                                </form>
-                                                            @endif
-                                                            @if ($routeDecision['can_approve'])
-                                                                <form method="POST" action="{{ route('intakes.workspace.connections.decide', [$intake, $connection]) }}">
-                                                                    @csrf
-                                                                    <input type="hidden" name="decision" value="approve">
-                                                                    <button class="min-h-10 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white">Route goedkeuren</button>
-                                                                </form>
-                                                            @elseif ($routeDecision['approve_blocked_reason'])
-                                                                <button
-                                                                    type="button"
-                                                                    disabled
-                                                                    class="min-h-10 cursor-not-allowed rounded-lg bg-gray-200 px-3 py-2 text-xs font-semibold text-gray-500"
-                                                                    data-testid="connection-route-approve-blocked"
-                                                                >Route goedkeuren</button>
-                                                            @endif
-                                                            @if ($routeDecision['can_site_visit'])
-                                                                <form method="POST" action="{{ route('intakes.workspace.connections.decide', [$intake, $connection]) }}">
-                                                                    @csrf
-                                                                    <input type="hidden" name="decision" value="site_visit">
-                                                                    <button class="min-h-10 rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-900">Alleen te zien op locatie</button>
-                                                                </form>
-                                                            @endif
+                                                    @if ($connection->routeSession)
+                                                        <div class="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 pt-3">
+                                                            <p class="text-xs font-semibold text-gray-700">{{ $connection->routeSession->segments->count() }} routesegment(en)</p>
+                                                            <p class="text-xs text-gray-500">{{ $connection->routeSession->status->label() }}</p>
                                                         </div>
-                                                        @if ($routeDecision['approve_blocked_reason'])
-                                                            <p class="mt-2 text-xs text-amber-900">{{ $routeDecision['approve_blocked_reason'] }}</p>
+                                                        @if ($connection->routeSession->next_photo_instruction)
+                                                            <p class="mt-2 text-xs font-medium text-gray-800">{{ $connection->routeSession->next_photo_instruction }}</p>
+                                                        @endif
+                                                    @endif
+
+                                                    <div class="mt-3 flex flex-wrap gap-2">
+                                                        @if ($routeDecision['show_summarize'] && $connection->routeSession)
+                                                            <form method="POST" action="{{ route('intakes.workspace.routes.synthesize', [$intake, $connection->routeSession]) }}">
+                                                                @csrf
+                                                                <button class="min-h-10 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700">Route samenvatten</button>
+                                                            </form>
+                                                        @endif
+                                                        @if ($routeDecision['can_approve'])
+                                                            <form method="POST" action="{{ route('intakes.workspace.connections.decide', [$intake, $connection]) }}">
+                                                                @csrf
+                                                                <input type="hidden" name="decision" value="approve">
+                                                                <button class="min-h-10 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white">Route goedkeuren</button>
+                                                            </form>
+                                                        @elseif ($routeDecision['approve_blocked_reason'])
+                                                            <button
+                                                                type="button"
+                                                                disabled
+                                                                class="min-h-10 cursor-not-allowed rounded-lg bg-gray-200 px-3 py-2 text-xs font-semibold text-gray-500"
+                                                                data-testid="connection-route-approve-blocked"
+                                                            >Route goedkeuren</button>
+                                                        @endif
+                                                        @if ($routeDecision['can_site_visit'])
+                                                            <form method="POST" action="{{ route('intakes.workspace.connections.decide', [$intake, $connection]) }}">
+                                                                @csrf
+                                                                <input type="hidden" name="decision" value="site_visit">
+                                                                <button class="min-h-10 rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-900">Alleen te zien op locatie</button>
+                                                            </form>
                                                         @endif
                                                     </div>
-                                                @endif
+                                                    @if ($routeDecision['approve_warning'])
+                                                        <p class="mt-2 text-xs text-amber-900" data-testid="connection-route-approve-warning">{{ $routeDecision['approve_warning'] }}</p>
+                                                    @endif
+                                                    @if ($routeDecision['approve_blocked_reason'])
+                                                        <p class="mt-2 text-xs text-amber-900">{{ $routeDecision['approve_blocked_reason'] }}</p>
+                                                    @endif
+                                                </div>
 
                                                 @include('installer.intakes._subject-tools', [
                                                     'intake' => $intake,

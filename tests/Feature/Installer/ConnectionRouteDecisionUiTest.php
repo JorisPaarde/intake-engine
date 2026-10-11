@@ -2,8 +2,15 @@
 
 declare(strict_types=1);
 
+use App\Domains\Intake\Actions\CompleteInstallerSurvey;
 use App\Domains\Intake\Actions\CreateIntake;
+use App\Domains\Intake\Actions\StartPipeRouteSession;
+use App\Domains\Intake\Models\AircoConnection;
+use App\Domains\Intake\Models\AircoInstallationOption;
+use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\AircoSurveyService;
+use App\Domains\Intake\Support\ConnectionRouteDecisionPresenter;
 use App\Enums\AircoConfigurationType;
 use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
@@ -12,12 +19,23 @@ use App\Enums\ContributionMode;
 use App\Enums\PipeRouteStatus;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
     $this->seed(IntakeTemplateSeeder::class);
     $this->withoutVite();
 });
 
+/**
+ * @return array{
+ *     intake: Intake,
+ *     connection: AircoConnection,
+ *     condensate: AircoConnection,
+ *     power: AircoConnection,
+ *     option: AircoInstallationOption
+ * }
+ */
 function createRouteDecisionWorkspace(User $user): array
 {
     $intake = app(CreateIntake::class)->handle($user, [
@@ -34,6 +52,9 @@ function createRouteDecisionWorkspace(User $user): array
     $room = $survey->createRoom($intake, $user, [
         'name' => 'Woonkamer',
         'use_type' => 'living_room',
+        'length_m' => 5.0,
+        'width_m' => 4.0,
+        'height_m' => 2.6,
     ]);
     $inside = $survey->createPlacement($intake, $user, [
         'airco_room_id' => $room->id,
@@ -44,10 +65,34 @@ function createRouteDecisionWorkspace(User $user): array
         'type' => AircoPlacementType::OutdoorUnit,
         'label' => 'Buitenpositie',
     ]);
+    $powerPoint = $survey->createPlacement($intake, $user, [
+        'type' => AircoPlacementType::PowerSource,
+        'label' => 'Meterkast',
+    ]);
+    $drain = $survey->createPlacement($intake, $user, [
+        'type' => AircoPlacementType::DrainPoint,
+        'label' => 'Regenpijp',
+    ]);
+
+    foreach ([$powerPoint, $outside] as $index => $placement) {
+        IntakeUpload::query()->create([
+            'intake_id' => $intake->id,
+            'question_key' => 'installer_evidence',
+            'section_instance_key' => 'subject-'.$placement->dossier_subject_id,
+            'disk' => 'local',
+            'path' => 'test/route-decision-evidence-'.$index.'.jpg',
+            'original_filename' => $index === 0 ? 'meterkast.jpg' : 'gevel.jpg',
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => 100,
+            'checksum' => hash('sha256', 'route-decision-evidence-'.$index),
+            'sort_order' => 1,
+        ]);
+    }
+
     $option = $survey->createInstallationOption($intake, $user, [
         'label' => 'Single-split haalbaar',
         'configuration_type' => AircoConfigurationType::SingleSplit,
-        'placement_ids' => [$inside->id, $outside->id],
+        'placement_ids' => [$inside->id, $outside->id, $powerPoint->id, $drain->id],
     ]);
     $connection = $survey->createConnection($intake, $user, $option, [
         'type' => AircoConnectionType::Refrigerant,
@@ -64,17 +109,28 @@ function createRouteDecisionWorkspace(User $user): array
         'type' => AircoConnectionType::Condensate,
         'label' => 'Condensafvoer woonkamer',
         'from_placement_id' => $inside->id,
-        'to_placement_id' => $outside->id,
+        'to_placement_id' => $drain->id,
         'status' => AircoConnectionStatus::Proposed,
         'length_class' => 'short',
         'segments' => ['Zelfde route als koelleiding'],
         'cost_impact' => 'low',
         'confidence' => 0.8,
     ]);
+    $power = $survey->createConnection($intake, $user, $option, [
+        'type' => AircoConnectionType::Power,
+        'label' => 'Stroom naar buitenunit',
+        'from_placement_id' => $powerPoint->id,
+        'to_placement_id' => $outside->id,
+        'status' => AircoConnectionStatus::Proposed,
+        'length_class' => 'short',
+        'segments' => ['Vanaf meterkast'],
+        'cost_impact' => 'low',
+        'confidence' => 0.9,
+    ]);
     $survey->markInstallationOptionFeasible($intake, $user, $option);
     $survey->selectInstallationOption($intake, $user, $option);
 
-    return compact('intake', 'connection', 'condensate', 'option');
+    return compact('intake', 'connection', 'condensate', 'power', 'option');
 }
 
 test('proposed koelroute zonder installateursfoto toont stappen en directe beslissingen', function () {
@@ -87,14 +143,26 @@ test('proposed koelroute zonder installateursfoto toont stappen en directe besli
         ->get(route('intakes.workspace', $intake))
         ->assertOk()
         ->assertSee('Koelleiding woonkamer')
-        ->assertSee('Beoordelen in stappen')
-        ->assertSee('Klantfoto’s en AI-route zijn al beschikbaar')
-        ->assertSee('Eigen installateursfoto is optioneel')
+        ->assertSee('Route beoordelen')
+        ->assertSee('Bekijk de route en de foto’s')
+        ->assertSee('Maak je eigen foto’s')
+        ->assertSee('Vat de route samen')
+        ->assertSee('Keur goed of kies locatiebezoek')
         ->assertSee('Route goedkeuren')
         ->assertSee('Alleen te zien op locatie')
         ->assertSee('Eigen foto toevoegen')
         ->assertSee('data-testid="connection-route-decision"', false)
-        ->assertDontSee('Route samenvatten');
+        ->assertDontSee('Route samenvatten')
+        ->assertDontSee('Beoordelen in stappen')
+        ->assertDontSee('Eigen installateursfoto is optioneel');
+
+    $decision = app(ConnectionRouteDecisionPresenter::class)->present($connection->fresh());
+    $currentSteps = array_values(array_filter(
+        $decision['steps'],
+        static fn (array $step): bool => $step['state'] === 'current',
+    ));
+    expect($currentSteps)->toHaveCount(1)
+        ->and($currentSteps[0]['label'])->toBe('Keur goed of kies locatiebezoek');
 });
 
 test('collecting route sessie legt uit waarom goedkeuren nog geblokkeerd is', function () {
@@ -109,14 +177,46 @@ test('collecting route sessie legt uit waarom goedkeuren nog geblokkeerd is', fu
     $html = $this->actingAs($user)
         ->get(route('intakes.workspace', $intake))
         ->assertOk()
-        ->assertSee('Beoordelen in stappen')
+        ->assertSee('Route beoordelen')
         ->assertSee('Route samenvatten')
         ->assertSee('Alleen te zien op locatie')
-        ->assertSee('Vat de routesegmenten eerst samen')
+        ->assertSee('Vat eerst de route samen.')
         ->getContent();
 
     expect($html)->toContain('data-testid="connection-route-approve-blocked"')
         ->and($html)->not->toContain('action="'.route('intakes.workspace.routes.approve', [$intake, $connection->fresh()->routeSession]).'"');
+});
+
+test('proposed session met NeedsEvidence toont waarschuwing maar blijft goedkeurbaar', function () {
+    $user = User::factory()->create();
+    ['intake' => $intake, 'connection' => $connection] = createRouteDecisionWorkspace($user);
+
+    $connection->update([
+        'status' => AircoConnectionStatus::NeedsEvidence,
+        'uncertainties' => ['Doorgang achter de kast is onzeker.'],
+    ]);
+    $intake->pipeRouteSessions()->create([
+        'airco_connection_id' => $connection->id,
+        'status' => PipeRouteStatus::Proposed,
+        'proposed_route' => ['Via de gevel'],
+        'uncertainties' => ['Doorgang achter de kast is onzeker.'],
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertSee('Route goedkeuren')
+        ->assertSee('Doorgang achter de kast is onzeker.')
+        ->assertSee('data-testid="connection-route-approve-warning"', false)
+        ->assertDontSee('data-testid="connection-route-approve-blocked"', false);
+
+    $this->actingAs($user)
+        ->post(route('intakes.workspace.connections.decide', [$intake, $connection]), [
+            'decision' => 'approve',
+        ])
+        ->assertRedirect();
+
+    expect($connection->fresh()->status)->toBe(AircoConnectionStatus::Approved);
 });
 
 test('installateur kan voorgestelde koelroute direct goedkeuren of als locatie markeren', function () {
@@ -161,4 +261,104 @@ test('collecting sessie blokkeert directe goedkeuring tot samenvatting', functio
         ->assertSessionHasErrors('decision');
 
     expect($connection->fresh()->status)->toBe(AircoConnectionStatus::Proposed);
+});
+
+test('na goedkeuren zonder sessie blijft samenvatten bereikbaar via eigen foto en afronden', function () {
+    $user = User::factory()->create();
+    [
+        'intake' => $intake,
+        'connection' => $connection,
+        'condensate' => $condensate,
+        'power' => $power,
+    ] = createRouteDecisionWorkspace($user);
+    Storage::fake((string) config('filesystems.media', 'local'));
+    config([
+        'ai.photo_inference.enabled' => false,
+        'ai.route.enabled' => false,
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('intakes.workspace.connections.decide', [$intake, $connection]), [
+            'decision' => 'approve',
+        ])
+        ->assertRedirect();
+
+    expect($connection->fresh()->status)->toBe(AircoConnectionStatus::Approved);
+
+    $this->actingAs($user)
+        ->post(route('intakes.workspace.photos.store', [$intake, $connection->subject]), [
+            'photo' => UploadedFile::fake()->image('segment.jpg', 1200, 900),
+            'route_segment_label' => 'Andere kant van de wand',
+        ])
+        ->assertRedirect();
+
+    $session = $connection->fresh()->routeSession;
+    expect($session)->not->toBeNull()
+        ->and($session->status)->toBe(PipeRouteStatus::Collecting);
+
+    $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertSee('Eigen foto toevoegen')
+        ->assertSee('Route samenvatten');
+
+    $session->update([
+        'status' => PipeRouteStatus::Proposed,
+        'proposed_route' => ['Via de gevel naar buiten'],
+        'uncertainties' => [],
+    ]);
+    $connection->fresh()->update([
+        'status' => AircoConnectionStatus::Proposed,
+        'segments' => ['Via de gevel naar buiten'],
+        'uncertainties' => [],
+    ]);
+
+    foreach ([$connection->fresh(), $condensate, $power] as $toApprove) {
+        $this->actingAs($user)
+            ->post(route('intakes.workspace.connections.decide', [$intake, $toApprove]), [
+                'decision' => 'approve',
+            ])
+            ->assertRedirect();
+    }
+
+    app(CompleteInstallerSurvey::class)->handle($intake->fresh(), $user);
+
+    expect($intake->fresh()->status->value)->toBe('completed');
+});
+
+test('site_visit tijdens collecting houdt samenvatten zichtbaar', function () {
+    $user = User::factory()->create();
+    ['intake' => $intake, 'connection' => $connection] = createRouteDecisionWorkspace($user);
+
+    $session = app(StartPipeRouteSession::class)->handle($intake, $connection);
+    expect($session->status)->toBe(PipeRouteStatus::Collecting);
+
+    $this->actingAs($user)
+        ->post(route('intakes.workspace.connections.decide', [$intake, $connection]), [
+            'decision' => 'site_visit',
+        ])
+        ->assertRedirect();
+
+    expect($connection->fresh()->status)->toBe(AircoConnectionStatus::NotRemotelyResolvable)
+        ->and($connection->fresh()->routeSession?->status)->toBe(PipeRouteStatus::Collecting);
+
+    $decision = app(ConnectionRouteDecisionPresenter::class)->present($connection->fresh(['routeSession.segments']));
+    expect($decision['show_summarize'])->toBeTrue();
+
+    $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertSee('Route samenvatten');
+});
+
+test('verbinding van een andere opname geeft 404', function () {
+    $user = User::factory()->create();
+    ['intake' => $intake] = createRouteDecisionWorkspace($user);
+    ['connection' => $otherConnection] = createRouteDecisionWorkspace($user);
+
+    $this->actingAs($user)
+        ->post(route('intakes.workspace.connections.decide', [$intake, $otherConnection]), [
+            'decision' => 'approve',
+        ])
+        ->assertNotFound();
 });

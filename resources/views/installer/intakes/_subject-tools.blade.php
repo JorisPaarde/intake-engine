@@ -235,7 +235,7 @@
             </summary>
             @if ($connection)
                 <p class="border-t border-gray-200 px-3 pt-3 text-xs text-gray-600">
-                    Dit is jouw eigen installateursfoto. Klantfoto’s staan hierboven bij aanvullingen of in de fotogalerij.
+                    Deze foto is van jou. Klantfoto’s staan in de fotogalerij.
                 </p>
             @endif
             @php
