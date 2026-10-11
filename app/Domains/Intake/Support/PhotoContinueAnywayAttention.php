@@ -318,6 +318,27 @@ final class PhotoContinueAnywayAttention
     }
 
     /**
+     * Rapportweergave uit assessment-status (zelfde bron als Actueel/galerij).
+     * Null = geen afgekeurde/not_assessed foto’s meer → rapport mag “Duidelijk genoeg” tonen.
+     *
+     * @param  list<IntakeUpload>  $uploads
+     */
+    public static function statusSentences(array $uploads): ?string
+    {
+        $counts = self::countStatuses($uploads);
+        if ($counts['rejected'] + $counts['not_assessed'] === 0) {
+            return null;
+        }
+
+        return ucfirst(self::buildSentences(
+            $counts['rejected'],
+            $counts['not_assessed'],
+            $counts['total'],
+            self::hasCustomerAcceptedOverride($uploads),
+        ));
+    }
+
+    /**
      * @param  list<IntakeUpload>  $uploads
      */
     private static function hasCustomerAcceptedOverride(array $uploads): bool

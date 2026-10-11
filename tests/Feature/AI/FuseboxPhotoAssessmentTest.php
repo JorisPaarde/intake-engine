@@ -12,6 +12,7 @@ use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Domains\Intake\Services\CompletenessChecker;
 use App\Domains\Intake\Services\GenerateIntakeReportHtml;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
@@ -255,4 +256,60 @@ test('wizard does not ask the customer to reconfirm a high confidence image resu
     expect($component->get('form')['free_group_known']['value'] ?? null)->toBeNull()
         ->and($intake->answers()->where('question_key', 'free_group_known')->exists())->toBeFalse()
         ->and($notices)->not->toHaveKey('free_group_known');
+});
+
+test('N19: rapport toont geen Duidelijk genoeg als 1 van 2 meterkastfoto’s is afgekeurd met Toch doorgaan', function () {
+    $intake = makeFuseboxAssessmentIntake();
+    Queue::fake([AssessUploadedPhotoJob::class]);
+
+    FakeAiClient::alwaysReturn(fuseboxOutput(
+        emptyModuleSpace: 'unknown',
+        phase: 'unknown',
+        confidence: 'low',
+        retakeInstruction: 'Maak een scherpere foto van de meterkast.',
+    ));
+
+    $rejected = app(StoreIntakeUpload::class)->handle(
+        $intake,
+        'fusebox_photo',
+        null,
+        UploadedFile::fake()->image('meterkast-zwak.jpg', 900, 700),
+    );
+    app(AssessFuseboxPhotos::class)->handle($intake);
+
+    $rejected = $rejected->fresh();
+    $rejectedAssessment = $rejected->contentAssessment();
+    expect($rejectedAssessment?->status())->toBe('needs_clearer');
+    $rejected->storeContentAssessment(
+        $rejectedAssessment->withCustomerAcceptedOverride(),
+    );
+
+    FakeAiClient::alwaysReturn(fuseboxOutput());
+    app(StoreIntakeUpload::class)->handle(
+        $intake,
+        'fusebox_photo',
+        null,
+        UploadedFile::fake()->image('meterkast-scherp.jpg', 1400, 1050),
+    );
+    app(AssessFuseboxPhotos::class)->handle($intake->fresh());
+
+    $clarity = $intake->fresh()->answers()->where('question_key', 'fusebox_clarity')->firstOrFail();
+    // Engine-antwoord mag clear zijn (één bruikbare foto); het rapport mag dat niet als
+    // installateurswaarheid tonen zolang er nog een afgekeurde foto met override bestaat.
+    expect($clarity->value)->toBe(['value' => 'clear']);
+
+    $version = $intake->templateVersion()->with(['sections.questions.options', 'sections.questions.rules', 'template'])->firstOrFail();
+    $html = app(GenerateIntakeReportHtml::class)->handle($intake->fresh(), $version);
+    $attention = app(CompletenessChecker::class)
+        ->check($intake->fresh(), $version)['attention_points'];
+    $meterkastAttention = collect($attention)
+        ->first(fn (array $point): bool => str_contains($point['label'], 'meterkast'));
+
+    expect($meterkastAttention)->not->toBeNull()
+        ->and($meterkastAttention['label'])->toContain('1 van de 2')
+        ->and($meterkastAttention['label'])->toContain('Toch doorgaan')
+        ->and($html)->toContain('Is de meterkastfoto duidelijk genoeg?')
+        ->and($html)->not->toContain('Duidelijk genoeg')
+        ->and($html)->toContain('De AI keurde 1 van de 2 foto’s af')
+        ->and($html)->toContain('De klant koos ‘Toch doorgaan’');
 });
