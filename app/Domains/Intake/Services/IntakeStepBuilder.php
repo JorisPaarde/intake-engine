@@ -1010,6 +1010,46 @@ final class IntakeStepBuilder
     }
 
     /**
+     * Exact cursor match only (question + optional section/instance). No section-start fallback.
+     *
+     * @param  list<IntakeStep>  $steps
+     */
+    public function indexForExactCursor(
+        array $steps,
+        ?string $sectionKey,
+        ?string $questionKey,
+        ?string $sectionInstanceKey = null,
+    ): ?int {
+        if ($questionKey === null || $questionKey === '') {
+            return null;
+        }
+
+        foreach ($steps as $index => $step) {
+            $matchesKey = $step['question_key'] === $questionKey
+                || (
+                    ($step['kind'] ?? '') === 'closing_wishes'
+                    && in_array($questionKey, $step['bundle_question_keys'] ?? [], true)
+                );
+
+            if (! $matchesKey) {
+                continue;
+            }
+
+            if ($sectionKey !== null && $step['section_key'] !== $sectionKey) {
+                continue;
+            }
+
+            if ($sectionInstanceKey !== null && $step['section_instance_key'] !== $sectionInstanceKey) {
+                continue;
+            }
+
+            return $index;
+        }
+
+        return null;
+    }
+
+    /**
      * @param  list<IntakeStep>  $steps
      */
     public function indexForCursor(
@@ -1018,28 +1058,9 @@ final class IntakeStepBuilder
         ?string $questionKey,
         ?string $sectionInstanceKey = null,
     ): int {
-        if ($questionKey !== null && $questionKey !== '') {
-            foreach ($steps as $index => $step) {
-                $matchesKey = $step['question_key'] === $questionKey
-                    || (
-                        ($step['kind'] ?? '') === 'closing_wishes'
-                        && in_array($questionKey, $step['bundle_question_keys'] ?? [], true)
-                    );
-
-                if (! $matchesKey) {
-                    continue;
-                }
-
-                if ($sectionKey !== null && $step['section_key'] !== $sectionKey) {
-                    continue;
-                }
-
-                if ($sectionInstanceKey !== null && $step['section_instance_key'] !== $sectionInstanceKey) {
-                    continue;
-                }
-
-                return $index;
-            }
+        $exact = $this->indexForExactCursor($steps, $sectionKey, $questionKey, $sectionInstanceKey);
+        if ($exact !== null) {
+            return $exact;
         }
 
         if ($sectionKey !== null && $sectionKey !== '') {

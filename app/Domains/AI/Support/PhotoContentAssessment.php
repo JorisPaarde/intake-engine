@@ -50,6 +50,7 @@ final class PhotoContentAssessment
             'status' => self::STATUS_WRONG_SUBJECT,
             'expected_subject' => $expected->value,
             'detected_subject' => $detected->value,
+            // questionKey shapes customer_message only; never stored in the verdict.
             'customer_message' => $expected->mismatchMessage($detected, $questionKey),
         ]);
     }

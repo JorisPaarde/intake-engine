@@ -1,0 +1,140 @@
+{
+  "id": "rc-fusebox-clear-3ph-high",
+  "kind": "report_claims",
+  "origin": "Control — clear three-phase fusebox (prevent over-hedging)",
+  "source_kind": "variant",
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
+  "note": "Prod AssessFuseboxPhotos::storeObservation always writes fact confidence medium (unless wrong subject). Model confidence high lives in value + uploads[].content_assessment. phase_3 allowed=assert (unnecessary hedging fails).",
+  "summary_input": {
+    "answers": {
+      "fusebox_photo": {
+        "upload_ids": [
+          "eval-upload-clear"
+        ]
+      }
+    },
+    "external_facts": {
+      "fusebox_photo_assessment": {
+        "value": {
+          "phase": "three_phase",
+          "empty_module_space": "visible",
+          "confidence": "high",
+          "evidence": "Hoofdschakelaar toont drie fasen; lege moduleplekken zichtbaar.",
+          "retake_instruction": null,
+          "subject_match": "yes",
+          "provider": "openai",
+          "model": "eval-fixture",
+          "upload_ids": [
+            1
+          ]
+        },
+        "source": "ai",
+        "confidence": "medium"
+      }
+    },
+    "follow_up": [],
+    "attention_point_codes": [],
+    "uploads": [
+      {
+        "reference": "fusebox_photo@upload:upload_clear",
+        "question_key": "fusebox_photo",
+        "question_label": "Foto van de meterkast",
+        "section_label": "Stroom",
+        "section_instance_key": null,
+        "context": "intake",
+        "mime_type": "image/jpeg",
+        "size_bytes": 1500000,
+        "usability_verdict": "usable",
+        "content_assessment": {
+          "status": "ok",
+          "expected_subject": "fusebox",
+          "detected_subject": "fusebox",
+          "customer_message": null
+        },
+        "order": 1
+      }
+    ],
+    "template_key": "airco",
+    "template_version": 26
+  },
+  "attention_input": {
+    "answers": {},
+    "external_facts": {
+      "fusebox_photo_assessment": {
+        "value": {
+          "phase": "three_phase",
+          "empty_module_space": "visible",
+          "confidence": "high",
+          "evidence": "Hoofdschakelaar toont drie fasen; lege moduleplekken zichtbaar."
+        },
+        "source": "ai",
+        "confidence": "medium"
+      }
+    },
+    "answer_context": [],
+    "external_fact_context": [
+      {
+        "reference": "fusebox_photo_assessment@fact:fact_eval_clear",
+        "fact_key": "fusebox_photo_assessment",
+        "label": "Automatische beoordeling meterkastfoto",
+        "value": {
+          "phase": "three_phase",
+          "empty_module_space": "visible",
+          "confidence": "high",
+          "evidence": "Hoofdschakelaar toont drie fasen; lege moduleplekken zichtbaar."
+        },
+        "source": "ai",
+        "confidence": "medium",
+        "captured_at": "2026-10-11T09:45:00+00:00"
+      }
+    ],
+    "uploads": [
+      {
+        "reference": "fusebox_photo@upload:upload_clear",
+        "question_key": "fusebox_photo",
+        "question_label": "Foto van de meterkast",
+        "section_label": "Stroom",
+        "section_instance_key": null,
+        "context": "intake",
+        "mime_type": "image/jpeg",
+        "size_bytes": 1500000,
+        "usability_verdict": "usable",
+        "content_assessment": {
+          "status": "ok",
+          "expected_subject": "fusebox",
+          "detected_subject": "fusebox",
+          "customer_message": null
+        },
+        "order": 1
+      }
+    ],
+    "follow_up": [],
+    "system_attention_points": [],
+    "completeness": {},
+    "installer_review": null,
+    "pipe_routes": [],
+    "template_key": "airco",
+    "template_version": 26,
+    "intake_status": "submitted"
+  },
+  "expected": {
+    "claims": [
+      {
+        "id": "phase_3",
+        "concept": "phase_3",
+        "allowed": "assert"
+      }
+    ],
+    "attention_confidence_ceiling": "high",
+    "require_evidence_on_points": true
+  },
+  "disputed_facts": {
+    "claim.phase_3": {
+      "reason": "FakeAiClient / default fake summary does not invent phase; real-model baseline should state 3-fase. Mark disputed on fake runs."
+    }
+  }
+}
