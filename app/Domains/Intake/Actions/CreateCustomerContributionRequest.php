@@ -235,6 +235,7 @@ final class CreateCustomerContributionRequest
     /**
      * Keep non-photo meta (e.g. requested_field) but never trust browser subject lists.
      * Subtype → expected/accepted subjects is mapped only on the server.
+     * Drop subtype when decision_area_key no longer matches (installer changed “onderdeel”).
      *
      * @param  array<string, mixed>  $item
      * @return array<string, mixed>
@@ -246,6 +247,20 @@ final class CreateCustomerContributionRequest
 
         $subtype = $item['photo_task_subtype'] ?? ($meta['photo_task_subtype'] ?? null);
         if (! is_string($subtype) || $subtype === '') {
+            unset($meta['photo_task_subtype']);
+
+            return $meta;
+        }
+
+        $area = is_string($item['decision_area_key'] ?? null)
+            ? $item['decision_area_key']
+            : null;
+        $expectedArea = match ($subtype) {
+            'power_route', 'fusebox' => 'power',
+            'around_house' => 'placement',
+            default => null,
+        };
+        if ($expectedArea === null || $area !== $expectedArea) {
             unset($meta['photo_task_subtype']);
 
             return $meta;

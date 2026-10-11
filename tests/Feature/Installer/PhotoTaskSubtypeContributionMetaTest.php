@@ -124,3 +124,41 @@ test('prepare rejects unknown photo_task_subtype', function () {
         ->assertRedirect()
         ->assertSessionHasErrors('photo_task_subtype');
 });
+
+test('POST prepare power_route then store with other area drops power_route meta', function () {
+    $user = User::factory()->create();
+    $intake = photoSubtypeIntake($user);
+    $prompt = 'Maak een foto van de plek waar de stroomkabel naar de buitenunit kan lopen, bijvoorbeeld langs de gevel of vanaf de meterkast.';
+
+    $this->actingAs($user)
+        ->post(route('intakes.workspace.tasks.prepare', $intake), [
+            'type' => FollowUpItemType::Photo->value,
+            'prompt' => $prompt,
+            'decision_area_key' => 'power',
+            'photo_task_subtype' => 'power_route',
+        ])
+        ->assertRedirect(route('intakes.workspace', $intake).'#demo-customer-task')
+        ->assertSessionHas('customer_task_drafts.0.photo_task_subtype', 'power_route');
+
+    // Installer changed “onderdeel” in the draft form away from power.
+    $this->actingAs($user)
+        ->post(route('intakes.workspace.tasks.store', $intake), [
+            'contribution_items' => [[
+                'type' => FollowUpItemType::Photo->value,
+                'prompt' => $prompt,
+                'decision_area_key' => 'capacity',
+                'photo_task_subtype' => 'power_route',
+            ]],
+        ])
+        ->assertRedirect();
+
+    $task = ContributionTask::query()->where('intake_id', $intake->id)->latest('id')->first();
+    expect($task)->not->toBeNull()
+        ->and($task->decision_area_key)->toBe('capacity')
+        ->and($task->meta['photo_task_subtype'] ?? null)->toBeNull()
+        ->and($task->meta['expected_photo_subject'] ?? null)->toBeNull()
+        ->and($task->meta['accepted_photo_subjects'] ?? null)->toBeNull()
+        ->and(PhotoSubject::acceptedSubjectsForTask($task))->toBe(
+            PhotoSubject::acceptedSubjectsForDecisionArea('capacity'),
+        );
+});
