@@ -19,6 +19,7 @@ use App\Livewire\Customer\IntakeWizard;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -31,6 +32,10 @@ beforeEach(function () {
         'intake.uploads.hard_max_bytes' => 15 * 1024 * 1024,
         'intake.uploads.hard_max_megapixels' => 24,
     ]);
+});
+
+afterEach(function () {
+    Carbon::setTestNow();
 });
 
 function makeIntake82Intake(): Intake
@@ -235,6 +240,11 @@ test('soft-release keeps quiet poll until terminal status is applied', function 
     ]);
     config(['ai.photo_assessment.ui_soft_timeout_seconds' => 1]);
 
+    // Freeze wall clock: upload ends with pollPendingAssessments(), and a 1s soft-timeout
+    // plus integer timestamps otherwise soft-releases when the second boundary is crossed.
+    $t0 = now()->startOfSecond();
+    Carbon::setTestNow($t0);
+
     $intake = makeIntake82Intake();
     $file = UploadedFile::fake()->image('small.jpg', 800, 600);
 
@@ -245,9 +255,9 @@ test('soft-release keeps quiet poll until terminal status is applied', function 
     $upload = $intake->fresh()->uploads()->firstOrFail();
     expect($upload->assessment_status)->toBe(PhotoAssessmentStatus::Pending);
 
-    // Force soft-timeout via the assessing phase clock (authoritative while active).
-    $component->set('uploadPhaseStartedAt', now()->subSeconds(5)->getTimestamp());
-    $upload->forceFill(['assessment_queued_at' => now()->subSeconds(5)])->save();
+    // Advance past the configured soft-timeout (phase clock is authoritative while active).
+    Carbon::setTestNow($t0->copy()->addSeconds(1));
+    $upload->forceFill(['assessment_queued_at' => $t0->copy()->subSeconds(1)])->save();
 
     $component
         ->call('pollPendingAssessments')
@@ -281,6 +291,10 @@ test('Opnieuw beoordelen na soft-timeout dispatcht nieuwe assessment', function 
     ]);
     config(['ai.photo_assessment.ui_soft_timeout_seconds' => 1]);
 
+    // Freeze wall clock so upload+immediate poll cannot race the 1s soft-timeout.
+    $t0 = now()->startOfSecond();
+    Carbon::setTestNow($t0);
+
     $intake = makeIntake82Intake();
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->set('photoFiles.fusebox_photo', UploadedFile::fake()->image('retry.jpg', 800, 600))
@@ -288,10 +302,10 @@ test('Opnieuw beoordelen na soft-timeout dispatcht nieuwe assessment', function 
 
     $upload = $intake->fresh()->uploads()->firstOrFail();
 
-    $component->set('uploadPhaseStartedAt', now()->subSeconds(5)->getTimestamp());
+    Carbon::setTestNow($t0->copy()->addSeconds(1));
     $upload->forceFill([
-        'created_at' => now()->subSeconds(5),
-        'assessment_queued_at' => now()->subSeconds(5),
+        'created_at' => $t0,
+        'assessment_queued_at' => $t0,
         'assessment_status' => PhotoAssessmentStatus::Pending,
     ])->save();
 
