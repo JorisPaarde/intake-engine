@@ -6,6 +6,7 @@ namespace App\Domains\AI\Eval;
 
 use App\Domains\AI\Actions\SuggestAttentionPoints;
 use App\Domains\AI\Actions\SummarizeIntake;
+use App\Domains\AI\DTOs\AiCompletionResult;
 use App\Domains\AI\Services\AiGateway;
 use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\AI\Support\DerivedClaimConfidenceGuard;
@@ -14,14 +15,14 @@ use Throwable;
 /**
  * Runs report_claims fixtures through the real summary + attention_points prompts.
  *
- * Scoring choice (brief P1-5 / IE uncertain photo facts): option (a) —
- * fixture-local `must_not_assert` / `must_hedge_phase_claims` lists plus
- * structured confidence/evidence checks in {@see ReportClaimsScorer}.
- * Measurement code only; never used on product paths.
- *
+ * Scoring: claim-level concepts via {@see ReportClaimsScorer} (eval-only).
  * Layers:
  * - model_raw: gateway output before DerivedClaimConfidenceGuard
  * - pipeline_final: same applyPipeline path as SummarizeIntake / SuggestAttentionPoints
+ *
+ * FakeAiClient is not specialized for attention_points; fixtures may supply
+ * `fake_summary_output` / `fake_attention_output` used only when provider=fake
+ * and the gateway shape is unusable for that prompt.
  */
 final class ReportClaimsCaseRunner
 {
@@ -53,52 +54,120 @@ final class ReportClaimsCaseRunner
 
         $summaryPromptName = (string) config('ai.summary_prompt', 'summary');
         $attentionPromptName = (string) config('ai.attention_points_prompt', 'attention_points');
+        $summaryPromptVersion = $this->promptVersions->version($summaryPromptName);
+        $attentionPromptVersion = $this->promptVersions->version($attentionPromptName);
+        $isFake = strtolower((string) config('ai.provider', '')) === 'fake';
 
         $summaryRaw = null;
         $summaryFinal = null;
         $summaryError = null;
+        $summaryGatewayRejection = null;
+        $summaryPipelineRejection = null;
         $summaryProvider = null;
         $summaryModel = null;
+        $summaryUsage = null;
         $summaryCeiling = $this->claimGuard->ceilingFromSummaryPayload($summaryInput);
 
         try {
             $summaryResult = $this->aiGateway->complete(
                 prompt: $this->promptVersions->body($summaryPromptName),
                 input: $summaryInput,
-                promptVersion: $this->promptVersions->version($summaryPromptName),
+                promptVersion: $summaryPromptVersion,
             );
+            $summaryUsage = $this->usageFromResult($summaryResult);
             $summaryRaw = $summaryResult->output;
             $summaryProvider = $summaryResult->provider;
             $summaryModel = $summaryResult->model;
-            $summaryFinal = $this->summarizeIntake->applyPipelineToOutput($summaryRaw, $summaryInput);
+
+            if ($isFake && ! $this->looksLikeSummary($summaryRaw)) {
+                $override = is_array($fixture['fake_summary_output'] ?? null)
+                    ? $fixture['fake_summary_output']
+                    : $this->defaultFakeSummaryOutput();
+                $summaryRaw = $override;
+            }
+
+            if (! $this->looksLikeSummary($summaryRaw)) {
+                $summaryGatewayRejection = 'gateway_output_not_summary_shape';
+            } else {
+                try {
+                    $summaryFinal = $this->summarizeIntake->applyPipelineToOutput($summaryRaw, $summaryInput);
+                } catch (Throwable $e) {
+                    $summaryPipelineRejection = 'pipeline_rejected: '.$e->getMessage();
+                    $summaryError = $e->getMessage();
+                }
+            }
         } catch (Throwable $e) {
             $summaryError = $e->getMessage();
+            $summaryGatewayRejection = 'gateway_error: '.$e->getMessage();
         }
 
         $attentionRaw = null;
         $attentionFinal = null;
         $attentionError = null;
+        $attentionGatewayRejection = null;
+        $attentionPipelineRejection = null;
         $attentionProvider = null;
         $attentionModel = null;
+        $attentionUsage = null;
 
         try {
             $attentionResult = $this->aiGateway->complete(
                 prompt: $this->promptVersions->body($attentionPromptName),
                 input: $attentionInput,
-                promptVersion: $this->promptVersions->version($attentionPromptName),
+                promptVersion: $attentionPromptVersion,
             );
+            $attentionUsage = $this->usageFromResult($attentionResult);
             $attentionRaw = $attentionResult->output;
             $attentionProvider = $attentionResult->provider;
             $attentionModel = $attentionResult->model;
-            $attentionFinal = $this->suggestAttentionPoints->applyPipelineToOutput($attentionRaw, $attentionInput);
+
+            if ($isFake && ! $this->looksLikeAttentionPoints($attentionRaw)) {
+                $override = is_array($fixture['fake_attention_output'] ?? null)
+                    ? $fixture['fake_attention_output']
+                    : $this->defaultFakeAttentionOutput();
+                $attentionRaw = $override;
+            }
+
+            if (! $this->looksLikeAttentionPoints($attentionRaw)) {
+                $attentionGatewayRejection = 'gateway_output_not_attention_points_shape';
+            } else {
+                try {
+                    $attentionFinal = $this->suggestAttentionPoints->applyPipelineToOutput($attentionRaw, $attentionInput);
+                } catch (Throwable $e) {
+                    $attentionPipelineRejection = 'pipeline_rejected: '.$e->getMessage();
+                    $attentionError = $e->getMessage();
+                }
+            }
         } catch (Throwable $e) {
             $attentionError = $e->getMessage();
+            $attentionGatewayRejection = 'gateway_error: '.$e->getMessage();
         }
 
-        $rawSummaryNormalized = $this->normalizeSummaryShape($summaryRaw);
+        $rawSummaryNormalized = $summaryGatewayRejection === null
+            ? $this->normalizeSummaryShape($summaryRaw)
+            : null;
         $finalSummaryNormalized = is_array($summaryFinal) ? $summaryFinal : null;
-        $rawPoints = $this->normalizePointsShape($attentionRaw);
+        $rawPoints = $attentionGatewayRejection === null
+            ? $this->normalizePointsShape($attentionRaw)
+            : null;
         $finalPoints = is_array($attentionFinal) ? $attentionFinal : null;
+
+        $rawLayerMeta = [
+            'summary_rejection' => ($rawSummaryNormalized === null)
+                ? ($summaryGatewayRejection ?? 'missing_or_invalid_summary')
+                : null,
+            'attention_rejection' => ($rawPoints === null)
+                ? ($attentionGatewayRejection ?? 'missing_or_rejected_attention_points')
+                : null,
+        ];
+        $finalLayerMeta = [
+            'summary_rejection' => ($finalSummaryNormalized === null)
+                ? ($summaryPipelineRejection ?? $summaryGatewayRejection ?? 'pipeline_summary_unavailable')
+                : null,
+            'attention_rejection' => ($finalPoints === null)
+                ? ($attentionPipelineRejection ?? $attentionGatewayRejection ?? 'pipeline_attention_unavailable')
+                : null,
+        ];
 
         $scores = [
             'model_raw' => $this->scorer->scoreLayer(
@@ -107,6 +176,7 @@ final class ReportClaimsCaseRunner
                 $rawPoints,
                 $disputed,
                 $components,
+                $rawLayerMeta,
             ),
             'pipeline_final' => $this->scorer->scoreLayer(
                 $expected,
@@ -114,6 +184,7 @@ final class ReportClaimsCaseRunner
                 $finalPoints,
                 $disputed,
                 $components,
+                $finalLayerMeta,
             ),
         ];
 
@@ -126,12 +197,27 @@ final class ReportClaimsCaseRunner
             'repeat' => $repeatIndex,
             'source_kind' => $fixture['source_kind'] ?? null,
             'origin' => $fixture['origin'] ?? null,
-            'status' => ($summaryError !== null && $summaryRaw === null) || ($attentionError !== null && $attentionRaw === null)
+            'status' => ($summaryGatewayRejection !== null && $rawSummaryNormalized === null)
+                || ($attentionGatewayRejection !== null && $rawPoints === null)
+                || ($summaryPipelineRejection !== null && $finalSummaryNormalized === null)
+                || ($attentionPipelineRejection !== null && $finalPoints === null)
                 ? 'error'
                 : 'ok',
             'error' => $this->combineErrors($summaryError, $attentionError),
             'provider' => $summaryProvider ?? $attentionProvider,
             'model' => $summaryModel ?? $attentionModel,
+            'prompt_versions' => [
+                'summary' => $summaryPromptVersion,
+                'attention_points' => $attentionPromptVersion,
+            ],
+            'token_usage' => [
+                'summary' => $summaryUsage,
+                'attention_points' => $attentionUsage,
+                'total_tokens' => $this->sumNullableInt(
+                    is_array($summaryUsage) ? ($summaryUsage['total_tokens'] ?? null) : null,
+                    is_array($attentionUsage) ? ($attentionUsage['total_tokens'] ?? null) : null,
+                ),
+            ],
             'runnable' => true,
             'runnable_note' => 'Text-only structured fusebox/photo assessments; real summary + attention_points prompts; no images.',
             'model_raw' => [
@@ -143,6 +229,12 @@ final class ReportClaimsCaseRunner
                 'attention_points' => $attentionFinal,
             ],
             'pipeline_differs_from_model_raw' => $pipelineDiffers,
+            'rejections' => [
+                'summary_gateway' => $summaryGatewayRejection,
+                'summary_pipeline' => $summaryPipelineRejection,
+                'attention_gateway' => $attentionGatewayRejection,
+                'attention_pipeline' => $attentionPipelineRejection,
+            ],
             'guard_meta' => [
                 'summary_ceiling' => $summaryCeiling,
                 'summary_hedged_flags' => $this->summaryHedgeFlags($rawSummaryNormalized, $summaryCeiling),
@@ -160,6 +252,59 @@ final class ReportClaimsCaseRunner
             'scores' => $scores,
             'note' => $fixture['note'] ?? null,
         ];
+    }
+
+    /**
+     * @return array{input_tokens: int|null, output_tokens: int|null, total_tokens: int|null, estimated_cost: string|null, estimated_cost_cents: int|null}
+     */
+    private function usageFromResult(AiCompletionResult $result): array
+    {
+        return [
+            'input_tokens' => $result->inputTokens,
+            'output_tokens' => $result->outputTokens,
+            'total_tokens' => $result->totalTokens,
+            'estimated_cost' => $result->estimatedCost,
+            'estimated_cost_cents' => $result->estimatedCostCents,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $output
+     */
+    private function looksLikeSummary(array $output): bool
+    {
+        return is_string($output['summary'] ?? null);
+    }
+
+    /**
+     * @param  array<string, mixed>  $output
+     */
+    private function looksLikeAttentionPoints(array $output): bool
+    {
+        return is_array($output['points'] ?? null);
+    }
+
+    /**
+     * @return array{summary: string, highlights: list<string>}
+     */
+    private function defaultFakeSummaryOutput(): array
+    {
+        return [
+            'summary' => 'Fictieve AI-samenvatting van de intake voor testgebruik zonder fase- of capaciteitsclaims.',
+            'highlights' => [
+                'Controleer foto’s en aandachtspunten handmatig.',
+            ],
+        ];
+    }
+
+    /**
+     * Neutral empty points — does not invent phase/capacity (eval fake only).
+     *
+     * @return array{points: list<array<string, mixed>>}
+     */
+    private function defaultFakeAttentionOutput(): array
+    {
+        return ['points' => []];
     }
 
     /**
@@ -254,5 +399,15 @@ final class ReportClaimsCaseRunner
         $parts = array_values(array_filter([$summaryError, $attentionError]));
 
         return $parts === [] ? null : implode('; ', $parts);
+    }
+
+    private function sumNullableInt(mixed $a, mixed $b): ?int
+    {
+        $vals = array_values(array_filter(
+            [$a, $b],
+            static fn (mixed $v): bool => is_int($v),
+        ));
+
+        return $vals === [] ? null : array_sum($vals);
     }
 }

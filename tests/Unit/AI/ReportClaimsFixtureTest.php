@@ -28,7 +28,21 @@ test('report_claims fixtures have required schema fields', function () {
             ->and($decoded['summary_input'])->toBeArray()
             ->and($decoded['attention_input'])->toBeArray()
             ->and($decoded['expected'])->toBeArray()
-            ->and($decoded['expected'])->toHaveKey('must_not_assert');
+            ->and($decoded['expected'])->toHaveKey('claims')
+            ->and($decoded['expected']['claims'])->toBeArray()
+            ->and($decoded['expected']['claims'])->not->toBeEmpty();
+
+        foreach ($decoded['expected']['claims'] as $claim) {
+            expect($claim)->toBeArray()
+                ->and($claim)->toHaveKeys(['id', 'concept', 'allowed'])
+                ->and($claim['allowed'])->toBeIn(['assert', 'hedged_only', 'forbidden']);
+        }
+
+        // Prod does not store photo_assessments[] on the fusebox external fact.
+        $summaryFact = $decoded['summary_input']['external_facts']['fusebox_photo_assessment']['value'] ?? null;
+        if (is_array($summaryFact)) {
+            expect($summaryFact)->not->toHaveKey('photo_assessments');
+        }
 
         $ids[] = $decoded['id'];
     }
@@ -56,4 +70,17 @@ test('report_claims fixtures pass privacy scan', function () {
     }
 
     expect($hits)->toBe([]);
+});
+
+test('clear-3ph fixture keeps prod fact confidence medium with high only on photo assessment', function () {
+    $decoded = json_decode(
+        (string) file_get_contents(__DIR__.'/../../Eval/fixtures/report_claims/rc-fusebox-clear-3ph-high.json'),
+        true,
+        512,
+        JSON_THROW_ON_ERROR,
+    );
+
+    expect($decoded['summary_input']['external_facts']['fusebox_photo_assessment']['confidence'])->toBe('medium')
+        ->and($decoded['summary_input']['external_facts']['fusebox_photo_assessment']['value']['confidence'])->toBe('high')
+        ->and($decoded['attention_input']['uploads'][0]['content_assessment']['confidence'])->toBe('high');
 });

@@ -4,7 +4,7 @@
   "origin": "tests/fixtures/dossier-synthesis/hedged-phase-observation.json + intake-87 hedge pattern",
   "source_kind": "variant",
   "components": ["C5", "C7", "C8"],
-  "note": "Single medium-confidence 'lijkt' fusebox assessment. Derived summary must not harden to unhedged 3-fase aanwezig.",
+  "note": "Single medium-confidence 'lijkt' fusebox assessment. phase_3 must be hedged_only; capacity_full forbidden as hard fact.",
   "summary_input": {
     "answers": {
       "fusebox_photo": {
@@ -95,13 +95,18 @@
     "intake_status": "submitted"
   },
   "expected": {
-    "must_not_assert": [
-      "3-fase aanwezig",
-      "driefasige groepenkast aanwezig",
-      "driefasige meterkast aanwezig"
+    "claims": [
+      {
+        "id": "phase_3",
+        "concept": "phase_3",
+        "allowed": "hedged_only"
+      },
+      {
+        "id": "capacity_full",
+        "concept": "capacity_full",
+        "allowed": "forbidden"
+      }
     ],
-    "must_hedge_phase_claims": true,
-    "allow_unhedged_three_phase": false,
     "attention_confidence_ceiling": "medium",
     "require_evidence_on_points": true
   },

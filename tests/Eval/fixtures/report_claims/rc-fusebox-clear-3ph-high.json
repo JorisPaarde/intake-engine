@@ -1,10 +1,10 @@
 {
   "id": "rc-fusebox-clear-3ph-high",
   "kind": "report_claims",
-  "origin": "Control — clear high-confidence three-phase fusebox (prevent over-hedging)",
+  "origin": "Control — clear three-phase fusebox (prevent over-hedging)",
   "source_kind": "variant",
   "components": ["C5", "C7", "C8"],
-  "note": "Clear photo, phase three_phase, confidence high. Stating 3-fase is fine; must not over-hedge into 'onbekend'.",
+  "note": "Prod AssessFuseboxPhotos::storeObservation always writes fact confidence medium (unless wrong subject). Model confidence high lives in value + uploads[].content_assessment. phase_3 allowed=assert (unnecessary hedging fails).",
   "summary_input": {
     "answers": {
       "fusebox_photo": {
@@ -19,10 +19,13 @@
           "confidence": "high",
           "evidence": "Hoofdschakelaar toont drie fasen; lege moduleplekken zichtbaar.",
           "retake_instruction": null,
-          "subject_match": "yes"
+          "subject_match": "yes",
+          "provider": "openai",
+          "model": "eval-fixture",
+          "upload_ids": [1]
         },
         "source": "ai",
-        "confidence": "high"
+        "confidence": "medium"
       }
     },
     "follow_up": [],
@@ -41,7 +44,7 @@
           "evidence": "Hoofdschakelaar toont drie fasen; lege moduleplekken zichtbaar."
         },
         "source": "ai",
-        "confidence": "high"
+        "confidence": "medium"
       }
     },
     "answer_context": [],
@@ -57,7 +60,7 @@
           "evidence": "Hoofdschakelaar toont drie fasen; lege moduleplekken zichtbaar."
         },
         "source": "ai",
-        "confidence": "high",
+        "confidence": "medium",
         "captured_at": "2026-10-11T09:45:00+00:00"
       }
     ],
@@ -95,15 +98,19 @@
     "intake_status": "submitted"
   },
   "expected": {
-    "must_not_assert": [],
-    "must_hedge_phase_claims": false,
-    "allow_unhedged_three_phase": true,
+    "claims": [
+      {
+        "id": "phase_3",
+        "concept": "phase_3",
+        "allowed": "assert"
+      }
+    ],
     "attention_confidence_ceiling": "high",
     "require_evidence_on_points": true
   },
   "disputed_facts": {
-    "summary_may_state_phase": {
-      "reason": "FakeAiClient does not invent phase; real-model baseline should state 3-fase. Mark disputed on fake runs."
+    "claim.phase_3": {
+      "reason": "FakeAiClient / default fake summary does not invent phase; real-model baseline should state 3-fase. Mark disputed on fake runs."
     }
   }
 }

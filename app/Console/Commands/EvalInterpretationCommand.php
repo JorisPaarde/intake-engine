@@ -136,15 +136,43 @@ final class EvalInterpretationCommand extends Command
         $promptHash = is_string($report['prompt_fingerprint']['combined_hash'] ?? null)
             ? $report['prompt_fingerprint']['combined_hash']
             : '?';
-        $prefillVersion = '?';
+        $promptVersionsByName = [];
         foreach (($report['prompt_fingerprint']['prompts'] ?? []) as $prompt) {
-            if (is_array($prompt) && ($prompt['name'] ?? null) === 'request_prefill') {
-                $prefillVersion = is_string($prompt['version'] ?? null) ? $prompt['version'] : '?';
-                break;
+            if (! is_array($prompt) || ! is_string($prompt['name'] ?? null)) {
+                continue;
             }
+            $promptVersionsByName[$prompt['name']] = is_string($prompt['version'] ?? null)
+                ? $prompt['version']
+                : '?';
         }
+        $prefillVersion = $promptVersionsByName['request_prefill'] ?? '?';
         $outputRoot = app(EvalReportWriter::class)->outputRoot();
         $this->line("Prompt: {$prefillVersion} — hash {$promptHash} → {$outputRoot}/results/<datum>-{$promptHash}.{json,md}");
+
+        $kindOpt = $this->option('kind');
+        $kindFocusesReportClaims = is_string($kindOpt)
+            && str_contains(strtolower($kindOpt), 'report_claims');
+        if ($kindFocusesReportClaims) {
+            $summaryVer = $promptVersionsByName['summary'] ?? '?';
+            $attentionVer = $promptVersionsByName['attention_points'] ?? '?';
+            $this->line("report_claims prompts: summary={$summaryVer} · attention_points={$attentionVer}");
+
+            $totalTokens = 0;
+            $tokenCases = 0;
+            foreach (is_array($report['cases'] ?? null) ? $report['cases'] : [] as $case) {
+                if (! is_array($case) || ($case['kind'] ?? null) !== 'report_claims') {
+                    continue;
+                }
+                $usage = is_array($case['token_usage'] ?? null) ? $case['token_usage'] : [];
+                if (is_int($usage['total_tokens'] ?? null)) {
+                    $totalTokens += $usage['total_tokens'];
+                    $tokenCases++;
+                }
+            }
+            if ($tokenCases > 0) {
+                $this->line("report_claims token_usage: {$totalTokens} total_tokens across {$tokenCases} case-runs");
+            }
+        }
 
         if (! ($report['is_baseline'] ?? false)) {
             $this->warn('GEEN baseline — mode='.($report['mode'] ?? '?').' (geen baseline/ of HISTORY-append)');
