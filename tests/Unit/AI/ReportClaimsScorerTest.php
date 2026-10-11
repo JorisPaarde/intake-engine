@@ -649,3 +649,14 @@ test('attention code synonyms match capacity_full concept without exact code lis
 
     expect($scores['claim.capacity_full']['status'])->toBe('wrong');
 });
+
+test('hedge markers need a word boundary only at the start', function () {
+    $scorer = reportClaimsScorer();
+
+    expect($scorer->textLooksHedged('Driefasige aansluiting indicatief vastgesteld op basis van foto'))->toBeTrue()
+        ->and($scorer->textLooksHedged('Onbekende fase-aansluiting in de meterkast'))->toBeTrue()
+        ->and($scorer->textLooksHedged('Mogelijke 3-fase aansluiting'))->toBeTrue()
+        ->and($scorer->textLooksHedged('3-fase aansluiting gecontroleerd en aanwezig.'))->toBeFalse()
+        ->and($scorer->textLooksHedged('De groepenkast is gecontroleerd en volledig bezet.'))->toBeFalse()
+        ->and($scorer->textLooksHedged('De meterkastfoto toont een 3-fase aansluiting, maar dit dient bij installatie gecontroleerd te worden.'))->toBeTrue();
+});

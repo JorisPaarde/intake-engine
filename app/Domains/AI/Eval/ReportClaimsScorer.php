@@ -461,9 +461,10 @@ final class ReportClaimsScorer
             return str_contains($haystackLower, $marker);
         }
 
-        // Single-token markers need a word boundary ("controleer" ∉ "gecontroleerd").
+        // Single-token markers need a word boundary at the start only
+        // ("controleer" ∉ "gecontroleerd", but "indicatie" ∈ "indicatief").
         return @preg_match(
-            '/(^|[^\p{L}\p{N}])'.preg_quote($marker, '/').'([^\p{L}\p{N}]|$)/u',
+            '/(^|[^\p{L}\p{N}])'.preg_quote($marker, '/').'/u',
             $haystackLower,
         ) === 1;
     }
