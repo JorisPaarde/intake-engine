@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\DB;
  * while preserving any AI summary already attached (BL-007). Used when the installer
  * accepts/dismisses an AI-proposed attention point after completion.
  */
-final class RebuildIntakeReportHtml
+class RebuildIntakeReportHtml
 {
     public function __construct(
         private readonly GenerateIntakeReportHtml $generateIntakeReportHtml,

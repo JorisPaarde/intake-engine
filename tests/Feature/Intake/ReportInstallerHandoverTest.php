@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\AI\Support\PhotoSubject;
+use App\Domains\Intake\Actions\ApprovePipeRoute;
 use App\Domains\Intake\Actions\CompleteFollowUpRound;
 use App\Domains\Intake\Actions\CompleteIntake;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Actions\SubmitIntakeReview;
 use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
+use App\Domains\Intake\Models\DossierRecord;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeTemplate;
@@ -17,13 +19,17 @@ use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\AircoSurveyService;
 use App\Domains\Intake\Services\CompletenessChecker;
+use App\Domains\Intake\Services\GenerateIntakeReportHtml;
 use App\Domains\Intake\Services\RebuildIntakeReportHtml;
 use App\Enums\AircoConfigurationType;
 use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
 use App\Enums\AircoPlacementType;
+use App\Enums\DossierRecordKind;
+use App\Enums\DossierRecordStatus;
 use App\Enums\FollowUpItemType;
 use App\Enums\IntakeStatus;
+use App\Enums\PipeRouteStatus;
 use App\Enums\QuestionType;
 use App\Enums\ReviewDecision;
 use App\Models\User;
@@ -377,4 +383,153 @@ test('RebuildIntakeReportHtml preserves meta.ai_summary when called directly', f
     expect($intake->fresh()->report?->meta['ai_summary']['summary'] ?? null)
         ->toBe('Directe rebuild behoudt samenvatting.')
         ->and($intake->fresh()->report?->html ?? '')->toContain('Directe rebuild behoudt samenvatting.');
+});
+
+test('report notes list only installer_note text and ignores installer_corrected display values', function () {
+    $intake = completeHandoverIntake();
+    $user = User::query()->findOrFail($intake->created_by);
+    $room = app(AircoSurveyService::class)->createRoom($intake, $user, [
+        'name' => 'Woonkamer',
+        'use_type' => 'living_room',
+    ]);
+    $subject = $room->subject;
+    expect($subject)->not->toBeNull();
+
+    DossierRecord::query()->create([
+        'intake_id' => $intake->id,
+        'company_id' => $intake->company_id,
+        'dossier_subject_id' => $subject->id,
+        'kind' => DossierRecordKind::Observation,
+        'key' => 'dimensions.length_m',
+        'value' => [
+            'number' => 4.2,
+            '_display_value' => 'Woonkamer — 4.2',
+            '_field_label' => 'Lengte (m)',
+        ],
+        'status' => DossierRecordStatus::Established,
+        'source_type' => 'installer',
+        'method' => 'installer_corrected',
+        'confidence' => 1.0,
+        'actor_type' => 'installer',
+        'actor_id' => $user->id,
+        'observed_at' => now(),
+    ]);
+    DossierRecord::query()->create([
+        'intake_id' => $intake->id,
+        'company_id' => $intake->company_id,
+        'dossier_subject_id' => $subject->id,
+        'kind' => DossierRecordKind::Observation,
+        'key' => 'installer_note.test',
+        'value' => ['text' => 'Echte installateursnotitie over de muur.'],
+        'status' => DossierRecordStatus::Established,
+        'source_type' => 'installer',
+        'method' => 'installer_note',
+        'confidence' => 1.0,
+        'actor_type' => 'installer',
+        'actor_id' => $user->id,
+        'observed_at' => now(),
+    ]);
+
+    app(RebuildIntakeReportHtml::class)->handle($intake->fresh());
+    $html = $intake->fresh()->report?->html ?? '';
+
+    expect($html)->toContain('Echte installateursnotitie over de muur.')
+        ->and($html)->not->toContain('Woonkamer — 4.2');
+});
+
+test('connection and route approve on selected option rebuild the report', function () {
+    $intake = completeHandoverIntake();
+    $user = User::query()->findOrFail($intake->created_by);
+    $survey = app(AircoSurveyService::class);
+
+    $room = $survey->createRoom($intake, $user, ['name' => 'Slaapkamer', 'use_type' => 'bedroom']);
+    $indoor = $survey->createPlacement($intake, $user, [
+        'airco_room_id' => $room->id,
+        'type' => AircoPlacementType::IndoorUnit,
+        'label' => 'Binnenunit',
+    ]);
+    $outdoor = $survey->createPlacement($intake, $user, [
+        'type' => AircoPlacementType::OutdoorUnit,
+        'label' => 'Buitenunit',
+    ]);
+    $option = $survey->createInstallationOption($intake, $user, [
+        'label' => 'Geselecteerde keuze',
+        'configuration_type' => AircoConfigurationType::SingleSplit,
+        'placement_ids' => [$indoor->id, $outdoor->id],
+    ]);
+    $survey->markInstallationOptionFeasible($intake, $user, $option);
+    $survey->selectInstallationOption($intake, $user, $option);
+
+    $beforeConnection = $intake->fresh()->report?->generated_at?->toIso8601String();
+    $this->travel(2)->seconds();
+
+    $connection = $survey->createConnection($intake, $user, $option->fresh(), [
+        'type' => AircoConnectionType::Condensate,
+        'label' => 'Condensroute na selectie',
+        'from_placement_id' => $indoor->id,
+        'to_placement_id' => $outdoor->id,
+        'status' => AircoConnectionStatus::Proposed,
+        'segments' => ['Afvoer via gevel'],
+    ]);
+
+    $afterConnection = $intake->fresh()->report;
+    expect($afterConnection?->generated_at?->toIso8601String())->not->toBe($beforeConnection)
+        ->and($afterConnection?->html ?? '')->toContain('Condensroute na selectie')
+        ->and($afterConnection?->html ?? '')->toContain('Afvoer via gevel');
+
+    $session = $intake->pipeRouteSessions()->create([
+        'airco_connection_id' => $connection->id,
+        'status' => PipeRouteStatus::Proposed,
+        'proposed_route' => ['Goedgekeurd segment A', 'Goedgekeurd segment B'],
+        'confidence' => 0.8,
+    ]);
+
+    $beforeApprove = $intake->fresh()->report?->generated_at?->toIso8601String();
+    $this->travel(2)->seconds();
+
+    app(ApprovePipeRoute::class)->handle($session, $user, true);
+
+    $afterApprove = $intake->fresh()->report;
+    expect($afterApprove?->generated_at?->toIso8601String())->not->toBe($beforeApprove)
+        ->and($afterApprove?->html ?? '')->toContain('Goedgekeurd segment A')
+        ->and($afterApprove?->html ?? '')->toContain('Goedgekeurd segment B');
+
+    Queue::assertPushed(GenerateIntakePdfJob::class, fn (GenerateIntakePdfJob $job): bool => $job->intakeId === $intake->id);
+});
+
+test('rebuild failure does not break saving an installer note', function () {
+    $intake = completeHandoverIntake();
+    $user = User::query()->findOrFail($intake->created_by);
+    $room = app(AircoSurveyService::class)->createRoom($intake, $user, [
+        'name' => 'Woonkamer',
+        'use_type' => 'living_room',
+    ]);
+
+    // Force the refresher's rebuild collaborator to throw; RefreshStoredIntakeReport
+    // must catch that so the note save response stays successful.
+    $this->app->instance(
+        RebuildIntakeReportHtml::class,
+        new class(app(GenerateIntakeReportHtml::class)) extends RebuildIntakeReportHtml
+        {
+            public function handle(Intake $intake): void
+            {
+                throw new RuntimeException('rebuild kapot');
+            }
+        },
+    );
+
+    $this->actingAs($user)
+        ->post(route('intakes.workspace.notes.store', [$intake, $room->subject]), [
+            'text' => 'Notitie die moet blijven ondanks rebuildfout.',
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('status', 'Notitie toegevoegd.');
+
+    $note = DossierRecord::query()
+        ->where('intake_id', $intake->id)
+        ->where('method', 'installer_note')
+        ->get()
+        ->first(static fn (DossierRecord $record): bool => ($record->value['text'] ?? null) === 'Notitie die moet blijven ondanks rebuildfout.');
+
+    expect($note)->not->toBeNull();
 });

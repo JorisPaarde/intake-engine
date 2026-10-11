@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Domains\Intake\Services;
 
 use App\Domains\Intake\Actions\ApplyFollowUpTextContribution;
-use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
 use App\Domains\Intake\Models\AircoConnection;
 use App\Domains\Intake\Models\AircoInstallationOption;
 use App\Domains\Intake\Models\AircoPlacementOption;
@@ -38,7 +37,7 @@ final class AircoSurveyService
         private readonly InstallerSurveyProgress $surveyProgress,
         private readonly AircoUnitCouplingValidator $couplingValidator,
         private readonly InstallationOptionPreferenceService $preferenceService,
-        private readonly RebuildIntakeReportHtml $rebuildIntakeReportHtml,
+        private readonly RefreshStoredIntakeReport $refreshStoredIntakeReport,
     ) {}
 
     /**
@@ -695,12 +694,18 @@ final class AircoSurveyService
         return $option->fresh(['placements', 'connections']) ?? $option;
     }
 
-    private function refreshStoredReport(Intake $intake): void
+    public function refreshStoredReport(Intake $intake): void
     {
-        $this->rebuildIntakeReportHtml->handle($intake);
-        if (! $intake->is_demo) {
-            GenerateIntakePdfJob::dispatch($intake->id);
+        $this->refreshStoredIntakeReport->handle($intake);
+    }
+
+    private function refreshStoredReportIfOptionSelected(Intake $intake, AircoInstallationOption $option): void
+    {
+        if ($option->status !== AircoOptionStatus::Selected) {
+            return;
         }
+
+        $this->refreshStoredReport($intake->fresh() ?? $intake);
     }
 
     /**
@@ -739,7 +744,9 @@ final class AircoSurveyService
             'configuration_type' => $configuration->value,
         ]);
         $this->surveyProgress->markStarted($intake);
-        $this->decisionReadiness->recalculate($intake->fresh() ?? $intake);
+        $fresh = $intake->fresh() ?? $intake;
+        $this->decisionReadiness->recalculate($fresh);
+        $this->refreshStoredReportIfOptionSelected($fresh, $option->fresh() ?? $option);
 
         return $option->fresh(['placements', 'connections']) ?? $option;
     }
@@ -1009,7 +1016,9 @@ final class AircoSurveyService
             'type' => $type->value,
         ]);
         $this->surveyProgress->markStarted($intake);
-        $this->decisionReadiness->recalculate($intake->fresh() ?? $intake);
+        $fresh = $intake->fresh() ?? $intake;
+        $this->decisionReadiness->recalculate($fresh);
+        $this->refreshStoredReportIfOptionSelected($fresh, $option->fresh() ?? $option);
 
         return $connection;
     }

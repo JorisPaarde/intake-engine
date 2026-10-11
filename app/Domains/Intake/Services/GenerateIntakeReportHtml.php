@@ -24,10 +24,6 @@ final class GenerateIntakeReportHtml
 {
     private const INSTALLER_NOTE_METHODS = [
         'installer_note',
-        'installer_confirmed',
-        'installer_adjusted',
-        'installer_corrected',
-        'on_site',
     ];
 
     public function __construct(
@@ -181,7 +177,7 @@ final class GenerateIntakeReportHtml
                     continue;
                 }
 
-                $text = $record->value['text'] ?? $record->value['_display_value'] ?? null;
+                $text = $record->value['text'] ?? null;
                 if (! is_string($text) || trim($text) === '') {
                     continue;
                 }

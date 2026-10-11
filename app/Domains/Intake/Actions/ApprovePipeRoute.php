@@ -7,7 +7,9 @@ namespace App\Domains\Intake\Actions;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\PipeRouteSession;
+use App\Domains\Intake\Services\RefreshStoredIntakeReport;
 use App\Enums\AircoConnectionStatus;
+use App\Enums\AircoOptionStatus;
 use App\Enums\PipeRouteStatus;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -19,9 +21,13 @@ use Illuminate\Validation\ValidationException;
  */
 final class ApprovePipeRoute
 {
+    public function __construct(
+        private readonly RefreshStoredIntakeReport $refreshStoredIntakeReport,
+    ) {}
+
     public function handle(PipeRouteSession $session, User $installer, bool $approved = true): PipeRouteSession
     {
-        return DB::transaction(function () use ($session, $installer, $approved): PipeRouteSession {
+        $session = DB::transaction(function () use ($session, $installer, $approved): PipeRouteSession {
             $intake = Intake::query()->whereKey($session->intake_id)->lockForUpdate()->firstOrFail();
             $session = PipeRouteSession::query()->whereKey($session->id)->lockForUpdate()->firstOrFail();
 
@@ -73,7 +79,17 @@ final class ApprovePipeRoute
                 'created_at' => now(),
             ]);
 
-            return $session->fresh(['connection']) ?? $session;
+            return $session->fresh(['connection.installationOption']) ?? $session;
         }, 3);
+
+        $option = $session->connection?->installationOption;
+        if ($option !== null && $option->status === AircoOptionStatus::Selected) {
+            $intake = Intake::query()->find($session->intake_id);
+            if ($intake !== null) {
+                $this->refreshStoredIntakeReport->handle($intake);
+            }
+        }
+
+        return $session;
     }
 }
