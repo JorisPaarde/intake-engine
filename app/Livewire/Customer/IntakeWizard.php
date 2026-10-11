@@ -153,6 +153,12 @@ class IntakeWizard extends Component
 
     public bool $showMissing = false;
 
+    /**
+     * After jumping from the Afronden missing alert, Volgende returns to the next
+     * missing required step (or the final Afronden step) instead of walking forward.
+     */
+    public bool $returnAfterMissing = false;
+
     public bool $completed = false;
 
     /**
@@ -369,13 +375,20 @@ class IntakeWizard extends Component
         $this->hydrateFormFromAnswers();
 
         $steps = $this->steps();
+        $sectionKey = $intake->current_section_key;
+        $questionKey = $intake->current_question_key;
+        $instanceKey = $intake->current_section_instance_key;
         $this->stepIndex = app(IntakeStepBuilder::class)->indexForCursor(
             $steps,
-            $intake->current_section_key,
-            $intake->current_question_key,
-            $intake->current_section_instance_key,
+            $sectionKey,
+            $questionKey,
+            $instanceKey,
         );
         $this->clampStepIndex($steps);
+        // Wijzigen + refresh: forceShowKnown is gone, cursor points at a hidden step,
+        // indexForCursor falls back to section start and skips earlier required work.
+        // Only rewrite resume when the exact cursor target is missing from the list.
+        $this->clampResumeWhenCursorMissing($steps, $sectionKey, $questionKey, $instanceKey);
         $this->syncActiveStepKey($steps);
         $this->knownStepKeys = array_map(
             static fn (array $step): string => $step['key'],
@@ -2913,6 +2926,20 @@ class IntakeWizard extends Component
             return;
         }
 
+        // Na sprong vanuit Afronden-alert: naar volgende ontbrekende of Afronden.
+        if ($this->returnAfterMissing) {
+            $this->returnAfterMissing = false;
+            $nextMissing = $this->indexOfFirstUnsatisfiedRequired($steps);
+            $this->stepIndex = $nextMissing ?? max(0, count($steps) - 1);
+            $this->syncActiveStepKey($steps);
+            $this->rememberCurrentCursor();
+            $this->hydrateFormFromAnswers();
+            $this->applyPrefillForActiveStep();
+            $this->saveMessage = '';
+
+            return;
+        }
+
         if ($this->stepIndex < count($steps) - 1) {
             $this->stepIndex = $this->stepIndex + 1;
             $this->syncActiveStepKey($steps);
@@ -2988,6 +3015,7 @@ class IntakeWizard extends Component
             return;
         }
 
+        $this->returnAfterMissing = false;
         $this->clearProgressExtraNote();
 
         $stepsBeforeSave = $this->steps();
@@ -3055,6 +3083,7 @@ class IntakeWizard extends Component
             return;
         }
 
+        $this->returnAfterMissing = false;
         $targetKey = $steps[$index]['key'];
         $this->saveCurrentStep();
         $this->finalizeForcedKnownEditIfOnForcedStep();
@@ -3091,6 +3120,8 @@ class IntakeWizard extends Component
             }
 
             $this->goToStep($index);
+            // Set after goToStep (which clears the flag) so Volgende returns to Afronden.
+            $this->returnAfterMissing = true;
 
             return;
         }
@@ -3891,6 +3922,106 @@ class IntakeWizard extends Component
         }
 
         $this->stepIndex = min(max(0, $this->stepIndex), count($steps) - 1);
+    }
+
+    /**
+     * When the persisted cursor names a step that is no longer in the list (prefill-skipped
+     * after losing forceShowKnown), land on the first unanswered required step instead of
+     * the section-start fallback from indexForCursor.
+     *
+     * @param  list<array{
+     *     key: string,
+     *     section_key: string,
+     *     section_instance_key: string|null,
+     *     question_key: string,
+     *     is_required?: bool,
+     *     kind?: 'question'|'known_summary'|'question_group'|'closing_wishes',
+     *     group_question_keys?: list<string>,
+     *     bundle_question_keys?: list<string>
+     * }>  $steps
+     */
+    private function clampResumeWhenCursorMissing(
+        array $steps,
+        ?string $sectionKey,
+        ?string $questionKey,
+        ?string $sectionInstanceKey,
+    ): void {
+        if ($questionKey === null || $questionKey === '') {
+            return;
+        }
+
+        if ($this->stepsContainCursor($steps, $sectionKey, $questionKey, $sectionInstanceKey)) {
+            return;
+        }
+
+        $firstMissing = $this->indexOfFirstUnsatisfiedRequired($steps);
+        if ($firstMissing !== null) {
+            $this->stepIndex = $firstMissing;
+        }
+    }
+
+    /**
+     * @param  list<array{
+     *     key: string,
+     *     section_key: string,
+     *     section_instance_key: string|null,
+     *     question_key: string,
+     *     kind?: string,
+     *     bundle_question_keys?: list<string>
+     * }>  $steps
+     */
+    private function stepsContainCursor(
+        array $steps,
+        ?string $sectionKey,
+        string $questionKey,
+        ?string $sectionInstanceKey,
+    ): bool {
+        foreach ($steps as $step) {
+            $matchesKey = $step['question_key'] === $questionKey
+                || (
+                    ($step['kind'] ?? '') === 'closing_wishes'
+                    && in_array($questionKey, $step['bundle_question_keys'] ?? [], true)
+                );
+
+            if (! $matchesKey) {
+                continue;
+            }
+
+            if ($sectionKey !== null && $step['section_key'] !== $sectionKey) {
+                continue;
+            }
+
+            if ($sectionInstanceKey !== null && $step['section_instance_key'] !== $sectionInstanceKey) {
+                continue;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  list<array{
+     *     key: string,
+     *     section_key: string,
+     *     section_instance_key: string|null,
+     *     question_key: string,
+     *     is_required?: bool,
+     *     kind?: 'question'|'known_summary'|'question_group'|'closing_wishes',
+     *     group_question_keys?: list<string>,
+     *     bundle_question_keys?: list<string>
+     * }>  $steps
+     */
+    private function indexOfFirstUnsatisfiedRequired(array $steps): ?int
+    {
+        foreach ($steps as $index => $step) {
+            if (! $this->stepRequiredSatisfied($step)) {
+                return $index;
+            }
+        }
+
+        return null;
     }
 
     private function clearProgressExtraNote(): void

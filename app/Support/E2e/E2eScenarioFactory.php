@@ -5,18 +5,23 @@ declare(strict_types=1);
 namespace App\Support\E2e;
 
 use App\Domains\AI\Support\E2eAiScenario;
+use App\Domains\AI\Support\PhotoContentAssessment;
+use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Actions\CreateCustomerContributionRequest;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Domains\Intake\Services\CompletenessChecker;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Enums\FollowUpItemType;
 use App\Enums\IntakeStatus;
 use App\Enums\PhotoAssessmentStatus;
 use App\Enums\PhotoUsabilityVerdict;
+use App\Enums\QuestionType;
 use App\Models\Company;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
@@ -49,6 +54,8 @@ final class E2eScenarioFactory
             'drain-facade' => $this->drainAndFacade(),
             'feedback' => $this->feedbackReady(),
             'room-name-autosave' => $this->roomNameAutosave(),
+            'resume-after-known-edit' => $this->resumeAfterKnownEdit(),
+            'resume-afronden-return' => $this->resumeAfrondenReturn(),
             default => throw new \InvalidArgumentException('Unknown E2E scenario: '.$scenario),
         };
     }
@@ -261,6 +268,170 @@ final class E2eScenarioFactory
         return $this->payload($intake, 'room-name-autosave', [
             'target_question_key' => 'room_name',
         ]);
+    }
+
+    /**
+     * Known-summary with three rooms/floors prefills; cooling_heating left unanswered.
+     * Used to assert Wijzigen → refresh never skips required early steps.
+     *
+     * @return array<string, mixed>
+     */
+    private function resumeAfterKnownEdit(): array
+    {
+        E2eAiScenario::set(E2eAiScenario::GOOD_PHOTO);
+
+        $intake = $this->seedResumeKnownRooms([
+            'customer_name' => 'E2E Resume',
+            'customer_email' => 'e2e-resume@example.com',
+        ]);
+
+        return $this->payload($intake, 'resume-after-known-edit', [
+            'target_question_key' => 'cooling_heating',
+        ]);
+    }
+
+    /**
+     * Almost-complete intake: only cooling_heating + privacy_consent open, so after
+     * answering cooling from the Afronden alert Volgende jumps to privacy (not room photos).
+     *
+     * @return array<string, mixed>
+     */
+    private function resumeAfrondenReturn(): array
+    {
+        E2eAiScenario::set(E2eAiScenario::GOOD_PHOTO);
+
+        $intake = $this->seedResumeKnownRooms([
+            'customer_name' => 'E2E Afronden',
+            'customer_email' => 'e2e-afronden@example.com',
+        ]);
+        // Only cooling stays open so Afronden reaches the completeness missing list
+        // (current-step required must already be satisfied).
+        $this->fillExcept($intake, ['cooling_heating']);
+        $intake->answers()->where('question_key', 'cooling_heating')->delete();
+
+        $intake->update([
+            'current_section_key' => 'closing',
+            'current_question_key' => 'privacy_consent',
+            'current_section_instance_key' => null,
+        ]);
+
+        return $this->payload($intake, 'resume-afronden-return', [
+            'target_question_key' => 'cooling_heating',
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $overrides
+     */
+    private function seedResumeKnownRooms(array $overrides = []): Intake
+    {
+        // Avoid cooling/heating keywords so the offline local parser (text-AI off)
+        // does not fill cooling_heating on wizard mount — that question must stay open.
+        $intake = $this->baseIntake(array_merge([
+            'request_reason' => 'Drie ruimtes: woonkamer, slaapkamer en zolder.',
+        ], $overrides));
+
+        $this->saveAnswer->handle($intake, 'indoor_unit_count', null, ['number' => 3], PrefillSources::AI_TEXT);
+
+        foreach (['room-1', 'room-2', 'room-3'] as $i => $room) {
+            $this->saveAnswer->handle(
+                $intake,
+                'room_type',
+                $room,
+                ['value' => $i === 0 ? 'living_room' : 'bedroom'],
+                PrefillSources::AI_TEXT,
+            );
+            $this->saveAnswer->handle(
+                $intake,
+                'floor_level',
+                $room,
+                ['value' => (string) $i],
+                PrefillSources::AI_TEXT,
+            );
+        }
+
+        $this->dossierManager->initialize($intake->fresh() ?? $intake);
+
+        // Guard: drop cooling if any mount-time derive already wrote it.
+        $intake->answers()->where('question_key', 'cooling_heating')->delete();
+
+        return $intake->fresh() ?? $intake;
+    }
+
+    /**
+     * @param  list<string>  $exceptKeys
+     */
+    private function fillExcept(Intake $intake, array $exceptKeys): void
+    {
+        $checker = app(CompletenessChecker::class);
+        $except = array_fill_keys($exceptKeys, true);
+
+        for ($attempt = 0; $attempt < 50; $attempt++) {
+            $intake->refresh();
+            $version = $intake->templateVersion()
+                ->with(['sections.questions.options', 'sections.questions.rules'])
+                ->firstOrFail();
+            $check = $checker->check($intake, $version);
+            $remaining = array_values(array_filter(
+                $check['missing'],
+                static fn (array $item): bool => ! isset($except[$item['question_key']]),
+            ));
+
+            if ($remaining === []) {
+                return;
+            }
+
+            foreach ($remaining as $item) {
+                $question = null;
+                foreach ($version->sections as $section) {
+                    foreach ($section->questions as $candidate) {
+                        if ($candidate->key === $item['question_key']) {
+                            $question = $candidate;
+                            break 2;
+                        }
+                    }
+                }
+
+                if (! $question instanceof IntakeQuestion) {
+                    continue;
+                }
+
+                if ($question->type === QuestionType::Photo) {
+                    $upload = $this->storeUpload->handle(
+                        $intake,
+                        $item['question_key'],
+                        $item['section_instance_key'],
+                        $this->fixtureUpload('woonkamer-1440.jpg'),
+                    );
+                    $upload->forceFill([
+                        'usability_verdict' => PhotoUsabilityVerdict::Ok,
+                        'assessment_status' => PhotoAssessmentStatus::Assessed,
+                        'content_assessment' => PhotoContentAssessment::ok(PhotoSubject::Other)->toArray(),
+                    ])->save();
+
+                    continue;
+                }
+
+                $firstOption = $question->options->first();
+                $optionValue = $firstOption !== null ? (string) $firstOption->value : 'yes';
+
+                if ($question->type === QuestionType::Number) {
+                    $payload = ['number' => 1];
+                } elseif ($question->type === QuestionType::SingleChoice) {
+                    $payload = ['value' => $optionValue];
+                } elseif ($question->type === QuestionType::MultiChoice) {
+                    $payload = ['values' => [$optionValue]];
+                } elseif ($question->type === QuestionType::Boolean) {
+                    $payload = ['bool' => true];
+                } else {
+                    $payload = ['text' => 'E2E '.$question->key];
+                }
+
+                $this->saveAnswer->handle($intake, $item['question_key'], $item['section_instance_key'], $payload);
+            }
+        }
+
+        throw new \RuntimeException('E2E fillExcept could not complete for '.$intake->id);
     }
 
     /**
