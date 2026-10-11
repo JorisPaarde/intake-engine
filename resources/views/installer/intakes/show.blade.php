@@ -47,20 +47,18 @@
                 $firstOpenTarget = $firstOpenArea
                     ? $areaTargetResolver->targetForArea($intake, $firstOpenArea->key)
                     : null;
-                $authoritativePoints = $intake->attentionPoints->filter(
-                    function ($p) use ($intake) {
-                        if (($p->status !== null && $p->status !== \App\Enums\AttentionPointStatus::Accepted)
-                            || $p->is_resolved) {
-                            return false;
-                        }
-                        if (! is_string($p->code)
-                            || ! \App\Domains\Intake\Support\PhotoContinueAnywayAttention::isContinueAnywayCode($p->code)) {
-                            return true;
-                        }
+                $authoritativePoints = \App\Domains\Intake\Support\PhotoContinueAnywayAttention::collapseDuplicateContinueAnywayPoints(
+                    $intake,
+                    $intake->attentionPoints->filter(
+                        function ($p) {
+                            if (($p->status !== null && $p->status !== \App\Enums\AttentionPointStatus::Accepted)
+                                || $p->is_resolved) {
+                                return false;
+                            }
 
-                        // Live zichtbaarheid: verberg als er geen afgekeurde/not_assessed uploads meer zijn.
-                        return \App\Domains\Intake\Support\PhotoContinueAnywayAttention::liveLabel($intake, $p->code) !== null;
-                    },
+                            return true;
+                        },
+                    ),
                 );
                 $resolvedPoints = $intake->attentionPoints->filter(
                     fn ($p) => ($p->status === null || $p->status === \App\Enums\AttentionPointStatus::Accepted)

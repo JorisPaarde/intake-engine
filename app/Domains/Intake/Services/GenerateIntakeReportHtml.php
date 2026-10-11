@@ -353,7 +353,9 @@ final class GenerateIntakeReportHtml
             ...PhotoContinueAnywayAttention::currentWizardUploadsAt($intake, 'fusebox_photo_extra', null),
         ];
 
-        $fromAssessment = PhotoContinueAnywayAttention::statusSentences($uploads);
+        // Korte status i.p.v. de Actueel-zin, zodat “AI keurde… Toch doorgaan”
+        // niet dubbel in het rapport staat (N21).
+        $fromAssessment = PhotoContinueAnywayAttention::fuseboxClarityReportLabel($uploads);
         if ($fromAssessment !== null) {
             return $fromAssessment;
         }
