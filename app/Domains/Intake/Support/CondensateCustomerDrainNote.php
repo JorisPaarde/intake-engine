@@ -38,14 +38,9 @@ final class CondensateCustomerDrainNote
             return null;
         }
 
-        // Prefer the product-facing phrasing for the two concrete choices.
-        $display = match ($value) {
-            'outside_nearby' => 'regenpijp of putje buiten in de buurt',
-            'indoor_nearby' => 'afvoer binnen in de buurt, zoals keuken, badkamer of wasmachine',
-            default => mb_strtolower(mb_substr($label, 0, 1)).mb_substr($label, 1),
-        };
+        $display = mb_strtolower(mb_substr($label, 0, 1)).mb_substr($label, 1);
 
-        return 'Volgens de klant: '.$display.' (nog niet gecontroleerd)';
+        return 'Volgens de klant: '.$display.'. Nog niet gecontroleerd.';
     }
 
     private function optionLabel(Intake $intake, string $value): ?string

@@ -550,7 +550,13 @@
                     <p class="mt-1 text-sm text-indigo-900">
                         Deze opname wordt door de installateur uitgevoerd. Vanuit de opname kun je later één of meer concrete klantopdrachten sturen; pas dan wordt de beveiligde link geactiveerd.
                     </p>
-                    <a href="{{ $workspaceUrl }}{{ $primaryAction['href'] }}" class="mt-4 inline-flex min-h-10 items-center rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-500">{{ $primaryAction['label'] }}</a>
+                    @if (($primaryAction['label'] ?? '') !== '')
+                        <a
+                            href="{{ $workspaceUrl }}{{ $primaryAction['href'] }}"
+                            class="mt-4 inline-flex min-h-10 items-center rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-500"
+                            data-testid="customer-link-inactive-cta"
+                        >{{ $primaryAction['label'] }}</a>
+                    @endif
                 </div>
             @endif
 
