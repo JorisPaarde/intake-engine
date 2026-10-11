@@ -261,7 +261,6 @@ enum PhotoSubject: string
         }
 
         // Gevel/tuin-advies alleen outdoor_location_photos + around_house_photos.
-        // drain_photo behoudt de bestaande generieke OutdoorLocation-tekst.
         if ($this === self::OutdoorLocation
             && in_array($questionKey, ['outdoor_location_photos', 'around_house_photos'], true)) {
             if ($detected === self::Other) {
@@ -271,14 +270,27 @@ enum PhotoSubject: string
             return 'Dit lijkt geen foto van de gevel of tuin. Dit is '.$detected->dutchNoun().'.';
         }
 
+        // drain_photo: same expected subject as outdoor (model input unchanged); customer wording only.
+        if ($this === self::OutdoorLocation && $questionKey === 'drain_photo') {
+            if ($detected === self::Other) {
+                return 'Dit lijkt geen foto van de afvoer. Maak een foto van de plek waar de condensafvoer kan lozen, zoals een regenpijp, putje of goot.';
+            }
+
+            return 'Dit lijkt geen foto van de afvoer; we zien '.$detected->dutchLabel().'. Maak een foto van de plek waar de condensafvoer kan lozen, zoals een regenpijp, putje of goot.';
+        }
+
         return 'Dit is '.$detected->dutchNoun().'; we hebben '.$needed.' nodig.';
     }
 
     /**
      * Action-oriented customer retake prompt (je/jouw). Installer diagnosis stays separate.
      */
-    public function customerRetakePrompt(): string
+    public function customerRetakePrompt(?string $questionKey = null): string
     {
+        if ($questionKey === 'drain_photo') {
+            return 'Maak een nieuwe, duidelijke foto van de afvoerplek';
+        }
+
         return match ($this) {
             self::Fusebox => 'Maak een nieuwe, duidelijke foto van je meterkast',
             self::Room => 'Maak een nieuwe, duidelijke foto van de hele ruimte',

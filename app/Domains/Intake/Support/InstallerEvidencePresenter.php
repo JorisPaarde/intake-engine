@@ -665,6 +665,10 @@ final class InstallerEvidencePresenter
 
     private function subjectPhotoLabel(IntakeUpload $upload): ?string
     {
+        if ($upload->question_key === 'drain_photo') {
+            return 'Afvoerfoto';
+        }
+
         $subject = PhotoSubject::expectedForPhotoQuestion($upload->question_key)
             ?? $upload->contentAssessment()?->expectedSubject();
 
