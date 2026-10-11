@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domains\AI\Eval;
 
+use App\Domains\AI\Support\SchemaEnumLabelGuard;
+
 /**
  * Measurement-only scorer for report_claims fixtures (eval harness, never product).
  *
@@ -13,6 +15,9 @@ namespace App\Domains\AI\Eval;
  * point (code + label). Hedge detection uses an eval-only word list (not
  * DerivedClaimConfidenceGuard / product paths). ADR-0013 / ADR-0016: this
  * code never runs in production interpretation.
+ *
+ * N20: also measures raw schema-enum leaks (`none_visible`, `needs_clearer`, …)
+ * via {@see SchemaEnumLabelGuard}’s closed token list (measurement only here).
  */
 final class ReportClaimsScorer
 {
@@ -298,6 +303,23 @@ final class ReportClaimsScorer
             ? 'clean'
             : 'internal_upload_ref_in_text';
         $out['no_internal_upload_refs']['hits'] = $leakHits;
+
+        $enumHits = $this->rawSchemaEnumHits($units);
+        $metaEnums = is_array($disputed['no_raw_schema_enums'] ?? null)
+            ? $disputed['no_raw_schema_enums']
+            : null;
+        $out['no_raw_schema_enums'] = $this->factScorer->score(
+            expected: true,
+            got: $enumHits === [],
+            supported: true,
+            components: $components,
+            disputed: $metaEnums !== null,
+            disputedReason: is_string($metaEnums['reason'] ?? null) ? $metaEnums['reason'] : null,
+        );
+        $out['no_raw_schema_enums']['detail'] = $enumHits === []
+            ? 'clean'
+            : 'raw_schema_enum_in_text';
+        $out['no_raw_schema_enums']['hits'] = $enumHits;
 
         foreach ($this->claimsFromExpected($expected) as $claim) {
             $factKey = 'claim.'.$claim['id'];
@@ -766,6 +788,39 @@ final class ReportClaimsScorer
             'detail' => 'assert_ok',
             'matches' => $matches,
         ];
+    }
+
+    /**
+     * Human-facing text must not leak raw schema enum tokens (eval measurement).
+     * Uses the same closed token list as {@see SchemaEnumLabelGuard}.
+     * Does not treat prompt-wording "retake" as an enum (it is not one).
+     *
+     * @param  list<array{kind: string, text: string, code?: string}>  $units
+     * @return list<array{kind: string, text: string, token: string}>
+     */
+    private function rawSchemaEnumHits(array $units): array
+    {
+        $guard = new SchemaEnumLabelGuard;
+        $hits = [];
+        foreach ($units as $unit) {
+            // Attention units concatenate code + label; score label-only for enums.
+            $text = $unit['kind'] === 'attention' && isset($unit['code'])
+                ? trim(preg_replace(
+                    '/^'.preg_quote($unit['code'], '/').'\s*/u',
+                    '',
+                    $unit['text'],
+                ) ?? $unit['text'])
+                : $unit['text'];
+            foreach ($guard->findRawHits($text) as $token) {
+                $hits[] = [
+                    'kind' => $unit['kind'],
+                    'text' => $unit['text'],
+                    'token' => $token,
+                ];
+            }
+        }
+
+        return $hits;
     }
 
     /**

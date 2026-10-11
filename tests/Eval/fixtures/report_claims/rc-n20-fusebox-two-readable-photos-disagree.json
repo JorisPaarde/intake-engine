@@ -1,0 +1,229 @@
+{
+  "id": "rc-n20-fusebox-two-readable-photos-disagree",
+  "kind": "report_claims",
+  "origin": "N20 real-conflict control (variant) — keeps #189/#191 conflict rule for genuine disagreement",
+  "source_kind": "variant",
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
+  "note": "Control: two readable (content_assessment.status=ok) meterkast photos. Production stores only ONE combined fusebox_photo_assessment (no per-photo phase on uploads). Closest prod shape: both uploads ok + combined fact phase=unknown with free-text evidence that names disagreeing phase readings. Gap: cannot send structured per-photo phase without inventing context fields prod never builds. Expected: photo_conflict assert.",
+  "summary_input": {
+    "answers": {
+      "fusebox_photo": {
+        "upload_ids": [
+          "eval-upload-a",
+          "eval-upload-b"
+        ]
+      }
+    },
+    "external_facts": {
+      "fusebox_photo_assessment": {
+        "value": {
+          "phase": "unknown",
+          "empty_module_space": "unknown",
+          "confidence": "medium",
+          "evidence": "De eerste meterkastfoto toont een 1-fase hoofdschakelaar; de tweede toont drie fasen. Fase niet eenduidig vast te stellen.",
+          "retake_instruction": null,
+          "subject_match": "yes",
+          "provider": "openai",
+          "model": "eval-fixture",
+          "upload_ids": [
+            1,
+            2
+          ]
+        },
+        "source": "ai",
+        "confidence": "medium"
+      }
+    },
+    "follow_up": [],
+    "attention_point_codes": [],
+    "uploads": [
+      {
+        "reference": "fusebox_photo@upload:upload_phase1",
+        "question_key": "fusebox_photo",
+        "question_label": "Foto van de meterkast",
+        "section_label": "Stroom",
+        "section_instance_key": null,
+        "context": "intake",
+        "mime_type": "image/jpeg",
+        "size_bytes": 1200000,
+        "usability_verdict": "usable",
+        "content_assessment": {
+          "status": "ok",
+          "expected_subject": "fusebox",
+          "detected_subject": "fusebox",
+          "customer_message": null
+        },
+        "order": 1
+      },
+      {
+        "reference": "fusebox_photo@upload:upload_phase3",
+        "question_key": "fusebox_photo",
+        "question_label": "Foto van de meterkast",
+        "section_label": "Stroom",
+        "section_instance_key": null,
+        "context": "intake",
+        "mime_type": "image/jpeg",
+        "size_bytes": 1300000,
+        "usability_verdict": "usable",
+        "content_assessment": {
+          "status": "ok",
+          "expected_subject": "fusebox",
+          "detected_subject": "fusebox",
+          "customer_message": null
+        },
+        "order": 2
+      }
+    ],
+    "template_key": "airco",
+    "template_version": 28
+  },
+  "attention_input": {
+    "answers": {
+      "fusebox_photo": {
+        "upload_ids": [
+          "eval-upload-a",
+          "eval-upload-b"
+        ]
+      }
+    },
+    "external_facts": {
+      "fusebox_photo_assessment": {
+        "value": {
+          "phase": "unknown",
+          "empty_module_space": "unknown",
+          "confidence": "medium",
+          "evidence": "De eerste meterkastfoto toont een 1-fase hoofdschakelaar; de tweede toont drie fasen. Fase niet eenduidig vast te stellen."
+        },
+        "source": "ai",
+        "confidence": "medium"
+      }
+    },
+    "answer_context": [],
+    "external_fact_context": [
+      {
+        "reference": "fusebox_photo_assessment@fact:fact_eval_fusebox_disagree",
+        "fact_key": "fusebox_photo_assessment",
+        "label": "Automatische beoordeling meterkastfoto",
+        "value": {
+          "phase": "unknown",
+          "empty_module_space": "unknown",
+          "confidence": "medium",
+          "evidence": "De eerste meterkastfoto toont een 1-fase hoofdschakelaar; de tweede toont drie fasen. Fase niet eenduidig vast te stellen."
+        },
+        "source": "ai",
+        "confidence": "medium",
+        "captured_at": "2026-10-11T15:46:00+00:00"
+      }
+    ],
+    "uploads": [
+      {
+        "reference": "fusebox_photo@upload:upload_phase1",
+        "question_key": "fusebox_photo",
+        "question_label": "Foto van de meterkast",
+        "section_label": "Stroom",
+        "section_instance_key": null,
+        "context": "intake",
+        "mime_type": "image/jpeg",
+        "size_bytes": 1200000,
+        "usability_verdict": "usable",
+        "content_assessment": {
+          "status": "ok",
+          "expected_subject": "fusebox",
+          "detected_subject": "fusebox",
+          "customer_message": null
+        },
+        "order": 1
+      },
+      {
+        "reference": "fusebox_photo@upload:upload_phase3",
+        "question_key": "fusebox_photo",
+        "question_label": "Foto van de meterkast",
+        "section_label": "Stroom",
+        "section_instance_key": null,
+        "context": "intake",
+        "mime_type": "image/jpeg",
+        "size_bytes": 1300000,
+        "usability_verdict": "usable",
+        "content_assessment": {
+          "status": "ok",
+          "expected_subject": "fusebox",
+          "detected_subject": "fusebox",
+          "customer_message": null
+        },
+        "order": 2
+      }
+    ],
+    "follow_up": [],
+    "system_attention_points": [],
+    "completeness": {},
+    "installer_review": null,
+    "pipe_routes": [],
+    "template_key": "airco",
+    "template_version": 28,
+    "intake_status": "submitted"
+  },
+  "fake_summary_output": {
+    "summary": "De eerste en de tweede meterkastfoto spreken elkaar tegen over het aantal fasen; er is geen vaste conclusie. Controleer de meterkast op locatie.",
+    "highlights": [
+      "Conflict tussen eerste en tweede meterkastfoto over fase",
+      "Fase niet eenduidig — te controleren"
+    ]
+  },
+  "fake_attention_output": {
+    "points": [
+      {
+        "code": "fusebox_photo_conflict",
+        "label": "De eerste en de tweede meterkastfoto spreken elkaar tegen over het aantal fasen; te controleren",
+        "confidence": "medium",
+        "evidence": [
+          {
+            "source_type": "upload",
+            "reference": "fusebox_photo@upload:upload_phase1"
+          },
+          {
+            "source_type": "upload",
+            "reference": "fusebox_photo@upload:upload_phase3"
+          },
+          {
+            "source_type": "external_fact",
+            "reference": "fusebox_photo_assessment@fact:fact_eval_fusebox_disagree"
+          }
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "claims": [
+      {
+        "id": "photo_conflict",
+        "concept": "photo_conflict",
+        "allowed": "assert",
+        "terms": [
+          "conflict",
+          "tegenstrijdig",
+          "spreken elkaar tegen",
+          "/spreken? elkaar tegen/iu",
+          "wijken af",
+          "verschil tussen",
+          "/tegenspre\\w*/iu"
+        ]
+      },
+      {
+        "id": "phase_3",
+        "concept": "phase_3",
+        "allowed": "hedged_only"
+      }
+    ],
+    "attention_confidence_ceiling": "medium",
+    "require_evidence_on_points": true
+  },
+  "disputed_facts": {
+    "claim.photo_conflict": {
+      "reason": "Real readable-vs-readable disagreement must still be named; N20 only removes false conflict for unsharp-then-sharp."
+    }
+  }
+}

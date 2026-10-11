@@ -69,7 +69,46 @@ test('report_claims fixtures have required schema fields', function () {
         ->and($ids)->toContain('rc-n14-attic-vs-office-furnishing')
         ->and($ids)->toContain('rc-n14-phase-unknown-vs-ai')
         ->and($ids)->toContain('rc-n14-phase-stated-vs-ai')
+        ->and($ids)->toContain('rc-n20-fusebox-unsharp-then-sharp-no-conflict')
+        ->and($ids)->toContain('rc-n20-fusebox-two-readable-photos-disagree')
         ->and(count($ids))->toBe(count(array_unique($ids)));
+});
+
+test('N20 fixtures encode unsharp-then-sharp vs readable conflict expectations', function () {
+    $n20 = json_decode(
+        (string) file_get_contents(__DIR__.'/../../Eval/fixtures/report_claims/rc-n20-fusebox-unsharp-then-sharp-no-conflict.json'),
+        true,
+        512,
+        JSON_THROW_ON_ERROR,
+    );
+    $control = json_decode(
+        (string) file_get_contents(__DIR__.'/../../Eval/fixtures/report_claims/rc-n20-fusebox-two-readable-photos-disagree.json'),
+        true,
+        512,
+        JSON_THROW_ON_ERROR,
+    );
+    $kt11 = json_decode(
+        (string) file_get_contents(__DIR__.'/../../Eval/fixtures/report_claims/rc-kt11-fusebox-two-photos-conflict.json'),
+        true,
+        512,
+        JSON_THROW_ON_ERROR,
+    );
+
+    $n20Conflict = collect($n20['expected']['claims'])->firstWhere('id', 'photo_conflict');
+    $controlConflict = collect($control['expected']['claims'])->firstWhere('id', 'photo_conflict');
+    $kt11Conflict = collect($kt11['expected']['claims'])->firstWhere('id', 'photo_conflict');
+
+    expect($n20['source_kind'])->toBe('verbatim_notion')
+        ->and($n20Conflict['allowed'])->toBe('forbidden')
+        ->and($control['source_kind'])->toBe('variant')
+        ->and($controlConflict['allowed'])->toBe('assert')
+        ->and($kt11Conflict['allowed'])->toBe('forbidden')
+        ->and($n20['summary_input']['uploads'][0]['content_assessment']['status'])->toBe('needs_clearer')
+        ->and($n20['summary_input']['uploads'][1]['content_assessment']['status'])->toBe('ok')
+        ->and($control['summary_input']['uploads'][0]['content_assessment']['status'])->toBe('ok')
+        ->and($control['summary_input']['uploads'][1]['content_assessment']['status'])->toBe('ok')
+        ->and($control['summary_input']['external_facts']['fusebox_photo_assessment']['value'])
+        ->not->toHaveKey('photo_assessments');
 });
 
 test('report_claims fixtures pass privacy scan', function () {

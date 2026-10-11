@@ -11,6 +11,7 @@ use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\AI\Services\IntakeAttentionContextBuilder;
 use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\AI\Support\DerivedClaimConfidenceGuard;
+use App\Domains\AI\Support\SchemaEnumLabelGuard;
 use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Services\GenerateIntakeReportHtml;
@@ -34,6 +35,7 @@ final class SummarizeIntake
         private readonly IntakeAttentionContextBuilder $contextBuilder,
         private readonly AiTraceRecorder $traceRecorder,
         private readonly DerivedClaimConfidenceGuard $claimGuard,
+        private readonly SchemaEnumLabelGuard $schemaEnumLabelGuard,
     ) {}
 
     public function handle(Intake $intake): AiRun
@@ -257,14 +259,16 @@ final class SummarizeIntake
         $ceiling = $this->claimGuard->ceilingFromSummaryPayload($payload);
 
         $summaryNormalized = $this->claimGuard->normalizeDerivedText(trim($validated['summary']), $ceiling);
+        $summaryRendered = $this->schemaEnumLabelGuard->apply($summaryNormalized['text']);
         $highlights = [];
         foreach ($validated['highlights'] as $item) {
             $highlightNormalized = $this->claimGuard->normalizeDerivedText(trim($item), $ceiling);
-            $highlights[] = $highlightNormalized['text'];
+            $highlightRendered = $this->schemaEnumLabelGuard->apply($highlightNormalized['text']);
+            $highlights[] = $highlightRendered['text'];
         }
 
         return [
-            'summary' => $summaryNormalized['text'],
+            'summary' => $summaryRendered['text'],
             'highlights' => $highlights,
         ];
     }

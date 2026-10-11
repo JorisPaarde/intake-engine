@@ -7,6 +7,7 @@ namespace App\Domains\Intake\Services;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeExternalFact;
+use App\Domains\Intake\Support\FuseboxAssessmentLabels;
 use App\Domains\Intake\Support\InstallerDisplayLabels;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
@@ -331,23 +332,13 @@ final class ExternalFactPresenter
     {
         $emptySpace = $value['empty_module_space'] ?? null;
         if ($emptySpace === null && isset($value['free_group'])) {
-            $emptySpace = match ((string) $value['free_group']) {
-                'yes' => 'visible',
-                'no' => 'none_visible',
-                default => 'unknown',
-            };
+            $emptySpace = FuseboxAssessmentLabels::normalizeEmptyModuleSpace($value['free_group']);
+        } else {
+            $emptySpace = FuseboxAssessmentLabels::normalizeEmptyModuleSpace($emptySpace);
         }
 
-        $moduleLabel = match ($emptySpace) {
-            'visible' => 'Vrije moduleplek lijkt zichtbaar',
-            'none_visible' => 'Geen vrije moduleplek zichtbaar (groepenkast mogelijk vol)',
-            default => 'Vrije moduleplek niet betrouwbaar te bepalen',
-        };
-        $phase = match ($value['phase'] ?? null) {
-            'one_phase' => '1-fase lijkt zichtbaar',
-            'three_phase' => '3-fase lijkt zichtbaar',
-            default => 'fase niet betrouwbaar te bepalen',
-        };
+        $moduleLabel = FuseboxAssessmentLabels::emptyModuleSpace($emptySpace);
+        $phase = FuseboxAssessmentLabels::phase($value['phase'] ?? null);
 
         $parts = [
             'Meterkastbeoordeling: '.$moduleLabel,
