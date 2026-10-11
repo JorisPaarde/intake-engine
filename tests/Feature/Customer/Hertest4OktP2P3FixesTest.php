@@ -314,6 +314,15 @@ test('P3-4: bruikbare outdoor-foto maakt around_house optioneel via OutdoorPhoto
     expect($around)->not->toBeNull()
         ->and($around->meta['allow_skip'] ?? false)->toBeTrue()
         ->and($around->meta['reuse_from_photo_keys'] ?? [])->toContain('outdoor_location_photos');
+
+    $keys = array_column(
+        app(IntakeStepBuilder::class)->build(
+            $intake->fresh(),
+            $version,
+        ),
+        'question_key',
+    );
+    expect($keys)->not->toContain('around_house_photos');
 });
 
 test('P3-5: progress % en vragen-teller gebruiken dezelfde done-telling', function () {

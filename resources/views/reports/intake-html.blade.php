@@ -211,6 +211,88 @@
         @endforeach
     @endif
 
+    @if (! empty($review))
+        <h2>Beoordeling</h2>
+        <dl>
+            <dt>Beslissing</dt>
+            <dd>{{ $review['decision_label'] }}</dd>
+            <dt>Locatiebezoek nodig</dt>
+            <dd>{{ $review['site_visit_needed'] ? 'Ja' : 'Nee' }}</dd>
+            <dt>Voldoende informatie</dt>
+            <dd>{{ $review['enough_information'] ? 'Ja' : 'Nee' }}</dd>
+            @if ($review['summary'])
+                <dt>Samenvatting</dt>
+                <dd style="white-space: pre-wrap;">{{ $review['summary'] }}</dd>
+            @endif
+            @if ($review['reviewer_name'] || $review['reviewed_at'])
+                <dt>Beoordeeld</dt>
+                <dd>
+                    @if ($review['reviewer_name'])
+                        {{ $review['reviewer_name'] }}
+                    @endif
+                    @if ($review['reviewed_at'])
+                        @if ($review['reviewer_name']) · @endif
+                        {{ $review['reviewed_at']->timezone(config('app.timezone'))->format('d-m-Y H:i') }}
+                    @endif
+                </dd>
+            @endif
+        </dl>
+    @endif
+
+    @if (! empty($installerNotes))
+        <h2>Installateursnotities</h2>
+        <dl>
+            @foreach ($installerNotes as $note)
+                <dt>{{ $note['subject_label'] }}</dt>
+                <dd style="white-space: pre-wrap;">{{ $note['text'] }}</dd>
+            @endforeach
+        </dl>
+    @endif
+
+    @if (! empty($selectedInstallationOption))
+        <h2>Geselecteerde installatiekeuze</h2>
+        <dl>
+            <dt>Keuze</dt>
+            <dd>{{ $selectedInstallationOption['label'] }}</dd>
+            <dt>Configuratie</dt>
+            <dd>{{ $selectedInstallationOption['configuration_label'] }}</dd>
+            @if ($selectedInstallationOption['summary'])
+                <dt>Toelichting</dt>
+                <dd>{{ $selectedInstallationOption['summary'] }}</dd>
+            @endif
+            @if ($selectedInstallationOption['units'] !== [])
+                <dt>Units</dt>
+                <dd>
+                    <ul style="margin:0.35rem 0 0;padding-left:1.25rem;">
+                        @foreach ($selectedInstallationOption['units'] as $unit)
+                            <li>{{ $unit }}</li>
+                        @endforeach
+                    </ul>
+                </dd>
+            @endif
+            @if ($selectedInstallationOption['routes'] !== [])
+                <dt>Verbindingen en routes</dt>
+                <dd>
+                    <ul style="margin:0.35rem 0 0;padding-left:1.25rem;">
+                        @foreach ($selectedInstallationOption['routes'] as $route)
+                            <li>
+                                {{ $route['type_label'] }} · {{ $route['label'] }}
+                                ({{ $route['from'] }} → {{ $route['to'] }})
+                                @if ($route['segments'] !== [])
+                                    <ul style="margin:0.25rem 0 0;padding-left:1.25rem;">
+                                        @foreach ($route['segments'] as $segment)
+                                            <li>{{ $segment }}</li>
+                                        @endforeach
+                                    </ul>
+                                @endif
+                            </li>
+                        @endforeach
+                    </ul>
+                </dd>
+            @endif
+        </dl>
+    @endif
+
     <h2>Voorstel volgende stap</h2>
     <p>{{ $nextStep }}</p>
 </body>

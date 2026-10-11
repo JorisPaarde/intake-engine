@@ -4,17 +4,28 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Services;
 
+use App\Domains\Intake\Models\AircoInstallationOption;
+use App\Domains\Intake\Models\DossierRecord;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeQuestion;
+use App\Domains\Intake\Models\IntakeReview;
 use App\Domains\Intake\Models\IntakeSection;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Domains\Intake\Support\CustomerConsentPresenter;
+use App\Enums\AircoOptionStatus;
+use App\Enums\DossierRecordStatus;
 use App\Enums\QuestionType;
+use App\Enums\ReviewDecision;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 final class GenerateIntakeReportHtml
 {
+    private const INSTALLER_NOTE_METHODS = [
+        'installer_note',
+    ];
+
     public function __construct(
         private readonly AnswerValueReader $answerValueReader,
         private readonly VisibilityResolver $visibilityResolver,
@@ -35,7 +46,17 @@ final class GenerateIntakeReportHtml
         ?array $aiSummary = null,
     ): string {
         $version->loadMissing(['sections.questions.options', 'sections.questions.rules', 'template']);
-        $intake->loadMissing(['answers', 'uploads', 'externalFacts', 'followUpRounds.items.uploads']);
+        $intake->loadMissing([
+            'answers',
+            'uploads',
+            'externalFacts',
+            'followUpRounds.items.uploads',
+            'review.reviewer',
+            'dossierSubjects.records',
+            'aircoInstallationOptions.placements.room',
+            'aircoInstallationOptions.connections.fromPlacement',
+            'aircoInstallationOptions.connections.toPlacement',
+        ]);
 
         $sections = $this->buildReportSections($intake, $version);
         // PDF needs inline data_uri; web workspace/show use intakes.aerial.show.
@@ -43,15 +64,8 @@ final class GenerateIntakeReportHtml
         $followUpRounds = $intake->followUpRounds
             ->filter(static fn ($round): bool => $round->completed_at !== null)
             ->values();
-        $nextStep = $followUpRounds->isNotEmpty()
-            ? ($externalData['uncertainties'] !== []
-                ? 'Beoordeel de aangeleverde aanvulling, controleer de gemarkeerde onzekerheden en bepaal daarna de offerte of volgende stap.'
-                : 'Beoordeel de aangeleverde aanvulling en bepaal daarna de offerte of volgende stap.')
-            : ($externalData['uncertainties'] !== []
-                ? 'Controleer eerst de gemarkeerde onzekerheden en bepaal daarna of een gerichte vraag of locatiebezoek nodig is.'
-            : ($attentionPoints !== []
-                ? 'Beoordeel de aandachtspunten en bereid daarna de offerte of een gerichte vervolgvraag voor.'
-                : 'De aanvraag is compleet; bereid de offerte voor.'));
+        $review = $intake->review;
+        $nextStep = $this->resolveNextStep($intake, $review, $followUpRounds, $externalData, $attentionPoints);
 
         return view('reports.intake-html', [
             'intake' => $intake,
@@ -65,8 +79,184 @@ final class GenerateIntakeReportHtml
             'followUpRounds' => $followUpRounds,
             'nextStep' => $nextStep,
             'customerConsent' => $this->customerConsentPresenter->present($intake),
+            'review' => $this->presentReview($intake, $review),
+            'installerNotes' => $this->buildInstallerNotes($intake),
+            'selectedInstallationOption' => $this->presentSelectedInstallationOption($intake),
             'generatedAt' => now(),
         ])->render();
+    }
+
+    /**
+     * @param  Collection<int, mixed>  $followUpRounds
+     * @param  array{uncertainties: list<string>}  $externalData
+     * @param  list<array{code: string, label: string}>  $attentionPoints
+     */
+    private function resolveNextStep(
+        Intake $intake,
+        ?IntakeReview $review,
+        Collection $followUpRounds,
+        array $externalData,
+        array $attentionPoints,
+    ): string {
+        // Alleen de actuele beoordeling stuurt de slotzin. Na afronden van een
+        // aanvullingsronde wist CompleteFollowUpRound reviewed_at; de oude
+        // NeedMoreInfo-beslissing blijft bewaard maar is niet meer leidend.
+        if ($review instanceof IntakeReview && $intake->reviewed_at !== null) {
+            $decisionNextStep = match ($review->decision) {
+                ReviewDecision::PrepareQuote => 'Bereid de offerte voor op basis van deze beoordeling.',
+                ReviewDecision::SiteVisitNeeded => 'Plan een locatiebezoek; de beoordeling is vastgelegd.',
+                ReviewDecision::NeedMoreInfo => 'Wacht op de aanvullende informatie van de klant en beoordeel daarna opnieuw.',
+                ReviewDecision::NotSuitable => 'De aanvraag is niet passend; geen offerte voorbereiden.',
+                ReviewDecision::Pending => null,
+            };
+            if ($decisionNextStep !== null) {
+                return $decisionNextStep;
+            }
+        }
+
+        if ($followUpRounds->isNotEmpty()) {
+            return $externalData['uncertainties'] !== []
+                ? 'Beoordeel de aangeleverde aanvulling, controleer de gemarkeerde onzekerheden en bepaal daarna de offerte of volgende stap.'
+                : 'Beoordeel de aangeleverde aanvulling en bepaal daarna de offerte of volgende stap.';
+        }
+
+        if ($externalData['uncertainties'] !== []) {
+            return 'Controleer eerst de gemarkeerde onzekerheden en bepaal daarna of een gerichte vraag of locatiebezoek nodig is.';
+        }
+
+        if ($attentionPoints !== []) {
+            return 'Beoordeel de aandachtspunten en bereid daarna de offerte of een gerichte vervolgvraag voor.';
+        }
+
+        return 'De aanvraag is compleet; bereid de offerte voor.';
+    }
+
+    /**
+     * Toon de opgeslagen beoordeling wanneer die nog actueel is (reviewed_at gezet).
+     * Na een afgeronde aanvullingsronde is reviewed_at leeggemaakt; de installateur
+     * moet opnieuw beslissen — de oude NeedMoreInfo-tekst hoort dan niet meer in
+     * het rapport als definitieve beoordeling.
+     *
+     * @return array{
+     *     decision_label: string,
+     *     site_visit_needed: bool,
+     *     enough_information: bool,
+     *     summary: string|null,
+     *     reviewed_at: Carbon|null,
+     *     reviewer_name: string|null
+     * }|null
+     */
+    private function presentReview(Intake $intake, ?IntakeReview $review): ?array
+    {
+        if (! $review instanceof IntakeReview
+            || $review->decision === ReviewDecision::Pending
+            || $intake->reviewed_at === null) {
+            return null;
+        }
+
+        return [
+            'decision_label' => $review->decision->label(),
+            'site_visit_needed' => (bool) $review->site_visit_needed,
+            'enough_information' => (bool) $review->enough_information,
+            'summary' => $review->summary,
+            'reviewed_at' => $review->reviewed_at,
+            'reviewer_name' => $review->reviewer?->name,
+        ];
+    }
+
+    /**
+     * @return list<array{subject_label: string, text: string}>
+     */
+    private function buildInstallerNotes(Intake $intake): array
+    {
+        $notes = [];
+
+        foreach ($intake->dossierSubjects as $subject) {
+            foreach ($subject->records as $record) {
+                if (! $this->isInstallerNoteRecord($record)) {
+                    continue;
+                }
+
+                $text = $record->value['text'] ?? null;
+                if (! is_string($text) || trim($text) === '') {
+                    continue;
+                }
+
+                $notes[] = [
+                    'subject_label' => $subject->label,
+                    'text' => $text,
+                ];
+            }
+        }
+
+        return $notes;
+    }
+
+    private function isInstallerNoteRecord(DossierRecord $record): bool
+    {
+        return $record->status === DossierRecordStatus::Established
+            && $record->source_type === 'installer'
+            && in_array($record->method, self::INSTALLER_NOTE_METHODS, true)
+            && $record->superseded_by_id === null;
+    }
+
+    /**
+     * @return array{
+     *     label: string,
+     *     configuration_label: string,
+     *     summary: string|null,
+     *     units: list<string>,
+     *     routes: list<array{type_label: string, label: string, from: string, to: string, segments: list<string>}>
+     * }|null
+     */
+    private function presentSelectedInstallationOption(Intake $intake): ?array
+    {
+        /** @var AircoInstallationOption|null $option */
+        $option = $intake->aircoInstallationOptions
+            ->first(static fn (AircoInstallationOption $candidate): bool => $candidate->status === AircoOptionStatus::Selected);
+
+        if (! $option instanceof AircoInstallationOption) {
+            return null;
+        }
+
+        $units = [];
+        foreach ($option->placements as $placement) {
+            $parts = [$placement->type->label(), $placement->label];
+            if ($placement->room?->name) {
+                $parts[] = $placement->room->name;
+            }
+            $units[] = implode(' · ', $parts);
+        }
+
+        $routes = [];
+        foreach ($option->connections as $connection) {
+            $rawSegments = $connection->segments ?? [];
+            $segments = [];
+            foreach ($rawSegments as $segment) {
+                if (trim($segment) !== '') {
+                    $segments[] = $segment;
+                }
+            }
+
+            $fromPlacement = $connection->fromPlacement;
+            $toPlacement = $connection->toPlacement;
+
+            $routes[] = [
+                'type_label' => $connection->type->label(),
+                'label' => $connection->label,
+                'from' => $fromPlacement !== null ? $fromPlacement->label : 'Beginpunt open',
+                'to' => $toPlacement !== null ? $toPlacement->label : 'Eindpunt open',
+                'segments' => $segments,
+            ];
+        }
+
+        return [
+            'label' => $option->label,
+            'configuration_label' => $option->configuration_type->label(),
+            'summary' => $option->summary,
+            'units' => $units,
+            'routes' => $routes,
+        ];
     }
 
     /**

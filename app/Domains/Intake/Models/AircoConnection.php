@@ -91,7 +91,7 @@ class AircoConnection extends Model
     /** @return BelongsTo<AircoInstallationOption, $this> */
     public function installationOption(): BelongsTo
     {
-        return $this->belongsTo(AircoInstallationOption::class);
+        return $this->belongsTo(AircoInstallationOption::class, 'airco_installation_option_id');
     }
 
     /** @return BelongsTo<AircoPlacementOption, $this> */
