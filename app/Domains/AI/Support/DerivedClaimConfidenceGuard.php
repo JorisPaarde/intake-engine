@@ -31,6 +31,10 @@ final class DerivedClaimConfidenceGuard
      */
     private const OVERCONFIDENT_FACT_PATTERN = '/\b(1[\s-]?fasen?|3[\s-]?fasen?|driefasen?|vrije\s+groep(?:en)?)((?:\s+\w+){0,6})\s+(?:aanwezig|is\s+aanwezig|vastgesteld|bevestigd|aanwezig\s+is)\b/iu';
 
+    /**
+     * "voorzien van / uitgevoerd met … fase" — positive electrical claim without
+     * the presence verb that OVERCONFIDENT_FACT_PATTERN requires.
+     */
     private const OVERCONFIDENT_CONSTRUCTION_PATTERN = '/\b(?:is\s+)?(?:uitgevoerd\s+met|voorzien\s+van(?:\s+een)?)\s+(?:een\s+)?((?:1[\s-]?|3[\s-]?|drie)fasen?(?:\s+\w+){0,2})\b/iu';
 
     /**
@@ -86,29 +90,6 @@ final class DerivedClaimConfidenceGuard
         // only hard phase mentions or overconfident presence constructions qualify.
         return (bool) preg_match(self::PHASE_PATTERN, $normalized)
             || $this->claimsOverconfidentFact($text);
-    }
-
-    /**
-     * Rewrite hard factual electrical claims into hedged "lijkt / te controleren" form.
-     * Only rewrites actual hard phase/group presence claims — never splices the hedge
-     * suffix onto check-instructions like "controleer op vrije groepen".
-     */
-    public function hedgeOverconfidentClaim(string $text): string
-    {
-        $hedged = preg_replace(
-            self::OVERCONFIDENT_FACT_PATTERN,
-            '$1$2 lijkt zichtbaar — te controleren',
-            $text,
-        );
-        $result = trim(is_string($hedged) ? $hedged : $text);
-
-        $constructionHedged = preg_replace(
-            self::OVERCONFIDENT_CONSTRUCTION_PATTERN,
-            '$1 lijkt zichtbaar — te controleren',
-            $result,
-        );
-
-        return trim(is_string($constructionHedged) ? $constructionHedged : $result);
     }
 
     /**
@@ -277,8 +258,7 @@ final class DerivedClaimConfidenceGuard
     }
 
     /**
-     * Apply hedge to a free-text derived claim when the source is soft or the
-     * claim itself states an overconfident electrical fact.
+     * Mark an overconfident derived claim without rewriting the model text (ADR-0016).
      *
      * @param  'low'|'medium'|'high'|null  $sourceCeiling
      * @return array{text: string, hedged: bool}
@@ -286,19 +266,13 @@ final class DerivedClaimConfidenceGuard
     public function normalizeDerivedText(string $text, ?string $sourceCeiling): array
     {
         $sourceIsSoft = $sourceCeiling !== null && $sourceCeiling !== 'high';
-        $shouldHedge = $this->claimsOverconfidentFact($text)
+        $shouldMarkUncertain = $this->claimsOverconfidentFact($text)
             || ($sourceIsSoft && $this->claimsUnequivocalElectricalFact($text))
             || ($sourceIsSoft && ! $this->textLooksHedged($text)
                 && (bool) preg_match('/\b(aanwezig|vastgesteld|bevestigd)\b/iu', $text)
                 && (bool) preg_match(self::PHASE_OR_GROUP_PATTERN, mb_strtolower($text)));
 
-        if (! $shouldHedge) {
-            return ['text' => $text, 'hedged' => false];
-        }
-
-        $hedged = $this->hedgeOverconfidentClaim($text);
-
-        return ['text' => $hedged, 'hedged' => $hedged !== $text];
+        return ['text' => $text, 'hedged' => $shouldMarkUncertain];
     }
 
     /**

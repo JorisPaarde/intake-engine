@@ -1,0 +1,21 @@
+{
+  "id": "obs-084-fusebox-3ph",
+  "kind": "photo_observation",
+  "origin": "staging 84 fusebox",
+  "source_kind": "verbatim_trace",
+  "slot": "fusebox_photo",
+  "room": null,
+  "text": "De groepenkast is volledig gevuld met automaten en componenten; de hoofdschakelaar toont drie zekeringen, wat duidt op een 3-fase aansluiting.",
+  "model_fields": {},
+  "expected": {
+    "phase": "three_phase",
+    "free_group": "no"
+  },
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
+  "note": null,
+  "disputed_facts": {}
+}

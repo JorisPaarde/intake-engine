@@ -1,0 +1,42 @@
+{
+  "id": "stg-076",
+  "kind": "request_text",
+  "origin": "staging intake 76 (= hertest-case 81-tekst), trace request-prefill-v6",
+  "source_kind": "verbatim_trace",
+  "text": "Fictieve QA-test. Ik wil twee slaapkamers koelen en verwarmen. Slaapkamer ouders op de 1e verdieping: 4 bij 3 meter, plafond 2,5 meter. Kinderkamer op de 1e verdieping: 3 bij 3 meter, plafond 2,5 meter. Het is een goed geïsoleerde koopwoning met vloerisolatie en een kruipruimte. Ik heb geen merkvoorkeur en geen haast. Een buitenunit tegen de achtergevel; de buren zitten dichtbij. Zichtbare leidingen in een goot vind ik prima. Over de stroomvoorziening en condensafvoer weet ik niets. De installateur moet technische keuzes bepalen.",
+  "expected": {
+    "cooling_heating": "both",
+    "indoor_unit_count": 2,
+    "ownership": "owned",
+    "existing_installation": {
+      "present": null
+    },
+    "rooms": [
+      {
+        "name": "Slaapkamer ouders",
+        "room_type": "bedroom",
+        "floor_level": "1",
+        "length_m": 4,
+        "width_m": 3,
+        "ceiling_height_m": 2.5
+      },
+      {
+        "name": "Kinderkamer",
+        "room_type": "bedroom",
+        "floor_level": "1",
+        "length_m": 3,
+        "width_m": 3,
+        "ceiling_height_m": 2.5
+      }
+    ]
+  },
+  "components": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C8"
+  ],
+  "note": null,
+  "disputed_facts": {}
+}

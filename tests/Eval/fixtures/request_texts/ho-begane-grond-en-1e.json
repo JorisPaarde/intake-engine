@@ -1,0 +1,33 @@
+{
+  "id": "ho-begane-grond-en-1e",
+  "kind": "request_text",
+  "origin": "held-out paraphrase P1 review r2 (niet in prompt)",
+  "source_kind": "variant",
+  "text": "Slaapkamer staat één trap omhoog (1e); werkkamer blijft begane grond. Koelen en verwarmen.",
+  "expected": {
+    "cooling_heating": "both",
+    "indoor_unit_count": 2,
+    "rooms": [
+      {
+        "name": "Slaapkamer",
+        "room_type": "bedroom",
+        "floor_level": "1"
+      },
+      {
+        "name": "Werkkamer",
+        "room_type": "office",
+        "floor_level": "ground"
+      }
+    ]
+  },
+  "components": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C8"
+  ],
+  "note": "Held-out: andere woordvolgorde dan 'X op de begane grond en Y op de eerste verdieping'.",
+  "disputed_facts": {},
+  "match_rooms": "unordered_by_type"
+}

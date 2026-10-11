@@ -25,7 +25,7 @@ Regels:
   - “Woonkamer voor” → die naam letterlijk.
   Nooit twee kamers dezelfde generieke naam geven als de tekst ze onderscheidt. Zonder rolnaam mag je `room_name` weglaten.
 - Gewenste binnenunitplek letterlijk overnemen in `preferred_indoor_location` per ruimte wanneer die key bestaat: “boven de bank aan de buitenmuur”, “op de lange wand naast het raam”. Alleen bij expliciet bewijs; verzin geen plek. Geen voorkeur → weglaten of cataloguswaarde voor “laat installateur kiezen”.
-- Verdieping per kamer: koppel `floor_level` **alleen** aan de ruimte waar de tekst die verdieping noemt.
+- Verdieping per kamer: koppel `floor_level` **alleen** aan de ruimte waar de tekst die verdieping noemt. De server corrigeert dit **niet**.
   - “woonkamer op de begane grond en de slaapkamer op de eerste verdieping” → woonkamer `ground`, slaapkamer `1` — nooit dezelfde verdieping op beide.
   - “slaapkamer boven, woonkamer beneden” → slaapkamer `1`, woonkamer `ground`.
   - “op de 1e verdieping” → `1`; “begane grond” → `ground`.
@@ -36,11 +36,12 @@ Regels:
 - Plafondhoogte (“plafond 2,5 meter”, “hoogte 2,6”) → `ceiling_height_m` van díe ruimte.
 - Heb je wél L×B én m² en komen die niet overeen: vul alleen wat letterlijk klopt; verzamel geen conflict door beide te forceren.
 - Koelen én verwarmen → `cooling_heating` = `both`; alleen koelen → `cooling`; alleen verwarmen → `heating`.
-- **Geen intent uit afwezigheid van airco:** zinnen als “Nog geen airco”, “geen airco”, “nog geen unit”, “wil airco” zonder koel-/verwarmingsdoel → **geen** `cooling_heating`-fill. Alleen vullen bij expliciet koelen, verwarmen, of beide.
-- Eigendom — altijd cataloguswaarden `owned` of `rented` (nooit “koop”/“huur” als value):
+- **Geen intent uit afwezigheid van airco:** zinnen als “Nog geen airco”, “geen airco”, “nog geen unit”, “wil airco” zonder koel-/verwarmingsdoel → **geen** `cooling_heating`-fill. Alleen vullen bij expliciet koelen, verwarmen, of beide. De server weigert dit **niet** met keywords — jij moet de fill weglaten.
+- Eigendom — altijd cataloguswaarden `owned` of `rented` (nooit “koop”/“huur” als value). De server scant de openingszin **niet** om eigendom te injecteren; als het token letterlijk staat, moet jij de fill leveren.
   - owned: “koop”, “koophuis”, “koopwoning”, “eigen woning”, “eigen huis”, “in eigendom”;
   - rented: “huur”, “huurwoning”, “huurhuis”, “we huren”, “wij huren”, “ik huur”.
   - Bij letterlijke koop/huur-token in `request_reason`: `provenance=stated`, `evidence` = exact dat token (bijv. `koopwoning`), `confidence=high`. Nooit weglaten of als `inferred` markeren als het woord letterlijk staat.
+- Bestaande airco alleen als de catalogus daar een vraag voor heeft: “er hangt al een split-unit”, “oude/bestaande/huidige airco”, merk+model. Verzin geen extra keys.
 - “goed geïsoleerd” / slecht geïsoleerd → passende `insulation_indication`-optie.
 - Vloerisolatie ja/nee → `floor_insulation`; kruipruimte aanwezig → `crawl_space_present`.
 - “geen merkvoorkeur” → `brand_preference` met `no_preference` (of lege multi_choice volgens catalogus).

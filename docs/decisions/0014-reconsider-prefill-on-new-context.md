@@ -1,6 +1,6 @@
 # ADR-0014: Herbeoordeling prefill bij nieuwe context (hybrid heuristiek + AI)
 
-- **Status:** Accepted
+- **Status:** Accepted — besluit 1 (altijd lokale parser) vervangen door ADR-0016
 - **Datum:** 2026-08-11
 - **Raakt:** BL-064, BL-065 · **Bouwt op:** ADR-0013
 

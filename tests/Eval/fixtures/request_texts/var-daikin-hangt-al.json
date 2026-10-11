@@ -1,0 +1,37 @@
+{
+  "id": "var-daikin-hangt-al",
+  "kind": "request_text",
+  "origin": "variant Stroom 2: split-unit van Daikin hangt al",
+  "source_kind": "variant",
+  "text": "In de woonkamer hangt al een split-unit van Daikin, die is twaalf jaar oud en moet eruit. We willen daar een nieuwe en er een slaapkamer bij. Koelen en verwarmen.",
+  "expected": {
+    "cooling_heating": "both",
+    "indoor_unit_count": 2,
+    "existing_installation": {
+      "present": true,
+      "room": "Woonkamer",
+      "replace": true
+    },
+    "rooms": [
+      {
+        "name": "Woonkamer",
+        "room_type": "living_room",
+        "floor_level": null
+      },
+      {
+        "name": "Slaapkamer",
+        "room_type": "bedroom",
+        "floor_level": null
+      }
+    ]
+  },
+  "components": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C8"
+  ],
+  "note": null,
+  "disputed_facts": {}
+}

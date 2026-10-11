@@ -1,0 +1,38 @@
+{
+  "id": "prod-111-partial",
+  "kind": "request_text",
+  "origin": "prod demo intake 111: Notion citeert alleen 'twee slaapkamers op zolder … de woonkamer ook verwarmen'",
+  "source_kind": "reconstructed",
+  "text": "Twee slaapkamers op zolder koelen, en de woonkamer ook verwarmen. Tussenwoning.",
+  "expected": {
+    "cooling_heating": "both",
+    "indoor_unit_count": 3,
+    "ownership": null,
+    "rooms": [
+      {
+        "name": "Slaapkamer 1",
+        "room_type": "bedroom",
+        "floor_level": "attic"
+      },
+      {
+        "name": "Slaapkamer 2",
+        "room_type": "bedroom",
+        "floor_level": "attic"
+      },
+      {
+        "name": "Woonkamer",
+        "room_type": "living_room",
+        "floor_level": null
+      }
+    ]
+  },
+  "components": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C8"
+  ],
+  "note": "Prod: woonkamer kreeg 'zolder'. Echte volledige tekst nodig uit prod-export.",
+  "disputed_facts": {}
+}

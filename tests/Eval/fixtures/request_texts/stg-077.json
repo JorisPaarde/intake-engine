@@ -1,0 +1,34 @@
+{
+  "id": "stg-077",
+  "kind": "request_text",
+  "origin": "staging intake 77 (= hertest-case 80-tekst)",
+  "source_kind": "verbatim_trace",
+  "text": "Fictieve QA-test. Ik wil alleen koelen in de woonkamer. De woonkamer is 6 bij 4 meter en het plafond is 2,6 meter hoog. De binnenunit wil ik boven de bank aan de buitenmuur. De buitenunit het liefst op de grond in de achtertuin. Over de stroomvoorziening weet ik niets.",
+  "expected": {
+    "cooling_heating": "cooling",
+    "indoor_unit_count": 1,
+    "ownership": null,
+    "existing_installation": {
+      "present": null
+    },
+    "rooms": [
+      {
+        "name": "Woonkamer",
+        "room_type": "living_room",
+        "floor_level": null,
+        "length_m": 6,
+        "width_m": 4,
+        "ceiling_height_m": 2.6
+      }
+    ]
+  },
+  "components": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C8"
+  ],
+  "note": null,
+  "disputed_facts": {}
+}

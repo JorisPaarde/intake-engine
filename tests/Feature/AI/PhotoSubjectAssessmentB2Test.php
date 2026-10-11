@@ -320,14 +320,13 @@ test('P2: fusebox prompt defines vrije groep and never prefills free_group_known
 
 // --- P3: route/outdoor retake + mount guess ---
 
-test('P3: pipe_route retake asking for buitenunitplek is rewritten to route instruction', function () {
+test('P3: pipe_route prompt forbids buitenunitplek; code does not rewrite model retake', function () {
     $prompt = app(PromptVersionRepository::class)->body('pipe_route_assessment');
     expect(app(PromptVersionRepository::class)->version('pipe_route_assessment'))->toBe('pipe-route-assessment-v5')
         ->and($prompt)->toContain('nooit')
         ->and($prompt)->toContain('buitenunitplek');
 
     $intake = b2Intake();
-    // subject_match=yes zodat storeObservation draait; retake bewust fout (buitenunitplek).
     FakeAiClient::alwaysReturn([
         'pipe_route_description' => 'along_facade',
         'pipe_distance_indication' => 'medium',
@@ -358,8 +357,7 @@ test('P3: pipe_route retake asking for buitenunitplek is rewritten to route inst
         ->first();
 
     expect($fact)->not->toBeNull()
-        ->and((string) ($fact?->value['retake_instruction'] ?? ''))->toContain('leidingroute')
-        ->and((string) ($fact?->value['retake_instruction'] ?? ''))->not->toContain('buitenunitplek');
+        ->and((string) ($fact?->value['retake_instruction'] ?? ''))->toBe('Maak een foto van de buitenunitplek.');
 
     expect(PhotoSubject::PipeRoute->customerRetakePrompt())->toContain('leidingroute')
         ->and(PhotoSubject::PipeRoute->customerRetakePrompt())->not->toContain('buitenunit');

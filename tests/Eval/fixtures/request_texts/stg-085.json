@@ -1,0 +1,40 @@
+{
+  "id": "stg-085",
+  "kind": "request_text",
+  "origin": "staging intake 85 (QA v142c)",
+  "source_kind": "verbatim_trace",
+  "text": "Fictieve test. Bestaande tussenwoning, koopwoning, nog geen airco. Wij willen de woonkamer op de begane grond (ca. 6 bij 4 meter) en de slaapkamer op de 1e verdieping (ca. 4 bij 3 meter) koelen en verwarmen. Buitenunit liefst in de achtertuin. Techniek laten we aan de installateur.",
+  "expected": {
+    "cooling_heating": "both",
+    "indoor_unit_count": 2,
+    "ownership": "owned",
+    "existing_installation": {
+      "present": false
+    },
+    "rooms": [
+      {
+        "name": "Woonkamer",
+        "room_type": "living_room",
+        "floor_level": "ground",
+        "length_m": 6,
+        "width_m": 4
+      },
+      {
+        "name": "Slaapkamer",
+        "room_type": "bedroom",
+        "floor_level": "1",
+        "length_m": 4,
+        "width_m": 3
+      }
+    ]
+  },
+  "components": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C8"
+  ],
+  "note": null,
+  "disputed_facts": {}
+}

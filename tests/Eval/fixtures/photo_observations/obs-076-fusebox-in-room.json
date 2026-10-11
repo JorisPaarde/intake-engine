@@ -1,0 +1,25 @@
+{
+  "id": "obs-076-fusebox-in-room",
+  "kind": "photo_observation",
+  "origin": "staging 76 room-assessment-v5",
+  "source_kind": "verbatim_trace",
+  "slot": "room_photos",
+  "room": "Slaapkamer ouders",
+  "text": "De foto toont een meterkast en geen leefruimte.",
+  "model_fields": {
+    "detected_subject": "fusebox",
+    "subject_match": "no"
+  },
+  "expected": {
+    "subject_match": false,
+    "route_to": "none (verkeerde foto)",
+    "outlet_present": null
+  },
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
+  "note": null,
+  "disputed_facts": {}
+}

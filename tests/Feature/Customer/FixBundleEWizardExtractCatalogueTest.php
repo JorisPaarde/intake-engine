@@ -160,10 +160,29 @@ test('P2 koopwoning uit openingszin wordt stated FILL en niet opnieuw gevraagd',
     );
 
     expect($ownership)->not->toBeNull()
-        ->and($ownership->disposition)->toBe(RequestPrefillCandidate::DISPOSITION_FILL)
-        ->and($ownership->provenance?->value)->toBe('stated')
         ->and($ownership->value)->toBe(['value' => 'owned'])
-        ->and($ownership->evidence)->toBe('koopwoning');
+        ->and($ownership->provenance?->value)->toBe('inferred')
+        ->and($ownership->disposition)->toBe(RequestPrefillCandidate::DISPOSITION_SUGGESTION);
+
+    $stated = app(RequestPrefillOutcomeClassifier::class)->classifyCatalogOutput([
+        'evidence' => $reason,
+        'fills' => [[
+            'question_key' => 'ownership',
+            'section_instance_key' => null,
+            'confidence' => 'high',
+            'value' => ['value' => 'owned'],
+            'evidence' => 'koopwoning',
+            'provenance' => 'stated',
+        ]],
+    ], bundleECatalog(), [], $reason);
+
+    $ownershipStated = collect($stated['candidates'])->first(
+        static fn (RequestPrefillCandidate $c): bool => $c->questionKey === 'ownership',
+    );
+    expect($ownershipStated)->not->toBeNull()
+        ->and($ownershipStated->disposition)->toBe(RequestPrefillCandidate::DISPOSITION_FILL)
+        ->and($ownershipStated->provenance?->value)->toBe('stated')
+        ->and($ownershipStated->evidence)->toBe('koopwoning');
 
     $injected = app(RequestPrefillOutcomeClassifier::class)->classifyCatalogOutput([
         'evidence' => 'Alleen koelen.',
@@ -180,11 +199,10 @@ test('P2 koopwoning uit openingszin wordt stated FILL en niet opnieuw gevraagd',
     $ownership2 = collect($injected['candidates'])->first(
         static fn (RequestPrefillCandidate $c): bool => $c->questionKey === 'ownership',
     );
-    expect($ownership2)->not->toBeNull()
-        ->and($ownership2->disposition)->toBe(RequestPrefillCandidate::DISPOSITION_FILL)
-        ->and($ownership2->value)->toBe(['value' => 'owned']);
+    expect($ownership2)->toBeNull();
 
-    expect((new OwnershipNormalizer)->matchedEvidenceQuote($reason))->toBe('koopwoning');
+    expect((new OwnershipNormalizer)->normalize('koopwoning'))->toBe('owned')
+        ->and((new OwnershipNormalizer)->normalize($reason))->toBeNull();
 
     $intake = bundleEIntake();
     app(SaveIntakeAnswer::class)->handle(
@@ -261,9 +279,9 @@ test('P3 genummerde verdieping wint van zolder in samenvatting', function () {
         static fn (RequestPrefillCandidate $c): bool => $c->questionKey === 'floor_level',
     );
     expect($floor)->not->toBeNull()
-        ->and($floor->value)->toBe(['value' => '2'])
+        ->and($floor->value)->toBe(['value' => 'attic'])
         ->and(collect($classified['normalizations'])->pluck('rule')->all())
-        ->toContain('floor_level_prefer_numbered');
+        ->not->toContain('floor_level_prefer_numbered');
 
     $intake = bundleEIntake();
     app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1], PrefillSources::REQUEST_TEXT);

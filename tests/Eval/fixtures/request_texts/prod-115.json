@@ -1,0 +1,36 @@
+{
+  "id": "prod-115",
+  "kind": "request_text",
+  "origin": "prod demo intake 115: lege aanvraag, gevuld met config('intake.demo.request_reason')",
+  "source_kind": "verbatim_config",
+  "text": "Twee slaapkamers op zolder koelen; het wordt daar te warm in de zomer.",
+  "expected": {
+    "cooling_heating": "cooling",
+    "indoor_unit_count": 2,
+    "ownership": null,
+    "existing_installation": {
+      "present": null
+    },
+    "rooms": [
+      {
+        "name": "Slaapkamer 1",
+        "room_type": "bedroom",
+        "floor_level": "attic"
+      },
+      {
+        "name": "Slaapkamer 2",
+        "room_type": "bedroom",
+        "floor_level": "attic"
+      }
+    ]
+  },
+  "components": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C8"
+  ],
+  "note": null,
+  "disputed_facts": {}
+}
