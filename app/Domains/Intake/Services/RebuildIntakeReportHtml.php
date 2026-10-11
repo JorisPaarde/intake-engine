@@ -48,9 +48,12 @@ class RebuildIntakeReportHtml
                 ->with(['sections.questions.options', 'sections.questions.rules', 'template'])
                 ->firstOrFail();
 
-            $attentionPoints = $intake->attentionPoints
-                ->filter(static fn ($point): bool => $point->status === null
-                    || $point->status === AttentionPointStatus::Accepted)
+            $attentionPoints = PhotoContinueAnywayAttention::collapseDuplicateContinueAnywayPoints(
+                $intake,
+                $intake->attentionPoints
+                    ->filter(static fn ($point): bool => $point->status === null
+                        || $point->status === AttentionPointStatus::Accepted),
+            )
                 ->map(function ($point) use ($intake): ?array {
                     $code = (string) ($point->code ?? '');
                     if (PhotoContinueAnywayAttention::isContinueAnywayCode($code)) {

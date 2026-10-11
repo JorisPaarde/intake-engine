@@ -149,10 +149,11 @@ final class CompletenessChecker
     }
 
     /**
-     * Eén systeempunt per fotovraag + plek (niet per upload): Toch-doorgaan-
-     * override én/of actuele not_assessed (zonder override). Oude codes
-     * `photo_subject_mismatch_{id}` verdwijnen bij de volgende afronding/sync;
-     * bestaande opnames worden niet gemigreerd.
+     * Eén systeempunt per foto-onderwerp + plek (niet per upload / niet per
+     * gerelateerde fotovraag): Toch-doorgaan-override én/of actuele not_assessed.
+     * Onderwerp = `meta.photo_analysis` (bijv. fusebox_photo + fusebox_photo_extra),
+     * anders question_key. Oude codes `photo_subject_mismatch_{id}` verdwijnen bij
+     * de volgende afronding/sync; bestaande opnames worden niet gemigreerd.
      *
      * @return list<array{code: string, label: string}>
      */
@@ -162,6 +163,8 @@ final class CompletenessChecker
 
         /** @var array<string, list<IntakeUpload>> $byPlace */
         $byPlace = [];
+        /** @var array<string, string> $seedQuestionByGroup */
+        $seedQuestionByGroup = [];
         /** @var array<string, bool> $hasOverride */
         $hasOverride = [];
 
@@ -170,9 +173,12 @@ final class CompletenessChecker
                 continue;
             }
 
-            $groupKey = $upload->question_key.'|'.(string) ($upload->section_instance_key ?? '');
+            $questionKey = (string) $upload->question_key;
+            $topic = PhotoContinueAnywayAttention::photoTopicKey($version, $questionKey);
+            $groupKey = $topic.'|'.(string) ($upload->section_instance_key ?? '');
             $byPlace[$groupKey] ??= [];
             $byPlace[$groupKey][] = $upload;
+            $seedQuestionByGroup[$groupKey] ??= $questionKey;
 
             $assessment = $upload->contentAssessment();
             if ($assessment instanceof PhotoContentAssessment && $assessment->customerAcceptedOverride()) {
@@ -184,8 +190,8 @@ final class CompletenessChecker
 
         // Ruimtes in natuurlijke volgorde, daarna gebieden (niet-ruimte).
         uksort($byPlace, static function (string $a, string $b): int {
-            [$aKey, $aInstance] = array_pad(explode('|', $a, 2), 2, '');
-            [$bKey, $bInstance] = array_pad(explode('|', $b, 2), 2, '');
+            [$aTopic, $aInstance] = array_pad(explode('|', $a, 2), 2, '');
+            [$bTopic, $bInstance] = array_pad(explode('|', $b, 2), 2, '');
             $aIsRoom = str_starts_with((string) $aInstance, 'room-');
             $bIsRoom = str_starts_with((string) $bInstance, 'room-');
             if ($aIsRoom !== $bIsRoom) {
@@ -196,26 +202,27 @@ final class CompletenessChecker
                 return $instanceCmp;
             }
 
-            return strcmp((string) $aKey, (string) $bKey);
+            return strcmp((string) $aTopic, (string) $bTopic);
         });
 
         foreach ($byPlace as $groupKey => $uploads) {
             // Override (= klant koos Toch doorgaan) óf actuele not_assessed zonder
             // override (fotostatus: not_assessed vraagt geen Toch-doorgaan-keuze).
-            // Groepering blijft op question_key + section_instance_key.
             $counts = PhotoContinueAnywayAttention::countStatuses($uploads);
             $needsPoint = ($hasOverride[$groupKey] ?? false) || $counts['not_assessed'] > 0;
             if (! $needsPoint) {
                 continue;
             }
 
-            [$questionKey, $instanceRaw] = array_pad(explode('|', $groupKey, 2), 2, '');
+            [$topic, $instanceRaw] = array_pad(explode('|', $groupKey, 2), 2, '');
+            unset($topic);
             $sectionInstanceKey = $instanceRaw === '' ? null : $instanceRaw;
+            $seedQuestionKey = $seedQuestionByGroup[$groupKey] ?? (string) ($uploads[0]->question_key ?? '');
 
             $points[] = PhotoContinueAnywayAttention::buildPoint(
                 $intake,
                 $version,
-                (string) $questionKey,
+                $seedQuestionKey,
                 $sectionInstanceKey,
                 $uploads,
             );
