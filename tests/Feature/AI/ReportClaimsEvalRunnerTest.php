@@ -80,6 +80,8 @@ test('eval:interpretation --fake --kind=report_claims writes non-baseline report
         is_array($report['cases'] ?? null) ? $report['cases'] : [],
     )));
     expect($caseIds)->toContain('rc-kt11-fusebox-two-photos-conflict')
+        ->and($caseIds)->toContain('rc-n20-fusebox-unsharp-then-sharp-no-conflict')
+        ->and($caseIds)->toContain('rc-n20-fusebox-two-readable-photos-disagree')
         ->and($caseIds)->toContain('rc-no-fusebox-photo');
 
     $promptNames = array_map(
