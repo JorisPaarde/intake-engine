@@ -35,8 +35,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
-          key: composer-${{ hashFiles('composer.lock') }}
-          restore-keys: composer-
+          key: composer-ci-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-ci-
 
       - name: Install PHP dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
@@ -97,8 +97,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
-          key: composer-${{ hashFiles('composer.lock') }}
-          restore-keys: composer-
+          key: composer-ci-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-ci-
 
       - name: Install PHP dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
@@ -194,8 +194,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
-          key: composer-${{ hashFiles('composer.lock') }}
-          restore-keys: composer-
+          key: composer-ci-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-ci-
 
       - name: Install PHP dependencies
         run: composer install --no-interaction --prefer-dist --no-progress

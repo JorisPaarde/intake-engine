@@ -1,6 +1,6 @@
 # Deployment naar cPanel (staging + production)
 
-> **Documentversie:** 2.31 · **Laatste update:** 2026-10-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
+> **Documentversie:** 2.32 · **Laatste update:** 2026-10-11 · Onderhoud: zie [AGENTS.md](../AGENTS.md)
 
 **Statusregel:** staging en production zijn fysiek en logisch gescheiden; open handmatige acties (env/host) staan in [§ Handmatige acties producteigenaar](#handmatige-acties-producteigenaar).
 
@@ -189,7 +189,7 @@ MySQL commit DDL-stappen zoals `ALTER TABLE` ook wanneer een latere stap in deze
 
 **Huidige productieversie:** `v1.3.0` (`f8f75b3`, 2026-10-03, [Deploy production run 37130656790](https://github.com/JorisPaarde/intake-engine/actions/runs/37130656790)); vorige: `v1.2.0`. Werk deze regel bij bij iedere production-deploy.
 
-1. Zorg dat de te releasen commit op `main` staat. Je hoeft niet te wachten op CI-op-main: **Deploy production** start met job **Verify CI green**, die via de GitHub API eist dat `ci.yml` voor die SHA (of de gemergde PR-head met up-to-date base) succesvol was; anders start de deploy niet.
+1. Zorg dat de te releasen commit op `main` staat. Je hoeft niet te wachten op CI-op-main als de PR up-to-date was: **Deploy production** start met **Verify CI green** (fail-closed). Die laat de deploy alleen door als (A) `ci.yml` succesvol draaide op precies deze SHA via `push`/`workflow_dispatch`, of (B) er een gemergde PR naar `main` is met `merge_commit_sha` = deze SHA, diens head een groene `pull_request`-CI had, én `tree(SHA) == tree(head)` (merge/squash/rebase vanaf een up-to-date head). Anders start de deploy niet.
 2. Verplaats in `CHANGELOG.md` de items onder `[Unreleased]` naar een nieuwe sectie `## [x.y.z] - JJJJ-MM-DD`.
 3. Maak en push een semver-tag `v*`, of start Actions → **Deploy production** bewust handmatig op de juiste ref (zelfde CI-check).
 4. Controleer `https://intake-engine.nl/health` (`environment=production`).
