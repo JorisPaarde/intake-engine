@@ -27,11 +27,12 @@ final class EvalInterpretationCommand extends Command
     protected $signature = 'eval:interpretation
         {--repeats=3 : Aantal herhalingen per case (echte model-run); fake=1}
         {--fake : Forceer FakeAiClient (GEEN baseline)}
+        {--kind= : Alleen dit fixture-kind (request_text,customer_answer,photo_observation,report_claims); leeg=alles}
         {--compare= : Pad of bestandsstempel van een vorige run (JSON)}
         {--migrate : Draai migrate:fresh --seed (ALLEEN lokale sqlite; nooit prod/staging)}
         {--output= : Root voor results/baseline/HISTORY (default: tests/Eval of AI_EVAL_OUTPUT_DIR)}';
 
-    protected $description = 'Evalueer tekstinterpretatie (request prefill, follow-up hoogte, foto-observaties)';
+    protected $description = 'Evalueer tekstinterpretatie (request prefill, follow-up hoogte, foto-observaties, report claims)';
 
     public function handle(EvalRuntimeBootstrap $runtime): int
     {
@@ -110,9 +111,10 @@ final class EvalInterpretationCommand extends Command
         $this->info('Privacy-scan fixtures: schoon (geen postcode/e-mail/telefoon/straat+huisnr).');
 
         $repeats = max(1, (int) $this->option('repeats'));
+        $kinds = $this->parseKindsOption($this->option('kind'));
 
         try {
-            $result = $runner->run(repeats: $repeats, forceFake: $forceFake);
+            $result = $runner->run(repeats: $repeats, forceFake: $forceFake, kinds: $kinds);
         } catch (Throwable $e) {
             $this->error('Eval-run mislukt: '.$e->getMessage());
 
@@ -225,13 +227,15 @@ final class EvalInterpretationCommand extends Command
     {
         $hits = [];
         $root = base_path('tests/Eval/fixtures');
-        foreach (['request_texts', 'customer_answers', 'photo_observations'] as $dir) {
+        foreach (['request_texts', 'customer_answers', 'photo_observations', 'report_claims'] as $dir) {
             foreach (glob($root.'/'.$dir.'/*.json') ?: [] as $file) {
                 $data = json_decode((string) file_get_contents($file), true);
                 if (! is_array($data)) {
                     continue;
                 }
-                $text = is_string($data['text'] ?? null) ? $data['text'] : '';
+                $text = is_string($data['text'] ?? null)
+                    ? $data['text']
+                    : (string) json_encode($data, JSON_UNESCAPED_UNICODE);
                 foreach ($privacy->hits($text) as $hit) {
                     $hits[] = basename($file).': '.$hit;
                 }
@@ -239,5 +243,29 @@ final class EvalInterpretationCommand extends Command
         }
 
         return $hits;
+    }
+
+    /**
+     * @return list<string>|null
+     */
+    private function parseKindsOption(mixed $raw): ?array
+    {
+        if (! is_string($raw)) {
+            return null;
+        }
+        $trimmed = trim($raw);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        $kinds = [];
+        foreach (explode(',', $trimmed) as $part) {
+            $kind = trim($part);
+            if ($kind !== '') {
+                $kinds[] = $kind;
+            }
+        }
+
+        return $kinds === [] ? null : $kinds;
     }
 }

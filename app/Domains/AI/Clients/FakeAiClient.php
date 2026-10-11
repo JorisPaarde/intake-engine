@@ -314,6 +314,24 @@ final class FakeAiClient implements AiClientInterface
             ], 'fake-v1');
         }
 
+        if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'attention_points')) {
+            // Deterministic empty list for eval:interpretation --fake (report_claims).
+            // Real baseline uses the live model; do not invent phase/capacity facts here.
+            return $this->result([
+                'points' => [],
+            ], 'fake-v1');
+        }
+
+        if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'summary')) {
+            return $this->result([
+                'summary' => 'Fictieve AI-samenvatting van de intake voor testgebruik.',
+                'highlights' => [
+                    'Klantgegevens en antwoorden zijn beschikbaar voor beoordeling.',
+                    'Controleer foto’s en aandachtspunten handmatig.',
+                ],
+            ], 'fake-v1');
+        }
+
         if (self::$forcedOutput === null && str_starts_with($request->promptVersion, 'dossier-synthesis')) {
             return $this->result([
                 'summary' => 'Fictieve integrale dossiersynthese voor testgebruik.',

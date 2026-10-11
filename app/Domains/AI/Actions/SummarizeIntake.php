@@ -201,6 +201,19 @@ final class SummarizeIntake
     }
 
     /**
+     * Same validation + DerivedClaimConfidenceGuard path as handle() (eval reuse).
+     * Behaviour-identical to the private validate step; does not persist.
+     *
+     * @param  array<string, mixed>  $output
+     * @param  array<string, mixed>  $payload
+     * @return array{summary: string, highlights: list<string>}
+     */
+    public function applyPipelineToOutput(array $output, array $payload): array
+    {
+        return $this->validateOutput($output, $payload);
+    }
+
+    /**
      * @param  array<string, mixed>  $output
      * @param  array<string, mixed>  $payload
      * @return array{summary: string, highlights: list<string>}
