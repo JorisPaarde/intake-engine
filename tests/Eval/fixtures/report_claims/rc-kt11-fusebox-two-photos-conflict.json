@@ -3,12 +3,19 @@
   "kind": "report_claims",
   "origin": "IE test run 11 Oct 2026 09:45 (Notion P1-5 / intakes #133–#136)",
   "source_kind": "verbatim_notion",
-  "components": ["C5", "C7", "C8"],
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
   "note": "Prod-shaped summary_input (no photo_assessments[] on fact; uploads[] with stored content_assessment). capacity_full hedged_only (check point OK, hard claim not); phase_3 hedged_only; conflict assert required.",
   "summary_input": {
     "answers": {
       "fusebox_photo": {
-        "upload_ids": ["eval-upload-1", "eval-upload-2"]
+        "upload_ids": [
+          "eval-upload-1",
+          "eval-upload-2"
+        ]
       }
     },
     "external_facts": {
@@ -22,7 +29,10 @@
           "subject_match": "yes",
           "provider": "openai",
           "model": "eval-fixture",
-          "upload_ids": [1, 2]
+          "upload_ids": [
+            1,
+            2
+          ]
         },
         "source": "ai",
         "confidence": "medium"
@@ -46,7 +56,8 @@
           "expected_subject": "fusebox",
           "detected_subject": "fusebox",
           "customer_message": "Maak een scherpere foto van de hoofdschakelaar en de onderzijde van de groepenkast om het aantal fasen te kunnen bepalen."
-        }
+        },
+        "order": 1
       },
       {
         "reference": "fusebox_photo@upload:upload_large",
@@ -63,7 +74,8 @@
           "expected_subject": "fusebox",
           "detected_subject": "fusebox",
           "customer_message": null
-        }
+        },
+        "order": 2
       }
     ],
     "template_key": "airco",
@@ -72,7 +84,10 @@
   "attention_input": {
     "answers": {
       "fusebox_photo": {
-        "upload_ids": ["eval-upload-1", "eval-upload-2"]
+        "upload_ids": [
+          "eval-upload-1",
+          "eval-upload-2"
+        ]
       }
     },
     "external_facts": {
@@ -120,7 +135,8 @@
           "expected_subject": "fusebox",
           "detected_subject": "fusebox",
           "customer_message": "Maak een scherpere foto van de hoofdschakelaar en de onderzijde van de groepenkast om het aantal fasen te kunnen bepalen."
-        }
+        },
+        "order": 1
       },
       {
         "reference": "fusebox_photo@upload:upload_large",
@@ -137,7 +153,8 @@
           "expected_subject": "fusebox",
           "detected_subject": "fusebox",
           "customer_message": null
-        }
+        },
+        "order": 2
       }
     ],
     "follow_up": [],

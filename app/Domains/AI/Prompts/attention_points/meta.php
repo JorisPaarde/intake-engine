@@ -7,5 +7,5 @@ declare(strict_types=1);
  */
 return [
     'version' => 'attention_points-v4',
-    'description' => 'Aandachtspunten; confidence ≤ per-foto content_assessment; geen stilzwijgende capaciteitsfeiten (report_claims).',
+    'description' => 'Aandachtspunten; clear ok=feit; hedge bij zwak/conflict/retake; label via order, geen upload_-tokens.',
 ];

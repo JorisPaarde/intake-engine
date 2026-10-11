@@ -49,7 +49,9 @@ test('report_claims fixtures have required schema fields', function () {
             ->and($decoded['summary_input']['uploads'])->toBeArray();
         foreach ($decoded['summary_input']['uploads'] as $row) {
             expect($row)->toBeArray()
-                ->and($row)->toHaveKey('content_assessment')
+                ->and($row)->toHaveKeys(['question_label', 'order', 'content_assessment'])
+                ->and($row['order'])->toBeInt()
+                ->and($row['order'])->toBeGreaterThan(0)
                 ->and($row['content_assessment'])->toBeArray()
                 ->and($row['content_assessment'])->toHaveKey('status')
                 ->and($row['content_assessment'])->not->toHaveKey('phase')

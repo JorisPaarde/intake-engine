@@ -187,14 +187,26 @@ final class IntakeAttentionContextBuilder
      */
     private function mapUploadAssessmentRows(Intake $intake, array $questions): array
     {
+        /** @var array<string, int> $orderByQuestion */
+        $orderByQuestion = [];
+
         return $intake->uploads
             ->filter(static fn (IntakeUpload $upload): bool => $upload->isDossierEvidenceEligible())
-            ->map(
-                fn (IntakeUpload $upload): array => $this->uploadContext(
+            ->map(function (IntakeUpload $upload) use ($questions, &$orderByQuestion): array {
+                $questionKey = $upload->intake_follow_up_item_id !== null
+                    ? 'follow_up_upload'
+                    : (string) $upload->question_key;
+                $orderByQuestion[$questionKey] = ($orderByQuestion[$questionKey] ?? 0) + 1;
+
+                $row = $this->uploadContext(
                     $upload,
                     $questions[$upload->question_key] ?? null,
-                ),
-            )->values()->all();
+                );
+                // 1-based order within the same question (for "eerste/tweede meterkastfoto").
+                $row['order'] = $orderByQuestion[$questionKey];
+
+                return $row;
+            })->values()->all();
     }
 
     /**

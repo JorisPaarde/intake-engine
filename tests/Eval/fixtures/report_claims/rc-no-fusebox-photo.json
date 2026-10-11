@@ -3,7 +3,11 @@
   "kind": "report_claims",
   "origin": "Control — no fusebox assessment present",
   "source_kind": "variant",
-  "components": ["C5", "C7", "C8"],
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
   "note": "No fusebox photo/assessment; summary uploads=[] matches prod. Must not invent phase or capacity_full.",
   "summary_input": {
     "answers": {

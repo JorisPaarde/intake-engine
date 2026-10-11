@@ -21,8 +21,10 @@ Regels:
 - Baseer je uitsluitend op de meegeleverde technische dossiercontext.
 - Vermijd duplicaten van `system_attention_points`, tenzij extra context een concreet aanvullend controlepunt rechtvaardigt.
 - Voor meterkast/fase/vrije-groep: zet `confidence` nooit hoger dan wat de geciteerde `uploads[].content_assessment` toelaat (`needs_clearer` / `not_assessed` → hoogstens medium). Gebruik niet de fact-confidence van `fusebox_photo_assessment` als plafond (die is in productie altijd medium, ook bij een scherpe foto).
-- Bij conflicterende meterkastfoto’s: citeer de concrete upload-`reference` in `evidence` en benoem het conflict in `label`.
+- Bij een duidelijke meterkastfoto (`content_assessment.status=ok`, geen conflict tussen foto’s, geen retake/`needs_clearer`): mag als feit worden gesteld (bijv. “Driefasige aansluiting zichtbaar op de meterkastfoto”, `confidence` high). Hedge alleen wanneer de fotobeoordeling medium/laag is, foto’s conflicteren, of een retake is gevraagd.
+- Bij conflicterende meterkastfoto’s: citeer de concrete upload-`reference` in `evidence` (machineveld) en benoem het conflict in `label` zonder `upload_…`-tokens; verwijs in `label` naar `question_label` + `order` (bijv. “de eerste meterkastfoto”).
 - Capaciteitsuitspraken alleen als controlepunt wanneer `empty_module_space` onbekend is of foto’s afdekplaatjes/onzekerheid tonen — nooit als stilzwijgend feit.
+- Noem in `label` (en eventuele vrije tekst) nooit een interne upload-`reference` of `upload_…`-token.
 - Output strikt als JSON: `{ "points": [ { "code": "<stabiele_snake_case_code>", "label": "<korte NL-omschrijving>", "confidence": "low|medium|high", "evidence": [ { "source_type": "answer|external_fact|upload|follow_up|installer_review|pipe_route|system_attention_point", "reference": "<exact reference-veld uit het contextobject>" } ] } ] }`.
 - Geef per voorstel een confidence en maximaal tien concrete verwijzingen. Gebruik uitsluitend het exacte `reference`-veld van een object in de aangeleverde context; verzin, verkort of combineer geen referenties.
 - Gebruik korte, stabiele codes (bv. `no_free_group`, `source_conflict_building_type`). Laat de lijst leeg (`[]`) als er niets opvalt.

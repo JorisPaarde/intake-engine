@@ -8,16 +8,17 @@ Summary / attention prompts already asked for hedging, but the structured input 
 
 ## 1) Structured input change (applied)
 
-`SummarizeIntake` now includes `uploads` rows from `IntakeAttentionContextBuilder::uploadAssessmentRows()` — the same stored `content_assessment` already used for attention points (status, subjects, customer_message; no new fields/regex).
+`SummarizeIntake` includes `uploads` rows from `IntakeAttentionContextBuilder::uploadAssessmentRows()` — stored `content_assessment` plus `question_label` and per-question `order` (1-based). All dossier-eligible uploads; no new regex.
 
 ## 2) `summary` → `summary-v3` (applied)
 
-Per-foto conflict / `needs_clearer` hedging; no unnecessary hedge on a clear high-certainty photo.
+Per-foto conflict / `needs_clearer` hedging; no unnecessary hedge on a clear high-certainty photo. Never put `upload_…` / `@upload:` tokens in summary text — point by label + order.
 
 ## 3) `attention_points` → `attention_points-v4` (applied)
 
-- Cap `confidence` using cited `uploads[].content_assessment` (e.g. `needs_clearer` → at most medium), **not** the fusebox **fact** confidence (prod `AssessFuseboxPhotos::storeObservation` always writes fact confidence `medium` unless wrong subject).
-- Cite conflicting upload references; capaciteitsuitspraken only as check points when capacity is unknown/uncertain.
+- Cap point `confidence` using cited `uploads[].content_assessment` (e.g. `needs_clearer` → at most medium), **not** the fusebox **fact** confidence (prod always `medium` unless wrong subject).
+- Clear `status=ok` photo (no conflict/retake) may be stated as fact with high confidence; hedge only when assessment is medium/low, photos conflict, or retake/`needs_clearer`.
+- Evidence may cite machine `reference`; `label` uses question_label + order only (no `upload_` tokens).
 
 ## 4) Measure after apply
 

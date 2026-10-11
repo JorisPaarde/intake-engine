@@ -3,12 +3,18 @@
   "kind": "report_claims",
   "origin": "tests/fixtures/dossier-synthesis/hedged-phase-observation.json + intake-87 hedge pattern",
   "source_kind": "variant",
-  "components": ["C5", "C7", "C8"],
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
   "note": "Single medium-confidence 'lijkt' fusebox assessment. phase_3 must be hedged_only; capacity_full forbidden as hard fact.",
   "summary_input": {
     "answers": {
       "fusebox_photo": {
-        "upload_ids": ["eval-upload-hedged"]
+        "upload_ids": [
+          "eval-upload-hedged"
+        ]
       }
     },
     "external_facts": {
@@ -43,7 +49,8 @@
           "expected_subject": "fusebox",
           "detected_subject": "fusebox",
           "customer_message": null
-        }
+        },
+        "order": 1
       }
     ],
     "template_key": "airco",
@@ -96,7 +103,8 @@
           "expected_subject": "fusebox",
           "detected_subject": "fusebox",
           "customer_message": null
-        }
+        },
+        "order": 1
       }
     ],
     "follow_up": [],

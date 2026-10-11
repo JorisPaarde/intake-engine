@@ -113,6 +113,11 @@ final class ReportClaimsScorer
             'retake',
             'verschil tussen',
             'wijken af',
+            'onvoldoende scherp',
+            'wisselende beeldkwaliteit',
+            'onduidelijke foto',
+            'niet scherp',
+            'wazig',
         ],
     ];
 
@@ -190,6 +195,23 @@ final class ReportClaimsScorer
         }
 
         $units = $this->buildUnits($summaryEmpty ? null : $summary, $attentionEmpty ? null : $points);
+
+        $leakHits = $this->internalUploadReferenceHits($units);
+        $metaRefs = is_array($disputed['no_internal_upload_refs'] ?? null)
+            ? $disputed['no_internal_upload_refs']
+            : null;
+        $out['no_internal_upload_refs'] = $this->factScorer->score(
+            expected: true,
+            got: $leakHits === [],
+            supported: true,
+            components: $components,
+            disputed: $metaRefs !== null,
+            disputedReason: is_string($metaRefs['reason'] ?? null) ? $metaRefs['reason'] : null,
+        );
+        $out['no_internal_upload_refs']['detail'] = $leakHits === []
+            ? 'clean'
+            : 'internal_upload_ref_in_text';
+        $out['no_internal_upload_refs']['hits'] = $leakHits;
 
         foreach ($this->claimsFromExpected($expected) as $claim) {
             $factKey = 'claim.'.$claim['id'];
@@ -460,8 +482,8 @@ final class ReportClaimsScorer
             ];
         }
 
-        // Required claims: check summary layer separately so an over-hedged
-        // summary fails even when attention asserts firmly ("bevestigd").
+        // Required claims: check summary and attention separately so an
+        // over-hedged layer fails even when the other layer asserts firmly.
         $summaryMatches = array_values(array_filter(
             $matches,
             static fn (array $m): bool => in_array($m['kind'], ['summary_sentence', 'highlight'], true),
@@ -476,6 +498,25 @@ final class ReportClaimsScorer
                     'expected' => true,
                     'got' => false,
                     'detail' => 'unnecessary_hedging_for_assert_on_summary',
+                    'matches' => $matches,
+                ];
+            }
+        }
+
+        $attentionMatches = array_values(array_filter(
+            $matches,
+            static fn (array $m): bool => $m['kind'] === 'attention',
+        ));
+        if ($attentionMatches !== []) {
+            $attentionUnhedged = array_values(array_filter(
+                $attentionMatches,
+                static fn (array $m): bool => ! $m['hedged'],
+            ));
+            if ($attentionUnhedged === []) {
+                return [
+                    'expected' => true,
+                    'got' => false,
+                    'detail' => 'unnecessary_hedging_for_assert_on_attention',
                     'matches' => $matches,
                 ];
             }
@@ -498,6 +539,40 @@ final class ReportClaimsScorer
             'detail' => 'assert_ok',
             'matches' => $matches,
         ];
+    }
+
+    /**
+     * Human-facing text must not leak opaque upload references (eval-only).
+     *
+     * @param  list<array{kind: string, text: string, code?: string}>  $units
+     * @return list<array{kind: string, text: string}>
+     */
+    private function internalUploadReferenceHits(array $units): array
+    {
+        $hits = [];
+        foreach ($units as $unit) {
+            if (! $this->textLooksLikeInternalUploadReference($unit['text'])) {
+                continue;
+            }
+            $hits[] = [
+                'kind' => $unit['kind'],
+                'text' => $unit['text'],
+            ];
+        }
+
+        return $hits;
+    }
+
+    public function textLooksLikeInternalUploadReference(string $text): bool
+    {
+        $lower = mb_strtolower($text);
+        if (str_contains($lower, 'upload_') || str_contains($lower, '@upload:')) {
+            return true;
+        }
+
+        // Opaque / machine reference shapes that should never appear in prose.
+        return @preg_match('/\b[\w.-]+@upload\b/iu', $text) === 1
+            || @preg_match('/\bupload:[a-z0-9_-]+/iu', $text) === 1;
     }
 
     /**

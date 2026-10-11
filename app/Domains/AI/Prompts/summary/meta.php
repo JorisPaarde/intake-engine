@@ -7,5 +7,5 @@ declare(strict_types=1);
  */
 return [
     'version' => 'summary-v3',
-    'description' => 'Samenvatting; per-foto meterkast-status/confidence meewegen (report_claims).',
+    'description' => 'Samenvatting; per-foto status meewegen; foto’s via label+order, geen upload_-tokens (report_claims).',
 ];

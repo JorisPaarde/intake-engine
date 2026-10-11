@@ -212,6 +212,88 @@ test('photo_conflict assert does not penalize soft conflict wording', function (
         ->and($scores['claim.photo_conflict']['detail'])->toBe('assert_ok_photo_conflict');
 });
 
+test('photo_conflict terms match onvoldoende scherp and wisselende beeldkwaliteit', function () {
+    $scores = reportClaimsScorer()->scoreLayer(
+        [
+            'claims' => [[
+                'id' => 'photo_conflict',
+                'concept' => 'photo_conflict',
+                'allowed' => 'assert',
+            ]],
+        ],
+        [
+            'summary' => 'De eerste meterkastfoto is onvoldoende scherp; wisselende beeldkwaliteit tussen de foto’s.',
+            'highlights' => ['Onduidelijke foto — niet scherp / wazig'],
+        ],
+        [],
+        [],
+        ['C5'],
+    );
+
+    expect($scores['claim.photo_conflict']['status'])->toBe('correct')
+        ->and($scores['claim.photo_conflict']['detail'])->toBe('assert_ok_photo_conflict');
+});
+
+test('internal upload_ tokens in summary or attention fail global check', function () {
+    $scorer = reportClaimsScorer();
+    expect($scorer->textLooksLikeInternalUploadReference(
+        'Zie upload_ab12cd34ef56 voor de meterkast',
+    ))->toBeTrue();
+
+    $scores = $scorer->scoreLayer(
+        [
+            'claims' => [[
+                'id' => 'phase_3',
+                'concept' => 'phase_3',
+                'allowed' => 'forbidden',
+            ]],
+        ],
+        [
+            'summary' => 'Controleer fusebox_photo@upload:upload_blurry opnieuw.',
+            'highlights' => ['Geen faseclaim'],
+        ],
+        [[
+            'code' => 'photo_quality',
+            'label' => 'Eerste foto (upload_deadbeef012345) onscherp',
+            'confidence' => 'medium',
+            'evidence' => [['source_type' => 'upload', 'reference' => 'fusebox_photo@upload:upload_blurry']],
+        ]],
+        [],
+        ['C5'],
+    );
+
+    expect($scores['no_internal_upload_refs']['status'])->toBe('wrong')
+        ->and($scores['no_internal_upload_refs']['detail'])->toBe('internal_upload_ref_in_text')
+        ->and($scores['no_internal_upload_refs']['hits'])->not->toBeEmpty();
+});
+
+test('over-hedged attention fails assert even when summary is firm', function () {
+    $scores = reportClaimsScorer()->scoreLayer(
+        [
+            'claims' => [[
+                'id' => 'phase_3',
+                'concept' => 'phase_3',
+                'allowed' => 'assert',
+            ]],
+        ],
+        [
+            'summary' => 'Duidelijke meterkastfoto: driefasige aansluiting zichtbaar.',
+            'highlights' => ['driefasige aansluiting zichtbaar'],
+        ],
+        [[
+            'code' => 'three_phase_check',
+            'label' => '3-fase lijkt zichtbaar — te controleren',
+            'confidence' => 'medium',
+            'evidence' => [['source_type' => 'upload', 'reference' => 'fusebox_photo@upload:upload_clear']],
+        ]],
+        [],
+        ['C5'],
+    );
+
+    expect($scores['claim.phase_3']['status'])->toBe('wrong')
+        ->and($scores['claim.phase_3']['detail'])->toBe('unnecessary_hedging_for_assert_on_attention');
+});
+
 test('empty or rejected layer fails and does not auto-pass claims', function () {
     $scores = reportClaimsScorer()->scoreLayer(
         [

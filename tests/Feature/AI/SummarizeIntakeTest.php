@@ -365,8 +365,10 @@ test('summary payload includes per-photo content_assessment rows from stored upl
         ->and($input['uploads'])->not->toBeEmpty();
 
     $row = $input['uploads'][0];
-    expect($row)->toHaveKeys(['reference', 'question_key', 'content_assessment'])
+    expect($row)->toHaveKeys(['reference', 'question_key', 'question_label', 'order', 'content_assessment'])
         ->and($row['question_key'])->toBe('fusebox_photo')
+        ->and($row['order'])->toBe(1)
+        ->and($row['question_label'])->toBeString()
         ->and($row['content_assessment']['status'])->toBe('needs_clearer')
         ->and($row['content_assessment']['customer_message'])->toContain('scherpere foto');
 });
