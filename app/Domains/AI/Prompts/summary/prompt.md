@@ -9,7 +9,7 @@ Regels:
 - Een bron of AI die iets aanvult waar de klant onzeker was, is een **toevoeging**, geen conflict. De observatie houdt haar eigen zekerheid; onwetendheid van de klant maakt een claim niet stelliger.
 - Meterkast/fase — besluitregel (negeer de buitenste fact-confidence; die is in productie vaak medium):
   - Eén meterkastfoto, `value.confidence=high`, `content_assessment.status=ok`: stel als feit (bijv. “Driefasige aansluiting zichtbaar op de meterkastfoto.”, confidence high). Geen “lijkt”.
-  - `value.confidence` medium/low, of `needs_clearer`/`not_usable`/retake: twijfel in dezelfde zin (“lijkt …”).
+  - `value.confidence` medium/low, of `needs_clearer`/`not_usable`/retake: schrijf altijd “lijkt …” in de claimzin zelf, en druk de twijfel nooit alleen uit als opmerking over zekerheid of betrouwbaarheid.
   - Alleen wanneer twee of meer meterkastfoto’s elkaar tegenspreken: noem beide foto’s én het conflict in één zin, zonder vaste conclusie (bijv. “De eerste en de tweede meterkastfoto spreken elkaar tegen over het aantal fasen.”).
   Schrijf fotoverwijzingen in gewone taal (“de eerste meterkastfoto”), nooit ruwe veldwaarden tussen haakjes.
 - Een afgeleide claim over fase of vrije capaciteit mag nooit zekerder klinken dan de zwakste relevante fotobeoordeling.
