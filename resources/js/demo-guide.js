@@ -69,7 +69,7 @@ export function registerDemoGuide(Alpine) {
             this.aside = copy.aside || '';
             this.cta = copy.cta || 'Begrepen';
             this.metaLabel = copy.meta;
-            this.dismissible = copy.mode !== 'branch';
+            this.dismissible = true;
             this.currentStep = step;
             this.open = true;
             document.body.classList.add('overflow-y-hidden');
@@ -111,9 +111,9 @@ export function registerDemoGuide(Alpine) {
                     meta: 'Hoe wil je verder?',
                     title: 'Adresgegevens staan al in de opname',
                     bodyLines: [
-                        'Bekijk hieronder wat er is opgehaald. Doe de opname zelf — net als in de praktijk. Of bekijk wat de klant ziet.',
+                        'Doe de opname zelf, of bekijk wat de klant ziet.',
                     ],
-                    aside: 'Beide paden gebruiken dezelfde echte productschermen. Er gaat geen e-mail uit in de demo.',
+                    aside: '',
                 },
             };
 

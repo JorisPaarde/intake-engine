@@ -223,12 +223,21 @@ test('uurlijkse opruiming wist alleen aanvulfoto’s die langer dan 10 minuten i
     $wizardUpload->forceFill(['purged_at' => now()])->saveQuietly();
     $wizardUpload->delete();
 
-    $this->artisan('photos:purge-removed')->expectsOutput('Purged 0 removed follow-up upload(s).')->assertSuccessful();
+    $this->artisan('photos:purge-removed')
+        ->expectsOutput('Purged 0 removed follow-up upload(s).')
+        ->expectsOutput('Purged 0 removed wizard upload(s).')
+        ->assertSuccessful();
     expect(IntakeUpload::withTrashed()->findOrFail($binned->id)->purged_at)->toBeNull();
 
     $this->travel(11)->minutes();
-    $this->artisan('photos:purge-removed')->expectsOutput('Purged 1 removed follow-up upload(s).')->assertSuccessful();
-    $this->artisan('photos:purge-removed')->expectsOutput('Purged 0 removed follow-up upload(s).')->assertSuccessful();
+    $this->artisan('photos:purge-removed')
+        ->expectsOutput('Purged 1 removed follow-up upload(s).')
+        ->expectsOutput('Purged 0 removed wizard upload(s).')
+        ->assertSuccessful();
+    $this->artisan('photos:purge-removed')
+        ->expectsOutput('Purged 0 removed follow-up upload(s).')
+        ->expectsOutput('Purged 0 removed wizard upload(s).')
+        ->assertSuccessful();
 
     expect(IntakeUpload::withTrashed()->findOrFail($binned->id)->purged_at)->not->toBeNull()
         ->and(Storage::disk($binned->disk)->exists($binned->path))->toBeFalse()
@@ -241,4 +250,41 @@ test('uurlijkse opruiming wist alleen aanvulfoto’s die langer dan 10 minuten i
         ->first(fn (Event $event): bool => str_contains((string) $event->command, 'photos:purge-removed'));
     expect($event)->toBeInstanceOf(Event::class)
         ->and($event->expression)->toBe('0 * * * *');
+});
+
+test('uurlijkse opruiming wist ook hoofdwizard-foto’s die langer in de prullenbak staan', function () {
+    $user = User::factory()->create();
+    $intake = app(CreateIntake::class)->handle($user, [
+        'template_key' => 'airco',
+        'workflow_mode' => ContributionMode::Customer,
+        'customer_name' => 'Wizard Prullenbak',
+        'customer_email' => 'wizard-bin@example.com',
+        'address_line' => 'Binlaan 2',
+        'address_postal_code' => '1000AA',
+        'address_house_number' => 2,
+        'address_city' => 'Amsterdam',
+    ]);
+    $disk = (string) config('filesystems.media', 'local');
+    $path = 'intakes/'.$intake->uuid.'/fusebox.jpg';
+    Storage::disk($disk)->put($path, 'wizard-bin');
+    $upload = IntakeUpload::query()->create([
+        'intake_id' => $intake->id,
+        'question_key' => 'fusebox_photo',
+        'disk' => $disk,
+        'path' => $path,
+        'original_filename' => 'fusebox.jpg',
+        'mime_type' => 'image/jpeg',
+        'size_bytes' => 10,
+        'sort_order' => 0,
+    ]);
+    $upload->delete();
+
+    $this->travel(11)->minutes();
+    $this->artisan('photos:purge-removed')
+        ->expectsOutput('Purged 0 removed follow-up upload(s).')
+        ->expectsOutput('Purged 1 removed wizard upload(s).')
+        ->assertSuccessful();
+
+    expect(IntakeUpload::withTrashed()->findOrFail($upload->id)->purged_at)->not->toBeNull()
+        ->and(Storage::disk($disk)->exists($path))->toBeFalse();
 });
