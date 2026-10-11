@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Domains\AI\Eval;
 
+use App\Domains\AI\Support\SchemaEnumLabelGuard;
+
 /**
  * Measurement-only scorer for report_claims fixtures (eval harness, never product).
  *
@@ -13,6 +15,9 @@ namespace App\Domains\AI\Eval;
  * point (code + label). Hedge detection uses an eval-only word list (not
  * DerivedClaimConfidenceGuard / product paths). ADR-0013 / ADR-0016: this
  * code never runs in production interpretation.
+ *
+ * N20: also measures raw schema-enum leaks (`none_visible`, `needs_clearer`, …)
+ * via {@see SchemaEnumLabelGuard}’s closed token list (measurement only here).
  */
 final class ReportClaimsScorer
 {
@@ -28,6 +33,12 @@ final class ReportClaimsScorer
         'mogelijk',
         'waarschijnlijk',
         'vermoedelijk',
+        'suggereert',
+        'wijst op',
+        'duidt op',
+        'aanwijzingen voor',
+        'indicaties voor',
+        'aanwijzing voor',
         'niet zeker',
         'onduidelijk',
         'indicatie',
@@ -299,6 +310,23 @@ final class ReportClaimsScorer
             : 'internal_upload_ref_in_text';
         $out['no_internal_upload_refs']['hits'] = $leakHits;
 
+        $enumHits = $this->rawSchemaEnumHits($units);
+        $metaEnums = is_array($disputed['no_raw_schema_enums'] ?? null)
+            ? $disputed['no_raw_schema_enums']
+            : null;
+        $out['no_raw_schema_enums'] = $this->factScorer->score(
+            expected: true,
+            got: $enumHits === [],
+            supported: true,
+            components: $components,
+            disputed: $metaEnums !== null,
+            disputedReason: is_string($metaEnums['reason'] ?? null) ? $metaEnums['reason'] : null,
+        );
+        $out['no_raw_schema_enums']['detail'] = $enumHits === []
+            ? 'clean'
+            : 'raw_schema_enum_in_text';
+        $out['no_raw_schema_enums']['hits'] = $enumHits;
+
         foreach ($this->claimsFromExpected($expected) as $claim) {
             $factKey = 'claim.'.$claim['id'];
             $meta = is_array($disputed[$factKey] ?? null) ? $disputed[$factKey] : null;
@@ -404,22 +432,88 @@ final class ReportClaimsScorer
 
     public function textLooksCannotDetermine(string $text): bool
     {
-        $lower = mb_strtolower($text);
+        $lower = mb_strtolower($this->foldDiacritics($text));
         foreach (self::CANNOT_DETERMINE_MARKERS as $marker) {
             if ($this->markerPresent($lower, $marker)) {
                 return true;
             }
         }
 
-        // 1-fase/3-fase (or reverse) named as alternatives = not yet established.
-        if (@preg_match(
-            '/\b1(-?\s?fasen?)?\s*(of|\/)\s*3-?\s?fasen?\b|\b3(-?\s?fasen?)?\s*(of|\/)\s*1-?\s?fasen?\b/u',
-            $lower,
-        ) === 1) {
-            return true;
+        foreach (self::phaseAlternativePatterns() as $pattern) {
+            if (@preg_match($pattern, $lower) === 1) {
+                return true;
+            }
         }
 
         return false;
+    }
+
+    /**
+     * "X of Y" phase alternatives (eval-only). Used for cannot-determine and to
+     * strip alternatives before judging remaining phase claims under hedged_only.
+     * Matched against diacritic-folded text so "één- of driefasige" counts.
+     *
+     * @return list<string>
+     */
+    private static function phaseAlternativePatterns(): array
+    {
+        return [
+            // 1-fase/3-fase (and reverse)
+            '/\b1(-?\s?fasen?)?\s*(of|\/)\s*3-?\s?fasen?\b/iu',
+            '/\b3(-?\s?fasen?)?\s*(of|\/)\s*1-?\s?fasen?\b/iu',
+            // eenfasige/driefasige, enkelfasig/driefasig (and reverse)
+            '/\b(een|enkel)fasig(e)?\s*(of|\/)\s*driefasig(e)?\b/iu',
+            '/\bdriefasig(e)?\s*(of|\/)\s*(een|enkel)fasig(e)?\b/iu',
+            // shortened: een- of driefasig / enkel- of driefasig (and reverse)
+            '/\b(een|enkel)-?\s*of\s+driefasig(e)?\b/iu',
+            '/\bdrie-?\s*of\s+(een|enkel)fasig(e)?\b/iu',
+        ];
+    }
+
+    /**
+     * Fold combining diacritics so accented Dutch ("één") matches ASCII patterns.
+     */
+    public function foldDiacritics(string $text): string
+    {
+        if (class_exists(\Normalizer::class)) {
+            $decomposed = \Normalizer::normalize($text, \Normalizer::FORM_D);
+            if (is_string($decomposed)) {
+                $stripped = preg_replace('/\p{Mn}/u', '', $decomposed);
+                if (is_string($stripped)) {
+                    return $stripped;
+                }
+            }
+        }
+
+        return strtr($text, [
+            'á' => 'a', 'à' => 'a', 'ä' => 'a', 'â' => 'a',
+            'é' => 'e', 'è' => 'e', 'ë' => 'e', 'ê' => 'e',
+            'í' => 'i', 'ì' => 'i', 'ï' => 'i', 'î' => 'i',
+            'ó' => 'o', 'ò' => 'o', 'ö' => 'o', 'ô' => 'o',
+            'ú' => 'u', 'ù' => 'u', 'ü' => 'u', 'û' => 'u',
+            'Á' => 'A', 'À' => 'A', 'Ä' => 'A', 'Â' => 'A',
+            'É' => 'E', 'È' => 'E', 'Ë' => 'E', 'Ê' => 'E',
+            'Í' => 'I', 'Ì' => 'I', 'Ï' => 'I', 'Î' => 'I',
+            'Ó' => 'O', 'Ò' => 'O', 'Ö' => 'O', 'Ô' => 'O',
+            'Ú' => 'U', 'Ù' => 'U', 'Ü' => 'U', 'Û' => 'U',
+        ]);
+    }
+
+    /**
+     * Remove "X of Y" phase-alternative spans so remaining phase terms can be
+     * judged on their own hedge (hedged_only phase claims). Diacritics are
+     * folded first so "één- of driefasige" is stripped like "een- of …".
+     */
+    public function stripPhaseAlternatives(string $clause): string
+    {
+        $out = $this->foldDiacritics($clause);
+        foreach (self::phaseAlternativePatterns() as $pattern) {
+            $out = preg_replace($pattern, ' ', $out) ?? $out;
+        }
+
+        $collapsed = preg_replace('/\s+/u', ' ', $out) ?? $out;
+
+        return trim($collapsed);
     }
 
     public function textLooksNamedPhotoAttribution(string $text): bool
@@ -480,8 +574,11 @@ final class ReportClaimsScorer
 
     /**
      * Split a unit for hedge / cannot-determine co-location.
-     * Only sentence breaks (. ! ? newline) and ';' — commas and "maar" stay
-     * in the same clause so a same-sentence caveat still hedges the claim.
+     * Sentence breaks (. ! ? newline) and ';' always split. Contrastive
+     * conjunctions (maar / terwijl with or without a leading comma; echter only
+     * after a comma, since a bare mid-sentence "lijkt echter" keeps its hedge)
+     * also split so a hedge about the customer's not-knowing does not excuse
+     * a firm photo claim in the other half. Parenthetical commas stay together.
      *
      * @return list<string>
      */
@@ -492,7 +589,10 @@ final class ReportClaimsScorer
             return [];
         }
 
-        $parts = preg_split('/\s*(?:[.!?;]|\n+)\s*/u', $trimmedText) ?: [$trimmedText];
+        $parts = preg_split(
+            '/\s*(?:[.!?;]|\n+|,\s*(?:maar|terwijl|echter)\b|\b(?:maar|terwijl)\b)\s*/iu',
+            $trimmedText,
+        ) ?: [$trimmedText];
 
         $out = [];
         foreach ($parts as $part) {
@@ -680,7 +780,33 @@ final class ReportClaimsScorer
         }
 
         if ($allowed === 'hedged_only') {
-            $unhedged = array_values(array_filter($matches, static fn (array $m): bool => ! $m['hedged']));
+            $phaseConcept = in_array($claim['concept'], ['phase_3', 'phase_1'], true);
+            $unhedged = [];
+            $onlyAlternatives = true;
+            foreach ($matches as $match) {
+                if ($match['hedged']) {
+                    $onlyAlternatives = false;
+
+                    continue;
+                }
+                if ($phaseConcept) {
+                    // Strip "X of Y" alternatives; judge any remaining phase term alone.
+                    $remainder = $this->stripPhaseAlternatives($match['text']);
+                    if (! $this->clauseMatchesTerms($remainder, $claim['terms'])) {
+                        // Match was only both-options wording → OK.
+                        continue;
+                    }
+                    $onlyAlternatives = false;
+                    if ($this->textLooksHedged($remainder)) {
+                        continue;
+                    }
+                    $unhedged[] = $match;
+
+                    continue;
+                }
+                $onlyAlternatives = false;
+                $unhedged[] = $match;
+            }
             if ($unhedged !== []) {
                 return [
                     'expected' => false,
@@ -693,7 +819,9 @@ final class ReportClaimsScorer
             return [
                 'expected' => false,
                 'got' => false,
-                'detail' => 'all_matches_hedged',
+                'detail' => $onlyAlternatives
+                    ? 'all_matches_cannot_determine'
+                    : 'all_matches_hedged',
                 'matches' => $matches,
             ];
         }
@@ -766,6 +894,39 @@ final class ReportClaimsScorer
             'detail' => 'assert_ok',
             'matches' => $matches,
         ];
+    }
+
+    /**
+     * Human-facing text must not leak raw schema enum tokens (eval measurement).
+     * Uses the same closed token list as {@see SchemaEnumLabelGuard}.
+     * Does not treat prompt-wording "retake" as an enum (it is not one).
+     *
+     * @param  list<array{kind: string, text: string, code?: string}>  $units
+     * @return list<array{kind: string, text: string, token: string}>
+     */
+    private function rawSchemaEnumHits(array $units): array
+    {
+        $guard = new SchemaEnumLabelGuard;
+        $hits = [];
+        foreach ($units as $unit) {
+            // Attention units concatenate code + label; score label-only for enums.
+            $text = $unit['kind'] === 'attention' && isset($unit['code'])
+                ? trim(preg_replace(
+                    '/^'.preg_quote($unit['code'], '/').'\s*/u',
+                    '',
+                    $unit['text'],
+                ) ?? $unit['text'])
+                : $unit['text'];
+            foreach ($guard->findRawHits($text) as $token) {
+                $hits[] = [
+                    'kind' => $unit['kind'],
+                    'text' => $unit['text'],
+                    'token' => $token,
+                ];
+            }
+        }
+
+        return $hits;
     }
 
     /**

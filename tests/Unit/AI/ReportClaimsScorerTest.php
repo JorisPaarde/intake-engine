@@ -436,6 +436,172 @@ test('1-fase/3-fase as alternatives is cannot-determine; onzeker is a hedge', fu
         ->and($phaseHard['claim.phase_3']['detail'])->toBe('unhedged_claim_for_hedged_only');
 });
 
+test('eenfasige of driefasige and enkelfasig variants count as cannot-determine', function () {
+    $scorer = reportClaimsScorer();
+
+    expect($scorer->textLooksCannotDetermine(
+        'Controleer of de aansluiting eenfasige of driefasige is.',
+    ))->toBeTrue()
+        ->and($scorer->textLooksCannotDetermine(
+            'Mogelijk driefasige of eenfasige voeding.',
+        ))->toBeTrue()
+        ->and($scorer->textLooksCannotDetermine(
+            'Het kan enkelfasig of driefasig zijn.',
+        ))->toBeTrue()
+        ->and($scorer->textLooksCannotDetermine(
+            'Driefasig / enkelfasig nog onduidelijk.',
+        ))->toBeTrue()
+        ->and($scorer->textLooksCannotDetermine(
+            'Het betreft een- of driefasig.',
+        ))->toBeTrue()
+        ->and($scorer->textLooksCannotDetermine(
+            'Nog enkel- of driefasig vast te stellen.',
+        ))->toBeTrue()
+        ->and($scorer->textLooksCannotDetermine(
+            'Drie- of eenfasig is onduidelijk.',
+        ))->toBeTrue()
+        // Accent-insensitive: één ≈ een after diacritic fold.
+        ->and($scorer->textLooksCannotDetermine(
+            'één- of driefasige aansluiting',
+        ))->toBeTrue()
+        ->and($scorer->textLooksCannotDetermine(
+            'éénfasig of driefasig',
+        ))->toBeTrue();
+
+    $scores = $scorer->scoreLayer(
+        [
+            'claims' => [[
+                'id' => 'phase_3',
+                'concept' => 'phase_3',
+                'allowed' => 'hedged_only',
+            ]],
+            'must_not_invent_phase' => true,
+        ],
+        [
+            'summary' => 'Controleer of de meterkast eenfasige of driefasige is.',
+            'highlights' => ['Nog enkelfasig of driefasig — niet te bepalen'],
+        ],
+        [],
+        [],
+        ['C5'],
+    );
+
+    expect($scores['must_not_invent_phase']['status'])->toBe('correct')
+        ->and($scores['claim.phase_3']['status'])->toBe('correct');
+});
+
+test('hedged_only phase: strip X-of-Y then judge remaining phase term on its own hedge', function () {
+    $scorer = reportClaimsScorer();
+
+    expect($scorer->stripPhaseAlternatives(
+        'De klant weet niet of de aansluiting een- of driefasig is',
+    ))->not->toMatch('/fasig/iu');
+
+    // Both-options only → OK (no firm phase claim left after strip).
+    $ok = $scorer->scoreLayer(
+        [
+            'claims' => [[
+                'id' => 'phase_3',
+                'concept' => 'phase_3',
+                'allowed' => 'hedged_only',
+            ]],
+        ],
+        [
+            'summary' => 'De klant weet niet of de aansluiting een- of driefasig is.',
+            'highlights' => [],
+        ],
+        [],
+        [],
+        ['C5'],
+    );
+
+    expect($ok['claim.phase_3']['status'])->toBe('correct')
+        ->and($ok['claim.phase_3']['detail'])->toBe('all_matches_cannot_determine');
+
+    // Both-options + firm "toont … driefasige" in the same clause → FAIL.
+    $fail = $scorer->scoreLayer(
+        [
+            'claims' => [[
+                'id' => 'phase_3',
+                'concept' => 'phase_3',
+                'allowed' => 'hedged_only',
+            ]],
+        ],
+        [
+            'summary' => 'De klant weet niet of het een 1-fase of 3-fase aansluiting is, maar de meterkastfoto toont een driefasige hoofdschakelaar.',
+            'highlights' => [],
+        ],
+        [],
+        [],
+        ['C5'],
+    );
+
+    expect($fail['claim.phase_3']['status'])->toBe('wrong')
+        ->and($fail['claim.phase_3']['detail'])->toBe('unhedged_claim_for_hedged_only');
+});
+
+test('no-fusebox fixture missing photo assert fails when point is dropped', function () {
+    $fixture = json_decode(
+        (string) file_get_contents(__DIR__.'/../../Eval/fixtures/report_claims/rc-no-fusebox-photo.json'),
+        true,
+        512,
+        JSON_THROW_ON_ERROR,
+    );
+
+    $missingClaim = collect($fixture['expected']['claims'])->firstWhere('id', 'missing_fusebox_photo');
+    expect($missingClaim['allowed'])->toBe('assert');
+
+    $absent = reportClaimsScorer()->scoreLayer(
+        ['claims' => [$missingClaim]],
+        [
+            'summary' => 'Korte samenvatting zonder meterkastfoto-melding voor de installateur.',
+            'highlights' => ['Geen faseclaim'],
+        ],
+        [],
+        [],
+        ['C5'],
+    );
+
+    expect($absent['claim.missing_fusebox_photo']['status'])->toBe('wrong')
+        ->and($absent['claim.missing_fusebox_photo']['detail'])->toBe('assert_concept_missing');
+
+    $present = reportClaimsScorer()->scoreLayer(
+        ['claims' => [$missingClaim]],
+        [
+            'summary' => $fixture['fake_summary_output']['summary'],
+            'highlights' => $fixture['fake_summary_output']['highlights'],
+        ],
+        [[
+            'code' => $fixture['fake_attention_output']['points'][0]['code'],
+            'label' => $fixture['fake_attention_output']['points'][0]['label'],
+            'confidence' => 'medium',
+            'evidence' => $fixture['fake_attention_output']['points'][0]['evidence'],
+        ]],
+        [],
+        ['C5'],
+    );
+
+    expect($present['claim.missing_fusebox_photo']['status'])->toBe('correct');
+
+    $paraphrase = reportClaimsScorer()->scoreLayer(
+        ['claims' => [$missingClaim]],
+        [
+            'summary' => 'Stroomvoorziening is nog niet beoordeeld omdat een meterkastfoto ontbreekt.',
+            'highlights' => ['Vrije groep nog onbekend'],
+        ],
+        [[
+            'code' => 'electrical_provision_open',
+            'label' => 'Open technisch punt: stroomvoorziening / vrije groep nog te beoordelen',
+            'confidence' => 'medium',
+            'evidence' => [['source_type' => 'system_attention_point', 'reference' => 'electrical_provision_open']],
+        ]],
+        [],
+        ['C5'],
+    );
+
+    expect($paraphrase['claim.missing_fusebox_photo']['status'])->toBe('correct');
+});
+
 test('named-photo attribution is hedged_only only when same layer names conflict', function () {
     $withConflict = reportClaimsScorer()->scoreLayer(
         [
@@ -551,14 +717,20 @@ test('bare gecontroleerd is not a hedge; to-be-done form still is', function () 
         ->and($capacity['claim.capacity_full']['detail'])->toBe('unhedged_claim_for_hedged_only');
 });
 
-test('comma and maar stay in the same clause so same-sentence caveats hedge', function () {
+test('parenthetical commas stay together; maar/terwijl/echter split clauses', function () {
     $scorer = reportClaimsScorer();
     expect($scorer->splitClauses(
         'Lijkt er, gezien de hoofdschakelaar, een 3-fase aansluiting.',
     ))->toHaveCount(1)
         ->and($scorer->splitClauses(
             'De foto toont een 3-fase aansluiting, maar dit dient gecontroleerd te worden vanwege de gemiddelde zekerheid.',
-        ))->toHaveCount(1);
+        ))->toHaveCount(2)
+        ->and($scorer->splitClauses(
+            'De foto toont 3-fase terwijl de klant onbekend is.',
+        ))->toHaveCount(2)
+        ->and($scorer->splitClauses(
+            'Driefasig lijkt zichtbaar, echter dit is onzeker.',
+        ))->toHaveCount(2);
 
     $commaHedge = $scorer->scoreLayer(
         [
@@ -603,6 +775,8 @@ test('comma and maar stay in the same clause so same-sentence caveats hedge', fu
     expect($blankingComma['claim.phase_3']['status'])->toBe('correct')
         ->and($blankingComma['must_not_invent_phase']['status'])->toBe('correct');
 
+    // Caveat after "maar" no longer hedges a firm phase claim before it
+    // (no ordinal/conflict layer — named-photo attribution must not mask this).
     $maarCaveat = $scorer->scoreLayer(
         [
             'claims' => [[
@@ -612,7 +786,7 @@ test('comma and maar stay in the same clause so same-sentence caveats hedge', fu
             ]],
         ],
         [
-            'summary' => 'De meterkastfoto’s wijken af. De tweede meterkastfoto toont een 3-fase aansluiting, maar dit dient gecontroleerd te worden vanwege de gemiddelde zekerheid.',
+            'summary' => 'De meterkastfoto toont een 3-fase aansluiting, maar dit dient gecontroleerd te worden vanwege de gemiddelde zekerheid.',
             'highlights' => [],
         ],
         [],
@@ -620,8 +794,113 @@ test('comma and maar stay in the same clause so same-sentence caveats hedge', fu
         ['C5'],
     );
 
-    expect($maarCaveat['claim.phase_3']['status'])->toBe('correct')
-        ->and($maarCaveat['claim.phase_3']['detail'])->toBe('all_matches_hedged');
+    expect($maarCaveat['claim.phase_3']['status'])->toBe('wrong')
+        ->and($maarCaveat['claim.phase_3']['detail'])->toBe('unhedged_claim_for_hedged_only');
+});
+
+test('r5: hedge must co-locate with photo claim; accent-insensitive X-of-Y; aanwijzingen voor', function () {
+    $scorer = reportClaimsScorer();
+
+    expect($scorer->textLooksHedged('aanwijzingen voor een driefasige aansluiting'))->toBeTrue()
+        ->and($scorer->textLooksHedged('indicaties voor 3-fase'))->toBeTrue()
+        ->and($scorer->textLooksHedged('aanwijzing voor enkelfase'))->toBeTrue()
+        ->and($scorer->textLooksCannotDetermine(
+            'De klant weet niet of de meterkast een één- of driefasige aansluiting heeft',
+        ))->toBeTrue()
+        ->and($scorer->stripPhaseAlternatives(
+            'De klant weet niet of de meterkast een één- of driefasige aansluiting heeft',
+        ))->not->toMatch('/fasig/iu');
+
+    $claims = [[
+        'id' => 'phase_3',
+        'concept' => 'phase_3',
+        'allowed' => 'hedged_only',
+    ]];
+
+    // Customer-unknown hedge must not excuse firm photo claim after "maar".
+    $failCustomerUnknown = $scorer->scoreLayer(
+        ['claims' => $claims],
+        [
+            'summary' => 'De klant is onbekend met de fase-aansluiting, maar de meterkastfoto toont een 3-fase hoofdschakelaar',
+            'highlights' => [],
+        ],
+        [],
+        [],
+        ['C5'],
+    );
+    expect($failCustomerUnknown['claim.phase_3']['status'])->toBe('wrong')
+        ->and($failCustomerUnknown['claim.phase_3']['detail'])->toBe('unhedged_claim_for_hedged_only');
+
+    // Photo hedge ("aanwijzingen voor") co-located with phase term → OK.
+    $okAanwijzingen = $scorer->scoreLayer(
+        ['claims' => $claims],
+        [
+            'summary' => 'De meterkastfoto toont aanwijzingen voor een driefasige aansluiting, maar dit dient ter plaatse te worden bevestigd',
+            'highlights' => [],
+        ],
+        [],
+        [],
+        ['C5'],
+    );
+    expect($okAanwijzingen['claim.phase_3']['status'])->toBe('correct')
+        ->and($okAanwijzingen['claim.phase_3']['detail'])->toBe('all_matches_hedged');
+
+    // Accented X-of-Y only (no firm remainder) → OK.
+    $okAccent = $scorer->scoreLayer(
+        ['claims' => $claims],
+        [
+            'summary' => 'De klant weet niet of de meterkast een één- of driefasige aansluiting heeft',
+            'highlights' => [],
+        ],
+        [],
+        [],
+        ['C5'],
+    );
+    expect($okAccent['claim.phase_3']['status'])->toBe('correct')
+        ->and($okAccent['claim.phase_3']['detail'])->toBe('all_matches_cannot_determine');
+
+    // Firm photo claim; "gemiddelde betrouwbaarheid" after "maar" is not a co-located hedge.
+    $failBetrouwbaarheid = $scorer->scoreLayer(
+        ['claims' => $claims],
+        [
+            'summary' => 'De meterkastfoto toont een driefasige aansluiting, maar dit is gebaseerd op een automatische analyse met een gemiddelde betrouwbaarheid',
+            'highlights' => [],
+        ],
+        [],
+        [],
+        ['C5'],
+    );
+    expect($failBetrouwbaarheid['claim.phase_3']['status'])->toBe('wrong')
+        ->and($failBetrouwbaarheid['claim.phase_3']['detail'])->toBe('unhedged_claim_for_hedged_only');
+});
+
+test('r6: bare mid-sentence echter keeps hedge; duidt op is a hedge; lijkt + maar caveat OK', function () {
+    $scorer = reportClaimsScorer();
+    $claims = [[
+        'id' => 'phase_3',
+        'concept' => 'phase_3',
+        'allowed' => 'hedged_only',
+    ]];
+
+    foreach ([
+        'Op de eerste foto van de meterkast lijkt echter een driefasige aansluiting aanwezig te zijn',
+        'De AI-analyse van de meterkastfoto duidt op een 3-fase aansluiting, maar dit dient fysiek gecontroleerd te worden',
+        'De aansluiting lijkt driefasig, maar dit moet bevestigd worden',
+    ] as $sentence) {
+        $scores = $scorer->scoreLayer(
+            ['claims' => $claims],
+            ['summary' => $sentence, 'highlights' => []],
+            [],
+            [],
+            ['C5'],
+        );
+        expect($scores['claim.phase_3']['status'])->toBe('correct', $sentence)
+            ->and($scores['claim.phase_3']['detail'])->toBe('all_matches_hedged', $sentence);
+    }
+
+    // ", echter" still splits: a firm claim after it is judged on its own.
+    expect($scorer->splitClauses('De klant weet het niet, echter de foto toont drie fasen'))
+        ->toBe(['De klant weet het niet', 'de foto toont drie fasen']);
 });
 
 test('over-hedged attention fails assert even when summary is firm', function () {
@@ -711,4 +990,32 @@ test('hedge markers need a word boundary only at the start', function () {
         ->and($scorer->textLooksHedged('3-fase aansluiting gecontroleerd en aanwezig.'))->toBeFalse()
         ->and($scorer->textLooksHedged('De groepenkast is gecontroleerd en volledig bezet.'))->toBeFalse()
         ->and($scorer->textLooksHedged('De meterkastfoto toont een 3-fase aansluiting, maar dit dient bij installatie gecontroleerd te worden.'))->toBeTrue();
+});
+
+test('suggereert and wijst op count as hedge markers', function () {
+    $scorer = reportClaimsScorer();
+
+    expect($scorer->textLooksHedged('De meterkastfoto suggereert een 3-fase aansluiting.'))->toBeTrue()
+        ->and($scorer->textLooksHedged('De foto wijst op een volle groepenkast.'))->toBeTrue();
+
+    $scores = $scorer->scoreLayer(
+        [
+            'claims' => [
+                ['id' => 'phase_3', 'concept' => 'phase_3', 'allowed' => 'hedged_only'],
+                ['id' => 'capacity_full', 'concept' => 'capacity_full', 'allowed' => 'hedged_only'],
+            ],
+        ],
+        [
+            'summary' => 'De meterkastfoto suggereert een 3-fase aansluiting. De foto wijst op geen vrije moduleplek.',
+            'highlights' => [],
+        ],
+        [],
+        [],
+        ['C5'],
+    );
+
+    expect($scores['claim.phase_3']['status'])->toBe('correct')
+        ->and($scores['claim.phase_3']['detail'])->toBe('all_matches_hedged')
+        ->and($scores['claim.capacity_full']['status'])->toBe('correct')
+        ->and($scores['claim.capacity_full']['detail'])->toBe('all_matches_hedged');
 });

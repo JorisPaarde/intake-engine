@@ -8,7 +8,7 @@
     "C7",
     "C8"
   ],
-  "note": "Prod-shaped summary_input (no photo_assessments[] on fact; uploads[] with stored content_assessment). capacity_full hedged_only (check point OK, hard claim not); phase_3 hedged_only; conflict assert required.",
+  "note": "N20 scoring change (was photo_conflict assert from #189/#191): same prod shape as unsharp-then-sharp (upload1 needs_clearer, upload2 ok, combined three_phase/none_visible medium). That is NOT a readable-vs-readable phase conflict — photo_conflict is now forbidden (tight conflict terms). Real conflicts covered by rc-n20-fusebox-two-readable-photos-disagree. capacity_full + phase_3 remain hedged_only. Baseline on main will re-score this case. (No disputed_facts: gate must score photo_conflict.)",
   "summary_input": {
     "answers": {
       "fusebox_photo": {
@@ -194,15 +194,19 @@
       {
         "id": "photo_conflict",
         "concept": "photo_conflict",
-        "allowed": "assert"
+        "allowed": "forbidden",
+        "terms": [
+          "conflict",
+          "tegenstrijdig",
+          "spreken elkaar tegen",
+          "/spreken? elkaar tegen/iu",
+          "wijken af",
+          "verschil tussen",
+          "/tegenspre\\w*/iu"
+        ]
       }
     ],
     "attention_confidence_ceiling": "medium",
     "require_evidence_on_points": true
-  },
-  "disputed_facts": {
-    "claim.photo_conflict": {
-      "reason": "Attribution wording varies; disputed if model hedges phase/capacity without naming the conflict."
-    }
   }
 }

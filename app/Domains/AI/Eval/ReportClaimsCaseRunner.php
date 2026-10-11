@@ -10,6 +10,7 @@ use App\Domains\AI\DTOs\AiCompletionResult;
 use App\Domains\AI\Services\AiGateway;
 use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\AI\Support\DerivedClaimConfidenceGuard;
+use App\Domains\AI\Support\SchemaEnumLabelGuard;
 use Throwable;
 
 /**
@@ -33,6 +34,7 @@ final class ReportClaimsCaseRunner
         private readonly SuggestAttentionPoints $suggestAttentionPoints,
         private readonly DerivedClaimConfidenceGuard $claimGuard,
         private readonly ReportClaimsScorer $scorer,
+        private readonly SchemaEnumLabelGuard $schemaEnumLabelGuard,
     ) {}
 
     /**
@@ -242,6 +244,12 @@ final class ReportClaimsCaseRunner
             'guard_meta' => [
                 'summary_ceiling' => $summaryCeiling,
                 'summary_hedged_flags' => $this->summaryHedgeFlags($rawSummaryNormalized, $summaryCeiling),
+                'schema_enum_guard' => $this->schemaEnumGuardMeta(
+                    $rawSummaryNormalized,
+                    $finalSummaryNormalized,
+                    $rawPoints,
+                    $finalPoints,
+                ),
             ],
             'facts' => [
                 'model_raw' => [
@@ -396,6 +404,61 @@ final class ReportClaimsCaseRunner
             'summary' => $this->claimGuard->normalizeDerivedText($summary['summary'], $ceiling)['hedged'],
             'highlights' => $highlightFlags,
         ];
+    }
+
+    /**
+     * Eval-only measurement: raw schema-enum hits in model_raw vs pipeline_final (N20).
+     * Not used in product paths; logs hits for the report_claims harness only.
+     *
+     * @param  array{summary: string, highlights: list<string>}|null  $rawSummary
+     * @param  array{summary: string, highlights: list<string>}|null  $finalSummary
+     * @param  list<array{code: string, label: string, confidence: string|null, evidence?: mixed}>|null  $rawPoints
+     * @param  list<array{code: string, label: string, confidence: string|null, evidence?: mixed}>|null  $finalPoints
+     * @return array{model_raw_hits: list<string>, pipeline_final_hits: list<string>}
+     */
+    private function schemaEnumGuardMeta(
+        ?array $rawSummary,
+        ?array $finalSummary,
+        ?array $rawPoints,
+        ?array $finalPoints,
+    ): array {
+        return [
+            'model_raw_hits' => $this->collectSchemaEnumHits($rawSummary, $rawPoints),
+            'pipeline_final_hits' => $this->collectSchemaEnumHits($finalSummary, $finalPoints),
+        ];
+    }
+
+    /**
+     * @param  array{summary: string, highlights: list<string>}|null  $summary
+     * @param  list<array{code: string, label: string, confidence: string|null, evidence?: mixed}>|null  $points
+     * @return list<string>
+     */
+    private function collectSchemaEnumHits(?array $summary, ?array $points): array
+    {
+        $texts = [];
+        if ($summary !== null) {
+            $texts[] = $summary['summary'];
+            foreach ($summary['highlights'] as $highlight) {
+                $texts[] = $highlight;
+            }
+        }
+        if ($points !== null) {
+            foreach ($points as $point) {
+                $texts[] = $point['label'];
+            }
+        }
+
+        $hits = [];
+        foreach ($texts as $text) {
+            foreach ($this->schemaEnumLabelGuard->findRawHits($text) as $token) {
+                $hits[] = $token;
+            }
+        }
+
+        $hits = array_values(array_unique($hits));
+        sort($hits);
+
+        return $hits;
     }
 
     private function combineErrors(?string $summaryError, ?string $attentionError): ?string
