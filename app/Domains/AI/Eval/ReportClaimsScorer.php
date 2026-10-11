@@ -33,15 +33,20 @@ final class ReportClaimsScorer
         'indicatie',
         'te controleren',
         'controleer',
+        'gecontroleerd',
         'verifieer',
         'nagaan',
         'niet vast te stellen',
+        'niet vastgesteld',
+        'niet kunnen worden vastgesteld',
+        'niet kan worden vastgesteld',
         'onbekend',
         'niet te bepalen',
         'zekerheid medium',
         'zekerheid laag',
         'zekerheid: medium',
         'zekerheid: laag',
+        'gemiddelde zekerheid',
         'confidence medium',
         'confidence low',
     ];
@@ -53,6 +58,9 @@ final class ReportClaimsScorer
      */
     private const CANNOT_DETERMINE_MARKERS = [
         'niet vast te stellen',
+        'niet vastgesteld',
+        'niet kunnen worden vastgesteld',
+        'niet kan worden vastgesteld',
         'onbekend',
         'niet te bepalen',
     ];
@@ -462,7 +470,9 @@ final class ReportClaimsScorer
     }
 
     /**
-     * Split a unit into clauses for hedge / cannot-determine co-location.
+     * Split a unit for hedge / cannot-determine co-location.
+     * Only sentence breaks (. ! ? newline) and ';' — commas and "maar" stay
+     * in the same clause so a same-sentence caveat still hedges the claim.
      *
      * @return list<string>
      */
@@ -473,7 +483,7 @@ final class ReportClaimsScorer
             return [];
         }
 
-        $parts = preg_split('/\s*(?:[.;,]|\s+maar\s+)\s*/iu', $trimmedText) ?: [$trimmedText];
+        $parts = preg_split('/\s*(?:[.!?;]|\n+)\s*/u', $trimmedText) ?: [$trimmedText];
 
         $out = [];
         foreach ($parts as $part) {
@@ -585,7 +595,7 @@ final class ReportClaimsScorer
             'attention' => $this->layerNamesPhotoConflictOrUncertainty($units, ['attention']),
         ];
 
-        // Match + hedge / cannot-determine at clause level (., ;, ,, " maar ").
+        // Match + hedge / cannot-determine per sentence/'; clause (.!?; / newline).
         /** @var list<array{kind: string, text: string, hedged: bool, cannot_determine: bool}> $matches */
         $matches = [];
         foreach ($units as $unit) {

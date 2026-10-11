@@ -340,7 +340,7 @@ test('cannot-determine phase sentence is not forbidden and counts as hedged', fu
         ->and($scores['must_not_invent_phase']['status'])->toBe('correct');
 });
 
-test('cannot-determine marker in another clause does not clear a hard claim', function () {
+test('cannot-determine marker in another semicolon clause does not clear a hard claim', function () {
     $capacity = reportClaimsScorer()->scoreLayer(
         [
             'claims' => [[
@@ -371,7 +371,7 @@ test('cannot-determine marker in another clause does not clear a hard claim', fu
             'must_not_invent_phase' => true,
         ],
         [
-            'summary' => '3-fase aansluiting aanwezig; vrije ruimte onbekend.',
+            'summary' => '3-fase aanwezig; ruimte onbekend.',
             'highlights' => [],
         ],
         [],
@@ -446,6 +446,79 @@ test('named-photo conclusion wording stays unhedged even with conflict', functio
 
     expect($scores['claim.capacity_full']['status'])->toBe('wrong')
         ->and($scores['claim.capacity_full']['detail'])->toBe('unhedged_claim_for_hedged_only');
+});
+
+test('comma and maar stay in the same clause so same-sentence caveats hedge', function () {
+    $scorer = reportClaimsScorer();
+    expect($scorer->splitClauses(
+        'Lijkt er, gezien de hoofdschakelaar, een 3-fase aansluiting.',
+    ))->toHaveCount(1)
+        ->and($scorer->splitClauses(
+            'De foto toont een 3-fase aansluiting, maar dit dient gecontroleerd te worden vanwege de gemiddelde zekerheid.',
+        ))->toHaveCount(1);
+
+    $commaHedge = $scorer->scoreLayer(
+        [
+            'claims' => [[
+                'id' => 'phase_3',
+                'concept' => 'phase_3',
+                'allowed' => 'hedged_only',
+            ]],
+        ],
+        [
+            'summary' => 'Lijkt er, gezien de hoofdschakelaar, een 3-fase aansluiting.',
+            'highlights' => [
+                'Mogelijk is er, net als bij de buren, een 3-fase aansluiting.',
+            ],
+        ],
+        [],
+        [],
+        ['C5'],
+    );
+
+    expect($commaHedge['claim.phase_3']['status'])->toBe('correct')
+        ->and($commaHedge['claim.phase_3']['detail'])->toBe('all_matches_hedged');
+
+    $blankingComma = $scorer->scoreLayer(
+        [
+            'claims' => [[
+                'id' => 'phase_3',
+                'concept' => 'phase_3',
+                'allowed' => 'hedged_only',
+            ]],
+            'must_not_invent_phase' => true,
+        ],
+        [
+            'summary' => 'De fase is, door de afdekplaatjes, onbekend.',
+            'highlights' => ['3-fase is niet vastgesteld'],
+        ],
+        [],
+        [],
+        ['C5'],
+    );
+
+    expect($blankingComma['claim.phase_3']['status'])->toBe('correct')
+        ->and($blankingComma['must_not_invent_phase']['status'])->toBe('correct');
+
+    $maarCaveat = $scorer->scoreLayer(
+        [
+            'claims' => [[
+                'id' => 'phase_3',
+                'concept' => 'phase_3',
+                'allowed' => 'hedged_only',
+            ]],
+        ],
+        [
+            'summary' => 'De meterkastfoto’s wijken af. De tweede meterkastfoto toont een 3-fase aansluiting, maar dit dient gecontroleerd te worden vanwege de gemiddelde zekerheid.',
+            'highlights' => [],
+        ],
+        [],
+        [],
+        ['C5'],
+    );
+
+    expect($maarCaveat['claim.phase_3']['status'])->toBe('correct')
+        ->and($maarCaveat['claim.phase_3']['detail'])->toBe('all_matches_hedged');
 });
 
 test('over-hedged attention fails assert even when summary is firm', function () {
