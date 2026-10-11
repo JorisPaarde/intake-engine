@@ -657,8 +657,8 @@
                 <div class="flex max-h-[90vh] flex-col">
                     <div class="flex items-start justify-between gap-3 border-b border-[#dde2da] px-4 py-3 sm:px-5">
                         <div class="min-w-0">
-                            <h2 id="photo-lightbox-title" class="truncate text-base font-semibold text-[#18201d]" data-photo-lightbox-heading></h2>
-                            <p class="mt-0.5 truncate text-sm text-[#414b45]" data-photo-lightbox-caption></p>
+                            <h2 id="photo-lightbox-title" class="break-words text-base font-semibold text-[#18201d] line-clamp-2" data-photo-lightbox-heading></h2>
+                            <p class="mt-0.5 break-words text-sm text-[#414b45] line-clamp-2" data-photo-lightbox-caption></p>
                             <p class="mt-1 hidden text-xs font-medium text-amber-800" data-photo-lightbox-label></p>
                         </div>
                         <button

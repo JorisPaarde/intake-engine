@@ -59,6 +59,18 @@ $upload->update([
     'usability_verdict' => PhotoUsabilityVerdict::Ok,
 ]);
 
+// Second meterkast photo in the same gallery group (prev/next + ArrowRight).
+$upload2 = app(StoreIntakeUpload::class)->handle(
+    $intake->fresh(),
+    'fusebox_photo',
+    null,
+    UploadedFile::fake()->image('meterkast-portrait-2.jpg', 900, 1200),
+);
+$upload2->update([
+    'assessment_status' => PhotoAssessmentStatus::Assessed,
+    'usability_verdict' => PhotoUsabilityVerdict::Ok,
+]);
+
 $roomUpload = app(StoreIntakeUpload::class)->handle(
     $intake->fresh(),
     'room_photos',
@@ -79,5 +91,6 @@ echo json_encode([
     'showUrl' => $baseUrl.'/intakes/'.$intake->id,
     'intakeId' => $intake->id,
     'portraitUploadId' => $upload->id,
+    'portraitUploadId2' => $upload2->id,
     'landscapeUploadId' => $roomUpload->id,
 ], JSON_THROW_ON_ERROR).PHP_EOL;

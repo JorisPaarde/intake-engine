@@ -336,7 +336,7 @@ function registerPhotoLightbox() {
             return;
         }
 
-        const root = dialog();
+        // Klik op de backdrop: het event-doel is de <dialog> zelf.
         if (target instanceof HTMLDialogElement && target.hasAttribute('data-photo-lightbox') && target.open) {
             const rect = target.getBoundingClientRect();
             const inside = event.clientX >= rect.left && event.clientX <= rect.right
@@ -344,8 +344,6 @@ function registerPhotoLightbox() {
             if (!inside) {
                 target.close();
             }
-        } else if (root instanceof HTMLDialogElement && root.open && target === root) {
-            root.close();
         }
     });
 
