@@ -8,7 +8,7 @@
     "C7",
     "C8"
   ],
-  "note": "Control: two readable (content_assessment.status=ok) meterkast photos. Production stores only ONE combined fusebox_photo_assessment (no per-photo phase on uploads). Closest prod shape: both uploads ok + combined fact phase=unknown with free-text evidence that names disagreeing phase readings. Gap: cannot send structured per-photo phase without inventing context fields prod never builds. Expected: photo_conflict assert.",
+  "note": "Control: two readable (content_assessment.status=ok) meterkast photos. Production stores only ONE combined fusebox_photo_assessment (no per-photo phase on uploads). Closest prod shape: both uploads ok + combined fact phase=unknown with free-text evidence that names disagreeing phase readings. Gap: cannot send structured per-photo phase without inventing context fields prod never builds. Expected: photo_conflict assert. Real readable-vs-readable disagreement must still be named; N20 only removes false conflict for unsharp-then-sharp. Upload refs are neutral (upload_a/upload_b) so ids do not leak the phase answer. (No disputed_facts: gate must score photo_conflict.)",
   "summary_input": {
     "answers": {
       "fusebox_photo": {
@@ -42,7 +42,7 @@
     "attention_point_codes": [],
     "uploads": [
       {
-        "reference": "fusebox_photo@upload:upload_phase1",
+        "reference": "fusebox_photo@upload:upload_a",
         "question_key": "fusebox_photo",
         "question_label": "Foto van de meterkast",
         "section_label": "Stroom",
@@ -60,7 +60,7 @@
         "order": 1
       },
       {
-        "reference": "fusebox_photo@upload:upload_phase3",
+        "reference": "fusebox_photo@upload:upload_b",
         "question_key": "fusebox_photo",
         "question_label": "Foto van de meterkast",
         "section_label": "Stroom",
@@ -121,7 +121,7 @@
     ],
     "uploads": [
       {
-        "reference": "fusebox_photo@upload:upload_phase1",
+        "reference": "fusebox_photo@upload:upload_a",
         "question_key": "fusebox_photo",
         "question_label": "Foto van de meterkast",
         "section_label": "Stroom",
@@ -139,7 +139,7 @@
         "order": 1
       },
       {
-        "reference": "fusebox_photo@upload:upload_phase3",
+        "reference": "fusebox_photo@upload:upload_b",
         "question_key": "fusebox_photo",
         "question_label": "Foto van de meterkast",
         "section_label": "Stroom",
@@ -182,11 +182,11 @@
         "evidence": [
           {
             "source_type": "upload",
-            "reference": "fusebox_photo@upload:upload_phase1"
+            "reference": "fusebox_photo@upload:upload_a"
           },
           {
             "source_type": "upload",
-            "reference": "fusebox_photo@upload:upload_phase3"
+            "reference": "fusebox_photo@upload:upload_b"
           },
           {
             "source_type": "external_fact",
@@ -220,10 +220,5 @@
     ],
     "attention_confidence_ceiling": "medium",
     "require_evidence_on_points": true
-  },
-  "disputed_facts": {
-    "claim.photo_conflict": {
-      "reason": "Real readable-vs-readable disagreement must still be named; N20 only removes false conflict for unsharp-then-sharp."
-    }
   }
 }

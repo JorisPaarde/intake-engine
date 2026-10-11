@@ -8,7 +8,7 @@
     "C7",
     "C8"
   ],
-  "note": "N20: upload 1 needs_clearer (unsharp, no phase verdict) then upload 2 ok with combined fusebox fact phase=three_phase / empty_module_space=none_visible medium. Unsharp-then-sharp is NOT a photo conflict. photo_conflict forbidden (tight conflict terms only). phase_3 + capacity_full hedged_only. No raw schema enums in prose. Customer does not know phase — that does not firm the AI reading. Scoring change vs older kt11 assert: see rc-kt11-fusebox-two-photos-conflict note.",
+  "note": "N20: upload 1 needs_clearer (unsharp, no phase verdict) then upload 2 ok with combined fusebox fact phase=three_phase / empty_module_space=none_visible medium. Unsharp-then-sharp is NOT a photo conflict — photo_conflict forbidden (tight conflict terms only); only true readable-vs-readable disagreement may assert conflict (see rc-n20-fusebox-two-readable-photos-disagree). phase_3 + capacity_full hedged_only. No raw schema enums in prose. Customer does not know phase — that does not firm the AI reading. Scoring change vs older kt11 assert: see rc-kt11-fusebox-two-photos-conflict note. (No disputed_facts: gate must score photo_conflict.)",
   "summary_input": {
     "answers": {
       "request_reason": "wil airco in de woonkamer; 3-fase weet de klant niet",
@@ -280,10 +280,5 @@
     ],
     "attention_confidence_ceiling": "medium",
     "require_evidence_on_points": true
-  },
-  "disputed_facts": {
-    "claim.photo_conflict": {
-      "reason": "N20: needs_clearer then ok is not a phase conflict; only true readable-vs-readable disagreement may assert conflict (see rc-n20-fusebox-two-readable-photos-disagree)."
-    }
   }
 }

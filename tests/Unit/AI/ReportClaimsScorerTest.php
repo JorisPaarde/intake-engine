@@ -436,6 +436,44 @@ test('1-fase/3-fase as alternatives is cannot-determine; onzeker is a hedge', fu
         ->and($phaseHard['claim.phase_3']['detail'])->toBe('unhedged_claim_for_hedged_only');
 });
 
+test('eenfasige of driefasige and enkelfasig variants count as cannot-determine', function () {
+    $scorer = reportClaimsScorer();
+
+    expect($scorer->textLooksCannotDetermine(
+        'Controleer of de aansluiting eenfasige of driefasige is.',
+    ))->toBeTrue()
+        ->and($scorer->textLooksCannotDetermine(
+            'Mogelijk driefasige of eenfasige voeding.',
+        ))->toBeTrue()
+        ->and($scorer->textLooksCannotDetermine(
+            'Het kan enkelfasig of driefasig zijn.',
+        ))->toBeTrue()
+        ->and($scorer->textLooksCannotDetermine(
+            'Driefasig / enkelfasig nog onduidelijk.',
+        ))->toBeTrue();
+
+    $scores = $scorer->scoreLayer(
+        [
+            'claims' => [[
+                'id' => 'phase_3',
+                'concept' => 'phase_3',
+                'allowed' => 'hedged_only',
+            ]],
+            'must_not_invent_phase' => true,
+        ],
+        [
+            'summary' => 'Controleer of de meterkast eenfasige of driefasige is.',
+            'highlights' => ['Nog enkelfasig of driefasig — niet te bepalen'],
+        ],
+        [],
+        [],
+        ['C5'],
+    );
+
+    expect($scores['must_not_invent_phase']['status'])->toBe('correct')
+        ->and($scores['claim.phase_3']['status'])->toBe('correct');
+});
+
 test('named-photo attribution is hedged_only only when same layer names conflict', function () {
     $withConflict = reportClaimsScorer()->scoreLayer(
         [

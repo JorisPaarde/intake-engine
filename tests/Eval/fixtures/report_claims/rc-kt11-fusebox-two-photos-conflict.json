@@ -8,7 +8,7 @@
     "C7",
     "C8"
   ],
-  "note": "N20 scoring change (was photo_conflict assert from #189/#191): same prod shape as unsharp-then-sharp (upload1 needs_clearer, upload2 ok, combined three_phase/none_visible medium). That is NOT a readable-vs-readable phase conflict — photo_conflict is now forbidden (tight conflict terms). Real conflicts covered by rc-n20-fusebox-two-readable-photos-disagree. capacity_full + phase_3 remain hedged_only.",
+  "note": "N20 scoring change (was photo_conflict assert from #189/#191): same prod shape as unsharp-then-sharp (upload1 needs_clearer, upload2 ok, combined three_phase/none_visible medium). That is NOT a readable-vs-readable phase conflict — photo_conflict is now forbidden (tight conflict terms). Real conflicts covered by rc-n20-fusebox-two-readable-photos-disagree. capacity_full + phase_3 remain hedged_only. Baseline on main will re-score this case. (No disputed_facts: gate must score photo_conflict.)",
   "summary_input": {
     "answers": {
       "fusebox_photo": {
@@ -208,10 +208,5 @@
     ],
     "attention_confidence_ceiling": "medium",
     "require_evidence_on_points": true
-  },
-  "disputed_facts": {
-    "claim.photo_conflict": {
-      "reason": "N20: needs_clearer + ok is not a phase conflict. Baseline on main will re-score this case; assert moved to rc-n20-fusebox-two-readable-photos-disagree."
-    }
   }
 }

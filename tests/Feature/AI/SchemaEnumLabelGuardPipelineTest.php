@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use App\Domains\AI\Actions\SuggestAttentionPoints;
 use App\Domains\AI\Actions\SummarizeIntake;
+use App\Domains\AI\Eval\ReportClaimsCaseRunner;
+use App\Domains\AI\Support\SchemaEnumLabelGuard;
 use App\Domains\Intake\Support\FuseboxAssessmentLabels;
 use Database\Seeders\IntakeTemplateSeeder;
 
@@ -16,7 +18,7 @@ beforeEach(function () {
     ]);
 });
 
-test('attention pipeline replaces none_visible in label; Dutch label passes untouched', function () {
+test('attention pipeline leaves none_visible unchanged; Dutch label also untouched', function () {
     $payload = [
         'answer_context' => [],
         'external_fact_context' => [[
@@ -37,10 +39,11 @@ test('attention pipeline replaces none_visible in label; Dutch label passes unto
         'system_attention_points' => [],
     ];
 
+    $leakyLabel = "AI-analyse geeft 'none_visible' voor vrije module-ruimte; te controleren";
     $leaky = app(SuggestAttentionPoints::class)->applyPipelineToOutput([
         'points' => [[
             'code' => 'no_free_group',
-            'label' => "AI-analyse geeft 'none_visible' voor vrije module-ruimte; te controleren",
+            'label' => $leakyLabel,
             'confidence' => 'medium',
             'evidence' => [[
                 'source_type' => 'external_fact',
@@ -49,11 +52,12 @@ test('attention pipeline replaces none_visible in label; Dutch label passes unto
         ]],
     ], $payload);
 
-    $dutch = FuseboxAssessmentLabels::emptyModuleSpace('none_visible');
     expect($leaky)->toHaveCount(1)
-        ->and($leaky[0]['label'])->toContain($dutch)
-        ->and($leaky[0]['label'])->not->toContain('none_visible');
+        ->and($leaky[0]['label'])->toBe($leakyLabel)
+        ->and($leaky[0]['label'])->toContain('none_visible')
+        ->and((new SchemaEnumLabelGuard)->findRawHits($leaky[0]['label']))->toBe(['none_visible']);
 
+    $dutch = FuseboxAssessmentLabels::emptyModuleSpace('none_visible');
     $clean = app(SuggestAttentionPoints::class)->applyPipelineToOutput([
         'points' => [[
             'code' => 'verify_free_group',
@@ -69,7 +73,7 @@ test('attention pipeline replaces none_visible in label; Dutch label passes unto
     expect($clean[0]['label'])->toBe($dutch.'; te controleren');
 });
 
-test('summary pipeline replaces three_phase enum token in highlights', function () {
+test('summary pipeline leaves three_phase unchanged; enum hit is measure-only', function () {
     $payload = [
         'external_facts' => [
             'fusebox_photo_assessment' => [
@@ -81,14 +85,40 @@ test('summary pipeline replaces three_phase enum token in highlights', function 
         'uploads' => [],
     ];
 
+    $summaryIn = 'Korte samenvatting van de digitale opname voor de installateur met fase three_phase te controleren.';
+    $highlightIn = 'Fase three_phase lijkt zichtbaar';
+
     $out = app(SummarizeIntake::class)->applyPipelineToOutput([
-        'summary' => 'Korte samenvatting van de digitale opname voor de installateur met fase three_phase te controleren.',
-        'highlights' => ['Fase three_phase lijkt zichtbaar'],
+        'summary' => $summaryIn,
+        'highlights' => [$highlightIn],
     ], $payload);
 
-    $phaseLabel = FuseboxAssessmentLabels::phase('three_phase');
-    expect($out['summary'])->toContain($phaseLabel)
-        ->and($out['summary'])->not->toContain('three_phase')
-        ->and($out['highlights'][0])->toContain($phaseLabel)
-        ->and($out['highlights'][0])->not->toContain('three_phase');
+    expect($out['summary'])->toBe($summaryIn)
+        ->and($out['highlights'][0])->toBe($highlightIn)
+        ->and($out['summary'])->toContain('three_phase')
+        ->and((new SchemaEnumLabelGuard)->findRawHits($out['highlights'][0]))->toBe(['three_phase']);
+});
+
+test('report_claims guard_meta logs schema enum hits without claiming a rewrite', function () {
+    $runner = app(ReportClaimsCaseRunner::class);
+    $method = new ReflectionMethod(ReportClaimsCaseRunner::class, 'schemaEnumGuardMeta');
+
+    $summary = [
+        'summary' => 'Korte samenvatting met enum three_phase voor de installateur te controleren.',
+        'highlights' => ['Moduleplek none_visible — te controleren'],
+    ];
+    $points = [[
+        'code' => 'verify_free_group',
+        'label' => "AI-analyse geeft 'none_visible' voor vrije module-ruimte; te controleren",
+        'confidence' => 'medium',
+        'evidence' => [],
+    ]];
+
+    /** @var array{changed: bool, model_raw_hits: list<string>, pipeline_final_hits: list<string>} $meta */
+    $meta = $method->invoke($runner, $summary, $summary, $points, $points);
+
+    expect($meta['changed'])->toBeFalse()
+        ->and($meta['model_raw_hits'])->toContain('none_visible')
+        ->and($meta['model_raw_hits'])->toContain('three_phase')
+        ->and($meta['pipeline_final_hits'])->toBe($meta['model_raw_hits']);
 });

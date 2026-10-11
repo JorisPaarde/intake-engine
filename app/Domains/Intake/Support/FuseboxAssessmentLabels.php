@@ -6,8 +6,8 @@ namespace App\Domains\Intake\Support;
 
 /**
  * Single source of Dutch labels for fusebox assessment enum values
- * (ExternalFactPresenter + SchemaEnumLabelGuard). Rendering our own schema
- * tokens is not text interpretation (ADR-0016).
+ * (ExternalFactPresenter deterministic display). Rendering our own schema
+ * tokens in presenters is not text interpretation (ADR-0016).
  */
 final class FuseboxAssessmentLabels
 {

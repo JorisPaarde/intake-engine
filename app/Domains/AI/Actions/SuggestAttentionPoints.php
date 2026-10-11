@@ -12,7 +12,6 @@ use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\AI\Services\IntakeAttentionContextBuilder;
 use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\AI\Support\DerivedClaimConfidenceGuard;
-use App\Domains\AI\Support\SchemaEnumLabelGuard;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeAttentionPoint;
 use App\Enums\AiRunStatus;
@@ -41,7 +40,6 @@ final class SuggestAttentionPoints
         private readonly IntakeAttentionContextBuilder $contextBuilder,
         private readonly AiTraceRecorder $traceRecorder,
         private readonly DerivedClaimConfidenceGuard $claimGuard,
-        private readonly SchemaEnumLabelGuard $schemaEnumLabelGuard,
     ) {}
 
     public function handle(Intake $intake): ?AiRun
@@ -237,11 +235,10 @@ final class SuggestAttentionPoints
                 $ceiling = $this->claimGuard->mergeCeilings($ceiling, 'medium');
             }
             $normalized = $this->claimGuard->normalizeDerivedText(trim($point['label']), $ceiling);
-            $rendered = $this->schemaEnumLabelGuard->apply($normalized['text']);
 
             $points[] = [
                 'code' => $code,
-                'label' => $rendered['text'],
+                'label' => $normalized['text'],
                 'confidence' => $this->claimGuard->capConfidence($point['confidence'], $ceiling),
                 'evidence' => $point['evidence'],
             ];

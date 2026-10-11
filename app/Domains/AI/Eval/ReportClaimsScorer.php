@@ -441,6 +441,14 @@ final class ReportClaimsScorer
             return true;
         }
 
+        // Word forms: eenfasige/driefasige, enkelfasig/driefasig (and reverse).
+        if (@preg_match(
+            '/\b(een|enkel)fasig(e)?\s*(of|\/)\s*driefasig(e)?\b|\bdriefasig(e)?\s*(of|\/)\s*(een|enkel)fasig(e)?\b/u',
+            $lower,
+        ) === 1) {
+            return true;
+        }
+
         return false;
     }
 

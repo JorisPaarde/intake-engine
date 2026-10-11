@@ -407,7 +407,8 @@ final class ReportClaimsCaseRunner
     }
 
     /**
-     * Whether SchemaEnumLabelGuard changed model_raw → pipeline_final (N20).
+     * Measure-only: raw schema-enum hits in model_raw vs pipeline_final (N20).
+     * Product pipelines do not rewrite model text (ADR-0016); hits are logged only.
      *
      * @param  array{summary: string, highlights: list<string>}|null  $rawSummary
      * @param  array{summary: string, highlights: list<string>}|null  $finalSummary
@@ -425,8 +426,8 @@ final class ReportClaimsCaseRunner
         $finalHits = $this->collectSchemaEnumHits($finalSummary, $finalPoints);
 
         return [
-            // True when the product guard removed at least one raw enum token.
-            'changed' => $rawHits !== [] && $finalHits === [],
+            // Always false: product code must not rewrite model prose for enums.
+            'changed' => false,
             'model_raw_hits' => $rawHits,
             'pipeline_final_hits' => $finalHits,
         ];
