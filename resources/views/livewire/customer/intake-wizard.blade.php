@@ -703,7 +703,7 @@
                 @else
                     <button
                         type="button"
-                        wire:click="next"
+                        wire:click="next(@js($activeStepKey))"
                         data-testid="next-button"
                         class="min-h-12 flex-[1.4] rounded-xl bg-[var(--tenant-primary)] px-4 text-sm font-semibold text-[var(--tenant-on-primary)]"
                     >
