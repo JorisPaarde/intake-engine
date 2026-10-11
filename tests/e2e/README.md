@@ -7,6 +7,7 @@
 - PHP 8.4, Composer, Node 20+
 - Chromium via Playwright
 - App met `AI_PROVIDER=fake` (nooit echte AI in E2E)
+- `AI_PHOTO_INFERENCE_ENABLED=true` (anders skip “foto-inferentie uitgeschakeld” → o.a. `04-targeted-customer-task` faalt zonder `follow-up-mismatch`)
 - `E2E_HELPERS=true` (zet `/__e2e__/*` open voor scenario-setup)
 
 ## Lokaal draaien
@@ -22,12 +23,13 @@ npm run e2e:fixtures
 # Database + seed (SQLite-bestand)
 cp .env.example .env   # indien nodig
 php artisan key:generate
-# Zet in .env (of exporteer):
+# Zet in .env (of exporteer) — dezelfde vars ook bij `artisan serve`:
 #   APP_ENV=local
 #   DB_CONNECTION=sqlite
 #   DB_DATABASE=database/e2e.sqlite
 #   QUEUE_CONNECTION=sync
 #   AI_PROVIDER=fake
+#   AI_PHOTO_INFERENCE_ENABLED=true
 #   E2E_HELPERS=true
 #   DEMO_ENABLED=true
 #   PDOK_ENABLED=false
@@ -36,8 +38,9 @@ php artisan key:generate
 touch database/e2e.sqlite
 php artisan e2e:prepare --fresh
 
-# App starten
-php artisan serve --host=127.0.0.1 --port=8000
+# App starten (photo-inference aan in dit proces)
+AI_PROVIDER=fake AI_PHOTO_INFERENCE_ENABLED=true E2E_HELPERS=true QUEUE_CONNECTION=sync \
+  php artisan serve --host=127.0.0.1 --port=8000
 
 # Tests (andere terminal)
 E2E_BASE_URL=http://127.0.0.1:8000 npm run test:e2e
