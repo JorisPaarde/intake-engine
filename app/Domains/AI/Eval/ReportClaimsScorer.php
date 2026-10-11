@@ -40,6 +40,7 @@ final class ReportClaimsScorer
         'niet kunnen worden vastgesteld',
         'niet kan worden vastgesteld',
         'onbekend',
+        'onzeker',
         'niet te bepalen',
         'zekerheid medium',
         'zekerheid laag',
@@ -408,6 +409,14 @@ final class ReportClaimsScorer
             if ($this->markerPresent($lower, $marker)) {
                 return true;
             }
+        }
+
+        // 1-fase/3-fase (or reverse) named as alternatives = not yet established.
+        if (@preg_match(
+            '/\b1(-?\s?fasen?)?\s*(of|\/)\s*3-?\s?fasen?\b|\b3(-?\s?fasen?)?\s*(of|\/)\s*1-?\s?fasen?\b/u',
+            $lower,
+        ) === 1) {
+            return true;
         }
 
         return false;
