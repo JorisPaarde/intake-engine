@@ -151,7 +151,7 @@
                                         @foreach ($contribution['uploads'] as $contributionUpload)
                                             <li>
                                                 <a href="{{ route('installer.uploads.show', [$intake, $contributionUpload]) }}" target="_blank" rel="noopener" class="block overflow-hidden rounded-lg border border-gray-200">
-                                                    <img src="{{ route('installer.uploads.show', [$intake, $contributionUpload]) }}" alt="Ontvangen foto" class="aspect-square w-full object-cover">
+                                                    <img src="{{ route('installer.uploads.show', [$intake, $contributionUpload]) }}" alt="Ontvangen foto" class="aspect-square w-full bg-gray-100 object-contain" loading="lazy">
                                                 </a>
                                             </li>
                                         @endforeach
@@ -353,7 +353,7 @@
                                                                 @foreach ($contribution['uploads'] as $contributionUpload)
                                                                     <li>
                                                                         <a href="{{ route('installer.uploads.show', [$intake, $contributionUpload]) }}" target="_blank" rel="noopener" class="block overflow-hidden rounded border border-emerald-200">
-                                                                            <img src="{{ route('installer.uploads.show', [$intake, $contributionUpload]) }}" alt="Aanvulling" class="aspect-square w-full object-cover">
+                                                                            <img src="{{ route('installer.uploads.show', [$intake, $contributionUpload]) }}" alt="Aanvulling" class="aspect-square w-full bg-gray-100 object-contain" loading="lazy">
                                                                         </a>
                                                                     </li>
                                                                 @endforeach
@@ -1640,7 +1640,8 @@
                                                         <img
                                                             src="{{ route('installer.uploads.show', [$intake, $item['upload']]) }}"
                                                             alt="{{ $group['heading'] }} · {{ $item['caption'] }}"
-                                                            class="aspect-[4/3] w-full object-cover transition group-hover:scale-[1.02]"
+                                                            class="aspect-[4/3] w-full bg-gray-100 object-contain transition group-hover:scale-[1.02]"
+                                                            loading="lazy"
                                                         >
                                                         <span class="block truncate px-3 py-2 text-xs font-medium text-gray-700">{{ $item['caption'] }}</span>
                                                         @if (($item['superseded'] ?? false) === true && ! empty($item['supersession_label']))
