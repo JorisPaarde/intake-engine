@@ -2644,6 +2644,7 @@ class IntakeWizard extends Component
         }
 
         if (($step['kind'] ?? 'question') === 'question_group') {
+            $reader = app(AnswerValueReader::class);
             foreach ($step['group_question_keys'] ?? [] as $groupKey) {
                 $groupQuestion = app(IntakeStepBuilder::class)->questionForStep(
                     $this->version(),
@@ -2654,6 +2655,19 @@ class IntakeWizard extends Component
                     continue;
                 }
                 $composite = VisibilityResolver::compositeKey($groupQuestion->key, $step['section_instance_key']);
+                $payload = is_array($this->form[$composite] ?? null) ? $this->form[$composite] : [];
+                // Leeg form mag een eerder opgeslagen keuze niet wissen (foto-poll / Livewire-race
+                // op drain_nearby: form[] terwijl intake_answers al outside_nearby heeft).
+                if (! $reader->isFilled($payload, $groupQuestion->type)) {
+                    $existing = $this->answerForQuestion($groupQuestion->key, $step['section_instance_key']);
+                    if ($existing instanceof IntakeAnswer
+                        && $reader->isFilled(
+                            is_array($existing->value) ? $existing->value : null,
+                            $groupQuestion->type,
+                        )) {
+                        continue;
+                    }
+                }
                 $this->persistComposite($composite);
             }
             $this->saveMessage = 'Opgeslagen';
@@ -3324,7 +3338,19 @@ class IntakeWizard extends Component
         }
 
         $answer = $query->first();
-        $this->form[$composite] = $answer === null ? [] : ($answer->value ?? []);
+        if ($answer === null) {
+            // Bewaar een in-memory keuze (bijv. drain_location) terwijl een sibling-foto
+            // nog beoordeeld wordt — anders wist applyPhotoDerivation het form vóór Volgende.
+            $current = $this->form[$composite] ?? null;
+            if (is_array($current) && $current !== []) {
+                return;
+            }
+            $this->form[$composite] = [];
+
+            return;
+        }
+
+        $this->form[$composite] = $answer->value ?? [];
     }
 
     private function persistComposite(string $composite): void
