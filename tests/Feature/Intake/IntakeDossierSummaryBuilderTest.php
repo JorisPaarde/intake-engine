@@ -111,13 +111,9 @@ test('N22: korte samenvatting gebruikt opgeslagen ruimtenamen met verdieping en 
     $version = $intake->templateVersion()->with(['sections.questions.options'])->firstOrFail();
     $summary = app(IntakeDossierSummaryBuilder::class)->build($intake->fresh(['answers', 'aircoRooms']), $version);
 
-    expect($summary)->toContain('Woonkamer')
-        ->and($summary)->toContain('begane grond')
-        ->and($summary)->toContain('30 m²')
-        ->and($summary)->toContain('Grote slaapkamer')
-        ->and($summary)->toContain('1e verdieping')
-        ->and($summary)->toContain('Zolderslaapkamer')
-        ->and($summary)->toContain('2e verdieping')
+    expect($summary)->toContain(
+        '3 ruimtes: Woonkamer, begane grond (30 m²); Grote slaapkamer, 1e verdieping; Zolderslaapkamer, 2e verdieping.',
+    )
         ->and($summary)->not->toContain('voor Woonkamer, Slaapkamer, Zolder')
         ->and($summary)->toContain('Voor de zomer')
         ->and($summary)->toContain('Tuin / achtererf')

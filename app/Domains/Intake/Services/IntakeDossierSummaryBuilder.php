@@ -45,9 +45,9 @@ final class IntakeDossierSummaryBuilder
             : [];
 
         if ($fromAircoRooms !== []) {
-            $count = $unitCount ?? count($fromAircoRooms);
+            $count = count($fromAircoRooms);
             $prefix = $count.' '.($count === 1 ? 'ruimte' : 'ruimtes');
-            $sentences[] = $prefix.': '.implode(', ', $fromAircoRooms).'.';
+            $sentences[] = $prefix.': '.implode('; ', $fromAircoRooms).'.';
         } elseif ($unitCount !== null || $fallbackRooms !== []) {
             $scope = $unitCount === null
                 ? 'Opgegeven ruimtes'

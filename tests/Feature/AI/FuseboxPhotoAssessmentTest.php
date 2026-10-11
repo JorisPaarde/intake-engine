@@ -310,6 +310,6 @@ test('N19: rapport toont geen Duidelijk genoeg als 1 van 2 meterkastfoto’s is 
         ->and($meterkastAttention['label'])->toContain('Toch doorgaan')
         ->and($html)->toContain('Is de meterkastfoto duidelijk genoeg?')
         ->and($html)->not->toContain('Duidelijk genoeg')
-        ->and($html)->toContain('Niet duidelijk genoeg — controleer de meterkastfoto’s.')
+        ->and($html)->toContain('Deels duidelijk — zie aandachtspunt meterkast.')
         ->and($html)->not->toContain('De AI keurde 1 van de 2 foto’s af');
 });

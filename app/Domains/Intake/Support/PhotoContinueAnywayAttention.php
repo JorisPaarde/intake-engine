@@ -513,11 +513,29 @@ final class PhotoContinueAnywayAttention
     public static function fuseboxClarityReportLabel(array $uploads): ?string
     {
         $counts = self::countStatuses($uploads);
-        if ($counts['rejected'] + $counts['not_assessed'] === 0) {
-            return null;
+        $rejected = $counts['rejected'];
+        $notAssessed = $counts['not_assessed'];
+
+        $ok = 0;
+        foreach ($uploads as $upload) {
+            if ($upload->contentAssessment()?->status() === PhotoContentAssessment::STATUS_OK) {
+                $ok++;
+            }
         }
 
-        return 'Niet duidelijk genoeg — controleer de meterkastfoto’s.';
+        if ($rejected > 0 && $ok === 0) {
+            return 'Niet duidelijk genoeg — zie aandachtspunt meterkast.';
+        }
+
+        if ($rejected > 0) {
+            return 'Deels duidelijk — zie aandachtspunt meterkast.';
+        }
+
+        if ($notAssessed > 0) {
+            return 'Niet automatisch beoordeeld — zie aandachtspunt meterkast.';
+        }
+
+        return null;
     }
 
     /**

@@ -115,11 +115,8 @@ final class IntakeAttentionContextBuilder
             'external_fact_context' => $externalFactContext,
             'uploads' => $this->mapUploadAssessmentRows($intake, $questions),
             'follow_up' => $this->followUpContext($intake),
-            'system_attention_points' => PhotoContinueAnywayAttention::collapseDuplicateContinueAnywayPoints(
-                $intake,
-                $intake->attentionPoints
-                    ->reject(fn ($point): bool => $point->source === AttentionPointSource::Ai),
-            )
+            'system_attention_points' => $intake->attentionPoints
+                ->reject(fn ($point): bool => $point->source === AttentionPointSource::Ai)
                 ->map(function ($point) use ($intake): ?array {
                     $code = is_string($point->code) ? $point->code : '';
                     $label = $point->label;
