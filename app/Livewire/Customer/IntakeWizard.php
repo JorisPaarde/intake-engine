@@ -153,12 +153,6 @@ class IntakeWizard extends Component
 
     public bool $showMissing = false;
 
-    /**
-     * After jumping from the Afronden missing alert, Volgende returns to the next
-     * missing required step (or the final Afronden step) instead of walking forward.
-     */
-    public bool $returnAfterMissing = false;
-
     public bool $completed = false;
 
     /**
@@ -2800,7 +2794,14 @@ class IntakeWizard extends Component
         );
         $this->stepIndex = $index;
         $this->syncActiveStepKey($steps);
-        $this->rememberCurrentCursor();
+        // Persist the known-summary cursor, not the session-only forced-edit step.
+        // Refresh then resumes on "Dit hebben we al uit je aanvraag" instead of a
+        // hidden floor/room step that indexForCursor would map to section start.
+        $this->intake()->update([
+            'current_section_key' => 'request',
+            'current_question_key' => '_known_summary',
+            'current_section_instance_key' => null,
+        ]);
         $this->hydrateFormFromAnswers();
         $this->saveMessage = '';
     }
@@ -2926,20 +2927,6 @@ class IntakeWizard extends Component
             return;
         }
 
-        // Na sprong vanuit Afronden-alert: naar volgende ontbrekende of Afronden.
-        if ($this->returnAfterMissing) {
-            $this->returnAfterMissing = false;
-            $nextMissing = $this->indexOfFirstUnsatisfiedRequired($steps);
-            $this->stepIndex = $nextMissing ?? max(0, count($steps) - 1);
-            $this->syncActiveStepKey($steps);
-            $this->rememberCurrentCursor();
-            $this->hydrateFormFromAnswers();
-            $this->applyPrefillForActiveStep();
-            $this->saveMessage = '';
-
-            return;
-        }
-
         if ($this->stepIndex < count($steps) - 1) {
             $this->stepIndex = $this->stepIndex + 1;
             $this->syncActiveStepKey($steps);
@@ -3015,7 +3002,6 @@ class IntakeWizard extends Component
             return;
         }
 
-        $this->returnAfterMissing = false;
         $this->clearProgressExtraNote();
 
         $stepsBeforeSave = $this->steps();
@@ -3083,7 +3069,6 @@ class IntakeWizard extends Component
             return;
         }
 
-        $this->returnAfterMissing = false;
         $targetKey = $steps[$index]['key'];
         $this->saveCurrentStep();
         $this->finalizeForcedKnownEditIfOnForcedStep();
@@ -3120,8 +3105,6 @@ class IntakeWizard extends Component
             }
 
             $this->goToStep($index);
-            // Set after goToStep (which clears the flag) so Volgende returns to Afronden.
-            $this->returnAfterMissing = true;
 
             return;
         }
@@ -3934,8 +3917,15 @@ class IntakeWizard extends Component
      *     section_key: string,
      *     section_instance_key: string|null,
      *     question_key: string,
-     *     is_required?: bool,
+     *     title: string,
+     *     section_title: string,
+     *     description: string|null,
+     *     help_text: string|null,
+     *     is_repeatable: bool,
+     *     is_required: bool,
      *     kind?: 'question'|'known_summary'|'question_group'|'closing_wishes',
+     *     known_items?: list<array<string, mixed>>,
+     *     group_key?: string,
      *     group_question_keys?: list<string>,
      *     bundle_question_keys?: list<string>
      * }>  $steps
@@ -3950,7 +3940,12 @@ class IntakeWizard extends Component
             return;
         }
 
-        if ($this->stepsContainCursor($steps, $sectionKey, $questionKey, $sectionInstanceKey)) {
+        if (app(IntakeStepBuilder::class)->indexForExactCursor(
+            $steps,
+            $sectionKey,
+            $questionKey,
+            $sectionInstanceKey,
+        ) !== null) {
             return;
         }
 
@@ -3966,49 +3961,15 @@ class IntakeWizard extends Component
      *     section_key: string,
      *     section_instance_key: string|null,
      *     question_key: string,
-     *     kind?: string,
-     *     bundle_question_keys?: list<string>
-     * }>  $steps
-     */
-    private function stepsContainCursor(
-        array $steps,
-        ?string $sectionKey,
-        string $questionKey,
-        ?string $sectionInstanceKey,
-    ): bool {
-        foreach ($steps as $step) {
-            $matchesKey = $step['question_key'] === $questionKey
-                || (
-                    ($step['kind'] ?? '') === 'closing_wishes'
-                    && in_array($questionKey, $step['bundle_question_keys'] ?? [], true)
-                );
-
-            if (! $matchesKey) {
-                continue;
-            }
-
-            if ($sectionKey !== null && $step['section_key'] !== $sectionKey) {
-                continue;
-            }
-
-            if ($sectionInstanceKey !== null && $step['section_instance_key'] !== $sectionInstanceKey) {
-                continue;
-            }
-
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * @param  list<array{
-     *     key: string,
-     *     section_key: string,
-     *     section_instance_key: string|null,
-     *     question_key: string,
-     *     is_required?: bool,
+     *     title: string,
+     *     section_title: string,
+     *     description: string|null,
+     *     help_text: string|null,
+     *     is_repeatable: bool,
+     *     is_required: bool,
      *     kind?: 'question'|'known_summary'|'question_group'|'closing_wishes',
+     *     known_items?: list<array<string, mixed>>,
+     *     group_key?: string,
      *     group_question_keys?: list<string>,
      *     bundle_question_keys?: list<string>
      * }>  $steps

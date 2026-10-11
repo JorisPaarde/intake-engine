@@ -5,14 +5,11 @@ declare(strict_types=1);
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Models\Intake;
-use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeTemplate;
-use App\Domains\Intake\Services\CompletenessChecker;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Enums\IntakeStatus;
-use App\Enums\QuestionType;
 use App\Livewire\Customer\IntakeWizard;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
@@ -82,7 +79,7 @@ function assertStepNotPastUnansweredRequired(string $activeKey, array $steps): v
     expect($activeIndex)->toBeLessThanOrEqual($coolingIndex);
 }
 
-test('refresh after Wijzigen never lands past unanswered required cooling_heating', function () {
+test('Wijzigen then refresh lands on known-summary, not past cooling_heating', function () {
     $intake = resumeKnownEditIntake();
 
     $before = resumeKnownEditSteps($intake);
@@ -97,22 +94,30 @@ test('refresh after Wijzigen never lands past unanswered required cooling_heatin
     // Prove the old fallback: hidden floor cursor → first rooms step (past cooling).
     $legacyResume = app(IntakeStepBuilder::class)->indexForCursor($before, 'rooms', 'floor_level', 'room-2');
     expect($legacyResume)->toBe($photosIndex);
+    expect(app(IntakeStepBuilder::class)->indexForExactCursor($before, 'rooms', 'floor_level', 'room-2'))
+        ->toBeNull();
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->call('editKnownAnswer', 'floor_level', 'room-2');
 
-    expect($component->get('forceShowKnown'))->toContain('room-2__floor_level');
-    expect($intake->fresh()->current_question_key)->toBe('floor_level');
-    expect($intake->fresh()->current_section_instance_key)->toBe('room-2');
+    expect($component->get('forceShowKnown'))->toContain('room-2__floor_level')
+        // Session-only edit step is shown, but persisted cursor stays on known-summary.
+        ->and($intake->fresh()->current_section_key)->toBe('request')
+        ->and($intake->fresh()->current_question_key)->toBe('_known_summary')
+        ->and($intake->fresh()->current_section_instance_key)->toBeNull();
 
     // Simulate refresh: new component instance, empty forceShowKnown.
     $resumed = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
     $activeKey = $resumed->get('activeStepKey');
     $steps = resumeKnownEditSteps($intake);
 
+    expect($activeKey)->toBe('_known_summary');
     assertStepNotPastUnansweredRequired($activeKey, $steps);
     expect($activeKey)->not->toBe('rooms::room-1::room_photos');
     expect($resumed->get('forceShowKnown'))->toBe([]);
+
+    $resumed->call('next');
+    expect($resumed->get('activeStepKey'))->toBe('request::cooling_heating');
 });
 
 test('Wijzigen without refresh does not skip required cooling_heating on next', function () {
@@ -147,111 +152,6 @@ test('resume with cursor on hidden step lands on first unanswered required', fun
     assertStepNotPastUnansweredRequired($activeKey, $steps);
     expect($activeKey)->toBe('request::cooling_heating');
 });
-
-test('goToMissing then next returns to next missing or Afronden, skipping answered steps', function () {
-    $intake = resumeKnownEditIntake();
-    // Fill everything except cooling_heating and privacy_consent so the gap between
-    // them is full of already-answered steps that must not be walked one-by-one.
-    fillResumeIntakeExcept($intake, ['cooling_heating', 'privacy_consent']);
-
-    $stepsBefore = resumeKnownEditSteps($intake->fresh() ?? $intake);
-    $coolingIndex = collect($stepsBefore)->search(fn (array $s): bool => ($s['question_key'] ?? '') === 'cooling_heating');
-    expect($coolingIndex)->toBeInt();
-    $immediateNextKey = $stepsBefore[$coolingIndex + 1]['key'] ?? null;
-    expect($immediateNextKey)->not->toBeNull()
-        ->and($immediateNextKey)->not->toBe('closing::privacy_consent')
-        ->and($immediateNextKey)->not->toContain('privacy_consent');
-
-    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
-        ->call('complete');
-
-    expect($component->get('showMissing'))->toBeTrue();
-    $missingKeys = collect($component->get('completionMissing'))->pluck('question_key')->all();
-    expect($missingKeys)->toContain('cooling_heating')
-        ->and($missingKeys)->toContain('privacy_consent');
-
-    $component->call('goToMissing', 'cooling_heating', null);
-    expect($component->get('returnAfterMissing'))->toBeTrue()
-        ->and($component->get('activeStepKey'))->toBe('request::cooling_heating');
-
-    $component->set('form.cooling_heating.value', 'both')
-        ->call('next');
-
-    $activeKey = $component->get('activeStepKey');
-    expect($component->get('returnAfterMissing'))->toBeFalse()
-        // Must not advance only one step into already-answered territory.
-        ->and($activeKey)->not->toBe($immediateNextKey)
-        ->and($activeKey)->toContain('privacy_consent');
-});
-
-/**
- * Fill all CompletenessChecker missing items except the given question keys.
- *
- * @param  list<string>  $exceptKeys
- */
-function fillResumeIntakeExcept(Intake $intake, array $exceptKeys): void
-{
-    $save = app(SaveIntakeAnswer::class);
-    $store = app(StoreIntakeUpload::class);
-    $checker = app(CompletenessChecker::class);
-    $except = array_fill_keys($exceptKeys, true);
-
-    for ($attempt = 0; $attempt < 50; $attempt++) {
-        $intake->refresh();
-        $version = $intake->templateVersion()
-            ->with(['sections.questions.options', 'sections.questions.rules'])
-            ->firstOrFail();
-        $check = $checker->check($intake, $version);
-        $remaining = array_values(array_filter(
-            $check['missing'],
-            static fn (array $item): bool => ! isset($except[$item['question_key']]),
-        ));
-
-        if ($remaining === []) {
-            return;
-        }
-
-        foreach ($remaining as $item) {
-            $question = null;
-            foreach ($version->sections as $section) {
-                foreach ($section->questions as $candidate) {
-                    if ($candidate->key === $item['question_key']) {
-                        $question = $candidate;
-                        break 2;
-                    }
-                }
-            }
-
-            if (! $question instanceof IntakeQuestion) {
-                continue;
-            }
-
-            if ($question->type === QuestionType::Photo) {
-                markTestUploadSatisfied($store->handle(
-                    $intake,
-                    $item['question_key'],
-                    $item['section_instance_key'],
-                    UploadedFile::fake()->image($item['question_key'].'.jpg', 1280, 960),
-                ));
-
-                continue;
-            }
-
-            $payload = match ($question->type) {
-                QuestionType::ShortText, QuestionType::LongText => ['text' => 'Test '.$question->key],
-                QuestionType::Number => ['number' => 1],
-                QuestionType::SingleChoice => ['value' => $question->options->first()?->value ?? 'yes'],
-                QuestionType::MultiChoice => ['values' => [$question->options->first()?->value ?? 'a']],
-                QuestionType::Boolean => ['bool' => true],
-                default => ['text' => 'Test'],
-            };
-
-            $save->handle($intake, $item['question_key'], $item['section_instance_key'], $payload);
-        }
-    }
-
-    throw new RuntimeException('Could not fill resume intake except '.implode(',', $exceptKeys));
-}
 
 test('normal mid-wizard refresh still resumes on the same step', function () {
     $intake = resumeKnownEditIntake();

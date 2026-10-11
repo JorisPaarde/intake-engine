@@ -4,11 +4,10 @@ import {
   headingText,
   openCustomer,
   waitForLivewire,
-  waitForSaved,
 } from '../helpers/app';
 
 test.describe('Resume after known-summary Wijzigen', () => {
-  test('finding: Wijzigen + refresh lands on first unanswered required, not past it', async ({
+  test('finding: Wijzigen + refresh lands on known-summary, not past unanswered required', async ({
     page,
     request,
   }) => {
@@ -33,61 +32,17 @@ test.describe('Resume after known-summary Wijzigen', () => {
     await page.reload();
     await expect(page.getByText(/Digitale Opname/i).first()).toBeVisible();
 
+    // Root fix: persisted cursor is known-summary, so refresh returns there.
+    await expect(page.getByRole('heading', { level: 1 })).toContainText(/Dit hebben we al uit je aanvraag/i);
     const heading = await headingText(page);
     expect(heading.toLowerCase()).not.toMatch(/foto|overzichtsfoto/);
-    await expect(page.getByRole('heading', { level: 1 })).toContainText(/koelen|verwarmen|beide/i);
-  });
 
-  test('finding: Afronden missing link → answer → jumps to next missing, not room photos', async ({
-    page,
-    request,
-  }) => {
-    const payload = await createScenario(request, 'resume-afronden-return');
-    await openCustomer(page, payload);
-
-    // Scenario starts on privacy (late exact cursor) so Afronden is available.
-    const afronden = page.getByRole('button', { name: /^Afronden$/i });
-    await expect(afronden).toBeVisible({ timeout: 15_000 });
-    const livewireComplete = waitForLivewire(page).catch(() => undefined);
-    await afronden.click();
-    await livewireComplete;
-
-    await expect(page.getByTestId('step-missing-alert')).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText(/Nog niet alles is ingevuld/i)).toBeVisible();
-
-    const missingLink = page
-      .getByTestId('step-missing-alert')
-      .getByRole('button', { name: /koelen|verwarmen|beide/i });
-    await expect(missingLink).toBeVisible();
-    const livewireMissing = waitForLivewire(page).catch(() => undefined);
-    await missingLink.click();
-    await livewireMissing;
-
-    await expect(page.getByRole('heading', { level: 1 })).toContainText(/koelen|verwarmen|beide/i);
-
-    const choice = page.locator('label').filter({ hasText: /Beide|Koelen en verwarmen|Koelen/i }).first();
-    await choice.click();
-    await waitForSaved(page).catch(() => undefined);
-
-    const beforeNext = await headingText(page);
-    const nextBtn = page.getByRole('button', { name: /^(Volgende|Afronden)$/i }).first();
+    // Klopt, verder → first unanswered required (cooling_heating), never skipped.
+    const confirm = page.getByRole('button', { name: /Klopt, verder/i });
     const livewireNext = waitForLivewire(page).catch(() => undefined);
-    await nextBtn.click();
+    await confirm.click();
     await livewireNext;
 
-    await page.waitForFunction(
-      (prev) => {
-        const h1 = document.querySelector('h1');
-        const text = (h1?.textContent ?? '').replace(/\s+/g, ' ').trim();
-
-        return text !== '' && text !== prev;
-      },
-      beforeNext,
-      { timeout: 15_000 },
-    ).catch(() => undefined);
-
-    // Back at the late/Afronden step (privacy), not walking room-photo questions.
-    await expect(page.getByRole('heading', { level: 1 })).toContainText(/toestemming/i);
-    await expect(page.getByRole('button', { name: /^Afronden$/i })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1 })).toContainText(/koelen|verwarmen|beide/i);
   });
 });

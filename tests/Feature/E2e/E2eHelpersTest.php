@@ -60,14 +60,9 @@ it('builds a room-name-autosave scenario starting on room_name', function () {
         ->and($payload['customer_url'])->toContain('/o/');
 });
 
-it('builds resume-after-known-edit and resume-afronden-return scenarios', function () {
+it('builds resume-after-known-edit scenario', function () {
     $resume = app(E2eScenarioFactory::class)->create('resume-after-known-edit');
     expect($resume['scenario'])->toBe('resume-after-known-edit')
         ->and($resume['target_question_key'])->toBe('cooling_heating')
         ->and($resume['access_token'])->toHaveLength(64);
-
-    $afronden = app(E2eScenarioFactory::class)->create('resume-afronden-return');
-    expect($afronden['scenario'])->toBe('resume-afronden-return')
-        ->and($afronden['target_question_key'])->toBe('cooling_heating')
-        ->and($afronden['access_token'])->toHaveLength(64);
 });
