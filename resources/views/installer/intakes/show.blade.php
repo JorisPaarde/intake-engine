@@ -88,31 +88,38 @@
                 <div class="flex flex-wrap items-start justify-between gap-3">
                     <div class="min-w-0">
                         <h3 id="detail-next-action" class="text-base font-semibold text-gray-950">Wat nu te doen</h3>
-                        <p class="mt-1 text-sm text-gray-700">{{ $primaryAction['summary'] }}</p>
+                        <p class="mt-1 text-sm text-gray-700" data-testid="detail-next-action-summary">{{ $primaryAction['summary'] }}</p>
                     </div>
                     <div class="shrink-0 text-right text-sm">
-                        <p class="font-semibold tabular-nums text-gray-900">Klaar voor offerte: {{ $dossier['ready_count'] }}/{{ $dossier['total_count'] }}</p>
+                        <p class="font-semibold tabular-nums text-gray-900" data-testid="quote-readiness-count">Klaar voor offerte: {{ $dossier['ready_count'] }} van {{ $dossier['total_count'] }} onderdelen</p>
                     </div>
                 </div>
 
                 <div class="flex flex-wrap items-center gap-2 text-sm">
-                    <span class="inline-flex rounded bg-white px-2.5 py-0.5 text-xs font-medium text-gray-800">
+                    <span class="inline-flex rounded bg-white px-2.5 py-0.5 text-xs font-medium text-gray-800" data-testid="intake-status-badge">
                         {{ $intake->status->label() }}
                     </span>
                     <span class="text-gray-500">Klanttaak: {{ ($customerTaskStatus ?? null)['label'] ?? 'Nog niet gestart' }}</span>
-                    <span class="text-gray-500">{{ $intake->workflow_mode->label() }}</span>
+                    <span class="text-gray-500" data-testid="workflow-mode-label">Werkwijze: {{ $intake->workflow_mode->label() }}</span>
                 </div>
 
                 <p class="text-sm text-gray-600" data-testid="customer-consent-status">
                     {{ ($customerConsent ?? null)['label'] ?? 'Toestemming klant: niet gegeven' }}
                 </p>
 
-                <a
-                    href="{{ $workspaceUrl }}{{ $primaryAction['href'] }}"
-                    class="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-500 sm:w-auto"
-                >
-                    {{ $primaryAction['label'] }}
-                </a>
+                @if (($primaryAction['label'] ?? '') !== '')
+                    <a
+                        href="{{ $workspaceUrl }}{{ $primaryAction['href'] }}"
+                        class="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-500 sm:w-auto"
+                        data-testid="detail-next-action-cta"
+                    >
+                        {{ $primaryAction['label'] }}
+                    </a>
+                @endif
+
+                @php
+                    $chosePrepareQuote = \App\Domains\Intake\Support\CurrentReviewDecision::isPrepareQuote($intake);
+                @endphp
 
                 @if ($proposalAlreadyApproved ?? false)
                     <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-900" data-testid="approval-already-done">
@@ -132,8 +139,13 @@
                     </div>
                 @elseif (($intake->aircoInstallationOptions->isNotEmpty()) || ($hasOpenAiProposals ?? false))
                     <div class="rounded-xl border border-amber-200 bg-white p-4" data-testid="approval-blocked-panel">
-                        <p class="text-sm font-semibold text-amber-950">Voorstel nog niet klaar om goed te keuren</p>
-                        <p class="mt-1 text-sm text-gray-600">Open onzekerheden en niet-bedekte ruimtes blijven blokkeren. Een locatiebezoek als uitkomst blijft mogelijk. Losse AI-voorstellen kun je hieronder per stuk accepteren of verwijderen.</p>
+                        @if ($chosePrepareQuote)
+                            <p class="text-sm font-semibold text-amber-950">Je koos ‘Offerte voorbereiden’, maar er staan nog punten open</p>
+                            <p class="mt-1 text-sm text-gray-600">Je kunt het voorstel pas goedkeuren als deze punten zijn opgelost. Een locatiebezoek blijft mogelijk. Losse AI-voorstellen kun je hieronder per stuk accepteren of verwijderen.</p>
+                        @else
+                            <p class="text-sm font-semibold text-amber-950">Voorstel nog niet klaar om goed te keuren</p>
+                            <p class="text-sm text-gray-600 mt-1">Open onzekerheden en niet-bedekte ruimtes blijven blokkeren. Een locatiebezoek als uitkomst blijft mogelijk. Losse AI-voorstellen kun je hieronder per stuk accepteren of verwijderen.</p>
+                        @endif
                         @if (($approvalBlockers ?? []) !== [])
                             <ul class="mt-3 list-disc space-y-1 pl-5 text-sm text-amber-900" data-testid="approval-blockers">
                                 @foreach ($approvalBlockers as $blocker)

@@ -1040,3 +1040,41 @@ test('intake 85 hedged meter observation cannot harden into certain assistant su
         ->and($result['accepted']['summary'])->toBe($fixture['assistant_summary_raw'])
         ->and($result['validation_errors']['summary'] ?? [])->not->toBeEmpty();
 });
+
+test('N26: acceptor does not enrich condensate uncertainties from drain_location answer', function () {
+    $fixture = json_decode(
+        (string) file_get_contents(base_path('tests/fixtures/dossier-synthesis/run-282-incomplete-indoor-connections.json')),
+        true,
+        512,
+        JSON_THROW_ON_ERROR,
+    );
+    unset($fixture['_comment']);
+
+    $input = intake84StyleAcceptorInput();
+    $input['legacy_evidence']['answer_context'] = [[
+        'reference' => 'drain_location',
+        'question_key' => 'drain_location',
+        'question_label' => 'Waar zie je in de buurt een afvoer? (optioneel)',
+        'answer' => ['value' => 'outside_nearby'],
+        'prefill_source' => null,
+    ]];
+
+    $result = app(DossierSynthesisPartialAcceptor::class)->accept($fixture, $input);
+
+    expect($result['has_accepted_proposals'])->toBeTrue()
+        ->and($result['accepted']['option_proposals'])->toHaveCount(1);
+
+    $condensate = collect($result['accepted']['option_proposals'][0]['connections'])
+        ->filter(fn (array $connection): bool => ($connection['type'] ?? null) === 'condensate')
+        ->values();
+
+    expect($condensate->count())->toBeGreaterThanOrEqual(2);
+
+    foreach ($condensate as $connection) {
+        $joined = implode(' | ', array_map('strval', $connection['uncertainties'] ?? []));
+        expect($joined)->not->toContain('Klant:')
+            ->and($joined)->not->toContain('regenpijp of putje buiten')
+            ->and($connection['evidence_references'] ?? [])
+            ->not->toContain('drain_location');
+    }
+});

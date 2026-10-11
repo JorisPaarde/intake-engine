@@ -225,6 +225,8 @@ class IntakeController extends Controller
             $proposalAlreadyApproved,
             $proposedCustomerTasks,
             $openAreas,
+            $dossier['ready_count'],
+            $dossier['total_count'],
         );
         $aiProvider = (string) config('ai.provider', 'null');
         $attentionAiSucceeded = $intake->aiRuns

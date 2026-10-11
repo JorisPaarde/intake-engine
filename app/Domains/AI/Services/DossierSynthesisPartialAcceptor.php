@@ -1070,6 +1070,9 @@ final class DossierSynthesisPartialAcceptor
     /**
      * Deterministically add missing refrigerant/condensate links per indoor unit.
      *
+     * Coverage uses structured placement references only (not connection labels).
+     * When the model already linked an indoor unit, no second fallback is added for it.
+     *
      * @param  list<array<string, mixed>>  $connections
      * @param  Collection<string, array<string, mixed>>  $optionPlacements
      * @param  list<string>  $optionReferences

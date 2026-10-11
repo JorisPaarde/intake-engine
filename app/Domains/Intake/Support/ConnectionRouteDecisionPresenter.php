@@ -6,6 +6,7 @@ namespace App\Domains\Intake\Support;
 
 use App\Domains\Intake\Models\AircoConnection;
 use App\Enums\AircoConnectionStatus;
+use App\Enums\AircoConnectionType;
 use App\Enums\PipeRouteStatus;
 
 /**
@@ -60,7 +61,9 @@ final class ConnectionRouteDecisionPresenter
                 AircoConnectionStatus::Unknown,
                 AircoConnectionStatus::NeedsEvidence,
             ], true)) {
-                $approveBlockedReason = 'Er mist nog bewijs. Voeg een foto toe, vraag de klant of kies locatiebezoek.';
+                $approveBlockedReason = $connection->type === AircoConnectionType::Condensate
+                    ? 'Er mist nog bewijs. Voeg een foto toe, kies locatiebezoek of stel de klant één vraag voor alle condensafvoeren via het overzicht.'
+                    : 'Er mist nog bewijs. Voeg een foto toe, vraag de klant of kies locatiebezoek.';
             } else {
                 $approveBlockedReason = 'Deze route kun je nog niet goedkeuren.';
             }
