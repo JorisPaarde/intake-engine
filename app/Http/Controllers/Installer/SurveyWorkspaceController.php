@@ -35,6 +35,7 @@ use App\Domains\Intake\Services\DossierOverviewBuilder;
 use App\Domains\Intake\Services\ExternalFactPresenter;
 use App\Domains\Intake\Services\InstallationOptionPreferenceService;
 use App\Domains\Intake\Services\InstallerPhotoGalleryBuilder;
+use App\Domains\Intake\Services\RefreshStoredIntakeReport;
 use App\Domains\Intake\Support\CustomerFacingTaskText;
 use App\Domains\Intake\Support\PhotoUploadLimits;
 use App\Enums\AircoConfigurationType;
@@ -482,6 +483,7 @@ final class SurveyWorkspaceController extends Controller
         Intake $intake,
         DossierSubject $subject,
         SaveInstallerObservation $saveObservation,
+        RefreshStoredIntakeReport $refreshStoredIntakeReport,
     ): RedirectResponse {
         $this->authorize('update', $intake);
         $this->guardWorkspaceSubject($intake, $subject);
@@ -497,10 +499,12 @@ final class SurveyWorkspaceController extends Controller
             'installer_note',
         );
 
+        $fresh = $intake->fresh() ?? $intake;
         DeriveIntentFromRequestJob::dispatch(
-            ($intake->fresh() ?? $intake)->id,
+            $fresh->id,
             allowExternal: true,
         );
+        $refreshStoredIntakeReport->handle($fresh);
 
         return $this->back($intake, 'Notitie toegevoegd.');
     }
