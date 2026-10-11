@@ -27,6 +27,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
 
 /*
@@ -470,4 +471,46 @@ test('#15.9: aanmaakscherm gebruikt de vaste term Zelf de opname doen', function
         ->assertOk()
         ->assertSee('Zelf de opname doen')
         ->assertDontSee('Zelf de opname uitvoeren');
+});
+
+test('#16 hoofdwizard-undo: pendingWizardRemoval kan niet vanuit de browser worden gezet', function () {
+    $intake = Intake::factory()->create([
+        'created_by' => User::factory()->create()->id,
+        'intake_template_version_id' => IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion()->id,
+        'status' => IntakeStatus::Sent,
+    ]);
+    $upload = app(StoreIntakeUpload::class)->handle(
+        $intake,
+        'fusebox_photo',
+        null,
+        UploadedFile::fake()->image('meterkast.jpg', 1200, 900),
+    );
+    $answersBefore = $intake->answers()->count();
+    $factsBefore = $intake->externalFacts()->count();
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+
+    expect(fn () => $component->set('pendingWizardRemoval', [
+        'upload_id' => $upload->id,
+        'question_key' => 'fusebox_photo',
+        'section_instance_key' => null,
+        'composite' => 'fusebox_photo',
+        'answers' => [[
+            'question_key' => 'free_group_known',
+            'section_instance_key' => null,
+            'value' => ['value' => 'yes'],
+            'prefill_source' => 'ai_photo',
+            'fact_provenance' => 'observed',
+            'fact_confidence' => 99,
+        ]],
+        'facts' => [[
+            'fact_key' => 'fusebox_photo_assessment',
+            'source' => 'AI-fotoanalyse',
+            'value' => ['free_group' => 'yes'],
+            'confidence' => 'high',
+        ]],
+    ]))->toThrow(CannotUpdateLockedPropertyException::class);
+
+    expect($intake->answers()->count())->toBe($answersBefore)
+        ->and($intake->externalFacts()->count())->toBe($factsBefore);
 });

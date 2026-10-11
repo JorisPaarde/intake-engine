@@ -188,6 +188,7 @@ class IntakeWizard extends Component
      *     facts: list<array<string, mixed>>
      * }|null
      */
+    #[Locked]
     public ?array $pendingWizardRemoval = null;
 
     public bool $followUpMode = false;
