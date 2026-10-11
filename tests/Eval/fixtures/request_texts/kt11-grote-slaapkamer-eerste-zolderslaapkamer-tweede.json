@@ -1,0 +1,48 @@
+{
+  "id": "kt11-grote-slaapkamer-eerste-zolderslaapkamer-tweede",
+  "kind": "request_text",
+  "origin": "klanttest 11 okt 2026 prod v1.4.8 (routine-test, Claude klant)",
+  "source_kind": "variant",
+  "text": "Wij willen airco in de grote slaapkamer op de eerste verdieping en een zolderslaapkamer op de tweede verdieping. Alleen koelen.",
+  "expected": {
+    "cooling_heating": "cooling",
+    "indoor_unit_count": 2,
+    "rooms": [
+      {
+        "name": "Grote slaapkamer",
+        "room_type": "bedroom",
+        "floor_level": "1",
+        "area_m2": null,
+        "length_m": null,
+        "width_m": null,
+        "ceiling_height_m": null
+      },
+      {
+        "name": "Zolderslaapkamer",
+        "room_type": "bedroom",
+        "floor_level": "2",
+        "area_m2": null,
+        "length_m": null,
+        "width_m": null,
+        "ceiling_height_m": null
+      }
+    ]
+  },
+  "components": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C8"
+  ],
+  "note": "Regressie: grote slaapkamer kreeg begane grond op prod v1.4.8.",
+  "disputed_facts": {
+    "rooms.Zolderslaapkamer.floor_level": {
+      "reason": "Open vraag: is 'attic' ook goed naast '2' voor zolderslaapkamer op tweede verdieping?",
+      "acceptable_alternates": [
+        "attic"
+      ]
+    }
+  },
+  "match_rooms": "unordered_by_type"
+}
