@@ -5,6 +5,10 @@
     $demoValue = static function (string $key, mixed $fallback = null) use ($demoDefaults): mixed {
         return old($key, $demoDefaults[$key] ?? $fallback);
     };
+    $demoRequestReason = is_array($demoAddressExample) ? trim((string) ($demoAddressExample['request_reason'] ?? '')) : '';
+    $requestReasonPlaceholder = ($isPublicDemo && $demoRequestReason !== '')
+        ? 'Bijv. '.$demoRequestReason
+        : 'Bijv. twee slaapkamers op zolder koelen in de zomer';
 @endphp
 <x-app-layout>
     <x-slot name="header">
@@ -257,7 +261,7 @@
                                 name="prefill[request_reason]"
                                 rows="4"
                                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                placeholder="Bijv. twee slaapkamers op zolder koelen in de zomer"
+                                placeholder="{{ $requestReasonPlaceholder }}"
                             >{{ old('prefill.request_reason', '') }}</textarea>
                             <p id="prefill-request-reason-dictate-status" class="mt-1 text-xs text-gray-500" hidden aria-live="polite"></p>
                             <x-input-error :messages="$errors->get('prefill.request_reason')" class="mt-1" />

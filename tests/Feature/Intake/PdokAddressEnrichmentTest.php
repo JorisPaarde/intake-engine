@@ -441,8 +441,8 @@ test('creating a public demo intake runs live PDOK enrichment like production', 
 
     expect($intake->externalFacts()->where('fact_key', 'building_year')->exists())->toBeTrue()
         ->and($intake->externalFacts()->where('fact_key', 'aerial_image')->exists())->toBeTrue()
-        ->and($intake->answers()->where('question_key', 'cooling_heating')->firstOrFail()->value)
-        ->toBe(['value' => 'cooling']);
+        ->and($intake->answers()->where('question_key', 'request_reason')->exists())->toBeFalse()
+        ->and($intake->answers()->where('question_key', 'cooling_heating')->exists())->toBeFalse();
 
     $this->actingAs($user)
         ->withSession(array_merge($session, [

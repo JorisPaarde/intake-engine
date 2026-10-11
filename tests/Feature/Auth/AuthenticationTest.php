@@ -7,7 +7,25 @@ use App\Models\User;
 test('login screen can be rendered', function () {
     $response = $this->get('/login');
 
-    $response->assertStatus(200);
+    $response->assertStatus(200)
+        ->assertDontSee('Je sessie is verlopen');
+});
+
+test('guest hitting a protected page sees an expired-session message on login', function () {
+    config(['intake.demo.enabled' => true]);
+
+    $this->get(route('dashboard'))
+        ->assertRedirect(route('login'))
+        ->assertSessionHas('session_expired', true);
+
+    $this->followingRedirects()
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertSee('Je sessie is verlopen')
+        ->assertSee('Log opnieuw in om verder te gaan.')
+        ->assertSee('Was je in de demo? Start een nieuwe demo.')
+        ->assertSee('Nieuwe demo starten')
+        ->assertSee(route('demo.start'), false);
 });
 
 test('users can authenticate using the login screen', function () {

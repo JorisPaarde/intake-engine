@@ -82,6 +82,10 @@ class IntakeController extends Controller
                 'house_number' => (int) config('intake.demo.address.house_number', 273),
                 'city' => (string) config('intake.demo.address.city', 'Haarlem'),
                 'customer_name' => (string) config('intake.demo.customer_name', 'Familie de Vries'),
+                'request_reason' => (string) config(
+                    'intake.demo.request_reason',
+                    'Twee slaapkamers op zolder koelen; het wordt daar te warm in de zomer.',
+                ),
             ];
         }
 
@@ -108,17 +112,6 @@ class IntakeController extends Controller
             $payload['is_demo'] = true;
             $payload['token_ttl_hours'] = max(1, (int) config('intake.demo.ttl_hours', 2));
             $payload['customer_access_enabled'] = false;
-
-            $demoReason = trim((string) config(
-                'intake.demo.request_reason',
-                'Twee slaapkamers op zolder koelen; het wordt daar te warm in de zomer.',
-            ));
-            if ($demoReason !== '' && blank(data_get($payload, 'prefill.request_reason'))) {
-                $payload['prefill'] = [
-                    ...(is_array($payload['prefill'] ?? null) ? $payload['prefill'] : []),
-                    'request_reason' => $demoReason,
-                ];
-            }
         }
 
         $intake = $createIntake->handle($request->user(), $payload);
