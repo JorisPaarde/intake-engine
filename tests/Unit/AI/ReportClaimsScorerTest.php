@@ -459,6 +459,13 @@ test('eenfasige of driefasige and enkelfasig variants count as cannot-determine'
         ))->toBeTrue()
         ->and($scorer->textLooksCannotDetermine(
             'Drie- of eenfasig is onduidelijk.',
+        ))->toBeTrue()
+        // Accent-insensitive: één ≈ een after diacritic fold.
+        ->and($scorer->textLooksCannotDetermine(
+            'één- of driefasige aansluiting',
+        ))->toBeTrue()
+        ->and($scorer->textLooksCannotDetermine(
+            'éénfasig of driefasig',
         ))->toBeTrue();
 
     $scores = $scorer->scoreLayer(
@@ -710,14 +717,20 @@ test('bare gecontroleerd is not a hedge; to-be-done form still is', function () 
         ->and($capacity['claim.capacity_full']['detail'])->toBe('unhedged_claim_for_hedged_only');
 });
 
-test('comma and maar stay in the same clause so same-sentence caveats hedge', function () {
+test('parenthetical commas stay together; maar/terwijl/echter split clauses', function () {
     $scorer = reportClaimsScorer();
     expect($scorer->splitClauses(
         'Lijkt er, gezien de hoofdschakelaar, een 3-fase aansluiting.',
     ))->toHaveCount(1)
         ->and($scorer->splitClauses(
             'De foto toont een 3-fase aansluiting, maar dit dient gecontroleerd te worden vanwege de gemiddelde zekerheid.',
-        ))->toHaveCount(1);
+        ))->toHaveCount(2)
+        ->and($scorer->splitClauses(
+            'De foto toont 3-fase terwijl de klant onbekend is.',
+        ))->toHaveCount(2)
+        ->and($scorer->splitClauses(
+            'Driefasig lijkt zichtbaar, echter dit is onzeker.',
+        ))->toHaveCount(2);
 
     $commaHedge = $scorer->scoreLayer(
         [
@@ -762,6 +775,8 @@ test('comma and maar stay in the same clause so same-sentence caveats hedge', fu
     expect($blankingComma['claim.phase_3']['status'])->toBe('correct')
         ->and($blankingComma['must_not_invent_phase']['status'])->toBe('correct');
 
+    // Caveat after "maar" no longer hedges a firm phase claim before it
+    // (no ordinal/conflict layer — named-photo attribution must not mask this).
     $maarCaveat = $scorer->scoreLayer(
         [
             'claims' => [[
@@ -771,7 +786,7 @@ test('comma and maar stay in the same clause so same-sentence caveats hedge', fu
             ]],
         ],
         [
-            'summary' => 'De meterkastfoto’s wijken af. De tweede meterkastfoto toont een 3-fase aansluiting, maar dit dient gecontroleerd te worden vanwege de gemiddelde zekerheid.',
+            'summary' => 'De meterkastfoto toont een 3-fase aansluiting, maar dit dient gecontroleerd te worden vanwege de gemiddelde zekerheid.',
             'highlights' => [],
         ],
         [],
@@ -779,8 +794,84 @@ test('comma and maar stay in the same clause so same-sentence caveats hedge', fu
         ['C5'],
     );
 
-    expect($maarCaveat['claim.phase_3']['status'])->toBe('correct')
-        ->and($maarCaveat['claim.phase_3']['detail'])->toBe('all_matches_hedged');
+    expect($maarCaveat['claim.phase_3']['status'])->toBe('wrong')
+        ->and($maarCaveat['claim.phase_3']['detail'])->toBe('unhedged_claim_for_hedged_only');
+});
+
+test('r5: hedge must co-locate with photo claim; accent-insensitive X-of-Y; aanwijzingen voor', function () {
+    $scorer = reportClaimsScorer();
+
+    expect($scorer->textLooksHedged('aanwijzingen voor een driefasige aansluiting'))->toBeTrue()
+        ->and($scorer->textLooksHedged('indicaties voor 3-fase'))->toBeTrue()
+        ->and($scorer->textLooksHedged('aanwijzing voor enkelfase'))->toBeTrue()
+        ->and($scorer->textLooksCannotDetermine(
+            'De klant weet niet of de meterkast een één- of driefasige aansluiting heeft',
+        ))->toBeTrue()
+        ->and($scorer->stripPhaseAlternatives(
+            'De klant weet niet of de meterkast een één- of driefasige aansluiting heeft',
+        ))->not->toMatch('/fasig/iu');
+
+    $claims = [[
+        'id' => 'phase_3',
+        'concept' => 'phase_3',
+        'allowed' => 'hedged_only',
+    ]];
+
+    // Customer-unknown hedge must not excuse firm photo claim after "maar".
+    $failCustomerUnknown = $scorer->scoreLayer(
+        ['claims' => $claims],
+        [
+            'summary' => 'De klant is onbekend met de fase-aansluiting, maar de meterkastfoto toont een 3-fase hoofdschakelaar',
+            'highlights' => [],
+        ],
+        [],
+        [],
+        ['C5'],
+    );
+    expect($failCustomerUnknown['claim.phase_3']['status'])->toBe('wrong')
+        ->and($failCustomerUnknown['claim.phase_3']['detail'])->toBe('unhedged_claim_for_hedged_only');
+
+    // Photo hedge ("aanwijzingen voor") co-located with phase term → OK.
+    $okAanwijzingen = $scorer->scoreLayer(
+        ['claims' => $claims],
+        [
+            'summary' => 'De meterkastfoto toont aanwijzingen voor een driefasige aansluiting, maar dit dient ter plaatse te worden bevestigd',
+            'highlights' => [],
+        ],
+        [],
+        [],
+        ['C5'],
+    );
+    expect($okAanwijzingen['claim.phase_3']['status'])->toBe('correct')
+        ->and($okAanwijzingen['claim.phase_3']['detail'])->toBe('all_matches_hedged');
+
+    // Accented X-of-Y only (no firm remainder) → OK.
+    $okAccent = $scorer->scoreLayer(
+        ['claims' => $claims],
+        [
+            'summary' => 'De klant weet niet of de meterkast een één- of driefasige aansluiting heeft',
+            'highlights' => [],
+        ],
+        [],
+        [],
+        ['C5'],
+    );
+    expect($okAccent['claim.phase_3']['status'])->toBe('correct')
+        ->and($okAccent['claim.phase_3']['detail'])->toBe('all_matches_cannot_determine');
+
+    // Firm photo claim; "gemiddelde betrouwbaarheid" after "maar" is not a co-located hedge.
+    $failBetrouwbaarheid = $scorer->scoreLayer(
+        ['claims' => $claims],
+        [
+            'summary' => 'De meterkastfoto toont een driefasige aansluiting, maar dit is gebaseerd op een automatische analyse met een gemiddelde betrouwbaarheid',
+            'highlights' => [],
+        ],
+        [],
+        [],
+        ['C5'],
+    );
+    expect($failBetrouwbaarheid['claim.phase_3']['status'])->toBe('wrong')
+        ->and($failBetrouwbaarheid['claim.phase_3']['detail'])->toBe('unhedged_claim_for_hedged_only');
 });
 
 test('over-hedged attention fails assert even when summary is firm', function () {

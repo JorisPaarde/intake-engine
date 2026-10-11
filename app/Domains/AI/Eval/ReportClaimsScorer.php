@@ -35,6 +35,9 @@ final class ReportClaimsScorer
         'vermoedelijk',
         'suggereert',
         'wijst op',
+        'aanwijzingen voor',
+        'indicaties voor',
+        'aanwijzing voor',
         'niet zeker',
         'onduidelijk',
         'indicatie',
@@ -428,7 +431,7 @@ final class ReportClaimsScorer
 
     public function textLooksCannotDetermine(string $text): bool
     {
-        $lower = mb_strtolower($text);
+        $lower = mb_strtolower($this->foldDiacritics($text));
         foreach (self::CANNOT_DETERMINE_MARKERS as $marker) {
             if ($this->markerPresent($lower, $marker)) {
                 return true;
@@ -447,6 +450,7 @@ final class ReportClaimsScorer
     /**
      * "X of Y" phase alternatives (eval-only). Used for cannot-determine and to
      * strip alternatives before judging remaining phase claims under hedged_only.
+     * Matched against diacritic-folded text so "één- of driefasige" counts.
      *
      * @return list<string>
      */
@@ -466,12 +470,42 @@ final class ReportClaimsScorer
     }
 
     /**
+     * Fold combining diacritics so accented Dutch ("één") matches ASCII patterns.
+     */
+    public function foldDiacritics(string $text): string
+    {
+        if (class_exists(\Normalizer::class)) {
+            $decomposed = \Normalizer::normalize($text, \Normalizer::FORM_D);
+            if (is_string($decomposed)) {
+                $stripped = preg_replace('/\p{Mn}/u', '', $decomposed);
+                if (is_string($stripped)) {
+                    return $stripped;
+                }
+            }
+        }
+
+        return strtr($text, [
+            'á' => 'a', 'à' => 'a', 'ä' => 'a', 'â' => 'a',
+            'é' => 'e', 'è' => 'e', 'ë' => 'e', 'ê' => 'e',
+            'í' => 'i', 'ì' => 'i', 'ï' => 'i', 'î' => 'i',
+            'ó' => 'o', 'ò' => 'o', 'ö' => 'o', 'ô' => 'o',
+            'ú' => 'u', 'ù' => 'u', 'ü' => 'u', 'û' => 'u',
+            'Á' => 'A', 'À' => 'A', 'Ä' => 'A', 'Â' => 'A',
+            'É' => 'E', 'È' => 'E', 'Ë' => 'E', 'Ê' => 'E',
+            'Í' => 'I', 'Ì' => 'I', 'Ï' => 'I', 'Î' => 'I',
+            'Ó' => 'O', 'Ò' => 'O', 'Ö' => 'O', 'Ô' => 'O',
+            'Ú' => 'U', 'Ù' => 'U', 'Ü' => 'U', 'Û' => 'U',
+        ]);
+    }
+
+    /**
      * Remove "X of Y" phase-alternative spans so remaining phase terms can be
-     * judged on their own hedge (hedged_only phase claims).
+     * judged on their own hedge (hedged_only phase claims). Diacritics are
+     * folded first so "één- of driefasige" is stripped like "een- of …".
      */
     public function stripPhaseAlternatives(string $clause): string
     {
-        $out = $clause;
+        $out = $this->foldDiacritics($clause);
         foreach (self::phaseAlternativePatterns() as $pattern) {
             $out = preg_replace($pattern, ' ', $out) ?? $out;
         }
@@ -539,8 +573,10 @@ final class ReportClaimsScorer
 
     /**
      * Split a unit for hedge / cannot-determine co-location.
-     * Only sentence breaks (. ! ? newline) and ';' — commas and "maar" stay
-     * in the same clause so a same-sentence caveat still hedges the claim.
+     * Sentence breaks (. ! ? newline) and ';' always split. Contrastive
+     * conjunctions (maar / terwijl / echter, with or without a leading comma)
+     * also split so a hedge about the customer's not-knowing does not excuse
+     * a firm photo claim in the other half. Parenthetical commas stay together.
      *
      * @return list<string>
      */
@@ -551,7 +587,10 @@ final class ReportClaimsScorer
             return [];
         }
 
-        $parts = preg_split('/\s*(?:[.!?;]|\n+)\s*/u', $trimmedText) ?: [$trimmedText];
+        $parts = preg_split(
+            '/\s*(?:[.!?;]|\n+|,\s*(?:maar|terwijl|echter)\b|\b(?:maar|terwijl|echter)\b)\s*/iu',
+            $trimmedText,
+        ) ?: [$trimmedText];
 
         $out = [];
         foreach ($parts as $part) {
