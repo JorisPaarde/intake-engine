@@ -2783,6 +2783,7 @@ class IntakeWizard extends Component
         }
 
         if (($step['kind'] ?? 'question') === 'question_group') {
+            $reader = app(AnswerValueReader::class);
             foreach ($step['group_question_keys'] ?? [] as $groupKey) {
                 $groupQuestion = app(IntakeStepBuilder::class)->questionForStep(
                     $this->version(),
@@ -2793,6 +2794,13 @@ class IntakeWizard extends Component
                     continue;
                 }
                 $composite = VisibilityResolver::compositeKey($groupQuestion->key, $step['section_instance_key']);
+                $payload = is_array($this->form[$composite] ?? null) ? $this->form[$composite] : [];
+                // Leeg form niet opnieuw opslaan: voorkomt (1) wissen van een eerdere klantkeuze
+                // bij foto-poll/Livewire-race en (2) herintroduceren van een AI-afleiding als
+                // klantantwoord nadat invalidatePhotoDerivation de rij al verwijderde.
+                if (! $reader->isFilled($payload, $groupQuestion->type)) {
+                    continue;
+                }
                 $this->persistComposite($composite);
             }
             $this->saveMessage = 'Opgeslagen';
