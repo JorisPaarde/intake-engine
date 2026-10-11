@@ -3011,9 +3011,14 @@ class IntakeWizard extends Component
         }
     }
 
-    public function next(): void
+    public function next(?string $expectedStepKey = null): void
     {
         if ($this->completed) {
+            return;
+        }
+
+        // Stale Volgende: choice already auto-advanced; ignore the queued click for the old step.
+        if ($expectedStepKey !== null && $expectedStepKey !== $this->displayedStepKey($this->steps())) {
             return;
         }
 
