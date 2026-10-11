@@ -37,6 +37,10 @@ final class RebuildIntakeReportHtml
                 'followUpRounds.items.uploads',
                 'contributionTasks',
                 'dossierSubjects.records',
+                'review.reviewer',
+                'aircoInstallationOptions.placements.room',
+                'aircoInstallationOptions.connections.fromPlacement',
+                'aircoInstallationOptions.connections.toPlacement',
                 'templateVersion.sections.questions',
             ]);
 

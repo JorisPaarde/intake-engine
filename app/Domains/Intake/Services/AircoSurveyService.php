@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domains\Intake\Services;
 
 use App\Domains\Intake\Actions\ApplyFollowUpTextContribution;
+use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
 use App\Domains\Intake\Models\AircoConnection;
 use App\Domains\Intake\Models\AircoInstallationOption;
 use App\Domains\Intake\Models\AircoPlacementOption;
@@ -37,6 +38,7 @@ final class AircoSurveyService
         private readonly InstallerSurveyProgress $surveyProgress,
         private readonly AircoUnitCouplingValidator $couplingValidator,
         private readonly InstallationOptionPreferenceService $preferenceService,
+        private readonly RebuildIntakeReportHtml $rebuildIntakeReportHtml,
     ) {}
 
     /**
@@ -596,7 +598,9 @@ final class AircoSurveyService
         ]);
         $this->preferenceService->invalidateIfFeasibleSetChanged($intake->fresh() ?? $intake, $installer);
         $this->surveyProgress->markStarted($intake);
-        $this->decisionReadiness->recalculate($intake->fresh() ?? $intake);
+        $fresh = $intake->fresh() ?? $intake;
+        $this->decisionReadiness->recalculate($fresh);
+        $this->refreshStoredReport($fresh);
 
         return $option->fresh(['placements', 'connections']) ?? $option;
     }
@@ -635,7 +639,9 @@ final class AircoSurveyService
         ]);
         $this->preferenceService->invalidateIfFeasibleSetChanged($intake->fresh() ?? $intake, $installer);
         $this->surveyProgress->markStarted($intake);
-        $this->decisionReadiness->recalculate($intake->fresh() ?? $intake);
+        $fresh = $intake->fresh() ?? $intake;
+        $this->decisionReadiness->recalculate($fresh);
+        $this->refreshStoredReport($fresh);
 
         return $option->fresh(['placements', 'connections']) ?? $option;
     }
@@ -682,9 +688,19 @@ final class AircoSurveyService
             'option_id' => $option->id,
         ]);
         $this->surveyProgress->markStarted($intake);
-        $this->decisionReadiness->recalculate($intake->fresh() ?? $intake);
+        $fresh = $intake->fresh() ?? $intake;
+        $this->decisionReadiness->recalculate($fresh);
+        $this->refreshStoredReport($fresh);
 
         return $option->fresh(['placements', 'connections']) ?? $option;
+    }
+
+    private function refreshStoredReport(Intake $intake): void
+    {
+        $this->rebuildIntakeReportHtml->handle($intake);
+        if (! $intake->is_demo) {
+            GenerateIntakePdfJob::dispatch($intake->id);
+        }
     }
 
     /**
