@@ -35,7 +35,35 @@ it('shows LOOKING while assessing and RECEIVED after soft-timeout', function () 
         ->toBe(PhotoCustomerStatus::RECEIVED);
 });
 
-it('never shows GOOD after Toch doorgaan on a judged problem', function () {
+it('never revives LOOKING when the DB status is already terminal', function () {
+    $terminal = statusUpload([
+        'id' => 9,
+        'assessment_status' => PhotoAssessmentStatus::Assessed,
+        'content_assessment' => PhotoContentAssessment::wrongSubject(
+            PhotoSubject::Fusebox,
+            PhotoSubject::Room,
+        )->toArray(),
+    ]);
+
+    expect(PhotoCustomerStatus::forUpload(
+        $terminal,
+        'fusebox_photo',
+        'assessing',
+        'fusebox_photo',
+        [9],
+        [],
+    ))->toBe(PhotoCustomerStatus::WRONG_SUBJECT)
+        ->and(PhotoCustomerStatus::forUpload(
+            $terminal,
+            'fusebox_photo',
+            'assessing',
+            'fusebox_photo',
+            [9],
+            [],
+        ))->not->toBe(PhotoCustomerStatus::LOOKING);
+});
+
+it('shows OVERRIDE_ACCEPTED after Toch doorgaan on a judged problem', function () {
     $wrong = PhotoContentAssessment::wrongSubject(PhotoSubject::Fusebox, PhotoSubject::Room)
         ->withCustomerAcceptedOverride();
 
@@ -48,12 +76,12 @@ it('never shows GOOD after Toch doorgaan on a judged problem', function () {
     expect(PhotoOverridePolicy::needsOverride($upload))->toBeFalse()
         ->and(PhotoOverridePolicy::hasQualityOrContentIssue($upload))->toBeTrue()
         ->and(PhotoCustomerStatus::forUpload($upload, 'fusebox_photo', '', '', [], []))
-        ->not->toBe(PhotoCustomerStatus::GOOD)
+        ->toBe(PhotoCustomerStatus::OVERRIDE_ACCEPTED)
         ->and(PhotoCustomerStatus::forUpload($upload, 'fusebox_photo', '', '', [], []))
-        ->toBe((string) $wrong->customerMessage());
+        ->not->toBe(PhotoCustomerStatus::GOOD);
 });
 
-it('shows RECEIVED for not_assessed before the quality/content issue branch', function () {
+it('shows RECEIVED for not_assessed and does not require override', function () {
     $withContent = statusUpload([
         'assessment_status' => PhotoAssessmentStatus::NotAssessed,
         'usability_verdict' => PhotoUsabilityVerdict::Ok,
@@ -65,7 +93,8 @@ it('shows RECEIVED for not_assessed before the quality/content issue branch', fu
         'content_assessment' => null,
     ]);
 
-    expect(PhotoOverridePolicy::hasQualityOrContentIssue($withContent))->toBeTrue()
+    expect(PhotoOverridePolicy::hasQualityOrContentIssue($withContent))->toBeFalse()
+        ->and(PhotoOverridePolicy::needsOverride($withContent))->toBeFalse()
         ->and(PhotoCustomerStatus::forUpload($withContent, 'fusebox_photo', '', '', [], []))
         ->toBe(PhotoCustomerStatus::RECEIVED)
         ->and(PhotoCustomerStatus::forUpload($statusOnly, 'fusebox_photo', '', '', [], []))
@@ -74,7 +103,19 @@ it('shows RECEIVED for not_assessed before the quality/content issue branch', fu
         ->not->toBe(PhotoCustomerStatus::GOOD);
 });
 
-it('puts advice under the bad photo in a mixed batch', function () {
+it('still requires override for TooDark even when assessment_status is not_assessed', function () {
+    $dark = statusUpload([
+        'assessment_status' => PhotoAssessmentStatus::NotAssessed,
+        'usability_verdict' => PhotoUsabilityVerdict::TooDark,
+        'content_assessment' => PhotoContentAssessment::notAssessed(PhotoSubject::Room)->toArray(),
+    ]);
+
+    expect(PhotoOverridePolicy::needsOverride($dark))->toBeTrue()
+        ->and(PhotoCustomerStatus::forUpload($dark, 'room_photos', '', '', [], []))
+        ->toBe(PhotoCustomerStatus::UNCLEAR);
+});
+
+it('puts short status on the bad photo and keeps GOOD on the good one', function () {
     $good = statusUpload([
         'id' => 1,
         'assessment_status' => PhotoAssessmentStatus::Assessed,
@@ -101,8 +142,42 @@ it('puts advice under the bad photo in a mixed batch', function () {
     $otherLabel = PhotoCustomerStatus::forUpload($otherBad, 'fusebox_photo', '', '', [], []);
 
     expect($goodLabel)->toBe(PhotoCustomerStatus::GOOD)
-        ->and($badLabel)->toBe((string) PhotoUsabilityVerdict::TooSmall->customerHint())
-        ->and($otherLabel)->toContain('meterkast')
+        ->and($badLabel)->toBe(PhotoCustomerStatus::UNCLEAR)
+        ->and($otherLabel)->toBe(PhotoCustomerStatus::WRONG_SUBJECT)
         ->and($badLabel)->not->toBe(PhotoCustomerStatus::RECEIVED)
         ->and($otherLabel)->not->toBe(PhotoCustomerStatus::GOOD);
+});
+
+it('groups feedback by structured status key not by text', function () {
+    $a = statusUpload([
+        'id' => 1,
+        'content_assessment' => PhotoContentAssessment::wrongSubject(
+            PhotoSubject::Room,
+            PhotoSubject::OutdoorUnit,
+        )->toArray(),
+    ]);
+    $b = statusUpload([
+        'id' => 2,
+        'content_assessment' => PhotoContentAssessment::wrongSubject(
+            PhotoSubject::Room,
+            PhotoSubject::OutdoorUnit,
+        )->toArray(),
+    ]);
+    $c = statusUpload([
+        'id' => 3,
+        'usability_verdict' => PhotoUsabilityVerdict::TooDark,
+        'assessment_status' => PhotoAssessmentStatus::HeuristicRejected,
+        'content_assessment' => null,
+    ]);
+
+    expect(PhotoOverridePolicy::feedbackGroupKey($a))
+        ->toBe(PhotoOverridePolicy::feedbackGroupKey($b))
+        ->and(PhotoOverridePolicy::feedbackGroupKey($a))
+        ->not->toBe(PhotoOverridePolicy::feedbackGroupKey($c))
+        ->and(PhotoOverridePolicy::uniqueCustomerFeedback(collect([$a, $b, $c])))
+        ->toHaveCount(2)
+        ->and(PhotoOverridePolicy::panelHeading(1))->toBe(PhotoOverridePolicy::PANEL_HEADING_ONE)
+        ->and(PhotoOverridePolicy::panelHeading(3))->toBe('3 foto’s zijn nog niet goed.')
+        ->and(PhotoOverridePolicy::panelExplanation(1))->toContain('Je installateur krijgt de foto dan wel')
+        ->and(PhotoOverridePolicy::panelExplanation(3))->toContain('foto’s');
 });

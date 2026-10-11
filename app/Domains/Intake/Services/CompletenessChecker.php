@@ -149,7 +149,8 @@ final class CompletenessChecker
     }
 
     /**
-     * Eén systeempunt per fotovraag + plek (niet per upload). Oude codes
+     * Eén systeempunt per fotovraag + plek (niet per upload): Toch-doorgaan-
+     * override én/of actuele not_assessed (zonder override). Oude codes
      * `photo_subject_mismatch_{id}` verdwijnen bij de volgende afronding/sync;
      * bestaande opnames worden niet gemigreerd.
      *
@@ -199,7 +200,12 @@ final class CompletenessChecker
         });
 
         foreach ($byPlace as $groupKey => $uploads) {
-            if (! ($hasOverride[$groupKey] ?? false)) {
+            // Override (= klant koos Toch doorgaan) óf actuele not_assessed zonder
+            // override (fotostatus: not_assessed vraagt geen Toch-doorgaan-keuze).
+            // Groepering blijft op question_key + section_instance_key.
+            $counts = PhotoContinueAnywayAttention::countStatuses($uploads);
+            $needsPoint = ($hasOverride[$groupKey] ?? false) || $counts['not_assessed'] > 0;
+            if (! $needsPoint) {
                 continue;
             }
 

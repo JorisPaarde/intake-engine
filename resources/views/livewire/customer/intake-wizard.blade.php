@@ -236,35 +236,78 @@
             @endif
         </div>
 
-        @if ($showMissing)
+        {{-- Afronden-lijst of gewone validatiefout. Geen tweede alert als het fotomeldingsvak al openstaat. --}}
+        @if ($showMissing && $completionMissing !== [])
             <div class="mb-4 rounded-xl border border-[#eac3b4] bg-white px-4 py-3 text-sm text-[#a84832]" role="alert" aria-live="assertive" data-testid="step-missing-alert">
-                @if ($completionMissing !== [])
-                    <p class="font-medium">Nog niet alles is ingevuld.</p>
-                    <ul class="mt-2 list-none space-y-1.5 pl-0 text-[#414b45]">
-                        @foreach ($completionMissing as $item)
-                            <li>
-                                <button
-                                    type="button"
-                                    wire:click="goToMissing({{ \Illuminate\Support\Js::from($item['question_key']) }}, {{ \Illuminate\Support\Js::from($item['section_instance_key'] ?? null) }})"
-                                    class="text-left text-sm font-medium text-[var(--tenant-primary)] underline decoration-[var(--tenant-primary)]/40 underline-offset-2 hover:decoration-[var(--tenant-primary)]"
-                                >
-                                    {{ $item['label'] ?? $item['question_key'] }}
-                                    @if (! empty($item['instance_label']))
-                                        <span class="font-normal text-[#5e6862]">({{ $item['instance_label'] }})</span>
-                                    @endif
-                                    @if (($item['reason'] ?? '') === 'required_photo')
-                                        <span class="font-normal text-[#5e6862]"> — foto verplicht</span>
-                                    @elseif (($item['reason'] ?? '') === 'must_accept')
-                                        <span class="font-normal text-[#5e6862]"> — {{ \App\Domains\Intake\Support\MustAcceptQuestions::missingRequirementHint($item['question_key'] ?? null) }}</span>
-                                    @endif
-                                </button>
-                            </li>
-                        @endforeach
-                    </ul>
-                @elseif ($photoMismatchAssessment)
-                    <p class="font-medium">Kies: foto vervangen of toch doorgaan</p>
+                <p class="font-medium">Nog niet alles is klaar.</p>
+                <ul class="mt-2 list-none space-y-1.5 pl-0 text-[#414b45]">
+                    @foreach ($completionMissing as $item)
+                        <li>
+                            <button
+                                type="button"
+                                wire:click="goToMissing({{ \Illuminate\Support\Js::from($item['question_key']) }}, {{ \Illuminate\Support\Js::from($item['section_instance_key'] ?? null) }})"
+                                class="text-left text-sm font-medium text-[var(--tenant-primary)] underline decoration-[var(--tenant-primary)]/40 underline-offset-2 hover:decoration-[var(--tenant-primary)]"
+                            >
+                                {{ $item['label'] ?? $item['question_key'] }}
+                                @if (! empty($item['instance_label']))
+                                    <span class="font-normal text-[#5e6862]">({{ $item['instance_label'] }})</span>
+                                @endif
+                                @if (($item['reason'] ?? '') === 'required_photo_not_good')
+                                    <span class="font-normal text-[#5e6862]"> — foto nog niet goed</span>
+                                @elseif (($item['reason'] ?? '') === 'required_photo')
+                                    <span class="font-normal text-[#5e6862]"> — nog geen foto</span>
+                                @elseif (($item['reason'] ?? '') === 'must_accept')
+                                    <span class="font-normal text-[#5e6862]"> — {{ \App\Domains\Intake\Support\MustAcceptQuestions::missingRequirementHint($item['question_key'] ?? null) }}</span>
+                                @endif
+                            </button>
+                        </li>
+                    @endforeach
+                </ul>
+            </div>
+        @elseif ($showMissing && empty($photoNeedsOverride))
+            <div class="mb-4 rounded-xl border border-[#eac3b4] bg-white px-4 py-3 text-sm text-[#a84832]" role="alert" aria-live="assertive" data-testid="step-missing-alert">
+                Beantwoord eerst deze verplichte vraag.
+            </div>
+        @elseif (! $showMissing && ($distantPhotoIssues ?? []) !== [] && empty($isLastStep))
+            @php
+                $distantCount = count($distantPhotoIssues);
+                $firstDistant = $distantPhotoIssues[0];
+                $distantRoom = $firstDistant['room_label'] ?? null;
+                $distantLabel = $firstDistant['label'] ?? '';
+                if (is_string($distantRoom) && $distantRoom !== '') {
+                    $distantLabel .= ' ('.$distantRoom.')';
+                }
+            @endphp
+            <div
+                class="mb-4 rounded-xl border border-[#eac3b4] bg-white px-4 py-3 text-sm text-[#414b45]"
+                role="status"
+                aria-live="polite"
+                data-testid="distant-photo-banner"
+            >
+                @if ($distantCount === 1)
+                    <p>
+                        Je foto bij ‘{{ $distantLabel }}’ is nog niet goed.
+                        <button
+                            type="button"
+                            wire:click="goToMissing({{ \Illuminate\Support\Js::from($firstDistant['question_key']) }}, {{ \Illuminate\Support\Js::from($firstDistant['section_instance_key'] ?? null) }})"
+                            class="ml-1 font-medium text-[var(--tenant-primary)] underline decoration-[var(--tenant-primary)]/40 underline-offset-2"
+                            data-testid="distant-photo-link"
+                        >
+                            Bekijk de foto
+                        </button>
+                    </p>
                 @else
-                    Beantwoord eerst deze verplichte vraag.
+                    <p>
+                        Bij {{ $distantCount }} vragen is een foto nog niet goed.
+                        <button
+                            type="button"
+                            wire:click="goToMissing({{ \Illuminate\Support\Js::from($firstDistant['question_key']) }}, {{ \Illuminate\Support\Js::from($firstDistant['section_instance_key'] ?? null) }})"
+                            class="ml-1 font-medium text-[var(--tenant-primary)] underline decoration-[var(--tenant-primary)]/40 underline-offset-2"
+                            data-testid="distant-photo-link"
+                        >
+                            Bekijk de eerste
+                        </button>
+                    </p>
                 @endif
             </div>
         @endif
@@ -293,10 +336,129 @@
                                 $isDrainNearbyGroup = $groupKeyName === 'drain_nearby';
                                 $isDimensionsGroup = $groupKeyName === 'room_dimensions';
                             @endphp
+                            @php
+                                $lengthQuestion = collect($groupQuestions)->firstWhere('key', 'room_length_m');
+                                $widthQuestion = collect($groupQuestions)->firstWhere('key', 'room_width_m');
+                                $areaQuestion = collect($groupQuestions)->firstWhere('key', 'room_area_m2');
+                                $lengthComposite = $lengthQuestion
+                                    ? \App\Domains\Intake\Services\VisibilityResolver::compositeKey($lengthQuestion->key, $step['section_instance_key'])
+                                    : null;
+                                $widthComposite = $widthQuestion
+                                    ? \App\Domains\Intake\Services\VisibilityResolver::compositeKey($widthQuestion->key, $step['section_instance_key'])
+                                    : null;
+                                $areaComposite = $areaQuestion
+                                    ? \App\Domains\Intake\Services\VisibilityResolver::compositeKey($areaQuestion->key, $step['section_instance_key'])
+                                    : null;
+                                $lengthNumber = $lengthComposite ? data_get($this->form, $lengthComposite.'.number') : null;
+                                $widthNumber = $widthComposite ? data_get($this->form, $widthComposite.'.number') : null;
+                                $areaNumber = $areaComposite ? data_get($this->form, $areaComposite.'.number') : null;
+                                $hasLxB = is_numeric($lengthNumber) && (float) $lengthNumber > 0
+                                    && is_numeric($widthNumber) && (float) $widthNumber > 0;
+                                $hasTypedArea = is_numeric($areaNumber) && (float) $areaNumber > 0;
+                                $showAreaField = $areaQuestion
+                                    && ! $hasLxB
+                                    && ($this->showAreaOnlyField || $hasTypedArea);
+                            @endphp
                             <div
-                                class="{{ $isDimensionsGroup ? 'grid grid-cols-1 gap-4 sm:grid-cols-2' : 'space-y-5' }}"
+                                class="{{ $isDimensionsGroup ? 'space-y-4' : ($isDrainNearbyGroup ? 'space-y-5' : 'space-y-5') }}"
                                 data-testid="{{ $isDrainNearbyGroup ? 'drain-nearby-group' : ($isDimensionsGroup ? 'dimensions-group' : 'question-group') }}"
+                                @if ($isDimensionsGroup)
+                                    x-data="{
+                                        length: {{ \Illuminate\Support\Js::from($lengthNumber) }},
+                                        width: {{ \Illuminate\Support\Js::from($widthNumber) }},
+                                        format(value) {
+                                            const rounded = Math.round(Number(value) * 10) / 10;
+                                            if (! Number.isFinite(rounded)) {
+                                                return '';
+                                            }
+                                            const formatted = rounded.toFixed(1).replace('.', ',');
+                                            return formatted.endsWith(',0') ? formatted.slice(0, -2) : formatted;
+                                        },
+                                        get areaLabel() {
+                                            const length = parseFloat(this.length);
+                                            const width = parseFloat(this.width);
+                                            if (! (length > 0) || ! (width > 0)) {
+                                                return '';
+                                            }
+                                            return 'Oppervlak: ' + this.format(length * width) + ' m²';
+                                        }
+                                    }"
+                                @endif
                             >
+                                @if ($isDimensionsGroup)
+                                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                        @foreach ([$lengthQuestion, $widthQuestion] as $dimQuestion)
+                                            @continue(! $dimQuestion)
+                                            @php
+                                                $groupComposite = \App\Domains\Intake\Services\VisibilityResolver::compositeKey($dimQuestion->key, $step['section_instance_key']);
+                                                $groupState = $visibility[$groupComposite] ?? ['visible' => false, 'required' => false];
+                                                $alpineModel = $dimQuestion->key === 'room_length_m' ? 'length' : 'width';
+                                            @endphp
+                                            <div wire:key="group-field-{{ $groupComposite }}">
+                                                <label for="field-{{ $groupComposite }}" class="mb-1 block text-sm font-medium text-[#18201d]">
+                                                    {{ $dimQuestion->label }}
+                                                    @if ($groupState['required'] || ($step['is_required'] ?? false))
+                                                        <span class="text-[#a84832]">*</span>
+                                                    @endif
+                                                </label>
+                                                <input
+                                                    id="field-{{ $groupComposite }}"
+                                                    type="number"
+                                                    inputmode="decimal"
+                                                    wire:model.blur="form.{{ $groupComposite }}.number"
+                                                    x-model="{{ $alpineModel }}"
+                                                    class="block min-h-11 w-full rounded-xl border-[#dde2da] shadow-sm focus:border-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
+                                                    @if ($groupState['required']) required @endif
+                                                >
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                    <p
+                                        class="text-sm font-medium text-[#18201d]"
+                                        data-testid="live-room-area"
+                                        x-show="areaLabel !== ''"
+                                        x-text="areaLabel"
+                                        x-cloak
+                                    ></p>
+                                    @if ($areaQuestion && $areaComposite)
+                                        @if ($showAreaField)
+                                            <div wire:key="group-field-{{ $areaComposite }}" data-testid="area-only-field">
+                                                <label for="field-{{ $areaComposite }}" class="mb-1 block text-sm font-medium text-[#18201d]">
+                                                    {{ $areaQuestion->label }}
+                                                </label>
+                                                <input
+                                                    id="field-{{ $areaComposite }}"
+                                                    type="number"
+                                                    inputmode="decimal"
+                                                    wire:model.blur="form.{{ $areaComposite }}.number"
+                                                    class="block min-h-11 w-full rounded-xl border-[#dde2da] shadow-sm focus:border-[var(--tenant-primary)] focus:ring-[var(--tenant-primary)]"
+                                                >
+                                                @if ($areaQuestion->help_text)
+                                                    <p class="mt-1 text-xs text-[#5e6862]">{{ $areaQuestion->help_text }}</p>
+                                                @endif
+                                            </div>
+                                        @elseif (! $hasLxB)
+                                            <button
+                                                type="button"
+                                                wire:click="revealAreaOnlyField"
+                                                class="text-sm font-semibold text-[var(--tenant-primary)] underline decoration-[var(--tenant-primary)]/40 underline-offset-2 hover:decoration-[var(--tenant-primary)]"
+                                                data-testid="reveal-area-only"
+                                            >
+                                                Weet je alleen het oppervlak in m²?
+                                            </button>
+                                        @endif
+                                    @endif
+                                    @if (! $hasLxB && ! $hasTypedArea)
+                                        <button
+                                            type="button"
+                                            wire:click="skipOptionalPhoto"
+                                            class="min-h-11 w-full rounded-xl border border-[#dde2da] bg-white px-4 text-sm font-semibold text-[#18201d]"
+                                            data-testid="dimensions-skip"
+                                        >
+                                            Weet ik niet / sla over
+                                        </button>
+                                    @endif
+                                @else
                                 @foreach ($groupQuestions as $groupQuestion)
                                     @php
                                         $groupComposite = \App\Domains\Intake\Services\VisibilityResolver::compositeKey($groupQuestion->key, $step['section_instance_key']);
@@ -350,6 +512,7 @@
                                         @endif
                                     </div>
                                 @endforeach
+                                @endif
                             </div>
                         @else
                         @switch ($question->type->value)
@@ -483,6 +646,24 @@
     @endif
 
     @unless ($completed || ($waitingForPrefill ?? false))
+        {{-- Stille poll voor foto’s op ándere stappen (huidige stap polt via photo-question-field). --}}
+        @foreach (($pendingAssessUploadIds ?? []) as $pendingComposite => $pendingIds)
+            @if (! empty($pendingIds) && ! in_array((string) $pendingComposite, $currentStepPhotoComposites ?? [], true))
+                @php
+                    $bgQuiet = in_array($pendingComposite, $assessmentUiReleased ?? [], true);
+                    $bgInterval = $bgQuiet ? '5s' : '2s';
+                @endphp
+                <div
+                    wire:key="bg-assessment-poll-{{ $pendingComposite }}-{{ $bgInterval }}"
+                    wire:poll.{{ $bgInterval }}='pollPendingAssessments(@json((string) $pendingComposite))'
+                    class="hidden"
+                    data-testid="bg-assessment-poll"
+                    data-poll-composite="{{ $pendingComposite }}"
+                    aria-hidden="true"
+                ></div>
+            @endif
+        @endforeach
+
         <footer class="sticky bottom-0 -mx-4 mt-8 border-t border-[#dde2da] bg-[#eef1ec] px-4 py-4 sm:-mx-6 sm:px-6">
             <div class="flex gap-3">
                 <button
@@ -504,24 +685,48 @@
                         <span wire:loading.remove wire:target="complete">Afronden</span>
                         <span wire:loading wire:target="complete">Bezig…</span>
                     </button>
+                @elseif (! empty($photoNextBlockedByAssessment))
+                    <button
+                        type="button"
+                        aria-disabled="true"
+                        data-testid="next-blocked-assessing"
+                        class="min-h-12 flex-[1.4] rounded-xl bg-[var(--tenant-primary)] px-4 text-sm font-semibold text-[var(--tenant-on-primary)] opacity-60"
+                        x-on:click.prevent="
+                            const tile = document.querySelector('[data-photo-looking=&quot;1&quot;]');
+                            if (tile) {
+                                tile.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }
+                        "
+                    >
+                        {{ ! empty($isKnownSummary) ? 'Klopt, verder' : 'Volgende' }}
+                    </button>
                 @else
                     <button
                         type="button"
                         wire:click="next"
+                        data-testid="next-button"
                         class="min-h-12 flex-[1.4] rounded-xl bg-[var(--tenant-primary)] px-4 text-sm font-semibold text-[var(--tenant-on-primary)]"
                     >
                         {{ ! empty($isKnownSummary) ? 'Klopt, verder' : 'Volgende' }}
                     </button>
                 @endif
             </div>
-            @if ($showMissing && $photoMismatchAssessment)
-                <p class="mt-2 text-center text-xs font-medium text-[#a84832]" data-testid="footer-mismatch-warning" role="alert" aria-live="assertive">
-                    Kies: foto vervangen of toch doorgaan
-                </p>
-            @endif
             <p class="mt-3 text-center text-xs text-[#5e6862]">
                 Je voortgang blijft bewaard via deze link tot je afrondt.
             </p>
         </footer>
     @endunless
 </div>
+
+@script
+<script>
+    $wire.on('scroll-to-photo-mismatch', () => {
+        queueMicrotask(() => {
+            const panel = document.querySelector('[data-testid="photo-mismatch-panel"]');
+            if (panel) {
+                panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
+    });
+</script>
+@endscript

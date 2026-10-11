@@ -9,8 +9,10 @@ use App\Domains\Intake\Models\IntakeUpload;
 use Illuminate\Support\Collection;
 
 /**
- * Hergebruik van gevel-/tuin-/buitenfoto’s voor “Foto’s rondom het huis”.
- * Minimaal één bruikbare outdoor/facade-foto maakt around_house optioneel.
+ * Hergebruik van gevel-/tuin-/buitenfoto’s voor “rondom het huis”.
+ * Minimaal één bruikbare outdoor/facade-foto verbergt de around_house-stap
+ * (en telt hem niet in de wizardteller). Zonder bruikbare foto blijft het
+ * een gerichte vervolgvraag met “Weet ik niet / sla over”.
  */
 final class OutdoorPhotoReuse
 {
