@@ -6,6 +6,8 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Fixed
 
+- **E2E lokaal (BL-145/BL-147):** `AI_PHOTO_INFERENCE_ENABLED=true` is verplicht naast `AI_PROVIDER=fake` (anders skip “foto-inferentie uitgeschakeld” → geen `follow-up-mismatch`).
+
 - **Wizard-mount overschreef model-verdieping met lokale regex (BL-148 / #173 review):** `DeriveIntentFromRequest` gated de lokale parser alleen op `ai.text_inference.enabled`. Met tekst-AI aan is `allowExternal: false` (klantwizard-mount) een no-op; offline-fallback alleen als tekst-AI uit staat. `InterpretFollowUpText` registreert `AiRun` (timeout ≤ 8 s); standalone-getal: `[.,]` telt alleen als boundary naast een digit (dus `2,6` weigert bare `2`, `nok 2.` / `nok 2, knie 1` accepteren). Eval: configureerbare output-dir; fake runs schrijven geen `baseline/`/HISTORY; bootstrap alleen `AI_API_KEY`; live-env `production`/`staging`; `migrate:fresh` alleen met `--migrate`.
 
 ### Added
@@ -16,6 +18,11 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 - **AI-trace gaps afronden (BL-144):** `ai_runs.provider_request_id` (provider completion-`id` via `completionResultAttributes`); `AiRunStatus::Skipped` / `AiTraceStatus::Skipped` + `AiSkipRecorder` voor uploads zonder AI-call (reden bv. `geen beoordelingsprofiel`); `seed` in `model_parameters` (+ optioneel `AI_SEED` naar provider); `queued_at` op traces; export bevat `finish_reason` + `queued_at`. GPS/locatie blijft geredigeerd.
 
 ### Fixed
+
+- **UX-pakket restpunten na #168 (BL-147, Notion #15/#16):** demokeuzemodal **Hoe wil je verder?** alleen op het overzicht na aanmaken (nooit op `/opname`); knop **Sluiten**; vaste term **Zelf de opname doen**; vervolgronde zonder intern woord “Ronde”, bij meerdere opdrachten “Opdracht 1 van 2”; tekstantwoord met zichtbaar label “Je antwoord”, placeholder en fout “Typ eerst je antwoord.” onder het veld; soft-timeout-tekst onder de foto i.p.v. als topbanner; geen extra “Status: Ontvangen” naast “We bekijken je foto…”.
+- **UX-pakket ronde 5 (BL-147):** hoofdwizard-foto via dezelfde prullenbak + 8 s **Ongedaan maken** (zet afgeleide antwoorden terug). Unit-verwijderen en bedrijfswebsite blijven Open (product) op `cursor/bl-147-parked-placement-website`.
+- **BL-147 / #183:** regressietest dat prullenbak-**Ongedaan maken** op een afvoerfoto geen AI-`drain_location` terugzet over een expliciete klantkeuze.
+- **E2E follow-up copy (BL-147):** Playwright zoekt **Opdracht 2 van 2** (`follow-up-step-label`) i.p.v. het oude “Onderdeel 2 van 2”; foto weghalen via `follow-up-remove-photo`.
 
 - **UX-pakket werkplek/klantkant — teksten en gedrag volgens UX-uitkomst 8 okt (BL-147, Notion #15/#16):** klantantwoord in **Nieuwe aanvulling ontvangen** heeft de kop “Nieuw van klant · (ruimte)” en de knop “Beoordeel bij (ruimte)” (zonder ruimte “Beoordeel in opname”); de knop springt naar `#room-{id}` van de ruimte van de taak, klapt **Maten en gebruik** open en laat het gevraagde veld 2 s oplichten. Capaciteitshint volgt de gevraagde sleutel (lengte/breedte, hoogte, oppervlak, overig). Ruimtekaart: “Binnenunit nog kiezen” / “Binnenunit: (naam) · buitenunit nog kiezen” / “Gekoppeld: (binnenunit) → (buitenunit)”, groene stip alleen bij gekoppeld; lege details “Nog kiezen”. Flash per unittype (“Binnenunit/Buitenunit/Stroomaansluiting/Afvoerpunt toegevoegd.” en “(type) bijgewerkt.”) staat in het blok zelf, net als “Ruimte bijgewerkt.”. **Demo beëindigen** opent een eigen dialoog (focus op Annuleren, Esc/klik buiten annuleert) i.p.v. `confirm()`. Aanspreekvorm overal “je”; tweede melding na **Zelf de opname doen** vervalt. Klantkant: bedankscherm vervolgronde = één kop + één zin, zonder amberregel en zonder herhaalde intro; zichtbare knop “Terug naar de opname” (actieve demosessie) of “Naar de homepage”, echte klant “Je kunt dit venster nu sluiten.”; overal “Toch doorgaan” (één `OVERRIDE_MESSAGE`); foto verwijderen via prullenbakicoon rechtsboven (44 × 44) met 8 s “Foto verwijderd. · Ongedaan maken” (soft delete, echt wissen na 8 s of bij Volgende/Vorige/versturen/nieuwe upload).
 
