@@ -133,20 +133,14 @@ final class ContextualCustomerTaskBuilder
             return null;
         }
 
-        $label = trim((string) $connection->label);
-        $typeLabel = $connection->type->label();
-        $from = $connection->fromPlacement?->label;
-        $to = $connection->toPlacement?->label;
-        $routeHint = ($from !== null && $to !== null)
-            ? " ({$from} → {$to})"
-            : '';
-
         $instruction = $connection->routeSession?->next_photo_instruction;
         $prompt = is_string($instruction) && trim($instruction) !== ''
             ? trim($instruction)
-            : "Maak een duidelijke foto van de {$typeLabel}"
-                .($label !== '' ? " “{$label}”" : '')
-                ."{$routeHint}. Laat zien waar de leiding of kabel zichtbaar loopt.";
+            : match ($connection->type) {
+                AircoConnectionType::Power => 'Maak een foto van de plek waar de stroomkabel naar de buitenunit kan lopen, bijvoorbeeld langs de gevel of vanaf de meterkast.',
+                AircoConnectionType::Condensate => 'Maak een foto van de plek waar de condensafvoer kan lozen, zoals een regenpijp, putje of goot.',
+                AircoConnectionType::Refrigerant => 'Maak een foto van de route waar de koelleidingen kunnen lopen, bijvoorbeeld langs de gevel of door een muur.',
+            };
 
         $decisionArea = match ($connection->type) {
             AircoConnectionType::Refrigerant => 'refrigerant',
@@ -154,11 +148,29 @@ final class ContextualCustomerTaskBuilder
             AircoConnectionType::Power => 'power',
         };
 
+        // Power connection asks for cable/route evidence — not the meterkast by default.
+        // Meterkast asks keep Fusebox via decision_area fallback or explicit fusebox meta.
+        $meta = $connection->type === AircoConnectionType::Power
+            ? [
+                'photo_task_subtype' => 'power_route',
+                'expected_photo_subject' => PhotoSubject::PipeRoute->value,
+                'accepted_photo_subjects' => [
+                    PhotoSubject::PipeRoute->value,
+                    PhotoSubject::OutdoorUnit->value,
+                    PhotoSubject::OutdoorLocation->value,
+                    PhotoSubject::IndoorUnit->value,
+                    PhotoSubject::Room->value,
+                    PhotoSubject::Fusebox->value,
+                ],
+            ]
+            : [];
+
         return $this->draft(
             FollowUpItemType::Photo,
             $prompt,
             $decisionArea,
             $connection->dossier_subject_id,
+            $meta,
         );
     }
 
@@ -394,6 +406,11 @@ final class ContextualCustomerTaskBuilder
                 $prompt,
                 'power',
                 null,
+                [
+                    'photo_task_subtype' => 'fusebox',
+                    'expected_photo_subject' => PhotoSubject::Fusebox->value,
+                    'accepted_photo_subjects' => [PhotoSubject::Fusebox->value],
+                ],
             );
         }
 

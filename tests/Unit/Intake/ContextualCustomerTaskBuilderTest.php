@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Models\AircoConnection;
 use App\Domains\Intake\Models\AircoInstallationOption;
 use App\Domains\Intake\Models\AircoRoom;
@@ -80,7 +81,87 @@ test('connection needing evidence drafts a photo ask', function () {
         'decision_area_key' => 'refrigerant',
         'dossier_subject_id' => 15,
     ])
-        ->and($draft['prompt'])->toContain('Koelleiding slaapkamer');
+        ->and($draft['prompt'])->toBe('Maak een foto van de route waar de koelleidingen kunnen lopen, bijvoorbeeld langs de gevel of door een muur.')
+        ->and($draft['prompt'])->not->toContain('Koelleiding slaapkamer')
+        ->and($draft['prompt'])->not->toContain('“')
+        ->and($draft['prompt'])->not->toContain('kabel');
+});
+
+test('N25: connection fallback prompts are natural Dutch per type without internal labels', function (
+    AircoConnectionType $type,
+    string $decisionArea,
+    string $expectedPrompt,
+) {
+    $connection = (new AircoConnection)->forceFill([
+        'id' => 30,
+        'label' => 'Stroomtoevoer buitenunit',
+        'type' => $type,
+        'status' => AircoConnectionStatus::NeedsEvidence,
+        'dossier_subject_id' => 99,
+    ]);
+    $connection->setRelation('fromPlacement', null);
+    $connection->setRelation('toPlacement', null);
+    $connection->setRelation('routeSession', null);
+
+    $draft = app(ContextualCustomerTaskBuilder::class)->forConnection($connection);
+
+    expect($draft)->not->toBeNull()
+        ->and($draft['decision_area_key'])->toBe($decisionArea)
+        ->and($draft['prompt'])->toBe($expectedPrompt)
+        ->and($draft['prompt'])->not->toContain('“')
+        ->and($draft['prompt'])->not->toContain('Stroomtoevoer buitenunit')
+        ->and($draft['prompt'])->not->toContain('leiding of kabel');
+
+    if ($type === AircoConnectionType::Condensate) {
+        expect($draft['prompt'])->not->toContain('kabel');
+    }
+
+    if ($type === AircoConnectionType::Power) {
+        expect($draft['meta']['photo_task_subtype'] ?? null)->toBe('power_route')
+            ->and($draft['meta']['expected_photo_subject'] ?? null)->toBe(PhotoSubject::PipeRoute->value)
+            ->and($draft['meta']['accepted_photo_subjects'] ?? [])->toContain(PhotoSubject::PipeRoute->value)
+            ->and($draft['meta']['accepted_photo_subjects'] ?? [])->toContain(PhotoSubject::OutdoorUnit->value)
+            ->and($draft['meta']['accepted_photo_subjects'] ?? [])->toContain(PhotoSubject::Fusebox->value);
+    }
+})->with([
+    'power' => [
+        AircoConnectionType::Power,
+        'power',
+        'Maak een foto van de plek waar de stroomkabel naar de buitenunit kan lopen, bijvoorbeeld langs de gevel of vanaf de meterkast.',
+    ],
+    'condensate' => [
+        AircoConnectionType::Condensate,
+        'condensate',
+        'Maak een foto van de plek waar de condensafvoer kan lozen, zoals een regenpijp, putje of goot.',
+    ],
+    'refrigerant' => [
+        AircoConnectionType::Refrigerant,
+        'refrigerant',
+        'Maak een foto van de route waar de koelleidingen kunnen lopen, bijvoorbeeld langs de gevel of door een muur.',
+    ],
+]);
+
+test('N25: routeSession next_photo_instruction wins over fallback template', function () {
+    $session = new class
+    {
+        public string $next_photo_instruction = 'Maak een foto van de bestaande goot op de gevel.';
+    };
+
+    $connection = (new AircoConnection)->forceFill([
+        'id' => 31,
+        'label' => 'Interne label',
+        'type' => AircoConnectionType::Power,
+        'status' => AircoConnectionStatus::NeedsEvidence,
+        'dossier_subject_id' => 50,
+    ]);
+    $connection->setRelation('fromPlacement', null);
+    $connection->setRelation('toPlacement', null);
+    $connection->setRelation('routeSession', $session);
+
+    $draft = app(ContextualCustomerTaskBuilder::class)->forConnection($connection);
+
+    expect($draft['prompt'])->toBe('Maak een foto van de bestaande goot op de gevel.')
+        ->and($draft['meta']['photo_task_subtype'] ?? null)->toBe('power_route');
 });
 
 test('approved connection has no customer ask', function () {
@@ -195,7 +276,9 @@ test('power mismatch blocker becomes customer retake prompt, not installer diagn
         ->and($draft['decision_area_key'])->toBe('power')
         ->and($draft['prompt'])->toBe('Maak een nieuwe, duidelijke foto van je meterkast')
         ->and($draft['prompt'])->not->toContain('handmatig controleren')
-        ->and($draft['prompt'])->not->toContain('Ontvangen foto lijkt');
+        ->and($draft['prompt'])->not->toContain('Ontvangen foto lijkt')
+        ->and($draft['meta']['photo_task_subtype'] ?? null)->toBe('fusebox')
+        ->and($draft['meta']['accepted_photo_subjects'] ?? [])->toBe([PhotoSubject::Fusebox->value]);
 });
 
 test('power meterkast blocker uses neutral customer text without phase choice', function () {
@@ -216,7 +299,8 @@ test('power meterkast blocker uses neutral customer text without phase choice', 
         ->and($draft['prompt'])->toContain('groepenkast volledig leesbaar')
         ->and($draft['prompt'])->toContain('installateur beoordeelt de aansluiting')
         ->and($draft['prompt'])->not->toContain('1- of 3-fase')
-        ->and($draft['prompt'])->not->toContain('Daaruit volgt');
+        ->and($draft['prompt'])->not->toContain('Daaruit volgt')
+        ->and($draft['meta']['photo_task_subtype'] ?? null)->toBe('fusebox');
 });
 
 test('photo suggestion does not double Maak-een prefix', function () {
