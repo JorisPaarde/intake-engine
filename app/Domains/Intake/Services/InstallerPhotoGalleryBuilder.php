@@ -330,17 +330,22 @@ final class InstallerPhotoGalleryBuilder
 
     private function captionForUnknown(IntakeUpload $upload): string
     {
-        $subject = PhotoSubject::expectedForPhotoQuestion($upload->question_key)
-            ?? $upload->contentAssessment()?->expectedSubject();
+        // drain_photo deelt expected OutdoorLocation met buitenplek; label via question key.
+        if ($upload->question_key === 'drain_photo') {
+            $base = 'Afvoerfoto';
+        } else {
+            $subject = PhotoSubject::expectedForPhotoQuestion($upload->question_key)
+                ?? $upload->contentAssessment()?->expectedSubject();
 
-        $base = match ($subject) {
-            PhotoSubject::Fusebox => 'Meterkastfoto',
-            PhotoSubject::Room => 'Ruimtefoto',
-            PhotoSubject::OutdoorUnit, PhotoSubject::OutdoorLocation => 'Foto van de plek voor de buitenunit',
-            PhotoSubject::PipeRoute => 'Leidingroutefoto',
-            PhotoSubject::IndoorUnit => 'Binnenunitfoto',
-            default => 'Foto',
-        };
+            $base = match ($subject) {
+                PhotoSubject::Fusebox => 'Meterkastfoto',
+                PhotoSubject::Room => 'Ruimtefoto',
+                PhotoSubject::OutdoorUnit, PhotoSubject::OutdoorLocation => 'Foto van de plek voor de buitenunit',
+                PhotoSubject::PipeRoute => 'Leidingroutefoto',
+                PhotoSubject::IndoorUnit => 'Binnenunitfoto',
+                default => 'Foto',
+            };
+        }
 
         if ($upload->followUpItem?->round !== null) {
             return $base.' (ronde '.(int) $upload->followUpItem->round->round_number.')';
