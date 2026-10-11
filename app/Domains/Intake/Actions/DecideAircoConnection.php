@@ -8,7 +8,9 @@ use App\Domains\Intake\Models\AircoConnection;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\PipeRouteSession;
+use App\Domains\Intake\Services\RefreshStoredIntakeReport;
 use App\Enums\AircoConnectionStatus;
+use App\Enums\AircoOptionStatus;
 use App\Enums\PipeRouteStatus;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -20,6 +22,10 @@ use Illuminate\Validation\ValidationException;
  */
 final class DecideAircoConnection
 {
+    public function __construct(
+        private readonly RefreshStoredIntakeReport $refreshStoredIntakeReport,
+    ) {}
+
     public function handle(
         Intake $intake,
         AircoConnection $connection,
@@ -42,7 +48,7 @@ final class DecideAircoConnection
             ]);
         }
 
-        return DB::transaction(function () use ($intake, $connection, $installer, $decision): AircoConnection {
+        $connection = DB::transaction(function () use ($intake, $connection, $installer, $decision): AircoConnection {
             Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
             $connection = AircoConnection::query()
                 ->whereKey($connection->id)
@@ -81,7 +87,7 @@ final class DecideAircoConnection
                     'created_at' => now(),
                 ]);
 
-                return $connection->fresh(['routeSession']) ?? $connection;
+                return $connection->fresh(['routeSession', 'installationOption']) ?? $connection;
             }
 
             if ($session?->status === PipeRouteStatus::Collecting) {
@@ -141,7 +147,16 @@ final class DecideAircoConnection
                 'created_at' => now(),
             ]);
 
-            return $connection->fresh(['routeSession']) ?? $connection;
+            return $connection->fresh(['routeSession', 'installationOption']) ?? $connection;
         }, 3);
+
+        if ($connection->installationOption->status === AircoOptionStatus::Selected) {
+            $freshIntake = Intake::query()->find($intake->id);
+            if ($freshIntake !== null) {
+                $this->refreshStoredIntakeReport->handle($freshIntake);
+            }
+        }
+
+        return $connection;
     }
 }

@@ -66,21 +66,18 @@ final class ConnectionRouteDecisionPresenter
             }
         }
 
-        $uncertainties = array_values(array_filter(
-            array_map(
-                static fn (string $item): string => trim($item),
-                is_array($connection->uncertainties) ? $connection->uncertainties : [],
-            ),
-            static fn (string $item): bool => $item !== '',
-        ));
-        $approveWarning = ($canApprove && $uncertainties !== [])
-            ? implode(' · ', $uncertainties)
+        $hasUncertainties = collect($connection->uncertainties ?? [])
+            ->contains(static fn (string $item): bool => trim($item) !== '');
+        $approveWarning = ($canApprove && $hasUncertainties)
+            ? 'Let op: er staan nog onzekerheden bij deze route.'
             : null;
 
+        // Collecting (e.g. new photo after approve/site_visit) beats alreadyDone so
+        // steps keep pointing at summarize instead of all showing done.
         $currentIndex = match (true) {
-            $alreadyDone => 4,
             $collecting && $segmentCount > 0 => 2,
             $collecting => 1,
+            $alreadyDone => 4,
             $proposedSession, $canApprove => 3,
             in_array($status, [
                 AircoConnectionStatus::Unknown,

@@ -10,6 +10,7 @@ use App\Domains\Intake\Models\AircoInstallationOption;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\AircoSurveyService;
+use App\Domains\Intake\Services\RefreshStoredIntakeReport;
 use App\Domains\Intake\Support\ConnectionRouteDecisionPresenter;
 use App\Enums\AircoConfigurationType;
 use App\Enums\AircoConnectionStatus;
@@ -206,7 +207,7 @@ test('proposed session met NeedsEvidence toont waarschuwing maar blijft goedkeur
         ->get(route('intakes.workspace', $intake))
         ->assertOk()
         ->assertSee('Route goedkeuren')
-        ->assertSee('Doorgang achter de kast is onzeker.')
+        ->assertSee('Let op: er staan nog onzekerheden bij deze route.')
         ->assertSee('data-testid="connection-route-approve-warning"', false)
         ->assertDontSee('data-testid="connection-route-approve-blocked"', false);
 
@@ -326,6 +327,55 @@ test('na goedkeuren zonder sessie blijft samenvatten bereikbaar via eigen foto e
     expect($intake->fresh()->status->value)->toBe('completed');
 });
 
+test('na goedkeuren met nieuwe foto wijzen stappen naar samenvatten in plaats van alles done', function () {
+    $user = User::factory()->create();
+    ['intake' => $intake, 'connection' => $connection] = createRouteDecisionWorkspace($user);
+
+    $this->actingAs($user)
+        ->post(route('intakes.workspace.connections.decide', [$intake, $connection]), [
+            'decision' => 'approve',
+        ])
+        ->assertRedirect();
+
+    expect($connection->fresh()->status)->toBe(AircoConnectionStatus::Approved);
+
+    $session = $intake->pipeRouteSessions()->create([
+        'airco_connection_id' => $connection->id,
+        'status' => PipeRouteStatus::Collecting,
+    ]);
+    $session->segments()->create([
+        'intake_upload_id' => null,
+        'sequence' => 1,
+        'label' => 'Nieuwe segmentfoto',
+    ]);
+
+    $connection = $connection->fresh(['routeSession.segments']);
+    expect($connection->status)->toBe(AircoConnectionStatus::Approved)
+        ->and($connection->routeSession?->status)->toBe(PipeRouteStatus::Collecting);
+
+    $decision = app(ConnectionRouteDecisionPresenter::class)->present($connection);
+    $currentSteps = array_values(array_filter(
+        $decision['steps'],
+        static fn (array $step): bool => $step['state'] === 'current',
+    ));
+    $doneCount = count(array_filter(
+        $decision['steps'],
+        static fn (array $step): bool => $step['state'] === 'done',
+    ));
+
+    expect($decision['show_summarize'])->toBeTrue()
+        ->and($currentSteps)->toHaveCount(1)
+        ->and($currentSteps[0]['label'])->toBe('Vat de route samen')
+        ->and($doneCount)->toBe(2)
+        ->and($doneCount)->not->toBe(4);
+
+    $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertSee('Vat de route samen')
+        ->assertSee('Route samenvatten');
+});
+
 test('site_visit tijdens collecting houdt samenvatten zichtbaar', function () {
     $user = User::factory()->create();
     ['intake' => $intake, 'connection' => $connection] = createRouteDecisionWorkspace($user);
@@ -361,4 +411,28 @@ test('verbinding van een andere opname geeft 404', function () {
             'decision' => 'approve',
         ])
         ->assertNotFound();
+});
+
+test('decide op geselecteerde keuze vernieuwt het opgeslagen rapport', function () {
+    $user = User::factory()->create();
+    ['intake' => $intake, 'connection' => $connection, 'condensate' => $condensate] = createRouteDecisionWorkspace($user);
+
+    $refresh = Mockery::mock(RefreshStoredIntakeReport::class);
+    $refresh->shouldReceive('handle')
+        ->twice()
+        ->with(Mockery::on(static fn (Intake $candidate): bool => $candidate->id === $intake->id))
+        ->andReturnNull();
+    $this->app->instance(RefreshStoredIntakeReport::class, $refresh);
+
+    $this->actingAs($user)
+        ->post(route('intakes.workspace.connections.decide', [$intake, $connection]), [
+            'decision' => 'approve',
+        ])
+        ->assertRedirect();
+
+    $this->actingAs($user)
+        ->post(route('intakes.workspace.connections.decide', [$intake, $condensate]), [
+            'decision' => 'site_visit',
+        ])
+        ->assertRedirect();
 });
