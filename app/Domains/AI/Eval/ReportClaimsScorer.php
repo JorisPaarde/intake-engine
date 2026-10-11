@@ -33,7 +33,6 @@ final class ReportClaimsScorer
         'indicatie',
         'te controleren',
         'controleer',
-        'gecontroleerd',
         'verifieer',
         'nagaan',
         'niet vast te stellen',
@@ -66,12 +65,16 @@ final class ReportClaimsScorer
     ];
 
     /**
-     * Extra check-instruction patterns treated as hedged (esp. hedged_only).
+     * Extra check-instruction / to-be-done patterns treated as hedged.
+     * Bare past "gecontroleerd" (already done) is NOT a hedge.
      *
      * @var list<string>
      */
     private const HEDGE_PATTERNS = [
         '/bevestiging.{0,48}(vereist|nodig)/iu',
+        '/gecontroleerd te worden/iu',
+        '/gecontroleerd worden/iu',
+        '/\b(moet|moeten|dient|dienen)\b.{0,48}\bgecontroleerd\b/iu',
     ];
 
     /**
@@ -385,7 +388,7 @@ final class ReportClaimsScorer
     {
         $lower = mb_strtolower($text);
         foreach (self::HEDGE_MARKERS as $marker) {
-            if (str_contains($lower, $marker)) {
+            if ($this->markerPresent($lower, $marker)) {
                 return true;
             }
         }
@@ -402,7 +405,7 @@ final class ReportClaimsScorer
     {
         $lower = mb_strtolower($text);
         foreach (self::CANNOT_DETERMINE_MARKERS as $marker) {
-            if (str_contains($lower, $marker)) {
+            if ($this->markerPresent($lower, $marker)) {
                 return true;
             }
         }
@@ -458,15 +461,11 @@ final class ReportClaimsScorer
             return str_contains($haystackLower, $marker);
         }
 
-        // Short tokens: word-ish boundary (avoids matching inside longer words).
-        if (mb_strlen($marker) <= 5) {
-            return @preg_match(
-                '/(^|[^\p{L}\p{N}])'.preg_quote($marker, '/').'([^\p{L}\p{N}]|$)/u',
-                $haystackLower,
-            ) === 1;
-        }
-
-        return str_contains($haystackLower, $marker);
+        // Single-token markers need a word boundary ("controleer" ∉ "gecontroleerd").
+        return @preg_match(
+            '/(^|[^\p{L}\p{N}])'.preg_quote($marker, '/').'([^\p{L}\p{N}]|$)/u',
+            $haystackLower,
+        ) === 1;
     }
 
     /**

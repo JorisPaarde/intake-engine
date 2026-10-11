@@ -448,6 +448,57 @@ test('named-photo conclusion wording stays unhedged even with conflict', functio
         ->and($scores['claim.capacity_full']['detail'])->toBe('unhedged_claim_for_hedged_only');
 });
 
+test('bare gecontroleerd is not a hedge; to-be-done form still is', function () {
+    $scorer = reportClaimsScorer();
+
+    expect($scorer->textLooksHedged('3-fase aansluiting gecontroleerd en aanwezig.'))->toBeFalse()
+        ->and($scorer->textLooksHedged('De groepenkast is gecontroleerd en volledig bezet.'))->toBeFalse()
+        ->and($scorer->textLooksHedged(
+            'Dit dient gecontroleerd te worden vanwege de gemiddelde zekerheid.',
+        ))->toBeTrue()
+        ->and($scorer->textLooksHedged('De fase moet nog gecontroleerd worden op locatie.'))->toBeTrue();
+
+    $phase = $scorer->scoreLayer(
+        [
+            'claims' => [[
+                'id' => 'phase_3',
+                'concept' => 'phase_3',
+                'allowed' => 'hedged_only',
+            ]],
+        ],
+        [
+            'summary' => '3-fase aansluiting gecontroleerd en aanwezig.',
+            'highlights' => [],
+        ],
+        [],
+        [],
+        ['C5'],
+    );
+
+    expect($phase['claim.phase_3']['status'])->toBe('wrong')
+        ->and($phase['claim.phase_3']['detail'])->toBe('unhedged_claim_for_hedged_only');
+
+    $capacity = $scorer->scoreLayer(
+        [
+            'claims' => [[
+                'id' => 'capacity_full',
+                'concept' => 'capacity_full',
+                'allowed' => 'hedged_only',
+            ]],
+        ],
+        [
+            'summary' => 'De groepenkast is gecontroleerd en volledig bezet.',
+            'highlights' => [],
+        ],
+        [],
+        [],
+        ['C5'],
+    );
+
+    expect($capacity['claim.capacity_full']['status'])->toBe('wrong')
+        ->and($capacity['claim.capacity_full']['detail'])->toBe('unhedged_claim_for_hedged_only');
+});
+
 test('comma and maar stay in the same clause so same-sentence caveats hedge', function () {
     $scorer = reportClaimsScorer();
     expect($scorer->splitClauses(
