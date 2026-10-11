@@ -74,7 +74,7 @@ test('airco latest template requires meterkast and around-house photos without a
     $around = $outdoor->questions()->where('key', 'around_house_photos')->firstOrFail();
 
     expect($fusebox->is_required)->toBeTrue()
-        ->and($around->is_required)->toBeTrue()
+        ->and($around->is_required)->toBe($version->version < 28)
         ->and($electrical->questions()->where('key', 'electrical_phase')->exists())->toBeFalse()
         ->and($electrical->questions()->where('key', 'fusebox_photo_extra')->exists())->toBeTrue()
         ->and($building->questions()->where('key', 'crawl_space_present')->exists())->toBeTrue()

@@ -257,6 +257,9 @@ class IntakeWizard extends Component
      */
     public array $pendingKnownEdits = [];
 
+    /** Show the m² field on the dimensions group (only m², not L×B). */
+    public bool $showAreaOnlyField = false;
+
     /**
      * Request-local caches (BL-025). Not public — Livewire does not dehydrate these
      * across requests; they only collapse duplicate queries within one lifecycle.
@@ -2813,6 +2816,14 @@ class IntakeWizard extends Component
     }
 
     /**
+     * Toon het m²-veld op het matenscherm (alleen oppervlak, zonder L×B).
+     */
+    public function revealAreaOnlyField(): void
+    {
+        $this->showAreaOnlyField = true;
+    }
+
+    /**
      * Optionele vraag overslaan (foto of short_text met allow_skip), zonder verplichte inhoud.
      */
     public function skipOptionalPhoto(): void
@@ -2836,8 +2847,18 @@ class IntakeWizard extends Component
             return;
         }
 
-        $allowSkip = ($question->meta['allow_skip'] ?? false) === true;
+        $allowSkip = ($question->meta['allow_skip'] ?? false) === true
+            || ($step['kind'] ?? 'question') === 'question_group';
         if (! $allowSkip && $step['is_required']) {
+            return;
+        }
+
+        if (($step['kind'] ?? 'question') === 'question_group') {
+            $this->showAreaOnlyField = false;
+            $this->showMissing = false;
+            $this->completionMissing = [];
+            $this->next();
+
             return;
         }
 
@@ -3063,6 +3084,7 @@ class IntakeWizard extends Component
 
         if ($this->stepIndex < count($steps) - 1) {
             $this->stepIndex = $this->stepIndex + 1;
+            $this->showAreaOnlyField = false;
             $this->syncActiveStepKey($steps);
             $this->rememberCurrentCursor();
             $this->hydrateFormFromAnswers();
@@ -3191,6 +3213,7 @@ class IntakeWizard extends Component
 
         $currentIndex ??= $this->stepIndex;
         $this->stepIndex = max(0, $currentIndex - 1);
+        $this->showAreaOnlyField = false;
         $this->syncActiveStepKey($steps);
         $this->rememberCurrentCursor();
         $this->hydrateFormFromAnswers();
@@ -3220,6 +3243,7 @@ class IntakeWizard extends Component
             $resolved = app(IntakeStepBuilder::class)->indexForStepKey($steps, $targetKey);
             $this->stepIndex = $resolved ?? max(0, min($index, count($steps) - 1));
         }
+        $this->showAreaOnlyField = false;
         $this->syncActiveStepKey($steps);
         $this->rememberCurrentCursor();
         $this->hydrateFormFromAnswers();
@@ -3498,6 +3522,14 @@ class IntakeWizard extends Component
 
         if (! is_array($payload)) {
             $payload = [];
+        }
+
+        // Leeg m² niet opslaan: anders overschrijft Volgende de derived_lxw uit L×B.
+        if ($questionKey === 'room_area_m2') {
+            $number = $payload['number'] ?? null;
+            if (! is_numeric($number) || (float) $number <= 0) {
+                return;
+            }
         }
 
         app(SaveIntakeAnswer::class)->handle(

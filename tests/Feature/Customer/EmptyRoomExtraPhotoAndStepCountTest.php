@@ -184,8 +184,7 @@ test('reference case wizard keys: geen route-foto, geen outdoor_mount, geen alti
         '_known_summary',
         'room_photos',
         'preferred_indoor_location',
-        'room_length_m',
-        'room_area_m2',
+        'room_length_m', // v28: room_area_m2 zit in dezelfde wizard_group
         'ceiling_height_m',
         'glazing_type',
         'floor_level',
