@@ -33,6 +33,8 @@ final class ReportClaimsScorer
         'mogelijk',
         'waarschijnlijk',
         'vermoedelijk',
+        'suggereert',
+        'wijst op',
         'niet zeker',
         'onduidelijk',
         'indicatie',

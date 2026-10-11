@@ -407,14 +407,14 @@ final class ReportClaimsCaseRunner
     }
 
     /**
-     * Measure-only: raw schema-enum hits in model_raw vs pipeline_final (N20).
-     * Product pipelines do not rewrite model text (ADR-0016); hits are logged only.
+     * Eval-only measurement: raw schema-enum hits in model_raw vs pipeline_final (N20).
+     * Not used in product paths; logs hits for the report_claims harness only.
      *
      * @param  array{summary: string, highlights: list<string>}|null  $rawSummary
      * @param  array{summary: string, highlights: list<string>}|null  $finalSummary
      * @param  list<array{code: string, label: string, confidence: string|null, evidence?: mixed}>|null  $rawPoints
      * @param  list<array{code: string, label: string, confidence: string|null, evidence?: mixed}>|null  $finalPoints
-     * @return array{changed: bool, model_raw_hits: list<string>, pipeline_final_hits: list<string>}
+     * @return array{model_raw_hits: list<string>, pipeline_final_hits: list<string>}
      */
     private function schemaEnumGuardMeta(
         ?array $rawSummary,
@@ -422,14 +422,9 @@ final class ReportClaimsCaseRunner
         ?array $rawPoints,
         ?array $finalPoints,
     ): array {
-        $rawHits = $this->collectSchemaEnumHits($rawSummary, $rawPoints);
-        $finalHits = $this->collectSchemaEnumHits($finalSummary, $finalPoints);
-
         return [
-            // Always false: product code must not rewrite model prose for enums.
-            'changed' => false,
-            'model_raw_hits' => $rawHits,
-            'pipeline_final_hits' => $finalHits,
+            'model_raw_hits' => $this->collectSchemaEnumHits($rawSummary, $rawPoints),
+            'pipeline_final_hits' => $this->collectSchemaEnumHits($finalSummary, $finalPoints),
         ];
     }
 

@@ -750,3 +750,31 @@ test('hedge markers need a word boundary only at the start', function () {
         ->and($scorer->textLooksHedged('De groepenkast is gecontroleerd en volledig bezet.'))->toBeFalse()
         ->and($scorer->textLooksHedged('De meterkastfoto toont een 3-fase aansluiting, maar dit dient bij installatie gecontroleerd te worden.'))->toBeTrue();
 });
+
+test('suggereert and wijst op count as hedge markers', function () {
+    $scorer = reportClaimsScorer();
+
+    expect($scorer->textLooksHedged('De meterkastfoto suggereert een 3-fase aansluiting.'))->toBeTrue()
+        ->and($scorer->textLooksHedged('De foto wijst op een volle groepenkast.'))->toBeTrue();
+
+    $scores = $scorer->scoreLayer(
+        [
+            'claims' => [
+                ['id' => 'phase_3', 'concept' => 'phase_3', 'allowed' => 'hedged_only'],
+                ['id' => 'capacity_full', 'concept' => 'capacity_full', 'allowed' => 'hedged_only'],
+            ],
+        ],
+        [
+            'summary' => 'De meterkastfoto suggereert een 3-fase aansluiting. De foto wijst op geen vrije moduleplek.',
+            'highlights' => [],
+        ],
+        [],
+        [],
+        ['C5'],
+    );
+
+    expect($scores['claim.phase_3']['status'])->toBe('correct')
+        ->and($scores['claim.phase_3']['detail'])->toBe('all_matches_hedged')
+        ->and($scores['claim.capacity_full']['status'])->toBe('correct')
+        ->and($scores['claim.capacity_full']['detail'])->toBe('all_matches_hedged');
+});

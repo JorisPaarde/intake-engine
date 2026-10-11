@@ -114,11 +114,11 @@ test('report_claims guard_meta logs schema enum hits without claiming a rewrite'
         'evidence' => [],
     ]];
 
-    /** @var array{changed: bool, model_raw_hits: list<string>, pipeline_final_hits: list<string>} $meta */
+    /** @var array{model_raw_hits: list<string>, pipeline_final_hits: list<string>} $meta */
     $meta = $method->invoke($runner, $summary, $summary, $points, $points);
 
-    expect($meta['changed'])->toBeFalse()
-        ->and($meta['model_raw_hits'])->toContain('none_visible')
+    expect($meta['model_raw_hits'])->toContain('none_visible')
         ->and($meta['model_raw_hits'])->toContain('three_phase')
-        ->and($meta['pipeline_final_hits'])->toBe($meta['model_raw_hits']);
+        ->and($meta['pipeline_final_hits'])->toBe($meta['model_raw_hits'])
+        ->and($meta)->not->toHaveKey('changed');
 });

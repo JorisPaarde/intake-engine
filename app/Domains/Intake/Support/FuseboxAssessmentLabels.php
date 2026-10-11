@@ -47,18 +47,4 @@ final class FuseboxAssessmentLabels
             default => $value,
         };
     }
-
-    /**
-     * Content-assessment status → short Dutch phrase for installer-facing copy.
-     * `ok` has no dedicated phrase (absence of a problem is not labeled).
-     */
-    public static function contentAssessmentStatus(string $status): ?string
-    {
-        return match ($status) {
-            'needs_clearer' => 'scherpere foto gewenst',
-            'wrong_subject' => 'verkeerd onderwerp',
-            'not_assessed' => 'nog niet automatisch beoordeeld',
-            default => null,
-        };
-    }
 }
