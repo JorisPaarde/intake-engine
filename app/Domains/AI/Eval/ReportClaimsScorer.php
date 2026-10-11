@@ -32,12 +32,24 @@ final class ReportClaimsScorer
         'onduidelijk',
         'indicatie',
         'te controleren',
+        'controleer',
+        'verifieer',
+        'nagaan',
         'zekerheid medium',
         'zekerheid laag',
         'zekerheid: medium',
         'zekerheid: laag',
         'confidence medium',
         'confidence low',
+    ];
+
+    /**
+     * Extra check-instruction patterns treated as hedged (esp. hedged_only).
+     *
+     * @var list<string>
+     */
+    private const HEDGE_PATTERNS = [
+        '/bevestiging.{0,48}(vereist|nodig)/iu',
     ];
 
     /**
@@ -272,6 +284,11 @@ final class ReportClaimsScorer
                 return true;
             }
         }
+        foreach (self::HEDGE_PATTERNS as $pattern) {
+            if (@preg_match($pattern, $text) === 1) {
+                return true;
+            }
+        }
 
         return false;
     }
@@ -432,9 +449,40 @@ final class ReportClaimsScorer
             ];
         }
 
-        // allowed === assert: presence required; unnecessary hedging fails.
-        $hedgedOnly = array_values(array_filter($matches, static fn (array $m): bool => $m['hedged']));
+        // allowed === assert: presence required.
+        // photo_conflict: no over-hedge penalty (naming the conflict may sound soft).
+        if ($claim['concept'] === 'photo_conflict') {
+            return [
+                'expected' => true,
+                'got' => true,
+                'detail' => 'assert_ok_photo_conflict',
+                'matches' => $matches,
+            ];
+        }
+
+        // Required claims: check summary layer separately so an over-hedged
+        // summary fails even when attention asserts firmly ("bevestigd").
+        $summaryMatches = array_values(array_filter(
+            $matches,
+            static fn (array $m): bool => in_array($m['kind'], ['summary_sentence', 'highlight'], true),
+        ));
+        if ($summaryMatches !== []) {
+            $summaryUnhedged = array_values(array_filter(
+                $summaryMatches,
+                static fn (array $m): bool => ! $m['hedged'],
+            ));
+            if ($summaryUnhedged === []) {
+                return [
+                    'expected' => true,
+                    'got' => false,
+                    'detail' => 'unnecessary_hedging_for_assert_on_summary',
+                    'matches' => $matches,
+                ];
+            }
+        }
+
         $unhedged = array_values(array_filter($matches, static fn (array $m): bool => ! $m['hedged']));
+        $hedgedOnly = array_values(array_filter($matches, static fn (array $m): bool => $m['hedged']));
         if ($unhedged === [] && $hedgedOnly !== []) {
             return [
                 'expected' => true,

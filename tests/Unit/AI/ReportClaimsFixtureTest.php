@@ -44,6 +44,18 @@ test('report_claims fixtures have required schema fields', function () {
             expect($summaryFact)->not->toHaveKey('photo_assessments');
         }
 
+        // Summary payload mirrors attention: uploads[] from stored content_assessment.
+        expect($decoded['summary_input'])->toHaveKey('uploads')
+            ->and($decoded['summary_input']['uploads'])->toBeArray();
+        foreach ($decoded['summary_input']['uploads'] as $row) {
+            expect($row)->toBeArray()
+                ->and($row)->toHaveKey('content_assessment')
+                ->and($row['content_assessment'])->toBeArray()
+                ->and($row['content_assessment'])->toHaveKey('status')
+                ->and($row['content_assessment'])->not->toHaveKey('phase')
+                ->and($row['content_assessment'])->not->toHaveKey('empty_module_space');
+        }
+
         $ids[] = $decoded['id'];
     }
 
@@ -82,5 +94,6 @@ test('clear-3ph fixture keeps prod fact confidence medium with high only on phot
 
     expect($decoded['summary_input']['external_facts']['fusebox_photo_assessment']['confidence'])->toBe('medium')
         ->and($decoded['summary_input']['external_facts']['fusebox_photo_assessment']['value']['confidence'])->toBe('high')
-        ->and($decoded['attention_input']['uploads'][0]['content_assessment']['confidence'])->toBe('high');
+        ->and($decoded['summary_input']['uploads'][0]['content_assessment']['status'])->toBe('ok')
+        ->and($decoded['attention_input']['uploads'][0]['content_assessment']['status'])->toBe('ok');
 });

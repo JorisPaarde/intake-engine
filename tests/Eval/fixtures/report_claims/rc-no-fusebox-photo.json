@@ -4,7 +4,7 @@
   "origin": "Control — no fusebox assessment present",
   "source_kind": "variant",
   "components": ["C5", "C7", "C8"],
-  "note": "No fusebox photo/assessment. Must not invent phase or capacity_full.",
+  "note": "No fusebox photo/assessment; summary uploads=[] matches prod. Must not invent phase or capacity_full.",
   "summary_input": {
     "answers": {
       "request_reason": {
@@ -14,6 +14,7 @@
     "external_facts": {},
     "follow_up": [],
     "attention_point_codes": [],
+    "uploads": [],
     "template_key": "airco",
     "template_version": 26
   },

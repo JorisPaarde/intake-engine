@@ -10,6 +10,8 @@ use App\Domains\AI\Jobs\SuggestAttentionPointsJob;
 use App\Domains\AI\Jobs\SummarizeIntakeJob;
 use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
 use App\Domains\AI\Models\AiRun;
+use App\Domains\AI\Support\PhotoContentAssessment;
+use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Actions\CompleteIntake;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
@@ -333,4 +335,38 @@ test('external summary payload strips internal ids and sensitive facts recursive
         'latitude',
         'longitude',
     );
+});
+
+test('summary payload includes per-photo content_assessment rows from stored uploads', function () {
+    FakeAiClient::alwaysReturn([
+        'summary' => 'Samenvatting met meterkastfoto-context voor de installateur.',
+        'highlights' => ['Per-foto beoordeling meegenomen.'],
+    ]);
+
+    $intake = makeAiIntake();
+    $upload = markTestUploadSatisfied(app(StoreIntakeUpload::class)->handle(
+        $intake,
+        'fusebox_photo',
+        null,
+        UploadedFile::fake()->image('fusebox.jpg', 640, 480),
+    ));
+    $upload->storeContentAssessment(
+        PhotoContentAssessment::needsClearer(
+            PhotoSubject::Fusebox,
+            'Maak een scherpere foto van de meterkast, recht van voren.',
+        ),
+    );
+
+    app(SummarizeIntake::class)->handle($intake->fresh());
+    $input = FakeAiClient::lastRequest()?->input;
+    expect($input)->toBeArray()
+        ->and($input)->toHaveKey('uploads')
+        ->and($input['uploads'])->toBeArray()
+        ->and($input['uploads'])->not->toBeEmpty();
+
+    $row = $input['uploads'][0];
+    expect($row)->toHaveKeys(['reference', 'question_key', 'content_assessment'])
+        ->and($row['question_key'])->toBe('fusebox_photo')
+        ->and($row['content_assessment']['status'])->toBe('needs_clearer')
+        ->and($row['content_assessment']['customer_message'])->toContain('scherpere foto');
 });

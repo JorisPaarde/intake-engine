@@ -108,14 +108,7 @@ final class IntakeAttentionContextBuilder
             // Rich, provenance-aware context for the integral analysis.
             'answer_context' => $answerContext,
             'external_fact_context' => $externalFactContext,
-            'uploads' => $intake->uploads
-                ->filter(static fn (IntakeUpload $upload): bool => $upload->isDossierEvidenceEligible())
-                ->map(
-                    fn (IntakeUpload $upload): array => $this->uploadContext(
-                        $upload,
-                        $questions[$upload->question_key] ?? null,
-                    ),
-                )->values()->all(),
+            'uploads' => $this->mapUploadAssessmentRows($intake, $questions),
             'follow_up' => $this->followUpContext($intake),
             'system_attention_points' => $intake->attentionPoints
                 ->reject(fn ($point): bool => $point->source === AttentionPointSource::Ai)
@@ -170,6 +163,38 @@ final class IntakeAttentionContextBuilder
     public function isSensitiveFactKey(string $factKey): bool
     {
         return in_array($factKey, self::SENSITIVE_FACT_KEYS, true);
+    }
+
+    /**
+     * Per-photo assessment rows from stored upload content_assessment (no new fields).
+     * Shared by attention-points context and the summary payload.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function uploadAssessmentRows(Intake $intake): array
+    {
+        $intake->loadMissing([
+            'uploads',
+            'templateVersion.sections.questions',
+        ]);
+
+        return $this->mapUploadAssessmentRows($intake, $this->questionContext($intake));
+    }
+
+    /**
+     * @param  array<string, array{question_label: string, section_key: string|null, section_label: string|null}>  $questions
+     * @return list<array<string, mixed>>
+     */
+    private function mapUploadAssessmentRows(Intake $intake, array $questions): array
+    {
+        return $intake->uploads
+            ->filter(static fn (IntakeUpload $upload): bool => $upload->isDossierEvidenceEligible())
+            ->map(
+                fn (IntakeUpload $upload): array => $this->uploadContext(
+                    $upload,
+                    $questions[$upload->question_key] ?? null,
+                ),
+            )->values()->all();
     }
 
     /**

@@ -30,6 +30,25 @@
     },
     "follow_up": [],
     "attention_point_codes": [],
+    "uploads": [
+      {
+        "reference": "fusebox_photo@upload:upload_clear",
+        "question_key": "fusebox_photo",
+        "question_label": "Foto van de meterkast",
+        "section_label": "Stroom",
+        "section_instance_key": null,
+        "context": "intake",
+        "mime_type": "image/jpeg",
+        "size_bytes": 1500000,
+        "usability_verdict": "usable",
+        "content_assessment": {
+          "status": "ok",
+          "expected_subject": "fusebox",
+          "detected_subject": "fusebox",
+          "customer_message": null
+        }
+      }
+    ],
     "template_key": "airco",
     "template_version": 26
   },
@@ -79,12 +98,7 @@
           "status": "ok",
           "expected_subject": "fusebox",
           "detected_subject": "fusebox",
-          "customer_message": null,
-          "phase": "three_phase",
-          "empty_module_space": "visible",
-          "confidence": "high",
-          "retake_requested": false,
-          "evidence": "Hoofdschakelaar toont drie fasen; lege moduleplekken zichtbaar."
+          "customer_message": null
         }
       }
     ],

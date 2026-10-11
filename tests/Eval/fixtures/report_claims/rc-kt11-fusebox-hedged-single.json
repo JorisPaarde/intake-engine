@@ -27,6 +27,25 @@
     },
     "follow_up": [],
     "attention_point_codes": [],
+    "uploads": [
+      {
+        "reference": "fusebox_photo@upload:upload_hedged",
+        "question_key": "fusebox_photo",
+        "question_label": "Foto van de meterkast",
+        "section_label": "Stroom",
+        "section_instance_key": null,
+        "context": "intake",
+        "mime_type": "image/jpeg",
+        "size_bytes": 900000,
+        "usability_verdict": "usable",
+        "content_assessment": {
+          "status": "ok",
+          "expected_subject": "fusebox",
+          "detected_subject": "fusebox",
+          "customer_message": null
+        }
+      }
+    ],
     "template_key": "airco",
     "template_version": 26
   },
@@ -76,12 +95,7 @@
           "status": "ok",
           "expected_subject": "fusebox",
           "detected_subject": "fusebox",
-          "customer_message": null,
-          "phase": "three_phase",
-          "empty_module_space": "unknown",
-          "confidence": "medium",
-          "retake_requested": false,
-          "evidence": "3-fase lijkt zichtbaar op de meterkastfoto"
+          "customer_message": null
         }
       }
     ],

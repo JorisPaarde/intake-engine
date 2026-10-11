@@ -25,13 +25,13 @@ function baselineConflictSummary(): array
     ];
 }
 
-test('literal baseline conflict capacity claims fail even when hedged with oogt', function () {
+test('literal baseline oogt capacity is hedged_only pass; hard fully occupied highlight fails', function () {
     $expected = [
         'claims' => [
             [
                 'id' => 'capacity_full',
                 'concept' => 'capacity_full',
-                'allowed' => 'forbidden',
+                'allowed' => 'hedged_only',
             ],
             [
                 'id' => 'phase_3',
@@ -41,35 +41,53 @@ test('literal baseline conflict capacity claims fail even when hedged with oogt'
         ],
     ];
 
-    $points = [[
-        'code' => 'no_free_group',
-        'label' => 'Geen vrije moduleplaatsen in groepenkast',
-        'confidence' => 'medium',
-        'evidence' => [['source_type' => 'upload', 'reference' => 'fusebox_photo@upload:upload_large']],
-    ]];
-
     $scores = reportClaimsScorer()->scoreLayer(
         $expected,
         baselineConflictSummary(),
-        $points,
+        [],
         [],
         ['C5', 'C7', 'C8'],
     );
 
-    expect($scores['summary_output']['status'])->toBe('correct')
-        ->and($scores['attention_output']['status'])->toBe('correct')
-        ->and($scores['claim.capacity_full']['status'])->toBe('wrong')
-        ->and($scores['claim.capacity_full']['detail'])->toBe('forbidden_concept_present')
+    expect($scores['claim.capacity_full']['status'])->toBe('wrong')
+        ->and($scores['claim.capacity_full']['detail'])->toBe('unhedged_claim_for_hedged_only')
         ->and($scores['claim.phase_3']['status'])->toBe('correct');
 });
 
-test('unhedged attention capacity fact fails forbidden capacity_full', function () {
+test('check-instruction wording counts as hedged for hedged_only capacity', function () {
     $scores = reportClaimsScorer()->scoreLayer(
         [
             'claims' => [[
                 'id' => 'capacity_full',
                 'concept' => 'capacity_full',
-                'allowed' => 'forbidden',
+                'allowed' => 'hedged_only',
+            ]],
+        ],
+        [
+            'summary' => 'Controleer of de groepenkast volledig bezet is; bevestiging van vrije moduleplek is vereist.',
+            'highlights' => ['Verifieer: geen vrije moduleplaatsen — te controleren'],
+        ],
+        [[
+            'code' => 'verify_capacity',
+            'label' => 'Nagaan of uitbreiding nodig is',
+            'confidence' => 'medium',
+            'evidence' => [['source_type' => 'upload', 'reference' => 'fusebox_photo@upload:x']],
+        ]],
+        [],
+        ['C5'],
+    );
+
+    expect($scores['claim.capacity_full']['status'])->toBe('correct')
+        ->and($scores['claim.capacity_full']['detail'])->toBe('all_matches_hedged');
+});
+
+test('unhedged attention capacity fact fails hedged_only capacity_full', function () {
+    $scores = reportClaimsScorer()->scoreLayer(
+        [
+            'claims' => [[
+                'id' => 'capacity_full',
+                'concept' => 'capacity_full',
+                'allowed' => 'hedged_only',
             ]],
         ],
         [
@@ -145,7 +163,7 @@ test('clear control counts driefasige aansluiting zichtbaar as phase_3 assert', 
         ->and($scores['claim.phase_3']['detail'])->toBe('assert_ok');
 });
 
-test('unnecessary hedging fails allowed assert control', function () {
+test('over-hedged summary fails assert even when attention says bevestigd', function () {
     $scores = reportClaimsScorer()->scoreLayer(
         [
             'claims' => [[
@@ -158,13 +176,40 @@ test('unnecessary hedging fails allowed assert control', function () {
             'summary' => 'Op de scherpe meterkastfoto lijkt een 3-fase aansluiting zichtbaar.',
             'highlights' => ['3-fase lijkt zichtbaar'],
         ],
-        [],
+        [[
+            'code' => 'three_phase_confirmed',
+            'label' => '3-fase aansluiting bevestigd',
+            'confidence' => 'high',
+            'evidence' => [['source_type' => 'upload', 'reference' => 'fusebox_photo@upload:upload_clear']],
+        ]],
         [],
         ['C5'],
     );
 
     expect($scores['claim.phase_3']['status'])->toBe('wrong')
-        ->and($scores['claim.phase_3']['detail'])->toBe('unnecessary_hedging_for_assert');
+        ->and($scores['claim.phase_3']['detail'])->toBe('unnecessary_hedging_for_assert_on_summary');
+});
+
+test('photo_conflict assert does not penalize soft conflict wording', function () {
+    $scores = reportClaimsScorer()->scoreLayer(
+        [
+            'claims' => [[
+                'id' => 'photo_conflict',
+                'concept' => 'photo_conflict',
+                'allowed' => 'assert',
+            ]],
+        ],
+        [
+            'summary' => 'De meterkastfoto’s wijken af; de eerste foto is mogelijk onscherp — te controleren.',
+            'highlights' => ['Mogelijk conflict tussen foto 1 en foto 2'],
+        ],
+        [],
+        [],
+        ['C5'],
+    );
+
+    expect($scores['claim.photo_conflict']['status'])->toBe('correct')
+        ->and($scores['claim.photo_conflict']['detail'])->toBe('assert_ok_photo_conflict');
 });
 
 test('empty or rejected layer fails and does not auto-pass claims', function () {

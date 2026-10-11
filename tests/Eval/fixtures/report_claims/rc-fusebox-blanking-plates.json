@@ -4,7 +4,7 @@
   "origin": "IE test run 11 Oct 2026 — blanking plates visible; free capacity not proven",
   "source_kind": "variant",
   "components": ["C5", "C7", "C8"],
-  "note": "empty_module_space unknown (deels afgedekt). Must not assert capacity_full or invent phase.",
+  "note": "empty_module_space unknown (deels afgedekt). Prod-shaped uploads[].content_assessment. Must not assert capacity_full or invent phase.",
   "summary_input": {
     "answers": {
       "fusebox_photo": {
@@ -27,6 +27,25 @@
     },
     "follow_up": [],
     "attention_point_codes": [],
+    "uploads": [
+      {
+        "reference": "fusebox_photo@upload:upload_blanking",
+        "question_key": "fusebox_photo",
+        "question_label": "Foto van de meterkast",
+        "section_label": "Stroom",
+        "section_instance_key": null,
+        "context": "intake",
+        "mime_type": "image/jpeg",
+        "size_bytes": 1100000,
+        "usability_verdict": "usable",
+        "content_assessment": {
+          "status": "ok",
+          "expected_subject": "fusebox",
+          "detected_subject": "fusebox",
+          "customer_message": null
+        }
+      }
+    ],
     "template_key": "airco",
     "template_version": 26
   },
@@ -76,12 +95,7 @@
           "status": "ok",
           "expected_subject": "fusebox",
           "detected_subject": "fusebox",
-          "customer_message": null,
-          "phase": "unknown",
-          "empty_module_space": "unknown",
-          "confidence": "medium",
-          "retake_requested": false,
-          "evidence": "Meterkastfoto deels afgedekt met afdekplaatjes; vrije moduleplek niet betrouwbaar vast te stellen."
+          "customer_message": null
         }
       }
     ],
