@@ -384,6 +384,58 @@ test('cannot-determine marker in another semicolon clause does not clear a hard 
         ->and($phase['must_not_invent_phase']['status'])->toBe('wrong');
 });
 
+test('1-fase/3-fase as alternatives is cannot-determine; onzeker is a hedge', function () {
+    $scorer = reportClaimsScorer();
+
+    expect($scorer->textLooksCannotDetermine(
+        'controleer of er sprake is van een 1-fase of 3-fase aansluiting',
+    ))->toBeTrue()
+        ->and($scorer->textLooksHedged('De 3-fase aansluiting is onzeker'))->toBeTrue()
+        // Existing probes stay: hard claim + cannot-determine in another clause still fails.
+        ->and($scorer->textLooksHedged('3-fase aansluiting gecontroleerd en aanwezig'))->toBeFalse()
+        ->and($scorer->textLooksCannotDetermine('3-fase aansluiting gecontroleerd en aanwezig'))->toBeFalse();
+
+    $capacity = $scorer->scoreLayer(
+        [
+            'claims' => [[
+                'id' => 'capacity_full',
+                'concept' => 'capacity_full',
+                'allowed' => 'forbidden',
+            ]],
+        ],
+        [
+            'summary' => 'Groepenkast volledig bezet; aantal fasen onbekend.',
+            'highlights' => [],
+        ],
+        [],
+        [],
+        ['C5'],
+    );
+
+    expect($capacity['claim.capacity_full']['status'])->toBe('wrong')
+        ->and($capacity['claim.capacity_full']['detail'])->toBe('forbidden_concept_present');
+
+    $phaseHard = $scorer->scoreLayer(
+        [
+            'claims' => [[
+                'id' => 'phase_3',
+                'concept' => 'phase_3',
+                'allowed' => 'hedged_only',
+            ]],
+        ],
+        [
+            'summary' => '3-fase aansluiting gecontroleerd en aanwezig.',
+            'highlights' => [],
+        ],
+        [],
+        [],
+        ['C5'],
+    );
+
+    expect($phaseHard['claim.phase_3']['status'])->toBe('wrong')
+        ->and($phaseHard['claim.phase_3']['detail'])->toBe('unhedged_claim_for_hedged_only');
+});
+
 test('named-photo attribution is hedged_only only when same layer names conflict', function () {
     $withConflict = reportClaimsScorer()->scoreLayer(
         [
