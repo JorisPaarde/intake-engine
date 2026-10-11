@@ -20,6 +20,14 @@
     @if (! empty($ask['dossier_subject_id']))
         <input type="hidden" name="dossier_subject_id" value="{{ $ask['dossier_subject_id'] }}">
     @endif
+    @php
+        $photoTaskSubtype = is_array($ask['meta'] ?? null)
+            ? ($ask['meta']['photo_task_subtype'] ?? null)
+            : null;
+    @endphp
+    @if (is_string($photoTaskSubtype) && $photoTaskSubtype !== '' && in_array($photoTaskSubtype, \App\Domains\AI\Support\PhotoSubject::PHOTO_TASK_SUBTYPES, true))
+        <input type="hidden" name="photo_task_subtype" value="{{ $photoTaskSubtype }}">
+    @endif
     <button
         type="submit"
         title="{{ $ask['prompt'] }}"

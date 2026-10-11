@@ -1401,6 +1401,7 @@
                                         $draftPrompt = is_array($slotDraft) ? ($slotDraft['prompt'] ?? '') : '';
                                         $draftArea = is_array($slotDraft) ? ($slotDraft['decision_area_key'] ?? '') : '';
                                         $draftSubjectId = is_array($slotDraft) ? ($slotDraft['dossier_subject_id'] ?? null) : null;
+                                        $draftPhotoSubtype = is_array($slotDraft) ? ($slotDraft['photo_task_subtype'] ?? null) : null;
                                     @endphp
                                     <fieldset class="rounded-2xl border border-gray-200 bg-white p-3" @if ($draftPrompt !== '') data-testid="customer-task-draft-slot" @endif>
                                         <legend class="px-1 text-xs font-semibold text-gray-500">Opdracht {{ $index + 1 }}{{ $index > 0 && $draftPrompt === '' ? ' (optioneel)' : '' }}</legend>
@@ -1418,6 +1419,9 @@
                                         </select>
                                         @if ($draftSubjectId)
                                             <input type="hidden" name="contribution_items[{{ $index }}][dossier_subject_id]" value="{{ $draftSubjectId }}">
+                                        @endif
+                                        @if (is_string($draftPhotoSubtype) && $draftPhotoSubtype !== '' && in_array($draftPhotoSubtype, \App\Domains\AI\Support\PhotoSubject::PHOTO_TASK_SUBTYPES, true))
+                                            <input type="hidden" name="contribution_items[{{ $index }}][photo_task_subtype]" value="{{ $draftPhotoSubtype }}">
                                         @endif
                                     </fieldset>
                                 @endfor

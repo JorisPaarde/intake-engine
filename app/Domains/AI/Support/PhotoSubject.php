@@ -22,6 +22,63 @@ enum PhotoSubject: string
     case IndoorUnit = 'indoor_unit';
     case Other = 'other';
 
+    /** Whitelisted contribution-task photo subtypes (browser may post only these). */
+    public const PHOTO_TASK_SUBTYPES = [
+        'power_route',
+        'fusebox',
+        'around_house',
+    ];
+
+    /**
+     * Single server mapping: photo_task_subtype → accepted subjects.
+     * Never accept a subjects list from the browser.
+     *
+     * @return list<self>|null
+     */
+    public static function acceptedSubjectsForSubtype(string $subtype): ?array
+    {
+        return match ($subtype) {
+            'power_route' => [
+                self::PipeRoute,
+                self::OutdoorUnit,
+                self::OutdoorLocation,
+                self::Fusebox,
+            ],
+            'fusebox' => [self::Fusebox],
+            'around_house' => [
+                self::OutdoorLocation,
+                self::OutdoorUnit,
+            ],
+            default => null,
+        };
+    }
+
+    /**
+     * Task meta authored on the server from a whitelisted subtype.
+     *
+     * @return array{
+     *     photo_task_subtype: string,
+     *     expected_photo_subject: string,
+     *     accepted_photo_subjects: list<string>
+     * }|null
+     */
+    public static function photoTaskMetaForSubtype(string $subtype): ?array
+    {
+        $accepted = self::acceptedSubjectsForSubtype($subtype);
+        if ($accepted === null || $accepted === []) {
+            return null;
+        }
+
+        return [
+            'photo_task_subtype' => $subtype,
+            'expected_photo_subject' => $accepted[0]->value,
+            'accepted_photo_subjects' => array_map(
+                static fn (self $subject): string => $subject->value,
+                $accepted,
+            ),
+        ];
+    }
+
     public function dutchLabel(): string
     {
         return match ($this) {
@@ -197,7 +254,18 @@ enum PhotoSubject: string
             return null;
         }
 
-        $fromMeta = self::subjectsFromTaskMeta($task->meta);
+        $meta = is_array($task->meta) ? $task->meta : null;
+        $subtype = is_string($meta['photo_task_subtype'] ?? null)
+            ? (string) $meta['photo_task_subtype']
+            : '';
+        if ($subtype !== '') {
+            $fromSubtype = self::acceptedSubjectsForSubtype($subtype);
+            if ($fromSubtype !== null) {
+                return $fromSubtype;
+            }
+        }
+
+        $fromMeta = self::subjectsFromTaskMeta($meta);
         if ($fromMeta !== null) {
             return $fromMeta;
         }

@@ -145,7 +145,7 @@ final class FollowUpContributionPresenter
                 'response_text' => $item->response_text,
                 'uploads' => $uploads,
                 'ai_facts' => array_values(array_unique($aiFacts)),
-                'installer_decides' => $this->installerDecidesCopy($task->decision_area_key, $requestedKey),
+                'installer_decides' => $this->installerDecidesCopy($task, $requestedKey),
                 'heading' => $review['heading'],
                 'review_href' => $review['href'],
                 'review_label' => $review['label'],
@@ -194,9 +194,12 @@ final class FollowUpContributionPresenter
 
     /**
      * Capacity hints follow the requested key of the task (UX-uitkomst #15.2), not only the area.
+     * Power copy follows structured task meta (route vs meterkast), never prompt keywords.
      */
-    private function installerDecidesCopy(?string $decisionAreaKey, ?string $requestedKey): string
+    private function installerDecidesCopy(ContributionTask $task, ?string $requestedKey): string
     {
+        $decisionAreaKey = $task->decision_area_key;
+
         if ($decisionAreaKey === 'capacity') {
             return match ($requestedKey) {
                 self::KEY_LENGTH_WIDTH => 'Jij beslist of deze maten kloppen voor de capaciteit.',
@@ -206,8 +209,16 @@ final class FollowUpContributionPresenter
             };
         }
 
+        if ($decisionAreaKey === 'power') {
+            $meta = is_array($task->meta) ? $task->meta : [];
+            if (($meta['photo_task_subtype'] ?? null) === 'power_route') {
+                return 'Jij beslist over de stroomroute en of er een controle op locatie nodig is.';
+            }
+
+            return 'Jij beslist of de meterkast leesbaar genoeg is voor 1- of 3-fase en de technische route.';
+        }
+
         return match ($decisionAreaKey) {
-            'power' => 'Jij beslist of de meterkast leesbaar genoeg is voor 1- of 3-fase en de technische route.',
             'placement' => 'Jij beslist over unitplaats en montage; dit bewijs vult alleen de gevel-/tuincontext.',
             'refrigerant', 'condensate' => 'Jij beslist over de technische route en of er nog een controle op locatie nodig is.',
             default => 'Jij beslist wat dit bewijs betekent voor offerte en plaatsing.',

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Actions;
 
+use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Models\ContributionTask;
 use App\Domains\Intake\Models\DossierSubject;
 use App\Domains\Intake\Models\Intake;
@@ -38,6 +39,7 @@ final class CreateCustomerContributionRequest
      *     prompt: mixed,
      *     decision_area_key?: mixed,
      *     dossier_subject_id?: mixed,
+     *     photo_task_subtype?: mixed,
      *     meta?: mixed
      * }>  $items
      */
@@ -69,6 +71,8 @@ final class CreateCustomerContributionRequest
         ];
 
         foreach ($items as $item) {
+            $subtype = $item['photo_task_subtype']
+                ?? (is_array($item['meta'] ?? null) ? ($item['meta']['photo_task_subtype'] ?? null) : null);
             if (trim((string) $item['prompt']) === ''
                 || mb_strlen((string) $item['prompt']) > 500
                 || (array_key_exists('dossier_subject_id', $item)
@@ -78,7 +82,9 @@ final class CreateCustomerContributionRequest
                     && ! in_array($item['decision_area_key'], $allowedDecisionAreas, true))
                 || (array_key_exists('meta', $item)
                     && $item['meta'] !== null
-                    && ! is_array($item['meta']))) {
+                    && ! is_array($item['meta']))
+                || ($subtype !== null
+                    && (! is_string($subtype) || ! in_array($subtype, PhotoSubject::PHOTO_TASK_SUBTYPES, true)))) {
                 throw ValidationException::withMessages([
                     'contribution_items' => 'Iedere klantopdracht moet concreet, kort en aan een geldig beslisgebied gekoppeld zijn.',
                 ]);
@@ -87,6 +93,7 @@ final class CreateCustomerContributionRequest
 
         $items = array_map(static function (array $item): array {
             $item['prompt'] = CustomerFacingTaskText::ensureCustomerFacing(trim((string) $item['prompt']));
+            $item['meta'] = self::normalizePhotoTaskMeta($item);
 
             return $item;
         }, $items);
@@ -182,10 +189,7 @@ final class CreateCustomerContributionRequest
                     'decision_area_key' => $item['decision_area_key'] ?? null,
                     'status' => ContributionTaskStatus::Open,
                     'requested_by' => $requester->id,
-                    'meta' => array_merge(
-                        is_array($item['meta'] ?? null) ? $item['meta'] : [],
-                        ['round_number' => $roundNumber],
-                    ),
+                    'meta' => array_merge($item['meta'], ['round_number' => $roundNumber]),
                 ]);
             }
 
@@ -226,5 +230,34 @@ final class CreateCustomerContributionRequest
         $this->dossierManager->initialize($intake->fresh() ?? $intake);
 
         return $round;
+    }
+
+    /**
+     * Keep non-photo meta (e.g. requested_field) but never trust browser subject lists.
+     * Subtype → expected/accepted subjects is mapped only on the server.
+     *
+     * @param  array<string, mixed>  $item
+     * @return array<string, mixed>
+     */
+    private static function normalizePhotoTaskMeta(array $item): array
+    {
+        $meta = is_array($item['meta'] ?? null) ? $item['meta'] : [];
+        unset($meta['accepted_photo_subjects'], $meta['expected_photo_subject']);
+
+        $subtype = $item['photo_task_subtype'] ?? ($meta['photo_task_subtype'] ?? null);
+        if (! is_string($subtype) || $subtype === '') {
+            unset($meta['photo_task_subtype']);
+
+            return $meta;
+        }
+
+        $mapped = PhotoSubject::photoTaskMetaForSubtype($subtype);
+        if ($mapped === null) {
+            unset($meta['photo_task_subtype']);
+
+            return $meta;
+        }
+
+        return array_merge($meta, $mapped);
     }
 }
