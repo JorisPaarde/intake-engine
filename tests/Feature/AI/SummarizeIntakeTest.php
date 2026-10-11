@@ -22,6 +22,7 @@ use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Domains\Intake\Services\CompletenessChecker;
+use App\Domains\Intake\Services\InstallerPhotoGalleryBuilder;
 use App\Enums\AiRunStatus;
 use App\Enums\AttentionPointSource;
 use App\Enums\AttentionPointStatus;
@@ -371,4 +372,50 @@ test('summary payload includes per-photo content_assessment rows from stored upl
         ->and($row['question_label'])->toBeString()
         ->and($row['content_assessment']['status'])->toBe('needs_clearer')
         ->and($row['content_assessment']['customer_message'])->toContain('scherpere foto');
+});
+
+test('AI upload order matches gallery numbering when first meterkast photo is wrong subject', function () {
+    FakeAiClient::alwaysReturn([
+        'summary' => 'Samenvatting met genummerde meterkastfoto’s.',
+        'highlights' => ['Galerijnummering'],
+    ]);
+
+    $intake = makeAiIntake();
+    $store = app(StoreIntakeUpload::class);
+
+    $rejected = $store->handle(
+        $intake,
+        'fusebox_photo',
+        null,
+        UploadedFile::fake()->image('fusebox-wrong.jpg', 640, 480),
+    );
+    $rejected->storeContentAssessment(
+        PhotoContentAssessment::wrongSubject(PhotoSubject::Fusebox, PhotoSubject::Room),
+    );
+
+    // Different dimensions → different checksum (identical fakes would dedupe).
+    $replacement = markTestUploadSatisfied($store->handle(
+        $intake->fresh(),
+        'fusebox_photo',
+        null,
+        UploadedFile::fake()->image('fusebox-ok.jpg', 800, 600),
+    ));
+    $replacement->storeContentAssessment(PhotoContentAssessment::ok(PhotoSubject::Fusebox));
+
+    $fresh = $intake->fresh(['uploads']);
+    expect($fresh->uploads)->toHaveCount(2);
+
+    $galleryOrders = app(InstallerPhotoGalleryBuilder::class)
+        ->photoOrdersByUploadId($fresh);
+
+    expect($galleryOrders[(int) $rejected->id])->toBe(1)
+        ->and($galleryOrders[(int) $replacement->id])->toBe(2)
+        ->and($rejected->fresh()->isDossierEvidenceEligible())->toBeFalse()
+        ->and($replacement->fresh()->isDossierEvidenceEligible())->toBeTrue();
+
+    app(SummarizeIntake::class)->handle($fresh);
+    $input = FakeAiClient::lastRequest()?->input;
+    expect($input['uploads'])->toHaveCount(1)
+        ->and($input['uploads'][0]['order'])->toBe(2)
+        ->and($input['uploads'][0]['question_key'])->toBe('fusebox_photo');
 });

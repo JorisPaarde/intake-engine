@@ -234,13 +234,10 @@ test('photo_conflict terms match onvoldoende scherp and wisselende beeldkwalitei
         ->and($scores['claim.photo_conflict']['detail'])->toBe('assert_ok_photo_conflict');
 });
 
-test('internal upload_ tokens in summary or attention fail global check', function () {
-    $scorer = reportClaimsScorer();
-    expect($scorer->textLooksLikeInternalUploadReference(
-        'Zie upload_ab12cd34ef56 voor de meterkast',
-    ))->toBeTrue();
+test('exact input references in prose fail; upload_quality_low code does not', function () {
+    $ref = 'fusebox_photo@upload:upload_blurry';
 
-    $scores = $scorer->scoreLayer(
+    $leak = reportClaimsScorer()->scoreLayer(
         [
             'claims' => [[
                 'id' => 'phase_3',
@@ -249,22 +246,114 @@ test('internal upload_ tokens in summary or attention fail global check', functi
             ]],
         ],
         [
-            'summary' => 'Controleer fusebox_photo@upload:upload_blurry opnieuw.',
+            'summary' => "Controleer {$ref} opnieuw.",
             'highlights' => ['Geen faseclaim'],
         ],
         [[
-            'code' => 'photo_quality',
-            'label' => 'Eerste foto (upload_deadbeef012345) onscherp',
+            'code' => 'upload_quality_low',
+            'label' => 'Eerste meterkastfoto onscherp',
             'confidence' => 'medium',
-            'evidence' => [['source_type' => 'upload', 'reference' => 'fusebox_photo@upload:upload_blurry']],
+            'evidence' => [['source_type' => 'upload', 'reference' => $ref]],
         ]],
+        [],
+        ['C5'],
+        ['input_references' => [$ref]],
+    );
+
+    expect($leak['no_internal_upload_refs']['status'])->toBe('wrong')
+        ->and($leak['no_internal_upload_refs']['detail'])->toBe('internal_upload_ref_in_text')
+        ->and($leak['no_internal_upload_refs']['hits'])->not->toBeEmpty();
+
+    $clean = reportClaimsScorer()->scoreLayer(
+        [
+            'claims' => [[
+                'id' => 'phase_3',
+                'concept' => 'phase_3',
+                'allowed' => 'forbidden',
+            ]],
+        ],
+        [
+            'summary' => 'Controleer de eerste meterkastfoto opnieuw.',
+            'highlights' => ['Geen faseclaim'],
+        ],
+        [[
+            'code' => 'upload_quality_low',
+            'label' => 'Eerste meterkastfoto onscherp',
+            'confidence' => 'medium',
+            'evidence' => [['source_type' => 'upload', 'reference' => $ref]],
+        ]],
+        [],
+        ['C5'],
+        ['input_references' => [$ref]],
+    );
+
+    expect($clean['no_internal_upload_refs']['status'])->toBe('correct')
+        ->and($clean['no_internal_upload_refs']['detail'])->toBe('clean');
+});
+
+test('cannot-determine phase sentence is not forbidden and counts as hedged', function () {
+    $scores = reportClaimsScorer()->scoreLayer(
+        [
+            'claims' => [
+                ['id' => 'phase_3', 'concept' => 'phase_3', 'allowed' => 'hedged_only'],
+                ['id' => 'capacity_full', 'concept' => 'capacity_full', 'allowed' => 'forbidden'],
+            ],
+            'must_not_invent_phase' => true,
+        ],
+        [
+            'summary' => 'Het aantal fasen is niet vast te stellen door afdekplaatjes; 3-fase is onbekend.',
+            'highlights' => ['Fase niet te bepalen'],
+        ],
+        [],
         [],
         ['C5'],
     );
 
-    expect($scores['no_internal_upload_refs']['status'])->toBe('wrong')
-        ->and($scores['no_internal_upload_refs']['detail'])->toBe('internal_upload_ref_in_text')
-        ->and($scores['no_internal_upload_refs']['hits'])->not->toBeEmpty();
+    expect($scores['claim.phase_3']['status'])->toBe('correct')
+        ->and($scores['claim.phase_3']['detail'])->toBe('all_matches_hedged')
+        ->and($scores['must_not_invent_phase']['status'])->toBe('correct');
+});
+
+test('named-photo attribution is hedged_only only when same layer names conflict', function () {
+    $withConflict = reportClaimsScorer()->scoreLayer(
+        [
+            'claims' => [[
+                'id' => 'phase_3',
+                'concept' => 'phase_3',
+                'allowed' => 'hedged_only',
+            ]],
+        ],
+        [
+            'summary' => 'De meterkastfoto’s wijken af. De tweede meterkastfoto toont een 3-fase aansluiting.',
+            'highlights' => ['Op de tweede foto is 3-fase zichtbaar'],
+        ],
+        [],
+        [],
+        ['C5'],
+    );
+
+    expect($withConflict['claim.phase_3']['status'])->toBe('correct')
+        ->and($withConflict['claim.phase_3']['detail'])->toBe('all_matches_hedged');
+
+    $withoutConflict = reportClaimsScorer()->scoreLayer(
+        [
+            'claims' => [[
+                'id' => 'phase_3',
+                'concept' => 'phase_3',
+                'allowed' => 'hedged_only',
+            ]],
+        ],
+        [
+            'summary' => 'De tweede meterkastfoto toont een 3-fase aansluiting.',
+            'highlights' => ['Op de tweede foto is 3-fase zichtbaar'],
+        ],
+        [],
+        [],
+        ['C5'],
+    );
+
+    expect($withoutConflict['claim.phase_3']['status'])->toBe('wrong')
+        ->and($withoutConflict['claim.phase_3']['detail'])->toBe('unhedged_claim_for_hedged_only');
 });
 
 test('over-hedged attention fails assert even when summary is firm', function () {

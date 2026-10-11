@@ -6,6 +6,7 @@ namespace App\Domains\AI\Services;
 
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Domains\Intake\Services\InstallerPhotoGalleryBuilder;
 use App\Domains\Intake\Support\PhotoContinueAnywayAttention;
 use App\Enums\AttentionPointSource;
 use Illuminate\Support\Str;
@@ -29,6 +30,10 @@ final class IntakeAttentionContextBuilder
 
     /** @var list<string> */
     private const SENSITIVE_FACT_KEYS = ['location', 'parcel_ids', 'aerial_image'];
+
+    public function __construct(
+        private readonly InstallerPhotoGalleryBuilder $photoGallery,
+    ) {}
 
     /** @return array<string, mixed> */
     public function build(Intake $intake): array
@@ -187,23 +192,21 @@ final class IntakeAttentionContextBuilder
      */
     private function mapUploadAssessmentRows(Intake $intake, array $questions): array
     {
-        /** @var array<string, int> $orderByQuestion */
-        $orderByQuestion = [];
+        // Gallery numbers include rejected/replaced photos; assign before eligibility filter.
+        $galleryOrders = $this->photoGallery->photoOrdersByUploadId($intake);
 
         return $intake->uploads
             ->filter(static fn (IntakeUpload $upload): bool => $upload->isDossierEvidenceEligible())
-            ->map(function (IntakeUpload $upload) use ($questions, &$orderByQuestion): array {
-                $questionKey = $upload->intake_follow_up_item_id !== null
-                    ? 'follow_up_upload'
-                    : (string) $upload->question_key;
-                $orderByQuestion[$questionKey] = ($orderByQuestion[$questionKey] ?? 0) + 1;
-
+            ->sortBy([
+                ['sort_order', 'asc'],
+                ['id', 'asc'],
+            ])
+            ->map(function (IntakeUpload $upload) use ($questions, $galleryOrders): array {
                 $row = $this->uploadContext(
                     $upload,
                     $questions[$upload->question_key] ?? null,
                 );
-                // 1-based order within the same question (for "eerste/tweede meterkastfoto").
-                $row['order'] = $orderByQuestion[$questionKey];
+                $row['order'] = $galleryOrders[(int) $upload->id] ?? 1;
 
                 return $row;
             })->values()->all();

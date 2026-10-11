@@ -152,6 +152,8 @@ final class ReportClaimsCaseRunner
             : null;
         $finalPoints = is_array($attentionFinal) ? $attentionFinal : null;
 
+        $inputReferences = $this->collectInputReferences($summaryInput, $attentionInput);
+
         $rawLayerMeta = [
             'summary_rejection' => ($rawSummaryNormalized === null)
                 ? ($summaryGatewayRejection ?? 'missing_or_invalid_summary')
@@ -159,6 +161,7 @@ final class ReportClaimsCaseRunner
             'attention_rejection' => ($rawPoints === null)
                 ? ($attentionGatewayRejection ?? 'missing_or_rejected_attention_points')
                 : null,
+            'input_references' => $inputReferences,
         ];
         $finalLayerMeta = [
             'summary_rejection' => ($finalSummaryNormalized === null)
@@ -167,6 +170,7 @@ final class ReportClaimsCaseRunner
             'attention_rejection' => ($finalPoints === null)
                 ? ($attentionPipelineRejection ?? $attentionGatewayRejection ?? 'pipeline_attention_unavailable')
                 : null,
+            'input_references' => $inputReferences,
         ];
 
         $scores = [
@@ -399,6 +403,53 @@ final class ReportClaimsCaseRunner
         $parts = array_values(array_filter([$summaryError, $attentionError]));
 
         return $parts === [] ? null : implode('; ', $parts);
+    }
+
+    /**
+     * Exact machine `reference` values from fixture inputs (for no_internal_upload_refs).
+     *
+     * @param  array<string, mixed>  $summaryInput
+     * @param  array<string, mixed>  $attentionInput
+     * @return list<string>
+     */
+    private function collectInputReferences(array $summaryInput, array $attentionInput): array
+    {
+        $refs = [];
+        foreach ([$summaryInput, $attentionInput] as $input) {
+            foreach (['uploads', 'answer_context', 'external_fact_context', 'system_attention_points', 'pipe_routes'] as $listKey) {
+                foreach (is_array($input[$listKey] ?? null) ? $input[$listKey] : [] as $row) {
+                    if (! is_array($row)) {
+                        continue;
+                    }
+                    if (is_string($row['reference'] ?? null) && trim((string) $row['reference']) !== '') {
+                        $refs[] = trim((string) $row['reference']);
+                    }
+                }
+            }
+            foreach (is_array($input['follow_up'] ?? null) ? $input['follow_up'] : [] as $round) {
+                if (! is_array($round)) {
+                    continue;
+                }
+                foreach (is_array($round['items'] ?? null) ? $round['items'] : [] as $item) {
+                    if (! is_array($item)) {
+                        continue;
+                    }
+                    if (is_string($item['reference'] ?? null) && trim((string) $item['reference']) !== '') {
+                        $refs[] = trim((string) $item['reference']);
+                    }
+                    foreach (is_array($item['uploads'] ?? null) ? $item['uploads'] : [] as $upload) {
+                        if (! is_array($upload)) {
+                            continue;
+                        }
+                        if (is_string($upload['reference'] ?? null) && trim((string) $upload['reference']) !== '') {
+                            $refs[] = trim((string) $upload['reference']);
+                        }
+                    }
+                }
+            }
+        }
+
+        return array_values(array_unique($refs));
     }
 
     private function sumNullableInt(mixed $a, mixed $b): ?int

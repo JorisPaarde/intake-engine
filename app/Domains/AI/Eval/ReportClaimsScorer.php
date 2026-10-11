@@ -35,6 +35,9 @@ final class ReportClaimsScorer
         'controleer',
         'verifieer',
         'nagaan',
+        'niet vast te stellen',
+        'onbekend',
+        'niet te bepalen',
         'zekerheid medium',
         'zekerheid laag',
         'zekerheid: medium',
@@ -44,12 +47,57 @@ final class ReportClaimsScorer
     ];
 
     /**
+     * "Cannot be determined" phrasing — never counts as a forbidden hard claim.
+     *
+     * @var list<string>
+     */
+    private const CANNOT_DETERMINE_MARKERS = [
+        'niet vast te stellen',
+        'onbekend',
+        'niet te bepalen',
+    ];
+
+    /**
      * Extra check-instruction patterns treated as hedged (esp. hedged_only).
      *
      * @var list<string>
      */
     private const HEDGE_PATTERNS = [
         '/bevestiging.{0,48}(vereist|nodig)/iu',
+    ];
+
+    /**
+     * Named-photo attribution (hedged_only only when same layer also names conflict).
+     *
+     * @var list<string>
+     */
+    private const NAMED_PHOTO_ATTRIBUTION_PATTERNS = [
+        '/\bde\s+(eerste|tweede|derde|\d+e)\s+meterkastfoto\b/iu',
+        '/\bop\s+de\s+(eerste|tweede|derde|\d+e)\s+(meterkast)?foto\b/iu',
+        '/\b(de\s+)?(eerste|tweede|derde|\d+e)\s+foto\s+(van\s+de\s+meterkast|toont|laat)\b/iu',
+    ];
+
+    /**
+     * Conflict / uncertainty-between-photos markers for the named-attribution rule.
+     * Ordinal-only phrases (eerste/tweede foto) are attribution, not conflict.
+     *
+     * @var list<string>
+     */
+    private const PHOTO_CONFLICT_LAYER_TERMS = [
+        'tegenstrijdig',
+        'conflict',
+        'wijken af',
+        'verschil tussen',
+        'wisselende beeldkwaliteit',
+        'onvoldoende scherp',
+        'niet goed genoeg',
+        'onscherp',
+        'scherpere',
+        'retake',
+        'onduidelijke foto',
+        'niet scherp',
+        'wazig',
+        'beide foto',
     ];
 
     /**
@@ -131,7 +179,7 @@ final class ReportClaimsScorer
      * @param  list<array{code: string, label: string, confidence: string|null, evidence: list<array{source_type: string, reference: string}>}>|null  $points
      * @param  array<string, mixed>  $disputed
      * @param  list<string>  $components
-     * @param  array{summary_rejection?: string|null, attention_rejection?: string|null}  $layerMeta
+     * @param  array{summary_rejection?: string|null, attention_rejection?: string|null, input_references?: list<string>}  $layerMeta
      * @return array<string, array<string, mixed>>
      */
     public function scoreLayer(
@@ -195,8 +243,9 @@ final class ReportClaimsScorer
         }
 
         $units = $this->buildUnits($summaryEmpty ? null : $summary, $attentionEmpty ? null : $points);
+        $inputReferences = $this->normalizeInputReferences($layerMeta['input_references'] ?? null);
 
-        $leakHits = $this->internalUploadReferenceHits($units);
+        $leakHits = $this->internalUploadReferenceHits($units, $inputReferences);
         $metaRefs = is_array($disputed['no_internal_upload_refs'] ?? null)
             ? $disputed['no_internal_upload_refs']
             : null;
@@ -230,10 +279,11 @@ final class ReportClaimsScorer
             $out[$factKey]['matches'] = $evaluation['matches'];
         }
 
-        // Legacy invent-phase flag → phase_3/phase_1 forbidden on combined units.
+        // Legacy invent-phase flag → phase_3/phase_1 hard claims on combined units
+        // (cannot-determine phrasing does not count as inventing a phase).
         if ((bool) ($expected['must_not_invent_phase'] ?? false)) {
-            $invented = $this->conceptPresentInUnits('phase_3', self::DEFAULT_CONCEPT_TERMS['phase_3'], $units)
-                || $this->conceptPresentInUnits('phase_1', self::DEFAULT_CONCEPT_TERMS['phase_1'], $units);
+            $invented = $this->conceptPresentAsHardClaim('phase_3', self::DEFAULT_CONCEPT_TERMS['phase_3'], $units)
+                || $this->conceptPresentAsHardClaim('phase_1', self::DEFAULT_CONCEPT_TERMS['phase_1'], $units);
             $meta = is_array($disputed['must_not_invent_phase'] ?? null) ? $disputed['must_not_invent_phase'] : null;
             $out['must_not_invent_phase'] = $this->factScorer->score(
                 expected: false,
@@ -307,6 +357,29 @@ final class ReportClaimsScorer
             }
         }
         foreach (self::HEDGE_PATTERNS as $pattern) {
+            if (@preg_match($pattern, $text) === 1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function textLooksCannotDetermine(string $text): bool
+    {
+        $lower = mb_strtolower($text);
+        foreach (self::CANNOT_DETERMINE_MARKERS as $marker) {
+            if (str_contains($lower, $marker)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function textLooksNamedPhotoAttribution(string $text): bool
+    {
+        foreach (self::NAMED_PHOTO_ATTRIBUTION_PATTERNS as $pattern) {
             if (@preg_match($pattern, $text) === 1) {
                 return true;
             }
@@ -409,12 +482,27 @@ final class ReportClaimsScorer
      */
     private function evaluateClaim(array $claim, array $units): array
     {
+        $layerConflict = [
+            'summary' => $this->layerNamesPhotoConflictOrUncertainty($units, ['summary_sentence', 'highlight']),
+            'attention' => $this->layerNamesPhotoConflictOrUncertainty($units, ['attention']),
+        ];
+
         $matches = [];
         foreach ($units as $unit) {
             if (! $this->unitMatchesTerms($unit, $claim['terms'])) {
                 continue;
             }
+            $layerKey = in_array($unit['kind'], ['summary_sentence', 'highlight'], true)
+                ? 'summary'
+                : 'attention';
             $hedged = $this->textLooksHedged($unit['text']);
+            if (! $hedged
+                && $claim['allowed'] === 'hedged_only'
+                && $this->textLooksNamedPhotoAttribution($unit['text'])
+                && $layerConflict[$layerKey]
+            ) {
+                $hedged = true;
+            }
             $matches[] = [
                 'kind' => $unit['kind'],
                 'text' => $unit['text'],
@@ -444,11 +532,25 @@ final class ReportClaimsScorer
         }
 
         if ($allowed === 'forbidden') {
+            // "Cannot be determined" sentences never count as a forbidden hard claim.
+            $hardMatches = array_values(array_filter(
+                $matches,
+                fn (array $m): bool => ! $this->textLooksCannotDetermine($m['text']),
+            ));
+            if ($hardMatches === []) {
+                return [
+                    'expected' => false,
+                    'got' => false,
+                    'detail' => 'concept_absent_cannot_determine',
+                    'matches' => $matches,
+                ];
+            }
+
             return [
                 'expected' => false,
                 'got' => true,
                 'detail' => 'forbidden_concept_present',
-                'matches' => $matches,
+                'matches' => $hardMatches,
             ];
         }
 
@@ -542,37 +644,76 @@ final class ReportClaimsScorer
     }
 
     /**
-     * Human-facing text must not leak opaque upload references (eval-only).
+     * Human-facing text must not leak exact input upload/fact references (eval-only).
+     * Codes like upload_quality_low are fine — only exact reference strings count.
      *
      * @param  list<array{kind: string, text: string, code?: string}>  $units
-     * @return list<array{kind: string, text: string}>
+     * @param  list<string>  $inputReferences
+     * @return list<array{kind: string, text: string, reference: string}>
      */
-    private function internalUploadReferenceHits(array $units): array
+    private function internalUploadReferenceHits(array $units, array $inputReferences): array
     {
+        if ($inputReferences === []) {
+            return [];
+        }
+
         $hits = [];
         foreach ($units as $unit) {
-            if (! $this->textLooksLikeInternalUploadReference($unit['text'])) {
-                continue;
+            foreach ($inputReferences as $reference) {
+                if ($reference === '' || ! str_contains($unit['text'], $reference)) {
+                    continue;
+                }
+                $hits[] = [
+                    'kind' => $unit['kind'],
+                    'text' => $unit['text'],
+                    'reference' => $reference,
+                ];
             }
-            $hits[] = [
-                'kind' => $unit['kind'],
-                'text' => $unit['text'],
-            ];
         }
 
         return $hits;
     }
 
-    public function textLooksLikeInternalUploadReference(string $text): bool
+    /**
+     * @param  list<string>|mixed  $raw
+     * @return list<string>
+     */
+    private function normalizeInputReferences(mixed $raw): array
     {
-        $lower = mb_strtolower($text);
-        if (str_contains($lower, 'upload_') || str_contains($lower, '@upload:')) {
-            return true;
+        if (! is_array($raw)) {
+            return [];
         }
 
-        // Opaque / machine reference shapes that should never appear in prose.
-        return @preg_match('/\b[\w.-]+@upload\b/iu', $text) === 1
-            || @preg_match('/\bupload:[a-z0-9_-]+/iu', $text) === 1;
+        $out = [];
+        foreach ($raw as $item) {
+            if (! is_string($item)) {
+                continue;
+            }
+            $trimmed = trim($item);
+            if ($trimmed !== '') {
+                $out[] = $trimmed;
+            }
+        }
+
+        return array_values(array_unique($out));
+    }
+
+    /**
+     * @param  list<array{kind: string, text: string, code?: string}>  $units
+     * @param  list<string>  $kinds
+     */
+    private function layerNamesPhotoConflictOrUncertainty(array $units, array $kinds): bool
+    {
+        $layerUnits = array_values(array_filter(
+            $units,
+            static fn (array $u): bool => in_array($u['kind'], $kinds, true),
+        ));
+
+        return $this->conceptPresentInUnits(
+            'photo_conflict_layer',
+            self::PHOTO_CONFLICT_LAYER_TERMS,
+            $layerUnits,
+        );
     }
 
     /**
@@ -585,6 +726,26 @@ final class ReportClaimsScorer
             if ($this->unitMatchesTerms($unit, $terms)) {
                 return true;
             }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  list<string>  $terms
+     * @param  list<array{kind: string, text: string, code?: string}>  $units
+     */
+    private function conceptPresentAsHardClaim(string $concept, array $terms, array $units): bool
+    {
+        foreach ($units as $unit) {
+            if (! $this->unitMatchesTerms($unit, $terms)) {
+                continue;
+            }
+            if ($this->textLooksCannotDetermine($unit['text'])) {
+                continue;
+            }
+
+            return true;
         }
 
         return false;
