@@ -1,0 +1,177 @@
+{
+  "id": "rc-kt11-fusebox-two-photos-conflict",
+  "kind": "report_claims",
+  "origin": "IE test run 11 Oct 2026 09:45 (Notion P1-5 / intakes #133–#136)",
+  "source_kind": "verbatim_notion",
+  "components": ["C5", "C7", "C8"],
+  "note": "Photo 1 retake/not good enough; photo 2 hedged '3-fase lijkt zichtbaar'. Summary must not harden to unhedged 'driefasig aanwezig'; capacity 'uitbreiding vereist' must not be stated as fact. Conflict should be attributed.",
+  "summary_input": {
+    "answers": {
+      "fusebox_photo": {
+        "upload_ids": ["eval-upload-1", "eval-upload-2"]
+      }
+    },
+    "external_facts": {
+      "fusebox_photo_assessment": {
+        "value": {
+          "phase": "three_phase",
+          "empty_module_space": "none_visible",
+          "confidence": "medium",
+          "evidence": "3-fase lijkt zichtbaar · De groepenkast is volledig bezet met automaten en componenten; de hoofdschakelaar toont drie fasen.",
+          "retake_instruction": null,
+          "subject_match": "yes",
+          "photo_assessments": [
+            {
+              "photo_ref": "fusebox_photo@upload:upload_blurry",
+              "status": "needs_clearer",
+              "phase": "unknown",
+              "empty_module_space": "unknown",
+              "confidence": "low",
+              "retake_requested": true,
+              "customer_message": "Deze foto is nog niet goed genoeg.",
+              "retake_instruction": "Maak een scherpere foto van de hoofdschakelaar en de onderzijde van de groepenkast om het aantal fasen te kunnen bepalen."
+            },
+            {
+              "photo_ref": "fusebox_photo@upload:upload_large",
+              "status": "ok",
+              "phase": "three_phase",
+              "empty_module_space": "none_visible",
+              "confidence": "medium",
+              "retake_requested": false,
+              "evidence": "3-fase lijkt zichtbaar · De groepenkast is volledig bezet met automaten en componenten; de hoofdschakelaar toont drie fasen."
+            }
+          ]
+        },
+        "source": "ai",
+        "confidence": "medium"
+      }
+    },
+    "follow_up": [],
+    "attention_point_codes": [],
+    "template_key": "airco",
+    "template_version": 26
+  },
+  "attention_input": {
+    "answers": {
+      "fusebox_photo": {
+        "upload_ids": ["eval-upload-1", "eval-upload-2"]
+      }
+    },
+    "external_facts": {
+      "fusebox_photo_assessment": {
+        "value": {
+          "phase": "three_phase",
+          "empty_module_space": "none_visible",
+          "confidence": "medium",
+          "evidence": "3-fase lijkt zichtbaar · De groepenkast is volledig bezet met automaten en componenten; de hoofdschakelaar toont drie fasen."
+        },
+        "source": "ai",
+        "confidence": "medium"
+      }
+    },
+    "answer_context": [],
+    "external_fact_context": [
+      {
+        "reference": "fusebox_photo_assessment@fact:fact_eval_fusebox",
+        "fact_key": "fusebox_photo_assessment",
+        "label": "Automatische beoordeling meterkastfoto",
+        "value": {
+          "phase": "three_phase",
+          "empty_module_space": "none_visible",
+          "confidence": "medium",
+          "evidence": "3-fase lijkt zichtbaar · De groepenkast is volledig bezet met automaten en componenten; de hoofdschakelaar toont drie fasen."
+        },
+        "source": "ai",
+        "confidence": "medium",
+        "captured_at": "2026-10-11T09:45:00+00:00"
+      }
+    ],
+    "uploads": [
+      {
+        "reference": "fusebox_photo@upload:upload_blurry",
+        "question_key": "fusebox_photo",
+        "question_label": "Foto van de meterkast",
+        "section_label": "Stroom",
+        "section_instance_key": null,
+        "context": "intake",
+        "mime_type": "image/jpeg",
+        "size_bytes": 180000,
+        "usability_verdict": "usable",
+        "content_assessment": {
+          "status": "needs_clearer",
+          "expected_subject": "fusebox",
+          "detected_subject": "fusebox",
+          "customer_message": "Deze foto is nog niet goed genoeg.",
+          "phase": "unknown",
+          "empty_module_space": "unknown",
+          "confidence": "low",
+          "retake_requested": true,
+          "retake_instruction": "Maak een scherpere foto van de hoofdschakelaar en de onderzijde van de groepenkast om het aantal fasen te kunnen bepalen."
+        }
+      },
+      {
+        "reference": "fusebox_photo@upload:upload_large",
+        "question_key": "fusebox_photo",
+        "question_label": "Foto van de meterkast",
+        "section_label": "Stroom",
+        "section_instance_key": null,
+        "context": "intake",
+        "mime_type": "image/jpeg",
+        "size_bytes": 2400000,
+        "usability_verdict": "usable",
+        "content_assessment": {
+          "status": "ok",
+          "expected_subject": "fusebox",
+          "detected_subject": "fusebox",
+          "customer_message": null,
+          "phase": "three_phase",
+          "empty_module_space": "none_visible",
+          "confidence": "medium",
+          "retake_requested": false,
+          "evidence": "3-fase lijkt zichtbaar · De groepenkast is volledig bezet met automaten en componenten; de hoofdschakelaar toont drie fasen."
+        }
+      }
+    ],
+    "follow_up": [],
+    "system_attention_points": [],
+    "completeness": {},
+    "installer_review": null,
+    "pipe_routes": [],
+    "template_key": "airco",
+    "template_version": 26,
+    "intake_status": "submitted"
+  },
+  "expected": {
+    "must_not_assert": [
+      "driefasige groepenkast aanwezig",
+      "driefasige meterkast aanwezig",
+      "uitbreiding voor nieuwe groep vereist",
+      "3-fase aanwezig"
+    ],
+    "must_hedge_phase_claims": true,
+    "allow_unhedged_three_phase": false,
+    "attention_confidence_ceiling": "medium",
+    "forbid_attention_codes": ["no_free_group", "expansion_required", "fusebox_full"],
+    "require_evidence_on_points": true,
+    "require_photo_conflict_signal": true,
+    "conflict_signal_substrings": [
+      "tegenstrijdig",
+      "conflict",
+      "foto 1",
+      "foto 2",
+      "eerste foto",
+      "tweede foto",
+      "niet goed genoeg",
+      "onscherp",
+      "scherpere",
+      "opnieuw",
+      "retake",
+      "verschil tussen"
+    ]
+  },
+  "disputed_facts": {
+    "photo_conflict_signal": {
+      "reason": "Attribution wording may vary; mark disputed if model hedges phase/capacity without naming the conflict explicitly."
+    }
+  }
+}

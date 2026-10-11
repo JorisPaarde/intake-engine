@@ -175,6 +175,19 @@ final class SuggestAttentionPoints
     }
 
     /**
+     * Same validation + DerivedClaimConfidenceGuard path as handle() (eval reuse).
+     * Behaviour-identical to the private validate step; does not persist.
+     *
+     * @param  array<string, mixed>  $output
+     * @param  array<string, mixed>  $payload
+     * @return list<array{code: string, label: string, confidence: string|null, evidence: list<array{source_type: string, reference: string}>}>
+     */
+    public function applyPipelineToOutput(array $output, array $payload): array
+    {
+        return $this->validateOutput($output, $payload);
+    }
+
+    /**
      * @param  array<string, mixed>  $output
      * @param  array<string, mixed>  $payload
      * @return list<array{code: string, label: string, confidence: string|null, evidence: list<array{source_type: string, reference: string}>}>

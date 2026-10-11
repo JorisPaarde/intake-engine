@@ -19,6 +19,8 @@ final class InterpretationEvalRunner
         'fusebox_assessment',
         'pipe_route_assessment',
         'dossier_synthesis',
+        'summary',
+        'attention_points',
     ];
 
     public function __construct(
@@ -26,11 +28,13 @@ final class InterpretationEvalRunner
         private readonly RequestTextCaseRunner $requestTextRunner,
         private readonly CustomerAnswerCaseRunner $customerAnswerRunner,
         private readonly PhotoObservationCaseRunner $photoObservationRunner,
+        private readonly ReportClaimsCaseRunner $reportClaimsRunner,
         private readonly EvalReportWriter $reportWriter,
         private readonly EvalRuntimeBootstrap $runtimeBootstrap,
     ) {}
 
     /**
+     * @param  list<string>|null  $kinds  Optional filter (e.g. ['report_claims']); null = all kinds.
      * @return array{
      *     report: array<string, mixed>,
      *     paths: array{
@@ -43,7 +47,7 @@ final class InterpretationEvalRunner
      *     }
      * }
      */
-    public function run(int $repeats = 3, bool $forceFake = false): array
+    public function run(int $repeats = 3, bool $forceFake = false, ?array $kinds = null): array
     {
         $mode = $this->resolveMode($forceFake);
         $isBaseline = $mode === 'openai';
@@ -56,7 +60,7 @@ final class InterpretationEvalRunner
         $model = (string) config('ai.model');
         $temperature = (float) config('ai.temperature', 0.2);
 
-        $fixtures = $this->loadFixtures();
+        $fixtures = $this->loadFixtures($kinds);
         $cases = [];
         $notRunnable = [];
 
@@ -68,6 +72,7 @@ final class InterpretationEvalRunner
                         'request_text' => $this->requestTextRunner->run($fixture, $i),
                         'customer_answer' => $this->customerAnswerRunner->run($fixture, $i),
                         'photo_observation' => $this->photoObservationRunner->run($fixture, $i),
+                        'report_claims' => $this->reportClaimsRunner->run($fixture, $i),
                         default => null,
                     };
                     if ($result === null) {
@@ -144,23 +149,43 @@ final class InterpretationEvalRunner
     }
 
     /**
+     * @param  list<string>|null  $kinds
      * @return list<array<string, mixed>>
      */
-    private function loadFixtures(): array
+    private function loadFixtures(?array $kinds = null): array
     {
         $root = base_path('tests/Eval/fixtures');
         $finder = (new Finder)->files()->name('*.json')->in([
             $root.'/request_texts',
             $root.'/customer_answers',
             $root.'/photo_observations',
+            $root.'/report_claims',
         ])->sortByName();
+
+        $allowed = null;
+        if ($kinds !== null) {
+            $allowed = [];
+            foreach ($kinds as $kind) {
+                if ($kind !== '') {
+                    $allowed[$kind] = true;
+                }
+            }
+        }
 
         $fixtures = [];
         foreach ($finder as $file) {
             $decoded = json_decode($file->getContents(), true);
-            if (is_array($decoded) && isset($decoded['id'], $decoded['kind'])) {
-                $fixtures[] = $decoded;
+            if (! is_array($decoded) || ! isset($decoded['id'], $decoded['kind'])) {
+                continue;
             }
+            $kind = $decoded['kind'];
+            if (! is_string($kind)) {
+                continue;
+            }
+            if ($allowed !== null && ! isset($allowed[$kind])) {
+                continue;
+            }
+            $fixtures[] = $decoded;
         }
 
         return $fixtures;
