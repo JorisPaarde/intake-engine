@@ -12,14 +12,16 @@ use App\Domains\Intake\Models\IntakeSection;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\DecisionReadinessService;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 /**
  * Systeemaandachtspunt voor Actueel bij Toch-doorgaan-override en/of not_assessed.
  *
- * Groepeert uitsluitend op question_key + section_instance_key (geen tekstvergelijking).
- * Opgeslagen labels zijn een record; zichtbare tekst bouwt live vanaf de code
- * (verdwijnt als er geen afgekeurde/not_assessed uploads meer zijn).
+ * Groepeert op foto-onderwerp (`meta.photo_analysis`) + section_instance_key, anders
+ * op question_key + instance. Geen tekstvergelijking. Opgeslagen labels zijn een
+ * record; zichtbare tekst bouwt live vanaf de code (verdwijnt als er geen
+ * afgekeurde/not_assessed uploads meer zijn).
  */
 final class PhotoContinueAnywayAttention
 {
@@ -70,6 +72,140 @@ final class PhotoContinueAnywayAttention
             'question_key' => $parts[0],
             'section_instance_key' => $instance,
         ];
+    }
+
+    /**
+     * Stabiel groepsanker voor dedup: photo_analysis-onderwerp of question_key + plek.
+     */
+    public static function displayGroupKey(Intake $intake, string $code): ?string
+    {
+        $parsed = self::parseCode($code);
+        if ($parsed === null) {
+            return null;
+        }
+
+        $intake->loadMissing(['templateVersion.sections.questions']);
+        $version = $intake->templateVersion;
+        if ($version === null) {
+            return null;
+        }
+
+        $topic = self::photoTopicKey($version, $parsed['question_key']);
+        $instance = $parsed['section_instance_key'] ?? 'site';
+
+        return $topic.'|'.$instance;
+    }
+
+    /**
+     * Foto-onderwerp uit template-meta (`photo_analysis`), anders de vraag zelf.
+     */
+    public static function photoTopicKey(IntakeTemplateVersion $version, string $questionKey): string
+    {
+        $question = self::findQuestion($version, $questionKey);
+        $meta = is_array($question?->meta) ? $question->meta : [];
+        $analysis = $meta['photo_analysis'] ?? null;
+
+        if (is_string($analysis) && $analysis !== '') {
+            return 'analysis:'.$analysis;
+        }
+
+        return 'question:'.$questionKey;
+    }
+
+    /**
+     * Canonieke vraag voor opslagcode: laagste sort_order binnen hetzelfde onderwerp.
+     */
+    public static function canonicalQuestionKey(IntakeTemplateVersion $version, string $questionKey): string
+    {
+        $keys = self::questionKeysForTopic($version, $questionKey);
+        if ($keys === []) {
+            return $questionKey;
+        }
+
+        return $keys[0];
+    }
+
+    /**
+     * Vragen die tot hetzelfde foto-onderwerp horen (zelfde sectie + photo_analysis).
+     *
+     * @return list<string>
+     */
+    public static function questionKeysForTopic(IntakeTemplateVersion $version, string $questionKey): array
+    {
+        $topic = self::photoTopicKey($version, $questionKey);
+        if (str_starts_with($topic, 'question:')) {
+            return [$questionKey];
+        }
+
+        $analysis = substr($topic, strlen('analysis:'));
+        $section = self::findSectionForQuestion($version, $questionKey);
+        if ($section === null) {
+            return [$questionKey];
+        }
+
+        $matched = [];
+        foreach ($section->questions as $question) {
+            $meta = is_array($question->meta) ? $question->meta : [];
+            $value = $meta['photo_analysis'] ?? null;
+            if (is_string($value) && $value === $analysis) {
+                $matched[] = [
+                    'key' => $question->key,
+                    'sort' => (int) $question->sort_order,
+                ];
+            }
+        }
+
+        usort($matched, static fn (array $a, array $b): int => $a['sort'] <=> $b['sort']);
+
+        /** @var list<string> $keys */
+        $keys = [];
+        foreach ($matched as $row) {
+            $keys[] = $row['key'];
+        }
+
+        return $keys !== [] ? $keys : [$questionKey];
+    }
+
+    /**
+     * Verberg dubbele Toch-doorgaan-codes van hetzelfde onderwerp (oude intakes).
+     *
+     * @param  Collection<int, mixed>  $points
+     * @return Collection<int, mixed>
+     */
+    public static function collapseDuplicateContinueAnywayPoints(Intake $intake, Collection $points): Collection
+    {
+        /** @var array<string, true> $seen */
+        $seen = [];
+
+        return $points
+            ->filter(function (mixed $point) use ($intake, &$seen): bool {
+                if (! is_object($point)) {
+                    return false;
+                }
+
+                $code = is_string($point->code ?? null) ? $point->code : '';
+                if (! self::isContinueAnywayCode($code)) {
+                    return true;
+                }
+
+                if (self::liveLabel($intake, $code) === null) {
+                    return false;
+                }
+
+                $group = self::displayGroupKey($intake, $code);
+                if ($group === null) {
+                    return true;
+                }
+
+                if (isset($seen[$group])) {
+                    return false;
+                }
+
+                $seen[$group] = true;
+
+                return true;
+            })
+            ->values();
     }
 
     /**
@@ -147,6 +283,29 @@ final class PhotoContinueAnywayAttention
     }
 
     /**
+     * Alle huidige wizard-uploads van hetzelfde foto-onderwerp op één plek.
+     *
+     * @return list<IntakeUpload>
+     */
+    public static function currentWizardUploadsForTopic(
+        Intake $intake,
+        IntakeTemplateVersion $version,
+        string $questionKey,
+        ?string $sectionInstanceKey,
+    ): array {
+        $keys = self::questionKeysForTopic($version, $questionKey);
+        /** @var list<IntakeUpload> $uploads */
+        $uploads = [];
+        foreach ($keys as $key) {
+            foreach (self::currentWizardUploadsAt($intake, $key, $sectionInstanceKey) as $upload) {
+                $uploads[] = $upload;
+            }
+        }
+
+        return $uploads;
+    }
+
+    /**
      * @param  list<IntakeUpload>  $uploads
      * @return array{total: int, rejected: int, not_assessed: int}
      */
@@ -184,8 +343,15 @@ final class PhotoContinueAnywayAttention
         }
 
         $intake->loadMissing(['uploads', 'templateVersion.sections.questions', 'aircoRooms']);
-        $uploads = self::currentWizardUploadsAt(
+        $version = $intake->templateVersion;
+        if ($version === null) {
+            return null;
+        }
+
+        $canonicalKey = self::canonicalQuestionKey($version, $parsed['question_key']);
+        $uploads = self::currentWizardUploadsForTopic(
             $intake,
+            $version,
             $parsed['question_key'],
             $parsed['section_instance_key'],
         );
@@ -195,15 +361,10 @@ final class PhotoContinueAnywayAttention
             return null;
         }
 
-        $version = $intake->templateVersion;
-        if ($version === null) {
-            return null;
-        }
-
         return self::formatLabel(
             $intake,
             $version,
-            $parsed['question_key'],
+            $canonicalKey,
             $parsed['section_instance_key'],
             $uploads,
         );
@@ -223,8 +384,14 @@ final class PhotoContinueAnywayAttention
         }
 
         $intake->loadMissing(['uploads', 'templateVersion.sections.questions']);
-        $uploads = self::currentWizardUploadsAt(
+        $version = $intake->templateVersion;
+        if ($version === null) {
+            return null;
+        }
+
+        $uploads = self::currentWizardUploadsForTopic(
             $intake,
+            $version,
             $parsed['question_key'],
             $parsed['section_instance_key'],
         );
@@ -234,11 +401,8 @@ final class PhotoContinueAnywayAttention
             return null;
         }
 
-        $sectionKey = null;
-        $version = $intake->templateVersion;
-        if ($version !== null) {
-            $sectionKey = self::sectionKeyForQuestion($version, $parsed['question_key']);
-        }
+        $canonicalKey = self::canonicalQuestionKey($version, $parsed['question_key']);
+        $sectionKey = self::sectionKeyForQuestion($version, $canonicalKey);
 
         return [
             'anchor' => self::galleryAnchor($sectionKey, $parsed['section_instance_key']),
@@ -295,7 +459,7 @@ final class PhotoContinueAnywayAttention
     /**
      * Snapshot bij afronden (record). Zichtbare UI gebruikt {@see liveLabel()}.
      *
-     * @param  list<IntakeUpload>  $uploadsAtPlace  huidige wizard-uploads bij deze vraag+plek
+     * @param  list<IntakeUpload>  $uploadsAtPlace  huidige wizard-uploads bij dit onderwerp+plek
      * @return array{code: string, label: string}
      */
     public static function buildPoint(
@@ -305,12 +469,14 @@ final class PhotoContinueAnywayAttention
         ?string $sectionInstanceKey,
         array $uploadsAtPlace,
     ): array {
+        $canonicalKey = self::canonicalQuestionKey($version, $questionKey);
+
         return [
-            'code' => self::buildCode($questionKey, $sectionInstanceKey),
+            'code' => self::buildCode($canonicalKey, $sectionInstanceKey),
             'label' => self::formatLabel(
                 $intake,
                 $version,
-                $questionKey,
+                $canonicalKey,
                 $sectionInstanceKey,
                 $uploadsAtPlace,
             ),
@@ -336,6 +502,22 @@ final class PhotoContinueAnywayAttention
             $counts['total'],
             self::hasCustomerAcceptedOverride($uploads),
         ));
+    }
+
+    /**
+     * Korte status voor de interne fusebox_clarity-vraag in het rapport —
+     * zonder de Actueel-zin “AI keurde … Toch doorgaan” te herhalen.
+     *
+     * @param  list<IntakeUpload>  $uploads
+     */
+    public static function fuseboxClarityReportLabel(array $uploads): ?string
+    {
+        $counts = self::countStatuses($uploads);
+        if ($counts['rejected'] + $counts['not_assessed'] === 0) {
+            return null;
+        }
+
+        return 'Niet duidelijk genoeg — controleer de meterkastfoto’s.';
     }
 
     /**
