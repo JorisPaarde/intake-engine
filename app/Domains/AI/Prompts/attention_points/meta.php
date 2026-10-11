@@ -6,6 +6,6 @@ declare(strict_types=1);
  * @return array{version: string, description: string}
  */
 return [
-    'version' => 'attention_points-v4',
-    'description' => 'Aandachtspunten; clear ok=feit; hedge bij zwak/conflict/retake; label via order, geen upload_-tokens.',
+    'version' => 'attention_points-v5',
+    'description' => 'Aandachtspunten; conflict alleen bij twee leesbare foto’s (max medium); geen raw enums; klant-onwetendheid firmt AI niet.',
 ];
