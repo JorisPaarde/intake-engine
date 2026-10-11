@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domains\Intake\Services;
 
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Support\PhotoContinueAnywayAttention;
 use App\Enums\AttentionPointStatus;
 use Illuminate\Support\Facades\DB;
 
@@ -29,7 +30,15 @@ final class RebuildIntakeReportHtml
                 return;
             }
 
-            $intake->load('attentionPoints');
+            $intake->load([
+                'attentionPoints',
+                'uploads.followUpItem.round',
+                'aircoRooms',
+                'followUpRounds.items.uploads',
+                'contributionTasks',
+                'dossierSubjects.records',
+                'templateVersion.sections.questions',
+            ]);
 
             $version = $intake->templateVersion()
                 ->with(['sections.questions.options', 'sections.questions.rules', 'template'])
@@ -38,10 +47,26 @@ final class RebuildIntakeReportHtml
             $attentionPoints = $intake->attentionPoints
                 ->filter(static fn ($point): bool => $point->status === null
                     || $point->status === AttentionPointStatus::Accepted)
-                ->map(static fn ($point): array => [
-                    'code' => (string) ($point->code ?? ''),
-                    'label' => $point->label,
-                ])
+                ->map(function ($point) use ($intake): ?array {
+                    $code = (string) ($point->code ?? '');
+                    if (PhotoContinueAnywayAttention::isContinueAnywayCode($code)) {
+                        $live = PhotoContinueAnywayAttention::liveLabel($intake, $code);
+                        if ($live === null) {
+                            return null;
+                        }
+
+                        return [
+                            'code' => $code,
+                            'label' => $live,
+                        ];
+                    }
+
+                    return [
+                        'code' => $code,
+                        'label' => $point->label,
+                    ];
+                })
+                ->filter()
                 ->values()
                 ->all();
 

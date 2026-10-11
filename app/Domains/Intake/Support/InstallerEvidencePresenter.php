@@ -12,6 +12,7 @@ use App\Domains\Intake\Models\IntakeExternalFact;
 use App\Domains\Intake\Models\IntakeFollowUpItem;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Enums\AttentionPointSource;
 use App\Enums\DossierRecordStatus;
 use Illuminate\Support\Collection;
 
@@ -50,6 +51,8 @@ final class InstallerEvidencePresenter
 
         $supersessions = app(UploadSupersessionResolver::class)->resolve($intake);
         $presented = [];
+        /** @var array<int, true> $mergeableUploadIndexes only source_type=upload may merge per place */
+        $mergeableUploadIndexes = [];
 
         foreach ($evidence as $item) {
             $sourceType = is_string($item['source_type'] ?? null) ? $item['source_type'] : '';
@@ -74,12 +77,16 @@ final class InstallerEvidencePresenter
                 'answer' => $this->presentAnswerCitation($intake, $reference),
                 'pipe_route' => $this->citation('Leidingroute', null, false, null, null),
                 'installer_review' => $this->citation('Installateursbeoordeling', null, false, null, null),
-                'system_attention_point' => $this->citation('Systeemsignaal', null, false, null, null),
+                'system_attention_point' => $this->presentSystemAttentionCitation($intake, $reference),
                 default => $this->presentLooseReference($intake, $reference, $supersessions, $sourceType),
             };
+
+            if ($sourceType === 'upload') {
+                $mergeableUploadIndexes[array_key_last($presented)] = true;
+            }
         }
 
-        return $presented;
+        return $this->mergeUploadCitationsByPlace($intake, $presented, $mergeableUploadIndexes);
     }
 
     /**
@@ -269,12 +276,122 @@ final class InstallerEvidencePresenter
             ? $answer->question_key
             : $this->questionKeyFromAnswerReference($reference);
         $questionLabel = $this->questionLabel($intake, $questionKey);
+        $instanceKey = $answer instanceof IntakeAnswer
+            ? $answer->section_instance_key
+            : $this->sectionInstanceKeyFromAnswerReference($reference);
 
-        $label = $questionLabel !== null
-            ? 'Antwoord: '.$questionLabel
-            : 'Klantantwoord';
+        $placePrefix = $this->placePrefixForCitation($intake, $instanceKey);
+        if ($questionLabel !== null && $placePrefix !== null) {
+            $label = 'Antwoord: '.$placePrefix.' · '.$questionLabel;
+        } elseif ($questionLabel !== null) {
+            $label = 'Antwoord: '.$questionLabel;
+        } else {
+            $label = 'Klantantwoord';
+        }
 
         return $this->citation($label, null, false, null, null);
+    }
+
+    /**
+     * @return array{label: string, url: string|null, superseded: bool, supersession_label: string|null, upload_id: int|null, testid: string}
+     */
+    private function presentSystemAttentionCitation(Intake $intake, string $reference): array
+    {
+        $intake->loadMissing('attentionPoints');
+        $point = $intake->attentionPoints->first(
+            static fn ($row): bool => $row->source === AttentionPointSource::System
+                && is_string($row->code)
+                && $row->code === $reference,
+        );
+
+        if ($point !== null && PhotoContinueAnywayAttention::isContinueAnywayCode($reference)) {
+            $live = PhotoContinueAnywayAttention::liveLabel($intake, $reference);
+            if (is_string($live) && $live !== '') {
+                return $this->citation(
+                    'Automatische controle: '.$live,
+                    null,
+                    false,
+                    null,
+                    null,
+                );
+            }
+
+            return $this->citation('Automatische controle', null, false, null, null);
+        }
+
+        if ($point !== null && trim((string) $point->label) !== '') {
+            return $this->citation(
+                'Automatische controle: '.trim((string) $point->label),
+                null,
+                false,
+                null,
+                null,
+            );
+        }
+
+        return $this->citation('Automatische controle', null, false, null, null);
+    }
+
+    /**
+     * Eén upload-link per (question_key, section_instance_key). Alleen source_type=upload
+     * mag mergen — een external_fact of antwoord dat naar dezelfde foto wijst blijft staan.
+     *
+     * @param  list<array{label: string, url: string|null, superseded: bool, supersession_label: string|null, upload_id: int|null, testid: string}>  $presented
+     * @param  array<int, true>  $mergeableUploadIndexes
+     * @return list<array{label: string, url: string|null, superseded: bool, supersession_label: string|null, upload_id: int|null, testid: string}>
+     */
+    private function mergeUploadCitationsByPlace(
+        Intake $intake,
+        array $presented,
+        array $mergeableUploadIndexes,
+    ): array {
+        /** @var array<int, array{label: string, url: string|null, superseded: bool, supersession_label: string|null, upload_id: int|null, testid: string}> $chosen */
+        $chosen = [];
+        /** @var array<string, int> $placeIndexes */
+        $placeIndexes = [];
+
+        foreach ($presented as $index => $citation) {
+            if (! isset($mergeableUploadIndexes[$index])) {
+                $chosen[$index] = $citation;
+
+                continue;
+            }
+
+            $uploadId = $citation['upload_id'] ?? null;
+            if (! is_int($uploadId)) {
+                $chosen[$index] = $citation;
+
+                continue;
+            }
+
+            $upload = $intake->uploads->firstWhere('id', $uploadId);
+            if (! $upload instanceof IntakeUpload) {
+                $chosen[$index] = $citation;
+
+                continue;
+            }
+
+            $placeKey = $upload->question_key.'|'.(string) ($upload->section_instance_key ?? '');
+            $existingIndex = $placeIndexes[$placeKey] ?? null;
+            if ($existingIndex === null) {
+                $placeIndexes[$placeKey] = $index;
+                $chosen[$index] = $citation;
+
+                continue;
+            }
+
+            $existing = $chosen[$existingIndex];
+            // Prefereer een niet-vervangen citatie voor dezelfde plek.
+            if ($existing['superseded'] === true && $citation['superseded'] === false) {
+                unset($chosen[$existingIndex]);
+                $placeIndexes[$placeKey] = $index;
+                $chosen[$index] = $citation;
+            }
+        }
+
+        ksort($chosen);
+
+        return array_values($chosen);
     }
 
     /**
@@ -513,12 +630,37 @@ final class InstallerEvidencePresenter
             ?? $this->subjectPhotoLabel($upload)
             ?? 'Foto';
 
+        $placePrefix = $this->placePrefixForCitation($intake, $upload->section_instance_key);
+        if ($placePrefix !== null) {
+            $base = $placePrefix.' · '.$base;
+        }
+
         $round = $upload->followUpItem?->round;
         if ($round !== null) {
             return $base.' (ronde '.(int) $round->round_number.')';
         }
 
         return $base;
+    }
+
+    private function placePrefixForCitation(Intake $intake, ?string $sectionInstanceKey): ?string
+    {
+        if (! is_string($sectionInstanceKey) || ! str_starts_with($sectionInstanceKey, 'room-')) {
+            return null;
+        }
+
+        $intake->loadMissing(['aircoRooms', 'answers']);
+
+        return PhotoContinueAnywayAttention::roomPlaceLabel($intake, $sectionInstanceKey);
+    }
+
+    private function sectionInstanceKeyFromAnswerReference(string $reference): ?string
+    {
+        if (preg_match('/@section:([^@]+)/i', $reference, $matches) === 1) {
+            return $matches[1];
+        }
+
+        return null;
     }
 
     private function subjectPhotoLabel(IntakeUpload $upload): ?string
@@ -669,7 +811,7 @@ final class InstallerEvidencePresenter
             'follow_up' => 'Aanvulling',
             'installer_review' => 'Installateursbeoordeling',
             'pipe_route' => 'Leidingroute',
-            'system_attention_point' => 'Systeemsignaal',
+            'system_attention_point' => 'Automatische controle',
             default => 'Dossierbron',
         };
     }
