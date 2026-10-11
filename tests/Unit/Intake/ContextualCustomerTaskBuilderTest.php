@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Domains\Intake\Models\AircoConnection;
+use App\Domains\Intake\Models\AircoInstallationOption;
 use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\DossierDecisionArea;
 use App\Domains\Intake\Models\DossierRecord;
@@ -12,6 +13,7 @@ use App\Domains\Intake\Services\ContextualCustomerTaskBuilder;
 use App\Domains\Intake\Support\CustomerFacingTaskText;
 use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
+use App\Enums\AircoOptionStatus;
 use App\Enums\DecisionAreaStatus;
 use App\Enums\DossierNextAction;
 use App\Enums\FollowUpItemType;
@@ -233,4 +235,64 @@ test('photo suggestion does not double Maak-een prefix', function () {
 
     expect($draft['prompt'])->toBe('Maak een nieuwe, duidelijke foto van je meterkast')
         ->and(substr_count(mb_strtolower($draft['prompt']), 'maak een nieuwe'))->toBe(1);
+});
+
+test('N26: three condensate connections needing evidence offer one area ask and no card asks', function () {
+    $intake = builderIntakeWithRooms();
+    $connections = collect([
+        (new AircoConnection)->forceFill([
+            'id' => 101,
+            'label' => 'Condensafvoer woonkamer',
+            'type' => AircoConnectionType::Condensate,
+            'status' => AircoConnectionStatus::NeedsEvidence,
+            'dossier_subject_id' => 31,
+        ]),
+        (new AircoConnection)->forceFill([
+            'id' => 102,
+            'label' => 'Condensafvoer (nog te bepalen)',
+            'type' => AircoConnectionType::Condensate,
+            'status' => AircoConnectionStatus::NeedsEvidence,
+            'dossier_subject_id' => 32,
+        ]),
+        (new AircoConnection)->forceFill([
+            'id' => 103,
+            'label' => 'Condensafvoer (nog te bepalen)',
+            'type' => AircoConnectionType::Condensate,
+            'status' => AircoConnectionStatus::NeedsEvidence,
+            'dossier_subject_id' => 33,
+        ]),
+    ]);
+    foreach ($connections as $connection) {
+        $connection->setRelation('fromPlacement', null);
+        $connection->setRelation('toPlacement', null);
+        $connection->setRelation('routeSession', null);
+    }
+
+    $option = new AircoInstallationOption;
+    $option->forceFill([
+        'id' => 9,
+        'status' => AircoOptionStatus::Selected,
+    ]);
+    $option->setRelation('connections', $connections);
+    $intake->setRelation('aircoInstallationOptions', collect([$option]));
+
+    $area = new DossierDecisionArea([
+        'key' => 'condensate',
+        'label' => 'Condens',
+        'status' => DecisionAreaStatus::Blocked,
+        'blocker' => 'Er mist nog bewijs voor de condensroute.',
+        'next_action' => DossierNextAction::RequestContribution,
+    ]);
+
+    $builder = app(ContextualCustomerTaskBuilder::class);
+    $areaAsk = $builder->forDecisionArea($intake, $area);
+    $cardAsks = $connections
+        ->map(fn (AircoConnection $connection) => $builder->forConnectionCard($connection))
+        ->filter()
+        ->values();
+
+    expect($areaAsk)->not->toBeNull()
+        ->and($areaAsk['decision_area_key'])->toBe('condensate')
+        ->and($cardAsks)->toHaveCount(0)
+        ->and($connections->map(fn (AircoConnection $c) => $builder->forConnection($c))->filter())->toHaveCount(3);
 });

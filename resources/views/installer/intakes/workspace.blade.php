@@ -80,6 +80,8 @@
             $proposalAlreadyApproved,
             $proposedCustomerTasks,
             $openAreas,
+            $dossier['ready_count'] ?? null,
+            $dossier['total_count'] ?? null,
         );
         $primaryCtaHref = $primaryAction['href'];
         $primaryCtaLabel = $primaryAction['label'];
@@ -264,13 +266,15 @@
                         @endif
                     </div>
                 </div>
-                <a
-                    href="{{ $primaryCtaHref }}"
-                    data-testid="primary-step-cta"
-                    class="pointer-events-auto mt-2 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-marketing-green-dark px-4 text-sm font-semibold text-white hover:bg-marketing-green"
-                >
-                    {{ $primaryCtaLabel }}
-                </a>
+                @if ($primaryCtaLabel !== '')
+                    <a
+                        href="{{ $primaryCtaHref }}"
+                        data-testid="primary-step-cta"
+                        class="pointer-events-auto mt-2 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-marketing-green-dark px-4 text-sm font-semibold text-white hover:bg-marketing-green"
+                    >
+                        {{ $primaryCtaLabel }}
+                    </a>
+                @endif
             </div>
 
             <div class="grid gap-6">
@@ -1072,11 +1076,16 @@
                                         </ul>
                                     @endif
 
+                                    @php
+                                        $condensateDrainNote = app(\App\Domains\Intake\Support\CondensateCustomerDrainNote::class)
+                                            ->present($intake);
+                                    @endphp
                                     <div class="mt-5 space-y-3">
                                         @foreach ($option->connections as $connection)
                                             @php
                                                 $connectionSubject = $intake->dossierSubjects->firstWhere('id', $connection->dossier_subject_id);
-                                                $connectionCustomerAsk = $customerTaskBuilder->forConnection($connection);
+                                                // Condensate: one ask via decision-area overview, not per route card (N26).
+                                                $connectionCustomerAsk = $customerTaskBuilder->forConnectionCard($connection);
                                                 $routeDecision = app(\App\Domains\Intake\Support\ConnectionRouteDecisionPresenter::class)
                                                     ->present($connection);
                                             @endphp
@@ -1101,6 +1110,10 @@
                                                         @endif
                                                     </div>
                                                 </div>
+
+                                                @if ($connection->type === \App\Enums\AircoConnectionType::Condensate && $condensateDrainNote !== null)
+                                                    <p class="mt-3 text-xs text-gray-700" data-testid="condensate-customer-drain-note">{{ $condensateDrainNote }}</p>
+                                                @endif
 
                                                 @if (is_array($connection->segments) && $connection->segments !== [])
                                                     <ol class="mt-3 list-decimal space-y-1 pl-5 text-sm text-gray-600">

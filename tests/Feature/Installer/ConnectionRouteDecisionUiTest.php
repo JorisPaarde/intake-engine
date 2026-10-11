@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Domains\Intake\Actions\CompleteInstallerSurvey;
 use App\Domains\Intake\Actions\CreateIntake;
+use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StartPipeRouteSession;
 use App\Domains\Intake\Models\AircoConnection;
 use App\Domains\Intake\Models\AircoInstallationOption;
@@ -435,4 +436,54 @@ test('decide op geselecteerde keuze vernieuwt het opgeslagen rapport', function 
             'decision' => 'site_visit',
         ])
         ->assertRedirect();
+});
+
+test('N26: condensate NeedsEvidence blocked reason points to overview ask', function () {
+    $user = User::factory()->create();
+    ['condensate' => $condensate] = createRouteDecisionWorkspace($user);
+
+    $condensate->update([
+        'status' => AircoConnectionStatus::NeedsEvidence,
+    ]);
+
+    $decision = app(ConnectionRouteDecisionPresenter::class)->present($condensate->fresh());
+
+    expect($decision['can_approve'])->toBeFalse()
+        ->and($decision['approve_blocked_reason'])->toBe(
+            'Er mist nog bewijs. Voeg een foto toe, kies locatiebezoek of stel de klant één vraag voor alle condensafvoeren via het overzicht.',
+        );
+});
+
+test('N26: workspace shows customer drain answer on condensate cards only when customer chose it', function () {
+    $user = User::factory()->create();
+    ['intake' => $intake] = createRouteDecisionWorkspace($user);
+
+    app(SaveIntakeAnswer::class)->handle($intake, 'drain_location', null, ['value' => 'outside_nearby']);
+
+    $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake->fresh()))
+        ->assertOk()
+        ->assertSee('data-testid="condensate-customer-drain-note"', false)
+        ->assertSee('Volgens de klant: regenpijp of putje buiten in de buurt (nog niet gecontroleerd)', false);
+
+    app(SaveIntakeAnswer::class)->handle(
+        $intake->fresh(),
+        'drain_location',
+        null,
+        ['value' => 'outside_nearby'],
+        'ai_photo',
+    );
+
+    $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake->fresh()))
+        ->assertOk()
+        ->assertDontSee('data-testid="condensate-customer-drain-note"', false)
+        ->assertDontSee('Volgens de klant: regenpijp of putje buiten in de buurt (nog niet gecontroleerd)', false);
+
+    app(SaveIntakeAnswer::class)->handle($intake->fresh(), 'drain_location', null, ['value' => 'unknown']);
+
+    $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake->fresh()))
+        ->assertOk()
+        ->assertDontSee('Volgens de klant:', false);
 });

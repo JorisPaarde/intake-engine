@@ -3,18 +3,26 @@
 declare(strict_types=1);
 
 use App\Domains\AI\Actions\SuggestAttentionPoints;
+use App\Domains\AI\Models\AiRun;
 use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
+use App\Domains\Intake\Actions\SubmitIntakeReview;
 use App\Domains\Intake\Models\GeneratedReport;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\AircoSurveyService;
+use App\Domains\Intake\Services\WorkspacePrimaryActionResolver;
+use App\Enums\AircoConfigurationType;
+use App\Enums\AircoPlacementType;
+use App\Enums\AiRunStatus;
+use App\Enums\AiRunType;
 use App\Enums\ContributionMode;
 use App\Enums\ContributionTaskStatus;
 use App\Enums\FollowUpItemType;
 use App\Enums\IntakeStatus;
 use App\Enums\PhotoUsabilityVerdict;
+use App\Enums\ReviewDecision;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Support\Facades\Storage;
@@ -190,4 +198,178 @@ test('detail page does not load report iframe by default', function () {
 
     expect($html)->toMatch('/data-src="'.preg_quote(route('intakes.report', $intake), '/').'"/')
         ->and(preg_match('/<iframe[^>]*\ssrc="/', $html))->toBe(0);
+});
+
+test('N27: detail page labels werkwijze and leads next step with saved prepare-quote decision', function () {
+    $user = User::factory()->create();
+    $intake = makeDetailUxIntake($user, [
+        'workflow_mode' => ContributionMode::Hybrid,
+    ]);
+    app(AircoSurveyService::class)->createRoom($intake, $user, [
+        'name' => 'Woonkamer',
+        'use_type' => 'living_room',
+        'length_m' => 5,
+        'width_m' => 4,
+        'height_m' => 2.5,
+    ]);
+    $intake->update([
+        'status' => IntakeStatus::Completed,
+        'completed_at' => now(),
+    ]);
+
+    app(SubmitIntakeReview::class)->handle($intake->fresh(), $user, [
+        'decision' => ReviewDecision::PrepareQuote,
+        'summary' => 'Genoeg voor een eerste offerte.',
+        'enough_information' => true,
+    ]);
+
+    $response = $this->actingAs($user)->get(route('intakes.show', $intake->fresh()));
+
+    $response->assertOk()
+        ->assertSee('Werkwijze: Samen met de klant', false)
+        ->assertSee('data-testid="workflow-mode-label"', false)
+        ->assertSee('Je koos ‘Offerte voorbereiden’', false)
+        ->assertSee('onderdelen open', false)
+        ->assertSee('Klaar voor offerte:', false)
+        ->assertSee('onderdelen', false)
+        ->assertSee('data-testid="detail-next-action-summary"', false);
+
+    $html = $response->getContent();
+    expect($html)->toContain('data-testid="intake-status-badge"')
+        ->and($html)->toContain('Beoordeeld')
+        ->and($html)->toContain('Werkwijze: Samen met de klant')
+        ->and($html)->toContain('data-testid="quote-readiness-count"')
+        ->and($html)->toContain('Klaar voor offerte:')
+        ->and($html)->not->toMatch('/<span class="text-gray-500">Samen met de klant<\/span>/');
+});
+
+test('N27: prepare-quote with open points shows blocked panel copy', function () {
+    $user = User::factory()->create();
+    $intake = makeDetailUxIntake($user, [
+        'workflow_mode' => ContributionMode::Hybrid,
+    ]);
+    $survey = app(AircoSurveyService::class);
+    $room = $survey->createRoom($intake, $user, [
+        'name' => 'Woonkamer',
+        'use_type' => 'living_room',
+        'length_m' => 5,
+        'width_m' => 4,
+        'height_m' => 2.5,
+    ]);
+    $inside = $survey->createPlacement($intake, $user, [
+        'type' => AircoPlacementType::IndoorUnit,
+        'label' => 'Binnenunit woonkamer',
+        'airco_room_id' => $room->id,
+    ]);
+    $outside = $survey->createPlacement($intake, $user, [
+        'type' => AircoPlacementType::OutdoorUnit,
+        'label' => 'Buitenunit',
+    ]);
+    $survey->createInstallationOption($intake, $user, [
+        'label' => 'Single-split',
+        'configuration_type' => AircoConfigurationType::SingleSplit,
+        'placement_ids' => [$inside->id, $outside->id],
+    ]);
+    $intake->update([
+        'status' => IntakeStatus::Completed,
+        'completed_at' => now(),
+    ]);
+
+    app(SubmitIntakeReview::class)->handle($intake->fresh(), $user, [
+        'decision' => ReviewDecision::PrepareQuote,
+        'summary' => 'Genoeg voor een eerste offerte.',
+        'enough_information' => true,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('intakes.show', $intake->fresh()))
+        ->assertOk()
+        ->assertSee('Je koos ‘Offerte voorbereiden’, maar er staan nog punten open', false)
+        ->assertSee('Je kunt het voorstel pas goedkeuren als deze punten zijn opgelost. Een locatiebezoek blijft mogelijk. Losse AI-voorstellen kun je hieronder per stuk accepteren of verwijderen.', false);
+});
+
+test('N27: after follow-up round completes, stale review decision no longer shows Je koos', function () {
+    $user = User::factory()->create();
+    $intake = makeDetailUxIntake($user, [
+        'workflow_mode' => ContributionMode::Hybrid,
+    ]);
+    app(AircoSurveyService::class)->createRoom($intake, $user, [
+        'name' => 'Woonkamer',
+        'use_type' => 'living_room',
+        'length_m' => 5,
+        'width_m' => 4,
+        'height_m' => 2.5,
+    ]);
+    $intake->update([
+        'status' => IntakeStatus::Completed,
+        'completed_at' => now(),
+    ]);
+
+    app(SubmitIntakeReview::class)->handle($intake->fresh(), $user, [
+        'decision' => ReviewDecision::PrepareQuote,
+        'summary' => 'Genoeg voor een eerste offerte.',
+        'enough_information' => true,
+    ]);
+
+    expect($intake->fresh()->reviewed_at)->not->toBeNull()
+        ->and($this->actingAs($user)->get(route('intakes.show', $intake->fresh()))->getContent())
+        ->toContain('Je koos ‘Offerte voorbereiden’');
+
+    // CompleteFollowUpRound / CompleteInstallerSurvey clear reviewed_at; review row may remain.
+    $intake->fresh()->update([
+        'reviewed_at' => null,
+        'status' => IntakeStatus::Completed,
+    ]);
+
+    $html = $this->actingAs($user)
+        ->get(route('intakes.show', $intake->fresh(['review'])))
+        ->assertOk()
+        ->getContent();
+
+    expect($html)->not->toContain('Je koos ‘Offerte voorbereiden’')
+        ->and($html)->not->toContain('Je koos ‘Offerte voorbereiden’, maar er staan nog punten open');
+});
+
+test('N27: pending dossier synthesis without placements shows neutral updating summary', function () {
+    $user = User::factory()->create();
+    $intake = makeDetailUxIntake($user);
+    app(AircoSurveyService::class)->createRoom($intake, $user, [
+        'name' => 'Woonkamer',
+        'use_type' => 'living_room',
+    ]);
+
+    AiRun::query()->create([
+        'intake_id' => $intake->id,
+        'type' => AiRunType::DossierSynthesis,
+        'provider' => 'fake',
+        'model' => 'fake',
+        'prompt_version' => 'dossier-synthesis-v11',
+        'input_hash' => 'n27-pending',
+        'status' => AiRunStatus::Pending,
+        'started_at' => now(),
+    ]);
+
+    $intake = $intake->fresh(['aircoRooms', 'aircoPlacements', 'aircoInstallationOptions', 'review']);
+    expect($intake->aircoPlacements)->toBeEmpty();
+
+    $action = app(WorkspacePrimaryActionResolver::class)->resolve(
+        $intake,
+        null,
+        false,
+        false,
+        collect(),
+        collect(),
+    );
+
+    expect($action['summary'])->toBe('Het AI-voorstel wordt nog bijgewerkt. Vernieuw de pagina over een minuut.')
+        ->and($action['label'])->toBe('');
+
+    $html = $this->actingAs($user)
+        ->get(route('intakes.show', $intake))
+        ->assertOk()
+        ->assertSee('Het AI-voorstel wordt nog bijgewerkt. Vernieuw de pagina over een minuut.', false)
+        ->assertDontSee('Even geduld', false)
+        ->getContent();
+
+    expect($html)->not->toContain('data-testid="detail-next-action-cta"');
 });

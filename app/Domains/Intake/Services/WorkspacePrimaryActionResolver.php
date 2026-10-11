@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Services;
 
+use App\Domains\AI\Support\AiRunPendingQuery;
 use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\DossierDecisionArea;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Support\CurrentReviewDecision;
 use App\Domains\Intake\Support\RoomDimensions;
 use App\Domains\Intake\Support\RoomHeightRequirement;
 use App\Enums\AircoConnectionStatus;
@@ -14,8 +16,10 @@ use App\Enums\AircoConnectionType;
 use App\Enums\AircoOptionFeasibility;
 use App\Enums\AircoOptionStatus;
 use App\Enums\AircoPlacementType;
+use App\Enums\AiRunType;
 use App\Enums\DecisionAreaStatus;
 use App\Enums\DossierNextAction;
+use App\Enums\ReviewDecision;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
@@ -47,6 +51,40 @@ final class WorkspacePrimaryActionResolver
      * @return array{href: string, label: string, summary: string}
      */
     public function resolve(
+        Intake $intake,
+        ?DossierDecisionArea $quoteArea,
+        bool $canApproveProposal,
+        bool $proposalAlreadyApproved,
+        Collection $proposedCustomerTasks,
+        Collection $openAreas,
+        ?int $readyCount = null,
+        ?int $totalCount = null,
+    ): array {
+        $action = $this->resolveBase(
+            $intake,
+            $quoteArea,
+            $canApproveProposal,
+            $proposalAlreadyApproved,
+            $proposedCustomerTasks,
+            $openAreas,
+        );
+
+        return $this->withReviewDecisionContext(
+            $intake,
+            $action,
+            $proposalAlreadyApproved,
+            $openAreas,
+            $readyCount,
+            $totalCount,
+        );
+    }
+
+    /**
+     * @param  Collection<int, DossierDecisionArea>  $openAreas
+     * @param  Collection<int, mixed>  $proposedCustomerTasks
+     * @return array{href: string, label: string, summary: string}
+     */
+    private function resolveBase(
         Intake $intake,
         ?DossierDecisionArea $quoteArea,
         bool $canApproveProposal,
@@ -87,6 +125,16 @@ final class WorkspacePrimaryActionResolver
         }
 
         if ($intake->aircoPlacements->isEmpty()) {
+            if ($intake->exists
+                && AiRunPendingQuery::hasRecent((int) $intake->id, AiRunType::DossierSynthesis)) {
+                // No CTA while synthesis is still running — summary only.
+                return [
+                    'href' => '#demo-placements',
+                    'label' => '',
+                    'summary' => 'Het AI-voorstel wordt nog bijgewerkt. Vernieuw de pagina over een minuut.',
+                ];
+            }
+
             return [
                 'href' => '#demo-placements',
                 'label' => 'Binnen- of buitenunit toevoegen',
@@ -153,6 +201,56 @@ final class WorkspacePrimaryActionResolver
             'label' => 'Naar multi-split of singles',
             'summary' => $quoteArea?->next_action?->label() ?? 'Werk de keuze verder uit',
         ];
+    }
+
+    /**
+     * Lead "Wat nu te doen" with a saved review decision when open points remain.
+     *
+     * @param  array{href: string, label: string, summary: string}  $action
+     * @param  Collection<int, DossierDecisionArea>  $openAreas
+     * @return array{href: string, label: string, summary: string}
+     */
+    private function withReviewDecisionContext(
+        Intake $intake,
+        array $action,
+        bool $proposalAlreadyApproved,
+        Collection $openAreas,
+        ?int $readyCount,
+        ?int $totalCount,
+    ): array {
+        if ($proposalAlreadyApproved) {
+            return $action;
+        }
+
+        $decision = CurrentReviewDecision::for($intake);
+        if ($decision === null) {
+            return $action;
+        }
+
+        $open = $totalCount !== null && $readyCount !== null
+            ? max(0, $totalCount - $readyCount)
+            : $openAreas->count();
+        $total = $totalCount ?? max($open, 1);
+
+        if ($decision === ReviewDecision::PrepareQuote && $open > 0) {
+            $action['summary'] = sprintf(
+                'Je koos ‘%s’. Nog %d van %d onderdelen open. Eerst: %s',
+                $decision->label(),
+                $open,
+                $total,
+                $action['summary'],
+            );
+
+            return $action;
+        }
+
+        $action['summary'] = sprintf(
+            'Je koos ‘%s’. %s',
+            $decision->label(),
+            $action['summary'],
+        );
+
+        return $action;
     }
 
     /**
