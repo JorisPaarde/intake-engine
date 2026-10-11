@@ -14,6 +14,7 @@
     'uploadPhaseComposite' => '',
     'pendingAssessUploadIds' => [],
     'assessmentUiReleased' => [],
+    'title' => null,
 ])
 
 @php
@@ -313,7 +314,11 @@
         :class="{ 'pointer-events-none opacity-60': (clientUploading && ! uploadTimedOut) || prepBusy }"
         wire:target="{{ $wireModel }}"
     >
-        <span class="{{ $titleClass }}">Foto's maken of kiezen</span>
+        @if (is_string($title) && $title !== '')
+            <span class="{{ $titleClass }}">{{ $title }}</span>
+        @else
+            <span class="{{ $titleClass }}">Foto's maken of kiezen</span>
+        @endif
         <span class="{{ $hintClass }}">
             @if ($helpExtra)
                 {{ $helpExtra }}

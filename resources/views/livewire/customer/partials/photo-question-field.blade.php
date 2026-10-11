@@ -11,6 +11,9 @@
     $showQuestionLabel = $showQuestionLabel ?? false;
     $fieldRequired = (bool) ($fieldRequired ?? false);
     $wrapperTestId = $wrapperTestId ?? null;
+    $uploadControlTitle = $question->key === 'around_house_photos'
+        ? 'Foto maken'
+        : null;
     $existingUploads = $uploadsByQuestion[$question->key] ?? collect();
     $maxFiles = (int) ($question->meta['max_files'] ?? config('intake.uploads.max_files_per_question', 5));
     $remainingSlots = max(0, $maxFiles - $existingUploads->count());
@@ -143,6 +146,7 @@
             :pending-assess-upload-ids="$pendingAssessUploadIds"
             :assessment-ui-released="$assessmentUiReleased"
             tone="intake"
+            :title="$uploadControlTitle"
         />
         @error('photo')
             <p class="mt-2 text-sm text-[#a84832]">{{ $message }}</p>
