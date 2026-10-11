@@ -90,6 +90,19 @@
                     :installer-return-url="$demoInstallerReturnUrl"
                 />
             @else
+                @php
+                    $thankYouWebsiteUrl = $company?->publicWebsiteUrl();
+                @endphp
+                @if (is_string($thankYouWebsiteUrl))
+                    <a
+                        href="{{ $thankYouWebsiteUrl }}"
+                        rel="noopener noreferrer"
+                        class="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl bg-[var(--tenant-primary)] px-4 text-sm font-semibold text-[var(--tenant-on-primary)]"
+                        data-testid="customer-company-website"
+                    >
+                        Naar de website van {{ $company->name }}
+                    </a>
+                @endif
                 <p class="mt-3 text-sm leading-relaxed text-[#5e6862]" data-testid="customer-close-hint">
                     Je kunt dit venster nu sluiten.
                 </p>

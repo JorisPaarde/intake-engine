@@ -17,6 +17,40 @@ beforeEach(function () {
     Storage::fake('local');
 });
 
+test('company settings stores an optional website and rejects javascript urls', function () {
+    $company = Company::factory()->create(['name' => 'Voorbeeld Koeling']);
+    $user = User::factory()->for($company)->create();
+
+    $this->actingAs($user)
+        ->get(route('company.settings.edit'))
+        ->assertOk()
+        ->assertSee('Website (optioneel)');
+
+    $this->actingAs($user)
+        ->from(route('company.settings.edit'))
+        ->patch(route('company.settings.update'), [
+            'name' => 'Voorbeeld Koeling',
+            'website' => 'www.voorbeeld.nl',
+        ])
+        ->assertRedirect(route('company.settings.edit'));
+
+    $company->refresh();
+    expect($company->website)->toBe('https://www.voorbeeld.nl')
+        ->and($company->publicWebsiteUrl())->toBe('https://www.voorbeeld.nl');
+
+    $this->actingAs($user)
+        ->from(route('company.settings.edit'))
+        ->patch(route('company.settings.update'), [
+            'name' => 'Voorbeeld Koeling',
+            'website' => 'javascript:alert(1)',
+        ])
+        ->assertRedirect(route('company.settings.edit'))
+        ->assertSessionHasErrors('website');
+
+    $company->refresh();
+    expect($company->website)->toBe('https://www.voorbeeld.nl');
+});
+
 test('company settings update name manual color and private logo metadata', function () {
     $company = Company::factory()->create(['name' => 'Oude Naam']);
     $user = User::factory()->for($company)->create();

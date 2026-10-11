@@ -748,6 +748,9 @@
                         <div>
                             <h3 class="text-lg font-semibold text-gray-950">Binnen- en buitenunit</h3>
                             <p class="mt-1 text-sm text-gray-500">Eerst de units, daarna multi-split of singles.</p>
+                            @if (session('block_status.target') === 'demo-placements')
+                                <p class="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-900" role="status" data-testid="block-status">{{ session('block_status.message') }}</p>
+                            @endif
                         </div>
 
                         @if ($intake->aircoPlacements->isNotEmpty())
@@ -802,7 +805,8 @@
                                             $placementFormLabel = $placementFormActive ? old('label', $placement->label) : $placement->label;
                                             $placementFormDescription = $placementFormActive ? old('description', $placement->description) : $placement->description;
                                         @endphp
-                                        <details class="mt-4 rounded-xl border border-gray-200 bg-gray-50" @if ($placementFormActive) open x-init="$el.scrollIntoView({block:'center'})" @endif data-form-key="{{ $placementFormKey }}">
+                                        <div class="mt-4 flex flex-wrap items-start gap-2">
+                                        <details class="min-w-0 flex-1 rounded-xl border border-gray-200 bg-gray-50" @if ($placementFormActive) open x-init="$el.scrollIntoView({block:'center'})" @endif data-form-key="{{ $placementFormKey }}">
                                             <summary class="flex min-h-11 cursor-pointer list-none items-center px-3 py-2 text-sm font-semibold text-gray-800">
                                                 Bewerken
                                             </summary>
@@ -873,6 +877,22 @@
                                                 </div>
                                             </form>
                                         </details>
+                                        <button
+                                            type="button"
+                                            data-confirm-dialog-open="delete-placement-{{ $placement->id }}"
+                                            class="inline-flex min-h-11 items-center rounded-xl border border-red-200 bg-white px-3 text-sm font-semibold text-red-800"
+                                            data-testid="placement-delete"
+                                        >
+                                            Verwijderen
+                                        </button>
+                                        </div>
+                                        <x-confirm-dialog
+                                            :id="'delete-placement-'.$placement->id"
+                                            :title="$placement->type->label().' verwijderen?'"
+                                            :body="$placement->label.' en de koppelingen ervan verdwijnen uit de opname.'"
+                                            :action="route('intakes.workspace.placements.destroy', [$intake, $placement])"
+                                            confirm-label="Verwijderen"
+                                        />
 
                                         @include('installer.intakes._subject-tools', [
                                             'intake' => $intake,

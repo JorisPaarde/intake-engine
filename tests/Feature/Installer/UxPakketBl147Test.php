@@ -18,6 +18,7 @@ use App\Enums\ContributionMode;
 use App\Enums\FollowUpItemType;
 use App\Enums\IntakeStatus;
 use App\Livewire\Customer\IntakeWizard;
+use App\Models\Company;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Http\UploadedFile;
@@ -333,6 +334,42 @@ test('ronde 3 punt 1+2: bedankscherm hoofdwizard zegt hetzelfde als de aanvulflo
         ->assertDontSee('Naar de website van')
         ->assertDontSee('verwijderd.');
 });
+
+test('bedankscherm echte klant toont websiteknop als het bedrijf een website heeft; demo niet', function () {
+    $company = Company::factory()->create([
+        'name' => 'Lente Koeling',
+        'website' => 'https://www.lentekoeling.nl',
+    ]);
+    $user = User::factory()->for($company)->create();
+    $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
+    $intake = Intake::factory()->create([
+        'company_id' => $company->id,
+        'created_by' => $user->id,
+        'intake_template_version_id' => $version->id,
+        'status' => IntakeStatus::Sent,
+        'is_demo' => false,
+    ]);
+
+    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('completed', true)
+        ->assertSee('Naar de website van Lente Koeling')
+        ->assertSee('href="https://www.lentekoeling.nl"', false)
+        ->assertSee('Je kunt dit venster nu sluiten.');
+
+    $demo = Intake::factory()->create([
+        'company_id' => $company->id,
+        'created_by' => $user->id,
+        'intake_template_version_id' => $version->id,
+        'status' => IntakeStatus::Sent,
+        'is_demo' => true,
+    ]);
+
+    Livewire::test(IntakeWizard::class, ['token' => $demo->access_token])
+        ->set('completed', true)
+        ->assertDontSee('Naar de website van')
+        ->assertDontSee('Je kunt dit venster nu sluiten.');
+});
+
 
 test('ronde 3 punt 3: demo beëindigd heeft de nieuwe kop en tekst; verlopen blijft gelijk', function () {
     $this->get(route('demo.ended'))

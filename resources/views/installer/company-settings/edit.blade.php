@@ -4,7 +4,7 @@
             <h2 class="text-xl font-semibold leading-tight text-[#18201d]">
                 Bedrijfsinstellingen
             </h2>
-            <p class="text-sm text-[#5e6862]">Naam, logo en actiekleur voor installateur en klant.</p>
+            <p class="text-sm text-[#5e6862]">Naam, website, logo en actiekleur voor installateur en klant.</p>
         </div>
     </x-slot>
 
@@ -24,6 +24,13 @@
                     <x-input-label for="name" value="Bedrijfsnaam" />
                     <x-text-input id="name" name="name" class="mt-1 block w-full" type="text" :value="old('name', $company->name)" required />
                     <x-input-error :messages="$errors->get('name')" class="mt-2" />
+                </div>
+
+                <div>
+                    <x-input-label for="website" value="Website (optioneel)" />
+                    <x-text-input id="website" name="website" class="mt-1 block w-full" type="text" inputmode="url" :value="old('website', $company->website)" placeholder="https://" autocomplete="url" />
+                    <p class="mt-2 text-sm text-[#5e6862]">Als je dit invult, ziet de klant na afronden een knop naar jullie website.</p>
+                    <x-input-error :messages="$errors->get('website')" class="mt-2" />
                 </div>
 
                 <div>
