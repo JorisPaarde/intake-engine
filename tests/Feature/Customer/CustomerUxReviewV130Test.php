@@ -11,6 +11,7 @@ use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\IntakeStepBuilder;
+use App\Domains\Intake\Support\PhotoCustomerStatus;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Enums\AttentionPointSource;
 use App\Enums\AttentionPointStatus;
@@ -269,5 +270,7 @@ test('goedgekeurde foto toont geen oranje waarschuwingsbox', function () {
         ->set('activeStepKey', $steps[$index]['key'])
         ->assertDontSeeHtml('data-testid="photo-mismatch-panel"')
         ->assertDontSeeHtml('data-testid="photo-quality-hint"')
-        ->assertSeeHtml('data-testid="photo-receipt-status"');
+        ->assertDontSeeHtml('data-testid="photo-receipt-status"')
+        ->assertSee(PhotoCustomerStatus::GOOD)
+        ->assertDontSee('Status:');
 });

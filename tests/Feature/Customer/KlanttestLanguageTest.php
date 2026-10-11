@@ -80,6 +80,7 @@ test('fusebox_photo asks for full cabinet including empty slots without phase ju
 test('customer wizard runtime copy has no u/uw in notices or intro', function () {
     $paths = [
         resource_path('views/livewire/customer/intake-wizard.blade.php'),
+        resource_path('views/livewire/customer/partials/photo-question-field.blade.php'),
         resource_path('views/livewire/customer/follow-up-wizard.blade.php'),
         resource_path('views/emails/customer-intake-link.blade.php'),
         resource_path('views/emails/customer-intake-reminder.blade.php'),
