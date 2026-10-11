@@ -66,6 +66,9 @@ test('report_claims fixtures have required schema fields', function () {
         ->and($ids)->toContain('rc-fusebox-blanking-plates')
         ->and($ids)->toContain('rc-fusebox-clear-3ph-high')
         ->and($ids)->toContain('rc-no-fusebox-photo')
+        ->and($ids)->toContain('rc-n14-attic-vs-office-furnishing')
+        ->and($ids)->toContain('rc-n14-phase-unknown-vs-ai')
+        ->and($ids)->toContain('rc-n14-phase-stated-vs-ai')
         ->and(count($ids))->toBe(count(array_unique($ids)));
 });
 
