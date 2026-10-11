@@ -48,7 +48,7 @@ test.describe('Targeted customer task (follow-up)', () => {
     const remove = waitForLivewire(page).catch(() => undefined);
     await page.getByRole('button', { name: /Verwijderen/i }).first().click();
     await remove;
-    await expect(page.getByText(/Foto's maken of kiezen/i)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/Foto['’]s maken of kiezen/i)).toBeVisible({ timeout: 10_000 });
 
     await uploadPhoto(page, 'room-overview-good.jpg');
     await waitForPhotoAssessed(page);

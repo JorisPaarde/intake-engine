@@ -129,7 +129,7 @@ export async function isPhotoStep(page: Page): Promise<boolean> {
   if (await page.getByTestId('photo-skip').count()) {
     return true;
   }
-  if (await page.getByText(/Foto's maken of kiezen/i).count()) {
+  if (await page.getByText(/Foto['’]s maken of kiezen/i).count()) {
     return true;
   }
   if (await page.locator('input[id^="photo-input-"], input[id^="follow-up-photo-input-"]').count()) {
