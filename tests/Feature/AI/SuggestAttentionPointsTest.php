@@ -506,6 +506,7 @@ test('attention point analysis receives the complete technical dossier context',
         ->and($input['uploads'][0])->toMatchArray([
             'question_key' => 'fusebox_photo',
             'question_label' => 'Foto van de meterkast',
+            'order' => 1,
             'mime_type' => 'image/jpeg',
             'usability_verdict' => 'too_dark',
         ])

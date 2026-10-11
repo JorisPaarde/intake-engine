@@ -49,6 +49,7 @@ final class E2eScenarioFactory
             'drain-facade' => $this->drainAndFacade(),
             'feedback' => $this->feedbackReady(),
             'room-name-autosave' => $this->roomNameAutosave(),
+            'resume-after-known-edit' => $this->resumeAfterKnownEdit(),
             default => throw new \InvalidArgumentException('Unknown E2E scenario: '.$scenario),
         };
     }
@@ -261,6 +262,64 @@ final class E2eScenarioFactory
         return $this->payload($intake, 'room-name-autosave', [
             'target_question_key' => 'room_name',
         ]);
+    }
+
+    /**
+     * Known-summary with three rooms/floors prefills; cooling_heating left unanswered.
+     * Used to assert Wijzigen → refresh never skips required early steps.
+     *
+     * @return array<string, mixed>
+     */
+    private function resumeAfterKnownEdit(): array
+    {
+        E2eAiScenario::set(E2eAiScenario::GOOD_PHOTO);
+
+        $intake = $this->seedResumeKnownRooms([
+            'customer_name' => 'E2E Resume',
+            'customer_email' => 'e2e-resume@example.com',
+        ]);
+
+        return $this->payload($intake, 'resume-after-known-edit', [
+            'target_question_key' => 'cooling_heating',
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $overrides
+     */
+    private function seedResumeKnownRooms(array $overrides = []): Intake
+    {
+        // Avoid cooling/heating keywords so the offline local parser (text-AI off)
+        // does not fill cooling_heating on wizard mount — that question must stay open.
+        $intake = $this->baseIntake(array_merge([
+            'request_reason' => 'Drie ruimtes: woonkamer, slaapkamer en zolder.',
+        ], $overrides));
+
+        $this->saveAnswer->handle($intake, 'indoor_unit_count', null, ['number' => 3], PrefillSources::AI_TEXT);
+
+        foreach (['room-1', 'room-2', 'room-3'] as $i => $room) {
+            $this->saveAnswer->handle(
+                $intake,
+                'room_type',
+                $room,
+                ['value' => $i === 0 ? 'living_room' : 'bedroom'],
+                PrefillSources::AI_TEXT,
+            );
+            $this->saveAnswer->handle(
+                $intake,
+                'floor_level',
+                $room,
+                ['value' => (string) $i],
+                PrefillSources::AI_TEXT,
+            );
+        }
+
+        $this->dossierManager->initialize($intake->fresh() ?? $intake);
+
+        // Guard: drop cooling if any mount-time derive already wrote it.
+        $intake->answers()->where('question_key', 'cooling_heating')->delete();
+
+        return $intake->fresh() ?? $intake;
     }
 
     /**

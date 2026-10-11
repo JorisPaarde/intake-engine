@@ -1,0 +1,142 @@
+{
+  "id": "rc-fusebox-blanking-plates",
+  "kind": "report_claims",
+  "origin": "IE test run 11 Oct 2026 — blanking plates visible; free capacity not proven",
+  "source_kind": "variant",
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
+  "note": "empty_module_space unknown (deels afgedekt). Phase claims hedged_only (cannot-determine OK); capacity_full forbidden. Prod-shaped uploads[].content_assessment.",
+  "summary_input": {
+    "answers": {
+      "fusebox_photo": {
+        "upload_ids": [
+          "eval-upload-blanking"
+        ]
+      }
+    },
+    "external_facts": {
+      "fusebox_photo_assessment": {
+        "value": {
+          "phase": "unknown",
+          "empty_module_space": "unknown",
+          "confidence": "medium",
+          "evidence": "Meterkastfoto deels afgedekt met afdekplaatjes; vrije moduleplek niet betrouwbaar vast te stellen.",
+          "retake_instruction": null,
+          "subject_match": "yes"
+        },
+        "source": "ai",
+        "confidence": "medium"
+      }
+    },
+    "follow_up": [],
+    "attention_point_codes": [],
+    "uploads": [
+      {
+        "reference": "fusebox_photo@upload:upload_blanking",
+        "question_key": "fusebox_photo",
+        "question_label": "Foto van de meterkast",
+        "section_label": "Stroom",
+        "section_instance_key": null,
+        "context": "intake",
+        "mime_type": "image/jpeg",
+        "size_bytes": 1100000,
+        "usability_verdict": "usable",
+        "content_assessment": {
+          "status": "ok",
+          "expected_subject": "fusebox",
+          "detected_subject": "fusebox",
+          "customer_message": null
+        },
+        "order": 1
+      }
+    ],
+    "template_key": "airco",
+    "template_version": 26
+  },
+  "attention_input": {
+    "answers": {},
+    "external_facts": {
+      "fusebox_photo_assessment": {
+        "value": {
+          "phase": "unknown",
+          "empty_module_space": "unknown",
+          "confidence": "medium",
+          "evidence": "Meterkastfoto deels afgedekt met afdekplaatjes; vrije moduleplek niet betrouwbaar vast te stellen."
+        },
+        "source": "ai",
+        "confidence": "medium"
+      }
+    },
+    "answer_context": [],
+    "external_fact_context": [
+      {
+        "reference": "fusebox_photo_assessment@fact:fact_eval_blanking",
+        "fact_key": "fusebox_photo_assessment",
+        "label": "Automatische beoordeling meterkastfoto",
+        "value": {
+          "phase": "unknown",
+          "empty_module_space": "unknown",
+          "confidence": "medium",
+          "evidence": "Meterkastfoto deels afgedekt met afdekplaatjes; vrije moduleplek niet betrouwbaar vast te stellen."
+        },
+        "source": "ai",
+        "confidence": "medium",
+        "captured_at": "2026-10-11T09:45:00+00:00"
+      }
+    ],
+    "uploads": [
+      {
+        "reference": "fusebox_photo@upload:upload_blanking",
+        "question_key": "fusebox_photo",
+        "question_label": "Foto van de meterkast",
+        "section_label": "Stroom",
+        "section_instance_key": null,
+        "context": "intake",
+        "mime_type": "image/jpeg",
+        "size_bytes": 1100000,
+        "usability_verdict": "usable",
+        "content_assessment": {
+          "status": "ok",
+          "expected_subject": "fusebox",
+          "detected_subject": "fusebox",
+          "customer_message": null
+        },
+        "order": 1
+      }
+    ],
+    "follow_up": [],
+    "system_attention_points": [],
+    "completeness": {},
+    "installer_review": null,
+    "pipe_routes": [],
+    "template_key": "airco",
+    "template_version": 26,
+    "intake_status": "submitted"
+  },
+  "expected": {
+    "claims": [
+      {
+        "id": "capacity_full",
+        "concept": "capacity_full",
+        "allowed": "forbidden"
+      },
+      {
+        "id": "phase_3",
+        "concept": "phase_3",
+        "allowed": "hedged_only"
+      },
+      {
+        "id": "phase_1",
+        "concept": "phase_1",
+        "allowed": "hedged_only"
+      }
+    ],
+    "must_not_invent_phase": true,
+    "attention_confidence_ceiling": "medium",
+    "require_evidence_on_points": true
+  },
+  "disputed_facts": {}
+}

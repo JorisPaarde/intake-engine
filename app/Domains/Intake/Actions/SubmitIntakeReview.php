@@ -10,6 +10,7 @@ use App\Domains\Intake\Models\IntakeFollowUpRound;
 use App\Domains\Intake\Models\IntakeReview;
 use App\Domains\Intake\Services\DecisionReadinessService;
 use App\Domains\Intake\Services\DossierManager;
+use App\Domains\Intake\Services\RefreshStoredIntakeReport;
 use App\Enums\ContributionMode;
 use App\Enums\FollowUpItemType;
 use App\Enums\FollowUpRoundStatus;
@@ -24,6 +25,7 @@ final class SubmitIntakeReview
     public function __construct(
         private readonly DecisionReadinessService $decisionReadiness,
         private readonly DossierManager $dossierManager,
+        private readonly RefreshStoredIntakeReport $refreshStoredIntakeReport,
     ) {}
 
     /**
@@ -132,6 +134,7 @@ final class SubmitIntakeReview
         $freshIntake = $intake->fresh() ?? $intake;
         $this->dossierManager->initialize($freshIntake);
         $this->decisionReadiness->recalculate($freshIntake);
+        $this->refreshStoredIntakeReport->handle($freshIntake);
 
         return $review;
     }

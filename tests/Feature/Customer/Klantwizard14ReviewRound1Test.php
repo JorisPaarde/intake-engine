@@ -182,7 +182,7 @@ test('R1-9: drain_photo accepteert Room en PipeRoute; OutdoorLocation-branch ber
     expect($roomOk->status())->toBe(PhotoContentAssessment::STATUS_OK);
 });
 
-test('R1-9: gevel/tuin-advies alleen outdoor/around_house; drain behoudt bestaande tekst', function () {
+test('R1-9: gevel/tuin-advies alleen outdoor/around_house; drain blijft A4-wrong_subject met afvoer-tekst', function () {
     $outdoor = PhotoContentAssessment::fromModelOutput(PhotoSubject::OutdoorLocation, [
         'detected_subject' => 'outdoor_location',
         'subject_match' => 'no',
@@ -193,17 +193,55 @@ test('R1-9: gevel/tuin-advies alleen outdoor/around_house; drain behoudt bestaan
         'subject_match' => 'no',
     ], PhotoSubject::acceptedSubjectsForPhotoQuestion('around_house_photos', 'around_house'), 'around_house_photos');
 
-    $drain = PhotoContentAssessment::fromModelOutput(PhotoSubject::OutdoorLocation, [
+    // A4: outdoor_location in accepted set + subject_match=no → still wrong_subject (OutdoorLocation force).
+    $drainAcceptedMatch = PhotoContentAssessment::fromModelOutput(PhotoSubject::OutdoorLocation, [
         'detected_subject' => 'outdoor_location',
+        'subject_match' => 'no',
+    ], PhotoSubject::acceptedSubjectsForPhotoQuestion('drain_photo', 'drain'), 'drain_photo');
+
+    $drainWrong = PhotoContentAssessment::fromModelOutput(PhotoSubject::OutdoorLocation, [
+        'detected_subject' => 'indoor_unit',
         'subject_match' => 'no',
     ], PhotoSubject::acceptedSubjectsForPhotoQuestion('drain_photo', 'drain'), 'drain_photo');
 
     expect($outdoor->status())->toBe(PhotoContentAssessment::STATUS_WRONG_SUBJECT)
         ->and($outdoor->customerMessage())->toContain('gevel')
         ->and($around->customerMessage())->toBe($outdoor->customerMessage())
-        ->and($drain->status())->toBe(PhotoContentAssessment::STATUS_WRONG_SUBJECT)
-        ->and($drain->customerMessage())->not->toContain('Dit lijkt geen foto van de gevel of tuin')
-        ->and($drain->customerMessage())->toContain('we hebben');
+        ->and($drainAcceptedMatch->status())->toBe(PhotoContentAssessment::STATUS_WRONG_SUBJECT)
+        ->and($drainAcceptedMatch->expectedSubject())->toBe(PhotoSubject::OutdoorLocation)
+        ->and($drainAcceptedMatch->expectedSubject()?->value)->toBe('outdoor_location')
+        ->and($drainAcceptedMatch->customerMessage())->toBe(
+            'Dit lijkt geen foto van de afvoer. Maak een foto van de plek waar de condensafvoer kan lozen, zoals een regenpijp, putje of goot.'
+        )
+        ->and($drainAcceptedMatch->customerMessage())->not->toContain('Dit lijkt geen foto van de gevel of tuin')
+        ->and($drainAcceptedMatch->customerMessage())->not->toContain('buitenplek voor de unit')
+        ->and($drainWrong->status())->toBe(PhotoContentAssessment::STATUS_WRONG_SUBJECT)
+        ->and($drainWrong->customerMessage())->toBe(
+            'Dit lijkt geen foto van de afvoer; we zien de binnenunit. Maak een foto van de plek waar de condensafvoer kan lozen, zoals een regenpijp, putje of goot.'
+        )
+        ->and($drainWrong->customerMessage())->not->toContain('gevel, tuin of buitenplek');
+});
+
+test('N16: drain_photo expected_subject payload stays outdoor_location like main', function () {
+    expect(PhotoSubject::expectedForPhotoQuestion('drain_photo', 'drain'))->toBe(PhotoSubject::OutdoorLocation)
+        ->and(PhotoSubject::expectedForPhotoQuestion('drain_photo', 'drain')->value)->toBe('outdoor_location');
+
+    $enumNames = array_map(static fn (PhotoSubject $case): string => $case->name, PhotoSubject::cases());
+    expect($enumNames)->not->toContain('Drain');
+
+    $assessment = PhotoContentAssessment::fromModelOutput(
+        PhotoSubject::OutdoorLocation,
+        [
+            'detected_subject' => 'fusebox',
+            'subject_match' => 'no',
+        ],
+        PhotoSubject::acceptedSubjectsForPhotoQuestion('drain_photo', 'drain'),
+        'drain_photo',
+    );
+
+    expect($assessment->status())->toBe(PhotoContentAssessment::STATUS_WRONG_SUBJECT)
+        ->and($assessment->expectedSubject())->toBe(PhotoSubject::OutdoorLocation)
+        ->and($assessment->expectedSubject()?->value)->toBe('outdoor_location');
 });
 
 test('R1-6/7/10: CustomerAnswerBlocks alleen prefill_source=null, zonder consent/room-card velden', function () {
