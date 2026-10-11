@@ -156,6 +156,20 @@ class IntakeWizard extends Component
     public bool $completed = false;
 
     /**
+     * Stapwaarheen terugkeren na “Toch doorgaan” / goede vervangfoto via banner of Afronden-link.
+     */
+    #[Locked]
+    public string $photoFixReturnStepKey = '';
+
+    /**
+     * Foto-afleidingen die off-step terminaal werden; toepassen wanneer die fotostap weer zichtbaar is.
+     *
+     * @var list<array{question_key: string, instance_key: string|null}>
+     */
+    #[Locked]
+    public array $deferredPhotoDerivations = [];
+
+    /**
      * Foto die net is weggehaald en 8 s ongedaan gemaakt kan worden (BL-147, UX #16.4).
      *
      * @var array{item_id: int, upload_id: int, answered_at: string|null}|null
@@ -242,6 +256,9 @@ class IntakeWizard extends Component
      * @var array<string, array{prefill_source: string, value: array<string, mixed>|null}>
      */
     public array $pendingKnownEdits = [];
+
+    /** Show the m² field on the dimensions group (only m², not L×B). */
+    public bool $showAreaOnlyField = false;
 
     /**
      * Request-local caches (BL-025). Not public — Livewire does not dehydrate these
@@ -369,13 +386,20 @@ class IntakeWizard extends Component
         $this->hydrateFormFromAnswers();
 
         $steps = $this->steps();
+        $sectionKey = $intake->current_section_key;
+        $questionKey = $intake->current_question_key;
+        $instanceKey = $intake->current_section_instance_key;
         $this->stepIndex = app(IntakeStepBuilder::class)->indexForCursor(
             $steps,
-            $intake->current_section_key,
-            $intake->current_question_key,
-            $intake->current_section_instance_key,
+            $sectionKey,
+            $questionKey,
+            $instanceKey,
         );
         $this->clampStepIndex($steps);
+        // Wijzigen + refresh: forceShowKnown is gone, cursor points at a hidden step,
+        // indexForCursor falls back to section start and skips earlier required work.
+        // Only rewrite resume when the exact cursor target is missing from the list.
+        $this->clampResumeWhenCursorMissing($steps, $sectionKey, $questionKey, $instanceKey);
         $this->syncActiveStepKey($steps);
         $this->knownStepKeys = array_map(
             static fn (array $step): string => $step['key'],
@@ -426,6 +450,8 @@ class IntakeWizard extends Component
                 'photoMismatchAssessment' => null,
                 'photoNeedsOverride' => false,
                 'photoNeedsQualityHint' => false,
+                'distantPhotoIssues' => [],
+                'photoNextBlockedByAssessment' => false,
                 'stepDisplayNumber' => 0,
                 'stepDisplayTotal' => 0,
                 'saveMessage' => '',
@@ -585,6 +611,12 @@ class IntakeWizard extends Component
             ? $stepTotal
             : $this->countDoneSteps($steps);
 
+        $isLastStep = $displayIndex >= $stepTotal - 1;
+        $distantPhotoIssues = ($this->completed || $isLastStep)
+            ? []
+            : $this->distantUnresolvedPhotoIssues($steps, $step);
+        $photoNextBlockedByAssessment = $this->stepHasLookingPhotos($step);
+
         return view('livewire.customer.intake-wizard', [
             'intake' => $intake,
             'steps' => $steps,
@@ -598,6 +630,8 @@ class IntakeWizard extends Component
             'photoMismatchAssessment' => $photoMismatchAssessment,
             'photoNeedsOverride' => $photoNeedsOverride,
             'photoNeedsQualityHint' => $photoNeedsQualityHint,
+            'distantPhotoIssues' => $distantPhotoIssues,
+            'photoNextBlockedByAssessment' => $photoNextBlockedByAssessment,
             // Prop name kept for BL-076 banner sibling; value means "primary customer path".
             'demoShortCustomer' => $demoCustomerPath,
             'demoInstallerReturnUrl' => $demoCustomerPath
@@ -614,8 +648,9 @@ class IntakeWizard extends Component
             'uploadPhaseComposite' => $this->uploadPhaseComposite,
             'pendingAssessUploadIds' => $this->pendingAssessUploadIds,
             'assessmentUiReleased' => $this->assessmentUiReleased,
+            'currentStepPhotoComposites' => $this->photoCompositesForStep($step),
             'missingRequired' => $this->completionMissing,
-            'isLastStep' => $displayIndex >= $stepTotal - 1,
+            'isLastStep' => $isLastStep,
             'isKnownSummary' => $stepKind === 'known_summary',
             'maxUploadKb' => (int) ceil(PhotoUploadLimits::hardMaxBytes() / 1024),
             'uploadHardMaxBytes' => PhotoUploadLimits::hardMaxBytes(),
@@ -1441,10 +1476,7 @@ class IntakeWizard extends Component
             $softReleased = in_array($composite, $this->assessmentUiReleased, true);
 
             if ($this->assessmentSoftTimedOut($composite) && ! $softReleased) {
-                $this->softReleasePendingAssessment(
-                    $composite,
-                    PhotoCustomerStatus::SOFT_TIMEOUT,
-                );
+                $this->softReleasePendingAssessment($composite);
 
                 return;
             }
@@ -1473,9 +1505,14 @@ class IntakeWizard extends Component
             return;
         }
 
-        // Prefill/afgeleide antwoorden door AI-job; ververs formulier.
+        // Prefill/afgeleide antwoorden: alleen form verversen als deze fotostap zichtbaar is,
+        // anders klantinvoer op de huidige stap overschrijven.
         if ($questionKey !== '') {
-            $this->applyPhotoDerivationResults($questionKey, $instanceKey);
+            if ($this->photoCompositeIsOnCurrentStep($composite)) {
+                $this->applyPhotoDerivationResults($questionKey, $instanceKey);
+            } else {
+                $this->deferPhotoDerivation($questionKey, $instanceKey);
+            }
         }
 
         $this->forgetIntakeDerivedCaches();
@@ -1492,32 +1529,51 @@ class IntakeWizard extends Component
         }
     }
 
-    public function retryFailedUploadPhase(): void
+    public function retryFailedUploadPhase(?string $composite = null): void
     {
-        $composite = $this->uploadPhaseComposite;
+        $composite = is_string($composite) && $composite !== ''
+            ? $composite
+            : $this->uploadPhaseComposite;
+
+        $this->resetErrorBag();
+        $this->clearSoftReleaseForComposite($composite);
 
         if ($composite === '' || $this->pendingIdsFor($composite) === []) {
             $this->recoverUnassessedUploads(force: true);
 
-            if ($this->uploadPhaseComposite === '' || $this->pendingIdsFor($this->uploadPhaseComposite) === []) {
+            $recovered = $this->uploadPhaseComposite;
+            if ($recovered === '' || $this->pendingIdsFor($recovered) === []) {
                 $this->clearUploadPhase();
                 $this->saveMessage = 'Je kunt de foto opnieuw kiezen.';
 
                 return;
             }
 
+            // Soft-released composites must re-enter assessing after force-recover.
+            $this->clearSoftReleaseForComposite($recovered);
+            $this->uploadPhaseStartedAt = null;
+            $this->setUploadPhase('assessing', PhotoCustomerStatus::LOOKING);
+
             return;
         }
 
-        $this->resetErrorBag();
+        $this->uploadPhaseComposite = $composite;
+        // Explicit retry = new assessing clock (also after soft-release).
+        $this->uploadPhaseStartedAt = null;
+        $this->redispatchPendingAssessments($composite);
+        $this->setUploadPhase('assessing', PhotoCustomerStatus::LOOKING);
+    }
+
+    private function clearSoftReleaseForComposite(string $composite): void
+    {
+        if ($composite === '') {
+            return;
+        }
+
         $this->assessmentUiReleased = array_values(array_filter(
             $this->assessmentUiReleased,
             static fn (string $key): bool => $key !== $composite,
         ));
-        // Explicit retry = new assessing clock.
-        $this->uploadPhaseStartedAt = null;
-        $this->redispatchPendingAssessments($composite);
-        $this->setUploadPhase('assessing', PhotoCustomerStatus::LOOKING);
     }
 
     /**
@@ -1550,10 +1606,7 @@ class IntakeWizard extends Component
             $softReleased = in_array($composite, $this->assessmentUiReleased, true);
 
             if ($this->assessmentSoftTimedOut($composite) && ! $softReleased) {
-                $this->softReleasePendingAssessment(
-                    $composite,
-                    PhotoCustomerStatus::SOFT_TIMEOUT,
-                );
+                $this->softReleasePendingAssessment($composite);
 
                 return;
             }
@@ -1627,7 +1680,7 @@ class IntakeWizard extends Component
         return false;
     }
 
-    private function softReleasePendingAssessment(string $composite, string $message): void
+    private function softReleasePendingAssessment(string $composite): void
     {
         // Keep pending ids so quiet wire:poll can pick up the terminal result
         // (staging intake 82: backend done at ~80s but UI stayed on Ontvangen).
@@ -1643,11 +1696,9 @@ class IntakeWizard extends Component
         if ($this->uploadPhaseComposite === '') {
             $this->uploadPhaseComposite = $composite;
         }
-        $this->saveMessage = $message;
 
-        if (! $this->followUpMode) {
-            $this->photoHint[$composite] = $message;
-        }
+        // Soft-timeoutregel staat in het fotomeldingsvak (niet als saveMessage / tegeltekst).
+        $this->saveMessage = '';
     }
 
     private function setUploadPhase(string $phase, string $message): void
@@ -2173,6 +2224,97 @@ class IntakeWizard extends Component
         }
     }
 
+    private function deferPhotoDerivation(string $questionKey, ?string $instanceKey): void
+    {
+        foreach ($this->deferredPhotoDerivations as $entry) {
+            if ($entry['question_key'] === $questionKey
+                && $entry['instance_key'] === $instanceKey) {
+                return;
+            }
+        }
+
+        $this->deferredPhotoDerivations[] = [
+            'question_key' => $questionKey,
+            'instance_key' => $instanceKey,
+        ];
+    }
+
+    private function flushDeferredPhotoDerivationsForCurrentStep(): void
+    {
+        if ($this->deferredPhotoDerivations === []) {
+            return;
+        }
+
+        $remaining = [];
+
+        foreach ($this->deferredPhotoDerivations as $entry) {
+            $composite = VisibilityResolver::compositeKey(
+                $entry['question_key'],
+                $entry['instance_key'],
+            );
+
+            if ($this->photoCompositeIsOnCurrentStep($composite)) {
+                $this->applyPhotoDerivationResults(
+                    $entry['question_key'],
+                    $entry['instance_key'],
+                );
+            } else {
+                $remaining[] = $entry;
+            }
+        }
+
+        $this->deferredPhotoDerivations = $remaining;
+    }
+
+    private function photoCompositeIsOnCurrentStep(string $composite): bool
+    {
+        return in_array($composite, $this->photoCompositesForStep($this->currentStep()), true);
+    }
+
+    /**
+     * @param  array{
+     *     key?: string,
+     *     section_key?: string,
+     *     section_instance_key?: string|null,
+     *     question_key?: string,
+     *     kind?: string,
+     *     group_question_keys?: list<string>
+     * }|null  $step
+     * @return list<string>
+     */
+    private function photoCompositesForStep(?array $step): array
+    {
+        if ($step === null) {
+            return [];
+        }
+
+        $instanceKey = $step['section_instance_key'] ?? null;
+        $composites = [];
+        $kind = $step['kind'] ?? 'question';
+
+        if ($kind === 'question_group') {
+            foreach ($step['group_question_keys'] ?? [] as $groupKey) {
+                $groupQuestion = app(IntakeStepBuilder::class)->questionForStep(
+                    $this->version(),
+                    (string) ($step['section_key'] ?? ''),
+                    $groupKey,
+                );
+                if ($groupQuestion instanceof IntakeQuestion && $groupQuestion->type === QuestionType::Photo) {
+                    $composites[] = VisibilityResolver::compositeKey($groupQuestion->key, $instanceKey);
+                }
+            }
+
+            return array_values(array_unique($composites));
+        }
+
+        $photoQuestion = $this->photoQuestionForStep($step);
+        if ($photoQuestion instanceof IntakeQuestion) {
+            $composites[] = VisibilityResolver::compositeKey($photoQuestion->key, $instanceKey);
+        }
+
+        return $composites;
+    }
+
     private function photoRetakeHint(PhotoUsabilityVerdict $verdict, string $questionKey): ?string
     {
         $qualityHint = $verdict->customerHint();
@@ -2399,6 +2541,10 @@ class IntakeWizard extends Component
         $this->forgetIntakeDerivedCaches();
         $this->showMissing = false;
         $this->saveMessage = '';
+
+        if ($this->returnFromPhotoFixIfNeeded()) {
+            return;
+        }
 
         $this->next();
     }
@@ -2644,6 +2790,7 @@ class IntakeWizard extends Component
         }
 
         if (($step['kind'] ?? 'question') === 'question_group') {
+            $reader = app(AnswerValueReader::class);
             foreach ($step['group_question_keys'] ?? [] as $groupKey) {
                 $groupQuestion = app(IntakeStepBuilder::class)->questionForStep(
                     $this->version(),
@@ -2654,6 +2801,13 @@ class IntakeWizard extends Component
                     continue;
                 }
                 $composite = VisibilityResolver::compositeKey($groupQuestion->key, $step['section_instance_key']);
+                $payload = is_array($this->form[$composite] ?? null) ? $this->form[$composite] : [];
+                // Leeg form niet opnieuw opslaan: voorkomt (1) wissen van een eerdere klantkeuze
+                // bij foto-poll/Livewire-race en (2) herintroduceren van een AI-afleiding als
+                // klantantwoord nadat invalidatePhotoDerivation de rij al verwijderde.
+                if (! $reader->isFilled($payload, $groupQuestion->type)) {
+                    continue;
+                }
                 $this->persistComposite($composite);
             }
             $this->saveMessage = 'Opgeslagen';
@@ -2674,6 +2828,14 @@ class IntakeWizard extends Component
         $composite = VisibilityResolver::compositeKey($question->key, $step['section_instance_key']);
         $this->persistComposite($composite);
         $this->saveMessage = 'Opgeslagen';
+    }
+
+    /**
+     * Toon het m²-veld op het matenscherm (alleen oppervlak, zonder L×B).
+     */
+    public function revealAreaOnlyField(): void
+    {
+        $this->showAreaOnlyField = true;
     }
 
     /**
@@ -2700,8 +2862,18 @@ class IntakeWizard extends Component
             return;
         }
 
-        $allowSkip = ($question->meta['allow_skip'] ?? false) === true;
+        $allowSkip = ($question->meta['allow_skip'] ?? false) === true
+            || ($step['kind'] ?? 'question') === 'question_group';
         if (! $allowSkip && $step['is_required']) {
+            return;
+        }
+
+        if (($step['kind'] ?? 'question') === 'question_group') {
+            $this->showAreaOnlyField = false;
+            $this->showMissing = false;
+            $this->completionMissing = [];
+            $this->next();
+
             return;
         }
 
@@ -2787,7 +2959,14 @@ class IntakeWizard extends Component
         );
         $this->stepIndex = $index;
         $this->syncActiveStepKey($steps);
-        $this->rememberCurrentCursor();
+        // Persist the known-summary cursor, not the session-only forced-edit step.
+        // Refresh then resumes on "Dit hebben we al uit je aanvraag" instead of a
+        // hidden floor/room step that indexForCursor would map to section start.
+        $this->intake()->update([
+            'current_section_key' => 'request',
+            'current_question_key' => '_known_summary',
+            'current_section_instance_key' => null,
+        ]);
         $this->hydrateFormFromAnswers();
         $this->saveMessage = '';
     }
@@ -2813,7 +2992,7 @@ class IntakeWizard extends Component
         $check = app(CompletenessChecker::class)->check($intake, $version);
 
         if (! $check['is_complete']) {
-            $this->completionMissing = $check['missing'];
+            $this->completionMissing = $this->enrichCompletionMissing($check['missing']);
             $this->showMissing = true;
             $this->saveMessage = '';
 
@@ -2832,9 +3011,14 @@ class IntakeWizard extends Component
         }
     }
 
-    public function next(): void
+    public function next(?string $expectedStepKey = null): void
     {
         if ($this->completed) {
+            return;
+        }
+
+        // Stale Volgende: choice already auto-advanced; ignore the queued click for the old step.
+        if ($expectedStepKey !== null && $expectedStepKey !== $this->displayedStepKey($this->steps())) {
             return;
         }
 
@@ -2884,6 +3068,7 @@ class IntakeWizard extends Component
             $this->completionMissing = [];
             $this->hydrateFormFromAnswers();
             $this->applyPrefillForActiveStep();
+            $this->flushDeferredPhotoDerivationsForCurrentStep();
             $this->saveMessage = '';
 
             return;
@@ -2895,6 +3080,12 @@ class IntakeWizard extends Component
         }
 
         $stepToValidate = $currentIndex !== null ? ($steps[$currentIndex] ?? null) : null;
+
+        // Volgende blijft max 15 s gedimd terwijl we bekijken (UX §1.3).
+        if ($this->stepHasLookingPhotos($stepToValidate)) {
+            return;
+        }
+
         if (! $this->stepRequiredSatisfied($stepToValidate)) {
             $this->showMissing = true;
             $this->completionMissing = [];
@@ -2913,12 +3104,19 @@ class IntakeWizard extends Component
             return;
         }
 
+        // Via banner/Afronden-link: na fix terug naar de stap waar de klant was.
+        if ($this->returnFromPhotoFixIfNeeded()) {
+            return;
+        }
+
         if ($this->stepIndex < count($steps) - 1) {
             $this->stepIndex = $this->stepIndex + 1;
+            $this->showAreaOnlyField = false;
             $this->syncActiveStepKey($steps);
             $this->rememberCurrentCursor();
             $this->hydrateFormFromAnswers();
             $this->applyPrefillForActiveStep();
+            $this->flushDeferredPhotoDerivationsForCurrentStep();
             $this->saveMessage = '';
         }
     }
@@ -2989,6 +3187,7 @@ class IntakeWizard extends Component
         }
 
         $this->clearProgressExtraNote();
+        $this->photoFixReturnStepKey = '';
 
         $stepsBeforeSave = $this->steps();
         $currentKey = $this->displayedStepKey($stepsBeforeSave);
@@ -3032,6 +3231,7 @@ class IntakeWizard extends Component
             $this->realignToActiveStep();
             $this->hydrateFormFromAnswers();
             $this->applyPrefillForActiveStep();
+            $this->flushDeferredPhotoDerivationsForCurrentStep();
             $this->saveMessage = '';
             $this->showMissing = false;
 
@@ -3040,10 +3240,12 @@ class IntakeWizard extends Component
 
         $currentIndex ??= $this->stepIndex;
         $this->stepIndex = max(0, $currentIndex - 1);
+        $this->showAreaOnlyField = false;
         $this->syncActiveStepKey($steps);
         $this->rememberCurrentCursor();
         $this->hydrateFormFromAnswers();
         $this->applyPrefillForActiveStep();
+        $this->flushDeferredPhotoDerivationsForCurrentStep();
         $this->saveMessage = '';
         $this->showMissing = false;
     }
@@ -3054,6 +3256,8 @@ class IntakeWizard extends Component
         if ($index < 0 || $index >= count($steps)) {
             return;
         }
+
+        $this->photoFixReturnStepKey = '';
 
         $targetKey = $steps[$index]['key'];
         $this->saveCurrentStep();
@@ -3066,20 +3270,24 @@ class IntakeWizard extends Component
             $resolved = app(IntakeStepBuilder::class)->indexForStepKey($steps, $targetKey);
             $this->stepIndex = $resolved ?? max(0, min($index, count($steps) - 1));
         }
+        $this->showAreaOnlyField = false;
         $this->syncActiveStepKey($steps);
         $this->rememberCurrentCursor();
         $this->hydrateFormFromAnswers();
         $this->applyPrefillForActiveStep();
+        $this->flushDeferredPhotoDerivationsForCurrentStep();
         $this->saveMessage = '';
         $this->showMissing = false;
     }
 
     /**
-     * Jump to a missing required question from the completion alert (BL-022).
+     * Jump to a missing required question from the completion alert (BL-022)
+     * or the distant photo banner (UX 10 okt 2026 §1.5).
      */
     public function goToMissing(string $questionKey, ?string $sectionInstanceKey = null): void
     {
         $steps = $this->steps();
+        $returnKey = $this->displayedStepKey($steps);
 
         foreach ($steps as $index => $step) {
             if ($step['question_key'] !== $questionKey) {
@@ -3091,9 +3299,16 @@ class IntakeWizard extends Component
             }
 
             $this->goToStep($index);
+            // goToStep wist de return-key; herstel alleen bij een gevonden doel.
+            if (is_string($returnKey) && $returnKey !== '') {
+                $this->photoFixReturnStepKey = $returnKey;
+            }
+            $this->dispatch('scroll-to-photo-mismatch');
 
             return;
         }
+
+        $this->photoFixReturnStepKey = '';
     }
 
     private function intake(): Intake
@@ -3334,6 +3549,14 @@ class IntakeWizard extends Component
 
         if (! is_array($payload)) {
             $payload = [];
+        }
+
+        // Leeg m² niet opslaan: anders overschrijft Volgende de derived_lxw uit L×B.
+        if ($questionKey === 'room_area_m2') {
+            $number = $payload['number'] ?? null;
+            if (! is_numeric($number) || (float) $number <= 0) {
+                return;
+            }
         }
 
         app(SaveIntakeAnswer::class)->handle(
@@ -3652,6 +3875,253 @@ class IntakeWizard extends Component
     }
 
     /**
+     * @param  array{
+     *     key?: string,
+     *     section_key?: string,
+     *     section_instance_key?: string|null,
+     *     question_key?: string,
+     *     kind?: string,
+     *     group_question_keys?: list<string>
+     * }|null  $step
+     */
+    private function stepHasLookingPhotos(?array $step): bool
+    {
+        if ($step === null || $this->followUpMode) {
+            return false;
+        }
+
+        foreach ($this->photoUploadsForStep($step) as $entry) {
+            $label = PhotoCustomerStatus::forUpload(
+                $entry['upload'],
+                $entry['composite'],
+                $this->uploadPhase,
+                $this->uploadPhaseComposite,
+                $this->pendingAssessUploadIds[$entry['composite']] ?? [],
+                $this->assessmentUiReleased,
+            );
+
+            if ($label === PhotoCustomerStatus::LOOKING) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Afgekeurde verplichte foto’s op eerdere stappen (banner, UX §1.5).
+     *
+     * @param  list<array{
+     *     key: string,
+     *     section_key: string,
+     *     section_instance_key: string|null,
+     *     question_key: string,
+     *     title: string,
+     *     section_title: string,
+     *     is_required: bool,
+     *     kind?: string,
+     *     group_question_keys?: list<string>
+     * }>  $steps
+     * @param  array{key: string, question_key: string, section_instance_key: string|null}|null  $currentStep
+     * @return list<array{question_key: string, section_instance_key: string|null, label: string, room_label: string|null}>
+     */
+    private function distantUnresolvedPhotoIssues(array $steps, ?array $currentStep): array
+    {
+        $intake = $this->intake();
+        $intake->loadMissing('uploads');
+        $issues = [];
+        $currentKey = is_array($currentStep) ? $currentStep['key'] : null;
+
+        foreach ($steps as $step) {
+            if ($step['key'] === $currentKey) {
+                continue;
+            }
+
+            if (! $step['is_required']) {
+                continue;
+            }
+
+            $photoQuestion = $this->photoQuestionForStep($step);
+            if (! $photoQuestion instanceof IntakeQuestion) {
+                continue;
+            }
+
+            $instanceKey = $step['section_instance_key'];
+            $uploads = $intake->uploads->filter(
+                static function (IntakeUpload $upload) use ($photoQuestion, $instanceKey): bool {
+                    if ($upload->question_key !== $photoQuestion->key) {
+                        return false;
+                    }
+
+                    return $instanceKey === null
+                        ? $upload->section_instance_key === null
+                        : $upload->section_instance_key === $instanceKey;
+                },
+            );
+
+            if ($uploads->isEmpty()) {
+                continue;
+            }
+
+            if (! PhotoOverridePolicy::hasUnresolvedOverride($uploads)) {
+                continue;
+            }
+
+            if (PhotoContentSatisfaction::uploadsSatisfy($uploads)) {
+                continue;
+            }
+
+            $issues[] = [
+                'question_key' => $photoQuestion->key,
+                'section_instance_key' => $instanceKey,
+                'label' => $photoQuestion->label,
+                'room_label' => $this->roomLabelForStep($step),
+            ];
+        }
+
+        return $issues;
+    }
+
+    /**
+     * @param  array{title: string, section_title: string, section_instance_key: string|null}  $step
+     */
+    private function roomLabelForStep(array $step): ?string
+    {
+        $instanceKey = $step['section_instance_key'];
+        if ($instanceKey === null || $instanceKey === '') {
+            return null;
+        }
+
+        $sectionTitle = trim($step['section_title']);
+
+        return $sectionTitle !== '' ? $sectionTitle : null;
+    }
+
+    /**
+     * @param  list<array{question_key: string, section_instance_key: string|null, reason: string, label: string, instance_label: string|null}>  $missing
+     * @return list<array{question_key: string, section_instance_key: string|null, reason: string, label: string, instance_label: string|null}>
+     */
+    private function enrichCompletionMissing(array $missing): array
+    {
+        $intake = $this->intake();
+        $intake->loadMissing('uploads');
+        $steps = $this->steps();
+        $enriched = [];
+
+        foreach ($missing as $item) {
+            $questionKey = $item['question_key'];
+            $instanceKey = $item['section_instance_key'];
+            $reason = $item['reason'];
+
+            $matchingStep = null;
+            foreach ($steps as $step) {
+                if ($step['question_key'] === $questionKey
+                    && $step['section_instance_key'] === $instanceKey) {
+                    $matchingStep = $step;
+                    break;
+                }
+            }
+
+            $roomLabel = $matchingStep !== null
+                ? $this->roomLabelForStep($matchingStep)
+                : null;
+
+            if ($reason === 'required_photo') {
+                $uploads = $intake->uploads->filter(
+                    static function (IntakeUpload $upload) use ($questionKey, $instanceKey): bool {
+                        if ($upload->question_key !== $questionKey) {
+                            return false;
+                        }
+
+                        return $instanceKey === null
+                            ? $upload->section_instance_key === null
+                            : $upload->section_instance_key === $instanceKey;
+                    },
+                );
+
+                if ($uploads->isNotEmpty() && PhotoOverridePolicy::hasUnresolvedOverride($uploads)) {
+                    $reason = 'required_photo_not_good';
+                }
+            }
+
+            $enriched[] = [
+                'question_key' => $questionKey,
+                'section_instance_key' => $instanceKey,
+                'reason' => $reason,
+                'label' => $item['label'],
+                'instance_label' => $roomLabel ?? $item['instance_label'],
+            ];
+        }
+
+        return $enriched;
+    }
+
+    private function returnFromPhotoFixIfNeeded(): bool
+    {
+        $returnKey = $this->photoFixReturnStepKey;
+        if ($returnKey === '') {
+            return false;
+        }
+
+        $steps = $this->steps();
+        $index = app(IntakeStepBuilder::class)->indexForStepKey($steps, $returnKey);
+        $this->photoFixReturnStepKey = '';
+
+        if ($index === null) {
+            return false;
+        }
+
+        $this->stepIndex = $index;
+        $this->syncActiveStepKey($steps);
+        $this->rememberCurrentCursor();
+        $this->hydrateFormFromAnswers();
+        $this->applyPrefillForActiveStep();
+        $this->flushDeferredPhotoDerivationsForCurrentStep();
+        $this->saveMessage = '';
+        $this->showMissing = false;
+
+        return true;
+    }
+
+    /**
+     * @param  array{
+     *     section_key?: string,
+     *     section_instance_key?: string|null,
+     *     question_key?: string,
+     *     kind?: string,
+     *     group_question_keys?: list<string>
+     * }  $step
+     * @return list<array{upload: IntakeUpload, composite: string}>
+     */
+    private function photoUploadsForStep(array $step): array
+    {
+        $intake = $this->intake();
+        $intake->loadMissing('uploads');
+        $entries = [];
+
+        foreach ($this->photoCompositesForStep($step) as $composite) {
+            [$questionKey, $instanceKey] = $this->splitComposite($composite);
+
+            foreach ($intake->uploads as $upload) {
+                if ($upload->question_key !== $questionKey) {
+                    continue;
+                }
+                if ($instanceKey === null
+                    ? $upload->section_instance_key !== null
+                    : $upload->section_instance_key !== $instanceKey) {
+                    continue;
+                }
+                $entries[] = [
+                    'upload' => $upload,
+                    'composite' => $composite,
+                ];
+            }
+        }
+
+        return $entries;
+    }
+
+    /**
      * @return array{
      *     key: string,
      *     section_key: string,
@@ -3891,6 +4361,84 @@ class IntakeWizard extends Component
         }
 
         $this->stepIndex = min(max(0, $this->stepIndex), count($steps) - 1);
+    }
+
+    /**
+     * When the persisted cursor names a step that is no longer in the list (prefill-skipped
+     * after losing forceShowKnown), land on the first unanswered required step instead of
+     * the section-start fallback from indexForCursor.
+     *
+     * @param  list<array{
+     *     key: string,
+     *     section_key: string,
+     *     section_instance_key: string|null,
+     *     question_key: string,
+     *     title: string,
+     *     section_title: string,
+     *     description: string|null,
+     *     help_text: string|null,
+     *     is_repeatable: bool,
+     *     is_required: bool,
+     *     kind?: 'question'|'known_summary'|'question_group'|'closing_wishes',
+     *     known_items?: list<array<string, mixed>>,
+     *     group_key?: string,
+     *     group_question_keys?: list<string>,
+     *     bundle_question_keys?: list<string>
+     * }>  $steps
+     */
+    private function clampResumeWhenCursorMissing(
+        array $steps,
+        ?string $sectionKey,
+        ?string $questionKey,
+        ?string $sectionInstanceKey,
+    ): void {
+        if ($questionKey === null || $questionKey === '') {
+            return;
+        }
+
+        if (app(IntakeStepBuilder::class)->indexForExactCursor(
+            $steps,
+            $sectionKey,
+            $questionKey,
+            $sectionInstanceKey,
+        ) !== null) {
+            return;
+        }
+
+        $firstMissing = $this->indexOfFirstUnsatisfiedRequired($steps);
+        if ($firstMissing !== null) {
+            $this->stepIndex = $firstMissing;
+        }
+    }
+
+    /**
+     * @param  list<array{
+     *     key: string,
+     *     section_key: string,
+     *     section_instance_key: string|null,
+     *     question_key: string,
+     *     title: string,
+     *     section_title: string,
+     *     description: string|null,
+     *     help_text: string|null,
+     *     is_repeatable: bool,
+     *     is_required: bool,
+     *     kind?: 'question'|'known_summary'|'question_group'|'closing_wishes',
+     *     known_items?: list<array<string, mixed>>,
+     *     group_key?: string,
+     *     group_question_keys?: list<string>,
+     *     bundle_question_keys?: list<string>
+     * }>  $steps
+     */
+    private function indexOfFirstUnsatisfiedRequired(array $steps): ?int
+    {
+        foreach ($steps as $index => $step) {
+            if (! $this->stepRequiredSatisfied($step)) {
+                return $index;
+            }
+        }
+
+        return null;
     }
 
     private function clearProgressExtraNote(): void

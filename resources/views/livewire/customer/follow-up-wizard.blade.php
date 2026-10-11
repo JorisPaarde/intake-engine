@@ -18,7 +18,7 @@
                 <div class="h-full bg-brand-sea transition-all duration-300" style="width: {{ $progressPercent }}%"></div>
             </div>
             <p class="mt-1 text-xs text-brand-ink/55">{{ $progressCompleted }} van {{ $progressTotal }} onderdelen afgerond</p>
-            @if (! empty($currentItemStatus))
+            @if (! empty($currentItemStatus) && $item->type !== \App\Enums\FollowUpItemType::Photo)
                 <p class="mt-1 text-xs font-medium text-brand-ink/70" data-testid="follow-up-item-status">Status: {{ $currentItemStatus['label'] }}</p>
             @endif
         @endif
@@ -123,6 +123,11 @@
                         && (string) ($uploadPhaseComposite ?? '') === $followUpComposite;
                     $assessmentQuietPoll = in_array($followUpComposite, $assessmentUiReleased ?? [], true);
                     $assessmentPollInterval = $assessmentQuietPoll ? '5s' : '2s';
+                    $followUpUnresolvedCount = \App\Domains\Intake\Support\PhotoOverridePolicy::unresolvedOverrideCount($item->uploads);
+                    $followUpPanelAdvice = \App\Domains\Intake\Support\PhotoOverridePolicy::uniqueCustomerFeedback($item->uploads);
+                    $followUpSoftTimeoutLine = $assessmentQuietPoll
+                        && $assessmentPollPending
+                        && $followUpUnresolvedCount === 0;
                 @endphp
                 @if ($assessmentPollPending || $assessmentPollActive)
                     <div
@@ -147,8 +152,15 @@
                                     $pendingAssessUploadIds[(string) $item->id] ?? [],
                                     $assessmentUiReleased ?? [],
                                 );
+                                $isLooking = $photoStatusLabel === \App\Domains\Intake\Support\PhotoCustomerStatus::LOOKING;
                             @endphp
-                            <li class="overflow-hidden rounded-md border border-brand-fog bg-brand-mist/30" data-testid="photo-thumb-status" data-upload-id="{{ $upload->id }}" wire:key="follow-up-upload-{{ $upload->id }}">
+                            <li
+                                class="overflow-hidden rounded-md border border-brand-fog bg-brand-mist/30"
+                                data-testid="photo-thumb-status"
+                                data-upload-id="{{ $upload->id }}"
+                                @if ($isLooking) data-photo-looking="1" @endif
+                                wire:key="follow-up-upload-{{ $upload->id }}"
+                            >
                                 <div class="relative">
                                     <img
                                         src="{{ route('customer.uploads.show', ['token' => $token, 'upload' => $upload]) }}"
@@ -178,7 +190,7 @@
                                         type="button"
                                         wire:click="replaceFollowUpSinglePhoto({{ $item->id }}, {{ $upload->id }})"
                                         wire:loading.attr="disabled"
-                                        class="w-full border-t border-brand-fog bg-white px-2 py-1.5 text-xs font-semibold text-brand-sea"
+                                        class="flex min-h-11 w-full items-center justify-center border-t border-brand-fog bg-white px-2 py-1.5 text-xs font-semibold text-brand-sea"
                                         data-testid="photo-replace-one"
                                     >
                                         Vervang foto
@@ -187,6 +199,51 @@
                             </li>
                         @endforeach
                     </ul>
+                @endif
+
+                @if ($followUpMismatchAssessment || $followUpUnresolvedCount > 0)
+                    <div class="mt-3 space-y-3 rounded-md border border-brand-ember/30 bg-white px-3 py-3" role="alert" data-testid="follow-up-mismatch" data-photo-mismatch-panel="1">
+                        <p class="text-sm font-semibold text-brand-ink" data-testid="photo-mismatch-heading">
+                            {{ \App\Domains\Intake\Support\PhotoOverridePolicy::panelHeading($followUpUnresolvedCount) }}
+                        </p>
+                        @foreach ($followUpPanelAdvice as $advice)
+                            <p class="text-sm text-brand-ink" data-testid="photo-mismatch-advice">{{ $advice }}</p>
+                        @endforeach
+                        <p class="text-sm text-brand-ink" data-testid="photo-mismatch-explain">
+                            {{ \App\Domains\Intake\Support\PhotoOverridePolicy::panelExplanation($followUpUnresolvedCount) }}
+                        </p>
+                        @error('follow_up')
+                            <p class="text-sm font-medium text-brand-ember" data-testid="follow-up-mismatch-warning">
+                                {{ $message }}
+                            </p>
+                        @enderror
+                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                            <button
+                                type="button"
+                                wire:click="acceptFollowUpPhotoMismatch"
+                                class="flex min-h-11 items-center justify-center rounded-md border border-brand-fog bg-brand-mist/40 px-4 text-sm font-semibold text-brand-ink"
+                                data-testid="follow-up-accept-mismatch"
+                            >
+                                Toch doorgaan
+                            </button>
+                        </div>
+                    </div>
+                @elseif ($followUpSoftTimeoutLine)
+                    <div class="mt-3 rounded-md border border-brand-fog bg-white px-3 py-3" role="status" data-testid="photo-soft-timeout-panel">
+                        <p class="text-sm text-brand-ink">
+                            {{ \App\Domains\Intake\Support\PhotoCustomerStatus::SOFT_TIMEOUT }}
+                        </p>
+                        <button
+                            type="button"
+                            wire:click="retryFailedUploadPhase(@js($followUpComposite))"
+                            wire:loading.attr="disabled"
+                            wire:target="pollPendingAssessments,assessPendingUploads,retryFailedUploadPhase"
+                            class="mt-1 text-sm font-semibold text-brand-sea underline disabled:opacity-60"
+                            data-testid="photo-retry-assessment"
+                        >
+                            Opnieuw beoordelen
+                        </button>
+                    </div>
                 @endif
 
                 @if ($remainingSlots > 0)
@@ -219,29 +276,6 @@
                         class="sr-only"
                         wire:model="followUpPhotoFiles.{{ $item->id }}"
                     >
-                @endif
-
-                @if ($followUpMismatchAssessment || ! empty($followUpNeedsOverride))
-                    <div class="mt-3 space-y-3 rounded-md border border-brand-ember/30 bg-white px-3 py-3" role="alert" data-testid="follow-up-mismatch">
-                        <p class="text-sm text-brand-ink">
-                            Deze foto is nog niet goed genoeg. Vervang de foto of ga toch door.
-                        </p>
-                        @error('follow_up')
-                            <p class="text-sm font-medium text-brand-ember" data-testid="follow-up-mismatch-warning">
-                                {{ $message }}
-                            </p>
-                        @enderror
-                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-                            <button
-                                type="button"
-                                wire:click="acceptFollowUpPhotoMismatch"
-                                class="min-h-11 rounded-md border border-brand-fog bg-brand-mist/40 px-4 text-sm font-semibold text-brand-ink"
-                                data-testid="follow-up-accept-mismatch"
-                            >
-                                Toch doorgaan
-                            </button>
-                        </div>
-                    </div>
                 @endif
             @else
                 @php

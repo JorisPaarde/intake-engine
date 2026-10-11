@@ -1,0 +1,208 @@
+{
+  "id": "rc-kt11-fusebox-two-photos-conflict",
+  "kind": "report_claims",
+  "origin": "IE test run 11 Oct 2026 09:45 (Notion P1-5 / intakes #133–#136)",
+  "source_kind": "verbatim_notion",
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
+  "note": "Prod-shaped summary_input (no photo_assessments[] on fact; uploads[] with stored content_assessment). capacity_full hedged_only (check point OK, hard claim not); phase_3 hedged_only; conflict assert required.",
+  "summary_input": {
+    "answers": {
+      "fusebox_photo": {
+        "upload_ids": [
+          "eval-upload-1",
+          "eval-upload-2"
+        ]
+      }
+    },
+    "external_facts": {
+      "fusebox_photo_assessment": {
+        "value": {
+          "phase": "three_phase",
+          "empty_module_space": "none_visible",
+          "confidence": "medium",
+          "evidence": "3-fase lijkt zichtbaar · De groepenkast is volledig bezet met automaten en componenten; de hoofdschakelaar toont drie fasen.",
+          "retake_instruction": null,
+          "subject_match": "yes",
+          "provider": "openai",
+          "model": "eval-fixture",
+          "upload_ids": [
+            1,
+            2
+          ]
+        },
+        "source": "ai",
+        "confidence": "medium"
+      }
+    },
+    "follow_up": [],
+    "attention_point_codes": [],
+    "uploads": [
+      {
+        "reference": "fusebox_photo@upload:upload_blurry",
+        "question_key": "fusebox_photo",
+        "question_label": "Foto van de meterkast",
+        "section_label": "Stroom",
+        "section_instance_key": null,
+        "context": "intake",
+        "mime_type": "image/jpeg",
+        "size_bytes": 180000,
+        "usability_verdict": "usable",
+        "content_assessment": {
+          "status": "needs_clearer",
+          "expected_subject": "fusebox",
+          "detected_subject": "fusebox",
+          "customer_message": "Maak een scherpere foto van de hoofdschakelaar en de onderzijde van de groepenkast om het aantal fasen te kunnen bepalen."
+        },
+        "order": 1
+      },
+      {
+        "reference": "fusebox_photo@upload:upload_large",
+        "question_key": "fusebox_photo",
+        "question_label": "Foto van de meterkast",
+        "section_label": "Stroom",
+        "section_instance_key": null,
+        "context": "intake",
+        "mime_type": "image/jpeg",
+        "size_bytes": 2400000,
+        "usability_verdict": "usable",
+        "content_assessment": {
+          "status": "ok",
+          "expected_subject": "fusebox",
+          "detected_subject": "fusebox",
+          "customer_message": null
+        },
+        "order": 2
+      }
+    ],
+    "template_key": "airco",
+    "template_version": 26
+  },
+  "attention_input": {
+    "answers": {
+      "fusebox_photo": {
+        "upload_ids": [
+          "eval-upload-1",
+          "eval-upload-2"
+        ]
+      }
+    },
+    "external_facts": {
+      "fusebox_photo_assessment": {
+        "value": {
+          "phase": "three_phase",
+          "empty_module_space": "none_visible",
+          "confidence": "medium",
+          "evidence": "3-fase lijkt zichtbaar · De groepenkast is volledig bezet met automaten en componenten; de hoofdschakelaar toont drie fasen."
+        },
+        "source": "ai",
+        "confidence": "medium"
+      }
+    },
+    "answer_context": [],
+    "external_fact_context": [
+      {
+        "reference": "fusebox_photo_assessment@fact:fact_eval_fusebox",
+        "fact_key": "fusebox_photo_assessment",
+        "label": "Automatische beoordeling meterkastfoto",
+        "value": {
+          "phase": "three_phase",
+          "empty_module_space": "none_visible",
+          "confidence": "medium",
+          "evidence": "3-fase lijkt zichtbaar · De groepenkast is volledig bezet met automaten en componenten; de hoofdschakelaar toont drie fasen."
+        },
+        "source": "ai",
+        "confidence": "medium",
+        "captured_at": "2026-10-11T09:45:00+00:00"
+      }
+    ],
+    "uploads": [
+      {
+        "reference": "fusebox_photo@upload:upload_blurry",
+        "question_key": "fusebox_photo",
+        "question_label": "Foto van de meterkast",
+        "section_label": "Stroom",
+        "section_instance_key": null,
+        "context": "intake",
+        "mime_type": "image/jpeg",
+        "size_bytes": 180000,
+        "usability_verdict": "usable",
+        "content_assessment": {
+          "status": "needs_clearer",
+          "expected_subject": "fusebox",
+          "detected_subject": "fusebox",
+          "customer_message": "Maak een scherpere foto van de hoofdschakelaar en de onderzijde van de groepenkast om het aantal fasen te kunnen bepalen."
+        },
+        "order": 1
+      },
+      {
+        "reference": "fusebox_photo@upload:upload_large",
+        "question_key": "fusebox_photo",
+        "question_label": "Foto van de meterkast",
+        "section_label": "Stroom",
+        "section_instance_key": null,
+        "context": "intake",
+        "mime_type": "image/jpeg",
+        "size_bytes": 2400000,
+        "usability_verdict": "usable",
+        "content_assessment": {
+          "status": "ok",
+          "expected_subject": "fusebox",
+          "detected_subject": "fusebox",
+          "customer_message": null
+        },
+        "order": 2
+      }
+    ],
+    "follow_up": [],
+    "system_attention_points": [],
+    "completeness": {},
+    "installer_review": null,
+    "pipe_routes": [],
+    "template_key": "airco",
+    "template_version": 26,
+    "intake_status": "submitted"
+  },
+  "expected": {
+    "claims": [
+      {
+        "id": "capacity_full",
+        "concept": "capacity_full",
+        "allowed": "hedged_only",
+        "terms": [
+          "volledig bezet",
+          "vol bezet",
+          "geen vrije",
+          "geen ruimte",
+          "geen moduleplek",
+          "geen moduleplaats",
+          "geen module",
+          "/uitbreiding (is )?(nodig|vereist)/iu",
+          "no_free_group",
+          "expansion_required",
+          "fusebox_full"
+        ]
+      },
+      {
+        "id": "phase_3",
+        "concept": "phase_3",
+        "allowed": "hedged_only"
+      },
+      {
+        "id": "photo_conflict",
+        "concept": "photo_conflict",
+        "allowed": "assert"
+      }
+    ],
+    "attention_confidence_ceiling": "medium",
+    "require_evidence_on_points": true
+  },
+  "disputed_facts": {
+    "claim.photo_conflict": {
+      "reason": "Attribution wording varies; disputed if model hedges phase/capacity without naming the conflict."
+    }
+  }
+}

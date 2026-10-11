@@ -38,7 +38,16 @@ final class SummarizeIntake
 
     public function handle(Intake $intake): AiRun
     {
-        $intake->loadMissing(['answers', 'uploads', 'attentionPoints', 'externalFacts', 'followUpRounds.items.uploads', 'report', 'templateVersion.template']);
+        $intake->loadMissing([
+            'answers',
+            'uploads',
+            'attentionPoints',
+            'externalFacts',
+            'followUpRounds.items.uploads',
+            'report',
+            'templateVersion.template',
+            'templateVersion.sections.questions',
+        ]);
 
         $promptName = (string) config('ai.summary_prompt', 'summary');
         $promptVersion = $this->promptVersions->version($promptName);
@@ -131,7 +140,15 @@ final class SummarizeIntake
     }
 
     /**
-     * @return array{answers: array<string, mixed>, external_facts: array<string, array{value: array<string, mixed>, source: string, confidence: string}>, follow_up: list<array{round_number: int, items: list<array{type: string, prompt: string, response_text: string|null, upload_count: int}>}>, attention_point_codes: list<string>, template_key: string|null, template_version: int|null}
+     * @return array{
+     *     answers: array<string, mixed>,
+     *     external_facts: array<string, array{value: array<string, mixed>, source: string, confidence: string}>,
+     *     follow_up: list<array{round_number: int, items: list<array{type: string, prompt: string, response_text: string|null, upload_count: int}>}>,
+     *     attention_point_codes: list<string>,
+     *     uploads: list<array<string, mixed>>,
+     *     template_key: string|null,
+     *     template_version: int|null
+     * }
      */
     private function buildPayload(Intake $intake): array
     {
@@ -169,6 +186,8 @@ final class SummarizeIntake
                 ->filter()
                 ->values()
                 ->all(),
+            // Per-photo stored content_assessment (status/retake signals); same rows as attention context.
+            'uploads' => $this->contextBuilder->uploadAssessmentRows($intake),
             'template_key' => $intake->templateVersion?->template?->key,
             'template_version' => $intake->templateVersion?->version,
         ];
@@ -198,6 +217,19 @@ final class SummarizeIntake
         }
 
         return $payload;
+    }
+
+    /**
+     * Same validation + DerivedClaimConfidenceGuard path as handle() (eval reuse).
+     * Behaviour-identical to the private validate step; does not persist.
+     *
+     * @param  array<string, mixed>  $output
+     * @param  array<string, mixed>  $payload
+     * @return array{summary: string, highlights: list<string>}
+     */
+    public function applyPipelineToOutput(array $output, array $payload): array
+    {
+        return $this->validateOutput($output, $payload);
     }
 
     /**

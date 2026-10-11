@@ -60,6 +60,26 @@ test('installer detail page shows question labels and groups photos by section i
         ->assertDontSeeText('fusebox_photo');
 });
 
+test('N16: unknown drain_photo caption is Afvoerfoto not outdoor-unit place', function () {
+    $intake = makeGalleryIntake();
+    $upload = app(StoreIntakeUpload::class)->handle(
+        $intake,
+        'drain_photo',
+        null,
+        UploadedFile::fake()->image('drain.jpg', 640, 480),
+    );
+
+    // Force the unknown-caption path (no template question meta for this key).
+    $upload->forceFill(['question_key' => 'drain_photo'])->save();
+
+    $method = new ReflectionMethod(InstallerPhotoGalleryBuilder::class, 'captionForUnknown');
+    $method->setAccessible(true);
+    $caption = $method->invoke(app(InstallerPhotoGalleryBuilder::class), $upload->fresh());
+
+    expect($caption)->toBe('Afvoerfoto')
+        ->and($caption)->not->toContain('buitenunit');
+});
+
 test('photo gallery builder orders groups by template section and instance', function () {
     $intake = makeGalleryIntake();
     $store = app(StoreIntakeUpload::class);

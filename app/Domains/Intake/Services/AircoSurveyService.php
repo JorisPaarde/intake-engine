@@ -37,6 +37,7 @@ final class AircoSurveyService
         private readonly InstallerSurveyProgress $surveyProgress,
         private readonly AircoUnitCouplingValidator $couplingValidator,
         private readonly InstallationOptionPreferenceService $preferenceService,
+        private readonly RefreshStoredIntakeReport $refreshStoredIntakeReport,
     ) {}
 
     /**
@@ -596,7 +597,9 @@ final class AircoSurveyService
         ]);
         $this->preferenceService->invalidateIfFeasibleSetChanged($intake->fresh() ?? $intake, $installer);
         $this->surveyProgress->markStarted($intake);
-        $this->decisionReadiness->recalculate($intake->fresh() ?? $intake);
+        $fresh = $intake->fresh() ?? $intake;
+        $this->decisionReadiness->recalculate($fresh);
+        $this->refreshStoredReport($fresh);
 
         return $option->fresh(['placements', 'connections']) ?? $option;
     }
@@ -635,7 +638,9 @@ final class AircoSurveyService
         ]);
         $this->preferenceService->invalidateIfFeasibleSetChanged($intake->fresh() ?? $intake, $installer);
         $this->surveyProgress->markStarted($intake);
-        $this->decisionReadiness->recalculate($intake->fresh() ?? $intake);
+        $fresh = $intake->fresh() ?? $intake;
+        $this->decisionReadiness->recalculate($fresh);
+        $this->refreshStoredReport($fresh);
 
         return $option->fresh(['placements', 'connections']) ?? $option;
     }
@@ -682,9 +687,25 @@ final class AircoSurveyService
             'option_id' => $option->id,
         ]);
         $this->surveyProgress->markStarted($intake);
-        $this->decisionReadiness->recalculate($intake->fresh() ?? $intake);
+        $fresh = $intake->fresh() ?? $intake;
+        $this->decisionReadiness->recalculate($fresh);
+        $this->refreshStoredReport($fresh);
 
         return $option->fresh(['placements', 'connections']) ?? $option;
+    }
+
+    public function refreshStoredReport(Intake $intake): void
+    {
+        $this->refreshStoredIntakeReport->handle($intake);
+    }
+
+    private function refreshStoredReportIfOptionSelected(Intake $intake, AircoInstallationOption $option): void
+    {
+        if ($option->status !== AircoOptionStatus::Selected) {
+            return;
+        }
+
+        $this->refreshStoredReport($intake->fresh() ?? $intake);
     }
 
     /**
@@ -723,7 +744,9 @@ final class AircoSurveyService
             'configuration_type' => $configuration->value,
         ]);
         $this->surveyProgress->markStarted($intake);
-        $this->decisionReadiness->recalculate($intake->fresh() ?? $intake);
+        $fresh = $intake->fresh() ?? $intake;
+        $this->decisionReadiness->recalculate($fresh);
+        $this->refreshStoredReportIfOptionSelected($fresh, $option->fresh() ?? $option);
 
         return $option->fresh(['placements', 'connections']) ?? $option;
     }
@@ -993,7 +1016,9 @@ final class AircoSurveyService
             'type' => $type->value,
         ]);
         $this->surveyProgress->markStarted($intake);
-        $this->decisionReadiness->recalculate($intake->fresh() ?? $intake);
+        $fresh = $intake->fresh() ?? $intake;
+        $this->decisionReadiness->recalculate($fresh);
+        $this->refreshStoredReportIfOptionSelected($fresh, $option->fresh() ?? $option);
 
         return $connection;
     }

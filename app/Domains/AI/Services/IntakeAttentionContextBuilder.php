@@ -6,6 +6,7 @@ namespace App\Domains\AI\Services;
 
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Domains\Intake\Services\InstallerPhotoGalleryBuilder;
 use App\Domains\Intake\Support\PhotoContinueAnywayAttention;
 use App\Enums\AttentionPointSource;
 use Illuminate\Support\Str;
@@ -29,6 +30,10 @@ final class IntakeAttentionContextBuilder
 
     /** @var list<string> */
     private const SENSITIVE_FACT_KEYS = ['location', 'parcel_ids', 'aerial_image'];
+
+    public function __construct(
+        private readonly InstallerPhotoGalleryBuilder $photoGallery,
+    ) {}
 
     /** @return array<string, mixed> */
     public function build(Intake $intake): array
@@ -108,14 +113,7 @@ final class IntakeAttentionContextBuilder
             // Rich, provenance-aware context for the integral analysis.
             'answer_context' => $answerContext,
             'external_fact_context' => $externalFactContext,
-            'uploads' => $intake->uploads
-                ->filter(static fn (IntakeUpload $upload): bool => $upload->isDossierEvidenceEligible())
-                ->map(
-                    fn (IntakeUpload $upload): array => $this->uploadContext(
-                        $upload,
-                        $questions[$upload->question_key] ?? null,
-                    ),
-                )->values()->all(),
+            'uploads' => $this->mapUploadAssessmentRows($intake, $questions),
             'follow_up' => $this->followUpContext($intake),
             'system_attention_points' => $intake->attentionPoints
                 ->reject(fn ($point): bool => $point->source === AttentionPointSource::Ai)
@@ -170,6 +168,48 @@ final class IntakeAttentionContextBuilder
     public function isSensitiveFactKey(string $factKey): bool
     {
         return in_array($factKey, self::SENSITIVE_FACT_KEYS, true);
+    }
+
+    /**
+     * Per-photo assessment rows from stored upload content_assessment (no new fields).
+     * Shared by attention-points context and the summary payload.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function uploadAssessmentRows(Intake $intake): array
+    {
+        $intake->loadMissing([
+            'uploads',
+            'templateVersion.sections.questions',
+        ]);
+
+        return $this->mapUploadAssessmentRows($intake, $this->questionContext($intake));
+    }
+
+    /**
+     * @param  array<string, array{question_label: string, section_key: string|null, section_label: string|null}>  $questions
+     * @return list<array<string, mixed>>
+     */
+    private function mapUploadAssessmentRows(Intake $intake, array $questions): array
+    {
+        // Gallery numbers include rejected/replaced photos; assign before eligibility filter.
+        $galleryOrders = $this->photoGallery->photoOrdersByUploadId($intake);
+
+        return $intake->uploads
+            ->filter(static fn (IntakeUpload $upload): bool => $upload->isDossierEvidenceEligible())
+            ->sortBy([
+                ['sort_order', 'asc'],
+                ['id', 'asc'],
+            ])
+            ->map(function (IntakeUpload $upload) use ($questions, $galleryOrders): array {
+                $row = $this->uploadContext(
+                    $upload,
+                    $questions[$upload->question_key] ?? null,
+                );
+                $row['order'] = $galleryOrders[(int) $upload->id] ?? 1;
+
+                return $row;
+            })->values()->all();
     }
 
     /**
