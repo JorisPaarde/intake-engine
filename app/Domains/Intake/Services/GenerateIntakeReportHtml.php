@@ -12,6 +12,7 @@ use App\Domains\Intake\Models\IntakeReview;
 use App\Domains\Intake\Models\IntakeSection;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Domains\Intake\Support\CustomerConsentPresenter;
+use App\Domains\Intake\Support\PhotoContinueAnywayAttention;
 use App\Enums\AircoOptionStatus;
 use App\Enums\DossierRecordStatus;
 use App\Enums\QuestionType;
@@ -328,12 +329,36 @@ final class GenerateIntakeReportHtml
             $value = $answers[$composite] ?? null;
             $reportSections[$bucketKey]['questions'][] = [
                 'label' => $question->label,
-                'display' => $this->formatValue($question, $value),
+                'display' => $question->key === 'fusebox_clarity'
+                    ? $this->formatFuseboxClarity($intake, $question, $value)
+                    : $this->formatValue($question, $value),
                 'is_photo' => $question->type === QuestionType::Photo,
             ];
         }
 
         return array_values($reportSections);
+    }
+
+    /**
+     * Interne engine-vraag: toon assessment-status (Actueel/galerij-bron), niet het
+     * opgeslagen clear/needs_clearer_photo-antwoord (N19: anders “Duidelijk genoeg”
+     * terwijl de AI een meterkastfoto afkeurde en de klant Toch doorgaan koos).
+     *
+     * @param  array<string, mixed>|null  $value
+     */
+    private function formatFuseboxClarity(Intake $intake, IntakeQuestion $question, ?array $value): string
+    {
+        $uploads = [
+            ...PhotoContinueAnywayAttention::currentWizardUploadsAt($intake, 'fusebox_photo', null),
+            ...PhotoContinueAnywayAttention::currentWizardUploadsAt($intake, 'fusebox_photo_extra', null),
+        ];
+
+        $fromAssessment = PhotoContinueAnywayAttention::statusSentences($uploads);
+        if ($fromAssessment !== null) {
+            return $fromAssessment;
+        }
+
+        return $this->formatValue($question, $value);
     }
 
     /**
