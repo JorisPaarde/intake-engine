@@ -13,6 +13,7 @@ use App\Domains\Intake\Actions\ApprovePipeRoute;
 use App\Domains\Intake\Actions\CompleteInstallerSurvey;
 use App\Domains\Intake\Actions\ConfirmInstallerObservation;
 use App\Domains\Intake\Actions\CreateCustomerContributionRequest;
+use App\Domains\Intake\Actions\DecideAircoConnection;
 use App\Domains\Intake\Actions\RecordInstallationOutcome;
 use App\Domains\Intake\Actions\SaveInstallerObservation;
 use App\Domains\Intake\Actions\SendCustomerFollowUpRequest;
@@ -862,7 +863,40 @@ final class SurveyWorkspaceController extends Controller
         $approve->handle($session, $this->user($request), true);
         $readiness->recalculate($intake);
 
-        return $this->back($intake, 'Route en gekoppelde verbinding goedgekeurd.');
+        $fragment = $session->airco_connection_id !== null
+            ? 'connection-'.$session->airco_connection_id
+            : null;
+
+        return $this->back($intake, 'Route en gekoppelde verbinding goedgekeurd.', $fragment);
+    }
+
+    public function decideConnection(
+        Request $request,
+        Intake $intake,
+        AircoConnection $connection,
+        DecideAircoConnection $decide,
+        DecisionReadinessService $readiness,
+    ): RedirectResponse {
+        $this->authorize('update', $intake);
+        abort_unless($connection->intake_id === $intake->id, 404);
+
+        $data = $request->validate([
+            'decision' => ['required', 'in:approve,site_visit'],
+        ], [
+            'decision.required' => 'Kies goedkeuren of alleen te zien op locatie.',
+            'decision.in' => 'Kies goedkeuren of alleen te zien op locatie.',
+        ]);
+
+        $decide->handle($intake, $connection, $this->user($request), $data['decision']);
+        $readiness->recalculate($intake);
+
+        return $this->back(
+            $intake,
+            $data['decision'] === 'approve'
+                ? 'Route goedgekeurd.'
+                : 'Route gemarkeerd als alleen te zien op locatie.',
+            'connection-'.$connection->id,
+        );
     }
 
     public function sendProposedTask(

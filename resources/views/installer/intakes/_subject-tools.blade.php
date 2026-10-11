@@ -231,8 +231,13 @@
     <div class="mt-4 flex flex-wrap gap-2">
         <details class="min-w-0 basis-full rounded-xl border border-gray-200 bg-gray-50">
             <summary class="flex min-h-11 cursor-pointer list-none items-center px-3 py-2 text-sm font-semibold text-gray-800">
-                Foto maken
+                {{ $photoActionLabel ?? 'Foto maken' }}
             </summary>
+            @if ($connection)
+                <p class="border-t border-gray-200 px-3 pt-3 text-xs text-gray-600">
+                    Dit is jouw eigen installateursfoto. Klantfoto’s staan hierboven bij aanvullingen of in de fotogalerij.
+                </p>
+            @endif
             @php
                 $installerHardMaxBytes = (int) config('intake.uploads.hard_max_bytes', 15 * 1024 * 1024);
                 $installerHardMaxMp = (float) config('intake.uploads.hard_max_megapixels', 24);
