@@ -203,14 +203,80 @@ test('alle not_assessed zonder override geven één Actueel-punt met het juiste 
     expect($photoPoints)->toHaveCount(1)
         ->and($photoPoints[0]['code'])->toBe('photo_continue_anyway__room_photos__room-1')
         ->and($photoPoints[0]['label'])->toBe(
-            'Woonkamer · Foto’s van de ruimte: De AI kon 3 foto’s niet beoordelen. De klant koos ‘Toch doorgaan’.',
+            'Woonkamer · Foto’s van de ruimte: De AI kon 3 foto’s niet beoordelen. Controleer ze zelf.',
         );
 
     $live = PhotoContinueAnywayAttention::liveLabel(
         $intake->fresh(['uploads', 'aircoRooms', 'templateVersion.sections.questions']),
         'photo_continue_anyway__room_photos__room-1',
     );
-    expect($live)->toBe($photoPoints[0]['label']);
+    expect($live)->toBe($photoPoints[0]['label'])
+        ->and($live)->not->toContain('Toch doorgaan');
+});
+
+test('Toch doorgaan alleen in Actueel-label bij override-upload', function () {
+    $intake = clarificationIntake();
+    clarificationRoom($intake, 'room-1', 'Woonkamer', 1);
+    $version = $intake->templateVersion()->with(['sections.questions.options'])->firstOrFail();
+
+    $notAssessed = app(StoreIntakeUpload::class)->handle(
+        $intake,
+        'room_photos',
+        'room-1',
+        clarificationFakeImage('na.jpg'),
+    );
+    $notAssessed->forceFill([
+        'content_assessment' => PhotoContentAssessment::notAssessed(PhotoSubject::Room)->toArray(),
+        'assessment_status' => PhotoAssessmentStatus::NotAssessed,
+    ])->save();
+
+    $rejectedNoOverride = app(StoreIntakeUpload::class)->handle(
+        $intake,
+        'room_photos',
+        'room-1',
+        clarificationFakeImage('rejected-no-override.jpg'),
+    );
+    $rejectedNoOverride->forceFill([
+        'content_assessment' => PhotoContentAssessment::wrongSubject(
+            PhotoSubject::Room,
+            PhotoSubject::OutdoorUnit,
+        )->toArray(),
+        'assessment_status' => PhotoAssessmentStatus::Assessed,
+    ])->save();
+
+    $withoutOverride = collect(app(CompletenessChecker::class)->check(
+        $intake->fresh(['uploads', 'aircoRooms']),
+        $version,
+    )['attention_points'])->firstWhere('code', 'photo_continue_anyway__room_photos__room-1');
+
+    expect($withoutOverride)->not->toBeNull()
+        ->and($withoutOverride['label'])->toBe(
+            'Woonkamer · Foto’s van de ruimte: de AI keurde 1 van de 2 foto’s af. De AI kon 1 foto niet beoordelen. Controleer ze zelf.',
+        )
+        ->and($withoutOverride['label'])->not->toContain('Toch doorgaan')
+        ->and(PhotoContinueAnywayAttention::liveLabel(
+            $intake->fresh(['uploads', 'aircoRooms', 'templateVersion.sections.questions']),
+            'photo_continue_anyway__room_photos__room-1',
+        ))->toBe($withoutOverride['label']);
+
+    clarificationOverrideUpload(
+        $intake,
+        'room_photos',
+        'room-1',
+        PhotoContentAssessment::wrongSubject(PhotoSubject::Room, PhotoSubject::Fusebox),
+    );
+
+    $withOverride = collect(app(CompletenessChecker::class)->check(
+        $intake->fresh(['uploads', 'aircoRooms']),
+        $version,
+    )['attention_points'])->firstWhere('code', 'photo_continue_anyway__room_photos__room-1');
+
+    expect($withOverride['label'])->toContain('De klant koos ‘Toch doorgaan’')
+        ->and($withOverride['label'])->not->toContain('Controleer ze zelf')
+        ->and(PhotoContinueAnywayAttention::liveLabel(
+            $intake->fresh(['uploads', 'aircoRooms', 'templateVersion.sections.questions']),
+            'photo_continue_anyway__room_photos__room-1',
+        ))->toContain('De klant koos ‘Toch doorgaan’');
 });
 
 test('Actueel-punt voor not_assessed verdwijnt na geslaagde herbeoordeling', function () {

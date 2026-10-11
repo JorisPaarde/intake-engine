@@ -205,7 +205,7 @@ final class PhotoContinueAnywayAttention
             $version,
             $parsed['question_key'],
             $parsed['section_instance_key'],
-            $counts,
+            $uploads,
         );
     }
 
@@ -305,8 +305,6 @@ final class PhotoContinueAnywayAttention
         ?string $sectionInstanceKey,
         array $uploadsAtPlace,
     ): array {
-        $counts = self::countStatuses($uploadsAtPlace);
-
         return [
             'code' => self::buildCode($questionKey, $sectionInstanceKey),
             'label' => self::formatLabel(
@@ -314,21 +312,36 @@ final class PhotoContinueAnywayAttention
                 $version,
                 $questionKey,
                 $sectionInstanceKey,
-                $counts,
+                $uploadsAtPlace,
             ),
         ];
     }
 
     /**
-     * @param  array{total: int, rejected: int, not_assessed: int}  $counts
+     * @param  list<IntakeUpload>  $uploads
+     */
+    private static function hasCustomerAcceptedOverride(array $uploads): bool
+    {
+        foreach ($uploads as $upload) {
+            if ($upload->contentAssessment()?->customerAcceptedOverride() === true) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  list<IntakeUpload>  $uploads
      */
     private static function formatLabel(
         Intake $intake,
         IntakeTemplateVersion $version,
         string $questionKey,
         ?string $sectionInstanceKey,
-        array $counts,
+        array $uploads,
     ): string {
+        $counts = self::countStatuses($uploads);
         $place = self::placeLabel($intake, $version, $questionKey, $sectionInstanceKey);
         $question = self::findQuestion($version, $questionKey);
         $questionLabel = $question instanceof IntakeQuestion && trim((string) $question->label) !== ''
@@ -339,13 +352,18 @@ final class PhotoContinueAnywayAttention
             $counts['rejected'],
             $counts['not_assessed'],
             $counts['total'],
+            self::hasCustomerAcceptedOverride($uploads),
         );
 
         return $place.' · '.$questionLabel.': '.$sentences;
     }
 
-    private static function buildSentences(int $rejected, int $notAssessed, int $total): string
-    {
+    private static function buildSentences(
+        int $rejected,
+        int $notAssessed,
+        int $total,
+        bool $hasOverride,
+    ): string {
         $parts = [];
 
         if ($rejected > 0) {
@@ -366,7 +384,9 @@ final class PhotoContinueAnywayAttention
                 : "De AI kon {$notAssessed} foto’s niet beoordelen.";
         }
 
-        $parts[] = 'De klant koos ‘Toch doorgaan’.';
+        $parts[] = $hasOverride
+            ? 'De klant koos ‘Toch doorgaan’.'
+            : 'Controleer ze zelf.';
 
         return implode(' ', $parts);
     }
