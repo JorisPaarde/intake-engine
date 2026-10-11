@@ -451,6 +451,14 @@ final class ReportClaimsScorer
             return true;
         }
 
+        // Shortened: een- of driefasig / enkel- of driefasig (and reverse).
+        if (@preg_match(
+            '/\b(een|enkel)-?\s*of\s+driefasig(e)?\b|\bdrie-?\s*of\s+(een|enkel)fasig(e)?\b/u',
+            $lower,
+        ) === 1) {
+            return true;
+        }
+
         return false;
     }
 
@@ -712,7 +720,13 @@ final class ReportClaimsScorer
         }
 
         if ($allowed === 'hedged_only') {
-            $unhedged = array_values(array_filter($matches, static fn (array $m): bool => ! $m['hedged']));
+            // Phase claims: naming both options (cannot-determine) is OK, not a firm claim.
+            $phaseConcept = in_array($claim['concept'], ['phase_3', 'phase_1'], true);
+            $unhedged = array_values(array_filter(
+                $matches,
+                static fn (array $m): bool => ! $m['hedged']
+                    && ! ($phaseConcept && $m['cannot_determine']),
+            ));
             if ($unhedged !== []) {
                 return [
                     'expected' => false,
@@ -722,10 +736,17 @@ final class ReportClaimsScorer
                 ];
             }
 
+            $firmOrHedged = array_values(array_filter(
+                $matches,
+                static fn (array $m): bool => $m['hedged'] || ! $m['cannot_determine'],
+            ));
+
             return [
                 'expected' => false,
                 'got' => false,
-                'detail' => 'all_matches_hedged',
+                'detail' => $firmOrHedged === []
+                    ? 'all_matches_cannot_determine'
+                    : 'all_matches_hedged',
                 'matches' => $matches,
             ];
         }

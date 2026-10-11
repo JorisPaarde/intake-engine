@@ -450,6 +450,15 @@ test('eenfasige of driefasige and enkelfasig variants count as cannot-determine'
         ))->toBeTrue()
         ->and($scorer->textLooksCannotDetermine(
             'Driefasig / enkelfasig nog onduidelijk.',
+        ))->toBeTrue()
+        ->and($scorer->textLooksCannotDetermine(
+            'Het betreft een- of driefasig.',
+        ))->toBeTrue()
+        ->and($scorer->textLooksCannotDetermine(
+            'Nog enkel- of driefasig vast te stellen.',
+        ))->toBeTrue()
+        ->and($scorer->textLooksCannotDetermine(
+            'Drie- of eenfasig is onduidelijk.',
         ))->toBeTrue();
 
     $scores = $scorer->scoreLayer(
@@ -472,6 +481,77 @@ test('eenfasige of driefasige and enkelfasig variants count as cannot-determine'
 
     expect($scores['must_not_invent_phase']['status'])->toBe('correct')
         ->and($scores['claim.phase_3']['status'])->toBe('correct');
+});
+
+test('hedged_only phase claim accepts cannot-determine both-options wording without other hedges', function () {
+    $scores = reportClaimsScorer()->scoreLayer(
+        [
+            'claims' => [[
+                'id' => 'phase_3',
+                'concept' => 'phase_3',
+                'allowed' => 'hedged_only',
+            ]],
+        ],
+        [
+            'summary' => 'De meterkast is eenfasige of driefasige.',
+            'highlights' => ['Nog een- of driefasig.'],
+        ],
+        [[
+            'code' => 'verify_phase',
+            'label' => 'Enkel- of driefasig aansluiting',
+            'confidence' => 'medium',
+            'evidence' => [['source_type' => 'answer', 'reference' => 'electrical_phase_known@answer:survey']],
+        ]],
+        [],
+        ['C5'],
+    );
+
+    expect($scores['claim.phase_3']['status'])->toBe('correct')
+        ->and($scores['claim.phase_3']['detail'])->toBe('all_matches_cannot_determine');
+});
+
+test('no-fusebox fixture missing photo assert fails when point is dropped', function () {
+    $fixture = json_decode(
+        (string) file_get_contents(__DIR__.'/../../Eval/fixtures/report_claims/rc-no-fusebox-photo.json'),
+        true,
+        512,
+        JSON_THROW_ON_ERROR,
+    );
+
+    $missingClaim = collect($fixture['expected']['claims'])->firstWhere('id', 'missing_fusebox_photo');
+    expect($missingClaim['allowed'])->toBe('assert');
+
+    $absent = reportClaimsScorer()->scoreLayer(
+        ['claims' => [$missingClaim]],
+        [
+            'summary' => 'Korte samenvatting zonder meterkastfoto-melding voor de installateur.',
+            'highlights' => ['Geen faseclaim'],
+        ],
+        [],
+        [],
+        ['C5'],
+    );
+
+    expect($absent['claim.missing_fusebox_photo']['status'])->toBe('wrong')
+        ->and($absent['claim.missing_fusebox_photo']['detail'])->toBe('assert_concept_missing');
+
+    $present = reportClaimsScorer()->scoreLayer(
+        ['claims' => [$missingClaim]],
+        [
+            'summary' => $fixture['fake_summary_output']['summary'],
+            'highlights' => $fixture['fake_summary_output']['highlights'],
+        ],
+        [[
+            'code' => $fixture['fake_attention_output']['points'][0]['code'],
+            'label' => $fixture['fake_attention_output']['points'][0]['label'],
+            'confidence' => 'medium',
+            'evidence' => $fixture['fake_attention_output']['points'][0]['evidence'],
+        ]],
+        [],
+        ['C5'],
+    );
+
+    expect($present['claim.missing_fusebox_photo']['status'])->toBe('correct');
 });
 
 test('named-photo attribution is hedged_only only when same layer names conflict', function () {

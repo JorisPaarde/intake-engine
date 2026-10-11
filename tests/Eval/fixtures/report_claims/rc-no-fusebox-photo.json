@@ -8,7 +8,7 @@
     "C7",
     "C8"
   ],
-  "note": "No fusebox photo/assessment; summary uploads=[] matches prod. Must not invent phase or capacity_full.",
+  "note": "No fusebox photo/assessment; summary uploads=[] matches prod. Must not invent phase or capacity_full. Missing meterkastfoto must be named as an attention point. Production citeable ref when free_group_known is unset: system attention point electrical_provision_open (CompletenessChecker → IntakeAttentionContextBuilder reference=code). completeness stays uncitable.",
   "summary_input": {
     "answers": {
       "request_reason": {
@@ -17,7 +17,9 @@
     },
     "external_facts": {},
     "follow_up": [],
-    "attention_point_codes": [],
+    "attention_point_codes": [
+      "electrical_provision_open"
+    ],
     "uploads": [],
     "template_key": "airco",
     "template_version": 26
@@ -46,13 +48,43 @@
     "external_fact_context": [],
     "uploads": [],
     "follow_up": [],
-    "system_attention_points": [],
+    "system_attention_points": [
+      {
+        "reference": "electrical_provision_open",
+        "source": "system",
+        "code": "electrical_provision_open",
+        "label": "Open technisch punt: stroomvoorziening / vrije groep nog te beoordelen",
+        "is_resolved": false
+      }
+    ],
     "completeness": {},
     "installer_review": null,
     "pipe_routes": [],
     "template_key": "airco",
     "template_version": 26,
     "intake_status": "submitted"
+  },
+  "fake_summary_output": {
+    "summary": "Er is nog geen meterkastfoto; fase en vrije groep zijn daarom niet vast te stellen. Overige aanvraagcontext is beperkt tot de woonkamerwens.",
+    "highlights": [
+      "Geen foto van de meterkast",
+      "Fase en capaciteit niet vastgesteld"
+    ]
+  },
+  "fake_attention_output": {
+    "points": [
+      {
+        "code": "missing_fusebox_photo",
+        "label": "Meterkastfoto ontbreekt; stroomvoorziening en vrije groep nog te beoordelen",
+        "confidence": "medium",
+        "evidence": [
+          {
+            "source_type": "system_attention_point",
+            "reference": "electrical_provision_open"
+          }
+        ]
+      }
+    ]
   },
   "expected": {
     "claims": [
@@ -70,6 +102,20 @@
         "id": "capacity_full",
         "concept": "capacity_full",
         "allowed": "forbidden"
+      },
+      {
+        "id": "missing_fusebox_photo",
+        "concept": "missing_fusebox_photo",
+        "allowed": "assert",
+        "terms": [
+          "meterkastfoto ontbreekt",
+          "geen foto van de meterkast",
+          "geen meterkastfoto",
+          "/meterkast.{0,40}niet gefotografeerd/iu",
+          "/geen.{0,20}meterkastfoto/iu",
+          "/ontbreekt.{0,40}meterkast/iu",
+          "/meterkastfoto.{0,20}ontbreekt/iu"
+        ]
       }
     ],
     "must_not_invent_phase": true,
