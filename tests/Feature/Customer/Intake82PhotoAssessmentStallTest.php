@@ -229,11 +229,7 @@ test('pending received photo satisfies required question so Volgende is not bloc
 });
 
 test('soft-release keeps quiet poll until terminal status is applied', function () {
-    Queue::fake([
-        ProcessIntakePhotoVariantsJob::class,
-        AssessUploadedPhotoJob::class,
-    ]);
-    config(['ai.photo_assessment.ui_soft_timeout_seconds' => 1]);
+    Queue::fake();
 
     $intake = makeIntake82Intake();
     $file = UploadedFile::fake()->image('small.jpg', 800, 600);
@@ -244,6 +240,9 @@ test('soft-release keeps quiet poll until terminal status is applied', function 
 
     $upload = $intake->fresh()->uploads()->firstOrFail();
     expect($upload->assessment_status)->toBe(PhotoAssessmentStatus::Pending);
+
+    // Timeout pas ná de upload-assert: 1 s tijdens store laat poll de fase in CI leegvegen.
+    config(['ai.photo_assessment.ui_soft_timeout_seconds' => 1]);
 
     // Force soft-timeout via the assessing phase clock (authoritative while active).
     $component->set('uploadPhaseStartedAt', now()->subSeconds(5)->getTimestamp());
@@ -275,16 +274,14 @@ test('soft-release keeps quiet poll until terminal status is applied', function 
 });
 
 test('Opnieuw beoordelen na soft-timeout dispatcht nieuwe assessment', function () {
-    Queue::fake([
-        ProcessIntakePhotoVariantsJob::class,
-        AssessUploadedPhotoJob::class,
-    ]);
-    config(['ai.photo_assessment.ui_soft_timeout_seconds' => 1]);
+    Queue::fake();
 
     $intake = makeIntake82Intake();
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->set('photoFiles.fusebox_photo', UploadedFile::fake()->image('retry.jpg', 800, 600))
         ->assertSet('uploadPhase', 'assessing');
+
+    config(['ai.photo_assessment.ui_soft_timeout_seconds' => 1]);
 
     $upload = $intake->fresh()->uploads()->firstOrFail();
 

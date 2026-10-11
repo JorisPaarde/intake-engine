@@ -7,6 +7,7 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 ### Fixed
 
 - **E2E lokaal (BL-145/BL-147):** `AI_PHOTO_INFERENCE_ENABLED=true` is verplicht naast `AI_PROVIDER=fake` (anders skip “foto-inferentie uitgeschakeld” → geen `follow-up-mismatch`).
+- **Pest photo-stall (BL-147):** soft-timeout van 1 s niet meer vóór de upload-assert zetten — in CI veegde `pollPendingAssessments` `uploadPhase` dan leeg.
 
 - **Wizard-mount overschreef model-verdieping met lokale regex (BL-148 / #173 review):** `DeriveIntentFromRequest` gated de lokale parser alleen op `ai.text_inference.enabled`. Met tekst-AI aan is `allowExternal: false` (klantwizard-mount) een no-op; offline-fallback alleen als tekst-AI uit staat. `InterpretFollowUpText` registreert `AiRun` (timeout ≤ 8 s); standalone-getal: `[.,]` telt alleen als boundary naast een digit (dus `2,6` weigert bare `2`, `nok 2.` / `nok 2, knie 1` accepteren). Eval: configureerbare output-dir; fake runs schrijven geen `baseline/`/HISTORY; bootstrap alleen `AI_API_KEY`; live-env `production`/`staging`; `migrate:fresh` alleen met `--migrate`.
 
