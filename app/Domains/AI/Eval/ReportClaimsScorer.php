@@ -435,31 +435,50 @@ final class ReportClaimsScorer
             }
         }
 
-        // 1-fase/3-fase (or reverse) named as alternatives = not yet established.
-        if (@preg_match(
-            '/\b1(-?\s?fasen?)?\s*(of|\/)\s*3-?\s?fasen?\b|\b3(-?\s?fasen?)?\s*(of|\/)\s*1-?\s?fasen?\b/u',
-            $lower,
-        ) === 1) {
-            return true;
-        }
-
-        // Word forms: eenfasige/driefasige, enkelfasig/driefasig (and reverse).
-        if (@preg_match(
-            '/\b(een|enkel)fasig(e)?\s*(of|\/)\s*driefasig(e)?\b|\bdriefasig(e)?\s*(of|\/)\s*(een|enkel)fasig(e)?\b/u',
-            $lower,
-        ) === 1) {
-            return true;
-        }
-
-        // Shortened: een- of driefasig / enkel- of driefasig (and reverse).
-        if (@preg_match(
-            '/\b(een|enkel)-?\s*of\s+driefasig(e)?\b|\bdrie-?\s*of\s+(een|enkel)fasig(e)?\b/u',
-            $lower,
-        ) === 1) {
-            return true;
+        foreach (self::phaseAlternativePatterns() as $pattern) {
+            if (@preg_match($pattern, $lower) === 1) {
+                return true;
+            }
         }
 
         return false;
+    }
+
+    /**
+     * "X of Y" phase alternatives (eval-only). Used for cannot-determine and to
+     * strip alternatives before judging remaining phase claims under hedged_only.
+     *
+     * @return list<string>
+     */
+    private static function phaseAlternativePatterns(): array
+    {
+        return [
+            // 1-fase/3-fase (and reverse)
+            '/\b1(-?\s?fasen?)?\s*(of|\/)\s*3-?\s?fasen?\b/iu',
+            '/\b3(-?\s?fasen?)?\s*(of|\/)\s*1-?\s?fasen?\b/iu',
+            // eenfasige/driefasige, enkelfasig/driefasig (and reverse)
+            '/\b(een|enkel)fasig(e)?\s*(of|\/)\s*driefasig(e)?\b/iu',
+            '/\bdriefasig(e)?\s*(of|\/)\s*(een|enkel)fasig(e)?\b/iu',
+            // shortened: een- of driefasig / enkel- of driefasig (and reverse)
+            '/\b(een|enkel)-?\s*of\s+driefasig(e)?\b/iu',
+            '/\bdrie-?\s*of\s+(een|enkel)fasig(e)?\b/iu',
+        ];
+    }
+
+    /**
+     * Remove "X of Y" phase-alternative spans so remaining phase terms can be
+     * judged on their own hedge (hedged_only phase claims).
+     */
+    public function stripPhaseAlternatives(string $clause): string
+    {
+        $out = $clause;
+        foreach (self::phaseAlternativePatterns() as $pattern) {
+            $out = preg_replace($pattern, ' ', $out) ?? $out;
+        }
+
+        $collapsed = preg_replace('/\s+/u', ' ', $out) ?? $out;
+
+        return trim($collapsed);
     }
 
     public function textLooksNamedPhotoAttribution(string $text): bool
@@ -720,13 +739,33 @@ final class ReportClaimsScorer
         }
 
         if ($allowed === 'hedged_only') {
-            // Phase claims: naming both options (cannot-determine) is OK, not a firm claim.
             $phaseConcept = in_array($claim['concept'], ['phase_3', 'phase_1'], true);
-            $unhedged = array_values(array_filter(
-                $matches,
-                static fn (array $m): bool => ! $m['hedged']
-                    && ! ($phaseConcept && $m['cannot_determine']),
-            ));
+            $unhedged = [];
+            $onlyAlternatives = true;
+            foreach ($matches as $match) {
+                if ($match['hedged']) {
+                    $onlyAlternatives = false;
+
+                    continue;
+                }
+                if ($phaseConcept) {
+                    // Strip "X of Y" alternatives; judge any remaining phase term alone.
+                    $remainder = $this->stripPhaseAlternatives($match['text']);
+                    if (! $this->clauseMatchesTerms($remainder, $claim['terms'])) {
+                        // Match was only both-options wording → OK.
+                        continue;
+                    }
+                    $onlyAlternatives = false;
+                    if ($this->textLooksHedged($remainder)) {
+                        continue;
+                    }
+                    $unhedged[] = $match;
+
+                    continue;
+                }
+                $onlyAlternatives = false;
+                $unhedged[] = $match;
+            }
             if ($unhedged !== []) {
                 return [
                     'expected' => false,
@@ -736,15 +775,10 @@ final class ReportClaimsScorer
                 ];
             }
 
-            $firmOrHedged = array_values(array_filter(
-                $matches,
-                static fn (array $m): bool => $m['hedged'] || ! $m['cannot_determine'],
-            ));
-
             return [
                 'expected' => false,
                 'got' => false,
-                'detail' => $firmOrHedged === []
+                'detail' => $onlyAlternatives
                     ? 'all_matches_cannot_determine'
                     : 'all_matches_hedged',
                 'matches' => $matches,

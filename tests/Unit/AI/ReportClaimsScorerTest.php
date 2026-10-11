@@ -483,8 +483,15 @@ test('eenfasige of driefasige and enkelfasig variants count as cannot-determine'
         ->and($scores['claim.phase_3']['status'])->toBe('correct');
 });
 
-test('hedged_only phase claim accepts cannot-determine both-options wording without other hedges', function () {
-    $scores = reportClaimsScorer()->scoreLayer(
+test('hedged_only phase: strip X-of-Y then judge remaining phase term on its own hedge', function () {
+    $scorer = reportClaimsScorer();
+
+    expect($scorer->stripPhaseAlternatives(
+        'De klant weet niet of de aansluiting een- of driefasig is',
+    ))->not->toMatch('/fasig/iu');
+
+    // Both-options only → OK (no firm phase claim left after strip).
+    $ok = $scorer->scoreLayer(
         [
             'claims' => [[
                 'id' => 'phase_3',
@@ -493,21 +500,37 @@ test('hedged_only phase claim accepts cannot-determine both-options wording with
             ]],
         ],
         [
-            'summary' => 'De meterkast is eenfasige of driefasige.',
-            'highlights' => ['Nog een- of driefasig.'],
+            'summary' => 'De klant weet niet of de aansluiting een- of driefasig is.',
+            'highlights' => [],
         ],
-        [[
-            'code' => 'verify_phase',
-            'label' => 'Enkel- of driefasig aansluiting',
-            'confidence' => 'medium',
-            'evidence' => [['source_type' => 'answer', 'reference' => 'electrical_phase_known@answer:survey']],
-        ]],
+        [],
         [],
         ['C5'],
     );
 
-    expect($scores['claim.phase_3']['status'])->toBe('correct')
-        ->and($scores['claim.phase_3']['detail'])->toBe('all_matches_cannot_determine');
+    expect($ok['claim.phase_3']['status'])->toBe('correct')
+        ->and($ok['claim.phase_3']['detail'])->toBe('all_matches_cannot_determine');
+
+    // Both-options + firm "toont … driefasige" in the same clause → FAIL.
+    $fail = $scorer->scoreLayer(
+        [
+            'claims' => [[
+                'id' => 'phase_3',
+                'concept' => 'phase_3',
+                'allowed' => 'hedged_only',
+            ]],
+        ],
+        [
+            'summary' => 'De klant weet niet of het een 1-fase of 3-fase aansluiting is, maar de meterkastfoto toont een driefasige hoofdschakelaar.',
+            'highlights' => [],
+        ],
+        [],
+        [],
+        ['C5'],
+    );
+
+    expect($fail['claim.phase_3']['status'])->toBe('wrong')
+        ->and($fail['claim.phase_3']['detail'])->toBe('unhedged_claim_for_hedged_only');
 });
 
 test('no-fusebox fixture missing photo assert fails when point is dropped', function () {
@@ -552,6 +575,24 @@ test('no-fusebox fixture missing photo assert fails when point is dropped', func
     );
 
     expect($present['claim.missing_fusebox_photo']['status'])->toBe('correct');
+
+    $paraphrase = reportClaimsScorer()->scoreLayer(
+        ['claims' => [$missingClaim]],
+        [
+            'summary' => 'Stroomvoorziening is nog niet beoordeeld omdat een meterkastfoto ontbreekt.',
+            'highlights' => ['Vrije groep nog onbekend'],
+        ],
+        [[
+            'code' => 'electrical_provision_open',
+            'label' => 'Open technisch punt: stroomvoorziening / vrije groep nog te beoordelen',
+            'confidence' => 'medium',
+            'evidence' => [['source_type' => 'system_attention_point', 'reference' => 'electrical_provision_open']],
+        ]],
+        [],
+        ['C5'],
+    );
+
+    expect($paraphrase['claim.missing_fusebox_photo']['status'])->toBe('correct');
 });
 
 test('named-photo attribution is hedged_only only when same layer names conflict', function () {

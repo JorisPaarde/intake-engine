@@ -114,7 +114,13 @@
           "/meterkast.{0,40}niet gefotografeerd/iu",
           "/geen.{0,20}meterkastfoto/iu",
           "/ontbreekt.{0,40}meterkast/iu",
-          "/meterkastfoto.{0,20}ontbreekt/iu"
+          "/meterkastfoto.{0,20}ontbreekt/iu",
+          "/stroomvoorziening.{0,80}(nog )?(niet |te )?beoordeeld/iu",
+          "/stroomvoorziening.{0,80}onbekend/iu",
+          "/vrije groep.{0,80}nog te beoordelen/iu",
+          "/vrije groep.{0,80}(nog )?onbekend/iu",
+          "/vrije groep.{0,80}niet beoordeeld/iu",
+          "stroomvoorziening / vrije groep nog te beoordelen"
         ]
       }
     ],
