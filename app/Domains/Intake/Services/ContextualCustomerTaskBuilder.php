@@ -163,6 +163,29 @@ final class ContextualCustomerTaskBuilder
     }
 
     /**
+     * Per-route "Vraag de klant" on a connection card.
+     *
+     * Condensate evidence is asked once for all indoor units via the decision-area
+     * overview (`forDecisionArea` / `connectionAreaAsk`), never per fallback route.
+     *
+     * @return array{
+     *     type: string,
+     *     prompt: string,
+     *     decision_area_key: string,
+     *     dossier_subject_id: int|null
+     * }|null
+     */
+    public function forConnectionCard(AircoConnection $connection): ?array
+    {
+        // Condensate: one combined ask on the decision-area overview only.
+        if ($connection->type === AircoConnectionType::Condensate) {
+            return null;
+        }
+
+        return $this->forConnection($connection);
+    }
+
+    /**
      * @return array{
      *     type: string,
      *     prompt: string,

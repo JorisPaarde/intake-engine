@@ -2,15 +2,23 @@
 
 declare(strict_types=1);
 
+use App\Domains\Intake\Models\AircoInstallationOption;
 use App\Domains\Intake\Models\AircoPlacementOption;
 use App\Domains\Intake\Models\AircoRoom;
 use App\Domains\Intake\Models\DossierDecisionArea;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeReview;
 use App\Domains\Intake\Services\WorkspacePrimaryActionResolver;
+use App\Enums\AircoOptionFeasibility;
+use App\Enums\AircoOptionStatus;
 use App\Enums\AircoPlacementType;
 use App\Enums\DecisionAreaStatus;
 use App\Enums\DossierNextAction;
+use App\Enums\ReviewDecision;
 use Illuminate\Support\Collection;
+use Tests\TestCase;
+
+uses(TestCase::class);
 
 function fakeOpenArea(string $key, DecisionAreaStatus $status = DecisionAreaStatus::Blocked, ?string $blocker = null): DossierDecisionArea
 {
@@ -259,4 +267,77 @@ test('overview item has no ask-customer for installer-only multi-split choice', 
 
     expect($item['is_open'])->toBeTrue()
         ->and($item['ask_customer'])->toBeNull();
+});
+
+test('N27: prepare-quote review leads Wat nu te doen with decision and remaining blocker', function () {
+    $intake = bareIntake();
+    $intake->forceFill(['reviewed_at' => now()]);
+    $intake->setRelation('aircoRooms', collect([(new AircoRoom)->forceFill(['id' => 1])]));
+    $intake->setRelation('aircoPlacements', collect([
+        (new AircoPlacementOption)->forceFill([
+            'id' => 10,
+            'type' => AircoPlacementType::IndoorUnit,
+            'label' => 'Binnenunit',
+            'dossier_subject_id' => 99,
+        ]),
+    ]));
+    $intake->setRelation('aircoInstallationOptions', collect([
+        (new AircoInstallationOption)->forceFill([
+            'id' => 3,
+            'status' => AircoOptionStatus::Candidate,
+            'feasibility' => AircoOptionFeasibility::Pending,
+        ]),
+    ]));
+    $intake->setRelation('uploads', collect());
+    $intake->setRelation('review', (new IntakeReview)->forceFill([
+        'decision' => ReviewDecision::PrepareQuote,
+        'enough_information' => true,
+    ]));
+
+    $openAreas = collect([
+        fakeOpenArea('placement', DecisionAreaStatus::Review, 'Beoordeel welke keuzes technisch haalbaar zijn.'),
+        fakeOpenArea('condensate', DecisionAreaStatus::Blocked, 'Er mist nog bewijs'),
+        fakeOpenArea('power', DecisionAreaStatus::Blocked, 'Meterkastfoto mist'),
+        fakeOpenArea('quote', DecisionAreaStatus::Review, 'Nog open'),
+    ]);
+
+    $action = app(WorkspacePrimaryActionResolver::class)->resolve(
+        $intake,
+        null,
+        false,
+        false,
+        collect(),
+        $openAreas,
+        2,
+        8,
+    );
+
+    expect($action['summary'])->toStartWith('Je koos ‘Offerte voorbereiden’.')
+        ->and($action['summary'])->toContain('Nog 6 van 8 onderdelen open')
+        ->and($action['summary'])->toContain('Eerst: Beoordeel welke keuzes technisch haalbaar zijn.');
+});
+
+test('N27: stale review row without reviewed_at does not lead with Je koos', function () {
+    $intake = bareIntake();
+    $intake->forceFill(['reviewed_at' => null]);
+    $intake->setRelation('aircoRooms', collect([(new AircoRoom)->forceFill(['id' => 1])]));
+    $intake->setRelation('aircoPlacements', collect());
+    $intake->setRelation('aircoInstallationOptions', collect());
+    $intake->setRelation('review', (new IntakeReview)->forceFill([
+        'decision' => ReviewDecision::PrepareQuote,
+        'enough_information' => true,
+    ]));
+
+    $action = app(WorkspacePrimaryActionResolver::class)->resolve(
+        $intake,
+        null,
+        false,
+        false,
+        collect(),
+        collect([fakeOpenArea('placement')]),
+    );
+
+    expect($action['summary'])->toBe('Leg eerst vast waar de binnenunit en buitenunit komen')
+        ->and($action['summary'])->not->toContain('Je koos')
+        ->and($action['label'])->toBe('Binnen- of buitenunit toevoegen');
 });
