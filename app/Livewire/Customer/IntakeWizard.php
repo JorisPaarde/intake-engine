@@ -2656,17 +2656,11 @@ class IntakeWizard extends Component
                 }
                 $composite = VisibilityResolver::compositeKey($groupQuestion->key, $step['section_instance_key']);
                 $payload = is_array($this->form[$composite] ?? null) ? $this->form[$composite] : [];
-                // Leeg form mag een eerder opgeslagen keuze niet wissen (foto-poll / Livewire-race
-                // op drain_nearby: form[] terwijl intake_answers al outside_nearby heeft).
+                // Leeg form niet opnieuw opslaan: voorkomt (1) wissen van een eerdere klantkeuze
+                // bij foto-poll/Livewire-race en (2) herintroduceren van een AI-afleiding als
+                // klantantwoord nadat invalidatePhotoDerivation de rij al verwijderde.
                 if (! $reader->isFilled($payload, $groupQuestion->type)) {
-                    $existing = $this->answerForQuestion($groupQuestion->key, $step['section_instance_key']);
-                    if ($existing instanceof IntakeAnswer
-                        && $reader->isFilled(
-                            is_array($existing->value) ? $existing->value : null,
-                            $groupQuestion->type,
-                        )) {
-                        continue;
-                    }
+                    continue;
                 }
                 $this->persistComposite($composite);
             }
@@ -3338,19 +3332,7 @@ class IntakeWizard extends Component
         }
 
         $answer = $query->first();
-        if ($answer === null) {
-            // Bewaar een in-memory keuze (bijv. drain_location) terwijl een sibling-foto
-            // nog beoordeeld wordt — anders wist applyPhotoDerivation het form vóór Volgende.
-            $current = $this->form[$composite] ?? null;
-            if (is_array($current) && $current !== []) {
-                return;
-            }
-            $this->form[$composite] = [];
-
-            return;
-        }
-
-        $this->form[$composite] = $answer->value ?? [];
+        $this->form[$composite] = $answer === null ? [] : ($answer->value ?? []);
     }
 
     private function persistComposite(string $composite): void

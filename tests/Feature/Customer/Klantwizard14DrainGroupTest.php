@@ -20,6 +20,7 @@ use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -166,7 +167,7 @@ function differingDrainAiOutput(): array
     ];
 }
 
-/** @param  \Livewire\Features\SupportTesting\Testable  $component */
+/** @param  Testable  $component */
 function uploadDrainPhotoAndAssess(mixed $component): void
 {
     Queue::fake([AssessUploadedPhotoJob::class]);
@@ -322,6 +323,35 @@ test('P1-3: foto-afleiding overschrijft of wist nooit een expliciete klantkeuze'
     expect($answer)->not->toBeNull()
         ->and($answer->value)->toBe(['value' => 'outside_nearby'])
         ->and($answer->prefill_source)->toBeNull();
+});
+
+test('P1-3: weggehaalde afvoerfoto laat geen drain_location-klantantwoord achter na Volgende', function () {
+    $intake = makeKlantwizard14Intake();
+    $intake->update(['status' => IntakeStatus::Sent]);
+    $drainKey = drainNearbyStepKeyForGroup($intake);
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('activeStepKey', $drainKey);
+
+    uploadDrainPhotoAndAssess($component);
+
+    $aiAnswer = drainLocationAnswer($intake->fresh());
+    expect($aiAnswer)->not->toBeNull()
+        ->and($aiAnswer->value)->toBe(['value' => 'indoor_nearby'])
+        ->and($aiAnswer->prefill_source)->toBe(PrefillSources::AI_PHOTO);
+
+    $uploadId = (int) $intake->fresh()->uploads()->where('question_key', 'drain_photo')->value('id');
+    expect($uploadId)->toBeGreaterThan(0);
+
+    $component->call('removePhoto', $uploadId)->assertHasNoErrors();
+
+    expect(drainLocationAnswer($intake->fresh()))->toBeNull()
+        ->and($component->get('form.drain_location'))->toBe([]);
+
+    $component->call('next')->assertHasNoErrors();
+
+    $afterNext = drainLocationAnswer($intake->fresh());
+    expect($afterNext)->toBeNull();
 });
 
 test('P1-3: leeg form op Volgende wist geen eerder opgeslagen drain_location (foto-refresh-race)', function () {
