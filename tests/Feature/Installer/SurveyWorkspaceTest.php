@@ -1031,7 +1031,6 @@ test('conflicting length width and area_m2 show as control point on the room car
         ->assertSee('komen niet overeen');
 });
 
-
 test('installer can update an existing placement', function () {
     $user = User::factory()->create();
     $intake = createInstallerSurveyForWorkspace($user, 'plek-edit@example.com');

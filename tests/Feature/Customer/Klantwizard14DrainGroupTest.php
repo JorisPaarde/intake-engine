@@ -325,6 +325,40 @@ test('P1-3: foto-afleiding overschrijft of wist nooit een expliciete klantkeuze'
         ->and($answer->prefill_source)->toBeNull();
 });
 
+test('P1-3: prullenbak-ongedaan-maken herstelt geen AI-afvoer over een klantkeuze', function () {
+    $intake = makeKlantwizard14Intake();
+    $intake->update(['status' => IntakeStatus::Sent]);
+    $drainKey = drainNearbyStepKeyForGroup($intake);
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('activeStepKey', $drainKey)
+        ->set('form.drain_location.value', 'outside_nearby');
+
+    uploadDrainPhotoAndAssess($component);
+
+    expect(drainLocationAnswer($intake->fresh())?->value)->toBe(['value' => 'outside_nearby'])
+        ->and(drainLocationAnswer($intake->fresh())?->prefill_source)->toBeNull();
+
+    $uploadId = (int) $intake->fresh()->uploads()->where('question_key', 'drain_photo')->value('id');
+    expect($uploadId)->toBeGreaterThan(0);
+
+    $component->call('removePhoto', $uploadId)
+        ->assertHasNoErrors()
+        ->assertSet('pendingWizardRemoval.upload_id', $uploadId);
+
+    expect(drainLocationAnswer($intake->fresh())?->value)->toBe(['value' => 'outside_nearby'])
+        ->and(drainLocationAnswer($intake->fresh())?->prefill_source)->toBeNull();
+
+    $component->call('undoWizardUploadRemoval')
+        ->assertHasNoErrors()
+        ->assertSet('pendingWizardRemoval', null);
+
+    $answer = drainLocationAnswer($intake->fresh());
+    expect($answer)->not->toBeNull()
+        ->and($answer->value)->toBe(['value' => 'outside_nearby'])
+        ->and($answer->prefill_source)->toBeNull();
+});
+
 test('P1-3: weggehaalde afvoerfoto laat geen drain_location-klantantwoord achter na Volgende', function () {
     $intake = makeKlantwizard14Intake();
     $intake->update(['status' => IntakeStatus::Sent]);
