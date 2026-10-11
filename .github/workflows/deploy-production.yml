@@ -4,6 +4,11 @@ name: Deploy production
 # secrets, deploypad, .env, database en storage. Alleen een v*-tag of een
 # bewuste handmatige dispatch kan deze workflow starten.
 #
+# Eerste job "Verify CI green" (fail-closed): Path A = successful ci.yml on
+# this SHA via push/workflow_dispatch; Path B = merged PR into default branch
+# with merge_commit_sha == SHA, green pull_request CI on head, and equal trees
+# (up-to-date head ⇒ merge/squash/rebase tree matches head).
+#
 # SSH: één ControlMaster-verbinding per deploy; rsync en activate hergebruiken
 # die multiplexed sessie (minder kans op Hoasted rate-limit / kex reset).
 #
@@ -29,8 +34,143 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  verify-ci:
+    name: Verify CI green
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+
+    steps:
+      - name: Require successful ci.yml for this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          OWNER="${GITHUB_REPOSITORY_OWNER}"
+          REPO="${GITHUB_REPOSITORY#*/}"
+          SHA="${GITHUB_SHA}"
+          DEFAULT_BRANCH="$(gh api "repos/${OWNER}/${REPO}" --jq '.default_branch')"
+
+          echo "Checking CI for commit ${SHA} (event=${GITHUB_EVENT_NAME}, ref=${GITHUB_REF}, default_branch=${DEFAULT_BRANCH})"
+
+          # Path A: ci.yml success on this exact SHA via push or workflow_dispatch only.
+          # pull_request runs do NOT count (they tested a different ref shape / may be stale).
+          echo "→ Path A: looking up successful ci.yml runs with event push|workflow_dispatch and head_sha=${SHA}"
+          PATH_A_PAYLOAD="$(gh api "repos/${OWNER}/${REPO}/actions/workflows/ci.yml/runs?head_sha=${SHA}&per_page=30")"
+          PATH_A_MATCH="$(echo "$PATH_A_PAYLOAD" | jq -c --arg sha "$SHA" '
+            [.workflow_runs[]
+              | select(
+                  .status == "completed"
+                  and .conclusion == "success"
+                  and (.event == "push" or .event == "workflow_dispatch")
+                  and .head_sha == $sha
+                )
+              | {id, event, head_sha, html_url, created_at}
+            ] | .[0] // empty
+          ')"
+
+          if [ -n "$PATH_A_MATCH" ] && [ "$PATH_A_MATCH" != "null" ]; then
+            echo "PASS Path A: $(echo "$PATH_A_MATCH" | jq -c .)"
+            exit 0
+          fi
+
+          echo "Path A miss. Seen runs for head_sha=${SHA}:"
+          echo "$PATH_A_PAYLOAD" | jq -r '
+            [.workflow_runs[] | "  id=\(.id) event=\(.event) status=\(.status) conclusion=\(.conclusion // "null") head_sha=\(.head_sha)"]
+            | if length == 0 then "  (none)" else .[] end
+          '
+          echo "→ Path B: looking up merged PR into ${DEFAULT_BRANCH} with merge_commit_sha=${SHA}"
+
+          # Path B: eventual consistency — commits/{sha}/pulls can be empty right after merge.
+          PRS_JSON='[]'
+          for attempt in 1 2 3 4 5; do
+            PRS_JSON="$(gh api \
+              -H "Accept: application/vnd.github+json" \
+              "repos/${OWNER}/${REPO}/commits/${SHA}/pulls")"
+            PR_COUNT="$(echo "$PRS_JSON" | jq 'length')"
+            echo "  attempt ${attempt}/5: associated PRs=${PR_COUNT}"
+            if [ "$PR_COUNT" -gt 0 ]; then
+              break
+            fi
+            if [ "$attempt" -lt 5 ]; then
+              echo "  empty list — waiting 10s for GitHub eventual consistency…"
+              sleep 10
+            fi
+          done
+
+          PR="$(echo "$PRS_JSON" | jq -c --arg sha "$SHA" --arg base "$DEFAULT_BRANCH" '
+            [.[]
+              | select(
+                  .merged_at != null
+                  and .base.ref == $base
+                  and .merge_commit_sha == $sha
+                )
+            ] | .[0] // empty
+          ')"
+
+          if [ -z "$PR" ] || [ "$PR" = "null" ]; then
+            echo "FAIL Path B: no merged PR into ${DEFAULT_BRANCH} with merge_commit_sha=${SHA}"
+            echo "Associated PRs were:"
+            echo "$PRS_JSON" | jq -r '
+              if length == 0 then "  (none)"
+              else .[] | "  #\(.number) merged_at=\(.merged_at // "null") base.ref=\(.base.ref) merge_commit_sha=\(.merge_commit_sha // "null") head.sha=\(.head.sha)"
+              end
+            '
+            echo "FAIL: neither Path A nor Path B satisfied — deploy blocked"
+            exit 1
+          fi
+
+          PR_NUMBER="$(echo "$PR" | jq -r '.number')"
+          HEAD_SHA="$(echo "$PR" | jq -r '.head.sha')"
+          MERGED_AT="$(echo "$PR" | jq -r '.merged_at')"
+          echo "  Using PR #${PR_NUMBER} head.sha=${HEAD_SHA} merged_at=${MERGED_AT}"
+
+          echo "→ Path B(1): require successful ci.yml event=pull_request on head_sha=${HEAD_SHA}"
+          PATH_B_CI="$(gh api "repos/${OWNER}/${REPO}/actions/workflows/ci.yml/runs?head_sha=${HEAD_SHA}&event=pull_request&per_page=30")"
+          PATH_B_CI_MATCH="$(echo "$PATH_B_CI" | jq -c --arg sha "$HEAD_SHA" '
+            [.workflow_runs[]
+              | select(
+                  .status == "completed"
+                  and .conclusion == "success"
+                  and .event == "pull_request"
+                  and .head_sha == $sha
+                )
+              | {id, event, head_sha, html_url, created_at}
+            ] | .[0] // empty
+          ')"
+
+          if [ -z "$PATH_B_CI_MATCH" ] || [ "$PATH_B_CI_MATCH" = "null" ]; then
+            echo "FAIL Path B(1): no successful pull_request ci.yml run on head ${HEAD_SHA}"
+            echo "$PATH_B_CI" | jq -r '
+              [.workflow_runs[] | "  id=\(.id) event=\(.event) status=\(.status) conclusion=\(.conclusion // "null")"]
+              | if length == 0 then "  (none)" else .[] end
+            '
+            exit 1
+          fi
+          echo "  CI ok: $(echo "$PATH_B_CI_MATCH" | jq -c .)"
+
+          echo "→ Path B(2): require tree(${SHA}) == tree(${HEAD_SHA}) (up-to-date merge/squash/rebase)"
+          SHA_TREE="$(gh api "repos/${OWNER}/${REPO}/git/commits/${SHA}" --jq '.tree.sha')"
+          HEAD_TREE="$(gh api "repos/${OWNER}/${REPO}/git/commits/${HEAD_SHA}" --jq '.tree.sha')"
+          echo "  tree(SHA)=${SHA_TREE}"
+          echo "  tree(head)=${HEAD_TREE}"
+
+          if [ "$SHA_TREE" != "$HEAD_TREE" ]; then
+            echo "FAIL Path B(2): trees differ — tagged commit is not an up-to-date merge of the tested PR head"
+            echo "FAIL: Path B incomplete — deploy blocked"
+            exit 1
+          fi
+
+          echo "PASS Path B: PR #${PR_NUMBER} merge_commit_sha=${SHA}, pull_request CI green on ${HEAD_SHA}, trees equal"
+          exit 0
+
   deploy:
     name: Build & deploy naar production
+    needs: [verify-ci]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment:
@@ -52,6 +192,17 @@ jobs:
         with:
           node-version: '20'
           cache: npm
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-prod-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-prod-
 
       - name: Install PHP dependencies (production)
         run: composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
