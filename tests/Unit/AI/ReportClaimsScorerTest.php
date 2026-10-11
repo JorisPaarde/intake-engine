@@ -874,6 +874,35 @@ test('r5: hedge must co-locate with photo claim; accent-insensitive X-of-Y; aanw
         ->and($failBetrouwbaarheid['claim.phase_3']['detail'])->toBe('unhedged_claim_for_hedged_only');
 });
 
+test('r6: bare mid-sentence echter keeps hedge; duidt op is a hedge; lijkt + maar caveat OK', function () {
+    $scorer = reportClaimsScorer();
+    $claims = [[
+        'id' => 'phase_3',
+        'concept' => 'phase_3',
+        'allowed' => 'hedged_only',
+    ]];
+
+    foreach ([
+        'Op de eerste foto van de meterkast lijkt echter een driefasige aansluiting aanwezig te zijn',
+        'De AI-analyse van de meterkastfoto duidt op een 3-fase aansluiting, maar dit dient fysiek gecontroleerd te worden',
+        'De aansluiting lijkt driefasig, maar dit moet bevestigd worden',
+    ] as $sentence) {
+        $scores = $scorer->scoreLayer(
+            ['claims' => $claims],
+            ['summary' => $sentence, 'highlights' => []],
+            [],
+            [],
+            ['C5'],
+        );
+        expect($scores['claim.phase_3']['status'])->toBe('correct', $sentence)
+            ->and($scores['claim.phase_3']['detail'])->toBe('all_matches_hedged', $sentence);
+    }
+
+    // ", echter" still splits: a firm claim after it is judged on its own.
+    expect($scorer->splitClauses('De klant weet het niet, echter de foto toont drie fasen'))
+        ->toBe(['De klant weet het niet', 'de foto toont drie fasen']);
+});
+
 test('over-hedged attention fails assert even when summary is firm', function () {
     $scores = reportClaimsScorer()->scoreLayer(
         [

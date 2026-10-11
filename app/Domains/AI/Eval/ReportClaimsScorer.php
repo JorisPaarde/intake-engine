@@ -35,6 +35,7 @@ final class ReportClaimsScorer
         'vermoedelijk',
         'suggereert',
         'wijst op',
+        'duidt op',
         'aanwijzingen voor',
         'indicaties voor',
         'aanwijzing voor',
@@ -574,7 +575,8 @@ final class ReportClaimsScorer
     /**
      * Split a unit for hedge / cannot-determine co-location.
      * Sentence breaks (. ! ? newline) and ';' always split. Contrastive
-     * conjunctions (maar / terwijl / echter, with or without a leading comma)
+     * conjunctions (maar / terwijl with or without a leading comma; echter only
+     * after a comma, since a bare mid-sentence "lijkt echter" keeps its hedge)
      * also split so a hedge about the customer's not-knowing does not excuse
      * a firm photo claim in the other half. Parenthetical commas stay together.
      *
@@ -588,7 +590,7 @@ final class ReportClaimsScorer
         }
 
         $parts = preg_split(
-            '/\s*(?:[.!?;]|\n+|,\s*(?:maar|terwijl|echter)\b|\b(?:maar|terwijl|echter)\b)\s*/iu',
+            '/\s*(?:[.!?;]|\n+|,\s*(?:maar|terwijl|echter)\b|\b(?:maar|terwijl)\b)\s*/iu',
             $trimmedText,
         ) ?: [$trimmedText];
 
