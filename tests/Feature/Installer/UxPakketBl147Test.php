@@ -339,7 +339,6 @@ test('ronde 3 punt 1+2: bedankscherm hoofdwizard zegt hetzelfde als de aanvulflo
         ->assertDontSee('verwijderd.');
 });
 
-
 test('hoofdwizard-foto is 8 s ongedaan te maken en zet afgeleide antwoorden terug', function () {
     Queue::fake([AssessUploadedPhotoJob::class]);
     FakeAiClient::reset();
