@@ -8,6 +8,7 @@ use App\Domains\AI\Actions\SuggestInstallerPhotoObservations;
 use App\Domains\AI\Actions\SynthesizePipeRoute;
 use App\Domains\AI\Jobs\DeriveIntentFromRequestJob;
 use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
+use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Actions\AddPipeRoutePhoto;
 use App\Domains\Intake\Actions\ApprovePipeRoute;
 use App\Domains\Intake\Actions\CompleteInstallerSurvey;
@@ -134,12 +135,14 @@ final class SurveyWorkspaceController extends Controller
                 'integer',
                 Rule::exists('dossier_subjects', 'id')->where('intake_id', $intake->id),
             ],
+            'photo_task_subtype' => ['nullable', 'string', Rule::in(PhotoSubject::PHOTO_TASK_SUBTYPES)],
         ], [
             'type.required' => 'Kies een type opdracht (tekst, foto of document).',
             'prompt.required' => 'Schrijf wat de klant moet doen.',
             'prompt.max' => 'Houd de opdracht kort (maximaal 500 tekens).',
             'decision_area_key.in' => 'Kies een geldig onderdeel van de opname.',
             'dossier_subject_id.exists' => 'Die koppeling hoort niet bij deze opname.',
+            'photo_task_subtype.in' => 'Ongeldig fototype voor de klanttaak.',
         ], [
             'type' => 'type opdracht',
             'prompt' => 'opdrachttekst',
@@ -155,6 +158,9 @@ final class SurveyWorkspaceController extends Controller
                 ? (int) $data['dossier_subject_id']
                 : null,
         ];
+        if (isset($data['photo_task_subtype']) && is_string($data['photo_task_subtype']) && $data['photo_task_subtype'] !== '') {
+            $draft['photo_task_subtype'] = $data['photo_task_subtype'];
+        }
 
         if ($draft['prompt'] === '') {
             return redirect()
@@ -744,6 +750,11 @@ final class SurveyWorkspaceController extends Controller
                     'integer',
                     Rule::exists('dossier_subjects', 'id')->where('intake_id', $intake->id),
                 ],
+                'contribution_items.*.photo_task_subtype' => [
+                    'nullable',
+                    'string',
+                    Rule::in(PhotoSubject::PHOTO_TASK_SUBTYPES),
+                ],
             ],
             [
                 'contribution_items.required' => 'Vul minstens één klantopdracht in. Schrijf wat de klant moet doen.',
@@ -754,6 +765,7 @@ final class SurveyWorkspaceController extends Controller
                 'contribution_items.*.prompt.max' => 'Houd elke opdracht kort (maximaal 500 tekens).',
                 'contribution_items.*.decision_area_key.in' => 'Kies een geldig onderdeel van de opname, of laat Algemene opname staan.',
                 'contribution_items.*.dossier_subject_id.exists' => 'Die koppeling hoort niet bij deze opname.',
+                'contribution_items.*.photo_task_subtype.in' => 'Ongeldig fototype voor de klanttaak.',
             ],
             [
                 'contribution_items' => 'klantopdrachten',
@@ -764,6 +776,11 @@ final class SurveyWorkspaceController extends Controller
         $validated = $validator->validate();
         $items = array_map(static function (array $item): array {
             $item['prompt'] = CustomerFacingTaskText::ensureCustomerFacing(trim((string) $item['prompt']));
+            if (isset($item['photo_task_subtype']) && is_string($item['photo_task_subtype']) && $item['photo_task_subtype'] !== '') {
+                $item['photo_task_subtype'] = $item['photo_task_subtype'];
+            } else {
+                unset($item['photo_task_subtype']);
+            }
 
             return $item;
         }, $validated['contribution_items']);
@@ -805,12 +822,14 @@ final class SurveyWorkspaceController extends Controller
                 'integer',
                 Rule::exists('dossier_subjects', 'id')->where('intake_id', $intake->id),
             ],
+            'photo_task_subtype' => ['nullable', 'string', Rule::in(PhotoSubject::PHOTO_TASK_SUBTYPES)],
         ], [
             'type.required' => 'Kies een type opdracht (tekst, foto of document).',
             'prompt.required' => 'Schrijf wat de klant moet doen.',
             'prompt.max' => 'Houd de opdracht kort (maximaal 500 tekens).',
             'decision_area_key.in' => 'Kies een geldig onderdeel van de opname.',
             'dossier_subject_id.exists' => 'Die koppeling hoort niet bij deze opname.',
+            'photo_task_subtype.in' => 'Ongeldig fototype voor de klanttaak.',
         ], [
             'type' => 'type opdracht',
             'prompt' => 'opdrachttekst',
@@ -823,13 +842,18 @@ final class SurveyWorkspaceController extends Controller
             ]);
         }
 
-        $user = $this->user($request);
-        $round = $createRequest->handle($intake, $user, [[
+        $quickItem = [
             'type' => $data['type'],
             'prompt' => $prompt,
             'decision_area_key' => $data['decision_area_key'] ?? null,
             'dossier_subject_id' => $data['dossier_subject_id'] ?? null,
-        ]]);
+        ];
+        if (isset($data['photo_task_subtype']) && is_string($data['photo_task_subtype']) && $data['photo_task_subtype'] !== '') {
+            $quickItem['photo_task_subtype'] = $data['photo_task_subtype'];
+        }
+
+        $user = $this->user($request);
+        $round = $createRequest->handle($intake, $user, [$quickItem]);
         $mailResult = $sendRequest->handle($intake->fresh() ?? $intake, $round, $user);
         $request->session()->forget(['customer_task_drafts', 'customer_task_draft']);
 
@@ -1127,7 +1151,7 @@ final class SurveyWorkspaceController extends Controller
                 continue;
             }
 
-            $drafts[] = [
+            $draft = [
                 'type' => (string) $item['type'],
                 'prompt' => $prompt,
                 'decision_area_key' => isset($item['decision_area_key']) && is_string($item['decision_area_key'])
@@ -1137,6 +1161,13 @@ final class SurveyWorkspaceController extends Controller
                     ? (int) $item['dossier_subject_id']
                     : null,
             ];
+            $subtype = $item['photo_task_subtype'] ?? null;
+            if (is_string($subtype)
+                && $subtype !== ''
+                && in_array($subtype, PhotoSubject::PHOTO_TASK_SUBTYPES, true)) {
+                $draft['photo_task_subtype'] = $subtype;
+            }
+            $drafts[] = $draft;
 
             if (count($drafts) >= $maxItems) {
                 break;
@@ -1151,7 +1182,8 @@ final class SurveyWorkspaceController extends Controller
      *     type?: mixed,
      *     prompt?: mixed,
      *     decision_area_key?: mixed,
-     *     dossier_subject_id?: mixed
+     *     dossier_subject_id?: mixed,
+     *     photo_task_subtype?: mixed
      * }  $draft
      */
     private function customerTaskDraftFingerprint(array $draft): string
@@ -1160,6 +1192,7 @@ final class SurveyWorkspaceController extends Controller
             (string) ($draft['type'] ?? ''),
             (string) ($draft['decision_area_key'] ?? ''),
             (string) ($draft['dossier_subject_id'] ?? ''),
+            (string) ($draft['photo_task_subtype'] ?? ''),
         ]);
     }
 }

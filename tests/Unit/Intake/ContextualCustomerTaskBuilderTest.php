@@ -119,9 +119,14 @@ test('N25: connection fallback prompts are natural Dutch per type without intern
     if ($type === AircoConnectionType::Power) {
         expect($draft['meta']['photo_task_subtype'] ?? null)->toBe('power_route')
             ->and($draft['meta']['expected_photo_subject'] ?? null)->toBe(PhotoSubject::PipeRoute->value)
-            ->and($draft['meta']['accepted_photo_subjects'] ?? [])->toContain(PhotoSubject::PipeRoute->value)
-            ->and($draft['meta']['accepted_photo_subjects'] ?? [])->toContain(PhotoSubject::OutdoorUnit->value)
-            ->and($draft['meta']['accepted_photo_subjects'] ?? [])->toContain(PhotoSubject::Fusebox->value);
+            ->and($draft['meta']['accepted_photo_subjects'] ?? [])->toBe([
+                PhotoSubject::PipeRoute->value,
+                PhotoSubject::OutdoorUnit->value,
+                PhotoSubject::OutdoorLocation->value,
+                PhotoSubject::Fusebox->value,
+            ])
+            ->and($draft['meta']['accepted_photo_subjects'] ?? [])->not->toContain(PhotoSubject::Room->value)
+            ->and($draft['meta']['accepted_photo_subjects'] ?? [])->not->toContain(PhotoSubject::IndoorUnit->value);
     }
 })->with([
     'power' => [

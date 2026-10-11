@@ -114,8 +114,8 @@ test('N24: kt12 eval fixture loads, validates and passes privacy scan', function
         ->and($decoded['text'])->toBe(n24RequestText())
         ->and($decoded['expected']['cooling_heating'])->toBeNull()
         ->and($decoded['expected']['rooms'])->toHaveCount(3)
-        ->and($decoded['disputed_facts'])->toHaveKey('cooling_heating')
-        ->and($decoded['disputed_facts']['cooling_heating']['acceptable_alternates'] ?? [])->toContain('cooling');
+        ->and($decoded['disputed_facts'])->not->toHaveKey('cooling_heating')
+        ->and($decoded['note'])->toContain("'Graag voor de zomer'");
 
     $controlPath = base_path('tests/Eval/fixtures/request_texts/kt11-grote-slaapkamer-eerste-zolderslaapkamer-tweede.json');
     $control = json_decode((string) file_get_contents($controlPath), true, 512, JSON_THROW_ON_ERROR);

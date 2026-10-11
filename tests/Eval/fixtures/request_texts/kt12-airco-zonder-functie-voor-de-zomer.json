@@ -44,14 +44,8 @@
     "C4",
     "C8"
   ],
-  "note": "N24: geen expliciete koel-/verwarmingsfunctie. 'Graag voor de zomer' is planning, geen functie. Control voor expliciet 'Alleen koelen': kt11-grote-slaapkamer-eerste-zolderslaapkamer-tweede.",
+  "note": "N24: geen expliciete koel-/verwarmingsfunctie. Productvraag (niet disputed op cooling_heating): is 'Graag voor de zomer' impliciet koelen? Control voor expliciet 'Alleen koelen': kt11-grote-slaapkamer-eerste-zolderslaapkamer-tweede.",
   "disputed_facts": {
-    "cooling_heating": {
-      "reason": "'Graag voor de zomer' — impliciet koelen? productbeslissing",
-      "acceptable_alternates": [
-        "cooling"
-      ]
-    },
     "rooms.Zolderslaapkamer.floor_level": {
       "reason": "Open vraag: is 'attic' ook goed naast '2' voor zolderslaapkamer op tweede verdieping?",
       "acceptable_alternates": [

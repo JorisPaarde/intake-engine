@@ -102,8 +102,14 @@ test('N25: power-connection task accepts pipe_route photo without meterkast mism
     $item = $round->items()->firstOrFail();
     $task = ContributionTask::query()->where('intake_follow_up_item_id', $item->id)->firstOrFail();
 
-    expect(PhotoSubject::acceptedSubjectsForTask($task))->toContain(PhotoSubject::PipeRoute)
-        ->and(PhotoSubject::acceptedSubjectsForTask($task))->toContain(PhotoSubject::OutdoorUnit)
+    expect(PhotoSubject::acceptedSubjectsForTask($task))->toBe([
+        PhotoSubject::PipeRoute,
+        PhotoSubject::OutdoorUnit,
+        PhotoSubject::OutdoorLocation,
+        PhotoSubject::Fusebox,
+    ])
+        ->and(PhotoSubject::acceptedSubjectsForTask($task))->not->toContain(PhotoSubject::Room)
+        ->and(PhotoSubject::acceptedSubjectsForTask($task))->not->toContain(PhotoSubject::IndoorUnit)
         ->and(PhotoSubject::expectedForTask($task))->toBe(PhotoSubject::PipeRoute);
 
     FakeAiClient::alwaysReturn([
@@ -181,10 +187,7 @@ test('N25: installer decides copy distinguishes power route vs meterkast', funct
         'meta' => [
             'photo_task_subtype' => 'power_route',
             'expected_photo_subject' => PhotoSubject::PipeRoute->value,
-            'accepted_photo_subjects' => [
-                PhotoSubject::PipeRoute->value,
-                PhotoSubject::OutdoorUnit->value,
-            ],
+            'accepted_photo_subjects' => PhotoSubject::photoTaskMetaForSubtype('power_route')['accepted_photo_subjects'],
         ],
     ]);
 

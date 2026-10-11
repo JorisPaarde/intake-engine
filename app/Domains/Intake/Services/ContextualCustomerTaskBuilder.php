@@ -151,18 +151,7 @@ final class ContextualCustomerTaskBuilder
         // Power connection asks for cable/route evidence — not the meterkast by default.
         // Meterkast asks keep Fusebox via decision_area fallback or explicit fusebox meta.
         $meta = $connection->type === AircoConnectionType::Power
-            ? [
-                'photo_task_subtype' => 'power_route',
-                'expected_photo_subject' => PhotoSubject::PipeRoute->value,
-                'accepted_photo_subjects' => [
-                    PhotoSubject::PipeRoute->value,
-                    PhotoSubject::OutdoorUnit->value,
-                    PhotoSubject::OutdoorLocation->value,
-                    PhotoSubject::IndoorUnit->value,
-                    PhotoSubject::Room->value,
-                    PhotoSubject::Fusebox->value,
-                ],
-            ]
+            ? (PhotoSubject::photoTaskMetaForSubtype('power_route') ?? [])
             : [];
 
         return $this->draft(
@@ -357,14 +346,7 @@ final class ContextualCustomerTaskBuilder
             CustomerFacingTaskText::ensureCustomerFacing($blocker),
             'placement',
             $rootSubjectId,
-            [
-                'photo_task_subtype' => 'around_house',
-                'expected_photo_subject' => PhotoSubject::OutdoorLocation->value,
-                'accepted_photo_subjects' => [
-                    PhotoSubject::OutdoorLocation->value,
-                    PhotoSubject::OutdoorUnit->value,
-                ],
-            ],
+            PhotoSubject::photoTaskMetaForSubtype('around_house') ?? [],
         );
     }
 
@@ -406,11 +388,7 @@ final class ContextualCustomerTaskBuilder
                 $prompt,
                 'power',
                 null,
-                [
-                    'photo_task_subtype' => 'fusebox',
-                    'expected_photo_subject' => PhotoSubject::Fusebox->value,
-                    'accepted_photo_subjects' => [PhotoSubject::Fusebox->value],
-                ],
+                PhotoSubject::photoTaskMetaForSubtype('fusebox') ?? [],
             );
         }
 
