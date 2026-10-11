@@ -539,19 +539,55 @@
                 @else
                     <div class="space-y-6">
                         @foreach ($photoGroups as $group)
+                            @php
+                                $galleryGroupKey = (string) ($group['anchor'] ?? ('group-'.$loop->index));
+                                $galleryImageIndex = 0;
+                            @endphp
                             <div class="space-y-3 scroll-mt-36" @if (! empty($group['anchor'])) id="{{ $group['anchor'] }}" @endif>
                                 <h4 class="text-sm font-medium text-gray-800">{{ $group['heading'] }}</h4>
                                 <div class="grid grid-cols-2 gap-4 sm:grid-cols-3">
                                     @foreach ($group['uploads'] as $item)
                                         @if (str_starts_with($item['upload']->mime_type, 'image/'))
+                                            @php
+                                                $contentAssessment = $item['upload']->contentAssessment();
+                                                $contentInstallerLabel = ($item['superseded'] ?? false) === true
+                                                    ? null
+                                                    : $contentAssessment?->installerLabel();
+                                                $usabilityInstallerLabel = (($item['superseded'] ?? false) !== true
+                                                    && $item['upload']->usability_verdict
+                                                    && $item['upload']->usability_verdict->installerLabel())
+                                                    ? $item['upload']->usability_verdict->installerLabel()
+                                                    : null;
+                                                $lightboxLabelParts = array_values(array_filter([
+                                                    $contentInstallerLabel,
+                                                    $usabilityInstallerLabel ? '⚠ '.$usabilityInstallerLabel : null,
+                                                ]));
+                                                $lightboxLabel = implode(' · ', $lightboxLabelParts);
+                                                $uploadShowUrl = route('installer.uploads.show', [$intake, $item['upload']]);
+                                                $photoIndexInGroup = $galleryImageIndex;
+                                                $galleryImageIndex++;
+                                            @endphp
                                             <figure @class(['space-y-2', 'opacity-60' => ($item['superseded'] ?? false) === true]) data-testid="gallery-upload-{{ $item['upload']->id }}" @if (($item['superseded'] ?? false) === true) data-superseded="1" @endif>
-                                                <a href="{{ route('installer.uploads.show', [$intake, $item['upload']]) }}" target="_blank" rel="noopener" class="block overflow-hidden rounded-md border border-gray-200">
+                                                <button
+                                                    type="button"
+                                                    data-photo-lightbox-open
+                                                    data-photo-src="{{ $uploadShowUrl }}"
+                                                    data-photo-heading="{{ $group['heading'] }}"
+                                                    data-photo-caption="{{ $item['caption'] }}"
+                                                    data-photo-label="{{ $lightboxLabel }}"
+                                                    data-photo-original="{{ $uploadShowUrl }}"
+                                                    data-photo-group="{{ $galleryGroupKey }}"
+                                                    data-photo-index="{{ $photoIndexInGroup }}"
+                                                    aria-label="Foto vergroten: {{ $item['caption'] }}"
+                                                    class="block w-full overflow-hidden rounded-md border border-gray-200 bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[var(--tenant-primary)] focus:ring-offset-2"
+                                                >
                                                     <img
-                                                        src="{{ route('installer.uploads.show', [$intake, $item['upload']]) }}"
+                                                        src="{{ $uploadShowUrl }}"
                                                         alt="{{ $item['caption'] }}"
-                                                        class="aspect-square w-full object-cover"
+                                                        class="aspect-square w-full object-contain"
+                                                        loading="lazy"
                                                     >
-                                                </a>
+                                                </button>
                                                 <figcaption class="space-y-2 text-xs text-gray-500">
                                                     <p>{{ $item['caption'] }}</p>
                                                     @if (($item['superseded'] ?? false) === true && ! empty($item['supersession_label']))
@@ -559,21 +595,15 @@
                                                             {{ $item['supersession_label'] }}
                                                         </span>
                                                     @endif
-                                                    @php
-                                                        $contentAssessment = $item['upload']->contentAssessment();
-                                                        $contentInstallerLabel = ($item['superseded'] ?? false) === true
-                                                            ? null
-                                                            : $contentAssessment?->installerLabel();
-                                                    @endphp
                                                     @if ($contentInstallerLabel)
                                                         <span class="inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800" title="Automatische inhoudsbeoordeling — niet bindend">
                                                             {{ $contentInstallerLabel }}
                                                         </span>
                                                     @endif
-                                                    @if (($item['superseded'] ?? false) !== true && $item['upload']->usability_verdict && $item['upload']->usability_verdict->installerLabel())
+                                                    @if ($usabilityInstallerLabel)
                                                         <div class="space-y-2">
                                                             <span class="inline-flex items-center rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800" title="Automatische indicatie — niet bindend">
-                                                                ⚠ {{ $item['upload']->usability_verdict->installerLabel() }}
+                                                                ⚠ {{ $usabilityInstallerLabel }}
                                                             </span>
                                                             @php
                                                                 $photoSubjectId = preg_match('/^subject-(\d+)$/', (string) $item['upload']->section_instance_key, $subjectMatches)
@@ -617,6 +647,65 @@
                 @endif
                 </div>
             </details>
+
+            <dialog
+                id="photo-lightbox"
+                aria-labelledby="photo-lightbox-title"
+                data-photo-lightbox
+                class="w-[calc(100%-1.5rem)] max-w-5xl rounded-2xl border border-[#dde2da] bg-white p-0 text-left text-[#18201d] shadow-xl backdrop:bg-[#18201d]/70"
+            >
+                <div class="flex max-h-[90vh] flex-col">
+                    <div class="flex items-start justify-between gap-3 border-b border-[#dde2da] px-4 py-3 sm:px-5">
+                        <div class="min-w-0">
+                            <h2 id="photo-lightbox-title" class="truncate text-base font-semibold text-[#18201d]" data-photo-lightbox-heading></h2>
+                            <p class="mt-0.5 truncate text-sm text-[#414b45]" data-photo-lightbox-caption></p>
+                            <p class="mt-1 hidden text-xs font-medium text-amber-800" data-photo-lightbox-label></p>
+                        </div>
+                        <button
+                            type="button"
+                            data-photo-lightbox-close
+                            class="inline-flex min-h-10 shrink-0 items-center rounded-xl border border-[#dde2da] bg-white px-3 text-sm font-semibold text-[#414b45] hover:bg-[#eef1ec] focus:outline-none focus:ring-2 focus:ring-[var(--tenant-primary)] focus:ring-offset-2"
+                        >
+                            Sluiten
+                        </button>
+                    </div>
+                    <div class="flex min-h-0 flex-1 items-center justify-center bg-[#eef1ec] px-3 py-4 sm:px-5">
+                        <img
+                            src=""
+                            alt=""
+                            data-photo-lightbox-image
+                            class="max-h-[70vh] max-w-full object-contain"
+                        >
+                    </div>
+                    <div class="flex flex-wrap items-center justify-between gap-3 border-t border-[#dde2da] px-4 py-3 sm:px-5">
+                        <div class="flex gap-2">
+                            <button
+                                type="button"
+                                data-photo-lightbox-prev
+                                class="inline-flex min-h-10 items-center rounded-xl border border-[#dde2da] bg-white px-3 text-sm font-semibold text-[#414b45] hover:bg-[#eef1ec] focus:outline-none focus:ring-2 focus:ring-[var(--tenant-primary)] focus:ring-offset-2 disabled:opacity-40"
+                            >
+                                Vorige foto
+                            </button>
+                            <button
+                                type="button"
+                                data-photo-lightbox-next
+                                class="inline-flex min-h-10 items-center rounded-xl border border-[#dde2da] bg-white px-3 text-sm font-semibold text-[#414b45] hover:bg-[#eef1ec] focus:outline-none focus:ring-2 focus:ring-[var(--tenant-primary)] focus:ring-offset-2 disabled:opacity-40"
+                            >
+                                Volgende foto
+                            </button>
+                        </div>
+                        <a
+                            href="#"
+                            target="_blank"
+                            rel="noopener"
+                            data-photo-lightbox-original
+                            class="inline-flex min-h-10 items-center text-sm font-semibold text-indigo-700 underline decoration-indigo-200 underline-offset-2 hover:text-indigo-900"
+                        >
+                            Open origineel
+                        </a>
+                    </div>
+                </div>
+            </dialog>
 
             @if ($intake->is_demo)
                 <x-demo-pdf-request :intake="$intake" />
@@ -811,7 +900,7 @@
                                                             @endphp
                                                             <li class="{{ $presentedUpload['superseded'] ? 'opacity-60' : '' }}" data-testid="follow-up-upload-{{ $upload->id }}">
                                                                 <a href="{{ route('installer.uploads.show', [$intake, $upload]) }}" target="_blank" rel="noopener" class="block">
-                                                                    <img src="{{ route('installer.uploads.show', [$intake, $upload]) }}" alt="Aanvullende foto" class="aspect-square w-full rounded-md border border-gray-200 object-cover">
+                                                                    <img src="{{ route('installer.uploads.show', [$intake, $upload]) }}" alt="Aanvullende foto" class="aspect-square w-full rounded-md border border-gray-200 bg-gray-100 object-contain" loading="lazy">
                                                                 </a>
                                                                 @if ($presentedUpload['superseded'])
                                                                     <p class="mt-1 text-xs font-medium text-gray-500" data-testid="follow-up-superseded">

@@ -62,7 +62,7 @@
                             @foreach ($contribution['uploads'] as $contributionUpload)
                                 <li>
                                     <a href="{{ route('installer.uploads.show', [$intake, $contributionUpload]) }}" target="_blank" rel="noopener" class="block overflow-hidden rounded-lg border border-emerald-200 bg-white">
-                                        <img src="{{ route('installer.uploads.show', [$intake, $contributionUpload]) }}" alt="Aanvullende foto" class="aspect-square w-full object-cover">
+                                        <img src="{{ route('installer.uploads.show', [$intake, $contributionUpload]) }}" alt="Aanvullende foto" class="aspect-square w-full bg-gray-100 object-contain" loading="lazy">
                                     </a>
                                 </li>
                             @endforeach
@@ -94,7 +94,8 @@
                         <img
                             src="{{ route('installer.uploads.show', [$intake, $photo]) }}"
                             alt="Foto bij {{ $subject->label }}"
-                            class="aspect-square w-full object-cover"
+                            class="aspect-square w-full bg-gray-100 object-contain"
+                            loading="lazy"
                         >
                     </a>
                 </li>

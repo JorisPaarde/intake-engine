@@ -205,6 +205,175 @@ function registerConfirmDialogs() {
 registerConfirmDialogs();
 
 /**
+ * Installer photo gallery lightbox (N23): contain thumbnails open an in-page
+ * <dialog> with context, Esc/backdrop/Sluiten close, focus return, prev/next.
+ */
+function registerPhotoLightbox() {
+    /** @type {HTMLElement|null} */
+    let lastTrigger = null;
+    /** @type {string|null} */
+    let activeGroup = null;
+    /** @type {number} */
+    let activeIndex = 0;
+
+    const dialog = () => document.getElementById('photo-lightbox');
+
+    const fills = (root) => ({
+        heading: root.querySelector('[data-photo-lightbox-heading]'),
+        caption: root.querySelector('[data-photo-lightbox-caption]'),
+        label: root.querySelector('[data-photo-lightbox-label]'),
+        image: root.querySelector('[data-photo-lightbox-image]'),
+        original: root.querySelector('[data-photo-lightbox-original]'),
+        prev: root.querySelector('[data-photo-lightbox-prev]'),
+        next: root.querySelector('[data-photo-lightbox-next]'),
+        close: root.querySelector('[data-photo-lightbox-close]'),
+    });
+
+    const triggersInGroup = (group) =>
+        Array.from(document.querySelectorAll(`[data-photo-lightbox-open][data-photo-group="${CSS.escape(group)}"]`));
+
+    const fillFromTrigger = (root, trigger) => {
+        const els = fills(root);
+        const heading = trigger.getAttribute('data-photo-heading') || '';
+        const caption = trigger.getAttribute('data-photo-caption') || '';
+        const label = trigger.getAttribute('data-photo-label') || '';
+        const src = trigger.getAttribute('data-photo-src') || '';
+        const original = trigger.getAttribute('data-photo-original') || src;
+
+        if (els.heading) {
+            els.heading.textContent = heading;
+        }
+        if (els.caption) {
+            els.caption.textContent = caption;
+        }
+        if (els.label) {
+            if (label) {
+                els.label.textContent = label;
+                els.label.classList.remove('hidden');
+            } else {
+                els.label.textContent = '';
+                els.label.classList.add('hidden');
+            }
+        }
+        if (els.image instanceof HTMLImageElement) {
+            els.image.src = src;
+            els.image.alt = caption || heading;
+        }
+        if (els.original instanceof HTMLAnchorElement) {
+            els.original.href = original;
+        }
+
+        activeGroup = trigger.getAttribute('data-photo-group');
+        activeIndex = Number.parseInt(trigger.getAttribute('data-photo-index') || '0', 10) || 0;
+        lastTrigger = trigger;
+
+        const siblings = activeGroup ? triggersInGroup(activeGroup) : [];
+        const multi = siblings.length > 1;
+        if (els.prev instanceof HTMLButtonElement) {
+            els.prev.disabled = !multi;
+            els.prev.hidden = !multi;
+        }
+        if (els.next instanceof HTMLButtonElement) {
+            els.next.disabled = !multi;
+            els.next.hidden = !multi;
+        }
+    };
+
+    const openFrom = (trigger) => {
+        const root = dialog();
+        if (!(root instanceof HTMLDialogElement) || typeof root.showModal !== 'function') {
+            return;
+        }
+        fillFromTrigger(root, trigger);
+        root.showModal();
+        fills(root).close?.focus();
+    };
+
+    const navigate = (delta) => {
+        const root = dialog();
+        if (!(root instanceof HTMLDialogElement) || !root.open || !activeGroup) {
+            return;
+        }
+        const siblings = triggersInGroup(activeGroup);
+        if (siblings.length < 2) {
+            return;
+        }
+        const nextIndex = (activeIndex + delta + siblings.length) % siblings.length;
+        const nextTrigger = siblings[nextIndex];
+        if (nextTrigger instanceof HTMLElement) {
+            fillFromTrigger(root, nextTrigger);
+            fills(root).close?.focus();
+        }
+    };
+
+    document.addEventListener('click', (event) => {
+        const target = event.target instanceof Element ? event.target : null;
+        if (!target) {
+            return;
+        }
+
+        const trigger = target.closest('[data-photo-lightbox-open]');
+        if (trigger instanceof HTMLElement) {
+            event.preventDefault();
+            openFrom(trigger);
+            return;
+        }
+
+        if (target.closest('[data-photo-lightbox-close]')) {
+            dialog()?.close();
+            return;
+        }
+
+        if (target.closest('[data-photo-lightbox-prev]')) {
+            event.preventDefault();
+            navigate(-1);
+            return;
+        }
+
+        if (target.closest('[data-photo-lightbox-next]')) {
+            event.preventDefault();
+            navigate(1);
+            return;
+        }
+
+        const root = dialog();
+        if (target instanceof HTMLDialogElement && target.hasAttribute('data-photo-lightbox') && target.open) {
+            const rect = target.getBoundingClientRect();
+            const inside = event.clientX >= rect.left && event.clientX <= rect.right
+                && event.clientY >= rect.top && event.clientY <= rect.bottom;
+            if (!inside) {
+                target.close();
+            }
+        } else if (root instanceof HTMLDialogElement && root.open && target === root) {
+            root.close();
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        const root = dialog();
+        if (!(root instanceof HTMLDialogElement) || !root.open) {
+            return;
+        }
+        if (event.key === 'ArrowLeft') {
+            event.preventDefault();
+            navigate(-1);
+        } else if (event.key === 'ArrowRight') {
+            event.preventDefault();
+            navigate(1);
+        }
+    });
+
+    document.addEventListener('close', (event) => {
+        if (!(event.target instanceof HTMLDialogElement) || !event.target.hasAttribute('data-photo-lightbox')) {
+            return;
+        }
+        lastTrigger?.focus();
+    }, true);
+}
+
+registerPhotoLightbox();
+
+/**
  * Livewire file-upload network timing (BL-116 / P2).
  * Measure start → first livewire-upload-progress at 100%, then call
  * recordNetworkUploadTiming(uploadId, ms) after the server dispatches ai-upload-stored.

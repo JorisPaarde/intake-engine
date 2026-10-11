@@ -60,6 +60,47 @@ test('installer detail page shows question labels and groups photos by section i
         ->assertDontSeeText('fusebox_photo');
 });
 
+test('N23: gallery thumbnails use contain and lightbox with Open origineel', function () {
+    $this->withoutVite();
+
+    $intake = makeGalleryIntake();
+    $upload = app(StoreIntakeUpload::class)->handle(
+        $intake,
+        'fusebox_photo',
+        null,
+        UploadedFile::fake()->image('meterkast.jpg', 1086, 1448),
+    );
+
+    $uploadUrl = route('installer.uploads.show', [$intake, $upload]);
+
+    $html = $this->actingAs(User::query()->findOrFail($intake->created_by))
+        ->get(route('intakes.show', $intake))
+        ->assertOk()
+        ->assertSee('object-contain', false)
+        ->assertSee('aria-labelledby="photo-lightbox-title"', false)
+        ->assertSee('Foto vergroten', false)
+        ->assertSee('Open origineel', false)
+        ->assertSee('Sluiten', false)
+        ->assertSee('data-photo-lightbox-open', false)
+        ->assertSee($uploadUrl, false)
+        ->getContent();
+
+    $figureChunk = '';
+    if (preg_match(
+        '/data-testid="gallery-upload-'.preg_quote((string) $upload->id, '/').'"[\s\S]*?<\/figure>/',
+        $html,
+        $matches,
+    ) === 1) {
+        $figureChunk = $matches[0];
+    }
+
+    expect($figureChunk)->not->toBe('')
+        ->and($figureChunk)->toContain('object-contain')
+        ->and($figureChunk)->not->toContain('object-cover')
+        ->and($figureChunk)->toContain('data-photo-lightbox-open')
+        ->and($figureChunk)->toMatch('/aria-label="[^"]*Foto vergroten/');
+});
+
 test('N16: unknown drain_photo caption is Afvoerfoto not outdoor-unit place', function () {
     $intake = makeGalleryIntake();
     $upload = app(StoreIntakeUpload::class)->handle(
