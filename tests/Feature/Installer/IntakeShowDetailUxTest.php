@@ -369,7 +369,10 @@ test('N27: pending dossier synthesis without placements shows neutral updating s
         ->assertOk()
         ->assertSee('Het AI-voorstel wordt nog bijgewerkt. Vernieuw de pagina over een minuut.', false)
         ->assertDontSee('Even geduld', false)
+        ->assertSee('data-testid="customer-link-inactive"', false)
+        ->assertDontSee('data-testid="customer-link-inactive-cta"', false)
         ->getContent();
 
-    expect($html)->not->toContain('data-testid="detail-next-action-cta"');
+    expect($html)->not->toContain('data-testid="detail-next-action-cta"')
+        ->and($html)->not->toContain('data-testid="customer-link-inactive-cta"');
 });
