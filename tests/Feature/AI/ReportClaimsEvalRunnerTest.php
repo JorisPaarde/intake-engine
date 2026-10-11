@@ -36,10 +36,13 @@ test('report_claims case runner runs with FakeAiClient and scores both layers', 
         ->and($result['runnable'])->toBeTrue()
         ->and($result['model_raw']['summary'])->toBeArray()
         ->and($result['model_raw']['attention_points'])->toBeArray()
+        ->and($result['model_raw']['attention_points'])->toHaveKey('points')
         ->and($result['pipeline_final']['summary'])->toBeArray()
         ->and($result['pipeline_final']['attention_points'])->toBeArray()
         ->and($result['scores'])->toHaveKeys(['model_raw', 'pipeline_final'])
         ->and($result)->toHaveKey('pipeline_differs_from_model_raw')
+        ->and($result)->toHaveKey('token_usage')
+        ->and($result['prompt_versions'])->toHaveKeys(['summary', 'attention_points'])
         ->and($result['guard_meta']['summary_ceiling'])->toBe('medium');
 });
 
@@ -57,6 +60,9 @@ test('eval:interpretation --fake --kind=report_claims writes non-baseline report
 
     expect($exit)->toBe(0)
         ->and($output)->toContain('GEEN baseline')
+        ->and($output)->toContain('report_claims prompts:')
+        ->and($output)->toContain('summary=')
+        ->and($output)->toContain('attention_points=')
         ->and(File::isDirectory($tmp.'/results'))->toBeTrue()
         ->and(File::exists($tmp.'/baseline'))->toBeFalse()
         ->and(File::exists($tmp.'/results/HISTORY.md'))->toBeFalse();

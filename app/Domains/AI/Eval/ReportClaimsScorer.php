@@ -4,21 +4,108 @@ declare(strict_types=1);
 
 namespace App\Domains\AI\Eval;
 
-use App\Domains\AI\Support\DerivedClaimConfidenceGuard;
-
 /**
  * Measurement-only scorer for report_claims fixtures (eval harness, never product).
  *
- * Scoring choice (brief P1-5): option (a) — per-fixture `must_not_assert` /
- * `must_hedge_phase_claims` / structured confidence checks. No LLM-judge.
- * Phrase lists live only in fixtures under tests/Eval; they do not interpret
- * free text in production paths (ADR-0013 / ADR-0016).
+ * Scoring choice (brief P1-5 rework): claim-level concepts with per-fixture
+ * `claims[]` ({id, concept, allowed: assert|hedged_only|forbidden, terms[]}).
+ * Units scored separately: summary sentences, each highlight, each attention
+ * point (code + label). Hedge detection uses an eval-only word list (not
+ * DerivedClaimConfidenceGuard / product paths). ADR-0013 / ADR-0016: this
+ * code never runs in production interpretation.
  */
 final class ReportClaimsScorer
 {
+    /**
+     * Eval-only hedge markers (measurement). Includes "oogt" so soft capacity
+     * wording is still detectable as hedged — forbidden claims still fail.
+     *
+     * @var list<string>
+     */
+    private const HEDGE_MARKERS = [
+        'lijkt',
+        'oogt',
+        'mogelijk',
+        'waarschijnlijk',
+        'vermoedelijk',
+        'niet zeker',
+        'onduidelijk',
+        'indicatie',
+        'te controleren',
+        'zekerheid medium',
+        'zekerheid laag',
+        'zekerheid: medium',
+        'zekerheid: laag',
+        'confidence medium',
+        'confidence low',
+    ];
+
+    /**
+     * Default synonym sets per concept (fixtures may override via `terms`).
+     *
+     * @var array<string, list<string>>
+     */
+    private const DEFAULT_CONCEPT_TERMS = [
+        'phase_3' => [
+            'driefas',
+            '3-fase',
+            '3-fasen',
+            '3 fase',
+            '3 fasen',
+            'drie fasen',
+            'drie-fase',
+            'krachtstroom',
+        ],
+        'phase_1' => [
+            '1-fase',
+            '1-fasen',
+            '1 fase',
+            '1 fasen',
+            'eenfase',
+            'een-fase',
+            'enkelfase',
+        ],
+        'capacity_full' => [
+            'volledig bezet',
+            'vol bezet',
+            'geen vrije',
+            'geen ruimte',
+            'geen moduleplek',
+            'geen moduleplaats',
+            'geen module',
+            '/uitbreiding (is )?(nodig|vereist)/iu',
+            'uitbreiding vereist',
+            'uitbreiding nodig',
+            'fusebox_full',
+            'no_free_group',
+            'expansion_required',
+        ],
+        'capacity_free' => [
+            'vrije groep',
+            'vrije module',
+            'lege module',
+            'moduleplek zichtbaar',
+            'ruimte in de groepenkast',
+        ],
+        'photo_conflict' => [
+            'tegenstrijdig',
+            'conflict',
+            'foto 1',
+            'foto 2',
+            'eerste foto',
+            'tweede foto',
+            'niet goed genoeg',
+            'onscherp',
+            'scherpere',
+            'opnieuw',
+            'retake',
+            'verschil tussen',
+            'wijken af',
+        ],
+    ];
+
     public function __construct(
         private readonly FactScorer $factScorer,
-        private readonly DerivedClaimConfidenceGuard $claimGuard,
     ) {}
 
     /**
@@ -27,6 +114,7 @@ final class ReportClaimsScorer
      * @param  list<array{code: string, label: string, confidence: string|null, evidence: list<array{source_type: string, reference: string}>}>|null  $points
      * @param  array<string, mixed>  $disputed
      * @param  list<string>  $components
+     * @param  array{summary_rejection?: string|null, attention_rejection?: string|null}  $layerMeta
      * @return array<string, array<string, mixed>>
      */
     public function scoreLayer(
@@ -35,57 +123,87 @@ final class ReportClaimsScorer
         ?array $points,
         array $disputed,
         array $components,
+        array $layerMeta = [],
     ): array {
         $out = [];
-        $summaryCorpus = $this->summaryCorpus($summary);
-        $attentionCorpus = $this->attentionCorpus($points);
-        $combinedCorpus = trim($summaryCorpus.' '.$attentionCorpus);
 
-        $mustNot = is_array($expected['must_not_assert'] ?? null)
-            ? array_values(array_filter(
-                $expected['must_not_assert'],
-                static fn (mixed $v): bool => is_string($v) && trim($v) !== '',
-            ))
-            : [];
+        $summaryRejection = is_string($layerMeta['summary_rejection'] ?? null)
+            ? $layerMeta['summary_rejection']
+            : null;
+        $attentionRejection = is_string($layerMeta['attention_rejection'] ?? null)
+            ? $layerMeta['attention_rejection']
+            : null;
 
-        foreach ($mustNot as $index => $phrase) {
-            $factKey = 'must_not_assert.'.$index;
-            $found = $this->containsPhrase($combinedCorpus, $phrase);
-            $meta = is_array($disputed[$factKey] ?? null) ? $disputed[$factKey] : null;
-            $out[$factKey] = $this->factScorer->score(
-                expected: false,
-                got: $found,
-                supported: true,
-                components: $components,
-                disputed: $meta !== null,
-                disputedReason: is_string($meta['reason'] ?? null) ? $meta['reason'] : null,
-            );
-            $out[$factKey]['phrase'] = $phrase;
+        $summaryEmpty = $summary === null
+            || trim($summary['summary']) === ''
+            || ($summaryRejection !== null);
+        $attentionEmpty = $points === null || $attentionRejection !== null;
+
+        $out['summary_output'] = $this->factScorer->score(
+            expected: true,
+            got: ! $summaryEmpty,
+            supported: true,
+            components: $components,
+        );
+        $out['summary_output']['rejection'] = $summaryRejection
+            ?? ($summary === null ? 'missing_or_invalid_summary' : ($summaryEmpty ? 'empty_summary' : null));
+
+        $out['attention_output'] = $this->factScorer->score(
+            expected: true,
+            got: ! $attentionEmpty,
+            supported: true,
+            components: $components,
+        );
+        $out['attention_output']['rejection'] = $attentionRejection
+            ?? ($points === null ? 'missing_or_rejected_attention_points' : null);
+
+        // Empty / rejected layers: do not auto-pass claim checks — mark unsupported.
+        if ($summaryEmpty && $attentionEmpty) {
+            foreach ($this->claimsFromExpected($expected) as $claim) {
+                $factKey = 'claim.'.$claim['id'];
+                $meta = is_array($disputed[$factKey] ?? null) ? $disputed[$factKey] : null;
+                $out[$factKey] = $this->factScorer->score(
+                    expected: null,
+                    got: null,
+                    supported: false,
+                    components: $components,
+                    disputed: $meta !== null,
+                    disputedReason: is_string($meta['reason'] ?? null) ? $meta['reason'] : 'layer_empty',
+                );
+                $out[$factKey]['claim'] = $claim;
+                $out[$factKey]['detail'] = 'skipped_empty_layer';
+            }
+
+            return $out;
         }
 
-        $mustHedge = (bool) ($expected['must_hedge_phase_claims'] ?? false);
-        $allowUnhedged = (bool) ($expected['allow_unhedged_three_phase'] ?? false);
-        if ($mustHedge || ! $allowUnhedged) {
-            $unequivocal = $summary !== null && (
-                $this->claimGuard->claimsUnequivocalElectricalFact($summary['summary'])
-                || $this->anyUnequivocalHighlight($summary['highlights'])
-            );
-            $meta = is_array($disputed['summary_phase_hedge'] ?? null) ? $disputed['summary_phase_hedge'] : null;
-            $out['summary_phase_hedge'] = $this->factScorer->score(
-                expected: false,
-                got: $unequivocal,
+        $units = $this->buildUnits($summaryEmpty ? null : $summary, $attentionEmpty ? null : $points);
+
+        foreach ($this->claimsFromExpected($expected) as $claim) {
+            $factKey = 'claim.'.$claim['id'];
+            $meta = is_array($disputed[$factKey] ?? null) ? $disputed[$factKey] : null;
+            $evaluation = $this->evaluateClaim($claim, $units);
+            $out[$factKey] = $this->factScorer->score(
+                expected: $evaluation['expected'],
+                got: $evaluation['got'],
                 supported: true,
                 components: $components,
                 disputed: $meta !== null,
                 disputedReason: is_string($meta['reason'] ?? null) ? $meta['reason'] : null,
             );
-        } elseif ($allowUnhedged) {
-            // Control: stating three-phase is allowed; score presence of any phase mention as optional pass.
-            $mentionsPhase = $this->mentionsPhase($summaryCorpus);
-            $meta = is_array($disputed['summary_may_state_phase'] ?? null) ? $disputed['summary_may_state_phase'] : null;
-            $out['summary_may_state_phase'] = $this->factScorer->score(
-                expected: true,
-                got: $mentionsPhase,
+            $out[$factKey]['claim'] = $claim;
+            $out[$factKey]['detail'] = $evaluation['detail'];
+            $out[$factKey]['matches'] = $evaluation['matches'];
+        }
+
+        // Legacy invent-phase flag → phase_3/phase_1 forbidden on combined units.
+        if ((bool) ($expected['must_not_invent_phase'] ?? false)) {
+            $invented = $this->conceptPresentInUnits('phase_3', self::DEFAULT_CONCEPT_TERMS['phase_3'], $units)
+                || $this->conceptPresentInUnits('phase_1', self::DEFAULT_CONCEPT_TERMS['phase_1'], $units);
+            $meta = is_array($disputed['must_not_invent_phase'] ?? null) ? $disputed['must_not_invent_phase'] : null;
+            $out['must_not_invent_phase'] = $this->factScorer->score(
+                expected: false,
+                got: $invented,
                 supported: true,
                 components: $components,
                 disputed: $meta !== null,
@@ -97,8 +215,7 @@ final class ReportClaimsScorer
         if (is_string($ceiling) && in_array($ceiling, ['low', 'medium', 'high'], true) && is_array($points)) {
             $powerPoints = $this->powerRelatedPoints($points);
             $maxRank = $this->maxConfidenceRank($powerPoints);
-            $ceilingRank = $this->confidenceRank($ceiling);
-            $within = $maxRank === null || $maxRank <= $ceilingRank;
+            $within = $maxRank === null || $maxRank <= $this->confidenceRank($ceiling);
             $meta = is_array($disputed['attention_confidence_ceiling'] ?? null)
                 ? $disputed['attention_confidence_ceiling']
                 : null;
@@ -114,33 +231,6 @@ final class ReportClaimsScorer
             $out['attention_confidence_ceiling']['max_observed'] = $this->rankToConfidence($maxRank);
         }
 
-        $forbidCodes = is_array($expected['forbid_attention_codes'] ?? null)
-            ? array_values(array_filter(
-                $expected['forbid_attention_codes'],
-                static fn (mixed $v): bool => is_string($v) && $v !== '',
-            ))
-            : [];
-        if ($forbidCodes !== [] && is_array($points)) {
-            $codes = array_map(
-                static fn (array $p): string => $p['code'],
-                $points,
-            );
-            foreach ($forbidCodes as $index => $code) {
-                $factKey = 'forbid_attention_code.'.$index;
-                $present = in_array($code, $codes, true);
-                $meta = is_array($disputed[$factKey] ?? null) ? $disputed[$factKey] : null;
-                $out[$factKey] = $this->factScorer->score(
-                    expected: false,
-                    got: $present,
-                    supported: true,
-                    components: $components,
-                    disputed: $meta !== null,
-                    disputedReason: is_string($meta['reason'] ?? null) ? $meta['reason'] : null,
-                );
-                $out[$factKey]['code'] = $code;
-            }
-        }
-
         if ((bool) ($expected['require_evidence_on_points'] ?? false) && is_array($points)) {
             $allHaveEvidence = true;
             foreach ($points as $point) {
@@ -149,7 +239,6 @@ final class ReportClaimsScorer
                     break;
                 }
             }
-            // Empty points list vacuously satisfies evidence requirement.
             $meta = is_array($disputed['attention_evidence'] ?? null) ? $disputed['attention_evidence'] : null;
             $out['attention_evidence'] = $this->factScorer->score(
                 expected: true,
@@ -161,84 +250,25 @@ final class ReportClaimsScorer
             );
         }
 
-        if ((bool) ($expected['require_photo_conflict_signal'] ?? false)) {
-            $signals = is_array($expected['conflict_signal_substrings'] ?? null)
-                ? array_values(array_filter(
-                    $expected['conflict_signal_substrings'],
-                    static fn (mixed $v): bool => is_string($v) && trim($v) !== '',
-                ))
-                : ['conflict', 'tegenstrijdig', 'foto 1', 'foto 2', 'eerste foto', 'tweede foto', 'onscherp', 'niet goed genoeg', 'retake', 'opnieuw'];
-            $hit = false;
-            foreach ($signals as $signal) {
-                if ($this->containsPhrase($combinedCorpus, $signal)) {
-                    $hit = true;
-                    break;
-                }
-            }
-            $meta = is_array($disputed['photo_conflict_signal'] ?? null) ? $disputed['photo_conflict_signal'] : null;
-            $out['photo_conflict_signal'] = $this->factScorer->score(
-                expected: true,
-                got: $hit,
-                supported: true,
-                components: $components,
-                disputed: $meta !== null,
-                disputedReason: is_string($meta['reason'] ?? null) ? $meta['reason'] : null,
-            );
-        }
-
-        if ((bool) ($expected['must_not_invent_phase'] ?? false)) {
-            $invented = $this->mentionsPhase($combinedCorpus);
-            $meta = is_array($disputed['must_not_invent_phase'] ?? null) ? $disputed['must_not_invent_phase'] : null;
-            $out['must_not_invent_phase'] = $this->factScorer->score(
-                expected: false,
-                got: $invented,
-                supported: true,
-                components: $components,
-                disputed: $meta !== null,
-                disputedReason: is_string($meta['reason'] ?? null) ? $meta['reason'] : null,
-            );
-        }
-
         return $out;
     }
 
     /**
-     * @param  array{summary: string, highlights: list<string>}|null  $summary
+     * Public helper for tests: does corpus mention phase_3 / phase_1 via concept terms?
      */
-    private function summaryCorpus(?array $summary): string
+    public function mentionsPhase(string $corpus): bool
     {
-        if ($summary === null) {
-            return '';
-        }
+        $unit = ['kind' => 'text', 'text' => $corpus];
 
-        return trim($summary['summary'].' '.implode(' ', $summary['highlights']));
+        return $this->unitMatchesTerms($unit, self::DEFAULT_CONCEPT_TERMS['phase_3'])
+            || $this->unitMatchesTerms($unit, self::DEFAULT_CONCEPT_TERMS['phase_1']);
     }
 
-    /**
-     * @param  list<array{code: string, label: string, confidence: string|null, evidence?: mixed}>|null  $points
-     */
-    private function attentionCorpus(?array $points): string
+    public function textLooksHedged(string $text): bool
     {
-        if ($points === null) {
-            return '';
-        }
-
-        $parts = [];
-        foreach ($points as $point) {
-            $parts[] = $point['label'];
-            $parts[] = $point['code'];
-        }
-
-        return trim(implode(' ', $parts));
-    }
-
-    /**
-     * @param  list<string>  $highlights
-     */
-    private function anyUnequivocalHighlight(array $highlights): bool
-    {
-        foreach ($highlights as $highlight) {
-            if ($this->claimGuard->claimsUnequivocalElectricalFact($highlight)) {
+        $lower = mb_strtolower($text);
+        foreach (self::HEDGE_MARKERS as $marker) {
+            if (str_contains($lower, $marker)) {
                 return true;
             }
         }
@@ -246,25 +276,241 @@ final class ReportClaimsScorer
         return false;
     }
 
-    private function containsPhrase(string $corpus, string $phrase): bool
+    /**
+     * @param  array<string, mixed>  $expected
+     * @return list<array{id: string, concept: string, allowed: string, terms: list<string>}>
+     */
+    private function claimsFromExpected(array $expected): array
     {
-        $hay = mb_strtolower($corpus);
-        $needle = mb_strtolower(trim($phrase));
+        $raw = is_array($expected['claims'] ?? null) ? $expected['claims'] : [];
+        $claims = [];
+        foreach ($raw as $claim) {
+            if (! is_array($claim)) {
+                continue;
+            }
+            $id = is_string($claim['id'] ?? null) ? $claim['id'] : null;
+            $concept = is_string($claim['concept'] ?? null) ? $claim['concept'] : $id;
+            $allowed = is_string($claim['allowed'] ?? null) ? $claim['allowed'] : null;
+            if ($id === null || $concept === null || $allowed === null) {
+                continue;
+            }
+            if (! in_array($allowed, ['assert', 'hedged_only', 'forbidden'], true)) {
+                continue;
+            }
+            $terms = is_array($claim['terms'] ?? null)
+                ? array_values(array_filter(
+                    $claim['terms'],
+                    static fn (mixed $t): bool => is_string($t) && trim($t) !== '',
+                ))
+                : (self::DEFAULT_CONCEPT_TERMS[$concept] ?? []);
+            if ($terms === [] && isset(self::DEFAULT_CONCEPT_TERMS[$concept])) {
+                $terms = self::DEFAULT_CONCEPT_TERMS[$concept];
+            }
+            $claims[] = [
+                'id' => $id,
+                'concept' => $concept,
+                'allowed' => $allowed,
+                'terms' => $terms,
+            ];
+        }
 
-        return $needle !== '' && str_contains($hay, $needle);
+        return $claims;
     }
 
-    private function mentionsPhase(string $corpus): bool
+    /**
+     * @param  array{summary: string, highlights: list<string>}|null  $summary
+     * @param  list<array{code: string, label: string, confidence: string|null, evidence?: mixed}>|null  $points
+     * @return list<array{kind: string, text: string, code?: string}>
+     */
+    private function buildUnits(?array $summary, ?array $points): array
     {
-        $lower = mb_strtolower($corpus);
+        $units = [];
+        if ($summary !== null) {
+            foreach ($this->splitSentences($summary['summary']) as $sentence) {
+                $units[] = ['kind' => 'summary_sentence', 'text' => $sentence];
+            }
+            foreach ($summary['highlights'] as $highlight) {
+                $units[] = ['kind' => 'highlight', 'text' => $highlight];
+            }
+        }
+        if ($points !== null) {
+            foreach ($points as $point) {
+                $units[] = [
+                    'kind' => 'attention',
+                    'text' => trim($point['code'].' '.$point['label']),
+                    'code' => $point['code'],
+                ];
+            }
+        }
 
-        return str_contains($lower, '3-fase')
-            || str_contains($lower, '3-fasen')
-            || str_contains($lower, 'driefase')
-            || str_contains($lower, 'drie fase')
-            || str_contains($lower, '1-fase')
-            || str_contains($lower, '1-fasen')
-            || str_contains($lower, 'eenfase');
+        return $units;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function splitSentences(string $text): array
+    {
+        $parts = preg_split('/(?<=[.!?])\s+|\n+/u', trim($text)) ?: [];
+        $out = [];
+        foreach ($parts as $part) {
+            $trimmed = trim($part);
+            if ($trimmed !== '') {
+                $out[] = $trimmed;
+            }
+        }
+
+        return $out === [] && trim($text) !== '' ? [trim($text)] : $out;
+    }
+
+    /**
+     * @param  array{id: string, concept: string, allowed: string, terms: list<string>}  $claim
+     * @param  list<array{kind: string, text: string, code?: string}>  $units
+     * @return array{expected: mixed, got: mixed, detail: string, matches: list<array<string, mixed>>}
+     */
+    private function evaluateClaim(array $claim, array $units): array
+    {
+        $matches = [];
+        foreach ($units as $unit) {
+            if (! $this->unitMatchesTerms($unit, $claim['terms'])) {
+                continue;
+            }
+            $hedged = $this->textLooksHedged($unit['text']);
+            $matches[] = [
+                'kind' => $unit['kind'],
+                'text' => $unit['text'],
+                'hedged' => $hedged,
+            ];
+        }
+
+        $allowed = $claim['allowed'];
+
+        if ($matches === []) {
+            if ($allowed === 'assert') {
+                return [
+                    'expected' => true,
+                    'got' => false,
+                    'detail' => 'assert_concept_missing',
+                    'matches' => [],
+                ];
+            }
+
+            // forbidden / hedged_only: absence is fine
+            return [
+                'expected' => false,
+                'got' => false,
+                'detail' => 'concept_absent',
+                'matches' => [],
+            ];
+        }
+
+        if ($allowed === 'forbidden') {
+            return [
+                'expected' => false,
+                'got' => true,
+                'detail' => 'forbidden_concept_present',
+                'matches' => $matches,
+            ];
+        }
+
+        if ($allowed === 'hedged_only') {
+            $unhedged = array_values(array_filter($matches, static fn (array $m): bool => ! $m['hedged']));
+            if ($unhedged !== []) {
+                return [
+                    'expected' => false,
+                    'got' => true,
+                    'detail' => 'unhedged_claim_for_hedged_only',
+                    'matches' => $matches,
+                ];
+            }
+
+            return [
+                'expected' => false,
+                'got' => false,
+                'detail' => 'all_matches_hedged',
+                'matches' => $matches,
+            ];
+        }
+
+        // allowed === assert: presence required; unnecessary hedging fails.
+        $hedgedOnly = array_values(array_filter($matches, static fn (array $m): bool => $m['hedged']));
+        $unhedged = array_values(array_filter($matches, static fn (array $m): bool => ! $m['hedged']));
+        if ($unhedged === [] && $hedgedOnly !== []) {
+            return [
+                'expected' => true,
+                'got' => false,
+                'detail' => 'unnecessary_hedging_for_assert',
+                'matches' => $matches,
+            ];
+        }
+
+        return [
+            'expected' => true,
+            'got' => true,
+            'detail' => 'assert_ok',
+            'matches' => $matches,
+        ];
+    }
+
+    /**
+     * @param  list<string>  $terms
+     * @param  list<array{kind: string, text: string, code?: string}>  $units
+     */
+    private function conceptPresentInUnits(string $concept, array $terms, array $units): bool
+    {
+        foreach ($units as $unit) {
+            if ($this->unitMatchesTerms($unit, $terms)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array{kind: string, text: string, code?: string}  $unit
+     * @param  list<string>  $terms
+     */
+    private function unitMatchesTerms(array $unit, array $terms): bool
+    {
+        $hay = mb_strtolower($unit['text']);
+        foreach ($terms as $term) {
+            if ($this->termMatches($hay, $term)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function termMatches(string $haystackLower, string $term): bool
+    {
+        $term = trim($term);
+        if ($term === '') {
+            return false;
+        }
+
+        if (str_starts_with($term, '/') && substr_count($term, '/') >= 2) {
+            $last = (int) strrpos($term, '/');
+            $pattern = substr($term, 0, $last + 1);
+            $modifiers = substr($term, $last + 1);
+            if (! str_contains($modifiers, 'i')) {
+                $modifiers .= 'i';
+            }
+            if (! str_contains($modifiers, 'u')) {
+                $modifiers .= 'u';
+            }
+
+            return @preg_match($pattern.$modifiers, $haystackLower) === 1;
+        }
+
+        $needle = mb_strtolower($term);
+        // Short tokens: prefer word-ish boundary to avoid accidental hits.
+        if (mb_strlen($needle) <= 3) {
+            return @preg_match('/(^|[^\p{L}\p{N}])'.preg_quote($needle, '/').'([^\p{L}\p{N}]|$)/u', $haystackLower) === 1;
+        }
+
+        return str_contains($haystackLower, $needle);
     }
 
     /**
@@ -274,19 +520,16 @@ final class ReportClaimsScorer
     private function powerRelatedPoints(array $points): array
     {
         $out = [];
+        $terms = array_merge(
+            self::DEFAULT_CONCEPT_TERMS['phase_3'],
+            self::DEFAULT_CONCEPT_TERMS['phase_1'],
+            self::DEFAULT_CONCEPT_TERMS['capacity_full'],
+            self::DEFAULT_CONCEPT_TERMS['capacity_free'],
+            ['meterkast', 'groepenkast', 'stroom', 'fusebox', 'power'],
+        );
         foreach ($points as $point) {
-            $blob = mb_strtolower($point['code'].' '.$point['label']);
-            if (
-                str_contains($blob, 'fase')
-                || str_contains($blob, 'meterkast')
-                || str_contains($blob, 'groepenkast')
-                || str_contains($blob, 'groep')
-                || str_contains($blob, 'stroom')
-                || str_contains($blob, 'fusebox')
-                || str_contains($blob, 'power')
-                || str_contains($blob, 'uitbreiding')
-                || str_contains($blob, 'module')
-            ) {
+            $unit = ['kind' => 'attention', 'text' => $point['code'].' '.$point['label']];
+            if ($this->unitMatchesTerms($unit, $terms)) {
                 $out[] = $point;
             }
         }
