@@ -264,6 +264,32 @@ test('exact input references in prose fail; upload_quality_low code does not', f
         ->and($leak['no_internal_upload_refs']['detail'])->toBe('internal_upload_ref_in_text')
         ->and($leak['no_internal_upload_refs']['hits'])->not->toBeEmpty();
 
+    $opaqueLeak = reportClaimsScorer()->scoreLayer(
+        [
+            'claims' => [[
+                'id' => 'phase_3',
+                'concept' => 'phase_3',
+                'allowed' => 'forbidden',
+            ]],
+        ],
+        [
+            'summary' => "Foto 'upload_blurry' is onvoldoende scherp.",
+            'highlights' => ['Geen faseclaim'],
+        ],
+        [[
+            'code' => 'upload_quality_low',
+            'label' => 'Eerste meterkastfoto onscherp',
+            'confidence' => 'medium',
+            'evidence' => [['source_type' => 'upload', 'reference' => $ref]],
+        ]],
+        [],
+        ['C5'],
+        ['input_references' => [$ref]],
+    );
+
+    expect($opaqueLeak['no_internal_upload_refs']['status'])->toBe('wrong')
+        ->and($opaqueLeak['no_internal_upload_refs']['hits'][0]['reference'] ?? null)->toBe('upload_blurry');
+
     $clean = reportClaimsScorer()->scoreLayer(
         [
             'claims' => [[
@@ -314,6 +340,50 @@ test('cannot-determine phase sentence is not forbidden and counts as hedged', fu
         ->and($scores['must_not_invent_phase']['status'])->toBe('correct');
 });
 
+test('cannot-determine marker in another clause does not clear a hard claim', function () {
+    $capacity = reportClaimsScorer()->scoreLayer(
+        [
+            'claims' => [[
+                'id' => 'capacity_full',
+                'concept' => 'capacity_full',
+                'allowed' => 'forbidden',
+            ]],
+        ],
+        [
+            'summary' => 'Groepenkast volledig bezet; aantal fasen onbekend.',
+            'highlights' => [],
+        ],
+        [],
+        [],
+        ['C5'],
+    );
+
+    expect($capacity['claim.capacity_full']['status'])->toBe('wrong')
+        ->and($capacity['claim.capacity_full']['detail'])->toBe('forbidden_concept_present');
+
+    $phase = reportClaimsScorer()->scoreLayer(
+        [
+            'claims' => [[
+                'id' => 'phase_3',
+                'concept' => 'phase_3',
+                'allowed' => 'hedged_only',
+            ]],
+            'must_not_invent_phase' => true,
+        ],
+        [
+            'summary' => '3-fase aansluiting aanwezig; vrije ruimte onbekend.',
+            'highlights' => [],
+        ],
+        [],
+        [],
+        ['C5'],
+    );
+
+    expect($phase['claim.phase_3']['status'])->toBe('wrong')
+        ->and($phase['claim.phase_3']['detail'])->toBe('unhedged_claim_for_hedged_only')
+        ->and($phase['must_not_invent_phase']['status'])->toBe('wrong');
+});
+
 test('named-photo attribution is hedged_only only when same layer names conflict', function () {
     $withConflict = reportClaimsScorer()->scoreLayer(
         [
@@ -354,6 +424,28 @@ test('named-photo attribution is hedged_only only when same layer names conflict
 
     expect($withoutConflict['claim.phase_3']['status'])->toBe('wrong')
         ->and($withoutConflict['claim.phase_3']['detail'])->toBe('unhedged_claim_for_hedged_only');
+});
+
+test('named-photo conclusion wording stays unhedged even with conflict', function () {
+    $scores = reportClaimsScorer()->scoreLayer(
+        [
+            'claims' => [[
+                'id' => 'capacity_full',
+                'concept' => 'capacity_full',
+                'allowed' => 'hedged_only',
+            ]],
+        ],
+        [
+            'summary' => 'De meterkastfoto’s wijken af. De tweede meterkastfoto toont dat uitbreiding vereist is.',
+            'highlights' => [],
+        ],
+        [],
+        [],
+        ['C5'],
+    );
+
+    expect($scores['claim.capacity_full']['status'])->toBe('wrong')
+        ->and($scores['claim.capacity_full']['detail'])->toBe('unhedged_claim_for_hedged_only');
 });
 
 test('over-hedged attention fails assert even when summary is firm', function () {

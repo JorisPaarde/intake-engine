@@ -78,6 +78,31 @@ final class ReportClaimsScorer
     ];
 
     /**
+     * Observation verbs required for named-photo attribution to count as a hedge.
+     *
+     * @var list<string>
+     */
+    private const NAMED_PHOTO_OBSERVATION_MARKERS = [
+        'toont',
+        'zichtbaar',
+        'te zien',
+        'zien',
+    ];
+
+    /**
+     * Conclusion / requirement wording — blocks named-photo observation hedge.
+     *
+     * @var list<string>
+     */
+    private const NAMED_PHOTO_CONCLUSION_MARKERS = [
+        'uitbreiding nodig',
+        'vereist',
+        'noodzakelijk',
+        'nodig',
+        'moet',
+    ];
+
+    /**
      * Conflict / uncertainty-between-photos markers for the named-attribution rule.
      * Ordinal-only phrases (eerste/tweede foto) are attribution, not conflict.
      *
@@ -389,6 +414,79 @@ final class ReportClaimsScorer
     }
 
     /**
+     * Named-photo hedge: attribution + observation verb, no conclusion word (same clause).
+     */
+    public function clauseLooksNamedPhotoObservation(string $clause): bool
+    {
+        if (! $this->textLooksNamedPhotoAttribution($clause)) {
+            return false;
+        }
+
+        $lower = mb_strtolower($clause);
+        $hasObservation = false;
+        foreach (self::NAMED_PHOTO_OBSERVATION_MARKERS as $marker) {
+            if ($this->markerPresent($lower, $marker)) {
+                $hasObservation = true;
+                break;
+            }
+        }
+        if (! $hasObservation) {
+            return false;
+        }
+
+        foreach (self::NAMED_PHOTO_CONCLUSION_MARKERS as $marker) {
+            if ($this->markerPresent($lower, $marker)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function markerPresent(string $haystackLower, string $marker): bool
+    {
+        $marker = mb_strtolower($marker);
+        if (str_contains($marker, ' ')) {
+            return str_contains($haystackLower, $marker);
+        }
+
+        // Short tokens: word-ish boundary (avoids matching inside longer words).
+        if (mb_strlen($marker) <= 5) {
+            return @preg_match(
+                '/(^|[^\p{L}\p{N}])'.preg_quote($marker, '/').'([^\p{L}\p{N}]|$)/u',
+                $haystackLower,
+            ) === 1;
+        }
+
+        return str_contains($haystackLower, $marker);
+    }
+
+    /**
+     * Split a unit into clauses for hedge / cannot-determine co-location.
+     *
+     * @return list<string>
+     */
+    public function splitClauses(string $text): array
+    {
+        $trimmedText = trim($text);
+        if ($trimmedText === '') {
+            return [];
+        }
+
+        $parts = preg_split('/\s*(?:[.;,]|\s+maar\s+)\s*/iu', $trimmedText) ?: [$trimmedText];
+
+        $out = [];
+        foreach ($parts as $part) {
+            $trimmed = trim((string) $part);
+            if ($trimmed !== '') {
+                $out[] = $trimmed;
+            }
+        }
+
+        return $out !== [] ? $out : [$trimmedText];
+    }
+
+    /**
      * @param  array<string, mixed>  $expected
      * @return list<array{id: string, concept: string, allowed: string, terms: list<string>}>
      */
@@ -487,27 +585,32 @@ final class ReportClaimsScorer
             'attention' => $this->layerNamesPhotoConflictOrUncertainty($units, ['attention']),
         ];
 
+        // Match + hedge / cannot-determine at clause level (., ;, ,, " maar ").
+        /** @var list<array{kind: string, text: string, hedged: bool, cannot_determine: bool}> $matches */
         $matches = [];
         foreach ($units as $unit) {
-            if (! $this->unitMatchesTerms($unit, $claim['terms'])) {
-                continue;
-            }
             $layerKey = in_array($unit['kind'], ['summary_sentence', 'highlight'], true)
                 ? 'summary'
                 : 'attention';
-            $hedged = $this->textLooksHedged($unit['text']);
-            if (! $hedged
-                && $claim['allowed'] === 'hedged_only'
-                && $this->textLooksNamedPhotoAttribution($unit['text'])
-                && $layerConflict[$layerKey]
-            ) {
-                $hedged = true;
+            foreach ($this->splitClauses($unit['text']) as $clause) {
+                if (! $this->clauseMatchesTerms($clause, $claim['terms'])) {
+                    continue;
+                }
+                $hedged = $this->textLooksHedged($clause);
+                if (! $hedged
+                    && $claim['allowed'] === 'hedged_only'
+                    && $this->clauseLooksNamedPhotoObservation($clause)
+                    && $layerConflict[$layerKey]
+                ) {
+                    $hedged = true;
+                }
+                $matches[] = [
+                    'kind' => $unit['kind'],
+                    'text' => $clause,
+                    'hedged' => $hedged,
+                    'cannot_determine' => $this->textLooksCannotDetermine($clause),
+                ];
             }
-            $matches[] = [
-                'kind' => $unit['kind'],
-                'text' => $unit['text'],
-                'hedged' => $hedged,
-            ];
         }
 
         $allowed = $claim['allowed'];
@@ -532,11 +635,14 @@ final class ReportClaimsScorer
         }
 
         if ($allowed === 'forbidden') {
-            // "Cannot be determined" sentences never count as a forbidden hard claim.
-            $hardMatches = array_values(array_filter(
-                $matches,
-                fn (array $m): bool => ! $this->textLooksCannotDetermine($m['text']),
-            ));
+            // "Cannot be determined" only clears a match when marker is in the same clause.
+            $hardMatches = [];
+            foreach ($matches as $match) {
+                if ($match['cannot_determine']) {
+                    continue;
+                }
+                $hardMatches[] = $match;
+            }
             if ($hardMatches === []) {
                 return [
                     'expected' => false,
@@ -644,8 +750,9 @@ final class ReportClaimsScorer
     }
 
     /**
-     * Human-facing text must not leak exact input upload/fact references (eval-only).
-     * Codes like upload_quality_low are fine — only exact reference strings count.
+     * Human-facing text must not leak input upload/fact references (eval-only).
+     * Matches full references and opaque tokens after @upload: / @fact:.
+     * Codes like upload_quality_low are fine when not an input opaque token.
      *
      * @param  list<array{kind: string, text: string, code?: string}>  $units
      * @param  list<string>  $inputReferences
@@ -660,7 +767,7 @@ final class ReportClaimsScorer
         $hits = [];
         foreach ($units as $unit) {
             foreach ($inputReferences as $reference) {
-                if ($reference === '' || ! str_contains($unit['text'], $reference)) {
+                if ($reference === '' || ! $this->textContainsInputReference($unit['text'], $reference)) {
                     continue;
                 }
                 $hits[] = [
@@ -672,6 +779,24 @@ final class ReportClaimsScorer
         }
 
         return $hits;
+    }
+
+    public function textContainsInputReference(string $text, string $reference): bool
+    {
+        if ($reference === '') {
+            return false;
+        }
+
+        // Full reference: substring is enough (includes @upload: / @fact: forms).
+        if (str_contains($reference, '@')) {
+            return str_contains($text, $reference);
+        }
+
+        // Opaque token: require a non-word boundary so upload_quality_low ≠ upload_blurry.
+        return @preg_match(
+            '/(^|[^\p{L}\p{N}_])'.preg_quote($reference, '/').'([^\p{L}\p{N}_]|$)/u',
+            $text,
+        ) === 1;
     }
 
     /**
@@ -690,8 +815,14 @@ final class ReportClaimsScorer
                 continue;
             }
             $trimmed = trim($item);
-            if ($trimmed !== '') {
-                $out[] = $trimmed;
+            if ($trimmed === '') {
+                continue;
+            }
+            $out[] = $trimmed;
+            if (@preg_match_all('/@(?:upload|fact):([A-Za-z0-9_-]+)/u', $trimmed, $refMatches) > 0) {
+                foreach ($refMatches[1] as $opaque) {
+                    $out[] = $opaque;
+                }
             }
         }
 
@@ -738,14 +869,16 @@ final class ReportClaimsScorer
     private function conceptPresentAsHardClaim(string $concept, array $terms, array $units): bool
     {
         foreach ($units as $unit) {
-            if (! $this->unitMatchesTerms($unit, $terms)) {
-                continue;
-            }
-            if ($this->textLooksCannotDetermine($unit['text'])) {
-                continue;
-            }
+            foreach ($this->splitClauses($unit['text']) as $clause) {
+                if (! $this->clauseMatchesTerms($clause, $terms)) {
+                    continue;
+                }
+                if ($this->textLooksCannotDetermine($clause)) {
+                    continue;
+                }
 
-            return true;
+                return true;
+            }
         }
 
         return false;
@@ -757,7 +890,15 @@ final class ReportClaimsScorer
      */
     private function unitMatchesTerms(array $unit, array $terms): bool
     {
-        $hay = mb_strtolower($unit['text']);
+        return $this->clauseMatchesTerms($unit['text'], $terms);
+    }
+
+    /**
+     * @param  list<string>  $terms
+     */
+    private function clauseMatchesTerms(string $clause, array $terms): bool
+    {
+        $hay = mb_strtolower($clause);
         foreach ($terms as $term) {
             if ($this->termMatches($hay, $term)) {
                 return true;
