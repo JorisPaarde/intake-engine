@@ -6,6 +6,7 @@ namespace App\Domains\AI\Services;
 
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Domains\Intake\Support\PhotoContinueAnywayAttention;
 use App\Enums\AttentionPointSource;
 use Illuminate\Support\Str;
 
@@ -118,13 +119,26 @@ final class IntakeAttentionContextBuilder
             'follow_up' => $this->followUpContext($intake),
             'system_attention_points' => $intake->attentionPoints
                 ->reject(fn ($point): bool => $point->source === AttentionPointSource::Ai)
-                ->map(fn ($point): array => [
-                    'reference' => $point->code,
-                    'source' => $point->source->value,
-                    'code' => $point->code,
-                    'label' => $point->label,
-                    'is_resolved' => $point->is_resolved,
-                ])
+                ->map(function ($point) use ($intake): ?array {
+                    $code = is_string($point->code) ? $point->code : '';
+                    $label = $point->label;
+                    if (PhotoContinueAnywayAttention::isContinueAnywayCode($code)) {
+                        $live = PhotoContinueAnywayAttention::liveLabel($intake, $code);
+                        if ($live === null) {
+                            return null;
+                        }
+                        $label = $live;
+                    }
+
+                    return [
+                        'reference' => $point->code,
+                        'source' => $point->source->value,
+                        'code' => $point->code,
+                        'label' => $label,
+                        'is_resolved' => $point->is_resolved,
+                    ];
+                })
+                ->filter()
                 ->values()
                 ->all(),
             'completeness' => $intake->completeness_snapshot ?? [],
