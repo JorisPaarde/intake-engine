@@ -464,7 +464,7 @@ test('N26: workspace shows customer drain answer on condensate cards only when c
         ->get(route('intakes.workspace', $intake->fresh()))
         ->assertOk()
         ->assertSee('data-testid="condensate-customer-drain-note"', false)
-        ->assertSee('Volgens de klant: regenpijp of putje buiten in de buurt (nog niet gecontroleerd)', false);
+        ->assertSee('Volgens de klant: regenpijp of putje buiten in de buurt. Nog niet gecontroleerd.', false);
 
     app(SaveIntakeAnswer::class)->handle(
         $intake->fresh(),
@@ -478,7 +478,7 @@ test('N26: workspace shows customer drain answer on condensate cards only when c
         ->get(route('intakes.workspace', $intake->fresh()))
         ->assertOk()
         ->assertDontSee('data-testid="condensate-customer-drain-note"', false)
-        ->assertDontSee('Volgens de klant: regenpijp of putje buiten in de buurt (nog niet gecontroleerd)', false);
+        ->assertDontSee('Volgens de klant: regenpijp of putje buiten in de buurt. Nog niet gecontroleerd.', false);
 
     app(SaveIntakeAnswer::class)->handle($intake->fresh(), 'drain_location', null, ['value' => 'unknown']);
 

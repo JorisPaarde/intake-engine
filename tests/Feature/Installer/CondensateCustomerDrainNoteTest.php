@@ -37,7 +37,7 @@ test('N26: customer drain_location outside_nearby shows on-screen note', functio
 
     $note = app(CondensateCustomerDrainNote::class)->present($intake->fresh(['answers', 'templateVersion.sections.questions.options']));
 
-    expect($note)->toBe('Volgens de klant: regenpijp of putje buiten in de buurt (nog niet gecontroleerd)');
+    expect($note)->toBe('Volgens de klant: regenpijp of putje buiten in de buurt. Nog niet gecontroleerd.');
 });
 
 test('N26: customer drain_location indoor_nearby shows on-screen note from template label', function () {
@@ -47,7 +47,7 @@ test('N26: customer drain_location indoor_nearby shows on-screen note from templ
     $note = app(CondensateCustomerDrainNote::class)->present($intake->fresh(['answers', 'templateVersion.sections.questions.options']));
 
     // Template option label, first letter lowercased — not a hard-coded product copy.
-    expect($note)->toBe('Volgens de klant: afvoer binnen in de buurt (keuken, badkamer, wasmachine) (nog niet gecontroleerd)');
+    expect($note)->toBe('Volgens de klant: afvoer binnen in de buurt (keuken, badkamer, wasmachine). Nog niet gecontroleerd.');
 });
 
 test('N26: ai_photo prefilled drain_location does not show on-screen note', function () {

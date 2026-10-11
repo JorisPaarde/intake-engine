@@ -40,7 +40,7 @@ final class CondensateCustomerDrainNote
 
         $display = mb_strtolower(mb_substr($label, 0, 1)).mb_substr($label, 1);
 
-        return 'Volgens de klant: '.$display.' (nog niet gecontroleerd)';
+        return 'Volgens de klant: '.$display.'. Nog niet gecontroleerd.';
     }
 
     private function optionLabel(Intake $intake, string $value): ?string
