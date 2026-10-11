@@ -336,7 +336,7 @@ test('contract: preview classified outcomes match CreateIntake DeriveIntent chai
         ->and($answers->firstWhere('question_key', 'not_a_real_question'))->toBeNull();
 });
 
-test('failed AI still returns local outcome without 500 or durable AI-run from preview', function () {
+test('failed AI keeps local diagnostic output but does not fill from the parser', function () {
     FakeAiClient::alwaysFail('provider down');
 
     $evaluation = app(EvaluateRequestIntent::class)->preview(
@@ -346,7 +346,7 @@ test('failed AI still returns local outcome without 500 or durable AI-run from p
     expect($evaluation->aiAttempted)->toBeTrue()
         ->and($evaluation->aiError)->toContain('Catalogus-AI mislukt')
         ->and($evaluation->localOutput)->not->toBeNull()
-        ->and($evaluation->fills())->not->toBeEmpty()
+        ->and($evaluation->fills())->toBeEmpty()
         ->and(AiRun::query()->count())->toBe(0)
         ->and(Intake::query()->count())->toBe(0);
 });

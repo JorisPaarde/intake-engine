@@ -1,0 +1,33 @@
+{
+  "id": "var-geen-airco-mixed",
+  "kind": "request_text",
+  "origin": "variant: negatie per ruimte",
+  "source_kind": "variant",
+  "text": "In de slaapkamer is geen airco, in de woonkamer hangt er wel een die blijft. Alleen de slaapkamer erbij, 4 bij 3 meter, eerste verdieping.",
+  "expected": {
+    "indoor_unit_count": 1,
+    "existing_installation": {
+      "present": true,
+      "room": "Woonkamer",
+      "replace": false
+    },
+    "rooms": [
+      {
+        "name": "Slaapkamer",
+        "room_type": "bedroom",
+        "floor_level": "1",
+        "length_m": 4,
+        "width_m": 3
+      }
+    ]
+  },
+  "components": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C8"
+  ],
+  "note": null,
+  "disputed_facts": {}
+}

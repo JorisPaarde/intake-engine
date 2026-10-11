@@ -1,0 +1,43 @@
+{
+  "id": "var-boven-onder",
+  "kind": "request_text",
+  "origin": "variant Stroom 2: boven/onder",
+  "source_kind": "variant",
+  "text": "De slaapkamer boven is 4 bij 3 meter en de woonkamer onder is 7 bij 4 meter. Koelen en verwarmen.",
+  "expected": {
+    "cooling_heating": "both",
+    "indoor_unit_count": 2,
+    "rooms": [
+      {
+        "name": "Slaapkamer",
+        "room_type": "bedroom",
+        "floor_level": "1",
+        "length_m": 4,
+        "width_m": 3
+      },
+      {
+        "name": "Woonkamer",
+        "room_type": "living_room",
+        "floor_level": "ground",
+        "length_m": 7,
+        "width_m": 4
+      }
+    ]
+  },
+  "components": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C8"
+  ],
+  "note": "'boven' → '1' is een aanname (tussenwoning). Open vraag aan Joris: is null ook goed?",
+  "disputed_facts": {
+    "rooms.Slaapkamer.floor_level": {
+      "reason": "Open vraag: 'boven' → '1' is aanname; is null ook goed?",
+      "acceptable_alternates": [
+        null
+      ]
+    }
+  }
+}

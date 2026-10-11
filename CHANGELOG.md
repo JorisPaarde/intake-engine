@@ -4,8 +4,13 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ## [Unreleased]
 
+### Fixed
+
+- **Wizard-mount overschreef model-verdieping met lokale regex (BL-148 / #173 review):** `DeriveIntentFromRequest` gated de lokale parser alleen op `ai.text_inference.enabled`. Met tekst-AI aan is `allowExternal: false` (klantwizard-mount) een no-op; offline-fallback alleen als tekst-AI uit staat. `InterpretFollowUpText` registreert `AiRun` (timeout ≤ 8 s); standalone-getal: `[.,]` telt alleen als boundary naast een digit (dus `2,6` weigert bare `2`, `nok 2.` / `nok 2, knie 1` accepteren). Eval: configureerbare output-dir; fake runs schrijven geen `baseline/`/HISTORY; bootstrap alleen `AI_API_KEY`; live-env `production`/`staging`; `migrate:fresh` alleen met `--migrate`.
+
 ### Added
 
+- **Evaluatieset tekstinterpretatie (BL-148):** `php artisan eval:interpretation` meet model_raw vs pipeline_final op fixtures (`tests/Eval/`); handmatige CI via `workflow_dispatch` (`.github/workflows/eval-interpretation.yml`, `permissions: contents: read`, geen cron). Commando geweigerd op production/staging; `migrate:fresh` alleen met expliciet `--migrate` op sqlite. Zonder `AI_API_KEY` draait FakeAiClient — dat is geen baseline.
 - **Klanttaken bundelen vóór activeren (BL-145):** contextuele **Vraag de klant**/**Vraag nieuwe foto** voegt toe aan een zichtbare conceptlijst (`tasks.prepare` → sessie `customer_task_drafts`, max 5) met bewerkbare klanttekst; één `tasks.store` activeert de ronde. Brononderwerp per taak blijft behouden; open ronde blijft geblokkeerd. Pest + Playwright (`tests/e2e/customer-task-draft-bundle.spec.ts`).
 - **AI-trace gaps afronden (BL-144):** `ai_runs.provider_request_id` (provider completion-`id` via `completionResultAttributes`); `AiRunStatus::Skipped` / `AiTraceStatus::Skipped` + `AiSkipRecorder` voor uploads zonder AI-call (reden bv. `geen beoordelingsprofiel`); `seed` in `model_parameters` (+ optioneel `AI_SEED` naar provider); `queued_at` op traces; export bevat `finish_reason` + `queued_at`. GPS/locatie blijft geredigeerd.
 
@@ -27,7 +32,8 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Changed
 
-- **Klantwizard overbodige vragen (BL-148, Notion #14 punten 2/3):** airco **v28**. Bruikbare gevel-/tuinfoto (`OutdoorPhotoReuse`) verbergt `around_house_photos` en telt de stap niet mee; zonder bruikbare foto is het een gerichte vervolgvraag (“We zien de buitenkant nog niet goed”, knoppen **Foto maken** en **Weet ik niet / sla over**). Maten: L×B en optioneel m² op hetzelfde scherm, live “Oppervlak: … m²”, link “Weet je alleen het oppervlak in m²?”; leeg m² overschrijft `derived_lxw` niet. Punten 1/4/5 staan in #171.
+- **Tekstinterpretatie hoort bij het model (BL-148, ADR-0016):** met tekst-AI aan vult `LocalRequestIntentParser` niet meer; catalogus-AI is het enige betekenispad. Code bewaakt schema/citaat/enums en weigert of markeert onzeker — geen keyword-injectie (eigendom, “geen airco”, verdieping), geen claimherschrijving, geen hoogte-regex. Nieuwe prompt `follow-up-text-v1`; bumps `request-prefill-v13`, `summary-v2`, `dossier-synthesis-v11`. Lokale parser blijft **alleen** offline-fallback wanneer tekst-AI uit staat (`ai.text_inference.enabled`); `allowExternal: false` (wizard-mount) is met AI aan een no-op zodat modelantwoorden niet door regex-verdieping worden overschreven. ADR-0014 besluit 1 vervangen.
+- **Klantwizard overbodige vragen (BL-149, Notion #14 punten 2/3):** airco **v28**. Bruikbare gevel-/tuinfoto (`OutdoorPhotoReuse`) verbergt `around_house_photos` en telt de stap niet mee; zonder bruikbare foto is het een gerichte vervolgvraag (“We zien de buitenkant nog niet goed”, knoppen **Foto maken** en **Weet ik niet / sla over**). Maten: L×B en optioneel m² op hetzelfde scherm, live “Oppervlak: … m²”, link “Weet je alleen het oppervlak in m²?”; leeg m² overschrijft `derived_lxw` niet. Punten 1/4/5 staan in #171.
 
 - **PHP `memory_limit` 256M (BL-141):** `public/.user.ini` van **512M → 256M** (Hoasted PMEM 512 MB; selector-standaard web was al 256M, git/.user.ini stond op 512M). CLI op de host is al 256M; `AppServiceProvider` is alleen een vangnet voor `-1`/te lage defaults (verlaagt geen hogere limieten). Queue-worker blijft `--memory=256` (Laravel-restartthreshold). `PhotoUploadNormalizer` zet Imagick resource limits en verkleint de werkbuffer naar dossier-max vóór variant-clones (GD idem). Test: 12 MP JPEG (4032×3024) assert `memory_get_peak_usage` &lt; ~200 MB (**gemeten ≈ 39 MB piek** / ≈ 11 MB delta met Imagick). `/health` toont `php_upload.memory_limit`.
 

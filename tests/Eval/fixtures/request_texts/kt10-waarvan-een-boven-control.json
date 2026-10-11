@@ -1,0 +1,38 @@
+{
+  "id": "kt10-waarvan-een-boven-control",
+  "kind": "request_text",
+  "origin": "klanttest 10 okt 2026 prod v1.4.8",
+  "source_kind": "variant",
+  "text": "Wij willen graag airco in de woonkamer en twee slaapkamers, waarvan één op de eerste verdieping (boven). Huis uit 1965, tussenwoning. Graag een offerte voor een multi-split.",
+  "expected": {
+    "cooling_heating": null,
+    "indoor_unit_count": 3,
+    "rooms": [
+      {
+        "name": "Woonkamer",
+        "room_type": "living_room",
+        "floor_level": null
+      },
+      {
+        "name": "Slaapkamer 1",
+        "room_type": "bedroom",
+        "floor_level": "1"
+      },
+      {
+        "name": "Slaapkamer 2",
+        "room_type": "bedroom",
+        "floor_level": null
+      }
+    ]
+  },
+  "components": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C8"
+  ],
+  "note": "Case D (Claude desktop, opname 129): controlecase — letterlijk 'eerste verdieping (boven)' → floor 1 verplicht; geen null-acceptatie.",
+  "disputed_facts": {},
+  "match_rooms": "unordered_by_type"
+}

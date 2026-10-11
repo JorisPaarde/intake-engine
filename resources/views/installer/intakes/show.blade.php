@@ -32,17 +32,29 @@
                     ? $areaTargetResolver->targetForArea($intake, $firstOpenArea->key)
                     : null;
                 $authoritativePoints = $intake->attentionPoints->filter(
-                    fn ($p) => ($p->status === null || $p->status === \App\Enums\AttentionPointStatus::Accepted)
-                        && ! $p->is_resolved,
+                    function ($p) use ($intake) {
+                        if (($p->status !== null && $p->status !== \App\Enums\AttentionPointStatus::Accepted)
+                            || $p->is_resolved) {
+                            return false;
+                        }
+                        if (! is_string($p->code)
+                            || ! \App\Domains\Intake\Support\PhotoContinueAnywayAttention::isContinueAnywayCode($p->code)) {
+                            return true;
+                        }
+
+                        // Live zichtbaarheid: verberg als er geen afgekeurde/not_assessed uploads meer zijn.
+                        return \App\Domains\Intake\Support\PhotoContinueAnywayAttention::liveLabel($intake, $p->code) !== null;
+                    },
                 );
                 $resolvedPoints = $intake->attentionPoints->filter(
                     fn ($p) => ($p->status === null || $p->status === \App\Enums\AttentionPointStatus::Accepted)
                         && $p->is_resolved,
                 );
-                $proposedPoints = $intake->attentionPoints->filter(
-                    fn ($p) => $p->source === \App\Enums\AttentionPointSource::Ai
-                        && $p->status === \App\Enums\AttentionPointStatus::Proposed,
+                $proposedPoints = \App\Domains\Intake\Support\AttentionProposalVisibility::visibleProposed(
+                    $intake->attentionPoints,
                 );
+                $gallerySummaryLine = app(\App\Domains\Intake\Services\InstallerPhotoGalleryBuilder::class)
+                    ->summaryLine($intake);
                 $showAttentionSection = $authoritativePoints->isNotEmpty()
                     || $proposedPoints->isNotEmpty()
                     || $resolvedPoints->isNotEmpty()
@@ -330,9 +342,28 @@
                             <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-gray-800">
                                 @foreach ($authoritativePoints as $point)
                                     <li>
-                                        {{ $point->label }}
+                                        @php
+                                            $continueAnyway = is_string($point->code)
+                                                && \App\Domains\Intake\Support\PhotoContinueAnywayAttention::isContinueAnywayCode($point->code);
+                                            $displayLabel = $continueAnyway
+                                                ? \App\Domains\Intake\Support\PhotoContinueAnywayAttention::liveLabel($intake, $point->code)
+                                                : $point->label;
+                                            $continueLink = $continueAnyway
+                                                ? \App\Domains\Intake\Support\PhotoContinueAnywayAttention::linkForPoint($intake, $point->code)
+                                                : null;
+                                        @endphp
+                                        {{ $displayLabel }}
                                         @if ($point->source === \App\Enums\AttentionPointSource::Ai)
                                             <span class="text-gray-400">· overgenomen AI-voorstel</span>
+                                        @endif
+                                        @if (is_array($continueLink))
+                                            <div class="mt-1">
+                                                <a
+                                                    href="#{{ $continueLink['anchor'] }}"
+                                                    class="inline-flex min-h-11 items-center text-sm font-medium text-indigo-700 underline-offset-2 hover:underline"
+                                                    onclick="(function(id){var d=document.getElementById('photos-files'); if(d){d.open=true;} var t=document.getElementById(id); if(t){t.scrollIntoView({behavior:'smooth',block:'start'});}})('{{ $continueLink['anchor'] }}')"
+                                                >{{ $continueLink['link_label'] }}</a>
+                                            </div>
                                         @endif
                                         @if (is_array($point->evidence) && $point->evidence !== [])
                                             @php
@@ -368,16 +399,16 @@
                                                 <x-evidence-citations :citations="$evidenceCitations" class="mt-1" />
                                             @endif
                                         </div>
-                                        <span class="flex shrink-0 gap-2">
+                                        <span class="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row">
                                             @if ($point->hasValidAiProvenance())
                                                 <form method="POST" action="{{ route('intakes.attention.accept', [$intake, $point]) }}">
                                                     @csrf
-                                                    <button type="submit" class="inline-flex items-center rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">Accepteren</button>
+                                                    <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-emerald-800 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 sm:w-auto">Accepteren</button>
                                                 </form>
                                             @endif
                                             <form method="POST" action="{{ route('intakes.attention.dismiss', [$intake, $point]) }}">
                                                 @csrf
-                                                <button type="submit" class="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50">Verwijderen</button>
+                                                <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50 sm:w-auto">Verwijderen</button>
                                             </form>
                                         </span>
                                     </li>
@@ -429,8 +460,12 @@
                 </summary>
                 <div class="space-y-4 border-t border-gray-100 px-6 pb-6 pt-4">
                     <p class="text-sm text-gray-600">
-                        Bij het aanmaken (en bij een nieuwe link) mailen we de klant automatisch.
-                        De kopieerbare link blijft beschikbaar als fallback.
+                        @if ($intake->is_demo)
+                            In de demo mailen we de klant niet. Kopieer de link en open hem zelf om te zien wat de klant ziet.
+                        @else
+                            Bij het aanmaken (en bij een nieuwe link) mailen we de klant automatisch.
+                            Je kunt de link ook kopiëren en zelf sturen.
+                        @endif
                         @if ($intake->token_expires_at)
                             Geldig tot {{ $intake->token_expires_at->timezone(config('app.timezone'))->format('d-m-Y') }}.
                         @endif
@@ -493,10 +528,10 @@
                 </div>
             @endif
 
-            <details class="rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <details id="photos-files" class="rounded-2xl border border-gray-200 bg-white shadow-sm">
                 <summary class="cursor-pointer list-none px-6 py-4 text-base font-semibold text-gray-900 [&::-webkit-details-marker]:hidden">
                     Foto’s en bestanden
-                    <span class="mt-1 block text-xs font-normal text-gray-500">Galerij · tik om te openen</span>
+                    <span class="mt-1 block text-xs font-normal text-gray-500">{{ $gallerySummaryLine }}</span>
                 </summary>
                 <div class="space-y-4 border-t border-gray-100 px-6 pb-6 pt-4">
                 @if ($photoGroups === [])
@@ -504,7 +539,7 @@
                 @else
                     <div class="space-y-6">
                         @foreach ($photoGroups as $group)
-                            <div class="space-y-3">
+                            <div class="space-y-3 scroll-mt-36" @if (! empty($group['anchor'])) id="{{ $group['anchor'] }}" @endif>
                                 <h4 class="text-sm font-medium text-gray-800">{{ $group['heading'] }}</h4>
                                 <div class="grid grid-cols-2 gap-4 sm:grid-cols-3">
                                     @foreach ($group['uploads'] as $item)

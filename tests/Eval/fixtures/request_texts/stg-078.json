@@ -1,0 +1,34 @@
+{
+  "id": "stg-078",
+  "kind": "request_text",
+  "origin": "staging intake 78 (= prod case6/intake 90-achtige tekst)",
+  "source_kind": "verbatim_trace",
+  "text": "Nog geen airco. Woonkamer 5 bij 4 meter, 2,6 m hoog, begane grond, koopwoning, goed geïsoleerd, veel zon en groot glas. Buren dichtbij. Plek buitenunit in de achtertuin, nog niet gekozen. Techniek laat ik aan de installateur.",
+  "expected": {
+    "cooling_heating": null,
+    "indoor_unit_count": 1,
+    "ownership": "owned",
+    "existing_installation": {
+      "present": false
+    },
+    "rooms": [
+      {
+        "name": "Woonkamer",
+        "room_type": "living_room",
+        "floor_level": "ground",
+        "length_m": 5,
+        "width_m": 4,
+        "ceiling_height_m": 2.6
+      }
+    ]
+  },
+  "components": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C8"
+  ],
+  "note": "Model vulde in de trace cooling_heating=cooling zonder dat koelen/verwarmen genoemd wordt: verwacht null.",
+  "disputed_facts": {}
+}

@@ -1,0 +1,29 @@
+{
+  "id": "var-zolderkamer",
+  "kind": "request_text",
+  "origin": "variant Stroom 2: zolderkamer",
+  "source_kind": "variant",
+  "text": "Onze zolderkamer van 5 bij 4 meter met schuin dak wordt veel te warm. Graag koelen.",
+  "expected": {
+    "cooling_heating": "cooling",
+    "indoor_unit_count": 1,
+    "rooms": [
+      {
+        "name": "Zolderkamer",
+        "room_type": "attic",
+        "floor_level": "attic",
+        "length_m": 5,
+        "width_m": 4
+      }
+    ]
+  },
+  "components": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C8"
+  ],
+  "note": "room_type 'attic' vs 'bedroom': tekst zegt geen slaapkamer, dus attic.",
+  "disputed_facts": {}
+}

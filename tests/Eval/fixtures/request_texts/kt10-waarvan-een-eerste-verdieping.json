@@ -1,0 +1,38 @@
+{
+  "id": "kt10-waarvan-een-eerste-verdieping",
+  "kind": "request_text",
+  "origin": "klanttest 10 okt 2026 prod v1.4.8",
+  "source_kind": "variant",
+  "text": "De klant wil airco voor de woonkamer en twee slaapkamers, waarvan één op de eerste verdieping. Vooral koelen tijdens warme zomers, eventueel verwarmen in het tussenseizoen. Buitenunit liefst in de achtertuin. Graag advies over geschikte plekken en een offerte.",
+  "expected": {
+    "cooling_heating": "both",
+    "indoor_unit_count": 3,
+    "rooms": [
+      {
+        "name": "Woonkamer",
+        "room_type": "living_room",
+        "floor_level": null
+      },
+      {
+        "name": "Slaapkamer 1",
+        "room_type": "bedroom",
+        "floor_level": "1"
+      },
+      {
+        "name": "Slaapkamer 2",
+        "room_type": "bedroom",
+        "floor_level": null
+      }
+    ]
+  },
+  "components": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C8"
+  ],
+  "note": "Case A (Codex mobiel): 'waarvan één op de eerste verdieping' geldt alleen voor één slaapkamer; woonkamer en de andere slaapkamer zonder floor_level. Prod zette alle drie op 1e verdieping.",
+  "disputed_facts": {},
+  "match_rooms": "unordered_by_type"
+}

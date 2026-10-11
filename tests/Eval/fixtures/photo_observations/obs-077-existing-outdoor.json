@@ -1,0 +1,22 @@
+{
+  "id": "obs-077-existing-outdoor",
+  "kind": "photo_observation",
+  "origin": "staging 77 outdoor-assessment-v5",
+  "source_kind": "verbatim_trace",
+  "slot": "outdoor_location_photos",
+  "room": null,
+  "text": "De foto toont een reeds geïnstalleerde buitenunit aan een bakstenen gevel in een tuin.",
+  "model_fields": {},
+  "expected": {
+    "existing_outdoor_unit_visible": true,
+    "outdoor_location": "garden",
+    "mount": "wall"
+  },
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
+  "note": null,
+  "disputed_facts": {}
+}

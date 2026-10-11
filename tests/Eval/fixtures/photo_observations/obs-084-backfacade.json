@@ -1,0 +1,21 @@
+{
+  "id": "obs-084-backfacade",
+  "kind": "photo_observation",
+  "origin": "staging 84 outdoor",
+  "source_kind": "verbatim_trace",
+  "slot": "outdoor_location_photos",
+  "room": null,
+  "text": "De foto toont de achtergevel van een woning met een uitbouw, wat een geschikte locatie is voor een buitenunit, maar er is geen specifieke montageplek of bevestigingsvlak aangewezen.",
+  "model_fields": {},
+  "expected": {
+    "outdoor_location": "facade (achtergevel)",
+    "mount_position_known": false
+  },
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
+  "note": null,
+  "disputed_facts": {}
+}

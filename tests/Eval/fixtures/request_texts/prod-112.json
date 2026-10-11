@@ -1,0 +1,42 @@
+{
+  "id": "prod-112",
+  "kind": "request_text",
+  "origin": "prod demo intake 112 (8 okt), Notion Stroom 2-taak",
+  "source_kind": "verbatim_notion",
+  "text": "Werkkamer op de eerste verdieping van 3 bij 3 meter en de woonkamer beneden van 6 bij 4 meter. Alleen koelen. Er hangt al een oude airco in de woonkamer die vervangen moet worden. Buitenunit liefst in de achtertuin.",
+  "expected": {
+    "cooling_heating": "cooling",
+    "indoor_unit_count": 2,
+    "ownership": null,
+    "existing_installation": {
+      "present": true,
+      "room": "Woonkamer",
+      "replace": true
+    },
+    "rooms": [
+      {
+        "name": "Werkkamer",
+        "room_type": "office",
+        "floor_level": "1",
+        "length_m": 3,
+        "width_m": 3
+      },
+      {
+        "name": "Woonkamer",
+        "room_type": "living_room",
+        "floor_level": "ground",
+        "length_m": 6,
+        "width_m": 4
+      }
+    ]
+  },
+  "components": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C8"
+  ],
+  "note": "Prod: woonkamer kreeg '1e verdieping' (gezegd, klantantwoord, 90%); bestaande airco verdween.",
+  "disputed_facts": {}
+}

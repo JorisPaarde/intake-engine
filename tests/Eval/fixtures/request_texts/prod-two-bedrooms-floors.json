@@ -1,0 +1,42 @@
+{
+  "id": "prod-two-bedrooms-floors",
+  "kind": "request_text",
+  "origin": "prod intakes 84/92 (Ouders 1e, Kind 2e verdieping), Notion 3 okt",
+  "source_kind": "reconstructed",
+  "text": "Twee slaapkamers: Ouders 4 bij 3 meter, 2,5 meter hoog, op de eerste verdieping; Kind 3 bij 3 meter, 2,4 meter hoog, op de tweede verdieping. Koopwoning, redelijk geïsoleerd, geen kruipruimte. Voorkeur Daikin, voor volgende zomer. Stroom en afvoer weet ik niet.",
+  "expected": {
+    "cooling_heating": null,
+    "indoor_unit_count": 2,
+    "ownership": "owned",
+    "existing_installation": {
+      "present": null
+    },
+    "rooms": [
+      {
+        "name": "Ouders",
+        "room_type": "bedroom",
+        "floor_level": "1",
+        "length_m": 4,
+        "width_m": 3,
+        "ceiling_height_m": 2.5
+      },
+      {
+        "name": "Kind",
+        "room_type": "bedroom",
+        "floor_level": "2",
+        "length_m": 3,
+        "width_m": 3,
+        "ceiling_height_m": 2.4
+      }
+    ]
+  },
+  "components": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C8"
+  ],
+  "note": "'Voorkeur Daikin' is een merkwens, GEEN bestaande installatie.",
+  "disputed_facts": {}
+}

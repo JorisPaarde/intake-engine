@@ -37,5 +37,7 @@
         <env name="PULSE_ENABLED" value="false" force="true"/>
         <env name="TELESCOPE_ENABLED" value="false" force="true"/>
         <env name="NIGHTWATCH_ENABLED" value="false" force="true"/>
+        <!-- Eval dumps nooit in tracked tests/Eval — zie EvalReportWriter -->
+        <env name="AI_EVAL_OUTPUT_DIR" value="storage/framework/testing/eval" force="true"/>
     </php>
 </phpunit>

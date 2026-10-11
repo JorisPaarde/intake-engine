@@ -46,6 +46,7 @@ beforeEach(function () {
     config([
         'ai.provider' => 'fake',
         'ai.photo_inference.enabled' => true,
+        'ai.text_inference.enabled' => true,
         'ai.dossier.enabled' => false,
     ]);
 });

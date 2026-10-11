@@ -1,0 +1,101 @@
+name: Eval interpretation
+
+on:
+  workflow_dispatch:
+    inputs:
+      repeats:
+        description: 'Herhalingen per case (echte model-run)'
+        required: false
+        default: '3'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eval-interpretation
+  cancel-in-progress: false
+
+jobs:
+  eval:
+    name: eval:interpretation
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check AI_API_KEY secret
+        id: keycheck
+        env:
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+        run: |
+          if [ -z "${AI_API_KEY}" ]; then
+            echo "missing=true" >> "$GITHUB_OUTPUT"
+            echo "::error::blokker: env var AI_API_KEY ontbreekt (GitHub secret AI_API_KEY). Eval stopt netjes; normale CI is niet afhankelijk van deze workflow."
+            exit 1
+          fi
+          echo "missing=false" >> "$GITHUB_OUTPUT"
+          echo "AI_API_KEY is set (waarde niet gelogd)."
+
+      - name: Setup PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo, pdo_sqlite, sqlite3, intl, gd, zip
+          coverage: none
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Prepare .env
+        env:
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+        run: |
+          cp .env.example .env
+          php artisan key:generate --force
+          touch database/database.sqlite
+          {
+            echo "APP_ENV=local"
+            echo "DB_CONNECTION=sqlite"
+            echo "DB_DATABASE=${GITHUB_WORKSPACE}/database/database.sqlite"
+            echo "AI_PROVIDER=openai"
+            echo "AI_BASE_URL=https://openrouter.ai/api/v1"
+            echo "AI_MODEL=google/gemini-3.1-flash-lite"
+            echo "AI_VISION_MODEL=google/gemini-3.1-flash-lite"
+            echo "AI_DOSSIER_MODEL=google/gemini-3.1-flash-lite"
+            echo "AI_TEXT_INFERENCE_ENABLED=true"
+            echo "AI_PHOTO_INFERENCE_ENABLED=true"
+            echo "AI_DOSSIER_SYNTHESIS_ENABLED=true"
+            echo "AI_BUDGET_DAILY_CENTS=200"
+            echo "AI_TRACING_ENABLED=true"
+          } >> .env
+          # Key via env in de run-step, niet in het bestand committen
+
+      - name: Run eval:interpretation
+        env:
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          EVAL_REPEATS: ${{ github.event.inputs.repeats || '3' }}
+        run: |
+          if ! [[ "${EVAL_REPEATS}" =~ ^[1-9]$|^10$ ]]; then
+            echo "::error::EVAL_REPEATS moet een geheel getal 1–10 zijn (nu: '${EVAL_REPEATS}')."
+            exit 1
+          fi
+          php artisan eval:interpretation --migrate --repeats="${EVAL_REPEATS}"
+
+      - name: Upload eval artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-interpretation-${{ github.sha }}
+          path: |
+            storage/app/eval/
+            tests/Eval/results/
+            tests/Eval/baseline/
+          if-no-files-found: warn

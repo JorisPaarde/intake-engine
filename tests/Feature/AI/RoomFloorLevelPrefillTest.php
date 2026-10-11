@@ -83,7 +83,7 @@ test('classifyLocalOutput past verdieping per ruimte toe zonder begane-grond-def
     expect(collect($empty)->where('questionKey', 'floor_level'))->toHaveCount(0);
 });
 
-test('catalogusclassifier corrigeert verkeerde globale verdieping per ruimte', function () {
+test('catalogusclassifier herschrijft verdieping van het model niet', function () {
     $catalog = [
         'sections' => [[
             'key' => 'rooms',
@@ -132,10 +132,10 @@ test('catalogusclassifier corrigeert verkeerde globale verdieping per ruimte', f
         ->all();
 
     expect($floors)->toBe([
-        'room-1' => 'ground',
+        'room-1' => '1',
         'room-2' => '1',
     ])->and(collect($result['normalizations'])->pluck('rule')->all())
-        ->toContain('floor_level_per_room_link');
+        ->not->toContain('floor_level_per_room_link');
 });
 
 test('catalogusclassifier vult geen begane grond zonder tekstbewijs', function () {
@@ -179,7 +179,8 @@ test('catalogusclassifier vult geen begane grond zonder tekstbewijs', function (
     );
 
     expect($floor)->not->toBeNull()
-        ->and($floor->disposition)->toBe(RequestPrefillCandidate::DISPOSITION_REJECTED);
+        ->and($floor->disposition)->not->toBe(RequestPrefillCandidate::DISPOSITION_FILL)
+        ->and($floor->provenance?->value)->toBe('inferred');
 });
 
 test('request-prefill prompt vereist per-ruimte verdieping zonder begane-grond-default', function () {
@@ -187,7 +188,7 @@ test('request-prefill prompt vereist per-ruimte verdieping zonder begane-grond-d
     $prompt = $repo->body('request_prefill');
     $version = $repo->version('request_prefill');
 
-    expect($version)->toBe('request-prefill-v12')
+    expect($version)->toBe('request-prefill-v13')
         ->and($prompt)->toContain('woonkamer op de begane grond en de slaapkamer op de eerste verdieping')
         ->and($prompt)->toContain('slaapkamer boven, woonkamer beneden')
         ->and($prompt)->toContain('stilzwijgend')

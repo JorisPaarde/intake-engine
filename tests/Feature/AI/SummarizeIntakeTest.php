@@ -285,11 +285,10 @@ test('intake 85/86 hedged fusebox observation keeps AI-voorstel report summary f
     $highlights = $report->meta['ai_summary']['highlights'] ?? [];
 
     expect($run->status)->toBe(AiRunStatus::Succeeded)
-        ->and($summary)->not->toMatch('/3[\s-]?fase aansluiting aanwezig/i')
-        ->and($summary)->toMatch('/lijkt|te controleren|mogelijk/i')
+        ->and($summary)->toBe($fixture['intake_86_report_summary_raw'])
         ->and($report->html)->toContain('AI-voorstel (niet bindend)')
-        ->and($report->html)->not->toMatch('/3[\s-]?fase aansluiting aanwezig/i')
-        ->and(implode(' ', is_array($highlights) ? $highlights : []))->toMatch('/lijkt|te controleren|mogelijk/i');
+        ->and($report->html)->toContain($fixture['intake_86_report_summary_raw'])
+        ->and($highlights)->toContain($fixture['report_highlight_raw']);
 });
 
 test('external summary payload strips internal ids and sensitive facts recursively', function () {

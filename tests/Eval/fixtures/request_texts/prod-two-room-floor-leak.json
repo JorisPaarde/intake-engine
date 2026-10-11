@@ -1,0 +1,46 @@
+{
+  "id": "prod-two-room-floor-leak",
+  "kind": "request_text",
+  "origin": "prod intakes 100/101/104/106/108/110 (zelfde aanvraagpatroon), Notion 4/5/8 okt",
+  "source_kind": "reconstructed",
+  "text": "Woonkamer op de begane grond, 24 m², plafond 2,5 meter. Zolderslaapkamer op de tweede verdieping, ongeveer 15 m², schuin dak, hoogte weet ik niet. Alleen koelen, nog geen airco.",
+  "expected": {
+    "cooling_heating": "cooling",
+    "indoor_unit_count": 2,
+    "existing_installation": {
+      "present": false
+    },
+    "rooms": [
+      {
+        "name": "Woonkamer",
+        "room_type": "living_room",
+        "floor_level": "ground",
+        "area_m2": 24,
+        "ceiling_height_m": 2.5
+      },
+      {
+        "name": "Zolderslaapkamer",
+        "room_type": "bedroom",
+        "floor_level": "2",
+        "area_m2": 15,
+        "ceiling_height_m": null
+      }
+    ]
+  },
+  "components": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C8"
+  ],
+  "note": "Prod: woonkamer kreeg '2e verdieping', zolder geen verdieping (104/106/108/110). Of 'attic' ook goed is voor de zolderslaapkamer: open vraag aan Joris.",
+  "disputed_facts": {
+    "rooms.Zolderslaapkamer.floor_level": {
+      "reason": "Open vraag: is 'attic' ook goed naast '2' voor zolderslaapkamer op tweede verdieping?",
+      "acceptable_alternates": [
+        "attic"
+      ]
+    }
+  }
+}

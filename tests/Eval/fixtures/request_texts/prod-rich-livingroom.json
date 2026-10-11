@@ -1,0 +1,34 @@
+{
+  "id": "prod-rich-livingroom",
+  "kind": "request_text",
+  "origin": "prod intakes 82/97/102/109 (rijke woonkameraanvraag), Notion",
+  "source_kind": "reconstructed",
+  "text": "Nog geen airco. We willen alleen de woonkamer koelen, 6 bij 4 meter, plafond 2,5 meter, begane grond. Koopwoning, goed geïsoleerd met kruipruimte. Veel glas aan de tuinkant. Binnenunit liefst boven de deur, buitenunit in de achtertuin.",
+  "expected": {
+    "cooling_heating": "cooling",
+    "indoor_unit_count": 1,
+    "ownership": "owned",
+    "existing_installation": {
+      "present": false
+    },
+    "rooms": [
+      {
+        "name": "Woonkamer",
+        "room_type": "living_room",
+        "floor_level": "ground",
+        "length_m": 6,
+        "width_m": 4,
+        "ceiling_height_m": 2.5
+      }
+    ]
+  },
+  "components": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C8"
+  ],
+  "note": null,
+  "disputed_facts": {}
+}

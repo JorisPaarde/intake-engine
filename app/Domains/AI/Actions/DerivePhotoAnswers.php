@@ -1369,22 +1369,7 @@ final class DerivePhotoAnswers
             return null;
         }
 
-        $lower = mb_strtolower($trimmed);
-        $mentionsRoute = str_contains($lower, 'leiding')
-            || str_contains($lower, 'goot')
-            || str_contains($lower, 'doorvoer')
-            || str_contains($lower, 'route')
-            || str_contains($lower, 'wand')
-            || str_contains($lower, 'plafond');
-        $mentionsOutdoorSpot = str_contains($lower, 'buitenunitplek')
-            || str_contains($lower, 'buitenplek')
-            || (str_contains($lower, 'buitenunit') && ! $mentionsRoute);
-
-        if ($mentionsOutdoorSpot && ! $mentionsRoute) {
-            return 'Maak een foto van de leidingroute: wand/plafond, kabelgoot of doorvoer.';
-        }
-
-        return $trimmed;
+        return mb_strlen($trimmed) > 500 ? mb_substr($trimmed, 0, 500) : $trimmed;
     }
 
     /**
