@@ -581,17 +581,15 @@ class IntakeWizard extends Component
                     $questionsForVisibility,
                     $step['section_instance_key'],
                 );
-                // Sticky-kept steps (e.g. wall_outlet after AI sets outlet=present) stay in the
-                // step list but rule visibility is false — still render fields so the photo tile
-                // can show (E2E 08). The step builder already decided this screen is active.
-                foreach ($questionsForVisibility as $visibleQuestion) {
-                    $forceComposite = VisibilityResolver::compositeKey(
-                        $visibleQuestion->key,
-                        $step['section_instance_key'],
-                    );
-                    $visibility[$forceComposite] = [
+                // Only the composite IntakeStepBuilder marked sticky may be force-visible
+                // (wall_outlet after AI sets outlet=present). Group members keep resolver results.
+                $stickyPhotoComposite = is_string($step['sticky_photo_composite'] ?? null)
+                    ? $step['sticky_photo_composite']
+                    : null;
+                if ($stickyPhotoComposite !== null && $stickyPhotoComposite !== '') {
+                    $visibility[$stickyPhotoComposite] = [
                         'visible' => true,
-                        'required' => (bool) ($visibility[$forceComposite]['required'] ?? $visibleQuestion->is_required),
+                        'required' => (bool) ($visibility[$stickyPhotoComposite]['required'] ?? false),
                     ];
                 }
                 $uploadsByQuestion = $this->uploadsForStep($step['section_instance_key']);

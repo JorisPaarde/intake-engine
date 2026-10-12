@@ -46,7 +46,8 @@ use Illuminate\Support\Str;
  *     known_items?: list<KnownSummaryItem>,
  *     group_key?: string,
  *     group_question_keys?: list<string>,
- *     bundle_question_keys?: list<string>
+ *     bundle_question_keys?: list<string>,
+ *     sticky_photo_composite?: string|null
  * }
  * @phpstan-type CatalogRow array{
  *     question_key: string,
@@ -442,6 +443,8 @@ final class IntakeStepBuilder
                         static fn (IntakeQuestion $member): string => $member->key,
                         $visibleMembers,
                     ),
+                    // Group members stay on visibilityForQuestions; never force via sticky photo.
+                    'sticky_photo_composite' => null,
                 ];
 
                 continue;
@@ -474,6 +477,11 @@ final class IntakeStepBuilder
                 'is_repeatable' => $section->is_repeatable,
                 'is_required' => $presentation['required'],
                 'kind' => 'question',
+                // Explicit marker for IntakeWizard::render — only this composite may be
+                // force-visible when sticky-kept after AI made it rule-irrelevant (E2E 08).
+                'sticky_photo_composite' => $stickyPhotoAssessment
+                    ? VisibilityResolver::compositeKey($question->key, $sectionInstanceKey)
+                    : null,
             ];
         }
 

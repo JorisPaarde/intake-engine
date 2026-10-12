@@ -8,13 +8,17 @@ use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\Intake\Actions\SaveIntakeAnswer;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeQuestionRule;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\IntakeStepBuilder;
+use App\Domains\Intake\Services\VisibilityResolver;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Enums\IntakeStatus;
 use App\Enums\PhotoAssessmentStatus;
 use App\Enums\PhotoUsabilityVerdict;
+use App\Enums\RuleEffect;
+use App\Enums\RuleOperator;
 use App\Livewire\Customer\IntakeWizard;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
@@ -671,4 +675,116 @@ test('upload on current wall_outlet step + sync poll renders assessment (no skip
         ->and($component->html())->toMatch(
             '/Goed te zien|Niet goed te zien|Niet de gevraagde foto|Je installateur kijkt hier zelf naar/i',
         );
+});
+
+test('question_group keeps rule-hidden members hidden (no sticky force-visible)', function () {
+    $intake = makeWizardNavIntake();
+
+    $version = $intake->fresh()->templateVersion()->with(['sections.questions.rules'])->firstOrFail();
+    $drainPhoto = $version->sections->flatMap->questions->firstWhere('key', 'drain_photo');
+    expect($drainPhoto)->not->toBeNull();
+
+    // Show-rule: foto alleen bij dakgoot — unknown houdt hem rule-hidden in de groep.
+    IntakeQuestionRule::query()->create([
+        'intake_question_id' => $drainPhoto->id,
+        'source_question_key' => 'drain_location',
+        'operator' => RuleOperator::Equals,
+        'value' => ['value' => 'gutter'],
+        'effect' => RuleEffect::Show,
+    ]);
+
+    app(SaveIntakeAnswer::class)->handle($intake, 'drain_location', null, ['value' => 'unknown']);
+
+    $intake->update([
+        'current_section_key' => 'condensate',
+        'current_question_key' => 'drain_location',
+        'current_section_instance_key' => null,
+    ]);
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+    $viewSteps = $component->viewData('steps');
+    $drainIndex = collect($viewSteps)->search(
+        static fn (array $step): bool => ($step['group_key'] ?? null) === 'drain_nearby',
+    );
+    expect($drainIndex)->not->toBeFalse();
+
+    $component->set('stepIndex', (int) $drainIndex)
+        ->set('activeStepKey', $viewSteps[(int) $drainIndex]['key']);
+
+    $step = $component->viewData('step');
+    $visibility = $component->viewData('visibility');
+    $groupQuestions = $component->viewData('groupQuestions');
+    $groupKeys = array_map(
+        static fn ($question): string => $question->key,
+        $groupQuestions,
+    );
+
+    expect($step['kind'] ?? null)->toBe('question_group')
+        ->and(array_key_exists('sticky_photo_composite', $step))->toBeTrue()
+        ->and($step['sticky_photo_composite'])->toBeNull()
+        ->and($step['group_question_keys'] ?? [])->toBe(['drain_location'])
+        ->and($groupKeys)->toBe(['drain_location'])
+        ->and($groupKeys)->not->toContain('drain_photo')
+        ->and($visibility['drain_photo']['visible'] ?? false)->toBeFalse();
+
+    $component->assertSee('data-testid="drain-nearby-group"', false)
+        ->assertDontSee('data-testid="group-photo-field"', false);
+});
+
+test('sticky wall_outlet tile stays visible after sync derive until Volgende', function () {
+    $intake = makeWizardNavIntake();
+    seedTwoBedroomRoomNameFlow($intake, 'needs_photo');
+
+    foreach (['room-1', 'room-2'] as $instance) {
+        app(SaveIntakeAnswer::class)->handle(
+            $intake,
+            'preferred_indoor_location',
+            $instance,
+            ['text' => 'Boven de deur'],
+            PrefillSources::AI_TEXT,
+        );
+        app(SaveIntakeAnswer::class)->handle(
+            $intake,
+            'room_name',
+            $instance,
+            ['text' => $instance === 'room-1' ? 'Ouders' : 'Kind'],
+        );
+    }
+
+    $intake->update([
+        'current_section_key' => 'rooms',
+        'current_question_key' => 'wall_outlet_photo',
+        'current_section_instance_key' => 'room-1',
+    ]);
+
+    $outletComposite = VisibilityResolver::compositeKey('wall_outlet_photo', 'room-1');
+
+    // Distinct bytes from seeded room_photos so checksum-reuse skips and wall_outlet AI runs.
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->assertSet('activeStepKey', 'rooms::room-1::wall_outlet_photo')
+        ->set('photoFiles.'.$outletComposite, wizardNavFixture('woonkamer-funda-1440.jpg'));
+
+    $outletStatus = $intake->fresh()->answers()
+        ->where('question_key', 'room_outlet_status')
+        ->where('section_instance_key', 'room-1')
+        ->value('value');
+
+    $step = $component->viewData('step');
+    $visibility = $component->viewData('visibility');
+
+    expect($outletStatus)->toBeArray()
+        ->and($outletStatus['value'] ?? null)->toBe('present')
+        ->and($component->get('activeStepKey'))->toBe('rooms::room-1::wall_outlet_photo')
+        ->and($step['sticky_photo_composite'] ?? null)->toBe($outletComposite)
+        ->and($visibility[$outletComposite]['visible'] ?? false)->toBeTrue()
+        ->and($component->html())->toContain('data-photo-status="1"');
+
+    $component->call('next')
+        ->assertSet('showMissing', false)
+        ->assertSet('activeStepKey', function (string $key): bool {
+            return $key !== 'rooms::room-1::wall_outlet_photo' && $key !== '';
+        });
+
+    $after = $component->viewData('step');
+    expect($after['key'] ?? null)->not->toBe('rooms::room-1::wall_outlet_photo');
 });
