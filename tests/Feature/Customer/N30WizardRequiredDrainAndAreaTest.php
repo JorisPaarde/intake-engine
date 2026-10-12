@@ -486,6 +486,127 @@ test('N30: lage zekerheid eerst, daarna hoge — bereikbaarheid mag alsnog verva
         ->not->toContain('outdoor_accessibility');
 });
 
+test('E2E-regressie: live floor_level-keuze blijft gezet na updated/auto-advance', function () {
+    Queue::fake([AssessUploadedPhotoJob::class]);
+    $intake = makeN30Intake();
+    app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
+    app(SaveIntakeAnswer::class)->handle($intake, 'room_type', 'room-1', ['value' => 'living_room']);
+
+    $version = $intake->fresh()->templateVersion()->with(['sections.questions.options', 'sections.questions.rules'])->firstOrFail();
+    for ($pass = 0; $pass < 3; $pass++) {
+        $builderSteps = app(IntakeStepBuilder::class)->build($intake->fresh(), $version);
+        $floorIndex = collect($builderSteps)->search(
+            static fn (array $step): bool => ($step['question_key'] ?? null) === 'floor_level'
+                && ($step['section_instance_key'] ?? null) === 'room-1',
+        );
+        if ($floorIndex === false) {
+            break;
+        }
+        foreach ($builderSteps as $index => $step) {
+            if ($index >= (int) $floorIndex) {
+                break;
+            }
+            n30SatisfyStep($intake, $step);
+        }
+    }
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+    $steps = $component->viewData('steps');
+    $floorIndex = collect($steps)->search(
+        static fn (array $step): bool => ($step['question_key'] ?? null) === 'floor_level'
+            && ($step['section_instance_key'] ?? null) === 'room-1',
+    );
+    expect($floorIndex)->not->toBeFalse();
+
+    $floorComposite = 'room-1__floor_level';
+    $component
+        ->set('stepIndex', (int) $floorIndex)
+        ->set('activeStepKey', $steps[(int) $floorIndex]['key'])
+        ->set('knownStepKeys', array_column($steps, 'key'))
+        // Zoals wire:model.live: updated → persist → maybeAutoAdvance → next.
+        ->set('form.'.$floorComposite.'.value', 'basement');
+
+    $dbValue = $intake->fresh()->answers()
+        ->where('question_key', 'floor_level')
+        ->where('section_instance_key', 'room-1')
+        ->value('value');
+
+    expect($dbValue)->toBe(['value' => 'basement']);
+
+    $formValue = $component->get('form.'.$floorComposite);
+    $onFloor = ($component->viewData('steps')[$component->get('stepIndex')]['question_key'] ?? null) === 'floor_level';
+
+    // Of we zijn doorgeschoven (keuze in DB), of we staan nog op floor_level mét keuze in form.
+    expect($dbValue)->toBe(['value' => 'basement']);
+    if ($onFloor) {
+        expect($formValue)->toBe(['value' => 'basement']);
+    }
+});
+
+test('N30/E2E: dirty floor_level overleeft hydrateFormFromAnswers tijdens catch-up next', function () {
+    Queue::fake([AssessUploadedPhotoJob::class]);
+    $intake = makeN30Intake();
+    app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
+    app(SaveIntakeAnswer::class)->handle($intake, 'room_type', 'room-1', ['value' => 'living_room']);
+
+    $version = $intake->fresh()->templateVersion()->with(['sections.questions.options', 'sections.questions.rules'])->firstOrFail();
+    for ($pass = 0; $pass < 3; $pass++) {
+        $builderSteps = app(IntakeStepBuilder::class)->build($intake->fresh(), $version);
+        $floorIndex = collect($builderSteps)->search(
+            static fn (array $step): bool => ($step['question_key'] ?? null) === 'floor_level'
+                && ($step['section_instance_key'] ?? null) === 'room-1',
+        );
+        if ($floorIndex === false) {
+            break;
+        }
+        foreach ($builderSteps as $index => $step) {
+            if ($index >= (int) $floorIndex) {
+                break;
+            }
+            n30SatisfyStep($intake, $step);
+        }
+    }
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+    $steps = $component->viewData('steps');
+    $floorIndex = collect($steps)->search(
+        static fn (array $step): bool => ($step['question_key'] ?? null) === 'floor_level'
+            && ($step['section_instance_key'] ?? null) === 'room-1',
+    );
+    expect($floorIndex)->not->toBeFalse();
+
+    $floorComposite = 'room-1__floor_level';
+    // Simuleer: keuze net live gezet, DB-rij nog niet zichtbaar in een stale hydrate.
+    $component
+        ->set('stepIndex', (int) $floorIndex)
+        ->set('activeStepKey', $steps[(int) $floorIndex]['key'])
+        ->set('knownStepKeys', array_column($steps, 'key'))
+        ->set('form.'.$floorComposite, ['value' => 'basement'])
+        ->set('dirtyFormComposites', [$floorComposite => true])
+        // Catch-up markering forceert het hydrate-pad in next() (N30).
+        ->set('catchUpQuestionKeys', ['outdoor_accessibility' => true]);
+
+    $hydrate = new ReflectionMethod(IntakeWizard::class, 'hydrateFormFromAnswers');
+    $hydrate->setAccessible(true);
+    $hydrate->invoke($component->instance());
+
+    expect($component->instance()->form[$floorComposite] ?? null)->toBe(['value' => 'basement']);
+
+    // Zonder dirty: refresh mag DB volgen (leeg).
+    $component->set('dirtyFormComposites', []);
+    $refresh = new ReflectionMethod(IntakeWizard::class, 'refreshAnswerInForm');
+    $refresh->setAccessible(true);
+    $refresh->invoke($component->instance(), $floorComposite);
+    expect($component->instance()->form[$floorComposite] ?? null)->toBe([]);
+
+    // Met dirty: refresh laat klantkeuze staan.
+    $component
+        ->set('form.'.$floorComposite, ['value' => 'basement'])
+        ->set('dirtyFormComposites', [$floorComposite => true]);
+    $refresh->invoke($component->instance(), $floorComposite);
+    expect($component->instance()->form[$floorComposite] ?? null)->toBe(['value' => 'basement']);
+});
+
 test('N3: keuze + directe upload + beoordeling bewaart drain_location', function () {
     $intake = makeN30Intake();
     $version = $intake->fresh()->templateVersion()->with(['sections.questions.rules'])->firstOrFail();

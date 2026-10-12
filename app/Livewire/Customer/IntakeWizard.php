@@ -111,6 +111,11 @@ class IntakeWizard extends Component
     public array $catchUpQuestionKeys = [];
 
     /**
+     * When true, next() skips hydrateFormFromAnswers (auto-advance already has live form state).
+     */
+    private bool $skipHydrateOnNext = false;
+
+    /**
      * Composite key → one file or a list (multiselect, BL-021).
      *
      * @var array<string, TemporaryUploadedFile|array<int, TemporaryUploadedFile>|null>
@@ -1506,6 +1511,7 @@ class IntakeWizard extends Component
                 && $this->uploadPhase === 'assessing') {
                 $this->clearUploadPhase();
             }
+            $this->skipRenderIfBackgroundPhotoPoll($composite);
 
             return;
         }
@@ -1566,6 +1572,7 @@ class IntakeWizard extends Component
 
             if ($this->assessmentSoftTimedOut($composite) && ! $softReleased) {
                 $this->softReleasePendingAssessment($composite);
+                $this->skipRenderIfBackgroundPhotoPoll($composite);
 
                 return;
             }
@@ -1578,11 +1585,13 @@ class IntakeWizard extends Component
                     if ($this->uploadPhaseComposite === $composite) {
                         $this->uploadPhaseComposite = '';
                     }
+                    $this->skipRenderIfBackgroundPhotoPoll($composite);
 
                     return;
                 }
 
                 $this->setPendingIdsFor($composite, $stillPending);
+                $this->skipRenderIfBackgroundPhotoPoll($composite);
 
                 return;
             }
@@ -1590,6 +1599,7 @@ class IntakeWizard extends Component
             $this->setPendingIdsFor($composite, $stillPending);
             // Re-anchor to oldest pending created_at (not now()) when poll switches composite.
             $this->beginAssessingFromPendingCreatedAt($composite, $stillPending);
+            $this->skipRenderIfBackgroundPhotoPoll($composite);
 
             return;
         }
@@ -1617,6 +1627,23 @@ class IntakeWizard extends Component
         $this->clearPendingIdsFor($composite);
         if ($this->uploadPhaseComposite === $composite) {
             $this->clearUploadPhase();
+        }
+
+        // Achtergrond-poll mag geen DOM-morph doen: concurrent wire:model.live (floor_level)
+        // wordt anders binnen seconden weer unchecked (E2E 01).
+        $this->skipRenderIfBackgroundPhotoPoll($composite);
+    }
+
+    /**
+     * Stille bg-poll / dirty klantkeuze: wel serverstate (catch-up, pending ids), geen HTML-morph.
+     */
+    private function skipRenderIfBackgroundPhotoPoll(string $composite): void
+    {
+        $skip = $this->dirtyFormComposites !== []
+            || ($composite !== '' && ! $this->photoCompositeIsOnCurrentStep($composite));
+
+        if ($skip) {
+            $this->skipRender();
         }
     }
 
@@ -3314,47 +3341,62 @@ class IntakeWizard extends Component
             return;
         }
 
-        // N30: verplichte open vraag achter de cursor (bijv. na foto-invalidate) eerst tonen —
-        // nooit pas via de afrondingsfout. Verse antwoorden/form vóór de check.
-        $this->forgetIntakeDerivedCaches();
-        $steps = $this->steps();
-        $currentIndex = is_string($currentKey)
-            ? app(IntakeStepBuilder::class)->indexForStepKey($steps, $currentKey)
-            : $this->stepIndex;
-        if ($currentIndex !== null) {
-            $this->stepIndex = $currentIndex;
+        // N30: catch-up alleen via markCatchUp* — nooit blinde forget+hydrate op elke Volgende
+        // (wist een net live-aangevinkte keuze weg voordat de DB-relatie vers is; E2E 01).
+        if ($this->catchUpQuestionKeys !== []) {
+            $this->forgetIntakeDerivedCaches();
+            $steps = $this->steps();
+            $currentIndex = is_string($currentKey)
+                ? app(IntakeStepBuilder::class)->indexForStepKey($steps, $currentKey)
+                : $this->stepIndex;
+            if ($currentIndex !== null) {
+                $this->stepIndex = $currentIndex;
+            }
+
+            // Geen hydrate vóór de check: form heeft de live keuze al (net gepersisteerd).
+            $behindRequired = $this->indexOfFirstUnsatisfiedRequiredBefore(
+                $steps,
+                $currentIndex ?? $this->stepIndex,
+            );
+            if ($behindRequired !== null) {
+                $this->landOnStepIndex($steps, $behindRequired);
+
+                return;
+            }
         }
-        $this->hydrateFormFromAnswers();
 
-        $behindRequired = $this->indexOfFirstUnsatisfiedRequiredBefore(
-            $steps,
-            $currentIndex ?? $this->stepIndex,
-        );
-        if ($behindRequired !== null) {
-            $this->stepIndex = $behindRequired;
-            $this->showAreaOnlyField = false;
-            $this->dirtyFormComposites = [];
-            $this->syncActiveStepKey($steps);
-            $this->rememberCurrentCursor();
-            $this->hydrateFormFromAnswers();
-            $this->applyPrefillForActiveStep();
-            $this->flushDeferredPhotoDerivationsForCurrentStep();
-            $this->saveMessage = '';
+        $steps = $this->steps();
+        if ($this->stepIndex < count($steps) - 1) {
+            $this->landOnStepIndex($steps, $this->stepIndex + 1);
+        }
+    }
 
+    /**
+     * Land on a wizard step: sync cursor, then hydrate from DB (dirty composites preserved).
+     *
+     * @param  list<array{key: string}>  $steps
+     */
+    private function landOnStepIndex(array $steps, int $index): void
+    {
+        $this->stepIndex = $index;
+        $this->showAreaOnlyField = false;
+        $this->syncActiveStepKey($steps);
+        $this->rememberCurrentCursor();
+        // Hydrate while dirty flags still set so a just-checked choice is not wiped, then clear.
+        $this->hydrateFormFromAnswersUnlessSkipped();
+        $this->dirtyFormComposites = [];
+        $this->applyPrefillForActiveStep();
+        $this->flushDeferredPhotoDerivationsForCurrentStep();
+        $this->saveMessage = '';
+    }
+
+    private function hydrateFormFromAnswersUnlessSkipped(): void
+    {
+        if ($this->skipHydrateOnNext) {
             return;
         }
 
-        if ($this->stepIndex < count($steps) - 1) {
-            $this->stepIndex = $this->stepIndex + 1;
-            $this->showAreaOnlyField = false;
-            $this->dirtyFormComposites = [];
-            $this->syncActiveStepKey($steps);
-            $this->rememberCurrentCursor();
-            $this->hydrateFormFromAnswers();
-            $this->applyPrefillForActiveStep();
-            $this->flushDeferredPhotoDerivationsForCurrentStep();
-            $this->saveMessage = '';
-        }
+        $this->hydrateFormFromAnswers();
     }
 
     /**
@@ -3411,9 +3453,36 @@ class IntakeWizard extends Component
             return;
         }
 
-        $this->next();
+        // Browser: defer advance so THIS wire:model.live response keeps the checked radio
+        // in the DOM (E2E selectFirstRadioAndSave). Sync next() in the same request can
+        // morph/hydrate the choice away before Playwright asserts. Stale Volgende with the
+        // old expectedStepKey is ignored (BL-023). Pest has no JS — advance inline.
+        // Use getenv('APP_ENV'): config cache can leave app.env=local while phpunit.xml
+        // force=true still sets the process env to testing.
+        if ($this->shouldDeferBrowserAutoAdvance()) {
+            $this->js('setTimeout(() => $wire.next(), 50)');
+
+            return;
+        }
+
+        $this->skipHydrateOnNext = true;
+        try {
+            $this->next();
+        } finally {
+            $this->skipHydrateOnNext = false;
+        }
         // Brief confirmation on the following screen.
         $this->saveMessage = 'Opgeslagen';
+    }
+
+    private function shouldDeferBrowserAutoAdvance(): bool
+    {
+        $env = getenv('APP_ENV');
+        if (is_string($env) && $env !== '') {
+            return $env !== 'testing';
+        }
+
+        return ! app()->environment('testing');
     }
 
     public function previous(): void
@@ -3700,6 +3769,15 @@ class IntakeWizard extends Component
             }
         }
 
+        // E2E/N30: net aangevinkte keuzes (dirty) nooit weghydraten vóór/tijdens next()/poll.
+        $preservedDirty = [];
+        foreach (array_keys($this->dirtyFormComposites) as $composite) {
+            $current = $this->form[$composite] ?? null;
+            if (is_array($current)) {
+                $preservedDirty[$composite] = $current;
+            }
+        }
+
         $form = [];
         $notices = [];
 
@@ -3720,6 +3798,11 @@ class IntakeWizard extends Component
             } elseif (PrefillSources::isPhotoSuggestion($answer->prefill_source)) {
                 $notices[$composite] = 'We hebben dit uit je foto gehaald — klopt het?';
             }
+        }
+
+        foreach ($preservedDirty as $composite => $value) {
+            $form[$composite] = $value;
+            unset($notices[$composite]);
         }
 
         $this->form = $form;
@@ -3764,6 +3847,11 @@ class IntakeWizard extends Component
 
     private function refreshAnswerInForm(string $composite): void
     {
+        // Net aangeraakte klantkeuze nooit overschrijven — ook niet als de DB-rij (nog) anders is.
+        if (($this->dirtyFormComposites[$composite] ?? false) === true) {
+            return;
+        }
+
         [$questionKey, $instanceKey] = $this->splitComposite($composite);
 
         $query = $this->intake()->answers()
@@ -3780,17 +3868,12 @@ class IntakeWizard extends Component
             // N3/#183: lege DB mag een net aangeraakte klantkeuze niet wissen; wél AI-prefill
             // die al was weggehaald (geen dirty-markering) wissen zodat die niet als klantantwoord
             // terugkomt bij Volgende.
-            if (($this->dirtyFormComposites[$composite] ?? false) === true) {
-                return;
-            }
             $this->form[$composite] = [];
 
             return;
         }
 
         $this->form[$composite] = $answer->value ?? [];
-        // DB is bron van waarheid; dirty-markering mag weg.
-        unset($this->dirtyFormComposites[$composite]);
     }
 
     /**

@@ -6,6 +6,8 @@ Alle noemenswaardige wijzigingen aan dit project. Bijhouden is verplicht per PR 
 
 ### Fixed
 
+- **Wizard radio unchecked na wire:model.live (E2E 01 / N30):** `next()` deed blinde `forgetIntakeDerivedCaches`+`hydrateFormFromAnswers` (catch-up) en kon een net aangevinkte keuze (o.a. `floor_level`) wegzetten. Fix: dirty composites bewaren bij hydrate, catch-up-hydrate alleen bij `catchUpQuestionKeys`, land-hydratie ná persist, `skipRender` op achtergrond-fotopolls, en in de browser auto-advance via deferred `$wire.next()` zodat de live-response de checked radio houdt (Pest blijft sync). `e2e:prepare --fresh` wist nu ook de cache (stale `ShouldBeUnique`-locks op hergebruikte upload-ids → anders “Foto ontvangen”).
+
 - **E2E lokaal (BL-145/BL-147):** `AI_PHOTO_INFERENCE_ENABLED=true` is verplicht naast `AI_PROVIDER=fake` (anders skip “foto-inferentie uitgeschakeld” → geen `follow-up-mismatch`).
 
 - **Wizard-mount overschreef model-verdieping met lokale regex (BL-148 / #173 review):** `DeriveIntentFromRequest` gated de lokale parser alleen op `ai.text_inference.enabled`. Met tekst-AI aan is `allowExternal: false` (klantwizard-mount) een no-op; offline-fallback alleen als tekst-AI uit staat. `InterpretFollowUpText` registreert `AiRun` (timeout ≤ 8 s); standalone-getal: `[.,]` telt alleen als boundary naast een digit (dus `2,6` weigert bare `2`, `nok 2.` / `nok 2, knie 1` accepteren). Eval: configureerbare output-dir; fake runs schrijven geen `baseline/`/HISTORY; bootstrap alleen `AI_API_KEY`; live-env `production`/`staging`; `migrate:fresh` alleen met `--migrate`.

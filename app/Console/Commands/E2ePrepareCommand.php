@@ -26,6 +26,10 @@ final class E2ePrepareCommand extends Command
         if ($this->option('fresh')) {
             Artisan::call('migrate:fresh', ['--force' => true]);
             $this->line(Artisan::output());
+            // ShouldBeUnique photo jobs key on upload id; after fresh ids restart at 1 and a
+            // stale cache lock can silently drop ProcessIntakePhotoVariantsJob → "Foto ontvangen".
+            Artisan::call('cache:clear');
+            $this->line(Artisan::output());
         } else {
             Artisan::call('migrate', ['--force' => true]);
             $this->line(Artisan::output());
