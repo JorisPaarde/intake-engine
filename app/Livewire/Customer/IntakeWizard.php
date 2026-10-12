@@ -48,6 +48,7 @@ use App\Domains\Intake\Support\PhotoCustomerStatus;
 use App\Domains\Intake\Support\PhotoOverridePolicy;
 use App\Domains\Intake\Support\PhotoUploadLimits;
 use App\Domains\Intake\Support\PrefillSources;
+use App\Domains\Intake\Support\RoomLabelResolver;
 use App\Enums\FollowUpItemType;
 use App\Enums\FollowUpRoundStatus;
 use App\Enums\IntakeStatus;
@@ -3662,11 +3663,138 @@ class IntakeWizard extends Component
             $this->forceShowKnown,
             $stickyStepKeys,
         );
+        $steps = $this->omitAtticSizeClassSteps($steps);
 
         $this->resolvedSteps = $steps;
         $this->resolvedStepsFormSignature = $signature;
 
         return $this->resolvedSteps;
+    }
+
+    /**
+     * Zolder vraagt geen grootteklasse vóór L×B — alleen lengte×breedte.
+     *
+     * @param  list<array{
+     *     key: string,
+     *     section_key: string,
+     *     section_instance_key: string|null,
+     *     question_key: string,
+     *     title: string,
+     *     section_title: string,
+     *     description: string|null,
+     *     help_text: string|null,
+     *     is_repeatable: bool,
+     *     is_required: bool,
+     *     kind?: 'question'|'known_summary'|'question_group'|'closing_wishes',
+     *     known_items?: list<array{
+     *         question_key: string,
+     *         section_instance_key: string|null,
+     *         label: string,
+     *         display_value: string,
+     *         prefill_source: string,
+     *     }>,
+     *     group_key?: string,
+     *     group_question_keys?: list<string>,
+     *     bundle_question_keys?: list<string>,
+     *     sticky_photo_composite?: string|null
+     * }>  $steps
+     * @return list<array{
+     *     key: string,
+     *     section_key: string,
+     *     section_instance_key: string|null,
+     *     question_key: string,
+     *     title: string,
+     *     section_title: string,
+     *     description: string|null,
+     *     help_text: string|null,
+     *     is_repeatable: bool,
+     *     is_required: bool,
+     *     kind?: 'question'|'known_summary'|'question_group'|'closing_wishes',
+     *     known_items?: list<array{
+     *         question_key: string,
+     *         section_instance_key: string|null,
+     *         label: string,
+     *         display_value: string,
+     *         prefill_source: string,
+     *     }>,
+     *     group_key?: string,
+     *     group_question_keys?: list<string>,
+     *     bundle_question_keys?: list<string>,
+     *     sticky_photo_composite?: string|null
+     * }>
+     */
+    private function omitAtticSizeClassSteps(array $steps): array
+    {
+        $atticInstances = $this->atticRoomInstances();
+        if ($atticInstances === []) {
+            return $steps;
+        }
+
+        return array_values(array_filter(
+            $steps,
+            static function (array $step) use ($atticInstances): bool {
+                if ($step['question_key'] !== 'room_size_indication') {
+                    return true;
+                }
+
+                $instance = $step['section_instance_key'] ?? null;
+
+                return ! is_string($instance) || ! isset($atticInstances[$instance]);
+            },
+        ));
+    }
+
+    /**
+     * @return array<string, true>
+     */
+    private function atticRoomInstances(): array
+    {
+        $answers = $this->liveAnswers();
+        $this->intake()->loadMissing('answers');
+        foreach ($this->intake()->answers as $answer) {
+            if ($answer->question_key !== 'room_type' || ! is_string($answer->section_instance_key)) {
+                continue;
+            }
+            $composite = VisibilityResolver::compositeKey('room_type', $answer->section_instance_key);
+            if (! isset($answers[$composite]) && is_array($answer->value)) {
+                $answers[$composite] = $answer->value;
+            }
+        }
+
+        $attic = [];
+        foreach (RoomLabelResolver::typesByInstance($answers) as $instance => $type) {
+            if ($type === 'attic') {
+                $attic[$instance] = true;
+            }
+        }
+
+        return $attic;
+    }
+
+    /**
+     * Na verlaten van zolder: wis size=unknown zodat de grootteklasse weer open staat.
+     */
+    private function clearUnknownRoomSizeIndication(string $instanceKey): void
+    {
+        $size = $this->intake()->answers()
+            ->where('question_key', 'room_size_indication')
+            ->where('section_instance_key', $instanceKey)
+            ->first();
+
+        if (! $size instanceof IntakeAnswer) {
+            return;
+        }
+
+        $value = is_array($size->value) ? ($size->value['value'] ?? null) : null;
+        if ($value !== 'unknown') {
+            return;
+        }
+
+        $size->delete();
+        $composite = VisibilityResolver::compositeKey('room_size_indication', $instanceKey);
+        unset($this->form[$composite], $this->dirtyFormComposites[$composite]);
+        $this->forgetIntakeDerivedCaches();
+        $this->hydrateFormFromAnswers();
     }
 
     /**
@@ -3905,6 +4033,15 @@ class IntakeWizard extends Component
             }
         }
 
+        $previousRoomType = null;
+        if ($questionKey === 'room_type' && is_string($instanceKey)) {
+            $previous = $this->intake()->answers()
+                ->where('question_key', 'room_type')
+                ->where('section_instance_key', $instanceKey)
+                ->first();
+            $previousRoomType = is_array($previous?->value) ? ($previous->value['value'] ?? null) : null;
+        }
+
         app(SaveIntakeAnswer::class)->handle(
             $this->intake(),
             $questionKey,
@@ -3912,6 +4049,14 @@ class IntakeWizard extends Component
             $payload,
         );
         $this->forgetIntakeDerivedCaches();
+
+        // Zolder → ander type: laat geen size=unknown achter als prefill op de grootteklasse.
+        if ($questionKey === 'room_type'
+            && is_string($instanceKey)
+            && $previousRoomType === 'attic'
+            && ($payload['value'] ?? null) !== 'attic') {
+            $this->clearUnknownRoomSizeIndication($instanceKey);
+        }
 
         // Een vraag kan via meta.text_analysis latere vragen beantwoorden — de reden van de
         // aanvraag noemt vaak al de ruimtes en of het om koelen of verwarmen gaat.

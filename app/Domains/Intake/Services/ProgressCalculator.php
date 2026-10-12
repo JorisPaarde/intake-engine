@@ -13,6 +13,7 @@ use App\Domains\Intake\Support\MustAcceptQuestions;
 use App\Domains\Intake\Support\OutdoorPhotoReuse;
 use App\Domains\Intake\Support\PhotoContentSatisfaction;
 use App\Domains\Intake\Support\PrefillSources;
+use App\Domains\Intake\Support\RoomLabelResolver;
 use App\Domains\Intake\Support\TechnicalDecisionKeys;
 use App\Enums\QuestionType;
 use Illuminate\Support\Collection;
@@ -71,6 +72,7 @@ final class ProgressCalculator
         $answeredRequired = 0;
         $missingRequired = [];
         $taskKeys = [];
+        $roomTypes = RoomLabelResolver::typesByInstance($answers);
 
         foreach ($targets as $target) {
             $question = $this->findQuestion($sections, $target['question_key']);
@@ -81,6 +83,13 @@ final class ProgressCalculator
 
             if (InternalCustomerQuestions::hidesFromCustomer($question)
                 || TechnicalDecisionKeys::hidesFromCustomer($question)) {
+                continue;
+            }
+
+            // Zolder: geen grootteklasse — alleen L×B (wizard + Afronden).
+            if ($question->key === 'room_size_indication'
+                && is_string($target['section_instance_key'])
+                && ($roomTypes[$target['section_instance_key']] ?? null) === 'attic') {
                 continue;
             }
 
