@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Support;
 
+use App\Domains\AI\Support\InstallerCandidateDecisionPreserver;
 use App\Domains\Intake\Models\AircoConnection;
 use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
@@ -24,7 +25,8 @@ final class ConnectionRouteDecisionPresenter
      *     approve_warning: string|null,
      *     can_site_visit: bool,
      *     show_summarize: bool,
-     *     photo_label: string
+     *     photo_label: string,
+     *     proposal_updated_notice: string|null
      * }
      */
     public function present(AircoConnection $connection): array
@@ -39,6 +41,14 @@ final class ConnectionRouteDecisionPresenter
             AircoConnectionStatus::Approved,
             AircoConnectionStatus::NotRemotelyResolvable,
         ], true);
+
+        $proposalUpdatedNotice = null;
+        $connection->loadMissing('subject');
+        $subjectMeta = $connection->subject->meta;
+        if (is_array($subjectMeta)
+            && ($subjectMeta[InstallerCandidateDecisionPreserver::META_PROPOSAL_UPDATED] ?? false) === true) {
+            $proposalUpdatedNotice = InstallerCandidateDecisionPreserver::NOTICE_TEXT;
+        }
 
         // Same gate as ApprovePipeRoute: a Proposed session may be approved even when
         // synthesis left the connection on NeedsEvidence (route_continuous=false).
@@ -117,6 +127,7 @@ final class ConnectionRouteDecisionPresenter
             'can_site_visit' => ! $alreadyDone,
             'show_summarize' => $collecting || ($session !== null && ! $alreadyDone),
             'photo_label' => 'Eigen foto toevoegen',
+            'proposal_updated_notice' => $proposalUpdatedNotice,
         ];
     }
 }
