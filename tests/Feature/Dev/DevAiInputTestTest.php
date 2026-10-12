@@ -344,7 +344,8 @@ test('failed AI keeps local diagnostic output but does not fill from the parser'
     );
 
     expect($evaluation->aiAttempted)->toBeTrue()
-        ->and($evaluation->aiError)->toContain('Catalogus-AI mislukt')
+        ->and($evaluation->aiError)->toContain('tijdelijk niet beschikbaar')
+        ->and($evaluation->aiError)->not->toContain('provider down')
         ->and($evaluation->localOutput)->not->toBeNull()
         ->and($evaluation->fills())->toBeEmpty()
         ->and(AiRun::query()->count())->toBe(0)

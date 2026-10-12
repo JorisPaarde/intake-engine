@@ -196,14 +196,14 @@ final class EvaluateRequestIntent
             } catch (AiClientException $exception) {
                 $versions['provider'] = (string) config('ai.provider', 'null');
                 $versions['model'] = null;
-                $aiError = 'Catalogus-AI mislukt: '.$this->safeErrorMessage($exception);
+                $aiError = app(AiUserFacingFallback::class)->forCatalogException($exception);
             } catch (ValidationException $exception) {
                 $versions['provider'] = (string) config('ai.provider', 'null');
                 $aiError = 'Catalogus-AI gaf ongeldige output (validatie): '
                     .app(AiValidationFailureFormatter::class)->fromException($exception);
             } catch (Throwable $exception) {
                 $versions['provider'] = (string) config('ai.provider', 'null');
-                $aiError = 'Catalogus-AI mislukt: '.$this->safeErrorMessage($exception);
+                $aiError = app(AiUserFacingFallback::class)->forCatalogException($exception);
             }
         }
 
@@ -405,16 +405,5 @@ final class EvaluateRequestIntent
         $version->setRelation('template', $template);
 
         return $version;
-    }
-
-    private function safeErrorMessage(Throwable $exception): string
-    {
-        $message = $exception->getMessage();
-
-        // Nooit secrets of lange free-text lekken in de UI.
-        $message = (string) preg_replace('/sk-[A-Za-z0-9_-]+/', '[redacted]', $message);
-        $message = (string) preg_replace('/Bearer\s+\S+/i', 'Bearer [redacted]', $message);
-
-        return mb_substr($message, 0, 240);
     }
 }

@@ -24,6 +24,7 @@ final class AiClientException extends RuntimeException
         public readonly ?string $errorClass = null,
         public readonly ?string $model = null,
         public readonly array $modelParameters = [],
+        public readonly ?int $httpStatus = null,
     ) {
         parent::__construct($message, $code, $previous);
     }

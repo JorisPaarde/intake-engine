@@ -268,4 +268,23 @@ return [
         'output_dir' => env('AI_EVAL_OUTPUT_DIR', ''),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Failure / balance alerts (OpenRouter)
+    |--------------------------------------------------------------------------
+    |
+    | Bij 401/402/429/5xx na retries: één mail per fouttype per uur naar
+    | mail_to (Cache::add ai-alert:{type}). Saldo-check (ai:balance-check)
+    | waarschuwt onder balance_warn_usd, max één mail per dag.
+    |
+    */
+
+    'alerts' => [
+        'enabled' => filter_var(env('AI_ALERTS_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+        'mail_to' => env('AI_ALERT_MAIL_TO', 'info@jpwebcreation.nl'),
+        'throttle_seconds' => (int) env('AI_ALERT_THROTTLE_SECONDS', 3600),
+        'balance_warn_usd' => (float) env('AI_BALANCE_WARN_USD', 5),
+        'balance_throttle_seconds' => (int) env('AI_BALANCE_ALERT_THROTTLE_SECONDS', 86400),
+    ],
+
 ];

@@ -16,6 +16,7 @@ Schedule::command('intakes:send-reminders')->daily();
 Schedule::command('intakes:purge-deleted')->daily();
 Schedule::command('product-interests:purge')->daily();
 Schedule::command('ai:purge-traces')->daily();
+Schedule::command('ai:balance-check')->dailyAt('08:07');
 // Watchdog alleen: upload dispatcht AssessUploadedPhotoJob meteen. Elke 5 min i.p.v.
 // elke minuut beperkt PHP/LVE-geheugenpieken op cPanel (512 MB).
 Schedule::command('photos:requeue-pending-assessments')->everyFiveMinutes();
