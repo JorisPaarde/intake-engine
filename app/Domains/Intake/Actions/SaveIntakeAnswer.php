@@ -86,9 +86,21 @@ final class SaveIntakeAnswer
         ): IntakeAnswer {
             $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
 
-            $allowedStatuses = $prefillSource === null
-                ? [IntakeStatus::Sent, IntakeStatus::InProgress]
-                : [IntakeStatus::Draft, IntakeStatus::Sent, IntakeStatus::InProgress];
+            // AI photo prefill (e.g. meterkast clarity after a follow-up photo) may
+            // land while the intake is awaiting the customer or already completed (N49).
+            $allowedStatuses = match (true) {
+                $prefillSource === null => [IntakeStatus::Sent, IntakeStatus::InProgress],
+                $prefillSource === PrefillSources::AI_PHOTO,
+                $prefillSource === PrefillSources::AI_PHOTO_SUGGESTION => [
+                    IntakeStatus::Draft,
+                    IntakeStatus::Sent,
+                    IntakeStatus::InProgress,
+                    IntakeStatus::AwaitingCustomer,
+                    IntakeStatus::Completed,
+                    IntakeStatus::Reviewed,
+                ],
+                default => [IntakeStatus::Draft, IntakeStatus::Sent, IntakeStatus::InProgress],
+            };
 
             if (! in_array($lockedIntake->status, $allowedStatuses, true)) {
                 throw ValidationException::withMessages([

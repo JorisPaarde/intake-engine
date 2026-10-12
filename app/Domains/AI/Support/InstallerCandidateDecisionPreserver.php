@@ -416,10 +416,25 @@ final class InstallerCandidateDecisionPreserver
             }
         }
 
+        $meta = is_array($subject->meta) ? $subject->meta : [];
+        // N46: stable successor map so stale workspace POSTs resolve to the new connection.
+        if ($oldConnectionId !== null && $oldConnectionId !== $match->id) {
+            $supersedes = is_array($meta['supersedes_connection_ids'] ?? null)
+                ? $meta['supersedes_connection_ids']
+                : [];
+            $supersedes[] = $oldConnectionId;
+            $meta['supersedes_connection_ids'] = array_values(array_unique(array_map(
+                static fn (mixed $id): int => (int) $id,
+                $supersedes,
+            )));
+        }
+
         $proposalUpdated = $this->proposalContentChanged($match, $connectionSnap);
         if ($proposalUpdated) {
-            $meta = is_array($subject->meta) ? $subject->meta : [];
             $meta[self::META_PROPOSAL_UPDATED] = true;
+        }
+
+        if ($meta !== (is_array($subject->meta) ? $subject->meta : [])) {
             $subject->update(['meta' => $meta]);
         }
 

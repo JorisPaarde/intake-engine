@@ -21,7 +21,6 @@ use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeExternalFact;
 use App\Domains\Intake\Models\IntakeUpload;
-use App\Domains\Intake\Support\PhotoContinueAnywayAttention;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Domains\Intake\Support\UploadSupersessionResolver;
 use App\Enums\AiRunStatus;
@@ -282,8 +281,10 @@ final class AssessFuseboxPhotos
                         $trace->beginBuffer();
                         $lockedIntake = Intake::query()->whereKey($intake->id)->lockForUpdate()->firstOrFail();
 
-                        if (! in_array($lockedIntake->status, [IntakeStatus::Sent, IntakeStatus::InProgress], true)) {
-                            throw new \RuntimeException('Opname is afgerond tijdens AI-analyse; resultaat niet toegepast.');
+                        // Follow-up (AwaitingCustomer) and post-round Completed/Reviewed
+                        // must still apply when a new meterkastfoto arrives (N49).
+                        if ($lockedIntake->status === IntakeStatus::Cancelled) {
+                            throw new \RuntimeException('Opname is geannuleerd tijdens AI-analyse; resultaat niet toegepast.');
                         }
 
                         $currentManifest = $matchingUploads
@@ -692,21 +693,23 @@ final class AssessFuseboxPhotos
             'dossierSubjects.records',
         ]);
 
-        $uploads = $intake->uploads
-            ->filter(static function (IntakeUpload $upload): bool {
-                return in_array($upload->question_key, [self::PHOTO_QUESTION, self::EXTRA_PHOTO_QUESTION], true)
-                    && $upload->section_instance_key === null;
-            })
-            ->sortBy('id')
-            ->values();
-
         // N41: al vervallen extra-foto’s niet opnieuw in de beoordeling meenemen.
+        // N49: follow-up meterkastfoto’s (na remap naar fusebox_photo) wél meenemen —
+        // isCurrentWizardUpload sluit follow-ups uit, dus alleen supersession filteren.
         $supersessions = app(UploadSupersessionResolver::class)->resolve($intake);
 
-        return $uploads
+        return $intake->uploads
             ->filter(static function (IntakeUpload $upload) use ($supersessions): bool {
-                return PhotoContinueAnywayAttention::isCurrentWizardUpload($upload, $supersessions);
+                if (! in_array($upload->question_key, [self::PHOTO_QUESTION, self::EXTRA_PHOTO_QUESTION], true)
+                    || $upload->section_instance_key !== null) {
+                    return false;
+                }
+
+                $info = $supersessions[(int) $upload->id] ?? null;
+
+                return ! (is_array($info) && $info['superseded'] === true);
             })
+            ->sortBy('id')
             ->values();
     }
 

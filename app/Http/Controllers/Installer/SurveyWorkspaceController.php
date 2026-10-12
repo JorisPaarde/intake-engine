@@ -890,12 +890,11 @@ final class SurveyWorkspaceController extends Controller
     public function decideConnection(
         Request $request,
         Intake $intake,
-        AircoConnection $connection,
+        int $connection,
         DecideAircoConnection $decide,
         DecisionReadinessService $readiness,
     ): RedirectResponse {
         $this->authorize('update', $intake);
-        abort_unless($connection->intake_id === $intake->id, 404);
 
         $data = $request->validate([
             'decision' => ['required', 'in:approve,site_visit'],
@@ -904,7 +903,8 @@ final class SurveyWorkspaceController extends Controller
             'decision.in' => 'Kies goedkeuren of alleen te zien op locatie.',
         ]);
 
-        $decide->handle($intake, $connection, $this->user($request), $data['decision']);
+        // Resolve by id (or successor after AI rebuild) — never 404 on a stale connection.
+        $resolved = $decide->handle($intake, $connection, $this->user($request), $data['decision']);
         $readiness->recalculate($intake);
 
         return $this->back(
@@ -912,7 +912,7 @@ final class SurveyWorkspaceController extends Controller
             $data['decision'] === 'approve'
                 ? 'Route goedgekeurd.'
                 : 'Route gemarkeerd als alleen te zien op locatie.',
-            'connection-'.$connection->id,
+            'connection-'.$resolved->id,
         );
     }
 

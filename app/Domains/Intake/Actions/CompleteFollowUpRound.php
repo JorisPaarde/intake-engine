@@ -16,6 +16,7 @@ use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\RebuildIntakeReportHtml;
 use App\Domains\Intake\Support\PhotoAssessmentSoftTimeout;
 use App\Domains\Intake\Support\PhotoOverridePolicy;
+use App\Domains\Photos\Actions\RefreshFuseboxAssessmentFromEvidence;
 use App\Enums\FollowUpItemType;
 use App\Enums\FollowUpRoundStatus;
 use App\Enums\IntakeStatus;
@@ -144,6 +145,12 @@ final class CompleteFollowUpRound
 
             return $intake->fresh() ?? $intake;
         });
+
+        // N49: meterkastanalyse volgt de nieuwste fusebox-aanvulling (buiten de lock).
+        app(RefreshFuseboxAssessmentFromEvidence::class)->handle(
+            $completed,
+            $round->fresh()?->load('items.uploads') ?? $round,
+        );
 
         $this->dossierManager->initialize($completed);
         $this->applyTextContributions($completed, $round->fresh()?->load('items') ?? $round);

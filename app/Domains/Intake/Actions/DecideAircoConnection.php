@@ -27,12 +27,18 @@ final class DecideAircoConnection
 
     public function handle(
         Intake $intake,
-        AircoConnection $connection,
+        AircoConnection|int $connection,
         User $installer,
         string $decision,
     ): AircoConnection {
+        if (is_int($connection)) {
+            $connection = app(ResolveAircoConnection::class)->handle($intake, $connection);
+        }
+
         if ($connection->intake_id !== $intake->id) {
-            throw new \InvalidArgumentException('Verbinding hoort niet bij deze opname.');
+            throw ValidationException::withMessages([
+                'decision' => ResolveAircoConnection::MESSAGE_STALE_AFTER_REBUILD,
+            ]);
         }
 
         if ($installer->company_id !== $intake->company_id) {
