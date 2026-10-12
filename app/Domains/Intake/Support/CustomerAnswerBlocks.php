@@ -91,7 +91,7 @@ final class CustomerAnswerBlocks
                 continue;
             }
 
-            if ($answer->prefill_source !== null) {
+            if ($answer->prefill_source !== null && $answer->prefill_source !== '') {
                 continue;
             }
 
@@ -109,9 +109,15 @@ final class CustomerAnswerBlocks
                 continue;
             }
 
+            // N38: lege string instance = survey-niveau (zelfde als null), niet een ontbrekende kamer.
+            $instanceKey = $answer->section_instance_key;
+            if ($instanceKey === '') {
+                $instanceKey = null;
+            }
+
             $visibility = $visibilityResolver->resolveQuestion(
                 $question,
-                $answer->section_instance_key,
+                $instanceKey,
                 $answerMap,
                 $questionTypes,
                 $sectionsByQuestionKey,
@@ -127,9 +133,8 @@ final class CustomerAnswerBlocks
             }
 
             $sectionSort = (float) $section->sort_order;
-            $instanceKey = $answer->section_instance_key;
 
-            if (is_string($instanceKey) && $instanceKey !== '') {
+            if (is_string($instanceKey)) {
                 $room = $roomsByInstance->get($instanceKey);
                 if (! $room instanceof AircoRoom) {
                     continue;
@@ -157,6 +162,10 @@ final class CustomerAnswerBlocks
                 'sort' => (int) $question->sort_order,
             ];
         }
+
+        // N38: garandeer condensafvoer-klantkeuze via dezelfde bron als routekaarten,
+        // ook wanneer visibility/instance-lookup de rij eerder oversloeg.
+        self::ensureDrainBlock($intake, $questions, $sectionsByQuestionKey, $grouped);
 
         uasort(
             $grouped,
@@ -191,6 +200,56 @@ final class CustomerAnswerBlocks
     }
 
     /**
+     * Zelfde drain-klantkeuze als CondensateCustomerDrainNote in het compacte blok.
+     *
+     * @param  Collection<string, IntakeQuestion>  $questions
+     * @param  array<string, IntakeSection>  $sectionsByQuestionKey
+     * @param  array<string, array{heading: string, sort: float, items: list<array{label: string, value: string, sort: int}>}>  $grouped
+     */
+    private static function ensureDrainBlock(
+        Intake $intake,
+        Collection $questions,
+        array $sectionsByQuestionKey,
+        array &$grouped,
+    ): void {
+        $note = app(CondensateCustomerDrainNote::class);
+        $label = $note->customerChoiceLabel($intake);
+        $answer = $note->customerAnswer($intake);
+        if ($label === null || ! $answer instanceof IntakeAnswer) {
+            return;
+        }
+
+        $question = $questions->get('drain_location');
+        $section = $sectionsByQuestionKey['drain_location'] ?? null;
+        if (! $question instanceof IntakeQuestion || ! $section instanceof IntakeSection) {
+            return;
+        }
+
+        $groupKey = 'section:'.$section->key;
+        $questionLabel = $question->label;
+
+        if (isset($grouped[$groupKey])) {
+            foreach ($grouped[$groupKey]['items'] as $item) {
+                if ($item['label'] === $questionLabel) {
+                    return;
+                }
+            }
+        } else {
+            $grouped[$groupKey] = [
+                'heading' => $section->title !== '' ? $section->title : $section->key,
+                'sort' => (float) $section->sort_order,
+                'items' => [],
+            ];
+        }
+
+        $grouped[$groupKey]['items'][] = [
+            'label' => $questionLabel,
+            'value' => $label,
+            'sort' => (int) $question->sort_order,
+        ];
+    }
+
+    /**
      * Antwoordkaart voor VisibilityResolver (inclusief upload_ids voor filled-regels).
      *
      * @return array<string, array<string, mixed>|null>
@@ -200,9 +259,13 @@ final class CustomerAnswerBlocks
         $answers = [];
 
         foreach ($intake->answers as $answer) {
+            $instanceKey = $answer->section_instance_key;
+            if ($instanceKey === '') {
+                $instanceKey = null;
+            }
             $key = VisibilityResolver::compositeKey(
                 $answer->question_key,
-                $answer->section_instance_key,
+                $instanceKey,
             );
             $answers[$key] = is_array($answer->value) ? $answer->value : null;
         }

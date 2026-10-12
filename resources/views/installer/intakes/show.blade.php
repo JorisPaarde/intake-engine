@@ -621,7 +621,7 @@
                                                     >
                                                 </button>
                                                 <figcaption class="space-y-2 text-xs text-gray-500">
-                                                    <p>{{ $item['caption'] }}</p>
+                                                    <p class="break-words">{{ $item['caption'] }}</p>
                                                     @if (($item['superseded'] ?? false) === true && ! empty($item['supersession_label']))
                                                         <span class="inline-flex items-center rounded bg-gray-200 px-1.5 py-0.5 text-[11px] font-medium text-gray-700" data-testid="gallery-superseded">
                                                             {{ $item['supersession_label'] }}

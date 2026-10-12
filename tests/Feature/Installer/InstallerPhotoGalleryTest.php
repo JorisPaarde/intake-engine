@@ -2,10 +2,14 @@
 
 declare(strict_types=1);
 
+use App\Domains\Intake\Actions\CreateCustomerContributionRequest;
 use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplate;
+use App\Domains\Intake\Models\IntakeUpload;
+use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\InstallerPhotoGalleryBuilder;
+use App\Enums\FollowUpItemType;
 use App\Enums\IntakeStatus;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
@@ -156,4 +160,61 @@ test('photo gallery builder orders groups by template section and instance', fun
         ->and($groups[1]['uploads'][0]['caption'])->toBe('Foto’s van de ruimte · Ruimte 2')
         ->and($groups[2]['heading'])->toBe('Elektrische installatie')
         ->and($groups[2]['uploads'][0]['caption'])->toBe('Foto van de meterkast');
+});
+
+test('N43: aanvullingsfoto-caption toont ronde, onderdeel en opdracht', function () {
+    $intake = makeGalleryIntake();
+    $user = User::query()->findOrFail($intake->created_by);
+    app(DossierManager::class)->initialize($intake);
+
+    $round = app(CreateCustomerContributionRequest::class)->handle($intake->fresh(), $user, [
+        [
+            'type' => FollowUpItemType::Photo,
+            'prompt' => 'Plek stroomkabel',
+            'decision_area_key' => 'power',
+            'dossier_subject_id' => app(DossierManager::class)->root($intake)->id,
+        ],
+        [
+            'type' => FollowUpItemType::Photo,
+            'prompt' => 'Foto van de afvoerplek',
+            'decision_area_key' => 'condensate',
+            'dossier_subject_id' => app(DossierManager::class)->root($intake)->id,
+        ],
+    ]);
+
+    $items = $round->items()->orderBy('id')->get();
+    expect($items)->toHaveCount(2);
+
+    $disk = (string) config('filesystems.media', 'local');
+    foreach ($items as $index => $item) {
+        $name = $index === 0 ? 'stroom.jpg' : 'condens.jpg';
+        $path = 'intakes/'.$intake->uuid.'/follow-up/'.$name;
+        Storage::disk($disk)->put($path, 'fake-bytes-'.$name);
+        IntakeUpload::query()->create([
+            'intake_id' => $intake->id,
+            'question_key' => 'follow_up_'.$item->id,
+            'intake_follow_up_item_id' => $item->id,
+            'disk' => $disk,
+            'path' => $path,
+            'original_filename' => $name,
+            'mime_type' => 'image/jpeg',
+            'size_bytes' => 12,
+            'checksum' => hash('sha256', $name),
+            'sort_order' => $index,
+        ]);
+    }
+
+    $groups = app(InstallerPhotoGalleryBuilder::class)->handle($intake->fresh());
+    $followUp = collect($groups)->first(
+        static fn (array $group): bool => str_starts_with($group['heading'], 'Aanvulling ronde'),
+    );
+
+    expect($followUp)->not->toBeNull()
+        ->and($followUp['uploads'])->toHaveCount(2);
+
+    $captions = array_column($followUp['uploads'], 'caption');
+    expect($captions[0])->toBe('Ronde 1 · Stroomtoevoer · Plek stroomkabel')
+        ->and($captions[1])->toBe('Ronde 1 · Condensafvoer · Foto van de afvoerplek')
+        ->and($captions[0])->not->toBe('Ronde 1')
+        ->and($captions[1])->not->toBe('Ronde 1');
 });

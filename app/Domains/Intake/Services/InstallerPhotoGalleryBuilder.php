@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App\Domains\Intake\Services;
 
 use App\Domains\AI\Support\PhotoSubject;
+use App\Domains\Intake\Models\ContributionTask;
 use App\Domains\Intake\Models\DossierSubject;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeFollowUpItem;
+use App\Domains\Intake\Models\IntakeFollowUpRound;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeSection;
 use App\Domains\Intake\Models\IntakeUpload;
@@ -118,7 +121,7 @@ final class InstallerPhotoGalleryBuilder
 
                 $groups[$bucketKey]['uploads'][] = [
                     'upload' => $upload,
-                    'caption' => 'Ronde '.$round->round_number,
+                    'caption' => $this->followUpCaption($intake, $upload->followUpItem, $round),
                     'question_sort' => $upload->followUpItem->id,
                 ];
 
@@ -340,6 +343,42 @@ final class InstallerPhotoGalleryBuilder
         }
 
         return $base.' · '.$place;
+    }
+
+    /**
+     * N43: "Ronde N · Stroomtoevoer · Plek stroomkabel" i.p.v. alleen "Ronde N".
+     */
+    private function followUpCaption(
+        Intake $intake,
+        IntakeFollowUpItem $item,
+        IntakeFollowUpRound $round,
+    ): string {
+        $parts = ['Ronde '.$round->round_number];
+
+        $task = $intake->contributionTasks
+            ->first(static fn (ContributionTask $candidate): bool => $candidate->intake_follow_up_item_id === $item->id);
+
+        if ($task instanceof ContributionTask) {
+            $areaKey = $task->decision_area_key;
+            if (is_string($areaKey) && $areaKey !== '' && DecisionReadinessService::hasArea($areaKey)) {
+                $parts[] = DecisionReadinessService::areaLabel($areaKey);
+            }
+
+            $prompt = trim($task->prompt);
+            if ($prompt === '') {
+                $prompt = trim($item->prompt);
+            }
+            if ($prompt !== '') {
+                $parts[] = Str::limit($prompt, 48, '…');
+            }
+        } else {
+            $prompt = trim($item->prompt);
+            if ($prompt !== '') {
+                $parts[] = Str::limit($prompt, 48, '…');
+            }
+        }
+
+        return implode(' · ', $parts);
     }
 
     private function captionForUnknown(Intake $intake, IntakeUpload $upload): string
