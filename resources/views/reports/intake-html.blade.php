@@ -254,55 +254,106 @@
         </dl>
     @endif
 
-    @if (! empty($selectedInstallationOption))
-        <h2>Geselecteerde installatiekeuze</h2>
+    @if (! empty($installationChoice))
+        <h2>{{ $installationChoice['has_selection'] ? 'Geselecteerde installatiekeuze' : 'Installatiekeuze' }}</h2>
         <dl>
             <dt>Keuze</dt>
-            <dd>{{ $selectedInstallationOption['label'] }}</dd>
-            <dt>Configuratie</dt>
-            <dd>{{ $selectedInstallationOption['configuration_label'] }}</dd>
-            @if ($selectedInstallationOption['summary'])
-                <dt>Toelichting</dt>
-                <dd>{{ $selectedInstallationOption['summary'] }}</dd>
-            @endif
-            @if ($selectedInstallationOption['units'] !== [])
-                <dt>Units</dt>
-                <dd>
-                    <ul style="margin:0.35rem 0 0;padding-left:1.25rem;">
-                        @foreach ($selectedInstallationOption['units'] as $unit)
-                            <li>{{ $unit }}</li>
-                        @endforeach
-                    </ul>
-                </dd>
-            @endif
-            @if ($selectedInstallationOption['routes'] !== [])
-                <dt>Verbindingen en routes</dt>
+            <dd>{{ $installationChoice['choice_status_label'] }}</dd>
+            @if ($installationChoice['has_selection'])
+                <dt>Configuratie</dt>
+                <dd>{{ $installationChoice['configuration_label'] }}</dd>
+                @if ($installationChoice['summary'])
+                    <dt>Toelichting</dt>
+                    <dd>{{ $installationChoice['summary'] }}</dd>
+                @endif
+                @if ($installationChoice['units'] !== [])
+                    <dt>Units</dt>
+                    <dd>
+                        <ul style="margin:0.35rem 0 0;padding-left:1.25rem;">
+                            @foreach ($installationChoice['units'] as $unit)
+                                <li>{{ $unit }}</li>
+                            @endforeach
+                        </ul>
+                    </dd>
+                @endif
+                @if ($installationChoice['routes'] !== [])
+                    <dt>Verbindingen en routes</dt>
+                    <dd>
+                        <p style="margin:0.35rem 0 0.5rem;color:#555;font-size:0.85rem;">
+                            Routebesluit per verbinding (los van de algemene beoordeling).
+                        </p>
+                        <ul style="margin:0.35rem 0 0;padding-left:1.25rem;">
+                            @foreach ($installationChoice['routes'] as $route)
+                                <li>
+                                    {{ $route['type_label'] }} · {{ $route['label'] }}
+                                    ({{ $route['from'] }} → {{ $route['to'] }})
+                                    <br><strong>Status:</strong> {{ $route['status_label'] }}
+                                    @if (! empty($route['installer_note']))
+                                        <br><strong>Notitie:</strong> {{ $route['installer_note'] }}
+                                    @endif
+                                    @if (($route['uncertainties'] ?? []) !== [])
+                                        <br><strong>Open onzekerheden:</strong> {{ implode(' · ', $route['uncertainties']) }}
+                                    @endif
+                                    @if ($route['segments'] !== [])
+                                        <ul style="margin:0.25rem 0 0;padding-left:1.25rem;">
+                                            @foreach ($route['segments'] as $segment)
+                                                <li>{{ $segment }}</li>
+                                            @endforeach
+                                        </ul>
+                                    @endif
+                                </li>
+                            @endforeach
+                        </ul>
+                    </dd>
+                @endif
+            @elseif ($installationChoice['proposals'] !== [])
+                <dt>Beschikbare voorstellen</dt>
                 <dd>
                     <p style="margin:0.35rem 0 0.5rem;color:#555;font-size:0.85rem;">
                         Routebesluit per verbinding (los van de algemene beoordeling).
                     </p>
-                    <ul style="margin:0.35rem 0 0;padding-left:1.25rem;">
-                        @foreach ($selectedInstallationOption['routes'] as $route)
-                            <li>
-                                {{ $route['type_label'] }} · {{ $route['label'] }}
-                                ({{ $route['from'] }} → {{ $route['to'] }})
-                                <br><strong>Status:</strong> {{ $route['status_label'] }}
-                                @if (! empty($route['installer_note']))
-                                    <br><strong>Notitie:</strong> {{ $route['installer_note'] }}
-                                @endif
-                                @if (($route['uncertainties'] ?? []) !== [])
-                                    <br><strong>Open onzekerheden:</strong> {{ implode(' · ', $route['uncertainties']) }}
-                                @endif
-                                @if ($route['segments'] !== [])
-                                    <ul style="margin:0.25rem 0 0;padding-left:1.25rem;">
-                                        @foreach ($route['segments'] as $segment)
-                                            <li>{{ $segment }}</li>
-                                        @endforeach
-                                    </ul>
-                                @endif
-                            </li>
-                        @endforeach
-                    </ul>
+                    @foreach ($installationChoice['proposals'] as $proposal)
+                        <div style="margin:0.75rem 0 0;">
+                            <p style="margin:0;font-weight:700;">{{ $proposal['label'] }}</p>
+                            <p style="margin:0.15rem 0 0;color:#555;font-size:0.85rem;">
+                                {{ $proposal['configuration_label'] }}
+                            </p>
+                            @if ($proposal['summary'])
+                                <p style="margin:0.25rem 0 0;">{{ $proposal['summary'] }}</p>
+                            @endif
+                            @if ($proposal['units'] !== [])
+                                <ul style="margin:0.35rem 0 0;padding-left:1.25rem;">
+                                    @foreach ($proposal['units'] as $unit)
+                                        <li>{{ $unit }}</li>
+                                    @endforeach
+                                </ul>
+                            @endif
+                            @if ($proposal['routes'] !== [])
+                                <ul style="margin:0.35rem 0 0;padding-left:1.25rem;">
+                                    @foreach ($proposal['routes'] as $route)
+                                        <li>
+                                            {{ $route['type_label'] }} · {{ $route['label'] }}
+                                            ({{ $route['from'] }} → {{ $route['to'] }})
+                                            <br><strong>Status:</strong> {{ $route['status_label'] }}
+                                            @if (! empty($route['installer_note']))
+                                                <br><strong>Notitie:</strong> {{ $route['installer_note'] }}
+                                            @endif
+                                            @if (($route['uncertainties'] ?? []) !== [])
+                                                <br><strong>Open onzekerheden:</strong> {{ implode(' · ', $route['uncertainties']) }}
+                                            @endif
+                                            @if ($route['segments'] !== [])
+                                                <ul style="margin:0.25rem 0 0;padding-left:1.25rem;">
+                                                    @foreach ($route['segments'] as $segment)
+                                                        <li>{{ $segment }}</li>
+                                                    @endforeach
+                                                </ul>
+                                            @endif
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            @endif
+                        </div>
+                    @endforeach
                 </dd>
             @endif
         </dl>

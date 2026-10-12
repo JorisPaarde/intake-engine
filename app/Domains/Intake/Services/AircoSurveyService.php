@@ -701,10 +701,8 @@ final class AircoSurveyService
 
     private function refreshStoredReportIfOptionSelected(Intake $intake, AircoInstallationOption $option): void
     {
-        if ($option->status !== AircoOptionStatus::Selected) {
-            return;
-        }
-
+        // Also refresh Candidate options so the report shows route status before
+        // "Deze keuze" (N35 rest). RefreshStoredIntakeReport no-ops without a report.
         $this->refreshStoredReport($intake->fresh() ?? $intake);
     }
 
