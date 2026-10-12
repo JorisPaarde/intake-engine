@@ -301,6 +301,11 @@ final class DossierManager
             $this->linkEvidence($intake, $subject, 'intake_answer', $answer->id, $record);
         }
 
+        // N31: answers deleted (e.g. AssessFuseboxPhotos::invalidateDerivedState) leave
+        // orphan intake_answer dossier rows still Proposed. Mark them Superseded and,
+        // when a live answer with the same key exists, point superseded_by_id at it.
+        $this->supersedeOrphanedAnswerRecords($intake);
+
         foreach ($intake->externalFacts as $fact) {
             $confidence = match ($fact->confidence) {
                 'high' => 0.99,
@@ -1011,6 +1016,71 @@ final class DossierManager
             $answer->section_instance_key,
             $answer->question_key,
         ], static fn (?string $value): bool => is_string($value) && $value !== ''));
+    }
+
+    /**
+     * Soft-delete of intake answers (photo re-assessment, undo window) leaves
+     * dossier rows keyed on source_type=intake_answer + source_id. Mark those
+     * orphans Superseded so AI-voorstellen only show the live answer.
+     */
+    private function supersedeOrphanedAnswerRecords(Intake $intake): void
+    {
+        $liveAnswerIds = $intake->answers
+            ->pluck('id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->all();
+
+        $orphans = DossierRecord::query()
+            ->where('intake_id', $intake->id)
+            ->where('source_type', 'intake_answer')
+            ->whereIn('status', [
+                DossierRecordStatus::Proposed,
+                DossierRecordStatus::Established,
+                DossierRecordStatus::Conflicted,
+            ])
+            ->when(
+                $liveAnswerIds !== [],
+                static fn ($query) => $query->whereNotIn('source_id', $liveAnswerIds),
+                static fn ($query) => $query->whereNotNull('source_id'),
+            )
+            ->get();
+
+        if ($orphans->isEmpty()) {
+            return;
+        }
+
+        /** @var array<string, DossierRecord> $activeByKey */
+        $activeByKey = DossierRecord::query()
+            ->where('intake_id', $intake->id)
+            ->whereIn('status', [
+                DossierRecordStatus::Proposed,
+                DossierRecordStatus::Established,
+                DossierRecordStatus::Conflicted,
+            ])
+            ->whereNull('superseded_by_id')
+            ->when(
+                $liveAnswerIds !== [],
+                static fn ($query) => $query->where(static function ($inner) use ($liveAnswerIds): void {
+                    $inner->where('source_type', '!=', 'intake_answer')
+                        ->orWhereIn('source_id', $liveAnswerIds);
+                }),
+            )
+            ->orderByDesc('id')
+            ->get()
+            ->keyBy(static fn (DossierRecord $record): string => $record->key)
+            ->all();
+
+        foreach ($orphans as $orphan) {
+            $replacement = $activeByKey[$orphan->key] ?? null;
+            if ($replacement instanceof DossierRecord && (int) $replacement->id === (int) $orphan->id) {
+                $replacement = null;
+            }
+
+            $orphan->update([
+                'status' => DossierRecordStatus::Superseded,
+                'superseded_by_id' => $replacement?->id,
+            ]);
+        }
     }
 
     private function answerRecordMethod(IntakeAnswer $answer, bool $isAssumption): string
