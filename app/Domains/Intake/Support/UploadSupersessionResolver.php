@@ -376,16 +376,12 @@ final class UploadSupersessionResolver
             return $accepted[0];
         }
 
-        $expected = $assessment?->expectedSubject();
-        if ($expected instanceof PhotoSubject && is_array($accepted) && count($accepted) === 1) {
-            return $expected;
-        }
-
         // Ambiguous (multiple accepted subjects, no detection): do not supersede.
         if (is_array($accepted) && count($accepted) > 1) {
             return null;
         }
 
+        $expected = $assessment?->expectedSubject();
         if ($expected instanceof PhotoSubject) {
             return $expected;
         }
@@ -394,12 +390,22 @@ final class UploadSupersessionResolver
             ?? PhotoSubject::expectedFromDecisionArea($task?->decision_area_key);
     }
 
+    /**
+     * Wizard uploads: subject from the question (never detected — a wrong_subject
+     * verdict must not re-scope the original ask). Follow-up uploads: detected first.
+     */
     private function photoSubjectForUpload(IntakeUpload $upload): ?PhotoSubject
     {
         $assessment = $upload->contentAssessment();
 
-        return $assessment?->detectedSubject()
-            ?? PhotoSubject::expectedForPhotoQuestion($upload->question_key)
+        if ($upload->intake_follow_up_item_id !== null
+            || $upload->followUpItem instanceof IntakeFollowUpItem) {
+            return $assessment?->detectedSubject()
+                ?? PhotoSubject::expectedForPhotoQuestion($upload->question_key)
+                ?? $assessment?->expectedSubject();
+        }
+
+        return PhotoSubject::expectedForPhotoQuestion($upload->question_key)
             ?? $assessment?->expectedSubject();
     }
 

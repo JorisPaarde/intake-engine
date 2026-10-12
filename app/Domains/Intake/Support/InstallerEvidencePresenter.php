@@ -518,20 +518,35 @@ final class InstallerEvidencePresenter
         return $first instanceof IntakeUpload ? $first : null;
     }
 
+    /**
+     * Wizard: expected from question key (never detected). Follow-up: detected first.
+     * Same order as UploadSupersessionResolver::photoSubjectForUpload.
+     */
     private function sameCitationPhotoSubject(IntakeUpload $a, IntakeUpload $b): bool
     {
-        $subjectA = $a->contentAssessment()?->detectedSubject()
-            ?? PhotoSubject::expectedForPhotoQuestion($a->question_key)
-            ?? $a->contentAssessment()?->expectedSubject();
-        $subjectB = $b->contentAssessment()?->detectedSubject()
-            ?? PhotoSubject::expectedForPhotoQuestion($b->question_key)
-            ?? $b->contentAssessment()?->expectedSubject();
+        $subjectA = $this->citationPhotoSubject($a);
+        $subjectB = $this->citationPhotoSubject($b);
 
         if (! $subjectA instanceof PhotoSubject || ! $subjectB instanceof PhotoSubject) {
             return false;
         }
 
         return $subjectA === $subjectB;
+    }
+
+    private function citationPhotoSubject(IntakeUpload $upload): ?PhotoSubject
+    {
+        $assessment = $upload->contentAssessment();
+
+        if ($upload->intake_follow_up_item_id !== null
+            || $upload->followUpItem instanceof IntakeFollowUpItem) {
+            return $assessment?->detectedSubject()
+                ?? PhotoSubject::expectedForPhotoQuestion($upload->question_key)
+                ?? $assessment?->expectedSubject();
+        }
+
+        return PhotoSubject::expectedForPhotoQuestion($upload->question_key)
+            ?? $assessment?->expectedSubject();
     }
 
     private function resolveFact(Intake $intake, string $reference, ?string $factKey): ?IntakeExternalFact

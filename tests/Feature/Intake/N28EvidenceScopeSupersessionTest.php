@@ -198,6 +198,48 @@ test('N28: power fusebox subtype follow-up still replaces wizard fusebox', funct
     'fusebox',
 ]);
 
+test('N28: wizard fusebox with wrong_subject detection still superseded by fusebox follow-up', function () {
+    $user = User::factory()->create();
+    $intake = n28Intake($user);
+
+    $wizard = app(StoreIntakeUpload::class)->handle(
+        $intake,
+        'fusebox_photo',
+        null,
+        UploadedFile::fake()->image('meterkast-wrong.jpg', 640, 480),
+    );
+    $wizard->update([
+        'assessment_status' => PhotoAssessmentStatus::Assessed,
+        'content_assessment' => PhotoContentAssessment::wrongSubject(
+            PhotoSubject::Fusebox,
+            PhotoSubject::PipeRoute,
+            'fusebox_photo',
+        )->toArray(),
+        'usability_verdict' => PhotoUsabilityVerdict::Ok,
+    ]);
+
+    $round = app(CreateCustomerContributionRequest::class)->handle($intake->fresh(), $user, [[
+        'type' => FollowUpItemType::Photo,
+        'prompt' => 'Maak een leesbare foto van de volledige meterkast.',
+        'decision_area_key' => 'power',
+        'dossier_subject_id' => null,
+        'photo_task_subtype' => 'fusebox',
+        'meta' => PhotoSubject::photoTaskMetaForSubtype('fusebox'),
+    ]]);
+
+    $item = $round->items()->firstOrFail();
+    $replacement = n28FollowUpUpload($intake, (int) $item->id, 'meterkast-goed.jpg');
+    n28MarkOk($replacement, PhotoSubject::Fusebox);
+    n28CompleteRound($round, $replacement);
+    $intake->update(['status' => IntakeStatus::InProgress]);
+
+    $supersessions = app(UploadSupersessionResolver::class)->resolve($intake->fresh());
+
+    expect($supersessions[(int) $wizard->id]['superseded'])->toBeTrue()
+        ->and($supersessions[(int) $wizard->id]['supersession_label'])->toBe('Vervangen door ronde 1')
+        ->and($supersessions[(int) $wizard->id]['replaced_by_upload_id'])->toBe((int) $replacement->id);
+});
+
 test('N28: condensate follow-up outdoor photo does not supersede wizard fusebox', function () {
     $user = User::factory()->create();
     $intake = n28Intake($user);
