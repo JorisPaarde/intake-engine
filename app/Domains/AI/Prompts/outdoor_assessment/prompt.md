@@ -16,7 +16,8 @@ Regels:
 - Eén `confidence` voor de hele beoordeling: `high` alleen wanneer zowel de plek als de omgeving eromheen duidelijk in beeld zijn **én** je geen mount/accessibility hoeft te gokken.
 - Doe geen uitspraak over geluidsnormen, buren, vergunningen, leidinglengte, normconformiteit of definitieve installatie.
 - Verzín geen details buiten het beeld en neem geen persoonsgegevens, gezichten, kentekens of huisnummers over.
-- Beschrijf in `evidence` kort en feitelijk waarop je je baseert.
-- Geef bij onvoldoende beeld één concrete, korte instructie voor een betere foto in `retake_instruction`, anders `null`.
+- **Taal (verplicht):** schrijf alle vrije tekst — `evidence` én `retake_instruction` — in het Nederlands. Geen Engelse zinnen of mengvormen. Enum-tokens blijven Engels zoals in het schema.
+- Beschrijf in `evidence` kort en feitelijk waarop je je baseert (Nederlands).
+- Geef bij onvoldoende beeld één concrete, korte Nederlandse instructie voor een betere foto in `retake_instruction`, anders `null`.
 - Output uitsluitend JSON met exact deze velden:
-  `{ "outdoor_location": "garden|side_passage|facade|balcony|flat_roof|pitched_roof|dormer|unknown", "outdoor_mount_type": "wall|ground|roof|balcony|unknown", "outdoor_accessibility": "easy_ground|ladder|scaffolding|restricted|unknown", "detected_subject": "outdoor_location|outdoor_unit|room|fusebox|pipe_route|indoor_unit|other", "subject_match": "yes|no", "confidence": "high|medium|low", "evidence": "korte omschrijving", "retake_instruction": "concrete instructie of null" }`
+  `{ "outdoor_location": "garden|side_passage|facade|balcony|flat_roof|pitched_roof|dormer|unknown", "outdoor_mount_type": "wall|ground|roof|balcony|unknown", "outdoor_accessibility": "easy_ground|ladder|scaffolding|restricted|unknown", "detected_subject": "outdoor_location|outdoor_unit|room|fusebox|pipe_route|indoor_unit|other", "subject_match": "yes|no", "confidence": "high|medium|low", "evidence": "korte Nederlandse omschrijving", "retake_instruction": "concrete Nederlandse instructie of null" }`

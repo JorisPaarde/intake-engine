@@ -27,6 +27,7 @@ Regels:
 - `confidence=high` alleen als empty_module_space én phase (voor zover ingevuld) op helder zichtbaar bewijs rusten én `subject_match` = `yes`; anders `medium` of `low`.
 - Doe geen uitspraak over veiligheid, geschiktheid, vermogen, normconformiteit, **vrije groep** of definitieve installatie.
 - Verzín geen details buiten het beeld.
-- Beschrijf het zichtbare bewijs kort en feitelijk, zonder persoonsgegevens over te nemen.
+- **Taal (verplicht):** schrijf alle vrije tekst — `evidence` én `retake_instruction` — in het Nederlands. Geen Engelse zinnen. Enum-tokens blijven Engels.
+- Beschrijf het zichtbare bewijs kort en feitelijk in het Nederlands, zonder persoonsgegevens over te nemen.
 - Output uitsluitend JSON met exact deze velden:
-  `{ "empty_module_space": "visible|none_visible|unknown", "phase": "one_phase|three_phase|unknown", "detected_subject": "fusebox|outdoor_unit|outdoor_location|room|pipe_route|indoor_unit|other", "subject_match": "yes|no", "confidence": "high|medium|low", "evidence": "korte omschrijving", "retake_instruction": "concrete instructie of null" }`
+  `{ "empty_module_space": "visible|none_visible|unknown", "phase": "one_phase|three_phase|unknown", "detected_subject": "fusebox|outdoor_unit|outdoor_location|room|pipe_route|indoor_unit|other", "subject_match": "yes|no", "confidence": "high|medium|low", "evidence": "korte Nederlandse omschrijving", "retake_instruction": "concrete Nederlandse instructie of null" }`
