@@ -376,3 +376,103 @@ test('N27: pending dossier synthesis without placements shows neutral updating s
     expect($html)->not->toContain('data-testid="detail-next-action-cta"')
         ->and($html)->not->toContain('data-testid="customer-link-inactive-cta"');
 });
+
+test('review form does not check voldoende informatie by default and hides duplicate locatiebezoek', function () {
+    $this->withoutVite();
+    $user = User::factory()->create();
+    $intake = makeDetailUxIntake($user);
+    $intake->update([
+        'status' => IntakeStatus::Completed,
+        'completed_at' => now(),
+    ]);
+
+    $html = $this->actingAs($user)
+        ->get(route('intakes.show', $intake))
+        ->assertOk()
+        ->assertSee('data-testid="review-form"', false)
+        ->assertSee('data-testid="review-enough-information"', false)
+        ->getContent();
+
+    expect($html)->toMatch('/data-testid="review-enough-information"[\s\S]*?<input[^>]*name="enough_information"[^>]*>/')
+        ->and($html)->not->toMatch('/name="enough_information"[^>]*checked/')
+        ->and($html)->toContain("decision === 'site_visit_needed'")
+        ->and($html)->toContain('data-testid="review-site-visit-needed"');
+});
+
+test('review summary omits separate locatiebezoek row when decision is site visit needed', function () {
+    $this->withoutVite();
+    $user = User::factory()->create();
+    $intake = makeDetailUxIntake($user);
+    $intake->update([
+        'status' => IntakeStatus::Completed,
+        'completed_at' => now(),
+    ]);
+
+    app(SubmitIntakeReview::class)->handle($intake->fresh(), $user, [
+        'decision' => ReviewDecision::SiteVisitNeeded,
+        'site_visit_needed' => true,
+        'enough_information' => false,
+        'summary' => 'Op locatie bekijken.',
+    ]);
+
+    $html = $this->actingAs($user)
+        ->get(route('intakes.show', $intake->fresh()))
+        ->assertOk()
+        ->assertSee('data-testid="review-summary"', false)
+        ->assertSee('Locatiebezoek nodig', false)
+        ->getContent();
+
+    // Beslissing toont het label; geen aparte Ja/Nee-rij in de samenvatting.
+    expect($html)->toMatch('/data-testid="review-summary"[\s\S]*?<dd class="text-gray-900">Locatiebezoek nodig<\/dd>/')
+        ->and($html)->not->toMatch('/data-testid="review-summary"[\s\S]*?<dt class="text-gray-500">Locatiebezoek nodig<\/dt>/');
+});
+
+test('after follow-up clears reviewed_at, show page marks previous review as stale', function () {
+    $this->withoutVite();
+    $user = User::factory()->create();
+    $intake = makeDetailUxIntake($user, [
+        'workflow_mode' => ContributionMode::Hybrid,
+    ]);
+    $intake->update([
+        'status' => IntakeStatus::Completed,
+        'completed_at' => now(),
+    ]);
+
+    app(SubmitIntakeReview::class)->handle($intake->fresh(), $user, [
+        'decision' => ReviewDecision::PrepareQuote,
+        'summary' => 'Eerste beoordeling.',
+        'enough_information' => true,
+    ]);
+
+    $intake->fresh()->update([
+        'reviewed_at' => null,
+        'status' => IntakeStatus::Completed,
+    ]);
+
+    $html = $this->actingAs($user)
+        ->get(route('intakes.show', $intake->fresh(['review', 'followUpRounds'])))
+        ->assertOk()
+        ->assertSee('data-testid="review-stale-before-round"', false)
+        ->assertSee('Vorige beslissing', false)
+        ->getContent();
+
+    expect($html)->toContain('beoordeel opnieuw')
+        ->and($html)->not->toContain('Je koos ‘Offerte voorbereiden’');
+});
+
+test('review form shows follow-up round limit up front', function () {
+    $this->withoutVite();
+    $user = User::factory()->create();
+    $intake = makeDetailUxIntake($user);
+    $intake->update([
+        'status' => IntakeStatus::Completed,
+        'completed_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('intakes.show', $intake))
+        ->assertOk()
+        ->assertSee('data-testid="review-follow-up-round-limit"', false)
+        ->assertSee('Maximaal 3 aanvullende rondes', false)
+        ->assertSee('0 van 3 gebruikt', false);
+});

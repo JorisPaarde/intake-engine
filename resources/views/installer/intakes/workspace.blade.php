@@ -1146,7 +1146,8 @@
 
                                                     @if ($connection->routeSession)
                                                         <div class="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 pt-3">
-                                                            <p class="text-xs font-semibold text-gray-700">{{ $connection->routeSession->segments->count() }} routesegment(en)</p>
+                                                            @php $segmentCount = $connection->routeSession->segments->count(); @endphp
+                                                            <p class="text-xs font-semibold text-gray-700">{{ $segmentCount }} {{ $segmentCount === 1 ? 'routesegment' : 'routesegmenten' }}</p>
                                                             <p class="text-xs text-gray-500">{{ $connection->routeSession->status->label() }}</p>
                                                         </div>
                                                         @if ($connection->routeSession->next_photo_instruction)
@@ -1347,10 +1348,18 @@
                     </section>
 
                     {{-- Conceptlijst: Vraag de klant voegt toe; versturen activeert één ronde (max 5). --}}
-                    <section id="demo-customer-task" @class([
-                        'scroll-mt-36 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm',
-                        'hidden target:block' => $proposedCustomerTasks->isEmpty() && ! $hasCustomerTaskDraft,
-                    ])>
+                    @php
+                        $maxCustomerRounds = (int) config('intake.follow_up.max_rounds', 3);
+                        $usedCustomerRounds = $intake->followUpRounds->count();
+                        $customerRoundsExhausted = $usedCustomerRounds >= $maxCustomerRounds;
+                        $customerTaskFormErrors = $errors->has('contribution_items')
+                            || collect($errors->keys())->contains(
+                                static fn (string $key): bool => str_starts_with($key, 'contribution_items.'),
+                            );
+                        $openCustomerTaskDetails = $hasCustomerTaskDraft || $customerTaskFormErrors;
+                    @endphp
+                    {{-- Altijd zichtbaar: rondelimiet hoort vooraf zichtbaar te zijn, niet pas na submit. --}}
+                    <section id="demo-customer-task" class="scroll-mt-36 rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
                         <h3 class="font-semibold text-gray-950">Taak voor de klant</h3>
                         <p class="mt-1 text-sm text-gray-500">
                             @if ($hasCustomerTaskDraft)
@@ -1362,6 +1371,31 @@
                                 Geen e-mail in de demo.
                             @endif
                         </p>
+                        <p class="mt-2 text-xs text-gray-500" data-testid="customer-round-limit">
+                            Maximaal {{ $maxCustomerRounds }} klantrondes
+                            ({{ $usedCustomerRounds }} van {{ $maxCustomerRounds }} gebruikt).
+                        </p>
+                        @if ($customerRoundsExhausted)
+                            <p class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950" data-testid="customer-round-limit-exhausted" role="status">
+                                Limiet van {{ $maxCustomerRounds }} klantrondes bereikt. Kies nu gericht contact of een locatiebezoek.
+                            </p>
+                        @endif
+                        @if ($customerTaskFormErrors)
+                            <div class="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900" role="alert" data-testid="customer-task-form-errors">
+                                <ul class="list-disc space-y-1 pl-5">
+                                    @foreach ($errors->get('contribution_items') as $message)
+                                        <li>{{ $message }}</li>
+                                    @endforeach
+                                    @foreach ($errors->getMessages() as $key => $messages)
+                                        @if (str_starts_with((string) $key, 'contribution_items.'))
+                                            @foreach ($messages as $message)
+                                                <li>{{ $message }}</li>
+                                            @endforeach
+                                        @endif
+                                    @endforeach
+                                </ul>
+                            </div>
+                        @endif
                         @if ($proposedCustomerTasks->isNotEmpty())
                             <div class="mt-4 space-y-3">
                                 @foreach ($proposedCustomerTasks as $task)
@@ -1373,7 +1407,7 @@
                                         @endif
                                         <form method="POST" action="{{ route('intakes.workspace.tasks.send', [$intake, $task]) }}" class="mt-3">
                                             @csrf
-                                            <button class="min-h-10 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white">
+                                            <button class="min-h-10 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white" @disabled($customerRoundsExhausted)>
                                                 {{ $intake->is_demo ? 'Controleren en klantweergave activeren' : 'Controleren en versturen' }}
                                             </button>
                                         </form>
@@ -1381,7 +1415,7 @@
                                 @endforeach
                             </div>
                         @endif
-                        <details class="mt-4 rounded-2xl border border-gray-200 bg-gray-50 p-4" @if ($hasCustomerTaskDraft) open @endif>
+                        <details class="mt-4 rounded-2xl border border-gray-200 bg-gray-50 p-4" @if ($openCustomerTaskDetails) open @endif data-testid="customer-task-details">
                             <summary class="-my-3 cursor-pointer py-3 text-sm font-semibold text-gray-900">
                                 {{ $hasCustomerTaskDraft ? 'Conceptlijst controleren en versturen' : 'Klanttaak maken' }}
                             </summary>
@@ -1395,6 +1429,9 @@
                                     @endforeach
                                 </div>
                             @endif
+                            @if ($customerRoundsExhausted)
+                                <p class="mt-3 text-sm text-amber-900">Je kunt geen nieuwe klanttaak meer versturen.</p>
+                            @else
                             <form method="POST" action="{{ route('intakes.workspace.tasks.store', $intake) }}" class="mt-4 space-y-4" data-testid="customer-task-draft-form">
                                 @csrf
                                 @for ($index = 0; $index < $customerTaskDraftSlotCount; $index++)
@@ -1432,6 +1469,7 @@
                                     {{ $intake->is_demo ? 'Klantweergave activeren' : 'Klanttaak maken en mailen' }}
                                 </x-primary-button>
                             </form>
+                            @endif
                         </details>
                     </section>
 
@@ -1481,7 +1519,8 @@
                                         <p class="eyebrow">AI-opnameassistent</p>
                                         <h3 class="mt-1 text-lg font-semibold text-gray-950">
                                             @if ($aiSectionOpen)
-                                                {{ count($aiExceptions) }} uitzondering(en) bekijken
+                                                @php $exceptionCount = count($aiExceptions); @endphp
+                                                {{ $exceptionCount }} {{ $exceptionCount === 1 ? 'uitzondering' : 'uitzonderingen' }} bekijken
                                             @elseif ($aiSynthesis)
                                                 AI-voorstel bekijken
                                             @elseif ($intake->aircoInstallationOptions->isEmpty())
@@ -1519,6 +1558,7 @@
                                                 @foreach ($aiExceptions as $exception)
                                                     @php
                                                         $exceptionLabel = is_string($exception['label'] ?? null) ? $exception['label'] : 'Onbekende uitzondering';
+                                                        $exceptionLabel = preg_replace('/\bm2\b/u', 'm²', $exceptionLabel) ?? $exceptionLabel;
                                                         $exceptionAreaKey = is_string($exception['decision_area_key'] ?? null) ? $exception['decision_area_key'] : null;
                                                         $exceptionAreaLabel = $exceptionAreaKey
                                                             ? \App\Domains\Intake\Services\DecisionReadinessService::areaLabel($exceptionAreaKey)
@@ -1619,7 +1659,8 @@
                                 @endif
                                 @if ($externalData['uncertainties'] !== [])
                                     <details class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
-                                        <summary class="cursor-pointer text-sm font-semibold text-amber-950">{{ count($externalData['uncertainties']) }} bronbeperking(en)</summary>
+                                        @php $uncertaintyCount = count($externalData['uncertainties']); @endphp
+                                        <summary class="cursor-pointer text-sm font-semibold text-amber-950">{{ $uncertaintyCount }} {{ $uncertaintyCount === 1 ? 'bronbeperking' : 'bronbeperkingen' }}</summary>
                                         <ul class="mt-2 list-disc space-y-1 pl-5 text-xs text-amber-900">
                                             @foreach ($externalData['uncertainties'] as $uncertainty)
                                                 <li>{{ $uncertainty }}</li>

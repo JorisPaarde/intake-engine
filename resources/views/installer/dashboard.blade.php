@@ -35,8 +35,64 @@
             @endif
 
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200 text-sm">
+                {{-- Mobiel: kaarten zodat status en Openen altijd zichtbaar zijn. --}}
+                <ul class="divide-y divide-gray-100 sm:hidden" data-testid="dashboard-intake-cards">
+                    @forelse ($intakes as $intake)
+                        <li @class([
+                            'px-4 py-4',
+                            'bg-amber-50/70' => $intake->isAwaitingReview(),
+                        ])>
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="min-w-0">
+                                    <p class="font-medium text-gray-900">{{ $intake->customer_name }}</p>
+                                    <p class="mt-0.5 truncate text-sm text-gray-600">{{ $intake->customer_email }}</p>
+                                    <div class="mt-2 flex flex-wrap items-center gap-2">
+                                        <span @class([
+                                            'inline-flex rounded px-2.5 py-0.5 text-xs font-medium',
+                                            'bg-amber-100 text-amber-900' => $intake->isAwaitingReview(),
+                                            'bg-gray-100 text-gray-800' => ! $intake->isAwaitingReview(),
+                                        ]) data-testid="dashboard-status-badge">
+                                            {{ $intake->status->label() }}
+                                        </span>
+                                        @if ($intake->isAwaitingReview())
+                                            <span class="inline-flex rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">
+                                                Nieuw afgerond
+                                            </span>
+                                        @endif
+                                        @if ($intake->is_demo)
+                                            <span class="inline-flex rounded bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-900">
+                                                Demo
+                                            </span>
+                                        @endif
+                                    </div>
+                                    <p class="mt-2 text-xs text-gray-500">
+                                        Klanttaak: {{ ($customerTaskStatuses[$intake->id] ?? null)['label'] ?? 'Nog niet gestart' }}
+                                    </p>
+                                </div>
+                                <a
+                                    href="{{ route('intakes.show', $intake) }}"
+                                    class="inline-flex min-h-11 shrink-0 items-center rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
+                                    data-testid="dashboard-open-link"
+                                >
+                                    Openen
+                                </a>
+                            </div>
+                        </li>
+                    @empty
+                        <li class="px-4 py-10 text-center text-sm text-gray-500">
+                            @if ($isPublicDemo ?? false)
+                                Nog geen opname. Start met <a href="{{ route('intakes.create') }}" class="font-medium text-indigo-600 hover:text-indigo-800">Nieuwe opname</a> — net als na een echte aanvraag.
+                            @elseif ($showingDemoIntakes)
+                                Nog geen demo-opnames. Start eerst de publieke demo vanaf de homepage.
+                            @else
+                                Nog geen opnames. Maak de eerste aan.
+                            @endif
+                        </li>
+                    @endforelse
+                </ul>
+
+                <div class="hidden overflow-x-auto sm:block">
+                    <table class="min-w-full divide-y divide-gray-200 text-sm" data-testid="dashboard-intake-table">
                         <thead class="bg-gray-50">
                             <tr>
                                 <th class="px-4 py-3 text-left font-medium text-gray-600">Klant</th>
