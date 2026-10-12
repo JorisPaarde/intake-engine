@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Domains\AI\Clients\FakeAiClient;
 use App\Domains\AI\DTOs\AiCompletionRequest;
 use App\Domains\AI\Support\E2eAiScenario;
+use App\Domains\Intake\Models\Intake;
 use App\Support\E2e\E2eScenarioFactory;
 use Database\Seeders\IntakeTemplateSeeder;
 
@@ -65,4 +66,20 @@ it('builds resume-after-known-edit scenario', function () {
     expect($resume['scenario'])->toBe('resume-after-known-edit')
         ->and($resume['target_question_key'])->toBe('cooling_heating')
         ->and($resume['access_token'])->toHaveLength(64);
+});
+
+it('builds N30 accessibility catch-up and N3 drain scenarios', function () {
+    $n30 = app(E2eScenarioFactory::class)->create('n30-accessibility-catchup');
+    expect($n30['scenario'])->toBe('n30-accessibility-catchup')
+        ->and($n30['target_question_key'])->toBe('noise_sensitive')
+        ->and($n30['access_token'])->toHaveLength(64);
+
+    $intake = Intake::query()->findOrFail($n30['intake_id']);
+    expect($intake->answers()->where('question_key', 'outdoor_accessibility')->exists())->toBeFalse()
+        ->and($intake->current_question_key)->toBe('noise_sensitive');
+
+    $n3 = app(E2eScenarioFactory::class)->create('n3-drain-choice-upload');
+    expect($n3['scenario'])->toBe('n3-drain-choice-upload')
+        ->and($n3['target_question_key'])->toBe('drain_location')
+        ->and($n3['access_token'])->toHaveLength(64);
 });

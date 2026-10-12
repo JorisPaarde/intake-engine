@@ -8,9 +8,7 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeSection;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
-use App\Domains\Intake\Support\FactAcceptance;
 use App\Domains\Intake\Support\FactProvenance;
-use App\Domains\Intake\Support\FactSource;
 use App\Domains\Intake\Support\InternalCustomerQuestions;
 use App\Domains\Intake\Support\KnownSummaryCatalog;
 use App\Domains\Intake\Support\MustAcceptQuestions;
@@ -362,9 +360,11 @@ final class IntakeStepBuilder
 
                 $visibleMembers = [];
                 $groupRequired = false;
+                $anyMemberForced = false;
                 foreach ($groupMembers as $member) {
                     $memberComposite = VisibilityResolver::compositeKey($member->key, $sectionInstanceKey);
                     $memberForce = in_array($memberComposite, $forceShowComposites, true);
+                    $anyMemberForced = $anyMemberForced || $memberForce;
                     $memberPresentation = $this->questionPresentation(
                         $member,
                         $sectionInstanceKey,
@@ -383,6 +383,20 @@ final class IntakeStepBuilder
                     continue;
                 }
 
+                $areaPresent = $this->roomAreaPresent($context, $sectionInstanceKey);
+                $areaTrusted = $areaPresent && $this->roomAreaTrusted($context, $sectionInstanceKey);
+
+                // Trusted m² (stated/request_text ≥ drempel) → geen L×B-scherm (tenzij sticky/Wijzigen).
+                // Onzekere AI-m² houdt het scherm zichtbaar maar optioneel (BL-124).
+                if ($wizardGroup === 'room_dimensions'
+                    && $areaTrusted
+                    && ! $anyMemberForced
+                    && ! $stickyKeep) {
+                    $emittedGroups[$wizardGroup] = true;
+
+                    continue;
+                }
+
                 $emittedGroups[$wizardGroup] = true;
                 $primary = $visibleMembers[0];
                 $instanceSuffix = $sectionInstanceKey === null ? '' : '::'.$sectionInstanceKey;
@@ -394,8 +408,8 @@ final class IntakeStepBuilder
                     ? (string) $primary->meta['wizard_group_help']
                     : $primary->help_text;
 
-                // When floor area (m²) is already known for this room, L×B stays optional.
-                if ($wizardGroup === 'room_dimensions' && $this->roomAreaKnown($context, $sectionInstanceKey)) {
+                // Bekende (ook onzekere) m²: L×B blijft optioneel op het scherm.
+                if ($wizardGroup === 'room_dimensions' && $areaPresent) {
                     $groupRequired = false;
                     if ($groupHelp === null || $groupHelp === '') {
                         $groupHelp = 'Het vloeroppervlak is al bekend. Lengte en breedte zijn optioneel.';
@@ -489,7 +503,10 @@ final class IntakeStepBuilder
      *     hasUsableOutdoorContext?: bool
      * }  $context
      */
-    private function roomAreaKnown(array $context, ?string $sectionInstanceKey): bool
+    /**
+     * @param  array{answers: array<string, array<string, mixed>|null>}  $context
+     */
+    private function roomAreaPresent(array $context, ?string $sectionInstanceKey): bool
     {
         $composite = VisibilityResolver::compositeKey('room_area_m2', $sectionInstanceKey);
         $value = $context['answers'][$composite] ?? null;
@@ -500,6 +517,49 @@ final class IntakeStepBuilder
         $number = $value['number'] ?? null;
 
         return is_numeric($number) && (float) $number > 0;
+    }
+
+    /**
+     * Trusted m² mag L×B stil overslaan (#176).
+     * Zonder fact-meta (legacy AI-fill) blijft L×B zichtbaar maar optioneel (BL-124).
+     *
+     * @param  array{
+     *     answers: array<string, array<string, mixed>|null>,
+     *     answerSources: array<string, string|null>,
+     *     answerFacts: array<string, array{provenance: ?string, confidence: ?int, fact_source: ?string}>
+     * }  $context
+     */
+    private function roomAreaTrusted(array $context, ?string $sectionInstanceKey): bool
+    {
+        if (! $this->roomAreaPresent($context, $sectionInstanceKey)) {
+            return false;
+        }
+
+        $composite = VisibilityResolver::compositeKey('room_area_m2', $sectionInstanceKey);
+        $value = $context['answers'][$composite] ?? null;
+        $source = $context['answerSources'][$composite] ?? null;
+
+        // Klant heeft zelf m² gezet (geen prefill) → betrouwbaar genoeg om L×B over te slaan.
+        if ($source === null) {
+            return true;
+        }
+
+        $fact = $context['answerFacts'][$composite] ?? null;
+        $provenance = FactProvenance::tryFromMixed($fact['provenance'] ?? null);
+
+        // Alleen letterlijk stated m² mag L×B verbergen (#176). AI/inferred houdt het scherm
+        // zichtbaar maar optioneel (BL-124), ook bij hoge default-confidence op ai_text.
+        if ($provenance !== FactProvenance::Stated) {
+            return false;
+        }
+
+        return PrefillSources::maySkipAsPrefill(
+            $source,
+            [PrefillSources::REQUEST_TEXT, PrefillSources::AI_TEXT, PrefillSources::AI_PHOTO, PrefillSources::AI_LEGACY, PrefillSources::DERIVED_LXW],
+            'room_area_m2',
+            $fact,
+            is_array($value) ? $value : null,
+        );
     }
 
     /**
@@ -627,7 +687,12 @@ final class IntakeStepBuilder
             );
         }
 
-        $prefilledSkipped = ! $forceShow && $this->isPrefillSkipped($question, $answerSource, $answerFact);
+        $prefilledSkipped = ! $forceShow && $this->isPrefillSkipped(
+            $question,
+            $answerSource,
+            $answerFact,
+            is_array($answerValue) ? $answerValue : null,
+        );
         $roomNameHidden = ! $forceShow
             && $question->key === 'room_name'
             && ! $this->shouldAskRoomName($context['answers'], $sectionInstanceKey);
@@ -678,47 +743,25 @@ final class IntakeStepBuilder
 
     /**
      * @param  array{provenance: ?string, confidence: ?int, fact_source: ?string}|null  $answerFact
+     * @param  array<string, mixed>|null  $answerValue
      */
-    private function isPrefillSkipped(IntakeQuestion $question, ?string $answerSource, ?array $answerFact = null): bool
-    {
+    private function isPrefillSkipped(
+        IntakeQuestion $question,
+        ?string $answerSource,
+        ?array $answerFact = null,
+        ?array $answerValue = null,
+    ): bool {
         // Eén bron of een lijst: `building_type` kan zowel uit de BAG als uit een
         // geregistreerd energielabel komen, en beide mogen de vraag laten vervallen.
         $skipSources = $question->meta['skip_when_prefilled_by'] ?? null;
         $skipSources = is_array($skipSources) ? $skipSources : [$skipSources];
 
-        if (! PrefillSources::shouldSkipPrefill($answerSource, $skipSources)) {
-            return false;
-        }
-
-        // Afgeleid / onder drempel: vraag stellen (met voorzet), nooit stil overslaan.
-        $provenance = FactProvenance::tryFromMixed($answerFact['provenance'] ?? null);
-        $factSource = FactSource::tryFrom((string) ($answerFact['fact_source'] ?? ''))
-            ?? FactAcceptance::sourceFrom($answerSource, $provenance);
-        $confidence = is_int($answerFact['confidence'] ?? null)
-            ? $answerFact['confidence']
-            : null;
-
-        if ($answerSource === PrefillSources::DERIVED_LXW) {
-            return $confidence === null || $confidence >= FactAcceptance::threshold($question->key);
-        }
-
-        // Legacy fills zonder confidence/provenance: blijf op oude skipgedrag voor request_text.
-        if ($answerSource === PrefillSources::REQUEST_TEXT && $answerFact === null) {
-            return true;
-        }
-
-        if ($provenance === null && $confidence === null && ($answerFact['fact_source'] ?? null) === null) {
-            // Oude antwoorden zonder fact-meta: alleen sterke niet-suggestion bronnen skippen.
-            return ! PrefillSources::isSuggestion($answerSource)
-                && $answerSource !== PrefillSources::AI_TEXT_SUGGESTION;
-        }
-
-        // Null provenance = legacy fill zonder meta: niet als inferred behandelen.
-        return FactAcceptance::countsAsKnown(
-            $confidence ?? ($provenance === FactProvenance::Stated ? FactAcceptance::LEVEL_HIGH : null),
-            $factSource,
-            $provenance,
+        return PrefillSources::maySkipAsPrefill(
+            $answerSource,
+            $skipSources,
             $question->key,
+            $answerFact,
+            $answerValue,
         );
     }
 

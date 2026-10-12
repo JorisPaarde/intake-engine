@@ -95,6 +95,22 @@ class IntakeWizard extends Component
     public array $form = [];
 
     /**
+     * Composites the customer touched this step (updated()). Prevents photo-refresh
+     * from wiping an in-flight choice before the DB row exists (N3/#183 race).
+     *
+     * @var array<string, true>
+     */
+    public array $dirtyFormComposites = [];
+
+    /**
+     * Question keys that reappeared after photo-invalidate while the customer was already past them (N30).
+     * Volgende jumps back only to these — never to unrelated early unanswered steps.
+     *
+     * @var array<string, true>
+     */
+    public array $catchUpQuestionKeys = [];
+
+    /**
      * Composite key → one file or a list (multiselect, BL-021).
      *
      * @var array<string, TemporaryUploadedFile|array<int, TemporaryUploadedFile>|null>
@@ -907,6 +923,7 @@ class IntakeWizard extends Component
             $field = $matches[2];
 
             unset($this->prefillNotice[$composite]);
+            $this->dirtyFormComposites[$composite] = true;
             $this->persistComposite($composite);
             $this->saveMessage = 'Opgeslagen';
             $this->showMissing = false;
@@ -918,6 +935,7 @@ class IntakeWizard extends Component
 
         if (preg_match('/^(.*)\.values(?:\.\d+)?$/', $remainder, $matches) === 1) {
             unset($this->prefillNotice[$matches[1]]);
+            $this->dirtyFormComposites[$matches[1]] = true;
             $this->persistComposite($matches[1]);
             $this->saveMessage = 'Opgeslagen';
             $this->showMissing = false;
@@ -2144,6 +2162,8 @@ class IntakeWizard extends Component
     private function uploadPhotosForComposite(string $composite, array $files): void
     {
         $this->finalizePendingWizardRemoval();
+        // N3: keuzes op hetzelfde groepscherm eerst vastzetten vóór foto-refresh.
+        $this->persistCurrentGroupNonPhotoFields();
 
         $maxKb = (int) ceil(PhotoUploadLimits::hardMaxBytes() / 1024);
         [$questionKey, $instanceKey] = $this->splitComposite($composite);
@@ -2481,6 +2501,7 @@ class IntakeWizard extends Component
             return;
         }
 
+        $beforeKeys = $this->presentDerivedQuestionKeys($profile, $instanceKey);
         app(DerivePhotoAnswers::class)->handle(
             $this->intake(),
             $questionKey,
@@ -2488,6 +2509,7 @@ class IntakeWizard extends Component
             $profile,
             correlationId: $correlationId,
         );
+        $this->markCatchUpForLostDerivedAnswers($beforeKeys, $instanceKey);
         $this->applyPhotoDerivation($instanceKey, $profile);
     }
 
@@ -2510,12 +2532,85 @@ class IntakeWizard extends Component
         $profile = PhotoDerivationProfile::find($profileName);
 
         if ($profile instanceof PhotoDerivationProfile) {
+            $beforeKeys = $this->presentDerivedQuestionKeys($profile, $instanceKey);
             app(DerivePhotoAnswers::class)->invalidateDerivedState(
                 $this->intake(),
                 $questionKey,
                 $instanceKey,
                 $profile,
             );
+            $this->markCatchUpForLostDerivedAnswers($beforeKeys, $instanceKey);
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function presentDerivedQuestionKeys(PhotoDerivationProfile $profile, ?string $instanceKey): array
+    {
+        $keys = [];
+        foreach ($profile->questionKeys() as $derivedKey) {
+            $exists = $this->intake()->answers()
+                ->where('question_key', $derivedKey)
+                ->when(
+                    $instanceKey === null,
+                    static fn ($query) => $query->whereNull('section_instance_key'),
+                    static fn ($query) => $query->where('section_instance_key', $instanceKey),
+                )
+                ->exists();
+            if ($exists) {
+                $keys[] = $derivedKey;
+            }
+        }
+
+        return $keys;
+    }
+
+    /**
+     * @param  list<string>  $beforeKeys
+     */
+    private function markCatchUpForLostDerivedAnswers(array $beforeKeys, ?string $instanceKey): void
+    {
+        if ($beforeKeys === []) {
+            return;
+        }
+
+        // Verse step-lijst ná invalidate: verdwenen prefill kan weer zichtbaar zijn.
+        $this->forgetIntakeDerivedCaches();
+        $steps = $this->steps();
+        $currentKey = $this->displayedStepKey($steps) ?? $this->activeStepKey;
+        $currentIdx = $currentKey !== ''
+            ? app(IntakeStepBuilder::class)->indexForStepKey($steps, $currentKey)
+            : null;
+
+        foreach ($beforeKeys as $derivedKey) {
+            $stillThere = $this->intake()->answers()
+                ->where('question_key', $derivedKey)
+                ->when(
+                    $instanceKey === null,
+                    static fn ($query) => $query->whereNull('section_instance_key'),
+                    static fn ($query) => $query->where('section_instance_key', $instanceKey),
+                )
+                ->exists();
+            if ($stillThere) {
+                continue;
+            }
+
+            $derivedStepIndex = null;
+            foreach ($steps as $idx => $step) {
+                if ($step['question_key'] === $derivedKey
+                    && ($step['section_instance_key'] ?? null) === $instanceKey) {
+                    $derivedStepIndex = $idx;
+                    break;
+                }
+            }
+
+            // Marker ook als de stap net terug is maar we de huidige index nog niet kennen —
+            // de klant was al verder (activeStepKey gezet); catch-up bij Volgende.
+            if ($derivedStepIndex !== null
+                && ($currentIdx === null || $derivedStepIndex < $currentIdx)) {
+                $this->catchUpQuestionKeys[$derivedKey] = true;
+            }
         }
     }
 
@@ -2540,6 +2635,9 @@ class IntakeWizard extends Component
         ?string $instanceKey,
         PhotoDerivationProfile $profile,
     ): void {
+        // N3: klantkeuze op groepscherm behouden vóór refresh van afgeleide velden.
+        $this->persistCurrentGroupNonPhotoFields();
+
         foreach ($profile->questionKeys() as $questionKey) {
             $composite = VisibilityResolver::compositeKey($questionKey, $instanceKey);
             $this->refreshAnswerInForm($composite);
@@ -3187,9 +3285,40 @@ class IntakeWizard extends Component
             return;
         }
 
+        // N30: verplichte open vraag achter de cursor (bijv. na foto-invalidate) eerst tonen —
+        // nooit pas via de afrondingsfout. Verse antwoorden/form vóór de check.
+        $this->forgetIntakeDerivedCaches();
+        $steps = $this->steps();
+        $currentIndex = is_string($currentKey)
+            ? app(IntakeStepBuilder::class)->indexForStepKey($steps, $currentKey)
+            : $this->stepIndex;
+        if ($currentIndex !== null) {
+            $this->stepIndex = $currentIndex;
+        }
+        $this->hydrateFormFromAnswers();
+
+        $behindRequired = $this->indexOfFirstUnsatisfiedRequiredBefore(
+            $steps,
+            $currentIndex ?? $this->stepIndex,
+        );
+        if ($behindRequired !== null) {
+            $this->stepIndex = $behindRequired;
+            $this->showAreaOnlyField = false;
+            $this->dirtyFormComposites = [];
+            $this->syncActiveStepKey($steps);
+            $this->rememberCurrentCursor();
+            $this->hydrateFormFromAnswers();
+            $this->applyPrefillForActiveStep();
+            $this->flushDeferredPhotoDerivationsForCurrentStep();
+            $this->saveMessage = '';
+
+            return;
+        }
+
         if ($this->stepIndex < count($steps) - 1) {
             $this->stepIndex = $this->stepIndex + 1;
             $this->showAreaOnlyField = false;
+            $this->dirtyFormComposites = [];
             $this->syncActiveStepKey($steps);
             $this->rememberCurrentCursor();
             $this->hydrateFormFromAnswers();
@@ -3618,7 +3747,54 @@ class IntakeWizard extends Component
         }
 
         $answer = $query->first();
-        $this->form[$composite] = $answer === null ? [] : ($answer->value ?? []);
+        if ($answer === null) {
+            // N3/#183: lege DB mag een net aangeraakte klantkeuze niet wissen; wél AI-prefill
+            // die al was weggehaald (geen dirty-markering) wissen zodat die niet als klantantwoord
+            // terugkomt bij Volgende.
+            if (($this->dirtyFormComposites[$composite] ?? false) === true) {
+                return;
+            }
+            $this->form[$composite] = [];
+
+            return;
+        }
+
+        $this->form[$composite] = $answer->value ?? [];
+        // DB is bron van waarheid; dirty-markering mag weg.
+        unset($this->dirtyFormComposites[$composite]);
+    }
+
+    /**
+     * Persist non-photo fields on the current question_group before photo work can refresh form.
+     */
+    private function persistCurrentGroupNonPhotoFields(): void
+    {
+        $step = $this->currentStep();
+        if ($step === null || ($step['kind'] ?? 'question') !== 'question_group') {
+            return;
+        }
+
+        $reader = app(AnswerValueReader::class);
+        foreach ($step['group_question_keys'] ?? [] as $groupKey) {
+            $groupQuestion = app(IntakeStepBuilder::class)->questionForStep(
+                $this->version(),
+                $step['section_key'],
+                $groupKey,
+            );
+            if (! $groupQuestion instanceof IntakeQuestion || $groupQuestion->type === QuestionType::Photo) {
+                continue;
+            }
+            $composite = VisibilityResolver::compositeKey($groupQuestion->key, $step['section_instance_key']);
+            // Alleen klant-dirty velden — AI-prefill niet stil als klantantwoord vastzetten (P1-3).
+            if (($this->dirtyFormComposites[$composite] ?? false) !== true) {
+                continue;
+            }
+            $payload = is_array($this->form[$composite] ?? null) ? $this->form[$composite] : [];
+            if (! $reader->isFilled($payload, $groupQuestion->type)) {
+                continue;
+            }
+            $this->persistComposite($composite);
+        }
     }
 
     private function persistComposite(string $composite): void
@@ -4515,6 +4691,38 @@ class IntakeWizard extends Component
             if (! $this->stepRequiredSatisfied($step)) {
                 return $index;
             }
+        }
+
+        return null;
+    }
+
+    /**
+     * Eerste verplichte open catch-up-stap strikt vóór $beforeIndex (N30).
+     * Alleen keys in catchUpQuestionKeys (gezet bij foto-invalidate).
+     *
+     * @param  list<array<string, mixed>>  $steps
+     */
+    private function indexOfFirstUnsatisfiedRequiredBefore(array $steps, int $beforeIndex): ?int
+    {
+        if ($this->catchUpQuestionKeys === []) {
+            return null;
+        }
+
+        $limit = min($beforeIndex, count($steps));
+        for ($index = 0; $index < $limit; $index++) {
+            $step = $steps[$index] ?? null;
+            if (! is_array($step)) {
+                continue;
+            }
+            $questionKey = $step['question_key'] ?? null;
+            if (! is_string($questionKey) || ! isset($this->catchUpQuestionKeys[$questionKey])) {
+                continue;
+            }
+            if (! $this->stepRequiredSatisfied($step)) {
+                return $index;
+            }
+            // Vraag is weer beantwoord — catch-up-markering mag weg.
+            unset($this->catchUpQuestionKeys[$questionKey]);
         }
 
         return null;

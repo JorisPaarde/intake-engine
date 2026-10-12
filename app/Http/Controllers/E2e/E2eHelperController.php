@@ -54,6 +54,27 @@ final class E2eHelperController
         ]);
     }
 
+    public function answers(int $intakeId): JsonResponse
+    {
+        $this->guard();
+
+        $intake = Intake::query()->findOrFail($intakeId);
+        $intake->loadMissing('answers');
+
+        return response()->json([
+            'intake_id' => $intake->id,
+            'answers' => $intake->answers
+                ->map(static fn ($answer): array => [
+                    'question_key' => $answer->question_key,
+                    'section_instance_key' => $answer->section_instance_key,
+                    'value' => $answer->value,
+                    'prefill_source' => $answer->prefill_source,
+                ])
+                ->values()
+                ->all(),
+        ]);
+    }
+
     private function guard(): void
     {
         if (! (bool) config('ai.e2e_helpers_enabled', false)) {

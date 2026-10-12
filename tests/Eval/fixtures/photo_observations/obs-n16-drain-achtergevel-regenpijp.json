@@ -1,0 +1,28 @@
+{
+  "id": "obs-n16-drain-achtergevel-regenpijp",
+  "kind": "photo_observation",
+  "origin": "IE-testronde 11 okt N16/#188 (Codex-klant hoofdwizard)",
+  "source_kind": "reconstructed",
+  "slot": "drain_photo",
+  "room": null,
+  "text": "Achtergevel met zichtbare regenpijp en goot; geen bestaande buitenunit. Condensafvoer kan hier buiten lozen.",
+  "model_fields": {
+    "drain_location": "outside_nearby",
+    "detected_subject": "outdoor_location",
+    "subject_match": "yes",
+    "confidence": "high",
+    "retake_instruction": null
+  },
+  "expected": {
+    "drain_location": "outside_nearby",
+    "subject_match": true,
+    "retake_mentions_outdoor_unit": false,
+    "profile": "drain"
+  },
+  "components": [
+    "C5",
+    "C7"
+  ],
+  "note": "N16: afvoerfoto met achtergevel+regenpijp moet OK zijn zonder buitenunit-retake. Promptwijziging volgt op echte eval-baseline (ADR-0016); deze fixture legt de verwachting vast.",
+  "disputed_facts": {}
+}

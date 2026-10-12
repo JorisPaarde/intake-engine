@@ -168,6 +168,83 @@ final class PrefillSources
     }
 
     /**
+     * Mag deze prefill de klantvraag stil overslaan? Gedeeld door step-builder en
+     * ProgressCalculator/CompletenessChecker (zelfde definitie van overslaanbaar).
+     *
+     * AI-waarde `unknown` mag nooit een verplichte vraag laten vervallen.
+     *
+     * @param  list<mixed>  $skipSources  template meta skip_when_prefilled_by
+     * @param  array{provenance: ?string, confidence: ?int, fact_source: ?string}|null  $answerFact
+     * @param  array<string, mixed>|null  $answerValue
+     */
+    public static function maySkipAsPrefill(
+        ?string $answerSource,
+        array $skipSources,
+        ?string $questionKey = null,
+        ?array $answerFact = null,
+        ?array $answerValue = null,
+    ): bool {
+        if (! self::shouldSkipPrefill($answerSource, $skipSources)) {
+            return false;
+        }
+
+        // AI-unknown is geen antwoord: vraag blijft staan.
+        if (self::isAiUnknownChoice($answerSource, $answerValue)) {
+            return false;
+        }
+
+        $provenance = FactProvenance::tryFromMixed($answerFact['provenance'] ?? null);
+        $factSource = FactSource::tryFrom((string) ($answerFact['fact_source'] ?? ''))
+            ?? FactAcceptance::sourceFrom($answerSource, $provenance);
+        $confidence = is_int($answerFact['confidence'] ?? null)
+            ? $answerFact['confidence']
+            : null;
+
+        if ($answerSource === self::DERIVED_LXW) {
+            return $confidence === null || $confidence >= FactAcceptance::threshold($questionKey);
+        }
+
+        // Legacy fills zonder confidence/provenance: blijf op oude skipgedrag voor request_text.
+        if ($answerSource === self::REQUEST_TEXT && $answerFact === null) {
+            return true;
+        }
+
+        if ($provenance === null && $confidence === null && ($answerFact['fact_source'] ?? null) === null) {
+            // Oude antwoorden zonder fact-meta: alleen sterke niet-suggestion bronnen skippen.
+            return ! self::isSuggestion($answerSource)
+                && $answerSource !== self::AI_TEXT_SUGGESTION;
+        }
+
+        // Null provenance = legacy fill zonder meta: niet als inferred behandelen.
+        return FactAcceptance::countsAsKnown(
+            $confidence ?? ($provenance === FactProvenance::Stated ? FactAcceptance::LEVEL_HIGH : null),
+            $factSource,
+            $provenance,
+            $questionKey,
+        );
+    }
+
+    /**
+     * AI-/suggestiebron met single-choice `unknown` — geen bruikbaar antwoord.
+     *
+     * @param  array<string, mixed>|null  $answerValue
+     */
+    public static function isAiUnknownChoice(?string $answerSource, ?array $answerValue): bool
+    {
+        if ($answerSource === null || $answerValue === null) {
+            return false;
+        }
+
+        if (! self::isStrongAi($answerSource) && ! self::isSuggestion($answerSource)) {
+            return false;
+        }
+
+        $choice = $answerValue['value'] ?? null;
+
+        return is_string($choice) && $choice === 'unknown';
+    }
+
+    /**
      * AI-aanname / voorzet: niet bevestigd door de klant (wizard mag om bevestiging vragen).
      */
     public static function isAssumption(?string $source): bool
