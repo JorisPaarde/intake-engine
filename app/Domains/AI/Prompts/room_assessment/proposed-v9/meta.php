@@ -7,5 +7,5 @@ declare(strict_types=1);
  */
 return [
     'version' => 'room-assessment-v9',
-    'description' => 'N44 voorstel (niet live): vrije tekst evidence/retake_instruction strikt Nederlands; enums ongewijzigd t.o.v. v8.',
+    'description' => 'Held-out alias van live room-assessment-v9 (N44 NL evidence).',
 ];

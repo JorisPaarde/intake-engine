@@ -1,0 +1,30 @@
+{
+  "id": "rt-n24-airco-voor-de-zomer-geen-functie",
+  "kind": "request_text",
+  "origin": "Notion N24: Alleen koelen voor-ingevuld terwijl aanvraag alleen airco/voor de zomer zegt",
+  "source_kind": "variant",
+  "text": "Wil airco in de woonkamer. Graag voor de zomer.",
+  "expected": {
+    "cooling_heating": null,
+    "indoor_unit_count": 1,
+    "existing_installation": {
+      "present": null
+    },
+    "rooms": [
+      {
+        "name": "Woonkamer",
+        "room_type": "living_room",
+        "floor_level": null
+      }
+    ]
+  },
+  "components": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C8"
+  ],
+  "note": "Geen expliciet koelen/verwarmen; 'voor de zomer' alleen mag cooling_heating niet vullen. Control met Alleen koelen: kt11-grote-slaapkamer-eerste-zolderslaapkamer-tweede.",
+  "disputed_facts": {}
+}

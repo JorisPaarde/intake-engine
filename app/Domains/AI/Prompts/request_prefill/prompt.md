@@ -3,7 +3,7 @@ Je krijgt bekende context van een airco-opname én de volledige vraagenset van d
 Doel:
 - Beoordeel per catalogusvraag of de bekende context die vraag al voldoende beantwoordt.
 - Vul alleen in wat letterlijk of met aan zekerheid grenzende waarschijnlijkheid volgt uit die context.
-- Gebruik uitsluitend `question_key`-waarden en keuze-`value`s die in `question_catalog` staan.
+- Gebruik uitsluitend `question_key`-waarden en keuze-`value`s die in `question_catalog` staan — **uitzondering:** top-level `existing_installation` (zie hieronder; geen catalogusvraag).
 - Bij latere context (nieuwe feiten of installateursobservaties) mag je eerder open gelaten vragen alsnog vullen; overschrijf geen menselijke antwoorden.
 
 Invoer:
@@ -14,7 +14,7 @@ Invoer:
 - `question_catalog`: secties met vragen, types en opties.
 
 Regels:
-- Verzin geen vragen, keys of opties buiten de catalogus.
+- Verzin geen vragen, keys of opties buiten de catalogus (behalve `existing_installation`).
 - Fotovragen staan niet in de catalogus en mag je niet invullen.
 - `request_reason` zelf niet opnieuw invullen.
 - Bij repeatable secties (bijv. ruimtes) gebruik je `section_instance_key` zoals `room-1`, `room-2`. Als je meerdere ruimtes vult, vul dan ook het aantal (`indoor_unit_count`) consistent.
@@ -24,6 +24,7 @@ Regels:
   - “Kinderkamer” / “Kind” / “kinderslaapkamer” → `room_name` “Kind” of “Kinderkamer” + bedroom;
   - “Woonkamer voor” → die naam letterlijk.
   Nooit twee kamers dezelfde generieke naam geven als de tekst ze onderscheidt. Zonder rolnaam mag je `room_name` weglaten.
+- **Ruimtetype vs verdieping:** “zolderslaapkamer”, “slaapkamer op zolder”, “slaapkamers op zolder” → `room_type` = `bedroom`. Zolder is de **verdieping** (`floor_level`), geen kamertype. Alleen `room_type` = `attic` wanneer de tekst een zolderruimte noemt **zonder** slaapkamer/woon-/werk-/kantoorfunctie (bijv. “zolderkamer” of “de zolder” als te koelen ruimte).
 - Gewenste binnenunitplek letterlijk overnemen in `preferred_indoor_location` per ruimte wanneer die key bestaat: “boven de bank aan de buitenmuur”, “op de lange wand naast het raam”. Alleen bij expliciet bewijs; verzin geen plek. Geen voorkeur → weglaten of cataloguswaarde voor “laat installateur kiezen”.
 - Verdieping per kamer: koppel `floor_level` **alleen** aan de ruimte waar de tekst die verdieping noemt. De server corrigeert dit **niet**.
   - “woonkamer op de begane grond en de slaapkamer op de eerste verdieping” → woonkamer `ground`, slaapkamer `1` — nooit dezelfde verdieping op beide.
@@ -36,12 +37,18 @@ Regels:
 - Plafondhoogte (“plafond 2,5 meter”, “hoogte 2,6”) → `ceiling_height_m` van díe ruimte.
 - Heb je wél L×B én m² en komen die niet overeen: vul alleen wat letterlijk klopt; verzamel geen conflict door beide te forceren.
 - Koelen én verwarmen → `cooling_heating` = `both`; alleen koelen → `cooling`; alleen verwarmen → `heating`.
-- **Geen intent uit afwezigheid van airco:** zinnen als “Nog geen airco”, “geen airco”, “nog geen unit”, “wil airco” zonder koel-/verwarmingsdoel → **geen** `cooling_heating`-fill. Alleen vullen bij expliciet koelen, verwarmen, of beide. De server weigert dit **niet** met keywords — jij moet de fill weglaten.
+- **Geen intent uit afwezigheid van airco of seizoen alleen:** zinnen als “Nog geen airco”, “geen airco”, “nog geen unit”, “wil airco”, “graag voor de zomer”, “voor de zomer” **zonder** expliciet koelen/verwarmen/te warm/koud → **geen** `cooling_heating`-fill. “Alleen koelen” / “koelen” / “te warm” wél. De server weigert dit **niet** met keywords — jij moet de fill weglaten.
 - Eigendom — altijd cataloguswaarden `owned` of `rented` (nooit “koop”/“huur” als value). De server scant de openingszin **niet** om eigendom te injecteren; als het token letterlijk staat, moet jij de fill leveren.
   - owned: “koop”, “koophuis”, “koopwoning”, “eigen woning”, “eigen huis”, “in eigendom”;
   - rented: “huur”, “huurwoning”, “huurhuis”, “we huren”, “wij huren”, “ik huur”.
   - Bij letterlijke koop/huur-token in `request_reason`: `provenance=stated`, `evidence` = exact dat token (bijv. `koopwoning`), `confidence=high`. Nooit weglaten of als `inferred` markeren als het woord letterlijk staat.
-- Bestaande airco alleen als de catalogus daar een vraag voor heeft: “er hangt al een split-unit”, “oude/bestaande/huidige airco”, merk+model. Verzin geen extra keys.
+- **Pandtype (`building_type`):** vul de catalogusoptie die letterlijk in de tekst staat — “hoekwoning” → `corner`, “tussenwoning” → `terraced`, “vrijstaand” → `detached`, “appartement” → `apartment`, “twee-onder-een-kap” → `semi_detached`. Nooit een ander pandtype gokken of een BAG-/registerfeit stil laten winnen over een letterlijk genoemd type in `request_reason`. Bij conflict bron vs tekst: toch de letterlijke tekst als fill (`stated`) met die quote als evidence; geen stille keuze voor tussenwoning.
+- **Bestaande installatie (`existing_installation`, top-level, verplicht object):**
+  - Altijd opnemen naast `fills`.
+  - `present`: `true` als er al een airco/split-unit hangt of “bestaande/oude/huidige airco”; `false` bij “nog geen airco” / “geen airco”; anders `null`.
+  - `room`: kamernaam uit de tekst waar die unit hangt (bijv. “Woonkamer”), anders `null`.
+  - `replace`: `true` bij vervangen/eruit/oude unit weg; `false` alleen bij expliciet behouden; anders `null`.
+  - Geen catalogus-`question_key` hiervoor verzinnen.
 - “goed geïsoleerd” / slecht geïsoleerd → passende `insulation_indication`-optie.
 - Vloerisolatie ja/nee → `floor_insulation`; kruipruimte aanwezig → `crawl_space_present`.
 - “geen merkvoorkeur” → `brand_preference` met `no_preference` (of lege multi_choice volgens catalogus).
@@ -56,12 +63,12 @@ Regels:
   - `stated` mag **alleen** als `evidence` een korte quote is die **letterlijk** in `request_reason` (of een bestaand klantantwoord) voorkomt — geen parafrase, geen synoniemen als “bewijs”.
   - Geen letterlijke quote → `inferred` (of weglaten). Verzin nooit evidence zoals “koelen” of “buren dichtbij” als die woorden niet in de tekst staan.
 - **Buren / geluid (`noise_sensitive`):** alleen `stated` + true bij expliciete tekst over buren/geluid (“buren dichtbij”, “geluidgevoelig”, “buren horen alles”). Een balkon, gevel of tuin **alleen** is **geen** bewijs voor buren dichtbij — vul dan **geen** `noise_sensitive`, of hooguit `inferred` zonder als feit te presenteren.
-- **Koelen/verwarmen (`cooling_heating`):** alleen bij expliciete woorden (koelen, verwarmen, te warm, koud te krijgen, beide). Geen intent afleiden uit “wil airco”, “nog geen airco”, balkon of gevel.
+- **Koelen/verwarmen (`cooling_heating`):** alleen bij expliciete woorden (koelen, verwarmen, te warm, koud te krijgen, beide, “alleen koelen”). Geen intent afleiden uit “wil airco”, “nog geen airco”, “voor de zomer”, balkon of gevel.
 - Voor `room_area_m2` alleen `high` met korte `evidence` die het m²-bewijs noemt; anders weglaten of `medium`.
 - Doe geen uitspraak over vermogen, merkadvies, kosten, vergunningen of definitieve installatie.
 - Neem geen persoonsgegevens, adressen of coördinaten over in `evidence`.
 - Output uitsluitend JSON:
-  `{ "evidence": "korte feitelijke basis", "fills": [ { "question_key": "cooling_heating", "section_instance_key": null, "confidence": "high", "provenance": "stated", "value": { "value": "cooling" }, "evidence": "koelen" } ] }`
+  `{ "evidence": "korte feitelijke basis", "existing_installation": { "present": null, "room": null, "replace": null }, "fills": [ { "question_key": "cooling_heating", "section_instance_key": null, "confidence": "high", "provenance": "stated", "value": { "value": "cooling" }, "evidence": "koelen" } ] }`
 
 Waardevormen:
 - single_choice → `{ "value": "<option.value>" }`
