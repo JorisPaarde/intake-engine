@@ -236,18 +236,6 @@ final class PhotoContentAssessment
         ]);
     }
 
-    /**
-     * Wis Toch-doorgaan-signaal (N41: hoofdfoto opnieuw OK, extra-vraag vervallen).
-     */
-    public function withoutCustomerAcceptedOverride(): self
-    {
-        return new self([
-            ...$this->value,
-            'customer_accepted_mismatch' => false,
-            'customer_accepted_override' => false,
-        ]);
-    }
-
     public function customerMessage(): ?string
     {
         $message = $this->value['customer_message'] ?? null;
