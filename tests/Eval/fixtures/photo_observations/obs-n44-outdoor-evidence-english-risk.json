@@ -1,0 +1,42 @@
+{
+  "id": "obs-n44-outdoor-evidence-english-risk",
+  "kind": "photo_observation",
+  "origin": "N44 sibling — outdoor_assessment mist expliciete NL-regel voor evidence (zelfde zwakte)",
+  "source_kind": "reconstructed",
+  "slot": "outdoor_location_photos",
+  "prompt": "outdoor_assessment",
+  "image": "tests/fixtures/klanttest-20261002/gevel-extra.jpg",
+  "text": "The facade shows a brick wall suitable for mounting an outdoor unit.",
+  "model_fields": {
+    "outdoor_location": "facade",
+    "outdoor_mount_type": "wall",
+    "detected_subject": "outdoor_location",
+    "subject_match": "yes",
+    "confidence": "medium",
+    "evidence": "The facade shows a brick wall suitable for mounting an outdoor unit.",
+    "retake_instruction": null
+  },
+  "expected": {
+    "outdoor_location": "facade",
+    "claims": [
+      {
+        "id": "english_free_text",
+        "concept": "english_free_text",
+        "allowed": "forbidden",
+        "terms": [
+          "/\\bthe facade shows\\b/iu",
+          "/\\bsuitable for mounting\\b/iu",
+          "/\\boutdoor unit\\b/iu",
+          "/\\bbrick wall\\b/iu"
+        ]
+      }
+    ]
+  },
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
+  "note": "Zelfde taalzwakte als room_assessment: outdoor_assessment vraagt geen expliciet Nederlands voor evidence/retake_instruction (installer_photo_observation wél). reconstructed Engelse evidence voor meting; geen live promptwijziging outdoor in deze run.",
+  "disputed_facts": {}
+}
