@@ -664,11 +664,11 @@ test('Accepteren-knop is omlijnd en niet gevuld groen', function () {
         ->and($html)->not->toContain('bg-emerald-600');
 });
 
-test('attention_points prompt en meta zijn v7 (geen photo_question_stats/option_label)', function () {
+test('attention_points prompt en meta zijn v8 (geen photo_question_stats/option_label)', function () {
     $meta = require app_path('Domains/AI/Prompts/attention_points/meta.php');
     $prompt = file_get_contents(app_path('Domains/AI/Prompts/attention_points/prompt.md'));
 
-    expect($meta['version'])->toBe('attention_points-v7')
+    expect($meta['version'])->toBe('attention_points-v8')
         ->and($prompt)->not->toContain('photo_question_stats')
         ->and($prompt)->not->toContain('option_label');
 });

@@ -6,6 +6,6 @@ declare(strict_types=1);
  * @return array{version: string, description: string}
  */
 return [
-    'version' => 'attention_points-v7',
-    'description' => 'Aandachtspunten; hedge in label bij klant-onwetendheid; alleen letterlijke evidence-refs; conflict max medium.',
+    'version' => 'attention_points-v8',
+    'description' => 'v7 + nooit onhedged phase_3 bij medium/unknown/needs_clearer; phase=unknown → geen faseclaim.',
 ];
