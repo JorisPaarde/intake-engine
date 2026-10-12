@@ -13,6 +13,7 @@ use App\Domains\Intake\Models\IntakeFollowUpRound;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Services\InstallerSurveyProgress;
 use App\Domains\Intake\Services\IntakeAccessTokenGenerator;
+use App\Domains\Intake\Support\ContributionSubjectLinker;
 use App\Domains\Intake\Support\CustomerFacingTaskText;
 use App\Enums\ContributionAudience;
 use App\Enums\ContributionMode;
@@ -31,6 +32,7 @@ final class CreateCustomerContributionRequest
         private readonly InstallerSurveyProgress $surveyProgress,
         private readonly IntakeAccessTokenGenerator $tokenGenerator,
         private readonly RecordReplacedAccessToken $recordReplacedAccessToken,
+        private readonly ContributionSubjectLinker $subjectLinker,
     ) {}
 
     /**
@@ -130,6 +132,16 @@ final class CreateCustomerContributionRequest
                     'contribution_items' => 'Rond eerst de openstaande klantopdracht af.',
                 ]);
             }
+
+            $aligned = [];
+            foreach ($items as $index => $item) {
+                $aligned[] = $this->subjectLinker->alignItem(
+                    $intake,
+                    $item,
+                    'contribution_items.'.$index.'.dossier_subject_id',
+                );
+            }
+            $items = $aligned;
 
             $subjectIds = collect($items)
                 ->pluck('dossier_subject_id')

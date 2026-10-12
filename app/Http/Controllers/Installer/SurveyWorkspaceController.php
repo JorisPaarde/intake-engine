@@ -38,6 +38,7 @@ use App\Domains\Intake\Services\ExternalFactPresenter;
 use App\Domains\Intake\Services\InstallationOptionPreferenceService;
 use App\Domains\Intake\Services\InstallerPhotoGalleryBuilder;
 use App\Domains\Intake\Services\RefreshStoredIntakeReport;
+use App\Domains\Intake\Support\ContributionSubjectLinker;
 use App\Domains\Intake\Support\CustomerFacingTaskText;
 use App\Domains\Intake\Support\PhotoUploadLimits;
 use App\Enums\AircoConfigurationType;
@@ -120,8 +121,11 @@ final class SurveyWorkspaceController extends Controller
         ]);
     }
 
-    public function prepareContribution(Request $request, Intake $intake): RedirectResponse
-    {
+    public function prepareContribution(
+        Request $request,
+        Intake $intake,
+        ContributionSubjectLinker $subjectLinker,
+    ): RedirectResponse {
         $this->authorize('update', $intake);
         $data = $request->validate([
             'type' => ['required', Rule::enum(FollowUpItemType::class)],
@@ -130,23 +134,24 @@ final class SurveyWorkspaceController extends Controller
                 'nullable',
                 'in:request,capacity,placement,refrigerant,condensate,power,cost_risks,quote',
             ],
-            'dossier_subject_id' => [
-                'nullable',
-                'integer',
-                Rule::exists('dossier_subjects', 'id')->where('intake_id', $intake->id),
-            ],
+            'dossier_subject_id' => ['nullable', 'integer'],
             'photo_task_subtype' => ['nullable', 'string', Rule::in(PhotoSubject::PHOTO_TASK_SUBTYPES)],
         ], [
             'type.required' => 'Kies een type opdracht (tekst, foto of document).',
             'prompt.required' => 'Schrijf wat de klant moet doen.',
             'prompt.max' => 'Houd de opdracht kort (maximaal 500 tekens).',
             'decision_area_key.in' => 'Kies een geldig onderdeel van de opname.',
-            'dossier_subject_id.exists' => 'Die koppeling hoort niet bij deze opname.',
             'photo_task_subtype.in' => 'Ongeldig fototype voor de klanttaak.',
         ], [
             'type' => 'type opdracht',
             'prompt' => 'opdrachttekst',
         ]);
+
+        $resolvedSubjectId = $subjectLinker->resolve(
+            $intake,
+            $data['dossier_subject_id'] ?? null,
+            $data['decision_area_key'] ?? null,
+        );
 
         $draft = [
             'type' => $data['type'] instanceof FollowUpItemType
@@ -154,9 +159,7 @@ final class SurveyWorkspaceController extends Controller
                 : (string) $data['type'],
             'prompt' => CustomerFacingTaskText::ensureCustomerFacing(trim((string) $data['prompt'])),
             'decision_area_key' => $data['decision_area_key'] ?? null,
-            'dossier_subject_id' => isset($data['dossier_subject_id'])
-                ? (int) $data['dossier_subject_id']
-                : null,
+            'dossier_subject_id' => $resolvedSubjectId,
         ];
         if (isset($data['photo_task_subtype']) && is_string($data['photo_task_subtype']) && $data['photo_task_subtype'] !== '') {
             $draft['photo_task_subtype'] = $data['photo_task_subtype'];
@@ -745,11 +748,7 @@ final class SurveyWorkspaceController extends Controller
                     'nullable',
                     'in:request,capacity,placement,refrigerant,condensate,power,cost_risks,quote',
                 ],
-                'contribution_items.*.dossier_subject_id' => [
-                    'nullable',
-                    'integer',
-                    Rule::exists('dossier_subjects', 'id')->where('intake_id', $intake->id),
-                ],
+                'contribution_items.*.dossier_subject_id' => ['nullable', 'integer'],
                 'contribution_items.*.photo_task_subtype' => [
                     'nullable',
                     'string',
@@ -764,7 +763,6 @@ final class SurveyWorkspaceController extends Controller
                 'contribution_items.*.prompt.required' => 'Schrijf bij elke opdracht wat de klant moet doen.',
                 'contribution_items.*.prompt.max' => 'Houd elke opdracht kort (maximaal 500 tekens).',
                 'contribution_items.*.decision_area_key.in' => 'Kies een geldig onderdeel van de opname, of laat Algemene opname staan.',
-                'contribution_items.*.dossier_subject_id.exists' => 'Die koppeling hoort niet bij deze opname.',
                 'contribution_items.*.photo_task_subtype.in' => 'Ongeldig fototype voor de klanttaak.',
             ],
             [
@@ -817,18 +815,13 @@ final class SurveyWorkspaceController extends Controller
                 'nullable',
                 'in:request,capacity,placement,refrigerant,condensate,power,cost_risks,quote',
             ],
-            'dossier_subject_id' => [
-                'nullable',
-                'integer',
-                Rule::exists('dossier_subjects', 'id')->where('intake_id', $intake->id),
-            ],
+            'dossier_subject_id' => ['nullable', 'integer'],
             'photo_task_subtype' => ['nullable', 'string', Rule::in(PhotoSubject::PHOTO_TASK_SUBTYPES)],
         ], [
             'type.required' => 'Kies een type opdracht (tekst, foto of document).',
             'prompt.required' => 'Schrijf wat de klant moet doen.',
             'prompt.max' => 'Houd de opdracht kort (maximaal 500 tekens).',
             'decision_area_key.in' => 'Kies een geldig onderdeel van de opname.',
-            'dossier_subject_id.exists' => 'Die koppeling hoort niet bij deze opname.',
             'photo_task_subtype.in' => 'Ongeldig fototype voor de klanttaak.',
         ], [
             'type' => 'type opdracht',
