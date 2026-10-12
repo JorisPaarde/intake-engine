@@ -14,6 +14,7 @@ type Bootstrap = {
   workspaceUrl: string;
   reportUrl: string;
   exceptionLabel: string;
+  reportContainsConnections: boolean;
   reportContainsSiteVisit: boolean;
   reportContainsApproved: boolean;
 };
@@ -94,11 +95,13 @@ test.describe('Brief D — N33 exception ask + N35 route report', () => {
   });
 
   test('N35: report shows route status Alleen te zien op locatie', async ({ page }) => {
+    expect(data.reportContainsConnections).toBeTruthy();
     expect(data.reportContainsSiteVisit).toBeTruthy();
     expect(data.reportContainsApproved).toBeTruthy();
 
     await login(page, data);
     await page.goto(data.reportUrl);
+    await expect(page.getByText('Pagina niet gevonden')).toHaveCount(0);
 
     await expect(page.getByText('Verbindingen en routes')).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText('Routebesluit per verbinding')).toBeVisible();

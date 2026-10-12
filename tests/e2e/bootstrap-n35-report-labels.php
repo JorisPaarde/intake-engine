@@ -15,9 +15,9 @@ use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Actions\DecideAircoConnection;
 use App\Domains\Intake\Models\DossierRecord;
 use App\Domains\Intake\Models\DossierSubject;
+use App\Domains\Intake\Models\GeneratedReport;
 use App\Domains\Intake\Services\AircoSurveyService;
 use App\Domains\Intake\Services\GenerateIntakeReportHtml;
-use App\Domains\Intake\Services\RebuildIntakeReportHtml;
 use App\Enums\AircoConfigurationType;
 use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
@@ -156,9 +156,24 @@ DossierRecord::query()->create([
     'observed_at' => now(),
 ]);
 
-app(RebuildIntakeReportHtml::class)->handle($intake->fresh());
+// RebuildIntakeReportHtml no-ops when no GeneratedReport exists (preview 404s).
+// Persist HTML the same way CompleteIntake / demo PDF do, so /rapport serves it.
 $version = $intake->fresh()->templateVersion()->firstOrFail();
 $reportHtml = app(GenerateIntakeReportHtml::class)->handle($intake->fresh(), $version);
+
+GeneratedReport::query()->updateOrCreate(
+    ['intake_id' => $intake->id],
+    [
+        'html' => $reportHtml,
+        'meta' => [
+            'template_version' => $version->version,
+            'e2e_bootstrap' => 'n35-report-labels',
+        ],
+        'generated_at' => now(),
+    ],
+);
+
+$storedHtml = (string) ($intake->fresh()->report?->html ?? '');
 
 $baseUrl = rtrim((string) (getenv('E2E_BASE_URL') ?: getenv('PLAYWRIGHT_BASE_URL') ?: config('app.url') ?: 'http://127.0.0.1:8000'), '/');
 
@@ -170,6 +185,7 @@ echo json_encode([
     'workspaceUrl' => $baseUrl.'/intakes/'.$intake->id.'/opname',
     'reportUrl' => $baseUrl.'/intakes/'.$intake->id.'/rapport',
     'exceptionLabel' => $exceptionLabel,
-    'reportContainsSiteVisit' => str_contains($reportHtml, 'Alleen te zien op locatie'),
-    'reportContainsApproved' => str_contains($reportHtml, 'Goedgekeurd'),
+    'reportContainsConnections' => str_contains($storedHtml, 'Verbindingen en routes'),
+    'reportContainsSiteVisit' => str_contains($storedHtml, 'Alleen te zien op locatie'),
+    'reportContainsApproved' => str_contains($storedHtml, 'Goedgekeurd'),
 ], JSON_THROW_ON_ERROR).PHP_EOL;
