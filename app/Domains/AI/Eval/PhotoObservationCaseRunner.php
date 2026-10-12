@@ -17,6 +17,7 @@ final class PhotoObservationCaseRunner
     public function __construct(
         private readonly FactScorer $scorer,
         private readonly DerivedClaimConfidenceGuard $confidenceGuard,
+        private readonly ReportClaimsScorer $claimsScorer,
     ) {}
 
     /**
@@ -30,6 +31,14 @@ final class PhotoObservationCaseRunner
         $modelFields = is_array($fixture['model_fields'] ?? null) ? $fixture['model_fields'] : [];
         $expected = is_array($fixture['expected'] ?? null) ? $fixture['expected'] : [];
         $disputed = is_array($fixture['disputed_facts'] ?? null) ? $fixture['disputed_facts'] : [];
+        $components = is_array($fixture['components'] ?? null)
+            ? array_values(array_filter(
+                $fixture['components'],
+                static fn (mixed $v): bool => is_string($v) && $v !== '',
+            ))
+            : ['C7'];
+        $image = is_string($fixture['image'] ?? null) ? $fixture['image'] : null;
+        $prompt = is_string($fixture['prompt'] ?? null) ? $fixture['prompt'] : null;
 
         $rawFacts = $this->factsFromObservation($text, $modelFields, $slot, pipeline: false);
         $finalFacts = $this->factsFromObservation($text, $modelFields, $slot, pipeline: true);
@@ -38,6 +47,37 @@ final class PhotoObservationCaseRunner
             'model_raw' => $this->scoreLayer($expected, $rawFacts, $disputed, layer: 'model_raw'),
             'pipeline_final' => $this->scoreLayer($expected, $finalFacts, $disputed, layer: 'pipeline_final'),
         ];
+
+        // N44 / language claims: score free-text evidence (+ retake) via ReportClaimsScorer.
+        $claimExpected = ['claims' => is_array($expected['claims'] ?? null) ? $expected['claims'] : []];
+        if ($claimExpected['claims'] !== []) {
+            $rawEvidenceCorpus = $this->evidenceCorpus($text, $modelFields, $rawFacts);
+            $finalEvidenceCorpus = $this->evidenceCorpus($text, $modelFields, $finalFacts);
+            // Empty attention points (not null) so attention_output stays present;
+            // language claims are scored on the evidence corpus as summary text.
+            $scores['model_raw'] = array_merge(
+                $scores['model_raw'],
+                $this->claimsScorer->scoreLayer(
+                    $claimExpected,
+                    ['summary' => $rawEvidenceCorpus, 'highlights' => []],
+                    [],
+                    $disputed,
+                    $components,
+                ),
+            );
+            $scores['pipeline_final'] = array_merge(
+                $scores['pipeline_final'],
+                $this->claimsScorer->scoreLayer(
+                    $claimExpected,
+                    ['summary' => $finalEvidenceCorpus, 'highlights' => []],
+                    [],
+                    $disputed,
+                    $components,
+                ),
+            );
+        }
+
+        $hasImage = $this->imageFilePresent($image);
 
         return [
             'id' => $fixture['id'] ?? null,
@@ -49,8 +89,13 @@ final class PhotoObservationCaseRunner
             'error' => null,
             'slot' => $slot,
             'room' => $fixture['room'] ?? null,
+            'prompt' => $prompt,
+            'image' => $image,
+            'image_present' => $hasImage,
             'runnable' => true,
-            'runnable_note' => 'Geen echte foto: observatietekst + model_fields uit trace als model_raw; post-processing als pipeline_final.',
+            'runnable_note' => $hasImage
+                ? 'Stub/fake: observatietekst + model_fields als model_raw; image aanwezig voor latere vision-run op de box.'
+                : 'Geen echte foto: observatietekst + model_fields uit trace als model_raw; post-processing als pipeline_final.',
             'model_raw' => ['text' => $text, 'model_fields' => $modelFields, 'facts' => $rawFacts],
             'pipeline_final' => $finalFacts,
             'facts' => [
@@ -60,6 +105,42 @@ final class PhotoObservationCaseRunner
             'scores' => $scores,
             'note' => $fixture['note'] ?? null,
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $modelFields
+     * @param  array<string, mixed>  $facts
+     */
+    private function evidenceCorpus(string $text, array $modelFields, array $facts): string
+    {
+        $parts = [];
+        $evidence = $facts['evidence'] ?? ($modelFields['evidence'] ?? null);
+        if (is_string($evidence) && trim($evidence) !== '') {
+            $parts[] = trim($evidence);
+        } elseif (trim($text) !== '') {
+            $parts[] = trim($text);
+        }
+        $retake = $facts['retake_instruction'] ?? ($modelFields['retake_instruction'] ?? null);
+        if (is_string($retake) && trim($retake) !== '') {
+            $parts[] = trim($retake);
+        }
+
+        return implode("\n", $parts);
+    }
+
+    private function imageFilePresent(?string $image): bool
+    {
+        if (! is_string($image) || $image === '') {
+            return false;
+        }
+        if (is_file($image)) {
+            return true;
+        }
+        // Repo-relative paths from fixtures (unit tests may lack Application::basePath).
+        $repoRoot = dirname(__DIR__, 4);
+        $candidate = $repoRoot.DIRECTORY_SEPARATOR.ltrim(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $image), DIRECTORY_SEPARATOR);
+
+        return is_file($candidate);
     }
 
     /**
@@ -89,6 +170,9 @@ final class PhotoObservationCaseRunner
             'sun_exposure' => null,
             'glass_amount' => null,
             'glazing_type' => null,
+            // N44: free-text language measurement (evidence / retake_instruction).
+            'evidence' => null,
+            'retake_instruction' => null,
         ];
 
         if (array_key_exists('subject_match', $modelFields)) {
@@ -98,13 +182,23 @@ final class PhotoObservationCaseRunner
             $facts['subject_match'] = false;
         }
 
-        foreach (['sun_exposure', 'glass_amount', 'glazing_type'] as $roomField) {
-            if (! array_key_exists($roomField, $modelFields)) {
+        foreach ([
+            'sun_exposure',
+            'glass_amount',
+            'glazing_type',
+            'evidence',
+            'retake_instruction',
+            'outdoor_location',
+            'room_type',
+        ] as $passThroughField) {
+            if (! array_key_exists($passThroughField, $modelFields)) {
                 continue;
             }
-            $value = $modelFields[$roomField];
+            $value = $modelFields[$passThroughField];
             if (is_string($value) && $value !== '') {
-                $facts[$roomField] = $value;
+                $facts[$passThroughField] = $value;
+            } elseif ($passThroughField === 'retake_instruction' && $value === null) {
+                $facts[$passThroughField] = null;
             }
         }
 
@@ -246,6 +340,10 @@ final class PhotoObservationCaseRunner
 
         foreach ($expected as $key => $expVal) {
             $factKey = (string) $key;
+            // Language claims are scored separately via ReportClaimsScorer.
+            if ($factKey === 'claims') {
+                continue;
+            }
             // Soft string match for outdoor_location labels like "facade (achtergevel)"
             $gotVal = $got[$factKey] ?? null;
             $key = $factKey;

@@ -1,0 +1,43 @@
+{
+  "id": "obs-n44-livingroom-dutch-control",
+  "kind": "photo_observation",
+  "origin": "N44 control — woonkamerfoto met Nederlandse evidence",
+  "source_kind": "reconstructed",
+  "slot": "room_photos",
+  "room": "Woonkamer",
+  "prompt": "room_assessment",
+  "image": "tests/Eval/fixtures/photos/woonkamer-control.jpg",
+  "text": "Overzicht van een woonkamer met bank en tafel. Ramen en wanden zijn zichtbaar.",
+  "model_fields": {
+    "room_type": "living_room",
+    "detected_subject": "room",
+    "subject_match": "yes",
+    "confidence": "medium",
+    "evidence": "Overzicht van een woonkamer met bank en tafel. Ramen en wanden zijn zichtbaar.",
+    "retake_instruction": null
+  },
+  "expected": {
+    "room_type": "living_room",
+    "claims": [
+      {
+        "id": "english_free_text",
+        "concept": "english_free_text",
+        "allowed": "forbidden",
+        "terms": [
+          "/\\bthe room contains\\b/iu",
+          "/\\bindicating a\\b/iu",
+          "/\\bare visible\\b/iu",
+          "/\\bliving room\\b/iu",
+          "/\\bthe room\\b/iu"
+        ]
+      }
+    ]
+  },
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
+  "note": "Tweede control-foto (woonkamer). Nederlandse evidence; english_free_text moet afwezig blijven.",
+  "disputed_facts": {}
+}
