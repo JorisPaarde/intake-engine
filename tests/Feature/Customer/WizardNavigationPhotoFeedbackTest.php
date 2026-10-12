@@ -630,3 +630,45 @@ test('bekende feiten worden niet opnieuw gevraagd (prefill skip)', function () {
     expect($keys)->not->toContain('room_type')
         ->and($keys)->not->toContain('building_type');
 });
+
+test('upload on current wall_outlet step + sync poll renders assessment (no skipRender)', function () {
+    $intake = makeWizardNavIntake();
+    seedTwoBedroomRoomNameFlow($intake, 'needs_photo');
+
+    foreach (['room-1', 'room-2'] as $instance) {
+        app(SaveIntakeAnswer::class)->handle(
+            $intake,
+            'preferred_indoor_location',
+            $instance,
+            ['text' => 'Boven de deur'],
+            PrefillSources::AI_TEXT,
+        );
+        app(SaveIntakeAnswer::class)->handle(
+            $intake,
+            'room_name',
+            $instance,
+            ['text' => $instance === 'room-1' ? 'Ouders' : 'Kind'],
+        );
+    }
+
+    $intake->update([
+        'current_section_key' => 'rooms',
+        'current_question_key' => 'wall_outlet_photo',
+        'current_section_instance_key' => 'room-1',
+    ]);
+
+    // No Queue::fake: sync assess+derive like browser E2E (outlet → present).
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->assertSet('activeStepKey', 'rooms::room-1::wall_outlet_photo')
+        ->set(
+            'photoFiles.room-1__wall_outlet_photo',
+            wizardNavFixture('woonkamer-1440.jpg'),
+        );
+
+    expect($component->effects)->toHaveKey('html')
+        ->and($component->get('activeStepKey'))->toBe('rooms::room-1::wall_outlet_photo')
+        ->and($component->html())->toContain('data-photo-status="1"')
+        ->and($component->html())->toMatch(
+            '/Goed te zien|Niet goed te zien|Niet de gevraagde foto|Je installateur kijkt hier zelf naar/i',
+        );
+});

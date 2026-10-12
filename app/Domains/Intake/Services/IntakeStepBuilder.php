@@ -321,11 +321,20 @@ final class IntakeStepBuilder
                 : $section->key.$instanceSuffix.'::'.$question->key;
             $aroundHouseHidden = $question->key === OutdoorPhotoReuse::TARGET_KEY
                 && ($context['hasUsableOutdoorContext'] ?? false) === true;
-            // Sticky only for “answered/prefilled” hides (e.g. room_name after fill), never for
-            // rule-invisible steps (e.g. fusebox_photo_extra after a clear meterkastfoto)
-            // nor for around_house hidden by a usable outdoor photo.
+            // Sticky keeps the active step until Volgende/Vorige (BL-140):
+            // - prefilled/overgeslagen (e.g. room_name after autosave)
+            // - primary photo steps that AI just made rule-irrelevant (e.g. wall_outlet after
+            //   outlet=present) so the assessment tile can render — not *_extra photos
+            //   (fusebox_photo_extra must still disappear after a clear meterkastfoto)
+            // - never around_house hidden by a usable outdoor photo
+            $stickyPhotoAssessment = $presentation['reason'] === 'niet_relevant'
+                && $question->type === QuestionType::Photo
+                && ! str_ends_with($question->key, '_extra');
             $stickyKeep = in_array($candidateStepKey, $stickyStepKeys, true)
-                && in_array($presentation['reason'], ['prefilled', 'overgeslagen'], true)
+                && (
+                    in_array($presentation['reason'], ['prefilled', 'overgeslagen'], true)
+                    || $stickyPhotoAssessment
+                )
                 && ! $aroundHouseHidden;
 
             if ($presentation['reason'] !== 'visible' && ! $stickyKeep) {

@@ -581,6 +581,19 @@ class IntakeWizard extends Component
                     $questionsForVisibility,
                     $step['section_instance_key'],
                 );
+                // Sticky-kept steps (e.g. wall_outlet after AI sets outlet=present) stay in the
+                // step list but rule visibility is false — still render fields so the photo tile
+                // can show (E2E 08). The step builder already decided this screen is active.
+                foreach ($questionsForVisibility as $visibleQuestion) {
+                    $forceComposite = VisibilityResolver::compositeKey(
+                        $visibleQuestion->key,
+                        $step['section_instance_key'],
+                    );
+                    $visibility[$forceComposite] = [
+                        'visible' => true,
+                        'required' => (bool) ($visibility[$forceComposite]['required'] ?? $visibleQuestion->is_required),
+                    ];
+                }
                 $uploadsByQuestion = $this->uploadsForStep($step['section_instance_key']);
 
                 foreach ($questionsForVisibility as $visibleQuestion) {
@@ -1604,10 +1617,15 @@ class IntakeWizard extends Component
             return;
         }
 
+        // Decide skipRender BEFORE derive/realign: a current-step photo can become
+        // rule-hidden (e.g. wall_outlet → outlet=present) and realign away — still render
+        // so the assessment tile morphs (E2E 08). Background polls stay silent (E2E 01).
+        $pollTargetsCurrentStep = $this->photoCompositeIsOnCurrentStep($composite);
+
         // Prefill/afgeleide antwoorden: alleen form verversen als deze fotostap zichtbaar is,
         // anders klantinvoer op de huidige stap overschrijven.
         if ($questionKey !== '') {
-            if ($this->photoCompositeIsOnCurrentStep($composite)) {
+            if ($pollTargetsCurrentStep) {
                 $this->applyPhotoDerivationResults($questionKey, $instanceKey);
             } else {
                 // N30: derive draaide al in de job; markeer catch-up vóór defer (cursor kan al verder zijn).
@@ -1631,7 +1649,9 @@ class IntakeWizard extends Component
 
         // Achtergrond-poll mag geen DOM-morph doen: concurrent wire:model.live (floor_level)
         // wordt anders binnen seconden weer unchecked (E2E 01).
-        $this->skipRenderIfBackgroundPhotoPoll($composite);
+        if ($composite !== '' && ! $pollTargetsCurrentStep) {
+            $this->skipRender();
+        }
     }
 
     /**
