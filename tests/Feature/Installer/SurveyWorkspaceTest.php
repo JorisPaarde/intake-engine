@@ -1763,3 +1763,162 @@ test('outcome form separates site visit needed from occurred and keeps Later inv
         ->assertDontSee('minuten later invullen')
         ->assertSee('De tijd- en ritbesparing telt nu mee in Resultaten.');
 });
+
+test('customer round limit is visible up front before submitting the form', function () {
+    $this->withoutVite();
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'ronde-limiet@example.com');
+
+    $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake))
+        ->assertOk()
+        ->assertSee('data-testid="customer-round-limit"', false)
+        ->assertSee('Maximaal 3 klantrondes', false)
+        ->assertSee('0 van 3 gebruikt', false)
+        ->assertDontSee('data-testid="customer-round-limit-exhausted"', false);
+});
+
+test('customer round limit exhausted shows warning outside collapsed form', function () {
+    $this->withoutVite();
+    config(['intake.follow_up.max_rounds' => 3]);
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'ronde-vol@example.com');
+
+    foreach (range(1, 3) as $n) {
+        $intake = $intake->fresh() ?? $intake;
+        app(CreateCustomerContributionRequest::class)->handle($intake, $user, [
+            [
+                'type' => FollowUpItemType::Text->value,
+                'prompt' => "Meet de hoogte ronde {$n}.",
+                'decision_area_key' => 'capacity',
+            ],
+        ]);
+        $round = $intake->fresh()->followUpRounds()->where('round_number', $n)->firstOrFail();
+        $round->update([
+            'status' => FollowUpRoundStatus::Completed,
+            'completed_at' => now(),
+        ]);
+    }
+
+    $html = $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake->fresh()))
+        ->assertOk()
+        ->assertSee('data-testid="customer-round-limit"', false)
+        ->assertSee('data-testid="customer-round-limit-exhausted"', false)
+        ->assertSee('3 van 3 gebruikt', false)
+        ->assertSee('Limiet van 3 klantrondes bereikt', false)
+        ->getContent();
+
+    expect($html)->toContain('Je kunt geen nieuwe klanttaak meer versturen.')
+        ->and($html)->not->toContain('data-testid="customer-task-draft-form"');
+});
+
+test('contribution item validation errors stay visible outside collapsed details', function () {
+    $this->withoutVite();
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'ronde-fout@example.com');
+
+    $this->actingAs($user)
+        ->from(route('intakes.workspace', $intake))
+        ->followingRedirects()
+        ->post(route('intakes.workspace.tasks.store', $intake), [
+            'contribution_items' => [
+                ['type' => FollowUpItemType::Text->value, 'prompt' => ''],
+            ],
+        ])
+        ->assertOk()
+        ->assertSee('data-testid="customer-task-form-errors"', false)
+        ->assertSee('Vul minstens één klantopdracht in', false)
+        ->assertSee('data-testid="customer-round-limit"', false)
+        ->assertSee('data-testid="customer-task-details"', false);
+});
+
+test('AI proposal cards hide raw percent certainty for unknown and customer-confirmed answers', function () {
+    $this->withoutVite();
+    $user = User::factory()->create();
+    $intake = createInstallerSurveyForWorkspace($user, 'zekerheid-ui@example.com');
+    $surveySubjectId = (int) $intake->dossierSubjects()->where('key', 'survey')->value('id');
+
+    DossierRecord::query()->create([
+        'intake_id' => $intake->id,
+        'company_id' => $intake->company_id,
+        'dossier_subject_id' => $surveySubjectId,
+        'kind' => DossierRecordKind::Observation,
+        'key' => 'answer.ownership',
+        'value' => [
+            'value' => 'unknown',
+            '_field_label' => 'Koopwoning of huur?',
+            '_display_value' => 'Weet ik niet',
+            '_provenance_label' => 'aanname',
+            '_source_label' => 'afgeleid, niet bevestigd',
+            '_confidence_percent' => 90,
+            '_confidence_label' => '90%',
+            '_uncertainty' => 'Nog te beoordelen',
+        ],
+        'status' => DossierRecordStatus::Proposed,
+        'source_type' => 'ai',
+        'method' => 'ai_assumption',
+        'actor_type' => 'ai',
+        'observed_at' => now(),
+    ]);
+
+    DossierRecord::query()->create([
+        'intake_id' => $intake->id,
+        'company_id' => $intake->company_id,
+        'dossier_subject_id' => $surveySubjectId,
+        'kind' => DossierRecordKind::Observation,
+        'key' => 'answer.noise_sensitive',
+        'value' => [
+            'bool' => true,
+            '_field_label' => 'Geluidgevoelig?',
+            '_display_value' => 'ja',
+            '_provenance_label' => 'gezegd',
+            '_source_label' => 'klantantwoord',
+            '_confidence_percent' => 90,
+            '_confidence_label' => '90%',
+            '_uncertainty' => 'Nog te beoordelen',
+        ],
+        'status' => DossierRecordStatus::Proposed,
+        'source_type' => 'ai',
+        'method' => 'ai_assumption',
+        'actor_type' => 'ai',
+        'observed_at' => now(),
+    ]);
+
+    DossierRecord::query()->create([
+        'intake_id' => $intake->id,
+        'company_id' => $intake->company_id,
+        'dossier_subject_id' => $surveySubjectId,
+        'kind' => DossierRecordKind::Observation,
+        'key' => 'answer.pipe_distance',
+        'value' => [
+            'text' => '35 m2',
+            '_field_label' => 'Oppervlak',
+            '_display_value' => '35 m2',
+            '_provenance_label' => 'aanname',
+            '_source_label' => 'afgeleid, niet bevestigd',
+            '_confidence_percent' => 90,
+            '_confidence_label' => '90%',
+            '_uncertainty' => 'Nog te beoordelen',
+        ],
+        'status' => DossierRecordStatus::Proposed,
+        'source_type' => 'ai',
+        'method' => 'ai_assumption',
+        'actor_type' => 'ai',
+        'observed_at' => now(),
+    ]);
+
+    $html = $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake->fresh(['dossierSubjects.records'])))
+        ->assertOk()
+        ->assertSee('data-testid="ai-proposal-card"', false)
+        ->getContent();
+
+    expect($html)->toContain('Weet ik niet')
+        ->and($html)->toContain('35 m²')
+        ->and($html)->not->toContain('35 m2')
+        ->and($html)->not->toContain('zekerheid: 90%')
+        ->and($html)->not->toMatch('/Weet ik niet[\s\S]{0,200}zekerheid:/')
+        ->and($html)->not->toMatch('/klantantwoord[\s\S]{0,80}zekerheid:/')
+        ->and($html)->toContain('lijkt te kloppen'); // phrase for the inferred area proposal
+});

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplate;
+use App\Enums\IntakeStatus;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Support\Facades\DB;
@@ -76,4 +77,33 @@ test('dashboard uses withExists for customer action instead of loading all answe
 
 test('guest cannot view the dashboard', function () {
     $this->get(route('dashboard'))->assertRedirect(route('login'));
+});
+
+test('dashboard mobile cards expose status and open link without horizontal scroll', function () {
+    $this->withoutVite();
+    $user = User::factory()->create();
+    $version = IntakeTemplate::query()->where('key', 'airco')->firstOrFail()->latestPublishedVersion();
+
+    Intake::factory()->create([
+        'created_by' => $user->id,
+        'company_id' => $user->company_id,
+        'intake_template_version_id' => $version->id,
+        'customer_name' => 'Mobiel Zichtbaar',
+        'customer_email' => 'mobiel@example.com',
+        'status' => IntakeStatus::Completed,
+        'completed_at' => now(),
+    ]);
+
+    $html = $this->actingAs($user)
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertSee('data-testid="dashboard-intake-cards"', false)
+        ->assertSee('data-testid="dashboard-status-badge"', false)
+        ->assertSee('data-testid="dashboard-open-link"', false)
+        ->assertSee('data-testid="dashboard-intake-table"', false)
+        ->getContent();
+
+    expect($html)->toContain('Mobiel Zichtbaar')
+        ->and($html)->toContain('Openen')
+        ->and(substr_count($html, 'data-testid="dashboard-open-link"'))->toBe(1);
 });

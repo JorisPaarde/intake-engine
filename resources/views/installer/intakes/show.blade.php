@@ -870,28 +870,66 @@
                         <span class="mt-1 block text-xs font-normal text-gray-500">Beslissing en aanvullende rondes · tik om te openen</span>
                     </summary>
                     <div class="space-y-4 border-t border-gray-100 px-6 pb-6 pt-4">
-                    @if ($intake->review)
-                        <dl class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                    @php
+                        $savedReview = $intake->review;
+                        $reviewIsCurrent = $intake->reviewed_at !== null
+                            && $savedReview !== null
+                            && $savedReview->decision !== \App\Enums\ReviewDecision::Pending;
+                        $reviewIsStale = $savedReview !== null
+                            && $savedReview->decision !== \App\Enums\ReviewDecision::Pending
+                            && $intake->reviewed_at === null;
+                        $reviewStaleNotice = null;
+                        if ($reviewIsStale && $savedReview->reviewed_at !== null) {
+                            $firstRoundAfter = collect($followUpReview['rounds'] ?? [])
+                                ->map(static fn (array $presented) => $presented['round'])
+                                ->filter(static function ($round) use ($savedReview): bool {
+                                    return $round->completed_at !== null
+                                        && $round->completed_at->greaterThan($savedReview->reviewed_at);
+                                })
+                                ->sortBy(static fn ($round): int => (int) $round->round_number)
+                                ->first();
+                            if ($firstRoundAfter !== null) {
+                                $reviewStaleNotice = 'Beoordeeld vóór ronde '.$firstRoundAfter->round_number.'. Bekijk de nieuwe aanvulling en beoordeel opnieuw.';
+                            } else {
+                                $reviewStaleNotice = 'Eerdere beoordeling — beoordeel opnieuw na de nieuwe aanvulling.';
+                            }
+                        }
+                        $maxFollowUpRounds = (int) config('intake.follow_up.max_rounds', 3);
+                        $usedFollowUpRounds = $intake->followUpRounds->count();
+                        $followUpRoundsExhausted = $usedFollowUpRounds >= $maxFollowUpRounds;
+                    @endphp
+                    @if ($savedReview && ($reviewIsCurrent || $reviewIsStale))
+                        @if ($reviewStaleNotice)
+                            <p class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950" data-testid="review-stale-before-round">
+                                {{ $reviewStaleNotice }}
+                            </p>
+                        @endif
+                        <dl class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2" data-testid="review-summary">
                             <div>
-                                <dt class="text-gray-500">Beslissing</dt>
-                                <dd class="text-gray-900">{{ $intake->review->decision->label() }}</dd>
+                                <dt class="text-gray-500">{{ $reviewIsStale ? 'Vorige beslissing' : 'Beslissing' }}</dt>
+                                <dd class="text-gray-900">{{ $savedReview->decision->label() }}</dd>
                             </div>
                             <div>
                                 <dt class="text-gray-500">Beoordeeld</dt>
-                                <dd class="text-gray-900">{{ $intake->review->reviewed_at?->timezone(config('app.timezone'))->format('d-m-Y H:i') ?? '—' }}</dd>
+                                <dd class="text-gray-900">{{ $savedReview->reviewed_at?->timezone(config('app.timezone'))->format('d-m-Y H:i') ?? '—' }}</dd>
                             </div>
-                            <div>
-                                <dt class="text-gray-500">Locatiebezoek nodig</dt>
-                                <dd class="text-gray-900">{{ $intake->review->site_visit_needed ? 'Ja' : 'Nee' }}</dd>
-                            </div>
-                            <div>
-                                <dt class="text-gray-500">Voldoende informatie</dt>
-                                <dd class="text-gray-900">{{ $intake->review->enough_information ? 'Ja' : 'Nee' }}</dd>
-                            </div>
-                            @if ($intake->review->summary)
+                            {{-- Locatiebezoek niet apart tonen als de beslissing die al is. --}}
+                            @if ($savedReview->decision !== \App\Enums\ReviewDecision::SiteVisitNeeded)
+                                <div>
+                                    <dt class="text-gray-500">Locatiebezoek nodig</dt>
+                                    <dd class="text-gray-900">{{ $savedReview->site_visit_needed ? 'Ja' : 'Nee' }}</dd>
+                                </div>
+                            @endif
+                            @if ($savedReview->decision !== \App\Enums\ReviewDecision::NeedMoreInfo)
+                                <div>
+                                    <dt class="text-gray-500">Voldoende informatie</dt>
+                                    <dd class="text-gray-900">{{ $savedReview->enough_information ? 'Ja' : 'Nee' }}</dd>
+                                </div>
+                            @endif
+                            @if ($savedReview->summary)
                                 <div class="sm:col-span-2">
                                     <dt class="text-gray-500">Samenvatting</dt>
-                                    <dd class="whitespace-pre-wrap text-gray-900">{{ $intake->review->summary }}</dd>
+                                    <dd class="whitespace-pre-wrap text-gray-900">{{ $savedReview->summary }}</dd>
                                 </div>
                             @endif
                         </dl>
@@ -975,16 +1013,31 @@
 
                     @if ($intake->status !== \App\Enums\IntakeStatus::AwaitingCustomer)
                     @php
-                        $initialDecision = old('decision', $intake->review?->decision?->value ?? '');
+                        // Alleen actuele beoordeling voorinvullen — na een vervolgronde opnieuw kiezen.
+                        $formReviewDefaults = $reviewIsCurrent ? $savedReview : null;
+                        $initialDecision = old('decision', $formReviewDefaults?->decision?->value ?? '');
                         $oldFollowUpItems = array_values(old('follow_up_items', [['type' => 'text', 'prompt' => '']]));
                         $followUpCount = max(1, count($oldFollowUpItems));
                         $followUpRows = array_pad($oldFollowUpItems, (int) config('intake.follow_up.max_items_per_round', 5), ['type' => 'text', 'prompt' => '']);
+                        $enoughInformationChecked = old(
+                            'enough_information',
+                            $formReviewDefaults?->enough_information,
+                        );
+                        // Geen stille default op "voldoende" — installateur kiest bewust.
+                        $enoughInformationChecked = $enoughInformationChecked === null
+                            ? false
+                            : (bool) $enoughInformationChecked;
+                        $siteVisitChecked = (bool) old(
+                            'site_visit_needed',
+                            $formReviewDefaults?->site_visit_needed ?? false,
+                        );
                     @endphp
                     <form
                         method="POST"
                         action="{{ route('intakes.review', $intake) }}"
                         class="space-y-4 border-t border-gray-100 pt-4"
                         x-data="{ decision: {{ \Illuminate\Support\Js::from($initialDecision) }}, followUpCount: {{ $followUpCount }} }"
+                        data-testid="review-form"
                     >
                         @csrf
                         <div>
@@ -992,7 +1045,7 @@
                             <select id="decision" name="decision" x-model="decision" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
                                 <option value="">Kies een beoordeling…</option>
                                 @foreach ($reviewDecisions as $decision)
-                                    <option value="{{ $decision->value }}" @selected(old('decision', $intake->review?->decision?->value) === $decision->value)>
+                                    <option value="{{ $decision->value }}" @selected($initialDecision === $decision->value)>
                                         {{ $decision->label() }}
                                     </option>
                                 @endforeach
@@ -1001,25 +1054,46 @@
                         </div>
 
                         <div class="flex flex-wrap gap-6 text-sm">
-                            <label class="inline-flex items-center gap-2">
-                                <input type="checkbox" name="site_visit_needed" value="1" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" @checked(old('site_visit_needed', $intake->review?->site_visit_needed))>
+                            {{-- Beslissing “Locatiebezoek nodig” dekt dit al — geen tweede label. --}}
+                            <template x-if="decision === '{{ \App\Enums\ReviewDecision::SiteVisitNeeded->value }}'">
+                                <input type="hidden" name="site_visit_needed" value="1">
+                            </template>
+                            <label
+                                class="inline-flex items-center gap-2"
+                                x-show="decision !== '{{ \App\Enums\ReviewDecision::SiteVisitNeeded->value }}'"
+                                data-testid="review-site-visit-needed"
+                            >
+                                <input type="checkbox" name="site_visit_needed" value="1" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" @checked($siteVisitChecked) :disabled="decision === '{{ \App\Enums\ReviewDecision::SiteVisitNeeded->value }}'">
                                 <span>Locatiebezoek nodig</span>
                             </label>
-                            <label class="inline-flex items-center gap-2" x-show="decision !== '{{ \App\Enums\ReviewDecision::NeedMoreInfo->value }}'">
-                                <input type="checkbox" name="enough_information" value="1" :disabled="decision === '{{ \App\Enums\ReviewDecision::NeedMoreInfo->value }}'" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" @checked(old('enough_information', $intake->review?->enough_information ?? true))>
+                            <label
+                                class="inline-flex items-center gap-2"
+                                x-show="decision !== '{{ \App\Enums\ReviewDecision::NeedMoreInfo->value }}'"
+                                data-testid="review-enough-information"
+                            >
+                                <input type="checkbox" name="enough_information" value="1" :disabled="decision === '{{ \App\Enums\ReviewDecision::NeedMoreInfo->value }}'" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" @checked($enoughInformationChecked)>
                                 <span>Voldoende informatie</span>
                             </label>
                         </div>
 
                         <div>
                             <x-input-label for="summary" value="Samenvatting (optioneel)" />
-                            <textarea id="summary" name="summary" rows="4" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">{{ old('summary', $intake->review?->summary) }}</textarea>
+                            <textarea id="summary" name="summary" rows="4" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">{{ old('summary', $formReviewDefaults?->summary) }}</textarea>
                             <x-input-error :messages="$errors->get('summary')" class="mt-2" />
                         </div>
 
                         <div x-cloak x-show="decision === '{{ \App\Enums\ReviewDecision::NeedMoreInfo->value }}'" class="space-y-3 border-l-2 border-indigo-200 pl-4">
                             <div>
                                 <h4 class="text-sm font-semibold text-gray-900">Wat ontbreekt nog?</h4>
+                                <p class="mt-1 text-xs text-gray-500" data-testid="review-follow-up-round-limit">
+                                    Maximaal {{ $maxFollowUpRounds }} aanvullende rondes
+                                    ({{ $usedFollowUpRounds }} van {{ $maxFollowUpRounds }} gebruikt).
+                                </p>
+                                @if ($followUpRoundsExhausted)
+                                    <p class="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950" data-testid="review-follow-up-round-exhausted">
+                                        Limiet bereikt. Kies gericht contact of een locatiebezoek in plaats van nog een ronde.
+                                    </p>
+                                @endif
                             </div>
 
                             @foreach ($followUpRows as $index => $item)
@@ -1058,7 +1132,7 @@
                         </div>
 
                         <x-primary-button>
-                            {{ $intake->review ? 'Beoordeling bijwerken' : 'Beoordeling opslaan' }}
+                            {{ $reviewIsCurrent ? 'Beoordeling bijwerken' : 'Beoordeling opslaan' }}
                         </x-primary-button>
                     </form>
                     @endif

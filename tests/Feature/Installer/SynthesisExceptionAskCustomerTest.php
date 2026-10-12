@@ -202,3 +202,50 @@ test('N33: Vraag de klant on AI exception prepares draft without activating a ro
         ->and($intake->fresh()->customer_access_enabled)->toBeFalse()
         ->and($ask['prompt'])->not->toBe($internal);
 });
+
+test('workspace exception heading uses proper Dutch plural without (en)', function () {
+    $this->withoutVite();
+    $user = User::factory()->create();
+    $intake = makeSynthesisExceptionIntake($user);
+    seedSynthesisException($intake, 'Oppervlak ca. 35 m2 nog onzeker.');
+
+    $html = $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake->fresh(['dossierSubjects.records'])))
+        ->assertOk()
+        ->getContent();
+
+    expect($html)->toContain('1 uitzondering bekijken')
+        ->and($html)->not->toContain('uitzondering(en)')
+        ->and($html)->toContain('35 m²')
+        ->and($html)->not->toContain('35 m2');
+
+    DossierRecord::query()
+        ->where('intake_id', $intake->id)
+        ->where('method', 'evidence_synthesis')
+        ->update([
+            'value' => [
+                'summary' => 'Voorstel beschikbaar.',
+                'exceptions' => [
+                    [
+                        'label' => 'Eerste punt',
+                        'decision_area_key' => 'condensate',
+                        'confidence' => 0.4,
+                        'evidence_references' => [],
+                    ],
+                    [
+                        'label' => 'Tweede punt',
+                        'decision_area_key' => 'power',
+                        'confidence' => 0.5,
+                        'evidence_references' => [],
+                    ],
+                ],
+                'customer_task_count' => 0,
+            ],
+        ]);
+
+    $this->actingAs($user)
+        ->get(route('intakes.workspace', $intake->fresh(['dossierSubjects.records'])))
+        ->assertOk()
+        ->assertSee('2 uitzonderingen bekijken', false)
+        ->assertDontSee('uitzondering(en)', false);
+});
