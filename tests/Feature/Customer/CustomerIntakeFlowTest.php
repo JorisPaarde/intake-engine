@@ -226,12 +226,16 @@ test('livewire string booleans satisfy required checks and allow next', function
 
 test('single choice auto-advances after selecting an option', function () {
     $intake = makeAccessibleIntake();
+    $choiceKey = 'request::cooling_heating';
 
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->set('form.request_reason.text', 'Te warm')
         ->call('next')
-        ->assertSet('activeStepKey', 'request::cooling_heating')
+        ->assertSet('activeStepKey', $choiceKey)
         ->set('form.cooling_heating.value', 'cooling')
+        ->assertJs('setTimeout(() => $wire.next('.json_encode($choiceKey).'), 50)')
+        ->assertSet('activeStepKey', $choiceKey)
+        ->call('next', $choiceKey)
         ->assertSet('activeStepKey', 'request::indoor_unit_count')
         ->assertSet('saveMessage', 'Opgeslagen')
         ->assertSee('Hoeveel ruimtes wil je koelen of verwarmen?');
@@ -239,11 +243,15 @@ test('single choice auto-advances after selecting an option', function () {
 
 test('boolean auto-advances after choosing ja or nee', function () {
     $intake = makeAccessibleIntake();
+    $choiceKey = 'outdoor_unit::noise_sensitive';
 
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
-        ->set('activeStepKey', 'outdoor_unit::noise_sensitive')
+        ->set('activeStepKey', $choiceKey)
         ->set('form.noise_sensitive.bool', '0')
+        ->assertJs('setTimeout(() => $wire.next('.json_encode($choiceKey).'), 50)')
         ->assertSet('showMissing', false)
+        ->assertSet('activeStepKey', $choiceKey)
+        ->call('next', $choiceKey)
         ->assertSet('activeStepKey', 'building::building_type')
         ->assertSet('saveMessage', 'Opgeslagen');
 });
@@ -270,11 +278,14 @@ test('multi choice values update does not auto-advance', function () {
 
 test('previous still works after an auto-advanced choice', function () {
     $intake = makeAccessibleIntake();
+    $choiceKey = 'request::cooling_heating';
 
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->set('form.request_reason.text', 'Te warm')
         ->call('next')
         ->set('form.cooling_heating.value', 'cooling')
+        ->assertJs('setTimeout(() => $wire.next('.json_encode($choiceKey).'), 50)')
+        ->call('next', $choiceKey)
         ->assertSet('activeStepKey', 'request::indoor_unit_count')
         ->call('previous')
         ->assertSet('activeStepKey', 'request::cooling_heating')
@@ -294,11 +305,14 @@ test('enter on short text advances to the next step', function () {
 
 test('enter on number advances to the next step', function () {
     $intake = makeAccessibleIntake();
+    $choiceKey = 'request::cooling_heating';
 
     Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->set('form.request_reason.text', 'Te warm')
         ->call('next')
         ->set('form.cooling_heating.value', 'cooling')
+        ->assertJs('setTimeout(() => $wire.next('.json_encode($choiceKey).'), 50)')
+        ->call('next', $choiceKey)
         ->assertSet('activeStepKey', 'request::indoor_unit_count')
         ->call('advanceFromEnter', 'indoor_unit_count', 'number', '1')
         ->assertSet('activeStepKey', 'rooms::room-1::room_photos');

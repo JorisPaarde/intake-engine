@@ -50,6 +50,8 @@ final class E2eScenarioFactory
             'feedback' => $this->feedbackReady(),
             'room-name-autosave' => $this->roomNameAutosave(),
             'resume-after-known-edit' => $this->resumeAfterKnownEdit(),
+            'n30-accessibility-catchup' => $this->n30AccessibilityCatchup(),
+            'n3-drain-choice-upload' => $this->n3DrainChoiceUpload(),
             default => throw new \InvalidArgumentException('Unknown E2E scenario: '.$scenario),
         };
     }
@@ -281,6 +283,89 @@ final class E2eScenarioFactory
 
         return $this->payload($intake, 'resume-after-known-edit', [
             'target_question_key' => 'cooling_heating',
+        ]);
+    }
+
+    /**
+     * N30: outdoor_accessibility open while cursor already past it (noise_sensitive).
+     * Volgende must catch up to bereikbaarheid before ownership.
+     *
+     * @return array<string, mixed>
+     */
+    private function n30AccessibilityCatchup(): array
+    {
+        E2eAiScenario::set(E2eAiScenario::GOOD_PHOTO);
+
+        $intake = $this->baseIntake([
+            'customer_name' => 'E2E N30',
+            'customer_email' => 'e2e-n30@example.com',
+        ]);
+
+        $this->seedLivingRoomKnown($intake);
+        $this->seedThroughFusebox($intake);
+
+        foreach (['room_photos' => 'room-1', 'outdoor_location_photos' => null] as $photoKey => $instance) {
+            $upload = $this->storeUpload->handle(
+                $intake,
+                $photoKey,
+                $instance,
+                $this->fixtureUpload($photoKey === 'room_photos' ? 'woonkamer-1440.jpg' : 'buitenunit-flow.jpeg'),
+            );
+            $upload->updateQuietly([
+                'usability_verdict' => PhotoUsabilityVerdict::Ok,
+                'assessment_status' => PhotoAssessmentStatus::Assessed,
+                'content_assessment' => [
+                    'status' => 'ok',
+                    'expected_subject' => $photoKey === 'room_photos' ? 'room' : 'outdoor_location',
+                    'detected_subject' => $photoKey === 'room_photos' ? 'room' : 'outdoor_location',
+                    'customer_message' => null,
+                ],
+            ]);
+        }
+
+        // Repro: accessibility was skipped (prefill), then cleared — still past that step.
+        // Delete after upload so FakeAi photo-derive cannot recreate the answer.
+        // noise_sensitive must be unanswered so it stays in the step list (ai_text skip).
+        $intake->answers()->whereIn('question_key', ['outdoor_accessibility', 'noise_sensitive'])->delete();
+
+        $intake->update([
+            'current_section_key' => 'outdoor_unit',
+            'current_question_key' => 'noise_sensitive',
+            'current_section_instance_key' => null,
+        ]);
+
+        return $this->payload($intake, 'n30-accessibility-catchup', [
+            'target_question_key' => 'noise_sensitive',
+        ]);
+    }
+
+    /**
+     * N3: start on drain_nearby group with no drain_location yet (choice + immediate upload).
+     *
+     * @return array<string, mixed>
+     */
+    private function n3DrainChoiceUpload(): array
+    {
+        E2eAiScenario::set(E2eAiScenario::GOOD_PHOTO);
+
+        $intake = $this->baseIntake([
+            'customer_name' => 'E2E N3',
+            'customer_email' => 'e2e-n3@example.com',
+        ]);
+
+        $this->seedLivingRoomKnown($intake);
+        $this->seedThroughFusebox($intake);
+
+        $intake->answers()->where('question_key', 'drain_location')->delete();
+
+        $intake->update([
+            'current_section_key' => 'condensate',
+            'current_question_key' => 'drain_location',
+            'current_section_instance_key' => null,
+        ]);
+
+        return $this->payload($intake, 'n3-drain-choice-upload', [
+            'target_question_key' => 'drain_location',
         ]);
     }
 

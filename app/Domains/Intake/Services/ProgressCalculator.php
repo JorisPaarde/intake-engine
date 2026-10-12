@@ -53,6 +53,7 @@ final class ProgressCalculator
 
         $answers = $this->buildAnswerMap($intake);
         $answerSources = $this->buildAnswerSourceMap($intake);
+        $answerFacts = $this->buildAnswerFactMap($intake);
         $questionTypes = $this->buildQuestionTypeMap($questions);
         $sectionsByQuestionKey = $this->buildSectionsByQuestionKey($sections);
         $targets = $this->buildTargets($sections, $answers, $questionTypes);
@@ -94,16 +95,29 @@ final class ProgressCalculator
             }
 
             $answerSource = $answerSources[$compositeKey] ?? null;
+            $answerValue = $answers[$compositeKey] ?? null;
+            $answerFact = $answerFacts[$compositeKey] ?? null;
 
             $skipSources = $question->meta['skip_when_prefilled_by'] ?? null;
             $skipSources = is_array($skipSources) ? $skipSources : [$skipSources];
 
-            if (PrefillSources::shouldSkipPrefill($answerSource, $skipSources)) {
+            // Zelfde skip-definitie als IntakeStepBuilder (FactAcceptance + AI-unknown).
+            if (PrefillSources::maySkipAsPrefill(
+                $answerSource,
+                $skipSources,
+                $question->key,
+                $answerFact,
+                is_array($answerValue) ? $answerValue : null,
+            )) {
                 continue;
             }
 
-            $answerValue = $answers[$compositeKey] ?? null;
             $filled = $this->answerValueReader->isFilled($answerValue, $question->type);
+
+            // AI-unknown telt niet als beantwoord (vraag blijft open voor CompletenessChecker).
+            if ($filled && PrefillSources::isAiUnknownChoice($answerSource, is_array($answerValue) ? $answerValue : null)) {
+                $filled = false;
+            }
 
             if ($filled && MustAcceptQuestions::requiresAcceptance($question)) {
                 $filled = MustAcceptQuestions::isAccepted($answerValue, $answerSource);
@@ -244,6 +258,30 @@ final class ProgressCalculator
         }
 
         return $sources;
+    }
+
+    /**
+     * @return array<string, array{provenance: ?string, confidence: ?int, fact_source: ?string}>
+     */
+    private function buildAnswerFactMap(Intake $intake): array
+    {
+        $intake->loadMissing('answers');
+
+        $facts = [];
+
+        foreach ($intake->answers as $answer) {
+            $key = VisibilityResolver::compositeKey(
+                $answer->question_key,
+                $answer->section_instance_key,
+            );
+            $facts[$key] = [
+                'provenance' => $answer->fact_provenance,
+                'confidence' => is_int($answer->fact_confidence) ? $answer->fact_confidence : null,
+                'fact_source' => $answer->fact_source,
+            ];
+        }
+
+        return $facts;
     }
 
     /**
