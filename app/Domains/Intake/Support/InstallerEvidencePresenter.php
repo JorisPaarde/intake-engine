@@ -165,14 +165,20 @@ final class InstallerEvidencePresenter
         $supersessionLabel = null;
 
         // Prefer linking to current evidence; only mark superseded when we cannot resolve a replacement.
+        // N28: only follow a replacement that shares the same PhotoSubject (meterkast ≠ stroomroute).
         if ($preferredUpload instanceof IntakeUpload
             && array_key_exists($preferredUpload->id, $supersessions)
             && $supersessions[$preferredUpload->id]['superseded'] === true) {
             $replacementId = $supersessions[$preferredUpload->id]['replaced_by_upload_id'];
             if (is_int($replacementId)) {
                 $replacement = $intake->uploads->firstWhere('id', $replacementId);
-                if ($replacement instanceof IntakeUpload) {
+                if ($replacement instanceof IntakeUpload
+                    && $this->sameCitationPhotoSubject($preferredUpload, $replacement)) {
                     $preferredUpload = $replacement;
+                } elseif ($replacement instanceof IntakeUpload) {
+                    // Different subject: keep citing the original; not a real replacement.
+                    $superseded = false;
+                    $supersessionLabel = null;
                 } else {
                     $superseded = true;
                     $supersessionLabel = $supersessions[$preferredUpload->id]['supersession_label']
@@ -447,9 +453,13 @@ final class InstallerEvidencePresenter
             $replacementId = $info['replaced_by_upload_id'];
             if (is_int($replacementId)) {
                 $replacement = $intake->uploads->firstWhere('id', $replacementId);
-                if ($replacement instanceof IntakeUpload) {
-                    // Prefer current evidence in citations.
+                if ($replacement instanceof IntakeUpload
+                    && $this->sameCitationPhotoSubject($upload, $replacement)) {
+                    // Prefer current evidence in citations (same PhotoSubject only).
                     $displayUpload = $replacement;
+                } elseif ($replacement instanceof IntakeUpload) {
+                    $superseded = false;
+                    $supersessionLabel = null;
                 } else {
                     $superseded = true;
                     $supersessionLabel = $info['supersession_label'] ?? 'Vervangen door nieuwer bewijs';
@@ -481,27 +491,47 @@ final class InstallerEvidencePresenter
 
         foreach ($uploadIds->reverse() as $id) {
             $info = $supersessions[$id] ?? null;
+            $upload = $intake->uploads->firstWhere('id', $id);
+            if (! $upload instanceof IntakeUpload) {
+                continue;
+            }
+
             if (is_array($info) && $info['superseded'] === true) {
                 $replacementId = $info['replaced_by_upload_id'];
                 if (is_int($replacementId)) {
                     $replacement = $intake->uploads->firstWhere('id', $replacementId);
-                    if ($replacement instanceof IntakeUpload) {
+                    if ($replacement instanceof IntakeUpload
+                        && $this->sameCitationPhotoSubject($upload, $replacement)) {
                         return $replacement;
                     }
                 }
 
-                continue;
-            }
-
-            $upload = $intake->uploads->firstWhere('id', $id);
-            if ($upload instanceof IntakeUpload) {
+                // Superseded without a same-subject replacement: keep original citation.
                 return $upload;
             }
+
+            return $upload;
         }
 
         $first = $intake->uploads->firstWhere('id', (int) $uploadIds->first());
 
         return $first instanceof IntakeUpload ? $first : null;
+    }
+
+    private function sameCitationPhotoSubject(IntakeUpload $a, IntakeUpload $b): bool
+    {
+        $subjectA = $a->contentAssessment()?->detectedSubject()
+            ?? PhotoSubject::expectedForPhotoQuestion($a->question_key)
+            ?? $a->contentAssessment()?->expectedSubject();
+        $subjectB = $b->contentAssessment()?->detectedSubject()
+            ?? PhotoSubject::expectedForPhotoQuestion($b->question_key)
+            ?? $b->contentAssessment()?->expectedSubject();
+
+        if (! $subjectA instanceof PhotoSubject || ! $subjectB instanceof PhotoSubject) {
+            return false;
+        }
+
+        return $subjectA === $subjectB;
     }
 
     private function resolveFact(Intake $intake, string $reference, ?string $factKey): ?IntakeExternalFact
