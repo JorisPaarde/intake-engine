@@ -8,7 +8,7 @@ namespace App\Domains\AI\Eval;
  * Haalt evaluatiefeiten uit model_raw (fills + top-level existing_installation) of pipeline fills.
  *
  * existing_installation zit niet in de vraagcatalogus; het model levert het als top-level
- * object naast fills (request-prefill-v14+). Geen regex/keyword-afleiding (ADR-0013).
+ * object naast fills (request-prefill-v14+/v15). Geen regex/keyword-afleiding (ADR-0013).
  */
 final class PrefillFactExtractor
 {
