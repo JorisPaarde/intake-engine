@@ -9,8 +9,15 @@ use App\Domains\AI\Support\DerivedClaimConfidenceGuard;
 use ReflectionMethod;
 
 /**
- * Meet foto-observatiefeiten (C5/C7/C8) zonder echte foto's:
- * model_raw = fixture model_fields + observatietekst; pipeline_final = post-processing op main.
+ * Meet foto-observatiefeiten (C5/C7/C8).
+ *
+ * Default (stub): model_raw = fixture model_fields + observatietekst;
+ * pipeline_final = post-processing op main.
+ *
+ * Met --live-vision + fixture image + supported prompt (room_assessment):
+ * stuur de fixture-foto door de echte prompt/schema via AiGateway (zelfde
+ * client/provider als de app). Outdoor/fusebox/pipe_route later via
+ * {@see EvalPhotoVisionInvoker::SUPPORTED_PROMPTS}.
  */
 final class PhotoObservationCaseRunner
 {
@@ -18,14 +25,19 @@ final class PhotoObservationCaseRunner
         private readonly FactScorer $scorer,
         private readonly DerivedClaimConfidenceGuard $confidenceGuard,
         private readonly ReportClaimsScorer $claimsScorer,
+        private readonly ?EvalPhotoVisionInvoker $visionInvoker = null,
     ) {}
 
     /**
      * @param  array<string, mixed>  $fixture
      * @return array<string, mixed>
      */
-    public function run(array $fixture, int $repeatIndex): array
-    {
+    public function run(
+        array $fixture,
+        int $repeatIndex,
+        bool $liveVision = false,
+        ?string $promptVersion = null,
+    ): array {
         $text = is_string($fixture['text'] ?? null) ? $fixture['text'] : '';
         $slot = is_string($fixture['slot'] ?? null) ? $fixture['slot'] : null;
         $modelFields = is_array($fixture['model_fields'] ?? null) ? $fixture['model_fields'] : [];
@@ -39,7 +51,267 @@ final class PhotoObservationCaseRunner
             : ['C7'];
         $image = is_string($fixture['image'] ?? null) ? $fixture['image'] : null;
         $prompt = is_string($fixture['prompt'] ?? null) ? $fixture['prompt'] : null;
+        $hasImage = $this->imageFilePresent($image);
 
+        if ($liveVision && $hasImage && is_string($prompt) && $prompt !== '') {
+            return $this->runLiveVision(
+                fixture: $fixture,
+                repeatIndex: $repeatIndex,
+                text: $text,
+                slot: $slot,
+                expected: $expected,
+                disputed: $disputed,
+                components: $components,
+                image: $image,
+                prompt: $prompt,
+                promptVersion: $promptVersion,
+            );
+        }
+
+        // Only mark live_vision.requested when the fixture could have been a vision
+        // candidate (image present) but lacked a prompt, or live-vision was off.
+        $visionCandidate = $liveVision && $hasImage;
+
+        return $this->runStub(
+            fixture: $fixture,
+            repeatIndex: $repeatIndex,
+            text: $text,
+            slot: $slot,
+            modelFields: $modelFields,
+            expected: $expected,
+            disputed: $disputed,
+            components: $components,
+            image: $image,
+            prompt: $prompt,
+            hasImage: $hasImage,
+            liveVisionRequested: $visionCandidate,
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $fixture
+     * @param  array<string, mixed>  $expected
+     * @param  array<string, mixed>  $disputed
+     * @param  list<string>  $components
+     * @return array<string, mixed>
+     */
+    private function runLiveVision(
+        array $fixture,
+        int $repeatIndex,
+        string $text,
+        ?string $slot,
+        array $expected,
+        array $disputed,
+        array $components,
+        string $image,
+        string $prompt,
+        ?string $promptVersion,
+    ): array {
+        $invoker = $this->visionInvoker ?? app(EvalPhotoVisionInvoker::class);
+        $absolute = $this->absoluteImagePath($image);
+        if ($absolute === null) {
+            return $this->liveVisionErrorCase(
+                fixture: $fixture,
+                repeatIndex: $repeatIndex,
+                slot: $slot,
+                image: $image,
+                prompt: $prompt,
+                rejection: 'image_missing: '.$image,
+                expected: $expected,
+                disputed: $disputed,
+                components: $components,
+            );
+        }
+
+        if (! $invoker->supports($prompt)) {
+            // Generic hook: outdoor/fusebox/pipe_route keep stub until enabled.
+            $stub = $this->runStub(
+                fixture: $fixture,
+                repeatIndex: $repeatIndex,
+                text: $text,
+                slot: $slot,
+                modelFields: is_array($fixture['model_fields'] ?? null) ? $fixture['model_fields'] : [],
+                expected: $expected,
+                disputed: $disputed,
+                components: $components,
+                image: $image,
+                prompt: $prompt,
+                hasImage: true,
+                liveVisionRequested: true,
+            );
+            $stub['runnable_note'] = 'Live vision nog niet voor prompt='.$prompt
+                .' (supported: '.implode(', ', $invoker->supportedPrompts()).'); stub-scoring op model_fields.';
+            $stub['live_vision'] = [
+                'requested' => true,
+                'executed' => false,
+                'reason' => 'prompt_not_yet_supported',
+            ];
+
+            return $stub;
+        }
+
+        $vision = $invoker->invoke(
+            promptName: $prompt,
+            absoluteImagePath: $absolute,
+            promptVersionSelector: $promptVersion,
+            slot: $slot,
+        );
+
+        $rejection = is_string($vision['rejection'] ?? null) ? $vision['rejection'] : null;
+        $output = is_array($vision['output'] ?? null) ? $vision['output'] : null;
+        $liveFields = $output ?? [];
+        $evidenceText = is_string($liveFields['evidence'] ?? null)
+            ? (string) $liveFields['evidence']
+            : '';
+
+        $rawFacts = $rejection === null
+            ? $this->factsFromObservation($evidenceText, $liveFields, $slot, pipeline: false)
+            : $this->emptyFacts();
+        $finalFacts = $rejection === null
+            ? $this->factsFromObservation($evidenceText, $liveFields, $slot, pipeline: true)
+            : $this->emptyFacts();
+
+        $scores = [
+            'model_raw' => $this->scoreLayer(
+                $expected,
+                $rawFacts,
+                $disputed,
+                layer: 'model_raw',
+                rejected: $rejection !== null,
+            ),
+            'pipeline_final' => $this->scoreLayer(
+                $expected,
+                $finalFacts,
+                $disputed,
+                layer: 'pipeline_final',
+                rejected: $rejection !== null,
+            ),
+        ];
+
+        $claimExpected = ['claims' => is_array($expected['claims'] ?? null) ? $expected['claims'] : []];
+        if ($claimExpected['claims'] !== []) {
+            $rawLayerMeta = [
+                'summary_rejection' => $rejection,
+                'attention_rejection' => $rejection !== null ? 'vision_rejected' : null,
+            ];
+            $finalLayerMeta = $rawLayerMeta;
+            $rawCorpus = $rejection === null
+                ? $this->evidenceCorpus($evidenceText, $liveFields, $rawFacts)
+                : '';
+            $finalCorpus = $rejection === null
+                ? $this->evidenceCorpus($evidenceText, $liveFields, $finalFacts)
+                : '';
+            // Empty attention points (not null) when scoring evidence corpus — same as stub path.
+            // On rejection pass null for both layers so claims become not_supported (rejected).
+            $scores['model_raw'] = array_merge(
+                $scores['model_raw'],
+                $this->claimsScorer->scoreLayer(
+                    $claimExpected,
+                    $rejection === null ? ['summary' => $rawCorpus, 'highlights' => []] : null,
+                    $rejection === null ? [] : null,
+                    $disputed,
+                    $components,
+                    $rawLayerMeta,
+                ),
+            );
+            $scores['pipeline_final'] = array_merge(
+                $scores['pipeline_final'],
+                $this->claimsScorer->scoreLayer(
+                    $claimExpected,
+                    $rejection === null ? ['summary' => $finalCorpus, 'highlights' => []] : null,
+                    $rejection === null ? [] : null,
+                    $disputed,
+                    $components,
+                    $finalLayerMeta,
+                ),
+            );
+        }
+
+        $status = $rejection !== null ? 'error' : 'ok';
+
+        return [
+            'id' => $fixture['id'] ?? null,
+            'kind' => 'photo_observation',
+            'repeat' => $repeatIndex,
+            'source_kind' => $fixture['source_kind'] ?? null,
+            'origin' => $fixture['origin'] ?? null,
+            'status' => $status,
+            'error' => is_string($vision['error'] ?? null) ? $vision['error'] : null,
+            'slot' => $slot,
+            'room' => $fixture['room'] ?? null,
+            'prompt' => $prompt,
+            'image' => $image,
+            'image_present' => true,
+            'provider' => $vision['provider'] ?? null,
+            'model' => $vision['model'] ?? null,
+            'prompt_versions' => [
+                $prompt => $vision['prompt_version'] ?? null,
+            ],
+            'prompt_source' => $vision['prompt_source'] ?? null,
+            'prompt_selector' => $vision['prompt_selector'] ?? null,
+            'token_usage' => [
+                'vision' => $vision['token_usage'] ?? null,
+                'total_tokens' => is_array($vision['token_usage'] ?? null)
+                    ? ($vision['token_usage']['total_tokens'] ?? null)
+                    : null,
+                'estimated_cost' => is_array($vision['token_usage'] ?? null)
+                    ? ($vision['token_usage']['estimated_cost'] ?? null)
+                    : null,
+                'estimated_cost_cents' => is_array($vision['token_usage'] ?? null)
+                    ? ($vision['token_usage']['estimated_cost_cents'] ?? null)
+                    : null,
+            ],
+            'runnable' => true,
+            'runnable_note' => 'Live vision: fixture-foto → '.$prompt
+                .' ('.(is_string($vision['prompt_version'] ?? null) ? $vision['prompt_version'] : '?')
+                .', source='.(is_string($vision['prompt_source'] ?? null) ? $vision['prompt_source'] : '?').').',
+            'live_vision' => [
+                'requested' => true,
+                'executed' => true,
+                'image_bytes' => $vision['image_bytes'],
+                'image_mime' => $vision['image_mime'],
+            ],
+            'model_raw' => [
+                'text' => $evidenceText !== '' ? $evidenceText : $text,
+                'model_fields' => $liveFields,
+                'facts' => $rawFacts,
+            ],
+            'pipeline_final' => $finalFacts,
+            'pipeline_differs_from_model_raw' => json_encode($rawFacts) !== json_encode($finalFacts),
+            'rejections' => [
+                'vision_gateway' => $rejection,
+            ],
+            'facts' => [
+                'model_raw' => $rawFacts,
+                'pipeline_final' => $finalFacts,
+            ],
+            'scores' => $scores,
+            'note' => $fixture['note'] ?? null,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $fixture
+     * @param  array<string, mixed>  $modelFields
+     * @param  array<string, mixed>  $expected
+     * @param  array<string, mixed>  $disputed
+     * @param  list<string>  $components
+     * @return array<string, mixed>
+     */
+    private function runStub(
+        array $fixture,
+        int $repeatIndex,
+        string $text,
+        ?string $slot,
+        array $modelFields,
+        array $expected,
+        array $disputed,
+        array $components,
+        ?string $image,
+        ?string $prompt,
+        bool $hasImage,
+        bool $liveVisionRequested = false,
+    ): array {
         $rawFacts = $this->factsFromObservation($text, $modelFields, $slot, pipeline: false);
         $finalFacts = $this->factsFromObservation($text, $modelFields, $slot, pipeline: true);
 
@@ -77,7 +349,10 @@ final class PhotoObservationCaseRunner
             );
         }
 
-        $hasImage = $this->imageFilePresent($image);
+        $note = $hasImage
+            ? 'Stub/fake: observatietekst + model_fields als model_raw; image aanwezig'
+                .($liveVisionRequested ? ' (live vision niet uitgevoerd voor deze case).' : ' voor latere vision-run op de box.')
+            : 'Geen echte foto: observatietekst + model_fields uit trace als model_raw; post-processing als pipeline_final.';
 
         return [
             'id' => $fixture['id'] ?? null,
@@ -93,9 +368,11 @@ final class PhotoObservationCaseRunner
             'image' => $image,
             'image_present' => $hasImage,
             'runnable' => true,
-            'runnable_note' => $hasImage
-                ? 'Stub/fake: observatietekst + model_fields als model_raw; image aanwezig voor latere vision-run op de box.'
-                : 'Geen echte foto: observatietekst + model_fields uit trace als model_raw; post-processing als pipeline_final.',
+            'runnable_note' => $note,
+            'live_vision' => [
+                'requested' => $liveVisionRequested,
+                'executed' => false,
+            ],
             'model_raw' => ['text' => $text, 'model_fields' => $modelFields, 'facts' => $rawFacts],
             'pipeline_final' => $finalFacts,
             'facts' => [
@@ -104,6 +381,106 @@ final class PhotoObservationCaseRunner
             ],
             'scores' => $scores,
             'note' => $fixture['note'] ?? null,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $fixture
+     * @param  array<string, mixed>  $expected
+     * @param  array<string, mixed>  $disputed
+     * @param  list<string>  $components
+     * @return array<string, mixed>
+     */
+    private function liveVisionErrorCase(
+        array $fixture,
+        int $repeatIndex,
+        ?string $slot,
+        string $image,
+        string $prompt,
+        string $rejection,
+        array $expected,
+        array $disputed,
+        array $components,
+    ): array {
+        $empty = $this->emptyFacts();
+        $scores = [
+            'model_raw' => $this->scoreLayer($expected, $empty, $disputed, layer: 'model_raw', rejected: true),
+            'pipeline_final' => $this->scoreLayer($expected, $empty, $disputed, layer: 'pipeline_final', rejected: true),
+        ];
+        $claimExpected = ['claims' => is_array($expected['claims'] ?? null) ? $expected['claims'] : []];
+        if ($claimExpected['claims'] !== []) {
+            $meta = ['summary_rejection' => $rejection, 'attention_rejection' => null];
+            $scores['model_raw'] = array_merge(
+                $scores['model_raw'],
+                $this->claimsScorer->scoreLayer($claimExpected, null, [], $disputed, $components, $meta),
+            );
+            $scores['pipeline_final'] = array_merge(
+                $scores['pipeline_final'],
+                $this->claimsScorer->scoreLayer($claimExpected, null, [], $disputed, $components, $meta),
+            );
+        }
+
+        return [
+            'id' => $fixture['id'] ?? null,
+            'kind' => 'photo_observation',
+            'repeat' => $repeatIndex,
+            'source_kind' => $fixture['source_kind'] ?? null,
+            'origin' => $fixture['origin'] ?? null,
+            'status' => 'error',
+            'error' => $rejection,
+            'slot' => $slot,
+            'room' => $fixture['room'] ?? null,
+            'prompt' => $prompt,
+            'image' => $image,
+            'image_present' => false,
+            'token_usage' => null,
+            'runnable' => true,
+            'runnable_note' => 'Live vision mislukt: '.$rejection,
+            'live_vision' => [
+                'requested' => true,
+                'executed' => false,
+                'reason' => $rejection,
+            ],
+            'rejections' => [
+                'vision_gateway' => $rejection,
+            ],
+            'model_raw' => ['text' => null, 'model_fields' => [], 'facts' => $empty],
+            'pipeline_final' => $empty,
+            'facts' => [
+                'model_raw' => $empty,
+                'pipeline_final' => $empty,
+            ],
+            'scores' => $scores,
+            'note' => $fixture['note'] ?? null,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function emptyFacts(): array
+    {
+        return [
+            'subject_match' => null,
+            'route_to' => null,
+            'outlet_present' => null,
+            'room_type' => null,
+            'existing_outdoor_unit_visible' => null,
+            'existing_indoor_unit_visible' => null,
+            'outdoor_location' => null,
+            'mount' => null,
+            'mount_position_known' => null,
+            'pipe_route_visible' => null,
+            'phase' => null,
+            'free_group' => null,
+            'certainty' => null,
+            'needs_retake' => null,
+            'conflict_with_request_text' => null,
+            'sun_exposure' => null,
+            'glass_amount' => null,
+            'glazing_type' => null,
+            'evidence' => null,
+            'retake_instruction' => null,
         ];
     }
 
@@ -130,17 +507,34 @@ final class PhotoObservationCaseRunner
 
     private function imageFilePresent(?string $image): bool
     {
+        return $this->absoluteImagePath($image) !== null;
+    }
+
+    private function absoluteImagePath(?string $image): ?string
+    {
         if (! is_string($image) || $image === '') {
-            return false;
+            return null;
         }
         if (is_file($image)) {
-            return true;
+            return $image;
         }
         // Repo-relative paths from fixtures (unit tests may lack Application::basePath).
+        $candidates = [];
+        try {
+            $candidates[] = base_path($image);
+        } catch (\Throwable) {
+            // Unit tests without full app bootstrap.
+        }
         $repoRoot = dirname(__DIR__, 4);
-        $candidate = $repoRoot.DIRECTORY_SEPARATOR.ltrim(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $image), DIRECTORY_SEPARATOR);
+        $candidates[] = $repoRoot.DIRECTORY_SEPARATOR.ltrim(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $image), DIRECTORY_SEPARATOR);
 
-        return is_file($candidate);
+        foreach ($candidates as $candidate) {
+            if (is_file($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -314,8 +708,13 @@ final class PhotoObservationCaseRunner
      * @param  array<string, mixed>  $disputed
      * @return array<string, array<string, mixed>>
      */
-    private function scoreLayer(array $expected, array $got, array $disputed, string $layer): array
-    {
+    private function scoreLayer(
+        array $expected,
+        array $got,
+        array $disputed,
+        string $layer,
+        bool $rejected = false,
+    ): array {
         $out = [];
         $componentMap = [
             'subject_match' => ['C7'],
@@ -364,13 +763,13 @@ final class PhotoObservationCaseRunner
             }
 
             $meta = is_array($disputed[$key] ?? null) ? $disputed[$key] : null;
-            $supported = true;
+            $supported = ! $rejected;
             // conflict_with_request_text heeft geen dedicated veld op main
             if ($key === 'conflict_with_request_text' && $layer === 'pipeline_final') {
                 $supported = false;
             }
 
-            $out[$key] = $this->scorer->score(
+            $score = $this->scorer->score(
                 expected: $expVal,
                 got: $gotVal,
                 supported: $supported,
@@ -379,6 +778,10 @@ final class PhotoObservationCaseRunner
                 disputedReason: is_string($meta['reason'] ?? null) ? $meta['reason'] : null,
                 acceptableAlternates: is_array($meta['acceptable_alternates'] ?? null) ? $meta['acceptable_alternates'] : null,
             );
+            if ($rejected) {
+                $score['detail'] = 'rejected';
+            }
+            $out[$key] = $score;
         }
 
         return $out;

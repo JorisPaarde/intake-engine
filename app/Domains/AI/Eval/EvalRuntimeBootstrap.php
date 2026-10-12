@@ -96,7 +96,8 @@ final class EvalRuntimeBootstrap
                 .' i.p.v. AI_MODEL uit env. Zet AI_MODEL expliciet als je een ander model wilt.';
         }
 
-        // Alleen tekst-inferentie: eval-runners gebruiken geen photo/dossier.
+        // Tekst-inferentie altijd aan. Photo-inferentie alleen nodig als productpad
+        // DerivePhotoAnswers::handle draait; live-vision eval roept AiGateway direct.
         config(['ai.text_inference.enabled' => true]);
         $applied[] = 'text_inference on';
 
@@ -108,6 +109,18 @@ final class EvalRuntimeBootstrap
         }
 
         return ['applied' => $applied, 'warnings' => $warnings];
+    }
+
+    /**
+     * Extra config wanneer --live-vision: vision-model blijft uit config/env;
+     * zet photo_inference aan zodat FakeAiClient/OpenAiClient vision-paden consistent zijn.
+     */
+    public function enableLiveVision(): void
+    {
+        config([
+            'ai.photo_inference.enabled' => true,
+            'ai.text_inference.enabled' => true,
+        ]);
     }
 
     public function resolveApiKey(): ?string
