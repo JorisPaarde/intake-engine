@@ -326,7 +326,8 @@ class IntakeWizard extends Component
      *     }>,
      *     group_key?: string,
      *     group_question_keys?: list<string>,
-     *     bundle_question_keys?: list<string>
+     *     bundle_question_keys?: list<string>,
+     *     sticky_photo_composite?: string|null
      * }>|null
      */
     private ?array $resolvedSteps = null;
@@ -583,13 +584,11 @@ class IntakeWizard extends Component
                 );
                 // Only the composite IntakeStepBuilder marked sticky may be force-visible
                 // (wall_outlet after AI sets outlet=present). Group members keep resolver results.
-                $stickyPhotoComposite = is_string($step['sticky_photo_composite'] ?? null)
-                    ? $step['sticky_photo_composite']
-                    : null;
-                if ($stickyPhotoComposite !== null && $stickyPhotoComposite !== '') {
-                    $visibility[$stickyPhotoComposite] = [
+                $sticky = $step['sticky_photo_composite'] ?? null;
+                if (is_string($sticky) && $sticky !== '') {
+                    $visibility[$sticky] = [
                         'visible' => true,
-                        'required' => (bool) ($visibility[$stickyPhotoComposite]['required'] ?? false),
+                        'required' => (bool) ($visibility[$sticky]['required'] ?? false),
                     ];
                 }
                 $uploadsByQuestion = $this->uploadsForStep($step['section_instance_key']);
@@ -1647,7 +1646,7 @@ class IntakeWizard extends Component
 
         // Achtergrond-poll mag geen DOM-morph doen: concurrent wire:model.live (floor_level)
         // wordt anders binnen seconden weer unchecked (E2E 01).
-        if ($composite !== '' && ! $pollTargetsCurrentStep) {
+        if (! $pollTargetsCurrentStep) {
             $this->skipRender();
         }
     }
@@ -3010,7 +3009,8 @@ class IntakeWizard extends Component
      *     question_key: string,
      *     kind?: 'question'|'known_summary'|'question_group'|'closing_wishes',
      *     group_question_keys?: list<string>,
-     *     bundle_question_keys?: list<string>
+     *     bundle_question_keys?: list<string>,
+     *     sticky_photo_composite?: string|null
      * }|null  $step
      */
     private function saveStep(?array $step): void
@@ -3652,7 +3652,8 @@ class IntakeWizard extends Component
      *     }>,
      *     group_key?: string,
      *     group_question_keys?: list<string>,
-     *     bundle_question_keys?: list<string>
+     *     bundle_question_keys?: list<string>,
+     *     sticky_photo_composite?: string|null
      * }>
      */
     private function steps(): array
@@ -4132,7 +4133,8 @@ class IntakeWizard extends Component
      *     is_required?: bool,
      *     kind?: 'question'|'known_summary'|'question_group'|'closing_wishes',
      *     group_question_keys?: list<string>,
-     *     bundle_question_keys?: list<string>
+     *     bundle_question_keys?: list<string>,
+     *     sticky_photo_composite?: string|null
      * }|null  $step
      */
     private function stepRequiredSatisfied(?array $step): bool
@@ -4513,7 +4515,8 @@ class IntakeWizard extends Component
      *     }>,
      *     group_key?: string,
      *     group_question_keys?: list<string>,
-     *     bundle_question_keys?: list<string>
+     *     bundle_question_keys?: list<string>,
+     *     sticky_photo_composite?: string|null
      * }|null
      */
     private function currentStep(): ?array
@@ -4546,7 +4549,8 @@ class IntakeWizard extends Component
      *     }>,
      *     group_key?: string,
      *     group_question_keys?: list<string>,
-     *     bundle_question_keys?: list<string>
+     *     bundle_question_keys?: list<string>,
+     *     sticky_photo_composite?: string|null
      * }>  $steps
      * @return array{
      *     key: string,
@@ -4569,7 +4573,8 @@ class IntakeWizard extends Component
      *     }>,
      *     group_key?: string,
      *     group_question_keys?: list<string>,
-     *     bundle_question_keys?: list<string>
+     *     bundle_question_keys?: list<string>,
+     *     sticky_photo_composite?: string|null
      * }|null
      */
     private function resolveDisplayedStep(array $steps): ?array
@@ -4753,7 +4758,8 @@ class IntakeWizard extends Component
      *     known_items?: list<array<string, mixed>>,
      *     group_key?: string,
      *     group_question_keys?: list<string>,
-     *     bundle_question_keys?: list<string>
+     *     bundle_question_keys?: list<string>,
+     *     sticky_photo_composite?: string|null
      * }>  $steps
      */
     private function clampResumeWhenCursorMissing(
@@ -4797,7 +4803,8 @@ class IntakeWizard extends Component
      *     known_items?: list<array<string, mixed>>,
      *     group_key?: string,
      *     group_question_keys?: list<string>,
-     *     bundle_question_keys?: list<string>
+     *     bundle_question_keys?: list<string>,
+     *     sticky_photo_composite?: string|null
      * }>  $steps
      */
     private function indexOfFirstUnsatisfiedRequired(array $steps): ?int
