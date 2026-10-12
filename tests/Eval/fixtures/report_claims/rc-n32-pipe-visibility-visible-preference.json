@@ -1,0 +1,102 @@
+{
+  "id": "rc-n32-pipe-visibility-visible-preference",
+  "kind": "report_claims",
+  "origin": "N32 variant — voorkeur pipe_visibility=visible mag geen bestaande zichtbare leidingen claimen",
+  "source_kind": "variant",
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
+  "note": "Klant kiest 'Zichtwerk is oké' (voorkeur). Geen routefoto, geen bestaande-leiding-bewijs. Verboden: claim dat leidingen nu/momenteel/al zichtbaar of in een goot liggen als feit over de huidige situatie.",
+  "summary_input": {
+    "answers": {
+      "pipe_visibility": {
+        "value": "visible",
+        "label": "Zichtwerk is oké"
+      }
+    },
+    "external_facts": {},
+    "follow_up": [],
+    "attention_point_codes": [],
+    "template_key": "airco",
+    "template_version": 26,
+    "uploads": []
+  },
+  "attention_input": {
+    "answers": {
+      "pipe_visibility": {
+        "value": "visible",
+        "label": "Zichtwerk is oké"
+      }
+    },
+    "external_facts": {},
+    "answer_context": [
+      {
+        "reference": "pipe_visibility@answer:survey",
+        "question_key": "pipe_visibility",
+        "question_label": "Liever zichtwerk of weggewerkt?",
+        "section_key": "pipe_route",
+        "section_label": "Leidingroute",
+        "section_instance_key": null,
+        "answer": {
+          "value": "visible",
+          "label": "Zichtwerk is oké"
+        },
+        "prefill_source": null
+      }
+    ],
+    "external_fact_context": [],
+    "uploads": [],
+    "follow_up": [],
+    "system_attention_points": [],
+    "completeness": {},
+    "installer_review": null,
+    "pipe_routes": [],
+    "template_key": "airco",
+    "template_version": 26,
+    "intake_status": "submitted"
+  },
+  "expected": {
+    "claims": [
+      {
+        "id": "current_pipe_visible_state",
+        "concept": "current_pipe_visible_state",
+        "allowed": "forbidden",
+        "terms": [
+          "momenteel zichtbaar",
+          "nu zichtbaar",
+          "al zichtbaar",
+          "/leidingen (zijn|is) (momenteel |nu |al )?zichtbaar/iu",
+          "liggen al in een goot",
+          "liggen momenteel in een goot",
+          "bestaande leidingen zijn zichtbaar",
+          "leidingen zijn zichtbaar"
+        ]
+      }
+    ],
+    "require_evidence_on_points": true
+  },
+  "fake_summary_output": {
+    "summary": "De leidingen zijn momenteel zichtbaar in een goot. De klant accepteert zichtwerk.",
+    "highlights": [
+      "Leidingen momenteel zichtbaar"
+    ]
+  },
+  "fake_attention_output": {
+    "points": [
+      {
+        "code": "pipes_already_visible",
+        "label": "De leidingen zijn momenteel zichtbaar.",
+        "confidence": "medium",
+        "evidence": [
+          {
+            "source_type": "answer",
+            "reference": "pipe_visibility@answer:survey"
+          }
+        ]
+      }
+    ]
+  },
+  "disputed_facts": {}
+}

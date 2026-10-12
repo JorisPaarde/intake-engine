@@ -85,6 +85,10 @@ final class PhotoObservationCaseRunner
             'certainty' => null,
             'needs_retake' => null,
             'conflict_with_request_text' => null,
+            // N36 / room_assessment: pass through from model_fields (eval measurement).
+            'sun_exposure' => null,
+            'glass_amount' => null,
+            'glazing_type' => null,
         ];
 
         if (array_key_exists('subject_match', $modelFields)) {
@@ -92,6 +96,16 @@ final class PhotoObservationCaseRunner
             $facts['subject_match'] = $sm === 'yes' || $sm === true;
         } elseif (str_contains($lower, 'geen meterkast') || str_contains($lower, 'geen leefruimte') || str_contains($lower, 'verkeerde')) {
             $facts['subject_match'] = false;
+        }
+
+        foreach (['sun_exposure', 'glass_amount', 'glazing_type'] as $roomField) {
+            if (! array_key_exists($roomField, $modelFields)) {
+                continue;
+            }
+            $value = $modelFields[$roomField];
+            if (is_string($value) && $value !== '') {
+                $facts[$roomField] = $value;
+            }
         }
 
         if (str_contains($lower, 'stopcontact')) {
@@ -225,6 +239,9 @@ final class PhotoObservationCaseRunner
             'certainty' => ['C5'],
             'needs_retake' => ['C7'],
             'conflict_with_request_text' => ['C8'],
+            'sun_exposure' => ['C7'],
+            'glass_amount' => ['C7'],
+            'glazing_type' => ['C7'],
         ];
 
         foreach ($expected as $key => $expVal) {

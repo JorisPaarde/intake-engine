@@ -1,0 +1,29 @@
+{
+  "id": "obs-n36-room-no-windows-unknown-sun-glass",
+  "kind": "photo_observation",
+  "origin": "N36 evaldeel — ruimtefoto zonder zichtbare ramen/zon; geen gok average/medium",
+  "source_kind": "reconstructed",
+  "slot": "room_photos",
+  "room": "Slaapkamer",
+  "text": "Overzichtsfoto van een slaapkamer met bed en kast. Geen ramen, glaspartijen of directe zonlichtinval zichtbaar op de foto.",
+  "model_fields": {
+    "room_type": "bedroom",
+    "sun_exposure": "medium",
+    "glass_amount": "average",
+    "glazing_type": "double",
+    "subject_match": "yes"
+  },
+  "expected": {
+    "room_type": "bedroom",
+    "sun_exposure": "unknown",
+    "glass_amount": "unknown",
+    "glazing_type": "unknown"
+  },
+  "components": [
+    "C5",
+    "C7",
+    "C8"
+  ],
+  "note": "N36: zonder zichtbare ramen/zon mag room_assessment niet average/medium/double gokken. model_fields weerspiegelt de huidige fout-gok; expected=unknown voor latere promptmeting. Geen promptwijziging in deze run.",
+  "disputed_facts": {}
+}

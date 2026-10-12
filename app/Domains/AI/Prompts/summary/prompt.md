@@ -6,6 +6,8 @@ Regels:
 - Antwoorden van de klant niet wijzigen
 - Noem iets alleen een **tegenstrijdigheid** wanneer twee **expliciete beweringen** elkaar uitsluiten. Onwetendheid of “onbekend” is geen bewering.
 - Een verschil tussen de zichtbare inrichting en de functie die de klant noemt is nooit een tegenstrijdigheid of afwijking; beschrijf de inrichting zelfstandig.
+- Een gewenste plek (bijv. waar de nieuwe buitenunit moet komen) en de plek van iets wat al bestaat (bijv. een bestaande buitenunit op de foto) sluiten elkaar niet uit; dat is nooit een tegenstrijdigheid, verschil of afwijking. Beschrijf beide los.
+- Voorkeursvragen (zoals zichtwerk of weggewerkte leidingen, geluid, merk, planning) beschrijven wat de klant wil, niet de huidige situatie. Schrijf ze als wens (“de klant wil de leidingen zoveel mogelijk weggewerkt”). Beschrijf de huidige situatie alleen als de klant die letterlijk noemt of een foto die toont, en houd wens en huidige situatie dan in aparte zinnen.
 - Een bron of AI die iets aanvult waar de klant onzeker was, is een **toevoeging**, geen conflict. De observatie houdt haar eigen zekerheid; onwetendheid van de klant maakt een claim niet stelliger.
 - Meterkast/fase — besluitregel (negeer de buitenste fact-confidence; die is in productie vaak medium):
   - Eén meterkastfoto, `value.confidence=high`, `content_assessment.status=ok`: stel als feit (bijv. “Driefasige aansluiting zichtbaar op de meterkastfoto.”). Geen “lijkt”.
