@@ -117,6 +117,8 @@
                         $displayValue = is_string($assumption->value['_display_value'] ?? null)
                             ? $assumption->value['_display_value']
                             : '';
+                        // Leesbare eenheid — geen interne "m2".
+                        $displayValue = preg_replace('/\bm2\b/u', 'm²', $displayValue) ?? $displayValue;
                         $uncertainty = is_string($assumption->value['_uncertainty'] ?? null)
                             ? $assumption->value['_uncertainty']
                             : 'Nog te beoordelen door de installateur';
@@ -126,13 +128,24 @@
                         $sourceLabel = is_string($assumption->value['_source_label'] ?? null)
                             ? $assumption->value['_source_label']
                             : 'aanname';
-                        $confidenceLabel = is_string($assumption->value['_confidence_label'] ?? null)
-                            ? $assumption->value['_confidence_label']
-                            : null;
+                        // Display-only: geen kale 90% voor onbekend of klantbevestigd.
+                        $rawDisplayLower = mb_strtolower(trim($displayValue));
+                        $isUnknownAnswer = $rawDisplayLower === ''
+                            || str_contains($rawDisplayLower, 'weet ik niet')
+                            || in_array($rawDisplayLower, ['onbekend', 'unknown', 'niet bekend'], true);
+                        $isCustomerConfirmed = $provenanceLabel === 'gezegd'
+                            || str_contains($sourceLabel, 'klantantwoord');
+                        $confidencePhrase = null;
+                        if (! $isUnknownAnswer && ! $isCustomerConfirmed) {
+                            $confidencePercent = $assumption->value['_confidence_percent'] ?? null;
+                            if (is_numeric($confidencePercent)) {
+                                $confidencePhrase = \App\Domains\Intake\Services\DecisionReadinessService::confidencePhrase($confidencePercent);
+                            }
+                        }
                         $metaBits = array_values(array_filter([
                             $provenanceLabel,
                             $sourceLabel !== $provenanceLabel ? 'bron: '.$sourceLabel : null,
-                            $confidenceLabel !== null ? 'zekerheid: '.$confidenceLabel : null,
+                            $confidencePhrase !== null ? 'zekerheid: '.$confidencePhrase : null,
                         ]));
                     @endphp
                     <li class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2" data-testid="ai-proposal-card">
