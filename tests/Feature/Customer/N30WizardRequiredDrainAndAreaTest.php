@@ -262,6 +262,132 @@ test('N30: na hoge-zekerheid outdoor + latere invalidate verschijnt bereikbaarhe
     expect(collect($check['missing'])->pluck('question_key'))->toContain('outdoor_accessibility');
 });
 
+test('N30: tweede derive naar AI-unknown terwijl cursor op noise_sensitive → Volgende toont bereikbaarheid', function () {
+    Queue::fake([AssessUploadedPhotoJob::class]);
+    $intake = makeN30Intake();
+    app(SaveIntakeAnswer::class)->handle($intake, 'noise_sensitive', null, ['bool' => true]);
+
+    FakeAiClient::alwaysReturn(n30OutdoorHigh());
+    app(StoreIntakeUpload::class)->handle(
+        $intake,
+        'outdoor_location_photos',
+        null,
+        UploadedFile::fake()->image('buiten-high.jpg', 1200, 900),
+    );
+    app(DerivePhotoAnswers::class)->handle(
+        $intake,
+        'outdoor_location_photos',
+        null,
+        PhotoDerivationProfile::require('outdoor'),
+    );
+
+    $accessAnswer = $intake->fresh()->answers()->where('question_key', 'outdoor_accessibility')->first();
+    expect($accessAnswer)->not->toBeNull()
+        ->and($accessAnswer?->value)->not->toBe(['value' => 'unknown']);
+
+    $version = $intake->fresh()->templateVersion()->with(['sections.questions.options', 'sections.questions.rules'])->firstOrFail();
+    expect(array_column(app(IntakeStepBuilder::class)->build($intake->fresh(), $version), 'question_key'))
+        ->not->toContain('outdoor_accessibility');
+
+    app(SaveIntakeAnswer::class)->handle($intake, 'outdoor_location', null, ['value' => 'facade']);
+    app(SaveIntakeAnswer::class)->handle($intake, 'outdoor_mount_type', null, ['value' => 'wall']);
+    $outdoorUpload = $intake->fresh()->uploads()->where('question_key', 'outdoor_location_photos')->first();
+    expect($outdoorUpload)->not->toBeNull();
+    markTestUploadSatisfied($outdoorUpload);
+
+    app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
+    app(SaveIntakeAnswer::class)->handle($intake, 'room_type', 'room-1', ['value' => 'living_room']);
+    $versionFresh = $intake->fresh()->templateVersion()->with(['sections.questions.options', 'sections.questions.rules'])->firstOrFail();
+
+    // Prefill-skip staat nog; bouw stappen alsof bereikbaarheid stil is overgeslagen, vul alles t/m noise.
+    for ($pass = 0; $pass < 3; $pass++) {
+        $builderSteps = app(IntakeStepBuilder::class)->build($intake->fresh(), $versionFresh);
+        $noiseIndexBuild = collect($builderSteps)->search(
+            static fn (array $step): bool => ($step['question_key'] ?? null) === 'noise_sensitive',
+        );
+        expect($noiseIndexBuild)->not->toBeFalse();
+        foreach ($builderSteps as $index => $step) {
+            if ($index > (int) $noiseIndexBuild) {
+                break;
+            }
+            if (($step['question_key'] ?? null) === 'noise_sensitive') {
+                continue;
+            }
+            n30SatisfyStep($intake, $step);
+        }
+    }
+
+    // Deel A: wizard met skip-staat in cache → overwrite naar AI-unknown → catch-up markeren.
+    $marker = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+    $stepsSkipped = $marker->viewData('steps');
+    expect(array_column($stepsSkipped, 'question_key'))->not->toContain('outdoor_accessibility');
+
+    $noiseIndexSkipped = collect($stepsSkipped)->search(
+        static fn (array $step): bool => ($step['question_key'] ?? null) === 'noise_sensitive',
+    );
+    expect($noiseIndexSkipped)->not->toBeFalse();
+    $marker
+        ->set('stepIndex', (int) $noiseIndexSkipped)
+        ->set('activeStepKey', $stepsSkipped[(int) $noiseIndexSkipped]['key']);
+
+    app(SaveIntakeAnswer::class)->handle(
+        $intake->fresh(),
+        'outdoor_accessibility',
+        null,
+        ['value' => 'unknown'],
+        PrefillSources::AI_PHOTO,
+    );
+    expect($intake->fresh()->answers()->where('question_key', 'outdoor_accessibility')->first()?->value)
+        ->toBe(['value' => 'unknown']);
+
+    $apply = new ReflectionMethod(IntakeWizard::class, 'applyPhotoDerivationResults');
+    $apply->setAccessible(true);
+    $apply->invoke($marker->instance(), 'outdoor_location_photos', null);
+    expect($marker->instance()->catchUpQuestionKeys)->toHaveKey('outdoor_accessibility');
+
+    // Deel B: verse mount (DB heeft al unknown) — Volgende vanaf noise toont bereikbaarheid vóór ownership.
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+    $steps = $component->viewData('steps');
+    $accessIndex = collect($steps)->search(
+        static fn (array $step): bool => ($step['question_key'] ?? null) === 'outdoor_accessibility',
+    );
+    $noiseIndex = collect($steps)->search(
+        static fn (array $step): bool => ($step['question_key'] ?? null) === 'noise_sensitive',
+    );
+    $ownershipIndex = collect($steps)->search(
+        static fn (array $step): bool => ($step['question_key'] ?? null) === 'ownership',
+    );
+    expect($accessIndex)->not->toBeFalse()
+        ->and($noiseIndex)->not->toBeFalse()
+        ->and($ownershipIndex)->not->toBeFalse()
+        ->and($accessIndex)->toBeLessThan($noiseIndex)
+        ->and($noiseIndex)->toBeLessThan($ownershipIndex);
+
+    // Geen form.bool-set: die triggert maybeAutoAdvance → tweede next() die AI-unknown
+    // als klantantwoord opslaat en doorloopt naar de volgende stap. Noise staat al in DB.
+    $component
+        ->set('stepIndex', (int) $noiseIndex)
+        ->set('activeStepKey', $steps[(int) $noiseIndex]['key'])
+        ->set('catchUpQuestionKeys', ['outdoor_accessibility' => true])
+        ->set('knownStepKeys', array_column($steps, 'key'))
+        ->call('next')
+        ->assertHasNoErrors();
+
+    $afterSteps = $component->viewData('steps');
+    $afterIndex = (int) $component->get('stepIndex');
+    $afterStep = $afterSteps[$afterIndex] ?? null;
+    $accessIndexAfter = collect($afterSteps)->search(
+        static fn (array $step): bool => ($step['question_key'] ?? null) === 'outdoor_accessibility',
+    );
+
+    expect($afterStep)->not->toBeNull()
+        ->and($afterStep['question_key'] ?? null)->toBe('outdoor_accessibility')
+        ->and($accessIndexAfter)->not->toBeFalse()
+        ->and($afterIndex)->toBe((int) $accessIndexAfter)
+        ->and($afterIndex)->toBeLessThan((int) $ownershipIndex)
+        ->and($component->viewData('stepDisplayNumber'))->toBe($afterIndex + 1);
+});
+
 test('N30: AI-unknown outdoor_accessibility laat de stap niet vervallen', function () {
     $intake = makeN30Intake();
 

@@ -1600,6 +1600,8 @@ class IntakeWizard extends Component
             if ($this->photoCompositeIsOnCurrentStep($composite)) {
                 $this->applyPhotoDerivationResults($questionKey, $instanceKey);
             } else {
+                // N30: derive draaide al in de job; markeer catch-up vóór defer (cursor kan al verder zijn).
+                $this->markCatchUpAfterBackgroundDerive($questionKey, $instanceKey);
                 $this->deferPhotoDerivation($questionKey, $instanceKey);
             }
         }
@@ -2313,7 +2315,10 @@ class IntakeWizard extends Component
         $profile = PhotoDerivationProfile::find($profileName);
 
         if ($profile instanceof PhotoDerivationProfile) {
+            // Snapshot vóór form-refresh: cached steps kennen nog de pre-derive skip-staat.
+            $beforeSatisfied = $this->derivedStepSatisfactionSnapshot($profile, $instanceKey);
             $this->applyPhotoDerivation($instanceKey, $profile);
+            $this->markCatchUpForUnsatisfiedDerivedSteps($beforeSatisfied, $instanceKey);
         }
     }
 
@@ -2501,7 +2506,7 @@ class IntakeWizard extends Component
             return;
         }
 
-        $beforeKeys = $this->presentDerivedQuestionKeys($profile, $instanceKey);
+        $beforeSatisfied = $this->derivedStepSatisfactionSnapshot($profile, $instanceKey);
         app(DerivePhotoAnswers::class)->handle(
             $this->intake(),
             $questionKey,
@@ -2509,8 +2514,8 @@ class IntakeWizard extends Component
             $profile,
             correlationId: $correlationId,
         );
-        $this->markCatchUpForLostDerivedAnswers($beforeKeys, $instanceKey);
         $this->applyPhotoDerivation($instanceKey, $profile);
+        $this->markCatchUpForUnsatisfiedDerivedSteps($beforeSatisfied, $instanceKey);
     }
 
     private function invalidatePhotoDerivation(string $questionKey, ?string $instanceKey): void
@@ -2532,50 +2537,75 @@ class IntakeWizard extends Component
         $profile = PhotoDerivationProfile::find($profileName);
 
         if ($profile instanceof PhotoDerivationProfile) {
-            $beforeKeys = $this->presentDerivedQuestionKeys($profile, $instanceKey);
+            $beforeSatisfied = $this->derivedStepSatisfactionSnapshot($profile, $instanceKey);
             app(DerivePhotoAnswers::class)->invalidateDerivedState(
                 $this->intake(),
                 $questionKey,
                 $instanceKey,
                 $profile,
             );
-            $this->markCatchUpForLostDerivedAnswers($beforeKeys, $instanceKey);
+            $this->markCatchUpForUnsatisfiedDerivedSteps($beforeSatisfied, $instanceKey);
         }
     }
 
     /**
-     * @return list<string>
+     * Job-derive is al klaar; flag catch-up t.o.v. cached pre-derive step-staat.
      */
-    private function presentDerivedQuestionKeys(PhotoDerivationProfile $profile, ?string $instanceKey): array
+    private function markCatchUpAfterBackgroundDerive(string $questionKey, ?string $instanceKey): void
     {
-        $keys = [];
-        foreach ($profile->questionKeys() as $derivedKey) {
-            $exists = $this->intake()->answers()
-                ->where('question_key', $derivedKey)
-                ->when(
-                    $instanceKey === null,
-                    static fn ($query) => $query->whereNull('section_instance_key'),
-                    static fn ($query) => $query->where('section_instance_key', $instanceKey),
-                )
-                ->exists();
-            if ($exists) {
-                $keys[] = $derivedKey;
-            }
-        }
-
-        return $keys;
-    }
-
-    /**
-     * @param  list<string>  $beforeKeys
-     */
-    private function markCatchUpForLostDerivedAnswers(array $beforeKeys, ?string $instanceKey): void
-    {
-        if ($beforeKeys === []) {
+        $profileName = $this->photoAnalysisProfileName($questionKey);
+        if ($profileName === null || $profileName === 'fusebox') {
             return;
         }
 
-        // Verse step-lijst ná invalidate: verdwenen prefill kan weer zichtbaar zijn.
+        $profile = PhotoDerivationProfile::find($profileName);
+        if (! $profile instanceof PhotoDerivationProfile) {
+            return;
+        }
+
+        $beforeSatisfied = $this->derivedStepSatisfactionSnapshot($profile, $instanceKey);
+        $this->markCatchUpForUnsatisfiedDerivedSteps($beforeSatisfied, $instanceKey);
+    }
+
+    /**
+     * Per profielvraag: true = stap ontbrak (prefill-skip) of was verplicht voldaan.
+     *
+     * @return array<string, bool>
+     */
+    private function derivedStepSatisfactionSnapshot(PhotoDerivationProfile $profile, ?string $instanceKey): array
+    {
+        $steps = $this->steps();
+        $snapshot = [];
+
+        foreach ($profile->questionKeys() as $derivedKey) {
+            $step = null;
+            foreach ($steps as $candidate) {
+                if ($candidate['question_key'] === $derivedKey
+                    && ($candidate['section_instance_key'] ?? null) === $instanceKey) {
+                    $step = $candidate;
+                    break;
+                }
+            }
+
+            // Afwezig (stil overgeslagen) of aanwezig én voldaan → voorheen “ok”.
+            $snapshot[$derivedKey] = $step === null || $this->stepRequiredSatisfied($step);
+        }
+
+        return $snapshot;
+    }
+
+    /**
+     * N30: flag catch-up wanneer een afgeleide vraag ná derive/invalidate weer open+zichtbaar
+     * is vóór de cursor — ook als de DB-rij blijft bestaan (bijv. AI-`unknown` overwrite).
+     *
+     * @param  array<string, bool>  $beforeSatisfied  question_key => was skippable/satisfied
+     */
+    private function markCatchUpForUnsatisfiedDerivedSteps(array $beforeSatisfied, ?string $instanceKey): void
+    {
+        if ($beforeSatisfied === []) {
+            return;
+        }
+
         $this->forgetIntakeDerivedCaches();
         $steps = $this->steps();
         $currentKey = $this->displayedStepKey($steps) ?? $this->activeStepKey;
@@ -2583,34 +2613,33 @@ class IntakeWizard extends Component
             ? app(IntakeStepBuilder::class)->indexForStepKey($steps, $currentKey)
             : null;
 
-        foreach ($beforeKeys as $derivedKey) {
-            $stillThere = $this->intake()->answers()
-                ->where('question_key', $derivedKey)
-                ->when(
-                    $instanceKey === null,
-                    static fn ($query) => $query->whereNull('section_instance_key'),
-                    static fn ($query) => $query->where('section_instance_key', $instanceKey),
-                )
-                ->exists();
-            if ($stillThere) {
+        foreach ($beforeSatisfied as $derivedKey => $wasOk) {
+            if (! $wasOk) {
                 continue;
             }
 
             $derivedStepIndex = null;
-            foreach ($steps as $idx => $step) {
-                if ($step['question_key'] === $derivedKey
-                    && ($step['section_instance_key'] ?? null) === $instanceKey) {
+            $step = null;
+            foreach ($steps as $idx => $candidate) {
+                if ($candidate['question_key'] === $derivedKey
+                    && ($candidate['section_instance_key'] ?? null) === $instanceKey) {
                     $derivedStepIndex = $idx;
+                    $step = $candidate;
                     break;
                 }
             }
 
-            // Marker ook als de stap net terug is maar we de huidige index nog niet kennen —
-            // de klant was al verder (activeStepKey gezet); catch-up bij Volgende.
-            if ($derivedStepIndex !== null
-                && ($currentIdx === null || $derivedStepIndex < $currentIdx)) {
-                $this->catchUpQuestionKeys[$derivedKey] = true;
+            if ($step === null || $derivedStepIndex === null) {
+                continue;
             }
+            if ($currentIdx !== null && $derivedStepIndex >= $currentIdx) {
+                continue;
+            }
+            if ($this->stepRequiredSatisfied($step)) {
+                continue;
+            }
+
+            $this->catchUpQuestionKeys[$derivedKey] = true;
         }
     }
 
@@ -4109,6 +4138,19 @@ class IntakeWizard extends Component
         $value = is_array($this->form[$key] ?? null) ? $this->form[$key] : null;
 
         if (! $reader->isFilled($value, $question->type)) {
+            return false;
+        }
+
+        // AI-`unknown` telt niet als beantwoord (zelfde definitie als ProgressCalculator / N30).
+        $answerRow = $this->intake()->answers()
+            ->where('question_key', $question->key)
+            ->when(
+                $step['section_instance_key'] === null,
+                static fn ($query) => $query->whereNull('section_instance_key'),
+                static fn ($query) => $query->where('section_instance_key', $step['section_instance_key']),
+            )
+            ->first();
+        if (PrefillSources::isAiUnknownChoice($answerRow?->prefill_source, $value)) {
             return false;
         }
 
