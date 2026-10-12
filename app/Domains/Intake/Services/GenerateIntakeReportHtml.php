@@ -84,7 +84,7 @@ final class GenerateIntakeReportHtml
             'followUpRounds' => $followUpRounds,
             'nextStep' => $nextStep,
             'customerConsent' => $this->customerConsentPresenter->present($intake),
-            'review' => $this->presentReview($intake, $review),
+            'review' => $this->presentReview($intake, $review, $followUpRounds),
             'installerNotes' => $this->buildInstallerNotes($intake),
             'selectedInstallationOption' => $this->presentSelectedInstallationOption($intake),
             'generatedAt' => now(),
@@ -103,9 +103,9 @@ final class GenerateIntakeReportHtml
         array $externalData,
         array $attentionPoints,
     ): string {
-        // Alleen de actuele beoordeling stuurt de slotzin. Na afronden van een
-        // aanvullingsronde wist CompleteFollowUpRound reviewed_at; de oude
-        // NeedMoreInfo-beslissing blijft bewaard maar is niet meer leidend.
+        // Alleen de actuele beoordeling (intake.reviewed_at gezet) stuurt de slotzin.
+        // Na afronden van een aanvullingsronde wist CompleteFollowUpRound reviewed_at;
+        // de oude beslissing blijft zichtbaar in presentReview, maar is niet meer leidend.
         if ($review instanceof IntakeReview && $intake->reviewed_at !== null) {
             $decisionNextStep = match ($review->decision) {
                 ReviewDecision::PrepareQuote => 'Bereid de offerte voor op basis van deze beoordeling.',
@@ -137,25 +137,26 @@ final class GenerateIntakeReportHtml
     }
 
     /**
-     * Toon de opgeslagen beoordeling wanneer die nog actueel is (reviewed_at gezet).
-     * Na een afgeronde aanvullingsronde is reviewed_at leeggemaakt; de installateur
-     * moet opnieuw beslissen — de oude NeedMoreInfo-tekst hoort dan niet meer in
-     * het rapport als definitieve beoordeling.
+     * Toon de laatst opgeslagen beoordeling (besluit, samenvatting, beoordelaar, datum).
+     * Ook na een afgeronde aanvullingsronde (intake.reviewed_at leeg): het blok blijft
+     * staan met een markering dat er daarna nieuwe aanvulling is. Pending blijft verborgen.
+     * De next-step-tekst (resolveNextStep) blijft herbeoordeling vragen zolang
+     * intake.reviewed_at leeg is — alleen de weergave van het opgeslagen besluit blijft.
      *
+     * @param  Collection<int, mixed>  $followUpRounds  alleen afgeronde rondes
      * @return array{
      *     decision_label: string,
      *     site_visit_needed: bool,
      *     enough_information: bool,
      *     summary: string|null,
      *     reviewed_at: Carbon|null,
-     *     reviewer_name: string|null
+     *     reviewer_name: string|null,
+     *     stale_before_round_notice: string|null
      * }|null
      */
-    private function presentReview(Intake $intake, ?IntakeReview $review): ?array
+    private function presentReview(Intake $intake, ?IntakeReview $review, Collection $followUpRounds): ?array
     {
-        if (! $review instanceof IntakeReview
-            || $review->decision === ReviewDecision::Pending
-            || $intake->reviewed_at === null) {
+        if (! $review instanceof IntakeReview || $review->decision === ReviewDecision::Pending) {
             return null;
         }
 
@@ -166,7 +167,50 @@ final class GenerateIntakeReportHtml
             'summary' => $review->summary,
             'reviewed_at' => $review->reviewed_at,
             'reviewer_name' => $review->reviewer?->name,
+            'stale_before_round_notice' => $this->reviewStaleBeforeRoundNotice(
+                $intake,
+                $review,
+                $followUpRounds,
+            ),
         ];
+    }
+
+    /**
+     * Markering wanneer intake.reviewed_at leeg is en er een afgeronde ronde is
+     * ná de review-timestamp (review.reviewed_at vs. round.completed_at).
+     *
+     * @param  Collection<int, mixed>  $followUpRounds
+     */
+    private function reviewStaleBeforeRoundNotice(
+        Intake $intake,
+        IntakeReview $review,
+        Collection $followUpRounds,
+    ): ?string {
+        if ($intake->reviewed_at !== null) {
+            return null;
+        }
+
+        $reviewAt = $review->reviewed_at;
+        if ($reviewAt === null) {
+            return null;
+        }
+
+        $firstRoundAfter = $followUpRounds
+            ->filter(static function (mixed $round) use ($reviewAt): bool {
+                $completedAt = $round->completed_at ?? null;
+
+                return $completedAt instanceof Carbon && $completedAt->greaterThan($reviewAt);
+            })
+            ->sortBy(static fn (mixed $round): int => (int) $round->round_number)
+            ->first();
+
+        if ($firstRoundAfter === null) {
+            return null;
+        }
+
+        $roundNumber = (int) $firstRoundAfter->round_number;
+
+        return 'Beoordeeld vóór ronde '.$roundNumber.'. Bekijk de nieuwe aanvulling.';
     }
 
     /**
