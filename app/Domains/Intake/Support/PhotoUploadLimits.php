@@ -17,15 +17,52 @@ final class PhotoUploadLimits
     public static function tooLargeMessage(): string
     {
         $configured = config('intake.uploads.too_large_message');
+        if (is_string($configured) && $configured !== '') {
+            return $configured;
+        }
 
-        return is_string($configured) && $configured !== ''
-            ? $configured
-            : 'Deze foto is te groot. Probeer een andere foto of maak een nieuwe.';
+        $mb = max(1, (int) round(self::appMaxKilobytes() / 1024));
+
+        return "Deze foto is groter dan {$mb} MB. Maak een nieuwe foto of kies een kleinere.";
     }
 
+    /**
+     * User-facing / app soft cap (KB). Phone originals up to this size must be accepted.
+     */
+    public static function appMaxKilobytes(): int
+    {
+        return max(1, (int) config('intake.uploads.max_kilobytes', 8192));
+    }
+
+    public static function appMaxBytes(): int
+    {
+        return self::appMaxKilobytes() * 1024;
+    }
+
+    /**
+     * Incoming-file ceiling (bytes). Kept ≥ app max so 8 MB originals always pass.
+     */
     public static function hardMaxBytes(): int
     {
-        return max(1, (int) config('intake.uploads.hard_max_bytes', 15 * 1024 * 1024));
+        $configured = max(1, (int) config('intake.uploads.hard_max_bytes', 8 * 1024 * 1024));
+
+        return max($configured, self::appMaxBytes());
+    }
+
+    /**
+     * Laravel `max:` rule (kilobytes) for Livewire/component validation.
+     */
+    public static function validationMaxKilobytes(): int
+    {
+        return max(self::appMaxKilobytes(), (int) ceil(self::hardMaxBytes() / 1024));
+    }
+
+    /**
+     * Livewire temporary-upload ceiling — slightly above app max for multipart headroom.
+     */
+    public static function temporaryUploadMaxKilobytes(): int
+    {
+        return max(self::validationMaxKilobytes(), 10240);
     }
 
     public static function hardMaxMegapixels(): float

@@ -61,9 +61,10 @@ export function registerClientPhotoDownscale() {
         const root = input.closest('[data-client-downscale="1"]');
         const maxBytes = Number(root?.getAttribute?.('data-upload-max-bytes')) || undefined;
         const maxMp = Number(root?.getAttribute?.('data-upload-max-megapixels')) || undefined;
+        const appMaxBytes = Number(root?.getAttribute?.('data-upload-app-max-bytes')) || maxBytes || undefined;
         const message = root?.getAttribute?.('data-upload-too-large') || TOO_LARGE_MESSAGE;
 
-        return { maxBytes, maxMp, message };
+        return { maxBytes, maxMp, appMaxBytes, message };
     };
 
     const compositeFromInput = (input) => {
@@ -170,9 +171,11 @@ export function registerClientPhotoDownscale() {
                     break;
                 }
 
-                const result = await preparePhotoForUpload(file);
-                // Staging intake 82: never upload a full-size phone JPEG after a
-                // downscale timeout — that left the UI stuck while Imagick chewed 12 MP.
+                const result = await preparePhotoForUpload(file, {
+                    appMaxBytes: limits.appMaxBytes,
+                });
+                // Only truly oversized files fail closed. ≤8 MB originals may upload
+                // when canvas compress fails (server accepts 8 MB; variants are queued).
                 if (result?.failed) {
                     prepFailed = true;
                     failMessage = limits.message;

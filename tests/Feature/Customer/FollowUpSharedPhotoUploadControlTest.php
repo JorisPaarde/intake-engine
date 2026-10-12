@@ -22,8 +22,10 @@ beforeEach(function () {
     $this->seed(IntakeTemplateSeeder::class);
     Storage::fake((string) config('filesystems.media', 'local'));
     config([
-        'intake.uploads.hard_max_bytes' => 15 * 1024 * 1024,
+        'intake.uploads.max_kilobytes' => 8192,
+        'intake.uploads.hard_max_bytes' => 8 * 1024 * 1024,
         'intake.uploads.hard_max_megapixels' => 24,
+        'intake.uploads.too_large_message' => 'Deze foto is groter dan 8 MB. Maak een nieuwe foto of kies een kleinere.',
     ]);
 });
 
@@ -68,7 +70,7 @@ function followUpSharedControlMeterkastJpeg(string $name = 'meterkast-2mb.jpg'):
     @unlink((string) $tmp);
 
     expect(strlen($bytes))->toBeGreaterThan(200_000)
-        ->and(strlen($bytes))->toBeLessThan(15 * 1024 * 1024);
+        ->and(strlen($bytes))->toBeLessThan(8 * 1024 * 1024);
 
     return UploadedFile::fake()->createWithContent($name, $bytes);
 }
@@ -154,7 +156,7 @@ test('follow-up upload error leaves retry possible and a later valid photo works
 
     $oversized = UploadedFile::fake()->createWithContent(
         'te-groot.jpg',
-        str_repeat('x', 15 * 1024 * 1024 + 2048),
+        str_repeat('x', 8 * 1024 * 1024 + 2048),
     );
 
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->fresh()->access_token])

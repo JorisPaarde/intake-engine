@@ -115,13 +115,16 @@ return [
     */
 
     'uploads' => [
-        // Soft per-file cap after store/normalize (legacy key; dossier variants stay under this).
+        // Soft per-file / app cap (8 MB). Phone originals up to this size must be accepted.
         'max_kilobytes' => (int) env('INTAKE_UPLOAD_MAX_KB', 8192),
-        // Hard safety net for the incoming customer file (env-overridable).
-        // Normal phone photos (12 MP / ~2–5 MB / 3024×4032) must pass.
-        'hard_max_bytes' => (int) env('INTAKE_UPLOAD_MAX_BYTES', 15 * 1024 * 1024),
+        // Incoming-file ceiling (env-overridable). Default matches app max so the
+        // Dutch error message and enforcement stay aligned; PHP stays above (10M/12M).
+        // Normal phone photos (12 MP / ~2–8 MB / 3024×4032) must pass.
+        'hard_max_bytes' => (int) env('INTAKE_UPLOAD_MAX_BYTES', 8 * 1024 * 1024),
         'hard_max_megapixels' => (float) env('INTAKE_UPLOAD_MAX_MEGAPIXELS', 24),
-        'too_large_message' => 'Deze foto is te groot. Probeer een andere foto of maak een nieuwe.',
+        'too_large_message' => 'Deze foto is groter dan 8 MB. Maak een nieuwe foto of kies een kleinere.',
+        // Browser canvas long-edge target before Livewire upload (JPEG ~0.85).
+        'client_max_long_edge' => (int) env('INTAKE_CLIENT_MAX_LONG_EDGE', 2560),
         'max_files_per_question' => (int) env('INTAKE_UPLOAD_MAX_FILES', 5),
         'dossier' => [
             'max_long_edge' => (int) env('INTAKE_DOSSIER_MAX_LONG_EDGE', 2048),

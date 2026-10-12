@@ -502,7 +502,7 @@ class IntakeWizard extends Component
                 'uploadPhaseComposite' => '',
                 'pendingAssessUploadIds' => [],
                 'assessmentUiReleased' => [],
-                'maxUploadKb' => (int) ceil(PhotoUploadLimits::hardMaxBytes() / 1024),
+                'maxUploadKb' => PhotoUploadLimits::appMaxKilobytes(),
                 'uploadHardMaxBytes' => PhotoUploadLimits::hardMaxBytes(),
                 'uploadHardMaxMegapixels' => PhotoUploadLimits::hardMaxMegapixels(),
                 'uploadTooLargeMessage' => PhotoUploadLimits::tooLargeMessage(),
@@ -700,7 +700,7 @@ class IntakeWizard extends Component
             'missingRequired' => $this->completionMissing,
             'isLastStep' => $isLastStep,
             'isKnownSummary' => $stepKind === 'known_summary',
-            'maxUploadKb' => (int) ceil(PhotoUploadLimits::hardMaxBytes() / 1024),
+            'maxUploadKb' => PhotoUploadLimits::appMaxKilobytes(),
             'uploadHardMaxBytes' => PhotoUploadLimits::hardMaxBytes(),
             'uploadHardMaxMegapixels' => PhotoUploadLimits::hardMaxMegapixels(),
             'uploadTooLargeMessage' => PhotoUploadLimits::tooLargeMessage(),
@@ -1065,7 +1065,7 @@ class IntakeWizard extends Component
                 && $item->type === FollowUpItemType::Choice
                 ? $this->followUpChoiceOptions($item)
                 : [],
-            'maxUploadKb' => (int) ceil(PhotoUploadLimits::hardMaxBytes() / 1024),
+            'maxUploadKb' => PhotoUploadLimits::appMaxKilobytes(),
             'uploadHardMaxBytes' => PhotoUploadLimits::hardMaxBytes(),
             'uploadHardMaxMegapixels' => PhotoUploadLimits::hardMaxMegapixels(),
             'uploadTooLargeMessage' => PhotoUploadLimits::tooLargeMessage(),
@@ -2209,7 +2209,7 @@ class IntakeWizard extends Component
         // N3: keuzes op hetzelfde groepscherm eerst vastzetten vóór foto-refresh.
         $this->persistCurrentGroupNonPhotoFields();
 
-        $maxKb = (int) ceil(PhotoUploadLimits::hardMaxBytes() / 1024);
+        $maxKb = PhotoUploadLimits::validationMaxKilobytes();
         [$questionKey, $instanceKey] = $this->splitComposite($composite);
         $intake = $this->intake();
 

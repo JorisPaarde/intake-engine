@@ -76,6 +76,43 @@ async function writeSized12mp() {
   return best;
 }
 
+/**
+ * Generate a synthetic ~3–5 MB progressive JPEG (no personal data) so demos
+ * and E2E cover phone-sized uploads that previously failed as "too large".
+ */
+async function writePhone3to5Mb() {
+  let lo = 70;
+  let hi = 95;
+  let best = null;
+  for (let i = 0; i < 10; i++) {
+    const q = Math.round((lo + hi) / 2);
+    const bytes = await writeProgressiveJpeg('phone-3to5mb.jpg', 3024, 4032, {
+      quality: q,
+      noisy: true,
+    });
+    best = bytes;
+    if (bytes < 3.1 * 1024 * 1024) {
+      lo = q + 1;
+    } else if (bytes > 5 * 1024 * 1024) {
+      hi = q - 1;
+    } else {
+      return bytes;
+    }
+  }
+  // If quality search cannot hit 3.1–5 MB, pad with JPEG trailing fill after EOI
+  // so the file size is in range without needing personal photos.
+  if (best !== null && best < 3.1 * 1024 * 1024) {
+    const target = path.join(outDir, 'phone-3to5mb.jpg');
+    const buf = fs.readFileSync(target);
+    const need = Math.ceil(3.2 * 1024 * 1024) - buf.length;
+    fs.writeFileSync(target, Buffer.concat([buf, Buffer.alloc(Math.max(0, need), 0xff)]));
+    const padded = fs.statSync(target).size;
+    console.log(`padded phone-3to5mb.jpg to ${(padded / (1024 * 1024)).toFixed(2)} MB`);
+    return padded;
+  }
+  return best;
+}
+
 async function main() {
   const bytes = await writeSized12mp();
   if (bytes < 900 * 1024) {
@@ -83,6 +120,13 @@ async function main() {
   }
   if (bytes > 2.5 * 1024 * 1024) {
     console.warn(`warning: 12 MP fixture is ${(bytes / 1024 / 1024).toFixed(2)} MB (>2.5)`);
+  }
+
+  const phoneBytes = await writePhone3to5Mb();
+  if (phoneBytes < 3 * 1024 * 1024 || phoneBytes > 5.5 * 1024 * 1024) {
+    console.warn(
+      `warning: phone-3to5mb.jpg is ${(phoneBytes / (1024 * 1024)).toFixed(2)} MB (wanted ~3–5)`,
+    );
   }
 
   await writeProgressiveJpeg('room-overview-good.jpg', 1600, 1200, { quality: 85 });

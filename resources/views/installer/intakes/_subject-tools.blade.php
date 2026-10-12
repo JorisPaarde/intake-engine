@@ -240,9 +240,10 @@
                 </p>
             @endif
             @php
-                $installerHardMaxBytes = (int) config('intake.uploads.hard_max_bytes', 15 * 1024 * 1024);
+                $installerHardMaxBytes = (int) \App\Domains\Intake\Support\PhotoUploadLimits::hardMaxBytes();
+                $installerAppMaxBytes = (int) \App\Domains\Intake\Support\PhotoUploadLimits::appMaxBytes();
                 $installerHardMaxMp = (float) config('intake.uploads.hard_max_megapixels', 24);
-                $installerTooLarge = (string) (config('intake.uploads.too_large_message') ?: 'Deze foto is te groot. Probeer een andere foto of maak een nieuwe.');
+                $installerTooLarge = (string) \App\Domains\Intake\Support\PhotoUploadLimits::tooLargeMessage();
                 $installerMaxFiles = max(1, (int) config('intake.uploads.max_files_per_question', 5));
             @endphp
             <form
@@ -252,6 +253,7 @@
                 class="space-y-3 border-t border-gray-200 p-3"
                 data-client-downscale="1"
                 data-upload-max-bytes="{{ $installerHardMaxBytes }}"
+                data-upload-app-max-bytes="{{ $installerAppMaxBytes }}"
                 data-upload-max-megapixels="{{ $installerHardMaxMp }}"
                 data-upload-too-large="{{ $installerTooLarge }}"
                 x-data="{
@@ -285,7 +287,7 @@
                         if (! this.matchesScope(event)) return;
                         this.prepBusy = false;
                         this.prepError = event?.detail?.message
-                            || 'Deze foto is te groot. Probeer een andere foto of maak een nieuwe.';
+                            || 'Deze foto is groter dan 8 MB. Maak een nieuwe foto of kies een kleinere.';
                         this.names = [];
                     },
                     onPrepSkipped(event) {
@@ -312,7 +314,7 @@
                     >
                         <span class="text-sm font-semibold text-gray-900">Camera openen of foto's kiezen</span>
                         <span class="mt-1 text-xs text-gray-500">
-                            JPEG, PNG, WebP of HEIC · max {{ number_format($installerHardMaxBytes / 1048576, 0) }} MB
+                            JPEG, PNG, WebP of HEIC · max {{ number_format($installerAppMaxBytes / 1048576, 0) }} MB
                             · tot {{ $installerMaxFiles }} foto's · worden automatisch verkleind
                         </span>
                     </label>
