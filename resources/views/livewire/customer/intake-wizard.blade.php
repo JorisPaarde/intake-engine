@@ -96,7 +96,7 @@
             @endif
         </div>
     @elseif (($step['kind'] ?? 'question') === 'known_summary')
-        <div class="mb-4">
+        <div class="mb-4" wire:key="step-heading-{{ $step['key'] }}" data-testid="wizard-step-heading">
             <p class="eyebrow">
                 {{ $step['section_title'] }}
                 <span class="mx-1.5 text-[#838c86]">·</span>
@@ -133,7 +133,7 @@
             @endif
         </div>
     @elseif (($step['kind'] ?? 'question') === 'closing_wishes')
-        <div class="mb-4">
+        <div class="mb-4" wire:key="step-heading-{{ $step['key'] }}" data-testid="wizard-step-heading">
             <p class="eyebrow">
                 {{ $step['section_title'] }}
                 <span class="mx-1.5 text-[#838c86]">·</span>
@@ -215,7 +215,7 @@
             $state = $visibility[$composite] ?? ['visible' => false, 'required' => false];
         @endphp
 
-        <div class="mb-4">
+        <div class="mb-4" wire:key="step-heading-{{ $step['key'] }}" data-testid="wizard-step-heading">
             <p class="eyebrow">
                 {{ $step['section_title'] }}
                 <span class="mx-1.5 text-[#838c86]">·</span>

@@ -8,6 +8,7 @@ use App\Domains\AI\Actions\AssessFuseboxPhotos;
 use App\Domains\AI\Actions\AssessPhotoUsability;
 use App\Domains\AI\Actions\DeriveIntentFromRequest;
 use App\Domains\AI\Actions\DerivePhotoAnswers;
+use App\Domains\AI\Actions\PrefillAnswersFromKnownContext;
 use App\Domains\AI\Jobs\DeriveIntentFromRequestJob;
 use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\AI\Services\AiTraceRequestIdResolver;
@@ -48,6 +49,7 @@ use App\Domains\Intake\Support\PhotoCustomerStatus;
 use App\Domains\Intake\Support\PhotoOverridePolicy;
 use App\Domains\Intake\Support\PhotoUploadLimits;
 use App\Domains\Intake\Support\PrefillSources;
+use App\Domains\Intake\Support\RoomLabelResolver;
 use App\Enums\FollowUpItemType;
 use App\Enums\FollowUpRoundStatus;
 use App\Enums\IntakeStatus;
@@ -422,6 +424,7 @@ class IntakeWizard extends Component
         $this->resolvedIntake = $intake->loadMissing(['answers', 'uploads']);
 
         $this->hydrateFormFromAnswers();
+        $this->ensureAtticSizeClassSatisfied();
 
         $steps = $this->steps();
         $sectionKey = $intake->current_section_key;
@@ -3662,11 +3665,189 @@ class IntakeWizard extends Component
             $this->forceShowKnown,
             $stickyStepKeys,
         );
+        $steps = $this->omitAtticSizeClassSteps($steps);
 
         $this->resolvedSteps = $steps;
         $this->resolvedStepsFormSignature = $signature;
 
         return $this->resolvedSteps;
+    }
+
+    /**
+     * Zolder vraagt geen grootteklasse vóór L×B — alleen lengte×breedte.
+     *
+     * @param  list<array{
+     *     key: string,
+     *     section_key: string,
+     *     section_instance_key: string|null,
+     *     question_key: string,
+     *     title: string,
+     *     section_title: string,
+     *     description: string|null,
+     *     help_text: string|null,
+     *     is_repeatable: bool,
+     *     is_required: bool,
+     *     kind?: 'question'|'known_summary'|'question_group'|'closing_wishes',
+     *     known_items?: list<array{
+     *         question_key: string,
+     *         section_instance_key: string|null,
+     *         label: string,
+     *         display_value: string,
+     *         prefill_source: string,
+     *     }>,
+     *     group_key?: string,
+     *     group_question_keys?: list<string>,
+     *     bundle_question_keys?: list<string>,
+     *     sticky_photo_composite?: string|null
+     * }>  $steps
+     * @return list<array{
+     *     key: string,
+     *     section_key: string,
+     *     section_instance_key: string|null,
+     *     question_key: string,
+     *     title: string,
+     *     section_title: string,
+     *     description: string|null,
+     *     help_text: string|null,
+     *     is_repeatable: bool,
+     *     is_required: bool,
+     *     kind?: 'question'|'known_summary'|'question_group'|'closing_wishes',
+     *     known_items?: list<array{
+     *         question_key: string,
+     *         section_instance_key: string|null,
+     *         label: string,
+     *         display_value: string,
+     *         prefill_source: string,
+     *     }>,
+     *     group_key?: string,
+     *     group_question_keys?: list<string>,
+     *     bundle_question_keys?: list<string>,
+     *     sticky_photo_composite?: string|null
+     * }>
+     */
+    private function omitAtticSizeClassSteps(array $steps): array
+    {
+        $atticInstances = $this->atticRoomInstances();
+        if ($atticInstances === []) {
+            return $steps;
+        }
+
+        return array_values(array_filter(
+            $steps,
+            static function (array $step) use ($atticInstances): bool {
+                if ($step['question_key'] !== 'room_size_indication') {
+                    return true;
+                }
+
+                $instance = $step['section_instance_key'] ?? null;
+
+                return ! is_string($instance) || ! isset($atticInstances[$instance]);
+            },
+        ));
+    }
+
+    /**
+     * @return array<string, true>
+     */
+    private function atticRoomInstances(): array
+    {
+        $answers = $this->liveAnswers();
+        $this->intake()->loadMissing('answers');
+        foreach ($this->intake()->answers as $answer) {
+            if ($answer->question_key !== 'room_type' || ! is_string($answer->section_instance_key)) {
+                continue;
+            }
+            $composite = VisibilityResolver::compositeKey('room_type', $answer->section_instance_key);
+            if (! isset($answers[$composite]) && is_array($answer->value)) {
+                $answers[$composite] = $answer->value;
+            }
+        }
+
+        $attic = [];
+        foreach (RoomLabelResolver::typesByInstance($answers) as $instance => $type) {
+            if ($type === 'attic') {
+                $attic[$instance] = true;
+            }
+        }
+
+        return $attic;
+    }
+
+    /**
+     * Zolder zonder size-antwoord: leid af uit L×B of zet klant-unknown zodat Afronden schoon blijft.
+     */
+    private function ensureAtticSizeClassSatisfied(?string $onlyInstance = null): void
+    {
+        $atticInstances = $this->atticRoomInstances();
+        if ($atticInstances === []) {
+            return;
+        }
+
+        if (is_string($onlyInstance) && $onlyInstance !== '') {
+            if (! isset($atticInstances[$onlyInstance])) {
+                return;
+            }
+            $atticInstances = [$onlyInstance => true];
+        }
+
+        $intake = $this->intake()->loadMissing('answers');
+        $needsDerive = false;
+        $wrote = false;
+
+        foreach (array_keys($atticInstances) as $instance) {
+            $size = $intake->answers->first(
+                static fn (IntakeAnswer $row): bool => $row->question_key === 'room_size_indication'
+                    && $row->section_instance_key === $instance,
+            );
+
+            $sizeValue = $size instanceof IntakeAnswer && is_array($size->value) ? $size->value : null;
+            $sizeSource = $size instanceof IntakeAnswer ? $size->prefill_source : null;
+            $open = $size === null
+                || PrefillSources::isAiUnknownChoice($sizeSource, $sizeValue);
+
+            if (! $open) {
+                continue;
+            }
+
+            $length = $intake->answers->first(
+                static fn (IntakeAnswer $row): bool => $row->question_key === 'room_length_m'
+                    && $row->section_instance_key === $instance,
+            );
+            $width = $intake->answers->first(
+                static fn (IntakeAnswer $row): bool => $row->question_key === 'room_width_m'
+                    && $row->section_instance_key === $instance,
+            );
+            $lengthOk = $length instanceof IntakeAnswer
+                && is_numeric($length->value['number'] ?? null)
+                && (float) $length->value['number'] > 0;
+            $widthOk = $width instanceof IntakeAnswer
+                && is_numeric($width->value['number'] ?? null)
+                && (float) $width->value['number'] > 0;
+
+            if ($lengthOk && $widthOk) {
+                $needsDerive = true;
+
+                continue;
+            }
+
+            app(SaveIntakeAnswer::class)->handle(
+                $intake,
+                'room_size_indication',
+                $instance,
+                ['value' => 'unknown'],
+            );
+            $wrote = true;
+        }
+
+        if ($needsDerive) {
+            app(PrefillAnswersFromKnownContext::class)->recalculateDerivedDimensions($intake);
+            $wrote = true;
+        }
+
+        if ($wrote) {
+            $this->forgetIntakeDerivedCaches();
+            $this->hydrateFormFromAnswers();
+        }
     }
 
     /**
@@ -3912,6 +4093,13 @@ class IntakeWizard extends Component
             $payload,
         );
         $this->forgetIntakeDerivedCaches();
+
+        // Zolder: geen grootteklasse — alleen L×B; vul size zodat Afronden niet blijft hangen.
+        if ($questionKey === 'room_type'
+            && is_string($instanceKey)
+            && (($payload['value'] ?? null) === 'attic')) {
+            $this->ensureAtticSizeClassSatisfied($instanceKey);
+        }
 
         // Een vraag kan via meta.text_analysis latere vragen beantwoorden — de reden van de
         // aanvraag noemt vaak al de ruimtes en of het om koelen of verwarmen gaat.
