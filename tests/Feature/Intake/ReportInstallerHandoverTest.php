@@ -14,6 +14,7 @@ use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
 use App\Domains\Intake\Models\DossierRecord;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeQuestion;
+use App\Domains\Intake\Models\IntakeReview;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Domains\Intake\Models\IntakeUpload;
@@ -366,6 +367,183 @@ test('follow-up completion rebuilds report and next step changes after final rev
     expect($finalHtml)->toContain('Locatiebezoek nodig')
         ->and($finalHtml)->toContain('Na aanvulling nog een bezoek nodig.')
         ->and($finalHtml)->not->toContain('Beoordeel de aangeleverde aanvulling');
+});
+
+/**
+ * N39: after a follow-up round clears intake.reviewed_at, the report keeps the last
+ * saved review (decision + summary) with a structured "vóór ronde N" marker.
+ */
+test('N39: report keeps last review after follow-up clears reviewed_at', function () {
+    $intake = completeHandoverIntake();
+    $reviewer = User::factory()->create([
+        'company_id' => $intake->company_id,
+        'name' => 'Reviewer N39',
+    ]);
+
+    app(SubmitIntakeReview::class)->handle($intake->fresh(), $reviewer, [
+        'decision' => ReviewDecision::NeedMoreInfo,
+        'site_visit_needed' => false,
+        'enough_information' => false,
+        'summary' => 'Nog meer info nodig over de geveldoorvoer.',
+        'follow_up_items' => [
+            ['type' => FollowUpItemType::Photo, 'prompt' => 'Maak een foto van de geveldoorvoer.'],
+        ],
+    ]);
+
+    $round = $intake->fresh()->followUpRounds()->with('items')->firstOrFail();
+    $item = $round->items->firstOrFail();
+    $disk = (string) config('filesystems.media', 'local');
+    $bytes = (string) file_get_contents(base_path('tests/fixtures/klanttest-20261002/meterkast-flow.jpg'));
+    $path = 'intakes/'.$intake->uuid.'/follow-up/n39-gevel.jpg';
+    Storage::disk($disk)->put($path, $bytes);
+    $upload = IntakeUpload::query()->create([
+        'intake_id' => $intake->id,
+        'question_key' => 'follow_up_'.$item->id,
+        'intake_follow_up_item_id' => $item->id,
+        'disk' => $disk,
+        'path' => $path,
+        'original_filename' => 'n39-gevel.jpg',
+        'mime_type' => 'image/jpeg',
+        'size_bytes' => strlen($bytes),
+        'checksum' => hash('sha256', $bytes),
+        'sort_order' => 0,
+    ]);
+    $upload->storeContentAssessment(PhotoContentAssessment::ok(PhotoSubject::Other));
+    markTestUploadSatisfied($upload);
+
+    $this->travel(3)->seconds();
+    app(CompleteFollowUpRound::class)->handle($intake->fresh(), $round->fresh(), []);
+
+    $fresh = $intake->fresh();
+    expect($fresh->reviewed_at)->toBeNull();
+
+    $html = $fresh->report?->html ?? '';
+    expect($html)->toContain('Beoordeling')
+        ->and($html)->toContain('Nog meer info nodig')
+        ->and($html)->toContain('Nog meer info nodig over de geveldoorvoer.')
+        ->and($html)->toContain('Reviewer N39')
+        ->and($html)->toContain('Beoordeeld vóór ronde '.$round->round_number.'. Bekijk de nieuwe aanvulling.')
+        ->and($html)->toContain('Beoordeel de aangeleverde aanvulling');
+});
+
+test('N39: pending review stays hidden on report', function () {
+    $intake = completeHandoverIntake();
+    $reviewer = User::factory()->create(['company_id' => $intake->company_id]);
+
+    IntakeReview::query()->create([
+        'intake_id' => $intake->id,
+        'reviewer_id' => $reviewer->id,
+        'decision' => ReviewDecision::Pending,
+        'site_visit_needed' => false,
+        'enough_information' => false,
+        'summary' => 'Nog niet beoordeeld.',
+        'reviewed_at' => null,
+    ]);
+
+    $version = $intake->templateVersion()->firstOrFail();
+    $html = app(GenerateIntakeReportHtml::class)->handle($intake->fresh(), $version);
+
+    expect($html)->not->toContain('Nog niet beoordeeld.')
+        ->and($html)->not->toContain('Beoordeeld vóór ronde');
+});
+
+test('N39: re-saving review after follow-up drops stale-before-round marker', function () {
+    $intake = completeHandoverIntake();
+    $reviewer = User::factory()->create(['company_id' => $intake->company_id]);
+
+    app(SubmitIntakeReview::class)->handle($intake->fresh(), $reviewer, [
+        'decision' => ReviewDecision::NeedMoreInfo,
+        'summary' => 'Eerste beoordeling vóór aanvulling.',
+        'follow_up_items' => [
+            ['type' => FollowUpItemType::Photo, 'prompt' => 'Maak een foto van de geveldoorvoer.'],
+        ],
+    ]);
+
+    $round = $intake->fresh()->followUpRounds()->with('items')->firstOrFail();
+    $item = $round->items->firstOrFail();
+    $disk = (string) config('filesystems.media', 'local');
+    $bytes = (string) file_get_contents(base_path('tests/fixtures/klanttest-20261002/meterkast-flow.jpg'));
+    $path = 'intakes/'.$intake->uuid.'/follow-up/n39-resave.jpg';
+    Storage::disk($disk)->put($path, $bytes);
+    $upload = IntakeUpload::query()->create([
+        'intake_id' => $intake->id,
+        'question_key' => 'follow_up_'.$item->id,
+        'intake_follow_up_item_id' => $item->id,
+        'disk' => $disk,
+        'path' => $path,
+        'original_filename' => 'n39-resave.jpg',
+        'mime_type' => 'image/jpeg',
+        'size_bytes' => strlen($bytes),
+        'checksum' => hash('sha256', $bytes),
+        'sort_order' => 0,
+    ]);
+    $upload->storeContentAssessment(PhotoContentAssessment::ok(PhotoSubject::Other));
+    markTestUploadSatisfied($upload);
+
+    $this->travel(2)->seconds();
+    app(CompleteFollowUpRound::class)->handle($intake->fresh(), $round->fresh(), []);
+
+    expect($intake->fresh()->report?->html ?? '')->toContain('Beoordeeld vóór ronde');
+
+    $this->travel(2)->seconds();
+    app(SubmitIntakeReview::class)->handle($intake->fresh(), $reviewer, [
+        'decision' => ReviewDecision::PrepareQuote,
+        'site_visit_needed' => false,
+        'enough_information' => true,
+        'summary' => 'Na aanvulling akkoord voor offerte.',
+    ]);
+
+    $html = $intake->fresh()->report?->html ?? '';
+    expect($html)->toContain('Offerte voorbereiden')
+        ->and($html)->toContain('Na aanvulling akkoord voor offerte.')
+        ->and($html)->not->toContain('Beoordeeld vóór ronde')
+        ->and($html)->not->toContain('Beoordeel de aangeleverde aanvulling');
+});
+
+test('N39: RebuildIntakeReportHtml keeps stale review after follow-up', function () {
+    $intake = completeHandoverIntake();
+    $reviewer = User::factory()->create(['company_id' => $intake->company_id]);
+
+    app(SubmitIntakeReview::class)->handle($intake->fresh(), $reviewer, [
+        'decision' => ReviewDecision::NeedMoreInfo,
+        'summary' => 'Samenvatting blijft bij rebuild.',
+        'follow_up_items' => [
+            ['type' => FollowUpItemType::Photo, 'prompt' => 'Maak een foto van de geveldoorvoer.'],
+        ],
+    ]);
+
+    $round = $intake->fresh()->followUpRounds()->with('items')->firstOrFail();
+    $item = $round->items->firstOrFail();
+    $disk = (string) config('filesystems.media', 'local');
+    $bytes = (string) file_get_contents(base_path('tests/fixtures/klanttest-20261002/meterkast-flow.jpg'));
+    $path = 'intakes/'.$intake->uuid.'/follow-up/n39-rebuild.jpg';
+    Storage::disk($disk)->put($path, $bytes);
+    $upload = IntakeUpload::query()->create([
+        'intake_id' => $intake->id,
+        'question_key' => 'follow_up_'.$item->id,
+        'intake_follow_up_item_id' => $item->id,
+        'disk' => $disk,
+        'path' => $path,
+        'original_filename' => 'n39-rebuild.jpg',
+        'mime_type' => 'image/jpeg',
+        'size_bytes' => strlen($bytes),
+        'checksum' => hash('sha256', $bytes),
+        'sort_order' => 0,
+    ]);
+    $upload->storeContentAssessment(PhotoContentAssessment::ok(PhotoSubject::Other));
+    markTestUploadSatisfied($upload);
+
+    $this->travel(2)->seconds();
+    app(CompleteFollowUpRound::class)->handle($intake->fresh(), $round->fresh(), []);
+
+    $this->travel(2)->seconds();
+    app(RebuildIntakeReportHtml::class)->handle($intake->fresh());
+
+    $html = $intake->fresh()->report?->html ?? '';
+    expect($html)->toContain('Beoordeling')
+        ->and($html)->toContain('Nog meer info nodig')
+        ->and($html)->toContain('Samenvatting blijft bij rebuild.')
+        ->and($html)->toContain('Beoordeeld vóór ronde '.$round->round_number.'. Bekijk de nieuwe aanvulling.');
 });
 
 test('RebuildIntakeReportHtml preserves meta.ai_summary when called directly', function () {

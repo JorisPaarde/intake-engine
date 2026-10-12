@@ -213,6 +213,11 @@
 
     @if (! empty($review))
         <h2>Beoordeling</h2>
+        @if (! empty($review['stale_before_round_notice']))
+            <p data-testid="review-stale-before-round" style="margin:0.35rem 0 0.75rem;color:#555;font-size:0.9rem;">
+                {{ $review['stale_before_round_notice'] }}
+            </p>
+        @endif
         <dl>
             <dt>Beslissing</dt>
             <dd>{{ $review['decision_label'] }}</dd>
