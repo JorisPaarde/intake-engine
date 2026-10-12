@@ -2,6 +2,7 @@
 <html lang="nl">
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Opnamerapport — {{ $intake->customer_name }}</title>
     <style>
         body { font-family: Georgia, "Times New Roman", serif; color: #1a1a1a; line-height: 1.45; margin: 0; padding: 1.5rem; }
@@ -130,6 +131,9 @@
                                 @if ($item['upload']->followUpItem?->round)
                                     · aanvulling ronde {{ $item['upload']->followUpItem->round->round_number }}
                                 @endif
+                                @if (($item['superseded'] ?? false) === true && ! empty($item['supersession_label']))
+                                    <br><span class="source" data-testid="report-photo-superseded">{{ $item['supersession_label'] }}</span>
+                                @endif
                             </figcaption>
                         </figure>
                     @else
@@ -141,6 +145,9 @@
                                 @if ($item['upload']->followUpItem?->round)
                                     · aanvulling ronde {{ $item['upload']->followUpItem->round->round_number }}
                                 @endif
+                                @if (($item['superseded'] ?? false) === true && ! empty($item['supersession_label']))
+                                    <br><span class="source" data-testid="report-photo-superseded">{{ $item['supersession_label'] }}</span>
+                                @endif
                             </p>
                         </div>
                     @endif
@@ -149,11 +156,15 @@
         @endforeach
     @endif
 
-    @if ($attentionPoints !== [])
+    @php
+        $reportAttentionPoints = app(\App\Domains\Reports\Services\ReportAttentionPoints::class)
+            ->uniqueForReport($intake, is_array($attentionPoints ?? null) ? $attentionPoints : []);
+    @endphp
+    @if ($reportAttentionPoints !== [])
         <div class="attention">
             <strong>Aandachtspunten</strong>
             <ul>
-                @foreach ($attentionPoints as $point)
+                @foreach ($reportAttentionPoints as $point)
                     <li>{{ $point['label'] }}</li>
                 @endforeach
             </ul>
