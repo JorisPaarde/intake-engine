@@ -18,8 +18,6 @@ final class AiUserFacingFallback
 
     public const CATALOG = 'De AI-analyse van de aanvraagtekst is tijdelijk niet beschikbaar. De rest van de opname gaat gewoon door.';
 
-    public const DOSSIER = 'AI-synthese kon niet worden afgerond; het bestaande dossier is ongewijzigd gebleven.';
-
     public function __construct(
         private readonly AiFailureClassifier $classifier = new AiFailureClassifier,
     ) {}
