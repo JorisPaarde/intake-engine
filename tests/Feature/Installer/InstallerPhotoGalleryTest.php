@@ -215,7 +215,47 @@ test('N43: aanvullingsfoto-caption toont ronde, onderdeel en opdracht', function
 
     $captions = array_column($followUp['uploads'], 'caption');
     expect($captions[0])->toBe('Ronde 1 · Stroomtoevoer · Plek stroomkabel')
-        ->and($captions[1])->toBe('Ronde 1 · Condensafvoer · Afvoer')
+        ->and($captions[1])->toBe('Ronde 1 · Condensafvoer')
         ->and($captions[0])->not->toContain('Maak een duidelijke foto')
-        ->and($captions[1])->not->toContain('Maak een duidelijke foto');
+        ->and($captions[1])->not->toContain('Maak een duidelijke foto')
+        ->and($captions[1])->not->toContain('Afvoer');
+});
+
+test('N43: power zonder subtype/subject blijft Ronde N · gebied (geen Meterkast-gok)', function () {
+    $intake = makeGalleryIntake();
+    $user = User::query()->findOrFail($intake->created_by);
+    app(DossierManager::class)->initialize($intake);
+
+    $round = app(CreateCustomerContributionRequest::class)->handle($intake->fresh(), $user, [[
+        'type' => FollowUpItemType::Photo,
+        'prompt' => 'Maak een duidelijke foto van de stroomkabel.',
+        'decision_area_key' => 'power',
+        'dossier_subject_id' => app(DossierManager::class)->root($intake)->id,
+    ]]);
+    $item = $round->items()->firstOrFail();
+
+    $disk = (string) config('filesystems.media', 'local');
+    $path = 'intakes/'.$intake->uuid.'/follow-up/kabel.jpg';
+    Storage::disk($disk)->put($path, 'fake-bytes');
+    IntakeUpload::query()->create([
+        'intake_id' => $intake->id,
+        'question_key' => 'follow_up_'.$item->id,
+        'intake_follow_up_item_id' => $item->id,
+        'disk' => $disk,
+        'path' => $path,
+        'original_filename' => 'kabel.jpg',
+        'mime_type' => 'image/jpeg',
+        'size_bytes' => 10,
+        'checksum' => hash('sha256', 'fake-bytes'),
+        'sort_order' => 0,
+    ]);
+
+    $groups = app(InstallerPhotoGalleryBuilder::class)->handle($intake->fresh());
+    $followUp = collect($groups)->first(
+        static fn (array $group): bool => str_starts_with($group['heading'], 'Aanvulling ronde'),
+    );
+
+    expect($followUp)->not->toBeNull()
+        ->and($followUp['uploads'][0]['caption'])->toBe('Ronde 1 · Stroomtoevoer')
+        ->and($followUp['uploads'][0]['caption'])->not->toContain('Meterkast');
 });

@@ -376,7 +376,8 @@ final class InstallerPhotoGalleryBuilder
     }
 
     /**
-     * Korte derde caption-term: subtype → subject → ruimtelabel → gebiedsfallback.
+     * Korte derde caption-term: alleen subtype, expliciete PhotoSubject-meta of ruimtelabel.
+     * Geen gebiedsfallback (power→Meterkast gokt; N28) — dan blijft “Ronde N · {area}”.
      */
     private function followUpTaskLabel(Intake $intake, ContributionTask $task): ?string
     {
@@ -395,7 +396,11 @@ final class InstallerPhotoGalleryBuilder
             return $fromSubtype;
         }
 
-        $expected = PhotoSubject::expectedForTask($task);
+        // Alleen expliciete meta — niet expectedForTask() (die valt terug op decision_area).
+        $expectedRaw = is_string($meta['expected_photo_subject'] ?? null)
+            ? (string) $meta['expected_photo_subject']
+            : '';
+        $expected = $expectedRaw !== '' ? PhotoSubject::tryFrom($expectedRaw) : null;
         if ($expected instanceof PhotoSubject) {
             return match ($expected) {
                 PhotoSubject::Fusebox => 'Meterkast',
@@ -419,14 +424,7 @@ final class InstallerPhotoGalleryBuilder
             }
         }
 
-        return match ($task->decision_area_key) {
-            'power' => 'Meterkast',
-            'condensate' => 'Afvoer',
-            'refrigerant' => 'Koelleiding',
-            'placement' => 'Plaatsing',
-            'capacity' => 'Vermogen',
-            default => null,
-        };
+        return null;
     }
 
     private function captionForUnknown(Intake $intake, IntakeUpload $upload): string
