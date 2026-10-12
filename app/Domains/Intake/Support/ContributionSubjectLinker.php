@@ -17,6 +17,9 @@ use Illuminate\Validation\ValidationException;
  *
  * Structural only: no prompt/AI meaning. Used when the installer changes
  * “onderdeel” on a concept, or when a subject disappeared after AI rebuild.
+ *
+ * Never picks “the first” of several routes/rooms — only a unique candidate
+ * may be rematched; otherwise area-level (null) or a refresh message.
  */
 final class ContributionSubjectLinker
 {
@@ -28,10 +31,10 @@ final class ContributionSubjectLinker
      * Resolve a dossier_subject_id for this intake + decision area.
      *
      * - Foreign intake subject → security message (unchanged).
-     * - Missing subject (deleted after rebuild) → map to a live successor in the
-     *   same area when possible, otherwise the refresh message.
-     * - Subject whose area no longer matches decision_area_key → rematch to a
-     *   subject in the new area, or null (area-level).
+     * - Missing subject (deleted after rebuild) → map only when exactly one
+     *   live subject exists in the decision area; otherwise refresh message.
+     * - Subject whose area no longer matches decision_area_key → link at area
+     *   level (null) unless exactly one live subject exists in the new area.
      *
      * @throws ValidationException
      */
@@ -62,7 +65,7 @@ final class ContributionSubjectLinker
 
         if (! $subject instanceof DossierSubject) {
             $mapped = $areaKey !== null
-                ? $this->firstSubjectIdForArea($intake, $areaKey)
+                ? $this->soleSubjectIdForArea($intake, $areaKey)
                 : null;
 
             if ($mapped !== null) {
@@ -83,8 +86,8 @@ final class ContributionSubjectLinker
             return $id;
         }
 
-        // Installer changed onderdeel: keep evidence on the new area, not the old route.
-        return $this->firstSubjectIdForArea($intake, $areaKey);
+        // Installer changed onderdeel: only keep a subject link when unambiguous.
+        return $this->soleSubjectIdForArea($intake, $areaKey);
     }
 
     /**
@@ -122,44 +125,75 @@ final class ContributionSubjectLinker
         };
     }
 
-    public function firstSubjectIdForArea(Intake $intake, string $areaKey): ?int
+    /**
+     * Live subject for an area only when there is exactly one candidate.
+     * Zero or multiple → null (area-level / ambiguous).
+     */
+    public function soleSubjectIdForArea(Intake $intake, string $areaKey): ?int
+    {
+        $ids = $this->liveSubjectIdsForArea($intake, $areaKey);
+
+        return count($ids) === 1 ? $ids[0] : null;
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function liveSubjectIdsForArea(Intake $intake, string $areaKey): array
     {
         return match ($areaKey) {
-            'power', 'condensate', 'refrigerant' => $this->firstConnectionSubjectId($intake, $areaKey),
-            'capacity' => $this->nullableInt(
+            'power', 'condensate', 'refrigerant' => $this->connectionSubjectIds($intake, $areaKey),
+            'capacity' => $this->intList(
                 AircoRoom::query()
                     ->where('intake_id', $intake->id)
                     ->orderBy('id')
-                    ->value('dossier_subject_id'),
+                    ->pluck('dossier_subject_id')
+                    ->all(),
             ),
-            'placement' => $this->nullableInt(
+            'placement' => $this->intList(
                 AircoPlacementOption::query()
                     ->where('intake_id', $intake->id)
                     ->orderBy('id')
-                    ->value('dossier_subject_id'),
+                    ->pluck('dossier_subject_id')
+                    ->all(),
             ),
-            default => null,
+            default => [],
         };
     }
 
-    private function firstConnectionSubjectId(Intake $intake, string $areaKey): ?int
+    /**
+     * @return list<int>
+     */
+    private function connectionSubjectIds(Intake $intake, string $areaKey): array
     {
         $type = AircoConnectionType::tryFrom($areaKey);
         if ($type === null) {
-            return null;
+            return [];
         }
 
-        return $this->nullableInt(
+        return $this->intList(
             AircoConnection::query()
                 ->where('intake_id', $intake->id)
                 ->where('type', $type)
                 ->orderBy('id')
-                ->value('dossier_subject_id'),
+                ->pluck('dossier_subject_id')
+                ->all(),
         );
     }
 
-    private function nullableInt(mixed $value): ?int
+    /**
+     * @param  list<mixed>  $values
+     * @return list<int>
+     */
+    private function intList(array $values): array
     {
-        return is_numeric($value) ? (int) $value : null;
+        $ids = [];
+        foreach ($values as $value) {
+            if (is_numeric($value)) {
+                $ids[] = (int) $value;
+            }
+        }
+
+        return array_values(array_unique($ids));
     }
 }

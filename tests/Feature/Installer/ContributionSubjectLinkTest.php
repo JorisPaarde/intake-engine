@@ -224,6 +224,50 @@ test('N40: ongewijzigd concept stroom houdt stroom-subject', function () {
         ->and($task->meta['photo_task_subtype'] ?? null)->toBe('power_route');
 });
 
+test('N40: gebiedswijziging met 2 stroomroutes koppelt area-niveau (null), niet de eerste', function () {
+    $user = User::factory()->create();
+    ['intake' => $intake, 'power' => $power, 'condensate' => $condensate] = n40SurveyWithPowerAndCondensate($user);
+
+    $survey = app(AircoSurveyService::class);
+    $option = $intake->aircoInstallationOptions()->firstOrFail();
+    $outside = $intake->aircoPlacements()->where('type', AircoPlacementType::OutdoorUnit)->firstOrFail();
+    $survey->createConnection($intake, $user, $option, [
+        'type' => AircoConnectionType::Power,
+        'label' => 'Stroom tweede route',
+        'from_placement_id' => $outside->id,
+        'to_placement_id' => $outside->id,
+        'status' => AircoConnectionStatus::NeedsEvidence,
+    ]);
+
+    expect(AircoConnection::query()->where('intake_id', $intake->id)->where('type', AircoConnectionType::Power)->count())
+        ->toBe(2);
+
+    // Condens-subject + onderdeel → power (2 kandidaten) ⇒ area-niveau.
+    $resolved = app(ContributionSubjectLinker::class)->resolve(
+        $intake->fresh(),
+        $condensate->dossier_subject_id,
+        'power',
+    );
+    expect($resolved)->toBeNull();
+
+    $this->actingAs($user)
+        ->post(route('intakes.workspace.tasks.store', $intake), [
+            'contribution_items' => [[
+                'type' => FollowUpItemType::Photo->value,
+                'prompt' => 'Maak een foto van de plek waar de stroomkabel naar de buitenunit kan lopen.',
+                'decision_area_key' => 'power',
+                'dossier_subject_id' => $condensate->dossier_subject_id,
+            ]],
+        ])
+        ->assertRedirect();
+
+    $task = ContributionTask::query()->where('intake_id', $intake->id)->latest('id')->first();
+    expect($task)->not->toBeNull()
+        ->and($task->decision_area_key)->toBe('power')
+        ->and($task->dossier_subject_id)->toBeNull()
+        ->and((int) $power->dossier_subject_id)->not->toBe(0);
+});
+
 test('N45: verwijderd subject van deze intake mapt naar opvolger in hetzelfde gebied', function () {
     $user = User::factory()->create();
     ['intake' => $intake, 'power' => $power] = n40SurveyWithPowerAndCondensate($user);
@@ -263,7 +307,7 @@ test('N45: verwijderd subject van deze intake mapt naar opvolger in hetzelfde ge
         ->assertSessionHas('customer_task_drafts.0.dossier_subject_id', $successor->dossier_subject_id);
 });
 
-test('N45: verwijderd subject zonder opvolger toont ververs-melding', function () {
+test('N45: verwijderd subject zonder unieke opvolger toont ververs-melding', function () {
     $user = User::factory()->create();
     $intake = app(CreateIntake::class)->handle($user, [
         'template_key' => 'airco',
@@ -301,6 +345,40 @@ test('N45: verwijderd subject zonder opvolger toont ververs-melding', function (
         ->assertSessionHasErrors([
             'dossier_subject_id' => ContributionSubjectLinker::MESSAGE_STALE_AFTER_REBUILD,
         ]);
+});
+
+test('N45: verwijderd subject met 2 kandidaten toont ververs-melding', function () {
+    $user = User::factory()->create();
+    ['intake' => $intake, 'power' => $power] = n40SurveyWithPowerAndCondensate($user);
+
+    $survey = app(AircoSurveyService::class);
+    $option = $intake->aircoInstallationOptions()->firstOrFail();
+    $outside = $intake->aircoPlacements()->where('type', AircoPlacementType::OutdoorUnit)->firstOrFail();
+    $survey->createConnection($intake, $user, $option, [
+        'type' => AircoConnectionType::Power,
+        'label' => 'Stroom tweede route',
+        'from_placement_id' => $outside->id,
+        'to_placement_id' => $outside->id,
+        'status' => AircoConnectionStatus::NeedsEvidence,
+    ]);
+
+    $staleSubjectId = 9_999_992;
+    expect(DossierSubject::query()->whereKey($staleSubjectId)->exists())->toBeFalse();
+    expect(AircoConnection::query()->where('intake_id', $intake->id)->where('type', AircoConnectionType::Power)->count())
+        ->toBe(2);
+
+    expect(fn () => app(ContributionSubjectLinker::class)->resolve($intake->fresh(), $staleSubjectId, 'power'))
+        ->toThrow(ValidationException::class);
+
+    try {
+        app(ContributionSubjectLinker::class)->resolve($intake->fresh(), $staleSubjectId, 'power');
+    } catch (ValidationException $e) {
+        expect($e->errors()['dossier_subject_id'][0] ?? null)
+            ->toBe(ContributionSubjectLinker::MESSAGE_STALE_AFTER_REBUILD);
+    }
+
+    // Bestaande power-subject blijft onaangeroerd (geen stille first-id-pick).
+    expect((int) $power->fresh()->dossier_subject_id)->toBe((int) $power->dossier_subject_id);
 });
 
 test('N45: subject van andere intake houdt oude security-melding', function () {
