@@ -1,7 +1,9 @@
 import { expect, test } from '@playwright/test';
+import fs from 'node:fs';
 import {
   advanceUntil,
   createScenario,
+  fixture,
   listUploads,
   openCustomer,
   uploadPhoto,
@@ -36,13 +38,45 @@ test.describe('Large phone photo upload', () => {
     const height = Number(stored.height ?? 0);
     const longEdge = Math.max(width, height);
 
-    // Client downscale ≤2000 (BL-143); dossier max remains 2048.
+    // Client downscale ≤2560; dossier max remains 2048.
     expect(longEdge).toBeGreaterThan(0);
-    expect(longEdge).toBeLessThanOrEqual(2048);
+    expect(longEdge).toBeLessThanOrEqual(2560);
     // Demotest 8 okt: keep source aspect (12 MP fixture is 3024×4032 → 3:4 portrait), not a square.
     expect(width).toBeGreaterThan(0);
     expect(height).toBeGreaterThan(0);
     expect(Math.abs(width / height - 3024 / 4032)).toBeLessThan(0.02);
     expect(stored.assessment_status).toBe('assessed');
+  });
+
+  test('~3–5 MB phone JPEG uploads without false too-large rejection', async ({
+    page,
+    request,
+  }) => {
+    const phonePath = fixture('phone-3to5mb.jpg');
+    expect(fs.existsSync(phonePath)).toBeTruthy();
+    const phoneBytes = fs.statSync(phonePath).size;
+    expect(phoneBytes).toBeGreaterThan(3 * 1024 * 1024);
+    expect(phoneBytes).toBeLessThan(5.5 * 1024 * 1024);
+
+    const payload = await createScenario(request, 'fusebox-upload');
+    await openCustomer(page, payload);
+    await advanceUntil(page, /meterkast|groepenkast|fusebox/i, 40);
+
+    await uploadPhoto(page, 'phone-3to5mb.jpg');
+
+    // Must not show the false "te groot / 8 MB" rejection for a valid phone photo.
+    await expect(page.getByText(/groter dan 8 MB|te groot/i)).toHaveCount(0, {
+      timeout: 5_000,
+    });
+
+    await expect(
+      page.getByText(/Foto ontvangen|Goed te zien|Beoordeeld|Uploaden/i).first(),
+    ).toBeVisible({ timeout: 60_000 });
+    await waitForPhotoAssessed(page, 120_000);
+
+    const uploads = await listUploads(request, payload.intake_id);
+    const fusebox = uploads.filter((u) => u.question_key === 'fusebox_photo');
+    expect(fusebox.length).toBeGreaterThan(0);
+    expect(fusebox[fusebox.length - 1]!.assessment_status).toBe('assessed');
   });
 });

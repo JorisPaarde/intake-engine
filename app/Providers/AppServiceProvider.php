@@ -11,6 +11,7 @@ use App\Domains\AI\Clients\OpenAiClient;
 use App\Domains\AI\Contracts\AiClientInterface;
 use App\Domains\AI\Services\AiTraceRequestIdResolver;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Support\PhotoUploadLimits;
 use App\Policies\IntakePolicy;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -88,6 +89,16 @@ class AppServiceProvider extends ServiceProvider
                     : 'ip:'.hash('sha256', (string) $request->ip()),
             );
         });
+
+        // Livewire temporary-upload endpoint validates before the component sees the file.
+        // Default max:12288 is fine for 8 MB; raise explicitly so app + Livewire stay aligned.
+        config([
+            'livewire.temporary_file_upload.rules' => [
+                'required',
+                'file',
+                'max:'.PhotoUploadLimits::temporaryUploadMaxKilobytes(),
+            ],
+        ]);
     }
 
     /**

@@ -184,7 +184,7 @@ test('retry after simulated Livewire update 503 still stores photo and queues as
         ->toBe(1);
 });
 
-test('js encodes BL-143 update-retry reuse tmp + client 2000px + busy copy', function () {
+test('js encodes BL-143 update-retry reuse tmp + client 2560px + busy copy', function () {
     $blade = (string) file_get_contents(resource_path('views/components/customer/photo-upload-control.blade.php'));
     $intakeWizard = (string) file_get_contents(resource_path('views/livewire/customer/intake-wizard.blade.php'));
     $followUpWizard = (string) file_get_contents(resource_path('views/livewire/customer/follow-up-wizard.blade.php'));
@@ -195,8 +195,10 @@ test('js encodes BL-143 update-retry reuse tmp + client 2000px + busy copy', fun
     $customerJs = (string) file_get_contents(resource_path('js/customer.js'));
     $downscaleJs = (string) file_get_contents(resource_path('js/photo-downscale.js'));
 
-    expect($prepare)->toContain('MAX_LONG_EDGE = 2000')
+    expect($prepare)->toContain('MAX_LONG_EDGE = 2560')
         ->and($prepare)->toContain('JPEG_QUALITY = 0.85')
+        ->and($prepare)->toContain('HARD_MAX_BYTES = 8 * 1024 * 1024')
+        ->and($prepare)->toContain('fallback')
         ->and($prepare)->toContain("imageOrientation: 'from-image'")
         ->and($prepare)->toContain('downscale-timeout')
         ->and($prepare)->toContain('wireModelUploadTargets')

@@ -25,7 +25,8 @@ beforeEach(function () {
         'ai.photo_inference.enabled' => false,
         'ai.dossier.enabled' => false,
         'intake.uploads.max_kilobytes' => 8192,
-        'intake.uploads.hard_max_bytes' => 15 * 1024 * 1024,
+        'intake.uploads.hard_max_bytes' => 8 * 1024 * 1024,
+        'intake.uploads.too_large_message' => 'Deze foto is groter dan 8 MB. Maak een nieuwe foto of kies een kleinere.',
     ]);
 });
 

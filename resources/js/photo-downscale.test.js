@@ -21,7 +21,7 @@ describe('photo-downscale prep event scoping', () => {
         const form = document.createElement('form');
         form.setAttribute('data-client-downscale', '1');
         form.setAttribute('data-upload-max-bytes', String(1024));
-        form.setAttribute('data-upload-too-large', 'Deze foto is te groot.');
+        form.setAttribute('data-upload-too-large', 'Deze foto is groter dan 8 MB. Maak een nieuwe foto of kies een kleinere.');
         const input = document.createElement('input');
         input.type = 'file';
         input.id = inputId;
@@ -82,7 +82,7 @@ describe('photo-downscale prep event scoping', () => {
             inputId: 'subject-1-photo',
         });
         expect(state['subject-1-photo'].busy).toBe(false);
-        expect(state['subject-1-photo'].error).toContain('te groot');
+        expect(state['subject-1-photo'].error).toContain('8 MB');
         expect(state['subject-2-photo'].busy).toBe(false);
         expect(state['subject-2-photo'].error).toBe('');
 

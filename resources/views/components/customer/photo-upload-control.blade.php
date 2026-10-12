@@ -4,9 +4,9 @@
     'inputId',
     'remainingSlots',
     'maxUploadKb',
-    'uploadHardMaxBytes' => 15728640,
+    'uploadHardMaxBytes' => 8388608,
     'uploadHardMaxMegapixels' => 24,
-    'uploadTooLargeMessage' => 'Deze foto is te groot. Probeer een andere foto of maak een nieuwe.',
+    'uploadTooLargeMessage' => 'Deze foto is groter dan 8 MB. Maak een nieuwe foto of kies een kleinere.',
     'tone' => 'intake',
     'helpExtra' => null,
     'uploadPhase' => '',
@@ -290,6 +290,7 @@
     data-upload-timing="1"
     data-client-downscale="1"
     data-upload-max-bytes="{{ (int) $uploadHardMaxBytes }}"
+    data-upload-app-max-bytes="{{ (int) $uploadHardMaxBytes }}"
     data-upload-max-megapixels="{{ $uploadHardMaxMegapixels }}"
     data-upload-too-large="{{ $uploadTooLargeMessage }}"
     {{ $attributes }}

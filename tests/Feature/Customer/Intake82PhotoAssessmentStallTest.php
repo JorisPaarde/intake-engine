@@ -29,8 +29,10 @@ beforeEach(function () {
     $this->seed(IntakeTemplateSeeder::class);
     Storage::fake((string) config('filesystems.media', 'local'));
     config([
-        'intake.uploads.hard_max_bytes' => 15 * 1024 * 1024,
+        'intake.uploads.max_kilobytes' => 8192,
+        'intake.uploads.hard_max_bytes' => 8 * 1024 * 1024,
         'intake.uploads.hard_max_megapixels' => 24,
+        'intake.uploads.too_large_message' => 'Deze foto is groter dan 8 MB. Maak een nieuwe foto of kies een kleinere.',
     ]);
 });
 
@@ -78,7 +80,7 @@ function twelveMegapixelFiveMbJpeg(string $name = 'meterkast-12mp.jpg'): Uploade
     // Aim for ~2–5 MB; if GD produces less, pad with comment APP0 is awkward —
     // assert under hard limit and at least a large phone-sized file.
     expect(strlen($bytes))->toBeGreaterThan(200_000)
-        ->and(strlen($bytes))->toBeLessThan(15 * 1024 * 1024);
+        ->and(strlen($bytes))->toBeLessThan(8 * 1024 * 1024);
 
     return UploadedFile::fake()->createWithContent($name, $bytes);
 }
@@ -108,11 +110,12 @@ test('12 MP phone JPEG (~5 MB) is accepted by hard upload limits', function () {
 
 test('file above hard byte limit is rejected with clear Dutch message', function () {
     $message = PhotoUploadLimits::tooLargeMessage();
-    expect($message)->toBe('Deze foto is te groot. Probeer een andere foto of maak een nieuwe.');
+    expect($message)->toContain('8 MB')
+        ->and($message)->toBe('Deze foto is groter dan 8 MB. Maak een nieuwe foto of kies een kleinere.');
 
     $oversized = UploadedFile::fake()->createWithContent(
         'huge.jpg',
-        str_repeat('x', 15 * 1024 * 1024 + 1024),
+        str_repeat('x', 8 * 1024 * 1024 + 1024),
     );
 
     expect(fn () => PhotoUploadLimits::assertUploadedFileAcceptable($oversized))

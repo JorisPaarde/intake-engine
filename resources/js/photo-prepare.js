@@ -8,15 +8,20 @@
  * read real dimensions from image headers first so aspect ratio is preserved.
  */
 
-export const MAX_LONG_EDGE = 2000;
+export const MAX_LONG_EDGE = 2560;
 export const JPEG_QUALITY = 0.85;
 export const SKIP_BELOW_BYTES = 900 * 1024;
 /** Soft deadline for the whole prep; large phone JPEGs need more than 8s. */
 export const DOWNSCALE_TIMEOUT_MS = 20_000;
-/** Hard safety net (must match config/intake.php defaults). */
-export const HARD_MAX_BYTES = 15 * 1024 * 1024;
+/**
+ * Hard safety net / app cap (must match config/intake.php defaults).
+ * Phone photos ≤ 8 MB must upload even when canvas compress fails — server
+ * accepts 8 MB originals (variants are queued, BL-143).
+ */
+export const HARD_MAX_BYTES = 8 * 1024 * 1024;
+export const APP_MAX_BYTES = HARD_MAX_BYTES;
 export const HARD_MAX_MEGAPIXELS = 24;
-export const TOO_LARGE_MESSAGE = 'Deze foto is te groot. Probeer een andere foto of maak een nieuwe.';
+export const TOO_LARGE_MESSAGE = 'Deze foto is groter dan 8 MB. Maak een nieuwe foto of kies een kleinere.';
 /** Max relative difference between source and output aspect ratios. */
 export const ASPECT_RATIO_TOLERANCE = 0.01;
 
@@ -351,6 +356,33 @@ function failClosed(file, reason, originalWidth = null, originalHeight = null) {
 }
 
 /**
+ * Prefer client compress; when that fails for a file under the app/hard cap,
+ * upload the original instead of lying with a "too large" message (demo 3.1 MB).
+ *
+ * @param {File} file
+ * @param {string} reason
+ * @param {number|null} [originalWidth]
+ * @param {number|null} [originalHeight]
+ * @param {number} [appMaxBytes]
+ * @returns {{ file: File, originalWidth: number|null, originalHeight: number|null, downscaled: boolean, reason: string, failed: boolean }}
+ */
+function failClosedOrFallback(file, reason, originalWidth = null, originalHeight = null, appMaxBytes = APP_MAX_BYTES) {
+    const size = typeof file?.size === 'number' ? file.size : 0;
+    if (size > appMaxBytes || exceedsHardByteLimit(size)) {
+        return failClosed(file, reason, originalWidth, originalHeight);
+    }
+
+    return {
+        file,
+        originalWidth,
+        originalHeight,
+        downscaled: false,
+        reason: `${reason}-fallback`,
+        failed: false,
+    };
+}
+
+/**
  * @param {number} width
  * @param {number} height
  * @returns {HTMLCanvasElement|OffscreenCanvas}
@@ -367,7 +399,7 @@ function createCanvas(width, height) {
 
 /**
  * @param {File} file
- * @param {{ loadImage?: (file: File) => Promise<CanvasImageSource & { naturalWidth?: number, width?: number, naturalHeight?: number, height?: number }>, createBitmap?: typeof decodeWithCreateImageBitmap, toJpeg?: typeof canvasToJpegFile, now?: () => number, readSize?: typeof readImageSizeFromFile }} [deps]
+ * @param {{ loadImage?: (file: File) => Promise<CanvasImageSource & { naturalWidth?: number, width?: number, naturalHeight?: number, height?: number }>, createBitmap?: typeof decodeWithCreateImageBitmap, toJpeg?: typeof canvasToJpegFile, now?: () => number, readSize?: typeof readImageSizeFromFile, appMaxBytes?: number }} [deps]
  * @returns {Promise<{ file: File, originalWidth: number|null, originalHeight: number|null, downscaled: boolean, reason?: string, failed?: boolean }>}
  */
 export async function preparePhotoForUpload(file, deps = {}) {
@@ -381,6 +413,9 @@ export async function preparePhotoForUpload(file, deps = {}) {
     const toJpeg = deps.toJpeg || canvasToJpegFile;
     const readSize = deps.readSize || readImageSizeFromFile;
     const requireDownscale = mustDownscaleOrFail(file);
+    const appMaxBytes = typeof deps.appMaxBytes === 'number' && deps.appMaxBytes > 0
+        ? deps.appMaxBytes
+        : APP_MAX_BYTES;
 
     const work = (async () => {
         let originalWidth = 0;
@@ -454,7 +489,7 @@ export async function preparePhotoForUpload(file, deps = {}) {
                     }
 
                     return requireDownscale
-                        ? failClosed(file, 'aspect-mismatch', originalWidth, originalHeight)
+                        ? failClosedOrFallback(file, 'aspect-mismatch', originalWidth, originalHeight, appMaxBytes)
                         : {
                             file,
                             originalWidth,
@@ -482,7 +517,7 @@ export async function preparePhotoForUpload(file, deps = {}) {
             }
 
             return requireDownscale
-                ? failClosed(file, 'unknown-dimensions')
+                ? failClosedOrFallback(file, 'unknown-dimensions', null, null, appMaxBytes)
                 : { file, originalWidth: null, originalHeight: null, downscaled: false, reason: 'unknown-dimensions', failed: false };
         }
 
@@ -510,7 +545,7 @@ export async function preparePhotoForUpload(file, deps = {}) {
                 source.close();
             }
             return requireDownscale
-                ? failClosed(file, 'canvas-unavailable', srcW || null, srcH || null)
+                ? failClosedOrFallback(file, 'canvas-unavailable', srcW || null, srcH || null, appMaxBytes)
                 : { file, originalWidth: srcW, originalHeight: srcH, downscaled: false, reason: 'canvas-unavailable', failed: false };
         }
 
@@ -525,7 +560,7 @@ export async function preparePhotoForUpload(file, deps = {}) {
                 source.close();
             }
             return requireDownscale
-                ? failClosed(file, 'no-ctx', srcW || null, srcH || null)
+                ? failClosedOrFallback(file, 'no-ctx', srcW || null, srcH || null, appMaxBytes)
                 : { file, originalWidth: srcW, originalHeight: srcH, downscaled: false, reason: 'no-ctx', failed: false };
         }
         // Always draw — a missing drawImage must never yield a blank JPEG.
@@ -539,7 +574,7 @@ export async function preparePhotoForUpload(file, deps = {}) {
         const compressed = await toJpeg(canvas, file.name);
         if (! compressed || compressed.size <= 0) {
             return requireDownscale
-                ? failClosed(file, 'toblob-empty', srcW || null, srcH || null)
+                ? failClosedOrFallback(file, 'toblob-empty', srcW || null, srcH || null, appMaxBytes)
                 : { file, originalWidth: srcW, originalHeight: srcH, downscaled: false, reason: 'toblob-empty', failed: false };
         }
 
@@ -558,7 +593,7 @@ export async function preparePhotoForUpload(file, deps = {}) {
     } catch (error) {
         const reason = error instanceof Error ? error.message : 'downscale-timeout';
         if (requireDownscale) {
-            return failClosed(file, reason);
+            return failClosedOrFallback(file, reason, null, null, appMaxBytes);
         }
 
         return {

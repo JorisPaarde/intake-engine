@@ -62,13 +62,13 @@ describe('photo-prepare hard limits + fail-closed (intake 82)', () => {
         vi.unstubAllGlobals();
     });
 
-    it('targets max long edge 2000 at jpeg quality 0.85', () => {
-        expect(MAX_LONG_EDGE).toBe(2000);
+    it('targets max long edge 2560 at jpeg quality 0.85', () => {
+        expect(MAX_LONG_EDGE).toBe(2560);
         expect(JPEG_QUALITY).toBe(0.85);
         expect(computeTargetSize(3024, 4032)).toEqual({
-            width: 1500,
-            height: 2000,
-            scale: 2000 / 4032,
+            width: Math.round(3024 * (2560 / 4032)),
+            height: 2560,
+            scale: 2560 / 4032,
         });
     });
 
@@ -79,12 +79,12 @@ describe('photo-prepare hard limits + fail-closed (intake 82)', () => {
     });
 
     it('accepts 12 MP / 5 MB under hard limits and rejects above', () => {
-        expect(HARD_MAX_BYTES).toBe(15 * 1024 * 1024);
+        expect(HARD_MAX_BYTES).toBe(8 * 1024 * 1024);
         expect(HARD_MAX_MEGAPIXELS).toBe(24);
-        expect(TOO_LARGE_MESSAGE).toBe('Deze foto is te groot. Probeer een andere foto of maak een nieuwe.');
+        expect(TOO_LARGE_MESSAGE).toContain('8 MB');
         expect(exceedsHardByteLimit(5 * 1024 * 1024)).toBe(false);
         expect(exceedsHardMegapixelLimit(3024, 4032)).toBe(false);
-        expect(exceedsHardByteLimit(15 * 1024 * 1024 + 1)).toBe(true);
+        expect(exceedsHardByteLimit(8 * 1024 * 1024 + 1)).toBe(true);
         expect(exceedsHardMegapixelLimit(20000, 20000)).toBe(true);
     });
 
@@ -95,9 +95,32 @@ describe('photo-prepare hard limits + fail-closed (intake 82)', () => {
         await assertion;
     });
 
-    it('fails closed on large files when decode deps fail (no hanging original upload)', async () => {
-        const original = new File([new Uint8Array(2_200_000)], 'meterkast.jpg', { type: 'image/jpeg' });
-        Object.defineProperty(original, 'size', { value: 2_200_000 });
+    it('falls back to original for ≤8 MB phone JPEGs when decode fails', async () => {
+        const original = new File([new Uint8Array(3_100_000)], 'meterkast.jpg', { type: 'image/jpeg' });
+        Object.defineProperty(original, 'size', { value: 3_100_000 });
+
+        const resultPromise = preparePhotoForUpload(original, {
+            createBitmap: async () => {
+                throw new Error('decode-failed');
+            },
+            loadImage: async () => {
+                throw new Error('image-load-failed');
+            },
+        });
+
+        await vi.advanceTimersByTimeAsync(0);
+        const result = await resultPromise;
+
+        expect(result.failed).toBe(false);
+        expect(result.downscaled).toBe(false);
+        expect(result.file).toBe(original);
+        expect(result.reason).toMatch(/fallback/i);
+    });
+
+    it('fails closed above 8 MB when decode deps fail', async () => {
+        const oversized = 8 * 1024 * 1024 + 50_000;
+        const original = new File([new Uint8Array(1024)], 'huge.jpg', { type: 'image/jpeg' });
+        Object.defineProperty(original, 'size', { value: oversized });
 
         const resultPromise = preparePhotoForUpload(original, {
             createBitmap: async () => {
@@ -315,11 +338,12 @@ describe('preparePhotoForUpload aspect ratio (demotest 8 okt)', () => {
         await assertDownscaleKeepsRatio(3024, 4032, 'phone-exif6.jpg');
     });
 
-    it('passes longEdgeOnly decode target (single resize edge, never 2000×2000 for 4:3)', async () => {
+    it('passes longEdgeOnly decode target (single resize edge, never square for 4:3)', async () => {
         const original = new File([new Uint8Array(2_200_000)], 'landscape.jpg', { type: 'image/jpeg' });
         Object.defineProperty(original, 'size', { value: 2_200_000 });
         /** @type {{ width?: number, height?: number, longEdgeOnly?: boolean }|null} */
         let seenTarget = null;
+        const expected = computeTargetSize(4032, 3024);
 
         const resultPromise = preparePhotoForUpload(original, {
             readSize: async () => ({ width: 4032, height: 3024, orientation: 1 }),
@@ -331,12 +355,12 @@ describe('preparePhotoForUpload aspect ratio (demotest 8 okt)', () => {
                 };
                 return {
                     bitmap: {
-                        width: 2000,
-                        height: 1500,
+                        width: expected.width,
+                        height: expected.height,
                         close() {},
                     },
-                    originalWidth: 2000,
-                    originalHeight: 1500,
+                    originalWidth: expected.width,
+                    originalHeight: expected.height,
                 };
             },
             toJpeg: async () => new File(
@@ -351,13 +375,13 @@ describe('preparePhotoForUpload aspect ratio (demotest 8 okt)', () => {
 
         expect(result.failed).toBe(false);
         expect(seenTarget?.longEdgeOnly).toBe(true);
-        expect(seenTarget?.width).toBe(2000);
-        expect(seenTarget?.height).toBe(1500);
-        expect(aspectRatiosMatch(4032, 3024, 2000, 1500)).toBe(true);
-        expect(aspectRatiosMatch(4032, 3024, 2000, 2000)).toBe(false);
+        expect(seenTarget?.width).toBe(expected.width);
+        expect(seenTarget?.height).toBe(expected.height);
+        expect(aspectRatiosMatch(4032, 3024, expected.width, expected.height)).toBe(true);
+        expect(aspectRatiosMatch(4032, 3024, MAX_LONG_EDGE, MAX_LONG_EDGE)).toBe(false);
     });
 
-    it('fails closed when bitmap aspect does not match header (wrong-aspect)', async () => {
+    it('falls back when bitmap aspect does not match header for ≤8 MB files', async () => {
         const original = new File([new Uint8Array(2_200_000)], 'stretched.jpg', { type: 'image/jpeg' });
         Object.defineProperty(original, 'size', { value: 2_200_000 });
 
@@ -378,9 +402,9 @@ describe('preparePhotoForUpload aspect ratio (demotest 8 okt)', () => {
         await vi.advanceTimersByTimeAsync(0);
         const result = await resultPromise;
 
-        expect(result.failed).toBe(true);
+        expect(result.failed).toBe(false);
         expect(result.downscaled).toBe(false);
-        expect(result.reason).toBe('aspect-mismatch');
+        expect(result.reason).toBe('aspect-mismatch-fallback');
         expect(result.originalWidth).toBe(4032);
         expect(result.originalHeight).toBe(3024);
     });
