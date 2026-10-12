@@ -31,6 +31,8 @@ function makeGalleryIntake(): Intake
 }
 
 test('installer detail page shows question labels and groups photos by section instance', function () {
+    $this->withoutVite();
+
     $intake = makeGalleryIntake();
     $store = app(StoreIntakeUpload::class);
 
@@ -115,7 +117,7 @@ test('N16: unknown drain_photo caption is Afvoerfoto not outdoor-unit place', fu
 
     $method = new ReflectionMethod(InstallerPhotoGalleryBuilder::class, 'captionForUnknown');
     $method->setAccessible(true);
-    $caption = $method->invoke(app(InstallerPhotoGalleryBuilder::class), $upload->fresh());
+    $caption = $method->invoke(app(InstallerPhotoGalleryBuilder::class), $intake, $upload->fresh());
 
     expect($caption)->toBe('Afvoerfoto')
         ->and($caption)->not->toContain('buitenunit');
@@ -149,8 +151,9 @@ test('photo gallery builder orders groups by template section and instance', fun
 
     expect($groups)->toHaveCount(3)
         ->and($groups[0]['heading'])->toBe('Ruimte 1')
-        ->and($groups[0]['uploads'][0]['caption'])->toBe('Foto’s van de ruimte')
+        ->and($groups[0]['uploads'][0]['caption'])->toBe('Foto’s van de ruimte · Ruimte 1')
         ->and($groups[1]['heading'])->toBe('Ruimte 2')
+        ->and($groups[1]['uploads'][0]['caption'])->toBe('Foto’s van de ruimte · Ruimte 2')
         ->and($groups[2]['heading'])->toBe('Elektrische installatie')
         ->and($groups[2]['uploads'][0]['caption'])->toBe('Foto van de meterkast');
 });

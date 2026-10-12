@@ -4,15 +4,19 @@ declare(strict_types=1);
 
 namespace App\Domains\Intake\Services;
 
+use App\Domains\Intake\Models\AircoConnection;
 use App\Domains\Intake\Models\AircoInstallationOption;
 use App\Domains\Intake\Models\DossierRecord;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeReview;
 use App\Domains\Intake\Models\IntakeSection;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Domains\Intake\Support\CustomerConsentPresenter;
+use App\Domains\Intake\Support\FactProvenance;
 use App\Domains\Intake\Support\PhotoContinueAnywayAttention;
+use App\Domains\Intake\Support\PrefillSources;
 use App\Enums\AircoOptionStatus;
 use App\Enums\DossierRecordStatus;
 use App\Enums\QuestionType;
@@ -207,7 +211,16 @@ final class GenerateIntakeReportHtml
      *     configuration_label: string,
      *     summary: string|null,
      *     units: list<string>,
-     *     routes: list<array{type_label: string, label: string, from: string, to: string, segments: list<string>}>
+     *     routes: list<array{
+     *         type_label: string,
+     *         label: string,
+     *         from: string,
+     *         to: string,
+     *         segments: list<string>,
+     *         status_label: string,
+     *         installer_note: string|null,
+     *         uncertainties: list<string>
+     *     }>
      * }|null
      */
     private function presentSelectedInstallationOption(Intake $intake): ?array
@@ -248,6 +261,9 @@ final class GenerateIntakeReportHtml
                 'from' => $fromPlacement !== null ? $fromPlacement->label : 'Beginpunt open',
                 'to' => $toPlacement !== null ? $toPlacement->label : 'Eindpunt open',
                 'segments' => $segments,
+                'status_label' => $connection->status->label(),
+                'installer_note' => $this->connectionInstallerNote($intake, $connection),
+                'uncertainties' => $this->connectionUncertaintyList($connection),
             ];
         }
 
@@ -258,6 +274,43 @@ final class GenerateIntakeReportHtml
             'units' => $units,
             'routes' => $routes,
         ];
+    }
+
+    private function connectionInstallerNote(Intake $intake, AircoConnection $connection): ?string
+    {
+        $subject = $intake->dossierSubjects->firstWhere('id', $connection->dossier_subject_id);
+        if ($subject === null) {
+            return null;
+        }
+
+        foreach ($subject->records as $record) {
+            if (! $this->isInstallerNoteRecord($record)) {
+                continue;
+            }
+
+            $text = $record->value['text'] ?? null;
+            if (is_string($text) && trim($text) !== '') {
+                return trim($text);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function connectionUncertaintyList(AircoConnection $connection): array
+    {
+        $list = [];
+        foreach ($connection->uncertainties ?? [] as $item) {
+            $text = trim((string) $item);
+            if ($text !== '') {
+                $list[] = $text;
+            }
+        }
+
+        return $list;
     }
 
     /**
@@ -289,6 +342,7 @@ final class GenerateIntakeReportHtml
             $targets,
         );
 
+        $answerModels = $this->buildAnswerModelMap($intake);
         $reportSections = [];
 
         foreach ($targets as $target) {
@@ -314,6 +368,14 @@ final class GenerateIntakeReportHtml
                 continue;
             }
 
+            $value = $answers[$composite] ?? null;
+            $answerModel = $answerModels[$composite] ?? null;
+            $display = $this->presentQuestionDisplay($intake, $question, $value, $answerModel);
+
+            if ($display === null) {
+                continue;
+            }
+
             $sectionTitle = $section->title;
             $instanceLabel = $target['section_instance_key'];
             $bucketKey = $section->key.'|'.($instanceLabel ?? '');
@@ -326,17 +388,96 @@ final class GenerateIntakeReportHtml
                 ];
             }
 
-            $value = $answers[$composite] ?? null;
             $reportSections[$bucketKey]['questions'][] = [
                 'label' => $question->label,
-                'display' => $question->key === 'fusebox_clarity'
-                    ? $this->formatFuseboxClarity($intake, $question, $value)
-                    : $this->formatValue($question, $value),
+                'display' => $display,
                 'is_photo' => $question->type === QuestionType::Photo,
             ];
         }
 
         return array_values($reportSections);
+    }
+
+    /**
+     * @return array<string, IntakeAnswer>
+     */
+    private function buildAnswerModelMap(Intake $intake): array
+    {
+        $map = [];
+
+        foreach ($intake->answers as $answer) {
+            $key = VisibilityResolver::compositeKey(
+                $answer->question_key,
+                $answer->section_instance_key,
+            );
+            $map[$key] = $answer;
+        }
+
+        return $map;
+    }
+
+    /**
+     * Provenance-bewaking voor rapportregels (N36): klantantwoord blijft gewoon;
+     * AI-`unknown` zonder klantvraag verdwijnt; andere niet-klantwaarden worden gelabeld.
+     *
+     * @param  array<string, mixed>|null  $value
+     */
+    private function presentQuestionDisplay(
+        Intake $intake,
+        IntakeQuestion $question,
+        ?array $value,
+        ?IntakeAnswer $answer,
+    ): ?string {
+        if ($question->key === 'fusebox_clarity') {
+            return $this->formatFuseboxClarity($intake, $question, $value);
+        }
+
+        if ($question->type === QuestionType::Photo) {
+            return $this->formatValue($question, $value);
+        }
+
+        $prefillSource = $answer?->prefill_source;
+        $isCustomerAnswer = $prefillSource === null || $prefillSource === '';
+
+        if ($isCustomerAnswer) {
+            return $this->formatValue($question, $value);
+        }
+
+        $rawChoice = $value['value'] ?? null;
+        if (is_string($rawChoice) && $rawChoice === 'unknown') {
+            // AI-/prefill-unknown is geen klant-"Weet ik niet".
+            return null;
+        }
+
+        $formatted = $this->formatValue($question, $value);
+        if ($formatted === '—') {
+            return null;
+        }
+
+        return $formatted.' ('.$this->nonCustomerAnswerLabel($prefillSource, $answer).')';
+    }
+
+    private function nonCustomerAnswerLabel(?string $prefillSource, ?IntakeAnswer $answer): string
+    {
+        if (PrefillSources::isPhotoSuggestion($prefillSource)
+            || $prefillSource === PrefillSources::AI_PHOTO) {
+            return 'Voorzet uit foto, niet aan de klant gevraagd';
+        }
+
+        if ($prefillSource === PrefillSources::DERIVED_LXW) {
+            return 'Berekend, niet aan de klant gevraagd';
+        }
+
+        if (PrefillSources::isTextSuggestion($prefillSource)
+            || PrefillSources::isTextDerived($prefillSource)
+            || $prefillSource === PrefillSources::AI_LEGACY
+            || $prefillSource === PrefillSources::AI_SUGGESTION_LEGACY) {
+            return 'Voorzet uit tekst, niet aan de klant gevraagd';
+        }
+
+        $provenance = FactProvenance::tryFromMixed($answer?->fact_provenance);
+
+        return PrefillSources::installerSourceLabel($prefillSource, $provenance).', niet aan de klant gevraagd';
     }
 
     /**

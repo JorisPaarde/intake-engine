@@ -273,11 +273,21 @@
             @if ($selectedInstallationOption['routes'] !== [])
                 <dt>Verbindingen en routes</dt>
                 <dd>
+                    <p style="margin:0.35rem 0 0.5rem;color:#555;font-size:0.85rem;">
+                        Routebesluit per verbinding (los van de algemene beoordeling).
+                    </p>
                     <ul style="margin:0.35rem 0 0;padding-left:1.25rem;">
                         @foreach ($selectedInstallationOption['routes'] as $route)
                             <li>
                                 {{ $route['type_label'] }} · {{ $route['label'] }}
                                 ({{ $route['from'] }} → {{ $route['to'] }})
+                                <br><strong>Status:</strong> {{ $route['status_label'] }}
+                                @if (! empty($route['installer_note']))
+                                    <br><strong>Notitie:</strong> {{ $route['installer_note'] }}
+                                @endif
+                                @if (($route['uncertainties'] ?? []) !== [])
+                                    <br><strong>Open onzekerheden:</strong> {{ implode(' · ', $route['uncertainties']) }}
+                                @endif
                                 @if ($route['segments'] !== [])
                                     <ul style="margin:0.25rem 0 0;padding-left:1.25rem;">
                                         @foreach ($route['segments'] as $segment)
