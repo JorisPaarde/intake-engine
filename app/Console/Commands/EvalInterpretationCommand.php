@@ -28,6 +28,8 @@ final class EvalInterpretationCommand extends Command
         {--repeats=3 : Aantal herhalingen per case (echte model-run); fake=1}
         {--fake : Forceer FakeAiClient (GEEN baseline)}
         {--kind= : Alleen dit fixture-kind (request_text,customer_answer,photo_observation,report_claims); leeg=alles}
+        {--live-vision : Stuur photo_observation-fixturefoto\'s door echte vision-prompt (default uit; CI blijft fake)}
+        {--prompt-version= : v8 (live) of proposed-v9 (held-out); relevant met --live-vision}
         {--compare= : Pad of bestandsstempel van een vorige run (JSON)}
         {--migrate : Draai migrate:fresh --seed (ALLEEN lokale sqlite; nooit prod/staging)}
         {--output= : Root voor results/baseline/HISTORY (default: tests/Eval of AI_EVAL_OUTPUT_DIR)}';
@@ -112,9 +114,28 @@ final class EvalInterpretationCommand extends Command
 
         $repeats = max(1, (int) $this->option('repeats'));
         $kinds = $this->parseKindsOption($this->option('kind'));
+        $liveVision = (bool) $this->option('live-vision');
+        $promptVersionOpt = $this->option('prompt-version');
+        $promptVersion = is_string($promptVersionOpt) && trim($promptVersionOpt) !== ''
+            ? trim($promptVersionOpt)
+            : null;
+
+        if ($liveVision) {
+            $runtime->enableLiveVision();
+            $this->info('Live vision AAN — photo_observation fixtures met image + supported prompt gaan via AiGateway.');
+            if ($promptVersion !== null) {
+                $this->line('  prompt-version selector: '.$promptVersion);
+            }
+        }
 
         try {
-            $result = $runner->run(repeats: $repeats, forceFake: $forceFake, kinds: $kinds);
+            $result = $runner->run(
+                repeats: $repeats,
+                forceFake: $forceFake,
+                kinds: $kinds,
+                liveVision: $liveVision,
+                promptVersion: $promptVersion,
+            );
         } catch (Throwable $e) {
             $this->error('Eval-run mislukt: '.$e->getMessage());
 
@@ -172,6 +193,10 @@ final class EvalInterpretationCommand extends Command
             if ($tokenCases > 0) {
                 $this->line("report_claims token_usage: {$totalTokens} total_tokens across {$tokenCases} case-runs");
             }
+        }
+
+        if ($liveVision) {
+            $this->summarizeLiveVision($report, $promptVersionsByName);
         }
 
         if (! ($report['is_baseline'] ?? false)) {
@@ -295,5 +320,58 @@ final class EvalInterpretationCommand extends Command
         }
 
         return $kinds === [] ? null : $kinds;
+    }
+
+    /**
+     * @param  array<string, mixed>  $report
+     * @param  array<string, string>  $promptVersionsByName
+     */
+    private function summarizeLiveVision(array $report, array $promptVersionsByName): void
+    {
+        $roomVer = $promptVersionsByName['room_assessment'] ?? '?';
+        $this->line("live_vision room_assessment fingerprint (live meta): {$roomVer}");
+
+        $totalTokens = 0;
+        $tokenCases = 0;
+        $costCents = 0;
+        $costKnown = false;
+        $executed = [];
+        $skipped = [];
+
+        foreach (is_array($report['cases'] ?? null) ? $report['cases'] : [] as $case) {
+            if (! is_array($case) || ($case['kind'] ?? null) !== 'photo_observation') {
+                continue;
+            }
+            $id = is_string($case['id'] ?? null) ? $case['id'] : '?';
+            $live = is_array($case['live_vision'] ?? null) ? $case['live_vision'] : [];
+            if (($live['executed'] ?? false) === true) {
+                $executed[] = $id;
+                $usage = is_array($case['token_usage'] ?? null) ? $case['token_usage'] : [];
+                if (is_int($usage['total_tokens'] ?? null)) {
+                    $totalTokens += $usage['total_tokens'];
+                    $tokenCases++;
+                }
+                if (is_int($usage['estimated_cost_cents'] ?? null)) {
+                    $costCents += $usage['estimated_cost_cents'];
+                    $costKnown = true;
+                }
+                $pv = is_array($case['prompt_versions'] ?? null) ? $case['prompt_versions'] : [];
+                $used = is_string($pv['room_assessment'] ?? null) ? $pv['room_assessment'] : null;
+                if ($used !== null) {
+                    $this->line("  [{$id}] prompt={$used} source=".($case['prompt_source'] ?? '?'));
+                }
+            } elseif (($live['requested'] ?? false) === true) {
+                $skipped[] = $id.' ('.(is_string($live['reason'] ?? null) ? $live['reason'] : 'stub').')';
+            }
+        }
+
+        $this->line('live_vision executed: '.count($executed).' ('.implode(', ', $executed).')');
+        if ($skipped !== []) {
+            $this->line('live_vision stub/skip: '.implode(', ', $skipped));
+        }
+        if ($tokenCases > 0) {
+            $costPart = $costKnown ? ", ~{$costCents} cents" : '';
+            $this->line("live_vision token_usage: {$totalTokens} total_tokens across {$tokenCases} case-runs{$costPart}");
+        }
     }
 }

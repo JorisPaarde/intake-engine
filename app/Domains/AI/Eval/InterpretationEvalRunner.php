@@ -47,8 +47,13 @@ final class InterpretationEvalRunner
      *     }
      * }
      */
-    public function run(int $repeats = 3, bool $forceFake = false, ?array $kinds = null): array
-    {
+    public function run(
+        int $repeats = 3,
+        bool $forceFake = false,
+        ?array $kinds = null,
+        bool $liveVision = false,
+        ?string $promptVersion = null,
+    ): array {
         $mode = $this->resolveMode($forceFake);
         $isBaseline = $mode === 'openai';
         if (! $isBaseline) {
@@ -71,7 +76,12 @@ final class InterpretationEvalRunner
                     $result = match ($kind) {
                         'request_text' => $this->requestTextRunner->run($fixture, $i),
                         'customer_answer' => $this->customerAnswerRunner->run($fixture, $i),
-                        'photo_observation' => $this->photoObservationRunner->run($fixture, $i),
+                        'photo_observation' => $this->photoObservationRunner->run(
+                            $fixture,
+                            $i,
+                            $liveVision,
+                            $promptVersion,
+                        ),
                         'report_claims' => $this->reportClaimsRunner->run($fixture, $i),
                         default => null,
                     };
@@ -111,6 +121,8 @@ final class InterpretationEvalRunner
             'temperature' => $temperature,
             'classification_temperature' => config('ai.classification_temperature'),
             'repeats' => $repeats,
+            'live_vision' => $liveVision,
+            'prompt_version_selector' => $promptVersion,
             'prompt_fingerprint' => $fingerprint,
             'template_version_target' => 'airco v26 enums',
             'api_key_present' => $this->apiKeyPresent(),
