@@ -347,6 +347,8 @@ final class InstallerPhotoGalleryBuilder
 
     /**
      * N43: "Ronde N · Stroomtoevoer · Plek stroomkabel" i.p.v. alleen "Ronde N".
+     * Derde deel = korte taaklabel (subtype/subject/ruimte/gebied) — nooit de volle prompt
+     * (die staat al in de aanvullingsgeschiedenis).
      */
     private function followUpCaption(
         Intake $intake,
@@ -364,21 +366,67 @@ final class InstallerPhotoGalleryBuilder
                 $parts[] = DecisionReadinessService::areaLabel($areaKey);
             }
 
-            $prompt = trim($task->prompt);
-            if ($prompt === '') {
-                $prompt = trim($item->prompt);
-            }
-            if ($prompt !== '') {
-                $parts[] = Str::limit($prompt, 48, '…');
-            }
-        } else {
-            $prompt = trim($item->prompt);
-            if ($prompt !== '') {
-                $parts[] = Str::limit($prompt, 48, '…');
+            $taskLabel = $this->followUpTaskLabel($intake, $task);
+            if ($taskLabel !== null) {
+                $parts[] = $taskLabel;
             }
         }
 
         return implode(' · ', $parts);
+    }
+
+    /**
+     * Korte derde caption-term: subtype → subject → ruimtelabel → gebiedsfallback.
+     */
+    private function followUpTaskLabel(Intake $intake, ContributionTask $task): ?string
+    {
+        $meta = is_array($task->meta) ? $task->meta : [];
+        $subtype = is_string($meta['photo_task_subtype'] ?? null)
+            ? (string) $meta['photo_task_subtype']
+            : '';
+
+        $fromSubtype = match ($subtype) {
+            'power_route' => 'Plek stroomkabel',
+            'fusebox' => 'Meterkast',
+            'around_house' => 'Rondom het huis',
+            default => null,
+        };
+        if ($fromSubtype !== null) {
+            return $fromSubtype;
+        }
+
+        $expected = PhotoSubject::expectedForTask($task);
+        if ($expected instanceof PhotoSubject) {
+            return match ($expected) {
+                PhotoSubject::Fusebox => 'Meterkast',
+                PhotoSubject::PipeRoute => 'Leidingroute',
+                PhotoSubject::OutdoorUnit => 'Buitenunit',
+                PhotoSubject::OutdoorLocation => 'Buitenplek',
+                PhotoSubject::Room => 'Ruimte',
+                PhotoSubject::IndoorUnit => 'Binnenunit',
+                PhotoSubject::Other => null,
+            };
+        }
+
+        $intake->loadMissing('dossierSubjects');
+        $subjectId = $task->dossier_subject_id;
+        if ($subjectId !== null) {
+            $subject = $intake->dossierSubjects->firstWhere('id', $subjectId);
+            $label = is_string($subject?->label) ? trim($subject->label) : '';
+            $key = is_string($subject?->key) ? $subject->key : '';
+            if ($label !== '' && $key !== 'survey') {
+                return $label;
+            }
+        }
+
+        return match ($task->decision_area_key) {
+            'power' => 'Meterkast',
+            'condensate' => 'Afvoer',
+            'refrigerant' => 'Koelleiding',
+            'placement' => 'Plaatsing',
+            'capacity' => 'Vermogen',
+            default => null,
+        };
     }
 
     private function captionForUnknown(Intake $intake, IntakeUpload $upload): string

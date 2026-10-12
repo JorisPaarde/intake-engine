@@ -127,8 +127,9 @@ $outdoor->forceFill([
 
 $round = app(CreateCustomerContributionRequest::class)->handle($intake->fresh(), $user, [[
     'type' => FollowUpItemType::Photo,
-    'prompt' => 'Plek stroomkabel',
+    'prompt' => 'Maak een duidelijke foto van de plek van de stroomkabel.',
     'decision_area_key' => 'power',
+    'photo_task_subtype' => 'power_route',
     'dossier_subject_id' => app(DossierManager::class)->root($intake)->id,
 ]]);
 $item = $round->items()->firstOrFail();

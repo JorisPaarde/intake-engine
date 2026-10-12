@@ -170,13 +170,14 @@ test('N43: aanvullingsfoto-caption toont ronde, onderdeel en opdracht', function
     $round = app(CreateCustomerContributionRequest::class)->handle($intake->fresh(), $user, [
         [
             'type' => FollowUpItemType::Photo,
-            'prompt' => 'Plek stroomkabel',
+            'prompt' => 'Maak een duidelijke foto van de plek van de stroomkabel.',
             'decision_area_key' => 'power',
+            'photo_task_subtype' => 'power_route',
             'dossier_subject_id' => app(DossierManager::class)->root($intake)->id,
         ],
         [
             'type' => FollowUpItemType::Photo,
-            'prompt' => 'Foto van de afvoerplek',
+            'prompt' => 'Maak een duidelijke foto van de afvoerplek.',
             'decision_area_key' => 'condensate',
             'dossier_subject_id' => app(DossierManager::class)->root($intake)->id,
         ],
@@ -214,7 +215,7 @@ test('N43: aanvullingsfoto-caption toont ronde, onderdeel en opdracht', function
 
     $captions = array_column($followUp['uploads'], 'caption');
     expect($captions[0])->toBe('Ronde 1 · Stroomtoevoer · Plek stroomkabel')
-        ->and($captions[1])->toBe('Ronde 1 · Condensafvoer · Foto van de afvoerplek')
-        ->and($captions[0])->not->toBe('Ronde 1')
-        ->and($captions[1])->not->toBe('Ronde 1');
+        ->and($captions[1])->toBe('Ronde 1 · Condensafvoer · Afvoer')
+        ->and($captions[0])->not->toContain('Maak een duidelijke foto')
+        ->and($captions[1])->not->toContain('Maak een duidelijke foto');
 });
