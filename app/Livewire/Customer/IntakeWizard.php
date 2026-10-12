@@ -8,7 +8,6 @@ use App\Domains\AI\Actions\AssessFuseboxPhotos;
 use App\Domains\AI\Actions\AssessPhotoUsability;
 use App\Domains\AI\Actions\DeriveIntentFromRequest;
 use App\Domains\AI\Actions\DerivePhotoAnswers;
-use App\Domains\AI\Actions\PrefillAnswersFromKnownContext;
 use App\Domains\AI\Jobs\DeriveIntentFromRequestJob;
 use App\Domains\AI\Services\AiTraceRecorder;
 use App\Domains\AI\Services\AiTraceRequestIdResolver;
@@ -424,7 +423,6 @@ class IntakeWizard extends Component
         $this->resolvedIntake = $intake->loadMissing(['answers', 'uploads']);
 
         $this->hydrateFormFromAnswers();
-        $this->ensureAtticSizeClassSatisfied();
 
         $steps = $this->steps();
         $sectionKey = $intake->current_section_key;
@@ -3774,80 +3772,29 @@ class IntakeWizard extends Component
     }
 
     /**
-     * Zolder zonder size-antwoord: leid af uit L×B of zet klant-unknown zodat Afronden schoon blijft.
+     * Na verlaten van zolder: wis size=unknown zodat de grootteklasse weer open staat.
      */
-    private function ensureAtticSizeClassSatisfied(?string $onlyInstance = null): void
+    private function clearUnknownRoomSizeIndication(string $instanceKey): void
     {
-        $atticInstances = $this->atticRoomInstances();
-        if ($atticInstances === []) {
+        $size = $this->intake()->answers()
+            ->where('question_key', 'room_size_indication')
+            ->where('section_instance_key', $instanceKey)
+            ->first();
+
+        if (! $size instanceof IntakeAnswer) {
             return;
         }
 
-        if (is_string($onlyInstance) && $onlyInstance !== '') {
-            if (! isset($atticInstances[$onlyInstance])) {
-                return;
-            }
-            $atticInstances = [$onlyInstance => true];
+        $value = is_array($size->value) ? ($size->value['value'] ?? null) : null;
+        if ($value !== 'unknown') {
+            return;
         }
 
-        $intake = $this->intake()->loadMissing('answers');
-        $needsDerive = false;
-        $wrote = false;
-
-        foreach (array_keys($atticInstances) as $instance) {
-            $size = $intake->answers->first(
-                static fn (IntakeAnswer $row): bool => $row->question_key === 'room_size_indication'
-                    && $row->section_instance_key === $instance,
-            );
-
-            $sizeValue = $size instanceof IntakeAnswer && is_array($size->value) ? $size->value : null;
-            $sizeSource = $size instanceof IntakeAnswer ? $size->prefill_source : null;
-            $open = $size === null
-                || PrefillSources::isAiUnknownChoice($sizeSource, $sizeValue);
-
-            if (! $open) {
-                continue;
-            }
-
-            $length = $intake->answers->first(
-                static fn (IntakeAnswer $row): bool => $row->question_key === 'room_length_m'
-                    && $row->section_instance_key === $instance,
-            );
-            $width = $intake->answers->first(
-                static fn (IntakeAnswer $row): bool => $row->question_key === 'room_width_m'
-                    && $row->section_instance_key === $instance,
-            );
-            $lengthOk = $length instanceof IntakeAnswer
-                && is_numeric($length->value['number'] ?? null)
-                && (float) $length->value['number'] > 0;
-            $widthOk = $width instanceof IntakeAnswer
-                && is_numeric($width->value['number'] ?? null)
-                && (float) $width->value['number'] > 0;
-
-            if ($lengthOk && $widthOk) {
-                $needsDerive = true;
-
-                continue;
-            }
-
-            app(SaveIntakeAnswer::class)->handle(
-                $intake,
-                'room_size_indication',
-                $instance,
-                ['value' => 'unknown'],
-            );
-            $wrote = true;
-        }
-
-        if ($needsDerive) {
-            app(PrefillAnswersFromKnownContext::class)->recalculateDerivedDimensions($intake);
-            $wrote = true;
-        }
-
-        if ($wrote) {
-            $this->forgetIntakeDerivedCaches();
-            $this->hydrateFormFromAnswers();
-        }
+        $size->delete();
+        $composite = VisibilityResolver::compositeKey('room_size_indication', $instanceKey);
+        unset($this->form[$composite], $this->dirtyFormComposites[$composite]);
+        $this->forgetIntakeDerivedCaches();
+        $this->hydrateFormFromAnswers();
     }
 
     /**
@@ -4086,6 +4033,15 @@ class IntakeWizard extends Component
             }
         }
 
+        $previousRoomType = null;
+        if ($questionKey === 'room_type' && is_string($instanceKey)) {
+            $previous = $this->intake()->answers()
+                ->where('question_key', 'room_type')
+                ->where('section_instance_key', $instanceKey)
+                ->first();
+            $previousRoomType = is_array($previous?->value) ? ($previous->value['value'] ?? null) : null;
+        }
+
         app(SaveIntakeAnswer::class)->handle(
             $this->intake(),
             $questionKey,
@@ -4094,11 +4050,12 @@ class IntakeWizard extends Component
         );
         $this->forgetIntakeDerivedCaches();
 
-        // Zolder: geen grootteklasse — alleen L×B; vul size zodat Afronden niet blijft hangen.
+        // Zolder → ander type: laat geen size=unknown achter als prefill op de grootteklasse.
         if ($questionKey === 'room_type'
             && is_string($instanceKey)
-            && (($payload['value'] ?? null) === 'attic')) {
-            $this->ensureAtticSizeClassSatisfied($instanceKey);
+            && $previousRoomType === 'attic'
+            && ($payload['value'] ?? null) !== 'attic') {
+            $this->clearUnknownRoomSizeIndication($instanceKey);
         }
 
         // Een vraag kan via meta.text_analysis latere vragen beantwoorden — de reden van de

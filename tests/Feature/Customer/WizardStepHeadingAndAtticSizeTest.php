@@ -79,7 +79,7 @@ test('wizard heading wire:key volgt de actieve stap na Volgende', function () {
     expect($headingMarks[0])->toHaveCount(1);
 });
 
-test('zolder: geen verplichte grootteklasse vóór L×B; Afronden mist room_size_indication niet', function () {
+test('zolder: geen grootteklasse-stap en geen placeholder; Afronden mist size niet', function () {
     $intake = headingAtticIntake();
     $save = app(SaveIntakeAnswer::class);
     $save->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
@@ -100,18 +100,98 @@ test('zolder: geen verplichte grootteklasse vóór L×B; Afronden mist room_size
     expect($dimStep)->not->toBeNull()
         ->and($dimStep['title'] ?? null)->toBe('Lengte en breedte van de ruimte');
 
-    $sizeAnswer = $intake->fresh()->answers()
-        ->where('question_key', 'room_size_indication')
-        ->where('section_instance_key', 'room-1')
-        ->first();
-    expect($sizeAnswer)->not->toBeNull()
-        ->and($sizeAnswer?->value)->toBe(['value' => 'unknown'])
-        ->and($sizeAnswer?->prefill_source)->toBeNull();
+    // Geen klant-unknown placeholder — L×B mag later nog afleiden.
+    expect(
+        $intake->fresh()->answers()
+            ->where('question_key', 'room_size_indication')
+            ->where('section_instance_key', 'room-1')
+            ->exists(),
+    )->toBeFalse();
 
     $version = $intake->fresh()->templateVersion()->with(['sections.questions.rules'])->firstOrFail();
     $missing = collect(app(CompletenessChecker::class)->check($intake->fresh(), $version)['missing'])
         ->pluck('question_key');
     expect($missing)->not->toContain('room_size_indication');
+});
+
+test('zolder eerst, daarna L×B: size wordt derived_lxw (niet geblokkeerd door unknown)', function () {
+    $intake = headingAtticIntake();
+    $save = app(SaveIntakeAnswer::class);
+    $save->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
+    $save->handle($intake, 'room_type', 'room-1', ['value' => 'attic']);
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+    expect(
+        $intake->fresh()->answers()
+            ->where('question_key', 'room_size_indication')
+            ->where('section_instance_key', 'room-1')
+            ->exists(),
+    )->toBeFalse();
+
+    $steps = $component->viewData('steps');
+    $dimIndex = collect($steps)->search(
+        static fn (array $step): bool => ($step['group_key'] ?? null) === 'room_dimensions'
+            && ($step['section_instance_key'] ?? null) === 'room-1',
+    );
+    expect($dimIndex)->not->toBeFalse();
+
+    $dimKey = $steps[(int) $dimIndex]['key'];
+    $component
+        ->set('stepIndex', (int) $dimIndex)
+        ->set('activeStepKey', $dimKey)
+        ->set('form.room-1__room_length_m.number', 5)
+        ->set('form.room-1__room_width_m.number', 4)
+        ->assertHasNoErrors();
+
+    $size = $intake->fresh()->answers()
+        ->where('question_key', 'room_size_indication')
+        ->where('section_instance_key', 'room-1')
+        ->first();
+
+    expect($size)->not->toBeNull()
+        ->and($size?->value)->toBe(['value' => 'medium'])
+        ->and($size?->prefill_source)->toBe(PrefillSources::DERIVED_LXW);
+});
+
+test('zolder naar woonkamer: grootteklasse weer open zonder unknown-prefill', function () {
+    $intake = headingAtticIntake();
+    $save = app(SaveIntakeAnswer::class);
+    $save->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
+    $save->handle($intake, 'room_type', 'room-1', ['value' => 'attic']);
+    // Regressie: oude placeholder mag niet blijven hangen na typewissel.
+    $save->handle($intake, 'room_size_indication', 'room-1', ['value' => 'unknown']);
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
+    $steps = $component->viewData('steps');
+    $typeIndex = collect($steps)->search(
+        static fn (array $step): bool => ($step['question_key'] ?? null) === 'room_type'
+            && ($step['section_instance_key'] ?? null) === 'room-1',
+    );
+    expect($typeIndex)->not->toBeFalse();
+
+    $typeKey = $steps[(int) $typeIndex]['key'];
+    $component
+        ->set('stepIndex', (int) $typeIndex)
+        ->set('activeStepKey', $typeKey)
+        ->set('form.room-1__room_type.value', 'living_room')
+        ->assertHasNoErrors();
+
+    expect(
+        $intake->fresh()->answers()
+            ->where('question_key', 'room_size_indication')
+            ->where('section_instance_key', 'room-1')
+            ->exists(),
+    )->toBeFalse();
+
+    $afterSteps = $component->viewData('steps');
+    $sizeStep = collect($afterSteps)->first(
+        static fn (array $step): bool => ($step['question_key'] ?? null) === 'room_size_indication'
+            && ($step['section_instance_key'] ?? null) === 'room-1',
+    );
+    expect($sizeStep)->not->toBeNull();
+
+    $formSize = $component->get('form.room-1__room_size_indication');
+    expect($formSize === null || $formSize === [] || ($formSize['value'] ?? null) === null)->toBeTrue();
 });
 
 test('woonkamer behoudt grootteklasse vóór L×B', function () {
@@ -137,15 +217,13 @@ test('woonkamer behoudt grootteklasse vóór L×B', function () {
         ->and($sizePos)->toBeLessThan($dimPos);
 });
 
-test('zolder met L×B leidt size af i.p.v. unknown', function () {
+test('zolder met vooraf bekende L×B leidt size af via SaveIntakeAnswer', function () {
     $intake = headingAtticIntake();
     $save = app(SaveIntakeAnswer::class);
     $save->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
     $save->handle($intake, 'room_type', 'room-1', ['value' => 'attic']);
     $save->handle($intake, 'room_length_m', 'room-1', ['number' => 5]);
     $save->handle($intake, 'room_width_m', 'room-1', ['number' => 4]);
-
-    Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
 
     $size = $intake->fresh()->answers()
         ->where('question_key', 'room_size_indication')
@@ -161,7 +239,6 @@ test('zolder met L×B leidt size af i.p.v. unknown', function () {
         app(IntakeStepBuilder::class)->build($intake->fresh(), $version),
         'question_key',
     );
-    // Builder mag size nog tonen tot skip; wizard-omit + derived skip beide OK.
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token]);
     expect(array_column($component->viewData('steps'), 'question_key'))
         ->not->toContain('room_size_indication')
@@ -191,5 +268,11 @@ test('kiezen van zolder als type verwijdert grootteklasse uit de steplijst', fun
 
     $afterKeys = array_column($component->viewData('steps'), 'question_key');
     expect($afterKeys)->not->toContain('room_size_indication')
-        ->and($afterKeys)->toContain('room_length_m');
+        ->and($afterKeys)->toContain('room_length_m')
+        ->and(
+            $intake->fresh()->answers()
+                ->where('question_key', 'room_size_indication')
+                ->where('section_instance_key', 'room-1')
+                ->exists(),
+        )->toBeFalse();
 });
