@@ -9,7 +9,6 @@ use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\PipeRouteSession;
 use App\Domains\Intake\Services\RefreshStoredIntakeReport;
 use App\Enums\AircoConnectionStatus;
-use App\Enums\AircoOptionStatus;
 use App\Enums\PipeRouteStatus;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -82,12 +81,11 @@ final class ApprovePipeRoute
             return $session->fresh(['connection.installationOption']) ?? $session;
         }, 3);
 
-        $option = $session->connection?->installationOption;
-        if ($option !== null && $option->status === AircoOptionStatus::Selected) {
-            $intake = Intake::query()->find($session->intake_id);
-            if ($intake !== null) {
-                $this->refreshStoredIntakeReport->handle($intake);
-            }
+        // Refresh whenever a stored report exists — also for Candidate options
+        // so route status appears before "Deze keuze" (N35 rest).
+        $intake = Intake::query()->find($session->intake_id);
+        if ($intake !== null) {
+            $this->refreshStoredIntakeReport->handle($intake);
         }
 
         return $session;

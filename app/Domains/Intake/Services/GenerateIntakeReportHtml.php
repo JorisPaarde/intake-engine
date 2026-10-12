@@ -33,6 +33,9 @@ final class GenerateIntakeReportHtml
         'installer_note',
     ];
 
+    /** Neutral report label when no installation option is selected yet (N35 rest). */
+    public const NO_INSTALLATION_CHOICE_LABEL = 'Nog geen keuze gemaakt';
+
     public function __construct(
         private readonly AnswerValueReader $answerValueReader,
         private readonly VisibilityResolver $visibilityResolver,
@@ -88,7 +91,7 @@ final class GenerateIntakeReportHtml
             'customerConsent' => $this->customerConsentPresenter->present($intake),
             'review' => $this->presentReview($intake, $review, $followUpRounds),
             'installerNotes' => $this->buildInstallerNotes($intake),
-            'selectedInstallationOption' => $this->presentSelectedInstallationOption($intake),
+            'installationChoice' => $this->presentInstallationChoice($intake),
             'generatedAt' => now(),
         ])->render();
     }
@@ -252,6 +255,93 @@ final class GenerateIntakeReportHtml
     }
 
     /**
+     * Installation choice + per-connection route status for the report (N35).
+     * Selected option as before; without selection: neutral
+     * {@see NO_INSTALLATION_CHOICE_LABEL} plus non-rejected proposals.
+     * Null when there is no selection and no non-rejected options (no empty section).
+     *
+     * @return array{
+     *     has_selection: bool,
+     *     choice_status_label: string,
+     *     label: string,
+     *     configuration_label: string,
+     *     summary: string|null,
+     *     units: list<string>,
+     *     routes: list<array{
+     *         type_label: string,
+     *         label: string,
+     *         from: string,
+     *         to: string,
+     *         segments: list<string>,
+     *         status_label: string,
+     *         installer_note: string|null,
+     *         uncertainties: list<string>
+     *     }>,
+     *     proposals: list<array{
+     *         label: string,
+     *         configuration_label: string,
+     *         summary: string|null,
+     *         units: list<string>,
+     *         routes: list<array{
+     *             type_label: string,
+     *             label: string,
+     *             from: string,
+     *             to: string,
+     *             segments: list<string>,
+     *             status_label: string,
+     *             installer_note: string|null,
+     *             uncertainties: list<string>
+     *         }>
+     *     }>
+     * }|null
+     */
+    private function presentInstallationChoice(Intake $intake): ?array
+    {
+        /** @var AircoInstallationOption|null $selected */
+        $selected = $intake->aircoInstallationOptions
+            ->first(static fn (AircoInstallationOption $candidate): bool => $candidate->status === AircoOptionStatus::Selected);
+
+        if ($selected instanceof AircoInstallationOption) {
+            $payload = $this->presentInstallationOption($intake, $selected);
+
+            return [
+                'has_selection' => true,
+                'choice_status_label' => $payload['label'],
+                'label' => $payload['label'],
+                'configuration_label' => $payload['configuration_label'],
+                'summary' => $payload['summary'],
+                'units' => $payload['units'],
+                'routes' => $payload['routes'],
+                'proposals' => [],
+            ];
+        }
+
+        $proposals = [];
+        foreach ($intake->aircoInstallationOptions as $option) {
+            if ($option->status === AircoOptionStatus::Rejected) {
+                continue;
+            }
+
+            $proposals[] = $this->presentInstallationOption($intake, $option);
+        }
+
+        if ($proposals === []) {
+            return null;
+        }
+
+        return [
+            'has_selection' => false,
+            'choice_status_label' => self::NO_INSTALLATION_CHOICE_LABEL,
+            'label' => self::NO_INSTALLATION_CHOICE_LABEL,
+            'configuration_label' => '',
+            'summary' => null,
+            'units' => [],
+            'routes' => [],
+            'proposals' => $proposals,
+        ];
+    }
+
+    /**
      * @return array{
      *     label: string,
      *     configuration_label: string,
@@ -267,18 +357,10 @@ final class GenerateIntakeReportHtml
      *         installer_note: string|null,
      *         uncertainties: list<string>
      *     }>
-     * }|null
+     * }
      */
-    private function presentSelectedInstallationOption(Intake $intake): ?array
+    private function presentInstallationOption(Intake $intake, AircoInstallationOption $option): array
     {
-        /** @var AircoInstallationOption|null $option */
-        $option = $intake->aircoInstallationOptions
-            ->first(static fn (AircoInstallationOption $candidate): bool => $candidate->status === AircoOptionStatus::Selected);
-
-        if (! $option instanceof AircoInstallationOption) {
-            return null;
-        }
-
         $units = [];
         foreach ($option->placements as $placement) {
             $parts = [$placement->type->label(), $placement->label];

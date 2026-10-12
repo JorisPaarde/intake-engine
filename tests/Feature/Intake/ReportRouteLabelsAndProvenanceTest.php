@@ -47,6 +47,96 @@ function makeReportLabelsIntake(): Intake
     ]);
 }
 
+test('N35 rest: zonder installatie-opties geen Installatiekeuze-sectie', function () {
+    $intake = makeReportLabelsIntake();
+    $version = $intake->fresh()->templateVersion()->firstOrFail();
+    $html = app(GenerateIntakeReportHtml::class)->handle($intake->fresh(), $version);
+
+    expect($html)->not->toContain('Installatiekeuze')
+        ->and($html)->not->toContain(GenerateIntakeReportHtml::NO_INSTALLATION_CHOICE_LABEL)
+        ->and($html)->not->toContain('Geselecteerde installatiekeuze')
+        ->and($html)->not->toContain('Beschikbare voorstellen')
+        ->and($html)->not->toContain('Verbindingen en routes');
+});
+
+test('N35 rest: voorstellen zonder Deze keuze tonen routestatus per verbinding', function () {
+    $intake = makeReportLabelsIntake();
+    $user = User::query()->findOrFail($intake->created_by);
+    $survey = app(AircoSurveyService::class);
+
+    $room = $survey->createRoom($intake, $user, [
+        'name' => 'Woonkamer',
+        'use_type' => 'living_room',
+    ]);
+    $indoor = $survey->createPlacement($intake, $user, [
+        'airco_room_id' => $room->id,
+        'type' => AircoPlacementType::IndoorUnit,
+        'label' => 'Binnenunit woonkamer',
+    ]);
+    $outdoor = $survey->createPlacement($intake, $user, [
+        'type' => AircoPlacementType::OutdoorUnit,
+        'label' => 'Buitenunit',
+    ]);
+    $option = $survey->createInstallationOption($intake, $user, [
+        'label' => 'Kandidaat single-split',
+        'configuration_type' => AircoConfigurationType::SingleSplit,
+        'placement_ids' => [$indoor->id, $outdoor->id],
+        'summary' => 'Voorstel uit klantinfo: woonkamer naar gevel.',
+    ]);
+    $survey->markInstallationOptionFeasible($intake, $user, $option);
+
+    $refrigerant = $survey->createConnection($intake, $user, $option->fresh(), [
+        'type' => AircoConnectionType::Refrigerant,
+        'label' => 'Koelleidingroute kandidaat',
+        'from_placement_id' => $indoor->id,
+        'to_placement_id' => $outdoor->id,
+        'status' => AircoConnectionStatus::Proposed,
+        'segments' => ['Via gevel'],
+    ]);
+    app(DecideAircoConnection::class)->handle($intake, $refrigerant, $user, 'approve');
+
+    $condensate = $survey->createConnection($intake, $user, $option->fresh(), [
+        'type' => AircoConnectionType::Condensate,
+        'label' => 'Condensroute kandidaat',
+        'from_placement_id' => $indoor->id,
+        'to_placement_id' => $outdoor->id,
+        'status' => AircoConnectionStatus::Proposed,
+        'segments' => ['Naar regenpijp'],
+        'uncertainties' => ['Afschot onzeker'],
+    ]);
+    app(DecideAircoConnection::class)->handle($intake, $condensate, $user, 'site_visit');
+
+    $power = $survey->createConnection($intake, $user, $option->fresh(), [
+        'type' => AircoConnectionType::Power,
+        'label' => 'Stroomroute kandidaat',
+        'from_placement_id' => $outdoor->id,
+        'to_placement_id' => $indoor->id,
+        'status' => AircoConnectionStatus::NeedsEvidence,
+        'segments' => ['Van meterkast'],
+    ]);
+
+    expect($option->fresh()->status->value)->toBe('candidate')
+        ->and($power->fresh()->status)->toBe(AircoConnectionStatus::NeedsEvidence);
+
+    $version = $intake->fresh()->templateVersion()->firstOrFail();
+    $html = app(GenerateIntakeReportHtml::class)->handle($intake->fresh(), $version);
+
+    expect($html)->toContain('Installatiekeuze')
+        ->and($html)->toContain(GenerateIntakeReportHtml::NO_INSTALLATION_CHOICE_LABEL)
+        ->and($html)->toContain('Beschikbare voorstellen')
+        ->and($html)->toContain('Kandidaat single-split')
+        ->and($html)->toContain('Voorstel uit klantinfo: woonkamer naar gevel.')
+        ->and($html)->toContain('Koelleidingroute kandidaat')
+        ->and($html)->toContain('Goedgekeurd')
+        ->and($html)->toContain('Condensroute kandidaat')
+        ->and($html)->toContain('Alleen te zien op locatie')
+        ->and($html)->toContain('Afschot onzeker')
+        ->and($html)->toContain('Stroomroute kandidaat')
+        ->and($html)->toContain('Aanvulling nodig')
+        ->and($html)->not->toContain('Geselecteerde installatiekeuze')
+        ->and($html)->not->toContain('Verbindingen en routes');
+});
+
 test('N35: rapport toont per route status, notitie en open onzekerheden', function () {
     $intake = makeReportLabelsIntake();
     $user = User::query()->findOrFail($intake->created_by);
@@ -115,14 +205,18 @@ test('N35: rapport toont per route status, notitie en open onzekerheden', functi
     $version = $intake->fresh()->templateVersion()->firstOrFail();
     $html = app(GenerateIntakeReportHtml::class)->handle($intake->fresh(), $version);
 
-    expect($html)->toContain('Verbindingen en routes')
+    expect($html)->toContain('Geselecteerde installatiekeuze')
+        ->and($html)->toContain('Single-split keuze')
+        ->and($html)->toContain('Verbindingen en routes')
         ->and($html)->toContain('Routebesluit per verbinding')
         ->and($html)->toContain('Koelroute woonkamer')
         ->and($html)->toContain('Goedgekeurd')
         ->and($html)->toContain('Condensroute zolder')
         ->and($html)->toContain('Alleen te zien op locatie')
         ->and($html)->toContain('Op zolder eerst ter plaatse kijken.')
-        ->and($html)->toContain('Afschot onzeker');
+        ->and($html)->toContain('Afschot onzeker')
+        ->and($html)->not->toContain(GenerateIntakeReportHtml::NO_INSTALLATION_CHOICE_LABEL)
+        ->and($html)->not->toContain('Beschikbare voorstellen');
 });
 
 test('N36: AI-prefill zonder klantvraag wordt gelabeld of weggelaten; klant-unknown blijft', function () {
