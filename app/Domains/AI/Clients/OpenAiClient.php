@@ -9,6 +9,8 @@ use App\Domains\AI\DTOs\AiCompletionRequest;
 use App\Domains\AI\DTOs\AiCompletionResult;
 use App\Domains\AI\Exceptions\AiClientException;
 use App\Domains\AI\Services\AiBudgetGuard;
+use App\Domains\AI\Services\AiFailureAlertService;
+use App\Domains\AI\Services\AiFailureClassifier;
 use App\Domains\AI\Services\AiInputRedactor;
 use App\Domains\AI\Services\AiTraceRedactor;
 use Illuminate\Http\Client\PendingRequest;
@@ -39,6 +41,8 @@ final class OpenAiClient implements AiClientInterface
         private readonly AiInputRedactor $redactor,
         private readonly AiTraceRedactor $traceRedactor,
         private readonly AiBudgetGuard $budgetGuard,
+        private readonly AiFailureClassifier $failureClassifier,
+        private readonly AiFailureAlertService $failureAlerts,
     ) {}
 
     public function complete(AiCompletionRequest $request): AiCompletionResult
@@ -164,6 +168,16 @@ final class OpenAiClient implements AiClientInterface
                     $message .= ' '.$providerMessage;
                 }
 
+                $retryable = $this->failureClassifier->isRetryable($status);
+                if ($retryable && $attempt < self::MAX_ATTEMPTS) {
+                    $modelParameters['retry_count'] = $attempt;
+                    $modelParameters['retry_reason'] = 'http_'.$status;
+
+                    continue;
+                }
+
+                $this->alertProviderFailure($status, $message, $apiKey);
+
                 throw new AiClientException(
                     $message,
                     providerMs: $providerMs,
@@ -173,6 +187,7 @@ final class OpenAiClient implements AiClientInterface
                     errorClass: 'provider_error',
                     model: $model,
                     modelParameters: $modelParameters,
+                    httpStatus: $status,
                 );
             }
 
@@ -453,6 +468,22 @@ final class OpenAiClient implements AiClientInterface
         }
 
         return $safe;
+    }
+
+    /**
+     * Ops alert for alertable HTTP failures after retries. Never breaks the request.
+     */
+    private function alertProviderFailure(int $status, string $message, string $apiKey): void
+    {
+        if (! $this->failureClassifier->isAlertable($status)) {
+            return;
+        }
+
+        try {
+            $this->failureAlerts->alertHttpFailure($status, $message, $apiKey);
+        } catch (\Throwable) {
+            // Alert delivery must never affect the AI call outcome.
+        }
     }
 
     private function integerUsage(mixed $value): ?int
