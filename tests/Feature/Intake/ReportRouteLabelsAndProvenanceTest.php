@@ -173,8 +173,9 @@ test('N36: AI-prefill zonder klantvraag wordt gelabeld of weggelaten; klant-unkn
     $html = app(GenerateIntakeReportHtml::class)->handle($intake->fresh(), $version);
 
     expect($html)->toContain('Gemiddeld (Voorzet uit foto)')
-        ->and($html)->toContain('Weet ik niet (Klantantwoord)')
-        ->and($html)->not->toContain('Weet ik niet (Voorzet uit foto');
+        ->and($html)->toContain('Weet ik niet')
+        ->and($html)->not->toContain('Weet ik niet (Voorzet uit foto')
+        ->and($html)->not->toContain('Weet ik niet (Klantantwoord)');
 
     // room-1 AI unknown sun: question still visible only if customer answered — omitted here.
     $room1Chunk = '';
@@ -186,7 +187,7 @@ test('N36: AI-prefill zonder klantvraag wordt gelabeld of weggelaten; klant-unkn
         ->and($room1Chunk)->not->toContain('Weet ik niet');
 });
 
-test('N42: BAG, bevestigde aanvraag, klantkeuze en lege around_house-rij', function () {
+test('N42: BAG, tekst zonder bevestiging, bevestigde prefill, klantkeuze, lege around_house', function () {
     $intake = makeReportLabelsIntake();
     $save = app(SaveIntakeAnswer::class);
 
@@ -210,7 +211,7 @@ test('N42: BAG, bevestigde aanvraag, klantkeuze en lege around_house-rij', funct
         'answered_at' => now(),
     ]);
 
-    // Known-summary-bevestigde aanvraagprefill (prefill blijft staan).
+    // Tekstprefill zonder opgeslagen bevestiging → “Voorzet uit tekst”.
     IntakeAnswer::query()->create([
         'intake_id' => $intake->id,
         'question_key' => 'cooling_heating',
@@ -221,7 +222,29 @@ test('N42: BAG, bevestigde aanvraag, klantkeuze en lege around_house-rij', funct
         'answered_at' => now(),
     ]);
 
-    // Klant koos zelf afvoer (prefill gewist).
+    // Installer-prefill → installerSourceLabel, geen “bevestigd door klant”.
+    IntakeAnswer::query()->create([
+        'intake_id' => $intake->id,
+        'question_key' => 'ownership',
+        'section_instance_key' => null,
+        'value' => ['value' => 'owned'],
+        'prefill_source' => 'installer',
+        'fact_source' => 'aanvraag (installateur)',
+        'answered_at' => now(),
+    ]);
+
+    // Bevestigd: fact_source=klantantwoord + behouden tekstprefill (Wijzigen→zelfde waarde).
+    IntakeAnswer::query()->create([
+        'intake_id' => $intake->id,
+        'question_key' => 'indoor_unit_count',
+        'section_instance_key' => null,
+        'value' => ['number' => 1],
+        'prefill_source' => PrefillSources::AI_TEXT,
+        'fact_source' => 'klantantwoord',
+        'answered_at' => now(),
+    ]);
+
+    // Klant koos zelf afvoer (prefill gewist) → geen suffix.
     $save->handle($intake, 'drain_location', null, ['value' => 'outside_nearby']);
 
     // Bruikbare buitenfoto → lege around_house-rij mag niet in het rapport.
@@ -245,8 +268,12 @@ test('N42: BAG, bevestigde aanvraag, klantkeuze en lege around_house-rij', funct
     expect($html)->toContain('Tussenwoning (Voorzet uit BAG)')
         ->and($html)->toContain('1971 (Voorzet uit BAG)')
         ->and($html)->not->toContain('klantantwoord, niet aan de klant gevraagd')
-        ->and($html)->toContain('Voorzet uit aanvraag, bevestigd door klant')
-        ->and($html)->toContain('Regenpijp of putje buiten in de buurt (Klantantwoord)')
+        ->and($html)->toContain('Voorzet uit tekst')
+        ->and($html)->toContain('aanvraag (installateur)')
+        ->and($html)->not->toMatch('/owned.*Voorzet uit aanvraag, bevestigd door klant/u')
+        ->and($html)->toContain('1 (Voorzet uit aanvraag, bevestigd door klant)')
+        ->and($html)->toContain('Regenpijp of putje buiten in de buurt')
+        ->and($html)->not->toContain('Regenpijp of putje buiten in de buurt (Klantantwoord)')
         ->and($html)->not->toContain('Voorzet uit foto, niet aan de klant gevraagd')
         ->and($html)->not->toContain('We zien de buitenkant nog niet goed');
 });

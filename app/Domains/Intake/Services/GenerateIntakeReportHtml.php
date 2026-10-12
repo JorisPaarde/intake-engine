@@ -488,7 +488,7 @@ final class GenerateIntakeReportHtml
 
         $rawChoice = $value['value'] ?? null;
         $prefillSource = $answer?->prefill_source;
-        $isCustomerAnswer = $this->isCustomerProvenance($prefillSource, $answer);
+        $isCustomerAnswer = $prefillSource === null || $prefillSource === '';
 
         if (! $isCustomerAnswer && is_string($rawChoice) && $rawChoice === 'unknown') {
             // AI-/prefill-unknown is geen klant-"Weet ik niet".
@@ -500,7 +500,8 @@ final class GenerateIntakeReportHtml
             return null;
         }
 
-        if ($question->type === QuestionType::Photo) {
+        if ($question->type === QuestionType::Photo || $isCustomerAnswer) {
+            // Klantantwoord: geen herkomst-suffix (N42 review).
             return $formatted;
         }
 
@@ -508,32 +509,15 @@ final class GenerateIntakeReportHtml
     }
 
     /**
-     * Klant antwoordde zelf (prefill gewist) of fact_source markeert klantbevestiging
-     * terwijl een latere foto-voorzet de prefill_source opnieuw zette.
+     * Herkomstlabel voor niet-klant antwoorden.
+     *
+     * «Voorzet uit aanvraag, bevestigd door klant» alleen bij opgeslagen bewijs:
+     * fact_source=klantantwoord met behouden prefill (known-summary Wijzigen → zelfde
+     * waarde herstelt prefill_source na SaveIntakeAnswer). Er is geen apart veld/event
+     * voor known-summary «Klopt, verder» — die route laat prefill+fact_source ongemoeid.
      */
-    private function isCustomerProvenance(?string $prefillSource, ?IntakeAnswer $answer): bool
-    {
-        if ($prefillSource === null || $prefillSource === '') {
-            return true;
-        }
-
-        if ($answer === null) {
-            return false;
-        }
-
-        $factSource = FactSource::tryFrom((string) ($answer->fact_source ?? ''));
-
-        // Alleen expliciet opgeslagen klantbron — niet FactAcceptance::sourceFrom(pdok→klantantwoord).
-        return $factSource === FactSource::CustomerAnswer
-            && ! in_array($prefillSource, ['pdok', 'bag', 'epo'], true);
-    }
-
     private function answerProvenanceLabel(?string $prefillSource, ?IntakeAnswer $answer): string
     {
-        if ($this->isCustomerProvenance($prefillSource, $answer)) {
-            return 'Klantantwoord';
-        }
-
         if (in_array($prefillSource, ['pdok', 'bag'], true)) {
             return 'Voorzet uit BAG';
         }
@@ -551,16 +535,25 @@ final class GenerateIntakeReportHtml
             return 'Berekend';
         }
 
-        if (PrefillSources::isTextSuggestion($prefillSource)
-            || PrefillSources::isTextDerived($prefillSource)
-            || $prefillSource === PrefillSources::AI_LEGACY
-            || $prefillSource === PrefillSources::AI_SUGGESTION_LEGACY
-            || $prefillSource === 'installer') {
-            // Known-summary «Klopt, verder» wist prefill_source niet — wel bevestigd door de klant.
+        $provenance = FactProvenance::tryFromMixed($answer?->fact_provenance);
+
+        // Bevestigd: klantfact met behouden voorzet-bron (niet BAG/EPO — die mappen ook op klantantwoord).
+        if ($answer !== null
+            && FactSource::tryFrom((string) ($answer->fact_source ?? '')) === FactSource::CustomerAnswer
+            && ! in_array($prefillSource, ['pdok', 'bag', 'epo'], true)) {
             return 'Voorzet uit aanvraag, bevestigd door klant';
         }
 
-        $provenance = FactProvenance::tryFromMixed($answer?->fact_provenance);
+        if ($prefillSource === 'installer') {
+            return PrefillSources::installerSourceLabel($prefillSource, $provenance);
+        }
+
+        if (PrefillSources::isTextSuggestion($prefillSource)
+            || PrefillSources::isTextDerived($prefillSource)
+            || $prefillSource === PrefillSources::AI_LEGACY
+            || $prefillSource === PrefillSources::AI_SUGGESTION_LEGACY) {
+            return 'Voorzet uit tekst';
+        }
 
         return PrefillSources::installerSourceLabel($prefillSource, $provenance);
     }

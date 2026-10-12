@@ -16,7 +16,8 @@ type Bootstrap = {
   followUpUploadId: number;
   expectedBagLabel: string;
   expectedYearLabel: string;
-  expectedRequestLabel: string;
+  expectedTextPrefill: string;
+  expectedConfirmedPrefill: string;
   expectedCustomerDrain: string;
   expectedGalleryCaption: string;
   reportOmitsAroundHouse: boolean;
@@ -81,9 +82,11 @@ test.describe('Brief D — N42 provenance labels + N43 gallery captions', () => 
 
     await expect(page.getByText(data.expectedBagLabel, { exact: false })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText(data.expectedYearLabel, { exact: false })).toBeVisible();
-    await expect(page.getByText(data.expectedRequestLabel, { exact: false })).toBeVisible();
+    await expect(page.getByText(data.expectedTextPrefill, { exact: false })).toBeVisible();
+    await expect(page.getByText(data.expectedConfirmedPrefill, { exact: false })).toBeVisible();
     await expect(page.getByText(data.expectedCustomerDrain, { exact: false })).toBeVisible();
     await expect(page.getByText('klantantwoord, niet aan de klant gevraagd')).toHaveCount(0);
+    await expect(page.getByText('(Klantantwoord)')).toHaveCount(0);
     await expect(page.getByText('We zien de buitenkant nog niet goed')).toHaveCount(0);
   });
 

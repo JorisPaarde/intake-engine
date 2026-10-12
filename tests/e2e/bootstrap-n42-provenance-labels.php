@@ -89,6 +89,7 @@ IntakeAnswer::query()->create([
     'fact_source' => 'klantantwoord',
     'answered_at' => now(),
 ]);
+// Tekstprefill zonder bevestiging → “Voorzet uit tekst”.
 IntakeAnswer::query()->create([
     'intake_id' => $intake->id,
     'question_key' => 'cooling_heating',
@@ -96,6 +97,17 @@ IntakeAnswer::query()->create([
     'value' => ['value' => 'cooling'],
     'prefill_source' => PrefillSources::AI_TEXT,
     'fact_source' => 'aanvraag (installateur)',
+    'answered_at' => now(),
+]);
+
+// Bevestigd: fact_source=klantantwoord + behouden tekstprefill.
+IntakeAnswer::query()->create([
+    'intake_id' => $intake->id,
+    'question_key' => 'indoor_unit_count',
+    'section_instance_key' => null,
+    'value' => ['number' => 1],
+    'prefill_source' => PrefillSources::AI_TEXT,
+    'fact_source' => 'klantantwoord',
     'answered_at' => now(),
 ]);
 
@@ -168,8 +180,9 @@ echo json_encode([
     'followUpUploadId' => $followUpUpload->id,
     'expectedBagLabel' => 'Tussenwoning (Voorzet uit BAG)',
     'expectedYearLabel' => '1971 (Voorzet uit BAG)',
-    'expectedRequestLabel' => 'Voorzet uit aanvraag, bevestigd door klant',
-    'expectedCustomerDrain' => 'Regenpijp of putje buiten in de buurt (Klantantwoord)',
+    'expectedTextPrefill' => 'Voorzet uit tekst',
+    'expectedConfirmedPrefill' => '1 (Voorzet uit aanvraag, bevestigd door klant)',
+    'expectedCustomerDrain' => 'Regenpijp of putje buiten in de buurt',
     'expectedGalleryCaption' => 'Ronde 1 · Stroomtoevoer · Plek stroomkabel',
     'reportOmitsAroundHouse' => ! str_contains($html, 'We zien de buitenkant nog niet goed'),
     'reportHasBag' => str_contains($html, 'Voorzet uit BAG'),
