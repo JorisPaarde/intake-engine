@@ -74,6 +74,13 @@ test.describe('N40 contribution subject link (stroom→condens)', () => {
     await login(page, data);
     await page.goto(data.workspaceUrl);
 
+    // Area contribution sits inside a closed <details> unless that area is the
+    // first open action — open Condensafvoer before asserting visibility.
+    const condensateArea = page.locator('#dossier-area-condensate');
+    await condensateArea.scrollIntoViewIfNeeded();
+    await condensateArea.evaluate((el) => {
+      (el as HTMLDetailsElement).open = true;
+    });
     await expect(page.getByTestId('area-contribution-condensate')).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId('area-contribution-power')).toHaveCount(0);
 

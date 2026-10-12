@@ -113,12 +113,12 @@ $condensate = $survey->createConnection($intake, $user, $option, [
 ]);
 
 // Stroom-subject + condens-onderdeel → linker moet rematchen naar condens.
+// Geen power_route-subtype: die hoort niet bij condensate (wordt sowieso gedropt).
 $round = app(CreateCustomerContributionRequest::class)->handle($intake->fresh(), $user, [[
     'type' => FollowUpItemType::Photo,
     'prompt' => 'Maak een foto van de plek waar de condensafvoer kan lozen, zoals een regenpijp, putje of goot.',
     'decision_area_key' => 'condensate',
     'dossier_subject_id' => $power->dossier_subject_id,
-    'photo_task_subtype' => 'power_route',
 ]]);
 
 $task = ContributionTask::query()->where('intake_id', $intake->id)->latest('id')->firstOrFail();
