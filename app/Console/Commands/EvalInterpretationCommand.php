@@ -29,7 +29,7 @@ final class EvalInterpretationCommand extends Command
         {--fake : Forceer FakeAiClient (GEEN baseline)}
         {--kind= : Alleen dit fixture-kind (request_text,customer_answer,photo_observation,report_claims); leeg=alles}
         {--live-vision : Stuur photo_observation-fixturefoto\'s door echte vision-prompt (default uit; CI blijft fake)}
-        {--prompt-version= : v9 (live) of proposed-v9 (alias); relevant met --live-vision}
+        {--prompt-version= : v10 (live) of proposed-v10/proposed-v9 (alias); relevant met --live-vision}
         {--compare= : Pad of bestandsstempel van een vorige run (JSON)}
         {--migrate : Draai migrate:fresh --seed (ALLEEN lokale sqlite; nooit prod/staging)}
         {--output= : Root voor results/baseline/HISTORY (default: tests/Eval of AI_EVAL_OUTPUT_DIR)}';

@@ -47,6 +47,6 @@
     "C7",
     "C8"
   ],
-  "note": "N44: room_assessment evidence/retake_instruction moeten NL zijn (live room-assessment-v9). model_fields.evidence = Engelse regressie-input; stub scoort forbidden wrong; live-vision met NL model → concept_absent. Foto: synthetische slaapkamer-1.jpg.",
+  "note": "N44: room_assessment evidence/retake_instruction moeten NL zijn (live room-assessment-v10). model_fields.evidence = Engelse regressie-input; stub scoort forbidden wrong; live-vision met NL model → concept_absent. Foto: synthetische slaapkamer-1.jpg.",
   "disputed_facts": {}
 }

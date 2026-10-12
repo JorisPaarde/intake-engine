@@ -15,8 +15,8 @@ use RuntimeException;
  *
  * Selectors:
  * - null / '' / 'live' → live PromptVersionRepository path
- * - 'v9' → live path (must match *-v9 in meta)
- * - 'proposed-v9' → {prompt}/proposed-v9/ (alias / held-out)
+ * - 'v10' / 'v9' → live path (must match *-vN in meta)
+ * - 'proposed-v10' / 'proposed-v9' → {prompt}/proposed-vN/ (alias / held-out)
  */
 final class EvalPromptVersionResolver
 {
@@ -87,7 +87,7 @@ final class EvalPromptVersionResolver
         }
 
         throw new InvalidArgumentException(
-            "Onbekende --prompt-version [{$normalized}]. Gebruik v9, proposed-v9, live, of leeg."
+            "Onbekende --prompt-version [{$normalized}]. Gebruik v10, proposed-v10, proposed-v9, live, of leeg."
         );
     }
 
