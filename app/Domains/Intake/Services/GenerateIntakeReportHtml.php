@@ -256,8 +256,9 @@ final class GenerateIntakeReportHtml
 
     /**
      * Installation choice + per-connection route status for the report (N35).
-     * Always returns a status: selected option as before, or neutral
-     * {@see NO_INSTALLATION_CHOICE_LABEL} with candidate proposals when none is selected.
+     * Selected option as before; without selection: neutral
+     * {@see NO_INSTALLATION_CHOICE_LABEL} plus non-rejected proposals.
+     * Null when there is no selection and no non-rejected options (no empty section).
      *
      * @return array{
      *     has_selection: bool,
@@ -292,9 +293,9 @@ final class GenerateIntakeReportHtml
      *             uncertainties: list<string>
      *         }>
      *     }>
-     * }
+     * }|null
      */
-    private function presentInstallationChoice(Intake $intake): array
+    private function presentInstallationChoice(Intake $intake): ?array
     {
         /** @var AircoInstallationOption|null $selected */
         $selected = $intake->aircoInstallationOptions
@@ -322,6 +323,10 @@ final class GenerateIntakeReportHtml
             }
 
             $proposals[] = $this->presentInstallationOption($intake, $option);
+        }
+
+        if ($proposals === []) {
+            return null;
         }
 
         return [

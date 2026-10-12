@@ -699,10 +699,10 @@ final class AircoSurveyService
         $this->refreshStoredIntakeReport->handle($intake);
     }
 
-    private function refreshStoredReportIfOptionSelected(Intake $intake, AircoInstallationOption $option): void
+    private function refreshStoredReportForOption(Intake $intake, AircoInstallationOption $option): void
     {
-        // Also refresh Candidate options so the report shows route status before
-        // "Deze keuze" (N35 rest). RefreshStoredIntakeReport no-ops without a report.
+        // Refresh Candidate and Selected options so the report shows route status
+        // before "Deze keuze" (N35 rest). RefreshStoredIntakeReport no-ops without a report.
         $this->refreshStoredReport($intake->fresh() ?? $intake);
     }
 
@@ -744,7 +744,7 @@ final class AircoSurveyService
         $this->surveyProgress->markStarted($intake);
         $fresh = $intake->fresh() ?? $intake;
         $this->decisionReadiness->recalculate($fresh);
-        $this->refreshStoredReportIfOptionSelected($fresh, $option->fresh() ?? $option);
+        $this->refreshStoredReportForOption($fresh, $option->fresh() ?? $option);
 
         return $option->fresh(['placements', 'connections']) ?? $option;
     }
@@ -1016,7 +1016,7 @@ final class AircoSurveyService
         $this->surveyProgress->markStarted($intake);
         $fresh = $intake->fresh() ?? $intake;
         $this->decisionReadiness->recalculate($fresh);
-        $this->refreshStoredReportIfOptionSelected($fresh, $option->fresh() ?? $option);
+        $this->refreshStoredReportForOption($fresh, $option->fresh() ?? $option);
 
         return $connection;
     }

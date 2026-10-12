@@ -47,13 +47,13 @@ function makeReportLabelsIntake(): Intake
     ]);
 }
 
-test('N35 rest: zonder voorstellen toont rapport neutrale keuzestatus', function () {
+test('N35 rest: zonder installatie-opties geen Installatiekeuze-sectie', function () {
     $intake = makeReportLabelsIntake();
     $version = $intake->fresh()->templateVersion()->firstOrFail();
     $html = app(GenerateIntakeReportHtml::class)->handle($intake->fresh(), $version);
 
-    expect($html)->toContain('Installatiekeuze')
-        ->and($html)->toContain(GenerateIntakeReportHtml::NO_INSTALLATION_CHOICE_LABEL)
+    expect($html)->not->toContain('Installatiekeuze')
+        ->and($html)->not->toContain(GenerateIntakeReportHtml::NO_INSTALLATION_CHOICE_LABEL)
         ->and($html)->not->toContain('Geselecteerde installatiekeuze')
         ->and($html)->not->toContain('Beschikbare voorstellen')
         ->and($html)->not->toContain('Verbindingen en routes');
