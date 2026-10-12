@@ -1524,12 +1524,10 @@
                                                             ? \App\Domains\Intake\Services\DecisionReadinessService::areaLabel($exceptionAreaKey)
                                                             : null;
                                                         $exceptionConfidence = \App\Domains\Intake\Services\DecisionReadinessService::confidencePhrase($exception['confidence'] ?? null);
-                                                        $exceptionType = in_array($exceptionAreaKey, ['capacity', 'placement', 'refrigerant', 'condensate', 'power'], true)
-                                                            ? \App\Enums\FollowUpItemType::Photo->value
-                                                            : \App\Enums\FollowUpItemType::Text->value;
-                                                        $exceptionPrompt = \Illuminate\Support\Str::limit($exceptionLabel, 500, '');
+                                                        $exceptionAsk = app(\App\Domains\Intake\Services\ContextualCustomerTaskBuilder::class)
+                                                            ->forSynthesisException($intake, is_array($exception) ? $exception : []);
                                                     @endphp
-                                                    <li class="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                                                    <li class="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-950" data-testid="synthesis-exception">
                                                         <strong>{{ $exceptionLabel }}</strong>
                                                         <span class="block text-xs text-amber-800">
                                                             @if ($exceptionAreaLabel)
@@ -1551,17 +1549,16 @@
                                                                 <x-evidence-citations :citations="$exceptionEvidence" />
                                                             </div>
                                                         @endif
-                                                        <form method="POST" action="{{ route('intakes.workspace.tasks.quick', $intake) }}" class="mt-2">
-                                                            @csrf
-                                                            <input type="hidden" name="type" value="{{ $exceptionType }}">
-                                                            <input type="hidden" name="prompt" value="{{ $exceptionPrompt }}">
-                                                            @if ($exceptionAreaKey)
-                                                                <input type="hidden" name="decision_area_key" value="{{ $exceptionAreaKey }}">
-                                                            @endif
-                                                            <button class="inline-flex min-h-10 items-center rounded-lg bg-amber-900 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-800">
-                                                                Vraag de klant
-                                                            </button>
-                                                        </form>
+                                                        @if ($exceptionAsk !== null)
+                                                            <div class="mt-2" data-testid="synthesis-exception-ask">
+                                                                <x-ask-customer-button
+                                                                    :intake="$intake"
+                                                                    :ask="$exceptionAsk"
+                                                                    label="Vraag de klant"
+                                                                    class="inline-flex min-h-10 items-center rounded-lg bg-amber-900 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-800"
+                                                                />
+                                                            </div>
+                                                        @endif
                                                     </li>
                                                 @endforeach
                                             </ul>

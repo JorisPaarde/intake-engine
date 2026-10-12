@@ -59,7 +59,7 @@ final class InstallerPhotoGalleryBuilder
         $version = $intake->templateVersion;
 
         if ($version === null) {
-            return $this->ungroupedFallback($uploads, $supersessions);
+            return $this->ungroupedFallback($intake, $uploads, $supersessions);
         }
 
         /** @var array<string, array{question: IntakeQuestion, section: IntakeSection}> $byQuestionKey */
@@ -130,7 +130,7 @@ final class InstallerPhotoGalleryBuilder
 
             if ($meta === null) {
                 $bucketKey = 'unknown|'.$upload->question_key.'|'.($instanceKey ?? '');
-                $heading = $this->captionForUnknown($upload);
+                $heading = $this->captionForUnknown($intake, $upload);
                 $anchor = PhotoContinueAnywayAttention::galleryAnchor(null, $instanceKey);
                 $sectionSort = PHP_INT_MAX;
                 $instanceSort = 0;
@@ -159,7 +159,7 @@ final class InstallerPhotoGalleryBuilder
 
             $groups[$bucketKey]['uploads'][] = [
                 'upload' => $upload,
-                'caption' => $questionLabel,
+                'caption' => $this->captionWithRoomPlace($intake, $questionLabel, $instanceKey),
                 'question_sort' => $questionSort,
             ];
         }
@@ -328,7 +328,21 @@ final class InstallerPhotoGalleryBuilder
         return is_numeric($suffix) ? (int) $suffix : 0;
     }
 
-    private function captionForUnknown(IntakeUpload $upload): string
+    private function captionWithRoomPlace(Intake $intake, string $base, ?string $instanceKey): string
+    {
+        if (! is_string($instanceKey) || ! str_starts_with($instanceKey, 'room-')) {
+            return $base;
+        }
+
+        $place = PhotoContinueAnywayAttention::roomPlaceLabel($intake, $instanceKey);
+        if ($place === '' || str_contains($base, $place)) {
+            return $base;
+        }
+
+        return $base.' · '.$place;
+    }
+
+    private function captionForUnknown(Intake $intake, IntakeUpload $upload): string
     {
         // drain_photo deelt expected OutdoorLocation met buitenplek; label via question key.
         if ($upload->question_key === 'drain_photo') {
@@ -347,6 +361,8 @@ final class InstallerPhotoGalleryBuilder
             };
         }
 
+        $base = $this->captionWithRoomPlace($intake, $base, $upload->section_instance_key);
+
         if ($upload->followUpItem?->round !== null) {
             return $base.' (ronde '.(int) $upload->followUpItem->round->round_number.')';
         }
@@ -359,17 +375,17 @@ final class InstallerPhotoGalleryBuilder
      * @param  array<int, array{superseded: bool, supersession_label: string|null, replaced_by_upload_id: int|null}>  $supersessions
      * @return list<array{heading: string, anchor: string|null, uploads: list<array{upload: IntakeUpload, caption: string, superseded: bool, supersession_label: string|null}>}>
      */
-    private function ungroupedFallback(Collection $uploads, array $supersessions): array
+    private function ungroupedFallback(Intake $intake, Collection $uploads, array $supersessions): array
     {
         return [[
             'heading' => 'Bestanden',
             'anchor' => null,
-            'uploads' => $uploads->map(function (IntakeUpload $upload) use ($supersessions): array {
+            'uploads' => $uploads->map(function (IntakeUpload $upload) use ($intake, $supersessions): array {
                 $info = $supersessions[(int) $upload->id] ?? null;
 
                 return [
                     'upload' => $upload,
-                    'caption' => $this->captionForUnknown($upload),
+                    'caption' => $this->captionForUnknown($intake, $upload),
                     'superseded' => is_array($info) && $info['superseded'] === true,
                     'supersession_label' => is_array($info)
                         ? $info['supersession_label']

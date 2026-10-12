@@ -9,7 +9,9 @@ use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeExternalFact;
 use App\Domains\Intake\Support\FuseboxAssessmentLabels;
 use App\Domains\Intake\Support\InstallerDisplayLabels;
+use App\Domains\Intake\Support\PhotoContinueAnywayAttention;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Throwable;
 
 final class ExternalFactPresenter
@@ -215,33 +217,56 @@ final class ExternalFactPresenter
     /**
      * Never surface snake_case question keys in the installer fact list
      * (legacy rows used “Automatische beoordeling van outdoor_location_photos”).
+     * Room-scoped photo facts get “· Ruimtenaam (verdieping)” (N34).
      */
     private function presentLabel(Intake $intake, IntakeExternalFact $fact): string
     {
         $label = trim($fact->label);
+        $base = null;
 
         if (preg_match('/^Automatische beoordeling van ([a-z][a-z0-9_]*)$/u', $label, $matches) === 1) {
-            return $this->questionLabelForKey($intake, $matches[1])
+            $base = $this->questionLabelForKey($intake, $matches[1])
                 ?? $this->fallbackPhotoQuestionLabel($matches[1]);
-        }
-
-        if (preg_match('/^[a-z]+(?:_[a-z0-9]+)+$/', $label) === 1) {
-            return $this->questionLabelForKey($intake, $label)
+        } elseif (preg_match('/^[a-z]+(?:_[a-z0-9]+)+$/', $label) === 1) {
+            $base = $this->questionLabelForKey($intake, $label)
                 ?? $this->fallbackPhotoQuestionLabel($label);
-        }
-
-        if ($label !== '') {
-            return $label;
-        }
-
-        if ($this->isPhotoDerivationFact($fact->fact_key)) {
+        } elseif ($label !== '') {
+            $base = $label;
+        } elseif ($this->isPhotoDerivationFact($fact->fact_key)) {
             $questionKey = preg_replace('/_derivation(?:::.*)?$/', '', $fact->fact_key) ?: $fact->fact_key;
-
-            return $this->questionLabelForKey($intake, $questionKey)
+            $base = $this->questionLabelForKey($intake, $questionKey)
                 ?? $this->fallbackPhotoQuestionLabel($questionKey);
+        } else {
+            $base = $this->fallbackPhotoQuestionLabel($fact->fact_key);
         }
 
-        return $this->fallbackPhotoQuestionLabel($fact->fact_key);
+        return $this->appendRoomPlaceToLabel($intake, $fact->fact_key, $base);
+    }
+
+    private function appendRoomPlaceToLabel(Intake $intake, string $factKey, string $base): string
+    {
+        $instanceKey = $this->sectionInstanceKeyFromFactKey($factKey);
+        if ($instanceKey === null || ! str_starts_with($instanceKey, 'room-')) {
+            return $base;
+        }
+
+        $place = PhotoContinueAnywayAttention::roomPlaceLabel($intake, $instanceKey);
+        if ($place === '' || str_contains($base, $place)) {
+            return $base;
+        }
+
+        return $base.' · '.$place;
+    }
+
+    private function sectionInstanceKeyFromFactKey(string $factKey): ?string
+    {
+        if (! str_contains($factKey, '_derivation::')) {
+            return null;
+        }
+
+        $instance = Str::after($factKey, '_derivation::');
+
+        return $instance !== '' ? $instance : null;
     }
 
     private function questionLabelForKey(Intake $intake, string $questionKey): ?string

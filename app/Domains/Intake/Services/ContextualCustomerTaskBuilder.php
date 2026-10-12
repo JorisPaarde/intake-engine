@@ -8,6 +8,7 @@ use App\Domains\AI\Support\PhotoSubject;
 use App\Domains\Intake\Actions\ApplyFollowUpTextContribution;
 use App\Domains\Intake\Models\AircoConnection;
 use App\Domains\Intake\Models\AircoRoom;
+use App\Domains\Intake\Models\ContributionTask;
 use App\Domains\Intake\Models\DossierDecisionArea;
 use App\Domains\Intake\Models\DossierRecord;
 use App\Domains\Intake\Models\DossierSubject;
@@ -19,6 +20,7 @@ use App\Domains\Intake\Support\RoomHeightRequirement;
 use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
 use App\Enums\AircoOptionStatus;
+use App\Enums\ContributionTaskStatus;
 use App\Enums\DecisionAreaStatus;
 use App\Enums\DossierNextAction;
 use App\Enums\FollowUpItemType;
@@ -257,6 +259,170 @@ final class ContextualCustomerTaskBuilder
             'refrigerant', 'condensate', 'power' => $this->connectionAreaAsk($intake, $area),
             default => null,
         };
+    }
+
+    /**
+     * AI-uitzondering → bewerkbaar concept (prepare), nooit de interne exceptionzin (N33).
+     *
+     * Koppel op decision_area_key: eerst AI-customer_task uit dezelfde synthese,
+     * anders de vaste klantinstructie via forDecisionArea / verbindingstype.
+     *
+     * @param  array<string, mixed>  $exception
+     * @return array{
+     *     type: string,
+     *     prompt: string,
+     *     decision_area_key: string,
+     *     dossier_subject_id: int|null,
+     *     meta?: array<string, mixed>
+     * }|null
+     */
+    public function forSynthesisException(Intake $intake, array $exception): ?array
+    {
+        $areaKey = is_string($exception['decision_area_key'] ?? null)
+            ? $exception['decision_area_key']
+            : null;
+
+        if ($areaKey === null || ! DecisionReadinessService::hasArea($areaKey)) {
+            return null;
+        }
+
+        $intake->loadMissing([
+            'contributionTasks',
+            'decisionAreas',
+            'aircoRooms',
+            'aircoPlacements',
+            'aircoInstallationOptions.connections.routeSession',
+        ]);
+
+        $fromAiTask = $this->askFromAiCustomerTask($intake, $areaKey);
+        if ($fromAiTask !== null) {
+            return $fromAiTask;
+        }
+
+        $area = $intake->decisionAreas->firstWhere('key', $areaKey);
+        if ($area instanceof DossierDecisionArea) {
+            $fromArea = $this->forDecisionArea($intake, $area);
+            if ($fromArea !== null) {
+                return $fromArea;
+            }
+        }
+
+        return $this->fallbackAskForArea($intake, $areaKey);
+    }
+
+    /**
+     * @return array{
+     *     type: string,
+     *     prompt: string,
+     *     decision_area_key: string,
+     *     dossier_subject_id: int|null,
+     *     meta?: array<string, mixed>
+     * }|null
+     */
+    private function askFromAiCustomerTask(Intake $intake, string $areaKey): ?array
+    {
+        /** @var ContributionTask|null $task */
+        $task = $intake->contributionTasks
+            ->filter(static function (ContributionTask $candidate) use ($areaKey): bool {
+                return $candidate->status === ContributionTaskStatus::Proposed
+                    && $candidate->decision_area_key === $areaKey
+                    && ($candidate->meta['source_type'] ?? null) === 'ai';
+            })
+            ->sortByDesc('id')
+            ->first();
+
+        if (! $task instanceof ContributionTask) {
+            return null;
+        }
+
+        $prompt = trim((string) $task->prompt);
+        if ($prompt === '' || CustomerFacingTaskText::isInstallerInternal($prompt)) {
+            return null;
+        }
+
+        $meta = [];
+        $subtype = is_array($task->meta) ? ($task->meta['photo_task_subtype'] ?? null) : null;
+        if (is_string($subtype) && $subtype !== '') {
+            $photoMeta = PhotoSubject::photoTaskMetaForSubtype($subtype);
+            if (is_array($photoMeta)) {
+                $meta = $photoMeta;
+            }
+        }
+
+        return $this->draft(
+            $task->type,
+            $prompt,
+            $areaKey,
+            $task->dossier_subject_id,
+            $meta,
+        );
+    }
+
+    /**
+     * @return array{
+     *     type: string,
+     *     prompt: string,
+     *     decision_area_key: string,
+     *     dossier_subject_id: int|null,
+     *     meta?: array<string, mixed>
+     * }|null
+     */
+    private function fallbackAskForArea(Intake $intake, string $areaKey): ?array
+    {
+        return match ($areaKey) {
+            'capacity' => $this->capacityAreaAsk($intake),
+            'placement' => null,
+            'refrigerant', 'condensate', 'power' => $this->fallbackConnectionAsk($intake, $areaKey),
+            default => null,
+        };
+    }
+
+    /**
+     * @return array{
+     *     type: string,
+     *     prompt: string,
+     *     decision_area_key: string,
+     *     dossier_subject_id: int|null,
+     *     meta?: array<string, mixed>
+     * }|null
+     */
+    private function fallbackConnectionAsk(Intake $intake, string $areaKey): ?array
+    {
+        $type = match ($areaKey) {
+            'refrigerant' => AircoConnectionType::Refrigerant,
+            'condensate' => AircoConnectionType::Condensate,
+            'power' => AircoConnectionType::Power,
+            default => null,
+        };
+
+        if ($type === null) {
+            return null;
+        }
+
+        $option = $intake->aircoInstallationOptions->first(
+            static fn ($candidate): bool => $candidate->status === AircoOptionStatus::Selected,
+        ) ?? $intake->aircoInstallationOptions->first();
+
+        $connection = $option?->connections
+            ->first(static fn (AircoConnection $candidate): bool => $candidate->type === $type);
+
+        $prompt = match ($type) {
+            AircoConnectionType::Power => 'Maak een foto van de plek waar de stroomkabel naar de buitenunit kan lopen, bijvoorbeeld langs de gevel of vanaf de meterkast.',
+            AircoConnectionType::Condensate => 'Maak een foto van de plek waar de condensafvoer kan lozen, zoals een regenpijp, putje of goot.',
+            AircoConnectionType::Refrigerant => 'Maak een foto van de route waar de koelleidingen kunnen lopen, bijvoorbeeld langs de gevel of door een muur.',
+        };
+
+        $meta = $type === AircoConnectionType::Power
+            ? (PhotoSubject::photoTaskMetaForSubtype('power_route') ?? [])
+            : [];
+
+        return $this->draft(
+            FollowUpItemType::Photo,
+            $prompt,
+            $areaKey,
+            $connection?->dossier_subject_id,
+            $meta,
+        );
     }
 
     /**
