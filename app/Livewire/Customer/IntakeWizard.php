@@ -111,9 +111,9 @@ class IntakeWizard extends Component
     public array $catchUpQuestionKeys = [];
 
     /**
-     * When true, next() skips hydrateFormFromAnswers (auto-advance already has live form state).
+     * After deferred auto-advance, show “Opgeslagen” on the landing step (BL-023).
      */
-    private bool $skipHydrateOnNext = false;
+    public bool $confirmSaveAfterAdvance = false;
 
     /**
      * Composite key → one file or a list (multiselect, BL-021).
@@ -1635,14 +1635,12 @@ class IntakeWizard extends Component
     }
 
     /**
-     * Stille bg-poll / dirty klantkeuze: wel serverstate (catch-up, pending ids), geen HTML-morph.
+     * Achtergrond-poll (foto op ándere stap): wel serverstate (catch-up, pending ids), geen HTML-morph.
+     * Polls voor de huidige stap blijven renderen — anders blijft “We bekijken je foto” hangen (N3).
      */
     private function skipRenderIfBackgroundPhotoPoll(string $composite): void
     {
-        $skip = $this->dirtyFormComposites !== []
-            || ($composite !== '' && ! $this->photoCompositeIsOnCurrentStep($composite));
-
-        if ($skip) {
+        if ($composite !== '' && ! $this->photoCompositeIsOnCurrentStep($composite)) {
             $this->skipRender();
         }
     }
@@ -3383,20 +3381,16 @@ class IntakeWizard extends Component
         $this->syncActiveStepKey($steps);
         $this->rememberCurrentCursor();
         // Hydrate while dirty flags still set so a just-checked choice is not wiped, then clear.
-        $this->hydrateFormFromAnswersUnlessSkipped();
+        $this->hydrateFormFromAnswers();
         $this->dirtyFormComposites = [];
         $this->applyPrefillForActiveStep();
         $this->flushDeferredPhotoDerivationsForCurrentStep();
-        $this->saveMessage = '';
-    }
-
-    private function hydrateFormFromAnswersUnlessSkipped(): void
-    {
-        if ($this->skipHydrateOnNext) {
-            return;
+        if ($this->confirmSaveAfterAdvance) {
+            $this->saveMessage = 'Opgeslagen';
+            $this->confirmSaveAfterAdvance = false;
+        } else {
+            $this->saveMessage = '';
         }
-
-        $this->hydrateFormFromAnswers();
     }
 
     /**
@@ -3453,36 +3447,14 @@ class IntakeWizard extends Component
             return;
         }
 
-        // Browser: defer advance so THIS wire:model.live response keeps the checked radio
-        // in the DOM (E2E selectFirstRadioAndSave). Sync next() in the same request can
-        // morph/hydrate the choice away before Playwright asserts. Stale Volgende with the
-        // old expectedStepKey is ignored (BL-023). Pest has no JS — advance inline.
-        // Use getenv('APP_ENV'): config cache can leave app.env=local while phpunit.xml
-        // force=true still sets the process env to testing.
-        if ($this->shouldDeferBrowserAutoAdvance()) {
-            $this->js('setTimeout(() => $wire.next(), 50)');
-
-            return;
-        }
-
-        $this->skipHydrateOnNext = true;
-        try {
-            $this->next();
-        } finally {
-            $this->skipHydrateOnNext = false;
-        }
-        // Brief confirmation on the following screen.
-        $this->saveMessage = 'Opgeslagen';
-    }
-
-    private function shouldDeferBrowserAutoAdvance(): bool
-    {
-        $env = getenv('APP_ENV');
-        if (is_string($env) && $env !== '') {
-            return $env !== 'testing';
-        }
-
-        return ! app()->environment('testing');
+        // Defer advance so THIS wire:model.live response keeps the checked radio in the DOM
+        // (E2E selectFirstRadioAndSave). Pass the current step key so a queued Volgende with
+        // the same key is treated as stale after this deferred next lands (BL-023) — bare
+        // $wire.next() would double-advance. Livewire::test does not run JS; Pest asserts
+        // the expression and calls next($key) explicitly.
+        $stepKey = $this->activeStepKey;
+        $this->confirmSaveAfterAdvance = true;
+        $this->js('setTimeout(() => $wire.next('.json_encode($stepKey).'), 50)');
     }
 
     public function previous(): void

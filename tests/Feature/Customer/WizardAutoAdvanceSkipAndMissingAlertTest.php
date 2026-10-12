@@ -59,6 +59,9 @@ test('N17: stale next with old step key after choice lands on direct successor',
 
     $component
         ->set('form.crawl_space_present.value', 'unknown')
+        ->assertJs('setTimeout(() => $wire.next('.json_encode($oldKey).'), 50)')
+        ->assertSet('activeStepKey', $oldKey)
+        ->call('next', $oldKey)
         ->assertSet('activeStepKey', $immediateSuccessor)
         ->call('next', $oldKey);
 
@@ -79,6 +82,9 @@ test('N17: stale next after cooling choice does not skip indoor_unit_count', fun
         ->set('activeStepKey', $oldKey)
         ->assertSet('activeStepKey', $oldKey)
         ->set('form.cooling_heating.value', 'cooling')
+        ->assertJs('setTimeout(() => $wire.next('.json_encode($oldKey).'), 50)')
+        ->assertSet('activeStepKey', $oldKey)
+        ->call('next', $oldKey)
         ->assertSet('activeStepKey', 'request::indoor_unit_count')
         ->call('next', $oldKey);
 
@@ -94,9 +100,12 @@ test('N17: next with landing step key advances forward normally', function () {
     $intake = makeAutoAdvanceSkipIntake();
     app(SaveIntakeAnswer::class)->handle($intake, 'indoor_unit_count', null, ['number' => 1]);
 
+    $choiceKey = 'request::cooling_heating';
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
-        ->set('activeStepKey', 'request::cooling_heating')
+        ->set('activeStepKey', $choiceKey)
         ->set('form.cooling_heating.value', 'cooling')
+        ->assertJs('setTimeout(() => $wire.next('.json_encode($choiceKey).'), 50)')
+        ->call('next', $choiceKey)
         ->assertSet('activeStepKey', 'request::indoor_unit_count')
         ->call('next', 'request::indoor_unit_count');
 
@@ -114,6 +123,8 @@ test('N15: stale next after choice does not show missing alert on empty successo
     $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
         ->set('activeStepKey', $oldKey)
         ->set('form.cooling_heating.value', 'cooling')
+        ->assertJs('setTimeout(() => $wire.next('.json_encode($oldKey).'), 50)')
+        ->call('next', $oldKey)
         ->assertSet('activeStepKey', 'request::indoor_unit_count')
         ->assertSet('showMissing', false)
         ->call('next', $oldKey);
@@ -138,7 +149,10 @@ test('N15: truth_confirmation tick plus stale next leaves Q32 without missing al
         ->call('next', $oldKey)
         ->assertSet('showMissing', true)
         ->assertSee('Beantwoord eerst deze verplichte vraag.')
-        ->set('form.truth_confirmation.bool', true);
+        ->set('form.truth_confirmation.bool', true)
+        ->assertJs('setTimeout(() => $wire.next('.json_encode($oldKey).'), 50)')
+        ->assertSet('activeStepKey', $oldKey)
+        ->call('next', $oldKey);
 
     $landingKey = $component->get('activeStepKey');
     expect($landingKey)->not->toBe($oldKey)

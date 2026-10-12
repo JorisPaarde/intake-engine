@@ -13,6 +13,7 @@ use App\Domains\Intake\Actions\StoreIntakeUpload;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeTemplate;
+use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\CompletenessChecker;
 use App\Domains\Intake\Services\IntakeStepBuilder;
 use App\Domains\Intake\Support\FactProvenance;
@@ -519,28 +520,31 @@ test('E2E-regressie: live floor_level-keuze blijft gezet na updated/auto-advance
     expect($floorIndex)->not->toBeFalse();
 
     $floorComposite = 'room-1__floor_level';
+    $floorKey = $steps[(int) $floorIndex]['key'];
     $component
         ->set('stepIndex', (int) $floorIndex)
-        ->set('activeStepKey', $steps[(int) $floorIndex]['key'])
+        ->set('activeStepKey', $floorKey)
         ->set('knownStepKeys', array_column($steps, 'key'))
-        // Zoals wire:model.live: updated → persist → maybeAutoAdvance → next.
-        ->set('form.'.$floorComposite.'.value', 'basement');
+        // Zoals wire:model.live: updated → persist → deferred $wire.next(stepKey).
+        ->set('form.'.$floorComposite.'.value', 'basement')
+        ->assertJs('setTimeout(() => $wire.next('.json_encode($floorKey).'), 50)')
+        ->assertSet('activeStepKey', $floorKey);
 
     $dbValue = $intake->fresh()->answers()
         ->where('question_key', 'floor_level')
         ->where('section_instance_key', 'room-1')
         ->value('value');
 
-    expect($dbValue)->toBe(['value' => 'basement']);
+    expect($dbValue)->toBe(['value' => 'basement'])
+        ->and($component->get('form.'.$floorComposite))->toBe(['value' => 'basement']);
 
-    $formValue = $component->get('form.'.$floorComposite);
-    $onFloor = ($component->viewData('steps')[$component->get('stepIndex')]['question_key'] ?? null) === 'floor_level';
+    // Deferred next met de step-key schuift door; een tweede next met dezelfde (nu stale) key is no-op.
+    $component->call('next', $floorKey);
+    $afterDeferred = $component->get('activeStepKey');
+    expect($afterDeferred)->not->toBe($floorKey);
 
-    // Of we zijn doorgeschoven (keuze in DB), of we staan nog op floor_level mét keuze in form.
-    expect($dbValue)->toBe(['value' => 'basement']);
-    if ($onFloor) {
-        expect($formValue)->toBe(['value' => 'basement']);
-    }
+    $component->call('next', $floorKey);
+    expect($component->get('activeStepKey'))->toBe($afterDeferred);
 });
 
 test('N30/E2E: dirty floor_level overleeft hydrateFormFromAnswers tijdens catch-up next', function () {
@@ -653,6 +657,64 @@ test('N3: keuze + directe upload + beoordeling bewaart drain_location', function
     expect($answer)->not->toBeNull()
         ->and($answer?->value)->toBe(['value' => 'outside_nearby'])
         ->and($answer?->prefill_source)->toBeNull()
+        ->and($component->get('form.drain_location'))->toBe(['value' => 'outside_nearby']);
+});
+
+test('N3: dirty keuze + fotopoll op huidige stap rendert beoordeling (geen skipRender)', function () {
+    $intake = makeN30Intake();
+    $version = $intake->fresh()->templateVersion()->with(['sections.questions.rules'])->firstOrFail();
+    $drainKey = (string) collect(app(IntakeStepBuilder::class)->build($intake->fresh(), $version))
+        ->firstWhere('group_key', 'drain_nearby')['key'];
+
+    Queue::fake([AssessUploadedPhotoJob::class]);
+    FakeAiClient::alwaysReturn([
+        'drain_location' => 'outside_nearby',
+        'detected_subject' => 'outdoor_location',
+        'subject_match' => 'yes',
+        'confidence' => 'high',
+        'evidence' => 'Synthetische afvoerplek.',
+        'retake_instruction' => null,
+    ]);
+
+    $component = Livewire::test(IntakeWizard::class, ['token' => $intake->access_token])
+        ->set('activeStepKey', $drainKey)
+        ->set('form.drain_location.value', 'outside_nearby')
+        ->set('dirtyFormComposites', ['drain_location' => true])
+        ->set('photoFiles.drain_photo', UploadedFile::fake()->image('afvoer.jpg', 1200, 900));
+
+    $upload = IntakeUpload::query()
+        ->where('intake_id', $intake->id)
+        ->where('question_key', 'drain_photo')
+        ->first();
+    expect($upload)->not->toBeNull();
+
+    // Fake kan Assess-job bufferen óf variants Unique-lock missen — altijd via upload-id afronden.
+    $pushed = [];
+    foreach (Queue::pushed(AssessUploadedPhotoJob::class) as $job) {
+        if ($job instanceof AssessUploadedPhotoJob) {
+            $pushed[] = $job->uploadId;
+        }
+    }
+    if ($pushed === []) {
+        runProcessIntakePhotoVariantsJob((int) $upload->id, 1200, 900);
+        foreach (Queue::pushed(AssessUploadedPhotoJob::class) as $job) {
+            if ($job instanceof AssessUploadedPhotoJob) {
+                $pushed[] = $job->uploadId;
+            }
+        }
+    }
+    foreach (array_values(array_unique($pushed !== [] ? $pushed : [(int) $upload->id])) as $uploadId) {
+        runAssessUploadedPhotoJob($uploadId);
+    }
+
+    expect($component->get('dirtyFormComposites'))->toHaveKey('drain_location');
+
+    $component->call('pollPendingAssessments', 'drain_photo');
+
+    // Huidige-stap-poll mag niet skipRender-en: morph toont terminal status.
+    expect($component->effects)->toHaveKey('html')
+        ->and($component->html())->toContain('data-photo-status="1"')
+        ->and($component->html())->toMatch('/Goed te zien|Niet goed te zien|Niet de gevraagde foto|Je installateur kijkt hier zelf naar/i')
         ->and($component->get('form.drain_location'))->toBe(['value' => 'outside_nearby']);
 });
 
