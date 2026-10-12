@@ -15,6 +15,8 @@ use App\Domains\Intake\Models\IntakeSection;
 use App\Domains\Intake\Models\IntakeTemplateVersion;
 use App\Domains\Intake\Support\CustomerConsentPresenter;
 use App\Domains\Intake\Support\FactProvenance;
+use App\Domains\Intake\Support\FactSource;
+use App\Domains\Intake\Support\OutdoorPhotoReuse;
 use App\Domains\Intake\Support\PhotoContinueAnywayAttention;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Enums\AircoOptionStatus;
@@ -461,8 +463,8 @@ final class GenerateIntakeReportHtml
     }
 
     /**
-     * Provenance-bewaking voor rapportregels (N36): klantantwoord blijft gewoon;
-     * AI-`unknown` zonder klantvraag verdwijnt; andere niet-klantwaarden worden gelabeld.
+     * Provenance-bewaking voor rapportregels (N36/N42): lege rijen weg;
+     * AI-`unknown` zonder klantvraag verdwijnt; bronlabels volgen echte herkomst.
      *
      * @param  array<string, mixed>|null  $value
      */
@@ -472,56 +474,88 @@ final class GenerateIntakeReportHtml
         ?array $value,
         ?IntakeAnswer $answer,
     ): ?string {
+        if ($question->key === OutdoorPhotoReuse::TARGET_KEY
+            && OutdoorPhotoReuse::hasUsableOutdoorContext($intake)) {
+            // Bruikbare buiten-/gevel-foto: rondom-huis-vraag was verborgen — geen lege rij.
+            return null;
+        }
+
         if ($question->key === 'fusebox_clarity') {
-            return $this->formatFuseboxClarity($intake, $question, $value);
-        }
+            $clarity = $this->formatFuseboxClarity($intake, $question, $value);
 
-        if ($question->type === QuestionType::Photo) {
-            return $this->formatValue($question, $value);
-        }
-
-        $prefillSource = $answer?->prefill_source;
-        $isCustomerAnswer = $prefillSource === null || $prefillSource === '';
-
-        if ($isCustomerAnswer) {
-            return $this->formatValue($question, $value);
+            return $clarity === '—' || $clarity === '' ? null : $clarity;
         }
 
         $rawChoice = $value['value'] ?? null;
-        if (is_string($rawChoice) && $rawChoice === 'unknown') {
+        $prefillSource = $answer?->prefill_source;
+        $isCustomerAnswer = $prefillSource === null || $prefillSource === '';
+
+        if (! $isCustomerAnswer && is_string($rawChoice) && $rawChoice === 'unknown') {
             // AI-/prefill-unknown is geen klant-"Weet ik niet".
             return null;
         }
 
         $formatted = $this->formatValue($question, $value);
-        if ($formatted === '—') {
+        if ($formatted === '—' || $formatted === '') {
             return null;
         }
 
-        return $formatted.' ('.$this->nonCustomerAnswerLabel($prefillSource, $answer).')';
+        if ($question->type === QuestionType::Photo || $isCustomerAnswer) {
+            // Klantantwoord: geen herkomst-suffix (N42 review).
+            return $formatted;
+        }
+
+        return $formatted.' ('.$this->answerProvenanceLabel($prefillSource, $answer).')';
     }
 
-    private function nonCustomerAnswerLabel(?string $prefillSource, ?IntakeAnswer $answer): string
+    /**
+     * Herkomstlabel voor niet-klant antwoorden.
+     *
+     * «Voorzet uit aanvraag, bevestigd door klant» alleen bij opgeslagen bewijs:
+     * fact_source=klantantwoord met behouden prefill (known-summary Wijzigen → zelfde
+     * waarde herstelt prefill_source na SaveIntakeAnswer). Er is geen apart veld/event
+     * voor known-summary «Klopt, verder» — die route laat prefill+fact_source ongemoeid.
+     */
+    private function answerProvenanceLabel(?string $prefillSource, ?IntakeAnswer $answer): string
     {
+        if (in_array($prefillSource, ['pdok', 'bag'], true)) {
+            return 'Voorzet uit BAG';
+        }
+
+        if ($prefillSource === 'epo') {
+            return 'Voorzet uit energielabel';
+        }
+
         if (PrefillSources::isPhotoSuggestion($prefillSource)
             || $prefillSource === PrefillSources::AI_PHOTO) {
-            return 'Voorzet uit foto, niet aan de klant gevraagd';
+            return 'Voorzet uit foto';
         }
 
         if ($prefillSource === PrefillSources::DERIVED_LXW) {
-            return 'Berekend, niet aan de klant gevraagd';
+            return 'Berekend';
+        }
+
+        $provenance = FactProvenance::tryFromMixed($answer?->fact_provenance);
+
+        // Bevestigd: klantfact met behouden voorzet-bron (niet BAG/EPO — die mappen ook op klantantwoord).
+        if ($answer !== null
+            && FactSource::tryFrom((string) ($answer->fact_source ?? '')) === FactSource::CustomerAnswer
+            && ! in_array($prefillSource, ['pdok', 'bag', 'epo'], true)) {
+            return 'Voorzet uit aanvraag, bevestigd door klant';
+        }
+
+        if ($prefillSource === 'installer') {
+            return PrefillSources::installerSourceLabel($prefillSource, $provenance);
         }
 
         if (PrefillSources::isTextSuggestion($prefillSource)
             || PrefillSources::isTextDerived($prefillSource)
             || $prefillSource === PrefillSources::AI_LEGACY
             || $prefillSource === PrefillSources::AI_SUGGESTION_LEGACY) {
-            return 'Voorzet uit tekst, niet aan de klant gevraagd';
+            return 'Voorzet uit tekst';
         }
 
-        $provenance = FactProvenance::tryFromMixed($answer?->fact_provenance);
-
-        return PrefillSources::installerSourceLabel($prefillSource, $provenance).', niet aan de klant gevraagd';
+        return PrefillSources::installerSourceLabel($prefillSource, $provenance);
     }
 
     /**

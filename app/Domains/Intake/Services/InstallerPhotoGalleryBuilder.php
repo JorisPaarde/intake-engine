@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App\Domains\Intake\Services;
 
 use App\Domains\AI\Support\PhotoSubject;
+use App\Domains\Intake\Models\ContributionTask;
 use App\Domains\Intake\Models\DossierSubject;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\IntakeFollowUpItem;
+use App\Domains\Intake\Models\IntakeFollowUpRound;
 use App\Domains\Intake\Models\IntakeQuestion;
 use App\Domains\Intake\Models\IntakeSection;
 use App\Domains\Intake\Models\IntakeUpload;
@@ -118,7 +121,7 @@ final class InstallerPhotoGalleryBuilder
 
                 $groups[$bucketKey]['uploads'][] = [
                     'upload' => $upload,
-                    'caption' => 'Ronde '.$round->round_number,
+                    'caption' => $this->followUpCaption($intake, $upload->followUpItem, $round),
                     'question_sort' => $upload->followUpItem->id,
                 ];
 
@@ -340,6 +343,88 @@ final class InstallerPhotoGalleryBuilder
         }
 
         return $base.' · '.$place;
+    }
+
+    /**
+     * N43: "Ronde N · Stroomtoevoer · Plek stroomkabel" i.p.v. alleen "Ronde N".
+     * Derde deel = korte taaklabel (subtype/subject/ruimte/gebied) — nooit de volle prompt
+     * (die staat al in de aanvullingsgeschiedenis).
+     */
+    private function followUpCaption(
+        Intake $intake,
+        IntakeFollowUpItem $item,
+        IntakeFollowUpRound $round,
+    ): string {
+        $parts = ['Ronde '.$round->round_number];
+
+        $task = $intake->contributionTasks
+            ->first(static fn (ContributionTask $candidate): bool => $candidate->intake_follow_up_item_id === $item->id);
+
+        if ($task instanceof ContributionTask) {
+            $areaKey = $task->decision_area_key;
+            if (is_string($areaKey) && $areaKey !== '' && DecisionReadinessService::hasArea($areaKey)) {
+                $parts[] = DecisionReadinessService::areaLabel($areaKey);
+            }
+
+            $taskLabel = $this->followUpTaskLabel($intake, $task);
+            if ($taskLabel !== null) {
+                $parts[] = $taskLabel;
+            }
+        }
+
+        return implode(' · ', $parts);
+    }
+
+    /**
+     * Korte derde caption-term: alleen subtype, expliciete PhotoSubject-meta of ruimtelabel.
+     * Geen gebiedsfallback (power→Meterkast gokt; N28) — dan blijft “Ronde N · {area}”.
+     */
+    private function followUpTaskLabel(Intake $intake, ContributionTask $task): ?string
+    {
+        $meta = is_array($task->meta) ? $task->meta : [];
+        $subtype = is_string($meta['photo_task_subtype'] ?? null)
+            ? (string) $meta['photo_task_subtype']
+            : '';
+
+        $fromSubtype = match ($subtype) {
+            'power_route' => 'Plek stroomkabel',
+            'fusebox' => 'Meterkast',
+            'around_house' => 'Rondom het huis',
+            default => null,
+        };
+        if ($fromSubtype !== null) {
+            return $fromSubtype;
+        }
+
+        // Alleen expliciete meta — niet expectedForTask() (die valt terug op decision_area).
+        $expectedRaw = is_string($meta['expected_photo_subject'] ?? null)
+            ? (string) $meta['expected_photo_subject']
+            : '';
+        $expected = $expectedRaw !== '' ? PhotoSubject::tryFrom($expectedRaw) : null;
+        if ($expected instanceof PhotoSubject) {
+            return match ($expected) {
+                PhotoSubject::Fusebox => 'Meterkast',
+                PhotoSubject::PipeRoute => 'Leidingroute',
+                PhotoSubject::OutdoorUnit => 'Buitenunit',
+                PhotoSubject::OutdoorLocation => 'Buitenplek',
+                PhotoSubject::Room => 'Ruimte',
+                PhotoSubject::IndoorUnit => 'Binnenunit',
+                PhotoSubject::Other => null,
+            };
+        }
+
+        $intake->loadMissing('dossierSubjects');
+        $subjectId = $task->dossier_subject_id;
+        if ($subjectId !== null) {
+            $subject = $intake->dossierSubjects->firstWhere('id', $subjectId);
+            $label = is_string($subject?->label) ? trim($subject->label) : '';
+            $key = is_string($subject?->key) ? $subject->key : '';
+            if ($label !== '' && $key !== 'survey') {
+                return $label;
+            }
+        }
+
+        return null;
     }
 
     private function captionForUnknown(Intake $intake, IntakeUpload $upload): string
