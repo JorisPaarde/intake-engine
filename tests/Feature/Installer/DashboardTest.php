@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplate;
+use App\Enums\IntakeStatus;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Support\Facades\DB;
@@ -89,7 +90,7 @@ test('dashboard mobile cards expose status and open link without horizontal scro
         'intake_template_version_id' => $version->id,
         'customer_name' => 'Mobiel Zichtbaar',
         'customer_email' => 'mobiel@example.com',
-        'status' => \App\Enums\IntakeStatus::Completed,
+        'status' => IntakeStatus::Completed,
         'completed_at' => now(),
     ]);
 
