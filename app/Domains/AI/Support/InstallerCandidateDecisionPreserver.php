@@ -9,6 +9,7 @@ use App\Domains\Intake\Models\AircoInstallationOption;
 use App\Domains\Intake\Models\ContributionTask;
 use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Domains\Intake\Models\PipeRouteSession;
 use App\Domains\Intake\Services\DossierManager;
 use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoOptionFeasibility;
@@ -52,6 +53,7 @@ final class InstallerCandidateDecisionPreserver
      *     feasibility: string|null,
      *     infeasibility_reason: string|null,
      *     connections: list<array{
+     *         connection_id: int,
      *         type: string,
      *         from_placement_id: int|null,
      *         to_placement_id: int|null,
@@ -172,6 +174,7 @@ final class InstallerCandidateDecisionPreserver
 
     /**
      * @return array{
+     *     connection_id: int,
      *     type: string,
      *     from_placement_id: int|null,
      *     to_placement_id: int|null,
@@ -258,6 +261,7 @@ final class InstallerCandidateDecisionPreserver
         }
 
         return [
+            'connection_id' => $connection->id,
             'type' => $connection->type->value,
             'from_placement_id' => $connection->from_placement_id,
             'to_placement_id' => $connection->to_placement_id,
@@ -395,6 +399,21 @@ final class InstallerCandidateDecisionPreserver
 
         if ($updates !== []) {
             $match->update($updates);
+        }
+
+        // Move the drawn route session before the old connection is cascade-deleted.
+        // airco_connection_id is unique — only reassign when the new connection has none.
+        $oldConnectionId = is_int($connectionSnap['connection_id'] ?? null)
+            ? $connectionSnap['connection_id']
+            : null;
+        if ($oldConnectionId !== null && $oldConnectionId !== $match->id) {
+            $match->loadMissing('routeSession');
+            if ($match->routeSession === null) {
+                PipeRouteSession::query()
+                    ->where('intake_id', $intake->id)
+                    ->where('airco_connection_id', $oldConnectionId)
+                    ->update(['airco_connection_id' => $match->id]);
+            }
         }
 
         $proposalUpdated = $this->proposalContentChanged($match, $connectionSnap);

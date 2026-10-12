@@ -14,6 +14,7 @@ use App\Domains\Intake\Models\AircoInstallationOption;
 use App\Domains\Intake\Models\DossierRecord;
 use App\Domains\Intake\Models\DossierSubject;
 use App\Domains\Intake\Models\Intake;
+use App\Domains\Intake\Models\PipeRouteSession;
 use App\Domains\Intake\Services\AircoSurveyService;
 use App\Domains\Intake\Support\ConnectionRouteDecisionPresenter;
 use App\Enums\AircoConfigurationType;
@@ -22,6 +23,7 @@ use App\Enums\AircoOptionFeasibility;
 use App\Enums\AircoOptionStatus;
 use App\Enums\AircoPlacementType;
 use App\Enums\ContributionMode;
+use App\Enums\PipeRouteStatus;
 use App\Models\User;
 use Database\Seeders\IntakeTemplateSeeder;
 use Illuminate\Support\Facades\Mail;
@@ -251,6 +253,86 @@ test('N29 candidate route decisions and note survive AI rebuild without Deze keu
         ->assertSee('Testnotitie: achtergevelroute ter plaatse controleren.')
         ->assertSee('Je besluit blijft staan. Het voorstel is daarna bijgewerkt.')
         ->assertSee('Haalbaar');
+});
+
+test('N29 approved connection keeps pipe route session and segments across rebuild', function () {
+    [$intake, $user] = n29SurveyWithPlacements();
+
+    FakeAiClient::respondUsing(
+        static fn (AiCompletionRequest $request): array => n29SynthesisOutput(
+            $request,
+            'AI-optie met routesessie',
+            'Door buitenmuur naar plat dak',
+        ),
+    );
+    app(SynthesizeSurveyDossier::class)->handle($intake->fresh());
+
+    $option = AircoInstallationOption::query()
+        ->where('intake_id', $intake->id)
+        ->where('source_type', 'ai')
+        ->sole();
+    app(AircoSurveyService::class)->markInstallationOptionFeasible($intake, $user, $option);
+
+    $refrigerant = AircoConnection::query()
+        ->where('airco_installation_option_id', $option->id)
+        ->where('type', 'refrigerant')
+        ->sole();
+
+    $session = $intake->pipeRouteSessions()->create([
+        'airco_connection_id' => $refrigerant->id,
+        'status' => PipeRouteStatus::Proposed,
+        'proposed_route' => ['Binnenwand', 'overloop', 'achtergevel'],
+        'uncertainties' => [],
+        'confidence' => 0.9,
+    ]);
+    $segment = $session->segments()->create([
+        'intake_upload_id' => null,
+        'sequence' => 1,
+        'label' => 'Segment achtergevel',
+        'photo_usable' => true,
+        'route_possible' => true,
+        'confidence' => 0.9,
+        'analysis' => ['route_segments' => ['achtergevel']],
+    ]);
+
+    app(DecideAircoConnection::class)->handle($intake, $refrigerant, $user, 'approve');
+
+    $oldConnectionId = $refrigerant->id;
+    $sessionId = $session->id;
+    $segmentId = $segment->id;
+
+    FakeAiClient::respondUsing(
+        static fn (AiCompletionRequest $request): array => n29SynthesisOutput(
+            $request,
+            'AI-optie herbouwd met routesessie',
+            'Via de achtergevel naar het plat dak',
+        ),
+    );
+    app(SynthesizeSurveyDossier::class)->handle($intake->fresh());
+
+    $freshOption = AircoInstallationOption::query()
+        ->where('intake_id', $intake->id)
+        ->where('source_type', 'ai')
+        ->where('status', AircoOptionStatus::Candidate)
+        ->sole();
+    $freshRefrigerant = AircoConnection::query()
+        ->where('airco_installation_option_id', $freshOption->id)
+        ->where('type', 'refrigerant')
+        ->sole();
+
+    expect($freshRefrigerant->id)->not->toBe($oldConnectionId)
+        ->and($freshRefrigerant->status)->toBe(AircoConnectionStatus::Approved);
+
+    $movedSession = PipeRouteSession::query()->whereKey($sessionId)->first();
+    expect($movedSession)->not->toBeNull()
+        ->and($movedSession?->airco_connection_id)->toBe($freshRefrigerant->id)
+        ->and($movedSession?->status)->toBe(PipeRouteStatus::Approved)
+        ->and($movedSession?->proposed_route)->toBe(['Binnenwand', 'overloop', 'achtergevel']);
+
+    expect($movedSession?->segments()->whereKey($segmentId)->exists())->toBeTrue()
+        ->and($movedSession?->segments()->sole()->label)->toBe('Segment achtergevel');
+
+    expect(PipeRouteSession::query()->where('airco_connection_id', $oldConnectionId)->exists())->toBeFalse();
 });
 
 test('N29 selected option decisions stay untouched across rebuild', function () {
