@@ -1131,6 +1131,9 @@
 
                                                 <div class="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-3" data-testid="connection-route-decision">
                                                     <p class="text-xs font-semibold text-gray-800">{{ $routeDecision['title'] }}</p>
+                                                    @if ($routeDecision['proposal_updated_notice'])
+                                                        <p class="mt-2 text-xs text-amber-900" data-testid="connection-proposal-updated-notice">{{ $routeDecision['proposal_updated_notice'] }}</p>
+                                                    @endif
                                                     <ol class="mt-3 list-decimal space-y-1 pl-5 text-xs text-gray-700">
                                                         @foreach ($routeDecision['steps'] as $step)
                                                             <li @class([

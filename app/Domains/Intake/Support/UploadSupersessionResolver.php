@@ -19,6 +19,11 @@ use App\Enums\FollowUpItemType;
  * wizardfoto’s wanneer een latere vervolgronde bruikbaar bewijs voor hetzelfde
  * onderwerp heeft geleverd (bijv. meterkastfoto 207 → ronde-1 upload 208).
  *
+ * Scope is per upload: decision area + dossier subject + PhotoSubject. Voor
+ * vervolgrondes komt PhotoSubject uit de content-assessment (detected) of, bij
+ * precies één geaccepteerd onderwerp op de taak, uit die taak-meta. Zo vervangt
+ * een stroomroutefoto (pipe_route) nooit meterkastbewijs (fusebox).
+ *
  * @phpstan-type SupersessionInfo array{
  *     superseded: bool,
  *     supersession_label: string|null,
@@ -68,6 +73,11 @@ final class UploadSupersessionResolver
                 continue;
             }
 
+            // Never replace across different PhotoSubjects (N28).
+            if (! $this->samePhotoSubject($upload, $solver['upload'])) {
+                continue;
+            }
+
             $result[(int) $upload->id] = [
                 'superseded' => true,
                 'supersession_label' => 'Vervangen door ronde '.(int) $solver['round_number'],
@@ -95,7 +105,10 @@ final class UploadSupersessionResolver
                     }
 
                     $solver = $this->solverForUpload($intake, $upload, $solvingByScope);
-                    $replacementId = $solver !== null ? (int) $solver['upload']->id : null;
+                    $replacementId = null;
+                    if ($solver !== null && $this->samePhotoSubject($upload, $solver['upload'])) {
+                        $replacementId = (int) $solver['upload']->id;
+                    }
 
                     $result[(int) $upload->id] = [
                         'superseded' => true,
@@ -141,7 +154,8 @@ final class UploadSupersessionResolver
                 continue;
             }
 
-            if ($photoPart !== 'photo:'.$needle['photo'] && $photoPart !== 'photo:any') {
+            // Exact photo-subject match only — never photo:any across subjects (N28).
+            if ($photoPart !== 'photo:'.$needle['photo']) {
                 continue;
             }
 
@@ -184,8 +198,7 @@ final class UploadSupersessionResolver
             }
         }
 
-        $subject = PhotoSubject::expectedForPhotoQuestion($upload->question_key)
-            ?? $upload->contentAssessment()?->expectedSubject();
+        $subject = $this->photoSubjectForUpload($upload);
 
         if (! $subject instanceof PhotoSubject) {
             return null;
@@ -223,13 +236,13 @@ final class UploadSupersessionResolver
                     continue;
                 }
 
-                $scopeKey = $this->evidenceScopeKey($intake, $item);
-                if ($scopeKey === null) {
-                    continue;
-                }
-
                 foreach ($item->uploads as $upload) {
                     if (! $this->isSolvingUpload($upload)) {
+                        continue;
+                    }
+
+                    $scopeKey = $this->evidenceScopeKeyForUpload($intake, $item, $upload);
+                    if ($scopeKey === null) {
                         continue;
                     }
 
@@ -271,11 +284,10 @@ final class UploadSupersessionResolver
     private function scopeKeyForUpload(Intake $intake, IntakeUpload $upload): ?string
     {
         if ($upload->followUpItem instanceof IntakeFollowUpItem) {
-            return $this->evidenceScopeKey($intake, $upload->followUpItem);
+            return $this->evidenceScopeKeyForUpload($intake, $upload->followUpItem, $upload);
         }
 
-        $subject = PhotoSubject::expectedForPhotoQuestion($upload->question_key)
-            ?? $upload->contentAssessment()?->expectedSubject();
+        $subject = $this->photoSubjectForUpload($upload);
 
         if (! $subject instanceof PhotoSubject) {
             return null;
@@ -311,8 +323,16 @@ final class UploadSupersessionResolver
         ]);
     }
 
-    private function evidenceScopeKey(Intake $intake, IntakeFollowUpItem $item): ?string
-    {
+    /**
+     * Scope for one follow-up upload: area + dossier subject + concrete PhotoSubject.
+     * Returns null when the photo subject cannot be resolved safely (multi-accepted
+     * subtype without a detected subject) — such uploads never supersede wizard proof.
+     */
+    private function evidenceScopeKeyForUpload(
+        Intake $intake,
+        IntakeFollowUpItem $item,
+        IntakeUpload $upload,
+    ): ?string {
         $task = $intake->contributionTasks
             ->first(static fn (ContributionTask $task): bool => $task->intake_follow_up_item_id === $item->id);
 
@@ -324,30 +344,80 @@ final class UploadSupersessionResolver
             return null;
         }
 
-        $subjectId = $task->dossier_subject_id;
-        $expected = PhotoSubject::expectedFromDecisionArea($areaKey);
-
-        if ($expected === null) {
-            foreach ($item->uploads as $upload) {
-                $assessment = $upload->contentAssessment();
-                if ($assessment instanceof PhotoContentAssessment
-                    && $assessment->expectedSubject() instanceof PhotoSubject) {
-                    $expected = $assessment->expectedSubject();
-                    break;
-                }
-
-                $fromQuestion = PhotoSubject::expectedForPhotoQuestion($upload->question_key);
-                if ($fromQuestion instanceof PhotoSubject) {
-                    $expected = $fromQuestion;
-                    break;
-                }
-            }
+        $photoSubject = $this->resolvedFollowUpPhotoSubject($task, $upload);
+        if (! $photoSubject instanceof PhotoSubject) {
+            return null;
         }
+
+        $subjectId = $task->dossier_subject_id;
 
         return implode('|', [
             $areaKey,
             $subjectId !== null ? 'subject:'.$subjectId : 'subject:none',
-            $expected instanceof PhotoSubject ? 'photo:'.$expected->value : 'photo:any',
+            'photo:'.$photoSubject->value,
         ]);
+    }
+
+    /**
+     * Prefer detected subject from structured assessment; fall back to the single
+     * accepted subject on the task (e.g. fusebox subtype). Multi-accepted tasks
+     * (power_route) without a detected subject yield null — never invent Fusebox.
+     */
+    private function resolvedFollowUpPhotoSubject(?ContributionTask $task, IntakeUpload $upload): ?PhotoSubject
+    {
+        $assessment = $upload->contentAssessment();
+        $detected = $assessment?->detectedSubject();
+        if ($detected instanceof PhotoSubject) {
+            return $detected;
+        }
+
+        $accepted = PhotoSubject::acceptedSubjectsForTask($task);
+        if (is_array($accepted) && count($accepted) === 1) {
+            return $accepted[0];
+        }
+
+        // Ambiguous (multiple accepted subjects, no detection): do not supersede.
+        if (is_array($accepted) && count($accepted) > 1) {
+            return null;
+        }
+
+        $expected = $assessment?->expectedSubject();
+        if ($expected instanceof PhotoSubject) {
+            return $expected;
+        }
+
+        return PhotoSubject::expectedForPhotoQuestion($upload->question_key)
+            ?? PhotoSubject::expectedFromDecisionArea($task?->decision_area_key);
+    }
+
+    /**
+     * Wizard uploads: subject from the question (never detected — a wrong_subject
+     * verdict must not re-scope the original ask). Follow-up uploads: detected first.
+     */
+    private function photoSubjectForUpload(IntakeUpload $upload): ?PhotoSubject
+    {
+        $assessment = $upload->contentAssessment();
+
+        if ($upload->intake_follow_up_item_id !== null
+            || $upload->followUpItem instanceof IntakeFollowUpItem) {
+            return $assessment?->detectedSubject()
+                ?? PhotoSubject::expectedForPhotoQuestion($upload->question_key)
+                ?? $assessment?->expectedSubject();
+        }
+
+        return PhotoSubject::expectedForPhotoQuestion($upload->question_key)
+            ?? $assessment?->expectedSubject();
+    }
+
+    private function samePhotoSubject(IntakeUpload $a, IntakeUpload $b): bool
+    {
+        $subjectA = $this->photoSubjectForUpload($a);
+        $subjectB = $this->photoSubjectForUpload($b);
+
+        if (! $subjectA instanceof PhotoSubject || ! $subjectB instanceof PhotoSubject) {
+            return false;
+        }
+
+        return $subjectA === $subjectB;
     }
 }

@@ -17,6 +17,7 @@ use App\Domains\AI\Services\DossierSynthesisOutputNormalizer;
 use App\Domains\AI\Services\DossierSynthesisPartialAcceptor;
 use App\Domains\AI\Services\PromptVersionRepository;
 use App\Domains\AI\Services\SurveySynthesisContextBuilder;
+use App\Domains\AI\Support\InstallerCandidateDecisionPreserver;
 use App\Domains\AI\Support\PhotoContentAssessment;
 use App\Domains\Intake\Models\AircoConnection;
 use App\Domains\Intake\Models\AircoInstallationOption;
@@ -69,6 +70,7 @@ final class SynthesizeSurveyDossier
         private readonly AiTraceRecorder $traceRecorder,
         private readonly AiTraceSnapshotService $traceSnapshots,
         private readonly AiTracePhotoRefBuilder $photoRefBuilder,
+        private readonly InstallerCandidateDecisionPreserver $candidateDecisionPreserver,
     ) {}
 
     public function handle(Intake $intake, bool $preserveProposedCustomerTasks = false): ?AiRun
@@ -343,19 +345,46 @@ final class SynthesizeSurveyDossier
         $addPlacementsOnly = $acceptedPlacements !== [] && ! $replaceOptions;
         $replaceTasks = $acceptedTasks !== [];
 
+        /** @var list<array<string, mixed>> $protectedDecisionSnapshots */
+        $protectedDecisionSnapshots = [];
+        /** @var list<int> $protectedCandidateOptionIds */
+        $protectedCandidateOptionIds = [];
+
         if ($replaceOptions) {
-            $candidateOptionIds = AircoInstallationOption::query()
+            $candidateOptions = AircoInstallationOption::query()
                 ->where('intake_id', $intake->id)
                 ->where('source_type', 'ai')
                 ->where('status', AircoOptionStatus::Candidate)
-                ->pluck('id');
+                ->with([
+                    'placements',
+                    'connections.subject.records',
+                    'connections.subject.evidenceLinks',
+                ])
+                ->get();
+
+            $protectedDecisionSnapshots = $this->candidateDecisionPreserver
+                ->snapshotProtected($candidateOptions);
+            $protectedCandidateOptionIds = array_map(
+                static fn (array $snapshot): int => (int) $snapshot['option_id'],
+                $protectedDecisionSnapshots,
+            );
+
+            // Keep Candidates with installer decisions until after reapply; delete the rest.
+            $deletableOptionIds = $candidateOptions
+                ->pluck('id')
+                ->map(static fn (mixed $id): int => (int) $id)
+                ->reject(static fn (int $id): bool => in_array($id, $protectedCandidateOptionIds, true))
+                ->values();
+
             $obsoleteSubjectIds = AircoConnection::query()
-                ->whereIn('airco_installation_option_id', $candidateOptionIds)
+                ->whereIn('airco_installation_option_id', $deletableOptionIds)
                 ->pluck('dossier_subject_id');
 
-            AircoInstallationOption::query()
-                ->whereIn('id', $candidateOptionIds)
-                ->delete();
+            if ($deletableOptionIds->isNotEmpty()) {
+                AircoInstallationOption::query()
+                    ->whereIn('id', $deletableOptionIds)
+                    ->delete();
+            }
 
             // Placement candidates are upserted below by stable identity (type + room).
             // Only clean connection subjects from the deleted options here.
@@ -531,6 +560,14 @@ final class SynthesizeSurveyDossier
                     ]);
                 }
             }
+
+            // Transfer installer decisions onto matched new Candidates, then drop the old ones.
+            // Unmatched protected Candidates stay visible so decisions are never silently wiped.
+            if ($protectedDecisionSnapshots !== []) {
+                $matchedProtectedIds = $this->candidateDecisionPreserver
+                    ->reapply($intake, $protectedDecisionSnapshots);
+                $this->deleteCandidateOptionsWithSubjects($intake, $matchedProtectedIds);
+            }
         }
 
         // Preserve: ook bij lege customer_tasks (stale AI-Proposed cancelen).
@@ -655,6 +692,33 @@ final class SynthesizeSurveyDossier
             confidence: null,
             status: DossierRecordStatus::Proposed,
         );
+    }
+
+    /**
+     * @param  list<int>  $optionIds
+     */
+    private function deleteCandidateOptionsWithSubjects(Intake $intake, array $optionIds): void
+    {
+        if ($optionIds === []) {
+            return;
+        }
+
+        $obsoleteSubjectIds = AircoConnection::query()
+            ->whereIn('airco_installation_option_id', $optionIds)
+            ->pluck('dossier_subject_id');
+
+        AircoInstallationOption::query()
+            ->where('intake_id', $intake->id)
+            ->where('source_type', 'ai')
+            ->where('status', AircoOptionStatus::Candidate)
+            ->whereIn('id', $optionIds)
+            ->delete();
+
+        DossierSubject::query()
+            ->where('intake_id', $intake->id)
+            ->whereIn('id', $obsoleteSubjectIds->filter()->unique()->values())
+            ->where('type', 'airco_connection')
+            ->delete();
     }
 
     /**
