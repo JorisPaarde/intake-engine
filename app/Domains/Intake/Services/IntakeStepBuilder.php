@@ -1087,6 +1087,10 @@ final class IntakeStepBuilder
         foreach ($steps as $index => $step) {
             $matchesKey = $step['question_key'] === $questionKey
                 || (
+                    ($step['kind'] ?? '') === 'question_group'
+                    && in_array($questionKey, $step['group_question_keys'] ?? [], true)
+                )
+                || (
                     ($step['kind'] ?? '') === 'closing_wishes'
                     && in_array($questionKey, $step['bundle_question_keys'] ?? [], true)
                 );

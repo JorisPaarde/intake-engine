@@ -21,7 +21,9 @@ use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeExternalFact;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Domains\Intake\Support\PhotoContinueAnywayAttention;
 use App\Domains\Intake\Support\PrefillSources;
+use App\Domains\Intake\Support\UploadSupersessionResolver;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
 use App\Enums\AiTraceCallType;
@@ -303,6 +305,12 @@ final class AssessFuseboxPhotos
 
                         $this->invalidateDerivedState($intake);
                         $trace->step('invalidate_previous', ['question_key' => self::PHOTO_QUESTION]);
+
+                        // N41: OK-hoofdfoto → extras zijn read-time superseded; observation
+                        // alleen op actuele (niet-superseded) uploads. Geen write op assessment.
+                        if ($hasOkMatch) {
+                            $matchingUploads = $this->currentFuseboxUploads($intake);
+                        }
 
                         $this->storeObservation($intake, $run, $output, $matchingUploads, $trace->traceId());
 
@@ -676,13 +684,48 @@ final class AssessFuseboxPhotos
     /** @return Collection<int, IntakeUpload> */
     private function allUploads(Intake $intake): Collection
     {
-        return IntakeUpload::query()
-            ->where('intake_id', $intake->id)
-            ->whereIn('question_key', [self::PHOTO_QUESTION, self::EXTRA_PHOTO_QUESTION])
-            ->whereNull('section_instance_key')
-            ->orderBy('id')
-            ->get()
+        $intake->unsetRelation('uploads');
+        $intake->load([
+            'uploads.followUpItem.round',
+            'followUpRounds.items.uploads',
+            'contributionTasks',
+            'dossierSubjects.records',
+        ]);
+
+        $uploads = $intake->uploads
+            ->filter(static function (IntakeUpload $upload): bool {
+                return in_array($upload->question_key, [self::PHOTO_QUESTION, self::EXTRA_PHOTO_QUESTION], true)
+                    && $upload->section_instance_key === null;
+            })
+            ->sortBy('id')
             ->values();
+
+        // N41: al vervallen extra-foto’s niet opnieuw in de beoordeling meenemen.
+        $supersessions = app(UploadSupersessionResolver::class)->resolve($intake);
+
+        return $uploads
+            ->filter(static function (IntakeUpload $upload) use ($supersessions): bool {
+                return PhotoContinueAnywayAttention::isCurrentWizardUpload($upload, $supersessions);
+            })
+            ->values();
+    }
+
+    /**
+     * Huidige (niet-superseded) meterkastuploads — extras vallen weg bij OK-hoofdfoto (N41).
+     *
+     * @return Collection<int, IntakeUpload>
+     */
+    private function currentFuseboxUploads(Intake $intake): Collection
+    {
+        $intake->unsetRelation('uploads');
+        $intake->load([
+            'uploads.followUpItem.round',
+            'followUpRounds.items.uploads',
+            'contributionTasks',
+            'dossierSubjects.records',
+        ]);
+
+        return $this->allUploads($intake);
     }
 
     /**

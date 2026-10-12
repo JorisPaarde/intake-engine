@@ -3194,6 +3194,10 @@ class IntakeWizard extends Component
             'prefill_source' => (string) $answer->prefill_source,
             'value' => is_array($answer->value) ? $answer->value : null,
         ];
+        // Oppervlak zit in de L×B-groep (#176); toon het m²-veld met bekende waarde.
+        if ($questionKey === 'room_area_m2') {
+            $this->showAreaOnlyField = true;
+        }
         $this->forgetIntakeDerivedCaches();
 
         $steps = $this->steps();
@@ -3280,17 +3284,9 @@ class IntakeWizard extends Component
             $beforeIndex = app(IntakeStepBuilder::class)->indexForStepKey($stepsBeforeSave, $currentKey);
             $currentStep = $beforeIndex === null ? null : $stepsBeforeSave[$beforeIndex];
         }
-        $leavingForcedEdit = false;
-        if ($currentStep !== null && ($currentStep['kind'] ?? 'question') !== 'known_summary') {
-            $leavingForcedEdit = in_array(
-                VisibilityResolver::compositeKey(
-                    $currentStep['question_key'],
-                    $currentStep['section_instance_key'],
-                ),
-                $this->forceShowKnown,
-                true,
-            );
-        }
+        $leavingForcedEdit = $currentStep !== null
+            && ($currentStep['kind'] ?? 'question') !== 'known_summary'
+            && $this->forcedKnownCompositesOnStep($currentStep) !== [];
 
         if ($currentStep !== null) {
             $this->saveStep($currentStep);
@@ -3492,17 +3488,9 @@ class IntakeWizard extends Component
             $beforeIndex = app(IntakeStepBuilder::class)->indexForStepKey($stepsBeforeSave, $currentKey);
             $currentStep = $beforeIndex === null ? null : $stepsBeforeSave[$beforeIndex];
         }
-        $leavingForcedEdit = false;
-        if ($currentStep !== null && ($currentStep['kind'] ?? 'question') !== 'known_summary') {
-            $leavingForcedEdit = in_array(
-                VisibilityResolver::compositeKey(
-                    $currentStep['question_key'],
-                    $currentStep['section_instance_key'],
-                ),
-                $this->forceShowKnown,
-                true,
-            );
-        }
+        $leavingForcedEdit = $currentStep !== null
+            && ($currentStep['kind'] ?? 'question') !== 'known_summary'
+            && $this->forcedKnownCompositesOnStep($currentStep) !== [];
 
         if ($currentStep !== null) {
             $this->saveStep($currentStep);
@@ -3945,6 +3933,7 @@ class IntakeWizard extends Component
 
     /**
      * Forced known-edit afronden (zonder navigatie). Gebruikt door leaveForcedKnownEdit en goToStep.
+     * Bij question_group (bijv. room_area_m2 in room_dimensions) alle geforceerde leden afronden.
      */
     private function finalizeForcedKnownEditIfOnForcedStep(): void
     {
@@ -3953,19 +3942,56 @@ class IntakeWizard extends Component
             return;
         }
 
-        $questionKey = $currentStep['question_key'];
-        $instanceKey = $currentStep['section_instance_key'];
-        $composite = VisibilityResolver::compositeKey($questionKey, $instanceKey);
-        if (! in_array($composite, $this->forceShowKnown, true)) {
-            return;
+        $instanceKey = $currentStep['section_instance_key'] ?? null;
+        foreach ($this->forcedKnownCompositesOnStep($currentStep) as $composite) {
+            [$questionKey] = $this->splitComposite($composite);
+            $saved = $this->answerForQuestion($questionKey, $instanceKey);
+            $this->finalizeForcedKnownEdit(
+                $questionKey,
+                $instanceKey,
+                is_array($saved?->value) ? $saved->value : [],
+            );
         }
 
-        $saved = $this->answerForQuestion($questionKey, $instanceKey);
-        $this->finalizeForcedKnownEdit(
-            $questionKey,
-            $instanceKey,
-            is_array($saved?->value) ? $saved->value : [],
-        );
+        $this->showAreaOnlyField = false;
+    }
+
+    /**
+     * Composites in forceShowKnown die bij deze stap horen (primaire key of group-leden).
+     *
+     * @param  array{
+     *     question_key: string,
+     *     section_instance_key: string|null,
+     *     kind?: string,
+     *     group_question_keys?: list<string>
+     * }  $step
+     * @return list<string>
+     */
+    private function forcedKnownCompositesOnStep(array $step): array
+    {
+        if ($this->forceShowKnown === []) {
+            return [];
+        }
+
+        $instanceKey = $step['section_instance_key'] ?? null;
+        $keys = [$step['question_key']];
+        if (($step['kind'] ?? 'question') === 'question_group') {
+            foreach ($step['group_question_keys'] ?? [] as $groupKey) {
+                if ($groupKey !== '') {
+                    $keys[] = $groupKey;
+                }
+            }
+        }
+
+        $forced = [];
+        foreach (array_values(array_unique($keys)) as $questionKey) {
+            $composite = VisibilityResolver::compositeKey($questionKey, $instanceKey);
+            if (in_array($composite, $this->forceShowKnown, true)) {
+                $forced[] = $composite;
+            }
+        }
+
+        return $forced;
     }
 
     private function answerForQuestion(string $questionKey, ?string $instanceKey): ?IntakeAnswer
