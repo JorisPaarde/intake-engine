@@ -123,7 +123,61 @@ final class UploadSupersessionResolver
             }
         }
 
+        // N41: verweesde fusebox_photo_extra wanneer de hoofdfoto opnieuw OK is.
+        $this->markObsoleteFuseboxExtraUploads($intake, $result);
+
         return $result;
+    }
+
+    /**
+     * Extra scherpere-meterkastfoto vervalt zodra de hoofdvraag een OK-beoordeling heeft
+     * (vervolgvraag niet meer zichtbaar). Geen soft-delete — undo/snapshot blijft intact.
+     *
+     * @param  array<int, SupersessionInfo>  $result
+     */
+    private function markObsoleteFuseboxExtraUploads(Intake $intake, array &$result): void
+    {
+        $primaryOkId = null;
+        foreach ($intake->uploads as $upload) {
+            if ($upload->question_key !== 'fusebox_photo'
+                || $upload->section_instance_key !== null
+                || $upload->intake_follow_up_item_id !== null) {
+                continue;
+            }
+
+            $assessment = $upload->contentAssessment();
+            if ($assessment instanceof PhotoContentAssessment
+                && $assessment->status() === PhotoContentAssessment::STATUS_OK) {
+                $id = (int) $upload->id;
+                if ($primaryOkId === null || $id > $primaryOkId) {
+                    $primaryOkId = $id;
+                }
+            }
+        }
+
+        if ($primaryOkId === null) {
+            return;
+        }
+
+        foreach ($intake->uploads as $upload) {
+            if ($upload->question_key !== 'fusebox_photo_extra'
+                || $upload->section_instance_key !== null
+                || $upload->intake_follow_up_item_id !== null) {
+                continue;
+            }
+
+            $id = (int) $upload->id;
+            $existing = $result[$id] ?? null;
+            if (is_array($existing) && $existing['superseded'] === true) {
+                continue;
+            }
+
+            $result[$id] = [
+                'superseded' => true,
+                'supersession_label' => 'Vervallen — meterkastfoto is duidelijk',
+                'replaced_by_upload_id' => $primaryOkId,
+            ];
+        }
     }
 
     /**

@@ -21,7 +21,9 @@ use App\Domains\Intake\Models\IntakeActivityEvent;
 use App\Domains\Intake\Models\IntakeAnswer;
 use App\Domains\Intake\Models\IntakeExternalFact;
 use App\Domains\Intake\Models\IntakeUpload;
+use App\Domains\Intake\Support\PhotoContinueAnywayAttention;
 use App\Domains\Intake\Support\PrefillSources;
+use App\Domains\Intake\Support\UploadSupersessionResolver;
 use App\Enums\AiRunStatus;
 use App\Enums\AiRunType;
 use App\Enums\AiTraceCallType;
@@ -66,6 +68,12 @@ final class AssessFuseboxPhotos
             $this->invalidateDerivedState($intake);
 
             return null;
+        }
+
+        // N41: ook zonder nieuwe AI-run — OK-hoofdfoto maakt extra-uploads + Toch-doorgaan overbodig.
+        if ($this->hasOkPrimaryUpload($allUploads)) {
+            $this->retireObsoleteExtraEvidence($intake);
+            $allUploads = $this->allUploads($intake);
         }
 
         $expected = PhotoSubject::Fusebox;
@@ -303,6 +311,13 @@ final class AssessFuseboxPhotos
 
                         $this->invalidateDerivedState($intake);
                         $trace->step('invalidate_previous', ['question_key' => self::PHOTO_QUESTION]);
+
+                        // N41: hoofdfoto OK → extra-uploads superseden + Toch-doorgaan wissen
+                        // vóór observation/clarity (herbeoordeling op actuele uploads).
+                        if ($hasOkMatch) {
+                            $this->retireObsoleteExtraEvidence($intake);
+                            $matchingUploads = $this->currentFuseboxUploads($intake);
+                        }
 
                         $this->storeObservation($intake, $run, $output, $matchingUploads, $trace->traceId());
 
@@ -676,13 +691,90 @@ final class AssessFuseboxPhotos
     /** @return Collection<int, IntakeUpload> */
     private function allUploads(Intake $intake): Collection
     {
-        return IntakeUpload::query()
-            ->where('intake_id', $intake->id)
-            ->whereIn('question_key', [self::PHOTO_QUESTION, self::EXTRA_PHOTO_QUESTION])
-            ->whereNull('section_instance_key')
-            ->orderBy('id')
-            ->get()
+        $intake->unsetRelation('uploads');
+        $intake->load([
+            'uploads.followUpItem.round',
+            'followUpRounds.items.uploads',
+            'contributionTasks',
+            'dossierSubjects.records',
+        ]);
+
+        $uploads = $intake->uploads
+            ->filter(static function (IntakeUpload $upload): bool {
+                return in_array($upload->question_key, [self::PHOTO_QUESTION, self::EXTRA_PHOTO_QUESTION], true)
+                    && $upload->section_instance_key === null;
+            })
+            ->sortBy('id')
             ->values();
+
+        // N41: al vervallen extra-foto’s niet opnieuw in de beoordeling meenemen.
+        $supersessions = app(UploadSupersessionResolver::class)->resolve($intake);
+
+        return $uploads
+            ->filter(static function (IntakeUpload $upload) use ($supersessions): bool {
+                return PhotoContinueAnywayAttention::isCurrentWizardUpload($upload, $supersessions);
+            })
+            ->values();
+    }
+
+    /**
+     * Huidige (niet-superseded) meterkastuploads na N41-opschoning.
+     *
+     * @return Collection<int, IntakeUpload>
+     */
+    private function currentFuseboxUploads(Intake $intake): Collection
+    {
+        $intake->unsetRelation('uploads');
+        $intake->load('uploads');
+
+        return $this->allUploads($intake);
+    }
+
+    /**
+     * @param  Collection<int, IntakeUpload>  $uploads
+     */
+    private function hasOkPrimaryUpload(Collection $uploads): bool
+    {
+        foreach ($uploads as $upload) {
+            if ($upload->question_key !== self::PHOTO_QUESTION) {
+                continue;
+            }
+            if ($upload->contentAssessment()?->status() === PhotoContentAssessment::STATUS_OK) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * N41: wis Toch-doorgaan alleen op verweesde extra-uploads (superseded).
+     * Niet op eerdere hoofdfoto’s — N19: OK + afgekeurde hoofdfoto met override blijft
+     * een Actueel-punt (“1 van de 2 … Toch doorgaan”).
+     */
+    private function retireObsoleteExtraEvidence(Intake $intake): void
+    {
+        $intake->unsetRelation('uploads');
+        $intake->load('uploads');
+        $supersessions = app(UploadSupersessionResolver::class)->resolve($intake);
+
+        foreach ($intake->uploads as $upload) {
+            if ($upload->question_key !== self::EXTRA_PHOTO_QUESTION
+                || $upload->section_instance_key !== null
+                || $upload->intake_follow_up_item_id !== null) {
+                continue;
+            }
+
+            $info = $supersessions[(int) $upload->id] ?? null;
+            if (! is_array($info) || $info['superseded'] !== true) {
+                continue;
+            }
+
+            $assessment = $upload->contentAssessment();
+            if ($assessment instanceof PhotoContentAssessment && $assessment->customerAcceptedOverride()) {
+                $upload->storeContentAssessment($assessment->withoutCustomerAcceptedOverride());
+            }
+        }
     }
 
     /**

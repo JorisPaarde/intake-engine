@@ -12,6 +12,7 @@ use App\Domains\Intake\Models\Intake;
 use App\Domains\Intake\Models\IntakeTemplate;
 use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\DossierManager;
+use App\Domains\Intake\Support\FactProvenance;
 use App\Domains\Intake\Support\PrefillSources;
 use App\Enums\FollowUpItemType;
 use App\Enums\IntakeStatus;
@@ -50,6 +51,7 @@ final class E2eScenarioFactory
             'feedback' => $this->feedbackReady(),
             'room-name-autosave' => $this->roomNameAutosave(),
             'resume-after-known-edit' => $this->resumeAfterKnownEdit(),
+            'n37-edit-known-area' => $this->n37EditKnownArea(),
             'n30-accessibility-catchup' => $this->n30AccessibilityCatchup(),
             'n3-drain-choice-upload' => $this->n3DrainChoiceUpload(),
             default => throw new \InvalidArgumentException('Unknown E2E scenario: '.$scenario),
@@ -283,6 +285,49 @@ final class E2eScenarioFactory
 
         return $this->payload($intake, 'resume-after-known-edit', [
             'target_question_key' => 'cooling_heating',
+        ]);
+    }
+
+    /**
+     * N37: trusted oppervlak (m²) in known-summary — Wijzigen moet matenscherm + m² openen.
+     *
+     * @return array<string, mixed>
+     */
+    private function n37EditKnownArea(): array
+    {
+        E2eAiScenario::set(E2eAiScenario::GOOD_PHOTO);
+
+        $intake = $this->baseIntake([
+            'customer_name' => 'E2E N37',
+            'customer_email' => 'e2e-n37@example.com',
+            'request_reason' => 'Airco in de woonkamer (ca. 30 m2, begane grond).',
+        ]);
+
+        $this->saveAnswer->handle($intake, 'indoor_unit_count', null, ['number' => 1], PrefillSources::REQUEST_TEXT);
+        $this->saveAnswer->handle($intake, 'cooling_heating', null, ['value' => 'cooling'], PrefillSources::REQUEST_TEXT);
+        $this->saveAnswer->handle($intake, 'room_type', 'room-1', ['value' => 'living_room'], PrefillSources::REQUEST_TEXT);
+        $this->saveAnswer->handle(
+            $intake,
+            'room_area_m2',
+            'room-1',
+            ['number' => 30],
+            PrefillSources::REQUEST_TEXT,
+            FactProvenance::Stated,
+            90,
+            'ca. 30 m2',
+        );
+        $this->saveAnswer->handle($intake, 'floor_level', 'room-1', ['value' => '0'], PrefillSources::REQUEST_TEXT);
+
+        $this->dossierManager->initialize($intake->fresh() ?? $intake);
+
+        $intake->update([
+            'current_section_key' => 'request',
+            'current_question_key' => '_known_summary',
+            'current_section_instance_key' => null,
+        ]);
+
+        return $this->payload($intake, 'n37-edit-known-area', [
+            'target_question_key' => 'room_area_m2',
         ]);
     }
 
