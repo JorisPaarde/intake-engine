@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Domains\AI\Jobs\SuggestAttentionPointsJob;
 use App\Domains\AI\Jobs\SummarizeIntakeJob;
+use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
 use App\Domains\Intake\Actions\CompleteIntake;
 use App\Domains\Intake\Actions\DeleteIntakeUpload;
 use App\Domains\Intake\Actions\GenerateIntakePdf;
@@ -446,9 +447,12 @@ test('customer completes text and photo follow up and dossier returns for review
         ->and($intake->report->html)->toContain('Beoordeel de aangeleverde aanvulling');
 
     Mail::assertSent(InstallerIntakeCompletedMail::class);
-    Queue::assertPushed(SuggestAttentionPointsJob::class, fn (SuggestAttentionPointsJob $job): bool => $job->intakeId === $intake->id);
-    // N58: AI-voorstel in het rapport moet de ronde-antwoorden meenemen.
-    Queue::assertPushed(SummarizeIntakeJob::class, fn (SummarizeIntakeJob $job): bool => $job->intakeId === $intake->id);
+    // N58: AI-voorstel in het rapport moet de ronde-antwoorden meenemen (zelfde keten als CompleteIntake).
+    Queue::assertPushedWithChain(
+        SummarizeIntakeJob::class,
+        [SuggestAttentionPointsJob::class, SynthesizeSurveyDossierJob::class],
+        fn (SummarizeIntakeJob $job): bool => $job->intakeId === $intake->id,
+    );
 
     $this->get(route('customer.intake.show', $intake->access_token))
         ->assertStatus(410)
