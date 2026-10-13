@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domains\Intake\Actions;
 
 use App\Domains\AI\Jobs\SuggestAttentionPointsJob;
+use App\Domains\AI\Jobs\SummarizeIntakeJob;
 use App\Domains\AI\Jobs\SynthesizeSurveyDossierJob;
 use App\Domains\Intake\Jobs\GenerateIntakePdfJob;
 use App\Domains\Intake\Models\ContributionTask;
@@ -158,6 +159,10 @@ final class CompleteFollowUpRound
         }
 
         SuggestAttentionPointsJob::dispatch($completed->id);
+        // N58: the report's "AI-voorstel" summary was only generated at wizard
+        // completion, so later round answers (e.g. "3x25A") never reached it.
+        // SummarizeIntake already includes follow_up in its payload.
+        SummarizeIntakeJob::dispatch($completed->id);
 
         if (! $completed->is_demo) {
             GenerateIntakePdfJob::dispatch($completed->id);
