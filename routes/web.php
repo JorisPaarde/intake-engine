@@ -116,7 +116,7 @@ Route::middleware(['auth', 'verified', 'public.demo.scope'])->group(function () 
     Route::post('/intakes/{intake}/opname/customer-tasks/quick', [SurveyWorkspaceController::class, 'requestQuickContribution'])->name('intakes.workspace.tasks.quick');
     Route::post('/intakes/{intake}/opname/routes/{session}/synthesize', [SurveyWorkspaceController::class, 'synthesizeRoute'])->name('intakes.workspace.routes.synthesize');
     Route::post('/intakes/{intake}/opname/routes/{session}/approve', [SurveyWorkspaceController::class, 'approveRoute'])->name('intakes.workspace.routes.approve');
-    Route::post('/intakes/{intake}/opname/connections/{connection}/decide', [SurveyWorkspaceController::class, 'decideConnection'])->whereNumber('connection')->name('intakes.workspace.connections.decide');
+    Route::post('/intakes/{intake}/opname/connections/{connection}/decide', [SurveyWorkspaceController::class, 'decideConnection'])->where('connection', '[0-9]{1,18}')->name('intakes.workspace.connections.decide');
     Route::post('/intakes/{intake}/opname/customer-tasks/{task}/send', [SurveyWorkspaceController::class, 'sendProposedTask'])->name('intakes.workspace.tasks.send');
     Route::post('/intakes/{intake}/opname/complete', [SurveyWorkspaceController::class, 'complete'])->name('intakes.workspace.complete');
     Route::post('/intakes/{intake}/opname/outcome', [SurveyWorkspaceController::class, 'recordOutcome'])->name('intakes.workspace.outcome');

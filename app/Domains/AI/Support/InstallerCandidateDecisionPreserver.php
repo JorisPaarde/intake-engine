@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Domains\AI\Support;
 
-use App\Domains\Intake\Actions\ResolveAircoConnection;
 use App\Domains\Intake\Models\AircoConnection;
 use App\Domains\Intake\Models\AircoInstallationOption;
 use App\Domains\Intake\Models\ContributionTask;
@@ -275,13 +274,10 @@ final class InstallerCandidateDecisionPreserver
                 ? $connection->approved_at->toIso8601String()
                 : null,
             'segments' => $segments,
-            'fingerprint' => ResolveAircoConnection::fingerprint($connection),
             'supersedes' => is_array($subject->meta['supersedes_connection_ids'] ?? null)
                 ? $subject->meta['supersedes_connection_ids']
                 : [],
-            'supersedes_fingerprints' => is_array($subject->meta['supersedes_fingerprints'] ?? null)
-                ? $subject->meta['supersedes_fingerprints']
-                : [],
+            'proposal_updated' => ($subject->meta[self::META_PROPOSAL_UPDATED] ?? false) === true,
             'label' => $connection->label,
             'notes' => $notes,
             'evidence' => $evidence,
@@ -426,35 +422,24 @@ final class InstallerCandidateDecisionPreserver
 
         $meta = is_array($subject->meta) ? $subject->meta : [];
         // N46: stable successor map so stale workspace POSTs resolve to the new connection.
-        // Fingerprints record what each superseded connection looked like, so a stale click
-        // is only applied when the successor is substantively the same proposal.
         if ($oldConnectionId !== null && $oldConnectionId !== $match->id) {
             $supersedes = is_array($meta['supersedes_connection_ids'] ?? null)
                 ? $meta['supersedes_connection_ids']
                 : [];
-            $fingerprints = is_array($meta['supersedes_fingerprints'] ?? null)
-                ? $meta['supersedes_fingerprints']
-                : [];
 
             // Carry the chain: ids the old subject itself superseded (A→B→C).
             $inherited = is_array($connectionSnap['supersedes'] ?? null) ? $connectionSnap['supersedes'] : [];
-            $inheritedFingerprints = is_array($connectionSnap['supersedes_fingerprints'] ?? null)
-                ? $connectionSnap['supersedes_fingerprints']
-                : [];
             $supersedes = [...$supersedes, ...$inherited, $oldConnectionId];
-            $fingerprints = array_replace($fingerprints, $inheritedFingerprints);
-            if (is_string($connectionSnap['fingerprint'] ?? null)) {
-                $fingerprints[(string) $oldConnectionId] = $connectionSnap['fingerprint'];
-            }
 
             $meta['supersedes_connection_ids'] = array_values(array_unique(array_map(
                 static fn (mixed $id): int => (int) $id,
                 $supersedes,
             )));
-            $meta['supersedes_fingerprints'] = $fingerprints;
         }
 
-        $proposalUpdated = $this->proposalContentChanged($match, $connectionSnap);
+        // A change earlier in the chain stays flagged, so a stale click on A never skips it.
+        $proposalUpdated = $this->proposalContentChanged($match, $connectionSnap)
+            || ($connectionSnap['proposal_updated'] ?? false) === true;
         if ($proposalUpdated) {
             $meta[self::META_PROPOSAL_UPDATED] = true;
         }

@@ -75,7 +75,6 @@ function n46SurveyWithSuccessor(): array
         'status' => AircoConnectionStatus::Proposed,
     ]);
     $oldId = (int) $old->id;
-    $oldFingerprint = ResolveAircoConnection::fingerprint($old);
 
     // Simuleer AI-heropbouw: oude verbinding weg, opvolger met supersedes-meta.
     DossierSubject::query()->whereKey($old->dossier_subject_id)->delete();
@@ -91,7 +90,6 @@ function n46SurveyWithSuccessor(): array
     $subject = $successor->subject;
     $meta = is_array($subject->meta) ? $subject->meta : [];
     $meta['supersedes_connection_ids'] = [$oldId];
-    $meta['supersedes_fingerprints'] = [(string) $oldId => $oldFingerprint];
     $subject->update(['meta' => $meta]);
 
     return [
@@ -232,20 +230,39 @@ test('N46: stale klik op opvolger met gewijzigd voorstel wordt niet toegepast', 
     expect($changed->fresh()->status)->not->toBe(AircoConnectionStatus::NotRemotelyResolvable);
 });
 
-test('N46: stale klik op inhoudelijk gelijk voorstel wordt wel toegepast, ook over keten A→B→C', function () {
+test('N46: stale klik op opvolger met eigen installateursbeslissing overschrijft niets', function () {
+    ['intake' => $intake, 'user' => $user, 'oldId' => $oldId, 'successor' => $successor] = n46SurveyWithSuccessor();
+    $successor->update(['status' => AircoConnectionStatus::Approved]);
+
+    expect(fn () => app(DecideAircoConnection::class)->handle($intake, $oldId, $user, 'site_visit'))
+        ->toThrow(ValidationException::class, ResolveAircoConnection::MESSAGE_PROPOSAL_REFRESHED);
+
+    expect($successor->fresh()->status)->toBe(AircoConnectionStatus::Approved);
+});
+
+test('N46: wijziging eerder in de keten A→B→C blijft gemarkeerd voor een stale klik op A', function () {
     ['intake' => $intake, 'user' => $user, 'successor' => $a] = n46SurveyWithSuccessor();
     $a->update(['status' => AircoConnectionStatus::Approved]);
     $a->installationOption->update(['source_type' => 'ai', 'status' => AircoOptionStatus::Candidate]);
     $a = $a->fresh();
 
-    $b = n46Rebuild($intake, $user, $a, []);
+    $b = n46Rebuild($intake, $user, $a, ['Nieuw traject']);
     $b->installationOption->update(['source_type' => 'ai', 'status' => AircoOptionStatus::Candidate]);
-    $c = n46Rebuild($intake, $user, $b->fresh(), []);
+    $c = n46Rebuild($intake, $user, $b->fresh(), ['Nieuw traject']);
 
     $ids = $c->subject->fresh()->meta['supersedes_connection_ids'];
     expect($ids)->toContain($a->id)->toContain($b->id);
 
     foreach ([$a->id, $b->id] as $staleId) {
-        expect(app(ResolveAircoConnection::class)->handle($intake->fresh(), $staleId)->id)->toBe($c->id);
+        expect(fn () => app(ResolveAircoConnection::class)->handle($intake->fresh(), $staleId))
+            ->toThrow(ValidationException::class, ResolveAircoConnection::MESSAGE_PROPOSAL_REFRESHED);
     }
+});
+
+test('N46: connection-id van 20 cijfers geeft 404', function () {
+    ['intake' => $intake, 'user' => $user] = n46SurveyWithSuccessor();
+
+    $this->actingAs($user)
+        ->post("/intakes/{$intake->id}/opname/connections/12345678901234567890/decide", ['decision' => 'approve'])
+        ->assertNotFound();
 });
