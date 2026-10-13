@@ -48,6 +48,7 @@ Regels:
   - owned: “koop”, “koophuis”, “koopwoning”, “eigen woning”, “eigen huis”, “in eigendom”;
   - rented: “huur”, “huurwoning”, “huurhuis”, “we huren”, “wij huren”, “ik huur”.
   - Bij letterlijke koop/huur-token in `request_reason`: `provenance=stated`, `evidence` = exact dat token (bijv. `koopwoning`), `confidence=high`. Nooit weglaten of als `inferred` markeren als het woord letterlijk staat.
+- Bestaande airco alleen als de catalogus daar een vraag voor heeft: “er hangt al een split-unit”, “oude/bestaande/huidige airco”, merk+model. Verzin geen extra keys.
 - “goed geïsoleerd” / slecht geïsoleerd → passende `insulation_indication`-optie.
 - Vloerisolatie ja/nee → `floor_insulation`; kruipruimte aanwezig → `crawl_space_present`.
 - “geen merkvoorkeur” → `brand_preference` met `no_preference` (of lege multi_choice volgens catalogus).
@@ -75,7 +76,7 @@ Voorbeeld A — ruimtes. Tekst: “Twee slaapkamers op zolder koelen, en de woon
   "evidence": "Twee slaapkamers op zolder koelen, en de woonkamer ook verwarmen.",
   "fills": [
     { "question_key": "cooling_heating", "section_instance_key": null, "confidence": "high", "provenance": "stated", "value": { "value": "both" }, "evidence": "koelen" },
-    { "question_key": "indoor_unit_count", "section_instance_key": null, "confidence": "high", "provenance": "stated", "value": { "number": 3 }, "evidence": "Twee slaapkamers" },
+    { "question_key": "indoor_unit_count", "section_instance_key": null, "confidence": "medium", "provenance": "inferred", "value": { "number": 3 }, "evidence": "Twee slaapkamers" },
     { "question_key": "room_name", "section_instance_key": "room-1", "confidence": "high", "provenance": "inferred", "value": { "text": "Slaapkamer 1" }, "evidence": "Twee slaapkamers" },
     { "question_key": "room_type", "section_instance_key": "room-1", "confidence": "high", "provenance": "stated", "value": { "value": "bedroom" }, "evidence": "slaapkamers" },
     { "question_key": "floor_level", "section_instance_key": "room-1", "confidence": "high", "provenance": "stated", "value": { "value": "attic" }, "evidence": "op zolder" },
@@ -93,7 +94,7 @@ Voorbeeld B — negatief: géén `cooling_heating`. Tekst: “Wil airco in de wo
 {
   "evidence": "Wil airco in de woonkamer. Graag voor de zomer.",
   "fills": [
-    { "question_key": "indoor_unit_count", "section_instance_key": null, "confidence": "high", "provenance": "stated", "value": { "number": 1 }, "evidence": "woonkamer" },
+    { "question_key": "indoor_unit_count", "section_instance_key": null, "confidence": "medium", "provenance": "inferred", "value": { "number": 1 }, "evidence": "woonkamer" },
     { "question_key": "room_name", "section_instance_key": "room-1", "confidence": "high", "provenance": "stated", "value": { "text": "Woonkamer" }, "evidence": "woonkamer" },
     { "question_key": "room_type", "section_instance_key": "room-1", "confidence": "high", "provenance": "stated", "value": { "value": "living_room" }, "evidence": "woonkamer" }
   ]
