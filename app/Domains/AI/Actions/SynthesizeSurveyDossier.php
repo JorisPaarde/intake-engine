@@ -30,6 +30,7 @@ use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\DecisionReadinessService;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Support\CustomerFacingTaskText;
+use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
 use App\Enums\AircoOptionStatus;
 use App\Enums\AiRunStatus;
@@ -759,6 +760,15 @@ final class SynthesizeSurveyDossier
             ->with('placements')
             ->get()
             ->filter(function (AircoInstallationOption $candidate) use ($selectedKeys): bool {
+                // Never drop a rebuilt proposal that carries a preserved installer decision.
+                $hasDecision = AircoConnection::query()
+                    ->where('airco_installation_option_id', $candidate->id)
+                    ->whereIn('status', [AircoConnectionStatus::Approved, AircoConnectionStatus::NotRemotelyResolvable])
+                    ->exists();
+                if ($hasDecision) {
+                    return false;
+                }
+
                 $key = $this->optionIdentityKey($candidate);
 
                 return $key !== null && in_array($key, $selectedKeys, true);

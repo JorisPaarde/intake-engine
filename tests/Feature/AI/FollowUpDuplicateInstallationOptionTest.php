@@ -139,6 +139,81 @@ test('follow-up synthesis maakt geen tweede Candidate naast geselecteerd voorste
         ->and($options->first()->id)->toBe($selected->id);
 });
 
+test('follow-up synthesis verwijdert geen Candidate met goedgekeurde installateursbeslissing', function () {
+    $user = User::factory()->create();
+    $intake = app(CreateIntake::class)->handle($user, [
+        'template_key' => 'airco',
+        'workflow_mode' => ContributionMode::Installer,
+        'customer_name' => 'Dupe Besluit',
+        'customer_email' => 'dupe-besluit@example.com',
+        'address_line' => 'Voorstel 2',
+        'address_postal_code' => '1000AA',
+        'address_house_number' => 2,
+        'address_city' => 'Amsterdam',
+    ]);
+    app(DossierManager::class)->initialize($intake);
+
+    $survey = app(AircoSurveyService::class);
+    $room = $survey->createRoom($intake, $user, [
+        'name' => 'Woonkamer',
+        'use_type' => 'living_room',
+        'length_m' => 5,
+        'width_m' => 4,
+        'height_m' => 2.5,
+    ]);
+    $inside = $survey->createPlacement($intake, $user, [
+        'airco_room_id' => $room->id,
+        'type' => AircoPlacementType::IndoorUnit,
+        'label' => 'Binnenunit woonkamer',
+    ]);
+    $outside = $survey->createPlacement($intake, $user, [
+        'type' => AircoPlacementType::OutdoorUnit,
+        'label' => 'Buitenunit tuin',
+    ]);
+
+    $makeOption = function (AircoOptionStatus $status) use ($survey, $intake, $user, $inside, $outside) {
+        $option = $survey->createInstallationOption($intake, $user, [
+            'label' => 'Single-split systeem',
+            'configuration_type' => AircoConfigurationType::SingleSplit,
+            'placement_ids' => [$inside->id, $outside->id],
+        ]);
+        $option->update([
+            'status' => $status,
+            'feasibility' => AircoOptionFeasibility::Feasible,
+            'source_type' => 'ai',
+        ]);
+
+        return $option;
+    };
+
+    $selected = $makeOption(AircoOptionStatus::Selected);
+    $candidate = $makeOption(AircoOptionStatus::Candidate);
+    $survey->createConnection($intake, $user, $candidate, [
+        'type' => AircoConnectionType::Power,
+        'label' => 'Stroomtoevoer buitenunit',
+        'from_placement_id' => null,
+        'to_placement_id' => $outside->id,
+        'status' => AircoConnectionStatus::Approved,
+    ]);
+
+    FakeAiClient::respondUsing(
+        static fn (AiCompletionRequest $request): array => dupeSynthesisOutput($request),
+    );
+
+    expect(app(SynthesizeSurveyDossier::class)->handle($intake->fresh()))->not->toBeNull();
+
+    $candidates = AircoInstallationOption::query()
+        ->where('intake_id', $intake->id)
+        ->where('status', AircoOptionStatus::Candidate)
+        ->with('connections')
+        ->get();
+
+    expect(AircoInstallationOption::query()->whereKey($selected->id)->exists())->toBeTrue()
+        ->and($candidates)->toHaveCount(1)
+        ->and($candidates->first()->connections->pluck('status'))
+        ->toContain(AircoConnectionStatus::Approved);
+});
+
 test('opties zonder placements zijn nooit duplicaat van elkaar', function () {
     $key = new ReflectionMethod(SynthesizeSurveyDossier::class, 'optionIdentityKey');
     $option = new AircoInstallationOption(['configuration_type' => AircoConfigurationType::SingleSplit]);
