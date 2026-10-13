@@ -274,6 +274,10 @@ final class InstallerCandidateDecisionPreserver
                 ? $connection->approved_at->toIso8601String()
                 : null,
             'segments' => $segments,
+            'supersedes' => is_array($subject->meta['supersedes_connection_ids'] ?? null)
+                ? $subject->meta['supersedes_connection_ids']
+                : [],
+            'proposal_updated' => ($subject->meta[self::META_PROPOSAL_UPDATED] ?? false) === true,
             'label' => $connection->label,
             'notes' => $notes,
             'evidence' => $evidence,
@@ -416,10 +420,31 @@ final class InstallerCandidateDecisionPreserver
             }
         }
 
-        $proposalUpdated = $this->proposalContentChanged($match, $connectionSnap);
+        $meta = is_array($subject->meta) ? $subject->meta : [];
+        // N46: stable successor map so stale workspace POSTs resolve to the new connection.
+        if ($oldConnectionId !== null && $oldConnectionId !== $match->id) {
+            $supersedes = is_array($meta['supersedes_connection_ids'] ?? null)
+                ? $meta['supersedes_connection_ids']
+                : [];
+
+            // Carry the chain: ids the old subject itself superseded (A→B→C).
+            $inherited = is_array($connectionSnap['supersedes'] ?? null) ? $connectionSnap['supersedes'] : [];
+            $supersedes = [...$supersedes, ...$inherited, $oldConnectionId];
+
+            $meta['supersedes_connection_ids'] = array_values(array_unique(array_map(
+                static fn (mixed $id): int => (int) $id,
+                $supersedes,
+            )));
+        }
+
+        // A change earlier in the chain stays flagged, so a stale click on A never skips it.
+        $proposalUpdated = $this->proposalContentChanged($match, $connectionSnap)
+            || ($connectionSnap['proposal_updated'] ?? false) === true;
         if ($proposalUpdated) {
-            $meta = is_array($subject->meta) ? $subject->meta : [];
             $meta[self::META_PROPOSAL_UPDATED] = true;
+        }
+
+        if ($meta !== (is_array($subject->meta) ? $subject->meta : [])) {
             $subject->update(['meta' => $meta]);
         }
 

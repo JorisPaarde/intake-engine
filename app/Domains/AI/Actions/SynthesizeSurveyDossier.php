@@ -30,6 +30,7 @@ use App\Domains\Intake\Models\IntakeUpload;
 use App\Domains\Intake\Services\DecisionReadinessService;
 use App\Domains\Intake\Services\DossierManager;
 use App\Domains\Intake\Support\CustomerFacingTaskText;
+use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
 use App\Enums\AircoOptionStatus;
 use App\Enums\AiRunStatus;
@@ -568,6 +569,11 @@ final class SynthesizeSurveyDossier
                     ->reapply($intake, $protectedDecisionSnapshots);
                 $this->deleteCandidateOptionsWithSubjects($intake, $matchedProtectedIds);
             }
+
+            // Follow-up rebuild: drop new Candidates that duplicate a Selected option
+            // (same configuration type + placement ids) so the installer does not see
+            // two nearly identical Multi-split proposals.
+            $this->dedupeNewCandidatesAgainstSelected($intake, $run->id);
         }
 
         // Preserve: ook bij lege customer_tasks (stale AI-Proposed cancelen).
@@ -719,6 +725,77 @@ final class SynthesizeSurveyDossier
             ->whereIn('id', $obsoleteSubjectIds->filter()->unique()->values())
             ->where('type', 'airco_connection')
             ->delete();
+    }
+
+    /**
+     * Remove freshly created AI Candidates whose structured identity matches a
+     * Selected option the installer already chose (configuration type + placements).
+     */
+    private function dedupeNewCandidatesAgainstSelected(Intake $intake, int $aiRunId): void
+    {
+        $selected = AircoInstallationOption::query()
+            ->where('intake_id', $intake->id)
+            ->where('status', AircoOptionStatus::Selected)
+            ->with('placements')
+            ->get();
+
+        if ($selected->isEmpty()) {
+            return;
+        }
+
+        /** @var list<string> $selectedKeys */
+        $selectedKeys = [];
+        foreach ($selected as $option) {
+            $key = $this->optionIdentityKey($option);
+            if ($key !== null) {
+                $selectedKeys[] = $key;
+            }
+        }
+
+        $duplicateIds = AircoInstallationOption::query()
+            ->where('intake_id', $intake->id)
+            ->where('source_type', 'ai')
+            ->where('status', AircoOptionStatus::Candidate)
+            ->where('source_id', $aiRunId)
+            ->with('placements')
+            ->get()
+            ->filter(function (AircoInstallationOption $candidate) use ($selectedKeys): bool {
+                // Never drop a rebuilt proposal that carries a preserved installer decision.
+                $hasDecision = AircoConnection::query()
+                    ->where('airco_installation_option_id', $candidate->id)
+                    ->whereIn('status', [AircoConnectionStatus::Approved, AircoConnectionStatus::NotRemotelyResolvable])
+                    ->exists();
+                if ($hasDecision) {
+                    return false;
+                }
+
+                $key = $this->optionIdentityKey($candidate);
+
+                return $key !== null && in_array($key, $selectedKeys, true);
+            })
+            ->pluck('id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->values()
+            ->all();
+
+        $this->deleteCandidateOptionsWithSubjects($intake, $duplicateIds);
+    }
+
+    /** Options without placements have no identity and are never duplicates. */
+    private function optionIdentityKey(AircoInstallationOption $option): ?string
+    {
+        $placementIds = $option->placements
+            ->pluck('id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->sort()
+            ->values()
+            ->all();
+
+        if ($placementIds === []) {
+            return null;
+        }
+
+        return $option->configuration_type->value.'|'.implode(',', $placementIds);
     }
 
     /**
