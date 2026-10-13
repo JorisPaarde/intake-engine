@@ -36,9 +36,7 @@ final class DecideAircoConnection
         }
 
         if ($connection->intake_id !== $intake->id) {
-            throw ValidationException::withMessages([
-                'decision' => ResolveAircoConnection::MESSAGE_STALE_AFTER_REBUILD,
-            ]);
+            throw new \InvalidArgumentException('Verbinding hoort niet bij deze opname.');
         }
 
         if ($installer->company_id !== $intake->company_id) {

@@ -745,7 +745,10 @@ final class SynthesizeSurveyDossier
         /** @var list<string> $selectedKeys */
         $selectedKeys = [];
         foreach ($selected as $option) {
-            $selectedKeys[] = $this->optionIdentityKey($option);
+            $key = $this->optionIdentityKey($option);
+            if ($key !== null) {
+                $selectedKeys[] = $key;
+            }
         }
 
         $duplicateIds = AircoInstallationOption::query()
@@ -756,7 +759,9 @@ final class SynthesizeSurveyDossier
             ->with('placements')
             ->get()
             ->filter(function (AircoInstallationOption $candidate) use ($selectedKeys): bool {
-                return in_array($this->optionIdentityKey($candidate), $selectedKeys, true);
+                $key = $this->optionIdentityKey($candidate);
+
+                return $key !== null && in_array($key, $selectedKeys, true);
             })
             ->pluck('id')
             ->map(static fn (mixed $id): int => (int) $id)
@@ -766,7 +771,8 @@ final class SynthesizeSurveyDossier
         $this->deleteCandidateOptionsWithSubjects($intake, $duplicateIds);
     }
 
-    private function optionIdentityKey(AircoInstallationOption $option): string
+    /** Options without placements have no identity and are never duplicates. */
+    private function optionIdentityKey(AircoInstallationOption $option): ?string
     {
         $placementIds = $option->placements
             ->pluck('id')
@@ -774,6 +780,10 @@ final class SynthesizeSurveyDossier
             ->sort()
             ->values()
             ->all();
+
+        if ($placementIds === []) {
+            return null;
+        }
 
         return $option->configuration_type->value.'|'.implode(',', $placementIds);
     }

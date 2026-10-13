@@ -138,3 +138,13 @@ test('follow-up synthesis maakt geen tweede Candidate naast geselecteerd voorste
         ->and($options)->toHaveCount(1)
         ->and($options->first()->id)->toBe($selected->id);
 });
+
+test('opties zonder placements zijn nooit duplicaat van elkaar', function () {
+    $key = new ReflectionMethod(SynthesizeSurveyDossier::class, 'optionIdentityKey');
+    $option = new AircoInstallationOption(['configuration_type' => AircoConfigurationType::SingleSplit]);
+    $option->setRelation('placements', collect());
+
+    $synth = (new ReflectionClass(SynthesizeSurveyDossier::class))->newInstanceWithoutConstructor();
+
+    expect($key->invoke($synth, $option))->toBeNull();
+});

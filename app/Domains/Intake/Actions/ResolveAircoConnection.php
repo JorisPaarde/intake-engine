@@ -20,6 +20,35 @@ final class ResolveAircoConnection
 {
     public const MESSAGE_STALE_AFTER_REBUILD = 'Dit voorstel is net bijgewerkt. Ververs de pagina en probeer het opnieuw.';
 
+    public const MESSAGE_PROPOSAL_REFRESHED = 'Het voorstel is ververst, bekijk het opnieuw.';
+
+    /**
+     * Content identity of a proposal: option type + placements, connection type,
+     * endpoints and the proposal fields the installer judges on.
+     */
+    public static function fingerprint(AircoConnection $connection): string
+    {
+        $connection->loadMissing('installationOption.placements');
+        $option = $connection->installationOption;
+        $clean = static fn (mixed $list): array => array_values(array_filter(
+            is_array($list) ? $list : [],
+            static fn (mixed $v): bool => is_string($v) && trim($v) !== '',
+        ));
+
+        return hash('sha256', (string) json_encode([
+            $option->configuration_type->value,
+            $option->placements->pluck('id')->map(static fn (mixed $id): int => (int) $id)->sort()->values()->all(),
+            $connection->type->value,
+            $connection->from_placement_id,
+            $connection->to_placement_id,
+            $clean($connection->segments),
+            $clean($connection->obstacles),
+            $clean($connection->uncertainties),
+            $connection->length_class,
+            $connection->cost_impact,
+        ]));
+    }
+
     public function handle(Intake $intake, int $connectionId): AircoConnection
     {
         $connection = AircoConnection::query()
@@ -33,6 +62,12 @@ final class ResolveAircoConnection
 
         $successor = $this->successorFor($intake, $connectionId);
         if ($successor instanceof AircoConnection) {
+            if (! $this->isSameProposal($successor, $connectionId)) {
+                throw ValidationException::withMessages([
+                    'decision' => self::MESSAGE_PROPOSAL_REFRESHED,
+                ]);
+            }
+
             return $successor;
         }
 
@@ -44,6 +79,15 @@ final class ResolveAircoConnection
         throw ValidationException::withMessages([
             'decision' => self::MESSAGE_STALE_AFTER_REBUILD,
         ]);
+    }
+
+    private function isSameProposal(AircoConnection $successor, int $oldConnectionId): bool
+    {
+        $meta = is_array($successor->subject->meta) ? $successor->subject->meta : [];
+        $fingerprints = is_array($meta['supersedes_fingerprints'] ?? null) ? $meta['supersedes_fingerprints'] : [];
+        $old = $fingerprints[(string) $oldConnectionId] ?? null;
+
+        return is_string($old) && hash_equals($old, self::fingerprint($successor));
     }
 
     private function successorFor(Intake $intake, int $oldConnectionId): ?AircoConnection

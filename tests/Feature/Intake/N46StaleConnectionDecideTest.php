@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Domains\AI\Support\InstallerCandidateDecisionPreserver;
 use App\Domains\Intake\Actions\CreateIntake;
 use App\Domains\Intake\Actions\DecideAircoConnection;
 use App\Domains\Intake\Actions\ResolveAircoConnection;
@@ -13,6 +14,7 @@ use App\Domains\Intake\Services\DossierManager;
 use App\Enums\AircoConfigurationType;
 use App\Enums\AircoConnectionStatus;
 use App\Enums\AircoConnectionType;
+use App\Enums\AircoOptionStatus;
 use App\Enums\AircoPlacementType;
 use App\Enums\ContributionMode;
 use App\Models\User;
@@ -73,6 +75,7 @@ function n46SurveyWithSuccessor(): array
         'status' => AircoConnectionStatus::Proposed,
     ]);
     $oldId = (int) $old->id;
+    $oldFingerprint = ResolveAircoConnection::fingerprint($old);
 
     // Simuleer AI-heropbouw: oude verbinding weg, opvolger met supersedes-meta.
     DossierSubject::query()->whereKey($old->dossier_subject_id)->delete();
@@ -88,6 +91,7 @@ function n46SurveyWithSuccessor(): array
     $subject = $successor->subject;
     $meta = is_array($subject->meta) ? $subject->meta : [];
     $meta['supersedes_connection_ids'] = [$oldId];
+    $meta['supersedes_fingerprints'] = [(string) $oldId => $oldFingerprint];
     $subject->update(['meta' => $meta]);
 
     return [
@@ -174,4 +178,74 @@ test('N46: decide op connection van andere intake geeft 404', function () {
         ->assertNotFound();
 
     expect($foreign->fresh()->status)->not->toBe(AircoConnectionStatus::Approved);
+});
+
+/**
+ * Simulates an AI rebuild: new Candidate option + connection replace the old one,
+ * with the installer's decision carried over by the preserver.
+ */
+function n46Rebuild(Intake $intake, User $user, AircoConnection $old, array $segments): AircoConnection
+{
+    $survey = app(AircoSurveyService::class);
+    $oldOption = $old->installationOption()->with('placements')->first();
+    $preserver = app(InstallerCandidateDecisionPreserver::class);
+    $snapshots = $preserver->snapshotProtected(collect([$oldOption]));
+
+    $newOption = $survey->createInstallationOption($intake, $user, [
+        'label' => 'Optie rebuild',
+        'configuration_type' => $oldOption->configuration_type,
+        'placement_ids' => $oldOption->placements->pluck('id')->all(),
+    ]);
+    $newOption->update(['source_type' => 'ai', 'status' => AircoOptionStatus::Candidate]);
+    $new = $survey->createConnection($intake, $user, $newOption, [
+        'type' => $old->type,
+        'label' => 'Rebuild',
+        'from_placement_id' => $old->from_placement_id,
+        'to_placement_id' => $old->to_placement_id,
+        'status' => AircoConnectionStatus::Proposed,
+        'segments' => $segments,
+    ]);
+
+    $preserver->reapply($intake, $snapshots);
+    $oldOption->delete();
+
+    return $new->fresh(['subject']);
+}
+
+test('N46: stale klik op opvolger met gewijzigd voorstel wordt niet toegepast', function () {
+    ['intake' => $intake, 'user' => $user, 'successor' => $first] = n46SurveyWithSuccessor();
+    $first->update(['status' => AircoConnectionStatus::Approved]);
+    $first->installationOption->update(['source_type' => 'ai', 'status' => AircoOptionStatus::Candidate]);
+    $oldId = $first->id;
+
+    $changed = n46Rebuild($intake, $user, $first->fresh(), ['Nieuw traject via kruipruimte']);
+
+    expect(fn () => app(DecideAircoConnection::class)->handle($intake, $oldId, $user, 'approve'))
+        ->toThrow(ValidationException::class, ResolveAircoConnection::MESSAGE_PROPOSAL_REFRESHED);
+
+    $this->actingAs($user)
+        ->from(route('intakes.workspace', $intake))
+        ->post(route('intakes.workspace.connections.decide', [$intake, $oldId]), ['decision' => 'site_visit'])
+        ->assertRedirect()
+        ->assertSessionHasErrors(['decision' => ResolveAircoConnection::MESSAGE_PROPOSAL_REFRESHED]);
+
+    expect($changed->fresh()->status)->not->toBe(AircoConnectionStatus::NotRemotelyResolvable);
+});
+
+test('N46: stale klik op inhoudelijk gelijk voorstel wordt wel toegepast, ook over keten A→B→C', function () {
+    ['intake' => $intake, 'user' => $user, 'successor' => $a] = n46SurveyWithSuccessor();
+    $a->update(['status' => AircoConnectionStatus::Approved]);
+    $a->installationOption->update(['source_type' => 'ai', 'status' => AircoOptionStatus::Candidate]);
+    $a = $a->fresh();
+
+    $b = n46Rebuild($intake, $user, $a, []);
+    $b->installationOption->update(['source_type' => 'ai', 'status' => AircoOptionStatus::Candidate]);
+    $c = n46Rebuild($intake, $user, $b->fresh(), []);
+
+    $ids = $c->subject->fresh()->meta['supersedes_connection_ids'];
+    expect($ids)->toContain($a->id)->toContain($b->id);
+
+    foreach ([$a->id, $b->id] as $staleId) {
+        expect(app(ResolveAircoConnection::class)->handle($intake->fresh(), $staleId)->id)->toBe($c->id);
+    }
 });
