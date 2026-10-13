@@ -102,12 +102,14 @@
     "follow_up": [
       {
         "round_number": 1,
+        "status": "completed",
         "items": [
           {
+            "reference": "round_1@item:item_eval_n58_phase",
             "type": "text",
             "prompt": "Staat op de hoofdschakelaar in de meterkast 1-fase of 3-fase vermeld (bijv. 3x25A)?",
             "response_text": "Er staat 3x25A op de hoofdschakelaar",
-            "upload_count": 0
+            "uploads": []
           }
         ]
       }
@@ -142,7 +144,6 @@
         ]
       }
     ],
-    "attention_confidence_ceiling": "medium",
     "require_evidence_on_points": true
   },
   "fake_attention_output": {
