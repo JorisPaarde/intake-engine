@@ -3,7 +3,7 @@ Je krijgt bekende context van een airco-opname én de volledige vraagenset van d
 Doel:
 - Beoordeel per catalogusvraag of de bekende context die vraag al voldoende beantwoordt.
 - Vul alleen in wat letterlijk of met aan zekerheid grenzende waarschijnlijkheid volgt uit die context.
-- Gebruik uitsluitend `question_key`-waarden en keuze-`value`s die in `question_catalog` staan — **uitzondering:** top-level `existing_installation` (zie hieronder; geen catalogusvraag).
+- Gebruik uitsluitend `question_key`-waarden en keuze-`value`s die in `question_catalog` staan.
 - Bij latere context (nieuwe feiten of installateursobservaties) mag je eerder open gelaten vragen alsnog vullen; overschrijf geen menselijke antwoorden.
 
 Invoer:
@@ -14,12 +14,11 @@ Invoer:
 - `question_catalog`: secties met vragen, types en opties.
 
 Regels:
-- Verzin geen vragen, keys of opties buiten de catalogus (behalve `existing_installation`).
+- Verzin geen vragen, keys of opties buiten de catalogus.
 - Fotovragen staan niet in de catalogus en mag je niet invullen.
 - `request_reason` zelf niet opnieuw invullen.
 - Bij repeatable secties (bijv. ruimtes) gebruik je `section_instance_key` zoals `room-1`, `room-2`. Als je meerdere ruimtes vult, vul dan ook het aantal (`indoor_unit_count`) consistent.
 - Jij bepaalt het aantal ruimtes en hun type uit de vrije tekst. Tel een ruimtetype één keer: “Drie slaapkamers … de slaapkamers 20 m² elk” is drie slaapkamers plus eventuele andere genoemde types, geen extra kamers door herhaling.
-- **Ruimtes blijven verplicht naast `existing_installation`:** het top-level object `existing_installation` vervangt **nooit** de repeatable room-fills. Noem de tekst ruimtes (slaapkamer, woonkamer, …) → vul per instantie minstens `room_type` (en `room_name` / `floor_level` wanneer die volgen). Laat `fills` nooit leeg of alleen met survey-keys terwijl ruimtes genoemd zijn.
 - Unieke kamernamen of rollen letterlijk overnemen in `room_name` per instantie wanneer die key bestaat. Voorbeelden:
   - “Slaapkamer ouders” / “ouders” / “Ouders” → `room_name` “Ouders” of “Slaapkamer ouders” (zoals in de tekst) + `room_type` bedroom;
   - “Kinderkamer” / “Kind” / “kinderslaapkamer” → `room_name` “Kind” of “Kinderkamer” + bedroom;
@@ -49,14 +48,6 @@ Regels:
   - owned: “koop”, “koophuis”, “koopwoning”, “eigen woning”, “eigen huis”, “in eigendom”;
   - rented: “huur”, “huurwoning”, “huurhuis”, “we huren”, “wij huren”, “ik huur”.
   - Bij letterlijke koop/huur-token in `request_reason`: `provenance=stated`, `evidence` = exact dat token (bijv. `koopwoning`), `confidence=high`. Nooit weglaten of als `inferred` markeren als het woord letterlijk staat.
-- **Pandtype (`building_type`):** vul de catalogusoptie die letterlijk in de tekst staat — “hoekwoning” → `corner`, “tussenwoning” → `terraced`, “vrijstaand” → `detached`, “appartement” → `apartment`, “twee-onder-een-kap” → `semi_detached`. Nooit een ander pandtype gokken of een BAG-/registerfeit stil laten winnen over een letterlijk genoemd type in `request_reason`. Bij conflict bron vs tekst: toch de letterlijke tekst als fill (`stated`) met die quote als evidence; geen stille keuze voor tussenwoning.
-- **Bestaande installatie (`existing_installation`, top-level, verplicht object):**
-  - Altijd opnemen naast `fills`.
-  - `present`: `true` als er al een airco/split-unit hangt of “bestaande/oude/huidige airco”; `false` bij “nog geen airco” / “geen airco”; anders `null`.
-  - `room`: kamernaam uit de tekst waar die unit hangt (bijv. “Woonkamer”), anders `null`.
-  - `replace`: `true` bij vervangen/eruit/oude unit weg; `false` alleen bij expliciet behouden; anders `null`.
-  - Geen catalogus-`question_key` hiervoor verzinnen.
-  - Dit object is **aanvullend** op room-fills — zie hierboven: ruimtes blijven in `fills`.
 - “goed geïsoleerd” / slecht geïsoleerd → passende `insulation_indication`-optie.
 - Vloerisolatie ja/nee → `floor_insulation`; kruipruimte aanwezig → `crawl_space_present`.
 - “geen merkvoorkeur” → `brand_preference` met `no_preference` (of lege multi_choice volgens catalogus).
@@ -76,17 +67,15 @@ Regels:
 - Doe geen uitspraak over vermogen, merkadvies, kosten, vergunningen of definitieve installatie.
 - Neem geen persoonsgegevens, adressen of coördinaten over in `evidence`.
 - Output uitsluitend JSON. Schema-vorm:
-  `{ "evidence": "korte feitelijke basis", "existing_installation": { "present": null, "room": null, "replace": null }, "fills": [ … ] }`
+  `{ "evidence": "korte feitelijke basis", "fills": [ … ] }`
 
-Voorbeeld A — ruimtes + pandtype (rooms blijven in `fills`; `existing_installation` nulls). Tekst: “Twee slaapkamers op zolder koelen, en de woonkamer ook verwarmen. Tussenwoning.”
+Voorbeeld A — ruimtes. Tekst: “Twee slaapkamers op zolder koelen, en de woonkamer ook verwarmen.”
 ```json
 {
-  "evidence": "Twee slaapkamers op zolder koelen, en de woonkamer ook verwarmen. Tussenwoning.",
-  "existing_installation": { "present": null, "room": null, "replace": null },
+  "evidence": "Twee slaapkamers op zolder koelen, en de woonkamer ook verwarmen.",
   "fills": [
     { "question_key": "cooling_heating", "section_instance_key": null, "confidence": "high", "provenance": "stated", "value": { "value": "both" }, "evidence": "koelen" },
     { "question_key": "indoor_unit_count", "section_instance_key": null, "confidence": "high", "provenance": "stated", "value": { "number": 3 }, "evidence": "Twee slaapkamers" },
-    { "question_key": "building_type", "section_instance_key": null, "confidence": "high", "provenance": "stated", "value": { "value": "terraced" }, "evidence": "Tussenwoning" },
     { "question_key": "room_name", "section_instance_key": "room-1", "confidence": "high", "provenance": "inferred", "value": { "text": "Slaapkamer 1" }, "evidence": "Twee slaapkamers" },
     { "question_key": "room_type", "section_instance_key": "room-1", "confidence": "high", "provenance": "stated", "value": { "value": "bedroom" }, "evidence": "slaapkamers" },
     { "question_key": "floor_level", "section_instance_key": "room-1", "confidence": "high", "provenance": "stated", "value": { "value": "attic" }, "evidence": "op zolder" },
@@ -103,7 +92,6 @@ Voorbeeld B — negatief: géén `cooling_heating`. Tekst: “Wil airco in de wo
 ```json
 {
   "evidence": "Wil airco in de woonkamer. Graag voor de zomer.",
-  "existing_installation": { "present": null, "room": null, "replace": null },
   "fills": [
     { "question_key": "indoor_unit_count", "section_instance_key": null, "confidence": "high", "provenance": "stated", "value": { "number": 1 }, "evidence": "woonkamer" },
     { "question_key": "room_name", "section_instance_key": "room-1", "confidence": "high", "provenance": "stated", "value": { "text": "Woonkamer" }, "evidence": "woonkamer" },

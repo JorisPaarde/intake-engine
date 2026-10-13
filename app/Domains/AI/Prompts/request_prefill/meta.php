@@ -7,5 +7,5 @@ declare(strict_types=1);
  */
 return [
     'version' => 'request-prefill-v15',
-    'description' => 'v14 + rooms altijd naast existing_installation; named room_type; negatief voorbeeld zonder cooling_heating.',
+    'description' => 'v13 + named room_type bij genoemde kamers; negatief voorbeeld zonder cooling_heating.',
 ];
