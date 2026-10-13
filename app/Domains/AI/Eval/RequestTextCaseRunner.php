@@ -119,10 +119,7 @@ final class RequestTextCaseRunner
         $rawFacts = is_array($modelRaw)
             ? $this->factExtractor->fromModelRaw($modelRaw)
             : $this->factExtractor->fromModelRaw(['fills' => []]);
-        $finalFacts = $this->factExtractor->mergeNonCatalogFromModelRaw(
-            $this->factExtractor->fromCandidates($pipelineCandidates),
-            $rawFacts,
-        );
+        $finalFacts = $this->factExtractor->fromCandidates($pipelineCandidates);
 
         $roomTypes = array_values(array_filter(array_map(
             static fn (array $r): ?string => is_string($r['room_type'] ?? null) ? $r['room_type'] : null,
@@ -131,11 +128,10 @@ final class RequestTextCaseRunner
         $floorLinks = $roomTypes === [] ? [] : $this->floorExtractor->floorsForRooms($text, $roomTypes);
 
         $matchRooms = is_string($fixture['match_rooms'] ?? null) ? $fixture['match_rooms'] : 'by_name';
-        $supportedExisting = (bool) ($rawFacts['_existing_installation_supported'] ?? false);
 
         $scores = [
-            'model_raw' => $this->scoreFacts($expected, $rawFacts, $disputed, supportedExisting: $supportedExisting, matchRooms: $matchRooms),
-            'pipeline_final' => $this->scoreFacts($expected, $finalFacts, $disputed, supportedExisting: $supportedExisting, matchRooms: $matchRooms),
+            'model_raw' => $this->scoreFacts($expected, $rawFacts, $disputed, supportedExisting: false, matchRooms: $matchRooms),
+            'pipeline_final' => $this->scoreFacts($expected, $finalFacts, $disputed, supportedExisting: false, matchRooms: $matchRooms),
         ];
 
         return [
@@ -178,12 +174,7 @@ final class RequestTextCaseRunner
     {
         $out = [];
 
-        foreach ([
-            'cooling_heating' => ['C1', 'C3'],
-            'indoor_unit_count' => ['C1'],
-            'ownership' => ['C4', 'C3'],
-            'building_type' => ['C1', 'C3'],
-        ] as $key => $components) {
+        foreach (['cooling_heating' => ['C1', 'C3'], 'indoor_unit_count' => ['C1'], 'ownership' => ['C4', 'C3']] as $key => $components) {
             if (! array_key_exists($key, $expected)) {
                 continue;
             }

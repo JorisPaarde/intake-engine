@@ -11,12 +11,12 @@ use RuntimeException;
 
 /**
  * Resolve prompt body + version for eval, including held-out proposals
- * (e.g. room_assessment/proposed-v9) without making them live.
+ * without making them live.
  *
  * Selectors:
  * - null / '' / 'live' → live PromptVersionRepository path
- * - 'v10' / 'v9' → live path (must match *-vN in meta)
- * - 'proposed-v10' / 'proposed-v9' → {prompt}/proposed-vN/ (alias / held-out)
+ * - 'vN' → live path (must match *-vN in meta)
+ * - 'proposed-vN' → {prompt}/proposed-vN/ (held-out, indien aanwezig)
  */
 final class EvalPromptVersionResolver
 {
@@ -87,7 +87,7 @@ final class EvalPromptVersionResolver
         }
 
         throw new InvalidArgumentException(
-            "Onbekende --prompt-version [{$normalized}]. Gebruik v10, proposed-v10, proposed-v9, live, of leeg."
+            "Onbekende --prompt-version [{$normalized}]. Gebruik live, leeg, de live versie (vN), of een aanwezige held-out versie (proposed-vN)."
         );
     }
 

@@ -1,6 +1,6 @@
 # Prompt / schema — N44 (Engelse room_assessment evidence) — APPLIED
 
-> **Applied** as live `room-assessment-v10` (strengere NL + negatief Engels voorbeeld; siblings `outdoor-assessment-v7` / `fusebox-assessment-v6`). `proposed-v9/` en `proposed-v10/` zijn loadable aliases van dezelfde inhoud.
+> **Applied** as live `room-assessment-v10` (strengere NL + negatief Engels voorbeeld; siblings `outdoor-assessment-v7` / `fusebox-assessment-v6`). Evaluatie gebruikt de live prompt via `live` of `v10`; dubbele aliasmappen zijn verwijderd.
 
 Bron: IE-testronde 12 okt 07:50 — rapport Engelse evidence; Notion N44.
 

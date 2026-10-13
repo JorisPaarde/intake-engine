@@ -5,10 +5,7 @@ declare(strict_types=1);
 namespace App\Domains\AI\Eval;
 
 /**
- * Haalt evaluatiefeiten uit model_raw (fills + top-level existing_installation) of pipeline fills.
- *
- * existing_installation zit niet in de vraagcatalogus; het model levert het als top-level
- * object naast fills (request-prefill-v14+/v15). Geen regex/keyword-afleiding (ADR-0013).
+ * Haalt evaluatiefeiten uit model_raw (fills-array) of pipeline_final (candidates/fills).
  */
 final class PrefillFactExtractor
 {
@@ -19,9 +16,11 @@ final class PrefillFactExtractor
     public function fromModelRaw(array $output): array
     {
         $fills = $output['fills'] ?? null;
-        $facts = is_array($fills) ? $this->fromFillsList($fills) : $this->emptyFacts();
+        if (! is_array($fills)) {
+            return $this->emptyFacts();
+        }
 
-        return $this->applyExistingInstallationFromModel($facts, $output);
+        return $this->fromFillsList($fills);
     }
 
     /**
@@ -45,22 +44,6 @@ final class PrefillFactExtractor
         }
 
         return $this->fromFillsList($fills);
-    }
-
-    /**
-     * Pipeline heeft geen catalogusveld voor existing_installation: erf model_raw.
-     *
-     * @param  array<string, mixed>  $pipelineFacts
-     * @param  array<string, mixed>  $modelRawFacts
-     * @return array<string, mixed>
-     */
-    public function mergeNonCatalogFromModelRaw(array $pipelineFacts, array $modelRawFacts): array
-    {
-        $pipelineFacts['existing_installation'] = $modelRawFacts['existing_installation']
-            ?? ['present' => null, 'room' => null, 'replace' => null];
-        $pipelineFacts['_existing_installation_supported'] = (bool) ($modelRawFacts['_existing_installation_supported'] ?? false);
-
-        return $pipelineFacts;
     }
 
     /**
@@ -109,7 +92,6 @@ final class PrefillFactExtractor
                 'cooling_heating' => $facts['cooling_heating'] = is_string($scalar) ? $scalar : null,
                 'indoor_unit_count' => $facts['indoor_unit_count'] = is_numeric($scalar) ? (int) $scalar : null,
                 'ownership' => $facts['ownership'] = is_string($scalar) ? $scalar : null,
-                'building_type' => $facts['building_type'] = is_string($scalar) ? $scalar : null,
                 default => null,
             };
         }
@@ -117,47 +99,15 @@ final class PrefillFactExtractor
         ksort($roomsByInstance);
         $facts['rooms'] = array_values($roomsByInstance);
 
-        return $facts;
-    }
-
-    /**
-     * @param  array<string, mixed>  $facts
-     * @param  array<string, mixed>  $output
-     * @return array<string, mixed>
-     */
-    private function applyExistingInstallationFromModel(array $facts, array $output): array
-    {
-        // Schema (request-prefill-v14+) always scores this object — absence → nulls/missing, not not_supported.
-        $facts['_existing_installation_supported'] = true;
-
-        if (! array_key_exists('existing_installation', $output) || ! is_array($output['existing_installation'])) {
-            $facts['existing_installation'] = ['present' => null, 'room' => null, 'replace' => null];
-
-            return $facts;
+        // Bestaande installatie: geen catalogusveld op main → alleen signalen uit evidence.
+        $evidenceBlob = '';
+        foreach ($fills as $fill) {
+            if (is_string($fill['evidence'] ?? null)) {
+                $evidenceBlob .= ' '.$fill['evidence'];
+            }
         }
-
-        $raw = $output['existing_installation'];
-
-        $present = $raw['present'] ?? null;
-        if (! is_bool($present) && $present !== null) {
-            $present = null;
-        }
-
-        $room = $raw['room'] ?? null;
-        if (! is_string($room) || trim($room) === '') {
-            $room = null;
-        }
-
-        $replace = $raw['replace'] ?? null;
-        if (! is_bool($replace) && $replace !== null) {
-            $replace = null;
-        }
-
-        $facts['existing_installation'] = [
-            'present' => $present,
-            'room' => $room,
-            'replace' => $replace,
-        ];
+        $facts['existing_installation'] = $this->inferExistingFromText($evidenceBlob);
+        $facts['_existing_installation_supported'] = false;
 
         return $facts;
     }
@@ -171,10 +121,30 @@ final class PrefillFactExtractor
             'cooling_heating' => null,
             'indoor_unit_count' => null,
             'ownership' => null,
-            'building_type' => null,
             'rooms' => [],
             'existing_installation' => ['present' => null, 'room' => null, 'replace' => null],
             '_existing_installation_supported' => false,
         ];
+    }
+
+    /**
+     * @return array{present: bool|null, room: string|null, replace: bool|null}
+     */
+    private function inferExistingFromText(string $text): array
+    {
+        $lower = mb_strtolower($text);
+        if ($lower === '' || trim($lower) === '') {
+            return ['present' => null, 'room' => null, 'replace' => null];
+        }
+
+        if (str_contains($lower, 'nog geen airco') || str_contains($lower, 'geen airco')) {
+            return ['present' => false, 'room' => null, 'replace' => null];
+        }
+
+        if (str_contains($lower, 'vervang') || str_contains($lower, 'oude airco') || str_contains($lower, 'hangt al')) {
+            return ['present' => true, 'room' => null, 'replace' => true];
+        }
+
+        return ['present' => null, 'room' => null, 'replace' => null];
     }
 }
